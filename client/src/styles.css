@@ -904,3 +904,52 @@ h3 { font-size: 1.05rem; }
 .recap-foot { text-align: center; padding-top: 10px; }
 
 .podium-actions { align-items: center; gap: 18px; }
+
+/* ── Import en masse et aperçu ──────────────────── */
+.import-panel { display: flex; flex-direction: column; gap: 12px; }
+
+.import-example {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(13, 3, 22, 0.5);
+  border: 1px solid var(--edge-soft);
+  font-family: Consolas, 'Cascadia Mono', ui-monospace, monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.import-area { font-family: Consolas, 'Cascadia Mono', ui-monospace, monospace; font-size: 0.9rem; }
+
+.preview-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(6, 2, 12, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: pop 0.2s ease-out both;
+}
+
+.preview-frame {
+  width: min(960px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+  border-radius: var(--radius);
+  background: radial-gradient(120% 90% at 20% 0%, var(--bg-high), var(--bg-mid) 60%, var(--bg-deep));
+  border: 1px solid var(--edge);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+
+/* Les proportions de l'écran commun, en réduction. */
+.preview-stage { display: flex; flex-direction: column; gap: 16px; }
+.preview-stage .quiz-question { font-size: clamp(1.4rem, 3.4vw, 2.4rem); }
+.preview-stage .ans-btn { min-height: 76px; font-size: 1.1rem; }
+.preview-frame .row { justify-content: space-between; }

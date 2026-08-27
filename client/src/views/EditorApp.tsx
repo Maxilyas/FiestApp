@@ -5,6 +5,7 @@ import {
   MAX_DURATION,
   MIN_DURATION,
   emptyQuestion,
+  parseImportedQuestions,
   questionProblem,
   toPlayable,
   type QuizDef,
@@ -12,6 +13,7 @@ import {
   type QuizSummary,
 } from '../../../shared/library'
 import { UnauthorizedError, api, compressImage, hostKey, setHostKey } from '../api'
+import { questionSizeClass } from '../games/quiz/HostView'
 
 const SHAPES = ['▲', '◆', '●', '■']
 
@@ -178,6 +180,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [savedAt, setSavedAt] = useState<number | null>(null)
+  const [importing, setImporting] = useState(false)
 
   useEffect(() => {
     api.get(id).then(setQuiz).catch(e => setError((e as Error).message))
@@ -278,12 +281,129 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
         />
       ))}
 
-      <button
-        className="btn btn-big"
-        onClick={() => patch(q => ({ ...q, questions: [...q.questions, emptyQuestion()] }))}
-      >
-        + Ajouter une question
-      </button>
+      <div className="row">
+        <button
+          className="btn btn-big"
+          onClick={() => patch(q => ({ ...q, questions: [...q.questions, emptyQuestion()] }))}
+        >
+          + Ajouter une question
+        </button>
+        <button className="btn" onClick={() => setImporting(v => !v)}>
+          📥 Coller une liste
+        </button>
+      </div>
+
+      {importing && (
+        <BulkImport
+          onImport={questions => {
+            patch(q => ({ ...q, questions: [...q.questions, ...questions] }))
+            setImporting(false)
+          }}
+          onCancel={() => setImporting(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * La question telle qu'elle sera projetée. Vérifier qu'un intitulé trop long
+ * ou une photo mal cadrée passe bien ne devrait pas obliger à lancer une
+ * vraie partie devant les invités.
+ */
+function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onClose: () => void }) {
+  const playable = toPlayable(question)
+  return (
+    <div className="preview-backdrop" onClick={onClose}>
+      <div className="preview-frame" onClick={e => e.stopPropagation()}>
+        {!playable ? (
+          <p className="warn">{questionProblem(question)} — rien à projeter pour l'instant.</p>
+        ) : (
+          <div className="preview-stage">
+            <h2 className={'quiz-question' + questionSizeClass(playable.text)}>{playable.text}</h2>
+            {playable.image && <img className="quiz-img" src={playable.image} alt="" />}
+            {playable.kind === 'number' ? (
+              <p className="big-waiting">
+                ⌨️ Chacun tape son estimation{playable.unit ? ` (en ${playable.unit})` : ''} — le plus
+                proche gagne !
+              </p>
+            ) : (
+              <div className="ans-grid">
+                {playable.answers.map((a, i) => (
+                  <div key={i} className={`ans-btn ans-${i}`}>
+                    <span className="ans-shape">{SHAPES[i]}</span>
+                    <span className="ans-text">{a}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        <div className="row">
+          <span className="muted">Aperçu de l'écran commun · {question.duration} s</span>
+          <button className="btn btn-ghost btn-small" onClick={onClose}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Import en masse. Saisir cinquante questions une par une prend une soirée ;
+ * les taper dans un carnet puis coller l'ensemble prend une minute.
+ */
+function BulkImport({
+  onImport,
+  onCancel,
+}: {
+  onImport: (questions: QuizQuestionDef[]) => void
+  onCancel: () => void
+}) {
+  const [text, setText] = useState('')
+  const result = parseImportedQuestions(text)
+
+  return (
+    <div className="card import-panel">
+      <h3>📥 Coller une liste de questions</h3>
+      <p className="muted">
+        Une ligne vide entre deux questions. L'étoile marque la bonne réponse ; le signe égal
+        transforme la question en estimation chiffrée.
+      </p>
+      <pre className="import-example">{`Quelle danse Romane préfère-t-elle ?
+* La salsa
+Le tango
+La bachata
+
+Combien de cours a-t-elle pris cette année ?
+= 42 cours`}</pre>
+      <textarea
+        className="input import-area"
+        rows={10}
+        placeholder="Colle tes questions ici…"
+        value={text}
+        onChange={e => setText(e.target.value)}
+      />
+      <p className={result.unmarked > 0 ? 'warn' : 'muted'}>
+        {result.questions.length} question{result.questions.length > 1 ? 's' : ''} reconnue
+        {result.questions.length > 1 ? 's' : ''}
+        {result.unmarked > 0 &&
+          ` · ⚠️ ${result.unmarked} sans étoile : la 1ʳᵉ réponse sera prise pour la bonne`}
+        {result.ignored > 0 && ` · ${result.ignored} bloc(s) ignoré(s)`}
+      </p>
+      <div className="row">
+        <button
+          className="btn btn-primary"
+          disabled={result.questions.length === 0}
+          onClick={() => onImport(result.questions)}
+        >
+          Ajouter au quiz
+        </button>
+        <button className="btn btn-ghost" onClick={onCancel}>
+          Annuler
+        </button>
+      </div>
     </div>
   )
 }
@@ -299,6 +419,7 @@ interface QuestionCardProps {
 
 function QuestionCard({ index, total, question, onChange, onMove, onDelete }: QuestionCardProps) {
   const fileInput = useRef<HTMLInputElement>(null)
+  const [preview, setPreview] = useState(false)
   const [busy, setBusy] = useState(false)
   const [imageError, setImageError] = useState('')
   const problem = questionProblem(question)
@@ -349,6 +470,9 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
             onClick={() => onMove(1)}
           >
             ↓
+          </button>
+          <button className="btn btn-ghost btn-small" onClick={() => setPreview(true)}>
+            👁 Aperçu
           </button>
           <button className="btn btn-ghost btn-small" onClick={onDelete}>
             Supprimer
@@ -461,6 +585,7 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
         )}
       </div>
 
+      {preview && <QuestionPreview question={question} onClose={() => setPreview(false)} />}
       {imageError && <p className="error">{imageError}</p>}
       {problem && <p className="warn">⚠️ {problem} — cette question ne sera pas jouée.</p>}
     </div>

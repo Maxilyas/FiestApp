@@ -131,3 +131,96 @@ export function questionProblem(q: QuizQuestionDef): string | null {
 export function playableQuestions(quiz: QuizDef): PlayableQuestion[] {
   return quiz.questions.map(toPlayable).filter((q): q is PlayableQuestion => q !== null)
 }
+
+/** Résultat d'un import en masse : ce qui est entré, et ce qui mérite un œil. */
+export interface ImportResult {
+  questions: QuizQuestionDef[]
+  /** Questions sans bonne réponse marquée d'une étoile : à vérifier. */
+  unmarked: number
+  /** Blocs ignorés faute de contenu exploitable. */
+  ignored: number
+}
+
+/**
+ * Analyse un bloc de texte collé dans l'éditeur. Saisir cinquante questions
+ * une par une est long ; les taper dans un carnet puis coller l'ensemble
+ * l'est beaucoup moins.
+ *
+ *   Quelle danse Romane préfère-t-elle ?
+ *   * La salsa
+ *   Le tango
+ *   La bachata
+ *
+ *   Combien de cours a-t-elle pris cette année ?
+ *   = 42 cours
+ *
+ * Une ligne vide sépare deux questions. L'étoile marque la bonne réponse ;
+ * le signe égal transforme la question en estimation chiffrée.
+ */
+/** Une ligne vide sépare deux questions ; chaque ligne porte un élément. */
+/** Une ligne vide sépare deux questions ; chaque ligne porte un élément. */
+const SEPARATEUR_BLOCS = /\r?\n\s*\r?\n/
+const SEPARATEUR_LIGNES = /\r?\n/
+
+export function parseImportedQuestions(text: string): ImportResult {
+  const blocks = text.split(SEPARATEUR_BLOCS)
+  const questions: QuizQuestionDef[] = []
+  let unmarked = 0
+  let ignored = 0
+
+  for (const block of blocks) {
+    const lines = block
+      .split(SEPARATEUR_LIGNES)
+      .map(l => l.trim())
+      .filter(l => l.length > 0)
+    if (lines.length < 2) {
+      if (lines.length === 1) ignored++
+      continue
+    }
+
+    const question = emptyQuestion()
+    question.text = lines[0].slice(0, 300)
+    const rest = lines.slice(1)
+
+    const numberLine = rest.find(l => l.startsWith('='))
+    if (numberLine) {
+      // « = 42 cours » : le nombre, puis l'unité éventuelle.
+      const body = numberLine.slice(1).trim().replace(',', '.')
+      const match = /^(-?\d+(?:\.\d+)?)\s*(.*)$/.exec(body)
+      if (!match) {
+        ignored++
+        continue
+      }
+      question.kind = 'number'
+      question.target = Number(match[1])
+      question.unit = match[2].slice(0, 12)
+      questions.push(question)
+      continue
+    }
+
+    let correct = -1
+    const answers: string[] = []
+    for (const line of rest) {
+      const marked = line.startsWith('*') || line.startsWith('✓')
+      const answer = (marked ? line.slice(1) : line).trim()
+      if (!answer || answers.length >= MAX_ANSWERS) continue
+      if (marked && correct < 0) correct = answers.length
+      answers.push(answer.slice(0, 120))
+    }
+    if (answers.length < MIN_ANSWERS) {
+      ignored++
+      continue
+    }
+    // Sans étoile, on garde la première réponse mais on le signale : mieux
+    // vaut une alerte qu'un quiz faux découvert devant cinquante personnes.
+    if (correct < 0) {
+      correct = 0
+      unmarked++
+    }
+    question.correct = correct
+    for (let i = 0; i < MAX_ANSWERS; i++) question.answers[i] = answers[i] ?? ''
+    questions.push(question)
+  }
+
+  return { questions, unmarked, ignored }
+}

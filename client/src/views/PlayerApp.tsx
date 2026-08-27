@@ -46,11 +46,55 @@ export function PlayerApp() {
     saveMe({ playerId: ack.playerId, token: ack.token })
   }
 
+  // ── Quiz en cours (si j'y participe) ─────────────
+  const snap = s.snapshot
+  const session = snap?.session ?? null
+  const sessionView = session ? s.views[session.id] : undefined
+  const iAmIn = !!(s.me && session?.participantIds.includes(s.me.playerId))
+  const playing = !!sessionView && iAmIn
+
+  // Pendant un quiz, l'écran ne doit pas s'éteindre : un téléphone posé sur la
+  // table pendant qu'on écoute la question rate la suivante.
+  useEffect(() => {
+    if (!playing) return
+    let sentinel: { release: () => Promise<void> } | null = null
+    let stopped = false
+    const acquire = () => {
+      const wakeLock = (navigator as any).wakeLock
+      if (!wakeLock) return
+      wakeLock
+        .request('screen')
+        .then((lock: any) => {
+          if (stopped) lock.release()
+          else sentinel = lock
+        })
+        .catch(() => {
+          // Refusé (onglet en arrière-plan, navigateur sans la fonction) :
+          // ce n'est qu'un confort, on continue sans.
+        })
+    }
+    // Revenir sur l'onglet libère le verrou : il faut le redemander.
+    const onVisible = () => document.visibilityState === 'visible' && acquire()
+    acquire()
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      stopped = true
+      document.removeEventListener('visibilitychange', onVisible)
+      sentinel?.release().catch(() => {})
+      sentinel = null
+    }
+  }, [playing])
+
   const toast = s.toast && <div className={`toast toast-${s.toast.kind}`}>{s.toast.message}</div>
 
   // ── Écran d'inscription ──────────────────────────
   if (!s.me) {
     const count = s.snapshot?.players.filter(p => p.connected).length ?? 0
+    // À cinquante invités, deux Camille sont probables : mieux vaut le dire
+    // avant que le classement affiche deux lignes identiques.
+    const sansAccent = (t: string) =>
+      t.trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+    const homonyme = name.trim() && s.snapshot?.players.some(p => sansAccent(p.name) === sansAccent(name))
     return (
       <div className="center-page">
         <form className="card join-card" onSubmit={submit}>
@@ -76,6 +120,11 @@ export function PlayerApp() {
               </button>
             ))}
           </div>
+          {homonyme && (
+            <p className="warn">
+              Il y a déjà un « {name.trim()} » — ajoute une initiale pour qu'on vous distingue.
+            </p>
+          )}
           {error && <p className="error">{error}</p>}
           <button className="btn btn-primary btn-big" disabled={busy || !name.trim()}>
             Rejoindre 🎊
@@ -85,12 +134,6 @@ export function PlayerApp() {
       </div>
     )
   }
-
-  // ── Quiz en cours (si j'y participe) ─────────────
-  const snap = s.snapshot
-  const session = snap?.session ?? null
-  const sessionView = session ? s.views[session.id] : undefined
-  const iAmIn = !!session?.participantIds.includes(s.me.playerId)
 
   if (sessionView && iAmIn) {
     return (

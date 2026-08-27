@@ -49,6 +49,8 @@ L'estimation évite les blocages : même sans connaître la réponse, on propose
 - **Les brouillons ne sont jamais perdus** : une question incomplète est enregistrée telle quelle, signalée par un ⚠️, et sautée au moment de jouer. La liste affiche « 8 questions prêtes · 2 à compléter ».
 - **Photos** : le navigateur les réduit et les recompresse avant l'envoi (une photo de téléphone de 4 Mo devient ~150 Ko), puis elles vivent dans la base.
 - **Une estimation se corrige** tant que tout le monde n'a pas répondu : un chiffre en trop est vite tapé sur un téléphone.
+- **Coller une liste** évite de saisir cinquante questions une par une. Une ligne vide sépare deux questions, l'étoile marque la bonne réponse, le signe égal crée une estimation. Les questions sans étoile sont importées mais signalées.
+- **👁 Aperçu** montre une question telle qu'elle sera projetée, sans lancer de partie.
 
 Au tout premier démarrage, les quiz livrés dans `server/content/quiz/*.json` sont importés une fois dans la bibliothèque pour ne pas partir d'une page blanche. Ensuite ces fichiers ne servent plus à rien : tout vit dans la base.
 
@@ -60,6 +62,12 @@ Pendant une question, **l'écran commun bascule en mode scène** : les panneaux 
 
 **Le son** sort uniquement de l'écran commun : cinquante téléphones qui bipent ensemble, c'est une cacophonie. Les sons sont générés à la volée par le navigateur — aucun fichier à héberger, aucune musique sous droits, rien qui arrive en retard. Le bouton 🔊 de l'en-tête les coupe (le choix est mémorisé). Les navigateurs interdisant tout son avant une interaction, l'audio s'initialise au premier clic sur « Lancer un quiz ».
 
+**L'animateur garde la main** : ⏸ pause (le chronomètre se fige, plus personne ne peut répondre), ↺ reposer la même question, ✖ annuler les points d'une question dont la réponse était fausse, renommer ou exclure un invité d'un clic sur sa pastille, et ⛶ plein écran. La clé n'apparaît jamais dans la barre d'adresse.
+
+**En fin de soirée**, le bouton 🏆 célèbre le classement cumulé en plein écran, avec un QR vers la **page souvenir** (`/souvenir`) : podium, nombre de quiz, points distribués, le plus beau coup et le plus régulier. Elle est publique, à partager aux invités le lendemain.
+
+**Entre deux soirées**, 🧹 Nouvelle soirée efface invités et points, sauvegarde distante comprise — les essais d'avant la fête ne doivent pas traîner dans le classement du soir J.
+
 **Les retardataires entrent en cours de route** : quelqu'un qui arrive pendant un quiz rejoint la partie immédiatement. Il ne récupère rien sur les questions déjà posées, mais il joue toutes les suivantes. S'il arrive pendant une révélation, il est accueilli par un « 👋 Bienvenue » plutôt que par un « ⏰ Trop tard » pour une question qu'il n'a jamais vue.
 
 ## Où vivent les données
@@ -67,7 +75,8 @@ Pendant une question, **l'écran commun bascule en mode scène** : les panneaux 
 Deux stockages séparés, et c'est volontaire :
 
 - **La bibliothèque de quiz** est le seul contenu précieux : elle doit survivre à un redéploiement. En local c'est un fichier (`server/data/quizzes.db`) ; en ligne, on pointe `QUIZ_DB_URL` vers une base **Turso** gratuite. Le code est le même — le client libSQL parle aux deux.
-- **L'état d'une partie** (joueurs, scores, question en cours) vit dans une base SQLite locale, jetable : une soirée, puis on jette. Elle permet la reprise après un crash ou un redémarrage en pleine partie.
+- **L'état d'une partie** (question en cours, réponses) vit dans une base SQLite locale, jetable. Elle permet la reprise après un crash.
+- **Les invités et leurs points** sont recopiés dans la base distante au fil de l'eau et rechargés au démarrage si le disque local est reparti vide. Sur un hébergeur gratuit le disque est effacé à chaque redémarrage : sans ce miroir, la soirée repartirait à zéro sans que personne comprenne pourquoi.
 
 ## Tester avec de vrais téléphones (à la maison)
 
@@ -180,3 +189,7 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque)
 | 3 | Questions « estimation », entrée en cours de quiz, révélations enrichies | ✅ |
 | 4 | Habillage show (mode scène, barre de temps, podium animé, sons) | ✅ |
 | 5 | Déploiement gratuit (Render + Turso), QR public, test de charge à 50 joueurs | ✅ |
+| 6 | Scores à l'abri d'un redémarrage, écran commun qui tient dans la hauteur | ✅ |
+| 7 | Commandes d'animation : pause, question reposée, invités gérés | ✅ |
+| 8 | Podium de la soirée et page souvenir | ✅ |
+| 9 | Import en masse, aperçu, veille des téléphones, prénoms en double | ✅ |

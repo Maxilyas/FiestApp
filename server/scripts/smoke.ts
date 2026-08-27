@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createQuizServer } from '../src/server'
+import { parseImportedQuestions } from '../../shared/library'
 
 function fail(msg: string): never {
   console.error(`❌ ${msg}`)
@@ -49,6 +50,31 @@ const url = `http://localhost:${server.port}`
 const connect = () => clientIo(url, { transports: ['websocket'] })
 
 try {
+  // 0. Analyse d'un collage de questions (fonction pure, aucun serveur requis)
+  const imported = parseImportedQuestions(
+    [
+      'Quelle danse Romane préfère-t-elle ?',
+      '* La salsa',
+      'Le tango',
+      '',
+      'Combien de cours a-t-elle pris ?',
+      '= 42 cours',
+      '',
+      'Question sans bonne réponse marquée',
+      'Une réponse',
+      'Une autre',
+      '',
+      'Bloc inexploitable',
+    ].join('\n'),
+  )
+  assert(imported.questions.length === 3, `3 questions attendues, ${imported.questions.length} reconnues`)
+  assert(imported.questions[0].correct === 0, 'l’étoile doit désigner la bonne réponse')
+  assert(imported.questions[0].answers[1] === 'Le tango', 'les réponses suivantes doivent être conservées')
+  assert(imported.questions[1].kind === 'number', 'le signe égal doit créer une estimation')
+  assert(imported.questions[1].target === 42 && imported.questions[1].unit === 'cours', 'valeur ou unité mal lue')
+  assert(imported.unmarked === 1, 'la question sans étoile doit être signalée')
+  assert(imported.ignored === 1, 'le bloc inexploitable doit être compté comme ignoré')
+
   // 1. Écran commun : la clé protège bien l'accès
   const host = connect()
   // Les refus du serveur arrivent en « toast » : sans cette écoute, un test
@@ -418,12 +444,12 @@ try {
   probe.disconnect()
   await server2.close()
 
-  console.log('✅ Smoke test OK — 18 étapes')
+  console.log('✅ Smoke test OK — 19 étapes')
   console.log(
-    '   quiz complet, bibliothèque, photos, estimation, retardataire, pause,',
+    '   collage de questions, quiz complet, bibliothèque, photos, estimation, retardataire,',
   )
   console.log(
-    '   annulation, question reposée, invité renommé et exclu, reprise après coupure',
+    '   pause, annulation, question reposée, invité renommé et exclu, reprise après coupure',
   )
   process.exit(0)
 } catch (e) {

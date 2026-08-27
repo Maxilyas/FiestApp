@@ -192,8 +192,11 @@ Avec un routeur wifi sans internet, renseigne `WIFI_SSID` et `WIFI_PASS` : l'éc
 3. Vérifie le bouton 🔊 en haut de l'écran commun (les sons ne sortent que de là, jamais des téléphones).
 4. Les invités scannent le QR, choisissent un prénom et un avatar.
 5. **Lancer un quiz** → choisis le quiz → le 3-2-1 démarre.
-6. Pendant une question tu peux **Révéler la réponse** sans attendre la fin du chronomètre.
-7. Entre deux quiz, le classement de la soirée reste affiché et **se cumule**.
+6. Pendant une question : **Révéler la réponse** sans attendre le chronomètre, ou **⏸ Pause** pour un discours.
+7. Après la révélation : **↺ Reposer** la question, ou **✖ Annuler les points** si la bonne réponse était fausse.
+8. Un pseudo malheureux ? Clique dessus dans la liste des invités pour le renommer, ou sur la croix pour exclure.
+9. À la fin : **🏆 Podium de la soirée**, et fais scanner le QR de la page souvenir.
+10. Entre deux quiz, le classement de la soirée reste affiché et **se cumule**.
 
 Les retardataires rejoignent en cours de partie : ils jouent les questions suivantes, sans rattraper les précédentes.
 
@@ -210,5 +213,6 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 | Un invité ne voit rien après avoir répondu | c'est normal | la question est sur l'écran commun ; son téléphone attend la révélation |
 | Téléphone bloqué sur « reconnexion… » | réseau du téléphone | il se reconnecte tout seul, son score est conservé |
 | Quiz modifié en ligne puis écrasé | migration relancée après coup | une fois en ligne, n'écris plus qu'en ligne |
+| Les scores des essais sont encore là | la sauvegarde distante les a gardés | **🧹 Nouvelle soirée** sur l'écran commun |
 
 Un redémarrage du serveur en pleine partie n'est pas grave : la question en cours et les scores sont rechargés, et les téléphones se reconnectent seuls.
