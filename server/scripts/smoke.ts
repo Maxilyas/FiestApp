@@ -355,7 +355,7 @@ try {
   const ctrlId = (await ctrlPick).sessionId
   ;(host as any).emit('host:command', {
     sessionId: ctrlId,
-    command: { type: 'selectPack', packId: 'culture-generale' },
+    command: { type: 'selectPack', packId: 'culture-generale', multiplier: 2 },
   })
   await waitFor<any>(bob, 'session:view', p => p.view.phase === 'question', 'question de contrôle')
 
@@ -399,8 +399,13 @@ try {
   const ctrlReveal = waitFor<any>(bob, 'session:view', p => p.view.phase === 'reveal', 'révélation de contrôle')
   const ctrlHostReveal = waitFor<any>(host, 'session:view', p => p.view.phase === 'reveal', 'révélation côté écran')
   ;(alice2 as any).emit('player:action', { sessionId: ctrlId, action: { type: 'answer', choice: q0.correct } })
-  const gained = (await ctrlReveal).view.yourPoints
+  const revelation = await ctrlReveal
+  const gained = revelation.view.yourPoints
   assert(gained > 0, 'la réponse corrigée de Bob doit compter')
+  // Points doublés : un QCM plafonne à 200, donc au-delà c'est bien le
+  // multiplicateur qui a joué. Et la salle doit le voir affiché.
+  assert(gained > 200, `quiz en points doubles : ${gained} points, attendu plus de 200`)
+  assert(revelation.view.multiplier === 2, 'le téléphone doit annoncer le multiplicateur')
   const repartition = (await ctrlHostReveal).view.counts
   assert(
     repartition[q0.correct] === 2 && repartition[mauvaise] === 0,
@@ -475,7 +480,18 @@ try {
   ;(host as any).emit('host:removePlayer', { playerId: bobAck.playerId })
   const [afterRemoval] = await Promise.all([removed, removedOnPhone])
 
-  // 18. Ménage des photos : celles qu'aucun quiz n'utilise plus s'en vont,
+  // 18. Prix de caractère : un vainqueur par quiz, en plus du podium
+  const recap = (await (await fetch(`${url}/recap.json`)).json()) as any
+  assert(Array.isArray(recap.quizWinners), 'la page souvenir doit lister les vainqueurs de quiz')
+  assert(recap.quizWinners.length >= 2, `au moins 2 quiz joués, ${recap.quizWinners.length} vainqueurs listés`)
+  assert(
+    recap.quizWinners.every((w: any) => w.name && w.points > 0 && w.title),
+    'chaque vainqueur doit avoir un nom, un titre de quiz et des points',
+  )
+  assert(recap.bestShot?.name, 'le plus beau coup doit être désigné')
+  assert(recap.steadiest?.name, 'le plus régulier doit être désigné')
+
+  // 19. Ménage des photos : celles qu'aucun quiz n'utilise plus s'en vont,
   //     celles encore référencées restent, et une photo trop récente est
   //     épargnée — elle vient peut-être d'être envoyée par l'éditeur.
   const store = new QuizStore(quizDbUrl)
@@ -510,7 +526,7 @@ try {
   assert(!(await store.getImage(gardee)), 'la photo doit partir avec son dernier quiz')
   store.close()
 
-  // 19. Redémarrage du serveur avec disque effacé — le scénario d'un
+  // 20. Redémarrage du serveur avec disque effacé — le scénario d'un
   //     hébergeur gratuit qui recycle l'instance en pleine soirée. Invités et
   //     points doivent revenir depuis la base distante.
   // Le dernier classement reçu fait foi : plus rien ne bouge à ce stade, donc
@@ -543,7 +559,7 @@ try {
   probe.disconnect()
   await server2.close()
 
-  console.log('✅ Smoke test OK — 21 étapes')
+  console.log('✅ Smoke test OK — 22 étapes')
   console.log(
     '   collage de questions, quiz complet, bibliothèque, photos, estimation, retardataire,',
   )

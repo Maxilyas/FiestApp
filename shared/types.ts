@@ -43,4 +43,6 @@ export interface Recap {
   bestShot: { name: string; avatar: string; points: number; reason: string } | null
   /** Celui qui a marqué sur le plus de questions. */
   steadiest: { name: string; avatar: string; count: number } | null
+  /** Le vainqueur de chaque quiz de la soirée — autant de prix à remettre. */
+  quizWinners: { title: string; name: string; avatar: string; points: number }[]
 }

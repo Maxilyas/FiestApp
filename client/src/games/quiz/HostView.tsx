@@ -40,6 +40,9 @@ interface Props {
 }
 
 export function QuizHost({ view: v, sendCommand, endSession }: Props) {
+  /** Choisi avant de lancer : un quiz qui compte double relance toute la salle. */
+  const [multiplier, setMultiplier] = useState(1)
+
   // Les sons ponctuent les changements de phase — sur l'écran commun seulement.
   useEffect(() => {
     if (v.phase === 'question') sound.go()
@@ -51,6 +54,22 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
     return (
       <div className="quiz-host">
         <h2>🧠 Choisissez un quiz</h2>
+
+        {/* Annoncé à la salle avant de lancer : tant qu'un quiz peut tout
+            renverser, personne ne décroche du classement. */}
+        <div className="row multiplier-picker">
+          <span className="muted">Ce quiz vaut</span>
+          {[1, 2, 3].map(m => (
+            <button
+              key={m}
+              className={'pill-btn' + (multiplier === m ? ' active' : '')}
+              onClick={() => setMultiplier(m)}
+            >
+              {m === 1 ? 'points normaux' : `×${m} points`}
+            </button>
+          ))}
+        </div>
+
         <div className="game-cards">
           {v.packs?.map(p => (
             <div key={p.id} className="game-card">
@@ -58,7 +77,7 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
               <p className="muted">
                 {p.questionCount} question{p.questionCount > 1 ? 's' : ''}
               </p>
-              <button className="btn btn-primary" onClick={() => sendCommand({ type: 'selectPack', packId: p.id })}>
+              <button className="btn btn-primary" onClick={() => sendCommand({ type: 'selectPack', packId: p.id, multiplier })}>
                 C'est parti !
               </button>
             </div>
@@ -83,6 +102,7 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
       <div className="quiz-host">
         <div className="quiz-status">
           <span className="pill">{v.packTitle}</span>
+          {(v.multiplier ?? 1) > 1 && <span className="pill multi">×{v.multiplier} points</span>}
           <span className="pill">
             Question {v.qIndex + 1}/{v.qCount}
           </span>

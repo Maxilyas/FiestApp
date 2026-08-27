@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Recap } from '../../../shared/types'
 import { FinalPodium, Standings } from '../components/Podium'
+import { Trophies } from '../components/Trophies'
 
 /**
  * La page souvenir, ouverte le lendemain. Volontairement sans clé : c'est
@@ -60,36 +61,7 @@ export function RecapApp() {
         <FinalPodium rows={recap.ranking} />
       </section>
 
-      {(recap.bestShot || recap.steadiest) && (
-        <section className="trophies">
-          {recap.bestShot && (
-            <div className="card trophy">
-              <span className="trophy-emoji">⚡</span>
-              <h3>Le plus beau coup</h3>
-              <p>
-                <strong>
-                  {recap.bestShot.avatar} {recap.bestShot.name}
-                </strong>{' '}
-                — {recap.bestShot.points} points sur une seule question
-              </p>
-              <p className="muted">{recap.bestShot.reason}</p>
-            </div>
-          )}
-          {recap.steadiest && (
-            <div className="card trophy">
-              <span className="trophy-emoji">🎯</span>
-              <h3>La plus régulière</h3>
-              <p>
-                <strong>
-                  {recap.steadiest.avatar} {recap.steadiest.name}
-                </strong>{' '}
-                — {recap.steadiest.count} questions marquées
-              </p>
-              <p className="muted">Présente sur tous les coups</p>
-            </div>
-          )}
-        </section>
-      )}
+      <Trophies recap={recap} />
 
       {recap.ranking.length > 3 && (
         <section className="card">

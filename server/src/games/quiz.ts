@@ -40,6 +40,8 @@ interface QuizState {
   playFrom: Record<string, number>
   /** Chronomètre figé par l'animateur : temps restant, en ms. */
   pausedMs: number | null
+  /** Points multipliés pour ce quiz : 1, 2 ou 3. */
+  multiplier: number
   /** Secondes avant d'enchaîner tout seul après une révélation ; null = manuel. */
   autoNextSeconds: number | null
   /** Échéance de cet enchaînement, pour l'afficher côté écran commun. */
@@ -91,10 +93,12 @@ function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: Game
 
 function award(sess: GameSessionRec<QuizState>, playerId: string, points: number, ctx: GameContext) {
   const st = sess.state
-  st.lastAwards[playerId] = points
-  if (points <= 0) return
-  st.totals[playerId] = (st.totals[playerId] ?? 0) + points
-  ctx.award(playerId, points, `Quiz « ${st.pack!.title} » — Q${st.qIndex + 1}`)
+  // Tout gain passe ici : c'est le seul endroit où appliquer le multiplicateur.
+  const gain = points * st.multiplier
+  st.lastAwards[playerId] = gain
+  if (gain <= 0) return
+  st.totals[playerId] = (st.totals[playerId] ?? 0) + gain
+  ctx.award(playerId, gain, `Quiz « ${st.pack!.title} » — Q${st.qIndex + 1}`)
 }
 
 function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
@@ -215,6 +219,7 @@ export const quizModule: GameModule<QuizState> = {
       lastAwards: {},
       totals: {},
       playFrom: {},
+      multiplier: 1,
       pausedMs: null,
       autoNextSeconds: null,
       autoNextAt: null,
@@ -260,6 +265,8 @@ export const quizModule: GameModule<QuizState> = {
         const pack = library.find(p => p.id === command.packId)
         if (!pack) throw new Error('Quiz introuvable')
         st.pack = pack
+        const m = Number(command.multiplier ?? 1)
+        st.multiplier = [1, 2, 3].includes(m) ? m : 1
         st.phase = 'getReady'
         st.deadline = ctx.now() + READY_MS
         ctx.setTimer('ready', READY_MS)
@@ -360,6 +367,7 @@ export const quizModule: GameModule<QuizState> = {
         image: q.image,
         deadline: st.deadline,
         duration: q.duration,
+        multiplier: st.multiplier,
         ...(st.pausedMs !== null && { paused: true, remainingMs: st.pausedMs }),
         ...(st.phase === 'reveal' && {
           justArrived: (st.playFrom[playerId] ?? 0) > st.qIndex,
@@ -390,6 +398,7 @@ export const quizModule: GameModule<QuizState> = {
       qIndex: st.qIndex,
       qCount: st.pack?.questions.length ?? 0,
       packTitle: st.pack?.title,
+      multiplier: st.multiplier,
     }
     if (st.phase === 'pickPack') return { ...base, packs: st.packs }
     if (st.phase === 'getReady') return { ...base, deadline: st.deadline }

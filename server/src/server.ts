@@ -166,6 +166,42 @@ export async function createQuizServer(opts: QuizServerOptions) {
     const bestPlayer = best ? row(best.player_id) : undefined
     const steadyPlayer = steady ? row(steady.player_id) : undefined
 
+    // Un vainqueur par quiz : autant de prix à remettre, et chacun garde une
+    // chance même si le classement général lui échappe. Une requête par quiz
+    // plutôt qu'une seule très habile — il y en a une poignée dans la soirée,
+    // et le résultat se relit sans effort.
+    const sessions = db
+      .prepare(
+        `SELECT session_id, MIN(created_at) AS started
+         FROM score_entries WHERE session_id IS NOT NULL
+         GROUP BY session_id ORDER BY started ASC`,
+      )
+      .all() as { session_id: string }[]
+
+    const topOfSession = db.prepare(
+      `SELECT player_id, SUM(points) AS total FROM score_entries
+       WHERE session_id = ? GROUP BY player_id ORDER BY total DESC LIMIT 1`,
+    )
+    // Le titre est repris du libellé écrit par le module de jeu, qui a la
+    // forme « Quiz « … » — Q3 ». Les lignes d'annulation ne l'ont pas.
+    const titleOfSession = db.prepare(
+      `SELECT reason FROM score_entries WHERE session_id = ? AND reason LIKE 'Quiz %' LIMIT 1`,
+    )
+
+    const quizWinners: { title: string; name: string; avatar: string; points: number }[] = []
+    for (const { session_id } of sessions) {
+      const top = topOfSession.get(session_id) as { player_id: string; total: number } | undefined
+      const winner = top ? row(top.player_id) : undefined
+      if (!top || !winner || top.total <= 0) continue
+      const reason = (titleOfSession.get(session_id) as { reason: string } | undefined)?.reason ?? ''
+      quizWinners.push({
+        title: /^Quiz « (.+) » — Q\d+$/.exec(reason)?.[1] ?? 'Un quiz',
+        name: winner.name,
+        avatar: winner.avatar,
+        points: top.total,
+      })
+    }
+
     res.json({
       ranking: players
         .filter(p => p.score !== 0)
@@ -181,6 +217,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         steady && steadyPlayer
           ? { name: steadyPlayer.name, avatar: steadyPlayer.avatar, count: steady.n }
           : null,
+      quizWinners,
     })
   })
 

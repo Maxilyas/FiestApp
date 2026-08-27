@@ -963,3 +963,7 @@ h3 { font-size: 1.05rem; }
 .player-shell { padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
 
 .btn.auto-on { border-color: var(--gold); color: var(--gold); }
+
+/* Le multiplicateur doit sauter aux yeux : c' est lui qui relance la salle. */
+.pill.multi { background: var(--gold); color: #2a0518; border-color: var(--gold); font-weight: 700; }
+.multiplier-picker { margin-bottom: 4px; }

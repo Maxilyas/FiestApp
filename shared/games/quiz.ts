@@ -39,6 +39,8 @@ export interface QuizPlayerView {
   deadline?: number
   /** Secondes allouées à la question — pour la barre de temps qui se vide. */
   duration?: number
+  /** Points multipliés pour ce quiz (1, 2 ou 3) — annoncé à toute la salle. */
+  multiplier?: number
   /** L'animateur a figé le chronomètre : plus personne ne peut répondre. */
   paused?: boolean
   /** Temps restant figé, en millisecondes (uniquement en pause). */
@@ -60,6 +62,8 @@ export interface QuizHostView {
   qIndex: number
   qCount: number
   packTitle?: string
+  /** Points multipliés pour ce quiz (1, 2 ou 3). */
+  multiplier?: number
   kind?: QuestionKind
   // pickPack
   packs?: QuizPackInfo[]
@@ -93,7 +97,8 @@ export type QuizAction =
   | { type: 'guess'; value: number }
 
 export type QuizCommand =
-  | { type: 'selectPack'; packId: string }
+  /** `multiplier` : 1 par défaut, 2 ou 3 pour un quiz qui compte double ou triple. */
+  | { type: 'selectPack'; packId: string; multiplier?: number }
   | { type: 'next' }
   /** Fige le chronomètre (discours, gâteau qui arrive…) et le repart. */
   | { type: 'pause' }

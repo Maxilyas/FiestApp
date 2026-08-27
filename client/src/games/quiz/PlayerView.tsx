@@ -88,6 +88,7 @@ export function QuizPlayer({ view: v, send }: Props) {
           <span className="pill">
             Question {v.qIndex + 1}/{v.qCount}
           </span>
+          {(v.multiplier ?? 1) > 1 && <span className="pill multi">×{v.multiplier} points</span>}
         </div>
         <TimerBar
           deadline={v.deadline!}

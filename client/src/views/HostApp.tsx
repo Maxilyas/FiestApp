@@ -5,6 +5,8 @@ import { useAppState } from '../state'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { Leaderboard } from '../components/Leaderboard'
 import { FinalPodium, Standings } from '../components/Podium'
+import { Trophies } from '../components/Trophies'
+import type { Recap } from '../../../shared/types'
 import { sound } from '../sound'
 import { QuizHost } from '../games/quiz/HostView'
 import type { QuizHostView } from '../../../shared/games/quiz'
@@ -25,6 +27,17 @@ export function HostApp() {
   const [muted, setMuted] = useState(isMuted)
   /** Le classement cumulé, célébré en fin de soirée. */
   const [showPodium, setShowPodium] = useState(false)
+  /** Les prix de caractère, calculés côté serveur à partir du journal des points. */
+  const [recap, setRecap] = useState<Recap | null>(null)
+
+  // Chargés à l'ouverture du podium : ils changent à chaque quiz joué.
+  useEffect(() => {
+    if (!showPodium) return
+    fetch('/recap.json')
+      .then(r => r.json())
+      .then(setRecap)
+      .catch(() => setRecap(null))
+  }, [showPodium])
 
   useEffect(() => {
     const urlKey = new URLSearchParams(window.location.search).get('key')
@@ -195,6 +208,7 @@ export function HostApp() {
               <h2>🏆 Le classement de la soirée</h2>
               <FinalPodium rows={ranking} />
               {ranking.length > 3 && <Standings rows={ranking.slice(3)} offset={3} />}
+              {recap && <Trophies recap={recap} />}
               <div className="row podium-actions">
                 {/* Le QR est le seul moyen pour un invité d'emporter la page :
                     il ne peut pas cliquer sur un lien projeté au mur. */}

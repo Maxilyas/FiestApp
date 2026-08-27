@@ -66,6 +66,14 @@ Pendant une question, **l'écran commun bascule en mode scène** : les panneaux 
 
 **⏩ Manuel / Auto 5 s / Auto 10 s** : en mode automatique, la question suivante part toute seule après la révélation, avec un décompte affiché. Un quiz de dix questions demandait vingt clics — autant d'occasions de décrocher de la soirée. Corriger ou reposer une question reprend la main aussitôt.
 
+## Faire durer le suspense
+
+Avec cinquante invités et un classement cumulé, les mêmes trois personnes mènent dès le premier quiz et 47 autres regardent une course perdue d'avance. Deux mécaniques corrigent ça.
+
+**Le multiplicateur.** Avant de lancer un quiz, l'animateur choisit **points normaux, ×2 ou ×3**. Annoncé à la salle, un dernier quiz en points doubles rend tout rattrapable jusqu'à la dernière question — un écart de 400 points redevient jouable. Le multiplicateur s'affiche en or sur l'écran commun et sur chaque téléphone : un bonus qu'on ne voit pas ne motive personne.
+
+**Les prix de caractère.** En plus des trois premiers, l'écran du podium et la page souvenir désignent **le plus beau coup** (le plus gros score sur une seule question), **le plus régulier** (celui qui a marqué sur le plus de questions) et **le vainqueur de chaque quiz** — autant de cadeaux à remettre, et une raison pour chacun de rester dans la partie.
+
 **En fin de soirée**, le bouton 🏆 célèbre le classement cumulé en plein écran, avec un QR vers la **page souvenir** (`/souvenir`) : podium, nombre de quiz, points distribués, le plus beau coup et le plus régulier. Elle est publique, à partager aux invités le lendemain.
 
 **Entre deux soirées**, 🧹 Nouvelle soirée efface invités et points, sauvegarde distante comprise — les essais d'avant la fête ne doivent pas traîner dans le classement du soir J.
