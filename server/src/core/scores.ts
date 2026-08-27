@@ -1,4 +1,5 @@
 import type { DB } from './db'
+import type { PartyBackup } from './backup'
 
 /**
  * Ledger de scores append-only. On n'écrase jamais un total : chaque gain est
@@ -9,7 +10,10 @@ export class ScoreLedger {
   private totals = new Map<string, number>()
   private insertStmt
 
-  constructor(private db: DB) {
+  constructor(
+    private db: DB,
+    private backup?: PartyBackup,
+  ) {
     this.insertStmt = db.prepare(
       'INSERT INTO score_entries (player_id, session_id, points, reason, created_at) VALUES (?, ?, ?, ?, ?)',
     )
@@ -20,8 +24,15 @@ export class ScoreLedger {
   }
 
   award(playerId: string, points: number, reason: string, sessionId?: string) {
-    this.insertStmt.run(playerId, sessionId ?? null, points, reason, Date.now())
+    const createdAt = Date.now()
+    this.insertStmt.run(playerId, sessionId ?? null, points, reason, createdAt)
     this.totals.set(playerId, (this.totals.get(playerId) ?? 0) + points)
+    this.backup?.saveScore({ playerId, sessionId, points, reason, createdAt })
+  }
+
+  /** Après une remise à zéro de la soirée : les totaux en mémoire aussi. */
+  clearAll() {
+    this.totals.clear()
   }
 
   total(playerId: string): number {

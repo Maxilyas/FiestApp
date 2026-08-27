@@ -371,8 +371,21 @@ h3 { font-size: 1.05rem; }
 .host.staging .qr-caption { display: none; }
 .host.staging .main-stage { background: transparent; border-color: transparent; backdrop-filter: none; }
 
+/* La scène tient dans la hauteur disponible : sur un portable branché en
+   1366×768, les réponses passaient sous le pli et personne ne le voyait. */
+.host.staging { height: 100vh; overflow: hidden; }
+.host.staging .host-grid { min-height: 0; }
+.host.staging .main-stage { min-height: 0; display: flex; flex-direction: column; padding: 0; }
+.host.staging .quiz-host { flex: 1; min-height: 0; }
+.host.staging .ans-grid { flex: 1; min-height: 0; grid-auto-rows: minmax(0, 1fr); }
+.host.staging .ans-btn { min-height: 0; }
+
+/* Trois tailles de question selon sa longueur : une question fleuve ne doit
+   pas chasser les réponses hors de l'écran. */
 .host.staging .quiz-question { font-size: clamp(2rem, 4.4vw, 3.4rem); }
-.host.staging .ans-btn { min-height: 104px; font-size: clamp(1.1rem, 1.9vw, 1.8rem); }
+.host.staging .quiz-question.q-md { font-size: clamp(1.7rem, 3.4vw, 2.7rem); }
+.host.staging .quiz-question.q-sm { font-size: clamp(1.4rem, 2.6vw, 2.1rem); }
+.host.staging .ans-btn { font-size: clamp(1.1rem, 1.9vw, 1.8rem); }
 .host.staging .ans-shape { font-size: 1.9rem; }
 .host.staging .timer-seconds { font-size: 2.6rem; }
 .host.staging .big-count { font-size: clamp(5rem, 14vw, 11rem); }
@@ -391,6 +404,9 @@ h3 { font-size: 1.05rem; }
   color: #fff;
   text-shadow: 0 0 28px rgba(255, 61, 129, 0.35);
 }
+
+.quiz-player .quiz-question.q-md { font-size: 1.2rem; }
+.quiz-player .quiz-question.q-sm { font-size: 1.05rem; }
 
 .quiz-img {
   max-height: 34vh;
@@ -829,3 +845,5 @@ h3 { font-size: 1.05rem; }
 
   .ambient-glow { display: none; }
 }
+
+.reset-row { margin-top: 14px; justify-content: flex-end; }

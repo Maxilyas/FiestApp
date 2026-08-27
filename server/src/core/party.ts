@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
+import type { PartyBackup } from './backup'
 import type { PublicPlayer } from '../../../shared/types'
 
 export interface PlayerRec {
@@ -7,6 +8,7 @@ export interface PlayerRec {
   name: string
   avatar: string
   token: string
+  createdAt: number
 }
 
 /**
@@ -19,13 +21,17 @@ export class Party {
   /** playerId -> nombre de sockets ouvertes (multi-onglets). */
   private connections = new Map<string, number>()
 
-  constructor(private db: DB) {
+  constructor(
+    private db: DB,
+    private backup?: PartyBackup,
+  ) {
     for (const row of db.prepare('SELECT * FROM players').all() as any[]) {
       this.players.set(row.id, {
         id: row.id,
         name: row.name,
         avatar: row.avatar,
         token: row.token,
+        createdAt: row.created_at,
       })
     }
   }
@@ -40,6 +46,7 @@ export class Party {
         this.db
           .prepare('UPDATE players SET name = ?, avatar = ? WHERE id = ?')
           .run(existing.name, existing.avatar, existing.id)
+        this.backup?.savePlayer(existing, existing.createdAt)
         return existing
       }
     }
@@ -49,11 +56,13 @@ export class Party {
       name: clean,
       avatar: avatar || '🎉',
       token: randomUUID(),
+      createdAt: Date.now(),
     }
     this.players.set(rec.id, rec)
     this.db
       .prepare('INSERT INTO players (id, name, avatar, token, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(rec.id, rec.name, rec.avatar, rec.token, Date.now())
+      .run(rec.id, rec.name, rec.avatar, rec.token, rec.createdAt)
+    this.backup?.savePlayer(rec, rec.createdAt)
     return rec
   }
 
@@ -77,6 +86,14 @@ export class Party {
 
   connectedPlayerIds(): string[] {
     return [...this.connections.keys()]
+  }
+
+  /** Vide la soirée : on repart de zéro invité, zéro point. */
+  clearAll() {
+    this.db.prepare('DELETE FROM score_entries').run()
+    this.db.prepare('DELETE FROM players').run()
+    this.players.clear()
+    this.connections.clear()
   }
 
   publicPlayers(totals: Map<string, number>): PublicPlayer[] {

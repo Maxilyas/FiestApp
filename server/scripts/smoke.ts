@@ -3,7 +3,7 @@
 // scoring de rapidité, révélation, classement, reconnexion par token.
 // À lancer via `npm run smoke`.
 import { io as clientIo, type Socket } from 'socket.io-client'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -307,13 +307,41 @@ try {
   ;(host as any).emit('host:endSession', { sessionId: mixedId })
   charlie.disconnect()
 
-  console.log(
-    '✅ Smoke test OK — inscription, quiz, rapidité, classement, reconnexion, bibliothèque, photos, estimation, retardataire',
-  )
+  // 16. Redémarrage du serveur avec disque effacé — le scénario d'un
+  //     hébergeur gratuit qui recycle l'instance en pleine soirée. Invités et
+  //     points doivent revenir depuis la base distante.
+  const before = await waitFor<any>(host, 'party:snapshot', s => s.players.length >= 3, 'classement avant coupure')
+  const aliceBefore = before.players.find((p: any) => p.id === aliceAck.playerId)
+  assert(aliceBefore?.score > 0, 'Alice devrait avoir des points avant la coupure')
+
   host.disconnect()
   bob.disconnect()
   alice2.disconnect()
   await server.close()
+
+  // Le disque local disparaît, la base distante reste.
+  for (const suffix of ['', '-wal', '-shm']) rmSync(dbPath + suffix, { force: true })
+
+  const server2 = await createQuizServer({
+    port: 0,
+    dbPath: path.join(tmpDir, 'apres-redemarrage.db'),
+    hostKey: 'smoke',
+    quizDbUrl,
+  })
+  const probe = clientIo(`http://localhost:${server2.port}`, { transports: ['websocket'] })
+  const after2 = await waitFor<any>(probe, 'party:snapshot', s => s.players.length > 0, 'soirée rechargée')
+  const aliceAfter = after2.players.find((p: any) => p.id === aliceAck.playerId)
+  assert(
+    aliceAfter?.score === aliceBefore.score,
+    `score perdu au redémarrage : ${aliceAfter?.score} au lieu de ${aliceBefore.score}`,
+  )
+  assert(aliceAfter?.name === 'Alice', 'le nom du joueur doit être rechargé lui aussi')
+  probe.disconnect()
+  await server2.close()
+
+  console.log(
+    '✅ Smoke test OK — inscription, quiz, rapidité, classement, reconnexion, bibliothèque, photos, estimation, retardataire, reprise après coupure',
+  )
   process.exit(0)
 } catch (e) {
   fail((e as Error).message)

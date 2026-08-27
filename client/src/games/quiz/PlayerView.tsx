@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import type { QuizAction, QuizPlayerView } from '../../../../shared/games/quiz'
 import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
+import { questionSizeClass } from './HostView'
 
 const SHAPES = ['▲', '◆', '●', '■']
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -89,7 +90,7 @@ export function QuizPlayer({ view: v, send }: Props) {
           </span>
         </div>
         <TimerBar deadline={v.deadline!} duration={v.duration ?? 20} />
-        <h2 className="quiz-question">{v.text}</h2>
+        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="" />}
 
         {v.kind === 'number' ? (

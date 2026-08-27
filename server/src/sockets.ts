@@ -9,6 +9,7 @@ interface SocketDeps {
   hostKey: string
   buildSnapshot: () => PartySnapshot
   broadcastSnapshot: () => void
+  resetParty: () => Promise<void>
 }
 
 export function wireSockets(io: IoServer, deps: SocketDeps) {
@@ -76,6 +77,13 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     socket.on('host:endSession', ({ sessionId }) => {
       if (!requireHost()) return
       deps.engine.endSession(sessionId)
+    })
+
+    socket.on('host:resetParty', () => {
+      if (!requireHost()) return
+      deps.resetParty().catch(e => {
+        socket.emit('toast', { kind: 'error', message: (e as Error).message })
+      })
     })
 
     socket.on('disconnect', () => {

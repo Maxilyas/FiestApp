@@ -9,6 +9,16 @@ const MEDALS = ['🥇', '🥈', '🥉']
 
 const formatNumber = (n: number) => n.toLocaleString('fr-FR')
 
+/** Trois paliers de taille selon la longueur : une question fleuve ne doit
+ *  pas chasser les réponses hors de l'écran. */
+export function questionSizeClass(text: string | undefined): string {
+  const n = (text ?? '').length
+  if (n > 120) return ' q-sm'
+  if (n > 70) return ' q-md'
+  return ''
+}
+
+
 function Standings({ rows }: { rows: NonNullable<QuizHostView['standings']> }) {
   return (
     <div className="podium">
@@ -124,7 +134,7 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
           </div>
         )}
 
-        <h2 className="quiz-question">{v.text}</h2>
+        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="" />}
 
         {v.kind === 'number' ? (

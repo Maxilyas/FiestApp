@@ -184,6 +184,23 @@ export function HostApp() {
           <section className="card">
             <h2>Classement de la soirée</h2>
             <Leaderboard players={snap.players} />
+            {snap.players.length > 0 && (
+              <div className="row reset-row">
+                <button
+                  className="btn btn-ghost btn-small"
+                  onClick={() => {
+                    // Efface tout, y compris la sauvegarde distante : à ne
+                    // faire qu'entre deux soirées, jamais pendant.
+                    if (!window.confirm(
+                      `Effacer les ${snap.players.length} invités et tous leurs points ?\n\nÀ faire une fois les essais terminés, pour démarrer la vraie soirée à zéro. C'est définitif.`,
+                    )) return
+                    socket.emit('host:resetParty')
+                  }}
+                >
+                  🧹 Nouvelle soirée
+                </button>
+              </div>
+            )}
           </section>
         )}
       </div>

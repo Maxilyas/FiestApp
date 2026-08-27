@@ -17,6 +17,8 @@ export interface ClientToServerEvents {
   'host:launch': () => void
   'host:command': (payload: { sessionId: string; command: unknown }) => void
   'host:endSession': (payload: { sessionId: string }) => void
+  /** Efface invités et points pour repartir d'une soirée vierge. */
+  'host:resetParty': () => void
 }
 
 export interface ServerToClientEvents {

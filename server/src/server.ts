@@ -9,6 +9,7 @@ import { initDb } from './core/db'
 import { Party } from './core/party'
 import { ScoreLedger } from './core/scores'
 import { GameEngine } from './core/engine'
+import { PartyBackup } from './core/backup'
 import { QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
 import { quizModule, setQuizLibrary } from './games/quiz'
@@ -45,8 +46,19 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const io: IoServer = new Server(httpServer, { cors: { origin: true } })
 
   const db = initDb(opts.dbPath)
-  const party = new Party(db)
-  const ledger = new ScoreLedger(db)
+
+  // Le disque d'un hébergeur gratuit est effacé à chaque redémarrage : la
+  // soirée (invités et points) est donc recopiée dans la base distante, et
+  // rechargée ici si la base locale est repartie vide.
+  const backup = new PartyBackup(opts.quizDbUrl, opts.quizDbToken)
+  await backup.init()
+  const restored = await backup.restoreInto(db)
+  if (restored.players > 0) {
+    console.log(`[soirée] ${restored.players} invités et ${restored.scores} gains rechargés après redémarrage`)
+  }
+
+  const party = new Party(db, backup)
+  const ledger = new ScoreLedger(db, backup)
 
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
   const store = new QuizStore(opts.quizDbUrl, opts.quizDbToken)
@@ -77,7 +89,17 @@ export async function createQuizServer(opts: QuizServerOptions) {
   )
   engine.restore()
 
-  wireSockets(io, { party, engine, hostKey: opts.hostKey, buildSnapshot, broadcastSnapshot })
+  /** Repart d'une soirée vierge — les essais d'avant la fête ne doivent pas y traîner. */
+  const resetParty = async () => {
+    const running = engine.activeSessionId
+    if (running) engine.endSession(running)
+    party.clearAll()
+    ledger.clearAll()
+    await backup.reset()
+    broadcastSnapshot()
+  }
+
+  wireSockets(io, { party, engine, hostKey: opts.hostKey, buildSnapshot, broadcastSnapshot, resetParty })
 
   // Filet de sécurité : re-synchronise tous les écrans périodiquement.
   // Un client qui aurait raté un broadcast (blip réseau, onglet endormi)
@@ -124,9 +146,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
     close: () =>
       new Promise<void>(resolve => {
         clearInterval(resync)
-        io.close(() => {
+        io.close(async () => {
           db.close()
           store.close()
+          // Les écritures distantes en vol doivent aboutir avant de couper.
+          await backup.close()
           resolve()
         })
       }),
