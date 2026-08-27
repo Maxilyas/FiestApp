@@ -231,7 +231,85 @@ try {
   assert(!after.some((q: any) => q.id === created.id), 'le quiz supprimé ne doit plus être listé')
   ;(host as any).emit('host:endSession', { sessionId: quiz2Id })
 
-  console.log('✅ Smoke test OK — inscription, quiz, rapidité, classement, reconnexion, bibliothèque, photos')
+  // 14. Question « estimation » : le plus proche empoche le maximum, celui qui
+  //     répond quand même marque un minimum, personne n'est bloqué
+  const mixed = (await (
+    await apiCall('/api/quizzes', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Estimation & retardataire',
+        questions: [
+          { kind: 'number', text: 'Quel âge fête Romane ?', target: 30, unit: 'ans', duration: 30 },
+          {
+            kind: 'choice',
+            text: 'Quelle danse ?',
+            answers: ['La salsa', 'Le tango', '', ''],
+            correct: 0,
+            duration: 30,
+          },
+        ],
+      }),
+    })
+  ).json()) as any
+
+  const mixedSeen = waitFor<any>(bob, 'session:view', () => true, 'partie estimation chez Bob')
+  ;(host as any).emit('host:launch')
+  const mixedId = (await mixedSeen).sessionId
+  ;(host as any).emit('host:command', { sessionId: mixedId, command: { type: 'selectPack', packId: mixed.id } })
+  const numQ = await waitFor<any>(bob, 'session:view', p => p.view.phase === 'question', 'question estimation')
+  assert(numQ.view.kind === 'number', `type de question attendu 'number', reçu ${numQ.view.kind}`)
+  assert(numQ.view.unit === 'ans', `unité attendue 'ans', reçue ${numQ.view.unit}`)
+
+  const aliceGuessRv = waitFor<any>(alice2, 'session:view', p => p.view.phase === 'reveal', 'reveal estimation Alice')
+  const bobGuessRv = waitFor<any>(bob, 'session:view', p => p.view.phase === 'reveal', 'reveal estimation Bob')
+  const hostGuessRv = waitFor<any>(host, 'session:view', p => p.view.phase === 'reveal', 'reveal estimation host')
+  ;(alice2 as any).emit('player:action', { sessionId: mixedId, action: { type: 'guess', value: 41 } })
+  ;(alice2 as any).emit('player:action', { sessionId: mixedId, action: { type: 'guess', value: 31 } }) // correction
+  ;(bob as any).emit('player:action', { sessionId: mixedId, action: { type: 'guess', value: 50 } })
+  const [aliceG, bobG, hostG] = await Promise.all([aliceGuessRv, bobGuessRv, hostGuessRv])
+  assert(aliceG.view.yourGuess === 31, `la correction doit remplacer la 1re estimation, vu ${aliceG.view.yourGuess}`)
+  assert(aliceG.view.yourPoints === 200, `le plus proche marque 200, vu ${aliceG.view.yourPoints}`)
+  assert(bobG.view.yourPoints === 30, `le plus loin marque le minimum de participation, vu ${bobG.view.yourPoints}`)
+  assert(hostG.view.target === 30, 'la valeur à deviner doit être révélée sur l’écran commun')
+  assert(hostG.view.guesses?.[0]?.name === 'Alice', 'Alice doit être en tête des estimations')
+
+  // 15. Retardataire : Charlie arrive en pleine partie et joue la question suivante
+  const charlie = connect()
+  const charlieView = waitFor<any>(charlie, 'session:view', p => p.sessionId === mixedId, 'vue donnée au retardataire')
+  const charlieAck = await emitAck<any>(charlie, 'player:join', { name: 'Charlie', avatar: '🐼' })
+  assert(charlieAck.ok, 'join Charlie échoué')
+  const charlieFirst = await charlieView
+  assert(
+    charlieFirst.view.justArrived === true,
+    'le retardataire doit être accueilli, pas recevoir un « trop tard » pour une question qu’il n’a pas vue',
+  )
+  const withCharlie = await waitFor<any>(
+    host,
+    'party:snapshot',
+    s => s.session?.participantIds.includes(charlieAck.playerId),
+    'le retardataire doit rejoindre la partie en cours',
+  )
+  assert(withCharlie.session.participantIds.length === 3, '3 participants attendus après l’arrivée de Charlie')
+
+  ;(host as any).emit('host:command', { sessionId: mixedId, command: { type: 'next' } })
+  await waitFor<any>(charlie, 'session:view', p => p.view.phase === 'question' && p.view.qIndex === 1, 'question 2')
+
+  const charlieRv = waitFor<any>(charlie, 'session:view', p => p.view.phase === 'reveal', 'reveal pour Charlie')
+  ;(charlie as any).emit('player:action', { sessionId: mixedId, action: { type: 'answer', choice: 0 } })
+  ;(bob as any).emit('player:action', { sessionId: mixedId, action: { type: 'answer', choice: 1 } })
+  ;(alice2 as any).emit('player:action', { sessionId: mixedId, action: { type: 'answer', choice: 1 } })
+  const charlieReveal = await charlieRv
+  assert(charlieReveal.view.yourPoints > 100, 'Charlie a répondu juste, il doit marquer des points')
+  assert(
+    charlieReveal.view.yourQuizTotal === charlieReveal.view.yourPoints,
+    'le retardataire ne doit rien récupérer sur la question qu’il a manquée',
+  )
+  ;(host as any).emit('host:endSession', { sessionId: mixedId })
+  charlie.disconnect()
+
+  console.log(
+    '✅ Smoke test OK — inscription, quiz, rapidité, classement, reconnexion, bibliothèque, photos, estimation, retardataire',
+  )
   host.disconnect()
   bob.disconnect()
   alice2.disconnect()

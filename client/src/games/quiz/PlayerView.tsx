@@ -1,16 +1,71 @@
+import { useEffect, useState, type FormEvent } from 'react'
 import type { QuizAction, QuizPlayerView } from '../../../../shared/games/quiz'
 import { Countdown } from '../../components/Countdown'
 
 const SHAPES = ['▲', '◆', '●', '■']
 const MEDALS = ['🥇', '🥈', '🥉']
 
+const formatNumber = (n: number) => n.toLocaleString('fr-FR')
+
 interface Props {
   view: QuizPlayerView
   send: (action: QuizAction) => void
 }
 
-export function QuizPlayer({ view: v, send }: Props) {
+/**
+ * Saisie d'une estimation. Tant que tout le monde n'a pas répondu, on peut
+ * corriger : sur un clavier de téléphone, un chiffre en trop est vite arrivé.
+ */
+function GuessForm({ view, send }: Props) {
+  const [text, setText] = useState('')
 
+  // Nouvelle question → on vide le champ.
+  useEffect(() => setText(''), [view.qIndex])
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    const value = Number(text.replace(',', '.'))
+    if (!Number.isFinite(value) || text.trim() === '') return
+    send({ type: 'guess', value })
+  }
+
+  return (
+    <form className="guess-form" onSubmit={submit}>
+      <div className="guess-row">
+        <input
+          className="input guess-input"
+          type="text"
+          inputMode="decimal"
+          placeholder="Ton estimation"
+          value={text}
+          onChange={e => setText(e.target.value)}
+          autoFocus
+        />
+        {view.unit && <span className="guess-unit">{view.unit}</span>}
+      </div>
+      <button className="btn btn-primary btn-big" disabled={text.trim() === ''}>
+        {view.yourGuess === null ? 'Valider' : 'Corriger'}
+      </button>
+      {view.yourGuess !== null && view.yourGuess !== undefined && (
+        <p className="muted center">
+          Ta réponse : <strong>{formatNumber(view.yourGuess)}</strong> {view.unit} — tu peux encore la corriger
+        </p>
+      )}
+    </form>
+  )
+}
+
+/** Arrivé en pleine partie : il n'a pas raté la question, il n'était pas là. */
+function Welcome() {
+  return (
+    <>
+      <span className="big">👋</span>
+      <p>Bienvenue ! Tu joues à partir de la prochaine question.</p>
+    </>
+  )
+}
+
+export function QuizPlayer({ view: v, send }: Props) {
   if (v.phase === 'pickPack') {
     return (
       <div className="getready">
@@ -34,35 +89,82 @@ export function QuizPlayer({ view: v, send }: Props) {
     return (
       <div className="quiz-player">
         <div className="quiz-topbar">
-          <span className="pill">Question {v.qIndex + 1}/{v.qCount}</span>
+          <span className="pill">
+            Question {v.qIndex + 1}/{v.qCount}
+          </span>
           <Countdown deadline={v.deadline!} />
         </div>
         <h2 className="quiz-question">{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="" />}
-        <div className="ans-grid">
-          {v.answers!.map((a, i) => (
-            <button
-              key={i}
-              disabled={v.yourChoice !== null}
-              onClick={() => send({ type: 'answer', choice: i })}
-              className={`ans-btn ans-${i}` + (v.yourChoice === i ? ' chosen' : '')}
-            >
-              <span className="ans-shape">{SHAPES[i]}</span>
-              {a}
-            </button>
-          ))}
-        </div>
-        {v.yourChoice !== null && <p className="muted center">Réponse enregistrée ✓ Regarde l'écran !</p>}
+
+        {v.kind === 'number' ? (
+          <GuessForm view={v} send={send} />
+        ) : (
+          <>
+            <div className="ans-grid">
+              {v.answers!.map((a, i) => (
+                <button
+                  key={i}
+                  disabled={v.yourChoice !== null}
+                  onClick={() => send({ type: 'answer', choice: i })}
+                  className={`ans-btn ans-${i}` + (v.yourChoice === i ? ' chosen' : '')}
+                >
+                  <span className="ans-shape">{SHAPES[i]}</span>
+                  {a}
+                </button>
+              ))}
+            </div>
+            {v.yourChoice !== null && (
+              <p className="muted center">Réponse enregistrée ✓ Regarde l'écran !</p>
+            )}
+          </>
+        )}
       </div>
     )
   }
 
   if (v.phase === 'reveal') {
+    // Estimation : pas de bonne ou mauvaise réponse, seulement un écart.
+    if (v.kind === 'number') {
+      const answered = v.yourGuess !== null && v.yourGuess !== undefined
+      const gap = answered ? Math.abs(v.yourGuess! - v.target!) : null
+      return (
+        <div className="quiz-player">
+          <div className={'card result-banner ' + (answered ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
+            {answered ? (
+              <>
+                <span className="big">+{v.yourPoints ?? 0} pts</span>
+                <p>
+                  Tu as dit <strong>{formatNumber(v.yourGuess!)}</strong> {v.unit}
+                  {gap === 0 ? ' — pile poil ! 🎯' : ` — à ${formatNumber(gap!)} ${v.unit} près`}
+                </p>
+              </>
+            ) : v.justArrived ? (
+              <Welcome />
+            ) : (
+              <>
+                <span className="big">⏰</span>
+                <p>Trop tard !</p>
+              </>
+            )}
+            <p className="muted">
+              La bonne réponse : <strong>{formatNumber(v.target!)}</strong> {v.unit}
+            </p>
+          </div>
+          <p className="center muted">
+            Total quiz : {v.yourQuizTotal} pts · {v.yourQuizRank}ᵉ
+          </p>
+        </div>
+      )
+    }
+
     const good = v.yourChoice !== null && v.yourChoice === v.correct
     return (
       <div className="quiz-player">
-        <div className={'card result-banner ' + (good ? 'result-ok' : 'result-ko')}>
-          {v.yourChoice === null ? (
+        <div className={'card result-banner ' + (good ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
+          {v.justArrived ? (
+            <Welcome />
+          ) : v.yourChoice === null ? (
             <>
               <span className="big">⏰</span>
               <p>Trop tard !</p>

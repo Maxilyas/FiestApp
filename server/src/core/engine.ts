@@ -120,6 +120,26 @@ export class GameEngine {
     this.deps.onSessionChanged()
   }
 
+  /**
+   * Un invité arrivé après le lancement entre dans la partie en cours. Il ne
+   * récupère rien sur les questions déjà passées (aucun point ne lui a été
+   * attribué) mais il joue les suivantes — mieux que d'attendre le quiz d'après.
+   * Sans effet pour quelqu'un qui participe déjà : une reconnexion n'est pas
+   * une arrivée.
+   */
+  joinLate(playerId: string) {
+    const sess = this.session
+    if (!sess || sess.status !== 'running' || sess.participantIds.includes(playerId)) return
+    sess.participantIds.push(playerId)
+    if (this.module.onPlayerJoin) {
+      this.run(sess, ctx => this.module.onPlayerJoin!(sess, playerId, ctx))
+    } else {
+      this.persist(sess)
+      this.fanout(sess)
+    }
+    this.deps.onSessionChanged()
+  }
+
   /** Renvoie sa vue à un joueur qui (re)vient — reconnexion transparente. */
   resendViews(playerId: string) {
     const sess = this.session

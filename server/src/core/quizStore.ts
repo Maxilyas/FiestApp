@@ -197,9 +197,14 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
     }
     const correct = Number(q?.correct)
     const duration = Number(q?.duration)
+    const target = Number(q?.target)
     return {
+      // Les quiz écrits avant l'arrivée des estimations n'ont pas de `kind`.
+      kind: q?.kind === 'number' ? 'number' : 'choice',
       text: typeof q?.text === 'string' ? q.text.slice(0, 300) : '',
       answers,
+      target: q?.target === null || q?.target === undefined || !Number.isFinite(target) ? null : target,
+      unit: typeof q?.unit === 'string' ? q.unit.slice(0, 12) : '',
       correct: Number.isInteger(correct) && correct >= 0 && correct < MAX_ANSWERS ? correct : 0,
       duration: Number.isFinite(duration)
         ? Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.round(duration)))

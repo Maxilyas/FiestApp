@@ -4,6 +4,8 @@ import { Countdown } from '../../components/Countdown'
 const SHAPES = ['▲', '◆', '●', '■']
 const MEDALS = ['🥇', '🥈', '🥉']
 
+const formatNumber = (n: number) => n.toLocaleString('fr-FR')
+
 function Standings({ rows }: { rows: NonNullable<QuizHostView['standings']> }) {
   return (
     <div className="podium">
@@ -26,7 +28,6 @@ interface Props {
 }
 
 export function QuizHost({ view: v, sendCommand, endSession }: Props) {
-
   if (v.phase === 'pickPack') {
     return (
       <div className="quiz-host">
@@ -68,11 +69,15 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
       <div className="quiz-host">
         <div className="quiz-status">
           <span className="pill">{v.packTitle}</span>
-          <span className="pill">Question {v.qIndex + 1}/{v.qCount}</span>
+          <span className="pill">
+            Question {v.qIndex + 1}/{v.qCount}
+          </span>
           {!revealing && (
             <>
               <Countdown deadline={v.deadline!} />
-              <span className="muted">{v.answeredCount}/{v.participantCount} ont répondu</span>
+              <span className="muted">
+                {v.answeredCount}/{v.participantCount} ont répondu
+              </span>
             </>
           )}
           {revealing && v.fastest && (
@@ -83,18 +88,47 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
         <h2 className="quiz-question">{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="" />}
 
-        <div className="ans-grid">
-          {v.answers!.map((a, i) => (
-            <div
-              key={i}
-              className={`ans-btn ans-${i}` + (revealing ? (i === v.correct ? ' correct' : ' dim') : '')}
-            >
-              <span className="ans-shape">{SHAPES[i]}</span>
-              {a}
-              {revealing && <span className="ans-count">{v.counts?.[i] ?? 0}</span>}
+        {v.kind === 'number' ? (
+          revealing ? (
+            <div className="guess-reveal">
+              <p className="target-value">
+                {formatNumber(v.target!)} <span className="target-unit">{v.unit}</span>
+              </p>
+              <div className="podium">
+                {v.guesses?.map((g, i) => (
+                  <div key={i} className="lb-row">
+                    <span className="lb-rank">{i === 0 ? '🎯' : i + 1}</span>
+                    <span className="lb-avatar">{g.avatar}</span>
+                    <span className="lb-name">{g.name}</span>
+                    <span className="guess-value">
+                      {formatNumber(g.value)} {v.unit}
+                    </span>
+                    <span className="lb-score">+{g.points}</span>
+                  </div>
+                ))}
+                {v.guesses?.length === 0 && <p className="muted">Personne n'a répondu…</p>}
+              </div>
             </div>
-          ))}
-        </div>
+          ) : (
+            <p className="big-waiting">
+              ⌨️ Tapez votre estimation sur votre téléphone{v.unit ? ` (en ${v.unit})` : ''} — le plus proche
+              gagne&nbsp;!
+            </p>
+          )
+        ) : (
+          <div className="ans-grid">
+            {v.answers!.map((a, i) => (
+              <div
+                key={i}
+                className={`ans-btn ans-${i}` + (revealing ? (i === v.correct ? ' correct' : ' dim') : '')}
+              >
+                <span className="ans-shape">{SHAPES[i]}</span>
+                {a}
+                {revealing && <span className="ans-count">{v.counts?.[i] ?? 0}</span>}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="row">
           {revealing ? (

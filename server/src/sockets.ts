@@ -26,6 +26,8 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         deps.party.socketConnected(res.id)
         ack({ ok: true, playerId: res.id, token: res.token })
         deps.broadcastSnapshot()
+        // Arrivé en cours de quiz : on l'y intègre pour les questions à venir.
+        deps.engine.joinLate(res.id)
         deps.engine.resendViews(res.id)
       } catch {
         ack({ ok: false, error: 'Erreur serveur' })

@@ -319,7 +319,23 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
   return (
     <div className="card question-card">
       <div className="question-head">
-        <span className="pill">Question {index + 1}</span>
+        <div className="row">
+          <span className="pill">Question {index + 1}</span>
+          <div className="kind-toggle">
+            <button
+              className={'pill-btn' + (question.kind === 'choice' ? ' active' : '')}
+              onClick={() => onChange(q => ({ ...q, kind: 'choice' }))}
+            >
+              🔘 QCM
+            </button>
+            <button
+              className={'pill-btn' + (question.kind === 'number' ? ' active' : '')}
+              onClick={() => onChange(q => ({ ...q, kind: 'number' }))}
+            >
+              🔢 Estimation
+            </button>
+          </div>
+        </div>
         <div className="row">
           <button className="btn btn-ghost btn-small" disabled={index === 0} onClick={() => onMove(-1)}>
             ↑
@@ -346,6 +362,38 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
         onChange={e => onChange(q => ({ ...q, text: e.target.value }))}
       />
 
+      {question.kind === 'number' ? (
+        <div className="number-edit">
+          <label className="row">
+            <span className="muted">Bonne réponse</span>
+            <input
+              className="input"
+              type="text"
+              inputMode="decimal"
+              placeholder="Ex. 1994"
+              value={question.target ?? ''}
+              onChange={e => {
+                const raw = e.target.value.replace(',', '.').trim()
+                const value = Number(raw)
+                onChange(q => ({ ...q, target: raw !== '' && Number.isFinite(value) ? value : null }))
+              }}
+            />
+          </label>
+          <label className="row">
+            <span className="muted">Unité</span>
+            <input
+              className="input unit-input"
+              maxLength={12}
+              placeholder="ans, km, €…"
+              value={question.unit}
+              onChange={e => onChange(q => ({ ...q, unit: e.target.value }))}
+            />
+          </label>
+          <p className="muted">
+            Personne n'est bloqué : chacun propose un nombre, le plus proche empoche le maximum.
+          </p>
+        </div>
+      ) : (
       <div className="answers-edit">
         {Array.from({ length: MAX_ANSWERS }, (_, i) => (
           <label key={i} className={`answer-edit ans-${i}` + (question.correct === i ? ' is-correct' : '')}>
@@ -373,6 +421,7 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
           </label>
         ))}
       </div>
+      )}
 
       <div className="question-tools">
         <label className="row">

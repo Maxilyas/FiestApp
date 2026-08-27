@@ -51,6 +51,8 @@ export interface GameModule<S = any> {
   onPlayerAction(session: GameSessionRec<S>, playerId: string, action: any, ctx: GameContext): void
   onHostCommand?(session: GameSessionRec<S>, command: any, ctx: GameContext): void
   onTimer?(session: GameSessionRec<S>, timerId: string, ctx: GameContext): void
+  /** Appelé quand un invité rejoint une partie déjà lancée. */
+  onPlayerJoin?(session: GameSessionRec<S>, playerId: string, ctx: GameContext): void
   playerView(session: GameSessionRec<S>, playerId: string, vctx: ViewContext): unknown
   hostView(session: GameSessionRec<S>, vctx: ViewContext): unknown
 }

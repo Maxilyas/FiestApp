@@ -19,15 +19,25 @@ socket.on('connect', () => {
 })
 
 socket.on('session:view', ({ sessionId, view }) => {
-  if (view.phase !== 'question' || view.yourChoice !== null) return
+  if (view.phase !== 'question') return
   const key = `${sessionId}:${view.qIndex}`
   if (answered.has(key)) return
   answered.add(key)
+  const delay = 500 + Math.random() * 4000
+  if (view.kind === 'number') {
+    // Estimation : un nombre plausible au hasard, pour voir la dispersion.
+    const value = Math.round(Math.random() * 100)
+    setTimeout(() => {
+      socket.emit('player:action', { sessionId, action: { type: 'guess', value } })
+      console.log(`[${name}] Q${view.qIndex + 1} → estimation ${value}`)
+    }, delay)
+    return
+  }
   const choice = Math.floor(Math.random() * (view.answers?.length ?? 4))
   setTimeout(() => {
     socket.emit('player:action', { sessionId, action: { type: 'answer', choice } })
     console.log(`[${name}] Q${view.qIndex + 1} → réponse ${choice + 1}`)
-  }, 500 + Math.random() * 4000)
+  }, delay)
 })
 
 socket.on('toast', t => console.log(`[${name}] toast:`, t.message))
