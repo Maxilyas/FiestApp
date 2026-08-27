@@ -7,7 +7,9 @@
     "start": "tsx src/index.ts",
     "start:qa": "tsx scripts/qa-start.ts",
     "check": "tsc --noEmit",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "migrate": "tsx scripts/migrate-library.ts",
+    "load": "node scripts/load-test.mjs"
   },
   "dependencies": {
     "@libsql/client": "^0.17.4",

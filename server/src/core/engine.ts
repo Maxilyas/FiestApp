@@ -29,6 +29,15 @@ interface EngineDeps {
 export class GameEngine {
   private session: LiveSession | null = null
 
+  /**
+   * Dernière vue envoyée à chacun. Sans ce garde-fou, chaque réponse d'un
+   * joueur rediffuserait la vue complète aux 49 autres — 2 500 messages par
+   * question à 50 invités, pour un contenu identique. En 4G ça se paie en
+   * batterie et en latence, alors qu'une vue de joueur ne change que quand
+   * il répond lui-même.
+   */
+  private lastSent = new Map<string, string>()
+
   private vctx: ViewContext = {
     playerName: id => this.deps.party.get(id)?.name ?? '???',
     player: id => this.deps.party.publicOne(id, this.deps.ledger.total(id)),
@@ -74,6 +83,7 @@ export class GameEngine {
 
   launch(config?: unknown): string {
     if (this.session) this.endSession(this.session.id)
+    this.lastSent.clear()
     const participantIds = this.deps.party.connectedPlayerIds()
     const sess: LiveSession = {
       id: randomUUID(),
@@ -116,6 +126,7 @@ export class GameEngine {
     sess.status = 'ended'
     this.persist(sess)
     this.session = null
+    this.lastSent.clear()
     this.deps.io.emit('session:ended', { sessionId })
     this.deps.onSessionChanged()
   }
@@ -144,10 +155,11 @@ export class GameEngine {
   resendViews(playerId: string) {
     const sess = this.session
     if (!sess || sess.status !== 'running' || !sess.participantIds.includes(playerId)) return
-    this.deps.io.to(`player:${playerId}`).emit('session:view', {
-      sessionId: sess.id,
-      view: this.module.playerView(sess, playerId, this.vctx),
-    })
+    const view = this.module.playerView(sess, playerId, this.vctx)
+    // Toujours envoyer : le téléphone qui revient d'une coupure a un écran
+    // vide, même si sa vue n'a pas changé entre-temps.
+    this.changed(`player:${playerId}`, view)
+    this.deps.io.to(`player:${playerId}`).emit('session:view', { sessionId: sess.id, view })
   }
 
   /** Renvoie la vue host à un écran commun qui (re)vient. */
@@ -221,15 +233,25 @@ export class GameEngine {
 
   private fanout(sess: LiveSession) {
     for (const playerId of sess.participantIds) {
-      this.deps.io.to(`player:${playerId}`).emit('session:view', {
-        sessionId: sess.id,
-        view: this.module.playerView(sess, playerId, this.vctx),
-      })
+      const view = this.module.playerView(sess, playerId, this.vctx)
+      if (this.changed(`player:${playerId}`, view)) {
+        this.deps.io.to(`player:${playerId}`).emit('session:view', { sessionId: sess.id, view })
+      }
     }
-    this.deps.io.to('hosts').emit('session:view', {
-      sessionId: sess.id,
-      view: this.module.hostView(sess, this.vctx),
-    })
+    // L'écran commun, lui, bouge à chaque réponse (le compteur « 12/50 ont
+    // répondu ») : sa vue change vraiment, on la renvoie.
+    const hostView = this.module.hostView(sess, this.vctx)
+    if (this.changed('__host__', hostView)) {
+      this.deps.io.to('hosts').emit('session:view', { sessionId: sess.id, view: hostView })
+    }
+  }
+
+  /** Vrai si la vue diffère de la dernière envoyée (et mémorise la nouvelle). */
+  private changed(key: string, view: unknown): boolean {
+    const serialized = JSON.stringify(view)
+    if (this.lastSent.get(key) === serialized) return false
+    this.lastSent.set(key, serialized)
+    return true
   }
 
   private persist(sess: LiveSession) {

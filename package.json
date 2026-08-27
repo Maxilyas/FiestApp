@@ -14,7 +14,9 @@
     "build": "npm run build -w client",
     "start": "npm run start -w server",
     "check": "npm run check -w server && npm run check -w client",
-    "smoke": "npm run smoke -w server"
+    "smoke": "npm run smoke -w server",
+    "migrate": "npm run migrate -w server --",
+    "load": "npm run load -w server --"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

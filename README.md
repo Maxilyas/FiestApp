@@ -89,11 +89,40 @@ Pour simuler des invités sans téléphone (ils répondent au hasard) :
 node server/scripts/fake-player.mjs http://localhost:3001 Test1 300
 ```
 
-## Le soir J
+## Mettre en ligne (gratuitement)
 
-Cible : **hébergement gratuit en ligne** (lot 5), les invités se connectent en 4G/5G en scannant le QR — aucun réseau à installer sur place. Il faut un hébergeur qui supporte les WebSocket : GitHub Pages, Vercel et Netlify ne conviennent pas.
+Objectif : les invités scannent le QR et jouent en 4G, sans réseau à installer sur place. Il faut un hébergeur qui tienne les WebSocket — GitHub Pages, Vercel et Netlify ne conviennent pas.
 
-Repli toujours disponible : tout relancer en local sur le PC (voir ci-dessus) avec un routeur wifi sur place. Dans ce cas, renseignez `WIFI_SSID`/`WIFI_PASS` : l'écran commun affiche alors **deux QR codes** (1️⃣ rejoindre le wifi, 2️⃣ ouvrir le quiz).
+Deux comptes gratuits à créer (je ne peux pas le faire à ta place) :
+
+**1. Turso — la bibliothèque de quiz.** Crée un compte, puis une base. Récupère son URL (`libsql://…`) et un jeton d'accès. L'offre gratuite (100 bases, 5 Go, 500 millions de lignes lues par mois) est sans commune mesure avec deux quiz de cinquante questions.
+
+**2. Render — le serveur.** Connecte ce dépôt : Render lit `render.yaml` et crée le service. Renseigne ensuite les trois variables dans son interface :
+
+| Variable | Valeur |
+|---|---|
+| `HOST_KEY` | une clé à toi, pas `romane` — quiconque l'a peut animer et éditer |
+| `QUIZ_DB_URL` | l'URL `libsql://…` de Turso |
+| `QUIZ_DB_TOKEN` | le jeton Turso |
+
+L'adresse publique du QR code se règle toute seule : Render fournit `RENDER_EXTERNAL_URL`, le serveur s'en sert.
+
+**3. Transférer les quiz écrits en local**, pour ne pas les ressaisir :
+
+```bash
+npm run migrate -- --to libsql://ta-base.turso.io --token ton-jeton
+```
+
+**4. Empêcher la mise en veille.** C'est la vraie limite de l'offre gratuite de Render : sans trafic entrant pendant 15 minutes, le service s'endort, et le réveil prend environ une minute — le premier invité qui scanne attendrait devant une page blanche. Deux parades, à combiner :
+
+- Un service de ping gratuit (cron-job.org, UptimeRobot…) qui appelle `https://ton-app.onrender.com/healthz` toutes les 10 minutes. Le quota gratuit (750 heures/mois pour un mois qui en compte 730) permet de rester allumé en permanence.
+- Ouvrir l'écran commun **cinq minutes avant** l'arrivée des invités. Tant qu'un écran ou un téléphone est connecté, le trafic des websockets empêche la veille.
+
+Si tu préfères un hébergeur qui ne dort jamais, Northflank propose deux services toujours actifs sur son offre gratuite — mais il demande une carte pour vérifier le compte, ce que Render ne fait pas.
+
+## Le repli : tout en local
+
+Si la salle capte mal ou si l'hébergeur fait des siennes, le même code tourne sur ton PC avec un routeur wifi. Renseigne alors `WIFI_SSID`/`WIFI_PASS` : l'écran commun affiche **deux QR codes** (1️⃣ rejoindre le wifi, 2️⃣ ouvrir le quiz).
 
 | Variable | Défaut | Rôle |
 |---|---|---|
@@ -102,8 +131,16 @@ Repli toujours disponible : tout relancer en local sur le PC (voir ci-dessus) av
 | `DB_PATH` | `server/data/quizz.db` | Base de la partie en cours (jetable) |
 | `QUIZ_DB_URL` | fichier voisin de `DB_PATH` | Bibliothèque de quiz : `file:...` ou `libsql://...` (Turso) |
 | `QUIZ_DB_TOKEN` | — | Jeton Turso, si base distante |
-| `PUBLIC_URL` | — | URL publique à mettre dans le QR code (hébergement en ligne) |
+| `PUBLIC_URL` | `RENDER_EXTERNAL_URL` | URL publique à mettre dans le QR code |
 | `WIFI_SSID` / `WIFI_PASS` | — | Si définis : QR « rejoindre le wifi » sur l'écran commun |
+
+## Test de charge
+
+```bash
+npm run load -- http://localhost:3001 50
+```
+
+Le script simule une salle entière : il inscrit N invités d'un coup, joue lui-même le rôle de l'écran commun et mesure ce qui compte le soir J. Relevé sur un PC portable, 50 invités : inscriptions 141 ms en moyenne (p95 201 ms), diffusion d'une question vers les téléphones 1 ms, révélation 2 ms, 80 Mo de mémoire serveur. À 100 invités, la diffusion reste à 1 ms et les inscriptions montent à 550 ms au pire — l'offre gratuite de Render (512 Mo) a de la marge.
 
 ## Architecture
 
@@ -128,4 +165,4 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque)
 | 2 | Bibliothèque en base + éditeur de quiz dans le navigateur | ✅ |
 | 3 | Questions « estimation », entrée en cours de quiz, révélations enrichies | ✅ |
 | 4 | Habillage show (mode scène, barre de temps, podium animé, sons) | ✅ |
-| 5 | Déploiement gratuit (Render + Turso), QR public, test de charge à 50 joueurs | à faire |
+| 5 | Déploiement gratuit (Render + Turso), QR public, test de charge à 50 joueurs | ✅ |

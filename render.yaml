@@ -1,0 +1,25 @@
+# Déploiement sur Render (offre gratuite). Le dépôt étant connecté, Render lit
+# ce fichier et crée le service ; les valeurs marquées `sync: false` se
+# saisissent dans l'interface (elles ne doivent pas vivre dans le dépôt).
+services:
+  - type: web
+    name: quizz-romane-30
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run build
+    startCommand: npm start -w server
+    # Sert aussi de cible au service de réveil : sans trafic, l'offre gratuite
+    # endort l'application au bout de 15 minutes.
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      # Clé d'accès à l'écran commun et à l'éditeur — à choisir dans l'interface.
+      - key: HOST_KEY
+        sync: false
+      # Bibliothèque de quiz : libsql://... (Turso) + son jeton.
+      - key: QUIZ_DB_URL
+        sync: false
+      - key: QUIZ_DB_TOKEN
+        sync: false

@@ -7,7 +7,9 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const port = Number(process.env.PORT ?? 3001)
 const dbPath = process.env.DB_PATH ?? path.resolve(here, '../data/quizz.db')
 const hostKey = process.env.HOST_KEY ?? 'romane'
-const publicUrl = process.env.PUBLIC_URL
+// En ligne, c'est cette adresse que le QR code doit montrer. Render la fournit
+// toute seule ; ailleurs, on la donne via PUBLIC_URL.
+const publicUrl = process.env.PUBLIC_URL ?? process.env.RENDER_EXTERNAL_URL
 
 // Par défaut la bibliothèque vit dans un fichier local, à côté de la base de
 // partie. En ligne, on pointe QUIZ_DB_URL vers Turso : le code ne change pas.
