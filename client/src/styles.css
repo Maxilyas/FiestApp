@@ -961,3 +961,5 @@ h3 { font-size: 1.05rem; }
 
 /* Encoches et barres système des téléphones récents. */
 .player-shell { padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+
+.btn.auto-on { border-color: var(--gold); color: var(--gold); }

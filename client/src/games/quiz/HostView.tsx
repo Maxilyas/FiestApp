@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { QuizCommand, QuizHostView } from '../../../../shared/games/quiz'
 import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
@@ -18,6 +18,20 @@ export function questionSizeClass(text: string | undefined): string {
   return ''
 }
 
+
+/** Le décompte avant que la question suivante parte toute seule. */
+function AutoNextPill({ deadline }: { deadline: number }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 200)
+    return () => clearInterval(id)
+  }, [])
+  const seconds = Math.max(0, Math.ceil((deadline - now) / 1000))
+  return <span className="pill">⏩ suivante dans {seconds} s</span>
+}
+
+/** Manuel → 5 s → 10 s → manuel : trois réglages suffisent. */
+const PALIERS_AUTO: (number | null)[] = [null, 5, 10]
 
 interface Props {
   view: QuizHostView
@@ -75,6 +89,7 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
           {revealing && v.fastest && (
             <span className="pill flash">⚡ {v.fastest.name} — {(v.fastest.ms / 1000).toFixed(2)} s</span>
           )}
+          {revealing && v.autoNextAt && <AutoNextPill deadline={v.autoNextAt} />}
         </div>
 
         {!revealing && (
@@ -180,6 +195,18 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
               </button>
             </>
           )}
+          {/* Vingt clics par quiz, ce sont vingt occasions de décrocher de
+              la soirée : ce bouton laisse l'application enchaîner seule. */}
+          <button
+            className={'btn btn-ghost' + (v.autoNextSeconds ? ' auto-on' : '')}
+            title="Enchaîner les questions sans cliquer"
+            onClick={() => {
+              const i = PALIERS_AUTO.indexOf(v.autoNextSeconds ?? null)
+              sendCommand({ type: 'autoNext', seconds: PALIERS_AUTO[(i + 1) % PALIERS_AUTO.length] })
+            }}
+          >
+            {v.autoNextSeconds ? `⏩ Auto ${v.autoNextSeconds} s` : '⏩ Manuel'}
+          </button>
           <button className="btn btn-ghost" onClick={endSession}>Terminer</button>
         </div>
 

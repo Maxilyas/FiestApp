@@ -63,6 +63,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
       await deps.onLibraryChanged()
       res.json(quiz)
+      // Après coup : une photo retirée d'une question n'a plus à occuper la base.
+      deps.store.pruneImages().catch(() => {})
     }),
   )
 
@@ -73,6 +75,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
       if (!ok) return res.status(404).json({ error: 'Quiz introuvable' })
       await deps.onLibraryChanged()
       res.json({ ok: true })
+      deps.store.pruneImages().catch(() => {})
     }),
   )
 

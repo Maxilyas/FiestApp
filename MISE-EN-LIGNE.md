@@ -194,9 +194,10 @@ Avec un routeur wifi sans internet, renseigne `WIFI_SSID` et `WIFI_PASS` : l'éc
 5. **Lancer un quiz** → choisis le quiz → le 3-2-1 démarre.
 6. Pendant une question : **Révéler la réponse** sans attendre le chronomètre, ou **⏸ Pause** pour un discours.
 7. Après la révélation : **↺ Reposer** la question, ou **✖ Annuler les points** si la bonne réponse était fausse.
-8. Un pseudo malheureux ? Clique dessus dans la liste des invités pour le renommer, ou sur la croix pour exclure.
-9. À la fin : **🏆 Podium de la soirée**, et fais scanner le QR de la page souvenir.
-10. Entre deux quiz, le classement de la soirée reste affiché et **se cumule**.
+8. **⏩ Manuel / Auto 5 s / Auto 10 s** : en automatique, tu ne cliques plus entre les questions.
+9. Un pseudo malheureux ? Clique dessus dans la liste des invités pour le renommer, ou sur la croix pour exclure.
+10. À la fin : **🏆 Podium de la soirée**, et fais scanner le QR de la page souvenir.
+11. Entre deux quiz, le classement de la soirée reste affiché et **se cumule**.
 
 Les retardataires rejoignent en cours de partie : ils jouent les questions suivantes, sans rattraper les précédentes.
 

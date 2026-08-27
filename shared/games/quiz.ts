@@ -73,6 +73,10 @@ export interface QuizHostView {
   duration?: number
   paused?: boolean
   remainingMs?: number
+  /** Secondes avant la question suivante, ou null si l'animateur pilote. */
+  autoNextSeconds?: number | null
+  /** Échéance de l'enchaînement automatique, pendant une révélation. */
+  autoNextAt?: number
   answeredCount?: number
   participantCount?: number
   // reveal + finished
@@ -98,3 +102,5 @@ export type QuizCommand =
   | { type: 'cancel' }
   /** Annule et repose la même question. */
   | { type: 'replay' }
+  /** Enchaîne les questions tout seul après N secondes ; null = manuel. */
+  | { type: 'autoNext'; seconds: number | null }

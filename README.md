@@ -64,6 +64,8 @@ Pendant une question, **l'écran commun bascule en mode scène** : les panneaux 
 
 **L'animateur garde la main** : ⏸ pause (le chronomètre se fige, plus personne ne peut répondre), ↺ reposer la même question, ✖ annuler les points d'une question dont la réponse était fausse, renommer ou exclure un invité d'un clic sur sa pastille, et ⛶ plein écran. La clé n'apparaît jamais dans la barre d'adresse.
 
+**⏩ Manuel / Auto 5 s / Auto 10 s** : en mode automatique, la question suivante part toute seule après la révélation, avec un décompte affiché. Un quiz de dix questions demandait vingt clics — autant d'occasions de décrocher de la soirée. Corriger ou reposer une question reprend la main aussitôt.
+
 **En fin de soirée**, le bouton 🏆 célèbre le classement cumulé en plein écran, avec un QR vers la **page souvenir** (`/souvenir`) : podium, nombre de quiz, points distribués, le plus beau coup et le plus régulier. Elle est publique, à partager aux invités le lendemain.
 
 **Entre deux soirées**, 🧹 Nouvelle soirée efface invités et points, sauvegarde distante comprise — les essais d'avant la fête ne doivent pas traîner dans le classement du soir J.

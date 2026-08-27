@@ -15,6 +15,8 @@ import {
 const MAX_IMAGE_DATAURL = 2_000_000
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_QUESTIONS = 100
+/** Délai avant qu'une photo sans quiz soit considérée comme abandonnée. */
+const IMAGE_GRACE_MS = 60 * 60 * 1000
 
 /**
  * Bibliothèque de quiz : le seul stockage qui doit survivre à tout (l'état
@@ -144,6 +146,42 @@ export class QuizStore {
       args: [id, match[1], match[2], Date.now()],
     })
     return id
+  }
+
+  /**
+   * Supprime les photos que plus aucun quiz n'utilise.
+   *
+   * On ne peut pas effacer les photos d'un quiz au moment où on le supprime :
+   * dupliquer un quiz recopie les mêmes URL, donc deux quiz peuvent partager
+   * une photo. On regarde donc l'ensemble de la bibliothèque avant d'effacer.
+   */
+  async pruneImages(graceMs = IMAGE_GRACE_MS): Promise<number> {
+    // Une photo tout juste envoyée n'est référencée qu'au moment où l'on
+    // enregistre la question. Sans ce délai de grâce, un ménage déclenché
+    // entre les deux l'effacerait sous les doigts de l'animateur.
+    const [stored, quizzes] = await Promise.all([
+      this.client.execute({
+        sql: 'SELECT id FROM quiz_images WHERE created_at < ?',
+        args: [Date.now() - graceMs],
+      }),
+      this.client.execute('SELECT questions FROM quizzes'),
+    ])
+    if (stored.rows.length === 0) return 0
+
+    const used = new Set<string>()
+    for (const row of quizzes.rows) {
+      for (const [, id] of String(row.questions).matchAll(/\/media\/image\/([0-9a-f-]{36})/g)) {
+        used.add(id)
+      }
+    }
+
+    const orphans = stored.rows.map(r => String(r.id)).filter(id => !used.has(id))
+    if (orphans.length === 0) return 0
+    await this.client.batch(
+      orphans.map(id => ({ sql: 'DELETE FROM quiz_images WHERE id = ?', args: [id] })),
+      'write',
+    )
+    return orphans.length
   }
 
   async getImage(id: string): Promise<{ mime: string; bytes: Buffer } | null> {

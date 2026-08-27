@@ -9,6 +9,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createQuizServer } from '../src/server'
 import { parseImportedQuestions } from '../../shared/library'
+import { QuizStore } from '../src/core/quizStore'
 
 function fail(msg: string): never {
   console.error(`❌ ${msg}`)
@@ -182,7 +183,7 @@ try {
 
   // 10. Photos : envoi en dataURL, stockage en base, relecture publique
   //     (les téléphones des invités doivent pouvoir les charger sans clé)
-  const TINY_JPEG =
+  const TINY_JPEG: string =
     'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
   const upload = (await (
     await apiCall('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl: TINY_JPEG }) })
@@ -389,6 +390,43 @@ try {
   const again = await replayed
   assert(again.view.qIndex === 0, 'la question reposée doit être la même')
   assert(again.view.yourChoice === null, 'les réponses précédentes doivent être effacées')
+  // Enchaînement automatique : la question suivante doit partir toute seule,
+  // sans que l'animateur touche à quoi que ce soit.
+  ;(host as any).emit('host:command', { sessionId: ctrlId, command: { type: 'autoNext', seconds: 2 } })
+  const autoArme = await waitFor<any>(
+    host,
+    'session:view',
+    p => p.view.autoNextSeconds === 2,
+    'enchaînement automatique armé',
+  )
+  assert(autoArme.view.phase === 'question', 'on doit être reparti sur une question')
+
+  // On révèle à la main — attendre les 20 secondes du chronomètre allongerait
+  // le test pour rien. C'est la suite qui doit se faire toute seule.
+  const revelePromesse = waitFor<any>(host, 'session:view', p => p.view.phase === 'reveal', 'révélation')
+  ;(host as any).emit('host:command', { sessionId: ctrlId, command: { type: 'next' } })
+  const revele = await revelePromesse
+  assert(revele.view.autoNextAt > Date.now(), 'la révélation doit annoncer son échéance')
+  const suivante = await waitFor<any>(
+    host,
+    'session:view',
+    p => p.view.phase === 'question' && p.view.qIndex === 1,
+    'question suivante sans clic',
+  )
+  assert(suivante.view.autoNextSeconds === 2, 'le réglage doit tenir d’une question à l’autre')
+
+  // Repasser en manuel annule l'enchaînement en attente.
+  ;(host as any).emit('host:command', { sessionId: ctrlId, command: { type: 'next' } })
+  await waitFor<any>(host, 'session:view', p => p.view.phase === 'reveal' && p.view.qIndex === 1, 'révélation forcée')
+  ;(host as any).emit('host:command', { sessionId: ctrlId, command: { type: 'autoNext', seconds: null } })
+  const manuel = await waitFor<any>(
+    host,
+    'session:view',
+    p => p.view.autoNextSeconds === null,
+    'retour en manuel',
+  )
+  assert(manuel.view.autoNextAt === undefined, 'plus aucune échéance ne doit être annoncée')
+
   ;(host as any).emit('host:endSession', { sessionId: ctrlId })
 
   // 17. Renommer et exclure un invité
@@ -411,7 +449,42 @@ try {
   ;(host as any).emit('host:removePlayer', { playerId: bobAck.playerId })
   const [afterRemoval] = await Promise.all([removed, removedOnPhone])
 
-  // 18. Redémarrage du serveur avec disque effacé — le scénario d'un
+  // 18. Ménage des photos : celles qu'aucun quiz n'utilise plus s'en vont,
+  //     celles encore référencées restent, et une photo trop récente est
+  //     épargnée — elle vient peut-être d'être envoyée par l'éditeur.
+  const store = new QuizStore(quizDbUrl)
+  const gardee = await store.saveImage(TINY_JPEG)
+  const orpheline = await store.saveImage(TINY_JPEG)
+  const recente = await store.saveImage(TINY_JPEG)
+  const avecPhoto = await store.create('Quiz avec photo', [
+    {
+      kind: 'choice',
+      text: 'Où est-ce ?',
+      answers: ['Ici', 'Là', '', ''],
+      correct: 0,
+      image: `/media/image/${gardee}`,
+    },
+  ])
+  // Délai de grâce nul pour les deux premières, une heure pour la troisième.
+  // Au moins les deux nôtres : la photo envoyée plus haut par l'API est
+  // orpheline elle aussi, et part avec.
+  const effacees = await store.pruneImages(0)
+  assert(effacees >= 2, `au moins 2 photos orphelines attendues, ${effacees} effacées`)
+  assert(await store.getImage(gardee), 'la photo utilisée par un quiz doit rester')
+  assert(!(await store.getImage(orpheline)), "la photo qu'aucun quiz n'utilise doit partir")
+
+  const recenteEpargnee = await store.saveImage(TINY_JPEG)
+  assert((await store.pruneImages()) === 0, 'une photo récente ne doit pas être effacée')
+  assert(await store.getImage(recenteEpargnee), 'la photo récente doit être intacte')
+  void recente
+
+  // Supprimer le quiz libère sa photo.
+  await store.remove(avecPhoto.id)
+  await store.pruneImages(0)
+  assert(!(await store.getImage(gardee)), 'la photo doit partir avec son dernier quiz')
+  store.close()
+
+  // 19. Redémarrage du serveur avec disque effacé — le scénario d'un
   //     hébergeur gratuit qui recycle l'instance en pleine soirée. Invités et
   //     points doivent revenir depuis la base distante.
   // Le dernier classement reçu fait foi : plus rien ne bouge à ce stade, donc
@@ -444,12 +517,15 @@ try {
   probe.disconnect()
   await server2.close()
 
-  console.log('✅ Smoke test OK — 19 étapes')
+  console.log('✅ Smoke test OK — 21 étapes')
   console.log(
     '   collage de questions, quiz complet, bibliothèque, photos, estimation, retardataire,',
   )
   console.log(
-    '   pause, annulation, question reposée, invité renommé et exclu, reprise après coupure',
+    '   pause, enchaînement automatique, annulation, question reposée, invité renommé et exclu,',
+  )
+  console.log(
+    '   ménage des photos, reprise après coupure',
   )
   process.exit(0)
 } catch (e) {

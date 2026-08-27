@@ -40,6 +40,10 @@ interface QuizState {
   playFrom: Record<string, number>
   /** Chronomètre figé par l'animateur : temps restant, en ms. */
   pausedMs: number | null
+  /** Secondes avant d'enchaîner tout seul après une révélation ; null = manuel. */
+  autoNextSeconds: number | null
+  /** Échéance de cet enchaînement, pour l'afficher côté écran commun. */
+  autoNextAt: number | null
 }
 
 const READY_MS = 3000
@@ -99,6 +103,12 @@ function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   ctx.clearTimer('question')
   st.phase = 'reveal'
   st.lastAwards = {}
+  // L'enchaînement s'arme quelle que soit la cause de la révélation : fin du
+  // chronomètre, dernière réponse, ou clic de l'animateur.
+  if (st.autoNextSeconds !== null) {
+    st.autoNextAt = ctx.now() + st.autoNextSeconds * 1000
+    ctx.setTimer('autoNext', st.autoNextSeconds * 1000)
+  }
 
   if (q.kind === 'choice') {
     for (const [playerId, r] of Object.entries(st.responses)) {
@@ -139,6 +149,16 @@ function cancelQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
     ctx.award(playerId, -points, `Annulation — Q${st.qIndex + 1}`)
   }
   st.lastAwards = {}
+}
+
+/** Question suivante, ou podium si c'était la dernière. */
+function goNext(sess: GameSessionRec<QuizState>, ctx: GameContext) {
+  const st = sess.state
+  if (!st.pack) return
+  ctx.clearTimer('autoNext')
+  st.autoNextAt = null
+  if (st.qIndex + 1 < st.pack.questions.length) startQuestion(sess, st.qIndex + 1, ctx)
+  else st.phase = 'finished'
 }
 
 function sortedTotals(sess: GameSessionRec<QuizState>): { playerId: string; points: number }[] {
@@ -196,6 +216,8 @@ export const quizModule: GameModule<QuizState> = {
       totals: {},
       playFrom: {},
       pausedMs: null,
+      autoNextSeconds: null,
+      autoNextAt: null,
     }
   },
 
@@ -256,11 +278,17 @@ export const quizModule: GameModule<QuizState> = {
       }
       case 'cancel': {
         if (st.phase !== 'reveal') return
+        // L'animateur reprend la main : un enchaînement programmé ne doit pas
+        // emporter la question qu'il est en train de corriger.
+        ctx.clearTimer('autoNext')
+        st.autoNextAt = null
         cancelQuestion(sess, ctx)
         break
       }
       case 'replay': {
         if (st.phase !== 'reveal' || !st.pack) return
+        ctx.clearTimer('autoNext')
+        st.autoNextAt = null
         cancelQuestion(sess, ctx)
         startQuestion(sess, st.qIndex, ctx)
         break
@@ -268,11 +296,24 @@ export const quizModule: GameModule<QuizState> = {
       case 'next':
         if (st.phase === 'question') {
           reveal(sess, ctx) // l'animateur force la fin de la question
-        } else if (st.phase === 'reveal' && st.pack) {
-          if (st.qIndex + 1 < st.pack.questions.length) startQuestion(sess, st.qIndex + 1, ctx)
-          else st.phase = 'finished'
+        } else if (st.phase === 'reveal') {
+          goNext(sess, ctx)
         }
         break
+      case 'autoNext': {
+        const seconds = command.seconds
+        st.autoNextSeconds = seconds === null ? null : Math.min(30, Math.max(2, Math.round(seconds)))
+        if (st.autoNextSeconds === null) {
+          // Reprendre la main : l'enchaînement en attente est annulé.
+          ctx.clearTimer('autoNext')
+          st.autoNextAt = null
+        } else if (st.phase === 'reveal') {
+          // Activé pendant une révélation : elle enchaîne sans attendre la suivante.
+          st.autoNextAt = ctx.now() + st.autoNextSeconds * 1000
+          ctx.setTimer('autoNext', st.autoNextSeconds * 1000)
+        }
+        break
+      }
     }
   },
 
@@ -286,6 +327,7 @@ export const quizModule: GameModule<QuizState> = {
   onTimer(sess, timerId, ctx) {
     if (timerId === 'ready' && sess.state.phase === 'getReady') startQuestion(sess, 0, ctx)
     if (timerId === 'question' && sess.state.phase === 'question') reveal(sess, ctx)
+    if (timerId === 'autoNext' && sess.state.phase === 'reveal') goNext(sess, ctx)
   },
 
   playerView(sess, playerId, vctx): QuizPlayerView {
@@ -356,6 +398,8 @@ export const quizModule: GameModule<QuizState> = {
         deadline: st.deadline,
         duration: q.duration,
         ...(st.pausedMs !== null && { paused: true, remainingMs: st.pausedMs }),
+        autoNextSeconds: st.autoNextSeconds,
+        ...(st.autoNextAt !== null && { autoNextAt: st.autoNextAt }),
         answeredCount: Object.keys(st.responses).length,
         participantCount: sess.participantIds.length,
       }
