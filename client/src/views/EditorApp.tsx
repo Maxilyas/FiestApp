@@ -1,0 +1,416 @@
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import {
+  DEFAULT_DURATION,
+  MAX_ANSWERS,
+  MAX_DURATION,
+  MIN_DURATION,
+  emptyQuestion,
+  questionProblem,
+  toPlayable,
+  type QuizDef,
+  type QuizQuestionDef,
+  type QuizSummary,
+} from '../../../shared/library'
+import { UnauthorizedError, api, compressImage, hostKey, setHostKey } from '../api'
+
+const SHAPES = ['▲', '◆', '●', '■']
+
+function formatDate(ts: number): string {
+  return new Date(ts).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+export function EditorApp() {
+  const [needKey, setNeedKey] = useState(false)
+  const [keyInput, setKeyInput] = useState('')
+  const [list, setList] = useState<QuizSummary[] | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  const reload = useCallback(async () => {
+    try {
+      setList(await api.list())
+      setNeedKey(false)
+    } catch (e) {
+      if (e instanceof UnauthorizedError) setNeedKey(true)
+      else setError((e as Error).message)
+    }
+  }, [])
+
+  useEffect(() => {
+    const urlKey = new URLSearchParams(window.location.search).get('key')
+    if (urlKey) setHostKey(urlKey)
+    if (!hostKey()) return setNeedKey(true)
+    reload()
+  }, [reload])
+
+  const submitKey = async (e: FormEvent) => {
+    e.preventDefault()
+    setHostKey(keyInput)
+    setError('')
+    try {
+      setList(await api.list())
+      setNeedKey(false)
+    } catch {
+      setError('Clé incorrecte')
+    }
+  }
+
+  if (needKey) {
+    return (
+      <div className="center-page">
+        <form className="card join-card" onSubmit={submitKey}>
+          <h1>✏️ Mes quiz</h1>
+          <input
+            className="input"
+            placeholder="Clé d'accès (HOST_KEY)"
+            value={keyInput}
+            onChange={e => setKeyInput(e.target.value)}
+            autoFocus
+          />
+          {error && <p className="error">{error}</p>}
+          <button className="btn btn-primary">Entrer</button>
+        </form>
+      </div>
+    )
+  }
+
+  if (editingId) {
+    return (
+      <QuizEditor
+        id={editingId}
+        onClose={() => {
+          setEditingId(null)
+          reload()
+        }}
+      />
+    )
+  }
+
+  return (
+    <div className="editor">
+      <header className="editor-header">
+        <h1>✏️ Mes quiz</h1>
+        <div className="row">
+          <a className="btn btn-ghost" href={`/host?key=${hostKey()}`}>
+            🖥️ Écran commun
+          </a>
+          <button
+            className="btn btn-primary"
+            onClick={async () => {
+              try {
+                const quiz = await api.create('Nouveau quiz')
+                setEditingId(quiz.id)
+              } catch (e) {
+                setError((e as Error).message)
+              }
+            }}
+          >
+            + Nouveau quiz
+          </button>
+        </div>
+      </header>
+
+      {error && <p className="error">{error}</p>}
+      {list === null && <p className="muted">Chargement…</p>}
+
+      {list?.length === 0 && (
+        <div className="card notice">
+          <p>Aucun quiz pour l'instant. Créez le premier !</p>
+        </div>
+      )}
+
+      <div className="quiz-list">
+        {list?.map(q => (
+          <div key={q.id} className="card quiz-row">
+            <div className="quiz-row-main">
+              <h3>{q.title}</h3>
+              <p className="muted">
+                {q.readyCount} question{q.readyCount > 1 ? 's' : ''} prête{q.readyCount > 1 ? 's' : ''}
+                {q.questionCount > q.readyCount && ` · ${q.questionCount - q.readyCount} à compléter`}
+                {' · '}
+                modifié le {formatDate(q.updatedAt)}
+              </p>
+            </div>
+            <div className="row">
+              <button className="btn" onClick={() => setEditingId(q.id)}>
+                Éditer
+              </button>
+              <button
+                className="btn btn-ghost btn-small"
+                onClick={async () => {
+                  await api.duplicate(q.id)
+                  reload()
+                }}
+              >
+                Dupliquer
+              </button>
+              <button
+                className="btn btn-ghost btn-small"
+                onClick={async () => {
+                  if (!window.confirm(`Supprimer « ${q.title} » ? C'est définitif.`)) return
+                  await api.remove(q.id)
+                  reload()
+                }}
+              >
+                Supprimer
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Édition d'un quiz ─────────────────────────────────────────────────────
+
+function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
+  const [quiz, setQuiz] = useState<QuizDef | null>(null)
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [savedAt, setSavedAt] = useState<number | null>(null)
+
+  useEffect(() => {
+    api.get(id).then(setQuiz).catch(e => setError((e as Error).message))
+  }, [id])
+
+  // Filet de sécurité : on ne referme pas l'onglet sur une saisie non enregistrée.
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
+
+  const patch = (fn: (draft: QuizDef) => QuizDef) => {
+    setQuiz(q => (q ? fn(q) : q))
+    setDirty(true)
+  }
+
+  const patchQuestion = (index: number, fn: (q: QuizQuestionDef) => QuizQuestionDef) =>
+    patch(q => ({ ...q, questions: q.questions.map((item, i) => (i === index ? fn(item) : item)) }))
+
+  const save = async () => {
+    if (!quiz) return
+    setSaving(true)
+    setError('')
+    try {
+      const saved = await api.save(quiz.id, quiz.title, quiz.questions)
+      setQuiz(saved)
+      setDirty(false)
+      setSavedAt(Date.now())
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const close = () => {
+    if (dirty && !window.confirm('Des modifications ne sont pas enregistrées. Quitter quand même ?')) return
+    onClose()
+  }
+
+  if (!quiz) {
+    return (
+      <div className="center-page">
+        <p className="muted">{error || 'Chargement…'}</p>
+      </div>
+    )
+  }
+
+  const ready = quiz.questions.filter(q => toPlayable(q) !== null).length
+
+  return (
+    <div className="editor">
+      <header className="editor-header">
+        <input
+          className="input title-input"
+          value={quiz.title}
+          maxLength={80}
+          onChange={e => patch(q => ({ ...q, title: e.target.value }))}
+          placeholder="Titre du quiz"
+        />
+        <div className="row">
+          <span className="muted">
+            {ready}/{quiz.questions.length} prête{ready > 1 ? 's' : ''}
+          </span>
+          <button className="btn btn-ghost" onClick={close}>
+            Retour
+          </button>
+          <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>
+            {saving ? 'Enregistrement…' : dirty ? 'Enregistrer' : 'Enregistré ✓'}
+          </button>
+        </div>
+      </header>
+
+      {error && <p className="error">{error}</p>}
+      {savedAt && !dirty && <p className="muted">Enregistré à {formatDate(savedAt)}</p>}
+
+      {quiz.questions.map((question, index) => (
+        <QuestionCard
+          key={index}
+          index={index}
+          total={quiz.questions.length}
+          question={question}
+          onChange={fn => patchQuestion(index, fn)}
+          onMove={dir =>
+            patch(q => {
+              const target = index + dir
+              if (target < 0 || target >= q.questions.length) return q
+              const questions = [...q.questions]
+              ;[questions[index], questions[target]] = [questions[target], questions[index]]
+              return { ...q, questions }
+            })
+          }
+          onDelete={() =>
+            patch(q => ({ ...q, questions: q.questions.filter((_, i) => i !== index) }))
+          }
+        />
+      ))}
+
+      <button
+        className="btn btn-big"
+        onClick={() => patch(q => ({ ...q, questions: [...q.questions, emptyQuestion()] }))}
+      >
+        + Ajouter une question
+      </button>
+    </div>
+  )
+}
+
+interface QuestionCardProps {
+  index: number
+  total: number
+  question: QuizQuestionDef
+  onChange: (fn: (q: QuizQuestionDef) => QuizQuestionDef) => void
+  onMove: (dir: -1 | 1) => void
+  onDelete: () => void
+}
+
+function QuestionCard({ index, total, question, onChange, onMove, onDelete }: QuestionCardProps) {
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [imageError, setImageError] = useState('')
+  const problem = questionProblem(question)
+
+  const pickImage = async (file: File | undefined) => {
+    if (!file) return
+    setBusy(true)
+    setImageError('')
+    try {
+      const dataUrl = await compressImage(file)
+      const { url } = await api.uploadImage(dataUrl)
+      onChange(q => ({ ...q, image: url }))
+    } catch (e) {
+      setImageError((e as Error).message)
+    } finally {
+      setBusy(false)
+      if (fileInput.current) fileInput.current.value = ''
+    }
+  }
+
+  return (
+    <div className="card question-card">
+      <div className="question-head">
+        <span className="pill">Question {index + 1}</span>
+        <div className="row">
+          <button className="btn btn-ghost btn-small" disabled={index === 0} onClick={() => onMove(-1)}>
+            ↑
+          </button>
+          <button
+            className="btn btn-ghost btn-small"
+            disabled={index === total - 1}
+            onClick={() => onMove(1)}
+          >
+            ↓
+          </button>
+          <button className="btn btn-ghost btn-small" onClick={onDelete}>
+            Supprimer
+          </button>
+        </div>
+      </div>
+
+      <textarea
+        className="input"
+        rows={2}
+        maxLength={300}
+        placeholder="Ta question…"
+        value={question.text}
+        onChange={e => onChange(q => ({ ...q, text: e.target.value }))}
+      />
+
+      <div className="answers-edit">
+        {Array.from({ length: MAX_ANSWERS }, (_, i) => (
+          <label key={i} className={`answer-edit ans-${i}` + (question.correct === i ? ' is-correct' : '')}>
+            <input
+              type="radio"
+              name={`correct-${index}`}
+              checked={question.correct === i}
+              onChange={() => onChange(q => ({ ...q, correct: i }))}
+              title="Bonne réponse"
+            />
+            <span className="ans-shape">{SHAPES[i]}</span>
+            <input
+              className="input"
+              maxLength={120}
+              placeholder={i < 2 ? `Réponse ${i + 1}` : `Réponse ${i + 1} (optionnelle)`}
+              value={question.answers[i] ?? ''}
+              onChange={e =>
+                onChange(q => {
+                  const answers = [...q.answers]
+                  answers[i] = e.target.value
+                  return { ...q, answers }
+                })
+              }
+            />
+          </label>
+        ))}
+      </div>
+
+      <div className="question-tools">
+        <label className="row">
+          <span className="muted">Temps</span>
+          <input
+            className="input duration-input"
+            type="number"
+            min={MIN_DURATION}
+            max={MAX_DURATION}
+            value={question.duration || DEFAULT_DURATION}
+            onChange={e => onChange(q => ({ ...q, duration: Number(e.target.value) }))}
+          />
+          <span className="muted">s</span>
+        </label>
+
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={e => pickImage(e.target.files?.[0])}
+        />
+        {question.image ? (
+          <div className="row">
+            <img className="thumb" src={question.image} alt="" />
+            <button className="btn btn-ghost btn-small" onClick={() => onChange(q => ({ ...q, image: null }))}>
+              Retirer la photo
+            </button>
+          </div>
+        ) : (
+          <button className="btn btn-small" disabled={busy} onClick={() => fileInput.current?.click()}>
+            {busy ? 'Envoi…' : '📷 Ajouter une photo'}
+          </button>
+        )}
+      </div>
+
+      {imageError && <p className="error">{imageError}</p>}
+      {problem && <p className="warn">⚠️ {problem} — cette question ne sera pas jouée.</p>}
+    </div>
+  )
+}

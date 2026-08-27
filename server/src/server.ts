@@ -9,15 +9,22 @@ import { initDb } from './core/db'
 import { Party } from './core/party'
 import { ScoreLedger } from './core/scores'
 import { GameEngine } from './core/engine'
-import { quizModule } from './games/quiz'
+import { QuizStore } from './core/quizStore'
+import { seedLibrary } from './core/seed'
+import { quizModule, setQuizLibrary } from './games/quiz'
+import { mountApi } from './api'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
 import type { PartySnapshot } from '../../shared/types'
 
 export interface QuizServerOptions {
   port: number
+  /** Base locale jetable : joueurs et état de la partie en cours. */
   dbPath: string
   hostKey: string
+  /** Bibliothèque de quiz : fichier local (`file:...`) ou base Turso (`libsql://...`). */
+  quizDbUrl: string
+  quizDbToken?: string
   /** URL publique à mettre dans le QR code (prioritaire sur l'IP locale). */
   publicUrl?: string
 }
@@ -40,6 +47,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const db = initDb(opts.dbPath)
   const party = new Party(db)
   const ledger = new ScoreLedger(db)
+
+  // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
+  const store = new QuizStore(opts.quizDbUrl, opts.quizDbToken)
+  await store.init()
+  const imported = await seedLibrary(store)
+  if (imported > 0) console.log(`[quiz] ${imported} quiz importés depuis server/content/quiz/`)
+  const refreshLibrary = async () => setQuizLibrary(await store.all())
+  await refreshLibrary()
 
   let boundPort = opts.port
   const wifi = process.env.WIFI_SSID
@@ -69,9 +84,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // se répare tout seul, sans F5.
   const resync = setInterval(broadcastSnapshot, 30_000)
 
+  mountApi(app, { store, hostKey: opts.hostKey, onLibraryChanged: refreshLibrary })
+
   const here = path.dirname(fileURLToPath(import.meta.url))
 
-  // Photos des questions.
+  // Photos livrées avec le dépôt (les photos ajoutées depuis l'éditeur, elles,
+  // vivent en base et sont servies par /media/image/:id).
   const quizMedia = path.resolve(here, '../content/quiz/images')
   if (fs.existsSync(quizMedia)) app.use('/media/quiz', express.static(quizMedia))
 
@@ -96,6 +114,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         clearInterval(resync)
         io.close(() => {
           db.close()
+          store.close()
           resolve()
         })
       }),

@@ -1,7 +1,5 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import type { GameContext, GameModule, GameSessionRec, ViewContext } from '../core/types'
+import { playableQuestions, type PlayableQuestion, type QuizDef } from '../../../shared/library'
 import type {
   QuizAction,
   QuizCommand,
@@ -11,23 +9,16 @@ import type {
   QuizPodiumRow,
 } from '../../../shared/games/quiz'
 
-interface QuizQuestion {
-  text: string
-  answers: string[]
-  correct: number
-  duration: number
-  image: string | null
-}
-
 interface QuizPack {
   id: string
   title: string
-  questions: QuizQuestion[]
+  questions: PlayableQuestion[]
 }
 
 interface QuizState {
   phase: 'pickPack' | 'getReady' | 'question' | 'reveal' | 'finished'
   packs: QuizPackInfo[]
+  /** Le quiz joué est copié dans l'état : l'éditer pendant la partie ne change rien. */
   pack: QuizPack | null
   qIndex: number
   questionStartAt: number
@@ -37,48 +28,22 @@ interface QuizState {
   totals: Record<string, number>
 }
 
-const CONTENT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../content/quiz')
 const READY_MS = 3000
 const GRACE_MS = 400 // marge réseau : le timer serveur coupe un peu après le deadline affiché
 
-// ── Chargement des packs (relus à chaque lancement : éditables sans redémarrer) ──
+// ── Bibliothèque ─────────────────────────────────────────────────────────
+//
+// Le moteur de jeu est synchrone alors que la bibliothèque vit dans une base
+// asynchrone (potentiellement distante). On garde donc une copie en mémoire,
+// rafraîchie au démarrage et après chaque édition — jamais pendant une partie.
 
-function sanitizePack(id: string, raw: any): QuizPack | null {
-  if (!raw || typeof raw.title !== 'string') return null
-  const questions: QuizQuestion[] = (Array.isArray(raw.questions) ? raw.questions : []).flatMap(
-    (q: any) => {
-      if (!q || typeof q.text !== 'string' || !Array.isArray(q.answers)) return []
-      const answers = q.answers.filter((a: any) => typeof a === 'string').slice(0, 4)
-      const correct = Number(q.correct)
-      if (answers.length < 2 || !Number.isInteger(correct) || correct < 0 || correct >= answers.length) {
-        console.warn(`[quiz] question ignorée dans ${id}: "${String(q.text).slice(0, 40)}…"`)
-        return []
-      }
-      const duration = Math.min(120, Math.max(5, Number(q.duration) || 20))
-      return [{ text: q.text, answers, correct, duration, image: typeof q.image === 'string' ? q.image : null }]
-    },
-  )
-  return questions.length > 0 ? { id, title: raw.title, questions } : null
+let library: QuizPack[] = []
+
+export function setQuizLibrary(quizzes: QuizDef[]) {
+  library = quizzes
+    .map(q => ({ id: q.id, title: q.title, questions: playableQuestions(q) }))
+    .filter(p => p.questions.length > 0)
 }
-
-function loadPacks(): QuizPack[] {
-  if (!fs.existsSync(CONTENT_DIR)) return []
-  return fs
-    .readdirSync(CONTENT_DIR)
-    .filter(f => f.endsWith('.json'))
-    .flatMap(f => {
-      try {
-        const raw = JSON.parse(fs.readFileSync(path.join(CONTENT_DIR, f), 'utf8'))
-        const pack = sanitizePack(f.replace(/\.json$/, ''), raw)
-        return pack ? [pack] : []
-      } catch (e) {
-        console.warn(`[quiz] pack invalide ${f}: ${(e as Error).message}`)
-        return []
-      }
-    })
-}
-
-const mediaUrl = (image: string | null) => (image ? `/media/quiz/${encodeURIComponent(image)}` : null)
 
 // ── Déroulé ──────────────────────────────────────────────────────────────
 
@@ -131,14 +96,13 @@ function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: n
 // ── Module ───────────────────────────────────────────────────────────────
 
 export const quizModule: GameModule<QuizState> = {
-  createInitialState() {
-    const packs = loadPacks()
-    if (packs.length === 0) {
-      throw new Error('Aucun pack de questions valide dans server/content/quiz/')
+  createInitialState(): QuizState {
+    if (library.length === 0) {
+      throw new Error('Aucun quiz prêt à jouer — créez-en un dans l’espace animateur (/edit)')
     }
     return {
       phase: 'pickPack',
-      packs: packs.map(p => ({ id: p.id, title: p.title, questionCount: p.questions.length })),
+      packs: library.map(p => ({ id: p.id, title: p.title, questionCount: p.questions.length })),
       pack: null,
       qIndex: 0,
       questionStartAt: 0,
@@ -166,8 +130,8 @@ export const quizModule: GameModule<QuizState> = {
     switch (command?.type) {
       case 'selectPack': {
         if (st.phase !== 'pickPack') return
-        const pack = loadPacks().find(p => p.id === command.packId)
-        if (!pack) throw new Error('Pack introuvable')
+        const pack = library.find(p => p.id === command.packId)
+        if (!pack) throw new Error('Quiz introuvable')
         st.pack = pack
         st.phase = 'getReady'
         st.deadline = ctx.now() + READY_MS
@@ -176,7 +140,7 @@ export const quizModule: GameModule<QuizState> = {
       }
       case 'next':
         if (st.phase === 'question') {
-          reveal(sess, ctx) // le host force la fin de la question
+          reveal(sess, ctx) // l'animateur force la fin de la question
         } else if (st.phase === 'reveal' && st.pack) {
           if (st.qIndex + 1 < st.pack.questions.length) startQuestion(sess, st.qIndex + 1, ctx)
           else st.phase = 'finished'
@@ -206,7 +170,7 @@ export const quizModule: GameModule<QuizState> = {
         ...base,
         text: q.text,
         answers: q.answers,
-        image: mediaUrl(q.image),
+        image: q.image,
         deadline: st.deadline,
         ...(st.phase === 'reveal' && {
           correct: q.correct,
@@ -230,7 +194,12 @@ export const quizModule: GameModule<QuizState> = {
 
   hostView(sess, vctx): QuizHostView {
     const st = sess.state
-    const base = { phase: st.phase, qIndex: st.qIndex, qCount: st.pack?.questions.length ?? 0, packTitle: st.pack?.title }
+    const base = {
+      phase: st.phase,
+      qIndex: st.qIndex,
+      qCount: st.pack?.questions.length ?? 0,
+      packTitle: st.pack?.title,
+    }
     if (st.phase === 'pickPack') return { ...base, packs: st.packs }
     if (st.phase === 'getReady') return { ...base, deadline: st.deadline }
     if ((st.phase === 'question' || st.phase === 'reveal') && st.pack) {
@@ -239,7 +208,7 @@ export const quizModule: GameModule<QuizState> = {
         ...base,
         text: q.text,
         answers: q.answers,
-        image: mediaUrl(q.image),
+        image: q.image,
         deadline: st.deadline,
         answeredCount: Object.keys(st.answers).length,
         participantCount: sess.participantIds.length,

@@ -30,12 +30,14 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
   if (v.phase === 'pickPack') {
     return (
       <div className="quiz-host">
-        <h2>🧠 Quiz — choisissez un pack</h2>
+        <h2>🧠 Choisissez un quiz</h2>
         <div className="game-cards">
           {v.packs?.map(p => (
             <div key={p.id} className="game-card">
               <h3>{p.title}</h3>
-              <p className="muted">{p.questionCount} questions</p>
+              <p className="muted">
+                {p.questionCount} question{p.questionCount > 1 ? 's' : ''}
+              </p>
               <button className="btn btn-primary" onClick={() => sendCommand({ type: 'selectPack', packId: p.id })}>
                 C'est parti !
               </button>

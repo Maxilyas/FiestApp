@@ -141,6 +141,9 @@ export function HostApp() {
                 >
                   {connectedCount === 0 ? 'En attente des invités…' : 'Lancer un quiz'}
                 </button>
+                <a className="btn btn-ghost btn-small" href={`/edit?key=${localStorage.getItem('quizz.hostKey') ?? ''}`}>
+                  ✏️ Mes quiz
+                </a>
               </div>
             </div>
           )}

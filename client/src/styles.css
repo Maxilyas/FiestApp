@@ -405,3 +405,96 @@ h1, h2, h3 { line-height: 1.3; }
 
 .podium { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .center { text-align: center; }
+
+/* ── Espace animateur : mes quiz ─────────────────── */
+.warn { color: var(--accent-2); font-weight: 600; }
+
+.editor {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 20px 16px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.title-input {
+  flex: 1;
+  min-width: 220px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.quiz-list { display: flex; flex-direction: column; gap: 10px; }
+
+.quiz-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.quiz-row-main { min-width: 200px; flex: 1; }
+
+.question-card { display: flex; flex-direction: column; gap: 10px; }
+
+.question-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.answers-edit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.answer-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 2px solid var(--card-border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.answer-edit .input { flex: 1; padding: 8px 10px; }
+.answer-edit input[type='radio'] { accent-color: var(--ok); width: 18px; height: 18px; cursor: pointer; }
+.answer-edit.is-correct { border-color: var(--ok); background: rgba(74, 222, 128, 0.08); }
+
+.answer-edit.ans-0 .ans-shape { color: #e21b3c; }
+.answer-edit.ans-1 .ans-shape { color: #4c9aff; }
+.answer-edit.ans-2 .ans-shape { color: #d89e00; }
+.answer-edit.ans-3 .ans-shape { color: #26890c; }
+
+.question-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.duration-input { width: 80px; padding: 8px 10px; text-align: center; }
+
+.thumb {
+  height: 56px;
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+}
+
+@media (max-width: 560px) {
+  .answers-edit { grid-template-columns: 1fr; }
+}

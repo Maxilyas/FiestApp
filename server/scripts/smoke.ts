@@ -41,8 +41,10 @@ function waitFor<T>(socket: Socket, event: string, pred: (p: T) => boolean, labe
   })
 }
 
-const dbPath = path.join(mkdtempSync(path.join(tmpdir(), 'quizz-smoke-')), 'test.db')
-const server = await createQuizServer({ port: 0, dbPath, hostKey: 'smoke' })
+const tmpDir = mkdtempSync(path.join(tmpdir(), 'quizz-smoke-'))
+const dbPath = path.join(tmpDir, 'test.db')
+const quizDbUrl = `file:${path.join(tmpDir, 'quizzes.db').replace(/\\/g, '/')}`
+const server = await createQuizServer({ port: 0, dbPath, hostKey: 'smoke', quizDbUrl })
 const url = `http://localhost:${server.port}`
 const connect = () => clientIo(url, { transports: ['websocket'] })
 
@@ -132,7 +134,104 @@ try {
   ;(host as any).emit('host:endSession', { sessionId: quizId })
   await cleared
 
-  console.log('✅ Smoke test OK — inscription, quiz, rapidité, classement, reconnexion')
+  // 9. Bibliothèque : l'API est protégée par la clé animateur
+  const anon = await fetch(`${url}/api/quizzes`)
+  assert(anon.status === 401, `l'API doit refuser sans clé (reçu ${anon.status})`)
+
+  const apiCall = (path: string, init?: RequestInit) =>
+    fetch(`${url}${path}`, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', 'x-quizz-key': 'smoke', ...init?.headers },
+    })
+
+  const seeded = (await (await apiCall('/api/quizzes')).json()) as any[]
+  assert(
+    seeded.some((q: any) => q.id === 'culture-generale'),
+    'les quiz JSON livrés doivent être importés dans la bibliothèque',
+  )
+
+  // 10. Photos : envoi en dataURL, stockage en base, relecture publique
+  //     (les téléphones des invités doivent pouvoir les charger sans clé)
+  const TINY_JPEG =
+    'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
+  const upload = (await (
+    await apiCall('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl: TINY_JPEG }) })
+  ).json()) as any
+  assert(upload.url?.startsWith('/media/image/'), `URL d'image inattendue : ${upload.url}`)
+  const fetched = await fetch(`${url}${upload.url}`)
+  assert(fetched.ok, 'la photo doit être lisible sans clé (les invités la chargent)')
+  assert(
+    fetched.headers.get('content-type') === 'image/jpeg',
+    `type de contenu inattendu : ${fetched.headers.get('content-type')}`,
+  )
+  const bytes = Buffer.from(await fetched.arrayBuffer())
+  assert(
+    bytes.equals(Buffer.from(TINY_JPEG.split(',')[1], 'base64')),
+    'la photo relue diffère de la photo envoyée',
+  )
+  const badImage = await apiCall('/api/images', {
+    method: 'POST',
+    body: JSON.stringify({ dataUrl: 'data:text/html;base64,PHNjcmlwdD4=' }),
+  })
+  assert(badImage.status === 400, 'un faux fichier image doit être refusé')
+
+  // 11. Création + édition : un brouillon incomplet est conservé, pas jeté
+  const created = (await (
+    await apiCall('/api/quizzes', { method: 'POST', body: JSON.stringify({ title: 'Spécial Romane' }) })
+  ).json()) as any
+  assert(created.id, 'création de quiz échouée')
+
+  const saved = (await (
+    await apiCall(`/api/quizzes/${created.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        title: 'Spécial Romane',
+        questions: [
+          // Réponses vides intercalées : la bonne réponse doit suivre son texte,
+          // pas son numéro de case.
+          { text: 'Quelle danse ?', answers: ['', 'La salsa', '', 'Le tango'], correct: 1, duration: 15, image: null },
+          { text: 'Brouillon pas fini', answers: ['', '', '', ''], correct: 0, duration: 20, image: null },
+        ],
+      }),
+    })
+  ).json()) as any
+  assert(saved.questions.length === 2, 'le brouillon incomplet doit être conservé tel quel')
+
+  const all = (await (await apiCall('/api/quizzes')).json()) as any[]
+  const summary = all.find(q => q.id === created.id)
+  assert(
+    summary.questionCount === 2 && summary.readyCount === 1,
+    `2 questions dont 1 prête attendues, reçu ${summary?.questionCount}/${summary?.readyCount}`,
+  )
+
+  // 12. Le quiz créé se joue immédiatement : seule la question prête est posée,
+  //     et la bonne réponse est bien « La salsa » une fois les vides retirées
+  const quiz2Seen = waitFor<any>(bob, 'session:view', () => true, 'nouvelle partie chez Bob')
+  ;(host as any).emit('host:launch')
+  const quiz2Id = (await quiz2Seen).sessionId
+  ;(host as any).emit('host:command', { sessionId: quiz2Id, command: { type: 'selectPack', packId: created.id } })
+  const q2 = await waitFor<any>(bob, 'session:view', p => p.view.phase === 'question', 'question du quiz créé')
+  assert(q2.view.qCount === 1, `1 seule question jouable attendue, vu ${q2.view.qCount}`)
+  assert(
+    JSON.stringify(q2.view.answers) === JSON.stringify(['La salsa', 'Le tango']),
+    `réponses vides mal retirées : ${JSON.stringify(q2.view.answers)}`,
+  )
+
+  const bobReveal = waitFor<any>(bob, 'session:view', p => p.view.phase === 'reveal', 'reveal du quiz créé')
+  ;(bob as any).emit('player:action', { sessionId: quiz2Id, action: { type: 'answer', choice: 0 } })
+  ;(alice2 as any).emit('player:action', { sessionId: quiz2Id, action: { type: 'answer', choice: 1 } })
+  const rv2 = await bobReveal
+  assert(rv2.view.correct === 0, `« La salsa » doit rester la bonne réponse (index reçu : ${rv2.view.correct})`)
+  assert(rv2.view.yourPoints > 100, 'Bob a répondu juste, il doit marquer des points')
+
+  // 13. Suppression
+  const del = await apiCall(`/api/quizzes/${created.id}`, { method: 'DELETE' })
+  assert(del.ok, 'suppression du quiz échouée')
+  const after = (await (await apiCall('/api/quizzes')).json()) as any[]
+  assert(!after.some((q: any) => q.id === created.id), 'le quiz supprimé ne doit plus être listé')
+  ;(host as any).emit('host:endSession', { sessionId: quiz2Id })
+
+  console.log('✅ Smoke test OK — inscription, quiz, rapidité, classement, reconnexion, bibliothèque, photos')
   host.disconnect()
   bob.disconnect()
   alice2.disconnect()
