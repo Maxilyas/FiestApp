@@ -48,7 +48,7 @@ L'estimation évite les blocages : même sans connaître la réponse, on propose
 - **Les cases de réponse vides** sont simplement ignorées en jeu (et la bonne réponse suit son texte, pas son numéro de case).
 - **Les brouillons ne sont jamais perdus** : une question incomplète est enregistrée telle quelle, signalée par un ⚠️, et sautée au moment de jouer. La liste affiche « 8 questions prêtes · 2 à compléter ».
 - **Photos** : le navigateur les réduit et les recompresse avant l'envoi (une photo de téléphone de 4 Mo devient ~150 Ko), puis elles vivent dans la base.
-- **Une estimation se corrige** tant que tout le monde n'a pas répondu : un chiffre en trop est vite tapé sur un téléphone.
+- **On peut changer d'avis** jusqu'à la révélation, sur un QCM comme sur une estimation : un doigt qui glisse sur un téléphone tenu dans le noir ne doit pas coûter la question. C'est le dernier envoi qui fait foi, heure comprise — se raviser coûte donc du bonus de rapidité, sans quoi on pourrait taper au hasard dès la première seconde pour s'assurer le maximum, puis corriger tranquillement.
 - **Coller une liste** évite de saisir cinquante questions une par une. Une ligne vide sépare deux questions, l'étoile marque la bonne réponse, le signe égal crée une estimation. Les questions sans étoile sont importées mais signalées.
 - **👁 Aperçu** montre une question telle qu'elle sera projetée, sans lancer de partie.
 

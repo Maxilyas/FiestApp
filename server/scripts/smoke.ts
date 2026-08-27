@@ -374,12 +374,38 @@ try {
   const resumedView = await resumed
   assert(resumedView.view.yourChoice === null, 'la réponse envoyée pendant la pause doit être ignorée')
 
+  // Changer d'avis : Bob se trompe, se ravise, et c'est la seconde réponse
+  // qui compte — sans que la première soit comptée en plus.
+  const mauvaise = (q0.correct + 1) % q0.answers.length
+  const priseEnCompte = waitFor<any>(
+    bob,
+    'session:view',
+    p => p.view.yourChoice === mauvaise,
+    'première réponse enregistrée',
+  )
+  ;(bob as any).emit('player:action', { sessionId: ctrlId, action: { type: 'answer', choice: mauvaise } })
+  await priseEnCompte
+
+  const corrigee = waitFor<any>(
+    bob,
+    'session:view',
+    p => p.view.yourChoice === q0.correct,
+    'réponse corrigée',
+  )
+  ;(bob as any).emit('player:action', { sessionId: ctrlId, action: { type: 'answer', choice: q0.correct } })
+  await corrigee
+
   // Bonne réponse, puis annulation des points par l'animateur
   const ctrlReveal = waitFor<any>(bob, 'session:view', p => p.view.phase === 'reveal', 'révélation de contrôle')
-  ;(bob as any).emit('player:action', { sessionId: ctrlId, action: { type: 'answer', choice: q0.correct } })
+  const ctrlHostReveal = waitFor<any>(host, 'session:view', p => p.view.phase === 'reveal', 'révélation côté écran')
   ;(alice2 as any).emit('player:action', { sessionId: ctrlId, action: { type: 'answer', choice: q0.correct } })
   const gained = (await ctrlReveal).view.yourPoints
-  assert(gained > 0, 'Bob devrait avoir marqué avant annulation')
+  assert(gained > 0, 'la réponse corrigée de Bob doit compter')
+  const repartition = (await ctrlHostReveal).view.counts
+  assert(
+    repartition[q0.correct] === 2 && repartition[mauvaise] === 0,
+    `la première réponse ne doit pas rester comptée : ${JSON.stringify(repartition)}`,
+  )
 
   const cancelled = waitFor<any>(bob, 'session:view', p => p.view.yourQuizTotal === 0, 'points annulés')
   ;(host as any).emit('host:command', { sessionId: ctrlId, command: { type: 'cancel' } })

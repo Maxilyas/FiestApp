@@ -226,16 +226,23 @@ export const quizModule: GameModule<QuizState> = {
     if (st.phase !== 'question' || !st.pack || st.pausedMs !== null) return
     const q = st.pack.questions[st.qIndex]
 
+    // Changer d'avis est permis jusqu'à la révélation, pour les deux types de
+    // question. Un doigt qui glisse sur un téléphone tenu dans le noir ne doit
+    // pas coûter la question.
+    //
+    // C'est le dernier envoi qui fait foi, y compris pour l'heure : sinon on
+    // pourrait taper une réponse au hasard dès la première seconde pour
+    // s'assurer le bonus de rapidité, puis la corriger tranquillement.
+    // Se raviser coûte donc du bonus — ce qui est exactement le compromis
+    // qu'on veut.
     if (action?.type === 'answer' && q.kind === 'choice') {
-      if (st.responses[playerId]) return // un QCM ne se corrige pas
       const choice = Number(action.choice)
       if (!Number.isInteger(choice) || choice < 0 || choice >= q.answers.length) return
+      if (st.responses[playerId]?.choice === choice) return // rien n'a changé
       st.responses[playerId] = { choice, value: null, ms: ctx.now() - st.questionStartAt }
     } else if (action?.type === 'guess' && q.kind === 'number') {
       const value = Number(action.value)
       if (!Number.isFinite(value)) return
-      // Une estimation se corrige tant que tout le monde n'a pas répondu :
-      // on ne veut pas pénaliser un doigt qui glisse sur un clavier numérique.
       st.responses[playerId] = { choice: null, value, ms: ctx.now() - st.questionStartAt }
     } else {
       return

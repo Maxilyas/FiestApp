@@ -106,15 +106,15 @@ export function QuizPlayer({ view: v, send }: Props) {
               {v.answers!.map((a, i) => (
                 <button
                   key={i}
-                  disabled={v.yourChoice !== null || v.paused}
+                  // Les autres réponses restent actives : on peut se raviser
+                  // jusqu'à la révélation. Les estomper les ferait paraître
+                  // hors d'atteinte.
+                  disabled={v.paused}
                   onClick={() => {
                     navigator.vibrate?.(35)
                     send({ type: 'answer', choice: i })
                   }}
-                  className={
-                    `ans-btn ans-${i}` +
-                    (v.yourChoice === i ? ' chosen' : v.yourChoice !== null ? ' dim' : '')
-                  }
+                  className={`ans-btn ans-${i}` + (v.yourChoice === i ? ' chosen' : '')}
                 >
                   <span className="ans-shape">{SHAPES[i]}</span>
                   <span className="ans-text">{a}</span>
@@ -122,7 +122,9 @@ export function QuizPlayer({ view: v, send }: Props) {
               ))}
             </div>
             {v.yourChoice !== null && (
-              <p className="muted center">Réponse enregistrée ✓ Regarde l'écran !</p>
+              <p className="muted center">
+                Réponse enregistrée ✓ Tu peux encore changer — mais tu perdrais du bonus de rapidité.
+              </p>
             )}
           </>
         )}
