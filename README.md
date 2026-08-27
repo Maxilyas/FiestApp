@@ -91,6 +91,8 @@ node server/scripts/fake-player.mjs http://localhost:3001 Test1 300
 
 ## Mettre en ligne (gratuitement)
 
+📄 **Mode d'emploi pas à pas, sites et commandes compris : [MISE-EN-LIGNE.md](MISE-EN-LIGNE.md).** Ce qui suit en est le résumé.
+
 Objectif : les invités scannent le QR et jouent en 4G, sans réseau à installer sur place. Il faut un hébergeur qui tienne les WebSocket — GitHub Pages, Vercel et Netlify ne conviennent pas.
 
 Deux comptes gratuits à créer (je ne peux pas le faire à ta place) :

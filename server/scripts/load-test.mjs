@@ -39,8 +39,22 @@ let phase = null
 let answeredAt = 0
 let finished = false
 
-const hostReady = new Promise(resolve => {
-  host.on('connect', () => host.emit('host:hello', { key: hostKey }, res => resolve(res.ok)))
+// Sans garde-fou, un serveur éteint laisserait le script attendre sans fin.
+const hostReady = new Promise((resolve, reject) => {
+  const giveUp = setTimeout(
+    () => reject(new Error(`aucune réponse de ${url} — le serveur est-il démarré ?`)),
+    10000,
+  )
+  host.on('connect_error', e => {
+    clearTimeout(giveUp)
+    reject(new Error(`connexion à ${url} impossible : ${e.message}`))
+  })
+  host.on('connect', () =>
+    host.emit('host:hello', { key: hostKey }, res => {
+      clearTimeout(giveUp)
+      resolve(res.ok)
+    }),
+  )
 })
 
 host.on('session:view', ({ sessionId: id, view }) => {
@@ -126,8 +140,13 @@ const health = async () => {
 
 console.log(`⚡ Test de charge : ${count} invités sur ${url}`)
 
-if (!(await hostReady)) {
-  console.error('❌ clé animateur refusée (HOST_KEY)')
+try {
+  if (!(await hostReady)) {
+    console.error("❌ clé animateur refusée — passez la bonne valeur via HOST_KEY")
+    process.exit(1)
+  }
+} catch (e) {
+  console.error(`❌ ${e.message}`)
   process.exit(1)
 }
 
