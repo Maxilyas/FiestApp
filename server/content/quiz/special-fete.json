@@ -1,0 +1,46 @@
+{
+  "title": "⭐ Spécial fêté·e (✏️ à personnaliser !)",
+  "questions": [
+    {
+      "text": "Où [Prénom] est-il/elle né·e ?",
+      "answers": ["Ville A ✏️", "Ville B ✏️", "Ville C ✏️", "Ville D ✏️"],
+      "correct": 0
+    },
+    {
+      "text": "Quel était le métier rêvé de [Prénom] enfant ?",
+      "answers": ["Métier A ✏️", "Métier B ✏️", "Métier C ✏️", "Métier D ✏️"],
+      "correct": 0
+    },
+    {
+      "text": "Quel est le plat que [Prénom] pourrait manger tous les jours ?",
+      "answers": ["Plat A ✏️", "Plat B ✏️", "Plat C ✏️", "Plat D ✏️"],
+      "correct": 0
+    },
+    {
+      "text": "Quelle chanson [Prénom] chante-t-il/elle sous la douche ?",
+      "answers": ["Chanson A ✏️", "Chanson B ✏️", "Chanson C ✏️", "Chanson D ✏️"],
+      "correct": 0
+    },
+    {
+      "text": "Vrai ou faux : [Prénom] a déjà rencontré une célébrité.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15
+    },
+    {
+      "text": "Quelle est la plus grande phobie de [Prénom] ?",
+      "answers": ["Phobie A ✏️", "Phobie B ✏️", "Phobie C ✏️", "Phobie D ✏️"],
+      "correct": 0
+    },
+    {
+      "text": "À quel âge [Prénom] a-t-il/elle eu son premier téléphone ?",
+      "answers": ["Âge A ✏️", "Âge B ✏️", "Âge C ✏️", "Âge D ✏️"],
+      "correct": 0
+    },
+    {
+      "text": "Quel emoji résume le mieux [Prénom] ?",
+      "answers": ["😂", "😴", "🤪", "👑"],
+      "correct": 0
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "title": "🌍 Culture générale",
+  "questions": [
+    {
+      "text": "Lequel de ces aliments peut se conserver des millénaires sans périmer ?",
+      "answers": ["Le miel", "Le beurre", "Le riz", "Le chocolat"],
+      "correct": 0
+    },
+    {
+      "text": "Quelle est la plus grande planète du système solaire ?",
+      "answers": ["Saturne", "Jupiter", "Neptune", "Uranus"],
+      "correct": 1
+    },
+    {
+      "text": "En quelle année le premier iPhone est-il sorti ?",
+      "answers": ["2005", "2007", "2009", "2010"],
+      "correct": 1
+    },
+    {
+      "text": "Quel pays a remporté la Coupe du monde de football 2018 ?",
+      "answers": ["La Croatie", "Le Brésil", "La France", "L'Allemagne"],
+      "correct": 2
+    },
+    {
+      "text": "Combien y a-t-il de communes en France, environ ?",
+      "answers": ["3 500", "12 000", "35 000", "60 000"],
+      "correct": 2
+    },
+    {
+      "text": "Quel oiseau est capable de dormir en plein vol ?",
+      "answers": ["Le martinet", "Le hibou", "Le colibri", "La pie"],
+      "correct": 0
+    },
+    {
+      "text": "Dans « La Reine des neiges », comment s'appelle le bonhomme de neige ?",
+      "answers": ["Sven", "Olaf", "Kristoff", "Hans"],
+      "correct": 1
+    },
+    {
+      "text": "Quelle est la boisson la plus consommée au monde après l'eau ?",
+      "answers": ["Le café", "La bière", "Le thé", "Le jus d'orange"],
+      "correct": 2
+    },
+    {
+      "text": "Vrai ou faux : les flamants roses naissent gris.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15
+    },
+    {
+      "text": "Quel est le plus long fleuve entièrement situé en France ?",
+      "answers": ["La Seine", "Le Rhône", "La Garonne", "La Loire"],
+      "correct": 3
+    }
+  ]
+}

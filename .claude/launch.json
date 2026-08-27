@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "quizz",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:qa", "-w", "server"],
+      "port": 3001,
+      "autoPort": true
+    }
+  ]
+}
