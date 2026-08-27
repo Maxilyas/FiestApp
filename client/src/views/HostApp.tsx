@@ -89,6 +89,11 @@ export function HostApp() {
 
   return (
     <div className={'host' + (staging ? ' staging' : '')}>
+      {/* La lueur qui respire derrière l'écran commun. Décorative : elle est
+          masquée aux lecteurs d'écran, et ne s'affiche pas si le système
+          demande moins de mouvement. */}
+      <div className="ambient-glow" aria-hidden="true" />
+
       <header className="host-header">
         <h1>
           🎉 Quizz Romane 30 {!s.connected && <span className="pill offline-pill">⚠️ reconnexion…</span>}

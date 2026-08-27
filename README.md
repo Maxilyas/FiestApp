@@ -144,6 +144,18 @@ npm run load -- http://localhost:3001 50
 
 Le script simule une salle entière : il inscrit N invités d'un coup, joue lui-même le rôle de l'écran commun et mesure ce qui compte le soir J. Relevé sur un PC portable, 50 invités : inscriptions 141 ms en moyenne (p95 201 ms), diffusion d'une question vers les téléphones 1 ms, révélation 2 ms, 80 Mo de mémoire serveur. À 100 invités, la diffusion reste à 1 ms et les inscriptions montent à 550 ms au pire — l'offre gratuite de Render (512 Mo) a de la marge.
 
+## Identité visuelle
+
+Direction **« Salsa nocturne »**, pensée pour une salle dans le noir : fond aubergine profond, magenta et or, une lueur qui respire derrière l'écran commun. Tout est dans `client/src/styles.css`, piloté par une dizaine de variables en tête de fichier — changer `--hot` et `--gold` suffit à réorienter toute l'application.
+
+Trois règles ont guidé les choix, et elles valent pour toute évolution :
+
+- **Le contraste avant la finesse.** L'écran commun est vu de loin sur un vidéoprojecteur. Deux couleurs distinctes sur un écran de PC peuvent devenir identiques à cinq mètres.
+- **Aucune police téléchargée.** Tout repose sur des caractères déjà présents sur les machines (Bahnschrift condensée pour ce qui doit se lire de loin, Corbel pour le reste). Rien à charger, rien qui arrive en retard, et ça marche sans réseau.
+- **La couleur n'est jamais seule.** Chaque réponse porte une forme (▲ ◆ ● ■) pour qui distingue mal les couleurs, et les animations se coupent si le système demande moins de mouvement.
+
+L'espace animateur (`/edit`) partage la palette mais reste calme : pas de lueur, pas d'animation. C'est un outil de travail, pas un spectacle.
+
 ## Architecture
 
 ```
