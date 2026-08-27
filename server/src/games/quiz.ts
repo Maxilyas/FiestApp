@@ -265,6 +265,7 @@ export const quizModule: GameModule<QuizState> = {
         unit: q.kind === 'number' ? q.unit : undefined,
         image: q.image,
         deadline: st.deadline,
+        duration: q.duration,
         ...(st.phase === 'reveal' && {
           justArrived: (st.playFrom[playerId] ?? 0) > st.qIndex,
           correct: q.kind === 'choice' ? q.correct : undefined,
@@ -307,6 +308,7 @@ export const quizModule: GameModule<QuizState> = {
         unit: q.kind === 'number' ? q.unit : undefined,
         image: q.image,
         deadline: st.deadline,
+        duration: q.duration,
         answeredCount: Object.keys(st.responses).length,
         participantCount: sess.participantIds.length,
       }

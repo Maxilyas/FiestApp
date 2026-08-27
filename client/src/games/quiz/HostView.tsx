@@ -1,5 +1,8 @@
+import { useEffect } from 'react'
 import type { QuizCommand, QuizHostView } from '../../../../shared/games/quiz'
-import { Countdown } from '../../components/Countdown'
+import { GetReady } from '../../components/GetReady'
+import { TimerBar } from '../../components/TimerBar'
+import { sound } from '../../sound'
 
 const SHAPES = ['▲', '◆', '●', '■']
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -21,6 +24,39 @@ function Standings({ rows }: { rows: NonNullable<QuizHostView['standings']> }) {
   )
 }
 
+/**
+ * Podium final : les trois marches montent depuis le bas, la première au
+ * milieu. Hauteur proportionnelle au score, avec un plancher pour que la
+ * 3e marche reste visible même si l'écart est énorme.
+ */
+function FinalPodium({ rows }: { rows: NonNullable<QuizHostView['standings']> }) {
+  const top = rows.slice(0, 3)
+  if (top.length === 0) return <p className="muted">Personne n'a joué…</p>
+  const best = Math.max(...top.map(r => r.points), 1)
+  const order = [top[1], top[0], top[2]] // 2e — 1er — 3e
+  return (
+    <div className="final-podium">
+      {order.map((row, slot) =>
+        row ? (
+          <div key={slot} className={'podium-col rank-' + (slot === 1 ? 1 : slot === 0 ? 2 : 3)}>
+            <span className="podium-avatar">{row.avatar}</span>
+            <span className="podium-name">{row.name}</span>
+            <div
+              className="podium-step"
+              style={{ height: `${30 + 70 * (row.points / best)}%` }}
+            >
+              <span className="podium-medal">{MEDALS[slot === 1 ? 0 : slot === 0 ? 1 : 2]}</span>
+              <span className="podium-points">{row.points}</span>
+            </div>
+          </div>
+        ) : (
+          <div key={slot} className="podium-col" />
+        ),
+      )}
+    </div>
+  )
+}
+
 interface Props {
   view: QuizHostView
   sendCommand: (command: QuizCommand) => void
@@ -28,6 +64,13 @@ interface Props {
 }
 
 export function QuizHost({ view: v, sendCommand, endSession }: Props) {
+  // Les sons ponctuent les changements de phase — sur l'écran commun seulement.
+  useEffect(() => {
+    if (v.phase === 'question') sound.go()
+    else if (v.phase === 'reveal') (v.kind === 'number' ? sound.target : sound.reveal)()
+    else if (v.phase === 'finished') sound.fanfare()
+  }, [v.phase, v.qIndex, v.kind])
+
   if (v.phase === 'pickPack') {
     return (
       <div className="quiz-host">
@@ -53,18 +96,13 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
   }
 
   if (v.phase === 'getReady') {
-    return (
-      <div className="getready">
-        <span className="getready-emoji">🚦</span>
-        <p>Préparez vos téléphones…</p>
-        {v.deadline && <Countdown deadline={v.deadline} />}
-      </div>
-    )
+    return <GetReady deadline={v.deadline!} sounds label="Préparez vos téléphones…" />
   }
 
   if (v.phase === 'question' || v.phase === 'reveal') {
     const revealing = v.phase === 'reveal'
     const last = v.qIndex + 1 >= v.qCount
+    const maxCount = Math.max(1, ...(v.counts ?? [0]))
     return (
       <div className="quiz-host">
         <div className="quiz-status">
@@ -72,18 +110,19 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
           <span className="pill">
             Question {v.qIndex + 1}/{v.qCount}
           </span>
-          {!revealing && (
-            <>
-              <Countdown deadline={v.deadline!} />
-              <span className="muted">
-                {v.answeredCount}/{v.participantCount} ont répondu
-              </span>
-            </>
-          )}
           {revealing && v.fastest && (
-            <span className="pill">⚡ {v.fastest.name} — {(v.fastest.ms / 1000).toFixed(2)} s</span>
+            <span className="pill flash">⚡ {v.fastest.name} — {(v.fastest.ms / 1000).toFixed(2)} s</span>
           )}
         </div>
+
+        {!revealing && (
+          <div className="question-timer">
+            <TimerBar deadline={v.deadline!} duration={v.duration ?? 20} ticking />
+            <span className="muted answered-count">
+              {v.answeredCount}/{v.participantCount} ont répondu
+            </span>
+          </div>
+        )}
 
         <h2 className="quiz-question">{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="" />}
@@ -91,12 +130,12 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
         {v.kind === 'number' ? (
           revealing ? (
             <div className="guess-reveal">
-              <p className="target-value">
+              <p className="target-value pop">
                 {formatNumber(v.target!)} <span className="target-unit">{v.unit}</span>
               </p>
               <div className="podium">
                 {v.guesses?.map((g, i) => (
-                  <div key={i} className="lb-row">
+                  <div key={i} className="lb-row" style={{ animationDelay: `${i * 60}ms` }}>
                     <span className="lb-rank">{i === 0 ? '🎯' : i + 1}</span>
                     <span className="lb-avatar">{g.avatar}</span>
                     <span className="lb-name">{g.name}</span>
@@ -123,8 +162,17 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
                 className={`ans-btn ans-${i}` + (revealing ? (i === v.correct ? ' correct' : ' dim') : '')}
               >
                 <span className="ans-shape">{SHAPES[i]}</span>
-                {a}
-                {revealing && <span className="ans-count">{v.counts?.[i] ?? 0}</span>}
+                <span className="ans-text">{a}</span>
+                {revealing && (
+                  <>
+                    {i === v.correct && <span className="ans-check">✓</span>}
+                    <span className="ans-count">{v.counts?.[i] ?? 0}</span>
+                    <span
+                      className="ans-bar"
+                      style={{ width: `${((v.counts?.[i] ?? 0) / maxCount) * 100}%` }}
+                    />
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -157,7 +205,8 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
   return (
     <div className="quiz-host">
       <h2>🏆 Podium du quiz</h2>
-      {v.standings && <Standings rows={v.standings} />}
+      {v.standings && <FinalPodium rows={v.standings} />}
+      {v.standings && v.standings.length > 3 && <Standings rows={v.standings.slice(3)} />}
       <div className="row">
         <button className="btn btn-primary" onClick={endSession}>Terminer le quiz</button>
       </div>

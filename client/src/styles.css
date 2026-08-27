@@ -323,6 +323,8 @@ h1, h2, h3 { line-height: 1.3; }
 .quiz-host .ans-grid { gap: 14px; }
 
 .ans-btn {
+  position: relative;
+  overflow: hidden;
   padding: 16px 14px;
   border-radius: 14px;
   border: none;
@@ -335,6 +337,29 @@ h1, h2, h3 { line-height: 1.3; }
   align-items: center;
   gap: 10px;
   min-height: 64px;
+  transition: transform 0.12s ease, opacity 0.25s ease, box-shadow 0.25s ease;
+}
+
+.ans-btn:not(:disabled):active { transform: scale(0.96); }
+.ans-text { position: relative; z-index: 1; }
+
+/* Barre de répartition : elle pousse depuis la gauche à la révélation, et se
+   lit du fond de la salle mieux qu'un chiffre. */
+.ans-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 0 3px 3px 0;
+  animation: grow-bar 0.5s ease-out both;
+  transform-origin: left;
+}
+
+.ans-check {
+  margin-left: auto;
+  font-size: 1.3rem;
+  animation: pop 0.4s ease-out both;
 }
 
 .quiz-host .ans-btn { cursor: default; font-size: 1.2rem; }
@@ -347,6 +372,7 @@ h1, h2, h3 { line-height: 1.3; }
   outline: 4px solid var(--accent-2);
   box-shadow: 0 0 24px rgba(255, 209, 102, 0.45);
   opacity: 1;
+  animation: pulse 0.7s ease-out 2;
 }
 
 .ans-0 { background: #e21b3c; }
@@ -357,26 +383,12 @@ h1, h2, h3 { line-height: 1.3; }
 .ans-shape { font-size: 1.05rem; }
 
 .ans-count {
-  margin-left: auto;
+  margin-left: 8px;
   background: rgba(0, 0, 0, 0.35);
   border-radius: 8px;
   padding: 2px 10px;
   font-size: 0.9rem;
 }
-
-.countdown {
-  font-weight: 900;
-  font-size: 1.3rem;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 999px;
-  padding: 6px 14px;
-  min-width: 2.4em;
-  text-align: center;
-  display: inline-block;
-}
-
-.countdown.urgent { color: var(--accent); }
-.quiz-host .countdown { font-size: 1.8rem; }
 
 .getready {
   text-align: center;
@@ -549,3 +561,160 @@ h1, h2, h3 { line-height: 1.3; }
 .target-unit { font-size: 1.4rem; color: var(--muted); }
 
 .guess-value { font-weight: 700; color: var(--text); margin-right: 10px; }
+
+/* ── Habillage « show » ─────────────────────────── */
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 24px rgba(255, 209, 102, 0.45); }
+  50% { box-shadow: 0 0 48px rgba(255, 209, 102, 0.95); }
+}
+
+@keyframes grow-bar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes slide-in {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes rise {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+.pop { animation: pop 0.45s ease-out both; }
+.flash { animation: pop 0.5s ease-out both; }
+
+/* Les lignes de classement arrivent l'une après l'autre (animationDelay posé
+   par le composant) : on lit le classement au lieu de le subir d'un bloc. */
+.podium .lb-row { animation: slide-in 0.35s ease-out both; }
+
+/* ── Barre de temps ─────────────────────────────── */
+.timer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.timer-track {
+  flex: 1;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.timer-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ok), var(--accent-2));
+  transition: width 0.12s linear;
+}
+
+.timer-track.urgent .timer-fill { background: linear-gradient(90deg, var(--accent-2), var(--accent)); }
+
+.timer-seconds {
+  font-size: 1.4rem;
+  font-weight: 900;
+  min-width: 2ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-seconds.urgent { color: var(--accent); }
+
+.question-timer { display: flex; flex-direction: column; gap: 4px; }
+.answered-count { align-self: flex-end; font-size: 0.9rem; }
+
+/* ── Décompte 3-2-1 ─────────────────────────────── */
+.big-count {
+  font-size: 5rem;
+  font-weight: 900;
+  color: var(--accent-2);
+  line-height: 1;
+  animation: pop 0.4s ease-out both;
+}
+
+/* ── Podium final ───────────────────────────────── */
+.final-podium {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  align-items: end;
+  gap: 12px;
+  min-height: 260px;
+  margin: 10px 0 4px;
+}
+
+.podium-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  height: 100%;
+}
+
+.podium-avatar { font-size: 2.4rem; animation: pop 0.5s ease-out both; }
+.podium-name { font-weight: 700; text-align: center; }
+
+.podium-step {
+  width: 100%;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.07));
+  border: 1px solid var(--card-border);
+  border-bottom: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  animation: rise 0.6s ease-out both;
+  transform-origin: bottom;
+}
+
+.rank-1 .podium-step { background: linear-gradient(180deg, rgba(255, 209, 102, 0.45), rgba(255, 209, 102, 0.1)); }
+
+.podium-medal { font-size: 1.8rem; }
+.podium-points { font-size: 1.3rem; font-weight: 900; color: var(--accent-2); }
+
+/* ── Écran commun en mode scène ─────────────────── */
+/* Pendant une question, seule la scène compte : les panneaux latéraux
+   disparaissent et tout grossit pour être lisible du fond de la salle. */
+.host-grid.staging { grid-template-columns: 1fr; }
+
+.host.staging .host-header h1 { font-size: 1.3rem; }
+.host.staging .qr-box { padding: 4px; }
+.host.staging .qr-box svg { width: 64px; height: 64px; }
+.host.staging .join-url { font-size: 1rem; }
+.host.staging .qr-caption { display: none; }
+
+.host.staging .quiz-question { font-size: 2.6rem; }
+.host.staging .ans-btn { min-height: 96px; font-size: 1.5rem; }
+.host.staging .timer-seconds { font-size: 2.2rem; }
+.host.staging .big-count { font-size: 8rem; }
+.host.staging .target-value { font-size: 5rem; }
+
+@media (max-width: 900px) {
+  .host.staging .quiz-question { font-size: 1.6rem; }
+  .host.staging .ans-btn { min-height: 72px; font-size: 1.1rem; }
+}
+
+/* Un vidéoprojecteur, oui — mais pas au prix du confort de qui préfère
+   les interfaces calmes. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

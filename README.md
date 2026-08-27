@@ -56,6 +56,10 @@ Au tout premier démarrage, les quiz livrés dans `server/content/quiz/*.json` s
 
 L'animateur clique **Lancer un quiz** sur l'écran commun, choisit le quiz, et le 3-2-1 démarre. Pour chaque question : la question s'affiche, chacun répond sur son téléphone, la révélation montre la bonne réponse, la répartition des réponses, le plus rapide et le top 5. À la fin, podium — et les points s'ajoutent au **classement de la soirée**, qui survit d'un quiz à l'autre (et à un redémarrage du serveur).
 
+Pendant une question, **l'écran commun bascule en mode scène** : les panneaux latéraux s'effacent, la question et les réponses grossissent, le QR code se réduit dans un coin — il reste visible pour les retardataires sans voler la vedette. Une barre de temps se vide en couleur (elle se lit du fond de la salle bien mieux qu'un chiffre) et passe au rouge dans les cinq dernières secondes.
+
+**Le son** sort uniquement de l'écran commun : cinquante téléphones qui bipent ensemble, c'est une cacophonie. Les sons sont générés à la volée par le navigateur — aucun fichier à héberger, aucune musique sous droits, rien qui arrive en retard. Le bouton 🔊 de l'en-tête les coupe (le choix est mémorisé). Les navigateurs interdisant tout son avant une interaction, l'audio s'initialise au premier clic sur « Lancer un quiz ».
+
 **Les retardataires entrent en cours de route** : quelqu'un qui arrive pendant un quiz rejoint la partie immédiatement. Il ne récupère rien sur les questions déjà posées, mais il joue toutes les suivantes. S'il arrive pendant une révélation, il est accueilli par un « 👋 Bienvenue » plutôt que par un « ⏰ Trop tard » pour une question qu'il n'a jamais vue.
 
 ## Où vivent les données
@@ -123,5 +127,5 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque)
 | 1 | Nettoyage : application 100 % quiz | ✅ |
 | 2 | Bibliothèque en base + éditeur de quiz dans le navigateur | ✅ |
 | 3 | Questions « estimation », entrée en cours de quiz, révélations enrichies | ✅ |
-| 4 | Habillage show (couleurs, barre de temps, podium animé, sons) | à faire |
+| 4 | Habillage show (mode scène, barre de temps, podium animé, sons) | ✅ |
 | 5 | Déploiement gratuit (Render + Turso), QR public, test de charge à 50 joueurs | à faire |

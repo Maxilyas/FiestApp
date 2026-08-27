@@ -37,6 +37,8 @@ export interface QuizPlayerView {
   unit?: string
   image?: string | null
   deadline?: number
+  /** Secondes allouées à la question — pour la barre de temps qui se vide. */
+  duration?: number
   // reveal
   /** Vrai si le joueur vient d'arriver : il n'a pas raté la question, il n'était pas là. */
   justArrived?: boolean
@@ -63,6 +65,8 @@ export interface QuizHostView {
   unit?: string
   image?: string | null
   deadline?: number
+  /** Secondes allouées à la question — pour la barre de temps qui se vide. */
+  duration?: number
   answeredCount?: number
   participantCount?: number
   // reveal + finished

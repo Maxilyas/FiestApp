@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { QuizAction, QuizPlayerView } from '../../../../shared/games/quiz'
-import { Countdown } from '../../components/Countdown'
+import { GetReady } from '../../components/GetReady'
+import { TimerBar } from '../../components/TimerBar'
 
 const SHAPES = ['▲', '◆', '●', '■']
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -76,13 +77,7 @@ export function QuizPlayer({ view: v, send }: Props) {
   }
 
   if (v.phase === 'getReady') {
-    return (
-      <div className="getready">
-        <span className="getready-emoji">🚦</span>
-        <p>Prépare-toi…</p>
-        {v.deadline && <Countdown deadline={v.deadline} />}
-      </div>
-    )
+    return <GetReady deadline={v.deadline!} label="Prépare-toi…" />
   }
 
   if (v.phase === 'question') {
@@ -92,8 +87,8 @@ export function QuizPlayer({ view: v, send }: Props) {
           <span className="pill">
             Question {v.qIndex + 1}/{v.qCount}
           </span>
-          <Countdown deadline={v.deadline!} />
         </div>
+        <TimerBar deadline={v.deadline!} duration={v.duration ?? 20} />
         <h2 className="quiz-question">{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="" />}
 
@@ -107,10 +102,13 @@ export function QuizPlayer({ view: v, send }: Props) {
                   key={i}
                   disabled={v.yourChoice !== null}
                   onClick={() => send({ type: 'answer', choice: i })}
-                  className={`ans-btn ans-${i}` + (v.yourChoice === i ? ' chosen' : '')}
+                  className={
+                    `ans-btn ans-${i}` +
+                    (v.yourChoice === i ? ' chosen' : v.yourChoice !== null ? ' dim' : '')
+                  }
                 >
                   <span className="ans-shape">{SHAPES[i]}</span>
-                  {a}
+                  <span className="ans-text">{a}</span>
                 </button>
               ))}
             </div>
@@ -130,7 +128,7 @@ export function QuizPlayer({ view: v, send }: Props) {
       const gap = answered ? Math.abs(v.yourGuess! - v.target!) : null
       return (
         <div className="quiz-player">
-          <div className={'card result-banner ' + (answered ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
+          <div className={'card result-banner pop ' + (answered ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
             {answered ? (
               <>
                 <span className="big">+{v.yourPoints ?? 0} pts</span>
@@ -161,7 +159,7 @@ export function QuizPlayer({ view: v, send }: Props) {
     const good = v.yourChoice !== null && v.yourChoice === v.correct
     return (
       <div className="quiz-player">
-        <div className={'card result-banner ' + (good ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
+        <div className={'card result-banner pop ' + (good ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
           {v.justArrived ? (
             <Welcome />
           ) : v.yourChoice === null ? (
@@ -194,7 +192,7 @@ export function QuizPlayer({ view: v, send }: Props) {
   // finished
   return (
     <div className="quiz-player">
-      <div className="card result-banner">
+      <div className="card result-banner pop">
         <span className="big">🏁</span>
         <p>
           Quiz terminé ! Tu finis <strong>{v.yourQuizRank}ᵉ</strong> avec {v.yourQuizTotal} pts
@@ -204,7 +202,7 @@ export function QuizPlayer({ view: v, send }: Props) {
         <h3>Podium</h3>
         <div className="podium">
           {v.podium?.map((p, i) => (
-            <div key={i} className="lb-row">
+            <div key={i} className="lb-row" style={{ animationDelay: `${i * 120}ms` }}>
               <span className="lb-rank">{MEDALS[i]}</span>
               <span className="lb-avatar">{p.avatar}</span>
               <span className="lb-name">{p.name}</span>
