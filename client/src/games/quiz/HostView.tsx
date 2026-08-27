@@ -2,10 +2,10 @@ import { useEffect } from 'react'
 import type { QuizCommand, QuizHostView } from '../../../../shared/games/quiz'
 import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
+import { FinalPodium, Standings } from '../../components/Podium'
 import { sound } from '../../sound'
 
 const SHAPES = ['▲', '◆', '●', '■']
-const MEDALS = ['🥇', '🥈', '🥉']
 
 const formatNumber = (n: number) => n.toLocaleString('fr-FR')
 
@@ -18,54 +18,6 @@ export function questionSizeClass(text: string | undefined): string {
   return ''
 }
 
-
-function Standings({ rows }: { rows: NonNullable<QuizHostView['standings']> }) {
-  return (
-    <div className="podium">
-      {rows.map((p, i) => (
-        <div key={i} className="lb-row">
-          <span className="lb-rank">{MEDALS[i] ?? i + 1}</span>
-          <span className="lb-avatar">{p.avatar}</span>
-          <span className="lb-name">{p.name}</span>
-          <span className="lb-score">{p.points}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-/**
- * Podium final : les trois marches montent depuis le bas, la première au
- * milieu. Hauteur proportionnelle au score, avec un plancher pour que la
- * 3e marche reste visible même si l'écart est énorme.
- */
-function FinalPodium({ rows }: { rows: NonNullable<QuizHostView['standings']> }) {
-  const top = rows.slice(0, 3)
-  if (top.length === 0) return <p className="muted">Personne n'a joué…</p>
-  const best = Math.max(...top.map(r => r.points), 1)
-  const order = [top[1], top[0], top[2]] // 2e — 1er — 3e
-  return (
-    <div className="final-podium">
-      {order.map((row, slot) =>
-        row ? (
-          <div key={slot} className={'podium-col rank-' + (slot === 1 ? 1 : slot === 0 ? 2 : 3)}>
-            <span className="podium-avatar">{row.avatar}</span>
-            <span className="podium-name">{row.name}</span>
-            <div
-              className="podium-step"
-              style={{ height: `${30 + 70 * (row.points / best)}%` }}
-            >
-              <span className="podium-medal">{MEDALS[slot === 1 ? 0 : slot === 0 ? 1 : 2]}</span>
-              <span className="podium-points">{row.points}</span>
-            </div>
-          </div>
-        ) : (
-          <div key={slot} className="podium-col" />
-        ),
-      )}
-    </div>
-  )
-}
 
 interface Props {
   view: QuizHostView
@@ -246,7 +198,7 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
     <div className="quiz-host">
       <h2>🏆 Podium du quiz</h2>
       {v.standings && <FinalPodium rows={v.standings} />}
-      {v.standings && v.standings.length > 3 && <Standings rows={v.standings.slice(3)} />}
+      {v.standings && v.standings.length > 3 && <Standings rows={v.standings.slice(3)} offset={3} />}
       <div className="row">
         <button className="btn btn-primary" onClick={endSession}>Terminer le quiz</button>
       </div>

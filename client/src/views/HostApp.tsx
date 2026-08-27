@@ -4,6 +4,8 @@ import { helloHost, socket } from '../socket'
 import { useAppState } from '../state'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { Leaderboard } from '../components/Leaderboard'
+import { FinalPodium, Standings } from '../components/Podium'
+import { sound } from '../sound'
 import { QuizHost } from '../games/quiz/HostView'
 import type { QuizHostView } from '../../../shared/games/quiz'
 
@@ -21,6 +23,8 @@ export function HostApp() {
   const [keyInput, setKeyInput] = useState('')
   const [error, setError] = useState('')
   const [muted, setMuted] = useState(isMuted)
+  /** Le classement cumulé, célébré en fin de soirée. */
+  const [showPodium, setShowPodium] = useState(false)
 
   useEffect(() => {
     const urlKey = new URLSearchParams(window.location.search).get('key')
@@ -90,7 +94,12 @@ export function HostApp() {
 
   // Dès qu'une question est à l'écran, tout le reste s'efface : sur un
   // vidéoprojecteur, ce qui compte doit occuper toute la place.
-  const staging = !!quizView && quizView.phase !== 'pickPack'
+  const staging = (!!quizView && quizView.phase !== 'pickPack') || showPodium
+
+  const ranking = [...snap.players]
+    .filter(p => p.score !== 0)
+    .sort((a, b) => b.score - a.score)
+    .map(p => ({ name: p.name, avatar: p.avatar, points: p.score }))
 
   return (
     <div className={'host' + (staging ? ' staging' : '')}>
@@ -181,7 +190,29 @@ export function HostApp() {
         )}
 
         <section className="card main-stage">
-          {activeView && quizView ? (
+          {showPodium ? (
+            <div className="quiz-host">
+              <h2>🏆 Le classement de la soirée</h2>
+              <FinalPodium rows={ranking} />
+              {ranking.length > 3 && <Standings rows={ranking.slice(3)} offset={3} />}
+              <div className="row podium-actions">
+                {/* Le QR est le seul moyen pour un invité d'emporter la page :
+                    il ne peut pas cliquer sur un lien projeté au mur. */}
+                <div className="qr-stack">
+                  <div className="qr-box">
+                    <QRCodeSVG value={`${joinUrl}/souvenir`} size={104} bgColor="#ffffff" fgColor="#1a1033" />
+                  </div>
+                  <p className="qr-caption">📖 Le souvenir de la soirée</p>
+                </div>
+                <a className="btn btn-primary" href="/souvenir" target="_blank" rel="noreferrer">
+                  📖 Ouvrir la page souvenir
+                </a>
+                <button className="btn btn-ghost" onClick={() => setShowPodium(false)}>
+                  Revenir
+                </button>
+              </div>
+            </div>
+          ) : activeView && quizView ? (
             <QuizHost
               view={quizView}
               sendCommand={command => socket.emit('host:command', { sessionId: activeView.sessionId, command })}
@@ -210,6 +241,18 @@ export function HostApp() {
                 <a className="btn btn-ghost btn-small" href={`/edit?key=${localStorage.getItem('quizz.hostKey') ?? ''}`}>
                   ✏️ Mes quiz
                 </a>
+                {ranking.length > 0 && (
+                  <button
+                    className="btn btn-small"
+                    onClick={() => {
+                      initAudio()
+                      sound.fanfare()
+                      setShowPodium(true)
+                    }}
+                  >
+                    🏆 Podium de la soirée
+                  </button>
+                )}
               </div>
             </div>
           )}

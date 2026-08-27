@@ -418,9 +418,12 @@ try {
   probe.disconnect()
   await server2.close()
 
+  console.log('✅ Smoke test OK — 18 étapes')
   console.log(
-    '✅ Smoke test OK — quiz complet, bibliothèque, photos, estimation, retardataire,
-   pause, annulation, question reposée, invité renommé et exclu, reprise après coupure',
+    '   quiz complet, bibliothèque, photos, estimation, retardataire, pause,',
+  )
+  console.log(
+    '   annulation, question reposée, invité renommé et exclu, reprise après coupure',
   )
   process.exit(0)
 } catch (e) {

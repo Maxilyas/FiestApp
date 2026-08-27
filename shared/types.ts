@@ -25,3 +25,22 @@ export interface PartySnapshot {
   /** Wifi de la soirée (env WIFI_SSID/WIFI_PASS) — affiché en QR sur l'écran commun. */
   wifi: { ssid: string; pass: string } | null
 }
+
+/** Page souvenir : ce qu'il reste de la soirée, le lendemain. */
+export interface RecapRow {
+  name: string
+  avatar: string
+  points: number
+}
+
+export interface Recap {
+  ranking: RecapRow[]
+  /** Nombre de quiz joués dans la soirée. */
+  quizCount: number
+  /** Total des points distribués. */
+  totalPoints: number
+  /** Le plus gros coup sur une seule question. */
+  bestShot: { name: string; avatar: string; points: number; reason: string } | null
+  /** Celui qui a marqué sur le plus de questions. */
+  steadiest: { name: string; avatar: string; count: number } | null
+}

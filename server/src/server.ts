@@ -118,6 +118,46 @@ export async function createQuizServer(opts: QuizServerOptions) {
     })
   })
 
+  // Page souvenir : volontairement publique, pour que les invités puissent la
+  // regarder le lendemain sans clé d'animateur.
+  app.get('/recap.json', (_req, res) => {
+    const totals = ledger.allTotals()
+    const players = party.publicPlayers(totals)
+    const byId = new Map(players.map(p => [p.id, p]))
+    const row = (id: string) => byId.get(id)
+
+    const best = db
+      .prepare('SELECT player_id, points, reason FROM score_entries WHERE points > 0 ORDER BY points DESC LIMIT 1')
+      .get() as { player_id: string; points: number; reason: string } | undefined
+    const steady = db
+      .prepare('SELECT player_id, COUNT(*) AS n FROM score_entries WHERE points > 0 GROUP BY player_id ORDER BY n DESC LIMIT 1')
+      .get() as { player_id: string; n: number } | undefined
+    const quizzes = db
+      .prepare('SELECT COUNT(DISTINCT session_id) AS n FROM score_entries WHERE session_id IS NOT NULL')
+      .get() as { n: number }
+    const distributed = db.prepare('SELECT COALESCE(SUM(points), 0) AS n FROM score_entries').get() as { n: number }
+
+    const bestPlayer = best ? row(best.player_id) : undefined
+    const steadyPlayer = steady ? row(steady.player_id) : undefined
+
+    res.json({
+      ranking: players
+        .filter(p => p.score !== 0)
+        .sort((a, b) => b.score - a.score)
+        .map(p => ({ name: p.name, avatar: p.avatar, points: p.score })),
+      quizCount: quizzes.n,
+      totalPoints: distributed.n,
+      bestShot:
+        best && bestPlayer
+          ? { name: bestPlayer.name, avatar: bestPlayer.avatar, points: best.points, reason: best.reason }
+          : null,
+      steadiest:
+        steady && steadyPlayer
+          ? { name: steadyPlayer.name, avatar: steadyPlayer.avatar, count: steady.n }
+          : null,
+    })
+  })
+
   mountApi(app, { store, hostKey: opts.hostKey, onLibraryChanged: refreshLibrary })
 
   const here = path.dirname(fileURLToPath(import.meta.url))
