@@ -84,6 +84,18 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // se répare tout seul, sans F5.
   const resync = setInterval(broadcastSnapshot, 30_000)
 
+  // Point de santé : sert au service de réveil (l'hébergeur gratuit endort
+  // l'application sans trafic) et aux mesures de charge.
+  app.get('/healthz', (_req, res) => {
+    res.json({
+      ok: true,
+      uptime: Math.round(process.uptime()),
+      players: party.connectedPlayerIds().length,
+      quizzes: engine.summary() ? 1 : 0,
+      rssMo: Math.round(process.memoryUsage().rss / 1024 / 1024),
+    })
+  })
+
   mountApi(app, { store, hostKey: opts.hostKey, onLibraryChanged: refreshLibrary })
 
   const here = path.dirname(fileURLToPath(import.meta.url))
