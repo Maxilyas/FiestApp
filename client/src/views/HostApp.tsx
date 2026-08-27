@@ -98,7 +98,7 @@ export function HostApp() {
 
   const ranking = [...snap.players]
     .filter(p => p.score !== 0)
-    .sort((a, b) => b.score - a.score)
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
     .map(p => ({ name: p.name, avatar: p.avatar, points: p.score }))
 
   return (

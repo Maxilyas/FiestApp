@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Quizz Romane 30">
+  <!-- Icône d'écran d'accueil : le fond de l'application, un point
+       d'interrogation en or, et les trois formes des réponses. -->
+  <defs>
+    <radialGradient id="sol" cx="20%" cy="0%" r="120%">
+      <stop offset="0%" stop-color="#3b1046" />
+      <stop offset="55%" stop-color="#1a0625" />
+      <stop offset="100%" stop-color="#0d0316" />
+    </radialGradient>
+    <linearGradient id="or" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffc85c" />
+      <stop offset="100%" stop-color="#ff3d81" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="96" fill="url(#sol)" />
+
+  <text
+    x="256"
+    y="330"
+    text-anchor="middle"
+    font-family="Bahnschrift, 'Franklin Gothic Medium', Impact, sans-serif"
+    font-size="290"
+    font-weight="700"
+    fill="url(#or)"
+  >?</text>
+
+  <g opacity="0.9">
+    <polygon points="96,404 122,448 70,448" fill="#ff3d81" />
+    <rect x="212" y="410" width="38" height="38" rx="6" fill="#ffc85c" transform="rotate(45 231 429)" />
+    <circle cx="352" cy="429" r="21" fill="#7e57ff" />
+    <rect x="420" y="408" width="42" height="42" rx="6" fill="#00d1b2" />
+  </g>
+</svg>

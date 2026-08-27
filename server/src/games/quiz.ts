@@ -144,7 +144,9 @@ function cancelQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
 function sortedTotals(sess: GameSessionRec<QuizState>): { playerId: string; points: number }[] {
   return sess.participantIds
     .map(id => ({ playerId: id, points: sess.state.totals[id] ?? 0 }))
-    .sort((a, b) => b.points - a.points)
+    // Départage par identifiant : sans lui, deux ex æquo permuteraient à
+    // chaque rediffusion et le classement clignoterait sur l'écran commun.
+    .sort((a, b) => b.points - a.points || a.playerId.localeCompare(b.playerId))
 }
 
 function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: number): QuizPodiumRow[] {

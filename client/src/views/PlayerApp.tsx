@@ -149,7 +149,7 @@ export function PlayerApp() {
 
   // ── Salle d'attente ──────────────────────────────
   const me = snap?.players.find(p => p.id === s.me!.playerId)
-  const sorted = [...(snap?.players ?? [])].sort((a, b) => b.score - a.score)
+  const sorted = [...(snap?.players ?? [])].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
   const myRank = me ? sorted.findIndex(p => p.id === me.id) + 1 : 0
 
   return (

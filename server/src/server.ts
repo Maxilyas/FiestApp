@@ -81,7 +81,32 @@ export async function createQuizServer(opts: QuizServerOptions) {
       wifi,
     }
   }
-  const broadcastSnapshot = () => io.emit('party:snapshot', buildSnapshot())
+  // Diffusion du classement : deux garde-fous mesurés sur une soirée simulée.
+  //
+  // · Regroupement — à l'arrivée des invités, cinquante inscriptions en
+  //   quelques secondes déclenchaient cinquante diffusions complètes à tout
+  //   le monde. On n'en envoie qu'une par fenêtre courte.
+  // · Dédoublonnage — un classement identique au précédent ne part pas. Sans
+  //   ça, le filet de sécurité périodique renvoyait 4 Ko à chaque téléphone
+  //   toutes les 30 secondes pendant toute la fête, pour rien.
+  let lastSnapshot = ''
+  let pending: ReturnType<typeof setTimeout> | null = null
+
+  const sendSnapshot = (force = false) => {
+    const snapshot = buildSnapshot()
+    const json = JSON.stringify(snapshot)
+    if (!force && json === lastSnapshot) return
+    lastSnapshot = json
+    io.emit('party:snapshot', snapshot)
+  }
+
+  const broadcastSnapshot = () => {
+    if (pending) return
+    pending = setTimeout(() => {
+      pending = null
+      sendSnapshot()
+    }, 120)
+  }
 
   const engine = new GameEngine(
     { db, io, party, ledger, onScoresChanged: broadcastSnapshot, onSessionChanged: broadcastSnapshot },
@@ -101,10 +126,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
 
   wireSockets(io, { party, engine, hostKey: opts.hostKey, buildSnapshot, broadcastSnapshot, resetParty })
 
-  // Filet de sécurité : re-synchronise tous les écrans périodiquement.
-  // Un client qui aurait raté un broadcast (blip réseau, onglet endormi)
-  // se répare tout seul, sans F5.
-  const resync = setInterval(broadcastSnapshot, 30_000)
+  // Filet de sécurité : un client qui aurait silencieusement raté une diffusion
+  // se répare tout seul. Toutes les cinq minutes suffisent — une reconnexion
+  // reçoit de toute façon un classement frais, et le dédoublonnage rendait
+  // l'ancien rythme de 30 secondes aussi inutile que coûteux.
+  const resync = setInterval(() => sendSnapshot(true), 300_000)
 
   // Point de santé : sert au service de réveil (l'hébergeur gratuit endort
   // l'application sans trafic) et aux mesures de charge.

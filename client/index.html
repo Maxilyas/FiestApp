@@ -2,8 +2,22 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#1a1033" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <!-- Teinte la barre du navigateur : le téléphone ne montre plus un bandeau
+         blanc au-dessus d'un fond aubergine. Valeur relevée sur le haut du
+         dégradé réel de l'application. -->
+    <meta name="theme-color" content="#331040" />
+    <!-- « Ajouter à l'écran d'accueil » ouvre alors l'application sans barre
+         d'adresse, comme une vraie application. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icone.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icone.svg" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Quizz Romane 30" />
     <title>Quizz Romane 30 🎉</title>
   </head>
   <body>

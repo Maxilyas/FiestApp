@@ -953,3 +953,11 @@ h3 { font-size: 1.05rem; }
 .preview-stage .quiz-question { font-size: clamp(1.4rem, 3.4vw, 2.4rem); }
 .preview-stage .ans-btn { min-height: 76px; font-size: 1.1rem; }
 .preview-frame .row { justify-content: space-between; }
+
+/* À cinquante invités, les panneaux latéraux de l'écran commun débordaient :
+   ils défilent sur eux-mêmes plutôt que de pousser la scène hors de l'écran. */
+.host-grid > .card { max-height: calc(100vh - 190px); overflow-y: auto; }
+.host-grid.staging > .card { max-height: none; overflow: visible; }
+
+/* Encoches et barres système des téléphones récents. */
+.player-shell { padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
