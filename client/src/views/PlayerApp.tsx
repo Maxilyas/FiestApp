@@ -15,7 +15,9 @@ const AVATARS = [
 export function PlayerApp() {
   const s = useAppState()
   const [name, setName] = useState('')
-  const [avatar, setAvatar] = useState(AVATARS[0])
+  // Tiré au sort : avec un avatar imposé, tous ceux qui ne touchent à rien
+  // arrivent identiques sur l'écran commun.
+  const [avatar, setAvatar] = useState(() => AVATARS[Math.floor(Math.random() * AVATARS.length)])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -166,7 +168,7 @@ export function PlayerApp() {
       </header>
 
       {session && !iAmIn && (
-        <div className="card notice">Un quiz est en cours — tu joueras au prochain ! 🍿</div>
+        <div className="card notice">Un quiz est en cours — tu entres à la prochaine question ! 🍿</div>
       )}
 
       <div className="card">

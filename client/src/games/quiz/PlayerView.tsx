@@ -107,7 +107,10 @@ export function QuizPlayer({ view: v, send }: Props) {
                 <button
                   key={i}
                   disabled={v.yourChoice !== null || v.paused}
-                  onClick={() => send({ type: 'answer', choice: i })}
+                  onClick={() => {
+                    navigator.vibrate?.(35)
+                    send({ type: 'answer', choice: i })
+                  }}
                   className={
                     `ans-btn ans-${i}` +
                     (v.yourChoice === i ? ' chosen' : v.yourChoice !== null ? ' dim' : '')
