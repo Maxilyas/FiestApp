@@ -38,6 +38,8 @@ interface QuizState {
   totals: Record<string, number>
   /** Arrivé en cours de route : première question qu'il pourra jouer. */
   playFrom: Record<string, number>
+  /** Chronomètre figé par l'animateur : temps restant, en ms. */
+  pausedMs: number | null
 }
 
 const READY_MS = 3000
@@ -79,6 +81,7 @@ function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: Game
   st.lastAwards = {}
   st.questionStartAt = ctx.now()
   st.deadline = st.questionStartAt + q.duration * 1000
+  st.pausedMs = null
   ctx.setTimer('question', q.duration * 1000 + GRACE_MS)
 }
 
@@ -126,6 +129,16 @@ function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
       GUESS_POINTS + Math.round(PROXIMITY_POINTS * ratio) + (g.playerId === closest ? CLOSEST_BONUS : 0)
     award(sess, g.playerId, points, ctx)
   }
+}
+
+function cancelQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
+  const st = sess.state
+  for (const [playerId, points] of Object.entries(st.lastAwards)) {
+    if (points <= 0) continue
+    st.totals[playerId] = (st.totals[playerId] ?? 0) - points
+    ctx.award(playerId, -points, `Annulation — Q${st.qIndex + 1}`)
+  }
+  st.lastAwards = {}
 }
 
 function sortedTotals(sess: GameSessionRec<QuizState>): { playerId: string; points: number }[] {
@@ -180,12 +193,13 @@ export const quizModule: GameModule<QuizState> = {
       lastAwards: {},
       totals: {},
       playFrom: {},
+      pausedMs: null,
     }
   },
 
   onPlayerAction(sess, playerId, action: QuizAction, ctx) {
     const st = sess.state
-    if (st.phase !== 'question' || !st.pack) return
+    if (st.phase !== 'question' || !st.pack || st.pausedMs !== null) return
     const q = st.pack.questions[st.qIndex]
 
     if (action?.type === 'answer' && q.kind === 'choice') {
@@ -218,6 +232,35 @@ export const quizModule: GameModule<QuizState> = {
         st.phase = 'getReady'
         st.deadline = ctx.now() + READY_MS
         ctx.setTimer('ready', READY_MS)
+        break
+      }
+      case 'pause': {
+        if (st.phase !== 'question' || st.pausedMs !== null) return
+        st.pausedMs = Math.max(0, st.deadline - ctx.now())
+        ctx.clearTimer('question')
+        break
+      }
+      case 'resume': {
+        if (st.phase !== 'question' || st.pausedMs === null) return
+        // On repousse l'échéance du temps resté figé, pour que les points de
+        // rapidité restent cohérents avec ce que les joueurs ont vécu.
+        const frozen = st.pausedMs
+        const q = st.pack!.questions[st.qIndex]
+        st.questionStartAt = ctx.now() - (q.duration * 1000 - frozen)
+        st.deadline = ctx.now() + frozen
+        st.pausedMs = null
+        ctx.setTimer('question', frozen + GRACE_MS)
+        break
+      }
+      case 'cancel': {
+        if (st.phase !== 'reveal') return
+        cancelQuestion(sess, ctx)
+        break
+      }
+      case 'replay': {
+        if (st.phase !== 'reveal' || !st.pack) return
+        cancelQuestion(sess, ctx)
+        startQuestion(sess, st.qIndex, ctx)
         break
       }
       case 'next':
@@ -266,6 +309,7 @@ export const quizModule: GameModule<QuizState> = {
         image: q.image,
         deadline: st.deadline,
         duration: q.duration,
+        ...(st.pausedMs !== null && { paused: true, remainingMs: st.pausedMs }),
         ...(st.phase === 'reveal' && {
           justArrived: (st.playFrom[playerId] ?? 0) > st.qIndex,
           correct: q.kind === 'choice' ? q.correct : undefined,
@@ -309,6 +353,7 @@ export const quizModule: GameModule<QuizState> = {
         image: q.image,
         deadline: st.deadline,
         duration: q.duration,
+        ...(st.pausedMs !== null && { paused: true, remainingMs: st.pausedMs }),
         answeredCount: Object.keys(st.responses).length,
         participantCount: sess.participantIds.length,
       }

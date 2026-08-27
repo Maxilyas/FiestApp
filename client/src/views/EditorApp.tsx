@@ -43,7 +43,10 @@ export function EditorApp() {
 
   useEffect(() => {
     const urlKey = new URLSearchParams(window.location.search).get('key')
-    if (urlKey) setHostKey(urlKey)
+    if (urlKey) {
+      setHostKey(urlKey)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
     if (!hostKey()) return setNeedKey(true)
     reload()
   }, [reload])

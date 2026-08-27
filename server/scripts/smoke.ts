@@ -51,6 +51,9 @@ const connect = () => clientIo(url, { transports: ['websocket'] })
 try {
   // 1. Écran commun : la clé protège bien l'accès
   const host = connect()
+  // Les refus du serveur arrivent en « toast » : sans cette écoute, un test
+  // qui échoue affiche « timeout » au lieu de la vraie raison.
+  host.on('toast', (t: any) => console.log(`   ⚠️  toast host : ${t.message}`))
   const hello = await emitAck<{ ok: boolean }>(host, 'host:hello', { key: 'smoke' })
   assert(hello.ok, 'host:hello refusé avec la bonne clé')
   const badHello = await emitAck<{ ok: boolean }>(host, 'host:hello', { key: 'mauvaise' })
@@ -59,6 +62,7 @@ try {
   // 2. Deux invités rejoignent depuis leur téléphone
   const alice = connect()
   const bob = connect()
+  bob.on('toast', (t: any) => console.log(`   ⚠️  toast Bob : ${t.message}`))
   const aliceAck = await emitAck<any>(alice, 'player:join', { name: 'Alice', avatar: '🦊' })
   const bobAck = await emitAck<any>(bob, 'player:join', { name: 'Bob', avatar: '🐸' })
   assert(aliceAck.ok && bobAck.ok, 'join joueur échoué')
@@ -306,12 +310,87 @@ try {
   )
   ;(host as any).emit('host:endSession', { sessionId: mixedId })
   charlie.disconnect()
+  // La déconnexion met un instant à parvenir au serveur : sans cette attente,
+  // la partie suivante compterait encore Charlie parmi ses participants et
+  // n'atteindrait jamais « tout le monde a répondu ».
+  await waitFor<any>(
+    host,
+    'party:snapshot',
+    s => s.players.filter((p: any) => p.connected).length === 2,
+    'Charlie déconnecté',
+  )
 
-  // 16. Redémarrage du serveur avec disque effacé — le scénario d'un
+  // 16. Commandes d'animation : pause, annulation des points, question reposée
+  // On identifie la nouvelle partie par la liste des quiz côté animateur :
+  // attendre « n'importe quelle vue » attraperait un reliquat de la précédente.
+  const ctrlPick = waitFor<any>(host, 'session:view', p => p.view.phase === 'pickPack', 'liste des quiz (contrôle)')
+  ;(host as any).emit('host:launch')
+  const ctrlId = (await ctrlPick).sessionId
+  ;(host as any).emit('host:command', {
+    sessionId: ctrlId,
+    command: { type: 'selectPack', packId: 'culture-generale' },
+  })
+  await waitFor<any>(bob, 'session:view', p => p.view.phase === 'question', 'question de contrôle')
+
+  const paused = waitFor<any>(bob, 'session:view', p => p.view.paused === true, 'chronomètre figé')
+  ;(host as any).emit('host:command', { sessionId: ctrlId, command: { type: 'pause' } })
+  const pausedView = await paused
+  assert(pausedView.view.remainingMs > 0, 'le temps restant doit être conservé pendant la pause')
+
+  // Répondre pendant la pause ne doit rien faire : sinon la pause offrirait
+  // un temps de réflexion illimité.
+  ;(bob as any).emit('player:action', { sessionId: ctrlId, action: { type: 'answer', choice: 0 } })
+  await new Promise(r => setTimeout(r, 300))
+
+  const resumed = waitFor<any>(bob, 'session:view', p => p.view.phase === 'question' && !p.view.paused, 'reprise')
+  ;(host as any).emit('host:command', { sessionId: ctrlId, command: { type: 'resume' } })
+  const resumedView = await resumed
+  assert(resumedView.view.yourChoice === null, 'la réponse envoyée pendant la pause doit être ignorée')
+
+  // Bonne réponse, puis annulation des points par l'animateur
+  const ctrlReveal = waitFor<any>(bob, 'session:view', p => p.view.phase === 'reveal', 'révélation de contrôle')
+  ;(bob as any).emit('player:action', { sessionId: ctrlId, action: { type: 'answer', choice: q0.correct } })
+  ;(alice2 as any).emit('player:action', { sessionId: ctrlId, action: { type: 'answer', choice: q0.correct } })
+  const gained = (await ctrlReveal).view.yourPoints
+  assert(gained > 0, 'Bob devrait avoir marqué avant annulation')
+
+  const cancelled = waitFor<any>(bob, 'session:view', p => p.view.yourQuizTotal === 0, 'points annulés')
+  ;(host as any).emit('host:command', { sessionId: ctrlId, command: { type: 'cancel' } })
+  await cancelled
+
+  const replayed = waitFor<any>(bob, 'session:view', p => p.view.phase === 'question', 'question reposée')
+  ;(host as any).emit('host:command', { sessionId: ctrlId, command: { type: 'replay' } })
+  const again = await replayed
+  assert(again.view.qIndex === 0, 'la question reposée doit être la même')
+  assert(again.view.yourChoice === null, 'les réponses précédentes doivent être effacées')
+  ;(host as any).emit('host:endSession', { sessionId: ctrlId })
+
+  // 17. Renommer et exclure un invité
+  const renamed = waitFor<any>(
+    host,
+    'party:snapshot',
+    s => s.players.some((p: any) => p.id === bobAck.playerId && p.name === 'Bob le bricoleur'),
+    'invité renommé',
+  )
+  ;(host as any).emit('host:renamePlayer', { playerId: bobAck.playerId, name: 'Bob le bricoleur' })
+  await renamed
+
+  const removedOnPhone = waitFor<any>(bob, 'player:removed', () => true, 'téléphone prévenu de son exclusion')
+  const removed = waitFor<any>(
+    host,
+    'party:snapshot',
+    s => !s.players.some((p: any) => p.id === bobAck.playerId),
+    'invité exclu',
+  )
+  ;(host as any).emit('host:removePlayer', { playerId: bobAck.playerId })
+  const [afterRemoval] = await Promise.all([removed, removedOnPhone])
+
+  // 18. Redémarrage du serveur avec disque effacé — le scénario d'un
   //     hébergeur gratuit qui recycle l'instance en pleine soirée. Invités et
   //     points doivent revenir depuis la base distante.
-  const before = await waitFor<any>(host, 'party:snapshot', s => s.players.length >= 3, 'classement avant coupure')
-  const aliceBefore = before.players.find((p: any) => p.id === aliceAck.playerId)
+  // Le dernier classement reçu fait foi : plus rien ne bouge à ce stade, donc
+  // attendre un nouveau message expirerait.
+  const aliceBefore = afterRemoval.players.find((p: any) => p.id === aliceAck.playerId)
   assert(aliceBefore?.score > 0, 'Alice devrait avoir des points avant la coupure')
 
   host.disconnect()
@@ -340,7 +419,8 @@ try {
   await server2.close()
 
   console.log(
-    '✅ Smoke test OK — inscription, quiz, rapidité, classement, reconnexion, bibliothèque, photos, estimation, retardataire, reprise après coupure',
+    '✅ Smoke test OK — quiz complet, bibliothèque, photos, estimation, retardataire,
+   pause, annulation, question reposée, invité renommé et exclu, reprise après coupure',
   )
   process.exit(0)
 } catch (e) {

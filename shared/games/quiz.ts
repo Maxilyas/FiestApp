@@ -39,6 +39,10 @@ export interface QuizPlayerView {
   deadline?: number
   /** Secondes allouées à la question — pour la barre de temps qui se vide. */
   duration?: number
+  /** L'animateur a figé le chronomètre : plus personne ne peut répondre. */
+  paused?: boolean
+  /** Temps restant figé, en millisecondes (uniquement en pause). */
+  remainingMs?: number
   // reveal
   /** Vrai si le joueur vient d'arriver : il n'a pas raté la question, il n'était pas là. */
   justArrived?: boolean
@@ -67,6 +71,8 @@ export interface QuizHostView {
   deadline?: number
   /** Secondes allouées à la question — pour la barre de temps qui se vide. */
   duration?: number
+  paused?: boolean
+  remainingMs?: number
   answeredCount?: number
   participantCount?: number
   // reveal + finished
@@ -85,3 +91,10 @@ export type QuizAction =
 export type QuizCommand =
   | { type: 'selectPack'; packId: string }
   | { type: 'next' }
+  /** Fige le chronomètre (discours, gâteau qui arrive…) et le repart. */
+  | { type: 'pause' }
+  | { type: 'resume' }
+  /** Retire les points de la question révélée — quand la réponse était fausse. */
+  | { type: 'cancel' }
+  /** Annule et repose la même question. */
+  | { type: 'replay' }

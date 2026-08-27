@@ -24,7 +24,12 @@ export function HostApp() {
 
   useEffect(() => {
     const urlKey = new URLSearchParams(window.location.search).get('key')
-    if (urlKey) localStorage.setItem('quizz.hostKey', urlKey)
+    if (urlKey) {
+      localStorage.setItem('quizz.hostKey', urlKey)
+      // Retirée de l'adresse : sur un vidéoprojecteur, la barre du navigateur
+      // se lit depuis le fond de la salle.
+      window.history.replaceState({}, '', window.location.pathname)
+    }
     socket.connect()
     const hello = async () => {
       const key = localStorage.getItem('quizz.hostKey')
@@ -101,6 +106,16 @@ export function HostApp() {
         <div className="join-info">
           <button
             className="btn btn-ghost btn-small"
+            title="Plein écran"
+            onClick={() => {
+              if (document.fullscreenElement) document.exitFullscreen()
+              else document.documentElement.requestFullscreen().catch(() => {})
+            }}
+          >
+            ⛶
+          </button>
+          <button
+            className="btn btn-ghost btn-small"
             title={muted ? 'Activer les sons' : 'Couper les sons'}
             onClick={() => {
               initAudio()
@@ -138,7 +153,27 @@ export function HostApp() {
               {snap.players.map(p => (
                 <div key={p.id} className={'player-chip' + (p.connected ? '' : ' offline')}>
                   <span className="player-avatar">{p.avatar}</span>
-                  <span className="player-name">{p.name}</span>
+                  <button
+                    className="chip-name"
+                    title="Renommer"
+                    onClick={() => {
+                      const name = window.prompt(`Nouveau prénom pour « ${p.name} » ?`, p.name)
+                      if (name?.trim()) socket.emit('host:renamePlayer', { playerId: p.id, name })
+                    }}
+                  >
+                    {p.name}
+                  </button>
+                  <button
+                    className="chip-remove"
+                    title="Exclure de la soirée"
+                    onClick={() => {
+                      if (window.confirm(`Retirer « ${p.name} » de la soirée ? Ses points seront effacés.`)) {
+                        socket.emit('host:removePlayer', { playerId: p.id })
+                      }
+                    }}
+                  >
+                    ✕
+                  </button>
                 </div>
               ))}
             </div>

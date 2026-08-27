@@ -151,6 +151,17 @@ export class GameEngine {
     this.deps.onSessionChanged()
   }
 
+  /** Un invité exclu quitte aussi la partie en cours. */
+  dropParticipant(playerId: string) {
+    const sess = this.session
+    if (!sess || !sess.participantIds.includes(playerId)) return
+    sess.participantIds = sess.participantIds.filter(id => id !== playerId)
+    this.lastSent.delete(`player:${playerId}`)
+    this.persist(sess)
+    this.fanout(sess)
+    this.deps.onSessionChanged()
+  }
+
   /** Renvoie sa vue à un joueur qui (re)vient — reconnexion transparente. */
   resendViews(playerId: string) {
     const sess = this.session

@@ -847,3 +847,38 @@ h3 { font-size: 1.05rem; }
 }
 
 .reset-row { margin-top: 14px; justify-content: flex-end; }
+
+.timer-track.paused .timer-fill { background: var(--muted); }
+
+/* Chaque invité peut être renommé ou exclu depuis l'écran commun : un pseudo
+   malheureux projeté sur le mur ne doit pas être une fatalité. */
+.chip-name {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  max-width: 9ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-name:hover { color: var(--gold); }
+
+.chip-remove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.player-chip:hover .chip-remove { opacity: 1; }
+.chip-remove:hover { color: var(--hot); }
+.chip-name:focus-visible,
+.chip-remove:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; opacity: 1; }

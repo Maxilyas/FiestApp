@@ -13,7 +13,12 @@ const url = process.argv[2] ?? 'http://localhost:3001'
 const count = Number(process.argv[3] ?? 50)
 const hostKey = process.env.HOST_KEY ?? 'romane'
 
-const stats = { join: [], question: [], reveal: [] }
+// Mode sonde : on mesure seulement la connexion de N téléphones, sans les
+// inscrire. Utile pour tester l'hébergement réel sans laisser cinquante faux
+// invités dans le classement de la soirée.
+const probeOnly = process.argv.includes('--sonde')
+
+const stats = { join: [], question: [], reveal: [], connexion: [], premierEcran: [] }
 let messages = 0 // total des vues reçues par l'ensemble des téléphones
 
 const percentile = (values, p) => {
@@ -140,6 +145,38 @@ const health = async () => {
 
 console.log(`⚡ Test de charge : ${count} invités sur ${url}`)
 
+if (probeOnly) {
+  console.log('   mode sonde : connexion seule, aucun invité créé')
+  const started = Date.now()
+  const sockets = await Promise.all(
+    Array.from({ length: count }, () => {
+      const t0 = Date.now()
+      const socket = connect()
+      return new Promise(resolve => {
+        socket.on('connect', () => stats.connexion.push(Date.now() - t0))
+        socket.once('party:snapshot', () => {
+          stats.premierEcran.push(Date.now() - t0)
+          resolve(socket)
+        })
+      })
+    }),
+  )
+  const total = Date.now() - started
+  console.log('')
+  console.log(summarize('connexion'))
+  console.log(summarize('premierEcran'))
+  console.log(`
+${count} téléphones connectés en ${total} ms`)
+  const sante = await health()
+  if (sante) console.log(`serveur : ${sante.rssMo} Mo, ${sante.players} invités inscrits`)
+  console.log('')
+  console.log('connexion    = ouverture de la liaison temps réel')
+  console.log('premierEcran = premier affichage utile sur le téléphone')
+  for (const s of sockets) s.disconnect()
+  host.disconnect()
+  setTimeout(() => process.exit(0), 300)
+} else {
+
 try {
   if (!(await hostReady)) {
     console.error("❌ clé animateur refusée — passez la bonne valeur via HOST_KEY")
@@ -191,5 +228,6 @@ console.log('')
 console.log('join     = inscription (scan du QR) · question = diffusion vers les téléphones')
 console.log('reveal   = dernière réponse → révélation')
 
-host.emit('host:endSession', { sessionId })
-setTimeout(() => process.exit(0), 500)
+  host.emit('host:endSession', { sessionId })
+  setTimeout(() => process.exit(0), 500)
+}

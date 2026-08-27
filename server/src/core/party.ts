@@ -88,6 +88,27 @@ export class Party {
     return [...this.connections.keys()]
   }
 
+  /** Un pseudo malheureux projeté sur le mur, ça se corrige en deux secondes. */
+  rename(playerId: string, name: string): boolean {
+    const rec = this.players.get(playerId)
+    const clean = name.trim().slice(0, 24)
+    if (!rec || !clean) return false
+    rec.name = clean
+    this.db.prepare('UPDATE players SET name = ? WHERE id = ?').run(clean, playerId)
+    this.backup?.savePlayer(rec, rec.createdAt)
+    return true
+  }
+
+  /** Exclut un invité et efface ses points — y compris dans la sauvegarde. */
+  remove(playerId: string): boolean {
+    if (!this.players.delete(playerId)) return false
+    this.connections.delete(playerId)
+    this.db.prepare('DELETE FROM score_entries WHERE player_id = ?').run(playerId)
+    this.db.prepare('DELETE FROM players WHERE id = ?').run(playerId)
+    this.backup?.deletePlayer(playerId)
+    return true
+  }
+
   /** Vide la soirée : on repart de zéro invité, zéro point. */
   clearAll() {
     this.db.prepare('DELETE FROM score_entries').run()

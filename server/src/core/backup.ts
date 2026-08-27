@@ -125,6 +125,18 @@ export class PartyBackup {
     return { players: players.rows.length, scores: scores.rows.length }
   }
 
+  deletePlayer(playerId: string) {
+    this.fireAndForget(
+      this.client.batch(
+        [
+          { sql: 'DELETE FROM party_scores WHERE player_id = ?', args: [playerId] },
+          { sql: 'DELETE FROM party_players WHERE id = ?', args: [playerId] },
+        ],
+        'write',
+      ),
+    )
+  }
+
   /** Repart d'une soirée vierge — les essais d'avant la fête ne doivent pas y traîner. */
   async reset() {
     await this.client.batch(['DELETE FROM party_scores', 'DELETE FROM party_players'], 'write')

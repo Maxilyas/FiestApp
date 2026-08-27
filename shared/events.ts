@@ -19,6 +19,10 @@ export interface ClientToServerEvents {
   'host:endSession': (payload: { sessionId: string }) => void
   /** Efface invités et points pour repartir d'une soirée vierge. */
   'host:resetParty': () => void
+  /** Corrige un pseudo affiché sur l'écran commun. */
+  'host:renamePlayer': (payload: { playerId: string; name: string }) => void
+  /** Exclut un invité et efface ses points. */
+  'host:removePlayer': (payload: { playerId: string }) => void
 }
 
 export interface ServerToClientEvents {
@@ -26,5 +30,7 @@ export interface ServerToClientEvents {
   /** Vue filtrée de la partie : chaque joueur reçoit SA vue, l'écran commun la sienne. */
   'session:view': (payload: { sessionId: string; view: unknown }) => void
   'session:ended': (payload: { sessionId: string }) => void
+  /** L'animateur a exclu ce joueur : son téléphone repart à l'inscription. */
+  'player:removed': () => void
   'toast': (payload: { kind: 'info' | 'error'; message: string }) => void
 }

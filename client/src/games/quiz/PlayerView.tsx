@@ -89,7 +89,12 @@ export function QuizPlayer({ view: v, send }: Props) {
             Question {v.qIndex + 1}/{v.qCount}
           </span>
         </div>
-        <TimerBar deadline={v.deadline!} duration={v.duration ?? 20} />
+        <TimerBar
+          deadline={v.deadline!}
+          duration={v.duration ?? 20}
+          frozenMs={v.paused ? v.remainingMs : undefined}
+        />
+        {v.paused && <p className="muted center">⏸ En pause — regarde l'écran commun</p>}
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="" />}
 
@@ -101,7 +106,7 @@ export function QuizPlayer({ view: v, send }: Props) {
               {v.answers!.map((a, i) => (
                 <button
                   key={i}
-                  disabled={v.yourChoice !== null}
+                  disabled={v.yourChoice !== null || v.paused}
                   onClick={() => send({ type: 'answer', choice: i })}
                   className={
                     `ans-btn ans-${i}` +

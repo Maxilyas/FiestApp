@@ -79,6 +79,20 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       deps.engine.endSession(sessionId)
     })
 
+    socket.on('host:renamePlayer', ({ playerId, name }) => {
+      if (!requireHost()) return
+      if (deps.party.rename(playerId, name)) deps.broadcastSnapshot()
+    })
+
+    socket.on('host:removePlayer', ({ playerId }) => {
+      if (!requireHost()) return
+      if (!deps.party.remove(playerId)) return
+      deps.engine.dropParticipant(playerId)
+      deps.broadcastSnapshot()
+      // Son téléphone repart sur l'écran d'inscription.
+      io.to(`player:${playerId}`).emit('player:removed')
+    })
+
     socket.on('host:resetParty', () => {
       if (!requireHost()) return
       deps.resetParty().catch(e => {

@@ -127,7 +127,12 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
 
         {!revealing && (
           <div className="question-timer">
-            <TimerBar deadline={v.deadline!} duration={v.duration ?? 20} ticking />
+            <TimerBar
+              deadline={v.deadline!}
+              duration={v.duration ?? 20}
+              ticking
+              frozenMs={v.paused ? v.remainingMs : undefined}
+            />
             <span className="muted answered-count">
               {v.answeredCount}/{v.participantCount} ont répondu
             </span>
@@ -194,9 +199,34 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
               {last ? '🏆 Voir le podium' : 'Question suivante'}
             </button>
           ) : (
-            <button className="btn" onClick={() => sendCommand({ type: 'next' })}>
-              Révéler la réponse
-            </button>
+            <>
+              <button className="btn" onClick={() => sendCommand({ type: 'next' })}>
+                Révéler la réponse
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={() => sendCommand({ type: v.paused ? 'resume' : 'pause' })}
+              >
+                {v.paused ? '▶ Reprendre' : '⏸ Pause'}
+              </button>
+            </>
+          )}
+          {revealing && (
+            <>
+              <button className="btn btn-ghost" onClick={() => sendCommand({ type: 'replay' })}>
+                ↺ Reposer
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  if (window.confirm('Retirer les points gagnés sur cette question ?')) {
+                    sendCommand({ type: 'cancel' })
+                  }
+                }}
+              >
+                ✖ Annuler les points
+              </button>
+            </>
           )}
           <button className="btn btn-ghost" onClick={endSession}>Terminer</button>
         </div>

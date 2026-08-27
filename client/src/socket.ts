@@ -17,6 +17,14 @@ socket.on('session:ended', ({ sessionId }) => {
   delete views[sessionId]
   setState({ views })
 })
+socket.on('player:removed', () => {
+  // On oublie l'identité : le téléphone revient à l'écran d'inscription.
+  localStorage.removeItem('quizz.me')
+  localStorage.removeItem('quizz.profile')
+  setState({ me: null, views: {} })
+  showToast({ kind: 'info', message: "L'animateur t'a retiré de la soirée" })
+})
+
 socket.on('toast', showToast)
 
 export function joinAsPlayer(name: string, avatar: string, token?: string): Promise<JoinAck> {
