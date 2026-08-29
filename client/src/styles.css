@@ -1234,3 +1234,18 @@ h3 { font-size: 1.05rem; }
 .stats-sort:hover { color: var(--ink); }
 .stats-sort.active { color: var(--gold); }
 .stats-table td.stats-active { color: var(--gold); font-weight: 700; }
+
+/* L'écran de victoire montre les deux classements côte à côte : les équipes
+   décident, mais c'est pour son score personnel que chacun a joué. */
+.victory-boards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .victory-boards { grid-template-columns: 1fr; }
+}

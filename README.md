@@ -21,6 +21,7 @@ Trois adresses, une par usage :
 | Jeu | http://localhost:5173 | les invités (sur leur téléphone : `http://<IP-du-PC>:5173`) |
 | Écran commun | http://localhost:5173/host?key=romane | la TV / le vidéoprojecteur |
 | Mes quiz | http://localhost:5173/edit?key=romane | Antoine, pour écrire les quiz |
+| Statistiques | http://localhost:5173/stats | Antoine pendant la fête, tout le monde après |
 
 ```bash
 npm run check
@@ -89,7 +90,9 @@ De ce journal sortent **une vingtaine de prix**, calculés tout seuls : ⚡ L'É
 
 Ces points s'ajoutent au **barème des trois jeux**, pas à la moyenne du quiz : ce sont deux choses différentes, et les mélanger rendrait les deux illisibles. L'écran **👑 Victoire** annonce l'équipe qui remporte le quiz, prix compris — reste à y ajouter les deux jeux physiques.
 
-**La page souvenir** porte le palmarès complet et un tableau de dix-sept colonnes, triable, une ligne par joueur : points, réponses données, justes, fausses, taux de réussite, temps moyen, meilleur temps, plus longues séries, questions passées, revirements, réponses de dernière seconde, fois où l'on était seul de la salle, fois où l'on a suivi la majorité, estimations et leur écart moyen, biais optimiste ou pessimiste. Elle est publique : elle sert à l'animateur pendant la fête comme aux invités le lendemain.
+**Les chiffres vivent sur `/stats`**, à leur propre adresse : un tableau de dix-sept colonnes, triable en cliquant sur un en-tête, une ligne par joueur — points, réponses données, justes, fausses, taux de réussite, temps moyen, meilleur temps, plus longues séries, questions passées, revirements, réponses de dernière seconde, fois où l'on était seul de la salle, fois où l'on a suivi la majorité, estimations et leur écart moyen, biais optimiste ou pessimiste. La page se rafraîchit toute seule et n'a pas besoin de clé : elle se garde ouverte sur le téléphone de l'animateur pendant la fête, et se partage aux invités ensuite. Le tableau défile dans son propre cadre — dix-sept colonnes ne tiennent sur aucun téléphone. Un QR y mène depuis l'écran de remise des prix, et la page souvenir en reprend l'essentiel.
+
+**L'écran de victoire** montre les deux classements côte à côte : les équipes avec leur total du quiz, leurs points cumulés et leur moyenne d'un côté ; le classement individuel de l'autre. Les équipes décident du vainqueur, mais c'est pour son score personnel que chacun a joué — les deux méritent d'être à l'écran au même moment.
 
 ## Faire durer le suspense
 
@@ -219,7 +222,8 @@ L'espace animateur (`/edit`) partage la palette mais reste calme : pas de lueur,
 ## Architecture
 
 ```
-client/   React + Vite — 3 routes : "/" (téléphone), "/host" (écran commun), "/edit" (mes quiz)
+client/   React + Vite — 5 routes : "/" (téléphone), "/host" (écran commun), "/edit" (mes quiz),
+          "/stats" (les chiffres), "/souvenir" (le lendemain)
 server/   Node + Socket.io + Express — logique de jeu 100% côté serveur
 shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, barème des équipes)
 ```

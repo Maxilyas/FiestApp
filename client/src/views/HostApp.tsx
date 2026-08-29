@@ -22,6 +22,8 @@ function wifiQrValue(wifi: { ssid: string; pass: string }): string {
     : `WIFI:T:nopass;S:${esc(wifi.ssid)};;`
 }
 
+const MEDALS = ['🥇', '🥈', '🥉']
+
 /** De quoi baptiser six équipes sans réfléchir, dans l'ambiance de la soirée. */
 // Tous antérieurs à Unicode 13 : les emojis récents (boule à facettes,
 // visage pointillé…) s'affichent en carré vide sur Windows 10.
@@ -549,6 +551,17 @@ export function HostApp() {
                 <button className="btn btn-primary" onClick={() => openScreen('victory')}>
                   👑 Écran de victoire
                 </button>
+                {/* Le tableau complet se lit sur un téléphone, pas au
+                    vidéoprojecteur : il s'ouvre à côté. */}
+                <div className="qr-stack">
+                  <div className="qr-box">
+                    <QRCodeSVG value={`${joinUrl}/stats`} size={90} bgColor="#ffffff" fgColor="#1a1033" />
+                  </div>
+                  <p className="qr-caption">📊 Les chiffres</p>
+                </div>
+                <a className="btn" href="/stats" target="_blank" rel="noreferrer">
+                  📊 Statistiques détaillées
+                </a>
                 <button className="btn btn-ghost" onClick={() => setScreen(null)}>
                   Revenir
                 </button>
@@ -568,21 +581,53 @@ export function HostApp() {
                       {final[0].bonus !== 0 && ` · ${final[0].bonus > 0 ? '+' : ''}${final[0].bonus} de prix`}
                     </span>
                   </div>
-                  <div className="leaderboard">
-                    {final.slice(1).map(t => (
-                      <div key={t.id} className="lb-row">
-                        <span className="lb-rank">{t.rank}</span>
-                        <span className="lb-avatar">{t.emoji}</span>
-                        <span className="lb-name">{t.name}</span>
-                        <span className="team-gamepoints">{t.bonus > 0 ? `+${t.bonus}` : t.bonus || '—'}</span>
-                        <span className="lb-score">{t.finalPoints}</span>
+                  <div className="victory-boards">
+                    <div>
+                      <h3>👥 Les équipes</h3>
+                      <div className="leaderboard">
+                        {final.map(t => (
+                          <div key={t.id} className="lb-row team-row">
+                            <span className="lb-rank">{MEDALS[t.rank - 1] ?? t.rank}</span>
+                            <span className="lb-avatar">{t.emoji}</span>
+                            <span className="lb-name">
+                              {t.name}
+                              <span className="team-sub">
+                                {t.total} pts cumulés · {t.average} de moyenne
+                                {t.bonus !== 0 && ` · ${t.bonus > 0 ? '+' : ''}${t.bonus} de prix`}
+                              </span>
+                            </span>
+                            <span className="lb-score">{t.finalPoints}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                      <p className="muted small center">
+                        Le gros chiffre est le total du quiz, prix compris. Ajoute-lui tes deux jeux
+                        physiques pour désigner l'équipe gagnante de la soirée.
+                      </p>
+                    </div>
+
+                    {/* Le classement individuel a sa place ici : c'est pour lui
+                        que chacun a joué, et il explique le total des équipes. */}
+                    <div>
+                      <h3>🏆 Les joueurs</h3>
+                      <div className="leaderboard">
+                        {ranking.slice(0, 12).map((p, i) => {
+                          const rank = ranking.findIndex(r => r.points === p.points) + 1
+                          return (
+                            <div key={i} className="lb-row">
+                              <span className="lb-rank">{MEDALS[rank - 1] ?? rank}</span>
+                              <span className="lb-avatar">{p.avatar}</span>
+                              <span className="lb-name">{p.name}</span>
+                              <span className="lb-score">{p.points}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {ranking.length > 12 && (
+                        <p className="muted small center">et {ranking.length - 12} autres…</p>
+                      )}
+                    </div>
                   </div>
-                  <p className="muted center">
-                    Ce total est celui du quiz, prix compris. Ajoute-lui tes deux jeux physiques
-                    pour désigner l'équipe gagnante de la soirée.
-                  </p>
                 </>
               ) : (
                 <p className="muted">Aucune équipe — rien à couronner.</p>
@@ -631,6 +676,9 @@ export function HostApp() {
                     <button className="btn btn-small" onClick={() => openScreen('podium')}>
                       🏆 Podium
                     </button>
+                    <a className="btn btn-small" href="/stats" target="_blank" rel="noreferrer">
+                      📊 Statistiques
+                    </a>
                     <button className="btn btn-small" onClick={() => openScreen('awards')}>
                       🏅 Remise des prix
                     </button>
