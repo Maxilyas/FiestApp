@@ -967,3 +967,125 @@ h3 { font-size: 1.05rem; }
 /* Le multiplicateur doit sauter aux yeux : c' est lui qui relance la salle. */
 .pill.multi { background: var(--gold); color: #2a0518; border-color: var(--gold); font-weight: 700; }
 .multiplier-picker { margin-bottom: 4px; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ÉQUIPES
+   Le quiz reste individuel : chacun marque ses points. Les équipes s'en
+   déduisent, et c'est leur moyenne par membre qui les classe — un total
+   brut ferait gagner la plus nombreuse.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Deux cartes empilées dans une colonne de la grille de l'écran commun. */
+.host-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.small { font-size: 0.82rem; }
+
+/* ── Classement des équipes ─────────────────────── */
+.team-row { align-items: center; }
+.team-row .lb-name { display: flex; flex-direction: column; gap: 1px; }
+
+.team-sub { font-size: 0.75rem; font-weight: 400; color: var(--muted); }
+
+/* Les points rapportés au tableau des trois jeux : un chiffre à recopier,
+   volontairement distinct du score du quiz pour qu'on ne les confonde pas. */
+.team-gamepoints {
+  font-family: var(--numeric);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--teal);
+  min-width: 2.2em;
+  text-align: center;
+  border: 1px solid rgba(0, 209, 178, 0.4);
+  border-radius: var(--radius-pill);
+  padding: 1px 0;
+}
+
+/* ── Choix d'équipe (téléphone) ─────────────────── */
+.team-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 380px) {
+  .team-grid { grid-template-columns: 1fr; }
+}
+
+.team-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 14px 10px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 2px solid var(--edge-soft);
+  color: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.15s;
+}
+
+.team-btn:active { transform: scale(0.97); }
+.team-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.team-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.team-btn.selected {
+  border-color: var(--gold);
+  background: rgba(255, 200, 92, 0.14);
+}
+
+.team-btn-emoji { font-size: 1.9rem; }
+.team-btn-name { font-family: var(--display); font-weight: 700; font-size: 1.05rem; text-align: center; }
+.team-btn-count { font-size: 0.74rem; color: var(--muted); }
+
+/* ── Gestion des équipes (écran commun) ─────────── */
+.team-groups { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+
+.team-group {
+  padding: 8px 10px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--edge-soft);
+}
+
+/* Les invités qui n'ont pas encore choisi : discret, mais repérable au
+   moment de les répartir. */
+.team-group-none { border-style: dashed; }
+
+.team-group-head { display: flex; align-items: center; gap: 6px; }
+.team-group-name { font-family: var(--display); font-weight: 700; max-width: none; flex: 1; text-align: left; }
+.team-group .players-grid { margin-top: 7px; }
+.team-group:hover .chip-remove { opacity: 1; }
+
+/* Les deux sélecteurs de l'écran commun. Le natif suffit : il s'ouvre au
+   clavier, il est fiable à la souris, et rien ici ne se voit de loin. */
+.team-emoji-select,
+.chip-team {
+  background: rgba(13, 3, 22, 0.6);
+  color: var(--ink);
+  border: 1px solid var(--edge-soft);
+  border-radius: 8px;
+  font-family: var(--body);
+  cursor: pointer;
+}
+
+.team-emoji-select { font-size: 1rem; padding: 2px 4px; }
+
+/* Réduit à la largeur de l'emoji : le nom complet reste lisible dans la
+   liste déroulante, mais cinquante pastilles ne doivent pas s'étirer. */
+.chip-team {
+  font-size: 0.78rem;
+  padding: 1px 2px;
+  max-width: 3.6em;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+.player-chip:hover .chip-team,
+.chip-team:focus { opacity: 1; }
+
+.team-create { margin-top: 12px; }
+.team-name-input { flex: 1; min-width: 8ch; padding: 7px 10px; font-size: 0.9rem; }
+
+.podium-tabs { justify-content: center; }

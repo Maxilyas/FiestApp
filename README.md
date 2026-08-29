@@ -1,6 +1,6 @@
 # Quizz Romane 30 🎉
 
-Quiz façon Kahoot, gratuit et auto-hébergé, pour les 30 ans de Romane (19 septembre 2026). Chaque invité joue depuis son téléphone (navigateur, rien à installer), un écran commun (TV/vidéoprojecteur) anime la soirée, et un classement cumulé traverse tous les quiz de la soirée.
+Quiz façon Kahoot, gratuit et auto-hébergé, pour les 30 ans de Romane (19 septembre 2026). Chaque invité joue depuis son téléphone (navigateur, rien à installer), un écran commun (TV/vidéoprojecteur) anime la soirée, et un classement cumulé traverse tous les quiz de la soirée — en individuel **et** par équipe, le quiz n'étant qu'un des trois jeux de la fête.
 
 ## Démarrage rapide
 
@@ -30,7 +30,7 @@ npm run check
 npm run smoke
 ```
 
-`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation, retardataire).
+`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation, retardataire, équipes et barème des trois jeux).
 
 ## Écrire ses quiz
 
@@ -77,6 +77,20 @@ Avec cinquante invités et un classement cumulé, les mêmes trois personnes mè
 **En fin de soirée**, le bouton 🏆 célèbre le classement cumulé en plein écran, avec un QR vers la **page souvenir** (`/souvenir`) : podium, nombre de quiz, points distribués, le plus beau coup et le plus régulier. Elle est publique, à partager aux invités le lendemain.
 
 **Entre deux soirées**, 🧹 Nouvelle soirée efface invités et points, sauvegarde distante comprise — les essais d'avant la fête ne doivent pas traîner dans le classement du soir J.
+
+## Les équipes
+
+Le quiz n'est **qu'un jeu sur trois** : les deux autres se jouent debout, hors de l'application. Chacun garde donc ses points personnels, et les équipes s'en déduisent — pas de score collectif saisi à la main, pas de double comptabilité.
+
+**Rejoindre son équipe.** L'inscription se fait en deux écrans : prénom + avatar, puis l'équipe. Le deuxième n'apparaît que si l'animateur a créé des équipes ; sinon on rejoint directement, comme avant. Depuis la salle d'attente, chacun peut encore se corriger tant qu'aucun quiz ne tourne — pendant une partie, c'est refusé : changer d'équipe emporte ses points, ce serait un déménagement de score entre deux questions.
+
+**Le classement d'équipe se fait à la moyenne par membre, pas au total.** Six équipes ne se remplissent jamais à égalité parfaite, et une équipe de neuf battrait mécaniquement une équipe de six. Le total reste affiché en petit — c'est lui qu'on commente à voix haute — mais c'est la moyenne qui classe.
+
+**Le barème des trois jeux.** À la fin, le quiz rapporte à chaque équipe autant de points que son rang le permet : avec six équipes, **6 points à la première, 5 à la deuxième, … 1 à la dernière**. C'est le chiffre en turquoise sur l'écran commun et sur la page souvenir — celui à recopier sur le tableau des trois jeux, où s'ajoutent les résultats des deux jeux physiques. Deux équipes à égalité partagent le même rang et les mêmes points.
+
+**Côté animateur**, le panneau *Invités* regroupe les pastilles par équipe : on repère d'un coup d'œil qui s'est trompé, et un menu déroulant sur la pastille le déplace. On crée une équipe (nom + emoji), on la renomme, on la supprime — **supprimer une équipe n'exclut personne** : ses membres repassent « sans équipe » et gardent leurs points. Le bouton ✨ crée les six équipes par défaut d'un coup, à renommer ensuite.
+
+**Le podium** bascule entre 👥 *Les équipes* (podium collectif + barème à reporter) et 🏆 *Les joueurs* (podium individuel + prix de caractère). Les deux comptent : le classement individuel fait jouer chacun, le classement d'équipe désigne le vainqueur de la soirée.
 
 **Les retardataires entrent en cours de route** : quelqu'un qui arrive pendant un quiz rejoint la partie immédiatement. Il ne récupère rien sur les questions déjà posées, mais il joue toutes les suivantes. S'il arrive pendant une révélation, il est accueilli par un « 👋 Bienvenue » plutôt que par un « ⏰ Trop tard » pour une question qu'il n'a jamais vue.
 
@@ -180,10 +194,11 @@ L'espace animateur (`/edit`) partage la palette mais reste calme : pas de lueur,
 ```
 client/   React + Vite — 3 routes : "/" (téléphone), "/host" (écran commun), "/edit" (mes quiz)
 server/   Node + Socket.io + Express — logique de jeu 100% côté serveur
-shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque)
+shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, barème des équipes)
 ```
 
 - **Party** (`server/src/core/party.ts`) — registre des joueurs. L'identité survit aux coupures : un token stocké sur le téléphone permet de retrouver son joueur après un refresh, une perte de réseau ou un redémarrage du serveur.
+- **Teams** (`teams.ts`) — registre des équipes, séparé des joueurs : une équipe vit toute la soirée, ses membres vont et viennent. Le rattachement est une colonne sur le joueur, donc déplacer quelqu'un déplace ses points sans toucher au journal des scores.
 - **ScoreLedger** (`scores.ts`) — scores en append-only : chaque gain est une ligne (joueur, points, raison). Classement = somme par joueur, historique gratuit.
 - **GameEngine** (`engine.ts`) — pilote la partie en cours (une seule à la fois) : route actions/commandes/timers vers le module de jeu, persiste l'état après chaque changement et rediffuse les **vues filtrées**.
 - **Vues filtrées** — les clients ne reçoivent jamais l'état brut : chaque joueur reçoit `playerView(state, playerId)`, l'écran `hostView(state)`. C'est ce qui empêche la bonne réponse d'arriver dans le téléphone avant la révélation.
@@ -203,3 +218,4 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque)
 | 7 | Commandes d'animation : pause, question reposée, invités gérés | ✅ |
 | 8 | Podium de la soirée et page souvenir | ✅ |
 | 9 | Import en masse, aperçu, veille des téléphones, prénoms en double | ✅ |
+| 10 | Équipes : points individuels, classement collectif, barème des trois jeux | ✅ |

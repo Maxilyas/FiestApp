@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Recap } from '../../../shared/types'
 import { FinalPodium, Standings } from '../components/Podium'
+import { TeamBoard } from '../components/TeamBoard'
 import { Trophies } from '../components/Trophies'
 
 /**
@@ -60,6 +61,17 @@ export function RecapApp() {
         <h2>Le podium</h2>
         <FinalPodium rows={recap.ranking} />
       </section>
+
+      {recap.teams.length > 0 && (
+        <section className="card">
+          <h2>Les équipes au quiz</h2>
+          <TeamBoard teams={recap.teams} showGamePoints />
+          <p className="muted small">
+            En doré, la moyenne par membre — c'est elle qui classe les équipes. En turquoise, les
+            points rapportés au tableau des trois jeux.
+          </p>
+        </section>
+      )}
 
       <Trophies recap={recap} />
 

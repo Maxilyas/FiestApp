@@ -17,6 +17,16 @@ export function initDb(dbPath: string): DB {
       created_at INTEGER NOT NULL
     );
 
+    -- Les équipes de la soirée : le quiz est individuel, mais le tableau des
+    -- trois jeux se joue par équipe.
+    CREATE TABLE IF NOT EXISTS teams (
+      id         TEXT PRIMARY KEY,
+      name       TEXT NOT NULL,
+      emoji      TEXT NOT NULL,
+      position   INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
     -- Ledger append-only : le score d'un joueur = SUM(points).
     CREATE TABLE IF NOT EXISTS score_entries (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -37,5 +47,13 @@ export function initDb(dbPath: string): DB {
       updated_at      INTEGER NOT NULL
     );
   `)
+
+  // Les équipes sont arrivées après les premiers essais : une base déjà
+  // remplie n'a pas la colonne, et un ALTER sur une base neuve échouerait.
+  const columns = db.prepare('PRAGMA table_info(players)').all() as { name: string }[]
+  if (!columns.some(c => c.name === 'team_id')) {
+    db.exec('ALTER TABLE players ADD COLUMN team_id TEXT')
+  }
+
   return db
 }

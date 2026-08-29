@@ -7,6 +7,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initDb } from './core/db'
 import { Party } from './core/party'
+import { Teams } from './core/teams'
 import { ScoreLedger } from './core/scores'
 import { GameEngine } from './core/engine'
 import { PartyBackup } from './core/backup'
@@ -17,6 +18,7 @@ import { mountApi } from './api'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
 import type { PartySnapshot } from '../../shared/types'
+import { teamScores } from '../../shared/teams'
 
 export interface QuizServerOptions {
   port: number
@@ -53,11 +55,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const backup = new PartyBackup(opts.quizDbUrl, opts.quizDbToken)
   await backup.init()
   const restored = await backup.restoreInto(db)
-  if (restored.players > 0) {
-    console.log(`[soirée] ${restored.players} invités et ${restored.scores} gains rechargés après redémarrage`)
+  if (restored.players > 0 || restored.teams > 0) {
+    console.log(
+      `[soirée] ${restored.players} invités, ${restored.teams} équipes et ${restored.scores} gains rechargés après redémarrage`,
+    )
   }
 
   const party = new Party(db, backup)
+  const teams = new Teams(db, backup)
   const ledger = new ScoreLedger(db, backup)
 
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
@@ -74,8 +79,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
     : null
   const buildSnapshot = (): PartySnapshot => {
     const ip = lanAddress()
+    const players = party.publicPlayers(ledger.allTotals())
     return {
-      players: party.publicPlayers(ledger.allTotals()),
+      players,
+      teams: teamScores(teams.all(), players),
       session: engine.summary(),
       joinUrl: opts.publicUrl ?? (ip ? `http://${ip}:${boundPort}` : null),
       wifi,
@@ -119,12 +126,21 @@ export async function createQuizServer(opts: QuizServerOptions) {
     const running = engine.activeSessionId
     if (running) engine.endSession(running)
     party.clearAll()
+    teams.clearAll()
     ledger.clearAll()
     await backup.reset()
     broadcastSnapshot()
   }
 
-  wireSockets(io, { party, engine, hostKey: opts.hostKey, buildSnapshot, broadcastSnapshot, resetParty })
+  wireSockets(io, {
+    party,
+    teams,
+    engine,
+    hostKey: opts.hostKey,
+    buildSnapshot,
+    broadcastSnapshot,
+    resetParty,
+  })
 
   // Filet de sécurité : un client qui aurait silencieusement raté une diffusion
   // se répare tout seul. Toutes les cinq minutes suffisent — une reconnexion
@@ -207,6 +223,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         .filter(p => p.score !== 0)
         .sort((a, b) => b.score - a.score)
         .map(p => ({ name: p.name, avatar: p.avatar, points: p.score })),
+      teams: teamScores(teams.all(), players),
       quizCount: quizzes.n,
       totalPoints: distributed.n,
       bestShot:

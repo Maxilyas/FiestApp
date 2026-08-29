@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto'
 import { createClient, type Client } from '@libsql/client'
 import type { DB } from './db'
 import type { PlayerRec } from './party'
+import type { TeamRec } from './teams'
 
 /**
- * Recopie des invités et de leurs points dans la base distante.
+ * Recopie des invités, des équipes et de leurs points dans la base distante.
  *
  * Sur un hébergeur gratuit, le disque est effacé à chaque redémarrage : sans
  * ce miroir, une coupure en pleine soirée ramènerait tout le monde à zéro
@@ -34,6 +35,13 @@ export class PartyBackup {
            token      TEXT NOT NULL,
            created_at INTEGER NOT NULL
          )`,
+        `CREATE TABLE IF NOT EXISTS party_teams (
+           id         TEXT PRIMARY KEY,
+           name       TEXT NOT NULL,
+           emoji      TEXT NOT NULL,
+           position   INTEGER NOT NULL,
+           created_at INTEGER NOT NULL
+         )`,
         `CREATE TABLE IF NOT EXISTS party_scores (
            id         TEXT PRIMARY KEY,
            player_id  TEXT NOT NULL,
@@ -45,6 +53,14 @@ export class PartyBackup {
       ],
       'write',
     )
+    // Les équipes sont arrivées après les premiers essais : une base distante
+    // créée avant elles n'a pas la colonne. libsql n'a pas d'« ADD COLUMN IF
+    // NOT EXISTS », alors on tente et on ignore le refus.
+    try {
+      await this.client.execute('ALTER TABLE party_players ADD COLUMN team_id TEXT')
+    } catch {
+      // Colonne déjà là : c'est le cas normal après le premier démarrage.
+    }
   }
 
   /** Lance une écriture sans bloquer l'appelant, et sans jamais faire tomber le serveur. */
@@ -59,9 +75,19 @@ export class PartyBackup {
   savePlayer(rec: PlayerRec, createdAt: number) {
     this.fireAndForget(
       this.client.execute({
-        sql: `INSERT INTO party_players (id, name, avatar, token, created_at) VALUES (?, ?, ?, ?, ?)
-              ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar`,
-        args: [rec.id, rec.name, rec.avatar, rec.token, createdAt],
+        sql: `INSERT INTO party_players (id, name, avatar, token, team_id, created_at) VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar, team_id = excluded.team_id`,
+        args: [rec.id, rec.name, rec.avatar, rec.token, rec.teamId, createdAt],
+      }),
+    )
+  }
+
+  saveTeam(rec: TeamRec) {
+    this.fireAndForget(
+      this.client.execute({
+        sql: `INSERT INTO party_teams (id, name, emoji, position, created_at) VALUES (?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET name = excluded.name, emoji = excluded.emoji`,
+        args: [rec.id, rec.name, rec.emoji, rec.position, rec.createdAt],
       }),
     )
   }
@@ -94,23 +120,40 @@ export class PartyBackup {
    * après un redémarrage qui a effacé le disque. Une base locale déjà peuplée
    * fait autorité : on ne veut pas écraser une partie en cours.
    */
-  async restoreInto(db: DB): Promise<{ players: number; scores: number }> {
+  async restoreInto(db: DB): Promise<{ players: number; teams: number; scores: number }> {
     const local = db.prepare('SELECT COUNT(*) AS n FROM players').get() as { n: number }
-    if (local.n > 0) return { players: 0, scores: 0 }
+    const localTeams = db.prepare('SELECT COUNT(*) AS n FROM teams').get() as { n: number }
+    if (local.n > 0 || localTeams.n > 0) return { players: 0, teams: 0, scores: 0 }
 
+    const teams = await this.client.execute('SELECT * FROM party_teams ORDER BY position')
     const players = await this.client.execute('SELECT * FROM party_players')
     const scores = await this.client.execute('SELECT * FROM party_scores ORDER BY created_at')
-    if (players.rows.length === 0) return { players: 0, scores: 0 }
+    if (players.rows.length === 0 && teams.rows.length === 0) {
+      return { players: 0, teams: 0, scores: 0 }
+    }
 
+    const insertTeam = db.prepare(
+      'INSERT OR IGNORE INTO teams (id, name, emoji, position, created_at) VALUES (?, ?, ?, ?, ?)',
+    )
     const insertPlayer = db.prepare(
-      'INSERT OR IGNORE INTO players (id, name, avatar, token, created_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT OR IGNORE INTO players (id, name, avatar, token, team_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
     )
     const insertScore = db.prepare(
       'INSERT INTO score_entries (player_id, session_id, points, reason, created_at) VALUES (?, ?, ?, ?, ?)',
     )
     db.transaction(() => {
+      for (const r of teams.rows) {
+        insertTeam.run(String(r.id), String(r.name), String(r.emoji), Number(r.position), Number(r.created_at))
+      }
       for (const r of players.rows) {
-        insertPlayer.run(String(r.id), String(r.name), String(r.avatar), String(r.token), Number(r.created_at))
+        insertPlayer.run(
+          String(r.id),
+          String(r.name),
+          String(r.avatar),
+          String(r.token),
+          r.team_id === null || r.team_id === undefined ? null : String(r.team_id),
+          Number(r.created_at),
+        )
       }
       for (const r of scores.rows) {
         insertScore.run(
@@ -122,7 +165,7 @@ export class PartyBackup {
         )
       }
     })()
-    return { players: players.rows.length, scores: scores.rows.length }
+    return { players: players.rows.length, teams: teams.rows.length, scores: scores.rows.length }
   }
 
   deletePlayer(playerId: string) {
@@ -137,9 +180,19 @@ export class PartyBackup {
     )
   }
 
+  /** L'équipe disparaît ; ses membres sont mis à jour séparément par `Party`. */
+  deleteTeam(teamId: string) {
+    this.fireAndForget(
+      this.client.execute({ sql: 'DELETE FROM party_teams WHERE id = ?', args: [teamId] }),
+    )
+  }
+
   /** Repart d'une soirée vierge — les essais d'avant la fête ne doivent pas y traîner. */
   async reset() {
-    await this.client.batch(['DELETE FROM party_scores', 'DELETE FROM party_players'], 'write')
+    await this.client.batch(
+      ['DELETE FROM party_scores', 'DELETE FROM party_players', 'DELETE FROM party_teams'],
+      'write',
+    )
   }
 
   async close() {

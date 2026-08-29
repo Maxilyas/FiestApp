@@ -27,8 +27,20 @@ socket.on('player:removed', () => {
 
 socket.on('toast', showToast)
 
-export function joinAsPlayer(name: string, avatar: string, token?: string): Promise<JoinAck> {
-  return new Promise(resolve => socket.emit('player:join', { name, avatar, token }, resolve))
+export function joinAsPlayer(
+  name: string,
+  avatar: string,
+  token?: string,
+  // Omis à la reconnexion : le serveur garde alors l'équipe déjà choisie.
+  teamId?: string | null,
+): Promise<JoinAck> {
+  return new Promise(resolve =>
+    socket.emit('player:join', { name, avatar, token, teamId }, resolve),
+  )
+}
+
+export function setMyTeam(teamId: string | null): Promise<{ ok: boolean; error?: string }> {
+  return new Promise(resolve => socket.emit('player:setTeam', { teamId }, resolve))
 }
 
 export function helloHost(key: string): Promise<{ ok: boolean }> {

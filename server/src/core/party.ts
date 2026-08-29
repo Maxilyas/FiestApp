@@ -8,6 +8,7 @@ export interface PlayerRec {
   name: string
   avatar: string
   token: string
+  teamId: string | null
   createdAt: number
 }
 
@@ -31,21 +32,30 @@ export class Party {
         name: row.name,
         avatar: row.avatar,
         token: row.token,
+        teamId: row.team_id ?? null,
         createdAt: row.created_at,
       })
     }
   }
 
-  join(name: string, avatar: string, token?: string): PlayerRec | { error: string } {
+  join(
+    name: string,
+    avatar: string,
+    token?: string,
+    teamId?: string | null,
+  ): PlayerRec | { error: string } {
     const clean = name.trim().slice(0, 24)
     if (token) {
       const existing = [...this.players.values()].find(p => p.token === token)
       if (existing) {
         if (clean) existing.name = clean
         if (avatar) existing.avatar = avatar
+        // `undefined` = le téléphone se reconnecte sans rien dire de l'équipe :
+        // on garde la sienne. `null` serait un retrait volontaire.
+        if (teamId !== undefined) existing.teamId = teamId
         this.db
-          .prepare('UPDATE players SET name = ?, avatar = ? WHERE id = ?')
-          .run(existing.name, existing.avatar, existing.id)
+          .prepare('UPDATE players SET name = ?, avatar = ?, team_id = ? WHERE id = ?')
+          .run(existing.name, existing.avatar, existing.teamId, existing.id)
         this.backup?.savePlayer(existing, existing.createdAt)
         return existing
       }
@@ -56,12 +66,15 @@ export class Party {
       name: clean,
       avatar: avatar || '🎉',
       token: randomUUID(),
+      teamId: teamId ?? null,
       createdAt: Date.now(),
     }
     this.players.set(rec.id, rec)
     this.db
-      .prepare('INSERT INTO players (id, name, avatar, token, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(rec.id, rec.name, rec.avatar, rec.token, rec.createdAt)
+      .prepare(
+        'INSERT INTO players (id, name, avatar, token, team_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      )
+      .run(rec.id, rec.name, rec.avatar, rec.token, rec.teamId, rec.createdAt)
     this.backup?.savePlayer(rec, rec.createdAt)
     return rec
   }
@@ -99,6 +112,29 @@ export class Party {
     return true
   }
 
+  /**
+   * Change l'équipe d'un joueur. Ses points le suivent : le score d'une équipe
+   * est toujours celui de ses membres du moment, donc corriger une erreur
+   * d'aiguillage remet aussi les points au bon endroit.
+   */
+  assign(playerId: string, teamId: string | null): boolean {
+    const rec = this.players.get(playerId)
+    if (!rec || rec.teamId === teamId) return false
+    rec.teamId = teamId
+    this.db.prepare('UPDATE players SET team_id = ? WHERE id = ?').run(teamId, playerId)
+    this.backup?.savePlayer(rec, rec.createdAt)
+    return true
+  }
+
+  /** Après la suppression d'une équipe : ses membres redeviennent sans équipe. */
+  clearTeam(teamId: string): number {
+    let moved = 0
+    for (const rec of this.players.values()) {
+      if (rec.teamId === teamId && this.assign(rec.id, null)) moved++
+    }
+    return moved
+  }
+
   /** Exclut un invité et efface ses points — y compris dans la sauvegarde. */
   remove(playerId: string): boolean {
     if (!this.players.delete(playerId)) return false
@@ -133,6 +169,7 @@ export class Party {
       avatar: p.avatar,
       connected: this.connections.has(p.id),
       score,
+      teamId: p.teamId,
     }
   }
 }

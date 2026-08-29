@@ -8,6 +8,28 @@ export interface PublicPlayer {
   connected: boolean
   /** Score cumulé sur toute la soirée (tous les quiz confondus). */
   score: number
+  /** Son équipe, ou null tant qu'il n'en a pas choisi. */
+  teamId: string | null
+}
+
+/**
+ * Une équipe et son score au quiz.
+ *
+ * Le score retenu est la **moyenne par membre**, pas le total : les équipes
+ * n'ont jamais exactement le même effectif, et une équipe de neuf gagnerait
+ * mécaniquement contre une équipe de six.
+ */
+export interface PublicTeam {
+  id: string
+  name: string
+  emoji: string
+  /** Ordre d'affichage, stable — c'est celui de la création. */
+  position: number
+  memberCount: number
+  /** Somme des points des membres — affichée à titre indicatif. */
+  total: number
+  /** total ÷ memberCount, arrondi. C'est lui qui classe les équipes. */
+  average: number
 }
 
 /** La partie de quiz en cours — il n'y en a jamais plus d'une à la fois. */
@@ -19,6 +41,7 @@ export interface SessionSummary {
 /** État global de la soirée, diffusé à tous les écrans. */
 export interface PartySnapshot {
   players: PublicPlayer[]
+  teams: PublicTeam[]
   session: SessionSummary | null
   /** URL à faire ouvrir aux téléphones — c'est elle qu'on met dans le QR code. */
   joinUrl: string | null
@@ -35,6 +58,8 @@ export interface RecapRow {
 
 export interface Recap {
   ranking: RecapRow[]
+  /** Les équipes et leur score au quiz — `rankTeams` en tire le classement. */
+  teams: PublicTeam[]
   /** Nombre de quiz joués dans la soirée. */
   quizCount: number
   /** Total des points distribués. */

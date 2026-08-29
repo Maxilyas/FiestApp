@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { createQuizServer } from '../src/server'
 import { parseImportedQuestions } from '../../shared/library'
 import { QuizStore } from '../src/core/quizStore'
+import { rankTeams } from '../../shared/teams'
 
 function fail(msg: string): never {
   console.error(`❌ ${msg}`)
@@ -109,6 +110,11 @@ try {
 
   ;(host as any).emit('host:command', { sessionId: quizId, command: { type: 'selectPack', packId: 'culture-generale' } })
   await waitFor<any>(alice, 'session:view', p => p.view.phase === 'question', 'phase question (après le 3-2-1)')
+
+  // Changer d'équipe emporterait ses points d'une équipe à l'autre entre deux
+  // questions : le serveur doit le refuser tant qu'un quiz tourne.
+  const refus = await emitAck<any>(alice, 'player:setTeam', { teamId: null })
+  assert(!refus.ok && refus.error, 'changement d’équipe accepté en pleine partie')
 
   // 4. Réponses : Alice juste (et la plus rapide), Bob faux → révélation immédiate
   const aliceReveal = waitFor<any>(alice, 'session:view', p => p.view.phase === 'reveal', 'reveal joueur')
@@ -526,9 +532,108 @@ try {
   assert(!(await store.getImage(gardee)), 'la photo doit partir avec son dernier quiz')
   store.close()
 
-  // 20. Redémarrage du serveur avec disque effacé — le scénario d'un
-  //     hébergeur gratuit qui recycle l'instance en pleine soirée. Invités et
-  //     points doivent revenir depuis la base distante.
+  // 20. Équipes : le quiz reste individuel, mais les points se cumulent par
+  //     équipe. Création, déplacement d'un invité, suppression d'une équipe,
+  //     et conversion du classement en points du tableau des trois jeux.
+  const onSnap = (pred: (s: any) => boolean, label: string) =>
+    waitFor<any>(host, 'party:snapshot', pred, label)
+
+  const teamsSeeded = onSnap(s => s.teams.length === 6, 'les six équipes par défaut')
+  ;(host as any).emit('host:seedTeams')
+  const withTeams = await teamsSeeded
+  const T = withTeams.teams
+
+  // Rejouer la création par défaut ne doit rien dupliquer : c'est un bouton
+  // qu'on peut cliquer deux fois sans y penser.
+  const seventh = onSnap(s => s.teams.length === 7, 'équipe créée à la main')
+  ;(host as any).emit('host:seedTeams')
+  ;(host as any).emit('host:createTeam', { name: 'Les Testeurs', emoji: '🧪' })
+  const extra = await seventh
+  const jetable = extra.teams.find((t: any) => t.name === 'Les Testeurs')
+  assert(jetable, 'équipe créée introuvable dans le classement')
+
+  const backToSix = onSnap(s => s.teams.length === 6, 'équipe supprimée')
+  ;(host as any).emit('host:removeTeam', { teamId: jetable.id })
+  await backToSix
+
+  // Alice et Charlie ont marqué pendant la soirée : leurs points suivent leur
+  // équipe, sans que le journal des scores soit touché.
+  const split = onSnap(
+    s => s.players.every((p: any) => p.teamId) && s.teams.filter((t: any) => t.memberCount === 1).length === 2,
+    'les deux invités répartis',
+  )
+  ;(host as any).emit('host:assignPlayer', { playerId: aliceAck.playerId, teamId: T[0].id })
+  ;(host as any).emit('host:assignPlayer', { playerId: charlieAck.playerId, teamId: T[1].id })
+  const splitSnap = await split
+
+  const aliceScore2 = splitSnap.players.find((p: any) => p.id === aliceAck.playerId).score
+  const charlieScore = splitSnap.players.find((p: any) => p.id === charlieAck.playerId).score
+  const t0 = splitSnap.teams.find((t: any) => t.id === T[0].id)
+  assert(t0.memberCount === 1 && t0.total === aliceScore2, `équipe d'Alice à ${t0.total}, attendu ${aliceScore2}`)
+  assert(t0.average === aliceScore2, 'à un seul membre, la moyenne vaut le total')
+
+  // Un invité peut se corriger lui-même hors partie — le cas « je me suis
+  // trompé de bouton à l'inscription ».
+  const regrouped = onSnap(s => s.teams.some((t: any) => t.memberCount === 2), 'Alice a rejoint Charlie')
+  const moved = await emitAck<any>(alice2, 'player:setTeam', { teamId: T[1].id })
+  assert(moved.ok, 'changement d’équipe refusé hors partie')
+  const regroupedSnap = await regrouped
+
+  const t1 = regroupedSnap.teams.find((t: any) => t.id === T[1].id)
+  assert(t1.total === aliceScore2 + charlieScore, 'le total d’équipe doit suivre le déménagement')
+  assert(
+    t1.average === Math.round((aliceScore2 + charlieScore) / 2),
+    `moyenne par membre à ${t1.average}, attendu ${Math.round((aliceScore2 + charlieScore) / 2)}`,
+  )
+  const vide = regroupedSnap.teams.find((t: any) => t.id === T[0].id)
+  assert(vide.memberCount === 0 && vide.average === 0, 'une équipe quittée retombe à zéro')
+
+  // Le barème part du nombre d'équipes : à six équipes, la première rapporte 6.
+  const standings = rankTeams(regroupedSnap.teams)
+  assert(standings[0].id === T[1].id, 'la seule équipe à avoir marqué doit être première')
+  assert(standings[0].gamePoints === 6, `première équipe à ${standings[0].gamePoints} points de jeu, attendu 6`)
+  // Les cinq équipes encore vides sont à égalité : même rang, mêmes points.
+  const exAequo = standings.slice(1)
+  assert(
+    exAequo.every(t => t.rank === 2 && t.gamePoints === 5),
+    'les équipes à égalité doivent partager rang et points',
+  )
+
+  // Le barème lui-même, sur six équipes toutes différentes : 6, 5, 4, 3, 2, 1.
+  const bareme = rankTeams(
+    [500, 400, 300, 200, 100, 50].map((average, i) => ({
+      id: `t${i}`,
+      name: `Équipe ${i}`,
+      emoji: '🎈',
+      position: i,
+      memberCount: 1,
+      total: average,
+      average,
+    })),
+  ).map(t => t.gamePoints)
+  assert(
+    bareme.join(',') === '6,5,4,3,2,1',
+    `barème des trois jeux faux : ${bareme.join(', ')}`,
+  )
+
+  // Supprimer une équipe n'exclut personne : ses membres redeviennent libres
+  // et gardent leurs points.
+  const dissolved = onSnap(s => s.teams.length === 5 && s.players.every((p: any) => !p.teamId), 'équipe dissoute')
+  ;(host as any).emit('host:removeTeam', { teamId: T[1].id })
+  const dissolvedSnap = await dissolved
+  assert(
+    dissolvedSnap.players.find((p: any) => p.id === aliceAck.playerId).score === aliceScore2,
+    'les points ne doivent pas partir avec l’équipe supprimée',
+  )
+
+  const reassigned = onSnap(s => s.teams.some((t: any) => t.memberCount === 2), 'invités replacés')
+  ;(host as any).emit('host:assignPlayer', { playerId: aliceAck.playerId, teamId: T[0].id })
+  ;(host as any).emit('host:assignPlayer', { playerId: charlieAck.playerId, teamId: T[0].id })
+  await reassigned
+
+  // 21. Redémarrage du serveur avec disque effacé — le scénario d'un
+  //     hébergeur gratuit qui recycle l'instance en pleine soirée. Invités,
+  //     équipes et points doivent revenir depuis la base distante.
   // Le dernier classement reçu fait foi : plus rien ne bouge à ce stade, donc
   // attendre un nouveau message expirerait.
   const aliceBefore = afterRemoval.players.find((p: any) => p.id === aliceAck.playerId)
@@ -556,10 +661,14 @@ try {
     `score perdu au redémarrage : ${aliceAfter?.score} au lieu de ${aliceBefore.score}`,
   )
   assert(aliceAfter?.name === 'Alice', 'le nom du joueur doit être rechargé lui aussi')
+  assert(after2.teams.length === 5, `${after2.teams.length} équipes rechargées, attendu 5`)
+  assert(aliceAfter?.teamId === T[0].id, 'l’équipe de chacun doit survivre au redémarrage')
+  const t0After = after2.teams.find((t: any) => t.id === T[0].id)
+  assert(t0After?.memberCount === 2, 'les deux membres doivent être recomptés dans leur équipe')
   probe.disconnect()
   await server2.close()
 
-  console.log('✅ Smoke test OK — 22 étapes')
+  console.log('✅ Smoke test OK — 23 étapes')
   console.log(
     '   collage de questions, quiz complet, bibliothèque, photos, estimation, retardataire,',
   )
@@ -567,7 +676,7 @@ try {
     '   pause, enchaînement automatique, annulation, question reposée, invité renommé et exclu,',
   )
   console.log(
-    '   ménage des photos, reprise après coupure',
+    '   ménage des photos, équipes et barème des trois jeux, reprise après coupure',
   )
   process.exit(0)
 } catch (e) {
