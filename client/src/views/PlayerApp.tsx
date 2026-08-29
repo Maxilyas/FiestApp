@@ -258,7 +258,7 @@ export function PlayerApp() {
         <Leaderboard players={snap?.players ?? []} compact highlightId={s.me.playerId} />
       </div>
 
-      <p className="waiting">🪩 En attente du prochain quiz…</p>
+      <p className="waiting">🎊 En attente du prochain quiz…</p>
       {toast}
     </div>
   )

@@ -10,12 +10,15 @@ export interface TeamStanding extends PublicTeam {
    * suivante, etc. Avec six équipes : 6, 5, 4, 3, 2, 1.
    */
   gamePoints: number
+  /** gamePoints + les prix remis par l'animateur. C'est le total du quiz. */
+  finalPoints: number
 }
 
 /** Somme et moyenne des points de chaque équipe, à partir du classement individuel. */
 export function teamScores(
   teams: { id: string; name: string; emoji: string; position: number }[],
   players: PublicPlayer[],
+  bonuses: { teamId: string; points: number }[] = [],
 ): PublicTeam[] {
   return teams.map(t => {
     const members = players.filter(p => p.teamId === t.id)
@@ -26,6 +29,7 @@ export function teamScores(
       total,
       // Une équipe encore vide vaut 0 : elle n'a rien joué, elle finit dernière.
       average: members.length ? Math.round(total / members.length) : 0,
+      bonus: bonuses.filter(b => b.teamId === t.id).reduce((sum, b) => sum + b.points, 0),
     }
   })
 }
@@ -46,6 +50,25 @@ export function rankTeams(teams: PublicTeam[]): TeamStanding[] {
   )
   return sorted.map(t => {
     const rank = sorted.findIndex(o => o.average === t.average) + 1
-    return { ...t, rank, gamePoints: sorted.length - rank + 1 }
+    const gamePoints = sorted.length - rank + 1
+    return { ...t, rank, gamePoints, finalPoints: gamePoints + t.bonus }
   })
+}
+
+/**
+ * Le classement qui désigne le vainqueur du quiz : le barème plus les prix.
+ *
+ * Il diffère volontairement de `rankTeams` — celui-là classe les équipes sur
+ * leur seule performance au quiz, et c'est lui qui distribue le barème. Les
+ * prix arrivent après, et peuvent renverser l'ordre : c'est tout leur intérêt.
+ */
+export function finalRanking(teams: PublicTeam[]): TeamStanding[] {
+  const scored = rankTeams(teams)
+  const sorted = [...scored].sort(
+    (a, b) => b.finalPoints - a.finalPoints || a.name.localeCompare(b.name, 'fr'),
+  )
+  return sorted.map(t => ({
+    ...t,
+    rank: sorted.findIndex(o => o.finalPoints === t.finalPoints) + 1,
+  }))
 }

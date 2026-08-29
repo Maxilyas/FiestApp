@@ -27,6 +27,38 @@ export function initDb(dbPath: string): DB {
       created_at INTEGER NOT NULL
     );
 
+    -- Prix remis par l'animateur à une équipe, sur l'échelle du barème.
+    CREATE TABLE IF NOT EXISTS team_bonus (
+      id         TEXT PRIMARY KEY,
+      team_id    TEXT NOT NULL,
+      points     INTEGER NOT NULL,
+      reason     TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+
+    -- Journal des réponses : une ligne par joueur et par question posée, y
+    -- compris quand il n'a pas répondu. Le classement seul ne dit rien des
+    -- temps de réponse ni des erreurs — c'est ici que vivent les statistiques.
+    CREATE TABLE IF NOT EXISTS answer_log (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id  TEXT NOT NULL,
+      quiz_title  TEXT NOT NULL,
+      q_index     INTEGER NOT NULL,
+      kind        TEXT NOT NULL,
+      player_id   TEXT NOT NULL,
+      answered    INTEGER NOT NULL,
+      correct     INTEGER,
+      choice      INTEGER,
+      value       REAL,
+      target      REAL,
+      ms          INTEGER,
+      changes     INTEGER NOT NULL,
+      points      INTEGER NOT NULL,
+      duration_ms INTEGER NOT NULL,
+      observed    INTEGER NOT NULL,
+      created_at  INTEGER NOT NULL
+    );
+
     -- Ledger append-only : le score d'un joueur = SUM(points).
     CREATE TABLE IF NOT EXISTS score_entries (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -158,7 +158,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
 
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="" />}
-        {v.photoGone && <p className="photo-gone">🫥 La photo a disparu — de mémoire !</p>}
+        {v.photoGone && <p className="photo-gone">🙈 La photo a disparu — de mémoire !</p>}
 
         {v.kind === 'number' ? (
           revealing ? (

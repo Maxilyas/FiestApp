@@ -153,7 +153,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
         {v.paused && <p className="muted center">⏸ En pause — regarde l'écran commun</p>}
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="" />}
-        {v.photoGone && <p className="photo-gone">🫥 La photo a disparu — de mémoire !</p>}
+        {v.photoGone && <p className="photo-gone">🙈 La photo a disparu — de mémoire !</p>}
 
         {v.kind === 'number' ? (
           <GuessForm view={v} send={send} />

@@ -30,7 +30,7 @@ npm run check
 npm run smoke
 ```
 
-`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation, retardataire, photo « mémoire », équipes et barème des trois jeux).
+`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix).
 
 ## Écrire ses quiz
 
@@ -53,7 +53,7 @@ L'estimation évite les blocages : même sans connaître la réponse, on propose
 - **On peut changer d'avis** jusqu'à la révélation, sur un QCM comme sur une estimation : un doigt qui glisse sur un téléphone tenu dans le noir ne doit pas coûter la question. C'est le dernier envoi qui fait foi, heure comprise — se raviser coûte donc du bonus de rapidité, sans quoi on pourrait taper au hasard dès la première seconde pour s'assurer le maximum, puis corriger tranquillement.
 - **Coller une liste** évite de saisir cinquante questions une par une. Une ligne vide sépare deux questions, l'étoile marque la bonne réponse, le signe égal crée une estimation. Les questions sans étoile sont importées mais signalées.
 - **👁 Aperçu** montre une question telle qu'elle sera projetée, sans lancer de partie.
-- **🫥 La photo disparaît** transforme n'importe quelle question — QCM comme estimation — en jeu de mémoire. Voir plus bas.
+- **🙈 La photo disparaît** transforme n'importe quelle question — QCM comme estimation — en jeu de mémoire. Voir plus bas.
 
 Au tout premier démarrage, les quiz livrés dans `server/content/quiz/*.json` sont importés une fois dans la bibliothèque pour ne pas partir d'une page blanche. Ensuite ces fichiers ne servent plus à rien : tout vit dans la base.
 
@@ -71,13 +71,25 @@ Pendant une question, **l'écran commun bascule en mode scène** : les panneaux 
 
 ## La photo qui disparaît
 
-Cochez **🫥 La photo disparaît avant la question** sous une photo et la question devient un jeu de mémoire. La photo est d'abord projetée **seule**, en grand, pendant le nombre de secondes choisi : ni l'intitulé ni les réponses ne partent sur les téléphones, qui affichent « 👀 Mémorise ! ». Puis elle disparaît et la question démarre avec son chronomètre normal.
+Cochez **🙈 La photo disparaît avant la question** sous une photo et la question devient un jeu de mémoire. La photo est d'abord projetée **seule**, en grand, pendant le nombre de secondes choisi : ni l'intitulé ni les réponses ne partent sur les téléphones, qui affichent « 👀 Mémorise ! ». Puis elle disparaît et la question démarre avec son chronomètre normal.
 
 C'est cette phase séparée qui fait le jeu. Afficher la photo et les réponses en même temps reviendrait à laisser répondre en la regardant — la mémoire n'y servirait plus à rien.
 
 Le mécanisme marche pour les deux types de question : un QCM (« combien de bougies sur le gâteau ? ») comme une estimation (« en quelle année cette photo a-t-elle été prise ? »). **La photo revient à la révélation**, pour vérifier ensemble ce qu'on croyait avoir vu. L'animateur peut abréger l'observation d'un clic sur **Passer à la question** si tout le monde a déjà vu.
 
 Une photo sans cette case cochée se comporte comme avant : elle reste affichée à côté de la question.
+
+## Les prix de fin de soirée
+
+Chaque réponse est journalisée : qui, à quelle question, en combien de temps, juste ou faux, et même les questions laissées passer. Le classement seul ne suffirait pas — il ne retient que les gains positifs, donc ni les erreurs, ni les temps de réponse n'y laissent de trace.
+
+De ce journal sortent **une vingtaine de prix**, calculés tout seuls : ⚡ L'Éclair (le plus rapide en moyenne), 🐢 Le Contemplatif (le plus lent, mais juste), 🔫 La Gâchette Facile (vite et faux), ⏰ Le Buzzer de Fin, 💯 Le Sans-Faute, 🙃 Le Cancre Magnifique, 😴 L'Abstentionniste, 🔥 L'Invincible, 🌚 La Série Noire, 🔮 Le Devin, 🎈 L'Optimiste, 🪨 Le Pessimiste, 🎯 Le Pile-Poil, 🦄 Le Franc-Tireur, 🐑 Le Mouton, ✋ Le Doigt qui Tremble, 🦸 Le Sauveur, 📈 La Remontada, 📉 La Chute Libre, 👁️ L'Œil de Lynx, plus deux prix d'équipe : 🤝 Le Coup de Pouce et ⚖️ La Plus Solidaire.
+
+**Rien n'est attribué automatiquement.** L'écran **🏅 Remise des prix** les propose avec le nom du lauréat, la règle et le chiffre qui la justifie ; l'animateur choisit lesquels il remet et combien de points ils valent. Un panneau libre permet d'en inventer d'autres (« ont chanté le plus fort », +3), et un prix mal donné se retire d'un clic. Un prix ne se propose que s'il a de la matière : trois réponses ne font pas une moyenne.
+
+Ces points s'ajoutent au **barème des trois jeux**, pas à la moyenne du quiz : ce sont deux choses différentes, et les mélanger rendrait les deux illisibles. L'écran **👑 Victoire** annonce l'équipe qui remporte le quiz, prix compris — reste à y ajouter les deux jeux physiques.
+
+**La page souvenir** porte le palmarès complet et un tableau de dix-sept colonnes, triable, une ligne par joueur : points, réponses données, justes, fausses, taux de réussite, temps moyen, meilleur temps, plus longues séries, questions passées, revirements, réponses de dernière seconde, fois où l'on était seul de la salle, fois où l'on a suivi la majorité, estimations et leur écart moyen, biais optimiste ou pessimiste. Elle est publique : elle sert à l'animateur pendant la fête comme aux invités le lendemain.
 
 ## Faire durer le suspense
 
@@ -214,6 +226,8 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, bar
 
 - **Party** (`server/src/core/party.ts`) — registre des joueurs. L'identité survit aux coupures : un token stocké sur le téléphone permet de retrouver son joueur après un refresh, une perte de réseau ou un redémarrage du serveur.
 - **Teams** (`teams.ts`) — registre des équipes, séparé des joueurs : une équipe vit toute la soirée, ses membres vont et viennent. Le rattachement est une colonne sur le joueur, donc déplacer quelqu'un déplace ses points sans toucher au journal des scores.
+- **AnswerLog** (`answers.ts`) — une ligne par joueur et par question posée, réponses manquantes comprises. C'est la seule source des statistiques : le classement, lui, ne garde que les gains positifs. Une question annulée ou reposée en sort, pour ne pas compter deux fois.
+- **Stats** (`stats.ts`) — les moyennes, les séries et les prix, dérivés du journal. Les prix sont proposés, jamais appliqués : c'est l'animateur qui décide.
 - **ScoreLedger** (`scores.ts`) — scores en append-only : chaque gain est une ligne (joueur, points, raison). Classement = somme par joueur, historique gratuit.
 - **GameEngine** (`engine.ts`) — pilote la partie en cours (une seule à la fois) : route actions/commandes/timers vers le module de jeu, persiste l'état après chaque changement et rediffuse les **vues filtrées**.
 - **Vues filtrées** — les clients ne reçoivent jamais l'état brut : chaque joueur reçoit `playerView(state, playerId)`, l'écran `hostView(state)`. C'est ce qui empêche la bonne réponse d'arriver dans le téléphone avant la révélation.
@@ -235,3 +249,4 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, bar
 | 9 | Import en masse, aperçu, veille des téléphones, prénoms en double | ✅ |
 | 10 | Équipes : points individuels, classement collectif, barème des trois jeux | ✅ |
 | 11 | Photo « mémoire » et classements annoncés entre deux questions | ✅ |
+| 12 | Journal des réponses, statistiques, prix de fin de soirée et écran de victoire | ✅ |

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import type { Recap } from '../../../shared/types'
 import { FinalPodium, Standings } from '../components/Podium'
 import { TeamBoard } from '../components/TeamBoard'
+import { StatsTable } from '../components/StatsTable'
+import { AwardsBoard } from '../components/AwardsBoard'
 import { Trophies } from '../components/Trophies'
 
 /**
@@ -73,7 +75,28 @@ export function RecapApp() {
         </section>
       )}
 
+      {recap.stats.awards.length > 0 && (
+        <section className="card">
+          <h2>Le palmarès</h2>
+          <p className="muted small">
+            Les prix de la soirée — ceux qui ne se jouent pas au sommet du classement.
+          </p>
+          <AwardsBoard awards={recap.stats.awards} teams={recap.teams} />
+        </section>
+      )}
+
       <Trophies recap={recap} />
+
+      {recap.stats.logged > 0 && (
+        <section className="card">
+          <h2>Toutes les statistiques</h2>
+          <p className="muted small">
+            {recap.stats.questions} questions posées · {recap.stats.logged} réponses enregistrées.
+            Clique sur un en-tête pour trier — chacun peut y chercher son propre chiffre.
+          </p>
+          <StatsTable stats={recap.stats} />
+        </section>
+      )}
 
       {recap.ranking.length > 3 && (
         <section className="card">

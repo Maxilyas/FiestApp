@@ -9,6 +9,8 @@ import { initDb } from './core/db'
 import { Party } from './core/party'
 import { Teams } from './core/teams'
 import { ScoreLedger } from './core/scores'
+import { AnswerLog } from './core/answers'
+import { computeStats } from './core/stats'
 import { GameEngine } from './core/engine'
 import { PartyBackup } from './core/backup'
 import { QuizStore } from './core/quizStore'
@@ -57,13 +59,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const restored = await backup.restoreInto(db)
   if (restored.players > 0 || restored.teams > 0) {
     console.log(
-      `[soirée] ${restored.players} invités, ${restored.teams} équipes et ${restored.scores} gains rechargés après redémarrage`,
+      `[soirée] ${restored.players} invités, ${restored.teams} équipes, ${restored.scores} gains et ${restored.answers} réponses rechargés après redémarrage`,
     )
   }
 
   const party = new Party(db, backup)
   const teams = new Teams(db, backup)
   const ledger = new ScoreLedger(db, backup)
+  const answers = new AnswerLog(db, backup)
 
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
   const store = new QuizStore(opts.quizDbUrl, opts.quizDbToken)
@@ -80,9 +83,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const buildSnapshot = (): PartySnapshot => {
     const ip = lanAddress()
     const players = party.publicPlayers(ledger.allTotals())
+    const bonuses = teams.allBonuses()
     return {
       players,
-      teams: teamScores(teams.all(), players),
+      teams: teamScores(teams.all(), players, bonuses),
+      bonuses,
       session: engine.summary(),
       joinUrl: opts.publicUrl ?? (ip ? `http://${ip}:${boundPort}` : null),
       wifi,
@@ -116,7 +121,15 @@ export async function createQuizServer(opts: QuizServerOptions) {
   }
 
   const engine = new GameEngine(
-    { db, io, party, ledger, onScoresChanged: broadcastSnapshot, onSessionChanged: broadcastSnapshot },
+    {
+      db,
+      io,
+      party,
+      ledger,
+      answers,
+      onScoresChanged: broadcastSnapshot,
+      onSessionChanged: broadcastSnapshot,
+    },
     quizModule,
   )
   engine.restore()
@@ -128,6 +141,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     party.clearAll()
     teams.clearAll()
     ledger.clearAll()
+    answers.clearAll()
     await backup.reset()
     broadcastSnapshot()
   }
@@ -135,6 +149,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   wireSockets(io, {
     party,
     teams,
+    answers,
     engine,
     hostKey: opts.hostKey,
     buildSnapshot,
@@ -223,7 +238,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
         .filter(p => p.score !== 0)
         .sort((a, b) => b.score - a.score)
         .map(p => ({ name: p.name, avatar: p.avatar, points: p.score })),
-      teams: teamScores(teams.all(), players),
+      teams: teamScores(teams.all(), players, teams.allBonuses()),
+      stats: computeStats(answers.all(), players),
       quizCount: quizzes.n,
       totalPoints: distributed.n,
       bestShot:

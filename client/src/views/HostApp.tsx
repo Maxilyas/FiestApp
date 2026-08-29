@@ -7,7 +7,8 @@ import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
 import { FinalPodium, Standings } from '../components/Podium'
 import { Trophies } from '../components/Trophies'
-import { rankTeams } from '../../../shared/teams'
+import { AwardsBoard } from '../components/AwardsBoard'
+import { finalRanking, rankTeams } from '../../../shared/teams'
 import type { PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
 import { sound } from '../sound'
 import { QuizHost } from '../games/quiz/HostView'
@@ -22,7 +23,9 @@ function wifiQrValue(wifi: { ssid: string; pass: string }): string {
 }
 
 /** De quoi baptiser six équipes sans réfléchir, dans l'ambiance de la soirée. */
-const TEAM_EMOJIS = ['💃', '🕺', '🎤', '🪩', '🥁', '🌶️', '🦩', '🍹', '⭐', '🔥', '🌙', '🎺', '🌺', '🦜']
+// Tous antérieurs à Unicode 13 : les emojis récents (boule à facettes,
+// visage pointillé…) s'affichent en carré vide sur Windows 10.
+const TEAM_EMOJIS = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️', '🦩', '🍹', '⭐', '🔥', '🌙', '🎺', '🌺', '🦜']
 
 /**
  * Une équipe et ses membres, avec de quoi la renommer, la supprimer, et
@@ -147,8 +150,15 @@ export function HostApp() {
   const [keyInput, setKeyInput] = useState('')
   const [error, setError] = useState('')
   const [muted, setMuted] = useState(isMuted)
-  /** Le classement cumulé, célébré en fin de soirée. */
-  const [showPodium, setShowPodium] = useState(false)
+  /**
+   * Les écrans de fin de soirée, projetés à la place du jeu. `null` = on est
+   * sur l'écran d'accueil, prêt à lancer un quiz.
+   */
+  const [screen, setScreen] = useState<null | 'podium' | 'awards' | 'victory'>(null)
+  /** Motif et points du prix libre, celui qui ne se calcule pas. */
+  const [freeReason, setFreeReason] = useState('')
+  const [freePoints, setFreePoints] = useState(1)
+  const [freeTeam, setFreeTeam] = useState('')
   /** Le podium montre les équipes ou les individus — on bascule pendant la remise. */
   const [podiumTab, setPodiumTab] = useState<'teams' | 'solo'>('teams')
   /** Les prix de caractère, calculés côté serveur à partir du journal des points. */
@@ -158,13 +168,15 @@ export function HostApp() {
   const [newEmoji, setNewEmoji] = useState(TEAM_EMOJIS[0])
 
   // Chargés à l'ouverture du podium : ils changent à chaque quiz joué.
+  // Rechargés à chaque ouverture d'un écran de fin : les prix et les
+  // statistiques changent après chaque quiz joué.
   useEffect(() => {
-    if (!showPodium) return
+    if (!screen) return
     fetch('/recap.json')
       .then(r => r.json())
       .then(setRecap)
       .catch(() => setRecap(null))
-  }, [showPodium])
+  }, [screen])
 
   useEffect(() => {
     const urlKey = new URLSearchParams(window.location.search).get('key')
@@ -235,7 +247,7 @@ export function HostApp() {
 
   // Dès qu'une question est à l'écran, tout le reste s'efface : sur un
   // vidéoprojecteur, ce qui compte doit occuper toute la place.
-  const staging = (!!quizView && quizView.phase !== 'pickPack') || showPodium
+  const staging = (!!quizView && quizView.phase !== 'pickPack') || screen !== null
 
   const ranking = [...snap.players]
     .filter(p => p.score !== 0)
@@ -245,6 +257,19 @@ export function HostApp() {
   const teamStandings = rankTeams(teams)
   const teamPodium = teamStandings.map(t => ({ name: t.name, avatar: t.emoji, points: t.average }))
   const showTeamPodium = podiumTab === 'teams' && teams.length > 0
+  // Le vainqueur se joue sur le barème plus les prix : les prix peuvent
+  // renverser l'ordre du quiz, c'est tout leur intérêt.
+  const final = finalRanking(teams)
+  const bonuses = snap.bonuses
+  const givenTitles = new Set(bonuses.map(b => b.reason))
+  const teamById = (id: string) => teams.find(t => t.id === id)
+
+  const openScreen = (next: 'podium' | 'awards' | 'victory') => {
+    initAudio()
+    if (next !== 'awards') sound.fanfare()
+    if (next === 'podium') setPodiumTab(teams.length > 0 ? 'teams' : 'solo')
+    setScreen(next)
+  }
 
   const createTeam = (e: FormEvent) => {
     e.preventDefault()
@@ -364,7 +389,7 @@ export function HostApp() {
         )}
 
         <section className="card main-stage">
-          {showPodium ? (
+          {screen === 'podium' ? (
             <div className="quiz-host">
               {teams.length > 0 && (
                 <div className="row podium-tabs">
@@ -414,7 +439,159 @@ export function HostApp() {
                 <a className="btn btn-primary" href="/souvenir" target="_blank" rel="noreferrer">
                   📖 Ouvrir la page souvenir
                 </a>
-                <button className="btn btn-ghost" onClick={() => setShowPodium(false)}>
+                <button className="btn" onClick={() => openScreen('awards')}>
+                  🏅 Remise des prix
+                </button>
+                <button className="btn btn-ghost" onClick={() => setScreen(null)}>
+                  Revenir
+                </button>
+              </div>
+            </div>
+          ) : screen === 'awards' ? (
+            <div className="quiz-host">
+              <h2>🏅 Remise des prix</h2>
+              <p className="muted center">
+                Rien n'est attribué tant que tu ne cliques pas. Les points s'ajoutent au total de
+                l'équipe du lauréat, sur l'échelle du barème.
+              </p>
+
+              <AwardsBoard
+                awards={recap?.stats.awards ?? []}
+                teams={teams}
+                givenTitles={givenTitles}
+                onAward={(teamId, points, reason) => {
+                  sound.reveal()
+                  socket.emit('host:awardTeam', { teamId, points, reason })
+                }}
+              />
+
+              {/* Tout ce qui ne se calcule pas : le karaoké, le déguisement,
+                  la table qui a rangé. */}
+              <div className="card free-award">
+                <h3>✋ Prix libre</h3>
+                <div className="row">
+                  <select
+                    className="team-emoji-select free-team"
+                    value={freeTeam}
+                    onChange={e => setFreeTeam(e.target.value)}
+                  >
+                    <option value="">Choisir une équipe…</option>
+                    {teams.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.emoji} {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="input"
+                    placeholder="Motif (ex. « ont chanté le plus fort »)"
+                    maxLength={60}
+                    value={freeReason}
+                    onChange={e => setFreeReason(e.target.value)}
+                  />
+                  <input
+                    className="input award-points"
+                    type="number"
+                    min={-10}
+                    max={10}
+                    value={freePoints}
+                    onChange={e => setFreePoints(Number(e.target.value))}
+                  />
+                  <button
+                    className="btn btn-primary btn-small"
+                    disabled={!freeTeam || !freeReason.trim()}
+                    onClick={() => {
+                      sound.reveal()
+                      socket.emit('host:awardTeam', {
+                        teamId: freeTeam,
+                        points: freePoints,
+                        reason: freeReason,
+                      })
+                      setFreeReason('')
+                    }}
+                  >
+                    Attribuer
+                  </button>
+                </div>
+              </div>
+
+              {bonuses.length > 0 && (
+                <div className="card">
+                  <h3>Prix déjà remis</h3>
+                  <div className="given-list">
+                    {bonuses.map(b => {
+                      const team = teamById(b.teamId)
+                      return (
+                        <div key={b.id} className="given-row">
+                          <span className="given-points">
+                            {b.points > 0 ? '+' : ''}
+                            {b.points}
+                          </span>
+                          <span className="given-team">
+                            {team ? `${team.emoji} ${team.name}` : '—'}
+                          </span>
+                          <span className="given-reason">{b.reason}</span>
+                          <button
+                            className="chip-remove"
+                            title="Retirer ce prix"
+                            onClick={() => socket.emit('host:removeBonus', { bonusId: b.id })}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="row podium-actions">
+                <button className="btn btn-primary" onClick={() => openScreen('victory')}>
+                  👑 Écran de victoire
+                </button>
+                <button className="btn btn-ghost" onClick={() => setScreen(null)}>
+                  Revenir
+                </button>
+              </div>
+            </div>
+          ) : screen === 'victory' ? (
+            <div className="quiz-host victory">
+              <h2>👑 L'équipe qui remporte le quiz</h2>
+              {final.length > 0 ? (
+                <>
+                  <div className="victory-winner">
+                    <span className="victory-emoji">{final[0].emoji}</span>
+                    <span className="victory-name">{final[0].name}</span>
+                    <span className="victory-points">{final[0].finalPoints} points</span>
+                    <span className="muted">
+                      {final[0].gamePoints} au barème
+                      {final[0].bonus !== 0 && ` · ${final[0].bonus > 0 ? '+' : ''}${final[0].bonus} de prix`}
+                    </span>
+                  </div>
+                  <div className="leaderboard">
+                    {final.slice(1).map(t => (
+                      <div key={t.id} className="lb-row">
+                        <span className="lb-rank">{t.rank}</span>
+                        <span className="lb-avatar">{t.emoji}</span>
+                        <span className="lb-name">{t.name}</span>
+                        <span className="team-gamepoints">{t.bonus > 0 ? `+${t.bonus}` : t.bonus || '—'}</span>
+                        <span className="lb-score">{t.finalPoints}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="muted center">
+                    Ce total est celui du quiz, prix compris. Ajoute-lui tes deux jeux physiques
+                    pour désigner l'équipe gagnante de la soirée.
+                  </p>
+                </>
+              ) : (
+                <p className="muted">Aucune équipe — rien à couronner.</p>
+              )}
+              <div className="row podium-actions">
+                <button className="btn" onClick={() => openScreen('awards')}>
+                  🏅 Revenir aux prix
+                </button>
+                <button className="btn btn-ghost" onClick={() => setScreen(null)}>
                   Revenir
                 </button>
               </div>
@@ -450,17 +627,19 @@ export function HostApp() {
                   ✏️ Mes quiz
                 </a>
                 {(ranking.length > 0 || teams.length > 0) && (
-                  <button
-                    className="btn btn-small"
-                    onClick={() => {
-                      initAudio()
-                      sound.fanfare()
-                      setPodiumTab(teams.length > 0 ? 'teams' : 'solo')
-                      setShowPodium(true)
-                    }}
-                  >
-                    🏆 Podium de la soirée
-                  </button>
+                  <div className="row">
+                    <button className="btn btn-small" onClick={() => openScreen('podium')}>
+                      🏆 Podium
+                    </button>
+                    <button className="btn btn-small" onClick={() => openScreen('awards')}>
+                      🏅 Remise des prix
+                    </button>
+                    {teams.length > 0 && (
+                      <button className="btn btn-small" onClick={() => openScreen('victory')}>
+                        👑 Victoire
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

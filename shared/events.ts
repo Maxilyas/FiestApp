@@ -39,6 +39,11 @@ export interface ClientToServerEvents {
   'host:seedTeams': () => void
   /** Déplace un invité vers une autre équipe (ou l'en sort avec null). */
   'host:assignPlayer': (payload: { playerId: string; teamId: string | null }) => void
+
+  /** Remet un prix à une équipe : des points, et le motif annoncé à la salle. */
+  'host:awardTeam': (payload: { teamId: string; points: number; reason: string }) => void
+  /** Retire un prix mal attribué. */
+  'host:removeBonus': (payload: { bonusId: string }) => void
 }
 
 export interface ServerToClientEvents {

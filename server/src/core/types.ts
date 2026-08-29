@@ -1,6 +1,7 @@
 import type { Server } from 'socket.io'
 import type { ClientToServerEvents, ServerToClientEvents } from '../../../shared/events'
 import type { PublicPlayer } from '../../../shared/types'
+import type { AnswerRow } from './answers'
 
 export interface SocketData {
   playerId?: string
@@ -24,6 +25,14 @@ export interface GameSessionRec<S = unknown> {
 /** Capacités offertes au module pendant le traitement d'une action/commande/timer. */
 export interface GameContext {
   award(playerId: string, points: number, reason: string): void
+  /**
+   * Journalise une question : une ligne par participant, y compris ceux qui
+   * n'ont pas répondu. Le classement ne garde que les gains positifs — sans
+   * ce journal, ni les erreurs ni les temps de réponse n'existeraient.
+   */
+  logAnswers(rows: Omit<AnswerRow, 'sessionId' | 'createdAt'>[]): void
+  /** Retire une question du journal — points annulés, ou question reposée. */
+  dropAnswers(qIndex: number): void
   setTimer(timerId: string, ms: number): void
   clearTimer(timerId: string): void
   /** Termine la partie (appliqué après le handler courant). */

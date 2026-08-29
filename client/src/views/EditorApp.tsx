@@ -603,7 +603,7 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
                 onChange(q => ({ ...q, observeSeconds: e.target.checked ? DEFAULT_OBSERVE : null }))
               }
             />
-            <span>🫥 La photo disparaît avant la question</span>
+            <span>🙈 La photo disparaît avant la question</span>
           </label>
           {question.observeSeconds !== null && (
             <label className="row">

@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { createQuizServer } from '../src/server'
 import { parseImportedQuestions } from '../../shared/library'
 import { QuizStore } from '../src/core/quizStore'
-import { rankTeams } from '../../shared/teams'
+import { finalRanking, rankTeams } from '../../shared/teams'
 
 function fail(msg: string): never {
   console.error(`❌ ${msg}`)
@@ -731,6 +731,7 @@ try {
       memberCount: 1,
       total: average,
       average,
+      bonus: 0,
     })),
   ).map(t => t.gamePoints)
   assert(
@@ -751,9 +752,82 @@ try {
   const reassigned = onSnap(s => s.teams.some((t: any) => t.memberCount === 2), 'invités replacés')
   ;(host as any).emit('host:assignPlayer', { playerId: aliceAck.playerId, teamId: T[0].id })
   ;(host as any).emit('host:assignPlayer', { playerId: charlieAck.playerId, teamId: T[0].id })
-  const beforeRestart = await reassigned
+  await reassigned
 
-  // 22. Redémarrage du serveur avec disque effacé — le scénario d'un
+  // 22. Statistiques et prix : le journal des réponses alimente les prix de
+  //     fin de soirée, et l'animateur les attribue à la main.
+  const stats = (await (await fetch(`${url}/recap.json`)).json()) as any
+  assert(stats.stats, 'la page souvenir doit porter les statistiques')
+  assert(stats.stats.logged > 0, 'le journal des réponses ne doit pas être vide')
+  assert(stats.stats.questions > 0, 'des questions doivent avoir été comptées')
+
+  const aliceStat = stats.stats.players.find((p: any) => p.playerId === aliceAck.playerId)
+  assert(aliceStat, 'Alice doit apparaître dans les statistiques')
+  assert(aliceStat.answered > 0, 'Alice a répondu, ça doit se voir')
+  assert(aliceStat.correct > 0, 'Alice a eu des bonnes réponses')
+  assert(
+    aliceStat.asked >= aliceStat.answered,
+    'on ne peut pas répondre à plus de questions qu’on en a reçues',
+  )
+  assert(aliceStat.avgMs !== null && aliceStat.avgMs > 0, 'un temps de réponse moyen est attendu')
+  assert(aliceStat.wrong >= 1, 'Alice s’est trompée au moins une fois dans le parcours')
+  assert(aliceStat.guesses >= 1, 'Alice a joué au moins une estimation')
+
+  // Un joueur exclu ne doit plus peser sur les prix : Bob a été retiré.
+  assert(
+    !stats.stats.players.some((p: any) => p.playerId === bobAck.playerId),
+    'les réponses d’un invité exclu doivent disparaître des statistiques',
+  )
+
+  // Ne pas répondre n'est pas répondre faux : quelqu'un qui n'a jamais touché
+  // son téléphone ne doit pas décrocher le prix de la plus longue série noire.
+  assert(
+    stats.stats.players.every((p: any) => p.answered > 0 || (p.worstStreak === 0 && p.bestStreak === 0)),
+    'une question laissée passer ne doit alimenter aucune série',
+  )
+
+  assert(Array.isArray(stats.stats.awards), 'les prix doivent être une liste')
+  assert(stats.stats.awards.length > 0, 'au moins un prix doit être proposé')
+  assert(
+    stats.stats.awards.every((a: any) => a.key && a.title && a.rule && a.detail),
+    'chaque prix doit porter son titre, sa règle et le chiffre qui le justifie',
+  )
+
+  // Attribution : les points s'ajoutent au total de l'équipe, pas à la moyenne.
+  // Le classement d'avant se lit dans la page souvenir déjà chargée : le
+  // serveur ne rediffuse que sur changement, attendre un message n'aboutirait pas.
+  const teamBefore = stats.teams.find((t: any) => t.id === T[0].id)
+  const awarded = onSnap(s => s.bonuses.length === 1, 'prix enregistré')
+  ;(host as any).emit('host:awardTeam', { teamId: T[0].id, points: 3, reason: 'L’Éclair' })
+  const withBonus = await awarded
+  const teamAfter = withBonus.teams.find((t: any) => t.id === T[0].id)
+  assert(teamAfter.bonus === 3, `bonus d’équipe à ${teamAfter.bonus}, attendu 3`)
+  assert(
+    teamAfter.average === teamBefore.average,
+    'un prix ne doit pas toucher à la moyenne du quiz',
+  )
+  const ranked = finalRanking(withBonus.teams)
+  const winner = ranked.find((t: any) => t.id === T[0].id)!
+  assert(
+    winner.finalPoints === winner.gamePoints + 3,
+    `total final à ${winner.finalPoints}, attendu ${winner.gamePoints + 3}`,
+  )
+
+  // Un prix mal donné se retire.
+  const bonusGone = onSnap(s => s.bonuses.length === 0, 'prix retiré')
+  ;(host as any).emit('host:removeBonus', { bonusId: withBonus.bonuses[0].id })
+  const cleanedUp = await bonusGone
+  assert(
+    cleanedUp.teams.find((t: any) => t.id === T[0].id).bonus === 0,
+    'retirer le prix doit ramener le bonus à zéro',
+  )
+
+  // On en remet un pour vérifier qu'il survit au redémarrage.
+  const kept = onSnap(s => s.bonuses.length === 1, 'prix conservé pour la coupure')
+  ;(host as any).emit('host:awardTeam', { teamId: T[0].id, points: 2, reason: 'Le Cancre Magnifique' })
+  const beforeRestart = await kept
+
+  // 23. Redémarrage du serveur avec disque effacé — le scénario d'un
   //     hébergeur gratuit qui recycle l'instance en pleine soirée. Invités,
   //     équipes et points doivent revenir depuis la base distante.
   // Le dernier classement reçu fait foi : plus rien ne bouge à ce stade, donc
@@ -783,6 +857,12 @@ try {
     `score perdu au redémarrage : ${aliceAfter?.score} au lieu de ${aliceBefore.score}`,
   )
   assert(aliceAfter?.name === 'Alice', 'le nom du joueur doit être rechargé lui aussi')
+  assert(after2.bonuses.length === 1, 'les prix remis doivent survivre au redémarrage')
+  const statsAfter = (await (await fetch(`http://localhost:${server2.port}/recap.json`)).json()) as any
+  assert(
+    statsAfter.stats.logged === stats.stats.logged,
+    `journal des réponses perdu au redémarrage : ${statsAfter.stats.logged} au lieu de ${stats.stats.logged}`,
+  )
   assert(after2.teams.length === 5, `${after2.teams.length} équipes rechargées, attendu 5`)
   assert(aliceAfter?.teamId === T[0].id, 'l’équipe de chacun doit survivre au redémarrage')
   const t0After = after2.teams.find((t: any) => t.id === T[0].id)
@@ -790,7 +870,7 @@ try {
   probe.disconnect()
   await server2.close()
 
-  console.log('✅ Smoke test OK — 24 étapes')
+  console.log('✅ Smoke test OK — 26 étapes')
   console.log(
     '   collage de questions, quiz complet, bibliothèque, photos, estimation, retardataire,',
   )
@@ -798,7 +878,10 @@ try {
     '   pause, enchaînement automatique, annulation, question reposée, invité renommé et exclu,',
   )
   console.log(
-    '   ménage des photos, photo « mémoire », équipes et barème des trois jeux, reprise après coupure',
+    '   ménage des photos, photo « mémoire », équipes, barème des trois jeux,',
+  )
+  console.log(
+    '   statistiques et prix remis à la main, reprise après coupure',
   )
   process.exit(0)
 } catch (e) {

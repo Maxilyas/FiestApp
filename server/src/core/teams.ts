@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
 import type { PartyBackup } from './backup'
+import type { TeamBonus } from '../../../shared/types'
 
 export interface TeamRec {
   id: string
@@ -19,7 +20,7 @@ export const DEFAULT_TEAMS = [
   { name: 'Les Salseras', emoji: '💃' },
   { name: 'Les Rumberos', emoji: '🕺' },
   { name: 'Les Micros', emoji: '🎤' },
-  { name: 'Les Facettes', emoji: '🪩' },
+  { name: 'Les Paillettes', emoji: '✨' },
   { name: 'Les Congas', emoji: '🥁' },
   { name: 'Les Piments', emoji: '🌶️' },
 ]
@@ -35,6 +36,7 @@ const MAX_TEAMS = 10
  */
 export class Teams {
   private teams = new Map<string, TeamRec>()
+  private bonuses = new Map<string, TeamBonus>()
 
   constructor(
     private db: DB,
@@ -46,6 +48,15 @@ export class Teams {
         name: row.name,
         emoji: row.emoji,
         position: row.position,
+        createdAt: row.created_at,
+      })
+    }
+    for (const row of db.prepare('SELECT * FROM team_bonus').all() as any[]) {
+      this.bonuses.set(row.id, {
+        id: row.id,
+        teamId: row.team_id,
+        points: row.points,
+        reason: row.reason,
         createdAt: row.created_at,
       })
     }
@@ -98,6 +109,10 @@ export class Teams {
   remove(id: string): boolean {
     if (!this.teams.delete(id)) return false
     this.db.prepare('DELETE FROM teams WHERE id = ?').run(id)
+    // Ses prix disparaissent avec elle : ils n'ont plus de destinataire.
+    for (const bonus of [...this.bonuses.values()]) {
+      if (bonus.teamId === id) this.removeBonus(bonus.id)
+    }
     this.backup?.deleteTeam(id)
     return true
   }
@@ -111,7 +126,47 @@ export class Teams {
 
   clearAll() {
     this.db.prepare('DELETE FROM teams').run()
+    this.db.prepare('DELETE FROM team_bonus').run()
     this.teams.clear()
+    this.bonuses.clear()
+  }
+
+  // ── Prix remis par l'animateur ──────────────────────────────────────────
+  //
+  // Ils vivent à part des points du quiz : ceux-ci se gagnent question après
+  // question, ceux-là s'attribuent en fin de soirée, sur l'échelle du barème
+  // des trois jeux. Les mélanger rendrait les deux illisibles.
+
+  /** Attribue un prix. Retirer un prix mal donné doit rester possible. */
+  awardBonus(teamId: string, points: number, reason: string): TeamBonus | { error: string } {
+    if (!this.teams.has(teamId)) return { error: 'Équipe introuvable' }
+    const value = Math.round(Number(points))
+    if (!Number.isFinite(value) || value === 0) return { error: 'Il faut un nombre de points' }
+    const rec: TeamBonus = {
+      id: randomUUID(),
+      teamId,
+      points: Math.max(-50, Math.min(50, value)),
+      reason: (reason ?? '').trim().slice(0, 60) || 'Prix spécial',
+      createdAt: Date.now(),
+    }
+    this.bonuses.set(rec.id, rec)
+    this.db
+      .prepare('INSERT INTO team_bonus (id, team_id, points, reason, created_at) VALUES (?, ?, ?, ?, ?)')
+      .run(rec.id, rec.teamId, rec.points, rec.reason, rec.createdAt)
+    this.backup?.saveBonus(rec)
+    return rec
+  }
+
+  removeBonus(bonusId: string): boolean {
+    if (!this.bonuses.delete(bonusId)) return false
+    this.db.prepare('DELETE FROM team_bonus WHERE id = ?').run(bonusId)
+    this.backup?.deleteBonus(bonusId)
+    return true
+  }
+
+  /** Du plus récent au plus ancien : c'est le dernier remis qu'on corrige. */
+  allBonuses(): TeamBonus[] {
+    return [...this.bonuses.values()].sort((a, b) => b.createdAt - a.createdAt)
   }
 
   private nextPosition(): number {

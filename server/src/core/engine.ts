@@ -4,6 +4,7 @@ import type { DB } from './db'
 import type { GameContext, GameModule, GameSessionRec, IoServer, ViewContext } from './types'
 import type { Party } from './party'
 import type { ScoreLedger } from './scores'
+import type { AnswerLog } from './answers'
 import type { SessionSummary } from '../../../shared/types'
 
 interface LiveSession extends GameSessionRec {
@@ -16,6 +17,7 @@ interface EngineDeps {
   io: IoServer
   party: Party
   ledger: ScoreLedger
+  answers: AnswerLog
   onScoresChanged: () => void
   onSessionChanged: () => void
 }
@@ -203,6 +205,11 @@ export class GameEngine {
         this.deps.ledger.award(playerId, points, reason, sess.id)
         scoresChanged = true
       },
+      logAnswers: rows => {
+        const createdAt = Date.now()
+        this.deps.answers.write(rows.map(r => ({ ...r, sessionId: sess.id, createdAt })))
+      },
+      dropAnswers: qIndex => this.deps.answers.dropQuestion(sess.id, qIndex),
       setTimer: (timerId, ms) => this.armTimer(sess, timerId, ms),
       clearTimer: timerId => this.disarmTimer(sess, timerId),
       end: () => {

@@ -1138,3 +1138,99 @@ h3 { font-size: 1.05rem; }
 @media (max-width: 900px) {
   .reveal-boards { grid-template-columns: 1fr; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   PRIX ET STATISTIQUES
+   L'application calcule et propose ; l'animateur décide et attribue.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.awards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+
+.award {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.award-emoji { font-size: 2rem; line-height: 1; }
+.award-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.award-body h3 { font-size: 1rem; }
+.award-winner { font-size: 0.95rem; }
+.award-team { font-size: 0.85rem; color: var(--gold); }
+
+/* Un prix déjà remis reste visible : on peut vouloir le redonner, mais il ne
+   doit plus attirer l'œil autant que ceux qui attendent. */
+.award-given { opacity: 0.55; border-color: var(--gold); }
+
+.award-give { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.award-points { width: 4.5em; padding: 6px 8px; text-align: center; font-family: var(--numeric); }
+
+.free-award { display: flex; flex-direction: column; gap: 10px; }
+.free-award .input { flex: 1; min-width: 12ch; }
+.free-team { padding: 8px 10px; font-size: 0.9rem; }
+
+.given-list { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+
+.given-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.given-points { font-family: var(--numeric); font-weight: 700; color: var(--teal); min-width: 2.5em; }
+.given-team { font-weight: 600; }
+.given-reason { flex: 1; color: var(--muted); font-size: 0.9rem; }
+.given-row .chip-remove { opacity: 0.6; }
+
+/* ── Écran de victoire ──────────────────────────── */
+.victory { align-items: stretch; }
+
+.victory-winner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px 0;
+  animation: pop 0.6s ease-out both;
+}
+
+.victory-emoji { font-size: clamp(4rem, 12vw, 8rem); }
+.victory-name { font-family: var(--display); font-weight: 700; font-size: clamp(1.8rem, 5vw, 3.2rem); }
+.victory-points { font-family: var(--numeric); font-weight: 700; font-size: clamp(1.4rem, 3vw, 2.2rem); color: var(--gold); }
+
+/* ── Tableau des statistiques ───────────────────── */
+/* Dix-sept colonnes ne tiennent sur aucun téléphone : le tableau défile dans
+   son propre cadre plutôt que de faire déborder toute la page. */
+.stats-scroll { overflow-x: auto; margin-top: 10px; }
+
+.stats-table { border-collapse: collapse; font-size: 0.85rem; white-space: nowrap; }
+.stats-table th, .stats-table td { padding: 5px 9px; text-align: right; }
+.stats-table thead th { border-bottom: 1px solid var(--edge-soft); }
+.stats-table tbody tr:nth-child(odd) { background: rgba(255, 255, 255, 0.03); }
+
+/* Le prénom reste visible pendant qu'on fait défiler les colonnes. */
+.stats-name {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--bg-mid);
+  font-weight: 600;
+}
+
+.stats-sort {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.stats-sort:hover { color: var(--ink); }
+.stats-sort.active { color: var(--gold); }
+.stats-table td.stats-active { color: var(--gold); font-weight: 700; }

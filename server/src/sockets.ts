@@ -1,12 +1,14 @@
 import type { IoServer } from './core/types'
 import type { Party } from './core/party'
 import type { Teams } from './core/teams'
+import type { AnswerLog } from './core/answers'
 import type { GameEngine } from './core/engine'
 import type { PartySnapshot } from '../../shared/types'
 
 interface SocketDeps {
   party: Party
   teams: Teams
+  answers: AnswerLog
   engine: GameEngine
   hostKey: string
   buildSnapshot: () => PartySnapshot
@@ -110,6 +112,8 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     socket.on('host:removePlayer', ({ playerId }) => {
       if (!requireHost()) return
       if (!deps.party.remove(playerId)) return
+      // Ses réponses partent avec lui : il ne doit plus peser sur les prix.
+      deps.answers.removePlayer(playerId)
       deps.engine.dropParticipant(playerId)
       deps.broadcastSnapshot()
       // Son téléphone repart sur l'écran d'inscription.
@@ -145,6 +149,18 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     socket.on('host:assignPlayer', ({ playerId, teamId }) => {
       if (!requireHost()) return
       if (deps.party.assign(playerId, validTeam(teamId))) deps.broadcastSnapshot()
+    })
+
+    socket.on('host:awardTeam', ({ teamId, points, reason }) => {
+      if (!requireHost()) return
+      const res = deps.teams.awardBonus(teamId, points, reason ?? '')
+      if ('error' in res) return socket.emit('toast', { kind: 'error', message: res.error })
+      deps.broadcastSnapshot()
+    })
+
+    socket.on('host:removeBonus', ({ bonusId }) => {
+      if (!requireHost()) return
+      if (deps.teams.removeBonus(bonusId)) deps.broadcastSnapshot()
     })
 
     socket.on('host:resetParty', () => {

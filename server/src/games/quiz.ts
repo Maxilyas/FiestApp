@@ -23,6 +23,8 @@ interface Response {
   choice: number | null
   /** Estimation : nombre proposé. */
   value: number | null
+  /** Nombre de fois où il s'est ravisé — un prix récompense les hésitants. */
+  changes: number
 }
 
 interface QuizState {
@@ -123,7 +125,6 @@ function award(sess: GameSessionRec<QuizState>, playerId: string, points: number
 
 function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   const st = sess.state
-  const q = st.pack!.questions[st.qIndex]
   ctx.clearTimer('question')
   ctx.clearTimer('observe')
   st.phase = 'reveal'
@@ -134,6 +135,14 @@ function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
     st.autoNextAt = ctx.now() + st.autoNextSeconds * 1000
     ctx.setTimer('autoNext', st.autoNextSeconds * 1000)
   }
+  scoreQuestion(sess, ctx)
+  logQuestion(sess, ctx)
+}
+
+/** Distribue les points de la question qui vient de se terminer. */
+function scoreQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
+  const st = sess.state
+  const q = st.pack!.questions[st.qIndex]
 
   if (q.kind === 'choice') {
     for (const [playerId, r] of Object.entries(st.responses)) {
@@ -168,6 +177,9 @@ function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
 
 function cancelQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   const st = sess.state
+  // La question sort aussi des statistiques : elle n'aurait pas dû être posée,
+  // et une question reposée ne doit pas compter deux fois.
+  ctx.dropAnswers(st.qIndex)
   for (const [playerId, points] of Object.entries(st.lastAwards)) {
     if (points <= 0) continue
     st.totals[playerId] = (st.totals[playerId] ?? 0) - points
@@ -223,6 +235,46 @@ function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewCo
 }
 
 /**
+ * Écrit la question au journal : une ligne par joueur qui pouvait y répondre,
+ * qu'il ait répondu ou non. C'est la seule trace des erreurs, des temps de
+ * réponse et des questions laissées passer — le classement, lui, n'enregistre
+ * que les gains positifs.
+ *
+ * Les retardataires sont exclus des questions posées avant leur arrivée :
+ * on ne peut pas leur reprocher une question qu'ils n'ont jamais vue.
+ */
+function logQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
+  const st = sess.state
+  const q = st.pack!.questions[st.qIndex]
+  const durationMs = q.duration * 1000
+
+  ctx.logAnswers(
+    sess.participantIds
+      .filter(playerId => (st.playFrom[playerId] ?? 0) <= st.qIndex)
+      .map(playerId => {
+        const r = st.responses[playerId]
+        const answered = !!r && (r.choice !== null || r.value !== null)
+        return {
+          quizTitle: st.pack!.title,
+          qIndex: st.qIndex,
+          kind: q.kind,
+          playerId,
+          answered,
+          correct: q.kind === 'choice' && answered ? r!.choice === q.correct : null,
+          choice: r?.choice ?? null,
+          value: r?.value ?? null,
+          target: q.kind === 'number' ? q.target : null,
+          ms: answered ? r!.ms : null,
+          changes: r?.changes ?? 0,
+          points: st.lastAwards[playerId] ?? 0,
+          durationMs,
+          observed: !!q.image && !!q.observeSeconds,
+        }
+      }),
+  )
+}
+
+/**
  * Vrai quand la photo a été montrée puis retirée : pendant la question, elle
  * ne doit plus être à l'écran, ni même son URL sur le téléphone. À la
  * révélation elle revient, pour vérifier ensemble ce qu'on avait vu.
@@ -273,12 +325,24 @@ export const quizModule: GameModule<QuizState> = {
     if (action?.type === 'answer' && q.kind === 'choice') {
       const choice = Number(action.choice)
       if (!Number.isInteger(choice) || choice < 0 || choice >= q.answers.length) return
-      if (st.responses[playerId]?.choice === choice) return // rien n'a changé
-      st.responses[playerId] = { choice, value: null, ms: ctx.now() - st.questionStartAt }
+      const before = st.responses[playerId]
+      if (before?.choice === choice) return // rien n'a changé
+      st.responses[playerId] = {
+        choice,
+        value: null,
+        ms: ctx.now() - st.questionStartAt,
+        changes: (before?.changes ?? -1) + 1,
+      }
     } else if (action?.type === 'guess' && q.kind === 'number') {
       const value = Number(action.value)
       if (!Number.isFinite(value)) return
-      st.responses[playerId] = { choice: null, value, ms: ctx.now() - st.questionStartAt }
+      const before = st.responses[playerId]
+      st.responses[playerId] = {
+        choice: null,
+        value,
+        ms: ctx.now() - st.questionStartAt,
+        changes: (before?.changes ?? -1) + 1,
+      }
     } else {
       return
     }
