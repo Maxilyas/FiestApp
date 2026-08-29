@@ -1,7 +1,12 @@
 // Vues et actions du Quiz (QCM style Kahoot + estimation chiffrée).
 import type { QuestionKind } from '../library'
 
-export type QuizPhase = 'pickPack' | 'getReady' | 'question' | 'reveal' | 'finished'
+/**
+ * `observe` : la photo est projetée seule, sans la question ni les réponses.
+ * C'est ce qui rend le jeu de mémoire possible — sans cette phase, il suffirait
+ * de répondre pendant que la photo est encore à l'écran.
+ */
+export type QuizPhase = 'pickPack' | 'getReady' | 'observe' | 'question' | 'reveal' | 'finished'
 
 export interface QuizPackInfo {
   id: string
@@ -36,6 +41,8 @@ export interface QuizPlayerView {
   answers?: string[]
   unit?: string
   image?: string | null
+  /** La photo a été observée puis retirée : à répondre de mémoire. */
+  photoGone?: boolean
   deadline?: number
   /** Secondes allouées à la question — pour la barre de temps qui se vide. */
   duration?: number
@@ -72,6 +79,8 @@ export interface QuizHostView {
   answers?: string[]
   unit?: string
   image?: string | null
+  /** La photo a été observée puis retirée : à répondre de mémoire. */
+  photoGone?: boolean
   deadline?: number
   /** Secondes allouées à la question — pour la barre de temps qui se vide. */
   duration?: number

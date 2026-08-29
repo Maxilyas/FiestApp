@@ -484,7 +484,7 @@ try {
     'invité exclu',
   )
   ;(host as any).emit('host:removePlayer', { playerId: bobAck.playerId })
-  const [afterRemoval] = await Promise.all([removed, removedOnPhone])
+  await Promise.all([removed, removedOnPhone])
 
   // 18. Prix de caractère : un vainqueur par quiz, en plus du podium
   const recap = (await (await fetch(`${url}/recap.json`)).json()) as any
@@ -532,7 +532,129 @@ try {
   assert(!(await store.getImage(gardee)), 'la photo doit partir avec son dernier quiz')
   store.close()
 
-  // 20. Équipes : le quiz reste individuel, mais les points se cumulent par
+  // 20. Photo « mémoire » : la photo passe seule, puis disparaît et la question
+  //     démarre. Sans cette phase, il suffirait de répondre en la regardant.
+  const memo = (await (
+    await apiCall('/api/quizzes', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Photos de mémoire',
+        questions: [
+          // Observation longue : l'animateur l'abrège d'un clic.
+          {
+            text: 'Combien de bougies ?',
+            answers: ['Trente', 'Trente et une', '', ''],
+            correct: 0,
+            duration: 20,
+            image: upload.url,
+            observeSeconds: 30,
+          },
+          // Observation courte : elle s'achève toute seule.
+          {
+            text: 'De quelle couleur est le gâteau ?',
+            answers: ['Rose', 'Bleu', '', ''],
+            correct: 0,
+            duration: 20,
+            image: upload.url,
+            observeSeconds: 2,
+          },
+          // Photo ordinaire : elle doit rester affichée pendant la question.
+          // Le `null` explicite est ce qu'envoie l'éditeur — et `Number(null)`
+          // vaut 0, un piège qui ferait disparaître la photo toute seule.
+          {
+            text: 'Et cette photo, elle reste ?',
+            answers: ['Oui', 'Non', '', ''],
+            correct: 0,
+            duration: 20,
+            image: upload.url,
+            observeSeconds: null,
+          },
+          // Le cas « en quelle année cette photo a-t-elle été prise ? » :
+          // l'observation vaut aussi pour une estimation, pas seulement un QCM.
+          {
+            kind: 'number',
+            text: 'En quelle année cette photo a-t-elle été prise ?',
+            target: 2019,
+            unit: '',
+            duration: 20,
+            image: upload.url,
+            observeSeconds: 2,
+          },
+        ],
+      }),
+    })
+  ).json()) as any
+  assert(memo.questions[0].observeSeconds === 30, 'le temps d’observation doit être enregistré')
+  assert(memo.questions[2].observeSeconds === null, 'une photo sans observation reste à null')
+
+  const memoSeen = waitFor<any>(alice2, 'session:view', () => true, 'partie photo chez Alice')
+  ;(host as any).emit('host:launch')
+  const memoId = (await memoSeen).sessionId
+  const observing = waitFor<any>(alice2, 'session:view', p => p.view.phase === 'observe', 'phase d’observation')
+  ;(host as any).emit('host:command', { sessionId: memoId, command: { type: 'selectPack', packId: memo.id } })
+  const obs = await observing
+  assert(obs.view.image === upload.url, 'la photo doit être envoyée pendant l’observation')
+  assert(!obs.view.text && !obs.view.answers, 'ni l’intitulé ni les réponses ne doivent partir pendant l’observation')
+
+  // Répondre pendant l'observation n'a aucun effet : il n'y a rien à répondre.
+  ;(alice2 as any).emit('player:action', { sessionId: memoId, action: { type: 'answer', choice: 0 } })
+
+  // « Passer à la question » : l'animateur abrège les 30 secondes.
+  const skipped = waitFor<any>(alice2, 'session:view', p => p.view.phase === 'question', 'question après abrègement')
+  ;(host as any).emit('host:command', { sessionId: memoId, command: { type: 'next' } })
+  const memoQ1 = await skipped
+  assert(memoQ1.view.image === null, 'la photo ne doit plus être envoyée pendant la question')
+  assert(memoQ1.view.photoGone === true, 'le téléphone doit savoir que la photo a disparu')
+  assert(memoQ1.view.text === 'Combien de bougies ?', 'l’intitulé doit arriver avec la question')
+  assert(memoQ1.view.yourChoice === null, 'la réponse envoyée pendant l’observation ne doit pas compter')
+
+  // La photo revient à la révélation : on vérifie ensemble ce qu'on avait vu.
+  const memoRv1 = waitFor<any>(alice2, 'session:view', p => p.view.phase === 'reveal', 'révélation photo')
+  ;(alice2 as any).emit('player:action', { sessionId: memoId, action: { type: 'answer', choice: 0 } })
+  const rvPhoto = await memoRv1
+  assert(rvPhoto.view.image === upload.url, 'la photo doit revenir à la révélation')
+  assert(!rvPhoto.view.photoGone, 'plus de mention « disparue » une fois la photo revenue')
+
+  // Question 2 : l'observation s'achève d'elle-même, sans clic.
+  const obs2 = waitFor<any>(alice2, 'session:view', p => p.view.phase === 'observe' && p.view.qIndex === 1, 'observation Q2')
+  ;(host as any).emit('host:command', { sessionId: memoId, command: { type: 'next' } })
+  await obs2
+  const auto = await waitFor<any>(
+    alice2,
+    'session:view',
+    p => p.view.phase === 'question' && p.view.qIndex === 1,
+    'question après la fin du temps d’observation',
+  )
+  assert(auto.view.image === null, 'la photo doit disparaître à la fin du temps d’observation')
+
+  // Question 3 : une photo ordinaire ne déclenche aucune observation.
+  const q3 = waitFor<any>(alice2, 'session:view', p => p.view.phase === 'question' && p.view.qIndex === 2, 'question 3')
+  ;(host as any).emit('host:command', { sessionId: memoId, command: { type: 'next' } })
+  await waitFor<any>(alice2, 'session:view', p => p.view.phase === 'reveal' && p.view.qIndex === 1, 'révélation Q2')
+  ;(host as any).emit('host:command', { sessionId: memoId, command: { type: 'next' } })
+  const plain = await q3
+  assert(plain.view.image === upload.url, 'une photo sans observation reste affichée pendant la question')
+  assert(!plain.view.photoGone, 'une photo ordinaire ne doit pas être signalée comme disparue')
+
+  // Question 4 : une estimation derrière la photo — « en quelle année ? ».
+  ;(host as any).emit('host:command', { sessionId: memoId, command: { type: 'next' } })
+  await waitFor<any>(alice2, 'session:view', p => p.view.phase === 'reveal' && p.view.qIndex === 2, 'révélation Q3')
+  const obs4 = waitFor<any>(alice2, 'session:view', p => p.view.phase === 'observe' && p.view.qIndex === 3, 'observation Q4')
+  ;(host as any).emit('host:command', { sessionId: memoId, command: { type: 'next' } })
+  const obsGuess = await obs4
+  assert(obsGuess.view.image === upload.url, 'une estimation doit aussi avoir sa photo à observer')
+  const guessQ = await waitFor<any>(
+    alice2,
+    'session:view',
+    p => p.view.phase === 'question' && p.view.qIndex === 3,
+    'estimation après observation',
+  )
+  assert(guessQ.view.kind === 'number', `estimation attendue après la photo, reçu ${guessQ.view.kind}`)
+  assert(guessQ.view.image === null && guessQ.view.photoGone === true, 'la photo doit avoir disparu de l’estimation')
+  ;(host as any).emit('host:endSession', { sessionId: memoId })
+  await apiCall(`/api/quizzes/${memo.id}`, { method: 'DELETE' })
+
+  // 21. Équipes : le quiz reste individuel, mais les points se cumulent par
   //     équipe. Création, déplacement d'un invité, suppression d'une équipe,
   //     et conversion du classement en points du tableau des trois jeux.
   const onSnap = (pred: (s: any) => boolean, label: string) =>
@@ -629,14 +751,14 @@ try {
   const reassigned = onSnap(s => s.teams.some((t: any) => t.memberCount === 2), 'invités replacés')
   ;(host as any).emit('host:assignPlayer', { playerId: aliceAck.playerId, teamId: T[0].id })
   ;(host as any).emit('host:assignPlayer', { playerId: charlieAck.playerId, teamId: T[0].id })
-  await reassigned
+  const beforeRestart = await reassigned
 
-  // 21. Redémarrage du serveur avec disque effacé — le scénario d'un
+  // 22. Redémarrage du serveur avec disque effacé — le scénario d'un
   //     hébergeur gratuit qui recycle l'instance en pleine soirée. Invités,
   //     équipes et points doivent revenir depuis la base distante.
   // Le dernier classement reçu fait foi : plus rien ne bouge à ce stade, donc
   // attendre un nouveau message expirerait.
-  const aliceBefore = afterRemoval.players.find((p: any) => p.id === aliceAck.playerId)
+  const aliceBefore = beforeRestart.players.find((p: any) => p.id === aliceAck.playerId)
   assert(aliceBefore?.score > 0, 'Alice devrait avoir des points avant la coupure')
 
   host.disconnect()
@@ -668,7 +790,7 @@ try {
   probe.disconnect()
   await server2.close()
 
-  console.log('✅ Smoke test OK — 23 étapes')
+  console.log('✅ Smoke test OK — 24 étapes')
   console.log(
     '   collage de questions, quiz complet, bibliothèque, photos, estimation, retardataire,',
   )
@@ -676,7 +798,7 @@ try {
     '   pause, enchaînement automatique, annulation, question reposée, invité renommé et exclu,',
   )
   console.log(
-    '   ménage des photos, équipes et barème des trois jeux, reprise après coupure',
+    '   ménage des photos, photo « mémoire », équipes et barème des trois jeux, reprise après coupure',
   )
   process.exit(0)
 } catch (e) {

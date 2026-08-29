@@ -8,6 +8,11 @@ export const MIN_DURATION = 5
 export const MAX_DURATION = 120
 export const DEFAULT_DURATION = 20
 
+/** Temps d'observation d'une photo avant qu'elle disparaisse. */
+export const MIN_OBSERVE = 2
+export const MAX_OBSERVE = 30
+export const DEFAULT_OBSERVE = 5
+
 /**
  * 'choice' : QCM classique (2 à 4 réponses, une bonne).
  * 'number' : estimation chiffrée — le plus proche marque le plus de points,
@@ -35,6 +40,12 @@ export interface QuizQuestionDef {
   duration: number
   /** URL de l'image servie par le serveur, ou null. */
   image: string | null
+  /**
+   * Photo « mémoire » : nombre de secondes pendant lesquelles la photo est
+   * montrée seule, avant de disparaître et de laisser place à la question.
+   * `null` (le cas courant) = la photo reste affichée pendant la question.
+   */
+  observeSeconds: number | null
 }
 
 export interface QuizDef {
@@ -64,6 +75,7 @@ export type PlayableQuestion =
       correct: number
       duration: number
       image: string | null
+      observeSeconds: number | null
     }
   | {
       kind: 'number'
@@ -72,6 +84,7 @@ export type PlayableQuestion =
       unit: string
       duration: number
       image: string | null
+      observeSeconds: number | null
     }
 
 export function emptyQuestion(): QuizQuestionDef {
@@ -84,6 +97,7 @@ export function emptyQuestion(): QuizQuestionDef {
     unit: '',
     duration: DEFAULT_DURATION,
     image: null,
+    observeSeconds: null,
   }
 }
 
@@ -97,10 +111,26 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
   if (!text) return null
   const duration = Math.min(MAX_DURATION, Math.max(MIN_DURATION, Number(q.duration) || DEFAULT_DURATION))
   const image = q.image ?? null
+  // Un temps d'observation sans photo à observer n'a aucun sens : on l'ignore
+  // plutôt que de faire patienter la salle devant un carré vide.
+  // `Number(null)` vaut 0, pas NaN : sans ce test explicite, une photo sans
+  // observation se verrait attribuer le minimum et disparaîtrait toute seule.
+  const observeSeconds =
+    image && typeof q.observeSeconds === 'number' && Number.isFinite(q.observeSeconds)
+      ? Math.min(MAX_OBSERVE, Math.max(MIN_OBSERVE, Math.round(q.observeSeconds)))
+      : null
 
   if (q.kind === 'number') {
     if (typeof q.target !== 'number' || !Number.isFinite(q.target)) return null
-    return { kind: 'number', text, target: q.target, unit: (q.unit ?? '').trim().slice(0, 12), duration, image }
+    return {
+      kind: 'number',
+      text,
+      target: q.target,
+      unit: (q.unit ?? '').trim().slice(0, 12),
+      duration,
+      image,
+      observeSeconds,
+    }
   }
 
   const kept = (q.answers ?? [])
@@ -110,7 +140,7 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
   if (kept.length < MIN_ANSWERS) return null
   const correct = kept.findIndex(a => a.index === q.correct)
   if (correct < 0) return null // la bonne réponse pointe une case vide
-  return { kind: 'choice', text, answers: kept.map(a => a.text), correct, duration, image }
+  return { kind: 'choice', text, answers: kept.map(a => a.text), correct, duration, image, observeSeconds }
 }
 
 /** Ce qui manque à une question pour être jouable — message affiché dans l'éditeur. */

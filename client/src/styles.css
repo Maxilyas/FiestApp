@@ -1089,3 +1089,52 @@ h3 { font-size: 1.05rem; }
 .team-name-input { flex: 1; min-width: 8ch; padding: 7px 10px; font-size: 0.9rem; }
 
 .podium-tabs { justify-content: center; }
+
+/* ── Photo « mémoire » ──────────────────────────── */
+/* La photo passe seule avant la question, puis disparaît : sans ça, il
+   suffirait de répondre pendant qu'elle est encore à l'écran. */
+.observe { justify-content: center; }
+
+.observe-img {
+  /* Bien plus grande qu'une photo d'illustration : c'est elle qu'on doit
+     mémoriser. Plafonnée pour que le mode scène ne la coupe pas. */
+  max-height: 56vh;
+  width: auto;
+  margin: 0 auto;
+  animation: pop 0.4s ease-out both;
+}
+
+.photo-gone {
+  text-align: center;
+  color: var(--gold);
+  font-family: var(--display);
+  font-weight: 700;
+}
+
+.observe-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--edge-soft);
+}
+
+.observe-edit input[type='checkbox'] { accent-color: var(--gold); width: 17px; height: 17px; cursor: pointer; }
+
+/* Entre deux questions, l'écran commun annonce qui mène : les équipes à
+   gauche (c'est elles qui décident de la soirée), le top du quiz à droite.
+   Deux colonnes plutôt qu'un empilement — le mode scène coupe la hauteur. */
+.reveal-boards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .reveal-boards { grid-template-columns: 1fr; }
+}

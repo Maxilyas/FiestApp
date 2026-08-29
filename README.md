@@ -30,7 +30,7 @@ npm run check
 npm run smoke
 ```
 
-`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation, retardataire, équipes et barème des trois jeux).
+`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation, retardataire, photo « mémoire », équipes et barème des trois jeux).
 
 ## Écrire ses quiz
 
@@ -43,6 +43,8 @@ Deux types de questions, au choix pour chacune :
 | 🔘 **QCM** | 2 à 4 réponses, une bonne (2 = vrai/faux) | 100 pts si c'est juste + jusqu'à 100 pts de rapidité |
 | 🔢 **Estimation** | chacun tape un nombre | 30 pts pour avoir joué + jusqu'à 120 pts selon la proximité + 50 pts au plus proche |
 
+Un **vrai/faux** n'est qu'un QCM à deux réponses : on tape « Vrai » et « Faux » dans les deux premières cases et on laisse les autres vides.
+
 L'estimation évite les blocages : même sans connaître la réponse, on propose un chiffre et on marque quelque chose. La proximité est calculée **par rapport au groupe** — sinon une erreur de 3 ans sur une date et une erreur de 3 km sur une distance rapporteraient la même chose. Le plus proche empoche le maximum, le plus loin garde ses 30 pts de participation. À égalité d'écart, le plus rapide gagne.
 
 - **Les cases de réponse vides** sont simplement ignorées en jeu (et la bonne réponse suit son texte, pas son numéro de case).
@@ -51,6 +53,7 @@ L'estimation évite les blocages : même sans connaître la réponse, on propose
 - **On peut changer d'avis** jusqu'à la révélation, sur un QCM comme sur une estimation : un doigt qui glisse sur un téléphone tenu dans le noir ne doit pas coûter la question. C'est le dernier envoi qui fait foi, heure comprise — se raviser coûte donc du bonus de rapidité, sans quoi on pourrait taper au hasard dès la première seconde pour s'assurer le maximum, puis corriger tranquillement.
 - **Coller une liste** évite de saisir cinquante questions une par une. Une ligne vide sépare deux questions, l'étoile marque la bonne réponse, le signe égal crée une estimation. Les questions sans étoile sont importées mais signalées.
 - **👁 Aperçu** montre une question telle qu'elle sera projetée, sans lancer de partie.
+- **🫥 La photo disparaît** transforme n'importe quelle question — QCM comme estimation — en jeu de mémoire. Voir plus bas.
 
 Au tout premier démarrage, les quiz livrés dans `server/content/quiz/*.json` sont importés une fois dans la bibliothèque pour ne pas partir d'une page blanche. Ensuite ces fichiers ne servent plus à rien : tout vit dans la base.
 
@@ -65,6 +68,16 @@ Pendant une question, **l'écran commun bascule en mode scène** : les panneaux 
 **L'animateur garde la main** : ⏸ pause (le chronomètre se fige, plus personne ne peut répondre), ↺ reposer la même question, ✖ annuler les points d'une question dont la réponse était fausse, renommer ou exclure un invité d'un clic sur sa pastille, et ⛶ plein écran. La clé n'apparaît jamais dans la barre d'adresse.
 
 **⏩ Manuel / Auto 5 s / Auto 10 s** : en mode automatique, la question suivante part toute seule après la révélation, avec un décompte affiché. Un quiz de dix questions demandait vingt clics — autant d'occasions de décrocher de la soirée. Corriger ou reposer une question reprend la main aussitôt.
+
+## La photo qui disparaît
+
+Cochez **🫥 La photo disparaît avant la question** sous une photo et la question devient un jeu de mémoire. La photo est d'abord projetée **seule**, en grand, pendant le nombre de secondes choisi : ni l'intitulé ni les réponses ne partent sur les téléphones, qui affichent « 👀 Mémorise ! ». Puis elle disparaît et la question démarre avec son chronomètre normal.
+
+C'est cette phase séparée qui fait le jeu. Afficher la photo et les réponses en même temps reviendrait à laisser répondre en la regardant — la mémoire n'y servirait plus à rien.
+
+Le mécanisme marche pour les deux types de question : un QCM (« combien de bougies sur le gâteau ? ») comme une estimation (« en quelle année cette photo a-t-elle été prise ? »). **La photo revient à la révélation**, pour vérifier ensemble ce qu'on croyait avoir vu. L'animateur peut abréger l'observation d'un clic sur **Passer à la question** si tout le monde a déjà vu.
+
+Une photo sans cette case cochée se comporte comme avant : elle reste affichée à côté de la question.
 
 ## Faire durer le suspense
 
@@ -89,6 +102,8 @@ Le quiz n'est **qu'un jeu sur trois** : les deux autres se jouent debout, hors d
 **Le barème des trois jeux.** À la fin, le quiz rapporte à chaque équipe autant de points que son rang le permet : avec six équipes, **6 points à la première, 5 à la deuxième, … 1 à la dernière**. C'est le chiffre en turquoise sur l'écran commun et sur la page souvenir — celui à recopier sur le tableau des trois jeux, où s'ajoutent les résultats des deux jeux physiques. Deux équipes à égalité partagent le même rang et les mêmes points.
 
 **Côté animateur**, le panneau *Invités* regroupe les pastilles par équipe : on repère d'un coup d'œil qui s'est trompé, et un menu déroulant sur la pastille le déplace. On crée une équipe (nom + emoji), on la renomme, on la supprime — **supprimer une équipe n'exclut personne** : ses membres repassent « sans équipe » et gardent leurs points. Le bouton ✨ crée les six équipes par défaut d'un coup, à renommer ensuite.
+
+**Entre deux questions**, l'écran commun annonce qui mène : les équipes d'abord, le top du quiz ensuite — c'est le classement d'équipe qui décide de la soirée. Chaque téléphone montre au même moment son total, son rang, et où en est son équipe.
 
 **Le podium** bascule entre 👥 *Les équipes* (podium collectif + barème à reporter) et 🏆 *Les joueurs* (podium individuel + prix de caractère). Les deux comptent : le classement individuel fait jouer chacun, le classement d'équipe désigne le vainqueur de la soirée.
 
@@ -219,3 +234,4 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, bar
 | 8 | Podium de la soirée et page souvenir | ✅ |
 | 9 | Import en masse, aperçu, veille des téléphones, prénoms en double | ✅ |
 | 10 | Équipes : points individuels, classement collectif, barème des trois jeux | ✅ |
+| 11 | Photo « mémoire » et classements annoncés entre deux questions | ✅ |

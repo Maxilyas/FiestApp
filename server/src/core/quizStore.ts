@@ -5,6 +5,8 @@ import {
   MAX_DURATION,
   MIN_DURATION,
   DEFAULT_DURATION,
+  MAX_OBSERVE,
+  MIN_OBSERVE,
   playableQuestions,
   type QuizDef,
   type QuizQuestionDef,
@@ -236,6 +238,7 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
     const correct = Number(q?.correct)
     const duration = Number(q?.duration)
     const target = Number(q?.target)
+    const observe = Number(q?.observeSeconds)
     return {
       // Les quiz écrits avant l'arrivée des estimations n'ont pas de `kind`.
       kind: q?.kind === 'number' ? 'number' : 'choice',
@@ -249,6 +252,13 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
         : DEFAULT_DURATION,
       // Une URL d'image ne peut venir que du serveur (/media/…) : on refuse le reste.
       image: typeof q?.image === 'string' && q.image.startsWith('/media/') ? q.image : null,
+      // Absent des quiz écrits avant la photo « mémoire » : elle reste alors
+      // affichée. Comme pour `target`, le null explicite doit être testé avant
+      // la conversion — `Number(null)` vaut 0, pas NaN.
+      observeSeconds:
+        q?.observeSeconds === null || q?.observeSeconds === undefined || !Number.isFinite(observe)
+          ? null
+          : Math.min(MAX_OBSERVE, Math.max(MIN_OBSERVE, Math.round(observe))),
     }
   })
 }

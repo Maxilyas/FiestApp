@@ -3,6 +3,8 @@ import type { QuizCommand, QuizHostView } from '../../../../shared/games/quiz'
 import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
 import { FinalPodium, Standings } from '../../components/Podium'
+import { TeamBoard } from '../../components/TeamBoard'
+import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
 
 const SHAPES = ['▲', '◆', '●', '■']
@@ -35,17 +37,19 @@ const PALIERS_AUTO: (number | null)[] = [null, 5, 10]
 
 interface Props {
   view: QuizHostView
+  /** Les équipes de la soirée — annoncées entre deux questions. */
+  teams: PublicTeam[]
   sendCommand: (command: QuizCommand) => void
   endSession: () => void
 }
 
-export function QuizHost({ view: v, sendCommand, endSession }: Props) {
+export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
   /** Choisi avant de lancer : un quiz qui compte double relance toute la salle. */
   const [multiplier, setMultiplier] = useState(1)
 
   // Les sons ponctuent les changements de phase — sur l'écran commun seulement.
   useEffect(() => {
-    if (v.phase === 'question') sound.go()
+    if (v.phase === 'observe' || v.phase === 'question') sound.go()
     else if (v.phase === 'reveal') (v.kind === 'number' ? sound.target : sound.reveal)()
     else if (v.phase === 'finished') sound.fanfare()
   }, [v.phase, v.qIndex, v.kind])
@@ -94,6 +98,32 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
     return <GetReady deadline={v.deadline!} sounds label="Préparez vos téléphones…" />
   }
 
+  // La photo, plein écran, sans la question : c'est le temps d'observation.
+  // L'animateur peut l'abréger si tout le monde a déjà vu.
+  if (v.phase === 'observe') {
+    return (
+      <div className="quiz-host">
+        <div className="quiz-status">
+          <span className="pill">{v.packTitle}</span>
+          <span className="pill">
+            Question {v.qIndex + 1}/{v.qCount}
+          </span>
+          <span className="pill flash">👀 Regardez bien…</span>
+        </div>
+        <TimerBar deadline={v.deadline!} duration={v.duration ?? 5} ticking />
+        {v.image && <img className="quiz-img observe-img" src={v.image} alt="" />}
+        <div className="row">
+          <button className="btn" onClick={() => sendCommand({ type: 'next' })}>
+            Passer à la question
+          </button>
+          <button className="btn btn-ghost" onClick={endSession}>
+            Terminer
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (v.phase === 'question' || v.phase === 'reveal') {
     const revealing = v.phase === 'reveal'
     const last = v.qIndex + 1 >= v.qCount
@@ -128,6 +158,7 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
 
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="" />}
+        {v.photoGone && <p className="photo-gone">🫥 La photo a disparu — de mémoire !</p>}
 
         {v.kind === 'number' ? (
           revealing ? (
@@ -230,10 +261,23 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
           <button className="btn btn-ghost" onClick={endSession}>Terminer</button>
         </div>
 
-        {revealing && v.standings && v.standings.length > 0 && (
-          <div>
-            <h3>Top du quiz</h3>
-            <Standings rows={v.standings} />
+        {/* Entre deux questions, c'est le moment où l'animateur annonce qui
+            mène. Les équipes passent en premier : c'est le classement qui
+            décide de la soirée, le top du quiz n'en est qu'un ingrédient. */}
+        {revealing && (
+          <div className="reveal-boards">
+            {teams.length > 0 && (
+              <div>
+                <h3>👥 Les équipes</h3>
+                <TeamBoard teams={teams} />
+              </div>
+            )}
+            {v.standings && v.standings.length > 0 && (
+              <div>
+                <h3>🏆 Top du quiz</h3>
+                <Standings rows={v.standings} />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -246,6 +290,12 @@ export function QuizHost({ view: v, sendCommand, endSession }: Props) {
       <h2>🏆 Podium du quiz</h2>
       {v.standings && <FinalPodium rows={v.standings} />}
       {v.standings && v.standings.length > 3 && <Standings rows={v.standings.slice(3)} offset={3} />}
+      {teams.length > 0 && (
+        <div>
+          <h3>👥 Les équipes après ce quiz</h3>
+          <TeamBoard teams={teams} showGamePoints />
+        </div>
+      )}
       <div className="row">
         <button className="btn btn-primary" onClick={endSession}>Terminer le quiz</button>
       </div>

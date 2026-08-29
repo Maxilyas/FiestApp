@@ -26,7 +26,7 @@ interface Response {
 }
 
 interface QuizState {
-  phase: 'pickPack' | 'getReady' | 'question' | 'reveal' | 'finished'
+  phase: 'pickPack' | 'getReady' | 'observe' | 'question' | 'reveal' | 'finished'
   packs: QuizPackInfo[]
   /** Le quiz joué est copié dans l'état : l'éditer pendant la partie ne change rien. */
   pack: QuizPack | null
@@ -78,13 +78,33 @@ export function setQuizLibrary(quizzes: QuizDef[]) {
 
 // ── Déroulé ──────────────────────────────────────────────────────────────
 
+/**
+ * Photo « mémoire » : on la projette seule avant la question. Sans cette
+ * phase, la question et les réponses seraient à l'écran en même temps que la
+ * photo, et il suffirait de répondre vite en la regardant.
+ */
 function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: GameContext) {
   const st = sess.state
   const q = st.pack!.questions[index]
-  st.phase = 'question'
   st.qIndex = index
   st.responses = {}
   st.lastAwards = {}
+  st.pausedMs = null
+  if (q.image && q.observeSeconds) {
+    st.phase = 'observe'
+    st.deadline = ctx.now() + q.observeSeconds * 1000
+    ctx.setTimer('observe', q.observeSeconds * 1000)
+    return
+  }
+  beginAnswering(sess, ctx)
+}
+
+/** La question s'affiche et le chronomètre part. */
+function beginAnswering(sess: GameSessionRec<QuizState>, ctx: GameContext) {
+  const st = sess.state
+  const q = st.pack!.questions[st.qIndex]
+  ctx.clearTimer('observe')
+  st.phase = 'question'
   st.questionStartAt = ctx.now()
   st.deadline = st.questionStartAt + q.duration * 1000
   st.pausedMs = null
@@ -105,6 +125,7 @@ function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   const st = sess.state
   const q = st.pack!.questions[st.qIndex]
   ctx.clearTimer('question')
+  ctx.clearTimer('observe')
   st.phase = 'reveal'
   st.lastAwards = {}
   // L'enchaînement s'arme quelle que soit la cause de la révélation : fin du
@@ -199,6 +220,15 @@ function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewCo
     })
     .sort((a, b) => a.error - b.error || a.ms - b.ms)
     .map(({ name, avatar, value, points }) => ({ name, avatar, value, points }))
+}
+
+/**
+ * Vrai quand la photo a été montrée puis retirée : pendant la question, elle
+ * ne doit plus être à l'écran, ni même son URL sur le téléphone. À la
+ * révélation elle revient, pour vérifier ensemble ce qu'on avait vu.
+ */
+function hiddenPhoto(q: PlayableQuestion, phase: QuizState['phase']): boolean {
+  return phase === 'question' && !!q.image && !!q.observeSeconds
 }
 
 // ── Module ───────────────────────────────────────────────────────────────
@@ -308,7 +338,10 @@ export const quizModule: GameModule<QuizState> = {
         break
       }
       case 'next':
-        if (st.phase === 'question') {
+        if (st.phase === 'observe') {
+          // « C'est bon, tout le monde a vu » : on passe à la question.
+          beginAnswering(sess, ctx)
+        } else if (st.phase === 'question') {
           reveal(sess, ctx) // l'animateur force la fin de la question
         } else if (st.phase === 'reveal') {
           goNext(sess, ctx)
@@ -340,6 +373,7 @@ export const quizModule: GameModule<QuizState> = {
 
   onTimer(sess, timerId, ctx) {
     if (timerId === 'ready' && sess.state.phase === 'getReady') startQuestion(sess, 0, ctx)
+    if (timerId === 'observe' && sess.state.phase === 'observe') beginAnswering(sess, ctx)
     if (timerId === 'question' && sess.state.phase === 'question') reveal(sess, ctx)
     if (timerId === 'autoNext' && sess.state.phase === 'reveal') goNext(sess, ctx)
   },
@@ -355,6 +389,18 @@ export const quizModule: GameModule<QuizState> = {
       yourGuess: mine?.value ?? null,
     }
     if (st.phase === 'getReady') return { ...base, deadline: st.deadline }
+    // Observation : la photo, et rien d'autre. Ni l'intitulé ni les réponses ne
+    // partent au téléphone — sinon il suffirait de répondre en la regardant.
+    if (st.phase === 'observe' && st.pack) {
+      const q = st.pack.questions[st.qIndex]
+      return {
+        ...base,
+        image: q.image,
+        deadline: st.deadline,
+        duration: q.observeSeconds ?? 0,
+        multiplier: st.multiplier,
+      }
+    }
     if ((st.phase === 'question' || st.phase === 'reveal') && st.pack) {
       const q = st.pack.questions[st.qIndex]
       const rank = sortedTotals(sess).findIndex(r => r.playerId === playerId) + 1
@@ -364,7 +410,10 @@ export const quizModule: GameModule<QuizState> = {
         text: q.text,
         answers: q.kind === 'choice' ? q.answers : undefined,
         unit: q.kind === 'number' ? q.unit : undefined,
-        image: q.image,
+        // Photo « mémoire » : elle a disparu, et son URL avec elle. Elle
+        // revient à la révélation, pour qu'on puisse vérifier ensemble.
+        image: hiddenPhoto(q, st.phase) ? null : q.image,
+        photoGone: hiddenPhoto(q, st.phase) || undefined,
         deadline: st.deadline,
         duration: q.duration,
         multiplier: st.multiplier,
@@ -402,6 +451,16 @@ export const quizModule: GameModule<QuizState> = {
     }
     if (st.phase === 'pickPack') return { ...base, packs: st.packs }
     if (st.phase === 'getReady') return { ...base, deadline: st.deadline }
+    if (st.phase === 'observe' && st.pack) {
+      const q = st.pack.questions[st.qIndex]
+      return {
+        ...base,
+        image: q.image,
+        deadline: st.deadline,
+        duration: q.observeSeconds ?? 0,
+        participantCount: sess.participantIds.length,
+      }
+    }
     if ((st.phase === 'question' || st.phase === 'reveal') && st.pack) {
       const q = st.pack.questions[st.qIndex]
       const view: QuizHostView = {
@@ -410,7 +469,8 @@ export const quizModule: GameModule<QuizState> = {
         text: q.text,
         answers: q.kind === 'choice' ? q.answers : undefined,
         unit: q.kind === 'number' ? q.unit : undefined,
-        image: q.image,
+        image: hiddenPhoto(q, st.phase) ? null : q.image,
+        photoGone: hiddenPhoto(q, st.phase) || undefined,
         deadline: st.deadline,
         duration: q.duration,
         ...(st.pausedMs !== null && { paused: true, remainingMs: st.pausedMs }),

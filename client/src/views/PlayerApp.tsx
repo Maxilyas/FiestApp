@@ -68,6 +68,7 @@ export function PlayerApp() {
   // ── Quiz en cours (si j'y participe) ─────────────
   const snap = s.snapshot
   const teams = snap?.teams ?? []
+  const me = snap?.players.find(p => p.id === s.me?.playerId)
   const session = snap?.session ?? null
   const sessionView = session ? s.views[session.id] : undefined
   const iAmIn = !!(s.me && session?.participantIds.includes(s.me.playerId))
@@ -194,6 +195,8 @@ export function PlayerApp() {
       <div className="player-shell">
         <QuizPlayer
           view={sessionView.view as QuizPlayerView}
+          teams={teams}
+          myTeamId={me?.teamId ?? null}
           send={action => socket.emit('player:action', { sessionId: sessionView.sessionId, action })}
         />
         {toast}
@@ -202,7 +205,6 @@ export function PlayerApp() {
   }
 
   // ── Salle d'attente ──────────────────────────────
-  const me = snap?.players.find(p => p.id === s.me!.playerId)
   const myTeam = teams.find(t => t.id === me?.teamId) ?? null
   const sorted = [...(snap?.players ?? [])].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
   const myRank = me ? sorted.findIndex(p => p.id === me.id) + 1 : 0

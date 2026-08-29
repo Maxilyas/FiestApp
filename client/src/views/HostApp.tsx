@@ -422,6 +422,7 @@ export function HostApp() {
           ) : activeView && quizView ? (
             <QuizHost
               view={quizView}
+              teams={teams}
               sendCommand={command => socket.emit('host:command', { sessionId: activeView.sessionId, command })}
               endSession={() => socket.emit('host:endSession', { sessionId: activeView.sessionId })}
             />

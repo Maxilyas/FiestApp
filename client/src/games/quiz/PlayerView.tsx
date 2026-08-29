@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import type { QuizAction, QuizPlayerView } from '../../../../shared/games/quiz'
 import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
+import { TeamBoard } from '../../components/TeamBoard'
+import type { PublicTeam } from '../../../../shared/types'
 import { questionSizeClass } from './HostView'
 
 const SHAPES = ['▲', '◆', '●', '■']
@@ -12,6 +14,12 @@ const formatNumber = (n: number) => n.toLocaleString('fr-FR')
 interface Props {
   view: QuizPlayerView
   send: (action: QuizAction) => void
+}
+
+interface QuizPlayerProps extends Props {
+  /** Les équipes de la soirée — montrées entre deux questions. */
+  teams: PublicTeam[]
+  myTeamId: string | null
 }
 
 /**
@@ -57,6 +65,35 @@ function GuessForm({ view, send }: Props) {
   )
 }
 
+/**
+ * Le bilan affiché entre deux questions : mon total, mon rang, et où en est
+ * mon équipe. C'est le seul moment où l'on regarde son téléphone sans être
+ * en train de répondre — autant y mettre ce qui donne envie de continuer.
+ */
+function BetweenQuestions({
+  view: v,
+  teams,
+  myTeamId,
+}: {
+  view: QuizPlayerView
+  teams: PublicTeam[]
+  myTeamId: string | null
+}) {
+  return (
+    <>
+      <p className="center muted">
+        Total quiz : {v.yourQuizTotal} pts · {v.yourQuizRank}ᵉ
+      </p>
+      {teams.length > 0 && (
+        <div className="card">
+          <h3>👥 Les équipes</h3>
+          <TeamBoard teams={teams} highlightId={myTeamId} compact />
+        </div>
+      )}
+    </>
+  )
+}
+
 /** Arrivé en pleine partie : il n'a pas raté la question, il n'était pas là. */
 function Welcome() {
   return (
@@ -67,7 +104,7 @@ function Welcome() {
   )
 }
 
-export function QuizPlayer({ view: v, send }: Props) {
+export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) {
   if (v.phase === 'pickPack') {
     return (
       <div className="getready">
@@ -79,6 +116,24 @@ export function QuizPlayer({ view: v, send }: Props) {
 
   if (v.phase === 'getReady') {
     return <GetReady deadline={v.deadline!} label="Prépare-toi…" />
+  }
+
+  // Observation : la photo seule. Ni l'intitulé ni les réponses ne sont encore
+  // arrivés — c'est ce qui fait le jeu de mémoire.
+  if (v.phase === 'observe') {
+    return (
+      <div className="quiz-player observe">
+        <div className="quiz-topbar">
+          <span className="pill">
+            Question {v.qIndex + 1}/{v.qCount}
+          </span>
+          <span className="pill flash">👀 Mémorise !</span>
+        </div>
+        <TimerBar deadline={v.deadline!} duration={v.duration ?? 5} />
+        {v.image && <img className="quiz-img observe-img" src={v.image} alt="" />}
+        <p className="muted center">La photo va disparaître, la question arrive après…</p>
+      </div>
+    )
   }
 
   if (v.phase === 'question') {
@@ -98,6 +153,7 @@ export function QuizPlayer({ view: v, send }: Props) {
         {v.paused && <p className="muted center">⏸ En pause — regarde l'écran commun</p>}
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="" />}
+        {v.photoGone && <p className="photo-gone">🫥 La photo a disparu — de mémoire !</p>}
 
         {v.kind === 'number' ? (
           <GuessForm view={v} send={send} />
@@ -161,9 +217,7 @@ export function QuizPlayer({ view: v, send }: Props) {
               La bonne réponse : <strong>{formatNumber(v.target!)}</strong> {v.unit}
             </p>
           </div>
-          <p className="center muted">
-            Total quiz : {v.yourQuizTotal} pts · {v.yourQuizRank}ᵉ
-          </p>
+          <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
         </div>
       )
     }
@@ -194,9 +248,7 @@ export function QuizPlayer({ view: v, send }: Props) {
             La bonne réponse : <strong>{v.answers![v.correct!]}</strong>
           </p>
         </div>
-        <p className="center muted">
-          Total quiz : {v.yourQuizTotal} pts · {v.yourQuizRank}ᵉ
-        </p>
+        <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
       </div>
     )
   }

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   DEFAULT_DURATION,
+  DEFAULT_OBSERVE,
   MAX_ANSWERS,
   MAX_DURATION,
+  MAX_OBSERVE,
   MIN_DURATION,
+  MIN_OBSERVE,
   emptyQuestion,
   parseImportedQuestions,
   questionProblem,
@@ -574,7 +577,10 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
         {question.image ? (
           <div className="row">
             <img className="thumb" src={question.image} alt="" />
-            <button className="btn btn-ghost btn-small" onClick={() => onChange(q => ({ ...q, image: null }))}>
+            <button
+              className="btn btn-ghost btn-small"
+              onClick={() => onChange(q => ({ ...q, image: null, observeSeconds: null }))}
+            >
               Retirer la photo
             </button>
           </div>
@@ -584,6 +590,43 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
           </button>
         )}
       </div>
+
+      {/* Photo « mémoire ». Réglage caché tant qu'il n'y a pas de photo : une
+          durée d'observation sans rien à observer n'a aucun sens. */}
+      {question.image && (
+        <div className="observe-edit">
+          <label className="row">
+            <input
+              type="checkbox"
+              checked={question.observeSeconds !== null}
+              onChange={e =>
+                onChange(q => ({ ...q, observeSeconds: e.target.checked ? DEFAULT_OBSERVE : null }))
+              }
+            />
+            <span>🫥 La photo disparaît avant la question</span>
+          </label>
+          {question.observeSeconds !== null && (
+            <label className="row">
+              <span className="muted">Temps d'observation</span>
+              <input
+                className="input duration-input"
+                type="number"
+                min={MIN_OBSERVE}
+                max={MAX_OBSERVE}
+                value={question.observeSeconds}
+                onChange={e => onChange(q => ({ ...q, observeSeconds: Number(e.target.value) }))}
+              />
+              <span className="muted">s</span>
+            </label>
+          )}
+          {question.observeSeconds !== null && (
+            <p className="muted small">
+              La photo passe seule {question.observeSeconds} s — sans l'intitulé ni les réponses —
+              puis elle disparaît et la question démarre. Elle revient à la révélation.
+            </p>
+          )}
+        </div>
+      )}
 
       {preview && <QuestionPreview question={question} onClose={() => setPreview(false)} />}
       {imageError && <p className="error">{imageError}</p>}
