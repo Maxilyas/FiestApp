@@ -19,8 +19,8 @@ Trois adresses, une par usage :
 | Page | Adresse | Pour qui |
 |---|---|---|
 | Jeu | http://localhost:5173 | les invités (sur leur téléphone : `http://<IP-du-PC>:5173`) |
-| Écran commun | http://localhost:5173/host?key=romane | la TV / le vidéoprojecteur |
-| Mes quiz | http://localhost:5173/edit?key=romane | Antoine, pour écrire les quiz |
+| Écran commun | http://localhost:5173/host#key=romane | la TV / le vidéoprojecteur |
+| Mes quiz | http://localhost:5173/edit#key=romane | Antoine, pour écrire les quiz |
 | Statistiques | http://localhost:5173/stats | Antoine pendant la fête, tout le monde après |
 
 ```bash
@@ -31,7 +31,9 @@ npm run check
 npm run smoke
 ```
 
-`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix).
+`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, garde-fous, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, reprise après coupure en pleine question).
+
+La clé animateur se passe **après un dièse** (`#key=…`) : cette partie de l'adresse ne quitte jamais le navigateur, elle n'arrive ni dans les journaux du serveur ni dans l'historique d'une adresse partagée. Elle est retirée de la barre d'adresse aussitôt lue.
 
 ## Écrire ses quiz
 
@@ -42,11 +44,11 @@ Deux types de questions, au choix pour chacune :
 | Type | Comment on répond | Score (200 pts max) |
 |---|---|---|
 | 🔘 **QCM** | 2 à 4 réponses, une bonne (2 = vrai/faux) | 100 pts si c'est juste + jusqu'à 100 pts de rapidité |
-| 🔢 **Estimation** | chacun tape un nombre | 30 pts pour avoir joué + jusqu'à 120 pts selon la proximité + 50 pts au plus proche |
+| 🔢 **Estimation** | chacun tape un nombre | 30 pts pour avoir joué + jusqu'à 120 pts selon le rang de proximité + 50 pts au plus proche |
 
 Un **vrai/faux** n'est qu'un QCM à deux réponses : on tape « Vrai » et « Faux » dans les deux premières cases et on laisse les autres vides.
 
-L'estimation évite les blocages : même sans connaître la réponse, on propose un chiffre et on marque quelque chose. La proximité est calculée **par rapport au groupe** — sinon une erreur de 3 ans sur une date et une erreur de 3 km sur une distance rapporteraient la même chose. Le plus proche empoche le maximum, le plus loin garde ses 30 pts de participation. À égalité d'écart, le plus rapide gagne.
+L'estimation évite les blocages : même sans connaître la réponse, on propose un chiffre et on marque quelque chose. La proximité est calculée **par rapport au groupe** — sinon une erreur de 3 ans sur une date et une erreur de 3 km sur une distance rapporteraient la même chose. C'est le **rang** qui compte, pas la distance : le plus proche empoche le maximum, le suivant un peu moins, le plus loin garde ses 30 pts de participation. Une faute de frappe chez le voisin (« 19940 » pour 1994) ne change donc rien aux points des autres — avec une échelle proportionnelle, elle donnait le maximum à toute la salle. À égalité d'écart, le plus rapide gagne.
 
 - **Les cases de réponse vides** sont simplement ignorées en jeu (et la bonne réponse suit son texte, pas son numéro de case).
 - **Les brouillons ne sont jamais perdus** : une question incomplète est enregistrée telle quelle, signalée par un ⚠️, et sautée au moment de jouer. La liste affiche « 8 questions prêtes · 2 à compléter ».
@@ -129,7 +131,7 @@ Le quiz n'est **qu'un jeu sur trois** : les deux autres se jouent debout, hors d
 Deux stockages séparés, et c'est volontaire :
 
 - **La bibliothèque de quiz** est le seul contenu précieux : elle doit survivre à un redéploiement. En local c'est un fichier (`server/data/quizzes.db`) ; en ligne, on pointe `QUIZ_DB_URL` vers une base **Turso** gratuite. Le code est le même — le client libSQL parle aux deux.
-- **L'état d'une partie** (question en cours, réponses) vit dans une base SQLite locale, jetable. Elle permet la reprise après un crash.
+- **L'état d'une partie** (question en cours, réponses) vit dans une base SQLite locale, jetable, et il est recopié dans la base distante au plus toutes les deux secondes. Après un redémarrage, même sur un disque effacé, la question en cours reprend là où elle en était — au pire, deux secondes de réponses en moins.
 - **Les invités et leurs points** sont recopiés dans la base distante au fil de l'eau et rechargés au démarrage si le disque local est reparti vide. Sur un hébergeur gratuit le disque est effacé à chaque redémarrage : sans ce miroir, la soirée repartirait à zéro sans que personne comprenne pourquoi.
 
 ## Tester avec de vrais téléphones (à la maison)
@@ -166,7 +168,7 @@ Deux comptes gratuits à créer (je ne peux pas le faire à ta place) :
 
 | Variable | Valeur |
 |---|---|
-| `HOST_KEY` | une clé à toi, pas `romane` — quiconque l'a peut animer et éditer |
+| `HOST_KEY` | une clé à toi, pas `romane` — quiconque l'a peut animer et éditer. En ligne, le serveur refuse de démarrer avec la clé par défaut |
 | `QUIZ_DB_URL` | l'URL `libsql://…` de Turso |
 | `QUIZ_DB_TOKEN` | le jeton Turso |
 
@@ -192,12 +194,24 @@ Si la salle capte mal ou si l'hébergeur fait des siennes, le même code tourne 
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `PORT` | `3001` | Port du serveur |
-| `HOST_KEY` | `romane` | Clé d'accès de l'écran commun et de l'éditeur (`?key=...`) |
+| `HOST_KEY` | `romane` | Clé d'accès de l'écran commun et de l'éditeur (`#key=...`) — obligatoire en ligne |
+| `MAX_PLAYERS` | `150` | Au-delà, la soirée est déclarée complète |
 | `DB_PATH` | `server/data/quizz.db` | Base de la partie en cours (jetable) |
 | `QUIZ_DB_URL` | fichier voisin de `DB_PATH` | Bibliothèque de quiz : `file:...` ou `libsql://...` (Turso) |
 | `QUIZ_DB_TOKEN` | — | Jeton Turso, si base distante |
 | `PUBLIC_URL` | `RENDER_EXTERNAL_URL` | URL publique à mettre dans le QR code |
 | `WIFI_SSID` / `WIFI_PASS` | — | Si définis : QR « rejoindre le wifi » sur l'écran commun |
+
+## Garde-fous
+
+Le serveur ne fait confiance à rien de ce qui vient d'un téléphone, et personne ne peut le saturer depuis une seule connexion :
+
+- cinq clés animateur fausses coupent la connexion — la force brute retombe à la vitesse d'une poignée de main réseau ;
+- une connexion ne crée pas plus de trois identités, une adresse pas plus de 25 d'un coup (puis 30 par minute : en 4G, des dizaines d'invités partagent la même adresse chez leur opérateur), et la soirée est complète à `MAX_PLAYERS` ;
+- prénoms et avatars sont nettoyés et bornés, les photos vérifiées, la clé exigée avant même de lire le corps d'une requête ;
+- en ligne, le temps réel n'accepte que les pages servies par l'application, le JS part compressé avec un an de cache, et les en-têtes de durcissement (CSP, `nosniff`…) sont posés.
+
+L'analyseur d'URL d'Express 4 s'appuie sur `qs`, dont `npm audit` signale deux failles de déni de service : aucune adresse ne lit de paramètre d'URL, et l'application utilise l'analyseur simple de Node — cette bibliothèque n'est jamais appelée.
 
 ## Test de charge
 

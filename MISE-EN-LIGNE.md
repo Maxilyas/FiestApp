@@ -25,9 +25,9 @@ Garde ces cinq valeurs sous la main — un fichier texte, un gestionnaire de mot
 | Jeton Turso | bouton de création de token, **affiché une seule fois** | `eyJhbGciOi…` |
 | Clé animateur (`HOST_KEY`) | tu l'inventes | `salsa2026!` |
 | Adresse publique | donnée par Render après le déploiement | `https://quizz-romane-30.onrender.com` |
-| Adresse de l'écran commun | l'adresse publique + `/host?key=ta-clé` | |
+| Adresse de l'écran commun | l'adresse publique + `/host#key=ta-clé` | |
 
-⚠️ **La clé animateur circule dans l'adresse.** Qui l'a peut lancer des quiz et modifier tes questions. Choisis autre chose que `romane`, et ne projette pas l'adresse complète sur le vidéoprojecteur.
+⚠️ **La clé animateur se passe après un dièse.** Cette partie de l'adresse ne quitte jamais le navigateur : elle n'arrive ni chez Render ni dans ses journaux, et elle disparaît de la barre d'adresse aussitôt lue. Qui l'a peut quand même lancer des quiz et modifier tes questions : choisis autre chose que `romane` — en ligne, le serveur refuse de démarrer avec la clé par défaut — et ne projette pas l'adresse complète sur le vidéoprojecteur.
 
 ---
 
@@ -122,8 +122,8 @@ npm run dev
 | Page | Adresse en local |
 |---|---|
 | Jeu (téléphone) | http://localhost:5173 |
-| Écran commun | http://localhost:5173/host?key=romane |
-| Mes quiz | http://localhost:5173/edit?key=romane |
+| Écran commun | http://localhost:5173/host#key=romane |
+| Mes quiz | http://localhost:5173/edit#key=romane |
 
 En local la clé est `romane` (sauf si tu définis `HOST_KEY`). En ligne, c'est la tienne.
 
@@ -215,5 +215,7 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 | Téléphone bloqué sur « reconnexion… » | réseau du téléphone | il se reconnecte tout seul, son score est conservé |
 | Quiz modifié en ligne puis écrasé | migration relancée après coup | une fois en ligne, n'écris plus qu'en ligne |
 | Les scores des essais sont encore là | la sauvegarde distante les a gardés | **🧹 Nouvelle soirée** sur l'écran commun |
+| « La soirée est complète » | plus de 150 inscrits (les essais comptent) | **🧹 Nouvelle soirée**, ou relever `MAX_PLAYERS` sur Render |
+| « Trop d'inscriptions d'un coup » | plus de 25 inscriptions depuis une même adresse en quelques secondes | attendre une minute ; c'est le garde-fou contre les robots |
 
-Un redémarrage du serveur en pleine partie n'est pas grave : la question en cours et les scores sont rechargés, et les téléphones se reconnectent seuls.
+Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours est recopiée toutes les deux secondes dans la base distante, elle reprend là où elle en était (au pire, deux secondes de réponses en moins), les scores sont intacts et les téléphones se reconnectent seuls.
