@@ -51,10 +51,27 @@ body,
 
 body {
   font-family: var(--body);
-  background: radial-gradient(125% 95% at 18% 0%, var(--bg-high) 0%, var(--bg-mid) 52%, var(--bg-deep) 100%);
-  background-attachment: fixed;
+  /* Le dégradé couvre le premier écran, le fond profond prend le relais en
+     dessous. Un fond « fixed » aurait le même rendu, mais il coûte un repli
+     complet à chaque défilement sur un téléphone d'entrée de gamme — et iOS
+     l'ignore de toute façon. */
+  background-color: var(--bg-deep);
+  background-image: radial-gradient(125% 95% at 18% 0%, var(--bg-high) 0%, var(--bg-mid) 52%, var(--bg-deep) 100%);
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
   color: var(--ink);
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Le double-tap qui zoome par accident est neutralisé ici, pas dans la balise
+   viewport : le pincement pour agrandir reste possible pour qui voit mal. */
+button,
+a,
+input,
+select,
+textarea,
+label {
+  touch-action: manipulation;
 }
 
 h1,
@@ -77,7 +94,10 @@ h3 { font-size: 1.05rem; }
 
 /* ── Layout de base ─────────────────────────────── */
 .center-page {
+  /* `dvh` suit la barre d'adresse rétractable des téléphones ; `vh` reste en
+     repli pour les navigateurs qui ne le connaissent pas. */
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -134,7 +154,31 @@ h3 { font-size: 1.05rem; }
 .btn:hover { border-color: var(--gold); }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Un seul anneau de focus, doré, pour tout ce qui se pilote au clavier : le
+   bleu du navigateur sur certains boutons et l'or sur d'autres, ça se voyait. */
+.btn:focus-visible,
+.emoji-btn:focus-visible,
+.pill-btn:focus-visible,
+.stats-sort:focus-visible,
+.team-emoji-select:focus-visible,
+.chip-team:focus-visible,
+.free-team:focus-visible,
+.answer-edit input:focus-visible,
+.observe-edit input:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* Le bouton qui efface quelque chose ne ressemble pas à celui qui valide. */
+.btn-danger {
+  background: var(--hot);
+  border-color: var(--hot);
+  color: #2a0518;
+  font-weight: 700;
+}
+
+.btn-danger:hover { background: #ff6a9c; border-color: #ff6a9c; }
 
 /* L'or sur l'aubergine est le contraste le plus fort de la palette :
    c'est lui qui porte l'action principale. */
@@ -201,6 +245,7 @@ h3 { font-size: 1.05rem; }
 /* ── Écran joueur ───────────────────────────────── */
 .player-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -340,7 +385,10 @@ h3 { font-size: 1.05rem; }
   animation: pop 0.35s ease-out both;
 }
 
-.player-chip.offline { opacity: 0.3; }
+/* Estompé mais lisible (0,3 ne laissait que 2,4 : 1 de contraste), et doublé
+   d'un pictogramme : la transparence seule ne se lit pas de loin. */
+.player-chip.offline { opacity: 0.55; }
+.chip-offline { font-size: 0.8rem; }
 .player-chip .player-name { max-width: 9ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .main-stage { min-height: 440px; }
@@ -756,6 +804,11 @@ h3 { font-size: 1.05rem; }
 
 .answers-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 
+/* Sur un téléphone, deux colonnes laissaient 73 px à chaque réponse. */
+@media (max-width: 600px) {
+  .answers-edit { grid-template-columns: 1fr; }
+}
+
 .answer-edit {
   display: flex;
   align-items: center;
@@ -1144,7 +1197,9 @@ h3 { font-size: 1.05rem; }
    L'application calcule et propose ; l'animateur décide et attribue.
    ═══════════════════════════════════════════════════════════════════ */
 
-.awards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+/* `min(320px, 100%)` : sur un téléphone de 375 px, la carte prend la largeur
+   qui reste au lieu d'imposer ses 320 px et de déborder de son cadre. */
+.awards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 12px; }
 
 .award {
   display: flex;
@@ -1210,6 +1265,9 @@ h3 { font-size: 1.05rem; }
 .stats-table { border-collapse: collapse; font-size: 0.85rem; white-space: nowrap; }
 .stats-table th, .stats-table td { padding: 5px 9px; text-align: right; }
 .stats-table thead th { border-bottom: 1px solid var(--edge-soft); }
+/* L'en-tête entier est le bouton de tri : 17 px de haut, c'était imprenable
+   au pouce, sur une page faite pour le téléphone. */
+.stats-table thead th:has(.stats-sort) { padding: 0; }
 .stats-table tbody tr:nth-child(odd) { background: rgba(255, 255, 255, 0.03); }
 
 /* Le prénom reste visible pendant qu'on fait défiler les colonnes. */
@@ -1222,13 +1280,17 @@ h3 { font-size: 1.05rem; }
 }
 
 .stats-sort {
+  display: block;
+  width: 100%;
+  min-height: 44px;
   background: none;
   border: none;
   color: var(--muted);
   font: inherit;
   font-weight: 700;
+  text-align: right;
   cursor: pointer;
-  padding: 0;
+  padding: 10px 9px;
 }
 
 .stats-sort:hover { color: var(--ink); }
@@ -1249,3 +1311,64 @@ h3 { font-size: 1.05rem; }
 @media (max-width: 900px) {
   .victory-boards { grid-template-columns: 1fr; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ÉCRANS TACTILES
+   Ce qui se pilote au pouce doit se laisser attraper : 44 px, et rien qui
+   n'apparaisse qu'au survol — un doigt ne survole pas.
+   ═══════════════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+  .btn-small,
+  .pill-btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 16px;
+  }
+
+  .answer-edit .input,
+  .team-name-input,
+  .award-points { min-height: 44px; }
+
+  .chip-remove,
+  .chip-team { opacity: 1; }
+  .chip-remove { min-width: 32px; min-height: 32px; font-size: 1rem; }
+
+  .answer-edit input[type='radio'],
+  .observe-edit input[type='checkbox'] { width: 24px; height: 24px; }
+  .duration-input { min-height: 44px; }
+  .emoji-btn { min-height: 44px; }
+
+  /* Le flou d'arrière-plan se paie à chaque image sur un téléphone d'entrée
+     de gamme, pour un effet qu'on ne remarque pas sur un écran de 6 pouces. */
+  .card,
+  .ans-btn { backdrop-filter: none; }
+}
+
+/* ── Dialogues de l'application ─────────────────── */
+/* À la place de `window.confirm` et `window.prompt` : l'habillage de la
+   soirée, et rien qui fasse sortir l'écran commun du plein écran. */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: rgba(6, 2, 12, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: pop 0.15s ease-out both;
+}
+
+.dialog {
+  width: min(460px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: radial-gradient(120% 90% at 20% 0%, var(--bg-high), var(--bg-mid) 60%, var(--bg-deep));
+  border-color: var(--edge);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+
+.dialog h3 { font-size: 1.2rem; }
+.dialog-message { white-space: pre-line; line-height: 1.4; }
+.dialog-actions { justify-content: flex-end; }
