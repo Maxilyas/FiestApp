@@ -1,10 +1,6 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
-import { PlayerApp } from './views/PlayerApp'
-import { HostApp } from './views/HostApp'
-import { EditorApp } from './views/EditorApp'
-import { RecapApp } from './views/RecapApp'
-import { StatsApp } from './views/StatsApp'
+import { DialogHost } from './components/Dialog'
 import './styles.css'
 
 // Cinq routes statiques : pas besoin d'un routeur.
@@ -13,6 +9,16 @@ import './styles.css'
 //   /edit      espace animateur : la bibliothèque de quiz
 //   /stats     les chiffres, à consulter sur son téléphone pendant la fête
 //   /souvenir  la page à relire le lendemain, sans clé
+//
+// Chaque route est un paquet à part : les téléphones n'ont pas à télécharger
+// l'éditeur, l'écran commun ni la bibliothèque de QR codes pour répondre à
+// un quiz en 4G.
+const PlayerApp = lazy(() => import('./views/PlayerApp').then(m => ({ default: m.PlayerApp })))
+const HostApp = lazy(() => import('./views/HostApp').then(m => ({ default: m.HostApp })))
+const EditorApp = lazy(() => import('./views/EditorApp').then(m => ({ default: m.EditorApp })))
+const StatsApp = lazy(() => import('./views/StatsApp').then(m => ({ default: m.StatsApp })))
+const RecapApp = lazy(() => import('./views/RecapApp').then(m => ({ default: m.RecapApp })))
+
 const path = window.location.pathname
 const App = path.startsWith('/host')
   ? HostApp
@@ -26,6 +32,15 @@ const App = path.startsWith('/host')
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <App />
+    <Suspense
+      fallback={
+        <div className="center-page">
+          <p className="muted">Chargement…</p>
+        </div>
+      }
+    >
+      <App />
+    </Suspense>
+    <DialogHost />
   </React.StrictMode>,
 )

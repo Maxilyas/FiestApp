@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
-import { useAppState } from '../state'
+import { showToast, useAppState } from '../state'
+import { confirmDialog, promptDialog } from '../components/Dialog'
+import { readKeyFromUrl } from '../hostKeyUrl'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
@@ -51,6 +53,7 @@ function TeamGroup({
               className="team-emoji-select"
               value={team.emoji}
               title="Changer l'emoji"
+              aria-label={`Emoji de l'équipe ${team.name}`}
               onChange={e => socket.emit('host:updateTeam', { teamId: team.id, emoji: e.target.value })}
             >
               {/* L'emoji courant peut venir d'une soirée précédente : on l'ajoute
@@ -64,9 +67,14 @@ function TeamGroup({
             <button
               className="chip-name team-group-name"
               title="Renommer l'équipe"
-              onClick={() => {
-                const name = window.prompt(`Nouveau nom pour « ${team.name} » ?`, team.name)
-                if (name?.trim()) socket.emit('host:updateTeam', { teamId: team.id, name })
+              aria-label={`Renommer l'équipe ${team.name}`}
+              onClick={async () => {
+                const name = await promptDialog({
+                  title: `Nouveau nom pour « ${team.name} »`,
+                  input: { value: team.name, placeholder: "Nom de l'équipe", maxLength: 20 },
+                  confirmLabel: 'Renommer',
+                })
+                if (name) socket.emit('host:updateTeam', { teamId: team.id, name })
               }}
             >
               {team.name}
@@ -75,14 +83,15 @@ function TeamGroup({
             <button
               className="chip-remove"
               title="Supprimer l'équipe"
-              onClick={() => {
-                if (
-                  window.confirm(
-                    `Supprimer l'équipe « ${team.name} » ?\n\nSes ${members.length} membres ne sont pas exclus : ils repassent « sans équipe » et gardent leurs points.`,
-                  )
-                ) {
-                  socket.emit('host:removeTeam', { teamId: team.id })
-                }
+              aria-label={`Supprimer l'équipe ${team.name}`}
+              onClick={async () => {
+                const ok = await confirmDialog({
+                  title: `Supprimer l'équipe « ${team.name} » ?`,
+                  message: `Ses ${members.length} membres ne sont pas exclus : ils repassent « sans équipe » et gardent leurs points.`,
+                  confirmLabel: "Supprimer l'équipe",
+                  danger: true,
+                })
+                if (ok) socket.emit('host:removeTeam', { teamId: team.id })
               }}
             >
               ✕
@@ -100,18 +109,31 @@ function TeamGroup({
             <button
               className="chip-name"
               title="Renommer"
-              onClick={() => {
-                const name = window.prompt(`Nouveau prénom pour « ${p.name} » ?`, p.name)
-                if (name?.trim()) socket.emit('host:renamePlayer', { playerId: p.id, name })
+              aria-label={`Renommer ${p.name}`}
+              onClick={async () => {
+                const name = await promptDialog({
+                  title: `Nouveau prénom pour « ${p.name} »`,
+                  input: { value: p.name, placeholder: 'Prénom', maxLength: 24 },
+                  confirmLabel: 'Renommer',
+                })
+                if (name) socket.emit('host:renamePlayer', { playerId: p.id, name })
               }}
             >
               {p.name}
             </button>
+            {/* Hors ligne : la transparence seule ne se lit pas du fond de la
+                salle, et un lecteur d'écran n'en sait rien. */}
+            {!p.connected && (
+              <span className="chip-offline" title="Hors ligne" aria-label="hors ligne">
+                💤
+              </span>
+            )}
             {teams.length > 0 && (
               <select
                 className="chip-team"
                 value={p.teamId ?? ''}
                 title="Changer d'équipe"
+                aria-label={`Équipe de ${p.name}`}
                 onChange={e =>
                   socket.emit('host:assignPlayer', {
                     playerId: p.id,
@@ -130,10 +152,15 @@ function TeamGroup({
             <button
               className="chip-remove"
               title="Exclure de la soirée"
-              onClick={() => {
-                if (window.confirm(`Retirer « ${p.name} » de la soirée ? Ses points seront effacés.`)) {
-                  socket.emit('host:removePlayer', { playerId: p.id })
-                }
+              aria-label={`Exclure ${p.name} de la soirée`}
+              onClick={async () => {
+                const ok = await confirmDialog({
+                  title: `Retirer « ${p.name} » de la soirée ?`,
+                  message: 'Ses points seront effacés et son téléphone reviendra à l’inscription.',
+                  confirmLabel: 'Exclure',
+                  danger: true,
+                })
+                if (ok) socket.emit('host:removePlayer', { playerId: p.id })
               }}
             >
               ✕
@@ -175,19 +202,19 @@ export function HostApp() {
   useEffect(() => {
     if (!screen) return
     fetch('/recap.json')
-      .then(r => r.json())
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(setRecap)
-      .catch(() => setRecap(null))
+      .catch(() => {
+        // Un podium sans prix ni trophées, sans un mot, ressemblerait à un
+        // écran normal : l'animateur doit savoir qu'il manque quelque chose.
+        setRecap(null)
+        showToast({ kind: 'error', message: 'Impossible de charger les prix et les statistiques' })
+      })
   }, [screen])
 
   useEffect(() => {
-    const urlKey = new URLSearchParams(window.location.search).get('key')
-    if (urlKey) {
-      localStorage.setItem('quizz.hostKey', urlKey)
-      // Retirée de l'adresse : sur un vidéoprojecteur, la barre du navigateur
-      // se lit depuis le fond de la salle.
-      window.history.replaceState({}, '', window.location.pathname)
-    }
+    const urlKey = readKeyFromUrl()
+    if (urlKey) localStorage.setItem('quizz.hostKey', urlKey)
     socket.connect()
     const hello = async () => {
       const key = localStorage.getItem('quizz.hostKey')
@@ -217,9 +244,13 @@ export function HostApp() {
           <h1>🖥️ Écran commun</h1>
           <input
             className="input"
+            type="password"
             placeholder="Clé d'accès (HOST_KEY)"
+            aria-label="Clé d'accès"
+            autoComplete="current-password"
             value={keyInput}
             onChange={e => setKeyInput(e.target.value)}
+            autoFocus
           />
           {error && <p className="error">{error}</p>}
           <button className="btn btn-primary">Entrer</button>
@@ -242,6 +273,7 @@ export function HostApp() {
   const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   const joinUrl = isLocalhost && snap.joinUrl ? snap.joinUrl : window.location.origin
   const connectedCount = snap.players.filter(p => p.connected).length
+  const offlineCount = snap.players.length - connectedCount
   const session = snap.session
   const activeView = session ? s.views[session.id] : undefined
   const quizView = activeView?.view as QuizHostView | undefined
@@ -297,6 +329,7 @@ export function HostApp() {
           <button
             className="btn btn-ghost btn-small"
             title="Plein écran"
+            aria-label="Plein écran"
             onClick={() => {
               if (document.fullscreenElement) document.exitFullscreen()
               else document.documentElement.requestFullscreen().catch(() => {})
@@ -307,6 +340,8 @@ export function HostApp() {
           <button
             className="btn btn-ghost btn-small"
             title={muted ? 'Activer les sons' : 'Couper les sons'}
+            aria-label={muted ? 'Activer les sons' : 'Couper les sons'}
+            aria-pressed={!muted}
             onClick={() => {
               initAudio()
               setMuted(toggleMuted())
@@ -363,6 +398,7 @@ export function HostApp() {
               <select
                 className="team-emoji-select"
                 value={newEmoji}
+                aria-label="Emoji de la nouvelle équipe"
                 onChange={e => setNewEmoji(e.target.value)}
               >
                 {TEAM_EMOJIS.map(e => (
@@ -374,6 +410,7 @@ export function HostApp() {
               <input
                 className="input team-name-input"
                 placeholder="Nouvelle équipe"
+                aria-label="Nom de la nouvelle équipe"
                 value={newTeam}
                 maxLength={20}
                 onChange={e => setNewTeam(e.target.value)}
@@ -475,6 +512,7 @@ export function HostApp() {
                   <select
                     className="team-emoji-select free-team"
                     value={freeTeam}
+                    aria-label="Équipe qui reçoit le prix"
                     onChange={e => setFreeTeam(e.target.value)}
                   >
                     <option value="">Choisir une équipe…</option>
@@ -487,6 +525,7 @@ export function HostApp() {
                   <input
                     className="input"
                     placeholder="Motif (ex. « ont chanté le plus fort »)"
+                    aria-label="Motif du prix"
                     maxLength={60}
                     value={freeReason}
                     onChange={e => setFreeReason(e.target.value)}
@@ -496,6 +535,7 @@ export function HostApp() {
                     type="number"
                     min={-10}
                     max={10}
+                    aria-label="Points du prix"
                     value={freePoints}
                     onChange={e => setFreePoints(Number(e.target.value))}
                   />
@@ -536,6 +576,7 @@ export function HostApp() {
                           <button
                             className="chip-remove"
                             title="Retirer ce prix"
+                            aria-label={`Retirer le prix « ${b.reason} »`}
                             onClick={() => socket.emit('host:removeBonus', { bonusId: b.id })}
                           >
                             ✕
@@ -668,9 +709,22 @@ export function HostApp() {
                 >
                   {connectedCount === 0 ? 'En attente des invités…' : 'Lancer un quiz'}
                 </button>
-                <a className="btn btn-ghost btn-small" href={`/edit?key=${localStorage.getItem('quizz.hostKey') ?? ''}`}>
+                {/* Dans un autre onglet : l'écran commun reste projeté. La clé
+                    passe en fragment, que le navigateur garde pour lui. */}
+                <a
+                  className="btn btn-ghost btn-small"
+                  href={`/edit#key=${encodeURIComponent(localStorage.getItem('quizz.hostKey') ?? '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   ✏️ Mes quiz
                 </a>
+                {offlineCount > 0 && (
+                  <p className="muted small">
+                    {offlineCount} inscrit{offlineCount > 1 ? 's' : ''} hors ligne : un téléphone dont
+                    l'écran s'est éteint n'entrera dans le quiz qu'à son retour.
+                  </p>
+                )}
                 {(ranking.length > 0 || teams.length > 0) && (
                   <div className="row">
                     <button className="btn btn-small" onClick={() => openScreen('podium')}>
@@ -714,13 +768,16 @@ export function HostApp() {
                 <div className="row reset-row">
                   <button
                     className="btn btn-ghost btn-small"
-                    onClick={() => {
+                    onClick={async () => {
                       // Efface tout, y compris la sauvegarde distante : à ne
                       // faire qu'entre deux soirées, jamais pendant.
-                      if (!window.confirm(
-                        `Effacer les ${snap.players.length} invités, les ${teams.length} équipes et tous les points ?\n\nÀ faire une fois les essais terminés, pour démarrer la vraie soirée à zéro. C'est définitif.`,
-                      )) return
-                      socket.emit('host:resetParty')
+                      const ok = await confirmDialog({
+                        title: 'Repartir d’une soirée vierge ?',
+                        message: `Efface les ${snap.players.length} invités, les ${teams.length} équipes et tous les points.\n\nÀ faire une fois les essais terminés, pour démarrer la vraie soirée à zéro. C'est définitif.`,
+                        confirmLabel: 'Tout effacer',
+                        danger: true,
+                      })
+                      if (ok) socket.emit('host:resetParty')
                     }}
                   >
                     🧹 Nouvelle soirée

@@ -16,7 +16,9 @@ import {
   type QuizSummary,
 } from '../../../shared/library'
 import { UnauthorizedError, api, compressImage, hostKey, setHostKey } from '../api'
-import { questionSizeClass } from '../games/quiz/HostView'
+import { questionSizeClass } from '../games/quiz/questionSize'
+import { confirmDialog } from '../components/Dialog'
+import { readKeyFromUrl } from '../hostKeyUrl'
 
 const SHAPES = ['▲', '◆', '●', '■']
 
@@ -47,11 +49,8 @@ export function EditorApp() {
   }, [])
 
   useEffect(() => {
-    const urlKey = new URLSearchParams(window.location.search).get('key')
-    if (urlKey) {
-      setHostKey(urlKey)
-      window.history.replaceState({}, '', window.location.pathname)
-    }
+    const urlKey = readKeyFromUrl()
+    if (urlKey) setHostKey(urlKey)
     if (!hostKey()) return setNeedKey(true)
     reload()
   }, [reload])
@@ -75,7 +74,10 @@ export function EditorApp() {
           <h1>✏️ Mes quiz</h1>
           <input
             className="input"
+            type="password"
             placeholder="Clé d'accès (HOST_KEY)"
+            aria-label="Clé d'accès"
+            autoComplete="current-password"
             value={keyInput}
             onChange={e => setKeyInput(e.target.value)}
             autoFocus
@@ -104,7 +106,10 @@ export function EditorApp() {
       <header className="editor-header">
         <h1>✏️ Mes quiz</h1>
         <div className="row">
-          <a className="btn btn-ghost" href={`/host?key=${hostKey()}`}>
+          {/* La clé voyage en fragment : le navigateur ne l'envoie jamais au
+              serveur, elle n'apparaît ni dans ses journaux ni dans l'historique
+              d'une adresse partagée. */}
+          <a className="btn btn-ghost" href={`/host#key=${encodeURIComponent(hostKey())}`}>
             🖥️ Écran commun
           </a>
           <button
@@ -151,8 +156,12 @@ export function EditorApp() {
               <button
                 className="btn btn-ghost btn-small"
                 onClick={async () => {
-                  await api.duplicate(q.id)
-                  reload()
+                  try {
+                    await api.duplicate(q.id)
+                    reload()
+                  } catch (e) {
+                    setError((e as Error).message)
+                  }
                 }}
               >
                 Dupliquer
@@ -160,9 +169,19 @@ export function EditorApp() {
               <button
                 className="btn btn-ghost btn-small"
                 onClick={async () => {
-                  if (!window.confirm(`Supprimer « ${q.title} » ? C'est définitif.`)) return
-                  await api.remove(q.id)
-                  reload()
+                  const ok = await confirmDialog({
+                    title: `Supprimer « ${q.title} » ?`,
+                    message: 'Le quiz et ses questions disparaissent pour de bon.',
+                    confirmLabel: 'Supprimer',
+                    danger: true,
+                  })
+                  if (!ok) return
+                  try {
+                    await api.remove(q.id)
+                    reload()
+                  } catch (e) {
+                    setError((e as Error).message)
+                  }
                 }}
               >
                 Supprimer
@@ -221,8 +240,17 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
     }
   }
 
-  const close = () => {
-    if (dirty && !window.confirm('Des modifications ne sont pas enregistrées. Quitter quand même ?')) return
+  const close = async () => {
+    if (dirty) {
+      const leave = await confirmDialog({
+        title: 'Quitter sans enregistrer ?',
+        message: 'Des modifications ne sont pas enregistrées. Elles seront perdues.',
+        confirmLabel: 'Quitter quand même',
+        cancelLabel: 'Rester',
+        danger: true,
+      })
+      if (!leave) return
+    }
     onClose()
   }
 
@@ -245,6 +273,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           maxLength={80}
           onChange={e => patch(q => ({ ...q, title: e.target.value }))}
           placeholder="Titre du quiz"
+          aria-label="Titre du quiz"
         />
         <div className="row">
           <span className="muted">
@@ -264,7 +293,9 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
 
       {quiz.questions.map((question, index) => (
         <QuestionCard
-          key={index}
+          // L'identifiant, pas la position : réordonner ou supprimer ne doit
+          // pas faire glisser l'aperçu ouvert d'une carte sur sa voisine.
+          key={question.id ?? index}
           index={index}
           total={quiz.questions.length}
           question={question}
@@ -316,15 +347,27 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
  */
 function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onClose: () => void }) {
   const playable = toPlayable(question)
+  // Échap referme l'aperçu, comme n'importe quelle fenêtre.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
   return (
     <div className="preview-backdrop" onClick={onClose}>
-      <div className="preview-frame" onClick={e => e.stopPropagation()}>
+      <div
+        className="preview-frame"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Aperçu de l'écran commun"
+        onClick={e => e.stopPropagation()}
+      >
         {!playable ? (
           <p className="warn">{questionProblem(question)} — rien à projeter pour l'instant.</p>
         ) : (
           <div className="preview-stage">
             <h2 className={'quiz-question' + questionSizeClass(playable.text)}>{playable.text}</h2>
-            {playable.image && <img className="quiz-img" src={playable.image} alt="" />}
+            {playable.image && <img className="quiz-img" src={playable.image} alt="Photo de la question" />}
             {playable.kind === 'number' ? (
               <p className="big-waiting">
                 ⌨️ Chacun tape son estimation{playable.unit ? ` (en ${playable.unit})` : ''} — le plus
@@ -464,12 +507,20 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
           </div>
         </div>
         <div className="row">
-          <button className="btn btn-ghost btn-small" disabled={index === 0} onClick={() => onMove(-1)}>
+          <button
+            className="btn btn-ghost btn-small"
+            disabled={index === 0}
+            aria-label="Monter la question"
+            title="Monter"
+            onClick={() => onMove(-1)}
+          >
             ↑
           </button>
           <button
             className="btn btn-ghost btn-small"
             disabled={index === total - 1}
+            aria-label="Descendre la question"
+            title="Descendre"
             onClick={() => onMove(1)}
           >
             ↓
@@ -477,7 +528,25 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
           <button className="btn btn-ghost btn-small" onClick={() => setPreview(true)}>
             👁 Aperçu
           </button>
-          <button className="btn btn-ghost btn-small" onClick={onDelete}>
+          <button
+            className="btn btn-ghost btn-small"
+            onClick={async () => {
+              // Une question vide s'efface sans cérémonie ; une question écrite
+              // mérite qu'on demande — dix minutes de rédaction ne doivent pas
+              // partir sur un clic de trop.
+              const written = question.text.trim() || question.answers.some(a => a.trim()) || question.image
+              if (written) {
+                const ok = await confirmDialog({
+                  title: `Supprimer la question ${index + 1} ?`,
+                  message: question.text.trim() || 'Cette question et ses réponses seront perdues.',
+                  confirmLabel: 'Supprimer',
+                  danger: true,
+                })
+                if (!ok) return
+              }
+              onDelete()
+            }}
+          >
             Supprimer
           </button>
         </div>
@@ -488,6 +557,7 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
         rows={2}
         maxLength={300}
         placeholder="Ta question…"
+        aria-label={`Intitulé de la question ${index + 1}`}
         value={question.text}
         onChange={e => onChange(q => ({ ...q, text: e.target.value }))}
       />
@@ -533,11 +603,13 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
               checked={question.correct === i}
               onChange={() => onChange(q => ({ ...q, correct: i }))}
               title="Bonne réponse"
+              aria-label={`La réponse ${i + 1} est la bonne`}
             />
             <span className="ans-shape">{SHAPES[i]}</span>
             <input
               className="input"
               maxLength={120}
+              aria-label={`Réponse ${i + 1}`}
               placeholder={i < 2 ? `Réponse ${i + 1}` : `Réponse ${i + 1} (optionnelle)`}
               value={question.answers[i] ?? ''}
               onChange={e =>
@@ -561,6 +633,7 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
             type="number"
             min={MIN_DURATION}
             max={MAX_DURATION}
+            aria-label="Temps de réponse, en secondes"
             value={question.duration || DEFAULT_DURATION}
             onChange={e => onChange(q => ({ ...q, duration: Number(e.target.value) }))}
           />
@@ -576,7 +649,7 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
         />
         {question.image ? (
           <div className="row">
-            <img className="thumb" src={question.image} alt="" />
+            <img className="thumb" src={question.image} alt="Photo de la question" />
             <button
               className="btn btn-ghost btn-small"
               onClick={() => onChange(q => ({ ...q, image: null, observeSeconds: null }))}
@@ -613,6 +686,7 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
                 type="number"
                 min={MIN_OBSERVE}
                 max={MAX_OBSERVE}
+                aria-label="Temps d'observation, en secondes"
                 value={question.observeSeconds}
                 onChange={e => onChange(q => ({ ...q, observeSeconds: Number(e.target.value) }))}
               />

@@ -42,7 +42,14 @@ export function TimerBar({ deadline, duration, ticking, frozenMs }: Props) {
   }, [paused, ticking, urgent, seconds])
 
   return (
-    <div className="timer">
+    // `aria-live="off"` : un lecteur d'écran n'a pas à annoncer chaque dixième
+    // de seconde, mais il sait qu'il s'agit d'un chronomètre s'il s'y arrête.
+    <div
+      className="timer"
+      role="timer"
+      aria-live="off"
+      aria-label={paused ? 'Chronomètre en pause' : `${seconds} secondes restantes`}
+    >
       <div className={'timer-track' + (urgent && !paused ? ' urgent' : '') + (paused ? ' paused' : '')}>
         <div className="timer-fill" style={{ width: `${ratio * 100}%` }} />
       </div>

@@ -4,6 +4,12 @@ import { getState, setState, showToast } from './state'
 
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
   autoConnect: false,
+  // WebSocket d'abord : la négociation par défaut ouvre une liaison en
+  // « long-polling » puis la remplace, soit deux ou trois allers-retours de
+  // plus par téléphone au moment du scan. Le repli reste là pour les réseaux
+  // qui bloquent le WebSocket.
+  transports: ['websocket', 'polling'],
+  tryAllTransports: true,
 })
 
 socket.on('connect', () => setState({ connected: true }))

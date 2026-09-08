@@ -4,22 +4,13 @@ import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
 import { FinalPodium, Standings } from '../../components/Podium'
 import { TeamBoard } from '../../components/TeamBoard'
+import { confirmDialog } from '../../components/Dialog'
 import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
+import { formatNumber } from '../../format'
+import { questionSizeClass } from './questionSize'
 
 const SHAPES = ['▲', '◆', '●', '■']
-
-const formatNumber = (n: number) => n.toLocaleString('fr-FR')
-
-/** Trois paliers de taille selon la longueur : une question fleuve ne doit
- *  pas chasser les réponses hors de l'écran. */
-export function questionSizeClass(text: string | undefined): string {
-  const n = (text ?? '').length
-  if (n > 120) return ' q-sm'
-  if (n > 70) return ' q-md'
-  return ''
-}
-
 
 /** Le décompte avant que la question suivante parte toute seule. */
 function AutoNextPill({ deadline }: { deadline: number }) {
@@ -157,7 +148,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
         )}
 
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
-        {v.image && <img className="quiz-img" src={v.image} alt="" />}
+        {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
         {v.photoGone && <p className="photo-gone">🙈 La photo a disparu — de mémoire !</p>}
 
         {v.kind === 'number' ? (
@@ -236,10 +227,14 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
               </button>
               <button
                 className="btn btn-ghost"
-                onClick={() => {
-                  if (window.confirm('Retirer les points gagnés sur cette question ?')) {
-                    sendCommand({ type: 'cancel' })
-                  }
+                onClick={async () => {
+                  const ok = await confirmDialog({
+                    title: 'Annuler les points de cette question ?',
+                    message: 'Les points gagnés sur cette question sont retirés à tout le monde.',
+                    confirmLabel: 'Retirer les points',
+                    danger: true,
+                  })
+                  if (ok) sendCommand({ type: 'cancel' })
                 }}
               >
                 ✖ Annuler les points

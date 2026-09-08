@@ -6,13 +6,8 @@ import { TeamBoard } from '../components/TeamBoard'
 import { TeamPicker } from '../components/TeamPicker'
 import { QuizPlayer } from '../games/quiz/PlayerView'
 import type { QuizPlayerView } from '../../../shared/games/quiz'
-
-const AVATARS = [
-  '🦊', '🐸', '🦄', '🐙', '🐼', '🐯',
-  '🦁', '🐨', '🐷', '🐶', '🐱', '🐵',
-  '🦉', '🦖', '🍕', '🌮', '🍩', '🎸',
-  '🚀', '⚽', '🎲', '👑', '🌵', '🍉',
-]
+import { AVATARS } from '../../../shared/avatars'
+import { ordinal } from '../format'
 
 export function PlayerApp() {
   const s = useAppState()
@@ -158,17 +153,21 @@ export function PlayerApp() {
           <input
             className="input"
             placeholder="Ton prénom"
+            aria-label="Ton prénom"
+            autoComplete="given-name"
             value={name}
             onChange={e => setName(e.target.value)}
             maxLength={24}
             autoFocus
           />
-          <div className="emoji-grid">
+          <div className="emoji-grid" role="group" aria-label="Ton avatar">
             {AVATARS.map(a => (
               <button
                 type="button"
                 key={a}
                 className={'emoji-btn' + (a === avatar ? ' selected' : '')}
+                aria-pressed={a === avatar}
+                aria-label={`Avatar ${a}`}
                 onClick={() => setAvatar(a)}
               >
                 {a}
@@ -192,7 +191,9 @@ export function PlayerApp() {
 
   if (sessionView && iAmIn) {
     return (
-      <div className="player-shell">
+      // Région « vivante » : un lecteur d'écran annonce la question, puis le
+      // résultat, sans qu'on ait à parcourir la page à chaque changement.
+      <div className="player-shell" aria-live="polite">
         <QuizPlayer
           view={sessionView.view as QuizPlayerView}
           teams={teams}
@@ -207,7 +208,9 @@ export function PlayerApp() {
   // ── Salle d'attente ──────────────────────────────
   const myTeam = teams.find(t => t.id === me?.teamId) ?? null
   const sorted = [...(snap?.players ?? [])].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
-  const myRank = me ? sorted.findIndex(p => p.id === me.id) + 1 : 0
+  // Rang partagé, comme dans le classement en dessous : à égalité de points,
+  // on est premier ensemble, pas quatrième parce que son prénom vient après.
+  const myRank = me ? sorted.findIndex(p => p.score === me.score) + 1 : 0
 
   return (
     <div className="player-shell">
@@ -216,7 +219,7 @@ export function PlayerApp() {
         <div>
           <h2>{me?.name}</h2>
           <p className="muted">
-            {me?.score ?? 0} pts{myRank > 0 && ` · ${myRank}ᵉ`}
+            {me?.score ?? 0} pts{myRank > 0 && ` · ${ordinal(myRank)}`}
             {myTeam && ` · ${myTeam.emoji} ${myTeam.name}`}
           </p>
         </div>

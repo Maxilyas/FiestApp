@@ -4,12 +4,11 @@ import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
 import { TeamBoard } from '../../components/TeamBoard'
 import type { PublicTeam } from '../../../../shared/types'
-import { questionSizeClass } from './HostView'
+import { formatNumber, ordinal } from '../../format'
+import { questionSizeClass } from './questionSize'
 
 const SHAPES = ['▲', '◆', '●', '■']
 const MEDALS = ['🥇', '🥈', '🥉']
-
-const formatNumber = (n: number) => n.toLocaleString('fr-FR')
 
 interface Props {
   view: QuizPlayerView
@@ -82,7 +81,7 @@ function BetweenQuestions({
   return (
     <>
       <p className="center muted">
-        Total quiz : {v.yourQuizTotal} pts · {v.yourQuizRank}ᵉ
+        Total quiz : {v.yourQuizTotal} pts · {ordinal(v.yourQuizRank ?? 0)}
       </p>
       {teams.length > 0 && (
         <div className="card">
@@ -130,7 +129,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           <span className="pill flash">👀 Mémorise !</span>
         </div>
         <TimerBar deadline={v.deadline!} duration={v.duration ?? 5} />
-        {v.image && <img className="quiz-img observe-img" src={v.image} alt="" />}
+        {v.image && <img className="quiz-img observe-img" src={v.image} alt="Photo à mémoriser" />}
         <p className="muted center">La photo va disparaître, la question arrive après…</p>
       </div>
     )
@@ -152,7 +151,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
         />
         {v.paused && <p className="muted center">⏸ En pause — regarde l'écran commun</p>}
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
-        {v.image && <img className="quiz-img" src={v.image} alt="" />}
+        {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
         {v.photoGone && <p className="photo-gone">🙈 La photo a disparu — de mémoire !</p>}
 
         {v.kind === 'number' ? (
@@ -167,6 +166,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
                   // jusqu'à la révélation. Les estomper les ferait paraître
                   // hors d'atteinte.
                   disabled={v.paused}
+                  aria-pressed={v.yourChoice === i}
                   onClick={() => {
                     navigator.vibrate?.(35)
                     send({ type: 'answer', choice: i })
@@ -241,11 +241,13 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           ) : (
             <>
               <span className="big">❌</span>
-              <p>Raté…</p>
+              <p>
+                Raté… tu avais dit {SHAPES[v.yourChoice!]} <strong>{v.answers![v.yourChoice!]}</strong>
+              </p>
             </>
           )}
           <p className="muted">
-            La bonne réponse : <strong>{v.answers![v.correct!]}</strong>
+            La bonne réponse : {SHAPES[v.correct!]} <strong>{v.answers![v.correct!]}</strong>
           </p>
         </div>
         <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
@@ -259,7 +261,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
       <div className="card result-banner pop">
         <span className="big">🏁</span>
         <p>
-          Quiz terminé ! Tu finis <strong>{v.yourQuizRank}ᵉ</strong> avec {v.yourQuizTotal} pts
+          Quiz terminé ! Tu finis <strong>{ordinal(v.yourQuizRank ?? 0)}</strong> avec {v.yourQuizTotal} pts
         </p>
       </div>
       <div className="card">

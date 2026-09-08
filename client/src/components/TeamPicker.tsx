@@ -16,6 +16,7 @@ export function TeamPicker({ teams, value, onPick, disabled }: Props) {
           type="button"
           key={t.id}
           disabled={disabled}
+          aria-pressed={t.id === value}
           className={'team-btn' + (t.id === value ? ' selected' : '')}
           onClick={() => onPick(t.id)}
         >
