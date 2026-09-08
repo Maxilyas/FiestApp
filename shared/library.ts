@@ -26,6 +26,13 @@ export type QuestionKind = 'choice' | 'number'
  * d'Antoine — c'est au lancement du quiz qu'on ne garde que le jouable.
  */
 export interface QuizQuestionDef {
+  /**
+   * Identifiant stable, propre à l'éditeur : React s'en sert pour suivre une
+   * carte quand on réordonne ou supprime. Sans lui, l'aperçu ouvert ou l'erreur
+   * de photo d'une question glissaient sur sa voisine. Absent des quiz écrits
+   * avant : le serveur en attribue un au chargement.
+   */
+  id?: string
   kind: QuestionKind
   text: string
   /** QCM : toujours MAX_ANSWERS cases dans l'éditeur, les vides sont ignorées. */
@@ -87,8 +94,20 @@ export type PlayableQuestion =
       observeSeconds: number | null
     }
 
+/**
+ * Identifiant de question. `crypto.randomUUID` n'existe que dans un contexte
+ * sécurisé : sur le wifi de repli, l'éditeur est ouvert en http, il faut donc
+ * un secours qui marche partout.
+ */
+export function newQuestionId(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto
+  if (c?.randomUUID) return c.randomUUID()
+  return `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 export function emptyQuestion(): QuizQuestionDef {
   return {
+    id: newQuestionId(),
     kind: 'choice',
     text: '',
     answers: ['', '', '', ''],

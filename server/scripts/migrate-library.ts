@@ -58,12 +58,16 @@ for (const row of quizzes.rows) {
 
 // Les photos sont référencées par leur URL dans les questions : sans elles,
 // les quiz arriveraient à destination avec des images cassées.
+// Les photos récentes sont en octets (`bytes`), les anciennes en base64
+// (`data`) : on recopie les deux colonnes telles quelles.
 const images = await source.execute('SELECT * FROM quiz_images')
 for (const row of images.rows) {
+  const raw = row.bytes as unknown
+  const bytes = raw instanceof ArrayBuffer ? new Uint8Array(raw) : null
   await targetClient.execute({
-    sql: `INSERT INTO quiz_images (id, mime, data, created_at) VALUES (?, ?, ?, ?)
+    sql: `INSERT INTO quiz_images (id, mime, data, bytes, created_at) VALUES (?, ?, ?, ?, ?)
           ON CONFLICT(id) DO NOTHING`,
-    args: [String(row.id), String(row.mime), String(row.data), Number(row.created_at)],
+    args: [String(row.id), String(row.mime), String(row.data ?? ''), bytes, Number(row.created_at)],
   })
 }
 

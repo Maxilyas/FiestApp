@@ -7,6 +7,7 @@ import {
   DEFAULT_DURATION,
   MAX_OBSERVE,
   MIN_OBSERVE,
+  newQuestionId,
   playableQuestions,
   type QuizDef,
   type QuizQuestionDef,
@@ -19,6 +20,14 @@ const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_QUESTIONS = 100
 /** Délai avant qu'une photo sans quiz soit considérée comme abandonnée. */
 const IMAGE_GRACE_MS = 60 * 60 * 1000
+/**
+ * Photos gardées en mémoire après lecture. Une photo pèse ~150 Ko et cinquante
+ * téléphones la demandent au même instant : sans ce cache, c'est cinquante
+ * lectures dans la base distante pour le même contenu, à chaque question.
+ */
+const IMAGE_CACHE_SIZE = 40
+/** Identifiants de question acceptés tels quels — le reste en reçoit un neuf. */
+const QUESTION_ID = /^[\w-]{1,48}$/
 
 /**
  * Bibliothèque de quiz : le seul stockage qui doit survivre à tout (l'état
@@ -28,6 +37,7 @@ const IMAGE_GRACE_MS = 60 * 60 * 1000
  */
 export class QuizStore {
   private client: Client
+  private imageCache = new Map<string, { mime: string; bytes: Buffer }>()
 
   constructor(url: string, authToken?: string) {
     this.client = createClient({ url, authToken })
@@ -56,6 +66,15 @@ export class QuizStore {
       ],
       'write',
     )
+    // Les photos étaient stockées en base64 dans `data`, un tiers plus lourd
+    // que les octets eux-mêmes. Elles vont désormais dans `bytes` ; les
+    // anciennes restent lisibles. libsql n'a pas d'« ADD COLUMN IF NOT
+    // EXISTS », alors on tente et on ignore le refus.
+    try {
+      await this.client.execute('ALTER TABLE quiz_images ADD COLUMN bytes BLOB')
+    } catch {
+      // Colonne déjà là : c'est le cas normal après le premier démarrage.
+    }
   }
 
   // ── Quiz ────────────────────────────────────────────────────────────────
@@ -143,9 +162,11 @@ export class QuizStore {
     const match = /^data:([a-z/+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl)
     if (!match || !IMAGE_MIMES.includes(match[1])) throw new Error("Format d'image non supporté")
     const id = randomUUID()
+    // `data` reste vide : c'est la colonne historique, gardée pour relire les
+    // photos d'avant.
     await this.client.execute({
-      sql: 'INSERT INTO quiz_images (id, mime, data, created_at) VALUES (?, ?, ?, ?)',
-      args: [id, match[1], match[2], Date.now()],
+      sql: "INSERT INTO quiz_images (id, mime, data, bytes, created_at) VALUES (?, ?, '', ?, ?)",
+      args: [id, match[1], Buffer.from(match[2], 'base64'), Date.now()],
     })
     return id
   }
@@ -183,17 +204,35 @@ export class QuizStore {
       orphans.map(id => ({ sql: 'DELETE FROM quiz_images WHERE id = ?', args: [id] })),
       'write',
     )
+    for (const id of orphans) this.imageCache.delete(id)
     return orphans.length
   }
 
   async getImage(id: string): Promise<{ mime: string; bytes: Buffer } | null> {
+    const cached = this.imageCache.get(id)
+    if (cached) return cached
     const res = await this.client.execute({
-      sql: 'SELECT mime, data FROM quiz_images WHERE id = ?',
+      sql: 'SELECT mime, data, bytes FROM quiz_images WHERE id = ?',
       args: [id],
     })
     const row = res.rows[0]
     if (!row) return null
-    return { mime: String(row.mime), bytes: Buffer.from(String(row.data), 'base64') }
+    const raw = row.bytes as unknown
+    const bytes =
+      raw instanceof ArrayBuffer
+        ? Buffer.from(raw)
+        : raw instanceof Uint8Array
+          ? Buffer.from(raw)
+          : Buffer.from(String(row.data), 'base64')
+    const image = { mime: String(row.mime), bytes }
+    // Une photo ne change jamais : le cache n'a pas à se soucier de fraîcheur,
+    // seulement de taille — la plus ancienne sort quand il est plein.
+    if (this.imageCache.size >= IMAGE_CACHE_SIZE) {
+      const oldest = this.imageCache.keys().next().value
+      if (oldest !== undefined) this.imageCache.delete(oldest)
+    }
+    this.imageCache.set(id, image)
+    return image
   }
 
   // ── Méta ────────────────────────────────────────────────────────────────
@@ -240,6 +279,9 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
     const target = Number(q?.target)
     const observe = Number(q?.observeSeconds)
     return {
+      // L'éditeur s'appuie sur cet identifiant pour suivre chaque carte ; les
+      // quiz écrits avant en reçoivent un ici, une fois pour toutes.
+      id: typeof q?.id === 'string' && QUESTION_ID.test(q.id) ? q.id : newQuestionId(),
       // Les quiz écrits avant l'arrivée des estimations n'ont pas de `kind`.
       kind: q?.kind === 'number' ? 'number' : 'choice',
       text: typeof q?.text === 'string' ? q.text.slice(0, 300) : '',

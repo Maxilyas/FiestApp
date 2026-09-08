@@ -40,8 +40,12 @@ export const api = {
 
 /**
  * Réduit et recompresse la photo dans le navigateur avant l'envoi : une photo
- * de téléphone fait 4 Mo, on n'en garde que ~150 Ko — la base reste légère et
+ * de téléphone fait 4 Mo, on n'en garde que ~100 Ko — la base reste légère et
  * l'affichage instantané sur l'écran commun.
+ *
+ * WebP d'abord, un quart plus léger que le JPEG à qualité égale. Un navigateur
+ * qui ne sait pas l'encoder répond avec un autre format : on repasse alors en
+ * JPEG plutôt que d'envoyer un PNG de plusieurs mégaoctets.
  */
 export async function compressImage(file: File, maxSide = 1280, quality = 0.82): Promise<string> {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
@@ -55,5 +59,7 @@ export async function compressImage(file: File, maxSide = 1280, quality = 0.82):
   if (!ctx) throw new Error('Impossible de préparer la photo')
   ctx.drawImage(bitmap, 0, 0, width, height)
   bitmap.close()
+  const webp = canvas.toDataURL('image/webp', quality)
+  if (webp.startsWith('data:image/webp')) return webp
   return canvas.toDataURL('image/jpeg', quality)
 }
