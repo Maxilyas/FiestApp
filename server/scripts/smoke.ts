@@ -87,6 +87,35 @@ try {
   const badHello = await emitAck<{ ok: boolean }>(host, 'host:hello', { key: 'mauvaise' })
   assert(!badHello.ok, 'host:hello accepté avec une mauvaise clé')
 
+  // 1 bis. Garde-fous. Cinq clés fausses coupent la connexion : la force
+  //        brute retombe à la vitesse d'une poignée de main réseau.
+  const brute = connect()
+  await new Promise<void>(r => brute.on('connect', () => r()))
+  const cut = new Promise<void>(r => brute.on('disconnect', () => r()))
+  for (let i = 0; i < 5; i++) (brute as any).emit('host:hello', { key: `essai-${i}` }, () => {})
+  await Promise.race([cut, new Promise((_, rej) => setTimeout(() => rej(new Error('connexion non coupée après 5 clés fausses')), 3000))])
+
+  // Une connexion ne crée pas d'identités à la chaîne, et un avatar n'est pas
+  // une charge utile : cinq mille caractères ont été rediffusés à toute la
+  // salle un jour.
+  const troll = connect()
+  const trollIds: string[] = []
+  for (const name of ['Zed', 'Zoé', 'Zia']) {
+    const ack = await emitAck<any>(troll, 'player:join', { name, avatar: 'X'.repeat(5000) })
+    assert(ack.ok, `inscription de ${name} refusée`)
+    trollIds.push(ack.playerId)
+  }
+  const fourth = await emitAck<any>(troll, 'player:join', { name: 'Zack', avatar: '🤖' })
+  assert(!fourth.ok, 'une même connexion ne doit pas créer une quatrième identité')
+  const seen = await waitFor<any>(host, 'party:snapshot', s => s.players.some((p: any) => p.name === 'Zed'), 'troll inscrit')
+  const zed = seen.players.find((p: any) => p.name === 'Zed')
+  assert([...zed.avatar].length <= 4, `avatar non borné : ${zed.avatar.length} caractères diffusés`)
+  // Le ménage : ces identités n'ont rien à faire dans la suite du test.
+  const trollGone = waitFor<any>(host, 'party:snapshot', s => s.players.length === 0, 'trolls exclus')
+  for (const id of trollIds) (host as any).emit('host:removePlayer', { playerId: id })
+  troll.disconnect()
+  await trollGone
+
   // 2. Deux invités rejoignent depuis leur téléphone
   const alice = connect()
   const bob = connect()
@@ -342,6 +371,35 @@ try {
     'le retardataire ne doit rien récupérer sur la question qu’il a manquée',
   )
   ;(host as any).emit('host:endSession', { sessionId: mixedId })
+
+  // 15 bis. Une estimation absurde ne doit rien changer aux points des autres.
+  //         Avec l'ancienne échelle linéaire, « 99999 » repoussait le maximum
+  //         si loin que toute la salle touchait le plein de points.
+  const sabotage = (await (
+    await apiCall('/api/quizzes', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Sabotage',
+        questions: [{ kind: 'number', text: 'En quelle année ?', target: 1994, unit: '', duration: 30 }],
+      }),
+    })
+  ).json()) as any
+  const sabPick = waitFor<any>(host, 'session:view', p => p.view.phase === 'pickPack', 'liste des quiz (sabotage)')
+  ;(host as any).emit('host:launch')
+  const sabId = (await sabPick).sessionId
+  ;(host as any).emit('host:command', { sessionId: sabId, command: { type: 'selectPack', packId: sabotage.id } })
+  await waitFor<any>(charlie, 'session:view', p => p.view.phase === 'question', 'question sabotage')
+  const charlieSab = waitFor<any>(charlie, 'session:view', p => p.view.phase === 'reveal', 'reveal sabotage Charlie')
+  const bobSab = waitFor<any>(bob, 'session:view', p => p.view.phase === 'reveal', 'reveal sabotage Bob')
+  ;(alice2 as any).emit('player:action', { sessionId: sabId, action: { type: 'guess', value: 1994 } })
+  ;(charlie as any).emit('player:action', { sessionId: sabId, action: { type: 'guess', value: 2004 } })
+  ;(bob as any).emit('player:action', { sessionId: sabId, action: { type: 'guess', value: 99999 } })
+  const [charlieS, bobS] = await Promise.all([charlieSab, bobSab])
+  assert(charlieS.view.yourPoints === 90, `deuxième sur trois : 90 points attendus, vu ${charlieS.view.yourPoints}`)
+  assert(bobS.view.yourPoints === 30, `l'estimation absurde ne rapporte que la participation, vu ${bobS.view.yourPoints}`)
+  ;(host as any).emit('host:endSession', { sessionId: sabId })
+  await apiCall(`/api/quizzes/${sabotage.id}`, { method: 'DELETE' })
+
   charlie.disconnect()
   // La déconnexion met un instant à parvenir au serveur : sans cette attente,
   // la partie suivante compterait encore Charlie parmi ses participants et
@@ -835,6 +893,14 @@ try {
   const aliceBefore = beforeRestart.players.find((p: any) => p.id === aliceAck.playerId)
   assert(aliceBefore?.score > 0, 'Alice devrait avoir des points avant la coupure')
 
+  // La coupure arrive en pleine question : la partie doit revenir avec les
+  // points, pas seulement les points.
+  const livePick = waitFor<any>(host, 'session:view', p => p.view.phase === 'pickPack', 'liste des quiz (coupure)')
+  ;(host as any).emit('host:launch')
+  const liveId = (await livePick).sessionId
+  ;(host as any).emit('host:command', { sessionId: liveId, command: { type: 'selectPack', packId: 'culture-generale' } })
+  await waitFor<any>(alice2, 'session:view', p => p.sessionId === liveId && p.view.phase === 'question', 'question en cours au moment de la coupure')
+
   host.disconnect()
   bob.disconnect()
   alice2.disconnect()
@@ -867,21 +933,33 @@ try {
   assert(aliceAfter?.teamId === T[0].id, 'l’équipe de chacun doit survivre au redémarrage')
   const t0After = after2.teams.find((t: any) => t.id === T[0].id)
   assert(t0After?.memberCount === 2, 'les deux membres doivent être recomptés dans leur équipe')
+  assert(after2.session?.id === liveId, 'la partie en cours doit revenir avec la soirée')
+  // Le téléphone d'Alice se reconnecte et retrouve la question là où elle en était.
+  const alice3 = clientIo(`http://localhost:${server2.port}`, { transports: ['websocket'] })
+  const backInGame = waitFor<any>(alice3, 'session:view', p => p.sessionId === liveId, 'vue de la partie reprise')
+  const rejoined = await emitAck<any>(alice3, 'player:join', { name: 'Alice', avatar: '🦊', token: aliceAck.token })
+  assert(rejoined.ok && rejoined.playerId === aliceAck.playerId, 'reconnexion par jeton après redémarrage')
+  const resumedGame = await backInGame
+  assert(
+    resumedGame.view.phase === 'question' && resumedGame.view.qIndex === 0,
+    `la question en cours doit reprendre, vu ${resumedGame.view.phase} Q${resumedGame.view.qIndex + 1}`,
+  )
+  alice3.disconnect()
   probe.disconnect()
   await server2.close()
 
-  console.log('✅ Smoke test OK — 26 étapes')
+  console.log('✅ Smoke test OK — 29 étapes')
   console.log(
-    '   collage de questions, quiz complet, bibliothèque, photos, estimation, retardataire,',
+    '   collage de questions, garde-fous, quiz complet, bibliothèque, photos, estimation, sabotage,',
   )
   console.log(
-    '   pause, enchaînement automatique, annulation, question reposée, invité renommé et exclu,',
+    '   retardataire, pause, enchaînement automatique, annulation, question reposée, invité renommé et exclu,',
   )
   console.log(
     '   ménage des photos, photo « mémoire », équipes, barème des trois jeux,',
   )
   console.log(
-    '   statistiques et prix remis à la main, reprise après coupure',
+    '   statistiques et prix remis à la main, reprise après coupure en pleine question',
   )
   process.exit(0)
 } catch (e) {
