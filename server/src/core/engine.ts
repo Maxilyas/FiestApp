@@ -5,7 +5,17 @@ import type { GameContext, GameModule, GameSessionRec, IoServer, ViewContext } f
 import type { Party } from './party'
 import type { ScoreLedger } from './scores'
 import type { AnswerLog } from './answers'
+import type { PartyBackup, SessionRow } from './backup'
 import type { SessionSummary } from '../../../shared/types'
+
+/**
+ * Cadence du miroir distant de la partie. Chaque réponse d'invité change
+ * l'état ; cinquante réponses en quinze secondes ne méritent pas cinquante
+ * écritures dans la base distante. Une au début, puis une toutes les deux
+ * secondes tant que ça bouge : au pire, un redémarrage perd deux secondes
+ * de réponses.
+ */
+const MIRROR_INTERVAL_MS = 2000
 
 interface LiveSession extends GameSessionRec {
   createdAt: number
@@ -18,6 +28,8 @@ interface EngineDeps {
   party: Party
   ledger: ScoreLedger
   answers: AnswerLog
+  /** Miroir distant de la partie en cours — absent dans les tests unitaires. */
+  backup?: PartyBackup
   onScoresChanged: () => void
   onSessionChanged: () => void
 }
@@ -39,6 +51,12 @@ export class GameEngine {
    * il répond lui-même.
    */
   private lastSent = new Map<string, string>()
+
+  /** Écriture distante en attente, et s'il y a eu du nouveau depuis. */
+  private mirrorTimer: ReturnType<typeof setTimeout> | null = null
+  private mirrorDirty = false
+  /** Dernier état écrit localement — celui à envoyer si on coupe pendant l'attente. */
+  private lastRow: SessionRow | null = null
 
   private vctx: ViewContext = {
     playerName: id => this.deps.party.get(id)?.name ?? '???',
@@ -131,6 +149,19 @@ export class GameEngine {
     this.lastSent.clear()
     this.deps.io.emit('session:ended', { sessionId })
     this.deps.onSessionChanged()
+  }
+
+  /**
+   * À l'extinction : ce qui attendait la prochaine fenêtre part tout de suite,
+   * et plus rien ne partira après coup.
+   */
+  stop() {
+    if (this.mirrorTimer) clearTimeout(this.mirrorTimer)
+    this.mirrorTimer = null
+    if (this.mirrorDirty && this.lastRow && this.session?.status === 'running') {
+      this.deps.backup?.saveSession(this.lastRow)
+    }
+    this.mirrorDirty = false
   }
 
   /**
@@ -275,6 +306,15 @@ export class GameEngine {
   private persist(sess: LiveSession) {
     const timers: Record<string, number> = {}
     for (const [id, t] of sess.timers) timers[id] = t.deadline
+    const row: SessionRow = {
+      id: sess.id,
+      status: sess.status,
+      participantIds: JSON.stringify(sess.participantIds),
+      state: JSON.stringify(sess.state),
+      timers: JSON.stringify(timers),
+      createdAt: sess.createdAt,
+      updatedAt: Date.now(),
+    }
     this.deps.db
       .prepare(
         `INSERT INTO sessions (id, status, participant_ids, state, timers, created_at, updated_at)
@@ -282,14 +322,36 @@ export class GameEngine {
          ON CONFLICT(id) DO UPDATE SET status = @status, participant_ids = @participantIds,
            state = @state, timers = @timers, updated_at = @updatedAt`,
       )
-      .run({
-        id: sess.id,
-        status: sess.status,
-        participantIds: JSON.stringify(sess.participantIds),
-        state: JSON.stringify(sess.state),
-        timers: JSON.stringify(timers),
-        createdAt: sess.createdAt,
-        updatedAt: Date.now(),
-      })
+      .run(row)
+    this.lastRow = sess.status === 'running' ? row : null
+    this.mirror(sess, row)
+  }
+
+  /**
+   * Recopie la partie dans la base distante, au plus une fois par intervalle.
+   * Une partie terminée sort du miroir : il n'y a plus rien à reprendre.
+   */
+  private mirror(sess: LiveSession, row: SessionRow) {
+    const backup = this.deps.backup
+    if (!backup) return
+    if (sess.status === 'ended') {
+      if (this.mirrorTimer) clearTimeout(this.mirrorTimer)
+      this.mirrorTimer = null
+      this.mirrorDirty = false
+      backup.deleteSession(sess.id)
+      return
+    }
+    if (this.mirrorTimer) {
+      this.mirrorDirty = true
+      return
+    }
+    backup.saveSession(row)
+    this.mirrorTimer = setTimeout(() => {
+      this.mirrorTimer = null
+      if (!this.mirrorDirty) return
+      this.mirrorDirty = false
+      // Encore en cours ? On renvoie l'état tel qu'il est maintenant.
+      if (this.session?.id === sess.id && sess.status === 'running') this.persist(sess)
+    }, MIRROR_INTERVAL_MS)
   }
 }

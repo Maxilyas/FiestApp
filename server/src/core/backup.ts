@@ -6,6 +6,17 @@ import type { TeamRec } from './teams'
 import { toRow, type AnswerRow } from './answers'
 import type { TeamBonus } from '../../../shared/types'
 
+/** Une partie telle qu'elle est écrite dans la table `sessions` locale. */
+export interface SessionRow {
+  id: string
+  status: 'running' | 'ended'
+  participantIds: string
+  state: string
+  timers: string
+  createdAt: number
+  updatedAt: number
+}
+
 /**
  * Recopie des invités, des équipes et de leurs points dans la base distante.
  *
@@ -77,6 +88,18 @@ export class PartyBackup {
            points     INTEGER NOT NULL,
            reason     TEXT NOT NULL,
            created_at INTEGER NOT NULL
+         )`,
+        // La partie en cours, question et réponses comprises. Sans elle, un
+        // redémarrage de l'hébergeur en plein quiz gardait les points mais
+        // renvoyait tout le monde en salle d'attente.
+        `CREATE TABLE IF NOT EXISTS party_sessions (
+           id              TEXT PRIMARY KEY,
+           status          TEXT NOT NULL,
+           participant_ids TEXT NOT NULL,
+           state           TEXT NOT NULL,
+           timers          TEXT NOT NULL,
+           created_at      INTEGER NOT NULL,
+           updated_at      INTEGER NOT NULL
          )`,
       ],
       'write',
@@ -183,6 +206,27 @@ export class PartyBackup {
     )
   }
 
+  /** La partie en cours, telle que le moteur la persiste localement. */
+  saveSession(row: SessionRow) {
+    this.fireAndForget(
+      this.client.execute({
+        sql: `INSERT INTO party_sessions (id, status, participant_ids, state, timers, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET status = excluded.status,
+                participant_ids = excluded.participant_ids, state = excluded.state,
+                timers = excluded.timers, updated_at = excluded.updated_at`,
+        args: [row.id, row.status, row.participantIds, row.state, row.timers, row.createdAt, row.updatedAt],
+      }),
+    )
+  }
+
+  /** Une partie terminée n'a plus rien à reprendre : elle sort du miroir. */
+  deleteSession(id: string) {
+    this.fireAndForget(
+      this.client.execute({ sql: 'DELETE FROM party_sessions WHERE id = ?', args: [id] }),
+    )
+  }
+
   saveScore(entry: {
     playerId: string
     sessionId?: string
@@ -211,19 +255,21 @@ export class PartyBackup {
    * après un redémarrage qui a effacé le disque. Une base locale déjà peuplée
    * fait autorité : on ne veut pas écraser une partie en cours.
    */
-  async restoreInto(db: DB): Promise<{ players: number; teams: number; scores: number; answers: number }> {
+  async restoreInto(
+    db: DB,
+  ): Promise<{ players: number; teams: number; scores: number; answers: number; sessions: number }> {
+    const none = { players: 0, teams: 0, scores: 0, answers: 0, sessions: 0 }
     const local = db.prepare('SELECT COUNT(*) AS n FROM players').get() as { n: number }
     const localTeams = db.prepare('SELECT COUNT(*) AS n FROM teams').get() as { n: number }
-    if (local.n > 0 || localTeams.n > 0) return { players: 0, teams: 0, scores: 0, answers: 0 }
+    if (local.n > 0 || localTeams.n > 0) return none
 
     const teams = await this.client.execute('SELECT * FROM party_teams ORDER BY position')
     const players = await this.client.execute('SELECT * FROM party_players')
     const scores = await this.client.execute('SELECT * FROM party_scores ORDER BY created_at')
     const bonuses = await this.client.execute('SELECT * FROM party_bonus ORDER BY created_at')
     const answers = await this.client.execute('SELECT * FROM party_answers ORDER BY created_at, q_index')
-    if (players.rows.length === 0 && teams.rows.length === 0) {
-      return { players: 0, teams: 0, scores: 0, answers: 0 }
-    }
+    const sessions = await this.client.execute("SELECT * FROM party_sessions WHERE status = 'running'")
+    if (players.rows.length === 0 && teams.rows.length === 0) return none
 
     const insertTeam = db.prepare(
       'INSERT OR IGNORE INTO teams (id, name, emoji, position, created_at) VALUES (?, ?, ?, ?, ?)',
@@ -242,7 +288,22 @@ export class PartyBackup {
          choice, value, target, ms, changes, points, duration_ms, observed, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
+    const insertSession = db.prepare(
+      `INSERT OR IGNORE INTO sessions (id, status, participant_ids, state, timers, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    )
     db.transaction(() => {
+      for (const r of sessions.rows) {
+        insertSession.run(
+          String(r.id),
+          String(r.status),
+          String(r.participant_ids),
+          String(r.state),
+          String(r.timers),
+          Number(r.created_at),
+          Number(r.updated_at),
+        )
+      }
       for (const r of teams.rows) {
         insertTeam.run(String(r.id), String(r.name), String(r.emoji), Number(r.position), Number(r.created_at))
       }
@@ -295,6 +356,7 @@ export class PartyBackup {
       teams: teams.rows.length,
       scores: scores.rows.length,
       answers: answers.rows.length,
+      sessions: sessions.rows.length,
     }
   }
 
@@ -327,6 +389,7 @@ export class PartyBackup {
         'DELETE FROM party_bonus',
         'DELETE FROM party_players',
         'DELETE FROM party_teams',
+        'DELETE FROM party_sessions',
       ],
       'write',
     )
