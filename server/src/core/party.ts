@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
 import type { PartyBackup } from './backup'
 import type { PublicPlayer } from '../../../shared/types'
+import { DEFAULT_AVATAR, cleanAvatar, cleanName } from '../../../shared/avatars'
 
 export interface PlayerRec {
   id: string
@@ -44,12 +45,15 @@ export class Party {
     token?: string,
     teamId?: string | null,
   ): PlayerRec | { error: string } {
-    const clean = name.trim().slice(0, 24)
+    // Rien de ce qui vient du téléphone n'est pris tel quel : un avatar de
+    // cinq mille caractères a été accepté un jour, et rediffusé à toute la salle.
+    const clean = cleanName(name)
+    const nice = typeof avatar === 'string' && avatar ? cleanAvatar(avatar) : ''
     if (token) {
       const existing = [...this.players.values()].find(p => p.token === token)
       if (existing) {
         if (clean) existing.name = clean
-        if (avatar) existing.avatar = avatar
+        if (nice) existing.avatar = nice
         // `undefined` = le téléphone se reconnecte sans rien dire de l'équipe :
         // on garde la sienne. `null` serait un retrait volontaire.
         if (teamId !== undefined) existing.teamId = teamId
@@ -64,7 +68,7 @@ export class Party {
     const rec: PlayerRec = {
       id: randomUUID(),
       name: clean,
-      avatar: avatar || '🎉',
+      avatar: nice || DEFAULT_AVATAR,
       token: randomUUID(),
       teamId: teamId ?? null,
       createdAt: Date.now(),
@@ -81,6 +85,16 @@ export class Party {
 
   get(id: string): PlayerRec | undefined {
     return this.players.get(id)
+  }
+
+  /** Inscrits, connectés ou non — c'est ce chiffre que plafonne l'inscription. */
+  count(): number {
+    return this.players.size
+  }
+
+  /** Le joueur derrière un jeton de téléphone : une reconnexion, pas une inscription. */
+  findByToken(token: string): PlayerRec | undefined {
+    return [...this.players.values()].find(p => p.token === token)
   }
 
   socketConnected(playerId: string) {
@@ -104,7 +118,7 @@ export class Party {
   /** Un pseudo malheureux projeté sur le mur, ça se corrige en deux secondes. */
   rename(playerId: string, name: string): boolean {
     const rec = this.players.get(playerId)
-    const clean = name.trim().slice(0, 24)
+    const clean = cleanName(name)
     if (!rec || !clean) return false
     rec.name = clean
     this.db.prepare('UPDATE players SET name = ? WHERE id = ?').run(clean, playerId)

@@ -22,14 +22,17 @@ const wrap =
  * des invités doivent pouvoir charger pendant la partie.
  */
 export function mountApi(app: Express, deps: ApiDeps) {
-  // Les photos arrivent en dataURL dans le corps JSON.
-  app.use('/api', express.json({ limit: '4mb' }))
-
+  // La clé se vérifie AVANT de lire le corps : sinon n'importe qui pouvait
+  // faire analyser quatre mégaoctets de JSON au serveur sans la connaître.
+  // Elle ne voyage que dans un en-tête — jamais dans l'adresse, qui finit
+  // dans les journaux d'accès et l'historique du navigateur.
   app.use('/api', (req, res, next) => {
-    const key = req.header('x-quizz-key') ?? (typeof req.query.key === 'string' ? req.query.key : '')
-    if (key !== deps.hostKey) return res.status(401).json({ error: 'Clé incorrecte' })
+    if (req.header('x-quizz-key') !== deps.hostKey) return res.status(401).json({ error: 'Clé incorrecte' })
     next()
   })
+
+  // Les photos arrivent en dataURL dans le corps JSON.
+  app.use('/api', express.json({ limit: '4mb' }))
 
   app.get(
     '/api/quizzes',

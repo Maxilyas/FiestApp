@@ -1,4 +1,5 @@
 import express from 'express'
+import compression from 'compression'
 import { createServer } from 'node:http'
 import { Server } from 'socket.io'
 import fs from 'node:fs'
@@ -32,7 +33,18 @@ export interface QuizServerOptions {
   quizDbToken?: string
   /** URL publique à mettre dans le QR code (prioritaire sur l'IP locale). */
   publicUrl?: string
+  /**
+   * Derrière le proxy d'un hébergeur : on lit l'adresse des clients dans
+   * `x-forwarded-for`, et on n'accepte les connexions temps réel que depuis
+   * la page servie par l'application.
+   */
+  online?: boolean
+  /** Inscriptions au-delà desquelles la soirée est déclarée complète. */
+  maxPlayers?: number
 }
+
+/** Cinquante invités attendus : trois fois plus, c'est déjà un robot. */
+const DEFAULT_MAX_PLAYERS = 150
 
 /** Première IP locale non interne — l'adresse que les téléphones doivent ouvrir. */
 function lanAddress(): string | null {
@@ -44,22 +56,86 @@ function lanAddress(): string | null {
   return all[0]?.address ?? null
 }
 
+/** L'origine (schéma + hôte + port) d'une URL, ou null si elle est illisible. */
+function originOf(url: string | undefined): string | null {
+  if (!url) return null
+  try {
+    return new URL(url).origin
+  } catch {
+    return null
+  }
+}
+
+/**
+ * En-têtes de durcissement. Le contenu ne vient que de l'application elle-même :
+ * aucun script tiers, aucune police téléchargée, les photos sont servies ici.
+ * Les styles en ligne sont ceux que React pose sur les barres et les podiums.
+ */
+const SECURITY_HEADERS: Record<string, string> = {
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "connect-src 'self' ws: wss:",
+    "manifest-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; '),
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+}
+
 export async function createQuizServer(opts: QuizServerOptions) {
   const app = express()
   const httpServer = createServer(app)
-  const io: IoServer = new Server(httpServer, { cors: { origin: true } })
+
+  app.disable('x-powered-by')
+  // L'analyseur de requête « étendu » d'Express repose sur `qs`, dont les
+  // versions accessibles à Express 4 traînent deux failles de déni de service.
+  // Aucune adresse de l'application ne lit de paramètre d'URL : l'analyseur
+  // simple de Node suffit, et cette bibliothèque n'est plus jamais appelée.
+  app.set('query parser', 'simple')
+  // Un seul saut de proxy devant nous en ligne : c'est lui qui écrit la
+  // dernière adresse de `x-forwarded-for`, celle qu'on lit.
+  if (opts.online) app.set('trust proxy', 1)
+  // Le JS de l'application pèse 320 Ko à nu, 100 Ko compressé — cinquante
+  // téléphones en 4G au moment du scan font vite la différence.
+  app.use(compression())
+  app.use((_req, res, next) => {
+    res.set(SECURITY_HEADERS)
+    next()
+  })
+
+  // Le temps réel n'accepte que les pages servies par l'application. Les
+  // scripts de test et de charge n'envoient pas d'origine : ils passent. Chez
+  // soi, sans URL publique, tout passe — l'écran commun peut être ouvert en
+  // `localhost` pendant que les téléphones utilisent l'adresse du wifi.
+  const allowedOrigin = opts.online ? originOf(opts.publicUrl) : null
+  const io: IoServer = new Server(httpServer, {
+    cors: { origin: allowedOrigin ?? true },
+    allowRequest: (req, callback) => {
+      const origin = req.headers.origin
+      const ok = !allowedOrigin || !origin || origin === allowedOrigin
+      callback(ok ? null : 'origine refusée', ok)
+    },
+  })
 
   const db = initDb(opts.dbPath)
 
   // Le disque d'un hébergeur gratuit est effacé à chaque redémarrage : la
-  // soirée (invités et points) est donc recopiée dans la base distante, et
-  // rechargée ici si la base locale est repartie vide.
+  // soirée (invités, points, partie en cours) est donc recopiée dans la base
+  // distante, et rechargée ici si la base locale est repartie vide.
   const backup = new PartyBackup(opts.quizDbUrl, opts.quizDbToken)
   await backup.init()
   const restored = await backup.restoreInto(db)
   if (restored.players > 0 || restored.teams > 0) {
     console.log(
-      `[soirée] ${restored.players} invités, ${restored.teams} équipes, ${restored.scores} gains et ${restored.answers} réponses rechargés après redémarrage`,
+      `[soirée] ${restored.players} invités, ${restored.teams} équipes, ${restored.scores} gains, ${restored.answers} réponses` +
+        (restored.sessions > 0 ? ' et la partie en cours' : '') +
+        ' rechargés après redémarrage',
     )
   }
 
@@ -80,7 +156,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const wifi = process.env.WIFI_SSID
     ? { ssid: process.env.WIFI_SSID, pass: process.env.WIFI_PASS ?? '' }
     : null
-  const buildSnapshot = (): PartySnapshot => {
+  /**
+   * L'état de la soirée. Le wifi n'est envoyé qu'à l'écran commun : c'est lui
+   * qui l'affiche en QR, les téléphones n'ont pas à recevoir le mot de passe.
+   */
+  const buildSnapshot = (forHost: boolean): PartySnapshot => {
     const ip = lanAddress()
     const players = party.publicPlayers(ledger.allTotals())
     const bonuses = teams.allBonuses()
@@ -90,7 +170,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       bonuses,
       session: engine.summary(),
       joinUrl: opts.publicUrl ?? (ip ? `http://${ip}:${boundPort}` : null),
-      wifi,
+      wifi: forHost ? wifi : null,
     }
   }
   // Diffusion du classement : deux garde-fous mesurés sur une soirée simulée.
@@ -105,11 +185,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   let pending: ReturnType<typeof setTimeout> | null = null
 
   const sendSnapshot = (force = false) => {
-    const snapshot = buildSnapshot()
+    const snapshot = buildSnapshot(false)
     const json = JSON.stringify(snapshot)
     if (!force && json === lastSnapshot) return
     lastSnapshot = json
-    io.emit('party:snapshot', snapshot)
+    io.except('hosts').emit('party:snapshot', snapshot)
+    io.to('hosts').emit('party:snapshot', wifi ? { ...snapshot, wifi } : snapshot)
   }
 
   const broadcastSnapshot = () => {
@@ -127,6 +208,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       party,
       ledger,
       answers,
+      backup,
       onScoresChanged: broadcastSnapshot,
       onSessionChanged: broadcastSnapshot,
     },
@@ -152,6 +234,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     answers,
     engine,
     hostKey: opts.hostKey,
+    trustProxy: !!opts.online,
+    maxPlayers: opts.maxPlayers ?? DEFAULT_MAX_PLAYERS,
     buildSnapshot,
     broadcastSnapshot,
     resetParty,
@@ -263,11 +347,26 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const quizMedia = path.resolve(here, '../content/quiz/images')
   if (fs.existsSync(quizMedia)) app.use('/media/quiz', express.static(quizMedia))
 
+  // Une adresse d'API ou de photo inconnue est une erreur, pas la page
+  // d'accueil : un client qui reçoit du HTML là où il attend du JSON ne
+  // comprend rien à ce qui lui arrive.
+  app.use(['/api', '/media'], (_req, res) => res.status(404).json({ error: 'Introuvable' }))
+
   // En prod, le serveur sert aussi le client compilé (un seul process à héberger).
   const clientDist = path.resolve(here, '../../client/dist')
   if (fs.existsSync(clientDist)) {
-    app.use(express.static(clientDist))
-    app.get('*', (_req, res) => res.sendFile(path.join(clientDist, 'index.html')))
+    // Les fichiers compilés portent une empreinte dans leur nom : un an de
+    // cache, sans jamais revalider. La page d'accueil, elle, doit toujours
+    // être redemandée — c'est elle qui pointe vers la bonne empreinte.
+    app.use(
+      '/assets',
+      express.static(path.join(clientDist, 'assets'), { maxAge: '1y', immutable: true, fallthrough: false }),
+    )
+    app.use(express.static(clientDist, { index: false, maxAge: '1h' }))
+    app.get('*', (_req, res) => {
+      res.set('Cache-Control', 'no-cache')
+      res.sendFile(path.join(clientDist, 'index.html'))
+    })
   }
 
   await new Promise<void>(resolve => httpServer.listen(opts.port, resolve))
@@ -282,6 +381,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     close: () =>
       new Promise<void>(resolve => {
         clearInterval(resync)
+        engine.stop()
         io.close(async () => {
           db.close()
           store.close()
