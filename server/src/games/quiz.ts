@@ -162,17 +162,21 @@ function scoreQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
     .map(([playerId, r]) => ({ playerId, error: Math.abs(r.value! - q.target), ms: r.ms }))
   if (guesses.length === 0) return
 
-  const best = Math.min(...guesses.map(g => g.error))
-  const worst = Math.max(...guesses.map(g => g.error))
-  // À égalité d'écart, le plus rapide est déclaré le plus proche.
-  const closest = [...guesses].sort((a, b) => a.error - b.error || a.ms - b.ms)[0].playerId
-  for (const g of guesses) {
-    // Tout le monde à égalité (ou un seul joueur) : personne n'est pénalisé.
-    const ratio = worst === best ? 1 : (worst - g.error) / (worst - best)
-    const points =
-      GUESS_POINTS + Math.round(PROXIMITY_POINTS * ratio) + (g.playerId === closest ? CLOSEST_BONUS : 0)
+  // La proximité se juge au rang dans le groupe, pas à la distance. Une
+  // échelle linéaire entre le plus proche et le plus loin avait un défaut
+  // fatal : une seule proposition absurde — « 19940 » pour 1994, faute de
+  // frappe ou provocation — repoussait le maximum si loin que toute la salle
+  // touchait le plein de points, et la question ne classait plus personne.
+  // Avec le rang, l'écart des autres ne change rien à vos points.
+  // À égalité d'écart, le plus rapide passe devant.
+  const ranked = [...guesses].sort((a, b) => a.error - b.error || a.ms - b.ms)
+  const last = ranked.length - 1
+  ranked.forEach((g, i) => {
+    // Seul à répondre : tout le monde est « le plus proche », personne n'est pénalisé.
+    const ratio = last === 0 ? 1 : (last - i) / last
+    const points = GUESS_POINTS + Math.round(PROXIMITY_POINTS * ratio) + (i === 0 ? CLOSEST_BONUS : 0)
     award(sess, g.playerId, points, ctx)
-  }
+  })
 }
 
 function cancelQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
