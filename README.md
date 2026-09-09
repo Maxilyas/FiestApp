@@ -223,15 +223,15 @@ Le script simule une salle entière : il inscrit N invités d'un coup, joue lui-
 
 ## Identité visuelle
 
-Direction **« Salsa nocturne »**, pensée pour une salle dans le noir : fond aubergine profond, magenta et or, une lueur qui respire derrière l'écran commun. Tout est dans `client/src/styles.css`, piloté par une dizaine de variables en tête de fichier — changer `--hot` et `--gold` suffit à réorienter toute l'application.
+Direction **« Velours »** (choisie le 8 septembre 2026, elle remplace « Salsa nocturne ») : un noir chaud éclairé d'un seul halo, du champagne pour ce qui compte, une serif pour ce qui se lit de loin. Tout est dans `client/src/styles.css`, piloté par une vingtaine de variables en tête de fichier — les couleurs, les deux polices, les rayons.
 
 Trois règles ont guidé les choix, et elles valent pour toute évolution :
 
-- **Le contraste avant la finesse.** L'écran commun est vu de loin sur un vidéoprojecteur. Deux couleurs distinctes sur un écran de PC peuvent devenir identiques à cinq mètres.
-- **Aucune police téléchargée.** Tout repose sur des caractères déjà présents sur les machines (Bahnschrift condensée pour ce qui doit se lire de loin, Corbel pour le reste). Rien à charger, rien qui arrive en retard, et ça marche sans réseau.
-- **La couleur n'est jamais seule.** Chaque réponse porte une forme (▲ ◆ ● ■) pour qui distingue mal les couleurs, et les animations se coupent si le système demande moins de mouvement.
+- **Le contraste avant la finesse.** L'écran commun est vu de loin sur un vidéoprojecteur, dans le noir. La question est en Cormorant Garamond à 56 px, la bonne réponse se révèle en aplat champagne, le chrono est une ligne fine doublée d'un grand chiffre. Deux couleurs distinctes sur un écran de PC peuvent devenir identiques à cinq mètres.
+- **Les polices voyagent avec l'application.** Cormorant Garamond (600, et l'italique 500 pour les sous-titres) et Figtree (fonte variable, 400 à 600) sont livrées en woff2 dans `client/public/fonts` — sous-ensemble latin, 67 Ko en tout, licence OFL jointe — et servies par le serveur. Rien ne part chercher Google à l'exécution : le repli wifi local marche hors ligne, et la politique de sécurité reste à `'self'`.
+- **La couleur n'est jamais seule.** Les quatre teintes (rose, champagne, lavande, sauge) ne servent qu'aux formes ▲ ◆ ● ■ des réponses, en SVG ; le texte reste encre. Les icônes d'interface sont des SVG au trait de 1,8 px — plus d'emojis dans l'interface, seuls les avatars et les emojis d'équipe en restent, parce que ce sont les invités qui les choisissent (tous antérieurs à Unicode 13 : Windows 10 n'affiche pas les plus récents). Les animations se coupent si le système demande moins de mouvement.
 
-L'espace animateur (`/edit`) partage la palette mais reste calme : pas de lueur, pas d'animation. C'est un outil de travail, pas un spectacle.
+L'écran commun a deux repères fixes : une bande d'état en haut (titre, quiz en cours, « Question 3 / 8 », combien ont répondu, QR et adresse pour rejoindre) et une **console animateur** en bas, toujours au même endroit — Révéler, Pause, Auto, Terminer, puis le son et le plein écran. L'espace animateur (`/edit`) partage la palette mais reste calme : pas d'animation, c'est un outil de travail, pas un spectacle.
 
 ## Architecture
 
