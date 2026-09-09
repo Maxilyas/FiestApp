@@ -5,6 +5,7 @@ import { TeamBoard } from '../components/TeamBoard'
 import { StatsTable } from '../components/StatsTable'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { Trophies } from '../components/Trophies'
+import { JoinHead } from '../components/Invitation'
 
 /**
  * La page souvenir, ouverte le lendemain. Volontairement sans clé : c'est
@@ -32,18 +33,17 @@ export function RecapApp() {
   if (!recap) {
     return (
       <div className="center-page">
-        <p className="muted">Chargement…</p>
+        <p className="serif-note">Chargement…</p>
       </div>
     )
   }
 
   if (recap.ranking.length === 0) {
     return (
-      <div className="center-page">
-        <div className="card join-card">
-          <h1>🎉 Quizz Romane 30</h1>
-          <p className="muted">La soirée n'a pas encore commencé.</p>
-        </div>
+      <div className="join">
+        <div className="join-grow" />
+        <JoinHead eyebrow="Les trente ans de" title="Romane" sub="La soirée n'a pas encore commencé." />
+        <div className="join-grow" />
       </div>
     )
   }
@@ -51,12 +51,14 @@ export function RecapApp() {
   return (
     <div className="recap">
       <header className="recap-header">
-        <p className="pill">19 septembre 2026</p>
-        <h1>🎉 Les 30 ans de Romane</h1>
+        <span className="label">19 septembre 2026</span>
+        <h1>Les 30 ans de Romane</h1>
+        <p className="join-sub">Le souvenir de la soirée</p>
         <p className="muted">
           {recap.ranking.length} joueurs · {recap.quizCount} quiz ·{' '}
           {recap.totalPoints.toLocaleString('fr-FR')} points distribués
         </p>
+        <hr className="hairline" />
       </header>
 
       <section className="card">
@@ -69,8 +71,8 @@ export function RecapApp() {
           <h2>Les équipes au quiz</h2>
           <TeamBoard teams={recap.teams} showGamePoints />
           <p className="muted small">
-            En doré, la moyenne par membre — c'est elle qui classe les équipes. En turquoise, les
-            points rapportés au tableau des trois jeux.
+            En champagne, la moyenne par membre — c'est elle qui classe les équipes. Le chiffre
+            cerclé est ce que le quiz a rapporté au tableau des trois jeux.
           </p>
         </section>
       )}
@@ -105,7 +107,7 @@ export function RecapApp() {
         </section>
       )}
 
-      <p className="recap-foot muted">Merci d'être venus 🩰</p>
+      <p className="recap-foot muted">Merci d'être venus.</p>
     </div>
   )
 }

@@ -39,7 +39,7 @@ export function StatsApp() {
   if (!recap) {
     return (
       <div className="center-page">
-        <p className="muted">Chargement…</p>
+        <p className="serif-note">Chargement…</p>
       </div>
     )
   }
@@ -49,12 +49,13 @@ export function StatsApp() {
   return (
     <div className="recap">
       <header className="recap-header">
-        <p className="pill">📊 Les chiffres de la soirée</p>
+        <span className="label">Les chiffres de la soirée</span>
         <h1>Statistiques</h1>
         <p className="muted">
           {stats.questions} questions posées · {stats.logged} réponses enregistrées ·{' '}
           {recap.quizCount} quiz
         </p>
+        <hr className="hairline" />
       </header>
 
       {stats.logged === 0 ? (

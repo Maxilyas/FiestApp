@@ -19,8 +19,9 @@ import { UnauthorizedError, api, compressImage, hostKey, setHostKey } from '../a
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { confirmDialog } from '../components/Dialog'
 import { readKeyFromUrl } from '../hostKeyUrl'
-
-const SHAPES = ['▲', '◆', '●', '■']
+import { Icon } from '../components/Icon'
+import { Shape } from '../components/Shape'
+import { KeyForm } from '../components/Invitation'
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString('fr-FR', {
@@ -68,25 +69,7 @@ export function EditorApp() {
   }
 
   if (needKey) {
-    return (
-      <div className="center-page">
-        <form className="card join-card" onSubmit={submitKey}>
-          <h1>✏️ Mes quiz</h1>
-          <input
-            className="input"
-            type="password"
-            placeholder="Clé d'accès (HOST_KEY)"
-            aria-label="Clé d'accès"
-            autoComplete="current-password"
-            value={keyInput}
-            onChange={e => setKeyInput(e.target.value)}
-            autoFocus
-          />
-          {error && <p className="error">{error}</p>}
-          <button className="btn btn-primary">Entrer</button>
-        </form>
-      </div>
-    )
+    return <KeyForm title="Mes quiz" value={keyInput} error={error} onChange={setKeyInput} onSubmit={submitKey} />
   }
 
   if (editingId) {
@@ -104,13 +87,17 @@ export function EditorApp() {
   return (
     <div className="editor">
       <header className="editor-header">
-        <h1>✏️ Mes quiz</h1>
+        <h1>
+          <Icon name="edit" />
+          Mes quiz
+        </h1>
         <div className="row">
           {/* La clé voyage en fragment : le navigateur ne l'envoie jamais au
               serveur, elle n'apparaît ni dans ses journaux ni dans l'historique
               d'une adresse partagée. */}
           <a className="btn btn-ghost" href={`/host#key=${encodeURIComponent(hostKey())}`}>
-            🖥️ Écran commun
+            <Icon name="monitor" />
+            Écran commun
           </a>
           <button
             className="btn btn-primary"
@@ -123,13 +110,14 @@ export function EditorApp() {
               }
             }}
           >
-            + Nouveau quiz
+            <Icon name="plus" />
+            Nouveau quiz
           </button>
         </div>
       </header>
 
       {error && <p className="error">{error}</p>}
-      {list === null && <p className="muted">Chargement…</p>}
+      {list === null && <p className="serif-note">Chargement…</p>}
 
       {list?.length === 0 && (
         <div className="card notice">
@@ -257,7 +245,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   if (!quiz) {
     return (
       <div className="center-page">
-        <p className="muted">{error || 'Chargement…'}</p>
+        <p className={error ? 'error' : 'serif-note'}>{error || 'Chargement…'}</p>
       </div>
     )
   }
@@ -283,7 +271,16 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
             Retour
           </button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>
-            {saving ? 'Enregistrement…' : dirty ? 'Enregistrer' : 'Enregistré ✓'}
+            {saving ? (
+              'Enregistrement…'
+            ) : dirty ? (
+              'Enregistrer'
+            ) : (
+              <>
+                <Icon name="check" />
+                Enregistré
+              </>
+            )}
           </button>
         </div>
       </header>
@@ -320,10 +317,12 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           className="btn btn-big"
           onClick={() => patch(q => ({ ...q, questions: [...q.questions, emptyQuestion()] }))}
         >
-          + Ajouter une question
+          <Icon name="plus" />
+          Ajouter une question
         </button>
         <button className="btn" onClick={() => setImporting(v => !v)}>
-          📥 Coller une liste
+          <Icon name="clipboard" />
+          Coller une liste
         </button>
       </div>
 
@@ -370,14 +369,14 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
             {playable.image && <img className="quiz-img" src={playable.image} alt="Photo de la question" />}
             {playable.kind === 'number' ? (
               <p className="big-waiting">
-                ⌨️ Chacun tape son estimation{playable.unit ? ` (en ${playable.unit})` : ''} — le plus
+                <Icon name="keyboard" /> Chacun tape son estimation{playable.unit ? ` (en ${playable.unit})` : ''} — le plus
                 proche gagne !
               </p>
             ) : (
               <div className="ans-grid">
                 {playable.answers.map((a, i) => (
                   <div key={i} className={`ans-btn ans-${i}`}>
-                    <span className="ans-shape">{SHAPES[i]}</span>
+                    <Shape index={i} />
                     <span className="ans-text">{a}</span>
                   </div>
                 ))}
@@ -412,7 +411,10 @@ function BulkImport({
 
   return (
     <div className="card import-panel">
-      <h3>📥 Coller une liste de questions</h3>
+      <h3>
+        <Icon name="clipboard" />
+        Coller une liste de questions
+      </h3>
       <p className="muted">
         Une ligne vide entre deux questions. L'étoile marque la bonne réponse ; le signe égal
         transforme la question en estimation chiffrée.
@@ -435,7 +437,7 @@ Combien de cours a-t-elle pris cette année ?
         {result.questions.length} question{result.questions.length > 1 ? 's' : ''} reconnue
         {result.questions.length > 1 ? 's' : ''}
         {result.unmarked > 0 &&
-          ` · ⚠️ ${result.unmarked} sans étoile : la 1ʳᵉ réponse sera prise pour la bonne`}
+          ` · ${result.unmarked} sans étoile : la 1ʳᵉ réponse sera prise pour la bonne`}
         {result.ignored > 0 && ` · ${result.ignored} bloc(s) ignoré(s)`}
       </p>
       <div className="row">
@@ -496,13 +498,15 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
               className={'pill-btn' + (question.kind === 'choice' ? ' active' : '')}
               onClick={() => onChange(q => ({ ...q, kind: 'choice' }))}
             >
-              🔘 QCM
+              <Icon name="list" />
+              QCM
             </button>
             <button
               className={'pill-btn' + (question.kind === 'number' ? ' active' : '')}
               onClick={() => onChange(q => ({ ...q, kind: 'number' }))}
             >
-              🔢 Estimation
+              <Icon name="hash" />
+              Estimation
             </button>
           </div>
         </div>
@@ -514,7 +518,7 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
             title="Monter"
             onClick={() => onMove(-1)}
           >
-            ↑
+            <Icon name="arrow-up" />
           </button>
           <button
             className="btn btn-ghost btn-small"
@@ -523,10 +527,11 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
             title="Descendre"
             onClick={() => onMove(1)}
           >
-            ↓
+            <Icon name="arrow-down" />
           </button>
           <button className="btn btn-ghost btn-small" onClick={() => setPreview(true)}>
-            👁 Aperçu
+            <Icon name="eye" />
+            Aperçu
           </button>
           <button
             className="btn btn-ghost btn-small"
@@ -605,7 +610,7 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
               title="Bonne réponse"
               aria-label={`La réponse ${i + 1} est la bonne`}
             />
-            <span className="ans-shape">{SHAPES[i]}</span>
+            <Shape index={i} />
             <input
               className="input"
               maxLength={120}
@@ -659,7 +664,14 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
           </div>
         ) : (
           <button className="btn btn-small" disabled={busy} onClick={() => fileInput.current?.click()}>
-            {busy ? 'Envoi…' : '📷 Ajouter une photo'}
+            {busy ? (
+              'Envoi…'
+            ) : (
+              <>
+                <Icon name="camera" />
+                Ajouter une photo
+              </>
+            )}
           </button>
         )}
       </div>
@@ -676,7 +688,9 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
                 onChange(q => ({ ...q, observeSeconds: e.target.checked ? DEFAULT_OBSERVE : null }))
               }
             />
-            <span>🙈 La photo disparaît avant la question</span>
+            <span>
+              <Icon name="eye-off" /> La photo disparaît avant la question
+            </span>
           </label>
           {question.observeSeconds !== null && (
             <label className="row">
@@ -704,7 +718,11 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
 
       {preview && <QuestionPreview question={question} onClose={() => setPreview(false)} />}
       {imageError && <p className="error">{imageError}</p>}
-      {problem && <p className="warn">⚠️ {problem} — cette question ne sera pas jouée.</p>}
+      {problem && (
+        <p className="warn">
+          <Icon name="alert" /> {problem} — cette question ne sera pas jouée.
+        </p>
+      )}
     </div>
   )
 }
