@@ -3,12 +3,12 @@ import type { QuizAction, QuizPlayerView } from '../../../../shared/games/quiz'
 import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
 import { TeamBoard } from '../../components/TeamBoard'
+import { Icon } from '../../components/Icon'
+import { Shape } from '../../components/Shape'
+import { Rank } from '../../components/Rank'
 import type { PublicTeam } from '../../../../shared/types'
 import { formatNumber, ordinal } from '../../format'
 import { questionSizeClass } from './questionSize'
-
-const SHAPES = ['▲', '◆', '●', '■']
-const MEDALS = ['🥇', '🥈', '🥉']
 
 interface Props {
   view: QuizPlayerView
@@ -46,18 +46,19 @@ function GuessForm({ view, send }: Props) {
           type="text"
           inputMode="decimal"
           placeholder="Ton estimation"
+          aria-label="Ton estimation"
           value={text}
           onChange={e => setText(e.target.value)}
           autoFocus
         />
         {view.unit && <span className="guess-unit">{view.unit}</span>}
       </div>
-      <button className="btn btn-primary btn-big" disabled={text.trim() === ''}>
+      <button className="btn btn-primary btn-big btn-block" disabled={text.trim() === ''}>
         {view.yourGuess === null ? 'Valider' : 'Corriger'}
       </button>
       {view.yourGuess !== null && view.yourGuess !== undefined && (
-        <p className="muted center">
-          Ta réponse : <strong>{formatNumber(view.yourGuess)}</strong> {view.unit} — tu peux encore la corriger
+        <p className="hint">
+          Ta réponse : <strong>{formatNumber(view.yourGuess)}</strong> {view.unit} · tu peux encore la corriger
         </p>
       )}
     </form>
@@ -85,7 +86,10 @@ function BetweenQuestions({
       </p>
       {teams.length > 0 && (
         <div className="card">
-          <h3>👥 Les équipes</h3>
+          <h3>
+            <Icon name="users" />
+            Les équipes
+          </h3>
           <TeamBoard teams={teams} highlightId={myTeamId} compact />
         </div>
       )}
@@ -97,7 +101,9 @@ function BetweenQuestions({
 function Welcome() {
   return (
     <>
-      <span className="big">👋</span>
+      <span className="result-icon">
+        <Icon name="sparkles" />
+      </span>
       <p>Bienvenue ! Tu joues à partir de la prochaine question.</p>
     </>
   )
@@ -107,7 +113,9 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
   if (v.phase === 'pickPack') {
     return (
       <div className="getready">
-        <span className="getready-emoji">🧠</span>
+        <span className="getready-icon">
+          <Icon name="sparkles" />
+        </span>
         <p>Le quiz va commencer…</p>
       </div>
     )
@@ -123,14 +131,16 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
     return (
       <div className="quiz-player observe">
         <div className="quiz-topbar">
-          <span className="pill">
-            Question {v.qIndex + 1}/{v.qCount}
+          <span className="label">
+            Question {v.qIndex + 1} / {v.qCount}
           </span>
-          <span className="pill flash">👀 Mémorise !</span>
+          <span className="pill flash">
+            <Icon name="eye" /> Mémorise
+          </span>
         </div>
         <TimerBar deadline={v.deadline!} duration={v.duration ?? 5} />
         {v.image && <img className="quiz-img observe-img" src={v.image} alt="Photo à mémoriser" />}
-        <p className="muted center">La photo va disparaître, la question arrive après…</p>
+        <p className="hint">La photo va disparaître, la question arrive après…</p>
       </div>
     )
   }
@@ -139,8 +149,8 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
     return (
       <div className="quiz-player">
         <div className="quiz-topbar">
-          <span className="pill">
-            Question {v.qIndex + 1}/{v.qCount}
+          <span className="label">
+            Question {v.qIndex + 1} / {v.qCount}
           </span>
           {(v.multiplier ?? 1) > 1 && <span className="pill multi">×{v.multiplier} points</span>}
         </div>
@@ -149,10 +159,18 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           duration={v.duration ?? 20}
           frozenMs={v.paused ? v.remainingMs : undefined}
         />
-        {v.paused && <p className="muted center">⏸ En pause — regarde l'écran commun</p>}
+        {v.paused && (
+          <p className="hint">
+            <Icon name="pause" /> En pause — regarde l'écran commun
+          </p>
+        )}
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
-        {v.photoGone && <p className="photo-gone">🙈 La photo a disparu — de mémoire !</p>}
+        {v.photoGone && (
+          <p className="photo-gone">
+            <Icon name="eye-off" /> La photo a disparu — de mémoire !
+          </p>
+        )}
 
         {v.kind === 'number' ? (
           <GuessForm view={v} send={send} />
@@ -171,16 +189,17 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
                     navigator.vibrate?.(35)
                     send({ type: 'answer', choice: i })
                   }}
-                  className={`ans-btn ans-${i}` + (v.yourChoice === i ? ' chosen' : '')}
+                  className={'ans-btn' + (v.yourChoice === i ? ' chosen' : '')}
                 >
-                  <span className="ans-shape">{SHAPES[i]}</span>
+                  <Shape index={i} />
                   <span className="ans-text">{a}</span>
+                  {v.yourChoice === i && <Icon name="check" className="ans-check" />}
                 </button>
               ))}
             </div>
             {v.yourChoice !== null && (
-              <p className="muted center">
-                Réponse enregistrée ✓ Tu peux encore changer — mais tu perdrais du bonus de rapidité.
+              <p className="hint">
+                Réponse enregistrée · tu peux encore changer, au prix du bonus de rapidité
               </p>
             )}
           </>
@@ -196,20 +215,22 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
       const gap = answered ? Math.abs(v.yourGuess! - v.target!) : null
       return (
         <div className="quiz-player">
-          <div className={'card result-banner pop ' + (answered ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
+          <div className={'card result-banner ' + (answered ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
             {answered ? (
               <>
                 <span className="big">+{v.yourPoints ?? 0} pts</span>
                 <p>
                   Tu as dit <strong>{formatNumber(v.yourGuess!)}</strong> {v.unit}
-                  {gap === 0 ? ' — pile poil ! 🎯' : ` — à ${formatNumber(gap!)} ${v.unit} près`}
+                  {gap === 0 ? ' — pile poil !' : ` — à ${formatNumber(gap!)} ${v.unit} près`}
                 </p>
               </>
             ) : v.justArrived ? (
               <Welcome />
             ) : (
               <>
-                <span className="big">⏰</span>
+                <span className="result-icon">
+                  <Icon name="clock" />
+                </span>
                 <p>Trop tard !</p>
               </>
             )}
@@ -225,29 +246,35 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
     const good = v.yourChoice !== null && v.yourChoice === v.correct
     return (
       <div className="quiz-player">
-        <div className={'card result-banner pop ' + (good ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
+        <div className={'card result-banner ' + (good ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
           {v.justArrived ? (
             <Welcome />
           ) : v.yourChoice === null ? (
             <>
-              <span className="big">⏰</span>
+              <span className="result-icon">
+                <Icon name="clock" />
+              </span>
               <p>Trop tard !</p>
             </>
           ) : good ? (
             <>
               <span className="big">+{v.yourPoints} pts</span>
-              <p>✅ Bien joué !</p>
+              <p>Bien joué !</p>
             </>
           ) : (
             <>
-              <span className="big">❌</span>
+              <span className="result-icon">
+                <Icon name="x-circle" />
+              </span>
               <p>
-                Raté… tu avais dit {SHAPES[v.yourChoice!]} <strong>{v.answers![v.yourChoice!]}</strong>
+                Raté… tu avais dit <Shape index={v.yourChoice!} inline />
+                <strong>{v.answers![v.yourChoice!]}</strong>
               </p>
             </>
           )}
           <p className="muted">
-            La bonne réponse : {SHAPES[v.correct!]} <strong>{v.answers![v.correct!]}</strong>
+            La bonne réponse : <Shape index={v.correct!} inline />
+            <strong>{v.answers![v.correct!]}</strong>
           </p>
         </div>
         <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
@@ -258,18 +285,23 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
   // finished
   return (
     <div className="quiz-player">
-      <div className="card result-banner pop">
-        <span className="big">🏁</span>
+      <div className="card result-banner result-ok">
+        <span className="result-icon">
+          <Icon name="flag" />
+        </span>
         <p>
           Quiz terminé ! Tu finis <strong>{ordinal(v.yourQuizRank ?? 0)}</strong> avec {v.yourQuizTotal} pts
         </p>
       </div>
       <div className="card">
-        <h3>Podium</h3>
+        <h3>
+          <Icon name="trophy" />
+          Podium
+        </h3>
         <div className="podium">
           {v.podium?.map((p, i) => (
             <div key={i} className="lb-row" style={{ animationDelay: `${i * 120}ms` }}>
-              <span className="lb-rank">{MEDALS[i]}</span>
+              <Rank n={i + 1} />
               <span className="lb-avatar">{p.avatar}</span>
               <span className="lb-name">{p.name}</span>
               <span className="lb-score">{p.points}</span>

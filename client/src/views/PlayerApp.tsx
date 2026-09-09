@@ -4,6 +4,8 @@ import { getState, loadProfile, saveMe, saveProfile, showToast, useAppState } fr
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
 import { TeamPicker } from '../components/TeamPicker'
+import { Icon } from '../components/Icon'
+import { JoinHead } from '../components/Invitation'
 import { QuizPlayer } from '../games/quiz/PlayerView'
 import type { QuizPlayerView } from '../../../shared/games/quiz'
 import { AVATARS } from '../../../shared/avatars'
@@ -110,25 +112,33 @@ export function PlayerApp() {
     // Deuxième écran : l'équipe. Il n'apparaît que si l'animateur en a créé.
     if (step === 'team') {
       return (
-        <div className="center-page">
-          <div className="card join-card">
-            <h1>👥 Ton équipe</h1>
-            <p className="muted">Tes points restent les tiens — ils comptent aussi pour ton équipe.</p>
+        <>
+          <div className="join">
+            <JoinHead
+              eyebrow="Le quiz de la soirée"
+              title="Ton équipe"
+              compact
+              sub="Tes points restent les tiens — ils comptent aussi pour ton équipe."
+            />
+            <hr className="hairline" />
             <TeamPicker teams={teams} value={teamId} onPick={setTeamId} disabled={busy} />
             {error && <p className="error">{error}</p>}
-            <button
-              className="btn btn-primary btn-big"
-              disabled={busy || !teamId}
-              onClick={() => doJoin(teamId)}
-            >
-              {teamId ? 'Rejoindre 🎊' : 'Choisis ton équipe'}
-            </button>
-            <button className="btn btn-ghost btn-small" onClick={() => setStep('me')}>
-              ← Revenir
-            </button>
+            <div className="join-grow" />
+            <div className="join-actions">
+              <button
+                className="btn btn-primary btn-big btn-block"
+                disabled={busy || !teamId}
+                onClick={() => doJoin(teamId)}
+              >
+                {teamId ? 'Rejoindre la soirée' : 'Choisis ton équipe'}
+              </button>
+              <button className="btn btn-ghost" onClick={() => setStep('me')}>
+                Revenir
+              </button>
+            </div>
           </div>
           {toast}
-        </div>
+        </>
       )
     }
 
@@ -146,33 +156,49 @@ export function PlayerApp() {
     }
 
     return (
-      <div className="center-page">
-        <form className="card join-card" onSubmit={next}>
-          <h1>🎉 Quizz Romane 30</h1>
-          {count > 0 && <p className="muted">{count} invité·e·s déjà là</p>}
-          <input
-            className="input"
-            placeholder="Ton prénom"
-            aria-label="Ton prénom"
-            autoComplete="given-name"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            maxLength={24}
-            autoFocus
-          />
-          <div className="emoji-grid" role="group" aria-label="Ton avatar">
-            {AVATARS.map(a => (
-              <button
-                type="button"
-                key={a}
-                className={'emoji-btn' + (a === avatar ? ' selected' : '')}
-                aria-pressed={a === avatar}
-                aria-label={`Avatar ${a}`}
-                onClick={() => setAvatar(a)}
-              >
-                {a}
-              </button>
-            ))}
+      <>
+        <form className="join" onSubmit={next}>
+          <JoinHead eyebrow="Les trente ans de" title="Romane" sub="Le quiz de la soirée" />
+          <hr className="hairline" />
+          <div className="field">
+            <label className="label" htmlFor="join-name">
+              Ton prénom
+            </label>
+            <input
+              id="join-name"
+              className="input input-line"
+              autoComplete="given-name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              maxLength={24}
+              autoFocus
+            />
+          </div>
+          <div className="field">
+            <div className="field-head">
+              <span className="label" id="avatar-label">
+                Ton avatar
+              </span>
+              {count > 0 && (
+                <span className="muted small">
+                  {count} invité·e·s déjà là
+                </span>
+              )}
+            </div>
+            <div className="emoji-grid" role="group" aria-labelledby="avatar-label">
+              {AVATARS.map(a => (
+                <button
+                  type="button"
+                  key={a}
+                  className={'emoji-btn' + (a === avatar ? ' selected' : '')}
+                  aria-pressed={a === avatar}
+                  aria-label={`Avatar ${a}`}
+                  onClick={() => setAvatar(a)}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
           </div>
           {homonyme && (
             <p className="warn">
@@ -180,12 +206,14 @@ export function PlayerApp() {
             </p>
           )}
           {error && <p className="error">{error}</p>}
-          <button className="btn btn-primary btn-big" disabled={busy || !name.trim()}>
-            {teams.length > 0 ? 'Continuer →' : 'Rejoindre 🎊'}
+          <div className="join-grow" />
+          <button className="btn btn-primary btn-big btn-block" disabled={busy || !name.trim()}>
+            {teams.length > 0 ? 'Continuer' : 'Rejoindre la soirée'}
           </button>
+          <p className="join-foot">Rien à installer · ton prénom suffit</p>
         </form>
         {toast}
-      </div>
+      </>
     )
   }
 
@@ -223,17 +251,24 @@ export function PlayerApp() {
             {myTeam && ` · ${myTeam.emoji} ${myTeam.name}`}
           </p>
         </div>
-        {!s.connected && <span className="pill offline-pill">reconnexion…</span>}
+        {!s.connected && (
+          <span className="pill offline-pill">
+            <Icon name="alert" /> reconnexion…
+          </span>
+        )}
       </header>
 
       {session && !iAmIn && (
-        <div className="card notice">Un quiz est en cours — tu entres à la prochaine question ! 🍿</div>
+        <div className="card notice">Un quiz est en cours — tu entres à la prochaine question.</div>
       )}
 
       {teams.length > 0 && (
         <div className="card">
           <div className="card-head">
-            <h3>Les équipes</h3>
+            <h3>
+              <Icon name="users" />
+              Les équipes
+            </h3>
             {/* Changer d'équipe emporte ses points : le serveur le refuse
                 pendant un quiz, autant ne pas proposer le bouton. */}
             {!session && (
@@ -257,11 +292,14 @@ export function PlayerApp() {
       )}
 
       <div className="card">
-        <h3>Classement de la soirée</h3>
+        <h3>
+          <Icon name="trophy" />
+          Classement de la soirée
+        </h3>
         <Leaderboard players={snap?.players ?? []} compact highlightId={s.me.playerId} />
       </div>
 
-      <p className="waiting">🎊 En attente du prochain quiz…</p>
+      <p className="waiting">En attente du prochain quiz…</p>
       {toast}
     </div>
   )
