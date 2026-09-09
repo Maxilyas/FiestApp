@@ -1,12 +1,11 @@
 import type { PublicPlayer } from '../../../shared/types'
+import { Rank } from './Rank'
 
 interface Props {
   players: PublicPlayer[]
   compact?: boolean
   highlightId?: string
 }
-
-const MEDALS = ['🥇', '🥈', '🥉']
 
 /**
  * Classement de la soirée.
@@ -28,7 +27,7 @@ export function Leaderboard({ players, compact, highlightId }: Props) {
         const rank = rows.findIndex(r => r.score === p.score) + 1
         return (
           <div key={p.id} className={'lb-row' + (p.id === highlightId ? ' me' : '')}>
-            <span className="lb-rank">{MEDALS[rank - 1] ?? rank}</span>
+            <Rank n={rank} />
             <span className="lb-avatar">{p.avatar}</span>
             <span className="lb-name">{p.name}</span>
             <span className="lb-score">{p.score}</span>

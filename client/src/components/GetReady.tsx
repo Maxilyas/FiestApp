@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { sound } from '../sound'
+import { Icon } from './Icon'
 
 /**
  * Le 3… 2… 1… avant une question. Le `key` sur le chiffre force React à
@@ -25,7 +26,9 @@ export function GetReady({ deadline, sounds, label }: { deadline: number; sounds
 
   return (
     <div className="getready">
-      <span className="getready-emoji">🚦</span>
+      <span className="getready-icon">
+        <Icon name="timer" />
+      </span>
       <p>{label}</p>
       <div key={seconds} className="big-count">
         {seconds > 0 ? seconds : 'GO !'}

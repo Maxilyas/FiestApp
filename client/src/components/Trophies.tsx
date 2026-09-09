@@ -1,4 +1,5 @@
 import type { Recap } from '../../../shared/types'
+import { Icon } from './Icon'
 
 /**
  * Les prix qui ne se jouent pas au sommet du classement.
@@ -16,7 +17,9 @@ export function Trophies({ recap }: { recap: Recap }) {
     <div className="trophies">
       {recap.bestShot && (
         <div className="card trophy">
-          <span className="trophy-emoji">⚡</span>
+          <span className="trophy-icon">
+            <Icon name="zap" />
+          </span>
           <h3>Le plus beau coup</h3>
           <p>
             <strong>
@@ -30,7 +33,9 @@ export function Trophies({ recap }: { recap: Recap }) {
 
       {recap.steadiest && (
         <div className="card trophy">
-          <span className="trophy-emoji">🎯</span>
+          <span className="trophy-icon">
+            <Icon name="target" />
+          </span>
           <h3>Le plus régulier</h3>
           <p>
             <strong>
@@ -44,7 +49,9 @@ export function Trophies({ recap }: { recap: Recap }) {
 
       {recap.quizWinners.map((w, i) => (
         <div key={i} className="card trophy">
-          <span className="trophy-emoji">🏅</span>
+          <span className="trophy-icon">
+            <Icon name="award" />
+          </span>
           <h3>{w.title}</h3>
           <p>
             <strong>

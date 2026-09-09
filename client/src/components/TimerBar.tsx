@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { sound } from '../sound'
+import { Icon } from './Icon'
 
 interface Props {
   /** Fin de la question (epoch ms), fourni par le serveur. */
@@ -15,8 +16,8 @@ interface Props {
 const URGENT_FROM = 5
 
 /**
- * Barre de temps qui se vide, doublée du nombre de secondes. Sur un
- * vidéoprojecteur, une barre se lit du fond de la salle bien mieux qu'un
+ * Une ligne fine qui se vide, doublée d'un grand chiffre serif. Sur un
+ * vidéoprojecteur, la ligne se lit du fond de la salle bien mieux qu'un
  * chiffre — et elle rend la tension visible sans avoir à compter.
  */
 export function TimerBar({ deadline, duration, ticking, frozenMs }: Props) {
@@ -54,7 +55,7 @@ export function TimerBar({ deadline, duration, ticking, frozenMs }: Props) {
         <div className="timer-fill" style={{ width: `${ratio * 100}%` }} />
       </div>
       <span className={'timer-seconds' + (urgent && !paused ? ' urgent' : '')}>
-        {paused ? '⏸' : seconds}
+        {paused ? <Icon name="pause" /> : seconds}
       </span>
     </div>
   )

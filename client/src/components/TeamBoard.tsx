@@ -1,7 +1,6 @@
 import { rankTeams } from '../../../shared/teams'
 import type { PublicTeam } from '../../../shared/types'
-
-const MEDALS = ['🥇', '🥈', '🥉']
+import { Rank } from './Rank'
 
 interface Props {
   teams: PublicTeam[]
@@ -26,8 +25,8 @@ export function TeamBoard({ teams, highlightId, showGamePoints, compact }: Props
   }
   const rows = rankTeams(teams)
   // Avant le premier quiz, toutes les équipes sont à zéro donc toutes
-  // premières : six médailles d'or projetées au mur, ça ne veut rien dire.
-  // On n'affiche le classement qu'une fois qu'il y a quelque chose à classer.
+  // premières : six « 1 » projetés au mur, ça ne veut rien dire. On n'affiche
+  // le classement qu'une fois qu'il y a quelque chose à classer.
   const played = rows.some(t => t.average > 0)
 
   return (
@@ -37,7 +36,7 @@ export function TeamBoard({ teams, highlightId, showGamePoints, compact }: Props
           key={t.id}
           className={'lb-row team-row' + (t.id === highlightId ? ' me' : '')}
         >
-          <span className="lb-rank">{played ? (MEDALS[t.rank - 1] ?? t.rank) : '·'}</span>
+          {played ? <Rank n={t.rank} /> : <span className="lb-rank">·</span>}
           <span className="lb-avatar">{t.emoji}</span>
           <span className="lb-name">
             {t.name}

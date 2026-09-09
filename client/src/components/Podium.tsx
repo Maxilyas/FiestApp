@@ -1,10 +1,10 @@
+import { Rank } from './Rank'
+
 export interface PodiumRow {
   name: string
   avatar: string
   points: number
 }
-
-const MEDALS = ['🥇', '🥈', '🥉']
 
 /** Classement en liste, du 1er au dernier. */
 export function Standings({ rows, offset = 0 }: { rows: PodiumRow[]; offset?: number }) {
@@ -12,7 +12,7 @@ export function Standings({ rows, offset = 0 }: { rows: PodiumRow[]; offset?: nu
     <div className="podium">
       {rows.map((p, i) => (
         <div key={i} className="lb-row" style={{ animationDelay: `${i * 60}ms` }}>
-          <span className="lb-rank">{MEDALS[i + offset] ?? i + offset + 1}</span>
+          <Rank n={i + offset + 1} />
           <span className="lb-avatar">{p.avatar}</span>
           <span className="lb-name">{p.name}</span>
           <span className="lb-score">{p.points}</span>
@@ -34,20 +34,21 @@ export function FinalPodium({ rows }: { rows: PodiumRow[] }) {
   const order = [top[1], top[0], top[2]] // 2e — 1er — 3e
   return (
     <div className="final-podium">
-      {order.map((row, slot) =>
-        row ? (
-          <div key={slot} className={'podium-col rank-' + (slot === 1 ? 1 : slot === 0 ? 2 : 3)}>
+      {order.map((row, slot) => {
+        const rank = slot === 1 ? 1 : slot === 0 ? 2 : 3
+        return row ? (
+          <div key={slot} className={'podium-col rank-' + rank}>
             <span className="podium-avatar">{row.avatar}</span>
             <span className="podium-name">{row.name}</span>
             <div className="podium-step" style={{ height: `${30 + 70 * (row.points / best)}%` }}>
-              <span className="podium-medal">{MEDALS[slot === 1 ? 0 : slot === 0 ? 1 : 2]}</span>
+              <span className="podium-medal">{rank}</span>
               <span className="podium-points">{row.points}</span>
             </div>
           </div>
         ) : (
           <div key={slot} className="podium-col" />
-        ),
-      )}
+        )
+      })}
     </div>
   )
 }

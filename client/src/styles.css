@@ -1,41 +1,77 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   QUIZZ ROMANE 30 — direction « Salsa nocturne »
-   La piste de danse à une heure du matin : aubergine profond, magenta et or,
-   une lueur qui respire derrière l'écran commun.
+   QUIZZ ROMANE 30 — direction « Velours »
+   Un noir chaud, du champagne, une serif : la soirée habillée, pas décorée.
 
-   Deux règles gouvernent tout ce fichier :
+   Trois règles gouvernent tout ce fichier :
    · l'écran commun est vu de loin, sur un vidéoprojecteur, dans le noir —
      le contraste et la taille priment sur la finesse ;
-   · aucune police n'est téléchargée. Tout repose sur des caractères déjà
-     présents sur les machines : rien à charger, rien qui arrive en retard,
-     et ça marche même sans réseau.
+   · les deux polices sont livrées avec l'application (client/public/fonts)
+     et servies par elle : rien ne part chercher Google à l'exécution, et le
+     repli wifi local marche hors ligne ;
+   · aucune lueur, aucun flou, aucun dégradé décoratif — un seul halo au
+     sommet du fond. Ce qui bouge le fait au bon moment, et s'arrête si le
+     système demande moins de mouvement.
    ═══════════════════════════════════════════════════════════════════════ */
 
+/* Sous-ensemble latin, ~67 Ko pour les trois fichiers. Figtree est une
+   fonte variable : un seul fichier couvre les graisses 400, 500 et 600. */
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/cormorant-garamond-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Cormorant Garamond';
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/cormorant-garamond-500-italic.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url('/fonts/figtree-variable.woff2') format('woff2');
+}
+
 :root {
-  /* Le sol : trois profondeurs d'aubergine, du plus éclairé au plus noir. */
-  --bg-high: #3b1046;
-  --bg-mid: #1a0625;
-  --bg-deep: #0d0316;
+  /* Le sol : un noir chaud, et le halo qui l'éclaire par le haut. */
+  --bg: #1a1412;
+  --bg-halo: #2b211b;
+  /* Opaque et à peine plus clair : dialogues, toasts, cellules figées. */
+  --bg-raised: #241c18;
 
-  --ink: #ffe9f2;
-  --muted: #c9a0ba;
-  --hot: #ff3d81;
-  --gold: #ffc85c;
-  --violet: #7e57ff;
-  --teal: #00d1b2;
+  --ink: #f3ece2;
+  --muted: #a89b8a;
+  --accent: #d9b56a;
+  --accent-hover: #e8cb8a;
+  --on-accent: #1a1412;
+  /* Ce qui alerte : une erreur, les dernières secondes, ce qui efface. */
+  --alert: #e06c6c;
 
-  --surface: rgba(255, 255, 255, 0.06);
-  --surface-strong: rgba(255, 255, 255, 0.1);
-  --edge: rgba(255, 158, 196, 0.28);
-  --edge-soft: rgba(255, 158, 196, 0.16);
+  --surface: rgba(255, 255, 255, 0.035);
+  --surface-strong: rgba(255, 255, 255, 0.06);
+  --edge: rgba(217, 181, 106, 0.22);
+  --edge-strong: rgba(217, 181, 106, 0.55);
+  --accent-soft: rgba(217, 181, 106, 0.12);
 
-  --radius: 18px;
+  /* Les quatre teintes ne servent qu'aux formes ▲ ◆ ● ■ des réponses. */
+  --shape-0: #d98a9a;
+  --shape-1: #d9b56a;
+  --shape-2: #a99ad6;
+  --shape-3: #8fbfa8;
+
+  --radius: 16px;
+  --radius-sm: 14px;
   --radius-pill: 999px;
 
-  /* Condensée pour tout ce qui doit se lire de loin, humaniste pour le reste. */
-  --display: Bahnschrift, 'DIN Alternate', 'Franklin Gothic Medium', 'Segoe UI', sans-serif;
-  --body: Corbel, Candara, 'Segoe UI', system-ui, sans-serif;
-  --numeric: Bahnschrift, 'DIN Alternate', 'Segoe UI', sans-serif;
+  --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --sans: Figtree, 'Segoe UI', system-ui, sans-serif;
 }
 
 * {
@@ -50,13 +86,14 @@ body,
 }
 
 body {
-  font-family: var(--body);
-  /* Le dégradé couvre le premier écran, le fond profond prend le relais en
-     dessous. Un fond « fixed » aurait le même rendu, mais il coûte un repli
-     complet à chaque défilement sur un téléphone d'entrée de gamme — et iOS
-     l'ignore de toute façon. */
-  background-color: var(--bg-deep);
-  background-image: radial-gradient(125% 95% at 18% 0%, var(--bg-high) 0%, var(--bg-mid) 52%, var(--bg-deep) 100%);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.4;
+  /* Le halo couvre le premier écran, le noir prend le relais en dessous. Un
+     fond « fixed » aurait le même rendu, mais il coûte un repli complet à
+     chaque défilement sur un téléphone d'entrée de gamme — et iOS l'ignore. */
+  background-color: var(--bg);
+  background-image: radial-gradient(120% 60% at 50% -10%, var(--bg-halo) 0%, var(--bg) 60%);
   background-size: 100% 100vh;
   background-repeat: no-repeat;
   color: var(--ink);
@@ -74,23 +111,85 @@ label {
   touch-action: manipulation;
 }
 
+a { color: var(--accent); }
+a:hover { color: var(--accent-hover); }
+
+/* Les ascenseurs : fins, champagne, sans piste. L'ascenseur blanc de Windows
+   se voit du fond de la salle sur un écran noir. */
+html { scrollbar-color: rgba(217, 181, 106, 0.35) transparent; scrollbar-width: thin; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(217, 181, 106, 0.3); border-radius: 999px; border: 2px solid var(--bg); }
+
 h1,
 h2,
 h3 {
-  font-family: var(--display);
-  font-weight: 700;
-  line-height: 1.12;
+  font-family: var(--serif);
+  font-weight: 600;
+  line-height: 1.1;
   text-wrap: balance;
 }
 
-h1 { font-size: 1.7rem; }
-h2 { font-size: 1.25rem; }
-h3 { font-size: 1.05rem; }
+/* Cormorant a un petit œil : elle se lit plus grande qu'une linéale. */
+h1 { font-size: 2.2rem; }
+h2 { font-size: 1.6rem; }
+h3 { font-size: 1.25rem; }
+
+/* L'icône d'un titre est champagne, et alignée sur le texte. */
+h1 > .icon,
+h2 > .icon,
+h3 > .icon {
+  color: var(--accent);
+  vertical-align: -0.12em;
+  margin-right: 0.35em;
+}
 
 .muted { color: var(--muted); }
-.error { color: var(--hot); font-weight: 600; }
-.warn { color: var(--gold); font-weight: 600; }
+.error { color: var(--alert); font-weight: 500; }
+.warn { color: var(--accent); font-weight: 500; }
 .center { text-align: center; }
+.small { font-size: 0.82rem; }
+
+/* L'étiquette : capitales, 11 px, espacées, atténuées. */
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Une phrase d'accompagnement, en italique serif. */
+.serif-note {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.3rem;
+  color: var(--muted);
+}
+
+/* Les chiffres qui se lisent d'un coup d'œil : serif, alignés, à chasse fixe
+   pour qu'un chrono ne danse pas. */
+.num {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* Les icônes : un trait de 1,8 px, la couleur du texte qui les porte. */
+.icon {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  flex: none;
+  vertical-align: -0.2em;
+}
+
+.hairline {
+  height: 1px;
+  border: none;
+  background: linear-gradient(90deg, rgba(217, 181, 106, 0) 0%, rgba(217, 181, 106, 0.55) 50%, rgba(217, 181, 106, 0) 100%);
+}
 
 /* ── Layout de base ─────────────────────────────── */
 .center-page {
@@ -106,57 +205,84 @@ h3 { font-size: 1.05rem; }
 
 .card {
   background: var(--surface);
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--edge);
   border-radius: var(--radius);
   padding: 18px;
-  backdrop-filter: blur(3px);
 }
 
-.join-card {
-  width: min(440px, 100%);
+.card-head {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-  text-align: center;
-  padding: 26px 22px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .notice { text-align: center; }
 
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
 /* ── Contrôles ──────────────────────────────────── */
 .input {
   width: 100%;
-  padding: 13px 15px;
-  border-radius: 12px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 10px;
   border: 1px solid var(--edge);
-  background: rgba(13, 3, 22, 0.55);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--ink);
-  font-family: var(--body);
+  font-family: var(--sans);
   font-size: 1rem;
 }
 
-.input::placeholder { color: rgba(201, 160, 186, 0.7); }
-.input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255, 200, 92, 0.18); }
+.input::placeholder { color: rgba(168, 155, 138, 0.7); }
+.input:focus { outline: none; border-color: var(--accent); }
 
-.btn {
-  font-family: var(--display);
-  font-size: 0.98rem;
-  letter-spacing: 0.03em;
-  padding: 12px 20px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--edge);
-  background: var(--surface-strong);
-  color: var(--ink);
-  cursor: pointer;
-  transition: transform 0.12s ease, background 0.2s ease, border-color 0.2s ease;
+/* Le champ du prénom : une ligne, en serif, comme sur une invitation. */
+.input-line {
+  min-height: 54px;
+  padding: 6px 4px;
+  border: none;
+  border-bottom: 1px solid rgba(217, 181, 106, 0.6);
+  border-radius: 0;
+  background: transparent;
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 30px;
+  caret-color: var(--accent);
 }
 
-.btn:hover { border-color: var(--gold); }
+.input-line:focus { border-bottom-color: var(--accent); }
+.input-line::placeholder { font-style: italic; }
+
+.field { display: flex; flex-direction: column; gap: 10px; }
+.field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(217, 181, 106, 0.26);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.btn:hover { border-color: var(--edge-strong); color: var(--ink); }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn .icon { width: 18px; height: 18px; }
 
-/* Un seul anneau de focus, doré, pour tout ce qui se pilote au clavier : le
-   bleu du navigateur sur certains boutons et l'or sur d'autres, ça se voyait. */
+/* Un seul anneau de focus, champagne, pour tout ce qui se pilote au clavier. */
 .btn:focus-visible,
 .emoji-btn:focus-visible,
 .pill-btn:focus-visible,
@@ -166,90 +292,189 @@ h3 { font-size: 1.05rem; }
 .free-team:focus-visible,
 .answer-edit input:focus-visible,
 .observe-edit input:focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* Le bouton qui efface quelque chose ne ressemble pas à celui qui valide. */
-.btn-danger {
-  background: var(--hot);
-  border-color: var(--hot);
-  color: #2a0518;
-  font-weight: 700;
-}
-
-.btn-danger:hover { background: #ff6a9c; border-color: #ff6a9c; }
-
-/* L'or sur l'aubergine est le contraste le plus fort de la palette :
-   c'est lui qui porte l'action principale. */
+/* Le champagne porte l'action principale : c'est le contraste le plus fort
+   de la palette. */
 .btn-primary {
-  background: var(--gold);
-  border-color: var(--gold);
-  color: #2a0518;
-  font-weight: 700;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
 }
 
-.btn-primary:hover { background: #ffd782; border-color: #ffd782; }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: var(--on-accent); }
 
-/* Un bouton d'or à 40 % d'opacité vire au brun sur l'aubergine : un bouton
+/* Un bouton champagne à 40 % vire au brun sur le noir : un bouton
    indisponible mérite son propre état, pas une transparence. */
 .btn-primary:disabled {
   opacity: 1;
   background: var(--surface-strong);
-  border-color: var(--edge-soft);
+  border-color: var(--edge);
   color: var(--muted);
 }
-.btn-ghost { background: transparent; }
-.btn-small { padding: 7px 14px; font-size: 0.85rem; }
-.btn-big { padding: 16px 26px; font-size: 1.15rem; }
+
+/* Le filet champagne sans le fond : l'action qu'on attend, sans crier. */
+.btn-accent { border-color: var(--edge-strong); color: var(--accent); }
+.btn-accent:hover { color: var(--accent-hover); border-color: var(--accent); }
+
+.btn-ghost { color: var(--muted); }
+.btn-ghost:hover { color: var(--ink); }
+
+/* Le bouton qui efface quelque chose ne ressemble pas à celui qui valide. */
+.btn-danger {
+  background: var(--alert);
+  border-color: var(--alert);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+.btn-danger:hover { background: #ea8484; border-color: #ea8484; color: var(--on-accent); }
+
+.btn-small { min-height: 36px; padding: 0 14px; font-size: 0.82rem; }
+
+/* La pilule de l'inscription : haute, en capitales espacées. */
+.btn-big {
+  min-height: 58px;
+  padding: 0 28px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.btn-icon { width: 44px; padding: 0; color: var(--muted); }
+.btn-icon:hover { color: var(--ink); }
+.btn-block { width: 100%; }
 
 .pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 13px;
+  min-height: 28px;
+  padding: 4px 12px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 61, 129, 0.16);
   border: 1px solid var(--edge);
-  font-family: var(--display);
-  font-size: 0.85rem;
-  letter-spacing: 0.05em;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
-.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.pill .icon { width: 14px; height: 14px; }
+.pill.flash { color: var(--accent); }
+
+/* Le multiplicateur doit sauter aux yeux : c'est lui qui relance la salle. */
+.pill.multi { color: var(--accent); border-color: rgba(217, 181, 106, 0.5); }
+
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--edge);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.pill-btn:hover { color: var(--ink); border-color: var(--edge-strong); }
+.pill-btn.active { border-color: var(--edge-strong); color: var(--accent); background: var(--accent-soft); }
+.pill-btn .icon { width: 16px; height: 16px; }
+
+/* ── Inscription ────────────────────────────────── */
+/* Pas de carte : sur le téléphone, la page est l'invitation. Sur un grand
+   écran, la colonne reste étroite et centrée. */
+.join {
+  width: min(440px, 100%);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  padding: max(48px, env(safe-area-inset-top)) 28px max(36px, env(safe-area-inset-bottom));
+}
+
+.join-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  text-align: center;
+}
+
+.join-eyebrow { font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--muted); }
+
+.join-title {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(3.4rem, 18vw, 4.6rem);
+  line-height: 1;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.join-title.compact { font-size: clamp(2.2rem, 10vw, 3rem); }
+
+.join-sub {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.3rem;
+  color: var(--muted);
+}
+
+.join-grow { flex: 1; }
+.join-foot { text-align: center; font-size: 12px; color: var(--muted); }
+.join-actions { display: flex; flex-direction: column; gap: 10px; }
 
 /* ── Choix d'avatar ─────────────────────────────── */
 .emoji-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 7px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .emoji-btn {
   aspect-ratio: 1;
-  font-size: 1.4rem;
-  border-radius: 12px;
-  border: 1px solid transparent;
-  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 24px;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(217, 181, 106, 0.14);
+  background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
-  transition: transform 0.12s ease, border-color 0.15s ease;
+  transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
-.emoji-btn:hover { transform: scale(1.08); }
+.emoji-btn:hover { border-color: var(--edge-strong); }
 .emoji-btn.selected {
-  border-color: var(--gold);
-  background: rgba(255, 200, 92, 0.18);
-  transform: scale(1.08);
+  border: 1.5px solid var(--accent);
+  background: rgba(217, 181, 106, 0.16);
+  box-shadow: 0 0 0 4px rgba(217, 181, 106, 0.14);
 }
 
 /* ── Écran joueur ───────────────────────────────── */
 .player-shell {
   min-height: 100vh;
   min-height: 100dvh;
-  padding: 16px;
+  padding: 24px 20px 28px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
   max-width: 560px;
   margin: 0 auto;
 }
@@ -257,119 +482,191 @@ h3 { font-size: 1.05rem; }
 .me-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
-.player-avatar { font-size: 1.6rem; }
+.me-header h2 { font-size: 1.8rem; }
+.player-avatar { font-size: 1.6rem; line-height: 1; }
 .player-avatar.big { font-size: 2.6rem; }
 
 .offline-pill {
   margin-left: auto;
-  background: rgba(255, 61, 129, 0.2);
-  color: var(--hot);
+  color: var(--alert);
+  border-color: rgba(224, 108, 108, 0.5);
 }
 
 .waiting {
   text-align: center;
-  color: var(--muted);
   padding: 22px 0;
-  font-family: var(--display);
-  letter-spacing: 0.04em;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.3rem;
+  color: var(--muted);
 }
 
 /* ── Classement ─────────────────────────────────── */
-.leaderboard { display: flex; flex-direction: column; gap: 6px; }
+.leaderboard { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 
 .lb-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 8px 12px;
   border-radius: 12px;
   background: var(--surface);
+  border: 1px solid transparent;
   animation: slide-in 0.35s ease-out both;
 }
 
-.lb-row.me {
-  background: rgba(255, 200, 92, 0.14);
-  border: 1px solid var(--gold);
+.lb-row.me { background: var(--accent-soft); border-color: var(--edge-strong); }
+
+/* Les rangs remplacent les médailles : un chiffre serif, champagne pour le
+   premier, encre pour les deux suivants, atténué ensuite. */
+.lb-rank {
+  width: 1.7em;
+  flex: none;
+  text-align: center;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--muted);
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
-.lb-rank { width: 2em; text-align: center; font-family: var(--numeric); font-weight: 700; }
-.lb-avatar { font-size: 1.2rem; }
-.lb-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lb-score { font-family: var(--numeric); font-weight: 700; font-size: 1.05rem; color: var(--gold); font-variant-numeric: tabular-nums; }
+.lb-rank.rank-1 { color: var(--accent); }
+.lb-rank.rank-2,
+.lb-rank.rank-3 { color: var(--ink); }
+.lb-rank .icon { color: var(--accent); }
+
+.lb-avatar { font-size: 1.2rem; line-height: 1; }
+.lb-name { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.lb-score {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.35rem;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: lining-nums tabular-nums;
+}
 
 /* ── Écran commun ───────────────────────────────── */
 .host {
-  min-height: 100vh;
-  padding: 20px;
+  height: 100vh;
+  overflow: hidden;
+  padding: 22px 44px 20px;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  position: relative;
-  isolation: isolate;
+  background-color: var(--bg);
+  background-image: radial-gradient(90% 70% at 50% -20%, var(--bg-halo) 0%, var(--bg) 65%);
 }
 
-/* La lueur qui respire : c'est elle qui donne le « tempo » de la soirée.
-   Un seul élément animé en fond, jamais au-dessus du contenu. */
-.ambient-glow {
-  position: fixed;
-  inset: -25%;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(closest-side at 30% 25%, rgba(255, 61, 129, 0.2), transparent),
-    radial-gradient(closest-side at 75% 70%, rgba(126, 87, 255, 0.18), transparent);
-  animation: breathe 9s ease-in-out infinite;
+/* La bande d'état : le titre, où on en est, comment rejoindre. Toujours la
+   même hauteur, quiz en cours ou pas. */
+.host-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
 }
 
-.host-header {
+.band-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+
+.brand {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 27px;
+  line-height: 1;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.band-sep { width: 1px; height: 16px; background: rgba(217, 181, 106, 0.35); flex: none; }
+.band-sub { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.band-center {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  flex-wrap: wrap;
+  gap: 12px;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
 }
 
-.host-header h1 {
-  font-size: clamp(1.5rem, 2.6vw, 2.2rem);
-  letter-spacing: 0.01em;
-}
+.band-right { display: flex; align-items: center; justify-content: flex-end; gap: 18px; min-width: 0; }
+.band-answered { font-size: 14px; white-space: nowrap; }
+.band-answered b { color: var(--accent); font-weight: 600; }
 
-.join-info { display: flex; align-items: center; gap: 16px; }
-
-.join-url {
-  font-family: var(--display);
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--gold);
-  letter-spacing: 0.01em;
-}
-
-.qr-stack { text-align: center; }
+.qr-stack { display: flex; align-items: center; gap: 10px; }
 
 .qr-box {
   background: #fff;
-  padding: 7px;
-  border-radius: 12px;
+  padding: 4px;
+  border-radius: 6px;
   line-height: 0;
-  box-shadow: 0 6px 24px rgba(255, 61, 129, 0.25);
+  flex: none;
 }
 
-.qr-caption { font-size: 0.78rem; color: var(--muted); padding-top: 4px; }
+.qr-box svg { width: 46px; height: 46px; }
+.qr-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.qr-text .label { letter-spacing: 0.18em; }
+.join-url { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .host-grid {
   display: grid;
-  grid-template-columns: 260px 1fr 280px;
+  grid-template-columns: 290px minmax(0, 1fr) 340px;
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
   flex: 1;
+  min-height: 0;
 }
 
+/* Les panneaux défilent sur eux-mêmes : à cinquante invités, la liste ne
+   doit pas pousser la console hors de l'écran. */
+.host-grid > .card { min-height: 0; overflow-y: auto; }
+
 @media (max-width: 1100px) {
+  .host { height: auto; overflow: visible; padding: 20px; }
   .host-grid { grid-template-columns: 1fr; }
+  .host-grid > .card { overflow: visible; }
 }
+
+.host-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; min-height: 0; }
+.host-col > .card { min-height: 0; overflow-y: auto; }
+
+/* L'invitation, avant le premier quiz : la seule chose que la salle doit
+   voir de loin, c'est comment entrer. */
+.invite {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  text-align: center;
+  flex: 1;
+  padding: 10px 0;
+}
+
+.invite-url {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+  line-height: 1.1;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.invite-qrs { display: flex; flex-wrap: wrap; justify-content: center; gap: 28px; }
+.invite-qr { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.invite-qr .qr-box { padding: 7px; border-radius: 10px; }
+.invite-qr .qr-box svg { width: 148px; height: 148px; }
+.invite-note { max-width: 46ch; }
 
 .players-grid { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
 
@@ -380,18 +677,19 @@ h3 { font-size: 1.05rem; }
   padding: 5px 11px;
   border-radius: var(--radius-pill);
   background: var(--surface);
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--edge);
   font-size: 0.9rem;
   animation: pop 0.35s ease-out both;
 }
 
-/* Estompé mais lisible (0,3 ne laissait que 2,4 : 1 de contraste), et doublé
-   d'un pictogramme : la transparence seule ne se lit pas de loin. */
+/* Estompé mais lisible, et doublé d'un pictogramme : la transparence seule
+   ne se lit pas de loin. */
 .player-chip.offline { opacity: 0.55; }
-.chip-offline { font-size: 0.8rem; }
+.chip-offline { display: inline-flex; color: var(--muted); }
+.chip-offline .icon { width: 14px; height: 14px; }
 .player-chip .player-name { max-width: 9ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.main-stage { min-height: 440px; }
+.main-stage { display: flex; flex-direction: column; min-height: 0; }
 
 .game-cards { display: flex; flex-wrap: wrap; gap: 14px; }
 
@@ -404,7 +702,25 @@ h3 { font-size: 1.05rem; }
   padding: 18px;
   border-radius: var(--radius);
   background: var(--surface);
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--edge);
+}
+
+/* La console animateur : discrète, en bas, toujours au même endroit. */
+.host-console {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.console-label { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.console-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
+.console-icons { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 1100px) {
+  .host-console { grid-template-columns: 1fr; }
+  .console-label { display: none; }
+  .console-icons { justify-content: center; }
 }
 
 /* ── Mode scène ─────────────────────────────────── */
@@ -412,104 +728,119 @@ h3 { font-size: 1.05rem; }
    vidéoprojecteur, ce qui compte doit occuper toute la place. */
 .host-grid.staging { grid-template-columns: 1fr; }
 
-.host.staging .host-header h1 { font-size: 1.25rem; }
-.host.staging .join-url { font-size: 0.95rem; }
-.host.staging .qr-box { padding: 4px; }
-.host.staging .qr-box svg { width: 62px; height: 62px; }
-.host.staging .qr-caption { display: none; }
-.host.staging .main-stage { background: transparent; border-color: transparent; backdrop-filter: none; }
-
-/* La scène tient dans la hauteur disponible : sur un portable branché en
-   1366×768, les réponses passaient sous le pli et personne ne le voyait. */
-.host.staging { height: 100vh; overflow: hidden; }
-.host.staging .host-grid { min-height: 0; }
-.host.staging .main-stage { min-height: 0; display: flex; flex-direction: column; padding: 0; }
+.host.staging .main-stage { background: transparent; border-color: transparent; padding: 0; overflow: visible; }
 .host.staging .quiz-host { flex: 1; min-height: 0; }
 .host.staging .ans-grid { flex: 1; min-height: 0; grid-auto-rows: minmax(0, 1fr); }
 .host.staging .ans-btn { min-height: 0; }
 
+/* À la révélation, les classements arrivent sous les réponses. Avec six
+   équipes, ils prenaient toute la hauteur et écrasaient les réponses — qui
+   sont pourtant ce que la salle regarde. Les réponses se resserrent, les
+   classements prennent le reste et défilent sur eux-mêmes. */
+.host.staging .quiz-host:has(.reveal-boards) .ans-grid { flex: none; grid-auto-rows: auto; }
+.host.staging .quiz-host:has(.reveal-boards) .ans-btn { min-height: 72px; }
+.host.staging .quiz-host:has(.reveal-boards) .guess-reveal { flex: none; max-height: 45%; overflow-y: auto; }
+.host.staging .reveal-boards { flex: 1 1 0; min-height: 120px; }
+
+/* Les écrans de fin de soirée sont plus hauts que l'écran : le podium, les
+   vingt-deux prix. Ils défilent sur eux-mêmes ; la console reste en place. */
+.host.staging .stage-scroll { overflow-y: auto; padding-right: 4px; }
+
 /* Trois tailles de question selon sa longueur : une question fleuve ne doit
    pas chasser les réponses hors de l'écran. */
-.host.staging .quiz-question { font-size: clamp(2rem, 4.4vw, 3.4rem); }
-.host.staging .quiz-question.q-md { font-size: clamp(1.7rem, 3.4vw, 2.7rem); }
-.host.staging .quiz-question.q-sm { font-size: clamp(1.4rem, 2.6vw, 2.1rem); }
-.host.staging .ans-btn { font-size: clamp(1.1rem, 1.9vw, 1.8rem); }
-.host.staging .ans-shape { font-size: 1.9rem; }
-.host.staging .timer-seconds { font-size: 2.6rem; }
-.host.staging .big-count { font-size: clamp(5rem, 14vw, 11rem); }
-.host.staging .target-value { font-size: clamp(3rem, 8vw, 6rem); }
+.host.staging .quiz-question { font-size: clamp(2rem, 4.4vw, 3.5rem); }
+.host.staging .quiz-question.q-md { font-size: clamp(1.7rem, 3.4vw, 2.8rem); }
+.host.staging .quiz-question.q-sm { font-size: clamp(1.4rem, 2.6vw, 2.2rem); }
+.host.staging .big-count { font-size: clamp(6rem, 16vw, 12rem); }
+.host.staging .target-value { font-size: clamp(3.4rem, 9vw, 6.5rem); }
 
 /* ── Quiz : question ────────────────────────────── */
-.quiz-player { display: flex; flex-direction: column; gap: 14px; }
+.quiz-player { display: flex; flex-direction: column; gap: 18px; }
 .quiz-host { display: flex; flex-direction: column; gap: 18px; }
 
 .quiz-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.quiz-topbar .label { letter-spacing: 0.24em; }
 .quiz-status { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
 .quiz-question {
-  font-family: var(--display);
-  font-size: 1.35rem;
-  color: #fff;
-  text-shadow: 0 0 28px rgba(255, 61, 129, 0.35);
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 33px;
+  line-height: 1.15;
+  color: var(--ink);
+  text-wrap: balance;
 }
 
-.quiz-player .quiz-question.q-md { font-size: 1.2rem; }
-.quiz-player .quiz-question.q-sm { font-size: 1.05rem; }
+.quiz-player .quiz-question.q-md { font-size: 27px; }
+.quiz-player .quiz-question.q-sm { font-size: 23px; }
+
+.quiz-host .quiz-question {
+  font-size: clamp(2rem, 4.4vw, 3.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.01em;
+  max-width: 1120px;
+}
 
 .quiz-img {
   max-height: 34vh;
   max-width: 100%;
   object-fit: contain;
-  border-radius: 14px;
+  border-radius: var(--radius-sm);
   align-self: center;
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--edge);
 }
 
-/* ── Barre de temps ─────────────────────────────── */
-.timer { display: flex; align-items: center; gap: 12px; width: 100%; }
+/* ── Chronomètre ────────────────────────────────── */
+/* Une ligne fine qui se vide, et un grand chiffre serif à côté. */
+.timer { display: flex; align-items: center; gap: 14px; width: 100%; }
 
 .timer-track {
   flex: 1;
-  height: 13px;
-  border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.12);
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
 
+.quiz-host .timer-track { height: 4px; }
+
 .timer-fill {
   height: 100%;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, var(--gold), var(--hot));
+  background: var(--accent);
   transition: width 0.12s linear;
 }
 
-.timer-track.urgent .timer-fill { background: var(--hot); animation: throb 0.8s ease-in-out infinite; }
+.timer-track.urgent .timer-fill { background: var(--alert); animation: throb 0.8s ease-in-out infinite; }
+.timer-track.paused .timer-fill { background: var(--muted); }
 
 .timer-seconds {
-  font-family: var(--numeric);
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--gold);
-  min-width: 2ch;
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 48px;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 44px;
+  line-height: 1;
+  color: var(--accent);
   text-align: right;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
-.timer-seconds.urgent { color: var(--hot); }
+.quiz-host .timer-seconds { font-size: 66px; min-width: 74px; }
+.timer-seconds.urgent { color: var(--alert); }
+.timer-seconds .icon { width: 0.6em; height: 0.6em; color: var(--muted); }
 
 .question-timer { display: flex; flex-direction: column; gap: 4px; }
-.answered-count { align-self: flex-end; font-size: 0.9rem; }
 
 /* ── Quiz : réponses ────────────────────────────── */
 .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.quiz-host .ans-grid { gap: 16px; }
+.quiz-host .ans-grid { gap: 18px; }
 
 /* Sur le téléphone, les réponses prennent toute la hauteur restante : des
    cibles plus grandes pour un pouce, et plus d'écran vide sous le pli. */
 .player-shell .quiz-player { flex: 1; }
-/* Plafonnées : au-delà, la pastille perd sa forme allongée et devient un
-   pavé. L'espace restant se répartit autour du bloc, qui reste centré. */
-.quiz-player .ans-grid { flex: 1; grid-auto-rows: minmax(72px, 96px); align-content: center; }
+.quiz-player .ans-grid { flex: 1; grid-auto-rows: minmax(84px, 100px); align-content: center; }
 
 /* Une colonne dès qu'on est à l'étroit : le texte d'une réponse ne doit
    jamais être tronqué ni passer en trois lignes. */
@@ -525,21 +856,29 @@ h3 { font-size: 1.05rem; }
   overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 68px;
-  padding: 14px 18px;
-  border-radius: var(--radius-pill);
+  gap: 16px;
+  min-height: 84px;
+  padding: 0 22px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--edge);
   background: var(--surface);
   color: var(--ink);
-  font-family: var(--body);
-  font-size: 1.02rem;
-  font-weight: 600;
+  font-family: var(--sans);
+  font-size: 1.15rem;
+  font-weight: 500;
   text-align: left;
   cursor: pointer;
-  backdrop-filter: blur(2px);
   animation: land 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.15) backwards;
-  transition: transform 0.12s ease, opacity 0.35s ease, box-shadow 0.3s ease;
+  transition: transform 0.12s ease, opacity 0.35s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.quiz-host .ans-btn {
+  min-height: 112px;
+  gap: 24px;
+  padding: 0 30px;
+  border-radius: var(--radius);
+  font-size: clamp(1.2rem, 2.4vw, 1.95rem);
+  cursor: default;
 }
 
 .ans-grid > *:nth-child(1) { animation-delay: 0.04s; }
@@ -547,62 +886,69 @@ h3 { font-size: 1.05rem; }
 .ans-grid > *:nth-child(3) { animation-delay: 0.2s; }
 .ans-grid > *:nth-child(4) { animation-delay: 0.28s; }
 
-.quiz-host .ans-btn { cursor: default; }
-.ans-btn:not(:disabled):active { transform: scale(0.97); }
+.ans-btn:not(:disabled):hover { border-color: var(--edge-strong); }
+.quiz-host .ans-btn:hover { border-color: var(--edge); }
+.ans-btn:not(:disabled):active { transform: scale(0.98); }
 .ans-btn:disabled { cursor: default; }
-.ans-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.ans-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-/* Chaque réponse garde sa couleur, mais en lueur interne plutôt qu'en
-   aplat : sur fond sombre, l'aplat écrase le texte. */
-.ans-0 { box-shadow: inset 0 0 34px rgba(255, 61, 129, 0.3); }
-.ans-1 { box-shadow: inset 0 0 34px rgba(255, 200, 92, 0.26); }
-.ans-2 { box-shadow: inset 0 0 34px rgba(126, 87, 255, 0.34); }
-.ans-3 { box-shadow: inset 0 0 34px rgba(0, 209, 178, 0.28); }
+/* La forme porte la couleur ; le texte reste encre. */
+.ans-shape { width: 22px; height: 22px; flex: none; fill: currentColor; }
+.quiz-host .ans-shape { width: 34px; height: 34px; }
+.shape-0 { color: var(--shape-0); }
+.shape-1 { color: var(--shape-1); }
+.shape-2 { color: var(--shape-2); }
+.shape-3 { color: var(--shape-3); }
 
-.ans-0 .ans-shape { color: var(--hot); }
-.ans-1 .ans-shape { color: var(--gold); }
-.ans-2 .ans-shape { color: #a68bff; }
-.ans-3 .ans-shape { color: var(--teal); }
+/* Dans une phrase, la forme s'aligne sur le texte. */
+.ans-shape.inline { width: 0.9em; height: 0.9em; vertical-align: -0.08em; margin-right: 0.15em; }
 
-.ans-shape { font-size: 1.1rem; }
-.ans-text { position: relative; z-index: 1; flex: 1; }
+.ans-text { position: relative; z-index: 1; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 
-.ans-btn.chosen { border-color: #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5); }
-.ans-btn.dim { opacity: 0.42; }
+/* Réponse choisie : le filet champagne, un fond à 12 %, une coche. */
+.ans-btn.chosen { border: 1.5px solid var(--accent); background: var(--accent-soft); }
+.ans-btn.dim { opacity: 0.38; }
 
+/* La bonne réponse, projetée au mur : un aplat champagne, lisible du fond
+   de la salle. */
 .ans-btn.correct {
-  background: linear-gradient(95deg, rgba(255, 61, 129, 0.92), rgba(255, 200, 92, 0.88));
-  border-color: #fff;
-  color: #2a0518;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
   opacity: 1;
-  animation: halo 1.3s ease-out 2;
 }
 
-.ans-btn.correct .ans-shape { color: #2a0518; }
+.ans-btn.correct .ans-shape { color: var(--on-accent); }
 
-.ans-check { font-size: 1.4rem; font-weight: 700; animation: pop 0.4s ease-out both; }
+.ans-extra { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: none; }
+.ans-check { width: 22px; height: 22px; color: var(--accent); animation: pop 0.4s ease-out both; }
+.quiz-host .ans-check { width: 30px; height: 30px; }
+.ans-btn.correct .ans-check { color: var(--on-accent); }
 
 .ans-count {
-  margin-left: 8px;
-  font-family: var(--numeric);
-  font-weight: 700;
-  background: rgba(13, 3, 22, 0.45);
-  border-radius: var(--radius-pill);
-  padding: 2px 12px;
-  font-size: 0.95rem;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.7rem;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: lining-nums tabular-nums;
 }
+
+.ans-btn.correct .ans-count { color: var(--on-accent); }
 
 .ans-bar {
   position: absolute;
   left: 0;
   bottom: 0;
-  height: 5px;
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 0 3px 3px 0;
+  height: 4px;
+  background: var(--accent);
   transform-origin: left;
   animation: grow-bar 0.5s ease-out both;
 }
+
+.ans-btn.correct .ans-bar { background: rgba(26, 20, 18, 0.35); }
+
+.hint { text-align: center; font-size: 13px; line-height: 1.4; color: var(--muted); }
 
 /* ── Quiz : décompte et résultats ───────────────── */
 .getready {
@@ -613,17 +959,20 @@ h3 { font-size: 1.05rem; }
   gap: 12px;
   padding: 40px 0;
   text-align: center;
+  flex: 1;
 }
 
-.getready-emoji { font-size: 3rem; }
+.getready-icon { color: var(--accent); }
+.getready-icon .icon { width: 42px; height: 42px; }
+.getready p { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.4rem; color: var(--muted); }
 
 .big-count {
-  font-family: var(--numeric);
-  font-size: 5rem;
-  font-weight: 700;
-  color: var(--gold);
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 6rem;
   line-height: 1;
-  text-shadow: 0 0 40px rgba(255, 200, 92, 0.45);
+  color: var(--accent);
+  font-variant-numeric: lining-nums tabular-nums;
   animation: pop 0.4s ease-out both;
 }
 
@@ -634,42 +983,64 @@ h3 { font-size: 1.05rem; }
   gap: 8px;
   align-items: center;
   padding: 26px 18px;
+  animation: pop 0.4s ease-out both;
 }
 
-.result-banner .big { font-family: var(--numeric); font-size: 2.4rem; font-weight: 700; }
-.result-ok .big { color: var(--gold); }
-.result-ko .big { color: var(--hot); }
+.result-banner .big {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 3rem;
+  line-height: 1;
+  font-variant-numeric: lining-nums;
+}
+
+.result-banner p { font-size: 1.05rem; }
+.result-icon { display: inline-flex; color: var(--muted); }
+.result-icon .icon { width: 44px; height: 44px; }
+.result-ok .big,
+.result-ok .result-icon { color: var(--accent); }
+.result-ko .big,
+.result-ko .result-icon { color: var(--alert); }
 
 .podium { display: flex; flex-direction: column; gap: 7px; margin-top: 8px; }
-.big-waiting { text-align: center; font-size: 1.15rem; padding: 26px 0; color: var(--muted); }
+
+.big-waiting {
+  text-align: center;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.3rem, 2.4vw, 2rem);
+  padding: 26px 0;
+  color: var(--muted);
+}
 
 /* ── Estimation ─────────────────────────────────── */
-.guess-form { display: flex; flex-direction: column; gap: 12px; }
-.guess-row { display: flex; align-items: center; gap: 10px; }
+.guess-form { display: flex; flex-direction: column; gap: 14px; }
+.guess-row { display: flex; align-items: baseline; gap: 12px; }
 
 .guess-input {
   flex: 1;
-  font-family: var(--numeric);
-  font-size: 1.7rem;
-  font-weight: 700;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 2rem;
   text-align: center;
-  letter-spacing: 0.02em;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
-.guess-unit { font-family: var(--display); font-size: 1.15rem; color: var(--muted); }
+.guess-unit { font-family: var(--serif); font-style: italic; font-size: 1.3rem; color: var(--muted); }
 .guess-reveal { text-align: center; display: flex; flex-direction: column; gap: 14px; }
 
 .target-value {
-  font-family: var(--numeric);
-  font-size: 3.2rem;
-  font-weight: 700;
-  color: var(--gold);
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 3.4rem;
   line-height: 1;
-  text-shadow: 0 0 40px rgba(255, 200, 92, 0.4);
+  color: var(--accent);
+  font-variant-numeric: lining-nums;
 }
 
-.target-unit { font-size: 1.3rem; color: var(--muted); }
-.guess-value { font-family: var(--numeric); font-weight: 700; margin-right: 10px; }
+.target-unit { font-size: 0.45em; font-style: italic; font-weight: 500; color: var(--muted); }
+.guess-value { font-family: var(--serif); font-weight: 600; font-size: 1.15rem; margin-right: 10px; font-variant-numeric: lining-nums; }
 
 /* ── Podium final ───────────────────────────────── */
 .final-podium {
@@ -677,7 +1048,7 @@ h3 { font-size: 1.05rem; }
   grid-template-columns: repeat(3, 1fr);
   align-items: end;
   gap: 14px;
-  min-height: 280px;
+  min-height: 260px;
   margin: 10px 0 4px;
 }
 
@@ -690,14 +1061,14 @@ h3 { font-size: 1.05rem; }
   height: 100%;
 }
 
-.podium-avatar { font-size: 2.6rem; animation: pop 0.5s ease-out both; }
-.podium-name { font-family: var(--display); font-weight: 700; text-align: center; }
+.podium-avatar { font-size: 2.6rem; line-height: 1; animation: pop 0.5s ease-out both; }
+.podium-name { font-family: var(--serif); font-weight: 600; font-size: 1.3rem; text-align: center; }
 
 .podium-step {
   width: 100%;
   border-radius: 14px 14px 0 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.04));
-  border: 1px solid var(--edge-soft);
+  background: var(--surface);
+  border: 1px solid var(--edge);
   border-bottom: none;
   display: flex;
   flex-direction: column;
@@ -708,13 +1079,21 @@ h3 { font-size: 1.05rem; }
   transform-origin: bottom;
 }
 
-.rank-1 .podium-step {
-  background: linear-gradient(180deg, rgba(255, 200, 92, 0.5), rgba(255, 61, 129, 0.12));
-  border-color: var(--gold);
+.podium-col.rank-1 .podium-step { background: var(--accent-soft); border-color: var(--edge-strong); }
+
+.podium-medal {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 2.2rem;
+  line-height: 1;
+  color: var(--muted);
+  font-variant-numeric: lining-nums;
 }
 
-.podium-medal { font-size: 1.8rem; }
-.podium-points { font-family: var(--numeric); font-size: 1.35rem; font-weight: 700; color: var(--gold); }
+.podium-col.rank-1 .podium-medal { color: var(--accent); }
+.podium-col.rank-2 .podium-medal,
+.podium-col.rank-3 .podium-medal { color: var(--ink); }
+.podium-points { font-family: var(--serif); font-weight: 600; font-size: 1.5rem; color: var(--accent); font-variant-numeric: lining-nums; }
 
 /* ── Toast ──────────────────────────────────────── */
 .toast {
@@ -724,19 +1103,19 @@ h3 { font-size: 1.05rem; }
   transform: translateX(-50%);
   padding: 12px 20px;
   border-radius: var(--radius-pill);
-  background: rgba(13, 3, 22, 0.92);
-  border: 1px solid var(--edge);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
+  background: var(--bg-raised);
+  border: 1px solid var(--edge-strong);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  font-size: 0.95rem;
   animation: pop 0.3s ease-out both;
   z-index: 50;
 }
 
-.toast-error { border-color: var(--hot); color: var(--hot); }
+.toast-error { border-color: var(--alert); color: var(--alert); }
 
 /* ═══════════════════════════════════════════════════════════════════
    ESPACE ANIMATEUR
    Même palette, mais calme : c'est un outil de travail, pas un show.
-   Pas de lueur, pas d'animation, des formes plus sages.
    ═══════════════════════════════════════════════════════════════════ */
 .editor {
   max-width: 900px;
@@ -754,15 +1133,15 @@ h3 { font-size: 1.05rem; }
   gap: 12px;
   flex-wrap: wrap;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--edge-soft);
+  border-bottom: 1px solid var(--edge);
 }
 
 .title-input {
   flex: 1;
   min-width: 220px;
-  font-family: var(--display);
-  font-size: 1.3rem;
-  font-weight: 700;
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  font-weight: 600;
 }
 
 .quiz-list { display: flex; flex-direction: column; gap: 10px; }
@@ -789,19 +1168,6 @@ h3 { font-size: 1.05rem; }
 
 .kind-toggle { display: flex; gap: 6px; }
 
-.pill-btn {
-  font-family: var(--display);
-  background: transparent;
-  border: 1px solid var(--edge-soft);
-  color: var(--muted);
-  border-radius: var(--radius-pill);
-  padding: 5px 13px;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.pill-btn.active { border-color: var(--gold); color: var(--gold); background: rgba(255, 200, 92, 0.12); }
-
 .answers-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 
 /* Sur un téléphone, deux colonnes laissaient 73 px à chaque réponse. */
@@ -812,16 +1178,17 @@ h3 { font-size: 1.05rem; }
 .answer-edit {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   padding: 7px 11px;
-  border: 1px solid var(--edge-soft);
-  border-radius: 14px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 
-.answer-edit .input { flex: 1; padding: 9px 11px; }
-.answer-edit input[type='radio'] { accent-color: var(--gold); width: 18px; height: 18px; cursor: pointer; }
-.answer-edit.is-correct { border-color: var(--gold); background: rgba(255, 200, 92, 0.1); }
+.answer-edit .input { flex: 1; min-height: 38px; padding: 7px 11px; }
+.answer-edit .ans-shape { width: 18px; height: 18px; }
+.answer-edit input[type='radio'] { accent-color: var(--accent); width: 18px; height: 18px; cursor: pointer; }
+.answer-edit.is-correct { border-color: var(--edge-strong); background: var(--accent-soft); }
 
 .number-edit { display: flex; flex-direction: column; gap: 10px; }
 .number-edit .input { max-width: 220px; }
@@ -835,20 +1202,15 @@ h3 { font-size: 1.05rem; }
   flex-wrap: wrap;
 }
 
-.duration-input { width: 84px; padding: 9px 10px; text-align: center; font-family: var(--numeric); }
+.duration-input { width: 84px; padding: 9px 10px; text-align: center; }
 
-.thumb { height: 56px; border-radius: 10px; border: 1px solid var(--edge-soft); }
+.thumb { height: 56px; border-radius: 10px; border: 1px solid var(--edge); }
 
 /* ═══════════════════════════════════════════════════════════════════
    ANIMATIONS
    Peu de choses bougent, mais au bon moment : l'arrivée des réponses,
    la révélation, le podium. Le reste est immobile.
    ═══════════════════════════════════════════════════════════════════ */
-@keyframes breathe {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.07); }
-}
-
 @keyframes land {
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: none; }
@@ -856,13 +1218,13 @@ h3 { font-size: 1.05rem; }
 
 @keyframes pop {
   0% { transform: scale(0.6); opacity: 0; }
-  60% { transform: scale(1.1); opacity: 1; }
+  60% { transform: scale(1.08); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
 }
 
-@keyframes halo {
-  0% { box-shadow: 0 0 0 0 rgba(255, 200, 92, 0.65); }
-  100% { box-shadow: 0 0 0 26px rgba(255, 200, 92, 0); }
+@keyframes fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes throb {
@@ -895,13 +1257,9 @@ h3 { font-size: 1.05rem; }
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
-
-  .ambient-glow { display: none; }
 }
 
 .reset-row { margin-top: 14px; justify-content: flex-end; }
-
-.timer-track.paused .timer-fill { background: var(--muted); }
 
 /* Chaque invité peut être renommé ou exclu depuis l'écran commun : un pseudo
    malheureux projeté sur le mur ne doit pas être une fatalité. */
@@ -918,45 +1276,72 @@ h3 { font-size: 1.05rem; }
   white-space: nowrap;
 }
 
-.chip-name:hover { color: var(--gold); }
+.chip-name:hover { color: var(--accent); }
 
 .chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: var(--muted);
   cursor: pointer;
-  font-size: 0.8rem;
   padding: 0 2px;
   opacity: 0;
   transition: opacity 0.15s;
 }
 
+.chip-remove .icon { width: 14px; height: 14px; }
 .player-chip:hover .chip-remove { opacity: 1; }
-.chip-remove:hover { color: var(--hot); }
+.chip-remove:hover { color: var(--alert); }
 .chip-name:focus-visible,
-.chip-remove:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; opacity: 1; }
+.chip-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; opacity: 1; }
 
-/* ── Page souvenir ──────────────────────────────── */
+/* ── Pages souvenir et statistiques ─────────────── */
 .recap {
   max-width: 760px;
   margin: 0 auto;
-  padding: 28px 16px 60px;
+  padding: 36px 16px 60px;
   display: flex;
   flex-direction: column;
   gap: 18px;
 }
 
-.recap-header { text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; }
-.recap-header h1 { font-size: clamp(1.8rem, 6vw, 2.6rem); }
+.recap-header { text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.recap-header h1 { font-size: clamp(2.4rem, 8vw, 3.4rem); color: var(--accent); }
+.recap-header .hairline { width: min(320px, 100%); margin-top: 6px; }
+
+.recap h2 { margin-bottom: 4px; }
 
 .trophies { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
 
 .trophy { display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; }
-.trophy-emoji { font-size: 2rem; }
+.trophy-icon { color: var(--accent); }
+.trophy-icon .icon { width: 30px; height: 30px; }
 
-.recap-foot { text-align: center; padding-top: 10px; }
+.recap-foot {
+  text-align: center;
+  padding-top: 10px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.4rem;
+}
 
 .podium-actions { align-items: center; gap: 18px; }
+
+/* Le pied de scène : un QR à emporter, sans encombrer la console. */
+.stage-foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 18px;
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.stage-foot .qr-box svg { width: 84px; height: 84px; }
+.stage-foot .qr-text { align-items: flex-start; }
 
 /* ── Import en masse et aperçu ──────────────────── */
 .import-panel { display: flex; flex-direction: column; gap: 12px; }
@@ -965,8 +1350,8 @@ h3 { font-size: 1.05rem; }
   margin: 0;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(13, 3, 22, 0.5);
-  border: 1px solid var(--edge-soft);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--edge);
   font-family: Consolas, 'Cascadia Mono', ui-monospace, monospace;
   font-size: 0.82rem;
   line-height: 1.6;
@@ -981,12 +1366,12 @@ h3 { font-size: 1.05rem; }
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgba(6, 2, 12, 0.8);
+  background: rgba(12, 8, 7, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
-  animation: pop 0.2s ease-out both;
+  animation: fade 0.2s ease-out both;
 }
 
 .preview-frame {
@@ -996,29 +1381,23 @@ h3 { font-size: 1.05rem; }
   gap: 14px;
   padding: 22px;
   border-radius: var(--radius);
-  background: radial-gradient(120% 90% at 20% 0%, var(--bg-high), var(--bg-mid) 60%, var(--bg-deep));
-  border: 1px solid var(--edge);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  background-color: var(--bg);
+  background-image: radial-gradient(90% 70% at 50% -20%, var(--bg-halo) 0%, var(--bg) 65%);
+  border: 1px solid var(--edge-strong);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
 
 /* Les proportions de l'écran commun, en réduction. */
 .preview-stage { display: flex; flex-direction: column; gap: 16px; }
 .preview-stage .quiz-question { font-size: clamp(1.4rem, 3.4vw, 2.4rem); }
-.preview-stage .ans-btn { min-height: 76px; font-size: 1.1rem; }
+.preview-stage .ans-btn { min-height: 76px; font-size: 1.15rem; }
 .preview-frame .row { justify-content: space-between; }
 
-/* À cinquante invités, les panneaux latéraux de l'écran commun débordaient :
-   ils défilent sur eux-mêmes plutôt que de pousser la scène hors de l'écran. */
-.host-grid > .card { max-height: calc(100vh - 190px); overflow-y: auto; }
-.host-grid.staging > .card { max-height: none; overflow: visible; }
-
 /* Encoches et barres système des téléphones récents. */
-.player-shell { padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
+.player-shell { padding: max(24px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom)); }
 
-.btn.auto-on { border-color: var(--gold); color: var(--gold); }
+.btn.auto-on { border-color: var(--edge-strong); color: var(--accent); }
 
-/* Le multiplicateur doit sauter aux yeux : c' est lui qui relance la salle. */
-.pill.multi { background: var(--gold); color: #2a0518; border-color: var(--gold); font-weight: 700; }
 .multiplier-picker { margin-bottom: 4px; }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1028,30 +1407,27 @@ h3 { font-size: 1.05rem; }
    brut ferait gagner la plus nombreuse.
    ═══════════════════════════════════════════════════════════════════ */
 
-/* Deux cartes empilées dans une colonne de la grille de l'écran commun. */
-.host-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
-
-.card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.small { font-size: 0.82rem; }
-
 /* ── Classement des équipes ─────────────────────── */
 .team-row { align-items: center; }
 .team-row .lb-name { display: flex; flex-direction: column; gap: 1px; }
 
-.team-sub { font-size: 0.75rem; font-weight: 400; color: var(--muted); }
+/* Le détail passe à la ligne plutôt que d'être coupé net sur un téléphone. */
+.team-sub { font-size: 0.75rem; font-weight: 400; color: var(--muted); white-space: normal; line-height: 1.25; }
 
 /* Les points rapportés au tableau des trois jeux : un chiffre à recopier,
    volontairement distinct du score du quiz pour qu'on ne les confonde pas. */
 .team-gamepoints {
-  font-family: var(--numeric);
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--teal);
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--ink);
   min-width: 2.2em;
   text-align: center;
-  border: 1px solid rgba(0, 209, 178, 0.4);
+  border: 1px solid var(--edge-strong);
   border-radius: var(--radius-pill);
-  padding: 1px 0;
+  padding: 4px 0;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 /* ── Choix d'équipe (téléphone) ─────────────────── */
@@ -1070,26 +1446,25 @@ h3 { font-size: 1.05rem; }
   flex-direction: column;
   align-items: center;
   gap: 3px;
+  min-height: 44px;
   padding: 14px 10px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   background: var(--surface);
-  border: 2px solid var(--edge-soft);
+  border: 1px solid var(--edge);
   color: inherit;
+  font-family: var(--sans);
   cursor: pointer;
-  transition: transform 0.12s, border-color 0.15s;
+  transition: transform 0.12s, border-color 0.15s, background 0.15s;
 }
 
 .team-btn:active { transform: scale(0.97); }
 .team-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.team-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.team-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.team-btn.selected {
-  border-color: var(--gold);
-  background: rgba(255, 200, 92, 0.14);
-}
+.team-btn.selected { border: 1.5px solid var(--accent); background: var(--accent-soft); }
 
-.team-btn-emoji { font-size: 1.9rem; }
-.team-btn-name { font-family: var(--display); font-weight: 700; font-size: 1.05rem; text-align: center; }
+.team-btn-emoji { font-size: 1.9rem; line-height: 1.2; }
+.team-btn-name { font-family: var(--serif); font-weight: 600; font-size: 1.25rem; text-align: center; }
 .team-btn-count { font-size: 0.74rem; color: var(--muted); }
 
 /* ── Gestion des équipes (écran commun) ─────────── */
@@ -1097,9 +1472,9 @@ h3 { font-size: 1.05rem; }
 
 .team-group {
   padding: 8px 10px 10px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--edge-soft);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--edge);
 }
 
 /* Les invités qui n'ont pas encore choisi : discret, mais repérable au
@@ -1107,7 +1482,7 @@ h3 { font-size: 1.05rem; }
 .team-group-none { border-style: dashed; }
 
 .team-group-head { display: flex; align-items: center; gap: 6px; }
-.team-group-name { font-family: var(--display); font-weight: 700; max-width: none; flex: 1; text-align: left; }
+.team-group-name { font-family: var(--serif); font-weight: 600; font-size: 1.15rem; max-width: none; flex: 1; text-align: left; }
 .team-group .players-grid { margin-top: 7px; }
 .team-group:hover .chip-remove { opacity: 1; }
 
@@ -1115,11 +1490,11 @@ h3 { font-size: 1.05rem; }
    clavier, il est fiable à la souris, et rien ici ne se voit de loin. */
 .team-emoji-select,
 .chip-team {
-  background: rgba(13, 3, 22, 0.6);
+  background: var(--bg-raised);
   color: var(--ink);
-  border: 1px solid var(--edge-soft);
+  border: 1px solid var(--edge);
   border-radius: 8px;
-  font-family: var(--body);
+  font-family: var(--sans);
   cursor: pointer;
 }
 
@@ -1139,7 +1514,9 @@ h3 { font-size: 1.05rem; }
 .chip-team:focus { opacity: 1; }
 
 .team-create { margin-top: 12px; }
-.team-name-input { flex: 1; min-width: 8ch; padding: 7px 10px; font-size: 0.9rem; }
+/* `flex-basis` : quand la colonne est étroite, le bouton passe dessous plutôt
+   que d'écraser le champ. */
+.team-name-input { flex: 1 1 130px; min-height: 36px; padding: 7px 10px; font-size: 0.9rem; }
 
 .podium-tabs { justify-content: center; }
 
@@ -1158,11 +1535,17 @@ h3 { font-size: 1.05rem; }
 }
 
 .photo-gone {
-  text-align: center;
-  color: var(--gold);
-  font-family: var(--display);
-  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.2rem;
 }
+
+.quiz-player .photo-gone { justify-content: center; }
 
 .observe-edit {
   display: flex;
@@ -1170,11 +1553,11 @@ h3 { font-size: 1.05rem; }
   gap: 8px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--edge-soft);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--edge);
 }
 
-.observe-edit input[type='checkbox'] { accent-color: var(--gold); width: 17px; height: 17px; cursor: pointer; }
+.observe-edit input[type='checkbox'] { accent-color: var(--accent); width: 17px; height: 17px; cursor: pointer; }
 
 /* Entre deux questions, l'écran commun annonce qui mène : les équipes à
    gauche (c'est elles qui décident de la soirée), le top du quiz à droite.
@@ -1208,22 +1591,37 @@ h3 { font-size: 1.05rem; }
   padding: 14px 16px;
 }
 
-.award-emoji { font-size: 2rem; line-height: 1; }
+/* L'emoji du prix vient du serveur, comme un avatar : il garde sa place,
+   dans un médaillon cerclé de champagne. */
+.award-emoji {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--edge);
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .award-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.award-body h3 { font-size: 1rem; }
+.award-body h3 { font-size: 1.2rem; }
 .award-winner { font-size: 0.95rem; }
-.award-team { font-size: 0.85rem; color: var(--gold); }
+.award-team { font-size: 0.85rem; color: var(--accent); }
 
 /* Un prix déjà remis reste visible : on peut vouloir le redonner, mais il ne
    doit plus attirer l'œil autant que ceux qui attendent. */
-.award-given { opacity: 0.55; border-color: var(--gold); }
+.award-given { opacity: 0.55; border-color: var(--edge-strong); }
 
 .award-give { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
-.award-points { width: 4.5em; padding: 6px 8px; text-align: center; font-family: var(--numeric); }
+.award-points { width: 4.5em; padding: 6px 8px; text-align: center; }
 
 .free-award { display: flex; flex-direction: column; gap: 10px; }
 .free-award .input { flex: 1; min-width: 12ch; }
-.free-team { padding: 8px 10px; font-size: 0.9rem; }
+.free-team { padding: 8px 10px; font-size: 0.9rem; min-height: 44px; }
 
 .given-list { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
 
@@ -1231,13 +1629,13 @@ h3 { font-size: 1.05rem; }
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 5px 10px;
+  padding: 6px 10px;
   border-radius: 10px;
   background: var(--surface);
 }
 
-.given-points { font-family: var(--numeric); font-weight: 700; color: var(--teal); min-width: 2.5em; }
-.given-team { font-weight: 600; }
+.given-points { font-family: var(--serif); font-weight: 600; font-size: 1.1rem; color: var(--accent); min-width: 2.5em; font-variant-numeric: lining-nums; }
+.given-team { font-weight: 500; }
 .given-reason { flex: 1; color: var(--muted); font-size: 0.9rem; }
 .given-row .chip-remove { opacity: 0.6; }
 
@@ -1248,23 +1646,23 @@ h3 { font-size: 1.05rem; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   padding: 20px 0;
   animation: pop 0.6s ease-out both;
 }
 
-.victory-emoji { font-size: clamp(4rem, 12vw, 8rem); }
-.victory-name { font-family: var(--display); font-weight: 700; font-size: clamp(1.8rem, 5vw, 3.2rem); }
-.victory-points { font-family: var(--numeric); font-weight: 700; font-size: clamp(1.4rem, 3vw, 2.2rem); color: var(--gold); }
+.victory-emoji { font-size: clamp(4rem, 12vw, 8rem); line-height: 1.1; }
+.victory-name { font-family: var(--serif); font-weight: 600; font-size: clamp(2.2rem, 6vw, 4rem); line-height: 1; color: var(--accent); }
+.victory-points { font-family: var(--serif); font-weight: 600; font-size: clamp(1.4rem, 3vw, 2.2rem); font-variant-numeric: lining-nums; }
 
 /* ── Tableau des statistiques ───────────────────── */
 /* Dix-sept colonnes ne tiennent sur aucun téléphone : le tableau défile dans
    son propre cadre plutôt que de faire déborder toute la page. */
 .stats-scroll { overflow-x: auto; margin-top: 10px; }
 
-.stats-table { border-collapse: collapse; font-size: 0.85rem; white-space: nowrap; }
+.stats-table { border-collapse: collapse; font-size: 0.85rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .stats-table th, .stats-table td { padding: 5px 9px; text-align: right; }
-.stats-table thead th { border-bottom: 1px solid var(--edge-soft); }
+.stats-table thead th { border-bottom: 1px solid var(--edge); }
 /* L'en-tête entier est le bouton de tri : 17 px de haut, c'était imprenable
    au pouce, sur une page faite pour le téléphone. */
 .stats-table thead th:has(.stats-sort) { padding: 0; }
@@ -1275,8 +1673,8 @@ h3 { font-size: 1.05rem; }
   text-align: left;
   position: sticky;
   left: 0;
-  background: var(--bg-mid);
-  font-weight: 600;
+  background: var(--bg);
+  font-weight: 500;
 }
 
 .stats-sort {
@@ -1287,15 +1685,18 @@ h3 { font-size: 1.05rem; }
   border: none;
   color: var(--muted);
   font: inherit;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
   text-align: right;
   cursor: pointer;
   padding: 10px 9px;
 }
 
 .stats-sort:hover { color: var(--ink); }
-.stats-sort.active { color: var(--gold); }
-.stats-table td.stats-active { color: var(--gold); font-weight: 700; }
+.stats-sort.active { color: var(--accent); }
+.stats-table td.stats-active { color: var(--accent); font-weight: 600; }
 
 /* L'écran de victoire montre les deux classements côte à côte : les équipes
    décident, mais c'est pour son score personnel que chacun a joué. */
@@ -1322,7 +1723,7 @@ h3 { font-size: 1.05rem; }
   .pill-btn {
     min-height: 44px;
     min-width: 44px;
-    padding: 10px 16px;
+    padding: 0 16px;
   }
 
   .answer-edit .input,
@@ -1331,17 +1732,13 @@ h3 { font-size: 1.05rem; }
 
   .chip-remove,
   .chip-team { opacity: 1; }
-  .chip-remove { min-width: 32px; min-height: 32px; font-size: 1rem; }
+  .chip-remove { min-width: 32px; min-height: 32px; }
+  .chip-remove .icon { width: 16px; height: 16px; }
 
   .answer-edit input[type='radio'],
   .observe-edit input[type='checkbox'] { width: 24px; height: 24px; }
   .duration-input { min-height: 44px; }
   .emoji-btn { min-height: 44px; }
-
-  /* Le flou d'arrière-plan se paie à chaque image sur un téléphone d'entrée
-     de gamme, pour un effet qu'on ne remarque pas sur un écran de 6 pouces. */
-  .card,
-  .ans-btn { backdrop-filter: none; }
 }
 
 /* ── Dialogues de l'application ─────────────────── */
@@ -1351,12 +1748,12 @@ h3 { font-size: 1.05rem; }
   position: fixed;
   inset: 0;
   z-index: 70;
-  background: rgba(6, 2, 12, 0.75);
+  background: rgba(12, 8, 7, 0.72);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
-  animation: pop 0.15s ease-out both;
+  animation: fade 0.15s ease-out both;
 }
 
 .dialog {
@@ -1364,11 +1761,11 @@ h3 { font-size: 1.05rem; }
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: radial-gradient(120% 90% at 20% 0%, var(--bg-high), var(--bg-mid) 60%, var(--bg-deep));
-  border-color: var(--edge);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  background: var(--bg-raised);
+  border-color: var(--edge-strong);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
 
-.dialog h3 { font-size: 1.2rem; }
-.dialog-message { white-space: pre-line; line-height: 1.4; }
+.dialog h3 { font-size: 1.5rem; }
+.dialog-message { white-space: pre-line; line-height: 1.45; }
 .dialog-actions { justify-content: flex-end; }
