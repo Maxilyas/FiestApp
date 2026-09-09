@@ -10,6 +10,10 @@ import { TeamBoard } from '../components/TeamBoard'
 import { FinalPodium, Standings } from '../components/Podium'
 import { Trophies } from '../components/Trophies'
 import { AwardsBoard } from '../components/AwardsBoard'
+import { Icon } from '../components/Icon'
+import { Rank } from '../components/Rank'
+import { KeyForm } from '../components/Invitation'
+import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
 import { finalRanking, rankTeams } from '../../../shared/teams'
 import type { PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
 import { sound } from '../sound'
@@ -24,7 +28,8 @@ function wifiQrValue(wifi: { ssid: string; pass: string }): string {
     : `WIFI:T:nopass;S:${esc(wifi.ssid)};;`
 }
 
-const MEDALS = ['🥇', '🥈', '🥉']
+/** L'encre des QR codes : le noir chaud du fond, sur blanc. */
+const QR_INK = '#1a1412'
 
 /** De quoi baptiser six équipes sans réfléchir, dans l'ambiance de la soirée. */
 // Tous antérieurs à Unicode 13 : les emojis récents (boule à facettes,
@@ -94,7 +99,7 @@ function TeamGroup({
                 if (ok) socket.emit('host:removeTeam', { teamId: team.id })
               }}
             >
-              ✕
+              <Icon name="x" />
             </button>
           </>
         ) : (
@@ -124,8 +129,8 @@ function TeamGroup({
             {/* Hors ligne : la transparence seule ne se lit pas du fond de la
                 salle, et un lecteur d'écran n'en sait rien. */}
             {!p.connected && (
-              <span className="chip-offline" title="Hors ligne" aria-label="hors ligne">
-                💤
+              <span className="chip-offline" title="Hors ligne" role="img" aria-label="hors ligne">
+                <Icon name="moon" />
               </span>
             )}
             {teams.length > 0 && (
@@ -163,7 +168,7 @@ function TeamGroup({
                 if (ok) socket.emit('host:removePlayer', { playerId: p.id })
               }}
             >
-              ✕
+              <Icon name="x" />
             </button>
           </div>
         ))}
@@ -195,8 +200,9 @@ export function HostApp() {
   /** Formulaire de création d'équipe. */
   const [newTeam, setNewTeam] = useState('')
   const [newEmoji, setNewEmoji] = useState(TEAM_EMOJIS[0])
+  /** L'emplacement de la console animateur, où chaque écran pose ses boutons. */
+  const [consoleSlot, setConsoleSlot] = useState<HTMLElement | null>(null)
 
-  // Chargés à l'ouverture du podium : ils changent à chaque quiz joué.
   // Rechargés à chaque ouverture d'un écran de fin : les prix et les
   // statistiques changent après chaque quiz joué.
   useEffect(() => {
@@ -238,32 +244,14 @@ export function HostApp() {
   }
 
   if (!authed) {
-    return (
-      <div className="center-page">
-        <form className="card join-card" onSubmit={submitKey}>
-          <h1>🖥️ Écran commun</h1>
-          <input
-            className="input"
-            type="password"
-            placeholder="Clé d'accès (HOST_KEY)"
-            aria-label="Clé d'accès"
-            autoComplete="current-password"
-            value={keyInput}
-            onChange={e => setKeyInput(e.target.value)}
-            autoFocus
-          />
-          {error && <p className="error">{error}</p>}
-          <button className="btn btn-primary">Entrer</button>
-        </form>
-      </div>
-    )
+    return <KeyForm title="Écran commun" value={keyInput} error={error} onChange={setKeyInput} onSubmit={submitKey} />
   }
 
   const snap = s.snapshot
   if (!snap) {
     return (
       <div className="center-page">
-        <p className="muted">Connexion…</p>
+        <p className="serif-note">Connexion…</p>
       </div>
     )
   }
@@ -282,6 +270,23 @@ export function HostApp() {
   // Dès qu'une question est à l'écran, tout le reste s'efface : sur un
   // vidéoprojecteur, ce qui compte doit occuper toute la place.
   const staging = (!!quizView && quizView.phase !== 'pickPack') || screen !== null
+  const answering = quizView?.phase === 'question'
+
+  /** Ce que la bande d'état annonce au centre : où en est la soirée. */
+  const stageLabel =
+    screen === 'podium'
+      ? 'Podium'
+      : screen === 'awards'
+        ? 'Remise des prix'
+        : screen === 'victory'
+          ? 'Victoire'
+          : !quizView
+            ? "Salle d'attente"
+            : quizView.phase === 'pickPack'
+              ? 'Nouveau quiz'
+              : quizView.phase === 'finished'
+                ? 'Podium du quiz'
+                : `Question ${quizView.qIndex + 1} / ${quizView.qCount}`
 
   const ranking = [...snap.players]
     .filter(p => p.score !== 0)
@@ -314,482 +319,576 @@ export function HostApp() {
     setNewEmoji(TEAM_EMOJIS[(TEAM_EMOJIS.indexOf(newEmoji) + 1) % TEAM_EMOJIS.length])
   }
 
-  return (
-    <div className={'host' + (staging ? ' staging' : '')}>
-      {/* La lueur qui respire derrière l'écran commun. Décorative : elle est
-          masquée aux lecteurs d'écran, et ne s'affiche pas si le système
-          demande moins de mouvement. */}
-      <div className="ambient-glow" aria-hidden="true" />
+  const backButton = (
+    <button className="btn btn-ghost" onClick={() => setScreen(null)}>
+      Revenir
+    </button>
+  )
 
-      <header className="host-header">
-        <h1>
-          🎉 Quizz Romane 30 {!s.connected && <span className="pill offline-pill">⚠️ reconnexion…</span>}
-        </h1>
-        <div className="join-info">
-          <button
-            className="btn btn-ghost btn-small"
-            title="Plein écran"
-            aria-label="Plein écran"
-            onClick={() => {
-              if (document.fullscreenElement) document.exitFullscreen()
-              else document.documentElement.requestFullscreen().catch(() => {})
-            }}
-          >
-            ⛶
-          </button>
-          <button
-            className="btn btn-ghost btn-small"
-            title={muted ? 'Activer les sons' : 'Couper les sons'}
-            aria-label={muted ? 'Activer les sons' : 'Couper les sons'}
-            aria-pressed={!muted}
-            onClick={() => {
-              initAudio()
-              setMuted(toggleMuted())
-            }}
-          >
-            {muted ? '🔇' : '🔊'}
-          </button>
-          <div>
-            <p className="join-url">{joinUrl}</p>
-            <p className="muted">{connectedCount} connecté·e·s · scannez pour rejoindre</p>
+  return (
+    <ConsoleSlot.Provider value={consoleSlot}>
+      <div className={'host' + (staging ? ' staging' : '')}>
+        {/* La bande d'état : le titre, où on en est, comment rejoindre. */}
+        <header className="host-band">
+          <div className="band-left">
+            <span className="brand">Quizz Romane 30</span>
+            {quizView?.packTitle && (
+              <>
+                <span className="band-sep" aria-hidden="true" />
+                <span className="band-sub">{quizView.packTitle}</span>
+              </>
+            )}
+            {!s.connected && (
+              <span className="pill offline-pill">
+                <Icon name="alert" /> reconnexion…
+              </span>
+            )}
           </div>
-          {snap.wifi && (
+          <div className="band-center">
+            <span>{stageLabel}</span>
+            {quizView && quizView.phase !== 'pickPack' && quizView.phase !== 'finished' && (quizView.multiplier ?? 1) > 1 && (
+              <span className="pill multi">×{quizView.multiplier} points</span>
+            )}
+          </div>
+          <div className="band-right">
+            <span className="band-answered">
+              {answering ? (
+                <>
+                  <b>{quizView?.answeredCount ?? 0}</b> / {quizView?.participantCount ?? 0} ont répondu
+                </>
+              ) : (
+                <>{connectedCount} connecté·e·s</>
+              )}
+            </span>
             <div className="qr-stack">
               <div className="qr-box">
-                <QRCodeSVG value={wifiQrValue(snap.wifi)} size={116} bgColor="#ffffff" fgColor="#1a1033" />
+                <QRCodeSVG value={joinUrl} size={46} bgColor="#ffffff" fgColor={QR_INK} />
               </div>
-              <p className="qr-caption">1️⃣ Wifi « {snap.wifi.ssid} »</p>
+              <div className="qr-text">
+                <span className="label">Rejoindre</span>
+                <span className="join-url">{joinUrl}</span>
+              </div>
             </div>
-          )}
-          <div className="qr-stack">
-            <div className="qr-box">
-              <QRCodeSVG value={joinUrl} size={116} bgColor="#ffffff" fgColor="#1a1033" />
-            </div>
-            <p className="qr-caption">{snap.wifi ? '2️⃣ Le quiz' : 'Rejoindre'}</p>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <div className={'host-grid' + (staging ? ' staging' : '')}>
-        {!staging && (
-          <section className="card">
-            <h2>Invités ({snap.players.length})</h2>
-
-            {/* Groupés par équipe : c'est la vue dont on a besoin pour repérer
-                d'un coup d'œil qui s'est trompé d'équipe, et l'y remettre. */}
-            <div className="team-groups">
-              {teams.map(t => (
-                <TeamGroup
-                  key={t.id}
-                  team={t}
-                  members={snap.players.filter(p => p.teamId === t.id)}
-                  teams={teams}
-                />
-              ))}
-              {(() => {
-                const orphans = snap.players.filter(p => !p.teamId)
-                return orphans.length > 0 || teams.length === 0 ? (
-                  <TeamGroup team={null} members={orphans} teams={teams} />
-                ) : null
-              })()}
-            </div>
-
-            <form className="row team-create" onSubmit={createTeam}>
-              <select
-                className="team-emoji-select"
-                value={newEmoji}
-                aria-label="Emoji de la nouvelle équipe"
-                onChange={e => setNewEmoji(e.target.value)}
-              >
-                {TEAM_EMOJIS.map(e => (
-                  <option key={e} value={e}>
-                    {e}
-                  </option>
-                ))}
-              </select>
-              <input
-                className="input team-name-input"
-                placeholder="Nouvelle équipe"
-                aria-label="Nom de la nouvelle équipe"
-                value={newTeam}
-                maxLength={20}
-                onChange={e => setNewTeam(e.target.value)}
-              />
-              <button className="btn btn-small" disabled={!newTeam.trim()}>
-                Ajouter
-              </button>
-            </form>
-            {teams.length === 0 && (
-              <button className="btn btn-small" onClick={() => socket.emit('host:seedTeams')}>
-                ✨ Créer les 6 équipes d'un coup
-              </button>
-            )}
-          </section>
-        )}
-
-        <section className="card main-stage">
-          {screen === 'podium' ? (
-            <div className="quiz-host">
-              {teams.length > 0 && (
-                <div className="row podium-tabs">
-                  <button
-                    className={'pill-btn' + (podiumTab === 'teams' ? ' active' : '')}
-                    onClick={() => setPodiumTab('teams')}
-                  >
-                    👥 Les équipes
-                  </button>
-                  <button
-                    className={'pill-btn' + (podiumTab === 'solo' ? ' active' : '')}
-                    onClick={() => setPodiumTab('solo')}
-                  >
-                    🏆 Les joueurs
-                  </button>
-                </div>
-              )}
-
-              {showTeamPodium ? (
-                <>
-                  <h2>👥 Les équipes au quiz</h2>
-                  <FinalPodium rows={teamPodium} />
-                  <TeamBoard teams={teams} showGamePoints />
-                  <p className="muted center">
-                    En turquoise, les points à reporter sur le tableau des trois jeux. En doré, la
-                    moyenne par membre — c'est elle qui classe les équipes.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h2>🏆 Le classement de la soirée</h2>
-                  <FinalPodium rows={ranking} />
-                  {ranking.length > 3 && <Standings rows={ranking.slice(3)} offset={3} />}
-                  {recap && <Trophies recap={recap} />}
-                </>
-              )}
-
-              <div className="row podium-actions">
-                {/* Le QR est le seul moyen pour un invité d'emporter la page :
-                    il ne peut pas cliquer sur un lien projeté au mur. */}
-                <div className="qr-stack">
-                  <div className="qr-box">
-                    <QRCodeSVG value={`${joinUrl}/souvenir`} size={104} bgColor="#ffffff" fgColor="#1a1033" />
-                  </div>
-                  <p className="qr-caption">📖 Le souvenir de la soirée</p>
-                </div>
-                <a className="btn btn-primary" href="/souvenir" target="_blank" rel="noreferrer">
-                  📖 Ouvrir la page souvenir
-                </a>
-                <button className="btn" onClick={() => openScreen('awards')}>
-                  🏅 Remise des prix
-                </button>
-                <button className="btn btn-ghost" onClick={() => setScreen(null)}>
-                  Revenir
-                </button>
-              </div>
-            </div>
-          ) : screen === 'awards' ? (
-            <div className="quiz-host">
-              <h2>🏅 Remise des prix</h2>
-              <p className="muted center">
-                Rien n'est attribué tant que tu ne cliques pas. Les points s'ajoutent au total de
-                l'équipe du lauréat, sur l'échelle du barème.
-              </p>
-
-              <AwardsBoard
-                awards={recap?.stats.awards ?? []}
-                teams={teams}
-                givenTitles={givenTitles}
-                onAward={(teamId, points, reason) => {
-                  sound.reveal()
-                  socket.emit('host:awardTeam', { teamId, points, reason })
-                }}
-              />
-
-              {/* Tout ce qui ne se calcule pas : le karaoké, le déguisement,
-                  la table qui a rangé. */}
-              <div className="card free-award">
-                <h3>✋ Prix libre</h3>
-                <div className="row">
-                  <select
-                    className="team-emoji-select free-team"
-                    value={freeTeam}
-                    aria-label="Équipe qui reçoit le prix"
-                    onChange={e => setFreeTeam(e.target.value)}
-                  >
-                    <option value="">Choisir une équipe…</option>
-                    {teams.map(t => (
-                      <option key={t.id} value={t.id}>
-                        {t.emoji} {t.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    className="input"
-                    placeholder="Motif (ex. « ont chanté le plus fort »)"
-                    aria-label="Motif du prix"
-                    maxLength={60}
-                    value={freeReason}
-                    onChange={e => setFreeReason(e.target.value)}
-                  />
-                  <input
-                    className="input award-points"
-                    type="number"
-                    min={-10}
-                    max={10}
-                    aria-label="Points du prix"
-                    value={freePoints}
-                    onChange={e => setFreePoints(Number(e.target.value))}
-                  />
-                  <button
-                    className="btn btn-primary btn-small"
-                    disabled={!freeTeam || !freeReason.trim()}
-                    onClick={() => {
-                      sound.reveal()
-                      socket.emit('host:awardTeam', {
-                        teamId: freeTeam,
-                        points: freePoints,
-                        reason: freeReason,
-                      })
-                      setFreeReason('')
-                    }}
-                  >
-                    Attribuer
-                  </button>
-                </div>
-              </div>
-
-              {bonuses.length > 0 && (
-                <div className="card">
-                  <h3>Prix déjà remis</h3>
-                  <div className="given-list">
-                    {bonuses.map(b => {
-                      const team = teamById(b.teamId)
-                      return (
-                        <div key={b.id} className="given-row">
-                          <span className="given-points">
-                            {b.points > 0 ? '+' : ''}
-                            {b.points}
-                          </span>
-                          <span className="given-team">
-                            {team ? `${team.emoji} ${team.name}` : '—'}
-                          </span>
-                          <span className="given-reason">{b.reason}</span>
-                          <button
-                            className="chip-remove"
-                            title="Retirer ce prix"
-                            aria-label={`Retirer le prix « ${b.reason} »`}
-                            onClick={() => socket.emit('host:removeBonus', { bonusId: b.id })}
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="row podium-actions">
-                <button className="btn btn-primary" onClick={() => openScreen('victory')}>
-                  👑 Écran de victoire
-                </button>
-                {/* Le tableau complet se lit sur un téléphone, pas au
-                    vidéoprojecteur : il s'ouvre à côté. */}
-                <div className="qr-stack">
-                  <div className="qr-box">
-                    <QRCodeSVG value={`${joinUrl}/stats`} size={90} bgColor="#ffffff" fgColor="#1a1033" />
-                  </div>
-                  <p className="qr-caption">📊 Les chiffres</p>
-                </div>
-                <a className="btn" href="/stats" target="_blank" rel="noreferrer">
-                  📊 Statistiques détaillées
-                </a>
-                <button className="btn btn-ghost" onClick={() => setScreen(null)}>
-                  Revenir
-                </button>
-              </div>
-            </div>
-          ) : screen === 'victory' ? (
-            <div className="quiz-host victory">
-              <h2>👑 L'équipe qui remporte le quiz</h2>
-              {final.length > 0 ? (
-                <>
-                  <div className="victory-winner">
-                    <span className="victory-emoji">{final[0].emoji}</span>
-                    <span className="victory-name">{final[0].name}</span>
-                    <span className="victory-points">{final[0].finalPoints} points</span>
-                    <span className="muted">
-                      {final[0].gamePoints} au barème
-                      {final[0].bonus !== 0 && ` · ${final[0].bonus > 0 ? '+' : ''}${final[0].bonus} de prix`}
-                    </span>
-                  </div>
-                  <div className="victory-boards">
-                    <div>
-                      <h3>👥 Les équipes</h3>
-                      <div className="leaderboard">
-                        {final.map(t => (
-                          <div key={t.id} className="lb-row team-row">
-                            <span className="lb-rank">{MEDALS[t.rank - 1] ?? t.rank}</span>
-                            <span className="lb-avatar">{t.emoji}</span>
-                            <span className="lb-name">
-                              {t.name}
-                              <span className="team-sub">
-                                {t.total} pts cumulés · {t.average} de moyenne
-                                {t.bonus !== 0 && ` · ${t.bonus > 0 ? '+' : ''}${t.bonus} de prix`}
-                              </span>
-                            </span>
-                            <span className="lb-score">{t.finalPoints}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="muted small center">
-                        Le gros chiffre est le total du quiz, prix compris. Ajoute-lui tes deux jeux
-                        physiques pour désigner l'équipe gagnante de la soirée.
-                      </p>
-                    </div>
-
-                    {/* Le classement individuel a sa place ici : c'est pour lui
-                        que chacun a joué, et il explique le total des équipes. */}
-                    <div>
-                      <h3>🏆 Les joueurs</h3>
-                      <div className="leaderboard">
-                        {ranking.slice(0, 12).map((p, i) => {
-                          const rank = ranking.findIndex(r => r.points === p.points) + 1
-                          return (
-                            <div key={i} className="lb-row">
-                              <span className="lb-rank">{MEDALS[rank - 1] ?? rank}</span>
-                              <span className="lb-avatar">{p.avatar}</span>
-                              <span className="lb-name">{p.name}</span>
-                              <span className="lb-score">{p.points}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      {ranking.length > 12 && (
-                        <p className="muted small center">et {ranking.length - 12} autres…</p>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <p className="muted">Aucune équipe — rien à couronner.</p>
-              )}
-              <div className="row podium-actions">
-                <button className="btn" onClick={() => openScreen('awards')}>
-                  🏅 Revenir aux prix
-                </button>
-                <button className="btn btn-ghost" onClick={() => setScreen(null)}>
-                  Revenir
-                </button>
-              </div>
-            </div>
-          ) : activeView && quizView ? (
-            <QuizHost
-              view={quizView}
-              teams={teams}
-              sendCommand={command => socket.emit('host:command', { sessionId: activeView.sessionId, command })}
-              endSession={() => socket.emit('host:endSession', { sessionId: activeView.sessionId })}
-            />
-          ) : (
-            <div className="game-cards">
-              <div className="game-card">
-                <h3>🧠 Nouveau quiz</h3>
-                <p className="muted">
-                  Répondez vite : la rapidité rapporte des points bonus. Les scores s'ajoutent au
-                  classement de la soirée.
-                </p>
-                <button
-                  className="btn btn-primary btn-big"
-                  disabled={connectedCount === 0}
-                  onClick={() => {
-                    // Premier geste de l'animateur : c'est le moment où le
-                    // navigateur autorise enfin le son.
-                    initAudio()
-                    socket.emit('host:launch')
-                  }}
-                >
-                  {connectedCount === 0 ? 'En attente des invités…' : 'Lancer un quiz'}
-                </button>
-                {/* Dans un autre onglet : l'écran commun reste projeté. La clé
-                    passe en fragment, que le navigateur garde pour lui. */}
-                <a
-                  className="btn btn-ghost btn-small"
-                  href={`/edit#key=${encodeURIComponent(localStorage.getItem('quizz.hostKey') ?? '')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  ✏️ Mes quiz
-                </a>
-                {offlineCount > 0 && (
-                  <p className="muted small">
-                    {offlineCount} inscrit{offlineCount > 1 ? 's' : ''} hors ligne : un téléphone dont
-                    l'écran s'est éteint n'entrera dans le quiz qu'à son retour.
-                  </p>
-                )}
-                {(ranking.length > 0 || teams.length > 0) && (
-                  <div className="row">
-                    <button className="btn btn-small" onClick={() => openScreen('podium')}>
-                      🏆 Podium
-                    </button>
-                    <a className="btn btn-small" href="/stats" target="_blank" rel="noreferrer">
-                      📊 Statistiques
-                    </a>
-                    <button className="btn btn-small" onClick={() => openScreen('awards')}>
-                      🏅 Remise des prix
-                    </button>
-                    {teams.length > 0 && (
-                      <button className="btn btn-small" onClick={() => openScreen('victory')}>
-                        👑 Victoire
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </section>
-
-        {!staging && (
-          <div className="host-col">
-            {teams.length > 0 && (
-              <section className="card">
-                <h2>Les équipes</h2>
-                <TeamBoard teams={teams} showGamePoints />
-                <p className="muted small">
-                  Classées à la moyenne par membre (en doré). En turquoise, ce que le quiz rapporte
-                  au tableau des trois jeux.
-                </p>
-              </section>
-            )}
-
+        <div className={'host-grid' + (staging ? ' staging' : '')}>
+          {!staging && (
             <section className="card">
-              <h2>Classement de la soirée</h2>
-              <Leaderboard players={snap.players} />
-              {snap.players.length > 0 && (
-                <div className="row reset-row">
-                  <button
-                    className="btn btn-ghost btn-small"
-                    onClick={async () => {
-                      // Efface tout, y compris la sauvegarde distante : à ne
-                      // faire qu'entre deux soirées, jamais pendant.
-                      const ok = await confirmDialog({
-                        title: 'Repartir d’une soirée vierge ?',
-                        message: `Efface les ${snap.players.length} invités, les ${teams.length} équipes et tous les points.\n\nÀ faire une fois les essais terminés, pour démarrer la vraie soirée à zéro. C'est définitif.`,
-                        confirmLabel: 'Tout effacer',
-                        danger: true,
-                      })
-                      if (ok) socket.emit('host:resetParty')
-                    }}
-                  >
-                    🧹 Nouvelle soirée
-                  </button>
-                </div>
+              <h2>Invités ({snap.players.length})</h2>
+
+              {/* Groupés par équipe : c'est la vue dont on a besoin pour repérer
+                  d'un coup d'œil qui s'est trompé d'équipe, et l'y remettre. */}
+              <div className="team-groups">
+                {teams.map(t => (
+                  <TeamGroup
+                    key={t.id}
+                    team={t}
+                    members={snap.players.filter(p => p.teamId === t.id)}
+                    teams={teams}
+                  />
+                ))}
+                {(() => {
+                  const orphans = snap.players.filter(p => !p.teamId)
+                  return orphans.length > 0 || teams.length === 0 ? (
+                    <TeamGroup team={null} members={orphans} teams={teams} />
+                  ) : null
+                })()}
+              </div>
+
+              <form className="row team-create" onSubmit={createTeam}>
+                <select
+                  className="team-emoji-select"
+                  value={newEmoji}
+                  aria-label="Emoji de la nouvelle équipe"
+                  onChange={e => setNewEmoji(e.target.value)}
+                >
+                  {TEAM_EMOJIS.map(e => (
+                    <option key={e} value={e}>
+                      {e}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="input team-name-input"
+                  placeholder="Nouvelle équipe"
+                  aria-label="Nom de la nouvelle équipe"
+                  value={newTeam}
+                  maxLength={20}
+                  onChange={e => setNewTeam(e.target.value)}
+                />
+                <button className="btn btn-small" disabled={!newTeam.trim()}>
+                  Ajouter
+                </button>
+              </form>
+              {teams.length === 0 && (
+                <button className="btn btn-small" onClick={() => socket.emit('host:seedTeams')}>
+                  <Icon name="sparkles" />
+                  Créer les 6 équipes d'un coup
+                </button>
               )}
             </section>
-          </div>
-        )}
-      </div>
+          )}
 
-      {s.toast && <div className={`toast toast-${s.toast.kind}`}>{s.toast.message}</div>}
-    </div>
+          <section className="card main-stage">
+            {screen === 'podium' ? (
+              <div className="quiz-host stage-scroll">
+                {teams.length > 0 && (
+                  <div className="row podium-tabs">
+                    <button
+                      className={'pill-btn' + (podiumTab === 'teams' ? ' active' : '')}
+                      onClick={() => setPodiumTab('teams')}
+                    >
+                      <Icon name="users" />
+                      Les équipes
+                    </button>
+                    <button
+                      className={'pill-btn' + (podiumTab === 'solo' ? ' active' : '')}
+                      onClick={() => setPodiumTab('solo')}
+                    >
+                      <Icon name="trophy" />
+                      Les joueurs
+                    </button>
+                  </div>
+                )}
+
+                {showTeamPodium ? (
+                  <>
+                    <h2>
+                      <Icon name="users" />
+                      Les équipes au quiz
+                    </h2>
+                    <FinalPodium rows={teamPodium} />
+                    <TeamBoard teams={teams} showGamePoints />
+                    <p className="muted center">
+                      Le chiffre cerclé est celui à reporter sur le tableau des trois jeux. En
+                      champagne, la moyenne par membre — c'est elle qui classe les équipes.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2>
+                      <Icon name="trophy" />
+                      Le classement de la soirée
+                    </h2>
+                    <FinalPodium rows={ranking} />
+                    {ranking.length > 3 && <Standings rows={ranking.slice(3)} offset={3} />}
+                    {recap && <Trophies recap={recap} />}
+                  </>
+                )}
+
+                {/* Le QR est le seul moyen pour un invité d'emporter la page :
+                    il ne peut pas cliquer sur un lien projeté au mur. */}
+                <div className="stage-foot">
+                  <div className="qr-stack">
+                    <div className="qr-box">
+                      <QRCodeSVG value={`${joinUrl}/souvenir`} size={84} bgColor="#ffffff" fgColor={QR_INK} />
+                    </div>
+                    <div className="qr-text">
+                      <span className="label">Le souvenir de la soirée</span>
+                      <span className="join-url">{joinUrl}/souvenir</span>
+                    </div>
+                  </div>
+                </div>
+
+                <ConsoleActions>
+                  <a className="btn btn-accent" href="/souvenir" target="_blank" rel="noreferrer">
+                    <Icon name="book" />
+                    Page souvenir
+                  </a>
+                  <button className="btn" onClick={() => openScreen('awards')}>
+                    <Icon name="award" />
+                    Remise des prix
+                  </button>
+                  {backButton}
+                </ConsoleActions>
+              </div>
+            ) : screen === 'awards' ? (
+              <div className="quiz-host stage-scroll">
+                <h2>
+                  <Icon name="award" />
+                  Remise des prix
+                </h2>
+                <p className="muted center">
+                  Rien n'est attribué tant que tu ne cliques pas. Les points s'ajoutent au total de
+                  l'équipe du lauréat, sur l'échelle du barème.
+                </p>
+
+                <AwardsBoard
+                  awards={recap?.stats.awards ?? []}
+                  teams={teams}
+                  givenTitles={givenTitles}
+                  onAward={(teamId, points, reason) => {
+                    sound.reveal()
+                    socket.emit('host:awardTeam', { teamId, points, reason })
+                  }}
+                />
+
+                {/* Tout ce qui ne se calcule pas : le karaoké, le déguisement,
+                    la table qui a rangé. */}
+                <div className="card free-award">
+                  <h3>
+                    <Icon name="star" />
+                    Prix libre
+                  </h3>
+                  <div className="row">
+                    <select
+                      className="team-emoji-select free-team"
+                      value={freeTeam}
+                      aria-label="Équipe qui reçoit le prix"
+                      onChange={e => setFreeTeam(e.target.value)}
+                    >
+                      <option value="">Choisir une équipe…</option>
+                      {teams.map(t => (
+                        <option key={t.id} value={t.id}>
+                          {t.emoji} {t.name}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="input"
+                      placeholder="Motif (ex. « ont chanté le plus fort »)"
+                      aria-label="Motif du prix"
+                      maxLength={60}
+                      value={freeReason}
+                      onChange={e => setFreeReason(e.target.value)}
+                    />
+                    <input
+                      className="input award-points"
+                      type="number"
+                      min={-10}
+                      max={10}
+                      aria-label="Points du prix"
+                      value={freePoints}
+                      onChange={e => setFreePoints(Number(e.target.value))}
+                    />
+                    <button
+                      className="btn btn-primary btn-small"
+                      disabled={!freeTeam || !freeReason.trim()}
+                      onClick={() => {
+                        sound.reveal()
+                        socket.emit('host:awardTeam', {
+                          teamId: freeTeam,
+                          points: freePoints,
+                          reason: freeReason,
+                        })
+                        setFreeReason('')
+                      }}
+                    >
+                      Attribuer
+                    </button>
+                  </div>
+                </div>
+
+                {bonuses.length > 0 && (
+                  <div className="card">
+                    <h3>Prix déjà remis</h3>
+                    <div className="given-list">
+                      {bonuses.map(b => {
+                        const team = teamById(b.teamId)
+                        return (
+                          <div key={b.id} className="given-row">
+                            <span className="given-points">
+                              {b.points > 0 ? '+' : ''}
+                              {b.points}
+                            </span>
+                            <span className="given-team">
+                              {team ? `${team.emoji} ${team.name}` : '—'}
+                            </span>
+                            <span className="given-reason">{b.reason}</span>
+                            <button
+                              className="chip-remove"
+                              title="Retirer ce prix"
+                              aria-label={`Retirer le prix « ${b.reason} »`}
+                              onClick={() => socket.emit('host:removeBonus', { bonusId: b.id })}
+                            >
+                              <Icon name="x" />
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Le tableau complet se lit sur un téléphone, pas au
+                    vidéoprojecteur : il s'ouvre à côté. */}
+                <div className="stage-foot">
+                  <div className="qr-stack">
+                    <div className="qr-box">
+                      <QRCodeSVG value={`${joinUrl}/stats`} size={84} bgColor="#ffffff" fgColor={QR_INK} />
+                    </div>
+                    <div className="qr-text">
+                      <span className="label">Les chiffres</span>
+                      <span className="join-url">{joinUrl}/stats</span>
+                    </div>
+                  </div>
+                </div>
+
+                <ConsoleActions>
+                  <button className="btn btn-primary" onClick={() => openScreen('victory')}>
+                    <Icon name="crown" />
+                    Écran de victoire
+                  </button>
+                  <a className="btn" href="/stats" target="_blank" rel="noreferrer">
+                    <Icon name="bar-chart" />
+                    Statistiques
+                  </a>
+                  {backButton}
+                </ConsoleActions>
+              </div>
+            ) : screen === 'victory' ? (
+              <div className="quiz-host victory stage-scroll">
+                <h2>
+                  <Icon name="crown" />
+                  L'équipe qui remporte le quiz
+                </h2>
+                {final.length > 0 ? (
+                  <>
+                    <div className="victory-winner">
+                      <span className="victory-emoji">{final[0].emoji}</span>
+                      <span className="victory-name">{final[0].name}</span>
+                      <span className="victory-points">{final[0].finalPoints} points</span>
+                      <span className="muted">
+                        {final[0].gamePoints} au barème
+                        {final[0].bonus !== 0 && ` · ${final[0].bonus > 0 ? '+' : ''}${final[0].bonus} de prix`}
+                      </span>
+                    </div>
+                    <div className="victory-boards">
+                      <div>
+                        <h3>
+                          <Icon name="users" />
+                          Les équipes
+                        </h3>
+                        <div className="leaderboard">
+                          {final.map(t => (
+                            <div key={t.id} className="lb-row team-row">
+                              <Rank n={t.rank} />
+                              <span className="lb-avatar">{t.emoji}</span>
+                              <span className="lb-name">
+                                {t.name}
+                                <span className="team-sub">
+                                  {t.total} pts cumulés · {t.average} de moyenne
+                                  {t.bonus !== 0 && ` · ${t.bonus > 0 ? '+' : ''}${t.bonus} de prix`}
+                                </span>
+                              </span>
+                              <span className="lb-score">{t.finalPoints}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="muted small center">
+                          Le gros chiffre est le total du quiz, prix compris. Ajoute-lui tes deux jeux
+                          physiques pour désigner l'équipe gagnante de la soirée.
+                        </p>
+                      </div>
+
+                      {/* Le classement individuel a sa place ici : c'est pour lui
+                          que chacun a joué, et il explique le total des équipes. */}
+                      <div>
+                        <h3>
+                          <Icon name="trophy" />
+                          Les joueurs
+                        </h3>
+                        <div className="leaderboard">
+                          {ranking.slice(0, 12).map((p, i) => {
+                            const rank = ranking.findIndex(r => r.points === p.points) + 1
+                            return (
+                              <div key={i} className="lb-row">
+                                <Rank n={rank} />
+                                <span className="lb-avatar">{p.avatar}</span>
+                                <span className="lb-name">{p.name}</span>
+                                <span className="lb-score">{p.points}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {ranking.length > 12 && (
+                          <p className="muted small center">et {ranking.length - 12} autres…</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="muted">Aucune équipe — rien à couronner.</p>
+                )}
+                <ConsoleActions>
+                  <button className="btn" onClick={() => openScreen('awards')}>
+                    <Icon name="award" />
+                    Revenir aux prix
+                  </button>
+                  {backButton}
+                </ConsoleActions>
+              </div>
+            ) : activeView && quizView ? (
+              <QuizHost
+                view={quizView}
+                teams={teams}
+                sendCommand={command => socket.emit('host:command', { sessionId: activeView.sessionId, command })}
+                endSession={() => socket.emit('host:endSession', { sessionId: activeView.sessionId })}
+              />
+            ) : (
+              <>
+                {/* L'invitation : avant le premier quiz, la seule chose que la
+                    salle doit voir de loin, c'est comment entrer. */}
+                <div className="invite">
+                  <span className="label">Pour rejoindre le quiz</span>
+                  <p className="invite-url">{joinUrl}</p>
+                  <div className="invite-qrs">
+                    {snap.wifi && (
+                      <div className="invite-qr">
+                        <div className="qr-box">
+                          <QRCodeSVG value={wifiQrValue(snap.wifi)} size={148} bgColor="#ffffff" fgColor={QR_INK} />
+                        </div>
+                        <span className="label">1 · Wifi « {snap.wifi.ssid} »</span>
+                      </div>
+                    )}
+                    <div className="invite-qr">
+                      <div className="qr-box">
+                        <QRCodeSVG value={joinUrl} size={148} bgColor="#ffffff" fgColor={QR_INK} />
+                      </div>
+                      <span className="label">{snap.wifi ? '2 · Le quiz' : 'Scanner pour jouer'}</span>
+                    </div>
+                  </div>
+                  <p className="muted invite-note">
+                    Répondez vite : la rapidité rapporte des points bonus. Les scores s'ajoutent au
+                    classement de la soirée.
+                  </p>
+                  {offlineCount > 0 && (
+                    <p className="muted small invite-note">
+                      {offlineCount} inscrit{offlineCount > 1 ? 's' : ''} hors ligne : un téléphone dont
+                      l'écran s'est éteint n'entrera dans le quiz qu'à son retour.
+                    </p>
+                  )}
+                </div>
+                <ConsoleActions>
+                  <button
+                    className="btn btn-primary"
+                    disabled={connectedCount === 0}
+                    onClick={() => {
+                      // Premier geste de l'animateur : c'est le moment où le
+                      // navigateur autorise enfin le son.
+                      initAudio()
+                      socket.emit('host:launch')
+                    }}
+                  >
+                    <Icon name="play" />
+                    {connectedCount === 0 ? 'En attente des invités…' : 'Lancer un quiz'}
+                  </button>
+                  {/* Dans un autre onglet : l'écran commun reste projeté. La clé
+                      passe en fragment, que le navigateur garde pour lui. */}
+                  <a
+                    className="btn"
+                    href={`/edit#key=${encodeURIComponent(localStorage.getItem('quizz.hostKey') ?? '')}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Icon name="edit" />
+                    Mes quiz
+                  </a>
+                  {(ranking.length > 0 || teams.length > 0) && (
+                    <>
+                      <button className="btn" onClick={() => openScreen('podium')}>
+                        <Icon name="trophy" />
+                        Podium
+                      </button>
+                      <button className="btn" onClick={() => openScreen('awards')}>
+                        <Icon name="award" />
+                        Prix
+                      </button>
+                      {teams.length > 0 && (
+                        <button className="btn" onClick={() => openScreen('victory')}>
+                          <Icon name="crown" />
+                          Victoire
+                        </button>
+                      )}
+                      <a className="btn" href="/stats" target="_blank" rel="noreferrer">
+                        <Icon name="bar-chart" />
+                        Statistiques
+                      </a>
+                    </>
+                  )}
+                </ConsoleActions>
+              </>
+            )}
+          </section>
+
+          {!staging && (
+            <div className="host-col">
+              {teams.length > 0 && (
+                <section className="card">
+                  <h2>Les équipes</h2>
+                  <TeamBoard teams={teams} showGamePoints />
+                  <p className="muted small">
+                    Classées à la moyenne par membre, en champagne. Le chiffre cerclé est ce que le
+                    quiz rapporte au tableau des trois jeux.
+                  </p>
+                </section>
+              )}
+
+              <section className="card">
+                <h2>Classement de la soirée</h2>
+                <Leaderboard players={snap.players} />
+                {snap.players.length > 0 && (
+                  <div className="row reset-row">
+                    <button
+                      className="btn btn-ghost btn-small"
+                      onClick={async () => {
+                        // Efface tout, y compris la sauvegarde distante : à ne
+                        // faire qu'entre deux soirées, jamais pendant.
+                        const ok = await confirmDialog({
+                          title: 'Repartir d’une soirée vierge ?',
+                          message: `Efface les ${snap.players.length} invités, les ${teams.length} équipes et tous les points.\n\nÀ faire une fois les essais terminés, pour démarrer la vraie soirée à zéro. C'est définitif.`,
+                          confirmLabel: 'Tout effacer',
+                          danger: true,
+                        })
+                        if (ok) socket.emit('host:resetParty')
+                      }}
+                    >
+                      <Icon name="trash" />
+                      Nouvelle soirée
+                    </button>
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+        </div>
+
+        {/* La console animateur : discrète, en bas, toujours au même endroit.
+            Chaque écran y pose ses boutons ; le son et le plein écran restent
+            à droite quoi qu'il arrive. */}
+        <footer className="host-console">
+          <span className="console-label">Console animateur</span>
+          <div className="console-actions" ref={setConsoleSlot} />
+          <div className="console-icons">
+            <button
+              className="btn btn-icon"
+              title={muted ? 'Activer les sons' : 'Couper les sons'}
+              aria-label={muted ? 'Activer les sons' : 'Couper les sons'}
+              aria-pressed={!muted}
+              onClick={() => {
+                initAudio()
+                setMuted(toggleMuted())
+              }}
+            >
+              <Icon name={muted ? 'volume-off' : 'volume'} />
+            </button>
+            <button
+              className="btn btn-icon"
+              title="Plein écran"
+              aria-label="Plein écran"
+              onClick={() => {
+                if (document.fullscreenElement) document.exitFullscreen()
+                else document.documentElement.requestFullscreen().catch(() => {})
+              }}
+            >
+              <Icon name="maximize" />
+            </button>
+          </div>
+        </footer>
+
+        {s.toast && <div className={`toast toast-${s.toast.kind}`}>{s.toast.message}</div>}
+      </div>
+    </ConsoleSlot.Provider>
   )
 }

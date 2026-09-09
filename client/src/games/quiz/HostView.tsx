@@ -4,13 +4,15 @@ import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
 import { FinalPodium, Standings } from '../../components/Podium'
 import { TeamBoard } from '../../components/TeamBoard'
+import { Icon } from '../../components/Icon'
+import { Shape } from '../../components/Shape'
+import { Rank } from '../../components/Rank'
+import { ConsoleActions } from '../../components/HostConsole'
 import { confirmDialog } from '../../components/Dialog'
 import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
 import { formatNumber } from '../../format'
 import { questionSizeClass } from './questionSize'
-
-const SHAPES = ['▲', '◆', '●', '■']
 
 /** Le décompte avant que la question suivante parte toute seule. */
 function AutoNextPill({ deadline }: { deadline: number }) {
@@ -20,7 +22,11 @@ function AutoNextPill({ deadline }: { deadline: number }) {
     return () => clearInterval(id)
   }, [])
   const seconds = Math.max(0, Math.ceil((deadline - now) / 1000))
-  return <span className="pill">⏩ suivante dans {seconds} s</span>
+  return (
+    <span className="pill">
+      <Icon name="skip" /> suivante dans {seconds} s
+    </span>
+  )
 }
 
 /** Manuel → 5 s → 10 s → manuel : trois réglages suffisent. */
@@ -45,10 +51,36 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
     else if (v.phase === 'finished') sound.fanfare()
   }, [v.phase, v.qIndex, v.kind])
 
+  /* Le bouton qui enchaîne les questions sans cliquer : vingt clics par quiz,
+     ce sont vingt occasions de décrocher de la soirée. */
+  const autoButton = (
+    <button
+      className={'btn' + (v.autoNextSeconds ? ' auto-on' : ' btn-ghost')}
+      title="Enchaîner les questions sans cliquer"
+      onClick={() => {
+        const i = PALIERS_AUTO.indexOf(v.autoNextSeconds ?? null)
+        sendCommand({ type: 'autoNext', seconds: PALIERS_AUTO[(i + 1) % PALIERS_AUTO.length] })
+      }}
+    >
+      <Icon name="skip" />
+      {v.autoNextSeconds ? `Auto ${v.autoNextSeconds} s` : 'Manuel'}
+    </button>
+  )
+
+  const endButton = (
+    <button className="btn btn-ghost" onClick={endSession}>
+      <Icon name="x" />
+      Terminer
+    </button>
+  )
+
   if (v.phase === 'pickPack') {
     return (
       <div className="quiz-host">
-        <h2>🧠 Choisissez un quiz</h2>
+        <h2>
+          <Icon name="sparkles" />
+          Choisissez un quiz
+        </h2>
 
         {/* Annoncé à la salle avant de lancer : tant qu'un quiz peut tout
             renverser, personne ne décroche du classement. */}
@@ -78,9 +110,11 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
             </div>
           ))}
         </div>
-        <div className="row">
-          <button className="btn btn-ghost" onClick={endSession}>Annuler</button>
-        </div>
+        <ConsoleActions>
+          <button className="btn btn-ghost" onClick={endSession}>
+            Annuler
+          </button>
+        </ConsoleActions>
       </div>
     )
   }
@@ -95,22 +129,19 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
     return (
       <div className="quiz-host">
         <div className="quiz-status">
-          <span className="pill">{v.packTitle}</span>
-          <span className="pill">
-            Question {v.qIndex + 1}/{v.qCount}
+          <span className="pill flash">
+            <Icon name="eye" /> Regardez bien…
           </span>
-          <span className="pill flash">👀 Regardez bien…</span>
         </div>
         <TimerBar deadline={v.deadline!} duration={v.duration ?? 5} ticking />
         {v.image && <img className="quiz-img observe-img" src={v.image} alt="" />}
-        <div className="row">
-          <button className="btn" onClick={() => sendCommand({ type: 'next' })}>
+        <ConsoleActions>
+          <button className="btn btn-accent" onClick={() => sendCommand({ type: 'next' })}>
+            <Icon name="skip" />
             Passer à la question
           </button>
-          <button className="btn btn-ghost" onClick={endSession}>
-            Terminer
-          </button>
-        </div>
+          {endButton}
+        </ConsoleActions>
       </div>
     )
   }
@@ -121,46 +152,50 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
     const maxCount = Math.max(1, ...(v.counts ?? [0]))
     return (
       <div className="quiz-host">
-        <div className="quiz-status">
-          <span className="pill">{v.packTitle}</span>
-          {(v.multiplier ?? 1) > 1 && <span className="pill multi">×{v.multiplier} points</span>}
-          <span className="pill">
-            Question {v.qIndex + 1}/{v.qCount}
-          </span>
-          {revealing && v.fastest && (
-            <span className="pill flash">⚡ {v.fastest.name} — {(v.fastest.ms / 1000).toFixed(2)} s</span>
-          )}
-          {revealing && v.autoNextAt && <AutoNextPill deadline={v.autoNextAt} />}
-        </div>
+        {revealing && (v.fastest || v.autoNextAt) && (
+          <div className="quiz-status">
+            {v.fastest && (
+              <span className="pill flash">
+                <Icon name="zap" /> {v.fastest.name} — {(v.fastest.ms / 1000).toFixed(2)} s
+              </span>
+            )}
+            {v.autoNextAt && <AutoNextPill deadline={v.autoNextAt} />}
+          </div>
+        )}
 
         {!revealing && (
-          <div className="question-timer">
-            <TimerBar
-              deadline={v.deadline!}
-              duration={v.duration ?? 20}
-              ticking
-              frozenMs={v.paused ? v.remainingMs : undefined}
-            />
-            <span className="muted answered-count">
-              {v.answeredCount}/{v.participantCount} ont répondu
-            </span>
-          </div>
+          <TimerBar
+            deadline={v.deadline!}
+            duration={v.duration ?? 20}
+            ticking
+            frozenMs={v.paused ? v.remainingMs : undefined}
+          />
         )}
 
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
-        {v.photoGone && <p className="photo-gone">🙈 La photo a disparu — de mémoire !</p>}
+        {v.photoGone && (
+          <p className="photo-gone">
+            <Icon name="eye-off" /> La photo a disparu — de mémoire !
+          </p>
+        )}
 
         {v.kind === 'number' ? (
           revealing ? (
             <div className="guess-reveal">
-              <p className="target-value pop">
+              <p className="target-value">
                 {formatNumber(v.target!)} <span className="target-unit">{v.unit}</span>
               </p>
               <div className="podium">
                 {v.guesses?.map((g, i) => (
                   <div key={i} className="lb-row" style={{ animationDelay: `${i * 60}ms` }}>
-                    <span className="lb-rank">{i === 0 ? '🎯' : i + 1}</span>
+                    {i === 0 ? (
+                      <span className="lb-rank">
+                        <Icon name="target" />
+                      </span>
+                    ) : (
+                      <Rank n={i + 1} />
+                    )}
                     <span className="lb-avatar">{g.avatar}</span>
                     <span className="lb-name">{g.name}</span>
                     <span className="guess-value">
@@ -174,8 +209,8 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
             </div>
           ) : (
             <p className="big-waiting">
-              ⌨️ Tapez votre estimation sur votre téléphone{v.unit ? ` (en ${v.unit})` : ''} — le plus proche
-              gagne&nbsp;!
+              <Icon name="keyboard" /> Tapez votre estimation sur votre téléphone{v.unit ? ` (en ${v.unit})` : ''} — le
+              plus proche gagne&nbsp;!
             </p>
           )
         ) : (
@@ -183,14 +218,16 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
             {v.answers!.map((a, i) => (
               <div
                 key={i}
-                className={`ans-btn ans-${i}` + (revealing ? (i === v.correct ? ' correct' : ' dim') : '')}
+                className={'ans-btn' + (revealing ? (i === v.correct ? ' correct' : ' dim') : '')}
               >
-                <span className="ans-shape">{SHAPES[i]}</span>
+                <Shape index={i} />
                 <span className="ans-text">{a}</span>
                 {revealing && (
                   <>
-                    {i === v.correct && <span className="ans-check">✓</span>}
-                    <span className="ans-count">{v.counts?.[i] ?? 0}</span>
+                    <span className="ans-extra">
+                      {i === v.correct && <Icon name="check" className="ans-check" />}
+                      <span className="ans-count">{v.counts?.[i] ?? 0}</span>
+                    </span>
                     <span
                       className="ans-bar"
                       style={{ width: `${((v.counts?.[i] ?? 0) / maxCount) * 100}%` }}
@@ -202,28 +239,22 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
           </div>
         )}
 
-        <div className="row">
+        <ConsoleActions>
           {revealing ? (
-            <button className="btn btn-primary" onClick={() => sendCommand({ type: 'next' })}>
-              {last ? '🏆 Voir le podium' : 'Question suivante'}
-            </button>
-          ) : (
             <>
-              <button className="btn" onClick={() => sendCommand({ type: 'next' })}>
-                Révéler la réponse
+              <button className="btn btn-primary" onClick={() => sendCommand({ type: 'next' })}>
+                {last ? (
+                  <>
+                    <Icon name="trophy" />
+                    Voir le podium
+                  </>
+                ) : (
+                  'Question suivante'
+                )}
               </button>
-              <button
-                className="btn btn-ghost"
-                onClick={() => sendCommand({ type: v.paused ? 'resume' : 'pause' })}
-              >
-                {v.paused ? '▶ Reprendre' : '⏸ Pause'}
-              </button>
-            </>
-          )}
-          {revealing && (
-            <>
               <button className="btn btn-ghost" onClick={() => sendCommand({ type: 'replay' })}>
-                ↺ Reposer
+                <Icon name="rotate" />
+                Reposer
               </button>
               <button
                 className="btn btn-ghost"
@@ -237,24 +268,25 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                   if (ok) sendCommand({ type: 'cancel' })
                 }}
               >
-                ✖ Annuler les points
+                <Icon name="x-circle" />
+                Annuler les points
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn btn-accent" onClick={() => sendCommand({ type: 'next' })}>
+                <Icon name="eye" />
+                Révéler
+              </button>
+              <button className="btn" onClick={() => sendCommand({ type: v.paused ? 'resume' : 'pause' })}>
+                <Icon name={v.paused ? 'play' : 'pause'} />
+                {v.paused ? 'Reprendre' : 'Pause'}
               </button>
             </>
           )}
-          {/* Vingt clics par quiz, ce sont vingt occasions de décrocher de
-              la soirée : ce bouton laisse l'application enchaîner seule. */}
-          <button
-            className={'btn btn-ghost' + (v.autoNextSeconds ? ' auto-on' : '')}
-            title="Enchaîner les questions sans cliquer"
-            onClick={() => {
-              const i = PALIERS_AUTO.indexOf(v.autoNextSeconds ?? null)
-              sendCommand({ type: 'autoNext', seconds: PALIERS_AUTO[(i + 1) % PALIERS_AUTO.length] })
-            }}
-          >
-            {v.autoNextSeconds ? `⏩ Auto ${v.autoNextSeconds} s` : '⏩ Manuel'}
-          </button>
-          <button className="btn btn-ghost" onClick={endSession}>Terminer</button>
-        </div>
+          {autoButton}
+          {endButton}
+        </ConsoleActions>
 
         {/* Entre deux questions, c'est le moment où l'animateur annonce qui
             mène. Les équipes passent en premier : c'est le classement qui
@@ -263,13 +295,19 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
           <div className="reveal-boards">
             {teams.length > 0 && (
               <div>
-                <h3>👥 Les équipes</h3>
+                <h3>
+                  <Icon name="users" />
+                  Les équipes
+                </h3>
                 <TeamBoard teams={teams} />
               </div>
             )}
             {v.standings && v.standings.length > 0 && (
               <div>
-                <h3>🏆 Top du quiz</h3>
+                <h3>
+                  <Icon name="trophy" />
+                  Top du quiz
+                </h3>
                 <Standings rows={v.standings} />
               </div>
             )}
@@ -281,19 +319,27 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
 
   // finished
   return (
-    <div className="quiz-host">
-      <h2>🏆 Podium du quiz</h2>
+    <div className="quiz-host stage-scroll">
+      <h2>
+        <Icon name="trophy" />
+        Podium du quiz
+      </h2>
       {v.standings && <FinalPodium rows={v.standings} />}
       {v.standings && v.standings.length > 3 && <Standings rows={v.standings.slice(3)} offset={3} />}
       {teams.length > 0 && (
         <div>
-          <h3>👥 Les équipes après ce quiz</h3>
+          <h3>
+            <Icon name="users" />
+            Les équipes après ce quiz
+          </h3>
           <TeamBoard teams={teams} showGamePoints />
         </div>
       )}
-      <div className="row">
-        <button className="btn btn-primary" onClick={endSession}>Terminer le quiz</button>
-      </div>
+      <ConsoleActions>
+        <button className="btn btn-primary" onClick={endSession}>
+          Terminer le quiz
+        </button>
+      </ConsoleActions>
     </div>
   )
 }
