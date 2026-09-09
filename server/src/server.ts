@@ -68,8 +68,9 @@ function originOf(url: string | undefined): string | null {
 
 /**
  * En-têtes de durcissement. Le contenu ne vient que de l'application elle-même :
- * aucun script tiers, aucune police téléchargée, les photos sont servies ici.
- * Les styles en ligne sont ceux que React pose sur les barres et les podiums.
+ * aucun script tiers, les deux polices et les photos sont servies ici (les
+ * polices tombent sous `default-src 'self'`). Les styles en ligne sont ceux
+ * que React pose sur les barres et les podiums.
  */
 const SECURITY_HEADERS: Record<string, string> = {
   'Content-Security-Policy': [
@@ -362,6 +363,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
       '/assets',
       express.static(path.join(clientDist, 'assets'), { maxAge: '1y', immutable: true, fallthrough: false }),
     )
+    // Les polices ne portent pas d'empreinte, mais elles ne changent pour
+    // ainsi dire jamais : un mois de cache, et cinquante téléphones ne les
+    // redemandent pas à chaque ouverture.
+    app.use('/fonts', express.static(path.join(clientDist, 'fonts'), { maxAge: '30d', fallthrough: false }))
     app.use(express.static(clientDist, { index: false, maxAge: '1h' }))
     app.get('*', (_req, res) => {
       res.set('Cache-Control', 'no-cache')
