@@ -9,8 +9,9 @@
      LES ÉQUIPES — c'est ici, et seulement ici, qu'on modifie la feuille.
      Tout le reste (compteurs, mise en page) se met à jour tout seul.
 
-     · « Équipe 3 — Les Micros 🎤 » ouvre une équipe. Le nom après le tiret
-       est facultatif : sans lui, la carte s'appelle simplement « Équipe 3 ».
+     · « Équipe 3 » ouvre une équipe. Sans nom, la carte imprime une ligne
+       pointillée pour l'écrire à la main le jour J ; « Équipe 3 — Les Micros 🎤 »
+       imprime ce nom à la place.
      · Ensuite une personne par ligne :   Prénom + sa copine ⭐ — groupe
          « + sa copine » ou « et son mari » compte une personne de plus,
          ⭐ marque le ou la capitaine,
@@ -19,36 +20,36 @@
      · Les lignes qui commencent par # sont ignorées.
      ═══════════════════════════════════════════════════════════════════ -->
 <script type="text/plain" id="equipes">
-Équipe 1 — Les Salseras 💃
+Équipe 1
 Maman ⭐
 Franck
 Ingrid
 Bilal
 Ludo
 Barbara
-Amanda et son mari
-
-Équipe 2 — Les Rumberos 🕺
-Sandra ⭐
-Sandra danse
-Josue
-Andréa
+Amanda
 Mathieu
+
+Équipe 2
+Sandra soeur⭐
+Sandra danse
+Josué
+Andréa
 Bastien
 Lucie
 Fabien
 
-Équipe 3 — Les Micros 🎤
+Équipe 3
 Aurore ⭐
 Pauline
 Jules
 Marchi
 Mel
 Aymeric
-Juliette
+Juliette coloc
 Saadia
 
-Équipe 4 — Les Paillettes ✨
+Équipe 4
 Deves ⭐
 Papa
 Emmanuel + sa femme
@@ -57,16 +58,16 @@ Tanbi
 Eléonore
 Adriane
 
-Équipe 5 — Les Congas 🥁
-Axelle M ⭐
+Équipe 5
+Axelle ⭐
 Alexander + sa copine
 Perrine
 Sixtine
 Juliette fac
 Jérémy fac
-Axelle D
+Axelle cousine
 
-Équipe 6 — Les Piments 🌶️
+Équipe 6
 Manuel ⭐
 Eléa
 Jérémy
@@ -248,6 +249,27 @@ body {
   text-transform: uppercase;
   color: var(--muted);
   margin-top: 1.3mm;
+}
+
+.card-title-block { flex: 1; min-width: 0; }
+
+/* Sans nom dans la liste : une ligne à remplir, comme le champ « Ton prénom »
+   de l'inscription. */
+.card-write {
+  position: relative;
+  height: 9mm;
+  border-bottom: 0.35mm dotted var(--accent);
+}
+
+.card-write-hint {
+  position: absolute;
+  right: 0;
+  bottom: 0.6mm;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 8.5pt;
+  color: var(--muted);
 }
 
 .members {
@@ -479,9 +501,12 @@ html[data-groupes="non"] .member .group { display: none; }
     var count = headcount(team)
     var people = count + ' invité' + (count > 1 ? 's' : '')
     var named = splitEmoji(team.name)
-    var title = named.text ? esc(named.text) : 'Équipe ' + esc(team.num)
-    var meta = named.text ? 'Équipe ' + esc(team.num) + ' · ' + people : people
+    var meta = 'Équipe ' + esc(team.num) + ' · ' + people
     var emoji = named.emoji ? '<span class="emoji">' + esc(named.emoji) + '</span>' : ''
+    /* Sans nom dans la liste, la carte imprime une ligne : l'équipe l'écrit le jour J. */
+    var title = named.text
+      ? '<h2 class="card-title">' + esc(named.text) + emoji + '</h2>'
+      : '<div class="card-write"><span class="card-write-hint">nom à choisir ensemble</span></div>'
 
     var rows = team.members.map(function (m) {
       return '<li class="member">' +
@@ -495,7 +520,7 @@ html[data-groupes="non"] .member .group { display: none; }
     return '<section class="card">' +
       '<div class="card-head">' +
         '<div class="num">' + esc(team.num) + '</div>' +
-        '<div><h2 class="card-title">' + title + emoji + '</h2><div class="card-meta">' + meta + '</div></div>' +
+        '<div class="card-title-block">' + title + '<div class="card-meta">' + meta + '</div></div>' +
       '</div>' +
       '<ul class="members">' + rows + '</ul>' +
     '</section>'
