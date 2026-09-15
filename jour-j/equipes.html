@@ -12,7 +12,7 @@
      · « Équipe 3 — Les Micros 🎤 » ouvre une équipe. Le nom après le tiret
        est facultatif : sans lui, la carte s'appelle simplement « Équipe 3 ».
      · Ensuite une personne par ligne :   Prénom + sa copine ⭐ — groupe
-         « + sa copine » compte une personne de plus,
+         « + sa copine » ou « et son mari » compte une personne de plus,
          ⭐ marque le ou la capitaine,
          le groupe (famille proche, amis danse…) ne s'imprime que si l'on
          coche « Afficher les groupes » — il sert surtout à composer.
@@ -20,51 +20,60 @@
      ═══════════════════════════════════════════════════════════════════ -->
 <script type="text/plain" id="equipes">
 Équipe 1 — Les Salseras 💃
-Maman ⭐ — famille proche
-Franck + sa copine — amis danse
-Perrine — amis danse
-Marchi + sa copine — amis d'enfance
-Saadia — autres amis
+Maman ⭐
+Franck
+Ingrid
+Bilal
+Ludo
+Barbara
+Amanda et son mari
 
 Équipe 2 — Les Rumberos 🕺
-Sandra ⭐ — famille proche
-Papa — famille proche
-Sandra danse + son copain — amis danse
-Amanda + son copain — amis d'enfance
-Bastien — famille éloignée
-Lucie — autres amis
+Sandra ⭐
+Sandra danse
+Josue
+Andréa
+Mathieu
+Bastien
+Lucie
+Fabien
 
 Équipe 3 — Les Micros 🎤
-Aurore ⭐ — amis d'enfance
-Pauline + son copain — amis danse
-Tanbi + sa copine — amis d'enfance
-Aymeric + sa copine — autres amis
-Andréa — amis d'enfance
+Aurore ⭐
+Pauline
+Jules
+Marchi
+Mel
+Aymeric
+Juliette
+Saadia
 
 Équipe 4 — Les Paillettes ✨
-Deves ⭐ — amis d'enfance
-Manu danse + sa copine — amis danse
-Sixtine — amis danse
-Ludo + sa copine — amis d'enfance
-Adriane — famille éloignée
-Fabien — amis danse
+Deves ⭐
+Papa
+Emmanuel + sa femme
+Ludivine
+Tanbi
+Eléonore
+Adriane
 
 Équipe 5 — Les Congas 🥁
-Axelle M ⭐ — amis d'enfance
-Alexander + sa copine — amis danse
-Ludivine — amis danse
-Eléa — amis d'enfance
-Célia — amis danse
-Juliette fac + son copain — autres amis
+Axelle M ⭐
+Alexander + sa copine
+Perrine
+Sixtine
+Juliette fac
+Jérémy fac
+Axelle D
 
 Équipe 6 — Les Piments 🌶️
-Manuel ⭐ — amis d'enfance
-Jérémy — famille proche
-Axelle D — famille éloignée
-Mégane — famille éloignée
-Bilal — amis danse
-Juliette danse — amis danse
-Flore — amis d'enfance
+Manuel ⭐
+Eléa
+Jérémy
+Mégane
+Célia
+Juliette danse
+Flore
 </script>
 
 <!-- Le titre de la feuille, à modifier ici aussi si besoin. -->
@@ -114,6 +123,7 @@ html[data-theme="velours"] {
 }
 
 * { box-sizing: border-box; margin: 0; }
+[hidden] { display: none !important; }
 
 html, body {
   print-color-adjust: exact;
@@ -184,7 +194,7 @@ body {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 4.5mm;
-  margin: 5mm 0 4mm;
+  margin: 4.5mm 0 3.5mm;
 }
 
 .card {
@@ -201,8 +211,8 @@ body {
   display: flex;
   align-items: center;
   gap: 3.5mm;
-  padding-bottom: 2.5mm;
-  margin-bottom: 2.5mm;
+  padding-bottom: 2.2mm;
+  margin-bottom: 2.2mm;
   border-bottom: 1px solid var(--edge-soft);
 }
 
@@ -245,7 +255,7 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5mm;
+  gap: 0.3mm;
 }
 
 .member {
@@ -253,7 +263,7 @@ body {
   align-items: baseline;
   gap: 1.8mm;
   font-size: 12pt;
-  line-height: 1.3;
+  line-height: 1.28;
 }
 
 .member .name { font-weight: 500; }
@@ -400,7 +410,7 @@ html[data-groupes="non"] .member .group { display: none; }
     <button type="button" data-theme-choice="ivoire" aria-pressed="true">Ivoire</button>
     <button type="button" data-theme-choice="velours" aria-pressed="false">Velours</button>
   </div>
-  <label><input type="checkbox" id="chk-groupes"> Afficher les groupes</label>
+  <label id="lbl-groupes"><input type="checkbox" id="chk-groupes"> Afficher les groupes</label>
   <button type="button" class="btn-print" id="btn-print">Imprimer</button>
 </div>
 
@@ -444,7 +454,7 @@ html[data-groupes="non"] .member .group { display: none; }
       if (/[⭐★]/.test(who)) { captain = true; who = who.replace(/[⭐★]/g, '').trim() }
       if (/[⭐★]/.test(group)) { captain = true; group = group.replace(/[⭐★]/g, '').trim() }
 
-      var parts = who.split(/\s\+\s/)
+      var parts = who.split(/\s(?:\+|et|&)\s/)
       teams[teams.length - 1].members.push({
         name: parts[0].trim(),
         plus: parts.slice(1).join(' + ').trim(),
@@ -496,6 +506,8 @@ html[data-groupes="non"] .member .group { display: none; }
     var lines = document.getElementById('titre').textContent.split('\n')
       .map(function (l) { return l.trim() }).filter(Boolean)
     var total = teams.reduce(function (n, t) { return n + headcount(t) }, 0)
+    var hasGroups = teams.some(function (t) { return t.members.some(function (m) { return m.group }) })
+    document.getElementById('lbl-groupes').hidden = !hasGroups
 
     document.getElementById('sheet').innerHTML =
       '<header class="head">' +
