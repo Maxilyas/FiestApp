@@ -14,27 +14,37 @@
        Avec 12 lignes, la première est un échauffement (12 chaises, personne
        ne sort) ; avec 11 lignes, on élimine dès la première. La dernière
        ligne est toujours la finale, une chaise pour deux.
+     · « secours » : les objets de rechange, imprimés dans la colonne de
+       droite, si un objet vient à manquer dans la salle.
      · « consigne » : la phrase à lire aux invités.
      · « regles » et « avant » : une ligne par point.
      · Les lignes qui commencent par # sont ignorées.
      ═══════════════════════════════════════════════════════════════════ -->
 <script type="text/plain" id="manches">
-Des clés de voiture — n'importe lesquelles, pas forcément les tiennes
-Un verre vide — vraiment vide : le public a le droit de finir son verre
+Des clés — n'importe lesquelles, voiture ou maison
+Un verre vide — vraiment vide, on vérifie
+Une pièce de monnaie — peu importe la valeur, même un centime
+Une carte de fidélité — toute enseigne, pas la carte bancaire
 Un stylo — qui écrit
-Une carte de fidélité — toute enseigne ; la carte bancaire ne compte pas
+Un QR code — sur papier : ticket, étiquette, carte de table
 Un briquet — on ne l'allume pas
-Une pince à cheveux — il faut la retirer d'une tête, avec l'accord de la tête
-Un QR code — sur papier seulement : ticket, carte, emballage ; l'écran du téléphone ne compte pas
-Une boîte de médicaments — boîte ou plaquette, la pharmacie du sac à main
-Un caillou — il faut sortir : porte ouverte, et compte fort pour les presser
-Deux feuilles de papier toilette — exactement deux, on compte ; le rouleau entier ne compte pas
-Un glaçon — entier dans la main à l'arrivée, sinon ça ne compte pas ; gare au sol mouillé
-Un autographe de la personne la plus âgée née le même mois que toi — chacun sa cible ; personne d'autre de ce mois-là ? la plus âgée de la même saison
+Une boîte de médicaments — boîte ou plaquette
+Un caillou — il faut sortir, porte ouverte
+Deux feuilles de papier toilette — exactement deux, pas le rouleau
+Un glaçon — entier dans la main à l'arrivée
+Ramener Romane — elle a le droit de courir ; c'est elle qui choisit
+</script>
+
+<script type="text/plain" id="secours">
+Une chaussure
+Des lunettes
+Une chaussette
+Une ceinture
+Un chargeur de téléphone
 </script>
 
 <script type="text/plain" id="consigne">
-« Douze chaises, douze joueurs, un par mois de naissance. À chaque manche, je demande un objet : vous partez le chercher dans la salle et vous revenez vous asseoir. Pendant ce temps, une chaise disparaît. Celui qui revient sans chaise est éliminé. Le dernier assis a gagné ! »
+« Douze chaises, douze joueurs : deux par équipe. À chaque manche, je demande un objet : vous partez le chercher dans la salle et vous revenez vous asseoir. Pendant ce temps, une chaise disparaît. Celui qui revient sans chaise est éliminé. Le dernier assis fait gagner son équipe ! »
 </script>
 
 <script type="text/plain" id="regles">
@@ -45,15 +55,15 @@ Interdit de prendre l'objet dans les mains d'un autre joueur.
 
 <script type="text/plain" id="avant">
 Les 12 chaises en ligne au milieu de la piste, dos à dos, et un complice pour en retirer une à chaque manche.
-Recruter mois par mois, « levez la main si vous êtes nés en janvier » : un joueur par mois. Repère les mois où il y a du monde, ça sert à la finale.
+Chaque équipe envoie deux joueurs, douze en tout. Note qui joue pour quelle équipe, ça sert au classement.
 Un bac de glaçons au bar, la porte vers l'extérieur ouverte pour le caillou, la musique prête.
-Un mois sans personne ? Quelqu'un dont un parent ou un enfant est né ce mois-là prend la place.
+Classement des équipes : par leur joueur resté le plus longtemps, du gagnant au premier sorti.
 </script>
 
 <script type="text/plain" id="titre">
 Les trente ans de Romane · fiche animateur
 Le jeu des 12 mois
-samedi 19 septembre 2026 · douze chaises, douze joueurs, un seul gagnant
+samedi 19 septembre 2026 · douze chaises, deux joueurs par équipe, un seul gagnant
 </script>
 
 <style>
@@ -368,6 +378,71 @@ body {
   color: var(--muted);
 }
 
+/* ── La colonne de secours, à droite des manches ───────────────────── */
+.main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 36mm;
+  gap: 4mm;
+  align-items: stretch;
+}
+
+.rounds { flex: none; height: 100%; }
+.round { grid-template-columns: 9mm 21mm 1fr 30mm; }
+.r-note { font-size: 7.6pt; }
+
+.secours {
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+  padding: 3.5mm 4mm 3.5mm;
+  background: var(--card);
+  border: 1px solid var(--edge);
+  border-radius: 3mm;
+}
+
+.secours .panel-label { margin-bottom: 0; }
+
+.secours-hint {
+  font-size: 7.6pt;
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.secours-list {
+  list-style: none;
+  padding: 0;
+  margin-top: 1mm;
+  display: flex;
+  flex-direction: column;
+  gap: 2.6mm;
+}
+
+.secours-list li {
+  position: relative;
+  padding-left: 4mm;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 12.5pt;
+  line-height: 1.1;
+}
+
+.secours-list li::before {
+  content: '';
+  position: absolute;
+  left: 0.3mm;
+  top: 1.7mm;
+  width: 1.6mm;
+  height: 1.6mm;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Deux lignes vides, pour les idées du soir même. */
+.secours-write { height: 7mm; border-bottom: 0.35mm dotted var(--accent); }
+.secours-write:first-of-type { margin-top: auto; }
+
 /* ── La barre d'outils, à l'écran seulement ────────────────────────── */
 .toolbar {
   position: fixed;
@@ -529,6 +604,14 @@ body {
     var rules = lines('regles')
     var prep = lines('avant')
     var quote = lines('consigne').join(' ')
+    var backup = lines('secours')
+    var secours = backup.length
+      ? '<aside class="secours"><div class="panel-label">En secours</div>' +
+        '<p class="secours-hint">Si un objet vient à manquer dans la salle, on le remplace par un de ceux-là.</p>' +
+        '<ul class="secours-list">' + backup.map(function (b) { return '<li>' + esc(b) + '</li>' }).join('') + '</ul>' +
+        '<div class="secours-write"></div><div class="secours-write"></div>' +
+        '</aside>'
+      : ''
 
     document.getElementById('sheet').innerHTML =
       '<header class="head">' +
@@ -548,7 +631,7 @@ body {
       '<ul class="prep"><li class="prep-label">Avant de lancer</li>' +
         prep.map(function (p) { return '<li>' + esc(p) + '</li>' }).join('') +
       '</ul>' +
-      '<ol class="rounds">' + rounds.map(renderRound).join('') + '</ol>' +
+      '<div class="main"><ol class="rounds">' + rounds.map(renderRound).join('') + '</ol>' + secours + '</div>' +
       '<footer class="foot">' +
         '<span>' + rounds.length + ' manches · 12 chaises · un seul gagnant</span>' +
         '<span>Fiche animateur · à garder en main</span>' +
