@@ -49,16 +49,33 @@
   --ink: #f3ece2;
   --muted: #a89b8a;
   --accent: #d9b56a;
+  /* Le champagne en composantes, pour les filets et fonds qui le prennent à
+     une transparence donnée : rgba(var(--accent-rgb), 0.3). */
+  --accent-rgb: 217, 181, 106;
   --accent-hover: #e8cb8a;
   --on-accent: #1a1412;
   /* Ce qui alerte : une erreur, les dernières secondes, ce qui efface. */
   --alert: #e06c6c;
+  --alert-rgb: 224, 108, 108;
+  --alert-hover: #ea8484;
+  --on-alert: #1a1412;
 
   --surface: rgba(255, 255, 255, 0.035);
+  --surface-faint: rgba(255, 255, 255, 0.02);
   --surface-strong: rgba(255, 255, 255, 0.06);
+  /* La piste du chronomètre, sous la ligne qui se vide. */
+  --track: rgba(255, 255, 255, 0.1);
   --edge: rgba(217, 181, 106, 0.22);
   --edge-strong: rgba(217, 181, 106, 0.55);
   --accent-soft: rgba(217, 181, 106, 0.12);
+  --scroll-thumb: rgba(217, 181, 106, 0.3);
+  /* Ce qui s'efface à la révélation : les réponses fausses restent lisibles,
+     mais ne disputent plus l'œil à la bonne. */
+  --dim: 0.38;
+  /* Le voile derrière un dialogue, et les ombres de ce qui flotte. */
+  --backdrop: rgba(12, 8, 7, 0.72);
+  --shadow-toast: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --shadow-dialog: 0 24px 60px rgba(0, 0, 0, 0.55);
 
   /* Les quatre teintes ne servent qu'aux formes ▲ ◆ ● ■ des réponses. */
   --shape-0: #d98a9a;
@@ -72,6 +89,61 @@
 
   --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   --sans: Figtree, 'Segoe UI', system-ui, sans-serif;
+}
+
+/* ── « Ivoire » : Velours passé sur papier ──────────────────────────────
+   Un vidéoprojecteur délave les noirs : dans une salle éclairée, l'écran
+   commun en Velours devient un rectangle gris où plus rien ne se lit. Sur
+   demande de l'animateur (bouton de la console, choix mémorisé), la page
+   passe en Ivoire : fond crème, le noir chaud devient l'encre, le champagne
+   s'assombrit pour rester lisible — les teintes des feuilles imprimées de la
+   soirée (jour-j/). Seules les variables changent ; la mise en page, les
+   tailles et les polices sont les mêmes.
+
+   Ne concerne que l'écran commun (client/src/theme.ts) : les téléphones des
+   invités restent en Velours, le noir y ménage les yeux dans le noir. */
+:root[data-theme='ivoire'] {
+  --bg: #f9f5ec;
+  --bg-halo: #fffdf8;
+  --bg-raised: #fffdf8;
+
+  --ink: #2a201b;
+  /* Plus foncé que sur papier : le projecteur mange une partie du contraste. */
+  --muted: #7a6b5a;
+  --accent: #ac8536;
+  --accent-rgb: 172, 133, 54;
+  --accent-hover: #c0973f;
+  /* L'encre sur le champagne, comme en Velours : sur cet or-là, le sombre
+     se lit mieux que le blanc. */
+  --on-accent: #1a1412;
+  --alert: #b8403c;
+  --alert-rgb: 184, 64, 60;
+  --alert-hover: #c9524e;
+  /* Ce rouge-là est sombre : le bouton qui efface passe en clair dessus. */
+  --on-alert: #fffdf8;
+
+  /* Les cartes sont plus blanches que le papier, comme sur les fiches. */
+  --surface: rgba(255, 255, 255, 0.55);
+  --surface-faint: rgba(255, 255, 255, 0.35);
+  --surface-strong: rgba(42, 32, 27, 0.06);
+  --track: rgba(42, 32, 27, 0.14);
+  --edge: rgba(172, 133, 54, 0.38);
+  --edge-strong: rgba(172, 133, 54, 0.75);
+  --accent-soft: rgba(172, 133, 54, 0.12);
+  --scroll-thumb: rgba(172, 133, 54, 0.45);
+  /* Moins effacé qu'en Velours : à 38 % sur la crème, les réponses fausses
+     disparaissaient au projecteur au lieu de s'estomper. */
+  --dim: 0.5;
+  --backdrop: rgba(42, 32, 27, 0.45);
+  --shadow-toast: 0 10px 30px rgba(42, 32, 27, 0.18);
+  --shadow-dialog: 0 24px 60px rgba(42, 32, 27, 0.25);
+
+  /* Les quatre teintes, assombries : les pastels de Velours disparaissent
+     sur la crème — le losange champagne y était presque invisible. */
+  --shape-0: #c2566c;
+  --shape-1: #ac8536;
+  --shape-2: #7a68b8;
+  --shape-3: #4e8f6c;
 }
 
 * {
@@ -116,10 +188,10 @@ a:hover { color: var(--accent-hover); }
 
 /* Les ascenseurs : fins, champagne, sans piste. L'ascenseur blanc de Windows
    se voit du fond de la salle sur un écran noir. */
-html { scrollbar-color: rgba(217, 181, 106, 0.35) transparent; scrollbar-width: thin; }
+html { scrollbar-color: var(--scroll-thumb) transparent; scrollbar-width: thin; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(217, 181, 106, 0.3); border-radius: 999px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 999px; border: 2px solid var(--bg); }
 
 h1,
 h2,
@@ -188,7 +260,7 @@ h3 > .icon {
 .hairline {
   height: 1px;
   border: none;
-  background: linear-gradient(90deg, rgba(217, 181, 106, 0) 0%, rgba(217, 181, 106, 0.55) 50%, rgba(217, 181, 106, 0) 100%);
+  background: linear-gradient(90deg, rgba(var(--accent-rgb), 0) 0%, rgba(var(--accent-rgb), 0.55) 50%, rgba(var(--accent-rgb), 0) 100%);
 }
 
 /* ── Layout de base ─────────────────────────────── */
@@ -228,13 +300,13 @@ h3 > .icon {
   padding: 10px 14px;
   border-radius: 10px;
   border: 1px solid var(--edge);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface);
   color: var(--ink);
   font-family: var(--sans);
   font-size: 1rem;
 }
 
-.input::placeholder { color: rgba(168, 155, 138, 0.7); }
+.input::placeholder { color: var(--muted); opacity: 0.7; }
 .input:focus { outline: none; border-color: var(--accent); }
 
 /* Le champ du prénom : une ligne, en serif, comme sur une invitation. */
@@ -242,7 +314,7 @@ h3 > .icon {
   min-height: 54px;
   padding: 6px 4px;
   border: none;
-  border-bottom: 1px solid rgba(217, 181, 106, 0.6);
+  border-bottom: 1px solid rgba(var(--accent-rgb), 0.6);
   border-radius: 0;
   background: transparent;
   font-family: var(--serif);
@@ -265,7 +337,7 @@ h3 > .icon {
   min-height: 44px;
   padding: 0 18px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(217, 181, 106, 0.26);
+  border: 1px solid rgba(var(--accent-rgb), 0.26);
   background: transparent;
   color: var(--ink);
   font-family: var(--sans);
@@ -327,11 +399,11 @@ h3 > .icon {
 .btn-danger {
   background: var(--alert);
   border-color: var(--alert);
-  color: var(--on-accent);
+  color: var(--on-alert);
   font-weight: 600;
 }
 
-.btn-danger:hover { background: #ea8484; border-color: #ea8484; color: var(--on-accent); }
+.btn-danger:hover { background: var(--alert-hover); border-color: var(--alert-hover); color: var(--on-alert); }
 
 .btn-small { min-height: 36px; padding: 0 14px; font-size: 0.82rem; }
 
@@ -369,7 +441,7 @@ h3 > .icon {
 .pill.flash { color: var(--accent); }
 
 /* Le multiplicateur doit sauter aux yeux : c'est lui qui relance la salle. */
-.pill.multi { color: var(--accent); border-color: rgba(217, 181, 106, 0.5); }
+.pill.multi { color: var(--accent); border-color: rgba(var(--accent-rgb), 0.5); }
 
 .pill-btn {
   display: inline-flex;
@@ -454,8 +526,8 @@ h3 > .icon {
   padding: 0;
   font-size: 24px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(217, 181, 106, 0.14);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(var(--accent-rgb), 0.14);
+  background: var(--surface);
   cursor: pointer;
   transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
 }
@@ -463,8 +535,8 @@ h3 > .icon {
 .emoji-btn:hover { border-color: var(--edge-strong); }
 .emoji-btn.selected {
   border: 1.5px solid var(--accent);
-  background: rgba(217, 181, 106, 0.16);
-  box-shadow: 0 0 0 4px rgba(217, 181, 106, 0.14);
+  background: rgba(var(--accent-rgb), 0.16);
+  box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.14);
 }
 
 /* ── Écran joueur ───────────────────────────────── */
@@ -492,7 +564,7 @@ h3 > .icon {
 .offline-pill {
   margin-left: auto;
   color: var(--alert);
-  border-color: rgba(224, 108, 108, 0.5);
+  border-color: rgba(var(--alert-rgb), 0.5);
 }
 
 .waiting {
@@ -584,7 +656,7 @@ h3 > .icon {
   white-space: nowrap;
 }
 
-.band-sep { width: 1px; height: 16px; background: rgba(217, 181, 106, 0.35); flex: none; }
+.band-sep { width: 1px; height: 16px; background: rgba(var(--accent-rgb), 0.35); flex: none; }
 .band-sub { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .band-center {
@@ -798,7 +870,7 @@ h3 > .icon {
   flex: 1;
   height: 3px;
   border-radius: 2px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--track);
   overflow: hidden;
 }
 
@@ -907,7 +979,7 @@ h3 > .icon {
 
 /* Réponse choisie : le filet champagne, un fond à 12 %, une coche. */
 .ans-btn.chosen { border: 1.5px solid var(--accent); background: var(--accent-soft); }
-.ans-btn.dim { opacity: 0.38; }
+.ans-btn.dim { opacity: var(--dim); }
 
 /* La bonne réponse, projetée au mur : un aplat champagne, lisible du fond
    de la salle. */
@@ -1105,7 +1177,7 @@ h3 > .icon {
   border-radius: var(--radius-pill);
   background: var(--bg-raised);
   border: 1px solid var(--edge-strong);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-toast);
   font-size: 0.95rem;
   animation: pop 0.3s ease-out both;
   z-index: 50;
@@ -1473,7 +1545,7 @@ h3 > .icon {
 .team-group {
   padding: 8px 10px 10px;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-faint);
   border: 1px solid var(--edge);
 }
 
@@ -1553,7 +1625,7 @@ h3 > .icon {
   gap: 8px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--surface-faint);
   border: 1px solid var(--edge);
 }
 
@@ -1604,7 +1676,7 @@ h3 > .icon {
   line-height: 1;
   border-radius: var(--radius-pill);
   border: 1px solid var(--edge);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface);
 }
 
 .award-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
@@ -1666,7 +1738,7 @@ h3 > .icon {
 /* L'en-tête entier est le bouton de tri : 17 px de haut, c'était imprenable
    au pouce, sur une page faite pour le téléphone. */
 .stats-table thead th:has(.stats-sort) { padding: 0; }
-.stats-table tbody tr:nth-child(odd) { background: rgba(255, 255, 255, 0.03); }
+.stats-table tbody tr:nth-child(odd) { background: var(--surface); }
 
 /* Le prénom reste visible pendant qu'on fait défiler les colonnes. */
 .stats-name {
@@ -1748,7 +1820,7 @@ h3 > .icon {
   position: fixed;
   inset: 0;
   z-index: 70;
-  background: rgba(12, 8, 7, 0.72);
+  background: var(--backdrop);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1763,7 +1835,7 @@ h3 > .icon {
   gap: 14px;
   background: var(--bg-raised);
   border-color: var(--edge-strong);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--shadow-dialog);
 }
 
 .dialog h3 { font-size: 1.5rem; }
