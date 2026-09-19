@@ -5,6 +5,7 @@ import { showToast, useAppState } from '../state'
 import { confirmDialog, promptDialog } from '../components/Dialog'
 import { readKeyFromUrl } from '../hostKeyUrl'
 import { initAudio, isMuted, toggleMuted } from '../sound'
+import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
 import { FinalPodium, Standings } from '../components/Podium'
@@ -184,6 +185,8 @@ export function HostApp() {
   const [keyInput, setKeyInput] = useState('')
   const [error, setError] = useState('')
   const [muted, setMuted] = useState(isMuted)
+  /** Velours (noir chaud) ou Ivoire (fond clair, pour un vidéoprojecteur qui délave les noirs). */
+  const [theme, setTheme] = useState(currentTheme)
   /**
    * Les écrans de fin de soirée, projetés à la place du jeu. `null` = on est
    * sur l'écran d'accueil, prêt à lancer un quiz.
@@ -855,8 +858,8 @@ export function HostApp() {
         </div>
 
         {/* La console animateur : discrète, en bas, toujours au même endroit.
-            Chaque écran y pose ses boutons ; le son et le plein écran restent
-            à droite quoi qu'il arrive. */}
+            Chaque écran y pose ses boutons ; le son, l'habillage et le plein
+            écran restent à droite quoi qu'il arrive. */}
         <footer className="host-console">
           <span className="console-label">Console animateur</span>
           <div className="console-actions" ref={setConsoleSlot} />
@@ -872,6 +875,17 @@ export function HostApp() {
               }}
             >
               <Icon name={muted ? 'volume-off' : 'volume'} />
+            </button>
+            {/* Un vidéoprojecteur délave les noirs : l'écran commun peut passer
+                sur fond clair, sans toucher aux téléphones des invités. */}
+            <button
+              className="btn btn-icon"
+              title={theme === 'ivoire' ? 'Fond sombre (Velours)' : 'Fond clair pour le vidéoprojecteur (Ivoire)'}
+              aria-label={theme === 'ivoire' ? 'Revenir au fond sombre' : 'Passer sur fond clair'}
+              aria-pressed={theme === 'ivoire'}
+              onClick={() => setTheme(toggleTheme())}
+            >
+              <Icon name={theme === 'ivoire' ? 'sun' : 'moon'} />
             </button>
             <button
               className="btn btn-icon"

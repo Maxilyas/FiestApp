@@ -40,6 +40,7 @@ export type IconName =
   | 'skip'
   | 'sparkles'
   | 'star'
+  | 'sun'
   | 'target'
   | 'timer'
   | 'trash'
@@ -212,6 +213,14 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
     ),
   },
   star: { paths: <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3Z" /> },
+  sun: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8" />
+      </>
+    ),
+  },
   target: {
     paths: (
       <>

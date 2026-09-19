@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import { DialogHost } from './components/Dialog'
+import { applyTheme } from './theme'
 import './styles.css'
 
 // Cinq routes statiques : pas besoin d'un routeur.
@@ -29,6 +30,11 @@ const App = path.startsWith('/host')
       : path.startsWith('/souvenir')
         ? RecapApp
         : PlayerApp
+
+// L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
+// choix est posé avant le premier rendu, pour que le noir ne clignote pas au
+// chargement. Les autres pages — les téléphones surtout — restent en Velours.
+if (App === HostApp) applyTheme()
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
