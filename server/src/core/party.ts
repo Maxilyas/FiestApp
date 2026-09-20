@@ -87,6 +87,11 @@ export class Party {
     return this.players.get(id)
   }
 
+  /** Tous les invités, dans l'ordre d'arrivée. */
+  all(): PlayerRec[] {
+    return [...this.players.values()].sort((a, b) => a.createdAt - b.createdAt)
+  }
+
   /** Inscrits, connectés ou non — c'est ce chiffre que plafonne l'inscription. */
   count(): number {
     return this.players.size

@@ -207,7 +207,8 @@ Avec un routeur wifi sans internet, renseigne `WIFI_SSID` et `WIFI_PASS` : l'éc
 10. À la fin : **🏆 Podium de la soirée** — il affiche aussi le plus beau coup, le plus régulier et le vainqueur de chaque quiz, de quoi remettre plusieurs cadeaux. Fais scanner le QR de la page souvenir.
 11. Entre deux quiz, le classement de la soirée reste affiché et **se cumule**.
 
-12. **Le lendemain** : poste le lien `https://TON-ADRESSE.onrender.com/bilan` dans le groupe — chacun y relit ses réponses question par question, et « La soirée » raconte le reste. `/bilan/fiches` imprime une fiche par invité, `npm run export` garde tout en fichiers. Tant que ça sert, **pas de 🧹 Nouvelle soirée** et pas de retouche des quiz joués.
+12. **Le lendemain** : poste le lien `https://TON-ADRESSE.onrender.com/bilan` dans le groupe — chacun y relit ses réponses question par question, et « La soirée » raconte le reste. `/bilan/fiches` imprime une fiche par invité, `npm run export` garde tout en fichiers.
+13. **Ranger la soirée** : sur l'écran commun, **Sauvegarder** la met dans l'historique sous son nom, sans rien effacer. Elle se relit ensuite pour toujours sur `/soirees`, souvenir, statistiques et bilan compris — même après **🧹 Nouvelle soirée** pour la fête suivante, qui l'archive de toute façon avant d'effacer. Ne retouche pas les quiz joués avant de l'avoir rangée.
 
 Les retardataires rejoignent en cours de partie : ils jouent les questions suivantes, sans rattraper les précédentes.
 
@@ -224,9 +225,10 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 | Un invité ne voit rien après avoir répondu | c'est normal | la question est sur l'écran commun ; son téléphone attend la révélation |
 | Téléphone bloqué sur « reconnexion… » | réseau du téléphone | il se reconnecte tout seul, son score est conservé |
 | Quiz modifié en ligne puis écrasé | migration relancée après coup | une fois en ligne, n'écris plus qu'en ligne |
-| Les scores des essais sont encore là | la sauvegarde distante les a gardés | **🧹 Nouvelle soirée** sur l'écran commun |
+| Les scores des essais sont encore là | la sauvegarde distante les a gardés | **🧹 Nouvelle soirée** sur l'écran commun — elle archive d'abord ; retire ensuite l'archive des essais sur `/soirees` |
 | « La soirée est complète » | plus de 150 inscrits (les essais comptent) | **🧹 Nouvelle soirée**, ou relever `MAX_PLAYERS` sur Render |
 | « Trop d'inscriptions d'un coup » | plus de 25 inscriptions depuis une même adresse en quelques secondes | attendre une minute ; c'est le garde-fou contre les robots |
-| Le bilan dit « intitulé non retrouvé » ou « quiz modifié depuis » | le quiz joué a été supprimé, renommé ou retouché dans `/edit` | remettre le quiz comme il était (même titre, mêmes questions dans le même ordre) ; les points et les numéros, eux, sont intacts |
+| Le bilan dit « intitulé non retrouvé » ou « quiz modifié depuis » | le quiz joué a été supprimé, renommé ou retouché dans `/edit` avant que la soirée soit rangée dans l'historique | remettre le quiz comme il était (même titre, mêmes questions dans le même ordre) ; les points et les numéros, eux, sont intacts |
+| Une soirée manque sur `/soirees` | elle n'a pas été sauvegardée avant **🧹 Nouvelle soirée** (versions antérieures) | rien à récupérer côté serveur ; les fichiers de `npm run export`, s'ils ont été faits, la gardent |
 
 Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours est recopiée toutes les deux secondes dans la base distante, elle reprend là où elle en était (au pire, deux secondes de réponses en moins), les scores sont intacts et les téléphones se reconnectent seuls.

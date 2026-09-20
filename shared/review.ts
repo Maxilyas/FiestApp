@@ -5,6 +5,7 @@
 // Distinct des statistiques (shared/types.ts, PartyStats) : celles-ci
 // résument chaque joueur en dix-sept chiffres, le bilan garde le détail
 // question par question — c'est lui qu'on relit le lendemain.
+import type { ArchiveSummary } from './archive'
 import type { QuestionKind } from './library'
 import type { PlayerStat, PublicTeam } from './types'
 
@@ -194,6 +195,8 @@ export interface Review {
   records: ReviewRecords
   /** Questions dont l'intitulé n'a pas été retrouvé. */
   unresolved: number
+  /** Présent quand la page relit une soirée archivée plutôt que celle en cours. */
+  archive?: ArchiveSummary
 }
 
 // ── Petites aides, les mêmes côté page et côté export ────────────────────

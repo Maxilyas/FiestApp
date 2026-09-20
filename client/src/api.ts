@@ -1,4 +1,5 @@
 import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
+import type { ArchiveSummary } from '../../shared/archive'
 
 /** La clé d'accès animateur, partagée avec l'écran commun. */
 export function hostKey(): string {
@@ -36,6 +37,12 @@ export const api = {
   duplicate: (id: string) => req<QuizDef>(`/api/quizzes/${id}/duplicate`, { method: 'POST' }),
   uploadImage: (dataUrl: string) =>
     req<{ url: string }>('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
+  /** L'historique des soirées : le lire est public, le retoucher demande la clé. */
+  archives: {
+    rename: (id: string, title: string) =>
+      req<ArchiveSummary>(`/api/soirees/${id}`, { method: 'PUT', body: JSON.stringify({ title }) }),
+    remove: (id: string) => req<{ ok: true }>(`/api/soirees/${id}`, { method: 'DELETE' }),
+  },
 }
 
 /**

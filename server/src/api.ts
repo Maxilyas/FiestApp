@@ -1,8 +1,10 @@
 import express, { type Express, type Request, type Response } from 'express'
 import type { QuizStore } from './core/quizStore'
+import type { ArchiveStore } from './core/archive'
 
 interface ApiDeps {
   store: QuizStore
+  archives: ArchiveStore
   hostKey: string
   /** Appelé après chaque modification : recharge le cache lu par le module de jeu. */
   onLibraryChanged: () => Promise<void>
@@ -97,6 +99,28 @@ export function mountApi(app: Express, deps: ApiDeps) {
     wrap(async (req, res) => {
       const id = await deps.store.saveImage(req.body?.dataUrl)
       res.status(201).json({ url: `/media/image/${id}` })
+    }),
+  )
+
+  // L'historique se lit sans clé (/soirees.json) ; le renommer ou l'élaguer,
+  // c'est l'animateur.
+  app.put(
+    '/api/soirees/:id',
+    wrap(async (req, res) => {
+      const title = String(req.body?.title ?? '').trim()
+      if (!title) return res.status(400).json({ error: 'Il faut un titre' })
+      const summary = await deps.archives.rename(req.params.id, title)
+      if (!summary) return res.status(404).json({ error: 'Soirée introuvable' })
+      res.json(summary)
+    }),
+  )
+
+  app.delete(
+    '/api/soirees/:id',
+    wrap(async (req, res) => {
+      const ok = await deps.archives.remove(req.params.id)
+      if (!ok) return res.status(404).json({ error: 'Soirée introuvable' })
+      res.json({ ok: true })
     }),
   )
 

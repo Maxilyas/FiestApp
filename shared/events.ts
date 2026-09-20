@@ -22,8 +22,10 @@ export interface ClientToServerEvents {
   'host:launch': () => void
   'host:command': (payload: { sessionId: string; command: unknown }) => void
   'host:endSession': (payload: { sessionId: string }) => void
-  /** Efface invités, équipes et points pour repartir d'une soirée vierge. */
+  /** Range la soirée dans l'historique, puis efface invités, équipes et points. */
   'host:resetParty': () => void
+  /** Range la soirée dans l'historique sans rien effacer, sous le titre donné. */
+  'host:archiveParty': (payload: { title?: string }) => void
   /** Corrige un pseudo affiché sur l'écran commun. */
   'host:renamePlayer': (payload: { playerId: string; name: string }) => void
   /** Exclut un invité et efface ses points. */

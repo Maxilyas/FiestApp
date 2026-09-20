@@ -2054,3 +2054,36 @@ h3 > .icon {
 /* Sur la page souvenir, l'invitation à relire sa soirée : une carte, un bouton. */
 .bilan-invite { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
 .bilan-invite .btn { margin-top: 4px; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   L'HISTORIQUE DES SOIRÉES
+   Une soirée par carte, ses trois pages en boutons ; l'animateur
+   renomme ou retire d'un clic. Les pages qui relisent une archive
+   le disent en tête.
+   ═══════════════════════════════════════════════════════════════════ */
+.soiree { display: flex; flex-direction: column; gap: 12px; }
+.soiree-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.soiree-head h2 { margin-top: 2px; }
+.soiree-current { border-color: var(--edge-strong); }
+.soiree-links { gap: 8px; }
+.soiree-manage { gap: 4px; flex: none; }
+.soiree-winner { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.soiree-winner .icon { color: var(--accent); }
+
+.archive-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 12px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--edge);
+  background: var(--surface);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.archive-banner .icon { color: var(--accent); }
+.archive-banner strong { color: var(--ink); font-weight: 500; }
+.recap-header .archive-banner { margin-bottom: 6px; }

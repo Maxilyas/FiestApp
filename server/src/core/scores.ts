@@ -6,6 +6,14 @@ import type { PartyBackup } from './backup'
  * une ligne (joueur, points, raison, partie), et les totaux sont des agrégats.
  * Ça donne gratuitement l'historique et le classement général de la soirée.
  */
+export interface ScoreEntry {
+  playerId: string
+  sessionId: string | null
+  points: number
+  reason: string
+  createdAt: number
+}
+
 export class ScoreLedger {
   private totals = new Map<string, number>()
   private insertStmt
@@ -37,6 +45,20 @@ export class ScoreLedger {
 
   total(playerId: string): number {
     return this.totals.get(playerId) ?? 0
+  }
+
+  /** Tout le journal, dans l'ordre : la page souvenir et l'archive en vivent. */
+  all(): ScoreEntry[] {
+    const rows = this.db
+      .prepare('SELECT player_id, session_id, points, reason, created_at FROM score_entries ORDER BY created_at, id')
+      .all() as any[]
+    return rows.map(r => ({
+      playerId: String(r.player_id),
+      sessionId: r.session_id === null || r.session_id === undefined ? null : String(r.session_id),
+      points: Number(r.points),
+      reason: String(r.reason),
+      createdAt: Number(r.created_at),
+    }))
   }
 
   allTotals(): Map<string, number> {
