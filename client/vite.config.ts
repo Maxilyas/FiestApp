@@ -12,6 +12,9 @@ export default defineConfig({
       // recevrait du HTML là où il attend du JSON.
       '/api': { target: 'http://localhost:3001' },
       '/media': { target: 'http://localhost:3001' },
+      // Les pages souvenir, statistiques et bilan lisent leurs chiffres ici.
+      '/recap.json': { target: 'http://localhost:3001' },
+      '/bilan.json': { target: 'http://localhost:3001' },
     },
   },
 })

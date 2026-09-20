@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Trois adresses, une par usage :
+Cinq adresses, une par usage :
 
 | Page | Adresse | Pour qui |
 |---|---|---|
@@ -22,6 +22,7 @@ Trois adresses, une par usage :
 | Écran commun | http://localhost:5173/host#key=romane | la TV / le vidéoprojecteur |
 | Mes quiz | http://localhost:5173/edit#key=romane | Antoine, pour écrire les quiz |
 | Statistiques | http://localhost:5173/stats | Antoine pendant la fête, tout le monde après |
+| Bilan | http://localhost:5173/bilan | les invités, le lendemain : chacun relit ses réponses |
 
 ```bash
 npm run check
@@ -31,7 +32,7 @@ npm run check
 npm run smoke
 ```
 
-`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, garde-fous, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, reprise après coupure en pleine question).
+`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, garde-fous, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, reprise après coupure en pleine question).
 
 La clé animateur se passe **après un dièse** (`#key=…`) : cette partie de l'adresse ne quitte jamais le navigateur, elle n'arrive ni dans les journaux du serveur ni dans l'historique d'une adresse partagée. Elle est retirée de la barre d'adresse aussitôt lue.
 
@@ -97,6 +98,26 @@ Ces points s'ajoutent au **barème des trois jeux**, pas à la moyenne du quiz :
 **Les chiffres vivent sur `/stats`**, à leur propre adresse : un tableau de dix-sept colonnes, triable en cliquant sur un en-tête, une ligne par joueur — points, réponses données, justes, fausses, taux de réussite, temps moyen, meilleur temps, plus longues séries, questions passées, revirements, réponses de dernière seconde, fois où l'on était seul de la salle, fois où l'on a suivi la majorité, estimations et leur écart moyen, biais optimiste ou pessimiste. La page se rafraîchit toute seule et n'a pas besoin de clé : elle se garde ouverte sur le téléphone de l'animateur pendant la fête, et se partage aux invités ensuite. Le tableau défile dans son propre cadre — dix-sept colonnes ne tiennent sur aucun téléphone. Un QR y mène depuis l'écran de remise des prix, et la page souvenir en reprend l'essentiel.
 
 **L'écran de victoire** montre les deux classements côte à côte : les équipes avec leur total du quiz, leurs points cumulés et leur moyenne d'un côté ; le classement individuel de l'autre. Les équipes décident du vainqueur, mais c'est pour son score personnel que chacun a joué — les deux méritent d'être à l'écran au même moment.
+
+## Le bilan, question par question
+
+Le lendemain, chacun veut savoir ce qu'il a répondu — et ce que les autres ont répondu. **La page `/bilan`** le raconte, sans clé : on choisit son prénom dans la liste, et on relit sa soirée question par question — l'intitulé, ce qu'on a répondu, la bonne réponse, son temps, ses points, et en regard ce que son équipe et la salle ont choisi (deux barres par réponse : la salle en champagne, l'équipe en encre). Pour une estimation : sa proposition, la vraie valeur, son rang de proximité et la proposition la plus proche de la salle. En tête, quatre chiffres (points et rang, rang dans l'équipe, réussite, temps moyen) et les moments forts : les prix dont on est le lauréat proposé, son plus beau coup, la question où l'on a été le seul de la salle à trouver, celle qu'on a ratée alors que tout le monde l'avait…
+
+Un seul lien à poster dans le groupe : le téléphone qui a servi à jouer se souvient de son invité et ouvre directement son bilan ; les autres choisissent leur prénom. Chaque bilan a son adresse (`/bilan#p=…`, bouton « Copier le lien ») pour l'envoyer à quelqu'un en particulier. Tout le monde peut lire le bilan de tout le monde : c'est une page souvenir, pas un carnet de notes.
+
+**L'onglet « La soirée »** relit tout pour tout le monde : les questions qui ont marqué (la plus ratée, la plus facile, la plus clivante, la plus hésitante, la plus vite jouée, la plus longue), les équipes quiz par quiz, puis chaque question avec la répartition des réponses, la réussite de chaque équipe, le plus rapide, et le moment où quelqu'un prend la tête du classement.
+
+**Les fiches** (`/bilan/fiches`) enchaînent une fiche par invité, en Ivoire, chacune sur sa page : « Imprimer » puis « Enregistrer en PDF », et on envoie à chacun la sienne — ou on imprime le tout.
+
+**L'export** met les mêmes chiffres en fichiers, pour les garder à l'abri ou rédiger ses messages soi-même :
+
+```bash
+npm run export -- https://ton-app.onrender.com
+```
+
+Il écrit dans `export/` un `bilan.json` complet et trois CSV faits pour Excel (point-virgule, accents corrects) : `invites.csv` (une ligne par invité, une colonne par question — « Canberra ✔ · 1,8 s · 190 pts »), `questions.csv` (une ligne par question, avec la répartition des réponses et la réussite de chaque équipe) et `equipes.csv` (une ligne par équipe, un quiz par colonne). Si le serveur ne répond plus, `npm run export -- --db libsql://… --token …` lit directement la base Turso.
+
+**Comment ça marche, et ce qu'il ne faut pas faire.** Le journal des réponses ne garde que des numéros : celui de la question dans son quiz, celui de la réponse choisie. Les intitulés sont retrouvés dans la copie du quiz que chaque partie terminée conserve sur le disque du serveur, et sinon dans la bibliothèque, par titre de quiz — en vérifiant que ce qu'elle dit colle au journal (type de question, bonne réponse, nombre de réponses). D'où deux précautions tant que le bilan sert : **ne pas cliquer sur 🧹 Nouvelle soirée** (ça efface le journal, sauvegarde distante comprise) et **ne pas retoucher les quiz joués** — réordonner ou supprimer une question, vider une case de réponse ou renommer le quiz, et le bilan signale « quiz modifié depuis la soirée », ou perd l'intitulé (les numéros et les points restent).
 
 ## Faire durer le suspense
 
@@ -240,8 +261,8 @@ L'écran commun a deux repères fixes : une bande d'état en haut (titre, quiz e
 ## Architecture
 
 ```
-client/   React + Vite — 5 routes : "/" (téléphone), "/host" (écran commun), "/edit" (mes quiz),
-          "/stats" (les chiffres), "/souvenir" (le lendemain)
+client/   React + Vite — 6 routes : "/" (téléphone), "/host" (écran commun), "/edit" (mes quiz),
+          "/stats" (les chiffres), "/souvenir" (le lendemain), "/bilan" (question par question)
 server/   Node + Socket.io + Express — logique de jeu 100% côté serveur
 shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, barème des équipes)
 ```
@@ -250,6 +271,7 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, bar
 - **Teams** (`teams.ts`) — registre des équipes, séparé des joueurs : une équipe vit toute la soirée, ses membres vont et viennent. Le rattachement est une colonne sur le joueur, donc déplacer quelqu'un déplace ses points sans toucher au journal des scores.
 - **AnswerLog** (`answers.ts`) — une ligne par joueur et par question posée, réponses manquantes comprises. C'est la seule source des statistiques : le classement, lui, ne garde que les gains positifs. Une question annulée ou reposée en sort, pour ne pas compter deux fois.
 - **Stats** (`stats.ts`) — les moyennes, les séries et les prix, dérivés du journal. Les prix sont proposés, jamais appliqués : c'est l'animateur qui décide.
+- **Review** (`review.ts`) — le bilan question par question, dérivé du journal recroisé avec les questions telles qu'elles ont été posées : la copie du quiz gardée dans chaque partie terminée, sinon la bibliothèque. Servi par `/bilan.json`, public ; `export.ts` en tire les fichiers de `npm run export`.
 - **ScoreLedger** (`scores.ts`) — scores en append-only : chaque gain est une ligne (joueur, points, raison). Classement = somme par joueur, historique gratuit.
 - **GameEngine** (`engine.ts`) — pilote la partie en cours (une seule à la fois) : route actions/commandes/timers vers le module de jeu, persiste l'état après chaque changement et rediffuse les **vues filtrées**.
 - **Vues filtrées** — les clients ne reçoivent jamais l'état brut : chaque joueur reçoit `playerView(state, playerId)`, l'écran `hostView(state)`. C'est ce qui empêche la bonne réponse d'arriver dans le téléphone avant la révélation.
@@ -272,3 +294,4 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, bar
 | 10 | Équipes : points individuels, classement collectif, barème des trois jeux | ✅ |
 | 11 | Photo « mémoire » et classements annoncés entre deux questions | ✅ |
 | 12 | Journal des réponses, statistiques, prix de fin de soirée et écran de victoire | ✅ |
+| 13 | Le bilan : ce que chacun a répondu question par question, la relecture collective, les fiches imprimables, l'export CSV | ✅ |

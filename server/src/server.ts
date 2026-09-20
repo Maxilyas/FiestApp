@@ -16,7 +16,8 @@ import { GameEngine } from './core/engine'
 import { PartyBackup } from './core/backup'
 import { QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
-import { quizModule, setQuizLibrary } from './games/quiz'
+import { playedPackOf, quizLibrary, quizModule, setQuizLibrary } from './games/quiz'
+import { buildReview, type PlayedPack } from './core/review'
 import { mountApi } from './api'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
@@ -337,6 +338,33 @@ export async function createQuizServer(opts: QuizServerOptions) {
           : null,
       quizWinners,
     })
+  })
+
+  // Le bilan, question par question — public comme la page souvenir. Le
+  // journal des réponses ne garde que des numéros : les intitulés viennent de
+  // la copie du quiz conservée dans chaque partie terminée (tant que le disque
+  // local tient), et sinon de la bibliothèque.
+  app.get('/bilan.json', (_req, res) => {
+    const packsBySession = new Map<string, PlayedPack>()
+    const played = db.prepare('SELECT id, state FROM sessions').all() as { id: string; state: string }[]
+    for (const row of played) {
+      try {
+        const pack = playedPackOf(JSON.parse(row.state))
+        if (pack) packsBySession.set(row.id, pack)
+      } catch {
+        // Un état illisible ne vaut pas mieux qu'absent : la bibliothèque prend le relais.
+      }
+    }
+    res.json(
+      buildReview({
+        rows: answers.all(),
+        players: party.publicPlayers(ledger.allTotals()),
+        teams: teams.all(),
+        bonuses: teams.allBonuses(),
+        packsBySession,
+        library: quizLibrary(),
+      }),
+    )
   })
 
   mountApi(app, { store, hostKey: opts.hostKey, onLibraryChanged: refreshLibrary })

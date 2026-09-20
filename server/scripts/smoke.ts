@@ -3,7 +3,7 @@
 // scoring de rapidité, révélation, classement, reconnexion par token.
 // À lancer via `npm run smoke`.
 import { io as clientIo, type Socket } from 'socket.io-client'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -11,6 +11,7 @@ import { createQuizServer } from '../src/server'
 import { parseImportedQuestions } from '../../shared/library'
 import { QuizStore } from '../src/core/quizStore'
 import { finalRanking, rankTeams } from '../../shared/teams'
+import { reviewFromDatabase, writeExport } from '../src/core/export'
 
 function fail(msg: string): never {
   console.error(`❌ ${msg}`)
@@ -851,6 +852,81 @@ try {
     'chaque prix doit porter son titre, sa règle et le chiffre qui le justifie',
   )
 
+  // 22 bis. Le bilan : ce que chacun a répondu, question par question. Le
+  //         journal ne garde que des numéros ; les intitulés reviennent de la
+  //         copie du quiz gardée dans chaque partie terminée — même pour les
+  //         quiz supprimés depuis.
+  const bilan = (await (await fetch(`${url}/bilan.json`)).json()) as any
+  assert(
+    bilan.questions.length === stats.stats.questions,
+    `${bilan.questions.length} questions au bilan, ${stats.stats.questions} aux statistiques`,
+  )
+  assert(bilan.unresolved === 0, `${bilan.unresolved} question(s) sans intitulé alors que les parties sont encore sur le disque`)
+  assert(
+    bilan.questions.every(
+      (q: any) =>
+        q.text && (q.kind === 'number' ? q.target !== null : q.answers.length >= 2 && q.answers[q.correct] !== undefined),
+    ),
+    'chaque question du bilan doit porter son intitulé et sa bonne réponse',
+  )
+  assert(
+    bilan.questions.some((q: any) => q.kind === 'number' && q.closest),
+    'une estimation doit désigner la proposition la plus proche',
+  )
+  const aliceBilan = bilan.players.find((p: any) => p.id === aliceAck.playerId)
+  assert(aliceBilan, 'Alice doit avoir son bilan')
+  assert(
+    aliceBilan.answers.length === aliceStat.asked,
+    `${aliceBilan.answers.length} réponses au bilan d’Alice, ${aliceStat.asked} questions posées`,
+  )
+  assert(aliceBilan.rank >= 1 && aliceBilan.teamRank !== null, 'Alice doit avoir un rang dans la salle et dans son équipe')
+  assert(
+    aliceBilan.answers.every((a: any) => bilan.questions.some((q: any) => q.key === a.questionKey)),
+    'chaque réponse doit renvoyer à une question du bilan',
+  )
+  assert(
+    aliceBilan.answers.some((a: any) => a.answered && a.correct === true && a.choice !== null),
+    'les bonnes réponses d’Alice doivent être là, avec la réponse choisie',
+  )
+  assert(
+    aliceBilan.answers.some((a: any) => a.proximityRank !== null),
+    'l’estimation jouée par Alice doit porter son rang de proximité',
+  )
+  assert(bilan.quizzes.length >= 2 && bilan.teams.length === 5, 'le bilan doit compter les quiz et les équipes de la soirée')
+  assert(
+    bilan.teams.every((t: any) => t.perQuiz.length === bilan.quizzes.length),
+    'chaque équipe doit avoir une ligne par quiz',
+  )
+  assert(
+    bilan.questions.some((q: any) => q.byTeam.some((t: any) => t.teamId === T[0].id && t.asked >= 1)),
+    'l’équipe d’Alice doit apparaître sur les questions qu’elle a jouées',
+  )
+  assert(!bilan.players.some((p: any) => p.id === bobAck.playerId), 'un invité exclu n’a pas de bilan')
+
+  // L'export : les mêmes chiffres en fichiers, depuis le serveur et depuis la base.
+  const exportDir = path.join(tmpDir, 'export')
+  const exported = writeExport(bilan, exportDir)
+  assert(exported.length === 4 && exported.every(f => existsSync(f)), 'l’export doit écrire ses quatre fichiers')
+  const invites = readFileSync(path.join(exportDir, 'invites.csv'), 'utf8')
+  const joueurs = bilan.players.filter((p: any) => p.stat.asked > 0).length
+  assert(
+    invites.startsWith('\uFEFF') && invites.trim().split('\r\n').length === joueurs + 1,
+    'invites.csv : une ligne par invité qui a joué, plus l’en-tête',
+  )
+  assert(invites.includes('Alice;'), 'Alice doit figurer dans l’export')
+  const fromDb = await reviewFromDatabase(quizDbUrl)
+  assert(
+    fromDb.questions.length === bilan.questions.length,
+    `${fromDb.questions.length} questions depuis la base, ${bilan.questions.length} depuis le serveur`,
+  )
+  assert(fromDb.players.length === bilan.players.length, 'la base doit connaître les mêmes invités que le serveur')
+  // Sans les copies des parties, seuls les quiz encore en bibliothèque retrouvent leurs intitulés.
+  const deletedTitles = new Set(['Spécial Romane', 'Sabotage', 'Photos de mémoire'])
+  assert(
+    fromDb.questions.every((q: any) => q.resolved === !deletedTitles.has(q.quizTitle)),
+    'depuis la base, un quiz supprimé n’a plus d’intitulé, les autres si',
+  )
+
   // Attribution : les points s'ajoutent au total de l'équipe, pas à la moyenne.
   // Le classement d'avant se lit dans la page souvenir déjà chargée : le
   // serveur ne rediffuse que sur changement, attendre un message n'aboutirait pas.
@@ -933,6 +1009,30 @@ try {
   assert(aliceAfter?.teamId === T[0].id, 'l’équipe de chacun doit survivre au redémarrage')
   const t0After = after2.teams.find((t: any) => t.id === T[0].id)
   assert(t0After?.memberCount === 2, 'les deux membres doivent être recomptés dans leur équipe')
+  // Le bilan survit aussi : sans les copies des parties (disque effacé), les
+  // intitulés reviennent de la bibliothèque — sauf pour les quiz supprimés.
+  const bilanAfter = (await (await fetch(`http://localhost:${server2.port}/bilan.json`)).json()) as any
+  assert(
+    bilanAfter.questions.length === bilan.questions.length,
+    `bilan perdu au redémarrage : ${bilanAfter.questions.length} questions au lieu de ${bilan.questions.length}`,
+  )
+  for (const q of bilanAfter.questions) {
+    const before = bilan.questions.find((o: any) => o.key === q.key)
+    assert(before, `question ${q.key} inconnue avant le redémarrage`)
+    if (deletedTitles.has(q.quizTitle)) {
+      assert(!q.resolved, 'un quiz supprimé ne peut plus livrer ses intitulés après un redémarrage')
+    } else {
+      assert(
+        q.resolved && q.text === before.text && !q.uncertain,
+        `intitulé changé au redémarrage : « ${q.text} » au lieu de « ${before.text} »`,
+      )
+    }
+  }
+  const aliceAfterBilan = bilanAfter.players.find((p: any) => p.id === aliceAck.playerId)
+  assert(
+    aliceAfterBilan?.answers.length === aliceBilan.answers.length,
+    'les réponses d’Alice doivent revenir avec le bilan après redémarrage',
+  )
   assert(after2.session?.id === liveId, 'la partie en cours doit revenir avec la soirée')
   // Le téléphone d'Alice se reconnecte et retrouve la question là où elle en était.
   const alice3 = clientIo(`http://localhost:${server2.port}`, { transports: ['websocket'] })
@@ -948,7 +1048,7 @@ try {
   probe.disconnect()
   await server2.close()
 
-  console.log('✅ Smoke test OK — 29 étapes')
+  console.log('✅ Smoke test OK — 30 étapes')
   console.log(
     '   collage de questions, garde-fous, quiz complet, bibliothèque, photos, estimation, sabotage,',
   )
@@ -959,8 +1059,9 @@ try {
     '   ménage des photos, photo « mémoire », équipes, barème des trois jeux,',
   )
   console.log(
-    '   statistiques et prix remis à la main, reprise après coupure en pleine question',
+    '   statistiques et prix remis à la main, bilan question par question et export,',
   )
+  console.log('   reprise après coupure en pleine question')
   process.exit(0)
 } catch (e) {
   fail((e as Error).message)

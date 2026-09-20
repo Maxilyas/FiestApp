@@ -91,6 +91,10 @@ export function StatsApp() {
               <TeamBoard teams={recap.teams} showGamePoints />
             </section>
           )}
+
+          <p className="muted small center">
+            Le détail de chacun, question par question, est sur <a href="/bilan">le bilan</a>.
+          </p>
         </>
       )}
     </div>

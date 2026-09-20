@@ -6,6 +6,7 @@ import { StatsTable } from '../components/StatsTable'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { Trophies } from '../components/Trophies'
 import { JoinHead } from '../components/Invitation'
+import { Icon } from '../components/Icon'
 
 /**
  * La page souvenir, ouverte le lendemain. Volontairement sans clé : c'est
@@ -104,6 +105,20 @@ export function RecapApp() {
         <section className="card">
           <h2>Le reste du classement</h2>
           <Standings rows={recap.ranking.slice(3)} offset={3} />
+        </section>
+      )}
+
+      {recap.stats.logged > 0 && (
+        <section className="card bilan-invite">
+          <h2>Ta soirée, question par question</h2>
+          <p className="muted small">
+            Ce que tu as répondu à chaque question, ce que ton équipe a choisi, ce que la salle a
+            choisi — et les questions qui ont marqué la soirée.
+          </p>
+          <a className="btn btn-accent" href="/bilan">
+            <Icon name="list" />
+            Relire mon bilan
+          </a>
         </section>
       )}
 

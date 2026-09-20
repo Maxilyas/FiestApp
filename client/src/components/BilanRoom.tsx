@@ -1,0 +1,141 @@
+import { Icon, type IconName } from './Icon'
+import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
+import type { ReviewQuestion } from '../../../shared/review'
+import { QuestionCard, playerName, type BilanCtx } from './BilanQuestion'
+
+/**
+ * La soirée relue par tout le monde : les questions qui ont marqué, les
+ * équipes quiz par quiz, puis chaque question avec la répartition des
+ * réponses, la réussite de chaque équipe et le plus rapide.
+ */
+export function RoomReview({ ctx }: { ctx: BilanCtx }) {
+  const { review } = ctx
+  const rec = review.records
+  const rate = (q: ReviewQuestion) => `${formatPercent(q.correctCount / q.answered)} de bonnes réponses`
+  const record = (key: string | null, title: string, icon: IconName, sub: (q: ReviewQuestion) => string) => {
+    const q = key ? ctx.questionByKey.get(key) : undefined
+    if (!q) return null
+    return (
+      <div className="card trophy">
+        <span className="trophy-icon">
+          <Icon name={icon} />
+        </span>
+        <h3>{title}</h3>
+        <p>{q.text}</p>
+        <p className="muted small">
+          {questionLabel(q)} du quiz « {q.quizTitle} » · {sub(q)}
+        </p>
+      </div>
+    )
+  }
+  const hasRecord = Object.values(rec).some(v => v !== null)
+
+  return (
+    <>
+      {hasRecord && (
+        <section className="card">
+          <h2>Les questions qui ont marqué</h2>
+          <div className="trophies">
+            {record(rec.hardest, 'La plus ratée', 'alert', rate)}
+            {record(rec.easiest, 'La plus facile', 'check-circle', rate)}
+            {record(
+              rec.mostDivisive,
+              'La plus clivante',
+              'users',
+              q => `la réponse la plus choisie n'a réuni que ${formatPercent(Math.max(...q.counts) / q.answered)} de la salle`,
+            )}
+            {record(rec.mostHesitant, 'La plus hésitante', 'rotate', q => `${q.changes} changement${q.changes > 1 ? 's' : ''} d'avis`)}
+            {record(rec.quickest, 'La plus vite jouée', 'zap', q => `${formatSeconds(q.avgMs!)} de moyenne`)}
+            {record(rec.slowest, 'La plus longue à jouer', 'clock', q => `${formatSeconds(q.avgMs!)} de moyenne`)}
+          </div>
+        </section>
+      )}
+
+      {review.teams.length > 0 && (
+        <section className="card">
+          <h2>Les équipes, quiz par quiz</h2>
+          <div className="stats-scroll">
+            <table className="stats-table">
+              <thead>
+                <tr>
+                  <th className="stats-name">Équipe</th>
+                  {review.quizzes.map(q => (
+                    <th key={q.sessionId} title={q.title}>
+                      Quiz {q.number}
+                    </th>
+                  ))}
+                  <th title="Moyenne par membre sur toute la soirée — c'est elle qui classe">Moyenne</th>
+                  <th title="Part de bonnes réponses aux QCM, tous membres confondus">Réussite</th>
+                  <th title="Temps de réponse moyen">Temps</th>
+                  <th title="Ce que le quiz rapporte au tableau des trois jeux, prix compris">Barème</th>
+                </tr>
+              </thead>
+              <tbody>
+                {review.teams.map(t => (
+                  <tr key={t.id}>
+                    <td className="stats-name">
+                      {t.emoji} {t.name} <span className="muted small">{t.memberCount}</span>
+                    </td>
+                    {t.perQuiz.map(pq => (
+                      <td key={pq.sessionId} title={`${pq.total} pts au total`}>
+                        {pq.average}
+                        {pq.rank === 1 && pq.average > 0 && ' ★'}
+                      </td>
+                    ))}
+                    <td className="stats-active">{t.average}</td>
+                    <td>{t.accuracy === null ? '—' : formatPercent(t.accuracy)}</td>
+                    <td>{t.avgMs === null ? '—' : formatSeconds(t.avgMs)}</td>
+                    <td>
+                      {t.gamePoints}
+                      {t.bonus !== 0 && ` ${t.bonus > 0 ? '+' : ''}${t.bonus}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="muted small">
+            Les points de chaque quiz divisés par les membres présents, ★ pour la meilleure équipe du
+            quiz. Le barème est ce que le quiz a rapporté au tableau des trois jeux, prix compris.
+          </p>
+        </section>
+      )}
+
+      {review.quizzes.map(quiz => {
+        const winner = quiz.winner ? ctx.playerById.get(quiz.winner.playerId) : undefined
+        const teamWinner = quiz.teamWinner ? ctx.teamById.get(quiz.teamWinner.teamId) : undefined
+        return (
+          <section key={quiz.sessionId} className="card bilan-quiz">
+            <div className="card-head">
+              <h2>{quiz.title}</h2>
+              <span className="pill">
+                {quiz.questionCount} question{quiz.questionCount > 1 ? 's' : ''} · {quiz.players} joueur
+                {quiz.players > 1 ? 's' : ''}
+              </span>
+            </div>
+            {(winner || teamWinner) && (
+              <p className="muted small">
+                {winner && quiz.winner && (
+                  <>
+                    <Icon name="trophy" /> {playerName(ctx, winner.id)} remporte ce quiz avec {quiz.winner.points} pts
+                  </>
+                )}
+                {winner && teamWinner && ' · '}
+                {teamWinner && quiz.teamWinner && (
+                  <>
+                    meilleure équipe : {teamWinner.emoji} {teamWinner.name} ({quiz.teamWinner.average} pts de moyenne)
+                  </>
+                )}
+              </p>
+            )}
+            {review.questions
+              .filter(q => q.sessionId === quiz.sessionId)
+              .map(q => (
+                <QuestionCard key={q.key} ctx={ctx} q={q} />
+              ))}
+          </section>
+        )
+      })}
+    </>
+  )
+}
