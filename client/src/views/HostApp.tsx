@@ -4,6 +4,7 @@ import { helloHost, socket } from '../socket'
 import { showToast, useAppState } from '../state'
 import { confirmDialog, promptDialog } from '../components/Dialog'
 import { readKeyFromUrl } from '../hostKeyUrl'
+import { formatDay } from '../../../shared/archive'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
@@ -814,6 +815,10 @@ export function HostApp() {
                       </a>
                     </>
                   )}
+                  <a className="btn btn-ghost" href="/soirees" target="_blank" rel="noreferrer">
+                    <Icon name="book" />
+                    Historique
+                  </a>
                 </ConsoleActions>
               </>
             )}
@@ -840,12 +845,31 @@ export function HostApp() {
                     <button
                       className="btn btn-ghost btn-small"
                       onClick={async () => {
-                        // Efface tout, y compris la sauvegarde distante : à ne
+                        // Range la soirée dans l'historique sans rien effacer :
+                        // à l'abri avant la fin, ou pour lui donner son nom.
+                        const title = await promptDialog({
+                          title: 'Ranger la soirée dans l’historique',
+                          message:
+                            'Rien n’est effacé : la soirée continue, et elle se relira plus tard sur /soirees. Sous quel nom ?',
+                          input: { value: `Soirée du ${formatDay(Date.now())}`, maxLength: 80 },
+                          confirmLabel: 'Sauvegarder',
+                        })
+                        if (title) socket.emit('host:archiveParty', { title })
+                      }}
+                    >
+                      <Icon name="book" />
+                      Sauvegarder
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-small"
+                      onClick={async () => {
+                        // La soirée est d'abord rangée dans l'historique, puis
+                        // tout s'efface, sauvegarde distante comprise : à ne
                         // faire qu'entre deux soirées, jamais pendant.
                         const ok = await confirmDialog({
                           title: 'Repartir d’une soirée vierge ?',
-                          message: `Efface les ${snap.players.length} invités, les ${teams.length} équipes et tous les points.\n\nÀ faire une fois les essais terminés, pour démarrer la vraie soirée à zéro. C'est définitif.`,
-                          confirmLabel: 'Tout effacer',
+                          message: `La soirée est d'abord rangée dans l'historique (/soirees), puis les ${snap.players.length} invités, les ${teams.length} équipes et tous les points sont effacés.\n\nÀ faire une fois la fête finie, pour préparer la suivante.`,
+                          confirmLabel: 'Archiver et tout effacer',
                           danger: true,
                         })
                         if (ok) socket.emit('host:resetParty')

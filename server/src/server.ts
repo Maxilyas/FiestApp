@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { type Request, type Response } from 'express'
 import compression from 'compression'
 import { createServer } from 'node:http'
 import { Server } from 'socket.io'
@@ -18,10 +18,13 @@ import { QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
 import { playedPackOf, quizLibrary, quizModule, setQuizLibrary } from './games/quiz'
 import { buildReview, type PlayedPack } from './core/review'
+import { buildRecap } from './core/recap'
+import { ArchiveStore, buildArchive, recapOfArchive, reviewOfArchive } from './core/archive'
 import { mountApi } from './api'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
 import type { PartySnapshot } from '../../shared/types'
+import type { ArchiveList, PartyArchive } from '../../shared/archive'
 import { teamScores } from '../../shared/teams'
 
 export interface QuizServerOptions {
@@ -154,6 +157,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const refreshLibrary = async () => setQuizLibrary(await store.all())
   await refreshLibrary()
 
+  // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
+  // qui doit survivre à tout.
+  const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
+  await archives.init()
+
   let boundPort = opts.port
   const wifi = process.env.WIFI_SSID
     ? { ssid: process.env.WIFI_SSID, pass: process.env.WIFI_PASS ?? '' }
@@ -218,8 +226,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
   )
   engine.restore()
 
-  /** Repart d'une soirée vierge — les essais d'avant la fête ne doivent pas y traîner. */
+  /**
+   * Repart d'une soirée vierge — après avoir rangé celle-ci dans l'historique.
+   * Rien ne s'efface tant que l'archive n'est pas écrite : si la base distante
+   * ne répond pas, la soirée reste là et l'animateur est prévenu.
+   */
   const resetParty = async () => {
+    const archived = await archiveParty()
     const running = engine.activeSessionId
     if (running) engine.endSession(running)
     party.clearAll()
@@ -228,6 +241,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     answers.clearAll()
     await backup.reset()
     broadcastSnapshot()
+    return archived
   }
 
   wireSockets(io, {
@@ -235,6 +249,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     teams,
     answers,
     engine,
+    archiveParty,
     hostKey: opts.hostKey,
     trustProxy: !!opts.online,
     maxPlayers: opts.maxPlayers ?? DEFAULT_MAX_PLAYERS,
@@ -261,113 +276,109 @@ export async function createQuizServer(opts: QuizServerOptions) {
     })
   })
 
-  // Page souvenir : volontairement publique, pour que les invités puissent la
-  // regarder le lendemain sans clé d'animateur.
-  app.get('/recap.json', (_req, res) => {
-    const totals = ledger.allTotals()
-    const players = party.publicPlayers(totals)
-    const byId = new Map(players.map(p => [p.id, p]))
-    const row = (id: string) => byId.get(id)
+  // ── Les pages publiques : souvenir, statistiques, bilan, historique ──
+  //
+  // Tout se calcule à partir des journaux (gains, réponses) par des fonctions
+  // pures : la soirée en cours et une soirée archivée passent par le même
+  // chemin, et une amélioration profite aux soirées passées.
 
-    const best = db
-      .prepare('SELECT player_id, points, reason FROM score_entries WHERE points > 0 ORDER BY points DESC LIMIT 1')
-      .get() as { player_id: string; points: number; reason: string } | undefined
-    const steady = db
-      .prepare('SELECT player_id, COUNT(*) AS n FROM score_entries WHERE points > 0 GROUP BY player_id ORDER BY n DESC LIMIT 1')
-      .get() as { player_id: string; n: number } | undefined
-    const quizzes = db
-      .prepare('SELECT COUNT(DISTINCT session_id) AS n FROM score_entries WHERE session_id IS NOT NULL')
-      .get() as { n: number }
-    const distributed = db.prepare('SELECT COALESCE(SUM(points), 0) AS n FROM score_entries').get() as { n: number }
-
-    const bestPlayer = best ? row(best.player_id) : undefined
-    const steadyPlayer = steady ? row(steady.player_id) : undefined
-
-    // Un vainqueur par quiz : autant de prix à remettre, et chacun garde une
-    // chance même si le classement général lui échappe. Une requête par quiz
-    // plutôt qu'une seule très habile — il y en a une poignée dans la soirée,
-    // et le résultat se relit sans effort.
-    const sessions = db
-      .prepare(
-        `SELECT session_id, MIN(created_at) AS started
-         FROM score_entries WHERE session_id IS NOT NULL
-         GROUP BY session_id ORDER BY started ASC`,
-      )
-      .all() as { session_id: string }[]
-
-    const topOfSession = db.prepare(
-      `SELECT player_id, SUM(points) AS total FROM score_entries
-       WHERE session_id = ? GROUP BY player_id ORDER BY total DESC LIMIT 1`,
-    )
-    // Le titre est repris du libellé écrit par le module de jeu, qui a la
-    // forme « Quiz « … » — Q3 ». Les lignes d'annulation ne l'ont pas.
-    const titleOfSession = db.prepare(
-      `SELECT reason FROM score_entries WHERE session_id = ? AND reason LIKE 'Quiz %' LIMIT 1`,
-    )
-
-    const quizWinners: { title: string; name: string; avatar: string; points: number }[] = []
-    for (const { session_id } of sessions) {
-      const top = topOfSession.get(session_id) as { player_id: string; total: number } | undefined
-      const winner = top ? row(top.player_id) : undefined
-      if (!top || !winner || top.total <= 0) continue
-      const reason = (titleOfSession.get(session_id) as { reason: string } | undefined)?.reason ?? ''
-      quizWinners.push({
-        title: /^Quiz « (.+) » — Q\d+$/.exec(reason)?.[1] ?? 'Un quiz',
-        name: winner.name,
-        avatar: winner.avatar,
-        points: top.total,
-      })
-    }
-
-    res.json({
-      ranking: players
-        .filter(p => p.score !== 0)
-        .sort((a, b) => b.score - a.score)
-        .map(p => ({ name: p.name, avatar: p.avatar, points: p.score })),
-      teams: teamScores(teams.all(), players, teams.allBonuses()),
-      stats: computeStats(answers.all(), players),
-      quizCount: quizzes.n,
-      totalPoints: distributed.n,
-      bestShot:
-        best && bestPlayer
-          ? { name: bestPlayer.name, avatar: bestPlayer.avatar, points: best.points, reason: best.reason }
-          : null,
-      steadiest:
-        steady && steadyPlayer
-          ? { name: steadyPlayer.name, avatar: steadyPlayer.avatar, count: steady.n }
-          : null,
-      quizWinners,
-    })
-  })
-
-  // Le bilan, question par question — public comme la page souvenir. Le
-  // journal des réponses ne garde que des numéros : les intitulés viennent de
-  // la copie du quiz conservée dans chaque partie terminée (tant que le disque
-  // local tient), et sinon de la bibliothèque.
-  app.get('/bilan.json', (_req, res) => {
-    const packsBySession = new Map<string, PlayedPack>()
+  /** Les copies exactes des quiz des parties terminées, tant que le disque les a. */
+  const livePacks = () => {
+    const packs = new Map<string, PlayedPack>()
     const played = db.prepare('SELECT id, state FROM sessions').all() as { id: string; state: string }[]
     for (const row of played) {
       try {
         const pack = playedPackOf(JSON.parse(row.state))
-        if (pack) packsBySession.set(row.id, pack)
+        if (pack) packs.set(row.id, pack)
       } catch {
         // Un état illisible ne vaut pas mieux qu'absent : la bibliothèque prend le relais.
       }
     }
-    res.json(
-      buildReview({
-        rows: answers.all(),
-        players: party.publicPlayers(ledger.allTotals()),
-        teams: teams.all(),
-        bonuses: teams.allBonuses(),
-        packsBySession,
-        library: quizLibrary(),
-      }),
-    )
+    return packs
+  }
+
+  const liveRecap = () =>
+    buildRecap({
+      players: party.publicPlayers(ledger.allTotals()),
+      teams: teams.all(),
+      bonuses: teams.allBonuses(),
+      scores: ledger.all(),
+      answers: answers.all(),
+    })
+
+  // Le journal des réponses ne garde que des numéros : les intitulés viennent
+  // de la copie du quiz conservée dans chaque partie terminée (tant que le
+  // disque local tient), et sinon de la bibliothèque.
+  const liveReview = () =>
+    buildReview({
+      rows: answers.all(),
+      players: party.publicPlayers(ledger.allTotals()),
+      teams: teams.all(),
+      bonuses: teams.allBonuses(),
+      packsBySession: livePacks(),
+      library: quizLibrary(),
+    })
+
+  /**
+   * Range la soirée en cours dans l'historique, sans rien effacer. Null s'il
+   * n'y a rien à garder. Une même soirée archivée deux fois est mise à jour.
+   */
+  async function archiveParty(title?: string) {
+    const built = buildArchive({
+      players: party.all(),
+      teams: teams.all(),
+      bonuses: teams.allBonuses(),
+      scores: ledger.all(),
+      answers: answers.all(),
+      packsBySession: livePacks(),
+      library: quizLibrary(),
+    })
+    if (!built) return null
+    return archives.save(built.id, built.heldAt, built.archive, title)
+  }
+
+  // Page souvenir : volontairement publique, pour que les invités puissent la
+  // regarder le lendemain sans clé d'animateur.
+  app.get('/recap.json', (_req, res) => res.json(liveRecap()))
+
+  // Le bilan, question par question — public comme la page souvenir.
+  app.get('/bilan.json', (_req, res) => res.json(liveReview()))
+
+  // L'historique : la soirée en cours et les soirées archivées.
+  app.get('/soirees.json', (_req, res) => {
+    archives
+      .list()
+      .then(list => {
+        const rows = answers.all()
+        const current: ArchiveList['current'] =
+          rows.length === 0
+            ? null
+            : {
+                players: new Set(rows.map(r => r.playerId)).size,
+                quizzes: new Set(rows.map(r => r.sessionId)).size,
+                questions: new Set(rows.map(r => `${r.sessionId}#${r.qIndex}`)).size,
+                since: party.all()[0]?.createdAt ?? null,
+              }
+        const body: ArchiveList = { current, archives: list }
+        res.json(body)
+      })
+      .catch((e: Error) => res.status(500).json({ error: e.message }))
   })
 
-  mountApi(app, { store, hostKey: opts.hostKey, onLibraryChanged: refreshLibrary })
+  // Une soirée archivée se relit avec les mêmes pages que celle en cours.
+  const archived = (build: (archive: PartyArchive) => object) => (req: Request, res: Response) => {
+    archives
+      .get(req.params.id)
+      .then(found => {
+        if (!found) return res.status(404).json({ error: 'Soirée introuvable' })
+        res.json({ ...build(found.archive), archive: found.summary })
+      })
+      .catch((e: Error) => res.status(500).json({ error: e.message }))
+  }
+  app.get('/soirees/:id/recap.json', archived(recapOfArchive))
+  app.get('/soirees/:id/bilan.json', archived(reviewOfArchive))
+
+  mountApi(app, { store, archives, hostKey: opts.hostKey, onLibraryChanged: refreshLibrary })
 
   const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -418,6 +429,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         io.close(async () => {
           db.close()
           store.close()
+          archives.close()
           // Les écritures distantes en vol doivent aboutir avant de couper.
           await backup.close()
           resolve()

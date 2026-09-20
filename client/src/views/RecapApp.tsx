@@ -7,6 +7,9 @@ import { AwardsBoard } from '../components/AwardsBoard'
 import { Trophies } from '../components/Trophies'
 import { JoinHead } from '../components/Invitation'
 import { Icon } from '../components/Icon'
+import { ArchiveBanner } from '../components/ArchiveBanner'
+import { dataUrl, pageUrl } from '../archive'
+import { formatDay } from '../../../shared/archive'
 
 /**
  * La page souvenir, ouverte le lendemain. Volontairement sans clé : c'est
@@ -17,7 +20,7 @@ export function RecapApp() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/recap.json')
+    fetch(dataUrl('recap.json'))
       .then(r => r.json())
       .then(setRecap)
       .catch(() => setError('Impossible de charger le souvenir de la soirée.'))
@@ -49,11 +52,13 @@ export function RecapApp() {
     )
   }
 
+  const archive = recap.archive
   return (
     <div className="recap">
+      {archive && <ArchiveBanner archive={archive} />}
       <header className="recap-header">
-        <span className="label">19 septembre 2026</span>
-        <h1>Les 30 ans de Romane</h1>
+        <span className="label">{archive ? formatDay(archive.heldAt) : '19 septembre 2026'}</span>
+        <h1>{archive ? archive.title : 'Les 30 ans de Romane'}</h1>
         <p className="join-sub">Le souvenir de la soirée</p>
         <p className="muted">
           {recap.ranking.length} joueurs · {recap.quizCount} quiz ·{' '}
@@ -115,7 +120,7 @@ export function RecapApp() {
             Ce que tu as répondu à chaque question, ce que ton équipe a choisi, ce que la salle a
             choisi — et les questions qui ont marqué la soirée.
           </p>
-          <a className="btn btn-accent" href="/bilan">
+          <a className="btn btn-accent" href={pageUrl('bilan')}>
             <Icon name="list" />
             Relire mon bilan
           </a>
@@ -123,6 +128,9 @@ export function RecapApp() {
       )}
 
       <p className="recap-foot muted">Merci d'être venus.</p>
+      <p className="muted small center">
+        <a href="/soirees">Toutes les soirées</a>
+      </p>
     </div>
   )
 }

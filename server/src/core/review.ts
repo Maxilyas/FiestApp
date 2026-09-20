@@ -116,12 +116,12 @@ interface Found {
  * bibliothèque qui porte ce titre. Deux quiz peuvent porter le même titre —
  * on garde celui qui colle au journal sur le plus de questions.
  */
-function findQuestions(group: SessionGroup, input: ReviewInput): Map<number, Found> {
+function choosePack(group: SessionGroup, input: ReviewInput): { pack: PlayedPack | null; exact: boolean } {
   const exact = input.packsBySession.get(group.id)
-  const candidates = exact ? [exact] : input.library.filter(p => p.title === group.title)
+  if (exact) return { pack: exact, exact: true }
   let best: PlayedPack | null = null
   let bestScore = -1
-  for (const pack of candidates) {
+  for (const pack of input.library.filter(p => p.title === group.title)) {
     const score = group.questions.reduce((n, q) => {
       const pq = pack.questions[q.qIndex]
       return n + (pq && consistent(pq, q.rows) ? 1 : 0)
@@ -131,12 +131,36 @@ function findQuestions(group: SessionGroup, input: ReviewInput): Map<number, Fou
       bestScore = score
     }
   }
+  return { pack: best, exact: false }
+}
+
+function findQuestions(group: SessionGroup, input: ReviewInput): Map<number, Found> {
+  const { pack, exact } = choosePack(group, input)
   const found = new Map<number, Found>()
   for (const q of group.questions) {
-    const pq = best?.questions[q.qIndex] ?? null
+    const pq = pack?.questions[q.qIndex] ?? null
     found.set(q.qIndex, { question: pq, uncertain: !!pq && !exact && !consistent(pq, q.rows) })
   }
   return found
+}
+
+/**
+ * Le quiz de chaque partie du journal, tel qu'on peut encore le retrouver.
+ * L'archive d'une soirée l'emporte avec elle : le bilan se relira ensuite
+ * sans dépendre de la bibliothèque, qui aura peut-être changé.
+ */
+export function resolvePacks(
+  rows: AnswerRow[],
+  packsBySession: Map<string, PlayedPack>,
+  library: PlayedPack[],
+): Map<string, PlayedPack & { exact: boolean }> {
+  const input: ReviewInput = { rows, players: [], teams: [], bonuses: [], packsBySession, library }
+  const packs = new Map<string, PlayedPack & { exact: boolean }>()
+  for (const group of groupSessions(rows)) {
+    const { pack, exact } = choosePack(group, input)
+    if (pack) packs.set(group.id, { title: pack.title, questions: pack.questions, exact })
+  }
+  return packs
 }
 
 // ── Aides de calcul ──────────────────────────────────────────────────────

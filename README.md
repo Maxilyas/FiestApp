@@ -14,7 +14,7 @@ npm install
 npm run dev
 ```
 
-Cinq adresses, une par usage :
+Six adresses, une par usage :
 
 | Page | Adresse | Pour qui |
 |---|---|---|
@@ -23,6 +23,7 @@ Cinq adresses, une par usage :
 | Mes quiz | http://localhost:5173/edit#key=romane | Antoine, pour écrire les quiz |
 | Statistiques | http://localhost:5173/stats | Antoine pendant la fête, tout le monde après |
 | Bilan | http://localhost:5173/bilan | les invités, le lendemain : chacun relit ses réponses |
+| Soirées | http://localhost:5173/soirees | l'historique : chaque soirée passée, avec son souvenir, ses chiffres et son bilan |
 
 ```bash
 npm run check
@@ -32,7 +33,7 @@ npm run check
 npm run smoke
 ```
 
-`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, garde-fous, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, reprise après coupure en pleine question).
+`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, garde-fous, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, reprise après coupure en pleine question, historique des soirées).
 
 La clé animateur se passe **après un dièse** (`#key=…`) : cette partie de l'adresse ne quitte jamais le navigateur, elle n'arrive ni dans les journaux du serveur ni dans l'historique d'une adresse partagée. Elle est retirée de la barre d'adresse aussitôt lue.
 
@@ -117,7 +118,17 @@ npm run export -- https://ton-app.onrender.com
 
 Il écrit dans `export/` un `bilan.json` complet et trois CSV faits pour Excel (point-virgule, accents corrects) : `invites.csv` (une ligne par invité, une colonne par question — « Canberra ✔ · 1,8 s · 190 pts »), `questions.csv` (une ligne par question, avec la répartition des réponses et la réussite de chaque équipe) et `equipes.csv` (une ligne par équipe, un quiz par colonne). Si le serveur ne répond plus, `npm run export -- --db libsql://… --token …` lit directement la base Turso.
 
-**Comment ça marche, et ce qu'il ne faut pas faire.** Le journal des réponses ne garde que des numéros : celui de la question dans son quiz, celui de la réponse choisie. Les intitulés sont retrouvés dans la copie du quiz que chaque partie terminée conserve sur le disque du serveur, et sinon dans la bibliothèque, par titre de quiz — en vérifiant que ce qu'elle dit colle au journal (type de question, bonne réponse, nombre de réponses). D'où deux précautions tant que le bilan sert : **ne pas cliquer sur 🧹 Nouvelle soirée** (ça efface le journal, sauvegarde distante comprise) et **ne pas retoucher les quiz joués** — réordonner ou supprimer une question, vider une case de réponse ou renommer le quiz, et le bilan signale « quiz modifié depuis la soirée », ou perd l'intitulé (les numéros et les points restent).
+**Comment ça marche, et ce qu'il ne faut pas faire.** Le journal des réponses ne garde que des numéros : celui de la question dans son quiz, celui de la réponse choisie. Les intitulés sont retrouvés dans la copie du quiz que chaque partie terminée conserve sur le disque du serveur, et sinon dans la bibliothèque, par titre de quiz — en vérifiant que ce qu'elle dit colle au journal (type de question, bonne réponse, nombre de réponses). D'où une précaution tant que la soirée n'est pas rangée dans l'historique : **ne pas retoucher les quiz joués** — réordonner ou supprimer une question, vider une case de réponse ou renommer le quiz, et le bilan signale « quiz modifié depuis la soirée », ou perd l'intitulé (les numéros et les points restent). Une fois la soirée archivée, ses questions voyagent avec elle et la bibliothèque peut changer.
+
+## L'historique des soirées
+
+L'application sert plus d'une fête. **`/soirees`** liste les soirées passées, et chacune se relit avec les mêmes pages que la soirée en cours : `/soirees/<id>/souvenir`, `/soirees/<id>/stats`, `/soirees/<id>/bilan` — et les fiches à imprimer avec. Les pages disent en tête quelle soirée elles relisent.
+
+**Sauvegarder** (écran commun, à côté de 🧹 Nouvelle soirée) range la soirée en cours dans l'historique sous le nom qu'on lui donne, sans rien effacer : à faire dès la fin de la fête pour la mettre à l'abri, ou avant même la fin, la soirée continue. **🧹 Nouvelle soirée** fait la même chose avant d'effacer : rien ne s'efface tant que l'archive n'est pas écrite, et si la base distante ne répond pas, la soirée reste là et l'animateur est prévenu. Une soirée archivée deux fois est mise à jour, pas dupliquée : c'est la date et l'heure d'arrivée du premier invité qui l'identifient.
+
+Une archive est une copie complète — invités, équipes, points, prix remis, journal des réponses, et les quiz tels qu'ils ont été posés — rangée dans la base permanente, à côté de la bibliothèque. Rien n'y est précalculé : le souvenir, les statistiques et le bilan se relisent depuis ces données avec le code du jour, et une amélioration des prix ou du bilan profite aux soirées passées. Les quiz voyagent avec l'archive : on peut ensuite retoucher la bibliothèque, ou la réécrire pour la fête suivante, sans rien perdre.
+
+Sur `/soirees`, l'animateur — reconnu à la clé mémorisée par l'espace animateur — renomme une soirée ou la retire de l'historique. L'export sait viser une archive : `npm run export -- https://ton-app.onrender.com --soiree 2026-09-19-k7x2q` (l'identifiant est dans l'adresse de ses pages) écrit ses fichiers dans `export/2026-09-19-k7x2q/`.
 
 ## Faire durer le suspense
 
@@ -129,7 +140,7 @@ Avec cinquante invités et un classement cumulé, les mêmes trois personnes mè
 
 **En fin de soirée**, le bouton 🏆 célèbre le classement cumulé en plein écran, avec un QR vers la **page souvenir** (`/souvenir`) : podium, nombre de quiz, points distribués, le plus beau coup et le plus régulier. Elle est publique, à partager aux invités le lendemain.
 
-**Entre deux soirées**, 🧹 Nouvelle soirée efface invités et points, sauvegarde distante comprise — les essais d'avant la fête ne doivent pas traîner dans le classement du soir J.
+**Entre deux soirées**, 🧹 Nouvelle soirée range d'abord la soirée dans l'historique (voir plus bas), puis efface invités et points, sauvegarde distante comprise — les essais d'avant la fête ne doivent pas traîner dans le classement du soir J. Une archive d'essais se retire ensuite d'un clic sur `/soirees`.
 
 ## Les équipes
 
@@ -156,6 +167,7 @@ Deux stockages séparés, et c'est volontaire :
 - **La bibliothèque de quiz** est le seul contenu précieux : elle doit survivre à un redéploiement. En local c'est un fichier (`server/data/quizzes.db`) ; en ligne, on pointe `QUIZ_DB_URL` vers une base **Turso** gratuite. Le code est le même — le client libSQL parle aux deux.
 - **L'état d'une partie** (question en cours, réponses) vit dans une base SQLite locale, jetable, et il est recopié dans la base distante au plus toutes les deux secondes. Après un redémarrage, même sur un disque effacé, la question en cours reprend là où elle en était — au pire, deux secondes de réponses en moins.
 - **Les invités et leurs points** sont recopiés dans la base distante au fil de l'eau et rechargés au démarrage si le disque local est reparti vide. Sur un hébergeur gratuit le disque est effacé à chaque redémarrage : sans ce miroir, la soirée repartirait à zéro sans que personne comprenne pourquoi.
+- **Les soirées archivées** vivent dans la base permanente, avec la bibliothèque : une ligne par soirée, tout dedans (table `soirees`). C'est ce qui reste quand la suivante commence.
 
 ## Tester avec de vrais téléphones (à la maison)
 
@@ -261,8 +273,9 @@ L'écran commun a deux repères fixes : une bande d'état en haut (titre, quiz e
 ## Architecture
 
 ```
-client/   React + Vite — 6 routes : "/" (téléphone), "/host" (écran commun), "/edit" (mes quiz),
-          "/stats" (les chiffres), "/souvenir" (le lendemain), "/bilan" (question par question)
+client/   React + Vite — 7 routes : "/" (téléphone), "/host" (écran commun), "/edit" (mes quiz),
+          "/stats" (les chiffres), "/souvenir" (le lendemain), "/bilan" (question par question),
+          "/soirees" (l'historique — chaque archive se relit par "/soirees/<id>/…")
 server/   Node + Socket.io + Express — logique de jeu 100% côté serveur
 shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, barème des équipes)
 ```
@@ -272,6 +285,8 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, bar
 - **AnswerLog** (`answers.ts`) — une ligne par joueur et par question posée, réponses manquantes comprises. C'est la seule source des statistiques : le classement, lui, ne garde que les gains positifs. Une question annulée ou reposée en sort, pour ne pas compter deux fois.
 - **Stats** (`stats.ts`) — les moyennes, les séries et les prix, dérivés du journal. Les prix sont proposés, jamais appliqués : c'est l'animateur qui décide.
 - **Review** (`review.ts`) — le bilan question par question, dérivé du journal recroisé avec les questions telles qu'elles ont été posées : la copie du quiz gardée dans chaque partie terminée, sinon la bibliothèque. Servi par `/bilan.json`, public ; `export.ts` en tire les fichiers de `npm run export`.
+- **Recap** (`recap.ts`) — la page souvenir, calculée des journaux par une fonction pure : la soirée en cours et une archive passent par le même chemin.
+- **Archive** (`archive.ts`) — l'historique des soirées : une copie complète de la soirée (journaux, quiz joués) rangée dans la base permanente, relue par `/soirees/:id/recap.json` et `/soirees/:id/bilan.json`. Archiver ne recalcule rien ; relire se fait avec le code du jour.
 - **ScoreLedger** (`scores.ts`) — scores en append-only : chaque gain est une ligne (joueur, points, raison). Classement = somme par joueur, historique gratuit.
 - **GameEngine** (`engine.ts`) — pilote la partie en cours (une seule à la fois) : route actions/commandes/timers vers le module de jeu, persiste l'état après chaque changement et rediffuse les **vues filtrées**.
 - **Vues filtrées** — les clients ne reçoivent jamais l'état brut : chaque joueur reçoit `playerView(state, playerId)`, l'écran `hostView(state)`. C'est ce qui empêche la bonne réponse d'arriver dans le téléphone avant la révélation.
@@ -295,3 +310,4 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, bar
 | 11 | Photo « mémoire » et classements annoncés entre deux questions | ✅ |
 | 12 | Journal des réponses, statistiques, prix de fin de soirée et écran de victoire | ✅ |
 | 13 | Le bilan : ce que chacun a répondu question par question, la relecture collective, les fiches imprimables, l'export CSV | ✅ |
+| 14 | L'historique des soirées : archives complètes, relecture des pages d'une soirée passée, sauvegarde avant remise à zéro | ✅ |

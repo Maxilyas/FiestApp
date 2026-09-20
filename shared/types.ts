@@ -1,4 +1,5 @@
 // Types partagés entre le client et le serveur.
+import type { ArchiveSummary } from './archive'
 
 /** Joueur tel que visible par tout le monde. */
 export interface PublicPlayer {
@@ -147,4 +148,6 @@ export interface Recap {
   steadiest: { name: string; avatar: string; count: number } | null
   /** Le vainqueur de chaque quiz de la soirée — autant de prix à remettre. */
   quizWinners: { title: string; name: string; avatar: string; points: number }[]
+  /** Présent quand la page relit une soirée archivée plutôt que celle en cours. */
+  archive?: ArchiveSummary
 }

@@ -5,6 +5,7 @@ import type { Teams } from './core/teams'
 import type { AnswerLog } from './core/answers'
 import type { GameEngine } from './core/engine'
 import type { PartySnapshot } from '../../shared/types'
+import type { ArchiveSummary } from '../../shared/archive'
 
 interface SocketDeps {
   party: Party
@@ -19,7 +20,10 @@ interface SocketDeps {
   /** L'instantané complet pour l'écran commun, expurgé du wifi pour les autres. */
   buildSnapshot: (forHost: boolean) => PartySnapshot
   broadcastSnapshot: () => void
-  resetParty: () => Promise<void>
+  /** Range la soirée dans l'historique puis repart de zéro. */
+  resetParty: () => Promise<ArchiveSummary | null>
+  /** Range la soirée dans l'historique, sans rien effacer. */
+  archiveParty: (title?: string) => Promise<ArchiveSummary | null>
 }
 
 // ── Garde-fous ───────────────────────────────────────────────────────────
@@ -257,9 +261,35 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
 
     socket.on('host:resetParty', () => {
       if (!requireHost()) return
-      deps.resetParty().catch(e => {
-        socket.emit('toast', { kind: 'error', message: (e as Error).message })
-      })
+      deps
+        .resetParty()
+        .then(archived => {
+          if (archived) {
+            socket.emit('toast', { kind: 'info', message: `« ${archived.title} » est dans l’historique — soirée vierge` })
+          }
+        })
+        .catch(e => {
+          socket.emit('toast', { kind: 'error', message: `Rien n’a été effacé : ${(e as Error).message}` })
+        })
+    })
+
+    // Sauvegarder la soirée sans repartir de zéro : pour l'avoir à l'abri
+    // avant la fin, ou lui donner son nom.
+    socket.on('host:archiveParty', ({ title }) => {
+      if (!requireHost()) return
+      deps
+        .archiveParty(typeof title === 'string' ? title : undefined)
+        .then(archived => {
+          socket.emit(
+            'toast',
+            archived
+              ? { kind: 'info', message: `« ${archived.title} » est dans l’historique` }
+              : { kind: 'error', message: 'Rien à ranger : aucune question n’a encore été jouée' },
+          )
+        })
+        .catch(e => {
+          socket.emit('toast', { kind: 'error', message: (e as Error).message })
+        })
     })
 
     socket.on('disconnect', () => {

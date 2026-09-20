@@ -4,6 +4,9 @@ import { Icon } from '../components/Icon'
 import { makeCtx, type BilanCtx } from '../components/BilanQuestion'
 import { PlayerReview } from '../components/BilanPlayer'
 import { RoomReview } from '../components/BilanRoom'
+import { ArchiveBanner } from '../components/ArchiveBanner'
+import { dataUrl, pageUrl } from '../archive'
+import { formatDay } from '../../../shared/archive'
 
 /**
  * Le bilan de la soirée (`/bilan`), question par question.
@@ -46,7 +49,7 @@ function rememberedPlayerId(): string | null {
 }
 
 export function BilanApp() {
-  const fiches = window.location.pathname.startsWith('/bilan/fiches')
+  const fiches = window.location.pathname.endsWith('/bilan/fiches')
   const [review, setReview] = useState<Review | null>(null)
   const [error, setError] = useState('')
   const [mode, setMode] = useState<Mode>(readMode)
@@ -55,7 +58,7 @@ export function BilanApp() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    fetch('/bilan.json')
+    fetch(dataUrl('bilan.json'))
       .then(r => r.json())
       .then(setReview)
       .catch(() => setError('Impossible de charger le bilan de la soirée.'))
@@ -187,10 +190,18 @@ export function BilanApp() {
 
       <p className="recap-foot muted">Merci d'avoir joué.</p>
       <p className="muted small center">
-        Pour l'animateur : <a href="/bilan/fiches">les fiches à imprimer, une par invité</a>.
+        Pour l'animateur : <a href={pageUrl('bilan/fiches')}>les fiches à imprimer, une par invité</a>
+        {' · '}
+        <a href="/soirees">toutes les soirées</a>
       </p>
     </div>
   )
+}
+
+/** « Les 30 ans de Romane · 19 septembre 2026 », ou le nom et la date d'une soirée archivée. */
+function partyLine(ctx: BilanCtx): string {
+  const a = ctx.review.archive
+  return a ? `${a.title} · ${formatDay(a.heldAt)}` : 'Les 30 ans de Romane · 19 septembre 2026'
 }
 
 function BilanHead({ ctx }: { ctx: BilanCtx }) {
@@ -198,9 +209,10 @@ function BilanHead({ ctx }: { ctx: BilanCtx }) {
   const played = review.players.filter(p => p.stat.asked > 0).length
   return (
     <header className="recap-header">
-      <span className="label">19 septembre 2026</span>
+      {review.archive && <ArchiveBanner archive={review.archive} />}
+      <span className="label">{review.archive ? formatDay(review.archive.heldAt) : '19 septembre 2026'}</span>
       <h1>Le bilan du quiz</h1>
-      <p className="join-sub">Les 30 ans de Romane</p>
+      <p className="join-sub">{review.archive ? review.archive.title : 'Les 30 ans de Romane'}</p>
       {review.questions.length > 0 && (
         <p className="muted">
           {played} joueur{played > 1 ? 's' : ''} · {review.questions.length} question
@@ -279,7 +291,7 @@ function Fiches({ ctx, players }: { ctx: BilanCtx; players: ReviewPlayer[] }) {
             <Icon name="clipboard" />
             Imprimer
           </button>
-          <a className="btn btn-ghost" href="/bilan">
+          <a className="btn btn-ghost" href={pageUrl('bilan')}>
             Retour au bilan
           </a>
         </div>
@@ -287,7 +299,7 @@ function Fiches({ ctx, players }: { ctx: BilanCtx; players: ReviewPlayer[] }) {
       {sorted.map(p => (
         <section key={p.id} className="fiche">
           <header className="fiche-head">
-            <span className="label">Les 30 ans de Romane · 19 septembre 2026</span>
+            <span className="label">{partyLine(ctx)}</span>
             <h1>Le bilan de {p.name}</h1>
           </header>
           <PlayerReview ctx={ctx} player={p} />

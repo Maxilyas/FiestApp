@@ -4,6 +4,7 @@ import { createClient } from '@libsql/client'
 import { QuizStore } from './quizStore'
 import { toRow } from './answers'
 import { buildReview } from './review'
+import { ArchiveStore, reviewOfArchive } from './archive'
 import { playableQuestions } from '../../../shared/library'
 import {
   answerLabel,
@@ -25,8 +26,9 @@ import type { PublicPlayer, TeamBonus } from '../../../shared/types'
  * ne répond plus : les tables `party_*` y sont recopiées pendant la fête.
  */
 
-export async function reviewFromServer(base: string): Promise<Review> {
-  const res = await fetch(`${base.replace(/\/+$/, '')}/bilan.json`)
+export async function reviewFromServer(base: string, archiveId?: string): Promise<Review> {
+  const root = base.replace(/\/+$/, '')
+  const res = await fetch(archiveId ? `${root}/soirees/${archiveId}/bilan.json` : `${root}/bilan.json`)
   if (!res.ok) throw new Error(`${base} répond ${res.status}`)
   return (await res.json()) as Review
 }
@@ -36,7 +38,16 @@ export async function reviewFromServer(base: string): Promise<Review> {
  * prix et le journal des réponses tels que le serveur les y a recopiés, et
  * la bibliothèque pour retrouver les intitulés.
  */
-export async function reviewFromDatabase(dbUrl: string, token?: string): Promise<Review> {
+export async function reviewFromDatabase(dbUrl: string, token?: string, archiveId?: string): Promise<Review> {
+  // Une soirée archivée est déjà complète : ses questions voyagent avec elle.
+  if (archiveId) {
+    const archives = new ArchiveStore(dbUrl, token)
+    await archives.init()
+    const found = await archives.get(archiveId)
+    archives.close()
+    if (!found) throw new Error(`Soirée « ${archiveId} » introuvable dans l'historique`)
+    return { ...reviewOfArchive(found.archive), archive: found.summary }
+  }
   const client = createClient({ url: dbUrl, authToken: token })
   const [players, teams, scores, bonuses, answers] = await Promise.all([
     client.execute('SELECT * FROM party_players'),

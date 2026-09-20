@@ -11,7 +11,7 @@ import { createQuizServer } from '../src/server'
 import { parseImportedQuestions } from '../../shared/library'
 import { QuizStore } from '../src/core/quizStore'
 import { finalRanking, rankTeams } from '../../shared/teams'
-import { reviewFromDatabase, writeExport } from '../src/core/export'
+import { reviewFromDatabase, reviewFromServer, writeExport } from '../src/core/export'
 
 function fail(msg: string): never {
   console.error(`❌ ${msg}`)
@@ -1044,11 +1044,92 @@ try {
     resumedGame.view.phase === 'question' && resumedGame.view.qIndex === 0,
     `la question en cours doit reprendre, vu ${resumedGame.view.phase} Q${resumedGame.view.qIndex + 1}`,
   )
+  // 30. L'historique : la soirée se range dans la base permanente, questions
+  //     comprises, et se relit avec les mêmes pages. « Nouvelle soirée »
+  //     l'archive avant d'effacer, sans doublon ni perte de titre.
+  const url2 = `http://localhost:${server2.port}`
+  const host2 = clientIo(url2, { transports: ['websocket'] })
+  const hello2 = await emitAck<{ ok: boolean }>(host2, 'host:hello', { key: 'smoke' })
+  assert(hello2.ok, 'écran commun refusé après redémarrage')
+  const archivedToast = waitFor<any>(host2, 'toast', t => t.kind === 'info', 'soirée archivée')
+  ;(host2 as any).emit('host:archiveParty', { title: 'Soirée de test' })
+  await archivedToast
+  const soirees = (await (await fetch(`${url2}/soirees.json`)).json()) as any
+  assert(soirees.current && soirees.current.players > 0, 'la soirée en cours doit figurer dans l’historique')
+  assert(
+    soirees.archives.length === 1 && soirees.archives[0].title === 'Soirée de test',
+    'la soirée archivée doit être listée sous son titre',
+  )
+  const archiveId = soirees.archives[0].id
+  const archivedBilan = (await (await fetch(`${url2}/soirees/${archiveId}/bilan.json`)).json()) as any
+  assert(archivedBilan.archive?.id === archiveId, 'le bilan archivé doit dire quelle soirée il relit')
+  assert(
+    archivedBilan.questions.length === bilan.questions.length,
+    `${archivedBilan.questions.length} questions dans l’archive, ${bilan.questions.length} en direct`,
+  )
+  assert(
+    archivedBilan.questions.every(
+      (q: any, i: number) => q.text === bilanAfter.questions[i].text && q.resolved === bilanAfter.questions[i].resolved,
+    ),
+    'l’archive doit emporter les questions telles qu’elles ont été retrouvées',
+  )
+  const archivedRecap = (await (await fetch(`${url2}/soirees/${archiveId}/recap.json`)).json()) as any
+  assert(
+    archivedRecap.archive?.id === archiveId && archivedRecap.ranking.length === statsAfter.ranking.length,
+    'le souvenir archivé doit reprendre le classement',
+  )
+  assert(archivedRecap.stats.logged === statsAfter.stats.logged, 'les statistiques archivées doivent compter les mêmes réponses')
+
+  // Renommer demande la clé ; lire, non.
+  const anonRename = await fetch(`${url2}/api/soirees/${archiveId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'Pirate' }),
+  })
+  assert(anonRename.status === 401, 'renommer une soirée sans clé doit être refusé')
+  const renamedSoiree = await fetch(`${url2}/api/soirees/${archiveId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'x-quizz-key': 'smoke' },
+    body: JSON.stringify({ title: 'Les 30 ans de Romane' }),
+  })
+  assert(renamedSoiree.ok, 'renommer une soirée avec la clé')
+
+  // « Nouvelle soirée » : la même soirée est mise à jour, son titre reste, le direct est vide.
+  const wiped = waitFor<any>(probe, 'party:snapshot', s => s.players.length === 0, 'soirée vierge')
+  ;(host2 as any).emit('host:resetParty')
+  await wiped
+  const afterReset = (await (await fetch(`${url2}/soirees.json`)).json()) as any
+  assert(afterReset.current === null, 'après remise à zéro, plus de soirée en cours')
+  assert(
+    afterReset.archives.length === 1 && afterReset.archives[0].title === 'Les 30 ans de Romane',
+    'la remise à zéro met l’archive à jour sans doublon ni perte de titre',
+  )
+  const emptyLive = (await (await fetch(`${url2}/bilan.json`)).json()) as any
+  assert(emptyLive.questions.length === 0, 'le bilan en direct doit être vide après remise à zéro')
+  const stillThere = (await (await fetch(`${url2}/soirees/${archiveId}/bilan.json`)).json()) as any
+  assert(stillThere.questions.length === bilan.questions.length, 'l’archive doit rester lisible après la remise à zéro')
+
+  // L'export sait viser une soirée archivée, depuis le serveur comme depuis la base.
+  const fromArchive = await reviewFromServer(url2, archiveId)
+  assert(fromArchive.questions.length === bilan.questions.length, 'l’export doit pouvoir viser une soirée archivée')
+  const fromArchiveDb = await reviewFromDatabase(quizDbUrl, undefined, archiveId)
+  assert(fromArchiveDb.questions.length === bilan.questions.length, 'l’export depuis la base doit lire l’archive')
+
+  // Retirer une soirée de l'historique.
+  const removedSoiree = await fetch(`${url2}/api/soirees/${archiveId}`, {
+    method: 'DELETE',
+    headers: { 'x-quizz-key': 'smoke' },
+  })
+  assert(removedSoiree.ok, 'retirer une soirée avec la clé')
+  const gone = await fetch(`${url2}/soirees/${archiveId}/bilan.json`)
+  assert(gone.status === 404, 'une soirée retirée ne se relit plus')
+  host2.disconnect()
+
   alice3.disconnect()
   probe.disconnect()
   await server2.close()
 
-  console.log('✅ Smoke test OK — 30 étapes')
+  console.log('✅ Smoke test OK — 31 étapes')
   console.log(
     '   collage de questions, garde-fous, quiz complet, bibliothèque, photos, estimation, sabotage,',
   )
@@ -1061,7 +1142,7 @@ try {
   console.log(
     '   statistiques et prix remis à la main, bilan question par question et export,',
   )
-  console.log('   reprise après coupure en pleine question')
+  console.log('   reprise après coupure en pleine question, historique des soirées')
   process.exit(0)
 } catch (e) {
   fail((e as Error).message)

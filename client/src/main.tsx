@@ -11,6 +11,8 @@ import './styles.css'
 //   /stats     les chiffres, à consulter sur son téléphone pendant la fête
 //   /souvenir  la page à relire le lendemain, sans clé
 //   /bilan     ce que chacun a répondu, question par question, sans clé
+//   /soirees   l'historique ; /soirees/<id>/souvenir, /stats et /bilan relisent
+//              une soirée archivée avec les mêmes pages (client/src/archive.ts)
 //
 // Chaque route est un paquet à part : les téléphones n'ont pas à télécharger
 // l'éditeur, l'écran commun ni la bibliothèque de QR codes pour répondre à
@@ -21,19 +23,25 @@ const EditorApp = lazy(() => import('./views/EditorApp').then(m => ({ default: m
 const StatsApp = lazy(() => import('./views/StatsApp').then(m => ({ default: m.StatsApp })))
 const RecapApp = lazy(() => import('./views/RecapApp').then(m => ({ default: m.RecapApp })))
 const BilanApp = lazy(() => import('./views/BilanApp').then(m => ({ default: m.BilanApp })))
+const ArchivesApp = lazy(() => import('./views/ArchivesApp').then(m => ({ default: m.ArchivesApp })))
 
 const path = window.location.pathname
+// Une soirée archivée se relit avec les mêmes pages : « /soirees/<id>/bilan »
+// est la page du bilan, tournée vers l'archive.
+const page = path.replace(/^\/soirees\/[\w-]+/, '')
 const App = path.startsWith('/host')
   ? HostApp
   : path.startsWith('/edit')
     ? EditorApp
-    : path.startsWith('/stats')
+    : page.startsWith('/stats')
       ? StatsApp
-      : path.startsWith('/souvenir')
+      : page.startsWith('/souvenir')
         ? RecapApp
-        : path.startsWith('/bilan')
+        : page.startsWith('/bilan')
           ? BilanApp
-          : PlayerApp
+          : path.startsWith('/soirees')
+            ? ArchivesApp
+            : PlayerApp
 
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au

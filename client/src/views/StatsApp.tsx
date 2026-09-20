@@ -3,6 +3,8 @@ import type { Recap } from '../../../shared/types'
 import { StatsTable } from '../components/StatsTable'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { TeamBoard } from '../components/TeamBoard'
+import { ArchiveBanner } from '../components/ArchiveBanner'
+import { archiveId, dataUrl, pageUrl } from '../archive'
 
 /**
  * La page des chiffres, à son adresse propre (`/stats`).
@@ -17,13 +19,15 @@ export function StatsApp() {
 
   useEffect(() => {
     const load = () =>
-      fetch('/recap.json')
+      fetch(dataUrl('recap.json'))
         .then(r => r.json())
         .then(setRecap)
         .catch(() => setError('Impossible de charger les statistiques.'))
     load()
     // Rafraîchi tout seul : la page reste ouverte sur le téléphone de
-    // l'animateur pendant que les quiz s'enchaînent.
+    // l'animateur pendant que les quiz s'enchaînent. Une soirée archivée,
+    // elle, ne bouge plus.
+    if (archiveId()) return
     const id = setInterval(load, 20_000)
     return () => clearInterval(id)
   }, [])
@@ -48,8 +52,9 @@ export function StatsApp() {
 
   return (
     <div className="recap">
+      {recap.archive && <ArchiveBanner archive={recap.archive} />}
       <header className="recap-header">
-        <span className="label">Les chiffres de la soirée</span>
+        <span className="label">{recap.archive ? recap.archive.title : 'Les chiffres de la soirée'}</span>
         <h1>Statistiques</h1>
         <p className="muted">
           {stats.questions} questions posées · {stats.logged} réponses enregistrées ·{' '}
@@ -93,7 +98,7 @@ export function StatsApp() {
           )}
 
           <p className="muted small center">
-            Le détail de chacun, question par question, est sur <a href="/bilan">le bilan</a>.
+            Le détail de chacun, question par question, est sur <a href={pageUrl('bilan')}>le bilan</a>.
           </p>
         </>
       )}
