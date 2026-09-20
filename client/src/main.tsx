@@ -10,6 +10,7 @@ import './styles.css'
 //   /edit      espace animateur : la bibliothèque de quiz
 //   /stats     les chiffres, à consulter sur son téléphone pendant la fête
 //   /souvenir  la page à relire le lendemain, sans clé
+//   /bilan     ce que chacun a répondu, question par question, sans clé
 //
 // Chaque route est un paquet à part : les téléphones n'ont pas à télécharger
 // l'éditeur, l'écran commun ni la bibliothèque de QR codes pour répondre à
@@ -19,6 +20,7 @@ const HostApp = lazy(() => import('./views/HostApp').then(m => ({ default: m.Hos
 const EditorApp = lazy(() => import('./views/EditorApp').then(m => ({ default: m.EditorApp })))
 const StatsApp = lazy(() => import('./views/StatsApp').then(m => ({ default: m.StatsApp })))
 const RecapApp = lazy(() => import('./views/RecapApp').then(m => ({ default: m.RecapApp })))
+const BilanApp = lazy(() => import('./views/BilanApp').then(m => ({ default: m.BilanApp })))
 
 const path = window.location.pathname
 const App = path.startsWith('/host')
@@ -29,7 +31,9 @@ const App = path.startsWith('/host')
       ? StatsApp
       : path.startsWith('/souvenir')
         ? RecapApp
-        : PlayerApp
+        : path.startsWith('/bilan')
+          ? BilanApp
+          : PlayerApp
 
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au

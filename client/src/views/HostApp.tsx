@@ -499,6 +499,10 @@ export function HostApp() {
                     <Icon name="book" />
                     Page souvenir
                   </a>
+                  <a className="btn" href="/bilan" target="_blank" rel="noreferrer">
+                    <Icon name="list" />
+                    Le bilan
+                  </a>
                   <button className="btn" onClick={() => openScreen('awards')}>
                     <Icon name="award" />
                     Remise des prix

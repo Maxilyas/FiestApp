@@ -78,6 +78,22 @@ export function setQuizLibrary(quizzes: QuizDef[]) {
     .filter(p => p.questions.length > 0)
 }
 
+/** La bibliothèque telle qu'elle se joue : titres et questions jouables. */
+export function quizLibrary(): QuizPack[] {
+  return library
+}
+
+/**
+ * Le quiz d'une partie, tel qu'il a été joué, relu dans l'état persisté de la
+ * partie. Le bilan s'en sert pour retrouver les intitulés exacts : la
+ * bibliothèque a pu être retouchée depuis, pas cette copie.
+ */
+export function playedPackOf(state: unknown): { title: string; questions: PlayableQuestion[] } | null {
+  const pack = (state as Partial<QuizState> | null)?.pack
+  if (!pack || typeof pack.title !== 'string' || !Array.isArray(pack.questions)) return null
+  return { title: pack.title, questions: pack.questions }
+}
+
 // ── Déroulé ──────────────────────────────────────────────────────────────
 
 /**

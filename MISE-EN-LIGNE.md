@@ -159,6 +159,14 @@ Test de charge complet : 50 invités, un quiz joué de bout en bout, et les temp
 npm run migrate -- --to libsql://TON-URL.turso.io --token TON-JETON
 ```
 
+### Exporter la soirée (le lendemain)
+
+```bash
+npm run export -- https://TON-ADRESSE.onrender.com
+```
+
+Écrit dans `export/` le bilan complet (`bilan.json`) et trois fichiers Excel : une ligne par invité avec une colonne par question, une ligne par question, une ligne par équipe. Si le serveur ne répond plus : `npm run export -- --db libsql://TON-URL.turso.io --token TON-JETON`.
+
 ### Repli : tout faire tourner sur ton PC
 
 Si la salle ne capte pas ou si l'hébergeur fait des siennes.
@@ -199,6 +207,8 @@ Avec un routeur wifi sans internet, renseigne `WIFI_SSID` et `WIFI_PASS` : l'éc
 10. À la fin : **🏆 Podium de la soirée** — il affiche aussi le plus beau coup, le plus régulier et le vainqueur de chaque quiz, de quoi remettre plusieurs cadeaux. Fais scanner le QR de la page souvenir.
 11. Entre deux quiz, le classement de la soirée reste affiché et **se cumule**.
 
+12. **Le lendemain** : poste le lien `https://TON-ADRESSE.onrender.com/bilan` dans le groupe — chacun y relit ses réponses question par question, et « La soirée » raconte le reste. `/bilan/fiches` imprime une fiche par invité, `npm run export` garde tout en fichiers. Tant que ça sert, **pas de 🧹 Nouvelle soirée** et pas de retouche des quiz joués.
+
 Les retardataires rejoignent en cours de partie : ils jouent les questions suivantes, sans rattraper les précédentes.
 
 ---
@@ -217,5 +227,6 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 | Les scores des essais sont encore là | la sauvegarde distante les a gardés | **🧹 Nouvelle soirée** sur l'écran commun |
 | « La soirée est complète » | plus de 150 inscrits (les essais comptent) | **🧹 Nouvelle soirée**, ou relever `MAX_PLAYERS` sur Render |
 | « Trop d'inscriptions d'un coup » | plus de 25 inscriptions depuis une même adresse en quelques secondes | attendre une minute ; c'est le garde-fou contre les robots |
+| Le bilan dit « intitulé non retrouvé » ou « quiz modifié depuis » | le quiz joué a été supprimé, renommé ou retouché dans `/edit` | remettre le quiz comme il était (même titre, mêmes questions dans le même ordre) ; les points et les numéros, eux, sont intacts |
 
 Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours est recopiée toutes les deux secondes dans la base distante, elle reprend là où elle en était (au pire, deux secondes de réponses en moins), les scores sont intacts et les téléphones se reconnectent seuls.
