@@ -7,7 +7,11 @@ import {
   MAX_OBSERVE,
   MIN_DURATION,
   MIN_OBSERVE,
+  cloneQuestion,
   emptyQuestion,
+  insertQuestions,
+  moveQuestion,
+  newQuestionId,
   parseImportedQuestions,
   questionProblem,
   toPlayable,
@@ -17,7 +21,7 @@ import {
 } from '../../../shared/library'
 import { UnauthorizedError, api, compressImage } from '../api'
 import { questionSizeClass } from '../games/quiz/questionSize'
-import { confirmDialog } from '../components/Dialog'
+import { confirmDialog, promptDialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
 import { LoginForm } from '../components/Invitation'
@@ -30,6 +34,22 @@ function formatDate(ts: number): string {
     minute: '2-digit',
   })
 }
+
+/**
+ * La carte qui vient d'arriver quelque part — déplacée, insérée, dupliquée,
+ * collée. On y défile, on l'éclaire un instant, et le clavier la suit :
+ * réordonner la liste fait perdre le focus au bouton qu'on vient de cliquer.
+ * `focus` dit où il va : l'intitulé d'une question neuve, sinon le bouton
+ * qui a servi.
+ */
+interface Spot {
+  id: string
+  focus: 'text' | 'number' | 'up' | 'down'
+  at: number
+}
+
+/** Le temps que l'œil retrouve la carte éclairée. */
+const SPOT_MS = 1600
 
 export function EditorApp() {
   const [needLogin, setNeedLogin] = useState(false)
@@ -203,10 +223,27 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const [error, setError] = useState('')
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [importing, setImporting] = useState(false)
+  /**
+   * Le dernier déplacement, pour le défaire d'un clic : une faute de frappe,
+   * 54 pour 45, ne doit pas coûter une recherche dans soixante cartes. On
+   * garde le mouvement inverse plutôt qu'une copie de la liste, pour ne pas
+   * écraser une photo arrivée entre-temps. `wasDirty` : défaire un
+   * déplacement sur un quiz enregistré le laisse enregistré.
+   */
+  const [undo, setUndo] = useState<{ label: string; index: number; number: number; wasDirty: boolean } | null>(null)
+  const [spot, setSpot] = useState<Spot | null>(null)
+  /** Ce qui vient de bouger, pour les lecteurs d'écran — l'œil, lui, suit la carte éclairée. */
+  const [announce, setAnnounce] = useState('')
 
   useEffect(() => {
     api.get(id).then(setQuiz).catch(e => setError((e as Error).message))
   }, [id])
+
+  useEffect(() => {
+    if (!spot) return
+    const timer = setTimeout(() => setSpot(null), SPOT_MS)
+    return () => clearTimeout(timer)
+  }, [spot])
 
   // Filet de sécurité : on ne referme pas l'onglet sur une saisie non enregistrée.
   useEffect(() => {
@@ -219,10 +256,65 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const patch = (fn: (draft: QuizDef) => QuizDef) => {
     setQuiz(q => (q ? fn(q) : q))
     setDirty(true)
+    // Toute autre modification tourne la page : le déplacement n'est plus « le dernier ».
+    setUndo(null)
   }
 
   const patchQuestion = (index: number, fn: (q: QuizQuestionDef) => QuizQuestionDef) =>
     patch(q => ({ ...q, questions: q.questions.map((item, i) => (i === index ? fn(item) : item)) }))
+
+  const spotlight = (id: string | undefined, focus: Spot['focus']) => {
+    if (id) setSpot({ id, focus, at: Date.now() })
+  }
+
+  /**
+   * La question en place `index` prend le numéro demandé (voir moveQuestion).
+   * Le déplacement est recalculé dans l'état du moment ; ce qu'on lit ici de
+   * `quiz` ne sert qu'au libellé, et l'ordre, lui, n'a pas pu changer entre
+   * le clic et maintenant : la boîte de dialogue couvrait tout.
+   */
+  const moveTo = (index: number, number: number, focus: Spot['focus']) => {
+    if (!quiz) return
+    const before = quiz.questions
+    const after = moveQuestion(before, index, number)
+    if (after === before) return
+    const to = after.indexOf(before[index])
+    const label = `Question déplacée du n° ${index + 1} au n° ${to + 1}`
+    patch(q => ({ ...q, questions: moveQuestion(q.questions, index, number) }))
+    // Après patch, qui l'efface : c'est bien ce déplacement-ci qu'on pourra défaire.
+    setUndo({ label, index: to, number: index + 1, wasDirty: dirty })
+    setAnnounce(label)
+    spotlight(before[index].id, focus)
+  }
+
+  const undoMove = () => {
+    if (!undo || !quiz) return
+    const { index, number, wasDirty } = undo
+    const id = quiz.questions[index]?.id
+    patch(q => ({ ...q, questions: moveQuestion(q.questions, index, number) }))
+    setDirty(wasDirty)
+    setAnnounce('Déplacement annulé')
+    spotlight(id, 'number')
+  }
+
+  /** Une question vide juste après celle-ci, le curseur déjà dans son intitulé. */
+  const insertAfter = (index: number) => {
+    const question = emptyQuestion()
+    patch(q => ({ ...q, questions: insertQuestions(q.questions, index + 2, [question]) }))
+    setAnnounce(`Question insérée en n° ${index + 2}`)
+    spotlight(question.id, 'text')
+  }
+
+  /** La copie arrive juste après l'original — une variante part d'un modèle. */
+  const duplicate = (index: number) => {
+    const id = newQuestionId()
+    patch(q => ({
+      ...q,
+      questions: insertQuestions(q.questions, index + 2, [cloneQuestion(q.questions[index], id)]),
+    }))
+    setAnnounce(`Question dupliquée en n° ${index + 2}`)
+    spotlight(id, 'text')
+  }
 
   const save = async () => {
     if (!quiz) return
@@ -233,6 +325,9 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
       setQuiz(saved)
       setDirty(false)
       setSavedAt(Date.now())
+      // Enregistré, le déplacement est acquis : le défaire ensuite serait une
+      // modification comme une autre, pas un retour à l'état enregistré.
+      setUndo(null)
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -299,6 +394,17 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
 
       {error && <p className="error">{error}</p>}
       {savedAt && !dirty && <p className="muted">Enregistré à {formatDate(savedAt)}</p>}
+      {undo && (
+        <p className="muted undo-line">
+          {undo.label} ·{' '}
+          <button type="button" className="link-btn" onClick={undoMove}>
+            Annuler
+          </button>
+        </p>
+      )}
+      <p className="sr-only" aria-live="polite">
+        {announce}
+      </p>
 
       {quiz.questions.map((question, index) => (
         <QuestionCard
@@ -308,16 +414,11 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           index={index}
           total={quiz.questions.length}
           question={question}
+          spot={spot && spot.id === question.id ? spot : null}
           onChange={fn => patchQuestion(index, fn)}
-          onMove={dir =>
-            patch(q => {
-              const target = index + dir
-              if (target < 0 || target >= q.questions.length) return q
-              const questions = [...q.questions]
-              ;[questions[index], questions[target]] = [questions[target], questions[index]]
-              return { ...q, questions }
-            })
-          }
+          onMoveTo={(number, focus) => moveTo(index, number, focus)}
+          onInsertAfter={() => insertAfter(index)}
+          onDuplicate={() => duplicate(index)}
           onDelete={() =>
             patch(q => ({ ...q, questions: q.questions.filter((_, i) => i !== index) }))
           }
@@ -327,7 +428,11 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
       <div className="row">
         <button
           className="btn btn-big"
-          onClick={() => patch(q => ({ ...q, questions: [...q.questions, emptyQuestion()] }))}
+          onClick={() => {
+            const question = emptyQuestion()
+            patch(q => ({ ...q, questions: [...q.questions, question] }))
+            spotlight(question.id, 'text')
+          }}
         >
           <Icon name="plus" />
           Ajouter une question
@@ -340,8 +445,15 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
 
       {importing && (
         <BulkImport
-          onImport={questions => {
-            patch(q => ({ ...q, questions: [...q.questions, ...questions] }))
+          total={quiz.questions.length}
+          onImport={(questions, number) => {
+            patch(q => ({ ...q, questions: insertQuestions(q.questions, number, questions) }))
+            setAnnounce(
+              questions.length > 1
+                ? `${questions.length} questions ajoutées à partir du n° ${number}`
+                : `Question ajoutée en n° ${number}`,
+            )
+            spotlight(questions[0]?.id, 'number')
             setImporting(false)
           }}
           onCancel={() => setImporting(false)}
@@ -412,14 +524,23 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
  * les taper dans un carnet puis coller l'ensemble prend une minute.
  */
 function BulkImport({
+  total,
   onImport,
   onCancel,
 }: {
-  onImport: (questions: QuizQuestionDef[]) => void
+  /** Questions déjà dans le quiz : la liste collée arrive après, sauf avis contraire. */
+  total: number
+  /** Les questions reconnues, et le numéro que prendra la première. */
+  onImport: (questions: QuizQuestionDef[], number: number) => void
   onCancel: () => void
 }) {
   const [text, setText] = useState('')
+  const [at, setAt] = useState(String(total + 1))
   const result = parseImportedQuestions(text)
+  // Un champ vide ou illisible vaut « à la fin » ; un numéro trop grand aussi.
+  const typed = Number.parseInt(at, 10)
+  const number = Number.isNaN(typed) ? total + 1 : Math.min(total + 1, Math.max(1, typed))
+  const count = result.questions.length
 
   return (
     <div className="card import-panel">
@@ -446,20 +567,30 @@ Combien de cours a-t-elle pris cette année ?
         onChange={e => setText(e.target.value)}
       />
       <p className={result.unmarked > 0 ? 'warn' : 'muted'}>
-        {result.questions.length} question{result.questions.length > 1 ? 's' : ''} reconnue
-        {result.questions.length > 1 ? 's' : ''}
+        {count} question{count > 1 ? 's' : ''} reconnue
+        {count > 1 ? 's' : ''}
+        {count > 0 && (count > 1 ? ` · n° ${number} à ${number + count - 1}` : ` · n° ${number}`)}
         {result.unmarked > 0 &&
           ` · ${result.unmarked} sans étoile : la 1ʳᵉ réponse sera prise pour la bonne`}
         {result.ignored > 0 && ` · ${result.ignored} bloc(s) ignoré(s)`}
       </p>
       <div className="row">
-        <button
-          className="btn btn-primary"
-          disabled={result.questions.length === 0}
-          onClick={() => onImport(result.questions)}
-        >
+        <button className="btn btn-primary" disabled={count === 0} onClick={() => onImport(result.questions, number)}>
           Ajouter au quiz
         </button>
+        <label className="row">
+          <span className="muted">à partir du n°</span>
+          <input
+            className="input position-input"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={total + 1}
+            aria-label="Numéro que prendra la première question collée"
+            value={at}
+            onChange={e => setAt(e.target.value)}
+          />
+        </label>
         <button className="btn btn-ghost" onClick={onCancel}>
           Annuler
         </button>
@@ -472,17 +603,67 @@ interface QuestionCardProps {
   index: number
   total: number
   question: QuizQuestionDef
+  /** Non nul quand la carte vient d'arriver ici : on la montre, on l'éclaire. */
+  spot: Spot | null
   onChange: (fn: (q: QuizQuestionDef) => QuizQuestionDef) => void
-  onMove: (dir: -1 | 1) => void
+  /** La question prend ce numéro ; `focus` dit quel bouton a servi, pour le lui rendre. */
+  onMoveTo: (number: number, focus: Spot['focus']) => void
+  onInsertAfter: () => void
+  onDuplicate: () => void
   onDelete: () => void
 }
 
-function QuestionCard({ index, total, question, onChange, onMove, onDelete }: QuestionCardProps) {
+function QuestionCard({
+  index,
+  total,
+  question,
+  spot,
+  onChange,
+  onMoveTo,
+  onInsertAfter,
+  onDuplicate,
+  onDelete,
+}: QuestionCardProps) {
   const fileInput = useRef<HTMLInputElement>(null)
+  const card = useRef<HTMLDivElement>(null)
+  const textArea = useRef<HTMLTextAreaElement>(null)
+  const numberButton = useRef<HTMLButtonElement>(null)
+  const upButton = useRef<HTMLButtonElement>(null)
+  const downButton = useRef<HTMLButtonElement>(null)
   const [preview, setPreview] = useState(false)
   const [busy, setBusy] = useState(false)
   const [imageError, setImageError] = useState('')
   const problem = questionProblem(question)
+
+  useEffect(() => {
+    if (!spot) return
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    card.current?.scrollIntoView({ block: 'center', behavior: calm ? 'auto' : 'smooth' })
+    const wanted = { text: textArea, number: numberButton, up: upButton, down: downButton }[spot.focus].current
+    // La flèche qui a servi peut s'être éteinte (la question est arrivée en
+    // tête ou en queue) : le clavier va alors au numéro, jamais nulle part.
+    const target = wanted && !(wanted instanceof HTMLButtonElement && wanted.disabled) ? wanted : numberButton.current
+    target?.focus({ preventScroll: true })
+  }, [spot])
+
+  /**
+   * « Déplacer au n° » : on tape le numéro, la question le prend. Trois
+   * gestes — clic, numéro, Entrée — là où les flèches en demandaient
+   * quarante-deux pour aller de la 3 à la 45.
+   */
+  const askMove = async () => {
+    const raw = await promptDialog({
+      title: `Déplacer la question ${index + 1}`,
+      message: `Elle prendra le numéro que tu tapes, de 1 à ${total}, et les autres se décalent.\nUn numéro plus grand l'envoie à la fin.`,
+      input: { value: String(index + 1), placeholder: `1 à ${total}`, maxLength: 3, inputMode: 'numeric' },
+      confirmLabel: 'Déplacer',
+    })
+    if (raw === null) return
+    const number = Number.parseInt(raw, 10)
+    // Des lettres ? On laisse tomber sans bruit — le pavé numérique rend le cas rare.
+    if (Number.isNaN(number)) return
+    onMoveTo(number, 'number')
+  }
 
   const pickImage = async (file: File | undefined) => {
     if (!file) return
@@ -501,10 +682,24 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
   }
 
   return (
-    <div className="card question-card">
+    <div ref={card} className={'card question-card' + (spot ? ' is-moved' : '')}>
       <div className="question-head">
         <div className="row">
-          <span className="pill">Question {index + 1}</span>
+          {total > 1 ? (
+            <button
+              ref={numberButton}
+              type="button"
+              className="pill pill-button"
+              title="Déplacer la question : lui donner un autre numéro"
+              aria-label={`Question ${index + 1} sur ${total}, déplacer`}
+              onClick={askMove}
+            >
+              <Icon name="hash" />
+              Question {index + 1}
+            </button>
+          ) : (
+            <span className="pill">Question {index + 1}</span>
+          )}
           <div className="kind-toggle">
             <button
               className={'pill-btn' + (question.kind === 'choice' ? ' active' : '')}
@@ -524,22 +719,40 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
         </div>
         <div className="row">
           <button
+            ref={upButton}
             className="btn btn-ghost btn-small"
             disabled={index === 0}
             aria-label="Monter la question"
             title="Monter"
-            onClick={() => onMove(-1)}
+            onClick={() => onMoveTo(index, 'up')}
           >
             <Icon name="arrow-up" />
           </button>
           <button
+            ref={downButton}
             className="btn btn-ghost btn-small"
             disabled={index === total - 1}
             aria-label="Descendre la question"
             title="Descendre"
-            onClick={() => onMove(1)}
+            onClick={() => onMoveTo(index + 2, 'down')}
           >
             <Icon name="arrow-down" />
+          </button>
+          <button
+            className="btn btn-ghost btn-small"
+            aria-label="Insérer une question après celle-ci"
+            title="Insérer une question après"
+            onClick={onInsertAfter}
+          >
+            <Icon name="plus" />
+          </button>
+          <button
+            className="btn btn-ghost btn-small"
+            aria-label="Dupliquer la question"
+            title="Dupliquer"
+            onClick={onDuplicate}
+          >
+            <Icon name="copy" />
           </button>
           <button className="btn btn-ghost btn-small" onClick={() => setPreview(true)}>
             <Icon name="eye" />
@@ -570,6 +783,7 @@ function QuestionCard({ index, total, question, onChange, onMove, onDelete }: Qu
       </div>
 
       <textarea
+        ref={textArea}
         className="input"
         rows={2}
         maxLength={300}

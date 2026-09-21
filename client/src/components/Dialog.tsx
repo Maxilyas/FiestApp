@@ -11,8 +11,11 @@ import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } fro
 export interface DialogOptions {
   title: string
   message?: string
-  /** Un champ texte : la valeur proposée et son libellé d'aide. */
-  input?: { value: string; placeholder?: string; maxLength?: number }
+  /**
+   * Un champ texte : la valeur proposée et son libellé d'aide. `numeric` fait
+   * monter le pavé numérique sur un téléphone quand on n'attend qu'un nombre.
+   */
+  input?: { value: string; placeholder?: string; maxLength?: number; inputMode?: 'numeric' }
   confirmLabel?: string
   cancelLabel?: string
   /** Action qui efface quelque chose : le bouton prend la couleur d'alerte. */
@@ -136,6 +139,7 @@ function DialogBox({ pending }: { pending: Pending }) {
             value={value}
             placeholder={options.input.placeholder}
             maxLength={options.input.maxLength}
+            inputMode={options.input.inputMode}
             aria-label={options.title}
             onChange={e => setValue(e.target.value)}
           />

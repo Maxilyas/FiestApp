@@ -222,6 +222,17 @@ h3 > .icon {
 .center { text-align: center; }
 .small { font-size: 0.82rem; }
 
+/* Lu par les lecteurs d'écran, invisible pour les autres : ce qui vient de
+   changer quand l'œil, lui, a une carte éclairée à suivre. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* L'étiquette : capitales, 11 px, espacées, atténuées. */
 .label {
   font-size: 11px;
@@ -1278,6 +1289,47 @@ h3 > .icon {
 
 .thumb { height: 56px; border-radius: 10px; border: 1px solid var(--edge); }
 
+/* La pastille « Question 3 » se clique : c'est là qu'on lui donne un autre
+   numéro. Même habit que la pastille, la main en plus. */
+.pill-button {
+  background: transparent;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.pill-button:hover { color: var(--ink); border-color: var(--edge-strong); }
+
+/* La carte qui vient d'arriver là — déplacée, insérée, dupliquée, collée —
+   s'éclaire le temps que l'œil la retrouve, puis redevient comme les autres.
+   Une transition plutôt qu'une animation : sans mouvement, elle reste
+   visible aussi pour qui préfère les interfaces calmes. */
+.question-card { transition: border-color 0.25s ease, box-shadow 0.25s ease; }
+
+.question-card.is-moved {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
+.undo-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+
+/* Un bouton qui se lit comme un lien, au fil d'une phrase. */
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.link-btn:hover { color: var(--accent-hover); }
+
+/* « à partir du n° » : un numéro, court, comme le temps de réponse. */
+.position-input { width: 84px; padding: 9px 10px; text-align: center; }
+
 /* ═══════════════════════════════════════════════════════════════════
    ANIMATIONS
    Peu de choses bougent, mais au bon moment : l'arrivée des réponses,
@@ -1858,7 +1910,8 @@ h3 > .icon {
    ═══════════════════════════════════════════════════════════════════ */
 @media (pointer: coarse) {
   .btn-small,
-  .pill-btn {
+  .pill-btn,
+  .pill-button {
     min-height: 44px;
     min-width: 44px;
     padding: 0 16px;
@@ -1875,7 +1928,8 @@ h3 > .icon {
 
   .answer-edit input[type='radio'],
   .observe-edit input[type='checkbox'] { width: 24px; height: 24px; }
-  .duration-input { min-height: 44px; }
+  .duration-input,
+  .position-input { min-height: 44px; }
   .emoji-btn { min-height: 44px; }
 }
 
