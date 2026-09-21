@@ -61,7 +61,7 @@ export function AccountApp() {
           <Icon name="edit" />
           Mes quiz
         </a>
-        <a className="btn" href="/soirees">
+        <a className="btn" href={`/${me.space.slug}/soirees`}>
           <Icon name="book" />
           Mes soirées
         </a>

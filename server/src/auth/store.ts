@@ -59,6 +59,7 @@ export class AuthStore {
   private accounts = new Map<string, AccountRec>()
   private sessions = new Map<string, SessionRec>()
   private revokeListeners = new Set<(sessionId: string) => void>()
+  private defaultSpace = ''
 
   constructor(url: string, authToken?: string) {
     this.client = createClient({ url, authToken })
@@ -141,9 +142,21 @@ export class AuthStore {
     return undefined
   }
 
-  bySlug(slug: string): AccountRec | undefined {
-    for (const a of this.accounts.values()) if (a.slug === slug) return a
+  /** Le compte derrière un nom d'adresse, tel qu'il a pu être tapé (« Romane » vaut « romane »). */
+  bySlug(slug: unknown): AccountRec | undefined {
+    const clean = normalizeSlug(slug)
+    if (!clean) return undefined
+    for (const a of this.accounts.values()) if (a.slug === clean) return a
     return undefined
+  }
+
+  /** L'espace par défaut — celui de l'administrateur, connu après `ensureDefaultSpace`. */
+  get defaultSpaceId(): string {
+    return this.defaultSpace
+  }
+
+  defaultAccount(): AccountRec | undefined {
+    return this.accounts.get(this.defaultSpace)
   }
 
   /** Tous les comptes, dans l'ordre de création. */
@@ -266,12 +279,17 @@ export class AuthStore {
       const admin = await this.create({ ...bootstrap, role: 'admin' })
       await this.setPassword(admin.id, bootstrap.password)
       await this.setFlag('default_space', admin.id)
+      this.defaultSpace = admin.id
       return admin.id
     }
     const flagged = await this.getFlag('default_space')
-    if (flagged && this.accounts.has(flagged)) return flagged
+    if (flagged && this.accounts.has(flagged)) {
+      this.defaultSpace = flagged
+      return flagged
+    }
     const admin = this.list().find(a => a.role === 'admin') ?? this.list()[0]
     await this.setFlag('default_space', admin.id)
+    this.defaultSpace = admin.id
     return admin.id
   }
 

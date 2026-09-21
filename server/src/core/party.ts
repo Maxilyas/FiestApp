@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
-import type { PartyBackup } from './backup'
+import type { PartyMirror } from './backup'
 import type { PublicPlayer } from '../../../shared/types'
 import { DEFAULT_AVATAR, cleanAvatar, cleanName } from '../../../shared/avatars'
 
@@ -14,9 +14,10 @@ export interface PlayerRec {
 }
 
 /**
- * Registre des joueurs. L'identité survit aux déconnexions : le token (stocké
- * côté téléphone) permet de retrouver son joueur après un refresh, une coupure
- * réseau ou un redémarrage du serveur — indispensable à 50 invités.
+ * Registre des joueurs d'un espace. L'identité survit aux déconnexions : le
+ * token (stocké côté téléphone) permet de retrouver son joueur après un
+ * refresh, une coupure réseau ou un redémarrage du serveur — indispensable à
+ * 50 invités. Un jeton ne vaut que dans l'espace où il a été délivré.
  */
 export class Party {
   private players = new Map<string, PlayerRec>()
@@ -25,9 +26,10 @@ export class Party {
 
   constructor(
     private db: DB,
-    private backup?: PartyBackup,
+    private spaceId: string,
+    private backup?: PartyMirror,
   ) {
-    for (const row of db.prepare('SELECT * FROM players').all() as any[]) {
+    for (const row of db.prepare('SELECT * FROM players WHERE space_id = ?').all(spaceId) as any[]) {
       this.players.set(row.id, {
         id: row.id,
         name: row.name,
@@ -76,9 +78,9 @@ export class Party {
     this.players.set(rec.id, rec)
     this.db
       .prepare(
-        'INSERT INTO players (id, name, avatar, token, team_id, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO players (id, name, avatar, token, team_id, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
       )
-      .run(rec.id, rec.name, rec.avatar, rec.token, rec.teamId, rec.createdAt)
+      .run(rec.id, rec.name, rec.avatar, rec.token, rec.teamId, rec.createdAt, this.spaceId)
     this.backup?.savePlayer(rec, rec.createdAt)
     return rec
   }
@@ -164,10 +166,10 @@ export class Party {
     return true
   }
 
-  /** Vide la soirée : on repart de zéro invité, zéro point. */
+  /** Vide la soirée de cet espace : on repart de zéro invité, zéro point. */
   clearAll() {
-    this.db.prepare('DELETE FROM score_entries').run()
-    this.db.prepare('DELETE FROM players').run()
+    this.db.prepare('DELETE FROM score_entries WHERE space_id = ?').run(this.spaceId)
+    this.db.prepare('DELETE FROM players WHERE space_id = ?').run(this.spaceId)
     this.players.clear()
     this.connections.clear()
   }

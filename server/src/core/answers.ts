@@ -1,5 +1,5 @@
 import type { DB } from './db'
-import type { PartyBackup } from './backup'
+import type { PartyMirror } from './backup'
 
 /**
  * Une réponse (ou une absence de réponse) d'un joueur à une question.
@@ -41,10 +41,11 @@ export class AnswerLog {
 
   constructor(
     private db: DB,
-    private backup?: PartyBackup,
+    private spaceId: string,
+    private backup?: PartyMirror,
   ) {
     this.insertStmt = db.prepare(
-      `INSERT INTO answer_log (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO answer_log (${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
   }
 
@@ -70,17 +71,18 @@ export class AnswerLog {
           r.durationMs,
           r.observed ? 1 : 0,
           r.createdAt,
+          this.spaceId,
         )
       }
     })()
     this.backup?.saveAnswers(rows)
   }
 
-  /** Le journal complet, dans l'ordre où les questions ont été posées. */
+  /** Le journal complet de l'espace, dans l'ordre où les questions ont été posées. */
   all(): AnswerRow[] {
     const rows = this.db
-      .prepare(`SELECT ${COLUMNS} FROM answer_log ORDER BY created_at, q_index`)
-      .all() as any[]
+      .prepare(`SELECT ${COLUMNS} FROM answer_log WHERE space_id = ? ORDER BY created_at, q_index`)
+      .all(this.spaceId) as any[]
     return rows.map(toRow)
   }
 
@@ -98,7 +100,7 @@ export class AnswerLog {
   }
 
   clearAll() {
-    this.db.prepare('DELETE FROM answer_log').run()
+    this.db.prepare('DELETE FROM answer_log WHERE space_id = ?').run(this.spaceId)
   }
 
   /** Un invité exclu ne doit plus peser sur les statistiques. */

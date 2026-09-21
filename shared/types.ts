@@ -1,5 +1,6 @@
 // Types partagés entre le client et le serveur.
 import type { ArchiveSummary } from './archive'
+import type { PublicSpace } from './space'
 
 /** Joueur tel que visible par tout le monde. */
 export interface PublicPlayer {
@@ -61,6 +62,8 @@ export interface PartySnapshot {
   joinUrl: string | null
   /** Wifi de la soirée (env WIFI_SSID/WIFI_PASS) — affiché en QR sur l'écran commun. */
   wifi: { ssid: string; pass: string } | null
+  /** L'espace de la soirée : son nom dans l'adresse, ses titres. */
+  space: PublicSpace
 }
 
 /** Page souvenir : ce qu'il reste de la soirée, le lendemain. */
@@ -150,4 +153,6 @@ export interface Recap {
   quizWinners: { title: string; name: string; avatar: string; points: number }[]
   /** Présent quand la page relit une soirée archivée plutôt que celle en cours. */
   archive?: ArchiveSummary
+  /** L'espace dont la page parle — ses titres, sa date. */
+  space?: PublicSpace
 }

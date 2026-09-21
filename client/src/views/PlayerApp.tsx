@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { joinAsPlayer, setMyTeam, socket } from '../socket'
+import { joinAsPlayer, setMyTeam, socket, watchParty } from '../socket'
 import { getState, loadProfile, saveMe, saveProfile, showToast, useAppState } from '../state'
+import { currentSlug } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
 import { TeamPicker } from '../components/TeamPicker'
@@ -13,6 +14,8 @@ import { ordinal } from '../format'
 
 export function PlayerApp() {
   const s = useAppState()
+  /** L'espace de la soirée : le nom dans l'adresse, celui que le QR a donné. */
+  const slug = currentSlug() ?? ''
   const [name, setName] = useState('')
   // Tiré au sort : avec un avatar imposé, tous ceux qui ne touchent à rien
   // arrivent identiques sur l'écran commun.
@@ -25,35 +28,46 @@ export function PlayerApp() {
   const [switching, setSwitching] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  /** Le serveur ne connaît pas cette adresse : rien à rejoindre ici. */
+  const [spaceError, setSpaceError] = useState('')
 
-  // Connexion + re-join automatique (refresh, coupure réseau, redémarrage serveur).
+  // Connexion, présentation à la soirée, puis re-join automatique (refresh,
+  // coupure réseau, redémarrage serveur).
   useEffect(() => {
     socket.connect()
-    const rejoin = async () => {
-      const profile = loadProfile()
+    const present = async () => {
+      const watched = await watchParty(slug)
+      if (!watched.ok) return setSpaceError(watched.error ?? 'Cette adresse ne mène à aucune soirée')
+      setSpaceError('')
+      const profile = loadProfile(slug)
       if (!profile) return
       // Sans équipe transmise, le serveur conserve celle déjà choisie.
-      const ack = await joinAsPlayer(profile.name, profile.avatar, getState().me?.token)
-      if (ack.ok) saveMe({ playerId: ack.playerId, token: ack.token })
+      const ack = await joinAsPlayer(slug, profile.name, profile.avatar, getState().me?.token)
+      if (ack.ok) saveMe(slug, { playerId: ack.playerId, token: ack.token })
     }
-    if (socket.connected) rejoin()
-    socket.on('connect', rejoin)
+    if (socket.connected) present()
+    socket.on('connect', present)
     return () => {
-      socket.off('connect', rejoin)
+      socket.off('connect', present)
     }
-  }, [])
+  }, [slug])
+
+  const space = s.snapshot?.space
+  useEffect(() => {
+    if (space) document.title = space.title
+  }, [space])
 
   const doJoin = async (chosenTeam: string | null) => {
     setBusy(true)
     setError('')
-    const ack = await joinAsPlayer(name, avatar, undefined, chosenTeam)
+    const ack = await joinAsPlayer(slug, name, avatar, undefined, chosenTeam)
     setBusy(false)
     if (!ack.ok) {
       setStep('me')
       return setError(ack.error)
     }
-    saveProfile({ name: name.trim(), avatar })
-    saveMe({ playerId: ack.playerId, token: ack.token })
+    saveProfile(slug, { name: name.trim(), avatar })
+    saveMe(slug, { playerId: ack.playerId, token: ack.token })
   }
 
   const changeTeam = async (id: string) => {
@@ -105,9 +119,35 @@ export function PlayerApp() {
 
   const toast = s.toast && <div className={`toast toast-${s.toast.kind}`}>{s.toast.message}</div>
 
+  if (spaceError) {
+    return (
+      <div className="join">
+        <div className="join-grow" />
+        <JoinHead eyebrow="Le quiz de la soirée" title="Hmm…" compact sub={spaceError} />
+        <p className="muted small center">
+          Vérifie l'adresse avec ton hôte, ou scanne à nouveau le QR de l'écran.
+        </p>
+        <div className="join-grow" />
+        <a className="btn btn-block" href="/">
+          Chercher la soirée
+        </a>
+      </div>
+    )
+  }
+
+  // Le premier instantané dit comment la soirée s'appelle : on ne montre
+  // pas un formulaire sans titre pendant les quelques dizaines de ms qu'il met.
+  if (!snap) {
+    return (
+      <div className="center-page">
+        <p className="serif-note">Connexion…</p>
+      </div>
+    )
+  }
+
   // ── Écran d'inscription ──────────────────────────
   if (!s.me) {
-    const count = s.snapshot?.players.filter(p => p.connected).length ?? 0
+    const count = snap.players.filter(p => p.connected).length
 
     // Deuxième écran : l'équipe. Il n'apparaît que si l'animateur en a créé.
     if (step === 'team') {
@@ -146,7 +186,7 @@ export function PlayerApp() {
     // avant que le classement affiche deux lignes identiques.
     const sansAccent = (t: string) =>
       t.trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
-    const homonyme = name.trim() && s.snapshot?.players.some(p => sansAccent(p.name) === sansAccent(name))
+    const homonyme = name.trim() && snap.players.some(p => sansAccent(p.name) === sansAccent(name))
     const next = (e: FormEvent) => {
       e.preventDefault()
       setError('')
@@ -158,7 +198,12 @@ export function PlayerApp() {
     return (
       <>
         <form className="join" onSubmit={next}>
-          <JoinHead eyebrow="Les trente ans de" title="Romane" sub="Le quiz de la soirée" />
+          <JoinHead
+            eyebrow={snap.space.eyebrow}
+            title={snap.space.headline}
+            compact={snap.space.headline.length > 12}
+            sub="Le quiz de la soirée"
+          />
           <hr className="hairline" />
           <div className="field">
             <label className="label" htmlFor="join-name">
@@ -235,7 +280,7 @@ export function PlayerApp() {
 
   // ── Salle d'attente ──────────────────────────────
   const myTeam = teams.find(t => t.id === me?.teamId) ?? null
-  const sorted = [...(snap?.players ?? [])].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
+  const sorted = [...snap.players].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
   // Rang partagé, comme dans le classement en dessous : à égalité de points,
   // on est premier ensemble, pas quatrième parce que son prénom vient après.
   const myRank = me ? sorted.findIndex(p => p.score === me.score) + 1 : 0
@@ -296,7 +341,7 @@ export function PlayerApp() {
           <Icon name="trophy" />
           Classement de la soirée
         </h3>
-        <Leaderboard players={snap?.players ?? []} compact highlightId={s.me.playerId} />
+        <Leaderboard players={snap.players} compact highlightId={s.me.playerId} />
       </div>
 
       <p className="waiting">En attente du prochain quiz…</p>

@@ -3,7 +3,7 @@ import type { QuizStore } from './core/quizStore'
 import type { ArchiveStore } from './core/archive'
 import type { AuthStore } from './auth/store'
 import { wrap } from './core/http'
-import { csrfGuard, requireAccount } from './auth/http'
+import { accountOf, csrfGuard, requireAccount } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 
 interface ApiDeps {
@@ -15,13 +15,16 @@ interface ApiDeps {
   /** L'origine publique de l'application, si on la connaît. */
   publicOrigin: string | null
   /** Appelé après chaque modification : recharge le cache lu par le module de jeu. */
-  onLibraryChanged: () => Promise<void>
+  onLibraryChanged: (spaceId: string) => Promise<void>
 }
 
 /**
  * API de la bibliothèque de quiz, utilisée par l'espace animateur (/edit),
  * et de l'historique. Il faut être connecté — sauf pour les images, que les
  * téléphones des invités doivent pouvoir charger pendant la partie.
+ *
+ * L'espace n'est jamais lu dans la requête : c'est celui de la session. Un
+ * identifiant de quiz ou de soirée qui n'est pas du sien vaut « introuvable ».
  */
 export function mountApi(app: Express, deps: ApiDeps) {
   // Dans l'ordre : la protection contre les requêtes forgées, les deux routes
@@ -35,18 +38,22 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // Les photos arrivent en dataURL dans le corps JSON.
   app.use('/api', express.json({ limit: '4mb' }))
 
+  /** L'espace de l'animateur connecté : celui de sa session, et pas un autre. */
+  const spaceOf = (res: express.Response) => accountOf(res).id
+
   app.get(
     '/api/quizzes',
     wrap(async (_req, res) => {
-      res.json(await deps.store.list())
+      res.json(await deps.store.list(spaceOf(res)))
     }),
   )
 
   app.post(
     '/api/quizzes',
     wrap(async (req, res) => {
-      const quiz = await deps.store.create(req.body?.title ?? 'Nouveau quiz', req.body?.questions ?? [])
-      await deps.onLibraryChanged()
+      const spaceId = spaceOf(res)
+      const quiz = await deps.store.create(spaceId, req.body?.title ?? 'Nouveau quiz', req.body?.questions ?? [])
+      await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),
   )
@@ -54,7 +61,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
   app.get(
     '/api/quizzes/:id',
     wrap(async (req, res) => {
-      const quiz = await deps.store.get(req.params.id)
+      const quiz = await deps.store.get(spaceOf(res), req.params.id)
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
       res.json(quiz)
     }),
@@ -63,32 +70,35 @@ export function mountApi(app: Express, deps: ApiDeps) {
   app.put(
     '/api/quizzes/:id',
     wrap(async (req, res) => {
-      const quiz = await deps.store.save(req.params.id, req.body?.title, req.body?.questions)
+      const spaceId = spaceOf(res)
+      const quiz = await deps.store.save(spaceId, req.params.id, req.body?.title, req.body?.questions)
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
-      await deps.onLibraryChanged()
+      await deps.onLibraryChanged(spaceId)
       res.json(quiz)
       // Après coup : une photo retirée d'une question n'a plus à occuper la base.
-      deps.store.pruneImages().catch(() => {})
+      deps.store.pruneImages(spaceId).catch(() => {})
     }),
   )
 
   app.delete(
     '/api/quizzes/:id',
     wrap(async (req, res) => {
-      const ok = await deps.store.remove(req.params.id)
+      const spaceId = spaceOf(res)
+      const ok = await deps.store.remove(spaceId, req.params.id)
       if (!ok) return res.status(404).json({ error: 'Quiz introuvable' })
-      await deps.onLibraryChanged()
+      await deps.onLibraryChanged(spaceId)
       res.json({ ok: true })
-      deps.store.pruneImages().catch(() => {})
+      deps.store.pruneImages(spaceId).catch(() => {})
     }),
   )
 
   app.post(
     '/api/quizzes/:id/duplicate',
     wrap(async (req, res) => {
-      const quiz = await deps.store.duplicate(req.params.id)
+      const spaceId = spaceOf(res)
+      const quiz = await deps.store.duplicate(spaceId, req.params.id)
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
-      await deps.onLibraryChanged()
+      await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),
   )
@@ -96,19 +106,19 @@ export function mountApi(app: Express, deps: ApiDeps) {
   app.post(
     '/api/images',
     wrap(async (req, res) => {
-      const id = await deps.store.saveImage(req.body?.dataUrl)
+      const id = await deps.store.saveImage(spaceOf(res), req.body?.dataUrl)
       res.status(201).json({ url: `/media/image/${id}` })
     }),
   )
 
-  // L'historique se lit sans clé (/soirees.json) ; le renommer ou l'élaguer,
-  // c'est l'animateur.
+  // L'historique se lit sans session (/s/<espace>/soirees.json) ; le
+  // renommer ou l'élaguer, c'est l'animateur — et seulement le sien.
   app.put(
     '/api/soirees/:id',
     wrap(async (req, res) => {
       const title = String(req.body?.title ?? '').trim()
       if (!title) return res.status(400).json({ error: 'Il faut un titre' })
-      const summary = await deps.archives.rename(req.params.id, title)
+      const summary = await deps.archives.rename(spaceOf(res), req.params.id, title)
       if (!summary) return res.status(404).json({ error: 'Soirée introuvable' })
       res.json(summary)
     }),
@@ -117,13 +127,14 @@ export function mountApi(app: Express, deps: ApiDeps) {
   app.delete(
     '/api/soirees/:id',
     wrap(async (req, res) => {
-      const ok = await deps.archives.remove(req.params.id)
+      const ok = await deps.archives.remove(spaceOf(res), req.params.id)
       if (!ok) return res.status(404).json({ error: 'Soirée introuvable' })
       res.json({ ok: true })
     }),
   )
 
   // Public : les téléphones affichent les photos pendant la partie.
+  // L'identifiant est un UUID impossible à deviner : c'est lui la clé.
   app.get(
     '/media/image/:id',
     wrap(async (req, res) => {

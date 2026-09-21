@@ -34,6 +34,10 @@ const QUESTION_ID = /^[\w-]{1,48}$/
  * d'une partie, lui, est jetable). Le client libSQL parle aussi bien à un
  * fichier local (`file:...`) qu'à une base Turso hébergée (`libsql://...`) —
  * même code, on ne change qu'une variable d'environnement au déploiement.
+ *
+ * Chaque quiz et chaque photo appartiennent à un espace (un compte) : toute
+ * lecture ou écriture d'animateur passe par le sien, et un identifiant
+ * étranger vaut « introuvable ».
  */
 export class QuizStore {
   private client: Client
@@ -43,7 +47,11 @@ export class QuizStore {
     this.client = createClient({ url, authToken })
   }
 
-  async init() {
+  /**
+   * Crée les tables, puis rattache à l'espace par défaut les quiz et les
+   * photos d'avant les espaces. Idempotent : rien n'est copié ni effacé.
+   */
+  async init(defaultSpace: string) {
     await this.client.batch(
       [
         `CREATE TABLE IF NOT EXISTS quizzes (
@@ -51,13 +59,16 @@ export class QuizStore {
            title      TEXT NOT NULL,
            questions  TEXT NOT NULL,
            created_at INTEGER NOT NULL,
-           updated_at INTEGER NOT NULL
+           updated_at INTEGER NOT NULL,
+           space_id   TEXT
          )`,
         `CREATE TABLE IF NOT EXISTS quiz_images (
            id         TEXT PRIMARY KEY,
            mime       TEXT NOT NULL,
            data       TEXT NOT NULL,
-           created_at INTEGER NOT NULL
+           created_at INTEGER NOT NULL,
+           bytes      BLOB,
+           space_id   TEXT
          )`,
         `CREATE TABLE IF NOT EXISTS meta (
            key   TEXT PRIMARY KEY,
@@ -68,21 +79,37 @@ export class QuizStore {
     )
     // Les photos étaient stockées en base64 dans `data`, un tiers plus lourd
     // que les octets eux-mêmes. Elles vont désormais dans `bytes` ; les
-    // anciennes restent lisibles. libsql n'a pas d'« ADD COLUMN IF NOT
-    // EXISTS », alors on tente et on ignore le refus.
-    try {
-      await this.client.execute('ALTER TABLE quiz_images ADD COLUMN bytes BLOB')
-    } catch {
-      // Colonne déjà là : c'est le cas normal après le premier démarrage.
+    // anciennes restent lisibles. Puis les espaces sont arrivés. libsql n'a
+    // pas d'« ADD COLUMN IF NOT EXISTS », alors on tente et on ignore le refus.
+    for (const alter of [
+      'ALTER TABLE quiz_images ADD COLUMN bytes BLOB',
+      'ALTER TABLE quizzes ADD COLUMN space_id TEXT',
+      'ALTER TABLE quiz_images ADD COLUMN space_id TEXT',
+    ]) {
+      try {
+        await this.client.execute(alter)
+      } catch {
+        // Colonne déjà là : c'est le cas normal après le premier démarrage.
+      }
     }
+    await this.client.batch(
+      [
+        'CREATE INDEX IF NOT EXISTS idx_quizzes_space ON quizzes(space_id)',
+        'CREATE INDEX IF NOT EXISTS idx_quiz_images_space ON quiz_images(space_id)',
+        { sql: 'UPDATE quizzes SET space_id = ? WHERE space_id IS NULL', args: [defaultSpace] },
+        { sql: 'UPDATE quiz_images SET space_id = ? WHERE space_id IS NULL', args: [defaultSpace] },
+      ],
+      'write',
+    )
   }
 
   // ── Quiz ────────────────────────────────────────────────────────────────
 
-  async list(): Promise<QuizSummary[]> {
-    const res = await this.client.execute(
-      'SELECT id, title, questions, updated_at FROM quizzes ORDER BY updated_at DESC',
-    )
+  async list(spaceId: string): Promise<QuizSummary[]> {
+    const res = await this.client.execute({
+      sql: 'SELECT id, title, questions, updated_at FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC',
+      args: [spaceId],
+    })
     return res.rows.map(row => {
       const quiz = rowToQuiz(row)
       return {
@@ -95,18 +122,36 @@ export class QuizStore {
     })
   }
 
-  /** Tous les quiz, questions comprises — alimente le cache du module de jeu. */
-  async all(): Promise<QuizDef[]> {
-    const res = await this.client.execute('SELECT * FROM quizzes ORDER BY updated_at DESC')
+  /** Tous les quiz d'un espace, questions comprises — alimente le cache du module de jeu. */
+  async all(spaceId: string): Promise<QuizDef[]> {
+    const res = await this.client.execute({
+      sql: 'SELECT * FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC',
+      args: [spaceId],
+    })
     return res.rows.map(rowToQuiz)
   }
 
-  async get(id: string): Promise<QuizDef | null> {
-    const res = await this.client.execute({ sql: 'SELECT * FROM quizzes WHERE id = ?', args: [id] })
+  /** Toutes les bibliothèques d'un coup, au démarrage : une par espace. */
+  async allBySpace(): Promise<Map<string, QuizDef[]>> {
+    const res = await this.client.execute('SELECT * FROM quizzes ORDER BY updated_at DESC')
+    const bySpace = new Map<string, QuizDef[]>()
+    for (const row of res.rows) {
+      const spaceId = String(row.space_id ?? '')
+      if (!bySpace.has(spaceId)) bySpace.set(spaceId, [])
+      bySpace.get(spaceId)!.push(rowToQuiz(row))
+    }
+    return bySpace
+  }
+
+  async get(spaceId: string, id: string): Promise<QuizDef | null> {
+    const res = await this.client.execute({
+      sql: 'SELECT * FROM quizzes WHERE id = ? AND space_id = ?',
+      args: [id, spaceId],
+    })
     return res.rows[0] ? rowToQuiz(res.rows[0]) : null
   }
 
-  async create(title: unknown, questions: unknown = [], id: string = randomUUID()): Promise<QuizDef> {
+  async create(spaceId: string, title: unknown, questions: unknown = [], id: string = randomUUID()): Promise<QuizDef> {
     const now = Date.now()
     const quiz: QuizDef = {
       id,
@@ -115,13 +160,13 @@ export class QuizStore {
       updatedAt: now,
     }
     await this.client.execute({
-      sql: 'INSERT INTO quizzes (id, title, questions, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-      args: [quiz.id, quiz.title, JSON.stringify(quiz.questions), now, now],
+      sql: 'INSERT INTO quizzes (id, title, questions, created_at, updated_at, space_id) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [quiz.id, quiz.title, JSON.stringify(quiz.questions), now, now, spaceId],
     })
     return quiz
   }
 
-  async save(id: string, title: unknown, questions: unknown): Promise<QuizDef | null> {
+  async save(spaceId: string, id: string, title: unknown, questions: unknown): Promise<QuizDef | null> {
     const now = Date.now()
     const quiz: QuizDef = {
       id,
@@ -130,32 +175,35 @@ export class QuizStore {
       updatedAt: now,
     }
     const res = await this.client.execute({
-      sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ? WHERE id = ?',
-      args: [quiz.title, JSON.stringify(quiz.questions), now, id],
+      sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ? WHERE id = ? AND space_id = ?',
+      args: [quiz.title, JSON.stringify(quiz.questions), now, id, spaceId],
     })
     return res.rowsAffected === 0 ? null : quiz
   }
 
-  async remove(id: string): Promise<boolean> {
-    const res = await this.client.execute({ sql: 'DELETE FROM quizzes WHERE id = ?', args: [id] })
+  async remove(spaceId: string, id: string): Promise<boolean> {
+    const res = await this.client.execute({
+      sql: 'DELETE FROM quizzes WHERE id = ? AND space_id = ?',
+      args: [id, spaceId],
+    })
     return res.rowsAffected > 0
   }
 
-  async duplicate(id: string): Promise<QuizDef | null> {
-    const source = await this.get(id)
+  async duplicate(spaceId: string, id: string): Promise<QuizDef | null> {
+    const source = await this.get(spaceId, id)
     if (!source) return null
-    return this.create(`${source.title} (copie)`, source.questions)
+    return this.create(spaceId, `${source.title} (copie)`, source.questions)
   }
 
-  async count(): Promise<number> {
-    const res = await this.client.execute('SELECT COUNT(*) AS n FROM quizzes')
+  async count(spaceId: string): Promise<number> {
+    const res = await this.client.execute({ sql: 'SELECT COUNT(*) AS n FROM quizzes WHERE space_id = ?', args: [spaceId] })
     return Number(res.rows[0]?.n ?? 0)
   }
 
   // ── Images ──────────────────────────────────────────────────────────────
 
   /** Enregistre une image envoyée en dataURL (déjà compressée côté navigateur). */
-  async saveImage(dataUrl: unknown): Promise<string> {
+  async saveImage(spaceId: string, dataUrl: unknown): Promise<string> {
     if (typeof dataUrl !== 'string' || dataUrl.length > MAX_IMAGE_DATAURL) {
       throw new Error('Image trop lourde')
     }
@@ -165,29 +213,29 @@ export class QuizStore {
     // `data` reste vide : c'est la colonne historique, gardée pour relire les
     // photos d'avant.
     await this.client.execute({
-      sql: "INSERT INTO quiz_images (id, mime, data, bytes, created_at) VALUES (?, ?, '', ?, ?)",
-      args: [id, match[1], Buffer.from(match[2], 'base64'), Date.now()],
+      sql: "INSERT INTO quiz_images (id, mime, data, bytes, created_at, space_id) VALUES (?, ?, '', ?, ?, ?)",
+      args: [id, match[1], Buffer.from(match[2], 'base64'), Date.now(), spaceId],
     })
     return id
   }
 
   /**
-   * Supprime les photos que plus aucun quiz n'utilise.
+   * Supprime les photos d'un espace que plus aucun de ses quiz n'utilise.
    *
    * On ne peut pas effacer les photos d'un quiz au moment où on le supprime :
    * dupliquer un quiz recopie les mêmes URL, donc deux quiz peuvent partager
    * une photo. On regarde donc l'ensemble de la bibliothèque avant d'effacer.
    */
-  async pruneImages(graceMs = IMAGE_GRACE_MS): Promise<number> {
+  async pruneImages(spaceId: string, graceMs = IMAGE_GRACE_MS): Promise<number> {
     // Une photo tout juste envoyée n'est référencée qu'au moment où l'on
     // enregistre la question. Sans ce délai de grâce, un ménage déclenché
     // entre les deux l'effacerait sous les doigts de l'animateur.
     const [stored, quizzes] = await Promise.all([
       this.client.execute({
-        sql: 'SELECT id FROM quiz_images WHERE created_at < ?',
-        args: [Date.now() - graceMs],
+        sql: 'SELECT id FROM quiz_images WHERE space_id = ? AND created_at < ?',
+        args: [spaceId, Date.now() - graceMs],
       }),
-      this.client.execute('SELECT questions FROM quizzes'),
+      this.client.execute({ sql: 'SELECT questions FROM quizzes WHERE space_id = ?', args: [spaceId] }),
     ])
     if (stored.rows.length === 0) return 0
 

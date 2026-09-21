@@ -1,4 +1,4 @@
-import express, { type Request, type Response } from 'express'
+import express, { type NextFunction, type Request, type Response } from 'express'
 import compression from 'compression'
 import { createServer } from 'node:http'
 import { Server } from 'socket.io'
@@ -6,27 +6,19 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { initDb } from './core/db'
-import { Party } from './core/party'
-import { Teams } from './core/teams'
-import { ScoreLedger } from './core/scores'
-import { AnswerLog } from './core/answers'
-import { computeStats } from './core/stats'
-import { GameEngine } from './core/engine'
+import { initDb, stampLegacySpace } from './core/db'
 import { PartyBackup } from './core/backup'
 import { QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
-import { playedPackOf, quizLibrary, quizModule, setQuizLibrary } from './games/quiz'
-import { buildReview, type PlayedPack } from './core/review'
-import { buildRecap } from './core/recap'
-import { ArchiveStore, buildArchive, recapOfArchive, reviewOfArchive } from './core/archive'
-import { AuthStore } from './auth/store'
+import { setQuizLibrary } from './games/quiz'
+import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
+import { SpaceRegistry } from './core/space'
+import { AuthStore, type AccountRec } from './auth/store'
 import { mountApi } from './api'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
-import type { PartySnapshot } from '../../shared/types'
 import type { ArchiveList, PartyArchive } from '../../shared/archive'
-import { teamScores } from '../../shared/teams'
+import { MAX_PLAYERS_CEILING } from '../../shared/space'
 
 export interface QuizServerOptions {
   port: number
@@ -48,12 +40,9 @@ export interface QuizServerOptions {
    * la page servie par l'application.
    */
   online?: boolean
-  /** Inscriptions au-delà desquelles la soirée est déclarée complète. */
+  /** Plafond d'invités par soirée, que même le réglage d'un espace ne dépasse pas. */
   maxPlayers?: number
 }
-
-/** Cinquante invités attendus : trois fois plus, c'est déjà un robot. */
-const DEFAULT_MAX_PLAYERS = 150
 
 /** Première IP locale non interne — l'adresse que les téléphones doivent ouvrir. */
 function lanAddress(): string | null {
@@ -98,6 +87,9 @@ const SECURITY_HEADERS: Record<string, string> = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
 }
 
+/** Les pages publiques d'un espace, telles que le client les route. */
+const PUBLIC_PAGES = ['souvenir', 'stats', 'bilan', 'bilan/fiches']
+
 export async function createQuizServer(opts: QuizServerOptions) {
   const app = express()
   const httpServer = createServer(app)
@@ -135,245 +127,131 @@ export async function createQuizServer(opts: QuizServerOptions) {
 
   const db = initDb(opts.dbPath)
 
-  // Le disque d'un hébergeur gratuit est effacé à chaque redémarrage : la
-  // soirée (invités, points, partie en cours) est donc recopiée dans la base
-  // distante, et rechargée ici si la base locale est repartie vide.
+  // ── Le démarrage, dans l'ordre ──────────────────────────────────────────
+  //
+  // Les comptes d'abord : tout le reste est rangé par espace, et ce qui date
+  // d'avant les espaces — bibliothèque, photos, archives, soirée en cours —
+  // est rattaché à celui de l'administrateur, sans rien copier ni effacer.
+  const auth = new AuthStore(opts.quizDbUrl, opts.quizDbToken)
+  await auth.init()
+  const hadAccounts = auth.count() > 0
+  const defaultSpace = await auth.ensureDefaultSpace(opts.admin)
+  if (!hadAccounts) console.log(`[comptes] administrateur « ${opts.admin.login} » créé, espace « ${opts.admin.slug} »`)
+
+  // Le disque d'un hébergeur gratuit est effacé à chaque redémarrage : les
+  // soirées (invités, points, parties en cours) sont donc recopiées dans la
+  // base distante, et rechargées ici si la base locale est repartie vide.
   const backup = new PartyBackup(opts.quizDbUrl, opts.quizDbToken)
-  await backup.init()
+  await backup.init(defaultSpace)
   const restored = await backup.restoreInto(db)
   if (restored.players > 0 || restored.teams > 0) {
     console.log(
       `[soirée] ${restored.players} invités, ${restored.teams} équipes, ${restored.scores} gains, ${restored.answers} réponses` +
-        (restored.sessions > 0 ? ' et la partie en cours' : '') +
+        (restored.sessions > 0 ? ` et ${restored.sessions > 1 ? `${restored.sessions} parties` : 'la partie'} en cours` : '') +
+        (restored.spaces > 1 ? ` (${restored.spaces} espaces)` : '') +
         ' rechargés après redémarrage',
     )
   }
-
-  const party = new Party(db, backup)
-  const teams = new Teams(db, backup)
-  const ledger = new ScoreLedger(db, backup)
-  const answers = new AnswerLog(db, backup)
+  const stamped = stampLegacySpace(db, defaultSpace)
+  if (stamped > 0) console.log(`[espaces] ${stamped} lignes d'avant les comptes rattachées à « ${opts.admin.slug} »`)
 
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
   const store = new QuizStore(opts.quizDbUrl, opts.quizDbToken)
-  await store.init()
-  const imported = await seedLibrary(store)
+  await store.init(defaultSpace)
+  const imported = await seedLibrary(store, defaultSpace)
   if (imported > 0) console.log(`[quiz] ${imported} quiz importés depuis server/content/quiz/`)
-  const refreshLibrary = async () => setQuizLibrary(await store.all())
+  /** Recharge la bibliothèque d'un espace — ou toutes, au démarrage. */
+  const refreshLibrary = async (spaceId?: string) => {
+    if (spaceId) return setQuizLibrary(spaceId, await store.all(spaceId))
+    for (const [id, quizzes] of await store.allBySpace()) setQuizLibrary(id, quizzes)
+  }
   await refreshLibrary()
 
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
-  await archives.init()
-
-  // Les comptes des animateurs, avec le reste de ce qui doit survivre. Le
-  // premier démarrage crée l'administrateur ; les suivants le retrouvent.
-  const auth = new AuthStore(opts.quizDbUrl, opts.quizDbToken)
-  await auth.init()
-  const hadAccounts = auth.count() > 0
-  const defaultSpaceId = await auth.ensureDefaultSpace(opts.admin)
-  if (!hadAccounts) console.log(`[comptes] administrateur « ${opts.admin.login} » créé, espace « ${opts.admin.slug} »`)
-  void defaultSpaceId
+  await archives.init(defaultSpace)
 
   let boundPort = opts.port
   const wifi = process.env.WIFI_SSID
     ? { ssid: process.env.WIFI_SSID, pass: process.env.WIFI_PASS ?? '' }
     : null
-  /**
-   * L'état de la soirée. Le wifi n'est envoyé qu'à l'écran commun : c'est lui
-   * qui l'affiche en QR, les téléphones n'ont pas à recevoir le mot de passe.
-   */
-  const buildSnapshot = (forHost: boolean): PartySnapshot => {
-    const ip = lanAddress()
-    const players = party.publicPlayers(ledger.allTotals())
-    const bonuses = teams.allBonuses()
-    return {
-      players,
-      teams: teamScores(teams.all(), players, bonuses),
-      bonuses,
-      session: engine.summary(),
-      joinUrl: opts.publicUrl ?? (ip ? `http://${ip}:${boundPort}` : null),
-      wifi: forHost ? wifi : null,
-    }
-  }
-  // Diffusion du classement : deux garde-fous mesurés sur une soirée simulée.
-  //
-  // · Regroupement — à l'arrivée des invités, cinquante inscriptions en
-  //   quelques secondes déclenchaient cinquante diffusions complètes à tout
-  //   le monde. On n'en envoie qu'une par fenêtre courte.
-  // · Dédoublonnage — un classement identique au précédent ne part pas. Sans
-  //   ça, le filet de sécurité périodique renvoyait 4 Ko à chaque téléphone
-  //   toutes les 30 secondes pendant toute la fête, pour rien.
-  let lastSnapshot = ''
-  let pending: ReturnType<typeof setTimeout> | null = null
 
-  const sendSnapshot = (force = false) => {
-    const snapshot = buildSnapshot(false)
-    const json = JSON.stringify(snapshot)
-    if (!force && json === lastSnapshot) return
-    lastSnapshot = json
-    io.except('hosts').emit('party:snapshot', snapshot)
-    io.to('hosts').emit('party:snapshot', wifi ? { ...snapshot, wifi } : snapshot)
-  }
-
-  const broadcastSnapshot = () => {
-    if (pending) return
-    pending = setTimeout(() => {
-      pending = null
-      sendSnapshot()
-    }, 120)
-  }
-
-  const engine = new GameEngine(
-    {
-      db,
-      io,
-      party,
-      ledger,
-      answers,
-      backup,
-      onScoresChanged: broadcastSnapshot,
-      onSessionChanged: broadcastSnapshot,
-    },
-    quizModule,
-  )
-  engine.restore()
-
-  /**
-   * Repart d'une soirée vierge — après avoir rangé celle-ci dans l'historique.
-   * Rien ne s'efface tant que l'archive n'est pas écrite : si la base distante
-   * ne répond pas, la soirée reste là et l'animateur est prévenu.
-   */
-  const resetParty = async () => {
-    const archived = await archiveParty()
-    const running = engine.activeSessionId
-    if (running) engine.endSession(running)
-    party.clearAll()
-    teams.clearAll()
-    ledger.clearAll()
-    answers.clearAll()
-    await backup.reset()
-    broadcastSnapshot()
-    return archived
-  }
-
-  wireSockets(io, {
-    party,
-    teams,
-    answers,
-    engine,
-    archiveParty,
+  // Une soirée par espace, réveillée à la première connexion ; celles dont
+  // une partie était en cours à l'extinction repartent tout de suite.
+  const registry = new SpaceRegistry({
+    db,
+    io,
+    backup,
+    archives,
     auth,
-    trustProxy: !!opts.online,
-    maxPlayers: opts.maxPlayers ?? DEFAULT_MAX_PLAYERS,
-    buildSnapshot,
-    broadcastSnapshot,
-    resetParty,
+    wifi,
+    baseUrl: () => {
+      if (opts.publicUrl) return opts.publicUrl.replace(/\/+$/, '')
+      const ip = lanAddress()
+      return ip ? `http://${ip}:${boundPort}` : null
+    },
+    maxPlayersCeiling: opts.maxPlayers ?? MAX_PLAYERS_CEILING,
   })
+  const woken = registry.wakeRunning()
+  if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
+
+  wireSockets(io, { registry, auth, trustProxy: !!opts.online })
 
   // Filet de sécurité : un client qui aurait silencieusement raté une diffusion
   // se répare tout seul. Toutes les cinq minutes suffisent — une reconnexion
   // reçoit de toute façon un classement frais, et le dédoublonnage rendait
   // l'ancien rythme de 30 secondes aussi inutile que coûteux.
-  const resync = setInterval(() => sendSnapshot(true), 300_000)
+  const resync = setInterval(() => {
+    for (const runtime of registry.all()) runtime.sendSnapshot(true)
+  }, 300_000)
 
   // Point de santé : sert au service de réveil (l'hébergeur gratuit endort
-  // l'application sans trafic) et aux mesures de charge.
+  // l'application sans trafic) et aux mesures de charge. Rien par espace.
   app.get('/healthz', (_req, res) => {
+    const runtimes = registry.all()
     res.json({
       ok: true,
       uptime: Math.round(process.uptime()),
-      players: party.connectedPlayerIds().length,
-      quizzes: engine.summary() ? 1 : 0,
+      spaces: runtimes.length,
+      players: runtimes.reduce((n, rt) => n + rt.party.connectedPlayerIds().length, 0),
+      quizzes: runtimes.filter(rt => rt.engine.summary()).length,
       rssMo: Math.round(process.memoryUsage().rss / 1024 / 1024),
     })
   })
 
-  // ── Les pages publiques : souvenir, statistiques, bilan, historique ──
+  // ── Les pages publiques d'un espace : souvenir, statistiques, bilan, historique ──
   //
-  // Tout se calcule à partir des journaux (gains, réponses) par des fonctions
-  // pures : la soirée en cours et une soirée archivée passent par le même
-  // chemin, et une amélioration profite aux soirées passées.
+  // Publiques, comme avant les comptes : ce sont des pages à partager aux
+  // invités, pas des outils d'animation. L'espace est dans l'adresse ; un
+  // nom inconnu vaut « introuvable », sans plus de détail.
 
-  /** Les copies exactes des quiz des parties terminées, tant que le disque les a. */
-  const livePacks = () => {
-    const packs = new Map<string, PlayedPack>()
-    const played = db.prepare('SELECT id, state FROM sessions').all() as { id: string; state: string }[]
-    for (const row of played) {
-      try {
-        const pack = playedPackOf(JSON.parse(row.state))
-        if (pack) packs.set(row.id, pack)
-      } catch {
-        // Un état illisible ne vaut pas mieux qu'absent : la bibliothèque prend le relais.
-      }
-    }
-    return packs
+  interface SpaceLocals {
+    account: AccountRec
   }
-
-  const liveRecap = () =>
-    buildRecap({
-      players: party.publicPlayers(ledger.allTotals()),
-      teams: teams.all(),
-      bonuses: teams.allBonuses(),
-      scores: ledger.all(),
-      answers: answers.all(),
-    })
-
-  // Le journal des réponses ne garde que des numéros : les intitulés viennent
-  // de la copie du quiz conservée dans chaque partie terminée (tant que le
-  // disque local tient), et sinon de la bibliothèque.
-  const liveReview = () =>
-    buildReview({
-      rows: answers.all(),
-      players: party.publicPlayers(ledger.allTotals()),
-      teams: teams.all(),
-      bonuses: teams.allBonuses(),
-      packsBySession: livePacks(),
-      library: quizLibrary(),
-    })
-
-  /**
-   * Range la soirée en cours dans l'historique, sans rien effacer. Null s'il
-   * n'y a rien à garder. Une même soirée archivée deux fois est mise à jour.
-   */
-  async function archiveParty(title?: string) {
-    const built = buildArchive({
-      players: party.all(),
-      teams: teams.all(),
-      bonuses: teams.allBonuses(),
-      scores: ledger.all(),
-      answers: answers.all(),
-      packsBySession: livePacks(),
-      library: quizLibrary(),
-    })
-    if (!built) return null
-    return archives.save(built.id, built.heldAt, built.archive, title)
+  const withSpace = (req: Request, res: Response, next: NextFunction) => {
+    const account = auth.bySlug(req.params.slug)
+    if (!account) return res.status(404).json({ error: 'Soirée introuvable' })
+    ;(res.locals as SpaceLocals).account = account
+    next()
   }
+  const spaceOf = (res: Response) => (res.locals as SpaceLocals).account
 
-  // Page souvenir : volontairement publique, pour que les invités puissent la
-  // regarder le lendemain sans clé d'animateur.
-  app.get('/recap.json', (_req, res) => res.json(liveRecap()))
-
-  // Le bilan, question par question — public comme la page souvenir.
-  app.get('/bilan.json', (_req, res) => res.json(liveReview()))
+  app.get('/s/:slug/space.json', withSpace, (_req, res) => res.json(auth.publicSpace(spaceOf(res))))
+  app.get('/s/:slug/recap.json', withSpace, (_req, res) => res.json(registry.get(spaceOf(res).id).liveRecap()))
+  app.get('/s/:slug/bilan.json', withSpace, (_req, res) => res.json(registry.get(spaceOf(res).id).liveReview()))
 
   // L'historique : la soirée en cours et les soirées archivées.
-  app.get('/soirees.json', (_req, res) => {
+  app.get('/s/:slug/soirees.json', withSpace, (_req, res) => {
+    const account = spaceOf(res)
     archives
-      .list()
+      .list(account.id)
       .then(list => {
-        const rows = answers.all()
-        const current: ArchiveList['current'] =
-          rows.length === 0
-            ? null
-            : {
-                players: new Set(rows.map(r => r.playerId)).size,
-                quizzes: new Set(rows.map(r => r.sessionId)).size,
-                questions: new Set(rows.map(r => `${r.sessionId}#${r.qIndex}`)).size,
-                since: party.all()[0]?.createdAt ?? null,
-              }
-        const body: ArchiveList = { current, archives: list }
+        const body: ArchiveList = {
+          current: registry.get(account.id).currentSummary(),
+          archives: list,
+          space: auth.publicSpace(account),
+        }
         res.json(body)
       })
       .catch((e: Error) => res.status(500).json({ error: e.message }))
@@ -381,16 +259,38 @@ export async function createQuizServer(opts: QuizServerOptions) {
 
   // Une soirée archivée se relit avec les mêmes pages que celle en cours.
   const archived = (build: (archive: PartyArchive) => object) => (req: Request, res: Response) => {
+    const account = spaceOf(res)
     archives
-      .get(req.params.id)
+      .get(account.id, req.params.id)
       .then(found => {
         if (!found) return res.status(404).json({ error: 'Soirée introuvable' })
-        res.json({ ...build(found.archive), archive: found.summary })
+        res.json({ ...build(found.archive), archive: found.summary, space: auth.publicSpace(account) })
       })
       .catch((e: Error) => res.status(500).json({ error: e.message }))
   }
-  app.get('/soirees/:id/recap.json', archived(recapOfArchive))
-  app.get('/soirees/:id/bilan.json', archived(reviewOfArchive))
+  app.get('/s/:slug/soirees/:id/recap.json', withSpace, archived(recapOfArchive))
+  app.get('/s/:slug/soirees/:id/bilan.json', withSpace, archived(reviewOfArchive))
+
+  // Les adresses d'avant les espaces — celles des liens déjà partagés et des
+  // QR déjà imprimés — mènent à l'espace par défaut, celui de l'administrateur.
+  const defaultSlug = () => auth.defaultAccount()?.slug ?? opts.admin.slug
+  app.get(['/recap.json', '/bilan.json', '/soirees.json'], (req, res) => {
+    res.redirect(302, `/s/${defaultSlug()}${req.path}`)
+  })
+  app.get(['/soirees/:id/recap.json', '/soirees/:id/bilan.json'], (req, res) => {
+    res.redirect(302, `/s/${defaultSlug()}${req.path}`)
+  })
+  app.get(
+    [
+      ...PUBLIC_PAGES.map(p => `/${p}`),
+      '/soirees',
+      '/soirees/:id',
+      ...PUBLIC_PAGES.map(p => `/soirees/:id/${p}`),
+    ],
+    (req, res) => {
+      res.redirect(302, `/${defaultSlug()}${req.path}`)
+    },
+  )
 
   mountApi(app, {
     store,
@@ -408,10 +308,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const quizMedia = path.resolve(here, '../content/quiz/images')
   if (fs.existsSync(quizMedia)) app.use('/media/quiz', express.static(quizMedia))
 
-  // Une adresse d'API ou de photo inconnue est une erreur, pas la page
-  // d'accueil : un client qui reçoit du HTML là où il attend du JSON ne
+  // Une adresse d'API, de photo ou de données inconnue est une erreur, pas la
+  // page d'accueil : un client qui reçoit du HTML là où il attend du JSON ne
   // comprend rien à ce qui lui arrive.
-  app.use(['/api', '/media'], (_req, res) => res.status(404).json({ error: 'Introuvable' }))
+  app.use(['/api', '/media', '/s'], (_req, res) => res.status(404).json({ error: 'Introuvable' }))
 
   // En prod, le serveur sert aussi le client compilé (un seul process à héberger).
   const clientDist = path.resolve(here, '../../client/dist')
@@ -446,7 +346,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     close: () =>
       new Promise<void>(resolve => {
         clearInterval(resync)
-        engine.stop()
+        registry.stopAll()
         io.close(async () => {
           db.close()
           store.close()

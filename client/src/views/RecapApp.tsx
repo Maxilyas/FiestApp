@@ -8,7 +8,7 @@ import { Trophies } from '../components/Trophies'
 import { JoinHead } from '../components/Invitation'
 import { Icon } from '../components/Icon'
 import { ArchiveBanner } from '../components/ArchiveBanner'
-import { dataUrl, pageUrl } from '../archive'
+import { dataUrl, pageContext, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
 
 /**
@@ -16,15 +16,20 @@ import { formatDay } from '../../../shared/archive'
  * une page à partager aux invités, pas un outil d'animation.
  */
 export function RecapApp() {
+  const { slug, archiveId } = pageContext()
   const [recap, setRecap] = useState<Recap | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch(dataUrl('recap.json'))
-      .then(r => r.json())
+    fetch(dataUrl(slug, 'recap.json', archiveId))
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(setRecap)
       .catch(() => setError('Impossible de charger le souvenir de la soirée.'))
-  }, [])
+  }, [slug, archiveId])
+
+  useEffect(() => {
+    if (recap?.space) document.title = `${recap.archive?.title ?? recap.space.title} · Souvenir`
+  }, [recap])
 
   if (error) {
     return (
@@ -42,23 +47,30 @@ export function RecapApp() {
     )
   }
 
+  const space = recap.space
   if (recap.ranking.length === 0) {
     return (
       <div className="join">
         <div className="join-grow" />
-        <JoinHead eyebrow="Les trente ans de" title="Romane" sub="La soirée n'a pas encore commencé." />
+        <JoinHead
+          eyebrow={space?.eyebrow ?? 'Le quiz de la soirée'}
+          title={space?.headline ?? ''}
+          compact={(space?.headline.length ?? 0) > 12}
+          sub="La soirée n'a pas encore commencé."
+        />
         <div className="join-grow" />
       </div>
     )
   }
 
   const archive = recap.archive
+  const dateLine = archive ? formatDay(archive.heldAt) : space?.dateLine
   return (
     <div className="recap">
       {archive && <ArchiveBanner archive={archive} />}
       <header className="recap-header">
-        <span className="label">{archive ? formatDay(archive.heldAt) : '19 septembre 2026'}</span>
-        <h1>{archive ? archive.title : 'Les 30 ans de Romane'}</h1>
+        {dateLine && <span className="label">{dateLine}</span>}
+        <h1>{archive ? archive.title : space?.title}</h1>
         <p className="join-sub">Le souvenir de la soirée</p>
         <p className="muted">
           {recap.ranking.length} joueurs · {recap.quizCount} quiz ·{' '}
@@ -120,7 +132,7 @@ export function RecapApp() {
             Ce que tu as répondu à chaque question, ce que ton équipe a choisi, ce que la salle a
             choisi — et les questions qui ont marqué la soirée.
           </p>
-          <a className="btn btn-accent" href={pageUrl('bilan')}>
+          <a className="btn btn-accent" href={spacePath(slug, 'bilan', archiveId)}>
             <Icon name="list" />
             Relire mon bilan
           </a>
@@ -129,7 +141,7 @@ export function RecapApp() {
 
       <p className="recap-foot muted">Merci d'être venus.</p>
       <p className="muted small center">
-        <a href="/soirees">Toutes les soirées</a>
+        <a href={spacePath(slug, 'soirees')}>Toutes les soirées</a>
       </p>
     </div>
   )

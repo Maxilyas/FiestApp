@@ -4,6 +4,7 @@ import { helloHost, socket } from '../socket'
 import { showToast, useAppState } from '../state'
 import { confirmDialog, promptDialog } from '../components/Dialog'
 import { api } from '../api'
+import { dataUrl, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
@@ -212,9 +213,10 @@ export function HostApp() {
 
   // Rechargés à chaque ouverture d'un écran de fin : les prix et les
   // statistiques changent après chaque quiz joué.
+  const spaceSlug = s.snapshot?.space.slug ?? null
   useEffect(() => {
-    if (!screen) return
-    fetch('/recap.json')
+    if (!screen || !spaceSlug) return
+    fetch(dataUrl(spaceSlug, 'recap.json'))
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(setRecap)
       .catch(() => {
@@ -223,7 +225,7 @@ export function HostApp() {
         setRecap(null)
         showToast({ kind: 'error', message: 'Impossible de charger les prix et les statistiques' })
       })
-  }, [screen])
+  }, [screen, spaceSlug])
 
   // La session voyage dans le cookie de la poignée de main : le serveur la
   // reconnaît (ou non) à chaque connexion, sans rien à retenir ici.
@@ -282,9 +284,14 @@ export function HostApp() {
   }
 
   // Sur le PC on ouvre souvent l'écran en "localhost" : le QR doit quand même
-  // montrer l'adresse que les téléphones peuvent ouvrir.
+  // montrer l'adresse que les téléphones peuvent ouvrir. Elle se termine par
+  // le nom de l'espace : c'est lui qui dit quelle soirée on rejoint.
+  const slug = snap.space.slug
   const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-  const joinUrl = isLocalhost && snap.joinUrl ? snap.joinUrl : window.location.origin
+  const joinUrl = isLocalhost && snap.joinUrl ? snap.joinUrl : `${window.location.origin}/${slug}`
+  useEffect(() => {
+    document.title = `${snap.space.title} · Écran commun`
+  }, [snap.space.title])
   const connectedCount = snap.players.filter(p => p.connected).length
   const offlineCount = snap.players.length - connectedCount
   const session = snap.session
@@ -356,7 +363,7 @@ export function HostApp() {
         {/* La bande d'état : le titre, où on en est, comment rejoindre. */}
         <header className="host-band">
           <div className="band-left">
-            <span className="brand">Quizz Romane 30</span>
+            <span className="brand">{snap.space.title}</span>
             {quizView?.packTitle && (
               <>
                 <span className="band-sep" aria-hidden="true" />
@@ -517,11 +524,11 @@ export function HostApp() {
                 </div>
 
                 <ConsoleActions>
-                  <a className="btn btn-accent" href="/souvenir" target="_blank" rel="noreferrer">
+                  <a className="btn btn-accent" href={spacePath(slug, 'souvenir')} target="_blank" rel="noreferrer">
                     <Icon name="book" />
                     Page souvenir
                   </a>
-                  <a className="btn" href="/bilan" target="_blank" rel="noreferrer">
+                  <a className="btn" href={spacePath(slug, 'bilan')} target="_blank" rel="noreferrer">
                     <Icon name="list" />
                     Le bilan
                   </a>
@@ -659,7 +666,7 @@ export function HostApp() {
                     <Icon name="crown" />
                     Écran de victoire
                   </button>
-                  <a className="btn" href="/stats" target="_blank" rel="noreferrer">
+                  <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
                     <Icon name="bar-chart" />
                     Statistiques
                   </a>
@@ -809,6 +816,10 @@ export function HostApp() {
                     <Icon name="edit" />
                     Mes quiz
                   </a>
+                  <a className="btn btn-ghost" href="/compte" target="_blank" rel="noreferrer">
+                    <Icon name="users" />
+                    Mon compte
+                  </a>
                   {(ranking.length > 0 || teams.length > 0) && (
                     <>
                       <button className="btn" onClick={() => openScreen('podium')}>
@@ -825,13 +836,13 @@ export function HostApp() {
                           Victoire
                         </button>
                       )}
-                      <a className="btn" href="/stats" target="_blank" rel="noreferrer">
+                      <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
                         <Icon name="bar-chart" />
                         Statistiques
                       </a>
                     </>
                   )}
-                  <a className="btn btn-ghost" href="/soirees" target="_blank" rel="noreferrer">
+                  <a className="btn btn-ghost" href={spacePath(slug, 'soirees')} target="_blank" rel="noreferrer">
                     <Icon name="book" />
                     Historique
                   </a>
@@ -865,8 +876,7 @@ export function HostApp() {
                         // à l'abri avant la fin, ou pour lui donner son nom.
                         const title = await promptDialog({
                           title: 'Ranger la soirée dans l’historique',
-                          message:
-                            'Rien n’est effacé : la soirée continue, et elle se relira plus tard sur /soirees. Sous quel nom ?',
+                          message: `Rien n’est effacé : la soirée continue, et elle se relira plus tard sur /${slug}/soirees. Sous quel nom ?`,
                           input: { value: `Soirée du ${formatDay(Date.now())}`, maxLength: 80 },
                           confirmLabel: 'Sauvegarder',
                         })
@@ -884,7 +894,7 @@ export function HostApp() {
                         // faire qu'entre deux soirées, jamais pendant.
                         const ok = await confirmDialog({
                           title: 'Repartir d’une soirée vierge ?',
-                          message: `La soirée est d'abord rangée dans l'historique (/soirees), puis les ${snap.players.length} invités, les ${teams.length} équipes et tous les points sont effacés.\n\nÀ faire une fois la fête finie, pour préparer la suivante.`,
+                          message: `La soirée est d'abord rangée dans l'historique (/${slug}/soirees), puis les ${snap.players.length} invités, les ${teams.length} équipes et tous les points sont effacés.\n\nÀ faire une fois la fête finie, pour préparer la suivante.`,
                           confirmLabel: 'Archiver et tout effacer',
                           danger: true,
                         })

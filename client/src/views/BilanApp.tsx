@@ -5,11 +5,12 @@ import { makeCtx, type BilanCtx } from '../components/BilanQuestion'
 import { PlayerReview } from '../components/BilanPlayer'
 import { RoomReview } from '../components/BilanRoom'
 import { ArchiveBanner } from '../components/ArchiveBanner'
-import { dataUrl, pageUrl } from '../archive'
+import { dataUrl, pageContext, spacePath } from '../routes'
+import { readMe } from '../state'
 import { formatDay } from '../../../shared/archive'
 
 /**
- * Le bilan de la soirée (`/bilan`), question par question.
+ * Le bilan de la soirée (`/<espace>/bilan`), question par question.
  *
  * Public comme la page souvenir, et pensé pour un seul lien à poster dans le
  * groupe : chacun choisit son prénom et retrouve ce qu'il a répondu, ce que
@@ -37,18 +38,8 @@ function hashOf(mode: Mode): string {
   return ''
 }
 
-/** L'invité mémorisé sur ce téléphone — celui qui a joué ici, s'il y en a un. */
-function rememberedPlayerId(): string | null {
-  try {
-    const raw = localStorage.getItem('quizz.me')
-    const me = raw ? (JSON.parse(raw) as { playerId?: string }) : null
-    return typeof me?.playerId === 'string' ? me.playerId : null
-  } catch {
-    return null
-  }
-}
-
 export function BilanApp() {
+  const { slug, archiveId } = pageContext()
   const fiches = window.location.pathname.endsWith('/bilan/fiches')
   const [review, setReview] = useState<Review | null>(null)
   const [error, setError] = useState('')
@@ -58,11 +49,15 @@ export function BilanApp() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    fetch(dataUrl('bilan.json'))
-      .then(r => r.json())
+    fetch(dataUrl(slug, 'bilan.json', archiveId))
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(setReview)
       .catch(() => setError('Impossible de charger le bilan de la soirée.'))
-  }, [])
+  }, [slug, archiveId])
+
+  useEffect(() => {
+    if (review?.space) document.title = `${review.archive?.title ?? review.space.title} · Bilan`
+  }, [review])
 
   // Le bouton « retour » du navigateur doit marcher comme partout ailleurs.
   useEffect(() => {
@@ -81,7 +76,7 @@ export function BilanApp() {
   // Ouvert sur le téléphone qui a joué, sans lien particulier : droit à son bilan.
   useEffect(() => {
     if (!ctx || fiches || mode.kind !== 'pick' || window.location.hash) return
-    const id = rememberedPlayerId()
+    const id = readMe(slug)?.playerId ?? null
     if (id && ctx.playerById.get(id)?.stat.asked) {
       history.replaceState(null, '', `#p=${id}`)
       setMode({ kind: 'me', playerId: id })
@@ -190,29 +185,33 @@ export function BilanApp() {
 
       <p className="recap-foot muted">Merci d'avoir joué.</p>
       <p className="muted small center">
-        Pour l'animateur : <a href={pageUrl('bilan/fiches')}>les fiches à imprimer, une par invité</a>
+        Pour l'animateur :{' '}
+        <a href={spacePath(slug, 'bilan/fiches', archiveId)}>les fiches à imprimer, une par invité</a>
         {' · '}
-        <a href="/soirees">toutes les soirées</a>
+        <a href={spacePath(slug, 'soirees')}>toutes les soirées</a>
       </p>
     </div>
   )
 }
 
-/** « Les 30 ans de Romane · 19 septembre 2026 », ou le nom et la date d'une soirée archivée. */
+/** « Les 30 ans de Romane · 19 septembre 2026 » : le titre et la date de la soirée, archivée ou non. */
 function partyLine(ctx: BilanCtx): string {
   const a = ctx.review.archive
-  return a ? `${a.title} · ${formatDay(a.heldAt)}` : 'Les 30 ans de Romane · 19 septembre 2026'
+  if (a) return `${a.title} · ${formatDay(a.heldAt)}`
+  const space = ctx.review.space
+  return space ? [space.title, space.dateLine].filter(Boolean).join(' · ') : ''
 }
 
 function BilanHead({ ctx }: { ctx: BilanCtx }) {
   const { review } = ctx
   const played = review.players.filter(p => p.stat.asked > 0).length
+  const dateLine = review.archive ? formatDay(review.archive.heldAt) : review.space?.dateLine
   return (
     <header className="recap-header">
       {review.archive && <ArchiveBanner archive={review.archive} />}
-      <span className="label">{review.archive ? formatDay(review.archive.heldAt) : '19 septembre 2026'}</span>
+      {dateLine && <span className="label">{dateLine}</span>}
       <h1>Le bilan du quiz</h1>
-      <p className="join-sub">{review.archive ? review.archive.title : 'Les 30 ans de Romane'}</p>
+      <p className="join-sub">{review.archive ? review.archive.title : review.space?.title}</p>
       {review.questions.length > 0 && (
         <p className="muted">
           {played} joueur{played > 1 ? 's' : ''} · {review.questions.length} question
@@ -291,7 +290,7 @@ function Fiches({ ctx, players }: { ctx: BilanCtx; players: ReviewPlayer[] }) {
             <Icon name="clipboard" />
             Imprimer
           </button>
-          <a className="btn btn-ghost" href={pageUrl('bilan')}>
+          <a className="btn btn-ghost" href={spacePath(pageContext().slug, 'bilan', pageContext().archiveId)}>
             Retour au bilan
           </a>
         </div>

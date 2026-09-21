@@ -4,33 +4,38 @@ import { StatsTable } from '../components/StatsTable'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { TeamBoard } from '../components/TeamBoard'
 import { ArchiveBanner } from '../components/ArchiveBanner'
-import { archiveId, dataUrl, pageUrl } from '../archive'
+import { dataUrl, pageContext, spacePath } from '../routes'
 
 /**
- * La page des chiffres, à son adresse propre (`/stats`).
+ * La page des chiffres, à son adresse propre (`/<espace>/stats`).
  *
  * Elle vivait au fond de la page souvenir, où l'animateur ne la trouvait pas
  * pendant la fête. Elle est publique comme le souvenir : les mêmes données,
  * lisibles sur un téléphone entre deux quiz aussi bien que le lendemain.
  */
 export function StatsApp() {
+  const { slug, archiveId } = pageContext()
   const [recap, setRecap] = useState<Recap | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     const load = () =>
-      fetch(dataUrl('recap.json'))
-        .then(r => r.json())
+      fetch(dataUrl(slug, 'recap.json', archiveId))
+        .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
         .then(setRecap)
         .catch(() => setError('Impossible de charger les statistiques.'))
     load()
     // Rafraîchi tout seul : la page reste ouverte sur le téléphone de
     // l'animateur pendant que les quiz s'enchaînent. Une soirée archivée,
     // elle, ne bouge plus.
-    if (archiveId()) return
+    if (archiveId) return
     const id = setInterval(load, 20_000)
     return () => clearInterval(id)
-  }, [])
+  }, [slug, archiveId])
+
+  useEffect(() => {
+    if (recap?.space) document.title = `${recap.archive?.title ?? recap.space.title} · Statistiques`
+  }, [recap])
 
   if (error) {
     return (
@@ -54,7 +59,7 @@ export function StatsApp() {
     <div className="recap">
       {recap.archive && <ArchiveBanner archive={recap.archive} />}
       <header className="recap-header">
-        <span className="label">{recap.archive ? recap.archive.title : 'Les chiffres de la soirée'}</span>
+        <span className="label">{recap.archive ? recap.archive.title : (recap.space?.title ?? 'Les chiffres de la soirée')}</span>
         <h1>Statistiques</h1>
         <p className="muted">
           {stats.questions} questions posées · {stats.logged} réponses enregistrées ·{' '}
@@ -98,7 +103,8 @@ export function StatsApp() {
           )}
 
           <p className="muted small center">
-            Le détail de chacun, question par question, est sur <a href={pageUrl('bilan')}>le bilan</a>.
+            Le détail de chacun, question par question, est sur{' '}
+            <a href={spacePath(slug, 'bilan', archiveId)}>le bilan</a>.
           </p>
         </>
       )}

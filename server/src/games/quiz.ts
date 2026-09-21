@@ -69,18 +69,22 @@ const CLOSEST_BONUS = 50
 // Le moteur de jeu est synchrone alors que la bibliothèque vit dans une base
 // asynchrone (potentiellement distante). On garde donc une copie en mémoire,
 // rafraîchie au démarrage et après chaque édition — jamais pendant une partie.
+// Une bibliothèque par espace : chaque animateur ne joue que ses quiz.
 
-let library: QuizPack[] = []
+const libraries = new Map<string, QuizPack[]>()
 
-export function setQuizLibrary(quizzes: QuizDef[]) {
-  library = quizzes
-    .map(q => ({ id: q.id, title: q.title, questions: playableQuestions(q) }))
-    .filter(p => p.questions.length > 0)
+export function setQuizLibrary(spaceId: string, quizzes: QuizDef[]) {
+  libraries.set(
+    spaceId,
+    quizzes
+      .map(q => ({ id: q.id, title: q.title, questions: playableQuestions(q) }))
+      .filter(p => p.questions.length > 0),
+  )
 }
 
-/** La bibliothèque telle qu'elle se joue : titres et questions jouables. */
-export function quizLibrary(): QuizPack[] {
-  return library
+/** La bibliothèque d'un espace telle qu'elle se joue : titres et questions jouables. */
+export function quizLibrary(spaceId: string): QuizPack[] {
+  return libraries.get(spaceId) ?? []
 }
 
 /**
@@ -306,7 +310,8 @@ function hiddenPhoto(q: PlayableQuestion, phase: QuizState['phase']): boolean {
 // ── Module ───────────────────────────────────────────────────────────────
 
 export const quizModule: GameModule<QuizState> = {
-  createInitialState(): QuizState {
+  createInitialState(spaceId): QuizState {
+    const library = quizLibrary(spaceId)
     if (library.length === 0) {
       throw new Error('Aucun quiz prêt à jouer — créez-en un dans l’espace animateur (/edit)')
     }
@@ -376,7 +381,7 @@ export const quizModule: GameModule<QuizState> = {
     switch (command?.type) {
       case 'selectPack': {
         if (st.phase !== 'pickPack') return
-        const pack = library.find(p => p.id === command.packId)
+        const pack = quizLibrary(sess.spaceId).find(p => p.id === command.packId)
         if (!pack) throw new Error('Quiz introuvable')
         st.pack = pack
         const m = Number(command.multiplier ?? 1)

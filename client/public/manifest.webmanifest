@@ -1,7 +1,7 @@
 {
-  "name": "Quizz Romane 30",
-  "short_name": "Quizz Romane",
-  "description": "Le quiz des 30 ans de Romane",
+  "name": "Quizz",
+  "short_name": "Quizz",
+  "description": "Le quiz de la soirée, sur ton téléphone",
   "lang": "fr",
   "start_url": "/",
   "scope": "/",
