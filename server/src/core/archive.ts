@@ -281,6 +281,12 @@ export class ArchiveStore {
     return res.rowsAffected > 0
   }
 
+  /** Efface toutes les soirées d'un espace : son compte est supprimé. Rend leur nombre. */
+  async removeSpace(spaceId: string): Promise<number> {
+    const res = await this.client.execute({ sql: 'DELETE FROM soirees WHERE space_id = ?', args: [spaceId] })
+    return res.rowsAffected
+  }
+
   close() {
     this.client.close()
   }

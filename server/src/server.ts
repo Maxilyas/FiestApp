@@ -6,11 +6,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { initDb, stampLegacySpace } from './core/db'
+import { initDb, stampLegacySpace, wipeSpace } from './core/db'
 import { PartyBackup } from './core/backup'
 import { QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
-import { setQuizLibrary } from './games/quiz'
+import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { SpaceRegistry } from './core/space'
 import { AuthStore, type AccountRec } from './auth/store'
@@ -198,6 +198,36 @@ export async function createQuizServer(opts: QuizServerOptions) {
 
   wireSockets(io, { registry, auth, trustProxy: !!opts.online })
 
+  /**
+   * Supprime un compte et tout ce qu'il a laissé. L'ordre compte : d'abord
+   * ce qui vit (sessions, connexions, soirée en mémoire), puis le disque
+   * local, le miroir distant, l'historique et la bibliothèque, et le compte
+   * en tout dernier — si une écriture distante échoue en route, il reste un
+   * compte désactivé sur lequel réessayer, pas des données sans maître.
+   */
+  const removeAccount = async (accountId: string) => {
+    const login = auth.byId(accountId)?.login ?? accountId
+    // Les écrans communs tombent avec les sessions ; les téléphones oublient
+    // leur invité, puis sont coupés — ils se reconnectent et apprennent que
+    // l'adresse ne mène plus nulle part.
+    await auth.revokeAllSessions(accountId)
+    io.to(`space:${accountId}`).emit('player:removed')
+    io.in(`space:${accountId}`).disconnectSockets(true)
+    registry.drop(accountId)
+    clearQuizLibrary(accountId)
+    wipeSpace(db, accountId)
+    await backup.settle()
+    await backup.forSpace(accountId).reset()
+    const soirees = await archives.removeSpace(accountId)
+    const { quizzes, images } = await store.removeSpace(accountId)
+    await auth.remove(accountId)
+    // Une page publique lue pendant le ménage a pu réveiller la soirée.
+    registry.drop(accountId)
+    console.log(
+      `[comptes] compte « ${login} » supprimé : ${quizzes} quiz, ${images} photos, ${soirees} soirées archivées`,
+    )
+  }
+
   // Filet de sécurité : un client qui aurait silencieusement raté une diffusion
   // se répare tout seul. Toutes les cinq minutes suffisent — une reconnexion
   // reçoit de toute façon un classement frais, et le dédoublonnage rendait
@@ -299,6 +329,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,
+    removeAccount,
   })
 
   const here = path.dirname(fileURLToPath(import.meta.url))

@@ -293,6 +293,28 @@ export class AuthStore {
     return admin.id
   }
 
+  /**
+   * Supprime un compte : ses sessions, ses liens d'activation, sa ligne. À
+   * n'appeler qu'une fois ses données effacées (voir `createQuizServer`) :
+   * la ligne part en dernier, pour qu'un échec en route laisse un compte sur
+   * lequel réessayer plutôt que des données sans maître. L'identifiant et
+   * l'adresse redeviennent libres aussitôt.
+   */
+  async remove(id: string): Promise<void> {
+    this.require(id)
+    if (id === this.defaultSpace) throw new Error('L’espace par défaut ne se supprime pas')
+    await this.revokeAllSessions(id)
+    await this.client.batch(
+      [
+        { sql: 'DELETE FROM activations WHERE account_id = ?', args: [id] },
+        { sql: 'DELETE FROM auth_sessions WHERE account_id = ?', args: [id] },
+        { sql: 'DELETE FROM accounts WHERE id = ?', args: [id] },
+      ],
+      'write',
+    )
+    this.accounts.delete(id)
+  }
+
   // ── Sessions ────────────────────────────────────────────────────────────
 
   /** Ouvre une session et rend le jeton brut — la seule fois où il existe côté serveur. */

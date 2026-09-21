@@ -220,6 +220,24 @@ export class QuizStore {
   }
 
   /**
+   * Efface la bibliothèque entière d'un espace, photos comprises : son
+   * compte est supprimé. Les photos sortent aussi du cache — leur adresse
+   * est publique, elles resteraient servies sinon.
+   */
+  async removeSpace(spaceId: string): Promise<{ quizzes: number; images: number }> {
+    const images = await this.client.execute({ sql: 'SELECT id FROM quiz_images WHERE space_id = ?', args: [spaceId] })
+    const [quizzes] = await this.client.batch(
+      [
+        { sql: 'DELETE FROM quizzes WHERE space_id = ?', args: [spaceId] },
+        { sql: 'DELETE FROM quiz_images WHERE space_id = ?', args: [spaceId] },
+      ],
+      'write',
+    )
+    for (const row of images.rows) this.imageCache.delete(String(row.id))
+    return { quizzes: quizzes.rowsAffected, images: images.rows.length }
+  }
+
+  /**
    * Supprime les photos d'un espace que plus aucun de ses quiz n'utilise.
    *
    * On ne peut pas effacer les photos d'un quiz au moment où on le supprime :

@@ -87,6 +87,11 @@ export function quizLibrary(spaceId: string): QuizPack[] {
   return libraries.get(spaceId) ?? []
 }
 
+/** Oublie la bibliothèque d'un espace : son compte est supprimé. */
+export function clearQuizLibrary(spaceId: string) {
+  libraries.delete(spaceId)
+}
+
 /**
  * Le quiz d'une partie, tel qu'il a été joué, relu dans l'état persisté de la
  * partie. Le bilan s'en sert pour retrouver les intitulés exacts : la

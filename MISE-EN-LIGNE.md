@@ -126,6 +126,8 @@ L'application sert plusieurs soirées : chaque ami a son compte, son espace et s
 
 **Désactiver un compte** ferme ses sessions et ses écrans communs sur-le-champ ; ses quiz et ses soirées restent, et ses pages publiques restent lisibles. **Réactiver** rouvre la porte ; il se reconnecte avec son mot de passe.
 
+**Supprimer un compte** — le bouton n'apparaît qu'une fois le compte désactivé — efface tout ce qu'il a laissé : quiz, photos, soirées archivées, soirée en cours, sauvegarde distante comprise, et libère son identifiant et son adresse. Sans retour : exporte ses soirées avant si tu veux les garder (`npm run export -- https://TON-ADRESSE.onrender.com --slug chez-bob`). Ton propre compte ne se supprime pas.
+
 Tu ne vois ni les quiz ni les soirées des autres : seulement la liste des comptes.
 
 ---
@@ -162,7 +164,7 @@ npm run check
 npm run smoke
 ```
 
-`check` contrôle le code, `smoke` rejoue une soirée entière (comptes, isolation des espaces, inscription, quiz, scores, reconnexion, bibliothèque, photos, estimation, retardataire, historique, mise à jour d'une base d'avant les comptes).
+`check` contrôle le code, `smoke` rejoue une soirée entière (comptes et leur suppression, isolation des espaces, inscription, quiz, scores, reconnexion, bibliothèque, photos, estimation, retardataire, historique, mise à jour d'une base d'avant les comptes).
 
 ### Simuler des invités
 
@@ -248,8 +250,8 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 | « Identifiant ou mot de passe incorrect » | faute de frappe, ou le mot de passe d'amorçage a été changé depuis « Mon compte » | réessayer ; pour un ami, refaire un lien d'activation depuis `/admin` |
 | « Trop d'essais — réessaie dans un quart d'heure » | cinq échecs de suite sur un identifiant, ou vingt depuis la même adresse | attendre quinze minutes ; c'est le garde-fou contre la force brute |
 | Le serveur refuse de démarrer : « ADMIN_PASSWORD manquant » | mot de passe par défaut en ligne | définir `ADMIN_PASSWORD` sur Render (il ne sert qu'au premier démarrage) |
-| L'écran commun demande de se connecter | pas de session sur ce navigateur, ou session fermée (déconnexion, mot de passe changé, compte désactivé) | se reconnecter |
-| « Cette adresse ne mène à aucune soirée » | le nom d'espace de l'adresse n'existe pas (faute de frappe, ou compte désactivé) | vérifier l'adresse dans « Mon compte » ; scanner le QR de l'écran |
+| L'écran commun demande de se connecter | pas de session sur ce navigateur, ou session fermée (déconnexion, mot de passe changé, compte désactivé ou supprimé) | se reconnecter |
+| « Cette adresse ne mène à aucune soirée » | le nom d'espace de l'adresse n'existe pas (faute de frappe, compte désactivé ou supprimé) | vérifier l'adresse dans « Mon compte » ; scanner le QR de l'écran |
 | Aucun quiz proposé au lancement | la bibliothèque de cet espace est vide | écrire un quiz dans `/edit`, ou relancer la migration (étape 4) pour le tien |
 | « Aucun quiz prêt à jouer » | toutes les questions sont des brouillons | dans `/edit`, compléter ce qui porte un ⚠️ |
 | Un invité ne voit rien après avoir répondu | c'est normal | la question est sur l'écran commun ; son téléphone attend la révélation |

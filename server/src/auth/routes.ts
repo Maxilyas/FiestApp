@@ -18,6 +18,8 @@ interface AuthApiDeps {
   auth: AuthStore
   /** En ligne, le cookie ne voyage qu'en HTTPS. */
   online: boolean
+  /** Supprime un compte et tout ce qu'il a laissé (voir `createQuizServer`). */
+  removeAccount: (accountId: string) => Promise<void>
 }
 
 /**
@@ -209,6 +211,26 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
       if (!target) return res.status(404).json({ error: 'Compte introuvable' })
       const updated = await auth.update(target.id, { name: req.body?.name, slug: req.body?.slug })
       res.json({ account: auth.toPublic(updated) })
+    }),
+  )
+
+  // Supprimer un compte : seulement désactivé (c'est le pas de recul), jamais
+  // le sien, jamais l'espace par défaut — c'est chez lui que mènent les
+  // anciennes adresses. Tout ce qu'il a laissé part avec lui.
+  app.delete(
+    '/api/admin/accounts/:id',
+    account,
+    requireAdmin,
+    wrap(async (req, res) => {
+      const target = auth.byId(req.params.id)
+      if (!target) return res.status(404).json({ error: 'Compte introuvable' })
+      if (target.id === accountOf(res).id) return res.status(400).json({ error: 'Pas ton propre compte' })
+      if (target.id === auth.defaultSpaceId) {
+        return res.status(400).json({ error: 'L’espace par défaut ne se supprime pas : les anciennes adresses mènent chez lui' })
+      }
+      if (!target.disabledAt) return res.status(400).json({ error: 'Désactive d’abord le compte' })
+      await deps.removeAccount(target.id)
+      res.json({ ok: true })
     }),
   )
 }

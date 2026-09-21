@@ -402,8 +402,16 @@ export class PartyBackup {
     }
   }
 
-  async close() {
+  /**
+   * Attend les écritures en vol — avant d'effacer un espace, pour qu'une
+   * recopie tardive ne le remplisse pas à nouveau.
+   */
+  async settle(): Promise<void> {
     await Promise.allSettled([...this.pending])
+  }
+
+  async close() {
+    await this.settle()
     this.client.close()
   }
 }
