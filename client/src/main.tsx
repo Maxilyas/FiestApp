@@ -13,6 +13,7 @@ import './styles.css'
 //   /bilan     ce que chacun a répondu, question par question, sans clé
 //   /soirees   l'historique ; /soirees/<id>/souvenir, /stats et /bilan relisent
 //              une soirée archivée avec les mêmes pages (client/src/archive.ts)
+//   /connexion, /activer, /compte, /admin : le compte de l'animateur
 //
 // Chaque route est un paquet à part : les téléphones n'ont pas à télécharger
 // l'éditeur, l'écran commun ni la bibliothèque de QR codes pour répondre à
@@ -24,6 +25,10 @@ const StatsApp = lazy(() => import('./views/StatsApp').then(m => ({ default: m.S
 const RecapApp = lazy(() => import('./views/RecapApp').then(m => ({ default: m.RecapApp })))
 const BilanApp = lazy(() => import('./views/BilanApp').then(m => ({ default: m.BilanApp })))
 const ArchivesApp = lazy(() => import('./views/ArchivesApp').then(m => ({ default: m.ArchivesApp })))
+const LoginApp = lazy(() => import('./views/LoginApp').then(m => ({ default: m.LoginApp })))
+const ActivateApp = lazy(() => import('./views/ActivateApp').then(m => ({ default: m.ActivateApp })))
+const AccountApp = lazy(() => import('./views/AccountApp').then(m => ({ default: m.AccountApp })))
+const AdminApp = lazy(() => import('./views/AdminApp').then(m => ({ default: m.AdminApp })))
 
 const path = window.location.pathname
 // Une soirée archivée se relit avec les mêmes pages : « /soirees/<id>/bilan »
@@ -33,15 +38,23 @@ const App = path.startsWith('/host')
   ? HostApp
   : path.startsWith('/edit')
     ? EditorApp
-    : page.startsWith('/stats')
-      ? StatsApp
-      : page.startsWith('/souvenir')
-        ? RecapApp
-        : page.startsWith('/bilan')
-          ? BilanApp
-          : path.startsWith('/soirees')
-            ? ArchivesApp
-            : PlayerApp
+    : path.startsWith('/connexion')
+      ? LoginApp
+      : path.startsWith('/activer')
+        ? ActivateApp
+        : path.startsWith('/compte')
+          ? AccountApp
+          : path.startsWith('/admin')
+            ? AdminApp
+            : page.startsWith('/stats')
+              ? StatsApp
+              : page.startsWith('/souvenir')
+                ? RecapApp
+                : page.startsWith('/bilan')
+                  ? BilanApp
+                  : path.startsWith('/soirees')
+                    ? ArchivesApp
+                    : PlayerApp
 
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au

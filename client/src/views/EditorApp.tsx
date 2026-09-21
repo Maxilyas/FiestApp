@@ -15,13 +15,12 @@ import {
   type QuizQuestionDef,
   type QuizSummary,
 } from '../../../shared/library'
-import { UnauthorizedError, api, compressImage, hostKey, setHostKey } from '../api'
+import { UnauthorizedError, api, compressImage } from '../api'
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { confirmDialog } from '../components/Dialog'
-import { readKeyFromUrl } from '../hostKeyUrl'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
-import { KeyForm } from '../components/Invitation'
+import { LoginForm } from '../components/Invitation'
 
 function formatDate(ts: number): string {
   return new Date(ts).toLocaleDateString('fr-FR', {
@@ -33,8 +32,10 @@ function formatDate(ts: number): string {
 }
 
 export function EditorApp() {
-  const [needKey, setNeedKey] = useState(false)
-  const [keyInput, setKeyInput] = useState('')
+  const [needLogin, setNeedLogin] = useState(false)
+  const [loginError, setLoginError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [list, setList] = useState<QuizSummary[] | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -42,34 +43,38 @@ export function EditorApp() {
   const reload = useCallback(async () => {
     try {
       setList(await api.list())
-      setNeedKey(false)
+      setNeedLogin(false)
     } catch (e) {
-      if (e instanceof UnauthorizedError) setNeedKey(true)
+      if (e instanceof UnauthorizedError) setNeedLogin(true)
       else setError((e as Error).message)
     }
   }, [])
 
   useEffect(() => {
-    const urlKey = readKeyFromUrl()
-    if (urlKey) setHostKey(urlKey)
-    if (!hostKey()) return setNeedKey(true)
     reload()
+    // Le lien « Les comptes » n'a de sens que pour l'administrateur.
+    api.auth
+      .me()
+      .then(m => setIsAdmin(m.account.role === 'admin'))
+      .catch(() => setIsAdmin(false))
   }, [reload])
 
-  const submitKey = async (e: FormEvent) => {
-    e.preventDefault()
-    setHostKey(keyInput)
-    setError('')
+  const submitLogin = async (login: string, password: string) => {
+    setBusy(true)
+    setLoginError('')
     try {
-      setList(await api.list())
-      setNeedKey(false)
-    } catch {
-      setError('Clé incorrecte')
+      const m = await api.auth.login(login, password)
+      setIsAdmin(m.account.role === 'admin')
+      await reload()
+    } catch (e) {
+      setLoginError((e as Error).message)
+    } finally {
+      setBusy(false)
     }
   }
 
-  if (needKey) {
-    return <KeyForm title="Mes quiz" value={keyInput} error={error} onChange={setKeyInput} onSubmit={submitKey} />
+  if (needLogin) {
+    return <LoginForm title="Mes quiz" error={loginError} busy={busy} onSubmit={submitLogin} />
   }
 
   if (editingId) {
@@ -92,13 +97,20 @@ export function EditorApp() {
           Mes quiz
         </h1>
         <div className="row">
-          {/* La clé voyage en fragment : le navigateur ne l'envoie jamais au
-              serveur, elle n'apparaît ni dans ses journaux ni dans l'historique
-              d'une adresse partagée. */}
-          <a className="btn btn-ghost" href={`/host#key=${encodeURIComponent(hostKey())}`}>
+          <a className="btn btn-ghost" href="/host">
             <Icon name="monitor" />
             Écran commun
           </a>
+          <a className="btn btn-ghost" href="/compte">
+            <Icon name="users" />
+            Mon compte
+          </a>
+          {isAdmin && (
+            <a className="btn btn-ghost" href="/admin">
+              <Icon name="sparkles" />
+              Les comptes
+            </a>
+          )}
           <button
             className="btn btn-primary"
             onClick={async () => {

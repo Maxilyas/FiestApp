@@ -17,7 +17,14 @@ export interface ClientToServerEvents {
     ack: (res: { ok: boolean; error?: string }) => void,
   ) => void
 
-  'host:hello': (payload: { key: string }, ack: (res: { ok: boolean }) => void) => void
+  /**
+   * L'écran commun se présente. Pas de clé : la session de l'animateur voyage
+   * dans le cookie de la poignée de main. En retour, son espace.
+   */
+  'host:hello': (
+    payload: Record<string, never>,
+    ack: (res: { ok: boolean; slug?: string; name?: string }) => void,
+  ) => void
   /** Démarre une partie de quiz (l'animateur choisit ensuite le quiz à jouer). */
   'host:launch': () => void
   'host:command': (payload: { sessionId: string; command: unknown }) => void

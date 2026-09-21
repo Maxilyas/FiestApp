@@ -20,6 +20,7 @@ import { playedPackOf, quizLibrary, quizModule, setQuizLibrary } from './games/q
 import { buildReview, type PlayedPack } from './core/review'
 import { buildRecap } from './core/recap'
 import { ArchiveStore, buildArchive, recapOfArchive, reviewOfArchive } from './core/archive'
+import { AuthStore } from './auth/store'
 import { mountApi } from './api'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
@@ -31,7 +32,11 @@ export interface QuizServerOptions {
   port: number
   /** Base locale jetable : joueurs et état de la partie en cours. */
   dbPath: string
-  hostKey: string
+  /**
+   * Le compte administrateur, créé au tout premier démarrage s'il n'y a
+   * encore aucun compte. Le mot de passe ne sert qu'à cette création.
+   */
+  admin: { login: string; password: string; slug: string; name: string }
   /** Bibliothèque de quiz : fichier local (`file:...`) ou base Turso (`libsql://...`). */
   quizDbUrl: string
   quizDbToken?: string
@@ -162,6 +167,15 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
   await archives.init()
 
+  // Les comptes des animateurs, avec le reste de ce qui doit survivre. Le
+  // premier démarrage crée l'administrateur ; les suivants le retrouvent.
+  const auth = new AuthStore(opts.quizDbUrl, opts.quizDbToken)
+  await auth.init()
+  const hadAccounts = auth.count() > 0
+  const defaultSpaceId = await auth.ensureDefaultSpace(opts.admin)
+  if (!hadAccounts) console.log(`[comptes] administrateur « ${opts.admin.login} » créé, espace « ${opts.admin.slug} »`)
+  void defaultSpaceId
+
   let boundPort = opts.port
   const wifi = process.env.WIFI_SSID
     ? { ssid: process.env.WIFI_SSID, pass: process.env.WIFI_PASS ?? '' }
@@ -250,7 +264,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     answers,
     engine,
     archiveParty,
-    hostKey: opts.hostKey,
+    auth,
     trustProxy: !!opts.online,
     maxPlayers: opts.maxPlayers ?? DEFAULT_MAX_PLAYERS,
     buildSnapshot,
@@ -378,7 +392,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   app.get('/soirees/:id/recap.json', archived(recapOfArchive))
   app.get('/soirees/:id/bilan.json', archived(reviewOfArchive))
 
-  mountApi(app, { store, archives, hostKey: opts.hostKey, onLibraryChanged: refreshLibrary })
+  mountApi(app, {
+    store,
+    archives,
+    auth,
+    online: !!opts.online,
+    publicOrigin: allowedOrigin,
+    onLibraryChanged: refreshLibrary,
+  })
 
   const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -430,6 +451,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           db.close()
           store.close()
           archives.close()
+          auth.close()
           // Les écritures distantes en vol doivent aboutir avant de couper.
           await backup.close()
           resolve()

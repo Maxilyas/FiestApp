@@ -48,9 +48,33 @@ function waitFor<T>(socket: Socket, event: string, pred: (p: T) => boolean, labe
 const tmpDir = mkdtempSync(path.join(tmpdir(), 'quizz-smoke-'))
 const dbPath = path.join(tmpDir, 'test.db')
 const quizDbUrl = `file:${path.join(tmpDir, 'quizzes.db').replace(/\\/g, '/')}`
-const server = await createQuizServer({ port: 0, dbPath, hostKey: 'smoke', quizDbUrl })
+/** Le compte administrateur du test : créé au premier démarrage, retrouvé au second. */
+const ADMIN = { login: 'antoine', password: 'smoke-pass-1', slug: 'smoke', name: 'Antoine' }
+const server = await createQuizServer({ port: 0, dbPath, admin: ADMIN, quizDbUrl })
 const url = `http://localhost:${server.port}`
 const connect = () => clientIo(url, { transports: ['websocket'] })
+/** Un écran commun : il se présente avec le cookie de session de l'animateur. */
+const connectHost = (base: string, cookie: string) =>
+  clientIo(base, { transports: ['websocket'], extraHeaders: { Cookie: cookie } })
+/** Une écriture telle que la page la ferait : avec l'en-tête maison qui la distingue d'un formulaire piégé. */
+const write = (base: string, path: string, body: unknown, cookie?: string, method = 'POST') =>
+  fetch(`${base}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz', ...(cookie ? { Cookie: cookie } : {}) },
+    body: JSON.stringify(body),
+  })
+const cookieOf = (res: Response) => {
+  const m = /qz_session=([^;]+)/.exec(res.headers.get('set-cookie') ?? '')
+  assert(m, 'la réponse doit poser le cookie de session')
+  return `qz_session=${m[1]}`
+}
+
+/** Se connecte par HTTP et rend le cookie de session, tel que le navigateur le renverrait. */
+async function loginAs(base: string, login: string, password: string): Promise<string> {
+  const res = await write(base, '/api/auth/login', { login, password })
+  assert(res.ok, `connexion de ${login} refusée (${res.status})`)
+  return cookieOf(res)
+}
 
 try {
   // 0. Analyse d'un collage de questions (fonction pure, aucun serveur requis)
@@ -78,23 +102,37 @@ try {
   assert(imported.unmarked === 1, 'la question sans étoile doit être signalée')
   assert(imported.ignored === 1, 'le bloc inexploitable doit être compté comme ignoré')
 
-  // 1. Écran commun : la clé protège bien l'accès
-  const host = connect()
+  // 1. Écran commun : il faut être connecté. Un mauvais mot de passe est
+  //    refusé sans dire pourquoi, un formulaire sans l'en-tête maison aussi,
+  //    et un socket sans session ne se présente pas.
+  const badLogin = await write(url, '/api/auth/login', { login: ADMIN.login, password: 'mauvais' })
+  assert(badLogin.status === 401, `mauvais mot de passe : ${badLogin.status} au lieu de 401`)
+  const noHeader = await fetch(`${url}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ login: ADMIN.login, password: ADMIN.password }),
+  })
+  assert(noHeader.status === 403, 'une écriture sans l’en-tête maison doit être refusée (anti-CSRF)')
+  const cookie = await loginAs(url, ADMIN.login, ADMIN.password)
+  const stranger = connect()
+  const strangerHello = await emitAck<{ ok: boolean }>(stranger, 'host:hello', {})
+  assert(!strangerHello.ok, 'host:hello accepté sans session')
+  stranger.disconnect()
+
+  const host = connectHost(url, cookie)
   // Les refus du serveur arrivent en « toast » : sans cette écoute, un test
   // qui échoue affiche « timeout » au lieu de la vraie raison.
   host.on('toast', (t: any) => console.log(`   ⚠️  toast host : ${t.message}`))
-  const hello = await emitAck<{ ok: boolean }>(host, 'host:hello', { key: 'smoke' })
-  assert(hello.ok, 'host:hello refusé avec la bonne clé')
-  const badHello = await emitAck<{ ok: boolean }>(host, 'host:hello', { key: 'mauvaise' })
-  assert(!badHello.ok, 'host:hello accepté avec une mauvaise clé')
+  const hello = await emitAck<{ ok: boolean; slug?: string }>(host, 'host:hello', {})
+  assert(hello.ok && hello.slug === ADMIN.slug, 'host:hello refusé avec une session valable')
 
-  // 1 bis. Garde-fous. Cinq clés fausses coupent la connexion : la force
-  //        brute retombe à la vitesse d'une poignée de main réseau.
+  // 1 bis. Garde-fous. Cinq présentations refusées coupent la connexion : la
+  //        force brute retombe à la vitesse d'une poignée de main réseau.
   const brute = connect()
   await new Promise<void>(r => brute.on('connect', () => r()))
   const cut = new Promise<void>(r => brute.on('disconnect', () => r()))
-  for (let i = 0; i < 5; i++) (brute as any).emit('host:hello', { key: `essai-${i}` }, () => {})
-  await Promise.race([cut, new Promise((_, rej) => setTimeout(() => rej(new Error('connexion non coupée après 5 clés fausses')), 3000))])
+  for (let i = 0; i < 5; i++) (brute as any).emit('host:hello', {}, () => {})
+  await Promise.race([cut, new Promise((_, rej) => setTimeout(() => rej(new Error('connexion non coupée après 5 présentations refusées')), 3000))])
 
   // Une connexion ne crée pas d'identités à la chaîne, et un avatar n'est pas
   // une charge utile : cinq mille caractères ont été rediffusés à toute la
@@ -201,14 +239,20 @@ try {
   ;(host as any).emit('host:endSession', { sessionId: quizId })
   await cleared
 
-  // 9. Bibliothèque : l'API est protégée par la clé animateur
+  // 9. Bibliothèque : l'API exige une session, et une écriture l'en-tête maison
   const anon = await fetch(`${url}/api/quizzes`)
-  assert(anon.status === 401, `l'API doit refuser sans clé (reçu ${anon.status})`)
+  assert(anon.status === 401, `l'API doit refuser sans session (reçu ${anon.status})`)
+  const forged = await fetch(`${url}/api/quizzes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: '{}',
+  })
+  assert(forged.status === 403, 'une écriture avec le cookie mais sans l’en-tête maison doit être refusée')
 
   const apiCall = (path: string, init?: RequestInit) =>
     fetch(`${url}${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', 'x-quizz-key': 'smoke', ...init?.headers },
+      headers: { 'Content-Type': 'application/json', Cookie: cookie, 'X-Requested-With': 'quizz', ...init?.headers },
     })
 
   const seeded = (await (await apiCall('/api/quizzes')).json()) as any[]
@@ -216,6 +260,64 @@ try {
     seeded.some((q: any) => q.id === 'culture-generale'),
     'les quiz JSON livrés doivent être importés dans la bibliothèque',
   )
+
+  // 9 bis. Les comptes : l'administrateur crée un compte, l'ami l'active par
+  //        son lien (une seule fois), se connecte, se déconnecte ; désactivé,
+  //        il n'entre plus et son écran commun se coupe.
+  let lastStatus = 0
+  for (let i = 0; i < 6; i++) {
+    lastStatus = (await write(url, '/api/auth/login', { login: 'inconnu', password: 'x' })).status
+  }
+  assert(lastStatus === 429, `après six échecs sur un identifiant, ${lastStatus} au lieu de 429`)
+  const meAdmin = (await (await apiCall('/api/auth/me')).json()) as any
+  assert(meAdmin.account?.role === 'admin' && meAdmin.space?.slug === ADMIN.slug, 'l’administrateur doit se reconnaître')
+  const createdAccount = (await (
+    await apiCall('/api/admin/accounts', { method: 'POST', body: JSON.stringify({ login: 'Bob', name: 'Bob', slug: 'Chez Bob' }) })
+  ).json()) as any
+  assert(
+    createdAccount.account?.login === 'bob' && createdAccount.account.slug === 'chez-bob' && createdAccount.account.status === 'pending',
+    'création de compte : identifiant et adresse normalisés, compte en attente',
+  )
+  assert(typeof createdAccount.activation?.token === 'string', 'la création doit rendre un jeton d’activation')
+  const dup = await apiCall('/api/admin/accounts', { method: 'POST', body: JSON.stringify({ login: 'bob', name: 'Bob', slug: 'autre' }) })
+  assert(dup.status === 400, 'un identifiant déjà pris doit être refusé')
+  const reserved = await apiCall('/api/admin/accounts', { method: 'POST', body: JSON.stringify({ login: 'carl', name: 'Carl', slug: 'host' }) })
+  assert(reserved.status === 400, 'un nom d’adresse réservé doit être refusé')
+  const weak = await write(url, '/api/auth/activate', { token: createdAccount.activation.token, password: 'court' })
+  assert(weak.status === 400, 'un mot de passe trop court doit être refusé à l’activation')
+  const activated = await write(url, '/api/auth/activate', { token: createdAccount.activation.token, password: 'bob-pass-12' })
+  assert(activated.ok, `activation refusée (${activated.status})`)
+  const bobCookie = cookieOf(activated)
+  const reused = await write(url, '/api/auth/activate', { token: createdAccount.activation.token, password: 'bob-pass-13' })
+  assert(reused.status === 400, 'un lien d’activation ne sert qu’une fois')
+  const meBob = (await (await fetch(`${url}/api/auth/me`, { headers: { Cookie: bobCookie } })).json()) as any
+  assert(meBob.account?.login === 'bob' && meBob.account.status === 'active', 'la session ouverte à l’activation doit être celle de Bob')
+  const bobAdmin = await fetch(`${url}/api/admin/accounts`, { headers: { Cookie: bobCookie } })
+  assert(bobAdmin.status === 403, 'l’administration est réservée à l’administrateur')
+  const bobHost = connectHost(url, bobCookie)
+  const bobHello = await emitAck<{ ok: boolean; slug?: string }>(bobHost, 'host:hello', {})
+  assert(bobHello.ok && bobHello.slug === 'chez-bob', 'l’écran commun de Bob doit se présenter avec sa session')
+  const bobCut = new Promise<void>(r => bobHost.on('disconnect', () => r()))
+  const disabled = await apiCall(`/api/admin/accounts/${createdAccount.account.id}/disable`, { method: 'POST' })
+  assert(disabled.ok, 'désactiver un compte')
+  await Promise.race([
+    bobCut,
+    new Promise((_, rej) => setTimeout(() => rej(new Error('l’écran commun d’un compte désactivé doit être coupé')), 3000)),
+  ])
+  const meDisabled = await fetch(`${url}/api/auth/me`, { headers: { Cookie: bobCookie } })
+  assert(meDisabled.status === 401, 'la session d’un compte désactivé ne vaut plus rien')
+  const loginDisabled = await write(url, '/api/auth/login', { login: 'bob', password: 'bob-pass-12' })
+  assert(loginDisabled.status === 401, 'un compte désactivé ne se connecte plus')
+  const selfDisable = await apiCall(`/api/admin/accounts/${meAdmin.account.id}/disable`, { method: 'POST' })
+  assert(selfDisable.status === 400, 'l’administrateur ne peut pas se désactiver lui-même')
+  assert((await apiCall(`/api/admin/accounts/${createdAccount.account.id}/enable`, { method: 'POST' })).ok, 'réactiver un compte')
+  const bobAgain = await loginAs(url, 'bob', 'bob-pass-12')
+  const logout = await fetch(`${url}/api/auth/logout`, { method: 'POST', headers: { Cookie: bobAgain, 'X-Requested-With': 'quizz' } })
+  assert(logout.ok, 'déconnexion')
+  const afterLogout = await fetch(`${url}/api/auth/me`, { headers: { Cookie: bobAgain } })
+  assert(afterLogout.status === 401, 'après déconnexion, la session ne vaut plus rien')
+  const badCurrent = await write(url, '/api/auth/password', { current: 'faux', next: 'nouveau-pass-1' }, cookie)
+  assert(badCurrent.status === 400, 'changer de mot de passe exige l’ancien')
 
   // 10. Photos : envoi en dataURL, stockage en base, relecture publique
   //     (les téléphones des invités doivent pouvoir les charger sans clé)
@@ -988,7 +1090,7 @@ try {
   const server2 = await createQuizServer({
     port: 0,
     dbPath: path.join(tmpDir, 'apres-redemarrage.db'),
-    hostKey: 'smoke',
+    admin: ADMIN,
     quizDbUrl,
   })
   const probe = clientIo(`http://localhost:${server2.port}`, { transports: ['websocket'] })
@@ -1047,9 +1149,11 @@ try {
   // 30. L'historique : la soirée se range dans la base permanente, questions
   //     comprises, et se relit avec les mêmes pages. « Nouvelle soirée »
   //     l'archive avant d'effacer, sans doublon ni perte de titre.
+  // La session vit dans la base permanente : le même cookie ouvre l'écran
+  // commun du serveur relancé.
   const url2 = `http://localhost:${server2.port}`
-  const host2 = clientIo(url2, { transports: ['websocket'] })
-  const hello2 = await emitAck<{ ok: boolean }>(host2, 'host:hello', { key: 'smoke' })
+  const host2 = connectHost(url2, cookie)
+  const hello2 = await emitAck<{ ok: boolean }>(host2, 'host:hello', {})
   assert(hello2.ok, 'écran commun refusé après redémarrage')
   const archivedToast = waitFor<any>(host2, 'toast', t => t.kind === 'info', 'soirée archivée')
   ;(host2 as any).emit('host:archiveParty', { title: 'Soirée de test' })
@@ -1080,19 +1184,11 @@ try {
   )
   assert(archivedRecap.stats.logged === statsAfter.stats.logged, 'les statistiques archivées doivent compter les mêmes réponses')
 
-  // Renommer demande la clé ; lire, non.
-  const anonRename = await fetch(`${url2}/api/soirees/${archiveId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: 'Pirate' }),
-  })
-  assert(anonRename.status === 401, 'renommer une soirée sans clé doit être refusé')
-  const renamedSoiree = await fetch(`${url2}/api/soirees/${archiveId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', 'x-quizz-key': 'smoke' },
-    body: JSON.stringify({ title: 'Les 30 ans de Romane' }),
-  })
-  assert(renamedSoiree.ok, 'renommer une soirée avec la clé')
+  // Renommer demande une session ; lire, non.
+  const anonRename = await write(url2, `/api/soirees/${archiveId}`, { title: 'Pirate' }, undefined, 'PUT')
+  assert(anonRename.status === 401, 'renommer une soirée sans session doit être refusé')
+  const renamedSoiree = await write(url2, `/api/soirees/${archiveId}`, { title: 'Les 30 ans de Romane' }, cookie, 'PUT')
+  assert(renamedSoiree.ok, 'renommer une soirée avec sa session')
 
   // « Nouvelle soirée » : la même soirée est mise à jour, son titre reste, le direct est vide.
   const wiped = waitFor<any>(probe, 'party:snapshot', s => s.players.length === 0, 'soirée vierge')
@@ -1118,9 +1214,9 @@ try {
   // Retirer une soirée de l'historique.
   const removedSoiree = await fetch(`${url2}/api/soirees/${archiveId}`, {
     method: 'DELETE',
-    headers: { 'x-quizz-key': 'smoke' },
+    headers: { Cookie: cookie, 'X-Requested-With': 'quizz' },
   })
-  assert(removedSoiree.ok, 'retirer une soirée avec la clé')
+  assert(removedSoiree.ok, 'retirer une soirée avec sa session')
   const gone = await fetch(`${url2}/soirees/${archiveId}/bilan.json`)
   assert(gone.status === 404, 'une soirée retirée ne se relit plus')
   host2.disconnect()
@@ -1129,9 +1225,9 @@ try {
   probe.disconnect()
   await server2.close()
 
-  console.log('✅ Smoke test OK — 31 étapes')
+  console.log('✅ Smoke test OK — 32 étapes')
   console.log(
-    '   collage de questions, garde-fous, quiz complet, bibliothèque, photos, estimation, sabotage,',
+    '   collage de questions, comptes et sessions, garde-fous, quiz complet, bibliothèque, photos, estimation, sabotage,',
   )
   console.log(
     '   retardataire, pause, enchaînement automatique, annulation, question reposée, invité renommé et exclu,',

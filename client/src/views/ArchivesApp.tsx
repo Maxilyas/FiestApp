@@ -3,19 +3,19 @@ import type { ArchiveList, ArchiveSummary } from '../../../shared/archive'
 import { formatDay } from '../../../shared/archive'
 import { Icon } from '../components/Icon'
 import { confirmDialog, promptDialog } from '../components/Dialog'
-import { api, hostKey, UnauthorizedError } from '../api'
+import { api, UnauthorizedError } from '../api'
 import { formatNumber } from '../format'
 
 /**
  * L'historique des soirées (`/soirees`) : la soirée en cours, puis chaque
  * soirée archivée avec ses trois pages — souvenir, statistiques, bilan.
- * Publique, comme elles. L'animateur, reconnu à la clé mémorisée par
- * l'espace animateur, peut renommer une soirée ou en retirer une.
+ * Publique, comme elles. L'animateur connecté peut renommer une soirée ou
+ * en retirer une.
  */
 export function ArchivesApp() {
   const [list, setList] = useState<ArchiveList | null>(null)
   const [error, setError] = useState('')
-  const [host, setHost] = useState(() => !!hostKey())
+  const [host, setHost] = useState(false)
 
   const load = () =>
     fetch('/soirees.json')
@@ -24,6 +24,12 @@ export function ArchivesApp() {
       .catch(() => setError("Impossible de charger l'historique."))
   useEffect(() => {
     load()
+    // Les boutons de gestion n'apparaissent qu'à l'animateur connecté ; le
+    // serveur revérifie de toute façon à chaque action.
+    api.auth
+      .me()
+      .then(() => setHost(true))
+      .catch(() => setHost(false))
   }, [])
 
   const manage = async (action: () => Promise<unknown>) => {

@@ -1,37 +1,36 @@
-import express, { type Express, type Request, type Response } from 'express'
+import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
 import type { ArchiveStore } from './core/archive'
+import type { AuthStore } from './auth/store'
+import { wrap } from './core/http'
+import { csrfGuard, requireAccount } from './auth/http'
+import { mountAuthApi } from './auth/routes'
 
 interface ApiDeps {
   store: QuizStore
   archives: ArchiveStore
-  hostKey: string
+  auth: AuthStore
+  /** En ligne : cookie en HTTPS seulement, et origine des écritures contrôlée. */
+  online: boolean
+  /** L'origine publique de l'application, si on la connaît. */
+  publicOrigin: string | null
   /** Appelé après chaque modification : recharge le cache lu par le module de jeu. */
   onLibraryChanged: () => Promise<void>
 }
 
-/** Express 4 n'attrape pas les rejets de promesse : on le fait ici. */
-const wrap =
-  (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response) => {
-    fn(req, res).catch((e: Error) => {
-      if (!res.headersSent) res.status(400).json({ error: e.message })
-    })
-  }
-
 /**
- * API de la bibliothèque de quiz, utilisée par l'espace animateur (/edit).
- * Même clé secrète que l'écran commun — sauf les images, que les téléphones
- * des invités doivent pouvoir charger pendant la partie.
+ * API de la bibliothèque de quiz, utilisée par l'espace animateur (/edit),
+ * et de l'historique. Il faut être connecté — sauf pour les images, que les
+ * téléphones des invités doivent pouvoir charger pendant la partie.
  */
 export function mountApi(app: Express, deps: ApiDeps) {
-  // La clé se vérifie AVANT de lire le corps : sinon n'importe qui pouvait
-  // faire analyser quatre mégaoctets de JSON au serveur sans la connaître.
-  // Elle ne voyage que dans un en-tête — jamais dans l'adresse, qui finit
-  // dans les journaux d'accès et l'historique du navigateur.
-  app.use('/api', (req, res, next) => {
-    if (req.header('x-quizz-key') !== deps.hostKey) return res.status(401).json({ error: 'Clé incorrecte' })
-    next()
-  })
+  // Dans l'ordre : la protection contre les requêtes forgées, les deux routes
+  // publiques (se connecter, activer son compte), puis la porte — vérifiée
+  // AVANT de lire le corps : sinon n'importe qui pouvait faire analyser
+  // quatre mégaoctets de JSON au serveur sans être connecté.
+  app.use('/api', csrfGuard({ online: deps.online, publicOrigin: deps.publicOrigin }))
+  mountAuthApi(app, { auth: deps.auth, online: deps.online })
+  app.use('/api', requireAccount(deps.auth))
 
   // Les photos arrivent en dataURL dans le corps JSON.
   app.use('/api', express.json({ limit: '4mb' }))

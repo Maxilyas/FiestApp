@@ -12,12 +12,20 @@ const publicUrl = process.env.PUBLIC_URL ?? process.env.RENDER_EXTERNAL_URL
 // Render pose RENDER=true dans l'environnement de chaque service.
 const online = !!process.env.RENDER || process.env.NODE_ENV === 'production'
 
-// La clé par défaut n'a de sens que chez soi. En ligne, quiconque la connaît
-// anime la soirée et réécrit les quiz : on refuse de démarrer sans une vraie.
-const DEFAULT_KEY = 'romane'
-const hostKey = process.env.HOST_KEY || DEFAULT_KEY
-if (online && hostKey === DEFAULT_KEY) {
-  console.error('❌ HOST_KEY manquante : définis une clé animateur dans les variables du service.')
+// Le compte administrateur est créé au tout premier démarrage, quand il n'y
+// a encore aucun compte, depuis ces variables. Ensuite elles ne servent plus :
+// le mot de passe se change depuis « Mon compte », et la variable peut être
+// retirée de l'hébergeur. Le mot de passe par défaut n'a de sens que chez soi :
+// en ligne, on refuse de démarrer sans un vrai.
+const DEFAULT_PASSWORD = 'romane'
+const admin = {
+  login: process.env.ADMIN_LOGIN || 'antoine',
+  password: process.env.ADMIN_PASSWORD || DEFAULT_PASSWORD,
+  slug: process.env.ADMIN_SLUG || 'romane',
+  name: process.env.ADMIN_NAME || 'Antoine',
+}
+if (online && admin.password === DEFAULT_PASSWORD) {
+  console.error('❌ ADMIN_PASSWORD manquant : définis le mot de passe de l’administrateur dans les variables du service.')
   process.exit(1)
 }
 
@@ -30,15 +38,13 @@ const quizDbToken = process.env.QUIZ_DB_TOKEN
 // trois fois plus ne peut être qu'un robot. Réglable si la fête grossit.
 const maxPlayers = Number(process.env.MAX_PLAYERS) || undefined
 
-createQuizServer({ port, dbPath, hostKey, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers }).then(
+createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers }).then(
   server => {
-    console.log(`🎉 Quizz Romane 30 — serveur prêt sur http://localhost:${server.port}`)
-    // La clé ne s'écrit jamais dans les journaux : en ligne, ils sont conservés
-    // et lisibles par tout le monde sur le tableau de bord de l'hébergeur.
-    // Elle se passe en fragment (#key=…), que le navigateur garde pour lui.
-    const suffix = hostKey === DEFAULT_KEY ? `#key=${DEFAULT_KEY}` : '#key=<ta-clé>'
-    console.log(`   Écran commun : http://localhost:${server.port}/host${suffix}`)
-    console.log(`   Mes quiz     : http://localhost:${server.port}/edit${suffix}`)
+    console.log(`🎉 Quizz — serveur prêt sur http://localhost:${server.port}`)
+    // Aucun secret dans les journaux : en ligne, ils sont conservés et
+    // lisibles par tout le monde sur le tableau de bord de l'hébergeur.
+    console.log(`   Écran commun : http://localhost:${server.port}/host  (compte « ${admin.login} »)`)
+    console.log(`   Mes quiz     : http://localhost:${server.port}/edit`)
 
     // L'hébergeur prévient avant de redémarrer : on laisse partir les dernières
     // écritures distantes (points, partie en cours) avant de s'éteindre.

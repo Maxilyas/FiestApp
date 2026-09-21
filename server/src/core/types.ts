@@ -6,6 +6,9 @@ import type { AnswerRow } from './answers'
 export interface SocketData {
   playerId?: string
   isHost?: boolean
+  /** L'animateur connecté derrière cet écran commun, et sa session. */
+  accountId?: string
+  authSessionId?: string
 }
 
 export type IoServer = Server<

@@ -1,30 +1,43 @@
 import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
+import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
 
-/** La clé d'accès animateur, partagée avec l'écran commun. */
-export function hostKey(): string {
-  return localStorage.getItem('quizz.hostKey') ?? ''
-}
-
-export function setHostKey(key: string) {
-  localStorage.setItem('quizz.hostKey', key)
-}
-
-/** Clé refusée : l'appelant doit réafficher le formulaire de clé. */
+/** Session absente ou périmée : l'appelant renvoie vers la connexion. */
 export class UnauthorizedError extends Error {}
 
+/**
+ * Toute requête part avec le cookie de session — le navigateur s'en charge —
+ * et un en-tête maison que seule cette page peut poser : une page tierce qui
+ * tenterait une écriture à notre place serait refusée avant d'être lue.
+ */
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
-    headers: { 'Content-Type': 'application/json', 'x-quizz-key': hostKey(), ...init?.headers },
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz', ...init?.headers },
   })
-  if (res.status === 401) throw new UnauthorizedError('Clé incorrecte')
+  if (res.status === 401) throw new UnauthorizedError('Connexion requise')
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Erreur ${res.status}`)
   }
   return res.json() as Promise<T>
 }
+
+/** Qui est connecté, et son espace. */
+export interface Me {
+  account: PublicAccount
+  space: PublicSpace
+}
+
+/** Un lien d'activation : le jeton et sa date limite. */
+export interface Activation {
+  token: string
+  expiresAt: number
+}
+
+/** L'adresse à envoyer : le jeton voyage dans le fragment, que le navigateur garde pour lui. */
+export const activationUrl = (token: string) => `${window.location.origin}/activer#t=${token}`
 
 export const api = {
   list: () => req<QuizSummary[]>('/api/quizzes'),
@@ -37,11 +50,41 @@ export const api = {
   duplicate: (id: string) => req<QuizDef>(`/api/quizzes/${id}/duplicate`, { method: 'POST' }),
   uploadImage: (dataUrl: string) =>
     req<{ url: string }>('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
-  /** L'historique des soirées : le lire est public, le retoucher demande la clé. */
+  /** L'historique des soirées : le lire est public, le retoucher demande d'être connecté. */
   archives: {
     rename: (id: string, title: string) =>
       req<ArchiveSummary>(`/api/soirees/${id}`, { method: 'PUT', body: JSON.stringify({ title }) }),
     remove: (id: string) => req<{ ok: true }>(`/api/soirees/${id}`, { method: 'DELETE' }),
+  },
+  /** Se connecter, activer son compte, changer de mot de passe. */
+  auth: {
+    me: () => req<Me>('/api/auth/me'),
+    login: (login: string, password: string) =>
+      req<Me>('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, password }) }),
+    logout: () => req<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
+    activate: (token: string, password: string) =>
+      req<Me>('/api/auth/activate', { method: 'POST', body: JSON.stringify({ token, password }) }),
+    changePassword: (current: string, next: string) =>
+      req<{ ok: true }>('/api/auth/password', { method: 'POST', body: JSON.stringify({ current, next }) }),
+  },
+  space: {
+    saveSettings: (settings: Partial<SpaceSettings>) =>
+      req<{ space: PublicSpace }>('/api/space/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+  },
+  /** Réservé à l'administrateur : les comptes des autres animateurs. */
+  admin: {
+    list: () => req<PublicAccount[]>('/api/admin/accounts'),
+    create: (input: { login: string; name: string; slug: string }) =>
+      req<{ account: PublicAccount; activation: Activation }>('/api/admin/accounts', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    activation: (id: string) =>
+      req<{ activation: Activation }>(`/api/admin/accounts/${id}/activation`, { method: 'POST' }),
+    disable: (id: string) => req<{ account: PublicAccount }>(`/api/admin/accounts/${id}/disable`, { method: 'POST' }),
+    enable: (id: string) => req<{ account: PublicAccount }>(`/api/admin/accounts/${id}/enable`, { method: 'POST' }),
+    update: (id: string, patch: { name?: string; slug?: string }) =>
+      req<{ account: PublicAccount }>(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
   },
 }
 
