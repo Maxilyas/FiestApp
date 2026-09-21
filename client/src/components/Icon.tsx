@@ -22,6 +22,7 @@ export type IconName =
   | 'check-circle'
   | 'clipboard'
   | 'clock'
+  | 'copy'
   | 'crown'
   | 'edit'
   | 'eye'
@@ -111,6 +112,14 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <circle cx="12" cy="12" r="9" />
         <path d="M12 7v5l3 2" />
+      </>
+    ),
+  },
+  copy: {
+    paths: (
+      <>
+        <rect x="8" y="8" width="12" height="12" rx="2" />
+        <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
       </>
     ),
   },

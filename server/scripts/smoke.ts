@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createQuizServer } from '../src/server'
-import { parseImportedQuestions } from '../../shared/library'
+import { insertQuestions, moveQuestion, parseImportedQuestions } from '../../shared/library'
 import { QuizStore } from '../src/core/quizStore'
 import { finalRanking, rankTeams } from '../../shared/teams'
 import { reviewFromDatabase, reviewFromServer, writeExport } from '../src/core/export'
@@ -112,6 +112,22 @@ try {
   assert(imported.questions[1].target === 42 && imported.questions[1].unit === 'cours', 'valeur ou unité mal lue')
   assert(imported.unmarked === 1, 'la question sans étoile doit être signalée')
   assert(imported.ignored === 1, 'le bloc inexploitable doit être compté comme ignoré')
+
+  // Réordonner : la question prend exactement le numéro demandé, qu'elle
+  // monte ou qu'elle descende ; hors bornes, c'est « en tête » ou « à la fin ».
+  const ordre = ['a', 'b', 'c', 'd', 'e']
+  assert(moveQuestion(ordre, 2, 5).join('') === 'abdec', 'la question 3 envoyée en n° 5 doit porter le 5')
+  assert(moveQuestion(ordre, 4, 2).join('') === 'aebcd', 'la question 5 envoyée en n° 2 doit porter le 2')
+  assert(moveQuestion(ordre, 0, 99).join('') === 'bcdea', 'un numéro trop grand doit envoyer à la fin')
+  assert(moveQuestion(ordre, 3, -1).join('') === 'dabce', 'un numéro trop petit doit envoyer en tête')
+  assert(moveQuestion(ordre, 1, 2.9).join('') === 'abcde', 'une décimale doit valoir sa partie entière')
+  assert(
+    moveQuestion(ordre, 2, 3) === ordre && moveQuestion(ordre, 2, Number.NaN) === ordre,
+    'sans déplacement, le tableau doit être rendu tel quel',
+  )
+  assert(insertQuestions(ordre, 3, ['x', 'y']).join('') === 'abxycde', 'les questions insérées doivent prendre les numéros demandés')
+  assert(insertQuestions(ordre, 42, ['x']).join('') === 'abcdex', 'insérer au-delà de la fin doit ajouter à la fin')
+  assert(insertQuestions(ordre, 1, []) === ordre, 'rien à insérer : le tableau doit être rendu tel quel')
 
   // 1. Écran commun : il faut être connecté. Un mauvais mot de passe est
   //    refusé sans dire pourquoi, un formulaire sans l'en-tête maison aussi,

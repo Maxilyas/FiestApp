@@ -121,6 +121,47 @@ export function emptyQuestion(): QuizQuestionDef {
 }
 
 /**
+ * Copie d'une question, avec un identifiant à elle : l'éditeur suit chaque
+ * carte par cet identifiant, deux cartes ne peuvent donc pas le partager.
+ */
+export function cloneQuestion(q: QuizQuestionDef, id = newQuestionId()): QuizQuestionDef {
+  return { ...q, id, answers: [...q.answers] }
+}
+
+// ── Réordonner ───────────────────────────────────────────────────────────
+//
+// Les numéros sont ceux que l'éditeur affiche, à partir de 1, brouillons
+// compris. Les deux fonctions bornent ce qu'on leur donne — un numéro trop
+// grand veut dire « à la fin », trop petit « en tête » — et rendent le tableau
+// tel quel quand rien ne change : l'éditeur s'en sert pour ne pas marquer le
+// quiz « à enregistrer » pour rien.
+
+/**
+ * Déplace la question en place `from` (index) pour qu'elle porte le numéro
+ * demandé. Retirée puis réinsérée, elle porte exactement ce numéro à
+ * l'arrivée, qu'elle monte ou qu'elle descende — c'est la seule règle qui ne
+ * surprend jamais : « la 3 en 45 », et elle est la 45.
+ */
+export function moveQuestion<T>(questions: T[], from: number, number: number): T[] {
+  if (from < 0 || from >= questions.length || !Number.isFinite(number)) return questions
+  const to = Math.min(questions.length, Math.max(1, Math.trunc(number))) - 1
+  if (to === from) return questions
+  const next = [...questions]
+  const [moved] = next.splice(from, 1)
+  next.splice(to, 0, moved)
+  return next
+}
+
+/** Insère des questions de façon que la première porte le numéro demandé ; les suivantes se décalent. */
+export function insertQuestions<T>(questions: T[], number: number, items: T[]): T[] {
+  if (items.length === 0) return questions
+  const at = Number.isFinite(number)
+    ? Math.min(questions.length, Math.max(0, Math.trunc(number) - 1))
+    : questions.length
+  return [...questions.slice(0, at), ...items, ...questions.slice(at)]
+}
+
+/**
  * Convertit une question éditée en question jouable, ou null si elle n'est pas
  * prête. Pour un QCM, retirer les réponses vides décale les index : on retrouve
  * la bonne réponse par sa position d'origine, jamais par son numéro final.

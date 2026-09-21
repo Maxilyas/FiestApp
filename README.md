@@ -73,7 +73,9 @@ L'estimation évite les blocages : même sans connaître la réponse, on propose
 - **Les brouillons ne sont jamais perdus** : une question incomplète est enregistrée telle quelle, signalée par un ⚠️, et sautée au moment de jouer. La liste affiche « 8 questions prêtes · 2 à compléter ».
 - **Photos** : le navigateur les réduit et les recompresse avant l'envoi (une photo de téléphone de 4 Mo devient ~150 Ko), puis elles vivent dans la base.
 - **On peut changer d'avis** jusqu'à la révélation, sur un QCM comme sur une estimation : un doigt qui glisse sur un téléphone tenu dans le noir ne doit pas coûter la question. C'est le dernier envoi qui fait foi, heure comprise — se raviser coûte donc du bonus de rapidité, sans quoi on pourrait taper au hasard dès la première seconde pour s'assurer le maximum, puis corriger tranquillement.
-- **Coller une liste** évite de saisir cinquante questions une par une. Une ligne vide sépare deux questions, l'étoile marque la bonne réponse, le signe égal crée une estimation. Les questions sans étoile sont importées mais signalées.
+- **Coller une liste** évite de saisir cinquante questions une par une. Une ligne vide sépare deux questions, l'étoile marque la bonne réponse, le signe égal crée une estimation. Les questions sans étoile sont importées mais signalées. La liste arrive à la fin, sauf si on lui donne un numéro : « à partir du n° 41 », et les suivantes se décalent.
+- **Déplacer une question au n°** : la pastille « Question 3 » se clique, on tape le numéro voulu, et la question le prend exactement — les autres se décalent, un numéro trop grand l'envoie à la fin. La page défile jusqu'à sa nouvelle place, et « Annuler », sous le titre, défait le dernier déplacement. Les flèches restent pour le ± 1.
+- **Insérer, dupliquer** : sur chaque carte, un « + » insère une question vide juste après, et un bouton la duplique juste après, pour en faire une variante.
 - **👁 Aperçu** montre une question telle qu'elle sera projetée, sans lancer de partie.
 - **🙈 La photo disparaît** transforme n'importe quelle question — QCM comme estimation — en jeu de mémoire. Voir plus bas.
 
