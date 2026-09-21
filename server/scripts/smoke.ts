@@ -281,6 +281,19 @@ try {
   assert(lastStatus === 429, `après six échecs sur un identifiant, ${lastStatus} au lieu de 429`)
   const meAdmin = (await (await apiCall('/api/auth/me')).json()) as any
   assert(meAdmin.account?.role === 'admin' && meAdmin.space?.slug === ADMIN.slug, 'l’administrateur doit se reconnaître')
+  // Les réglages de la soirée : bornés, visibles des pages publiques et des téléphones.
+  const settingsRes = await apiCall('/api/space/settings', {
+    method: 'PUT',
+    body: JSON.stringify({ title: 'Les 30 ans de Romane', eyebrow: 'Les trente ans de', headline: 'Romane', dateLine: '19 septembre 2026', maxPlayers: 9999 }),
+  })
+  assert(settingsRes.ok, 'enregistrer les réglages de l’espace')
+  const spaceJson = (await (await fetch(`${url}/s/${SLUG}/space.json`)).json()) as any
+  assert(
+    spaceJson.title === 'Les 30 ans de Romane' && spaceJson.headline === 'Romane' && spaceJson.maxPlayers === 500,
+    `les réglages doivent se relire, bornés : ${JSON.stringify(spaceJson)}`,
+  )
+  const titled = await watch(connect(), SLUG)
+  assert(titled.space?.title === 'Les 30 ans de Romane', 'l’instantané des invités porte les réglages')
   const createdAccount = (await (
     await apiCall('/api/admin/accounts', { method: 'POST', body: JSON.stringify({ login: 'Bob', name: 'Bob', slug: 'Chez Bob' }) })
   ).json()) as any

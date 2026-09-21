@@ -34,8 +34,8 @@ if (online && admin.password === DEFAULT_PASSWORD) {
 const quizDbUrl =
   process.env.QUIZ_DB_URL ?? `file:${path.resolve(path.dirname(dbPath), 'quizzes.db').replace(/\\/g, '/')}`
 const quizDbToken = process.env.QUIZ_DB_TOKEN
-// Au-delà, la soirée est déclarée complète : cinquante invités attendus,
-// trois fois plus ne peut être qu'un robot. Réglable si la fête grossit.
+// Le plafond d'invités par soirée, que même le réglage d'un espace ne dépasse
+// pas : au-delà, l'instance gratuite de l'hébergeur ne suit plus.
 const maxPlayers = Number(process.env.MAX_PLAYERS) || undefined
 
 createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers }).then(
@@ -43,8 +43,10 @@ createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, onlin
     console.log(`🎉 Quizz — serveur prêt sur http://localhost:${server.port}`)
     // Aucun secret dans les journaux : en ligne, ils sont conservés et
     // lisibles par tout le monde sur le tableau de bord de l'hébergeur.
+    console.log(`   Invités      : http://localhost:${server.port}/${admin.slug}  (l'adresse du QR)`)
     console.log(`   Écran commun : http://localhost:${server.port}/host  (compte « ${admin.login} »)`)
     console.log(`   Mes quiz     : http://localhost:${server.port}/edit`)
+    console.log(`   Les comptes  : http://localhost:${server.port}/admin`)
 
     // L'hébergeur prévient avant de redémarrer : on laisse partir les dernières
     // écritures distantes (points, partie en cours) avant de s'éteindre.

@@ -16,8 +16,9 @@ services:
       - key: NODE_VERSION
         value: '22'
       # Le compte administrateur, créé au tout premier démarrage seulement :
-      # identifiant, mot de passe (à changer ensuite depuis « Mon compte »,
-      # puis à retirer d'ici) et nom de l'espace dans les adresses.
+      # identifiant, mot de passe d'amorçage (à changer ensuite depuis
+      # « Mon compte », puis à retirer d'ici) et nom de l'espace dans les
+      # adresses (les invités ouvrent https://…/<ADMIN_SLUG>).
       - key: ADMIN_LOGIN
         sync: false
       - key: ADMIN_PASSWORD
