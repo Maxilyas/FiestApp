@@ -3,6 +3,7 @@
 // scoring de rapidité, révélation, classement, reconnexion par token.
 // À lancer via `npm run smoke`.
 import { io as clientIo, type Socket } from 'socket.io-client'
+import { createClient } from '@libsql/client'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -50,9 +51,18 @@ const dbPath = path.join(tmpDir, 'test.db')
 const quizDbUrl = `file:${path.join(tmpDir, 'quizzes.db').replace(/\\/g, '/')}`
 /** Le compte administrateur du test : créé au premier démarrage, retrouvé au second. */
 const ADMIN = { login: 'antoine', password: 'smoke-pass-1', slug: 'smoke', name: 'Antoine' }
+/** Le nom de son espace dans l'adresse : celui que les invités donnent en se présentant. */
+const SLUG = ADMIN.slug
 const server = await createQuizServer({ port: 0, dbPath, admin: ADMIN, quizDbUrl })
 const url = `http://localhost:${server.port}`
 const connect = () => clientIo(url, { transports: ['websocket'] })
+/** Suit une soirée sans y jouer, et rend son premier instantané. */
+async function watch(socket: Socket, slug: string): Promise<any> {
+  const first = waitFor<any>(socket, 'party:snapshot', () => true, `instantané de ${slug}`)
+  const res = await emitAck<{ ok: boolean; error?: string }>(socket, 'party:watch', { slug })
+  assert(res.ok, `suivre la soirée « ${slug} » : ${res.error}`)
+  return first
+}
 /** Un écran commun : il se présente avec le cookie de session de l'animateur. */
 const connectHost = (base: string, cookie: string) =>
   clientIo(base, { transports: ['websocket'], extraHeaders: { Cookie: cookie } })
@@ -140,11 +150,11 @@ try {
   const troll = connect()
   const trollIds: string[] = []
   for (const name of ['Zed', 'Zoé', 'Zia']) {
-    const ack = await emitAck<any>(troll, 'player:join', { name, avatar: 'X'.repeat(5000) })
+    const ack = await emitAck<any>(troll, 'player:join', { slug: SLUG, name, avatar: 'X'.repeat(5000) })
     assert(ack.ok, `inscription de ${name} refusée`)
     trollIds.push(ack.playerId)
   }
-  const fourth = await emitAck<any>(troll, 'player:join', { name: 'Zack', avatar: '🤖' })
+  const fourth = await emitAck<any>(troll, 'player:join', { slug: SLUG, name: 'Zack', avatar: '🤖' })
   assert(!fourth.ok, 'une même connexion ne doit pas créer une quatrième identité')
   const seen = await waitFor<any>(host, 'party:snapshot', s => s.players.some((p: any) => p.name === 'Zed'), 'troll inscrit')
   const zed = seen.players.find((p: any) => p.name === 'Zed')
@@ -159,8 +169,8 @@ try {
   const alice = connect()
   const bob = connect()
   bob.on('toast', (t: any) => console.log(`   ⚠️  toast Bob : ${t.message}`))
-  const aliceAck = await emitAck<any>(alice, 'player:join', { name: 'Alice', avatar: '🦊' })
-  const bobAck = await emitAck<any>(bob, 'player:join', { name: 'Bob', avatar: '🐸' })
+  const aliceAck = await emitAck<any>(alice, 'player:join', { slug: SLUG, name: 'Alice', avatar: '🦊' })
+  const bobAck = await emitAck<any>(bob, 'player:join', { slug: SLUG, name: 'Bob', avatar: '🐸' })
   assert(aliceAck.ok && bobAck.ok, 'join joueur échoué')
 
   // 3. Lancement d'un quiz + choix du pack
@@ -229,7 +239,7 @@ try {
   alice.disconnect()
   const alice2 = connect()
   const viewAgain = waitFor<any>(alice2, 'session:view', p => p.sessionId === quizId, 'vue renvoyée après reconnexion')
-  const rejoin = await emitAck<any>(alice2, 'player:join', { name: 'Alice', avatar: '🦊', token: aliceAck.token })
+  const rejoin = await emitAck<any>(alice2, 'player:join', { slug: SLUG, name: 'Alice', avatar: '🦊', token: aliceAck.token })
   assert(rejoin.ok && rejoin.playerId === aliceAck.playerId, 'la reconnexion par token ne rend pas le même joueur')
   const back = await viewAgain
   assert(back.view.phase === 'reveal', 'Alice devrait retrouver la partie là où elle en est')
@@ -308,6 +318,10 @@ try {
   assert(meDisabled.status === 401, 'la session d’un compte désactivé ne vaut plus rien')
   const loginDisabled = await write(url, '/api/auth/login', { login: 'bob', password: 'bob-pass-12' })
   assert(loginDisabled.status === 401, 'un compte désactivé ne se connecte plus')
+  // Sa soirée est fermée aux invités, mais ses pages restent lisibles.
+  const closedDoor = await emitAck<any>(connect(), 'party:watch', { slug: 'chez-bob' })
+  assert(!closedDoor.ok, 'la soirée d’un compte désactivé ne se rejoint plus')
+  assert((await fetch(`${url}/s/chez-bob/recap.json`)).ok, 'les pages d’un compte désactivé restent lisibles')
   const selfDisable = await apiCall(`/api/admin/accounts/${meAdmin.account.id}/disable`, { method: 'POST' })
   assert(selfDisable.status === 400, 'l’administrateur ne peut pas se désactiver lui-même')
   assert((await apiCall(`/api/admin/accounts/${createdAccount.account.id}/enable`, { method: 'POST' })).ok, 'réactiver un compte')
@@ -318,6 +332,114 @@ try {
   assert(afterLogout.status === 401, 'après déconnexion, la session ne vaut plus rien')
   const badCurrent = await write(url, '/api/auth/password', { current: 'faux', next: 'nouveau-pass-1' }, cookie)
   assert(badCurrent.status === 400, 'changer de mot de passe exige l’ancien')
+
+  // 9 ter. L'isolation : Bob ne voit que ses quiz et sa soirée, et rien de ce
+  //        qu'il envoie n'atteint la soirée de l'administrateur — ni l'inverse.
+  const bobCookie2 = await loginAs(url, 'bob', 'bob-pass-12')
+  const bobCall = (path: string, init?: RequestInit) =>
+    fetch(`${url}${path}`, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', Cookie: bobCookie2, 'X-Requested-With': 'quizz', ...init?.headers },
+    })
+  const bobList = (await (await bobCall('/api/quizzes')).json()) as any[]
+  assert(bobList.length === 0, `Bob commence sans quiz, il en voit ${bobList.length}`)
+  assert((await bobCall('/api/quizzes/culture-generale')).status === 404, 'un quiz d’un autre espace est introuvable')
+  const bobPut = await bobCall('/api/quizzes/culture-generale', {
+    method: 'PUT',
+    body: JSON.stringify({ title: 'Piraté', questions: [] }),
+  })
+  assert(bobPut.status === 404, 'modifier le quiz d’un autre espace doit être refusé')
+  assert(
+    (await bobCall('/api/quizzes/culture-generale', { method: 'DELETE' })).status === 404,
+    'supprimer le quiz d’un autre espace doit être refusé',
+  )
+  assert(
+    (await bobCall('/api/quizzes/culture-generale/duplicate', { method: 'POST' })).status === 404,
+    'dupliquer le quiz d’un autre espace doit être refusé',
+  )
+  const intact = (await (await apiCall('/api/quizzes/culture-generale')).json()) as any
+  assert(intact.title !== 'Piraté' && intact.questions.length > 0, 'le quiz de l’administrateur doit être intact')
+  const bobQuiz = (await (
+    await bobCall('/api/quizzes', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Le quiz de Bob',
+        questions: [{ text: 'Chez qui ?', answers: ['Chez Bob', 'Ailleurs', '', ''], correct: 0, duration: 20 }],
+      }),
+    })
+  ).json()) as any
+  assert(bobQuiz.id, 'Bob doit pouvoir créer un quiz')
+  const adminList = (await (await apiCall('/api/quizzes')).json()) as any[]
+  assert(!adminList.some(q => q.id === bobQuiz.id), 'le quiz de Bob ne doit pas apparaître chez l’administrateur')
+  assert((await apiCall(`/api/quizzes/${bobQuiz.id}`)).status === 404, 'l’administrateur ne lit pas les quiz des autres')
+
+  // Un invité chez Bob, un chez l'administrateur : chacun ne voit que sa salle,
+  // et une connexion ne suit jamais qu'une soirée.
+  const bobette = connect()
+  const bobRoom = await watch(bobette, 'chez-bob')
+  assert(bobRoom.space?.slug === 'chez-bob' && bobRoom.players.length === 0, 'la salle de Bob est vide et porte son nom')
+  const elsewhere = await emitAck<any>(bobette, 'party:watch', { slug: SLUG })
+  assert(!elsewhere.ok, 'une connexion ne suit qu’une soirée')
+  const nowhere = await emitAck<any>(connect(), 'party:watch', { slug: 'nulle-part' })
+  assert(!nowhere.ok && nowhere.error, 'un nom d’espace inconnu est refusé')
+  const bobetteAck = await emitAck<any>(bobette, 'player:join', { slug: 'chez-bob', name: 'Bobette', avatar: '🐙' })
+  assert(bobetteAck.ok, 'inscription chez Bob')
+  const watcher = connect()
+  const adminRoom = await watch(watcher, SLUG)
+  assert(!adminRoom.players.some((p: any) => p.name === 'Bobette'), 'Bobette ne doit pas apparaître chez l’administrateur')
+  assert(adminRoom.players.some((p: any) => p.id === aliceAck.playerId), 'Alice est bien chez l’administrateur')
+  assert(adminRoom.space?.slug === SLUG && adminRoom.joinUrl?.endsWith(`/${SLUG}`), 'l’instantané dit l’espace et l’adresse à scanner')
+  watcher.disconnect()
+
+  // Bob lance un quiz : sa liste ne contient que le sien, et sa partie ne
+  // regarde pas la soirée voisine — dans un sens comme dans l'autre.
+  const bobHost2 = connectHost(url, bobCookie2)
+  bobHost2.on('toast', (t: any) => console.log(`   ⚠️  toast Bob (animateur) : ${t.message}`))
+  assert((await emitAck<any>(bobHost2, 'host:hello', {})).ok, 'l’écran commun de Bob')
+  const bobPick = waitFor<any>(bobHost2, 'session:view', p => p.view.phase === 'pickPack', 'liste des quiz de Bob')
+  ;(bobHost2 as any).emit('host:launch')
+  const bobSession = await bobPick
+  assert(
+    bobSession.view.packs.length === 1 && bobSession.view.packs[0].id === bobQuiz.id,
+    'Bob ne se voit proposer que ses quiz',
+  )
+  ;(bobHost2 as any).emit('host:command', { sessionId: bobSession.sessionId, command: { type: 'selectPack', packId: bobQuiz.id } })
+  await waitFor<any>(bobette, 'session:view', p => p.view.phase === 'question', 'question chez Bob')
+  const adminRefus = waitFor<any>(host, 'toast', t => t.kind === 'error', 'commande refusée chez l’administrateur')
+  ;(host as any).emit('host:command', { sessionId: bobSession.sessionId, command: { type: 'next' } })
+  await adminRefus
+  const aliceRefus = waitFor<any>(alice2, 'toast', t => t.kind === 'error', 'action refusée pour Alice')
+  ;(alice2 as any).emit('player:action', { sessionId: bobSession.sessionId, action: { type: 'answer', choice: 0 } })
+  await aliceRefus
+  const bobetteReveal = waitFor<any>(bobette, 'session:view', p => p.view.phase === 'reveal', 'révélation chez Bob')
+  ;(bobette as any).emit('player:action', { sessionId: bobSession.sessionId, action: { type: 'answer', choice: 0 } })
+  const bobetteRv = await bobetteReveal
+  assert(
+    bobetteRv.view.qIndex === 0 && bobetteRv.view.yourPoints > 100,
+    'la question de Bob ne doit pas avoir bougé sous les commandes venues d’ailleurs',
+  )
+  ;(bobHost2 as any).emit('host:endSession', { sessionId: bobSession.sessionId })
+
+  // Bob archive : son historique en a une, celui de l'administrateur aucune,
+  // et l'administrateur ne peut ni la lire dans son espace ni la retirer.
+  const bobArchived = waitFor<any>(bobHost2, 'toast', t => t.kind === 'info', 'soirée de Bob archivée')
+  ;(bobHost2 as any).emit('host:archiveParty', { title: 'Chez Bob' })
+  await bobArchived
+  const bobSoirees = (await (await fetch(`${url}/s/chez-bob/soirees.json`)).json()) as any
+  assert(bobSoirees.archives.length === 1 && bobSoirees.space?.slug === 'chez-bob', 'l’historique de Bob')
+  const adminSoirees = (await (await fetch(`${url}/s/${SLUG}/soirees.json`)).json()) as any
+  assert(adminSoirees.archives.length === 0, 'l’historique de l’administrateur ne voit pas la soirée de Bob')
+  const bobArchiveId = bobSoirees.archives[0].id
+  assert(
+    (await apiCall(`/api/soirees/${bobArchiveId}`, { method: 'DELETE' })).status === 404,
+    'l’administrateur ne retire pas les soirées des autres',
+  )
+  assert((await fetch(`${url}/s/chez-bob/soirees/${bobArchiveId}/bilan.json`)).ok, 'la soirée de Bob est toujours là')
+  assert(
+    (await fetch(`${url}/s/${SLUG}/soirees/${bobArchiveId}/bilan.json`)).status === 404,
+    'une archive ne se lit que dans son espace',
+  )
+  assert((await fetch(`${url}/s/personne/recap.json`)).status === 404, 'un espace inconnu vaut 404')
 
   // 10. Photos : envoi en dataURL, stockage en base, relecture publique
   //     (les téléphones des invités doivent pouvoir les charger sans clé)
@@ -445,7 +567,7 @@ try {
   // 15. Retardataire : Charlie arrive en pleine partie et joue la question suivante
   const charlie = connect()
   const charlieView = waitFor<any>(charlie, 'session:view', p => p.sessionId === mixedId, 'vue donnée au retardataire')
-  const charlieAck = await emitAck<any>(charlie, 'player:join', { name: 'Charlie', avatar: '🐼' })
+  const charlieAck = await emitAck<any>(charlie, 'player:join', { slug: SLUG, name: 'Charlie', avatar: '🐼' })
   assert(charlieAck.ok, 'join Charlie échoué')
   const charlieFirst = await charlieView
   assert(
@@ -647,8 +769,18 @@ try {
   ;(host as any).emit('host:removePlayer', { playerId: bobAck.playerId })
   await Promise.all([removed, removedOnPhone])
 
-  // 18. Prix de caractère : un vainqueur par quiz, en plus du podium
-  const recap = (await (await fetch(`${url}/recap.json`)).json()) as any
+  // 18. Prix de caractère : un vainqueur par quiz, en plus du podium.
+  //     L'ancienne adresse, celle des liens déjà partagés, mène à l'espace
+  //     de l'administrateur.
+  const legacyUrl = await fetch(`${url}/recap.json`, { redirect: 'manual' })
+  assert(
+    legacyUrl.status === 302 && legacyUrl.headers.get('location') === `/s/${SLUG}/recap.json`,
+    `l’ancienne adresse doit rediriger vers l’espace par défaut (${legacyUrl.status} ${legacyUrl.headers.get('location')})`,
+  )
+  const legacyPage = await fetch(`${url}/soirees/abc/bilan`, { redirect: 'manual' })
+  assert(legacyPage.headers.get('location') === `/${SLUG}/soirees/abc/bilan`, 'les anciennes pages aussi')
+  const recap = (await (await fetch(`${url}/s/${SLUG}/recap.json`)).json()) as any
+  assert(recap.space?.slug === SLUG && recap.space.title, 'le souvenir dit de quel espace il parle')
   assert(Array.isArray(recap.quizWinners), 'la page souvenir doit lister les vainqueurs de quiz')
   assert(recap.quizWinners.length >= 2, `au moins 2 quiz joués, ${recap.quizWinners.length} vainqueurs listés`)
   assert(
@@ -662,10 +794,11 @@ try {
   //     celles encore référencées restent, et une photo trop récente est
   //     épargnée — elle vient peut-être d'être envoyée par l'éditeur.
   const store = new QuizStore(quizDbUrl)
-  const gardee = await store.saveImage(TINY_JPEG)
-  const orpheline = await store.saveImage(TINY_JPEG)
-  const recente = await store.saveImage(TINY_JPEG)
-  const avecPhoto = await store.create('Quiz avec photo', [
+  const adminSpace = meAdmin.account.id as string
+  const gardee = await store.saveImage(adminSpace, TINY_JPEG)
+  const orpheline = await store.saveImage(adminSpace, TINY_JPEG)
+  const recente = await store.saveImage(adminSpace, TINY_JPEG)
+  const avecPhoto = await store.create(adminSpace, 'Quiz avec photo', [
     {
       kind: 'choice',
       text: 'Où est-ce ?',
@@ -677,19 +810,19 @@ try {
   // Délai de grâce nul pour les deux premières, une heure pour la troisième.
   // Au moins les deux nôtres : la photo envoyée plus haut par l'API est
   // orpheline elle aussi, et part avec.
-  const effacees = await store.pruneImages(0)
+  const effacees = await store.pruneImages(adminSpace, 0)
   assert(effacees >= 2, `au moins 2 photos orphelines attendues, ${effacees} effacées`)
   assert(await store.getImage(gardee), 'la photo utilisée par un quiz doit rester')
   assert(!(await store.getImage(orpheline)), "la photo qu'aucun quiz n'utilise doit partir")
 
-  const recenteEpargnee = await store.saveImage(TINY_JPEG)
-  assert((await store.pruneImages()) === 0, 'une photo récente ne doit pas être effacée')
+  const recenteEpargnee = await store.saveImage(adminSpace, TINY_JPEG)
+  assert((await store.pruneImages(adminSpace)) === 0, 'une photo récente ne doit pas être effacée')
   assert(await store.getImage(recenteEpargnee), 'la photo récente doit être intacte')
   void recente
 
   // Supprimer le quiz libère sa photo.
-  await store.remove(avecPhoto.id)
-  await store.pruneImages(0)
+  await store.remove(adminSpace, avecPhoto.id)
+  await store.pruneImages(adminSpace, 0)
   assert(!(await store.getImage(gardee)), 'la photo doit partir avec son dernier quiz')
   store.close()
 
@@ -917,7 +1050,7 @@ try {
 
   // 22. Statistiques et prix : le journal des réponses alimente les prix de
   //     fin de soirée, et l'animateur les attribue à la main.
-  const stats = (await (await fetch(`${url}/recap.json`)).json()) as any
+  const stats = (await (await fetch(`${url}/s/${SLUG}/recap.json`)).json()) as any
   assert(stats.stats, 'la page souvenir doit porter les statistiques')
   assert(stats.stats.logged > 0, 'le journal des réponses ne doit pas être vide')
   assert(stats.stats.questions > 0, 'des questions doivent avoir été comptées')
@@ -958,11 +1091,12 @@ try {
   //         journal ne garde que des numéros ; les intitulés reviennent de la
   //         copie du quiz gardée dans chaque partie terminée — même pour les
   //         quiz supprimés depuis.
-  const bilan = (await (await fetch(`${url}/bilan.json`)).json()) as any
+  const bilan = (await (await fetch(`${url}/s/${SLUG}/bilan.json`)).json()) as any
   assert(
     bilan.questions.length === stats.stats.questions,
     `${bilan.questions.length} questions au bilan, ${stats.stats.questions} aux statistiques`,
   )
+  assert(!bilan.players.some((p: any) => p.name === 'Bobette'), 'le bilan de l’administrateur ne connaît pas les invités de Bob')
   assert(bilan.unresolved === 0, `${bilan.unresolved} question(s) sans intitulé alors que les parties sont encore sur le disque`)
   assert(
     bilan.questions.every(
@@ -1022,6 +1156,9 @@ try {
     `${fromDb.questions.length} questions depuis la base, ${bilan.questions.length} depuis le serveur`,
   )
   assert(fromDb.players.length === bilan.players.length, 'la base doit connaître les mêmes invités que le serveur')
+  assert(!fromDb.players.some((p: any) => p.name === 'Bobette'), 'l’export sans nom d’espace lit l’espace par défaut, pas celui de Bob')
+  const bobFromDb = await reviewFromDatabase(quizDbUrl, undefined, { slug: 'chez-bob' })
+  assert(bobFromDb.players.some((p: any) => p.name === 'Bobette'), 'l’export sait viser l’espace de Bob')
   // Sans les copies des parties, seuls les quiz encore en bibliothèque retrouvent leurs intitulés.
   const deletedTitles = new Set(['Spécial Romane', 'Sabotage', 'Photos de mémoire'])
   assert(
@@ -1078,10 +1215,18 @@ try {
   const liveId = (await livePick).sessionId
   ;(host as any).emit('host:command', { sessionId: liveId, command: { type: 'selectPack', packId: 'culture-generale' } })
   await waitFor<any>(alice2, 'session:view', p => p.sessionId === liveId && p.view.phase === 'question', 'question en cours au moment de la coupure')
+  // Chez Bob aussi, une partie est en cours : les deux doivent revenir.
+  const bobLive = waitFor<any>(bobHost2, 'session:view', p => p.view.phase === 'pickPack', 'nouvelle partie de Bob')
+  ;(bobHost2 as any).emit('host:launch')
+  const bobLiveId = (await bobLive).sessionId
+  ;(bobHost2 as any).emit('host:command', { sessionId: bobLiveId, command: { type: 'selectPack', packId: bobQuiz.id } })
+  await waitFor<any>(bobette, 'session:view', p => p.sessionId === bobLiveId && p.view.phase === 'question', 'question chez Bob au moment de la coupure')
 
   host.disconnect()
   bob.disconnect()
   alice2.disconnect()
+  bobHost2.disconnect()
+  bobette.disconnect()
   await server.close()
 
   // Le disque local disparaît, la base distante reste.
@@ -1094,7 +1239,8 @@ try {
     quizDbUrl,
   })
   const probe = clientIo(`http://localhost:${server2.port}`, { transports: ['websocket'] })
-  const after2 = await waitFor<any>(probe, 'party:snapshot', s => s.players.length > 0, 'soirée rechargée')
+  const after2 = await watch(probe, SLUG)
+  assert(after2.players.length > 0, 'soirée rechargée')
   const aliceAfter = after2.players.find((p: any) => p.id === aliceAck.playerId)
   assert(
     aliceAfter?.score === aliceBefore.score,
@@ -1102,7 +1248,7 @@ try {
   )
   assert(aliceAfter?.name === 'Alice', 'le nom du joueur doit être rechargé lui aussi')
   assert(after2.bonuses.length === 1, 'les prix remis doivent survivre au redémarrage')
-  const statsAfter = (await (await fetch(`http://localhost:${server2.port}/recap.json`)).json()) as any
+  const statsAfter = (await (await fetch(`http://localhost:${server2.port}/s/${SLUG}/recap.json`)).json()) as any
   assert(
     statsAfter.stats.logged === stats.stats.logged,
     `journal des réponses perdu au redémarrage : ${statsAfter.stats.logged} au lieu de ${stats.stats.logged}`,
@@ -1113,7 +1259,7 @@ try {
   assert(t0After?.memberCount === 2, 'les deux membres doivent être recomptés dans leur équipe')
   // Le bilan survit aussi : sans les copies des parties (disque effacé), les
   // intitulés reviennent de la bibliothèque — sauf pour les quiz supprimés.
-  const bilanAfter = (await (await fetch(`http://localhost:${server2.port}/bilan.json`)).json()) as any
+  const bilanAfter = (await (await fetch(`http://localhost:${server2.port}/s/${SLUG}/bilan.json`)).json()) as any
   assert(
     bilanAfter.questions.length === bilan.questions.length,
     `bilan perdu au redémarrage : ${bilanAfter.questions.length} questions au lieu de ${bilan.questions.length}`,
@@ -1139,34 +1285,52 @@ try {
   // Le téléphone d'Alice se reconnecte et retrouve la question là où elle en était.
   const alice3 = clientIo(`http://localhost:${server2.port}`, { transports: ['websocket'] })
   const backInGame = waitFor<any>(alice3, 'session:view', p => p.sessionId === liveId, 'vue de la partie reprise')
-  const rejoined = await emitAck<any>(alice3, 'player:join', { name: 'Alice', avatar: '🦊', token: aliceAck.token })
+  const rejoined = await emitAck<any>(alice3, 'player:join', { slug: SLUG, name: 'Alice', avatar: '🦊', token: aliceAck.token })
   assert(rejoined.ok && rejoined.playerId === aliceAck.playerId, 'reconnexion par jeton après redémarrage')
   const resumedGame = await backInGame
   assert(
     resumedGame.view.phase === 'question' && resumedGame.view.qIndex === 0,
     `la question en cours doit reprendre, vu ${resumedGame.view.phase} Q${resumedGame.view.qIndex + 1}`,
   )
+  // La soirée de Bob revient elle aussi, sa partie en cours comprise — sans
+  // que personne ne l'ait réveillée : ses chronomètres doivent repartir.
+  const url2 = `http://localhost:${server2.port}`
+  const bobBack = (await (await fetch(`${url2}/s/chez-bob/recap.json`)).json()) as any
+  assert(bobBack.ranking.some((r: any) => r.name === 'Bobette'), 'la soirée de Bob doit revenir du miroir')
+  const bobHost3 = connectHost(url2, bobCookie2)
+  const bobResumed = waitFor<any>(bobHost3, 'party:snapshot', s => s.session?.id === bobLiveId, 'la partie de Bob reprise')
+  assert((await emitAck<any>(bobHost3, 'host:hello', {})).ok, 'l’écran commun de Bob après redémarrage')
+  await bobResumed
+  const probeStranger = await watch(clientIo(url2, { transports: ['websocket'] }), 'chez-bob')
+  assert(
+    probeStranger.players.length === 1 && !probeStranger.players.some((p: any) => p.id === aliceAck.playerId),
+    'après redémarrage, la salle de Bob ne contient toujours que Bobette',
+  )
+  ;(bobHost3 as any).emit('host:endSession', { sessionId: bobLiveId })
+  bobHost3.disconnect()
+
   // 30. L'historique : la soirée se range dans la base permanente, questions
   //     comprises, et se relit avec les mêmes pages. « Nouvelle soirée »
   //     l'archive avant d'effacer, sans doublon ni perte de titre.
   // La session vit dans la base permanente : le même cookie ouvre l'écran
   // commun du serveur relancé.
-  const url2 = `http://localhost:${server2.port}`
   const host2 = connectHost(url2, cookie)
   const hello2 = await emitAck<{ ok: boolean }>(host2, 'host:hello', {})
   assert(hello2.ok, 'écran commun refusé après redémarrage')
   const archivedToast = waitFor<any>(host2, 'toast', t => t.kind === 'info', 'soirée archivée')
   ;(host2 as any).emit('host:archiveParty', { title: 'Soirée de test' })
   await archivedToast
-  const soirees = (await (await fetch(`${url2}/soirees.json`)).json()) as any
+  const soirees = (await (await fetch(`${url2}/s/${SLUG}/soirees.json`)).json()) as any
   assert(soirees.current && soirees.current.players > 0, 'la soirée en cours doit figurer dans l’historique')
   assert(
     soirees.archives.length === 1 && soirees.archives[0].title === 'Soirée de test',
     'la soirée archivée doit être listée sous son titre',
   )
   const archiveId = soirees.archives[0].id
+  // L'ancienne adresse d'une archive mène à celle de l'espace par défaut.
   const archivedBilan = (await (await fetch(`${url2}/soirees/${archiveId}/bilan.json`)).json()) as any
   assert(archivedBilan.archive?.id === archiveId, 'le bilan archivé doit dire quelle soirée il relit')
+  assert(archivedBilan.space?.slug === SLUG, 'le bilan archivé dit aussi son espace')
   assert(
     archivedBilan.questions.length === bilan.questions.length,
     `${archivedBilan.questions.length} questions dans l’archive, ${bilan.questions.length} en direct`,
@@ -1177,7 +1341,7 @@ try {
     ),
     'l’archive doit emporter les questions telles qu’elles ont été retrouvées',
   )
-  const archivedRecap = (await (await fetch(`${url2}/soirees/${archiveId}/recap.json`)).json()) as any
+  const archivedRecap = (await (await fetch(`${url2}/s/${SLUG}/soirees/${archiveId}/recap.json`)).json()) as any
   assert(
     archivedRecap.archive?.id === archiveId && archivedRecap.ranking.length === statsAfter.ranking.length,
     'le souvenir archivé doit reprendre le classement',
@@ -1194,21 +1358,26 @@ try {
   const wiped = waitFor<any>(probe, 'party:snapshot', s => s.players.length === 0, 'soirée vierge')
   ;(host2 as any).emit('host:resetParty')
   await wiped
-  const afterReset = (await (await fetch(`${url2}/soirees.json`)).json()) as any
+  const afterReset = (await (await fetch(`${url2}/s/${SLUG}/soirees.json`)).json()) as any
   assert(afterReset.current === null, 'après remise à zéro, plus de soirée en cours')
   assert(
     afterReset.archives.length === 1 && afterReset.archives[0].title === 'Les 30 ans de Romane',
     'la remise à zéro met l’archive à jour sans doublon ni perte de titre',
   )
-  const emptyLive = (await (await fetch(`${url2}/bilan.json`)).json()) as any
+  const emptyLive = (await (await fetch(`${url2}/s/${SLUG}/bilan.json`)).json()) as any
   assert(emptyLive.questions.length === 0, 'le bilan en direct doit être vide après remise à zéro')
-  const stillThere = (await (await fetch(`${url2}/soirees/${archiveId}/bilan.json`)).json()) as any
+  const stillThere = (await (await fetch(`${url2}/s/${SLUG}/soirees/${archiveId}/bilan.json`)).json()) as any
   assert(stillThere.questions.length === bilan.questions.length, 'l’archive doit rester lisible après la remise à zéro')
+  // La remise à zéro de l'administrateur n'a pas touché la soirée de Bob.
+  const bobUntouched = (await (await fetch(`${url2}/s/chez-bob/recap.json`)).json()) as any
+  assert(bobUntouched.ranking.some((r: any) => r.name === 'Bobette'), 'repartir de zéro n’efface que sa propre soirée')
 
   // L'export sait viser une soirée archivée, depuis le serveur comme depuis la base.
-  const fromArchive = await reviewFromServer(url2, archiveId)
+  const fromArchive = await reviewFromServer(url2, { slug: SLUG, archiveId })
   assert(fromArchive.questions.length === bilan.questions.length, 'l’export doit pouvoir viser une soirée archivée')
-  const fromArchiveDb = await reviewFromDatabase(quizDbUrl, undefined, archiveId)
+  const fromArchiveLegacy = await reviewFromServer(url2, { archiveId })
+  assert(fromArchiveLegacy.questions.length === bilan.questions.length, 'sans nom d’espace, l’export suit l’ancienne adresse')
+  const fromArchiveDb = await reviewFromDatabase(quizDbUrl, undefined, { archiveId })
   assert(fromArchiveDb.questions.length === bilan.questions.length, 'l’export depuis la base doit lire l’archive')
 
   // Retirer une soirée de l'historique.
@@ -1217,7 +1386,7 @@ try {
     headers: { Cookie: cookie, 'X-Requested-With': 'quizz' },
   })
   assert(removedSoiree.ok, 'retirer une soirée avec sa session')
-  const gone = await fetch(`${url2}/soirees/${archiveId}/bilan.json`)
+  const gone = await fetch(`${url2}/s/${SLUG}/soirees/${archiveId}/bilan.json`)
   assert(gone.status === 404, 'une soirée retirée ne se relit plus')
   host2.disconnect()
 
@@ -1225,20 +1394,85 @@ try {
   probe.disconnect()
   await server2.close()
 
-  console.log('✅ Smoke test OK — 32 étapes')
+  // 31. La mise à jour d'une base d'avant les comptes : un quiz, une archive,
+  //     une soirée en cours dans des tables sans espace. Au démarrage, tout
+  //     se retrouve sous l'espace de l'administrateur, aux mêmes adresses.
+  const legacyDir = mkdtempSync(path.join(tmpdir(), 'quizz-legacy-'))
+  const legacyQuizUrl = `file:${path.join(legacyDir, 'quizzes.db').replace(/\\/g, '/')}`
+  const legacyDbPath = path.join(legacyDir, 'local.db')
+  const legacy = createClient({ url: legacyQuizUrl })
+  const legacyArchive = JSON.stringify({ version: 1, players: [], teams: [], bonuses: [], scores: [], answers: [], packs: {} })
+  await legacy.batch(
+    [
+      `CREATE TABLE quizzes (id TEXT PRIMARY KEY, title TEXT NOT NULL, questions TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
+      {
+        sql: 'INSERT INTO quizzes VALUES (?, ?, ?, ?, ?)',
+        args: ['ancien', 'Quiz d’avant', JSON.stringify([{ text: 'Avant ?', answers: ['Oui', 'Non', '', ''], correct: 0, duration: 20 }]), 1, 1],
+      },
+      `CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`,
+      `INSERT INTO meta VALUES ('seeded', '1')`,
+      `CREATE TABLE soirees (id TEXT PRIMARY KEY, title TEXT NOT NULL, held_at INTEGER NOT NULL, archived_at INTEGER NOT NULL, summary TEXT NOT NULL, data TEXT NOT NULL)`,
+      { sql: 'INSERT INTO soirees VALUES (?, ?, ?, ?, ?, ?)', args: ['2026-09-19-abcde', 'Soirée d’avant', 1, 1, '{}', legacyArchive] },
+      `CREATE TABLE party_players (id TEXT PRIMARY KEY, name TEXT NOT NULL, avatar TEXT NOT NULL, token TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+      { sql: 'INSERT INTO party_players VALUES (?, ?, ?, ?, ?)', args: ['p-ancien', 'Ancien', '🕰️', 'jeton-ancien', 1] },
+      `CREATE TABLE party_scores (id TEXT PRIMARY KEY, player_id TEXT NOT NULL, session_id TEXT, points INTEGER NOT NULL, reason TEXT NOT NULL, created_at INTEGER NOT NULL)`,
+      { sql: 'INSERT INTO party_scores VALUES (?, ?, ?, ?, ?, ?)', args: ['s-ancien', 'p-ancien', null, 150, 'Quiz d’avant', 2] },
+    ],
+    'write',
+  )
+  legacy.close()
+  const server3 = await createQuizServer({ port: 0, dbPath: legacyDbPath, admin: ADMIN, quizDbUrl: legacyQuizUrl })
+  const url3 = `http://localhost:${server3.port}`
+  const cookie3 = await loginAs(url3, ADMIN.login, ADMIN.password)
+  const legacyQuizzes = (await (await fetch(`${url3}/api/quizzes`, { headers: { Cookie: cookie3 } })).json()) as any[]
+  assert(
+    legacyQuizzes.length === 1 && legacyQuizzes[0].id === 'ancien',
+    'le quiz d’avant les comptes doit être dans la bibliothèque de l’administrateur, et rien d’autre',
+  )
+  const legacySoirees = (await (await fetch(`${url3}/s/${SLUG}/soirees.json`)).json()) as any
+  assert(
+    legacySoirees.archives.length === 1 && legacySoirees.archives[0].title === 'Soirée d’avant',
+    'l’archive d’avant les comptes doit être dans l’historique de l’administrateur',
+  )
+  assert(
+    (await fetch(`${url3}/s/${SLUG}/soirees/2026-09-19-abcde/recap.json`)).ok,
+    'l’archive garde son identifiant : les liens déjà partagés restent valables',
+  )
+  const legacyRecap = (await (await fetch(`${url3}/s/${SLUG}/recap.json`)).json()) as any
+  assert(
+    legacyRecap.ranking.some((r: any) => r.name === 'Ancien' && r.points === 150),
+    'la soirée en cours d’avant les comptes doit revenir du miroir sous l’espace de l’administrateur',
+  )
+  const legacyCheck = createClient({ url: legacyQuizUrl })
+  const orphans = await legacyCheck.execute(
+    `SELECT (SELECT COUNT(*) FROM quizzes WHERE space_id IS NULL)
+          + (SELECT COUNT(*) FROM party_players WHERE space_id IS NULL)
+          + (SELECT COUNT(*) FROM party_scores WHERE space_id IS NULL)
+          + (SELECT COUNT(*) FROM soirees WHERE space_id IS NULL) AS n`,
+  )
+  assert(Number(orphans.rows[0].n) === 0, 'plus aucune ligne sans espace après la mise à jour')
+  legacyCheck.close()
+  await server3.close()
+  // Un second démarrage sur la même base ne refait rien de travers.
+  const server4 = await createQuizServer({ port: 0, dbPath: legacyDbPath, admin: ADMIN, quizDbUrl: legacyQuizUrl })
+  const secondBoot = (await (await fetch(`http://localhost:${server4.port}/s/${SLUG}/soirees.json`)).json()) as any
+  assert(secondBoot.archives.length === 1, 'la mise à jour est idempotente')
+  await server4.close()
+
+  console.log('✅ Smoke test OK — 35 étapes')
   console.log(
-    '   collage de questions, comptes et sessions, garde-fous, quiz complet, bibliothèque, photos, estimation, sabotage,',
+    '   collage de questions, comptes et sessions, garde-fous, isolation des espaces, quiz complet, bibliothèque,',
   )
   console.log(
-    '   retardataire, pause, enchaînement automatique, annulation, question reposée, invité renommé et exclu,',
+    '   photos, estimation, sabotage, retardataire, pause, enchaînement automatique, annulation, question reposée,',
   )
   console.log(
-    '   ménage des photos, photo « mémoire », équipes, barème des trois jeux,',
+    '   invité renommé et exclu, ménage des photos, photo « mémoire », équipes, barème des trois jeux,',
   )
   console.log(
-    '   statistiques et prix remis à la main, bilan question par question et export,',
+    '   statistiques et prix remis à la main, bilan question par question et export, anciennes adresses,',
   )
-  console.log('   reprise après coupure en pleine question, historique des soirées')
+  console.log('   reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d’une base d’avant les comptes')
   process.exit(0)
 } catch (e) {
   fail((e as Error).message)

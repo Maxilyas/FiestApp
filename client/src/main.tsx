@@ -2,18 +2,17 @@ import React, { Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import { DialogHost } from './components/Dialog'
 import { applyTheme } from './theme'
+import { route, type AccountPage, type PublicPage } from './routes'
 import './styles.css'
 
-// Cinq routes statiques : pas besoin d'un routeur.
-//   /          téléphone des invités
-//   /host      écran commun (TV)
-//   /edit      espace animateur : la bibliothèque de quiz
-//   /stats     les chiffres, à consulter sur son téléphone pendant la fête
-//   /souvenir  la page à relire le lendemain, sans clé
-//   /bilan     ce que chacun a répondu, question par question, sans clé
-//   /soirees   l'historique ; /soirees/<id>/souvenir, /stats et /bilan relisent
-//              une soirée archivée avec les mêmes pages (client/src/archive.ts)
-//   /connexion, /activer, /compte, /admin : le compte de l'animateur
+// Les adresses (client/src/routes.ts) :
+//   /                 l'accueil : « quelle soirée ? »
+//   /<espace>         le téléphone des invités
+//   /host             l'écran commun (TV) de l'animateur connecté
+//   /edit             sa bibliothèque de quiz
+//   /connexion, /activer, /compte, /admin : son compte
+//   /<espace>/stats, /souvenir, /bilan, /soirees : les pages publiques de la soirée
+//   /<espace>/soirees/<id>/… : les mêmes pages, tournées vers une soirée archivée
 //
 // Chaque route est un paquet à part : les téléphones n'ont pas à télécharger
 // l'éditeur, l'écran commun ni la bibliothèque de QR codes pour répondre à
@@ -29,32 +28,32 @@ const LoginApp = lazy(() => import('./views/LoginApp').then(m => ({ default: m.L
 const ActivateApp = lazy(() => import('./views/ActivateApp').then(m => ({ default: m.ActivateApp })))
 const AccountApp = lazy(() => import('./views/AccountApp').then(m => ({ default: m.AccountApp })))
 const AdminApp = lazy(() => import('./views/AdminApp').then(m => ({ default: m.AdminApp })))
+const LandingApp = lazy(() => import('./views/LandingApp').then(m => ({ default: m.LandingApp })))
 
-const path = window.location.pathname
-// Une soirée archivée se relit avec les mêmes pages : « /soirees/<id>/bilan »
-// est la page du bilan, tournée vers l'archive.
-const page = path.replace(/^\/soirees\/[\w-]+/, '')
-const App = path.startsWith('/host')
-  ? HostApp
-  : path.startsWith('/edit')
-    ? EditorApp
-    : path.startsWith('/connexion')
-      ? LoginApp
-      : path.startsWith('/activer')
-        ? ActivateApp
-        : path.startsWith('/compte')
-          ? AccountApp
-          : path.startsWith('/admin')
-            ? AdminApp
-            : page.startsWith('/stats')
-              ? StatsApp
-              : page.startsWith('/souvenir')
-                ? RecapApp
-                : page.startsWith('/bilan')
-                  ? BilanApp
-                  : path.startsWith('/soirees')
-                    ? ArchivesApp
-                    : PlayerApp
+const ACCOUNT: Record<AccountPage, typeof HostApp> = {
+  host: HostApp,
+  edit: EditorApp,
+  connexion: LoginApp,
+  activer: ActivateApp,
+  compte: AccountApp,
+  admin: AdminApp,
+}
+const PUBLIC: Record<PublicPage, typeof RecapApp> = {
+  souvenir: RecapApp,
+  stats: StatsApp,
+  bilan: BilanApp,
+  'bilan/fiches': BilanApp,
+  soirees: ArchivesApp,
+}
+
+const App =
+  route.kind === 'account'
+    ? ACCOUNT[route.page]
+    : route.kind === 'join'
+      ? PlayerApp
+      : route.kind === 'public'
+        ? PUBLIC[route.page]
+        : LandingApp
 
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au

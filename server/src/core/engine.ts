@@ -5,7 +5,7 @@ import type { GameContext, GameModule, GameSessionRec, IoServer, ViewContext } f
 import type { Party } from './party'
 import type { ScoreLedger } from './scores'
 import type { AnswerLog } from './answers'
-import type { PartyBackup, SessionRow } from './backup'
+import type { PartyMirror, SessionRow } from './backup'
 import type { SessionSummary } from '../../../shared/types'
 
 /**
@@ -25,11 +25,13 @@ interface LiveSession extends GameSessionRec {
 interface EngineDeps {
   db: DB
   io: IoServer
+  /** L'espace dont c'est le moteur : ses salons, ses parties, sa bibliothèque. */
+  spaceId: string
   party: Party
   ledger: ScoreLedger
   answers: AnswerLog
   /** Miroir distant de la partie en cours — absent dans les tests unitaires. */
-  backup?: PartyBackup
+  backup?: PartyMirror
   onScoresChanged: () => void
   onSessionChanged: () => void
 }
@@ -38,7 +40,7 @@ interface EngineDeps {
  * Moteur de partie : il ne connaît aucune règle. Il route les actions joueurs,
  * les commandes de l'animateur et les timers vers le module de jeu, persiste
  * l'état après chaque changement (reprise après crash) et rediffuse les vues
- * filtrées. Une seule partie tourne à la fois.
+ * filtrées. Une seule partie tourne à la fois par espace.
  */
 export class GameEngine {
   private session: LiveSession | null = null
@@ -65,11 +67,11 @@ export class GameEngine {
 
   constructor(private deps: EngineDeps, private module: GameModule) {}
 
-  /** Recharge la partie en cours depuis la base (reprise après redémarrage). */
+  /** Recharge la partie en cours de l'espace depuis la base (reprise après redémarrage). */
   restore() {
     const rows = this.deps.db
-      .prepare("SELECT * FROM sessions WHERE status = 'running' ORDER BY created_at DESC")
-      .all() as any[]
+      .prepare("SELECT * FROM sessions WHERE status = 'running' AND space_id = ? ORDER BY created_at DESC")
+      .all(this.deps.spaceId) as any[]
     const [row, ...stale] = rows
     // Une seule partie à la fois : si la base en contient plusieurs (vieilles
     // données), on ne reprend que la dernière et on solde les autres.
@@ -79,6 +81,7 @@ export class GameEngine {
     if (!row) return
     const sess: LiveSession = {
       id: row.id,
+      spaceId: this.deps.spaceId,
       status: 'running',
       participantIds: JSON.parse(row.participant_ids),
       state: JSON.parse(row.state),
@@ -107,9 +110,10 @@ export class GameEngine {
     const participantIds = this.deps.party.connectedPlayerIds()
     const sess: LiveSession = {
       id: randomUUID(),
+      spaceId: this.deps.spaceId,
       status: 'running',
       participantIds,
-      state: this.module.createInitialState(participantIds, config),
+      state: this.module.createInitialState(this.deps.spaceId, participantIds, config),
       createdAt: Date.now(),
       timers: new Map(),
     }
@@ -147,7 +151,7 @@ export class GameEngine {
     this.persist(sess)
     this.session = null
     this.lastSent.clear()
-    this.deps.io.emit('session:ended', { sessionId })
+    this.deps.io.to(`space:${this.deps.spaceId}`).emit('session:ended', { sessionId })
     this.deps.onSessionChanged()
   }
 
@@ -291,7 +295,7 @@ export class GameEngine {
     // répondu ») : sa vue change vraiment, on la renvoie.
     const hostView = this.module.hostView(sess, this.vctx)
     if (this.changed('__host__', hostView)) {
-      this.deps.io.to('hosts').emit('session:view', { sessionId: sess.id, view: hostView })
+      this.deps.io.to(`hosts:${this.deps.spaceId}`).emit('session:view', { sessionId: sess.id, view: hostView })
     }
   }
 
@@ -308,6 +312,7 @@ export class GameEngine {
     for (const [id, t] of sess.timers) timers[id] = t.deadline
     const row: SessionRow = {
       id: sess.id,
+      spaceId: sess.spaceId,
       status: sess.status,
       participantIds: JSON.stringify(sess.participantIds),
       state: JSON.stringify(sess.state),
@@ -317,8 +322,8 @@ export class GameEngine {
     }
     this.deps.db
       .prepare(
-        `INSERT INTO sessions (id, status, participant_ids, state, timers, created_at, updated_at)
-         VALUES (@id, @status, @participantIds, @state, @timers, @createdAt, @updatedAt)
+        `INSERT INTO sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
+         VALUES (@id, @status, @participantIds, @state, @timers, @createdAt, @updatedAt, @spaceId)
          ON CONFLICT(id) DO UPDATE SET status = @status, participant_ids = @participantIds,
            state = @state, timers = @timers, updated_at = @updatedAt`,
       )

@@ -4,6 +4,13 @@ import path from 'node:path'
 
 export type DB = Database.Database
 
+/**
+ * Les tables de la soirée en cours. Chacune porte l'espace (le compte) à qui
+ * la ligne appartient : plusieurs animateurs font leur soirée sur le même
+ * serveur, chacun ne lit que les siennes.
+ */
+const PARTY_TABLES = ['players', 'teams', 'team_bonus', 'answer_log', 'score_entries', 'sessions'] as const
+
 export function initDb(dbPath: string): DB {
   mkdirSync(path.dirname(dbPath), { recursive: true })
   const db = new Database(dbPath)
@@ -14,7 +21,9 @@ export function initDb(dbPath: string): DB {
       name       TEXT NOT NULL,
       avatar     TEXT NOT NULL,
       token      TEXT NOT NULL UNIQUE,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      team_id    TEXT,
+      space_id   TEXT
     );
 
     -- Les équipes de la soirée : le quiz est individuel, mais le tableau des
@@ -24,7 +33,8 @@ export function initDb(dbPath: string): DB {
       name       TEXT NOT NULL,
       emoji      TEXT NOT NULL,
       position   INTEGER NOT NULL,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      space_id   TEXT
     );
 
     -- Prix remis par l'animateur à une équipe, sur l'échelle du barème.
@@ -33,7 +43,8 @@ export function initDb(dbPath: string): DB {
       team_id    TEXT NOT NULL,
       points     INTEGER NOT NULL,
       reason     TEXT NOT NULL,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      space_id   TEXT
     );
 
     -- Journal des réponses : une ligne par joueur et par question posée, y
@@ -56,7 +67,8 @@ export function initDb(dbPath: string): DB {
       points      INTEGER NOT NULL,
       duration_ms INTEGER NOT NULL,
       observed    INTEGER NOT NULL,
-      created_at  INTEGER NOT NULL
+      created_at  INTEGER NOT NULL,
+      space_id    TEXT
     );
 
     -- Ledger append-only : le score d'un joueur = SUM(points).
@@ -66,7 +78,8 @@ export function initDb(dbPath: string): DB {
       session_id TEXT,
       points     INTEGER NOT NULL,
       reason     TEXT NOT NULL,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      space_id   TEXT
     );
 
     CREATE TABLE IF NOT EXISTS sessions (
@@ -76,16 +89,37 @@ export function initDb(dbPath: string): DB {
       state           TEXT NOT NULL,
       timers          TEXT NOT NULL DEFAULT '{}',
       created_at      INTEGER NOT NULL,
-      updated_at      INTEGER NOT NULL
+      updated_at      INTEGER NOT NULL,
+      space_id        TEXT
     );
   `)
 
-  // Les équipes sont arrivées après les premiers essais : une base déjà
-  // remplie n'a pas la colonne, et un ALTER sur une base neuve échouerait.
-  const columns = db.prepare('PRAGMA table_info(players)').all() as { name: string }[]
-  if (!columns.some(c => c.name === 'team_id')) {
-    db.exec('ALTER TABLE players ADD COLUMN team_id TEXT')
+  // Les équipes, puis les espaces, sont arrivés après les premiers essais :
+  // une base déjà remplie n'a pas ces colonnes, et un ALTER sur une base
+  // neuve échouerait.
+  addColumn(db, 'players', 'team_id', 'TEXT')
+  for (const table of PARTY_TABLES) {
+    addColumn(db, table, 'space_id', 'TEXT')
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_${table}_space ON ${table}(space_id)`)
   }
 
   return db
+}
+
+function addColumn(db: DB, table: string, column: string, type: string) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]
+  if (!columns.some(c => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`)
+}
+
+/**
+ * Les lignes d'avant les espaces — une soirée en cours au moment de la mise
+ * à jour — sont rattachées à l'espace par défaut, celui de l'administrateur.
+ * Idempotent : une ligne déjà rattachée n'est pas touchée.
+ */
+export function stampLegacySpace(db: DB, spaceId: string): number {
+  let stamped = 0
+  for (const table of PARTY_TABLES) {
+    stamped += db.prepare(`UPDATE ${table} SET space_id = ? WHERE space_id IS NULL`).run(spaceId).changes
+  }
+  return stamped
 }

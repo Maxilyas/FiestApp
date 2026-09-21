@@ -4,40 +4,47 @@ import { formatDay } from '../../../shared/archive'
 import { Icon } from '../components/Icon'
 import { confirmDialog, promptDialog } from '../components/Dialog'
 import { api, UnauthorizedError } from '../api'
+import { dataUrl, pageContext, spacePath, type PublicPage } from '../routes'
 import { formatNumber } from '../format'
 
 /**
- * L'historique des soirées (`/soirees`) : la soirée en cours, puis chaque
- * soirée archivée avec ses trois pages — souvenir, statistiques, bilan.
- * Publique, comme elles. L'animateur connecté peut renommer une soirée ou
- * en retirer une.
+ * L'historique des soirées d'un espace (`/<espace>/soirees`) : la soirée en
+ * cours, puis chaque soirée archivée avec ses trois pages — souvenir,
+ * statistiques, bilan. Public, comme elles. L'animateur de l'espace,
+ * connecté, peut renommer une soirée ou en retirer une.
  */
 export function ArchivesApp() {
+  const { slug } = pageContext()
   const [list, setList] = useState<ArchiveList | null>(null)
   const [error, setError] = useState('')
   const [host, setHost] = useState(false)
 
   const load = () =>
-    fetch('/soirees.json')
-      .then(r => r.json())
+    fetch(dataUrl(slug, 'soirees.json'))
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(setList)
       .catch(() => setError("Impossible de charger l'historique."))
   useEffect(() => {
     load()
-    // Les boutons de gestion n'apparaissent qu'à l'animateur connecté ; le
-    // serveur revérifie de toute façon à chaque action.
+    // Les boutons de gestion n'apparaissent qu'à l'animateur de cet espace,
+    // connecté ; le serveur revérifie de toute façon à chaque action.
     api.auth
       .me()
-      .then(() => setHost(true))
+      .then(me => setHost(me.account.slug === slug))
       .catch(() => setHost(false))
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug])
+
+  useEffect(() => {
+    if (list?.space) document.title = `${list.space.title} · Les soirées`
+  }, [list])
 
   const manage = async (action: () => Promise<unknown>) => {
     try {
       await action()
       await load()
     } catch (e) {
-      // Une clé périmée : les boutons disparaissent, la page reste lisible.
+      // Une session périmée : les boutons disparaissent, la page reste lisible.
       if (e instanceof UnauthorizedError) setHost(false)
       else setError((e as Error).message)
     }
@@ -62,7 +69,7 @@ export function ArchivesApp() {
   return (
     <div className="recap soirees">
       <header className="recap-header">
-        <span className="label">Quizz Romane 30</span>
+        <span className="label">{list.space?.title}</span>
         <h1>Les soirées</h1>
         <p className="join-sub">L'historique, une fête après l'autre</p>
         <hr className="hairline" />
@@ -81,7 +88,7 @@ export function ArchivesApp() {
               </p>
             </div>
           </div>
-          <PageLinks base="" />
+          <PageLinks slug={slug} archiveId={null} />
           <p className="muted small">
             Elle rejoindra l'historique quand l'animateur la sauvegardera depuis l'écran commun, ou
             repartira de zéro pour la suivante.
@@ -100,6 +107,7 @@ export function ArchivesApp() {
         list.archives.map(a => (
           <ArchiveCard
             key={a.id}
+            slug={slug}
             archive={a}
             host={host}
             onRename={async () => {
@@ -126,19 +134,20 @@ export function ArchivesApp() {
   )
 }
 
-/** Les trois pages d'une soirée. `base` vaut `/soirees/<id>` pour une archive, rien pour la soirée en cours. */
-function PageLinks({ base }: { base: string }) {
+/** Les trois pages d'une soirée — celle en cours, ou une archive. */
+function PageLinks({ slug, archiveId }: { slug: string; archiveId: string | null }) {
+  const link = (page: PublicPage) => spacePath(slug, page, archiveId)
   return (
     <div className="row soiree-links">
-      <a className="btn btn-small" href={`${base}/souvenir`}>
+      <a className="btn btn-small" href={link('souvenir')}>
         <Icon name="book" />
         Souvenir
       </a>
-      <a className="btn btn-small" href={`${base}/stats`}>
+      <a className="btn btn-small" href={link('stats')}>
         <Icon name="bar-chart" />
         Statistiques
       </a>
-      <a className="btn btn-small btn-accent" href={`${base}/bilan`}>
+      <a className="btn btn-small btn-accent" href={link('bilan')}>
         <Icon name="list" />
         Bilan
       </a>
@@ -147,11 +156,13 @@ function PageLinks({ base }: { base: string }) {
 }
 
 function ArchiveCard({
+  slug,
   archive: a,
   host,
   onRename,
   onRemove,
 }: {
+  slug: string
   archive: ArchiveSummary
   host: boolean
   onRename: () => void
@@ -194,7 +205,7 @@ function ArchiveCard({
           )}
         </p>
       )}
-      <PageLinks base={`/soirees/${a.id}`} />
+      <PageLinks slug={slug} archiveId={a.id} />
     </section>
   )
 }

@@ -1,5 +1,5 @@
 import type { DB } from './db'
-import type { PartyBackup } from './backup'
+import type { PartyMirror } from './backup'
 
 /**
  * Ledger de scores append-only. On n'écrase jamais un total : chaque gain est
@@ -20,20 +20,21 @@ export class ScoreLedger {
 
   constructor(
     private db: DB,
-    private backup?: PartyBackup,
+    private spaceId: string,
+    private backup?: PartyMirror,
   ) {
     this.insertStmt = db.prepare(
-      'INSERT INTO score_entries (player_id, session_id, points, reason, created_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO score_entries (player_id, session_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)',
     )
     const rows = db
-      .prepare('SELECT player_id, SUM(points) AS total FROM score_entries GROUP BY player_id')
-      .all() as { player_id: string; total: number }[]
+      .prepare('SELECT player_id, SUM(points) AS total FROM score_entries WHERE space_id = ? GROUP BY player_id')
+      .all(spaceId) as { player_id: string; total: number }[]
     for (const row of rows) this.totals.set(row.player_id, row.total)
   }
 
   award(playerId: string, points: number, reason: string, sessionId?: string) {
     const createdAt = Date.now()
-    this.insertStmt.run(playerId, sessionId ?? null, points, reason, createdAt)
+    this.insertStmt.run(playerId, sessionId ?? null, points, reason, createdAt, this.spaceId)
     this.totals.set(playerId, (this.totals.get(playerId) ?? 0) + points)
     this.backup?.saveScore({ playerId, sessionId, points, reason, createdAt })
   }
@@ -47,11 +48,13 @@ export class ScoreLedger {
     return this.totals.get(playerId) ?? 0
   }
 
-  /** Tout le journal, dans l'ordre : la page souvenir et l'archive en vivent. */
+  /** Tout le journal de l'espace, dans l'ordre : la page souvenir et l'archive en vivent. */
   all(): ScoreEntry[] {
     const rows = this.db
-      .prepare('SELECT player_id, session_id, points, reason, created_at FROM score_entries ORDER BY created_at, id')
-      .all() as any[]
+      .prepare(
+        'SELECT player_id, session_id, points, reason, created_at FROM score_entries WHERE space_id = ? ORDER BY created_at, id',
+      )
+      .all(this.spaceId) as any[]
     return rows.map(r => ({
       playerId: String(r.player_id),
       sessionId: r.session_id === null || r.session_id === undefined ? null : String(r.session_id),

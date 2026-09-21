@@ -24,11 +24,23 @@ import type { PublicPlayer, TeamBonus } from '../../../shared/types'
  * Le bilan vient soit du serveur (son adresse est publique, c'est le plus
  * simple), soit directement de la base distante, pour le jour où le serveur
  * ne répond plus : les tables `party_*` y sont recopiées pendant la fête.
+ *
+ * Une soirée appartient à un espace, désigné par son nom dans l'adresse ;
+ * sans nom, c'est l'espace par défaut — celui de l'administrateur.
  */
 
-export async function reviewFromServer(base: string, archiveId?: string): Promise<Review> {
+export interface ExportTarget {
+  /** Le nom de l'espace dans l'adresse (`romane`). Absent : l'espace par défaut. */
+  slug?: string
+  /** Une soirée de l'historique plutôt que celle en cours. */
+  archiveId?: string
+}
+
+export async function reviewFromServer(base: string, target: ExportTarget = {}): Promise<Review> {
   const root = base.replace(/\/+$/, '')
-  const res = await fetch(archiveId ? `${root}/soirees/${archiveId}/bilan.json` : `${root}/bilan.json`)
+  const tail = target.archiveId ? `/soirees/${target.archiveId}/bilan.json` : '/bilan.json'
+  // Sans nom d'espace, l'ancienne adresse redirige vers l'espace par défaut.
+  const res = await fetch(target.slug ? `${root}/s/${target.slug}${tail}` : `${root}${tail}`)
   if (!res.ok) throw new Error(`${base} répond ${res.status}`)
   return (await res.json()) as Review
 }
@@ -38,28 +50,36 @@ export async function reviewFromServer(base: string, archiveId?: string): Promis
  * prix et le journal des réponses tels que le serveur les y a recopiés, et
  * la bibliothèque pour retrouver les intitulés.
  */
-export async function reviewFromDatabase(dbUrl: string, token?: string, archiveId?: string): Promise<Review> {
+export async function reviewFromDatabase(dbUrl: string, token?: string, target: ExportTarget = {}): Promise<Review> {
+  const client = createClient({ url: dbUrl, authToken: token })
+  const spaceId = await resolveSpace(client, target.slug)
   // Une soirée archivée est déjà complète : ses questions voyagent avec elle.
-  if (archiveId) {
+  if (target.archiveId) {
+    client.close()
     const archives = new ArchiveStore(dbUrl, token)
-    await archives.init()
-    const found = await archives.get(archiveId)
+    await archives.init(spaceId)
+    const found = await archives.get(spaceId, target.archiveId)
     archives.close()
-    if (!found) throw new Error(`Soirée « ${archiveId} » introuvable dans l'historique`)
+    if (!found) throw new Error(`Soirée « ${target.archiveId} » introuvable dans l'historique`)
     return { ...reviewOfArchive(found.archive), archive: found.summary }
   }
-  const client = createClient({ url: dbUrl, authToken: token })
   const [players, teams, scores, bonuses, answers] = await Promise.all([
-    client.execute('SELECT * FROM party_players'),
-    client.execute('SELECT * FROM party_teams ORDER BY position'),
-    client.execute('SELECT player_id, SUM(points) AS total FROM party_scores GROUP BY player_id'),
-    client.execute('SELECT * FROM party_bonus ORDER BY created_at'),
-    client.execute('SELECT * FROM party_answers ORDER BY created_at, q_index'),
+    client.execute({ sql: 'SELECT * FROM party_players WHERE space_id = ?', args: [spaceId] }),
+    client.execute({ sql: 'SELECT * FROM party_teams WHERE space_id = ? ORDER BY position', args: [spaceId] }),
+    client.execute({
+      sql: 'SELECT player_id, SUM(points) AS total FROM party_scores WHERE space_id = ? GROUP BY player_id',
+      args: [spaceId],
+    }),
+    client.execute({ sql: 'SELECT * FROM party_bonus WHERE space_id = ? ORDER BY created_at', args: [spaceId] }),
+    client.execute({
+      sql: 'SELECT * FROM party_answers WHERE space_id = ? ORDER BY created_at, q_index',
+      args: [spaceId],
+    }),
   ])
   client.close()
   const totals = new Map(scores.rows.map(r => [String(r.player_id), Number(r.total ?? 0)]))
   const store = new QuizStore(dbUrl, token)
-  const library = (await store.all()).map(q => ({ title: q.title, questions: playableQuestions(q) }))
+  const library = (await store.all(spaceId)).map(q => ({ title: q.title, questions: playableQuestions(q) }))
   store.close()
 
   return buildReview({
@@ -94,6 +114,18 @@ export async function reviewFromDatabase(dbUrl: string, token?: string, archiveI
     packsBySession: new Map(),
     library,
   })
+}
+
+/** L'identifiant de l'espace derrière un nom d'adresse — ou l'espace par défaut. */
+async function resolveSpace(client: ReturnType<typeof createClient>, slug?: string): Promise<string> {
+  if (slug) {
+    const res = await client.execute({ sql: 'SELECT id FROM accounts WHERE slug = ?', args: [slug] })
+    if (!res.rows[0]) throw new Error(`Aucun espace « ${slug} »`)
+    return String(res.rows[0].id)
+  }
+  const res = await client.execute({ sql: 'SELECT value FROM meta WHERE key = ?', args: ['default_space'] })
+  if (!res.rows[0]) throw new Error('Aucun espace par défaut : le serveur n’a jamais démarré sur cette base')
+  return String(res.rows[0].value)
 }
 
 // ── CSV ──────────────────────────────────────────────────────────────────

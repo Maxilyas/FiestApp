@@ -7,10 +7,11 @@ const CONTENT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 
 /**
  * Importe une seule fois les quiz livrés en JSON (`server/content/quiz/*.json`)
- * dans la bibliothèque. Ensuite tout se passe dans l'éditeur : on ne réimporte
- * pas au démarrage suivant, sinon un quiz supprimé reviendrait sans arrêt.
+ * dans la bibliothèque de l'espace par défaut — celui de l'administrateur.
+ * Ensuite tout se passe dans l'éditeur : on ne réimporte pas au démarrage
+ * suivant, sinon un quiz supprimé reviendrait sans arrêt.
  */
-export async function seedLibrary(store: QuizStore): Promise<number> {
+export async function seedLibrary(store: QuizStore, spaceId: string): Promise<number> {
   if (await store.getFlag('seeded')) return 0
   let imported = 0
   if (fs.existsSync(CONTENT_DIR)) {
@@ -24,7 +25,7 @@ export async function seedLibrary(store: QuizStore): Promise<number> {
           // Les photos livrées avec le dépôt restent servies depuis /media/quiz.
           image: typeof q?.image === 'string' && q.image ? `/media/quiz/${encodeURIComponent(q.image)}` : null,
         }))
-        await store.create(raw.title, questions, id)
+        await store.create(spaceId, raw.title, questions, id)
         imported++
       } catch (e) {
         console.warn(`[quiz] import de ${file} impossible : ${(e as Error).message}`)

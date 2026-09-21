@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { PartySnapshot } from '../../shared/types'
+import { currentSlug } from './routes'
 
 export interface SessionView {
   sessionId: string
@@ -38,10 +39,23 @@ function readJson<T>(key: string): T | null {
   }
 }
 
+// Ce que le téléphone retient est rangé par espace : un invité de deux
+// soirées différentes a une identité dans chacune, et le jeton de l'une ne
+// vaut rien dans l'autre.
+const meKey = (slug: string) => `quizz.me.${slug}`
+const profileKey = (slug: string) => `quizz.profile.${slug}`
+
+/** L'invité mémorisé sur ce téléphone pour cet espace, s'il y a joué. */
+export function readMe(slug: string): Me | null {
+  return readJson<Me>(meKey(slug))
+}
+
+const slugAtLoad = currentSlug()
+
 let state: AppState = {
   connected: false,
   snapshot: null,
-  me: readJson<Me>('quizz.me'),
+  me: slugAtLoad ? readMe(slugAtLoad) : null,
   views: {},
   toast: null,
 }
@@ -67,17 +81,24 @@ export function useAppState(): AppState {
   )
 }
 
-export function saveMe(me: Me) {
-  localStorage.setItem('quizz.me', JSON.stringify(me))
+export function saveMe(slug: string, me: Me) {
+  localStorage.setItem(meKey(slug), JSON.stringify(me))
   setState({ me })
 }
 
-export function loadProfile(): Profile | null {
-  return readJson<Profile>('quizz.profile')
+/** L'animateur a exclu ce téléphone : il oublie son identité et repart à l'inscription. */
+export function forgetMe(slug: string) {
+  localStorage.removeItem(meKey(slug))
+  localStorage.removeItem(profileKey(slug))
+  setState({ me: null, views: {} })
 }
 
-export function saveProfile(profile: Profile) {
-  localStorage.setItem('quizz.profile', JSON.stringify(profile))
+export function loadProfile(slug: string): Profile | null {
+  return readJson<Profile>(profileKey(slug))
+}
+
+export function saveProfile(slug: string, profile: Profile) {
+  localStorage.setItem(profileKey(slug), JSON.stringify(profile))
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined

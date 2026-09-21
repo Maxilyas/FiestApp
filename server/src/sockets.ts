@@ -1,33 +1,17 @@
 import type { Socket } from 'socket.io'
 import type { IoServer } from './core/types'
-import type { Party } from './core/party'
-import type { Teams } from './core/teams'
-import type { AnswerLog } from './core/answers'
-import type { GameEngine } from './core/engine'
-import type { PartySnapshot } from '../../shared/types'
-import type { ArchiveSummary } from '../../shared/archive'
-import type { AuthStore } from './auth/store'
+import type { SpaceRegistry, SpaceRuntime } from './core/space'
+import type { AccountRec, AuthStore } from './auth/store'
 import { readSessionToken } from './auth/http'
 import { Budget } from './core/budget'
 
 interface SocketDeps {
-  party: Party
-  teams: Teams
-  answers: AnswerLog
-  engine: GameEngine
-  /** Les comptes des animateurs : l'écran commun se présente avec sa session. */
+  /** Les soirées en cours, une par espace. */
+  registry: SpaceRegistry
+  /** Les comptes des animateurs : l'écran commun se présente avec sa session, les invités avec un nom d'espace. */
   auth: AuthStore
   /** Derrière le proxy de l'hébergeur, l'adresse du client est dans un en-tête. */
   trustProxy: boolean
-  /** Inscriptions au-delà desquelles la soirée est déclarée complète. */
-  maxPlayers: number
-  /** L'instantané complet pour l'écran commun, expurgé du wifi pour les autres. */
-  buildSnapshot: (forHost: boolean) => PartySnapshot
-  broadcastSnapshot: () => void
-  /** Range la soirée dans l'historique puis repart de zéro. */
-  resetParty: () => Promise<ArchiveSummary | null>
-  /** Range la soirée dans l'historique, sans rien effacer. */
-  archiveParty: (title?: string) => Promise<ArchiveSummary | null>
 }
 
 // ── Garde-fous ───────────────────────────────────────────────────────────
@@ -49,6 +33,9 @@ const JOINS_PER_SOCKET = 3
 const JOIN_BURST = 25
 const JOIN_REFILL_PER_MINUTE = 30
 
+const NO_SUCH_SPACE = 'Cette adresse ne mène à aucune soirée'
+const OTHER_SPACE = 'Cette connexion suit déjà une autre soirée'
+
 /**
  * L'adresse du client. Derrière le proxy de l'hébergeur, on lit la dernière
  * entrée de `x-forwarded-for` : c'est celle que le proxy a écrite lui-même,
@@ -69,9 +56,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
   // coup, et c'est voulu.
   const joinBudget = new Budget(JOIN_BURST, JOIN_REFILL_PER_MINUTE, { skipLoopback: true })
 
-  /** Une équipe inconnue (supprimée entre-temps) vaut « pas d'équipe ». */
-  const validTeam = (teamId?: string | null): string | null =>
-    teamId && deps.teams.has(teamId) ? teamId : null
+  /** L'espace derrière un nom d'adresse — s'il existe et n'est pas fermé. */
+  const spaceOf = (slug: unknown): AccountRec | null => {
+    const account = deps.auth.bySlug(slug)
+    return account && !account.disabledAt ? account : null
+  }
 
   // Une session révoquée — déconnexion, mot de passe changé, compte
   // désactivé — emporte les écrans communs qu'elle avait ouverts.
@@ -86,16 +75,50 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     let identitiesCreated = 0
     const ip = clientIp(socket, deps.trustProxy)
 
-    // Snapshot immédiat : la page d'accueil peut afficher "X déjà connectés".
-    socket.emit('party:snapshot', deps.buildSnapshot(false))
+    // Rien n'est envoyé à la connexion : on ne sait pas encore quelle soirée
+    // la connexion suit. Elle le dit avec `party:watch`, `player:join` ou
+    // `host:hello` — et ne peut plus en changer ensuite : une connexion qui
+    // s'est présentée pour la soirée A ne lira jamais la soirée B.
+
+    /** Rattache la connexion à un espace, une fois pour toutes. Null si elle en suit déjà un autre. */
+    const bindSpace = (spaceId: string): SpaceRuntime | null => {
+      if (socket.data.spaceId && socket.data.spaceId !== spaceId) return null
+      if (!socket.data.spaceId) {
+        socket.data.spaceId = spaceId
+        socket.join(`space:${spaceId}`)
+      }
+      return deps.registry.get(spaceId)
+    }
+
+    /** La soirée que suit cette connexion, si elle s'est présentée. */
+    const runtime = (): SpaceRuntime | null =>
+      socket.data.spaceId ? deps.registry.get(socket.data.spaceId) : null
+
+    /** Une équipe inconnue (supprimée entre-temps) vaut « pas d'équipe ». */
+    const validTeam = (rt: SpaceRuntime, teamId?: string | null): string | null =>
+      teamId && rt.teams.has(teamId) ? teamId : null
+
+    // La page d'accueil des invités : « X déjà connectés », avant même l'inscription.
+    socket.on('party:watch', (payload, ack) => {
+      const account = spaceOf(payload?.slug)
+      if (!account) return ack({ ok: false, error: NO_SUCH_SPACE })
+      const rt = bindSpace(account.id)
+      if (!rt) return ack({ ok: false, error: OTHER_SPACE })
+      ack({ ok: true })
+      socket.emit('party:snapshot', rt.buildSnapshot(false))
+    })
 
     socket.on('player:join', (payload, ack) => {
       try {
+        const account = spaceOf(payload?.slug)
+        if (!account) return ack({ ok: false, error: NO_SUCH_SPACE })
+        const rt = bindSpace(account.id)
+        if (!rt) return ack({ ok: false, error: OTHER_SPACE })
         const token = typeof payload?.token === 'string' ? payload.token : undefined
-        const reconnecting = !!token && !!deps.party.findByToken(token)
+        const reconnecting = !!token && !!rt.party.findByToken(token)
         if (!reconnecting) {
           // Une nouvelle identité, donc : elle passe par les garde-fous.
-          if (deps.party.count() >= deps.maxPlayers) {
+          if (rt.party.count() >= rt.maxPlayers) {
             return ack({ ok: false, error: 'La soirée est complète !' })
           }
           if (identitiesCreated >= JOINS_PER_SOCKET || !joinBudget.take(ip)) {
@@ -104,19 +127,18 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         }
         // Un téléphone qui se reconnecte n'envoie pas d'équipe : il garde la
         // sienne. C'est bien `undefined`, et pas `null`, qui dit « ne touche à rien ».
-        const teamId = payload?.teamId === undefined ? undefined : validTeam(payload.teamId)
-        const res = deps.party.join(payload?.name ?? '', payload?.avatar ?? '', token, teamId)
+        const teamId = payload?.teamId === undefined ? undefined : validTeam(rt, payload.teamId)
+        const res = rt.party.join(payload?.name ?? '', payload?.avatar ?? '', token, teamId)
         if ('error' in res) return ack({ ok: false, error: res.error })
         if (!reconnecting) identitiesCreated++
         socket.data.playerId = res.id
-        socket.join('players')
         socket.join(`player:${res.id}`)
-        deps.party.socketConnected(res.id)
+        rt.party.socketConnected(res.id)
         ack({ ok: true, playerId: res.id, token: res.token })
-        deps.broadcastSnapshot()
+        rt.broadcastSnapshot()
         // Arrivé en cours de quiz : on l'y intègre pour les questions à venir.
-        deps.engine.joinLate(res.id)
-        deps.engine.resendViews(res.id)
+        rt.engine.joinLate(res.id)
+        rt.engine.resendViews(res.id)
       } catch {
         ack({ ok: false, error: 'Erreur serveur' })
       }
@@ -124,9 +146,12 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
 
     socket.on('player:action', ({ sessionId, action }) => {
       const playerId = socket.data.playerId
-      if (!playerId) return
+      const rt = runtime()
+      if (!playerId || !rt) return
       try {
-        deps.engine.handlePlayerAction(sessionId, playerId, action)
+        // Le moteur de l'espace ne connaît que sa partie : l'identifiant
+        // d'une partie voisine vaut « terminée », et la voisine n'en sait rien.
+        rt.engine.handlePlayerAction(sessionId, playerId, action)
       } catch (e) {
         socket.emit('toast', { kind: 'error', message: (e as Error).message })
       }
@@ -137,17 +162,19 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     // Hors quiz, c'est juste une correction d'inattention.
     socket.on('player:setTeam', ({ teamId }, ack) => {
       const playerId = socket.data.playerId
-      if (!playerId) return ack({ ok: false, error: 'Rejoins la soirée d’abord' })
-      if (deps.engine.activeSessionId) {
+      const rt = runtime()
+      if (!playerId || !rt) return ack({ ok: false, error: 'Rejoins la soirée d’abord' })
+      if (rt.engine.activeSessionId) {
         return ack({ ok: false, error: 'Pas pendant un quiz — on verra à la fin !' })
       }
-      deps.party.assign(playerId, validTeam(teamId))
-      deps.broadcastSnapshot()
+      rt.party.assign(playerId, validTeam(rt, teamId))
+      rt.broadcastSnapshot()
       ack({ ok: true })
     })
 
     // L'écran commun se présente avec sa session : le cookie posé à la
     // connexion voyage dans la poignée de main, rien ne transite par la page.
+    // C'est la session qui dit l'espace — jamais la page.
     socket.on('host:hello', (_payload, ack) => {
       const token = readSessionToken(socket.handshake.headers.cookie)
       const found = token ? deps.auth.resolveSession(token) : null
@@ -158,103 +185,119 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         if (++helloFailures >= HELLO_MAX_FAILURES) socket.disconnect(true)
         return ack({ ok: false })
       }
+      const rt = bindSpace(found.account.id)
+      if (!rt) return ack({ ok: false })
       socket.data.isHost = true
       socket.data.accountId = found.account.id
       socket.data.authSessionId = found.session.id
-      socket.join('hosts')
+      socket.join(`hosts:${found.account.id}`)
       ack({ ok: true, slug: found.account.slug, name: found.account.name })
-      socket.emit('party:snapshot', deps.buildSnapshot(true))
-      deps.engine.resendHostViews(socket)
+      socket.emit('party:snapshot', rt.buildSnapshot(true))
+      rt.engine.resendHostViews(socket)
     })
 
-    const requireHost = () => socket.data.isHost === true
+    /** La soirée de l'animateur — s'il s'est présenté. */
+    const requireHost = (): SpaceRuntime | null => (socket.data.isHost ? runtime() : null)
 
     socket.on('host:launch', () => {
-      if (!requireHost()) return
+      const rt = requireHost()
+      if (!rt) return
       try {
-        deps.engine.launch()
+        rt.engine.launch()
       } catch (e) {
         socket.emit('toast', { kind: 'error', message: (e as Error).message })
       }
     })
 
     socket.on('host:command', ({ sessionId, command }) => {
-      if (!requireHost()) return
+      const rt = requireHost()
+      if (!rt) return
       try {
-        deps.engine.handleHostCommand(sessionId, command)
+        rt.engine.handleHostCommand(sessionId, command)
       } catch (e) {
         socket.emit('toast', { kind: 'error', message: (e as Error).message })
       }
     })
 
     socket.on('host:endSession', ({ sessionId }) => {
-      if (!requireHost()) return
-      deps.engine.endSession(sessionId)
+      const rt = requireHost()
+      if (!rt) return
+      rt.engine.endSession(sessionId)
     })
 
     socket.on('host:renamePlayer', ({ playerId, name }) => {
-      if (!requireHost()) return
-      if (deps.party.rename(playerId, name)) deps.broadcastSnapshot()
+      const rt = requireHost()
+      if (!rt) return
+      if (rt.party.rename(playerId, name)) rt.broadcastSnapshot()
     })
 
     socket.on('host:removePlayer', ({ playerId }) => {
-      if (!requireHost()) return
-      if (!deps.party.remove(playerId)) return
+      const rt = requireHost()
+      if (!rt) return
+      // Un invité d'une autre soirée n'est pas dans cette liste : rien ne se passe.
+      if (!rt.party.remove(playerId)) return
       // Ses réponses partent avec lui : il ne doit plus peser sur les prix.
-      deps.answers.removePlayer(playerId)
-      deps.engine.dropParticipant(playerId)
-      deps.broadcastSnapshot()
+      rt.answers.removePlayer(playerId)
+      rt.engine.dropParticipant(playerId)
+      rt.broadcastSnapshot()
       // Son téléphone repart sur l'écran d'inscription.
       io.to(`player:${playerId}`).emit('player:removed')
     })
 
     // ── Équipes ────────────────────────────────────
     socket.on('host:createTeam', ({ name, emoji }) => {
-      if (!requireHost()) return
-      const res = deps.teams.create(name ?? '', emoji ?? '')
+      const rt = requireHost()
+      if (!rt) return
+      const res = rt.teams.create(name ?? '', emoji ?? '')
       if ('error' in res) return socket.emit('toast', { kind: 'error', message: res.error })
-      deps.broadcastSnapshot()
+      rt.broadcastSnapshot()
     })
 
     socket.on('host:updateTeam', ({ teamId, name, emoji }) => {
-      if (!requireHost()) return
-      if (deps.teams.update(teamId, { name, emoji })) deps.broadcastSnapshot()
+      const rt = requireHost()
+      if (!rt) return
+      if (rt.teams.update(teamId, { name, emoji })) rt.broadcastSnapshot()
     })
 
     socket.on('host:removeTeam', ({ teamId }) => {
-      if (!requireHost()) return
-      if (!deps.teams.remove(teamId)) return
+      const rt = requireHost()
+      if (!rt) return
+      if (!rt.teams.remove(teamId)) return
       // Personne n'est exclu : les membres repassent simplement « sans équipe ».
-      deps.party.clearTeam(teamId)
-      deps.broadcastSnapshot()
+      rt.party.clearTeam(teamId)
+      rt.broadcastSnapshot()
     })
 
     socket.on('host:seedTeams', () => {
-      if (!requireHost()) return
-      if (deps.teams.seedDefaults() > 0) deps.broadcastSnapshot()
+      const rt = requireHost()
+      if (!rt) return
+      if (rt.teams.seedDefaults() > 0) rt.broadcastSnapshot()
     })
 
     socket.on('host:assignPlayer', ({ playerId, teamId }) => {
-      if (!requireHost()) return
-      if (deps.party.assign(playerId, validTeam(teamId))) deps.broadcastSnapshot()
+      const rt = requireHost()
+      if (!rt) return
+      if (rt.party.assign(playerId, validTeam(rt, teamId))) rt.broadcastSnapshot()
     })
 
     socket.on('host:awardTeam', ({ teamId, points, reason }) => {
-      if (!requireHost()) return
-      const res = deps.teams.awardBonus(teamId, points, reason ?? '')
+      const rt = requireHost()
+      if (!rt) return
+      const res = rt.teams.awardBonus(teamId, points, reason ?? '')
       if ('error' in res) return socket.emit('toast', { kind: 'error', message: res.error })
-      deps.broadcastSnapshot()
+      rt.broadcastSnapshot()
     })
 
     socket.on('host:removeBonus', ({ bonusId }) => {
-      if (!requireHost()) return
-      if (deps.teams.removeBonus(bonusId)) deps.broadcastSnapshot()
+      const rt = requireHost()
+      if (!rt) return
+      if (rt.teams.removeBonus(bonusId)) rt.broadcastSnapshot()
     })
 
     socket.on('host:resetParty', () => {
-      if (!requireHost()) return
-      deps
-        .resetParty()
+      const rt = requireHost()
+      if (!rt) return
+      rt.resetParty()
         .then(archived => {
           if (archived) {
             socket.emit('toast', { kind: 'info', message: `« ${archived.title} » est dans l’historique — soirée vierge` })
@@ -268,9 +311,9 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     // Sauvegarder la soirée sans repartir de zéro : pour l'avoir à l'abri
     // avant la fin, ou lui donner son nom.
     socket.on('host:archiveParty', ({ title }) => {
-      if (!requireHost()) return
-      deps
-        .archiveParty(typeof title === 'string' ? title : undefined)
+      const rt = requireHost()
+      if (!rt) return
+      rt.archiveParty(typeof title === 'string' ? title : undefined)
         .then(archived => {
           socket.emit(
             'toast',
@@ -286,9 +329,10 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
 
     socket.on('disconnect', () => {
       const playerId = socket.data.playerId
-      if (playerId) {
-        deps.party.socketDisconnected(playerId)
-        deps.broadcastSnapshot()
+      const rt = socket.data.spaceId ? deps.registry.peek(socket.data.spaceId) : undefined
+      if (playerId && rt) {
+        rt.party.socketDisconnected(playerId)
+        rt.broadcastSnapshot()
       }
     })
   })

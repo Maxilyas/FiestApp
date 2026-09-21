@@ -6,8 +6,14 @@ export type JoinAck =
   | { ok: false; error: string }
 
 export interface ClientToServerEvents {
+  /**
+   * Suivre une soirée sans y jouer : la page d'accueil des invités affiche
+   * « X déjà connectés » avant même l'inscription. Le nom dans l'adresse
+   * désigne l'espace ; une connexion n'en suit jamais qu'un.
+   */
+  'party:watch': (payload: { slug: string }, ack: (res: { ok: boolean; error?: string }) => void) => void
   'player:join': (
-    payload: { name: string; avatar: string; token?: string; teamId?: string | null },
+    payload: { slug: string; name: string; avatar: string; token?: string; teamId?: string | null },
     ack: (res: JoinAck) => void,
   ) => void
   'player:action': (payload: { sessionId: string; action: unknown }) => void

@@ -156,6 +156,23 @@ export function summarize(
 
 const ID = /^[\w-]{1,64}$/
 
+/** La table telle qu'elle est depuis les espaces : une soirée par espace et par identifiant. */
+const SOIREES_COLUMNS = `
+  space_id    TEXT NOT NULL,
+  id          TEXT NOT NULL,
+  title       TEXT NOT NULL,
+  held_at     INTEGER NOT NULL,
+  archived_at INTEGER NOT NULL,
+  summary     TEXT NOT NULL,
+  data        TEXT NOT NULL,
+  PRIMARY KEY (space_id, id)`
+
+/**
+ * L'historique de chaque espace. La clé est le couple (espace, identifiant) :
+ * deux animateurs peuvent avoir fait leur soirée le même soir à la même
+ * seconde sans que l'un écrase l'autre — et un identifiant étranger vaut
+ * « introuvable », au niveau du stockage lui-même.
+ */
 export class ArchiveStore {
   private client: Client
 
@@ -163,24 +180,42 @@ export class ArchiveStore {
     this.client = createClient({ url, authToken })
   }
 
-  async init() {
-    await this.client.execute(
-      `CREATE TABLE IF NOT EXISTS soirees (
-         id          TEXT PRIMARY KEY,
-         title       TEXT NOT NULL,
-         held_at     INTEGER NOT NULL,
-         archived_at INTEGER NOT NULL,
-         summary     TEXT NOT NULL,
-         data        TEXT NOT NULL
-       )`,
+  /**
+   * Crée la table ; si elle date d'avant les espaces (identifiant seul pour
+   * clé), elle est reconstruite en une transaction et ses soirées rattachées
+   * à l'espace par défaut. Les identifiants — donc les liens déjà partagés —
+   * ne changent pas.
+   */
+  async init(defaultSpace: string) {
+    await this.client.execute(`CREATE TABLE IF NOT EXISTS soirees (${SOIREES_COLUMNS})`)
+    let hasSpace = true
+    try {
+      await this.client.execute('SELECT space_id FROM soirees LIMIT 1')
+    } catch {
+      hasSpace = false
+    }
+    if (hasSpace) return
+    await this.client.batch(
+      [
+        `CREATE TABLE soirees_v2 (${SOIREES_COLUMNS})`,
+        {
+          sql: `INSERT INTO soirees_v2 (space_id, id, title, held_at, archived_at, summary, data)
+                SELECT ?, id, title, held_at, archived_at, summary, data FROM soirees`,
+          args: [defaultSpace],
+        },
+        'DROP TABLE soirees',
+        'ALTER TABLE soirees_v2 RENAME TO soirees',
+      ],
+      'write',
     )
   }
 
   /** De la plus récente à la plus ancienne. */
-  async list(): Promise<ArchiveSummary[]> {
-    const res = await this.client.execute(
-      'SELECT id, title, held_at, archived_at, summary FROM soirees ORDER BY held_at DESC',
-    )
+  async list(spaceId: string): Promise<ArchiveSummary[]> {
+    const res = await this.client.execute({
+      sql: 'SELECT id, title, held_at, archived_at, summary FROM soirees WHERE space_id = ? ORDER BY held_at DESC',
+      args: [spaceId],
+    })
     return res.rows.map(r => ({
       ...(JSON.parse(String(r.summary)) as ArchiveSummary),
       id: String(r.id),
@@ -190,9 +225,12 @@ export class ArchiveStore {
     }))
   }
 
-  async get(id: string): Promise<{ summary: ArchiveSummary; archive: PartyArchive } | null> {
+  async get(spaceId: string, id: string): Promise<{ summary: ArchiveSummary; archive: PartyArchive } | null> {
     if (!ID.test(id)) return null
-    const res = await this.client.execute({ sql: 'SELECT * FROM soirees WHERE id = ?', args: [id] })
+    const res = await this.client.execute({
+      sql: 'SELECT * FROM soirees WHERE space_id = ? AND id = ?',
+      args: [spaceId, id],
+    })
     const r = res.rows[0]
     if (!r) return null
     const archive = JSON.parse(String(r.data)) as PartyArchive
@@ -204,33 +242,42 @@ export class ArchiveStore {
    * Range une soirée. Une archive déjà là est mise à jour et garde son titre,
    * sauf si on en donne un nouveau.
    */
-  async save(id: string, heldAt: number, archive: PartyArchive, title?: string): Promise<ArchiveSummary> {
-    const existing = await this.client.execute({ sql: 'SELECT title FROM soirees WHERE id = ?', args: [id] })
+  async save(spaceId: string, id: string, heldAt: number, archive: PartyArchive, title?: string): Promise<ArchiveSummary> {
+    const existing = await this.client.execute({
+      sql: 'SELECT title FROM soirees WHERE space_id = ? AND id = ?',
+      args: [spaceId, id],
+    })
     const kept = existing.rows[0] ? String(existing.rows[0].title) : null
     const clean = (title ?? '').trim().slice(0, 80)
     const finalTitle = clean || kept || archiveTitle(heldAt)
     const archivedAt = Date.now()
     const summary = summarize({ id, title: finalTitle, heldAt, archivedAt }, archive)
     await this.client.execute({
-      sql: `INSERT INTO soirees (id, title, held_at, archived_at, summary, data) VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET title = excluded.title, held_at = excluded.held_at,
+      sql: `INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(space_id, id) DO UPDATE SET title = excluded.title, held_at = excluded.held_at,
               archived_at = excluded.archived_at, summary = excluded.summary, data = excluded.data`,
-      args: [id, finalTitle, heldAt, archivedAt, JSON.stringify(summary), JSON.stringify(archive)],
+      args: [spaceId, id, finalTitle, heldAt, archivedAt, JSON.stringify(summary), JSON.stringify(archive)],
     })
     return summary
   }
 
-  async rename(id: string, title: unknown): Promise<ArchiveSummary | null> {
+  async rename(spaceId: string, id: string, title: unknown): Promise<ArchiveSummary | null> {
     const clean = String(title ?? '').trim().slice(0, 80)
     if (!ID.test(id) || !clean) return null
-    const res = await this.client.execute({ sql: 'UPDATE soirees SET title = ? WHERE id = ?', args: [clean, id] })
+    const res = await this.client.execute({
+      sql: 'UPDATE soirees SET title = ? WHERE space_id = ? AND id = ?',
+      args: [clean, spaceId, id],
+    })
     if (res.rowsAffected === 0) return null
-    return (await this.list()).find(s => s.id === id) ?? null
+    return (await this.list(spaceId)).find(s => s.id === id) ?? null
   }
 
-  async remove(id: string): Promise<boolean> {
+  async remove(spaceId: string, id: string): Promise<boolean> {
     if (!ID.test(id)) return false
-    const res = await this.client.execute({ sql: 'DELETE FROM soirees WHERE id = ?', args: [id] })
+    const res = await this.client.execute({
+      sql: 'DELETE FROM soirees WHERE space_id = ? AND id = ?',
+      args: [spaceId, id],
+    })
     return res.rowsAffected > 0
   }
 

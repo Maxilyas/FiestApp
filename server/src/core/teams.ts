@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
-import type { PartyBackup } from './backup'
+import type { PartyMirror } from './backup'
 import type { TeamBonus } from '../../../shared/types'
 
 export interface TeamRec {
@@ -29,10 +29,10 @@ export const DEFAULT_TEAMS = [
 const MAX_TEAMS = 10
 
 /**
- * Registre des équipes. Volontairement séparé des joueurs : une équipe vit
- * toute la soirée, alors que ses membres vont et viennent. Supprimer une
- * équipe ne supprime personne — ses membres se retrouvent simplement sans
- * équipe, et l'animateur les replace.
+ * Registre des équipes d'un espace. Volontairement séparé des joueurs : une
+ * équipe vit toute la soirée, alors que ses membres vont et viennent.
+ * Supprimer une équipe ne supprime personne — ses membres se retrouvent
+ * simplement sans équipe, et l'animateur les replace.
  */
 export class Teams {
   private teams = new Map<string, TeamRec>()
@@ -40,9 +40,10 @@ export class Teams {
 
   constructor(
     private db: DB,
-    private backup?: PartyBackup,
+    private spaceId: string,
+    private backup?: PartyMirror,
   ) {
-    for (const row of db.prepare('SELECT * FROM teams').all() as any[]) {
+    for (const row of db.prepare('SELECT * FROM teams WHERE space_id = ?').all(spaceId) as any[]) {
       this.teams.set(row.id, {
         id: row.id,
         name: row.name,
@@ -51,7 +52,7 @@ export class Teams {
         createdAt: row.created_at,
       })
     }
-    for (const row of db.prepare('SELECT * FROM team_bonus').all() as any[]) {
+    for (const row of db.prepare('SELECT * FROM team_bonus WHERE space_id = ?').all(spaceId) as any[]) {
       this.bonuses.set(row.id, {
         id: row.id,
         teamId: row.team_id,
@@ -88,8 +89,8 @@ export class Teams {
     }
     this.teams.set(rec.id, rec)
     this.db
-      .prepare('INSERT INTO teams (id, name, emoji, position, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(rec.id, rec.name, rec.emoji, rec.position, rec.createdAt)
+      .prepare('INSERT INTO teams (id, name, emoji, position, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(rec.id, rec.name, rec.emoji, rec.position, rec.createdAt, this.spaceId)
     this.backup?.saveTeam(rec)
     return rec
   }
@@ -125,8 +126,8 @@ export class Teams {
   }
 
   clearAll() {
-    this.db.prepare('DELETE FROM teams').run()
-    this.db.prepare('DELETE FROM team_bonus').run()
+    this.db.prepare('DELETE FROM teams WHERE space_id = ?').run(this.spaceId)
+    this.db.prepare('DELETE FROM team_bonus WHERE space_id = ?').run(this.spaceId)
     this.teams.clear()
     this.bonuses.clear()
   }
@@ -151,8 +152,8 @@ export class Teams {
     }
     this.bonuses.set(rec.id, rec)
     this.db
-      .prepare('INSERT INTO team_bonus (id, team_id, points, reason, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(rec.id, rec.teamId, rec.points, rec.reason, rec.createdAt)
+      .prepare('INSERT INTO team_bonus (id, team_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(rec.id, rec.teamId, rec.points, rec.reason, rec.createdAt, this.spaceId)
     this.backup?.saveBonus(rec)
     return rec
   }

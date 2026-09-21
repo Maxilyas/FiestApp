@@ -6,6 +6,11 @@ import type { AnswerRow } from './answers'
 export interface SocketData {
   playerId?: string
   isHost?: boolean
+  /**
+   * L'espace que suit cette connexion, fixé à la première présentation
+   * (invité ou écran commun) et jamais changé ensuite.
+   */
+  spaceId?: string
   /** L'animateur connecté derrière cet écran commun, et sa session. */
   accountId?: string
   authSessionId?: string
@@ -20,6 +25,8 @@ export type IoServer = Server<
 
 export interface GameSessionRec<S = unknown> {
   id: string
+  /** L'espace où se joue la partie — c'est sa bibliothèque qui compte. */
+  spaceId: string
   status: 'running' | 'ended'
   participantIds: string[]
   state: S
@@ -57,7 +64,7 @@ export interface ViewContext {
  * sinon les bonnes réponses arriveraient dans le téléphone avant la révélation.
  */
 export interface GameModule<S = any> {
-  createInitialState(participantIds: string[], config: unknown): S
+  createInitialState(spaceId: string, participantIds: string[], config: unknown): S
   /** Appelé juste après le lancement — pour démarrer une phase avec timer. */
   onLaunch?(session: GameSessionRec<S>, ctx: GameContext): void
   onPlayerAction(session: GameSessionRec<S>, playerId: string, action: any, ctx: GameContext): void

@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client'
 import type { ClientToServerEvents, JoinAck, ServerToClientEvents } from '../../shared/events'
-import { getState, setState, showToast } from './state'
+import { forgetMe, getState, setState, showToast } from './state'
+import { currentSlug } from './routes'
 
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
   autoConnect: false,
@@ -25,15 +26,25 @@ socket.on('session:ended', ({ sessionId }) => {
 })
 socket.on('player:removed', () => {
   // On oublie l'identité : le téléphone revient à l'écran d'inscription.
-  localStorage.removeItem('quizz.me')
-  localStorage.removeItem('quizz.profile')
-  setState({ me: null, views: {} })
+  const slug = currentSlug()
+  if (slug) forgetMe(slug)
+  else setState({ me: null, views: {} })
   showToast({ kind: 'info', message: "L'animateur t'a retiré de la soirée" })
 })
 
 socket.on('toast', showToast)
 
+/**
+ * Suivre une soirée sans y jouer encore : la page d'inscription reçoit alors
+ * ses instantanés — les équipes, « X déjà connectés ». Refusé si le nom de
+ * l'espace ne mène nulle part.
+ */
+export function watchParty(slug: string): Promise<{ ok: boolean; error?: string }> {
+  return new Promise(resolve => socket.emit('party:watch', { slug }, resolve))
+}
+
 export function joinAsPlayer(
+  slug: string,
   name: string,
   avatar: string,
   token?: string,
@@ -41,7 +52,7 @@ export function joinAsPlayer(
   teamId?: string | null,
 ): Promise<JoinAck> {
   return new Promise(resolve =>
-    socket.emit('player:join', { name, avatar, token, teamId }, resolve),
+    socket.emit('player:join', { slug, name, avatar, token, teamId }, resolve),
   )
 }
 

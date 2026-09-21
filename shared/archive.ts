@@ -7,6 +7,7 @@
 // quiz a changé entre-temps — et la soirée suivante peut repartir de zéro
 // sans rien effacer.
 import type { PlayableQuestion, QuestionKind } from './library'
+import type { PublicSpace } from './space'
 import type { TeamBonus } from './types'
 
 export interface ArchivedPlayer {
@@ -96,6 +97,8 @@ export interface ArchiveList {
   current: { players: number; quizzes: number; questions: number; since: number | null } | null
   /** De la plus récente à la plus ancienne. */
   archives: ArchiveSummary[]
+  /** L'espace dont c'est l'historique. */
+  space?: PublicSpace
 }
 
 /** « 19 septembre 2026 » */

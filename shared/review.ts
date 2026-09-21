@@ -7,6 +7,7 @@
 // question par question — c'est lui qu'on relit le lendemain.
 import type { ArchiveSummary } from './archive'
 import type { QuestionKind } from './library'
+import type { PublicSpace } from './space'
 import type { PlayerStat, PublicTeam } from './types'
 
 /** Ce qu'une équipe a fait sur une question. */
@@ -197,6 +198,8 @@ export interface Review {
   unresolved: number
   /** Présent quand la page relit une soirée archivée plutôt que celle en cours. */
   archive?: ArchiveSummary
+  /** L'espace dont la page parle — ses titres, sa date. */
+  space?: PublicSpace
 }
 
 // ── Petites aides, les mêmes côté page et côté export ────────────────────
