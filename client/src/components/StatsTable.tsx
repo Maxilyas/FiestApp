@@ -39,8 +39,9 @@ const COLUMNS: Column[] = [
 /**
  * Le tableau complet, une ligne par joueur, triable par colonne.
  *
- * Toutes les colonnes tiennent rarement sur un téléphone : le tableau défile
- * horizontalement dans son propre cadre plutôt que de faire déborder la page.
+ * Toutes les colonnes tiennent rarement sur un téléphone, ni toutes les
+ * lignes quand la salle est pleine : le tableau défile dans son propre cadre,
+ * dans les deux sens, en gardant la ligne des titres et les prénoms en vue.
  */
 export function StatsTable({ stats }: { stats: PartyStats }) {
   const [sortKey, setSortKey] = useState('points')
