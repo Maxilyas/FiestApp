@@ -123,3 +123,17 @@ export function stampLegacySpace(db: DB, spaceId: string): number {
   }
   return stamped
 }
+
+/**
+ * Efface tout ce que la soirée d'un espace a laissé ici — la partie en cours
+ * comprise : son compte est supprimé. Rend le nombre de lignes parties.
+ */
+export function wipeSpace(db: DB, spaceId: string): number {
+  return db.transaction(() => {
+    let removed = 0
+    for (const table of PARTY_TABLES) {
+      removed += db.prepare(`DELETE FROM ${table} WHERE space_id = ?`).run(spaceId).changes
+    }
+    return removed
+  })()
+}

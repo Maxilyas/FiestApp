@@ -278,6 +278,22 @@ export class SpaceRegistry {
     return rows.length
   }
 
+  /**
+   * Oublie la soirée d'un espace dont le compte disparaît. Sa partie en cours
+   * est soldée — ses chronomètres avec : un chrono qui sonnerait après coup
+   * réécrirait la partie sur le disque —, plus rien ne part vers le miroir,
+   * et un prochain `get` repartirait d'une soirée vide.
+   */
+  drop(spaceId: string): boolean {
+    const runtime = this.runtimes.get(spaceId)
+    if (!runtime) return false
+    const running = runtime.engine.activeSessionId
+    if (running) runtime.engine.endSession(running)
+    runtime.stop()
+    this.runtimes.delete(spaceId)
+    return true
+  }
+
   stopAll() {
     for (const runtime of this.runtimes.values()) runtime.stop()
   }

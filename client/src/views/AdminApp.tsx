@@ -9,8 +9,9 @@ import { normalizeSlug, type PublicAccount } from '../../../shared/space'
 /**
  * Les comptes (`/admin`), pour l'administrateur seul : créer le compte d'un
  * ami, lui donner son lien d'activation, en refaire un s'il a perdu son mot
- * de passe, désactiver ou réactiver. Rien d'autre : les quiz et les soirées
- * des autres ne se voient pas d'ici.
+ * de passe, désactiver ou réactiver — et supprimer un compte désactivé, avec
+ * tout ce qu'il a laissé. Rien d'autre : les quiz et les soirées des autres
+ * ne se voient pas d'ici.
  */
 export function AdminApp() {
   const { toast } = useAppState()
@@ -166,19 +167,45 @@ export function AdminApp() {
                       </button>
                       {a.id !== me.account.id &&
                         (a.status === 'disabled' ? (
-                          <button
-                            className="btn btn-small btn-ghost"
-                            onClick={() => api.admin.enable(a.id).then(load).catch(e => showToast({ kind: 'error', message: e.message }))}
-                          >
-                            Réactiver
-                          </button>
+                          <>
+                            <button
+                              className="btn btn-small btn-ghost"
+                              onClick={() => api.admin.enable(a.id).then(load).catch(e => showToast({ kind: 'error', message: e.message }))}
+                            >
+                              Réactiver
+                            </button>
+                            <button
+                              className="btn btn-small btn-ghost"
+                              title="Supprimer le compte et tout ce qu'il a laissé"
+                              onClick={async () => {
+                                const ok = await confirmDialog({
+                                  title: `Supprimer le compte de ${a.name} ?`,
+                                  message:
+                                    'Ses quiz, ses photos, ses soirées archivées et sa soirée en cours seront effacés, sans retour. Son identifiant et son adresse redeviennent libres.\n\nPour en garder une trace, exporte ses soirées avant (npm run export).',
+                                  confirmLabel: 'Supprimer le compte',
+                                  danger: true,
+                                })
+                                if (!ok) return
+                                try {
+                                  await api.admin.remove(a.id)
+                                  await load()
+                                  showToast({ kind: 'info', message: `Le compte de ${a.name} est supprimé` })
+                                } catch (e) {
+                                  showToast({ kind: 'error', message: (e as Error).message })
+                                }
+                              }}
+                            >
+                              <Icon name="trash" />
+                              Supprimer
+                            </button>
+                          </>
                         ) : (
                           <button
                             className="btn btn-small btn-ghost"
                             onClick={async () => {
                               const ok = await confirmDialog({
                                 title: `Désactiver le compte de ${a.name} ?`,
-                                message: 'Il ne pourra plus se connecter et ses écrans communs se fermeront. Ses quiz et ses soirées restent, et tu peux le réactiver.',
+                                message: 'Il ne pourra plus se connecter et ses écrans communs se fermeront. Ses quiz et ses soirées restent : tu peux le réactiver, ou le supprimer pour de bon.',
                                 confirmLabel: 'Désactiver',
                                 danger: true,
                               })

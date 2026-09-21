@@ -85,6 +85,8 @@ export const api = {
     enable: (id: string) => req<{ account: PublicAccount }>(`/api/admin/accounts/${id}/enable`, { method: 'POST' }),
     update: (id: string, patch: { name?: string; slug?: string }) =>
       req<{ account: PublicAccount }>(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
+    /** Un compte désactivé seulement ; tout ce qu'il a laissé part avec lui. */
+    remove: (id: string) => req<{ ok: true }>(`/api/admin/accounts/${id}`, { method: 'DELETE' }),
   },
 }
 

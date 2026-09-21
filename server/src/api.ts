@@ -16,6 +16,8 @@ interface ApiDeps {
   publicOrigin: string | null
   /** Appelé après chaque modification : recharge le cache lu par le module de jeu. */
   onLibraryChanged: (spaceId: string) => Promise<void>
+  /** Supprime un compte et tout ce qu'il a laissé — composé dans `createQuizServer`, où tout est à portée. */
+  removeAccount: (accountId: string) => Promise<void>
 }
 
 /**
@@ -32,7 +34,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // AVANT de lire le corps : sinon n'importe qui pouvait faire analyser
   // quatre mégaoctets de JSON au serveur sans être connecté.
   app.use('/api', csrfGuard({ online: deps.online, publicOrigin: deps.publicOrigin }))
-  mountAuthApi(app, { auth: deps.auth, online: deps.online })
+  mountAuthApi(app, { auth: deps.auth, online: deps.online, removeAccount: deps.removeAccount })
   app.use('/api', requireAccount(deps.auth))
 
   // Les photos arrivent en dataURL dans le corps JSON.

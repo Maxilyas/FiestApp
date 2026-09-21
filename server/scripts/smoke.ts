@@ -4,6 +4,7 @@
 // À lancer via `npm run smoke`.
 import { io as clientIo, type Socket } from 'socket.io-client'
 import { createClient } from '@libsql/client'
+import Database from 'better-sqlite3'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -478,6 +479,137 @@ try {
     body: JSON.stringify({ dataUrl: 'data:text/html;base64,PHNjcmlwdD4=' }),
   })
   assert(badImage.status === 400, 'un faux fichier image doit être refusé')
+
+  // 10 bis. Supprimer un compte : seulement désactivé, jamais le sien ; tout
+  //         ce qu'il a laissé part avec lui — quiz, photo, invitée, partie en
+  //         cours, archive — et son adresse redevient libre. Un compte
+  //         jetable, pour laisser Bob aux vérifications d'isolation ; une
+  //         seule activation et aucune connexion, le garde-fou des essais
+  //         compte par adresse.
+  const carlaCreated = (await (
+    await apiCall('/api/admin/accounts', {
+      method: 'POST',
+      body: JSON.stringify({ login: 'carla', name: 'Carla', slug: 'chez-carla' }),
+    })
+  ).json()) as any
+  const carlaId: string = carlaCreated.account.id
+  const carlaActivated = await write(url, '/api/auth/activate', { token: carlaCreated.activation.token, password: 'carla-pass-12' })
+  assert(carlaActivated.ok, `activation de Carla refusée (${carlaActivated.status})`)
+  const carlaCookie = cookieOf(carlaActivated)
+  const carlaCall = (path: string, init?: RequestInit) =>
+    fetch(`${url}${path}`, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', Cookie: carlaCookie, 'X-Requested-With': 'quizz', ...init?.headers },
+    })
+  // De la matière à effacer : une photo (lue une fois, elle entre dans le
+  // cache), un quiz qui la porte, une invitée, une partie laissée en cours
+  // après sa première révélation — chronomètres armés, recopies en vol —,
+  // et une soirée archivée.
+  const carlaImage = (await (
+    await carlaCall('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl: TINY_JPEG }) })
+  ).json()) as any
+  assert((await fetch(`${url}${carlaImage.url}`)).ok, 'la photo de Carla se lit')
+  const carlaQuiz = (await (
+    await carlaCall('/api/quizzes', {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Le quiz de Carla',
+        questions: [
+          { text: 'Chez qui ?', answers: ['Chez Carla', 'Ailleurs', '', ''], correct: 0, duration: 20, image: carlaImage.url },
+          { text: 'Et ensuite ?', answers: ['On danse', 'On dort', '', ''], correct: 0, duration: 20 },
+        ],
+      }),
+    })
+  ).json()) as any
+  assert(carlaQuiz.id, 'le quiz de Carla')
+  const carlita = connect()
+  await watch(carlita, 'chez-carla')
+  const carlitaAck = await emitAck<any>(carlita, 'player:join', { slug: 'chez-carla', name: 'Carlita', avatar: '🦋' })
+  assert(carlitaAck.ok, 'Carlita rejoint la soirée de Carla')
+  const carlaHost = connectHost(url, carlaCookie)
+  assert((await emitAck<any>(carlaHost, 'host:hello', {})).ok, 'l’écran commun de Carla')
+  const carlaPick = waitFor<any>(carlaHost, 'session:view', p => p.view.phase === 'pickPack', 'liste des quiz de Carla')
+  ;(carlaHost as any).emit('host:launch')
+  const carlaSession = await carlaPick
+  ;(carlaHost as any).emit('host:command', { sessionId: carlaSession.sessionId, command: { type: 'selectPack', packId: carlaQuiz.id } })
+  await waitFor<any>(carlita, 'session:view', p => p.view.phase === 'question', 'question chez Carla')
+  const carlitaReveal = waitFor<any>(carlita, 'session:view', p => p.view.phase === 'reveal', 'révélation chez Carla')
+  ;(carlita as any).emit('player:action', { sessionId: carlaSession.sessionId, action: { type: 'answer', choice: 0 } })
+  await carlitaReveal
+  const carlaArchived = waitFor<any>(carlaHost, 'toast', t => t.kind === 'info', 'soirée de Carla archivée')
+  ;(carlaHost as any).emit('host:archiveParty', { title: 'Chez Carla' })
+  await carlaArchived
+  const carlaSoirees = (await (await fetch(`${url}/s/chez-carla/soirees.json`)).json()) as any
+  assert(carlaSoirees.archives.length === 1 && carlaSoirees.current, 'l’historique de Carla : une archive, une soirée en cours')
+  const carlaArchiveId: string = carlaSoirees.archives[0].id
+  carlaHost.disconnect()
+
+  const delAccount = (id: string, call = apiCall) => call(`/api/admin/accounts/${id}`, { method: 'DELETE' })
+  assert((await delAccount('inconnu')).status === 404, 'supprimer un compte inconnu vaut 404')
+  assert((await delAccount(carlaId)).status === 400, 'un compte actif ne se supprime pas : il faut le désactiver d’abord')
+  assert((await delAccount(meAdmin.account.id)).status === 400, 'l’administrateur ne se supprime pas lui-même')
+  assert((await delAccount(carlaId, bobCall)).status === 403, 'la suppression est réservée à l’administrateur')
+  assert((await apiCall(`/api/admin/accounts/${carlaId}/disable`, { method: 'POST' })).ok, 'désactiver Carla')
+  const carlitaOut = waitFor<void>(carlita, 'player:removed', () => true, 'Carlita renvoyée à l’inscription')
+  const carlitaCut = new Promise<void>(r => carlita.on('disconnect', () => r()))
+  const carlaRemoved = await delAccount(carlaId)
+  assert(carlaRemoved.ok, `supprimer Carla (${carlaRemoved.status}) : ${await carlaRemoved.text()}`)
+  await Promise.race([
+    Promise.all([carlitaOut, carlitaCut]),
+    new Promise((_, rej) =>
+      setTimeout(() => rej(new Error('les téléphones d’un compte supprimé doivent être renvoyés puis coupés')), 3000),
+    ),
+  ])
+  carlita.disconnect()
+  assert((await fetch(`${url}/s/chez-carla/recap.json`)).status === 404, 'les pages d’un compte supprimé ne se lisent plus')
+  assert(
+    (await fetch(`${url}/s/chez-carla/soirees/${carlaArchiveId}/bilan.json`)).status === 404,
+    'son archive est partie avec lui',
+  )
+  assert((await fetch(`${url}${carlaImage.url}`)).status === 404, 'sa photo n’est plus servie, cache compris')
+  assert(!(await emitAck<any>(connect(), 'party:watch', { slug: 'chez-carla' })).ok, 'sa soirée ne se suit plus')
+  assert((await fetch(`${url}/api/auth/me`, { headers: { Cookie: carlaCookie } })).status === 401, 'sa session ne vaut plus rien')
+  const accountsLeft = (await (await apiCall('/api/admin/accounts')).json()) as any[]
+  assert(!accountsLeft.some(a => a.id === carlaId), 'le compte a disparu de la liste')
+  const carlaCheck = createClient({ url: quizDbUrl })
+  const carlaLeft = await carlaCheck.execute({
+    sql: `SELECT (SELECT COUNT(*) FROM quizzes WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM quiz_images WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM soirees WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM party_players WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM party_teams WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM party_bonus WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM party_answers WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM party_scores WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM party_sessions WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM accounts WHERE id = ?)
+            + (SELECT COUNT(*) FROM auth_sessions WHERE account_id = ?)
+            + (SELECT COUNT(*) FROM activations WHERE account_id = ?) AS n`,
+    args: Array(12).fill(carlaId),
+  })
+  assert(Number(carlaLeft.rows[0].n) === 0, `plus aucune ligne de Carla dans la base permanente (${carlaLeft.rows[0].n} restantes)`)
+  carlaCheck.close()
+  const localDb = new Database(dbPath)
+  const localLeft = localDb
+    .prepare(
+      `SELECT (SELECT COUNT(*) FROM players WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM teams WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM team_bonus WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM answer_log WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM score_entries WHERE space_id = ?)
+            + (SELECT COUNT(*) FROM sessions WHERE space_id = ?) AS n`,
+    )
+    .get(...Array(6).fill(carlaId)) as { n: number }
+  localDb.close()
+  assert(localLeft.n === 0, `plus aucune ligne de Carla dans la base locale (${localLeft.n} restantes)`)
+  // Son adresse et son identifiant sont libres, et l'espace qui les reprend est vierge.
+  const carlaAgain = await apiCall('/api/admin/accounts', {
+    method: 'POST',
+    body: JSON.stringify({ login: 'carla', name: 'Carla II', slug: 'chez-carla' }),
+  })
+  assert(carlaAgain.status === 201, `l’identifiant et l’adresse d’un compte supprimé redeviennent libres (${carlaAgain.status})`)
+  const carlaFresh = (await (await fetch(`${url}/s/chez-carla/soirees.json`)).json()) as any
+  assert(carlaFresh.current === null && carlaFresh.archives.length === 0, 'le nouvel espace repart de zéro : rien n’a fui')
 
   // 11. Création + édition : un brouillon incomplet est conservé, pas jeté
   const created = (await (
@@ -1472,9 +1604,9 @@ try {
   assert(secondBoot.archives.length === 1, 'la mise à jour est idempotente')
   await server4.close()
 
-  console.log('✅ Smoke test OK — 35 étapes')
+  console.log('✅ Smoke test OK — 36 étapes')
   console.log(
-    '   collage de questions, comptes et sessions, garde-fous, isolation des espaces, quiz complet, bibliothèque,',
+    '   collage de questions, comptes et sessions, suppression d’un compte, garde-fous, isolation des espaces, quiz complet, bibliothèque,',
   )
   console.log(
     '   photos, estimation, sabotage, retardataire, pause, enchaînement automatique, annulation, question reposée,',
