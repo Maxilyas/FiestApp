@@ -83,11 +83,11 @@ export const DEFAULT_MAX_PLAYERS = 150
 /** Au-delà, l'instance gratuite de l'hébergeur ne suit plus. */
 export const MAX_PLAYERS_CEILING = 500
 
-/** Les réglages d'un espace tout neuf : le prénom de l'animateur fait le titre. */
+/** Les réglages d'un espace tout neuf : le prénom de l'animateur fait le titre (« La soirée de / Bob »). */
 export function defaultSettings(name: string): SpaceSettings {
   return {
     title: `La soirée de ${name}`,
-    eyebrow: 'Le quiz de la soirée de',
+    eyebrow: 'La soirée de',
     headline: name,
     dateLine: '',
     maxPlayers: DEFAULT_MAX_PLAYERS,

@@ -214,6 +214,10 @@ export function HostApp() {
   // Rechargés à chaque ouverture d'un écran de fin : les prix et les
   // statistiques changent après chaque quiz joué.
   const spaceSlug = s.snapshot?.space.slug ?? null
+  const spaceTitle = s.snapshot?.space.title ?? null
+  useEffect(() => {
+    if (spaceTitle) document.title = `${spaceTitle} · Écran commun`
+  }, [spaceTitle])
   useEffect(() => {
     if (!screen || !spaceSlug) return
     fetch(dataUrl(spaceSlug, 'recap.json'))
@@ -289,9 +293,6 @@ export function HostApp() {
   const slug = snap.space.slug
   const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   const joinUrl = isLocalhost && snap.joinUrl ? snap.joinUrl : `${window.location.origin}/${slug}`
-  useEffect(() => {
-    document.title = `${snap.space.title} · Écran commun`
-  }, [snap.space.title])
   const connectedCount = snap.players.filter(p => p.connected).length
   const offlineCount = snap.players.length - connectedCount
   const session = snap.session
