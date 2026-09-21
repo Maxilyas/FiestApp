@@ -1,6 +1,8 @@
-# Quizz Romane 30 🎉
+# Quizz de soirée 🎉
 
-Quiz façon Kahoot, gratuit et auto-hébergé, pour les 30 ans de Romane (19 septembre 2026). Chaque invité joue depuis son téléphone (navigateur, rien à installer), un écran commun (TV/vidéoprojecteur) anime la soirée, et un classement cumulé traverse tous les quiz de la soirée — en individuel **et** par équipe, le quiz n'étant qu'un des trois jeux de la fête.
+Quiz façon Kahoot, gratuit et auto-hébergé, né pour les 30 ans de Romane (19 septembre 2026) et devenu un outil pour toutes les fêtes. Chaque invité joue depuis son téléphone (navigateur, rien à installer), un écran commun (TV/vidéoprojecteur) anime la soirée, et un classement cumulé traverse tous les quiz de la soirée — en individuel **et** par équipe, le quiz n'étant qu'un des trois jeux de la fête.
+
+Plusieurs animateurs partagent le même serveur : chacun a **son compte et son espace** — ses quiz, ses soirées, son historique, son adresse à scanner — et ne voit rien de ceux des autres.
 
 ## Démarrage rapide
 
@@ -14,16 +16,18 @@ npm install
 npm run dev
 ```
 
-Six adresses, une par usage :
+Chez soi, le compte administrateur est `antoine` / `romane` et son espace s'appelle `romane` (variables `ADMIN_*`, voir plus bas). Les adresses, une par usage :
 
 | Page | Adresse | Pour qui |
 |---|---|---|
-| Jeu | http://localhost:5173 | les invités (sur leur téléphone : `http://<IP-du-PC>:5173`) |
-| Écran commun | http://localhost:5173/host#key=romane | la TV / le vidéoprojecteur |
-| Mes quiz | http://localhost:5173/edit#key=romane | Antoine, pour écrire les quiz |
-| Statistiques | http://localhost:5173/stats | Antoine pendant la fête, tout le monde après |
-| Bilan | http://localhost:5173/bilan | les invités, le lendemain : chacun relit ses réponses |
-| Soirées | http://localhost:5173/soirees | l'historique : chaque soirée passée, avec son souvenir, ses chiffres et son bilan |
+| Jeu | http://localhost:5173/romane | les invités (sur leur téléphone : `http://<IP-du-PC>:5173/romane`) — c'est l'adresse du QR |
+| Écran commun | http://localhost:5173/host | la TV / le vidéoprojecteur, une fois l'animateur connecté |
+| Mes quiz | http://localhost:5173/edit | l'animateur, pour écrire ses quiz |
+| Mon compte | http://localhost:5173/compte | ses réglages de soirée, son mot de passe, l'adresse de ses invités |
+| Les comptes | http://localhost:5173/admin | l'administrateur seul : créer un compte à un ami |
+| Statistiques | http://localhost:5173/romane/stats | l'animateur pendant la fête, tout le monde après |
+| Bilan | http://localhost:5173/romane/bilan | les invités, le lendemain : chacun relit ses réponses |
+| Soirées | http://localhost:5173/romane/soirees | l'historique : chaque soirée passée, avec son souvenir, ses chiffres et son bilan |
 
 ```bash
 npm run check
@@ -33,13 +37,26 @@ npm run check
 npm run smoke
 ```
 
-`check` = typecheck serveur + client. `smoke` = test de bout en bout (inscription, garde-fous, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, reprise après coupure en pleine question, historique des soirées).
+`check` = typecheck serveur + client. `smoke` = test de bout en bout (comptes et sessions, garde-fous, isolation des espaces, inscription, quiz complet, scoring, classement, reconnexion, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, anciennes adresses, reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d'une base d'avant les comptes).
 
-La clé animateur se passe **après un dièse** (`#key=…`) : cette partie de l'adresse ne quitte jamais le navigateur, elle n'arrive ni dans les journaux du serveur ni dans l'historique d'une adresse partagée. Elle est retirée de la barre d'adresse aussitôt lue.
+## Les comptes et les espaces
+
+Un compte = un animateur = un **espace**, désigné par un nom court dans l'adresse (`/romane`, `/chez-bob`). Tout ce qui se joue, s'écrit ou se range est rattaché à l'espace :
+
+- **ses quiz et ses photos** (`/edit`) ;
+- **sa soirée en cours** — invités, équipes, points, partie en cours — et son écran commun (`/host`) ;
+- **son historique** (`/romane/soirees`) et les pages publiques de chaque soirée (`/romane/souvenir`, `/romane/stats`, `/romane/bilan`) ;
+- **ses réglages** (`/compte`) : le titre de la soirée, le surtitre et le grand titre de l'écran d'inscription (« Les trente ans de / Romane »), la date telle qu'on l'écrit, le nombre maximal d'invités.
+
+Les pages d'animation ne portent pas l'espace dans l'adresse : c'est la session de l'animateur connecté qui le dit. Un identifiant de quiz ou de soirée qui n'est pas du sien vaut « introuvable », et une commande envoyée à la partie d'un voisin est refusée sans que le voisin en sache rien. Les pages des invités, elles, restent **publiques par leur lien**, comme avant : le souvenir, les statistiques et le bilan se partagent dans le groupe sans compte.
+
+**Les comptes se créent depuis `/admin`**, par l'administrateur seul : un prénom, un identifiant, un nom d'adresse, et l'application rend un **lien d'activation** à envoyer par le canal qu'on veut. L'ami ouvre le lien, choisit son mot de passe, et son espace est prêt — avec une bibliothèque vide. Le lien vaut sept jours et ne sert qu'une fois ; **un mot de passe oublié se règle par un nouveau lien**, depuis la même page. Un compte se désactive (ses écrans se ferment, ses pages restent lisibles) et se réactive ; il ne se supprime pas.
+
+**Pour l'administrateur**, rien ne change : son compte naît au premier démarrage depuis `ADMIN_LOGIN` / `ADMIN_PASSWORD` / `ADMIN_SLUG` / `ADMIN_NAME`, et tout ce qui existait avant les comptes — bibliothèque, photos, archives, soirée en cours — lui est rattaché au premier démarrage, sans rien copier ni effacer. Les anciennes adresses (`/bilan`, `/souvenir`, `/soirees/<id>/…`) redirigent vers son espace : les liens déjà partagés et les QR déjà imprimés restent bons. La racine `/` demande le nom de la soirée à qui arrive sans lien.
 
 ## Écrire ses quiz
 
-Tout se passe dans **Mes quiz** (`/edit`), protégé par la même clé que l'écran commun. On y crée, duplique et supprime des quiz ; dans un quiz, on ajoute des questions, on les réordonne, on choisit la bonne réponse, le temps de réponse et une photo.
+Tout se passe dans **Mes quiz** (`/edit`), réservé à l'animateur connecté : chaque compte a sa bibliothèque. On y crée, duplique et supprime des quiz ; dans un quiz, on ajoute des questions, on les réordonne, on choisit la bonne réponse, le temps de réponse et une photo.
 
 Deux types de questions, au choix pour chacune :
 
@@ -60,7 +77,7 @@ L'estimation évite les blocages : même sans connaître la réponse, on propose
 - **👁 Aperçu** montre une question telle qu'elle sera projetée, sans lancer de partie.
 - **🙈 La photo disparaît** transforme n'importe quelle question — QCM comme estimation — en jeu de mémoire. Voir plus bas.
 
-Au tout premier démarrage, les quiz livrés dans `server/content/quiz/*.json` sont importés une fois dans la bibliothèque pour ne pas partir d'une page blanche. Ensuite ces fichiers ne servent plus à rien : tout vit dans la base.
+Au tout premier démarrage, les quiz livrés dans `server/content/quiz/*.json` sont importés une fois dans la bibliothèque de l'administrateur pour ne pas partir d'une page blanche. Ensuite ces fichiers ne servent plus à rien : tout vit dans la base. Les autres comptes commencent avec une bibliothèque vide.
 
 ## Déroulé d'une partie
 
@@ -72,7 +89,7 @@ Pendant une question, **l'écran commun bascule en mode scène** : les panneaux 
 
 **Le vidéoprojecteur délave les noirs** : dans une salle éclairée, l'écran commun en fond sombre devient un rectangle gris où plus rien ne se lit. Le bouton ☀️ de la console le passe en **mode Ivoire** — fond crème, encre sombre, les teintes des feuilles imprimées de la soirée — et 🌙 le ramène en Velours. Le choix est mémorisé sur le PC de l'animateur et ne concerne que l'écran commun : les téléphones des invités restent sombres, c'est ce qui ménage les yeux dans le noir.
 
-**L'animateur garde la main** : ⏸ pause (le chronomètre se fige, plus personne ne peut répondre), ↺ reposer la même question, ✖ annuler les points d'une question dont la réponse était fausse, renommer ou exclure un invité d'un clic sur sa pastille, et ⛶ plein écran. La clé n'apparaît jamais dans la barre d'adresse.
+**L'animateur garde la main** : ⏸ pause (le chronomètre se fige, plus personne ne peut répondre), ↺ reposer la même question, ✖ annuler les points d'une question dont la réponse était fausse, renommer ou exclure un invité d'un clic sur sa pastille, et ⛶ plein écran. Aucun secret ne passe par la barre d'adresse : la session est dans un cookie que le navigateur garde pour lui.
 
 **⏩ Manuel / Auto 5 s / Auto 10 s** : en mode automatique, la question suivante part toute seule après la révélation, avec un décompte affiché. Un quiz de dix questions demandait vingt clics — autant d'occasions de décrocher de la soirée. Corriger ou reposer une question reprend la main aussitôt.
 
@@ -96,39 +113,39 @@ De ce journal sortent **une vingtaine de prix**, calculés tout seuls : ⚡ L'É
 
 Ces points s'ajoutent au **barème des trois jeux**, pas à la moyenne du quiz : ce sont deux choses différentes, et les mélanger rendrait les deux illisibles. L'écran **👑 Victoire** annonce l'équipe qui remporte le quiz, prix compris — reste à y ajouter les deux jeux physiques.
 
-**Les chiffres vivent sur `/stats`**, à leur propre adresse : un tableau de dix-sept colonnes, triable en cliquant sur un en-tête, une ligne par joueur — points, réponses données, justes, fausses, taux de réussite, temps moyen, meilleur temps, plus longues séries, questions passées, revirements, réponses de dernière seconde, fois où l'on était seul de la salle, fois où l'on a suivi la majorité, estimations et leur écart moyen, biais optimiste ou pessimiste. La page se rafraîchit toute seule et n'a pas besoin de clé : elle se garde ouverte sur le téléphone de l'animateur pendant la fête, et se partage aux invités ensuite. Le tableau défile dans son propre cadre — dix-sept colonnes ne tiennent sur aucun téléphone. Un QR y mène depuis l'écran de remise des prix, et la page souvenir en reprend l'essentiel.
+**Les chiffres vivent sur `/romane/stats`**, à leur propre adresse : un tableau de dix-sept colonnes, triable en cliquant sur un en-tête, une ligne par joueur — points, réponses données, justes, fausses, taux de réussite, temps moyen, meilleur temps, plus longues séries, questions passées, revirements, réponses de dernière seconde, fois où l'on était seul de la salle, fois où l'on a suivi la majorité, estimations et leur écart moyen, biais optimiste ou pessimiste. La page se rafraîchit toute seule et n'a pas besoin de compte : elle se garde ouverte sur le téléphone de l'animateur pendant la fête, et se partage aux invités ensuite. Le tableau défile dans son propre cadre — dix-sept colonnes ne tiennent sur aucun téléphone. Un QR y mène depuis l'écran de remise des prix, et la page souvenir en reprend l'essentiel.
 
 **L'écran de victoire** montre les deux classements côte à côte : les équipes avec leur total du quiz, leurs points cumulés et leur moyenne d'un côté ; le classement individuel de l'autre. Les équipes décident du vainqueur, mais c'est pour son score personnel que chacun a joué — les deux méritent d'être à l'écran au même moment.
 
 ## Le bilan, question par question
 
-Le lendemain, chacun veut savoir ce qu'il a répondu — et ce que les autres ont répondu. **La page `/bilan`** le raconte, sans clé : on choisit son prénom dans la liste, et on relit sa soirée question par question — l'intitulé, ce qu'on a répondu, la bonne réponse, son temps, ses points, et en regard ce que son équipe et la salle ont choisi (deux barres par réponse : la salle en champagne, l'équipe en encre). Pour une estimation : sa proposition, la vraie valeur, son rang de proximité et la proposition la plus proche de la salle. En tête, quatre chiffres (points et rang, rang dans l'équipe, réussite, temps moyen) et les moments forts : les prix dont on est le lauréat proposé, son plus beau coup, la question où l'on a été le seul de la salle à trouver, celle qu'on a ratée alors que tout le monde l'avait…
+Le lendemain, chacun veut savoir ce qu'il a répondu — et ce que les autres ont répondu. **La page `/romane/bilan`** le raconte, sans compte : on choisit son prénom dans la liste, et on relit sa soirée question par question — l'intitulé, ce qu'on a répondu, la bonne réponse, son temps, ses points, et en regard ce que son équipe et la salle ont choisi (deux barres par réponse : la salle en champagne, l'équipe en encre). Pour une estimation : sa proposition, la vraie valeur, son rang de proximité et la proposition la plus proche de la salle. En tête, quatre chiffres (points et rang, rang dans l'équipe, réussite, temps moyen) et les moments forts : les prix dont on est le lauréat proposé, son plus beau coup, la question où l'on a été le seul de la salle à trouver, celle qu'on a ratée alors que tout le monde l'avait…
 
-Un seul lien à poster dans le groupe : le téléphone qui a servi à jouer se souvient de son invité et ouvre directement son bilan ; les autres choisissent leur prénom. Chaque bilan a son adresse (`/bilan#p=…`, bouton « Copier le lien ») pour l'envoyer à quelqu'un en particulier. Tout le monde peut lire le bilan de tout le monde : c'est une page souvenir, pas un carnet de notes.
+Un seul lien à poster dans le groupe : le téléphone qui a servi à jouer se souvient de son invité et ouvre directement son bilan ; les autres choisissent leur prénom. Chaque bilan a son adresse (`/romane/bilan#p=…`, bouton « Copier le lien ») pour l'envoyer à quelqu'un en particulier. Tout le monde peut lire le bilan de tout le monde : c'est une page souvenir, pas un carnet de notes.
 
 **L'onglet « La soirée »** relit tout pour tout le monde : les questions qui ont marqué (la plus ratée, la plus facile, la plus clivante, la plus hésitante, la plus vite jouée, la plus longue), les équipes quiz par quiz, puis chaque question avec la répartition des réponses, la réussite de chaque équipe, le plus rapide, et le moment où quelqu'un prend la tête du classement.
 
-**Les fiches** (`/bilan/fiches`) enchaînent une fiche par invité, en Ivoire, chacune sur sa page : « Imprimer » puis « Enregistrer en PDF », et on envoie à chacun la sienne — ou on imprime le tout.
+**Les fiches** (`/romane/bilan/fiches`) enchaînent une fiche par invité, en Ivoire, chacune sur sa page : « Imprimer » puis « Enregistrer en PDF », et on envoie à chacun la sienne — ou on imprime le tout.
 
 **L'export** met les mêmes chiffres en fichiers, pour les garder à l'abri ou rédiger ses messages soi-même :
 
 ```bash
-npm run export -- https://ton-app.onrender.com
+npm run export -- https://ton-app.onrender.com --slug romane
 ```
 
-Il écrit dans `export/` un `bilan.json` complet et trois CSV faits pour Excel (point-virgule, accents corrects) : `invites.csv` (une ligne par invité, une colonne par question — « Canberra ✔ · 1,8 s · 190 pts »), `questions.csv` (une ligne par question, avec la répartition des réponses et la réussite de chaque équipe) et `equipes.csv` (une ligne par équipe, un quiz par colonne). Si le serveur ne répond plus, `npm run export -- --db libsql://… --token …` lit directement la base Turso.
+Il écrit dans `export/romane/` un `bilan.json` complet et trois CSV faits pour Excel (point-virgule, accents corrects) : `invites.csv` (une ligne par invité, une colonne par question — « Canberra ✔ · 1,8 s · 190 pts »), `questions.csv` (une ligne par question, avec la répartition des réponses et la réussite de chaque équipe) et `equipes.csv` (une ligne par équipe, un quiz par colonne). Sans `--slug`, c'est l'espace de l'administrateur. Si le serveur ne répond plus, `npm run export -- --db libsql://… --token …` lit directement la base Turso.
 
 **Comment ça marche, et ce qu'il ne faut pas faire.** Le journal des réponses ne garde que des numéros : celui de la question dans son quiz, celui de la réponse choisie. Les intitulés sont retrouvés dans la copie du quiz que chaque partie terminée conserve sur le disque du serveur, et sinon dans la bibliothèque, par titre de quiz — en vérifiant que ce qu'elle dit colle au journal (type de question, bonne réponse, nombre de réponses). D'où une précaution tant que la soirée n'est pas rangée dans l'historique : **ne pas retoucher les quiz joués** — réordonner ou supprimer une question, vider une case de réponse ou renommer le quiz, et le bilan signale « quiz modifié depuis la soirée », ou perd l'intitulé (les numéros et les points restent). Une fois la soirée archivée, ses questions voyagent avec elle et la bibliothèque peut changer.
 
 ## L'historique des soirées
 
-L'application sert plus d'une fête. **`/soirees`** liste les soirées passées, et chacune se relit avec les mêmes pages que la soirée en cours : `/soirees/<id>/souvenir`, `/soirees/<id>/stats`, `/soirees/<id>/bilan` — et les fiches à imprimer avec. Les pages disent en tête quelle soirée elles relisent.
+L'application sert plus d'une fête. **`/romane/soirees`** liste les soirées passées de l'espace, et chacune se relit avec les mêmes pages que la soirée en cours : `/romane/soirees/<id>/souvenir`, `/romane/soirees/<id>/stats`, `/romane/soirees/<id>/bilan` — et les fiches à imprimer avec. Les pages disent en tête quelle soirée elles relisent.
 
-**Sauvegarder** (écran commun, à côté de 🧹 Nouvelle soirée) range la soirée en cours dans l'historique sous le nom qu'on lui donne, sans rien effacer : à faire dès la fin de la fête pour la mettre à l'abri, ou avant même la fin, la soirée continue. **🧹 Nouvelle soirée** fait la même chose avant d'effacer : rien ne s'efface tant que l'archive n'est pas écrite, et si la base distante ne répond pas, la soirée reste là et l'animateur est prévenu. Une soirée archivée deux fois est mise à jour, pas dupliquée : c'est la date et l'heure d'arrivée du premier invité qui l'identifient.
+**Sauvegarder** (écran commun, à côté de 🧹 Nouvelle soirée) range la soirée en cours dans l'historique sous le nom qu'on lui donne, sans rien effacer : à faire dès la fin de la fête pour la mettre à l'abri, ou avant même la fin, la soirée continue. **🧹 Nouvelle soirée** fait la même chose avant d'effacer : rien ne s'efface tant que l'archive n'est pas écrite, et si la base distante ne répond pas, la soirée reste là et l'animateur est prévenu. Une soirée archivée deux fois est mise à jour, pas dupliquée : c'est la date et l'heure d'arrivée du premier invité qui l'identifient — dans l'espace, deux animateurs peuvent avoir fait la fête le même soir sans se gêner.
 
 Une archive est une copie complète — invités, équipes, points, prix remis, journal des réponses, et les quiz tels qu'ils ont été posés — rangée dans la base permanente, à côté de la bibliothèque. Rien n'y est précalculé : le souvenir, les statistiques et le bilan se relisent depuis ces données avec le code du jour, et une amélioration des prix ou du bilan profite aux soirées passées. Les quiz voyagent avec l'archive : on peut ensuite retoucher la bibliothèque, ou la réécrire pour la fête suivante, sans rien perdre.
 
-Sur `/soirees`, l'animateur — reconnu à la clé mémorisée par l'espace animateur — renomme une soirée ou la retire de l'historique. L'export sait viser une archive : `npm run export -- https://ton-app.onrender.com --soiree 2026-09-19-k7x2q` (l'identifiant est dans l'adresse de ses pages) écrit ses fichiers dans `export/2026-09-19-k7x2q/`.
+Sur `/romane/soirees`, l'animateur de l'espace — connecté à son compte — renomme une soirée ou la retire de l'historique. L'export sait viser une archive : `npm run export -- https://ton-app.onrender.com --slug romane --soiree 2026-09-19-k7x2q` (l'identifiant est dans l'adresse de ses pages) écrit ses fichiers dans `export/romane/2026-09-19-k7x2q/`.
 
 ## Faire durer le suspense
 
@@ -138,9 +155,9 @@ Avec cinquante invités et un classement cumulé, les mêmes trois personnes mè
 
 **Les prix de caractère.** En plus des trois premiers, l'écran du podium et la page souvenir désignent **le plus beau coup** (le plus gros score sur une seule question), **le plus régulier** (celui qui a marqué sur le plus de questions) et **le vainqueur de chaque quiz** — autant de cadeaux à remettre, et une raison pour chacun de rester dans la partie.
 
-**En fin de soirée**, le bouton 🏆 célèbre le classement cumulé en plein écran, avec un QR vers la **page souvenir** (`/souvenir`) : podium, nombre de quiz, points distribués, le plus beau coup et le plus régulier. Elle est publique, à partager aux invités le lendemain.
+**En fin de soirée**, le bouton 🏆 célèbre le classement cumulé en plein écran, avec un QR vers la **page souvenir** (`/romane/souvenir`) : podium, nombre de quiz, points distribués, le plus beau coup et le plus régulier. Elle est publique, à partager aux invités le lendemain.
 
-**Entre deux soirées**, 🧹 Nouvelle soirée range d'abord la soirée dans l'historique (voir plus bas), puis efface invités et points, sauvegarde distante comprise — les essais d'avant la fête ne doivent pas traîner dans le classement du soir J. Une archive d'essais se retire ensuite d'un clic sur `/soirees`.
+**Entre deux soirées**, 🧹 Nouvelle soirée range d'abord la soirée dans l'historique (voir plus haut), puis efface invités et points, sauvegarde distante comprise — les essais d'avant la fête ne doivent pas traîner dans le classement du soir J. Une archive d'essais se retire ensuite d'un clic sur `/romane/soirees`.
 
 ## Les équipes
 
@@ -164,15 +181,17 @@ Le quiz n'est **qu'un jeu sur trois** : les deux autres se jouent debout, hors d
 
 Deux stockages séparés, et c'est volontaire :
 
-- **La bibliothèque de quiz** est le seul contenu précieux : elle doit survivre à un redéploiement. En local c'est un fichier (`server/data/quizzes.db`) ; en ligne, on pointe `QUIZ_DB_URL` vers une base **Turso** gratuite. Le code est le même — le client libSQL parle aux deux.
+- **La base permanente** est le seul contenu précieux : elle doit survivre à un redéploiement. En local c'est un fichier (`server/data/quizzes.db`) ; en ligne, on pointe `QUIZ_DB_URL` vers une base **Turso** gratuite. Le code est le même — le client libSQL parle aux deux. Elle contient les comptes (mots de passe hachés, jamais en clair), les sessions ouvertes (seule l'empreinte du jeton), les liens d'activation, la bibliothèque de quiz et ses photos, et les soirées archivées.
 - **L'état d'une partie** (question en cours, réponses) vit dans une base SQLite locale, jetable, et il est recopié dans la base distante au plus toutes les deux secondes. Après un redémarrage, même sur un disque effacé, la question en cours reprend là où elle en était — au pire, deux secondes de réponses en moins.
 - **Les invités et leurs points** sont recopiés dans la base distante au fil de l'eau et rechargés au démarrage si le disque local est reparti vide. Sur un hébergeur gratuit le disque est effacé à chaque redémarrage : sans ce miroir, la soirée repartirait à zéro sans que personne comprenne pourquoi.
-- **Les soirées archivées** vivent dans la base permanente, avec la bibliothèque : une ligne par soirée, tout dedans (table `soirees`). C'est ce qui reste quand la suivante commence.
+- **Les soirées archivées** vivent dans la base permanente, avec la bibliothèque : une ligne par soirée, tout dedans (table `soirees`, clé = espace + identifiant). C'est ce qui reste quand la suivante commence.
+
+Chaque ligne, dans les deux bases, porte l'espace à qui elle appartient. Au premier démarrage après la mise à jour, les lignes d'avant les comptes prennent l'espace de l'administrateur ; cette mise à jour est idempotente et ne copie ni n'efface rien.
 
 ## Tester avec de vrais téléphones (à la maison)
 
 1. PC et téléphones sur le **même wifi**.
-2. `npm run build && npm start` → tout est servi sur `http://<IP-du-PC>:3001` (l'IP s'affiche au démarrage ; l'écran commun peut rester en `localhost`, le QR code affiche automatiquement l'adresse réseau).
+2. `npm run build && npm start` → tout est servi sur `http://<IP-du-PC>:3001` (l'IP s'affiche au démarrage ; l'écran commun peut rester en `localhost`, le QR code affiche automatiquement l'adresse réseau, suivie du nom de l'espace).
 3. **Une fois pour toutes, dans un PowerShell administrateur** (sinon Windows bloque les connexions entrantes) :
 
 ```powershell
@@ -180,13 +199,13 @@ Set-NetConnectionProfile -NetworkCategory Private
 ```
 
 ```powershell
-New-NetFirewallRule -DisplayName "Quizz Romane 30" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3001,5173
+New-NetFirewallRule -DisplayName "Quizz" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3001,5173
 ```
 
 Pour simuler des invités sans téléphone (ils répondent au hasard) :
 
 ```bash
-node server/scripts/fake-player.mjs http://localhost:3001 Test1 300
+node server/scripts/fake-player.mjs http://localhost:3001 Test1 300 --slug romane
 ```
 
 ## Mettre en ligne (gratuitement)
@@ -197,19 +216,21 @@ Objectif : les invités scannent le QR et jouent en 4G, sans réseau à installe
 
 Deux comptes gratuits à créer (je ne peux pas le faire à ta place) :
 
-**1. Turso — la bibliothèque de quiz.** Crée un compte, puis une base. Récupère son URL (`libsql://…`) et un jeton d'accès. L'offre gratuite (100 bases, 5 Go, 500 millions de lignes lues par mois) est sans commune mesure avec deux quiz de cinquante questions.
+**1. Turso — la base permanente.** Crée un compte, puis une base. Récupère son URL (`libsql://…`) et un jeton d'accès. L'offre gratuite (100 bases, 5 Go, 500 millions de lignes lues par mois) est sans commune mesure avec deux quiz de cinquante questions.
 
-**2. Render — le serveur.** Connecte ce dépôt : Render lit `render.yaml` et crée le service. Renseigne ensuite les trois variables dans son interface :
+**2. Render — le serveur.** Connecte ce dépôt : Render lit `render.yaml` et crée le service. Renseigne ensuite les variables dans son interface :
 
 | Variable | Valeur |
 |---|---|
-| `HOST_KEY` | une clé à toi, pas `romane` — quiconque l'a peut animer et éditer. En ligne, le serveur refuse de démarrer avec la clé par défaut |
+| `ADMIN_LOGIN` | ton identifiant de connexion |
+| `ADMIN_PASSWORD` | ton mot de passe d'amorçage — en ligne, le serveur refuse de démarrer avec celui par défaut. Il ne sert qu'à créer le compte : change-le depuis « Mon compte », puis retire la variable |
+| `ADMIN_SLUG` | le nom de ton espace dans les adresses (`romane`) |
 | `QUIZ_DB_URL` | l'URL `libsql://…` de Turso |
 | `QUIZ_DB_TOKEN` | le jeton Turso |
 
-L'adresse publique du QR code se règle toute seule : Render fournit `RENDER_EXTERNAL_URL`, le serveur s'en sert.
+L'adresse publique du QR code se règle toute seule : Render fournit `RENDER_EXTERNAL_URL`, le serveur s'en sert et y ajoute le nom de l'espace.
 
-**3. Transférer les quiz écrits en local**, pour ne pas les ressaisir :
+**3. Transférer les quiz écrits en local**, pour ne pas les ressaisir — une fois le serveur démarré en ligne, puisque c'est lui qui crée ton compte :
 
 ```bash
 npm run migrate -- --to libsql://ta-base.turso.io --token ton-jeton
@@ -229,21 +250,26 @@ Si la salle capte mal ou si l'hébergeur fait des siennes, le même code tourne 
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `PORT` | `3001` | Port du serveur |
-| `HOST_KEY` | `romane` | Clé d'accès de l'écran commun et de l'éditeur (`#key=...`) — obligatoire en ligne |
-| `MAX_PLAYERS` | `150` | Au-delà, la soirée est déclarée complète |
+| `ADMIN_LOGIN` | `antoine` | L'identifiant de l'administrateur — utilisé au premier démarrage seulement, pour créer son compte |
+| `ADMIN_PASSWORD` | `romane` | Son mot de passe d'amorçage — obligatoire en ligne (le défaut y est refusé), à changer puis retirer |
+| `ADMIN_SLUG` | `romane` | Le nom de son espace dans les adresses |
+| `ADMIN_NAME` | `Antoine` | Son prénom, tel qu'affiché |
+| `MAX_PLAYERS` | `500` | Plafond d'invités par soirée, au-dessus du réglage de chaque espace (150 par défaut) |
 | `DB_PATH` | `server/data/quizz.db` | Base de la partie en cours (jetable) |
-| `QUIZ_DB_URL` | fichier voisin de `DB_PATH` | Bibliothèque de quiz : `file:...` ou `libsql://...` (Turso) |
+| `QUIZ_DB_URL` | fichier voisin de `DB_PATH` | Base permanente : `file:...` ou `libsql://...` (Turso) |
 | `QUIZ_DB_TOKEN` | — | Jeton Turso, si base distante |
 | `PUBLIC_URL` | `RENDER_EXTERNAL_URL` | URL publique à mettre dans le QR code |
 | `WIFI_SSID` / `WIFI_PASS` | — | Si définis : QR « rejoindre le wifi » sur l'écran commun |
 
 ## Garde-fous
 
-Le serveur ne fait confiance à rien de ce qui vient d'un téléphone, et personne ne peut le saturer depuis une seule connexion :
+Le serveur ne fait confiance à rien de ce qui vient d'un téléphone ou d'une page, et personne ne peut le saturer depuis une seule connexion :
 
-- cinq clés animateur fausses coupent la connexion — la force brute retombe à la vitesse d'une poignée de main réseau ;
-- une connexion ne crée pas plus de trois identités, une adresse pas plus de 25 d'un coup (puis 30 par minute : en 4G, des dizaines d'invités partagent la même adresse chez leur opérateur), et la soirée est complète à `MAX_PLAYERS` ;
-- prénoms et avatars sont nettoyés et bornés, les photos vérifiées, la clé exigée avant même de lire le corps d'une requête ;
+- **les comptes** : mots de passe hachés avec scrypt (natif Node), sessions de trente jours glissants dans un cookie `httpOnly` (`Secure` en ligne, `SameSite=Lax`) dont seule l'empreinte est en base ; vingt essais de connexion par adresse puis vingt par minute, et cinq échecs sur un identifiant le ferment un quart d'heure ; un identifiant inconnu coûte le même temps qu'un mot de passe faux ; se déconnecter, changer de mot de passe ou désactiver un compte ferme toutes ses sessions et coupe ses écrans communs ;
+- **les écritures** de l'API exigent un en-tête que seule la page envoie (contre les requêtes forgées depuis un autre site) et, en ligne, l'origine de l'application ; le corps d'une requête n'est lu qu'une fois la session vérifiée ;
+- **l'isolation** : l'espace vient de la session ou de l'adresse, jamais d'une charge utile ; une connexion ne suit qu'une soirée ; un identifiant de quiz, de soirée ou de partie qui n'est pas du sien vaut « introuvable » ou « terminée », au niveau du stockage lui-même ;
+- cinq présentations refusées coupent la connexion socket ; une connexion ne crée pas plus de trois identités, une adresse pas plus de 25 d'un coup (puis 30 par minute : en 4G, des dizaines d'invités partagent la même adresse chez leur opérateur), et la soirée est complète au plafond réglé par l'animateur ;
+- prénoms et avatars sont nettoyés et bornés, les photos vérifiées ;
 - en ligne, le temps réel n'accepte que les pages servies par l'application, le JS part compressé avec un an de cache, et les en-têtes de durcissement (CSP, `nosniff`…) sont posés.
 
 L'analyseur d'URL d'Express 4 s'appuie sur `qs`, dont `npm audit` signale deux failles de déni de service : aucune adresse ne lit de paramètre d'URL, et l'application utilise l'analyseur simple de Node — cette bibliothèque n'est jamais appelée.
@@ -251,10 +277,10 @@ L'analyseur d'URL d'Express 4 s'appuie sur `qs`, dont `npm audit` signale deux f
 ## Test de charge
 
 ```bash
-npm run load -- http://localhost:3001 50
+npm run load -- http://localhost:3001 50 --slug romane
 ```
 
-Le script simule une salle entière : il inscrit N invités d'un coup, joue lui-même le rôle de l'écran commun et mesure ce qui compte le soir J. Relevé sur un PC portable, 50 invités : inscriptions 141 ms en moyenne (p95 201 ms), diffusion d'une question vers les téléphones 1 ms, révélation 2 ms, 80 Mo de mémoire serveur. À 100 invités, la diffusion reste à 1 ms et les inscriptions montent à 550 ms au pire — l'offre gratuite de Render (512 Mo) a de la marge.
+Le script simule une salle entière : il se connecte comme l'animateur (`ADMIN_LOGIN` / `ADMIN_PASSWORD`), inscrit N invités d'un coup dans son espace, joue lui-même le rôle de l'écran commun et mesure ce qui compte le soir J. Relevé sur un PC portable, 50 invités : inscriptions 141 ms en moyenne (p95 201 ms), diffusion d'une question vers les téléphones 1 ms, révélation 2 ms, 80 Mo de mémoire serveur. À 100 invités, la diffusion reste à 1 ms et les inscriptions montent à 550 ms au pire — l'offre gratuite de Render (512 Mo) a de la marge.
 
 ## Identité visuelle
 
@@ -266,32 +292,36 @@ Trois règles ont guidé les choix, et elles valent pour toute évolution :
 - **Les polices voyagent avec l'application.** Cormorant Garamond (600, et l'italique 500 pour les sous-titres) et Figtree (fonte variable, 400 à 600) sont livrées en woff2 dans `client/public/fonts` — sous-ensemble latin, 67 Ko en tout, licence OFL jointe — et servies par le serveur. Rien ne part chercher Google à l'exécution : le repli wifi local marche hors ligne, et la politique de sécurité reste à `'self'`.
 - **La couleur n'est jamais seule.** Les quatre teintes (rose, champagne, lavande, sauge) ne servent qu'aux formes ▲ ◆ ● ■ des réponses, en SVG ; le texte reste encre. Les icônes d'interface sont des SVG au trait de 1,8 px — plus d'emojis dans l'interface, seuls les avatars et les emojis d'équipe en restent, parce que ce sont les invités qui les choisissent (tous antérieurs à Unicode 13 : Windows 10 n'affiche pas les plus récents). Les animations se coupent si le système demande moins de mouvement.
 
-L'écran commun a deux repères fixes : une bande d'état en haut (titre, quiz en cours, « Question 3 / 8 », combien ont répondu, QR et adresse pour rejoindre) et une **console animateur** en bas, toujours au même endroit — Révéler, Pause, Auto, Terminer, puis le son, le fond clair ou sombre, et le plein écran. L'espace animateur (`/edit`) partage la palette mais reste calme : pas d'animation, c'est un outil de travail, pas un spectacle.
+L'écran commun a deux repères fixes : une bande d'état en haut (le titre de la soirée, quiz en cours, « Question 3 / 8 », combien ont répondu, QR et adresse pour rejoindre) et une **console animateur** en bas, toujours au même endroit — Révéler, Pause, Auto, Terminer, puis le son, le fond clair ou sombre, et le plein écran. L'espace animateur (`/edit`, `/compte`, `/admin`) partage la palette mais reste calme : pas d'animation, c'est un outil de travail, pas un spectacle.
 
 **« Ivoire »** est Velours passé sur papier, pour l'écran commun quand le vidéoprojecteur ne rend pas les noirs : le fond devient crème (`#f9f5ec`), le noir chaud devient l'encre, le champagne s'assombrit (`#ac8536`) pour rester lisible, et les quatre teintes des formes foncent — le losange champagne disparaissait sur la crème. Ce sont les couleurs des fiches imprimées de `jour-j/`, pour que l'écran et les feuilles sur les tables se répondent. Techniquement, c'est un second jeu de variables sous `:root[data-theme='ivoire']` dans la même feuille de style : rien d'autre ne change, ni les tailles, ni les polices, ni la mise en page. Le bouton de la console pose l'attribut sur la page et mémorise le choix (`client/src/theme.ts`) ; il n'est lu que sur `/host`, les téléphones n'en savent rien.
 
 ## Architecture
 
 ```
-client/   React + Vite — 7 routes : "/" (téléphone), "/host" (écran commun), "/edit" (mes quiz),
-          "/stats" (les chiffres), "/souvenir" (le lendemain), "/bilan" (question par question),
-          "/soirees" (l'historique — chaque archive se relit par "/soirees/<id>/…")
+client/   React + Vite — les adresses (client/src/routes.ts) : "/" (quelle soirée ?),
+          "/<espace>" (téléphone), "/host" (écran commun), "/edit" (mes quiz),
+          "/compte", "/admin", "/connexion", "/activer" (le compte),
+          "/<espace>/stats", "/souvenir", "/bilan", "/soirees" (les pages publiques —
+          chaque archive se relit par "/<espace>/soirees/<id>/…")
 server/   Node + Socket.io + Express — logique de jeu 100% côté serveur
-shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, barème des équipes)
+shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, barème des équipes, espaces)
 ```
 
-- **Party** (`server/src/core/party.ts`) — registre des joueurs. L'identité survit aux coupures : un token stocké sur le téléphone permet de retrouver son joueur après un refresh, une perte de réseau ou un redémarrage du serveur.
+- **AuthStore** (`server/src/auth/store.ts`) + **routes d'auth** (`auth/routes.ts`, `auth/http.ts`) — les comptes, leurs sessions et leurs liens d'activation, dans la base permanente et en mémoire ; la porte de l'API (`requireAccount`), le garde anti-CSRF, la limite d'essais.
+- **SpaceRuntime / SpaceRegistry** (`core/space.ts`) — la soirée d'un espace : ses registres, son moteur, ses salons socket et ses diffusions (dédoublonnées, regroupées). Créée à la première connexion ; les espaces dont une partie était en cours au démarrage sont réveillés tout de suite.
+- **Party** (`server/src/core/party.ts`) — registre des joueurs d'un espace. L'identité survit aux coupures : un token stocké sur le téléphone permet de retrouver son joueur après un refresh, une perte de réseau ou un redémarrage du serveur.
 - **Teams** (`teams.ts`) — registre des équipes, séparé des joueurs : une équipe vit toute la soirée, ses membres vont et viennent. Le rattachement est une colonne sur le joueur, donc déplacer quelqu'un déplace ses points sans toucher au journal des scores.
 - **AnswerLog** (`answers.ts`) — une ligne par joueur et par question posée, réponses manquantes comprises. C'est la seule source des statistiques : le classement, lui, ne garde que les gains positifs. Une question annulée ou reposée en sort, pour ne pas compter deux fois.
 - **Stats** (`stats.ts`) — les moyennes, les séries et les prix, dérivés du journal. Les prix sont proposés, jamais appliqués : c'est l'animateur qui décide.
-- **Review** (`review.ts`) — le bilan question par question, dérivé du journal recroisé avec les questions telles qu'elles ont été posées : la copie du quiz gardée dans chaque partie terminée, sinon la bibliothèque. Servi par `/bilan.json`, public ; `export.ts` en tire les fichiers de `npm run export`.
+- **Review** (`review.ts`) — le bilan question par question, dérivé du journal recroisé avec les questions telles qu'elles ont été posées : la copie du quiz gardée dans chaque partie terminée, sinon la bibliothèque. Servi par `/s/<espace>/bilan.json`, public ; `export.ts` en tire les fichiers de `npm run export`.
 - **Recap** (`recap.ts`) — la page souvenir, calculée des journaux par une fonction pure : la soirée en cours et une archive passent par le même chemin.
-- **Archive** (`archive.ts`) — l'historique des soirées : une copie complète de la soirée (journaux, quiz joués) rangée dans la base permanente, relue par `/soirees/:id/recap.json` et `/soirees/:id/bilan.json`. Archiver ne recalcule rien ; relire se fait avec le code du jour.
+- **Archive** (`archive.ts`) — l'historique des soirées : une copie complète de la soirée (journaux, quiz joués) rangée dans la base permanente, relue par `/s/<espace>/soirees/:id/recap.json` et `…/bilan.json`. Archiver ne recalcule rien ; relire se fait avec le code du jour.
 - **ScoreLedger** (`scores.ts`) — scores en append-only : chaque gain est une ligne (joueur, points, raison). Classement = somme par joueur, historique gratuit.
-- **GameEngine** (`engine.ts`) — pilote la partie en cours (une seule à la fois) : route actions/commandes/timers vers le module de jeu, persiste l'état après chaque changement et rediffuse les **vues filtrées**.
+- **GameEngine** (`engine.ts`) — pilote la partie en cours d'un espace (une seule à la fois par espace) : route actions/commandes/timers vers le module de jeu, persiste l'état après chaque changement et rediffuse les **vues filtrées**.
 - **Vues filtrées** — les clients ne reçoivent jamais l'état brut : chaque joueur reçoit `playerView(state, playerId)`, l'écran `hostView(state)`. C'est ce qui empêche la bonne réponse d'arriver dans le téléphone avant la révélation.
-- **QuizStore** (`quizStore.ts`) + **API** (`api.ts`) — la bibliothèque de quiz et son API REST, protégée par la clé. Les photos sont servies par `/media/image/:id`, sans clé : les téléphones doivent pouvoir les charger.
-- **Module quiz** (`server/src/games/quiz.ts`) — les règles : phases, timers, scoring, vues. Le moteur étant synchrone et la bibliothèque asynchrone, le module garde une **copie en mémoire** des quiz, rafraîchie au démarrage et après chaque édition — jamais pendant une partie.
+- **QuizStore** (`quizStore.ts`) + **API** (`api.ts`) — la bibliothèque de quiz et son API REST, derrière la session, chaque appel dans l'espace du compte connecté. Les photos sont servies par `/media/image/:id`, sans compte : les téléphones doivent pouvoir les charger, et l'identifiant est un UUID impossible à deviner.
+- **Module quiz** (`server/src/games/quiz.ts`) — les règles : phases, timers, scoring, vues. Le moteur étant synchrone et la bibliothèque asynchrone, le module garde une **copie en mémoire** des quiz de chaque espace, rafraîchie au démarrage et après chaque édition — jamais pendant une partie.
 
 ## Feuille de route
 
@@ -311,3 +341,4 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, bar
 | 12 | Journal des réponses, statistiques, prix de fin de soirée et écran de victoire | ✅ |
 | 13 | Le bilan : ce que chacun a répondu question par question, la relecture collective, les fiches imprimables, l'export CSV | ✅ |
 | 14 | L'historique des soirées : archives complètes, relecture des pages d'une soirée passée, sauvegarde avant remise à zéro | ✅ |
+| 15 | Les comptes et les espaces : un animateur par compte, ses quiz et ses soirées à lui, un lien d'activation pour chaque ami | ✅ |

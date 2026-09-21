@@ -1,20 +1,25 @@
 // Joueur fantôme pour tester sans deuxième téléphone :
-//   node scripts/fake-player.mjs http://localhost:3001 [Nom] [durée-en-s]
-// Il rejoint la soirée et répond au hasard à chaque question du quiz, avec un
-// petit délai aléatoire pour imiter un vrai doigt. Utile aussi pour simuler
-// 50 invités d'un coup (voir README).
+//   node scripts/fake-player.mjs http://localhost:3001 [Nom] [durée-en-s] [--slug romane]
+// Il rejoint la soirée de l'espace donné (`--slug`, sinon QUIZ_SLUG, sinon
+// « romane ») et répond au hasard à chaque question du quiz, avec un petit
+// délai aléatoire pour imiter un vrai doigt. Utile aussi pour simuler 50
+// invités d'un coup (voir README).
 import { io } from 'socket.io-client'
+import { slugArg } from './login.mjs'
 
-const url = process.argv[2] ?? 'http://localhost:3001'
-const name = process.argv[3] ?? 'TestPhone'
-const lifetimeSec = Number(process.argv[4] ?? 90)
+const positional = process.argv.slice(2).filter((a, i, all) => a !== '--slug' && all[i - 1] !== '--slug')
+const url = positional[0] ?? 'http://localhost:3001'
+const name = positional[1] ?? 'TestPhone'
+const lifetimeSec = Number(positional[2] ?? 90)
+const slug = slugArg()
 
 const socket = io(url, { transports: ['websocket'] })
 const answered = new Set()
 
 socket.on('connect', () => {
-  socket.emit('player:join', { name, avatar: '📱' }, res => {
-    console.log(`[${name}] join:`, JSON.stringify(res))
+  socket.emit('player:join', { slug, name, avatar: '📱' }, res => {
+    console.log(`[${name}] join (${slug}):`, JSON.stringify(res))
+    if (!res.ok) process.exit(1)
   })
 })
 
