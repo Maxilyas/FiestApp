@@ -2087,3 +2087,44 @@ h3 > .icon {
 .archive-banner .icon { color: var(--accent); }
 .archive-banner strong { color: var(--ink); font-weight: 500; }
 .recap-header .archive-banner { margin-bottom: 6px; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LE COMPTE ET LES COMPTES
+   « Mon compte » : l'adresse des invités à copier, les réglages de la
+   soirée, le mot de passe. « Les comptes » : le tableau de
+   l'administrateur, un état par pastille.
+   ═══════════════════════════════════════════════════════════════════ */
+.account .card h2 { margin-bottom: 4px; }
+.account .card > .muted.small { margin-bottom: 12px; }
+.account .field { gap: 6px; }
+
+.link-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--edge);
+  background: var(--surface);
+}
+
+.link-box code {
+  overflow-wrap: anywhere;
+  font-size: 0.95rem;
+  color: var(--accent);
+}
+
+.settings-form { display: flex; flex-direction: column; gap: 14px; }
+.settings-form .row { margin-top: 4px; }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+
+.accounts-table th, .accounts-table td { text-align: left; vertical-align: middle; }
+.accounts-table .stats-name { white-space: normal; }
+.accounts-table .pill { margin-left: 6px; }
+.account-actions { gap: 6px; flex-wrap: nowrap; }
+
+.pill.status-active { color: var(--accent); border-color: rgba(var(--accent-rgb), 0.5); }
+.pill.status-pending { font-style: italic; }
+.pill.status-disabled { color: var(--alert); border-color: var(--alert); text-decoration: line-through; }

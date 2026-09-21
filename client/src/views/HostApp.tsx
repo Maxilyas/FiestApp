@@ -3,7 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
 import { showToast, useAppState } from '../state'
 import { confirmDialog, promptDialog } from '../components/Dialog'
-import { readKeyFromUrl } from '../hostKeyUrl'
+import { api } from '../api'
 import { formatDay } from '../../../shared/archive'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
@@ -14,7 +14,7 @@ import { Trophies } from '../components/Trophies'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { Icon } from '../components/Icon'
 import { Rank } from '../components/Rank'
-import { KeyForm } from '../components/Invitation'
+import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
 import { finalRanking, rankTeams } from '../../../shared/teams'
 import type { PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
@@ -182,9 +182,12 @@ function TeamGroup({
 
 export function HostApp() {
   const s = useAppState()
-  const [authed, setAuthed] = useState(false)
-  const [keyInput, setKeyInput] = useState('')
+  /** L'animateur reconnu par le serveur — `null` tant que la session n'a pas été vérifiée. */
+  const [me, setMe] = useState<{ slug: string; name: string } | null>(null)
+  /** Le serveur a refusé la poignée de main : pas de session, ou une session périmée. */
+  const [needLogin, setNeedLogin] = useState(false)
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
   const [muted, setMuted] = useState(isMuted)
   /** Velours (noir chaud) ou Ivoire (fond clair, pour un vidéoprojecteur qui délave les noirs). */
   const [theme, setTheme] = useState(currentTheme)
@@ -222,15 +225,19 @@ export function HostApp() {
       })
   }, [screen])
 
+  // La session voyage dans le cookie de la poignée de main : le serveur la
+  // reconnaît (ou non) à chaque connexion, sans rien à retenir ici.
   useEffect(() => {
-    const urlKey = readKeyFromUrl()
-    if (urlKey) localStorage.setItem('quizz.hostKey', urlKey)
     socket.connect()
     const hello = async () => {
-      const key = localStorage.getItem('quizz.hostKey')
-      if (!key) return
-      const res = await helloHost(key)
-      setAuthed(res.ok)
+      const res = await helloHost()
+      if (res.ok && res.slug && res.name) {
+        setMe({ slug: res.slug, name: res.name })
+        setNeedLogin(false)
+      } else {
+        setMe(null)
+        setNeedLogin(true)
+      }
     }
     if (socket.connected) hello()
     socket.on('connect', hello)
@@ -239,16 +246,30 @@ export function HostApp() {
     }
   }, [])
 
-  const submitKey = async (e: FormEvent) => {
-    e.preventDefault()
-    localStorage.setItem('quizz.hostKey', keyInput)
-    const res = await helloHost(keyInput)
-    if (res.ok) setAuthed(true)
-    else setError('Clé incorrecte')
+  const submitLogin = async (login: string, password: string) => {
+    setBusy(true)
+    setError('')
+    try {
+      await api.auth.login(login, password)
+      // Le cookie est posé : la prochaine poignée de main le porte.
+      socket.disconnect()
+      socket.connect()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
   }
 
-  if (!authed) {
-    return <KeyForm title="Écran commun" value={keyInput} error={error} onChange={setKeyInput} onSubmit={submitKey} />
+  if (needLogin) {
+    return <LoginForm title="Écran commun" error={error} busy={busy} onSubmit={submitLogin} />
+  }
+  if (!me) {
+    return (
+      <div className="center-page">
+        <p className="serif-note">Connexion…</p>
+      </div>
+    )
   }
 
   const snap = s.snapshot
@@ -782,14 +803,9 @@ export function HostApp() {
                     <Icon name="play" />
                     {connectedCount === 0 ? 'En attente des invités…' : 'Lancer un quiz'}
                   </button>
-                  {/* Dans un autre onglet : l'écran commun reste projeté. La clé
-                      passe en fragment, que le navigateur garde pour lui. */}
-                  <a
-                    className="btn"
-                    href={`/edit#key=${encodeURIComponent(localStorage.getItem('quizz.hostKey') ?? '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                  {/* Dans un autre onglet : l'écran commun reste projeté. La
+                      session est dans le cookie, rien à passer dans l'adresse. */}
+                  <a className="btn" href="/edit" target="_blank" rel="noreferrer">
                     <Icon name="edit" />
                     Mes quiz
                   </a>

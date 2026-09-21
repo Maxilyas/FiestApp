@@ -49,8 +49,13 @@ export function setMyTeam(teamId: string | null): Promise<{ ok: boolean; error?:
   return new Promise(resolve => socket.emit('player:setTeam', { teamId }, resolve))
 }
 
-export function helloHost(key: string): Promise<{ ok: boolean }> {
-  return new Promise(resolve => socket.emit('host:hello', { key }, resolve))
+/**
+ * L'écran commun se présente. Rien à envoyer : la session de l'animateur est
+ * dans le cookie, que le navigateur joint à la poignée de main. En retour,
+ * son espace — ou un refus s'il n'est pas connecté.
+ */
+export function helloHost(): Promise<{ ok: boolean; slug?: string; name?: string }> {
+  return new Promise(resolve => socket.emit('host:hello', {}, resolve))
 }
 
 // En dev, un hot-reload de ce module créerait une 2e connexion socket branchée

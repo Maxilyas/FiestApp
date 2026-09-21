@@ -1,9 +1,9 @@
-import type { FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 
 /**
  * L'en-tête d'invitation : une ligne en capitales espacées, un titre serif
  * champagne, une phrase en italique. C'est le premier écran que voient les
- * invités — et celui que retrouve l'animateur devant sa clé.
+ * invités — et celui que retrouve l'animateur devant la porte de son espace.
  */
 export function JoinHead({
   eyebrow,
@@ -26,41 +26,64 @@ export function JoinHead({
   )
 }
 
-/** La porte de l'espace animateur : une clé, rien d'autre. */
-export function KeyForm({
+/** La porte de l'espace animateur : un identifiant, un mot de passe. */
+export function LoginForm({
   title,
-  value,
+  sub,
   error,
-  onChange,
+  busy,
   onSubmit,
 }: {
   title: string
-  value: string
+  sub?: string
   error?: string
-  onChange: (value: string) => void
-  onSubmit: (e: FormEvent) => void
+  busy?: boolean
+  onSubmit: (login: string, password: string) => void
 }) {
+  const [login, setLogin] = useState('')
+  const [password, setPassword] = useState('')
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (!busy) onSubmit(login.trim(), password)
+  }
   return (
-    <form className="join" onSubmit={onSubmit}>
-      <JoinHead eyebrow="Quizz Romane 30" title={title} compact sub="Réservé à l'animateur" />
+    <form className="join" onSubmit={submit}>
+      <JoinHead eyebrow="Espace animateur" title={title} compact sub={sub ?? 'Réservé aux animateurs'} />
       <hr className="hairline" />
       <div className="field">
-        <label className="label" htmlFor="host-key">
-          Clé d'accès
+        <label className="label" htmlFor="login">
+          Identifiant
         </label>
         <input
-          id="host-key"
+          id="login"
+          className="input input-line"
+          autoComplete="username"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={login}
+          onChange={e => setLogin(e.target.value)}
+          autoFocus
+        />
+      </div>
+      <div className="field">
+        <label className="label" htmlFor="password">
+          Mot de passe
+        </label>
+        <input
+          id="password"
           className="input input-line"
           type="password"
           autoComplete="current-password"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          autoFocus
+          value={password}
+          onChange={e => setPassword(e.target.value)}
         />
       </div>
       {error && <p className="error">{error}</p>}
       <div className="join-grow" />
-      <button className="btn btn-primary btn-big btn-block">Entrer</button>
+      <button className="btn btn-primary btn-big btn-block" disabled={busy}>
+        Entrer
+      </button>
+      <p className="join-foot">Mot de passe oublié ? Demande un nouveau lien d'activation à l'administrateur.</p>
     </form>
   )
 }

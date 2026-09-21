@@ -6,13 +6,17 @@ import type { AnswerLog } from './core/answers'
 import type { GameEngine } from './core/engine'
 import type { PartySnapshot } from '../../shared/types'
 import type { ArchiveSummary } from '../../shared/archive'
+import type { AuthStore } from './auth/store'
+import { readSessionToken } from './auth/http'
+import { Budget } from './core/budget'
 
 interface SocketDeps {
   party: Party
   teams: Teams
   answers: AnswerLog
   engine: GameEngine
-  hostKey: string
+  /** Les comptes des animateurs : l'écran commun se présente avec sa session. */
+  auth: AuthStore
   /** Derrière le proxy de l'hébergeur, l'adresse du client est dans un en-tête. */
   trustProxy: boolean
   /** Inscriptions au-delà desquelles la soirée est déclarée complète. */
@@ -33,7 +37,7 @@ interface SocketDeps {
 // adresse. Une clé courte tombait en quelques minutes, et un plaisantin
 // remplissait la mémoire et la base distante de faux invités en pleine fête.
 
-/** Clés fausses tolérées par connexion avant de la couper. */
+/** Présentations refusées tolérées par connexion avant de la couper. */
 const HELLO_MAX_FAILURES = 5
 /** Identités qu'une même connexion peut créer (une reconnexion n'en crée pas). */
 const JOINS_PER_SOCKET = 3
@@ -44,8 +48,6 @@ const JOINS_PER_SOCKET = 3
  */
 const JOIN_BURST = 25
 const JOIN_REFILL_PER_MINUTE = 30
-
-const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1'])
 
 /**
  * L'adresse du client. Derrière le proxy de l'hébergeur, on lit la dernière
@@ -61,39 +63,23 @@ function clientIp(socket: Socket, trustProxy: boolean): string {
   return socket.handshake.address
 }
 
-/** Réserve d'inscriptions par adresse (seau à jetons). */
-class JoinBudget {
-  private buckets = new Map<string, { tokens: number; at: number }>()
-
-  take(ip: string): boolean {
-    // Les tests et les essais à la maison passent par l'adresse locale : ils
-    // inscrivent cinquante invités d'un coup, et c'est voulu.
-    if (LOOPBACK.has(ip)) return true
-    const now = Date.now()
-    const b = this.buckets.get(ip) ?? { tokens: JOIN_BURST, at: now }
-    b.tokens = Math.min(JOIN_BURST, b.tokens + ((now - b.at) / 60_000) * JOIN_REFILL_PER_MINUTE)
-    b.at = now
-    if (b.tokens < 1) {
-      this.buckets.set(ip, b)
-      return false
-    }
-    b.tokens -= 1
-    this.buckets.set(ip, b)
-    if (this.buckets.size > 2000) this.prune(now)
-    return true
-  }
-
-  private prune(now: number) {
-    for (const [ip, b] of this.buckets) if (now - b.at > 10 * 60_000) this.buckets.delete(ip)
-  }
-}
-
 export function wireSockets(io: IoServer, deps: SocketDeps) {
-  const joinBudget = new JoinBudget()
+  // Réserve d'inscriptions par adresse. Les tests et les essais à la maison
+  // passent par l'adresse locale : ils inscrivent cinquante invités d'un
+  // coup, et c'est voulu.
+  const joinBudget = new Budget(JOIN_BURST, JOIN_REFILL_PER_MINUTE, { skipLoopback: true })
 
   /** Une équipe inconnue (supprimée entre-temps) vaut « pas d'équipe ». */
   const validTeam = (teamId?: string | null): string | null =>
     teamId && deps.teams.has(teamId) ? teamId : null
+
+  // Une session révoquée — déconnexion, mot de passe changé, compte
+  // désactivé — emporte les écrans communs qu'elle avait ouverts.
+  deps.auth.onRevoke(sessionId => {
+    for (const s of io.sockets.sockets.values()) {
+      if (s.data.authSessionId === sessionId) s.disconnect(true)
+    }
+  })
 
   io.on('connection', socket => {
     let helloFailures = 0
@@ -160,8 +146,12 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       ack({ ok: true })
     })
 
-    socket.on('host:hello', (payload, ack) => {
-      if (payload?.key !== deps.hostKey) {
+    // L'écran commun se présente avec sa session : le cookie posé à la
+    // connexion voyage dans la poignée de main, rien ne transite par la page.
+    socket.on('host:hello', (_payload, ack) => {
+      const token = readSessionToken(socket.handshake.headers.cookie)
+      const found = token ? deps.auth.resolveSession(token) : null
+      if (!found) {
         // Cinq essais, pas cinq mille : au-delà, la connexion est coupée et
         // il faut en rouvrir une — ce qui ramène la force brute à la vitesse
         // d'une poignée de main réseau.
@@ -169,8 +159,10 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         return ack({ ok: false })
       }
       socket.data.isHost = true
+      socket.data.accountId = found.account.id
+      socket.data.authSessionId = found.session.id
       socket.join('hosts')
-      ack({ ok: true })
+      ack({ ok: true, slug: found.account.slug, name: found.account.name })
       socket.emit('party:snapshot', deps.buildSnapshot(true))
       deps.engine.resendHostViews(socket)
     })
