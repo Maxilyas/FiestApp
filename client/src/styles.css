@@ -1764,13 +1764,34 @@ h3 > .icon {
 .victory-points { font-family: var(--serif); font-weight: 600; font-size: clamp(1.4rem, 3vw, 2.2rem); font-variant-numeric: lining-nums; }
 
 /* ── Tableau des statistiques ───────────────────── */
-/* Dix-sept colonnes ne tiennent sur aucun téléphone : le tableau défile dans
-   son propre cadre plutôt que de faire déborder toute la page. */
-.stats-scroll { overflow-x: auto; margin-top: 10px; }
+/* Dix-sept colonnes et autant de lignes que d'invités ne tiennent sur aucun
+   téléphone : le tableau défile dans son propre cadre, dans les deux sens,
+   et ses repères ne bougent pas — la ligne des titres en haut, le prénom à
+   gauche. Le cadre est borné en hauteur, sinon c'est la page qui défile et
+   les titres partent avec elle ; un petit tableau (les équipes du bilan, les
+   comptes) n'atteint jamais la borne. Pas de overscroll-behavior: contain :
+   arrivé au bout du cadre, le pouce doit continuer à faire défiler la page. */
+.stats-scroll {
+  overflow: auto;
+  max-height: 75vh;
+  max-height: 75dvh;
+  margin-top: 10px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+}
 
 .stats-table { border-collapse: collapse; font-size: 0.85rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .stats-table th, .stats-table td { padding: 5px 9px; text-align: right; }
-.stats-table thead th { border-bottom: 1px solid var(--edge); }
+/* Figé en haut du cadre. Le filet est une ombre, pas une bordure : avec les
+   bordures fusionnées, Chromium laisse la bordure sur place quand la cellule
+   se fige. Fond opaque : les lignes passent dessous. */
+.stats-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg-raised);
+  box-shadow: inset 0 -1px 0 var(--edge);
+}
 /* L'en-tête entier est le bouton de tri : 17 px de haut, c'était imprenable
    au pouce, sur une page faite pour le téléphone. */
 .stats-table thead th:has(.stats-sort) { padding: 0; }
@@ -1781,8 +1802,17 @@ h3 > .icon {
   text-align: left;
   position: sticky;
   left: 0;
+  z-index: 1;
   background: var(--bg);
   font-weight: 500;
+  box-shadow: inset -1px 0 0 var(--edge);
+}
+/* La case du coin tient les deux axes, au-dessus de tout — « thead th » est
+   plus spécifique que « .stats-name », d'où la règle à part. */
+.stats-table thead th.stats-name {
+  z-index: 3;
+  background: var(--bg-raised);
+  box-shadow: inset -1px -1px 0 var(--edge);
 }
 
 .stats-sort {
@@ -2086,6 +2116,9 @@ h3 > .icon {
   .bilan-chip,
   .space-nav,
   .btn { display: none; }
+  /* Sur papier, le tableau s'étale en entier et rien n'est figé. */
+  .stats-scroll { max-height: none; overflow: visible; border: none; }
+  .stats-table th, .stats-table td { position: static; }
 }
 
 /* Sur la page souvenir, l'invitation à relire sa soirée : une carte, un bouton. */
