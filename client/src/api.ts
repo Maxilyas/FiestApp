@@ -89,6 +89,17 @@ export const api = {
 }
 
 /**
+ * Qui est connecté, demandé une seule fois par page. Les pages publiques
+ * s'en servent pour reconnaître l'animateur de l'espace ; un invité reçoit
+ * 401, et c'est le cas normal : null, sans bruit.
+ */
+let meOnce: Promise<Me | null> | null = null
+export function currentMe(): Promise<Me | null> {
+  if (!meOnce) meOnce = api.auth.me().catch(() => null)
+  return meOnce
+}
+
+/**
  * Réduit et recompresse la photo dans le navigateur avant l'envoi : une photo
  * de téléphone fait 4 Mo, on n'en garde que ~100 Ko — la base reste légère et
  * l'affichage instantané sur l'écran commun.

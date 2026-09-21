@@ -649,7 +649,8 @@ export function HostApp() {
                 )}
 
                 {/* Le tableau complet se lit sur un téléphone, pas au
-                    vidéoprojecteur : il s'ouvre à côté. */}
+                    vidéoprojecteur : le souvenir s'ouvre à côté, droit sur
+                    ses chiffres. */}
                 <div className="stage-foot">
                   <div className="qr-stack">
                     <div className="qr-box">
@@ -669,7 +670,7 @@ export function HostApp() {
                   </button>
                   <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
                     <Icon name="bar-chart" />
-                    Statistiques
+                    Les chiffres
                   </a>
                   {backButton}
                 </ConsoleActions>
@@ -839,7 +840,7 @@ export function HostApp() {
                       )}
                       <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
                         <Icon name="bar-chart" />
-                        Statistiques
+                        Les chiffres
                       </a>
                     </>
                   )}

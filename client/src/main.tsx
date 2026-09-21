@@ -11,7 +11,8 @@ import './styles.css'
 //   /host             l'écran commun (TV) de l'animateur connecté
 //   /edit             sa bibliothèque de quiz
 //   /connexion, /activer, /compte, /admin : son compte
-//   /<espace>/stats, /souvenir, /bilan, /soirees : les pages publiques de la soirée
+//   /<espace>/souvenir, /bilan, /soirees : les pages publiques de la soirée
+//   (/<espace>/stats ouvre le souvenir sur ses chiffres)
 //   /<espace>/soirees/<id>/… : les mêmes pages, tournées vers une soirée archivée
 //
 // Chaque route est un paquet à part : les téléphones n'ont pas à télécharger
@@ -20,7 +21,6 @@ import './styles.css'
 const PlayerApp = lazy(() => import('./views/PlayerApp').then(m => ({ default: m.PlayerApp })))
 const HostApp = lazy(() => import('./views/HostApp').then(m => ({ default: m.HostApp })))
 const EditorApp = lazy(() => import('./views/EditorApp').then(m => ({ default: m.EditorApp })))
-const StatsApp = lazy(() => import('./views/StatsApp').then(m => ({ default: m.StatsApp })))
 const RecapApp = lazy(() => import('./views/RecapApp').then(m => ({ default: m.RecapApp })))
 const BilanApp = lazy(() => import('./views/BilanApp').then(m => ({ default: m.BilanApp })))
 const ArchivesApp = lazy(() => import('./views/ArchivesApp').then(m => ({ default: m.ArchivesApp })))
@@ -40,7 +40,7 @@ const ACCOUNT: Record<AccountPage, typeof HostApp> = {
 }
 const PUBLIC: Record<PublicPage, typeof RecapApp> = {
   souvenir: RecapApp,
-  stats: StatsApp,
+  stats: RecapApp,
   bilan: BilanApp,
   'bilan/fiches': BilanApp,
   soirees: ArchivesApp,

@@ -25,9 +25,9 @@ Chez soi, le compte administrateur est `antoine` / `romane` et son espace s'appe
 | Mes quiz | http://localhost:5173/edit | l'animateur, pour écrire ses quiz |
 | Mon compte | http://localhost:5173/compte | ses réglages de soirée, son mot de passe, l'adresse de ses invités |
 | Les comptes | http://localhost:5173/admin | l'administrateur seul : créer un compte à un ami |
-| Statistiques | http://localhost:5173/romane/stats | l'animateur pendant la fête, tout le monde après |
-| Bilan | http://localhost:5173/romane/bilan | les invités, le lendemain : chacun relit ses réponses |
-| Soirées | http://localhost:5173/romane/soirees | l'historique : chaque soirée passée, avec son souvenir, ses chiffres et son bilan |
+| Souvenir | http://localhost:5173/romane/souvenir | tout le monde, le lendemain : podium, palmarès, équipes et tous les chiffres ; l'animateur pendant la fête aussi, la page se rafraîchit seule (`/romane/stats` y mène, droit sur le tableau) |
+| Bilan | http://localhost:5173/romane/bilan | les invités, le lendemain : chacun relit ses réponses ; l'animateur y trouve les fiches à imprimer |
+| Soirées | http://localhost:5173/romane/soirees | l'historique : chaque soirée passée, avec son souvenir, chiffres compris, et son bilan |
 
 ```bash
 npm run check
@@ -45,10 +45,10 @@ Un compte = un animateur = un **espace**, désigné par un nom court dans l'adre
 
 - **ses quiz et ses photos** (`/edit`) ;
 - **sa soirée en cours** — invités, équipes, points, partie en cours — et son écran commun (`/host`) ;
-- **son historique** (`/romane/soirees`) et les pages publiques de chaque soirée (`/romane/souvenir`, `/romane/stats`, `/romane/bilan`) ;
+- **son historique** (`/romane/soirees`) et les pages publiques de chaque soirée (`/romane/souvenir`, `/romane/bilan`) ;
 - **ses réglages** (`/compte`) : le titre de la soirée, le surtitre et le grand titre de l'écran d'inscription (« Les trente ans de / Romane »), la date telle qu'on l'écrit, le nombre maximal d'invités.
 
-Les pages d'animation ne portent pas l'espace dans l'adresse : c'est la session de l'animateur connecté qui le dit. Un identifiant de quiz ou de soirée qui n'est pas du sien vaut « introuvable », et une commande envoyée à la partie d'un voisin est refusée sans que le voisin en sache rien. Les pages des invités, elles, restent **publiques par leur lien**, comme avant : le souvenir, les statistiques et le bilan se partagent dans le groupe sans compte.
+Les pages d'animation ne portent pas l'espace dans l'adresse : c'est la session de l'animateur connecté qui le dit. Un identifiant de quiz ou de soirée qui n'est pas du sien vaut « introuvable », et une commande envoyée à la partie d'un voisin est refusée sans que le voisin en sache rien. Les pages des invités, elles, restent **publiques par leur lien**, comme avant : le souvenir — chiffres compris — et le bilan se partagent dans le groupe sans compte. Un fil sous leur titre mène de l'une à l'autre et à l'historique, et rappelle à l'animateur connecté le chemin de son compte.
 
 **Les comptes se créent depuis `/admin`**, par l'administrateur seul : un prénom, un identifiant, un nom d'adresse, et l'application rend un **lien d'activation** à envoyer par le canal qu'on veut. L'ami ouvre le lien, choisit son mot de passe, et son espace est prêt — avec une bibliothèque vide. Le lien vaut sept jours et ne sert qu'une fois ; **un mot de passe oublié se règle par un nouveau lien**, depuis la même page. Un compte se désactive (ses écrans se ferment, ses pages restent lisibles) et se réactive ; il ne se supprime pas.
 
@@ -113,7 +113,7 @@ De ce journal sortent **une vingtaine de prix**, calculés tout seuls : ⚡ L'É
 
 Ces points s'ajoutent au **barème des trois jeux**, pas à la moyenne du quiz : ce sont deux choses différentes, et les mélanger rendrait les deux illisibles. L'écran **👑 Victoire** annonce l'équipe qui remporte le quiz, prix compris — reste à y ajouter les deux jeux physiques.
 
-**Les chiffres vivent sur `/romane/stats`**, à leur propre adresse : un tableau de dix-sept colonnes, triable en cliquant sur un en-tête, une ligne par joueur — points, réponses données, justes, fausses, taux de réussite, temps moyen, meilleur temps, plus longues séries, questions passées, revirements, réponses de dernière seconde, fois où l'on était seul de la salle, fois où l'on a suivi la majorité, estimations et leur écart moyen, biais optimiste ou pessimiste. La page se rafraîchit toute seule et n'a pas besoin de compte : elle se garde ouverte sur le téléphone de l'animateur pendant la fête, et se partage aux invités ensuite. Le tableau défile dans son propre cadre — dix-sept colonnes ne tiennent sur aucun téléphone. Un QR y mène depuis l'écran de remise des prix, et la page souvenir en reprend l'essentiel.
+**Les chiffres vivent sur la page souvenir**, sous le podium et le palmarès — `/romane/stats` y mène, droit sur le tableau : dix-sept colonnes, triables en cliquant sur un en-tête, une ligne par joueur — points, réponses données, justes, fausses, taux de réussite, temps moyen, meilleur temps, plus longues séries, questions passées, revirements, réponses de dernière seconde, fois où l'on était seul de la salle, fois où l'on a suivi la majorité, estimations et leur écart moyen, biais optimiste ou pessimiste. La page se rafraîchit toute seule tant que la soirée est en cours et n'a pas besoin de compte : elle se garde ouverte sur le téléphone de l'animateur pendant la fête, et se partage aux invités ensuite. Le tableau défile dans son propre cadre — dix-sept colonnes ne tiennent sur aucun téléphone. Un QR y mène depuis l'écran de remise des prix.
 
 **L'écran de victoire** montre les deux classements côte à côte : les équipes avec leur total du quiz, leurs points cumulés et leur moyenne d'un côté ; le classement individuel de l'autre. Les équipes décident du vainqueur, mais c'est pour son score personnel que chacun a joué — les deux méritent d'être à l'écran au même moment.
 
@@ -139,11 +139,11 @@ Il écrit dans `export/romane/` un `bilan.json` complet et trois CSV faits pour 
 
 ## L'historique des soirées
 
-L'application sert plus d'une fête. **`/romane/soirees`** liste les soirées passées de l'espace, et chacune se relit avec les mêmes pages que la soirée en cours : `/romane/soirees/<id>/souvenir`, `/romane/soirees/<id>/stats`, `/romane/soirees/<id>/bilan` — et les fiches à imprimer avec. Les pages disent en tête quelle soirée elles relisent.
+L'application sert plus d'une fête. **`/romane/soirees`** liste les soirées passées de l'espace, et chacune se relit avec les mêmes pages que la soirée en cours : `/romane/soirees/<id>/souvenir`, `/romane/soirees/<id>/bilan` — et les fiches à imprimer avec. Les pages disent en tête quelle soirée elles relisent.
 
 **Sauvegarder** (écran commun, à côté de 🧹 Nouvelle soirée) range la soirée en cours dans l'historique sous le nom qu'on lui donne, sans rien effacer : à faire dès la fin de la fête pour la mettre à l'abri, ou avant même la fin, la soirée continue. **🧹 Nouvelle soirée** fait la même chose avant d'effacer : rien ne s'efface tant que l'archive n'est pas écrite, et si la base distante ne répond pas, la soirée reste là et l'animateur est prévenu. Une soirée archivée deux fois est mise à jour, pas dupliquée : c'est la date et l'heure d'arrivée du premier invité qui l'identifient — dans l'espace, deux animateurs peuvent avoir fait la fête le même soir sans se gêner.
 
-Une archive est une copie complète — invités, équipes, points, prix remis, journal des réponses, et les quiz tels qu'ils ont été posés — rangée dans la base permanente, à côté de la bibliothèque. Rien n'y est précalculé : le souvenir, les statistiques et le bilan se relisent depuis ces données avec le code du jour, et une amélioration des prix ou du bilan profite aux soirées passées. Les quiz voyagent avec l'archive : on peut ensuite retoucher la bibliothèque, ou la réécrire pour la fête suivante, sans rien perdre.
+Une archive est une copie complète — invités, équipes, points, prix remis, journal des réponses, et les quiz tels qu'ils ont été posés — rangée dans la base permanente, à côté de la bibliothèque. Rien n'y est précalculé : le souvenir et le bilan se relisent depuis ces données avec le code du jour, et une amélioration des prix ou du bilan profite aux soirées passées. Les quiz voyagent avec l'archive : on peut ensuite retoucher la bibliothèque, ou la réécrire pour la fête suivante, sans rien perdre.
 
 Sur `/romane/soirees`, l'animateur de l'espace — connecté à son compte — renomme une soirée ou la retire de l'historique. L'export sait viser une archive : `npm run export -- https://ton-app.onrender.com --slug romane --soiree 2026-09-19-k7x2q` (l'identifiant est dans l'adresse de ses pages) écrit ses fichiers dans `export/romane/2026-09-19-k7x2q/`.
 
@@ -155,7 +155,7 @@ Avec cinquante invités et un classement cumulé, les mêmes trois personnes mè
 
 **Les prix de caractère.** En plus des trois premiers, l'écran du podium et la page souvenir désignent **le plus beau coup** (le plus gros score sur une seule question), **le plus régulier** (celui qui a marqué sur le plus de questions) et **le vainqueur de chaque quiz** — autant de cadeaux à remettre, et une raison pour chacun de rester dans la partie.
 
-**En fin de soirée**, le bouton 🏆 célèbre le classement cumulé en plein écran, avec un QR vers la **page souvenir** (`/romane/souvenir`) : podium, nombre de quiz, points distribués, le plus beau coup et le plus régulier. Elle est publique, à partager aux invités le lendemain.
+**En fin de soirée**, le bouton 🏆 célèbre le classement cumulé en plein écran, avec un QR vers la **page souvenir** (`/romane/souvenir`) : podium, nombre de quiz, points distribués, le plus beau coup et le plus régulier — et, plus bas, toutes les statistiques. Elle est publique, à partager aux invités le lendemain.
 
 **Entre deux soirées**, 🧹 Nouvelle soirée range d'abord la soirée dans l'historique (voir plus haut), puis efface invités et points, sauvegarde distante comprise — les essais d'avant la fête ne doivent pas traîner dans le classement du soir J. Une archive d'essais se retire ensuite d'un clic sur `/romane/soirees`.
 
@@ -302,8 +302,8 @@ L'écran commun a deux repères fixes : une bande d'état en haut (le titre de l
 client/   React + Vite — les adresses (client/src/routes.ts) : "/" (quelle soirée ?),
           "/<espace>" (téléphone), "/host" (écran commun), "/edit" (mes quiz),
           "/compte", "/admin", "/connexion", "/activer" (le compte),
-          "/<espace>/stats", "/souvenir", "/bilan", "/soirees" (les pages publiques —
-          chaque archive se relit par "/<espace>/soirees/<id>/…")
+          "/<espace>/souvenir", "/bilan", "/soirees" (les pages publiques — "/stats" ouvre le
+          souvenir sur ses chiffres ; chaque archive se relit par "/<espace>/soirees/<id>/…")
 server/   Node + Socket.io + Express — logique de jeu 100% côté serveur
 shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, barème des équipes, espaces)
 ```

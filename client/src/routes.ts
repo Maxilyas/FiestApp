@@ -5,6 +5,7 @@
 //   /<espace>                 le téléphone des invités de cet espace (la valeur du QR)
 //   /<espace>/souvenir        les pages publiques de sa soirée en cours…
 //   /<espace>/soirees/<id>/…  …et de ses soirées archivées, avec les mêmes pages
+//   /<espace>/stats           l'ancienne adresse des chiffres : elle ouvre le souvenir sur son tableau
 //   /s/<espace>/recap.json    les données que ces pages lisent
 //
 // Le serveur redirige les adresses d'avant les espaces (`/bilan`, `/soirees`…)

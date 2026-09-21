@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Recap } from '../../../shared/types'
 import { FinalPodium, Standings } from '../components/Podium'
 import { TeamBoard } from '../components/TeamBoard'
@@ -8,36 +8,68 @@ import { Trophies } from '../components/Trophies'
 import { JoinHead } from '../components/Invitation'
 import { Icon } from '../components/Icon'
 import { ArchiveBanner } from '../components/ArchiveBanner'
-import { dataUrl, pageContext, spacePath } from '../routes'
+import { SpaceError, SpaceNav } from '../components/SpaceNav'
+import { dataUrl, pageContext, route, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
 
 /**
- * La page souvenir, ouverte le lendemain. Volontairement sans clé : c'est
- * une page à partager aux invités, pas un outil d'animation.
+ * La page souvenir : le podium, les équipes, le palmarès et tous les chiffres
+ * de la soirée. Ouverte le lendemain par les invités, et pendant la fête par
+ * l'animateur, sur son téléphone — elle se rafraîchit toute seule tant que la
+ * soirée est en cours. Volontairement sans compte : c'est une page à partager
+ * aux invités, pas un outil d'animation.
  */
 export function RecapApp() {
   const { slug, archiveId } = pageContext()
   const [recap, setRecap] = useState<Recap | null>(null)
   const [error, setError] = useState('')
+  // « /stats » — l'ancienne adresse des chiffres, celle du QR de la remise des
+  // prix — ouvre le souvenir sur son tableau. Une seule fois : pas de saut à
+  // chaque rafraîchissement.
+  const viaStats = route.kind === 'public' && route.page === 'stats'
+  const jumpToStats = useRef(viaStats || window.location.hash === '#stats')
 
   useEffect(() => {
-    fetch(dataUrl(slug, 'recap.json', archiveId))
-      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then(setRecap)
-      .catch(() => setError('Impossible de charger le souvenir de la soirée.'))
+    let loaded = false
+    const load = () =>
+      fetch(dataUrl(slug, 'recap.json', archiveId))
+        .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((data: Recap) => {
+          loaded = true
+          setRecap(data)
+          setError('')
+        })
+        // Un rafraîchissement raté ne vide pas la page : elle garde ce qu'elle a.
+        .catch(() => {
+          if (!loaded) setError('Impossible de charger le souvenir de la soirée.')
+        })
+    load()
+    // Rafraîchi tout seul : la page reste ouverte sur le téléphone de
+    // l'animateur pendant que les quiz s'enchaînent. Une soirée archivée,
+    // elle, ne bouge plus.
+    if (archiveId) return
+    const id = setInterval(load, 20_000)
+    return () => clearInterval(id)
   }, [slug, archiveId])
 
   useEffect(() => {
     if (recap?.space) document.title = `${recap.archive?.title ?? recap.space.title} · Souvenir`
   }, [recap])
 
-  if (error) {
-    return (
-      <div className="center-page">
-        <p className="error">{error}</p>
-      </div>
-    )
-  }
+  // L'adresse affichée devient la vraie, et le tableau arrive sous les yeux
+  // dès que la page est là.
+  useEffect(() => {
+    if (viaStats) history.replaceState(null, '', spacePath(slug, 'souvenir', archiveId) + '#stats')
+  }, [viaStats, slug, archiveId])
+  useEffect(() => {
+    if (!recap || !jumpToStats.current) return
+    const table = document.getElementById('stats')
+    if (!table) return
+    jumpToStats.current = false
+    table.scrollIntoView({ block: 'start' })
+  }, [recap])
+
+  if (error) return <SpaceError current="souvenir" message={error} />
 
   if (!recap) {
     return (
@@ -58,6 +90,7 @@ export function RecapApp() {
           compact={(space?.headline.length ?? 0) > 12}
           sub="La soirée n'a pas encore commencé."
         />
+        <SpaceNav current="souvenir" />
         <div className="join-grow" />
       </div>
     )
@@ -78,6 +111,7 @@ export function RecapApp() {
         </p>
         <hr className="hairline" />
       </header>
+      <SpaceNav current="souvenir" />
 
       <section className="card">
         <h2>Le podium</h2>
@@ -108,11 +142,12 @@ export function RecapApp() {
       <Trophies recap={recap} />
 
       {recap.stats.logged > 0 && (
-        <section className="card">
+        <section id="stats" className="card">
           <h2>Toutes les statistiques</h2>
           <p className="muted small">
             {recap.stats.questions} questions posées · {recap.stats.logged} réponses enregistrées.
-            Clique sur un en-tête pour trier — chacun peut y chercher son propre chiffre.
+            Clique sur un en-tête pour trier — chacun peut y chercher son propre chiffre. Le tableau
+            défile dans son cadre : dix-sept colonnes ne tiennent pas sur un téléphone.
           </p>
           <StatsTable stats={recap.stats} />
         </section>
@@ -140,9 +175,6 @@ export function RecapApp() {
       )}
 
       <p className="recap-foot muted">Merci d'être venus.</p>
-      <p className="muted small center">
-        <a href={spacePath(slug, 'soirees')}>Toutes les soirées</a>
-      </p>
     </div>
   )
 }

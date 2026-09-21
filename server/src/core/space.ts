@@ -133,7 +133,7 @@ export class SpaceRuntime {
     }, 120)
   }
 
-  // ── Les pages publiques : souvenir, statistiques, bilan, historique ──
+  // ── Les pages publiques : souvenir, bilan, historique ──
   //
   // Tout se calcule à partir des journaux (gains, réponses) par des fonctions
   // pures : la soirée en cours et une soirée archivée passent par le même
