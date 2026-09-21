@@ -5,6 +5,7 @@ import { makeCtx, type BilanCtx } from '../components/BilanQuestion'
 import { PlayerReview } from '../components/BilanPlayer'
 import { RoomReview } from '../components/BilanRoom'
 import { ArchiveBanner } from '../components/ArchiveBanner'
+import { SpaceError, SpaceNav } from '../components/SpaceNav'
 import { dataUrl, pageContext, spacePath } from '../routes'
 import { readMe } from '../state'
 import { formatDay } from '../../../shared/archive'
@@ -107,13 +108,7 @@ export function BilanApp() {
     }
   }
 
-  if (error) {
-    return (
-      <div className="center-page">
-        <p className="error">{error}</p>
-      </div>
-    )
-  }
+  if (error) return <SpaceError current="bilan" message={error} />
 
   if (!ctx) {
     return (
@@ -129,6 +124,7 @@ export function BilanApp() {
     return (
       <div className="recap bilan">
         <BilanHead ctx={ctx} />
+        <SpaceNav current="bilan" />
         <section className="card">
           <p className="muted">
             Rien à relire pour l'instant : le bilan se remplit dès la première question jouée.
@@ -145,6 +141,7 @@ export function BilanApp() {
   return (
     <div className="recap bilan">
       <BilanHead ctx={ctx} />
+      <SpaceNav current="bilan" />
 
       <nav className="row bilan-tabs" aria-label="Sections du bilan">
         <button
@@ -187,8 +184,6 @@ export function BilanApp() {
       <p className="muted small center">
         Pour l'animateur :{' '}
         <a href={spacePath(slug, 'bilan/fiches', archiveId)}>les fiches à imprimer, une par invité</a>
-        {' · '}
-        <a href={spacePath(slug, 'soirees')}>toutes les soirées</a>
       </p>
     </div>
   )

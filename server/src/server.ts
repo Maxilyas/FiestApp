@@ -220,7 +220,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     })
   })
 
-  // ── Les pages publiques d'un espace : souvenir, statistiques, bilan, historique ──
+  // ── Les pages publiques d'un espace : souvenir, bilan, historique ──
   //
   // Publiques, comme avant les comptes : ce sont des pages à partager aux
   // invités, pas des outils d'animation. L'espace est dans l'adresse ; un

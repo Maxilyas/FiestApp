@@ -3,21 +3,26 @@ import type { ArchiveList, ArchiveSummary } from '../../../shared/archive'
 import { formatDay } from '../../../shared/archive'
 import { Icon } from '../components/Icon'
 import { confirmDialog, promptDialog } from '../components/Dialog'
+import { SpaceError, SpaceNav, useIsHost } from '../components/SpaceNav'
 import { api, UnauthorizedError } from '../api'
 import { dataUrl, pageContext, spacePath, type PublicPage } from '../routes'
 import { formatNumber } from '../format'
 
 /**
  * L'historique des soirées d'un espace (`/<espace>/soirees`) : la soirée en
- * cours, puis chaque soirée archivée avec ses trois pages — souvenir,
- * statistiques, bilan. Public, comme elles. L'animateur de l'espace,
- * connecté, peut renommer une soirée ou en retirer une.
+ * cours, puis chaque soirée archivée avec ses deux pages — le souvenir,
+ * chiffres compris, et le bilan. Public, comme elles. L'animateur de
+ * l'espace, connecté, peut renommer une soirée ou en retirer une.
  */
 export function ArchivesApp() {
   const { slug } = pageContext()
   const [list, setList] = useState<ArchiveList | null>(null)
   const [error, setError] = useState('')
-  const [host, setHost] = useState(false)
+  // Les boutons de gestion n'apparaissent qu'à l'animateur de cet espace,
+  // connecté ; le serveur revérifie de toute façon à chaque action.
+  const isHost = useIsHost(slug)
+  const [revoked, setRevoked] = useState(false)
+  const host = isHost && !revoked
 
   const load = () =>
     fetch(dataUrl(slug, 'soirees.json'))
@@ -26,12 +31,6 @@ export function ArchivesApp() {
       .catch(() => setError("Impossible de charger l'historique."))
   useEffect(() => {
     load()
-    // Les boutons de gestion n'apparaissent qu'à l'animateur de cet espace,
-    // connecté ; le serveur revérifie de toute façon à chaque action.
-    api.auth
-      .me()
-      .then(me => setHost(me.account.slug === slug))
-      .catch(() => setHost(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug])
 
@@ -45,18 +44,12 @@ export function ArchivesApp() {
       await load()
     } catch (e) {
       // Une session périmée : les boutons disparaissent, la page reste lisible.
-      if (e instanceof UnauthorizedError) setHost(false)
+      if (e instanceof UnauthorizedError) setRevoked(true)
       else setError((e as Error).message)
     }
   }
 
-  if (error) {
-    return (
-      <div className="center-page">
-        <p className="error">{error}</p>
-      </div>
-    )
-  }
+  if (error) return <SpaceError current="soirees" message={error} />
   if (!list) {
     return (
       <div className="center-page">
@@ -74,6 +67,7 @@ export function ArchivesApp() {
         <p className="join-sub">L'historique, une fête après l'autre</p>
         <hr className="hairline" />
       </header>
+      <SpaceNav current="soirees" />
 
       {current && (
         <section className="card soiree soiree-current">
@@ -121,7 +115,7 @@ export function ArchivesApp() {
             onRemove={async () => {
               const ok = await confirmDialog({
                 title: `Retirer « ${a.title} » de l'historique ?`,
-                message: 'Son souvenir, ses statistiques et son bilan disparaissent. C’est définitif.',
+                message: 'Son souvenir et son bilan disparaissent. C’est définitif.',
                 confirmLabel: 'Retirer',
                 danger: true,
               })
@@ -134,7 +128,7 @@ export function ArchivesApp() {
   )
 }
 
-/** Les trois pages d'une soirée — celle en cours, ou une archive. */
+/** Les deux pages d'une soirée — celle en cours, ou une archive. */
 function PageLinks({ slug, archiveId }: { slug: string; archiveId: string | null }) {
   const link = (page: PublicPage) => spacePath(slug, page, archiveId)
   return (
@@ -142,10 +136,6 @@ function PageLinks({ slug, archiveId }: { slug: string; archiveId: string | null
       <a className="btn btn-small" href={link('souvenir')}>
         <Icon name="book" />
         Souvenir
-      </a>
-      <a className="btn btn-small" href={link('stats')}>
-        <Icon name="bar-chart" />
-        Statistiques
       </a>
       <a className="btn btn-small btn-accent" href={link('bilan')}>
         <Icon name="list" />
