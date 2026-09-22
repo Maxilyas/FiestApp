@@ -6,6 +6,7 @@ import { toRow } from './answers'
 import { buildReview } from './review'
 import { ArchiveStore, reviewOfArchive } from './archive'
 import { playableQuestions } from '../../../shared/library'
+import { nomsAffiches } from '../../../shared/homonymes'
 import {
   answerLabel,
   formatPercent,
@@ -82,16 +83,27 @@ export async function reviewFromDatabase(dbUrl: string, token?: string, target: 
   const library = (await store.all(spaceId)).map(q => ({ title: q.title, questions: playableQuestions(q) }))
   store.close()
 
+  // Les marques d'homonymie, dans l'ordre d'arrivée comme sur l'écran commun :
+  // sans elles, deux « Camille » au renard sortaient en deux lignes
+  // identiques dans invites.csv. La table, elle, n'est pas rangée par arrivée.
+  const inscrits = [...players.rows]
+    .sort((a, b) => Number(a.created_at) - Number(b.created_at))
+    .map(r => ({
+      id: String(r.id),
+      name: String(r.name),
+      avatar: String(r.avatar),
+      teamId: r.team_id === null || r.team_id === undefined ? null : String(r.team_id),
+    }))
+  const marques = nomsAffiches(inscrits)
+
   return buildReview({
     rows: answers.rows.map(toRow),
-    players: players.rows.map(
-      (r): PublicPlayer => ({
-        id: String(r.id),
-        name: String(r.name),
-        avatar: String(r.avatar),
+    players: inscrits.map(
+      (p): PublicPlayer => ({
+        ...p,
         connected: false,
-        score: totals.get(String(r.id)) ?? 0,
-        teamId: r.team_id === null || r.team_id === undefined ? null : String(r.team_id),
+        score: totals.get(p.id) ?? 0,
+        ...(marques.has(p.id) && { nomAffiche: marques.get(p.id) }),
       }),
     ),
     teams: teams.rows.map(r => ({
@@ -130,10 +142,23 @@ async function resolveSpace(client: ReturnType<typeof createClient>, slug?: stri
 
 // ── CSV ──────────────────────────────────────────────────────────────────
 
-/** Point-virgule et BOM : ce qu'Excel en français ouvre sans rien demander. */
+/**
+ * Ce par quoi Excel reconnaît une formule. Un invité prénommé
+ * « =HYPERLINK(…) » glissait un lien piégé dans le tableau de l'animateur,
+ * qui l'ouvre en confiance : c'est lui qui l'a exporté.
+ */
+const FORMULE = /^[=+\-@\t\r]/
+
+/**
+ * Point-virgule et BOM : ce qu'Excel en français ouvre sans rien demander.
+ * Une cellule qui commence comme une formule prend une apostrophe devant, et
+ * reste du texte. Les nombres restent des nombres : −40 n'est pas une formule.
+ */
 export function toCsv(rows: unknown[][]): string {
   const cell = (v: unknown) => {
-    const s = v === null || v === undefined ? '' : String(v)
+    if (typeof v === 'number') return String(v)
+    let s = v === null || v === undefined ? '' : String(v)
+    if (FORMULE.test(s)) s = `'${s}`
     return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }
   return '﻿' + rows.map(r => r.map(cell).join(';')).join('\r\n') + '\r\n'

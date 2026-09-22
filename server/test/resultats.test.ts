@@ -22,6 +22,9 @@ import { buildRecap } from '../src/core/recap'
 import { buildProgress } from '../src/core/progress'
 import { buildReview } from '../src/core/review'
 import { ArchiveStore, summarize } from '../src/core/archive'
+import { exportFiles, reviewFromDatabase, toCsv } from '../src/core/export'
+import { PartyBackup } from '../src/core/backup'
+import { QuizStore } from '../src/core/quizStore'
 import * as equipes from '../../shared/teams'
 import { XP } from '../../shared/profil'
 import type { PartyArchive } from '../../shared/archive'
@@ -555,5 +558,73 @@ test('l’historique se dérive à la lecture, sans relire les archives ni écri
       brut.close()
       store.close()
     }
+  })
+})
+
+// ── 5. L'export ────────────────────────────────────────────────────────────
+
+test('le CSV neutralise les cellules qu’Excel prendrait pour des formules', () => {
+  const csv = toCsv([['=HYPERLINK("http://pirate","clic")', '+33', '-2+3', '@SUM(A1)', '\tcaché', 'Camille', -40, '\u221240 °C']])
+  const cellules = csv.replace(/^\uFEFF/, '').replace(/\r\n$/, '').split(';')
+  assert.deepEqual(cellules, [
+    `"'=HYPERLINK(""http://pirate"",""clic"")"`,
+    `'+33`,
+    `'-2+3`,
+    `'@SUM(A1)`,
+    `'\tcaché`,
+    'Camille',
+    '-40',
+    '\u221240 °C',
+  ])
+  assert.equal(toCsv([['\rretour']]).replace(/^\uFEFF/, ''), `"'\rretour"\r\n`)
+})
+
+test('l’export depuis la base distingue les homonymes', async () => {
+  await dansUnDossier(async dir => {
+    const url = `file:${path.join(dir, 'permanente.db')}`
+    const miroir = new PartyBackup(url)
+    await miroir.init('espace-1')
+    await miroir.close()
+    const bibliotheque = new QuizStore(url)
+    await bibliotheque.init('espace-1')
+    bibliotheque.close()
+    const brut = createClient({ url })
+    const joueur = (id: string, createdAt: number) => ({
+      sql: 'INSERT INTO party_players (id, name, avatar, token, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)',
+      args: [id, 'Camille', '🦊', `jeton-${id}`, createdAt, 'espace-1'],
+    })
+    const point = (id: string, playerId: string, points: number) => ({
+      sql: 'INSERT INTO party_scores (id, player_id, session_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      args: [id, playerId, 's1', points, 'Quiz « Quiz » — Q1', tic(), 'espace-1'],
+    })
+    const ligne = (id: string, playerId: string, points: number) => ({
+      sql: `INSERT INTO party_answers (id, session_id, quiz_title, q_index, kind, player_id, answered, correct, choice,
+              value, target, ms, changes, points, duration_ms, observed, created_at, space_id)
+            VALUES (?, 's1', 'Quiz', 0, 'choice', ?, 1, ?, 0, NULL, NULL, 5000, 0, ?, 20000, 0, ?, 'espace-1')`,
+      args: [id, playerId, points > 0 ? 1 : 0, points, tic()],
+    })
+    try {
+      await brut.batch(
+        [
+          'CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, slug TEXT NOT NULL)',
+          { sql: 'INSERT INTO accounts (id, slug) VALUES (?, ?)', args: ['espace-1', 'fete'] },
+          // La seconde Camille est insérée d'abord : l'ordre de la table n'est
+          // pas l'ordre d'arrivée.
+          joueur('camille-2', 2),
+          joueur('camille-1', 1),
+          point('g1', 'camille-1', 100),
+          point('g2', 'camille-2', 300),
+          ligne('r1', 'camille-1', 100),
+          ligne('r2', 'camille-2', 300),
+        ],
+        'write',
+      )
+    } finally {
+      brut.close()
+    }
+    const review = await reviewFromDatabase(url, undefined, { slug: 'fete' })
+    assert.deepEqual(review.players.map(p => p.name), ['Camille (2)', 'Camille'])
+    const invites = exportFiles(review).find(f => f.name === 'invites.csv')!.content
+    assert.match(invites, /\nCamille \(2\);🦊;/)
   })
 })
