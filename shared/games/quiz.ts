@@ -66,6 +66,11 @@ export interface QuizPlayerView {
   correct?: number
   target?: number
   yourPoints?: number | null
+  /**
+   * L'animateur a annulé les points de la question. `yourPoints` passe alors
+   * à null, et le téléphone doit le dire plutôt qu'afficher « + pts ».
+   */
+  cancelled?: boolean
   yourQuizTotal?: number
   yourQuizRank?: number
   // finished
@@ -108,6 +113,8 @@ export interface QuizHostView {
   counts?: number[]
   guesses?: QuizGuessRow[]
   fastest?: { name: string; ms: number } | null
+  /** Les points de la question révélée ont été annulés. */
+  cancelled?: boolean
   standings?: QuizPodiumRow[]
 }
 

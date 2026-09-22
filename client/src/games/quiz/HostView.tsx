@@ -79,8 +79,25 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
     </button>
   )
 
+  // La fin d'un quiz ne se rattrape pas, et ce bouton est collé à « Manuel » :
+  // en pleine question, on demande avant de tout arrêter.
   const endButton = (
-    <button className="btn btn-ghost" onClick={endSession}>
+    <button
+      className="btn btn-ghost"
+      onClick={async () => {
+        if (v.phase === 'observe' || v.phase === 'question') {
+          const ok = await confirmDialog({
+            title: 'Terminer le quiz maintenant ?',
+            message:
+              'La question en cours ne comptera pas, et les suivantes ne seront pas posées. Les points déjà gagnés restent acquis.',
+            confirmLabel: 'Terminer le quiz',
+            danger: true,
+          })
+          if (!ok) return
+        }
+        endSession()
+      }}
+    >
       <Icon name="x" />
       Terminer
     </button>
@@ -164,12 +181,20 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
     const maxCount = Math.max(1, ...(v.counts ?? [0]))
     return (
       <div className="quiz-host">
-        {revealing && (v.fastest || v.autoNextAt) && (
+        {revealing && (v.cancelled || v.fastest || v.autoNextAt) && (
           <div className="quiz-status">
-            {v.fastest && (
-              <span className="pill flash">
-                <Icon name="zap" /> {v.fastest.name} — {(v.fastest.ms / 1000).toFixed(2)} s
+            {/* Points annulés : la salle doit le lire, et le plus rapide
+                d'une question qui ne compte plus n'a rien gagné. */}
+            {v.cancelled ? (
+              <span className="pill">
+                <Icon name="x-circle" /> Points annulés
               </span>
+            ) : (
+              v.fastest && (
+                <span className="pill flash">
+                  <Icon name="zap" /> {v.fastest.name} — {(v.fastest.ms / 1000).toFixed(2)} s
+                </span>
+              )
             )}
             {v.autoNextAt && <AutoNextPill deadline={v.autoNextAt} />}
           </div>
@@ -269,24 +294,27 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                 <Icon name="rotate" />
                 Reposer
               </button>
-              <button
-                className="btn btn-ghost"
-                onClick={async () => {
-                  const ok = await confirmDialog({
-                    title: 'Annuler les points de cette question ?',
-                    message: 'Les points gagnés sur cette question sont retirés à tout le monde.',
-                    confirmLabel: 'Retirer les points',
-                    danger: true,
-                  })
-                  // `visee` est celle du clic, pas celle de la confirmation :
-                  // si la partie a avancé pendant que la boîte était
-                  // ouverte, le serveur ne touche pas à la question suivante.
-                  if (ok) sendCommand({ type: 'cancel', ...visee })
-                }}
-              >
-                <Icon name="x-circle" />
-                Annuler les points
-              </button>
+              {/* Déjà annulés : il n'y a plus rien à retirer. */}
+              {!v.cancelled && (
+                <button
+                  className="btn btn-ghost"
+                  onClick={async () => {
+                    const ok = await confirmDialog({
+                      title: 'Annuler les points de cette question ?',
+                      message: 'Les points gagnés sur cette question sont retirés à tout le monde.',
+                      confirmLabel: 'Retirer les points',
+                      danger: true,
+                    })
+                    // `visee` est celle du clic, pas celle de la confirmation :
+                    // si la partie a avancé pendant que la boîte était
+                    // ouverte, le serveur ne touche pas à la question suivante.
+                    if (ok) sendCommand({ type: 'cancel', ...visee })
+                  }}
+                >
+                  <Icon name="x-circle" />
+                  Annuler les points
+                </button>
+              )}
             </>
           ) : (
             <>

@@ -1,4 +1,5 @@
-// Le protocole de jeu : ce que visent les gestes.
+// Le protocole de jeu : ce que visent les gestes, et ce que les écrans en
+// disent.
 //
 // Une commande d'animateur et une réponse d'invité disent maintenant quelle
 // question elles visaient. Avant, le serveur les lisait à la lumière de la
@@ -262,6 +263,21 @@ describe('la question visée', { concurrency: true }, () => {
     const deBob = bilan.players.find((p: any) => p.id === bob.playerId)
     assert.equal(deBob.answers.length, 1, 'Bob figure au journal de la question qu’il a jouée')
     assert.equal(deBob.answers[0].points, bilanBob.yourPoints)
+  })
+
+  test('points annulés : le téléphone le sait, au lieu d’afficher « + pts »', async () => {
+    const { host, invites, sessionId } = await soiree([qcm('Une ?', ['Oui', 'Non'], 0), qcm('Deux ?')], ['Alice'])
+    const [alice] = invites
+    const q = await vue(alice.socket, v => v.phase === 'question', 'la question')
+    await repondre(alice, sessionId, q, 0)
+    const revelation = await vue(host, v => v.phase === 'reveal', 'la révélation')
+    assert.ok((await vue(alice.socket, v => v.phase === 'reveal', 'le gain')).yourPoints > 0)
+
+    commande(host, sessionId, { type: 'cancel', ...viseeDe(revelation) })
+    const annulee = await vue(alice.socket, v => v.yourQuizTotal === 0, 'les points retirés')
+    assert.equal(annulee.cancelled, true, 'le téléphone doit savoir que les points sont annulés')
+    assert.equal(annulee.yourPoints, null)
+    assert.equal((await vue(host, v => v.cancelled === true, 'l’écran commun le sait aussi')).phase, 'reveal')
   })
 
   test('une estimation renvoyée à l’identique n’est pas un changement d’avis', async () => {

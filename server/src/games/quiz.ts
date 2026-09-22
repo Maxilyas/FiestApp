@@ -44,6 +44,8 @@ interface QuizState {
    * suivante, et d'ici là les gestes se jugent comme avant.
    */
   round?: number
+  /** L'animateur a annulé les points de la question révélée. */
+  cancelled?: boolean
   questionStartAt: number
   deadline: number
   responses: Record<string, Response>
@@ -149,6 +151,7 @@ function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: Game
   // Un nouveau tour : un geste qui visait le précédent — la même question
   // avant qu'on la repose comprise — ne s'applique plus à celui-ci.
   st.round = (st.round ?? 0) + 1
+  st.cancelled = false
   st.responses = {}
   st.lastAwards = {}
   st.pausedMs = null
@@ -269,6 +272,7 @@ function cancelQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
     ctx.award(playerId, -points, `Annulation — Q${st.qIndex + 1}`)
   }
   st.lastAwards = {}
+  st.cancelled = true
 }
 
 /**
@@ -633,6 +637,7 @@ export const quizModule: GameModule<QuizState> = {
           correct: q.kind === 'choice' ? q.correct : undefined,
           target: q.kind === 'number' ? q.target : undefined,
           yourPoints: playerId in st.lastAwards ? st.lastAwards[playerId] : null,
+          ...(st.cancelled && { cancelled: true }),
           yourQuizTotal: st.totals[playerId] ?? 0,
           yourQuizRank: rank,
         }),
@@ -707,6 +712,7 @@ export const quizModule: GameModule<QuizState> = {
           view.target = q.target
           view.guesses = guessRows(sess, q.target, vctx).slice(0, 8)
         }
+        if (st.cancelled) view.cancelled = true
         view.standings = standings(sess, vctx, 5)
       }
       return view
