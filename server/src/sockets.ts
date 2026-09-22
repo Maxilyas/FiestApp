@@ -1,4 +1,5 @@
 import type { Socket } from 'socket.io'
+import type { ActionAck, ActionRefusal } from '../../shared/events'
 import type { IoServer } from './core/types'
 import type { SpaceRegistry, SpaceRuntime } from './core/space'
 import type { AccountRec, AuthStore } from './auth/store'
@@ -35,6 +36,28 @@ const JOIN_REFILL_PER_MINUTE = 30
 
 const NO_SUCH_SPACE = 'Cette adresse ne mène à aucune soirée'
 const OTHER_SPACE = 'Cette connexion suit déjà une autre soirée'
+
+/**
+ * Ce qu'on dit à l'invité dont la réponse n'est pas passée. Le silence était
+ * le pire des messages : il laissait croire que la réponse était partie.
+ */
+const REFUSAL_MESSAGE: Record<ActionRefusal, string> = {
+  'no-party': 'Ta réponse n’est pas partie — reconnexion en cours, retente',
+  'unknown-player': 'Ta réponse n’est pas partie — reconnexion en cours, retente',
+  ended: 'Ce quiz est terminé',
+  'not-participant': 'Tu n’es pas dans cette partie — tu joues à la prochaine question',
+  'too-late': 'Trop tard — la question était finie',
+  paused: 'Le quiz est en pause — regarde l’écran commun',
+  invalid: 'Réponse non comprise — retente',
+  error: 'Erreur serveur — retente',
+  timeout: 'Ta réponse n’est pas partie — vérifie ta connexion',
+}
+
+const refuse = (reason: ActionRefusal): ActionAck => ({
+  ok: false,
+  reason,
+  error: REFUSAL_MESSAGE[reason],
+})
 
 /**
  * L'adresse du client. Derrière le proxy de l'hébergeur, on lit la dernière
@@ -144,16 +167,56 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       }
     })
 
-    socket.on('player:action', ({ sessionId, action }) => {
-      const playerId = socket.data.playerId
-      const rt = runtime()
-      if (!playerId || !rt) return
+    /**
+     * Une réponse d'invité, et l'accusé de réception qui va avec.
+     *
+     * Deux coupures silencieuses vivaient ici. La première : un téléphone qui
+     * sort d'une veille ou d'un trou de réseau arrive sur un socket tout neuf,
+     * sans espace ni identité, et socket.io vide sa file d'attente avant même
+     * que la page ait pu se re-présenter — la réponse tapée pendant la coupure
+     * tombait donc sur une connexion anonyme. On la rattache maintenant à son
+     * espace et à son joueur avec ce que la réponse porte elle-même.
+     * La seconde : aucun retour n'était renvoyé, donc une réponse refusée
+     * disparaissait sans un mot. Chaque issue a désormais son accusé.
+     */
+    socket.on('player:action', ({ sessionId, action, slug, token }, ack) => {
+      // Les scripts d'essai et les téléphones restés sur l'ancienne page
+      // n'attendent pas de réponse : on ne leur en impose pas.
+      const reply = typeof ack === 'function' ? ack : () => {}
+
+      let rt = runtime()
+      if (!rt && typeof slug === 'string') {
+        const account = spaceOf(slug)
+        if (account) rt = bindSpace(account.id)
+      }
+      if (!rt) return reply(refuse('no-party'))
+
+      let playerId = socket.data.playerId
+      if (!playerId && typeof token === 'string') {
+        const known = rt.party.findByToken(token)
+        if (known) {
+          // On rebranche l'identité séance tenante : sans le salon, la vue
+          // mise à jour repartirait vers une connexion qui ne l'écoute pas,
+          // et le joueur resterait devant une case sans coche. Ce n'est pas
+          // une inscription — les garde-fous du `join` n'ont rien à dire ici.
+          socket.data.playerId = known.id
+          socket.join(`player:${known.id}`)
+          rt.party.socketConnected(known.id)
+          playerId = known.id
+        }
+      }
+      if (!playerId) return reply(refuse('unknown-player'))
+
       try {
         // Le moteur de l'espace ne connaît que sa partie : l'identifiant
         // d'une partie voisine vaut « terminée », et la voisine n'en sait rien.
-        rt.engine.handlePlayerAction(sessionId, playerId, action)
+        const refusal = rt.engine.handlePlayerAction(sessionId, playerId, action)
+        reply(refusal ? refuse(refusal) : { ok: true })
       } catch (e) {
-        socket.emit('toast', { kind: 'error', message: (e as Error).message })
+        // L'accusé porte déjà le message : un toast en plus en ferait deux.
+        // Et le détail d'une panne du serveur ne regarde pas les invités.
+        console.warn(`[partie] réponse impossible à traiter : ${(e as Error).message}`)
+        reply(refuse('error'))
       }
     })
 

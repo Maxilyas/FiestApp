@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { joinAsPlayer, setMyTeam, socket, watchParty } from '../socket'
+import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
 import { getState, loadProfile, saveMe, saveProfile, showToast, useAppState } from '../state'
 import { currentSlug } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
@@ -271,7 +271,15 @@ export function PlayerApp() {
           view={sessionView.view as QuizPlayerView}
           teams={teams}
           myTeamId={me?.teamId ?? null}
-          send={action => socket.emit('player:action', { sessionId: sessionView.sessionId, action })}
+          // Le jeton est relu au moment de l'envoi : celui du rendu pourrait
+          // dater d'avant une reconnexion.
+          send={action => {
+            sendPlayerAction(sessionView.sessionId, action, slug, getState().me?.token).then(res => {
+              // Une réponse refusée se disait jusqu'ici en silence : le
+              // téléphone vibrait sous le doigt et rien ne suivait.
+              if (!res.ok) showToast({ kind: 'error', message: res.error })
+            })
+          }}
         />
         {toast}
       </div>

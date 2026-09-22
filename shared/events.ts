@@ -5,6 +5,37 @@ export type JoinAck =
   | { ok: true; playerId: string; token: string }
   | { ok: false; error: string }
 
+/**
+ * Pourquoi une réponse d'invité n'a pas été retenue. Tant que `player:action`
+ * n'accusait pas réception, une réponse refusée disparaissait sans un mot :
+ * le téléphone avait vibré sous le doigt, l'écran ne montrait rien, et le
+ * joueur restait persuadé d'avoir répondu. Chaque refus porte maintenant son
+ * motif — celui qu'on affiche, et celui qu'on retrouve dans les journaux.
+ */
+export type ActionRefusal =
+  /** La connexion ne suit aucune soirée (et n'a pas dit laquelle). */
+  | 'no-party'
+  /** Jeton absent, périmé, ou d'une autre soirée : identité introuvable. */
+  | 'unknown-player'
+  /** La partie visée n'est plus celle en cours. */
+  | 'ended'
+  /** Il n'a pas été intégré à cette partie. */
+  | 'not-participant'
+  /** La question est passée — révélation déjà faite. */
+  | 'too-late'
+  /** Chronomètre figé par l'animateur. */
+  | 'paused'
+  /** Action malformée : ni un choix valable, ni un nombre. */
+  | 'invalid'
+  /** Imprévu côté serveur. */
+  | 'error'
+  /** Le serveur n'a pas répondu à temps — motif posé par le téléphone. */
+  | 'timeout'
+
+export type ActionAck =
+  | { ok: true }
+  | { ok: false; reason: ActionRefusal; error: string }
+
 export interface ClientToServerEvents {
   /**
    * Suivre une soirée sans y jouer : la page d'accueil des invités affiche
@@ -16,7 +47,17 @@ export interface ClientToServerEvents {
     payload: { slug: string; name: string; avatar: string; token?: string; teamId?: string | null },
     ack: (res: JoinAck) => void,
   ) => void
-  'player:action': (payload: { sessionId: string; action: unknown }) => void
+  /**
+   * Une réponse d'invité. Elle porte son espace et son jeton en plus de son
+   * contenu : un téléphone qui sort d'une coupure a un socket tout neuf, sans
+   * espace ni identité, et socket.io vide sa file d'attente avant même que la
+   * page ait pu se re-présenter. Sans ces deux champs, la réponse tapée
+   * pendant la coupure arrivait sur une connexion anonyme et était jetée.
+   */
+  'player:action': (
+    payload: { sessionId: string; action: unknown; slug?: string; token?: string },
+    ack: (res: ActionAck) => void,
+  ) => void
   /** Changer d'équipe depuis la salle d'attente — refusé pendant un quiz. */
   'player:setTeam': (
     payload: { teamId: string | null },
