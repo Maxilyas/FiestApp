@@ -26,6 +26,7 @@ import { exportFiles, reviewFromDatabase, toCsv } from '../src/core/export'
 import { PartyBackup } from '../src/core/backup'
 import { QuizStore } from '../src/core/quizStore'
 import * as equipes from '../../shared/teams'
+import { cleanName } from '../../shared/avatars'
 import { XP } from '../../shared/profil'
 import type { PartyArchive } from '../../shared/archive'
 import type { Award, PublicPlayer, TeamBonus } from '../../shared/types'
@@ -627,4 +628,18 @@ test('l’export depuis la base distingue les homonymes', async () => {
     const invites = exportFiles(review).find(f => f.name === 'invites.csv')!.content
     assert.match(invites, /\nCamille \(2\);🦊;/)
   })
+})
+
+// ── 7. Le prénom tronqué ───────────────────────────────────────────────────
+
+test('un prénom trop long se coupe entre deux caractères, jamais au milieu d’un emoji', () => {
+  const x23 = 'X'.repeat(23)
+  assert.equal(cleanName(x23 + '🎉'), x23 + '🎉', 'vingt-quatre caractères tiennent, emoji compris')
+  assert.equal(cleanName(x23 + '🎉🎉'), x23 + '🎉')
+  assert.equal(cleanName(x23 + '🇫🇷'), x23, 'un drapeau ne se coupe pas en deux lettres')
+  assert.equal(cleanName(x23 + '👍🏽'), x23, 'ni un pouce de sa couleur')
+  assert.equal(cleanName('X'.repeat(22) + '👍🏽Y'), 'X'.repeat(22) + '👍🏽')
+  for (const nom of [x23 + '🎉🎉', x23 + '🇫🇷', x23 + '👍🏽']) {
+    assert.ok(!/[\ud800-\udfff]/u.test(cleanName(nom)), `demi-caractère dans « ${cleanName(nom)} »`)
+  }
 })
