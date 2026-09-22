@@ -56,6 +56,18 @@ export interface GameContext {
 export interface ViewContext {
   playerName(playerId: string): string
   player(playerId: string): PublicPlayer | undefined
+  /**
+   * Ce qui ne dépend pas du destinataire — un classement, un podium — ne se
+   * calcule qu'une fois par diffusion, pas une fois par téléphone.
+   *
+   * Chaque vue de joueur triait tous les totaux pour y trouver son rang, et
+   * reconstruisait le podium pour elle seule : à 500 invités, une question
+   * coûtait une demi-minute de processeur et le podium plus d'une, sur un
+   * hébergeur qui n'en a qu'un dixième. Le mémo naît au début d'une diffusion
+   * et meurt avec elle : rien ne survit d'un état au suivant. Hors diffusion,
+   * `compute` est simplement appelé.
+   */
+  memo<T>(key: string, compute: () => T): T
 }
 
 /**

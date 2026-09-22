@@ -1,5 +1,5 @@
-// Le protocole de jeu : ce que visent les gestes, et ce que les écrans en
-// disent.
+// Le protocole de jeu : ce que visent les gestes, et ce que coûtent les
+// diffusions.
 //
 // Une commande d'animateur et une réponse d'invité disent maintenant quelle
 // question elles visaient. Avant, le serveur les lisait à la lumière de la
@@ -13,6 +13,7 @@
 // est le compte à rebours de trois secondes avant la première question.
 import { after, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
+import { performance } from 'node:perf_hooks'
 import {
   ADMIN,
   attendre,
@@ -29,7 +30,12 @@ import {
   type Invite,
   type Socket,
 } from './banc'
-import type { QuizQuestionDef } from '../../shared/library'
+import { initDb } from '../src/core/db'
+import { Party } from '../src/core/party'
+import { ScoreLedger } from '../src/core/scores'
+import { quizModule, setQuizLibrary } from '../src/games/quiz'
+import type { GameContext, GameSessionRec, ViewContext } from '../src/core/types'
+import type { QuizDef, QuizQuestionDef } from '../../shared/library'
 
 const bancs: Banc[] = []
 
@@ -265,6 +271,25 @@ describe('la question visée', { concurrency: true }, () => {
     assert.equal(deBob.answers[0].points, bilanBob.yourPoints)
   })
 
+  test('ex æquo : même nombre de points, même rang sur le téléphone', async () => {
+    const { host, invites, sessionId } = await soiree([qcm('Qui ?', ['A', 'B'], 0)], ['Alice', 'Bob', 'Chloé'])
+    const [alice, bob, chloe] = invites
+    const q = await vue(alice.socket, v => v.phase === 'question', 'la question')
+    await repondre(alice, sessionId, q, 0)
+    await repondre(bob, sessionId, q, 1)
+    await repondre(chloe, sessionId, q, 1)
+    const revelation = await vue(host, v => v.phase === 'reveal', 'la révélation')
+
+    const rangs = async (phase: string) =>
+      Promise.all(invites.map(i => vue(i.socket, v => v.phase === phase, `${phase} sur un téléphone`))).then(vs =>
+        vs.map(v => v.yourQuizRank),
+      )
+    assert.deepEqual(await rangs('reveal'), [1, 2, 2], 'Bob et Chloé, à zéro tous les deux, sont deuxièmes ensemble')
+
+    commande(host, sessionId, { type: 'next', ...viseeDe(revelation) })
+    assert.deepEqual(await rangs('finished'), [1, 2, 2], 'au podium aussi')
+  })
+
   test('points annulés : le téléphone le sait, au lieu d’afficher « + pts »', async () => {
     const { host, invites, sessionId } = await soiree([qcm('Une ?', ['Oui', 'Non'], 0), qcm('Deux ?')], ['Alice'])
     const [alice] = invites
@@ -301,4 +326,126 @@ describe('la question visée', { concurrency: true }, () => {
     assert.equal(reponse.value, 40)
     assert.equal(reponse.changes, 0, 'un renvoi n’est pas une hésitation')
   })
+})
+
+// ── Le coût des diffusions ────────────────────────────────────────────────
+//
+// Directement sur le module, avec le contexte de vue du moteur : le vrai
+// registre des invités, et un mémo neuf à chaque diffusion. Mesuré avant la
+// correction : à 150 invités, 2 s pour diffuser le podium ; à 500, plus d'une
+// minute — l'hébergeur gratuit n'a qu'un dixième de processeur.
+
+const NB_QUESTIONS = 5
+
+function partieSimulee(n: number) {
+  const spaceId = `banc-diffusion-${n}`
+  const quiz: QuizDef = {
+    id: 'diffusion',
+    title: 'Diffusion',
+    updatedAt: 0,
+    questions: Array.from({ length: NB_QUESTIONS }, (_, i) => ({
+      kind: 'choice' as const,
+      text: `Question ${i + 1} : une question de longueur ordinaire ?`,
+      answers: ['Première', 'Deuxième', 'Troisième', 'Quatrième'],
+      correct: i % 4,
+      target: null,
+      unit: '',
+      duration: 20,
+      image: null,
+      observeSeconds: null,
+    })),
+  }
+  setQuizLibrary(spaceId, [quiz])
+  const db = initDb(':memory:')
+  const party = new Party(db, spaceId)
+  const ledger = new ScoreLedger(db, spaceId)
+  const prenoms = ['Camille', 'Léa', 'Hugo', 'Jules', 'Emma', 'Louise', 'Gabriel', 'Chloé']
+  const ids: string[] = []
+  for (let i = 0; i < n; i++) {
+    // Quelques homonymes parfaits, comme dans une vraie salle : « Camille (2) ».
+    const p = party.join(i % 9 === 0 ? prenoms[i % 8] : `${prenoms[i % 8]} ${i}`, ['🦊', '🐼', '🐸'][i % 3])
+    if ('error' in p) throw new Error(p.error)
+    party.socketConnected(p.id)
+    ids.push(p.id)
+  }
+
+  const compte = { player: 0 }
+  let memo: Map<string, unknown> | null = null
+  const vctx: ViewContext = {
+    playerName: id => party.nomAffiche(id) ?? '???',
+    player: id => {
+      compte.player++
+      return party.publicOne(id, ledger.total(id))
+    },
+    memo: <T>(cle: string, calculer: () => T): T => {
+      if (!memo) return calculer()
+      if (!memo.has(cle)) memo.set(cle, calculer())
+      return memo.get(cle) as T
+    },
+  }
+  let now = 1_000_000
+  const ctx: GameContext = {
+    award: (id, points, reason) => ledger.award(id, points, reason, 'diffusion'),
+    logAnswers: () => {},
+    dropAnswers: () => {},
+    setTimer: () => {},
+    clearTimer: () => {},
+    end: () => {},
+    participants: () => [],
+    playerName: id => vctx.playerName(id),
+    now: () => (now += 13),
+  }
+  const sess: GameSessionRec<any> = {
+    id: 'diffusion',
+    spaceId,
+    status: 'running',
+    participantIds: ids,
+    state: quizModule.createInitialState(spaceId, ids, undefined),
+  }
+  /** Une diffusion comme celle du moteur : toutes les vues, sérialisées pour être comparées. */
+  const diffuser = (): number => {
+    memo = new Map()
+    const t0 = performance.now()
+    for (const id of sess.participantIds) JSON.stringify(quizModule.playerView(sess, id, vctx))
+    JSON.stringify(quizModule.hostView(sess, vctx))
+    memo = null
+    return performance.now() - t0
+  }
+  quizModule.onHostCommand!(sess, { type: 'selectPack', packId: 'diffusion' }, ctx)
+  quizModule.onTimer!(sess, 'ready', ctx)
+  return { sess, ctx, ids, diffuser, compte }
+}
+
+test('diffusions : le classement se calcule une fois pour toute la salle, pas une fois par téléphone', t => {
+  const N = 300
+  const { sess, ctx, ids, diffuser, compte } = partieSimulee(N)
+
+  // Une question complète : chaque réponse déclenche une diffusion. Avant, chaque
+  // vue y triait tous les totaux pour un rang que personne ne lisait encore —
+  // six secondes à 300 invités.
+  const t0 = performance.now()
+  for (const [i, id] of ids.entries()) {
+    quizModule.onPlayerAction(sess, id, { type: 'answer', choice: i % 4 }, ctx)
+    diffuser()
+  }
+  const question = performance.now() - t0
+  t.diagnostic(`question complète à ${N} invités : ${Math.round(question)} ms`)
+  assert.ok(question < 3000, `une question complète à ${N} invités : ${Math.round(question)} ms (borne 3 s)`)
+
+  for (let q = 0; q < NB_QUESTIONS; q++) {
+    if (q > 0) for (const [i, id] of ids.entries()) if ((i + q) % 3) quizModule.onPlayerAction(sess, id, { type: 'answer', choice: (i * q) % 4 }, ctx)
+    quizModule.onHostCommand!(sess, { type: 'next' }, ctx) // révélation
+    quizModule.onHostCommand!(sess, { type: 'next' }, ctx) // suivante, ou podium
+  }
+  assert.equal(sess.state.phase, 'finished')
+
+  // Le meilleur de trois essais : c'est le coût du calcul qu'on borne, pas
+  // l'humeur d'une machine partagée. Avant : quinze secondes.
+  compte.player = 0
+  const podium = Math.min(diffuser(), diffuser(), diffuser())
+  t.diagnostic(`diffusion du podium à ${N} invités : ${Math.round(podium)} ms`)
+  assert.ok(podium < 300, `le podium à ${N} invités se diffuse en ${Math.round(podium)} ms (borne 300 ms)`)
+  // L'écran commun affiche tout le classement (N lignes) ; les téléphones, le
+  // même podium de trois : une fois par diffusion, pas une fois par téléphone.
+  assert.ok(compte.player <= 3 * (N + 3), `${compte.player} joueurs décorés pour trois diffusions`)
 })

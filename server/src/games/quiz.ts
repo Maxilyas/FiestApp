@@ -301,16 +301,50 @@ function goNext(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   else st.phase = 'finished'
 }
 
-function sortedTotals(sess: GameSessionRec<QuizState>): { playerId: string; points: number }[] {
-  return sess.participantIds
-    .map(id => ({ playerId: id, points: sess.state.totals[id] ?? 0 }))
-    // Départage par identifiant : sans lui, deux ex æquo permuteraient à
-    // chaque rediffusion et le classement clignoterait sur l'écran commun.
-    .sort((a, b) => b.points - a.points || a.playerId.localeCompare(b.playerId))
+/**
+ * Le classement du quiz, du premier au dernier. Trié une fois par diffusion
+ * et partagé par toutes les vues qui la composent : chaque téléphone le
+ * retriait pour lui seul, à chaque réponse reçue — à 500 invités, une
+ * demi-minute de processeur par question.
+ */
+function classement(sess: GameSessionRec<QuizState>, vctx: ViewContext): { playerId: string; points: number }[] {
+  return vctx.memo('quiz:classement', () =>
+    sess.participantIds
+      .map(id => ({ playerId: id, points: sess.state.totals[id] ?? 0 }))
+      // Départage par identifiant : sans lui, deux ex æquo permuteraient à
+      // chaque rediffusion et le classement clignoterait sur l'écran commun.
+      // Il décide de l'ORDRE d'affichage, jamais du rang — voir `rangs`.
+      .sort((a, b) => b.points - a.points || a.playerId.localeCompare(b.playerId)),
+  )
+}
+
+/**
+ * Le rang de chacun : 1 + le nombre de participants qui ont strictement plus
+ * de points. Trois joueurs à zéro sont premiers ensemble ; avant, chacun
+ * lisait sa place dans la liste départagée par identifiant — « 3e », « 1er »
+ * et « 2e » pour un même score.
+ */
+function rangs(sess: GameSessionRec<QuizState>, vctx: ViewContext): Map<string, number> {
+  return vctx.memo('quiz:rangs', () => {
+    const parJoueur = new Map<string, number>()
+    let rang = 0
+    let precedent = Number.NaN
+    classement(sess, vctx).forEach((r, i) => {
+      if (r.points !== precedent) {
+        rang = i + 1
+        precedent = r.points
+      }
+      parJoueur.set(r.playerId, rang)
+    })
+    return parJoueur
+  })
 }
 
 function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: number): QuizPodiumRow[] {
-  const rows = sortedTotals(sess).map(r => {
+  const rows = classement(sess, vctx)
+  // On ne décore que les lignes montrées : chaque décoration interroge le
+  // registre des invités, et le podium n'en montre que trois.
+  return (limit ? rows.slice(0, limit) : rows).map(r => {
     const p = vctx.player(r.playerId)
     return {
       name: p ? nomAffiche(p) : vctx.playerName(r.playerId),
@@ -319,28 +353,27 @@ function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: n
       ...distinctions(p),
     }
   })
-  return limit ? rows.slice(0, limit) : rows
 }
 
 /** Les propositions d'une question « estimation », de la plus proche à la plus loin. */
-function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewContext): QuizGuessRow[] {
+function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewContext, limit: number): QuizGuessRow[] {
   const st = sess.state
   return Object.entries(st.responses)
     .filter(([, r]) => r.value !== null)
-    .map(([playerId, r]) => {
+    .map(([playerId, r]) => ({ playerId, r, error: Math.abs(r.value! - target) }))
+    .sort((a, b) => a.error - b.error || a.r.ms - b.r.ms)
+    // Même raison que pour le classement : on ne décore que les lignes montrées.
+    .slice(0, limit)
+    .map(({ playerId, r }) => {
       const p = vctx.player(playerId)
       return {
         name: p ? nomAffiche(p) : vctx.playerName(playerId),
         avatar: p?.avatar ?? '🎉',
         value: r.value!,
         points: st.lastAwards[playerId] ?? 0,
-        error: Math.abs(r.value! - target),
-        ms: r.ms,
         ...distinctions(p),
       }
     })
-    .sort((a, b) => a.error - b.error || a.ms - b.ms)
-    .map(({ error: _error, ms: _ms, ...row }) => row)
 }
 
 /**
@@ -617,7 +650,6 @@ export const quizModule: GameModule<QuizState> = {
     }
     if ((st.phase === 'question' || st.phase === 'reveal') && st.pack) {
       const q = st.pack.questions[st.qIndex]
-      const rank = sortedTotals(sess).findIndex(r => r.playerId === playerId) + 1
       return {
         ...base,
         kind: q.kind,
@@ -639,17 +671,19 @@ export const quizModule: GameModule<QuizState> = {
           yourPoints: playerId in st.lastAwards ? st.lastAwards[playerId] : null,
           ...(st.cancelled && { cancelled: true }),
           yourQuizTotal: st.totals[playerId] ?? 0,
-          yourQuizRank: rank,
+          // Le rang ne se lit qu'entre deux questions : pendant la question,
+          // aucun classement n'est calculé.
+          yourQuizRank: rangs(sess, vctx).get(playerId),
         }),
       }
     }
     if (st.phase === 'finished') {
-      const rank = sortedTotals(sess).findIndex(r => r.playerId === playerId) + 1
       return {
         ...base,
         yourQuizTotal: st.totals[playerId] ?? 0,
-        yourQuizRank: rank,
-        podium: standings(sess, vctx, 3),
+        yourQuizRank: rangs(sess, vctx).get(playerId),
+        // Le même podium pour toute la salle : construit une fois par diffusion.
+        podium: vctx.memo('quiz:podium', () => standings(sess, vctx, 3)),
       }
     }
     return base
@@ -710,7 +744,7 @@ export const quizModule: GameModule<QuizState> = {
           view.fastest = fastest
         } else {
           view.target = q.target
-          view.guesses = guessRows(sess, q.target, vctx).slice(0, 8)
+          view.guesses = guessRows(sess, q.target, vctx, 8)
         }
         if (st.cancelled) view.cancelled = true
         view.standings = standings(sess, vctx, 5)

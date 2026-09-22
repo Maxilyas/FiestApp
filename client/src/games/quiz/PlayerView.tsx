@@ -374,7 +374,9 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
         <div className="podium">
           {v.podium?.map((p, i) => (
             <div key={i} className="lb-row" style={{ animationDelay: `${i * 120}ms` }}>
-              <Rank n={i + 1} />
+              {/* Rang partagé, comme celui de la phrase au-dessus : deux ex
+                  æquo portent le même chiffre. */}
+              <Rank n={1 + v.podium!.filter(o => o.points > p.points).length} />
               <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
               <span className="lb-name">{p.name}</span>
               <Niveau niveau={p.niveau} />

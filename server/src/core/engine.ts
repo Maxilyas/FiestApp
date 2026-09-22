@@ -68,11 +68,24 @@ export class GameEngine {
   /** Dernier état écrit localement — celui à envoyer si on coupe pendant l'attente. */
   private lastRow: SessionRow | null = null
 
+  /**
+   * Le mémo de la diffusion en cours — voir `ViewContext.memo`. Null entre
+   * deux diffusions : une vue calculée à un autre moment ne lit jamais un
+   * classement resté d'un état précédent.
+   */
+  private memo: Map<string, unknown> | null = null
+
   private vctx: ViewContext = {
     // `nomAffiche` et pas `name` : c'est ce nom-là qui part sur l'écran
     // commun, et il doit être celui du classement — « Camille (2) » aussi.
     playerName: id => this.deps.party.nomAffiche(id) ?? '???',
     player: id => this.deps.party.publicOne(id, this.deps.ledger.total(id)),
+    memo: <T>(key: string, compute: () => T): T => {
+      const memo = this.memo
+      if (!memo) return compute()
+      if (!memo.has(key)) memo.set(key, compute())
+      return memo.get(key) as T
+    },
   }
 
   constructor(private deps: EngineDeps, private module: GameModule) {}
@@ -230,7 +243,7 @@ export class GameEngine {
   resendViews(playerId: string) {
     const sess = this.session
     if (!sess || sess.status !== 'running' || !sess.participantIds.includes(playerId)) return
-    const view = this.module.playerView(sess, playerId, this.vctx)
+    const view = this.broadcast(() => this.module.playerView(sess, playerId, this.vctx))
     // Toujours envoyer : le téléphone qui revient d'une coupure a un écran
     // vide, même si sa vue n'a pas changé entre-temps.
     this.changed(`player:${playerId}`, view)
@@ -243,7 +256,7 @@ export class GameEngine {
     if (!sess || sess.status !== 'running') return
     socket.emit('session:view', {
       sessionId: sess.id,
-      view: this.module.hostView(sess, this.vctx),
+      view: this.broadcast(() => this.module.hostView(sess, this.vctx)),
     })
   }
 
@@ -312,17 +325,34 @@ export class GameEngine {
   }
 
   private fanout(sess: LiveSession) {
-    for (const playerId of sess.participantIds) {
-      const view = this.module.playerView(sess, playerId, this.vctx)
-      if (this.changed(`player:${playerId}`, view)) {
-        this.deps.io.to(`player:${playerId}`).emit('session:view', { sessionId: sess.id, view })
+    this.broadcast(() => {
+      for (const playerId of sess.participantIds) {
+        const view = this.module.playerView(sess, playerId, this.vctx)
+        if (this.changed(`player:${playerId}`, view)) {
+          this.deps.io.to(`player:${playerId}`).emit('session:view', { sessionId: sess.id, view })
+        }
       }
-    }
-    // L'écran commun, lui, bouge à chaque réponse (le compteur « 12/50 ont
-    // répondu ») : sa vue change vraiment, on la renvoie.
-    const hostView = this.module.hostView(sess, this.vctx)
-    if (this.changed('__host__', hostView)) {
-      this.deps.io.to(`hosts:${this.deps.spaceId}`).emit('session:view', { sessionId: sess.id, view: hostView })
+      // L'écran commun, lui, bouge à chaque réponse (le compteur « 12/50 ont
+      // répondu ») : sa vue change vraiment, on la renvoie.
+      const hostView = this.module.hostView(sess, this.vctx)
+      if (this.changed('__host__', hostView)) {
+        this.deps.io.to(`hosts:${this.deps.spaceId}`).emit('session:view', { sessionId: sess.id, view: hostView })
+      }
+    })
+  }
+
+  /**
+   * Calcule les vues d'une diffusion : elles partagent un mémo neuf, oublié à
+   * la fin — le classement se trie une fois pour toute la salle, et jamais
+   * sur un état qui a changé depuis.
+   */
+  private broadcast<T>(fn: () => T): T {
+    const outer = this.memo
+    this.memo = new Map()
+    try {
+      return fn()
+    } finally {
+      this.memo = outer
     }
   }
 

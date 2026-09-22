@@ -72,6 +72,7 @@ export interface QuizPlayerView {
    */
   cancelled?: boolean
   yourQuizTotal?: number
+  /** Rang dans le quiz, partagé à égalité : trois joueurs à zéro sont premiers ensemble. */
   yourQuizRank?: number
   // finished
   podium?: QuizPodiumRow[]
