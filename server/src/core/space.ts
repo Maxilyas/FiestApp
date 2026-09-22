@@ -368,6 +368,50 @@ export class SpaceRuntime {
     for (const g of gains) await this.deps.profiles.grantCareerBadges(g.profileId, soireeId, this.spaceId)
   }
 
+  /**
+   * Exclut un invité : il quitte la soirée avec tout ce qu'il y avait laissé.
+   * Rend faux s'il n'en était pas — un invité d'une autre soirée n'est pas
+   * dans cette liste, et rien ne se passe.
+   */
+  exclure(playerId: string): boolean {
+    if (!this.party.remove(playerId)) return false
+    // Ses gains et ses réponses partent avec lui : il ne doit plus peser
+    // sur les prix, ni sur la question en cours.
+    this.ledger.removePlayer(playerId)
+    this.answers.removePlayer(playerId)
+    this.engine.dropParticipant(playerId)
+    this.broadcastSnapshot()
+    // Son téléphone repart sur l'écran d'inscription, et sa connexion
+    // n'incarne plus personne.
+    for (const socket of this.detacher(playerId)) socket.emit('player:removed')
+    return true
+  }
+
+  /**
+   * Les connexions qui incarnaient cet invité n'incarnent plus personne :
+   * elles quittent son salon et oublient son identité. Rend celles qu'on a
+   * détachées, pour que l'appelant leur dise pourquoi — une exclusion, ou
+   * une nouvelle soirée.
+   *
+   * Un téléphone laissé tel quel gardait, côté serveur, l'identité d'un
+   * invité effacé : ses réponses étaient refusées d'un « tu joues à la
+   * prochaine question » que rien ne tiendrait, et le salon de l'invité
+   * continuait de lui parler. L'exclusion et « Nouvelle soirée » avaient
+   * chacune leur copie de ce geste, et elles commençaient à diverger.
+   */
+  private detacher(playerId: string) {
+    const io = this.deps.io
+    const salon = `player:${playerId}`
+    return [...(io.sockets.adapter.rooms.get(salon) ?? [])].flatMap(id => {
+      const socket = io.sockets.sockets.get(id)
+      if (!socket) return []
+      socket.leave(salon)
+      // Une connexion qui incarne déjà quelqu'un d'autre garde son identité.
+      if (socket.data.playerId === playerId) socket.data.playerId = undefined
+      return [socket]
+    })
+  }
+
   /** L'espace tel que les invités et les pages le voient. */
   publicSpace(): PublicSpace {
     const account = this.deps.auth.byId(this.spaceId)
@@ -594,14 +638,12 @@ export class SpaceRuntime {
     // avatar « déjà pris » changeait sous ses yeux.
     this.sendSnapshot()
     const io = this.deps.io
-    for (const id of [...(io.sockets.adapter.rooms.get(`space:${this.spaceId}`) ?? [])]) {
-      const socket = io.sockets.sockets.get(id)
-      const playerId = socket?.data.playerId
-      if (!socket || !playerId || this.party.get(playerId)) continue
-      socket.leave(`player:${playerId}`)
-      socket.data.playerId = undefined
-      socket.emit('party:reset')
+    const effaces = new Set<string>()
+    for (const id of io.sockets.adapter.rooms.get(`space:${this.spaceId}`) ?? []) {
+      const playerId = io.sockets.sockets.get(id)?.data.playerId
+      if (playerId && !this.party.get(playerId)) effaces.add(playerId)
     }
+    for (const playerId of effaces) for (const socket of this.detacher(playerId)) socket.emit('party:reset')
     return archived
   }
 

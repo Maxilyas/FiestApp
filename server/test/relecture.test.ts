@@ -13,7 +13,20 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
-import { ADMIN, connexionAnimateur, cookieDe, demarrer, ecranCommun, ecrire, inscrireProfil, type Banc } from './banc'
+import {
+  ADMIN,
+  attendre,
+  connexionAnimateur,
+  cookieDe,
+  demarrer,
+  ecranCommun,
+  ecrire,
+  emitAck,
+  inscrireProfil,
+  invite,
+  type Banc,
+  type Invite,
+} from './banc'
 import type { QuizServerOptions } from '../src/server'
 import { AuthStore } from '../src/auth/store'
 import { QuizStore } from '../src/core/quizStore'
@@ -510,4 +523,31 @@ test('le client change le mot de passe d’un profil avec l’actuel, ou avec le
     const ouvre = async (password: string) => (await ecrire(banc.url, '/api/joueur/connexion', { login: 'noe', password })).status
     assert.equal(await ouvre('troisieme-mdp-3'), 200)
     assert.equal(await ouvre('nouveau-mdp-2'), 401)
+  }))
+
+// ── 10. Un seul geste pour détacher un téléphone ──────────────────────────
+//
+// L'exclusion et « Nouvelle soirée » détachaient chacune à sa façon les
+// connexions de l'invité effacé ; elles passent maintenant par le même
+// `detacher()`. Rien n'avait encore divergé au point de se voir : ce test-là
+// passait déjà, et garde ce qu'elles doivent faire toutes les deux.
+
+test('exclu, ou effacé par « Nouvelle soirée », un téléphone n’incarne plus personne', () =>
+  avecBanc(async banc => {
+    const host = await ecranCommun(banc.url, await connexionAnimateur(banc.url))
+    const exclu = await invite(banc.url, 'Exclu', '🐍')
+    const efface = await invite(banc.url, 'Effacé', '🐙')
+    /** Un geste qui demande une identité : refusé à une connexion qui n'en a plus. */
+    const incarne = async (qui: Invite) => (await emitAck<any>(qui.socket, 'player:setTeam', { teamId: null })).ok
+
+    const prevenu = attendre(exclu.socket, 'player:removed', () => true, 'l’exclusion')
+    ;(host as any).emit('host:removePlayer', { playerId: exclu.playerId })
+    await prevenu
+    assert.equal(await incarne(exclu), false, 'l’exclu n’incarne plus personne')
+    assert.equal(await incarne(efface), true, 'l’autre invité, si')
+
+    const remis = attendre(efface.socket, 'party:reset', () => true, 'la nouvelle soirée')
+    ;(host as any).emit('host:resetParty')
+    await remis
+    assert.equal(await incarne(efface), false, 'l’invité de la soirée effacée non plus')
   }))

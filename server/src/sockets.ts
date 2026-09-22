@@ -134,23 +134,6 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     }
   })
 
-  /**
-   * Les connexions qui incarnaient cet invité n'incarnent plus personne. Un
-   * téléphone exclu gardait sinon, côté serveur, l'identité d'un invité
-   * effacé : ses réponses étaient refusées d'un « tu joues à la prochaine
-   * question » que rien ne tiendrait, et le salon de l'exclu continuait de
-   * lui parler.
-   */
-  const detacher = (playerId: string) => {
-    const salon = `player:${playerId}`
-    for (const id of [...(io.sockets.adapter.rooms.get(salon) ?? [])]) {
-      const s = io.sockets.sockets.get(id)
-      if (!s) continue
-      s.leave(salon)
-      if (s.data.playerId === playerId) s.data.playerId = undefined
-    }
-  }
-
   io.on('connection', socket => {
     let helloFailures = 0
     let identitiesCreated = 0
@@ -507,18 +490,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       const rt = requireHost()
       const playerId = texte(charge.playerId)
       if (!rt || !playerId) return
-      // Un invité d'une autre soirée n'est pas dans cette liste : rien ne se passe.
-      if (!rt.party.remove(playerId)) return
-      // Ses gains et ses réponses partent avec lui : il ne doit plus peser
-      // sur les prix, ni sur la question en cours.
-      rt.ledger.removePlayer(playerId)
-      rt.answers.removePlayer(playerId)
-      rt.engine.dropParticipant(playerId)
-      rt.broadcastSnapshot()
-      // Son téléphone repart sur l'écran d'inscription, et sa connexion
-      // n'incarne plus personne.
-      io.to(`player:${playerId}`).emit('player:removed')
-      detacher(playerId)
+      rt.exclure(playerId)
     })
 
     // ── Équipes ────────────────────────────────────
