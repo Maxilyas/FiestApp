@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { createClient, type Client } from '@libsql/client'
+import { clientDistant, type Client } from './distante'
 import type { DB } from './db'
 import type { PlayerRec } from './party'
 import type { TeamRec } from './teams'
@@ -67,7 +67,7 @@ export class PartyBackup {
   private defaultSpace = ''
 
   constructor(url: string, authToken?: string) {
-    this.client = createClient({ url, authToken })
+    this.client = clientDistant(url, authToken)
   }
 
   /**

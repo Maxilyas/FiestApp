@@ -1,4 +1,4 @@
-import { createClient, type Client } from '@libsql/client'
+import { clientDistant, type Client } from '../core/distante'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword } from './password'
 import {
@@ -71,7 +71,7 @@ export class AuthStore {
   private defaultSpace = ''
 
   constructor(url: string, authToken?: string) {
-    this.client = createClient({ url, authToken })
+    this.client = clientDistant(url, authToken)
   }
 
   async init() {

@@ -1,4 +1,4 @@
-import { createClient, type Client } from '@libsql/client'
+import { clientDistant, type Client } from '../core/distante'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
 import { cleanAvatar, cleanName, DEFAULT_AVATAR } from '../../../shared/avatars'
@@ -125,7 +125,7 @@ export class ProfileStore {
   private eclats = new Map<string, Set<string>>()
 
   constructor(url: string, authToken?: string) {
-    this.client = createClient({ url, authToken })
+    this.client = clientDistant(url, authToken)
   }
 
   async init() {

@@ -1,4 +1,4 @@
-import { createClient, type Client } from '@libsql/client'
+import { clientDistant, type Client } from './distante'
 import type { AnswerRow } from './answers'
 import type { PlayerRec } from './party'
 import type { TeamRec } from './teams'
@@ -214,7 +214,7 @@ export class ArchiveStore {
   private client: Client
 
   constructor(url: string, authToken?: string) {
-    this.client = createClient({ url, authToken })
+    this.client = clientDistant(url, authToken)
   }
 
   /**

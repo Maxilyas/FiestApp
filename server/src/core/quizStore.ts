@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { createClient, type Client } from '@libsql/client'
+import { clientDistant, type Client } from './distante'
 import {
   MAX_ANSWERS,
   MAX_DURATION,
@@ -44,7 +44,7 @@ export class QuizStore {
   private imageCache = new Map<string, { mime: string; bytes: Buffer }>()
 
   constructor(url: string, authToken?: string) {
-    this.client = createClient({ url, authToken })
+    this.client = clientDistant(url, authToken)
   }
 
   /**
