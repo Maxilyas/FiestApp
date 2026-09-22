@@ -42,7 +42,10 @@ import { initDb } from '../src/core/db'
 import { Party } from '../src/core/party'
 import { ScoreLedger } from '../src/core/scores'
 import { AnswerLog } from '../src/core/answers'
+import { quizModule } from '../src/games/quiz'
+import type { ViewContext } from '../src/core/types'
 import { XP } from '../../shared/profil'
+import { classer } from '../../shared/classement'
 
 // ── Outils ────────────────────────────────────────────────────────────────
 
@@ -896,3 +899,79 @@ test('ce qui change entre le podium et « Terminer » se crédite quand même', 
       await jusqua(async () => (await moi()) === premiere, 'Alice créditée première, et vainqueur du quiz')
     }),
   ))
+
+// ── 7. Une seule règle de départage ───────────────────────────────────────
+
+test('le podium du quiz range les ex æquo comme le souvenir : par nom affiché, puis par identifiant', () => {
+  // L'identifiant et le prénom ne rangent pas ces ex æquo dans le même
+  // ordre : « a » s'appelle Zoé et « b » Alice ; « c » est la seconde Camille.
+  const joueurs: Record<string, { name: string; nomAffiche?: string; points: number }> = {
+    a: { name: 'Zoé', points: 300 },
+    b: { name: 'Alice', points: 300 },
+    c: { name: 'Camille', nomAffiche: 'Camille (2)', points: 100 },
+    d: { name: 'Camille', points: 100 },
+    e: { name: 'Émile', points: 100 },
+  }
+  // Le contexte de vue du moteur : le nom affiché, le joueur décoré, et le
+  // mémo d'une diffusion.
+  const memo = new Map<string, unknown>()
+  const vctx: ViewContext = {
+    playerName: id => joueurs[id].nomAffiche ?? joueurs[id].name,
+    player: id => ({
+      id,
+      name: joueurs[id].name,
+      avatar: '🦊',
+      connected: true,
+      score: joueurs[id].points,
+      teamId: null,
+      ...(joueurs[id].nomAffiche && { nomAffiche: joueurs[id].nomAffiche }),
+    }),
+    memo: <T>(cle: string, calculer: () => T): T => {
+      if (!memo.has(cle)) memo.set(cle, calculer())
+      return memo.get(cle) as T
+    },
+  }
+  const sess = {
+    id: 'fin',
+    spaceId: 'departage',
+    status: 'running' as const,
+    participantIds: Object.keys(joueurs),
+    state: {
+      phase: 'finished',
+      pack: { id: 'p', title: 'Fin', questions: [] },
+      qIndex: 0,
+      responses: {},
+      lastAwards: {},
+      totals: Object.fromEntries(Object.entries(joueurs).map(([id, j]) => [id, j.points])),
+      playFrom: {},
+      multiplier: 1,
+    },
+  }
+
+  // La règle commune, telle que le souvenir, le bilan et l'archive l'appliquent.
+  const regle = classer(Object.keys(joueurs), id => joueurs[id].points, vctx.playerName, id => id).map(c => [
+    vctx.playerName(c.item),
+    c.rang,
+  ])
+  assert.deepEqual(regle, [
+    ['Alice', 1],
+    ['Zoé', 1],
+    ['Camille', 3],
+    ['Camille (2)', 3],
+    ['Émile', 3],
+  ])
+  // L'écran commun et les téléphones les rangeaient par identifiant : Zoé
+  // avant Alice au podium du quiz, Alice avant Zoé au souvenir du lendemain.
+  const ecran = (quizModule.hostView(sess as any, vctx) as any).standings
+  assert.deepEqual(
+    ecran.map((r: any) => [r.name, r.rank]),
+    regle,
+    'l’écran commun suit la règle commune',
+  )
+  const telephone = quizModule.playerView(sess as any, 'a', vctx) as any
+  assert.deepEqual(
+    telephone.podium.map((r: any) => r.name),
+    ['Alice', 'Zoé', 'Camille'],
+    'le podium des téléphones aussi',
+  )
+})

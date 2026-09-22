@@ -2,6 +2,7 @@ import type { GameContext, GameModule, GameSessionRec, ViewContext } from '../co
 import { playableQuestions, type PlayableQuestion, type QuizDef } from '../../../shared/library'
 import { distinctions } from '../../../shared/profil'
 import { nomAffiche } from '../../../shared/homonymes'
+import { classer, type Classe } from '../../../shared/classement'
 import type {
   QuizAction,
   QuizCommand,
@@ -307,60 +308,57 @@ function goNext(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   }
 }
 
-/**
- * Le classement du quiz, du premier au dernier. Trié une fois par diffusion
- * et partagé par toutes les vues qui la composent : chaque téléphone le
- * retriait pour lui seul, à chaque réponse reçue — à 500 invités, une
- * demi-minute de processeur par question.
- */
-function classement(sess: GameSessionRec<QuizState>, vctx: ViewContext): { playerId: string; points: number }[] {
-  return vctx.memo('quiz:classement', () =>
-    sess.participantIds
-      .map(id => ({ playerId: id, points: sess.state.totals[id] ?? 0 }))
-      // Départage par identifiant : sans lui, deux ex æquo permuteraient à
-      // chaque rediffusion et le classement clignoterait sur l'écran commun.
-      // Il décide de l'ORDRE d'affichage, jamais du rang — voir `rangs`.
-      .sort((a, b) => b.points - a.points || a.playerId.localeCompare(b.playerId)),
-  )
+/** Une ligne du classement du quiz. */
+interface LigneDuClassement {
+  playerId: string
+  points: number
+  /** Le nom tel qu'on l'affiche — « Camille (2) » : c'est lui qui range les ex æquo. */
+  nom: string
 }
 
 /**
- * Le rang de chacun : 1 + le nombre de participants qui ont strictement plus
- * de points. Trois joueurs à zéro sont premiers ensemble ; avant, chacun
- * lisait sa place dans la liste départagée par identifiant — « 3e », « 1er »
- * et « 2e » pour un même score.
+ * Le classement du quiz, du premier au dernier, chacun avec son rang. Trié
+ * une fois par diffusion et partagé par toutes les vues qui la composent :
+ * chaque téléphone le retriait pour lui seul, à chaque réponse reçue — à
+ * 500 invités, une demi-minute de processeur par question.
+ *
+ * La règle est celle de `shared/classement.ts`, la seule : le rang partagé
+ * — trois joueurs à zéro sont premiers ensemble —, et les ex æquo rangés
+ * par nom affiché, puis par identifiant. Le podium du quiz les rangeait par
+ * identifiant seul : l'écran commun montrait Zoé avant Alice, et le souvenir
+ * du lendemain Alice avant Zoé. Les noms se lisent une fois par diffusion,
+ * dans les marques d'homonymie déjà gardées en mémoire (`vctx.playerName`).
  */
+function classement(sess: GameSessionRec<QuizState>, vctx: ViewContext): Classe<LigneDuClassement>[] {
+  return vctx.memo('quiz:classement', () =>
+    classer(
+      sess.participantIds.map(id => ({ playerId: id, points: sess.state.totals[id] ?? 0, nom: vctx.playerName(id) })),
+      l => l.points,
+      l => l.nom,
+      l => l.playerId,
+    ),
+  )
+}
+
+/** Le rang de chacun, pour la vue de chaque téléphone. */
 function rangs(sess: GameSessionRec<QuizState>, vctx: ViewContext): Map<string, number> {
-  return vctx.memo('quiz:rangs', () => {
-    const parJoueur = new Map<string, number>()
-    let rang = 0
-    let precedent = Number.NaN
-    classement(sess, vctx).forEach((r, i) => {
-      if (r.points !== precedent) {
-        rang = i + 1
-        precedent = r.points
-      }
-      parJoueur.set(r.playerId, rang)
-    })
-    return parJoueur
-  })
+  return vctx.memo('quiz:rangs', () => new Map(classement(sess, vctx).map(c => [c.item.playerId, c.rang])))
 }
 
 function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: number): QuizPodiumRow[] {
   const rows = classement(sess, vctx)
-  const rang = rangs(sess, vctx)
   // On ne décore que les lignes montrées : chaque décoration interroge le
   // registre des invités, et le podium n'en montre que trois.
-  return (limit ? rows.slice(0, limit) : rows).map(r => {
-    const p = vctx.player(r.playerId)
+  return (limit ? rows.slice(0, limit) : rows).map(({ item, rang }) => {
+    const p = vctx.player(item.playerId)
     return {
-      name: p ? nomAffiche(p) : vctx.playerName(r.playerId),
+      name: p ? nomAffiche(p) : item.nom,
       avatar: p?.avatar ?? '🎉',
-      points: r.points,
+      points: item.points,
       // Le rang voyage avec la ligne : l'écran commun affiche la suite du
       // podium à partir du quatrième, et le déduisait de sa position dans
       // cette suite — « 4 » pour un troisième ex æquo.
-      rank: rang.get(r.playerId)!,
+      rank: rang,
       ...distinctions(p),
     }
   })
