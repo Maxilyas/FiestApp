@@ -37,10 +37,14 @@ const quizDbToken = process.env.QUIZ_DB_TOKEN
 // Le plafond d'invités par soirée, que même le réglage d'un espace ne dépasse
 // pas : au-delà, l'instance gratuite de l'hébergeur ne suit plus.
 const maxPlayers = Number(process.env.MAX_PLAYERS) || undefined
+// Le nom de l'environnement, quand ce n'est pas la production : « preprod ».
+// Il devient un bandeau sur toutes les pages — on ne projette pas la mauvaise
+// instance un soir de fête, et on n'écrit pas ses quiz dans la mauvaise base.
+const appEnv = process.env.APP_ENV?.trim() || undefined
 
-createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers }).then(
+createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv }).then(
   server => {
-    console.log(`🎉 Quizz — serveur prêt sur http://localhost:${server.port}`)
+    console.log(`🎉 Quizz — serveur prêt sur http://localhost:${server.port}${appEnv ? `  [${appEnv}]` : ''}`)
     // Aucun secret dans les journaux : en ligne, ils sont conservés et
     // lisibles par tout le monde sur le tableau de bord de l'hébergeur.
     console.log(`   Invités      : http://localhost:${server.port}/${admin.slug}  (l'adresse du QR)`)

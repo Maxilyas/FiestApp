@@ -278,10 +278,11 @@ L'adresse publique du QR code se règle toute seule : Render fournit `RENDER_EXT
 npm run migrate -- --to libsql://ta-base.turso.io --token ton-jeton
 ```
 
-**4. Empêcher la mise en veille.** C'est la vraie limite de l'offre gratuite de Render : sans trafic entrant pendant 15 minutes, le service s'endort, et le réveil prend environ une minute — le premier invité qui scanne attendrait devant une page blanche. Deux parades, à combiner :
+**4. La mise en veille.** C'est la vraie limite de l'offre gratuite de Render : sans trafic entrant pendant 15 minutes, le service s'endort, et le réveil prend environ une minute — le premier invité qui scanne attendrait devant une page blanche.
 
-- Un service de ping gratuit (cron-job.org, UptimeRobot…) qui appelle `https://ton-app.onrender.com/healthz` toutes les 10 minutes. Le quota gratuit (750 heures/mois pour un mois qui en compte 730) permet de rester allumé en permanence.
-- Ouvrir l'écran commun **cinq minutes avant** l'arrivée des invités. Tant qu'un écran ou un téléphone est connecté, le trafic des websockets empêche la veille.
+La parade tient en un geste : **ouvrir l'écran commun cinq minutes avant** l'arrivée des invités. Tant qu'un écran ou un téléphone est connecté, le trafic des websockets empêche la veille — la seule fenêtre de risque est le tout premier scan, et c'est celle-là qu'on couvre.
+
+Un service de ping extérieur (cron-job.org, UptimeRobot…) ferait le même travail sans y penser, mais ce dépôt s'en passe : avec **deux services gratuits** — production et préproduction —, les 750 heures mensuelles ne suffisent pas à en garder deux allumés en permanence. Laisser dormir les deux est le choix cohérent.
 
 Si tu préfères un hébergeur qui ne dort jamais, Northflank propose deux services toujours actifs sur son offre gratuite — mais il demande une carte pour vérifier le compte, ce que Render ne fait pas.
 

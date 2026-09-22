@@ -2571,3 +2571,32 @@ h3 > .icon {
 .soiree-quand { font-family: var(--serif); font-size: 1rem; }
 .soiree-detail { color: var(--muted); font-size: 0.8rem; flex: 1; }
 .soiree-xp { color: var(--accent); font-variant-numeric: tabular-nums; }
+
+/* ── Le bandeau d'environnement ────────────────────────────────────────────
+
+   Posé par le serveur hors production. Deux onglets sur deux instances sont
+   indiscernables sans lui, et se tromper coûte cher des deux côtés : projeter
+   la préproduction un soir de fête, ou écrire ses quiz dans une base qui sera
+   effacée.
+
+   En bas à gauche : c'est le seul coin qu'aucun écran ne dispute — la console
+   de l'animateur occupe le haut, le classement la droite, et les téléphones
+   gardent leur bouton principal en bas au centre. Il ne prend aucun clic. */
+.env-badge {
+  position: fixed;
+  left: 10px;
+  bottom: 10px;
+  z-index: 9999;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--alert);
+  background: var(--bg);
+  color: var(--alert);
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0.85;
+}

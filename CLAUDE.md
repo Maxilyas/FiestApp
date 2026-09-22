@@ -82,6 +82,18 @@ client/src/views/   une page = un fichier
 - Les messages d'erreur sont lus par des invités dans le noir : courts, en
   français, et ils disent quoi faire.
 
+## Les deux environnements
+
+`render.yaml` décrit **deux services** : `quizz-romane-30` (production, déployée
+à la main) et `fiestapp-preprod` (préproduction, déployée à chaque fusion sur
+`main`). Ils ne diffèrent que par `QUIZ_DB_URL` — tout le précieux est dans
+Turso, la base locale est jetable.
+
+**Jamais la même base Turso pour les deux** : un « Nouvelle soirée » en
+préproduction effacerait de vraies soirées archivées. Hors production,
+`APP_ENV` pose un bandeau sur toutes les pages (injecté dans `index.html` par
+`server.ts`, affiché par `main.tsx`).
+
 ## Les pièges de ce dépôt
 
 - **`smoke.ts` est stateful de bout en bout.** Une soirée jouée insérée au
