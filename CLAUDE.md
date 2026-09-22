@@ -98,15 +98,16 @@ server/test/        un fichier par thème, un serveur jetable chacun
    (`unknown-token`), **jamais recréé** : le téléphone repasse par l'entrée,
    pré-remplie.
 10. **Les profils se créditent dès que le quiz rend son verdict** (son podium
-    s'affiche), à la fin de la partie, puis une dernière fois dans
-    `archiveParty()`, avant tout effacement. C'est l'idempotence qui le
-    permet : la ligne `(profil, soirée)` est remplacée, jamais ajoutée. Un
-    invité **exclu** rend la sienne, et l'Éclat tiré ce soir-là
-    (`exclure()`, à la file des crédits) : le crédit suivant ne réécrit que
-    les profils encore là. Les **prix de la soirée** se remplacent de même à
-    chaque archivage, en un seul lot (`remplacerPrixDeSoiree`) — un
-    « Sauvegarder » à mi-soirée ne fige rien. Les badges de **carrière**,
-    eux, ne se reprennent jamais.
+    s'affiche), à la fin de la partie si quelque chose a changé depuis
+    (`dernierCredit`, l'empreinte des gains arrivés en base), puis une
+    dernière fois dans `archiveParty()`, toujours, avant tout effacement.
+    C'est l'idempotence qui le permet : la ligne `(profil, soirée)` est
+    remplacée, jamais ajoutée. Un invité **exclu** rend la sienne, et
+    l'Éclat tiré ce soir-là (`exclure()`, à la file des crédits) : le crédit
+    suivant ne réécrit que les profils encore là. Les **prix de la soirée**
+    se remplacent de même à chaque archivage, en un seul lot
+    (`remplacerPrixDeSoiree`) — un « Sauvegarder » à mi-soirée ne fige rien.
+    Les badges de **carrière**, eux, ne se reprennent jamais.
 11. **Le nom d'une soirée se tire une fois** (`soireeEnCours`) et ne se
     recalcule jamais : exclure le premier arrivé ou redémarrer ne le change
     pas, seul `resetParty` l'oublie. Toute écriture permanente sous ce nom

@@ -45,6 +45,15 @@ interface CreditDeSoiree {
 }
 
 /**
+ * Ce qu'un crédit d'expérience écrirait : le nom de la soirée, et chaque
+ * gain tel quel — profil, invité, emoji, relevé. Deux crédits de même
+ * empreinte écrivent exactement les mêmes lignes.
+ */
+function empreinteDuCredit(soireeId: string, gains: SoireeGain[]): string {
+  return JSON.stringify([soireeId, gains])
+}
+
+/**
  * La soirée d'un espace : ses invités, ses équipes, ses points, son journal,
  * sa partie en cours — et ses diffusions, qui ne sortent jamais de ses
  * salons. Chaque animateur en a une ; elles ne se voient pas.
@@ -238,6 +247,21 @@ export class SpaceRuntime {
    */
   private xpAnnoncee = new Map<string, number>()
 
+  /**
+   * L'empreinte du dernier crédit d'expérience arrivé en base : le nom de la
+   * soirée et les gains écrits (voir `empreinteDuCredit`). Null quand on ne
+   * sait plus ce qui y est — un crédit en cours ou raté, une ligne rendue
+   * par un exclu, une nouvelle soirée.
+   *
+   * Chaque quiz se créditait deux fois, au podium puis à « Terminer » :
+   * environ cinq allers-retours vers Turso par profil pour réécrire les
+   * mêmes chiffres, dans la file où attendait peut-être un archivage. Même
+   * empreinte, même résultat : le second passe son tour. Tout ce qui
+   * changerait une ligne — des points annulés, un invité exclu, un profil
+   * rattaché entre-temps — change aussi l'empreinte.
+   */
+  private dernierCredit: string | null = null
+
   /** Ce que la soirée rapporte aux profils, à l'instant où on le demande. */
   private gainsDuMoment(answers = this.answers.all()): SoireeGain[] {
     return buildProgress({
@@ -256,6 +280,8 @@ export class SpaceRuntime {
    * attendre l'archivage à celui qui vient de gagner.
    */
   private async crediterExperience(soireeId: string, gains: SoireeGain[]) {
+    // Tant qu'il n'est pas allé au bout, on ne sait plus ce qui est en base.
+    this.dernierCredit = null
     for (const g of gains) {
       // L'Éclat ne se tire qu'une fois par soirée. Sans ce garde-fou, chaque
       // quiz joué donnerait une chance de plus — et l'Éclat ne vaut que
@@ -275,6 +301,7 @@ export class SpaceRuntime {
       }
       await this.annoncer(soireeId, g)
     }
+    this.dernierCredit = empreinteDuCredit(soireeId, gains)
   }
 
   /**
@@ -318,8 +345,16 @@ export class SpaceRuntime {
     if (gains.length === 0) return
     const soiree = this.soireeEnCours()
     if (!soiree) return
+    // Rien n'a changé depuis le dernier crédit arrivé en base : le podium,
+    // puis « Terminer » sans que personne ait bougé entre les deux.
+    const empreinte = empreinteDuCredit(soiree.id, gains)
+    if (empreinte === this.dernierCredit) return
     const recopie = this.recopierSoiree(soiree)
     await this.enFile(async () => {
+      // Le crédit d'avant attendait peut-être encore dans la file quand on a
+      // demandé celui-ci : il a pu écrire exactement ces lignes. Raté, il
+      // aurait laissé l'empreinte vide, et celui-ci repartirait.
+      if (empreinte === this.dernierCredit) return
       await recopie
       await this.crediterExperience(soiree.id, gains)
       // Les niveaux ont pu monter : l'écran commun doit le montrer.
@@ -425,6 +460,9 @@ export class SpaceRuntime {
    */
   private rendreCredit(profileId: string, soiree: Soiree): Promise<void> {
     return this.enFile(async () => {
+      // Une ligne qui change hors d'un crédit : l'empreinte du dernier ne
+      // dit plus ce qui est en base.
+      this.dernierCredit = null
       await this.deps.profiles.retirerSoiree(profileId, soiree.id)
       // S'il revient ce soir, il repart de zéro : son annonce aussi.
       this.xpAnnoncee.delete(`${soiree.id}:${profileId}`)
@@ -651,6 +689,7 @@ export class SpaceRuntime {
     await this.mirror.reset(() => {
       this.party.clearAll()
       this.xpAnnoncee.clear()
+      this.dernierCredit = null
       this.teams.clearAll()
       this.ledger.clearAll()
       this.answers.clearAll()
