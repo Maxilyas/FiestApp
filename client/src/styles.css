@@ -550,6 +550,78 @@ h3 > .icon {
   box-shadow: 0 0 0 4px rgba(var(--accent-rgb), 0.14);
 }
 
+/* Un avatar déjà porté par un invité du même prénom : éteint, pas barré. On
+   ne crie pas une erreur, on montre ce qui reste à prendre — et vingt-quatre
+   emojis suffisent toujours. */
+.emoji-btn.pris { opacity: 0.25; cursor: not-allowed; }
+.emoji-btn.pris:hover { border-color: rgba(var(--accent-rgb), 0.14); }
+
+/* ── L'entrée ───────────────────────────────────── */
+
+/* Plus de choses qu'ailleurs dans la même hauteur : « Jouer sans compte »
+   doit rester visible SANS DÉFILER sur un petit téléphone (360 × 640,
+   clavier fermé), sinon cet écran de connexion devient un péage. Si un jour
+   ça déborde, c'est la note explicative qui saute, jamais ce bouton-là. */
+.join.entree {
+  gap: 14px;
+  padding-top: max(24px, env(safe-area-inset-top));
+}
+
+.join.entree .join-head { gap: 4px; }
+.join.entree .join-title { font-size: clamp(1.9rem, 8vw, 2.4rem); }
+.join.entree .join-sub { font-size: 1rem; }
+.join.entree .field { gap: 6px; }
+
+/* Le « ou » qui sépare les deux façons d'entrer : aucune des deux n'est
+   reléguée en petit gris au bas de la page. */
+.entree-ou {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.entree-ou::before,
+.entree-ou::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(var(--accent-rgb), 0.18);
+}
+
+.entree-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── Les retrouvailles ──────────────────────────── */
+
+/* Son avatar en grand : Alice doit se reconnaître en une demi-seconde, sans
+   lire une ligne. */
+.retrouvailles {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.retour-avatar { font-size: 4.4rem; line-height: 1; }
+
+.retour-salut {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.2rem;
+  color: var(--muted);
+}
+
 /* ── Écran joueur ───────────────────────────────── */
 .player-shell {
   min-height: 100vh;

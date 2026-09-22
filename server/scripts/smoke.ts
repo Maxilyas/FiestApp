@@ -2109,7 +2109,180 @@ try {
   await pSrv.close()
   rmSync(pDir, { recursive: true, force: true })
 
-  console.log('✅ Smoke test OK — 39 étapes')
+  // 34. L'entrée : l'identité qui vient du profil, et les homonymes.
+  //
+  //     Sur son propre serveur, comme les deux sections d'avant : on y
+  //     inscrit quatre invités du même prénom, ce qui n'aurait rien à faire
+  //     au milieu des chiffres d'une soirée jouée.
+  const eDir = mkdtempSync(path.join(tmpdir(), 'quizz-entree-'))
+  const eSrv = await createQuizServer({
+    port: 0,
+    dbPath: path.join(eDir, 'local.db'),
+    admin: ADMIN,
+    quizDbUrl: `file:${path.join(eDir, 'quizzes.db').replace(/\\/g, '/')}`,
+  })
+  const eUrl = `http://localhost:${eSrv.port}`
+  const eTel = (cookie?: string) =>
+    clientIo(eUrl, { transports: ['websocket'], ...(cookie && { extraHeaders: { Cookie: cookie } }) })
+
+  const camCookie = jCookie(
+    await write(eUrl, '/api/joueur/inscription', {
+      login: 'camille',
+      password: 'motdepasse1',
+      name: 'Camille',
+      avatar: '🦊',
+    }),
+  )
+
+  // Un identifiant déjà pris n'est pas une impasse : on en propose un libre.
+  // Sans ça, une invitée qui n'y connaît rien reste debout dans le noir
+  // devant un refus qu'elle ne sait pas contourner.
+  const prisRes = await write(eUrl, '/api/joueur/inscription', {
+    login: 'Camille',
+    password: 'motdepasse2',
+    name: 'Camille',
+    avatar: '🐼',
+  })
+  assert(prisRes.status === 400, `un identifiant déjà pris est refusé (${prisRes.status})`)
+  const prisBody = (await prisRes.json()) as any
+  assert(
+    prisBody.suggestion === 'camille2',
+    `…et une proposition libre l’accompagne (vu « ${prisBody.suggestion} »)`,
+  )
+
+  // Un profil reconnu ne retape rien : il rejoint sans prénom ni avatar, et
+  // le serveur prend ceux qu'il a choisis en créant son profil.
+  const camTel = eTel(camCookie)
+  assert((await emitAck<any>(camTel, 'party:watch', { slug: SLUG })).ok, 'la soirée de l’entrée')
+  const camIn = await emitAck<any>(camTel, 'player:join', { slug: SLUG })
+  assert(
+    camIn.ok && camIn.name === 'Camille' && camIn.avatar === '🦊',
+    `un profil rejoint sans rien retaper (vu « ${camIn.name} » ${camIn.avatar})`,
+  )
+
+  // Un anonyme, lui, doit donner un prénom : il n'y a aucun profil à lire.
+  const muet = eTel()
+  await emitAck(muet, 'party:watch', { slug: SLUG })
+  const refusMuet = await emitAck<any>(muet, 'player:join', { slug: SLUG })
+  assert(
+    !refusMuet.ok && /prénom/i.test(refusMuet.error),
+    `un invité anonyme sans prénom est refusé (${refusMuet.error})`,
+  )
+
+  /** Les lignes de la soirée, vues par un témoin neuf. */
+  const lignesE = async () => {
+    const t = eTel()
+    const vue = waitFor<any>(t, 'party:snapshot', () => true, 'l’instantané de l’entrée')
+    await emitAck(t, 'party:watch', { slug: SLUG })
+    const snap = await vue
+    t.disconnect()
+    return snap.players as any[]
+  }
+
+  // Même prénom, autre animal : rien à marquer, l'avatar distingue déjà — et
+  // il est à côté du prénom partout.
+  const panda = eTel()
+  await emitAck(panda, 'party:watch', { slug: SLUG })
+  const pandaIn = await emitAck<any>(panda, 'player:join', { slug: SLUG, name: 'Camille', avatar: '🐼' })
+  assert(pandaIn.ok, 'une seconde Camille, sur un autre animal')
+  assert(
+    (await lignesE()).every(p => p.nomAffiche === undefined),
+    'deux prénoms identiques sur deux avatars différents ne portent aucune marque',
+  )
+
+  // Même prénom ET même avatar : là seulement, il faut distinguer. La casse
+  // et les accents ne font pas deux personnes différentes.
+  const jumeau = eTel()
+  await emitAck(jumeau, 'party:watch', { slug: SLUG })
+  const jumeauIn = await emitAck<any>(jumeau, 'player:join', { slug: SLUG, name: 'camille', avatar: '🦊' })
+  assert(jumeauIn.ok, 'une troisième Camille, sur le renard déjà pris')
+  const accent = eTel()
+  await emitAck(accent, 'party:watch', { slug: SLUG })
+  const accentIn = await emitAck<any>(accent, 'player:join', { slug: SLUG, name: 'Camillé', avatar: '🦊' })
+  assert(accentIn.ok, 'et une quatrième, accentuée, sur le même renard')
+
+  const marquees = await lignesE()
+  const marqueDe = (id: string) => marquees.find(p => p.id === id)?.nomAffiche
+  assert(marqueDe(camIn.playerId) === undefined, 'la première arrivée garde son prénom nu')
+  // La marque respecte l'orthographe de chacun : on ne réécrit le prénom de
+  // personne, on ajoute seulement de quoi lire deux lignes voisines.
+  assert(
+    marqueDe(jumeauIn.playerId) === 'camille (2)',
+    `la deuxième du même renard est marquée (vu ${marqueDe(jumeauIn.playerId)})`,
+  )
+  assert(
+    marqueDe(accentIn.playerId) === 'Camillé (3)',
+    `la troisième aussi (vu ${marqueDe(accentIn.playerId)})`,
+  )
+  assert(marqueDe(pandaIn.playerId) === undefined, 'et le panda n’a jamais eu besoin de marque')
+
+  // Le nom projeté sur l'écran commun ne passe PAS par l'instantané : les
+  // vues de partie ont leur propre chemin (`ViewContext.playerName`). C'est
+  // celui qu'on oublie — et la salle lirait alors « camille » sous la
+  // question et « camille (2) » au classement juste en dessous.
+  const eCookie = await loginAs(eUrl, ADMIN.login, ADMIN.password)
+  const eQuiz = (await (await write(eUrl, '/api/quizzes', { title: 'Une question' }, eCookie)).json()) as any
+  await write(
+    eUrl,
+    `/api/quizzes/${eQuiz.id}`,
+    {
+      title: 'Une question',
+      questions: [{ text: 'On y est ?', answers: ['Oui', 'Non', '', ''], correct: 0, duration: 20, image: null }],
+    },
+    eCookie,
+    'PUT',
+  )
+  const eHost = connectHost(eUrl, eCookie)
+  assert((await emitAck<any>(eHost, 'host:hello', {})).ok, 'l’écran commun du serveur de l’entrée')
+  const ePick = waitFor<any>(eHost, 'session:view', p => p.view.phase === 'pickPack', 'liste du quiz de l’entrée')
+  ;(eHost as any).emit('host:launch')
+  const eSession = (await ePick).sessionId
+  ;(eHost as any).emit('host:command', { sessionId: eSession, command: { type: 'selectPack', packId: eQuiz.id } })
+  await waitFor<any>(jumeau, 'session:view', p => p.view.phase === 'question', 'la question de l’entrée')
+  const eRevele = waitFor<any>(eHost, 'session:view', p => p.view.phase === 'reveal', 'la révélation de l’entrée')
+  assert(
+    (await emitAck<any>(jumeau, 'player:action', { sessionId: eSession, action: { type: 'answer', choice: 0 } })).ok,
+    'la deuxième Camille répond juste',
+  )
+  ;(eHost as any).emit('host:command', { sessionId: eSession, command: { type: 'next' } })
+  const vueRevele = (await eRevele).view
+  assert(
+    vueRevele.fastest?.name === 'camille (2)',
+    `« le plus rapide » porte la marque du classement (vu ${vueRevele.fastest?.name})`,
+  )
+  assert(
+    vueRevele.standings?.[0]?.name === 'camille (2)',
+    `le classement de la partie aussi (vu ${vueRevele.standings?.[0]?.name})`,
+  )
+  ;(eHost as any).emit('host:endSession', { sessionId: eSession })
+
+  // Et la soirée rangée la porte encore : la marque se recalcule à la
+  // relecture, donc une archive écrite avant que cette règle existe la gagne
+  // elle aussi, sans qu'on ait réécrit une seule ligne de base.
+  const eRange = waitFor<any>(eHost, 'toast', () => true, 'la soirée de l’entrée rangée')
+  ;(eHost as any).emit('host:archiveParty', { title: 'Soirée des homonymes' })
+  await eRange
+  await new Promise(r => setTimeout(r, 400))
+  const eSoirees = (await (await fetch(`${eUrl}/s/${SLUG}/soirees.json`)).json()) as any
+  const eArchiveId = eSoirees.archives?.[0]?.id ?? eSoirees[0]?.id
+  assert(eArchiveId, 'la soirée des homonymes doit être dans l’historique')
+  const eRecap = (await (await fetch(`${eUrl}/s/${SLUG}/soirees/${eArchiveId}/recap.json`)).json()) as any
+  const eClassement = (eRecap.recap ?? eRecap).ranking as any[]
+  assert(
+    eClassement.some(r => r.name === 'camille (2)'),
+    `le souvenir d’une soirée rangée garde la marque (vu ${eClassement.map(r => r.name).join(', ')})`,
+  )
+
+  camTel.disconnect()
+  muet.disconnect()
+  panda.disconnect()
+  jumeau.disconnect()
+  accent.disconnect()
+  eHost.disconnect()
+  await eSrv.close()
+  rmSync(eDir, { recursive: true, force: true })
+
+  console.log('✅ Smoke test OK — 40 étapes')
   console.log(
     '   collage de questions, comptes et sessions, suppression d’un compte, garde-fous, isolation des espaces, quiz complet, bibliothèque,',
   )
@@ -2126,7 +2299,8 @@ try {
     '   statistiques et prix remis à la main, bilan question par question et export, anciennes adresses,',
   )
   console.log('   reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d’une base d’avant les comptes,')
-  console.log('   profils joueurs : inscription, code de secours, rattachement, expérience et badges d’une soirée')
+  console.log('   profils joueurs : inscription, code de secours, rattachement, expérience et badges d’une soirée,')
+  console.log('   entrée : identité prise dans le profil, identifiant libre proposé, homonymes marqués jusque sur l’écran commun et dans l’archive')
   process.exit(0)
 } catch (e) {
   fail((e as Error).message)

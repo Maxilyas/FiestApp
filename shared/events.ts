@@ -3,7 +3,12 @@ import type { PartySnapshot } from './types'
 import type { PublicProfile } from './profil'
 
 export type JoinAck =
-  | { ok: true; playerId: string; token: string; profile?: PublicProfile }
+  /**
+   * L'identité retenue revient avec l'accusé : quand c'est le profil qui l'a
+   * fournie, le téléphone ne la connaît pas encore, et il doit pouvoir la
+   * retenir pour se re-présenter à l'identique après une coupure.
+   */
+  | { ok: true; playerId: string; token: string; name: string; avatar: string; profile?: PublicProfile }
   | { ok: false; error: string }
 
 /**
@@ -55,8 +60,14 @@ export interface ClientToServerEvents {
     payload: { slug: string },
     ack: (res: { ok: boolean; error?: string; profile?: PublicProfile }) => void,
   ) => void
+  /**
+   * Rejoindre une soirée. Le prénom et l'avatar sont **facultatifs** : absents,
+   * le serveur prend ceux du profil reconnu au cookie — quelqu'un qui les a
+   * choisis en créant son profil n'a pas à les rechoisir sur le pas de la
+   * porte. Un invité anonyme, lui, doit toujours les donner.
+   */
   'player:join': (
-    payload: { slug: string; name: string; avatar: string; token?: string; teamId?: string | null },
+    payload: { slug: string; name?: string; avatar?: string; token?: string; teamId?: string | null },
     ack: (res: JoinAck) => void,
   ) => void
   /**

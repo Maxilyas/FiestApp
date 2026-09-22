@@ -11,6 +11,7 @@ import {
   setPlayerCookie,
 } from './http'
 import { Budget } from '../core/budget'
+import { isValidLogin, normalizeLogin } from '../../../shared/space'
 
 interface ProfileApiDeps {
   profiles: ProfileStore
@@ -62,6 +63,22 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       }
       const problem = passwordProblem(req.body?.password)
       if (problem) return res.status(400).json({ error: problem })
+      // Un identifiant déjà pris n'est pas une impasse : on en propose un
+      // libre, que la page pose dans le champ d'un geste.
+      //
+      // Oui, répondre ça confirme qu'un profil porte ce nom. Dans une
+      // application de fête où un profil ne contient qu'un pseudo et de
+      // l'expérience — aucune adresse, aucune donnée personnelle — le confort
+      // d'une invitée qui n'y connaît rien vaut plus que ce secret-là, et la
+      // route est déjà limitée par adresse juste au-dessus.
+      const voulu = normalizeLogin(req.body?.login)
+      if (isValidLogin(voulu) && (await profiles.byLogin(voulu))) {
+        const suggestion = await profiles.suggestLogin(voulu)
+        return res.status(400).json({
+          error: `« ${voulu} » est déjà pris`,
+          ...(suggestion && { suggestion }),
+        })
+      }
       const { profile, recovery } = await profiles.register({
         login: req.body?.login,
         password: req.body.password,

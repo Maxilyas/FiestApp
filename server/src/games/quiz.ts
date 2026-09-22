@@ -1,6 +1,7 @@
 import type { GameContext, GameModule, GameSessionRec, ViewContext } from '../core/types'
 import { playableQuestions, type PlayableQuestion, type QuizDef } from '../../../shared/library'
 import { distinctions } from '../../../shared/profil'
+import { nomAffiche } from '../../../shared/homonymes'
 import type {
   QuizAction,
   QuizCommand,
@@ -280,7 +281,7 @@ function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: n
   const rows = sortedTotals(sess).map(r => {
     const p = vctx.player(r.playerId)
     return {
-      name: p?.name ?? vctx.playerName(r.playerId),
+      name: p ? nomAffiche(p) : vctx.playerName(r.playerId),
       avatar: p?.avatar ?? '🎉',
       points: r.points,
       ...distinctions(p),
@@ -297,7 +298,7 @@ function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewCo
     .map(([playerId, r]) => {
       const p = vctx.player(playerId)
       return {
-        name: p?.name ?? vctx.playerName(playerId),
+        name: p ? nomAffiche(p) : vctx.playerName(playerId),
         avatar: p?.avatar ?? '🎉',
         value: r.value!,
         points: st.lastAwards[playerId] ?? 0,

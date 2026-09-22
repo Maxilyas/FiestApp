@@ -7,6 +7,19 @@ import type { Finition, PublicProfile, PublicProfileDetail } from '../../shared/
 export class UnauthorizedError extends Error {}
 
 /**
+ * Une erreur d'API qui porte ce que le serveur a joint au message.
+ *
+ * Pour l'instant une seule chose y voyage : l'identifiant libre proposé quand
+ * celui qu'on voulait est pris. Sans lui, une invitée qui n'y connaît rien
+ * resterait devant un refus qu'elle ne sait pas contourner.
+ */
+export class ApiError extends Error {
+  constructor(message: string, readonly suggestion?: string) {
+    super(message)
+  }
+}
+
+/**
  * Toute requête part avec le cookie de session — le navigateur s'en charge —
  * et un en-tête maison que seule cette page peut poser : une page tierce qui
  * tenterait une écriture à notre place serait refusée avant d'être lue.
@@ -20,7 +33,10 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 401) throw new UnauthorizedError('Connexion requise')
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Erreur ${res.status}`)
+    throw new ApiError(
+      body.error ?? `Erreur ${res.status}`,
+      typeof body.suggestion === 'string' ? body.suggestion : undefined,
+    )
   }
   return res.json() as Promise<T>
 }

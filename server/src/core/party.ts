@@ -4,6 +4,7 @@ import type { PartyMirror } from './backup'
 import type { PublicPlayer } from '../../../shared/types'
 import type { Finition } from '../../../shared/profil'
 import { DEFAULT_AVATAR, cleanAvatar, cleanName } from '../../../shared/avatars'
+import { nomsAffiches } from '../../../shared/homonymes'
 
 export interface PlayerRec {
   id: string
@@ -218,16 +219,41 @@ export class Party {
     this.connections.clear()
   }
 
+  /**
+   * Les marques d'homonymie du moment — « Camille (2) ».
+   *
+   * Recalculées à chaque diffusion plutôt que rangées quelque part : c'est
+   * une dérivation, et elle doit s'effacer d'elle-même quand l'homonyme
+   * s'en va ou quand l'animateur renomme. `all()` rend les invités dans
+   * l'ordre d'arrivée, et c'est cet ordre qui décide qui garde son prénom nu.
+   */
+  private marques(): Map<string, string> {
+    return nomsAffiches(this.all())
+  }
+
+  /**
+   * Le prénom d'un invité tel qu'on l'affiche. C'est lui que le moteur écrit
+   * dans les vues de partie (« le plus rapide : … ») : sans ça, l'écran
+   * commun appellerait « Camille » celle que le classement juste en dessous
+   * appelle « Camille (2) ».
+   */
+  nomAffiche(playerId: string): string | undefined {
+    const rec = this.players.get(playerId)
+    if (!rec) return undefined
+    return this.marques().get(playerId) ?? rec.name
+  }
+
   publicPlayers(totals: Map<string, number>): PublicPlayer[] {
-    return [...this.players.values()].map(p => this.toPublic(p, totals.get(p.id) ?? 0))
+    const marques = this.marques()
+    return [...this.players.values()].map(p => this.toPublic(p, totals.get(p.id) ?? 0, marques))
   }
 
   publicOne(playerId: string, score: number): PublicPlayer | undefined {
     const p = this.players.get(playerId)
-    return p ? this.toPublic(p, score) : undefined
+    return p ? this.toPublic(p, score, this.marques()) : undefined
   }
 
-  private toPublic(p: PlayerRec, score: number): PublicPlayer {
+  private toPublic(p: PlayerRec, score: number, marques: Map<string, string>): PublicPlayer {
     const badge = p.profileId ? this.badgeOf?.(p.profileId, p.avatar) : undefined
     return {
       id: p.id,
@@ -240,6 +266,8 @@ export class Party {
       // zéro, et l'instantané qui part à toute la salle n'en porte pas le poids.
       ...(badge && { niveau: badge.niveau, finition: badge.finition }),
       ...(badge?.eclat && { eclat: true }),
+      // Même raison : absent tant qu'aucun homonyme ne porte le même avatar.
+      ...(marques.has(p.id) && { nomAffiche: marques.get(p.id) }),
     }
   }
 }

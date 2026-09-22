@@ -199,7 +199,14 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
             // Un téléphone qui se reconnecte n'envoie pas d'équipe : il garde la
             // sienne. C'est bien `undefined`, et pas `null`, qui dit « ne touche à rien ».
             const teamId = payload?.teamId === undefined ? undefined : validTeam(rt, payload.teamId)
-            const res = rt.party.join(payload?.name ?? '', payload?.avatar ?? '', token, teamId)
+            // Un profil reconnu n'a rien à retaper : son prénom et son avatar
+            // sont ceux qu'il a choisis une fois pour toutes, en créant son
+            // profil. Ce que le téléphone envoie l'emporte quand même — on
+            // peut vouloir s'appeler autrement ce soir, et ça ne renomme pas
+            // le profil pour autant.
+            const name = payload?.name || profile?.name || ''
+            const avatar = payload?.avatar || profile?.avatar || ''
+            const res = rt.party.join(name, avatar, token, teamId)
             if ('error' in res) return ack({ ok: false, error: res.error })
             if (!reconnecting) identitiesCreated++
             // Le rattachement, enfin : c'est lui qui fera compter la soirée
@@ -212,6 +219,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
               ok: true,
               playerId: res.id,
               token: res.token,
+              // L'identité retenue : quand c'est le profil qui l'a fournie, le
+              // téléphone ne la connaissait pas, et il doit pouvoir se
+              // re-présenter à l'identique après une coupure.
+              name: res.name,
+              avatar: res.avatar,
               ...(profile && { profile: deps.profiles.toPublic(profile) }),
             })
             rt.broadcastSnapshot()

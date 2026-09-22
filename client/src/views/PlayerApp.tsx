@@ -1,39 +1,41 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
-import { getState, loadProfile, saveMe, saveProfile, showToast, useAppState } from '../state'
+import { getState, loadChoix, saveChoix, saveMe, showToast, useAppState } from '../state'
 import { currentSlug } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
 import { TeamPicker } from '../components/TeamPicker'
 import { Icon } from '../components/Icon'
 import { JoinHead } from '../components/Invitation'
+import { Entree, type Identite } from '../components/Entree'
 import { ProfilForm } from '../components/ProfilForm'
+import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer } from '../games/quiz/PlayerView'
 import type { QuizPlayerView } from '../../../shared/games/quiz'
-import { AVATARS } from '../../../shared/avatars'
 import { ordinal } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
+
+/** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
+const RECONNEXION_TIMEOUT_MS = 5000
 
 export function PlayerApp() {
   const s = useAppState()
   /** L'espace de la soirée : le nom dans l'adresse, celui que le QR a donné. */
   const slug = currentSlug() ?? ''
-  const [name, setName] = useState('')
-  // Tiré au sort : avec un avatar imposé, tous ceux qui ne touchent à rien
-  // arrivent identiques sur l'écran commun.
-  const [avatar, setAvatar] = useState(() => AVATARS[Math.floor(Math.random() * AVATARS.length)])
-  // Inscription en deux écrans : le prénom et l'avatar, puis l'équipe. Tout
-  // sur une seule page obligerait à faire défiler pour trouver le bouton.
-  const [step, setStep] = useState<'me' | 'team' | 'profil'>('me')
   /** Le profil connecté sur ce téléphone, s'il y en a un. */
   const [profil, setProfil] = useState<PublicProfile | null>(null)
-  const [teamId, setTeamId] = useState<string | null>(null)
+  /**
+   * La soirée nous a-t-elle répondu ? Tant que non, on ne montre aucun écran
+   * d'entrée : celui qu'on montrerait dépend justement du profil, qui arrive
+   * dans cette réponse-là.
+   */
+  const [presente, setPresente] = useState(false)
   /** Salle d'attente : le panneau « changer d'équipe » est-il ouvert ? */
   const [switching, setSwitching] = useState(false)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  /** Salle d'attente : la parenthèse « créer un profil », entre deux quiz. */
+  const [montrerProfil, setMontrerProfil] = useState(false)
   /** Le serveur ne connaît pas cette adresse : rien à rejoindre ici. */
   const [spaceError, setSpaceError] = useState('')
 
@@ -46,13 +48,18 @@ export function PlayerApp() {
       if (!watched.ok) return setSpaceError(watched.error ?? 'Cette adresse ne mène à aucune soirée')
       setSpaceError('')
       // Le serveur reconnaît le profil au cookie posé dans la poignée de main :
-      // l'écran d'inscription peut saluer avant même qu'on rejoigne.
+      // l'entrée peut saluer avant même qu'on rejoigne.
       setProfil(watched.profile ?? null)
-      const profile = loadProfile(slug)
-      if (!profile) return
+      setPresente(true)
+      const choix = loadChoix(slug)
+      const token = getState().me?.token
+      // Ni identité mémorisée ici, ni jeton : ce téléphone passe par l'entrée.
+      if (!choix && !token) return
       // Sans équipe transmise, le serveur conserve celle déjà choisie.
-      const ack = await joinAsPlayer(slug, profile.name, profile.avatar, getState().me?.token)
-      if (ack.ok) saveMe(slug, { playerId: ack.playerId, token: ack.token })
+      const ack = await joinAsPlayer(slug, choix?.name, choix?.avatar, token)
+      if (!ack.ok) return
+      saveMe(slug, { playerId: ack.playerId, token: ack.token })
+      saveChoix(slug, { name: ack.name, avatar: ack.avatar })
     }
     if (socket.connected) present()
     socket.on('connect', present)
@@ -66,37 +73,59 @@ export function PlayerApp() {
     if (space) document.title = space.title
   }, [space])
 
-  // Un profil connecté propose son prénom et son emoji — il ne les impose
-  // pas : on peut très bien vouloir s'appeler autrement ce soir.
-  useEffect(() => {
-    if (!profil) return
-    setName(n => n || profil.name)
-    setAvatar(profil.avatar)
-  }, [profil])
-
   /**
-   * Après une connexion, la session du profil arrive dans un cookie — mais la
-   * poignée de main du socket, elle, est déjà passée. On rouvre la connexion
-   * pour que le serveur voie enfin qui est là.
+   * Rouvre la connexion et attend que le serveur dise qui est là.
+   *
+   * Après une connexion ou une inscription, la session du profil arrive dans
+   * un cookie — mais la poignée de main du socket, elle, est déjà passée.
+   * Sans ce détour, le serveur ne rattacherait pas le joueur à son profil, et
+   * l'expérience de la soirée se perdrait au moment de la ranger.
    */
-  const profilConnecte = (p: PublicProfile) => {
-    setProfil(p)
-    setStep('me')
-    socket.disconnect()
-    socket.connect()
+  const reconnecter = (): Promise<PublicProfile | null> =>
+    new Promise(resolve => {
+      const fini = (p: PublicProfile | null) => {
+        clearTimeout(minuteur)
+        socket.off('connect', onConnect)
+        setProfil(p)
+        resolve(p)
+      }
+      const onConnect = () => {
+        watchParty(slug)
+          .then(w => fini(w.profile ?? null))
+          .catch(() => fini(null))
+      }
+      // Une reconnexion qui n'arrive jamais laisserait la promesse — donc
+      // l'écran — en suspens pour toujours.
+      const minuteur = setTimeout(() => fini(null), RECONNEXION_TIMEOUT_MS)
+      socket.on('connect', onConnect)
+      socket.disconnect()
+      socket.connect()
+    })
+
+  /** Rejoint la soirée. Rend le motif du refus, ou null si c'est passé. */
+  const rejoindre = async ({ name, avatar, teamId }: Identite & { teamId: string | null }) => {
+    const ack = await joinAsPlayer(slug, name, avatar, undefined, teamId)
+    if (!ack.ok) return ack.error
+    // L'identité retenue est celle que le serveur rend : quand c'est le profil
+    // qui l'a fournie, le téléphone ne la connaissait pas encore, et il en a
+    // besoin pour se re-présenter à l'identique après une coupure.
+    saveChoix(slug, { name: ack.name, avatar: ack.avatar })
+    saveMe(slug, { playerId: ack.playerId, token: ack.token })
+    return null
   }
 
-  const doJoin = async (chosenTeam: string | null) => {
-    setBusy(true)
-    setError('')
-    const ack = await joinAsPlayer(slug, name, avatar, undefined, chosenTeam)
-    setBusy(false)
-    if (!ack.ok) {
-      setStep('me')
-      return setError(ack.error)
-    }
-    saveProfile(slug, { name: name.trim(), avatar })
-    saveMe(slug, { playerId: ack.playerId, token: ack.token })
+  /** « Ce n'est pas moi » : le téléphone oublie le profil qu'il portait. */
+  const oublierProfil = async () => {
+    await api.joueur.deconnexion().catch(() => {})
+    await reconnecter()
+  }
+
+  /** Depuis la salle d'attente : un profil créé en cours de soirée. */
+  const profilConnecte = (p: PublicProfile) => {
+    setMontrerProfil(false)
+    setProfil(p)
+    // Le rattachement du joueur déjà inscrit se fait à la re-présentation.
+    void reconnecter()
   }
 
   const changeTeam = async (id: string) => {
@@ -164,9 +193,10 @@ export function PlayerApp() {
     )
   }
 
-  // Le premier instantané dit comment la soirée s'appelle : on ne montre
-  // pas un formulaire sans titre pendant les quelques dizaines de ms qu'il met.
-  if (!snap) {
+  // Le premier instantané dit comment la soirée s'appelle, et la réponse de la
+  // soirée dit si ce téléphone porte un profil : on ne montre pas un écran
+  // d'entrée avant de savoir lequel des deux il faut.
+  if (!snap || !presente) {
     return (
       <div className="center-page">
         <p className="serif-note">Connexion…</p>
@@ -174,154 +204,34 @@ export function PlayerApp() {
     )
   }
 
-  // Le profil se consulte à tout moment — avant de rejoindre comme entre deux
-  // quiz. C'est pour ça que cet écran vient avant la bifurcation : depuis la
-  // salle d'attente, on ne doit pas avoir à quitter la soirée pour s'inscrire.
-  if (step === 'profil') {
+  // ── L'entrée ─────────────────────────────────────
+  if (!s.me) {
     return (
       <>
-        <ProfilForm
-          prefill={{ name: name.trim() || me?.name || profil?.name || '', avatar }}
-          onDone={profilConnecte}
-          onCancel={() => setStep('me')}
+        <Entree
+          space={snap.space}
+          players={snap.players}
+          teams={teams}
+          profil={profil}
+          reconnecter={reconnecter}
+          rejoindre={rejoindre}
+          oublierProfil={oublierProfil}
         />
         {toast}
       </>
     )
   }
 
-  // ── Écran d'inscription ──────────────────────────
-  if (!s.me) {
-    const count = snap.players.filter(p => p.connected).length
-
-    // Deuxième écran : l'équipe. Il n'apparaît que si l'animateur en a créé.
-    if (step === 'team') {
-      return (
-        <>
-          <div className="join">
-            <JoinHead
-              eyebrow="Le quiz de la soirée"
-              title="Ton équipe"
-              compact
-              sub="Tes points restent les tiens — ils comptent aussi pour ton équipe."
-            />
-            <hr className="hairline" />
-            <TeamPicker teams={teams} value={teamId} onPick={setTeamId} disabled={busy} />
-            {error && <p className="error">{error}</p>}
-            <div className="join-grow" />
-            <div className="join-actions">
-              <button
-                className="btn btn-primary btn-big btn-block"
-                disabled={busy || !teamId}
-                onClick={() => doJoin(teamId)}
-              >
-                {teamId ? 'Rejoindre la soirée' : 'Choisis ton équipe'}
-              </button>
-              <button className="btn btn-ghost" onClick={() => setStep('me')}>
-                Revenir
-              </button>
-            </div>
-          </div>
-          {toast}
-        </>
-      )
-    }
-
-    // À cinquante invités, deux Camille sont probables : mieux vaut le dire
-    // avant que le classement affiche deux lignes identiques.
-    const sansAccent = (t: string) =>
-      t.trim().toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
-    const homonyme = name.trim() && snap.players.some(p => sansAccent(p.name) === sansAccent(name))
-    const next = (e: FormEvent) => {
-      e.preventDefault()
-      setError('')
-      // Pas d'équipe créée : l'écran suivant n'aurait rien à montrer.
-      if (teams.length === 0) return doJoin(null)
-      setStep('team')
-    }
-
+  // Le profil se crée aussi entre deux quiz, sans quitter la soirée : c'est le
+  // moment où l'on regarde son téléphone.
+  if (montrerProfil) {
     return (
       <>
-        <form className="join" onSubmit={next}>
-          <JoinHead
-            eyebrow={snap.space.eyebrow}
-            title={snap.space.headline}
-            compact={snap.space.headline.length > 12}
-            sub="Le quiz de la soirée"
-          />
-          {profil && (
-            <p className="profil-salut">
-              <Avatar avatar={profil.avatar} finition={profil.finition} eclat={profil.eclats.includes(profil.avatar)} />
-              Content de te revoir, <strong>{profil.name}</strong>
-              <Niveau niveau={profil.niveau} />
-            </p>
-          )}
-          <hr className="hairline" />
-          <div className="field">
-            <label className="label" htmlFor="join-name">
-              Ton prénom
-            </label>
-            <input
-              id="join-name"
-              className="input input-line"
-              autoComplete="given-name"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              maxLength={24}
-              autoFocus
-            />
-          </div>
-          <div className="field">
-            <div className="field-head">
-              <span className="label" id="avatar-label">
-                Ton avatar
-              </span>
-              {count > 0 && (
-                <span className="muted small">
-                  {count} invité·e·s déjà là
-                </span>
-              )}
-            </div>
-            <div className="emoji-grid" role="group" aria-labelledby="avatar-label">
-              {AVATARS.map(a => (
-                <button
-                  type="button"
-                  key={a}
-                  className={'emoji-btn' + (a === avatar ? ' selected' : '')}
-                  aria-pressed={a === avatar}
-                  aria-label={`Avatar ${a}`}
-                  onClick={() => setAvatar(a)}
-                >
-                  {a}
-                </button>
-              ))}
-            </div>
-          </div>
-          {homonyme && (
-            <p className="warn">
-              Il y a déjà un « {name.trim()} » — ajoute une initiale pour qu'on vous distingue.
-            </p>
-          )}
-          {error && <p className="error">{error}</p>}
-          <div className="join-grow" />
-          <button className="btn btn-primary btn-big btn-block" disabled={busy || !name.trim()}>
-            {teams.length > 0 ? 'Continuer' : 'Rejoindre la soirée'}
-          </button>
-          {/* Une porte, pas un péage : le chemin anonyme reste le premier, et
-              il ne coûte toujours qu'un geste. */}
-          <p className="join-foot">
-            Rien à installer · ton prénom suffit ·{' '}
-            {profil ? (
-              <button type="button" className="link-inline" onClick={() => setStep('profil')}>
-                changer de profil
-              </button>
-            ) : (
-              <button type="button" className="link-inline" onClick={() => setStep('profil')}>
-                j'ai un profil
-              </button>
-            )}
-          </p>
-        </form>
+        <ProfilForm
+          prefill={{ name: me?.name ?? '', avatar: me?.avatar ?? '' }}
+          onDone={profilConnecte}
+          onCancel={() => setMontrerProfil(false)}
+        />
         {toast}
       </>
     )
@@ -364,7 +274,10 @@ export function PlayerApp() {
         <Avatar className="player-avatar big" avatar={me?.avatar ?? ''} finition={me?.finition} eclat={me?.eclat} />
         <div>
           <h2>
-            {me?.name}
+            {/* Le prénom tel qu'il s'affiche : s'il porte une marque
+                d'homonymie, son porteur doit la lire sur son propre téléphone
+                plutôt que la découvrir sur le mur. */}
+            {me?.nomAffiche ?? me?.name}
             <Niveau niveau={me?.niveau} big />
           </h2>
           <p className="muted">
@@ -428,7 +341,7 @@ export function PlayerApp() {
             Mon profil · niveau {profil.niveau}
           </a>
         ) : (
-          <button type="button" className="link-inline" onClick={() => setStep('profil')}>
+          <button type="button" className="link-inline" onClick={() => setMontrerProfil(true)}>
             Gagner des niveaux : créer un profil
           </button>
         )}

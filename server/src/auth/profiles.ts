@@ -219,6 +219,27 @@ export class ProfileStore {
     return this.remember(rows.rows[0])
   }
 
+  /**
+   * Un identifiant libre, proche de celui qu'on voulait : « camille » pris,
+   * on propose « camille2 ».
+   *
+   * Sans ça, une invitée qui n'y connaît rien reste debout dans le noir
+   * devant un refus qu'elle ne sait pas contourner — et le chemin le plus
+   * court devient alors « tant pis, je joue sans compte ». Rend une chaîne
+   * vide si rien de propre ne se trouve : l'appelant s'en passe.
+   */
+  async suggestLogin(souhaite: unknown): Promise<string> {
+    // On retire un suffixe de chiffres déjà présent : « camille2 » pris, on
+    // propose « camille3 », pas « camille22 ».
+    const base = normalizeLogin(souhaite).replace(/\d+$/, '').slice(0, 28)
+    if (!base) return ''
+    for (let n = 2; n <= 99; n++) {
+      const essai = `${base}${n}`
+      if (isValidLogin(essai) && !(await this.byLogin(essai))) return essai
+    }
+    return ''
+  }
+
   /** Les emojis qui ont éclaté pour ce profil. */
   eclatsOf(id: string): string[] {
     return [...(this.eclats.get(id) ?? [])]

@@ -80,8 +80,11 @@ export function watchParty(
 
 export function joinAsPlayer(
   slug: string,
-  name: string,
-  avatar: string,
+  // Absents = « prends ceux de mon profil ». Quelqu'un qui les a choisis en
+  // créant son profil n'a pas à les rechoisir sur le pas de la porte ; un
+  // téléphone qui se reconnecte avec son jeton n'a rien à redire non plus.
+  name?: string,
+  avatar?: string,
   token?: string,
   // Omis à la reconnexion : le serveur garde alors l'équipe déjà choisie.
   teamId?: string | null,

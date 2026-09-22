@@ -2,6 +2,7 @@ import { computeStats } from './stats'
 import type { AnswerRow } from './answers'
 import type { ScoreEntry } from './scores'
 import { teamScores } from '../../../shared/teams'
+import { nomAffiche } from '../../../shared/homonymes'
 import type { PublicPlayer, Recap, TeamBonus } from '../../../shared/types'
 
 /**
@@ -59,7 +60,7 @@ export function buildRecap(input: RecapInput): Recap {
       for (const entry of sess.totals) if (!top || entry[1] > top[1]) top = entry
       const winner = top ? byId.get(top[0]) : undefined
       if (!top || !winner || top[1] <= 0) return []
-      return [{ title: sess.title || 'Un quiz', name: winner.name, avatar: winner.avatar, points: top[1] }]
+      return [{ title: sess.title || 'Un quiz', name: nomAffiche(winner), avatar: winner.avatar, points: top[1] }]
     })
 
   const bestPlayer = best ? byId.get(best.playerId) : undefined
@@ -69,17 +70,17 @@ export function buildRecap(input: RecapInput): Recap {
     ranking: players
       .filter(p => p.score !== 0)
       .sort((a, b) => b.score - a.score)
-      .map(p => ({ name: p.name, avatar: p.avatar, points: p.score })),
+      .map(p => ({ name: nomAffiche(p), avatar: p.avatar, points: p.score })),
     teams: teamScores(teams, players, bonuses),
     stats: computeStats(answers, players),
     quizCount: sessions.size,
     totalPoints: scores.reduce((sum, s) => sum + s.points, 0),
     bestShot:
       best && bestPlayer
-        ? { name: bestPlayer.name, avatar: bestPlayer.avatar, points: best.points, reason: best.reason }
+        ? { name: nomAffiche(bestPlayer), avatar: bestPlayer.avatar, points: best.points, reason: best.reason }
         : null,
     steadiest:
-      steady && steadyPlayer ? { name: steadyPlayer.name, avatar: steadyPlayer.avatar, count: steady.n } : null,
+      steady && steadyPlayer ? { name: nomAffiche(steadyPlayer), avatar: steadyPlayer.avatar, count: steady.n } : null,
     quizWinners,
   }
 }

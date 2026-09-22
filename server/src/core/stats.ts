@@ -1,5 +1,6 @@
 import type { AnswerRow } from './answers'
 import type { Award, PartyStats, PlayerStat, PublicPlayer } from '../../../shared/types'
+import { nomAffiche } from '../../../shared/homonymes'
 
 /**
  * Statistiques de soirée et prix de fin de partie.
@@ -102,7 +103,7 @@ export function computeStats(rows: AnswerRow[], players: PublicPlayer[]): PartyS
 
     stats.push({
       playerId: player.id,
-      name: player.name,
+      name: nomAffiche(player),
       avatar: player.avatar,
       teamId: player.teamId,
       points: player.score,
@@ -139,7 +140,7 @@ export function computeStats(rows: AnswerRow[], players: PublicPlayer[]): PartyS
 function emptyStat(p: PublicPlayer): PlayerStat {
   return {
     playerId: p.id,
-    name: p.name,
+    name: nomAffiche(p),
     avatar: p.avatar,
     teamId: p.teamId,
     points: p.score,

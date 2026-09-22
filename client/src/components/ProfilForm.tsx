@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { Icon } from './Icon'
+import { FormulaireSecours } from './Secours'
 
 interface Props {
   /** Le prénom et l'emoji déjà choisis sur l'écran d'inscription, s'il y en a. */
@@ -20,7 +21,7 @@ interface Props {
  * et c'est le chemin par défaut.
  */
 export function ProfilForm({ prefill, onDone, onCancel }: Props) {
-  const [mode, setMode] = useState<'connexion' | 'inscription'>('connexion')
+  const [mode, setMode] = useState<'connexion' | 'inscription' | 'secours'>('connexion')
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState(prefill?.name ?? '')
@@ -28,6 +29,24 @@ export function ProfilForm({ prefill, onDone, onCancel }: Props) {
   const [error, setError] = useState('')
   /** Le code de secours, à noter — il ne repassera jamais. */
   const [recovery, setRecovery] = useState<{ code: string; profile: PublicProfile } | null>(null)
+
+  // Le mot de passe oublié se règle par le code de secours — c'est la seule
+  // porte de retour, faute d'adresse e-mail. On la met là où on la cherche.
+  if (mode === 'secours') {
+    return (
+      <FormulaireSecours
+        prefill={login}
+        onDone={(profile, neuf) => {
+          // Le code vient d'être consommé : celui qu'on rend est le nouveau,
+          // et il se note tout de suite, comme à l'inscription.
+          if (profile) return setRecovery({ code: neuf, profile })
+          setMode('connexion')
+          setError('Profil retrouvé — reconnecte-toi')
+        }}
+        onCancel={() => setMode('connexion')}
+      />
+    )
+  }
 
   if (recovery) {
     return (
@@ -150,6 +169,13 @@ export function ProfilForm({ prefill, onDone, onCancel }: Props) {
           Revenir
         </button>
       </div>
+      {!creation && (
+        <p className="join-foot">
+          <button type="button" className="link-inline" onClick={() => setMode('secours')}>
+            J'ai oublié mon mot de passe
+          </button>
+        </p>
+      )}
     </form>
   )
 }

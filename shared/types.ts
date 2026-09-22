@@ -24,6 +24,12 @@ export interface PublicPlayer {
   finition?: Finition
   /** Son avatar a éclaté : il brille, et lui seul. */
   eclat?: boolean
+  /**
+   * Le prénom à afficher quand un homonyme porte le même avatar — « Camille
+   * (2) ». Absent, et non pas égal au prénom, dans l'immense majorité des
+   * cas : l'instantané part à toute la salle, il ne porte que ce qui diffère.
+   */
+  nomAffiche?: string
 }
 
 /**

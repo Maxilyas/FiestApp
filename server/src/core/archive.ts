@@ -6,6 +6,7 @@ import type { ScoreEntry } from './scores'
 import { buildRecap } from './recap'
 import { buildReview, resolvePacks, type PlayedPack } from './review'
 import { rankTeams, teamScores } from '../../../shared/teams'
+import { nomsAffiches } from '../../../shared/homonymes'
 import type { PublicPlayer, Recap, TeamBonus } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
 import type { ArchiveSummary, PartyArchive } from '../../../shared/archive'
@@ -96,6 +97,10 @@ export function buildArchive(live: LiveParty): { id: string; heldAt: number; arc
 function archivePlayers(a: PartyArchive): PublicPlayer[] {
   const totals = new Map<string, number>()
   for (const s of a.scores) totals.set(s.playerId, (totals.get(s.playerId) ?? 0) + s.points)
+  // Les marques d'homonymie se recalculent à la relecture, dans l'ordre
+  // d'arrivée : une soirée rangée avant que cette règle existe les gagne donc
+  // elle aussi, sans qu'on ait réécrit une seule archive.
+  const marques = nomsAffiches([...a.players].sort((x, y) => x.createdAt - y.createdAt))
   return a.players.map(p => ({
     id: p.id,
     name: p.name,
@@ -103,6 +108,7 @@ function archivePlayers(a: PartyArchive): PublicPlayer[] {
     connected: false,
     score: totals.get(p.id) ?? 0,
     teamId: p.teamId,
+    ...(marques.has(p.id) && { nomAffiche: marques.get(p.id) }),
   }))
 }
 

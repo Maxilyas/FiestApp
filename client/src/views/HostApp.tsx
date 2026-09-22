@@ -131,7 +131,7 @@ function TeamGroup({
                 if (name) socket.emit('host:renamePlayer', { playerId: p.id, name })
               }}
             >
-              {p.name}
+              {p.nomAffiche ?? p.name}
             </button>
             {/* Hors ligne : la transparence seule ne se lit pas du fond de la
                 salle, et un lecteur d'écran n'en sait rien. */}
@@ -330,7 +330,7 @@ export function HostApp() {
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
     // Les distinctions suivent le joueur jusque sur l'écran commun : c'est là
     // qu'un niveau se montre à toute la salle.
-    .map(p => ({ name: p.name, avatar: p.avatar, points: p.score, ...distinctions(p) }))
+    .map(p => ({ name: p.nomAffiche ?? p.name, avatar: p.avatar, points: p.score, ...distinctions(p) }))
 
   const teamStandings = rankTeams(teams)
   const teamPodium = teamStandings.map(t => ({ name: t.name, avatar: t.emoji, points: t.average }))

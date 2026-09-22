@@ -39,7 +39,7 @@ npm run verify
 c'est exactement ce que fait l'intégration continue sur chaque proposition de
 modification (`.github/workflows/ci.yml`).
 
-`smoke` = test de bout en bout (comptes et sessions, suppression d'un compte, garde-fous, isolation des espaces, inscription, quiz complet, scoring, classement, reconnexion, accusé de réception des réponses, heure du serveur et marge de fin de question, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, anciennes adresses, reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d'une base d'avant les comptes, profils joueurs, expérience et badges d'une soirée).
+`smoke` = test de bout en bout (comptes et sessions, suppression d'un compte, garde-fous, isolation des espaces, inscription, quiz complet, scoring, classement, reconnexion, accusé de réception des réponses, heure du serveur et marge de fin de question, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, anciennes adresses, reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d'une base d'avant les comptes, profils joueurs, expérience et badges d'une soirée, entrée et homonymes).
 
 Il n'y a ni linter ni formateur : le typecheck et le test de bout en bout
 tiennent lieu de filet, et la relecture fait le reste.
@@ -66,9 +66,11 @@ Les pages d'animation ne portent pas l'espace dans l'adresse : c'est la session 
 
 ## Les profils joueurs
 
-**Rien ne change pour qui ne veut rien changer.** On arrive, on tape un prénom, on joue : c'est toujours le chemin par défaut, en un geste, et c'est celui de la moitié de la salle. Les profils sont pour les autres — ceux qui reviennent.
+**L'entrée est un écran de connexion — et personne n'est obligé d'y passer.** On scanne, on voit deux champs, « Me connecter », puis « Jouer sans compte » juste en dessous, au même format, visible sans défiler. Qui n'a pas de profil appuie sur ce bouton-là, tape un prénom, choisit un avatar, et joue : c'est toujours un geste de plus que rien, et c'est le chemin de la moitié de la salle. Les champs n'ouvrent pas le clavier tout seuls, justement pour que le bouton qui permet de passer reste visible.
 
-Un profil (`/profil`) garde ce qu'on a fait **d'une soirée à l'autre et d'un animateur à l'autre** : de l'expérience, un niveau, des finitions d'avatar. Il se crée en trois champs, depuis l'écran d'inscription ou entre deux quiz, et se retrouve ensuite tout seul — le téléphone s'en souvient un an.
+**Et qui revient ne rechoisit rien.** Le téléphone se souvient un an : Alice retrouve son avatar, son niveau et un seul bouton, « Entrer dans la soirée ». Son prénom et son emoji, elle les a choisis une fois en créant son profil — on ne les lui redemande jamais. Elle peut jouer sous un autre prénom pour la soirée, ça ne change rien à son profil.
+
+Un profil (`/profil`) garde ce qu'on a fait **d'une soirée à l'autre et d'un animateur à l'autre** : de l'expérience, un niveau, des finitions d'avatar. Il se crée en deux écrans — le prénom et l'avatar, puis un identifiant et un mot de passe — depuis l'entrée ou entre deux quiz, et se retrouve ensuite tout seul. Si l'identifiant voulu est pris, l'application en propose un libre (« camille2 ») qu'on prend d'un geste : un refus sec laisserait debout, dans le noir, quelqu'un qui ne sait pas quoi tenter d'autre.
 
 **Un profil ne donne jamais un avantage de jeu.** Pas de point bonus, pas de temps en plus, pas de question plus facile : une soirée où les inscrits marqueraient plus ne serait plus une soirée. Il donne du prestige et de la durée, jamais de la performance. C'est pour la même raison qu'un invité anonyme n'affiche **rien** — ni « Niv. 0 », ni pastille grise. L'absence, pas l'infériorité.
 
@@ -87,7 +89,19 @@ Tout se calcule **au moment où la soirée est rangée dans l'historique** — l
 
 **La rareté est calculée, pas décrétée** : c'est la part des profils qui portent le badge, rangée en paliers (commune → légendaire), et elle bouge avec la population — un badge que tout le monde finit par avoir redevient commun. En deçà de dix profils inscrits, elle se tait et annonce simplement le nombre de porteurs : à cinq inscrits, « légendaire » ne voudrait dire que « une seule personne l'a », ce qui est vrai de presque tout.
 
-**Le mot de passe oublié se règle par un code de secours**, affiché une seule fois à l'inscription. Pas d'adresse e-mail : aucune donnée personnelle, rien à héberger, et qui perd tout garde le chemin anonyme, qui n'a jamais été fermé.
+**Le mot de passe oublié se règle par un code de secours**, affiché une seule fois à l'inscription — et il y a un écran pour s'en servir, depuis l'entrée comme depuis la page profil. Le code se consomme et on en rend un neuf. Pas d'adresse e-mail : aucune donnée personnelle, rien à héberger, et qui perd tout garde le chemin anonyme, qui n'a jamais été fermé.
+
+## Deux Camille dans la salle
+
+À cinquante invités, c'est une certitude. On ne refuse pas la seconde — un profil serait refoulé à cause du prénom de quelqu'un d'autre — et on ne renomme personne d'office. **Le prénom n'a pas besoin d'être unique : c'est la ligne projetée qui doit être lisible**, et une ligne, c'est un avatar autant qu'un prénom. Personne ne confond 🦊 Camille et 🐼 Camille.
+
+Alors trois filets, du plus doux au plus rare :
+
+- **à l'inscription**, les avatars déjà portés par un invité du même prénom s'éteignent — on prend un autre animal, sans message d'erreur, et vingt-quatre emojis suffisent toujours ;
+- **un profil entre tel qu'il est**, sans qu'on lui demande quoi que ce soit ;
+- **et si la paire (prénom, avatar) reste partagée** — un profil qui arrive après un homonyme, deux téléphones à la même seconde —, l'application affiche « Camille (2) ». C'est calculé à l'affichage, jamais écrit en base : la marque disparaît d'elle-même quand l'homonyme s'en va, elle respecte l'orthographe de chacun, et les soirées déjà archivées la gagnent aussi.
+
+L'animateur garde la main : renommer un invité depuis l'écran commun n'a pas bougé.
 
 **L'animateur peut jouer aussi.** Le cookie d'un profil est distinct de celui d'un compte d'animateur : les deux coexistent dans le même navigateur, de sorte qu'on pilote la soirée depuis la TV en y jouant depuis son téléphone. Son téléphone doit être connecté **au lancement** du quiz, sinon il entre en retardataire à la question suivante.
 
