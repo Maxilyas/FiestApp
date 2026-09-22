@@ -2,6 +2,15 @@
 # crée les services ; les valeurs marquées `sync: false` se saisissent dans
 # l'interface (elles ne doivent pas vivre dans le dépôt).
 #
+# ⚠️ CE FICHIER NE PILOTE QUE LES SERVICES QU'UN BLUEPRINT A CRÉÉS. Render
+# n'adopte pas un service existant : créer un second blueprint fabrique des
+# COPIES, avec un suffixe au hasard (`quizz-romane-30-ljwa`), pendant que les
+# vraies dorment à côté. Et comme le nom fait l'adresse publique, une copie
+# n'est pas au même endroit : tant qu'un QR est imprimé ou qu'un lien circule,
+# le nom ne se touche pas. Si les services ont été créés à la main, ce fichier
+# reste la référence de ce qu'ils doivent contenir, et c'est leur tableau de
+# bord qui fait foi. Voir MISE-EN-LIGNE.md, étape 7.
+#
 # ── Deux services, deux mondes ───────────────────────────────────────────
 #
 # Tout ce qui est précieux vit dans Turso ; la base locale est jetable et se
@@ -21,7 +30,7 @@ services:
   # Le nom ne doit pas changer : il fait l'adresse publique, et les QR des
   # tables sont imprimés (jour-j/qr-tables.pdf). Il est laid, tant pis.
   - type: web
-    name: quizz-romane-30
+    name: fiestapp-quizz
     runtime: node
     plan: free
     region: frankfurt
@@ -67,7 +76,7 @@ services:
   # mensuelles de l'offre gratuite ne suffiraient pas à garder deux services
   # éveillés en permanence. On la réveille en ouvrant son adresse.
   - type: web
-    name: fiestapp-preprod
+    name: fiestapp-quizz-preprod
     runtime: node
     plan: free
     region: frankfurt
