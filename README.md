@@ -31,14 +31,23 @@ Chez soi, le compte administrateur est `antoine` / `romane` et son espace s'appe
 | Soirées | http://localhost:5173/romane/soirees | l'historique : chaque soirée passée, avec son souvenir, chiffres compris, et son bilan |
 
 ```bash
-npm run check
+npm run verify
 ```
 
-```bash
-npm run smoke
-```
+`verify` enchaîne les trois : `check` (typecheck serveur + client), `build`
+(le client) et `smoke`. C'est la commande à lancer avant de committer, et
+c'est exactement ce que fait l'intégration continue sur chaque proposition de
+modification (`.github/workflows/ci.yml`).
 
-`check` = typecheck serveur + client. `smoke` = test de bout en bout (comptes et sessions, suppression d'un compte, garde-fous, isolation des espaces, inscription, quiz complet, scoring, classement, reconnexion, accusé de réception des réponses, heure du serveur et marge de fin de question, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, anciennes adresses, reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d'une base d'avant les comptes, profils joueurs, expérience et badges d'une soirée).
+`smoke` = test de bout en bout (comptes et sessions, suppression d'un compte, garde-fous, isolation des espaces, inscription, quiz complet, scoring, classement, reconnexion, accusé de réception des réponses, heure du serveur et marge de fin de question, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, anciennes adresses, reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d'une base d'avant les comptes, profils joueurs, expérience et badges d'une soirée).
+
+Il n'y a ni linter ni formateur : le typecheck et le test de bout en bout
+tiennent lieu de filet, et la relecture fait le reste.
+
+**Si tu travailles avec Claude Code**, `CLAUDE.md` à la racine lui dit les
+conventions, les invariants et les pièges du dépôt — il le lit tout seul. Un
+hook de démarrage (`.claude/hooks/session-start.sh`) installe les dépendances
+au réveil d'une session web, pour que `npm run verify` marche d'emblée.
 
 ## Les comptes et les espaces
 
@@ -380,3 +389,70 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, bar
 | 14 | L'historique des soirées : archives complètes, relecture des pages d'une soirée passée, sauvegarde avant remise à zéro | ✅ |
 | 15 | Les comptes et les espaces : un animateur par compte, ses quiz et ses soirées à lui, un lien d'activation pour chaque ami | ✅ |
 | 16 | Les pages publiques reliées par un fil, le tableau des chiffres aux repères figés, la suppression d'un compte | ✅ |
+| 17 | Les réponses qui se perdaient : accusé de réception, heure du serveur, marges de fin de question | ✅ |
+| 18 | Les profils joueurs : expérience, niveaux, finitions d'avatar et Éclat | ✅ |
+| 19 | Les badges : prix de soirée persistés, badges de carrière, rareté calculée | ✅ |
+
+## La direction
+
+### Ce qui n'a pas bougé, et ne devrait pas
+
+Quatre partis pris tiennent l'application depuis le début. Ils ont survécu à
+dix-neuf lots, et chaque fonctionnalité nouvelle doit se ranger derrière eux
+plutôt que les contourner.
+
+1. **Un geste pour jouer.** On scanne, on tape un prénom, on joue. Rien à
+   installer, aucun compte obligatoire — et la moitié d'une salle en restera
+   toujours là. Les profils se sont greffés à côté de ce chemin ; ils ne l'ont
+   pas remplacé, et ne doivent jamais le faire.
+2. **Zéro euro, zéro donnée personnelle.** L'hébergement tient sur des offres
+   gratuites, et même les profils ne demandent pas d'adresse e-mail — un code
+   de secours suffit. Toute idée qui exige un fournisseur payant ou une
+   collecte de données part avec un handicap qu'il faut justifier.
+3. **Le serveur décide, les écrans regardent.** Aucun client ne reçoit l'état
+   brut. C'est ce qui empêche la bonne réponse d'arriver dans un téléphone
+   avant la révélation, et ce qui rend une reprise après coupure possible.
+4. **Ce qui a été joué se garde.** Les journaux, les archives, les copies des
+   quiz tels qu'ils ont été posés. Les pages se recalculent à partir d'eux par
+   des fonctions pures, si bien qu'une amélioration d'aujourd'hui profite aux
+   soirées d'il y a trois ans.
+
+### Où ça en est
+
+L'application couvre une soirée de bout en bout : écrire les quiz, les jouer,
+les commenter, les ranger, les relire — et maintenant s'en souvenir d'une fête
+à l'autre. Le moteur, lui, ne connaît aucune règle : `GameModule` route des
+actions, des commandes et des chronomètres vers un module de jeu, et le quiz
+n'en est qu'une implémentation.
+
+### Les chemins ouverts
+
+Rien de tout cela n'est promis. Ce sont les directions que le code rend
+naturelles, avec ce qu'elles coûtent.
+
+**Les deux jeux physiques dans l'application.** La fête compte trois jeux ; un
+seul est dans l'écran. Les deux autres se comptent encore à la main sur les
+feuilles de `jour-j/`, et leur résultat se recopie dans le barème. Les points
+d'équipe remis à la main (`🏅 Remise des prix`) font déjà passerelle — il
+manque un écran qui assume le tableau des trois jeux d'un bout à l'autre.
+C'est le trou le plus visible du produit.
+
+**Un second module de jeu.** Le moteur est prêt ; rien n'a jamais été branché
+d'autre que le quiz. Un jeu de rapidité, un blind test, un « qui a dit ça » se
+poseraient dessus sans toucher au reste. Coût réel : les vues, les sons et
+l'écran commun sont écrits pour le quiz — la généralisation se paierait là.
+
+**La dimension sociale des profils.** Réclamer ses anciennes soirées,
+classements inter-soirées, se retrouver d'un cercle à l'autre. Attention : la
+tension avec le parti pris n° 1 est réelle. Plus un profil devient utile, plus
+l'invité anonyme risque de se sentir de seconde zone — et ce jour-là,
+l'application aura perdu ce qui la rend jouable en trente secondes.
+
+**Les archives figées.** Une soirée archivée garde les prénoms et les emojis,
+pas les finitions ni les niveaux du jour. Les relire aujourd'hui donne donc un
+souvenir légèrement faux. Le corriger demande de figer l'état d'un profil dans
+l'archive au moment où on la range.
+
+**Ce qui n'est volontairement pas fait** : classement public entre espaces
+(chaque animateur est chez lui), application native (le navigateur suffit et
+n'a rien à installer), et tout ce qui demanderait une base de données payante.

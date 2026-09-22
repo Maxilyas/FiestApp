@@ -1,0 +1,46 @@
+# Le filet du dépôt : rien ne rejoint `main` sans que le typecheck, le build
+# et le test de bout en bout soient passés.
+#
+# `npm run smoke` boote un vrai serveur sur une base jetable et rejoue une
+# soirée entière — comptes, quiz, réponses, scoring, équipes, archives,
+# profils. C'est la seule suite du projet, et elle suffit : une régression
+# qui passerait au travers passerait aussi au travers de tests unitaires.
+name: Vérification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Une PR qui reçoit trois poussées d'affilée n'a pas besoin de trois exécutions :
+# seule la dernière dit quelque chose.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `ci` ici, et non `install` : en intégration, on veut exactement ce que
+      # le fichier de verrouillage décrit, et rien d'autre.
+      - run: npm ci --no-audit --no-fund
+
+      - name: Typecheck (serveur + client)
+        run: npm run check
+
+      - name: Build du client
+        run: npm run build
+
+      # Le test de bout en bout se fabrique sa propre base dans un dossier
+      # temporaire : aucun service à démarrer, aucun secret à fournir.
+      - name: Test de bout en bout
+        run: npm run smoke
