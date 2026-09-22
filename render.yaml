@@ -2,6 +2,15 @@
 # crée les services ; les valeurs marquées `sync: false` se saisissent dans
 # l'interface (elles ne doivent pas vivre dans le dépôt).
 #
+# ⚠️ CE FICHIER NE PILOTE QUE LES SERVICES QU'UN BLUEPRINT A CRÉÉS. Render
+# n'adopte pas un service existant : créer un second blueprint fabrique des
+# COPIES, avec un suffixe au hasard (`quizz-romane-30-ljwa`), pendant que les
+# vraies dorment à côté. Et comme le nom fait l'adresse publique — les QR des
+# tables sont imprimés —, une copie ne peut pas remplacer l'originale. Si les
+# services ont été créés à la main, ce fichier reste la référence de ce qu'ils
+# doivent contenir, et c'est leur tableau de bord qui fait foi. Voir
+# MISE-EN-LIGNE.md, étape 7.
+#
 # ── Deux services, deux mondes ───────────────────────────────────────────
 #
 # Tout ce qui est précieux vit dans Turso ; la base locale est jetable et se
