@@ -1,5 +1,6 @@
 import { io, type Socket } from 'socket.io-client'
 import type { ActionAck, ClientToServerEvents, JoinAck, ServerToClientEvents } from '../../shared/events'
+import type { PublicProfile } from '../../shared/profil'
 import { forgetMe, getState, setState, showToast } from './state'
 import { applySample, resetClock } from './clock'
 import { currentSlug } from './routes'
@@ -71,7 +72,9 @@ socket.on('toast', showToast)
  * ses instantanés — les équipes, « X déjà connectés ». Refusé si le nom de
  * l'espace ne mène nulle part.
  */
-export function watchParty(slug: string): Promise<{ ok: boolean; error?: string }> {
+export function watchParty(
+  slug: string,
+): Promise<{ ok: boolean; error?: string; profile?: PublicProfile }> {
   return new Promise(resolve => socket.emit('party:watch', { slug }, resolve))
 }
 

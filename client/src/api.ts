@@ -1,6 +1,7 @@
 import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
+import type { Finition, PublicProfile } from '../../shared/profil'
 
 /** Session absente ou périmée : l'appelant renvoie vers la connexion. */
 export class UnauthorizedError extends Error {}
@@ -66,6 +67,36 @@ export const api = {
       req<Me>('/api/auth/activate', { method: 'POST', body: JSON.stringify({ token, password }) }),
     changePassword: (current: string, next: string) =>
       req<{ ok: true }>('/api/auth/password', { method: 'POST', body: JSON.stringify({ current, next }) }),
+  },
+  /**
+   * Le profil d'un joueur récurrent. Rien ici n'est nécessaire pour jouer :
+   * l'invité anonyme ne passe par aucune de ces routes et ne perd rien.
+   */
+  joueur: {
+    /** Sans cookie, rend `null` — ce n'est pas une erreur, c'est un invité. */
+    moi: () => req<{ profile: PublicProfile | null }>('/api/joueur/moi'),
+    connexion: (login: string, password: string) =>
+      req<{ profile: PublicProfile }>('/api/joueur/connexion', {
+        method: 'POST',
+        body: JSON.stringify({ login, password }),
+      }),
+    /** Rend le code de secours — la seule fois où il existe en clair. */
+    inscription: (input: { login: string; password: string; name: string; avatar: string }) =>
+      req<{ profile: PublicProfile; recovery: string }>('/api/joueur/inscription', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
+    enregistrer: (patch: { name?: string; avatar?: string; finition?: Finition }) =>
+      req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
+    motDePasse: (next: string) =>
+      req<{ ok: true }>('/api/joueur/mot-de-passe', { method: 'POST', body: JSON.stringify({ next }) }),
+    /** Le code de secours se consomme : on en rend un neuf. */
+    secours: (login: string, code: string, password: string) =>
+      req<{ recovery: string; profile: PublicProfile | null }>('/api/joueur/secours', {
+        method: 'POST',
+        body: JSON.stringify({ login, code, password }),
+      }),
   },
   space: {
     saveSettings: (settings: Partial<SpaceSettings>) =>

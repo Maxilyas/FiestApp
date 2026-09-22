@@ -2252,3 +2252,246 @@ h3 > .icon {
 .pill.status-active { color: var(--accent); border-color: rgba(var(--accent-rgb), 0.5); }
 .pill.status-pending { font-style: italic; }
 .pill.status-disabled { color: var(--alert); border-color: var(--alert); text-decoration: line-through; }
+
+/* ── Avatars : finitions et Éclat ──────────────────────────────────────────
+
+   L'emoji ne change jamais — Alice reste le renard. Ce qui change, c'est ce
+   qui l'entoure : un halo, une couronne, un voile irisé. Rien à dessiner,
+   rien à télécharger, et l'animal auquel la salle associe quelqu'un reste
+   reconnaissable du fond de la pièce.
+
+   Les finitions se gagnent au niveau (3, 6, 10, 15). L'Éclat, lui, ne se
+   gagne pas : une chance sur quarante par soirée jouée, et il change la
+   palette de l'emoji — comme un shiny. On ne peut ni l'acheter ni
+   l'accélérer, seulement venir jouer. */
+
+.av {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.av-emoji {
+  position: relative;
+  z-index: 1;
+  line-height: 1;
+}
+
+/* Le halo vit derrière l'emoji, jamais dessus : un `background-clip: text`
+   rendrait transparent un glyphe qui porte ses propres couleurs.
+
+   Il se dimensionne en `em` et se centre, plutôt que de coller aux bords de
+   la boîte : celle d'un emoji est plus haute que large, et un `inset` donnait
+   une ellipse penchée au lieu d'une auréole. */
+.av::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.45em;
+  height: 1.45em;
+  /* Centré par des marges, pas par un `transform` : celui-ci se compose
+     APRÈS la rotation de Holo et Prisme, si bien que la direction du
+     recentrage tournait avec le halo et l'envoyait balader à côté. */
+  margin: -0.725em 0 0 -0.725em;
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.av-argent::before {
+  background: radial-gradient(circle, rgba(214, 226, 240, 0.5) 0%, rgba(214, 226, 240, 0) 68%);
+}
+
+.av-or::before {
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.45) 0%, rgba(var(--accent-rgb), 0) 72%);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.4);
+}
+
+/* Holo et Prisme tournent lentement : assez pour qu'on le remarque en
+   passant, pas assez pour qu'on ne puisse plus lire le classement. */
+.av-holo::before,
+.av-prisme::before {
+  background: conic-gradient(
+    from 0deg,
+    rgba(217, 138, 154, 0.55),
+    rgba(217, 181, 106, 0.55),
+    rgba(143, 191, 168, 0.55),
+    rgba(169, 154, 214, 0.55),
+    rgba(217, 138, 154, 0.55)
+  );
+  filter: blur(5px);
+  animation: av-tourne 6s linear infinite;
+}
+
+.av-prisme::after {
+  content: '✦';
+  position: absolute;
+  top: -28%;
+  right: -28%;
+  font-size: 0.5em;
+  color: var(--accent);
+  z-index: 2;
+  animation: av-scintille 2.6s ease-in-out infinite;
+}
+
+/* L'Éclat : la palette de l'emoji bascule. C'est un vrai changement de
+   couleurs sur le glyphe lui-même, pas un décor ajouté autour. */
+.av-eclat .av-emoji {
+  filter: hue-rotate(150deg) saturate(1.45) drop-shadow(0 0 3px rgba(var(--accent-rgb), 0.8));
+}
+
+.av-eclat::after {
+  content: '✧';
+  position: absolute;
+  top: -30%;
+  right: -30%;
+  font-size: 0.55em;
+  color: #eadf9b;
+  z-index: 2;
+  animation: av-scintille 2s ease-in-out infinite;
+}
+
+/* `rotate` plutôt que `transform: rotate()` : le halo est déjà centré par un
+   `translate`, qu'une transformation animée effacerait. */
+@keyframes av-tourne {
+  from { rotate: 0deg; }
+  to { rotate: 360deg; }
+}
+
+@keyframes av-scintille {
+  0%, 100% { opacity: 0.25; transform: scale(0.8); }
+  50%      { opacity: 1;    transform: scale(1.15); }
+}
+
+/* Cinquante halos animés sur le PC d'un vidéoprojecteur, c'est un budget
+   qu'on n'a pas. Au-delà des cinq premières lignes d'une liste, la finition
+   reste — elle se voit — mais elle cesse de bouger. */
+.leaderboard .lb-row:nth-child(n + 6) .av::before,
+.leaderboard .lb-row:nth-child(n + 6) .av::after,
+.stats-table tbody tr:nth-child(n + 6) .av::before,
+.stats-table tbody tr:nth-child(n + 6) .av::after,
+.chips .av::before,
+.chips .av::after {
+  animation: none;
+}
+
+/* ── La pastille de niveau ─────────────────────────────────────────────── */
+
+.niveau {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5em;
+  height: 1.5em;
+  padding: 0 0.35em;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(var(--accent-rgb), 0.45);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  flex: none;
+}
+
+.niveau.big { font-size: 0.95rem; }
+
+/* ── La barre d'expérience, sur sa propre page ─────────────────────────── */
+
+.xp-bar {
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--track);
+  overflow: hidden;
+}
+
+.xp-fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  transition: width 600ms ease-out;
+}
+
+/* Le code de secours : on le recopie à la main depuis l'écran, souvent dans
+   la pénombre. Gros, espacé, sans ambiguïté possible. */
+.code-secours {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 1.35rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+  color: var(--accent);
+  margin: 12px 0;
+  user-select: all;
+}
+
+/* Le salut d'un profil reconnu, sur l'écran d'inscription. Discret : c'est
+   une retrouvaille, pas une annonce. */
+.profil-salut {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-family: var(--serif);
+  font-size: 1.1rem;
+  color: var(--accent);
+}
+
+.profil-salut .av { font-size: 1.4rem; }
+
+/* Un lien dans une phrase : il se voit, sans prendre la place d'un bouton. */
+.link-inline {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* ── La page profil ────────────────────────────────────────────────────── */
+
+.profil-tete { margin-bottom: 4px; }
+.profil-identite h2 { display: flex; align-items: center; gap: 8px; }
+
+.finitions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+}
+
+.finition-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.finition-btn .av { font-size: 1.7rem; }
+.finition-nom { font-size: 0.85rem; }
+.finition-btn:hover:not(:disabled) { border-color: var(--edge-strong); }
+.finition-btn.selected { border-color: var(--edge-strong); background: var(--accent-soft); }
+
+/* Une finition qu'on n'a pas encore : on la voit, on sait à quel niveau elle
+   s'ouvre, et elle ne se laisse pas prendre. Montrer ce qui vient donne envie
+   de revenir ; le cacher ne donnerait rien. */
+.finition-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Sur la page profil, la grille d'emojis porte des avatars complets. */
+.emoji-grid .av { font-size: 1.5rem; }

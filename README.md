@@ -23,6 +23,7 @@ Chez soi, le compte administrateur est `antoine` / `romane` et son espace s'appe
 | Jeu | http://localhost:5173/romane | les invités (sur leur téléphone : `http://<IP-du-PC>:5173/romane`) — c'est l'adresse du QR |
 | Écran commun | http://localhost:5173/host | la TV / le vidéoprojecteur, une fois l'animateur connecté |
 | Mes quiz | http://localhost:5173/edit | l'animateur, pour écrire ses quiz |
+| Mon profil | http://localhost:5173/profil | un invité qui revient : son niveau, ses finitions, ses éclats |
 | Mon compte | http://localhost:5173/compte | ses réglages de soirée, son mot de passe, l'adresse de ses invités |
 | Les comptes | http://localhost:5173/admin | l'administrateur seul : créer un compte à un ami |
 | Souvenir | http://localhost:5173/romane/souvenir | tout le monde, le lendemain : podium, palmarès, équipes et tous les chiffres ; l'animateur pendant la fête aussi, la page se rafraîchit seule (`/romane/stats` y mène, droit sur le tableau) |
@@ -37,7 +38,7 @@ npm run check
 npm run smoke
 ```
 
-`check` = typecheck serveur + client. `smoke` = test de bout en bout (comptes et sessions, suppression d'un compte, garde-fous, isolation des espaces, inscription, quiz complet, scoring, classement, reconnexion, accusé de réception des réponses, heure du serveur et marge de fin de question, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, anciennes adresses, reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d'une base d'avant les comptes).
+`check` = typecheck serveur + client. `smoke` = test de bout en bout (comptes et sessions, suppression d'un compte, garde-fous, isolation des espaces, inscription, quiz complet, scoring, classement, reconnexion, accusé de réception des réponses, heure du serveur et marge de fin de question, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, anciennes adresses, reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d'une base d'avant les comptes, profils joueurs et expérience d'une soirée).
 
 ## Les comptes et les espaces
 
@@ -53,6 +54,26 @@ Les pages d'animation ne portent pas l'espace dans l'adresse : c'est la session 
 **Les comptes se créent depuis `/admin`**, par l'administrateur seul : un prénom, un identifiant, un nom d'adresse, et l'application rend un **lien d'activation** à envoyer par le canal qu'on veut. L'ami ouvre le lien, choisit son mot de passe, et son espace est prêt — avec une bibliothèque vide. Le lien vaut sept jours et ne sert qu'une fois ; **un mot de passe oublié se règle par un nouveau lien**, depuis la même page. Un compte se désactive (ses écrans se ferment, ses pages restent lisibles) et se réactive. Un compte désactivé peut ensuite être **supprimé** : ses quiz, ses photos, ses soirées archivées et sa soirée en cours partent avec lui, sans retour, et son identifiant comme son adresse redeviennent libres — **exporte ses soirées avant** (`npm run export -- https://ton-app.onrender.com --slug chez-bob`) si tu veux en garder une trace. L'espace de l'administrateur, celui où mènent les anciennes adresses, ne se supprime pas.
 
 **Pour l'administrateur**, rien ne change : son compte naît au premier démarrage depuis `ADMIN_LOGIN` / `ADMIN_PASSWORD` / `ADMIN_SLUG` / `ADMIN_NAME`, et tout ce qui existait avant les comptes — bibliothèque, photos, archives, soirée en cours — lui est rattaché au premier démarrage, sans rien copier ni effacer. Les anciennes adresses (`/bilan`, `/souvenir`, `/soirees/<id>/…`) redirigent vers son espace : les liens déjà partagés et les QR déjà imprimés restent bons. La racine `/` demande le nom de la soirée à qui arrive sans lien.
+
+## Les profils joueurs
+
+**Rien ne change pour qui ne veut rien changer.** On arrive, on tape un prénom, on joue : c'est toujours le chemin par défaut, en un geste, et c'est celui de la moitié de la salle. Les profils sont pour les autres — ceux qui reviennent.
+
+Un profil (`/profil`) garde ce qu'on a fait **d'une soirée à l'autre et d'un animateur à l'autre** : de l'expérience, un niveau, des finitions d'avatar. Il se crée en trois champs, depuis l'écran d'inscription ou entre deux quiz, et se retrouve ensuite tout seul — le téléphone s'en souvient un an.
+
+**Un profil ne donne jamais un avantage de jeu.** Pas de point bonus, pas de temps en plus, pas de question plus facile : une soirée où les inscrits marqueraient plus ne serait plus une soirée. Il donne du prestige et de la durée, jamais de la performance. C'est pour la même raison qu'un invité anonyme n'affiche **rien** — ni « Niv. 0 », ni pastille grise. L'absence, pas l'infériorité.
+
+**L'expérience** se gagne en venant jouer, et elle récompense d'abord d'être là : 50 points de présence, 1 par question répondue, 2 par bonne réponse, 60/40/25 pour le podium de la soirée et 15 par quiz remporté. Un niveau qui ne mesurerait que la culture générale n'aurait pas le goût d'une soirée entre amis. Une soirée ordinaire vaut environ 115 points ; les premiers niveaux tombent dans la soirée même, le niveau 10 demande huit soirées et le niveau 20 une trentaine.
+
+Tout se calcule **au moment où la soirée est rangée dans l'historique** — la seule fenêtre où les journaux sont encore là, juste avant que « Nouvelle soirée » n'efface. Ranger deux fois la même soirée recalcule au lieu de créditer deux fois.
+
+**Les finitions** habillent l'avatar sans jamais changer l'emoji : Alice reste le renard, c'est ce qui l'entoure qui dit son niveau. Mat au départ, **Argent** au niveau 3, **Or** au 6, **Holo** au 10, **Prisme** au 15 — on porte celle qu'on veut parmi celles qu'on a, et rester en Mat au niveau 15 se remarque aussi.
+
+**L'Éclat**, lui, ne se gagne pas. À chaque soirée jouée avec un profil, **une chance sur quarante** qu'un de vos avatars « s'éclate » : l'emoji lui-même change de couleurs, définitivement, et pour celui-là seulement. Ton renard brille, celui du voisin non. On ne peut ni l'acheter ni l'accélérer, seulement venir jouer.
+
+**Le mot de passe oublié se règle par un code de secours**, affiché une seule fois à l'inscription. Pas d'adresse e-mail : aucune donnée personnelle, rien à héberger, et qui perd tout garde le chemin anonyme, qui n'a jamais été fermé.
+
+**L'animateur peut jouer aussi.** Le cookie d'un profil est distinct de celui d'un compte d'animateur : les deux coexistent dans le même navigateur, de sorte qu'on pilote la soirée depuis la TV en y jouant depuis son téléphone. Son téléphone doit être connecté **au lancement** du quiz, sinon il entre en retardataire à la question suivante.
 
 ## Écrire ses quiz
 
@@ -316,6 +337,8 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, bar
 - **AuthStore** (`server/src/auth/store.ts`) + **routes d'auth** (`auth/routes.ts`, `auth/http.ts`) — les comptes, leurs sessions et leurs liens d'activation, dans la base permanente et en mémoire ; la porte de l'API (`requireAccount`), le garde anti-CSRF, la limite d'essais. La suppression d'un compte est une cascade composée dans `server.ts`, là où toutes les réserves sont à portée : connexions, soirée en mémoire, disque local, miroir, historique, bibliothèque, et le compte en dernier.
 - **SpaceRuntime / SpaceRegistry** (`core/space.ts`) — la soirée d'un espace : ses registres, son moteur, ses salons socket et ses diffusions (dédoublonnées, regroupées). Créée à la première connexion ; les espaces dont une partie était en cours au démarrage sont réveillés tout de suite.
 - **Party** (`server/src/core/party.ts`) — registre des joueurs d'un espace. L'identité survit aux coupures : un token stocké sur le téléphone permet de retrouver son joueur après un refresh, une perte de réseau ou un redémarrage du serveur. C'est ce même token que porte chaque réponse (`player:action`), pour qu'une connexion encore anonyme puisse être rebranchée sur son joueur sans attendre la fin du re-join.
+- **ProfileStore** (`server/src/auth/profiles.ts`) + **routes** (`auth/profileRoutes.ts`) — les profils des joueurs récurrents, dans la base permanente. Ils réutilisent le hachage scrypt et le modèle de session des comptes, mais pas leur table : un animateur possède un espace, pas un joueur. Et là où `AuthStore` garde tous ses comptes en mémoire (il y en a une poignée), les profils peuvent se compter par milliers : seules les sessions y montent, un profil s'y range à la première lecture.
+- **Progress** (`core/progress.ts`) — ce qu'une soirée rapporte aux profils qui l'ont jouée, dérivé des journaux par une fonction pure, comme le souvenir et le bilan. La consolidation, elle, se fait dans `archiveParty()` : la clé `(profil, soirée)` la rend idempotente.
 - **Teams** (`teams.ts`) — registre des équipes, séparé des joueurs : une équipe vit toute la soirée, ses membres vont et viennent. Le rattachement est une colonne sur le joueur, donc déplacer quelqu'un déplace ses points sans toucher au journal des scores.
 - **AnswerLog** (`answers.ts`) — une ligne par joueur et par question posée, réponses manquantes comprises. C'est la seule source des statistiques : le classement, lui, ne garde que les gains positifs. Une question annulée ou reposée en sort, pour ne pas compter deux fois.
 - **Stats** (`stats.ts`) — les moyennes, les séries et les prix, dérivés du journal. Les prix sont proposés, jamais appliqués : c'est l'animateur qui décide.

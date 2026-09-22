@@ -14,6 +14,8 @@ import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
 import { formatNumber } from '../../format'
 import { questionSizeClass } from './questionSize'
+import { Avatar } from '../../components/Avatar'
+import { Niveau } from '../../components/Niveau'
 
 /** Le décompte avant que la question suivante parte toute seule. */
 function AutoNextPill({ deadline }: { deadline: number }) {
@@ -197,8 +199,9 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                     ) : (
                       <Rank n={i + 1} />
                     )}
-                    <span className="lb-avatar">{g.avatar}</span>
+                    <Avatar className="lb-avatar" avatar={g.avatar} finition={g.finition} eclat={g.eclat} />
                     <span className="lb-name">{g.name}</span>
+                    <Niveau niveau={g.niveau} />
                     <span className="guess-value">
                       {formatNumber(g.value)} {v.unit}
                     </span>

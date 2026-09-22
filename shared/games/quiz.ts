@@ -1,5 +1,6 @@
 // Vues et actions du Quiz (QCM style Kahoot + estimation chiffrée).
 import type { QuestionKind } from '../library'
+import type { Distinctions } from '../profil'
 
 /**
  * `observe` : la photo est projetée seule, sans la question ni les réponses.
@@ -14,14 +15,14 @@ export interface QuizPackInfo {
   questionCount: number
 }
 
-export interface QuizPodiumRow {
+export interface QuizPodiumRow extends Distinctions {
   name: string
   avatar: string
   points: number
 }
 
 /** Estimation : ce que chacun a proposé, du plus proche au plus loin. */
-export interface QuizGuessRow {
+export interface QuizGuessRow extends Distinctions {
   name: string
   avatar: string
   value: number

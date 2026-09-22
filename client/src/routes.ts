@@ -2,6 +2,7 @@
 //
 //   /                         l'accueil : « quelle soirée ? »
 //   /host /edit /compte …     les pages de l'animateur — son espace vient de sa session
+//   /profil                   le profil d'un joueur récurrent (rien à voir avec un compte)
 //   /<espace>                 le téléphone des invités de cet espace (la valeur du QR)
 //   /<espace>/souvenir        les pages publiques de sa soirée en cours…
 //   /<espace>/soirees/<id>/…  …et de ses soirées archivées, avec les mêmes pages
@@ -13,7 +14,11 @@
 import { RESERVED_SLUGS, SLUG } from '../../shared/space'
 
 export type PublicPage = 'souvenir' | 'stats' | 'bilan' | 'bilan/fiches' | 'soirees'
-export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin'
+/**
+ * Les pages qui ne portent pas d'espace dans leur adresse. « profil » est la
+ * seule qui ne soit pas réservée aux animateurs : c'est celle des joueurs.
+ */
+export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin' | 'profil'
 export type DataFile = 'recap.json' | 'bilan.json' | 'soirees.json' | 'space.json'
 
 export type Route =
@@ -23,7 +28,7 @@ export type Route =
   | { kind: 'public'; slug: string; page: PublicPage; archiveId: string | null }
   | { kind: 'unknown' }
 
-const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin']
+const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil']
 const PUBLIC_PAGES: PublicPage[] = ['souvenir', 'stats', 'bilan', 'bilan/fiches', 'soirees']
 const ARCHIVE_ID = /^[\w-]{1,64}$/
 
