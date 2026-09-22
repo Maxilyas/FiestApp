@@ -11,7 +11,6 @@ Tout ce qu'il faut pour mettre l'application en ligne, l'animer, et en faire pro
 | [github.com](https://github.com) | héberge le code ; Render y lit le dépôt `Maxilyas/FiestApp` | non | déjà fait |
 | [turso.tech](https://turso.tech) | la base qui garde tes quiz, tes comptes et tes soirées **pour toujours** | non | oui |
 | [render.com](https://render.com) | le serveur qui fait tourner le jeu | non | oui |
-| [cron-job.org](https://cron-job.org) | réveille le serveur toutes les 10 min | non | oui |
 
 ---
 
@@ -90,17 +89,15 @@ npm run migrate -- --to libsql://TON-URL.turso.io --token TON-JETON
 
 La commande se relance autant de fois que tu veux : un quiz déjà en ligne est mis à jour, un nouveau est ajouté. Elle n'efface jamais rien à destination.
 
-### Étape 5 — Empêcher la mise en veille
+### Étape 5 — Savoir que le serveur dort, et le réveiller à la main
 
-Sans trafic pendant 15 minutes, l'offre gratuite de Render endort le serveur, et le réveil prend environ une minute. Le premier invité qui scanne attendrait devant une page blanche.
+Sans trafic pendant 15 minutes, l'offre gratuite de Render endort le serveur, et le réveil prend environ une minute. **Ce n'est pas un problème, à condition de le savoir** : il suffit d'ouvrir l'adresse publique **cinq minutes avant** l'arrivée des invités.
 
-Sur [cron-job.org](https://cron-job.org), crée une tâche :
+Ensuite, la veille ne menace plus la soirée : tant qu'un écran commun ou un téléphone est connecté, le trafic des websockets tient le serveur éveillé. La seule fenêtre de risque est le tout premier scan, et c'est précisément celle que ce geste couvre.
 
-- adresse à appeler : `https://TON-ADRESSE.onrender.com/healthz`
-- toutes les **10 minutes**
-- laisse-la tourner jusqu'au lendemain de la fête
+Mets-le dans ta routine du soir J (section 6) — c'est la seule chose à ne pas oublier.
 
-Le quota gratuit de Render (750 h/mois, pour un mois qui en compte 730) permet de rester allumé en permanence.
+> Un service de ping extérieur (cron-job.org, UptimeRobot…) appelant `/healthz` toutes les dix minutes ferait le même travail sans y penser. Ce dépôt ne s'en sert pas : avec **deux services gratuits** (production et préproduction), les 750 heures mensuelles de l'offre ne suffisent de toute façon pas à en garder deux allumés en permanence. Laisser dormir les deux est le choix cohérent.
 
 ### Étape 6 — Vérifier pour de vrai
 
@@ -111,6 +108,36 @@ ADMIN_LOGIN=antoine ADMIN_PASSWORD=ton-mot-de-passe npm run load -- https://TON-
 ```
 
 Simule 20 invités sur le serveur en ligne et mesure les temps de réponse réels.
+
+⚠️ **Ne lance jamais ce test contre la base Turso de production.** Il simule vingt invités, et le miroir écrit toutes les deux secondes : le quota gratuit y passerait en une session. Vise la préproduction, ou reste en local sur fichier.
+
+### Étape 7 — La préproduction
+
+Le développement local ne peut pas éprouver six choses, et ce sont celles qui mordent : le miroir Turso avec sa vraie latence, le disque effacé au redémarrage, le réveil après veille, les cookies `Secure`, l'adresse du client derrière le proxy, et la politique de sécurité du contenu en conditions réelles.
+
+Une soirée est un coup unique — on ne débogue pas pendant la fête. D'où un second service, identique au premier, sur sa propre base.
+
+**Ce que ça donne :**
+
+```
+                   déploiement automatique       déploiement MANUEL
+  main  ───────────────────────────────►  PRÉPROD  ─────────────►  PRODUCTION
+                                     fiestapp-preprod          quizz-romane-30
+                                            │                        │
+                                   Turso fiestapp-preprod    Turso quizz-romane
+```
+
+**Pour la créer :**
+
+1. **Une seconde base Turso**, à côté de la première : `quizz-preprod`. Récupère son URL et crée-lui un jeton. Turso sait aussi dupliquer une base existante, si tu veux éprouver une migration sur de vraies données — sache seulement que ça copie aussi les comptes.
+2. **Pousse `render.yaml`** : il décrit désormais les deux services. Render crée `fiestapp-preprod` à la prochaine synchronisation du blueprint.
+3. **Renseigne ses variables** dans l'interface Render : `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` vers la base de **préproduction**, et un `ADMIN_PASSWORD` **différent** de celui de la production. `APP_ENV=preprod` est déjà dans le fichier.
+
+> 🚨 **La règle absolue : jamais la même base Turso pour les deux.** Un « Nouvelle soirée » ou une suppression de compte en préproduction effacerait de vraies soirées archivées — c'est le seul geste sans retour de l'application. Pour qu'on ne s'y trompe jamais, la préproduction affiche un **bandeau rouge « PREPROD »** en bas à gauche de toutes ses pages, et le préfixe dans l'onglet du navigateur.
+
+**Promouvoir en production.** La production ne se déploie pas toute seule : sur son tableau de bord Render, **Manual Deploy → Deploy latest commit**. On regarde la préproduction tourner, puis on promeut — la veille de la fête, pas le soir même.
+
+**Et le dormir ?** Les deux services s'endorment après quinze minutes sans trafic. C'est assumé : les 750 heures mensuelles de l'offre gratuite ne suffiraient pas à en garder deux éveillés. On réveille celui dont on a besoin en ouvrant son adresse, cinq minutes avant (voir l'étape 5).
 
 ---
 
@@ -224,8 +251,8 @@ Avec un routeur wifi sans internet, renseigne `WIFI_SSID` et `WIFI_PASS` : l'éc
 
 ## 6. Le soir J
 
-1. **La veille** : vérifie que le ping tourne et ouvre l'adresse publique pour confirmer que tout répond. Dans **Mon compte**, vérifie le titre de la soirée et la date : ce sont eux que voient les invités.
-2. **5 minutes avant** : connecte-toi et ouvre l'écran commun sur le vidéoprojecteur. Tant qu'un écran est connecté, le serveur ne s'endort pas.
+1. **La veille** : ouvre l'adresse publique pour confirmer que tout répond (elle mettra une minute : le serveur dormait). Dans **Mon compte**, vérifie le titre de la soirée et la date : ce sont eux que voient les invités.
+2. **5 minutes avant — le geste à ne pas oublier** : connecte-toi et ouvre l'écran commun sur le vidéoprojecteur. C'est lui qui réveille le serveur, et tant qu'un écran est connecté il ne se rendort pas. Sans ça, le premier invité qui scanne attend une minute devant une page blanche.
 3. Vérifie le bouton 🔊 en haut de l'écran commun (les sons ne sortent que de là, jamais des téléphones).
 4. Les invités scannent le QR — il mène à `/romane` —, choisissent un prénom et un avatar.
 5. **Lancer un quiz** → choisis **points normaux, ×2 ou ×3**, puis le quiz → le 3-2-1 démarre. Annonce le multiplicateur à la salle : c'est ce qui garde tout le monde dans la course.
@@ -246,7 +273,7 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 
 | Symptôme | Cause probable | Quoi faire |
 |---|---|---|
-| Page blanche ~1 min au premier scan | serveur endormi | attendre le réveil ; vérifier le ping |
+| Page blanche ~1 min au premier scan | serveur endormi (offre gratuite, 15 min sans trafic) | attendre le réveil ; la prochaine fois, ouvrir l'écran commun cinq minutes avant |
 | « Identifiant ou mot de passe incorrect » | faute de frappe, ou le mot de passe d'amorçage a été changé depuis « Mon compte » | réessayer ; pour un ami, refaire un lien d'activation depuis `/admin` |
 | « Trop d'essais — réessaie dans un quart d'heure » | cinq échecs de suite sur un identifiant, ou vingt depuis la même adresse | attendre quinze minutes ; c'est le garde-fou contre la force brute |
 | Le serveur refuse de démarrer : « ADMIN_PASSWORD manquant » | mot de passe par défaut en ligne | définir `ADMIN_PASSWORD` sur Render (il ne sert qu'au premier démarrage) |

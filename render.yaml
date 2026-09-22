@@ -1,16 +1,40 @@
-# Déploiement sur Render (offre gratuite). Le dépôt étant connecté, Render lit
-# ce fichier et crée le service ; les valeurs marquées `sync: false` se
-# saisissent dans l'interface (elles ne doivent pas vivre dans le dépôt).
+# Déploiement sur Render. Le dépôt étant connecté, Render lit ce fichier et
+# crée les services ; les valeurs marquées `sync: false` se saisissent dans
+# l'interface (elles ne doivent pas vivre dans le dépôt).
+#
+# ── Deux services, deux mondes ───────────────────────────────────────────
+#
+# Tout ce qui est précieux vit dans Turso ; la base locale est jetable et se
+# reconstruit du miroir. La séparation entre préprod et prod tient donc à une
+# seule chose : `QUIZ_DB_URL`. Le code, lui, est identique.
+#
+# RÈGLE ABSOLUE : jamais la même base Turso pour les deux. Un « Nouvelle
+# soirée » ou une suppression de compte en préprod effacerait de vraies
+# soirées archivées, et c'est le seul geste sans retour de l'application.
+#
+# La prod ne se déploie PAS toute seule (`autoDeploy: false`). Le mode de
+# panne de cette application est « la soirée est gâchée » : on regarde la
+# préprod tourner, puis on promeut à la main, la veille de la fête.
 services:
+  # ── PRODUCTION ─────────────────────────────────────────────────────────
+  #
+  # Le nom ne doit pas changer : il fait l'adresse publique, et les QR des
+  # tables sont imprimés (jour-j/qr-tables.pdf). Il est laid, tant pis.
   - type: web
     name: quizz-romane-30
     runtime: node
     plan: free
     region: frankfurt
+    branch: main
+    # On promeut à la main depuis le tableau de bord, quand on a vu la
+    # préprod tourner. C'est un clic contre une fête ratée.
+    autoDeploy: false
     buildCommand: npm install && npm run build
     startCommand: npm start -w server
-    # Sert aussi de cible au service de réveil : sans trafic, l'offre gratuite
-    # endort l'application au bout de 15 minutes.
+    # Render s'en sert pour savoir si le service répond. L'offre gratuite
+    # endort l'application après 15 minutes sans trafic, et on l'assume : on
+    # ouvre l'écran commun cinq minutes avant l'arrivée des invités, et le
+    # trafic des websockets la tient éveillée tout le reste de la soirée.
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION
@@ -25,7 +49,50 @@ services:
         sync: false
       - key: ADMIN_SLUG
         sync: false
-      # Bibliothèque de quiz : libsql://... (Turso) + son jeton.
+      # Bibliothèque de quiz, comptes, archives et profils : la base Turso
+      # DE PRODUCTION. Celle qu'on ne perd pas.
+      - key: QUIZ_DB_URL
+        sync: false
+      - key: QUIZ_DB_TOKEN
+        sync: false
+
+  # ── PRÉPRODUCTION ──────────────────────────────────────────────────────
+  #
+  # Ce que le développement local ne peut pas éprouver : le miroir Turso avec
+  # sa vraie latence, le disque effacé au redémarrage, le réveil après veille,
+  # les cookies `Secure`, l'adresse du client derrière le proxy, la politique
+  # de sécurité du contenu en conditions réelles.
+  #
+  # Elle dort quand personne ne s'en sert, comme la production : les 750 heures
+  # mensuelles de l'offre gratuite ne suffiraient pas à garder deux services
+  # éveillés en permanence. On la réveille en ouvrant son adresse.
+  - type: web
+    name: fiestapp-preprod
+    runtime: node
+    plan: free
+    region: frankfurt
+    branch: main
+    # Elle, oui : chaque fusion sur `main` part en préprod.
+    autoDeploy: true
+    buildCommand: npm install && npm run build
+    startCommand: npm start -w server
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      # Le bandeau « PRÉPROD » s'affiche alors sur toutes les pages : on ne
+      # projette pas la mauvaise instance un soir de fête, et on n'écrit pas
+      # ses quiz dans la mauvaise base.
+      - key: APP_ENV
+        value: preprod
+      - key: ADMIN_LOGIN
+        sync: false
+      # Un mot de passe DIFFÉRENT de celui de la production.
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_SLUG
+        sync: false
+      # La base Turso de préproduction — jamais celle de la prod.
       - key: QUIZ_DB_URL
         sync: false
       - key: QUIZ_DB_TOKEN

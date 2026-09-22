@@ -63,6 +63,35 @@ const App =
 // chargement. Les autres pages — les téléphones surtout — restent en Velours.
 if (App === HostApp) applyTheme()
 
+/**
+ * Le bandeau d'environnement.
+ *
+ * Le serveur pose `<meta name="app-env">` dans la page hors production. Deux
+ * onglets sur deux instances sont indiscernables autrement — et se tromper
+ * coûte cher des deux côtés : projeter la préproduction un soir de fête, ou
+ * écrire ses quiz dans une base qui sera effacée. En production, la balise
+ * est absente et il ne se passe rien.
+ */
+const appEnv = document.querySelector('meta[name="app-env"]')?.getAttribute('content')
+if (appEnv) {
+  const badge = document.createElement('div')
+  badge.className = 'env-badge'
+  badge.textContent = appEnv
+  document.body.appendChild(badge)
+
+  // Le préfixe dans l'onglet, pour distinguer deux fenêtres côte à côte. Il se
+  // repose à chaque fois que le titre change : les pages le réécrivent avec le
+  // nom de la soirée une fois l'instantané reçu, et un préfixe posé une seule
+  // fois au démarrage serait aussitôt effacé.
+  const marque = `[${appEnv}] `
+  const prefixer = () => {
+    if (!document.title.startsWith(marque)) document.title = marque + document.title
+  }
+  prefixer()
+  const titre = document.querySelector('title')
+  if (titre) new MutationObserver(prefixer).observe(titre, { childList: true })
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Suspense

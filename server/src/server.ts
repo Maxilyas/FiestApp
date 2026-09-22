@@ -43,6 +43,12 @@ export interface QuizServerOptions {
   online?: boolean
   /** Plafond d'invités par soirée, que même le réglage d'un espace ne dépasse pas. */
   maxPlayers?: number
+  /**
+   * Le nom de l'environnement quand ce n'est pas la production (« preprod »).
+   * Il est posé dans la page, et le client en fait un bandeau permanent.
+   * Absent en production : rien ne s'affiche, et rien ne pèse.
+   */
+  appEnv?: string
 }
 
 /** Première IP locale non interne — l'adresse que les téléphones doivent ouvrir. */
@@ -250,6 +256,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     const runtimes = registry.all()
     res.json({
       ok: true,
+      env: opts.appEnv ?? 'production',
       uptime: Math.round(process.uptime()),
       spaces: runtimes.length,
       players: runtimes.reduce((n, rt) => n + rt.party.connectedPlayerIds().length, 0),
@@ -368,9 +375,25 @@ export async function createQuizServer(opts: QuizServerOptions) {
     // redemandent pas à chaque ouverture.
     app.use('/fonts', express.static(path.join(clientDist, 'fonts'), { maxAge: '30d', fallthrough: false }))
     app.use(express.static(clientDist, { index: false, maxAge: '1h' }))
+
+    // La page d'accueil est lue une fois et gardée en mémoire — elle ne change
+    // pas d'un déploiement à l'autre. Hors production, on y glisse le nom de
+    // l'environnement : c'est le seul endroit qui atteint TOUTES les pages,
+    // y compris l'éditeur de quiz, où se tromper de base coûte le plus cher.
+    // Le dossier peut exister sans la page — un build interrompu, un
+    // `dist/` à moitié nettoyé. Lire sans vérifier ferait échouer le
+    // DÉMARRAGE du serveur, là où l'ancien `sendFile` se contentait d'une
+    // erreur par requête. Un serveur qui ne démarre pas est bien pire.
+    const indexPath = path.join(clientDist, 'index.html')
+    let indexHtml = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf8') : ''
+    if (opts.appEnv && indexHtml) {
+      const meta = `<meta name="app-env" content="${opts.appEnv.replace(/[^\w.-]/g, '')}">`
+      indexHtml = indexHtml.replace('</head>', `  ${meta}\n  </head>`)
+    }
     app.get('*', (_req, res) => {
       res.set('Cache-Control', 'no-cache')
-      res.sendFile(path.join(clientDist, 'index.html'))
+      if (!indexHtml) return res.status(404).type('text').send('Client non compilé (npm run build)')
+      res.type('html').send(indexHtml)
     })
   }
 
