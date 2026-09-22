@@ -2495,3 +2495,79 @@ h3 > .icon {
 
 /* Sur la page profil, la grille d'emojis porte des avatars complets. */
 .emoji-grid .av { font-size: 1.5rem; }
+
+/* ── L'étagère à badges ────────────────────────────────────────────────── */
+
+.vitrine {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 10px;
+}
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 6px 10px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-align: center;
+}
+
+.badge-emoji { font-size: 1.8rem; line-height: 1; }
+.badge-titre { font-size: 0.82rem; line-height: 1.2; }
+.badge-pied { font-size: 0.7rem; color: var(--muted); }
+
+/* La rareté se lit à la bordure : plus elle est rare, plus elle se voit. Les
+   quatre teintes sont celles des formes de réponse, déjà dans la palette —
+   pas de nouvelle couleur à faire cohabiter avec le reste. */
+.badge.rarete-peucommune { border-color: rgba(143, 191, 168, 0.45); }
+.badge.rarete-rare { border-color: rgba(169, 154, 214, 0.55); }
+.badge.rarete-epique { border-color: rgba(217, 138, 154, 0.6); }
+.badge.rarete-legendaire {
+  border-color: rgba(var(--accent-rgb), 0.75);
+  background: var(--accent-soft);
+}
+.badge.rarete-legendaire .badge-pied { color: var(--accent); }
+
+.a-decrocher { margin-top: 12px; }
+.a-decrocher summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.a-decrocher summary .icon { width: 15px; height: 15px; }
+.a-decrocher-liste {
+  list-style: none;
+  padding: 10px 0 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.a-decrocher-liste li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.a-decrocher-liste .badge-emoji { font-size: 1.3rem; opacity: 0.5; }
+
+/* ── L'historique des soirées ──────────────────────────────────────────── */
+
+.soiree-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--edge);
+}
+.soiree-row:last-child { border-bottom: 0; }
+.soiree-quand { font-family: var(--serif); font-size: 1rem; }
+.soiree-detail { color: var(--muted); font-size: 0.8rem; flex: 1; }
+.soiree-xp { color: var(--accent); font-variant-numeric: tabular-nums; }

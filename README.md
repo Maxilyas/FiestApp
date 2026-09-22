@@ -38,7 +38,7 @@ npm run check
 npm run smoke
 ```
 
-`check` = typecheck serveur + client. `smoke` = test de bout en bout (comptes et sessions, suppression d'un compte, garde-fous, isolation des espaces, inscription, quiz complet, scoring, classement, reconnexion, accusé de réception des réponses, heure du serveur et marge de fin de question, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, anciennes adresses, reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d'une base d'avant les comptes, profils joueurs et expérience d'une soirée).
+`check` = typecheck serveur + client. `smoke` = test de bout en bout (comptes et sessions, suppression d'un compte, garde-fous, isolation des espaces, inscription, quiz complet, scoring, classement, reconnexion, accusé de réception des réponses, heure du serveur et marge de fin de question, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, anciennes adresses, reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d'une base d'avant les comptes, profils joueurs, expérience et badges d'une soirée).
 
 ## Les comptes et les espaces
 
@@ -70,6 +70,13 @@ Tout se calcule **au moment où la soirée est rangée dans l'historique** — l
 **Les finitions** habillent l'avatar sans jamais changer l'emoji : Alice reste le renard, c'est ce qui l'entoure qui dit son niveau. Mat au départ, **Argent** au niveau 3, **Or** au 6, **Holo** au 10, **Prisme** au 15 — on porte celle qu'on veut parmi celles qu'on a, et rester en Mat au niveau 15 se remarque aussi.
 
 **L'Éclat**, lui, ne se gagne pas. À chaque soirée jouée avec un profil, **une chance sur quarante** qu'un de vos avatars « s'éclate » : l'emoji lui-même change de couleurs, définitivement, et pour celui-là seulement. Ton renard brille, celui du voisin non. On ne peut ni l'acheter ni l'accélérer, seulement venir jouer.
+
+**Les badges** se rangent sur une étagère, à `/profil`. Il y en a de deux sortes, et elles ne se gagnent pas pareil :
+
+- **Les prix de soirée** sont ceux que l'application proclame déjà en fin de fête — L'Éclair, Le Cancre Magnifique, Le Franc-Tireur… Il n'y a pas de second catalogue à tenir : ce que la salle a entendu annoncer est exactement ce qui se range dans les étagères. Ils se décrochent en une soirée, sur un coup d'éclat ou un coup de malchance, et se regagnent d'une fois sur l'autre (le compteur le dit). **On en gagne aussi en jouant mal** : Le Cancre et La Série Noire sont des prix, pas des punitions.
+- **Les badges de carrière** récompensent une habitude plutôt qu'un soir : cinq soirées, cinq cents réponses, trois podiums, le niveau 10… Ils ne tombent qu'une fois. Ceux qui restent à décrocher sont montrés, avec leur règle — savoir ce qui vient donne envie de revenir.
+
+**La rareté est calculée, pas décrétée** : c'est la part des profils qui portent le badge, rangée en paliers (commune → légendaire), et elle bouge avec la population — un badge que tout le monde finit par avoir redevient commun. En deçà de dix profils inscrits, elle se tait et annonce simplement le nombre de porteurs : à cinq inscrits, « légendaire » ne voudrait dire que « une seule personne l'a », ce qui est vrai de presque tout.
 
 **Le mot de passe oublié se règle par un code de secours**, affiché une seule fois à l'inscription. Pas d'adresse e-mail : aucune donnée personnelle, rien à héberger, et qui perd tout garde le chemin anonyme, qui n'a jamais été fermé.
 
@@ -338,6 +345,7 @@ shared/   Types TS partagés (protocole socket, vues du quiz, bibliothèque, bar
 - **SpaceRuntime / SpaceRegistry** (`core/space.ts`) — la soirée d'un espace : ses registres, son moteur, ses salons socket et ses diffusions (dédoublonnées, regroupées). Créée à la première connexion ; les espaces dont une partie était en cours au démarrage sont réveillés tout de suite.
 - **Party** (`server/src/core/party.ts`) — registre des joueurs d'un espace. L'identité survit aux coupures : un token stocké sur le téléphone permet de retrouver son joueur après un refresh, une perte de réseau ou un redémarrage du serveur. C'est ce même token que porte chaque réponse (`player:action`), pour qu'une connexion encore anonyme puisse être rebranchée sur son joueur sans attendre la fin du re-join.
 - **ProfileStore** (`server/src/auth/profiles.ts`) + **routes** (`auth/profileRoutes.ts`) — les profils des joueurs récurrents, dans la base permanente. Ils réutilisent le hachage scrypt et le modèle de session des comptes, mais pas leur table : un animateur possède un espace, pas un joueur. Et là où `AuthStore` garde tous ses comptes en mémoire (il y en a une poignée), les profils peuvent se compter par milliers : seules les sessions y montent, un profil s'y range à la première lecture.
+- **Badges** (`shared/badges.ts`) — les badges de carrière et le calcul de la rareté. Les prix de soirée, eux, n'ont pas de catalogue à part : ce sont ceux de `stats.ts`, et chaque badge décroché garde une copie de son emoji et de son titre — une étagère se relit des années plus tard, même si un prix a changé de nom entre-temps.
 - **Progress** (`core/progress.ts`) — ce qu'une soirée rapporte aux profils qui l'ont jouée, dérivé des journaux par une fonction pure, comme le souvenir et le bilan. La consolidation, elle, se fait dans `archiveParty()` : la clé `(profil, soirée)` la rend idempotente.
 - **Teams** (`teams.ts`) — registre des équipes, séparé des joueurs : une équipe vit toute la soirée, ses membres vont et viennent. Le rattachement est une colonne sur le joueur, donc déplacer quelqu'un déplace ses points sans toucher au journal des scores.
 - **AnswerLog** (`answers.ts`) — une ligne par joueur et par question posée, réponses manquantes comprises. C'est la seule source des statistiques : le classement, lui, ne garde que les gains positifs. Une question annulée ou reposée en sort, pour ne pas compter deux fois.

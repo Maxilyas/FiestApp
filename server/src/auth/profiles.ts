@@ -8,10 +8,19 @@ import {
   finitionsOuvertes,
   niveauPour,
   progression,
+  XP,
   type Finition,
   type GainSoiree,
   type PublicProfile,
+  type PublicProfileDetail,
+  type ReleveSoiree,
 } from '../../../shared/profil'
+import {
+  BADGES_CARRIERE,
+  rareteDe,
+  type BadgePorte,
+  type Carriere,
+} from '../../../shared/badges'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 
 /**
@@ -77,6 +86,29 @@ function newRecoveryCode(): string {
 const normalizeRecovery = (raw: unknown) =>
   String(raw ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 
+/**
+ * Relit le détail d'une soirée. Les toutes premières lignes écrites ne
+ * portaient que le gain : on en redéduit alors le relevé par le barème, ce
+ * qui vaut mieux que de perdre une soirée de carrière.
+ */
+function decodeDetail(raw: string): { gain: GainSoiree; releve: ReleveSoiree } {
+  const vide: GainSoiree = { presence: 0, reponses: 0, justesse: 0, podium: 0, quiz: 0 }
+  let parsed: any
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return { gain: vide, releve: { reponses: 0, justes: 0, rang: 0, quiz: 0 } }
+  }
+  const gain: GainSoiree = { ...vide, ...(parsed?.gain ?? parsed) }
+  const releve: ReleveSoiree = parsed?.releve ?? {
+    reponses: Math.round(gain.reponses / XP.parReponse),
+    justes: Math.round(gain.justesse / XP.parBonneReponse),
+    rang: gain.podium > 0 ? (XP.podium as readonly number[]).indexOf(gain.podium) + 1 : 0,
+    quiz: Math.round(gain.quiz / XP.vainqueurDeQuiz),
+  }
+  return { gain, releve }
+}
+
 export class ProfileStore {
   private client: Client
   private profiles = new Map<string, ProfileRec>()
@@ -125,6 +157,20 @@ export class ProfileStore {
            created_at INTEGER NOT NULL,
            PRIMARY KEY (profile_id, soiree_id)
          )`,
+        // Une ligne par badge ET par soirée où il est tombé : la clé rend la
+        // consolidation idempotente, et compter les lignes donne gratuitement
+        // le nombre de fois où un prix a été décroché.
+        `CREATE TABLE IF NOT EXISTS profile_badges (
+           profile_id TEXT NOT NULL,
+           badge      TEXT NOT NULL,
+           soiree_id  TEXT NOT NULL,
+           space_id   TEXT NOT NULL,
+           emoji      TEXT NOT NULL,
+           title      TEXT NOT NULL,
+           created_at INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, badge, soiree_id)
+         )`,
+        `CREATE INDEX IF NOT EXISTS idx_profile_badges_badge ON profile_badges(badge)`,
         `CREATE TABLE IF NOT EXISTS profile_eclats (
            profile_id TEXT NOT NULL,
            avatar     TEXT NOT NULL,
@@ -178,6 +224,9 @@ export class ProfileStore {
     return [...(this.eclats.get(id) ?? [])]
   }
 
+  /** Combien de badges chaque profil porte — lu avec lui, gardé avec lui. */
+  private badgeCount = new Map<string, number>()
+
   toPublic(p: ProfileRec): PublicProfile {
     const { niveau, acquis, requis } = progression(p.xp)
     return {
@@ -194,6 +243,29 @@ export class ProfileStore {
       requis,
       ouvertes: finitionsOuvertes(niveau),
       eclats: this.eclatsOf(p.id),
+      badges: this.badgeCount.get(p.id) ?? 0,
+    }
+  }
+
+  /**
+   * Le profil au complet, pour sa propre page : l'étagère et l'historique en
+   * plus. Ces deux-là coûtent deux requêtes, et n'ont donc rien à faire dans
+   * l'accusé de réception que reçoit chaque téléphone qui rejoint une soirée.
+   */
+  async toDetail(p: ProfileRec, nomDEspace?: (spaceId: string) => string | null): Promise<PublicProfileDetail> {
+    const [vitrine, soirees] = await Promise.all([this.badgesOf(p.id), this.historiqueOf(p.id)])
+    this.badgeCount.set(p.id, vitrine.length)
+    return {
+      ...this.toPublic(p),
+      vitrine,
+      soirees: soirees.map(s => ({
+        soireeId: s.soireeId,
+        chez: nomDEspace?.(s.spaceId) ?? null,
+        xp: s.xp,
+        gain: s.gain,
+        releve: s.releve,
+        at: s.at,
+      })),
     }
   }
 
@@ -238,6 +310,7 @@ export class ProfileStore {
     })
     this.profiles.set(rec.id, rec)
     this.eclats.set(rec.id, new Set())
+    this.badgeCount.set(rec.id, 0)
     return { profile: rec, recovery }
   }
 
@@ -379,13 +452,21 @@ export class ProfileStore {
     soireeId: string
     spaceId: string
     gain: GainSoiree
+    releve: ReleveSoiree
     xp: number
   }): Promise<number> {
     await this.client.execute({
       sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
             VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
-      args: [input.profileId, input.soireeId, input.spaceId, input.xp, JSON.stringify(input.gain), Date.now()],
+      args: [
+        input.profileId,
+        input.soireeId,
+        input.spaceId,
+        input.xp,
+        JSON.stringify({ gain: input.gain, releve: input.releve }),
+        Date.now(),
+      ],
     })
     const sum = await this.client.execute({
       sql: 'SELECT COALESCE(SUM(xp), 0) AS total FROM profile_xp WHERE profile_id = ?',
@@ -430,6 +511,159 @@ export class ProfileStore {
     return hasard() * CHANCE_ECLAT < 1
   }
 
+  // ── Badges ──────────────────────────────────────────────────────────────
+
+  /**
+   * Décerne un badge pour une soirée. L'emoji et le titre sont recopiés dans
+   * la ligne : une étagère se relit des années plus tard, et un prix qui
+   * changerait de nom entre-temps ne doit pas rendre illisible ce qui a été
+   * gagné sous l'ancien. Rend faux s'il était déjà décroché ce soir-là.
+   */
+  async grantBadge(input: {
+    profileId: string
+    badge: string
+    emoji: string
+    title: string
+    soireeId: string
+    spaceId: string
+  }): Promise<boolean> {
+    const res = await this.client.execute({
+      sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+      args: [input.profileId, input.badge, input.soireeId, input.spaceId, input.emoji, input.title, Date.now()],
+    })
+    if (res.rowsAffected > 0) {
+      this.porteurs = null
+      this.badgeCount.delete(input.profileId)
+    }
+    return res.rowsAffected > 0
+  }
+
+  /** Les clés déjà décrochées par ce profil — pour ne pas redonner un badge de carrière. */
+  async badgeKeys(profileId: string): Promise<Set<string>> {
+    const rows = await this.client.execute({
+      sql: 'SELECT DISTINCT badge FROM profile_badges WHERE profile_id = ?',
+      args: [profileId],
+    })
+    return new Set(rows.rows.map(r => String(r.badge)))
+  }
+
+  /**
+   * L'étagère d'un profil : chaque badge, le nombre de fois qu'il est tombé,
+   * et ce que sa rareté vaut dans la population du moment.
+   */
+  async badgesOf(profileId: string): Promise<BadgePorte[]> {
+    const rows = await this.client.execute({
+      sql: `SELECT badge, emoji, title, COUNT(*) AS fois, MAX(created_at) AS dernier
+            FROM profile_badges WHERE profile_id = ?
+            GROUP BY badge, emoji, title ORDER BY dernier DESC`,
+      args: [profileId],
+    })
+    const { porteurs, profils } = await this.populationBadges()
+    return rows.rows.map(r => {
+      const key = String(r.badge)
+      const n = porteurs.get(key) ?? 1
+      return {
+        key,
+        emoji: String(r.emoji),
+        title: String(r.title),
+        fois: Number(r.fois),
+        dernier: Number(r.dernier),
+        porteurs: n,
+        rarete: rareteDe(n, profils),
+      }
+    })
+  }
+
+  /**
+   * Combien de profils portent chaque badge, et combien il y a de profils en
+   * tout. La rareté se calcule, elle ne se décrète pas — mais elle bouge
+   * lentement : on la garde une minute plutôt que de la recompter à chaque
+   * ouverture d'une page.
+   */
+  private porteurs: { at: number; porteurs: Map<string, number>; profils: number } | null = null
+
+  private async populationBadges(): Promise<{ porteurs: Map<string, number>; profils: number }> {
+    const frais = this.porteurs && Date.now() - this.porteurs.at < 60_000
+    if (frais && this.porteurs) return this.porteurs
+    const [compte, parBadge] = await Promise.all([
+      this.client.execute('SELECT COUNT(*) AS n FROM profiles WHERE disabled_at IS NULL'),
+      this.client.execute(
+        'SELECT badge, COUNT(DISTINCT profile_id) AS n FROM profile_badges GROUP BY badge',
+      ),
+    ])
+    const porteurs = new Map<string, number>()
+    for (const r of parBadge.rows) porteurs.set(String(r.badge), Number(r.n))
+    this.porteurs = { at: Date.now(), porteurs, profils: Number(compte.rows[0]?.n ?? 0) }
+    return this.porteurs
+  }
+
+  // ── Carrière et historique ──────────────────────────────────────────────
+
+  /** Toutes les soirées d'un profil, de la plus récente à la plus ancienne. */
+  async historiqueOf(profileId: string): Promise<
+    { soireeId: string; spaceId: string; xp: number; gain: GainSoiree; releve: ReleveSoiree; at: number }[]
+  > {
+    const rows = await this.client.execute({
+      sql: 'SELECT soiree_id, space_id, xp, detail, created_at FROM profile_xp WHERE profile_id = ? ORDER BY created_at DESC',
+      args: [profileId],
+    })
+    return rows.rows.map(r => {
+      const { gain, releve } = decodeDetail(String(r.detail))
+      return {
+        soireeId: String(r.soiree_id),
+        spaceId: String(r.space_id),
+        xp: Number(r.xp),
+        gain,
+        releve,
+        at: Number(r.created_at),
+      }
+    })
+  }
+
+  /** Ce qu'un profil a accumulé sur toutes ses soirées — la base des badges de carrière. */
+  async careerOf(profileId: string): Promise<Carriere> {
+    const soirees = await this.historiqueOf(profileId)
+    const rec = await this.byId(profileId)
+    return soirees.reduce<Carriere>(
+      (c, s) => ({
+        soirees: c.soirees + 1,
+        reponses: c.reponses + s.releve.reponses,
+        justes: c.justes + s.releve.justes,
+        podiums: c.podiums + (s.gain.podium > 0 ? 1 : 0),
+        quiz: c.quiz + s.releve.quiz,
+        eclats: c.eclats,
+        niveau: c.niveau,
+      }),
+      {
+        soirees: 0,
+        reponses: 0,
+        justes: 0,
+        podiums: 0,
+        quiz: 0,
+        eclats: this.eclatsOf(profileId).length,
+        niveau: niveauPour(rec?.xp ?? 0),
+      },
+    )
+  }
+
+  /**
+   * Décerne les badges de carrière que ce profil vient d'atteindre. Rend ceux
+   * qui sont nouveaux — il n'y a qu'à la première fois qu'ils comptent.
+   */
+  async grantCareerBadges(profileId: string, soireeId: string, spaceId: string): Promise<string[]> {
+    const carriere = await this.careerOf(profileId)
+    const deja = await this.badgeKeys(profileId)
+    const neufs: string[] = []
+    for (const b of BADGES_CARRIERE) {
+      if (deja.has(b.key) || !b.atteint(carriere)) continue
+      if (await this.grantBadge({ profileId, badge: b.key, emoji: b.emoji, title: b.title, soireeId, spaceId })) {
+        neufs.push(b.key)
+      }
+    }
+    return neufs
+  }
+
   // ── Internes ────────────────────────────────────────────────────────────
 
   private async require(id: string): Promise<ProfileRec> {
@@ -456,12 +690,18 @@ export class ProfileStore {
       disabledAt: r.disabled_at === null || r.disabled_at === undefined ? null : Number(r.disabled_at),
     }
     this.profiles.set(rec.id, rec)
+    // Les éclats et le nombre de badges arrivent avec le profil : ils partent
+    // dans l'accusé d'inscription à une soirée, qui est synchrone.
     if (!this.eclats.has(rec.id)) {
-      const rows = await this.client.execute({
-        sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ?',
-        args: [rec.id],
-      })
-      this.eclats.set(rec.id, new Set(rows.rows.map(e => String(e.avatar))))
+      const [eclats, badges] = await Promise.all([
+        this.client.execute({ sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ?', args: [rec.id] }),
+        this.client.execute({
+          sql: 'SELECT COUNT(DISTINCT badge) AS n FROM profile_badges WHERE profile_id = ?',
+          args: [rec.id],
+        }),
+      ])
+      this.eclats.set(rec.id, new Set(eclats.rows.map(e => String(e.avatar))))
+      this.badgeCount.set(rec.id, Number(badges.rows[0]?.n ?? 0))
     }
     return rec.disabledAt ? null : rec
   }

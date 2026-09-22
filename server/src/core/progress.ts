@@ -1,7 +1,7 @@
 import type { PlayerRec } from './party'
 import type { ScoreEntry } from './scores'
 import type { AnswerRow } from './answers'
-import { XP, totalGain, type GainSoiree } from '../../../shared/profil'
+import { XP, totalGain, type GainSoiree, type ReleveSoiree } from '../../../shared/profil'
 
 /**
  * Ce qu'une soirée rapporte aux profils qui l'ont jouée.
@@ -27,6 +27,8 @@ export interface SoireeGain {
   /** L'emoji joué ce soir-là — celui qui peut éclater. */
   avatar: string
   gain: GainSoiree
+  /** Les chiffres bruts, que les badges de carrière additionnent. */
+  releve: ReleveSoiree
   xp: number
 }
 
@@ -77,13 +79,19 @@ export function buildProgress(live: ProgressInput): SoireeGain[] {
     // soirée : l'expérience ne donne aucun avantage de jeu.
     if (!p.profileId || !presents.has(p.id)) return []
     const rang = rangDe(p.id)
+    const releve: ReleveSoiree = {
+      reponses: repondues.get(p.id) ?? 0,
+      justes: justes.get(p.id) ?? 0,
+      rang,
+      quiz: victoires.get(p.id) ?? 0,
+    }
     const gain: GainSoiree = {
       presence: XP.presence,
-      reponses: (repondues.get(p.id) ?? 0) * XP.parReponse,
-      justesse: (justes.get(p.id) ?? 0) * XP.parBonneReponse,
+      reponses: releve.reponses * XP.parReponse,
+      justesse: releve.justes * XP.parBonneReponse,
       podium: rang >= 1 && rang <= XP.podium.length ? XP.podium[rang - 1] : 0,
-      quiz: (victoires.get(p.id) ?? 0) * XP.vainqueurDeQuiz,
+      quiz: releve.quiz * XP.vainqueurDeQuiz,
     }
-    return [{ profileId: p.profileId, playerId: p.id, avatar: p.avatar, gain, xp: totalGain(gain) }]
+    return [{ profileId: p.profileId, playerId: p.id, avatar: p.avatar, gain, releve, xp: totalGain(gain) }]
   })
 }

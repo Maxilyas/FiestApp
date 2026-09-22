@@ -1,7 +1,7 @@
 import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
-import type { Finition, PublicProfile } from '../../shared/profil'
+import type { Finition, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 
 /** Session absente ou périmée : l'appelant renvoie vers la connexion. */
 export class UnauthorizedError extends Error {}
@@ -74,7 +74,8 @@ export const api = {
    */
   joueur: {
     /** Sans cookie, rend `null` — ce n'est pas une erreur, c'est un invité. */
-    moi: () => req<{ profile: PublicProfile | null }>('/api/joueur/moi'),
+    /** Sa propre page : le détail complet, étagère à badges et historique. */
+    moi: () => req<{ profile: PublicProfileDetail | null }>('/api/joueur/moi'),
     connexion: (login: string, password: string) =>
       req<{ profile: PublicProfile }>('/api/joueur/connexion', {
         method: 'POST',

@@ -1955,13 +1955,22 @@ try {
   assert(anonIn.ok && anonIn.profile === undefined, 'un invité anonyme ne reçoit aucun profil')
 
   // Une soirée d'une question, jouée pour de vrai.
-  const pQuiz = (await (await write(pUrl, '/api/quizzes', { title: 'Une question' }, pCookie)).json()) as any
+  // Trois questions : les prix de soirée ne départagent qu'à partir de trois
+  // réponses, et sans prix il n'y aurait aucun badge à décrocher.
+  const QUESTIONS_PROFILS = 3
+  const pQuiz = (await (await write(pUrl, '/api/quizzes', { title: 'Trois questions' }, pCookie)).json()) as any
   await write(
     pUrl,
     `/api/quizzes/${pQuiz.id}`,
     {
-      title: 'Une question',
-      questions: [{ text: 'On y est ?', answers: ['Oui', 'Non', '', ''], correct: 0, duration: 20, image: null }],
+      title: 'Trois questions',
+      questions: Array.from({ length: QUESTIONS_PROFILS }, (_, i) => ({
+        text: `On y est ? (${i + 1})`,
+        answers: ['Oui', 'Non', '', ''],
+        correct: 0,
+        duration: 20,
+        image: null,
+      })),
     },
     pCookie,
     'PUT',
@@ -1972,21 +1981,33 @@ try {
   ;(pHost as any).emit('host:launch')
   const pSession = (await pPick).sessionId
   ;(pHost as any).emit('host:command', { sessionId: pSession, command: { type: 'selectPack', packId: pQuiz.id } })
-  await waitFor<any>(aliceTel, 'session:view', p => p.view.phase === 'question', 'la question des profils')
-  const finQuestion = waitFor<any>(pHost, 'session:view', p => p.view.phase === 'reveal', 'révélation des profils')
-  assert(
-    (await emitAck<any>(aliceTel, 'player:action', { sessionId: pSession, action: { type: 'answer', choice: 0 } })).ok,
-    'Alice répond juste',
-  )
-  assert(
-    (await emitAck<any>(anonyme, 'player:action', { sessionId: pSession, action: { type: 'answer', choice: 1 } })).ok,
-    'Bob répond faux',
-  )
-  assert(
-    (await emitAck<any>(prete, 'player:action', { sessionId: pSession, action: { type: 'answer', choice: 1 } })).ok,
-    'Chloé répond faux',
-  )
-  await finQuestion
+  // Alice répond juste à tout, Chloé à côté, et Bob laisse passer.
+  //
+  // Chacun doit être seul dans sa catégorie : un prix n'a qu'un lauréat, et
+  // à égalité c'est le prénom qui départage. Si Bob répondait faux lui aussi,
+  // il raflerait Le Cancre sur son « B » — et comme il est anonyme, le badge
+  // se perdrait, sans rien prouver de ce qu'on veut vérifier ici : qu'on
+  // décroche des badges en jouant mal, pas seulement en gagnant.
+  //
+  // Bob s'abstenant, la salle n'a jamais fini de répondre : c'est l'animateur
+  // qui révèle, et le chronomètre de vingt secondes ne ralentit pas le test.
+  for (let q = 0; q < QUESTIONS_PROFILS; q++) {
+    await waitFor<any>(aliceTel, 'session:view', p => p.view.phase === 'question' && p.view.qIndex === q, `question ${q + 1} des profils`)
+    const revelee = waitFor<any>(pHost, 'session:view', p => p.view.phase === 'reveal' && p.view.qIndex === q, `révélation ${q + 1}`)
+    assert(
+      (await emitAck<any>(aliceTel, 'player:action', { sessionId: pSession, action: { type: 'answer', choice: 0 } })).ok,
+      `Alice répond juste (${q + 1})`,
+    )
+    assert(
+      (await emitAck<any>(prete, 'player:action', { sessionId: pSession, action: { type: 'answer', choice: 1 } })).ok,
+      `Chloé répond faux (${q + 1})`,
+    )
+    ;(pHost as any).emit('host:command', { sessionId: pSession, command: { type: 'next' } })
+    await revelee
+    if (q < QUESTIONS_PROFILS - 1) {
+      ;(pHost as any).emit('host:command', { sessionId: pSession, command: { type: 'next' } })
+    }
+  }
   ;(pHost as any).emit('host:endSession', { sessionId: pSession })
 
   // Ranger la soirée : c'est là, et seulement là, que les profils sont
@@ -2001,14 +2022,54 @@ try {
       (await (await fetch(`${pUrl}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any
     ).profile
   const aliceApres = await profilDe(aliceCookie)
-  const attendu = XP.presence + XP.parReponse + XP.parBonneReponse + XP.podium[0] + XP.vainqueurDeQuiz
+  const attendu =
+    XP.presence +
+    QUESTIONS_PROFILS * XP.parReponse +
+    QUESTIONS_PROFILS * XP.parBonneReponse +
+    XP.podium[0] +
+    XP.vainqueurDeQuiz
   assert(aliceApres.xp === attendu, `Alice doit gagner ${attendu} points d’expérience, elle en a ${aliceApres.xp}`)
   assert(aliceApres.niveau === niveauPour(attendu), `son niveau doit suivre son expérience (${aliceApres.niveau})`)
   // Chloé a joué et répondu, mais faux et sans podium : elle gagne moins.
   const chloeApres = await profilDe(chloeCookie)
   assert(
-    chloeApres.xp === XP.presence + XP.parReponse && chloeApres.xp < aliceApres.xp,
-    `Chloé gagne la présence et sa réponse, pas la justesse (${chloeApres.xp})`,
+    chloeApres.xp === XP.presence + QUESTIONS_PROFILS * XP.parReponse && chloeApres.xp < aliceApres.xp,
+    `Chloé gagne la présence et ses réponses, pas la justesse (${chloeApres.xp})`,
+  )
+
+  // ── Les badges ────────────────────────────────────────────────────────
+  //
+  // Ce sont les prix que l'application proclame déjà en fin de soirée qui
+  // font les badges : pas de second catalogue à tenir, et ce que la salle a
+  // entendu est exactement ce qui se range dans l'étagère.
+  const cles = (p: any) => (p.vitrine as any[]).map(b => b.key)
+  assert(cles(aliceApres).includes('carriere:premiere'), 'la toute première soirée décroche son badge de carrière')
+  assert(
+    cles(aliceApres).some((k: string) => !k.startsWith('carriere:')),
+    `Alice doit décrocher au moins un prix de soirée (vu : ${cles(aliceApres).join(', ') || 'aucun'})`,
+  )
+  // Répondre à côté vaut des prix aussi — Le Cancre Magnifique en est un.
+  assert(
+    cles(chloeApres).some((k: string) => !k.startsWith('carriere:')),
+    `Chloé aussi, même en répondant faux (vu : ${cles(chloeApres).join(', ') || 'aucun'})`,
+  )
+  assert(
+    aliceApres.badges === aliceApres.vitrine.length,
+    `le compte porté par le profil léger doit suivre l’étagère (${aliceApres.badges} / ${aliceApres.vitrine.length})`,
+  )
+  // Deux profils inscrits : trop peu pour que « légendaire » veuille dire
+  // quoi que ce soit. La rareté se tait, et annonce le nombre de porteurs.
+  assert(
+    aliceApres.vitrine.every((b: any) => b.rarete === null && b.porteurs >= 1),
+    'sous le seuil de population, la rareté ne se prononce pas',
+  )
+  assert(
+    aliceApres.soirees.length === 1 && aliceApres.soirees[0].chez === ADMIN.name,
+    'l’historique doit dire chez qui la soirée s’est jouée',
+  )
+  assert(
+    aliceApres.soirees[0].releve.justes === QUESTIONS_PROFILS,
+    `le relevé garde les chiffres bruts, pas seulement les points (${aliceApres.soirees[0]?.releve.justes})`,
   )
 
   // Ranger deux fois ne double pas : la ligne est remplacée, pas ajoutée.
@@ -2016,7 +2077,13 @@ try {
   ;(pHost as any).emit('host:archiveParty', { title: 'Soirée des profils' })
   await rerange
   await new Promise(r => setTimeout(r, 400))
-  assert((await profilDe(aliceCookie)).xp === attendu, 'ranger deux fois la même soirée ne crédite qu’une fois')
+  const aliceEncore = await profilDe(aliceCookie)
+  assert(aliceEncore.xp === attendu, 'ranger deux fois la même soirée ne crédite qu’une fois')
+  assert(
+    aliceEncore.vitrine.length === aliceApres.vitrine.length &&
+      aliceEncore.vitrine.every((b: any) => b.fois === 1),
+    'ni ne décerne deux fois les mêmes badges',
+  )
 
   // Le niveau se voit de toute la salle — et l'anonyme ne porte toujours rien.
   const temoin = clientIo(pUrl, { transports: ['websocket'] })
@@ -2059,7 +2126,7 @@ try {
     '   statistiques et prix remis à la main, bilan question par question et export, anciennes adresses,',
   )
   console.log('   reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d’une base d’avant les comptes,')
-  console.log('   profils joueurs : inscription, code de secours, rattachement et expérience d’une soirée')
+  console.log('   profils joueurs : inscription, code de secours, rattachement, expérience et badges d’une soirée')
   process.exit(0)
 } catch (e) {
   fail((e as Error).message)

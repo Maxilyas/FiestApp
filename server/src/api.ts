@@ -41,7 +41,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
   mountAuthApi(app, { auth: deps.auth, online: deps.online, removeAccount: deps.removeAccount })
   // Les routes du profil joueur passent AVANT la porte : un invité n'a pas
   // de compte d'animateur, et n'a pas à en avoir un pour s'inscrire.
-  mountProfileApi(app, { profiles: deps.profiles, online: deps.online })
+  mountProfileApi(app, { profiles: deps.profiles, auth: deps.auth, online: deps.online })
   app.use('/api', requireAccount(deps.auth))
 
   // Les photos arrivent en dataURL dans le corps JSON.
