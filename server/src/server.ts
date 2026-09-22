@@ -16,6 +16,7 @@ import { SpaceRegistry } from './core/space'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore } from './auth/profiles'
 import { mountApi } from './api'
+import { repondreErreur } from './core/http'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
 import type { ArchiveList, PartyArchive } from '../../shared/archive'
@@ -287,7 +288,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   app.get('/s/:slug/bilan.json', withSpace, (_req, res) => res.json(registry.get(spaceOf(res).id).liveReview()))
 
   // L'historique : la soirée en cours et les soirées archivées.
-  app.get('/s/:slug/soirees.json', withSpace, (_req, res) => {
+  //
+  // Pages publiques : une panne n'y montre qu'une phrase neutre. Le message
+  // d'une LibsqlError nomme les tables, celui de JSON.parse recopie le début
+  // de la ligne abîmée — l'un et l'autre partent au journal, pas au visiteur.
+  app.get('/s/:slug/soirees.json', withSpace, (req, res) => {
     const account = spaceOf(res)
     archives
       .list(account.id)
@@ -299,7 +304,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         }
         res.json(body)
       })
-      .catch((e: Error) => res.status(500).json({ error: e.message }))
+      .catch((e: unknown) => repondreErreur(req, res, e))
   })
 
   // Une soirée archivée se relit avec les mêmes pages que celle en cours.
@@ -311,7 +316,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         if (!found) return res.status(404).json({ error: 'Soirée introuvable' })
         res.json({ ...build(found.archive), archive: found.summary, space: auth.publicSpace(account) })
       })
-      .catch((e: Error) => res.status(500).json({ error: e.message }))
+      .catch((e: unknown) => repondreErreur(req, res, e))
   }
   app.get('/s/:slug/soirees/:id/recap.json', withSpace, archived(recapOfArchive))
   app.get('/s/:slug/soirees/:id/bilan.json', withSpace, archived(reviewOfArchive))

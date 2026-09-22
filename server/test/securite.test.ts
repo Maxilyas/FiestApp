@@ -1,5 +1,5 @@
-// Les garde-fous de sécurité : où l'on revient après la connexion, et ce que
-// coûte un essai raté.
+// Les garde-fous de sécurité : où l'on revient après la connexion, ce que
+// coûte un essai raté, et ce qu'une panne laisse lire.
 //
 // Le serveur tourne « en ligne » : c'est derrière le proxy de l'hébergeur que
 // l'adresse du client se lit dans `X-Forwarded-For`, et c'est la seule façon,
@@ -9,8 +9,12 @@
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
+import type { AddressInfo } from 'node:net'
+import express from 'express'
+import { createClient } from '@libsql/client'
 import { ADMIN, connexionAnimateur, cookieDe, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { pageDeRetour } from '../../shared/securite'
+import { wrap } from '../src/core/http'
 
 let banc: Banc
 
@@ -173,5 +177,98 @@ describe('un verrou par secret visé, quelle que soit la porte', () => {
     }
     const res = await depuis('198.51.100.51', '/api/joueur/connexion', { login: `${long}x`, password: 'motdepasse1' })
     assert.equal(res.status, 429)
+  })
+})
+
+// ── Ce qu'une erreur laisse lire ────────────────────────────────────────
+
+describe('les erreurs', () => {
+  const NEUTRE = { error: 'Erreur serveur — réessaie dans un instant' }
+
+  test('une erreur voulue garde son message', async () => {
+    const admin = await connexionAnimateur(banc.url)
+    const res = await ecrire(banc.url, '/api/admin/accounts', { login: ADMIN.login, name: 'Doublon', slug: 'doublon' }, admin)
+    assert.equal(res.status, 400)
+    assert.deepEqual(await res.json(), { error: 'Cet identifiant est déjà pris' })
+  })
+
+  test('une ligne illisible en base donne un 500 neutre, et le détail part au journal', async () => {
+    const admin = await connexionAnimateur(banc.url)
+    const me = (await (await fetch(`${banc.url}/api/auth/me`, { headers: { Cookie: admin } })).json()) as any
+    // Une archive abîmée — écriture interrompue, retouche à la main dans la
+    // console de Turso. Le message de JSON.parse en recopie le début : ce qui
+    // est en base n'a pas à sortir par là.
+    const base = createClient({ url: banc.quizDbUrl })
+    const abime = 'contenu-prive-de-la-base {"joueurs": []}'
+    await base.execute({
+      sql: 'INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      args: [me.account.id, 'abimee', 'Soirée abîmée', Date.now(), Date.now(), abime, abime],
+    })
+    const journal: string[] = []
+    const errorAvant = console.error
+    console.error = (...args: unknown[]) => {
+      journal.push(args.map(a => (a instanceof Error ? `${a.name}: ${a.message}` : String(a))).join(' '))
+    }
+    try {
+      for (const [quoi, reponse] of [
+        ['l’historique public', () => fetch(`${banc.url}/s/${ADMIN.slug}/soirees.json`)],
+        ['une soirée archivée', () => fetch(`${banc.url}/s/${ADMIN.slug}/soirees/abimee/recap.json`)],
+        ['le renommage, derrière la session', () => ecrire(banc.url, '/api/soirees/abimee', { title: 'Autre' }, admin, 'PUT')],
+      ] as const) {
+        const res = await reponse()
+        const texte = await res.text()
+        assert.equal(res.status, 500, `${quoi} : ${texte}`)
+        assert.deepEqual(JSON.parse(texte), NEUTRE, quoi)
+      }
+    } finally {
+      console.error = errorAvant
+      await base.execute({ sql: 'DELETE FROM soirees WHERE id = ?', args: ['abimee'] })
+      base.close()
+    }
+    assert.equal(journal.length, 3, 'chaque panne laisse sa trace au journal')
+    assert.ok(journal.every(l => l.includes('SyntaxError')), `le journal garde le détail : ${journal.join(' | ')}`)
+  })
+
+  test('wrap : seul un Error nu parle à l’utilisateur', async () => {
+    // La règle est dans la classe : le code lève exprès des `Error` nus, en
+    // français ; tout le reste vient des entrailles et parle de tables, de
+    // chemins ou de positions dans un JSON.
+    class LibsqlError extends Error {
+      code = 'SQLITE_ERROR'
+    }
+    const cas: [string, unknown, number, unknown][] = [
+      ['voulue', new Error('Il faut un titre'), 400, { error: 'Il faut un titre' }],
+      ['type', new TypeError("Cannot read properties of undefined (reading 'questions')"), 500, NEUTRE],
+      ['base', new LibsqlError('SQLITE_ERROR: no such table: soirees'), 500, NEUTRE],
+      ['portee', new RangeError('Invalid array length'), 500, NEUTRE],
+      // Les erreurs du système sont des Error nus, mais portent un code — et
+      // souvent un chemin du serveur.
+      ['systeme', Object.assign(new Error("ENOENT: no such file or directory, open '/srv/data/quizz.db'"), { code: 'ENOENT' }), 500, NEUTRE],
+      ['chaine', 'une chaîne levée telle quelle', 500, NEUTRE],
+    ]
+    const app = express()
+    for (const [nom, erreur] of cas) {
+      app.get(
+        `/${nom}`,
+        wrap(async () => {
+          throw erreur
+        }),
+      )
+    }
+    const serveur = app.listen(0)
+    await new Promise(r => serveur.once('listening', r))
+    const errorAvant = console.error
+    console.error = () => {}
+    try {
+      const { port } = serveur.address() as AddressInfo
+      for (const [nom, , statut, corps] of cas) {
+        const res = await fetch(`http://localhost:${port}/${nom}`)
+        assert.equal(res.status, statut, nom)
+        assert.deepEqual(await res.json(), corps, nom)
+      }
+    } finally {
+      console.error = errorAvant
+      serveur.close()
+    }
   })
 })
