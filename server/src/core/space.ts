@@ -119,6 +119,9 @@ export class SpaceRuntime {
       quizModule,
     )
     this.engine.restore()
+    // Une sauvegarde qui échoue depuis un moment se dit sur l'écran commun,
+    // et là seulement — à la transition, pas à chaque essai.
+    this.mirror.surRetard(() => this.deps.io.to(`hosts:${spaceId}`).emit('party:snapshot', this.buildSnapshot(true)))
     // Un profil doit être en mémoire pour que son niveau s'affiche. Après un
     // redémarrage, on réchauffe ceux des invités déjà là — sans bloquer : la
     // soirée doit reprendre tout de suite, et l'instantané repartira enrichi.
@@ -375,20 +378,34 @@ export class SpaceRuntime {
   /**
    * L'état de la soirée. Le wifi n'est envoyé qu'à l'écran commun : c'est lui
    * qui l'affiche en QR, les téléphones n'ont pas à recevoir le mot de passe.
+   * La santé de la sauvegarde aussi : c'est l'affaire de l'animateur, pas
+   * celle d'un invité.
    */
   buildSnapshot(forHost: boolean): PartySnapshot {
     const space = this.publicSpace()
     const players = this.party.publicPlayers(this.ledger.allTotals())
     const bonuses = this.teams.allBonuses()
     const base = this.deps.baseUrl()
-    return {
+    const snapshot: PartySnapshot = {
       players,
       teams: teamScores(this.teams.all(), players, bonuses),
       bonuses,
       session: this.engine.summary(),
       joinUrl: base ? `${base}/${space.slug}` : null,
-      wifi: forHost ? this.deps.wifi : null,
+      wifi: null,
       space,
+    }
+    return forHost ? this.pourLesEcrans(snapshot) : snapshot
+  }
+
+  /** Ce que l'écran commun reçoit en plus de la salle. */
+  private pourLesEcrans(snapshot: PartySnapshot): PartySnapshot {
+    return {
+      ...snapshot,
+      wifi: this.deps.wifi,
+      // Absent quand tout va bien : il ne change qu'aux transitions, et
+      // l'instantané dédoublonné n'en porte pas le poids le reste du temps.
+      ...(this.mirror.enRetard() && { sauvegardeEnRetard: true as const }),
     }
   }
 
@@ -399,7 +416,7 @@ export class SpaceRuntime {
     this.lastSnapshot = json
     const io = this.deps.io
     io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`).emit('party:snapshot', snapshot)
-    io.to(`hosts:${this.spaceId}`).emit('party:snapshot', this.deps.wifi ? { ...snapshot, wifi: this.deps.wifi } : snapshot)
+    io.to(`hosts:${this.spaceId}`).emit('party:snapshot', this.pourLesEcrans(snapshot))
   }
 
   broadcastSnapshot() {
@@ -416,7 +433,13 @@ export class SpaceRuntime {
   // pures : la soirée en cours et une soirée archivée passent par le même
   // chemin, et une amélioration profite aux soirées passées.
 
-  /** Les copies exactes des quiz des parties terminées, tant que le disque les a. */
+  /**
+   * Les copies exactes des quiz joués ce soir, lues dans l'état de chaque
+   * partie. Elles ne vivaient que sur le disque local : le miroir retirait
+   * une partie terminée, et après une mise en veille l'archive reprenait la
+   * bibliothèque du jour. Le miroir les garde désormais jusqu'à « Nouvelle
+   * soirée », et le réveil les recharge avec le reste.
+   */
   livePacks(): Map<string, PlayedPack> {
     const packs = new Map<string, PlayedPack>()
     const played = this.deps.db
@@ -518,22 +541,38 @@ export class SpaceRuntime {
 
   /**
    * Repart d'une soirée vierge — après avoir rangé celle-ci dans l'historique.
-   * Rien ne s'efface tant que l'archive n'est pas écrite : si la base distante
-   * ne répond pas, la soirée reste là et l'animateur est prévenu.
+   *
+   * Rien ne s'efface ici tant que rien ne s'est effacé au loin : l'archive
+   * d'abord, puis le miroir, et la base locale en dernier. On vidait la base
+   * locale avant le miroir : quand celui-ci refusait, l'animateur lisait
+   * « Rien n'a été effacé » devant une salle vide, et l'ancienne soirée,
+   * restée au miroir, ressuscitait au premier réveil. Si la base distante ne
+   * répond pas, la soirée reste là, entière, et le message dit vrai.
    */
   async resetParty(): Promise<ArchiveSummary | null> {
     const archived = await this.archiveParty()
-    const running = this.engine.activeSessionId
-    if (running) this.engine.endSession(running)
-    this.party.clearAll()
-    this.xpAnnoncee.clear()
-    this.teams.clearAll()
-    this.ledger.clearAll()
-    this.answers.clearAll()
-    // La seule porte qui ouvre une nouvelle soirée, et donc le seul endroit
-    // où l'on oublie son nom. Le miroir l'oublie juste en dessous.
-    this.oublierSoiree()
-    await this.mirror.reset()
+    // Le miroir suspend ses envois, laisse finir ce qui est en vol, s'efface,
+    // puis vide sa file — c'était la soirée effacée. Ce qui suit ne tourne
+    // que s'il y est arrivé, et pendant que ses envois sont encore suspendus.
+    await this.mirror.reset(() => {
+      this.party.clearAll()
+      this.xpAnnoncee.clear()
+      this.teams.clearAll()
+      this.ledger.clearAll()
+      this.answers.clearAll()
+      // La partie en cours se termine APRÈS que les journaux sont vidés : sa
+      // fin crédite l'expérience, et elle trouverait sinon ceux de la soirée
+      // qu'on vient de ranger — l'archive les a déjà crédités, et le nom de
+      // cette soirée repartirait au miroir qu'on vient d'effacer.
+      const running = this.engine.activeSessionId
+      if (running) this.engine.endSession(running)
+      // Ses parties partent avec elle, copies des quiz comprises : l'archive
+      // les garde désormais.
+      this.deps.db.prepare('DELETE FROM sessions WHERE space_id = ?').run(this.spaceId)
+      // La seule porte qui ouvre une nouvelle soirée, et donc le seul endroit
+      // où l'on oublie son nom.
+      this.oublierSoiree()
+    })
     this.broadcastSnapshot()
     // Les téléphones de la soirée effacée n'incarnent plus personne. Laissés
     // tels quels, ils restaient sur un en-tête vide, « 0 pts », « Personne

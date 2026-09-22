@@ -10,13 +10,28 @@ import type { SessionSummary } from '../../../shared/types'
 import type { ActionRefusal } from '../../../shared/events'
 
 /**
- * Cadence du miroir distant de la partie. Chaque réponse d'invité change
- * l'état ; cinquante réponses en quinze secondes ne méritent pas cinquante
- * écritures dans la base distante. Une au début, puis une toutes les deux
- * secondes tant que ça bouge : au pire, un redémarrage perd deux secondes
- * de réponses.
+ * Cadence du miroir distant de la partie, pour le simple va-et-vient des
+ * réponses en cours de question. Chaque réponse d'invité change l'état ;
+ * cinquante réponses en quinze secondes ne méritent pas cinquante écritures
+ * dans la base distante. Une au début, puis une toutes les deux secondes
+ * tant que ça bouge : au pire, un redémarrage perd deux secondes de réponses
+ * — que leurs auteurs peuvent retaper, la question étant encore ouverte.
+ *
+ * Tout le reste part sans attendre : voir `run()`.
  */
 const MIRROR_INTERVAL_MS = 2000
+
+/**
+ * Ce qui, dans une partie, décide d'une recopie immédiate : sa phase, et les
+ * chronomètres armés. Le moteur ne connaît pas les règles ; il sait qu'une
+ * partie qui change de phase ou de chronomètres (une révélation, une
+ * question qui s'ouvre, une pause) n'est plus celle qu'un réveil devrait
+ * reprendre. La phase se lit dans l'état s'il en porte une.
+ */
+function empreinte(sess: LiveSession): string {
+  const phase = (sess.state as { phase?: unknown } | null)?.phase
+  return `${String(phase)}|${[...sess.timers.keys()].sort().join(',')}`
+}
 
 interface LiveSession extends GameSessionRec {
   createdAt: number
@@ -90,16 +105,32 @@ export class GameEngine {
 
   constructor(private deps: EngineDeps, private module: GameModule) {}
 
-  /** Recharge la partie en cours de l'espace depuis la base (reprise après redémarrage). */
+  /**
+   * Recharge la partie en cours de l'espace depuis la base (reprise après
+   * redémarrage). Les parties terminées, revenues du miroir avec la copie
+   * exacte de leur quiz, restent où elles sont : rien ne les reprend.
+   */
   restore() {
     const rows = this.deps.db
       .prepare("SELECT * FROM sessions WHERE status = 'running' AND space_id = ? ORDER BY created_at DESC")
       .all(this.deps.spaceId) as any[]
     const [row, ...stale] = rows
     // Une seule partie à la fois : si la base en contient plusieurs (vieilles
-    // données), on ne reprend que la dernière et on solde les autres.
+    // données), on ne reprend que la dernière et on solde les autres — miroir
+    // compris, qui les rendrait « en cours » au prochain réveil.
     for (const old of stale) {
-      this.deps.db.prepare("UPDATE sessions SET status = 'ended' WHERE id = ?").run(old.id)
+      const updatedAt = Date.now()
+      this.deps.db.prepare("UPDATE sessions SET status = 'ended', updated_at = ? WHERE id = ?").run(updatedAt, old.id)
+      this.deps.backup?.saveSession({
+        id: old.id,
+        spaceId: this.deps.spaceId,
+        status: 'ended',
+        participantIds: old.participant_ids,
+        state: old.state,
+        timers: old.timers,
+        createdAt: old.created_at,
+        updatedAt,
+      })
     }
     if (!row) return
     const sess: LiveSession = {
@@ -189,8 +220,9 @@ export class GameEngine {
   }
 
   /**
-   * À l'extinction : ce qui attendait la prochaine fenêtre part tout de suite,
-   * et plus rien ne partira après coup.
+   * À l'extinction : ce qui attendait la prochaine fenêtre rejoint tout de
+   * suite la file du miroir — que l'arrêt vide ensuite —, et plus rien ne
+   * partira après coup.
    *
    * Les chronomètres de la partie s'éteignent avec le reste. Sans ça, celui
    * d'une question en cours sonnait après la fermeture de la base et révélait
@@ -279,9 +311,20 @@ export class GameEngine {
     return sess
   }
 
-  /** Exécute un handler du module puis persiste + rediffuse. */
+  /**
+   * Exécute un handler du module puis persiste + rediffuse.
+   *
+   * Tout ce que le passage écrit — gains, réponses, questions retirées du
+   * journal — part au miroir d'un seul tenant AVEC l'état de la partie, dans
+   * une seule transaction, et sans attendre la cadence du va-et-vient. Les
+   * gains partaient tout de suite et l'état deux secondes plus tard : un
+   * processus tué entre les deux laissait au miroir la question encore
+   * ouverte, et ses gains déjà payés — au réveil, elle se révélait une
+   * seconde fois, et 177 points devenaient 354.
+   */
   private run(sess: LiveSession, fn: (ctx: GameContext) => void) {
     if (sess.status !== 'running') return
+    const avant = empreinte(sess)
     let scoresChanged = false
     let shouldEnd = false
     const ctx: GameContext = {
@@ -306,12 +349,20 @@ export class GameEngine {
       playerName: id => this.vctx.playerName(id),
       now: () => Date.now(),
     }
-    fn(ctx)
-    if (shouldEnd) {
-      this.endSession(sess.id)
-    } else {
-      this.persist(sess)
-      this.fanout(sess)
+    const backup = this.deps.backup
+    backup?.ouvrirLot()
+    try {
+      fn(ctx)
+      if (shouldEnd) {
+        this.endSession(sess.id)
+      } else {
+        this.persist(sess, empreinte(sess) !== avant)
+        this.fanout(sess)
+      }
+    } finally {
+      // Même quand le handler lève une exception : ce qu'il a écrit en local
+      // doit atteindre le miroir.
+      backup?.fermerLot()
     }
     if (scoresChanged) this.deps.onScoresChanged()
   }
@@ -383,7 +434,8 @@ export class GameEngine {
     return true
   }
 
-  private persist(sess: LiveSession) {
+  /** Écrit la partie en local, puis la recopie — tout de suite si `urgent`, à la cadence du va-et-vient sinon. */
+  private persist(sess: LiveSession, urgent = false) {
     const timers: Record<string, number> = {}
     for (const [id, t] of sess.timers) timers[id] = t.deadline
     const row: SessionRow = {
@@ -405,21 +457,33 @@ export class GameEngine {
       )
       .run(row)
     this.lastRow = sess.status === 'running' ? row : null
-    this.mirror(sess, row)
+    this.mirror(sess, row, urgent)
   }
 
   /**
-   * Recopie la partie dans la base distante, au plus une fois par intervalle.
-   * Une partie terminée sort du miroir : il n'y a plus rien à reprendre.
+   * Recopie la partie dans la base distante.
+   *
+   * Des gains ou des réponses dans le lot, une phase qui change, une partie
+   * qui se termine : l'état part tout de suite, et dans le même envoi qu'eux.
+   * Le reste — une réponse de plus en cours de question — au plus une fois
+   * par intervalle.
+   *
+   * Une partie terminée RESTE au miroir, avec son statut : son état garde la
+   * copie exacte du quiz joué. Elle en sortait, et après une mise en veille
+   * l'archive reprenait la bibliothèque du jour — une question réécrite
+   * entre-temps passait pour posée. « Nouvelle soirée » la purge.
    */
-  private mirror(sess: LiveSession, row: SessionRow) {
+  private mirror(sess: LiveSession, row: SessionRow, urgent: boolean) {
     const backup = this.deps.backup
     if (!backup) return
-    if (sess.status === 'ended') {
+    if (urgent || sess.status === 'ended' || backup.lotCharge()) {
       if (this.mirrorTimer) clearTimeout(this.mirrorTimer)
       this.mirrorTimer = null
       this.mirrorDirty = false
-      backup.deleteSession(sess.id)
+      backup.saveSession(row)
+      // Les réponses qui suivent une révélation ou une nouvelle question
+      // reprennent la cadence : la fenêtre repart d'ici.
+      if (sess.status === 'running') this.armerMiroir(sess)
       return
     }
     if (this.mirrorTimer) {
@@ -427,6 +491,10 @@ export class GameEngine {
       return
     }
     backup.saveSession(row)
+    this.armerMiroir(sess)
+  }
+
+  private armerMiroir(sess: LiveSession) {
     this.mirrorTimer = setTimeout(() => {
       this.mirrorTimer = null
       if (!this.mirrorDirty) return

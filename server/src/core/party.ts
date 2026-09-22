@@ -97,9 +97,11 @@ export class Party {
         // `undefined` = le téléphone se reconnecte sans rien dire de l'équipe :
         // on garde la sienne. `null` serait un retrait volontaire.
         if (teamId !== undefined) existing.teamId = teamId
-        // Réécrite même inchangée : c'est ce qui recopie dans le miroir une
-        // fiche qu'une écriture distante ratée aurait laissée en route — sans
-        // elle, un redémarrage sur disque effacé perdrait cet invité.
+        // Réécrite même inchangée. La file du miroir insiste jusqu'au succès,
+        // mais un arrêt trop court peut abandonner ce qu'elle attendait
+        // encore : cette réécriture recopie alors la fiche au retour du
+        // téléphone — sans elle, un redémarrage sur disque effacé perdrait
+        // cet invité. Elle part avec ce qui attend déjà, en un seul envoi.
         this.db
           .prepare('UPDATE players SET name = ?, avatar = ?, team_id = ? WHERE id = ?')
           .run(existing.name, existing.avatar, existing.teamId, existing.id)

@@ -82,6 +82,13 @@ export interface PartySnapshot {
   wifi: { ssid: string; pass: string } | null
   /** L'espace de la soirée : son nom dans l'adresse, ses titres. */
   space: PublicSpace
+  /**
+   * La base permanente refuse les écritures de la soirée depuis un moment :
+   * la soirée continue, mais un réveil sur disque effacé perdrait ce qui
+   * attend. Envoyé à l'écran commun seulement, et absent quand tout va bien
+   * — il ne change qu'aux transitions, jamais à chaque essai.
+   */
+  sauvegardeEnRetard?: true
 }
 
 /** Page souvenir : ce qu'il reste de la soirée, le lendemain. */

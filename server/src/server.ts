@@ -7,7 +7,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initDb, stampLegacySpace, wipeSpace } from './core/db'
-import { PartyBackup } from './core/backup'
+import { PartyBackup, type ReglagesMiroir } from './core/backup'
 import { photosCitees, QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
 import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
@@ -50,6 +50,8 @@ export interface QuizServerOptions {
    * Absent en production : rien ne s'affiche, et rien ne pèse.
    */
   appEnv?: string
+  /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */
+  miroir?: Omit<ReglagesMiroir, 'base'>
 }
 
 /**
@@ -220,9 +222,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   if (!hadAccounts) console.log(`[comptes] administrateur « ${opts.admin.login} » créé, espace « ${opts.admin.slug} »`)
 
   // Le disque d'un hébergeur gratuit est effacé à chaque redémarrage : les
-  // soirées (invités, points, parties en cours) sont donc recopiées dans la
-  // base distante, et rechargées ici si la base locale est repartie vide.
-  const backup = new PartyBackup(opts.quizDbUrl, opts.quizDbToken)
+  // soirées (invités, points, parties) sont donc recopiées dans la base
+  // distante, et rechargées ici si la base locale est repartie vide. La base
+  // locale fait foi : c'est d'elle qu'une resynchronisation relit un espace.
+  const backup = new PartyBackup(opts.quizDbUrl, opts.quizDbToken, { ...opts.miroir, base: db })
   await backup.init(defaultSpace)
   const restored = await backup.restoreInto(db)
   if (restored.players > 0 || restored.teams > 0) {
@@ -326,6 +329,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
 
   // Point de santé : sert au service de réveil (l'hébergeur gratuit endort
   // l'application sans trafic) et aux mesures de charge. Rien par espace.
+  //
+  // Le miroir y dit sa santé — écritures en attente, échecs, depuis quand,
+  // dernier succès —, tous espaces confondus : on jouait une soirée entière
+  // avec lui en panne sans que rien ne le montre, et tout se perdait au
+  // réveil. Mais `ok` reste vrai, et la réponse un 200 : Render redémarre
+  // une instance dont la santé échoue, et un redémarrage, c'est le disque
+  // effacé — la file et tout ce qu'elle attendait d'envoyer avec.
   app.get('/healthz', (_req, res) => {
     const runtimes = registry.all()
     res.json({
@@ -336,6 +346,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       players: runtimes.reduce((n, rt) => n + rt.party.connectedPlayerIds().length, 0),
       quizzes: runtimes.filter(rt => rt.engine.summary()).length,
       rssMo: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      miroir: backup.sante(),
     })
   })
 
@@ -498,15 +509,17 @@ export async function createQuizServer(opts: QuizServerOptions) {
         clearInterval(resync)
         registry.stopAll()
         io.close(async () => {
+          // La file du miroir se vide d'abord, dans le délai qu'on lui laisse :
+          // la base locale doit rester ouverte d'ici là — une resynchronisation
+          // en attente la relit.
+          await backup.close()
           db.close()
           store.close()
           archives.close()
           auth.close()
-          // Les écritures distantes en vol doivent aboutir avant de couper.
-          await backup.close()
-          // Les profils juste après le miroir, et pas avant : un crédit
-          // d'expérience parti avec la fin du dernier quiz garde ainsi le même
-          // sursis qu'avant pour aboutir. On ne le refermait jamais.
+          // Les profils en dernier : un crédit d'expérience parti avec la fin
+          // du dernier quiz garde ainsi le plus long sursis pour aboutir. On ne
+          // les refermait jamais.
           profiles.close()
           resolve()
         })

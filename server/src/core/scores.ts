@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
 import type { PartyMirror } from './backup'
 
@@ -24,7 +25,7 @@ export class ScoreLedger {
     private backup?: PartyMirror,
   ) {
     this.insertStmt = db.prepare(
-      'INSERT INTO score_entries (player_id, session_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO score_entries (uid, player_id, session_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
     )
     const rows = db
       .prepare('SELECT player_id, SUM(points) AS total FROM score_entries WHERE space_id = ? GROUP BY player_id')
@@ -34,9 +35,12 @@ export class ScoreLedger {
 
   award(playerId: string, points: number, reason: string, sessionId?: string) {
     const createdAt = Date.now()
-    this.insertStmt.run(playerId, sessionId ?? null, points, reason, createdAt, this.spaceId)
+    // L'identifiant du gain naît ici, avec la ligne locale, et c'est lui que
+    // le miroir reprend : une recopie rejouée ne peut plus compter deux fois.
+    const uid = randomUUID()
+    this.insertStmt.run(uid, playerId, sessionId ?? null, points, reason, createdAt, this.spaceId)
     this.totals.set(playerId, (this.totals.get(playerId) ?? 0) + points)
-    this.backup?.saveScore({ playerId, sessionId, points, reason, createdAt })
+    this.backup?.saveScore({ uid, playerId, sessionId: sessionId ?? null, points, reason, createdAt })
   }
 
   /** Après une remise à zéro de la soirée : les totaux en mémoire aussi. */
