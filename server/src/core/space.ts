@@ -7,10 +7,10 @@ import { AnswerLog } from './answers'
 import { GameEngine } from './engine'
 import type { PartyBackup, PartyMirror } from './backup'
 import type { ArchiveStore } from './archive'
-import { buildArchive } from './archive'
+import { archiveIdOf, buildArchive } from './archive'
 import { buildRecap } from './recap'
 import { buildReview, type PlayedPack } from './review'
-import { buildProgress } from './progress'
+import { buildProgress, type SoireeGain } from './progress'
 import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
@@ -89,6 +89,13 @@ export class SpaceRuntime {
         backup: this.mirror,
         onScoresChanged: () => this.broadcastSnapshot(),
         onSessionChanged: () => this.broadcastSnapshot(),
+        // Un quiz qui se termine crédite l'expérience du soir. L'erreur
+        // s'arrête ici : une base distante qui ne répond pas ne doit pas
+        // emporter la soirée, et le prochain quiz — ou l'archivage —
+        // réécrira exactement les mêmes lignes.
+        onSessionEnded: () => {
+          this.crediterQuiz().catch(e => console.error('[xp]', e))
+        },
       },
       quizModule,
     )
@@ -108,23 +115,124 @@ export class SpaceRuntime {
   }
 
   /**
-   * Crédite les profils rattachés de ce qu'ils ont fait ce soir.
-   *
-   * Appelé depuis `archiveParty()`, donc toujours AVANT que « Nouvelle
-   * soirée » n'efface les journaux : c'est la seule fenêtre où tout est
-   * encore là. Tout y est idempotent — la ligne d'expérience est remplacée,
-   * pas ajoutée —, si bien qu'une écriture distante ratée peut se rejouer
-   * telle quelle. C'est pourquoi on laisse l'erreur remonter : l'animateur
-   * verra « rien n'a été effacé », et son prochain essai repartira juste.
+   * L'identifiant de la soirée en cours : le même que celui sous lequel elle
+   * s'archivera — l'heure d'arrivée du premier invité. C'est lui qui rend le
+   * crédit idempotent, et c'est pourquoi on peut créditer plusieurs fois
+   * dans la soirée sans jamais payer deux fois.
    */
-  private async creditProfiles(soireeId: string) {
-    const answers = this.answers.all()
-    const gains = buildProgress({
+  private soireeEnCours(): string | null {
+    const players = this.party.all()
+    if (players.length === 0) return null
+    return archiveIdOf(Math.min(...players.map(p => p.createdAt)))
+  }
+
+  /**
+   * Ce qu'on a déjà annoncé à chacun, pour ne pas le lui redire à l'identique.
+   * La clé porte la soirée : « Nouvelle soirée » n'attend pas les écritures
+   * distantes de la précédente, et un total d'hier ne doit pas faire taire
+   * l'annonce d'aujourd'hui.
+   */
+  private xpAnnoncee = new Map<string, number>()
+
+  /** Ce que la soirée rapporte aux profils, à l'instant où on le demande. */
+  private gainsDuMoment(answers = this.answers.all()): SoireeGain[] {
+    return buildProgress({
       players: this.party.all(),
       scores: this.ledger.all(),
       answers,
     })
+  }
+
+  /**
+   * L'expérience du soir, écrite et annoncée.
+   *
+   * La ligne est REMPLACÉE, jamais ajoutée : on peut donc la recalculer à
+   * chaque fin de quiz, puis une dernière fois à l'archivage, sans que
+   * personne n'encaisse deux fois. C'est ce qui permet de ne plus faire
+   * attendre l'archivage à celui qui vient de gagner.
+   */
+  private async crediterExperience(soireeId: string, gains: SoireeGain[]) {
+    for (const g of gains) {
+      // L'Éclat ne se tire qu'une fois par soirée. Sans ce garde-fou, chaque
+      // quiz joué donnerait une chance de plus — et l'Éclat ne vaut que
+      // parce qu'on ne peut pas le provoquer.
+      const premiere = !(await this.deps.profiles.alreadyCredited(g.profileId, soireeId))
+      await this.deps.profiles.creditSoiree({
+        profileId: g.profileId,
+        soireeId,
+        spaceId: this.spaceId,
+        gain: g.gain,
+        releve: g.releve,
+        xp: g.xp,
+      })
+      if (premiere && ProfileStore.tirageEclat()) {
+        await this.deps.profiles.grantEclat(g.profileId, g.avatar, soireeId)
+      }
+      await this.annoncer(soireeId, g)
+    }
+  }
+
+  /**
+   * Dit à un téléphone ce qu'il vient de gagner.
+   *
+   * Le profil qu'il porte lui est arrivé à la poignée de main : sans ce
+   * message, son niveau ne bougerait pas de la soirée, et l'expérience
+   * n'existerait que dans la base. On ne redit rien quand le total du soir
+   * n'a pas bougé — l'archivage recrédite les mêmes chiffres.
+   */
+  private async annoncer(soireeId: string, g: SoireeGain) {
+    const cle = `${soireeId}:${g.profileId}`
+    const deja = this.xpAnnoncee.get(cle)
+    if (deja === g.xp) return
+    this.xpAnnoncee.set(cle, g.xp)
+    const profile = await this.deps.profiles.byId(g.profileId).catch(() => null)
+    if (!profile) return
+    const salon = this.deps.io.to(`player:${g.playerId}`)
+    salon.emit('player:profil', this.deps.profiles.toPublic(profile))
+    const gagne = g.xp - (deja ?? 0)
+    if (gagne > 0) {
+      salon.emit('toast', { kind: 'info', message: `+${gagne} points d’expérience` })
+    }
+  }
+
+  /**
+   * Un quiz vient de finir : on crédite tout de suite.
+   *
+   * Rien n'attend l'archivage, qui peut ne jamais venir — un animateur range
+   * sa soirée quand il y pense, et un invité qui gagne veut voir son niveau
+   * bouger le soir même. Les badges, eux, restent à l'archivage : ils se
+   * décernent sur la soirée entière, et un prix décerné trop tôt ne se
+   * reprend plus.
+   */
+  private async crediterQuiz() {
+    const soireeId = this.soireeEnCours()
+    if (!soireeId) return
+    // Les journaux se lisent AVANT le premier `await` : ce qui suit attend la
+    // base distante, et un serveur qu'on ferme entre-temps n'aurait plus de
+    // base locale à interroger.
+    const gains = this.gainsDuMoment()
     if (gains.length === 0) return
+    await this.crediterExperience(soireeId, gains)
+    // Les niveaux ont pu monter : l'écran commun doit le montrer.
+    this.broadcastSnapshot()
+  }
+
+  /**
+   * Crédite les profils rattachés de tout ce qu'ils ont fait ce soir.
+   *
+   * Appelé depuis `archiveParty()`, donc toujours AVANT que « Nouvelle
+   * soirée » n'efface les journaux : c'est la dernière fenêtre où tout est
+   * encore là, et la seule où les prix de la soirée sont définitifs. Tout y
+   * est idempotent — la ligne d'expérience est remplacée, pas ajoutée —, si
+   * bien qu'une écriture distante ratée peut se rejouer telle quelle. C'est
+   * pourquoi on laisse l'erreur remonter : l'animateur verra « rien n'a été
+   * effacé », et son prochain essai repartira juste.
+   */
+  private async creditProfiles(soireeId: string) {
+    const answers = this.answers.all()
+    const gains = this.gainsDuMoment(answers)
+    if (gains.length === 0) return
+    await this.crediterExperience(soireeId, gains)
 
     // Les prix de la soirée sont déjà calculés pour la page souvenir : ce sont
     // eux, tels quels, qui font les badges. Pas de second catalogue à tenir,
@@ -141,21 +249,6 @@ export class SpaceRuntime {
     }
 
     for (const g of gains) {
-      // L'Éclat ne se tire qu'à la première consolidation. Sans ce garde-fou,
-      // ranger dix fois la même soirée donnerait dix chances — et l'Éclat ne
-      // vaut que parce qu'on ne peut pas le provoquer.
-      const premiere = !(await this.deps.profiles.alreadyCredited(g.profileId, soireeId))
-      await this.deps.profiles.creditSoiree({
-        profileId: g.profileId,
-        soireeId,
-        spaceId: this.spaceId,
-        gain: g.gain,
-        releve: g.releve,
-        xp: g.xp,
-      })
-      if (premiere && ProfileStore.tirageEclat()) {
-        await this.deps.profiles.grantEclat(g.profileId, g.avatar, soireeId)
-      }
       for (const a of parJoueur.get(g.playerId) ?? []) {
         await this.deps.profiles.grantBadge({
           profileId: g.profileId,
@@ -323,6 +416,7 @@ export class SpaceRuntime {
     const running = this.engine.activeSessionId
     if (running) this.engine.endSession(running)
     this.party.clearAll()
+    this.xpAnnoncee.clear()
     this.teams.clearAll()
     this.ledger.clearAll()
     this.answers.clearAll()

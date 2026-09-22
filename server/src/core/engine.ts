@@ -35,6 +35,13 @@ interface EngineDeps {
   backup?: PartyMirror
   onScoresChanged: () => void
   onSessionChanged: () => void
+  /**
+   * Une partie vient de se terminer. C'est là que l'expérience du soir se
+   * crédite : attendre l'archivage de la soirée, c'est ne rien donner à
+   * celui qui vient de gagner un quiz — et repartir sans jamais voir son
+   * niveau bouger.
+   */
+  onSessionEnded: () => void
 }
 
 /**
@@ -165,6 +172,7 @@ export class GameEngine {
     this.lastSent.clear()
     this.deps.io.to(`space:${this.deps.spaceId}`).emit('session:ended', { sessionId })
     this.deps.onSessionChanged()
+    this.deps.onSessionEnded()
   }
 
   /**
