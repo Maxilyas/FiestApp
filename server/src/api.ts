@@ -20,6 +20,12 @@ interface ApiDeps {
   publicOrigin: string | null
   /** Appelé après chaque modification : recharge le cache lu par le module de jeu. */
   onLibraryChanged: (spaceId: string) => Promise<void>
+  /**
+   * Les photos que citent les parties de l'espace encore sur le disque local
+   * — celle qui se joue, et celles déjà jouées que la soirée n'a pas encore
+   * rangées. Le ménage des photos ne doit pas les effacer.
+   */
+  photosEnJeu: (spaceId: string) => Iterable<string>
   /** Supprime un compte et tout ce qu'il a laissé — composé dans `createQuizServer`, où tout est à portée. */
   removeAccount: (accountId: string) => Promise<void>
 }
@@ -84,8 +90,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
       await deps.onLibraryChanged(spaceId)
       res.json(quiz)
-      // Après coup : une photo retirée d'une question n'a plus à occuper la base.
-      deps.store.pruneImages(spaceId).catch(() => {})
+      // Après coup : une photo retirée d'une question n'a plus à occuper la
+      // base — sauf si la partie en cours ou une soirée archivée la montre encore.
+      deps.store.pruneImages(spaceId, undefined, deps.photosEnJeu(spaceId)).catch(() => {})
     }),
   )
 
@@ -97,7 +104,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
       if (!ok) return res.status(404).json({ error: 'Quiz introuvable' })
       await deps.onLibraryChanged(spaceId)
       res.json({ ok: true })
-      deps.store.pruneImages(spaceId).catch(() => {})
+      deps.store.pruneImages(spaceId, undefined, deps.photosEnJeu(spaceId)).catch(() => {})
     }),
   )
 

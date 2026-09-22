@@ -8,7 +8,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initDb, stampLegacySpace, wipeSpace } from './core/db'
 import { PartyBackup } from './core/backup'
-import { QuizStore } from './core/quizStore'
+import { photosCitees, QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
 import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
@@ -412,6 +412,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,
+    // Les parties de l'espace encore sur le disque, terminées comprises :
+    // c'est leur copie du quiz que l'archivage rangera, photos avec.
+    photosEnJeu: spaceId =>
+      (db.prepare('SELECT state FROM sessions WHERE space_id = ?').all(spaceId) as { state: string }[]).flatMap(r =>
+        photosCitees(r.state),
+      ),
     removeAccount,
   })
 

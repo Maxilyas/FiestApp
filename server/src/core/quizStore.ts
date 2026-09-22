@@ -30,6 +30,16 @@ const IMAGE_CACHE_SIZE = 40
 const QUESTION_ID = /^[\w-]{1,48}$/
 
 /**
+ * Les photos envoyées depuis l'éditeur qu'un texte cite, par identifiant :
+ * les questions d'un quiz, l'état d'une partie, une soirée archivée. On lit
+ * le texte brut plutôt que sa structure : un état qu'on ne saurait plus
+ * analyser protège encore ses photos.
+ */
+export function photosCitees(texte: string): string[] {
+  return [...texte.matchAll(/\/media\/image\/([0-9a-f-]{36})/g)].map(m => m[1])
+}
+
+/**
  * Bibliothèque de quiz : le seul stockage qui doit survivre à tout (l'état
  * d'une partie, lui, est jetable). Le client libSQL parle aussi bien à un
  * fichier local (`file:...`) qu'à une base Turso hébergée (`libsql://...`) —
@@ -238,40 +248,59 @@ export class QuizStore {
   }
 
   /**
-   * Supprime les photos d'un espace que plus aucun de ses quiz n'utilise.
+   * Supprime les photos d'un espace que plus rien n'utilise.
    *
    * On ne peut pas effacer les photos d'un quiz au moment où on le supprime :
    * dupliquer un quiz recopie les mêmes URL, donc deux quiz peuvent partager
-   * une photo. On regarde donc l'ensemble de la bibliothèque avant d'effacer.
+   * une photo. Et la bibliothèque n'est pas seule à s'en servir : on ne
+   * regardait qu'elle, et supprimer un quiz joué effaçait les photos du bilan
+   * de sa soirée archivée ; retoucher pendant la fête le quiz qui se jouait
+   * effaçait celle que les téléphones allaient demander. Une photo n'est donc
+   * orpheline que si aucun quiz, aucune soirée archivée et aucune partie
+   * encore sur le disque local (`enJeu`, fourni par l'appelant) ne la cite.
    */
-  async pruneImages(spaceId: string, graceMs = IMAGE_GRACE_MS): Promise<number> {
+  async pruneImages(spaceId: string, graceMs = IMAGE_GRACE_MS, enJeu: Iterable<string> = []): Promise<number> {
     // Une photo tout juste envoyée n'est référencée qu'au moment où l'on
     // enregistre la question. Sans ce délai de grâce, un ménage déclenché
     // entre les deux l'effacerait sous les doigts de l'animateur.
-    const [stored, quizzes] = await Promise.all([
-      this.client.execute({
-        sql: 'SELECT id FROM quiz_images WHERE space_id = ? AND created_at < ?',
-        args: [spaceId, Date.now() - graceMs],
-      }),
-      this.client.execute({ sql: 'SELECT questions FROM quizzes WHERE space_id = ?', args: [spaceId] }),
-    ])
+    const stored = await this.client.execute({
+      sql: 'SELECT id FROM quiz_images WHERE space_id = ? AND created_at < ?',
+      args: [spaceId, Date.now() - graceMs],
+    })
     if (stored.rows.length === 0) return 0
+    const orphans = new Set(stored.rows.map(r => String(r.id)))
 
-    const used = new Set<string>()
-    for (const row of quizzes.rows) {
-      for (const [, id] of String(row.questions).matchAll(/\/media\/image\/([0-9a-f-]{36})/g)) {
-        used.add(id)
-      }
+    const quizzes = await this.client.execute({ sql: 'SELECT questions FROM quizzes WHERE space_id = ?', args: [spaceId] })
+    for (const row of quizzes.rows) for (const id of photosCitees(String(row.questions))) orphans.delete(id)
+    for (const id of enJeu) orphans.delete(id)
+    // Le cas courant — une question retouchée, pas une photo retirée — s'arrête
+    // ici, sans avoir lu l'historique.
+    if (orphans.size === 0) return 0
+
+    // L'historique, ensuite. On ne lit que les soirées qui citent une photo,
+    // une à une : celui d'un espace pèse vite plusieurs mégaoctets, et on
+    // s'arrête dès que tout est justifié. Une lecture qui échoue fait échouer
+    // le ménage entier — dans le doute, on n'efface rien.
+    const archives = await this.client.execute({
+      sql: "SELECT id FROM soirees WHERE space_id = ? AND data LIKE '%/media/image/%'",
+      args: [spaceId],
+    })
+    for (const row of archives.rows) {
+      if (orphans.size === 0) return 0
+      const archive = await this.client.execute({
+        sql: 'SELECT data FROM soirees WHERE space_id = ? AND id = ?',
+        args: [spaceId, row.id],
+      })
+      for (const id of photosCitees(String(archive.rows[0]?.data ?? ''))) orphans.delete(id)
     }
+    if (orphans.size === 0) return 0
 
-    const orphans = stored.rows.map(r => String(r.id)).filter(id => !used.has(id))
-    if (orphans.length === 0) return 0
     await this.client.batch(
-      orphans.map(id => ({ sql: 'DELETE FROM quiz_images WHERE id = ?', args: [id] })),
+      [...orphans].map(id => ({ sql: 'DELETE FROM quiz_images WHERE id = ? AND space_id = ?', args: [id, spaceId] })),
       'write',
     )
     for (const id of orphans) this.imageCache.delete(id)
-    return orphans.length
+    return orphans.size
   }
 
   async getImage(id: string): Promise<{ mime: string; bytes: Buffer } | null> {
