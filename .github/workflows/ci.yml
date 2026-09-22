@@ -11,6 +11,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Relance à la main depuis l'onglet Actions. Sans ça, une proposition de
+  # modification dont l'exécution a été manquée — un `push --force` passé
+  # juste avant sa création, par exemple — ne peut plus jamais être vérifiée
+  # autrement qu'en la refermant et la rouvrant.
+  workflow_dispatch:
 
 # Une PR qui reçoit trois poussées d'affilée n'a pas besoin de trois exécutions :
 # seule la dernière dit quelque chose.
