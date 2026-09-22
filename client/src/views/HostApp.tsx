@@ -22,6 +22,9 @@ import type { PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
 import { sound } from '../sound'
 import { QuizHost } from '../games/quiz/HostView'
 import type { QuizHostView } from '../../../shared/games/quiz'
+import { Avatar } from '../components/Avatar'
+import { Niveau } from '../components/Niveau'
+import { distinctions } from '../../../shared/profil'
 
 /** QR wifi standard : le téléphone rejoint le réseau en le scannant. */
 function wifiQrValue(wifi: { ssid: string; pass: string }): string {
@@ -113,7 +116,8 @@ function TeamGroup({
       <div className="players-grid">
         {members.map(p => (
           <div key={p.id} className={'player-chip' + (p.connected ? '' : ' offline')}>
-            <span className="player-avatar">{p.avatar}</span>
+            <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
+            <Niveau niveau={p.niveau} />
             <button
               className="chip-name"
               title="Renommer"
@@ -324,7 +328,9 @@ export function HostApp() {
   const ranking = [...snap.players]
     .filter(p => p.score !== 0)
     .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
-    .map(p => ({ name: p.name, avatar: p.avatar, points: p.score }))
+    // Les distinctions suivent le joueur jusque sur l'écran commun : c'est là
+    // qu'un niveau se montre à toute la salle.
+    .map(p => ({ name: p.name, avatar: p.avatar, points: p.score, ...distinctions(p) }))
 
   const teamStandings = rankTeams(teams)
   const teamPodium = teamStandings.map(t => ({ name: t.name, avatar: t.emoji, points: t.average }))
@@ -733,8 +739,9 @@ export function HostApp() {
                             return (
                               <div key={i} className="lb-row">
                                 <Rank n={rank} />
-                                <span className="lb-avatar">{p.avatar}</span>
+                                <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
                                 <span className="lb-name">{p.name}</span>
+                                <Niveau niveau={p.niveau} />
                                 <span className="lb-score">{p.points}</span>
                               </div>
                             )

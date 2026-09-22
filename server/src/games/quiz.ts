@@ -1,5 +1,6 @@
 import type { GameContext, GameModule, GameSessionRec, ViewContext } from '../core/types'
 import { playableQuestions, type PlayableQuestion, type QuizDef } from '../../../shared/library'
+import { distinctions } from '../../../shared/profil'
 import type {
   QuizAction,
   QuizCommand,
@@ -278,7 +279,12 @@ function sortedTotals(sess: GameSessionRec<QuizState>): { playerId: string; poin
 function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: number): QuizPodiumRow[] {
   const rows = sortedTotals(sess).map(r => {
     const p = vctx.player(r.playerId)
-    return { name: p?.name ?? vctx.playerName(r.playerId), avatar: p?.avatar ?? '🎉', points: r.points }
+    return {
+      name: p?.name ?? vctx.playerName(r.playerId),
+      avatar: p?.avatar ?? '🎉',
+      points: r.points,
+      ...distinctions(p),
+    }
   })
   return limit ? rows.slice(0, limit) : rows
 }
@@ -297,10 +303,11 @@ function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewCo
         points: st.lastAwards[playerId] ?? 0,
         error: Math.abs(r.value! - target),
         ms: r.ms,
+        ...distinctions(p),
       }
     })
     .sort((a, b) => a.error - b.error || a.ms - b.ms)
-    .map(({ name, avatar, value, points }) => ({ name, avatar, value, points }))
+    .map(({ error: _error, ms: _ms, ...row }) => row)
 }
 
 /**

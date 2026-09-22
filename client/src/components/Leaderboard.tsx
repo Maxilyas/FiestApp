@@ -1,4 +1,6 @@
 import type { PublicPlayer } from '../../../shared/types'
+import { Avatar } from './Avatar'
+import { Niveau } from './Niveau'
 import { Rank } from './Rank'
 
 interface Props {
@@ -28,8 +30,9 @@ export function Leaderboard({ players, compact, highlightId }: Props) {
         return (
           <div key={p.id} className={'lb-row' + (p.id === highlightId ? ' me' : '')}>
             <Rank n={rank} />
-            <span className="lb-avatar">{p.avatar}</span>
+            <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
             <span className="lb-name">{p.name}</span>
+            <Niveau niveau={p.niveau} />
             <span className="lb-score">{p.score}</span>
           </div>
         )

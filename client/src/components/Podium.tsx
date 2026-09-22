@@ -1,6 +1,9 @@
+import type { Distinctions } from '../../../shared/profil'
+import { Avatar } from './Avatar'
+import { Niveau } from './Niveau'
 import { Rank } from './Rank'
 
-export interface PodiumRow {
+export interface PodiumRow extends Distinctions {
   name: string
   avatar: string
   points: number
@@ -13,8 +16,9 @@ export function Standings({ rows, offset = 0 }: { rows: PodiumRow[]; offset?: nu
       {rows.map((p, i) => (
         <div key={i} className="lb-row" style={{ animationDelay: `${i * 60}ms` }}>
           <Rank n={i + offset + 1} />
-          <span className="lb-avatar">{p.avatar}</span>
+          <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
           <span className="lb-name">{p.name}</span>
+          <Niveau niveau={p.niveau} />
           <span className="lb-score">{p.points}</span>
         </div>
       ))}
@@ -38,8 +42,11 @@ export function FinalPodium({ rows }: { rows: PodiumRow[] }) {
         const rank = slot === 1 ? 1 : slot === 0 ? 2 : 3
         return row ? (
           <div key={slot} className={'podium-col rank-' + rank}>
-            <span className="podium-avatar">{row.avatar}</span>
-            <span className="podium-name">{row.name}</span>
+            <Avatar className="podium-avatar" avatar={row.avatar} finition={row.finition} eclat={row.eclat} />
+            <span className="podium-name">
+              {row.name}
+              <Niveau niveau={row.niveau} />
+            </span>
             <div className="podium-step" style={{ height: `${30 + 70 * (row.points / best)}%` }}>
               <span className="podium-medal">{rank}</span>
               <span className="podium-points">{row.points}</span>

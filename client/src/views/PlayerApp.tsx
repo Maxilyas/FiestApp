@@ -7,10 +7,14 @@ import { TeamBoard } from '../components/TeamBoard'
 import { TeamPicker } from '../components/TeamPicker'
 import { Icon } from '../components/Icon'
 import { JoinHead } from '../components/Invitation'
+import { ProfilForm } from '../components/ProfilForm'
+import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer } from '../games/quiz/PlayerView'
 import type { QuizPlayerView } from '../../../shared/games/quiz'
 import { AVATARS } from '../../../shared/avatars'
 import { ordinal } from '../format'
+import { Avatar } from '../components/Avatar'
+import { Niveau } from '../components/Niveau'
 
 export function PlayerApp() {
   const s = useAppState()
@@ -22,7 +26,9 @@ export function PlayerApp() {
   const [avatar, setAvatar] = useState(() => AVATARS[Math.floor(Math.random() * AVATARS.length)])
   // Inscription en deux écrans : le prénom et l'avatar, puis l'équipe. Tout
   // sur une seule page obligerait à faire défiler pour trouver le bouton.
-  const [step, setStep] = useState<'me' | 'team'>('me')
+  const [step, setStep] = useState<'me' | 'team' | 'profil'>('me')
+  /** Le profil connecté sur ce téléphone, s'il y en a un. */
+  const [profil, setProfil] = useState<PublicProfile | null>(null)
   const [teamId, setTeamId] = useState<string | null>(null)
   /** Salle d'attente : le panneau « changer d'équipe » est-il ouvert ? */
   const [switching, setSwitching] = useState(false)
@@ -39,6 +45,9 @@ export function PlayerApp() {
       const watched = await watchParty(slug)
       if (!watched.ok) return setSpaceError(watched.error ?? 'Cette adresse ne mène à aucune soirée')
       setSpaceError('')
+      // Le serveur reconnaît le profil au cookie posé dans la poignée de main :
+      // l'écran d'inscription peut saluer avant même qu'on rejoigne.
+      setProfil(watched.profile ?? null)
       const profile = loadProfile(slug)
       if (!profile) return
       // Sans équipe transmise, le serveur conserve celle déjà choisie.
@@ -56,6 +65,26 @@ export function PlayerApp() {
   useEffect(() => {
     if (space) document.title = space.title
   }, [space])
+
+  // Un profil connecté propose son prénom et son emoji — il ne les impose
+  // pas : on peut très bien vouloir s'appeler autrement ce soir.
+  useEffect(() => {
+    if (!profil) return
+    setName(n => n || profil.name)
+    setAvatar(profil.avatar)
+  }, [profil])
+
+  /**
+   * Après une connexion, la session du profil arrive dans un cookie — mais la
+   * poignée de main du socket, elle, est déjà passée. On rouvre la connexion
+   * pour que le serveur voie enfin qui est là.
+   */
+  const profilConnecte = (p: PublicProfile) => {
+    setProfil(p)
+    setStep('me')
+    socket.disconnect()
+    socket.connect()
+  }
 
   const doJoin = async (chosenTeam: string | null) => {
     setBusy(true)
@@ -145,6 +174,22 @@ export function PlayerApp() {
     )
   }
 
+  // Le profil se consulte à tout moment — avant de rejoindre comme entre deux
+  // quiz. C'est pour ça que cet écran vient avant la bifurcation : depuis la
+  // salle d'attente, on ne doit pas avoir à quitter la soirée pour s'inscrire.
+  if (step === 'profil') {
+    return (
+      <>
+        <ProfilForm
+          prefill={{ name: name.trim() || me?.name || profil?.name || '', avatar }}
+          onDone={profilConnecte}
+          onCancel={() => setStep('me')}
+        />
+        {toast}
+      </>
+    )
+  }
+
   // ── Écran d'inscription ──────────────────────────
   if (!s.me) {
     const count = snap.players.filter(p => p.connected).length
@@ -204,6 +249,13 @@ export function PlayerApp() {
             compact={snap.space.headline.length > 12}
             sub="Le quiz de la soirée"
           />
+          {profil && (
+            <p className="profil-salut">
+              <Avatar avatar={profil.avatar} finition={profil.finition} eclat={profil.eclats.includes(profil.avatar)} />
+              Content de te revoir, <strong>{profil.name}</strong>
+              <Niveau niveau={profil.niveau} />
+            </p>
+          )}
           <hr className="hairline" />
           <div className="field">
             <label className="label" htmlFor="join-name">
@@ -255,7 +307,20 @@ export function PlayerApp() {
           <button className="btn btn-primary btn-big btn-block" disabled={busy || !name.trim()}>
             {teams.length > 0 ? 'Continuer' : 'Rejoindre la soirée'}
           </button>
-          <p className="join-foot">Rien à installer · ton prénom suffit</p>
+          {/* Une porte, pas un péage : le chemin anonyme reste le premier, et
+              il ne coûte toujours qu'un geste. */}
+          <p className="join-foot">
+            Rien à installer · ton prénom suffit ·{' '}
+            {profil ? (
+              <button type="button" className="link-inline" onClick={() => setStep('profil')}>
+                changer de profil
+              </button>
+            ) : (
+              <button type="button" className="link-inline" onClick={() => setStep('profil')}>
+                j'ai un profil
+              </button>
+            )}
+          </p>
         </form>
         {toast}
       </>
@@ -296,9 +361,12 @@ export function PlayerApp() {
   return (
     <div className="player-shell">
       <header className="me-header">
-        <span className="player-avatar big">{me?.avatar}</span>
+        <Avatar className="player-avatar big" avatar={me?.avatar ?? ''} finition={me?.finition} eclat={me?.eclat} />
         <div>
-          <h2>{me?.name}</h2>
+          <h2>
+            {me?.name}
+            <Niveau niveau={me?.niveau} big />
+          </h2>
           <p className="muted">
             {me?.score ?? 0} pts{myRank > 0 && ` · ${ordinal(myRank)}`}
             {myTeam && ` · ${myTeam.emoji} ${myTeam.name}`}
@@ -353,6 +421,18 @@ export function PlayerApp() {
       </div>
 
       <p className="waiting">En attente du prochain quiz…</p>
+      {/* Entre deux quiz, c'est le moment où l'on regarde son téléphone. */}
+      <p className="join-foot">
+        {profil ? (
+          <a className="link-inline" href="/profil">
+            Mon profil · niveau {profil.niveau}
+          </a>
+        ) : (
+          <button type="button" className="link-inline" onClick={() => setStep('profil')}>
+            Gagner des niveaux : créer un profil
+          </button>
+        )}
+      </p>
       {toast}
     </div>
   )

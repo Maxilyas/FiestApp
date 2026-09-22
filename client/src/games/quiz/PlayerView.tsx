@@ -9,6 +9,8 @@ import { Rank } from '../../components/Rank'
 import type { PublicTeam } from '../../../../shared/types'
 import { formatNumber, ordinal } from '../../format'
 import { questionSizeClass } from './questionSize'
+import { Avatar } from '../../components/Avatar'
+import { Niveau } from '../../components/Niveau'
 
 interface Props {
   view: QuizPlayerView
@@ -302,8 +304,9 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           {v.podium?.map((p, i) => (
             <div key={i} className="lb-row" style={{ animationDelay: `${i * 120}ms` }}>
               <Rank n={i + 1} />
-              <span className="lb-avatar">{p.avatar}</span>
+              <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
               <span className="lb-name">{p.name}</span>
+              <Niveau niveau={p.niveau} />
               <span className="lb-score">{p.points}</span>
             </div>
           ))}

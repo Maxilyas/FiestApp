@@ -14,6 +14,7 @@ import { insertQuestions, moveQuestion, parseImportedQuestions } from '../../sha
 import { QuizStore } from '../src/core/quizStore'
 import { finalRanking, rankTeams } from '../../shared/teams'
 import { bestSample, clockOffset } from '../../shared/clock'
+import { XP, finitionsOuvertes, niveauPour, progression, xpDuNiveau } from '../../shared/profil'
 import { reviewFromDatabase, reviewFromServer, writeExport } from '../src/core/export'
 
 function fail(msg: string): never {
@@ -140,6 +141,24 @@ try {
   // Sans mesure précédente, la nouvelle s'impose : c'est ce qui permet à une
   // reconnexion de repartir propre si le téléphone s'est resynchronisé.
   assert(bestSample(null, lent) === lent, 'la première mesure d’une connexion fait autorité')
+
+  // 0 ter. Les niveaux. La courbe doit faire tomber les premiers dans la
+  //        soirée même — c'est ce qui donne envie de revenir — puis se calmer.
+  assert(niveauPour(0) === 1, 'on commence au niveau 1, jamais 0')
+  assert(niveauPour(-50) === 1, 'une expérience négative ne descend pas sous le niveau 1')
+  assert(xpDuNiveau(1) === 0, 'le niveau 1 ne coûte rien')
+  for (const n of [2, 5, 10, 20]) {
+    assert(niveauPour(xpDuNiveau(n)) === n, `le seuil du niveau ${n} doit donner le niveau ${n}`)
+    assert(niveauPour(xpDuNiveau(n) - 1) === n - 1, `un point sous le seuil du niveau ${n}, on y est pas encore`)
+  }
+  // Une soirée ordinaire : venu, trente questions, la moitié juste, pas de podium.
+  const soireeType = XP.presence + 30 * XP.parReponse + 15 * XP.parBonneReponse
+  assert(niveauPour(soireeType) >= 3, `une première soirée doit valoir au moins le niveau 3 (vu ${niveauPour(soireeType)})`)
+  assert(niveauPour(soireeType * 30) < 25, 'trente soirées ne doivent pas mener au bout du monde')
+  const barre = progression(xpDuNiveau(4) + 5)
+  assert(barre.niveau === 4 && barre.acquis === 5, 'la barre repart de zéro à chaque niveau')
+  assert(finitionsOuvertes(1).join() === 'mat', 'au niveau 1, seule la finition Mat')
+  assert(finitionsOuvertes(6).includes('or') && !finitionsOuvertes(6).includes('holo'), 'Or au niveau 6, Holo pas encore')
 
   // Réordonner : la question prend exactement le numéro demandé, qu'elle
   // monte ou qu'elle descende ; hors bornes, c'est « en tête » ou « à la fin ».
@@ -1824,7 +1843,206 @@ try {
   await chrono.close()
   rmSync(chronoDir, { recursive: true, force: true })
 
-  console.log('✅ Smoke test OK — 38 étapes')
+  // 33. Les profils des joueurs récurrents : inscription, rattachement, et
+  //     l'expérience d'une soirée.
+  //
+  //     Sur son propre serveur, comme le chronométrage : une soirée jouée de
+  //     bout en bout n'a pas à venir troubler les chiffres d'à côté.
+  const pDir = mkdtempSync(path.join(tmpdir(), 'quizz-profils-'))
+  const pSrv = await createQuizServer({
+    port: 0,
+    dbPath: path.join(pDir, 'local.db'),
+    admin: ADMIN,
+    quizDbUrl: `file:${path.join(pDir, 'quizzes.db').replace(/\\/g, '/')}`,
+  })
+  const pUrl = `http://localhost:${pSrv.port}`
+  const jCookie = (r: Response) => {
+    const m = /qz_joueur=([^;]+)/.exec(r.headers.get('set-cookie') ?? '')
+    assert(m, 'la réponse doit poser le cookie du joueur')
+    return `qz_joueur=${m[1]}`
+  }
+
+  // L'inscription rend le code de secours — la seule fois où il existe en
+  // clair. Pas d'adresse e-mail : aucune donnée personnelle, aucun envoi.
+  const insc = await write(pUrl, '/api/joueur/inscription', {
+    login: 'alice',
+    password: 'motdepasse1',
+    name: 'Alice',
+    avatar: '🦊',
+  })
+  assert(insc.status === 201, `inscription d’un profil (${insc.status})`)
+  const inscBody = (await insc.clone().json()) as any
+  assert(/^[A-Z0-9]{4}(-[A-Z0-9]{4}){3}$/.test(inscBody.recovery ?? ''), 'un code de secours lisible doit être rendu')
+  assert(inscBody.profile.niveau === 1 && inscBody.profile.xp === 0, 'un profil neuf est au niveau 1')
+  assert(inscBody.profile.ouvertes.join() === 'mat', 'au niveau 1, seule la finition Mat est portable')
+
+  assert(
+    (await write(pUrl, '/api/joueur/inscription', { login: 'alice', password: 'motdepasse1', name: 'A' })).status === 400,
+    'un identifiant déjà pris est refusé',
+  )
+  assert(
+    (await write(pUrl, '/api/joueur/connexion', { login: 'alice', password: 'faux' })).status === 401,
+    'un mauvais mot de passe est refusé',
+  )
+  // Sans cookie, ce n'est pas une erreur : c'est un invité anonyme, et
+  // l'écran d'inscription doit pouvoir demander sans rien afficher de fâcheux.
+  const sansProfil = (await (await fetch(`${pUrl}/api/joueur/moi`)).json()) as any
+  assert(sansProfil.profile === null, 'sans cookie, « moi » rend null sans broncher')
+
+  // Le code de secours se consomme, et on en rend un neuf : un code recopié
+  // une fois ne doit pas rester bon pour toujours.
+  const secours = await write(pUrl, '/api/joueur/secours', {
+    login: 'alice',
+    code: inscBody.recovery,
+    password: 'nouveaumdp1',
+  })
+  assert(secours.ok, 'le code de secours doit réinitialiser le mot de passe')
+  assert(
+    (await write(pUrl, '/api/joueur/secours', { login: 'alice', code: inscBody.recovery, password: 'encore12345' }))
+      .status === 400,
+    'un code de secours déjà consommé ne vaut plus rien',
+  )
+  const relog = await write(pUrl, '/api/joueur/connexion', { login: 'alice', password: 'nouveaumdp1' })
+  assert(relog.ok, 'le nouveau mot de passe doit ouvrir une session')
+  const aliceCookie = jCookie(relog)
+
+  // Un second profil, pour le cas du téléphone prêté.
+  const chloeCookie = jCookie(
+    await write(pUrl, '/api/joueur/inscription', {
+      login: 'chloe',
+      password: 'motdepasse2',
+      name: 'Chloé',
+      avatar: '🦉',
+    }),
+  )
+
+  const pCookie = await loginAs(pUrl, ADMIN.login, ADMIN.password)
+  const withJoueur = (cookie: string) => clientIo(pUrl, { transports: ['websocket'], extraHeaders: { Cookie: cookie } })
+
+  const aliceTel = withJoueur(aliceCookie)
+  const salut = await emitAck<any>(aliceTel, 'party:watch', { slug: SLUG })
+  assert(salut.ok && salut.profile?.name === 'Alice', 'la soirée salue un profil connecté avant même qu’il rejoigne')
+  const aliceIn = await emitAck<any>(aliceTel, 'player:join', { slug: SLUG, name: 'Alice', avatar: '🦊' })
+  assert(aliceIn.ok && aliceIn.profile?.niveau === 1, 'l’inscription à la soirée rend le profil')
+
+  // Un second téléphone sur le même profil reprend la même identité : sinon
+  // l'expérience du soir se compterait deux fois.
+  const aliceTablette = withJoueur(aliceCookie)
+  await emitAck(aliceTablette, 'party:watch', { slug: SLUG })
+  const encore = await emitAck<any>(aliceTablette, 'player:join', { slug: SLUG, name: 'Alice', avatar: '🦊' })
+  assert(encore.ok && encore.playerId === aliceIn.playerId, 'un second téléphone reprend le joueur du profil, sans doublon')
+  aliceTablette.disconnect()
+
+  // Un téléphone prêté, qui porte le jeton d'Alice mais un autre profil : on
+  // ne prend pas son joueur à Alice.
+  const prete = withJoueur(chloeCookie)
+  await emitAck(prete, 'party:watch', { slug: SLUG })
+  const chloeIn = await emitAck<any>(prete, 'player:join', {
+    slug: SLUG,
+    name: 'Chloé',
+    avatar: '🦉',
+    token: aliceIn.token,
+  })
+  assert(
+    chloeIn.ok && chloeIn.playerId !== aliceIn.playerId,
+    'un téléphone prêté ne prend pas le joueur de son propriétaire',
+  )
+
+  // Et un invité anonyme, qui doit traverser tout ça sans rien porter.
+  const anonyme = clientIo(pUrl, { transports: ['websocket'] })
+  await emitAck(anonyme, 'party:watch', { slug: SLUG })
+  const anonIn = await emitAck<any>(anonyme, 'player:join', { slug: SLUG, name: 'Bob', avatar: '🐸' })
+  assert(anonIn.ok && anonIn.profile === undefined, 'un invité anonyme ne reçoit aucun profil')
+
+  // Une soirée d'une question, jouée pour de vrai.
+  const pQuiz = (await (await write(pUrl, '/api/quizzes', { title: 'Une question' }, pCookie)).json()) as any
+  await write(
+    pUrl,
+    `/api/quizzes/${pQuiz.id}`,
+    {
+      title: 'Une question',
+      questions: [{ text: 'On y est ?', answers: ['Oui', 'Non', '', ''], correct: 0, duration: 20, image: null }],
+    },
+    pCookie,
+    'PUT',
+  )
+  const pHost = connectHost(pUrl, pCookie)
+  assert((await emitAck<any>(pHost, 'host:hello', {})).ok, 'l’écran commun du serveur des profils')
+  const pPick = waitFor<any>(pHost, 'session:view', p => p.view.phase === 'pickPack', 'liste du quiz des profils')
+  ;(pHost as any).emit('host:launch')
+  const pSession = (await pPick).sessionId
+  ;(pHost as any).emit('host:command', { sessionId: pSession, command: { type: 'selectPack', packId: pQuiz.id } })
+  await waitFor<any>(aliceTel, 'session:view', p => p.view.phase === 'question', 'la question des profils')
+  const finQuestion = waitFor<any>(pHost, 'session:view', p => p.view.phase === 'reveal', 'révélation des profils')
+  assert(
+    (await emitAck<any>(aliceTel, 'player:action', { sessionId: pSession, action: { type: 'answer', choice: 0 } })).ok,
+    'Alice répond juste',
+  )
+  assert(
+    (await emitAck<any>(anonyme, 'player:action', { sessionId: pSession, action: { type: 'answer', choice: 1 } })).ok,
+    'Bob répond faux',
+  )
+  assert(
+    (await emitAck<any>(prete, 'player:action', { sessionId: pSession, action: { type: 'answer', choice: 1 } })).ok,
+    'Chloé répond faux',
+  )
+  await finQuestion
+  ;(pHost as any).emit('host:endSession', { sessionId: pSession })
+
+  // Ranger la soirée : c'est là, et seulement là, que les profils sont
+  // crédités — juste avant que « Nouvelle soirée » puisse tout effacer.
+  const range = waitFor<any>(pHost, 'toast', () => true, 'la soirée rangée')
+  ;(pHost as any).emit('host:archiveParty', { title: 'Soirée des profils' })
+  await range
+  await new Promise(r => setTimeout(r, 400))
+
+  const profilDe = async (cookie: string) =>
+    (
+      (await (await fetch(`${pUrl}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any
+    ).profile
+  const aliceApres = await profilDe(aliceCookie)
+  const attendu = XP.presence + XP.parReponse + XP.parBonneReponse + XP.podium[0] + XP.vainqueurDeQuiz
+  assert(aliceApres.xp === attendu, `Alice doit gagner ${attendu} points d’expérience, elle en a ${aliceApres.xp}`)
+  assert(aliceApres.niveau === niveauPour(attendu), `son niveau doit suivre son expérience (${aliceApres.niveau})`)
+  // Chloé a joué et répondu, mais faux et sans podium : elle gagne moins.
+  const chloeApres = await profilDe(chloeCookie)
+  assert(
+    chloeApres.xp === XP.presence + XP.parReponse && chloeApres.xp < aliceApres.xp,
+    `Chloé gagne la présence et sa réponse, pas la justesse (${chloeApres.xp})`,
+  )
+
+  // Ranger deux fois ne double pas : la ligne est remplacée, pas ajoutée.
+  const rerange = waitFor<any>(pHost, 'toast', () => true, 'la soirée rangée deux fois')
+  ;(pHost as any).emit('host:archiveParty', { title: 'Soirée des profils' })
+  await rerange
+  await new Promise(r => setTimeout(r, 400))
+  assert((await profilDe(aliceCookie)).xp === attendu, 'ranger deux fois la même soirée ne crédite qu’une fois')
+
+  // Le niveau se voit de toute la salle — et l'anonyme ne porte toujours rien.
+  const temoin = clientIo(pUrl, { transports: ['websocket'] })
+  const vueSalle = waitFor<any>(temoin, 'party:snapshot', () => true, 'l’instantané du témoin')
+  await emitAck(temoin, 'party:watch', { slug: SLUG })
+  const salle = await vueSalle
+  const ligneAlice = salle.players.find((p: any) => p.id === aliceIn.playerId)
+  assert(
+    ligneAlice?.niveau === aliceApres.niveau && ligneAlice?.finition === 'mat',
+    `le niveau d’Alice doit voyager dans l’instantané (vu ${ligneAlice?.niveau})`,
+  )
+  const ligneBob = salle.players.find((p: any) => p.id === anonIn.playerId)
+  assert(
+    ligneBob && ligneBob.niveau === undefined && ligneBob.finition === undefined && ligneBob.eclat === undefined,
+    'un invité anonyme ne porte ni niveau, ni finition, ni éclat',
+  )
+
+  temoin.disconnect()
+  aliceTel.disconnect()
+  prete.disconnect()
+  anonyme.disconnect()
+  pHost.disconnect()
+  await pSrv.close()
+  rmSync(pDir, { recursive: true, force: true })
+
+  console.log('✅ Smoke test OK — 39 étapes')
   console.log(
     '   collage de questions, comptes et sessions, suppression d’un compte, garde-fous, isolation des espaces, quiz complet, bibliothèque,',
   )
@@ -1840,7 +2058,8 @@ try {
   console.log(
     '   statistiques et prix remis à la main, bilan question par question et export, anciennes adresses,',
   )
-  console.log('   reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d’une base d’avant les comptes')
+  console.log('   reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d’une base d’avant les comptes,')
+  console.log('   profils joueurs : inscription, code de secours, rattachement et expérience d’une soirée')
   process.exit(0)
 } catch (e) {
   fail((e as Error).message)

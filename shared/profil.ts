@@ -125,6 +125,34 @@ export function totalGain(g: GainSoiree): number {
   return g.presence + g.reponses + g.justesse + g.podium + g.quiz
 }
 
+/**
+ * Ce qu'un profil ajoute à une ligne d'écran — classement, podium, pastille.
+ *
+ * Les trois champs sont facultatifs et restent ABSENTS pour un invité
+ * anonyme : ni « Niv. 0 », ni pastille grise, ni finition neutre. Une salle
+ * est toujours à moitié anonyme, et elle ne doit rien lire qui ressemble à un
+ * rang inférieur. L'absence, pas l'infériorité.
+ */
+export interface Distinctions {
+  niveau?: number
+  finition?: Finition
+  eclat?: boolean
+}
+
+/**
+ * Recopie les distinctions d'un joueur sur une ligne d'affichage, en n'y
+ * posant que ce qui existe — une ligne d'anonyme reste nue, et l'instantané
+ * qui part à toute la salle n'en porte pas le poids.
+ */
+export function distinctions(source: Distinctions | undefined | null): Distinctions {
+  if (!source) return {}
+  return {
+    ...(source.niveau !== undefined && { niveau: source.niveau }),
+    ...(source.finition && { finition: source.finition }),
+    ...(source.eclat && { eclat: true }),
+  }
+}
+
 /** Le profil tel que les écrans le voient. Jamais de haché, jamais de jeton. */
 export interface PublicProfile {
   id: string
