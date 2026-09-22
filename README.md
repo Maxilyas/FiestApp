@@ -290,10 +290,12 @@ Deux comptes gratuits à créer (je ne peux pas le faire à ta place) :
 | Variable | Valeur |
 |---|---|
 | `ADMIN_LOGIN` | ton identifiant de connexion |
-| `ADMIN_PASSWORD` | ton mot de passe d'amorçage — en ligne, le serveur refuse de démarrer avec celui par défaut. Il ne sert qu'à créer le compte : change-le depuis « Mon compte », puis retire la variable |
+| `ADMIN_PASSWORD` | ton mot de passe d'amorçage. Il ne sert qu'à créer le compte, sur une base encore vide — et en ligne, celui par défaut y est refusé. Change-le ensuite depuis « Mon compte », puis retire la variable : le serveur redémarre très bien sans |
 | `ADMIN_SLUG` | le nom de ton espace dans les adresses (`romane`) |
-| `QUIZ_DB_URL` | l'URL `libsql://…` de Turso |
+| `QUIZ_DB_URL` | l'URL `libsql://…` de Turso — sans elle, le serveur refuse de démarrer : le disque de Render s'efface à chaque réveil |
 | `QUIZ_DB_TOKEN` | le jeton Turso |
+
+Un service créé à la main plutôt que par le blueprint reprend les deux commandes de `render.yaml` : `npm ci && npm run build` pour construire, `cd server && exec node --import tsx src/index.ts` pour démarrer. Pas `npm start` : npm garde pour lui le signal d'arrêt, et l'arrêt propre, qui recopie les dernières réponses dans Turso, ne s'exécute jamais.
 
 L'adresse publique du QR code se règle toute seule : Render fournit `RENDER_EXTERNAL_URL`, le serveur s'en sert et y ajoute le nom de l'espace.
 
@@ -311,6 +313,14 @@ Un service de ping extérieur (cron-job.org, UptimeRobot…) ferait le même tra
 
 Si tu préfères un hébergeur qui ne dort jamais, Northflank propose deux services toujours actifs sur son offre gratuite — mais il demande une carte pour vérifier le compte, ce que Render ne fait pas.
 
+**5. Sauvegarder.** Tout le précieux tient dans une seule base Turso : une copie chez soi, la veille de chaque fête et le lendemain.
+
+```bash
+npm run sauvegarde -- libsql://ta-base.turso.io --token ton-jeton
+```
+
+Un fichier SQL daté dans `export/sauvegardes/` — toutes les tables, photos comprises —, qui se restaure dans une base neuve (`turso db shell nouvelle-base < fichier.sql`, ou `sqlite3`). Il contient les comptes : il se garde comme un secret. Restauration, historique de Turso et mode d'emploi du serveur qui tombe en pleine partie : [MISE-EN-LIGNE.md](MISE-EN-LIGNE.md).
+
 ## Le repli : tout en local
 
 Si la salle capte mal ou si l'hébergeur fait des siennes, le même code tourne sur ton PC avec un routeur wifi. Renseigne alors `WIFI_SSID`/`WIFI_PASS` : l'écran commun affiche **deux QR codes** (1️⃣ rejoindre le wifi, 2️⃣ ouvrir le quiz).
@@ -319,12 +329,12 @@ Si la salle capte mal ou si l'hébergeur fait des siennes, le même code tourne 
 |---|---|---|
 | `PORT` | `3001` | Port du serveur |
 | `ADMIN_LOGIN` | `antoine` | L'identifiant de l'administrateur — utilisé au premier démarrage seulement, pour créer son compte |
-| `ADMIN_PASSWORD` | `romane` | Son mot de passe d'amorçage — obligatoire en ligne (le défaut y est refusé), à changer puis retirer |
+| `ADMIN_PASSWORD` | `romane` | Son mot de passe d'amorçage — en ligne, exigé et différent du défaut tant que la base n'a aucun compte ; à changer puis retirer |
 | `ADMIN_SLUG` | `romane` | Le nom de son espace dans les adresses |
 | `ADMIN_NAME` | `Antoine` | Son prénom, tel qu'affiché |
-| `MAX_PLAYERS` | `500` | Plafond d'invités par soirée, au-dessus du réglage de chaque espace (150 par défaut) |
+| `MAX_PLAYERS` | `500` | Plafond d'invités par soirée, au-dessus du réglage de chaque espace (150 par défaut). Sur l'offre gratuite de Render, pas au-delà de 150 environ : le coût des diffusions grandit plus vite que la salle |
 | `DB_PATH` | `server/data/quizz.db` | Base de la partie en cours (jetable) |
-| `QUIZ_DB_URL` | fichier voisin de `DB_PATH` | Base permanente : `file:...` ou `libsql://...` (Turso) |
+| `QUIZ_DB_URL` | fichier voisin de `DB_PATH` | Base permanente : `file:...` ou `libsql://...` (Turso). En ligne, obligatoire : sans elle, le serveur refuse de démarrer |
 | `QUIZ_DB_TOKEN` | — | Jeton Turso, si base distante |
 | `PUBLIC_URL` | `RENDER_EXTERNAL_URL` | URL publique à mettre dans le QR code |
 | `WIFI_SSID` / `WIFI_PASS` | — | Si définis : QR « rejoindre le wifi » sur l'écran commun |

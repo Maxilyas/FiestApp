@@ -29,7 +29,7 @@ Garde ces valeurs sous la main — un fichier texte, un gestionnaire de mots de 
 | Adresse des invités | l'adresse publique + `/` + ton espace — c'est le QR | `https://quizz-romane-30.onrender.com/romane` |
 | Adresse de l'écran commun | l'adresse publique + `/host`, une fois connecté | |
 
-⚠️ **Le mot de passe d'amorçage ne sert qu'une fois.** Au premier démarrage, le serveur crée ton compte avec ; ensuite il ne le relit plus. Connecte-toi, change-le depuis **Mon compte**, puis retire `ADMIN_PASSWORD` des variables de Render. Choisis autre chose que `romane` : en ligne, le serveur refuse de démarrer avec le mot de passe par défaut. Rien ne passe jamais par la barre d'adresse : tu peux projeter l'écran commun sans crainte.
+⚠️ **Le mot de passe d'amorçage ne sert qu'une fois.** Au premier démarrage, sur une base encore vide, le serveur crée ton compte avec ; ensuite il ne le relit plus. Connecte-toi, change-le depuis **Mon compte**, puis retire `ADMIN_PASSWORD` des variables de Render : les démarrages suivants s'en passent — et sur l'offre gratuite, chaque réveil en est un. Choisis autre chose que `romane` : en ligne, tant que la base n'a aucun compte, le serveur refuse de démarrer sans mot de passe ou avec celui par défaut. Rien ne passe jamais par la barre d'adresse : tu peux projeter l'écran commun sans crainte.
 
 ---
 
@@ -70,12 +70,21 @@ Sur [render.com](https://render.com) : crée un compte, puis **New → Blueprint
 | `ADMIN_LOGIN` | ton identifiant |
 | `ADMIN_PASSWORD` | ton mot de passe d'amorçage |
 | `ADMIN_SLUG` | le nom de ton espace (`romane`) |
-| `QUIZ_DB_URL` | l'URL Turso de l'étape 2 |
+| `QUIZ_DB_URL` | l'URL Turso de l'étape 2 — sans elle, le serveur refuse de démarrer : le disque de Render s'efface à chaque réveil, et tout ce qui y serait écrit disparaîtrait |
 | `QUIZ_DB_TOKEN` | le jeton de l'étape 2 |
+
+Le blueprint règle aussi les deux commandes du service. Si tu le crées à la main (**New → Web Service**), recopie-les depuis `render.yaml` :
+
+| Réglage | Valeur |
+|---|---|
+| Build Command | `npm ci && npm run build` |
+| Start Command | `cd server && exec node --import tsx src/index.ts` |
+
+Surtout pas `npm start` : npm garde pour lui le signal d'arrêt de Render, et l'arrêt propre — celui qui recopie les dernières réponses dans Turso avant de s'éteindre — ne s'exécute jamais.
 
 Deux à trois minutes de construction, et Render t'affiche ton adresse publique. Au premier démarrage, le serveur crée ton compte et, si la base contenait déjà des quiz ou des soirées d'avant les comptes, il te les rattache — regarde le journal : « administrateur créé », « lignes d'avant les comptes rattachées ». L'adresse apparaîtra automatiquement dans le QR code, suivie du nom de ton espace — rien à configurer de plus.
 
-**Ensuite, tout de suite :** ouvre `https://TON-ADRESSE.onrender.com/connexion`, connecte-toi, va dans **Mon compte**, change ton mot de passe, puis retire `ADMIN_PASSWORD` des variables de Render.
+**Ensuite, tout de suite :** ouvre `https://TON-ADRESSE.onrender.com/connexion`, connecte-toi, va dans **Mon compte**, change ton mot de passe, puis retire `ADMIN_PASSWORD` des variables de Render. Le redémarrage qui suit se fait très bien sans.
 
 ### Étape 4 — Transférer tes quiz vers Turso
 
@@ -140,8 +149,8 @@ Une soirée est un coup unique — on ne débogue pas pendant la fête. D'où un
 > - **Supprime les copies, et le blueprint qui les a créées** — sinon la synchronisation suivante les refait.
 > - **Ce qui décide du nom à garder, c'est l'adresse déjà partagée.** Le nom fait l'adresse publique : une copie suffixée n'est pas au même endroit. Tant qu'un QR est imprimé ou qu'un lien circule, le nom ne se touche pas — `jour-j/qr-tables-*.pdf` encodent `https://quizz-romane-30.onrender.com`, et sous un autre nom chacun de ces QR ne mène nulle part. Une fois la fête passée, la contrainte tombe : c'est le bon moment pour renommer, en laissant cette fois le blueprint créer les services lui-même.
 > - **Le service, lui, est jetable.** Tout le précieux vit dans Turso ; en supprimer un et le recréer ne perd rien tant que `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` repointent sur la même base. La seule chose à ne jamais supprimer, c'est la base Turso.
-> - **Regarde `QUIZ_DB_URL` des copies avant de les supprimer.** Si l'une pointe vers la base Turso de production, elle a pu y écrire : c'est la seule chose vraiment fâcheuse ici. Si le formulaire du blueprint a été passé sans rien remplir, elles n'ont même pas démarré — le serveur refuse de se lancer en ligne sans `ADMIN_PASSWORD`, et leur journal dit « ❌ ADMIN_PASSWORD manquant ». Rien n'a alors été touché.
-> - **Sans blueprint, `render.yaml` est de la documentation.** Les deux services se règlent alors chacun sur son tableau de bord : déploiement automatique **activé** en préproduction, **désactivé** en production (*Settings → Auto-Deploy*), et les variables saisies à la main. Le fichier reste la référence de ce qu'ils doivent contenir.
+> - **Regarde `QUIZ_DB_URL` des copies avant de les supprimer.** Si l'une pointe vers la base Turso de production, elle a pu y écrire : c'est la seule chose vraiment fâcheuse ici. Si le formulaire du blueprint a été passé sans rien remplir, elles n'ont même pas démarré — le serveur refuse de se lancer en ligne sans `QUIZ_DB_URL`, et leur journal dit « ❌ QUIZ_DB_URL manquant ». Rien n'a alors été touché.
+> - **Sans blueprint, `render.yaml` est de la documentation.** Les deux services se règlent alors chacun sur son tableau de bord : déploiement automatique **activé** en préproduction, **désactivé** en production (*Settings → Auto-Deploy*), les variables saisies à la main, et les deux commandes recopiées dans *Settings → Build & Deploy* — `npm ci && npm run build` pour construire, `cd server && exec node --import tsx src/index.ts` pour démarrer. Change-les d'abord sur la préproduction : un déploiement, un réveil, une partie ; la production ensuite. Le fichier reste la référence de ce qu'ils doivent contenir.
 
 > 🚨 **La règle absolue : jamais la même base Turso pour les deux.** Un « Nouvelle soirée » ou une suppression de compte en préproduction effacerait de vraies soirées archivées — c'est le seul geste sans retour de l'application. Pour qu'on ne s'y trompe jamais, la préproduction affiche un **bandeau rouge « PREPROD »** en bas à gauche de toutes ses pages, et le préfixe dans l'onglet du navigateur.
 
@@ -223,7 +232,7 @@ Test de charge complet : 50 invités, un quiz joué de bout en bout, et les temp
 npm run migrate -- --to libsql://TON-URL.turso.io --token TON-JETON
 ```
 
-Vers un autre espace que le tien : ajoute `--slug chez-bob`.
+Vers un autre espace que le tien : ajoute `--slug chez-bob`. Tes quiz restent à toi : si tu les as déjà transférés chez toi, Bob en reçoit des copies, photos comprises, et relancer la commande met ses copies à jour sans en créer d'autres.
 
 ### Exporter la soirée (le lendemain)
 
@@ -232,6 +241,36 @@ npm run export -- https://TON-ADRESSE.onrender.com --slug romane
 ```
 
 Écrit dans `export/romane/` le bilan complet (`bilan.json`) et trois fichiers Excel : une ligne par invité avec une colonne par question, une ligne par question, une ligne par équipe. Si le serveur ne répond plus : `npm run export -- --db libsql://TON-URL.turso.io --token TON-JETON --slug romane`.
+
+### Sauvegarder la base permanente
+
+Tout le précieux tient dans une seule base Turso : comptes, quiz, photos, soirées archivées, profils. Une fausse manœuvre — un « Nouvelle soirée » sur la mauvaise base, un compte supprimé — et c'est sans retour. D'où une copie chez toi, à faire **la veille de chaque fête et le lendemain** :
+
+```bash
+npm run sauvegarde -- libsql://TON-URL.turso.io --token TON-JETON
+```
+
+Écrit dans `export/sauvegardes/` un fichier SQL daté (`quizz-romane-xxx-2026-09-19-231502.sql`) : toutes les tables, chaque ligne, les photos comprises. Il contient les comptes — mots de passe hachés, mais tout de même : garde-le comme un secret, jamais dans le dépôt (`export/` est ignoré par git). Lance-la hors soirée : elle lit la base table après table, pas d'un seul instantané.
+
+**Restaurer**, toujours dans une base **neuve**, jamais par-dessus l'ancienne :
+
+```bash
+turso db create quizz-restauree
+```
+
+```bash
+turso db shell quizz-restauree < export/sauvegardes/quizz-romane-xxx-2026-09-19-231502.sql
+```
+
+Puis crée-lui un jeton, et pointe `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` du service dessus. Sans Turso, `sqlite3 restauree.db < export/sauvegardes/….sql` en fait un fichier qu'un PC sert tel quel (`QUIZ_DB_URL=file:` suivi de son chemin complet). Ces deux commandes se tapent dans un terminal bash — WSL ou Git Bash sous Windows : PowerShell ne connaît pas `<`.
+
+**Turso garde aussi un historique**, sans fichier à faire : il sait recréer la base telle qu'elle était à un instant donné, dans une base neuve.
+
+```bash
+turso db create quizz-restauree --from-db quizz-romane --timestamp 2026-09-19T22:00:00+02:00
+```
+
+Jusqu'où il remonte dépend du forfait : relève-le sur [turso.tech/pricing](https://turso.tech/pricing), ligne « Point-in-Time Recovery ». Au-delà de cette fenêtre, il ne reste que les fichiers de `npm run sauvegarde`.
 
 ### Repli : tout faire tourner sur ton PC
 
@@ -272,8 +311,9 @@ Avec un routeur wifi sans internet, renseigne `WIFI_SSID` et `WIFI_PASS` : l'éc
 9. Un pseudo malheureux ? Clique dessus dans la liste des invités pour le renommer, ou sur la croix pour exclure.
 10. À la fin : **🏆 Podium de la soirée** — il affiche aussi le plus beau coup, le plus régulier et le vainqueur de chaque quiz, de quoi remettre plusieurs cadeaux. Fais scanner le QR de la page souvenir.
 11. Entre deux quiz, le classement de la soirée reste affiché et **se cumule**.
-12. **Le lendemain** : poste le lien `https://TON-ADRESSE.onrender.com/romane/bilan` dans le groupe — chacun y relit ses réponses question par question, et « La soirée » raconte le reste ; le fil sous le titre mène au souvenir (podium, palmarès et tous les chiffres) et à l'historique. `/romane/bilan/fiches` imprime une fiche par invité, `npm run export` garde tout en fichiers.
-13. **Ranger la soirée** : sur l'écran commun, **Sauvegarder** la met dans l'historique sous son nom, sans rien effacer. Elle se relit ensuite pour toujours sur `/romane/soirees`, souvenir (chiffres compris) et bilan compris — même après **🧹 Nouvelle soirée** pour la fête suivante, qui l'archive de toute façon avant d'effacer. Ne retouche pas les quiz joués avant de l'avoir rangée.
+12. **En fin de fête, avant de partir — Sauvegarder** : sur l'écran commun, **Sauvegarder** range la soirée dans l'historique sous son nom, sans rien effacer. N'attends pas le lendemain : le dernier invité parti, Render s'endort et son disque s'efface, et le bilan du lendemain se reconstruit alors depuis le miroir — sans la copie exacte des quiz joués, qui ne vivait que sur ce disque. Un quiz retouché depuis s'y lirait de travers. Et les badges des profils ne se décernent qu'au rangement.
+13. **Le lendemain** : poste le lien `https://TON-ADRESSE.onrender.com/romane/bilan` dans le groupe — chacun y relit ses réponses question par question, et « La soirée » raconte le reste ; le fil sous le titre mène au souvenir (podium, palmarès et tous les chiffres) et à l'historique. `/romane/bilan/fiches` imprime une fiche par invité, `npm run export` garde tout en fichiers.
+14. **La soirée rangée** se relit ensuite pour toujours sur `/romane/soirees`, souvenir (chiffres compris) et bilan compris — même après **🧹 Nouvelle soirée** pour la fête suivante, qui l'archive de toute façon avant d'effacer. Ne retouche pas les quiz joués avant de l'avoir rangée.
 
 Les retardataires rejoignent en cours de partie : ils jouent les questions suivantes, sans rattraper les précédentes.
 
@@ -286,7 +326,9 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 | Page blanche ~1 min au premier scan | serveur endormi (offre gratuite, 15 min sans trafic) | attendre le réveil ; la prochaine fois, ouvrir l'écran commun cinq minutes avant |
 | « Identifiant ou mot de passe incorrect » | faute de frappe, ou le mot de passe d'amorçage a été changé depuis « Mon compte » | réessayer ; pour un ami, refaire un lien d'activation depuis `/admin` |
 | « Trop d'essais — réessaie dans un quart d'heure » | cinq échecs de suite sur un identifiant, ou vingt depuis la même adresse | attendre quinze minutes ; c'est le garde-fou contre la force brute |
-| Le serveur refuse de démarrer : « ADMIN_PASSWORD manquant » | mot de passe par défaut en ligne | définir `ADMIN_PASSWORD` sur Render (il ne sert qu'au premier démarrage) |
+| Le serveur refuse de démarrer : « ADMIN_PASSWORD manquant » | premier démarrage sur une base Turso sans aucun compte, et mot de passe absent ou laissé à celui par défaut | définir `ADMIN_PASSWORD` sur Render le temps de ce démarrage ; une fois le compte créé, la variable peut partir |
+| Le serveur refuse de démarrer : « QUIZ_DB_URL manquant » | le service n'a pas de base permanente : il écrirait sur un disque qui s'efface à chaque réveil | renseigner `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` — la base de CE service, production ou préproduction |
+| Le serveur refuse de démarrer : « Base permanente injoignable » | adresse ou jeton faux, jeton révoqué, base supprimée, Turso en panne — le détail suit le message | vérifier `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` sur la page de la base Turso ; au besoin, un jeton neuf (étape 2) |
 | L'écran commun demande de se connecter | pas de session sur ce navigateur, ou session fermée (déconnexion, mot de passe changé, compte désactivé ou supprimé) | se reconnecter |
 | « Cette adresse ne mène à aucune soirée » | le nom d'espace de l'adresse n'existe pas (faute de frappe, compte désactivé ou supprimé) | vérifier l'adresse dans « Mon compte » ; scanner le QR de l'écran |
 | Aucun quiz proposé au lancement | la bibliothèque de cet espace est vide | écrire un quiz dans `/edit`, ou relancer la migration (étape 4) pour le tien |
@@ -295,10 +337,26 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 | Téléphone bloqué sur « reconnexion… » | réseau du téléphone | il se reconnecte tout seul, son score est conservé |
 | Quiz modifié en ligne puis écrasé | migration relancée après coup | une fois en ligne, n'écris plus qu'en ligne |
 | Les scores des essais sont encore là | la sauvegarde distante les a gardés | **🧹 Nouvelle soirée** sur l'écran commun — elle archive d'abord ; retire ensuite l'archive des essais sur `/romane/soirees` |
-| « La soirée est complète » | plus d'inscrits que le réglage de l'espace (150 par défaut ; les essais comptent) | **🧹 Nouvelle soirée**, ou relever « Invités au plus » dans « Mon compte » |
+| « La soirée est complète » | plus d'inscrits que le réglage de l'espace (150 par défaut ; les essais comptent) | **🧹 Nouvelle soirée**, ou relever « Invités au plus » dans « Mon compte » — mais sur l'offre gratuite, pas au-delà de 150 environ : le coût des diffusions grandit plus vite que la salle, et au-delà l'instance ne suit plus. `MAX_PLAYERS=150` dans les variables de Render l'impose à tous les espaces |
 | « Trop d'inscriptions d'un coup » | plus de 25 inscriptions depuis une même adresse en quelques secondes | attendre une minute ; c'est le garde-fou contre les robots |
 | Le bilan dit « intitulé non retrouvé » ou « quiz modifié depuis » | le quiz joué a été supprimé, renommé ou retouché dans `/edit` avant que la soirée soit rangée dans l'historique | remettre le quiz comme il était (même titre, mêmes questions dans le même ordre) ; les points et les numéros, eux, sont intacts |
 | Une soirée manque sur `/romane/soirees` | elle n'a pas été sauvegardée avant **🧹 Nouvelle soirée** (versions antérieures) | rien à récupérer côté serveur ; les fichiers de `npm run export`, s'ils ont été faits, la gardent |
 | Un vieux lien `/bilan` ou `/soirees/…` | l'adresse d'avant les comptes | elle redirige toute seule vers ton espace ; rien à faire |
 
 Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours est recopiée toutes les deux secondes dans la base distante, elle reprend là où elle en était (au pire, deux secondes de réponses en moins), les scores sont intacts et les téléphones se reconnectent seuls — pour chaque espace.
+
+### Le serveur tombe en pleine partie, et ne revient pas
+
+Render en panne, ou un redémarrage qui échoue en boucle : la soirée n'est pas perdue, elle est dans Turso. Elle repart d'un PC, dans cet ordre :
+
+1. **Suspendre le service Render** (tableau de bord → *Settings* → *Suspend Web Service*). Jamais deux serveurs qui écrivent dans la même base : celui de Render, s'il revenait tout seul, repartirait d'une soirée que le PC aurait déjà fait avancer.
+2. **Lancer le serveur sur le PC avec la base de production** — le client compilé (`npm run build`), puis, dans PowerShell :
+
+   ```powershell
+   $env:QUIZ_DB_URL="libsql://TON-URL.turso.io"; $env:QUIZ_DB_TOKEN="TON-JETON"; $env:DB_PATH="$env:TEMP\quizz-secours.db"; npm start
+   ```
+
+   Il recharge invités, points et partie en cours depuis le miroir — à condition de partir d'une base locale **vide** : c'est pour ça que `DB_PATH` pointe vers un fichier neuf, et non vers celle de tes essais, qui ferait autorité.
+3. **Faire rescanner le QR de l'écran commun** : ouvre `http://localhost:3001/host` sur le vidéoprojecteur, connecte-toi, et le QR montre la nouvelle adresse (celle du PC, sur le wifi de la salle — voir « Repli » plus haut pour le pare-feu). Qui a un profil le retrouve en s'y connectant, points compris ; un invité anonyme, lui, repart sous une nouvelle identité — ses points restent au classement, sous l'ancienne.
+
+La fête finie, **Sauvegarder** depuis l'écran du PC, puis relance le service Render : il repartira du miroir, où le PC a tout écrit.
