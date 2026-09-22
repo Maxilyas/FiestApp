@@ -768,6 +768,16 @@ export class ProfileStore {
     return neufs
   }
 
+  /**
+   * Referme la connexion à la base permanente, comme les quatre autres
+   * magasins. Le serveur qui s'arrêtait l'oubliait : la base restait ouverte
+   * jusqu'à la sortie du processus, et chaque redémarrage d'un test en
+   * laissait une de plus derrière lui.
+   */
+  close() {
+    this.client.close()
+  }
+
   // ── Internes ────────────────────────────────────────────────────────────
 
   private async require(id: string): Promise<ProfileRec> {

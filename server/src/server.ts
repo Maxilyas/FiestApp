@@ -504,6 +504,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
           auth.close()
           // Les écritures distantes en vol doivent aboutir avant de couper.
           await backup.close()
+          // Les profils juste après le miroir, et pas avant : un crédit
+          // d'expérience parti avec la fin du dernier quiz garde ainsi le même
+          // sursis qu'avant pour aboutir. On ne le refermait jamais.
+          profiles.close()
           resolve()
         })
       }),

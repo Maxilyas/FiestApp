@@ -4,7 +4,9 @@
 //
 // · un « 4 » sur l'écran commun pour un troisième ex æquo, un bilan qui ne
 //   nommait qu'un vainqueur sur deux, deux cartes pour un même quiz gagné ;
-// · un « � » au bout d'un nom d'équipe ou d'une unité.
+// · un « � » au bout d'un nom d'équipe ou d'une unité ;
+// · un export pendu cinq minutes devant une base muette, et un magasin que
+//   l'arrêt du serveur ne refermait jamais.
 //
 // Chaque test échouait avant sa correction. Les pages du client se vérifient
 // par leur rendu HTML : deux de ces bogues n'existaient qu'à l'affichage, et
@@ -12,13 +14,18 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
+import { createServer, type Server } from 'node:http'
+import type { AddressInfo, Socket as TcpSocket } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { demarrer } from './banc'
 import { quizModule } from '../src/games/quiz'
 import { buildReview } from '../src/core/review'
 import { buildRecap } from '../src/core/recap'
 import { initDb } from '../src/core/db'
 import { Teams } from '../src/core/teams'
+import { reviewFromDatabase } from '../src/core/export'
+import { ProfileStore } from '../src/auth/profiles'
 import type { AnswerRow } from '../src/core/answers'
 import type { ScoreEntry } from '../src/core/scores'
 import { toPlayable, type QuizQuestionDef } from '../../shared/library'
@@ -303,4 +310,62 @@ test('l’unité d’une estimation jouée se coupe entre deux caractères', () 
   assert.equal(unite(`p${'🍕'.repeat(6)}`), `p${'🍕'.repeat(6)}`, 'sept caractères tiennent dans douze')
   assert.equal(unite(`parts de ${'🍕'.repeat(4)}`), `parts de ${'🍕'.repeat(3)}`, 'le treizième part entier')
   assert.ok(!DEMI_CARACTERE.test(unite(`parts de ${'🍕'.repeat(4)}`)))
+})
+
+// ── 4. L'export devant une base muette ────────────────────────────────────
+
+test('l’export depuis une base muette échoue dans le délai, au lieu d’attendre cinq minutes', async () => {
+  // Une fausse base Turso qui accepte la connexion et ne répond jamais : la
+  // panne qu'on a mesurée, 301 secondes d'attente sans un mot.
+  const ouvertes = new Set<TcpSocket>()
+  const base: Server = createServer(() => {})
+  base.on('connection', s => ouvertes.add(s))
+  await new Promise<void>(r => base.listen(0, '127.0.0.1', r))
+  const { port } = base.address() as AddressInfo
+  try {
+    const debut = Date.now()
+    const issue = await Promise.race([
+      reviewFromDatabase(`http://127.0.0.1:${port}`, 'jeton-essai', { slug: 'fete' }).then(
+        () => 'répondu',
+        (e: unknown) => e,
+      ),
+      new Promise(r => setTimeout(() => r('toujours en attente'), 15_000)),
+    ])
+    assert.ok(issue instanceof Error, `l’export devait échouer dans le délai ; il est : ${String(issue)}`)
+    assert.match(issue.message, /n’a pas répondu/, 'un message qui dit ce qui se passe')
+    assert.ok(Date.now() - debut < 14_000, `échec attendu en ~10 s, arrivé en ${Date.now() - debut} ms`)
+  } finally {
+    for (const s of ouvertes) s.destroy()
+    await new Promise(r => base.close(r))
+  }
+})
+
+// ── 5. Le magasin des profils se referme ──────────────────────────────────
+
+test('le magasin des profils se ferme, et l’arrêt du serveur le ferme', async () => {
+  await dansUnDossier(async dir => {
+    const profils = new ProfileStore(`file:${path.join(dir, 'permanente.db').replace(/\\/g, '/')}`)
+    await profils.init()
+    const fermer = (profils as any).close
+    assert.equal(typeof fermer, 'function', 'ProfileStore.close() doit exister')
+    fermer.call(profils)
+    await assert.rejects(profils.byLogin('personne'), /closed/i, 'un magasin fermé ne lit plus la base')
+  })
+
+  // Le serveur qui s'arrête le ferme, à côté des comptes.
+  const prototype = ProfileStore.prototype as any
+  const origine = prototype.close
+  let fermetures = 0
+  prototype.close = function (this: unknown) {
+    fermetures++
+    return origine?.call(this)
+  }
+  try {
+    const banc = await demarrer()
+    await banc.close()
+  } finally {
+    if (origine) prototype.close = origine
+    else delete prototype.close
+  }
+  assert.equal(fermetures, 1, 'createQuizServer().close() ferme le magasin des profils')
 })

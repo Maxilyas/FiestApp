@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { createClient } from '@libsql/client'
+import { clientDistant, type Client } from './distante'
 import { QuizStore } from './quizStore'
 import { toRow } from './answers'
 import { buildReview } from './review'
@@ -52,7 +52,10 @@ export async function reviewFromServer(base: string, target: ExportTarget = {}):
  * la bibliothèque pour retrouver les intitulés.
  */
 export async function reviewFromDatabase(dbUrl: string, token?: string, target: ExportTarget = {}): Promise<Review> {
-  const client = createClient({ url: dbUrl, authToken: token })
+  // Avec le délai des magasins : c'est le jour où le serveur ne répond plus
+  // qu'on exporte depuis la base, et une base muette faisait alors attendre
+  // le script cinq minutes sans un mot, dès la première requête.
+  const client = clientDistant(dbUrl, token)
   const spaceId = await resolveSpace(client, target.slug)
   // Une soirée archivée est déjà complète : ses questions voyagent avec elle.
   if (target.archiveId) {
@@ -129,7 +132,7 @@ export async function reviewFromDatabase(dbUrl: string, token?: string, target: 
 }
 
 /** L'identifiant de l'espace derrière un nom d'adresse — ou l'espace par défaut. */
-async function resolveSpace(client: ReturnType<typeof createClient>, slug?: string): Promise<string> {
+async function resolveSpace(client: Client, slug?: string): Promise<string> {
   if (slug) {
     const res = await client.execute({ sql: 'SELECT id FROM accounts WHERE slug = ?', args: [slug] })
     if (!res.rows[0]) throw new Error(`Aucun espace « ${slug} »`)
