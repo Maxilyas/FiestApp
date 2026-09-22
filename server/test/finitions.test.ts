@@ -1,0 +1,234 @@
+// Les suites de la première vague : ce que les chantiers précédents avaient
+// laissé hors de leur périmètre. Chaque point est petit, et chacun mentait à
+// la salle ou lâchait l'animateur :
+//
+// · un « 4 » sur l'écran commun pour un troisième ex æquo, un bilan qui ne
+//   nommait qu'un vainqueur sur deux, deux cartes pour un même quiz gagné.
+//
+// Chaque test échouait avant sa correction. Les pages du client se vérifient
+// par leur rendu HTML : deux de ces bogues n'existaient qu'à l'affichage, et
+// c'est l'affichage que la salle lit.
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { quizModule } from '../src/games/quiz'
+import { buildReview } from '../src/core/review'
+import { buildRecap } from '../src/core/recap'
+import type { AnswerRow } from '../src/core/answers'
+import type { ScoreEntry } from '../src/core/scores'
+import type { PublicPlayer } from '../../shared/types'
+
+// ── Le rendu des pages ────────────────────────────────────────────────────
+
+/**
+ * Charge un module du client, tel que la page le compile.
+ *
+ * Les composants sont écrits pour le navigateur. tsx les compile ici avec les
+ * réglages du serveur, qui ne connaît pas le JSX : il le traduit en
+ * `React.createElement`, d'où le React posé sur l'objet global. Le chemin est
+ * calculé pour que le typecheck du serveur ne relise pas le client — celui-ci
+ * a le sien.
+ */
+async function moduleDuClient(fichier: string): Promise<any> {
+  Object.assign(globalThis, { React: (await import('react')).default })
+  return import(new URL(`../../client/src/${fichier}.tsx`, import.meta.url).href)
+}
+
+/** Le HTML qu'un composant du client produit : ce que la salle lirait. */
+async function rendu(fichier: string, composant: string, props: object): Promise<string> {
+  const module = await moduleDuClient(fichier)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const React = (await import('react')).default
+  return renderToStaticMarkup(React.createElement(module[composant], props))
+}
+
+/** Le texte d'un rendu, balises remplacées par des blancs : ce que l'œil lit. */
+const texteDe = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+
+// ── 1. Le podium de l'écran commun ────────────────────────────────────────
+
+/** Une fin de quiz jouée par ces invités, avec ces totaux — l'état tel que le module le garde. */
+function finDeQuiz(totaux: Record<string, number>, noms: Record<string, string>) {
+  // Le mémo d'une diffusion, comme le moteur le pose : né avec elle.
+  const memo = new Map<string, unknown>()
+  const vctx = {
+    playerName: (id: string) => noms[id],
+    player: (id: string): PublicPlayer => ({
+      id,
+      name: noms[id],
+      avatar: '🦊',
+      connected: true,
+      score: totaux[id],
+      teamId: null,
+    }),
+    memo: <T>(cle: string, calculer: () => T): T => {
+      if (!memo.has(cle)) memo.set(cle, calculer())
+      return memo.get(cle) as T
+    },
+  }
+  const sess = {
+    id: 'fin',
+    spaceId: 'podium',
+    status: 'running' as const,
+    participantIds: Object.keys(totaux),
+    state: {
+      phase: 'finished',
+      pack: { id: 'p', title: 'Fin', questions: [] },
+      qIndex: 0,
+      responses: {},
+      lastAwards: {},
+      totals: totaux,
+      playFrom: {},
+      multiplier: 1,
+    },
+  }
+  return { sess: sess as any, vctx }
+}
+
+/** Les lignes d'un classement rendu : le rang affiché, puis le prénom. */
+const lignesDuClassement = (html: string) =>
+  [...html.matchAll(/<span class="lb-rank[^"]*">(\d+)<\/span>.*?<span class="lb-name">([^<]*)<\/span>/g)].map(m => [
+    Number(m[1]),
+    m[2],
+  ])
+
+test('le podium de l’écran commun porte le rang partagé : le quatrième ex æquo du troisième est troisième', async () => {
+  const noms = { a: 'Alice', b: 'Bruno', c: 'Chloé', d: 'David', e: 'Emma' }
+  const { sess, vctx } = finDeQuiz({ a: 300, b: 200, c: 100, d: 100, e: 50 }, noms)
+
+  const classement = (quizModule.hostView(sess, vctx) as any).standings
+  assert.deepEqual(
+    classement.map((r: any) => [r.name, r.rank]),
+    [
+      ['Alice', 1],
+      ['Bruno', 2],
+      ['Chloé', 3],
+      ['David', 3],
+      ['Emma', 5],
+    ],
+    'chaque ligne porte son rang, calculé sur tout le classement',
+  )
+  // Les téléphones reçoivent le même podium de trois, rangs compris.
+  const telephone = quizModule.playerView(sess, 'e', vctx) as any
+  assert.deepEqual(
+    telephone.podium.map((r: any) => r.rank),
+    [1, 2, 3],
+  )
+
+  // Ce que l'écran commun affiche sous les trois marches : la liste reprend au
+  // quatrième et déduisait son rang de sa seule position — « 4 » pour David,
+  // pourtant troisième ex æquo avec Chloé.
+  const sousLePodium = await rendu('components/Podium', 'Standings', { rows: classement.slice(3), offset: 3 })
+  assert.deepEqual(lignesDuClassement(sousLePodium), [
+    [3, 'David'],
+    [5, 'Emma'],
+  ])
+})
+
+// ── 2. Tous les vainqueurs, au bilan comme au souvenir ────────────────────
+
+let horloge = 1_000
+/** Chaque ligne arrive après la précédente : l'ordre du journal compte. */
+const tic = () => ++horloge
+
+function joueur(id: string, name: string, extra: Partial<PublicPlayer> = {}): PublicPlayer {
+  return { id, name, avatar: '🦊', connected: false, score: 0, teamId: null, ...extra }
+}
+
+/** Une ligne du journal des réponses : par défaut, un QCM juste en 5 s au quiz « Culture ». */
+function reponse(playerId: string, extra: Partial<AnswerRow> = {}): AnswerRow {
+  return {
+    sessionId: 's1',
+    quizTitle: 'Culture',
+    qIndex: 0,
+    kind: 'choice',
+    playerId,
+    answered: true,
+    correct: true,
+    choice: 0,
+    value: null,
+    target: null,
+    ms: 5_000,
+    changes: 0,
+    points: 0,
+    durationMs: 20_000,
+    observed: false,
+    createdAt: tic(),
+    ...extra,
+  }
+}
+
+const faux = (playerId: string, extra: Partial<AnswerRow> = {}) => reponse(playerId, { correct: false, choice: 1, ...extra })
+
+function gain(playerId: string, points: number, sessionId: string, reason: string): ScoreEntry {
+  return { playerId, sessionId, points, reason, createdAt: tic() }
+}
+
+test('le bilan nomme tous les ex æquo d’un quiz, joueurs comme équipes', async () => {
+  // Zoé marque à la première question, Alice à la seconde : 300 partout, et
+  // chacune seule dans son équipe — les deux équipes finissent à égalité.
+  const teams = [
+    { id: 'zebres', name: 'Les Zèbres', emoji: '🦓', position: 0 },
+    { id: 'aigles', name: 'Les Aigles', emoji: '🦅', position: 1 },
+  ]
+  const players = [
+    joueur('zoe', 'Zoé', { avatar: '🐼', score: 300, teamId: 'zebres' }),
+    joueur('alice', 'Alice', { score: 300, teamId: 'aigles' }),
+  ]
+  const rows = [
+    reponse('zoe', { qIndex: 0, points: 300 }),
+    faux('alice', { qIndex: 0 }),
+    faux('zoe', { qIndex: 1 }),
+    reponse('alice', { qIndex: 1, points: 300 }),
+  ]
+  const review = buildReview({ rows, players, teams, bonuses: [], packsBySession: new Map(), library: [] })
+  const [quiz] = review.quizzes as any[]
+  assert.deepEqual(
+    quiz.winners,
+    [
+      { playerId: 'alice', points: 300 },
+      { playerId: 'zoe', points: 300 },
+    ],
+    'les deux ex æquo, dans l’ordre commun',
+  )
+  assert.deepEqual(quiz.teamWinners, [
+    { teamId: 'aigles', average: 300 },
+    { teamId: 'zebres', average: 300 },
+  ])
+  // Une page restée ouverte pendant la mise à jour lit encore l'ancien champ.
+  assert.equal(quiz.winner?.playerId, 'alice')
+
+  const { makeCtx } = await moduleDuClient('components/BilanQuestion')
+  const bilan = texteDe(await rendu('components/BilanRoom', 'RoomReview', { ctx: makeCtx(review) }))
+  assert.match(bilan, /🦊 Alice et 🐼 Zoé remportent ce quiz ex æquo avec 300 pts/)
+  assert.match(bilan, /meilleures équipes ex æquo : 🦅 Les Aigles et 🦓 Les Zèbres \(300 pts de moyenne\)/)
+})
+
+test('le souvenir accorde « 1 question marquée », et réunit les ex æquo d’un quiz sur une seule carte', async () => {
+  // « Culture » : Alice et Zoé à 300, ex æquo. « Musique » : Bob, seul.
+  const players = [
+    joueur('alice', 'Alice', { score: 300 }),
+    joueur('zoe', 'Zoé', { avatar: '🐼', score: 300 }),
+    joueur('bob', 'Bob', { avatar: '🐸', score: 250 }),
+  ]
+  const scores = [
+    gain('alice', 300, 's1', 'Quiz « Culture » — Q1'),
+    gain('zoe', 300, 's1', 'Quiz « Culture » — Q2'),
+    gain('bob', 250, 's2', 'Quiz « Musique » — Q1'),
+  ]
+  const answers = [
+    reponse('alice', { qIndex: 0, points: 300 }),
+    faux('zoe', { qIndex: 0 }),
+    faux('alice', { qIndex: 1 }),
+    reponse('zoe', { qIndex: 1, points: 300 }),
+    reponse('bob', { sessionId: 's2', quizTitle: 'Musique', points: 250 }),
+  ]
+  const recap = buildRecap({ players, teams: [], bonuses: [], scores, answers })
+  assert.equal(recap.steadiest?.count, 1, 'chacun n’a marqué qu’une fois')
+
+  const souvenir = texteDe(await rendu('components/Trophies', 'Trophies', { recap }))
+  assert.match(souvenir, /🦊 Alice — 1 question marquée /)
+  assert.doesNotMatch(souvenir, /1 questions/)
+  assert.equal(souvenir.match(/de ce quiz/g)?.length, 2, `une carte par quiz, pas une par vainqueur : ${souvenir}`)
+  assert.match(souvenir, /Culture 🦊 Alice et 🐼 Zoé — 300 points Vainqueurs ex æquo de ce quiz/)
+  assert.match(souvenir, /Musique 🐸 Bob — 250 points Vainqueur de ce quiz/)
+})

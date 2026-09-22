@@ -454,14 +454,19 @@ export function buildReview(input: ReviewInput): Review {
   })
 
   // ── Les quiz. Leurs vainqueurs suivent la règle commune : des ex æquo
-  // gagnent ensemble, et le souvenir les nomme tous. Le bilan n'a la place
-  // que d'un nom : il écrit le premier dans l'ordre commun — celui que le
-  // souvenir écrit en premier aussi. Il couronnait le premier de l'alphabet
-  // quand le souvenir couronnait le premier à avoir marqué.
+  // gagnent ensemble, et le bilan les nomme tous, comme le souvenir et dans
+  // le même ordre. Il n'avait la place que d'un nom : à 300–300, l'une des
+  // deux gagnantes y lisait que l'autre avait gagné seule.
   const quizzes: ReviewQuiz[] = sessions.map((g, i) => {
     const totals = sessionTotals[i]
-    const [winner] = vainqueurs([...totals.keys()], id => totals.get(id)!, nomDe, id => id)
-    const [teamWinner] = vainqueurs(reviewTeams, t => t.perQuiz[i].average, t => t.name, t => t.id)
+    const winners = vainqueurs([...totals.keys()], id => totals.get(id)!, nomDe, id => id).map(id => ({
+      playerId: id,
+      points: totals.get(id)!,
+    }))
+    const teamWinners = vainqueurs(reviewTeams, t => t.perQuiz[i].average, t => t.name, t => t.id).map(t => ({
+      teamId: t.id,
+      average: t.perQuiz[i].average,
+    }))
     return {
       sessionId: g.id,
       number: i + 1,
@@ -469,8 +474,10 @@ export function buildReview(input: ReviewInput): Review {
       questionCount: g.questions.length,
       startedAt: g.startedAt,
       players: totals.size,
-      winner: winner ? { playerId: winner, points: totals.get(winner)! } : null,
-      teamWinner: teamWinner ? { teamId: teamWinner.id, average: teamWinner.perQuiz[i].average } : null,
+      winners,
+      teamWinners,
+      winner: winners[0] ?? null,
+      teamWinner: teamWinners[0] ?? null,
     }
   })
 

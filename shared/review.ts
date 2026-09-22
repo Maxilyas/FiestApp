@@ -167,6 +167,19 @@ export interface ReviewQuiz {
   startedAt: number
   /** Participants, retardataires compris. */
   players: number
+  /**
+   * Les vainqueurs du quiz : tous ceux qui partagent la première place, dans
+   * l'ordre commun (shared/classement.ts), et personne si personne n'a marqué.
+   * Le bilan n'en nommait qu'un quand le souvenir et l'expérience les
+   * couronnaient tous.
+   */
+  winners: { playerId: string; points: number }[]
+  /** Les équipes en tête du quiz, à la moyenne — plusieurs si elles finissent ex æquo. */
+  teamWinners: { teamId: string; average: number }[]
+  /**
+   * Le premier de chaque liste : ce que lisent les pages d'avant les listes,
+   * restées ouvertes pendant une mise à jour.
+   */
   winner: { playerId: string; points: number } | null
   teamWinner: { teamId: string; average: number } | null
 }

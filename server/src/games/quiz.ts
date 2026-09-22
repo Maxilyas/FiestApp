@@ -342,6 +342,7 @@ function rangs(sess: GameSessionRec<QuizState>, vctx: ViewContext): Map<string, 
 
 function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: number): QuizPodiumRow[] {
   const rows = classement(sess, vctx)
+  const rang = rangs(sess, vctx)
   // On ne décore que les lignes montrées : chaque décoration interroge le
   // registre des invités, et le podium n'en montre que trois.
   return (limit ? rows.slice(0, limit) : rows).map(r => {
@@ -350,6 +351,10 @@ function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: n
       name: p ? nomAffiche(p) : vctx.playerName(r.playerId),
       avatar: p?.avatar ?? '🎉',
       points: r.points,
+      // Le rang voyage avec la ligne : l'écran commun affiche la suite du
+      // podium à partir du quatrième, et le déduisait de sa position dans
+      // cette suite — « 4 » pour un troisième ex æquo.
+      rank: rang.get(r.playerId)!,
       ...distinctions(p),
     }
   })

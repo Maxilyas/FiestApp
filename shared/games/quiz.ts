@@ -19,6 +19,12 @@ export interface QuizPodiumRow extends Distinctions {
   name: string
   avatar: string
   points: number
+  /**
+   * Le rang partagé, calculé sur tout le classement : l'écran commun affiche
+   * la suite du podium à partir du quatrième, et un quatrième ex æquo du
+   * troisième ne saurait pas sinon qu'il est troisième.
+   */
+  rank: number
 }
 
 /** Estimation : ce que chacun a proposé, du plus proche au plus loin. */
