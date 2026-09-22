@@ -9,9 +9,9 @@ produit expliqué à un humain) : il les prolonge sur un point précis, **la por
 d'entrée**, parce que c'est là que se joue la valeur de l'application et que
 c'est là qu'il reste deux questions non résolues :
 
-1. **Demander le compte avant, sans fermer la porte.** On veut proposer de
-   créer un profil *avant* de demander prénom et avatar — mais sans jamais
-   transformer l'entrée en écran de connexion.
+1. **Un écran de connexion qui ne retient personne.** L'entrée demande de se
+   connecter *avant* le prénom et l'avatar — et « Jouer sans compte » passe
+   outre, en un bouton aussi large que le premier.
 2. **Les homonymes.** À cinquante invités, deux Camille sont une certitude. On
    ne peut ni refuser l'un, ni demander à celui qui a un profil de se
    rebaptiser : son prénom, il l'a choisi une fois pour toutes.
@@ -65,8 +65,10 @@ Tout le reste du document se juge à l'aune de ces trois-là.
 
 **Léa, 34 ans, arrive pour la première fois.** Elle ne connaît rien, elle est
 debout, dans le noir, avec un verre dans une main. Elle scanne, elle veut
-jouer. Elle ne sait pas ce qu'est un « profil » et elle s'en moque. *Son chemin
-doit rester le plus court, le plus gros, le plus évident.*
+jouer. Elle ne sait pas ce qu'est un « profil » et elle s'en moque. Elle tombe
+sur un écran de connexion et n'a rien à y taper : *« Jouer sans compte » doit
+lui sauter aux yeux sans qu'elle défile, et la faire entrer en un geste.* C'est
+à elle que se mesure cet écran — pas à ceux qui ont un identifiant.
 
 **Alice, 29 ans, revient pour la quatrième fois.** Elle a un profil, niveau 7,
 un renard Or qui a éclaté. Son téléphone s'en souvient. *Elle ne doit plus rien
@@ -89,9 +91,11 @@ Les dix invariants de `CLAUDE.md` s'appliquent. Ceux qui mordent ici :
 
 Et les quatre règles propres à ce chantier :
 
-1. **Le chemin anonyme ne coûte jamais plus d'un geste de plus qu'aujourd'hui,
-   et jamais deux fois.** La porte se montre à un téléphone qui n'a rien ; elle
-   ne se remontre pas à celui qui a déjà répondu.
+1. **Passer coûte un geste, et ce geste est un bouton pleine largeur.**
+   L'entrée est un écran de connexion — c'est voulu — mais « Jouer sans compte »
+   a le format de « Me connecter », se voit sans défiler, et n'est jamais un
+   lien gris en bas de page. Et l'écran ne se remontre pas à un téléphone qui a
+   déjà choisi ici.
 2. **Un profil reconnu ne choisit plus rien.** Ni prénom, ni avatar, ni
    finition. Il les a choisis une fois, dans son profil ; l'entrée les lit.
 3. **On ne demande jamais à quelqu'un de changer son prénom.** Ni à
@@ -126,55 +130,81 @@ Trois mémoires indépendantes, à ne pas confondre :
 |---|---|
 | un jeton de joueur de cette soirée | **rien** : la salle d'attente, directement (comportement actuel) |
 | un cookie de profil | **Écran B′** « Content de te revoir » — un bouton |
-| un choix local pour cet espace | **Écran B** pré-rempli — la porte a déjà été vue ici |
-| rien du tout | **Écran A** — la porte |
+| un choix local pour cet espace | **Écran B** pré-rempli — l'entrée a déjà été vue ici |
+| rien du tout | **Écran A** — l'entrée, c'est-à-dire la connexion |
 
-### 4.1 Écran A — La porte
+### 4.1 Écran A — L'entrée
 
-Le seul écran vraiment nouveau. Il pose la question du compte **avant** le
-prénom, comme demandé — et il la pose sans la barrer de la route.
+Le seul écran vraiment nouveau, et c'est bien **un écran de connexion** : deux
+champs, un bouton, posés avant tout le reste. C'est un choix assumé, et il
+règle d'un coup trois choses pour tous ceux qui reviennent — le prénom,
+l'avatar et la progression.
+
+Ce qu'il n'est pas, c'est un péage. **Passer est un bouton pleine largeur**, au
+même format que « Me connecter », visible sans défiler.
 
 ```
         LA SOIRÉE DE
         Romane
         Le quiz de la soirée
         ─────────────────────────────
-        ╭───────────────────────────╮
-        │ 🎁  Garder ma progression │
-        │ Un profil retient ton     │
-        │ niveau, tes avatars et    │
-        │ tes prix d'une soirée à   │
-        │ l'autre. Il ne change     │
-        │ rien aux points de ce     │
-        │ soir.                     │
-        │                           │
-        │ [ Créer un profil ]       │
-        │ [ J'ai déjà un profil ]   │
-        ╰───────────────────────────╯
-
-        12 invité·e·s déjà là
+        Ton identifiant
+        [_________________________]
+        Ton mot de passe
+        [_________________________]
 
         ╔═══════════════════════════╗
-        ║     JOUER MAINTENANT      ║   ← btn-primary btn-big btn-block
+        ║       ME CONNECTER        ║  ← btn-primary btn-big btn-block
         ╚═══════════════════════════╝
-        Rien à installer · ton prénom suffit
+        J'ai oublié mon mot de passe
+
+        ──────────── ou ────────────
+
+        ╔═══════════════════════════╗
+        ║     JOUER SANS COMPTE     ║  ← btn-big btn-block, en contour
+        ╚═══════════════════════════╝
+        ╭───────────────────────────╮
+        │      Créer un profil      │  ← btn-ghost btn-block
+        ╰───────────────────────────╯
+        Un profil retient ton niveau et tes
+        prix d'une soirée à l'autre. Il ne
+        change rien aux points de ce soir.
+
+        12 invité·e·s déjà là
 ```
 
-- **« Jouer maintenant » est le bouton le plus gros de l'écran**, en bas, sous
-  le pouce. C'est la seule hiérarchie qui compte : si un jour quelqu'un trouve
-  que la carte du profil attire plus l'œil, c'est qu'on s'est trompé.
-- La carte du profil est **une offre**, pas un passage. Elle dit ce qu'on gagne
-  (mémoire) et ce qu'on ne gagne pas (des points), parce que la question
-  suivante d'un invité est toujours « est-ce que ça avantage les autres ? ».
+- **« Jouer sans compte » a exactement la largeur et la hauteur de « Me
+  connecter ».** Seul le style diffère : plein contre contour. C'est la règle
+  qui tient tout l'écran — si quelqu'un doit chercher comment passer, c'est
+  raté, et ça se vérifie à l'œil (§9).
+- **Aucun champ n'est mis au point automatiquement.** Pas d'`autoFocus` ici :
+  le clavier qui s'ouvre tout seul pousse les boutons hors de l'écran, et c'est
+  précisément ce qu'on ne veut pas cacher. Le clavier vient quand on touche un
+  champ, pas avant.
+- **Tout tient sans défiler en 360 × 640**, clavier fermé. Si ça déborde, c'est
+  la note explicative qui saute, jamais le bouton pour passer.
+- **Une connexion réussie entre directement dans la soirée** (par l'écran E
+  s'il y a des équipes) : pas d'écran de confirmation. Celui qui vient de taper
+  son identifiant et son mot de passe sait très bien qui il est — l'écran B′ ne
+  sert qu'à confirmer une reconnaissance *automatique*, par cookie, où le doute
+  existe (téléphone prêté). Son prénom et son niveau l'accueillent dans la
+  salle d'attente.
+- **Une connexion refusée ne piège personne** : le message le dit, et les deux
+  boutons du dessous sont toujours là. Un mot de passe oublié ne doit jamais
+  être la fin du chemin. Les essais sont déjà limités côté serveur
+  (`LoginBudget`, `auth/profileRoutes.ts`) : au-delà, c'est « Trop d'essais —
+  réessaie dans un quart d'heure », et le chemin anonyme reste ouvert.
+- **« Créer un profil » mène à l'écran B**, pas à un formulaire d'identifiant :
+  on choisit d'abord son prénom et son avatar, on sécurise ensuite (§4.4).
 - Le surtitre et le grand titre viennent des réglages de l'espace
   (`space.eyebrow`, `space.headline`) : après un scan, il faut d'abord savoir
   **où** on est arrivé.
 - Le compteur d'invités est déjà dans l'instantané, il ne coûte rien, et il
   rassure : ça marche, il y a du monde.
 
-**Quand on ne la montre pas** : dès que le téléphone porte un cookie de profil
-ou un choix local pour cet espace. Une porte qu'on repousse deux fois devient
-un péage.
+**Quand on ne le montre pas** : dès que le téléphone porte un cookie de profil
+(on passe à l'écran B′) ou un choix local pour cet espace (on passe à l'écran
+B). Un écran de connexion qu'on repousse deux fois devient un péage.
 
 ### 4.2 Écran B — Moi (prénom + avatar)
 
@@ -261,15 +291,21 @@ Celui d'aujourd'hui, qui est bon. Deux ajouts :
 - après « C'est noté », on **entre directement dans la soirée** — pas de retour
   à un écran d'inscription qu'on vient de remplir.
 
-### 4.6 Écran D — Me reconnecter
+### 4.6 Écran D — J'ai oublié mon mot de passe
 
-`ProfilForm` en mode connexion : identifiant, mot de passe. Il lui manque une
-seule chose, et elle est importante :
+La connexion elle-même a déménagé à l'écran A : il ne reste ici que la seule
+chose qui manque vraiment.
 
-- **« J'ai oublié mon mot de passe »** → un écran de trois champs (identifiant,
-  code de secours, nouveau mot de passe) qui appelle `api.joueur.secours()`.
-  La route existe, la fonction cliente existe, **l'écran n'existe pas** : sans
-  lui, la seule porte de retour est murée.
+- **Trois champs** — identifiant, code de secours, nouveau mot de passe — qui
+  appellent `api.joueur.secours()`. La route existe, la fonction cliente
+  existe, **l'écran n'existe pas** : aujourd'hui, un mot de passe oublié est
+  une impasse, et c'est d'autant plus gênant qu'on met maintenant la connexion
+  en premier.
+- **Le code de secours perdu aussi ?** On le dit sans détour : le profil est
+  irrécupérable, et on repart en anonyme ou avec un nouveau profil. Pas
+  d'adresse e-mail dans cette application, donc pas de lien de secours — c'est
+  le prix de n'héberger aucune donnée personnelle, et il se dit franchement.
+- **Réussi, on entre dans la soirée** comme après une connexion ordinaire.
 
 ### 4.7 Écran E — L'équipe
 
@@ -281,29 +317,33 @@ dernier écran avant la salle d'attente, pour tout le monde — profil ou pas.
 ```
    scan du QR → /<espace>
         │
-        ├── jeton de cette soirée ─────────────────────► salle d'attente
+        ├─ jeton de cette soirée ────────────────────────────► salle d'attente
         │
-        ├── cookie de profil ──► [B′ Content de te revoir]
-        │                            │          │
-        │                            │          └── autre prénom ──┐
-        │                            │                             │
-        ├── choix local ─────────────────────────────────────────┐ │
-        │                                                        ▼ ▼
-        └── rien ──► [A La porte] ──── Jouer maintenant ───► [B Moi]
-                          │                                       │
-                          ├── Créer un profil ──► [B Moi] ──► [C Sécuriser]
-                          │                                       │
-                          │                                  [C′ Secours]
-                          │                                       │
-                          └── J'ai un profil ──► [D Connexion] ───┤
-                                                     │            │
-                                                [D′ Oublié]       │
-                                                                  ▼
-                                                          [E Équipe] (si équipes)
-                                                                  │
-                                                                  ▼
-                                                          salle d'attente
+        ├─ cookie de profil ─► [B′ Content de te revoir] ───────────────┐
+        │                           └─ autre prénom ─► [B Moi] ─────────┤
+        │                                                               │
+        ├─ choix local ─────────────────────────► [B Moi] ──────────────┤
+        │                                                               │
+        └─ rien ─► [A L'ENTRÉE — connexion]                             │
+                     ├─ Me connecter ───────────────────────────────────┤
+                     ├─ Mot de passe oublié ─► [D Secours] ─────────────┤
+                     ├─ Jouer sans compte ──► [B Moi] ──────────────────┤
+                     └─ Créer un profil ───► [B Moi] ─► [C Sécuriser]   │
+                                                            │           │
+                                                       [C′ Le code] ────┤
+                                                                        │
+                            ┌───────────────────────────────────────────┘
+                            ▼
+                   [E Équipe]  (seulement si l'animateur en a créé)
+                            │
+                            ▼
+                     salle d'attente
 ```
+
+Deux choses à lire dans ce schéma : **toutes les branches finissent au même
+endroit**, et **l'écran B est le point de passage commun** — c'est pour ça
+qu'il ne bouge pas, et que le prénom et l'avatar ne se demandent jamais deux
+fois.
 
 ---
 
@@ -506,17 +546,25 @@ d'entrée, pas une règle de jeu.
 
 ### 6.3 `client/`
 
-- **`components/Entree.tsx`** (nouveau) : toute la machine d'entrée — porte,
-  moi, retrouvailles, sécuriser, secours, connexion, équipe. Elle ne connaît
-  que l'instantané et rend la main au parent une fois l'invité inscrit.
+- **`components/Entree.tsx`** (nouveau) : toute la machine d'entrée — les sept
+  écrans de la §4, de la connexion à l'équipe. Elle ne connaît que
+  l'instantané et rend la main au parent une fois l'invité inscrit.
   `PlayerApp.tsx` redevient ce qu'il doit être : la soirée, pas le portail.
 - **`components/ProfilForm.tsx`** : se réduit à l'identifiant et au mot de
   passe (connexion, finalisation d'inscription, code de secours). Le prénom et
   l'avatar viennent toujours de l'écran B.
 - **`state.ts`** : `Profile`/`profileKey` → `ChoixLocal`/`choixKey`, et on y
-  retient aussi « ce téléphone a vu la porte ici ».
-- **`styles.css`** : la carte de l'offre, l'écran de retrouvailles, l'état
-  « avatar pris » (opacité + `aria-disabled`, jamais une croix rouge).
+  retient aussi « ce téléphone a vu l'entrée ici ».
+- **`styles.css`** : l'écran d'entrée et son séparateur « ou », l'écran de
+  retrouvailles, l'état « avatar pris » (opacité + `aria-disabled`, jamais une
+  croix rouge), et un bouton pleine largeur en contour s'il n'en existe pas
+  déjà un.
+
+Et une fois que ça tourne, **le dépôt doit dire la vérité** : `CLAUDE.md`
+(« Ce qu'il ne faut pas faire » parle encore d'un écran de connexion à ne pas
+ajouter — il faudra écrire la règle telle qu'elle est désormais : la connexion
+est le premier écran, et passer est un bouton) et `README.md` (« Les profils
+joueurs », qui décrit l'ancienne entrée).
 
 ---
 
@@ -527,11 +575,15 @@ en français, ils disent quoi faire.
 
 | Où | Texte |
 |---|---|
-| Porte, titre de la carte | **Garder ma progression** |
-| Porte, corps | Un profil retient ton niveau, tes avatars et tes prix d'une soirée à l'autre. Il ne change rien aux points de ce soir. |
-| Porte, bouton principal | **Jouer maintenant** |
-| Porte, boutons de la carte | Créer un profil · J'ai déjà un profil |
-| Porte, pied | Rien à installer · ton prénom suffit |
+| Entrée, champs | Ton identifiant · Ton mot de passe |
+| Entrée, bouton de connexion | **Me connecter** |
+| Entrée, lien sous le bouton | J'ai oublié mon mot de passe |
+| Entrée, séparateur | ou |
+| Entrée, bouton pour passer | **Jouer sans compte** |
+| Entrée, bouton de création | **Créer un profil** |
+| Entrée, note sous les boutons | Un profil retient ton niveau et tes prix d'une soirée à l'autre. Il ne change rien aux points de ce soir. |
+| Entrée, connexion refusée | Identifiant ou mot de passe incorrect — tu peux aussi jouer sans compte. |
+| Secours, code perdu | Sans le code, le profil ne se retrouve pas. Tu peux jouer sans compte, ou en créer un neuf. |
 | Retrouvailles | Content de te revoir, **Alice** |
 | Retrouvailles, bouton | **Entrer dans la soirée** |
 | Retrouvailles, liens | Jouer sous un autre prénom ce soir · Ce n'est pas moi |
@@ -542,16 +594,27 @@ en français, ils disent quoi faire.
 | Secours, titre | Note ce code de secours |
 | Connexion, lien | J'ai oublié mon mot de passe |
 
-Trois mots à ne **pas** employer : « compte » (c'est celui des animateurs),
-« inscription » (on est déjà inscrit à la soirée), « obligatoire ».
+Deux mots à ne **pas** employer : « inscription » (on est déjà inscrit à la
+soirée) et « obligatoire ».
+
+Et une nuance sur « compte » : le mot se dit très bien côté invité là où il est
+le plus clair — « Jouer sans compte » est plus parlant que « Jouer sans
+profil ». C'est **« Mon compte »** qui ne doit jamais apparaître sur un écran
+d'invité : celui-là est l'espace de l'animateur, et la confusion serait
+sérieuse.
 
 ---
 
 ## 8. Ce qu'il ne faut pas faire
 
-- **Pas d'écran de connexion obligatoire**, sous aucune forme, y compris
-  déguisée en « continuer en tant qu'invité » écrit petit en gris.
-- **Ne pas remontrer la porte** à quelqu'un qui a déjà choisi sur ce téléphone.
+- **La connexion n'est jamais obligatoire.** L'écran de connexion est bien le
+  premier écran — c'est le choix assumé de ce chantier — mais « Jouer sans
+  compte » est un bouton pleine largeur, du même format que « Me connecter »,
+  visible sans défiler. Jamais un lien gris en bas de page, jamais un
+  « continuer en tant qu'invité » écrit petit.
+- **Ne pas ouvrir le clavier tout seul** en arrivant sur l'entrée : il
+  pousserait hors de l'écran précisément ce qu'on doit voir.
+- **Ne pas remontrer l'entrée** à quelqu'un qui a déjà choisi sur ce téléphone.
 - **Ne pas renommer un invité sans le lui dire**, jamais, pas même « pour son
   bien ».
 - **Ne pas écrire la marque d'homonyme en base.** C'est une dérivation. Elle
@@ -608,7 +671,13 @@ le motif à recopier.
 
 Chromium et Playwright sont là. À regarder, en 390 × 844 :
 
-- la porte : « Jouer maintenant » est-il **manifestement** le geste principal ?
+- **l'entrée, en 360 × 640** (le petit téléphone du fond de la salle), clavier
+  fermé : « Jouer sans compte » est-il visible **sans défiler** ? C'est le test
+  qui décide si cet écran est une entrée ou un péage — le seul de la liste qui
+  peut renvoyer la maquette à la planche à dessin ;
+- l'entrée, clavier ouvert après avoir touché un champ : peut-on encore
+  atteindre le bouton pour passer, en refermant le clavier ou en défilant d'un
+  pouce ?
 - l'écran de retrouvailles : l'avatar est-il assez gros pour qu'Alice se
   reconnaisse en une demi-seconde ?
 - la grille d'avatars avec trois emojis éteints : est-ce lisible, ou est-ce que
@@ -619,19 +688,31 @@ Chromium et Playwright sont là. À regarder, en 390 × 844 :
 
 ---
 
-## 10. Trois décisions de produit à confirmer
+## 10. Les décisions de produit
 
 Ce sont des choix de produit, pas des choix techniques : ils se tranchent avec
 l'auteur, pas dans le code.
 
-1. **La marque des homonymes.** Proposition : `Camille (2)`. Honnête, comprise
-   de tous, lisible de loin. Les autres pistes : une initiale demandée à
-   l'invité (refusée : ça demande du travail), le nom de l'équipe quand il y en
-   a une (`Camille · 🐙 Les Poulpes`, joli mais absent la moitié du temps).
-2. **Quand remontrer la porte.** Proposition : une fois par espace et par
-   téléphone. Les variantes : à chaque nouvelle soirée (plus insistant), ou une
-   fois pour toutes, tous espaces confondus (plus discret).
-3. **La proposition d'identifiant libre.** Proposition : oui, avec le compromis
+**Tranchées, et à traiter comme acquises :**
+
+- ✅ **L'entrée est un écran de connexion.** Identifiant et mot de passe en
+  premier, avant le prénom et l'avatar — avec « Jouer sans compte » en bouton
+  pleine largeur juste en dessous. C'est ce qui règle d'un coup le prénom,
+  l'avatar et la progression de tous ceux qui reviennent.
+- ✅ **La marque des homonymes est `Camille (2)`.** Honnête, comprise de tous,
+  lisible de loin, et dérivée — jamais écrite en base. Les autres pistes sont
+  écartées : demander une initiale fait travailler l'invité, et le nom de
+  l'équipe est absent la moitié du temps.
+
+**Restent à confirmer :**
+
+1. **Quand remontrer l'écran de connexion.** Proposition : une fois par espace
+   et par téléphone — quelqu'un qui a déjà dit « sans compte » chez Romane n'a
+   pas à le redire à la soirée suivante de Romane. Les variantes : à chaque
+   nouvelle soirée (plus insistant, plus de profils créés), ou une fois pour
+   toutes tous espaces confondus (plus discret, mais on ne repropose jamais
+   rien).
+2. **La proposition d'identifiant libre.** Proposition : oui, avec le compromis
    d'énumération assumé et écrit (§4.4). Sinon : un refus sec, et l'invitée non
    technique se débrouille.
 
