@@ -190,6 +190,16 @@ async function dansUnDossier(fn: (dir: string) => Promise<void> | void) {
   }
 }
 
+/** Lit un fichier de base sans passer par le serveur. */
+function lireFichier<T = any>(fichier: string, sql: string): T[] {
+  const db = new Database(fichier, { readonly: true, fileMustExist: true })
+  try {
+    return db.prepare(sql).all() as T[]
+  } finally {
+    db.close()
+  }
+}
+
 /** Les colonnes d'une table, lues sans passer par le serveur. */
 function colonnes(fichier: string, table: string): string[] {
   const db = new Database(fichier, { readonly: true, fileMustExist: true })
@@ -1102,4 +1112,69 @@ test('deux demandes simultanées pour le même identifiant ou la même adresse :
     } finally {
       store.close()
     }
+  }))
+
+// ── 13. Les consoles d'avant la colonne suivent le profil qui tenait l'espace ─
+//
+// Sur `main`, la porte du profil ouvre déjà la console, mais la session ne
+// retenait pas qui l'avait ouverte ; et se déconnecter de son profil fermait
+// la console de ce navigateur dès que l'espace lui était rattaché. Sans
+// étiquette, ces consoles-là passaient pour ouvertes avec le mot de passe du
+// compte : la déconnexion du profil ne les fermait plus, et « ce n'est pas
+// moi », tapé sur un téléphone prêté la veille du déploiement, laissait la
+// soirée pilotable par le suivant — jusqu'à trente jours.
+
+test('au premier démarrage, les consoles d’avant la colonne deviennent celles du profil qui tenait l’espace', () =>
+  dansUnDossier(async dir => {
+    const fichier = path.join(dir, 'permanente.db')
+    const url = `file:${fichier.replace(/\\/g, '/')}`
+    const jeton = (nom: string) => createHash('sha256').update(nom).digest('hex')
+    const plusTard = Date.now() + 24 * 3600 * 1000
+    // La base telle que `main` la laisse : le rattachement, mais pas encore
+    // le profil sur les sessions.
+    const avant = new Database(fichier)
+    avant.exec(`
+      CREATE TABLE accounts (id TEXT PRIMARY KEY, login TEXT NOT NULL UNIQUE, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
+        role TEXT NOT NULL, password_hash TEXT, disabled_at INTEGER, created_at INTEGER NOT NULL, last_login_at INTEGER,
+        settings TEXT NOT NULL DEFAULT '{}', profile_id TEXT);
+      CREATE TABLE auth_sessions (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, created_at INTEGER NOT NULL,
+        expires_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL, user_agent TEXT NOT NULL DEFAULT '');
+      CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+    `)
+    const compte = avant.prepare(`INSERT INTO accounts (id, login, name, slug, role, created_at, profile_id) VALUES (?, ?, ?, ?, 'host', 0, ?)`)
+    compte.run('espace-lie', 'anim', 'Anim', 'chez-anim', 'profil-anim')
+    compte.run('espace-seul', 'solo', 'Solo', 'chez-solo', null)
+    const session = avant.prepare(`INSERT INTO auth_sessions (id, account_id, created_at, expires_at, last_seen_at) VALUES (?, ?, 0, ?, 0)`)
+    session.run(jeton('console-du-profil'), 'espace-lie', plusTard)
+    session.run(jeton('console-du-solo'), 'espace-seul', plusTard)
+    avant.close()
+
+    const store = new AuthStore(url)
+    try {
+      await store.init()
+      assert.equal(store.resolveSession('console-du-profil')?.session.profileId, 'profil-anim', 'la console d’un espace rattaché suit son profil')
+      assert.equal(store.resolveSession('console-du-solo')?.session.profileId, null, 'un espace sans profil n’a rien à suivre')
+      // Le profil change de secret : sa console d'avant se ferme avec les autres.
+      await store.revokeProfileSessions('profil-anim')
+      assert.equal(store.resolveSession('console-du-profil'), null)
+      // Une console ouverte APRÈS, avec le mot de passe du compte, reste à lui.
+      await store.createSession('espace-lie', 'la télé')
+    } finally {
+      store.close()
+    }
+    // Une fois pour toutes : le démarrage suivant ne réétiquette rien.
+    const ensuite = new AuthStore(url)
+    try {
+      await ensuite.init()
+    } finally {
+      ensuite.close()
+    }
+    assert.deepEqual(
+      lireFichier(fichier, `SELECT account_id, profile_id FROM auth_sessions ORDER BY account_id`),
+      [
+        { account_id: 'espace-lie', profile_id: null },
+        { account_id: 'espace-seul', profile_id: null },
+      ],
+      'la console du mot de passe du compte, ouverte après, n’est jamais attribuée au profil',
+    )
   }))

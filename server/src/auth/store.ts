@@ -157,11 +157,28 @@ export class AuthStore {
     )
     // Le rattachement au profil joueur est arrivé après les comptes, et le
     // profil qui ouvre une console après lui : une base d'avant ne les a pas.
-    // Une session d'avant ne porte donc aucun profil, et passe pour ouverte
-    // avec le mot de passe du compte : la porte du profil arrive dans la
-    // même version que cette colonne.
     await ajouterColonne(this.client, 'accounts', 'profile_id', 'TEXT')
     await ajouterColonne(this.client, 'auth_sessions', 'profile_id', 'TEXT')
+    // La porte du profil ouvrait déjà la console avant que la session retienne
+    // qui l'avait ouverte, et se déconnecter de son profil fermait alors la
+    // console de ce navigateur dès que l'espace lui était rattaché. Sans
+    // étiquette, ces consoles-là passaient pour ouvertes avec le mot de passe
+    // du compte : « ce n'est pas moi », tapé sur un téléphone prêté, laissait
+    // la soirée pilotable par le suivant. Celles d'un espace rattaché suivent
+    // donc son profil, une fois pour toutes — le drapeau empêche d'attribuer
+    // au profil, plus tard, une console du mot de passe du compte. Le prix :
+    // une télé ouverte avant avec ce mot de passe-là se referme aussi quand le
+    // profil change de secret. Une reconnexion, une fois.
+    if ((await this.getFlag('sessions_profil')) === null) {
+      await this.client.batch(
+        [
+          `UPDATE auth_sessions SET profile_id = (SELECT a.profile_id FROM accounts a WHERE a.id = auth_sessions.account_id)
+           WHERE profile_id IS NULL`,
+          { sql: `INSERT INTO meta (key, value) VALUES ('sessions_profil', ?) ON CONFLICT(key) DO NOTHING`, args: [String(now)] },
+        ],
+        'write',
+      )
+    }
     const accounts = await this.client.execute('SELECT * FROM accounts')
     for (const row of accounts.rows) {
       const account = toAccount(row)
