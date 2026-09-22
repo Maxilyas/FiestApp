@@ -40,8 +40,18 @@ export type BadgeLookup = (profileId: string, avatar: string) => ProfileBadge | 
  */
 export class Party {
   private players = new Map<string, PlayerRec>()
-  /** playerId -> nombre de sockets ouvertes (multi-onglets). */
-  private connections = new Map<string, number>()
+  /**
+   * playerId -> les connexions qui l'incarnent (multi-onglets, téléphone et
+   * tablette). Un ensemble d'identifiants et non un compteur : le même socket
+   * se rattachait deux fois — par sa réponse tapée pendant la coupure, puis
+   * par la re-présentation de la page — et ne se décomptait qu'une fois à la
+   * déconnexion. Le joueur parti restait « connecté » pour toujours, devenait
+   * participant du quiz suivant, et la salle attendait le chronomètre complet
+   * à chaque question.
+   */
+  private connections = new Map<string, Set<string>>()
+  /** Les marques d'homonymie, tant que personne n'arrive, ne part ni ne change de prénom ou d'avatar. */
+  private marquesCache: Map<string, string> | null = null
 
   constructor(
     private db: DB,
@@ -62,6 +72,12 @@ export class Party {
     }
   }
 
+  /**
+   * Inscrit un invité, ou retrouve celui du jeton. Pour un invité retrouvé,
+   * un prénom ou un avatar vide laisse ceux de sa fiche : c'est ce que
+   * `sockets.ts` envoie quand un téléphone se re-présente tout seul, et la
+   * fiche du serveur fait alors foi.
+   */
   join(
     name: string,
     avatar: string,
@@ -73,13 +89,17 @@ export class Party {
     const clean = cleanName(name)
     const nice = typeof avatar === 'string' && avatar ? cleanAvatar(avatar) : ''
     if (token) {
-      const existing = [...this.players.values()].find(p => p.token === token)
+      const existing = this.findByToken(token)
       if (existing) {
+        if ((clean && clean !== existing.name) || (nice && nice !== existing.avatar)) this.marquesCache = null
         if (clean) existing.name = clean
         if (nice) existing.avatar = nice
         // `undefined` = le téléphone se reconnecte sans rien dire de l'équipe :
         // on garde la sienne. `null` serait un retrait volontaire.
         if (teamId !== undefined) existing.teamId = teamId
+        // Réécrite même inchangée : c'est ce qui recopie dans le miroir une
+        // fiche qu'une écriture distante ratée aurait laissée en route — sans
+        // elle, un redémarrage sur disque effacé perdrait cet invité.
         this.db
           .prepare('UPDATE players SET name = ?, avatar = ?, team_id = ? WHERE id = ?')
           .run(existing.name, existing.avatar, existing.teamId, existing.id)
@@ -98,6 +118,7 @@ export class Party {
       createdAt: Date.now(),
     }
     this.players.set(rec.id, rec)
+    this.marquesCache = null
     this.db
       .prepare(
         'INSERT INTO players (id, name, avatar, token, team_id, profile_id, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -123,7 +144,8 @@ export class Party {
 
   /** Le joueur derrière un jeton de téléphone : une reconnexion, pas une inscription. */
   findByToken(token: string): PlayerRec | undefined {
-    return [...this.players.values()].find(p => p.token === token)
+    for (const p of this.players.values()) if (p.token === token) return p
+    return undefined
   }
 
   /**
@@ -149,14 +171,19 @@ export class Party {
     return true
   }
 
-  socketConnected(playerId: string) {
-    this.connections.set(playerId, (this.connections.get(playerId) ?? 0) + 1)
+  /** Cette connexion incarne ce joueur. Idempotent : la redire ne compte pas double. */
+  socketConnected(playerId: string, socketId: string) {
+    let sockets = this.connections.get(playerId)
+    if (!sockets) this.connections.set(playerId, (sockets = new Set()))
+    sockets.add(socketId)
   }
 
-  socketDisconnected(playerId: string) {
-    const n = (this.connections.get(playerId) ?? 1) - 1
-    if (n <= 0) this.connections.delete(playerId)
-    else this.connections.set(playerId, n)
+  /** Cette connexion ne l'incarne plus : fermée, ou passée à une autre identité. */
+  socketDisconnected(playerId: string, socketId: string) {
+    const sockets = this.connections.get(playerId)
+    if (!sockets) return
+    sockets.delete(socketId)
+    if (sockets.size === 0) this.connections.delete(playerId)
   }
 
   isConnected(playerId: string): boolean {
@@ -173,6 +200,7 @@ export class Party {
     const clean = cleanName(name)
     if (!rec || !clean) return false
     rec.name = clean
+    this.marquesCache = null
     this.db.prepare('UPDATE players SET name = ? WHERE id = ?').run(clean, playerId)
     this.backup?.savePlayer(rec, rec.createdAt)
     return true
@@ -204,6 +232,7 @@ export class Party {
   /** Exclut un invité et efface ses points — y compris dans la sauvegarde. */
   remove(playerId: string): boolean {
     if (!this.players.delete(playerId)) return false
+    this.marquesCache = null
     this.connections.delete(playerId)
     this.db.prepare('DELETE FROM score_entries WHERE player_id = ?').run(playerId)
     this.db.prepare('DELETE FROM players WHERE id = ?').run(playerId)
@@ -216,19 +245,28 @@ export class Party {
     this.db.prepare('DELETE FROM score_entries WHERE space_id = ?').run(this.spaceId)
     this.db.prepare('DELETE FROM players WHERE space_id = ?').run(this.spaceId)
     this.players.clear()
+    this.marquesCache = null
     this.connections.clear()
   }
 
   /**
    * Les marques d'homonymie du moment — « Camille (2) ».
    *
-   * Recalculées à chaque diffusion plutôt que rangées quelque part : c'est
-   * une dérivation, et elle doit s'effacer d'elle-même quand l'homonyme
-   * s'en va ou quand l'animateur renomme. `all()` rend les invités dans
-   * l'ordre d'arrivée, et c'est cet ordre qui décide qui garde son prénom nu.
+   * Une dérivation, jamais rangée en base : elle s'efface d'elle-même quand
+   * l'homonyme s'en va ou quand l'animateur renomme. `all()` rend les invités
+   * dans l'ordre d'arrivée, et c'est cet ordre qui décide qui garde son
+   * prénom nu.
+   *
+   * Gardée en mémoire entre deux changements de la salle : elle était
+   * recalculée — un tri et une normalisation par invité — à chaque ligne de
+   * chaque vue. Le podium de fin de quiz, qui en demande une par invité et
+   * par téléphone, devenait cubique : 2,9 s à 150 invités, 110 s à 500, le
+   * serveur figé pendant ce temps. Tout ce qui change un prénom, un avatar
+   * ou la composition de la salle (arrivée, renommage, exclusion, remise à
+   * zéro) remet la mémoire à zéro ; un rechargement part d'une mémoire vide.
    */
   private marques(): Map<string, string> {
-    return nomsAffiches(this.all())
+    return (this.marquesCache ??= nomsAffiches(this.all()))
   }
 
   /**

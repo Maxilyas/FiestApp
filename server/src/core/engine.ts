@@ -228,14 +228,23 @@ export class GameEngine {
     this.deps.onSessionChanged()
   }
 
-  /** Un invité exclu quitte aussi la partie en cours. */
+  /**
+   * Un invité exclu quitte aussi la partie en cours, avec tout ce qu'il y
+   * avait laissé. Le module fait le ménage dans son état en passant par
+   * `run()`, pour que la partie soit persistée et rediffusée comme après
+   * n'importe quel autre changement.
+   */
   dropParticipant(playerId: string) {
     const sess = this.session
     if (!sess || !sess.participantIds.includes(playerId)) return
     sess.participantIds = sess.participantIds.filter(id => id !== playerId)
     this.lastSent.delete(`player:${playerId}`)
-    this.persist(sess)
-    this.fanout(sess)
+    if (this.module.onPlayerLeave) {
+      this.run(sess, ctx => this.module.onPlayerLeave!(sess, playerId, ctx))
+    } else {
+      this.persist(sess)
+      this.fanout(sess)
+    }
     this.deps.onSessionChanged()
   }
 
@@ -311,7 +320,17 @@ export class GameEngine {
     this.disarmTimer(sess, timerId)
     const handle = setTimeout(() => {
       sess.timers.delete(timerId)
-      if (this.module.onTimer) this.run(sess, ctx => this.module.onTimer!(sess, timerId, ctx))
+      // Un chronomètre sonne hors de toute requête : une exception pendant la
+      // révélation qu'il déclenche remontait jusqu'au processus, et emportait
+      // les soirées de tous les espaces avec elle. Elle s'arrête ici, dans le
+      // journal. Une révélation ratée vaut mieux qu'un serveur éteint : les
+      // autres chronomètres continuent, et l'animateur garde la main pour
+      // passer à la suite.
+      try {
+        if (this.module.onTimer) this.run(sess, ctx => this.module.onTimer!(sess, timerId, ctx))
+      } catch (e) {
+        console.error(`[partie] le chronomètre « ${timerId} » a échoué :`, e)
+      }
     }, ms)
     sess.timers.set(timerId, { deadline: Date.now() + ms, handle })
   }

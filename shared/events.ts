@@ -2,14 +2,29 @@
 import type { PartySnapshot } from './types'
 import type { PublicProfile } from './profil'
 
+/**
+ * Pourquoi un `player:join` est refusé, quand le téléphone doit faire autre
+ * chose qu'afficher le message.
+ *
+ * `unknown-token` : le jeton ne désigne plus personne ici — l'invité a été
+ * exclu, l'animateur a lancé « Nouvelle soirée », ou le miroir n'avait pas
+ * encore sa fiche au redémarrage. Le serveur recréait jusqu'ici un invité en
+ * silence avec le prénom retenu par le téléphone : l'exclu revenait, et
+ * l'habitué atterrissait « sans équipe » sans jamais revoir l'écran d'équipe.
+ * Le téléphone oublie maintenant cette identité et repasse par l'entrée,
+ * pré-remplie.
+ */
+export type JoinRefusal = 'unknown-token'
+
 export type JoinAck =
   /**
    * L'identité retenue revient avec l'accusé : quand c'est le profil qui l'a
-   * fournie, le téléphone ne la connaît pas encore, et il doit pouvoir la
-   * retenir pour se re-présenter à l'identique après une coupure.
+   * fournie, le téléphone ne la connaît pas encore. C'est aussi elle qui fait
+   * foi quand il se re-présente : le prénom de sa fiche peut avoir été
+   * corrigé par l'animateur entre-temps.
    */
   | { ok: true; playerId: string; token: string; name: string; avatar: string; profile?: PublicProfile }
-  | { ok: false; error: string }
+  | { ok: false; error: string; reason?: JoinRefusal }
 
 /**
  * Pourquoi une réponse d'invité n'a pas été retenue. Tant que `player:action`
@@ -65,6 +80,12 @@ export interface ClientToServerEvents {
    * le serveur prend ceux du profil reconnu au cookie — quelqu'un qui les a
    * choisis en créant son profil n'a pas à les rechoisir sur le pas de la
    * porte. Un invité anonyme, lui, doit toujours les donner.
+   *
+   * Avec un `token`, c'est un téléphone qui se re-présente tout seul : s'il
+   * retrouve son invité (ou celui de son profil), le prénom et l'avatar
+   * envoyés sont ignorés — la fiche du serveur fait foi. Un jeton qui ne
+   * désigne plus personne est refusé (`unknown-token`) au lieu de recréer
+   * quelqu'un en silence.
    */
   'player:join': (
     payload: { slug: string; name?: string; avatar?: string; token?: string; teamId?: string | null },
@@ -130,8 +151,24 @@ export interface ServerToClientEvents {
   /** Vue filtrée de la partie : chaque joueur reçoit SA vue, l'écran commun la sienne. */
   'session:view': (payload: { sessionId: string; view: unknown }) => void
   'session:ended': (payload: { sessionId: string }) => void
-  /** L'animateur a exclu ce joueur : son téléphone repart à l'inscription. */
-  'player:removed': () => void
+  /**
+   * L'animateur a exclu ce joueur : son téléphone repart à l'inscription.
+   *
+   * Avec `reason`, ce n'est pas une exclusion en direct mais la réponse à un
+   * téléphone qui s'est re-présenté avec un jeton que la soirée ne connaît
+   * plus. Une page à jour l'ignore : l'accusé de son `player:join` lui a déjà
+   * tout dit. Il n'est envoyé que pour les pages restées sur une ancienne
+   * version, qui ne lisent pas ce motif et resteraient sinon devant un
+   * en-tête vide.
+   */
+  'player:removed': (info?: { reason: JoinRefusal }) => void
+  /**
+   * L'animateur a lancé « Nouvelle soirée » : l'invité de ce téléphone
+   * n'existe plus. Pas `player:removed` — « L'animateur t'a retiré » serait
+   * faux. Le téléphone oublie son identité et repasse par l'entrée,
+   * pré-remplie, pour rejoindre la soirée suivante.
+   */
+  'party:reset': () => void
   /**
    * Le profil de ce joueur vient de changer — son expérience du soir a été
    * créditée. Sans ce message, le téléphone garderait le profil reçu à la

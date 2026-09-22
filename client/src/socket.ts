@@ -1,7 +1,7 @@
 import { io, type Socket } from 'socket.io-client'
 import type { ActionAck, ClientToServerEvents, JoinAck, ServerToClientEvents } from '../../shared/events'
 import type { PublicProfile } from '../../shared/profil'
-import { forgetMe, getState, setState, showToast } from './state'
+import { forgetMe, getState, oublierIdentite, setState, showToast } from './state'
 import { applySample, resetClock, serverNow } from './clock'
 import { currentSlug } from './routes'
 
@@ -57,12 +57,29 @@ socket.on('session:ended', ({ sessionId }) => {
   delete views[sessionId]
   setState({ views })
 })
-socket.on('player:removed', () => {
+socket.on('player:removed', info => {
+  // Un téléphone qui s'est re-présenté avec un jeton que la soirée ne connaît
+  // plus : l'accusé de son `player:join` s'en est déjà chargé. Ce signal-là
+  // ne sert qu'aux pages d'une ancienne version, qui ne lisent pas l'accusé.
+  if (info?.reason === 'unknown-token') return
   // On oublie l'identité : le téléphone revient à l'écran d'inscription.
   const slug = currentSlug()
   if (slug) forgetMe(slug)
   else setState({ me: null, views: {} })
   showToast({ kind: 'info', message: "L'animateur t'a retiré de la soirée" })
+})
+
+// « Nouvelle soirée » : l'invité de ce téléphone n'existe plus. On oublie qui
+// il était, pas son prénom : l'entrée le propose pré-rempli, écran d'équipe
+// compris, pour rejoindre la soirée suivante. Sans ce signal, le téléphone
+// restait devant un en-tête vide et « 0 pts », et le quiz suivant partait
+// sans lui.
+socket.on('party:reset', () => {
+  const avait = !!getState().me
+  const slug = currentSlug()
+  if (slug) oublierIdentite(slug)
+  else setState({ me: null, views: {} })
+  if (avait) showToast({ kind: 'info', message: 'Nouvelle soirée ! Rejoins-la pour jouer' })
 })
 
 socket.on('toast', showToast)

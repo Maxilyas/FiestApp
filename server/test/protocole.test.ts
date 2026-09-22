@@ -365,7 +365,8 @@ function partieSimulee(n: number) {
     // Quelques homonymes parfaits, comme dans une vraie salle : « Camille (2) ».
     const p = party.join(i % 9 === 0 ? prenoms[i % 8] : `${prenoms[i % 8]} ${i}`, ['🦊', '🐼', '🐸'][i % 3])
     if ('error' in p) throw new Error(p.error)
-    party.socketConnected(p.id)
+    // Un identifiant de socket factice : le registre compte des connexions, pas des appels.
+    party.socketConnected(p.id, `banc-${p.id}`)
     ids.push(p.id)
   }
 

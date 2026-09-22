@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
-import { getState, loadChoix, saveChoix, saveMe, showToast, useAppState } from '../state'
+import { getState, oublierIdentite, saveChoix, saveMe, showToast, useAppState } from '../state'
 import { currentSlug } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
@@ -51,13 +51,26 @@ export function PlayerApp() {
       // l'entrée peut saluer avant même qu'on rejoigne.
       setProfil(watched.profile ?? null)
       setPresente(true)
-      const choix = loadChoix(slug)
+      // Sans jeton, rien à reprendre : c'est l'entrée qui fait entrer —
+      // pré-remplie avec le prénom et l'avatar retenus ici, écran d'équipe
+      // compris. Rejoindre tout seul avec le prénom retenu faisait atterrir
+      // l'habitué « sans équipe », sans jamais lui montrer cet écran.
       const token = getState().me?.token
-      // Ni identité mémorisée ici, ni jeton : ce téléphone passe par l'entrée.
-      if (!choix && !token) return
-      // Sans équipe transmise, le serveur conserve celle déjà choisie.
-      const ack = await joinAsPlayer(slug, choix?.name, choix?.avatar, token)
-      if (!ack.ok) return
+      if (!token) return
+      // Le jeton seul : la fiche du serveur fait foi. Renvoyer le prénom
+      // retenu ici défaisait, à chaque réveil du téléphone, le renommage de
+      // l'animateur. Sans équipe transmise, le serveur garde la sienne.
+      const ack = await joinAsPlayer(slug, undefined, undefined, token)
+      if (!ack.ok) {
+        // Ce jeton ne désigne plus personne — exclu pendant que le téléphone
+        // dormait, « Nouvelle soirée » : on oublie qui l'on était, pas son
+        // prénom, et l'entrée le propose.
+        if (ack.reason === 'unknown-token') {
+          oublierIdentite(slug)
+          showToast({ kind: 'info', message: ack.error })
+        }
+        return
+      }
       saveMe(slug, { playerId: ack.playerId, token: ack.token })
       saveChoix(slug, { name: ack.name, avatar: ack.avatar })
     }

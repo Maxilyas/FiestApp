@@ -422,6 +422,28 @@ export class SpaceRuntime {
     this.answers.clearAll()
     await this.mirror.reset()
     this.broadcastSnapshot()
+    // Les téléphones de la soirée effacée n'incarnent plus personne. Laissés
+    // tels quels, ils restaient sur un en-tête vide, « 0 pts », « Personne
+    // pour l'instant… », et le quiz suivant partait sans aucun participant
+    // — l'animateur ne pouvait même plus le lancer. Leur connexion oublie son
+    // invité, et la page repasse par l'entrée, pré-remplie. Un téléphone qui
+    // a rejoint la nouvelle soirée pendant l'attente du miroir, lui, a déjà
+    // un invité qui existe : on n'y touche pas. L'écran commun n'en a pas.
+    //
+    // La salle vide part d'abord, sans attendre le regroupement : l'entrée
+    // qui s'ouvre sur le téléphone lit la liste des invités, et celle d'avant
+    // lui faisait prendre sa propre identité effacée pour un homonyme — son
+    // avatar « déjà pris » changeait sous ses yeux.
+    this.sendSnapshot()
+    const io = this.deps.io
+    for (const id of [...(io.sockets.adapter.rooms.get(`space:${this.spaceId}`) ?? [])]) {
+      const socket = io.sockets.sockets.get(id)
+      const playerId = socket?.data.playerId
+      if (!socket || !playerId || this.party.get(playerId)) continue
+      socket.leave(`player:${playerId}`)
+      socket.data.playerId = undefined
+      socket.emit('party:reset')
+    }
     return archived
   }
 

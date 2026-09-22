@@ -44,6 +44,18 @@ export class ScoreLedger {
     this.totals.clear()
   }
 
+  /**
+   * Un invité exclu : ses gains partent avec lui. `Party.remove` effaçait
+   * déjà ses lignes, ici et dans le miroir, mais pas le total gardé en
+   * mémoire — le journal et son agrégat ne disaient plus la même chose. Les
+   * lignes sont effacées ici aussi : c'est sans effet si elles sont déjà
+   * parties, et le registre reste juste quel que soit l'ordre des appels.
+   */
+  removePlayer(playerId: string) {
+    this.db.prepare('DELETE FROM score_entries WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
+    this.totals.delete(playerId)
+  }
+
   total(playerId: string): number {
     return this.totals.get(playerId) ?? 0
   }

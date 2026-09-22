@@ -616,6 +616,26 @@ export const quizModule: GameModule<QuizState> = {
     st.playFrom[playerId] = st.phase === 'reveal' ? st.qIndex + 1 : st.qIndex
   },
 
+  onPlayerLeave(sess, playerId, ctx) {
+    const st = sess.state
+    // Un exclu part avec tout ce qu'il avait laissé. Sa réponse restait dans
+    // la question en cours : elle comptait au barème, aux compteurs de
+    // l'écran commun, au « plus rapide » — affiché « ??? » —, et dans une
+    // estimation elle volait le premier rang à ceux qui restaient. Ses gains
+    // de la question partent aussi : une annulation après coup lui aurait
+    // sinon écrit une ligne négative au journal, à lui qui n'existe plus.
+    delete st.responses[playerId]
+    delete st.lastAwards[playerId]
+    delete st.playFrom[playerId]
+    delete st.totals[playerId]
+    // Il était peut-être le dernier qu'on attendait : la salle a fini, on
+    // révèle après le souffle, comme après une dernière réponse — pas au
+    // bout du chronomètre.
+    if (st.phase === 'question' && st.pausedMs === null && awaited(sess) === 0) {
+      ctx.setTimer('settle', SETTLE_MS)
+    }
+  },
+
   onTimer(sess, timerId, ctx) {
     if (timerId === 'ready' && sess.state.phase === 'getReady') startQuestion(sess, 0, ctx)
     if (timerId === 'observe' && sess.state.phase === 'observe') beginAnswering(sess, ctx)

@@ -127,3 +127,20 @@ export function showToast(toast: Toast) {
 
 // Même raison que socket.ts : le store est un singleton, pas hot-remplaçable.
 if (import.meta.hot) import.meta.hot.accept(() => window.location.reload())
+
+/**
+ * Ce téléphone n'est plus personne ici — son jeton ne désigne plus aucun
+ * invité (exclu pendant qu'il dormait, « Nouvelle soirée ») — mais il garde
+ * le prénom et l'avatar qu'il avait choisis : l'entrée les propose
+ * pré-remplis, et l'on repasse par l'écran d'équipe. `forgetMe`, lui, efface
+ * aussi ce choix.
+ */
+export function oublierIdentite(slug: string) {
+  try {
+    localStorage.removeItem(meKey(slug))
+  } catch {
+    // Stockage refusé (navigation privée, quota) : oublier en mémoire suffit
+    // pour montrer l'entrée tout de suite.
+  }
+  setState({ me: null, views: {} })
+}
