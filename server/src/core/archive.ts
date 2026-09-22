@@ -22,8 +22,8 @@ import type { ArchiveSummary, PartyArchive } from '../../../shared/archive'
  * amélioration des prix ou du bilan profite donc aussi aux soirées passées.
  *
  * L'identifiant d'une soirée est sa date et l'heure d'arrivée du premier
- * invité : archiver deux fois la même soirée met l'archive à jour, sans
- * doublon.
+ * invité, figées une fois pour toutes (voir `Soiree`) : archiver deux fois la
+ * même soirée met l'archive à jour, sans doublon.
  */
 
 /** Le fuseau de la fête, pour nommer les soirées par leur date. */
@@ -45,9 +45,36 @@ export function archiveIdOf(heldAt: number): string {
   return `${day}-${heldAt.toString(36).slice(-5)}`
 }
 
+/**
+ * Une soirée : son nom et son heure de début. C'est sous ce nom qu'elle
+ * s'archive, que l'expérience du soir se crédite et que ses prix se rangent
+ * — il ne doit donc plus bouger une fois tiré, jusqu'à « Nouvelle soirée ».
+ */
+export interface Soiree {
+  id: string
+  heldAt: number
+}
+
+/**
+ * Le nom qu'on donne à une soirée : l'arrivée du plus ancien invité présent.
+ *
+ * C'est ainsi qu'on le recalculait à chaque besoin, et c'était le piège :
+ * exclure ce premier arrivé — le téléphone d'essai de l'animateur, presque
+ * toujours — rebaptisait la soirée en cours de route. On ne l'appelle donc
+ * plus qu'une fois par soirée, pour le tirer ; et c'est aussi elle qui rend
+ * son nom à une soirée commencée avant qu'on le range.
+ */
+export function soireeDesInvites(players: { createdAt: number }[]): Soiree | null {
+  if (players.length === 0) return null
+  const heldAt = Math.min(...players.map(p => p.createdAt))
+  return { id: archiveIdOf(heldAt), heldAt }
+}
+
 // ── Construire l'archive de la soirée en cours ───────────────────────────
 
 export interface LiveParty {
+  /** Son nom, déjà tiré : c'est lui qui fait d'un second archivage une mise à jour. */
+  soiree: Soiree
   players: PlayerRec[]
   teams: TeamRec[]
   bonuses: TeamBonus[]
@@ -61,14 +88,15 @@ export interface LiveParty {
 /** Null tant qu'aucune question n'a été jouée : il n'y a rien à garder. */
 export function buildArchive(live: LiveParty): { id: string; heldAt: number; archive: PartyArchive } | null {
   if (live.answers.length === 0 || live.players.length === 0) return null
-  const heldAt = Math.min(...live.players.map(p => p.createdAt))
   const packs: PartyArchive['packs'] = {}
   for (const [sessionId, pack] of resolvePacks(live.answers, live.packsBySession, live.library)) {
     packs[sessionId] = pack
   }
   return {
-    id: archiveIdOf(heldAt),
-    heldAt,
+    // Lu, pas recalculé : les invités présents ne sont plus forcément ceux
+    // de la première sauvegarde, et l'archive doit garder son nom.
+    id: live.soiree.id,
+    heldAt: live.soiree.heldAt,
     archive: {
       version: 1,
       // Le jeton de reconnexion reste sur le serveur : il n'a rien à faire

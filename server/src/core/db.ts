@@ -92,6 +92,16 @@ export function initDb(dbPath: string): DB {
       updated_at      INTEGER NOT NULL,
       space_id        TEXT
     );
+
+    -- Le nom de la soirée en cours, une ligne par espace. On le recalculait
+    -- depuis le plus ancien invité présent : exclure le premier arrivé
+    -- rebaptisait la soirée, et l'expérience comme l'archive se
+    -- dédoublaient. Tiré une fois, il reste là jusqu'à « Nouvelle soirée ».
+    CREATE TABLE IF NOT EXISTS soiree (
+      space_id TEXT PRIMARY KEY,
+      id       TEXT NOT NULL,
+      held_at  INTEGER NOT NULL
+    );
   `)
 
   // Les équipes, puis les espaces, sont arrivés après les premiers essais :
@@ -137,6 +147,9 @@ export function wipeSpace(db: DB, spaceId: string): number {
     for (const table of PARTY_TABLES) {
       removed += db.prepare(`DELETE FROM ${table} WHERE space_id = ?`).run(spaceId).changes
     }
+    // Hors de la liste du dessus, qui sert aussi à rattacher les lignes
+    // d'avant les espaces : cette table-là est née avec eux.
+    removed += db.prepare('DELETE FROM soiree WHERE space_id = ?').run(spaceId).changes
     return removed
   })()
 }

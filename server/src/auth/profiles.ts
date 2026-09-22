@@ -62,6 +62,14 @@ interface ProfileSessionRec {
   lastSeenAt: number
 }
 
+/** Un prix de soirée et son lauréat — un profil, jamais un invité anonyme. */
+export interface PrixDeSoiree {
+  profileId: string
+  badge: string
+  emoji: string
+  title: string
+}
+
 /** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
 const SESSION_MS = 365 * 24 * 3600 * 1000
 const SLIDE_EVERY_MS = 7 * 24 * 3600 * 1000

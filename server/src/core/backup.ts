@@ -3,6 +3,7 @@ import { createClient, type Client } from '@libsql/client'
 import type { DB } from './db'
 import type { PlayerRec } from './party'
 import type { TeamRec } from './teams'
+import type { Soiree } from './archive'
 import { toRow, type AnswerRow } from './answers'
 import type { TeamBonus } from '../../../shared/types'
 
@@ -31,6 +32,12 @@ export interface PartyMirror {
   saveScore(entry: { playerId: string; sessionId?: string; points: number; reason: string; createdAt: number }): void
   deletePlayer(playerId: string): void
   deleteTeam(teamId: string): void
+  /**
+   * Le nom de la soirée en cours. Seule écriture que l'appelant attend : rien
+   * ne doit s'écrire sous ce nom dans la base permanente tant qu'un réveil sur
+   * disque effacé ne saurait pas le retrouver.
+   */
+  saveSoiree(soiree: Soiree): Promise<void>
   /** Repart d'une soirée vierge — pour cet espace seulement. */
   reset(): Promise<void>
 }
@@ -138,6 +145,15 @@ export class PartyBackup {
            updated_at      INTEGER NOT NULL,
            space_id        TEXT
          )`,
+        // Le nom de la soirée en cours, une ligne par espace. Sans lui, un
+        // réveil sur disque effacé le recalculerait sur les invités présents
+        // — et si le premier arrivé est parti entre-temps, la soirée
+        // changerait de nom : archive et expérience en double.
+        `CREATE TABLE IF NOT EXISTS party_soiree (
+           space_id TEXT PRIMARY KEY,
+           id       TEXT NOT NULL,
+           held_at  INTEGER NOT NULL
+         )`,
       ],
       'write',
     )
@@ -171,6 +187,21 @@ export class PartyBackup {
     })
     this.pending.add(tracked)
     tracked.finally(() => this.pending.delete(tracked))
+  }
+
+  /**
+   * Une écriture que l'appelant attend — et que `settle()` attend aussi,
+   * comme les autres. Son échec revient à l'appelant : c'est lui qui sait
+   * s'il peut s'en passer.
+   */
+  private awaited(promise: Promise<unknown>): Promise<void> {
+    const settled = promise.then(
+      () => {},
+      () => {},
+    )
+    this.pending.add(settled)
+    settled.finally(() => this.pending.delete(settled))
+    return promise.then(() => {})
   }
 
   /** Le miroir d'un espace : les mêmes écritures, chacune signée de l'espace. */
@@ -272,10 +303,28 @@ export class PartyBackup {
         ),
       /** L'équipe disparaît ; ses membres sont mis à jour séparément par `Party`. */
       deleteTeam: teamId => run('DELETE FROM party_teams WHERE id = ?', [teamId]),
-      /** Repart d'une soirée vierge — les essais d'avant la fête ne doivent pas y traîner. */
+      saveSoiree: soiree =>
+        this.awaited(
+          this.client.execute({
+            sql: `INSERT INTO party_soiree (space_id, id, held_at) VALUES (?, ?, ?)
+                  ON CONFLICT(space_id) DO UPDATE SET id = excluded.id, held_at = excluded.held_at`,
+            args: [spaceId, soiree.id, soiree.heldAt],
+          }),
+        ),
+      /**
+       * Repart d'une soirée vierge — les essais d'avant la fête ne doivent pas
+       * y traîner. Les écritures encore en vol passent d'abord : arrivée après
+       * l'effacement, une recopie tardive ressusciterait ce qu'on efface — et
+       * d'abord le nom de la soirée finie, que la suivante reprendrait au
+       * premier réveil sur disque effacé.
+       */
       reset: async () => {
+        await this.settle()
         await this.client.batch(
-          MIRROR_TABLES.map(table => ({ sql: `DELETE FROM ${table} WHERE space_id = ?`, args: [spaceId] })),
+          [...MIRROR_TABLES, 'party_soiree'].map(table => ({
+            sql: `DELETE FROM ${table} WHERE space_id = ?`,
+            args: [spaceId],
+          })),
           'write',
         )
       },
@@ -302,7 +351,10 @@ export class PartyBackup {
     const bonuses = await this.client.execute('SELECT * FROM party_bonus ORDER BY created_at')
     const answers = await this.client.execute('SELECT * FROM party_answers ORDER BY created_at, q_index')
     const sessions = await this.client.execute("SELECT * FROM party_sessions WHERE status = 'running'")
-    if (players.rows.length === 0 && teams.rows.length === 0) return none
+    const soirees = await this.client.execute('SELECT space_id, id, held_at FROM party_soiree')
+    // Une soirée dont tous les invités ont été exclus garde son nom : ceux
+    // qui arriveront ensuite sont de la même soirée, pas d'une nouvelle.
+    if (players.rows.length === 0 && teams.rows.length === 0 && soirees.rows.length === 0) return none
 
     const spaceOf = (r: Record<string, unknown>) =>
       r.space_id === null || r.space_id === undefined ? this.defaultSpace : String(r.space_id)
@@ -329,7 +381,12 @@ export class PartyBackup {
       `INSERT OR IGNORE INTO sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
+    const insertSoiree = db.prepare('INSERT OR IGNORE INTO soiree (space_id, id, held_at) VALUES (?, ?, ?)')
     db.transaction(() => {
+      // Le nom de chaque soirée revient avec elle. Sans lui, on le
+      // recalculerait sur les invités rechargés — et le premier arrivé a pu
+      // être exclu entre-temps.
+      for (const r of soirees.rows) insertSoiree.run(String(r.space_id), String(r.id), Number(r.held_at))
       for (const r of sessions.rows) {
         insertSession.run(
           String(r.id),
