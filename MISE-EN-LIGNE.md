@@ -63,6 +63,8 @@ turso db tokens create quizz-romane
 
 ### Étape 3 — Déployer sur Render
 
+> ⚠️ **`render.yaml` ne porte plus les noms de ce guide** : il nomme les services `fiestapp-quizz` et `fiestapp-quizz-preprod`, là où ce guide parle de `quizz-romane-30` et `fiestapp-preprod`. Le nom fait l'adresse publique : avant toute synchronisation de blueprint, choisis — recréer les services sous les nouveaux noms (et rediriger les anciens liens, QR imprimés compris), ou revenir aux anciens noms dans `render.yaml`.
+
 Sur [render.com](https://render.com) : crée un compte, puis **New → Blueprint**, connecte le dépôt `Maxilyas/FiestApp`. Render lit `render.yaml` et te demande les valeurs :
 
 | Variable | Ce que tu mets |
@@ -118,11 +120,11 @@ ADMIN_LOGIN=antoine ADMIN_PASSWORD=ton-mot-de-passe npm run load -- https://TON-
 
 Simule 20 invités sur le serveur en ligne et mesure les temps de réponse réels.
 
-⚠️ **Ne lance jamais ce test contre la base Turso de production.** Il simule vingt invités, et le miroir écrit toutes les deux secondes : le quota gratuit y passerait en une session. Vise la préproduction, ou reste en local sur fichier.
+⚠️ **Ne lance jamais ce test contre la base Turso de production.** Ses vingt invités s'inscrivent pour de vrai dans la soirée de ton espace, et il y joue un quiz entier : c'est la vraie soirée qu'il remplit — classement, miroir, et l'archive que « Nouvelle soirée » en fera. Vise la préproduction, ou reste en local sur fichier. Pour mesurer la production sans y inscrire personne, `--sonde` ne fait que connecter les téléphones.
 
 ### Étape 7 — La préproduction
 
-Le développement local ne peut pas éprouver six choses, et ce sont celles qui mordent : le miroir Turso avec sa vraie latence, le disque effacé au redémarrage, le réveil après veille, les cookies `Secure`, l'adresse du client derrière le proxy, et la politique de sécurité du contenu en conditions réelles.
+Le développement local ne peut pas éprouver six choses, et ce sont celles qui mordent : le miroir Turso avec sa vraie latence, le disque effacé au redémarrage, le réveil après veille, les cookies `Secure`, l'adresse du client derrière le proxy, et la politique de sécurité du contenu en conditions réelles. Pour cette dernière, ouvre la console du navigateur (F12) sur l'écran commun comme sur un téléphone : la politique ne laisse le temps réel parler qu'à l'hôte de la page — en `wss://` derrière le proxy de Render —, et aucune violation de `connect-src` ne doit s'y lire.
 
 Une soirée est un coup unique — on ne débogue pas pendant la fête. D'où un second service, identique au premier, sur sa propre base.
 
@@ -207,10 +209,14 @@ npm run check
 ```
 
 ```bash
+npm test
+```
+
+```bash
 npm run smoke
 ```
 
-`check` contrôle le code, `smoke` rejoue une soirée entière (comptes et leur suppression, isolation des espaces, inscription, quiz, scores, reconnexion, bibliothèque, photos, estimation, retardataire, historique, mise à jour d'une base d'avant les comptes).
+`check` contrôle le code ; `test` lance les tests ciblés de `server/test/` — base distante en panne, clics qui se croisent, messages malformés, réveils sur disque effacé —, chaque fichier sur son propre serveur jetable quand il lui en faut un ; `smoke` rejoue une soirée entière (comptes et leur suppression, isolation des espaces, inscription, quiz, scores, reconnexion, bibliothèque, photos, estimation, retardataire, historique, mise à jour d'une base d'avant les comptes). `npm run verify` enchaîne les trois, construction du client comprise : c'est ce que refait l'intégration continue à chaque proposition de modification.
 
 ### Simuler des invités
 
@@ -296,6 +302,8 @@ New-NetFirewallRule -DisplayName "Quizz" -Direction Inbound -Action Allow -Proto
 
 Avec un routeur wifi sans internet, renseigne `WIFI_SSID` et `WIFI_PASS` : l'écran commun affiche alors deux QR codes (1️⃣ rejoindre le wifi, 2️⃣ ouvrir le quiz).
 
+En HTTP, les téléphones ne savent pas garder leur écran allumé tout seuls — il y faut HTTPS : un bandeau « Garde ton écran allumé pendant le quiz » le demande aux invités. Rappelle-le à voix haute avant le premier quiz : un téléphone qui s'endort en pleine question la rate.
+
 ---
 
 ## 6. Le soir J
@@ -303,15 +311,15 @@ Avec un routeur wifi sans internet, renseigne `WIFI_SSID` et `WIFI_PASS` : l'éc
 1. **La veille** : ouvre l'adresse publique pour confirmer que tout répond (elle mettra une minute : le serveur dormait). Dans **Mon compte**, vérifie le titre de la soirée et la date : ce sont eux que voient les invités.
 2. **5 minutes avant — le geste à ne pas oublier** : connecte-toi et ouvre l'écran commun sur le vidéoprojecteur. C'est lui qui réveille le serveur, et tant qu'un écran est connecté il ne se rendort pas. Sans ça, le premier invité qui scanne attend une minute devant une page blanche.
 3. Vérifie le bouton 🔊 en haut de l'écran commun (les sons ne sortent que de là, jamais des téléphones).
-4. Les invités scannent le QR — il mène à `/romane` —, choisissent un prénom et un avatar.
+4. Les invités scannent le QR de l'écran commun — il mène à `/romane` — : « Me connecter » pour qui a un profil, « Jouer sans compte » pour les autres, puis un prénom et un avatar. Les QR imprimés des tables (`jour-j/qr-tables-*.pdf`) mènent, eux, à la racine, l'accueil : on y touche « Rejoindre une soirée », puis on tape `romane`.
 5. **Lancer un quiz** → choisis **points normaux, ×2 ou ×3**, puis le quiz → le 3-2-1 démarre. Annonce le multiplicateur à la salle : c'est ce qui garde tout le monde dans la course.
-6. Pendant une question : **Révéler la réponse** sans attendre le chronomètre, ou **⏸ Pause** pour un discours.
-7. Après la révélation : **↺ Reposer** la question, ou **✖ Annuler les points** si la bonne réponse était fausse.
+6. Pendant une question : **Révéler la réponse** sans attendre le chronomètre, ou **⏸ Pause** pour un discours. **Terminer**, collé à « Manuel », demande confirmation en pleine question : la fin d'un quiz ne se rattrape pas.
+7. Après la révélation : **↺ Reposer** la question, ou **✖ Annuler les points** si la bonne réponse était fausse — l'écran commun et les téléphones affichent alors « Points annulés ». Un clic de trop ne casse rien : Révéler, Question suivante, Reposer et Annuler les points disent quelle question ils visaient, et celui qui arrive après que la partie a avancé est ignoré.
 8. **⏩ Manuel / Auto 5 s / Auto 10 s** : en automatique, tu ne cliques plus entre les questions.
 9. Un pseudo malheureux ? Clique dessus dans la liste des invités pour le renommer, ou sur la croix pour exclure.
-10. À la fin : **🏆 Podium de la soirée** — il affiche aussi le plus beau coup, le plus régulier et le vainqueur de chaque quiz, de quoi remettre plusieurs cadeaux. Fais scanner le QR de la page souvenir.
+10. À la fin : **🏆 Podium de la soirée** — il affiche aussi le plus beau coup, le plus régulier et le vainqueur de chaque quiz, de quoi remettre plusieurs cadeaux. Des ex æquo partagent leur marche, et les vainqueurs ex æquo d'un quiz leur carte : ils ont gagné ensemble, prévois un cadeau pour chacun. Fais scanner le QR de la page souvenir.
 11. Entre deux quiz, le classement de la soirée reste affiché et **se cumule**.
-12. **En fin de fête, avant de partir — Sauvegarder** : sur l'écran commun, **Sauvegarder** range la soirée dans l'historique sous son nom, sans rien effacer. N'attends pas le lendemain : le dernier invité parti, Render s'endort et son disque s'efface, et le bilan du lendemain se reconstruit alors depuis le miroir — sans la copie exacte des quiz joués, qui ne vivait que sur ce disque. Un quiz retouché depuis s'y lirait de travers. Et les badges des profils ne se décernent qu'au rangement.
+12. **En fin de fête, avant de partir — Sauvegarder** : sur l'écran commun, **Sauvegarder** range la soirée dans l'historique sous son nom, sans rien effacer. N'attends pas le lendemain : le dernier invité parti, Render s'endort et son disque s'efface, et le bilan du lendemain se reconstruit alors depuis le miroir — sans la copie exacte des quiz joués, qui ne vivait que sur ce disque. Un quiz retouché depuis s'y lirait de travers. Et les badges des profils ne se décernent qu'au rangement — chaque rangement remplace les prix de soirée du précédent, c'est le dernier qui fait foi. L'expérience, elle, est déjà créditée : dès le podium de chaque quiz.
 13. **Le lendemain** : poste le lien `https://TON-ADRESSE.onrender.com/romane/bilan` dans le groupe — chacun y relit ses réponses question par question, et « La soirée » raconte le reste ; le fil sous le titre mène au souvenir (podium, palmarès et tous les chiffres) et à l'historique. `/romane/bilan/fiches` imprime une fiche par invité, `npm run export` garde tout en fichiers.
 14. **La soirée rangée** se relit ensuite pour toujours sur `/romane/soirees`, souvenir (chiffres compris) et bilan compris — même après **🧹 Nouvelle soirée** pour la fête suivante, qui l'archive de toute façon avant d'effacer. Ne retouche pas les quiz joués avant de l'avoir rangée.
 
@@ -324,8 +332,9 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 | Symptôme | Cause probable | Quoi faire |
 |---|---|---|
 | Page blanche ~1 min au premier scan | serveur endormi (offre gratuite, 15 min sans trafic) | attendre le réveil ; la prochaine fois, ouvrir l'écran commun cinq minutes avant |
+| « Le serveur redémarre — patiente une minute, puis réessaie » | c'est l'hébergeur qui répond à la place de l'application (502, 503, 504) : un déploiement ou un réveil en cours | patienter une minute ; ne pas déployer pendant la fête — la production ne se déploie qu'à la main (étape 7) |
 | « Identifiant ou mot de passe incorrect » | faute de frappe, ou le mot de passe d'amorçage a été changé depuis « Mon compte » | réessayer ; pour un ami, refaire un lien d'activation depuis `/admin` |
-| « Trop d'essais — réessaie dans un quart d'heure » | cinq échecs de suite sur un identifiant, ou vingt depuis la même adresse | attendre quinze minutes ; c'est le garde-fou contre la force brute |
+| « Trop d'essais — réessaie dans un quart d'heure » | cinq échecs de suite sur un même identifiant — les portes qui vérifient le même mot de passe (connexion, rattachement d'un profil, changement de mot de passe) se ferment ensemble —, ou vingt essais depuis une même adresse, toutes portes confondues (puis vingt par minute) : le wifi de la salle n'est qu'une adresse | attendre : un quart d'heure pour un mot de passe verrouillé, une minute suffit à l'adresse ; c'est le garde-fou contre la force brute |
 | Le serveur refuse de démarrer : « ADMIN_PASSWORD manquant » | premier démarrage sur une base Turso sans aucun compte, et mot de passe absent ou laissé à celui par défaut | définir `ADMIN_PASSWORD` sur Render le temps de ce démarrage ; une fois le compte créé, la variable peut partir |
 | Le serveur refuse de démarrer : « QUIZ_DB_URL manquant » | le service n'a pas de base permanente : il écrirait sur un disque qui s'efface à chaque réveil | renseigner `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` — la base de CE service, production ou préproduction |
 | Le serveur refuse de démarrer : « Base permanente injoignable » | adresse ou jeton faux, jeton révoqué, base supprimée, Turso en panne — le détail suit le message | vérifier `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` sur la page de la base Turso ; au besoin, un jeton neuf (étape 2) |
@@ -334,16 +343,19 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 | Aucun quiz proposé au lancement | la bibliothèque de cet espace est vide | écrire un quiz dans `/edit`, ou relancer la migration (étape 4) pour le tien |
 | « Aucun quiz prêt à jouer » | toutes les questions sont des brouillons | dans `/edit`, compléter ce qui porte un ⚠️ |
 | Un invité ne voit rien après avoir répondu | c'est normal | la question est sur l'écran commun ; son téléphone attend la révélation |
-| Téléphone bloqué sur « reconnexion… » | réseau du téléphone | il se reconnecte tout seul, son score est conservé |
+| Un téléphone affiche « Connexion perdue — reconnexion… » (en salle d'attente : « reconnexion… ») | réseau du téléphone : wifi coupé, 4G perdue, mode avion | il se reconnecte tout seul — au retour du réseau ou au rallumage de l'écran, en deux secondes —, son score est conservé |
+| Un téléphone affiche « On ne te retrouve plus dans cette soirée — rejoins-la » | son invité n'existe plus : exclu pendant que le téléphone dormait, ou **🧹 Nouvelle soirée** | rien : l'entrée s'ouvre, pré-remplie de son prénom |
 | Quiz modifié en ligne puis écrasé | migration relancée après coup | une fois en ligne, n'écris plus qu'en ligne |
 | Les scores des essais sont encore là | la sauvegarde distante les a gardés | **🧹 Nouvelle soirée** sur l'écran commun — elle archive d'abord ; retire ensuite l'archive des essais sur `/romane/soirees` |
-| « La soirée est complète » | plus d'inscrits que le réglage de l'espace (150 par défaut ; les essais comptent) | **🧹 Nouvelle soirée**, ou relever « Invités au plus » dans « Mon compte » — mais sur l'offre gratuite, pas au-delà de 150 environ : le coût des diffusions grandit plus vite que la salle, et au-delà l'instance ne suit plus. `MAX_PLAYERS=150` dans les variables de Render l'impose à tous les espaces |
-| « Trop d'inscriptions d'un coup » | plus de 25 inscriptions depuis une même adresse en quelques secondes | attendre une minute ; c'est le garde-fou contre les robots |
+| « La soirée est complète » | plus d'inscrits que le réglage de l'espace (150 par défaut ; les essais comptent) | **🧹 Nouvelle soirée**, ou relever « Invités au plus » dans « Mon compte » — mais sur l'offre gratuite, pas au-delà de 150 environ : le coût des diffusions grandit plus vite que la salle, sur une instance qui n'a qu'un dixième de processeur (voir le test de charge du README). `MAX_PLAYERS=150` dans les variables de Render l'impose à tous les espaces |
+| « Trop d'inscriptions d'un coup » | plus de 60 arrivées d'un coup depuis une même adresse (puis 60 par minute), plus de trois identités créées par une même connexion, ou plus de dix profils créés d'un coup depuis une même adresse (puis cinq par minute) | attendre une minute ; c'est le garde-fou contre les robots — une salle de 150 derrière la box de la fête entre en moins de deux minutes |
 | Le bilan dit « intitulé non retrouvé » ou « quiz modifié depuis » | le quiz joué a été supprimé, renommé ou retouché dans `/edit` avant que la soirée soit rangée dans l'historique | remettre le quiz comme il était (même titre, mêmes questions dans le même ordre) ; les points et les numéros, eux, sont intacts |
 | Une soirée manque sur `/romane/soirees` | elle n'a pas été sauvegardée avant **🧹 Nouvelle soirée** (versions antérieures) | rien à récupérer côté serveur ; les fichiers de `npm run export`, s'ils ont été faits, la gardent |
 | Un vieux lien `/bilan` ou `/soirees/…` | l'adresse d'avant les comptes | elle redirige toute seule vers ton espace ; rien à faire |
+| « Erreur serveur — réessaie dans un instant » sur l'écran commun, « Le serveur a un souci — réessaie dans un instant » sur une page | une panne interne — base distante qui refuse, archive abîmée… Son détail ne s'affiche jamais, ni aux invités ni sur l'écran projeté : il part au journal | réessayer ; si ça dure, chercher `[http]` ou `[socket]` dans les journaux du service (Render → *Logs*) : la ligne nomme la requête ou le geste qui a échoué, et la vraie erreur |
+| « Sauvegarde en retard — la soirée continue », à côté du titre de l'écran commun | la base Turso refuse les écritures depuis une dizaine de secondes : Turso en panne, jeton révoqué, base supprimée… | la soirée continue, et rien n'est perdu tant que le serveur tourne : la file réessaie jusqu'au succès, et la pastille s'en va d'elle-même au rétablissement. D'ici là, garde un écran connecté et ne déploie pas — un serveur qui s'endort ou redémarre perd son disque, et la file avec. `/healthz` dit depuis quand ça dure et combien d'écritures attendent (bloc `miroir`) ; vérifie la base et son jeton sur turso.tech |
 
-Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours est recopiée toutes les deux secondes dans la base distante, elle reprend là où elle en était (au pire, deux secondes de réponses en moins), les scores sont intacts et les téléphones se reconnectent seuls — pour chaque espace.
+Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours est recopiée dans la base distante à chaque question posée ou révélée — avec ses gains, d'un seul tenant : une révélation ne se paie jamais deux fois au réveil —, et au plus toutes les deux secondes pendant qu'on répond. Elle reprend là où elle en était (au pire, deux secondes de réponses en moins), ses chronomètres réarmés à leur heure, les scores sont intacts et les téléphones se reconnectent seuls — pour chaque espace. À une condition : que la sauvegarde ait suivi. Si l'écran commun affichait « Sauvegarde en retard », ce qui attendait encore d'être écrit part avec le disque.
 
 ### Le serveur tombe en pleine partie, et ne revient pas
 
