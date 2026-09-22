@@ -222,16 +222,21 @@ export class ArchiveStore {
    * clé), elle est reconstruite en une transaction et ses soirées rattachées
    * à l'espace par défaut. Les identifiants — donc les liens déjà partagés —
    * ne changent pas.
+   *
+   * La forme de la table se LIT dans le schéma, elle ne se devine pas à
+   * l'échec d'une requête. On prenait n'importe quelle erreur d'un `SELECT
+   * space_id` pour « table d'avant les espaces » : une base qui décrochait à
+   * cet instant-là, et toutes les archives de tous les espaces partaient chez
+   * l'espace par défaut — sans retour. Désormais, une erreur fait échouer le
+   * démarrage, et rien n'est migré.
    */
   async init(defaultSpace: string) {
     await this.client.execute(`CREATE TABLE IF NOT EXISTS soirees (${SOIREES_COLUMNS})`)
-    let hasSpace = true
-    try {
-      await this.client.execute('SELECT space_id FROM soirees LIMIT 1')
-    } catch {
-      hasSpace = false
-    }
-    if (hasSpace) return
+    const colonnes = (await this.client.execute('PRAGMA table_info(soirees)')).rows.map(c => String(c.name))
+    if (colonnes.includes('space_id')) return
+    // Une table qu'on vient de créer et dont le schéma revient vide : la base
+    // dit n'importe quoi, et migrer sur cette foi serait tout miser sur elle.
+    if (colonnes.length === 0) throw new Error('Historique illisible : la table des soirées n’a renvoyé aucune colonne')
     await this.client.batch(
       [
         `CREATE TABLE soirees_v2 (${SOIREES_COLUMNS})`,
