@@ -174,6 +174,17 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // `localhost` pendant que les téléphones utilisent l'adresse du wifi.
   const allowedOrigin = opts.online ? originOf(opts.publicUrl) : null
   const io: IoServer = new Server(httpServer, {
+    // Le battement de cœur : un ping toutes les 10 s, 8 s pour y répondre.
+    // Une liaison morte se voit donc en 18 s au plus, des deux côtés — au
+    // lieu de 45 s avec les réglages par défaut (25 + 20), mesurés à 43,6 s :
+    // plus qu'une question entière, pendant laquelle un téléphone tombé du
+    // wifi n'affichait rien et l'écran commun le comptait encore parmi les
+    // présents. Huit secondes de grâce restent larges pour la 4G d'une salle
+    // bondée. Le prix : un ping et un pong de quelques octets toutes les dix
+    // secondes, soit ~300 octets avec les en-têtes TCP et TLS — pour 150
+    // téléphones, 4,5 Ko/s côté serveur et 100 Ko par heure et par forfait.
+    pingInterval: 10_000,
+    pingTimeout: 8_000,
     cors: { origin: allowedOrigin ?? true },
     allowRequest: (req, callback) => {
       const origin = req.headers.origin

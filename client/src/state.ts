@@ -47,6 +47,23 @@ function readJson<T>(key: string): T | null {
   }
 }
 
+/**
+ * Écrit sans jamais casser la page. Cookies bloqués, navigateur intégré d'une
+ * messagerie, Safari en navigation privée : le stockage peut lever une
+ * exception à la moindre écriture. Ce qu'on y range n'est qu'une commodité —
+ * se re-présenter après un rafraîchissement — et un invité inscrit doit entrer
+ * dans la soirée même si son téléphone refuse de s'en souvenir : sans ce
+ * filet, « Rejoindre la soirée » restait grisé pour toujours alors que le
+ * serveur l'avait bel et bien inscrit.
+ */
+function writeSafe(write: (storage: Storage) => void) {
+  try {
+    write(localStorage)
+  } catch {
+    // La mémoire seule en moins : un rafraîchissement ramènera à l'entrée.
+  }
+}
+
 // Ce que le téléphone retient est rangé par espace : un invité de deux
 // soirées différentes a une identité dans chacune, et le jeton de l'une ne
 // vaut rien dans l'autre.
@@ -92,14 +109,16 @@ export function useAppState(): AppState {
 }
 
 export function saveMe(slug: string, me: Me) {
-  localStorage.setItem(meKey(slug), JSON.stringify(me))
+  writeSafe(storage => storage.setItem(meKey(slug), JSON.stringify(me)))
   setState({ me })
 }
 
 /** L'animateur a exclu ce téléphone : il oublie son identité et repart à l'entrée. */
 export function forgetMe(slug: string) {
-  localStorage.removeItem(meKey(slug))
-  localStorage.removeItem(choixKey(slug))
+  writeSafe(storage => {
+    storage.removeItem(meKey(slug))
+    storage.removeItem(choixKey(slug))
+  })
   setState({ me: null, views: {} })
 }
 
@@ -115,7 +134,7 @@ export function loadChoix(slug: string): ChoixLocal | null {
 }
 
 export function saveChoix(slug: string, choix: ChoixLocal) {
-  localStorage.setItem(choixKey(slug), JSON.stringify(choix))
+  writeSafe(storage => storage.setItem(choixKey(slug), JSON.stringify(choix)))
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined

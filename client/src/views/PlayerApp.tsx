@@ -16,6 +16,7 @@ import type { QuizPlayerView } from '../../../shared/games/quiz'
 import { ordinal } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
+import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
@@ -199,7 +200,13 @@ export function PlayerApp() {
     }
   }, [playing])
 
-  const toast = s.toast && <div className={`toast toast-${s.toast.kind}`}>{s.toast.message}</div>
+  // Le seul canal d'erreur des invités : un lecteur d'écran doit l'annoncer,
+  // tout de suite pour une erreur, sans couper la parole pour le reste.
+  const toast = s.toast && (
+    <div className={`toast toast-${s.toast.kind}`} role={s.toast.kind === 'error' ? 'alert' : 'status'}>
+      {s.toast.message}
+    </div>
+  )
 
   // L'adresse ne mène à rien : on redemande le nom de la soirée sur place.
   // Renvoyer à l'accueil enverrait maintenant sur la page du profil, qui ne
@@ -209,13 +216,7 @@ export function PlayerApp() {
   // Le premier instantané dit comment la soirée s'appelle, et la réponse de la
   // soirée dit si ce téléphone porte un profil : on ne montre pas un écran
   // d'entrée avant de savoir lequel des deux il faut.
-  if (!snap || !presente) {
-    return (
-      <div className="center-page">
-        <p className="serif-note">Connexion…</p>
-      </div>
-    )
-  }
+  if (!snap || !presente) return <AttenteConnexion />
 
   // ── L'entrée ─────────────────────────────────────
   if (!s.me) {
@@ -230,6 +231,7 @@ export function PlayerApp() {
           rejoindre={rejoindre}
           oublierProfil={oublierProfil}
         />
+        <BandeauCoupure connecte={s.connected} />
         {toast}
       </>
     )
@@ -244,6 +246,7 @@ export function PlayerApp() {
           prefill={{ name: me?.name ?? '', avatar: me?.avatar ?? '' }}
           onDone={profilConnecte}
           onCancel={() => setMontrerProfil(false)}
+          creer
         />
         {toast}
       </>
@@ -269,6 +272,8 @@ export function PlayerApp() {
             })
           }}
         />
+        <ConseilVeille />
+        <BandeauCoupure connecte={s.connected} />
         {toast}
       </div>
     )
@@ -283,6 +288,7 @@ export function PlayerApp() {
 
   return (
     <div className="player-shell">
+      <ConseilVeille />
       <header className="me-header">
         <Avatar className="player-avatar big" avatar={me?.avatar ?? ''} finition={me?.finition} eclat={me?.eclat} />
         <div>

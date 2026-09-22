@@ -4,7 +4,8 @@ import type { PublicSpace } from '../../../shared/space'
 import type { PublicProfile } from '../../../shared/profil'
 import { AVATARS } from '../../../shared/avatars'
 import { sansAccent } from '../../../shared/homonymes'
-import { ApiError, api } from '../api'
+import { MOTIFS } from '../../../shared/erreurs'
+import { ApiError, api, motifDe } from '../api'
 import { loadChoix } from '../state'
 import { JoinHead } from './Invitation'
 import { FormulaireSecours } from './Secours'
@@ -43,8 +44,6 @@ const tirage = () => AVATARS[Math.floor(Math.random() * AVATARS.length)]
 /** « Camille » → « camille » : un identifiant proposé, qu'on peut changer. */
 const identifiantPour = (prenom: string) =>
   sansAccent(prenom).replace(/[^a-z0-9._-]+/g, '').slice(0, 32)
-
-const motif = (e: unknown) => (e as Error).message
 
 /**
  * Tout ce qu'un invité traverse entre le scan du QR et la salle d'attente :
@@ -103,6 +102,14 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name])
 
+  // Chaque écran commence en haut. L'écran « moi » est plus long que la
+  // fenêtre d'un petit téléphone : on y défile pour atteindre « Continuer »,
+  // et l'écran d'équipe qui suivait héritait de ce défilement — son titre
+  // passait au-dessus du bord.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [etape])
+
   const connectes = players.filter(p => p.connected).length
   const salut = (
     <JoinHead
@@ -113,13 +120,24 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
     />
   )
 
-  /** Rejoint pour de bon. Le parent change d'écran si ça passe. */
+  /**
+   * Rejoint pour de bon. Le parent change d'écran si ça passe.
+   *
+   * Le bouton se rend quoi qu'il arrive : une exception en route (un
+   * stockage refusé, par exemple) le laissait grisé pour toujours, sans un
+   * mot — alors que l'invité était peut-être déjà inscrit.
+   */
   const entrer = async (qui: Identite, equipe: string | null) => {
     setBusy(true)
     setErreur('')
-    const refus = await rejoindre({ ...qui, teamId: equipe })
-    setBusy(false)
-    if (refus) setErreur(refus)
+    try {
+      const refus = await rejoindre({ ...qui, teamId: equipe })
+      if (refus) setErreur(refus)
+    } catch (e) {
+      setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
+    }
   }
 
   /** Dernière bifurcation : l'équipe s'il y en a, la soirée sinon. */
@@ -143,13 +161,13 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
         // le profil et l'expérience du soir se perdrait.
         const p = await reconnecter()
         setBusy(false)
-        if (!p) return setErreur('Connexion perdue — retente')
+        if (!p) return setErreur(MOTIFS.reseau)
         // Pas d'écran de confirmation : celui qui vient de taper son mot de
         // passe sait très bien qui il est. Son profil fournit son identité.
         versLaSoiree({})
       } catch (e) {
         setBusy(false)
-        setErreur(motif(e))
+        setErreur(motifDe(e))
       }
     }
 
@@ -188,7 +206,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           />
         </div>
         {erreur && (
-          <div>
+          <div role="alert">
             <p className="error">{erreur}</p>
             <p className="muted small">Tu peux aussi jouer sans compte, juste en dessous.</p>
           </div>
@@ -282,7 +300,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
             {profil.badges > 0 && ` · ${profil.badges} badge${profil.badges > 1 ? 's' : ''}`}
           </p>
         </div>
-        {erreur && <p className="error">{erreur}</p>}
+        {erreur && <p className="error" role="alert">{erreur}</p>}
         <div className="join-grow" />
         {/* Aucun champ, aucune grille d'emojis : il a choisi son prénom et son
             avatar une fois, en créant son profil. */}
@@ -346,14 +364,18 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           name: name.trim(),
           avatar,
         })
-        const p = await reconnecter()
+        // Le profil existe désormais : son code de secours se note quoi qu'il
+        // arrive ensuite. Une reconnexion trop lente affichait « Connexion
+        // perdue », le code ne se montrait jamais, et retenter créait un
+        // second profil sous un autre identifiant. Si la reconnexion n'a pas
+        // abouti, l'entrée dans la soirée s'en passera (écran suivant).
+        await reconnecter()
         setBusy(false)
-        if (!p) return setErreur('Connexion perdue — retente')
         setRecovery(res.recovery)
         setEtape('code')
       } catch (e) {
         setBusy(false)
-        setErreur(motif(e))
+        setErreur(motifDe(e))
         if (e instanceof ApiError && e.suggestion) setSuggestion(e.suggestion)
       }
     }
@@ -396,7 +418,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           />
           <span className="muted small">Au moins 8 caractères.</span>
         </div>
-        {erreur && <p className="error">{erreur}</p>}
+        {erreur && <p className="error" role="alert">{erreur}</p>}
         {/* Un refus qui ne propose rien laisse debout, dans le noir, quelqu'un
             qui ne sait pas quoi tenter d'autre. */}
         {suggestion && (
@@ -449,30 +471,40 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           </p>
           <p className="code-secours">{recovery}</p>
           <p className="muted small">Il ne sera plus jamais affiché.</p>
-          <button
-            type="button"
-            className="btn btn-small"
-            onClick={() => {
-              // Le presse-papier est refusé sur certains navigateurs et hors
-              // HTTPS : ce n'est qu'un confort, le code reste lisible à l'écran.
-              navigator.clipboard
-                ?.writeText(recovery)
-                .then(() => setCopie(true))
-                .catch(() => {})
-            }}
-          >
-            <Icon name={copie ? 'check' : 'copy'} />
-            {copie ? 'Copié' : 'Copier'}
-          </button>
+          {/* Sans presse-papier — hors HTTPS, c'est-à-dire en wifi local, et
+              dans certains navigateurs — le bouton ne faisait rien du tout.
+              Absent, il ne promet rien : le code reste lisible à l'écran. */}
+          {navigator.clipboard && (
+            <button
+              type="button"
+              className="btn btn-small"
+              onClick={() => {
+                // Refusé quand même par certains navigateurs : ce n'est qu'un
+                // confort.
+                navigator.clipboard
+                  .writeText(recovery)
+                  .then(() => setCopie(true))
+                  .catch(() => {})
+              }}
+            >
+              <Icon name={copie ? 'check' : 'copy'} />
+              {copie ? 'Copié' : 'Copier'}
+            </button>
+          )}
         </div>
-        {erreur && <p className="error">{erreur}</p>}
+        {erreur && <p className="error" role="alert">{erreur}</p>}
         <div className="join-grow" />
+        {/* Court : en capitales espacées, « entrer dans la soirée » débordait
+            des deux côtés d'un téléphone de 360 px.
+            Sans profil reconnu (cookie refusé, reconnexion trop lente), on
+            entre avec le prénom et l'avatar tout juste choisis — ce sont ceux
+            du profil — plutôt que de buter sur « Il faut un prénom ! ». */}
         <button
           className="btn btn-primary btn-big btn-block"
           disabled={busy}
-          onClick={() => versLaSoiree({})}
+          onClick={() => versLaSoiree(profil || !name.trim() ? {} : { name: name.trim(), avatar })}
         >
-          C'est noté — entrer dans la soirée
+          C'est noté — j'entre
         </button>
       </div>
     )
@@ -490,7 +522,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
         />
         <hr className="hairline" />
         <TeamPicker teams={teams} value={teamId} onPick={setTeamId} disabled={busy} />
-        {erreur && <p className="error">{erreur}</p>}
+        {erreur && <p className="error" role="alert">{erreur}</p>}
         <div className="join-grow" />
         <div className="join-actions">
           <button
@@ -528,7 +560,9 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
   const homonyme = name.trim() && players.some(p => sansAccent(p.name) === sansAccent(name))
 
   return (
-    <form className="join" onSubmit={suivant}>
+    // Le même en-tête resserré qu'à l'écran A : avec le grand titre, « Rejoindre
+    // la soirée » tombait à 619–677 px, sous le bord d'un 360 × 640.
+    <form className="join entree" onSubmit={suivant}>
       {salut}
       {profil && (
         <p className="profil-salut">
@@ -546,6 +580,10 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
         <label className="label" htmlFor="join-name">
           Ton prénom
         </label>
+        {/* Pas d'`autoFocus`, ici non plus : le clavier ouvert d'office
+            poussait « Rejoindre la soirée » hors de l'écran — et faisait
+            clignoter cet écran chez l'habitué qui ne fait qu'y passer, le
+            temps que son inscription automatique aboutisse. */}
         <input
           id="join-name"
           className="input input-line"
@@ -553,7 +591,6 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           value={name}
           onChange={e => setName(e.target.value)}
           maxLength={24}
-          autoFocus
         />
       </div>
       <div className="field">
@@ -588,7 +625,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           Il y a déjà un « {name.trim()} » — ton {avatar} vous distinguera.
         </p>
       )}
-      {erreur && <p className="error">{erreur}</p>}
+      {erreur && <p className="error" role="alert">{erreur}</p>}
       <div className="join-grow" />
       <button className="btn btn-primary btn-big btn-block" disabled={busy || !name.trim()}>
         {creation || teams.length > 0 ? 'Continuer' : 'Rejoindre la soirée'}

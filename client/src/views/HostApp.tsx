@@ -241,7 +241,10 @@ export function HostApp() {
   useEffect(() => {
     socket.connect()
     const hello = async () => {
-      const res = await helloHost()
+      // Sans réponse, on ne conclut rien sur la session : la liaison est
+      // vérifiée, et la prochaine connexion reposera la question.
+      const res = await helloHost().catch(() => null)
+      if (!res) return
       if (res.ok && res.slug && res.name) {
         setMe({ slug: res.slug, name: res.name })
         setNeedLogin(false)
@@ -250,10 +253,22 @@ export function HostApp() {
         setNeedLogin(true)
       }
     }
+    // Une session révoquée — déconnexion ou mot de passe changé depuis « Mon
+    // compte » — coupe l'écran commun côté serveur. Après ce motif-là,
+    // socket.io ne se reconnecte jamais tout seul : « reconnexion… » restait
+    // affiché pour toujours, et la console n'envoyait plus rien.
+    const coupe = (motif: string) => {
+      if (motif !== 'io server disconnect') return
+      setMe(null)
+      setNeedLogin(true)
+      setError('Session fermée — reconnecte-toi')
+    }
     if (socket.connected) hello()
     socket.on('connect', hello)
+    socket.on('disconnect', coupe)
     return () => {
       socket.off('connect', hello)
+      socket.off('disconnect', coupe)
     }
   }, [])
 

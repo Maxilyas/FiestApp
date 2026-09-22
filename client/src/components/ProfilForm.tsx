@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { api } from '../api'
+import { api, motifDe } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { Icon } from './Icon'
 import { FormulaireSecours } from './Secours'
@@ -16,10 +16,15 @@ interface Props {
    *
    * Elle a le format de « Me connecter » et se voit sans défiler — personne
    * n'a jamais besoin d'un profil pour jouer, et cet écran ne doit pas le
-   * laisser croire. Sa présence retire aussi l'`autoFocus` : le clavier
-   * pousserait ce bouton-là hors d'un écran de 360 × 640.
+   * laisser croire.
    */
   echappee?: ReactNode
+  /**
+   * Ouvrir sur la création plutôt que sur la connexion : le lien « créer un
+   * profil » de la salle d'attente menait à « Retrouver mon profil », un
+   * formulaire que l'invité n'avait aucun moyen de remplir.
+   */
+  creer?: boolean
 }
 
 /**
@@ -30,13 +35,15 @@ interface Props {
  * obligé d'en passer par là — l'invité anonyme joue exactement comme avant,
  * et c'est le chemin par défaut.
  */
-export function ProfilForm({ prefill, onDone, onCancel, echappee }: Props) {
-  const [mode, setMode] = useState<'connexion' | 'inscription' | 'secours'>('connexion')
+export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props) {
+  const [mode, setMode] = useState<'connexion' | 'inscription' | 'secours'>(creer ? 'inscription' : 'connexion')
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState(prefill?.name ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  /** Une bonne nouvelle, pas une erreur : elle ne s'écrit pas en rouge. */
+  const [info, setInfo] = useState('')
   /** Le code de secours, à noter — il ne repassera jamais. */
   const [recovery, setRecovery] = useState<{ code: string; profile: PublicProfile } | null>(null)
 
@@ -51,7 +58,8 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee }: Props) {
           // et il se note tout de suite, comme à l'inscription.
           if (profile) return setRecovery({ code: neuf, profile })
           setMode('connexion')
-          setError('Profil retrouvé — reconnecte-toi')
+          setError('')
+          setInfo('Profil retrouvé — connecte-toi avec ton nouveau mot de passe')
         }}
         onCancel={() => setMode('connexion')}
       />
@@ -82,6 +90,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee }: Props) {
     e.preventDefault()
     setBusy(true)
     setError('')
+    setInfo('')
     try {
       if (mode === 'connexion') {
         const { profile } = await api.joueur.connexion(login, password)
@@ -96,7 +105,9 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee }: Props) {
         setRecovery({ code: res.recovery, profile: res.profile })
       }
     } catch (e) {
-      setError((e as Error).message)
+      // « Identifiant ou mot de passe incorrect », tel que le serveur le dit
+      // — et non plus « Connexion requise », ni « Failed to fetch ».
+      setError(motifDe(e))
     } finally {
       setBusy(false)
     }
@@ -104,7 +115,9 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee }: Props) {
 
   const creation = mode === 'inscription'
   return (
-    <form className="join" onSubmit={submit}>
+    // Resserré comme l'entrée d'une soirée : en 360 × 640, « Revenir » —
+    // la seule sortie de la salle d'attente — tombait sous le bord.
+    <form className="join entree" onSubmit={submit}>
       <h2 className="center">
         <Icon name="sparkles" /> {creation ? 'Créer un profil' : 'Retrouver mon profil'}
       </h2>
@@ -140,6 +153,10 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee }: Props) {
         <label className="label" htmlFor="pf-login">
           Ton identifiant
         </label>
+        {/* Jamais d'`autoFocus` : le clavier ouvert d'office pousse hors
+            d'un écran de 360 × 640 le bouton qui permet de repartir —
+            « Rejoindre une soirée » sur l'accueil, « Revenir » dans la salle
+            d'attente. Le clavier vient quand on touche un champ. */}
         <input
           id="pf-login"
           className="input input-line"
@@ -148,7 +165,6 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee }: Props) {
           autoComplete="username"
           autoCapitalize="none"
           maxLength={32}
-          autoFocus={!echappee}
         />
       </div>
       <div className="field">
@@ -164,7 +180,16 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee }: Props) {
           autoComplete={creation ? 'new-password' : 'current-password'}
         />
       </div>
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {info && (
+        <p className="info" role="status">
+          {info}
+        </p>
+      )}
       <div className="join-grow" />
       <div className="join-actions">
         <button
@@ -182,6 +207,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee }: Props) {
             className="btn btn-ghost"
             onClick={() => {
               setError('')
+              setInfo('')
               setMode(creation ? 'connexion' : 'inscription')
             }}
           >
@@ -211,6 +237,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee }: Props) {
               className="btn btn-big btn-block"
               onClick={() => {
                 setError('')
+                setInfo('')
                 setMode(creation ? 'connexion' : 'inscription')
               }}
             >

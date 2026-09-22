@@ -4,7 +4,25 @@
 // téléphones qui bipent en même temps, c'est une cacophonie, pas une ambiance.
 
 let ctx: AudioContext | null = null
-let muted = localStorage.getItem('quizz.muted') === '1'
+
+const KEY = 'quizz.muted'
+
+/**
+ * Protégé, comme tout accès au stockage. Ce module est chargé par le
+ * chronomètre, donc par la page de jeu des téléphones : un navigateur qui
+ * refuse le stockage (cookies bloqués, navigateur intégré d'une messagerie)
+ * levait ici une exception au chargement, et `/<espace>` restait entièrement
+ * noire — pour un réglage qui ne sert que sur l'écran commun.
+ */
+function lireMuet(): boolean {
+  try {
+    return localStorage.getItem(KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+let muted = lireMuet()
 
 /**
  * Les navigateurs interdisent de jouer un son avant une interaction. On crée
@@ -25,7 +43,11 @@ export function isMuted(): boolean {
 
 export function toggleMuted(): boolean {
   muted = !muted
-  localStorage.setItem('quizz.muted', muted ? '1' : '0')
+  try {
+    localStorage.setItem(KEY, muted ? '1' : '0')
+  } catch {
+    // Stockage indisponible : le choix vaut pour cette page, sans plus.
+  }
   if (!muted) initAudio()
   return muted
 }
