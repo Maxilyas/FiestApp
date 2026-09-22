@@ -249,8 +249,76 @@ try {
   // 6. Question suivante, puis révélation forcée par l'animateur (sans timer)
   ;(host as any).emit('host:command', { sessionId: quizId, command: { type: 'next' } })
   await waitFor<any>(alice, 'session:view', p => p.view.phase === 'question' && p.view.qIndex === 1, 'question 2')
+
+  // 6 bis. L'accusé de réception d'une réponse, et le téléphone qui répond
+  //        avant d'avoir fini de se reconnecter.
+  //
+  //        Des invités juraient avoir répondu sans que ça compte. Deux
+  //        silences se cumulaient : `player:action` ne répondait rien, et une
+  //        réponse tapée pendant une coupure arrivait sur un socket tout neuf
+  //        — sans espace ni identité — parce que socket.io vide sa file
+  //        d'attente avant que la page ait pu se re-présenter. Elle était
+  //        jetée sans un mot. La réponse porte donc son espace et son jeton.
+  const okAck = await emitAck<any>(alice, 'player:action', {
+    sessionId: quizId,
+    action: { type: 'answer', choice: 0 },
+  })
+  assert(okAck.ok, 'une réponse valable doit être accusée comme retenue')
+
+  // Retaper la même case, c'est douter de soi, pas se tromper : le serveur
+  // n'a rien à réécrire mais doit confirmer, sinon le doute reste entier.
+  const sameAck = await emitAck<any>(alice, 'player:action', {
+    sessionId: quizId,
+    action: { type: 'answer', choice: 0 },
+  })
+  assert(sameAck.ok, 'la même réponse retapée doit être confirmée, pas refusée')
+
+  const badAck = await emitAck<any>(alice, 'player:action', {
+    sessionId: quizId,
+    action: { type: 'answer', choice: 99 },
+  })
+  assert(!badAck.ok && badAck.reason === 'invalid', 'une case inexistante doit être refusée avec son motif')
+
+  // Le cas qui perdait les réponses : un socket qui n'a jamais rien dit, armé
+  // du seul jeton du téléphone. Sa réponse doit compter comme les autres.
+  const ghost = connect()
+  const ghostAck = await emitAck<any>(ghost, 'player:action', {
+    sessionId: quizId,
+    slug: SLUG,
+    token: aliceAck.token,
+    action: { type: 'answer', choice: 1 },
+  })
+  assert(ghostAck.ok, `réponse perdue par un téléphone en cours de reconnexion : ${ghostAck.error}`)
+  // Et il reçoit bien la suite : rattacher l'identité sans rejoindre son salon
+  // laisserait le joueur devant une case sans coche.
+  const ghostView = waitFor<any>(ghost, 'session:view', p => p.sessionId === quizId, 'vue renvoyée au téléphone rebranché')
+
+  // Sans jeton ni espace, en revanche, le serveur ne peut que refuser — et le dire.
+  const lost = connect()
+  const lostAck = await emitAck<any>(lost, 'player:action', {
+    sessionId: quizId,
+    action: { type: 'answer', choice: 0 },
+  })
+  assert(!lostAck.ok && lostAck.reason === 'no-party', 'une réponse sans espace doit être refusée avec son motif')
+  lost.disconnect()
+
   ;(host as any).emit('host:command', { sessionId: quizId, command: { type: 'next' } })
-  await waitFor<any>(host, 'session:view', p => p.view.phase === 'reveal' && p.view.qIndex === 1, 'révélation forcée')
+  const forced = await waitFor<any>(host, 'session:view', p => p.view.phase === 'reveal' && p.view.qIndex === 1, 'révélation forcée')
+  // C'est la dernière réponse envoyée qui fait foi, y compris venue du
+  // téléphone rebranché : Alice a fini sur la case 1.
+  assert(
+    (await ghostView).view.yourChoice === 1 && forced.view.counts[1] === 1,
+    'la réponse du téléphone rebranché doit être celle retenue',
+  )
+  ghost.disconnect()
+
+  // Une réponse qui arrive après la révélation est en retard, et on le lui dit :
+  // c'est ce silence-là qui faisait croire aux invités qu'ils avaient répondu.
+  const lateAck = await emitAck<any>(bob, 'player:action', {
+    sessionId: quizId,
+    action: { type: 'answer', choice: 0 },
+  })
+  assert(!lateAck.ok && lateAck.reason === 'too-late', 'une réponse après la révélation doit être refusée avec son motif')
 
   // 7. Reconnexion : nouveau socket + token → même joueur, et il revoit la partie
   alice.disconnect()
@@ -438,9 +506,16 @@ try {
   const adminRefus = waitFor<any>(host, 'toast', t => t.kind === 'error', 'commande refusée chez l’administrateur')
   ;(host as any).emit('host:command', { sessionId: bobSession.sessionId, command: { type: 'next' } })
   await adminRefus
-  const aliceRefus = waitFor<any>(alice2, 'toast', t => t.kind === 'error', 'action refusée pour Alice')
-  ;(alice2 as any).emit('player:action', { sessionId: bobSession.sessionId, action: { type: 'answer', choice: 0 } })
-  await aliceRefus
+  // La partie du voisin vaut « terminée » — et le refus voyage maintenant dans
+  // l'accusé de réception plutôt que dans un toast.
+  const aliceRefus = await emitAck<any>(alice2, 'player:action', {
+    sessionId: bobSession.sessionId,
+    action: { type: 'answer', choice: 0 },
+  })
+  assert(
+    !aliceRefus.ok && aliceRefus.reason === 'ended',
+    'la réponse d’Alice à la partie du voisin doit être refusée, avec son motif',
+  )
   const bobetteReveal = waitFor<any>(bobette, 'session:view', p => p.view.phase === 'reveal', 'révélation chez Bob')
   ;(bobette as any).emit('player:action', { sessionId: bobSession.sessionId, action: { type: 'answer', choice: 0 } })
   const bobetteRv = await bobetteReveal
@@ -1620,12 +1695,15 @@ try {
   assert(secondBoot.archives.length === 1, 'la mise à jour est idempotente')
   await server4.close()
 
-  console.log('✅ Smoke test OK — 36 étapes')
+  console.log('✅ Smoke test OK — 37 étapes')
   console.log(
     '   collage de questions, comptes et sessions, suppression d’un compte, garde-fous, isolation des espaces, quiz complet, bibliothèque,',
   )
   console.log(
-    '   photos, estimation, sabotage, retardataire, pause, enchaînement automatique, annulation, question reposée,',
+    '   accusé de réception des réponses, photos, estimation, sabotage, retardataire, pause, enchaînement automatique,',
+  )
+  console.log(
+    '   annulation, question reposée,',
   )
   console.log(
     '   invité renommé et exclu, ménage des photos, photo « mémoire », équipes, barème des trois jeux,',

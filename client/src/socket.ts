@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client'
-import type { ClientToServerEvents, JoinAck, ServerToClientEvents } from '../../shared/events'
+import type { ActionAck, ClientToServerEvents, JoinAck, ServerToClientEvents } from '../../shared/events'
 import { forgetMe, getState, setState, showToast } from './state'
 import { currentSlug } from './routes'
 
@@ -58,6 +58,47 @@ export function joinAsPlayer(
 
 export function setMyTeam(teamId: string | null): Promise<{ ok: boolean; error?: string }> {
   return new Promise(resolve => socket.emit('player:setTeam', { teamId }, resolve))
+}
+
+/**
+ * Au-delà, on considère la réponse perdue. Large : une question dure au moins
+ * dix secondes, et en 4G dans une salle bondée un aller-retour peut traîner.
+ * Mieux vaut un accusé tardif qu'un faux « pas partie » qui ferait retaper un
+ * joueur dont la réponse était déjà enregistrée.
+ */
+const ACTION_TIMEOUT_MS = 4000
+
+/**
+ * Envoie une réponse et attend l'accusé de réception.
+ *
+ * L'espace et le jeton voyagent avec : un téléphone qui sort d'une coupure a,
+ * côté serveur, une connexion toute neuve qui ne sait plus ni quelle soirée
+ * elle suit ni qui elle est — et socket.io lui fait vider sa file d'attente
+ * avant que la page ait pu se re-présenter. Sans eux, la réponse tapée pendant
+ * la coupure était jetée en silence.
+ */
+export function sendPlayerAction(
+  sessionId: string,
+  action: unknown,
+  slug: string,
+  token?: string,
+): Promise<ActionAck> {
+  return new Promise(resolve => {
+    let settled = false
+    const settle = (res: ActionAck) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve(res)
+    }
+    // Sans ce garde-fou, une réponse partie dans le vide laisserait la
+    // promesse en suspens pour toujours — donc le joueur sans nouvelle.
+    const timer = setTimeout(
+      () => settle({ ok: false, reason: 'timeout', error: 'Ta réponse n’est pas partie — vérifie ta connexion' }),
+      ACTION_TIMEOUT_MS,
+    )
+    socket.emit('player:action', { sessionId, action, slug, token }, settle)
+  })
 }
 
 /**

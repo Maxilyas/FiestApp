@@ -7,6 +7,7 @@ import type { ScoreLedger } from './scores'
 import type { AnswerLog } from './answers'
 import type { PartyMirror, SessionRow } from './backup'
 import type { SessionSummary } from '../../../shared/types'
+import type { ActionRefusal } from '../../../shared/events'
 
 /**
  * Cadence du miroir distant de la partie. Chaque réponse d'invité change
@@ -128,12 +129,21 @@ export class GameEngine {
     return sess.id
   }
 
-  handlePlayerAction(sessionId: string, playerId: string, action: unknown) {
-    const sess = this.requireRunning(sessionId)
-    if (!sess.participantIds.includes(playerId)) {
-      throw new Error('Tu ne participes pas à cette partie')
-    }
-    this.run(sess, ctx => this.module.onPlayerAction(sess, playerId, action, ctx))
+  /**
+   * Route une réponse d'invité vers le module de jeu. Rend le motif du refus,
+   * ou null si elle est retenue — l'appelant en fait l'accusé de réception du
+   * téléphone. Rien ne remonte par exception ici : une réponse refusée est un
+   * cas ordinaire de soirée (question passée, quiz en pause), pas une panne.
+   */
+  handlePlayerAction(sessionId: string, playerId: string, action: unknown): ActionRefusal | null {
+    const sess = this.session
+    if (!sess || sess.id !== sessionId || sess.status !== 'running') return 'ended'
+    if (!sess.participantIds.includes(playerId)) return 'not-participant'
+    let refusal: ActionRefusal | null = null
+    this.run(sess, ctx => {
+      refusal = this.module.onPlayerAction(sess, playerId, action, ctx) ?? null
+    })
+    return refusal
   }
 
   handleHostCommand(sessionId: string, command: unknown) {

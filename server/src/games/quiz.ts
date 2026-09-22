@@ -340,7 +340,10 @@ export const quizModule: GameModule<QuizState> = {
 
   onPlayerAction(sess, playerId, action: QuizAction, ctx) {
     const st = sess.state
-    if (st.phase !== 'question' || !st.pack || st.pausedMs !== null) return
+    // L'ordre compte : une réponse arrivée après la révélation d'une question
+    // qu'on avait mise en pause est en retard, pas gelée.
+    if (st.phase !== 'question' || !st.pack) return 'too-late'
+    if (st.pausedMs !== null) return 'paused'
     const q = st.pack.questions[st.qIndex]
 
     // Changer d'avis est permis jusqu'à la révélation, pour les deux types de
@@ -354,9 +357,11 @@ export const quizModule: GameModule<QuizState> = {
     // qu'on veut.
     if (action?.type === 'answer' && q.kind === 'choice') {
       const choice = Number(action.choice)
-      if (!Number.isInteger(choice) || choice < 0 || choice >= q.answers.length) return
+      if (!Number.isInteger(choice) || choice < 0 || choice >= q.answers.length) return 'invalid'
       const before = st.responses[playerId]
-      if (before?.choice === choice) return // rien n'a changé
+      // Rien à réécrire, mais la réponse est bien celle-là : c'est un succès.
+      // Le joueur qui retape la même case parce qu'il doute doit être confirmé.
+      if (before?.choice === choice) return
       st.responses[playerId] = {
         choice,
         value: null,
@@ -365,7 +370,7 @@ export const quizModule: GameModule<QuizState> = {
       }
     } else if (action?.type === 'guess' && q.kind === 'number') {
       const value = Number(action.value)
-      if (!Number.isFinite(value)) return
+      if (!Number.isFinite(value)) return 'invalid'
       const before = st.responses[playerId]
       st.responses[playerId] = {
         choice: null,
@@ -374,7 +379,7 @@ export const quizModule: GameModule<QuizState> = {
         changes: (before?.changes ?? -1) + 1,
       }
     } else {
-      return
+      return 'invalid'
     }
 
     // Tout le monde a répondu → révélation immédiate

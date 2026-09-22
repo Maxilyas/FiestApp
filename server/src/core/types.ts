@@ -1,5 +1,5 @@
 import type { Server } from 'socket.io'
-import type { ClientToServerEvents, ServerToClientEvents } from '../../../shared/events'
+import type { ActionRefusal, ClientToServerEvents, ServerToClientEvents } from '../../../shared/events'
 import type { PublicPlayer } from '../../../shared/types'
 import type { AnswerRow } from './answers'
 
@@ -67,7 +67,18 @@ export interface GameModule<S = any> {
   createInitialState(spaceId: string, participantIds: string[], config: unknown): S
   /** Appelé juste après le lancement — pour démarrer une phase avec timer. */
   onLaunch?(session: GameSessionRec<S>, ctx: GameContext): void
-  onPlayerAction(session: GameSessionRec<S>, playerId: string, action: any, ctx: GameContext): void
+  /**
+   * Traite une réponse d'invité. Rend le motif du refus, ou rien si elle est
+   * retenue : c'est ce motif que le téléphone reçoit en accusé de réception.
+   * Une réponse identique à la précédente est retenue, pas refusée — le joueur
+   * qui retape pour vérifier doit être rassuré, pas éconduit.
+   */
+  onPlayerAction(
+    session: GameSessionRec<S>,
+    playerId: string,
+    action: any,
+    ctx: GameContext,
+  ): ActionRefusal | void
   onHostCommand?(session: GameSessionRec<S>, command: any, ctx: GameContext): void
   onTimer?(session: GameSessionRec<S>, timerId: string, ctx: GameContext): void
   /** Appelé quand un invité rejoint une partie déjà lancée. */
