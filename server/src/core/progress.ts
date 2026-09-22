@@ -2,6 +2,7 @@ import type { PlayerRec } from './party'
 import type { ScoreEntry } from './scores'
 import type { AnswerRow } from './answers'
 import { XP, totalGain, type GainSoiree, type ReleveSoiree } from '../../../shared/profil'
+import { rangPartage } from '../../../shared/classement'
 
 /**
  * Ce qu'une soirée rapporte aux profils qui l'ont jouée.
@@ -33,35 +34,45 @@ export interface SoireeGain {
 }
 
 export function buildProgress(live: ProgressInput): SoireeGain[] {
+  // Des gains sans joueur — les points fantômes d'un invité exclu — ne
+  // comptent pour personne : en tête de la soirée, un fantôme faisait
+  // descendre tout le podium d'une marche et raflait la victoire d'un quiz.
+  const inscrits = new Set(live.players.map(p => p.id))
+  const scores = live.scores.filter(s => inscrits.has(s.playerId))
+
   // Les totaux de la soirée, tout le monde compris : le podium se gagne
   // contre toute la salle, pas contre les seuls inscrits. Un profil qui
   // finirait troisième derrière deux anonymes n'est pas deuxième.
   const totals = new Map<string, number>()
-  for (const s of live.scores) totals.set(s.playerId, (totals.get(s.playerId) ?? 0) + s.points)
+  for (const s of scores) totals.set(s.playerId, (totals.get(s.playerId) ?? 0) + s.points)
 
-  // Rang partagé, comme partout ailleurs : deux ex æquo sont premiers tous
-  // les deux, et personne n'est quatrième parce que son prénom vient après.
-  const classes = [...totals.entries()].filter(([, pts]) => pts > 0).sort((a, b) => b[1] - a[1])
+  // Rang partagé, comme partout ailleurs (shared/classement.ts) : deux ex
+  // æquo sont premiers tous les deux, et personne n'est quatrième parce que
+  // son prénom vient après.
+  const positifs = [...totals.values()].filter(pts => pts > 0)
   const rangDe = (playerId: string): number => {
     const pts = totals.get(playerId) ?? 0
-    if (pts <= 0) return 0
-    return classes.findIndex(([, p]) => p === pts) + 1
+    return pts > 0 ? rangPartage(pts, positifs) : 0
   }
 
-  // Le vainqueur de chaque quiz de la soirée. Les lignes d'annulation étant
+  // Les vainqueurs de chaque quiz de la soirée. Les lignes d'annulation étant
   // négatives, la somme suffit : une question retirée ne compte plus.
   const parQuiz = new Map<string, Map<string, number>>()
-  for (const s of live.scores) {
+  for (const s of scores) {
     if (!s.sessionId) continue
     const m = parQuiz.get(s.sessionId) ?? new Map<string, number>()
     m.set(s.playerId, (m.get(s.playerId) ?? 0) + s.points)
     parQuiz.set(s.sessionId, m)
   }
+  // Des ex æquo gagnent ensemble, et chacun touche une victoire entière — le
+  // barème ne change pas. L'expérience allait au premier à avoir marqué.
   const victoires = new Map<string, number>()
   for (const m of parQuiz.values()) {
-    let top: [string, number] | null = null
-    for (const entry of m) if (!top || entry[1] > top[1]) top = entry
-    if (top && top[1] > 0) victoires.set(top[0], (victoires.get(top[0]) ?? 0) + 1)
+    const top = Math.max(...m.values())
+    if (top <= 0) continue
+    for (const [playerId, pts] of m) {
+      if (pts === top) victoires.set(playerId, (victoires.get(playerId) ?? 0) + 1)
+    }
   }
 
   const repondues = new Map<string, number>()
@@ -74,7 +85,7 @@ export function buildProgress(live: ProgressInput): SoireeGain[] {
     if (r.correct === true) justes.set(r.playerId, (justes.get(r.playerId) ?? 0) + 1)
   }
 
-  return live.players.flatMap(p => {
+  const gains = live.players.flatMap(p => {
     // Un invité anonyme ne gagne rien — et c'est sans conséquence sur sa
     // soirée : l'expérience ne donne aucun avantage de jeu.
     if (!p.profileId || !presents.has(p.id)) return []
@@ -94,4 +105,16 @@ export function buildProgress(live: ProgressInput): SoireeGain[] {
     }
     return [{ profileId: p.profileId, playerId: p.id, avatar: p.avatar, gain, releve, xp: totalGain(gain) }]
   })
+
+  // Un gain par profil, au plus. Un profil ne tient qu'un joueur par soirée —
+  // c'est à l'inscription de le garantir ; s'il en tenait deux quand même,
+  // leurs deux lignes (profil, soirée) se remplaceraient l'une l'autre au
+  // crédit, dans un ordre que personne ne choisit. On garde la meilleure, et
+  // à égalité la première arrivée.
+  const parProfil = new Map<string, SoireeGain>()
+  for (const g of gains) {
+    const deja = parProfil.get(g.profileId)
+    if (!deja || g.xp > deja.xp) parProfil.set(g.profileId, g)
+  }
+  return [...parProfil.values()]
 }

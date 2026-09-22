@@ -3,6 +3,7 @@ import { computeStats } from './stats'
 import type { PlayableQuestion } from '../../../shared/library'
 import { rankTeams, teamScores } from '../../../shared/teams'
 import { nomAffiche } from '../../../shared/homonymes'
+import { classer, ordreDeClassement, vainqueurs } from '../../../shared/classement'
 import type { PublicPlayer, TeamBonus } from '../../../shared/types'
 import { formatSeconds, sharedRank } from '../../../shared/review'
 import type {
@@ -56,7 +57,6 @@ const MIN_ANSWERS = 3
 const questionKey = (sessionId: string, qIndex: number) => `${sessionId}#${qIndex}`
 const average = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0)
-const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, 'fr')
 
 // ── Les parties, dans l'ordre où elles ont été jouées ────────────────────
 
@@ -193,12 +193,10 @@ function leaderOf(
   previous: string | null,
   byId: Map<string, PublicPlayer>,
 ): string | null {
-  let top = 0
-  for (const points of totals.values()) top = Math.max(top, points)
-  if (top <= 0) return null
-  const tied = [...totals.entries()].filter(([, points]) => points === top).map(([id]) => id)
+  const tied = vainqueurs([...totals.keys()], id => totals.get(id)!, id => nomAffiche(byId.get(id)!), id => id)
+  if (tied.length === 0) return null
   if (previous && tied.includes(previous)) return previous
-  return tied.sort((a, b) => byName(byId.get(a)!, byId.get(b)!))[0]
+  return tied[0]
 }
 
 function argBest<T>(list: T[], value: (t: T) => number, best: 'min' | 'max'): T | null {
@@ -383,17 +381,20 @@ export function buildReview(input: ReviewInput): Review {
   })
 
   // ── Les rangs par quiz : partagés à égalité, comme partout ailleurs.
-  const sessionRanks = sessionTotals.map(totals => {
-    const sorted = [...totals.entries()]
-      .map(([playerId, points]) => ({ playerId, points, name: nomAffiche(byId.get(playerId)!) }))
-      .sort((a, b) => b.points - a.points || byName(a, b))
-    return new Map(sorted.map(p => [p.playerId, sharedRank(sorted, p, o => o.points)]))
-  })
+  const nomDe = (playerId: string) => nomAffiche(byId.get(playerId)!)
+  const sessionRanks = sessionTotals.map(
+    totals =>
+      new Map(
+        classer([...totals.keys()], id => totals.get(id)!, nomDe, id => id).map(({ item, rang }) => [item, rang]),
+      ),
+  )
 
-  // ── Les joueurs
+  // ── Les joueurs, dans l'ordre commun : à égalité, le prénom AFFICHÉ. Le
+  // prénom nu laissait deux « Camille » dans l'ordre du registre, qui n'est
+  // pas le même en direct et dans l'archive.
   const stats = computeStats(rows, players)
   const statById = new Map(stats.players.map(s => [s.playerId, s]))
-  const sortedPlayers = [...players].sort((a, b) => b.score - a.score || byName(a, b))
+  const sortedPlayers = [...players].sort(ordreDeClassement<PublicPlayer>(p => p.score, nomAffiche, p => p.id))
   const reviewPlayers: ReviewPlayer[] = sortedPlayers.map(p => {
     const mates = p.teamId ? sortedPlayers.filter(o => o.teamId === p.teamId) : []
     return {
@@ -447,34 +448,29 @@ export function buildReview(input: ReviewInput): Review {
     }
   })
   sessions.forEach((_, i) => {
-    const sorted = [...reviewTeams].sort((a, b) => b.perQuiz[i].average - a.perQuiz[i].average || byName(a, b))
-    for (const t of reviewTeams) t.perQuiz[i].rank = sharedRank(sorted, t, o => o.perQuiz[i].average)
+    for (const { item, rang } of classer(reviewTeams, t => t.perQuiz[i].average, t => t.name, t => t.id)) {
+      item.perQuiz[i].rank = rang
+    }
   })
 
-  // ── Les quiz
+  // ── Les quiz. Leurs vainqueurs suivent la règle commune : des ex æquo
+  // gagnent ensemble, et le souvenir les nomme tous. Le bilan n'a la place
+  // que d'un nom : il écrit le premier dans l'ordre commun — celui que le
+  // souvenir écrit en premier aussi. Il couronnait le premier de l'alphabet
+  // quand le souvenir couronnait le premier à avoir marqué.
   const quizzes: ReviewQuiz[] = sessions.map((g, i) => {
-    const winner = argBest(
-      [...sessionTotals[i].entries()].sort((a, b) => byName(byId.get(a[0])!, byId.get(b[0])!)),
-      ([, points]) => points,
-      'max',
-    )
-    const teamWinner = argBest(
-      [...reviewTeams].sort(byName),
-      t => t.perQuiz[i].average,
-      'max',
-    )
+    const totals = sessionTotals[i]
+    const [winner] = vainqueurs([...totals.keys()], id => totals.get(id)!, nomDe, id => id)
+    const [teamWinner] = vainqueurs(reviewTeams, t => t.perQuiz[i].average, t => t.name, t => t.id)
     return {
       sessionId: g.id,
       number: i + 1,
       title: input.packsBySession.get(g.id)?.title ?? g.title,
       questionCount: g.questions.length,
       startedAt: g.startedAt,
-      players: sessionTotals[i].size,
-      winner: winner && winner[1] > 0 ? { playerId: winner[0], points: winner[1] } : null,
-      teamWinner:
-        teamWinner && teamWinner.perQuiz[i].average > 0
-          ? { teamId: teamWinner.id, average: teamWinner.perQuiz[i].average }
-          : null,
+      players: totals.size,
+      winner: winner ? { playerId: winner, points: totals.get(winner)! } : null,
+      teamWinner: teamWinner ? { teamId: teamWinner.id, average: teamWinner.perQuiz[i].average } : null,
     }
   })
 

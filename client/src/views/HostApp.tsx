@@ -17,7 +17,8 @@ import { Icon } from '../components/Icon'
 import { Rank } from '../components/Rank'
 import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
-import { finalRanking, rankTeams } from '../../../shared/teams'
+import { finalRanking, rankTeams, vainqueursDuQuiz } from '../../../shared/teams'
+import { classer, enumerer } from '../../../shared/classement'
 import type { PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
 import { sound } from '../sound'
 import { QuizHost } from '../games/quiz/HostView'
@@ -325,19 +326,34 @@ export function HostApp() {
                 ? 'Podium du quiz'
                 : `Question ${quizView.qIndex + 1} / ${quizView.qCount}`
 
-  const ranking = [...snap.players]
-    .filter(p => p.score !== 0)
-    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
+  // L'ordre commun (shared/classement.ts), celui du souvenir : à égalité, le
+  // prénom affiché. Chaque ligne emporte son rang partagé — la liste sous le
+  // podium commence au quatrième, et ne saurait pas sinon qu'il est troisième
+  // ex æquo.
+  const ranking = classer(
+    snap.players.filter(p => p.score !== 0),
+    p => p.score,
+    p => p.nomAffiche ?? p.name,
+    p => p.id,
+  )
     // Les distinctions suivent le joueur jusque sur l'écran commun : c'est là
     // qu'un niveau se montre à toute la salle.
-    .map(p => ({ name: p.nomAffiche ?? p.name, avatar: p.avatar, points: p.score, ...distinctions(p) }))
+    .map(({ item: p, rang }) => ({
+      name: p.nomAffiche ?? p.name,
+      avatar: p.avatar,
+      points: p.score,
+      rank: rang,
+      ...distinctions(p),
+    }))
 
   const teamStandings = rankTeams(teams)
-  const teamPodium = teamStandings.map(t => ({ name: t.name, avatar: t.emoji, points: t.average }))
+  const teamPodium = teamStandings.map(t => ({ name: t.name, avatar: t.emoji, points: t.average, rank: t.rank }))
   const showTeamPodium = podiumTab === 'teams' && teams.length > 0
   // Le vainqueur se joue sur le barème plus les prix : les prix peuvent
-  // renverser l'ordre du quiz, c'est tout leur intérêt.
+  // renverser l'ordre du quiz, c'est tout leur intérêt. Et à égalité, elles
+  // gagnent ensemble : la liste départage par nom, pas l'écran de victoire.
   const final = finalRanking(teams)
+  const champions = vainqueursDuQuiz(teams)
   const bonuses = snap.bonuses
   const givenTitles = new Set(bonuses.map(b => b.reason))
   const teamById = (id: string) => teams.find(t => t.id === id)
@@ -685,19 +701,34 @@ export function HostApp() {
               <div className="quiz-host victory stage-scroll">
                 <h2>
                   <Icon name="crown" />
-                  L'équipe qui remporte le quiz
+                  {champions.length > 1 ? 'Les équipes qui remportent le quiz' : "L'équipe qui remporte le quiz"}
                 </h2>
                 {final.length > 0 ? (
                   <>
-                    <div className="victory-winner">
-                      <span className="victory-emoji">{final[0].emoji}</span>
-                      <span className="victory-name">{final[0].name}</span>
-                      <span className="victory-points">{final[0].finalPoints} points</span>
-                      <span className="muted">
-                        {final[0].gamePoints} au barème
-                        {final[0].bonus !== 0 && ` · ${final[0].bonus > 0 ? '+' : ''}${final[0].bonus} de prix`}
-                      </span>
-                    </div>
+                    {/* Couronner la première de la liste, c'était couronner
+                        l'alphabet : un prix à +1 remis aux Aigles, deuxièmes,
+                        les faisait passer devant les Zèbres, qui avaient gagné
+                        le quiz. À égalité, elles gagnent ensemble. */}
+                    {champions.length === 0 ? (
+                      <p className="muted center">Aucun quiz joué, aucun prix remis : rien à couronner pour l'instant.</p>
+                    ) : (
+                      <div className="victory-winner">
+                        <span className="victory-emoji">{champions.map(t => t.emoji).join(' ')}</span>
+                        <span className="victory-name">{enumerer(champions.map(t => t.name))}</span>
+                        {champions.length > 1 ? (
+                          <span className="victory-points">Ex æquo · {champions[0].finalPoints} points chacune</span>
+                        ) : (
+                          <>
+                            <span className="victory-points">{champions[0].finalPoints} points</span>
+                            <span className="muted">
+                              {champions[0].gamePoints} au barème
+                              {champions[0].bonus !== 0 &&
+                                ` · ${champions[0].bonus > 0 ? '+' : ''}${champions[0].bonus} de prix`}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
                     <div className="victory-boards">
                       <div>
                         <h3>
@@ -734,18 +765,15 @@ export function HostApp() {
                           Les joueurs
                         </h3>
                         <div className="leaderboard">
-                          {ranking.slice(0, 12).map((p, i) => {
-                            const rank = ranking.findIndex(r => r.points === p.points) + 1
-                            return (
-                              <div key={i} className="lb-row">
-                                <Rank n={rank} />
-                                <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
-                                <span className="lb-name">{p.name}</span>
-                                <Niveau niveau={p.niveau} />
-                                <span className="lb-score">{p.points}</span>
-                              </div>
-                            )
-                          })}
+                          {ranking.slice(0, 12).map((p, i) => (
+                            <div key={i} className="lb-row">
+                              <Rank n={p.rank} />
+                              <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
+                              <span className="lb-name">{p.name}</span>
+                              <Niveau niveau={p.niveau} />
+                              <span className="lb-score">{p.points}</span>
+                            </div>
+                          ))}
                         </div>
                         {ranking.length > 12 && (
                           <p className="muted small center">et {ranking.length - 12} autres…</p>
