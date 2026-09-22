@@ -26,6 +26,7 @@ import { exportFiles, reviewFromDatabase, toCsv } from '../src/core/export'
 import { PartyBackup } from '../src/core/backup'
 import { QuizStore } from '../src/core/quizStore'
 import * as equipes from '../../shared/teams'
+import { parseImportedQuestions } from '../../shared/library'
 import { cleanName } from '../../shared/avatars'
 import { XP } from '../../shared/profil'
 import type { PartyArchive } from '../../shared/archive'
@@ -628,6 +629,53 @@ test('l’export depuis la base distingue les homonymes', async () => {
     const invites = exportFiles(review).find(f => f.name === 'invites.csv')!.content
     assert.match(invites, /\nCamille \(2\);🦊;/)
   })
+})
+
+// ── 6. L'import des questions ──────────────────────────────────────────────
+
+test('l’import lit les milliers, le signe moins typographique et le plus', () => {
+  const blocs = [
+    ['Profondeur de la fosse des Mariannes ?', '= 10 935 mètres'],
+    ['Habitants ?', '= 2\u202f100\u202f000 habitants'],
+    ['Record de froid ?', '= \u221240 °C'],
+    ['Altitude ?', "= 1'234 m"],
+    ['Altitude encore ?', '= 1’234 m'],
+    ['Insécable ?', '= 12\u00a0345'],
+    ['Positif ?', '= +5 points'],
+    // Ce qui marchait déjà doit continuer de marcher.
+    ['Année ?', '= 1994'],
+    ['Pi ?', '= 3,14'],
+    ['Froid ?', '= -40 °C'],
+    ['Population ?', '= 4.3 millions'],
+    ['Âge ?', '= 11400 ans'],
+    ['Cours ?', '= 42 cours'],
+  ]
+  const lu = parseImportedQuestions(blocs.map(b => b.join('\n')).join('\n\n'))
+  assert.equal(lu.ignored, 0)
+  assert.deepEqual(
+    lu.questions.map(q => [q.kind, q.target, q.unit]),
+    [
+      ['number', 10935, 'mètres'],
+      ['number', 2100000, 'habitants'],
+      ['number', -40, '°C'],
+      ['number', 1234, 'm'],
+      ['number', 1234, 'm'],
+      ['number', 12345, ''],
+      ['number', 5, 'points'],
+      ['number', 1994, ''],
+      ['number', 3.14, ''],
+      ['number', -40, '°C'],
+      ['number', 4.3, 'millions'],
+      ['number', 11400, 'ans'],
+      ['number', 42, 'cours'],
+    ],
+  )
+})
+
+test('un nombre qui reste ambigu est ignoré plutôt que mal lu', () => {
+  const lu = parseImportedQuestions(['Profondeur ?', '= 10 93 mètres', '', 'Population ?', '= 1,000,000'].join('\n'))
+  assert.equal(lu.questions.length, 0, 'ni 10 « 93 mètres », ni 1 « ,000 »')
+  assert.equal(lu.ignored, 2)
 })
 
 // ── 7. Le prénom tronqué ───────────────────────────────────────────────────

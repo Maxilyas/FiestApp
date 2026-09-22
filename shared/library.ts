@@ -1,6 +1,7 @@
 // La bibliothèque de quiz : ce qu'on édite dans le navigateur et qu'on stocke
 // en base. Distinct des vues de jeu (shared/games/quiz.ts), qui sont ce que
 // les téléphones reçoivent pendant une partie.
+import { tronquer } from './avatars'
 
 export const MIN_ANSWERS = 2
 export const MAX_ANSWERS = 4
@@ -231,6 +232,43 @@ export interface ImportResult {
   ignored: number
 }
 
+/** Une ligne vide sépare deux questions ; chaque ligne porte un élément. */
+const SEPARATEUR_BLOCS = /\r?\n\s*\r?\n/
+const SEPARATEUR_LIGNES = /\r?\n/
+
+/**
+ * « = 10 935 mètres » : le nombre, puis l'unité éventuelle.
+ *
+ * Le nombre s'écrit comme on l'écrit en France : virgule décimale (le point
+ * passe aussi), milliers séparés par une espace — simple, insécable, ou fine,
+ * celle que les traitements de texte glissent d'office — ou par une
+ * apostrophe à la suisse, et signe moins typographique « − », qu'ils
+ * substituent au tiret. L'ancien lecteur s'arrêtait au premier groupe de
+ * chiffres : « = 10 935 mètres » visait 10, avec « 935 mètres » pour unité, et
+ * la révélation affichait « 10 935 mètres » — l'air juste — en classant tout
+ * le monde sur son écart à 10.
+ */
+const NOMBRE = /^([+\-\u2212]?)(\d{1,3}(?:[ \u00a0\u202f'\u2019]\d{3})+|\d+)(?:[.,](\d+))?\s*(.*)$/u
+
+/**
+ * Ce qui suit le nombre repart sur un chiffre : « = 10 93 mètres »,
+ * « = 1,000,000 ». On ne sait pas lire ; on ne devine pas. Le bloc est compté
+ * parmi les ignorés, que l'aperçu signale, plutôt que mal lu en silence.
+ */
+const SUITE_AMBIGUE = /^[.,'\u2019]?\d/
+
+/** La cible et l'unité d'une ligne « = … », ou null si elle ne se lit pas sans ambiguïté. */
+function lireEstimation(texte: string): { target: number; unit: string } | null {
+  const m = NOMBRE.exec(texte)
+  if (!m) return null
+  const [, signe, entier, decimales, reste] = m
+  if (SUITE_AMBIGUE.test(reste)) return null
+  const negatif = signe === '-' || signe === '\u2212'
+  const target = Number(`${negatif ? '-' : ''}${entier.replace(/\D/g, '')}${decimales ? `.${decimales}` : ''}`)
+  if (!Number.isFinite(target)) return null
+  return { target, unit: tronquer(reste.trim(), 12) }
+}
+
 /**
  * Analyse un bloc de texte collé dans l'éditeur. Saisir cinquante questions
  * une par une est long ; les taper dans un carnet puis coller l'ensemble
@@ -247,11 +285,6 @@ export interface ImportResult {
  * Une ligne vide sépare deux questions. L'étoile marque la bonne réponse ;
  * le signe égal transforme la question en estimation chiffrée.
  */
-/** Une ligne vide sépare deux questions ; chaque ligne porte un élément. */
-/** Une ligne vide sépare deux questions ; chaque ligne porte un élément. */
-const SEPARATEUR_BLOCS = /\r?\n\s*\r?\n/
-const SEPARATEUR_LIGNES = /\r?\n/
-
 export function parseImportedQuestions(text: string): ImportResult {
   const blocks = text.split(SEPARATEUR_BLOCS)
   const questions: QuizQuestionDef[] = []
@@ -269,21 +302,20 @@ export function parseImportedQuestions(text: string): ImportResult {
     }
 
     const question = emptyQuestion()
-    question.text = lines[0].slice(0, 300)
+    // Coupé par caractère, jamais au milieu d'un emoji.
+    question.text = tronquer(lines[0], 300)
     const rest = lines.slice(1)
 
     const numberLine = rest.find(l => l.startsWith('='))
     if (numberLine) {
-      // « = 42 cours » : le nombre, puis l'unité éventuelle.
-      const body = numberLine.slice(1).trim().replace(',', '.')
-      const match = /^(-?\d+(?:\.\d+)?)\s*(.*)$/.exec(body)
-      if (!match) {
+      const lue = lireEstimation(numberLine.slice(1).trim())
+      if (!lue) {
         ignored++
         continue
       }
       question.kind = 'number'
-      question.target = Number(match[1])
-      question.unit = match[2].slice(0, 12)
+      question.target = lue.target
+      question.unit = lue.unit
       questions.push(question)
       continue
     }
@@ -295,7 +327,7 @@ export function parseImportedQuestions(text: string): ImportResult {
       const answer = (marked ? line.slice(1) : line).trim()
       if (!answer || answers.length >= MAX_ANSWERS) continue
       if (marked && correct < 0) correct = answers.length
-      answers.push(answer.slice(0, 120))
+      answers.push(tronquer(answer, 120))
     }
     if (answers.length < MIN_ANSWERS) {
       ignored++

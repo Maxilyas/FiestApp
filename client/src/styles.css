@@ -2675,3 +2675,20 @@ h3 > .icon {
   pointer-events: none;
   opacity: 0.85;
 }
+
+/* ── Aperçu de l'import : les estimations lues ──────────────────────────
+
+   Une ligne par « = … » : l'intitulé à gauche, coupé s'il déborde, et à
+   droite la valeur telle qu'elle sera jouée, séparée de son unité. */
+.import-lues {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+.import-lues li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.import-lue-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.import-lue-valeur { flex-shrink: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
