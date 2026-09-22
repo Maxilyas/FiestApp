@@ -130,8 +130,18 @@ Une soirée est un coup unique — on ne débogue pas pendant la fête. D'où un
 **Pour la créer :**
 
 1. **Une seconde base Turso**, à côté de la première : `quizz-preprod`. Récupère son URL et crée-lui un jeton. Turso sait aussi dupliquer une base existante, si tu veux éprouver une migration sur de vraies données — sache seulement que ça copie aussi les comptes.
-2. **Pousse `render.yaml`** : il décrit désormais les deux services. Render crée `fiestapp-preprod` à la prochaine synchronisation du blueprint.
+2. **Crée le service**, et lis d'abord l'encadré ci-dessous : la façon de s'y prendre dépend de qui a créé la production.
 3. **Renseigne ses variables** dans l'interface Render : `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` vers la base de **préproduction**, et un `ADMIN_PASSWORD` **différent** de celui de la production. `APP_ENV=preprod` est déjà dans le fichier.
+
+> ⚠️ **Ne crée pas un second Blueprint.** Render n'adopte pas un service qu'il n'a pas créé lui-même depuis CE blueprint : il en fabrique une copie, et comme le nom est déjà pris, il y colle un suffixe au hasard — `quizz-romane-30-ljwa`, `fiestapp-preprod-ljwa`. Les deux copies portent le même suffixe, signe qu'une seule synchronisation les a créées ; les vraies, elles, n'ont pas bougé.
+>
+> C'est arrivé. Ce qu'il faut savoir pour s'en sortir :
+>
+> - **Supprime les copies, et le blueprint qui les a créées** — sinon la synchronisation suivante les refait.
+> - **Ce qui décide du nom à garder, c'est l'adresse déjà partagée.** Le nom fait l'adresse publique : une copie suffixée n'est pas au même endroit. Tant qu'un QR est imprimé ou qu'un lien circule, le nom ne se touche pas — `jour-j/qr-tables-*.pdf` encodent `https://quizz-romane-30.onrender.com`, et sous un autre nom chacun de ces QR ne mène nulle part. Une fois la fête passée, la contrainte tombe : c'est le bon moment pour renommer, en laissant cette fois le blueprint créer les services lui-même.
+> - **Le service, lui, est jetable.** Tout le précieux vit dans Turso ; en supprimer un et le recréer ne perd rien tant que `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` repointent sur la même base. La seule chose à ne jamais supprimer, c'est la base Turso.
+> - **Regarde `QUIZ_DB_URL` des copies avant de les supprimer.** Si l'une pointe vers la base Turso de production, elle a pu y écrire : c'est la seule chose vraiment fâcheuse ici. Si le formulaire du blueprint a été passé sans rien remplir, elles n'ont même pas démarré — le serveur refuse de se lancer en ligne sans `ADMIN_PASSWORD`, et leur journal dit « ❌ ADMIN_PASSWORD manquant ». Rien n'a alors été touché.
+> - **Sans blueprint, `render.yaml` est de la documentation.** Les deux services se règlent alors chacun sur son tableau de bord : déploiement automatique **activé** en préproduction, **désactivé** en production (*Settings → Auto-Deploy*), et les variables saisies à la main. Le fichier reste la référence de ce qu'ils doivent contenir.
 
 > 🚨 **La règle absolue : jamais la même base Turso pour les deux.** Un « Nouvelle soirée » ou une suppression de compte en préproduction effacerait de vraies soirées archivées — c'est le seul geste sans retour de l'application. Pour qu'on ne s'y trompe jamais, la préproduction affiche un **bandeau rouge « PREPROD »** en bas à gauche de toutes ses pages, et le préfixe dans l'onglet du navigateur.
 
