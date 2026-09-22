@@ -6,6 +6,7 @@ import type { AccountRec, AuthStore } from './auth/store'
 import type { ProfileRec, ProfileStore } from './auth/profiles'
 import { readPlayerToken, readSessionToken } from './auth/http'
 import { Budget } from './core/budget'
+import { messagePourEcran } from './core/http'
 
 interface SocketDeps {
   /** Les soirées en cours, une par espace. */
@@ -472,7 +473,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       try {
         rt.engine.launch()
       } catch (e) {
-        socket.emit('toast', { kind: 'error', message: (e as Error).message })
+        socket.emit('toast', { kind: 'error', message: messagePourEcran(e, 'host:launch') })
       }
     })
 
@@ -483,7 +484,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       try {
         rt.engine.handleHostCommand(sessionId, charge.command)
       } catch (e) {
-        socket.emit('toast', { kind: 'error', message: (e as Error).message })
+        socket.emit('toast', { kind: 'error', message: messagePourEcran(e, 'host:command') })
       }
     })
 
@@ -586,7 +587,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           }
         })
         .catch(e => {
-          socket.emit('toast', { kind: 'error', message: `Rien n’a été effacé : ${(e as Error).message}` })
+          socket.emit('toast', { kind: 'error', message: `Rien n’a été effacé : ${messagePourEcran(e, 'host:resetParty')}` })
         })
     })
 
@@ -606,7 +607,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           )
         })
         .catch(e => {
-          socket.emit('toast', { kind: 'error', message: (e as Error).message })
+          socket.emit('toast', { kind: 'error', message: messagePourEcran(e, 'host:archiveParty') })
         })
     })
 

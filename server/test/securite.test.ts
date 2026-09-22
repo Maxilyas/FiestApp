@@ -16,7 +16,7 @@ import express from 'express'
 import { createClient } from '@libsql/client'
 import { ADMIN, connexionAnimateur, cookieDe, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { pageDeRetour } from '../../shared/securite'
-import { wrap } from '../src/core/http'
+import { messagePourEcran, wrap } from '../src/core/http'
 
 let banc: Banc
 
@@ -271,6 +271,54 @@ describe('les erreurs', () => {
     } finally {
       console.error = errorAvant
       serveur.close()
+    }
+  })
+})
+
+// ── Ce qu'Express répond quand il n'a pas su lire ───────────────────────
+
+describe('les requêtes illisibles', () => {
+  test('un JSON cassé reçoit un refus en JSON, sans la pile du serveur', async () => {
+    const res = await fetch(`${banc.url}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz' },
+      body: '{pas du json',
+    })
+    assert.equal(res.status, 400)
+    assert.match(res.headers.get('content-type') ?? '', /application\/json/)
+    const texte = await res.text()
+    // La page d'erreur d'Express citait `node_modules/body-parser/…` et les
+    // chemins absolus du serveur : rien de tout ça ne doit sortir.
+    assert.doesNotMatch(texte, /node_modules|at JSON\.parse|<pre>/)
+    assert.deepEqual(JSON.parse(texte), { error: 'Requête illisible — recharge la page et réessaie' })
+  })
+
+  test('un corps trop lourd le dit, en JSON', async () => {
+    const res = await fetch(`${banc.url}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz' },
+      body: JSON.stringify({ login: 'x'.repeat(20_000), password: 'y' }),
+    })
+    assert.equal(res.status, 413)
+    assert.deepEqual(await res.json(), { error: 'Envoi trop lourd — allège-le et réessaie' })
+  })
+})
+
+describe('les toasts de l’écran commun', () => {
+  test('un message voulu passe, une panne des entrailles reste au journal', () => {
+    const errorAvant = console.error
+    const journal: unknown[] = []
+    console.error = (...args: unknown[]) => journal.push(args)
+    try {
+      assert.equal(messagePourEcran(new Error('Quiz introuvable'), 'host:command'), 'Quiz introuvable')
+      assert.equal(journal.length, 0, 'un message voulu ne salit pas le journal')
+      // Projetée sur la TV, une erreur de base de données dirait le nom de ses tables.
+      const panne = Object.assign(new Error('SQLITE_CORRUPT: database disk image is malformed'), { code: 'SQLITE_CORRUPT' })
+      assert.equal(messagePourEcran(panne, 'host:resetParty'), 'Erreur serveur — réessaie dans un instant')
+      assert.equal(messagePourEcran(new TypeError('x is undefined'), 'host:launch'), 'Erreur serveur — réessaie dans un instant')
+      assert.equal(journal.length, 2, 'le détail des pannes part au journal')
+    } finally {
+      console.error = errorAvant
     }
   })
 })

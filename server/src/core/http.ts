@@ -1,4 +1,4 @@
-import type { Request, Response } from 'express'
+import type { NextFunction, Request, Response } from 'express'
 
 /** Ce que lit l'utilisateur quand la panne ne le regarde pas. */
 export const ERREUR_SERVEUR = 'Erreur serveur — réessaie dans un instant'
@@ -40,3 +40,35 @@ export const wrap =
   (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response) => {
     fn(req, res).catch((e: unknown) => repondreErreur(req, res, e))
   }
+
+/**
+ * Ce qu'une panne dit à l'écran commun, par un toast. Il est projeté sur la
+ * TV : un message voulu (« Quiz introuvable ») s'y lit tel quel, une erreur
+ * des entrailles n'a rien à y faire — même règle que pour les routes, et le
+ * détail part au journal, où l'on en a besoin pour réparer.
+ */
+export function messagePourEcran(e: unknown, contexte: string): string {
+  if (erreurMontrable(e)) return e.message
+  console.error(`[socket] ${contexte} :`, e)
+  return ERREUR_SERVEUR
+}
+
+/**
+ * Le dernier filet d'Express : une requête qu'il n'a pas su lire — un JSON
+ * cassé, un corps trop lourd. Sans lui, Express répondait par sa propre page
+ * d'erreur, en HTML, pile d'appels et chemins du serveur compris dès que
+ * `NODE_ENV` ne vaut pas « production » — ce que l'hébergeur ne pose pas. Et
+ * un client qui attend du JSON ne comprenait rien à ce qui lui arrivait.
+ */
+export function erreurDeRequete(err: unknown, req: Request, res: Response, next: NextFunction) {
+  if (res.headersSent) return next(err)
+  const status = (err as { status?: unknown } | null)?.status
+  if (typeof status === 'number' && status >= 400 && status < 500) {
+    res.status(status).json({
+      error: status === 413 ? 'Envoi trop lourd — allège-le et réessaie' : 'Requête illisible — recharge la page et réessaie',
+    })
+    return
+  }
+  console.error(`[http] ${req.method} ${req.path} :`, err)
+  res.status(500).json({ error: ERREUR_SERVEUR })
+}

@@ -16,7 +16,7 @@ import { SpaceRegistry } from './core/space'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore } from './auth/profiles'
 import { mountApi } from './api'
-import { repondreErreur } from './core/http'
+import { erreurDeRequete, repondreErreur } from './core/http'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
 import type { ArchiveList, PartyArchive } from '../../shared/archive'
@@ -433,6 +433,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
       res.type('html').send(indexHtml)
     })
   }
+
+  // En tout dernier : ce qu'aucune route n'a su lire répond en JSON, sans pile.
+  app.use(erreurDeRequete)
 
   await new Promise<void>(resolve => httpServer.listen(opts.port, resolve))
   const address = httpServer.address()
