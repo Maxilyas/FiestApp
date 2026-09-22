@@ -44,7 +44,7 @@ export function PlayerApp() {
   // coupure réseau, redémarrage serveur).
   useEffect(() => {
     socket.connect()
-    const present = async () => {
+    const presenter = async () => {
       const watched = await watchParty(slug)
       if (!watched.ok) return setSpaceError(watched.error ?? 'Cette adresse ne mène à aucune soirée')
       setSpaceError('')
@@ -74,6 +74,14 @@ export function PlayerApp() {
       }
       saveMe(slug, { playerId: ack.playerId, token: ack.token })
       saveChoix(slug, { name: ack.name, avatar: ack.avatar })
+    }
+    // Une présentation restée sans réponse — une liaison morte que le
+    // téléphone n'a pas encore vue — rejette au bout de son délai. Ce n'est
+    // pas une panne de la page : l'envoi a déjà forcé la reconnexion, dont le
+    // `connect` relancera la présentation, et le bandeau de liaison parle déjà
+    // à l'invité. On ne laisse pas la promesse rejetée traîner dans la console.
+    const present = () => {
+      presenter().catch(() => {})
     }
     if (socket.connected) present()
     socket.on('connect', present)
