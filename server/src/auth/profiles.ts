@@ -535,6 +535,34 @@ export class ProfileStore {
     return total
   }
 
+  /**
+   * Reprend à un profil ce qu'une soirée lui avait crédité : sa ligne
+   * d'expérience, et l'Éclat tiré sous son nom. Le total se recalcule sur
+   * ce qui reste, dans la même transaction — le profil n'est jamais lu entre
+   * les deux. Un Éclat tiré lors d'une autre soirée reste : il n'a rien à
+   * voir avec celle-ci. Rend le nouveau total.
+   */
+  async retirerSoiree(profileId: string, soireeId: string): Promise<number> {
+    const [eclats, , , , apres] = await this.client.batch(
+      [
+        { sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+        { sql: 'DELETE FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+        { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+        {
+          sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?',
+          args: [profileId, profileId],
+        },
+        { sql: 'SELECT xp FROM profiles WHERE id = ?', args: [profileId] },
+      ],
+      'write',
+    )
+    const total = Number(apres.rows[0]?.xp ?? 0)
+    const rec = this.profiles.get(profileId)
+    if (rec) rec.xp = total
+    for (const r of eclats.rows) this.eclats.get(profileId)?.delete(String(r.avatar))
+    return total
+  }
+
   /** Cette soirée a-t-elle déjà été créditée à ce profil ? */
   async alreadyCredited(profileId: string, soireeId: string): Promise<boolean> {
     const rows = await this.client.execute({

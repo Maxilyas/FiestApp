@@ -34,6 +34,7 @@ import {
 } from './banc'
 import type { QuizServerOptions } from '../src/server'
 import { AuthStore } from '../src/auth/store'
+import { ProfileStore } from '../src/auth/profiles'
 import { QuizStore } from '../src/core/quizStore'
 import { PartyBackup, type PartyMirror } from '../src/core/backup'
 import { BaseMuette } from '../src/core/distante'
@@ -735,3 +736,68 @@ test('exclure efface au miroir l’invité, ses gains et ses réponses, en une s
     },
     { miroir: MIROIR_RAPIDE },
   ))
+
+// ── 1. Un invité exclu rend ce que la soirée lui avait crédité ────────────
+
+/** Le profil derrière un identifiant, lu dans la base permanente. */
+const profilDe = (banc: Banc, login: string): string =>
+  lire<{ id: string }>(banc, 'SELECT id FROM profiles WHERE login = ?', login)[0].id
+
+/** Les lignes d'expérience d'un profil — une par soirée. */
+const lignesXp = (banc: Banc, profileId: string) =>
+  lire<{ soiree_id: string; xp: number }>(banc, 'SELECT soiree_id, xp FROM profile_xp WHERE profile_id = ?', profileId)
+
+/** Les emojis qui ont éclaté pour un profil, et la soirée qui les a tirés. */
+const eclats = (banc: Banc, profileId: string) =>
+  lire<{ avatar: string; soiree_id: string }>(banc, 'SELECT avatar, soiree_id FROM profile_eclats WHERE profile_id = ?', profileId)
+
+test('un invité exclu rend l’expérience et l’Éclat que la soirée lui avait déjà crédités', () =>
+  avecBanc(async banc => {
+    // L'Éclat se tire une chance sur quarante : ici, il tombe à tous les coups.
+    const tirage = ProfileStore.tirageEclat
+    ProfileStore.tirageEclat = () => true
+    try {
+      const cookie = await connexionAnimateur(banc.url)
+      const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
+      const chloeCookie = await inscrireProfil(banc.url, 'chloe', 'Chloé', '🦉')
+      const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+      const host = await ecranCommun(banc.url, cookie)
+      const chloe = await invite(banc.url, 'Chloé', '🦉', { cookie: chloeCookie })
+      const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
+      const chloeId = profilDe(banc, 'chloe')
+      const aliceId = profilDe(banc, 'alice')
+
+      // Le podium crédite l'expérience du quiz, et tire l'Éclat de la soirée.
+      const sessionId = await jusquAuPodium(host, quiz, [[[chloe, 0], [alice, 1]]])
+      await jusqua(
+        () => [chloeId, aliceId].every(id => lignesXp(banc, id).length === 1 && eclats(banc, id).length === 1),
+        'les crédits du podium',
+      )
+      const [{ soiree_id: soiree }] = lignesXp(banc, chloeId)
+      assert.deepEqual(eclats(banc, chloeId), [{ avatar: '🦉', soiree_id: soiree }])
+
+      // L'animateur exclut Chloé. Ses gains quittent les journaux : ce que la
+      // soirée lui avait crédité doit partir avec eux — le crédit suivant ne
+      // réécrit que les profils encore là.
+      const exclue = attendre(chloe.socket, 'player:removed', () => true, 'l’exclusion de Chloé')
+      ;(host as any).emit('host:removePlayer', { playerId: chloe.playerId })
+      await exclue
+      await jusqua(() => lignesXp(banc, chloeId).length === 0, 'la ligne d’expérience de Chloé rendue')
+      assert.deepEqual(eclats(banc, chloeId), [], 'l’Éclat tiré sous cette soirée repart avec elle')
+      assert.equal(lire<{ xp: number }>(banc, 'SELECT xp FROM profiles WHERE id = ?', chloeId)[0].xp, 0, 'son total est recalculé')
+      const moi = ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: chloeCookie } })).json()) as any)
+        .profile
+      assert.equal(moi.xp, 0, 'en mémoire aussi')
+      assert.deepEqual(moi.eclats, [], 'Éclat compris')
+      // Alice, restée, garde tout.
+      assert.equal(lignesXp(banc, aliceId).length, 1)
+      assert.equal(eclats(banc, aliceId).length, 1)
+
+      // « Terminer » recrédite la soirée : Chloé n'y est plus, rien ne lui revient.
+      ;(host as any).emit('host:endSession', { sessionId })
+      await patienter(400)
+      assert.deepEqual(lignesXp(banc, chloeId), [], 'la fin du quiz ne rend rien à l’exclue')
+    } finally {
+      ProfileStore.tirageEclat = tirage
+    }
+  }))

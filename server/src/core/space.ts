@@ -374,7 +374,14 @@ export class SpaceRuntime {
    * dans cette liste, et rien ne se passe.
    */
   exclure(playerId: string): boolean {
-    if (!this.party.get(playerId)) return false
+    const joueur = this.party.get(playerId)
+    if (!joueur) return false
+    // Lus avant que rien ne bouge : effacé, l'invité ne dirait plus à quel
+    // profil il était rattaché ; et c'est sous le nom de la soirée d'à
+    // présent que son crédit a été écrit — une « Nouvelle soirée » cliquée
+    // pendant que la file attend n'y change rien.
+    const { profileId } = joueur
+    const soiree = this.soiree
     // Chaque registre efface ses lignes, et le miroir reçoit le tout — la
     // partie sans lui comprise — en une seule transaction : un réveil sur
     // disque effacé ne recharge jamais les gains d'un invité disparu.
@@ -393,7 +400,35 @@ export class SpaceRuntime {
     // Son téléphone repart sur l'écran d'inscription, et sa connexion
     // n'incarne plus personne.
     for (const socket of this.detacher(playerId)) socket.emit('player:removed')
+    // Ce que la soirée avait crédité à son profil repart avec lui. Sauf si
+    // ce profil y joue encore sous un autre invité — ce qu'un profil ne doit
+    // pas faire, mais le crédit s'y prépare (`buildProgress`) : sa ligne est
+    // alors celle de l'autre, que le prochain crédit réécrira.
+    if (profileId && soiree && !this.party.findByProfile(profileId)) {
+      this.rendreCredit(profileId, soiree).catch(e => console.error('[xp]', e))
+    }
     return true
+  }
+
+  /**
+   * Un invité exclu rend ce que la soirée avait déjà crédité à son profil.
+   *
+   * L'expérience se crédite dès le podium : exclu ensuite, l'invité partait
+   * avec. Ses gains quittaient les journaux, mais sa ligne (profil, soirée)
+   * restait en base — le crédit suivant ne réécrit que les profils encore
+   * là —, et l'Éclat tiré sous ce nom avec elle. Les prix de la soirée, eux,
+   * se remplacent déjà à chaque archivage, sur toute la soirée ; les badges
+   * de carrière ne se reprennent jamais.
+   *
+   * À la file, comme les crédits : celui qu'on avait demandé avant
+   * l'exclusion, encore en route, réécrirait sinon la ligne qu'on retire.
+   */
+  private rendreCredit(profileId: string, soiree: Soiree): Promise<void> {
+    return this.enFile(async () => {
+      await this.deps.profiles.retirerSoiree(profileId, soiree.id)
+      // S'il revient ce soir, il repart de zéro : son annonce aussi.
+      this.xpAnnoncee.delete(`${soiree.id}:${profileId}`)
+    })
   }
 
   /**
