@@ -569,3 +569,33 @@ test('ce qu’on range se coupe entre deux caractères : titre et unité d’un 
     assert.equal(Array.from(quiz.title as string).length, 80, 'quatre-vingts caractères, pas quatre-vingts unités')
     assert.equal(quiz.questions[0].unit, unite, 'sept caractères tiennent dans douze')
   }))
+
+test('l’expérience se crédite dès le podium, sans attendre « Terminer le quiz »', () =>
+  avecBanc(async banc => {
+    const profil = await inscrireProfil(banc.url, 'alice', 'Alice')
+    const cookie = await connexionAnimateur(banc.url)
+    const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
+    const host = await ecranCommun(banc.url, cookie)
+    const tel = await invite(banc.url, 'Alice', '🦊', { cookie: profil })
+
+    const sessionId = await lancerQuiz(host, quiz)
+    await attendre(tel.socket, 'session:view', (p: any) => p.view.phase === 'question', 'la question')
+    const revelee = attendre<any>(host, 'session:view', p => p.view.phase === 'reveal', 'la révélation')
+    assert.equal((await emitAck<any>(tel.socket, 'player:action', { sessionId, action: { type: 'answer', choice: 0 } })).ok, true)
+    await revelee
+
+    // Le podium, et rien d'autre : le dernier podium de la soirée reste
+    // souvent affiché sans que personne ne referme la partie.
+    const creditee = attendre<any>(tel.socket, 'player:profil', p => p.xp > 0, 'le profil crédité au podium')
+    ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
+    await attendre<any>(host, 'session:view', p => p.view.phase === 'finished', 'le podium')
+    const gagne = (await creditee).xp
+    const moi = async () =>
+      ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: profil } })).json()) as any).profile.xp
+    assert.equal(await moi(), gagne, 'l’expérience est en base avant « Terminer le quiz »')
+
+    // « Terminer » recrédite les mêmes lignes : rien ne compte deux fois.
+    ;(host as any).emit('host:endSession', { sessionId })
+    await patienter(500)
+    assert.equal(await moi(), gagne, 'la fin du quiz ne double rien')
+  }))

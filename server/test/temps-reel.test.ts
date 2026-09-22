@@ -639,6 +639,7 @@ test('un chronomètre qui lève une exception n’emporte pas le processus', asy
         onScoresChanged: () => {},
         onSessionChanged: () => {},
         onSessionEnded: () => {},
+        onVerdict: () => {},
       },
       module,
     )

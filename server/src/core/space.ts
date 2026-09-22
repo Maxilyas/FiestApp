@@ -115,6 +115,12 @@ export class SpaceRuntime {
         onSessionEnded: () => {
           this.crediterQuiz().catch(e => console.error('[xp]', e))
         },
+        // Le podium à l'écran vaut une fin de quiz pour l'expérience : le
+        // dernier podium de la soirée reste souvent affiché sans que personne
+        // ne referme la partie.
+        onVerdict: () => {
+          this.crediterQuiz().catch(e => console.error('[xp]', e))
+        },
       },
       quizModule,
     )

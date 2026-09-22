@@ -392,6 +392,7 @@ function partieSimulee(n: number) {
     setTimer: () => {},
     clearTimer: () => {},
     end: () => {},
+    verdict: () => {},
     participants: () => [],
     playerName: id => vctx.playerName(id),
     now: () => (now += 13),

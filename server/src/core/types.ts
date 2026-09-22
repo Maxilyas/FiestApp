@@ -47,6 +47,14 @@ export interface GameContext {
   clearTimer(timerId: string): void
   /** Termine la partie (appliqué après le handler courant). */
   end(): void
+  /**
+   * La partie a rendu son verdict — son podium est à l'écran —, même si
+   * l'animateur ne l'a pas encore refermée. C'est là que l'expérience se
+   * crédite : un podium laissé à l'écran jusqu'au bout de la nuit, ce qui est
+   * le sort ordinaire du dernier quiz, ne doit pas priver le gagnant de son
+   * niveau.
+   */
+  verdict(): void
   participants(): PublicPlayer[]
   playerName(playerId: string): string
   now(): number

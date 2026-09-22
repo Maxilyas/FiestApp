@@ -57,6 +57,12 @@ interface EngineDeps {
    * niveau bouger.
    */
   onSessionEnded: () => void
+  /**
+   * Le podium est à l'écran, la partie n'est pas encore refermée : même
+   * crédit qu'à la fin, et c'est l'idempotence du crédit — la ligne
+   * (profil, soirée) est remplacée — qui permet de le faire deux fois.
+   */
+  onVerdict: () => void
 }
 
 /**
@@ -327,6 +333,7 @@ export class GameEngine {
     const avant = empreinte(sess)
     let scoresChanged = false
     let shouldEnd = false
+    let verdict = false
     const ctx: GameContext = {
       award: (playerId, points, reason) => {
         this.deps.ledger.award(playerId, points, reason, sess.id)
@@ -341,6 +348,9 @@ export class GameEngine {
       clearTimer: timerId => this.disarmTimer(sess, timerId),
       end: () => {
         shouldEnd = true
+      },
+      verdict: () => {
+        verdict = true
       },
       participants: () =>
         sess.participantIds
@@ -365,6 +375,9 @@ export class GameEngine {
       backup?.fermerLot()
     }
     if (scoresChanged) this.deps.onScoresChanged()
+    // Après la fermeture du lot : ce que le crédit relit a déjà pris le
+    // chemin du miroir.
+    if (verdict && !shouldEnd) this.deps.onVerdict()
   }
 
   private armTimer(sess: LiveSession, timerId: string, ms: number) {

@@ -298,7 +298,13 @@ function goNext(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   ctx.clearTimer('autoNext')
   st.autoNextAt = null
   if (st.qIndex + 1 < st.pack.questions.length) startQuestion(sess, st.qIndex + 1, ctx)
-  else st.phase = 'finished'
+  else {
+    st.phase = 'finished'
+    // Le podium est à l'écran : l'expérience du quiz se crédite maintenant,
+    // sans attendre le clic « Terminer le quiz » — qui ne vient parfois
+    // jamais, quand le dernier podium reste affiché jusqu'au bout de la nuit.
+    ctx.verdict()
+  }
 }
 
 /**
