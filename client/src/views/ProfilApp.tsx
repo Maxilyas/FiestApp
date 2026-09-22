@@ -14,29 +14,65 @@ import {
 } from '../../../shared/profil'
 import { BADGES_CARRIERE } from '../../../shared/badges'
 import { Vitrine, VitrineVide } from '../components/Vitrine'
+import { FormulaireSoiree } from '../components/Rejoindre'
 import { formatNumber, ordinal } from '../format'
+import type { PublicSpace } from '../../../shared/space'
 
 /**
- * La page d'un joueur récurrent : son niveau, ce qu'il a gagné, ses
- * finitions et ses éclats.
+ * L'accueil (`/`) et la page de profil (`/profil`) : c'est le même écran.
  *
- * Elle ne sert jamais à jouer — on y vient entre deux soirées. Rien de ce
- * qu'elle montre ne change quoi que ce soit au déroulé d'une partie.
+ * Demander « quelle soirée ? » avant de savoir qui est là n'avait aucun sens
+ * pour celui qui revient : il a un profil, et souvent un espace à animer. On
+ * se connecte donc d'abord, et c'est d'ici qu'on part — animer sa soirée, ou
+ * en rejoindre une. Le chemin anonyme n'est pas refermé pour autant :
+ * « Rejoindre une soirée » a le format de « Me connecter » et se voit sans
+ * défiler, exactement comme à l'entrée d'une soirée.
+ *
+ * Rien de ce que cette page montre ne change quoi que ce soit au déroulé
+ * d'une partie.
  */
 export function ProfilApp() {
   const [profil, setProfil] = useState<PublicProfileDetail | null>(null)
+  /** La soirée que ce profil anime, s'il en anime une. */
+  const [espace, setEspace] = useState<PublicSpace | null>(null)
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
+  /** L'échappée : « quelle soirée ? », à un geste d'ici. */
+  const [rejoindre, setRejoindre] = useState(false)
+
+  const relire = () =>
+    api.joueur.moi().then(r => {
+      setProfil(r.profile)
+      setEspace(r.espace)
+    })
 
   useEffect(() => {
     document.title = 'Mon profil'
-    api.joueur
-      .moi()
-      .then(r => setProfil(r.profile))
+    relire()
       .catch(() => setProfil(null))
       .finally(() => setChargement(false))
   }, [])
+
+  /**
+   * Ouvrir sa console depuis son profil.
+   *
+   * La session d'animateur dure trente jours, celle du joueur un an : celui
+   * qui revient six mois plus tard est encore reconnu ici et ne l'est plus
+   * là-bas. On la rouvre avant de partir, sinon `/host` le renverrait à une
+   * page de connexion qu'il vient justement de passer.
+   */
+  const animer = async () => {
+    setBusy(true)
+    setErreur('')
+    try {
+      await api.joueur.console()
+      window.location.assign('/host')
+    } catch (e) {
+      setBusy(false)
+      setErreur((e as Error).message)
+    }
+  }
 
   const enregistrer = async (patch: { avatar?: string; finition?: Finition }) => {
     setBusy(true)
@@ -53,6 +89,8 @@ export function ProfilApp() {
     }
   }
 
+  if (rejoindre) return <FormulaireSoiree onCancel={() => setRejoindre(false)} />
+
   if (chargement) {
     return (
       <div className="center-page">
@@ -64,10 +102,18 @@ export function ProfilApp() {
   if (!profil) {
     // Le formulaire ne rend que le profil léger : on redemande le détail, qui
     // seul porte l'étagère et l'historique.
+    //
+    // L'échappée a le même format que « Me connecter » : personne n'est
+    // obligé d'avoir un profil pour entrer dans une soirée, et cet écran-là
+    // ne doit jamais le laisser croire.
     return (
       <ProfilForm
-        onDone={() => api.joueur.moi().then(r => setProfil(r.profile))}
-        onCancel={() => (window.location.href = '/')}
+        onDone={() => relire()}
+        echappee={
+          <button type="button" className="btn btn-accent btn-big btn-block" onClick={() => setRejoindre(true)}>
+            Rejoindre une soirée
+          </button>
+        }
       />
     )
   }
@@ -94,6 +140,36 @@ export function ProfilApp() {
           <p className="muted">{formatNumber(profil.xp)} points d'expérience</p>
         </div>
       </header>
+
+      {/* D'abord ce qu'on est venu faire : animer, ou rejoindre. Le niveau et
+          l'étagère viennent après — on les regarde, on n'en part pas. */}
+      <div className="card">
+        <h3>
+          <Icon name="zap" />
+          Ce soir
+        </h3>
+        <div className="join-actions">
+          {espace && (
+            <button className="btn btn-primary btn-big btn-block" disabled={busy} onClick={animer}>
+              Animer ma soirée
+            </button>
+          )}
+          <button className="btn btn-accent btn-big btn-block" onClick={() => setRejoindre(true)}>
+            Rejoindre une soirée
+          </button>
+        </div>
+        {espace ? (
+          <p className="muted small">
+            « {espace.title} » — tes invités arrivent par{' '}
+            <code>{`${window.location.host}/${espace.slug}`}</code>, l'adresse que portent les QR de
+            tes tables.
+          </p>
+        ) : (
+          <p className="muted small">
+            Tu joues avec ce profil, d'une soirée à l'autre et d'un hôte à l'autre.
+          </p>
+        )}
+      </div>
 
       <div className="card">
         <div className="card-head">

@@ -1,6 +1,7 @@
 import express, { type Express } from 'express'
 import { wrap } from '../core/http'
 import type { AuthStore } from './store'
+import type { ProfileStore } from './profiles'
 import { dummyHash, passwordProblem, verifyPassword } from './password'
 import {
   LoginBudget,
@@ -16,6 +17,8 @@ import { normalizeLogin } from '../../../shared/space'
 
 interface AuthApiDeps {
   auth: AuthStore
+  /** Les profils joueurs : un animateur y rattache le sien pour n'avoir qu'une porte. */
+  profiles: ProfileStore
   /** En ligne, le cookie ne voyage qu'en HTTPS. */
   online: boolean
   /** Supprime un compte et tout ce qu'il a laissé (voir `createQuizServer`). */
@@ -84,7 +87,12 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     account,
     wrap(async (_req, res) => {
       const me = accountOf(res)
-      res.json({ account: auth.toPublic(me), space: auth.publicSpace(me) })
+      const profil = me.profileId ? await deps.profiles.byId(me.profileId) : null
+      res.json({
+        account: auth.toPublic(me),
+        space: auth.publicSpace(me),
+        profil: profil ? deps.profiles.toPublic(profil) : null,
+      })
     }),
   )
 
@@ -131,6 +139,52 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
       await auth.revokeAllSessions(me.id)
       await openSession(req, res, me.id)
       res.json({ ok: true })
+    }),
+  )
+
+  /**
+   * Rattacher son profil joueur à son espace, ou l'en détacher.
+   *
+   * Il faut prouver les deux identités pour les lier : la session
+   * d'animateur d'un côté, l'identifiant et le mot de passe du profil de
+   * l'autre. Après quoi une seule des deux portes suffit — c'est tout
+   * l'intérêt — mais cette première fois-là, non.
+   */
+  app.post(
+    '/api/space/profil',
+    account,
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = accountOf(res)
+      const login = normalizeLogin(req.body?.login)
+      const ip = clientIp(req)
+      if (!budget.allow(ip, `profil:${login}`)) {
+        return res.status(429).json({ error: 'Trop d’essais — réessaie dans un quart d’heure' })
+      }
+      const password = typeof req.body?.password === 'string' ? req.body.password : ''
+      const found = await deps.profiles.verify(login, password, await dummyHash())
+      if (!found) {
+        budget.failed(`profil:${login}`)
+        return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' })
+      }
+      budget.succeeded(`profil:${login}`)
+      const autre = auth.byProfile(found.id)
+      if (autre && autre.id !== me.id) {
+        return res.status(400).json({ error: 'Ce profil anime déjà une autre soirée' })
+      }
+      await auth.linkProfile(me.id, found.id)
+      res.json({ profil: deps.profiles.toPublic(found) })
+    }),
+  )
+
+  app.delete(
+    '/api/space/profil',
+    account,
+    wrap(async (_req, res) => {
+      noStore(res)
+      await auth.linkProfile(accountOf(res).id, null)
+      res.json({ profil: null })
     }),
   )
 

@@ -36,6 +36,15 @@ export interface AccountRec {
   createdAt: number
   lastLoginAt: number | null
   settings: SpaceSettings
+  /**
+   * Le profil joueur de la même personne, s'il s'est rattaché.
+   *
+   * Un compte reste un ESPACE — c'est son `id` qui cloisonne toute
+   * l'application, et il ne bouge pas. Le rattachement dit seulement qui le
+   * tient : celui qui se connecte avec ce profil anime cet espace, et joue
+   * ses soirées sous le même niveau que partout ailleurs.
+   */
+  profileId: string | null
 }
 
 export interface SessionRec {
@@ -113,6 +122,13 @@ export class AuthStore {
       ],
       'write',
     )
+    // Le rattachement au profil joueur est arrivé après les comptes : une
+    // base d'avant ne l'a pas. libsql n'a pas d'« ADD COLUMN IF NOT EXISTS ».
+    try {
+      await this.client.execute('ALTER TABLE accounts ADD COLUMN profile_id TEXT')
+    } catch {
+      // Colonne déjà là : le cas normal après le premier démarrage.
+    }
     const accounts = await this.client.execute('SELECT * FROM accounts')
     for (const row of accounts.rows) {
       const account = toAccount(row)
@@ -148,6 +164,40 @@ export class AuthStore {
     if (!clean) return undefined
     for (const a of this.accounts.values()) if (a.slug === clean) return a
     return undefined
+  }
+
+  /**
+   * L'espace que tient ce profil joueur, s'il en tient un.
+   *
+   * En mémoire, comme tout le reste ici : il y a une poignée de comptes, et
+   * cette question se pose à chaque connexion de joueur.
+   */
+  byProfile(profileId: string): AccountRec | undefined {
+    if (!profileId) return undefined
+    for (const a of this.accounts.values()) if (a.profileId === profileId) return a
+    return undefined
+  }
+
+  /**
+   * Rattache (ou détache, avec `null`) le profil joueur d'un animateur.
+   *
+   * Un profil ne tient qu'un espace, et un espace n'a qu'un profil : c'est
+   * la même personne des deux côtés, et deux animateurs qui partageraient un
+   * profil partageraient aussi leur porte d'entrée.
+   */
+  async linkProfile(accountId: string, profileId: string | null): Promise<AccountRec> {
+    const rec = this.accounts.get(accountId)
+    if (!rec) throw new Error('Compte introuvable')
+    if (profileId) {
+      const autre = this.byProfile(profileId)
+      if (autre && autre.id !== accountId) throw new Error('Ce profil anime déjà un autre espace')
+    }
+    rec.profileId = profileId
+    await this.client.execute({
+      sql: 'UPDATE accounts SET profile_id = ? WHERE id = ?',
+      args: [profileId, accountId],
+    })
+    return rec
   }
 
   /** L'espace par défaut — celui de l'administrateur, connu après `ensureDefaultSpace`. */
@@ -210,6 +260,7 @@ export class AuthStore {
       createdAt: Date.now(),
       lastLoginAt: null,
       settings: normalizeSettings({}, name),
+      profileId: null,
     }
     await this.client.execute({
       sql: `INSERT INTO accounts (id, login, name, slug, role, password_hash, disabled_at, created_at, last_login_at, settings)
@@ -463,5 +514,6 @@ function toAccount(row: Record<string, unknown>): AccountRec {
     createdAt: Number(row.created_at),
     lastLoginAt: row.last_login_at === null || row.last_login_at === undefined ? null : Number(row.last_login_at),
     settings: normalizeSettings(settings, name),
+    profileId: row.profile_id === null || row.profile_id === undefined ? null : String(row.profile_id),
   }
 }

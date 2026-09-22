@@ -20,10 +20,11 @@ Chez soi, le compte administrateur est `antoine` / `romane` et son espace s'appe
 
 | Page | Adresse | Pour qui |
 |---|---|---|
+| Accueil | http://localhost:5173/ | tout le monde : on s'y connecte avec son profil, on anime sa soirée ou on en rejoint une — et « Rejoindre une soirée » y reste à un geste, sans compte |
 | Jeu | http://localhost:5173/romane | les invités (sur leur téléphone : `http://<IP-du-PC>:5173/romane`) — c'est l'adresse du QR |
 | Écran commun | http://localhost:5173/host | la TV / le vidéoprojecteur, une fois l'animateur connecté |
 | Mes quiz | http://localhost:5173/edit | l'animateur, pour écrire ses quiz |
-| Mon profil | http://localhost:5173/profil | un invité qui revient : son niveau, ses finitions, ses éclats |
+| Mon profil | http://localhost:5173/profil | la même page que l'accueil : son niveau, ses finitions, ses éclats |
 | Mon compte | http://localhost:5173/compte | ses réglages de soirée, son mot de passe, l'adresse de ses invités |
 | Les comptes | http://localhost:5173/admin | l'administrateur seul : créer un compte à un ami |
 | Souvenir | http://localhost:5173/romane/souvenir | tout le monde, le lendemain : podium, palmarès, équipes et tous les chiffres ; l'animateur pendant la fête aussi, la page se rafraîchit seule (`/romane/stats` y mène, droit sur le tableau) |
@@ -39,7 +40,7 @@ npm run verify
 c'est exactement ce que fait l'intégration continue sur chaque proposition de
 modification (`.github/workflows/ci.yml`).
 
-`smoke` = test de bout en bout (comptes et sessions, suppression d'un compte, garde-fous, isolation des espaces, inscription, quiz complet, scoring, classement, reconnexion, accusé de réception des réponses, heure du serveur et marge de fin de question, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, anciennes adresses, reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d'une base d'avant les comptes, profils joueurs, expérience créditée dès la fin du quiz et badges d'une soirée, entrée et homonymes).
+`smoke` = test de bout en bout (comptes et sessions, suppression d'un compte, garde-fous, isolation des espaces, inscription, quiz complet, scoring, classement, reconnexion, accusé de réception des réponses, heure du serveur et marge de fin de question, bibliothèque, photos, estimation et estimation saboteuse, retardataire, photo « mémoire », équipes, barème des trois jeux, statistiques et prix, bilan question par question et export, anciennes adresses, reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d'une base d'avant les comptes, profils joueurs, expérience créditée dès la fin du quiz et badges d'une soirée, entrée et homonymes, profil rattaché à un espace).
 
 Il n'y a ni linter ni formateur : le typecheck et le test de bout en bout
 tiennent lieu de filet, et la relecture fait le reste.
@@ -71,6 +72,16 @@ Les pages d'animation ne portent pas l'espace dans l'adresse : c'est la session 
 **Et qui revient ne rechoisit rien.** Le téléphone se souvient un an : Alice retrouve son avatar, son niveau et un seul bouton, « Entrer dans la soirée ». Son prénom et son emoji, elle les a choisis une fois en créant son profil — on ne les lui redemande jamais. Elle peut jouer sous un autre prénom pour la soirée, ça ne change rien à son profil.
 
 Un profil (`/profil`) garde ce qu'on a fait **d'une soirée à l'autre et d'un animateur à l'autre** : de l'expérience, un niveau, des finitions d'avatar. Il se crée en deux écrans — le prénom et l'avatar, puis un identifiant et un mot de passe — depuis l'entrée ou entre deux quiz, et se retrouve ensuite tout seul. Si l'identifiant voulu est pris, l'application en propose un libre (« camille2 ») qu'on prend d'un geste : un refus sec laisserait debout, dans le noir, quelqu'un qui ne sait pas quoi tenter d'autre.
+
+**Animateur et joueur sont la même personne.** Un animateur rattache son profil
+joueur à son espace depuis « Mon compte » — une fois, en prouvant les deux
+identités — et n'a plus qu'un mot de passe à retenir : celui de son profil
+ouvre la console depuis l'accueil, et son niveau le suit quand il joue à sa
+propre soirée comme chez les autres. Les deux tables restent séparées, et
+c'est voulu : `accounts.id` **est** le `space_id` qui cloisonne toute
+l'application, il ne peut pas bouger. Un compte est donc un *espace* qu'une
+personne tient, pas une seconde identité. Se déconnecter de son profil referme
+la console qu'il avait ouverte — et seulement celle-là.
 
 **Un profil ne donne jamais un avantage de jeu.** Pas de point bonus, pas de temps en plus, pas de question plus facile : une soirée où les inscrits marqueraient plus ne serait plus une soirée. Il donne du prestige et de la durée, jamais de la performance. C'est pour la même raison qu'un invité anonyme n'affiche **rien** — ni « Niv. 0 », ni pastille grise. L'absence, pas l'infériorité.
 

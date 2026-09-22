@@ -3,6 +3,9 @@ import { api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
 import { showToast, useAppState } from '../state'
 import type { SpaceSettings } from '../../../shared/space'
+import type { PublicProfile } from '../../../shared/profil'
+import { Avatar } from '../components/Avatar'
+import { Niveau } from '../components/Niveau'
 
 /**
  * « Mon compte » (`/compte`) : qui je suis, l'adresse que scannent mes
@@ -96,6 +99,7 @@ export function AccountApp() {
       </section>
 
       <SettingsForm me={me} onSaved={space => setMe({ ...me, space })} />
+      <ProfilLie profil={me.profil ?? null} onChange={profil => setMe({ ...me, profil })} />
       <PasswordForm />
 
       <section className="card">
@@ -121,6 +125,119 @@ export function AccountApp() {
 }
 
 /** Les réglages de la soirée : ce que voient les invités à l'inscription et sur les pages. */
+/**
+ * Rattacher son profil joueur à son espace.
+ *
+ * Un animateur est d'abord quelqu'un qui joue : il n'a aucune raison de
+ * tenir deux identités, ni deux mots de passe. Une fois rattaché, son profil
+ * ouvre la console tout seul depuis l'accueil — et il garde son niveau quand
+ * il joue à sa propre soirée, comme chez les autres.
+ *
+ * Il faut prouver les deux identités pour les lier : cette session-ci d'un
+ * côté, l'identifiant et le mot de passe du profil de l'autre. Après quoi
+ * une seule des deux portes suffit ; cette première fois-là, non.
+ */
+function ProfilLie({ profil, onChange }: { profil: PublicProfile | null; onChange: (p: PublicProfile | null) => void }) {
+  const [login, setLogin] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const lier = async (e: FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      const { profil: lie } = await api.space.lierProfil(login.trim(), password)
+      setLogin('')
+      setPassword('')
+      onChange(lie)
+      showToast({ kind: 'info', message: `Profil ${lie.name} rattaché` })
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (profil) {
+    return (
+      <section className="card">
+        <h2>Mon profil joueur</h2>
+        <div className="row profil-lie">
+          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={profil.eclats.includes(profil.avatar)} />
+          <div>
+            <strong>{profil.name}</strong>
+            <Niveau niveau={profil.niveau} />
+            <p className="muted small">
+              Identifiant <strong>{profil.login}</strong> — il ouvre cette console depuis l'accueil.
+            </p>
+          </div>
+        </div>
+        <button
+          className="btn btn-ghost btn-small"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              await api.space.detacherProfil()
+              onChange(null)
+            } catch (err) {
+              setError((err as Error).message)
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          Détacher ce profil
+        </button>
+        {error && <p className="error">{error}</p>}
+      </section>
+    )
+  }
+
+  return (
+    <form className="card" onSubmit={lier}>
+      <h2>Mon profil joueur</h2>
+      <p className="muted small">
+        Rattache le profil avec lequel tu joues : il ouvrira cette console depuis l'accueil, et tu
+        n'auras plus qu'un mot de passe à retenir. Si tu n'en as pas encore, crée-le depuis l'accueil.
+      </p>
+      <div className="field">
+        <label className="label" htmlFor="lien-login">
+          Identifiant du profil
+        </label>
+        <input
+          id="lien-login"
+          className="input input-line"
+          value={login}
+          onChange={e => setLogin(e.target.value)}
+          autoComplete="username"
+          autoCapitalize="none"
+          maxLength={32}
+        />
+      </div>
+      <div className="field">
+        <label className="label" htmlFor="lien-pass">
+          Son mot de passe
+        </label>
+        <input
+          id="lien-pass"
+          className="input input-line"
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          autoComplete="current-password"
+        />
+      </div>
+      {error && <p className="error">{error}</p>}
+      <button className="btn btn-primary" disabled={busy || !login.trim() || !password}>
+        Rattacher
+      </button>
+    </form>
+  )
+}
+
 function SettingsForm({ me, onSaved }: { me: Me; onSaved: (space: Me['space']) => void }) {
   const [form, setForm] = useState<SpaceSettings>({
     title: me.space.title,

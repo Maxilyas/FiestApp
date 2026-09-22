@@ -2299,7 +2299,111 @@ try {
   await eSrv.close()
   rmSync(eDir, { recursive: true, force: true })
 
-  console.log('✅ Smoke test OK — 40 étapes')
+  // 35. Une seule porte : le profil qui anime.
+  //
+  //     Un animateur est d'abord quelqu'un qui joue. Il rattache son profil
+  //     à son espace une fois — en prouvant les deux identités — et n'a plus
+  //     qu'un mot de passe à retenir : celui de son profil ouvre la console.
+  const lDir = mkdtempSync(path.join(tmpdir(), 'quizz-lien-'))
+  const lSrv = await createQuizServer({
+    port: 0,
+    dbPath: path.join(lDir, 'local.db'),
+    admin: ADMIN,
+    quizDbUrl: `file:${path.join(lDir, 'quizzes.db').replace(/\\/g, '/')}`,
+  })
+  const lUrl = `http://localhost:${lSrv.port}`
+  const lHote = await loginAs(lUrl, ADMIN.login, ADMIN.password)
+
+  // L'animateur se crée un profil joueur, comme n'importe quel invité.
+  const lInsc = await write(lUrl, '/api/joueur/inscription', {
+    login: 'anim',
+    password: 'motdepasse1',
+    name: 'Antoine',
+    avatar: '🦊',
+  })
+  assert(lInsc.status === 201, 'l’animateur se crée un profil comme tout le monde')
+  const lJoueur = jCookie(lInsc)
+  assert(
+    ((await lInsc.clone().json()) as any).espace === null,
+    'un profil tout neuf n’anime rien : le rattachement se demande',
+  )
+
+  // Tant que rien n'est rattaché, ce profil n'ouvre aucune console.
+  assert(
+    (await write(lUrl, '/api/joueur/console', {}, lJoueur)).status === 403,
+    'sans rattachement, un profil n’ouvre aucune console',
+  )
+
+  // Rattacher exige les deux identités : la session d'animateur, et le mot
+  // de passe du profil.
+  assert(
+    (await write(lUrl, '/api/space/profil', { login: 'anim', password: 'motdepasse1' })).status === 401,
+    'rattacher un profil sans session d’animateur est refusé',
+  )
+  assert(
+    (await write(lUrl, '/api/space/profil', { login: 'anim', password: 'faux' }, lHote)).status === 401,
+    'rattacher un profil sans son mot de passe est refusé',
+  )
+  assert((await write(lUrl, '/api/space/profil', { login: 'anim', password: 'motdepasse1' }, lHote)).ok, 'le rattachement')
+
+  // Désormais, une seule porte : le profil ouvre la console.
+  const lConn = await write(lUrl, '/api/joueur/connexion', { login: 'anim', password: 'motdepasse1' })
+  assert(lConn.ok, 'connexion au profil rattaché')
+  assert(
+    ((await lConn.clone().json()) as any).espace?.slug === SLUG,
+    'la connexion au profil doit dire quelle soirée il anime',
+  )
+  // Les deux cookies sont posés d'un coup : le navigateur les renverrait
+  // ensemble, et la console répond sans qu'on ait retapé quoi que ce soit.
+  const lDeux = `${jCookie(lConn)}; ${cookieOf(lConn)}`
+  const lMoiHote = await fetch(`${lUrl}/api/auth/me`, { headers: { Cookie: lDeux } })
+  assert(lMoiHote.ok, `la session d’animateur doit être ouverte par la connexion au profil (${lMoiHote.status})`)
+  assert(
+    ((await lMoiHote.json()) as any).profil?.login === 'anim',
+    '« Mon compte » doit montrer le profil rattaché',
+  )
+  const lMoiJoueur = (await (await fetch(`${lUrl}/api/joueur/moi`, { headers: { Cookie: lJoueur } })).json()) as any
+  assert(lMoiJoueur.espace?.slug === SLUG, 'la page du profil doit savoir quelle soirée animer')
+
+  // La session d'animateur dure trente jours, celle du joueur un an : celui
+  // qui revient six mois plus tard doit rouvrir la sienne sans rien retaper.
+  const lRouverte = await write(lUrl, '/api/joueur/console', {}, lJoueur)
+  assert(lRouverte.ok, 'une session de joueur seule doit pouvoir rouvrir la console')
+  assert(cookieOf(lRouverte), 'et reposer le cookie d’animateur')
+
+  // Un profil ne tient qu'un espace : celui d'un autre animateur est refusé.
+  const lBob = (await (
+    await write(lUrl, '/api/admin/accounts', { login: 'bob', name: 'Bob', slug: 'chez-bob' }, lHote)
+  ).json()) as any
+  const lBobCookie = cookieOf(
+    await write(lUrl, '/api/auth/activate', { token: lBob.activation.token, password: 'bob-pass-12' }),
+  )
+  assert(
+    (await write(lUrl, '/api/space/profil', { login: 'anim', password: 'motdepasse1' }, lBobCookie)).status === 400,
+    'un profil qui anime déjà un espace ne s’empare pas de celui du voisin',
+  )
+
+  // Se déconnecter de son profil referme la console : une seule porte à
+  // l'aller, une seule au retour.
+  const lSortie = await write(lUrl, '/api/joueur/deconnexion', {}, lDeux)
+  assert(lSortie.ok, 'la déconnexion du profil')
+  assert(
+    (await fetch(`${lUrl}/api/auth/me`, { headers: { Cookie: lDeux } })).status === 401,
+    'se déconnecter de son profil doit aussi refermer la console qu’il avait ouverte',
+  )
+
+  // Détacher rend les deux identités étrangères l'une à l'autre.
+  const lRetour = await write(lUrl, '/api/joueur/connexion', { login: 'anim', password: 'motdepasse1' })
+  await write(lUrl, '/api/space/profil', {}, `${jCookie(lRetour)}; ${cookieOf(lRetour)}`, 'DELETE')
+  assert(
+    (await write(lUrl, '/api/joueur/console', {}, jCookie(lRetour))).status === 403,
+    'un profil détaché n’ouvre plus rien',
+  )
+
+  await lSrv.close()
+  rmSync(lDir, { recursive: true, force: true })
+
+  console.log('✅ Smoke test OK — 41 étapes')
   console.log(
     '   collage de questions, comptes et sessions, suppression d’un compte, garde-fous, isolation des espaces, quiz complet, bibliothèque,',
   )
@@ -2317,7 +2421,8 @@ try {
   )
   console.log('   reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d’une base d’avant les comptes,')
   console.log('   profils joueurs : inscription, code de secours, rattachement, expérience créditée dès la fin du quiz et badges à l’archivage,')
-  console.log('   entrée : identité prise dans le profil, identifiant libre proposé, homonymes marqués jusque sur l’écran commun et dans l’archive')
+  console.log('   entrée : identité prise dans le profil, identifiant libre proposé, homonymes marqués jusque sur l’écran commun et dans l’archive,')
+  console.log('   une seule porte : le profil rattaché ouvre la console, la referme, et ne s’empare pas de l’espace du voisin')
   process.exit(0)
 } catch (e) {
   fail((e as Error).message)

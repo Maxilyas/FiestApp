@@ -6,7 +6,7 @@ import { route, type AccountPage, type PublicPage } from './routes'
 import './styles.css'
 
 // Les adresses (client/src/routes.ts) :
-//   /                 l'accueil : « quelle soirée ? »
+//   /                 l'accueil : mon profil, et de quoi animer ou rejoindre
 //   /<espace>         le téléphone des invités
 //   /host             l'écran commun (TV) de l'animateur connecté
 //   /edit             sa bibliothèque de quiz
@@ -49,6 +49,9 @@ const PUBLIC: Record<PublicPage, typeof RecapApp> = {
   soirees: ArchivesApp,
 }
 
+// L'accueil et `/profil` sont la même page : on se connecte avec son profil,
+// et c'est de là qu'on anime sa soirée ou qu'on en rejoint une. `LandingApp`
+// ne sert plus qu'aux adresses qui ne mènent nulle part.
 const App =
   route.kind === 'account'
     ? ACCOUNT[route.page]
@@ -56,7 +59,9 @@ const App =
       ? PlayerApp
       : route.kind === 'public'
         ? PUBLIC[route.page]
-        : LandingApp
+        : route.kind === 'landing'
+          ? ProfilApp
+          : LandingApp
 
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au

@@ -1,8 +1,8 @@
 // Les adresses de l'application, côté client.
 //
-//   /                         l'accueil : « quelle soirée ? »
+//   /                         l'accueil : mon profil — et de quoi animer ou rejoindre
 //   /host /edit /compte …     les pages de l'animateur — son espace vient de sa session
-//   /profil                   le profil d'un joueur récurrent (rien à voir avec un compte)
+//   /profil                   la même page que l'accueil, à son adresse d'origine
 //   /<espace>                 le téléphone des invités de cet espace (la valeur du QR)
 //   /<espace>/souvenir        les pages publiques de sa soirée en cours…
 //   /<espace>/soirees/<id>/…  …et de ses soirées archivées, avec les mêmes pages
@@ -16,7 +16,9 @@ import { RESERVED_SLUGS, SLUG } from '../../shared/space'
 export type PublicPage = 'souvenir' | 'stats' | 'bilan' | 'bilan/fiches' | 'soirees'
 /**
  * Les pages qui ne portent pas d'espace dans leur adresse. « profil » est la
- * seule qui ne soit pas réservée aux animateurs : c'est celle des joueurs.
+ * seule qui ne soit pas réservée aux animateurs : c'est celle des joueurs, et
+ * c'est aussi l'accueil — demander « quelle soirée ? » avant même de savoir
+ * qui est là n'avait aucun sens pour celui qui revient.
  */
 export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin' | 'profil'
 export type DataFile = 'recap.json' | 'bilan.json' | 'soirees.json' | 'space.json'
