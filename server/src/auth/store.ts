@@ -1,3 +1,4 @@
+import type { InStatement } from '@libsql/client'
 import { ajouterColonne, clientDistant, type Client } from '../core/distante'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword } from './password'
@@ -20,7 +21,15 @@ import {
  * et tout est aussi en mémoire : une poignée de comptes, quelques sessions
  * ouvertes — relire la base distante à chaque requête et à chaque poignée
  * de main socket coûterait un aller-retour pour rien. Le serveur n'ayant
- * qu'une instance, la mémoire fait foi et les écritures suivent.
+ * qu'une instance, c'est la mémoire qu'on lit.
+ *
+ * Mais c'est la base qu'on écrit d'abord, et la mémoire ne suit qu'une fois
+ * l'écriture faite. Dans l'autre ordre, une écriture que Turso refusait
+ * laissait la route dire « Erreur serveur » pendant que le changement valait
+ * quand même — un rattachement ouvrait la console, une adresse renommée
+ * menait à l'espace — jusqu'au prochain redémarrage, qui le défaisait sans
+ * un mot. Une révocation refusée, elle, ne se retentait même plus : la
+ * mémoire l'avait déjà oubliée, et la session ressuscitait au réveil.
  *
  * Des jetons, on ne garde que l'empreinte : une base qui fuit ne livre
  * aucune session utilisable.
@@ -185,15 +194,21 @@ export class AuthStore {
   async linkProfile(accountId: string, profileId: string | null): Promise<AccountRec> {
     const rec = this.accounts.get(accountId)
     if (!rec) throw new Error('Compte introuvable')
+    const pris = 'Ce profil anime déjà un autre espace'
     if (profileId) {
       const autre = this.byProfile(profileId)
-      if (autre && autre.id !== accountId) throw new Error('Ce profil anime déjà un autre espace')
+      if (autre && autre.id !== accountId) throw new Error(pris)
     }
-    rec.profileId = profileId
-    await this.client.execute({
-      sql: 'UPDATE accounts SET profile_id = ? WHERE id = ?',
-      args: [profileId, accountId],
+    // La base tranche aussi : la mémoire ne suit qu'après l'écriture, et deux
+    // rattachements du même profil à deux espaces passeraient ensemble la
+    // vérification du dessus.
+    const res = await this.client.execute({
+      sql: `UPDATE accounts SET profile_id = ? WHERE id = ?
+            AND (? IS NULL OR NOT EXISTS (SELECT 1 FROM accounts WHERE profile_id = ? AND id <> ?))`,
+      args: [profileId, accountId, profileId, profileId, accountId],
     })
+    if (res.rowsAffected === 0) throw new Error(profileId ? pris : 'Compte introuvable')
+    rec.profileId = profileId
     return rec
   }
 
@@ -277,41 +292,53 @@ export class AuthStore {
 
   async touchLogin(id: string): Promise<void> {
     const rec = this.require(id)
-    rec.lastLoginAt = Date.now()
-    await this.client.execute({ sql: 'UPDATE accounts SET last_login_at = ? WHERE id = ?', args: [rec.lastLoginAt, id] })
+    const now = Date.now()
+    await this.client.execute({ sql: 'UPDATE accounts SET last_login_at = ? WHERE id = ?', args: [now, id] })
+    rec.lastLoginAt = now
   }
 
   /** Désactiver ferme toutes les sessions ; réactiver ne rouvre rien. */
   async setDisabled(id: string, disabled: boolean): Promise<AccountRec> {
     const rec = this.require(id)
-    rec.disabledAt = disabled ? Date.now() : null
-    await this.client.execute({ sql: 'UPDATE accounts SET disabled_at = ? WHERE id = ?', args: [rec.disabledAt, id] })
+    const disabledAt = disabled ? Date.now() : null
+    await this.client.execute({ sql: 'UPDATE accounts SET disabled_at = ? WHERE id = ?', args: [disabledAt, id] })
+    rec.disabledAt = disabledAt
     if (disabled) await this.revokeAllSessions(id)
     return rec
   }
 
   async update(id: string, patch: { name?: unknown; slug?: unknown }): Promise<AccountRec> {
     const rec = this.require(id)
+    // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
+    // coup, et deux retouches croisées ne doivent pas s'écraser l'une l'autre.
+    const champs: { name?: string; slug?: string } = {}
     if (patch.name !== undefined) {
       const name = tronquer(String(patch.name ?? '').trim(), 40)
       if (!name) throw new Error('Il faut un prénom ou un nom')
-      rec.name = name
+      champs.name = name
     }
     if (patch.slug !== undefined) {
       const slug = normalizeSlug(patch.slug)
       if (!isValidSlug(slug)) throw new Error('Nom dans l’adresse : 2 à 24 caractères, lettres, chiffres, tirets — et pas un mot réservé')
       const other = this.bySlug(slug)
       if (other && other.id !== id) throw new Error('Ce nom d’adresse est déjà pris')
-      rec.slug = slug
+      champs.slug = slug
     }
-    await this.client.execute({ sql: 'UPDATE accounts SET name = ?, slug = ? WHERE id = ?', args: [rec.name, rec.slug, id] })
+    const colonnes = Object.keys(champs) as (keyof typeof champs)[]
+    if (colonnes.length === 0) return rec
+    await this.client.execute({
+      sql: `UPDATE accounts SET ${colonnes.map(c => `${c} = ?`).join(', ')} WHERE id = ?`,
+      args: [...colonnes.map(c => champs[c]!), id],
+    })
+    Object.assign(rec, champs)
     return rec
   }
 
   async updateSettings(id: string, raw: unknown): Promise<AccountRec> {
     const rec = this.require(id)
-    rec.settings = normalizeSettings(raw, rec.name)
-    await this.client.execute({ sql: 'UPDATE accounts SET settings = ? WHERE id = ?', args: [JSON.stringify(rec.settings), id] })
+    const settings = normalizeSettings(raw, rec.name)
+    await this.client.execute({ sql: 'UPDATE accounts SET settings = ? WHERE id = ?', args: [JSON.stringify(settings), id] })
+    rec.settings = settings
     return rec
   }
 
@@ -382,6 +409,11 @@ export class AuthStore {
    * Le compte derrière un jeton, ou null : inconnu, expiré, compte désactivé.
    * Synchrone — tout est en mémoire — pour servir aussi la poignée de main
    * socket. L'expiration glisse en arrière-plan.
+   *
+   * Seul endroit où la mémoire passe devant la base, et exprès : une session
+   * expirée qui resterait en base est effacée au démarrage suivant, et une
+   * expiration qui n'aurait pas glissé en base ne fait, au pire, que
+   * redemander le mot de passe un peu plus tôt.
    */
   resolveSession(token: string): { account: AccountRec; session: SessionRec } | null {
     const session = this.sessions.get(fingerprint(token))
@@ -408,16 +440,29 @@ export class AuthStore {
   }
 
   async revokeSession(sessionId: string): Promise<void> {
-    if (!this.sessions.delete(sessionId)) return
+    if (!this.sessions.has(sessionId)) return
     await this.client.execute({ sql: 'DELETE FROM auth_sessions WHERE id = ?', args: [sessionId] })
+    // Une révocation simultanée de la même session a pu passer entre-temps :
+    // elle a déjà prévenu les écrans.
+    if (!this.sessions.delete(sessionId)) return
     for (const cb of this.revokeListeners) cb(sessionId)
   }
 
   /** Toutes les sessions d'un compte : changement de mot de passe, désactivation. */
   async revokeAllSessions(accountId: string): Promise<void> {
-    const ids = [...this.sessions.values()].filter(s => s.accountId === accountId).map(s => s.id)
+    await this.retirerSessions(s => s.accountId === accountId, { sql: 'DELETE FROM auth_sessions WHERE account_id = ?', args: [accountId] })
+  }
+
+  /**
+   * Retire des sessions — en base d'abord, en mémoire ensuite — puis coupe
+   * les écrans qu'elles avaient ouverts. La mémoire ne perd que celles
+   * qu'elle connaissait AVANT d'écrire : une session ouverte pendant
+   * l'aller-retour, oubliée ici mais restée en base, ressusciterait au réveil.
+   */
+  private async retirerSessions(visees: (s: SessionRec) => boolean, suppression: InStatement): Promise<void> {
+    const ids = [...this.sessions.values()].filter(visees).map(s => s.id)
+    await this.client.execute(suppression)
     for (const id of ids) this.sessions.delete(id)
-    await this.client.execute({ sql: 'DELETE FROM auth_sessions WHERE account_id = ?', args: [accountId] })
     for (const id of ids) for (const cb of this.revokeListeners) cb(id)
   }
 

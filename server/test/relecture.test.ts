@@ -7,17 +7,70 @@
 // leur propre serveur jetable : l'expérience de l'un fausserait l'autre.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
+import { ADMIN, connexionAnimateur, cookieDe, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import type { QuizServerOptions } from '../src/server'
 import { AuthStore } from '../src/auth/store'
 import { QuizStore } from '../src/core/quizStore'
 import { PartyBackup } from '../src/core/backup'
 import { BaseMuette } from '../src/core/distante'
 
 // ── Outils ────────────────────────────────────────────────────────────────
+
+/** Un serveur jetable le temps d'un test, refermé quoi qu'il arrive. */
+async function avecBanc(scenario: (banc: Banc) => Promise<void>, opts: Partial<QuizServerOptions> = {}) {
+  const banc = await demarrer(opts)
+  try {
+    await scenario(banc)
+  } finally {
+    await banc.close()
+  }
+}
+
+/** Le fichier de la base permanente — celle qui tient le rôle de Turso. */
+const permanente = (banc: Banc) => banc.quizDbUrl.replace(/^file:/, '')
+
+/** Lit la base permanente sans passer par le serveur, comme on irait vérifier à la main. */
+function lire<T = any>(banc: Banc, sql: string, ...args: unknown[]): T[] {
+  const db = new Database(permanente(banc), { readonly: true, fileMustExist: true })
+  try {
+    return db.prepare(sql).all(...args) as T[]
+  } finally {
+    db.close()
+  }
+}
+
+/** L'empreinte sous laquelle un jeton de session est rangé : la base ne garde jamais le jeton lui-même. */
+const empreinte = (cookie: string) => createHash('sha256').update(cookie.split('=')[1]).digest('hex')
+
+/**
+ * La base permanente refuse certaines écritures le temps de `fn` — une par
+ * cible, telle qu'un déclencheur la nomme (« UPDATE OF slug ON accounts ») —
+ * et répond normalement au reste. Les pannes attendues ne salissent pas le
+ * journal du test : c'est le serveur qui les consigne, et c'est voulu.
+ */
+async function enPanne<T>(banc: Banc, cibles: string[], fn: () => Promise<T>): Promise<T> {
+  const base = new Database(permanente(banc))
+  const errorAvant = console.error
+  console.error = (...args: unknown[]) => {
+    if (!args.some(a => String(a).includes('panne simulée'))) errorAvant(...args)
+  }
+  try {
+    cibles.forEach((cible, i) =>
+      base.exec(`CREATE TRIGGER panne_${i} BEFORE ${cible} BEGIN SELECT RAISE(ABORT, 'panne simulée'); END`),
+    )
+    return await fn()
+  } finally {
+    cibles.forEach((_, i) => base.exec(`DROP TRIGGER IF EXISTS panne_${i}`))
+    base.close()
+    console.error = errorAvant
+  }
+}
 
 /** Un dossier jetable, effacé quoi qu'il arrive. */
 async function dansUnDossier(fn: (dir: string) => Promise<void> | void) {
@@ -173,4 +226,109 @@ test('une colonne qui n’a pas pu s’ajouter arrête le démarrage, au lieu de
     await sansAlter(async () => {
       for (const { demarrer } of MIGRATIONS) await demarrer(url)
     })
+  }))
+
+// ── 3. La base d'abord, la mémoire ensuite ────────────────────────────────
+//
+// Les comptes et les profils vivent en mémoire, et la base permanente suit.
+// Mais la mémoire changeait AVANT l'écriture : quand Turso refusait, la route
+// disait « Erreur serveur », et le changement valait quand même — jusqu'au
+// prochain redémarrage, qui le défaisait en silence.
+
+test('un compte ne change pas en mémoire quand la base permanente refuse de l’écrire', () =>
+  avecBanc(async banc => {
+    const admin = await connexionAnimateur(banc.url)
+    await inscrireProfil(banc.url, 'lea', 'Léa', '🦉')
+    const lier = () => ecrire(banc.url, '/api/space/profil', { login: 'lea', password: 'motdepasse1' }, admin)
+    /** L'espace que la connexion au profil de Léa ouvre — null s'il n'en ouvre aucun. */
+    const consoleDeLea = async () =>
+      ((await (await ecrire(banc.url, '/api/joueur/connexion', { login: 'lea', password: 'motdepasse1' })).json()) as any)
+        .espace
+
+    // Le rattachement que la base a refusé n'ouvre pas la console pour autant.
+    await enPanne(banc, ['UPDATE OF profile_id ON accounts'], async () => {
+      assert.equal((await lier()).status, 500)
+      assert.equal(await consoleDeLea(), null, 'un rattachement refusé n’ouvre aucune console')
+    })
+    assert.equal((await lier()).status, 200)
+    assert.equal((await consoleDeLea())?.slug, ADMIN.slug)
+    // Ni un détachement refusé ne la ferme.
+    await enPanne(banc, ['UPDATE OF profile_id ON accounts'], async () => {
+      assert.equal((await ecrire(banc.url, '/api/space/profil', {}, admin, 'DELETE')).status, 500)
+      assert.equal((await consoleDeLea())?.slug, ADMIN.slug, 'un détachement refusé ne détache rien')
+    })
+
+    // Les réglages de l'espace : les pages publiques gardent ce qui est en base.
+    const espace = (slug: string) => fetch(`${banc.url}/s/${slug}/space.json`)
+    const reglages = (await (await espace(ADMIN.slug)).json()) as Record<string, unknown>
+    await enPanne(banc, ['UPDATE OF settings ON accounts'], async () => {
+      const regle = await ecrire(banc.url, '/api/space/settings', { ...reglages, title: 'Soirée fantôme' }, admin, 'PUT')
+      assert.equal(regle.status, 500)
+    })
+    assert.deepEqual(await (await espace(ADMIN.slug)).json(), reglages, 'des réglages refusés ne s’affichent pas')
+
+    // Le nom dans l'adresse d'un autre compte, et sa désactivation.
+    const cree = await ecrire(banc.url, '/api/admin/accounts', { login: 'zoe', name: 'Zoé', slug: 'chez-zoe' }, admin)
+    const zoe = ((await cree.json()) as any).account.id as string
+    await enPanne(banc, ['UPDATE OF slug ON accounts', 'UPDATE OF disabled_at ON accounts'], async () => {
+      assert.equal((await ecrire(banc.url, `/api/admin/accounts/${zoe}`, { slug: 'chez-zoe-2' }, admin, 'PUT')).status, 500)
+      assert.equal((await ecrire(banc.url, `/api/admin/accounts/${zoe}/disable`, {}, admin)).status, 500)
+    })
+    assert.equal((await espace('chez-zoe-2')).status, 404, 'une adresse refusée ne mène nulle part')
+    assert.equal((await espace('chez-zoe')).status, 200, 'l’ancienne mène toujours chez Zoé')
+    const comptes = (await (await fetch(`${banc.url}/api/admin/accounts`, { headers: { Cookie: admin } })).json()) as any[]
+    assert.equal(comptes.find(c => c.id === zoe)?.status, 'pending', 'une désactivation refusée ne ferme rien')
+
+    // Une déconnexion que la base refuse se retente, et le second essai
+    // l'efface pour de bon : la mémoire l'avait oubliée dès le premier, et la
+    // session ressuscitait au redémarrage suivant.
+    const tablette = await connexionAnimateur(banc.url)
+    await enPanne(banc, ['DELETE ON auth_sessions'], async () => {
+      assert.equal((await ecrire(banc.url, '/api/auth/logout', {}, tablette)).status, 500)
+    })
+    assert.equal((await ecrire(banc.url, '/api/auth/logout', {}, tablette)).status, 200, 'le second essai trouve la session')
+    assert.deepEqual(lire(banc, 'SELECT id FROM auth_sessions WHERE id = ?', empreinte(tablette)), [], 'et l’efface en base')
+  }))
+
+test('un profil ne change pas en mémoire quand la base permanente refuse de l’écrire', () =>
+  avecBanc(async banc => {
+    const inscrit = await ecrire(banc.url, '/api/joueur/inscription', {
+      login: 'max',
+      password: 'motdepasse1',
+      name: 'Max',
+      avatar: '🐺',
+    })
+    const { recovery } = (await inscrit.json()) as { recovery: string }
+    const cookie = cookieDe(inscrit, 'qz_joueur')
+    const moi = async () =>
+      ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any).profile
+    const ouvre = async (password: string) =>
+      (await ecrire(banc.url, '/api/joueur/connexion', { login: 'max', password })).status
+
+    await enPanne(banc, ['UPDATE OF name ON profiles', 'UPDATE OF password_hash ON profiles'], async () => {
+      assert.equal((await ecrire(banc.url, '/api/joueur/moi', { name: 'Maxime' }, cookie, 'PUT')).status, 500)
+      assert.equal((await moi()).name, 'Max', 'un prénom refusé ne s’affiche pas')
+
+      // Le nouveau mot de passe ouvrait le profil jusqu'au redémarrage, et
+      // l'ancien plus rien : on ne savait plus lequel taper.
+      const change = await ecrire(banc.url, '/api/joueur/mot-de-passe', { current: 'motdepasse1', next: 'nouveau-mdp-2' }, cookie)
+      assert.equal(change.status, 500)
+      assert.equal(await ouvre('nouveau-mdp-2'), 401, 'un mot de passe refusé n’ouvre rien')
+      assert.equal(await ouvre('motdepasse1'), 200, 'l’ancien ouvre toujours')
+
+      // Le code de secours se consommait en mémoire, et le neuf — que la
+      // réponse d'erreur ne portait pas — n'avait été montré à personne.
+      const secours = await ecrire(banc.url, '/api/joueur/secours', { login: 'max', code: recovery, password: 'nouveau-mdp-3' })
+      assert.equal(secours.status, 500)
+    })
+    const secours = await ecrire(banc.url, '/api/joueur/secours', { login: 'max', code: recovery, password: 'nouveau-mdp-3' })
+    assert.equal(secours.status, 200, 'le code de secours que la base a refusé sert encore')
+
+    // Une déconnexion refusée se retente, et le second essai l'efface en base.
+    const tel = cookieDe(await ecrire(banc.url, '/api/joueur/connexion', { login: 'max', password: 'nouveau-mdp-3' }), 'qz_joueur')
+    await enPanne(banc, ['DELETE ON profile_sessions'], async () => {
+      assert.equal((await ecrire(banc.url, '/api/joueur/deconnexion', {}, tel)).status, 500)
+    })
+    assert.equal((await ecrire(banc.url, '/api/joueur/deconnexion', {}, tel)).status, 200)
+    assert.deepEqual(lire(banc, 'SELECT id FROM profile_sessions WHERE id = ?', empreinte(tel)), [], 'la session est effacée en base')
   }))

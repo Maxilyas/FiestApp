@@ -39,6 +39,11 @@ import { isValidLogin, normalizeLogin } from '../../../shared/space'
  * résolution par inscription à une soirée), et un profil s'y range la
  * première fois qu'on le lit. Une soirée en touche au plus quelques
  * dizaines, pas la base entière.
+ *
+ * Comme pour les comptes, la base s'écrit d'abord et la mémoire suit : un
+ * mot de passe que Turso refusait ouvrait quand même le profil jusqu'au
+ * redémarrage, et un code de secours s'y consommait sans que le neuf ait
+ * été montré à personne.
  */
 export interface ProfileRec {
   id: string
@@ -356,11 +361,12 @@ export class ProfileStore {
 
   async setPassword(id: string, password: string): Promise<void> {
     const rec = await this.require(id)
-    rec.passwordHash = await hashPassword(password)
+    const passwordHash = await hashPassword(password)
     await this.client.execute({
       sql: 'UPDATE profiles SET password_hash = ? WHERE id = ?',
-      args: [rec.passwordHash, id],
+      args: [passwordHash, id],
     })
+    rec.passwordHash = passwordHash
   }
 
   /** Réinitialise par le code de secours. Le code est consommé : on en rend un neuf. */
@@ -369,12 +375,14 @@ export class ProfileStore {
     const ok = await verifyPassword(normalizeRecovery(code), found?.recoveryHash ?? fallbackHash)
     if (!found || !ok) return null
     const recovery = newRecoveryCode()
-    found.passwordHash = await hashPassword(password)
-    found.recoveryHash = await hashPassword(normalizeRecovery(recovery))
+    const passwordHash = await hashPassword(password)
+    const recoveryHash = await hashPassword(normalizeRecovery(recovery))
     await this.client.execute({
       sql: 'UPDATE profiles SET password_hash = ?, recovery_hash = ? WHERE id = ?',
-      args: [found.passwordHash, found.recoveryHash, found.id],
+      args: [passwordHash, recoveryHash, found.id],
     })
+    found.passwordHash = passwordHash
+    found.recoveryHash = recoveryHash
     // Un mot de passe changé ferme les sessions ouvertes ailleurs.
     await this.revokeAll(found.id)
     return recovery
@@ -383,25 +391,33 @@ export class ProfileStore {
   /** Change ce qu'un joueur choisit lui-même : son prénom, son emoji, sa finition. */
   async update(id: string, patch: { name?: unknown; avatar?: unknown; finition?: unknown }): Promise<ProfileRec> {
     const rec = await this.require(id)
+    // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
+    // coup, et un prénom changé sur le téléphone pendant que la tablette
+    // change l'emoji ne doit pas revenir en arrière.
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
-      rec.name = name
+      champs.name = name
     }
-    if (patch.avatar !== undefined) rec.avatar = cleanAvatar(patch.avatar)
-    if (patch.finition !== undefined) rec.finition = finitionValide(patch.finition, niveauPour(rec.xp))
+    if (patch.avatar !== undefined) champs.avatar = cleanAvatar(patch.avatar)
+    if (patch.finition !== undefined) champs.finition = finitionValide(patch.finition, niveauPour(rec.xp))
+    const colonnes = Object.keys(champs) as (keyof typeof champs)[]
+    if (colonnes.length === 0) return rec
     await this.client.execute({
-      sql: 'UPDATE profiles SET name = ?, avatar = ?, finition = ? WHERE id = ?',
-      args: [rec.name, rec.avatar, rec.finition, id],
+      sql: `UPDATE profiles SET ${colonnes.map(c => `${c} = ?`).join(', ')} WHERE id = ?`,
+      args: [...colonnes.map(c => champs[c]!), id],
     })
+    Object.assign(rec, champs)
     return rec
   }
 
   async touchSeen(id: string): Promise<void> {
     const rec = this.profiles.get(id)
     if (!rec) return
-    rec.lastSeenAt = Date.now()
-    await this.client.execute({ sql: 'UPDATE profiles SET last_seen_at = ? WHERE id = ?', args: [rec.lastSeenAt, id] })
+    const now = Date.now()
+    await this.client.execute({ sql: 'UPDATE profiles SET last_seen_at = ? WHERE id = ?', args: [now, id] })
+    rec.lastSeenAt = now
   }
 
   // ── Sessions ────────────────────────────────────────────────────────────
@@ -428,6 +444,10 @@ export class ProfileStore {
    * L'identifiant du profil derrière un jeton, sans toucher à la base :
    * synchrone, pour que la poignée de main d'un socket n'attende pas. Le
    * profil lui-même se charge ensuite, avec `byId`.
+   *
+   * La mémoire y passe devant la base, exprès et sans risque : une session
+   * expirée restée en base s'efface au démarrage suivant, et une expiration
+   * qui n'aurait pas glissé en base ne fait que redemander le mot de passe.
    */
   sessionProfileId(token: string): string | null {
     const session = this.sessions.get(fingerprint(token))
@@ -459,13 +479,20 @@ export class ProfileStore {
 
   async revokeSession(token: string): Promise<void> {
     const id = fingerprint(token)
-    if (!this.sessions.delete(id)) return
+    // Oubliée en mémoire avant d'être effacée en base, une session que Turso
+    // refusait d'effacer ne se retentait plus : elle revenait au réveil.
+    if (!this.sessions.has(id)) return
     await this.client.execute({ sql: 'DELETE FROM profile_sessions WHERE id = ?', args: [id] })
+    this.sessions.delete(id)
   }
 
   async revokeAll(profileId: string): Promise<void> {
-    for (const [id, s] of this.sessions) if (s.profileId === profileId) this.sessions.delete(id)
+    // Celles qu'on connaît avant d'écrire, et celles-là seulement : une
+    // session ouverte pendant l'aller-retour, oubliée ici mais restée en
+    // base, ressusciterait au réveil.
+    const ids = [...this.sessions.values()].filter(s => s.profileId === profileId).map(s => s.id)
     await this.client.execute({ sql: 'DELETE FROM profile_sessions WHERE profile_id = ?', args: [profileId] })
+    for (const id of ids) this.sessions.delete(id)
   }
 
   // ── Expérience et éclats ────────────────────────────────────────────────
