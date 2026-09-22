@@ -1,4 +1,4 @@
-import { clientDistant, type Client } from '../core/distante'
+import { ajouterColonne, clientDistant, type Client } from '../core/distante'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword } from './password'
 import { tronquer } from '../../../shared/avatars'
@@ -124,12 +124,8 @@ export class AuthStore {
       'write',
     )
     // Le rattachement au profil joueur est arrivé après les comptes : une
-    // base d'avant ne l'a pas. libsql n'a pas d'« ADD COLUMN IF NOT EXISTS ».
-    try {
-      await this.client.execute('ALTER TABLE accounts ADD COLUMN profile_id TEXT')
-    } catch {
-      // Colonne déjà là : le cas normal après le premier démarrage.
-    }
+    // base d'avant ne l'a pas.
+    await ajouterColonne(this.client, 'accounts', 'profile_id', 'TEXT')
     const accounts = await this.client.execute('SELECT * FROM accounts')
     for (const row of accounts.rows) {
       const account = toAccount(row)

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { clientDistant, type Client } from './distante'
+import { ajouterColonne, clientDistant, type Client } from './distante'
 import { tronquer } from '../../../shared/avatars'
 import {
   MAX_ANSWERS,
@@ -90,19 +90,10 @@ export class QuizStore {
     )
     // Les photos étaient stockées en base64 dans `data`, un tiers plus lourd
     // que les octets eux-mêmes. Elles vont désormais dans `bytes` ; les
-    // anciennes restent lisibles. Puis les espaces sont arrivés. libsql n'a
-    // pas d'« ADD COLUMN IF NOT EXISTS », alors on tente et on ignore le refus.
-    for (const alter of [
-      'ALTER TABLE quiz_images ADD COLUMN bytes BLOB',
-      'ALTER TABLE quizzes ADD COLUMN space_id TEXT',
-      'ALTER TABLE quiz_images ADD COLUMN space_id TEXT',
-    ]) {
-      try {
-        await this.client.execute(alter)
-      } catch {
-        // Colonne déjà là : c'est le cas normal après le premier démarrage.
-      }
-    }
+    // anciennes restent lisibles. Puis les espaces sont arrivés.
+    await ajouterColonne(this.client, 'quiz_images', 'bytes', 'BLOB')
+    await ajouterColonne(this.client, 'quizzes', 'space_id', 'TEXT')
+    await ajouterColonne(this.client, 'quiz_images', 'space_id', 'TEXT')
     await this.client.batch(
       [
         'CREATE INDEX IF NOT EXISTS idx_quizzes_space ON quizzes(space_id)',

@@ -1,5 +1,5 @@
 import type { InStatement, ResultSet } from '@libsql/client'
-import { clientDistant, DELAI_DISTANT_MS, type Client } from './distante'
+import { ajouterColonne, clientDistant, DELAI_DISTANT_MS, type Client } from './distante'
 import { lireSoireeLocale, type DB } from './db'
 import type { PlayerRec } from './party'
 import type { TeamRec } from './teams'
@@ -415,11 +415,10 @@ export class PartyBackup {
       'write',
     )
     // Les équipes, puis les espaces, sont arrivés après les premiers essais :
-    // une base distante créée avant eux n'a pas ces colonnes. libsql n'a pas
-    // d'« ADD COLUMN IF NOT EXISTS », alors on tente et on ignore le refus.
-    await this.addColumn('party_players', 'team_id TEXT')
-    await this.addColumn('party_players', 'profile_id TEXT')
-    for (const table of MIRROR_TABLES) await this.addColumn(table, 'space_id TEXT')
+    // une base distante créée avant eux n'a pas ces colonnes.
+    await ajouterColonne(this.client, 'party_players', 'team_id', 'TEXT')
+    await ajouterColonne(this.client, 'party_players', 'profile_id', 'TEXT')
+    for (const table of MIRROR_TABLES) await ajouterColonne(this.client, table, 'space_id', 'TEXT')
     await this.client.batch(
       [
         ...MIRROR_TABLES.map(table => `CREATE INDEX IF NOT EXISTS idx_${table}_space ON ${table}(space_id)`),
@@ -427,14 +426,6 @@ export class PartyBackup {
       ],
       'write',
     )
-  }
-
-  private async addColumn(table: string, definition: string) {
-    try {
-      await this.client.execute(`ALTER TABLE ${table} ADD COLUMN ${definition}`)
-    } catch {
-      // Colonne déjà là : c'est le cas normal après le premier démarrage.
-    }
   }
 
   /** Le miroir d'un espace : les mêmes écritures, chacune signée de l'espace, dans sa file. */

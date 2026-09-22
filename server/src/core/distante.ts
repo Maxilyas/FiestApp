@@ -43,6 +43,45 @@ export function clientDistant(
   return createClient({ url, authToken, intMode: reglages.intMode, fetch: avecDelai(delaiMs) })
 }
 
+/** Les colonnes d'une table de la base permanente, telles que son schéma les dit. */
+async function colonnesDe(client: Client, table: string): Promise<string[]> {
+  return (await client.execute(`PRAGMA table_info(${table})`)).rows.map(c => String(c.name))
+}
+
+/**
+ * Ajoute une colonne à une table de la base permanente — si elle lui manque.
+ * Rend vrai si elle a été ajoutée.
+ *
+ * libsql n'a pas d'« ADD COLUMN IF NOT EXISTS ». Chaque magasin tentait
+ * l'ALTER et prenait tout refus pour « la colonne existe déjà » : une base
+ * qui décrochait au premier démarrage d'une nouvelle version laissait la
+ * colonne absente, sans un mot, et la panne ne se voyait qu'à la première
+ * écriture qui la nommait — ou jamais, pour une colonne qu'on ne fait que
+ * lire. C'est le motif qu'on a déjà retiré d'`ArchiveStore.init`, où il
+ * envoyait toutes les archives chez l'espace par défaut.
+ *
+ * La présence se LIT dans le schéma, et toute autre erreur remonte : le
+ * démarrage échoue, bruyamment, et l'hébergeur le relance sur une base qui
+ * répond. Une seule exception, relue elle aussi dans le schéma : la colonne
+ * que quelqu'un d'autre vient d'ajouter — un second démarrage sur la même
+ * base, ou un ALTER abouti dont la réponse s'est perdue en route.
+ */
+export async function ajouterColonne(client: Client, table: string, colonne: string, type: string): Promise<boolean> {
+  const avant = await colonnesDe(client, table)
+  if (avant.includes(colonne)) return false
+  // Une table qu'on vient de créer et dont le schéma revient vide : la base
+  // dit n'importe quoi, et migrer sur cette foi serait tout miser sur elle.
+  if (avant.length === 0) throw new Error(`Base permanente illisible : la table ${table} n’a renvoyé aucune colonne`)
+  try {
+    await client.execute(`ALTER TABLE ${table} ADD COLUMN ${colonne} ${type}`)
+  } catch (e) {
+    const apres = await colonnesDe(client, table).catch((): string[] => [])
+    if (!apres.includes(colonne)) throw e
+    return false
+  }
+  return true
+}
+
 function avecDelai(delaiMs: number) {
   return async (requete: Request): Promise<Response> => {
     try {
