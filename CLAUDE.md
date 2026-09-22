@@ -140,8 +140,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
     déconnexion la referme — mais seulement celle que CE profil avait
     ouverte : chaque session d'animateur retient le profil qui l'a ouverte
     (`auth_sessions.profile_id`), et toutes celles-là tombent quand son mot
-    de passe change ou que son code de secours sert. Celles du mot de passe
-    du compte ne bougent pas : c'est l'écran commun de la fête. Pour poser
+    de passe change, que son code de secours sert ou qu'il perd l'espace —
+    détaché, ou remplacé par un autre profil —, sauf la console d'où l'on
+    fait ce geste. Celles du mot de passe du compte ne bougent pas : c'est
+    l'écran commun de la fête. Pour poser
     le lien, il faut prouver les deux identités ; après, une seule porte
     suffit. Ne fusionne pas les deux tables : l'identifiant d'un compte est
     la clé de partition de dix tables et de toutes les archives.

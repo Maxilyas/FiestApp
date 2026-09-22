@@ -196,7 +196,8 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
       if (autre && autre.id !== me.id) {
         return res.status(400).json({ error: 'Ce profil anime déjà une autre soirée' })
       }
-      await auth.linkProfile(me.id, found.id)
+      // Rattacher un autre profil ferme les consoles de l'ancien — sauf celle-ci.
+      await auth.linkProfile(me.id, found.id, sessionOf(res))
       res.json({ profil: deps.profiles.toPublic(found) })
     }),
   )
@@ -206,7 +207,7 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     account,
     wrap(async (_req, res) => {
       noStore(res)
-      await auth.linkProfile(accountOf(res).id, null)
+      await auth.linkProfile(accountOf(res).id, null, sessionOf(res))
       res.json({ profil: null })
     }),
   )

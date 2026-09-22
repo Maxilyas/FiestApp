@@ -67,7 +67,8 @@ export interface SessionRec {
    * Le profil qui a ouvert cette console, quand c'est sa porte qui a servi
    * (`ouvrirConsole`) ; null pour le mot de passe du compte. C'est ce qui
    * permet de refermer ses consoles à lui, et à lui seul : quand il se
-   * déconnecte, et partout quand son mot de passe change.
+   * déconnecte, et partout quand son mot de passe change ou qu'il perd
+   * l'espace.
    */
   profileId: string | null
 }
@@ -203,8 +204,16 @@ export class AuthStore {
    * Un profil ne tient qu'un espace, et un espace n'a qu'un profil : c'est
    * la même personne des deux côtés, et deux animateurs qui partageraient un
    * profil partageraient aussi leur porte d'entrée.
+   *
+   * Le profil qui perd l'espace — détaché, ou remplacé par un autre — en
+   * perd aussi les consoles qu'il avait ouvertes. Les laisser, c'était
+   * laisser trente jours dedans qui avait appris son mot de passe, alors que
+   * détacher est justement le geste de qui en doute, ou de qui passe la main.
+   * Sauf `garder`, la console d'où l'on fait le geste : mettre quelqu'un à la
+   * porte de la page où il vient de cliquer l'enfermerait dehors s'il a
+   * oublié le mot de passe du compte.
    */
-  async linkProfile(accountId: string, profileId: string | null): Promise<AccountRec> {
+  async linkProfile(accountId: string, profileId: string | null, garder?: string): Promise<AccountRec> {
     const rec = this.accounts.get(accountId)
     if (!rec) throw new Error('Compte introuvable')
     const pris = 'Ce profil anime déjà un autre espace'
@@ -212,16 +221,39 @@ export class AuthStore {
       const autre = this.byProfile(profileId)
       if (autre && autre.id !== accountId) throw new Error(pris)
     }
+    const ancien = rec.profileId && rec.profileId !== profileId ? rec.profileId : null
+    const fermees = ancien
+      ? [...this.sessions.values()].filter(s => s.accountId === accountId && s.profileId === ancien && s.id !== garder)
+      : []
     // La base tranche aussi : la mémoire ne suit qu'après l'écriture, et deux
     // rattachements du même profil à deux espaces passeraient ensemble la
-    // vérification du dessus.
-    const res = await this.client.execute({
-      sql: `UPDATE accounts SET profile_id = ? WHERE id = ?
-            AND (? IS NULL OR NOT EXISTS (SELECT 1 FROM accounts WHERE profile_id = ? AND id <> ?))`,
-      args: [profileId, accountId, profileId, profileId, accountId],
-    })
-    if (res.rowsAffected === 0) throw new Error(profileId ? pris : 'Compte introuvable')
+    // vérification du dessus. Les consoles tombent dans la même transaction,
+    // et seulement si le lien a bien changé : un détachement écrit à moitié
+    // laisserait l'intrus dedans, sans rien à refaire pour l'en sortir — un
+    // second essai ne trouverait plus de profil à détacher.
+    const [lien] = await this.client.batch(
+      [
+        {
+          sql: `UPDATE accounts SET profile_id = ? WHERE id = ?
+                AND (? IS NULL OR NOT EXISTS (SELECT 1 FROM accounts WHERE profile_id = ? AND id <> ?))`,
+          args: [profileId, accountId, profileId, profileId, accountId],
+        },
+        ...(ancien
+          ? [
+              {
+                sql: `DELETE FROM auth_sessions WHERE account_id = ? AND profile_id = ? AND id IS NOT ?
+                      AND EXISTS (SELECT 1 FROM accounts WHERE id = ? AND profile_id IS NOT ?)`,
+                args: [accountId, ancien, garder ?? null, accountId, ancien],
+              },
+            ]
+          : []),
+      ],
+      'write',
+    )
+    if (lien.rowsAffected === 0) throw new Error(profileId ? pris : 'Compte introuvable')
     rec.profileId = profileId
+    for (const s of fermees) this.sessions.delete(s.id)
+    for (const s of fermees) for (const cb of this.revokeListeners) cb(s.id)
     return rec
   }
 

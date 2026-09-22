@@ -980,3 +980,61 @@ test('exclu, ou effacé par « Nouvelle soirée », un téléphone n’incarne p
     await remis
     assert.equal(await incarne(efface), false, 'l’invité de la soirée effacée non plus')
   }))
+
+// ── 11. Détacher un profil referme les consoles qu'il avait ouvertes ──────
+//
+// Le constat 2 refermait les consoles d'un profil quand son secret change ;
+// le détacher de l'espace les laissait ouvertes trente jours. C'est pourtant
+// le geste qu'on fait en premier quand on doute de qui connaît ce mot de
+// passe — ou quand on passe la main à quelqu'un d'autre.
+
+test('détacher un profil, ou en rattacher un autre, referme les consoles qu’il avait ouvertes', () =>
+  avecBanc(async banc => {
+    // La télé de la fête, ouverte avec le mot de passe du compte.
+    const tele = await connexionAnimateur(banc.url)
+    const tv = await ecranCommun(banc.url, tele)
+    await inscrireProfil(banc.url, 'anim', 'Antoine')
+    await inscrireProfil(banc.url, 'relais', 'Romane', '🐙')
+    const lier = async (login: string) =>
+      assert.equal((await ecrire(banc.url, '/api/space/profil', { login, password: 'motdepasse1' }, tele)).status, 200)
+    await lier('anim')
+
+    /** Un appareil qui se connecte au profil : la console s'ouvre avec lui, s'il anime l'espace. */
+    const appareil = async (login: string) => {
+      const res = await ecrire(banc.url, '/api/joueur/connexion', { login, password: 'motdepasse1' })
+      assert.equal(res.status, 200, `connexion au profil ${login}`)
+      return res
+    }
+    const ouverte = async (cookie: string) =>
+      (await fetch(`${banc.url}/api/auth/me`, { headers: { Cookie: cookie } })).status === 200
+
+    // Quelqu'un a appris le mot de passe du profil : sa console et son écran commun.
+    const intrus = cookieDe(await appareil('anim'))
+    const ecranIntrus = await ecranCommun(banc.url, intrus)
+    const coupe = new Promise(r => ecranIntrus.once('disconnect', r))
+    // Le propriétaire, dans la console que son profil lui a ouverte.
+    const tel = cookieDe(await appareil('anim'))
+
+    // Il détache son profil : l'intrus est dehors.
+    assert.equal((await ecrire(banc.url, '/api/space/profil', {}, tel, 'DELETE')).status, 200)
+    assert.equal(await ouverte(intrus), false, 'la console de l’intrus se ferme')
+    await coupe
+    // Celui qui vient de détacher garde la sienne : le mettre à la porte de
+    // la page où il vient de cliquer, c'était l'enfermer dehors s'il a oublié
+    // le mot de passe du compte.
+    assert.equal(await ouverte(tel), true, 'la console d’où l’on détache reste ouverte')
+    assert.equal(await ouverte(tele), true, 'celle du mot de passe du compte aussi')
+    assert.equal(tv.connected, true, 'et l’écran commun de la fête avec')
+    // Et le profil détaché n'ouvre plus rien.
+    const apres = await appareil('anim')
+    assert.equal(((await apres.json()) as { espace: unknown }).espace, null)
+    assert.equal(apres.headers.get('set-cookie')?.includes('qz_session='), false, 'plus de console par ce profil')
+
+    // Passer la main : rattacher un autre profil vaut détachement du premier.
+    await lier('anim')
+    const ancienne = cookieDe(await appareil('anim'))
+    await lier('relais')
+    assert.equal(await ouverte(ancienne), false, 'la console de l’ancien profil se ferme')
+    assert.equal(await ouverte(cookieDe(await appareil('relais'))), true, 'le nouveau profil ouvre la sienne')
+    assert.equal(await ouverte(tele), true, 'et la télé tient toujours')
+  }))
