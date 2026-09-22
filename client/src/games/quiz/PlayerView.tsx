@@ -23,6 +23,9 @@ interface QuizPlayerProps extends Props {
   myTeamId: string | null
 }
 
+/** Chaque réponse dit à quelle question elle répond : le serveur refuse celles qui arrivent après. */
+const visee = (v: QuizPlayerView) => ({ qIndex: v.qIndex, round: v.round })
+
 /**
  * Saisie d'une estimation. Tant que tout le monde n'a pas répondu, on peut
  * corriger : sur un clavier de téléphone, un chiffre en trop est vite arrivé.
@@ -37,7 +40,7 @@ function GuessForm({ view, send }: Props) {
     e.preventDefault()
     const value = Number(text.replace(',', '.'))
     if (!Number.isFinite(value) || text.trim() === '') return
-    send({ type: 'guess', value })
+    send({ type: 'guess', value, ...visee(view) })
   }
 
   return (
@@ -189,7 +192,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
                   aria-pressed={v.yourChoice === i}
                   onClick={() => {
                     navigator.vibrate?.(35)
-                    send({ type: 'answer', choice: i })
+                    send({ type: 'answer', choice: i, ...visee(v) })
                   }}
                   className={'ans-btn' + (v.yourChoice === i ? ' chosen' : '')}
                 >

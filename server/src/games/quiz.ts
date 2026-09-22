@@ -10,6 +10,7 @@ import type {
   QuizPackInfo,
   QuizPlayerView,
   QuizPodiumRow,
+  Visee,
 } from '../../../shared/games/quiz'
 
 interface QuizPack {
@@ -35,6 +36,14 @@ interface QuizState {
   /** Le quiz joué est copié dans l'état : l'éditer pendant la partie ne change rien. */
   pack: QuizPack | null
   qIndex: number
+  /**
+   * Le tour : il avance chaque fois qu'une question est posée, « Reposer »
+   * compris. Les vues le portent et les gestes le renvoient — c'est ainsi
+   * qu'un clic ou une réponse dit quelle question il visait (voir `perimee`).
+   * Absent d'une partie lancée avant qu'il existe : il naît à la question
+   * suivante, et d'ici là les gestes se jugent comme avant.
+   */
+  round?: number
   questionStartAt: number
   deadline: number
   responses: Record<string, Response>
@@ -137,6 +146,9 @@ function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: Game
   const st = sess.state
   const q = st.pack!.questions[index]
   st.qIndex = index
+  // Un nouveau tour : un geste qui visait le précédent — la même question
+  // avant qu'on la repose comprise — ne s'applique plus à celui-ci.
+  st.round = (st.round ?? 0) + 1
   st.responses = {}
   st.lastAwards = {}
   st.pausedMs = null
@@ -259,6 +271,22 @@ function cancelQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   st.lastAwards = {}
 }
 
+/**
+ * Vrai si le geste visait un autre moment que celui-ci : une autre phase,
+ * une autre question, ou la même avant qu'on la repose.
+ *
+ * Un champ absent ne dit rien : c'est un écran resté sur une page d'avant, et
+ * son geste se lit comme avant — à la lumière du moment présent.
+ */
+function perimee(st: QuizState, visee: Visee | null | undefined): boolean {
+  if (!visee || typeof visee !== 'object') return false
+  return (
+    (visee.phase != null && visee.phase !== st.phase) ||
+    (visee.qIndex != null && visee.qIndex !== st.qIndex) ||
+    (visee.round != null && visee.round !== st.round)
+  )
+}
+
 /** Question suivante, ou podium si c'était la dernière. */
 function goNext(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   const st = sess.state
@@ -373,6 +401,7 @@ export const quizModule: GameModule<QuizState> = {
       packs: library.map(p => ({ id: p.id, title: p.title, questionCount: p.questions.length })),
       pack: null,
       qIndex: 0,
+      round: 0,
       questionStartAt: 0,
       deadline: 0,
       responses: {},
@@ -391,7 +420,16 @@ export const quizModule: GameModule<QuizState> = {
     // L'ordre compte : une réponse arrivée après la révélation d'une question
     // qu'on avait mise en pause est en retard, pas gelée.
     if (st.phase !== 'question' || !st.pack) return 'too-late'
+    // En retard aussi, la réponse qui visait une autre question : tapée sur la
+    // précédente et retenue par une coupure, ou sur celle-ci avant qu'on la
+    // repose. Acceptée, elle s'inscrivait sur une question que l'invité
+    // n'avait jamais vue, son temps compté depuis le début de celle-là.
+    if (perimee(st, { qIndex: action?.qIndex, round: action?.round })) return 'too-late'
     if (st.pausedMs !== null) return 'paused'
+    // Arrivé pendant une révélation, on joue à partir de la question suivante :
+    // celle-ci n'est pas la sienne, et le journal ne l'y attend pas. Des points
+    // marqués hors du journal, c'est un classement que le bilan n'explique plus.
+    if ((st.playFrom[playerId] ?? 0) > st.qIndex) return 'not-participant'
     const q = st.pack.questions[st.qIndex]
 
     // Changer d'avis est permis jusqu'à la révélation, pour les deux types de
@@ -420,6 +458,10 @@ export const quizModule: GameModule<QuizState> = {
       const value = Number(action.value)
       if (!Number.isFinite(value)) return 'invalid'
       const before = st.responses[playerId]
+      // Comme pour un QCM : la même valeur renvoyée — double appui, ou renvoi
+      // d'une réponse dont l'accusé s'est perdu — est confirmée sans rien
+      // réécrire. Ce n'est pas une hésitation, et ça ne doit pas coûter de temps.
+      if (before?.value === value) return
       st.responses[playerId] = {
         choice: null,
         value,
@@ -472,7 +514,9 @@ export const quizModule: GameModule<QuizState> = {
         break
       }
       case 'cancel': {
-        if (st.phase !== 'reveal') return
+        // Confirmée après que la partie a avancé — la boîte de dialogue était
+        // restée ouverte —, elle retirerait les points de la question suivante.
+        if (st.phase !== 'reveal' || perimee(st, command)) return
         // L'animateur reprend la main : un enchaînement programmé ne doit pas
         // emporter la question qu'il est en train de corriger.
         ctx.clearTimer('autoNext')
@@ -481,14 +525,27 @@ export const quizModule: GameModule<QuizState> = {
         break
       }
       case 'replay': {
-        if (st.phase !== 'reveal' || !st.pack) return
+        if (st.phase !== 'reveal' || !st.pack || perimee(st, command)) return
         ctx.clearTimer('autoNext')
         st.autoNextAt = null
         cancelQuestion(sess, ctx)
+        // Arrivés pendant la révélation, ils attendaient la question suivante ;
+        // celle-ci, reposée, se joue devant eux : elle est aussi la leur. Sans
+        // ça, ils y répondaient et marquaient, mais le journal les ignorait —
+        // et leur téléphone leur souhaitait encore la bienvenue.
+        for (const id of sess.participantIds) {
+          if ((st.playFrom[id] ?? 0) > st.qIndex) st.playFrom[id] = st.qIndex
+        }
         startQuestion(sess, st.qIndex, ctx)
         break
       }
       case 'next':
+        // « Suivant » se lisait selon la phase courante : un « Révéler » parti
+        // juste avant la révélation automatique arrivait après elle et passait
+        // à la question suivante — la salle n'avait vu la bonne réponse que
+        // quatre-vingt-seize millisecondes. Un clic qui ne vise plus le moment
+        // présent est un doublon : ignoré sans un mot.
+        if (perimee(st, command)) return
         if (st.phase === 'observe') {
           // « C'est bon, tout le monde a vu » : on passe à la question.
           beginAnswering(sess, ctx)
@@ -536,6 +593,7 @@ export const quizModule: GameModule<QuizState> = {
     const base = {
       phase: st.phase,
       qIndex: st.qIndex,
+      round: st.round,
       qCount: st.pack?.questions.length ?? 0,
       yourChoice: mine?.choice ?? null,
       yourGuess: mine?.value ?? null,
@@ -597,6 +655,7 @@ export const quizModule: GameModule<QuizState> = {
     const base = {
       phase: st.phase,
       qIndex: st.qIndex,
+      round: st.round,
       qCount: st.pack?.questions.length ?? 0,
       packTitle: st.pack?.title,
       multiplier: st.multiplier,

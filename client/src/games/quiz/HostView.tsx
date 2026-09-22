@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { QuizCommand, QuizHostView } from '../../../../shared/games/quiz'
+import type { QuizCommand, QuizHostView, Visee } from '../../../../shared/games/quiz'
 import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
 import { FinalPodium, Standings } from '../../components/Podium'
@@ -46,6 +46,15 @@ interface Props {
 export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
   /** Choisi avant de lancer : un quiz qui compte double relance toute la salle. */
   const [multiplier, setMultiplier] = useState(1)
+
+  /**
+   * Ce que l'animateur a sous les yeux au moment du clic. La commande
+   * l'emporte, et le serveur l'ignore si la partie a bougé entre-temps : un
+   * « Révéler » qui arrive après la révélation automatique ne doit pas passer
+   * à la question suivante. Figée au rendu — donc au clic, même quand une
+   * boîte de dialogue fait attendre la commande.
+   */
+  const visee: Visee = { phase: v.phase, qIndex: v.qIndex, round: v.round }
 
   // Les sons ponctuent les changements de phase — sur l'écran commun seulement.
   useEffect(() => {
@@ -139,7 +148,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
         <TimerBar deadline={v.deadline!} duration={v.duration ?? 5} ticking />
         {v.image && <img className="quiz-img observe-img" src={v.image} alt="" />}
         <ConsoleActions>
-          <button className="btn btn-accent" onClick={() => sendCommand({ type: 'next' })}>
+          <button className="btn btn-accent" onClick={() => sendCommand({ type: 'next', ...visee })}>
             <Icon name="skip" />
             Passer à la question
           </button>
@@ -246,7 +255,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
         <ConsoleActions>
           {revealing ? (
             <>
-              <button className="btn btn-primary" onClick={() => sendCommand({ type: 'next' })}>
+              <button className="btn btn-primary" onClick={() => sendCommand({ type: 'next', ...visee })}>
                 {last ? (
                   <>
                     <Icon name="trophy" />
@@ -256,7 +265,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                   'Question suivante'
                 )}
               </button>
-              <button className="btn btn-ghost" onClick={() => sendCommand({ type: 'replay' })}>
+              <button className="btn btn-ghost" onClick={() => sendCommand({ type: 'replay', ...visee })}>
                 <Icon name="rotate" />
                 Reposer
               </button>
@@ -269,7 +278,10 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                     confirmLabel: 'Retirer les points',
                     danger: true,
                   })
-                  if (ok) sendCommand({ type: 'cancel' })
+                  // `visee` est celle du clic, pas celle de la confirmation :
+                  // si la partie a avancé pendant que la boîte était
+                  // ouverte, le serveur ne touche pas à la question suivante.
+                  if (ok) sendCommand({ type: 'cancel', ...visee })
                 }}
               >
                 <Icon name="x-circle" />
@@ -278,7 +290,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
             </>
           ) : (
             <>
-              <button className="btn btn-accent" onClick={() => sendCommand({ type: 'next' })}>
+              <button className="btn btn-accent" onClick={() => sendCommand({ type: 'next', ...visee })}>
                 <Icon name="eye" />
                 Révéler
               </button>

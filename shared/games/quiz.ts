@@ -32,6 +32,13 @@ export interface QuizGuessRow extends Distinctions {
 export interface QuizPlayerView {
   phase: QuizPhase
   qIndex: number
+  /**
+   * Le tour : il avance chaque fois qu'une question est posée, « Reposer »
+   * compris. Même numéro, autre tour — c'est ce qui distingue une question
+   * reposée de sa première fois. Les réponses le renvoient (voir `Visee`).
+   * Absent d'une partie lancée avant qu'il existe.
+   */
+  round?: number
   qCount: number
   kind?: QuestionKind
   yourChoice: number | null
@@ -68,6 +75,8 @@ export interface QuizPlayerView {
 export interface QuizHostView {
   phase: QuizPhase
   qIndex: number
+  /** Le tour de la question — voir `QuizPlayerView.round`. Les commandes le renvoient. */
+  round?: number
   qCount: number
   packTitle?: string
   /** Points multipliés pour ce quiz (1, 2 ou 3). */
@@ -102,20 +111,50 @@ export interface QuizHostView {
   standings?: QuizPodiumRow[]
 }
 
+/**
+ * La question à laquelle s'adresse une réponse : son numéro, et son tour.
+ *
+ * Sans elle, une réponse tapée sur la question 1 et retenue par une coupure
+ * s'inscrivait sur la question 2, que l'invité n'avait jamais vue — chrono
+ * compté depuis le début de la 2, et parfois « le plus rapide ». Le serveur la
+ * refuse maintenant comme « trop tard ».
+ *
+ * Facultative : un téléphone resté sur une page d'avant ne l'envoie pas, et
+ * garde l'ancien comportement.
+ */
+export interface QuestionVisee {
+  qIndex?: number
+  round?: number
+}
+
+/**
+ * Le moment qu'une commande de l'animateur visait : la question, et la phase
+ * qu'il avait sous les yeux.
+ *
+ * « Suivant » se lisait selon la phase COURANTE : un « Révéler » arrivé juste
+ * après la révélation automatique devenait « Question suivante », et la salle
+ * ne voyait ni la bonne réponse ni le classement. Une commande qui ne vise
+ * plus le moment présent — double clic, deux écrans, enchaînement automatique
+ * qui croise le clic — est ignorée sans un mot : c'est un doublon, pas un ordre.
+ */
+export interface Visee extends QuestionVisee {
+  phase?: QuizPhase
+}
+
 export type QuizAction =
-  | { type: 'answer'; choice: number }
-  | { type: 'guess'; value: number }
+  | ({ type: 'answer'; choice: number } & QuestionVisee)
+  | ({ type: 'guess'; value: number } & QuestionVisee)
 
 export type QuizCommand =
   /** `multiplier` : 1 par défaut, 2 ou 3 pour un quiz qui compte double ou triple. */
   | { type: 'selectPack'; packId: string; multiplier?: number }
-  | { type: 'next' }
+  | ({ type: 'next' } & Visee)
   /** Fige le chronomètre (discours, gâteau qui arrive…) et le repart. */
   | { type: 'pause' }
   | { type: 'resume' }
   /** Retire les points de la question révélée — quand la réponse était fausse. */
-  | { type: 'cancel' }
+  | ({ type: 'cancel' } & Visee)
   /** Annule et repose la même question. */
-  | { type: 'replay' }
+  | ({ type: 'replay' } & Visee)
   /** Enchaîne les questions tout seul après N secondes ; null = manuel. */
   | { type: 'autoNext'; seconds: number | null }

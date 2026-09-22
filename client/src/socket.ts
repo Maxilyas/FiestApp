@@ -2,7 +2,7 @@ import { io, type Socket } from 'socket.io-client'
 import type { ActionAck, ClientToServerEvents, JoinAck, ServerToClientEvents } from '../../shared/events'
 import type { PublicProfile } from '../../shared/profil'
 import { forgetMe, getState, setState, showToast } from './state'
-import { applySample, resetClock } from './clock'
+import { applySample, resetClock, serverNow } from './clock'
 import { currentSlug } from './routes'
 
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
@@ -107,6 +107,13 @@ export function setMyTeam(teamId: string | null): Promise<{ ok: boolean; error?:
 const ACTION_TIMEOUT_MS = 4000
 
 /**
+ * Le numéro de la dernière réponse envoyée. Seule la dernière a droit à un
+ * renvoi : renvoyer un premier choix après qu'on en a tapé un second
+ * écraserait le bon.
+ */
+let derniereReponse = 0
+
+/**
  * Envoie une réponse et attend l'accusé de réception.
  *
  * L'espace et le jeton voyagent avec : un téléphone qui sort d'une coupure a,
@@ -114,6 +121,12 @@ const ACTION_TIMEOUT_MS = 4000
  * elle suit ni qui elle est — et socket.io lui fait vider sa file d'attente
  * avant que la page ait pu se re-présenter. Sans eux, la réponse tapée pendant
  * la coupure était jetée en silence.
+ *
+ * Un accusé qui ne vient pas ne dit pas que la réponse est perdue, seulement
+ * qu'on n'en sait rien : tant que sa question est ouverte, on la renvoie une
+ * fois. C'est sans risque depuis qu'elle porte la question qu'elle vise — en
+ * retard, le serveur la refuse au lieu de l'inscrire sur la suivante ; déjà
+ * reçue, il la confirme sans rien réécrire.
  */
 export function sendPlayerAction(
   sessionId: string,
@@ -121,21 +134,49 @@ export function sendPlayerAction(
   slug: string,
   token?: string,
 ): Promise<ActionAck> {
-  return new Promise(resolve => {
-    let settled = false
-    const settle = (res: ActionAck) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      resolve(res)
-    }
-    // Sans ce garde-fou, une réponse partie dans le vide laisserait la
-    // promesse en suspens pour toujours — donc le joueur sans nouvelle.
-    const timer = setTimeout(
-      () => settle({ ok: false, reason: 'timeout', error: 'Ta réponse n’est pas partie — vérifie ta connexion' }),
-      ACTION_TIMEOUT_MS,
+  const numero = ++derniereReponse
+  const envoyer = () =>
+    new Promise<ActionAck>(resolve => {
+      let settled = false
+      const settle = (res: ActionAck) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve(res)
+      }
+      // Sans ce garde-fou, une réponse partie dans le vide laisserait la
+      // promesse en suspens pour toujours — donc le joueur sans nouvelle.
+      const timer = setTimeout(
+        () => settle({ ok: false, reason: 'timeout', error: 'Ta réponse n’est pas partie — vérifie ta connexion' }),
+        ACTION_TIMEOUT_MS,
+      )
+      socket.emit('player:action', { sessionId, action, slug, token }, settle)
+    })
+
+  /** La question que vise la réponse est-elle encore ouverte, à l'heure du serveur ? */
+  const encoreOuverte = () => {
+    const vise = action as { qIndex?: unknown; round?: unknown } | null
+    const vue = getState().views[sessionId]?.view as
+      | { phase?: string; qIndex?: number; round?: number; deadline?: number; paused?: boolean }
+      | undefined
+    return (
+      !!vue &&
+      // Sans tour, la réponse ne dit pas assez quelle question elle vise pour
+      // qu'un renvoi tardif soit reconnu : on ne prend pas le risque.
+      typeof vise?.round === 'number' &&
+      vue.phase === 'question' &&
+      !vue.paused &&
+      vue.qIndex === vise.qIndex &&
+      vue.round === vise.round &&
+      typeof vue.deadline === 'number' &&
+      serverNow() < vue.deadline
     )
-    socket.emit('player:action', { sessionId, action, slug, token }, settle)
+  }
+
+  return envoyer().then(res => {
+    if (res.ok || res.reason !== 'timeout') return res
+    if (numero !== derniereReponse || !encoreOuverte()) return res
+    return envoyer()
   })
 }
 
