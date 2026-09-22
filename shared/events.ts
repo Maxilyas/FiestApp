@@ -38,6 +38,14 @@ export type ActionAck =
 
 export interface ClientToServerEvents {
   /**
+   * L'heure du serveur, pour que les écrans cadrent leurs chronomètres dessus.
+   * Les échéances des questions sont des instants absolus du serveur, et une
+   * horloge de téléphone qui dérive faisait afficher du temps qui n'existait
+   * plus — son porteur répondait après la clôture, et sa réponse était perdue.
+   * Aucune identité n'est demandée : l'heure n'appartient à personne.
+   */
+  'time:sync': (payload: Record<string, never>, ack: (res: { serverNow: number }) => void) => void
+  /**
    * Suivre une soirée sans y jouer : la page d'accueil des invités affiche
    * « X déjà connectés » avant même l'inscription. Le nom dans l'adresse
    * désigne l'espace ; une connexion n'en suit jamais qu'un.

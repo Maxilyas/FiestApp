@@ -13,6 +13,7 @@ import { createQuizServer } from '../src/server'
 import { insertQuestions, moveQuestion, parseImportedQuestions } from '../../shared/library'
 import { QuizStore } from '../src/core/quizStore'
 import { finalRanking, rankTeams } from '../../shared/teams'
+import { bestSample, clockOffset } from '../../shared/clock'
 import { reviewFromDatabase, reviewFromServer, writeExport } from '../src/core/export'
 
 function fail(msg: string): never {
@@ -112,6 +113,33 @@ try {
   assert(imported.questions[1].target === 42 && imported.questions[1].unit === 'cours', 'valeur ou unité mal lue')
   assert(imported.unmarked === 1, 'la question sans étoile doit être signalée')
   assert(imported.ignored === 1, 'le bloc inexploitable doit être compté comme ignoré')
+
+  // 0 bis. L'écart d'horloge. Les échéances sont des instants du serveur, et
+  //        chaque écran les comparait à la sienne : un téléphone qui retardait
+  //        de cinq secondes affichait cinq secondes qui n'existaient plus, et
+  //        son porteur répondait après la clôture.
+  //
+  //        Serveur en avance de 5 s, aller-retour de 200 ms : parti à 1000
+  //        (heure locale), le serveur répond à 6100 (son heure, au milieu de
+  //        l'aller-retour), la réponse arrive à 1200. L'écart vaut 5000.
+  assert(
+    clockOffset({ serverTime: 6100, sentAt: 1000, receivedAt: 1200 }) === 5000,
+    'l’écart d’horloge doit compenser la moitié de l’aller-retour',
+  )
+  // Horloges d'accord, réseau lent : l'écart reste nul.
+  assert(
+    clockOffset({ serverTime: 1400, sentAt: 1000, receivedAt: 1800 }) === 0,
+    'un réseau lent ne doit pas créer d’écart là où il n’y en a pas',
+  )
+  // On ne garde que la mesure la plus rapide : elle laisse moins de place à
+  // l'asymétrie du réseau, donc moins d'erreur.
+  const lent = { serverTime: 6500, sentAt: 1000, receivedAt: 2000 }
+  const vif = { serverTime: 6100, sentAt: 1000, receivedAt: 1200 }
+  assert(bestSample(lent, vif) === vif, 'la mesure la plus rapide doit l’emporter')
+  assert(bestSample(vif, lent) === vif, 'une mesure plus lente ne doit pas détrôner la précédente')
+  // Sans mesure précédente, la nouvelle s'impose : c'est ce qui permet à une
+  // reconnexion de repartir propre si le téléphone s'est resynchronisé.
+  assert(bestSample(null, lent) === lent, 'la première mesure d’une connexion fait autorité')
 
   // Réordonner : la question prend exactement le numéro demandé, qu'elle
   // monte ou qu'elle descende ; hors bornes, c'est « en tête » ou « à la fin ».
@@ -248,7 +276,9 @@ try {
 
   // 6. Question suivante, puis révélation forcée par l'animateur (sans timer)
   ;(host as any).emit('host:command', { sessionId: quizId, command: { type: 'next' } })
-  await waitFor<any>(alice, 'session:view', p => p.view.phase === 'question' && p.view.qIndex === 1, 'question 2')
+  const q1 = (
+    await waitFor<any>(alice, 'session:view', p => p.view.phase === 'question' && p.view.qIndex === 1, 'question 2')
+  ).view
 
   // 6 bis. L'accusé de réception d'une réponse, et le téléphone qui répond
   //        avant d'avoir fini de se reconnecter.
@@ -282,6 +312,10 @@ try {
   // Le cas qui perdait les réponses : un socket qui n'a jamais rien dit, armé
   // du seul jeton du téléphone. Sa réponse doit compter comme les autres.
   const ghost = connect()
+  // La vue qui suit sa réponse est ce qu'on vient vérifier : on écoute avant
+  // de l'envoyer. Rattacher l'identité sans rejoindre son salon laisserait le
+  // joueur devant une case sans coche.
+  const ghostView = waitFor<any>(ghost, 'session:view', p => p.sessionId === quizId, 'vue renvoyée au téléphone rebranché')
   const ghostAck = await emitAck<any>(ghost, 'player:action', {
     sessionId: quizId,
     slug: SLUG,
@@ -289,9 +323,6 @@ try {
     action: { type: 'answer', choice: 1 },
   })
   assert(ghostAck.ok, `réponse perdue par un téléphone en cours de reconnexion : ${ghostAck.error}`)
-  // Et il reçoit bien la suite : rattacher l'identité sans rejoindre son salon
-  // laisserait le joueur devant une case sans coche.
-  const ghostView = waitFor<any>(ghost, 'session:view', p => p.sessionId === quizId, 'vue renvoyée au téléphone rebranché')
 
   // Sans jeton ni espace, en revanche, le serveur ne peut que refuser — et le dire.
   const lost = connect()
@@ -302,15 +333,36 @@ try {
   assert(!lostAck.ok && lostAck.reason === 'no-party', 'une réponse sans espace doit être refusée avec son motif')
   lost.disconnect()
 
-  ;(host as any).emit('host:command', { sessionId: quizId, command: { type: 'next' } })
-  const forced = await waitFor<any>(host, 'session:view', p => p.view.phase === 'reveal' && p.view.qIndex === 1, 'révélation forcée')
-  // C'est la dernière réponse envoyée qui fait foi, y compris venue du
-  // téléphone rebranché : Alice a fini sur la case 1.
-  assert(
-    (await ghostView).view.yourChoice === 1 && forced.view.counts[1] === 1,
-    'la réponse du téléphone rebranché doit être celle retenue',
-  )
+  assert((await ghostView).view.yourChoice === 1, 'le téléphone rebranché doit voir sa réponse cochée')
   ghost.disconnect()
+
+  // 6 ter. Le souffle avant la révélation.
+  //
+  //        Bob répond à son tour : la salle a fini. La révélation partait à cet
+  //        instant même et coupait la parole aux réponses encore en vol — deux
+  //        doigts posés ensemble aux deux bouts de la salle, et celui dont le
+  //        paquet arrivait second était jeté. Alice se ravise dans la foulée :
+  //        sa correction doit encore compter, et c'est elle qu'on retient.
+  const nouveauChoix = (1 + 1) % q1.answers.length
+  const aliceReveal2 = waitFor<any>(alice, 'session:view', p => p.view.phase === 'reveal' && p.view.qIndex === 1, 'révélation après le souffle')
+  const hostReveal2 = waitFor<any>(host, 'session:view', p => p.view.phase === 'reveal' && p.view.qIndex === 1, 'révélation vue de l’écran commun')
+  const dernier = await emitAck<any>(bob, 'player:action', {
+    sessionId: quizId,
+    action: { type: 'answer', choice: 0 },
+  })
+  assert(dernier.ok, 'la dernière réponse de la salle doit être retenue')
+  const ravise = await emitAck<any>(alice, 'player:action', {
+    sessionId: quizId,
+    action: { type: 'answer', choice: nouveauChoix },
+  })
+  assert(ravise.ok, `changement d’avis perdu juste après la dernière réponse de la salle : ${ravise.error}`)
+  const apresSouffle = await aliceReveal2
+  assert(
+    apresSouffle.view.yourChoice === nouveauChoix,
+    `le changement d’avis doit être celui retenu (vu : case ${apresSouffle.view.yourChoice})`,
+  )
+  // Et la révélation finit bien par venir d'elle-même : le souffle n'est pas un blocage.
+  assert((await hostReveal2).view.qIndex === 1, 'la révélation doit partir seule une fois la salle calmée')
 
   // Une réponse qui arrive après la révélation est en retard, et on le lui dit :
   // c'est ce silence-là qui faisait croire aux invités qu'ils avaient répondu.
@@ -751,12 +803,13 @@ try {
   assert(rv2.view.correct === 0, `« La salsa » doit rester la bonne réponse (index reçu : ${rv2.view.correct})`)
   assert(rv2.view.yourPoints > 100, 'Bob a répondu juste, il doit marquer des points')
 
+  ;(host as any).emit('host:endSession', { sessionId: quiz2Id })
+
   // 13. Suppression
   const del = await apiCall(`/api/quizzes/${created.id}`, { method: 'DELETE' })
   assert(del.ok, 'suppression du quiz échouée')
   const after = (await (await apiCall('/api/quizzes')).json()) as any[]
   assert(!after.some((q: any) => q.id === created.id), 'le quiz supprimé ne doit plus être listé')
-  ;(host as any).emit('host:endSession', { sessionId: quiz2Id })
 
   // 14. Question « estimation » : le plus proche empoche le maximum, celui qui
   //     répond quand même marque un minimum, personne n'est bloqué
@@ -1695,15 +1748,91 @@ try {
   assert(secondBoot.archives.length === 1, 'la mise à jour est idempotente')
   await server4.close()
 
-  console.log('✅ Smoke test OK — 37 étapes')
+  // 32. La marge réseau de fin de question, et l'heure du serveur.
+  //
+  //     Le chronomètre du serveur coupait 400 ms après l'échéance affichée —
+  //     moins qu'un aller simple depuis un téléphone en 4G dans une salle où
+  //     cinquante autres partagent la cellule. Une réponse tapée juste avant
+  //     la fin mourait en route, sans un mot.
+  //
+  //     Sur son propre serveur : la question dure cinq secondes et la soirée
+  //     ne sert qu'à ça, sans venir troubler les chiffres d'à côté.
+  const chronoDir = mkdtempSync(path.join(tmpdir(), 'quizz-chrono-'))
+  const chrono = await createQuizServer({
+    port: 0,
+    dbPath: path.join(chronoDir, 'local.db'),
+    admin: ADMIN,
+    quizDbUrl: `file:${path.join(chronoDir, 'quizzes.db').replace(/\\/g, '/')}`,
+  })
+  const chronoUrl = `http://localhost:${chrono.port}`
+  const chronoCookie = await loginAs(chronoUrl, ADMIN.login, ADMIN.password)
+  const chronoCall = (p: string, init: RequestInit = {}) =>
+    fetch(`${chronoUrl}${p}`, {
+      ...init,
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz', Cookie: chronoCookie },
+    })
+
+  const court = (await (
+    await chronoCall('/api/quizzes', { method: 'POST', body: JSON.stringify({ title: 'Question courte' }) })
+  ).json()) as any
+  await chronoCall(`/api/quizzes/${court.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      title: 'Question courte',
+      questions: [{ text: 'Juste à temps ?', answers: ['Oui', 'Non', '', ''], correct: 0, duration: 5, image: null }],
+    }),
+  })
+
+  const tardif = clientIo(chronoUrl, { transports: ['websocket'] })
+  await emitAck(tardif, 'party:watch', { slug: SLUG })
+  await emitAck<any>(tardif, 'player:join', { slug: SLUG, name: 'Tardif', avatar: '🐢' })
+
+  // L'heure du serveur : c'est elle que les téléphones prennent pour cadrer
+  // leurs chronomètres, au lieu de leur propre horloge qui dérive.
+  const heure = await emitAck<{ serverNow: number }>(tardif, 'time:sync', {})
+  assert(
+    Math.abs(heure.serverNow - Date.now()) < 2000,
+    `l’heure du serveur doit être celle de sa machine (écart : ${heure.serverNow - Date.now()} ms)`,
+  )
+
+  const chronoHost = connectHost(chronoUrl, chronoCookie)
+  assert((await emitAck<any>(chronoHost, 'host:hello', {})).ok, 'l’écran commun du serveur de chronométrage')
+  const courtSeen = waitFor<any>(chronoHost, 'session:view', p => p.view.phase === 'pickPack', 'liste du quiz court')
+  ;(chronoHost as any).emit('host:launch')
+  const courtId = (await courtSeen).sessionId
+  ;(chronoHost as any).emit('host:command', { sessionId: courtId, command: { type: 'selectPack', packId: court.id } })
+  const qCourte = await waitFor<any>(tardif, 'session:view', p => p.view.phase === 'question', 'question courte affichée')
+
+  // Passé l'échéance affichée — au-delà des 400 ms d'avant, en deçà de la
+  // marge d'aujourd'hui.
+  const retard = 700
+  await new Promise(r => setTimeout(r, Math.max(0, qCourte.view.deadline + retard - Date.now())))
+  const inExtremis = await emitAck<any>(tardif, 'player:action', {
+    sessionId: courtId,
+    action: { type: 'answer', choice: 0 },
+  })
+  assert(inExtremis.ok, `réponse perdue ${retard} ms après l’échéance affichée : ${inExtremis.error}`)
+  const rvCourte = await waitFor<any>(tardif, 'session:view', p => p.view.phase === 'reveal', 'révélation de la question courte')
+  // Elle vaut la bonne réponse, mais le bonus de rapidité est épuisé : c'est
+  // exactement le compromis voulu.
+  assert(
+    rvCourte.view.yourPoints === 100,
+    `une réponse arrivée après l’échéance vaut la bonne réponse sans le bonus, vu ${rvCourte.view.yourPoints}`,
+  )
+  tardif.disconnect()
+  chronoHost.disconnect()
+  await chrono.close()
+  rmSync(chronoDir, { recursive: true, force: true })
+
+  console.log('✅ Smoke test OK — 38 étapes')
   console.log(
     '   collage de questions, comptes et sessions, suppression d’un compte, garde-fous, isolation des espaces, quiz complet, bibliothèque,',
   )
   console.log(
-    '   accusé de réception des réponses, photos, estimation, sabotage, retardataire, pause, enchaînement automatique,',
+    '   accusé de réception des réponses, heure du serveur et marge de fin de question, photos, estimation, sabotage,',
   )
   console.log(
-    '   annulation, question reposée,',
+    '   retardataire, pause, enchaînement automatique, annulation, question reposée,',
   )
   console.log(
     '   invité renommé et exclu, ménage des photos, photo « mémoire », équipes, barème des trois jeux,',

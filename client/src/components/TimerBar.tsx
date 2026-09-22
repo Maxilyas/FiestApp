@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
+import { serverNow } from '../clock'
 import { sound } from '../sound'
 import { Icon } from './Icon'
 
 interface Props {
-  /** Fin de la question (epoch ms), fourni par le serveur. */
+  /**
+   * Fin de la question (epoch ms), fourni par le serveur — et lu à SON heure :
+   * une horloge de téléphone qui dérive afficherait du temps qui n'existe plus.
+   */
   deadline: number
   /** Durée totale allouée, en secondes. */
   duration: number
@@ -21,11 +25,11 @@ const URGENT_FROM = 5
  * chiffre — et elle rend la tension visible sans avoir à compter.
  */
 export function TimerBar({ deadline, duration, ticking, frozenMs }: Props) {
-  const [now, setNow] = useState(() => Date.now())
+  const [now, setNow] = useState(() => serverNow())
   const lastTick = useRef<number>(-1)
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 100)
+    const id = setInterval(() => setNow(serverNow()), 100)
     return () => clearInterval(id)
   }, [])
 

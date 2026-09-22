@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { serverNow } from '../clock'
 import { sound } from '../sound'
 import { Icon } from './Icon'
 
@@ -8,11 +9,13 @@ import { Icon } from './Icon'
  * « claque » au lieu de changer discrètement.
  */
 export function GetReady({ deadline, sounds, label }: { deadline: number; sounds?: boolean; label: string }) {
-  const [now, setNow] = useState(() => Date.now())
+  // À l'heure du serveur : le 3-2-1 doit tomber en même temps sur la TV et
+  // sur cinquante téléphones dont les horloges ne s'accordent pas.
+  const [now, setNow] = useState(() => serverNow())
   const lastTick = useRef<number>(-1)
 
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 100)
+    const id = setInterval(() => setNow(serverNow()), 100)
     return () => clearInterval(id)
   }, [])
 

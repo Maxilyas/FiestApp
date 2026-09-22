@@ -51,7 +51,28 @@ interface QuizState {
 }
 
 const READY_MS = 3000
-const GRACE_MS = 400 // marge réseau : le timer serveur coupe un peu après le deadline affiché
+
+/**
+ * Marge réseau : le chronomètre du serveur coupe un peu après l'échéance
+ * affichée. Il était à 400 ms, soit moins qu'un aller simple depuis un
+ * téléphone en 4G dans une salle où cinquante autres partagent la cellule —
+ * les réponses de dernière seconde mouraient en route. Une seconde et demie
+ * couvre un aller-retour de trois secondes, et ne se voit pas : la barre est
+ * déjà vide, ce temps-là se lit comme du suspense.
+ */
+const GRACE_MS = 1500
+
+/**
+ * Le souffle avant une révélation déclenchée par la dernière réponse.
+ *
+ * Elle partait à l'instant même où cette réponse arrivait, et coupait la
+ * parole à celles encore en vol : deux doigts posés au même moment aux deux
+ * bouts de la salle, et celui dont le paquet arrivait second voyait sa réponse
+ * jetée. La règle est maintenant « on révèle quand la salle est calme depuis
+ * ce délai » — un changement d'avis le relance, et le chronomètre de la
+ * question reste la borne qui tranche.
+ */
+const SETTLE_MS = 700
 
 // QCM : bonne réponse + bonus de rapidité.
 const CHOICE_POINTS = 100
@@ -117,6 +138,9 @@ function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: Game
   st.responses = {}
   st.lastAwards = {}
   st.pausedMs = null
+  // Une question reposée hérite sinon du souffle armé par la précédente, qui
+  // la révélerait avant que personne ait eu le temps de répondre.
+  ctx.clearTimer('settle')
   if (q.image && q.observeSeconds) {
     st.phase = 'observe'
     st.deadline = ctx.now() + q.observeSeconds * 1000
@@ -152,6 +176,7 @@ function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   const st = sess.state
   ctx.clearTimer('question')
   ctx.clearTimer('observe')
+  ctx.clearTimer('settle')
   st.phase = 'reveal'
   st.lastAwards = {}
   // L'enchaînement s'arme quelle que soit la cause de la révélation : fin du
@@ -202,6 +227,21 @@ function scoreQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
     const points = GUESS_POINTS + Math.round(PROXIMITY_POINTS * ratio) + (i === 0 ? CLOSEST_BONUS : 0)
     award(sess, g.playerId, points, ctx)
   })
+}
+
+/**
+ * Combien de participants la question en cours attend encore : ceux qui
+ * pouvaient y répondre et ne l'ont pas fait. Un retardataire arrivé après
+ * qu'elle a été posée n'est pas attendu — c'est le même filtre que le journal,
+ * sinon la salle patienterait pour quelqu'un qui n'a jamais vu la question.
+ *
+ * Un téléphone en veille reste attendu, lui : l'exclure reviendrait à révéler
+ * dans le dos de quelqu'un dont le réseau a hoqueté une seconde.
+ */
+function awaited(sess: GameSessionRec<QuizState>): number {
+  const st = sess.state
+  return sess.participantIds.filter(id => (st.playFrom[id] ?? 0) <= st.qIndex && !(id in st.responses))
+    .length
 }
 
 function cancelQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
@@ -382,8 +422,8 @@ export const quizModule: GameModule<QuizState> = {
       return 'invalid'
     }
 
-    // Tout le monde a répondu → révélation immédiate
-    if (Object.keys(st.responses).length >= sess.participantIds.length) reveal(sess, ctx)
+    // Tout le monde a répondu → on révèle, mais après un souffle : voir SETTLE_MS.
+    if (awaited(sess) === 0) ctx.setTimer('settle', SETTLE_MS)
   },
 
   onHostCommand(sess, command: QuizCommand, ctx) {
@@ -405,6 +445,8 @@ export const quizModule: GameModule<QuizState> = {
         if (st.phase !== 'question' || st.pausedMs !== null) return
         st.pausedMs = Math.max(0, st.deadline - ctx.now())
         ctx.clearTimer('question')
+        // Le souffle ne doit pas révéler la question pendant la pause.
+        ctx.clearTimer('settle')
         break
       }
       case 'resume': {
@@ -417,6 +459,8 @@ export const quizModule: GameModule<QuizState> = {
         st.deadline = ctx.now() + frozen
         st.pausedMs = null
         ctx.setTimer('question', frozen + GRACE_MS)
+        // La salle avait fini de répondre avant la pause : on lui rend son souffle.
+        if (awaited(sess) === 0) ctx.setTimer('settle', SETTLE_MS)
         break
       }
       case 'cancel': {
@@ -474,6 +518,7 @@ export const quizModule: GameModule<QuizState> = {
     if (timerId === 'ready' && sess.state.phase === 'getReady') startQuestion(sess, 0, ctx)
     if (timerId === 'observe' && sess.state.phase === 'observe') beginAnswering(sess, ctx)
     if (timerId === 'question' && sess.state.phase === 'question') reveal(sess, ctx)
+    if (timerId === 'settle' && sess.state.phase === 'question') reveal(sess, ctx)
     if (timerId === 'autoNext' && sess.state.phase === 'reveal') goNext(sess, ctx)
   },
 

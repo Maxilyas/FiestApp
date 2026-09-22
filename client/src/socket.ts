@@ -1,6 +1,7 @@
 import { io, type Socket } from 'socket.io-client'
 import type { ActionAck, ClientToServerEvents, JoinAck, ServerToClientEvents } from '../../shared/events'
 import { forgetMe, getState, setState, showToast } from './state'
+import { applySample, resetClock } from './clock'
 import { currentSlug } from './routes'
 
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
@@ -13,7 +14,38 @@ export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
   tryAllTransports: true,
 })
 
-socket.on('connect', () => setState({ connected: true }))
+/**
+ * Mesures d'horloge prises à chaque connexion. Trois suffisent : on ne garde
+ * que la plus rapide, et la quatrième n'améliorerait plus grand-chose pour un
+ * chronomètre qui se lit à la seconde.
+ */
+const CLOCK_SAMPLES = 3
+const CLOCK_TIMEOUT_MS = 2000
+
+/** Cale l'horloge de cet écran sur celle du serveur. Sans bruit si ça échoue. */
+async function syncClock() {
+  for (let i = 0; i < CLOCK_SAMPLES; i++) {
+    const sentAt = Date.now()
+    const res = await new Promise<{ serverNow: number } | null>(resolve => {
+      const timer = setTimeout(() => resolve(null), CLOCK_TIMEOUT_MS)
+      socket.emit('time:sync', {}, r => {
+        clearTimeout(timer)
+        resolve(r)
+      })
+    })
+    // Serveur muet ou connexion reperdue : on garde l'écart connu et on
+    // remesurera à la prochaine connexion.
+    if (!res) return
+    applySample({ serverTime: res.serverNow, sentAt, receivedAt: Date.now() })
+  }
+}
+
+socket.on('connect', () => {
+  setState({ connected: true })
+  // Une coupure a pu durer : l'écart d'avant ne fait plus autorité.
+  resetClock()
+  void syncClock()
+})
 socket.on('disconnect', () => setState({ connected: false }))
 socket.on('party:snapshot', snapshot => setState({ snapshot }))
 socket.on('session:view', payload =>
