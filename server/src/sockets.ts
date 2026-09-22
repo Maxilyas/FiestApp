@@ -121,6 +121,12 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     const validTeam = (rt: SpaceRuntime, teamId?: string | null): string | null =>
       teamId && rt.teams.has(teamId) ? teamId : null
 
+    // L'heure du serveur. Sans identité ni espace : un écran doit pouvoir
+    // caler son chronomètre avant même de savoir quelle soirée il suit.
+    socket.on('time:sync', (_payload, ack) => {
+      if (typeof ack === 'function') ack({ serverNow: Date.now() })
+    })
+
     // La page d'accueil des invités : « X déjà connectés », avant même l'inscription.
     socket.on('party:watch', (payload, ack) => {
       const account = spaceOf(payload?.slug)

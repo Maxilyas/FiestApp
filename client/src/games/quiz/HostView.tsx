@@ -9,6 +9,7 @@ import { Shape } from '../../components/Shape'
 import { Rank } from '../../components/Rank'
 import { ConsoleActions } from '../../components/HostConsole'
 import { confirmDialog } from '../../components/Dialog'
+import { serverNow } from '../../clock'
 import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
 import { formatNumber } from '../../format'
@@ -16,9 +17,9 @@ import { questionSizeClass } from './questionSize'
 
 /** Le décompte avant que la question suivante parte toute seule. */
 function AutoNextPill({ deadline }: { deadline: number }) {
-  const [now, setNow] = useState(() => Date.now())
+  const [now, setNow] = useState(() => serverNow())
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 200)
+    const id = setInterval(() => setNow(serverNow()), 200)
     return () => clearInterval(id)
   }, [])
   const seconds = Math.max(0, Math.ceil((deadline - now) / 1000))
