@@ -11,14 +11,20 @@ Le `README.md` explique le produit à un humain. Ce fichier-ci explique le code
 ## Les commandes
 
 ```bash
-npm run verify   # typecheck + build + test de bout en bout — À LANCER AVANT DE COMMITTER
+npm run verify   # typecheck + tests + build + test de bout en bout — À LANCER AVANT DE COMMITTER
 npm run dev      # serveur + client, http://localhost:5173
+npm test         # les tests ciblés de server/test/ (node:test, quelques secondes)
 npm run smoke    # le test de bout en bout seul (~90 s)
 ```
 
-Il n'y a **pas d'autre suite de tests**, pas de linter, pas de formateur.
+Deux suites, aucune dépendance de plus, et toujours ni linter ni formateur.
 `npm run smoke` boote un vrai serveur sur une base jetable et rejoue une
-soirée entière. C'est la référence : si elle passe, ça marche.
+soirée entière : c'est la référence du chemin normal. `npm test` lance
+`server/test/*.test.ts` avec `node:test` : ce qu'une soirée rejouée d'un bout
+à l'autre ne provoque jamais — pannes, courses, messages malformés,
+redémarrages. Chaque fichier démarre son propre serveur jetable avec
+`server/test/banc.ts`. **Un nouveau comportement arrive avec son test dans
+`server/test/`** : on n'allonge plus le smoke.
 
 ## La carte du code
 
@@ -125,9 +131,14 @@ préproduction effacerait de vraies soirées archivées. Hors production,
 ## Les pièges de ce dépôt
 
 - **`smoke.ts` est stateful de bout en bout.** Une soirée jouée insérée au
-  milieu casse les assertions d'après (statistiques, bilan, archives). Les
-  tests qui jouent une partie complète se mettent **en fin de fichier, sur
-  leur propre serveur jetable** — voir les sections 32, 33 et 34.
+  milieu casse les assertions d'après (statistiques, bilan, archives). C'est
+  pourquoi les nouveaux tests vont dans `server/test/`, un serveur jetable par
+  fichier ; ceux qui vivent encore en fin de smoke (sections 32 à 35) y ont
+  chacun le leur.
+- **Le serveur envoie l'instantané juste derrière l'accusé** de `host:hello`
+  ou de `party:watch`, souvent dans le même paquet : un écouteur posé après
+  avoir attendu l'accusé le rate. `banc.ts` retient le dernier pour ça
+  (`instantane()`).
 - **Un serveur qu'on ferme doit éteindre ses chronomètres.** Un chrono de
   question qui sonne après `close()` révèle sur une base fermée et emporte le
   processus — c'est ce que fait `GameEngine.stop()`. Allonger le smoke suffit

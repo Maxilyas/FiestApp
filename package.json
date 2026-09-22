@@ -14,8 +14,9 @@
     "build": "npm run build -w client",
     "start": "npm run start -w server",
     "check": "npm run check -w server && npm run check -w client",
+    "test": "npm run test -w server",
     "smoke": "npm run smoke -w server",
-    "verify": "npm run check && npm run build && npm run smoke",
+    "verify": "npm run check && npm run test && npm run build && npm run smoke",
     "migrate": "npm run migrate -w server --",
     "load": "npm run load -w server --",
     "export": "npm run export -w server --"

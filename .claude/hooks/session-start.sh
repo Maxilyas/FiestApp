@@ -14,9 +14,12 @@ fi
 cd "${CLAUDE_PROJECT_DIR:-.}"
 
 # `install` et non `ci` : l'état du conteneur est mis en cache après le hook,
-# et `install` sait repartir d'un `node_modules` déjà chaud.
-npm install --no-audit --no-fund
+# et `install` sait repartir d'un `node_modules` déjà chaud. `--no-save` : le
+# npm du conteneur n'est pas celui du dépôt, et sans ça il réécrivait
+# `package-lock.json` à chaque session (champs `libc` retirés) — un fichier
+# modifié que personne n'avait touché, et qu'il ne faut pas committer.
+npm install --no-save --no-audit --no-fund
 
 # La base de la soirée est locale et jetable ; le test de bout en bout se
 # fabrique la sienne dans un dossier temporaire. Rien d'autre à préparer.
-echo "[hook] dépendances prêtes — npm run verify enchaîne typecheck, build et smoke"
+echo "[hook] dépendances prêtes — npm run verify enchaîne typecheck, tests, build et smoke"
