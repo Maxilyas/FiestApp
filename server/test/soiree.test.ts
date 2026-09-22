@@ -7,6 +7,10 @@
 // l'animateur suffisait à rebaptiser la soirée, et tout ce qui s'écrivait
 // ensuite se comptait deux fois : l'expérience, l'historique, l'Éclat.
 //
+// Les prix de soirée, eux, se décernaient à chaque archivage sans jamais se
+// reprendre : « Sauvegarder » en cours de soirée figeait des badges que la
+// fin de soirée donnait à quelqu'un d'autre.
+//
 // Chaque test a son propre serveur jetable : une soirée jouée dans l'un
 // fausserait l'historique et l'expérience de l'autre.
 import { test } from 'node:test'
@@ -15,6 +19,7 @@ import Database from 'better-sqlite3'
 import {
   ADMIN,
   attendre,
+  connecter,
   connexionAnimateur,
   creerQuiz,
   demarrer,
@@ -125,9 +130,33 @@ const lignesXp = (banc: Banc, profileId: string) =>
     profileId,
   )
 
+/** Qui porte ce prix pour cette soirée. */
+const laureats = (banc: Banc, soiree: string, badge: string) =>
+  lire<{ profile_id: string }>(
+    permanente(banc),
+    'SELECT profile_id FROM profile_badges WHERE soiree_id = ? AND badge = ?',
+    soiree,
+    badge,
+  ).map(r => r.profile_id)
+
 /** L'heure d'arrivée d'un invité, telle que la base locale l'a notée. */
 const arrivee = (banc: Banc, playerId: string): number =>
   lire<{ created_at: number }>(banc.dbPath, 'SELECT created_at FROM players WHERE id = ?', playerId)[0].created_at
+
+/**
+ * Le nombre de badges que l'écran d'entrée annonce à ce profil. Il vient du
+ * compteur gardé en mémoire : la page du profil, elle, le recalcule — il faut
+ * donc le lire avant elle.
+ */
+async function badgesALEntree(banc: Banc, cookie: string): Promise<number | undefined> {
+  const tel = connecter(banc.url, cookie)
+  try {
+    const salut = await emitAck<any>(tel, 'party:watch', { slug: ADMIN.slug })
+    return salut.profile?.badges
+  } finally {
+    tel.close()
+  }
+}
 
 /** Ce que vaut une soirée où l'on gagne seul chaque quiz d'une question. */
 const xpDeSoiree = (quiz: number) =>
@@ -180,6 +209,15 @@ test('exclure le premier arrivé entre deux quiz ne rebaptise pas la soirée', (
     // L'heure de début reste celle du premier arrivé, même exclu depuis.
     assert.equal(archives[0].heldAt, debut)
     assert.equal(archives[0].id, archiveIdOf(debut))
+    // Les badges de carrière se comptent en soirées : rebaptisée, celle-ci
+    // aurait compté double, et un prix qui ne tombe qu'une fois aurait pu
+    // tomber sous chacun de ses deux noms.
+    const premiereFois = lire(
+      permanente(banc),
+      `SELECT soiree_id FROM profile_badges WHERE profile_id = ? AND badge = 'carriere:premiere'`,
+      aliceId,
+    )
+    assert.deepEqual(premiereFois, [{ soiree_id: archives[0].id }], '« La Première Fois » ne tombe qu’une fois')
   }))
 
 test('un réveil sur disque effacé en pleine soirée garde son nom', () =>
@@ -323,4 +361,142 @@ test('une soirée commencée avant la mise à jour garde le nom qu’elle avait'
       'l’archive d’avant la mise à jour est mise à jour, pas doublée',
     )
     assert.deepEqual(lignesXp(banc, aliceId).map(l => l.soiree_id), [archiveIdOf(debut)])
+  }))
+
+// ── Les prix de soirée ────────────────────────────────────────────────────
+
+test('« Sauvegarder » en cours de soirée ne fige pas ses prix : le dernier archivage fait foi', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const trois = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?'), qcm('Trois ?')], 'Trois questions')
+    const quatre = await creerQuiz(
+      banc.url,
+      cookie,
+      [qcm('Quatre ?'), qcm('Cinq ?'), qcm('Six ?'), qcm('Sept ?')],
+      'Quatre questions',
+    )
+    const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const chloeCookie = await inscrireProfil(banc.url, 'chloe', 'Chloé', '🦉')
+    const aliceId = profilDe(banc, 'alice')
+    const chloeId = profilDe(banc, 'chloe')
+    const host = await ecranCommun(banc.url, cookie)
+    const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
+    const chloe = await invite(banc.url, 'Chloé', '🦉', { cookie: chloeCookie })
+
+    // Premier quiz : Chloé sans faute, Alice se trompe à la dernière question.
+    await jouerQuiz(host, trois, [
+      [[chloe, 0], [alice, 0]],
+      [[chloe, 0], [alice, 0]],
+      [[chloe, 0], [alice, 1]],
+    ])
+    await sauvegarder(host)
+    const [{ id: soiree }] = await historique(banc)
+    // À ce moment-là, le prix est bien à Chloé : c'est lui qui doit repartir.
+    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [chloeId], 'Chloé mène au premier archivage')
+
+    // Second quiz : tout s'inverse. Chloé finit à 3 sur 7, Alice à 6 sur 7.
+    const renversement: [Invite, number][] = [
+      [chloe, 1],
+      [alice, 0],
+    ]
+    await jouerQuiz(host, quatre, [renversement, renversement, renversement, renversement])
+    await nouvelleSoiree(host)
+    assert.deepEqual(
+      (await historique(banc)).map(a => a.id),
+      [soiree],
+      'sauvegardée puis rangée, la soirée n’a qu’une archive',
+    )
+
+    // Un seul lauréat par prix et par soirée.
+    const prix = lire<{ badge: string; profile_id: string }>(
+      permanente(banc),
+      `SELECT badge, profile_id FROM profile_badges WHERE soiree_id = ? AND badge NOT LIKE 'carriere:%'`,
+      soiree,
+    )
+    const parPrix = new Map<string, string[]>()
+    for (const p of prix) parPrix.set(p.badge, [...(parPrix.get(p.badge) ?? []), p.profile_id])
+    for (const [badge, porteurs] of parPrix) {
+      assert.equal(porteurs.length, 1, `« ${badge} » : ${porteurs.length} lauréats pour une seule soirée`)
+    }
+    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [aliceId], 'Chloé, à 3 sur 7, rend Le Sans-Faute')
+
+    // L'étagère range exactement ce que la salle a vu proclamer à la fin.
+    const souvenir = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${soiree}/recap.json`)).json()) as any
+    const profilDuJoueur = new Map([
+      [alice.playerId, aliceId],
+      [chloe.playerId, chloeId],
+    ])
+    const proclames = new Map<string, Set<string>>([
+      [aliceId, new Set()],
+      [chloeId, new Set()],
+    ])
+    for (const a of souvenir.stats.awards) {
+      const profil = a.player && profilDuJoueur.get(a.player.playerId)
+      if (profil) proclames.get(profil)!.add(a.key)
+    }
+    for (const [profil, cles] of proclames) {
+      const ranges = new Set(prix.filter(p => p.profile_id === profil).map(p => p.badge))
+      assert.deepEqual(ranges, cles, 'les prix rangés sont ceux du dernier archivage')
+    }
+
+    // Et le compteur suit — l'écran d'entrée d'abord, avant que la page du
+    // profil ne le recalcule.
+    for (const [profil, profilCookie] of [
+      [aliceId, aliceCookie],
+      [chloeId, chloeCookie],
+    ]) {
+      const carriere = lire(
+        permanente(banc),
+        `SELECT DISTINCT badge FROM profile_badges WHERE profile_id = ? AND badge LIKE 'carriere:%'`,
+        profil,
+      ).length
+      const attendu = proclames.get(profil)!.size + carriere
+      assert.equal(await badgesALEntree(banc, profilCookie), attendu, 'l’écran d’entrée annonce le bon nombre de badges')
+      const moi = (await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: profilCookie } })).json()) as any
+      assert.equal(moi.profile.badges, attendu, 'la page du profil aussi')
+      assert.equal(moi.profile.vitrine.length, attendu, 'et son étagère ne garde rien de périmé')
+    }
+  }))
+
+test('un invité exclu rend ses prix : chacun garde un seul lauréat', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const trois = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?'), qcm('Trois ?')], 'Trois questions')
+    const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const chloeCookie = await inscrireProfil(banc.url, 'chloe', 'Chloé', '🦉')
+    const aliceId = profilDe(banc, 'alice')
+    const chloeId = profilDe(banc, 'chloe')
+    const host = await ecranCommun(banc.url, cookie)
+    const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
+    const chloe = await invite(banc.url, 'Chloé', '🦉', { cookie: chloeCookie })
+
+    await jouerQuiz(host, trois, [
+      [[chloe, 0], [alice, 0]],
+      [[chloe, 0], [alice, 0]],
+      [[chloe, 0], [alice, 1]],
+    ])
+    await sauvegarder(host)
+    const [{ id: soiree }] = await historique(banc)
+    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [chloeId], 'Chloé mène au premier archivage')
+
+    // L'animateur exclut Chloé : ses réponses quittent le journal, l'archive
+    // ne la connaît plus, et ses prix retombent sur la salle. Le remplacement
+    // vise donc toute la soirée, pas seulement ceux qui y sont encore.
+    ;(host as any).emit('host:removePlayer', { playerId: chloe.playerId })
+    await attendre(chloe.socket, 'player:removed', () => true, 'l’exclusion de Chloé')
+    await sauvegarder(host)
+
+    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [aliceId], 'Le Sans-Faute passe à Alice, seule lauréate')
+    const gardes = lire<{ badge: string }>(
+      permanente(banc),
+      `SELECT badge FROM profile_badges WHERE profile_id = ? AND soiree_id = ? AND badge NOT LIKE 'carriere:%'`,
+      chloeId,
+      soiree,
+    )
+    assert.deepEqual(gardes, [], 'Chloé ne garde aucun prix d’une soirée qui ne la compte plus')
+    // Son badge de carrière, lui, reste : il ne se reprend jamais — et son
+    // compteur descend avec ce qu'elle a rendu.
+    const carriere = lire(permanente(banc), 'SELECT DISTINCT badge FROM profile_badges WHERE profile_id = ?', chloeId)
+    assert.ok(carriere.length > 0, 'la première soirée de Chloé lui a valu son badge de carrière')
+    assert.equal(await badgesALEntree(banc, chloeCookie), carriere.length, 'le compteur de Chloé suit ce qu’elle a rendu')
   }))

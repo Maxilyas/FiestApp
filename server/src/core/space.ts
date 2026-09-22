@@ -144,10 +144,12 @@ export class SpaceRuntime {
    * s'additionnait sous deux noms, l'Éclat se retirait, la soirée déjà
    * sauvegardée s'archivait en double.
    *
-   * Il se tire donc une seule fois — la première fois que quelque chose
-   * s'écrit sous ce nom dans la base permanente, sur le plus ancien invité
-   * présent —, puis il vit en mémoire, dans la base locale et dans le miroir
-   * distant. Seule « Nouvelle soirée » l'oublie.
+   * Il se tire donc une seule fois, sur le plus ancien invité présent : la
+   * première fois que quelque chose s'écrit sous ce nom dans la base
+   * permanente — ou dès le réveil, pour une soirée qui a des invités mais
+   * pas encore de nom rangé (voir le constructeur). Il vit ensuite en
+   * mémoire, dans la base locale et dans le miroir distant, et seule
+   * « Nouvelle soirée » l'oublie.
    */
   private soiree: Soiree | null = null
 
@@ -295,8 +297,8 @@ export class SpaceRuntime {
    * Rien n'attend l'archivage, qui peut ne jamais venir — un animateur range
    * sa soirée quand il y pense, et un invité qui gagne veut voir son niveau
    * bouger le soir même. Les badges, eux, restent à l'archivage : ils se
-   * décernent sur la soirée entière, et un prix décerné trop tôt ne se
-   * reprend plus.
+   * décernent sur la soirée entière, et chaque archivage remplace les prix
+   * du précédent — « Sauvegarder » à 21 h ne fige rien.
    */
   private async crediterQuiz() {
     // Les journaux se lisent AVANT le premier `await` : ce qui suit attend la
@@ -347,18 +349,14 @@ export class SpaceRuntime {
    * prochain essai repartira juste.
    */
   private async creditProfiles(soireeId: string, { gains, laureats }: CreditDeSoiree) {
-    if (gains.length === 0) return
     await this.crediterExperience(soireeId, gains)
-    const parProfil = new Map<string, PrixDeSoiree[]>()
-    for (const l of laureats) parProfil.set(l.profileId, [...(parProfil.get(l.profileId) ?? []), l])
-    for (const g of gains) {
-      for (const l of parProfil.get(g.profileId) ?? []) {
-        await this.deps.profiles.grantBadge({ ...l, soireeId, spaceId: this.spaceId })
-      }
-      // Les badges de carrière viennent en dernier : ils se décident sur les
-      // totaux, expérience et éclat de ce soir compris.
-      await this.deps.profiles.grantCareerBadges(g.profileId, soireeId, this.spaceId)
-    }
+    // Les prix se remplacent, comme l'expérience — et même sans aucun profil
+    // ce soir : ceux qu'un archivage précédent avait rangés doivent pouvoir
+    // repartir.
+    await this.deps.profiles.remplacerPrixDeSoiree(soireeId, this.spaceId, laureats)
+    // Les badges de carrière viennent en dernier : ils se décident sur les
+    // totaux, expérience et éclat de ce soir compris.
+    for (const g of gains) await this.deps.profiles.grantCareerBadges(g.profileId, soireeId, this.spaceId)
   }
 
   /** L'espace tel que les invités et les pages le voient. */

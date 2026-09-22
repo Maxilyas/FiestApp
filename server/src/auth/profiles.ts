@@ -541,12 +541,77 @@ export class ProfileStore {
   }
 
   // ── Badges ──────────────────────────────────────────────────────────────
+  //
+  // L'emoji et le titre sont recopiés dans chaque ligne : une étagère se
+  // relit des années plus tard, et un prix qui changerait de nom entre-temps
+  // ne doit pas rendre illisible ce qui a été gagné sous l'ancien.
 
   /**
-   * Décerne un badge pour une soirée. L'emoji et le titre sont recopiés dans
-   * la ligne : une étagère se relit des années plus tard, et un prix qui
-   * changerait de nom entre-temps ne doit pas rendre illisible ce qui a été
-   * gagné sous l'ancien. Rend faux s'il était déjà décroché ce soir-là.
+   * Range les prix d'une soirée, en REMPLAÇANT ceux qu'un archivage
+   * précédent de la même soirée avait rangés — comme l'expérience.
+   *
+   * « Sauvegarder » se fait en cours de soirée, et chaque archivage recalcule
+   * les prix sur ce qui a été joué jusque-là : le Sans-Faute de 21 h n'est pas
+   * forcément celui de minuit. On ajoutait sans jamais retirer — Chloé, finie
+   * à 3 sur 7, gardait le prix qu'Alice venait de lui prendre, et la soirée
+   * comptait deux lauréats. Le retrait et les ajouts partent donc en un seul
+   * lot, dans une transaction : une étagère ne se voit jamais à moitié rangée.
+   *
+   * Le retrait vise toute la soirée, pas seulement ses invités du moment : un
+   * invité exclu n'a plus de réponses au journal, et le prix qu'il portait est
+   * retombé sur quelqu'un d'autre. Les badges de carrière, eux, ne se
+   * reprennent jamais — ils récompensent une habitude, pas une soirée.
+   */
+  async remplacerPrixDeSoiree(soireeId: string, spaceId: string, laureats: PrixDeSoiree[]): Promise<void> {
+    const now = Date.now()
+    const [avant] = await this.client.batch(
+      [
+        // Ceux qui en portaient jusqu'ici : leur compte peut baisser.
+        {
+          sql: `SELECT DISTINCT profile_id FROM profile_badges
+                WHERE space_id = ? AND soiree_id = ? AND badge NOT LIKE 'carriere:%'`,
+          args: [spaceId, soireeId],
+        },
+        {
+          sql: `DELETE FROM profile_badges
+                WHERE space_id = ? AND soiree_id = ? AND badge NOT LIKE 'carriere:%'`,
+          args: [spaceId, soireeId],
+        },
+        ...laureats.map(l => ({
+          sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+          args: [l.profileId, l.badge, soireeId, spaceId, l.emoji, l.title, now],
+        })),
+      ],
+      'write',
+    )
+    this.porteurs = null
+    await this.recompterBadges([...new Set([...avant.rows.map(r => String(r.profile_id)), ...laureats.map(l => l.profileId)])])
+  }
+
+  /**
+   * Remet d'aplomb le nombre de badges gardé en mémoire pour ces profils.
+   *
+   * Il part dans l'accusé de chaque téléphone qui se présente à une soirée,
+   * et c'est lui que l'écran d'entrée affiche. On l'effaçait après chaque
+   * badge décerné, en comptant sur une relecture qui ne venait jamais : il
+   * tombait à zéro, et l'entrée annonçait « Niveau 4 » sans « · 7 badges »
+   * jusqu'au prochain passage par la page du profil.
+   */
+  private async recompterBadges(profileIds: string[]): Promise<void> {
+    if (profileIds.length === 0) return
+    const res = await this.client.execute({
+      sql: `SELECT profile_id, COUNT(DISTINCT badge) AS n FROM profile_badges
+            WHERE profile_id IN (${profileIds.map(() => '?').join(', ')}) GROUP BY profile_id`,
+      args: profileIds,
+    })
+    const comptes = new Map(res.rows.map(r => [String(r.profile_id), Number(r.n)]))
+    for (const id of profileIds) this.badgeCount.set(id, comptes.get(id) ?? 0)
+  }
+
+  /**
+   * Décerne un badge qui ne se reprend pas — un badge de carrière. Rend faux
+   * s'il était déjà là pour cette soirée.
    */
   async grantBadge(input: {
     profileId: string
@@ -556,16 +621,26 @@ export class ProfileStore {
     soireeId: string
     spaceId: string
   }): Promise<boolean> {
-    const res = await this.client.execute({
-      sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
-      args: [input.profileId, input.badge, input.soireeId, input.spaceId, input.emoji, input.title, Date.now()],
-    })
-    if (res.rowsAffected > 0) {
-      this.porteurs = null
-      this.badgeCount.delete(input.profileId)
-    }
-    return res.rowsAffected > 0
+    // Le compte se relit dans le même lot : il suit l'ajout, sans second
+    // aller-retour (voir `recompterBadges`).
+    const [ajout, compte] = await this.client.batch(
+      [
+        {
+          sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+          args: [input.profileId, input.badge, input.soireeId, input.spaceId, input.emoji, input.title, Date.now()],
+        },
+        {
+          sql: 'SELECT COUNT(DISTINCT badge) AS n FROM profile_badges WHERE profile_id = ?',
+          args: [input.profileId],
+        },
+      ],
+      'write',
+    )
+    if (ajout.rowsAffected === 0) return false
+    this.porteurs = null
+    this.badgeCount.set(input.profileId, Number(compte.rows[0]?.n ?? 0))
+    return true
   }
 
   /** Les clés déjà décrochées par ce profil — pour ne pas redonner un badge de carrière. */
