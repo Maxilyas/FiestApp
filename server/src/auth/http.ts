@@ -1,4 +1,4 @@
-import type { NextFunction, Request, Response } from 'express'
+import type { Express, NextFunction, Request, Response } from 'express'
 import type { AccountRec, AuthStore } from './store'
 import { Budget } from '../core/budget'
 
@@ -130,14 +130,24 @@ export const sessionOf = (res: Response): string => (res.locals as AuthedLocals)
  * vingt par minute) et par identifiant visé (cinq échecs et le compte se
  * ferme un quart d'heure, d'où que viennent les essais). Pas d'exemption
  * pour l'adresse locale : le test de bout en bout doit pouvoir la déclencher.
+ *
+ * Une seule par serveur, que toutes les portes se partagent : voir
+ * `loginBudgetOf`.
  */
 export class LoginBudget {
   private byIp = new Budget(20, 20)
   private locks = new Map<string, { failures: number; until: number }>()
 
-  allow(ip: string, login: string): boolean {
+  /**
+   * Un essai depuis cette adresse, contre ce secret-là s'il est nommé. Sans
+   * clé, seule la réserve de l'adresse compte : c'est le cas d'un jeton trop
+   * long pour être deviné, qu'aucun verrou ne protégerait mieux — et qu'un
+   * verrou rendrait inutilisable à qui s'est trompé de lien cinq fois.
+   */
+  allow(ip: string, key?: string): boolean {
     if (!this.byIp.take(ip)) return false
-    const lock = this.locks.get(login)
+    if (key === undefined) return true
+    const lock = this.locks.get(key)
     return !lock || lock.until <= Date.now()
   }
 
@@ -158,4 +168,25 @@ export class LoginBudget {
   succeeded(login: string) {
     this.locks.delete(login)
   }
+}
+
+const budgets = new WeakMap<Express, LoginBudget>()
+
+/**
+ * La réserve d'essais d'un serveur, commune à toutes ses portes.
+ *
+ * Le mot de passe du compte, celui du profil rattaché et le code de secours
+ * ouvrent la même console (`ouvrirConsole`, dans `profileRoutes.ts`) : avec
+ * une réserve par routeur, qui alternait les portes avait deux fois plus
+ * d'essais. Elle est rangée par application plutôt que dans le module : les
+ * tests font tourner plusieurs serveurs dans le même processus, et les essais
+ * de l'un n'ont pas à fermer la porte de l'autre.
+ */
+export function loginBudgetOf(app: Express): LoginBudget {
+  let budget = budgets.get(app)
+  if (!budget) {
+    budget = new LoginBudget()
+    budgets.set(app, budget)
+  }
+  return budget
 }

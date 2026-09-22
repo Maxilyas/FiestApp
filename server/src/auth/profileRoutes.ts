@@ -4,10 +4,10 @@ import type { ProfileRec, ProfileStore } from './profiles'
 import type { AuthStore } from './store'
 import { dummyHash, passwordProblem } from './password'
 import {
-  LoginBudget,
   clearPlayerCookie,
   clearSessionCookie,
   clientIp,
+  loginBudgetOf,
   readPlayerToken,
   readSessionToken,
   setPlayerCookie,
@@ -34,7 +34,9 @@ interface ProfileApiDeps {
 export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   const { profiles } = deps
   const small = express.json({ limit: '4kb' })
-  const budget = new LoginBudget()
+  // La même réserve que `/api/auth/login` : un profil rattaché ouvre la
+  // console de son espace, ses portes comptent donc avec celle du compte.
+  const budget = loginBudgetOf(app)
   /**
    * Les inscriptions par adresse. Plus serré que les connexions : on veut
    * qu'une tablée partage sans mal la même adresse en 4G, pas qu'un script
@@ -128,7 +130,10 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     small,
     wrap(async (req, res) => {
       noStore(res)
-      const login = String(req.body?.login ?? '').trim().toLowerCase()
+      // Normalisé comme la base le lit, tronqué à 32 caractères compris :
+      // sinon « identifiant…x » visait le même profil sous une clé de verrou
+      // toute neuve, et chaque lettre ajoutée rouvrait cinq essais.
+      const login = normalizeLogin(req.body?.login)
       const password = typeof req.body?.password === 'string' ? req.body.password : ''
       const ip = clientIp(req)
       if (!budget.allow(ip, `joueur:${login}`)) {
@@ -256,7 +261,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     small,
     wrap(async (req, res) => {
       noStore(res)
-      const login = String(req.body?.login ?? '').trim().toLowerCase()
+      // Même normalisation que la base, pour la même raison qu'à la connexion.
+      const login = normalizeLogin(req.body?.login)
       const ip = clientIp(req)
       if (!budget.allow(ip, `secours:${login}`)) {
         return res.status(429).json({ error: 'Trop d’essais — réessaie dans un quart d’heure' })
