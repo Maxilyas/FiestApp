@@ -471,7 +471,12 @@ export class SpaceRuntime {
       players: new Set(rows.map(r => r.playerId)).size,
       quizzes: new Set(rows.map(r => r.sessionId)).size,
       questions: new Set(rows.map(r => `${r.sessionId}#${r.qIndex}`)).size,
-      since: this.party.all()[0]?.createdAt ?? null,
+      // L'heure figée avec le nom de la soirée, celle que son archive portera.
+      // Lue sur le premier invité ENCORE là, elle glissait dès qu'on excluait
+      // le téléphone d'essai de l'animateur. Tant que le nom n'est pas tiré,
+      // c'est l'heure qu'il prendra — sans le tirer ici : une page publique
+      // ne décide pas du nom de la soirée.
+      since: (this.soiree ?? soireeDesInvites(this.party.all()))?.heldAt ?? null,
     }
   }
 

@@ -6,7 +6,8 @@
 //   nommait qu'un vainqueur sur deux, deux cartes pour un même quiz gagné ;
 // · un « � » au bout d'un nom d'équipe ou d'une unité ;
 // · un export pendu cinq minutes devant une base muette, et un magasin que
-//   l'arrêt du serveur ne refermait jamais.
+//   l'arrêt du serveur ne refermait jamais ;
+// · une soirée en cours datée de l'arrivée du mauvais invité.
 //
 // Chaque test échouait avant sa correction. Les pages du client se vérifient
 // par leur rendu HTML : deux de ces bogues n'existaient qu'à l'affichage, et
@@ -18,7 +19,21 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo, Socket as TcpSocket } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { demarrer } from './banc'
+import {
+  ADMIN,
+  attendre,
+  connexionAnimateur,
+  creerQuiz,
+  demarrer,
+  ecranCommun,
+  emitAck,
+  invite,
+  lancerQuiz,
+  patienter,
+  qcm,
+  type Banc,
+} from './banc'
+import type { QuizServerOptions } from '../src/server'
 import { quizModule } from '../src/games/quiz'
 import { buildReview } from '../src/core/review'
 import { buildRecap } from '../src/core/recap'
@@ -369,3 +384,49 @@ test('le magasin des profils se ferme, et l’arrêt du serveur le ferme', async
   }
   assert.equal(fermetures, 1, 'createQuizServer().close() ferme le magasin des profils')
 })
+
+// ── 6. Le début de la soirée en cours ─────────────────────────────────────
+
+/** Un serveur jetable le temps d'un test, refermé quoi qu'il arrive. */
+async function avecBanc(scenario: (banc: Banc) => Promise<void>, opts: Partial<QuizServerOptions> = {}) {
+  const banc = await demarrer(opts)
+  try {
+    await scenario(banc)
+  } finally {
+    await banc.close()
+  }
+}
+
+test('l’historique date la soirée en cours de son début figé, pas du premier invité encore là', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
+    const host = await ecranCommun(banc.url, cookie)
+    // Le téléphone d'essai de l'animateur arrive le premier — c'est toujours lui.
+    const essai = await invite(banc.url, 'Test', '🤖')
+    await patienter(20)
+    const alice = await invite(banc.url, 'Alice')
+
+    const sessionId = await lancerQuiz(host, quiz)
+    await attendre(alice.socket, 'session:view', (p: any) => p.view.phase === 'question', 'la question')
+    const revelee = attendre<any>(host, 'session:view', p => p.view.phase === 'reveal', 'la révélation')
+    for (const qui of [alice, essai]) {
+      assert.equal((await emitAck<any>(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice: 0 } })).ok, true)
+    }
+    await revelee
+    ;(host as any).emit('host:endSession', { sessionId })
+
+    // « Sauvegarder » fige le nom de la soirée, et son heure de début.
+    const rangee = attendre<any>(host, 'toast', () => true, 'la soirée rangée', 15_000)
+    ;(host as any).emit('host:archiveParty', {})
+    assert.equal((await rangee).kind, 'info')
+    // Puis l'animateur exclut son téléphone d'essai.
+    const exclu = attendre(essai.socket, 'player:removed', () => true, 'l’exclusion du téléphone d’essai')
+    ;(host as any).emit('host:removePlayer', { playerId: essai.playerId })
+    await exclu
+
+    const { current, archives } = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees.json`)).json()) as any
+    assert.equal(archives.length, 1)
+    assert.ok(current, 'la soirée continue après la sauvegarde')
+    assert.equal(current.since, archives[0].heldAt, 'la soirée en cours et son archive disent la même heure de début')
+  }))
