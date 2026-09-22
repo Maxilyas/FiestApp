@@ -132,5 +132,12 @@ export interface ServerToClientEvents {
   'session:ended': (payload: { sessionId: string }) => void
   /** L'animateur a exclu ce joueur : son téléphone repart à l'inscription. */
   'player:removed': () => void
+  /**
+   * Le profil de ce joueur vient de changer — son expérience du soir a été
+   * créditée. Sans ce message, le téléphone garderait le profil reçu à la
+   * poignée de main et n'afficherait le niveau gagné qu'au prochain
+   * rafraîchissement, c'est-à-dire jamais pendant la fête.
+   */
+  'player:profil': (profile: PublicProfile) => void
   'toast': (payload: { kind: 'info' | 'error'; message: string }) => void
 }

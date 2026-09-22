@@ -68,6 +68,17 @@ export function PlayerApp() {
     }
   }, [slug])
 
+  // L'expérience créditée en fin de quiz : le serveur renvoie le profil à
+  // jour, et le niveau affiché sur ce téléphone monte pendant la fête — pas
+  // au prochain rafraîchissement, c'est-à-dire jamais.
+  useEffect(() => {
+    const maj = (p: PublicProfile) => setProfil(p)
+    socket.on('player:profil', maj)
+    return () => {
+      socket.off('player:profil', maj)
+    }
+  }, [])
+
   const space = s.snapshot?.space
   useEffect(() => {
     if (space) document.title = space.title

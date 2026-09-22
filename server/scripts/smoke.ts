@@ -2008,26 +2008,43 @@ try {
       ;(pHost as any).emit('host:command', { sessionId: pSession, command: { type: 'next' } })
     }
   }
-  ;(pHost as any).emit('host:endSession', { sessionId: pSession })
-
-  // Ranger la soirée : c'est là, et seulement là, que les profils sont
-  // crédités — juste avant que « Nouvelle soirée » puisse tout effacer.
-  const range = waitFor<any>(pHost, 'toast', () => true, 'la soirée rangée')
-  ;(pHost as any).emit('host:archiveParty', { title: 'Soirée des profils' })
-  await range
-  await new Promise(r => setTimeout(r, 400))
-
-  const profilDe = async (cookie: string) =>
-    (
-      (await (await fetch(`${pUrl}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any
-    ).profile
-  const aliceApres = await profilDe(aliceCookie)
   const attendu =
     XP.presence +
     QUESTIONS_PROFILS * XP.parReponse +
     QUESTIONS_PROFILS * XP.parBonneReponse +
     XP.podium[0] +
     XP.vainqueurDeQuiz
+
+  const profilDe = async (cookie: string) =>
+    (
+      (await (await fetch(`${pUrl}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any
+    ).profile
+
+  // La fin du quiz crédite, tout de suite : attendre l'archivage, c'est ne
+  // rien donner à qui vient de gagner — un animateur range sa soirée quand il
+  // y pense, parfois jamais, et l'expérience ne se voyait alors nulle part.
+  const creditee = waitFor<any>(aliceTel, 'player:profil', p => p.xp > 0, 'le profil crédité à chaud')
+  const annonce = waitFor<any>(aliceTel, 'toast', t => t.message.includes('expérience'), 'l’annonce du gain')
+  ;(pHost as any).emit('host:endSession', { sessionId: pSession })
+  const aLaFinDuQuiz = await creditee
+  assert(
+    aLaFinDuQuiz.xp === attendu && aLaFinDuQuiz.niveau === niveauPour(attendu),
+    `le téléphone d’Alice doit recevoir son profil crédité (${aLaFinDuQuiz.xp} au lieu de ${attendu})`,
+  )
+  assert((await annonce).message === `+${attendu} points d’expérience`, 'et lire ce qu’elle vient de gagner')
+  assert(
+    (await profilDe(aliceCookie)).xp === attendu,
+    'l’expérience est en base dès la fin du quiz, sans attendre l’archivage',
+  )
+
+  // Ranger la soirée recrédite les mêmes chiffres — la ligne est remplacée,
+  // pas ajoutée — et c'est là, en plus, que tombent les badges.
+  const range = waitFor<any>(pHost, 'toast', () => true, 'la soirée rangée')
+  ;(pHost as any).emit('host:archiveParty', { title: 'Soirée des profils' })
+  await range
+  await new Promise(r => setTimeout(r, 400))
+
+  const aliceApres = await profilDe(aliceCookie)
   assert(aliceApres.xp === attendu, `Alice doit gagner ${attendu} points d’expérience, elle en a ${aliceApres.xp}`)
   assert(aliceApres.niveau === niveauPour(attendu), `son niveau doit suivre son expérience (${aliceApres.niveau})`)
   // Chloé a joué et répondu, mais faux et sans podium : elle gagne moins.
@@ -2299,7 +2316,7 @@ try {
     '   statistiques et prix remis à la main, bilan question par question et export, anciennes adresses,',
   )
   console.log('   reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d’une base d’avant les comptes,')
-  console.log('   profils joueurs : inscription, code de secours, rattachement, expérience et badges d’une soirée,')
+  console.log('   profils joueurs : inscription, code de secours, rattachement, expérience créditée dès la fin du quiz et badges à l’archivage,')
   console.log('   entrée : identité prise dans le profil, identifiant libre proposé, homonymes marqués jusque sur l’écran commun et dans l’archive')
   process.exit(0)
 } catch (e) {

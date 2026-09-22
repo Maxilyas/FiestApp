@@ -68,8 +68,13 @@ client/src/views/   une page = un fichier
    l'infériorité. Un profil reconnu, en revanche, **ne rechoisit jamais** son
    prénom ni son avatar : `player:join` sans `name` ni `avatar` les prend
    dans le profil.
-9. **Les profils se créditent dans `archiveParty()`**, avant tout effacement,
-   et de façon idempotente : ranger deux fois une soirée recalcule, ne double pas.
+9. **Les profils se créditent à la fin de chaque quiz**, puis une dernière
+   fois dans `archiveParty()`, avant tout effacement. C'est l'idempotence qui
+   le permet : la ligne `(profil, soirée)` est remplacée, jamais ajoutée.
+   Attendre l'archivage, c'était ne rien donner à celui qui venait de gagner —
+   un animateur range sa soirée quand il y pense, parfois jamais. Les
+   **badges**, eux, restent à l'archivage : ils se décernent sur la soirée
+   entière, et un prix donné trop tôt ne se reprend plus.
 10. **Les dérivations restent pures.** La soirée en cours et une archive
     passent par le même chemin — une amélioration profite aux soirées passées.
 11. **Les homonymes se règlent à l'affichage, jamais à la saisie.** On ne
