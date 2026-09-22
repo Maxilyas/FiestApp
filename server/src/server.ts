@@ -76,23 +76,54 @@ function originOf(url: string | undefined): string | null {
  * En-têtes de durcissement. Le contenu ne vient que de l'application elle-même :
  * aucun script tiers, les deux polices et les photos sont servies ici (les
  * polices tombent sous `default-src 'self'`). Les styles en ligne sont ceux
- * que React pose sur les barres et les podiums.
+ * que React pose sur les barres et les podiums. La politique de contenu
+ * dépend de l'hôte demandé : voir `contentPolicy`.
  */
 const SECURITY_HEADERS: Record<string, string> = {
-  'Content-Security-Policy': [
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+}
+
+/** Un hôte, et rien d'autre : un nom ou une IPv4, ou une IPv6 entre crochets, et un port. */
+const HOST = /^(?:[a-z0-9.-]+|\[[0-9a-f:.]+\])(?::\d{1,5})?$/i
+
+/**
+ * La politique de contenu, pour l'hôte que la page a demandé.
+ *
+ * Le temps réel ne doit parler qu'à ce serveur-ci. `ws: wss:` l'autorisait
+ * vers n'importe quel hôte : un script injecté un jour aurait pu envoyer la
+ * soirée chez lui sans que la politique y trouve à redire. Mais l'adresse
+ * change selon qui regarde — `localhost` pour l'écran commun, `192.168.…:3001`
+ * pour les téléphones du wifi, l'adresse publique derrière le proxy de
+ * l'hébergeur, en https donc en wss. On la reprend de l'en-tête `Host`, qui
+ * est exactement l'hôte que la page va rappeler. `'self'` seul suffirait aux
+ * navigateurs récents, qui l'étendent à ws et wss ; pas aux plus anciens, et
+ * le téléphone d'un invité n'est pas toujours récent.
+ *
+ * `Host` vient du client : il ne décide que de la réponse faite à ce
+ * client-là, et il n'entre dans la politique que s'il a la forme d'un hôte —
+ * sinon `Host: x; script-src *` la réécrirait.
+ *
+ * `frame-ancestors 'none'` : aucune page n'a à encadrer l'application, et un
+ * cadre invisible posé sur une page tierce ferait cliquer à l'insu de qui
+ * regarde. Le cookie `SameSite=Lax` n'y voyagerait déjà pas, mais la page des
+ * invités n'en a pas besoin.
+ */
+function contentPolicy(host: string | undefined): string {
+  const realtime = host && HOST.test(host) ? ` ws://${host} wss://${host}` : ''
+  return [
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
-    "connect-src 'self' ws: wss:",
+    `connect-src 'self'${realtime}`,
     "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-  ].join('; '),
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'same-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+    "frame-ancestors 'none'",
+  ].join('; ')
 }
 
 /** Les pages publiques d'un espace, telles que le client les route. */
@@ -114,8 +145,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Le JS de l'application pèse 320 Ko à nu, 100 Ko compressé — cinquante
   // téléphones en 4G au moment du scan font vite la différence.
   app.use(compression())
-  app.use((_req, res, next) => {
+  app.use((req, res, next) => {
     res.set(SECURITY_HEADERS)
+    res.set('Content-Security-Policy', contentPolicy(req.headers.host))
     next()
   })
 

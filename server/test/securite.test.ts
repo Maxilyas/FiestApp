@@ -1,5 +1,6 @@
 // Les garde-fous de sécurité : où l'on revient après la connexion, ce que
-// coûte un essai raté, et ce qu'une panne laisse lire.
+// coûte un essai raté, ce qu'une panne laisse lire, et ce que la page a le
+// droit de charger.
 //
 // Le serveur tourne « en ligne » : c'est derrière le proxy de l'hébergeur que
 // l'adresse du client se lit dans `X-Forwarded-For`, et c'est la seule façon,
@@ -8,6 +9,7 @@
 // réserves des uns n'entament pas celles des autres.
 import { after, before, describe, test } from 'node:test'
 import assert from 'node:assert/strict'
+import http from 'node:http'
 import { randomBytes } from 'node:crypto'
 import type { AddressInfo } from 'node:net'
 import express from 'express'
@@ -269,6 +271,73 @@ describe('les erreurs', () => {
     } finally {
       console.error = errorAvant
       serveur.close()
+    }
+  })
+})
+
+// ── La politique de contenu ─────────────────────────────────────────────
+
+/** Les en-têtes d'une réponse pour un `Host` donné : `fetch` recalcule le sien depuis l'adresse. */
+function entetes(host: string, extra: Record<string, string> = {}): Promise<http.IncomingHttpHeaders> {
+  const { port } = new URL(banc.url)
+  return new Promise((resolve, reject) => {
+    http
+      .get({ host: 'localhost', port, path: '/healthz', headers: { Host: host, ...extra } }, res => {
+        res.resume()
+        resolve(res.headers)
+      })
+      .on('error', reject)
+  })
+}
+
+/** Les directives d'une politique, chacune avec ses sources. */
+function directives(csp: string | string[] | undefined): Map<string, string[]> {
+  assert.equal(typeof csp, 'string', 'la réponse doit porter une politique de contenu')
+  return new Map(
+    (csp as string)
+      .split(';')
+      .map(d => d.trim().split(/\s+/))
+      .filter(d => d[0])
+      .map(([nom, ...sources]) => [nom, sources]),
+  )
+}
+
+describe('la politique de contenu', () => {
+  test('le temps réel ne parle qu’à l’hôte de la page, et personne ne l’encadre', async () => {
+    const res = await fetch(`${banc.url}/healthz`)
+    const csp = directives(res.headers.get('content-security-policy') ?? undefined)
+    const hote = new URL(banc.url).host
+    assert.deepEqual(csp.get('connect-src'), ["'self'", `ws://${hote}`, `wss://${hote}`])
+    assert.deepEqual(csp.get('frame-ancestors'), ["'none'"])
+    // Le reste ne bouge pas.
+    assert.deepEqual(csp.get('default-src'), ["'self'"])
+    assert.deepEqual(csp.get('script-src'), ["'self'"])
+    assert.deepEqual(csp.get('object-src'), ["'none'"])
+    assert.deepEqual(csp.get('base-uri'), ["'self'"])
+    assert.deepEqual(csp.get('form-action'), ["'self'"])
+  })
+
+  test('l’écran en localhost, les téléphones sur le wifi, l’hébergeur en https : chacun son hôte', async () => {
+    for (const [host, extra] of [
+      ['localhost:3001', {}],
+      ['192.168.1.20:3001', {}],
+      ['[::1]:3001', {}],
+      // Derrière le proxy de l'hébergeur : la page est en https, le temps
+      // réel en wss, et l'en-tête Host reste celui que le navigateur a demandé.
+      ['fiestapp-quizz.onrender.com', { 'X-Forwarded-Proto': 'https', 'X-Forwarded-For': '203.0.113.60' }],
+    ] as const) {
+      const csp = directives((await entetes(host, extra))['content-security-policy'])
+      assert.deepEqual(csp.get('connect-src'), ["'self'", `ws://${host}`, `wss://${host}`], host)
+    }
+  })
+
+  test('un en-tête Host piégé n’écrit rien dans la politique', async () => {
+    for (const host of ['evil.example; script-src *', "evil.example 'unsafe-inline'", 'evil.example,*', '*']) {
+      const brute = (await entetes(host))['content-security-policy'] as string
+      const csp = directives(brute)
+      assert.deepEqual(csp.get('connect-src'), ["'self'"], host)
+      assert.deepEqual(csp.get('script-src'), ["'self'"], host)
+      assert.ok(!brute.includes('evil.example'), `${host} : ${brute}`)
     }
   })
 })
