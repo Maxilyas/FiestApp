@@ -381,17 +381,25 @@ export class ArchiveStore {
       args: [spaceId, ...anciennes.map(l => l.meta.id)],
     })
     const fiches = new Map<string, FicheSoiree>()
+    /** Les archives illisibles : listées vides, mais jamais réécrites. */
+    const illisibles = new Set<string>()
     for (const r of res.rows) {
       let archive = ARCHIVE_VIDE
       try {
         archive = JSON.parse(String(r.data)) as PartyArchive
-      } catch {
-        // Illisible : elle se liste comme une soirée vide, et on ne la relira plus.
+      } catch (e) {
+        // Illisible : une archive abîmée ne doit pas emporter tout
+        // l'historique, elle se liste comme une soirée vide. Mais la panne
+        // se dit au journal — c'est là qu'on la répare —, et son résumé
+        // d'origine reste en base : le remplacer par une fiche vide
+        // effacerait la dernière trace de ce qu'elle contenait.
+        console.error(`[historique] archive illisible « ${String(r.id)} » :`, e)
+        illisibles.add(String(r.id))
       }
       fiches.set(String(r.id), ficheDe(archive))
     }
     const majs = anciennes
-      .filter(l => fiches.has(l.meta.id))
+      .filter(l => fiches.has(l.meta.id) && !illisibles.has(l.meta.id))
       .map(l => ({
         sql: 'UPDATE soirees SET summary = ? WHERE space_id = ? AND id = ? AND summary = ?',
         args: [JSON.stringify(fiches.get(l.meta.id)), spaceId, l.meta.id, l.stocke],

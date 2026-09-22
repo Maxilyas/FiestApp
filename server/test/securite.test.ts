@@ -194,7 +194,7 @@ describe('les erreurs', () => {
     assert.deepEqual(await res.json(), { error: 'Cet identifiant est déjà pris' })
   })
 
-  test('une ligne illisible en base donne un 500 neutre, et le détail part au journal', async () => {
+  test('une ligne illisible en base : l’historique et le renommage tiennent, la relire donne un 500 neutre, et le détail part au journal', async () => {
     const admin = await connexionAnimateur(banc.url)
     const me = (await (await fetch(`${banc.url}/api/auth/me`, { headers: { Cookie: admin } })).json()) as any
     // Une archive abîmée — écriture interrompue, retouche à la main dans la
@@ -212,22 +212,35 @@ describe('les erreurs', () => {
       journal.push(args.map(a => (a instanceof Error ? `${a.name}: ${a.message}` : String(a))).join(' '))
     }
     try {
-      for (const [quoi, reponse] of [
-        ['l’historique public', () => fetch(`${banc.url}/s/${ADMIN.slug}/soirees.json`)],
-        ['une soirée archivée', () => fetch(`${banc.url}/s/${ADMIN.slug}/soirees/abimee/recap.json`)],
-        ['le renommage, derrière la session', () => ecrire(banc.url, '/api/soirees/abimee', { title: 'Autre' }, admin, 'PUT')],
-      ] as const) {
-        const res = await reponse()
-        const texte = await res.text()
-        assert.equal(res.status, 500, `${quoi} : ${texte}`)
-        assert.deepEqual(JSON.parse(texte), NEUTRE, quoi)
-      }
+      // L'historique, lui, reste lisible : une archive abîmée ne doit pas
+      // emporter toutes les autres. Elle s'y liste vide — sans rien recopier
+      // de ce qui est en base.
+      const liste = await fetch(`${banc.url}/s/${ADMIN.slug}/soirees.json`)
+      const texteListe = await liste.text()
+      assert.equal(liste.status, 200, `l’historique public : ${texteListe}`)
+      assert.doesNotMatch(texteListe, /contenu-prive/, 'l’historique ne recopie rien de la ligne abîmée')
+      assert.ok((JSON.parse(texteListe) as any).archives.some((a: any) => a.id === 'abimee'), 'la soirée abîmée reste listée')
+      // La renommer non plus : son titre ne dépend pas de son contenu.
+      const renommee = await ecrire(banc.url, '/api/soirees/abimee', { title: 'Autre' }, admin, 'PUT')
+      const texteRenommee = await renommee.text()
+      assert.equal(renommee.status, 200, `le renommage, derrière la session : ${texteRenommee}`)
+      assert.doesNotMatch(texteRenommee, /contenu-prive/, 'le renommage ne recopie rien de la ligne abîmée')
+      // La relire, elle, n'a pas de sens : un 500 neutre, sans le début de la ligne.
+      const relue = await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/abimee/recap.json`)
+      const texteRelue = await relue.text()
+      assert.equal(relue.status, 500, `une soirée archivée : ${texteRelue}`)
+      assert.deepEqual(JSON.parse(texteRelue), NEUTRE, 'une soirée archivée')
+      // Son résumé d'origine n'a pas été remplacé par une fiche vide.
+      const reste = await base.execute({ sql: 'SELECT summary FROM soirees WHERE id = ?', args: ['abimee'] })
+      assert.equal(String(reste.rows[0]?.summary), abime, 'la ligne abîmée reste telle quelle, pour qu’on puisse la réparer')
     } finally {
       console.error = errorAvant
       await base.execute({ sql: 'DELETE FROM soirees WHERE id = ?', args: ['abimee'] })
       base.close()
     }
-    assert.equal(journal.length, 3, 'chaque panne laisse sa trace au journal')
+    // L'historique la signale au journal, la relecture aussi : le détail est
+    // là où l'on répare, jamais dans la réponse.
+    assert.ok(journal.length >= 2, `chaque panne laisse sa trace au journal : ${journal.join(' | ')}`)
     assert.ok(journal.every(l => l.includes('SyntaxError')), `le journal garde le détail : ${journal.join(' | ')}`)
   })
 
