@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { clientDistant, type Client } from './distante'
+import { tronquer } from '../../../shared/avatars'
 import {
   MAX_ANSWERS,
   MAX_DURATION,
@@ -352,7 +353,7 @@ export class QuizStore {
 // ── Nettoyage des données venant du navigateur ────────────────────────────
 
 function cleanTitle(title: unknown): string {
-  const clean = String(title ?? '').trim().slice(0, 80)
+  const clean = tronquer(String(title ?? '').trim(), 80)
   return clean || 'Quiz sans titre'
 }
 
@@ -367,7 +368,7 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
     const answers: string[] = []
     for (let i = 0; i < MAX_ANSWERS; i++) {
       const a = Array.isArray(q?.answers) ? q.answers[i] : ''
-      answers.push(typeof a === 'string' ? a.slice(0, 120) : '')
+      answers.push(typeof a === 'string' ? tronquer(a, 120) : '')
     }
     const correct = Number(q?.correct)
     const duration = Number(q?.duration)
@@ -379,10 +380,10 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
       id: typeof q?.id === 'string' && QUESTION_ID.test(q.id) ? q.id : newQuestionId(),
       // Les quiz écrits avant l'arrivée des estimations n'ont pas de `kind`.
       kind: q?.kind === 'number' ? 'number' : 'choice',
-      text: typeof q?.text === 'string' ? q.text.slice(0, 300) : '',
+      text: typeof q?.text === 'string' ? tronquer(q.text, 300) : '',
       answers,
       target: q?.target === null || q?.target === undefined || !Number.isFinite(target) ? null : target,
-      unit: typeof q?.unit === 'string' ? q.unit.slice(0, 12) : '',
+      unit: typeof q?.unit === 'string' ? tronquer(q.unit, 12) : '',
       correct: Number.isInteger(correct) && correct >= 0 && correct < MAX_ANSWERS ? correct : 0,
       duration: Number.isFinite(duration)
         ? Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.round(duration)))

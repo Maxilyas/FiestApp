@@ -19,11 +19,16 @@ function parQuiz(vainqueurs: VainqueurDeQuiz[]): VainqueurDeQuiz[][] {
   const cartes: VainqueurDeQuiz[][] = []
   for (const v of vainqueurs) {
     const carte = cartes[cartes.length - 1]
+    // La partie dit qui a gagné ensemble. Sans elle (une page d'avant), on se
+    // rabat sur le titre et le score — un même quiz rejoué et gagné au même
+    // score par quelqu'un d'autre finirait alors sur la même carte.
     const memeQuiz =
       carte &&
-      carte[0].title === v.title &&
-      carte[0].points === v.points &&
-      !carte.some(w => w.name === v.name && w.avatar === v.avatar)
+      (v.sessionId && carte[0].sessionId
+        ? carte[0].sessionId === v.sessionId
+        : carte[0].title === v.title &&
+          carte[0].points === v.points &&
+          !carte.some(w => w.name === v.name && w.avatar === v.avatar))
     if (memeQuiz) carte.push(v)
     else cartes.push([v])
   }

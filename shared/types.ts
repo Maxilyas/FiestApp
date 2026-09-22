@@ -167,8 +167,12 @@ export interface Recap {
   bestShot: { name: string; avatar: string; points: number; reason: string } | null
   /** Celui qui a marqué sur le plus de questions. */
   steadiest: { name: string; avatar: string; count: number } | null
-  /** Le vainqueur de chaque quiz de la soirée — autant de prix à remettre. */
-  quizWinners: { title: string; name: string; avatar: string; points: number }[]
+  /**
+   * Le vainqueur de chaque quiz de la soirée — autant de prix à remettre. Des
+   * ex æquo ont chacun leur ligne, avec la même partie : c'est elle, et pas
+   * le titre, qui dit qu'ils ont gagné ensemble. Absente des pages d'avant.
+   */
+  quizWinners: { title: string; name: string; avatar: string; points: number; sessionId?: string }[]
   /** Présent quand la page relit une soirée archivée plutôt que celle en cours. */
   archive?: ArchiveSummary
   /** L'espace dont la page parle — ses titres, sa date. */

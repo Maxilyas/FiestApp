@@ -155,7 +155,7 @@ export class Teams {
       id: randomUUID(),
       teamId,
       points: Math.max(-50, Math.min(50, value)),
-      reason: (reason ?? '').trim().slice(0, 60) || 'Prix spécial',
+      reason: tronquer((reason ?? '').trim(), 60) || 'Prix spécial',
       createdAt: Date.now(),
     }
     this.bonuses.set(rec.id, rec)

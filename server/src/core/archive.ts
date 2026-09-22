@@ -8,6 +8,7 @@ import { buildReview, resolvePacks, type PlayedPack } from './review'
 import { teamScores, vainqueursDuQuiz } from '../../../shared/teams'
 import { nomAffiche, nomsAffiches } from '../../../shared/homonymes'
 import { vainqueurs } from '../../../shared/classement'
+import { tronquer } from '../../../shared/avatars'
 import type { PublicPlayer, Recap, TeamBonus } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
 import type { ArchiveSummary, PartyArchive } from '../../../shared/archive'
@@ -432,7 +433,7 @@ export class ArchiveStore {
       args: [spaceId, id],
     })
     const kept = existing.rows[0] ? String(existing.rows[0].title) : null
-    const clean = (title ?? '').trim().slice(0, 80)
+    const clean = tronquer((title ?? '').trim(), 80)
     const finalTitle = clean || kept || archiveTitle(heldAt)
     const archivedAt = Date.now()
     // La colonne `summary` porte la fiche, pas le résumé : des faits bruts,
@@ -448,7 +449,7 @@ export class ArchiveStore {
   }
 
   async rename(spaceId: string, id: string, title: unknown): Promise<ArchiveSummary | null> {
-    const clean = String(title ?? '').trim().slice(0, 80)
+    const clean = tronquer(String(title ?? '').trim(), 80)
     if (!ID.test(id) || !clean) return null
     const res = await this.client.execute({
       sql: 'UPDATE soirees SET title = ? WHERE space_id = ? AND id = ?',

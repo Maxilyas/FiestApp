@@ -69,14 +69,15 @@ export function buildRecap(input: RecapInput): Recap {
     // Les lignes d'annulation n'ont pas le titre : on prend la première qui l'a.
     if (!sess.title) sess.title = QUIZ_TITLE.exec(s.reason)?.[1] ?? ''
   }
-  const quizWinners = [...sessions.values()]
-    .sort((a, b) => a.started - b.started)
-    .flatMap(sess =>
+  const quizWinners = [...sessions.entries()]
+    .sort(([, a], [, b]) => a.started - b.started)
+    .flatMap(([sessionId, sess]) =>
       vainqueurs([...sess.totals], ([, points]) => points, ([id]) => nomDe(id), ([id]) => id).map(([id, points]) => ({
         title: sess.title || 'Un quiz',
         name: nomDe(id),
         avatar: byId.get(id)!.avatar,
         points,
+        sessionId,
       })),
     )
 

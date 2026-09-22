@@ -140,9 +140,18 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       const me = accountOf(res)
       const current = typeof req.body?.current === 'string' ? req.body.current : ''
+      // Une session volée — un portable resté ouvert sur « Mon compte » — ne
+      // doit pas pouvoir essayer des mots de passe sans limite : c'est la même
+      // réserve et la même clé que la connexion, qui se ferment ensemble.
+      const cle = `compte:${me.login}`
+      if (!budget.allow(clientIp(req), cle)) {
+        return res.status(429).json({ error: 'Trop d’essais — réessaie dans un quart d’heure' })
+      }
       if (!(await verifyPassword(current, me.passwordHash))) {
+        budget.failed(cle)
         return res.status(400).json({ error: 'Le mot de passe actuel ne correspond pas' })
       }
+      budget.succeeded(cle)
       const problem = passwordProblem(req.body?.next)
       if (problem) return res.status(400).json({ error: problem })
       await auth.setPassword(me.id, req.body.next)

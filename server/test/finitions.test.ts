@@ -509,3 +509,63 @@ test('les essais ratés comptent dans la réserve de la connexion au profil', ()
     },
     { online: true },
   ))
+
+// ── 8. À l'intégration ────────────────────────────────────────────────────
+//
+// Trois restes, trouvés en réunissant les chantiers.
+
+test('un même quiz rejoué et gagné au même score par quelqu’un d’autre garde deux cartes', async () => {
+  // « Culture » joué deux fois : Alice gagne la première partie, Bob la
+  // seconde, au même score. Regroupées par titre et par score, leurs deux
+  // victoires devenaient une seule carte « ex æquo » — qu'elles n'étaient pas.
+  const players = [joueur('alice', 'Alice', { score: 300 }), joueur('bob', 'Bob', { avatar: '🐸', score: 300 })]
+  const scores = [gain('alice', 300, 's1', 'Quiz « Culture » — Q1'), gain('bob', 300, 's3', 'Quiz « Culture » — Q1')]
+  const answers = [reponse('alice', { points: 300 }), reponse('bob', { sessionId: 's3', points: 300 })]
+  const recap = buildRecap({ players, teams: [], bonuses: [], scores, answers })
+  assert.deepEqual(
+    recap.quizWinners.map(v => v.sessionId),
+    ['s1', 's3'],
+    'chaque vainqueur dit de quelle partie il vient',
+  )
+  const souvenir = texteDe(await rendu('components/Trophies', 'Trophies', { recap }))
+  assert.equal(souvenir.match(/de ce quiz/g)?.length, 2, `deux parties, deux cartes : ${souvenir}`)
+  assert.doesNotMatch(souvenir, /ex æquo/)
+})
+
+test('changer le mot de passe d’un compte compte ses échecs, comme la connexion', () =>
+  avecBanc(
+    async banc => {
+      const cookie = await connexionAnimateur(banc.url)
+      // Un portable resté ouvert sur « Mon compte » : la session est là, pas le mot de passe.
+      for (let i = 0; i < 5; i++) {
+        const rate = await depuis(banc, '203.0.113.80', '/api/auth/password', { current: `essai-${i}`, next: 'nouveau-mdp-9' }, cookie)
+        assert.equal(rate.status, 400, `essai ${i + 1} refusé`)
+      }
+      const change = await depuis(banc, '198.51.100.81', '/api/auth/password', { current: ADMIN.password, next: 'nouveau-mdp-9' }, cookie)
+      assert.equal(change.status, 429, 'même le bon mot de passe attend son tour')
+      const connexion = await depuis(banc, '198.51.100.82', '/api/auth/login', { login: ADMIN.login, password: ADMIN.password })
+      assert.equal(connexion.status, 429, 'la connexion paie les essais du changement')
+    },
+    { online: true },
+  ))
+
+test('ce qu’on range se coupe entre deux caractères : titre et unité d’un quiz', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    // Treize unités UTF-16 pour sept caractères : la coupe à douze unités
+    // laissait une moitié d'emoji en base, que plus rien ne réparait.
+    const unite = 'p' + '🍕'.repeat(6)
+    // Quatre-vingt-un caractères, quatre-vingt-une paires moins une.
+    const titre = 'T' + '🎉'.repeat(80)
+    const id = await creerQuiz(
+      banc.url,
+      cookie,
+      [{ kind: 'number', text: 'Combien ?', target: 3, unit: unite, duration: 20, image: null, answers: [], correct: 0 }],
+      titre,
+    )
+    const quiz = (await (await fetch(`${banc.url}/api/quizzes/${id}`, { headers: { Cookie: cookie } })).json()) as any
+    const demiCaractere = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/
+    assert.doesNotMatch(quiz.title, demiCaractere, 'aucun demi-emoji au bout du titre')
+    assert.equal(Array.from(quiz.title as string).length, 80, 'quatre-vingts caractères, pas quatre-vingts unités')
+    assert.equal(quiz.questions[0].unit, unite, 'sept caractères tiennent dans douze')
+  }))

@@ -1,6 +1,7 @@
 import { clientDistant, type Client } from '../core/distante'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword } from './password'
+import { tronquer } from '../../../shared/avatars'
 import {
   isValidLogin,
   isValidSlug,
@@ -242,7 +243,7 @@ export class AuthStore {
    */
   async create(input: { login: unknown; name: unknown; slug: unknown; role?: 'admin' | 'host' }): Promise<AccountRec> {
     const login = normalizeLogin(input.login)
-    const name = String(input.name ?? '').trim().slice(0, 40)
+    const name = tronquer(String(input.name ?? '').trim(), 40)
     const slug = normalizeSlug(input.slug)
     if (!isValidLogin(login)) throw new Error('Identifiant : 2 à 32 caractères, lettres, chiffres, point, tiret')
     if (!name) throw new Error('Il faut un prénom ou un nom')
@@ -296,7 +297,7 @@ export class AuthStore {
   async update(id: string, patch: { name?: unknown; slug?: unknown }): Promise<AccountRec> {
     const rec = this.require(id)
     if (patch.name !== undefined) {
-      const name = String(patch.name ?? '').trim().slice(0, 40)
+      const name = tronquer(String(patch.name ?? '').trim(), 40)
       if (!name) throw new Error('Il faut un prénom ou un nom')
       rec.name = name
     }
