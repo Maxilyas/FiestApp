@@ -1,6 +1,8 @@
 // Le profil d'un joueur récurrent : son niveau, ses finitions d'avatar, le
 // barème d'expérience d'une soirée.
 //
+// Les badges, eux, vivent dans `shared/badges.ts`.
+//
 // Tout ce qui est ici est pur et partagé : le serveur calcule, le client
 // affiche, et le test de bout en bout vérifie la courbe sans lancer de
 // serveur. Rien de ce fichier ne touche à une base.
@@ -12,6 +14,8 @@
 // toujours anonyme, et une soirée où les inscrits marquent plus n'est plus
 // une soirée. Un profil donne de l'expérience, un niveau, des finitions et
 // une mémoire — du prestige et de la durée, jamais de la performance.
+
+import type { BadgePorte } from './badges'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -126,6 +130,23 @@ export function totalGain(g: GainSoiree): number {
 }
 
 /**
+ * Le décompte brut d'une soirée, conservé à côté du gain.
+ *
+ * On pourrait le redéduire du gain en divisant par le barème — mais alors,
+ * retoucher le barème un jour rendrait faux tout ce qui a été écrit avant.
+ * Les chiffres bruts, eux, ne périment pas : ce sont eux que les badges de
+ * carrière additionnent.
+ */
+export interface ReleveSoiree {
+  reponses: number
+  justes: number
+  /** Son rang final sur la soirée ; 0 s'il n'a pas marqué. */
+  rang: number
+  /** Quiz de la soirée remportés. */
+  quiz: number
+}
+
+/**
  * Ce qu'un profil ajoute à une ligne d'écran — classement, podium, pastille.
  *
  * Les trois champs sont facultatifs et restent ABSENTS pour un invité
@@ -153,7 +174,14 @@ export function distinctions(source: Distinctions | undefined | null): Distincti
   }
 }
 
-/** Le profil tel que les écrans le voient. Jamais de haché, jamais de jeton. */
+/**
+ * Le profil tel que les écrans le voient. Jamais de haché, jamais de jeton.
+ *
+ * Volontairement léger : il voyage dans l'accusé de réception d'une
+ * inscription à une soirée, donc à chaque téléphone qui arrive. L'étagère à
+ * badges et l'historique, eux, ne partent que sur demande — voir
+ * `PublicProfileDetail`.
+ */
 export interface PublicProfile {
   id: string
   login: string
@@ -169,4 +197,23 @@ export interface PublicProfile {
   ouvertes: Finition[]
   /** Les emojis qui ont éclaté pour lui. */
   eclats: string[]
+  /** Combien de badges il porte — le détail se demande à part. */
+  badges: number
+}
+
+/** Une soirée jouée, telle que la page profil la relit. */
+export interface SoireeJouee {
+  soireeId: string
+  /** Le nom de l'espace où elle s'est jouée (« chez Bob »), quand on le retrouve. */
+  chez: string | null
+  xp: number
+  gain: GainSoiree
+  releve: ReleveSoiree
+  at: number
+}
+
+/** Le profil au complet, pour sa propre page — et pour elle seule. */
+export interface PublicProfileDetail extends PublicProfile {
+  vitrine: BadgePorte[]
+  soirees: SoireeJouee[]
 }

@@ -11,6 +11,7 @@ import { buildArchive } from './archive'
 import { buildRecap } from './recap'
 import { buildReview, type PlayedPack } from './review'
 import { buildProgress } from './progress'
+import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
 import { ProfileStore } from '../auth/profiles'
@@ -117,11 +118,28 @@ export class SpaceRuntime {
    * verra « rien n'a été effacé », et son prochain essai repartira juste.
    */
   private async creditProfiles(soireeId: string) {
+    const answers = this.answers.all()
     const gains = buildProgress({
       players: this.party.all(),
       scores: this.ledger.all(),
-      answers: this.answers.all(),
+      answers,
     })
+    if (gains.length === 0) return
+
+    // Les prix de la soirée sont déjà calculés pour la page souvenir : ce sont
+    // eux, tels quels, qui font les badges. Pas de second catalogue à tenir,
+    // et ce que la salle a vu proclamer est exactement ce qui se range dans
+    // les étagères.
+    const prix = computeStats(answers, this.party.publicPlayers(this.ledger.allTotals())).awards
+    const parJoueur = new Map<string, typeof prix>()
+    for (const a of prix) {
+      // Les prix d'équipe n'ont pas de lauréat : ils ne font pas de badge.
+      if (!a.player) continue
+      const liste = parJoueur.get(a.player.playerId) ?? []
+      liste.push(a)
+      parJoueur.set(a.player.playerId, liste)
+    }
+
     for (const g of gains) {
       // L'Éclat ne se tire qu'à la première consolidation. Sans ce garde-fou,
       // ranger dix fois la même soirée donnerait dix chances — et l'Éclat ne
@@ -132,11 +150,25 @@ export class SpaceRuntime {
         soireeId,
         spaceId: this.spaceId,
         gain: g.gain,
+        releve: g.releve,
         xp: g.xp,
       })
       if (premiere && ProfileStore.tirageEclat()) {
         await this.deps.profiles.grantEclat(g.profileId, g.avatar, soireeId)
       }
+      for (const a of parJoueur.get(g.playerId) ?? []) {
+        await this.deps.profiles.grantBadge({
+          profileId: g.profileId,
+          badge: a.key,
+          emoji: a.emoji,
+          title: a.title,
+          soireeId,
+          spaceId: this.spaceId,
+        })
+      }
+      // Les badges de carrière viennent en dernier : ils se décident sur les
+      // totaux, expérience et éclat de ce soir compris.
+      await this.deps.profiles.grantCareerBadges(g.profileId, soireeId, this.spaceId)
     }
   }
 

@@ -1,6 +1,7 @@
 import express, { type Express } from 'express'
 import { wrap } from '../core/http'
 import type { ProfileStore } from './profiles'
+import type { AuthStore } from './store'
 import { dummyHash, passwordProblem } from './password'
 import {
   LoginBudget,
@@ -13,6 +14,8 @@ import { Budget } from '../core/budget'
 
 interface ProfileApiDeps {
   profiles: ProfileStore
+  /** Pour dire chez qui une soirée passée s'est jouée, dans l'historique. */
+  auth: AuthStore
   /** En ligne, le cookie ne voyage qu'en HTTPS. */
   online: boolean
 }
@@ -35,6 +38,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
    */
   const inscriptions = new Budget(10, 5, { skipLoopback: true })
   const noStore = (res: express.Response) => res.set('Cache-Control', 'no-store')
+  /** « Chez Bob » plutôt qu'un identifiant, dans l'historique des soirées. */
+  const nomDEspace = (spaceId: string) => deps.auth.byId(spaceId)?.name ?? null
 
   /** Le profil connecté derrière le cookie, ou null. */
   const current = async (req: express.Request) => {
@@ -111,7 +116,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     wrap(async (req, res) => {
       noStore(res)
       const me = await current(req)
-      res.json({ profile: me ? profiles.toPublic(me) : null })
+      // Sa propre page a droit au détail : l'étagère à badges et l'historique.
+      res.json({ profile: me ? await profiles.toDetail(me, nomDEspace) : null })
     }),
   )
 

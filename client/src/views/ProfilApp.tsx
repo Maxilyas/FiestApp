@@ -10,9 +10,11 @@ import {
   NIVEAU_FINITION,
   NOM_FINITION,
   type Finition,
-  type PublicProfile,
+  type PublicProfileDetail,
 } from '../../../shared/profil'
-import { formatNumber } from '../format'
+import { BADGES_CARRIERE } from '../../../shared/badges'
+import { Vitrine, VitrineVide } from '../components/Vitrine'
+import { formatNumber, ordinal } from '../format'
 
 /**
  * La page d'un joueur récurrent : son niveau, ce qu'il a gagné, ses
@@ -22,7 +24,7 @@ import { formatNumber } from '../format'
  * qu'elle montre ne change quoi que ce soit au déroulé d'une partie.
  */
 export function ProfilApp() {
-  const [profil, setProfil] = useState<PublicProfile | null>(null)
+  const [profil, setProfil] = useState<PublicProfileDetail | null>(null)
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
@@ -40,7 +42,10 @@ export function ProfilApp() {
     setBusy(true)
     setErreur('')
     try {
-      setProfil((await api.joueur.enregistrer(patch)).profile)
+      // La route d'écriture rend le profil léger ; l'étagère et l'historique
+      // n'ont pas bougé, on les garde plutôt que de tout redemander.
+      const { profile } = await api.joueur.enregistrer(patch)
+      setProfil(p => (p ? { ...p, ...profile } : p))
     } catch (e) {
       setErreur((e as Error).message)
     } finally {
@@ -57,7 +62,14 @@ export function ProfilApp() {
   }
 
   if (!profil) {
-    return <ProfilForm onDone={setProfil} onCancel={() => (window.location.href = '/')} />
+    // Le formulaire ne rend que le profil léger : on redemande le détail, qui
+    // seul porte l'étagère et l'historique.
+    return (
+      <ProfilForm
+        onDone={() => api.joueur.moi().then(r => setProfil(r.profile))}
+        onCancel={() => (window.location.href = '/')}
+      />
+    )
   }
 
   const brille = (emoji: string) => profil.eclats.includes(emoji)
@@ -164,6 +176,51 @@ export function ProfilApp() {
           par soirée jouée, et c'est l'emoji lui-même qui change de couleurs.
         </p>
       </div>
+
+      <div className="card">
+        <div className="card-head">
+          <h3>
+            <Icon name="award" />
+            Mes badges
+          </h3>
+          {profil.vitrine.length > 0 && <span className="muted small">{profil.vitrine.length}</span>}
+        </div>
+        <Vitrine badges={profil.vitrine} />
+        {/* Montrer ce qui manque donne envie de revenir ; le cacher ne donne
+            rien. Seuls les badges de carrière s'annoncent : les prix de
+            soirée dépendent de ce qui se passe le soir même. */}
+        <VitrineVide
+          manquants={BADGES_CARRIERE.filter(b => !profil.vitrine.some(v => v.key === b.key)).map(b => ({
+            emoji: b.emoji,
+            title: b.title,
+            rule: b.rule,
+          }))}
+        />
+      </div>
+
+      {profil.soirees.length > 0 && (
+        <div className="card">
+          <h3>
+            <Icon name="list" />
+            Mes soirées
+          </h3>
+          {profil.soirees.map(s => (
+            <div key={s.soireeId} className="soiree-row">
+              <span className="soiree-quand">
+                {new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </span>
+              <span className="soiree-detail">
+                {s.chez && `chez ${s.chez} · `}
+                {s.releve.reponses} réponse{s.releve.reponses > 1 ? 's' : ''}
+                {s.releve.justes > 0 && `, ${s.releve.justes} juste${s.releve.justes > 1 ? 's' : ''}`}
+                {/* `ordinal` connaît le « 1ᵉʳ » : à la main, on écrivait « 1ᵉ ». */}
+                {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${ordinal(s.releve.rang)}`}
+              </span>
+              <span className="soiree-xp">+{formatNumber(s.xp)}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {erreur && <p className="error">{erreur}</p>}
 
