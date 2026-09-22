@@ -134,10 +134,13 @@ server/test/        un fichier par thème, un serveur jetable chacun
     expérience). `accounts.profile_id` dit qui tient l'espace : se connecter
     à son profil ouvre alors la console sans rien redemander, et la
     déconnexion la referme — mais seulement celle que CE profil avait
-    ouverte. Pour poser le lien, il faut prouver les deux identités ; après,
-    une seule porte suffit. Ne fusionne pas les deux tables : l'identifiant
-    d'un compte est la clé de partition de dix tables et de toutes les
-    archives.
+    ouverte : chaque session d'animateur retient le profil qui l'a ouverte
+    (`auth_sessions.profile_id`), et toutes celles-là tombent quand son mot
+    de passe change ou que son code de secours sert. Celles du mot de passe
+    du compte ne bougent pas : c'est l'écran commun de la fête. Pour poser
+    le lien, il faut prouver les deux identités ; après, une seule porte
+    suffit. Ne fusionne pas les deux tables : l'identifiant d'un compte est
+    la clé de partition de dix tables et de toutes les archives.
 17. **Les homonymes se règlent à l'affichage, jamais à la saisie.** On ne
     refuse personne et on ne renomme personne : `nomsAffiches()` marque
     « Camille (2) » quand le prénom **et** l'avatar sont partagés, et cette

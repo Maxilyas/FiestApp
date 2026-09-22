@@ -74,10 +74,37 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   const ouvrirConsole = async (req: express.Request, res: express.Response, profileId: string) => {
     const espace = deps.auth.byProfile(profileId)
     if (!espace || espace.disabledAt) return null
-    const token = await deps.auth.createSession(espace.id, req.header('user-agent') ?? '')
+    // La session retient le profil qui l'a ouverte : c'est lui, et lui seul,
+    // qui pourra la refermer (voir `refermerConsoles` et la déconnexion).
+    const token = await deps.auth.createSession(espace.id, req.header('user-agent') ?? '', profileId)
     setSessionCookie(res, token, deps.online)
     await deps.auth.touchLogin(espace.id)
     return deps.auth.publicSpace(espace)
+  }
+
+  /** La console ouverte dans ce navigateur-ci, s'il en porte une. */
+  const consoleIci = (req: express.Request) => {
+    const jeton = readSessionToken(req.header('cookie'))
+    return jeton ? deps.auth.resolveSession(jeton) : null
+  }
+
+  /**
+   * Un secret du profil vient de changer : les consoles qu'il avait ouvertes
+   * se referment, sur tous les appareils.
+   *
+   * Qui avait appris le mot de passe d'un profil rattaché — celui de
+   * l'administrateur, peut-être — s'en était ouvert une pour trente jours, et
+   * la gardait : changer le mot de passe ne fermait que les sessions de
+   * joueur. Celles qu'on a ouvertes avec le mot de passe du compte, elles, ne
+   * bougent pas (voir `revokeProfileSessions`).
+   *
+   * Celle de ce navigateur-ci, si c'est ce profil qui l'avait ouverte, se
+   * rouvre aussitôt : on vient d'y prouver qui l'on est.
+   */
+  const refermerConsoles = async (req: express.Request, res: express.Response, profileId: string) => {
+    const ici = consoleIci(req)?.session.profileId === profileId
+    await deps.auth.revokeProfileSessions(profileId)
+    if (ici) await ouvrirConsole(req, res, profileId)
   }
 
   /** Ce que rend une connexion de joueur : son profil, et son espace s'il en anime un. */
@@ -167,11 +194,12 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       //
       // On ne touche pas à une console qui n'est pas la sienne : un
       // animateur peut très bien piloter sa soirée depuis ce navigateur tout
-      // en y jouant sous un profil qui n'a rien à voir, et ce bouton-là ne
-      // doit pas lui éteindre l'écran commun.
-      const hote = readSessionToken(req.header('cookie'))
-      const ouverte = hote ? deps.auth.resolveSession(hote) : null
-      if (ouverte && me && ouverte.account.profileId === me.id) {
+      // en y jouant, et ce bouton-là ne doit pas lui éteindre l'écran commun.
+      // C'est la session qui dit qui l'a ouverte : on regardait qui tenait
+      // l'espace, et la console ouverte avec le mot de passe du compte
+      // tombait avec le profil de son animateur.
+      const ouverte = consoleIci(req)
+      if (ouverte && me && ouverte.session.profileId === me.id) {
         // `AuthStore` révoque par identifiant de session, `ProfileStore` par
         // jeton : les deux conventions se ressemblent assez pour qu'on s'y
         // trompe, et un jeton passé là ne révoque rien, en silence.
@@ -281,6 +309,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         await profiles.setPassword(me.id, req.body.next)
         await profiles.revokeAll(me.id)
         await openSession(req, res, me.id)
+        await refermerConsoles(req, res, me.id)
         return res.json({ ok: true })
       }
       // Le code de secours se consomme, comme par la porte « mot de passe
@@ -292,6 +321,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       }
       budget.succeeded(cle)
       await openSession(req, res, me.id)
+      await refermerConsoles(req, res, me.id)
       res.json({ ok: true, recovery })
     }),
   )
@@ -320,6 +350,10 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       budget.succeeded(`secours:${login}`)
       const found = await profiles.byLogin(login)
       if (!found) return res.json({ recovery, profile: null, espace: null })
+      // Les consoles que ce profil avait ouvertes tombent, comme au
+      // changement de mot de passe ; celle de qui vient de s'en servir se
+      // rouvre juste en dessous.
+      await deps.auth.revokeProfileSessions(found.id)
       await openSession(req, res, found.id)
       // Le code de secours rouvre la console aussi. C'est assumé : il n'y a
       // pas d'adresse e-mail dans cette application, donc pas d'autre porte

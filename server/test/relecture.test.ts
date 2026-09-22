@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
-import { ADMIN, connexionAnimateur, cookieDe, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { ADMIN, connexionAnimateur, cookieDe, demarrer, ecranCommun, ecrire, inscrireProfil, type Banc } from './banc'
 import type { QuizServerOptions } from '../src/server'
 import { AuthStore } from '../src/auth/store'
 import { QuizStore } from '../src/core/quizStore'
@@ -103,6 +103,8 @@ const SCHEMA_D_AVANT = `
   CREATE TABLE accounts (id TEXT PRIMARY KEY, login TEXT NOT NULL UNIQUE, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
     role TEXT NOT NULL, password_hash TEXT, disabled_at INTEGER, created_at INTEGER NOT NULL, last_login_at INTEGER,
     settings TEXT NOT NULL DEFAULT '{}');
+  CREATE TABLE auth_sessions (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL, user_agent TEXT NOT NULL DEFAULT '');
   CREATE TABLE quizzes (id TEXT PRIMARY KEY, title TEXT NOT NULL, questions TEXT NOT NULL, created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL);
   CREATE TABLE quiz_images (id TEXT PRIMARY KEY, mime TEXT NOT NULL, data TEXT NOT NULL, created_at INTEGER NOT NULL);
@@ -134,7 +136,10 @@ const MIGRATIONS: { nom: string; demarrer: (url: string) => Promise<void>; ajout
         store.close()
       }
     },
-    ajoute: [['accounts', 'profile_id']],
+    ajoute: [
+      ['accounts', 'profile_id'],
+      ['auth_sessions', 'profile_id'],
+    ],
   },
   {
     nom: 'la bibliothèque',
@@ -331,4 +336,79 @@ test('un profil ne change pas en mémoire quand la base permanente refuse de l�
     })
     assert.equal((await ecrire(banc.url, '/api/joueur/deconnexion', {}, tel)).status, 200)
     assert.deepEqual(lire(banc, 'SELECT id FROM profile_sessions WHERE id = ?', empreinte(tel)), [], 'la session est effacée en base')
+  }))
+
+// ── 2. Un secret de profil changé referme les consoles qu'il avait ouvertes ─
+
+test('changer le mot de passe d’un profil referme les consoles qu’il avait ouvertes, et celles-là seulement', () =>
+  avecBanc(async banc => {
+    // La télé de la fête, ouverte avec le mot de passe du compte.
+    const tele = await connexionAnimateur(banc.url)
+    const tv = await ecranCommun(banc.url, tele)
+    // L'administrateur a rattaché son profil de joueur : une seule porte.
+    const inscrit = await ecrire(banc.url, '/api/joueur/inscription', {
+      login: 'anim',
+      password: 'motdepasse1',
+      name: 'Antoine',
+      avatar: '🦊',
+    })
+    const { recovery } = (await inscrit.json()) as { recovery: string }
+    assert.equal((await ecrire(banc.url, '/api/space/profil', { login: 'anim', password: 'motdepasse1' }, tele)).status, 200)
+
+    /** Un appareil qui se connecte au profil : la console s'ouvre avec lui. */
+    const appareil = async (password: string) => {
+      const res = await ecrire(banc.url, '/api/joueur/connexion', { login: 'anim', password })
+      assert.equal(res.status, 200, `connexion au profil avec ${password}`)
+      return { joueur: cookieDe(res, 'qz_joueur'), console: cookieDe(res) }
+    }
+    const ouverte = async (cookie: string) =>
+      (await fetch(`${banc.url}/api/auth/me`, { headers: { Cookie: cookie } })).status === 200
+
+    // Quelqu'un a appris le mot de passe du profil : il s'est connecté, la
+    // console s'est ouverte pour trente jours, et son écran commun avec.
+    const intrus = await appareil('motdepasse1')
+    const ecranIntrus = await ecranCommun(banc.url, intrus.console)
+    const coupe = new Promise(r => ecranIntrus.once('disconnect', r))
+    // Le propriétaire joue depuis son téléphone, connecté à son profil.
+    const tel = await appareil('motdepasse1')
+
+    // Il change son mot de passe de profil : l'intrus est dehors.
+    const change = await ecrire(
+      banc.url,
+      '/api/joueur/mot-de-passe',
+      { current: 'motdepasse1', next: 'nouveau-mdp-2' },
+      `${tel.joueur}; ${tel.console}`,
+    )
+    assert.equal(change.status, 200)
+    assert.equal(await ouverte(intrus.console), false, 'la console de l’intrus se ferme')
+    await coupe
+    // La télé, ouverte avec le mot de passe du compte, ne s'éteint pas.
+    assert.equal(await ouverte(tele), true, 'la console du mot de passe du compte reste ouverte')
+    assert.equal(tv.connected, true, 'et l’écran commun de la fête avec')
+    // Le téléphone qui vient de prouver le mot de passe garde une console : une neuve.
+    assert.equal(await ouverte(tel.console), false)
+    assert.equal(await ouverte(cookieDe(change)), true, 'le téléphone du propriétaire retrouve la sienne')
+
+    // Le code de secours, par cette porte-ci…
+    const tablette = await appareil('nouveau-mdp-2')
+    const parCode = await ecrire(banc.url, '/api/joueur/mot-de-passe', { code: recovery, next: 'troisieme-mdp-3' }, tablette.joueur)
+    assert.equal(parCode.status, 200)
+    assert.equal(await ouverte(tablette.console), false, 'le code de secours ferme aussi les consoles du profil')
+    const { recovery: neuf } = (await parCode.json()) as { recovery: string }
+    // … et par « mot de passe oublié », qui rouvre celle de qui s'en sert.
+    const portable = await appareil('troisieme-mdp-3')
+    const secours = await ecrire(banc.url, '/api/joueur/secours', { login: 'anim', code: neuf, password: 'quatrieme-mdp-4' })
+    assert.equal(secours.status, 200)
+    assert.equal(await ouverte(portable.console), false, 'mot de passe oublié : les consoles du profil se ferment')
+    assert.equal(await ouverte(cookieDe(secours)), true, 'sauf celle qu’il rouvre')
+    assert.equal(await ouverte(tele), true, 'et la télé tient toujours')
+
+    // Se déconnecter du profil referme la console que CE profil avait ouverte
+    // dans ce navigateur — pas celle du mot de passe du compte.
+    const joueur = cookieDe(secours, 'qz_joueur')
+    assert.equal((await ecrire(banc.url, '/api/joueur/deconnexion', {}, `${joueur}; ${tele}`)).status, 200)
+    assert.equal(await ouverte(tele), true, 'la déconnexion du profil n’éteint pas la console du compte')
+    const encore = await appareil('quatrieme-mdp-4')
+    assert.equal((await ecrire(banc.url, '/api/joueur/deconnexion', {}, `${encore.joueur}; ${encore.console}`)).status, 200)
+    assert.equal(await ouverte(encore.console), false, 'elle referme celle qu’il avait ouverte')
   }))

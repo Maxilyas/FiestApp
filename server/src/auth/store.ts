@@ -63,6 +63,13 @@ export interface SessionRec {
   createdAt: number
   expiresAt: number
   lastSeenAt: number
+  /**
+   * Le profil qui a ouvert cette console, quand c'est sa porte qui a servi
+   * (`ouvrirConsole`) ; null pour le mot de passe du compte. C'est ce qui
+   * permet de refermer ses consoles à lui, et à lui seul : quand il se
+   * déconnecte, et partout quand son mot de passe change.
+   */
+  profileId: string | null
 }
 
 const SESSION_MS = 30 * 24 * 3600 * 1000
@@ -105,7 +112,8 @@ export class AuthStore {
            created_at   INTEGER NOT NULL,
            expires_at   INTEGER NOT NULL,
            last_seen_at INTEGER NOT NULL,
-           user_agent   TEXT NOT NULL DEFAULT ''
+           user_agent   TEXT NOT NULL DEFAULT '',
+           profile_id   TEXT
          )`,
         `CREATE INDEX IF NOT EXISTS idx_auth_sessions_account ON auth_sessions(account_id)`,
         `CREATE TABLE IF NOT EXISTS activations (
@@ -132,9 +140,13 @@ export class AuthStore {
       ],
       'write',
     )
-    // Le rattachement au profil joueur est arrivé après les comptes : une
-    // base d'avant ne l'a pas.
+    // Le rattachement au profil joueur est arrivé après les comptes, et le
+    // profil qui ouvre une console après lui : une base d'avant ne les a pas.
+    // Une session d'avant ne porte donc aucun profil, et passe pour ouverte
+    // avec le mot de passe du compte : la porte du profil arrive dans la
+    // même version que cette colonne.
     await ajouterColonne(this.client, 'accounts', 'profile_id', 'TEXT')
+    await ajouterColonne(this.client, 'auth_sessions', 'profile_id', 'TEXT')
     const accounts = await this.client.execute('SELECT * FROM accounts')
     for (const row of accounts.rows) {
       const account = toAccount(row)
@@ -148,6 +160,7 @@ export class AuthStore {
         createdAt: Number(row.created_at),
         expiresAt: Number(row.expires_at),
         lastSeenAt: Number(row.last_seen_at),
+        profileId: row.profile_id === null || row.profile_id === undefined ? null : String(row.profile_id),
       })
     }
   }
@@ -393,13 +406,21 @@ export class AuthStore {
   // ── Sessions ────────────────────────────────────────────────────────────
 
   /** Ouvre une session et rend le jeton brut — la seule fois où il existe côté serveur. */
-  async createSession(accountId: string, userAgent: string): Promise<string> {
+  async createSession(accountId: string, userAgent: string, profileId: string | null = null): Promise<string> {
     const token = newToken()
     const now = Date.now()
-    const rec: SessionRec = { id: fingerprint(token), accountId, createdAt: now, expiresAt: now + SESSION_MS, lastSeenAt: now }
+    const rec: SessionRec = {
+      id: fingerprint(token),
+      accountId,
+      createdAt: now,
+      expiresAt: now + SESSION_MS,
+      lastSeenAt: now,
+      profileId,
+    }
     await this.client.execute({
-      sql: `INSERT INTO auth_sessions (id, account_id, created_at, expires_at, last_seen_at, user_agent) VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [rec.id, accountId, now, rec.expiresAt, now, userAgent.slice(0, 200)],
+      sql: `INSERT INTO auth_sessions (id, account_id, created_at, expires_at, last_seen_at, user_agent, profile_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [rec.id, accountId, now, rec.expiresAt, now, userAgent.slice(0, 200), profileId],
     })
     this.sessions.set(rec.id, rec)
     return token
@@ -451,6 +472,16 @@ export class AuthStore {
   /** Toutes les sessions d'un compte : changement de mot de passe, désactivation. */
   async revokeAllSessions(accountId: string): Promise<void> {
     await this.retirerSessions(s => s.accountId === accountId, { sql: 'DELETE FROM auth_sessions WHERE account_id = ?', args: [accountId] })
+  }
+
+  /**
+   * Les consoles que ce profil a ouvertes, sur tous les appareils : son mot
+   * de passe vient de changer, ou son code de secours de servir. Celles du
+   * mot de passe du compte restent — l'écran commun de la fête ne s'éteint
+   * pas parce que l'animateur a changé son mot de passe de joueur.
+   */
+  async revokeProfileSessions(profileId: string): Promise<void> {
+    await this.retirerSessions(s => s.profileId === profileId, { sql: 'DELETE FROM auth_sessions WHERE profile_id = ?', args: [profileId] })
   }
 
   /**
