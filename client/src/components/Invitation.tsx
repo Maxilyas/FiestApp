@@ -83,7 +83,13 @@ export function LoginForm({
       <button className="btn btn-primary btn-big btn-block" disabled={busy}>
         Entrer
       </button>
-      <p className="join-foot">Mot de passe oublié ? Demande un nouveau lien d'activation à l'administrateur.</p>
+      {/* Celui qui a rattaché son profil n'a plus qu'un mot de passe, et ce
+          n'est pas celui-ci : l'écrire ici lui évite de réveiller
+          l'administrateur pour un lien dont il n'a pas besoin. */}
+      <p className="join-foot">
+        Tu as rattaché ton profil ? <a href="/">Connecte-toi depuis l'accueil</a>. Sinon, mot de passe
+        oublié : demande un nouveau lien d'activation à l'administrateur.
+      </p>
     </form>
   )
 }

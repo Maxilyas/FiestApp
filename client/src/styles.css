@@ -2530,6 +2530,9 @@ h3 > .icon {
 /* ── La page profil ────────────────────────────────────────────────────── */
 
 .profil-tete { margin-bottom: 4px; }
+/* Le profil rattaché, dans « Mon compte » : l'avatar et son niveau côte à côte. */
+.profil-lie { align-items: center; gap: 12px; margin-bottom: 10px; }
+.profil-lie p { margin: 2px 0 0; }
 .profil-identite h2 { display: flex; align-items: center; gap: 8px; }
 
 .finitions {

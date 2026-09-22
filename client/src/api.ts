@@ -41,10 +41,11 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>
 }
 
-/** Qui est connecté, et son espace. */
+/** Qui est connecté, son espace, et le profil joueur qu'il y a rattaché. */
 export interface Me {
   account: PublicAccount
   space: PublicSpace
+  profil?: PublicProfile | null
 }
 
 /** Un lien d'activation : le jeton et sa date limite. */
@@ -89,20 +90,29 @@ export const api = {
    * l'invité anonyme ne passe par aucune de ces routes et ne perd rien.
    */
   joueur: {
-    /** Sans cookie, rend `null` — ce n'est pas une erreur, c'est un invité. */
-    /** Sa propre page : le détail complet, étagère à badges et historique. */
-    moi: () => req<{ profile: PublicProfileDetail | null }>('/api/joueur/moi'),
+    /**
+     * Sa propre page : le détail complet, étagère à badges et historique.
+     * Sans cookie, rend `null` — ce n'est pas une erreur, c'est un invité.
+     * `espace` est la soirée qu'anime ce profil, s'il en anime une.
+     */
+    moi: () => req<{ profile: PublicProfileDetail | null; espace: PublicSpace | null }>('/api/joueur/moi'),
     connexion: (login: string, password: string) =>
-      req<{ profile: PublicProfile }>('/api/joueur/connexion', {
+      req<{ profile: PublicProfile; espace: PublicSpace | null }>('/api/joueur/connexion', {
         method: 'POST',
         body: JSON.stringify({ login, password }),
       }),
     /** Rend le code de secours — la seule fois où il existe en clair. */
     inscription: (input: { login: string; password: string; name: string; avatar: string }) =>
-      req<{ profile: PublicProfile; recovery: string }>('/api/joueur/inscription', {
+      req<{ profile: PublicProfile; espace: PublicSpace | null; recovery: string }>('/api/joueur/inscription', {
         method: 'POST',
         body: JSON.stringify(input),
       }),
+    /**
+     * Rouvre la console de l'espace rattaché. La session d'animateur dure
+     * trente jours, celle du joueur un an : il faut pouvoir la rouvrir sans
+     * retaper quoi que ce soit.
+     */
+    console: () => req<{ espace: PublicSpace }>('/api/joueur/console', { method: 'POST' }),
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
     enregistrer: (patch: { name?: string; avatar?: string; finition?: Finition }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
@@ -110,7 +120,7 @@ export const api = {
       req<{ ok: true }>('/api/joueur/mot-de-passe', { method: 'POST', body: JSON.stringify({ next }) }),
     /** Le code de secours se consomme : on en rend un neuf. */
     secours: (login: string, code: string, password: string) =>
-      req<{ recovery: string; profile: PublicProfile | null }>('/api/joueur/secours', {
+      req<{ recovery: string; profile: PublicProfile | null; espace?: PublicSpace | null }>('/api/joueur/secours', {
         method: 'POST',
         body: JSON.stringify({ login, code, password }),
       }),
@@ -118,6 +128,13 @@ export const api = {
   space: {
     saveSettings: (settings: Partial<SpaceSettings>) =>
       req<{ space: PublicSpace }>('/api/space/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+    /** Rattache son profil joueur à son espace : il faut prouver les deux. */
+    lierProfil: (login: string, password: string) =>
+      req<{ profil: PublicProfile }>('/api/space/profil', {
+        method: 'POST',
+        body: JSON.stringify({ login, password }),
+      }),
+    detacherProfil: () => req<{ profil: null }>('/api/space/profil', { method: 'DELETE' }),
   },
   /** Réservé à l'administrateur : les comptes des autres animateurs. */
   admin: {

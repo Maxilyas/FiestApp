@@ -6,8 +6,8 @@ import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
 import { TeamPicker } from '../components/TeamPicker'
 import { Icon } from '../components/Icon'
-import { JoinHead } from '../components/Invitation'
 import { Entree, type Identite } from '../components/Entree'
+import { FormulaireSoiree } from '../components/Rejoindre'
 import { ProfilForm } from '../components/ProfilForm'
 import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
@@ -188,21 +188,10 @@ export function PlayerApp() {
 
   const toast = s.toast && <div className={`toast toast-${s.toast.kind}`}>{s.toast.message}</div>
 
-  if (spaceError) {
-    return (
-      <div className="join">
-        <div className="join-grow" />
-        <JoinHead eyebrow="Le quiz de la soirée" title="Hmm…" compact sub={spaceError} />
-        <p className="muted small center">
-          Vérifie l'adresse avec ton hôte, ou scanne à nouveau le QR de l'écran.
-        </p>
-        <div className="join-grow" />
-        <a className="btn btn-block" href="/">
-          Chercher la soirée
-        </a>
-      </div>
-    )
-  }
+  // L'adresse ne mène à rien : on redemande le nom de la soirée sur place.
+  // Renvoyer à l'accueil enverrait maintenant sur la page du profil, qui ne
+  // répond pas à la question que se pose celui qui s'est trompé d'adresse.
+  if (spaceError) return <FormulaireSoiree perdu />
 
   // Le premier instantané dit comment la soirée s'appelle, et la réponse de la
   // soirée dit si ce téléphone porte un profil : on ne montre pas un écran

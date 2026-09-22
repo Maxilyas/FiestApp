@@ -38,8 +38,10 @@ client/src/views/   une page = un fichier
 | `core/scores.ts` | journal des gains, en ajout seul |
 | `core/answers.ts` | une ligne par invité et par question posée, y compris sans réponse |
 | `core/recap.ts` `review.ts` `stats.ts` `progress.ts` | **dérivations pures** des journaux |
-| `auth/store.ts` | comptes d'animateurs |
+| `auth/store.ts` | comptes d'animateurs — c'est-à-dire **des espaces** : `accounts.id` EST le `space_id` |
 | `auth/profiles.ts` | profils de joueurs (autre table, autre cookie) |
+| `auth/profileRoutes.ts` | la porte d'entrée : se connecter à son profil ouvre aussi la console de l'espace rattaché |
+| `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins |
 | `sockets.ts` | tout le protocole temps réel |
 | `shared/events.ts` | le contrat socket, typé des deux côtés |
 | `shared/homonymes.ts` | « Camille (2) » : la dérivation pure qui distingue deux invités identiques |
@@ -77,7 +79,17 @@ client/src/views/   une page = un fichier
    entière, et un prix donné trop tôt ne se reprend plus.
 10. **Les dérivations restent pures.** La soirée en cours et une archive
     passent par le même chemin — une amélioration profite aux soirées passées.
-11. **Les homonymes se règlent à l'affichage, jamais à la saisie.** On ne
+11. **Une personne, deux tables — et `accounts.id` ne bouge jamais.** Un
+    compte est un **espace** (slug, réglages, et l'identifiant qui cloisonne
+    tout le reste) ; un profil est une **personne** (prénom, avatar,
+    expérience). `accounts.profile_id` dit qui tient l'espace : se connecter
+    à son profil ouvre alors la console sans rien redemander, et la
+    déconnexion la referme — mais seulement celle que CE profil avait
+    ouverte. Pour poser le lien, il faut prouver les deux identités ; après,
+    une seule porte suffit. Ne fusionne pas les deux tables : l'identifiant
+    d'un compte est la clé de partition de dix tables et de toutes les
+    archives.
+12. **Les homonymes se règlent à l'affichage, jamais à la saisie.** On ne
     refuse personne et on ne renomme personne : `nomsAffiches()` marque
     « Camille (2) » quand le prénom **et** l'avatar sont partagés, et cette
     marque n'est **jamais** écrite en base — elle s'efface d'elle-même quand
@@ -136,9 +148,10 @@ préproduction effacerait de vraies soirées archivées. Hors production,
 
 - Toucher aux barèmes (`CHOICE_POINTS`, `XP`, `CHANCE_ECLAT`…) sans le dire :
   ce sont des choix de produit, pas des constantes techniques.
-- Rendre la connexion obligatoire. L'entrée **est** un écran de connexion, et
-  c'est un choix assumé — mais « Jouer sans compte » y a exactement le format
-  de « Me connecter » et se voit **sans défiler** en 360 × 640, clavier fermé.
+- Rendre la connexion obligatoire. L'entrée d'une soirée **est** un écran de
+  connexion, et l'accueil (`/`) en est un aussi : c'est un choix assumé — mais
+  « Jouer sans compte » et « Rejoindre une soirée » y ont exactement le format
+  de « Me connecter » et se voient **sans défiler** en 360 × 640, clavier fermé.
   Aucun champ n'y a d'`autoFocus` : le clavier pousserait ce bouton-là hors de
   l'écran. **Le chemin anonyme reste la valeur de l'application** ; les profils
   s'y greffent, ne le remplacent pas.

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type ReactNode } from 'react'
 import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { Icon } from './Icon'
@@ -9,7 +9,17 @@ interface Props {
   prefill?: { name: string; avatar: string }
   /** Rendu une fois connecté ou inscrit — au parent de recharger ce qu'il faut. */
   onDone: (profile: PublicProfile) => void
-  onCancel: () => void
+  /** Sans lui, pas de bouton « Revenir » : sur l'accueil, il n'y a rien derrière. */
+  onCancel?: () => void
+  /**
+   * L'échappée, sous les boutons : « Rejoindre une soirée » sur l'accueil.
+   *
+   * Elle a le format de « Me connecter » et se voit sans défiler — personne
+   * n'a jamais besoin d'un profil pour jouer, et cet écran ne doit pas le
+   * laisser croire. Sa présence retire aussi l'`autoFocus` : le clavier
+   * pousserait ce bouton-là hors d'un écran de 360 × 640.
+   */
+  echappee?: ReactNode
 }
 
 /**
@@ -20,7 +30,7 @@ interface Props {
  * obligé d'en passer par là — l'invité anonyme joue exactement comme avant,
  * et c'est le chemin par défaut.
  */
-export function ProfilForm({ prefill, onDone, onCancel }: Props) {
+export function ProfilForm({ prefill, onDone, onCancel, echappee }: Props) {
   const [mode, setMode] = useState<'connexion' | 'inscription' | 'secours'>('connexion')
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
@@ -98,11 +108,19 @@ export function ProfilForm({ prefill, onDone, onCancel }: Props) {
       <h2 className="center">
         <Icon name="sparkles" /> {creation ? 'Créer un profil' : 'Retrouver mon profil'}
       </h2>
-      <p className="muted small center">
-        Un profil garde tes points d'une soirée à l'autre, te fait monter de niveau et débloque des
-        avatars. Il ne change rien au jeu : les points de la soirée se gagnent pareil pour tout le monde.
-      </p>
-      <hr className="hairline" />
+      {/* Avec une échappée, l'explication passe SOUS les boutons — comme à
+          l'entrée d'une soirée. En haut, elle pousse « Rejoindre une
+          soirée » sous la ligne de flottaison d'un 360 × 640, et c'est
+          exactement ce qu'on s'interdit. */}
+      {!echappee && (
+        <>
+          <p className="muted small center">
+            Un profil garde tes points d'une soirée à l'autre, te fait monter de niveau et débloque des
+            avatars. Il ne change rien au jeu : les points de la soirée se gagnent pareil pour tout le monde.
+          </p>
+          <hr className="hairline" />
+        </>
+      )}
       {creation && (
         <div className="field">
           <label className="label" htmlFor="pf-name">
@@ -130,7 +148,7 @@ export function ProfilForm({ prefill, onDone, onCancel }: Props) {
           autoComplete="username"
           autoCapitalize="none"
           maxLength={32}
-          autoFocus
+          autoFocus={!echappee}
         />
       </div>
       <div className="field">
@@ -155,19 +173,26 @@ export function ProfilForm({ prefill, onDone, onCancel }: Props) {
         >
           {creation ? 'Créer mon profil' : 'Me connecter'}
         </button>
-        <button
-          type="button"
-          className="btn btn-ghost"
-          onClick={() => {
-            setError('')
-            setMode(creation ? 'connexion' : 'inscription')
-          }}
-        >
-          {creation ? 'J’ai déjà un profil' : 'Je n’en ai pas encore'}
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={onCancel}>
-          Revenir
-        </button>
+        {/* Sans échappée, l'autre mode est un bouton discret sous le
+            principal. Avec, il passe après le « ou » : c'est là qu'on range
+            tout ce qui n'est pas « je reviens ». */}
+        {!echappee && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              setError('')
+              setMode(creation ? 'connexion' : 'inscription')
+            }}
+          >
+            {creation ? 'J’ai déjà un profil' : 'Je n’en ai pas encore'}
+          </button>
+        )}
+        {onCancel && (
+          <button type="button" className="btn btn-ghost" onClick={onCancel}>
+            Revenir
+          </button>
+        )}
       </div>
       {!creation && (
         <p className="join-foot">
@@ -175,6 +200,28 @@ export function ProfilForm({ prefill, onDone, onCancel }: Props) {
             J'ai oublié mon mot de passe
           </button>
         </p>
+      )}
+      {echappee && (
+        <>
+          <p className="entree-ou">ou</p>
+          <div className="join-actions">
+            {echappee}
+            <button
+              type="button"
+              className="btn btn-big btn-block"
+              onClick={() => {
+                setError('')
+                setMode(creation ? 'connexion' : 'inscription')
+              }}
+            >
+              {creation ? 'J’ai déjà un profil' : 'Créer un profil'}
+            </button>
+          </div>
+          <p className="muted small center join-foot">
+            Un profil retient ton niveau et tes prix d'une soirée à l'autre. Il ne change rien aux
+            points d'un quiz — et rejoindre une soirée n'en demande aucun.
+          </p>
+        </>
       )}
     </form>
   )

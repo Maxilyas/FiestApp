@@ -38,7 +38,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // AVANT de lire le corps : sinon n'importe qui pouvait faire analyser
   // quatre mégaoctets de JSON au serveur sans être connecté.
   app.use('/api', csrfGuard({ online: deps.online, publicOrigin: deps.publicOrigin }))
-  mountAuthApi(app, { auth: deps.auth, online: deps.online, removeAccount: deps.removeAccount })
+  mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount })
   // Les routes du profil joueur passent AVANT la porte : un invité n'a pas
   // de compte d'animateur, et n'a pas à en avoir un pour s'inscrire.
   mountProfileApi(app, { profiles: deps.profiles, auth: deps.auth, online: deps.online })
