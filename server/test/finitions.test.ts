@@ -7,7 +7,8 @@
 // · un « � » au bout d'un nom d'équipe ou d'une unité ;
 // · un export pendu cinq minutes devant une base muette, et un magasin que
 //   l'arrêt du serveur ne refermait jamais ;
-// · une soirée en cours datée de l'arrivée du mauvais invité.
+// · une soirée en cours datée de l'arrivée du mauvais invité ;
+// · un téléphone prêté qui suffisait à voler un profil.
 //
 // Chaque test échouait avant sa correction. Les pages du client se vérifient
 // par leur rendu HTML : deux de ces bogues n'existaient qu'à l'affichage, et
@@ -23,10 +24,13 @@ import {
   ADMIN,
   attendre,
   connexionAnimateur,
+  cookieDe,
   creerQuiz,
   demarrer,
   ecranCommun,
+  ecrire,
   emitAck,
+  inscrireProfil,
   invite,
   lancerQuiz,
   patienter,
@@ -430,3 +434,78 @@ test('l’historique date la soirée en cours de son début figé, pas du premie
     assert.ok(current, 'la soirée continue après la sauvegarde')
     assert.equal(current.since, archives[0].heldAt, 'la soirée en cours et son archive disent la même heure de début')
   }))
+
+// ── 7. Changer le mot de passe d'un profil ────────────────────────────────
+
+/** Une écriture venue d'une adresse donnée, telle que le proxy de l'hébergeur la rapporte. */
+function depuis(banc: Banc, ip: string, chemin: string, body: unknown, cookie?: string) {
+  return fetch(`${banc.url}${chemin}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'quizz',
+      'X-Forwarded-For': ip,
+      ...(cookie && { Cookie: cookie }),
+    },
+    body: JSON.stringify(body),
+  })
+}
+
+test('changer le mot de passe d’un profil demande l’actuel, ou le code de secours', () =>
+  avecBanc(async banc => {
+    const inscrite = await ecrire(banc.url, '/api/joueur/inscription', {
+      login: 'lea',
+      password: 'motdepasse1',
+      name: 'Léa',
+      avatar: '🦉',
+    })
+    assert.equal(inscrite.status, 201)
+    const { recovery } = (await inscrite.json()) as { recovery: string }
+    let cookie = cookieDe(inscrite, 'qz_joueur')
+    const changer = (corps: object) => ecrire(banc.url, '/api/joueur/mot-de-passe', corps, cookie)
+    const ouvre = async (password: string) =>
+      (await ecrire(banc.url, '/api/joueur/connexion', { login: 'lea', password })).status
+
+    // Le téléphone prêté en soirée : la session d'un an suffisait.
+    const sans = await changer({ next: 'vole-pour-de-bon' })
+    assert.equal(sans.status, 400, 'sans le mot de passe actuel, rien ne change')
+    assert.match(((await sans.json()) as any).error, /mot de passe actuel/)
+    const rate = await changer({ current: 'pas-le-bon', next: 'vole-pour-de-bon' })
+    // 400 et pas 401 : la page lirait un 401 comme une session perdue.
+    assert.equal(rate.status, 400, 'un mot de passe actuel faux non plus')
+    assert.equal(await ouvre('vole-pour-de-bon'), 401)
+    assert.equal(await ouvre('motdepasse1'), 200, 'l’ancien mot de passe ouvre toujours le profil')
+
+    // Qui connaît le sien le change.
+    const bon = await changer({ current: 'motdepasse1', next: 'nouveau-mdp-2' })
+    assert.equal(bon.status, 200)
+    cookie = cookieDe(bon, 'qz_joueur')
+    assert.equal(await ouvre('motdepasse1'), 401)
+    assert.equal(await ouvre('nouveau-mdp-2'), 200)
+
+    // Qui l'a oublié passe par son code de secours — qui se consomme.
+    const parCode = await changer({ code: recovery, next: 'troisieme-mdp-3' })
+    assert.equal(parCode.status, 200)
+    const { recovery: neuf } = (await parCode.json()) as { recovery?: string }
+    assert.ok(neuf && neuf !== recovery, 'un code neuf remplace celui qui a servi')
+    cookie = cookieDe(parCode, 'qz_joueur')
+    assert.equal(await ouvre('troisieme-mdp-3'), 200)
+    assert.equal((await changer({ code: recovery, next: 'quatrieme-mdp-4' })).status, 400, 'un code servi ne vaut plus rien')
+  }))
+
+test('les essais ratés comptent dans la réserve de la connexion au profil', () =>
+  avecBanc(
+    async banc => {
+      const cookie = await inscrireProfil(banc.url, 'max', 'Max')
+      for (let i = 0; i < 5; i++) {
+        const rate = await depuis(banc, '203.0.113.70', '/api/joueur/mot-de-passe', { current: `essai-${i}`, next: 'nouveau-mdp-9' }, cookie)
+        assert.equal(rate.status, 400, `essai ${i + 1} refusé`)
+      }
+      // Cinq échecs : le profil est fermé un quart d'heure, par quelque porte qu'on revienne.
+      const connexion = await depuis(banc, '198.51.100.71', '/api/joueur/connexion', { login: 'max', password: 'motdepasse1' })
+      assert.equal(connexion.status, 429, 'la connexion au profil paie les essais du changement')
+      const change = await depuis(banc, '198.51.100.72', '/api/joueur/mot-de-passe', { current: 'motdepasse1', next: 'nouveau-mdp-9' }, cookie)
+      assert.equal(change.status, 429, 'même le bon mot de passe attend son tour')
+    },
+    { online: true },
+  ))

@@ -163,8 +163,8 @@ export const api = {
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
     enregistrer: (patch: { name?: string; avatar?: string; finition?: Finition }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
-    motDePasse: (next: string) =>
-      req<{ ok: true }>('/api/joueur/mot-de-passe', { method: 'POST', body: JSON.stringify({ next }) }),
+    motDePasse: (current: string, next: string) =>
+      req<{ ok: true }>('/api/joueur/mot-de-passe', { method: 'POST', body: JSON.stringify({ current, next }) }),
     /** Le code de secours se consomme : on en rend un neuf. */
     secours: (login: string, code: string, password: string) =>
       req<{ recovery: string; profile: PublicProfile | null; espace?: PublicSpace | null }>('/api/joueur/secours', {

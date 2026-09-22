@@ -2,7 +2,7 @@ import express, { type Express } from 'express'
 import { wrap } from '../core/http'
 import type { ProfileRec, ProfileStore } from './profiles'
 import type { AuthStore } from './store'
-import { dummyHash, passwordProblem } from './password'
+import { dummyHash, passwordProblem, verifyPassword } from './password'
 import {
   clearPlayerCookie,
   clearSessionCookie,
@@ -237,6 +237,16 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     }),
   )
 
+  /**
+   * Changer son mot de passe : il faut prouver qu'on connaît l'actuel — ou
+   * donner son code de secours, pour qui l'a oublié.
+   *
+   * La session seule suffisait. Elle dure un an, et un téléphone se prête en
+   * soirée : le temps de choisir un prénom, l'emprunteur fixait un mot de
+   * passe à lui et fermait toutes les autres sessions. Le profil était perdu
+   * pour de bon — et avec lui la console de l'espace qu'il anime, celle de
+   * l'administrateur si c'est la sienne.
+   */
   app.post(
     '/api/joueur/mot-de-passe',
     small,
@@ -244,12 +254,45 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       noStore(res)
       const me = await current(req)
       if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      // La même clé que la connexion au profil : c'est le même secret qu'on
+      // devine, et deux clés doubleraient les essais contre lui.
+      const cle = `joueur:${me.login}`
+      if (!budget.allow(clientIp(req), cle)) {
+        return res.status(429).json({ error: 'Trop d’essais — réessaie dans un quart d’heure' })
+      }
       const problem = passwordProblem(req.body?.next)
       if (problem) return res.status(400).json({ error: problem })
-      await profiles.setPassword(me.id, req.body.next)
-      await profiles.revokeAll(me.id)
+      const actuel = typeof req.body?.current === 'string' ? req.body.current : ''
+      const code = typeof req.body?.code === 'string' ? req.body.code : ''
+      // Rien à vérifier n'est pas un essai : une page qui n'envoie pas encore
+      // le mot de passe actuel ne doit pas fermer le profil à son porteur.
+      // 400 et jamais 401 : la page lirait un 401 comme une session perdue.
+      if (!actuel && !code) {
+        return res.status(400).json({ error: 'Tape ton mot de passe actuel — ou ton code de secours' })
+      }
+      // Un seul secret vérifié par essai, comparé comme à la connexion : un
+      // haché scrypt, lu en temps constant.
+      if (actuel) {
+        if (!(await verifyPassword(actuel, me.passwordHash))) {
+          budget.failed(cle)
+          return res.status(400).json({ error: 'Mot de passe actuel incorrect — retape-le, ou donne ton code de secours' })
+        }
+        budget.succeeded(cle)
+        await profiles.setPassword(me.id, req.body.next)
+        await profiles.revokeAll(me.id)
+        await openSession(req, res, me.id)
+        return res.json({ ok: true })
+      }
+      // Le code de secours se consomme, comme par la porte « mot de passe
+      // oublié » : on en rend un neuf. Il ferme aussi les autres sessions.
+      const recovery = await profiles.useRecovery(me.login, code, req.body.next, await dummyHash())
+      if (!recovery) {
+        budget.failed(cle)
+        return res.status(400).json({ error: 'Code de secours incorrect — vérifie-le, ou donne ton mot de passe actuel' })
+      }
+      budget.succeeded(cle)
       await openSession(req, res, me.id)
-      res.json({ ok: true })
+      res.json({ ok: true, recovery })
     }),
   )
 
