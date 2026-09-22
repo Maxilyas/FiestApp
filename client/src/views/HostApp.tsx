@@ -413,6 +413,14 @@ export function HostApp() {
                 <Icon name="alert" /> reconnexion…
               </span>
             )}
+            {/* La base en ligne refuse les écritures depuis un moment : la
+                soirée continue ici, mais l'animateur doit le savoir avant de
+                laisser l'hébergeur s'endormir. Discret — la salle le voit aussi. */}
+            {snap.sauvegardeEnRetard && (
+              <span className="pill sauvegarde-pill" role="status">
+                Sauvegarde en retard — la soirée continue
+              </span>
+            )}
           </div>
           <div className="band-center">
             <span>{stageLabel}</span>

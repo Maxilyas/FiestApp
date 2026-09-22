@@ -2875,3 +2875,27 @@ h3 > .icon {
 .import-lues li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .import-lue-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .import-lue-valeur { flex-shrink: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ── La sauvegarde en retard ─────────────────────────────────────────────
+
+   La base en ligne refuse les écritures de la soirée depuis un moment. La
+   fête continue, et la salle n'a pas à s'en inquiéter : pas de rouge vif,
+   pas de majuscules criardes, juste de quoi prévenir l'animateur avant qu'il
+   ne laisse l'hébergeur s'endormir. Elle se resserre plutôt que de pousser
+   le titre hors de la bande. */
+.sauvegarde-pill {
+  /* Un bloc, pas la boîte flexible des autres pastilles : c'est ce qui
+     permet de couper le texte d'une ellipse quand la bande manque de place. */
+  display: block;
+  line-height: 18px;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 12px;
+  color: var(--muted);
+  border-color: rgba(var(--alert-rgb), 0.45);
+}
