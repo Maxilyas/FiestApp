@@ -125,9 +125,11 @@ export function forgetMe(slug: string) {
 /**
  * Ce que ce téléphone a déjà choisi ici.
  *
- * Il sert deux fois : à se re-présenter tout seul après un rafraîchissement,
- * et à savoir que l'entrée a déjà été vue dans cet espace — un écran de
- * connexion qu'on repousse deux fois devient un péage.
+ * Il sert deux fois : à pré-remplir l'entrée quand ce téléphone doit y
+ * repasser — exclu pendant son sommeil, « Nouvelle soirée » : la reconnexion,
+ * elle, ne se fait plus qu'au jeton —, et à savoir que l'entrée a déjà été vue
+ * dans cet espace — un écran de connexion qu'on repousse deux fois devient un
+ * péage.
  */
 export function loadChoix(slug: string): ChoixLocal | null {
   return readJson<ChoixLocal>(choixKey(slug))

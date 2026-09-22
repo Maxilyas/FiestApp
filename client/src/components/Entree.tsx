@@ -581,9 +581,8 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           Ton prénom
         </label>
         {/* Pas d'`autoFocus`, ici non plus : le clavier ouvert d'office
-            poussait « Rejoindre la soirée » hors de l'écran — et faisait
-            clignoter cet écran chez l'habitué qui ne fait qu'y passer, le
-            temps que son inscription automatique aboutisse. */}
+            poussait « Rejoindre la soirée » hors de l'écran — et l'habitué
+            qui revient, écran pré-rempli, n'a souvent rien à retaper. */}
         <input
           id="join-name"
           className="input input-line"

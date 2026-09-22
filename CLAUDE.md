@@ -23,8 +23,9 @@ Deux suites, aucune dépendance de plus, et toujours ni linter ni formateur.
 soirée entière : c'est la référence du chemin normal. `npm test` lance
 `server/test/*.test.ts` avec `node:test` : ce qu'une soirée rejouée d'un bout
 à l'autre ne provoque jamais — pannes, courses, messages malformés,
-redémarrages. Chaque fichier démarre son propre serveur jetable avec
-`server/test/banc.ts`. **Un nouveau comportement arrive avec son test dans
+redémarrages. Chaque fichier qui a besoin d'un serveur démarre le sien,
+jetable, avec `server/test/banc.ts` ; les dérivations pures se testent
+directement. **Un nouveau comportement arrive avec son test dans
 `server/test/`**, qui échoue avant la correction : on n'allonge plus le smoke.
 
 ## La carte du code
