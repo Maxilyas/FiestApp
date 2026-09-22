@@ -38,6 +38,7 @@ import {
   type Socket,
 } from './banc'
 import type { QuizServerOptions } from '../src/server'
+import { erreurMontrable } from '../src/core/http'
 import { AuthStore } from '../src/auth/store'
 import { ProfileStore } from '../src/auth/profiles'
 import { QuizStore } from '../src/core/quizStore'
@@ -1037,4 +1038,68 @@ test('détacher un profil, ou en rattacher un autre, referme les consoles qu’i
     assert.equal(await ouverte(ancienne), false, 'la console de l’ancien profil se ferme')
     assert.equal(await ouverte(cookieDe(await appareil('relais'))), true, 'le nouveau profil ouvre la sienne')
     assert.equal(await ouverte(tele), true, 'et la télé tient toujours')
+  }))
+
+// ── 12. Un doublon que la base refuse se lit « déjà pris » ────────────────
+//
+// La mémoire ne suit qu'après l'écriture (constat 3) : deux demandes
+// simultanées — un double clic sur « Créer le compte », deux renommages
+// croisés, une inscription de profil qu'un réseau hésitant renvoie — passent
+// ensemble la vérification en mémoire, et la base refuse la seconde. Ce
+// refus-là s'affichait « Erreur serveur », alors que le compte venait bel et
+// bien d'être créé.
+
+test('deux demandes simultanées pour le même identifiant ou la même adresse : la seconde lit « déjà pris »', () =>
+  dansUnDossier(async dir => {
+    const store = new AuthStore(`file:${path.join(dir, 'comptes.db')}`)
+    try {
+      await store.init()
+      /** L'une passe, l'autre est refusée avec un message que la page affiche tel quel. */
+      const uneSeule = (issues: PromiseSettledResult<unknown>[], message: string | RegExp) => {
+        assert.equal(issues.filter(i => i.status === 'fulfilled').length, 1, 'une seule demande passe')
+        const refus = issues.find((i): i is PromiseRejectedResult => i.status === 'rejected')?.reason
+        assert.equal(erreurMontrable(refus), true, `un refus lisible, pas « Erreur serveur » : ${refus}`)
+        if (typeof message === 'string') assert.equal((refus as Error).message, message)
+        else assert.match((refus as Error).message, message)
+      }
+      const zoe = { login: 'zoe', name: 'Zoé', slug: 'chez-zoe' }
+      // Le double clic : tout est en double, et la base dit laquelle des deux
+      // contraintes elle a vue en premier — l'une ou l'autre est vraie.
+      uneSeule(await Promise.allSettled([store.create(zoe), store.create(zoe)]), /^(Cet identifiant|Ce nom d’adresse) est déjà pris$/)
+      uneSeule(
+        await Promise.allSettled([
+          store.create({ login: 'lou', name: 'Lou', slug: 'chez-lou' }),
+          store.create({ login: 'lou', name: 'Lou', slug: 'chez-lou-2' }),
+        ]),
+        'Cet identifiant est déjà pris',
+      )
+      uneSeule(
+        await Promise.allSettled([
+          store.create({ login: 'max', name: 'Max', slug: 'chez-max' }),
+          store.create({ login: 'maxime', name: 'Maxime', slug: 'chez-max' }),
+        ]),
+        'Ce nom d’adresse est déjà pris',
+      )
+
+      const x = await store.create({ login: 'xavier', name: 'Xavier', slug: 'chez-xavier' })
+      const y = await store.create({ login: 'yves', name: 'Yves', slug: 'chez-yves' })
+      const renomme = await Promise.allSettled([store.update(x.id, { slug: 'la-fete' }), store.update(y.id, { slug: 'la-fete' })])
+      uneSeule(renomme, 'Ce nom d’adresse est déjà pris')
+      const gagnant = renomme[0].status === 'fulfilled' ? x : y
+      assert.equal(store.bySlug('la-fete')?.id, gagnant.id, 'la mémoire suit celle que la base a gardée')
+      assert.equal(store.list().filter(a => a.slug === 'la-fete').length, 1)
+
+      // Un profil : deux hachages séparent la vérification de l'écriture, et
+      // la fenêtre est d'autant plus large.
+      const profils = new ProfileStore(`file:${path.join(dir, 'comptes.db')}`)
+      try {
+        await profils.init()
+        const lea = { login: 'lea', password: 'motdepasse1', name: 'Léa', avatar: '🦉' }
+        uneSeule(await Promise.allSettled([profils.register(lea), profils.register(lea)]), 'Cet identifiant est déjà pris')
+      } finally {
+        profils.close()
+      }
+    } finally {
+      store.close()
+    }
   }))

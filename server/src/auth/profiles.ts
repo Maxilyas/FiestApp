@@ -337,11 +337,22 @@ export class ProfileStore {
       lastSeenAt: null,
       disabledAt: null,
     }
-    await this.client.execute({
-      sql: `INSERT INTO profiles (id, login, name, avatar, finition, password_hash, recovery_hash, xp, created_at, last_seen_at, disabled_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, NULL)`,
-      args: [rec.id, rec.login, rec.name, rec.avatar, rec.finition, rec.passwordHash, rec.recoveryHash, rec.createdAt],
-    })
+    await this.client
+      .execute({
+        sql: `INSERT INTO profiles (id, login, name, avatar, finition, password_hash, recovery_hash, xp, created_at, last_seen_at, disabled_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, NULL)`,
+        args: [rec.id, rec.login, rec.name, rec.avatar, rec.finition, rec.passwordHash, rec.recoveryHash, rec.createdAt],
+      })
+      .catch(e => {
+        // Deux hachages séparent la vérification du dessus de cette écriture :
+        // deux inscriptions simultanées au même identifiant — un envoi
+        // retenté par un réseau hésitant — y passent ensemble, et la base
+        // refuse la seconde. Elle doit lire « déjà pris », pas « Erreur serveur ».
+        if (String((e as { message?: unknown } | null)?.message ?? '').includes('UNIQUE constraint failed: profiles.login')) {
+          throw new Error('Cet identifiant est déjà pris')
+        }
+        throw e
+      })
     this.profiles.set(rec.id, rec)
     this.eclats.set(rec.id, new Set())
     this.badgeCount.set(rec.id, 0)

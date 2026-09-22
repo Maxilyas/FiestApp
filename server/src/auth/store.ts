@@ -81,6 +81,20 @@ const ACTIVATION_MS = 7 * 24 * 3600 * 1000
 const fingerprint = (token: string) => createHash('sha256').update(token).digest('hex')
 const newToken = () => randomBytes(32).toString('base64url')
 
+/**
+ * La base a le dernier mot sur l'unicité. La mémoire ne suit qu'après
+ * l'écriture : deux demandes simultanées — un double clic sur « Créer le
+ * compte », deux renommages croisés — passent ensemble la vérification en
+ * mémoire, et la base refuse la seconde. Ce refus doit se lire comme si elle
+ * était arrivée après, pas « Erreur serveur » pour un compte bel et bien créé.
+ */
+function siDoublon(e: unknown): never {
+  const message = String((e as { message?: unknown } | null)?.message ?? '')
+  if (message.includes('UNIQUE constraint failed: accounts.login')) throw new Error('Cet identifiant est déjà pris')
+  if (message.includes('UNIQUE constraint failed: accounts.slug')) throw new Error('Ce nom d’adresse est déjà pris')
+  throw e
+}
+
 export class AuthStore {
   private client: Client
   private accounts = new Map<string, AccountRec>()
@@ -319,11 +333,13 @@ export class AuthStore {
       settings: normalizeSettings({}, name),
       profileId: null,
     }
-    await this.client.execute({
-      sql: `INSERT INTO accounts (id, login, name, slug, role, password_hash, disabled_at, created_at, last_login_at, settings)
-            VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL, ?)`,
-      args: [rec.id, rec.login, rec.name, rec.slug, rec.role, rec.createdAt, JSON.stringify(rec.settings)],
-    })
+    await this.client
+      .execute({
+        sql: `INSERT INTO accounts (id, login, name, slug, role, password_hash, disabled_at, created_at, last_login_at, settings)
+              VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL, ?)`,
+        args: [rec.id, rec.login, rec.name, rec.slug, rec.role, rec.createdAt, JSON.stringify(rec.settings)],
+      })
+      .catch(siDoublon)
     this.accounts.set(rec.id, rec)
     return rec
   }
@@ -371,10 +387,12 @@ export class AuthStore {
     }
     const colonnes = Object.keys(champs) as (keyof typeof champs)[]
     if (colonnes.length === 0) return rec
-    await this.client.execute({
-      sql: `UPDATE accounts SET ${colonnes.map(c => `${c} = ?`).join(', ')} WHERE id = ?`,
-      args: [...colonnes.map(c => champs[c]!), id],
-    })
+    await this.client
+      .execute({
+        sql: `UPDATE accounts SET ${colonnes.map(c => `${c} = ?`).join(', ')} WHERE id = ?`,
+        args: [...colonnes.map(c => champs[c]!), id],
+      })
+      .catch(siDoublon)
     Object.assign(rec, champs)
     return rec
   }
