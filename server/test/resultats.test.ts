@@ -10,6 +10,10 @@
 // échouer le seul test qui s'en sert, pas le fichier entier.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { createClient } from '@libsql/client'
 import type { AnswerRow } from '../src/core/answers'
 import type { ScoreEntry } from '../src/core/scores'
 import type { PlayerRec } from '../src/core/party'
@@ -17,8 +21,10 @@ import { computeStats } from '../src/core/stats'
 import { buildRecap } from '../src/core/recap'
 import { buildProgress } from '../src/core/progress'
 import { buildReview } from '../src/core/review'
+import { ArchiveStore, summarize } from '../src/core/archive'
 import * as equipes from '../../shared/teams'
 import { XP } from '../../shared/profil'
+import type { PartyArchive } from '../../shared/archive'
 import type { Award, PublicPlayer, TeamBonus } from '../../shared/types'
 
 // ── De quoi écrire une soirée en quelques lignes ──────────────────────────
@@ -451,4 +457,103 @@ test('un profil ne reçoit qu’un gain par soirée, même s’il tient deux jou
   const aAlice = gains.filter(g => g.profileId === 'profil-alice')
   assert.equal(aAlice.length, 1, 'deux lignes (profil, soirée) : la seconde écraserait la première')
   assert.equal(aAlice[0].playerId, 'p2', 'on garde le meilleur des deux')
+})
+
+// ── 4. L'historique ────────────────────────────────────────────────────────
+
+/** Un dossier jetable, effacé quoi qu'il arrive. */
+async function dansUnDossier(fn: (dir: string) => Promise<void>) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-resultats-'))
+  try {
+    await fn(dir)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+/** Deux Camille au renard : la seconde, arrivée après, gagne la soirée. */
+function soireeDeCamille(): PartyArchive {
+  return {
+    version: 1,
+    players: [
+      { id: 'camille-1', name: 'Camille', avatar: '🦊', teamId: null, createdAt: 1 },
+      { id: 'camille-2', name: 'Camille', avatar: '🦊', teamId: null, createdAt: 2 },
+    ],
+    teams: [],
+    bonuses: [],
+    scores: [gain('camille-1', 100), gain('camille-2', 300, 's1', 'Quiz « Quiz » — Q2')],
+    answers: [reponse('camille-1', { points: 100 }), reponse('camille-2', { qIndex: 1, points: 300 })],
+    packs: {},
+  }
+}
+
+test('l’historique nomme le vainqueur comme le souvenir : « Camille (2) »', () => {
+  const resume = summarize({ id: 'x', title: 'Soirée', heldAt: 1, archivedAt: 2 }, soireeDeCamille())
+  assert.deepEqual(resume.winners, [{ name: 'Camille (2)', avatar: '🦊', points: 300 }])
+})
+
+test('l’historique couronne les équipes comme l’écran de victoire, prix compris', () => {
+  const { teams, bonuses, players } = zebresEtAigles
+  const archive: PartyArchive = {
+    version: 1,
+    players,
+    teams,
+    bonuses,
+    scores: zebresEtAigles.scores(),
+    answers: zebresEtAigles.answers(),
+    packs: {},
+  }
+  const resume = summarize({ id: 'x', title: 'Soirée', heldAt: 1, archivedAt: 2 }, archive)
+  assert.deepEqual(
+    resume.teamWinners.map(t => [t.name, t.points]),
+    [
+      ['Les Aigles', 2],
+      ['Les Zèbres', 2],
+    ],
+    'il prenait la première au quiz seul, sans les prix : « Les Zèbres »',
+  )
+})
+
+test('l’historique se dérive à la lecture, sans relire les archives ni écrire de marque en base', async () => {
+  await dansUnDossier(async dir => {
+    const url = `file:${path.join(dir, 'permanente.db')}`
+    const store = new ArchiveStore(url)
+    await store.init('espace')
+    const brut = createClient({ url })
+    try {
+      await store.save('espace', 'soiree-1', 1, soireeDeCamille(), 'Les Camille')
+      const stocke = String((await brut.execute('SELECT summary FROM soirees')).rows[0].summary)
+      assert.ok(!stocke.includes('Camille (2)'), 'la marque d’homonymie n’est jamais écrite en base')
+
+      const [liste] = await store.list('espace')
+      assert.equal(liste.title, 'Les Camille')
+      assert.deepEqual(liste.winners, [{ name: 'Camille (2)', avatar: '🦊', points: 300 }])
+
+      // Une soirée rangée par l'ancien code : son résumé figé disait
+      // « Camille », sans marque. La liste la redérive, une fois.
+      const ancien = {
+        players: 2,
+        quizzes: 1,
+        questions: 2,
+        winner: { name: 'Camille', avatar: '🦊', points: 300 },
+        teamWinner: null,
+      }
+      await brut.execute({
+        sql: `INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        args: ['espace', 'soiree-0', 'Avant', 0, 0, JSON.stringify(ancien), JSON.stringify(soireeDeCamille())],
+      })
+      const rederivee = (await store.list('espace')).find(s => s.id === 'soiree-0')
+      assert.deepEqual(rederivee?.winners, [{ name: 'Camille (2)', avatar: '🦊', points: 300 }])
+
+      // La liste ne lit plus que les résumés : des archives illisibles ne
+      // l'empêchent pas de s'afficher.
+      await brut.execute(`UPDATE soirees SET data = 'illisible'`)
+      const encore = await store.list('espace')
+      assert.equal(encore.length, 2)
+      assert.ok(encore.every(s => s.winners[0]?.name === 'Camille (2)'))
+    } finally {
+      brut.close()
+      store.close()
+    }
+  })
 })

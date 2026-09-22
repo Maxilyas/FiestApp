@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ArchiveList, ArchiveSummary } from '../../../shared/archive'
 import { formatDay } from '../../../shared/archive'
+import { enumerer } from '../../../shared/classement'
 import { Icon } from '../components/Icon'
 import { confirmDialog, promptDialog } from '../components/Dialog'
 import { SpaceError, SpaceNav, useIsHost } from '../components/SpaceNav'
@@ -180,17 +181,22 @@ function ArchiveCard({
           </div>
         )}
       </div>
-      {(a.winner || a.teamWinner) && (
+      {/* Le résumé est relu à chaque affichage, avec les règles du souvenir :
+          « Camille (2) » plutôt que le prénom nu, et des ex æquo couronnés
+          ensemble, comme sur l'écran de victoire. */}
+      {(a.winners.length > 0 || a.teamWinners.length > 0) && (
         <p className="soiree-winner">
-          {a.winner && (
+          {a.winners.length > 0 && (
             <>
-              <Icon name="trophy" /> {a.winner.avatar} {a.winner.name} · {formatNumber(a.winner.points)} pts
+              <Icon name="trophy" /> {enumerer(a.winners.map(w => `${w.avatar} ${w.name}`))}
+              {a.winners.length > 1 && ', ex æquo'} · {formatNumber(a.winners[0].points)} pts
             </>
           )}
-          {a.winner && a.teamWinner && ' · '}
-          {a.teamWinner && (
+          {a.winners.length > 0 && a.teamWinners.length > 0 && ' · '}
+          {a.teamWinners.length > 0 && (
             <>
-              <Icon name="users" /> {a.teamWinner.emoji} {a.teamWinner.name}
+              <Icon name="users" /> {enumerer(a.teamWinners.map(t => `${t.emoji} ${t.name}`))}
+              {a.teamWinners.length > 1 && ', ex æquo'}
             </>
           )}
         </p>

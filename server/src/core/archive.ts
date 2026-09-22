@@ -5,8 +5,9 @@ import type { TeamRec } from './teams'
 import type { ScoreEntry } from './scores'
 import { buildRecap } from './recap'
 import { buildReview, resolvePacks, type PlayedPack } from './review'
-import { rankTeams, teamScores } from '../../../shared/teams'
-import { nomsAffiches } from '../../../shared/homonymes'
+import { teamScores, vainqueursDuQuiz } from '../../../shared/teams'
+import { nomAffiche, nomsAffiches } from '../../../shared/homonymes'
+import { vainqueurs } from '../../../shared/classement'
 import type { PublicPlayer, Recap, TeamBonus } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
 import type { ArchiveSummary, PartyArchive } from '../../../shared/archive'
@@ -169,25 +170,114 @@ export function reviewOfArchive(a: PartyArchive): Review {
   })
 }
 
-/** Ce que la liste de l'historique montre d'une soirée, sans ouvrir l'archive. */
-export function summarize(
-  meta: { id: string; title: string; heldAt: number; archivedAt: number },
-  a: PartyArchive,
-): ArchiveSummary {
-  const players = archivePlayers(a)
-  const played = new Set(a.answers.map(r => r.playerId))
-  const top = [...players].filter(p => played.has(p.id)).sort((a, b) => b.score - a.score)[0]
-  const teams = rankTeams(teamScores(a.teams, players, a.bonuses))
-  const teamWinner = teams[0] && teams[0].average > 0 ? teams[0] : null
+// ── Le résumé de l'historique ────────────────────────────────────────────
+
+type MetaSoiree = { id: string; title: string; heldAt: number; archivedAt: number }
+
+/**
+ * Ce que l'historique garde de chaque soirée pour la lister sans ouvrir son
+ * archive : des faits bruts — qui est venu, dans quel ordre, sous quel
+ * prénom, avec combien de points — et aucune conclusion.
+ *
+ * L'ancien résumé rangeait des conclusions, figées à l'archivage : le
+ * vainqueur sous son prénom nu (« camille » là où le souvenir dit
+ * « camille (2) »), l'équipe gagnante sans les prix (pas celle de l'écran de
+ * victoire). Aucune amélioration ne les atteignait. La fiche, elle, se relit
+ * avec le code du jour, comme le souvenir, et la marque d'homonymie n'est
+ * jamais écrite en base.
+ *
+ * Et la liste reste légère : une archive pèse jusqu'à plusieurs Mo — le
+ * journal des réponses —, une fiche quelques Ko. Relire les archives à chaque
+ * affichage de l'historique, c'était télécharger toute la base distante.
+ */
+interface FicheSoiree {
+  v: 2
+  /** Tous les invités, dans l'ordre d'arrivée : celui des marques d'homonymie. */
+  invites: { id: string; name: string; avatar: string; teamId: string | null; points: number; joue: boolean }[]
+  equipes: { id: string; name: string; emoji: string; position: number }[]
+  prix: { teamId: string; points: number }[]
+  quiz: number
+  questions: number
+}
+
+/** Les faits bruts d'une archive, ceux que la liste relira. */
+function ficheDe(a: PartyArchive): FicheSoiree {
+  const totals = new Map<string, number>()
+  for (const s of a.scores) totals.set(s.playerId, (totals.get(s.playerId) ?? 0) + s.points)
+  const joue = new Set(a.answers.map(r => r.playerId))
   return {
-    ...meta,
-    players: played.size,
-    quizzes: new Set(a.answers.map(r => r.sessionId)).size,
+    v: 2,
+    invites: [...a.players]
+      .sort((x, y) => x.createdAt - y.createdAt)
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        avatar: p.avatar,
+        teamId: p.teamId,
+        points: totals.get(p.id) ?? 0,
+        joue: joue.has(p.id),
+      })),
+    equipes: a.teams.map(t => ({ id: t.id, name: t.name, emoji: t.emoji, position: t.position })),
+    prix: a.bonuses.map(b => ({ teamId: b.teamId, points: b.points })),
+    quiz: new Set(a.answers.map(r => r.sessionId)).size,
     questions: new Set(a.answers.map(r => `${r.sessionId}#${r.qIndex}`)).size,
-    winner: top && top.score > 0 ? { name: top.name, avatar: top.avatar, points: top.score } : null,
-    teamWinner: teamWinner ? { name: teamWinner.name, emoji: teamWinner.emoji } : null,
   }
 }
+
+/** Une fiche relue en base ; null pour un résumé d'avant les fiches. */
+function lireFiche(texte: string): FicheSoiree | null {
+  try {
+    const f = JSON.parse(texte) as Partial<FicheSoiree> | null
+    return f && f.v === 2 && Array.isArray(f.invites) ? (f as FicheSoiree) : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Le résumé d'une soirée, dérivé de sa fiche avec les règles du jour : les
+ * marques d'homonymie du souvenir, les ex æquo de la règle commune, et pour
+ * les équipes la règle de l'écran de victoire — prix compris.
+ */
+function resumer(meta: MetaSoiree, fiche: FicheSoiree): ArchiveSummary {
+  const marques = nomsAffiches(fiche.invites)
+  const joueurs: PublicPlayer[] = fiche.invites.map(i => ({
+    id: i.id,
+    name: i.name,
+    avatar: i.avatar,
+    connected: false,
+    score: i.points,
+    teamId: i.teamId,
+    ...(marques.has(i.id) && { nomAffiche: marques.get(i.id) }),
+  }))
+  const joue = new Set(fiche.invites.filter(i => i.joue).map(i => i.id))
+  const enTete = vainqueurs(
+    joueurs.filter(p => joue.has(p.id)),
+    p => p.score,
+    nomAffiche,
+    p => p.id,
+  )
+  return {
+    ...meta,
+    players: joue.size,
+    quizzes: fiche.quiz,
+    questions: fiche.questions,
+    winners: enTete.map(p => ({ name: nomAffiche(p), avatar: p.avatar, points: p.score })),
+    teamWinners: vainqueursDuQuiz(teamScores(fiche.equipes, joueurs, fiche.prix)).map(t => ({
+      name: t.name,
+      emoji: t.emoji,
+      points: t.finalPoints,
+    })),
+  }
+}
+
+/** Ce que la liste de l'historique montre d'une soirée — ici, archive en main. */
+export function summarize(meta: MetaSoiree, a: PartyArchive): ArchiveSummary {
+  return resumer(meta, ficheDe(a))
+}
+
+/** Une archive que l'on ne sait plus lire se résume comme une soirée vide. */
+const ARCHIVE_VIDE: PartyArchive = { version: 1, players: [], teams: [], bonuses: [], scores: [], answers: [], packs: {} }
 
 // ── Le rangement ─────────────────────────────────────────────────────────
 
@@ -252,19 +342,63 @@ export class ArchiveStore {
     )
   }
 
-  /** De la plus récente à la plus ancienne. */
+  /**
+   * De la plus récente à la plus ancienne. Ne lit que les fiches : jamais les
+   * archives elles-mêmes, sauf une fois pour une soirée rangée avant les
+   * fiches.
+   */
   async list(spaceId: string): Promise<ArchiveSummary[]> {
     const res = await this.client.execute({
       sql: 'SELECT id, title, held_at, archived_at, summary FROM soirees WHERE space_id = ? ORDER BY held_at DESC',
       args: [spaceId],
     })
-    return res.rows.map(r => ({
-      ...(JSON.parse(String(r.summary)) as ArchiveSummary),
-      id: String(r.id),
-      title: String(r.title),
-      heldAt: Number(r.held_at),
-      archivedAt: Number(r.archived_at),
+    const lignes = res.rows.map(r => ({
+      meta: { id: String(r.id), title: String(r.title), heldAt: Number(r.held_at), archivedAt: Number(r.archived_at) },
+      stocke: String(r.summary),
+      fiche: lireFiche(String(r.summary)),
     }))
+    const anciennes = lignes.filter(l => !l.fiche)
+    if (anciennes.length > 0) {
+      const fiches = await this.refaireFiches(spaceId, anciennes)
+      for (const l of anciennes) l.fiche = fiches.get(l.meta.id) ?? ficheDe(ARCHIVE_VIDE)
+    }
+    return lignes.map(l => resumer(l.meta, l.fiche!))
+  }
+
+  /**
+   * Les soirées rangées avant les fiches n'ont qu'un résumé figé, qu'on ne
+   * peut pas relire avec les règles du jour : on relit leur archive, une
+   * fois, et la fiche prend la place du résumé. La mise à jour ne vaut que si
+   * le résumé est toujours l'ancien — un archivage passé entre-temps a écrit
+   * une fiche plus récente, qu'on n'écrase pas.
+   */
+  private async refaireFiches(
+    spaceId: string,
+    anciennes: { meta: MetaSoiree; stocke: string }[],
+  ): Promise<Map<string, FicheSoiree>> {
+    const res = await this.client.execute({
+      sql: `SELECT id, data FROM soirees WHERE space_id = ? AND id IN (${anciennes.map(() => '?').join(', ')})`,
+      args: [spaceId, ...anciennes.map(l => l.meta.id)],
+    })
+    const fiches = new Map<string, FicheSoiree>()
+    for (const r of res.rows) {
+      let archive = ARCHIVE_VIDE
+      try {
+        archive = JSON.parse(String(r.data)) as PartyArchive
+      } catch {
+        // Illisible : elle se liste comme une soirée vide, et on ne la relira plus.
+      }
+      fiches.set(String(r.id), ficheDe(archive))
+    }
+    const majs = anciennes
+      .filter(l => fiches.has(l.meta.id))
+      .map(l => ({
+        sql: 'UPDATE soirees SET summary = ? WHERE space_id = ? AND id = ? AND summary = ?',
+        args: [JSON.stringify(fiches.get(l.meta.id)), spaceId, l.meta.id, l.stocke],
+      }))
+    // Retirées entre les deux lectures : il n'y a plus rien à réécrire.
+    if (majs.length > 0) await this.client.batch(majs, 'write')
+    return fiches
   }
 
   async get(spaceId: string, id: string): Promise<{ summary: ArchiveSummary; archive: PartyArchive } | null> {
@@ -293,14 +427,16 @@ export class ArchiveStore {
     const clean = (title ?? '').trim().slice(0, 80)
     const finalTitle = clean || kept || archiveTitle(heldAt)
     const archivedAt = Date.now()
-    const summary = summarize({ id, title: finalTitle, heldAt, archivedAt }, archive)
+    // La colonne `summary` porte la fiche, pas le résumé : des faits bruts,
+    // que la liste relira avec les règles du jour.
+    const fiche = ficheDe(archive)
     await this.client.execute({
       sql: `INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(space_id, id) DO UPDATE SET title = excluded.title, held_at = excluded.held_at,
               archived_at = excluded.archived_at, summary = excluded.summary, data = excluded.data`,
-      args: [spaceId, id, finalTitle, heldAt, archivedAt, JSON.stringify(summary), JSON.stringify(archive)],
+      args: [spaceId, id, finalTitle, heldAt, archivedAt, JSON.stringify(fiche), JSON.stringify(archive)],
     })
-    return summary
+    return resumer({ id, title: finalTitle, heldAt, archivedAt }, fiche)
   }
 
   async rename(spaceId: string, id: string, title: unknown): Promise<ArchiveSummary | null> {
