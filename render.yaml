@@ -30,7 +30,7 @@ services:
   # Le nom ne doit pas changer : il fait l'adresse publique, et les QR des
   # tables sont imprimés (jour-j/qr-tables.pdf). Il est laid, tant pis.
   - type: web
-    name: quizz-romane-30
+    name: fiestapp-quizz
     runtime: node
     plan: free
     region: frankfurt
@@ -76,7 +76,7 @@ services:
   # mensuelles de l'offre gratuite ne suffiraient pas à garder deux services
   # éveillés en permanence. On la réveille en ouvrant son adresse.
   - type: web
-    name: fiestapp-preprod
+    name: fiestapp-quizz-preprod
     runtime: node
     plan: free
     region: frankfurt
