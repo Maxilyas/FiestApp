@@ -469,3 +469,45 @@ test('les échecs du code de secours comptent sous sa clé à lui, quelle que so
     },
     { online: true },
   ))
+
+// ── 9. Le client connaît les deux portes ──────────────────────────────────
+
+test('le client change le mot de passe d’un profil avec l’actuel, ou avec le code de secours', () =>
+  avecBanc(async banc => {
+    const inscrit = await ecrire(banc.url, '/api/joueur/inscription', {
+      login: 'noe',
+      password: 'motdepasse1',
+      name: 'Noé',
+      avatar: '🐢',
+    })
+    const { recovery } = (await inscrit.json()) as { recovery: string }
+    let cookie = cookieDe(inscrit, 'qz_joueur')
+
+    // Le module de la page, tel que le navigateur l'exécute : ses appels
+    // partent vers le serveur du banc avec le cookie du profil, et gardent
+    // celui que le serveur repose — le navigateur ferait de même.
+    const { api } = await import(new URL('../../client/src/api.ts', import.meta.url).href)
+    const fetchAvant = globalThis.fetch
+    globalThis.fetch = (async (chemin: string, init?: RequestInit) => {
+      const res = await fetchAvant(`${banc.url}${chemin}`, {
+        ...init,
+        headers: { ...(init?.headers as Record<string, string>), Cookie: cookie },
+      })
+      const pose = /qz_joueur=([^;]+)/.exec(res.headers.get('set-cookie') ?? '')
+      if (pose) cookie = `qz_joueur=${pose[1]}`
+      return res
+    }) as typeof fetch
+    try {
+      assert.deepEqual(await api.joueur.motDePasse({ current: 'motdepasse1', next: 'nouveau-mdp-2' }), { ok: true })
+      // Qui a oublié le sien passe par son code : le neuf revient, pour que
+      // la page le montre — c'est la seule fois où il existe en clair.
+      const parCode = await api.joueur.motDePasse({ code: recovery, next: 'troisieme-mdp-3' })
+      assert.equal(parCode.ok, true)
+      assert.ok(parCode.recovery && parCode.recovery !== recovery, 'un code neuf remplace celui qui a servi')
+    } finally {
+      globalThis.fetch = fetchAvant
+    }
+    const ouvre = async (password: string) => (await ecrire(banc.url, '/api/joueur/connexion', { login: 'noe', password })).status
+    assert.equal(await ouvre('troisieme-mdp-3'), 200)
+    assert.equal(await ouvre('nouveau-mdp-2'), 401)
+  }))
