@@ -31,7 +31,7 @@ export function Leaderboard({ players, compact, highlightId }: Props) {
           <div key={p.id} className={'lb-row' + (p.id === highlightId ? ' me' : '')}>
             <Rank n={rank} />
             <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
-            <span className="lb-name">{p.name}</span>
+            <span className="lb-name">{p.nomAffiche ?? p.name}</span>
             <Niveau niveau={p.niveau} />
             <span className="lb-score">{p.score}</span>
           </div>

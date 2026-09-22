@@ -12,7 +12,15 @@ export interface Me {
   token: string
 }
 
-export interface Profile {
+/**
+ * Le prénom et l'avatar retenus sur CE téléphone pour CET espace.
+ *
+ * Rien à voir avec un profil de joueur (`PublicProfile`, côté serveur, avec
+ * son niveau et ses badges) : ce n'est qu'une commodité locale, celle qui
+ * évite de retaper son prénom après un rafraîchissement. La confusion entre
+ * les deux a failli coûter cher — d'où ce nom-là.
+ */
+export interface ChoixLocal {
   name: string
   avatar: string
 }
@@ -43,7 +51,9 @@ function readJson<T>(key: string): T | null {
 // soirées différentes a une identité dans chacune, et le jeton de l'une ne
 // vaut rien dans l'autre.
 const meKey = (slug: string) => `quizz.me.${slug}`
-const profileKey = (slug: string) => `quizz.profile.${slug}`
+// La clé garde son ancien nom : la renommer ferait oublier leur prénom à tous
+// les téléphones qui ont déjà joué, et leur ferait repasser par l'entrée.
+const choixKey = (slug: string) => `quizz.profile.${slug}`
 
 /** L'invité mémorisé sur ce téléphone pour cet espace, s'il y a joué. */
 export function readMe(slug: string): Me | null {
@@ -86,19 +96,26 @@ export function saveMe(slug: string, me: Me) {
   setState({ me })
 }
 
-/** L'animateur a exclu ce téléphone : il oublie son identité et repart à l'inscription. */
+/** L'animateur a exclu ce téléphone : il oublie son identité et repart à l'entrée. */
 export function forgetMe(slug: string) {
   localStorage.removeItem(meKey(slug))
-  localStorage.removeItem(profileKey(slug))
+  localStorage.removeItem(choixKey(slug))
   setState({ me: null, views: {} })
 }
 
-export function loadProfile(slug: string): Profile | null {
-  return readJson<Profile>(profileKey(slug))
+/**
+ * Ce que ce téléphone a déjà choisi ici.
+ *
+ * Il sert deux fois : à se re-présenter tout seul après un rafraîchissement,
+ * et à savoir que l'entrée a déjà été vue dans cet espace — un écran de
+ * connexion qu'on repousse deux fois devient un péage.
+ */
+export function loadChoix(slug: string): ChoixLocal | null {
+  return readJson<ChoixLocal>(choixKey(slug))
 }
 
-export function saveProfile(slug: string, profile: Profile) {
-  localStorage.setItem(profileKey(slug), JSON.stringify(profile))
+export function saveChoix(slug: string, choix: ChoixLocal) {
+  localStorage.setItem(choixKey(slug), JSON.stringify(choix))
 }
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined

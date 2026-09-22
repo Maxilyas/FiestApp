@@ -62,7 +62,9 @@ export class GameEngine {
   private lastRow: SessionRow | null = null
 
   private vctx: ViewContext = {
-    playerName: id => this.deps.party.get(id)?.name ?? '???',
+    // `nomAffiche` et pas `name` : c'est ce nom-là qui part sur l'écran
+    // commun, et il doit être celui du classement — « Camille (2) » aussi.
+    playerName: id => this.deps.party.nomAffiche(id) ?? '???',
     player: id => this.deps.party.publicOne(id, this.deps.ledger.total(id)),
   }
 
@@ -168,8 +170,15 @@ export class GameEngine {
   /**
    * À l'extinction : ce qui attendait la prochaine fenêtre part tout de suite,
    * et plus rien ne partira après coup.
+   *
+   * Les chronomètres de la partie s'éteignent avec le reste. Sans ça, celui
+   * d'une question en cours sonnait après la fermeture de la base et révélait
+   * dans le vide — « The database connection is not open », et le processus
+   * emporté avec. Leurs échéances, elles, restent dans la ligne persistée :
+   * c'est elle qui les réarme au redémarrage, et on ne vide donc pas la table.
    */
   stop() {
+    if (this.session) for (const t of this.session.timers.values()) clearTimeout(t.handle)
     if (this.mirrorTimer) clearTimeout(this.mirrorTimer)
     this.mirrorTimer = null
     if (this.mirrorDirty && this.lastRow && this.session?.status === 'running') {

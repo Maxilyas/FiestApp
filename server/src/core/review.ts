@@ -2,6 +2,7 @@ import type { AnswerRow } from './answers'
 import { computeStats } from './stats'
 import type { PlayableQuestion } from '../../../shared/library'
 import { rankTeams, teamScores } from '../../../shared/teams'
+import { nomAffiche } from '../../../shared/homonymes'
 import type { PublicPlayer, TeamBonus } from '../../../shared/types'
 import { formatSeconds, sharedRank } from '../../../shared/review'
 import type {
@@ -384,7 +385,7 @@ export function buildReview(input: ReviewInput): Review {
   // ── Les rangs par quiz : partagés à égalité, comme partout ailleurs.
   const sessionRanks = sessionTotals.map(totals => {
     const sorted = [...totals.entries()]
-      .map(([playerId, points]) => ({ playerId, points, name: byId.get(playerId)!.name }))
+      .map(([playerId, points]) => ({ playerId, points, name: nomAffiche(byId.get(playerId)!) }))
       .sort((a, b) => b.points - a.points || byName(a, b))
     return new Map(sorted.map(p => [p.playerId, sharedRank(sorted, p, o => o.points)]))
   })
@@ -397,7 +398,9 @@ export function buildReview(input: ReviewInput): Review {
     const mates = p.teamId ? sortedPlayers.filter(o => o.teamId === p.teamId) : []
     return {
       id: p.id,
-      name: p.name,
+      // Le prénom tel qu'on l'affiche : c'est lui que le bilan imprime, et il
+      // doit dire la même chose que le classement de la soirée.
+      name: nomAffiche(p),
       avatar: p.avatar,
       teamId: p.teamId,
       points: p.score,

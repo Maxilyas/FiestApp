@@ -34,7 +34,7 @@ client/src/views/   une page = un fichier
 | `core/engine.ts` | route actions/commandes/timers vers le module de jeu, persiste, rediffuse les vues filtrées |
 | `games/quiz.ts` | **toutes** les règles : phases, chronomètres, barème, vues |
 | `core/space.ts` | la soirée d'un espace : ses registres, ses salons socket, ses diffusions |
-| `core/party.ts` | le registre des invités (identité par jeton, rattachement au profil) |
+| `core/party.ts` | le registre des invités (identité par jeton, rattachement au profil, marques d'homonymie) |
 | `core/scores.ts` | journal des gains, en ajout seul |
 | `core/answers.ts` | une ligne par invité et par question posée, y compris sans réponse |
 | `core/recap.ts` `review.ts` `stats.ts` `progress.ts` | **dérivations pures** des journaux |
@@ -42,6 +42,8 @@ client/src/views/   une page = un fichier
 | `auth/profiles.ts` | profils de joueurs (autre table, autre cookie) |
 | `sockets.ts` | tout le protocole temps réel |
 | `shared/events.ts` | le contrat socket, typé des deux côtés |
+| `shared/homonymes.ts` | « Camille (2) » : la dérivation pure qui distingue deux invités identiques |
+| `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
 
 ## Les invariants — à ne jamais casser
 
@@ -63,11 +65,20 @@ client/src/views/   une page = un fichier
    traquer.
 8. **Un profil ne donne aucun avantage de jeu**, et un invité anonyme
    n'affiche **rien** : ni « Niv. 0 », ni pastille grise. L'absence, pas
-   l'infériorité.
+   l'infériorité. Un profil reconnu, en revanche, **ne rechoisit jamais** son
+   prénom ni son avatar : `player:join` sans `name` ni `avatar` les prend
+   dans le profil.
 9. **Les profils se créditent dans `archiveParty()`**, avant tout effacement,
    et de façon idempotente : ranger deux fois une soirée recalcule, ne double pas.
 10. **Les dérivations restent pures.** La soirée en cours et une archive
     passent par le même chemin — une amélioration profite aux soirées passées.
+11. **Les homonymes se règlent à l'affichage, jamais à la saisie.** On ne
+    refuse personne et on ne renomme personne : `nomsAffiches()` marque
+    « Camille (2) » quand le prénom **et** l'avatar sont partagés, et cette
+    marque n'est **jamais** écrite en base — elle s'efface d'elle-même quand
+    l'homonyme s'en va. Un prénom sort par trois portes (`publicPlayers`,
+    `publicOne`, `ViewContext.playerName`) : c'est la troisième qu'on oublie,
+    et c'est elle qui écrit sur le vidéoprojecteur.
 
 ## Les conventions
 
@@ -99,7 +110,12 @@ préproduction effacerait de vraies soirées archivées. Hors production,
 - **`smoke.ts` est stateful de bout en bout.** Une soirée jouée insérée au
   milieu casse les assertions d'après (statistiques, bilan, archives). Les
   tests qui jouent une partie complète se mettent **en fin de fichier, sur
-  leur propre serveur jetable** — voir les sections 32 et 33.
+  leur propre serveur jetable** — voir les sections 32, 33 et 34.
+- **Un serveur qu'on ferme doit éteindre ses chronomètres.** Un chrono de
+  question qui sonne après `close()` révèle sur une base fermée et emporte le
+  processus — c'est ce que fait `GameEngine.stop()`. Allonger le smoke suffit
+  à réveiller ce genre de fantôme : le symptôme (« The database connection is
+  not open ») ne désigne jamais la section qui l'a déclenché.
 - **Les accusés socket** doivent tolérer un client qui n'en attend pas :
   `typeof ack === 'function' ? ack : () => {}`. Les scripts d'essai et les
   téléphones restés sur une vieille page n'en envoient pas.
@@ -115,6 +131,10 @@ préproduction effacerait de vraies soirées archivées. Hors production,
 
 - Toucher aux barèmes (`CHOICE_POINTS`, `XP`, `CHANCE_ECLAT`…) sans le dire :
   ce sont des choix de produit, pas des constantes techniques.
-- Ajouter un écran de connexion obligatoire. **Le chemin anonyme en un geste
-  est la valeur de l'application** ; les profils s'y greffent, ne le remplacent pas.
+- Rendre la connexion obligatoire. L'entrée **est** un écran de connexion, et
+  c'est un choix assumé — mais « Jouer sans compte » y a exactement le format
+  de « Me connecter » et se voit **sans défiler** en 360 × 640, clavier fermé.
+  Aucun champ n'y a d'`autoFocus` : le clavier pousserait ce bouton-là hors de
+  l'écran. **Le chemin anonyme reste la valeur de l'application** ; les profils
+  s'y greffent, ne le remplacent pas.
 - Supprimer ou désactiver une assertion du smoke pour la faire passer.

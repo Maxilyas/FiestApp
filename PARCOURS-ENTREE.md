@@ -1,13 +1,18 @@
-# Le parcours d'entrée — le brief
+# Le parcours d'entrée
 
-Ce document est un **prompt** : il décrit, de bout en bout, le parcours qu'un
-invité traverse entre le scan du QR et sa première question. Il se lit seul et
-se colle tel quel dans une session de travail.
+Ce document décrit, de bout en bout, le parcours qu'un invité traverse entre
+le scan du QR et sa première question.
+
+> **C'est fait.** Écrit d'abord comme un brief, il décrit maintenant ce qui
+> tourne : l'entrée (`client/src/components/Entree.tsx`), la dérivation des
+> homonymes (`shared/homonymes.ts`) et la section 34 du smoke. Les écarts
+> entre ce qui était prévu et ce qui a été construit sont notés à leur place,
+> sous la mention « à l'usage ».
 
 Il ne remplace pas `CLAUDE.md` (les invariants du dépôt) ni `README.md` (le
 produit expliqué à un humain) : il les prolonge sur un point précis, **la porte
 d'entrée**, parce que c'est là que se joue la valeur de l'application et que
-c'est là qu'il reste deux questions non résolues :
+c'est là que se posaient deux questions :
 
 1. **Un écran de connexion qui ne retient personne.** L'entrée demande de se
    connecter *avant* le prénom et l'avatar — et « Jouer sans compte » passe
@@ -22,8 +27,9 @@ c'est là qu'il reste deux questions non résolues :
 
 | Ce que c'est | Où | Ce qu'il faut savoir |
 |---|---|---|
-| L'écran d'inscription | `client/src/views/PlayerApp.tsx` | machine à trois étapes `me` → `team` → (`profil`), 439 lignes, elle fait déjà beaucoup |
-| Le formulaire de profil | `client/src/components/ProfilForm.tsx` | connexion **ou** inscription, l'avatar vient du `prefill` de l'écran d'inscription |
+| L'entrée | `client/src/components/Entree.tsx` | les sept écrans, de la connexion à l'équipe ; `PlayerApp.tsx` ne porte plus que la soirée |
+| Le formulaire de profil | `client/src/components/ProfilForm.tsx` | la parenthèse « créer un profil » entre deux quiz, et la page `/profil` |
+| Le code de secours | `client/src/components/Secours.tsx` | partagé entre l'entrée et la page profil — c'est aux deux endroits qu'on le cherche |
 | La page profil | `client/src/views/ProfilApp.tsx` | niveau, finitions, éclats, badges — on n'y vient pas pour jouer |
 | Le registre des invités | `server/src/core/party.ts` | identité par jeton, `bindProfile()`, `findByProfile()` |
 | L'arrivée à la soirée | `server/src/sockets.ts`, `party:watch` / `player:join` | le cookie du profil est lu **dans la poignée de main**, pas dans la charge utile |
@@ -45,17 +51,19 @@ Ce qui marche déjà et qu'il ne faut pas casser :
   points du soir suivent. Le socket est rouvert exprès après la connexion, parce
   que le cookie arrive **après** la poignée de main.
 
-Ce qui manque, et qu'on veut :
+Ce qui manquait, et qu'on a construit :
 
-- Rien ne propose le compte **avant** l'écran prénom+avatar.
-- Un profil reconnu doit quand même **retaper son prénom et retoucher son
-  avatar** : c'est exactement ce qu'on ne veut plus.
-- Les homonymes ne sont traités que par un avertissement en bas d'écran
-  (« ajoute une initiale »), qui demande du travail à l'invité et ne change rien
-  à ce que le vidéoprojecteur affiche.
-- Le code de secours a une route (`/api/joueur/secours`) et une fonction cliente
-  (`api.joueur.secours`) **mais aucun écran** : un mot de passe oublié est
-  aujourd'hui une impasse.
+- **Rien ne proposait le compte avant** l'écran prénom + avatar. C'est
+  l'écran A.
+- **Un profil reconnu devait quand même retaper son prénom et retoucher son
+  avatar.** `player:join` accepte désormais une charge sans `name` ni
+  `avatar` : le serveur les prend dans le profil.
+- **Les homonymes n'étaient traités que par un avertissement** (« ajoute une
+  initiale ») qui demandait du travail à l'invité et ne changeait rien à ce
+  que le vidéoprojecteur affichait. C'est `shared/homonymes.ts`.
+- **Le code de secours avait une route et une fonction cliente, mais aucun
+  écran** : un mot de passe oublié était une impasse. C'est `Secours.tsx` —
+  et ça devenait urgent, puisque la connexion passe désormais en premier.
 
 ---
 
@@ -82,7 +90,8 @@ la laisser repartir en un geste si elle change d'avis.*
 
 ## 3. Les règles non négociables
 
-Les dix invariants de `CLAUDE.md` s'appliquent. Ceux qui mordent ici :
+Les onze invariants de `CLAUDE.md` s'appliquent — le onzième est né de ce
+chantier. Ceux qui mordent ici :
 
 > **La logique de jeu est 100 % serveur.** **Tout est cloisonné par
 > `space_id`.** **L'instantané est dédoublonné et regroupé.** **Un profil ne
@@ -121,8 +130,10 @@ Trois mémoires indépendantes, à ne pas confondre :
 > ⚠️ **Piège de nommage.** La clé `quizz.profile.<slug>` et le type `Profile` de
 > `client/src/state.ts` n'ont **rien à voir** avec le profil joueur
 > (`PublicProfile`) : ce sont juste le prénom et l'emoji retenus localement.
-> Renomme-les (`ChoixLocal`, `quizz.choix.<slug>`) au passage — la confusion coûtera
-> une bêtise à quelqu'un un jour.
+>
+> *À l'usage :* le type est devenu `ChoixLocal`, mais **la clé garde son ancien
+> nom**. La renommer ferait oublier leur prénom à tous les téléphones qui ont
+> déjà joué, et les ferait repasser par l'entrée pour rien.
 
 **La table de décision, à l'arrivée sur `/<espace>` :**
 
@@ -130,7 +141,7 @@ Trois mémoires indépendantes, à ne pas confondre :
 |---|---|
 | un jeton de joueur de cette soirée | **rien** : la salle d'attente, directement (comportement actuel) |
 | un cookie de profil | **Écran B′** « Content de te revoir » — un bouton |
-| un choix local pour cet espace | **Écran B** pré-rempli — l'entrée a déjà été vue ici |
+| un choix local pour cet espace | **rien** : on rejoint tout seul avec le prénom retenu, et l'écran B pré-rempli seulement si ça échoue |
 | rien du tout | **Écran A** — l'entrée, c'est-à-dire la connexion |
 
 ### 4.1 Écran A — L'entrée
@@ -203,8 +214,13 @@ même format que « Me connecter », visible sans défiler.
   rassure : ça marche, il y a du monde.
 
 **Quand on ne le montre pas** : dès que le téléphone porte un cookie de profil
-(on passe à l'écran B′) ou un choix local pour cet espace (on passe à l'écran
-B). Un écran de connexion qu'on repousse deux fois devient un péage.
+(on passe à l'écran B′) ou un choix local pour cet espace. Un écran de
+connexion qu'on repousse deux fois devient un péage.
+
+*À l'usage :* un téléphone qui porte un choix local ne voit **aucun** écran —
+il se re-présente tout seul avec le prénom retenu, comme il le faisait déjà
+après un rafraîchissement. L'écran B pré-rempli n'apparaît que si cette
+re-présentation échoue (soirée complète, par exemple).
 
 ### 4.2 Écran B — Moi (prénom + avatar)
 
@@ -582,16 +598,18 @@ en français, ils disent quoi faire.
 | Entrée, bouton pour passer | **Jouer sans compte** |
 | Entrée, bouton de création | **Créer un profil** |
 | Entrée, note sous les boutons | Un profil retient ton niveau et tes prix d'une soirée à l'autre. Il ne change rien aux points de ce soir. |
-| Entrée, connexion refusée | Identifiant ou mot de passe incorrect — tu peux aussi jouer sans compte. |
+| Entrée, connexion refusée | *(le motif rendu par le serveur)*, puis « Tu peux aussi jouer sans compte, juste en dessous. » sur sa propre ligne |
 | Secours, code perdu | Sans le code, le profil ne se retrouve pas. Tu peux jouer sans compte, ou en créer un neuf. |
 | Retrouvailles | Content de te revoir, **Alice** |
 | Retrouvailles, bouton | **Entrer dans la soirée** |
 | Retrouvailles, liens | Jouer sous un autre prénom ce soir · Ce n'est pas moi |
 | Homonyme, avatar libre | Il y a déjà un Camille — ton 🐼 vous distinguera. |
 | Sécuriser, aide | Ton identifiant te servira à revenir. Au moins 8 caractères pour le mot de passe. |
-| Sécuriser, identifiant pris | « camille » est déjà pris — essaie « camille2 ». |
+| Sécuriser, identifiant pris | « camille » est déjà pris · Essaie « camille2 » — *le prendre* |
 | Sécuriser, sortie | Plus tard — je joue |
-| Secours, titre | Note ce code de secours |
+| Code, titre | Note ce code de secours |
+| Code, bouton | C'est noté — entrer dans la soirée |
+| Secours, titre | Retrouver mon profil |
 | Connexion, lien | J'ai oublié mon mot de passe |
 
 Deux mots à ne **pas** employer : « inscription » (on est déjà inscrit à la
@@ -704,17 +722,16 @@ l'auteur, pas dans le code.
   écartées : demander une initiale fait travailler l'invité, et le nom de
   l'équipe est absent la moitié du temps.
 
-**Restent à confirmer :**
+- ✅ **L'écran de connexion se montre une fois par espace et par téléphone.**
+  Quelqu'un qui a déjà dit « sans compte » chez Romane n'a pas à le redire à
+  la soirée suivante de Romane. Ce qui s'en souvient, c'est le prénom retenu
+  localement : sa seule présence vaut « l'entrée a déjà été vue ici ».
+- ✅ **Un identifiant pris en propose un libre** (« camille2 »), avec le
+  compromis d'énumération assumé et écrit en commentaire dans
+  `auth/profileRoutes.ts`. Un refus sec laisserait debout, dans le noir,
+  quelqu'un qui ne sait pas quoi tenter d'autre.
 
-1. **Quand remontrer l'écran de connexion.** Proposition : une fois par espace
-   et par téléphone — quelqu'un qui a déjà dit « sans compte » chez Romane n'a
-   pas à le redire à la soirée suivante de Romane. Les variantes : à chaque
-   nouvelle soirée (plus insistant, plus de profils créés), ou une fois pour
-   toutes tous espaces confondus (plus discret, mais on ne repropose jamais
-   rien).
-2. **La proposition d'identifiant libre.** Proposition : oui, avec le compromis
-   d'énumération assumé et écrit (§4.4). Sinon : un refus sec, et l'invitée non
-   technique se débrouille.
+**Rien ne reste en suspens.**
 
 ---
 
