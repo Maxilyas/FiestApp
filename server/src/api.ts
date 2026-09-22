@@ -142,8 +142,16 @@ export function mountApi(app: Express, deps: ApiDeps) {
     }),
   )
 
-  // Public : les téléphones affichent les photos pendant la partie.
-  // L'identifiant est un UUID impossible à deviner : c'est lui la clé.
+  // Public, et sans espace : une exception assumée au cloisonnement par
+  // `space_id`. Les téléphones des invités chargent les photos sans session,
+  // et exiger l'espace n'ajouterait rien — son nom est public. L'identifiant
+  // est donc la permission : un UUID v4 tiré au hasard (122 bits), qui ne
+  // s'énumère pas et ne se devine pas. On ne l'apprend qu'en voyant la
+  // question : dans l'éditeur de son espace, à l'écran pendant la partie, ou
+  // dans le bilan public une fois qu'elle est jouée. Celle d'une question pas
+  // encore jouée reste introuvable, même du voisin. Formats bornés à JPEG,
+  // PNG et WebP : jamais de SVG, qui porterait du script. Ce qui ferait
+  // tomber la règle : un identifiant prévisible, ou une route qui les liste.
   app.get(
     '/media/image/:id',
     wrap(async (req, res) => {
