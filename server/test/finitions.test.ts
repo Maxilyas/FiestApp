@@ -3,18 +3,25 @@
 // la salle ou lâchait l'animateur :
 //
 // · un « 4 » sur l'écran commun pour un troisième ex æquo, un bilan qui ne
-//   nommait qu'un vainqueur sur deux, deux cartes pour un même quiz gagné.
+//   nommait qu'un vainqueur sur deux, deux cartes pour un même quiz gagné ;
+// · un « � » au bout d'un nom d'équipe ou d'une unité.
 //
 // Chaque test échouait avant sa correction. Les pages du client se vérifient
 // par leur rendu HTML : deux de ces bogues n'existaient qu'à l'affichage, et
 // c'est l'affichage que la salle lit.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { quizModule } from '../src/games/quiz'
 import { buildReview } from '../src/core/review'
 import { buildRecap } from '../src/core/recap'
+import { initDb } from '../src/core/db'
+import { Teams } from '../src/core/teams'
 import type { AnswerRow } from '../src/core/answers'
 import type { ScoreEntry } from '../src/core/scores'
+import { toPlayable, type QuizQuestionDef } from '../../shared/library'
 import type { PublicPlayer } from '../../shared/types'
 
 // ── Le rendu des pages ────────────────────────────────────────────────────
@@ -231,4 +238,69 @@ test('le souvenir accorde « 1 question marquée », et réunit les ex æquo d�
   assert.equal(souvenir.match(/de ce quiz/g)?.length, 2, `une carte par quiz, pas une par vainqueur : ${souvenir}`)
   assert.match(souvenir, /Culture 🦊 Alice et 🐼 Zoé — 300 points Vainqueurs ex æquo de ce quiz/)
   assert.match(souvenir, /Musique 🐸 Bob — 250 points Vainqueur de ce quiz/)
+})
+
+// ── 3. Couper un texte sans couper un caractère ───────────────────────────
+
+/** Un dossier jetable, effacé quoi qu'il arrive. */
+async function dansUnDossier(fn: (dir: string) => Promise<void> | void) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-finitions-'))
+  try {
+    await fn(dir)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+/** Un demi-emoji : la moitié d'une paire de substitution, que l'écran affiche « � ». */
+const DEMI_CARACTERE = /[\ud800-\udfff]/u
+
+test('les noms et les emojis d’équipe se coupent entre deux caractères, jamais dans un emoji', async () => {
+  await dansUnDossier(dir => {
+    const db = initDb(path.join(dir, 'locale.db'))
+    try {
+      const teams = new Teams(db, 'espace')
+      const x19 = 'X'.repeat(19)
+      const creee = teams.create(`${x19}🎉🎉`, '⭐🎉🎉')
+      if ('error' in creee) throw new Error(creee.error)
+      assert.equal(creee.name, `${x19}🎉`, 'vingt caractères tiennent, emoji compris')
+      assert.equal(creee.emoji, '⭐🎉🎉', 'trois emojis tiennent dans quatre caractères')
+
+      teams.update(creee.id, { name: `${'Y'.repeat(19)}🇫🇷`, emoji: '🏳️‍🌈' })
+      const [modifiee] = teams.all()
+      assert.equal(modifiee.name, 'Y'.repeat(19), 'un drapeau ne se coupe pas en deux lettres')
+      assert.equal(modifiee.emoji, '🏳️‍🌈', 'le drapeau arc-en-ciel reste entier')
+
+      // Et la base dit la même chose : c'est elle qu'on relit au réveil.
+      const [relue] = new Teams(db, 'espace').all()
+      assert.deepEqual([relue.name, relue.emoji], [modifiee.name, modifiee.emoji])
+      for (const s of [creee.name, creee.emoji, modifiee.name, modifiee.emoji]) {
+        assert.ok(!DEMI_CARACTERE.test(s), `demi-caractère dans « ${s} »`)
+      }
+    } finally {
+      db.close()
+    }
+  })
+})
+
+test('l’unité d’une estimation jouée se coupe entre deux caractères', () => {
+  const estimation: QuizQuestionDef = {
+    kind: 'number',
+    text: 'Combien de parts ?',
+    answers: [],
+    correct: 0,
+    target: 8,
+    unit: '',
+    duration: 20,
+    image: null,
+    observeSeconds: null,
+  }
+  const unite = (unit: string) => {
+    const jouable = toPlayable({ ...estimation, unit })
+    assert.equal(jouable?.kind, 'number')
+    return jouable?.kind === 'number' ? jouable.unit : ''
+  }
+  assert.equal(unite(`p${'🍕'.repeat(6)}`), `p${'🍕'.repeat(6)}`, 'sept caractères tiennent dans douze')
+  assert.equal(unite(`parts de ${'🍕'.repeat(4)}`), `parts de ${'🍕'.repeat(3)}`, 'le treizième part entier')
+  assert.ok(!DEMI_CARACTERE.test(unite(`parts de ${'🍕'.repeat(4)}`)))
 })

@@ -187,7 +187,10 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
       kind: 'number',
       text,
       target: q.target,
-      unit: (q.unit ?? '').trim().slice(0, 12),
+      // Coupée par caractère, comme à l'import : « parts de 🍕🍕🍕🍕 » coupé
+      // en unités UTF-16 gardait une moitié de pizza, affichée « � » sur le
+      // mur à côté de la bonne réponse.
+      unit: tronquer((q.unit ?? '').trim(), 12),
       duration,
       image,
       observeSeconds,
