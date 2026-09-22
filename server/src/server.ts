@@ -52,6 +52,23 @@ export interface QuizServerOptions {
   appEnv?: string
 }
 
+/**
+ * Le mot de passe d'amorçage quand `ADMIN_PASSWORD` n'est pas donné. Il est
+ * écrit dans le dépôt : chez soi il dépanne, en ligne il ne crée rien.
+ */
+export const MOT_DE_PASSE_PAR_DEFAUT = 'romane'
+
+/**
+ * Un démarrage refusé pour une raison que l'hébergeur doit lire telle quelle :
+ * le message dit quoi faire, la pile n'apprendrait rien de plus.
+ */
+export class DemarrageRefuse extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'DemarrageRefuse'
+  }
+}
+
 /** Première IP locale non interne — l'adresse que les téléphones doivent ouvrir. */
 function lanAddress(): string | null {
   const all = Object.values(os.networkInterfaces())
@@ -175,6 +192,19 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const auth = new AuthStore(opts.quizDbUrl, opts.quizDbToken)
   await auth.init()
   const hadAccounts = auth.count() > 0
+  // Le mot de passe d'amorçage ne sert qu'à créer l'administrateur, sur une
+  // base encore vide : c'est là, et seulement là, qu'il doit être un vrai.
+  // Exigé à chaque démarrage, il empêchait la production de se réveiller une
+  // fois la variable retirée — ce que la documentation demande de faire, et
+  // sur l'offre gratuite chaque réveil est un démarrage.
+  if (!hadAccounts && opts.online && (!opts.admin.password || opts.admin.password === MOT_DE_PASSE_PAR_DEFAUT)) {
+    auth.close()
+    db.close()
+    throw new DemarrageRefuse(
+      'ADMIN_PASSWORD manquant : la base n’a encore aucun compte, et en ligne l’administrateur ne se crée pas avec le mot de passe par défaut. ' +
+        'Définis ADMIN_PASSWORD dans les variables du service ; une fois le compte créé, tu pourras la retirer.',
+    )
+  }
   const defaultSpace = await auth.ensureDefaultSpace(opts.admin)
   if (!hadAccounts) console.log(`[comptes] administrateur « ${opts.admin.login} » créé, espace « ${opts.admin.slug} »`)
 
