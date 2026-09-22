@@ -19,7 +19,8 @@
     "verify": "npm run check && npm run test && npm run build && npm run smoke",
     "migrate": "npm run migrate -w server --",
     "load": "npm run load -w server --",
-    "export": "npm run export -w server --"
+    "export": "npm run export -w server --",
+    "sauvegarde": "npm run sauvegarde -w server --"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
