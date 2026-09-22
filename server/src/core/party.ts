@@ -231,20 +231,22 @@ export class Party {
     return moved
   }
 
-  /** Exclut un invité et efface ses points — y compris dans la sauvegarde. */
+  /**
+   * Exclut un invité : sa fiche, ici et dans la sauvegarde. Ses gains et ses
+   * réponses ont leurs registres, qui les effacent eux-mêmes — voir
+   * `SpaceRuntime.exclure`, qui les appelle tous.
+   */
   remove(playerId: string): boolean {
     if (!this.players.delete(playerId)) return false
     this.marquesCache = null
     this.connections.delete(playerId)
-    this.db.prepare('DELETE FROM score_entries WHERE player_id = ?').run(playerId)
     this.db.prepare('DELETE FROM players WHERE id = ?').run(playerId)
     this.backup?.deletePlayer(playerId)
     return true
   }
 
-  /** Vide la soirée de cet espace : on repart de zéro invité, zéro point. */
+  /** Vide les invités de cet espace. Les points, eux, sont au journal des gains, qui se vide lui-même. */
   clearAll() {
-    this.db.prepare('DELETE FROM score_entries WHERE space_id = ?').run(this.spaceId)
     this.db.prepare('DELETE FROM players WHERE space_id = ?').run(this.spaceId)
     this.players.clear()
     this.marquesCache = null

@@ -43,21 +43,29 @@ export class ScoreLedger {
     this.backup?.saveScore({ uid, playerId, sessionId: sessionId ?? null, points, reason, createdAt })
   }
 
-  /** Après une remise à zéro de la soirée : les totaux en mémoire aussi. */
+  /**
+   * Après une remise à zéro de la soirée : le journal de l'espace, et ses
+   * totaux en mémoire. Le miroir, lui, s'efface d'un bloc (`PartyMirror.reset`).
+   */
   clearAll() {
+    this.db.prepare('DELETE FROM score_entries WHERE space_id = ?').run(this.spaceId)
     this.totals.clear()
   }
 
   /**
-   * Un invité exclu : ses gains partent avec lui. `Party.remove` effaçait
-   * déjà ses lignes, ici et dans le miroir, mais pas le total gardé en
-   * mémoire — le journal et son agrégat ne disaient plus la même chose. Les
-   * lignes sont effacées ici aussi : c'est sans effet si elles sont déjà
-   * parties, et le registre reste juste quel que soit l'ordre des appels.
+   * Un invité exclu : ses gains partent avec lui, ici, dans le total gardé en
+   * mémoire, et au miroir.
+   *
+   * Le registre des gains est le seul propriétaire de ses lignes. `Party`
+   * les effaçait aussi, ici et — par l'effacement de l'invité — au miroir,
+   * mais pas le total en mémoire : deux propriétaires pour un même
+   * effacement, dont chacun croyait l'autre inutile, et un journal qui ne
+   * disait plus la même chose que son agrégat.
    */
   removePlayer(playerId: string) {
     this.db.prepare('DELETE FROM score_entries WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
     this.totals.delete(playerId)
+    this.backup?.deletePlayerScores(playerId)
   }
 
   total(playerId: string): number {

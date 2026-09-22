@@ -374,12 +374,21 @@ export class SpaceRuntime {
    * dans cette liste, et rien ne se passe.
    */
   exclure(playerId: string): boolean {
-    if (!this.party.remove(playerId)) return false
-    // Ses gains et ses réponses partent avec lui : il ne doit plus peser
-    // sur les prix, ni sur la question en cours.
-    this.ledger.removePlayer(playerId)
-    this.answers.removePlayer(playerId)
-    this.engine.dropParticipant(playerId)
+    if (!this.party.get(playerId)) return false
+    // Chaque registre efface ses lignes, et le miroir reçoit le tout — la
+    // partie sans lui comprise — en une seule transaction : un réveil sur
+    // disque effacé ne recharge jamais les gains d'un invité disparu.
+    this.mirror.ouvrirLot()
+    try {
+      this.party.remove(playerId)
+      // Ses gains et ses réponses partent avec lui : il ne doit plus peser
+      // sur les prix, ni sur la question en cours.
+      this.ledger.removePlayer(playerId)
+      this.answers.removePlayer(playerId)
+      this.engine.dropParticipant(playerId)
+    } finally {
+      this.mirror.fermerLot()
+    }
     this.broadcastSnapshot()
     // Son téléphone repart sur l'écran d'inscription, et sa connexion
     // n'incarne plus personne.

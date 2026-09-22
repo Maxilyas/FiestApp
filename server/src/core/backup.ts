@@ -48,12 +48,21 @@ export interface PartyMirror {
    */
   saveSession(row: SessionRow): void
   saveScore(entry: GainMiroir): void
+  /**
+   * La fiche d'un invité exclu. Ses gains et ses réponses ne partent pas
+   * avec : chaque registre efface ses propres lignes, ici comme en local.
+   */
   deletePlayer(playerId: string): void
+  /** Les gains d'un invité exclu — le registre des gains le demande. */
+  deletePlayerScores(playerId: string): void
+  /** Les réponses d'un invité exclu — le journal des réponses le demande. */
+  deletePlayerAnswers(playerId: string): void
   deleteTeam(teamId: string): void
   /**
    * Ouvre un lot : jusqu'à `fermerLot()`, les gains, les réponses, leurs
-   * effacements et l'état de la partie s'y accumulent, puis partent ensemble
-   * en UNE transaction. Les lots s'emboîtent ; seul le dernier fermé envoie.
+   * effacements, ceux d'un invité exclu et l'état de la partie s'y
+   * accumulent, puis partent ensemble en UNE transaction. Les lots
+   * s'emboîtent ; seul le dernier fermé envoie.
    */
   ouvrirLot(): void
   /** Vrai si le lot ouvert porte déjà des gains, des réponses ou des effacements. */
@@ -457,15 +466,14 @@ export class PartyBackup {
         if (voie.lot) voie.lot.etat = etat
         else this.pousser(voie, envoi([], etat))
       },
-      deletePlayer: playerId =>
-        this.pousser(
-          voie,
-          envoi([
-            ligne('DELETE FROM party_scores WHERE player_id = ?', [playerId], true),
-            ligne('DELETE FROM party_answers WHERE player_id = ?', [playerId], true),
-            ligne('DELETE FROM party_players WHERE id = ?', [playerId], true),
-          ]),
-        ),
+      // Chaque registre efface ses lignes. Dans le lot ouvert, s'il y en a un
+      // — l'exclusion en ouvre un —, les trois partent ensemble, en une seule
+      // transaction : un réveil sur disque effacé ne recharge jamais des
+      // gains ou des réponses sans leur invité.
+      deletePlayer: playerId => ajouter([ligne('DELETE FROM party_players WHERE id = ?', [playerId], true)]),
+      deletePlayerScores: playerId => ajouter([ligne('DELETE FROM party_scores WHERE player_id = ?', [playerId], true)]),
+      deletePlayerAnswers: playerId =>
+        ajouter([ligne('DELETE FROM party_answers WHERE player_id = ?', [playerId], true)]),
       /** L'équipe disparaît ; ses membres sont mis à jour séparément par `Party`. */
       deleteTeam: teamId => this.pousser(voie, envoi([ligne('DELETE FROM party_teams WHERE id = ?', [teamId], true)])),
       ouvrirLot: () => {

@@ -110,9 +110,14 @@ export class AnswerLog {
     this.db.prepare('DELETE FROM answer_log WHERE space_id = ?').run(this.spaceId)
   }
 
-  /** Un invité exclu ne doit plus peser sur les statistiques. */
+  /**
+   * Un invité exclu ne doit plus peser sur les statistiques — ni ici, ni au
+   * miroir : c'est ce journal qui en demande l'effacement, comme il y demande
+   * l'écriture de ses lignes.
+   */
   removePlayer(playerId: string) {
-    this.db.prepare('DELETE FROM answer_log WHERE player_id = ?').run(playerId)
+    this.db.prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
+    this.backup?.deletePlayerAnswers(playerId)
   }
 }
 

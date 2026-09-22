@@ -18,20 +18,29 @@ import {
   attendre,
   connexionAnimateur,
   cookieDe,
+  creerQuiz,
   demarrer,
   ecranCommun,
   ecrire,
   emitAck,
   inscrireProfil,
   invite,
+  lancerQuiz,
+  patienter,
+  qcm,
   type Banc,
   type Invite,
+  type Socket,
 } from './banc'
 import type { QuizServerOptions } from '../src/server'
 import { AuthStore } from '../src/auth/store'
 import { QuizStore } from '../src/core/quizStore'
-import { PartyBackup } from '../src/core/backup'
+import { PartyBackup, type PartyMirror } from '../src/core/backup'
 import { BaseMuette } from '../src/core/distante'
+import { initDb } from '../src/core/db'
+import { Party } from '../src/core/party'
+import { ScoreLedger } from '../src/core/scores'
+import { AnswerLog } from '../src/core/answers'
 
 // ── Outils ────────────────────────────────────────────────────────────────
 
@@ -83,10 +92,14 @@ const empreinte = (cookie: string) => createHash('sha256').update(cookie.split('
  */
 async function enPanne<T>(banc: Banc, cibles: string[], fn: () => Promise<T>): Promise<T> {
   const base = new Database(permanente(banc))
-  const errorAvant = console.error
-  console.error = (...args: unknown[]) => {
-    if (!args.some(a => String(a).includes('panne simulée'))) errorAvant(...args)
-  }
+  const { error, warn } = console
+  const filtre =
+    (sortie: (...args: unknown[]) => void) =>
+    (...args: unknown[]) => {
+      if (!args.some(a => String(a).includes('panne simulée'))) sortie(...args)
+    }
+  console.error = filtre(error)
+  console.warn = filtre(warn)
   try {
     cibles.forEach((cible, i) =>
       base.exec(`CREATE TRIGGER panne_${i} BEFORE ${cible} BEGIN SELECT RAISE(ABORT, 'panne simulée'); END`),
@@ -95,7 +108,64 @@ async function enPanne<T>(banc: Banc, cibles: string[], fn: () => Promise<T>): P
   } finally {
     cibles.forEach((_, i) => base.exec(`DROP TRIGGER IF EXISTS panne_${i}`))
     base.close()
-    console.error = errorAvant
+    Object.assign(console, { error, warn })
+  }
+}
+
+/** Attend qu'une condition devienne vraie — ou échoue, en disant laquelle. */
+async function jusqua(cond: () => boolean | Promise<boolean>, label: string, timeoutMs = 8000) {
+  const limite = Date.now() + timeoutMs
+  while (Date.now() < limite) {
+    if (await cond()) return
+    await patienter(40)
+  }
+  throw new Error(`délai dépassé en attendant : ${label}`)
+}
+
+/** Des réessais rapides pour le miroir : le banc ne va pas attendre les délais de production. */
+const MIROIR_RAPIDE: QuizServerOptions['miroir'] = { reessaisMs: [40, 80, 160], alerteMs: 400, delaiExtinctionMs: 3000 }
+
+/** Qui répond quoi, question par question. */
+type Reponses = [Invite, number][][]
+
+/**
+ * Joue un quiz depuis l'écran commun jusqu'à son podium — sans le refermer :
+ * le podium crédite l'expérience, et « Terminer » se vérifie à part. Tous
+ * les participants répondent : la salle révèle d'elle-même après le souffle.
+ */
+async function jusquAuPodium(host: Socket, quizId: string, questions: Reponses): Promise<string> {
+  const vue = (sessionId: string, pred: (v: any) => boolean, label: string) =>
+    attendre<any>(host, 'session:view', p => p.sessionId === sessionId && pred(p.view), label, 15_000)
+  const sessionId = await lancerQuiz(host, quizId)
+  let suivante = vue(sessionId, v => v.phase === 'question' && v.qIndex === 0, 'la première question')
+  for (let q = 0; q < questions.length; q++) {
+    await suivante
+    const revelee = vue(sessionId, v => v.phase === 'reveal' && v.qIndex === q, `la révélation ${q + 1}`)
+    for (const [qui, choice] of questions[q]) {
+      const ack = await emitAck<any>(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice } })
+      assert.equal(ack.ok, true, `réponse ${q + 1} refusée : ${ack.error}`)
+    }
+    await revelee
+    suivante =
+      q + 1 < questions.length
+        ? vue(sessionId, v => v.phase === 'question' && v.qIndex === q + 1, `la question ${q + 2}`)
+        : vue(sessionId, v => v.phase === 'finished', 'le podium')
+    ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
+  }
+  await suivante
+  return sessionId
+}
+
+/** Une base locale jetable, pour les registres qui n'ont pas besoin d'un serveur. */
+function baseLocale() {
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-relecture-'))
+  const db = initDb(path.join(dir, 'locale.db'))
+  return {
+    db,
+    fermer() {
+      db.close()
+      rmSync(dir, { recursive: true, force: true })
+    },
   }
 }
 
@@ -551,3 +621,117 @@ test('exclu, ou effacé par « Nouvelle soirée », un téléphone n’incarne p
     await remis
     assert.equal(await incarne(efface), false, 'l’invité de la soirée effacée non plus')
   }))
+
+// ── 8. Chaque registre efface ses lignes ──────────────────────────────────
+
+test('chaque registre efface ses propres lignes, et demande au miroir d’effacer les siennes', () => {
+  const { db, fermer } = baseLocale()
+  try {
+    /** Le miroir, réduit à ce qu'on lui demande d'effacer. */
+    const effacements: string[] = []
+    const miroir = new Proxy({} as PartyMirror, {
+      get:
+        (_, nom) =>
+        (...args: unknown[]) => {
+          if (String(nom).startsWith('delete')) effacements.push(`${String(nom)}(${args.join(', ')})`)
+        },
+    })
+    const party = new Party(db, 'espace', miroir)
+    const ledger = new ScoreLedger(db, 'espace', miroir)
+    const answers = new AnswerLog(db, 'espace', miroir)
+    const alice = party.join('Alice', '🦊')
+    if ('error' in alice) throw new Error(alice.error)
+    ledger.award(alice.id, 150, 'Quiz « Culture » — Q1', 's1')
+    answers.write([
+      {
+        sessionId: 's1',
+        quizTitle: 'Culture',
+        qIndex: 0,
+        kind: 'choice',
+        playerId: alice.id,
+        answered: true,
+        correct: true,
+        choice: 0,
+        value: null,
+        target: null,
+        ms: 4_000,
+        changes: 0,
+        points: 150,
+        durationMs: 20_000,
+        observed: false,
+        createdAt: Date.now(),
+      },
+    ])
+    const lignes = (table: string) =>
+      (db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE space_id = 'espace'`).get() as { n: number }).n
+
+    // L'invité quitte son registre, et celui-là seulement. `Party.remove`
+    // effaçait aussi ses gains, ici et au miroir — que le registre des gains
+    // effaçait ensuite une seconde fois.
+    party.remove(alice.id)
+    assert.equal(lignes('score_entries'), 1, 'le registre des invités ne touche pas au journal des gains')
+    assert.deepEqual(effacements, [`deletePlayer(${alice.id})`], 'ni, au miroir, aux gains et aux réponses')
+
+    ledger.removePlayer(alice.id)
+    answers.removePlayer(alice.id)
+    assert.equal(lignes('score_entries'), 0)
+    assert.equal(ledger.total(alice.id), 0)
+    assert.equal(lignes('answer_log'), 0)
+    assert.deepEqual(
+      effacements.slice(1),
+      [`deletePlayerScores(${alice.id})`, `deletePlayerAnswers(${alice.id})`],
+      'chaque registre demande au miroir d’effacer les siennes',
+    )
+
+    // « Nouvelle soirée » : chacun vide aussi les siennes.
+    const bob = party.join('Bob', '🐸')
+    if ('error' in bob) throw new Error(bob.error)
+    ledger.award(bob.id, 80, 'Quiz « Culture » — Q2', 's1')
+    party.clearAll()
+    assert.equal(lignes('score_entries'), 1, 'vider les invités ne vide pas le journal des gains')
+    ledger.clearAll()
+    assert.equal(lignes('score_entries'), 0)
+    assert.equal(ledger.total(bob.id), 0)
+  } finally {
+    fermer()
+  }
+})
+
+test('exclure efface au miroir l’invité, ses gains et ses réponses, en une seule transaction', () =>
+  avecBanc(
+    async banc => {
+      const cookie = await connexionAnimateur(banc.url)
+      const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
+      const host = await ecranCommun(banc.url, cookie)
+      const bob = await invite(banc.url, 'Bob', '🐸')
+      const alice = await invite(banc.url, 'Alice')
+      const sessionId = await jusquAuPodium(host, quiz, [[[bob, 0], [alice, 1]]])
+      ;(host as any).emit('host:endSession', { sessionId })
+      /** Ce que le miroir garde encore de Bob, table par table. */
+      const auMiroir = () =>
+        ['party_players WHERE id', 'party_scores WHERE player_id', 'party_answers WHERE player_id'].map(
+          ou => lire<{ n: number }>(banc, `SELECT COUNT(*) AS n FROM ${ou} = ?`, bob.playerId)[0].n,
+        )
+      await jusqua(() => auMiroir().every(n => n > 0), 'Bob, ses gains et ses réponses au miroir')
+      // La file au repos : un envoi encore en vol retiendrait les effacements
+      // derrière lui, et les regrouperait par chance en un seul paquet.
+      await jusqua(
+        async () => ((await (await fetch(`${banc.url}/healthz`)).json()) as any).miroir.enAttente === 0,
+        'le miroir au repos',
+      )
+
+      // Le miroir refuse d'effacer des réponses : rien de l'exclusion ne
+      // passe. Envoyées à part, la fiche et les gains partaient, et un
+      // réveil sur disque effacé rechargeait des réponses sans invité.
+      await enPanne(banc, ['DELETE ON party_answers'], async () => {
+        const exclu = attendre(bob.socket, 'player:removed', () => true, 'l’exclusion de Bob')
+        ;(host as any).emit('host:removePlayer', { playerId: bob.playerId })
+        await exclu
+        await patienter(300)
+        assert.ok(auMiroir().every(n => n > 0), `tout ou rien : ${auMiroir().join(', ')}`)
+      })
+      // La base revenue, la file insiste, et tout part d'un coup.
+      await jusqua(() => auMiroir().every(n => n === 0), 'l’exclusion arrivée au miroir')
+    },
+    { miroir: MIROIR_RAPIDE },
+  ))
