@@ -44,6 +44,37 @@ export function clearSessionCookie(res: Response) {
   res.clearCookie(COOKIE, { httpOnly: true, sameSite: 'lax', path: '/' })
 }
 
+/**
+ * La session d'un joueur : un second cookie, distinct de celui de
+ * l'animateur. C'est délibéré — un animateur peut être connecté aux deux en
+ * même temps, dans le même navigateur, et piloter sa soirée depuis la TV tout
+ * en y jouant depuis son téléphone.
+ *
+ * Un an, parce qu'un invité ne doit pas avoir à se reconnecter d'une fête à
+ * l'autre — c'est précisément ce qui ferait renoncer à avoir un profil.
+ */
+export const PLAYER_COOKIE = 'qz_joueur'
+const PLAYER_MAX_AGE_MS = 365 * 24 * 3600 * 1000
+
+export function readPlayerToken(cookieHeader: string | undefined): string | null {
+  const value = parseCookies(cookieHeader)[PLAYER_COOKIE]
+  return value && TOKEN.test(value) ? value : null
+}
+
+export function setPlayerCookie(res: Response, token: string, secure: boolean) {
+  res.cookie(PLAYER_COOKIE, token, {
+    httpOnly: true,
+    secure,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: PLAYER_MAX_AGE_MS,
+  })
+}
+
+export function clearPlayerCookie(res: Response) {
+  res.clearCookie(PLAYER_COOKIE, { httpOnly: true, sameSite: 'lax', path: '/' })
+}
+
 /** L'adresse du client — derrière le proxy de l'hébergeur si `trust proxy` est posé. */
 export const clientIp = (req: Request): string => req.ip || req.socket.remoteAddress || ''
 

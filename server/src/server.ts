@@ -14,6 +14,7 @@ import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { SpaceRegistry } from './core/space'
 import { AuthStore, type AccountRec } from './auth/store'
+import { ProfileStore } from './auth/profiles'
 import { mountApi } from './api'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
@@ -155,6 +156,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const stamped = stampLegacySpace(db, defaultSpace)
   if (stamped > 0) console.log(`[espaces] ${stamped} lignes d'avant les comptes rattachées à « ${opts.admin.slug} »`)
 
+  // Les profils des joueurs récurrents. Ils vivent dans la base permanente,
+  // avec les comptes : un profil traverse les soirées et les animateurs, et la
+  // base locale, elle, est vidée à chaque « Nouvelle soirée ».
+  const profiles = new ProfileStore(opts.quizDbUrl, opts.quizDbToken)
+  await profiles.init()
+
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
   const store = new QuizStore(opts.quizDbUrl, opts.quizDbToken)
   await store.init(defaultSpace)
@@ -185,6 +192,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     backup,
     archives,
     auth,
+    profiles,
     wifi,
     baseUrl: () => {
       if (opts.publicUrl) return opts.publicUrl.replace(/\/+$/, '')
@@ -196,7 +204,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
 
-  wireSockets(io, { registry, auth, trustProxy: !!opts.online })
+  wireSockets(io, { registry, auth, profiles, trustProxy: !!opts.online })
 
   /**
    * Supprime un compte et tout ce qu'il a laissé. L'ordre compte : d'abord
@@ -326,6 +334,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     store,
     archives,
     auth,
+    profiles,
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,

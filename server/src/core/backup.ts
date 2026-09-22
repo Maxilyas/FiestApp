@@ -145,6 +145,7 @@ export class PartyBackup {
     // une base distante créée avant eux n'a pas ces colonnes. libsql n'a pas
     // d'« ADD COLUMN IF NOT EXISTS », alors on tente et on ignore le refus.
     await this.addColumn('party_players', 'team_id TEXT')
+    await this.addColumn('party_players', 'profile_id TEXT')
     for (const table of MIRROR_TABLES) await this.addColumn(table, 'space_id TEXT')
     await this.client.batch(
       [
@@ -179,9 +180,10 @@ export class PartyBackup {
     return {
       savePlayer: (rec, createdAt) =>
         run(
-          `INSERT INTO party_players (id, name, avatar, token, team_id, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar, team_id = excluded.team_id`,
-          [rec.id, rec.name, rec.avatar, rec.token, rec.teamId, createdAt, spaceId],
+          `INSERT INTO party_players (id, name, avatar, token, team_id, profile_id, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar,
+             team_id = excluded.team_id, profile_id = excluded.profile_id`,
+          [rec.id, rec.name, rec.avatar, rec.token, rec.teamId, rec.profileId, createdAt, spaceId],
         ),
       saveTeam: rec =>
         run(
@@ -310,7 +312,7 @@ export class PartyBackup {
       'INSERT OR IGNORE INTO teams (id, name, emoji, position, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)',
     )
     const insertPlayer = db.prepare(
-      'INSERT OR IGNORE INTO players (id, name, avatar, token, team_id, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT OR IGNORE INTO players (id, name, avatar, token, team_id, profile_id, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     )
     const insertScore = db.prepare(
       'INSERT INTO score_entries (player_id, session_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)',
@@ -352,6 +354,7 @@ export class PartyBackup {
           String(r.avatar),
           String(r.token),
           r.team_id === null || r.team_id === undefined ? null : String(r.team_id),
+          r.profile_id === null || r.profile_id === undefined ? null : String(r.profile_id),
           Number(r.created_at),
           spaceOf(r),
         )

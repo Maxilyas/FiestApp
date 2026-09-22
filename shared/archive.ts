@@ -15,6 +15,8 @@ export interface ArchivedPlayer {
   name: string
   avatar: string
   teamId: string | null
+  /** Son profil de joueur récurrent, s'il en avait un ce soir-là. */
+  profileId?: string | null
   createdAt: number
 }
 

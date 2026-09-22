@@ -1,6 +1,7 @@
 // Types partagés entre le client et le serveur.
 import type { ArchiveSummary } from './archive'
 import type { PublicSpace } from './space'
+import type { Finition } from './profil'
 
 /** Joueur tel que visible par tout le monde. */
 export interface PublicPlayer {
@@ -12,6 +13,17 @@ export interface PublicPlayer {
   score: number
   /** Son équipe, ou null tant qu'il n'en a pas choisi. */
   teamId: string | null
+  /**
+   * Ce qu'un profil ajoute — et rien du tout pour un invité anonyme.
+   *
+   * Ces trois champs sont absents, pas à zéro : un invité sans profil ne doit
+   * porter ni « Niv. 0 » ni pastille grise. L'absence, pas l'infériorité. Ils
+   * ne donnent d'ailleurs aucun avantage de jeu, seulement du prestige.
+   */
+  niveau?: number
+  finition?: Finition
+  /** Son avatar a éclaté : il brille, et lui seul. */
+  eclat?: boolean
 }
 
 /**
