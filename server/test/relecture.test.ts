@@ -45,6 +45,20 @@ function lire<T = any>(banc: Banc, sql: string, ...args: unknown[]): T[] {
   }
 }
 
+/** Une écriture venue d'une adresse donnée, telle que le proxy de l'hébergeur la rapporte. */
+function depuis(banc: Banc, ip: string, chemin: string, body: unknown, cookie?: string) {
+  return fetch(`${banc.url}${chemin}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'quizz',
+      'X-Forwarded-For': ip,
+      ...(cookie && { Cookie: cookie }),
+    },
+    body: JSON.stringify(body),
+  })
+}
+
 /** L'empreinte sous laquelle un jeton de session est rangé : la base ne garde jamais le jeton lui-même. */
 const empreinte = (cookie: string) => createHash('sha256').update(cookie.split('=')[1]).digest('hex')
 
@@ -412,3 +426,46 @@ test('changer le mot de passe d’un profil referme les consoles qu’il avait o
     assert.equal((await ecrire(banc.url, '/api/joueur/deconnexion', {}, `${encore.joueur}; ${encore.console}`)).status, 200)
     assert.equal(await ouverte(encore.console), false, 'elle referme celle qu’il avait ouverte')
   }))
+
+// ── 5. Un secret, une réserve d'essais ────────────────────────────────────
+
+test('les échecs du code de secours comptent sous sa clé à lui, quelle que soit la porte', () =>
+  avecBanc(
+    async banc => {
+      /** Un profil tout neuf : son cookie, et son code de secours. */
+      const profil = async (login: string) => {
+        const res = await ecrire(banc.url, '/api/joueur/inscription', { login, password: 'motdepasse1', name: login, avatar: '🐝' })
+        return { cookie: cookieDe(res, 'qz_joueur'), recovery: ((await res.json()) as { recovery: string }).recovery }
+      }
+
+      // Cinq codes faux par la porte « changer mon mot de passe »…
+      const ines = await profil('ines')
+      for (let i = 0; i < 5; i++) {
+        const rate = await depuis(banc, '203.0.113.90', '/api/joueur/mot-de-passe', { code: `FAUX-CODE-${i}`, next: 'nouveau-mdp-9' }, ines.cookie)
+        assert.equal(rate.status, 400, `code ${i + 1} refusé`)
+      }
+      // … et le code est fermé un quart d'heure par l'autre porte aussi :
+      // compté sous deux clés, il gagnait cinq essais de plus en changeant de porte.
+      const oublie = await depuis(banc, '198.51.100.91', '/api/joueur/secours', {
+        login: 'ines',
+        code: ines.recovery,
+        password: 'nouveau-mdp-9',
+      })
+      assert.equal(oublie.status, 429, 'le code de secours est fermé, par quelque porte qu’on revienne')
+      // Le mot de passe est un autre secret : des codes faux ne ferment pas
+      // la connexion à qui tape le bon.
+      const connexion = await depuis(banc, '198.51.100.92', '/api/joueur/connexion', { login: 'ines', password: 'motdepasse1' })
+      assert.equal(connexion.status, 200, 'cinq codes faux ne ferment pas la connexion au mot de passe')
+
+      // Et l'inverse : cinq mots de passe faux ne ferment pas le code de
+      // secours — c'est justement la porte de qui a oublié le sien.
+      const jade = await profil('jade')
+      for (let i = 0; i < 5; i++) {
+        const rate = await depuis(banc, '203.0.113.93', '/api/joueur/mot-de-passe', { current: `essai-${i}`, next: 'nouveau-mdp-9' }, jade.cookie)
+        assert.equal(rate.status, 400, `mot de passe ${i + 1} refusé`)
+      }
+      const parCode = await depuis(banc, '198.51.100.94', '/api/joueur/mot-de-passe', { code: jade.recovery, next: 'nouveau-mdp-9' }, jade.cookie)
+      assert.equal(parCode.status, 200, 'le code de secours ouvre encore la porte à qui a oublié son mot de passe')
+    },
+    { online: true },
+  ))

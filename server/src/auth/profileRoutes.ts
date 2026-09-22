@@ -282,16 +282,19 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       noStore(res)
       const me = await current(req)
       if (!me) return res.status(401).json({ error: 'Connexion requise' })
-      // La même clé que la connexion au profil : c'est le même secret qu'on
-      // devine, et deux clés doubleraient les essais contre lui.
-      const cle = `joueur:${me.login}`
+      const actuel = typeof req.body?.current === 'string' ? req.body.current : ''
+      const code = typeof req.body?.code === 'string' ? req.body.code : ''
+      // Un verrou par secret visé, quelle que soit la porte : le mot de passe
+      // actuel compte avec la connexion au profil, le code de secours avec
+      // « mot de passe oublié ». Tout se comptait sous la clé du mot de passe :
+      // le code gagnait cinq essais de plus en changeant de porte, et cinq
+      // codes faux fermaient la connexion à qui tapait le bon mot de passe.
+      const cle = code && !actuel ? `secours:${me.login}` : `joueur:${me.login}`
       if (!budget.allow(clientIp(req), cle)) {
         return res.status(429).json({ error: 'Trop d’essais — réessaie dans un quart d’heure' })
       }
       const problem = passwordProblem(req.body?.next)
       if (problem) return res.status(400).json({ error: problem })
-      const actuel = typeof req.body?.current === 'string' ? req.body.current : ''
-      const code = typeof req.body?.code === 'string' ? req.body.code : ''
       // Rien à vérifier n'est pas un essai : une page qui n'envoie pas encore
       // le mot de passe actuel ne doit pas fermer le profil à son porteur.
       // 400 et jamais 401 : la page lirait un 401 comme une session perdue.
