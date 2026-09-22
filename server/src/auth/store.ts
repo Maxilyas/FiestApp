@@ -471,7 +471,10 @@ export class AuthStore {
 
   /** Toutes les sessions d'un compte : changement de mot de passe, désactivation. */
   async revokeAllSessions(accountId: string): Promise<void> {
-    await this.retirerSessions(s => s.accountId === accountId, { sql: 'DELETE FROM auth_sessions WHERE account_id = ?', args: [accountId] })
+    await this.retirerSessions(s => s.accountId === accountId, {
+      sql: 'DELETE FROM auth_sessions WHERE account_id = ?',
+      args: [accountId],
+    })
   }
 
   /**
@@ -481,7 +484,10 @@ export class AuthStore {
    * pas parce que l'animateur a changé son mot de passe de joueur.
    */
   async revokeProfileSessions(profileId: string): Promise<void> {
-    await this.retirerSessions(s => s.profileId === profileId, { sql: 'DELETE FROM auth_sessions WHERE profile_id = ?', args: [profileId] })
+    await this.retirerSessions(s => s.profileId === profileId, {
+      sql: 'DELETE FROM auth_sessions WHERE profile_id = ?',
+      args: [profileId],
+    })
   }
 
   /**
