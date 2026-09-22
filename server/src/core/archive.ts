@@ -77,6 +77,9 @@ export function buildArchive(live: LiveParty): { id: string; heldAt: number; arc
         name: p.name,
         avatar: p.avatar,
         teamId: p.teamId,
+        // Le rattachement survit à la soirée : une archive relue des années
+        // plus tard sait encore à quel profil créditer ce qui s'y est joué.
+        profileId: p.profileId,
         createdAt: p.createdAt,
       })),
       teams: live.teams,

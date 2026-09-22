@@ -1,0 +1,144 @@
+// Le profil d'un joueur récurrent : son niveau, ses finitions d'avatar, le
+// barème d'expérience d'une soirée.
+//
+// Tout ce qui est ici est pur et partagé : le serveur calcule, le client
+// affiche, et le test de bout en bout vérifie la courbe sans lancer de
+// serveur. Rien de ce fichier ne touche à une base.
+//
+// ── La règle qui gouverne tout ────────────────────────────────────────────
+//
+// Un profil ne donne JAMAIS un avantage de jeu : pas de point bonus, pas de
+// temps en plus, pas de question plus facile. La moitié d'une salle sera
+// toujours anonyme, et une soirée où les inscrits marquent plus n'est plus
+// une soirée. Un profil donne de l'expérience, un niveau, des finitions et
+// une mémoire — du prestige et de la durée, jamais de la performance.
+
+// ── Niveaux ───────────────────────────────────────────────────────────────
+
+/**
+ * Le pas de la courbe de niveau. Plus il est petit, plus on monte vite.
+ *
+ * À 12, une soirée ordinaire (trois quiz, une trentaine de questions, environ
+ * 115 points d'expérience) fait passer deux ou trois niveaux au début, puis le
+ * rythme se calme : niveau 5 en deux soirées, niveau 10 en huit, niveau 20 en
+ * une trentaine. Les premiers niveaux tombent dans la soirée même — c'est ce
+ * qui donne envie de revenir — et le niveau 20 reste une légende du cercle.
+ */
+export const XP_PAR_PALIER = 12
+
+/** Le niveau que vaut cette expérience. Le premier niveau est 1, jamais 0. */
+export function niveauPour(xp: number): number {
+  return Math.floor(Math.sqrt(Math.max(0, xp) / XP_PAR_PALIER)) + 1
+}
+
+/** L'expérience totale qu'il faut avoir atteint pour ce niveau. */
+export function xpDuNiveau(niveau: number): number {
+  return Math.max(0, niveau - 1) ** 2 * XP_PAR_PALIER
+}
+
+/** Où en est la barre : ce qui est acquis dans le niveau courant, et ce qu'il y faut. */
+export function progression(xp: number): { niveau: number; acquis: number; requis: number } {
+  const niveau = niveauPour(xp)
+  const bas = xpDuNiveau(niveau)
+  return { niveau, acquis: Math.max(0, xp) - bas, requis: xpDuNiveau(niveau + 1) - bas }
+}
+
+// ── Finitions d'avatar ────────────────────────────────────────────────────
+//
+// L'emoji ne change jamais : Alice reste le renard. Ce qui change, c'est sa
+// finition. Aucun nouvel objet à dessiner, ça tient à l'échelle du
+// vidéoprojecteur, et l'identité visuelle de chacun est préservée.
+
+export const FINITIONS = ['mat', 'argent', 'or', 'holo', 'prisme'] as const
+export type Finition = (typeof FINITIONS)[number]
+
+/** Le niveau à partir duquel chaque finition se choisit. */
+export const NIVEAU_FINITION: Record<Finition, number> = {
+  mat: 1,
+  argent: 3,
+  or: 6,
+  holo: 10,
+  prisme: 15,
+}
+
+/** Comment on annonce une finition à celui qui vient de la débloquer. */
+export const NOM_FINITION: Record<Finition, string> = {
+  mat: 'Mat',
+  argent: 'Argent',
+  or: 'Or',
+  holo: 'Holo',
+  prisme: 'Prisme',
+}
+
+/** Celles qu'on peut porter à ce niveau. Rester en Mat au niveau 15 se remarque aussi. */
+export function finitionsOuvertes(niveau: number): Finition[] {
+  return FINITIONS.filter(f => niveau >= NIVEAU_FINITION[f])
+}
+
+/** Borne ce qui arrive du navigateur : une finition qu'on n'a pas vaut « mat ». */
+export function finitionValide(raw: unknown, niveau: number): Finition {
+  const trouvee = FINITIONS.find(f => f === raw)
+  return trouvee && niveau >= NIVEAU_FINITION[trouvee] ? trouvee : 'mat'
+}
+
+// ── L'Éclat ───────────────────────────────────────────────────────────────
+
+/**
+ * Une chance sur autant, par soirée jouée, qu'un des avatars d'un profil
+ * « s'éclate » — définitivement, et pour cet emoji-là seulement.
+ *
+ * Les finitions se gagnent au temps ; l'Éclat, non. On ne peut ni l'acheter
+ * ni l'accélérer, seulement venir jouer. C'est ce qui en fait un avatar
+ * vraiment unique : ton renard brille, celui du voisin non.
+ */
+export const CHANCE_ECLAT = 40
+
+// ── Barème d'expérience ───────────────────────────────────────────────────
+//
+// L'expérience récompense d'abord d'être venu et d'avoir joué, la justesse
+// seulement ensuite : sinon le niveau ne mesurerait que le niveau de culture
+// générale, et les soirées entre amis n'ont pas ce goût-là.
+
+export const XP = {
+  /** Être venu. C'est la base, et c'est volontairement la plus grosse part. */
+  presence: 50,
+  /** Par question à laquelle on a répondu, juste ou non. */
+  parReponse: 1,
+  /** Par bonne réponse — un peu de mérite, pas trop. */
+  parBonneReponse: 2,
+  /** Podium de la soirée, toutes parties confondues. */
+  podium: [60, 40, 25],
+  /** Par quiz de la soirée remporté. */
+  vainqueurDeQuiz: 15,
+} as const
+
+/** Le détail d'un gain de soirée — conservé tel quel, pour qu'on puisse l'expliquer. */
+export interface GainSoiree {
+  presence: number
+  reponses: number
+  justesse: number
+  podium: number
+  quiz: number
+}
+
+export function totalGain(g: GainSoiree): number {
+  return g.presence + g.reponses + g.justesse + g.podium + g.quiz
+}
+
+/** Le profil tel que les écrans le voient. Jamais de haché, jamais de jeton. */
+export interface PublicProfile {
+  id: string
+  login: string
+  name: string
+  avatar: string
+  finition: Finition
+  xp: number
+  niveau: number
+  /** Ce qui est acquis dans le niveau courant, et ce qu'il y faut. */
+  acquis: number
+  requis: number
+  /** Les finitions qu'il peut porter. */
+  ouvertes: Finition[]
+  /** Les emojis qui ont éclaté pour lui. */
+  eclats: string[]
+}

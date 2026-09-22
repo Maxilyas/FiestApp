@@ -98,6 +98,9 @@ export function initDb(dbPath: string): DB {
   // une base déjà remplie n'a pas ces colonnes, et un ALTER sur une base
   // neuve échouerait.
   addColumn(db, 'players', 'team_id', 'TEXT')
+  // Le profil d'un joueur récurrent, s'il en a un. NULL = invité anonyme,
+  // c'est-à-dire tout le monde jusqu'ici : quand elle est vide, rien ne change.
+  addColumn(db, 'players', 'profile_id', 'TEXT')
   for (const table of PARTY_TABLES) {
     addColumn(db, table, 'space_id', 'TEXT')
     db.exec(`CREATE INDEX IF NOT EXISTS idx_${table}_space ON ${table}(space_id)`)

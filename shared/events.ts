@@ -1,8 +1,9 @@
 // Protocole Socket.io typé, partagé entre client et serveur.
 import type { PartySnapshot } from './types'
+import type { PublicProfile } from './profil'
 
 export type JoinAck =
-  | { ok: true; playerId: string; token: string }
+  | { ok: true; playerId: string; token: string; profile?: PublicProfile }
   | { ok: false; error: string }
 
 /**
@@ -50,7 +51,10 @@ export interface ClientToServerEvents {
    * « X déjà connectés » avant même l'inscription. Le nom dans l'adresse
    * désigne l'espace ; une connexion n'en suit jamais qu'un.
    */
-  'party:watch': (payload: { slug: string }, ack: (res: { ok: boolean; error?: string }) => void) => void
+  'party:watch': (
+    payload: { slug: string },
+    ack: (res: { ok: boolean; error?: string; profile?: PublicProfile }) => void,
+  ) => void
   'player:join': (
     payload: { slug: string; name: string; avatar: string; token?: string; teamId?: string | null },
     ack: (res: JoinAck) => void,

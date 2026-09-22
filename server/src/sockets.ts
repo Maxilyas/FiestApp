@@ -3,7 +3,8 @@ import type { ActionAck, ActionRefusal } from '../../shared/events'
 import type { IoServer } from './core/types'
 import type { SpaceRegistry, SpaceRuntime } from './core/space'
 import type { AccountRec, AuthStore } from './auth/store'
-import { readSessionToken } from './auth/http'
+import type { ProfileRec, ProfileStore } from './auth/profiles'
+import { readPlayerToken, readSessionToken } from './auth/http'
 import { Budget } from './core/budget'
 
 interface SocketDeps {
@@ -11,6 +12,8 @@ interface SocketDeps {
   registry: SpaceRegistry
   /** Les comptes des animateurs : l'écran commun se présente avec sa session, les invités avec un nom d'espace. */
   auth: AuthStore
+  /** Les profils des joueurs récurrents — reconnus par leur propre cookie. */
+  profiles: ProfileStore
   /** Derrière le proxy de l'hébergeur, l'adresse du client est dans un en-tête. */
   trustProxy: boolean
 }
@@ -127,50 +130,98 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       if (typeof ack === 'function') ack({ serverNow: Date.now() })
     })
 
+    /** Le profil derrière le cookie de ce téléphone, s'il en porte un. */
+    const profileOfSocket = (): Promise<ProfileRec | null> => {
+      const token = readPlayerToken(socket.handshake.headers.cookie)
+      return token ? deps.profiles.bySession(token) : Promise.resolve(null)
+    }
+
     // La page d'accueil des invités : « X déjà connectés », avant même l'inscription.
     socket.on('party:watch', (payload, ack) => {
       const account = spaceOf(payload?.slug)
       if (!account) return ack({ ok: false, error: NO_SUCH_SPACE })
       const rt = bindSpace(account.id)
       if (!rt) return ack({ ok: false, error: OTHER_SPACE })
-      ack({ ok: true })
-      socket.emit('party:snapshot', rt.buildSnapshot(false))
+      // L'écran d'inscription salue un profil connecté avant même qu'il
+      // rejoigne — c'est là qu'on lui dit son niveau.
+      profileOfSocket()
+        .catch(() => null)
+        .then(profile => {
+          ack({ ok: true, ...(profile && { profile: deps.profiles.toPublic(profile) }) })
+          socket.emit('party:snapshot', rt.buildSnapshot(false))
+        })
     })
 
     socket.on('player:join', (payload, ack) => {
-      try {
-        const account = spaceOf(payload?.slug)
-        if (!account) return ack({ ok: false, error: NO_SUCH_SPACE })
-        const rt = bindSpace(account.id)
-        if (!rt) return ack({ ok: false, error: OTHER_SPACE })
-        const token = typeof payload?.token === 'string' ? payload.token : undefined
-        const reconnecting = !!token && !!rt.party.findByToken(token)
-        if (!reconnecting) {
-          // Une nouvelle identité, donc : elle passe par les garde-fous.
-          if (rt.party.count() >= rt.maxPlayers) {
-            return ack({ ok: false, error: 'La soirée est complète !' })
+      // Le profil se résout d'abord : il peut demander la base permanente.
+      // Tout ce qui touche au registre de la soirée vient ensuite, d'un seul
+      // tenant — les garde-fous ne doivent pas s'entrelacer avec une attente.
+      profileOfSocket()
+        .catch(() => null)
+        .then(profile => {
+          try {
+            const account = spaceOf(payload?.slug)
+            if (!account) return ack({ ok: false, error: NO_SUCH_SPACE })
+            const rt = bindSpace(account.id)
+            if (!rt) return ack({ ok: false, error: OTHER_SPACE })
+
+            let token = typeof payload?.token === 'string' ? payload.token : undefined
+            let known = token ? rt.party.findByToken(token) : undefined
+            // Ce téléphone porte le joueur de quelqu'un d'autre — un ami à qui
+            // on l'a prêté, un autre profil : on ne le lui prend pas, celui qui
+            // se présente repart d'un joueur neuf.
+            if (known && profile && known.profileId && known.profileId !== profile.id) {
+              known = undefined
+              token = undefined
+            }
+            // Le profil est déjà à cette soirée depuis un autre téléphone : on
+            // reprend cette identité plutôt que d'en créer une seconde. Un
+            // profil ne tient qu'un joueur par soirée, sinon il encaisserait
+            // deux fois l'expérience du soir.
+            if (!known && profile) {
+              const sien = rt.party.findByProfile(profile.id)
+              if (sien) {
+                known = sien
+                token = sien.token
+              }
+            }
+
+            const reconnecting = !!known
+            if (!reconnecting) {
+              // Une nouvelle identité, donc : elle passe par les garde-fous.
+              if (rt.party.count() >= rt.maxPlayers) {
+                return ack({ ok: false, error: 'La soirée est complète !' })
+              }
+              if (identitiesCreated >= JOINS_PER_SOCKET || !joinBudget.take(ip)) {
+                return ack({ ok: false, error: 'Trop d’inscriptions d’un coup — réessaie dans une minute' })
+              }
+            }
+            // Un téléphone qui se reconnecte n'envoie pas d'équipe : il garde la
+            // sienne. C'est bien `undefined`, et pas `null`, qui dit « ne touche à rien ».
+            const teamId = payload?.teamId === undefined ? undefined : validTeam(rt, payload.teamId)
+            const res = rt.party.join(payload?.name ?? '', payload?.avatar ?? '', token, teamId)
+            if ('error' in res) return ack({ ok: false, error: res.error })
+            if (!reconnecting) identitiesCreated++
+            // Le rattachement, enfin : c'est lui qui fera compter la soirée
+            // dans l'expérience du profil, une fois la soirée rangée.
+            if (profile) rt.party.bindProfile(res.id, profile.id)
+            socket.data.playerId = res.id
+            socket.join(`player:${res.id}`)
+            rt.party.socketConnected(res.id)
+            ack({
+              ok: true,
+              playerId: res.id,
+              token: res.token,
+              ...(profile && { profile: deps.profiles.toPublic(profile) }),
+            })
+            rt.broadcastSnapshot()
+            // Arrivé en cours de quiz : on l'y intègre pour les questions à venir.
+            rt.engine.joinLate(res.id)
+            rt.engine.resendViews(res.id)
+          } catch {
+            ack({ ok: false, error: 'Erreur serveur' })
           }
-          if (identitiesCreated >= JOINS_PER_SOCKET || !joinBudget.take(ip)) {
-            return ack({ ok: false, error: 'Trop d’inscriptions d’un coup — réessaie dans une minute' })
-          }
-        }
-        // Un téléphone qui se reconnecte n'envoie pas d'équipe : il garde la
-        // sienne. C'est bien `undefined`, et pas `null`, qui dit « ne touche à rien ».
-        const teamId = payload?.teamId === undefined ? undefined : validTeam(rt, payload.teamId)
-        const res = rt.party.join(payload?.name ?? '', payload?.avatar ?? '', token, teamId)
-        if ('error' in res) return ack({ ok: false, error: res.error })
-        if (!reconnecting) identitiesCreated++
-        socket.data.playerId = res.id
-        socket.join(`player:${res.id}`)
-        rt.party.socketConnected(res.id)
-        ack({ ok: true, playerId: res.id, token: res.token })
-        rt.broadcastSnapshot()
-        // Arrivé en cours de quiz : on l'y intègre pour les questions à venir.
-        rt.engine.joinLate(res.id)
-        rt.engine.resendViews(res.id)
-      } catch {
-        ack({ ok: false, error: 'Erreur serveur' })
-      }
+        })
     })
 
     /**

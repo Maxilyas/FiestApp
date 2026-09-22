@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
 import type { PartyMirror } from './backup'
 import type { PublicPlayer } from '../../../shared/types'
+import type { Finition } from '../../../shared/profil'
 import { DEFAULT_AVATAR, cleanAvatar, cleanName } from '../../../shared/avatars'
 
 export interface PlayerRec {
@@ -10,8 +11,25 @@ export interface PlayerRec {
   avatar: string
   token: string
   teamId: string | null
+  /** Son profil de joueur récurrent, s'il en a un. Null = invité anonyme. */
+  profileId: string | null
   createdAt: number
 }
+
+/** Ce qu'un profil ajoute à un joueur sur les écrans. */
+export interface ProfileBadge {
+  niveau: number
+  finition: Finition
+  /** Cet emoji-là a éclaté pour lui. */
+  eclat: boolean
+}
+
+/**
+ * De quoi décorer un joueur rattaché. Injecté plutôt que lu : le registre des
+ * joueurs n'a pas à connaître la base des profils, et cette lecture doit être
+ * synchrone — elle sert à chaque diffusion à toute la salle.
+ */
+export type BadgeLookup = (profileId: string, avatar: string) => ProfileBadge | undefined
 
 /**
  * Registre des joueurs d'un espace. L'identité survit aux déconnexions : le
@@ -28,6 +46,7 @@ export class Party {
     private db: DB,
     private spaceId: string,
     private backup?: PartyMirror,
+    private badgeOf?: BadgeLookup,
   ) {
     for (const row of db.prepare('SELECT * FROM players WHERE space_id = ?').all(spaceId) as any[]) {
       this.players.set(row.id, {
@@ -36,6 +55,7 @@ export class Party {
         avatar: row.avatar,
         token: row.token,
         teamId: row.team_id ?? null,
+        profileId: row.profile_id ?? null,
         createdAt: row.created_at,
       })
     }
@@ -73,14 +93,15 @@ export class Party {
       avatar: nice || DEFAULT_AVATAR,
       token: randomUUID(),
       teamId: teamId ?? null,
+      profileId: null,
       createdAt: Date.now(),
     }
     this.players.set(rec.id, rec)
     this.db
       .prepare(
-        'INSERT INTO players (id, name, avatar, token, team_id, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO players (id, name, avatar, token, team_id, profile_id, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       )
-      .run(rec.id, rec.name, rec.avatar, rec.token, rec.teamId, rec.createdAt, this.spaceId)
+      .run(rec.id, rec.name, rec.avatar, rec.token, rec.teamId, rec.profileId, rec.createdAt, this.spaceId)
     this.backup?.savePlayer(rec, rec.createdAt)
     return rec
   }
@@ -102,6 +123,29 @@ export class Party {
   /** Le joueur derrière un jeton de téléphone : une reconnexion, pas une inscription. */
   findByToken(token: string): PlayerRec | undefined {
     return [...this.players.values()].find(p => p.token === token)
+  }
+
+  /**
+   * Le joueur de ce profil dans cette soirée, s'il y est déjà. Un profil ne
+   * doit tenir qu'un seul joueur par soirée : deux téléphones connectés au
+   * même profil reprennent la même identité, sinon l'expérience du soir se
+   * compterait deux fois.
+   */
+  findByProfile(profileId: string): PlayerRec | undefined {
+    return [...this.players.values()].find(p => p.profileId === profileId)
+  }
+
+  /**
+   * Rattache un joueur à un profil. Rend faux si rien ne change — un joueur
+   * qui se reconnecte est déjà rattaché, inutile de réécrire.
+   */
+  bindProfile(playerId: string, profileId: string): boolean {
+    const rec = this.players.get(playerId)
+    if (!rec || rec.profileId === profileId) return false
+    rec.profileId = profileId
+    this.db.prepare('UPDATE players SET profile_id = ? WHERE id = ?').run(profileId, playerId)
+    this.backup?.savePlayer(rec, rec.createdAt)
+    return true
   }
 
   socketConnected(playerId: string) {
@@ -184,6 +228,7 @@ export class Party {
   }
 
   private toPublic(p: PlayerRec, score: number): PublicPlayer {
+    const badge = p.profileId ? this.badgeOf?.(p.profileId, p.avatar) : undefined
     return {
       id: p.id,
       name: p.name,
@@ -191,6 +236,10 @@ export class Party {
       connected: this.connections.has(p.id),
       score,
       teamId: p.teamId,
+      // Rien du tout pour un invité anonyme : ces champs sont absents, pas à
+      // zéro, et l'instantané qui part à toute la salle n'en porte pas le poids.
+      ...(badge && { niveau: badge.niveau, finition: badge.finition }),
+      ...(badge?.eclat && { eclat: true }),
     }
   }
 }

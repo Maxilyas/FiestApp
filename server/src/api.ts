@@ -2,14 +2,18 @@ import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
 import type { ArchiveStore } from './core/archive'
 import type { AuthStore } from './auth/store'
+import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { accountOf, csrfGuard, requireAccount } from './auth/http'
 import { mountAuthApi } from './auth/routes'
+import { mountProfileApi } from './auth/profileRoutes'
 
 interface ApiDeps {
   store: QuizStore
   archives: ArchiveStore
   auth: AuthStore
+  /** Les profils des joueurs récurrents — rien à voir avec les comptes d'animateur. */
+  profiles: ProfileStore
   /** En ligne : cookie en HTTPS seulement, et origine des écritures contrôlée. */
   online: boolean
   /** L'origine publique de l'application, si on la connaît. */
@@ -35,6 +39,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // quatre mégaoctets de JSON au serveur sans être connecté.
   app.use('/api', csrfGuard({ online: deps.online, publicOrigin: deps.publicOrigin }))
   mountAuthApi(app, { auth: deps.auth, online: deps.online, removeAccount: deps.removeAccount })
+  // Les routes du profil joueur passent AVANT la porte : un invité n'a pas
+  // de compte d'animateur, et n'a pas à en avoir un pour s'inscrire.
+  mountProfileApi(app, { profiles: deps.profiles, online: deps.online })
   app.use('/api', requireAccount(deps.auth))
 
   // Les photos arrivent en dataURL dans le corps JSON.

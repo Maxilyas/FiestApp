@@ -10,8 +10,11 @@ import type { ArchiveStore } from './archive'
 import { buildArchive } from './archive'
 import { buildRecap } from './recap'
 import { buildReview, type PlayedPack } from './review'
+import { buildProgress } from './progress'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
+import { ProfileStore } from '../auth/profiles'
+import { niveauPour } from '../../../shared/profil'
 import type { PartySnapshot, Recap } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
 import type { ArchiveList, ArchiveSummary } from '../../../shared/archive'
@@ -24,6 +27,8 @@ export interface SpaceDeps {
   backup: PartyBackup
   archives: ArchiveStore
   auth: AuthStore
+  /** Les profils : de quoi donner son niveau et sa finition à un joueur rattaché. */
+  profiles: ProfileStore
   /** Le wifi de la salle, envoyé à l'écran commun seulement. */
   wifi: { ssid: string; pass: string } | null
   /** L'adresse de l'application telle que les téléphones l'ouvrent, sans le nom de l'espace. */
@@ -61,7 +66,14 @@ export class SpaceRuntime {
     private deps: SpaceDeps,
   ) {
     this.mirror = deps.backup.forSpace(spaceId)
-    this.party = new Party(deps.db, spaceId, this.mirror)
+    // La décoration se lit en mémoire : elle sert à chaque diffusion à toute
+    // la salle, et un profil est déjà chargé quand son joueur s'est inscrit.
+    this.party = new Party(deps.db, spaceId, this.mirror, (profileId, avatar) => {
+      const profile = deps.profiles.cached(profileId)
+      if (!profile) return undefined
+      const niveau = niveauPour(profile.xp)
+      return { niveau, finition: profile.finition, eclat: deps.profiles.eclatsOf(profileId).includes(avatar) }
+    })
     this.teams = new Teams(deps.db, spaceId, this.mirror)
     this.ledger = new ScoreLedger(deps.db, spaceId, this.mirror)
     this.answers = new AnswerLog(deps.db, spaceId, this.mirror)
@@ -80,6 +92,52 @@ export class SpaceRuntime {
       quizModule,
     )
     this.engine.restore()
+    // Un profil doit être en mémoire pour que son niveau s'affiche. Après un
+    // redémarrage, on réchauffe ceux des invités déjà là — sans bloquer : la
+    // soirée doit reprendre tout de suite, et l'instantané repartira enrichi.
+    void this.warmProfiles()
+  }
+
+  /** Charge les profils des invités déjà inscrits, puis rediffuse. */
+  private async warmProfiles() {
+    const ids = [...new Set(this.party.all().map(p => p.profileId))].filter((id): id is string => !!id)
+    if (ids.length === 0) return
+    await Promise.all(ids.map(id => this.deps.profiles.byId(id).catch(() => null)))
+    this.broadcastSnapshot()
+  }
+
+  /**
+   * Crédite les profils rattachés de ce qu'ils ont fait ce soir.
+   *
+   * Appelé depuis `archiveParty()`, donc toujours AVANT que « Nouvelle
+   * soirée » n'efface les journaux : c'est la seule fenêtre où tout est
+   * encore là. Tout y est idempotent — la ligne d'expérience est remplacée,
+   * pas ajoutée —, si bien qu'une écriture distante ratée peut se rejouer
+   * telle quelle. C'est pourquoi on laisse l'erreur remonter : l'animateur
+   * verra « rien n'a été effacé », et son prochain essai repartira juste.
+   */
+  private async creditProfiles(soireeId: string) {
+    const gains = buildProgress({
+      players: this.party.all(),
+      scores: this.ledger.all(),
+      answers: this.answers.all(),
+    })
+    for (const g of gains) {
+      // L'Éclat ne se tire qu'à la première consolidation. Sans ce garde-fou,
+      // ranger dix fois la même soirée donnerait dix chances — et l'Éclat ne
+      // vaut que parce qu'on ne peut pas le provoquer.
+      const premiere = !(await this.deps.profiles.alreadyCredited(g.profileId, soireeId))
+      await this.deps.profiles.creditSoiree({
+        profileId: g.profileId,
+        soireeId,
+        spaceId: this.spaceId,
+        gain: g.gain,
+        xp: g.xp,
+      })
+      if (premiere && ProfileStore.tirageEclat()) {
+        await this.deps.profiles.grantEclat(g.profileId, g.avatar, soireeId)
+      }
+    }
   }
 
   /** L'espace tel que les invités et les pages le voient. */
@@ -213,7 +271,14 @@ export class SpaceRuntime {
       library: quizLibrary(this.spaceId),
     })
     if (!built) return null
-    return this.deps.archives.save(this.spaceId, built.id, built.heldAt, built.archive, title)
+    const summary = await this.deps.archives.save(this.spaceId, built.id, built.heldAt, built.archive, title)
+    // L'identifiant de la soirée se déduit de l'arrivée du premier invité :
+    // il ne bouge pas d'un archivage à l'autre, et c'est lui qui rend la
+    // consolidation idempotente.
+    await this.creditProfiles(built.id)
+    // Les niveaux ont pu monter : l'écran commun doit le montrer.
+    this.broadcastSnapshot()
+    return summary
   }
 
   /**
