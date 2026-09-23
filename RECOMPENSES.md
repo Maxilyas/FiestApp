@@ -140,7 +140,7 @@ Deux règles ne bougent pas :
 |---|---|---|---|
 | 46 | ★ **L'historique qui s'écrit tout seul, et « Clore la soirée »** — plus de Sauvegarder ni de Nouvelle soirée | rien ne dépend plus d'un clic oublié | lot 1 |
 | 47 | ★ **L'expérience qui se mérite** — plus de présence gratuite, des gains définitifs par quiz, des bonus à la clôture, un seuil de salle | plus dure, et plus juste | lot 1 |
-| 48 | ★ **Les estimations à égalité valent pareil** — deux « 1994 » exacts ne sont plus séparés de 52 points | l'égalité est un rang partagé, partout | lot 1 |
+| 48 | ★ **Les estimations à égalité valent pareil** — deux « 1994 » exacts ne sont plus séparés de cinquante points ou plus | l'égalité est un rang partagé, partout | lot 1 |
 | 49 | Le temps de lecture offert — le bonus de rapidité ne fond qu'après le temps de lire | la rapidité doit mesurer le réflexe, pas la lecture | plus tard |
 | 50 | Réclamer sa soirée — un anonyme crée son profil à l'écran de fin et garde la soirée qu'il vient de jouer | le meilleur moment pour proposer un profil | plus tard |
 

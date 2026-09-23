@@ -239,8 +239,10 @@ function scoreQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   //
   // Le rang se partage à égalité d'écart (`shared/classement.ts`) : deux
   // « 1994 » exacts sont premiers tous les deux, et touchent autant, bonus du
-  // plus proche compris. La rapidité les départageait — cinquante-deux points
-  // d'écart pour une seconde de retard sur une réponse identique.
+  // plus proche compris. La rapidité les départageait : pour une seconde de
+  // retard sur une réponse identique, le second perdait le bonus et une part
+  // de la proximité — cent dix points à trois joueurs, plus de cinquante à
+  // soixante.
   const ecarts = guesses.map(g => -g.error)
   const last = guesses.length - 1
   for (const g of guesses) {

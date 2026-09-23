@@ -316,7 +316,7 @@ describe('la question visée', { concurrency: true }, () => {
       })
     assert.equal((await guess(alice, 1994)).ok, true)
     // Bob tape la même année, une seconde plus tard : la rapidité les
-    // départageait, cinquante-deux points d'écart pour une réponse identique.
+    // départageait, 200 points contre 90 pour une réponse identique.
     await new Promise(r => setTimeout(r, 1_000))
     assert.equal((await guess(bob, 1994)).ok, true)
     assert.equal((await guess(chloe, 2000)).ok, true)
