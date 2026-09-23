@@ -204,24 +204,31 @@ questions (temps de lecture) — chacune se pose sur ce lot sans le défaire.
 |---|---|---|
 | chaque question¹ | avoir répondu | 1 |
 | | QCM juste | 3 |
-| | réflexe : juste, et parmi le tiers le plus rapide des bonnes réponses (trois au moins) | +2 |
+| | réflexe : juste, et parmi le tiers le plus rapide des bonnes réponses (deux au moins) | +2 |
 | | estimation la plus proche (ex æquo : tous) | 5 |
 | | estimation dans le tiers le plus proche | 3 |
-| chaque quiz² | podium du quiz | 25 / 15 / 10 |
+| chaque quiz² | podium du quiz — une marche de moins que la salle | 25 / 15 / 10 |
 | | sans-faute : toutes ses questions à choix justes, cinq au moins | 15 |
-| la clôture³ | podium de la soirée | 60 / 40 / 25 |
+| la clôture³ | podium de la soirée — une marche de moins que la salle | 60 / 40 / 25 |
 | | assiduité : répondu à 90 % des questions posées, quinze au moins | 10 |
 | un haut fait | selon le haut fait (§5.3) | 5 à 60 |
 
-1. Seulement si la question a été posée à trois joueurs au moins.
-2. Seulement pour un quiz d'au moins cinq questions, où quatre joueurs au
+1. Seulement si la question a été posée à deux joueurs au moins.
+2. Seulement pour un quiz d'au moins cinq questions, où deux joueurs au
    moins ont répondu.
-3. Seulement pour une soirée d'au moins quinze questions, où six joueurs au
+3. Seulement pour une soirée d'au moins quinze questions, où deux joueurs au
    moins ont répondu.
 
-Ces seuils ferment les soirées fabriquées. **L'animateur ne gagne rien à sa
-propre soirée** : il connaît les réponses. Son profil y joue hors concours —
-aucune expérience, aucun haut fait —, et gagne normalement chez les autres.
+Ces seuils ferment les soirées fabriquées : seul, on ne gagne rien ; à deux,
+tout. Ils étaient de trois, quatre et six joueurs — les petites tablées ne
+gagnaient rien, et une partie à quatre ne rapportait pas de soirée. Le podium
+a toujours une marche de moins que la salle : à deux, seul le premier y
+monte, et le second d'un duel ne gagne pas quinze points à le perdre.
+
+**L'animateur gagne chez lui comme tout le monde.** On l'avait mis hors
+concours, parce qu'il connaît ses quiz : il ne progressait jamais aux fêtes
+qu'il organise — souvent les seules où il joue. Au premier démarrage du
+barème 3, l'historique le recrédite.
 
 **Définitive.** Ce qu'un quiz rapporte se crédite à son podium et ne bouge
 plus : seul un invité exclu rend ce qu'il avait gagné. Le podium de la

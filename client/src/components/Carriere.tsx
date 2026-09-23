@@ -151,12 +151,11 @@ export function HautsFaits({ hautsFaits }: { hautsFaits: HautFaitVu[] }) {
   const eclats = hautsFaits.filter(h => h.famille === 'soiree' && h.ton === 'eclat')
   const ombres = hautsFaits.filter(h => h.famille === 'soiree' && h.ton === 'ombre')
   const carriere = hautsFaits.filter(h => h.famille === 'carriere')
-  const gagnes = hautsFaits.filter(h => h.fois > 0).length
+  // Combien on en a : le titre de la section le dit déjà.
   return (
     <>
       <p className="muted small">
-        {gagnes} sur {hautsFaits.length} — ils se lisent à la clôture de chaque soirée, et certains
-        débloquent un avatar légendaire.
+        Ils se lisent à la clôture de chaque soirée, et certains débloquent un avatar légendaire.
       </p>
       <h4 className="hf-groupe">Exploits</h4>
       <ul className="hf-liste">{eclats.map(h => <LigneSoiree key={h.key} h={h} />)}</ul>
@@ -220,9 +219,16 @@ function LigneSoiree({ h }: { h: HautFaitVu }) {
   )
 }
 
-/** La fiche : les chiffres d'une carrière, lisibles d'un coup d'œil. */
-export function FicheCarriere({ fiche }: { fiche: Fiche }) {
-  const cases: [string, string][] = [
+/** Les quatre chiffres qui disent l'essentiel d'une carrière : la justesse, la vitesse, les victoires, la fidélité. */
+const ESSENTIELS = new Set(['Précision', 'Réflexe moyen', 'Quiz gagnés', 'Soirées'])
+
+/**
+ * La fiche : les chiffres d'une carrière, lisibles d'un coup d'œil. Le profil
+ * en montre l'essentiel, et le reste à qui le déplie : douze chiffres d'un
+ * coup, c'était la moitié de la page.
+ */
+export function FicheCarriere({ fiche, partie }: { fiche: Fiche; partie?: 'essentiel' | 'reste' }) {
+  const toutes: [string, string][] = [
     ['Précision', pourcent(fiche.precision)],
     ['Réflexe moyen', secondes(fiche.reflexeMoyenMs)],
     ['Record de vitesse', secondes(fiche.meilleurTempsMs)],
@@ -236,6 +242,7 @@ export function FicheCarriere({ fiche }: { fiche: Fiche }) {
     ['Réponses', formatNumber(fiche.reponses)],
     ['Hôtes différents', formatNumber(fiche.hotes)],
   ]
+  const cases = partie ? toutes.filter(([titre]) => ESSENTIELS.has(titre) === (partie === 'essentiel')) : toutes
   return (
     <dl className="chiffres">
       {cases.map(([titre, valeur]) => (

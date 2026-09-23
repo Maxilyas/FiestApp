@@ -144,7 +144,13 @@ type Reponses = [Invite, number][][]
  * le podium crédite l'expérience, et « Terminer » se vérifie à part. Tous
  * les participants répondent : la salle révèle d'elle-même après le souffle.
  */
-async function jusquAuPodium(host: Socket, quizId: string, questions: Reponses): Promise<string> {
+/**
+ * Joue un quiz jusqu'à son podium. `ecartMs` espace les réponses d'une même
+ * question : deux réponses reçues à la même milliseconde sont aussi rapides
+ * l'une que l'autre, et un réflexe s'y partage — un test qui compte
+ * l'expérience au point près veut savoir qui a répondu le premier.
+ */
+async function jusquAuPodium(host: Socket, quizId: string, questions: Reponses, ecartMs = 0): Promise<string> {
   const vue = (sessionId: string, pred: (v: any) => boolean, label: string) =>
     attendre<any>(host, 'session:view', p => p.sessionId === sessionId && pred(p.view), label, 15_000)
   const sessionId = await lancerQuiz(host, quizId)
@@ -155,6 +161,7 @@ async function jusquAuPodium(host: Socket, quizId: string, questions: Reponses):
     for (const [qui, choice] of questions[q]) {
       const ack = await emitAck<any>(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice } })
       assert.equal(ack.ok, true, `réponse ${q + 1} refusée : ${ack.error}`)
+      if (ecartMs > 0) await patienter(ecartMs)
     }
     await revelee
     suivante =
@@ -238,7 +245,7 @@ test('un invité exclu rend l’expérience et l’Éclat que la soirée lui ava
       const chloe = await invite(banc.url, 'Chloé', '🦉', { cookie: chloeCookie })
       const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
       // L'Éclat ne se tire que dans une soirée qui compte : une question
-      // posée à trois joueurs au moins.
+      // posée à deux joueurs au moins.
       const bob = await invite(banc.url, 'Bob', '🐻')
       const chloeId = profilDe(banc, 'chloe')
       const aliceId = profilDe(banc, 'alice')
@@ -672,7 +679,7 @@ test('un quiz crédité au podium ne se recrédite pas à « Terminer » quand r
       const host = await ecranCommun(banc.url, cookie)
       const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
       const aliceId = profilDe(banc, 'alice')
-      // Une question posée à trois joueurs au moins, pour qu'elle rapporte.
+      // Une question posée à deux joueurs au moins, pour qu'elle rapporte.
       const bob = await invite(banc.url, 'Bob', '🐻')
       const dora = await invite(banc.url, 'Dora', '🐙')
 
@@ -702,8 +709,8 @@ test('ce qui change entre le podium et « Terminer » se crédite quand même', 
   avecBanc(async banc =>
     enComptantLesCredits(async credits => {
       const cookie = await connexionAnimateur(banc.url)
-      // Un quiz qui a un podium : cinq questions, et quatre joueurs au moins
-      // — même une fois Bob parti.
+      // Un quiz qui a un podium : cinq questions, et plus d'un joueur — même
+      // une fois Bob parti.
       const quiz = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?'), qcm('Trois ?'), qcm('Quatre ?'), qcm('Cinq ?')])
       const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
       const host = await ecranCommun(banc.url, cookie)
@@ -715,14 +722,17 @@ test('ce qui change entre le podium et « Terminer » se crédite quand même', 
         ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: aliceCookie } })).json()) as any).profile.xp
 
       // Bob trouve tout, Alice se trompe une fois, la salle jamais rien :
-      // Bob gagne le quiz, Alice finit deuxième.
+      // Bob gagne le quiz, Alice finit deuxième. Bob répond toujours le
+      // premier, et d'assez loin pour que la milliseconde les départage.
       const sessionId = await jusquAuPodium(
         host,
         quiz,
         [0, 1, 2, 3, 4].map(q => [[bob, 0], [alice, q === 4 ? 1 : 0], ...salle.map((i): [Invite, number] => [i, 1])]),
+        5,
       )
       await jusqua(() => credits.get(aliceId) === 1, 'le crédit du podium')
-      // Cinq réponses, quatre bonnes — à deux sur une question, pas de réflexe.
+      // Cinq réponses, quatre bonnes. Le réflexe de chaque question va à Bob,
+      // plus rapide ; seule à trouver une fois Bob parti, elle n'en a pas.
       const reponses = 5 * XP.reponse + 4 * XP.juste
       await jusqua(async () => (await moi()) === reponses + XP.podiumQuiz[1], 'Alice créditée deuxième')
 

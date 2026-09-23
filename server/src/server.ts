@@ -268,7 +268,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // le miroir viennent de rendre — n'ont pas fini de se jouer : elles se
   // recréditeront à leur prochain quiz.
   const enCours = new Set((db.prepare('SELECT id FROM soiree').all() as { id: string }[]).map(r => r.id))
-  const recalcul = await recalculerHistorique({ profiles, archives, auth, enCours })
+  const recalcul = await recalculerHistorique({ profiles, archives, enCours })
   if (recalcul) {
     console.log(
       `[profils] expérience recalculée au barème du jour : ${recalcul.soirees} soirées relues, ` +

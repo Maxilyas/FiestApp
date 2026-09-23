@@ -101,8 +101,16 @@ export interface PrixDeSoiree {
  */
 export const LIGNE_PALIERS = '#paliers'
 
-/** La version des lignes d'expérience : 2 depuis le barème au mérite. */
-export const VERSION_BAREME = 2
+/**
+ * La version du barème qui a écrit une ligne d'expérience : 2 depuis le
+ * barème au mérite, 3 depuis qu'il paie dès deux joueurs et que l'animateur
+ * gagne chez lui. Une ligne d'une version d'avant se relit au démarrage
+ * (`recalcul.ts`) — son format, lui, n'a pas changé depuis la 2.
+ */
+export const VERSION_BAREME = 3
+
+/** La première version dont les lignes portent le relevé complet. */
+const VERSION_RELEVE_COMPLET = 2
 
 /** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
 const SESSION_MS = 365 * 24 * 3600 * 1000
@@ -134,9 +142,14 @@ const normalizeRecovery = (raw: unknown) =>
  * Trois générations de lignes : les toutes premières ne portaient que le gain
  * de l'ancien barème (présence, réponses, justesse, podium, quiz) ; les
  * suivantes y ajoutaient un relevé de quatre chiffres ; celles du barème au
- * mérite (`v: 2`) portent le relevé complet. Une ligne d'avant se relit en
- * relevé v2, les chiffres qu'elle n'avait pas à zéro — mieux que de perdre
- * une soirée de carrière.
+ * mérite (`v` ≥ 2) portent le relevé complet. Une ligne d'avant se relit en
+ * relevé complet, les chiffres qu'elle n'avait pas à zéro — mieux que de
+ * perdre une soirée de carrière.
+ *
+ * Le format se reconnaît à `v ≥ 2`, pas à la version du jour : quand le
+ * barème change, une ligne de la veille lue comme « l'ancien barème » perdait
+ * ses catégories, ses séries — et l'Éclat, qui se décide sur son gain, se
+ * tirait une seconde fois.
  */
 export function decodeDetail(raw: string): { v: number; gain: GainSoiree; releve: ReleveSoiree } {
   let parsed: any
@@ -145,9 +158,9 @@ export function decodeDetail(raw: string): { v: number; gain: GainSoiree; releve
   } catch {
     return { v: 0, gain: gainVide(), releve: releveVide() }
   }
-  if (parsed?.v === VERSION_BAREME) {
+  if (typeof parsed?.v === 'number' && parsed.v >= VERSION_RELEVE_COMPLET) {
     return {
-      v: VERSION_BAREME,
+      v: parsed.v,
       gain: { ...gainVide(), ...parsed.gain },
       releve: { ...releveVide(), ...parsed.releve, categories: { ...(parsed.releve?.categories ?? {}) } },
     }
@@ -1049,6 +1062,32 @@ export class ProfileStore {
     this.porteurs = null
     await this.recompterRecompenses(touches)
     return touches
+  }
+
+  /**
+   * Remet au barème du jour une ligne qu'aucun recalcul ne sait relire : celle
+   * des paliers, ou celle d'une soirée absente de l'historique — la soirée en
+   * cours, qui se recréditera à son prochain quiz. Son expérience ne bouge
+   * pas, seule sa version : restée à l'ancienne, elle se serait retrouvée « à
+   * recalculer » à chaque démarrage, et tout l'historique avec elle.
+   */
+  async remettreAuBareme(profileId: string, soireeId: string): Promise<void> {
+    if (soireeId === LIGNE_PALIERS) {
+      await this.ecrireXpDesPaliers(profileId)
+      await this.recalculerTotal(profileId)
+      return
+    }
+    const rows = await this.client.execute({
+      sql: 'SELECT detail FROM profile_xp WHERE profile_id = ? AND soiree_id = ?',
+      args: [profileId, soireeId],
+    })
+    const r = rows.rows[0]
+    if (!r) return
+    const { gain, releve } = decodeDetail(String(r.detail))
+    await this.client.execute({
+      sql: 'UPDATE profile_xp SET detail = ? WHERE profile_id = ? AND soiree_id = ?',
+      args: [JSON.stringify({ v: VERSION_BAREME, gain, releve }), profileId, soireeId],
+    })
   }
 
   /** Les profils qui ont au moins une ligne d'expérience, c'est-à-dire qui ont joué. */

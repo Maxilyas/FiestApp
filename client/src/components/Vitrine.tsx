@@ -15,14 +15,8 @@ import { NOM_RARETE } from '../../../shared/badges'
  * signifierait que « une seule personne l'a », ce qui est vrai de presque tout.
  */
 export function Vitrine({ badges }: { badges: BadgePorte[] }) {
-  if (badges.length === 0) {
-    return (
-      <p className="muted small">
-        Pas encore de prix. Ils tombent à la clôture de chaque soirée, quand l'application remet les
-        siens — le plus rapide, le plus têtu, le plus à côté de la plaque…
-      </p>
-    )
-  }
+  // Vide, la section du profil ne montre que son titre et son zéro.
+  if (badges.length === 0) return null
   return (
     <div className="vitrine">
       {badges.map(b => (

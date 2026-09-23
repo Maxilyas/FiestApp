@@ -1,6 +1,7 @@
 import type { AnswerRow } from './answers'
 import type { ScoreEntry } from './scores'
 import { rangPartage } from '../../../shared/classement'
+import { SEUILS } from '../../../shared/profil'
 
 /**
  * Le journal des réponses, rangé question par question et quiz par quiz.
@@ -116,7 +117,9 @@ export function indexerJournal(answers: AnswerRow[], scores: ScoreEntry[]): Quiz
       question.justes = repondues.filter(r => r.correct === true).sort((a, b) => (a.ms ?? 0) - (b.ms ?? 0))
       for (const r of repondues) if (r.choice !== null) question.choix.set(r.choice, (question.choix.get(r.choice) ?? 0) + 1)
       const n = question.justes.length
-      if (n >= 3) {
+      // À deux bonnes réponses, le plus vite des deux a un vrai réflexe : un
+      // duel se joue aussi à la vitesse.
+      if (n >= SEUILS.reflexeJustes) {
         const plusRapide = question.justes[0].ms ?? 0
         for (const r of question.justes) if ((r.ms ?? 0) === plusRapide) question.premiers.add(r.playerId)
         // Le tiers le plus rapide — et ceux qui sont arrivés au même instant

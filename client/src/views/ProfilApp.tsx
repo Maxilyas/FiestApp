@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react'
 import { api } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
-import { Icon } from '../components/Icon'
+import { Icon, type IconName } from '../components/Icon'
 import { ProfilForm } from '../components/ProfilForm'
 import { AVATARS } from '../../../shared/avatars'
 import {
@@ -136,12 +136,28 @@ export function ProfilApp() {
           eclat={brille(profil.avatar)}
           legendaire={profil.legendaire ?? undefined}
         />
+        {/* Le niveau et sa barre, sous le nom : une carte « Niveau » redisait
+            ce que l'en-tête disait déjà, la pastille et l'expérience. */}
         <div className="profil-identite">
           <h2>
             {profil.name}
             <Niveau niveau={profil.niveau} big />
           </h2>
-          <p className="muted">{formatNumber(profil.xp)} points d'expérience</p>
+          <div
+            className="xp-bar"
+            role="progressbar"
+            aria-label={`Niveau ${profil.niveau}`}
+            aria-valuemin={0}
+            aria-valuemax={profil.requis || 1}
+            aria-valuenow={profil.requis > 0 ? profil.acquis : 1}
+          >
+            <div className="xp-fill" style={{ width: `${part}%` }} />
+          </div>
+          <p className="muted small">
+            {profil.requis > 0
+              ? `${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} vers le niveau ${profil.niveau + 1}`
+              : 'Au sommet'}
+          </p>
         </div>
       </header>
 
@@ -162,70 +178,22 @@ export function ProfilApp() {
             Rejoindre une soirée
           </button>
         </div>
-        {espace ? (
-          <p className="muted small">
-            « {espace.title} » — tes invités arrivent par{' '}
-            <code>{`${window.location.host}/${espace.slug}`}</code>, l'adresse que portent les QR de
-            tes tables.
-          </p>
-        ) : (
-          <p className="muted small">
-            Tu joues avec ce profil, d'une soirée à l'autre et d'un hôte à l'autre.
-          </p>
-        )}
       </div>
 
-      <div className="card">
-        <div className="card-head">
-          <h3>
-            <Icon name="sparkles" />
-            Niveau {profil.niveau}
-          </h3>
-          <span className="muted small">
-            {profil.requis > 0
-              ? `${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} vers le niveau ${profil.niveau + 1}`
-              : 'au sommet'}
-          </span>
-        </div>
-        <div className="xp-bar">
-          <div className="xp-fill" style={{ width: `${part}%` }} />
-        </div>
-        <p className="muted small">
-          L'expérience se mérite : répondre, viser juste, trouver parmi les plus rapides, finir sur le
-          podium d'un quiz — et les hauts faits, à la clôture. Une question ne rapporte que posée à
-          trois joueurs au moins. Rien de tout cela ne donne d'avantage pendant une soirée : les points
-          du quiz se gagnent pareil pour tout le monde, profil ou pas.
-        </p>
-      </div>
-
-      <div className="card">
-        <div className="card-head">
-          <h3>
-            <Icon name="crown" />
-            Avatars légendaires
-          </h3>
-          <span className="muted small">
-            {profil.legendaires.length} / 12
-          </span>
-        </div>
-        <p className="muted small">
-          Douze médaillons, qui ne se gagnent que par un haut fait. Celui que tu portes remplace ton
-          emoji sur tous les écrans.
-        </p>
-        <GalerieLegendaires
-          debloques={profil.legendaires}
-          porte={profil.legendaire}
-          hautsFaits={profil.hautsFaits}
-          busy={busy}
-          onPorter={cle => enregistrer({ legendaire: cle })}
-        />
-      </div>
-
-      <div className="card">
-        <h3>
-          <Icon name="users" />
-          Mon avatar
-        </h3>
+      <Repli
+        id="avatar"
+        icone="users"
+        titre="Mon avatar"
+        apercu={
+          <Avatar
+            className="repli-avatar"
+            avatar={profil.avatar}
+            finition={profil.finition}
+            eclat={brille(profil.avatar)}
+            legendaire={profil.legendaire ?? undefined}
+          />
+        }
+      >
         <div className="emoji-grid" role="group" aria-label="Choisir mon avatar">
           {AVATARS.map(a => (
             <button
@@ -249,15 +217,26 @@ export function ProfilApp() {
         {profil.legendaire && (
           <p className="muted small">Choisir un emoji ôte ton avatar légendaire : on porte l'un ou l'autre.</p>
         )}
-      </div>
+      </Repli>
 
-      <div className="card">
-        <div className="card-head">
-          <h3>
-            <Icon name="trophy" />
-            Finitions
-          </h3>
-        </div>
+      {/* Trois catalogues repliés : douze médaillons, huit finitions et trente
+          hauts faits allongeaient la page avant même sa fiche. On les déplie
+          d'un toucher sur le titre, qui dit déjà où l'on en est. */}
+      <Repli id="legendaires" icone="crown" titre="Avatars légendaires" compte={`${profil.legendaires.length} / 12`}>
+        <p className="muted small">
+          Douze médaillons, qui ne se gagnent que par un haut fait. Celui que tu portes remplace ton
+          emoji sur tous les écrans.
+        </p>
+        <GalerieLegendaires
+          debloques={profil.legendaires}
+          porte={profil.legendaire}
+          hautsFaits={profil.hautsFaits}
+          busy={busy}
+          onPorter={cle => enregistrer({ legendaire: cle })}
+        />
+      </Repli>
+
+      <Repli id="finitions" icone="trophy" titre="Finitions" compte={`${profil.ouvertes.length} / ${FINITIONS.length}`}>
         <div className="finitions">
           {/* Par défaut, la plus belle qu'on a : chaque niveau qui en ouvre
               une nouvelle la fait porter d'office. On en épingle une autre si
@@ -297,74 +276,67 @@ export function ProfilApp() {
           gagne pas : une chance sur quarante par soirée qui compte, et c'est l'emoji lui-même qui
           change de couleurs.
         </p>
-      </div>
+      </Repli>
 
-      <div className="card">
-        <h3>
-          <Icon name="star" />
-          Hauts faits
-        </h3>
+      <Repli
+        id="hauts-faits"
+        icone="star"
+        titre="Hauts faits"
+        compte={`${profil.hautsFaits.filter(h => h.fois > 0).length} / ${profil.hautsFaits.length}`}
+      >
         {/* Montrer ce qui manque donne envie de revenir ; le cacher ne donne
             rien. Tout le catalogue se montre, et ce qu'on n'a pas s'estompe. */}
         <HautsFaits hautsFaits={profil.hautsFaits} />
-      </div>
+      </Repli>
 
       <div className="card">
         <h3>
           <Icon name="bar-chart" />
           Ma fiche
         </h3>
-        <FicheCarriere fiche={profil.fiche} />
-        <Courbes soirees={profil.soirees} />
-        {Object.keys(profil.categories).length > 0 && (
-          <>
-            <h4 className="hf-groupe">Par catégorie</h4>
-            <Categories categories={profil.categories} />
-          </>
-        )}
+        <FicheCarriere fiche={profil.fiche} partie="essentiel" />
+        {/* Quatre chiffres d'abord ; les huit autres, les courbes et les
+            catégories d'un toucher. */}
+        <Deplier id="fiche" titre="Tous mes chiffres">
+          <FicheCarriere fiche={profil.fiche} partie="reste" />
+          <Courbes soirees={profil.soirees} />
+          {Object.keys(profil.categories).length > 0 && (
+            <>
+              <h4 className="hf-groupe">Par catégorie</h4>
+              <Categories categories={profil.categories} />
+            </>
+          )}
+        </Deplier>
       </div>
 
-      <div className="card">
-        <div className="card-head">
-          <h3>
-            <Icon name="award" />
-            Mes prix
-          </h3>
-          {prix.length > 0 && <span className="muted small">{prix.length}</span>}
-        </div>
+      <Repli id="prix" icone="award" titre="Mes prix" compte={String(prix.length)} vide={prix.length === 0}>
         <Vitrine badges={prix} />
-      </div>
+      </Repli>
 
-      {profil.soirees.length > 0 && (
-        <div className="card">
-          <h3>
-            <Icon name="list" />
-            Mes soirées
-          </h3>
-          {profil.soirees.map(s => (
-            <div key={s.soireeId} className="soiree-row">
-              <span className="soiree-quand">
-                {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
-                {s.slug ? (
-                  <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
-                    {new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </a>
-                ) : (
-                  new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-                )}
-              </span>
-              <span className="soiree-detail">
-                {s.chez && `chez ${s.chez} · `}
-                {s.releve.reponses} réponse{s.releve.reponses > 1 ? 's' : ''}
-                {s.releve.justes > 0 && `, ${s.releve.justes} juste${s.releve.justes > 1 ? 's' : ''}`}
-                {/* `ordinal` connaît le « 1ᵉʳ » : à la main, on écrivait « 1ᵉ ». */}
-                {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${ordinal(s.releve.rang)}`}
-              </span>
-              <span className="soiree-xp">+{formatNumber(s.xp)}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <Repli id="soirees" icone="list" titre="Mes soirées" compte={String(profil.soirees.length)} vide={profil.soirees.length === 0}>
+        {profil.soirees.map(s => (
+          <div key={s.soireeId} className="soiree-row">
+            <span className="soiree-quand">
+              {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
+              {s.slug ? (
+                <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
+                  {new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </a>
+              ) : (
+                new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+              )}
+            </span>
+            <span className="soiree-detail">
+              {s.chez && `chez ${s.chez} · `}
+              {s.releve.reponses} réponse{s.releve.reponses > 1 ? 's' : ''}
+              {s.releve.justes > 0 && `, ${s.releve.justes} juste${s.releve.justes > 1 ? 's' : ''}`}
+              {/* `ordinal` connaît le « 1ᵉʳ » : à la main, on écrivait « 1ᵉ ». */}
+              {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${ordinal(s.releve.rang)}`}
+            </span>
+            <span className="soiree-xp">+{formatNumber(s.xp)}</span>
+          </div>
+        ))}
+      </Repli>
 
       {erreur && <p className="error">{erreur}</p>}
 
@@ -380,5 +352,106 @@ export function ProfilApp() {
         </button>
       </div>
     </div>
+  )
+}
+
+/** Les sections que ce téléphone avait laissées ouvertes. */
+const CLE_OUVERTES = 'quizz.profil.ouvertes'
+
+function lireOuvertes(): Set<string> {
+  // Sous try/catch : des cookies bloqués donnaient une page noire.
+  try {
+    const liste: unknown = JSON.parse(localStorage.getItem(CLE_OUVERTES) ?? '[]')
+    return new Set(Array.isArray(liste) ? liste.filter((x): x is string => typeof x === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function retenirOuverte(id: string, ouverte: boolean) {
+  try {
+    const ouvertes = lireOuvertes()
+    if (ouverte) ouvertes.add(id)
+    else ouvertes.delete(id)
+    localStorage.setItem(CLE_OUVERTES, JSON.stringify([...ouvertes]))
+  } catch {
+    // Stockage refusé : la page se rouvrira repliée, comme la première fois.
+  }
+}
+
+/**
+ * Ouverte ou non au dernier passage, et retenue à chaque toucher : la page se
+ * rouvre comme on l'a laissée. Lue une fois, au premier affichage ; ensuite,
+ * c'est le navigateur qui ouvre et referme.
+ */
+function useSouvenir(id: string) {
+  const [open] = useState(() => lireOuvertes().has(id))
+  return { open, onToggle: (e: SyntheticEvent<HTMLDetailsElement>) => retenirOuverte(id, e.currentTarget.open) }
+}
+
+/**
+ * Une section du profil qu'on déplie d'un toucher sur son titre. Repliée
+ * d'abord ; son titre dit où l'on en est — « 3 / 12 », ou l'avatar qu'on
+ * porte —, de quoi donner envie d'ouvrir. Vide, elle ne montre que son titre
+ * et son zéro : un chevron y promettrait quelque chose à déplier.
+ */
+function Repli({
+  id,
+  icone,
+  titre,
+  compte,
+  apercu,
+  vide,
+  children,
+}: {
+  id: string
+  icone: IconName
+  titre: string
+  compte?: string
+  apercu?: ReactNode
+  vide?: boolean
+  children: ReactNode
+}) {
+  const souvenir = useSouvenir(id)
+  const tete = (
+    <>
+      <h3>
+        <Icon name={icone} />
+        {titre}
+      </h3>
+      <span className="repli-compte">
+        {apercu}
+        {compte !== undefined && <span className="muted small">{compte}</span>}
+        {/* Vide, la place du chevron reste : les comptes s'alignent. */}
+        {vide ? <span className="icon" aria-hidden="true" /> : <Icon name="chevron-down" className="repli-chevron" />}
+      </span>
+    </>
+  )
+  if (vide) {
+    return (
+      <div className="card repli">
+        <div className="card-head">{tete}</div>
+      </div>
+    )
+  }
+  return (
+    <details className="card repli" {...souvenir}>
+      <summary className="card-head">{tete}</summary>
+      <div className="repli-corps">{children}</div>
+    </details>
+  )
+}
+
+/** Un repli dans une carte — « Tous mes chiffres » : un lien plutôt qu'un titre. */
+function Deplier({ id, titre, children }: { id: string; titre: string; children: ReactNode }) {
+  const souvenir = useSouvenir(id)
+  return (
+    <details className="repli-interne" {...souvenir}>
+      <summary>
+        {titre}
+        <Icon name="chevron-down" className="repli-chevron" />
+      </summary>
+      {children}
+    </details>
   )
 }

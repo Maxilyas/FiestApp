@@ -28,12 +28,6 @@ export interface ProgressInput {
 export interface ProgressOptions {
   /** La soirée se clôt : le podium de la soirée et l'assiduité se décident maintenant. */
   cloture?: boolean
-  /**
-   * Les profils qui jouent hors concours. L'animateur connaît les réponses de
-   * ses propres quiz : chez lui, il ne gagne rien — ni expérience, ni haut
-   * fait, ni chiffre de carrière. Chez les autres, il joue comme tout le monde.
-   */
-  horsConcours?: ReadonlySet<string>
   /** L'expérience que les hauts faits de la soirée rapportent, par invité — calculée à part. */
   hautsFaits?: ReadonlyMap<string, number>
 }
@@ -76,8 +70,8 @@ export function relevesDeSoiree(
   // ── Question par question ─────────────────────────────────────────────
   const series = new Map<string, number>()
   for (const q of questions) {
-    // Une question posée à moins de trois joueurs ne rapporte rien : c'est
-    // ce qui ferme les soirées fabriquées, à deux téléphones.
+    // Une question posée à un seul joueur ne rapporte rien : seul devant son
+    // téléphone, on enchaînerait les quiz pour soi.
     const valide = q.lignes.length >= SEUILS.salleQuestion
     for (const r of q.lignes) {
       const { releve: rel, gain } = de(r.playerId)
@@ -140,7 +134,9 @@ export function relevesDeSoiree(
     for (const id of q.participants) {
       const { releve: rel, gain } = de(id)
       const rang = q.rangs.get(id) ?? 0
-      if (rang >= 1 && rang <= XP.podiumQuiz.length) {
+      // Une marche de moins que la salle : à deux, le second ne monte pas
+      // sur le podium — il y aurait gagné quinze points à perdre un duel.
+      if (rang >= 1 && rang <= XP.podiumQuiz.length && rang < q.joueurs.size) {
         rel.podiumsQuiz++
         gain.quiz += XP.podiumQuiz[rang - 1]
       }
@@ -169,7 +165,9 @@ export function relevesDeSoiree(
     x.releve.joueurs = joueurs.size
     x.releve.rang = pts > 0 ? rangPartage(pts, positifs) : 0
     if (!options.cloture || !soireeValide) continue
-    if (x.releve.rang >= 1 && x.releve.rang <= XP.podiumSoiree.length) x.gain.soiree += XP.podiumSoiree[x.releve.rang - 1]
+    if (x.releve.rang >= 1 && x.releve.rang <= XP.podiumSoiree.length && x.releve.rang < joueurs.size) {
+      x.gain.soiree += XP.podiumSoiree[x.releve.rang - 1]
+    }
     if (x.releve.questions >= SEUILS.questionsSoiree && x.releve.reponses >= x.releve.questions * SEUILS.assiduitePart) {
       x.gain.soiree += XP.assiduite
     }
@@ -186,8 +184,11 @@ export function buildProgress(live: ProgressInput, options: ProgressOptions = {}
   const releves = relevesDeSoiree(live, options)
   const gains = live.players.flatMap(p => {
     // Un invité anonyme ne gagne rien — et c'est sans conséquence sur sa
-    // soirée : l'expérience ne donne aucun avantage de jeu.
-    if (!p.profileId || options.horsConcours?.has(p.profileId)) return []
+    // soirée : l'expérience ne donne aucun avantage de jeu. L'animateur qui
+    // joue chez lui gagne comme tout le monde : on l'avait mis hors concours
+    // parce qu'il connaît ses quiz, et il ne progressait jamais aux fêtes
+    // qu'il organise — les siennes, souvent les seules.
+    if (!p.profileId) return []
     const x = releves.get(p.id)
     // Personne ne lui a posé de question : il n'a pas joué.
     if (!x || x.releve.questions === 0) return []

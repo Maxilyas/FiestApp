@@ -20,6 +20,7 @@ export type IconName =
   | 'camera'
   | 'check'
   | 'check-circle'
+  | 'chevron-down'
   | 'clipboard'
   | 'clock'
   | 'copy'
@@ -99,6 +100,7 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       </>
     ),
   },
+  'chevron-down': { paths: <path d="m6 9 6 6 6-6" /> },
   clipboard: {
     paths: (
       <>
