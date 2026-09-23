@@ -20,7 +20,7 @@ import { mountApi } from './api'
 import { erreurDeRequete, repondreErreur } from './core/http'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
-import type { ArchiveList, PartyArchive } from '../../shared/archive'
+import type { ArchiveList, DerniereSoiree, PartyArchive } from '../../shared/archive'
 import { MAX_PLAYERS_CEILING } from '../../shared/space'
 
 export interface QuizServerOptions {
@@ -382,8 +382,34 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const spaceOf = (res: Response) => (res.locals as SpaceLocals).account
 
   app.get('/s/:slug/space.json', withSpace, (_req, res) => res.json(auth.publicSpace(spaceOf(res))))
-  app.get('/s/:slug/recap.json', withSpace, (_req, res) => res.json(registry.get(spaceOf(res).id).liveRecap()))
-  app.get('/s/:slug/bilan.json', withSpace, (_req, res) => res.json(registry.get(spaceOf(res).id).liveReview()))
+  // Entre deux soirées, ces pages n'avaient plus rien à montrer : la clôture
+  // efface la soirée en cours, et l'invité qui rouvrait le lendemain le
+  // souvenir scanné au podium lisait « La soirée n'a pas encore commencé ».
+  // Tant que la suivante n'a rien joué, elles désignent la dernière soirée
+  // close (`derniere`), et la page la montre à sa place. Une base distante
+  // muette ne prive que de ce lien : la soirée en cours, elle, se lit en
+  // local, et s'affiche quand même.
+  const avecLaDerniere = async <T extends object>(account: AccountRec, page: T): Promise<T & { derniere?: DerniereSoiree }> => {
+    const rt = registry.get(account.id)
+    if (rt.aJoue()) return page
+    const derniere = await archives.derniere(account.id, rt.soireeId()).catch((e: unknown) => {
+      console.error(`[soirees] la dernière soirée de « ${account.slug} » ne se lit pas :`, e)
+      return null
+    })
+    return derniere ? { ...page, derniere } : page
+  }
+  app.get('/s/:slug/recap.json', withSpace, (req, res) => {
+    const account = spaceOf(res)
+    avecLaDerniere(account, registry.get(account.id).liveRecap())
+      .then(page => res.json(page))
+      .catch((e: unknown) => repondreErreur(req, res, e))
+  })
+  app.get('/s/:slug/bilan.json', withSpace, (req, res) => {
+    const account = spaceOf(res)
+    avecLaDerniere(account, registry.get(account.id).liveReview())
+      .then(page => res.json(page))
+      .catch((e: unknown) => repondreErreur(req, res, e))
+  })
 
   // L'historique : la soirée en cours et les soirées archivées.
   //

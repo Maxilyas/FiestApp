@@ -11,7 +11,7 @@ import { vainqueurs } from '../../../shared/classement'
 import { tronquer } from '../../../shared/avatars'
 import type { PublicPlayer, Recap, TeamBonus } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
-import type { ArchiveSummary, PartyArchive } from '../../../shared/archive'
+import type { ArchiveSummary, DerniereSoiree, PartyArchive } from '../../../shared/archive'
 
 /**
  * L'historique des soirées.
@@ -341,6 +341,24 @@ export class ArchiveStore {
       ],
       'write',
     )
+  }
+
+  /**
+   * La plus récente des soirées rangées, hors `sauf` — la soirée en cours,
+   * qui se range après chaque quiz. Trois colonnes et une ligne : les pages
+   * d'un espace la demandent à chaque rafraîchissement entre deux soirées.
+   */
+  async derniere(spaceId: string, sauf: string | null): Promise<DerniereSoiree | null> {
+    const res = await this.client.execute(
+      sauf
+        ? {
+            sql: 'SELECT id, title, held_at FROM soirees WHERE space_id = ? AND id != ? ORDER BY held_at DESC LIMIT 1',
+            args: [spaceId, sauf],
+          }
+        : { sql: 'SELECT id, title, held_at FROM soirees WHERE space_id = ? ORDER BY held_at DESC LIMIT 1', args: [spaceId] },
+    )
+    const r = res.rows[0]
+    return r ? { id: String(r.id), title: String(r.title), heldAt: Number(r.held_at) } : null
   }
 
   /**

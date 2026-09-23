@@ -91,6 +91,16 @@ export class AnswerLog {
     this.backup?.saveAnswers(signees)
   }
 
+  /**
+   * Vrai tant qu'aucune question n'a été jouée dans l'espace. Une ligne suffit
+   * à le démentir : les pages de l'espace le demandent à chaque
+   * rafraîchissement, et le journal d'une grande soirée se compte en dizaines
+   * de milliers de lignes.
+   */
+  estVide(): boolean {
+    return !this.db.prepare('SELECT 1 FROM answer_log WHERE space_id = ? LIMIT 1').get(this.spaceId)
+  }
+
   /** Le journal complet de l'espace, dans l'ordre où les questions ont été posées. */
   all(): AnswerRow[] {
     const rows = this.db
