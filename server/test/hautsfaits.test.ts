@@ -15,7 +15,8 @@ import type { AnswerRow } from '../src/core/answers'
 import type { ScoreEntry } from '../src/core/scores'
 import type { PlayerRec } from '../src/core/party'
 import { estCosmique, hautsFaitsDeSoiree, xpDesHautsFaits } from '../src/core/hautsfaits'
-import { carriereDe, releveVide, type ReleveSoiree } from '../../shared/profil'
+import { carriereDe, gainVide, releveVide, type ReleveSoiree } from '../../shared/profil'
+import { buildProgress } from '../src/core/progress'
 import { HAUTS_FAITS_DE_SOIREE, clePalier, palierDe, paliersAtteints, xpDe, XP_PALIER } from '../../shared/hautsfaits'
 import { LEGENDAIRES, legendairesDebloques, progresVers } from '../../shared/legendaires'
 
@@ -258,7 +259,11 @@ test('chaque haut fait a son expérience ; une ombre rapporte peu, mais rapporte
 
 // ── 5. Les paliers de carrière ────────────────────────────────────────────
 
-const soireeAvec = (releve: Partial<ReleveSoiree>, spaceId = 'espace-1') => ({ releve: { ...releveVide(), ...releve }, spaceId })
+const soireeAvec = (releve: Partial<ReleveSoiree>, spaceId = 'espace-1') => ({
+  releve: { ...releveVide(), ...releve },
+  gain: { ...gainVide(), reponses: releve.reponses ?? 1 },
+  spaceId,
+})
 
 test('les paliers de carrière se lisent sur les totaux de toutes les soirées', () => {
   const trois = carriereDe(
@@ -274,6 +279,29 @@ test('les paliers de carrière se lisent sur les totaux de toutes les soirées',
   assert.ok(!atteints.some(k => k.startsWith('hf:legende')), 'le niveau 4 n’est pas une légende')
   assert.deepEqual(palierDe('hf:bavard:2')?.palier, 2)
   assert.equal(palierDe('hf:grand-chelem'), null, 'un haut fait de soirée n’a pas de palier')
+})
+
+test('une soirée jouée seul ne compte pas : le Renard Lunaire ne se gagne pas devant son téléphone', () => {
+  // Une question, seul : la soirée s'inscrit dans l'historique du profil, à
+  // zéro point — et dix d'entre elles faisaient L'Habitué, Argent.
+  const [seul] = buildProgress({ players: [joueur('j1')], ...quiz('s1', 1, ['j1'], () => ({})) }, { cloture: true })
+  assert.equal(seul.xp, 0)
+  const dixSeul = carriereDe(
+    Array.from({ length: 10 }, () => ({ releve: seul.releve, gain: seul.gain, spaceId: 'espace-1' })),
+    { eclats: 0, niveau: 1 },
+  )
+  assert.equal(dixSeul.soirees, 0, 'seul, on ne fait pas une soirée')
+  assert.ok(!paliersAtteints(dixSeul).some(k => k.startsWith('hf:habitue')))
+
+  // La même question à deux fait une soirée, et dix font le Renard.
+  const aDeux = buildProgress({ players: [joueur('j1'), joueur('j2')], ...quiz('s1', 1, ['j1', 'j2'], () => ({})) }, { cloture: true })
+  const duo = aDeux.find(g => g.playerId === 'j1')!
+  const dixADeux = carriereDe(
+    Array.from({ length: 10 }, () => ({ releve: duo.releve, gain: duo.gain, spaceId: 'espace-1' })),
+    { eclats: 0, niveau: 1 },
+  )
+  assert.equal(dixADeux.soirees, 10)
+  assert.ok(legendairesDebloques(new Map(paliersAtteints(dixADeux).map(k => [k, 1]))).includes('lg:renard'))
 })
 
 // ── 6. Les avatars légendaires ────────────────────────────────────────────

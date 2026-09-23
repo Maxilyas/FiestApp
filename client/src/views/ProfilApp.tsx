@@ -5,6 +5,8 @@ import { Niveau } from '../components/Niveau'
 import { Icon, type IconName } from '../components/Icon'
 import { ProfilForm } from '../components/ProfilForm'
 import { AVATARS } from '../../../shared/avatars'
+import { DIVINS } from '../../../shared/divins'
+import { cibleEclat } from '../../../shared/legendaires'
 import {
   FINITIONS,
   NIVEAU_FINITION,
@@ -14,7 +16,7 @@ import {
 } from '../../../shared/profil'
 import { Vitrine } from '../components/Vitrine'
 import { FormulaireSoiree } from '../components/Rejoindre'
-import { Categories, Courbes, FicheCarriere, GalerieLegendaires, HautsFaits } from '../components/Carriere'
+import { Categories, Courbes, FicheCarriere, GalerieDivins, GalerieLegendaires, HautsFaits } from '../components/Carriere'
 import { formatNumber, ordinal } from '../format'
 import { spacePath } from '../routes'
 import type { PublicSpace } from '../../../shared/space'
@@ -133,7 +135,7 @@ export function ProfilApp() {
           className="player-avatar big"
           avatar={profil.avatar}
           finition={profil.finition}
-          eclat={brille(profil.avatar)}
+          eclat={brille(cibleEclat(profil.legendaire, profil.avatar))}
           legendaire={profil.legendaire ?? undefined}
         />
         {/* Le niveau et sa barre, sous le nom : une carte « Niveau » redisait
@@ -189,7 +191,7 @@ export function ProfilApp() {
             className="repli-avatar"
             avatar={profil.avatar}
             finition={profil.finition}
-            eclat={brille(profil.avatar)}
+            eclat={brille(cibleEclat(profil.legendaire, profil.avatar))}
             legendaire={profil.legendaire ?? undefined}
           />
         }
@@ -215,13 +217,14 @@ export function ProfilApp() {
           </p>
         )}
         {profil.legendaire && (
-          <p className="muted small">Choisir un emoji ôte ton avatar légendaire : on porte l'un ou l'autre.</p>
+          <p className="muted small">Choisir un emoji ôte ton avatar dessiné : on porte l'un ou l'autre.</p>
         )}
       </Repli>
 
-      {/* Trois catalogues repliés : douze médaillons, huit finitions et trente
-          hauts faits allongeaient la page avant même sa fiche. On les déplie
-          d'un toucher sur le titre, qui dit déjà où l'on en est. */}
+      {/* Les catalogues repliés : douze médaillons, cinq Divins, huit
+          finitions et trente hauts faits allongeaient la page avant même sa
+          fiche. On les déplie d'un toucher sur le titre, qui dit déjà où l'on
+          en est. */}
       <Repli id="legendaires" icone="crown" titre="Avatars légendaires" compte={`${profil.legendaires.length} / 12`}>
         <p className="muted small">
           Douze médaillons, qui ne se gagnent que par un haut fait. Celui que tu portes remplace ton
@@ -229,8 +232,22 @@ export function ProfilApp() {
         </p>
         <GalerieLegendaires
           debloques={profil.legendaires}
+          eclats={profil.eclats}
           porte={profil.legendaire}
           hautsFaits={profil.hautsFaits}
+          busy={busy}
+          onPorter={cle => enregistrer({ legendaire: cle })}
+        />
+      </Repli>
+
+      <Repli id="divins" icone="sparkles" titre="Divins" compte={`${(profil.divins ?? []).length} / ${DIVINS.length}`}>
+        <p className="muted small">
+          Cinq avatars au-dessus des légendaires. Personne ne sait ce qui les fait descendre — pas même
+          cette page.
+        </p>
+        <GalerieDivins
+          descendus={profil.divins ?? []}
+          porte={profil.legendaire}
           busy={busy}
           onPorter={cle => enregistrer({ legendaire: cle })}
         />

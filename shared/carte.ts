@@ -31,6 +31,8 @@ export interface CarteDeJoueur extends Distinctions {
     prenom: string
     niveau: number
     legendaires: string[]
+    /** Les Divins descendus sur lui — sans un mot de ce qui les a fait descendre. */
+    divins: string[]
     /** Ses prix et hauts faits les plus rares, six au plus. */
     vitrine: BadgePorte[]
     /** Combien de hauts faits différents il a décrochés. */

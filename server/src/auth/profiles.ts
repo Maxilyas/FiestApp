@@ -32,8 +32,10 @@ import {
   XP_PALIER,
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
-import { legendaire, legendairesDebloques } from '../../../shared/legendaires'
+import { cibleEclat, legendaire, legendairesDebloques } from '../../../shared/legendaires'
+import { divin } from '../../../shared/divins'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
+import { divinsDebloques, raconter } from '../core/divins'
 
 /**
  * Les profils des joueurs récurrents, leurs sessions, leur expérience et
@@ -64,7 +66,11 @@ export interface ProfileRec {
   avatar: string
   /** Ce qu'il a choisi de porter : `auto` porte toujours la plus belle finition qu'il a. */
   finition: FinitionChoisie
-  /** L'avatar légendaire qu'il porte, s'il en porte un. */
+  /**
+   * L'avatar dessiné qu'il porte à la place de son emoji, s'il en porte un :
+   * un légendaire (`lg:…`) ou un Divin (`dv:…`). Une seule colonne : on ne
+   * porte jamais qu'un avatar à la fois.
+   */
   legendaire: string | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
@@ -104,10 +110,12 @@ export const LIGNE_PALIERS = '#paliers'
 /**
  * La version du barème qui a écrit une ligne d'expérience : 2 depuis le
  * barème au mérite, 3 depuis qu'il paie dès deux joueurs et que l'animateur
- * gagne chez lui. Une ligne d'une version d'avant se relit au démarrage
- * (`recalcul.ts`) — son format, lui, n'a pas changé depuis la 2.
+ * gagne chez lui, 4 depuis les Divins — l'expérience n'a pas bougé, mais
+ * les soirées d'avant doivent se relire pour qu'un Divin y descende aussi.
+ * Une ligne d'une version d'avant se relit au démarrage (`recalcul.ts`) —
+ * son format, lui, n'a pas changé depuis la 2.
  */
-export const VERSION_BAREME = 3
+export const VERSION_BAREME = 4
 
 /** La première version dont les lignes portent le relevé complet. */
 const VERSION_RELEVE_COMPLET = 2
@@ -350,12 +358,19 @@ export class ProfileStore {
     return legendairesDebloques(this.recompensesOf(id))
   }
 
+  /** Les Divins descendus sur ce profil — la liste, jamais ce qui les a fait descendre. */
+  divinsOf(id: string): string[] {
+    return divinsDebloques(this.recompensesOf(id))
+  }
+
   /**
-   * Le légendaire qu'il porte, s'il l'a vraiment : un légendaire rendu avec
-   * sa soirée (exclusion, essai effacé) ne se porte plus.
+   * L'avatar dessiné qu'il porte, s'il l'a vraiment : un légendaire ou un
+   * Divin rendu avec sa soirée (exclusion, essai effacé) ne se porte plus.
    */
   legendairePorte(p: ProfileRec): string | null {
-    return p.legendaire && this.legendairesOf(p.id).includes(p.legendaire) ? p.legendaire : null
+    if (!p.legendaire) return null
+    const a = divin(p.legendaire) ? this.divinsOf(p.id) : this.legendairesOf(p.id)
+    return a.includes(p.legendaire) ? p.legendaire : null
   }
 
   toPublic(p: ProfileRec): PublicProfile {
@@ -375,9 +390,12 @@ export class ProfileStore {
       requis,
       ouvertes: finitionsOuvertes(niveau),
       eclats: this.eclatsOf(p.id),
-      badges: this.recompenses.get(p.id)?.size ?? 0,
+      // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
+      // de neuf sur l'étagère dirait qu'il s'est passé quelque chose.
+      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:')).length,
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
+      divins: raconter(this.divinsOf(p.id)),
     }
   }
 
@@ -557,11 +575,11 @@ export class ProfileStore {
 
   /**
    * Change ce qu'un joueur choisit lui-même : son prénom, son emoji, sa
-   * finition, son avatar légendaire.
+   * finition, son avatar légendaire ou divin.
    *
    * Choisir un emoji ôte le légendaire : on porte l'un ou l'autre. Un
-   * légendaire qu'on n'a pas débloqué est refusé en clair — la page ne le
-   * propose pas, seul un appel forgé l'enverrait.
+   * légendaire ou un Divin qu'on n'a pas débloqué est refusé en clair — la
+   * page ne le propose pas, seul un appel forgé l'enverrait.
    */
   async update(
     id: string,
@@ -586,7 +604,10 @@ export class ProfileStore {
       if (patch.legendaire === null || patch.legendaire === '') champs.legendaire = null
       else if (legendaire(patch.legendaire) && this.legendairesOf(id).includes(String(patch.legendaire))) {
         champs.legendaire = String(patch.legendaire)
-      } else throw new Error('Cet avatar légendaire n’est pas encore à toi')
+      } else if (divin(patch.legendaire) && this.divinsOf(id).includes(String(patch.legendaire))) {
+        champs.legendaire = String(patch.legendaire)
+      } else if (divin(patch.legendaire)) throw new Error('Ce Divin n’est pas encore descendu sur toi')
+      else throw new Error('Cet avatar légendaire n’est pas encore à toi')
     }
     const colonnes = Object.keys(champs) as (keyof typeof champs)[]
     if (colonnes.length === 0) return rec
@@ -801,9 +822,31 @@ export class ProfileStore {
   }
 
   /**
-   * Fait éclater un emoji pour ce profil, définitivement. Rend faux s'il
-   * brillait déjà — le tirage est alors tombé dans le vide, et c'est très
-   * bien : l'Éclat est une surprise, pas une récompense due.
+   * Ce qui éclatera si l'Éclat tombe sur ce profil ce soir : le légendaire
+   * qu'il porte, ou l'emoji qu'il a joué (`cibleEclat`).
+   */
+  cibleEclatDe(profileId: string, emoji: string): string {
+    const p = this.profiles.get(profileId)
+    return cibleEclat(p ? this.legendairePorte(p) : null, emoji)
+  }
+
+  /**
+   * Ce qui a éclaté pour ce profil pendant cette soirée, s'il y en a un — la
+   * fin de soirée l'annonce : tombé en silence, un Éclat passait inaperçu, et
+   * plus encore sous un légendaire.
+   */
+  async eclatDeLaSoiree(profileId: string, soireeId: string): Promise<string | null> {
+    const res = await this.client.execute({
+      sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ? AND soiree_id = ? ORDER BY created_at LIMIT 1',
+      args: [profileId, soireeId],
+    })
+    return res.rows.length > 0 ? String(res.rows[0].avatar) : null
+  }
+
+  /**
+   * Fait éclater un emoji ou un légendaire pour ce profil, définitivement.
+   * Rend faux s'il brillait déjà — le tirage est alors tombé dans le vide, et
+   * c'est très bien : l'Éclat est une surprise, pas une récompense due.
    */
   async grantEclat(profileId: string, avatar: string, soireeId: string): Promise<boolean> {
     const deja = this.eclats.get(profileId)
@@ -943,9 +986,11 @@ export class ProfileStore {
    * et ce que sa rareté vaut dans la population du moment.
    */
   async badgesOf(profileId: string): Promise<BadgePorte[]> {
+    // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
+    // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
     const rows = await this.client.execute({
       sql: `SELECT badge, emoji, title, COUNT(*) AS fois, MAX(created_at) AS dernier
-            FROM profile_badges WHERE profile_id = ?
+            FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%'
             GROUP BY badge, emoji, title ORDER BY dernier DESC`,
       args: [profileId],
     })

@@ -3221,8 +3221,197 @@ h3 > .icon {
 .lg-verrou .lg-decor { display: none; }
 .lg-verrou * { animation: none !important; }
 
+/* Le cercle d'un légendaire porté, dans la matière de sa finition : l'irisé
+   tourne lentement, comme tournaient les halos d'Holo et de Prisme. */
+.lg-cercle-tourne { transform-origin: 50px 50px; animation: lg-tourne 12s linear infinite; }
+.lg-cercle-prisme .lg-cercle-tourne { animation-duration: 7s; }
+.lg-cercle-aurore .lg-cercle-tourne { animation-duration: 18s; }
+.lg-cercle-constellation .lg-cercle-tourne { animation-duration: 60s; }
+.lg-cercle-lueur { transform-origin: 50px 50px; animation: lg-lueur 4s ease-in-out infinite; }
+
+@keyframes lg-tourne {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes lg-lueur {
+  0%, 100% { opacity: 0.2; transform: scale(0.99); }
+  50% { opacity: 0.45; transform: scale(1.03); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lg * { animation: none !important; }
+}
+
+/* ── Les avatars divins ────────────────────────────────────────────────────
+
+   Cinq dessins (components/Divin.tsx), à la taille du texte comme les
+   légendaires, mais qui débordent de leur cadre : rayons, ailes, lueur. Tout
+   bouge par `transform` et `opacity`, jamais par un filtre — le PC du
+   vidéoprojecteur en fait tourner des dizaines. */
+
+.dv {
+  display: block;
+  width: 1em;
+  height: 1em;
+  overflow: visible;
+}
+
+.dv * { transform-box: view-box; }
+
+.dv-aura { transform-origin: 50px 50px; animation: dv-respire 5s ease-in-out infinite; }
+.dv-balayage { animation: dv-balaye 6.5s ease-in-out infinite; }
+.dv-orbite { transform-origin: 50px 50px; animation: dv-tourne 7s linear infinite; }
+.dv-tourne-lent { transform-origin: 50px 50px; animation: dv-tourne 90s linear infinite; }
+.dv-tourne-inverse { transform-origin: 50px 50px; animation: dv-tourne 60s linear infinite reverse; }
+.dv-pouls { transform-box: fill-box; transform-origin: center; animation: dv-pouls 3.2s ease-in-out infinite; }
+.dv-scintille { transform-box: fill-box; transform-origin: center; animation: dv-scintille 2.6s ease-in-out infinite; }
+
+@keyframes dv-respire {
+  0%, 100% { opacity: 0.75; transform: scale(0.97); }
+  50% { opacity: 1; transform: scale(1.03); }
+}
+
+@keyframes dv-balaye {
+  0%, 55% { transform: translateX(0); }
+  85%, 100% { transform: translateX(170px); }
+}
+
+@keyframes dv-tourne {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes dv-pouls {
+  0%, 100% { transform: scale(0.94); opacity: 0.8; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+@keyframes dv-scintille {
+  0%, 100% { opacity: 0.3; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.12); }
+}
+
+/* Hélios : ses flammèches dansent autour du disque. */
+.dv-flammes { transform-origin: 50px 50px; animation: dv-flammes 2.6s ease-in-out infinite alternate; }
+
+@keyframes dv-flammes {
+  from { transform: rotate(-3deg) scale(0.98); }
+  to { transform: rotate(3deg) scale(1.04); }
+}
+
+/* Le Séraphin : ses trois paires d'ailes battent l'une après l'autre. */
+.dv-paire { transform-origin: 50px 50px; animation: dv-battement 3.4s ease-in-out infinite; }
+.dv-paire-2 { animation-delay: -0.35s; }
+.dv-paire-3 { animation-delay: -0.7s; }
+
+/* Son œil se ferme, de loin en loin : on n'est jamais sûr de l'avoir vu. */
+.dv-oeil { transform-origin: 50px 50px; animation: dv-cligne 7s ease-in-out infinite; }
+
+@keyframes dv-battement {
+  0%, 100% { transform: scale(0.96); }
+  50% { transform: scale(1.03); }
+}
+
+@keyframes dv-cligne {
+  0%, 93%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.08); }
+}
+
+/* Le Lotus : il s'ouvre, l'eau frémit, la lumière monte. */
+.dv-fleur { transform-origin: 50px 64px; animation: dv-eclot 5s ease-in-out infinite alternate; }
+.dv-ride { transform-origin: 50px 68px; animation: dv-ride 4.5s ease-out infinite; }
+.dv-ride-2 { animation-delay: -1.5s; }
+.dv-ride-3 { animation-delay: -3s; }
+.dv-grain { transform-box: fill-box; animation: dv-monte 4.2s ease-in infinite; }
+.dv-miroitement { animation: dv-miroite 2.8s ease-in-out infinite alternate; }
+.dv-grain:nth-child(2n) { animation-delay: -1.4s; }
+.dv-grain:nth-child(3n) { animation-delay: -2.6s; }
+
+@keyframes dv-eclot {
+  from { transform: scale(0.96, 0.94); }
+  to { transform: scale(1.02, 1.03); }
+}
+
+@keyframes dv-ride {
+  from { transform: scale(0.5); opacity: 0.9; }
+  to { transform: scale(2.3); opacity: 0; }
+}
+
+@keyframes dv-miroite {
+  from { opacity: 0.35; }
+  to { opacity: 1; }
+}
+
+@keyframes dv-monte {
+  0% { transform: translateY(6px); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateY(-16px); opacity: 0; }
+}
+
+/* L'Arbre-Monde : ses douze lumières s'allument tour à tour. */
+.dv-lumiere { animation: dv-lumiere 3.6s ease-in-out infinite; }
+.dv-lumiere:nth-child(2) { animation-delay: -0.3s; }
+.dv-lumiere:nth-child(3) { animation-delay: -0.6s; }
+.dv-lumiere:nth-child(4) { animation-delay: -0.9s; }
+.dv-lumiere:nth-child(5) { animation-delay: -1.2s; }
+.dv-lumiere:nth-child(6) { animation-delay: -1.5s; }
+.dv-lumiere:nth-child(7) { animation-delay: -1.8s; }
+.dv-lumiere:nth-child(8) { animation-delay: -2.1s; }
+.dv-lumiere:nth-child(9) { animation-delay: -2.4s; }
+.dv-lumiere:nth-child(10) { animation-delay: -2.7s; }
+.dv-lumiere:nth-child(11) { animation-delay: -3s; }
+.dv-lumiere:nth-child(12) { animation-delay: -3.3s; }
+.dv-feuillage { transform-origin: 50px 60px; animation: dv-bruisse 6s ease-in-out infinite alternate; }
+
+@keyframes dv-lumiere {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@keyframes dv-bruisse {
+  from { transform: rotate(-1deg); }
+  to { transform: rotate(1deg); }
+}
+
+/* L'Ange Déchu : ses plumes tombent, l'abîme fume, l'aile brisée pend. */
+.dv-plume { transform-box: fill-box; transform-origin: center; animation: dv-tombe 5.5s ease-in infinite; }
+.dv-plume:nth-child(2) { animation-delay: -1.4s; }
+.dv-plume:nth-child(3) { animation-delay: -2.8s; }
+.dv-plume:nth-child(4) { animation-delay: -4.2s; }
+.dv-braise { transform-box: fill-box; animation: dv-braise 3.4s ease-in infinite; }
+.dv-braise:nth-child(2n) { animation-delay: -1.2s; }
+.dv-braise:nth-child(3n) { animation-delay: -2.2s; }
+.dv-aile-droite { transform-origin: 53px 62px; animation: dv-pend 4s ease-in-out infinite alternate; }
+.dv-aile-gauche { transform-origin: 47px 62px; animation: dv-pend 5s ease-in-out infinite alternate-reverse; }
+.dv-eclat-tombe { transform-origin: 64px 23px; animation: dv-derive 3.2s ease-in-out infinite alternate; }
+
+@keyframes dv-tombe {
+  0% { transform: translateY(-8px) rotate(-20deg); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(14px) rotate(40deg); opacity: 0; }
+}
+
+@keyframes dv-braise {
+  0% { transform: translateY(0); opacity: 0; }
+  25% { opacity: 1; }
+  100% { transform: translateY(-22px); opacity: 0; }
+}
+
+@keyframes dv-pend {
+  from { transform: rotate(-2deg); }
+  to { transform: rotate(3deg); }
+}
+
+@keyframes dv-derive {
+  from { transform: translate(0, 0) rotate(0deg); }
+  to { transform: translate(1.2px, 2px) rotate(6deg); }
+}
+
+/* Pas encore descendu : une nébuleuse qui tourne, un scellé qui respire. */
+.dv-brume { transform-origin: 50px 50px; animation: dv-respire 6s ease-in-out infinite; }
+.dv-nebuleuse { transform-origin: 50px 50px; animation: dv-tourne 40s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dv * { animation: none !important; }
 }
 
 /* ── Aurore et Constellation, les finitions des niveaux 20 et 25 ──────────
@@ -3304,9 +3493,21 @@ h3 > .icon {
 .av-legendaire .av-emoji { display: inline-flex; }
 .av-legendaire .lg { width: 1.12em; height: 1.12em; }
 
+/* Un légendaire éclaté porte sa version rare, dessinée : on garde les
+   paillettes de l'Éclat autour, pas la rotation de teintes de l'emoji. */
+.av-legendaire.av-eclat .av-emoji { filter: none; }
+
+/* Un Divin aussi, à la même taille : ses débords — rayons, ailes, lueur —
+   mordent sur la marge comme le halo d'une finition, pas sur le nom. */
+.av-divin .av-emoji { display: inline-flex; }
+.av-divin .dv { width: 1.12em; height: 1.12em; }
+
 /* Au-delà des cinq premières lignes d'une liste, rien ne bouge. */
 .leaderboard .lb-row:nth-child(n + 6) .lg *,
-.stats-table tbody tr:nth-child(n + 6) .lg * {
+.stats-table tbody tr:nth-child(n + 6) .lg *,
+.leaderboard .lb-row:nth-child(n + 6) .dv *,
+.stats-table tbody tr:nth-child(n + 6) .dv *,
+.chips .dv * {
   animation: none;
 }
 
@@ -3368,6 +3569,57 @@ h3 > .icon {
 .fin-legendaire h2 { font-size: 1.9rem; }
 .fin-legendaire .serif-note { margin: 0; }
 .fin-medaillon { font-size: 150px; line-height: 0; animation: revelation 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* Un Divin descend : plus lentement qu'un légendaire, dans une lumière qui
+   s'éteint à mesure qu'il apparaît. Une fois par vie, peut-être : on prend
+   le temps. */
+.fin-divin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding-top: 26px;
+  text-align: center;
+  border-color: rgba(255, 226, 160, 0.75);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 236, 190, 0.3), rgba(255, 236, 190, 0) 62%),
+    var(--surface);
+}
+
+.fin-divin-ombre {
+  border-color: rgba(200, 120, 255, 0.7);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(192, 48, 106, 0.32), rgba(192, 48, 106, 0) 62%),
+    var(--surface);
+}
+
+/* L'Éclat de la soirée : la même révélation, dans une lumière nacrée. */
+.fin-eclat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 22px;
+  text-align: center;
+  border-color: rgba(190, 200, 255, 0.6);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(255, 190, 220, 0.16), rgba(255, 190, 220, 0) 55%),
+    radial-gradient(circle at 70% 35%, rgba(150, 220, 255, 0.16), rgba(150, 220, 255, 0) 55%),
+    var(--surface);
+}
+
+.fin-eclat h2 { font-size: 1.9rem; }
+.fin-eclat .serif-note { margin: 0; }
+
+.fin-divin h2 { font-size: 2.1rem; }
+.fin-divin .serif-note { margin: 0; font-size: 1.15rem; }
+.fin-apparition { font-size: 170px; line-height: 0; margin: 14px 0 10px; animation: apparition 2.4s cubic-bezier(0.16, 0.84, 0.3, 1) both; }
+
+@keyframes apparition {
+  0% { opacity: 0; transform: scale(0.2); filter: brightness(4); }
+  45% { opacity: 1; filter: brightness(2.2); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
 
 @keyframes revelation {
   from { opacity: 0; transform: scale(0.35) rotate(-24deg); filter: brightness(3); }
@@ -3474,6 +3726,8 @@ h3 > .icon {
 
 .cloture-legendaire b { font-family: var(--serif); font-size: 1.6rem; }
 .cloture-medaillon { font-size: 128px; line-height: 0; }
+.cloture-divin { animation-name: apparition; animation-duration: 2.4s; }
+.cloture-apparition { font-size: 180px; line-height: 0; margin: 20px 0 12px; }
 
 .cloture-montees { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 30px; }
 .cloture-montee { display: inline-flex; align-items: center; gap: 8px; font-size: 1.25rem; }
@@ -3538,6 +3792,7 @@ h3 > .icon {
 
 @media (prefers-reduced-motion: reduce) {
   .fin-medaillon,
+  .fin-apparition,
   .cloture-legendaire,
   .celebration,
   .annonces-niveau,

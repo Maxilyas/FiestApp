@@ -456,6 +456,13 @@ test('un profil ne tient qu’un seul joueur', async () => {
 
 test('« Clore la soirée » prévient les téléphones, et la suivante se rejoint', async () => {
   const host = await ecran()
+  // Une soirée neuve : les invités des tests d'avant y restaient, déconnectés
+  // mais classés. Annabelle et ses 200 points d'estimation passaient devant
+  // Nina dès que sa réponse mettait plus d'un dixième de seconde à arriver —
+  // un runner de CI chargé y suffisait, et elle finissait troisième.
+  const efface = attendre<any>(host, 'toast', () => true, 'la soirée des tests d’avant effacée')
+  envoyer(host, 'host:discardParty')
+  assert.equal((await efface).kind, 'info')
   const nina = await invité('Nina', '🐱')
   await instantane(nina.socket, s => !!joueur(s, nina.playerId), 'Nina dans la salle')
   // Une question jouée : la soirée a une fin à raconter.

@@ -3,18 +3,26 @@ import { QRCodeSVG } from 'qrcode.react'
 import type { ClotureDeSoiree, ProgresDeQuiz } from '../../../shared/fin'
 import { distinctions } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
+import { divin } from '../../../shared/divins'
 import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
+import { Divin } from './Divin'
 import { FinalPodium } from './Podium'
 import { Niveau } from './Niveau'
 
 /**
  * La clôture, sur l'écran commun : ce que la salle a fait de sa soirée.
  *
- * Le podium de la soirée, les avatars légendaires débloqués — en grand, c'est
- * ce qu'on veut voir —, les montées de niveau, et les hauts faits de chacun,
- * éclats et ombres mêlés : la Lanterne Rouge se proclame aussi fort que le
- * Grand Chelem. Le QR mène au souvenir de la soirée qu'on vient de clore.
+ * Le podium de la soirée, les avatars légendaires débloqués — en grand,
+ * c'est ce qu'on veut voir —, les montées de niveau, et les hauts faits de
+ * chacun, éclats et ombres mêlés : la Lanterne Rouge se proclame aussi fort
+ * que le Grand Chelem. Le QR mène au souvenir de la soirée qu'on vient de
+ * clore.
+ *
+ * Et si un Divin descend, il passe devant les légendaires : la salle n'en
+ * reverra peut-être jamais, elle doit le voir ce soir-là. Les Éclats de la
+ * soirée s'y proclament aussi : une chance sur quarante mérite mieux que le
+ * silence.
  */
 export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoiree; souvenirUrl: string }) {
   const c = cloture
@@ -34,6 +42,27 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
           )}
         </div>
         <div className="cloture-colonne">
+          {(c.divins ?? []).length > 0 && (
+            <section className="cloture-bloc cloture-divins">
+              <h3>{c.divins.length > 1 ? 'Des Divins sont descendus' : 'Un Divin est descendu'}</h3>
+              <div className="cloture-legendaires">
+                {c.divins.map((d, i) => (
+                  <div
+                    key={`${d.nom}-${d.gagne}-${i}`}
+                    className="cloture-legendaire cloture-divin"
+                    style={{ animationDelay: `${400 + i * 700}ms` }}
+                  >
+                    <span className="cloture-apparition">
+                      <Divin cle={d.gagne} />
+                    </span>
+                    <b>{d.nom}</b>
+                    <span className="muted">{divin(d.gagne)?.nom}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {c.legendaires.length > 0 && (
             <section className="cloture-bloc">
               <h3>Avatars légendaires débloqués</h3>
@@ -50,6 +79,25 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
                     <b>{l.nom}</b>
                     <span className="muted">{legendaire(l.gagne)?.nom}</span>
                   </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {(c.eclats ?? []).length > 0 && (
+            <section className="cloture-bloc">
+              <h3>{c.eclats.length > 1 ? 'Ils ont éclaté' : 'Un avatar a éclaté'}</h3>
+              <div className="cloture-montees">
+                {c.eclats.map((e, i) => (
+                  <span key={`${e.nom}-${i}`} className="cloture-montee">
+                    {legendaire(e.eclate) ? (
+                      <Avatar className="lb-avatar" avatar={e.avatar} legendaire={e.eclate} finition={e.finition} eclat />
+                    ) : (
+                      <Avatar className="lb-avatar" avatar={e.eclate} finition={e.finition} eclat />
+                    )}
+                    <b>{e.nom}</b>
+                    <span className="muted">une chance sur quarante</span>
+                  </span>
                 ))}
               </div>
             </section>

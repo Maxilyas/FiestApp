@@ -19,6 +19,7 @@
 
 import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
+import type { DivinDescendu } from './divins'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -228,6 +229,17 @@ export function gainVide(): GainSoiree {
   return { reponses: 0, justesse: 0, reflexe: 0, estimation: 0, quiz: 0, soiree: 0, hautsFaits: 0 }
 }
 
+/**
+ * Une soirée compte si l'on y a répondu à une question posée à deux joueurs
+ * au moins — c'est ce que dit `gain.reponses`, qui ne paie que celles-là.
+ * Seul devant son téléphone, on enchaînait les « soirées » d'une question :
+ * chacune tirait un Éclat, et dix d'entre elles faisaient tomber L'Habitué
+ * jusqu'au Renard Lunaire. La même règle ferme les deux portes.
+ */
+export function soireeQuiCompte(gain: GainSoiree): boolean {
+  return gain.reponses > 0
+}
+
 export function totalGain(g: GainSoiree): number {
   return g.reponses + g.justesse + g.reflexe + g.estimation + g.quiz + g.soiree + g.hautsFaits
 }
@@ -358,7 +370,7 @@ export interface Carriere {
 
 /** Additionne des relevés en une carrière. */
 export function carriereDe(
-  soirees: { releve: ReleveSoiree; spaceId: string }[],
+  soirees: { releve: ReleveSoiree; gain: GainSoiree; spaceId: string }[],
   extra: { eclats: number; niveau: number },
 ): Carriere {
   const c: Carriere = {
@@ -392,8 +404,10 @@ export function carriereDe(
   }
   const hotes = new Set<string>()
   const avatars = new Set<string>()
-  for (const { releve: r, spaceId } of soirees) {
-    c.soirees++
+  for (const { releve: r, gain, spaceId } of soirees) {
+    // Une soirée jouée seul reste dans l'historique, mais ce n'est pas une
+    // soirée : ni pour la fiche, ni pour L'Habitué.
+    if (soireeQuiCompte(gain)) c.soirees++
     c.questions += r.questions
     c.reponses += r.reponses
     c.qcm += r.qcm
@@ -481,7 +495,10 @@ export interface Distinctions {
   niveau?: number
   finition?: Finition
   eclat?: boolean
-  /** L'avatar légendaire qu'il porte — il remplace l'emoji à l'écran. */
+  /**
+   * L'avatar dessiné qu'il porte — il remplace l'emoji à l'écran : un
+   * légendaire (`lg:…`) ou un Divin (`dv:…`).
+   */
   legendaire?: string
 }
 
@@ -528,10 +545,12 @@ export interface PublicProfile {
   eclats: string[]
   /** Combien de badges il porte — le détail se demande à part. */
   badges: number
-  /** L'avatar légendaire qu'il porte, s'il en porte un. */
+  /** L'avatar dessiné qu'il porte, s'il en porte un : un légendaire ou un Divin. */
   legendaire: string | null
   /** Les avatars légendaires qu'il a débloqués. */
   legendaires: string[]
+  /** Les Divins descendus sur lui, avec leur récit. Ce qui les fait descendre ne quitte jamais le serveur. */
+  divins: DivinDescendu[]
 }
 
 /** Une soirée jouée, telle que la page profil la relit. */

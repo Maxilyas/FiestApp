@@ -337,6 +337,30 @@ vit. Chacun se débloque par un haut fait, et **ne s'achète ni ne s'accélère*
   **silhouette dorée**, avec la règle et la jauge.
 - Un anonyme n'en porte jamais, et rien ne le lui fait remarquer.
 
+### 5.4 bis Les Divins
+
+Cinq avatars au-dessus des légendaires : Hélios, le Séraphin, le Lotus
+Sacré, l'Arbre-Monde, l'Ange Déchu. Là où un légendaire annonce sa règle, un
+Divin se tait — c'est tout son principe.
+
+- **Secrets.** La page profil les montre voilés : une nébuleuse de leur
+  couleur, ni nom, ni silhouette, ni jauge. Les règles vivent dans
+  `server/src/core/divins.ts` et nulle part ailleurs — les légendes aussi,
+  qui en disent presque autant ; ni `shared/` ni `client/` ne l'importent,
+  et le serveur n'envoie que la liste de ceux qu'on a, avec leur légende, à
+  leur seul porteur. Même l'étagère se tait : une ligne « tombé le 12 mars »
+  dirait ce qu'on a fait ce soir-là.
+- **Rares.** Des salles plus grandes que celles des hauts faits, des
+  soirées entières, rien qu'un quiz de cinq questions ne fabrique. Il y en a
+  pour qui brille et pour qui tombe, comme les légendaires.
+- **Vus.** Quand l'un descend, le téléphone le révèle avant tout le reste,
+  et l'écran commun l'annonce à la salle.
+- **Seuls.** Ni finition ni Éclat : ils ont leur lumière, et débordent déjà
+  de leur cadre.
+- Comme les hauts faits, ils se jugent à la clôture sur les journaux, se
+  relisent sur l'historique (`VERSION_BAREME` 4), partent avec une soirée
+  retirée, et ne rapportent aucune expérience.
+
 ### 5.5 Finitions et Éclat
 
 - La meilleure finition débloquée se **porte d'office** (`auto`) ; choisir
@@ -345,6 +369,15 @@ vit. Chacun se débloque par un haut fait, et **ne s'achète ni ne s'accélère*
 - L'**Éclat** garde sa règle (une chance sur quarante par soirée qui compte,
   sur l'emoji joué ce soir-là) et gagne sa propre signature — des paillettes
   qui scintillent autour de l'emoji — au lieu de l'étoile du Prisme.
+- Sur un **légendaire porté**, la finition devient le cercle du médaillon —
+  bronze, argent, or, irisé, prisme, aurore, nuit étoilée — au lieu d'un halo
+  qui s'empilait sur son cercle d'or ; un légendaire de l'ombre garde un
+  filet violet. Et l'Éclat qui tombe sous un légendaire le fait éclater, lui :
+  chacun a sa **version rare**, dessinée. Un Divin n'a ni l'un ni l'autre.
+- L'Éclat **s'annonce** à la fin de la soirée, au téléphone et à la salle :
+  il tombait en silence, et sous un légendaire personne ne le voyait.
+- Une soirée jouée seul ne compte pas : ni pour l'Éclat, ni pour L'Habitué —
+  sans quoi dix soirées d'une question faisaient le Renard Lunaire.
 - Au mur, le niveau s'écrit **« Niv. 15 »**, à la taille du prénom.
 
 ### 5.6 La carte de joueur
