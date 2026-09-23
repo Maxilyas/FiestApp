@@ -315,20 +315,45 @@ Douze avatars dessinés en SVG, animés sans excès, lisibles à 20 px et
 spectaculaires à 200 : un médaillon, une silhouette forte, une lumière qui
 vit. Chacun se débloque par un haut fait, et **ne s'achète ni ne s'accélère**.
 
-| Avatar | Se débloque avec |
-|---|---|
-| Le Phénix | 🔥 Le Phénix |
-| Le Dragon d'Or | 🐉 Le Triplé |
-| L'Oracle | 🔮 L'Oracle |
-| La Chouette d'Argent | 🎯 Grand Chelem |
-| Le Tigre Foudre | ⚡ La Foudre |
-| La Licorne Astrale | 🦄 Seul contre tous, trois fois |
-| Le Lion Couronné | 👑 Le Roi de la soirée |
-| Le Renard Lunaire | 🎟️ L'Habitué, palier argent |
-| La Comète | 🏎️ Le Réflexe, palier argent |
-| Le Kraken | 🏮 La Lanterne Rouge, trois fois |
-| Le Fantôme | 😴 Le Somnambule, deux fois |
-| Le Trou Noir | 🌌 L'Estimation Cosmique, trois fois |
+| Avatar | Se débloque avec | Au premier de la bande |
+|---|---|---|
+| Le Phénix | 🔥 Le Phénix | plus de 80 quiz |
+| Le Dragon d'Or | 🐉 Le Triplé | jamais, à deux quiz par soirée |
+| L'Oracle | 🔮 L'Oracle, huit fois | ≈ 20 quiz |
+| La Chouette d'Argent | 🎯 Grand Chelem | plus de 70 quiz |
+| Le Tigre Foudre | ⚡ La Foudre, dix fois | ≈ 20 quiz |
+| La Licorne Astrale | 🦄 Seul contre tous, trois fois | 16 à 74 quiz, selon la salle |
+| Le Lion Couronné | 👑 Le Roi de la soirée, huit fois | ≈ 20 quiz |
+| Le Renard Lunaire | 🎟️ L'Habitué, palier argent (dix soirées) | ≈ 20 quiz |
+| La Comète | 🏎️ Le Réflexe, palier or (400) | ≈ 20 quiz |
+| Le Kraken | 🏮 La Lanterne Rouge, trois fois | 18 à 22 quiz |
+| Le Fantôme | 😴 Le Somnambule, six fois | ≈ 20 quiz |
+| Le Trou Noir | 🌌 L'Estimation Cosmique, sept fois | ≈ 20 quiz |
+
+**Une vingtaine de quiz.** Tombés d'un seul haut fait, la plupart se
+gagnaient dès la première soirée : au format de la maison — deux quiz de
+cinquante questions, une douzaine de joueurs —, le plus rapide avait sa
+Foudre à chaque quiz, le premier son Lion au premier soir. Les seuils sont
+calés pour qu'il faille environ vingt quiz au **premier de la bande** qui le
+décroche ; les autres mettent plus longtemps — le joueur médian, deux à
+trois fois plus —, et certains ne l'auront jamais : le Lion va au premier de
+la salle. Un haut fait de soirée ne compte qu'une fois par soirée : « dix
+fois », ce sont dix soirées.
+
+La dernière colonne vient de `server/scripts/calibrage.ts` : des bandes
+d'amis inventées (un niveau, une vitesse, une distraction, un flair pour les
+estimations) jouent quarante soirées sur le vrai code des hauts faits. Les
+joueurs sont inventés, pas les règles ; les chiffres tiennent de dix à
+quinze joueurs, et le format se règle en ligne de commande. Ceux qui
+demandaient déjà une vingtaine de quiz ou davantage n'ont pas bougé. Le
+Dragon, lui, demande trois quiz gagnés dans la même soirée : il ne se gagne
+qu'une soirée de trois quiz au moins.
+
+**Ce qui était gagné reste gagné.** Un légendaire débloqué avant que sa règle
+se durcisse reste à son porteur : au premier démarrage qui apporte la
+nouvelle règle, chaque profil retient celle sous laquelle il l'avait eu
+(`profile_legendaires`), et le garde tant qu'elle tient — une soirée
+retirée de l'historique emporte encore ce qu'elle avait fait tomber.
 
 - On le **porte** depuis `/profil` : il remplace l'emoji partout où l'on se
   voit — classements, podiums, écran commun, carte. L'emoji choisi reste

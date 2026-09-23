@@ -32,7 +32,7 @@ import {
   XP_PALIER,
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
-import { cibleEclat, legendaire, legendairesDebloques } from '../../../shared/legendaires'
+import { cibleEclat, conditionTenue, legendaire, legendairesDebloques, type Condition } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
@@ -119,6 +119,42 @@ export const VERSION_BAREME = 4
 
 /** La première version dont les lignes portent le relevé complet. */
 const VERSION_RELEVE_COMPLET = 2
+
+/**
+ * Chaque fois que la règle d'un légendaire s'est durcie : les règles d'avant,
+ * et le drapeau, dans `meta`, qui dit que ce qu'elles avaient donné est
+ * retenu (`garderLesLegendairesAcquis`). Durcir encore, c'est ajouter une
+ * entrée — jamais en modifier une : son drapeau est déjà posé en production.
+ */
+const DURCISSEMENTS: { drapeau: string; avant: Record<string, Condition> }[] = [
+  // Septembre 2026 : l'Oracle, le Tigre et le Lion tombaient d'un seul haut
+  // fait, la Comète au Réflexe Argent, le Fantôme en deux soirées, le Trou
+  // Noir en trois.
+  {
+    drapeau: 'legendaires_durcis',
+    avant: {
+      'lg:oracle': { hautFait: 'hf:oracle', fois: 1 },
+      'lg:tigre': { hautFait: 'hf:foudre', fois: 1 },
+      'lg:lion': { hautFait: 'hf:roi', fois: 1 },
+      'lg:comete': { hautFait: 'hf:reflexe', palier: 2 },
+      'lg:fantome': { hautFait: 'hf:somnambule', fois: 2 },
+      'lg:trou-noir': { hautFait: 'hf:cosmique', fois: 3 },
+    },
+  },
+]
+
+/** Une règle relue en base, si elle en est une. */
+function lireCondition(brut: unknown): Condition | null {
+  try {
+    const c = JSON.parse(String(brut))
+    if (typeof c?.hautFait !== 'string') return null
+    if (Number.isInteger(c.fois) && c.fois > 0) return { hautFait: c.hautFait, fois: c.fois }
+    if (Number.isInteger(c.palier) && c.palier > 0) return { hautFait: c.hautFait, palier: c.palier }
+    return null
+  } catch {
+    return null
+  }
+}
 
 /** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
 const SESSION_MS = 365 * 24 * 3600 * 1000
@@ -214,6 +250,13 @@ export class ProfileStore {
    * aller-retour.
    */
   private recompenses = new Map<string, Map<string, number>>()
+  /**
+   * Les légendaires qu'il avait gagnés avant que leurs règles se durcissent,
+   * avec la règle d'alors : il les garde tant qu'elle tient. Écrits au
+   * démarrage qui durcit une règle (`DURCISSEMENTS`), et tous chargés au
+   * démarrage — ils ne bougent plus ensuite.
+   */
+  private acquis = new Map<string, Map<string, Condition>>()
 
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
@@ -277,6 +320,19 @@ export class ProfileStore {
            created_at INTEGER NOT NULL,
            PRIMARY KEY (profile_id, avatar)
          )`,
+        // Les légendaires gagnés avant que leurs règles se durcissent, avec
+        // la règle sous laquelle ils étaient tombés, en JSON.
+        `CREATE TABLE IF NOT EXISTS profile_legendaires (
+           profile_id TEXT NOT NULL,
+           legendaire TEXT NOT NULL,
+           regle      TEXT NOT NULL,
+           created_at INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, legendaire)
+         )`,
+        `CREATE TABLE IF NOT EXISTS meta (
+           key   TEXT PRIMARY KEY,
+           value TEXT NOT NULL
+         )`,
       ],
       'write',
     )
@@ -284,6 +340,15 @@ export class ProfileStore {
     // d'avant n'a pas la colonne. Une panne ici arrête le démarrage, plutôt
     // que de laisser tourner un serveur qui écrirait dans une colonne absente.
     await ajouterColonne(this.client, 'profiles', 'legendaire', 'TEXT')
+    await this.garderLesLegendairesAcquis()
+    for (const r of (await this.client.execute('SELECT profile_id, legendaire, regle FROM profile_legendaires')).rows) {
+      const regle = lireCondition(r.regle)
+      if (!regle) continue
+      const id = String(r.profile_id)
+      let siens = this.acquis.get(id)
+      if (!siens) this.acquis.set(id, (siens = new Map()))
+      siens.set(String(r.legendaire), regle)
+    }
     const now = Date.now()
     await this.client.execute({ sql: 'DELETE FROM profile_sessions WHERE expires_at <= ?', args: [now] })
     // Les sessions seules montent en mémoire : la poignée de main d'un socket
@@ -353,14 +418,59 @@ export class ProfileStore {
     return this.recompenses.get(id) ?? new Map()
   }
 
-  /** Les avatars légendaires que ce profil a débloqués. */
+  /** Les avatars légendaires que ce profil a débloqués — ceux d'avant leur durcissement compris. */
   legendairesOf(id: string): string[] {
-    return legendairesDebloques(this.recompensesOf(id))
+    return legendairesDebloques(this.recompensesOf(id), this.acquis.get(id))
   }
 
   /** Les Divins descendus sur ce profil — la liste, jamais ce qui les a fait descendre. */
   divinsOf(id: string): string[] {
-    return divinsDebloques(this.recompensesOf(id))
+    return divinsDebloques(this.recompensesOf(id), this.acquis.get(id))
+  }
+
+  /**
+   * Un légendaire s'est durci : ce qu'un profil avait débloqué sous la règle
+   * d'avant lui reste. Au premier démarrage qui apporte la nouvelle, chacun
+   * retient, avec sa règle d'alors, chaque légendaire qu'il avait — il le
+   * garde tant qu'elle tient : une soirée qu'on retire de l'historique
+   * emporte encore ce qu'elle avait fait tomber.
+   *
+   * Chaque durcissement part en une transaction, avec le drapeau qui dit que
+   * c'est fait : un démarrage interrompu recommence de zéro, le suivant ne
+   * refait rien. Et ce qui tombe après s'en tient à la règle du jour — sans
+   * le drapeau, chaque démarrage aurait rendu aux anciennes règles tout ce
+   * qui s'était joué entre-temps. Une base neuve n'a rien à retenir, et pose
+   * seulement le drapeau. Un légendaire déjà retenu garde sa première règle,
+   * la plus douce.
+   */
+  private async garderLesLegendairesAcquis(): Promise<void> {
+    for (const { drapeau, avant } of DURCISSEMENTS) {
+      const fait = await this.client.execute({ sql: 'SELECT 1 FROM meta WHERE key = ?', args: [drapeau] })
+      if (fait.rows.length > 0) continue
+      const res = await this.client.execute('SELECT profile_id, badge, COUNT(*) AS n FROM profile_badges GROUP BY profile_id, badge')
+      const parProfil = new Map<string, Map<string, number>>()
+      for (const r of res.rows) {
+        const id = String(r.profile_id)
+        let m = parProfil.get(id)
+        if (!m) parProfil.set(id, (m = new Map()))
+        m.set(String(r.badge), Number(r.n))
+      }
+      const now = Date.now()
+      const retenus = [...parProfil].flatMap(([profileId, recompenses]) =>
+        Object.entries(avant)
+          .filter(([, regle]) => conditionTenue(regle, recompenses))
+          .map(([cle, regle]) => ({
+            sql: `INSERT INTO profile_legendaires (profile_id, legendaire, regle, created_at) VALUES (?, ?, ?, ?)
+                  ON CONFLICT(profile_id, legendaire) DO NOTHING`,
+            args: [profileId, cle, JSON.stringify(regle), now],
+          })),
+      )
+      await this.client.batch(
+        [...retenus, { sql: 'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING', args: [drapeau, String(now)] }],
+        'write',
+      )
+      if (retenus.length > 0) console.log(`[profils] ${retenus.length} légendaire(s) gagné(s) avant leur durcissement, gardé(s)`)
+    }
   }
 
   /**

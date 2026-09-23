@@ -53,7 +53,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `core/journal.ts` | le journal rangé question par question et quiz par quiz : la seule lecture qu'en font l'expérience et les hauts faits |
 | `core/hautsfaits.ts` | les hauts faits d'une soirée, invité par invité — dérivation pure, jouée à la clôture et sur les archives |
 | `core/recalcul.ts` | au démarrage, relit l'historique au barème du jour (`VERSION_BAREME`) : expérience, prix, hauts faits, paliers |
-| `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les douze avatars légendaires qui s'en débloquent |
+| `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les douze avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un |
 | `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) |
 | `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
@@ -75,6 +75,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
 | `client/src/components/Liaison.tsx` | ce que voit l'invité quand la liaison tombe |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
+| `server/scripts/calibrage.ts` | combien de quiz demande chaque légendaire : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits (`npx tsx scripts/calibrage.ts`, format réglable) |
 
 ## Les invariants — à ne jamais casser
 
@@ -201,6 +202,15 @@ server/test/        un fichier par thème, un serveur jetable chacun
     de progression, pas de ligne d'étagère (`badgesOf` les écarte), pas même
     un compte de badges qui bougerait. Un Divin ne prend ni finition ni
     Éclat.
+22. **Durcir un légendaire ne le reprend à personne.** Les légendaires se
+    dérivent des récompenses à chaque lecture : relever un seuil suffisait à
+    reprendre celui qu'on portait, et l'Arbre-Monde avec. Une règle qui se
+    durcit ajoute donc une entrée à `DURCISSEMENTS` (`auth/profiles.ts`) —
+    les règles d'avant, un drapeau neuf dans `meta` —, et n'en modifie
+    jamais une : au démarrage, chaque profil retient dans
+    `profile_legendaires` la règle sous laquelle il avait chacun, et le
+    garde tant qu'elle tient. Une soirée retirée de l'historique emporte
+    donc encore ce qu'elle avait fait tomber.
 
 ## Les conventions
 
@@ -317,6 +327,10 @@ sans `QUIZ_DB_URL`.
   `XP_PALIER`, l'expérience des hauts faits, `CHANCE_ECLAT`…) sans le dire :
   ce sont des choix de produit, pas des constantes techniques — et sans
   incrémenter `VERSION_BAREME`, l'historique garderait l'ancien.
+- Bouger le seuil d'un légendaire sans le mesurer ni le dire. C'est aussi un
+  choix de produit, mesuré par `calibrage.ts` ; il se relit à chaque
+  lecture, sans `VERSION_BAREME`, et ne se relève jamais sans son entrée à
+  `DURCISSEMENTS` (invariant 22).
 - Rendre la connexion obligatoire. L'entrée d'une soirée **est** un écran de
   connexion, et l'accueil (`/`) en est un aussi : c'est un choix assumé — mais
   « Jouer sans compte » et « Rejoindre une soirée » y ont exactement le format

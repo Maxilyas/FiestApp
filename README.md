@@ -113,7 +113,7 @@ L'expérience d'un quiz se crédite **dès que son podium s'affiche**, et elle e
 
 **Les hauts faits** se lisent à la clôture de chaque soirée, sur ses journaux. Vingt de soirée, qui se regagnent : des **exploits** — le Grand Chelem, la Foudre, le Phénix, Seul contre tous, l'Oracle… — et des **coups du sort** assumés — la Lanterne Rouge, le Kamikaze, la Girouette, l'Estimation Cosmique… : on en gagne aussi en jouant mal. Dix de carrière, en trois paliers, Bronze, Argent, Or : dix soirées, cinq cents réponses, cent réflexes… Tout le catalogue se voit sur `/profil`, avec la jauge du palier suivant — savoir ce qui vient donne envie de revenir. Une salle de moins de quatre joueurs n'en décerne aucun : l'expérience se gagne à deux, mais à deux, « la Lanterne Rouge » tomberait à chaque partie.
 
-**Les avatars légendaires** sont douze médaillons dessinés — le Phénix, le Dragon d'Or, la Chouette d'Argent, le Kraken… — qui ne se gagnent que par un haut fait : un Grand Chelem, un Triplé, trois Lanternes Rouges. Celui qu'on porte remplace l'emoji sur tous les écrans ; les autres attendent en silhouette dorée sur la page du profil, avec leur règle et ce qui manque.
+**Les avatars légendaires** sont douze médaillons dessinés — le Phénix, le Dragon d'Or, la Chouette d'Argent, le Kraken… — qui se méritent sur la durée : un exploit rare (un Grand Chelem, un Triplé) ou le même haut fait, soirée après soirée (dix Foudres pour le Tigre, huit couronnes pour le Lion). Il faut une vingtaine de quiz au premier de la bande qui en décroche un. Celui qu'on porte remplace l'emoji sur tous les écrans ; les autres attendent en silhouette dorée sur la page du profil, avec leur règle et ce qui manque. Ce qui était gagné avant que les règles se durcissent reste gagné.
 
 **Les Divins** sont cinq avatars au-dessus des légendaires — Hélios, le Séraphin, le Lotus Sacré, l'Arbre-Monde, l'Ange Déchu — dessinés pour déborder de leur cadre : rayons, ailes, anneau brisé. **Personne ne sait ce qui les fait descendre.** La page du profil les montre voilés, sans nom ni règle ; le téléphone ne reçoit jamais que la liste de ceux qu'on a, et leur légende, qui raconte après coup ce qu'il a fallu faire ; les règles et les légendes vivent côté serveur, dans `server/src/core/divins.ts`, et ce README s'arrête là. Ils sont faits pour être rares — de grandes salles, des soirées entières. Quand l'un descend, toute la salle le voit à la clôture. Un Divin ne prend ni finition ni Éclat, et, comme tout le profil, ne donne aucun avantage de jeu.
 
@@ -477,6 +477,7 @@ shared/   Types et fonctions pures partagés (protocole socket, vues du quiz, bi
 | 19 | Les badges : prix de soirée persistés, badges de carrière, rareté calculée | ✅ |
 | 20 | Les récompenses (RECOMPENSES.md) : « Clore la soirée » et l'historique qui s'écrit seul, l'expérience au mérite, les hauts faits et leurs paliers, douze avatars légendaires, la carte d'un joueur, la fin de soirée sur le téléphone, les catégories de questions | ✅ |
 | 21 | Les Divins : cinq avatars au-dessus des légendaires, aux règles secrètes, annoncés à toute la salle | ✅ |
+| 22 | Les légendaires se méritent : une vingtaine de quiz au premier qui en décroche un, mesurée par simulation ; ce qui était gagné reste gagné | ✅ |
 
 ## La direction
 

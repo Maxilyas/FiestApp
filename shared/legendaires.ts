@@ -11,19 +11,34 @@
 // Le dessin vit côté client (`client/src/components/Legendaire.tsx`) ; ici,
 // le catalogue et la règle, purs et partagés — le serveur vérifie qu'on porte
 // un légendaire qu'on a, la page profil montre ce qui manque.
+//
+// Un légendaire se mérite sur la durée. Tombés d'un seul haut fait, la
+// plupart se gagnaient dès la première soirée : au format de la maison — deux
+// quiz de cinquante questions, une douzaine de joueurs —, le plus rapide
+// avait sa Foudre à chaque quiz, le premier son Lion au premier soir. Les
+// seuils sont donc calés pour qu'il faille environ vingt quiz au premier de
+// la bande qui le décroche, les autres mettant plus longtemps
+// (`server/scripts/calibrage.ts` le mesure, sur le vrai code des hauts
+// faits). Le Renard y était déjà, avec ses dix soirées ; le Phénix, la
+// Chouette, la Licorne et le Kraken demandaient déjà davantage, et le Dragon
+// ne se gagne qu'une soirée de trois quiz au moins. Ceux-là n'ont pas bougé.
+// Ce qui était gagné avant reste gagné : voir `legendairesDebloques`.
 
 import { clePalier } from './hautsfaits'
+
+/**
+ * Ce qui débloque un légendaire : un haut fait de soirée décroché `fois`
+ * fois — autant de soirées, puisqu'il ne tombe qu'une fois par soirée —, ou
+ * un palier de carrière atteint.
+ */
+export type Condition = { hautFait: string; fois: number } | { hautFait: string; palier: number }
 
 export interface Legendaire {
   key: string
   nom: string
   /** Une ligne, pour la galerie : ce qu'il raconte. */
   legende: string
-  /**
-   * Ce qui le débloque : un haut fait de soirée décroché `fois` fois, ou un
-   * palier de carrière atteint.
-   */
-  condition: { hautFait: string; fois: number } | { hautFait: string; palier: number }
+  condition: Condition
   /** Le ton du haut fait qui le débloque : les légendaires de l'ombre se gagnent en jouant mal. */
   ton: 'eclat' | 'ombre'
 }
@@ -47,7 +62,7 @@ export const LEGENDAIRES: Legendaire[] = [
     key: 'lg:oracle',
     nom: 'L’Oracle',
     legende: 'Il voit le chiffre avant qu’on le dise.',
-    condition: { hautFait: 'hf:oracle', fois: 1 },
+    condition: { hautFait: 'hf:oracle', fois: 8 },
     ton: 'eclat',
   },
   {
@@ -60,8 +75,8 @@ export const LEGENDAIRES: Legendaire[] = [
   {
     key: 'lg:tigre',
     nom: 'Le Tigre Foudre',
-    legende: 'Le plus rapide, trois fois dans le même quiz.',
-    condition: { hautFait: 'hf:foudre', fois: 1 },
+    legende: 'Le plus rapide, soir après soir.',
+    condition: { hautFait: 'hf:foudre', fois: 10 },
     ton: 'eclat',
   },
   {
@@ -74,8 +89,8 @@ export const LEGENDAIRES: Legendaire[] = [
   {
     key: 'lg:lion',
     nom: 'Le Lion Couronné',
-    legende: 'Premier d’une soirée d’au moins huit joueurs.',
-    condition: { hautFait: 'hf:roi', fois: 1 },
+    legende: 'Huit fois premier d’une soirée d’au moins huit joueurs.',
+    condition: { hautFait: 'hf:roi', fois: 8 },
     ton: 'eclat',
   },
   {
@@ -88,8 +103,8 @@ export const LEGENDAIRES: Legendaire[] = [
   {
     key: 'lg:comete',
     nom: 'La Comète',
-    legende: 'Cent fois parmi les plus rapides.',
-    condition: { hautFait: 'hf:reflexe', palier: 2 },
+    legende: 'Quatre cents fois parmi les plus rapides.',
+    condition: { hautFait: 'hf:reflexe', palier: 3 },
     ton: 'eclat',
   },
   {
@@ -103,14 +118,14 @@ export const LEGENDAIRES: Legendaire[] = [
     key: 'lg:fantome',
     nom: 'Le Fantôme',
     legende: 'Il passe, il repasse, il ne répond pas.',
-    condition: { hautFait: 'hf:somnambule', fois: 2 },
+    condition: { hautFait: 'hf:somnambule', fois: 6 },
     ton: 'ombre',
   },
   {
     key: 'lg:trou-noir',
     nom: 'Le Trou Noir',
-    legende: 'Trois estimations perdues dans l’espace.',
-    condition: { hautFait: 'hf:cosmique', fois: 3 },
+    legende: 'Sept estimations perdues dans l’espace.',
+    condition: { hautFait: 'hf:cosmique', fois: 7 },
     ton: 'ombre',
   },
 ]
@@ -122,16 +137,26 @@ export function legendaire(key: unknown): Legendaire | undefined {
 }
 
 /**
- * Où en est un profil sur un légendaire : combien il a, combien il faut.
+ * Où en est un profil sur une condition : combien il a, combien il faut.
  * `recompenses` compte ses hauts faits rangés — une clé par haut fait de
  * soirée (le nombre de soirées où il l'a décroché), une par palier atteint.
  */
-export function progresVers(l: Legendaire, recompenses: ReadonlyMap<string, number>): { acquis: number; requis: number } {
-  const c = l.condition
+function progresSur(c: Condition, recompenses: ReadonlyMap<string, number>): { acquis: number; requis: number } {
   if ('fois' in c) return { acquis: Math.min(c.fois, recompenses.get(c.hautFait) ?? 0), requis: c.fois }
   let atteint = 0
   for (let p = 1; p <= 3; p++) if ((recompenses.get(clePalier(c.hautFait, p)) ?? 0) > 0) atteint = p
   return { acquis: Math.min(c.palier, atteint), requis: c.palier }
+}
+
+/** Où en est un profil sur un légendaire, avec la règle du jour. */
+export function progresVers(l: Legendaire, recompenses: ReadonlyMap<string, number>): { acquis: number; requis: number } {
+  return progresSur(l.condition, recompenses)
+}
+
+/** Cette condition est-elle remplie ? */
+export function conditionTenue(c: Condition, recompenses: ReadonlyMap<string, number>): boolean {
+  const { acquis, requis } = progresSur(c, recompenses)
+  return acquis >= requis
 }
 
 /**
@@ -145,10 +170,22 @@ export function cibleEclat(porte: string | null | undefined, emoji: string): str
   return porte && legendaire(porte) ? porte : emoji
 }
 
-/** Les légendaires qu'un profil a débloqués. */
-export function legendairesDebloques(recompenses: ReadonlyMap<string, number>): string[] {
+/**
+ * Les légendaires qu'un profil a débloqués : ceux dont il remplit la règle
+ * du jour, et ceux qu'il avait gagnés avant qu'elle se durcisse.
+ *
+ * `acquis` retient, pour chacun de ceux-là, la règle sous laquelle il
+ * l'avait : il le garde tant qu'elle tient. Durcir un seuil ne reprend donc
+ * rien à personne — mais une soirée retirée de l'historique (essai effacé,
+ * soirée supprimée) emporte encore ce qu'elle avait fait tomber, comme avant.
+ */
+export function legendairesDebloques(
+  recompenses: ReadonlyMap<string, number>,
+  acquis?: ReadonlyMap<string, Condition>,
+): string[] {
   return LEGENDAIRES.filter(l => {
-    const { acquis, requis } = progresVers(l, recompenses)
-    return acquis >= requis
+    if (conditionTenue(l.condition, recompenses)) return true
+    const avant = acquis?.get(l.key)
+    return !!avant && conditionTenue(avant, recompenses)
   }).map(l => l.key)
 }
