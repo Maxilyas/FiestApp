@@ -367,12 +367,17 @@ test('un exclu ne vole pas le premier rang d’une estimation', async () => {
   const hote = attendre<any>(host, 'session:view', p => p.view.phase === 'reveal', 'la révélation vue de l’écran commun')
   assert.equal((await proposer(basile, 50)).ok, true)
   const [chezAnna, chezHote] = await Promise.all([revelee, hote])
-  // Seule en tête parmi ceux qui restent : proximité pleine et bonus du plus proche.
-  assert.equal(chezAnna.view.yourPoints, 200, 'Annabelle est la plus proche de ceux qui restent')
+  // Sans l'exclue, l'écart typique de la salle est de 30, entre les 10
+  // d'Annabelle et les 50 de Basilic : Annabelle touche 165. La réponse pile
+  // de Zélie le ramenait à 10, et Annabelle à 115.
+  assert.equal(chezAnna.view.yourPoints, 165, 'la réponse de l’exclue ne pèse plus sur les points des autres')
   assert.deepEqual(
-    chezHote.view.guesses.map((g: any) => g.name),
-    ['Annabelle', 'Basilic'],
-    'la proposition de l’exclue ne s’affiche plus',
+    chezHote.view.guesses.map((g: any) => [g.name, g.rank]),
+    [
+      ['Annabelle', 1],
+      ['Basilic', 2],
+    ],
+    'la proposition de l’exclue ne s’affiche plus, et Annabelle est la plus proche',
   )
   envoyer(host, 'host:endSession', { sessionId })
 })

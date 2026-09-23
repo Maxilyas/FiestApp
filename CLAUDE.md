@@ -41,7 +41,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | Fichier | Ce qu'il porte |
 |---|---|
 | `core/engine.ts` | route actions/commandes/timers vers le module de jeu, persiste, rediffuse les vues filtrées |
-| `games/quiz.ts` | **toutes** les règles : phases, chronomètres, barème, vues |
+| `games/quiz.ts` | **toutes** les règles : phases, chronomètres, barème (le temps de lecture offert au QCM, l'estimation payée à la distance), vues |
 | `core/space.ts` | la soirée d'un espace : ses registres, ses salons socket, ses diffusions, son nom figé, ses crédits |
 | `core/party.ts` | le registre des invités (identité par jeton, rattachement au profil, marques d'homonymie, connexions par socket) |
 | `core/scores.ts` | journal des gains, en ajout seul |
@@ -70,7 +70,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `sockets.ts` | tout le protocole temps réel — chaque message passe par `ecouter()` |
 | `shared/events.ts` | le contrat socket, typé des deux côtés |
 | `shared/homonymes.ts` | « Camille (2) » : la dérivation pure qui distingue deux invités identiques |
-| `shared/classement.ts` | la seule règle des ex æquo : rang partagé, vainqueurs, ordre d'affichage |
+| `shared/classement.ts` | la seule règle des ex æquo : rang partagé, vainqueurs, ordre d'affichage — et l'écart d'une estimation (`ecartEstimation`) |
 | `shared/securite.ts` | la page de retour après connexion : jamais ailleurs que chez soi |
 | `shared/erreurs.ts` | les motifs que le client montre quand ça coince (réseau, serveur qui redémarre…) |
 | `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
@@ -147,7 +147,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
 15. **Un classement passe par `shared/classement.ts`.** Rang = 1 + le nombre
     de concurrents strictement devant ; tous les ex æquo en tête gagnent.
     Cinq règles de départage différentes donnaient trois vainqueurs à un même
-    quiz.
+    quiz. Deux estimations se comparent par `ecartEstimation`, jamais par
+    `Math.abs(valeur - cible)` : la virgule flottante séparait 0,7 et 0,9
+    pour 0,8, et le barème au rang payait l'un 200 points et l'autre 30.
 16. **Une personne, deux tables — et `accounts.id` ne bouge jamais.** Un
     compte est un **espace** (slug, réglages, et l'identifiant qui cloisonne
     tout le reste) ; un profil est une **personne** (prénom, avatar,
@@ -329,10 +331,16 @@ sans `QUIZ_DB_URL`.
 
 ## Ce qu'il ne faut pas faire
 
-- Toucher aux barèmes (`CHOICE_POINTS`, `XP`, `SEUILS`, `XP_PAR_PALIER`,
+- Toucher aux barèmes (`CHOICE_POINTS`, `SPEED_BONUS`, `LECTURE_MS…`,
+  `PROXIMITY_POINTS`, `CRANS_TOLERES`, `XP`, `SEUILS`, `XP_PAR_PALIER`,
   `XP_PALIER`, l'expérience des hauts faits, `CHANCE_ECLAT`…) sans le dire :
   ce sont des choix de produit, pas des constantes techniques — et sans
-  incrémenter `VERSION_BAREME`, l'historique garderait l'ancien.
+  incrémenter `VERSION_BAREME`, l'historique garderait l'ancien. Les points
+  d'une question, eux, sont écrits au journal et ne se recalculent jamais :
+  une soirée jouée garde le barème de son soir, et `VERSION_BAREME` relit
+  seulement ce qui s'en dérive. `calibrage.ts` joue avec les vraies
+  formules (`pointsDuChoix`, `pointsDesEstimations`) : il mesure ce qu'un
+  nouveau barème fait aux niveaux et aux légendaires.
 - Bouger le seuil d'un légendaire ou la courbe des niveaux
   (`XP_PAR_PALIER`) sans le mesurer ni le dire. Ce sont aussi des choix de
   produit, mesurés par `calibrage.ts` ; ils se relisent à chaque lecture,

@@ -227,12 +227,14 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
               <div className="podium">
                 {v.guesses?.map((g, i) => (
                   <div key={i} className="lb-row" style={{ animationDelay: `${i * 60}ms` }}>
-                    {i === 0 ? (
+                    {/* La cible pour tous les plus proches : deux estimations à
+                        égale distance ne sont ni première ni deuxième. */}
+                    {g.rank === 1 ? (
                       <span className="lb-rank">
                         <Icon name="target" />
                       </span>
                     ) : (
-                      <Rank n={i + 1} />
+                      <Rank n={g.rank} />
                     )}
                     <Avatar className="lb-avatar" avatar={g.avatar} finition={g.finition} eclat={g.eclat} legendaire={g.legendaire} />
                     <span className="lb-name">{g.name}</span>

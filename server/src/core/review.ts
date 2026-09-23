@@ -3,7 +3,7 @@ import { computeStats } from './stats'
 import type { PlayableQuestion } from '../../../shared/library'
 import { rankTeams, teamScores } from '../../../shared/teams'
 import { nomAffiche } from '../../../shared/homonymes'
-import { classer, ordreDeClassement, rangPartage, vainqueurs } from '../../../shared/classement'
+import { classer, ecartEstimation, ordreDeClassement, rangPartage, vainqueurs } from '../../../shared/classement'
 import type { PublicPlayer, TeamBonus } from '../../../shared/types'
 import { formatSeconds, sharedRank } from '../../../shared/review'
 import type {
@@ -180,7 +180,7 @@ function rankedGuesses(rows: AnswerRow[], target: number): AnswerRow[] {
     .filter(r => r.answered && r.value !== null)
     .sort(
       (a, b) =>
-        Math.abs(a.value! - target) - Math.abs(b.value! - target) || (a.ms ?? 0) - (b.ms ?? 0),
+        ecartEstimation(a.value!, target) - ecartEstimation(b.value!, target) || (a.ms ?? 0) - (b.ms ?? 0),
     )
 }
 
@@ -274,7 +274,7 @@ export function buildReview(input: ReviewInput): Review {
       // plus proches » — la rapidité ne départage plus deux réponses égales,
       // ni au barème ni ici. Le bilan qui n'en nommait qu'un couronnait le
       // plus rapide de deux « 1994 » payés pareil.
-      const ecart = (r: AnswerRow) => Math.abs(r.value! - target!)
+      const ecart = (r: AnswerRow) => ecartEstimation(r.value!, target!)
       const ecarts = guesses.map(g => -ecart(g))
       const plusPetitEcart = guesses[0] ? ecart(guesses[0]) : null
       const closest = guesses.filter(g => ecart(g) === plusPetitEcart).map(g => ({ playerId: g.playerId, value: g.value! }))
@@ -336,7 +336,9 @@ export function buildReview(input: ReviewInput): Review {
 
       // Ce que chacun a fait, et ses moments forts sur cette question.
       for (const r of qRows) {
-        // Le rang du barème : partagé à égalité d'écart (`quiz.ts`).
+        // Le rang de proximité, celui que montre l'écran commun : partagé à
+        // égalité d'écart. Il ne fait plus les points — la distance les fait
+        // (`quiz.ts`) —, mais il dit encore qui visait le plus juste.
         const proximityRank = r.answered && r.value !== null && target !== null ? rangPartage(-ecart(r), ecarts) : 0
         answersByPlayer.set(r.playerId, [
           ...(answersByPlayer.get(r.playerId) ?? []),
@@ -380,7 +382,7 @@ export function buildReview(input: ReviewInput): Review {
         } else if (r.answered && r.value !== null && target !== null) {
           if (r.value === target) {
             push(r.playerId, { kind: 'exact', questionKey: key, text: 'Pile-poil : la valeur exacte' })
-          } else if (plusPetitEcart !== null && Math.abs(r.value - target) === plusPetitEcart && guesses.length >= 2) {
+          } else if (plusPetitEcart !== null && ecart(r) === plusPetitEcart && guesses.length >= 2) {
             push(r.playerId, { kind: 'closest', questionKey: key, text: "L'estimation la plus proche de toute la salle" })
           }
         }

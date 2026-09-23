@@ -28,6 +28,28 @@ export function rangPartage(valeur: number, valeurs: Iterable<number>): number {
   return devant + 1
 }
 
+/** Le nombre de décimales avec lequel un nombre s'écrit : 7,9 en a une, 1994 aucune, 1,5e-7 huit. */
+export function decimales(x: number): number {
+  const m = /^-?\d+(?:\.(\d+))?(?:e([+-]\d+))?$/.exec(String(x))
+  if (!m) return 0
+  return Math.max(0, (m[1]?.length ?? 0) - Number(m[2] ?? 0))
+}
+
+/**
+ * L'écart d'une estimation à la bonne réponse, tel qu'on le lit sur ce qu'on
+ * a tapé — c'est lui qui dit si deux estimations sont ex æquo.
+ *
+ * En virgule flottante, 0,9 − 0,8 et 0,8 − 0,7 ne valent pas la même chose
+ * (0,0999…98 contre 0,1000…09) : deux invités à égale distance de la réponse
+ * n'étaient pas à égalité, et le barème au rang payait l'un 200 points et
+ * l'autre 30. L'écart s'arrondit donc à la précision de ce qu'on a écrit — la
+ * plus fine des deux nombres, douze décimales au plus.
+ */
+export function ecartEstimation(valeur: number, cible: number): number {
+  const precision = Math.min(12, Math.max(decimales(valeur), decimales(cible)))
+  return Number(Math.abs(valeur - cible).toFixed(precision))
+}
+
 const comparerIds = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 
 /**
