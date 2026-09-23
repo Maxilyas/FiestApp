@@ -1,5 +1,6 @@
-// La fin d'une soirée : « Clore la soirée », « C'était un essai », et ce que
-// l'historique garde — ou rend.
+// La fin d'une soirée : « Clore la soirée », « C'était un essai », ce que
+// l'historique garde — ou rend —, et ce que les pages de l'espace montrent
+// le lendemain.
 //
 // Il y avait deux gestes, « Sauvegarder » et « Nouvelle soirée », et aucun ne
 // disait la fin : le téléphone restait sur « En attente du prochain quiz… »,
@@ -18,6 +19,7 @@ import {
   attendre,
   connecter,
   connexionAnimateur,
+  cookieDe,
   creerQuiz,
   demarrer,
   ecranCommun,
@@ -342,6 +344,71 @@ test('retirer une soirée de l’historique reprend ce qu’elle avait crédité
     const profil = await moi(banc, aliceCookie)
     assert.equal(profil.xp, 0, 'une soirée retirée ne compte plus nulle part')
     assert.equal(profil.badges, 0)
+  }))
+
+// ── 3 bis. Le lendemain ───────────────────────────────────────────────────
+//
+// La clôture efface la soirée en cours, et le souvenir comme le bilan de
+// l'espace lisaient celle-là seulement : l'invité qui rouvrait le lendemain
+// le souvenir scanné au podium lisait « La soirée n'a pas encore commencé ».
+// Tant que la suivante n'a rien joué, ces pages désignent maintenant la
+// dernière soirée close, et la page la montre à sa place.
+
+test('le lendemain, les pages de l’espace mènent à la dernière soirée close — jusqu’à ce que la suivante joue', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const deux = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const host = await ecranCommun(banc.url, cookie)
+    const page = async (fichier: 'recap.json' | 'bilan.json', slug = ADMIN.slug) => {
+      const res = await fetch(`${banc.url}/s/${slug}/${fichier}`)
+      assert.equal(res.status, 200, `${slug}/${fichier}`)
+      return (await res.json()) as any
+    }
+    const jouer = (salle: Invite[]) => jouerQuiz(host, deux, [[[salle[0], 0], [salle[1], 1]], [[salle[0], 0], [salle[1], 1]]])
+
+    // Un espace neuf n'a nulle part où mener.
+    assert.equal((await page('recap.json')).derniere, undefined)
+
+    await jouer(await figurants(banc, 2))
+    const veille = await rangee(banc)
+    assert.equal((await page('recap.json')).derniere, undefined, 'une soirée qui joue se montre elle-même')
+    await clore(host, 'La veille')
+
+    // Le lendemain : le souvenir et le bilan de l'espace désignent la soirée close…
+    for (const fichier of ['recap.json', 'bilan.json'] as const) {
+      const { derniere } = await page(fichier)
+      assert.deepEqual([derniere?.id, derniere?.title], [veille, 'La veille'], fichier)
+      assert.equal(typeof derniere?.heldAt, 'number')
+    }
+    // … qui se relit à son adresse.
+    const relue = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${veille}/recap.json`)).json()) as any
+    assert.equal(relue.archive?.title, 'La veille')
+
+    // Chacun chez soi : le voisin, qui n'a jamais rien clos, n'en voit rien.
+    const cree = await ecrire(banc.url, '/api/admin/accounts', { login: 'voisin', name: 'Voisin', slug: 'chez-le-voisin' }, cookie)
+    const { activation } = (await cree.json()) as { activation: { token: string } }
+    cookieDe(await ecrire(banc.url, '/api/auth/activate', { token: activation.token, password: 'voisin-pass-1' }))
+    assert.equal((await page('recap.json', 'chez-le-voisin')).derniere, undefined, 'jamais la soirée d’un autre espace')
+
+    // La suivante commence : des invités arrivent, rien n'est joué — la veille reste.
+    const salle = await figurants(banc, 2)
+    assert.equal((await page('recap.json')).derniere?.id, veille, 'la salle se remplit, la veille reste')
+    // Dès la première question jouée, les pages parlent de la nouvelle.
+    await jouer(salle)
+    await rangee(banc)
+    assert.equal((await page('recap.json')).derniere, undefined)
+    assert.equal((await page('bilan.json')).derniere, undefined)
+
+    // C'était un essai : effacé, il ne se montre jamais — la veille revient.
+    const toast = attendre<any>(host, 'toast', () => true, 'l’essai effacé', 15_000)
+    ;(host as any).emit('host:discardParty')
+    assert.equal((await toast).kind, 'info')
+    assert.equal((await page('recap.json')).derniere?.id, veille, 'un essai effacé ne se montre pas')
+
+    // Une soirée retirée de l'historique non plus : il n'y a plus rien où mener.
+    assert.equal((await ecrire(banc.url, `/api/soirees/${veille}`, {}, cookie, 'DELETE')).status, 200)
+    assert.equal((await page('recap.json')).derniere, undefined)
+    assert.equal((await page('bilan.json')).derniere, undefined)
   }))
 
 // ── 4. L'animateur joue aussi ─────────────────────────────────────────────
