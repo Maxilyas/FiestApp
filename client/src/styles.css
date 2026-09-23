@@ -782,6 +782,8 @@ h3 > .icon {
 /* ── Écran commun ───────────────────────────────── */
 .host {
   height: 100vh;
+  /* Sur un téléphone, la hauteur que laisse la barre d'adresse. */
+  height: 100dvh;
   overflow: hidden;
   padding: 22px 44px 20px;
   display: flex;
@@ -845,6 +847,59 @@ h3 > .icon {
 .qr-text .label { letter-spacing: 0.18em; }
 .join-url { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* Sous 1100 px, les trois colonnes de la bande se chevauchaient : le titre
+   passait sous « 0 / 12 ont répondu », l'étape sous le QR, et plus rien ne
+   se lisait. Le titre prend la première ligne, l'étape et le compte la
+   seconde, le QR reste à droite. */
+@media (max-width: 1100px) {
+  .host-band {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'titre titre qr'
+      'etape compte qr';
+    row-gap: 8px;
+  }
+  .band-left { grid-area: titre; flex-wrap: wrap; row-gap: 6px; }
+  .brand { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .band-center { grid-area: etape; }
+  .band-right { display: contents; }
+  .band-answered { grid-area: compte; justify-self: end; }
+  .host-band .qr-stack { grid-area: qr; }
+}
+
+/* Un téléphone tenu droit : une ligne chacun, et le QR sans son adresse —
+   l'invitation l'écrit en grand. */
+@media (max-width: 600px) {
+  .host-band {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'titre qr'
+      'etape qr'
+      'compte qr';
+    row-gap: 4px;
+  }
+  .brand { font-size: 22px; }
+  .band-sep,
+  .band-sub,
+  .host-band .qr-text { display: none; }
+  .band-answered { justify-self: start; }
+}
+
+/* Un téléphone couché — celui qu'on recopie sur la télé : la hauteur est ce
+   qui manque, la bande tient sur une ligne. */
+@media (max-width: 1100px) and (max-height: 500px) {
+  .host-band {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-areas: 'titre etape compte qr';
+    column-gap: 16px;
+  }
+  .brand { font-size: 22px; }
+  .band-sep,
+  .band-sub,
+  .host-band .qr-text { display: none; }
+  .host-band .qr-box svg { width: 38px; height: 38px; }
+}
+
 .host-grid {
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr) 340px;
@@ -859,9 +914,30 @@ h3 > .icon {
 .host-grid > .card { min-height: 0; overflow-y: auto; }
 
 @media (max-width: 1100px) {
-  .host { height: auto; overflow: visible; padding: 20px; }
+  /* Les marges s'écartent de l'encoche et de la barre d'accueil d'un
+     téléphone : la page les recouvre (`viewport-fit=cover`), et couché, le
+     titre passait sous l'encoche. */
+  .host {
+    --marge-y: 20px;
+    --marge-x: 20px;
+    padding:
+      max(var(--marge-y), env(safe-area-inset-top))
+      max(var(--marge-x), env(safe-area-inset-right))
+      max(var(--marge-y), env(safe-area-inset-bottom))
+      max(var(--marge-x), env(safe-area-inset-left));
+  }
   .host-grid { grid-template-columns: 1fr; }
   .host-grid > .card { overflow: visible; }
+
+  /* La salle d'attente défile, et l'invitation passe devant, la console
+     juste après. Dans l'ordre du mur — invités, invitation, classement,
+     console —, « Lancer un quiz » arrivait sous cinquante pastilles et tout
+     le classement : à 2 800 px du haut avec douze invités et six équipes. */
+  .host:not(.staging) { height: auto; overflow: visible; }
+  .host:not(.staging) .host-grid { display: contents; }
+  .host:not(.staging) .main-stage { order: 1; }
+  .host:not(.staging) .host-console { order: 2; }
+  .host:not(.staging) .host-grid > :not(.main-stage) { order: 3; }
 }
 
 .host-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; min-height: 0; }
@@ -945,9 +1021,23 @@ h3 > .icon {
 .console-icons { display: flex; justify-content: flex-end; gap: 8px; }
 
 @media (max-width: 1100px) {
-  .host-console { grid-template-columns: 1fr; }
+  /* Une seule rangée qui se replie : les icônes suivent les boutons au lieu
+     de prendre une ligne à elles, que la hauteur d'un téléphone n'a pas. */
+  .host-console { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
   .console-label { display: none; }
-  .console-icons { justify-content: center; }
+  .console-actions,
+  .console-icons { display: contents; }
+}
+
+@media (max-width: 600px), (max-width: 1100px) and (max-height: 500px) {
+  .host-console .btn:not(.btn-icon) { padding: 0 14px; }
+}
+
+/* Couché, la console tient sur une rangée : une seconde, pour une icône,
+   prenait 50 px à une scène qui n'en a que 250. */
+@media (max-width: 1100px) and (max-height: 500px) {
+  .host-console { gap: 6px; }
+  .host-console .btn:not(.btn-icon) { padding: 0 12px; }
 }
 
 /* ── Mode scène ─────────────────────────────────── */
@@ -1297,6 +1387,73 @@ h3 > .icon {
   color: var(--muted);
 }
 
+/* ── L'écran commun sur une tablette ou un téléphone ────────────────────
+   L'animateur le lance parfois depuis son téléphone : pour piloter à la
+   main, pour le recopier sur la télé, ou parce qu'il n'y a pas de télé et
+   que chacun lit la question sur le sien. En scène, l'écran se tient dans
+   la fenêtre comme au mur — la bande en haut, la console en bas, toujours
+   sous le pouce — et c'est la scène qui défile quand elle ne tient pas. La
+   page entière défilait : « Révéler » passait sous le pli dès qu'une photo
+   ou une question longue s'affichait. */
+@media (max-width: 1100px) {
+  .host.staging .main-stage { overflow-y: auto; }
+  /* Au mur, les réponses se tassent pour tenir ; ici, elles gardent au moins
+     la hauteur de leur texte. Écrasées à zéro, elles ne montraient plus
+     qu'une ligne collée aux bords. */
+  .host.staging .quiz-host { min-height: auto; }
+  .host.staging .ans-grid { min-height: auto; grid-auto-rows: auto; }
+  .host.staging .ans-btn { min-height: 64px; padding-top: 10px; padding-bottom: 10px; }
+}
+
+/* Le téléphone tenu droit, et celui qu'on couche : les classements de la
+   révélation suivent les réponses au lieu de se serrer dans une boîte de
+   120 px qui défile, la scène défilant déjà. */
+@media (max-width: 600px), (max-width: 1100px) and (max-height: 500px) {
+  .host.staging .reveal-boards { flex: none; min-height: 0; overflow: visible; }
+  .host.staging .quiz-host:has(.reveal-boards) .guess-reveal { max-height: none; overflow: visible; }
+  .quiz-host .timer-seconds { font-size: 44px; min-width: 52px; }
+  .quiz-host .ans-shape { width: 26px; height: 26px; }
+  .quiz-host .ans-check { width: 24px; height: 24px; }
+  .host.staging .ans-btn,
+  .host.staging .quiz-host:has(.reveal-boards) .ans-btn { gap: 14px; padding: 8px 16px; min-height: 56px; }
+}
+
+@media (max-width: 600px) {
+  .host { --marge-y: 14px; --marge-x: 16px; gap: 14px; }
+  .quiz-host { gap: 14px; }
+  /* Une colonne : à deux, il restait à chaque réponse la place d'une
+     syllabe, et « Réponse A » s'écrivait une lettre par ligne. */
+  .quiz-host .ans-grid { grid-template-columns: 1fr; gap: 10px; }
+}
+
+@media (max-width: 1100px) and (max-height: 500px) {
+  .host { --marge-y: 10px; --marge-x: 16px; gap: 10px; }
+  .quiz-host { gap: 10px; }
+  .quiz-host .timer-seconds { font-size: 34px; min-width: 42px; }
+  .quiz-host .ans-grid { gap: 8px; }
+  .host.staging .ans-btn,
+  .host.staging .quiz-host:has(.reveal-boards) .ans-btn { min-height: 44px; padding: 4px 16px; }
+  .host.staging .quiz-question { font-size: 1.7rem; }
+  .host.staging .quiz-question.q-md { font-size: 1.45rem; }
+  .host.staging .quiz-question.q-sm { font-size: 1.25rem; }
+  .host.staging .big-count { font-size: 5rem; }
+  .host.staging .getready { padding: 8px 0; }
+  /* Des tailles en vw, taillées pour la largeur d'un mur : couché, le
+     tambour du vainqueur prenait à lui seul la hauteur de l'écran. */
+  .host.staging .target-value { font-size: 3rem; }
+  .host.staging .victory-emoji { font-size: 3.5rem; }
+  .host.staging .victory-name { font-size: 2.2rem; }
+  .host.staging .observe-img { max-height: 40vh; }
+}
+
+/* « Jouer depuis cet appareil » : pour l'écran qu'on tient en main, pas pour
+   celui qu'on projette. */
+.jouer-ici { display: none; }
+
+@media (hover: none) {
+  .jouer-ici { display: inline-flex; }
+}
+
 /* ── Estimation ─────────────────────────────────── */
 .guess-form { display: flex; flex-direction: column; gap: 14px; }
 .guess-row { display: flex; align-items: baseline; gap: 12px; }
@@ -1418,6 +1575,16 @@ h3 > .icon {
 /* Sur l'écran commun, la console occupe le bas : le toast se pose juste
    au-dessus, sans masquer les boutons que l'animateur cherche des yeux. */
 .host > .toast { bottom: 84px; }
+
+/* Sous 1100 px, la console se replie sur deux ou trois rangées : 84 px ne
+   suffisaient plus, et le toast couvrait « Question suivante ». Il passe en
+   haut, sur la bande, comme au téléphone des invités. */
+@media (max-width: 1100px) {
+  .host > .toast {
+    top: max(14px, calc(env(safe-area-inset-top) + 8px));
+    bottom: auto;
+  }
+}
 
 .toast-error { border-color: var(--alert); color: var(--alert); }
 
