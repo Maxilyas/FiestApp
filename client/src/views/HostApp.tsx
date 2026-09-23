@@ -28,6 +28,7 @@ import { Niveau } from '../components/Niveau'
 import { distinctions } from '../../../shared/profil'
 import type { ArchiveList } from '../../../shared/archive'
 import { AnnoncesDeNiveau, ClotureEcran } from '../components/Cloture'
+import { useEcranAllume } from '../veille'
 
 /** QR wifi standard : le téléphone rejoint le réseau en le scannant. */
 function wifiQrValue(wifi: { ssid: string; pass: string }): string {
@@ -39,6 +40,29 @@ function wifiQrValue(wifi: { ssid: string; pass: string }): string {
 
 /** L'encre des QR codes : le noir chaud du fond, sur blanc. */
 const QR_INK = '#1a1412'
+
+/**
+ * Le plein écran n'existe pas partout : sur iPhone, il est réservé aux
+ * vidéos, et `requestFullscreen` n'y est même pas défini — le bouton levait
+ * une exception et ne faisait rien. On ne montre que ce qui marche.
+ */
+const PLEIN_ECRAN = document.fullscreenEnabled === true
+
+/**
+ * L'adresse projetée, avec une coupure permise avant le nom de l'espace : sur
+ * un téléphone, elle passait à la ligne au milieu du mot (« roman / e »).
+ */
+function adresseCoupable(url: string) {
+  const i = url.lastIndexOf('/')
+  if (i <= 0) return url
+  return (
+    <>
+      {url.slice(0, i)}
+      <wbr />
+      {url.slice(i)}
+    </>
+  )
+}
 
 /** De quoi baptiser six équipes sans réfléchir, dans l'ambiance de la soirée. */
 // Tous antérieurs à Unicode 13 : les emojis récents (boule à facettes,
@@ -223,6 +247,12 @@ export function HostApp() {
   const [newEmoji, setNewEmoji] = useState(TEAM_EMOJIS[0])
   /** L'emplacement de la console animateur, où chaque écran pose ses boutons. */
   const [consoleSlot, setConsoleSlot] = useState<HTMLElement | null>(null)
+
+  // L'écran commun ne s'éteint pas en pleine soirée : le QR doit rester au
+  // mur pendant l'arrivée des invités, un quiz en mode « Auto » ne touche
+  // plus la souris, et un téléphone qui pilote ou qu'on recopie sur la télé
+  // se met en veille au bout de trente secondes.
+  useEcranAllume(me !== null)
 
   // Rechargés à chaque ouverture d'un écran de fin : les prix et les
   // statistiques changent après chaque quiz joué.
@@ -913,7 +943,7 @@ export function HostApp() {
                     salle doit voir de loin, c'est comment entrer. */}
                 <div className="invite">
                   <span className="label">Pour rejoindre le quiz</span>
-                  <p className="invite-url">{joinUrl}</p>
+                  <p className="invite-url">{adresseCoupable(joinUrl)}</p>
                   <div className="invite-qrs">
                     {snap.wifi && (
                       <div className="invite-qr">
@@ -930,6 +960,15 @@ export function HostApp() {
                       <span className="label">{snap.wifi ? '2 · Le quiz' : 'Scanner pour jouer'}</span>
                     </div>
                   </div>
+                  {/* Un écran ne scanne pas son propre QR : l'animateur qui
+                      pilote depuis son téléphone et veut jouer aussi ouvre la
+                      soirée dans un autre onglet, où le cookie de son profil
+                      et celui de la console cohabitent. Au mur, où rien ne se
+                      touche, le lien reste caché (styles.css). */}
+                  <a className="btn btn-accent jouer-ici" href={spacePath(slug)} target="_blank" rel="noreferrer">
+                    <Icon name="play" />
+                    Jouer depuis cet appareil
+                  </a>
                   <p className="muted invite-note">
                     Répondez vite : la rapidité rapporte des points bonus. Les scores s'ajoutent au
                     classement de la soirée.
@@ -1048,17 +1087,19 @@ export function HostApp() {
             >
               <Icon name={theme === 'ivoire' ? 'sun' : 'moon'} />
             </button>
-            <button
-              className="btn btn-icon"
-              title="Plein écran"
-              aria-label="Plein écran"
-              onClick={() => {
-                if (document.fullscreenElement) document.exitFullscreen()
-                else document.documentElement.requestFullscreen().catch(() => {})
-              }}
-            >
-              <Icon name="maximize" />
-            </button>
+            {PLEIN_ECRAN && (
+              <button
+                className="btn btn-icon"
+                title="Plein écran"
+                aria-label="Plein écran"
+                onClick={() => {
+                  if (document.fullscreenElement) document.exitFullscreen()
+                  else document.documentElement.requestFullscreen().catch(() => {})
+                }}
+              >
+                <Icon name="maximize" />
+              </button>
+            )}
           </div>
         </footer>
 

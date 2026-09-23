@@ -19,6 +19,7 @@ import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
 import { CarteJoueur } from '../components/CarteJoueur'
+import { useEcranAllume } from '../veille'
 
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
@@ -188,35 +189,7 @@ export function PlayerApp() {
 
   // Pendant un quiz, l'écran ne doit pas s'éteindre : un téléphone posé sur la
   // table pendant qu'on écoute la question rate la suivante.
-  useEffect(() => {
-    if (!playing) return
-    let sentinel: { release: () => Promise<void> } | null = null
-    let stopped = false
-    const acquire = () => {
-      const wakeLock = (navigator as any).wakeLock
-      if (!wakeLock) return
-      wakeLock
-        .request('screen')
-        .then((lock: any) => {
-          if (stopped) lock.release()
-          else sentinel = lock
-        })
-        .catch(() => {
-          // Refusé (onglet en arrière-plan, navigateur sans la fonction) :
-          // ce n'est qu'un confort, on continue sans.
-        })
-    }
-    // Revenir sur l'onglet libère le verrou : il faut le redemander.
-    const onVisible = () => document.visibilityState === 'visible' && acquire()
-    acquire()
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      stopped = true
-      document.removeEventListener('visibilitychange', onVisible)
-      sentinel?.release().catch(() => {})
-      sentinel = null
-    }
-  }, [playing])
+  useEcranAllume(playing)
 
   // Le seul canal d'erreur des invités : un lecteur d'écran doit l'annoncer,
   // tout de suite pour une erreur, sans couper la parole pour le reste.
