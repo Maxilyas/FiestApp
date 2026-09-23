@@ -1,6 +1,8 @@
 // Un espace = un compte : son nom dans l'adresse, ses réglages de soirée.
 // Partagé : le serveur valide, le client route et affiche.
 
+import { tronquer } from './avatars'
+
 /** Le nom dans l'adresse : minuscules, chiffres, tirets. Court, il se dicte. */
 export const SLUG = /^[a-z0-9-]{2,24}$/
 /** L'identifiant de connexion d'un animateur. */
@@ -101,13 +103,13 @@ export function normalizeSettings(raw: unknown, name: string): SpaceSettings {
   const d = defaultSettings(name)
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
   const text = (v: unknown, fallback: string, max: number) =>
-    typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : fallback
+    typeof v === 'string' && v.trim() ? tronquer(v.trim(), max) : fallback
   const n = Number(r.maxPlayers)
   return {
     title: text(r.title, d.title, 80),
     eyebrow: text(r.eyebrow, d.eyebrow, 60),
     headline: text(r.headline, d.headline, 40),
-    dateLine: typeof r.dateLine === 'string' ? r.dateLine.trim().slice(0, 60) : '',
+    dateLine: typeof r.dateLine === 'string' ? tronquer(r.dateLine.trim(), 60) : '',
     maxPlayers: Number.isFinite(n) ? Math.min(MAX_PLAYERS_CEILING, Math.max(2, Math.round(n))) : d.maxPlayers,
   }
 }

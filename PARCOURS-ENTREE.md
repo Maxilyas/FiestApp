@@ -5,9 +5,9 @@ le scan du QR et sa première question.
 
 > **C'est fait.** Écrit d'abord comme un brief, il décrit maintenant ce qui
 > tourne : l'entrée (`client/src/components/Entree.tsx`), la dérivation des
-> homonymes (`shared/homonymes.ts`) et la section 34 du smoke. Les écarts
-> entre ce qui était prévu et ce qui a été construit sont notés à leur place,
-> sous la mention « à l'usage ».
+> homonymes (`shared/homonymes.ts`), la section 34 du smoke et les tests de
+> `server/test/temps-reel.test.ts`. Les écarts entre ce qui était prévu et ce
+> qui a été construit sont notés à leur place, sous la mention « à l'usage ».
 
 Il ne remplace pas `CLAUDE.md` (les invariants du dépôt) ni `README.md` (le
 produit expliqué à un humain) : il les prolonge sur un point précis, **la porte
@@ -44,7 +44,12 @@ Ce qui marche déjà et qu'il ne faut pas casser :
   revoir, Alice »).
 - **Un profil ne tient qu'un joueur par soirée** : un second téléphone reprend
   la même identité (`findByProfile`), sinon l'expérience du soir compterait deux
-  fois.
+  fois. Le profil déjà présent l'emporte même sur le jeton d'une tablette entrée
+  sans compte, puis connectée à ce profil.
+- **Une re-présentation ne réécrit rien** : un téléphone qui se re-présente
+  avec son jeton peut bien renvoyer un prénom et un avatar, le serveur les
+  ignore — c'est sa fiche qui fait foi, renommage de l'animateur compris
+  (§6.2).
 - **Un téléphone prêté ne vole pas l'identité de son propriétaire** : un jeton
   qui porte le joueur d'un autre profil est ignoré.
 - **Créer un profil en cours de soirée rattache le joueur déjà inscrit** — les
@@ -90,7 +95,7 @@ la laisser repartir en un geste si elle change d'avis.*
 
 ## 3. Les règles non négociables
 
-Les onze invariants de `CLAUDE.md` s'appliquent — le onzième est né de ce
+Les invariants de `CLAUDE.md` s'appliquent — celui des homonymes est né de ce
 chantier. Ceux qui mordent ici :
 
 > **La logique de jeu est 100 % serveur.** **Tout est cloisonné par
@@ -139,9 +144,9 @@ Trois mémoires indépendantes, à ne pas confondre :
 
 | Le téléphone porte | Ce qu'on affiche |
 |---|---|
-| un jeton de joueur de cette soirée | **rien** : la salle d'attente, directement (comportement actuel) |
+| un jeton de joueur de cette soirée | **rien** : la salle d'attente, directement. Il se re-présente avec son seul jeton, et la fiche du serveur fait foi. Un jeton que la soirée ne connaît plus — exclu pendant que le téléphone dormait, « Nouvelle soirée » — est refusé (`unknown-token`), jamais recréé : le téléphone oublie son invité, garde son prénom, et repasse par l'entrée — l'écran B′ s'il porte un profil, l'écran B pré-rempli sinon |
 | un cookie de profil | **Écran B′** « Content de te revoir » — un bouton |
-| un choix local pour cet espace | **rien** : on rejoint tout seul avec le prénom retenu, et l'écran B pré-rempli seulement si ça échoue |
+| un choix local pour cet espace | **Écran B**, pré-rempli du prénom et de l'avatar retenus — puis l'écran d'équipe, s'il y en a |
 | rien du tout | **Écran A** — l'entrée, c'est-à-dire la connexion |
 
 ### 4.1 Écran A — L'entrée
@@ -203,8 +208,10 @@ même format que « Me connecter », visible sans défiler.
 - **Une connexion refusée ne piège personne** : le message le dit, et les deux
   boutons du dessous sont toujours là. Un mot de passe oublié ne doit jamais
   être la fin du chemin. Les essais sont déjà limités côté serveur
-  (`LoginBudget`, `auth/profileRoutes.ts`) : au-delà, c'est « Trop d'essais —
-  réessaie dans un quart d'heure », et le chemin anonyme reste ouvert.
+  (`loginBudgetOf`, `auth/http.ts` — une seule réserve par serveur, que les
+  portes du profil partagent avec celles du compte) : au-delà, c'est « Trop
+  d'essais — réessaie dans un quart d'heure », et le chemin anonyme reste
+  ouvert.
 - **« Créer un profil » mène à l'écran B**, pas à un formulaire d'identifiant :
   on choisit d'abord son prénom et son avatar, on sécurise ensuite (§4.4).
 - Le surtitre et le grand titre viennent des réglages de l'espace
@@ -217,10 +224,11 @@ même format que « Me connecter », visible sans défiler.
 (on passe à l'écran B′) ou un choix local pour cet espace. Un écran de
 connexion qu'on repousse deux fois devient un péage.
 
-*À l'usage :* un téléphone qui porte un choix local ne voit **aucun** écran —
-il se re-présente tout seul avec le prénom retenu, comme il le faisait déjà
-après un rafraîchissement. L'écran B pré-rempli n'apparaît que si cette
-re-présentation échoue (soirée complète, par exemple).
+*À l'usage :* un téléphone qui porte un choix local arrive à l'écran B,
+pré-rempli, et n'a qu'à confirmer — puis l'écran d'équipe, s'il y en a. Il se
+re-présentait d'abord tout seul avec le prénom retenu : l'habitué atterrissait
+alors « sans équipe », sans jamais voir l'écran d'équipe. Seul le jeton fait
+encore entrer sans un geste.
 
 ### 4.2 Écran B — Moi (prénom + avatar)
 
@@ -236,10 +244,16 @@ ajouts :
    que ceux qui ne touchent à rien n'arrivent pas tous identiques ; qu'il évite
    aussi les collisions est dans sa nature.
 3. **L'avertissement change de ton** : il ne demande plus de travail.
-   - même prénom, avatar différent → « Il y a déjà un Camille — ton 🐼 vous
-     distinguera. »
+   - même prénom, avatar différent → *Il y a déjà un « Camille » — ton 🐼
+     vous distinguera.*
    - même prénom, avatar pris → rien à dire : l'emoji est éteint, c'est le
      message.
+
+*À l'usage :* l'écran B prend l'en-tête resserré de l'écran A — avec le grand
+titre, « Rejoindre la soirée » tombait à 619–677 px, sous le bord d'un
+360 × 640 —, et son champ prénom n'ouvre pas le clavier tout seul, lui non
+plus. Chaque écran de l'entrée commence en haut : l'écran d'équipe héritait du
+défilement de celui-ci, et son titre passait au-dessus du bord.
 
 C'est aussi **l'étape 1 de la création de profil** : mêmes champs, même écran,
 seul le bouton change (« Continuer » au lieu de « Rejoindre la soirée »). Un
@@ -272,7 +286,8 @@ fois**, et ce sont ceux de son profil.
 - « Jouer sous un autre prénom ce soir » mène à l'écran B pré-rempli. C'est
   rare et c'est volontaire : on peut vouloir être « Le Capitaine » ce soir sans
   renommer son profil. Le choix vaut pour la soirée, **jamais** pour le profil,
-  et il est retenu localement pour survivre aux reconnexions.
+  et c'est la fiche du serveur qui le garde : un téléphone qui se reconnecte ne
+  renvoie que son jeton.
 - « Ce n'est pas moi » déconnecte le profil et renvoie à l'écran A. Discret,
   petit : c'est le cas du téléphone prêté, pas le cas courant.
 
@@ -282,7 +297,8 @@ Deux champs, pas un de plus, puisque le prénom et l'avatar sont déjà pris.
 
 - **Ton identifiant** — pré-rempli à partir du prénom (`Camille` → `camille`),
   modifiable. Les règles sont dans `shared/space.ts` (`isValidLogin` : 2 à 32
-  caractères, lettres, chiffres, point, tiret).
+  caractères, lettres, chiffres, point, tiret, tiret bas — tout passe en
+  minuscules).
 - **Ton mot de passe** — la règle s'affiche **avant** l'erreur : « au moins 8
   caractères » (`passwordProblem`, `server/src/auth/password.ts`).
 - **La sortie** : « Plus tard — je joue » rejoint la soirée en anonyme, avec le
@@ -295,9 +311,9 @@ Deux champs, pas un de plus, puisque le prénom et l'avatar sont déjà pris.
 > **Le compromis, assumé :** répondre « camille est pris » révèle qu'un profil
 > `camille` existe. C'est une application de fête, un profil ne contient qu'un
 > pseudo et de l'expérience, aucune donnée personnelle, et la route est déjà
-> limitée à 10 inscriptions par adresse et par tranche de 5 minutes. Le confort
-> vaut plus que ce secret-là. Écris-le en commentaire, pour que personne ne
-> « corrige » ça par réflexe dans six mois.
+> limitée à dix inscriptions d'un coup par adresse, puis cinq par minute. Le
+> confort vaut plus que ce secret-là. Écris-le en commentaire, pour que
+> personne ne « corrige » ça par réflexe dans six mois.
 
 ### 4.5 Écran C′ — Le code de secours
 
@@ -306,6 +322,17 @@ Celui d'aujourd'hui, qui est bon. Deux ajouts :
 - un bouton **Copier** (`navigator.clipboard`, silencieux en cas d'échec) ;
 - après « C'est noté », on **entre directement dans la soirée** — pas de retour
   à un écran d'inscription qu'on vient de remplir.
+
+*À l'usage :* sans presse-papier — hors HTTPS, c'est-à-dire sur le wifi local,
+et dans certains navigateurs —, le bouton ne faisait rien du tout : il
+n'apparaît plus, et le code reste lisible à l'écran. Le bouton du bas dit
+« C'est noté — j'entre » : en capitales espacées, « entrer dans la soirée »
+débordait des deux côtés d'un téléphone de 360 px. Et si le profil n'est pas
+reconnu à ce moment-là (cookie refusé, reconnexion trop lente), on entre avec
+le prénom et l'avatar tout juste choisis — ce sont ceux du profil — plutôt que
+de buter sur « Il faut un prénom ! ». Le code s'affiche d'ailleurs quoi qu'il
+arrive : une reconnexion trop lente le cachait, et retenter créait un second
+profil.
 
 ### 4.6 Écran D — J'ai oublié mon mot de passe
 
@@ -322,6 +349,11 @@ chose qui manque vraiment.
   d'adresse e-mail dans cette application, donc pas de lien de secours — c'est
   le prix de n'héberger aucune donnée personnelle, et il se dit franchement.
 - **Réussi, on entre dans la soirée** comme après une connexion ordinaire.
+
+*À l'usage :* entre les deux, l'écran C′ s'intercale. Le code de secours se
+consomme, et le serveur en rend un neuf : il doit se noter tout de suite,
+comme à l'inscription, sinon celui du bout de papier resterait faux pour
+toujours.
 
 ### 4.7 Écran E — L'équipe
 
@@ -342,7 +374,7 @@ dernier écran avant la salle d'attente, pour tout le monde — profil ou pas.
         │                                                               │
         └─ rien ─► [A L'ENTRÉE — connexion]                             │
                      ├─ Me connecter ───────────────────────────────────┤
-                     ├─ Mot de passe oublié ─► [D Secours] ─────────────┤
+                     ├─ Mot de passe oublié ─► [D Secours] ─► [C′] ─────┤
                      ├─ Jouer sans compte ──► [B Moi] ──────────────────┤
                      └─ Créer un profil ───► [B Moi] ─► [C Sécuriser]   │
                                                             │           │
@@ -450,7 +482,7 @@ c'est important, parce que les prénoms sortent par **trois** portes, pas une :
   soirée en cours ;
 - `Party.publicOne()` — la ligne d'un seul joueur, celle que le moteur envoie
   dans les vues de partie ;
-- `ViewContext.playerName` (`server/src/core/engine.ts:65`,
+- `ViewContext.playerName` (`server/src/core/engine.ts`, qui lisait
   `id => this.deps.party.get(id)?.name`) — **celle qu'on oublie** : c'est elle
   qui écrit « le plus rapide : Camille » sur le vidéoprojecteur. Elle doit
   passer par la même dérivation, sinon l'écran commun appellera « Camille » une
@@ -458,28 +490,48 @@ c'est important, parce que les prénoms sortent par **trois** portes, pas une :
 
 Expose donc un `Party.nomAffiche(playerId): string` et fais-le servir aux trois.
 
+*À l'usage :* c'est fait — `playerName` lit désormais
+`id => this.deps.party.nomAffiche(id) ?? '???'`. Et la table des marques se
+garde en mémoire : recalculée pour chaque ligne de chaque vue, elle rendait
+cubique le podium d'une grande salle (2,9 s à 150 invités, 110 s à 500). Tout
+ce qui change un prénom, un avatar ou la composition de la salle — arrivée,
+renommage, exclusion, remise à zéro — la remet à zéro.
+
 Et pour les soirées rangées, le même entonnoir unique :
 
 - `archivePlayers()` (`server/src/core/archive.ts`) — d'où découlent le
   souvenir, le bilan, les statistiques et l'export, gratuitement.
+
+*À l'usage :* deux chemins de plus appellent `nomsAffiches()` sur les invités
+dans l'ordre d'arrivée — la liste de l'historique, qui relit la fiche de
+chaque soirée, et l'export lu directement dans la base (`--db`) : deux
+« Camille » au renard y sortaient en deux lignes identiques.
 
 Côté client, chaque endroit qui affiche un prénom devient
 `p.nomAffiche ?? p.name`. La liste, vérifiée fichier par fichier :
 
 | Fichier | Ce qu'il affiche |
 |---|---|
-| `components/Leaderboard.tsx:34` | le classement de la soirée |
-| `components/Podium.tsx:20,47` | le podium et les suivants |
-| `components/StatsTable.tsx:88` | le tableau des chiffres (et son tri par prénom, l. 56 et 60) |
-| `components/AwardsBoard.tsx:56` | les prix de fin de soirée |
-| `components/Trophies.tsx:26,42,58` | L'Éclair, Le Régulier, les vainqueurs de quiz |
-| `components/BilanQuestion.tsx:32` | **`playerName(ctx, id)`** — le point de passage du bilan, à corriger en un seul endroit |
-| `components/BilanPlayer.tsx:66` | la fiche d'un invité |
-| `games/quiz/HostView.tsx:162,203` | le plus rapide, les estimations sur l'écran commun |
-| `views/HostApp.tsx:124-134` | la liste des invités de la console (et son bouton renommer) |
+| `components/Leaderboard.tsx` | le classement de la soirée |
+| `components/Podium.tsx` | le podium et les suivants |
+| `components/StatsTable.tsx` | le tableau des chiffres (et son tri par prénom) |
+| `components/AwardsBoard.tsx` | les prix de fin de soirée |
+| `components/Trophies.tsx` | le plus beau coup, le plus régulier, les vainqueurs de quiz |
+| `components/BilanQuestion.tsx` | **`playerName(ctx, id)`** — le point de passage du bilan, à corriger en un seul endroit |
+| `components/BilanPlayer.tsx` | la fiche d'un invité |
+| `games/quiz/HostView.tsx` | le plus rapide, les estimations sur l'écran commun |
+| `views/HostApp.tsx` | la liste des invités de la console (et son bouton renommer) |
 | `views/PlayerApp.tsx` | son propre en-tête — un invité doit lire sur **son** téléphone pourquoi il est « Camille (2) » |
 
 `TeamBoard.tsx` n'affiche que des noms d'équipes : il n'a rien à faire ici.
+
+*À l'usage :* la plupart de ces fichiers n'ont rien eu à changer. Le souvenir,
+le bilan, les chiffres, les prix et les vues de partie reçoivent du serveur
+des prénoms déjà marqués (`nomAffiche()` dans `recap.ts`, `review.ts` et
+`stats.ts`, `ViewContext.playerName` pour les vues). Seuls ceux qui lisent
+l'instantané écrivent `p.nomAffiche ?? p.name` : le classement
+(`Leaderboard.tsx`), la liste des invités et le podium de la soirée
+(`HostApp.tsx`), l'en-tête du téléphone (`PlayerApp.tsx`).
 
 ### 5.4 Ce que l'animateur voit
 
@@ -528,12 +580,17 @@ la main, pas à l'invitée.
 
 export type JoinAck =
   | { ok: true; playerId: string; token: string; name: string; avatar: string; profile?: PublicProfile }
-  | { ok: false; error: string }
+  | { ok: false; error: string; reason?: JoinRefusal }
 ```
 
 Rendre `name` et `avatar` dans l'accusé n'est pas du confort : c'est le
 téléphone d'Alice qui apprend ainsi sous quelle identité il est entré, pour la
-retenir localement et survivre à une reconnexion.
+retenir localement.
+
+*À l'usage :* ce qu'il retient ne sert plus à se reconnecter — il ne renvoie
+alors que son jeton, et c'est la fiche du serveur qui fait foi. Il sert à
+pré-remplir l'entrée, si ce jeton ne vaut plus rien. Le refus porte alors son
+motif, `reason: 'unknown-token'` (`JoinRefusal`, seul motif à ce jour).
 
 ### 6.2 `server/`
 
@@ -551,6 +608,26 @@ const avatar = payload?.avatar ?? profile?.avatar ?? ''
   Et rien d'autre : `Party.join()` garde sa signature, `cleanName` refuse
   toujours le vide (« Il faut un prénom ! » reste la bonne erreur pour un
   anonyme qui n'a rien tapé).
+
+  *À l'usage :* « ce que le téléphone envoie l'emporte » ne vaut plus que pour
+  l'écran d'entrée. À chaque connexion, le téléphone renvoyait le prénom et
+  l'avatar qu'il avait retenus, et le serveur les réécrivait : « GrosLourd »,
+  renommé « Marc » par l'animateur, revenait au réveil du téléphone. Le code
+  distingue donc celui qui se déclare de celui qui se re-présente :
+
+```ts
+// Sans jeton, c'est l'écran d'entrée qui parle […]. Avec un jeton, c'est un
+// téléphone qui se re-présente tout seul, au réveil ou après une coupure : ce
+// qu'il renvoie n'est qu'un souvenir […]. La fiche du serveur fait foi.
+const declare = !known || !token
+const name = declare ? texte(charge.name) || profile?.name || '' : ''
+const avatar = declare ? texte(charge.avatar) || profile?.avatar || '' : ''
+```
+
+  Et un jeton qui ne désigne plus personne — exclu pendant que le téléphone
+  dormait, « Nouvelle soirée », miroir incomplet au redémarrage — ne recrée
+  plus l'invité en silence : il est refusé avec `reason: 'unknown-token'`, et
+  le téléphone repasse par l'entrée, pré-remplie (§4.0).
 - **`core/party.ts`** : `publicPlayers()` applique `nomsAffiches()`.
 - **`core/archive.ts`** : `archivePlayers()` fait de même.
 - **`auth/profileRoutes.ts`** : sur identifiant pris, rendre
@@ -569,6 +646,12 @@ d'entrée, pas une règle de jeu.
 - **`components/ProfilForm.tsx`** : se réduit à l'identifiant et au mot de
   passe (connexion, finalisation d'inscription, code de secours). Le prénom et
   l'avatar viennent toujours de l'écran B.
+
+  *À l'usage :* il garde un champ prénom quand il crée un profil hors de
+  l'entrée — sur l'accueil, ou entre deux quiz, pré-rempli alors du prénom et
+  de l'avatar du soir. Il prend lui aussi l'en-tête resserré, et aucun de ses
+  champs n'ouvre le clavier tout seul : en 360 × 640, « Revenir » — la seule
+  sortie de la salle d'attente — tombait sous le bord.
 - **`state.ts`** : `Profile`/`profileKey` → `ChoixLocal`/`choixKey`, et on y
   retient aussi « ce téléphone a vu l'entrée ici ».
 - **`styles.css`** : l'écran d'entrée et son séparateur « ou », l'écran de
@@ -599,18 +682,23 @@ en français, ils disent quoi faire.
 | Entrée, bouton de création | **Créer un profil** |
 | Entrée, note sous les boutons | Un profil retient ton niveau et tes prix d'une soirée à l'autre. Il ne change rien aux points de ce soir. |
 | Entrée, connexion refusée | *(le motif rendu par le serveur)*, puis « Tu peux aussi jouer sans compte, juste en dessous. » sur sa propre ligne |
-| Secours, code perdu | Sans le code, le profil ne se retrouve pas. Tu peux jouer sans compte, ou en créer un neuf. |
+| Entrée, réseau coupé | Pas de réseau — vérifie ton wifi ou ta 4G, puis réessaie |
+| Entrée, serveur muet | Le serveur ne répond pas — vérifie ta connexion, puis réessaie |
+| Secours, code perdu | Tu n'as plus le code ? Le profil ne se retrouve pas — tu peux jouer sans compte, ou en créer un neuf. |
 | Retrouvailles | Content de te revoir, **Alice** |
 | Retrouvailles, bouton | **Entrer dans la soirée** |
 | Retrouvailles, liens | Jouer sous un autre prénom ce soir · Ce n'est pas moi |
-| Homonyme, avatar libre | Il y a déjà un Camille — ton 🐼 vous distinguera. |
-| Sécuriser, aide | Ton identifiant te servira à revenir. Au moins 8 caractères pour le mot de passe. |
+| Homonyme, avatar libre | Il y a déjà un « Camille » — ton 🐼 vous distinguera. |
+| Sécuriser, aide | Ton identifiant te servira à revenir. Il n'y a pas d'adresse e-mail à donner. — puis, sous le mot de passe : Au moins 8 caractères. |
 | Sécuriser, identifiant pris | « camille » est déjà pris · Essaie « camille2 » — *le prendre* |
 | Sécuriser, sortie | Plus tard — je joue |
 | Code, titre | Note ce code de secours |
-| Code, bouton | C'est noté — entrer dans la soirée |
+| Code, bouton | C'est noté — j'entre |
 | Secours, titre | Retrouver mon profil |
 | Connexion, lien | J'ai oublié mon mot de passe |
+| Attente, au-delà de dix secondes | Connexion… · Ça traîne — vérifie ton wifi ou ta 4G. · *Recharger la page* |
+| Coupure, bandeau en haut de l'écran | Connexion perdue — reconnexion… |
+| Jeton que la soirée ne connaît plus | On ne te retrouve plus dans cette soirée — rejoins-la |
 
 Deux mots à ne **pas** employer : « inscription » (on est déjà inscrit à la
 soirée) et « obligatoire ».
@@ -630,8 +718,10 @@ sérieuse.
   compte » est un bouton pleine largeur, du même format que « Me connecter »,
   visible sans défiler. Jamais un lien gris en bas de page, jamais un
   « continuer en tant qu'invité » écrit petit.
-- **Ne pas ouvrir le clavier tout seul** en arrivant sur l'entrée : il
-  pousserait hors de l'écran précisément ce qu'on doit voir.
+- **Ne pas ouvrir le clavier tout seul**, nulle part dans l'entrée — ni à
+  l'écran A, ni à l'écran B, ni dans le formulaire de profil ou de secours :
+  il pousserait hors de l'écran précisément ce qu'on doit voir, « Jouer sans
+  compte », « Rejoindre la soirée », « Revenir ».
 - **Ne pas remontrer l'entrée** à quelqu'un qui a déjà choisi sur ce téléphone.
 - **Ne pas renommer un invité sans le lui dire**, jamais, pas même « pour son
   bien ».
@@ -654,34 +744,48 @@ sérieuse.
 
 C'est la condition d'entrée, pas la preuve.
 
-### Le smoke, section 34 — **à la fin du fichier, sur son propre serveur jetable**
+### Les tests : la section 34 du smoke, et `server/test/`
 
 `server/scripts/smoke.ts` est **stateful de bout en bout** : une soirée jouée
-insérée au milieu casse les assertions d'après. Les sections 32 et 33 montrent
-le motif à recopier.
+insérée au milieu casse les assertions d'après. La section 34 vit donc à la fin
+du fichier, sur son propre serveur jetable, comme les sections 32 et 33. Ce qui
+est venu depuis — exclusions, renommages, réveils du téléphone — vit dans
+`server/test/temps-reel.test.ts`, un serveur jetable par fichier : c'est là,
+dans `server/test/`, qu'un nouveau comportement arrive désormais avec son test.
+
+Ce que chaque vérification est devenue :
 
 1. Un profil rejoint **sans envoyer `name` ni `avatar`** → inscrit sous le
-   prénom et l'avatar de son profil, et l'accusé les rend.
-2. Un anonyme sans prénom → refusé, « Il faut un prénom ! ».
+   prénom et l'avatar de son profil, et l'accusé les rend. *(smoke, 34)*
+2. Un anonyme sans prénom → refusé, « Il faut un prénom ! ». *(smoke, 34)*
 3. Un profil qui envoie un autre prénom → c'est le sien du soir qui s'applique,
-   et le profil en base n'a pas bougé.
+   et le profil en base n'a pas bougé. ***Aucun test ne le vérifie encore.***
 4. Deux invités « Camille » avec des avatars différents → **aucun**
-   `nomAffiche` dans l'instantané.
+   `nomAffiche` dans l'instantané. *(smoke, 34)*
 5. Deux invités « Camille » avec le même avatar → le second est
-   `Camille (2)`, le premier reste nu.
+   `Camille (2)`, le premier reste nu. *(smoke, 34 ; `temps-reel.test.ts`)*
 6. **Le même prénom dans la vue de l'écran commun** (« le plus rapide : … »,
    qui passe par `ViewContext.playerName`, pas par l'instantané) → même marque
    que le classement. C'est l'assertion qui rattrape l'oubli le plus probable.
+   *(smoke, 34 ; et `temps-reel.test.ts` vérifie qu'un renommage ne laisse pas
+   de marque périmée sur l'écran commun)*
 7. Idem avec « camille » / « Camille » / « Camillé » → même groupe.
-8. Le troisième homonyme identique → `Camille (3)`.
+   *(smoke, 34)*
+8. Le troisième homonyme identique → `Camille (3)`. *(smoke, 34 ;
+   `temps-reel.test.ts`)*
 9. L'exclusion du premier → le `(2)` **disparaît** (dérivation, pas donnée).
+   *(`temps-reel.test.ts`, « les marques d'homonymie suivent les exclusions et
+   les renommages »)*
 10. Une soirée rangée puis relue par le souvenir → mêmes marques.
+    *(smoke, 34)*
 11. Un identifiant déjà pris → 400, avec `suggestion` utilisable.
+    *(smoke, 34)*
 12. Créer un profil **en cours de soirée** → le joueur déjà inscrit est
     rattaché, son score est intact, il n'y a pas de doublon, et son prénom du
-    soir n'a pas changé.
+    soir n'a pas changé. ***Aucun test ne le vérifie encore.***
 13. Un invité anonyme traverse tout ça sans porter ni `profile`, ni `niveau`,
-    ni `finition`, ni `nomAffiche`.
+    ni `finition`, ni `nomAffiche`. *(smoke, 33 pour les trois premiers ; 34
+    pour `nomAffiche`)*
 
 ### À l'œil — obligatoire
 
@@ -696,12 +800,18 @@ Chromium et Playwright sont là. À regarder, en 390 × 844 :
 - l'entrée, clavier ouvert après avoir touché un champ : peut-on encore
   atteindre le bouton pour passer, en refermant le clavier ou en défilant d'un
   pouce ?
+- **l'écran B et le formulaire de profil, en 360 × 640**, clavier fermé :
+  « Rejoindre la soirée » et « Revenir » sont-ils au-dessus du bord ?
 - l'écran de retrouvailles : l'avatar est-il assez gros pour qu'Alice se
   reconnaisse en une demi-seconde ?
 - la grille d'avatars avec trois emojis éteints : est-ce lisible, ou est-ce que
   ça ressemble à une panne ?
 - le classement du vidéoprojecteur avec `Camille` et `Camille (2)` : lisible à
   cinq mètres ?
+- **la première question, en 360 × 560**, quatre réponses et un intitulé
+  long : les quatre réponses tiennent-elles sans défiler ? Et une fois
+  l'échéance passée, « Réponses closes » se lit-il en haut, plutôt que sous
+  des réponses qui ne laissent plus rien voir en dessous ?
 - **et en 1920 × 1080, sur fond sombre** : c'est là que ça se joue vraiment.
 
 ---

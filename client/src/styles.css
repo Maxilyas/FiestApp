@@ -53,6 +53,10 @@
      une transparence donnée : rgba(var(--accent-rgb), 0.3). */
   --accent-rgb: 217, 181, 106;
   --accent-hover: #e8cb8a;
+  /* Le champagne quand il écrit — liens, scores, pastilles, avertissements —
+     distinct de celui qui remplit un bouton ou une barre. En Velours, c'est
+     le même ; en Ivoire, l'écrit doit être bien plus sombre que l'aplat. */
+  --accent-text: var(--accent);
   --on-accent: #1a1412;
   /* Ce qui alerte : une erreur, les dernières secondes, ce qui efface. */
   --alert: #e06c6c;
@@ -72,6 +76,9 @@
   /* Ce qui s'efface à la révélation : les réponses fausses restent lisibles,
      mais ne disputent plus l'œil à la bonne. */
   --dim: 0.38;
+  /* Où se pose ce voile : sur toute la carte, compte compris, en Velours. */
+  --dim-carte: var(--dim);
+  --dim-contenu: 1;
   /* Le voile derrière un dialogue, et les ombres de ce qui flotte. */
   --backdrop: rgba(12, 8, 7, 0.72);
   --shadow-toast: 0 10px 30px rgba(0, 0, 0, 0.45);
@@ -113,6 +120,12 @@
   --accent: #ac8536;
   --accent-rgb: 172, 133, 54;
   --accent-hover: #c0973f;
+  /* Cet or-là sur la crème ne donnait que 3,1:1 — illisible au projecteur
+     pour les textes de 11 px : « le plus rapide », « ×2 points », les liens.
+     Le bronze tient 4,5:1 partout, y compris sur les fonds teintés
+     (`--accent-soft`) de la ligne du joueur et du bouton actif. Les aplats,
+     eux, gardent l'or clair : l'encre sombre s'y lit à 5,3:1. */
+  --accent-text: #836420;
   /* L'encre sur le champagne, comme en Velours : sur cet or-là, le sombre
      se lit mieux que le blanc. */
   --on-accent: #1a1412;
@@ -134,6 +147,11 @@
   /* Moins effacé qu'en Velours : à 38 % sur la crème, les réponses fausses
      disparaissaient au projecteur au lieu de s'estomper. */
   --dim: 0.5;
+  /* Et le voile ne couvre que la réponse, pas son compte : à 50 %, le nombre
+     de ceux qui s'y sont trompés tombait à 1,7:1, alors que c'est ce que la
+     salle cherche des yeux. */
+  --dim-carte: 1;
+  --dim-contenu: var(--dim);
   --backdrop: rgba(42, 32, 27, 0.45);
   --shadow-toast: 0 10px 30px rgba(42, 32, 27, 0.18);
   --shadow-dialog: 0 24px 60px rgba(42, 32, 27, 0.25);
@@ -183,7 +201,7 @@ label {
   touch-action: manipulation;
 }
 
-a { color: var(--accent); }
+a { color: var(--accent-text); }
 a:hover { color: var(--accent-hover); }
 
 /* Les ascenseurs : fins, champagne, sans piste. L'ascenseur blanc de Windows
@@ -211,14 +229,16 @@ h3 { font-size: 1.25rem; }
 h1 > .icon,
 h2 > .icon,
 h3 > .icon {
-  color: var(--accent);
+  color: var(--accent-text);
   vertical-align: -0.12em;
   margin-right: 0.35em;
 }
 
 .muted { color: var(--muted); }
 .error { color: var(--alert); font-weight: 500; }
-.warn { color: var(--accent); font-weight: 500; }
+.warn { color: var(--accent-text); font-weight: 500; }
+/* Une bonne nouvelle au milieu d'un formulaire : champagne, jamais rouge. */
+.info { color: var(--accent-text); font-weight: 500; }
 .center { text-align: center; }
 .small { font-size: 0.82rem; }
 
@@ -400,7 +420,7 @@ h3 > .icon {
 }
 
 /* Le filet champagne sans le fond : l'action qu'on attend, sans crier. */
-.btn-accent { border-color: var(--edge-strong); color: var(--accent); }
+.btn-accent { border-color: var(--edge-strong); color: var(--accent-text); }
 .btn-accent:hover { color: var(--accent-hover); border-color: var(--accent); }
 
 .btn-ghost { color: var(--muted); }
@@ -449,10 +469,10 @@ h3 > .icon {
 }
 
 .pill .icon { width: 14px; height: 14px; }
-.pill.flash { color: var(--accent); }
+.pill.flash { color: var(--accent-text); }
 
 /* Le multiplicateur doit sauter aux yeux : c'est lui qui relance la salle. */
-.pill.multi { color: var(--accent); border-color: rgba(var(--accent-rgb), 0.5); }
+.pill.multi { color: var(--accent-text); border-color: rgba(var(--accent-rgb), 0.5); }
 
 .pill-btn {
   display: inline-flex;
@@ -472,7 +492,7 @@ h3 > .icon {
 }
 
 .pill-btn:hover { color: var(--ink); border-color: var(--edge-strong); }
-.pill-btn.active { border-color: var(--edge-strong); color: var(--accent); background: var(--accent-soft); }
+.pill-btn.active { border-color: var(--edge-strong); color: var(--accent-text); background: var(--accent-soft); }
 .pill-btn .icon { width: 16px; height: 16px; }
 
 /* ── Inscription ────────────────────────────────── */
@@ -504,7 +524,7 @@ h3 > .icon {
   font-weight: 600;
   font-size: clamp(3.4rem, 18vw, 4.6rem);
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-text);
   letter-spacing: 0.02em;
 }
 
@@ -561,7 +581,9 @@ h3 > .icon {
 /* Plus de choses qu'ailleurs dans la même hauteur : « Jouer sans compte »
    doit rester visible SANS DÉFILER sur un petit téléphone (360 × 640,
    clavier fermé), sinon cet écran de connexion devient un péage. Si un jour
-   ça déborde, c'est la note explicative qui saute, jamais ce bouton-là. */
+   ça déborde, c'est la note explicative qui saute, jamais ce bouton-là.
+   L'écran « moi » qui suit porte le même en-tête resserré : avec le grand
+   titre, « Rejoindre la soirée » y tombait sous le bord du même téléphone. */
 .join.entree {
   gap: 14px;
   padding-top: max(24px, env(safe-area-inset-top));
@@ -650,6 +672,55 @@ h3 > .icon {
   border-color: rgba(var(--alert-rgb), 0.5);
 }
 
+/* Le bandeau du haut, posé dans la marge haute de l'écran joueur (24 px) :
+   hors du flux, il ne pousse rien — une réponse ne doit jamais glisser sous
+   le doigt parce qu'un message vient d'apparaître. Il ne capte aucun doigt. */
+.bandeau {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  margin: 0;
+  padding: max(4px, env(safe-area-inset-top)) 16px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* La liaison perdue : l'aplat rouge, lisible d'un coup d'œil. */
+.bandeau-coupure { background: var(--alert); color: var(--on-alert); }
+
+/* Le conseil du wifi local : un murmure, pas une alerte — en italique, pour
+   ne pas se confondre avec l'étiquette « Question 1 / 8 » juste dessous. Il
+   défile avec la page : collé au bord, il passerait par-dessus le classement. */
+.bandeau-veille {
+  position: absolute;
+  z-index: 1;
+  padding: max(3px, env(safe-area-inset-top)) 16px 2px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+
+/* « Connexion… », puis ce qu'on peut y faire. */
+.attente {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
 .waiting {
   text-align: center;
   padding: 22px 0;
@@ -690,10 +761,10 @@ h3 > .icon {
   font-variant-numeric: lining-nums tabular-nums;
 }
 
-.lb-rank.rank-1 { color: var(--accent); }
+.lb-rank.rank-1 { color: var(--accent-text); }
 .lb-rank.rank-2,
 .lb-rank.rank-3 { color: var(--ink); }
-.lb-rank .icon { color: var(--accent); }
+.lb-rank .icon { color: var(--accent-text); }
 
 .lb-avatar { font-size: 1.2rem; line-height: 1; }
 .lb-name { flex: 1; min-width: 0; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -703,7 +774,7 @@ h3 > .icon {
   font-weight: 600;
   font-size: 1.35rem;
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-text);
   font-variant-numeric: lining-nums tabular-nums;
 }
 
@@ -735,7 +806,7 @@ h3 > .icon {
   font-weight: 600;
   font-size: 27px;
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-text);
   white-space: nowrap;
 }
 
@@ -756,7 +827,7 @@ h3 > .icon {
 
 .band-right { display: flex; align-items: center; justify-content: flex-end; gap: 18px; min-width: 0; }
 .band-answered { font-size: 14px; white-space: nowrap; }
-.band-answered b { color: var(--accent); font-weight: 600; }
+.band-answered b { color: var(--accent-text); font-weight: 600; }
 
 .qr-stack { display: flex; align-items: center; gap: 10px; }
 
@@ -977,7 +1048,7 @@ h3 > .icon {
   font-weight: 600;
   font-size: 44px;
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-text);
   text-align: right;
   font-variant-numeric: lining-nums tabular-nums;
 }
@@ -995,7 +1066,60 @@ h3 > .icon {
 /* Sur le téléphone, les réponses prennent toute la hauteur restante : des
    cibles plus grandes pour un pouce, et plus d'écran vide sous le pli. */
 .player-shell .quiz-player { flex: 1; }
-.quiz-player .ans-grid { flex: 1; grid-auto-rows: minmax(84px, 100px); align-content: center; }
+/* Entre 52 et 100 px par réponse, jamais moins que son texte : une réponse
+   de trois lignes garde ses trois lignes au lieu d'être coupée à la hauteur
+   d'un pouce. */
+.quiz-player .ans-grid { flex: 1; grid-auto-rows: minmax(min-content, 100px); align-content: center; }
+.quiz-player .ans-btn { min-height: 52px; }
+
+/* Pendant une question, le téléphone tient en un écran, question longue
+   comprise : la page prend la hauteur exacte de la fenêtre, et les réponses
+   se partagent ce qui reste — 100 px chacune quand il y a la place, jusqu'à
+   52 px sur un petit écran. En 360 × 560 (un 360 × 640 sous la barre
+   d'adresse), la quatrième réponse était sous le pli, et rien ne disait
+   qu'elle existait. */
+.player-shell:has(.ans-grid) {
+  position: relative;
+  height: 100vh;
+  height: 100dvh;
+  padding-bottom: 46px;
+}
+
+/* Le plancher de la grille, c'est ses rangées au minimum (52 px, plus les
+   écarts de 12 px), pas sa hauteur « naturelle » : par défaut, un élément
+   flexible ne descend pas sous son contenu, et la grille gardait quatre
+   rangées de 100 px quoi qu'il arrive — elle débordait de la page au lieu
+   de se partager la place. Au-dessus du plancher, elle prend tout ce qui
+   reste. */
+.player-shell:has(.ans-grid) .quiz-player { min-height: 0; }
+.player-shell:has(.ans-grid) .ans-grid { flex: 1 0 244px; min-height: 0; }
+.player-shell:has(.ans-grid) .ans-grid:not(:has(> :nth-child(4))) { flex-basis: 180px; }
+.player-shell:has(.ans-grid) .ans-grid:not(:has(> :nth-child(3))) { flex-basis: 116px; }
+
+/* La photo d'une question cède de la hauteur aux réponses — c'est elles
+   qu'on touche — sans descendre sous une vignette qu'on reconnaît encore.
+   Si même ça ne tient pas, la page défile, comme avant. */
+.player-shell:has(.ans-grid) .quiz-img { flex: 0 1 auto; min-height: 80px; }
+
+/* « Réponse enregistrée… » se pose dans cette marge du bas, hors du flux :
+   dans le flux, il rétrécissait les réponses sous le doigt juste après le
+   premier tap — au moment précis où l'on peut encore se raviser. */
+.player-shell:has(.ans-grid) .ans-grid + .hint {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 6px;
+}
+
+/* Un petit écran : le chronomètre, la question et les marges se resserrent
+   pour laisser aux réponses leur hauteur de pouce. */
+@media (max-height: 620px) {
+  .quiz-player { gap: 12px; }
+  .quiz-player .timer-seconds { font-size: 34px; min-width: 40px; }
+  .quiz-player .quiz-question { font-size: 27px; }
+  .quiz-player .quiz-question.q-md { font-size: 23px; }
+  .quiz-player .quiz-question.q-sm { font-size: 20px; }
+}
 
 /* Une colonne dès qu'on est à l'étroit : le texte d'une réponse ne doit
    jamais être tronqué ni passer en trois lignes. */
@@ -1062,7 +1186,10 @@ h3 > .icon {
 
 /* Réponse choisie : le filet champagne, un fond à 12 %, une coche. */
 .ans-btn.chosen { border: 1.5px solid var(--accent); background: var(--accent-soft); }
-.ans-btn.dim { opacity: var(--dim); }
+/* Le voile des réponses fausses : la carte entière en Velours, son contenu
+   seul en Ivoire, où le compte (dans `.ans-extra`) garde toute son encre. */
+.ans-btn.dim { opacity: var(--dim-carte); }
+.ans-btn.dim > :not(.ans-extra) { opacity: var(--dim-contenu); transition: opacity 0.35s ease; }
 
 /* La bonne réponse, projetée au mur : un aplat champagne, lisible du fond
    de la salle. */
@@ -1076,7 +1203,7 @@ h3 > .icon {
 .ans-btn.correct .ans-shape { color: var(--on-accent); }
 
 .ans-extra { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: none; }
-.ans-check { width: 22px; height: 22px; color: var(--accent); animation: pop 0.4s ease-out both; }
+.ans-check { width: 22px; height: 22px; color: var(--accent-text); animation: pop 0.4s ease-out both; }
 .quiz-host .ans-check { width: 30px; height: 30px; }
 .ans-btn.correct .ans-check { color: var(--on-accent); }
 
@@ -1085,7 +1212,7 @@ h3 > .icon {
   font-weight: 600;
   font-size: 1.7rem;
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-text);
   font-variant-numeric: lining-nums tabular-nums;
 }
 
@@ -1117,7 +1244,7 @@ h3 > .icon {
   flex: 1;
 }
 
-.getready-icon { color: var(--accent); }
+.getready-icon { color: var(--accent-text); }
 .getready-icon .icon { width: 42px; height: 42px; }
 .getready p { font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.4rem; color: var(--muted); }
 
@@ -1126,7 +1253,7 @@ h3 > .icon {
   font-weight: 600;
   font-size: 6rem;
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-text);
   font-variant-numeric: lining-nums tabular-nums;
   animation: pop 0.4s ease-out both;
 }
@@ -1153,7 +1280,7 @@ h3 > .icon {
 .result-icon { display: inline-flex; color: var(--muted); }
 .result-icon .icon { width: 44px; height: 44px; }
 .result-ok .big,
-.result-ok .result-icon { color: var(--accent); }
+.result-ok .result-icon { color: var(--accent-text); }
 .result-ko .big,
 .result-ko .result-icon { color: var(--alert); }
 
@@ -1190,7 +1317,7 @@ h3 > .icon {
   font-weight: 600;
   font-size: 3.4rem;
   line-height: 1;
-  color: var(--accent);
+  color: var(--accent-text);
   font-variant-numeric: lining-nums;
 }
 
@@ -1245,26 +1372,50 @@ h3 > .icon {
   font-variant-numeric: lining-nums;
 }
 
-.podium-col.rank-1 .podium-medal { color: var(--accent); }
+.podium-col.rank-1 .podium-medal { color: var(--accent-text); }
 .podium-col.rank-2 .podium-medal,
 .podium-col.rank-3 .podium-medal { color: var(--ink); }
-.podium-points { font-family: var(--serif); font-weight: 600; font-size: 1.5rem; color: var(--accent); font-variant-numeric: lining-nums; }
+.podium-points { font-family: var(--serif); font-weight: 600; font-size: 1.5rem; color: var(--accent-text); font-variant-numeric: lining-nums; }
 
 /* ── Toast ──────────────────────────────────────── */
+/* Le seul canal d'erreur des invités : centré pour de bon, par les marges.
+   Centré par `transform`, il était décalé — l'animation `pop` réécrit
+   `transform`, son `scale(1)` effaçait le `translateX(-50%)`, et le toast
+   partait du milieu de l'écran : trois lignes serrées dans la moitié droite
+   d'un téléphone (le piège de CLAUDE.md). Il ne capte aucun doigt : quatre
+   secondes au-dessus d'un bouton ne doivent empêcher personne de répondre. */
 .toast {
   position: fixed;
-  left: 50%;
-  bottom: 26px;
-  transform: translateX(-50%);
+  left: 16px;
+  right: 16px;
+  bottom: max(26px, calc(env(safe-area-inset-bottom) + 12px));
+  width: max-content;
+  max-width: min(640px, calc(100% - 32px));
+  margin: 0 auto;
   padding: 12px 20px;
-  border-radius: var(--radius-pill);
+  border-radius: 22px;
   background: var(--bg-raised);
   border: 1px solid var(--edge-strong);
   box-shadow: var(--shadow-toast);
   font-size: 0.95rem;
+  text-align: center;
+  text-wrap: balance;
+  pointer-events: none;
   animation: pop 0.3s ease-out both;
   z-index: 50;
 }
+
+/* Sur le téléphone, les réponses occupent le bas de l'écran : le toast monte
+   en haut, sous le bandeau de connexion, où il ne cache que le chronomètre
+   le temps d'être lu. */
+.player-shell > .toast {
+  top: max(30px, calc(env(safe-area-inset-top) + 8px));
+  bottom: auto;
+}
+
+/* Sur l'écran commun, la console occupe le bas : le toast se pose juste
+   au-dessus, sans masquer les boutons que l'animateur cherche des yeux. */
+.host > .toast { bottom: 84px; }
 
 .toast-error { border-color: var(--alert); color: var(--alert); }
 
@@ -1391,7 +1542,7 @@ h3 > .icon {
   border: 0;
   background: none;
   font: inherit;
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
@@ -1472,7 +1623,7 @@ h3 > .icon {
   white-space: nowrap;
 }
 
-.chip-name:hover { color: var(--accent); }
+.chip-name:hover { color: var(--accent-text); }
 
 .chip-remove {
   display: inline-flex;
@@ -1504,7 +1655,7 @@ h3 > .icon {
 }
 
 .recap-header { text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-.recap-header h1 { font-size: clamp(2.4rem, 8vw, 3.4rem); color: var(--accent); }
+.recap-header h1 { font-size: clamp(2.4rem, 8vw, 3.4rem); color: var(--accent-text); }
 .recap-header .hairline { width: min(320px, 100%); margin-top: 6px; }
 
 /* Le fil des pages publiques, sous l'en-tête : des étiquettes, pas des
@@ -1527,7 +1678,7 @@ h3 > .icon {
   transition: color 0.15s ease, border-color 0.15s ease;
 }
 .space-nav-tabs a:hover { color: var(--ink); }
-.space-nav-tabs a.active { color: var(--accent); border-bottom-color: var(--accent); }
+.space-nav-tabs a.active { color: var(--accent-text); border-bottom-color: var(--accent); }
 .space-nav-account {
   display: inline-flex;
   align-items: center;
@@ -1548,7 +1699,7 @@ h3 > .icon {
 .trophies { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
 
 .trophy { display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; }
-.trophy-icon { color: var(--accent); }
+.trophy-icon { color: var(--accent-text); }
 .trophy-icon .icon { width: 30px; height: 30px; }
 
 .recap-foot {
@@ -1628,7 +1779,7 @@ h3 > .icon {
 /* Encoches et barres système des téléphones récents. */
 .player-shell { padding: max(24px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom)); }
 
-.btn.auto-on { border-color: var(--edge-strong); color: var(--accent); }
+.btn.auto-on { border-color: var(--edge-strong); color: var(--accent-text); }
 
 .multiplier-picker { margin-bottom: 4px; }
 
@@ -1770,7 +1921,7 @@ h3 > .icon {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--accent);
+  color: var(--accent-text);
   font-family: var(--serif);
   font-style: italic;
   font-weight: 500;
@@ -1842,7 +1993,7 @@ h3 > .icon {
 .award-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .award-body h3 { font-size: 1.2rem; }
 .award-winner { font-size: 0.95rem; }
-.award-team { font-size: 0.85rem; color: var(--accent); }
+.award-team { font-size: 0.85rem; color: var(--accent-text); }
 
 /* Un prix déjà remis reste visible : on peut vouloir le redonner, mais il ne
    doit plus attirer l'œil autant que ceux qui attendent. */
@@ -1866,7 +2017,7 @@ h3 > .icon {
   background: var(--surface);
 }
 
-.given-points { font-family: var(--serif); font-weight: 600; font-size: 1.1rem; color: var(--accent); min-width: 2.5em; font-variant-numeric: lining-nums; }
+.given-points { font-family: var(--serif); font-weight: 600; font-size: 1.1rem; color: var(--accent-text); min-width: 2.5em; font-variant-numeric: lining-nums; }
 .given-team { font-weight: 500; }
 .given-reason { flex: 1; color: var(--muted); font-size: 0.9rem; }
 .given-row .chip-remove { opacity: 0.6; }
@@ -1884,7 +2035,7 @@ h3 > .icon {
 }
 
 .victory-emoji { font-size: clamp(4rem, 12vw, 8rem); line-height: 1.1; }
-.victory-name { font-family: var(--serif); font-weight: 600; font-size: clamp(2.2rem, 6vw, 4rem); line-height: 1; color: var(--accent); }
+.victory-name { font-family: var(--serif); font-weight: 600; font-size: clamp(2.2rem, 6vw, 4rem); line-height: 1; color: var(--accent-text); }
 .victory-points { font-family: var(--serif); font-weight: 600; font-size: clamp(1.4rem, 3vw, 2.2rem); font-variant-numeric: lining-nums; }
 
 /* ── Tableau des statistiques ───────────────────── */
@@ -1957,8 +2108,8 @@ h3 > .icon {
 }
 
 .stats-sort:hover { color: var(--ink); }
-.stats-sort.active { color: var(--accent); }
-.stats-table td.stats-active { color: var(--accent); font-weight: 600; }
+.stats-sort.active { color: var(--accent-text); }
+.stats-table td.stats-active { color: var(--accent-text); font-weight: 600; }
 
 /* L'écran de victoire montre les deux classements côte à côte : les équipes
    décident, mais c'est pour son score personnel que chacun a joué. */
@@ -2094,7 +2245,7 @@ h3 > .icon {
   font-weight: 600;
   font-size: 1.8rem;
   line-height: 1.1;
-  color: var(--accent);
+  color: var(--accent-text);
   font-variant-numeric: lining-nums tabular-nums;
 }
 
@@ -2115,7 +2266,7 @@ h3 > .icon {
   border-radius: var(--radius-pill);
   border: 1px solid var(--edge);
   background: var(--surface);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .bilan-moment-icon .icon { width: 18px; height: 18px; }
@@ -2148,7 +2299,7 @@ h3 > .icon {
   font-weight: 600;
   font-size: 1.15rem;
   white-space: nowrap;
-  color: var(--accent);
+  color: var(--accent-text);
   font-variant-numeric: lining-nums;
 }
 
@@ -2188,7 +2339,7 @@ h3 > .icon {
   vertical-align: middle;
 }
 
-.bilan-ans-check { width: 16px; height: 16px; color: var(--accent); }
+.bilan-ans-check { width: 16px; height: 16px; color: var(--accent-text); }
 .bilan-ans-pct { min-width: 3.4em; text-align: right; color: var(--muted); font-size: 0.95rem; }
 
 /* Deux barres fines par réponse : la salle en champagne, l'équipe en encre. */
@@ -2218,17 +2369,17 @@ h3 > .icon {
   font-variant-numeric: tabular-nums;
 }
 
-.bilan-teamchip.top { border-color: var(--edge-strong); color: var(--accent); }
+.bilan-teamchip.top { border-color: var(--edge-strong); color: var(--accent-text); }
 
 .bilan-guess { display: flex; flex-direction: column; gap: 4px; }
-.bilan-target { font-family: var(--serif); font-weight: 600; font-size: 1.6rem; color: var(--accent); font-variant-numeric: lining-nums; }
-.bilan-leader { display: inline-flex; align-items: center; gap: 6px; color: var(--accent); font-weight: 500; }
+.bilan-target { font-family: var(--serif); font-weight: 600; font-size: 1.6rem; color: var(--accent-text); font-variant-numeric: lining-nums; }
+.bilan-leader { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-text); font-weight: 500; }
 
 /* Les fiches : une par invité, chacune sur sa page une fois imprimée. */
 .bilan-print-bar { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; }
 .fiche { display: flex; flex-direction: column; gap: 14px; padding-bottom: 24px; break-after: page; page-break-after: always; }
 .fiche-head { text-align: center; display: flex; flex-direction: column; gap: 4px; }
-.fiche-head h1 { color: var(--accent); }
+.fiche-head h1 { color: var(--accent-text); }
 
 @media print {
   .no-print { display: none !important; }
@@ -2264,7 +2415,7 @@ h3 > .icon {
 .soiree-links { gap: 8px; }
 .soiree-manage { gap: 4px; flex: none; }
 .soiree-winner { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
-.soiree-winner .icon { color: var(--accent); }
+.soiree-winner .icon { color: var(--accent-text); }
 
 .archive-banner {
   display: flex;
@@ -2280,7 +2431,7 @@ h3 > .icon {
   color: var(--muted);
 }
 
-.archive-banner .icon { color: var(--accent); }
+.archive-banner .icon { color: var(--accent-text); }
 .archive-banner strong { color: var(--ink); font-weight: 500; }
 .recap-header .archive-banner { margin-bottom: 6px; }
 
@@ -2309,7 +2460,7 @@ h3 > .icon {
 .link-box code {
   overflow-wrap: anywhere;
   font-size: 0.95rem;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .settings-form { display: flex; flex-direction: column; gap: 14px; }
@@ -2321,7 +2472,7 @@ h3 > .icon {
 .accounts-table .pill { margin-left: 6px; }
 .account-actions { gap: 6px; flex-wrap: nowrap; }
 
-.pill.status-active { color: var(--accent); border-color: rgba(var(--accent-rgb), 0.5); }
+.pill.status-active { color: var(--accent-text); border-color: rgba(var(--accent-rgb), 0.5); }
 .pill.status-pending { font-style: italic; }
 .pill.status-disabled { color: var(--alert); border-color: var(--alert); text-decoration: line-through; }
 
@@ -2404,7 +2555,7 @@ h3 > .icon {
   top: -28%;
   right: -28%;
   font-size: 0.5em;
-  color: var(--accent);
+  color: var(--accent-text);
   z-index: 2;
   animation: av-scintille 2.6s ease-in-out infinite;
 }
@@ -2462,7 +2613,7 @@ h3 > .icon {
   border-radius: var(--radius-pill);
   border: 1px solid rgba(var(--accent-rgb), 0.45);
   background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--accent-text);
   font-size: 0.7rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -2490,12 +2641,16 @@ h3 > .icon {
 
 /* Le code de secours : on le recopie à la main depuis l'écran, souvent dans
    la pénombre. Gros, espacé, sans ambiguïté possible. */
+/* Sur une seule ligne, toujours : coupé au trait d'union, « GGGR-YXF7-5J2X-
+   S24D » se recopiait en deux morceaux, et le dernier passait pour un autre
+   code. La taille suit la largeur pour tenir dans la carte d'un 320 px. */
 .code-secours {
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 1.35rem;
-  letter-spacing: 0.12em;
+  font-size: clamp(1.05rem, 5.2vw, 1.35rem);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
   text-align: center;
-  color: var(--accent);
+  color: var(--accent-text);
   margin: 12px 0;
   user-select: all;
 }
@@ -2510,7 +2665,7 @@ h3 > .icon {
   margin: 10px 0 0;
   font-family: var(--serif);
   font-size: 1.1rem;
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .profil-salut .av { font-size: 1.4rem; }
@@ -2521,7 +2676,7 @@ h3 > .icon {
   border: 0;
   padding: 0;
   font: inherit;
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -2605,7 +2760,7 @@ h3 > .icon {
   border-color: rgba(var(--accent-rgb), 0.75);
   background: var(--accent-soft);
 }
-.badge.rarete-legendaire .badge-pied { color: var(--accent); }
+.badge.rarete-legendaire .badge-pied { color: var(--accent-text); }
 
 .a-decrocher { margin-top: 12px; }
 .a-decrocher summary {
@@ -2645,7 +2800,35 @@ h3 > .icon {
 .soiree-row:last-child { border-bottom: 0; }
 .soiree-quand { font-family: var(--serif); font-size: 1rem; }
 .soiree-detail { color: var(--muted); font-size: 0.8rem; flex: 1; }
-.soiree-xp { color: var(--accent); font-variant-numeric: tabular-nums; }
+.soiree-xp { color: var(--accent-text); font-variant-numeric: tabular-nums; }
+
+/* ── Le filet ─────────────────────────────────────────────────────────────
+   Ce que montre `main.tsx` quand une page plante au lieu d'un écran noir :
+   toute la page est le bouton qui recharge, on ne peut pas le rater. */
+.filet {
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 20px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.filet-titre {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 3.4rem;
+  line-height: 1;
+  color: var(--accent-text);
+}
 
 /* ── Le bandeau d'environnement ────────────────────────────────────────────
 
@@ -2674,4 +2857,45 @@ h3 > .icon {
   text-transform: uppercase;
   pointer-events: none;
   opacity: 0.85;
+}
+
+/* ── Aperçu de l'import : les estimations lues ──────────────────────────
+
+   Une ligne par « = … » : l'intitulé à gauche, coupé s'il déborde, et à
+   droite la valeur telle qu'elle sera jouée, séparée de son unité. */
+.import-lues {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+.import-lues li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.import-lue-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.import-lue-valeur { flex-shrink: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ── La sauvegarde en retard ─────────────────────────────────────────────
+
+   La base en ligne refuse les écritures de la soirée depuis un moment. La
+   fête continue, et la salle n'a pas à s'en inquiéter : pas de rouge vif,
+   pas de majuscules criardes, juste de quoi prévenir l'animateur avant qu'il
+   ne laisse l'hébergeur s'endormir. Elle se resserre plutôt que de pousser
+   le titre hors de la bande. */
+.sauvegarde-pill {
+  /* Un bloc, pas la boîte flexible des autres pastilles : c'est ce qui
+     permet de couper le texte d'une ellipse quand la bande manque de place. */
+  display: block;
+  line-height: 18px;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-size: 12px;
+  color: var(--muted);
+  border-color: rgba(var(--alert-rgb), 0.45);
 }

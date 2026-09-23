@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
 import type { PartyMirror } from './backup'
 import type { TeamBonus } from '../../../shared/types'
+import { tronquer } from '../../../shared/avatars'
 
 export interface TeamRec {
   id: string
@@ -27,6 +28,13 @@ export const DEFAULT_TEAMS = [
 
 /** Au-delà, le choix d'équipe ne tient plus sur un écran de téléphone. */
 const MAX_TEAMS = 10
+
+// Coupés par caractère, jamais au milieu d'un emoji : `slice` compte en
+// unités UTF-16, et « Les Fêtards du soir🎉 » coupé au vingtième gardait une
+// moitié d'emoji, affichée « � » sur le mur et sur tous les téléphones. Un
+// drapeau ou un emoji composé partent entiers, ou pas du tout.
+const nomDEquipe = (name: string | undefined) => tronquer(name?.trim() ?? '', 20).trim()
+const emojiDEquipe = (emoji: string | undefined) => tronquer(emoji?.trim() ?? '', 4)
 
 /**
  * Registre des équipes d'un espace. Volontairement séparé des joueurs : une
@@ -78,12 +86,12 @@ export class Teams {
 
   create(name: string, emoji: string): TeamRec | { error: string } {
     if (this.teams.size >= MAX_TEAMS) return { error: `Pas plus de ${MAX_TEAMS} équipes` }
-    const clean = name.trim().slice(0, 20)
+    const clean = nomDEquipe(name)
     if (!clean) return { error: "Il faut un nom d'équipe" }
     const rec: TeamRec = {
       id: randomUUID(),
       name: clean,
-      emoji: emoji?.trim().slice(0, 4) || '🎈',
+      emoji: emojiDEquipe(emoji) || '🎈',
       position: this.nextPosition(),
       createdAt: Date.now(),
     }
@@ -98,8 +106,8 @@ export class Teams {
   update(id: string, patch: { name?: string; emoji?: string }): boolean {
     const rec = this.teams.get(id)
     if (!rec) return false
-    const name = patch.name?.trim().slice(0, 20)
-    const emoji = patch.emoji?.trim().slice(0, 4)
+    const name = nomDEquipe(patch.name)
+    const emoji = emojiDEquipe(patch.emoji)
     if (name) rec.name = name
     if (emoji) rec.emoji = emoji
     this.db.prepare('UPDATE teams SET name = ?, emoji = ? WHERE id = ?').run(rec.name, rec.emoji, id)
@@ -147,7 +155,7 @@ export class Teams {
       id: randomUUID(),
       teamId,
       points: Math.max(-50, Math.min(50, value)),
-      reason: (reason ?? '').trim().slice(0, 60) || 'Prix spécial',
+      reason: tronquer((reason ?? '').trim(), 60) || 'Prix spécial',
       createdAt: Date.now(),
     }
     this.bonuses.set(rec.id, rec)

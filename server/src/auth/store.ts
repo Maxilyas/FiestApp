@@ -1,6 +1,8 @@
-import { createClient, type Client } from '@libsql/client'
+import type { InStatement } from '@libsql/client'
+import { ajouterColonne, clientDistant, type Client } from '../core/distante'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword } from './password'
+import { tronquer } from '../../../shared/avatars'
 import {
   isValidLogin,
   isValidSlug,
@@ -19,7 +21,15 @@ import {
  * et tout est aussi en mémoire : une poignée de comptes, quelques sessions
  * ouvertes — relire la base distante à chaque requête et à chaque poignée
  * de main socket coûterait un aller-retour pour rien. Le serveur n'ayant
- * qu'une instance, la mémoire fait foi et les écritures suivent.
+ * qu'une instance, c'est la mémoire qu'on lit.
+ *
+ * Mais c'est la base qu'on écrit d'abord, et la mémoire ne suit qu'une fois
+ * l'écriture faite. Dans l'autre ordre, une écriture que Turso refusait
+ * laissait la route dire « Erreur serveur » pendant que le changement valait
+ * quand même — un rattachement ouvrait la console, une adresse renommée
+ * menait à l'espace — jusqu'au prochain redémarrage, qui le défaisait sans
+ * un mot. Une révocation refusée, elle, ne se retentait même plus : la
+ * mémoire l'avait déjà oubliée, et la session ressuscitait au réveil.
  *
  * Des jetons, on ne garde que l'empreinte : une base qui fuit ne livre
  * aucune session utilisable.
@@ -53,6 +63,14 @@ export interface SessionRec {
   createdAt: number
   expiresAt: number
   lastSeenAt: number
+  /**
+   * Le profil qui a ouvert cette console, quand c'est sa porte qui a servi
+   * (`ouvrirConsole`) ; null pour le mot de passe du compte. C'est ce qui
+   * permet de refermer ses consoles à lui, et à lui seul : quand il se
+   * déconnecte, et partout quand son mot de passe change ou qu'il perd
+   * l'espace.
+   */
+  profileId: string | null
 }
 
 const SESSION_MS = 30 * 24 * 3600 * 1000
@@ -63,6 +81,20 @@ const ACTIVATION_MS = 7 * 24 * 3600 * 1000
 const fingerprint = (token: string) => createHash('sha256').update(token).digest('hex')
 const newToken = () => randomBytes(32).toString('base64url')
 
+/**
+ * La base a le dernier mot sur l'unicité. La mémoire ne suit qu'après
+ * l'écriture : deux demandes simultanées — un double clic sur « Créer le
+ * compte », deux renommages croisés — passent ensemble la vérification en
+ * mémoire, et la base refuse la seconde. Ce refus doit se lire comme si elle
+ * était arrivée après, pas « Erreur serveur » pour un compte bel et bien créé.
+ */
+function siDoublon(e: unknown): never {
+  const message = String((e as { message?: unknown } | null)?.message ?? '')
+  if (message.includes('UNIQUE constraint failed: accounts.login')) throw new Error('Cet identifiant est déjà pris')
+  if (message.includes('UNIQUE constraint failed: accounts.slug')) throw new Error('Ce nom d’adresse est déjà pris')
+  throw e
+}
+
 export class AuthStore {
   private client: Client
   private accounts = new Map<string, AccountRec>()
@@ -71,7 +103,7 @@ export class AuthStore {
   private defaultSpace = ''
 
   constructor(url: string, authToken?: string) {
-    this.client = createClient({ url, authToken })
+    this.client = clientDistant(url, authToken)
   }
 
   async init() {
@@ -95,7 +127,8 @@ export class AuthStore {
            created_at   INTEGER NOT NULL,
            expires_at   INTEGER NOT NULL,
            last_seen_at INTEGER NOT NULL,
-           user_agent   TEXT NOT NULL DEFAULT ''
+           user_agent   TEXT NOT NULL DEFAULT '',
+           profile_id   TEXT
          )`,
         `CREATE INDEX IF NOT EXISTS idx_auth_sessions_account ON auth_sessions(account_id)`,
         `CREATE TABLE IF NOT EXISTS activations (
@@ -122,12 +155,29 @@ export class AuthStore {
       ],
       'write',
     )
-    // Le rattachement au profil joueur est arrivé après les comptes : une
-    // base d'avant ne l'a pas. libsql n'a pas d'« ADD COLUMN IF NOT EXISTS ».
-    try {
-      await this.client.execute('ALTER TABLE accounts ADD COLUMN profile_id TEXT')
-    } catch {
-      // Colonne déjà là : le cas normal après le premier démarrage.
+    // Le rattachement au profil joueur est arrivé après les comptes, et le
+    // profil qui ouvre une console après lui : une base d'avant ne les a pas.
+    await ajouterColonne(this.client, 'accounts', 'profile_id', 'TEXT')
+    await ajouterColonne(this.client, 'auth_sessions', 'profile_id', 'TEXT')
+    // La porte du profil ouvrait déjà la console avant que la session retienne
+    // qui l'avait ouverte, et se déconnecter de son profil fermait alors la
+    // console de ce navigateur dès que l'espace lui était rattaché. Sans
+    // étiquette, ces consoles-là passaient pour ouvertes avec le mot de passe
+    // du compte : « ce n'est pas moi », tapé sur un téléphone prêté, laissait
+    // la soirée pilotable par le suivant. Celles d'un espace rattaché suivent
+    // donc son profil, une fois pour toutes — le drapeau empêche d'attribuer
+    // au profil, plus tard, une console du mot de passe du compte. Le prix :
+    // une télé ouverte avant avec ce mot de passe-là se referme aussi quand le
+    // profil change de secret. Une reconnexion, une fois.
+    if ((await this.getFlag('sessions_profil')) === null) {
+      await this.client.batch(
+        [
+          `UPDATE auth_sessions SET profile_id = (SELECT a.profile_id FROM accounts a WHERE a.id = auth_sessions.account_id)
+           WHERE profile_id IS NULL`,
+          { sql: `INSERT INTO meta (key, value) VALUES ('sessions_profil', ?) ON CONFLICT(key) DO NOTHING`, args: [String(now)] },
+        ],
+        'write',
+      )
     }
     const accounts = await this.client.execute('SELECT * FROM accounts')
     for (const row of accounts.rows) {
@@ -142,6 +192,7 @@ export class AuthStore {
         createdAt: Number(row.created_at),
         expiresAt: Number(row.expires_at),
         lastSeenAt: Number(row.last_seen_at),
+        profileId: row.profile_id === null || row.profile_id === undefined ? null : String(row.profile_id),
       })
     }
   }
@@ -184,19 +235,56 @@ export class AuthStore {
    * Un profil ne tient qu'un espace, et un espace n'a qu'un profil : c'est
    * la même personne des deux côtés, et deux animateurs qui partageraient un
    * profil partageraient aussi leur porte d'entrée.
+   *
+   * Le profil qui perd l'espace — détaché, ou remplacé par un autre — en
+   * perd aussi les consoles qu'il avait ouvertes. Les laisser, c'était
+   * laisser trente jours dedans qui avait appris son mot de passe, alors que
+   * détacher est justement le geste de qui en doute, ou de qui passe la main.
+   * Sauf `garder`, la console d'où l'on fait le geste : mettre quelqu'un à la
+   * porte de la page où il vient de cliquer l'enfermerait dehors s'il a
+   * oublié le mot de passe du compte.
    */
-  async linkProfile(accountId: string, profileId: string | null): Promise<AccountRec> {
+  async linkProfile(accountId: string, profileId: string | null, garder?: string): Promise<AccountRec> {
     const rec = this.accounts.get(accountId)
     if (!rec) throw new Error('Compte introuvable')
+    const pris = 'Ce profil anime déjà un autre espace'
     if (profileId) {
       const autre = this.byProfile(profileId)
-      if (autre && autre.id !== accountId) throw new Error('Ce profil anime déjà un autre espace')
+      if (autre && autre.id !== accountId) throw new Error(pris)
     }
+    const ancien = rec.profileId && rec.profileId !== profileId ? rec.profileId : null
+    const fermees = ancien
+      ? [...this.sessions.values()].filter(s => s.accountId === accountId && s.profileId === ancien && s.id !== garder)
+      : []
+    // La base tranche aussi : la mémoire ne suit qu'après l'écriture, et deux
+    // rattachements du même profil à deux espaces passeraient ensemble la
+    // vérification du dessus. Les consoles tombent dans la même transaction,
+    // et seulement si le lien a bien changé : un détachement écrit à moitié
+    // laisserait l'intrus dedans, sans rien à refaire pour l'en sortir — un
+    // second essai ne trouverait plus de profil à détacher.
+    const [lien] = await this.client.batch(
+      [
+        {
+          sql: `UPDATE accounts SET profile_id = ? WHERE id = ?
+                AND (? IS NULL OR NOT EXISTS (SELECT 1 FROM accounts WHERE profile_id = ? AND id <> ?))`,
+          args: [profileId, accountId, profileId, profileId, accountId],
+        },
+        ...(ancien
+          ? [
+              {
+                sql: `DELETE FROM auth_sessions WHERE account_id = ? AND profile_id = ? AND id IS NOT ?
+                      AND EXISTS (SELECT 1 FROM accounts WHERE id = ? AND profile_id IS NOT ?)`,
+                args: [accountId, ancien, garder ?? null, accountId, ancien],
+              },
+            ]
+          : []),
+      ],
+      'write',
+    )
+    if (lien.rowsAffected === 0) throw new Error(profileId ? pris : 'Compte introuvable')
     rec.profileId = profileId
-    await this.client.execute({
-      sql: 'UPDATE accounts SET profile_id = ? WHERE id = ?',
-      args: [profileId, accountId],
-    })
+    for (const s of fermees) this.sessions.delete(s.id)
+    for (const s of fermees) for (const cb of this.revokeListeners) cb(s.id)
     return rec
   }
 
@@ -242,7 +330,7 @@ export class AuthStore {
    */
   async create(input: { login: unknown; name: unknown; slug: unknown; role?: 'admin' | 'host' }): Promise<AccountRec> {
     const login = normalizeLogin(input.login)
-    const name = String(input.name ?? '').trim().slice(0, 40)
+    const name = tronquer(String(input.name ?? '').trim(), 40)
     const slug = normalizeSlug(input.slug)
     if (!isValidLogin(login)) throw new Error('Identifiant : 2 à 32 caractères, lettres, chiffres, point, tiret')
     if (!name) throw new Error('Il faut un prénom ou un nom')
@@ -262,11 +350,13 @@ export class AuthStore {
       settings: normalizeSettings({}, name),
       profileId: null,
     }
-    await this.client.execute({
-      sql: `INSERT INTO accounts (id, login, name, slug, role, password_hash, disabled_at, created_at, last_login_at, settings)
-            VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL, ?)`,
-      args: [rec.id, rec.login, rec.name, rec.slug, rec.role, rec.createdAt, JSON.stringify(rec.settings)],
-    })
+    await this.client
+      .execute({
+        sql: `INSERT INTO accounts (id, login, name, slug, role, password_hash, disabled_at, created_at, last_login_at, settings)
+              VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL, ?)`,
+        args: [rec.id, rec.login, rec.name, rec.slug, rec.role, rec.createdAt, JSON.stringify(rec.settings)],
+      })
+      .catch(siDoublon)
     this.accounts.set(rec.id, rec)
     return rec
   }
@@ -280,41 +370,55 @@ export class AuthStore {
 
   async touchLogin(id: string): Promise<void> {
     const rec = this.require(id)
-    rec.lastLoginAt = Date.now()
-    await this.client.execute({ sql: 'UPDATE accounts SET last_login_at = ? WHERE id = ?', args: [rec.lastLoginAt, id] })
+    const now = Date.now()
+    await this.client.execute({ sql: 'UPDATE accounts SET last_login_at = ? WHERE id = ?', args: [now, id] })
+    rec.lastLoginAt = now
   }
 
   /** Désactiver ferme toutes les sessions ; réactiver ne rouvre rien. */
   async setDisabled(id: string, disabled: boolean): Promise<AccountRec> {
     const rec = this.require(id)
-    rec.disabledAt = disabled ? Date.now() : null
-    await this.client.execute({ sql: 'UPDATE accounts SET disabled_at = ? WHERE id = ?', args: [rec.disabledAt, id] })
+    const disabledAt = disabled ? Date.now() : null
+    await this.client.execute({ sql: 'UPDATE accounts SET disabled_at = ? WHERE id = ?', args: [disabledAt, id] })
+    rec.disabledAt = disabledAt
     if (disabled) await this.revokeAllSessions(id)
     return rec
   }
 
   async update(id: string, patch: { name?: unknown; slug?: unknown }): Promise<AccountRec> {
     const rec = this.require(id)
+    // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
+    // coup, et deux retouches croisées ne doivent pas s'écraser l'une l'autre.
+    const champs: { name?: string; slug?: string } = {}
     if (patch.name !== undefined) {
-      const name = String(patch.name ?? '').trim().slice(0, 40)
+      const name = tronquer(String(patch.name ?? '').trim(), 40)
       if (!name) throw new Error('Il faut un prénom ou un nom')
-      rec.name = name
+      champs.name = name
     }
     if (patch.slug !== undefined) {
       const slug = normalizeSlug(patch.slug)
       if (!isValidSlug(slug)) throw new Error('Nom dans l’adresse : 2 à 24 caractères, lettres, chiffres, tirets — et pas un mot réservé')
       const other = this.bySlug(slug)
       if (other && other.id !== id) throw new Error('Ce nom d’adresse est déjà pris')
-      rec.slug = slug
+      champs.slug = slug
     }
-    await this.client.execute({ sql: 'UPDATE accounts SET name = ?, slug = ? WHERE id = ?', args: [rec.name, rec.slug, id] })
+    const colonnes = Object.keys(champs) as (keyof typeof champs)[]
+    if (colonnes.length === 0) return rec
+    await this.client
+      .execute({
+        sql: `UPDATE accounts SET ${colonnes.map(c => `${c} = ?`).join(', ')} WHERE id = ?`,
+        args: [...colonnes.map(c => champs[c]!), id],
+      })
+      .catch(siDoublon)
+    Object.assign(rec, champs)
     return rec
   }
 
   async updateSettings(id: string, raw: unknown): Promise<AccountRec> {
     const rec = this.require(id)
-    rec.settings = normalizeSettings(raw, rec.name)
-    await this.client.execute({ sql: 'UPDATE accounts SET settings = ? WHERE id = ?', args: [JSON.stringify(rec.settings), id] })
+    const settings = normalizeSettings(raw, rec.name)
+    await this.client.execute({ sql: 'UPDATE accounts SET settings = ? WHERE id = ?', args: [JSON.stringify(settings), id] })
+    rec.settings = settings
     return rec
   }
 
@@ -369,13 +473,21 @@ export class AuthStore {
   // ── Sessions ────────────────────────────────────────────────────────────
 
   /** Ouvre une session et rend le jeton brut — la seule fois où il existe côté serveur. */
-  async createSession(accountId: string, userAgent: string): Promise<string> {
+  async createSession(accountId: string, userAgent: string, profileId: string | null = null): Promise<string> {
     const token = newToken()
     const now = Date.now()
-    const rec: SessionRec = { id: fingerprint(token), accountId, createdAt: now, expiresAt: now + SESSION_MS, lastSeenAt: now }
+    const rec: SessionRec = {
+      id: fingerprint(token),
+      accountId,
+      createdAt: now,
+      expiresAt: now + SESSION_MS,
+      lastSeenAt: now,
+      profileId,
+    }
     await this.client.execute({
-      sql: `INSERT INTO auth_sessions (id, account_id, created_at, expires_at, last_seen_at, user_agent) VALUES (?, ?, ?, ?, ?, ?)`,
-      args: [rec.id, accountId, now, rec.expiresAt, now, userAgent.slice(0, 200)],
+      sql: `INSERT INTO auth_sessions (id, account_id, created_at, expires_at, last_seen_at, user_agent, profile_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      args: [rec.id, accountId, now, rec.expiresAt, now, userAgent.slice(0, 200), profileId],
     })
     this.sessions.set(rec.id, rec)
     return token
@@ -385,6 +497,11 @@ export class AuthStore {
    * Le compte derrière un jeton, ou null : inconnu, expiré, compte désactivé.
    * Synchrone — tout est en mémoire — pour servir aussi la poignée de main
    * socket. L'expiration glisse en arrière-plan.
+   *
+   * Seul endroit où la mémoire passe devant la base, et exprès : une session
+   * expirée qui resterait en base est effacée au démarrage suivant, et une
+   * expiration qui n'aurait pas glissé en base ne fait, au pire, que
+   * redemander le mot de passe un peu plus tôt.
    */
   resolveSession(token: string): { account: AccountRec; session: SessionRec } | null {
     const session = this.sessions.get(fingerprint(token))
@@ -411,16 +528,45 @@ export class AuthStore {
   }
 
   async revokeSession(sessionId: string): Promise<void> {
-    if (!this.sessions.delete(sessionId)) return
+    if (!this.sessions.has(sessionId)) return
     await this.client.execute({ sql: 'DELETE FROM auth_sessions WHERE id = ?', args: [sessionId] })
+    // Une révocation simultanée de la même session a pu passer entre-temps :
+    // elle a déjà prévenu les écrans.
+    if (!this.sessions.delete(sessionId)) return
     for (const cb of this.revokeListeners) cb(sessionId)
   }
 
   /** Toutes les sessions d'un compte : changement de mot de passe, désactivation. */
   async revokeAllSessions(accountId: string): Promise<void> {
-    const ids = [...this.sessions.values()].filter(s => s.accountId === accountId).map(s => s.id)
+    await this.retirerSessions(s => s.accountId === accountId, {
+      sql: 'DELETE FROM auth_sessions WHERE account_id = ?',
+      args: [accountId],
+    })
+  }
+
+  /**
+   * Les consoles que ce profil a ouvertes, sur tous les appareils : son mot
+   * de passe vient de changer, ou son code de secours de servir. Celles du
+   * mot de passe du compte restent — l'écran commun de la fête ne s'éteint
+   * pas parce que l'animateur a changé son mot de passe de joueur.
+   */
+  async revokeProfileSessions(profileId: string): Promise<void> {
+    await this.retirerSessions(s => s.profileId === profileId, {
+      sql: 'DELETE FROM auth_sessions WHERE profile_id = ?',
+      args: [profileId],
+    })
+  }
+
+  /**
+   * Retire des sessions — en base d'abord, en mémoire ensuite — puis coupe
+   * les écrans qu'elles avaient ouverts. La mémoire ne perd que celles
+   * qu'elle connaissait AVANT d'écrire : une session ouverte pendant
+   * l'aller-retour, oubliée ici mais restée en base, ressusciterait au réveil.
+   */
+  private async retirerSessions(visees: (s: SessionRec) => boolean, suppression: InStatement): Promise<void> {
+    const ids = [...this.sessions.values()].filter(visees).map(s => s.id)
+    await this.client.execute(suppression)
     for (const id of ids) this.sessions.delete(id)
-    await this.client.execute({ sql: 'DELETE FROM auth_sessions WHERE account_id = ?', args: [accountId] })
     for (const id of ids) for (const cb of this.revokeListeners) cb(id)
   }
 

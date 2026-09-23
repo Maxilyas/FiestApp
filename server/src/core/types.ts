@@ -47,6 +47,14 @@ export interface GameContext {
   clearTimer(timerId: string): void
   /** Termine la partie (appliqué après le handler courant). */
   end(): void
+  /**
+   * La partie a rendu son verdict — son podium est à l'écran —, même si
+   * l'animateur ne l'a pas encore refermée. C'est là que l'expérience se
+   * crédite : un podium laissé à l'écran jusqu'au bout de la nuit, ce qui est
+   * le sort ordinaire du dernier quiz, ne doit pas priver le gagnant de son
+   * niveau.
+   */
+  verdict(): void
   participants(): PublicPlayer[]
   playerName(playerId: string): string
   now(): number
@@ -56,6 +64,18 @@ export interface GameContext {
 export interface ViewContext {
   playerName(playerId: string): string
   player(playerId: string): PublicPlayer | undefined
+  /**
+   * Ce qui ne dépend pas du destinataire — un classement, un podium — ne se
+   * calcule qu'une fois par diffusion, pas une fois par téléphone.
+   *
+   * Chaque vue de joueur triait tous les totaux pour y trouver son rang, et
+   * reconstruisait le podium pour elle seule : à 500 invités, une question
+   * coûtait une demi-minute de processeur et le podium plus d'une, sur un
+   * hébergeur qui n'en a qu'un dixième. Le mémo naît au début d'une diffusion
+   * et meurt avec elle : rien ne survit d'un état au suivant. Hors diffusion,
+   * `compute` est simplement appelé.
+   */
+  memo<T>(key: string, compute: () => T): T
 }
 
 /**
@@ -83,6 +103,13 @@ export interface GameModule<S = any> {
   onTimer?(session: GameSessionRec<S>, timerId: string, ctx: GameContext): void
   /** Appelé quand un invité rejoint une partie déjà lancée. */
   onPlayerJoin?(session: GameSessionRec<S>, playerId: string, ctx: GameContext): void
+  /**
+   * Appelé quand un invité quitte la partie en cours — l'animateur l'a exclu.
+   * Il n'est déjà plus dans `participantIds`. Tout ce qu'il avait laissé dans
+   * l'état doit partir avec lui : une réponse oubliée là comptait encore au
+   * barème, aux compteurs et au « plus rapide », qui s'affichait « ??? ».
+   */
+  onPlayerLeave?(session: GameSessionRec<S>, playerId: string, ctx: GameContext): void
   playerView(session: GameSessionRec<S>, playerId: string, vctx: ViewContext): unknown
   hostView(session: GameSessionRec<S>, vctx: ViewContext): unknown
 }

@@ -80,7 +80,11 @@ export interface PartyArchive {
   packs: Record<string, ArchivedPack>
 }
 
-/** Une soirée dans la liste de l'historique — ce qu'on lit sans ouvrir l'archive. */
+/**
+ * Une soirée dans la liste de l'historique — ce qu'on lit sans ouvrir
+ * l'archive. Dérivé à chaque lecture, comme le souvenir : les prénoms portent
+ * leur marque d'homonymie, et les vainqueurs suivent la règle du jour.
+ */
 export interface ArchiveSummary {
   id: string
   title: string
@@ -90,8 +94,10 @@ export interface ArchiveSummary {
   players: number
   quizzes: number
   questions: number
-  winner: { name: string; avatar: string; points: number } | null
-  teamWinner: { name: string; emoji: string } | null
+  /** Les vainqueurs de la soirée : plusieurs s'ils finissent ex æquo, aucun si personne n'a marqué. */
+  winners: { name: string; avatar: string; points: number }[]
+  /** Les équipes qui remportent le quiz, prix compris — la règle de l'écran de victoire. */
+  teamWinners: { name: string; emoji: string; points: number }[]
 }
 
 export interface ArchiveList {

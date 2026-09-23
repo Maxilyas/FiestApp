@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
 import type { PartyMirror } from './backup'
 
@@ -45,16 +46,22 @@ export class AnswerLog {
     private backup?: PartyMirror,
   ) {
     this.insertStmt = db.prepare(
-      `INSERT INTO answer_log (${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO answer_log (uid, ${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
   }
 
-  /** Toutes les lignes d'une question d'un coup — une transaction, une recopie. */
+  /**
+   * Toutes les lignes d'une question d'un coup — une transaction, une recopie.
+   * Chacune reçoit ici l'identifiant que le miroir reprendra : tiré à l'envoi,
+   * il changeait à chaque recopie rejouée, et la réponse se dédoublait.
+   */
   write(rows: AnswerRow[]) {
     if (rows.length === 0) return
+    const signees = rows.map(r => ({ ...r, uid: randomUUID() }))
     this.db.transaction(() => {
-      for (const r of rows) {
+      for (const r of signees) {
         this.insertStmt.run(
+          r.uid,
           r.sessionId,
           r.quizTitle,
           r.qIndex,
@@ -75,7 +82,7 @@ export class AnswerLog {
         )
       }
     })()
-    this.backup?.saveAnswers(rows)
+    this.backup?.saveAnswers(signees)
   }
 
   /** Le journal complet de l'espace, dans l'ordre où les questions ont été posées. */
@@ -103,9 +110,14 @@ export class AnswerLog {
     this.db.prepare('DELETE FROM answer_log WHERE space_id = ?').run(this.spaceId)
   }
 
-  /** Un invité exclu ne doit plus peser sur les statistiques. */
+  /**
+   * Un invité exclu ne doit plus peser sur les statistiques — ni ici, ni au
+   * miroir : c'est ce journal qui en demande l'effacement, comme il y demande
+   * l'écriture de ses lignes.
+   */
   removePlayer(playerId: string) {
-    this.db.prepare('DELETE FROM answer_log WHERE player_id = ?').run(playerId)
+    this.db.prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
+    this.backup?.deletePlayerAnswers(playerId)
   }
 }
 

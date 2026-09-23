@@ -7,8 +7,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initDb, stampLegacySpace, wipeSpace } from './core/db'
-import { PartyBackup } from './core/backup'
-import { QuizStore } from './core/quizStore'
+import { PartyBackup, type ReglagesMiroir } from './core/backup'
+import { photosCitees, QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
 import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
@@ -16,6 +16,7 @@ import { SpaceRegistry } from './core/space'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore } from './auth/profiles'
 import { mountApi } from './api'
+import { erreurDeRequete, repondreErreur } from './core/http'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
 import type { ArchiveList, PartyArchive } from '../../shared/archive'
@@ -49,6 +50,25 @@ export interface QuizServerOptions {
    * Absent en production : rien ne s'affiche, et rien ne pèse.
    */
   appEnv?: string
+  /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */
+  miroir?: Omit<ReglagesMiroir, 'base'>
+}
+
+/**
+ * Le mot de passe d'amorçage quand `ADMIN_PASSWORD` n'est pas donné. Il est
+ * écrit dans le dépôt : chez soi il dépanne, en ligne il ne crée rien.
+ */
+export const MOT_DE_PASSE_PAR_DEFAUT = 'romane'
+
+/**
+ * Un démarrage refusé pour une raison que l'hébergeur doit lire telle quelle :
+ * le message dit quoi faire, la pile n'apprendrait rien de plus.
+ */
+export class DemarrageRefuse extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'DemarrageRefuse'
+  }
 }
 
 /** Première IP locale non interne — l'adresse que les téléphones doivent ouvrir. */
@@ -75,23 +95,54 @@ function originOf(url: string | undefined): string | null {
  * En-têtes de durcissement. Le contenu ne vient que de l'application elle-même :
  * aucun script tiers, les deux polices et les photos sont servies ici (les
  * polices tombent sous `default-src 'self'`). Les styles en ligne sont ceux
- * que React pose sur les barres et les podiums.
+ * que React pose sur les barres et les podiums. La politique de contenu
+ * dépend de l'hôte demandé : voir `contentPolicy`.
  */
 const SECURITY_HEADERS: Record<string, string> = {
-  'Content-Security-Policy': [
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+}
+
+/** Un hôte, et rien d'autre : un nom ou une IPv4, ou une IPv6 entre crochets, et un port. */
+const HOST = /^(?:[a-z0-9.-]+|\[[0-9a-f:.]+\])(?::\d{1,5})?$/i
+
+/**
+ * La politique de contenu, pour l'hôte que la page a demandé.
+ *
+ * Le temps réel ne doit parler qu'à ce serveur-ci. `ws: wss:` l'autorisait
+ * vers n'importe quel hôte : un script injecté un jour aurait pu envoyer la
+ * soirée chez lui sans que la politique y trouve à redire. Mais l'adresse
+ * change selon qui regarde — `localhost` pour l'écran commun, `192.168.…:3001`
+ * pour les téléphones du wifi, l'adresse publique derrière le proxy de
+ * l'hébergeur, en https donc en wss. On la reprend de l'en-tête `Host`, qui
+ * est exactement l'hôte que la page va rappeler. `'self'` seul suffirait aux
+ * navigateurs récents, qui l'étendent à ws et wss ; pas aux plus anciens, et
+ * le téléphone d'un invité n'est pas toujours récent.
+ *
+ * `Host` vient du client : il ne décide que de la réponse faite à ce
+ * client-là, et il n'entre dans la politique que s'il a la forme d'un hôte —
+ * sinon `Host: x; script-src *` la réécrirait.
+ *
+ * `frame-ancestors 'none'` : aucune page n'a à encadrer l'application, et un
+ * cadre invisible posé sur une page tierce ferait cliquer à l'insu de qui
+ * regarde. Le cookie `SameSite=Lax` n'y voyagerait déjà pas, mais la page des
+ * invités n'en a pas besoin.
+ */
+function contentPolicy(host: string | undefined): string {
+  const realtime = host && HOST.test(host) ? ` ws://${host} wss://${host}` : ''
+  return [
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
-    "connect-src 'self' ws: wss:",
+    `connect-src 'self'${realtime}`,
     "manifest-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-  ].join('; '),
-  'X-Content-Type-Options': 'nosniff',
-  'Referrer-Policy': 'same-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+    "frame-ancestors 'none'",
+  ].join('; ')
 }
 
 /** Les pages publiques d'un espace, telles que le client les route. */
@@ -113,8 +164,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Le JS de l'application pèse 320 Ko à nu, 100 Ko compressé — cinquante
   // téléphones en 4G au moment du scan font vite la différence.
   app.use(compression())
-  app.use((_req, res, next) => {
+  app.use((req, res, next) => {
     res.set(SECURITY_HEADERS)
+    res.set('Content-Security-Policy', contentPolicy(req.headers.host))
     next()
   })
 
@@ -124,6 +176,17 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // `localhost` pendant que les téléphones utilisent l'adresse du wifi.
   const allowedOrigin = opts.online ? originOf(opts.publicUrl) : null
   const io: IoServer = new Server(httpServer, {
+    // Le battement de cœur : un ping toutes les 10 s, 8 s pour y répondre.
+    // Une liaison morte se voit donc en 18 s au plus, des deux côtés — au
+    // lieu de 45 s avec les réglages par défaut (25 + 20), mesurés à 43,6 s :
+    // plus qu'une question entière, pendant laquelle un téléphone tombé du
+    // wifi n'affichait rien et l'écran commun le comptait encore parmi les
+    // présents. Huit secondes de grâce restent larges pour la 4G d'une salle
+    // bondée. Le prix : un ping et un pong de quelques octets toutes les dix
+    // secondes, soit ~300 octets avec les en-têtes TCP et TLS — pour 150
+    // téléphones, 4,5 Ko/s côté serveur et 100 Ko par heure et par forfait.
+    pingInterval: 10_000,
+    pingTimeout: 8_000,
     cors: { origin: allowedOrigin ?? true },
     allowRequest: (req, callback) => {
       const origin = req.headers.origin
@@ -142,13 +205,27 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const auth = new AuthStore(opts.quizDbUrl, opts.quizDbToken)
   await auth.init()
   const hadAccounts = auth.count() > 0
+  // Le mot de passe d'amorçage ne sert qu'à créer l'administrateur, sur une
+  // base encore vide : c'est là, et seulement là, qu'il doit être un vrai.
+  // Exigé à chaque démarrage, il empêchait la production de se réveiller une
+  // fois la variable retirée — ce que la documentation demande de faire, et
+  // sur l'offre gratuite chaque réveil est un démarrage.
+  if (!hadAccounts && opts.online && (!opts.admin.password || opts.admin.password === MOT_DE_PASSE_PAR_DEFAUT)) {
+    auth.close()
+    db.close()
+    throw new DemarrageRefuse(
+      'ADMIN_PASSWORD manquant : la base n’a encore aucun compte, et en ligne l’administrateur ne se crée pas avec le mot de passe par défaut. ' +
+        'Définis ADMIN_PASSWORD dans les variables du service ; une fois le compte créé, tu pourras la retirer.',
+    )
+  }
   const defaultSpace = await auth.ensureDefaultSpace(opts.admin)
   if (!hadAccounts) console.log(`[comptes] administrateur « ${opts.admin.login} » créé, espace « ${opts.admin.slug} »`)
 
   // Le disque d'un hébergeur gratuit est effacé à chaque redémarrage : les
-  // soirées (invités, points, parties en cours) sont donc recopiées dans la
-  // base distante, et rechargées ici si la base locale est repartie vide.
-  const backup = new PartyBackup(opts.quizDbUrl, opts.quizDbToken)
+  // soirées (invités, points, parties) sont donc recopiées dans la base
+  // distante, et rechargées ici si la base locale est repartie vide. La base
+  // locale fait foi : c'est d'elle qu'une resynchronisation relit un espace.
+  const backup = new PartyBackup(opts.quizDbUrl, opts.quizDbToken, { ...opts.miroir, base: db })
   await backup.init(defaultSpace)
   const restored = await backup.restoreInto(db)
   if (restored.players > 0 || restored.teams > 0) {
@@ -252,6 +329,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
 
   // Point de santé : sert au service de réveil (l'hébergeur gratuit endort
   // l'application sans trafic) et aux mesures de charge. Rien par espace.
+  //
+  // Le miroir y dit sa santé — écritures en attente, échecs, depuis quand,
+  // dernier succès —, tous espaces confondus : on jouait une soirée entière
+  // avec lui en panne sans que rien ne le montre, et tout se perdait au
+  // réveil. Mais `ok` reste vrai, et la réponse un 200 : Render redémarre
+  // une instance dont la santé échoue, et un redémarrage, c'est le disque
+  // effacé — la file et tout ce qu'elle attendait d'envoyer avec.
   app.get('/healthz', (_req, res) => {
     const runtimes = registry.all()
     res.json({
@@ -262,6 +346,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       players: runtimes.reduce((n, rt) => n + rt.party.connectedPlayerIds().length, 0),
       quizzes: runtimes.filter(rt => rt.engine.summary()).length,
       rssMo: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      miroir: backup.sante(),
     })
   })
 
@@ -287,7 +372,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   app.get('/s/:slug/bilan.json', withSpace, (_req, res) => res.json(registry.get(spaceOf(res).id).liveReview()))
 
   // L'historique : la soirée en cours et les soirées archivées.
-  app.get('/s/:slug/soirees.json', withSpace, (_req, res) => {
+  //
+  // Pages publiques : une panne n'y montre qu'une phrase neutre. Le message
+  // d'une LibsqlError nomme les tables, celui de JSON.parse recopie le début
+  // de la ligne abîmée — l'un et l'autre partent au journal, pas au visiteur.
+  app.get('/s/:slug/soirees.json', withSpace, (req, res) => {
     const account = spaceOf(res)
     archives
       .list(account.id)
@@ -299,7 +388,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         }
         res.json(body)
       })
-      .catch((e: Error) => res.status(500).json({ error: e.message }))
+      .catch((e: unknown) => repondreErreur(req, res, e))
   })
 
   // Une soirée archivée se relit avec les mêmes pages que celle en cours.
@@ -311,7 +400,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         if (!found) return res.status(404).json({ error: 'Soirée introuvable' })
         res.json({ ...build(found.archive), archive: found.summary, space: auth.publicSpace(account) })
       })
-      .catch((e: Error) => res.status(500).json({ error: e.message }))
+      .catch((e: unknown) => repondreErreur(req, res, e))
   }
   app.get('/s/:slug/soirees/:id/recap.json', withSpace, archived(recapOfArchive))
   app.get('/s/:slug/soirees/:id/bilan.json', withSpace, archived(reviewOfArchive))
@@ -345,6 +434,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,
+    // Les parties de l'espace encore sur le disque, terminées comprises :
+    // c'est leur copie du quiz que l'archivage rangera, photos avec.
+    photosEnJeu: spaceId =>
+      (db.prepare('SELECT state FROM sessions WHERE space_id = ?').all(spaceId) as { state: string }[]).flatMap(r =>
+        photosCitees(r.state),
+      ),
     removeAccount,
   })
 
@@ -397,6 +492,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
     })
   }
 
+  // En tout dernier : ce qu'aucune route n'a su lire répond en JSON, sans pile.
+  app.use(erreurDeRequete)
+
   await new Promise<void>(resolve => httpServer.listen(opts.port, resolve))
   const address = httpServer.address()
   const port = typeof address === 'object' && address ? address.port : opts.port
@@ -411,12 +509,18 @@ export async function createQuizServer(opts: QuizServerOptions) {
         clearInterval(resync)
         registry.stopAll()
         io.close(async () => {
+          // La file du miroir se vide d'abord, dans le délai qu'on lui laisse :
+          // la base locale doit rester ouverte d'ici là — une resynchronisation
+          // en attente la relit.
+          await backup.close()
           db.close()
           store.close()
           archives.close()
           auth.close()
-          // Les écritures distantes en vol doivent aboutir avant de couper.
-          await backup.close()
+          // Les profils en dernier : un crédit d'expérience parti avec la fin
+          // du dernier quiz garde ainsi le plus long sursis pour aboutir. On ne
+          // les refermait jamais.
+          profiles.close()
           resolve()
         })
       }),

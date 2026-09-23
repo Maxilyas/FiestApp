@@ -1,11 +1,12 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { createClient } from '@libsql/client'
+import { clientDistant, type Client } from './distante'
 import { QuizStore } from './quizStore'
 import { toRow } from './answers'
 import { buildReview } from './review'
 import { ArchiveStore, reviewOfArchive } from './archive'
 import { playableQuestions } from '../../../shared/library'
+import { nomsAffiches } from '../../../shared/homonymes'
 import {
   answerLabel,
   formatPercent,
@@ -51,7 +52,10 @@ export async function reviewFromServer(base: string, target: ExportTarget = {}):
  * la bibliothèque pour retrouver les intitulés.
  */
 export async function reviewFromDatabase(dbUrl: string, token?: string, target: ExportTarget = {}): Promise<Review> {
-  const client = createClient({ url: dbUrl, authToken: token })
+  // Avec le délai des magasins : c'est le jour où le serveur ne répond plus
+  // qu'on exporte depuis la base, et une base muette faisait alors attendre
+  // le script cinq minutes sans un mot, dès la première requête.
+  const client = clientDistant(dbUrl, token)
   const spaceId = await resolveSpace(client, target.slug)
   // Une soirée archivée est déjà complète : ses questions voyagent avec elle.
   if (target.archiveId) {
@@ -82,16 +86,27 @@ export async function reviewFromDatabase(dbUrl: string, token?: string, target: 
   const library = (await store.all(spaceId)).map(q => ({ title: q.title, questions: playableQuestions(q) }))
   store.close()
 
+  // Les marques d'homonymie, dans l'ordre d'arrivée comme sur l'écran commun :
+  // sans elles, deux « Camille » au renard sortaient en deux lignes
+  // identiques dans invites.csv. La table, elle, n'est pas rangée par arrivée.
+  const inscrits = [...players.rows]
+    .sort((a, b) => Number(a.created_at) - Number(b.created_at))
+    .map(r => ({
+      id: String(r.id),
+      name: String(r.name),
+      avatar: String(r.avatar),
+      teamId: r.team_id === null || r.team_id === undefined ? null : String(r.team_id),
+    }))
+  const marques = nomsAffiches(inscrits)
+
   return buildReview({
     rows: answers.rows.map(toRow),
-    players: players.rows.map(
-      (r): PublicPlayer => ({
-        id: String(r.id),
-        name: String(r.name),
-        avatar: String(r.avatar),
+    players: inscrits.map(
+      (p): PublicPlayer => ({
+        ...p,
         connected: false,
-        score: totals.get(String(r.id)) ?? 0,
-        teamId: r.team_id === null || r.team_id === undefined ? null : String(r.team_id),
+        score: totals.get(p.id) ?? 0,
+        ...(marques.has(p.id) && { nomAffiche: marques.get(p.id) }),
       }),
     ),
     teams: teams.rows.map(r => ({
@@ -117,7 +132,7 @@ export async function reviewFromDatabase(dbUrl: string, token?: string, target: 
 }
 
 /** L'identifiant de l'espace derrière un nom d'adresse — ou l'espace par défaut. */
-async function resolveSpace(client: ReturnType<typeof createClient>, slug?: string): Promise<string> {
+async function resolveSpace(client: Client, slug?: string): Promise<string> {
   if (slug) {
     const res = await client.execute({ sql: 'SELECT id FROM accounts WHERE slug = ?', args: [slug] })
     if (!res.rows[0]) throw new Error(`Aucun espace « ${slug} »`)
@@ -130,10 +145,23 @@ async function resolveSpace(client: ReturnType<typeof createClient>, slug?: stri
 
 // ── CSV ──────────────────────────────────────────────────────────────────
 
-/** Point-virgule et BOM : ce qu'Excel en français ouvre sans rien demander. */
+/**
+ * Ce par quoi Excel reconnaît une formule. Un invité prénommé
+ * « =HYPERLINK(…) » glissait un lien piégé dans le tableau de l'animateur,
+ * qui l'ouvre en confiance : c'est lui qui l'a exporté.
+ */
+const FORMULE = /^[=+\-@\t\r]/
+
+/**
+ * Point-virgule et BOM : ce qu'Excel en français ouvre sans rien demander.
+ * Une cellule qui commence comme une formule prend une apostrophe devant, et
+ * reste du texte. Les nombres restent des nombres : −40 n'est pas une formule.
+ */
 export function toCsv(rows: unknown[][]): string {
   const cell = (v: unknown) => {
-    const s = v === null || v === undefined ? '' : String(v)
+    if (typeof v === 'number') return String(v)
+    let s = v === null || v === undefined ? '' : String(v)
+    if (FORMULE.test(s)) s = `'${s}`
     return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
   }
   return '﻿' + rows.map(r => r.map(cell).join(';')).join('\r\n') + '\r\n'

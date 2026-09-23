@@ -1565,8 +1565,9 @@ try {
   assert(aliceAfter?.teamId === T[0].id, 'l’équipe de chacun doit survivre au redémarrage')
   const t0After = after2.teams.find((t: any) => t.id === T[0].id)
   assert(t0After?.memberCount === 2, 'les deux membres doivent être recomptés dans leur équipe')
-  // Le bilan survit aussi : sans les copies des parties (disque effacé), les
-  // intitulés reviennent de la bibliothèque — sauf pour les quiz supprimés.
+  // Le bilan survit aussi, intitulés compris : les copies des parties
+  // terminées reviennent du miroir avec elles — celles des quiz supprimés
+  // depuis comprises. Elles ne vivaient que sur le disque effacé.
   const bilanAfter = (await (await fetch(`http://localhost:${server2.port}/s/${SLUG}/bilan.json`)).json()) as any
   assert(
     bilanAfter.questions.length === bilan.questions.length,
@@ -1576,7 +1577,10 @@ try {
     const before = bilan.questions.find((o: any) => o.key === q.key)
     assert(before, `question ${q.key} inconnue avant le redémarrage`)
     if (deletedTitles.has(q.quizTitle)) {
-      assert(!q.resolved, 'un quiz supprimé ne peut plus livrer ses intitulés après un redémarrage')
+      assert(
+        q.resolved && q.text === before.text,
+        `un quiz supprimé garde ses intitulés après un redémarrage — sa copie revient du miroir (« ${q.text} »)`,
+      )
     } else {
       assert(
         q.resolved && q.text === before.text && !q.uncertain,

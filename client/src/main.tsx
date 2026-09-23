@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react'
+import React, { Component, Suspense, lazy, type ReactNode } from 'react'
 import ReactDOM from 'react-dom/client'
 import { DialogHost } from './components/Dialog'
 import { applyTheme } from './theme'
@@ -97,17 +97,49 @@ if (appEnv) {
   if (titre) new MutationObserver(prefixer).observe(titre, { childList: true })
 }
 
+/**
+ * Le filet : une erreur de rendu, et React démonte la page entière. L'invité
+ * restait devant un écran noir, sans un mot et sans bouton — il a suffi d'un
+ * stockage refusé au chargement d'un module pour que la page de jeu y passe.
+ * Recharger est presque toujours le bon remède, y compris pour un paquet de
+ * code disparu après un déploiement : c'est donc la seule chose qu'on propose,
+ * et toute la page y mène.
+ */
+class Filet extends Component<{ children: ReactNode }, { panne: boolean }> {
+  state = { panne: false }
+
+  static getDerivedStateFromError() {
+    return { panne: true }
+  }
+
+  componentDidCatch(erreur: unknown) {
+    console.error(erreur)
+  }
+
+  render() {
+    if (!this.state.panne) return this.props.children
+    return (
+      <button type="button" className="filet" onClick={() => window.location.reload()}>
+        <span className="filet-titre">Oups</span>
+        <span className="btn btn-primary btn-big">Touche pour recharger</span>
+      </button>
+    )
+  }
+}
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Suspense
-      fallback={
-        <div className="center-page">
-          <p className="muted">Chargement…</p>
-        </div>
-      }
-    >
-      <App />
-    </Suspense>
-    <DialogHost />
+    <Filet>
+      <Suspense
+        fallback={
+          <div className="center-page">
+            <p className="muted">Chargement…</p>
+          </div>
+        }
+      >
+        <App />
+      </Suspense>
+      <DialogHost />
+    </Filet>
   </React.StrictMode>,
 )

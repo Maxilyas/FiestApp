@@ -1,8 +1,9 @@
 import { io, type Socket } from 'socket.io-client'
 import type { ActionAck, ClientToServerEvents, JoinAck, ServerToClientEvents } from '../../shared/events'
 import type { PublicProfile } from '../../shared/profil'
-import { forgetMe, getState, setState, showToast } from './state'
-import { applySample, resetClock } from './clock'
+import { MOTIFS } from '../../shared/erreurs'
+import { forgetMe, getState, oublierIdentite, setState, showToast } from './state'
+import { applySample, resetClock, serverNow } from './clock'
 import { currentSlug } from './routes'
 
 export const socket: Socket<ServerToClientEvents, ClientToServerEvents> = io({
@@ -57,7 +58,11 @@ socket.on('session:ended', ({ sessionId }) => {
   delete views[sessionId]
   setState({ views })
 })
-socket.on('player:removed', () => {
+socket.on('player:removed', info => {
+  // Un téléphone qui s'est re-présenté avec un jeton que la soirée ne connaît
+  // plus : l'accusé de son `player:join` s'en est déjà chargé. Ce signal-là
+  // ne sert qu'aux pages d'une ancienne version, qui ne lisent pas l'accusé.
+  if (info?.reason === 'unknown-token') return
   // On oublie l'identité : le téléphone revient à l'écran d'inscription.
   const slug = currentSlug()
   if (slug) forgetMe(slug)
@@ -65,17 +70,131 @@ socket.on('player:removed', () => {
   showToast({ kind: 'info', message: "L'animateur t'a retiré de la soirée" })
 })
 
+// « Nouvelle soirée » : l'invité de ce téléphone n'existe plus. On oublie qui
+// il était, pas son prénom : l'entrée le propose pré-rempli, écran d'équipe
+// compris, pour rejoindre la soirée suivante. Sans ce signal, le téléphone
+// restait devant un en-tête vide et « 0 pts », et le quiz suivant partait
+// sans lui.
+socket.on('party:reset', () => {
+  const avait = !!getState().me
+  const slug = currentSlug()
+  if (slug) oublierIdentite(slug)
+  else setState({ me: null, views: {} })
+  if (avait) showToast({ kind: 'info', message: 'Nouvelle soirée ! Rejoins-la pour jouer' })
+})
+
 socket.on('toast', showToast)
+
+/** Le temps accordé à la sonde : une heure du serveur ne met pas deux secondes à revenir. */
+const SONDE_MS = 2000
+let sondeEnCours = false
+
+/**
+ * La liaison vit-elle encore ? Sinon, on la rouvre sans attendre.
+ *
+ * Un téléphone qui sort de veille garde souvent une connexion morte que
+ * socket.io croit vivante : il ne l'apprend qu'au battement de cœur manqué,
+ * une question entière plus tard. Pendant ce temps, rien ne part et rien
+ * n'arrive, sans un mot. On demande donc l'heure au serveur — la question la
+ * plus légère qui soit — et le silence suffit à trancher.
+ */
+async function verifierLiaison() {
+  if (!socket.connected || sondeEnCours) return
+  sondeEnCours = true
+  const sondee = socket.id
+  const vivante = await new Promise<boolean>(resolve => {
+    const minuteur = setTimeout(() => resolve(false), SONDE_MS)
+    socket.emit('time:sync', {}, () => {
+      clearTimeout(minuteur)
+      resolve(true)
+    })
+  })
+  sondeEnCours = false
+  // Une reconnexion a pu se faire entre-temps : c'est l'ancienne liaison qui
+  // s'est tue, pas celle-ci.
+  if (vivante || !socket.connected || socket.id !== sondee) return
+  socket.disconnect()
+  socket.connect()
+}
+
+// Au retour au premier plan : écran rallumé, onglet retrouvé, appel terminé.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') void verifierLiaison()
+})
+// Et au retour du réseau : la 4G qui revient après un tunnel laisse la même
+// connexion morte derrière elle.
+window.addEventListener('online', () => void verifierLiaison())
+
+/**
+ * Au-delà, un accusé n'arrivera plus. Dix secondes : un aller-retour en 4G
+ * dans une salle bondée, plus la lecture d'un profil dans la base distante,
+ * y tiennent largement — et un invité debout devant un bouton grisé
+ * n'attendra pas davantage.
+ */
+const ACCUSE_TIMEOUT_MS = 10_000
+
+/**
+ * Émet et attend l'accusé, mais pas indéfiniment. Passé le délai, rejette
+ * avec le motif à afficher (`MOTIFS.reseau` ou `MOTIFS.silence`).
+ *
+ * Sans délai, une coupure laissait « Rejoindre la soirée » grisé sans un mot,
+ * et un paquet perdu ne se débloquait jamais.
+ *
+ * Et on n'écrit que sur une liaison qui a une chance d'aboutir. Hors
+ * connexion, socket.io garderait le message en réserve pour le rejouer au
+ * retour ; et quand le navigateur se sait hors ligne, le message confié à la
+ * liaison morte peut encore être délivré quand le réseau revient. Dans les
+ * deux cas, il arrive après le délai — après que l'invité a réessayé — et
+ * l'inscrit deux fois : « Camille » et « Camille (2) ». On attend donc, dans
+ * le délai, une liaison et un réseau, puis on émet une seule fois.
+ */
+function demander<T>(emettre: (ack: (res: T) => void) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    let fini = false
+    let parti = false
+    const nettoyer = () => {
+      clearTimeout(minuteur)
+      socket.off('connect', tenter)
+      window.removeEventListener('online', tenter)
+    }
+    const tenter = () => {
+      if (fini || parti || !socket.connected || !navigator.onLine) return
+      parti = true
+      emettre(res => {
+        if (fini) return
+        fini = true
+        nettoyer()
+        resolve(res)
+      })
+    }
+    const minuteur = setTimeout(() => {
+      fini = true
+      nettoyer()
+      reject(new Error(navigator.onLine ? MOTIFS.silence : MOTIFS.reseau))
+      // Un accusé qui ne revient pas, c'est presque toujours une liaison
+      // morte que le téléphone n'a pas encore vue : on s'en assure.
+      void verifierLiaison()
+    }, ACCUSE_TIMEOUT_MS)
+    socket.on('connect', tenter)
+    window.addEventListener('online', tenter)
+    tenter()
+  })
+}
 
 /**
  * Suivre une soirée sans y jouer encore : la page d'inscription reçoit alors
  * ses instantanés — les équipes, « X déjà connectés ». Refusé si le nom de
  * l'espace ne mène nulle part.
+ *
+ * Sans réponse dans le délai, la promesse est REJETÉE plutôt que résolue en
+ * échec : `ok: false` veut dire « cette adresse ne mène à rien », et un
+ * serveur muet ne dit pas ça. La liaison est alors vérifiée, et rouverte si
+ * elle est morte — ce qui relance la présentation.
  */
 export function watchParty(
   slug: string,
 ): Promise<{ ok: boolean; error?: string; profile?: PublicProfile }> {
-  return new Promise(resolve => socket.emit('party:watch', { slug }, resolve))
+  return demander(ack => socket.emit('party:watch', { slug }, ack))
 }
 
 export function joinAsPlayer(
@@ -89,13 +208,17 @@ export function joinAsPlayer(
   // Omis à la reconnexion : le serveur garde alors l'équipe déjà choisie.
   teamId?: string | null,
 ): Promise<JoinAck> {
-  return new Promise(resolve =>
-    socket.emit('player:join', { slug, name, avatar, token, teamId }, resolve),
-  )
+  // Un serveur muet devient un refus ordinaire, avec son motif : l'entrée
+  // l'affiche sous le bouton, et l'invité sait qu'il peut réessayer.
+  return demander<JoinAck>(ack =>
+    socket.emit('player:join', { slug, name, avatar, token, teamId }, ack),
+  ).catch((e: Error): JoinAck => ({ ok: false, error: e.message }))
 }
 
 export function setMyTeam(teamId: string | null): Promise<{ ok: boolean; error?: string }> {
-  return new Promise(resolve => socket.emit('player:setTeam', { teamId }, resolve))
+  return demander<{ ok: boolean; error?: string }>(ack =>
+    socket.emit('player:setTeam', { teamId }, ack),
+  ).catch((e: Error) => ({ ok: false, error: e.message }))
 }
 
 /**
@@ -107,6 +230,13 @@ export function setMyTeam(teamId: string | null): Promise<{ ok: boolean; error?:
 const ACTION_TIMEOUT_MS = 4000
 
 /**
+ * Le numéro de la dernière réponse envoyée. Seule la dernière a droit à un
+ * renvoi : renvoyer un premier choix après qu'on en a tapé un second
+ * écraserait le bon.
+ */
+let derniereReponse = 0
+
+/**
  * Envoie une réponse et attend l'accusé de réception.
  *
  * L'espace et le jeton voyagent avec : un téléphone qui sort d'une coupure a,
@@ -114,6 +244,12 @@ const ACTION_TIMEOUT_MS = 4000
  * elle suit ni qui elle est — et socket.io lui fait vider sa file d'attente
  * avant que la page ait pu se re-présenter. Sans eux, la réponse tapée pendant
  * la coupure était jetée en silence.
+ *
+ * Un accusé qui ne vient pas ne dit pas que la réponse est perdue, seulement
+ * qu'on n'en sait rien : tant que sa question est ouverte, on la renvoie une
+ * fois. C'est sans risque depuis qu'elle porte la question qu'elle vise — en
+ * retard, le serveur la refuse au lieu de l'inscrire sur la suivante ; déjà
+ * reçue, il la confirme sans rien réécrire.
  */
 export function sendPlayerAction(
   sessionId: string,
@@ -121,21 +257,49 @@ export function sendPlayerAction(
   slug: string,
   token?: string,
 ): Promise<ActionAck> {
-  return new Promise(resolve => {
-    let settled = false
-    const settle = (res: ActionAck) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      resolve(res)
-    }
-    // Sans ce garde-fou, une réponse partie dans le vide laisserait la
-    // promesse en suspens pour toujours — donc le joueur sans nouvelle.
-    const timer = setTimeout(
-      () => settle({ ok: false, reason: 'timeout', error: 'Ta réponse n’est pas partie — vérifie ta connexion' }),
-      ACTION_TIMEOUT_MS,
+  const numero = ++derniereReponse
+  const envoyer = () =>
+    new Promise<ActionAck>(resolve => {
+      let settled = false
+      const settle = (res: ActionAck) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        resolve(res)
+      }
+      // Sans ce garde-fou, une réponse partie dans le vide laisserait la
+      // promesse en suspens pour toujours — donc le joueur sans nouvelle.
+      const timer = setTimeout(
+        () => settle({ ok: false, reason: 'timeout', error: 'Ta réponse n’est pas partie — vérifie ta connexion' }),
+        ACTION_TIMEOUT_MS,
+      )
+      socket.emit('player:action', { sessionId, action, slug, token }, settle)
+    })
+
+  /** La question que vise la réponse est-elle encore ouverte, à l'heure du serveur ? */
+  const encoreOuverte = () => {
+    const vise = action as { qIndex?: unknown; round?: unknown } | null
+    const vue = getState().views[sessionId]?.view as
+      | { phase?: string; qIndex?: number; round?: number; deadline?: number; paused?: boolean }
+      | undefined
+    return (
+      !!vue &&
+      // Sans tour, la réponse ne dit pas assez quelle question elle vise pour
+      // qu'un renvoi tardif soit reconnu : on ne prend pas le risque.
+      typeof vise?.round === 'number' &&
+      vue.phase === 'question' &&
+      !vue.paused &&
+      vue.qIndex === vise.qIndex &&
+      vue.round === vise.round &&
+      typeof vue.deadline === 'number' &&
+      serverNow() < vue.deadline
     )
-    socket.emit('player:action', { sessionId, action, slug, token }, settle)
+  }
+
+  return envoyer().then(res => {
+    if (res.ok || res.reason !== 'timeout') return res
+    if (numero !== derniereReponse || !encoreOuverte()) return res
+    return envoyer()
   })
 }
 
@@ -143,9 +307,13 @@ export function sendPlayerAction(
  * L'écran commun se présente. Rien à envoyer : la session de l'animateur est
  * dans le cookie, que le navigateur joint à la poignée de main. En retour,
  * son espace — ou un refus s'il n'est pas connecté.
+ *
+ * Comme `watchParty`, REJETTE sans réponse dans le délai : `ok: false`
+ * ramène au formulaire de connexion, et un serveur muet n'a rien dit de la
+ * session.
  */
 export function helloHost(): Promise<{ ok: boolean; slug?: string; name?: string }> {
-  return new Promise(resolve => socket.emit('host:hello', {}, resolve))
+  return demander(ack => socket.emit('host:hello', {}, ack))
 }
 
 // En dev, un hot-reload de ce module créerait une 2e connexion socket branchée

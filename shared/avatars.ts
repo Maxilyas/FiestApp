@@ -30,8 +30,38 @@ export function cleanAvatar(raw: unknown): string {
   return short || DEFAULT_AVATAR
 }
 
+/**
+ * Coupe un texte à `max` points de code sans jamais couper un caractère : ni
+ * une paire de substitution — `slice` compte en unités UTF-16, et « …X🎉 »
+ * coupé au 24ᵉ gardait une moitié d'emoji, affichée « � » sur le mur —, ni,
+ * quand le moteur sait les reconnaître, un emoji composé : un drapeau, un
+ * pouce et sa couleur de peau partent ensemble ou pas du tout.
+ *
+ * La borne compte des points de code, pas des graphèmes : un seul graphème
+ * peut empiler des dizaines d'accents, et c'est la longueur réelle qu'on
+ * borne — celle qui part à toute la salle à chaque diffusion.
+ */
+export function tronquer(texte: string, max: number): string {
+  const points = Array.from(texte)
+  if (points.length <= max) return texte
+  // Absent de quelques navigateurs anciens : on coupe alors par points de
+  // code, ce qui ne laisse jamais de demi-caractère.
+  if (typeof Intl.Segmenter !== 'function') return points.slice(0, max).join('')
+  let garde = ''
+  let compte = 0
+  for (const { segment } of new Intl.Segmenter('fr', { granularity: 'grapheme' }).segment(texte)) {
+    const n = Array.from(segment).length
+    if (compte + n > max) break
+    garde += segment
+    compte += n
+  }
+  // Un premier graphème plus long que la borne à lui seul (une lettre sous
+  // trente accents) : on le coupe plutôt que de tout perdre.
+  return garde || points.slice(0, max).join('')
+}
+
 /** Un prénom sans caractères invisibles ni espaces en rafale, borné en longueur. */
 export function cleanName(raw: unknown): string {
   if (typeof raw !== 'string') return ''
-  return raw.replace(INVISIBLE, '').replace(/\s+/g, ' ').trim().slice(0, MAX_NAME_LENGTH).trim()
+  return tronquer(raw.replace(INVISIBLE, '').replace(/\s+/g, ' ').trim(), MAX_NAME_LENGTH).trim()
 }

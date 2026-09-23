@@ -541,6 +541,10 @@ function BulkImport({
   const typed = Number.parseInt(at, 10)
   const number = Number.isNaN(typed) ? total + 1 : Math.min(total + 1, Math.max(1, typed))
   const count = result.questions.length
+  // Ce que chaque « = … » a donné, la cible à part de l'unité. « 10 935
+  // mètres » lu comme 10, avec « 935 mètres » pour unité, s'affichait à
+  // l'identique à la révélation — et classait toute la salle sur un faux.
+  const estimations = result.questions.filter(q => q.kind === 'number')
 
   return (
     <div className="card import-panel">
@@ -574,6 +578,27 @@ Combien de cours a-t-elle pris cette année ?
           ` · ${result.unmarked} sans étoile : la 1ʳᵉ réponse sera prise pour la bonne`}
         {result.ignored > 0 && ` · ${result.ignored} bloc(s) ignoré(s)`}
       </p>
+      {estimations.length > 0 && (
+        <div>
+          <p className="muted small">
+            Les estimations, telles qu'elles seront jouées — la valeur à trouver en gras, l'unité à
+            côté. Un nombre illisible compte parmi les blocs ignorés.
+          </p>
+          <ul className="import-lues">
+            {estimations.map((q, i) => (
+              <li key={i}>
+                <span className="import-lue-texte">{q.text}</span>
+                <span className="import-lue-valeur">
+                  {/* Sans séparateur de milliers : « 10935 » se lit comme un
+                      seul nombre, « 10 935 » ressemblerait à la saisie. */}
+                  <strong>{String(q.target).replace('.', ',')}</strong>{' '}
+                  {q.unit || <span className="muted">sans unité</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="row">
         <button className="btn btn-primary" disabled={count === 0} onClick={() => onImport(result.questions, number)}>
           Ajouter au quiz

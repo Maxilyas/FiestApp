@@ -2,6 +2,7 @@ import type { GameContext, GameModule, GameSessionRec, ViewContext } from '../co
 import { playableQuestions, type PlayableQuestion, type QuizDef } from '../../../shared/library'
 import { distinctions } from '../../../shared/profil'
 import { nomAffiche } from '../../../shared/homonymes'
+import { classer, type Classe } from '../../../shared/classement'
 import type {
   QuizAction,
   QuizCommand,
@@ -10,6 +11,7 @@ import type {
   QuizPackInfo,
   QuizPlayerView,
   QuizPodiumRow,
+  Visee,
 } from '../../../shared/games/quiz'
 
 interface QuizPack {
@@ -35,6 +37,16 @@ interface QuizState {
   /** Le quiz joué est copié dans l'état : l'éditer pendant la partie ne change rien. */
   pack: QuizPack | null
   qIndex: number
+  /**
+   * Le tour : il avance chaque fois qu'une question est posée, « Reposer »
+   * compris. Les vues le portent et les gestes le renvoient — c'est ainsi
+   * qu'un clic ou une réponse dit quelle question il visait (voir `perimee`).
+   * Absent d'une partie lancée avant qu'il existe : il naît à la question
+   * suivante, et d'ici là les gestes se jugent comme avant.
+   */
+  round?: number
+  /** L'animateur a annulé les points de la question révélée. */
+  cancelled?: boolean
   questionStartAt: number
   deadline: number
   responses: Record<string, Response>
@@ -137,6 +149,10 @@ function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: Game
   const st = sess.state
   const q = st.pack!.questions[index]
   st.qIndex = index
+  // Un nouveau tour : un geste qui visait le précédent — la même question
+  // avant qu'on la repose comprise — ne s'applique plus à celui-ci.
+  st.round = (st.round ?? 0) + 1
+  st.cancelled = false
   st.responses = {}
   st.lastAwards = {}
   st.pausedMs = null
@@ -257,6 +273,23 @@ function cancelQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
     ctx.award(playerId, -points, `Annulation — Q${st.qIndex + 1}`)
   }
   st.lastAwards = {}
+  st.cancelled = true
+}
+
+/**
+ * Vrai si le geste visait un autre moment que celui-ci : une autre phase,
+ * une autre question, ou la même avant qu'on la repose.
+ *
+ * Un champ absent ne dit rien : c'est un écran resté sur une page d'avant, et
+ * son geste se lit comme avant — à la lumière du moment présent.
+ */
+function perimee(st: QuizState, visee: Visee | null | undefined): boolean {
+  if (!visee || typeof visee !== 'object') return false
+  return (
+    (visee.phase != null && visee.phase !== st.phase) ||
+    (visee.qIndex != null && visee.qIndex !== st.qIndex) ||
+    (visee.round != null && visee.round !== st.round)
+  )
 }
 
 /** Question suivante, ou podium si c'était la dernière. */
@@ -266,49 +299,90 @@ function goNext(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   ctx.clearTimer('autoNext')
   st.autoNextAt = null
   if (st.qIndex + 1 < st.pack.questions.length) startQuestion(sess, st.qIndex + 1, ctx)
-  else st.phase = 'finished'
+  else {
+    st.phase = 'finished'
+    // Le podium est à l'écran : l'expérience du quiz se crédite maintenant,
+    // sans attendre le clic « Terminer le quiz » — qui ne vient parfois
+    // jamais, quand le dernier podium reste affiché jusqu'au bout de la nuit.
+    ctx.verdict()
+  }
 }
 
-function sortedTotals(sess: GameSessionRec<QuizState>): { playerId: string; points: number }[] {
-  return sess.participantIds
-    .map(id => ({ playerId: id, points: sess.state.totals[id] ?? 0 }))
-    // Départage par identifiant : sans lui, deux ex æquo permuteraient à
-    // chaque rediffusion et le classement clignoterait sur l'écran commun.
-    .sort((a, b) => b.points - a.points || a.playerId.localeCompare(b.playerId))
+/** Une ligne du classement du quiz. */
+interface LigneDuClassement {
+  playerId: string
+  points: number
+  /** Le nom tel qu'on l'affiche — « Camille (2) » : c'est lui qui range les ex æquo. */
+  nom: string
+}
+
+/**
+ * Le classement du quiz, du premier au dernier, chacun avec son rang. Trié
+ * une fois par diffusion et partagé par toutes les vues qui la composent :
+ * chaque téléphone le retriait pour lui seul, à chaque réponse reçue — à
+ * 500 invités, une demi-minute de processeur par question.
+ *
+ * La règle est celle de `shared/classement.ts`, la seule : le rang partagé
+ * — trois joueurs à zéro sont premiers ensemble —, et les ex æquo rangés
+ * par nom affiché, puis par identifiant. Le podium du quiz les rangeait par
+ * identifiant seul : l'écran commun montrait Zoé avant Alice, et le souvenir
+ * du lendemain Alice avant Zoé. Les noms se lisent une fois par diffusion,
+ * dans les marques d'homonymie déjà gardées en mémoire (`vctx.playerName`).
+ */
+function classement(sess: GameSessionRec<QuizState>, vctx: ViewContext): Classe<LigneDuClassement>[] {
+  return vctx.memo('quiz:classement', () =>
+    classer(
+      sess.participantIds.map(id => ({ playerId: id, points: sess.state.totals[id] ?? 0, nom: vctx.playerName(id) })),
+      l => l.points,
+      l => l.nom,
+      l => l.playerId,
+    ),
+  )
+}
+
+/** Le rang de chacun, pour la vue de chaque téléphone. */
+function rangs(sess: GameSessionRec<QuizState>, vctx: ViewContext): Map<string, number> {
+  return vctx.memo('quiz:rangs', () => new Map(classement(sess, vctx).map(c => [c.item.playerId, c.rang])))
 }
 
 function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: number): QuizPodiumRow[] {
-  const rows = sortedTotals(sess).map(r => {
-    const p = vctx.player(r.playerId)
+  const rows = classement(sess, vctx)
+  // On ne décore que les lignes montrées : chaque décoration interroge le
+  // registre des invités, et le podium n'en montre que trois.
+  return (limit ? rows.slice(0, limit) : rows).map(({ item, rang }) => {
+    const p = vctx.player(item.playerId)
     return {
-      name: p ? nomAffiche(p) : vctx.playerName(r.playerId),
+      name: p ? nomAffiche(p) : item.nom,
       avatar: p?.avatar ?? '🎉',
-      points: r.points,
+      points: item.points,
+      // Le rang voyage avec la ligne : l'écran commun affiche la suite du
+      // podium à partir du quatrième, et le déduisait de sa position dans
+      // cette suite — « 4 » pour un troisième ex æquo.
+      rank: rang,
       ...distinctions(p),
     }
   })
-  return limit ? rows.slice(0, limit) : rows
 }
 
 /** Les propositions d'une question « estimation », de la plus proche à la plus loin. */
-function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewContext): QuizGuessRow[] {
+function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewContext, limit: number): QuizGuessRow[] {
   const st = sess.state
   return Object.entries(st.responses)
     .filter(([, r]) => r.value !== null)
-    .map(([playerId, r]) => {
+    .map(([playerId, r]) => ({ playerId, r, error: Math.abs(r.value! - target) }))
+    .sort((a, b) => a.error - b.error || a.r.ms - b.r.ms)
+    // Même raison que pour le classement : on ne décore que les lignes montrées.
+    .slice(0, limit)
+    .map(({ playerId, r }) => {
       const p = vctx.player(playerId)
       return {
         name: p ? nomAffiche(p) : vctx.playerName(playerId),
         avatar: p?.avatar ?? '🎉',
         value: r.value!,
         points: st.lastAwards[playerId] ?? 0,
-        error: Math.abs(r.value! - target),
-        ms: r.ms,
         ...distinctions(p),
       }
     })
-    .sort((a, b) => a.error - b.error || a.ms - b.ms)
-    .map(({ error: _error, ms: _ms, ...row }) => row)
 }
 
 /**
@@ -373,6 +447,7 @@ export const quizModule: GameModule<QuizState> = {
       packs: library.map(p => ({ id: p.id, title: p.title, questionCount: p.questions.length })),
       pack: null,
       qIndex: 0,
+      round: 0,
       questionStartAt: 0,
       deadline: 0,
       responses: {},
@@ -391,7 +466,16 @@ export const quizModule: GameModule<QuizState> = {
     // L'ordre compte : une réponse arrivée après la révélation d'une question
     // qu'on avait mise en pause est en retard, pas gelée.
     if (st.phase !== 'question' || !st.pack) return 'too-late'
+    // En retard aussi, la réponse qui visait une autre question : tapée sur la
+    // précédente et retenue par une coupure, ou sur celle-ci avant qu'on la
+    // repose. Acceptée, elle s'inscrivait sur une question que l'invité
+    // n'avait jamais vue, son temps compté depuis le début de celle-là.
+    if (perimee(st, { qIndex: action?.qIndex, round: action?.round })) return 'too-late'
     if (st.pausedMs !== null) return 'paused'
+    // Arrivé pendant une révélation, on joue à partir de la question suivante :
+    // celle-ci n'est pas la sienne, et le journal ne l'y attend pas. Des points
+    // marqués hors du journal, c'est un classement que le bilan n'explique plus.
+    if ((st.playFrom[playerId] ?? 0) > st.qIndex) return 'not-participant'
     const q = st.pack.questions[st.qIndex]
 
     // Changer d'avis est permis jusqu'à la révélation, pour les deux types de
@@ -420,6 +504,10 @@ export const quizModule: GameModule<QuizState> = {
       const value = Number(action.value)
       if (!Number.isFinite(value)) return 'invalid'
       const before = st.responses[playerId]
+      // Comme pour un QCM : la même valeur renvoyée — double appui, ou renvoi
+      // d'une réponse dont l'accusé s'est perdu — est confirmée sans rien
+      // réécrire. Ce n'est pas une hésitation, et ça ne doit pas coûter de temps.
+      if (before?.value === value) return
       st.responses[playerId] = {
         choice: null,
         value,
@@ -472,7 +560,9 @@ export const quizModule: GameModule<QuizState> = {
         break
       }
       case 'cancel': {
-        if (st.phase !== 'reveal') return
+        // Confirmée après que la partie a avancé — la boîte de dialogue était
+        // restée ouverte —, elle retirerait les points de la question suivante.
+        if (st.phase !== 'reveal' || perimee(st, command)) return
         // L'animateur reprend la main : un enchaînement programmé ne doit pas
         // emporter la question qu'il est en train de corriger.
         ctx.clearTimer('autoNext')
@@ -481,14 +571,27 @@ export const quizModule: GameModule<QuizState> = {
         break
       }
       case 'replay': {
-        if (st.phase !== 'reveal' || !st.pack) return
+        if (st.phase !== 'reveal' || !st.pack || perimee(st, command)) return
         ctx.clearTimer('autoNext')
         st.autoNextAt = null
         cancelQuestion(sess, ctx)
+        // Arrivés pendant la révélation, ils attendaient la question suivante ;
+        // celle-ci, reposée, se joue devant eux : elle est aussi la leur. Sans
+        // ça, ils y répondaient et marquaient, mais le journal les ignorait —
+        // et leur téléphone leur souhaitait encore la bienvenue.
+        for (const id of sess.participantIds) {
+          if ((st.playFrom[id] ?? 0) > st.qIndex) st.playFrom[id] = st.qIndex
+        }
         startQuestion(sess, st.qIndex, ctx)
         break
       }
       case 'next':
+        // « Suivant » se lisait selon la phase courante : un « Révéler » parti
+        // juste avant la révélation automatique arrivait après elle et passait
+        // à la question suivante — la salle n'avait vu la bonne réponse que
+        // quatre-vingt-seize millisecondes. Un clic qui ne vise plus le moment
+        // présent est un doublon : ignoré sans un mot.
+        if (perimee(st, command)) return
         if (st.phase === 'observe') {
           // « C'est bon, tout le monde a vu » : on passe à la question.
           beginAnswering(sess, ctx)
@@ -522,6 +625,26 @@ export const quizModule: GameModule<QuizState> = {
     st.playFrom[playerId] = st.phase === 'reveal' ? st.qIndex + 1 : st.qIndex
   },
 
+  onPlayerLeave(sess, playerId, ctx) {
+    const st = sess.state
+    // Un exclu part avec tout ce qu'il avait laissé. Sa réponse restait dans
+    // la question en cours : elle comptait au barème, aux compteurs de
+    // l'écran commun, au « plus rapide » — affiché « ??? » —, et dans une
+    // estimation elle volait le premier rang à ceux qui restaient. Ses gains
+    // de la question partent aussi : une annulation après coup lui aurait
+    // sinon écrit une ligne négative au journal, à lui qui n'existe plus.
+    delete st.responses[playerId]
+    delete st.lastAwards[playerId]
+    delete st.playFrom[playerId]
+    delete st.totals[playerId]
+    // Il était peut-être le dernier qu'on attendait : la salle a fini, on
+    // révèle après le souffle, comme après une dernière réponse — pas au
+    // bout du chronomètre.
+    if (st.phase === 'question' && st.pausedMs === null && awaited(sess) === 0) {
+      ctx.setTimer('settle', SETTLE_MS)
+    }
+  },
+
   onTimer(sess, timerId, ctx) {
     if (timerId === 'ready' && sess.state.phase === 'getReady') startQuestion(sess, 0, ctx)
     if (timerId === 'observe' && sess.state.phase === 'observe') beginAnswering(sess, ctx)
@@ -536,6 +659,7 @@ export const quizModule: GameModule<QuizState> = {
     const base = {
       phase: st.phase,
       qIndex: st.qIndex,
+      round: st.round,
       qCount: st.pack?.questions.length ?? 0,
       yourChoice: mine?.choice ?? null,
       yourGuess: mine?.value ?? null,
@@ -555,7 +679,6 @@ export const quizModule: GameModule<QuizState> = {
     }
     if ((st.phase === 'question' || st.phase === 'reveal') && st.pack) {
       const q = st.pack.questions[st.qIndex]
-      const rank = sortedTotals(sess).findIndex(r => r.playerId === playerId) + 1
       return {
         ...base,
         kind: q.kind,
@@ -575,18 +698,21 @@ export const quizModule: GameModule<QuizState> = {
           correct: q.kind === 'choice' ? q.correct : undefined,
           target: q.kind === 'number' ? q.target : undefined,
           yourPoints: playerId in st.lastAwards ? st.lastAwards[playerId] : null,
+          ...(st.cancelled && { cancelled: true }),
           yourQuizTotal: st.totals[playerId] ?? 0,
-          yourQuizRank: rank,
+          // Le rang ne se lit qu'entre deux questions : pendant la question,
+          // aucun classement n'est calculé.
+          yourQuizRank: rangs(sess, vctx).get(playerId),
         }),
       }
     }
     if (st.phase === 'finished') {
-      const rank = sortedTotals(sess).findIndex(r => r.playerId === playerId) + 1
       return {
         ...base,
         yourQuizTotal: st.totals[playerId] ?? 0,
-        yourQuizRank: rank,
-        podium: standings(sess, vctx, 3),
+        yourQuizRank: rangs(sess, vctx).get(playerId),
+        // Le même podium pour toute la salle : construit une fois par diffusion.
+        podium: vctx.memo('quiz:podium', () => standings(sess, vctx, 3)),
       }
     }
     return base
@@ -597,6 +723,7 @@ export const quizModule: GameModule<QuizState> = {
     const base = {
       phase: st.phase,
       qIndex: st.qIndex,
+      round: st.round,
       qCount: st.pack?.questions.length ?? 0,
       packTitle: st.pack?.title,
       multiplier: st.multiplier,
@@ -646,8 +773,9 @@ export const quizModule: GameModule<QuizState> = {
           view.fastest = fastest
         } else {
           view.target = q.target
-          view.guesses = guessRows(sess, q.target, vctx).slice(0, 8)
+          view.guesses = guessRows(sess, q.target, vctx, 8)
         }
+        if (st.cancelled) view.cancelled = true
         view.standings = standings(sess, vctx, 5)
       }
       return view

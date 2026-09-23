@@ -92,6 +92,16 @@ export function initDb(dbPath: string): DB {
       updated_at      INTEGER NOT NULL,
       space_id        TEXT
     );
+
+    -- Le nom de la soirée en cours, une ligne par espace. On le recalculait
+    -- depuis le plus ancien invité présent : exclure le premier arrivé
+    -- rebaptisait la soirée, et l'expérience comme l'archive se
+    -- dédoublaient. Tiré une fois, il reste là jusqu'à « Nouvelle soirée ».
+    CREATE TABLE IF NOT EXISTS soiree (
+      space_id TEXT PRIMARY KEY,
+      id       TEXT NOT NULL,
+      held_at  INTEGER NOT NULL
+    );
   `)
 
   // Les équipes, puis les espaces, sont arrivés après les premiers essais :
@@ -106,7 +116,49 @@ export function initDb(dbPath: string): DB {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_${table}_space ON ${table}(space_id)`)
   }
 
+  // L'identifiant d'un gain ou d'une réponse dans le miroir, tiré ICI, à
+  // l'écriture locale. Il l'était au moment de l'envoi : une recopie
+  // rejouée — après une panne, un arrêt, une resynchronisation — tirait un
+  // nouvel identifiant, et le gain comptait deux fois au réveil.
+  //
+  // Les lignes d'avant la mise à jour le gardent vide, exprès : l'ancien
+  // miroir les a déjà recopiées sous un identifiant qu'on ne connaît pas, et
+  // les renvoyer sous un nouveau les doublerait. Rien ne les renvoie donc.
+  addColumn(db, 'score_entries', 'uid', 'TEXT')
+  addColumn(db, 'answer_log', 'uid', 'TEXT')
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_score_entries_uid ON score_entries(uid)')
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_answer_log_uid ON answer_log(uid)')
+
   return db
+}
+
+/**
+ * Tout ce que la base locale sait de la soirée d'un espace, lu d'un seul
+ * tenant : c'est la source d'une resynchronisation du miroir. Les lignes
+ * brutes, telles que les tables les rangent.
+ */
+export interface SoireeLocale {
+  players: Record<string, unknown>[]
+  teams: Record<string, unknown>[]
+  bonuses: Record<string, unknown>[]
+  sessions: Record<string, unknown>[]
+  soiree: { id: string; held_at: number } | null
+  /** Seulement celles qui ont un identifiant stable — voir `uid` plus haut. */
+  scores: Record<string, unknown>[]
+  answers: Record<string, unknown>[]
+}
+
+export function lireSoireeLocale(db: DB, spaceId: string): SoireeLocale {
+  const tout = (sql: string) => db.prepare(sql).all(spaceId) as Record<string, unknown>[]
+  return db.transaction(() => ({
+    players: tout('SELECT * FROM players WHERE space_id = ?'),
+    teams: tout('SELECT * FROM teams WHERE space_id = ?'),
+    bonuses: tout('SELECT * FROM team_bonus WHERE space_id = ?'),
+    sessions: tout('SELECT * FROM sessions WHERE space_id = ? ORDER BY created_at'),
+    soiree: (db.prepare('SELECT id, held_at FROM soiree WHERE space_id = ?').get(spaceId) ?? null) as SoireeLocale['soiree'],
+    scores: tout('SELECT * FROM score_entries WHERE space_id = ? AND uid IS NOT NULL ORDER BY id'),
+    answers: tout('SELECT * FROM answer_log WHERE space_id = ? AND uid IS NOT NULL ORDER BY id'),
+  }))()
 }
 
 function addColumn(db: DB, table: string, column: string, type: string) {
@@ -137,6 +189,9 @@ export function wipeSpace(db: DB, spaceId: string): number {
     for (const table of PARTY_TABLES) {
       removed += db.prepare(`DELETE FROM ${table} WHERE space_id = ?`).run(spaceId).changes
     }
+    // Hors de la liste du dessus, qui sert aussi à rattacher les lignes
+    // d'avant les espaces : cette table-là est née avec eux.
+    removed += db.prepare('DELETE FROM soiree WHERE space_id = ?').run(spaceId).changes
     return removed
   })()
 }

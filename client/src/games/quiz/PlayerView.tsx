@@ -11,6 +11,7 @@ import { formatNumber, ordinal } from '../../format'
 import { questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
 import { Niveau } from '../../components/Niveau'
+import { serverNow } from '../../clock'
 
 interface Props {
   view: QuizPlayerView
@@ -24,10 +25,38 @@ interface QuizPlayerProps extends Props {
 }
 
 /**
+ * Vrai une fois l'échéance passée, lue à l'heure du serveur — jamais à celle
+ * du téléphone, qui dérive. Le chronomètre affichait zéro et les réponses
+ * restaient cliquables : c'était promettre une réponse que le serveur
+ * refuserait. La marge qu'il garde après l'échéance couvre le trajet d'une
+ * réponse partie à temps, pas une réponse tapée après.
+ */
+function useEchue(deadline: number | undefined, figee: boolean): boolean {
+  const [, reveiller] = useState(0)
+  useEffect(() => {
+    if (deadline === undefined || figee) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const guetter = () => {
+      const reste = deadline - serverNow()
+      if (reste < 0) reveiller(n => n + 1)
+      // Un regard par seconde au plus : une reconnexion peut recaler
+      // l'horloge, et l'échéance avec elle.
+      else timer = setTimeout(guetter, Math.min(reste + 1, 1000))
+    }
+    guetter()
+    return () => clearTimeout(timer)
+  }, [deadline, figee])
+  return deadline !== undefined && !figee && serverNow() > deadline
+}
+
+/** Chaque réponse dit à quelle question elle répond : le serveur refuse celles qui arrivent après. */
+const visee = (v: QuizPlayerView) => ({ qIndex: v.qIndex, round: v.round })
+
+/**
  * Saisie d'une estimation. Tant que tout le monde n'a pas répondu, on peut
  * corriger : sur un clavier de téléphone, un chiffre en trop est vite arrivé.
  */
-function GuessForm({ view, send }: Props) {
+function GuessForm({ view, send, closes }: Props & { closes: boolean }) {
   const [text, setText] = useState('')
 
   // Nouvelle question → on vide le champ.
@@ -36,8 +65,8 @@ function GuessForm({ view, send }: Props) {
   const submit = (e: FormEvent) => {
     e.preventDefault()
     const value = Number(text.replace(',', '.'))
-    if (!Number.isFinite(value) || text.trim() === '') return
-    send({ type: 'guess', value })
+    if (closes || !Number.isFinite(value) || text.trim() === '') return
+    send({ type: 'guess', value, ...visee(view) })
   }
 
   return (
@@ -51,16 +80,18 @@ function GuessForm({ view, send }: Props) {
           aria-label="Ton estimation"
           value={text}
           onChange={e => setText(e.target.value)}
+          disabled={closes}
           autoFocus
         />
         {view.unit && <span className="guess-unit">{view.unit}</span>}
       </div>
-      <button className="btn btn-primary btn-big btn-block" disabled={text.trim() === ''}>
+      <button className="btn btn-primary btn-big btn-block" disabled={closes || text.trim() === ''}>
         {view.yourGuess === null ? 'Valider' : 'Corriger'}
       </button>
       {view.yourGuess !== null && view.yourGuess !== undefined && (
         <p className="hint">
-          Ta réponse : <strong>{formatNumber(view.yourGuess)}</strong> {view.unit} · tu peux encore la corriger
+          Ta réponse : <strong>{formatNumber(view.yourGuess)}</strong> {view.unit}
+          {!closes && ' · tu peux encore la corriger'}
         </p>
       )}
     </form>
@@ -111,7 +142,26 @@ function Welcome() {
   )
 }
 
+/**
+ * L'animateur a retiré les points de la question. Le téléphone affichait
+ * « + pts » — un gain vide, là où il fallait dire que la question ne compte
+ * plus, pour personne.
+ */
+function PointsAnnules() {
+  return (
+    <>
+      <span className="result-icon">
+        <Icon name="x-circle" />
+      </span>
+      <p>Points annulés — cette question ne compte pas.</p>
+    </>
+  )
+}
+
 export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) {
+  // Avant tout retour anticipé : un crochet s'appelle à chaque rendu.
+  const closes = useEchue(v.phase === 'question' ? v.deadline : undefined, !!v.paused)
+
   if (v.phase === 'pickPack') {
     return (
       <div className="getready">
@@ -154,7 +204,16 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           <span className="label">
             Question {v.qIndex + 1} / {v.qCount}
           </span>
-          {(v.multiplier ?? 1) > 1 && <span className="pill multi">×{v.multiplier} points</span>}
+          {/* En haut, et pas sous les réponses : avec quatre réponses, un
+              téléphone de 640 px de haut n'affiche plus rien en dessous. Le
+              multiplicateur, lui, n'a plus rien à promettre une fois closes. */}
+          {closes ? (
+            <span className="pill">
+              <Icon name="clock" /> Réponses closes
+            </span>
+          ) : (
+            (v.multiplier ?? 1) > 1 && <span className="pill multi">×{v.multiplier} points</span>
+          )}
         </div>
         <TimerBar
           deadline={v.deadline!}
@@ -175,7 +234,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
         )}
 
         {v.kind === 'number' ? (
-          <GuessForm view={v} send={send} />
+          <GuessForm view={v} send={send} closes={closes} />
         ) : (
           <>
             <div className="ans-grid">
@@ -184,14 +243,15 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
                   key={i}
                   // Les autres réponses restent actives : on peut se raviser
                   // jusqu'à la révélation. Les estomper les ferait paraître
-                  // hors d'atteinte.
-                  disabled={v.paused}
+                  // hors d'atteinte — c'est justement ce qu'il faut dire une
+                  // fois l'échéance passée, et seulement alors.
+                  disabled={v.paused || closes}
                   aria-pressed={v.yourChoice === i}
                   onClick={() => {
                     navigator.vibrate?.(35)
-                    send({ type: 'answer', choice: i })
+                    send({ type: 'answer', choice: i, ...visee(v) })
                   }}
-                  className={'ans-btn' + (v.yourChoice === i ? ' chosen' : '')}
+                  className={'ans-btn' + (v.yourChoice === i ? ' chosen' : closes ? ' dim' : '')}
                 >
                   <Shape index={i} />
                   <span className="ans-text">{a}</span>
@@ -199,7 +259,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
                 </button>
               ))}
             </div>
-            {v.yourChoice !== null && (
+            {v.yourChoice !== null && !closes && (
               <p className="hint">
                 Réponse enregistrée · tu peux encore changer, au prix du bonus de rapidité
               </p>
@@ -211,14 +271,24 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
   }
 
   if (v.phase === 'reveal') {
+    // Points annulés : la réponse attendue s'est sans doute révélée fausse.
+    // On la montre encore — c'est ce que la salle vient de lire —, mais sans
+    // l'appeler « la bonne ».
+    const attendue = v.cancelled ? 'La réponse prévue' : 'La bonne réponse'
+
     // Estimation : pas de bonne ou mauvaise réponse, seulement un écart.
     if (v.kind === 'number') {
       const answered = v.yourGuess !== null && v.yourGuess !== undefined
       const gap = answered ? Math.abs(v.yourGuess! - v.target!) : null
+      const ton = v.cancelled || (!answered && v.justArrived) ? '' : answered ? 'result-ok' : 'result-ko'
       return (
         <div className="quiz-player">
-          <div className={'card result-banner ' + (answered ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
-            {answered ? (
+          <div className={'card result-banner ' + ton}>
+            {v.justArrived && !answered ? (
+              <Welcome />
+            ) : v.cancelled ? (
+              <PointsAnnules />
+            ) : answered ? (
               <>
                 <span className="big">+{v.yourPoints ?? 0} pts</span>
                 <p>
@@ -226,8 +296,6 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
                   {gap === 0 ? ' — pile poil !' : ` — à ${formatNumber(gap!)} ${v.unit} près`}
                 </p>
               </>
-            ) : v.justArrived ? (
-              <Welcome />
             ) : (
               <>
                 <span className="result-icon">
@@ -237,7 +305,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
               </>
             )}
             <p className="muted">
-              La bonne réponse : <strong>{formatNumber(v.target!)}</strong> {v.unit}
+              {attendue} : <strong>{formatNumber(v.target!)}</strong> {v.unit}
             </p>
           </div>
           <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
@@ -246,11 +314,14 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
     }
 
     const good = v.yourChoice !== null && v.yourChoice === v.correct
+    const ton = v.cancelled || (!good && v.justArrived) ? '' : good ? 'result-ok' : 'result-ko'
     return (
       <div className="quiz-player">
-        <div className={'card result-banner ' + (good ? 'result-ok' : v.justArrived ? '' : 'result-ko')}>
+        <div className={'card result-banner ' + ton}>
           {v.justArrived ? (
             <Welcome />
+          ) : v.cancelled ? (
+            <PointsAnnules />
           ) : v.yourChoice === null ? (
             <>
               <span className="result-icon">
@@ -275,7 +346,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
             </>
           )}
           <p className="muted">
-            La bonne réponse : <Shape index={v.correct!} inline />
+            {attendue} : <Shape index={v.correct!} inline />
             <strong>{v.answers![v.correct!]}</strong>
           </p>
         </div>
@@ -303,7 +374,9 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
         <div className="podium">
           {v.podium?.map((p, i) => (
             <div key={i} className="lb-row" style={{ animationDelay: `${i * 120}ms` }}>
-              <Rank n={i + 1} />
+              {/* Rang partagé, comme celui de la phrase au-dessus : deux ex
+                  æquo portent le même chiffre. */}
+              <Rank n={1 + v.podium!.filter(o => o.points > p.points).length} />
               <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
               <span className="lb-name">{p.name}</span>
               <Niveau niveau={p.niveau} />

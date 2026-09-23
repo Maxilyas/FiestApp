@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
 import type { PartyMirror } from './backup'
 
@@ -24,7 +25,7 @@ export class ScoreLedger {
     private backup?: PartyMirror,
   ) {
     this.insertStmt = db.prepare(
-      'INSERT INTO score_entries (player_id, session_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO score_entries (uid, player_id, session_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
     )
     const rows = db
       .prepare('SELECT player_id, SUM(points) AS total FROM score_entries WHERE space_id = ? GROUP BY player_id')
@@ -34,14 +35,37 @@ export class ScoreLedger {
 
   award(playerId: string, points: number, reason: string, sessionId?: string) {
     const createdAt = Date.now()
-    this.insertStmt.run(playerId, sessionId ?? null, points, reason, createdAt, this.spaceId)
+    // L'identifiant du gain naît ici, avec la ligne locale, et c'est lui que
+    // le miroir reprend : une recopie rejouée ne peut plus compter deux fois.
+    const uid = randomUUID()
+    this.insertStmt.run(uid, playerId, sessionId ?? null, points, reason, createdAt, this.spaceId)
     this.totals.set(playerId, (this.totals.get(playerId) ?? 0) + points)
-    this.backup?.saveScore({ playerId, sessionId, points, reason, createdAt })
+    this.backup?.saveScore({ uid, playerId, sessionId: sessionId ?? null, points, reason, createdAt })
   }
 
-  /** Après une remise à zéro de la soirée : les totaux en mémoire aussi. */
+  /**
+   * Après une remise à zéro de la soirée : le journal de l'espace, et ses
+   * totaux en mémoire. Le miroir, lui, s'efface d'un bloc (`PartyMirror.reset`).
+   */
   clearAll() {
+    this.db.prepare('DELETE FROM score_entries WHERE space_id = ?').run(this.spaceId)
     this.totals.clear()
+  }
+
+  /**
+   * Un invité exclu : ses gains partent avec lui, ici, dans le total gardé en
+   * mémoire, et au miroir.
+   *
+   * Le registre des gains est le seul propriétaire de ses lignes. `Party`
+   * les effaçait aussi, ici et — par l'effacement de l'invité — au miroir,
+   * mais pas le total en mémoire : deux propriétaires pour un même
+   * effacement, dont chacun croyait l'autre inutile, et un journal qui ne
+   * disait plus la même chose que son agrégat.
+   */
+  removePlayer(playerId: string) {
+    this.db.prepare('DELETE FROM score_entries WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
+    this.totals.delete(playerId)
+    this.backup?.deletePlayerScores(playerId)
   }
 
   total(playerId: string): number {

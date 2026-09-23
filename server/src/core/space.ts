@@ -3,18 +3,18 @@ import type { IoServer } from './types'
 import { Party } from './party'
 import { Teams } from './teams'
 import { ScoreLedger } from './scores'
-import { AnswerLog } from './answers'
+import { AnswerLog, type AnswerRow } from './answers'
 import { GameEngine } from './engine'
 import type { PartyBackup, PartyMirror } from './backup'
 import type { ArchiveStore } from './archive'
-import { archiveIdOf, buildArchive } from './archive'
+import { buildArchive, soireeDesInvites, type Soiree } from './archive'
 import { buildRecap } from './recap'
 import { buildReview, type PlayedPack } from './review'
 import { buildProgress, type SoireeGain } from './progress'
 import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
-import { ProfileStore } from '../auth/profiles'
+import { ProfileStore, type PrixDeSoiree } from '../auth/profiles'
 import { niveauPour } from '../../../shared/profil'
 import type { PartySnapshot, Recap } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
@@ -36,6 +36,21 @@ export interface SpaceDeps {
   baseUrl: () => string | null
   /** Plafond d'invités que même le réglage d'un espace ne dépasse pas. */
   maxPlayersCeiling: number
+}
+
+/** Ce qu'une soirée rapporte à ses profils, lu d'un seul tenant. */
+interface CreditDeSoiree {
+  gains: SoireeGain[]
+  laureats: PrixDeSoiree[]
+}
+
+/**
+ * Ce qu'un crédit d'expérience écrirait : le nom de la soirée, et chaque
+ * gain tel quel — profil, invité, emoji, relevé. Deux crédits de même
+ * empreinte écrivent exactement les mêmes lignes.
+ */
+function empreinteDuCredit(soireeId: string, gains: SoireeGain[]): string {
+  return JSON.stringify([soireeId, gains])
 }
 
 /**
@@ -78,6 +93,19 @@ export class SpaceRuntime {
     this.teams = new Teams(deps.db, spaceId, this.mirror)
     this.ledger = new ScoreLedger(deps.db, spaceId, this.mirror)
     this.answers = new AnswerLog(deps.db, spaceId, this.mirror)
+    this.soiree = this.soireeRangee()
+    if (!this.soiree) {
+      // Des invités, mais aucun nom rangé : la soirée a commencé avant qu'on
+      // range son nom — elle était en cours au déploiement. On le tire tout
+      // de suite, comme on l'a toujours calculé, et on le fige, miroir
+      // compris : une archive et de l'expérience ont pu être écrites sous ce
+      // nom-là, et si le premier arrivé s'en allait avant qu'il ne resserve,
+      // plus rien ne permettrait de le retrouver.
+      const tiree = this.tirerSoiree()
+      if (tiree) {
+        this.recopierSoiree(tiree).catch(e => console.warn(`[soirée] nom non recopié : ${(e as Error).message}`))
+      }
+    }
     this.engine = new GameEngine(
       {
         db: deps.db,
@@ -96,10 +124,19 @@ export class SpaceRuntime {
         onSessionEnded: () => {
           this.crediterQuiz().catch(e => console.error('[xp]', e))
         },
+        // Le podium à l'écran vaut une fin de quiz pour l'expérience : le
+        // dernier podium de la soirée reste souvent affiché sans que personne
+        // ne referme la partie.
+        onVerdict: () => {
+          this.crediterQuiz().catch(e => console.error('[xp]', e))
+        },
       },
       quizModule,
     )
     this.engine.restore()
+    // Une sauvegarde qui échoue depuis un moment se dit sur l'écran commun,
+    // et là seulement — à la transition, pas à chaque essai.
+    this.mirror.surRetard(() => this.deps.io.to(`hosts:${spaceId}`).emit('party:snapshot', this.buildSnapshot(true)))
     // Un profil doit être en mémoire pour que son niveau s'affiche. Après un
     // redémarrage, on réchauffe ceux des invités déjà là — sans bloquer : la
     // soirée doit reprendre tout de suite, et l'instantané repartira enrichi.
@@ -115,15 +152,91 @@ export class SpaceRuntime {
   }
 
   /**
-   * L'identifiant de la soirée en cours : le même que celui sous lequel elle
-   * s'archivera — l'heure d'arrivée du premier invité. C'est lui qui rend le
-   * crédit idempotent, et c'est pourquoi on peut créditer plusieurs fois
-   * dans la soirée sans jamais payer deux fois.
+   * La soirée en cours : son nom et son heure de début.
+   *
+   * C'est sous ce nom qu'elle s'archive et que ses profils se créditent, et
+   * c'est lui qui rend le crédit idempotent : on peut créditer plusieurs fois
+   * dans la soirée sans jamais payer deux fois — pourvu qu'il ne bouge pas.
+   * On le recalculait à chaque besoin sur le plus ancien invité présent :
+   * exclure le premier arrivé le changeait entre deux quiz, et l'expérience
+   * s'additionnait sous deux noms, l'Éclat se retirait, la soirée déjà
+   * sauvegardée s'archivait en double.
+   *
+   * Il se tire donc une seule fois, sur le plus ancien invité présent : la
+   * première fois que quelque chose s'écrit sous ce nom dans la base
+   * permanente — ou dès le réveil, pour une soirée qui a des invités mais
+   * pas encore de nom rangé (voir le constructeur). Il vit ensuite en
+   * mémoire, dans la base locale et dans le miroir distant, et seule
+   * « Nouvelle soirée » l'oublie.
    */
-  private soireeEnCours(): string | null {
-    const players = this.party.all()
-    if (players.length === 0) return null
-    return archiveIdOf(Math.min(...players.map(p => p.createdAt)))
+  private soiree: Soiree | null = null
+
+  /** Le nom de la soirée, tiré à l'instant s'il ne l'était pas encore. Null sans invité. */
+  private soireeEnCours(): Soiree | null {
+    return this.soiree ?? this.tirerSoiree()
+  }
+
+  /** Le nom que le disque a gardé pour la soirée de cet espace, s'il y en a un. */
+  private soireeRangee(): Soiree | null {
+    const row = this.deps.db
+      .prepare('SELECT id, held_at FROM soiree WHERE space_id = ?')
+      .get(this.spaceId) as { id: string; held_at: number } | undefined
+    return row ? { id: row.id, heldAt: row.held_at } : null
+  }
+
+  /** Tire le nom sur les invités présents, et le range sur le disque local. */
+  private tirerSoiree(): Soiree | null {
+    const soiree = soireeDesInvites(this.party.all())
+    if (!soiree) return null
+    this.deps.db
+      .prepare('INSERT OR REPLACE INTO soiree (space_id, id, held_at) VALUES (?, ?, ?)')
+      .run(this.spaceId, soiree.id, soiree.heldAt)
+    this.soiree = soiree
+    return soiree
+  }
+
+  /**
+   * Recopie le nom dans le miroir distant, d'où un réveil sur disque effacé
+   * le reprendra.
+   *
+   * À appeler avant d'écrire quoi que ce soit sous ce nom dans la base
+   * permanente, et au moment même où on le lit : l'écriture part alors
+   * pendant que la soirée est encore celle-ci. Une « Nouvelle soirée » qui
+   * suivrait attend les écritures en vol avant d'effacer le miroir — elle ne
+   * la verra donc jamais ressusciter le nom de la soirée finie.
+   */
+  private recopierSoiree(soiree: Soiree): Promise<void> {
+    const ecriture = this.mirror.saveSoiree(soiree)
+    // On ne l'attend que plus tard, derrière la file : un échec d'ici là ne
+    // doit pas passer pour une promesse abandonnée, qui ferait tomber le
+    // serveur. Celui qui l'attend reçoit bien l'erreur.
+    ecriture.catch(() => {})
+    return ecriture
+  }
+
+  /** La soirée suivante tirera son propre nom, sur ses propres invités. */
+  private oublierSoiree() {
+    this.soiree = null
+    this.deps.db.prepare('DELETE FROM soiree WHERE space_id = ?').run(this.spaceId)
+  }
+
+  /**
+   * Les crédits de la soirée — fin de quiz, archivage — passent un par un.
+   *
+   * Chacun lit les journaux à l'instant où on le demande, puis écrit au loin,
+   * lentement. Deux passages qui se chevauchaient — « Sauvegarder » cliqué à
+   * la fin d'un quiz — tiraient l'Éclat chacun de son côté, aucun ne voyant
+   * encore la ligne de l'autre ; et un archivage parti plus tôt pouvait
+   * ranger ses prix après un plus récent. À la file, le dernier demandé
+   * écrit le dernier.
+   */
+  private file: Promise<unknown> = Promise.resolve()
+
+  private enFile<T>(travail: () => Promise<T>): Promise<T> {
+    const tour = this.file.then(travail)
+    // Un passage raté ne bloque pas les suivants : son erreur va à qui l'a demandé.
+    this.file = tour.catch(() => {})
+    return tour
   }
 
   /**
@@ -133,6 +246,21 @@ export class SpaceRuntime {
    * l'annonce d'aujourd'hui.
    */
   private xpAnnoncee = new Map<string, number>()
+
+  /**
+   * L'empreinte du dernier crédit d'expérience arrivé en base : le nom de la
+   * soirée et les gains écrits (voir `empreinteDuCredit`). Null quand on ne
+   * sait plus ce qui y est — un crédit en cours ou raté, une ligne rendue
+   * par un exclu, une nouvelle soirée.
+   *
+   * Chaque quiz se créditait deux fois, au podium puis à « Terminer » :
+   * environ cinq allers-retours vers Turso par profil pour réécrire les
+   * mêmes chiffres, dans la file où attendait peut-être un archivage. Même
+   * empreinte, même résultat : le second passe son tour. Tout ce qui
+   * changerait une ligne — des points annulés, un invité exclu, un profil
+   * rattaché entre-temps — change aussi l'empreinte.
+   */
+  private dernierCredit: string | null = null
 
   /** Ce que la soirée rapporte aux profils, à l'instant où on le demande. */
   private gainsDuMoment(answers = this.answers.all()): SoireeGain[] {
@@ -152,10 +280,13 @@ export class SpaceRuntime {
    * attendre l'archivage à celui qui vient de gagner.
    */
   private async crediterExperience(soireeId: string, gains: SoireeGain[]) {
+    // Tant qu'il n'est pas allé au bout, on ne sait plus ce qui est en base.
+    this.dernierCredit = null
     for (const g of gains) {
       // L'Éclat ne se tire qu'une fois par soirée. Sans ce garde-fou, chaque
       // quiz joué donnerait une chance de plus — et l'Éclat ne vaut que
-      // parce qu'on ne peut pas le provoquer.
+      // parce qu'on ne peut pas le provoquer. Il tient au nom de la soirée :
+      // rebaptisée, elle redevenait « première ».
       const premiere = !(await this.deps.profiles.alreadyCredited(g.profileId, soireeId))
       await this.deps.profiles.creditSoiree({
         profileId: g.profileId,
@@ -170,6 +301,7 @@ export class SpaceRuntime {
       }
       await this.annoncer(soireeId, g)
     }
+    this.dernierCredit = empreinteDuCredit(soireeId, gains)
   }
 
   /**
@@ -201,68 +333,165 @@ export class SpaceRuntime {
    * Rien n'attend l'archivage, qui peut ne jamais venir — un animateur range
    * sa soirée quand il y pense, et un invité qui gagne veut voir son niveau
    * bouger le soir même. Les badges, eux, restent à l'archivage : ils se
-   * décernent sur la soirée entière, et un prix décerné trop tôt ne se
-   * reprend plus.
+   * décernent sur la soirée entière, et chaque archivage remplace les prix
+   * du précédent — « Sauvegarder » à 21 h ne fige rien.
    */
   private async crediterQuiz() {
-    const soireeId = this.soireeEnCours()
-    if (!soireeId) return
     // Les journaux se lisent AVANT le premier `await` : ce qui suit attend la
     // base distante, et un serveur qu'on ferme entre-temps n'aurait plus de
-    // base locale à interroger.
+    // base locale à interroger. Le nom de la soirée aussi : une « Nouvelle
+    // soirée » cliquée pendant qu'on écrit ne change rien à ce qu'on crédite.
     const gains = this.gainsDuMoment()
     if (gains.length === 0) return
-    await this.crediterExperience(soireeId, gains)
-    // Les niveaux ont pu monter : l'écran commun doit le montrer.
-    this.broadcastSnapshot()
+    const soiree = this.soireeEnCours()
+    if (!soiree) return
+    // Rien n'a changé depuis le dernier crédit arrivé en base : le podium,
+    // puis « Terminer » sans que personne ait bougé entre les deux.
+    const empreinte = empreinteDuCredit(soiree.id, gains)
+    if (empreinte === this.dernierCredit) return
+    const recopie = this.recopierSoiree(soiree)
+    await this.enFile(async () => {
+      // Le crédit d'avant attendait peut-être encore dans la file quand on a
+      // demandé celui-ci : il a pu écrire exactement ces lignes. Raté, il
+      // aurait laissé l'empreinte vide, et celui-ci repartirait.
+      if (empreinte === this.dernierCredit) return
+      await recopie
+      await this.crediterExperience(soiree.id, gains)
+      // Les niveaux ont pu monter : l'écran commun doit le montrer.
+      this.broadcastSnapshot()
+    })
   }
 
   /**
-   * Crédite les profils rattachés de tout ce qu'ils ont fait ce soir.
-   *
-   * Appelé depuis `archiveParty()`, donc toujours AVANT que « Nouvelle
-   * soirée » n'efface les journaux : c'est la dernière fenêtre où tout est
-   * encore là, et la seule où les prix de la soirée sont définitifs. Tout y
-   * est idempotent — la ligne d'expérience est remplacée, pas ajoutée —, si
-   * bien qu'une écriture distante ratée peut se rejouer telle quelle. C'est
-   * pourquoi on laisse l'erreur remonter : l'animateur verra « rien n'a été
-   * effacé », et son prochain essai repartira juste.
+   * Ce que la soirée rapporte à ses profils à cet instant : l'expérience, et
+   * les prix que la salle voit proclamer.
    */
-  private async creditProfiles(soireeId: string) {
-    const answers = this.answers.all()
+  private creditDuMoment(answers: AnswerRow[]): CreditDeSoiree {
     const gains = this.gainsDuMoment(answers)
-    if (gains.length === 0) return
-    await this.crediterExperience(soireeId, gains)
-
     // Les prix de la soirée sont déjà calculés pour la page souvenir : ce sont
     // eux, tels quels, qui font les badges. Pas de second catalogue à tenir,
     // et ce que la salle a vu proclamer est exactement ce qui se range dans
     // les étagères.
+    const profilDuJoueur = new Map(gains.map(g => [g.playerId, g.profileId]))
     const prix = computeStats(answers, this.party.publicPlayers(this.ledger.allTotals())).awards
-    const parJoueur = new Map<string, typeof prix>()
-    for (const a of prix) {
-      // Les prix d'équipe n'ont pas de lauréat : ils ne font pas de badge.
-      if (!a.player) continue
-      const liste = parJoueur.get(a.player.playerId) ?? []
-      liste.push(a)
-      parJoueur.set(a.player.playerId, liste)
-    }
+    const laureats = prix.flatMap(a => {
+      // Un prix d'équipe n'a pas de lauréat, et un invité anonyme pas d'étagère.
+      const profileId = a.player && profilDuJoueur.get(a.player.playerId)
+      return profileId ? [{ profileId, badge: a.key, emoji: a.emoji, title: a.title }] : []
+    })
+    return { gains, laureats }
+  }
 
-    for (const g of gains) {
-      for (const a of parJoueur.get(g.playerId) ?? []) {
-        await this.deps.profiles.grantBadge({
-          profileId: g.profileId,
-          badge: a.key,
-          emoji: a.emoji,
-          title: a.title,
-          soireeId,
-          spaceId: this.spaceId,
-        })
-      }
-      // Les badges de carrière viennent en dernier : ils se décident sur les
-      // totaux, expérience et éclat de ce soir compris.
-      await this.deps.profiles.grantCareerBadges(g.profileId, soireeId, this.spaceId)
+  /**
+   * Crédite les profils de tout ce qu'ils ont fait ce soir.
+   *
+   * Appelé depuis `archiveParty()`, donc toujours AVANT que « Nouvelle
+   * soirée » n'efface les journaux. Tout y est idempotent — la ligne
+   * d'expérience est remplacée, pas ajoutée —, si bien qu'une écriture
+   * distante ratée peut se rejouer telle quelle. C'est pourquoi on laisse
+   * l'erreur remonter : l'animateur verra « rien n'a été effacé », et son
+   * prochain essai repartira juste.
+   */
+  private async creditProfiles(soireeId: string, { gains, laureats }: CreditDeSoiree) {
+    await this.crediterExperience(soireeId, gains)
+    // Les prix se remplacent, comme l'expérience — et même sans aucun profil
+    // ce soir : ceux qu'un archivage précédent avait rangés doivent pouvoir
+    // repartir.
+    await this.deps.profiles.remplacerPrixDeSoiree(soireeId, this.spaceId, laureats)
+    // Les badges de carrière viennent en dernier : ils se décident sur les
+    // totaux, expérience et éclat de ce soir compris.
+    for (const g of gains) await this.deps.profiles.grantCareerBadges(g.profileId, soireeId, this.spaceId)
+  }
+
+  /**
+   * Exclut un invité : il quitte la soirée avec tout ce qu'il y avait laissé.
+   * Rend faux s'il n'en était pas — un invité d'une autre soirée n'est pas
+   * dans cette liste, et rien ne se passe.
+   */
+  exclure(playerId: string): boolean {
+    const joueur = this.party.get(playerId)
+    if (!joueur) return false
+    // Lus avant que rien ne bouge : effacé, l'invité ne dirait plus à quel
+    // profil il était rattaché ; et c'est sous le nom de la soirée d'à
+    // présent que son crédit a été écrit — une « Nouvelle soirée » cliquée
+    // pendant que la file attend n'y change rien.
+    const { profileId } = joueur
+    const soiree = this.soiree
+    // Chaque registre efface ses lignes, et le miroir reçoit le tout — la
+    // partie sans lui comprise — en une seule transaction : un réveil sur
+    // disque effacé ne recharge jamais les gains d'un invité disparu.
+    this.mirror.ouvrirLot()
+    try {
+      this.party.remove(playerId)
+      // Ses gains et ses réponses partent avec lui : il ne doit plus peser
+      // sur les prix, ni sur la question en cours.
+      this.ledger.removePlayer(playerId)
+      this.answers.removePlayer(playerId)
+      this.engine.dropParticipant(playerId)
+    } finally {
+      this.mirror.fermerLot()
     }
+    this.broadcastSnapshot()
+    // Son téléphone repart sur l'écran d'inscription, et sa connexion
+    // n'incarne plus personne.
+    for (const socket of this.detacher(playerId)) socket.emit('player:removed')
+    // Ce que la soirée avait crédité à son profil repart avec lui. Sauf si
+    // ce profil y joue encore sous un autre invité — ce qu'un profil ne doit
+    // pas faire, mais le crédit s'y prépare (`buildProgress`) : sa ligne est
+    // alors celle de l'autre, que le prochain crédit réécrira.
+    if (profileId && soiree && !this.party.findByProfile(profileId)) {
+      this.rendreCredit(profileId, soiree).catch(e => console.error('[xp]', e))
+    }
+    return true
+  }
+
+  /**
+   * Un invité exclu rend ce que la soirée avait déjà crédité à son profil.
+   *
+   * L'expérience se crédite dès le podium : exclu ensuite, l'invité partait
+   * avec. Ses gains quittaient les journaux, mais sa ligne (profil, soirée)
+   * restait en base — le crédit suivant ne réécrit que les profils encore
+   * là —, et l'Éclat tiré sous ce nom avec elle. Les prix de la soirée, eux,
+   * se remplacent déjà à chaque archivage, sur toute la soirée ; les badges
+   * de carrière ne se reprennent jamais.
+   *
+   * À la file, comme les crédits : celui qu'on avait demandé avant
+   * l'exclusion, encore en route, réécrirait sinon la ligne qu'on retire.
+   */
+  private rendreCredit(profileId: string, soiree: Soiree): Promise<void> {
+    return this.enFile(async () => {
+      // Une ligne qui change hors d'un crédit : l'empreinte du dernier ne
+      // dit plus ce qui est en base.
+      this.dernierCredit = null
+      await this.deps.profiles.retirerSoiree(profileId, soiree.id)
+      // S'il revient ce soir, il repart de zéro : son annonce aussi.
+      this.xpAnnoncee.delete(`${soiree.id}:${profileId}`)
+    })
+  }
+
+  /**
+   * Les connexions qui incarnaient cet invité n'incarnent plus personne :
+   * elles quittent son salon et oublient son identité. Rend celles qu'on a
+   * détachées, pour que l'appelant leur dise pourquoi — une exclusion, ou
+   * une nouvelle soirée.
+   *
+   * Un téléphone laissé tel quel gardait, côté serveur, l'identité d'un
+   * invité effacé : ses réponses étaient refusées d'un « tu joues à la
+   * prochaine question » que rien ne tiendrait, et le salon de l'invité
+   * continuait de lui parler. L'exclusion et « Nouvelle soirée » avaient
+   * chacune leur copie de ce geste, et elles commençaient à diverger.
+   */
+  private detacher(playerId: string) {
+    const io = this.deps.io
+    const salon = `player:${playerId}`
+    return [...(io.sockets.adapter.rooms.get(salon) ?? [])].flatMap(id => {
+      const socket = io.sockets.sockets.get(id)
+      if (!socket) return []
+      socket.leave(salon)
+      // Une connexion qui incarne déjà quelqu'un d'autre garde son identité.
+      if (socket.data.playerId === playerId) socket.data.playerId = undefined
+      return [socket]
+    })
   }
 
   /** L'espace tel que les invités et les pages le voient. */
@@ -281,20 +510,34 @@ export class SpaceRuntime {
   /**
    * L'état de la soirée. Le wifi n'est envoyé qu'à l'écran commun : c'est lui
    * qui l'affiche en QR, les téléphones n'ont pas à recevoir le mot de passe.
+   * La santé de la sauvegarde aussi : c'est l'affaire de l'animateur, pas
+   * celle d'un invité.
    */
   buildSnapshot(forHost: boolean): PartySnapshot {
     const space = this.publicSpace()
     const players = this.party.publicPlayers(this.ledger.allTotals())
     const bonuses = this.teams.allBonuses()
     const base = this.deps.baseUrl()
-    return {
+    const snapshot: PartySnapshot = {
       players,
       teams: teamScores(this.teams.all(), players, bonuses),
       bonuses,
       session: this.engine.summary(),
       joinUrl: base ? `${base}/${space.slug}` : null,
-      wifi: forHost ? this.deps.wifi : null,
+      wifi: null,
       space,
+    }
+    return forHost ? this.pourLesEcrans(snapshot) : snapshot
+  }
+
+  /** Ce que l'écran commun reçoit en plus de la salle. */
+  private pourLesEcrans(snapshot: PartySnapshot): PartySnapshot {
+    return {
+      ...snapshot,
+      wifi: this.deps.wifi,
+      // Absent quand tout va bien : il ne change qu'aux transitions, et
+      // l'instantané dédoublonné n'en porte pas le poids le reste du temps.
+      ...(this.mirror.enRetard() && { sauvegardeEnRetard: true as const }),
     }
   }
 
@@ -305,7 +548,7 @@ export class SpaceRuntime {
     this.lastSnapshot = json
     const io = this.deps.io
     io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`).emit('party:snapshot', snapshot)
-    io.to(`hosts:${this.spaceId}`).emit('party:snapshot', this.deps.wifi ? { ...snapshot, wifi: this.deps.wifi } : snapshot)
+    io.to(`hosts:${this.spaceId}`).emit('party:snapshot', this.pourLesEcrans(snapshot))
   }
 
   broadcastSnapshot() {
@@ -322,7 +565,13 @@ export class SpaceRuntime {
   // pures : la soirée en cours et une soirée archivée passent par le même
   // chemin, et une amélioration profite aux soirées passées.
 
-  /** Les copies exactes des quiz des parties terminées, tant que le disque les a. */
+  /**
+   * Les copies exactes des quiz joués ce soir, lues dans l'état de chaque
+   * partie. Elles ne vivaient que sur le disque local : le miroir retirait
+   * une partie terminée, et après une mise en veille l'archive reprenait la
+   * bibliothèque du jour. Le miroir les garde désormais jusqu'à « Nouvelle
+   * soirée », et le réveil les recharge avec le reste.
+   */
   livePacks(): Map<string, PlayedPack> {
     const packs = new Map<string, PlayedPack>()
     const played = this.deps.db
@@ -377,7 +626,12 @@ export class SpaceRuntime {
       players: new Set(rows.map(r => r.playerId)).size,
       quizzes: new Set(rows.map(r => r.sessionId)).size,
       questions: new Set(rows.map(r => `${r.sessionId}#${r.qIndex}`)).size,
-      since: this.party.all()[0]?.createdAt ?? null,
+      // L'heure figée avec le nom de la soirée, celle que son archive portera.
+      // Lue sur le premier invité ENCORE là, elle glissait dès qu'on excluait
+      // le téléphone d'essai de l'animateur. Tant que le nom n'est pas tiré,
+      // c'est l'heure qu'il prendra — sans le tirer ici : une page publique
+      // ne décide pas du nom de la soirée.
+      since: (this.soiree ?? soireeDesInvites(this.party.all()))?.heldAt ?? null,
     }
   }
 
@@ -386,42 +640,93 @@ export class SpaceRuntime {
    * n'y a rien à garder. Une même soirée archivée deux fois est mise à jour.
    */
   async archiveParty(title?: string): Promise<ArchiveSummary | null> {
+    // Tout se lit ici, d'un seul tenant, avant la première attente : une
+    // « Nouvelle soirée » cliquée pendant qu'on écrit au loin viderait les
+    // journaux sous nos pieds, et l'archive et les crédits ne décriraient
+    // plus la même soirée.
+    const answers = this.answers.all()
+    if (answers.length === 0) return null
+    const soiree = this.soireeEnCours()
+    if (!soiree) return null
     const built = buildArchive({
+      soiree,
       players: this.party.all(),
       teams: this.teams.all(),
       bonuses: this.teams.allBonuses(),
       scores: this.ledger.all(),
-      answers: this.answers.all(),
+      answers,
       packsBySession: this.livePacks(),
       library: quizLibrary(this.spaceId),
     })
     if (!built) return null
-    const summary = await this.deps.archives.save(this.spaceId, built.id, built.heldAt, built.archive, title)
-    // L'identifiant de la soirée se déduit de l'arrivée du premier invité :
-    // il ne bouge pas d'un archivage à l'autre, et c'est lui qui rend la
-    // consolidation idempotente.
-    await this.creditProfiles(built.id)
-    // Les niveaux ont pu monter : l'écran commun doit le montrer.
-    this.broadcastSnapshot()
-    return summary
+    const credit = this.creditDuMoment(answers)
+    const recopie = this.recopierSoiree(soiree)
+    return this.enFile(async () => {
+      await recopie
+      const summary = await this.deps.archives.save(this.spaceId, built.id, built.heldAt, built.archive, title)
+      await this.creditProfiles(soiree.id, credit)
+      // Les niveaux ont pu monter : l'écran commun doit le montrer.
+      this.broadcastSnapshot()
+      return summary
+    })
   }
 
   /**
    * Repart d'une soirée vierge — après avoir rangé celle-ci dans l'historique.
-   * Rien ne s'efface tant que l'archive n'est pas écrite : si la base distante
-   * ne répond pas, la soirée reste là et l'animateur est prévenu.
+   *
+   * Rien ne s'efface ici tant que rien ne s'est effacé au loin : l'archive
+   * d'abord, puis le miroir, et la base locale en dernier. On vidait la base
+   * locale avant le miroir : quand celui-ci refusait, l'animateur lisait
+   * « Rien n'a été effacé » devant une salle vide, et l'ancienne soirée,
+   * restée au miroir, ressuscitait au premier réveil. Si la base distante ne
+   * répond pas, la soirée reste là, entière, et le message dit vrai.
    */
   async resetParty(): Promise<ArchiveSummary | null> {
     const archived = await this.archiveParty()
-    const running = this.engine.activeSessionId
-    if (running) this.engine.endSession(running)
-    this.party.clearAll()
-    this.xpAnnoncee.clear()
-    this.teams.clearAll()
-    this.ledger.clearAll()
-    this.answers.clearAll()
-    await this.mirror.reset()
+    // Le miroir suspend ses envois, laisse finir ce qui est en vol, s'efface,
+    // puis vide sa file — c'était la soirée effacée. Ce qui suit ne tourne
+    // que s'il y est arrivé, et pendant que ses envois sont encore suspendus.
+    await this.mirror.reset(() => {
+      this.party.clearAll()
+      this.xpAnnoncee.clear()
+      this.dernierCredit = null
+      this.teams.clearAll()
+      this.ledger.clearAll()
+      this.answers.clearAll()
+      // La partie en cours se termine APRÈS que les journaux sont vidés : sa
+      // fin crédite l'expérience, et elle trouverait sinon ceux de la soirée
+      // qu'on vient de ranger — l'archive les a déjà crédités, et le nom de
+      // cette soirée repartirait au miroir qu'on vient d'effacer.
+      const running = this.engine.activeSessionId
+      if (running) this.engine.endSession(running)
+      // Ses parties partent avec elle, copies des quiz comprises : l'archive
+      // les garde désormais.
+      this.deps.db.prepare('DELETE FROM sessions WHERE space_id = ?').run(this.spaceId)
+      // La seule porte qui ouvre une nouvelle soirée, et donc le seul endroit
+      // où l'on oublie son nom.
+      this.oublierSoiree()
+    })
     this.broadcastSnapshot()
+    // Les téléphones de la soirée effacée n'incarnent plus personne. Laissés
+    // tels quels, ils restaient sur un en-tête vide, « 0 pts », « Personne
+    // pour l'instant… », et le quiz suivant partait sans aucun participant
+    // — l'animateur ne pouvait même plus le lancer. Leur connexion oublie son
+    // invité, et la page repasse par l'entrée, pré-remplie. Un téléphone qui
+    // a rejoint la nouvelle soirée pendant l'attente du miroir, lui, a déjà
+    // un invité qui existe : on n'y touche pas. L'écran commun n'en a pas.
+    //
+    // La salle vide part d'abord, sans attendre le regroupement : l'entrée
+    // qui s'ouvre sur le téléphone lit la liste des invités, et celle d'avant
+    // lui faisait prendre sa propre identité effacée pour un homonyme — son
+    // avatar « déjà pris » changeait sous ses yeux.
+    this.sendSnapshot()
+    const io = this.deps.io
+    const effaces = new Set<string>()
+    for (const id of io.sockets.adapter.rooms.get(`space:${this.spaceId}`) ?? []) {
+      const playerId = io.sockets.sockets.get(id)?.data.playerId
+      if (playerId && !this.party.get(playerId)) effaces.add(playerId)
+    }
+    for (const playerId of effaces) for (const socket of this.detacher(playerId)) socket.emit('party:reset')
     return archived
   }
 

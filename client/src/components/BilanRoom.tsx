@@ -1,4 +1,5 @@
 import { Icon, type IconName } from './Icon'
+import { enumerer } from '../../../shared/classement'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
 import type { ReviewQuestion } from '../../../shared/review'
 import { QuestionCard, playerName, type BilanCtx } from './BilanQuestion'
@@ -102,8 +103,13 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
       )}
 
       {review.quizzes.map(quiz => {
-        const winner = quiz.winner ? ctx.playerById.get(quiz.winner.playerId) : undefined
-        const teamWinner = quiz.teamWinner ? ctx.teamById.get(quiz.teamWinner.teamId) : undefined
+        // Tous les ex æquo, dans l'ordre commun : n'en nommer qu'un disait à
+        // l'autre qu'il avait perdu un quiz qu'il avait gagné.
+        const gagnants = quiz.winners.filter(w => ctx.playerById.has(w.playerId))
+        const equipes = quiz.teamWinners.flatMap(w => {
+          const team = ctx.teamById.get(w.teamId)
+          return team ? [{ ...w, team }] : []
+        })
         return (
           <section key={quiz.sessionId} className="card bilan-quiz">
             <div className="card-head">
@@ -113,17 +119,19 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                 {quiz.players > 1 ? 's' : ''}
               </span>
             </div>
-            {(winner || teamWinner) && (
+            {(gagnants.length > 0 || equipes.length > 0) && (
               <p className="muted small">
-                {winner && quiz.winner && (
+                {gagnants.length > 0 && (
                   <>
-                    <Icon name="trophy" /> {playerName(ctx, winner.id)} remporte ce quiz avec {quiz.winner.points} pts
+                    <Icon name="trophy" /> {enumerer(gagnants.map(w => playerName(ctx, w.playerId)))}{' '}
+                    {gagnants.length > 1 ? 'remportent ce quiz ex æquo' : 'remporte ce quiz'} avec {gagnants[0].points} pts
                   </>
                 )}
-                {winner && teamWinner && ' · '}
-                {teamWinner && quiz.teamWinner && (
+                {gagnants.length > 0 && equipes.length > 0 && ' · '}
+                {equipes.length > 0 && (
                   <>
-                    meilleure équipe : {teamWinner.emoji} {teamWinner.name} ({quiz.teamWinner.average} pts de moyenne)
+                    {equipes.length > 1 ? 'meilleures équipes ex æquo' : 'meilleure équipe'} :{' '}
+                    {enumerer(equipes.map(e => `${e.team.emoji} ${e.team.name}`))} ({equipes[0].average} pts de moyenne)
                   </>
                 )}
               </p>

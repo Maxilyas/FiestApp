@@ -1,10 +1,11 @@
-# Le filet du dépôt : rien ne rejoint `main` sans que le typecheck, le build
-# et le test de bout en bout soient passés.
+# Le filet du dépôt : rien ne rejoint `main` sans que le typecheck, les tests,
+# le build et le test de bout en bout soient passés.
 #
 # `npm run smoke` boote un vrai serveur sur une base jetable et rejoue une
 # soirée entière — comptes, quiz, réponses, scoring, équipes, archives,
-# profils. C'est la seule suite du projet, et elle suffit : une régression
-# qui passerait au travers passerait aussi au travers de tests unitaires.
+# profils. `npm test` lance les tests ciblés de `server/test/` : chacun sur son
+# propre serveur jetable, pour les pannes, les courses et les messages
+# malformés qu'une soirée rejouée d'un bout à l'autre ne provoque jamais.
 name: Vérification
 
 on:
@@ -41,6 +42,12 @@ jobs:
 
       - name: Typecheck (serveur + client)
         run: npm run check
+
+      # Les tests ciblés : un serveur jetable par fichier, lancés en parallèle.
+      # Ils passent avant le smoke parce qu'ils disent plus vite, et plus
+      # précisément, ce qui a cassé.
+      - name: Tests (server/test)
+        run: npm test
 
       - name: Build du client
         run: npm run build

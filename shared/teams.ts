@@ -1,4 +1,5 @@
 // Classement des équipes — même calcul côté serveur et côté écrans.
+import { classer } from './classement'
 import type { PublicPlayer, PublicTeam } from './types'
 
 export interface TeamStanding extends PublicTeam {
@@ -43,15 +44,12 @@ export function teamScores(
  * la main sur le tableau des trois jeux.
  */
 export function rankTeams(teams: PublicTeam[]): TeamStanding[] {
-  // Départage par nom : sans lui, deux ex æquo échangeraient leur place à
-  // chaque rafraîchissement et le classement clignoterait sur le mur.
-  const sorted = [...teams].sort(
-    (a, b) => b.average - a.average || a.name.localeCompare(b.name, 'fr'),
-  )
-  return sorted.map(t => {
-    const rank = sorted.findIndex(o => o.average === t.average) + 1
-    const gamePoints = sorted.length - rank + 1
-    return { ...t, rank, gamePoints, finalPoints: gamePoints + t.bonus }
+  // La règle commune (shared/classement.ts) : rang partagé, et des ex æquo
+  // écrits par nom — sans quoi ils échangeraient leur place à chaque
+  // rafraîchissement et le classement clignoterait sur le mur.
+  return classer(teams, t => t.average, t => t.name, t => t.id).map(({ item: t, rang }) => {
+    const gamePoints = teams.length - rang + 1
+    return { ...t, rank: rang, gamePoints, finalPoints: gamePoints + t.bonus }
   })
 }
 
@@ -63,12 +61,26 @@ export function rankTeams(teams: PublicTeam[]): TeamStanding[] {
  * prix arrivent après, et peuvent renverser l'ordre : c'est tout leur intérêt.
  */
 export function finalRanking(teams: PublicTeam[]): TeamStanding[] {
-  const scored = rankTeams(teams)
-  const sorted = [...scored].sort(
-    (a, b) => b.finalPoints - a.finalPoints || a.name.localeCompare(b.name, 'fr'),
-  )
-  return sorted.map(t => ({
-    ...t,
-    rank: sorted.findIndex(o => o.finalPoints === t.finalPoints) + 1,
+  return classer(rankTeams(teams), t => t.finalPoints, t => t.name, t => t.id).map(({ item, rang }) => ({
+    ...item,
+    rank: rang,
   }))
+}
+
+/**
+ * Les équipes qui remportent le quiz : toutes celles qui partagent la tête du
+ * classement final. C'est la règle de l'écran de victoire, et celle de
+ * l'historique.
+ *
+ * L'écran couronnait la première de la liste, et la liste départage les ex
+ * æquo par nom : un seul prix à +1 remis à l'équipe deuxième suffisait à
+ * couronner « Les Aigles » devant « Les Zèbres », qui avaient gagné le quiz.
+ * À égalité, elles gagnent ensemble.
+ *
+ * Personne tant que rien ne les a départagées — ni quiz joué, ni prix remis :
+ * six équipes à égalité ne sont pas six gagnantes.
+ */
+export function vainqueursDuQuiz(teams: PublicTeam[]): TeamStanding[] {
+  if (!teams.some(t => t.average > 0 || t.bonus !== 0)) return []
+  return finalRanking(teams).filter(t => t.rank === 1)
 }

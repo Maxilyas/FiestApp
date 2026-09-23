@@ -2,9 +2,7 @@ import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library
 import type { ArchiveSummary } from '../../shared/archive'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
 import type { Finition, PublicProfile, PublicProfileDetail } from '../../shared/profil'
-
-/** Session absente ou périmée : l'appelant renvoie vers la connexion. */
-export class UnauthorizedError extends Error {}
+import { MOTIFS, motifEchec, motifHttp } from '../../shared/erreurs'
 
 /**
  * Une erreur d'API qui porte ce que le serveur a joint au message.
@@ -20,25 +18,74 @@ export class ApiError extends Error {
 }
 
 /**
+ * Session absente ou périmée — ou identifiants refusés : l'appelant renvoie
+ * vers la connexion. Le message est celui du serveur, qui sait faire la
+ * différence entre les deux.
+ */
+export class UnauthorizedError extends ApiError {}
+
+/**
+ * Ce qu'on montre d'un échec : le motif du serveur, ou l'un des nôtres, qui
+ * disent quoi faire. Jamais le texte d'une exception du navigateur — il est
+ * en anglais, et il ne dit rien à un invité.
+ */
+export const motifDe = (e: unknown): string => (e instanceof ApiError ? e.message : MOTIFS.imprevu)
+
+/**
+ * Au-delà, la requête est abandonnée. Sans délai, un réseau qui avale les
+ * paquets sans rien refuser laissait « Me connecter » grisé pendant des
+ * minutes, et l'invité ne savait pas qu'il pouvait réessayer. Large quand
+ * même : la 4G d'une salle bondée, et un hébergeur qui se réveille.
+ */
+const DELAI_REQUETE_MS = 20_000
+
+/** Le corps lu comme du JSON — `undefined` s'il n'en est pas. */
+function lireJson(texte: string): unknown {
+  try {
+    return JSON.parse(texte)
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * Toute requête part avec le cookie de session — le navigateur s'en charge —
  * et un en-tête maison que seule cette page peut poser : une page tierce qui
  * tenterait une écriture à notre place serait refusée avant d'être lue.
+ *
+ * Ce qu'elle lève se montre tel quel à l'invité : un message du serveur, ou
+ * l'un des `MOTIFS` — jamais le texte anglais du navigateur.
  */
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    ...init,
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz', ...init?.headers },
-  })
-  if (res.status === 401) throw new UnauthorizedError('Connexion requise')
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new ApiError(
-      body.error ?? `Erreur ${res.status}`,
-      typeof body.suggestion === 'string' ? body.suggestion : undefined,
-    )
+  const abandon = new AbortController()
+  const minuteur = setTimeout(() => abandon.abort(), DELAI_REQUETE_MS)
+  let res: Response
+  let texte: string
+  try {
+    res = await fetch(path, {
+      ...init,
+      signal: abandon.signal,
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'quizz', ...init?.headers },
+    })
+    // Le corps se lit sous le même délai : une réponse qui arrive au
+    // compte-gouttes n'est pas une réponse.
+    texte = await res.text()
+  } catch (e) {
+    throw new ApiError(motifEchec(e))
+  } finally {
+    clearTimeout(minuteur)
   }
-  return res.json() as Promise<T>
+  const corps = lireJson(texte)
+  // Le motif du serveur d'abord : un mot de passe faux n'est pas une session
+  // expirée, et le dire « Connexion requise » faisait chercher ailleurs.
+  if (res.status === 401) throw new UnauthorizedError(motifHttp(401, corps))
+  if (!res.ok) {
+    const suggestion = (corps as { suggestion?: unknown } | undefined)?.suggestion
+    throw new ApiError(motifHttp(res.status, corps), typeof suggestion === 'string' ? suggestion : undefined)
+  }
+  if (corps === undefined) throw new ApiError(MOTIFS.illisible)
+  return corps as T
 }
 
 /** Qui est connecté, son espace, et le profil joueur qu'il y a rattaché. */
@@ -116,8 +163,14 @@ export const api = {
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
     enregistrer: (patch: { name?: string; avatar?: string; finition?: Finition }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
-    motDePasse: (next: string) =>
-      req<{ ok: true }>('/api/joueur/mot-de-passe', { method: 'POST', body: JSON.stringify({ next }) }),
+    /**
+     * Changer son mot de passe : il faut l'actuel, ou le code de secours pour
+     * qui l'a oublié. La session seule ne suffit pas — un téléphone se prête
+     * en soirée. Par le code, la réponse porte le neuf : c'est la seule fois
+     * où il existe en clair, et la page doit le montrer.
+     */
+    motDePasse: (preuve: { current?: string; code?: string; next: string }) =>
+      req<{ ok: true; recovery?: string }>('/api/joueur/mot-de-passe', { method: 'POST', body: JSON.stringify(preuve) }),
     /** Le code de secours se consomme : on en rend un neuf. */
     secours: (login: string, code: string, password: string) =>
       req<{ recovery: string; profile: PublicProfile | null; espace?: PublicSpace | null }>('/api/joueur/secours', {

@@ -1,4 +1,4 @@
-import { createClient, type Client } from '@libsql/client'
+import { clientDistant, type Client } from '../core/distante'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
 import { cleanAvatar, cleanName, DEFAULT_AVATAR } from '../../../shared/avatars'
@@ -39,6 +39,11 @@ import { isValidLogin, normalizeLogin } from '../../../shared/space'
  * résolution par inscription à une soirée), et un profil s'y range la
  * première fois qu'on le lit. Une soirée en touche au plus quelques
  * dizaines, pas la base entière.
+ *
+ * Comme pour les comptes, la base s'écrit d'abord et la mémoire suit : un
+ * mot de passe que Turso refusait ouvrait quand même le profil jusqu'au
+ * redémarrage, et un code de secours s'y consommait sans que le neuf ait
+ * été montré à personne.
  */
 export interface ProfileRec {
   id: string
@@ -60,6 +65,14 @@ interface ProfileSessionRec {
   profileId: string
   expiresAt: number
   lastSeenAt: number
+}
+
+/** Un prix de soirée et son lauréat — un profil, jamais un invité anonyme. */
+export interface PrixDeSoiree {
+  profileId: string
+  badge: string
+  emoji: string
+  title: string
 }
 
 /** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
@@ -117,7 +130,7 @@ export class ProfileStore {
   private eclats = new Map<string, Set<string>>()
 
   constructor(url: string, authToken?: string) {
-    this.client = createClient({ url, authToken })
+    this.client = clientDistant(url, authToken)
   }
 
   async init() {
@@ -324,11 +337,22 @@ export class ProfileStore {
       lastSeenAt: null,
       disabledAt: null,
     }
-    await this.client.execute({
-      sql: `INSERT INTO profiles (id, login, name, avatar, finition, password_hash, recovery_hash, xp, created_at, last_seen_at, disabled_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, NULL)`,
-      args: [rec.id, rec.login, rec.name, rec.avatar, rec.finition, rec.passwordHash, rec.recoveryHash, rec.createdAt],
-    })
+    await this.client
+      .execute({
+        sql: `INSERT INTO profiles (id, login, name, avatar, finition, password_hash, recovery_hash, xp, created_at, last_seen_at, disabled_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, NULL)`,
+        args: [rec.id, rec.login, rec.name, rec.avatar, rec.finition, rec.passwordHash, rec.recoveryHash, rec.createdAt],
+      })
+      .catch(e => {
+        // Deux hachages séparent la vérification du dessus de cette écriture :
+        // deux inscriptions simultanées au même identifiant — un envoi
+        // retenté par un réseau hésitant — y passent ensemble, et la base
+        // refuse la seconde. Elle doit lire « déjà pris », pas « Erreur serveur ».
+        if (String((e as { message?: unknown } | null)?.message ?? '').includes('UNIQUE constraint failed: profiles.login')) {
+          throw new Error('Cet identifiant est déjà pris')
+        }
+        throw e
+      })
     this.profiles.set(rec.id, rec)
     this.eclats.set(rec.id, new Set())
     this.badgeCount.set(rec.id, 0)
@@ -348,11 +372,12 @@ export class ProfileStore {
 
   async setPassword(id: string, password: string): Promise<void> {
     const rec = await this.require(id)
-    rec.passwordHash = await hashPassword(password)
+    const passwordHash = await hashPassword(password)
     await this.client.execute({
       sql: 'UPDATE profiles SET password_hash = ? WHERE id = ?',
-      args: [rec.passwordHash, id],
+      args: [passwordHash, id],
     })
+    rec.passwordHash = passwordHash
   }
 
   /** Réinitialise par le code de secours. Le code est consommé : on en rend un neuf. */
@@ -361,12 +386,14 @@ export class ProfileStore {
     const ok = await verifyPassword(normalizeRecovery(code), found?.recoveryHash ?? fallbackHash)
     if (!found || !ok) return null
     const recovery = newRecoveryCode()
-    found.passwordHash = await hashPassword(password)
-    found.recoveryHash = await hashPassword(normalizeRecovery(recovery))
+    const passwordHash = await hashPassword(password)
+    const recoveryHash = await hashPassword(normalizeRecovery(recovery))
     await this.client.execute({
       sql: 'UPDATE profiles SET password_hash = ?, recovery_hash = ? WHERE id = ?',
-      args: [found.passwordHash, found.recoveryHash, found.id],
+      args: [passwordHash, recoveryHash, found.id],
     })
+    found.passwordHash = passwordHash
+    found.recoveryHash = recoveryHash
     // Un mot de passe changé ferme les sessions ouvertes ailleurs.
     await this.revokeAll(found.id)
     return recovery
@@ -375,25 +402,33 @@ export class ProfileStore {
   /** Change ce qu'un joueur choisit lui-même : son prénom, son emoji, sa finition. */
   async update(id: string, patch: { name?: unknown; avatar?: unknown; finition?: unknown }): Promise<ProfileRec> {
     const rec = await this.require(id)
+    // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
+    // coup, et un prénom changé sur le téléphone pendant que la tablette
+    // change l'emoji ne doit pas revenir en arrière.
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
-      rec.name = name
+      champs.name = name
     }
-    if (patch.avatar !== undefined) rec.avatar = cleanAvatar(patch.avatar)
-    if (patch.finition !== undefined) rec.finition = finitionValide(patch.finition, niveauPour(rec.xp))
+    if (patch.avatar !== undefined) champs.avatar = cleanAvatar(patch.avatar)
+    if (patch.finition !== undefined) champs.finition = finitionValide(patch.finition, niveauPour(rec.xp))
+    const colonnes = Object.keys(champs) as (keyof typeof champs)[]
+    if (colonnes.length === 0) return rec
     await this.client.execute({
-      sql: 'UPDATE profiles SET name = ?, avatar = ?, finition = ? WHERE id = ?',
-      args: [rec.name, rec.avatar, rec.finition, id],
+      sql: `UPDATE profiles SET ${colonnes.map(c => `${c} = ?`).join(', ')} WHERE id = ?`,
+      args: [...colonnes.map(c => champs[c]!), id],
     })
+    Object.assign(rec, champs)
     return rec
   }
 
   async touchSeen(id: string): Promise<void> {
     const rec = this.profiles.get(id)
     if (!rec) return
-    rec.lastSeenAt = Date.now()
-    await this.client.execute({ sql: 'UPDATE profiles SET last_seen_at = ? WHERE id = ?', args: [rec.lastSeenAt, id] })
+    const now = Date.now()
+    await this.client.execute({ sql: 'UPDATE profiles SET last_seen_at = ? WHERE id = ?', args: [now, id] })
+    rec.lastSeenAt = now
   }
 
   // ── Sessions ────────────────────────────────────────────────────────────
@@ -420,6 +455,10 @@ export class ProfileStore {
    * L'identifiant du profil derrière un jeton, sans toucher à la base :
    * synchrone, pour que la poignée de main d'un socket n'attende pas. Le
    * profil lui-même se charge ensuite, avec `byId`.
+   *
+   * La mémoire y passe devant la base, exprès et sans risque : une session
+   * expirée restée en base s'efface au démarrage suivant, et une expiration
+   * qui n'aurait pas glissé en base ne fait que redemander le mot de passe.
    */
   sessionProfileId(token: string): string | null {
     const session = this.sessions.get(fingerprint(token))
@@ -451,13 +490,20 @@ export class ProfileStore {
 
   async revokeSession(token: string): Promise<void> {
     const id = fingerprint(token)
-    if (!this.sessions.delete(id)) return
+    // Oubliée en mémoire avant d'être effacée en base, une session que Turso
+    // refusait d'effacer ne se retentait plus : elle revenait au réveil.
+    if (!this.sessions.has(id)) return
     await this.client.execute({ sql: 'DELETE FROM profile_sessions WHERE id = ?', args: [id] })
+    this.sessions.delete(id)
   }
 
   async revokeAll(profileId: string): Promise<void> {
-    for (const [id, s] of this.sessions) if (s.profileId === profileId) this.sessions.delete(id)
+    // Celles qu'on connaît avant d'écrire, et celles-là seulement : une
+    // session ouverte pendant l'aller-retour, oubliée ici mais restée en
+    // base, ressusciterait au réveil.
+    const ids = [...this.sessions.values()].filter(s => s.profileId === profileId).map(s => s.id)
     await this.client.execute({ sql: 'DELETE FROM profile_sessions WHERE profile_id = ?', args: [profileId] })
+    for (const id of ids) this.sessions.delete(id)
   }
 
   // ── Expérience et éclats ────────────────────────────────────────────────
@@ -500,6 +546,34 @@ export class ProfileStore {
     return total
   }
 
+  /**
+   * Reprend à un profil ce qu'une soirée lui avait crédité : sa ligne
+   * d'expérience, et l'Éclat tiré sous son nom. Le total se recalcule sur
+   * ce qui reste, dans la même transaction — le profil n'est jamais lu entre
+   * les deux. Un Éclat tiré lors d'une autre soirée reste : il n'a rien à
+   * voir avec celle-ci. Rend le nouveau total.
+   */
+  async retirerSoiree(profileId: string, soireeId: string): Promise<number> {
+    const [eclats, , , , apres] = await this.client.batch(
+      [
+        { sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+        { sql: 'DELETE FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+        { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+        {
+          sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?',
+          args: [profileId, profileId],
+        },
+        { sql: 'SELECT xp FROM profiles WHERE id = ?', args: [profileId] },
+      ],
+      'write',
+    )
+    const total = Number(apres.rows[0]?.xp ?? 0)
+    const rec = this.profiles.get(profileId)
+    if (rec) rec.xp = total
+    for (const r of eclats.rows) this.eclats.get(profileId)?.delete(String(r.avatar))
+    return total
+  }
+
   /** Cette soirée a-t-elle déjà été créditée à ce profil ? */
   async alreadyCredited(profileId: string, soireeId: string): Promise<boolean> {
     const rows = await this.client.execute({
@@ -533,12 +607,77 @@ export class ProfileStore {
   }
 
   // ── Badges ──────────────────────────────────────────────────────────────
+  //
+  // L'emoji et le titre sont recopiés dans chaque ligne : une étagère se
+  // relit des années plus tard, et un prix qui changerait de nom entre-temps
+  // ne doit pas rendre illisible ce qui a été gagné sous l'ancien.
 
   /**
-   * Décerne un badge pour une soirée. L'emoji et le titre sont recopiés dans
-   * la ligne : une étagère se relit des années plus tard, et un prix qui
-   * changerait de nom entre-temps ne doit pas rendre illisible ce qui a été
-   * gagné sous l'ancien. Rend faux s'il était déjà décroché ce soir-là.
+   * Range les prix d'une soirée, en REMPLAÇANT ceux qu'un archivage
+   * précédent de la même soirée avait rangés — comme l'expérience.
+   *
+   * « Sauvegarder » se fait en cours de soirée, et chaque archivage recalcule
+   * les prix sur ce qui a été joué jusque-là : le Sans-Faute de 21 h n'est pas
+   * forcément celui de minuit. On ajoutait sans jamais retirer — Chloé, finie
+   * à 3 sur 7, gardait le prix qu'Alice venait de lui prendre, et la soirée
+   * comptait deux lauréats. Le retrait et les ajouts partent donc en un seul
+   * lot, dans une transaction : une étagère ne se voit jamais à moitié rangée.
+   *
+   * Le retrait vise toute la soirée, pas seulement ses invités du moment : un
+   * invité exclu n'a plus de réponses au journal, et le prix qu'il portait est
+   * retombé sur quelqu'un d'autre. Les badges de carrière, eux, ne se
+   * reprennent jamais — ils récompensent une habitude, pas une soirée.
+   */
+  async remplacerPrixDeSoiree(soireeId: string, spaceId: string, laureats: PrixDeSoiree[]): Promise<void> {
+    const now = Date.now()
+    const [avant] = await this.client.batch(
+      [
+        // Ceux qui en portaient jusqu'ici : leur compte peut baisser.
+        {
+          sql: `SELECT DISTINCT profile_id FROM profile_badges
+                WHERE space_id = ? AND soiree_id = ? AND badge NOT LIKE 'carriere:%'`,
+          args: [spaceId, soireeId],
+        },
+        {
+          sql: `DELETE FROM profile_badges
+                WHERE space_id = ? AND soiree_id = ? AND badge NOT LIKE 'carriere:%'`,
+          args: [spaceId, soireeId],
+        },
+        ...laureats.map(l => ({
+          sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+          args: [l.profileId, l.badge, soireeId, spaceId, l.emoji, l.title, now],
+        })),
+      ],
+      'write',
+    )
+    this.porteurs = null
+    await this.recompterBadges([...new Set([...avant.rows.map(r => String(r.profile_id)), ...laureats.map(l => l.profileId)])])
+  }
+
+  /**
+   * Remet d'aplomb le nombre de badges gardé en mémoire pour ces profils.
+   *
+   * Il part dans l'accusé de chaque téléphone qui se présente à une soirée,
+   * et c'est lui que l'écran d'entrée affiche. On l'effaçait après chaque
+   * badge décerné, en comptant sur une relecture qui ne venait jamais : il
+   * tombait à zéro, et l'entrée annonçait « Niveau 4 » sans « · 7 badges »
+   * jusqu'au prochain passage par la page du profil.
+   */
+  private async recompterBadges(profileIds: string[]): Promise<void> {
+    if (profileIds.length === 0) return
+    const res = await this.client.execute({
+      sql: `SELECT profile_id, COUNT(DISTINCT badge) AS n FROM profile_badges
+            WHERE profile_id IN (${profileIds.map(() => '?').join(', ')}) GROUP BY profile_id`,
+      args: profileIds,
+    })
+    const comptes = new Map(res.rows.map(r => [String(r.profile_id), Number(r.n)]))
+    for (const id of profileIds) this.badgeCount.set(id, comptes.get(id) ?? 0)
+  }
+
+  /**
+   * Décerne un badge qui ne se reprend pas — un badge de carrière. Rend faux
+   * s'il était déjà là pour cette soirée.
    */
   async grantBadge(input: {
     profileId: string
@@ -548,16 +687,26 @@ export class ProfileStore {
     soireeId: string
     spaceId: string
   }): Promise<boolean> {
-    const res = await this.client.execute({
-      sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
-      args: [input.profileId, input.badge, input.soireeId, input.spaceId, input.emoji, input.title, Date.now()],
-    })
-    if (res.rowsAffected > 0) {
-      this.porteurs = null
-      this.badgeCount.delete(input.profileId)
-    }
-    return res.rowsAffected > 0
+    // Le compte se relit dans le même lot : il suit l'ajout, sans second
+    // aller-retour (voir `recompterBadges`).
+    const [ajout, compte] = await this.client.batch(
+      [
+        {
+          sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+          args: [input.profileId, input.badge, input.soireeId, input.spaceId, input.emoji, input.title, Date.now()],
+        },
+        {
+          sql: 'SELECT COUNT(DISTINCT badge) AS n FROM profile_badges WHERE profile_id = ?',
+          args: [input.profileId],
+        },
+      ],
+      'write',
+    )
+    if (ajout.rowsAffected === 0) return false
+    this.porteurs = null
+    this.badgeCount.set(input.profileId, Number(compte.rows[0]?.n ?? 0))
+    return true
   }
 
   /** Les clés déjà décrochées par ce profil — pour ne pas redonner un badge de carrière. */
@@ -683,6 +832,16 @@ export class ProfileStore {
       }
     }
     return neufs
+  }
+
+  /**
+   * Referme la connexion à la base permanente, comme les quatre autres
+   * magasins. Le serveur qui s'arrêtait l'oubliait : la base restait ouverte
+   * jusqu'à la sortie du processus, et chaque redémarrage d'un test en
+   * laissait une de plus derrière lui.
+   */
+  close() {
+    this.client.close()
   }
 
   // ── Internes ────────────────────────────────────────────────────────────

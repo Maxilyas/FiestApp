@@ -11,6 +11,7 @@ import { ArchiveBanner } from '../components/ArchiveBanner'
 import { SpaceError, SpaceNav } from '../components/SpaceNav'
 import { dataUrl, pageContext, route, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
+import { rangPartage } from '../../../shared/classement'
 
 /**
  * La page souvenir : le podium, les équipes, le palmarès et tous les chiffres
@@ -80,7 +81,11 @@ export function RecapApp() {
   }
 
   const space = recap.space
-  if (recap.ranking.length === 0) {
+  // La soirée a commencé dès qu'une question a été posée — pas au premier
+  // point marqué. Quand toute la salle s'était trompée, le classement vide
+  // faisait dire « pas encore commencé » à une page qui avait déjà ses prix
+  // et ses chiffres, et les cachait.
+  if (recap.ranking.length === 0 && recap.stats.logged === 0) {
     return (
       <div className="join">
         <div className="join-grow" />
@@ -98,6 +103,15 @@ export function RecapApp() {
 
   const archive = recap.archive
   const dateLine = archive ? formatDay(archive.heldAt) : space?.dateLine
+  // Le classement arrive dans l'ordre commun (shared/classement.ts) ; chaque
+  // ligne y prend son rang partagé, que la liste sous le podium ne saurait
+  // pas retrouver seule.
+  const points = recap.ranking.map(r => r.points)
+  const classement = recap.ranking.map(r => ({ ...r, rank: rangPartage(r.points, points) }))
+  // Ceux qui ont joué, et pas seulement ceux qui ont marqué : une salle qui
+  // s'est trompée partout n'est pas une salle vide. Le classement compte
+  // encore pour les soirées d'avant le journal des réponses.
+  const joueurs = Math.max(recap.ranking.length, recap.stats.players.filter(s => s.asked > 0).length)
   return (
     <div className="recap">
       {archive && <ArchiveBanner archive={archive} />}
@@ -106,7 +120,7 @@ export function RecapApp() {
         <h1>{archive ? archive.title : space?.title}</h1>
         <p className="join-sub">Le souvenir de la soirée</p>
         <p className="muted">
-          {recap.ranking.length} joueurs · {recap.quizCount} quiz ·{' '}
+          {joueurs} joueur{joueurs > 1 ? 's' : ''} · {recap.quizCount} quiz ·{' '}
           {recap.totalPoints.toLocaleString('fr-FR')} points distribués
         </p>
         <hr className="hairline" />
@@ -115,7 +129,11 @@ export function RecapApp() {
 
       <section className="card">
         <h2>Le podium</h2>
-        <FinalPodium rows={recap.ranking} />
+        {classement.length > 0 ? (
+          <FinalPodium rows={classement} />
+        ) : (
+          <p className="muted">Personne n'a marqué de point : le podium reste vide, les prix et les chiffres sont là.</p>
+        )}
       </section>
 
       {recap.teams.length > 0 && (
@@ -153,10 +171,10 @@ export function RecapApp() {
         </section>
       )}
 
-      {recap.ranking.length > 3 && (
+      {classement.length > 3 && (
         <section className="card">
           <h2>Le reste du classement</h2>
-          <Standings rows={recap.ranking.slice(3)} offset={3} />
+          <Standings rows={classement.slice(3)} offset={3} />
         </section>
       )}
 

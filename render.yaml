@@ -4,12 +4,13 @@
 #
 # ⚠️ CE FICHIER NE PILOTE QUE LES SERVICES QU'UN BLUEPRINT A CRÉÉS. Render
 # n'adopte pas un service existant : créer un second blueprint fabrique des
-# COPIES, avec un suffixe au hasard (`quizz-romane-30-ljwa`), pendant que les
-# vraies dorment à côté. Et comme le nom fait l'adresse publique, une copie
-# n'est pas au même endroit : tant qu'un QR est imprimé ou qu'un lien circule,
-# le nom ne se touche pas. Si les services ont été créés à la main, ce fichier
-# reste la référence de ce qu'ils doivent contenir, et c'est leur tableau de
-# bord qui fait foi. Voir MISE-EN-LIGNE.md, étape 7.
+# COPIES, avec un suffixe au hasard (`fiestapp-quizz-ljwa`), pendant que les
+# vraies dorment à côté. Et une copie n'est pas au même endroit : l'adresse
+# `onrender.com` d'un service se fixe à sa création — le renommer ne la change
+# pas, le recréer si. Tant qu'un QR est imprimé ou qu'un lien circule, on
+# garde le service qui y répond. Les nôtres ont été créés à la main : ce
+# fichier reste la référence de ce qu'ils doivent contenir, et c'est leur
+# tableau de bord qui fait foi. Voir MISE-EN-LIGNE.md, étape 7.
 #
 # ── Deux services, deux mondes ───────────────────────────────────────────
 #
@@ -24,11 +25,31 @@
 # La prod ne se déploie PAS toute seule (`autoDeploy: false`). Le mode de
 # panne de cette application est « la soirée est gâchée » : on regarde la
 # préprod tourner, puis on promeut à la main, la veille de la fête.
+#
+# ── Les deux commandes ───────────────────────────────────────────────────
+#
+# `npm ci`, et non `npm install` : l'intégration continue installe déjà
+# exactement ce que décrit package-lock.json ; la production doit tourner sur
+# ces mêmes versions, pas sur celles du jour du déploiement.
+#
+# `exec node …` plutôt que `npm start` : npm ne transmettait pas le signal
+# d'arrêt. Le SIGTERM de l'hébergeur se perdait en route, et l'arrêt propre —
+# celui qui vide le miroir de la partie en cours dans Turso — ne s'exécutait
+# jamais. `exec` remplace le shell par Node, qui reçoit le signal lui-même ;
+# sans npm ni tsx en surplomb, c'est aussi 45 Mo de mémoire en moins sur les
+# 512 de l'offre gratuite.
+#
+# ⚠️ Si les services ont été créés à la main (voir MISE-EN-LIGNE.md, étape 7),
+# ce fichier ne les pilote pas : ces deux commandes se recopient dans le
+# tableau de bord de chacun (Settings, rubrique Build pour la première,
+# rubrique Deploy pour la seconde). Préprod d'abord — un déploiement, un
+# réveil, une partie — et la prod seulement ensuite.
 services:
   # ── PRODUCTION ─────────────────────────────────────────────────────────
   #
-  # Le nom ne doit pas changer : il fait l'adresse publique, et les QR des
-  # tables sont imprimés (jour-j/qr-tables.pdf). Il est laid, tant pis.
+  # L'adresse publique s'est fixée à la création du service, et le renommer
+  # ne la change pas. Le recréer, si : les QR imprimés des tables
+  # (jour-j/qr-tables-*.pdf) ne mèneraient plus nulle part.
   - type: web
     name: fiestapp-quizz
     runtime: node
@@ -38,8 +59,8 @@ services:
     # On promeut à la main depuis le tableau de bord, quand on a vu la
     # préprod tourner. C'est un clic contre une fête ratée.
     autoDeploy: false
-    buildCommand: npm install && npm run build
-    startCommand: npm start -w server
+    buildCommand: npm ci && npm run build
+    startCommand: cd server && exec node --import tsx src/index.ts
     # Render s'en sert pour savoir si le service répond. L'offre gratuite
     # endort l'application après 15 minutes sans trafic, et on l'assume : on
     # ouvre l'écran commun cinq minutes avant l'arrivée des invités, et le
@@ -48,9 +69,13 @@ services:
     envVars:
       - key: NODE_VERSION
         value: '22'
+      # MAX_PLAYERS (facultatif, à saisir dans l'interface) plafonne les
+      # invités d'une soirée. Sur l'offre gratuite, pas au-delà de 150 environ
+      # tant que le coût des diffusions à toute la salle n'est pas réglé.
       # Le compte administrateur, créé au tout premier démarrage seulement :
       # identifiant, mot de passe d'amorçage (à changer ensuite depuis
-      # « Mon compte », puis à retirer d'ici) et nom de l'espace dans les
+      # « Mon compte », puis à retirer d'ici : une fois le compte créé, le
+      # serveur redémarre très bien sans) et nom de l'espace dans les
       # adresses (les invités ouvrent https://…/<ADMIN_SLUG>).
       - key: ADMIN_LOGIN
         sync: false
@@ -59,7 +84,9 @@ services:
       - key: ADMIN_SLUG
         sync: false
       # Bibliothèque de quiz, comptes, archives et profils : la base Turso
-      # DE PRODUCTION. Celle qu'on ne perd pas.
+      # DE PRODUCTION. Celle qu'on ne perd pas — et qu'on sauvegarde
+      # (`npm run sauvegarde`). Sans elle, le serveur refuse de démarrer :
+      # le disque de l'offre gratuite s'efface à chaque réveil.
       - key: QUIZ_DB_URL
         sync: false
       - key: QUIZ_DB_TOKEN
@@ -83,8 +110,8 @@ services:
     branch: main
     # Elle, oui : chaque fusion sur `main` part en préprod.
     autoDeploy: true
-    buildCommand: npm install && npm run build
-    startCommand: npm start -w server
+    buildCommand: npm ci && npm run build
+    startCommand: cd server && exec node --import tsx src/index.ts
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION

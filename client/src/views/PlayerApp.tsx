@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
-import { getState, loadChoix, saveChoix, saveMe, showToast, useAppState } from '../state'
+import { getState, oublierIdentite, saveChoix, saveMe, showToast, useAppState } from '../state'
 import { currentSlug } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
@@ -16,6 +16,7 @@ import type { QuizPlayerView } from '../../../shared/games/quiz'
 import { ordinal } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
+import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
@@ -43,7 +44,7 @@ export function PlayerApp() {
   // coupure réseau, redémarrage serveur).
   useEffect(() => {
     socket.connect()
-    const present = async () => {
+    const presenter = async () => {
       const watched = await watchParty(slug)
       if (!watched.ok) return setSpaceError(watched.error ?? 'Cette adresse ne mène à aucune soirée')
       setSpaceError('')
@@ -51,15 +52,36 @@ export function PlayerApp() {
       // l'entrée peut saluer avant même qu'on rejoigne.
       setProfil(watched.profile ?? null)
       setPresente(true)
-      const choix = loadChoix(slug)
+      // Sans jeton, rien à reprendre : c'est l'entrée qui fait entrer —
+      // pré-remplie avec le prénom et l'avatar retenus ici, écran d'équipe
+      // compris. Rejoindre tout seul avec le prénom retenu faisait atterrir
+      // l'habitué « sans équipe », sans jamais lui montrer cet écran.
       const token = getState().me?.token
-      // Ni identité mémorisée ici, ni jeton : ce téléphone passe par l'entrée.
-      if (!choix && !token) return
-      // Sans équipe transmise, le serveur conserve celle déjà choisie.
-      const ack = await joinAsPlayer(slug, choix?.name, choix?.avatar, token)
-      if (!ack.ok) return
+      if (!token) return
+      // Le jeton seul : la fiche du serveur fait foi. Renvoyer le prénom
+      // retenu ici défaisait, à chaque réveil du téléphone, le renommage de
+      // l'animateur. Sans équipe transmise, le serveur garde la sienne.
+      const ack = await joinAsPlayer(slug, undefined, undefined, token)
+      if (!ack.ok) {
+        // Ce jeton ne désigne plus personne — exclu pendant que le téléphone
+        // dormait, « Nouvelle soirée » : on oublie qui l'on était, pas son
+        // prénom, et l'entrée le propose.
+        if (ack.reason === 'unknown-token') {
+          oublierIdentite(slug)
+          showToast({ kind: 'info', message: ack.error })
+        }
+        return
+      }
       saveMe(slug, { playerId: ack.playerId, token: ack.token })
       saveChoix(slug, { name: ack.name, avatar: ack.avatar })
+    }
+    // Une présentation restée sans réponse — une liaison morte que le
+    // téléphone n'a pas encore vue — rejette au bout de son délai. Ce n'est
+    // pas une panne de la page : l'envoi a déjà forcé la reconnexion, dont le
+    // `connect` relancera la présentation, et le bandeau de liaison parle déjà
+    // à l'invité. On ne laisse pas la promesse rejetée traîner dans la console.
+    const present = () => {
+      presenter().catch(() => {})
     }
     if (socket.connected) present()
     socket.on('connect', present)
@@ -186,7 +208,13 @@ export function PlayerApp() {
     }
   }, [playing])
 
-  const toast = s.toast && <div className={`toast toast-${s.toast.kind}`}>{s.toast.message}</div>
+  // Le seul canal d'erreur des invités : un lecteur d'écran doit l'annoncer,
+  // tout de suite pour une erreur, sans couper la parole pour le reste.
+  const toast = s.toast && (
+    <div className={`toast toast-${s.toast.kind}`} role={s.toast.kind === 'error' ? 'alert' : 'status'}>
+      {s.toast.message}
+    </div>
+  )
 
   // L'adresse ne mène à rien : on redemande le nom de la soirée sur place.
   // Renvoyer à l'accueil enverrait maintenant sur la page du profil, qui ne
@@ -196,13 +224,7 @@ export function PlayerApp() {
   // Le premier instantané dit comment la soirée s'appelle, et la réponse de la
   // soirée dit si ce téléphone porte un profil : on ne montre pas un écran
   // d'entrée avant de savoir lequel des deux il faut.
-  if (!snap || !presente) {
-    return (
-      <div className="center-page">
-        <p className="serif-note">Connexion…</p>
-      </div>
-    )
-  }
+  if (!snap || !presente) return <AttenteConnexion />
 
   // ── L'entrée ─────────────────────────────────────
   if (!s.me) {
@@ -217,6 +239,7 @@ export function PlayerApp() {
           rejoindre={rejoindre}
           oublierProfil={oublierProfil}
         />
+        <BandeauCoupure connecte={s.connected} />
         {toast}
       </>
     )
@@ -231,6 +254,7 @@ export function PlayerApp() {
           prefill={{ name: me?.name ?? '', avatar: me?.avatar ?? '' }}
           onDone={profilConnecte}
           onCancel={() => setMontrerProfil(false)}
+          creer
         />
         {toast}
       </>
@@ -256,6 +280,8 @@ export function PlayerApp() {
             })
           }}
         />
+        <ConseilVeille />
+        <BandeauCoupure connecte={s.connected} />
         {toast}
       </div>
     )
@@ -270,6 +296,7 @@ export function PlayerApp() {
 
   return (
     <div className="player-shell">
+      <ConseilVeille />
       <header className="me-header">
         <Avatar className="player-avatar big" avatar={me?.avatar ?? ''} finition={me?.finition} eclat={me?.eclat} />
         <div>
