@@ -24,6 +24,8 @@ export interface PublicPlayer {
   finition?: Finition
   /** Son avatar a éclaté : il brille, et lui seul. */
   eclat?: boolean
+  /** L'avatar légendaire qu'il porte : il remplace l'emoji à l'écran. */
+  legendaire?: string
   /**
    * Le prénom à afficher quand un homonyme porte le même avatar — « Camille
    * (2) ». Absent, et non pas égal au prénom, dans l'immense majorité des

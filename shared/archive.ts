@@ -101,8 +101,20 @@ export interface ArchiveSummary {
 }
 
 export interface ArchiveList {
-  /** La soirée en cours, s'il s'y est déjà passé quelque chose. */
-  current: { players: number; quizzes: number; questions: number; since: number | null } | null
+  /**
+   * La soirée en cours, s'il s'y est déjà passé quelque chose. Elle se range
+   * toute seule dans l'historique après chaque quiz : `title` est le titre
+   * sous lequel elle y est déjà, `id` son identifiant — absents tant qu'aucun
+   * quiz n'est fini.
+   */
+  current: {
+    players: number
+    quizzes: number
+    questions: number
+    since: number | null
+    id?: string
+    title?: string
+  } | null
   /** De la plus récente à la plus ancienne. */
   archives: ArchiveSummary[]
   /** L'espace dont c'est l'historique. */

@@ -55,6 +55,8 @@ const SERVER_ERROR = 'Erreur serveur — retente'
  * message vaut pour les trois, et l'entrée qui suit est pré-remplie.
  */
 const UNKNOWN_TOKEN = 'On ne te retrouve plus dans cette soirée — rejoins-la'
+/** Le jeton d'une soirée qu'on vient de clore : le téléphone montre sa fin de soirée. */
+const SOIREE_CLOSE = 'Cette soirée est close — voici la tienne'
 
 /**
  * Ce qu'on dit à l'invité dont la réponse n'est pas passée. Le silence était
@@ -287,6 +289,17 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         const known = (profile && rt.party.findByProfile(profile.id)) || (autrui ? undefined : porteur)
 
         if (token && !porteur && !known) {
+          // Un invité de la soirée qu'on vient de clore : son téléphone
+          // dormait pendant la clôture. Il reçoit sa fin de soirée, comme
+          // s'il avait été là.
+          const fin = rt.finDe(token)
+          if (fin) {
+            repondre({ ok: false, reason: 'soiree-close', error: SOIREE_CLOSE, fin })
+            // Une page d'avant ne lit ni ce motif ni ce message : ce signal-là
+            // la ramène au moins à l'entrée.
+            socket.emit('player:removed', { reason: 'soiree-close' })
+            return
+          }
           // Le jeton ne désigne plus personne. On recréait l'invité en silence
           // avec le prénom retenu par le téléphone : l'exclu dont le téléphone
           // dormait revenait, et l'habitué d'avant « Nouvelle soirée »
@@ -548,23 +561,46 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       if (rt.teams.removeBonus(bonusId)) rt.broadcastSnapshot()
     })
 
-    ecouter('host:resetParty', () => {
+    /**
+     * Clôt la soirée — le seul geste de fin. « Nouvelle soirée », resté sur
+     * une page d'avant, y mène aussi : la soirée est rangée, créditée, et la
+     * suivante part de zéro.
+     */
+    const clore = (title?: string) => {
       const rt = requireHost()
       if (!rt) return
       return rt
-        .resetParty()
+        .closeParty(title)
         .then(archived => {
-          if (archived) {
-            socket.emit('toast', { kind: 'info', message: `« ${archived.title} » est dans l’historique — soirée vierge` })
-          }
+          socket.emit(
+            'toast',
+            archived
+              ? { kind: 'info', message: `« ${archived.title} » est close — la soirée suivante peut commencer` }
+              : { kind: 'info', message: 'Soirée vierge — rien n’avait été joué' },
+          )
         })
         .catch(e => {
-          socket.emit('toast', { kind: 'error', message: `Rien n’a été effacé : ${messagePourEcran(e, 'host:resetParty')}` })
+          socket.emit('toast', { kind: 'error', message: `Rien n’a été effacé : ${messagePourEcran(e, 'host:closeParty')}` })
+        })
+    }
+    ecouter('host:closeParty', charge => clore(texte(charge.title)))
+    ecouter('host:resetParty', () => clore())
+
+    // C'était un essai : tout s'efface, archive et crédits compris.
+    ecouter('host:discardParty', () => {
+      const rt = requireHost()
+      if (!rt) return
+      return rt
+        .discardParty()
+        .then(() => socket.emit('toast', { kind: 'info', message: 'Essai effacé — rien n’a été gardé' }))
+        .catch(e => {
+          socket.emit('toast', { kind: 'error', message: `Rien n’a été effacé : ${messagePourEcran(e, 'host:discardParty')}` })
         })
     })
 
-    // Sauvegarder la soirée sans repartir de zéro : pour l'avoir à l'abri
-    // avant la fin, ou lui donner son nom.
+    // Ranger la soirée sous un titre sans la clore — l'ancien « Sauvegarder ».
+    // Elle se range toute seule après chaque quiz ; ce geste ne sert plus qu'à
+    // une page d'avant.
     ecouter('host:archiveParty', charge => {
       const rt = requireHost()
       if (!rt) return

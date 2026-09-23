@@ -28,6 +28,8 @@ interface ApiDeps {
   photosEnJeu: (spaceId: string) => Iterable<string>
   /** Supprime un compte et tout ce qu'il a laissé — composé dans `createQuizServer`, où tout est à portée. */
   removeAccount: (accountId: string) => Promise<void>
+  /** L'identifiant de la soirée en cours d'un espace, s'il est tiré : elle ne se retire pas de l'historique. */
+  soireeEnCours: (spaceId: string) => string | null
 }
 
 /**
@@ -140,11 +142,21 @@ export function mountApi(app: Express, deps: ApiDeps) {
     }),
   )
 
+  // Retirer une soirée de l'historique reprend aussi ce qu'elle avait
+  // crédité aux profils — expérience, prix, hauts faits, Éclats : une soirée
+  // d'essai laissait sinon, pour toujours, le niveau gagné en testant. La
+  // soirée en cours, elle, ne se retire pas d'ici : elle s'efface depuis
+  // l'écran commun (« C'était un essai »), qui sait aussi vider la salle.
   app.delete(
     '/api/soirees/:id',
     wrap(async (req, res) => {
-      const ok = await deps.archives.remove(spaceOf(res), req.params.id)
+      const spaceId = spaceOf(res)
+      if (deps.soireeEnCours(spaceId) === req.params.id) {
+        return res.status(409).json({ error: 'La soirée en cours s’efface depuis l’écran commun — « C’était un essai »' })
+      }
+      const ok = await deps.archives.remove(spaceId, req.params.id)
       if (!ok) return res.status(404).json({ error: 'Soirée introuvable' })
+      await deps.profiles.retirerSoireeEntiere(req.params.id, spaceId)
       res.json({ ok: true })
     }),
   )

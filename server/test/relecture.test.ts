@@ -237,11 +237,14 @@ test('un invité exclu rend l’expérience et l’Éclat que la soirée lui ava
       const host = await ecranCommun(banc.url, cookie)
       const chloe = await invite(banc.url, 'Chloé', '🦉', { cookie: chloeCookie })
       const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
+      // L'Éclat ne se tire que dans une soirée qui compte : une question
+      // posée à trois joueurs au moins.
+      const bob = await invite(banc.url, 'Bob', '🐻')
       const chloeId = profilDe(banc, 'chloe')
       const aliceId = profilDe(banc, 'alice')
 
       // Le podium crédite l'expérience du quiz, et tire l'Éclat de la soirée.
-      const sessionId = await jusquAuPodium(host, quiz, [[[chloe, 0], [alice, 1]]])
+      const sessionId = await jusquAuPodium(host, quiz, [[[chloe, 0], [alice, 1], [bob, 1]]])
       await jusqua(
         () => [chloeId, aliceId].every(id => lignesXp(banc, id).length === 1 && eclats(banc, id).length === 1),
         'les crédits du podium',
@@ -669,9 +672,12 @@ test('un quiz crédité au podium ne se recrédite pas à « Terminer » quand r
       const host = await ecranCommun(banc.url, cookie)
       const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
       const aliceId = profilDe(banc, 'alice')
+      // Une question posée à trois joueurs au moins, pour qu'elle rapporte.
+      const bob = await invite(banc.url, 'Bob', '🐻')
+      const dora = await invite(banc.url, 'Dora', '🐙')
 
       const creditee = attendre<any>(alice.socket, 'player:profil', p => p.xp > 0, 'le crédit du podium', 15_000)
-      const sessionId = await jusquAuPodium(host, quiz, [[[alice, 0]]])
+      const sessionId = await jusquAuPodium(host, quiz, [[[alice, 0], [bob, 1], [dora, 1]]])
       const xp = (await creditee).xp
       assert.equal(credits.get(aliceId), 1, 'le podium crédite')
 
@@ -683,12 +689,12 @@ test('un quiz crédité au podium ne se recrédite pas à « Terminer » quand r
       assert.equal(credits.get(aliceId), 1, 'la fin du quiz ne recrédite pas ce qui n’a pas changé')
       assert.deepEqual(lignesXp(banc, aliceId).map(l => l.xp), [xp])
 
-      // L'archivage, lui, crédite toujours : c'est le dernier filet, avant
+      // La clôture, elle, crédite toujours : c'est le dernier filet, avant
       // tout effacement.
-      const rangee = attendre<any>(host, 'toast', () => true, 'la soirée rangée', 15_000)
-      ;(host as any).emit('host:archiveParty', {})
-      assert.equal((await rangee).kind, 'info')
-      assert.equal(credits.get(aliceId), 2, 'l’archivage recrédite la soirée')
+      const close = attendre<any>(host, 'toast', () => true, 'la soirée close', 15_000)
+      ;(host as any).emit('host:closeParty', {})
+      assert.equal((await close).kind, 'info')
+      assert.equal(credits.get(aliceId), 2, 'la clôture recrédite la soirée')
     }),
   ))
 
@@ -696,40 +702,36 @@ test('ce qui change entre le podium et « Terminer » se crédite quand même', 
   avecBanc(async banc =>
     enComptantLesCredits(async credits => {
       const cookie = await connexionAnimateur(banc.url)
-      const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
+      // Un quiz qui a un podium : cinq questions, et quatre joueurs au moins
+      // — même une fois Bob parti.
+      const quiz = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?'), qcm('Trois ?'), qcm('Quatre ?'), qcm('Cinq ?')])
       const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
       const host = await ecranCommun(banc.url, cookie)
       const bob = await invite(banc.url, 'Bob', '🐸')
       const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
+      const salle = [await invite(banc.url, 'Dora', '🐙'), await invite(banc.url, 'Eve', '🐝'), await invite(banc.url, 'Fred', '🐢')]
       const aliceId = profilDe(banc, 'alice')
       const moi = async () =>
         ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: aliceCookie } })).json()) as any).profile.xp
 
-      // Bob répond juste le premier, Alice juste aussi, une seconde après :
+      // Bob trouve tout, Alice se trompe une fois, la salle jamais rien :
       // Bob gagne le quiz, Alice finit deuxième.
-      const sessionId = await lancerQuiz(host, quiz)
-      await attendre(alice.socket, 'session:view', (p: any) => p.view.phase === 'question', 'la question')
-      const revelee = attendre<any>(host, 'session:view', p => p.view.phase === 'reveal', 'la révélation')
-      const repondre = (qui: Invite) =>
-        emitAck<any>(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice: 0 } })
-      assert.equal((await repondre(bob)).ok, true)
-      await patienter(1_200)
-      assert.equal((await repondre(alice)).ok, true)
-      await revelee
-      const podium = attendre<any>(host, 'session:view', p => p.view.phase === 'finished', 'le podium')
-      ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
-      await podium
+      const sessionId = await jusquAuPodium(
+        host,
+        quiz,
+        [0, 1, 2, 3, 4].map(q => [[bob, 0], [alice, q === 4 ? 1 : 0], ...salle.map((i): [Invite, number] => [i, 1])]),
+      )
       await jusqua(() => credits.get(aliceId) === 1, 'le crédit du podium')
-      const deuxieme = XP.presence + XP.parReponse + XP.parBonneReponse + XP.podium[1]
-      await jusqua(async () => (await moi()) === deuxieme, 'Alice créditée deuxième')
+      // Cinq réponses, quatre bonnes — à deux sur une question, pas de réflexe.
+      const reponses = 5 * XP.reponse + 4 * XP.juste
+      await jusqua(async () => (await moi()) === reponses + XP.podiumQuiz[1], 'Alice créditée deuxième')
 
       // L'animateur exclut Bob avant de refermer le quiz : Alice le gagne.
       // L'empreinte des gains a changé, le crédit de la fin doit partir.
       ;(host as any).emit('host:removePlayer', { playerId: bob.playerId })
       ;(host as any).emit('host:endSession', { sessionId })
       await jusqua(() => credits.get(aliceId) === 2, 'le crédit de la fin')
-      const premiere = XP.presence + XP.parReponse + XP.parBonneReponse + XP.podium[0] + XP.vainqueurDeQuiz
-      await jusqua(async () => (await moi()) === premiere, 'Alice créditée première, et vainqueur du quiz')
+      await jusqua(async () => (await moi()) === reponses + XP.podiumQuiz[0], 'Alice créditée première du quiz')
     }),
   ))
 
@@ -970,7 +972,10 @@ test('le client change le mot de passe d’un profil avec l’actuel, ou avec le
 // L'exclusion et « Nouvelle soirée » détachaient chacune à sa façon les
 // connexions de l'invité effacé ; elles passent maintenant par le même
 // `detacher()`. Rien n'avait encore divergé au point de se voir : ce test-là
-// passait déjà, et garde ce qu'elles doivent faire toutes les deux.
+// passait déjà, et garde ce qu'elles doivent faire toutes les deux. Un écran
+// resté sur une page d'avant envoie encore « Nouvelle soirée » : c'est la
+// clôture, et une soirée où rien ne s'est joué renvoie ses téléphones à
+// l'entrée.
 
 test('exclu, ou effacé par « Nouvelle soirée », un téléphone n’incarne plus personne', () =>
   avecBanc(async banc => {

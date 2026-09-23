@@ -36,6 +36,7 @@ import {
   patienter,
   qcm,
   type Banc,
+  type Invite,
 } from './banc'
 import type { QuizServerOptions } from '../src/server'
 import { quizModule } from '../src/games/quiz'
@@ -420,19 +421,22 @@ test('l’historique date la soirée en cours de son début figé, pas du premie
     await revelee
     ;(host as any).emit('host:endSession', { sessionId })
 
-    // « Sauvegarder » fige le nom de la soirée, et son heure de début.
-    const rangee = attendre<any>(host, 'toast', () => true, 'la soirée rangée', 15_000)
-    ;(host as any).emit('host:archiveParty', {})
-    assert.equal((await rangee).kind, 'info')
+    // Le quiz fini, la soirée se range toute seule : son nom et son heure de
+    // début sont figés.
+    const historique = async () => (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees.json`)).json()) as any
+    for (const limite = Date.now() + 8000; !(await historique()).current?.id; await patienter(100)) {
+      if (Date.now() > limite) assert.fail('la soirée aurait dû se ranger toute seule après son quiz')
+    }
     // Puis l'animateur exclut son téléphone d'essai.
     const exclu = attendre(essai.socket, 'player:removed', () => true, 'l’exclusion du téléphone d’essai')
     ;(host as any).emit('host:removePlayer', { playerId: essai.playerId })
     await exclu
 
-    const { current, archives } = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees.json`)).json()) as any
-    assert.equal(archives.length, 1)
-    assert.ok(current, 'la soirée continue après la sauvegarde')
-    assert.equal(current.since, archives[0].heldAt, 'la soirée en cours et son archive disent la même heure de début')
+    const { current, archives } = await historique()
+    assert.equal(archives.length, 0, 'l’historique montre la soirée en cours à part')
+    assert.ok(current?.id, 'la soirée continue, rangée sous son nom')
+    const rangee = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${current.id}/recap.json`)).json()) as any
+    assert.equal(current.since, rangee.archive.heldAt, 'la soirée en cours et son archive disent la même heure de début')
   }))
 
 // ── 7. Changer le mot de passe d'un profil ────────────────────────────────
@@ -577,11 +581,16 @@ test('l’expérience se crédite dès le podium, sans attendre « Terminer le q
     const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
     const host = await ecranCommun(banc.url, cookie)
     const tel = await invite(banc.url, 'Alice', '🦊', { cookie: profil })
+    // Une question ne rapporte que posée à trois joueurs au moins.
+    const salle = [await invite(banc.url, 'Bob', '🐻'), await invite(banc.url, 'Dora', '🐙')]
 
     const sessionId = await lancerQuiz(host, quiz)
     await attendre(tel.socket, 'session:view', (p: any) => p.view.phase === 'question', 'la question')
     const revelee = attendre<any>(host, 'session:view', p => p.view.phase === 'reveal', 'la révélation')
-    assert.equal((await emitAck<any>(tel.socket, 'player:action', { sessionId, action: { type: 'answer', choice: 0 } })).ok, true)
+    const reponses: [Invite, number][] = [[tel, 0], ...salle.map((i): [Invite, number] => [i, 1])]
+    for (const [qui, choice] of reponses) {
+      assert.equal((await emitAck<any>(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice } })).ok, true)
+    }
     await revelee
 
     // Le podium, et rien d'autre : le dernier podium de la soirée reste

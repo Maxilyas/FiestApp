@@ -1,0 +1,400 @@
+# Les récompenses
+
+Ce document décrit ce qu'un joueur gagne en venant jouer — l'expérience, les
+niveaux, les finitions, les hauts faits, les avatars légendaires, les
+chiffres de carrière — et le cycle de la soirée qui les distribue. Il est
+né d'une relecture du produit (septembre 2026) et d'une commande :
+
+> « Le plus joli et le plus addictif possible. On veut réussir à avoir cet
+> avatar parce qu'il est très beau. Une expérience plus dure, qui se mérite.
+> Beaucoup de métriques, des hauts faits dans le positif comme dans le
+> négatif. »
+
+Il prolonge `README.md` (le produit) et `CLAUDE.md` (les invariants). Comme
+`PARCOURS-ENTREE.md`, il a commencé comme un brief et dit maintenant ce qui
+tourne ; ce qui reste à faire est marqué « plus tard » (§6).
+
+---
+
+## 1. Ce que la relecture a trouvé
+
+- **L'expérience récompensait d'abord d'être là.** 50 points de présence
+  pour une seule question jouée, soit presque la moitié d'une soirée
+  ordinaire ; un invité parti après la première question touchait la même
+  présence que celui qui avait fait toute la nuit.
+- **Elle se reprenait en silence.** Le podium de la soirée se recalculait à
+  chaque quiz : « +131 points d'expérience », niveau 4… puis 71 et niveau 3
+  au quiz suivant, sans un mot.
+- **Elle se fabriquait.** Un quiz d'une question, « Nouvelle soirée », et on
+  recommence : 128 points par tour, un tirage d'Éclat, une soirée de carrière.
+- **Les badges attendaient un clic qui ne venait pas.** Ils ne tombaient qu'à
+  l'archivage ; sans « Sauvegarder », personne n'en avait.
+- **Personne ne portait ses finitions**, et au vidéoprojecteur le niveau
+  était une pastille de 11 px collée au score. L'Éclat, la distinction la
+  plus rare, portait la même étoile que le Prisme.
+- **On ne pouvait regarder le profil de personne.** L'étagère n'existait que
+  pour son propriétaire.
+
+## 2. Trois échelles, et une mémoire
+
+Une salle n'est jamais faite que de forts. Si la seule chose qui monte est
+le mérite, 47 invités sur 50 n'ont rien à chasser. Les récompenses tiennent
+donc sur trois échelles qui ne se ressemblent pas :
+
+| Échelle | Ce qu'elle mesure | Ce qu'elle donne | Qui peut y grimper |
+|---|---|---|---|
+| **Le mérite** | justesse, réflexe, rang | expérience, niveaux, finitions | les bons, lentement tous les autres |
+| **La variété** | des coups d'éclat… et des coups de malchance | hauts faits, titres, **avatars légendaires** | tout le monde — la Lanterne Rouge aussi |
+| **La chance** | rien | l'Éclat, une chance sur quarante par soirée | tout le monde, à égalité |
+
+Et une **mémoire** : les chiffres de carrière (précision, réflexe, séries,
+estimations, hôtes), qui ne récompensent rien mais racontent tout — c'est
+elle qui fait revenir « pour voir si j'ai progressé ».
+
+Deux règles ne bougent pas :
+
+1. **Un profil ne donne aucun avantage de jeu.** Rien de ce qui suit ne
+   change un point de quiz.
+2. **L'anonyme n'affiche rien.** Pas de « Niv. 0 », pas de pastille grise,
+   pas de silhouette vide à côté de son nom. L'absence, pas l'infériorité.
+
+---
+
+## 3. Les cinquante idées
+
+★ = retenue. La colonne « Où » dit dans quel lot elle est faite (§6).
+
+### A. Ce qui se porte
+
+| # | Idée | Pourquoi | Où |
+|---|---|---|---|
+| 1 | ★ **Avatars légendaires illustrés** — des avatars dessinés (SVG animés), qui ne se gagnent que par un haut fait précis | « Je veux celui-là » : un objet unique, beau, qu'on ne peut pas acheter | lot 1 |
+| 2 | ★ **La galerie des ombres** — les légendaires pas encore gagnés se montrent en silhouette, avec leur condition et la jauge (« 1 / 3 ») | le désir naît de ce qu'on voit sans l'avoir | lot 1 |
+| 3 | ★ **La finition portée d'office** — la meilleure débloquée s'applique toute seule ; on peut en choisir une plus sobre | personne n'allait la chercher sur `/profil` | lot 1 |
+| 4 | ★ **Aurore (niv. 20) et Constellation (niv. 25)** — deux finitions au-delà du Prisme | un horizon pour ceux qui ont tout | lot 1 |
+| 5 | ★ **Un Éclat qu'on reconnaît** — un reflet irisé qui passe sur l'emoji, jamais l'étoile du Prisme | la rareté doit se voir | lot 1 |
+| 6 | L'Éclat garanti à la persévérance — une chance sur 40, garantie à la 60ᵉ soirée sans éclat | le hasard sans la frustration infinie | plus tard |
+| 7 | Le cadre de soirée — un cadre commémoratif que portent tous ceux qui y étaient (« les 30 ans de Romane ») | un souvenir qu'on porte | plus tard |
+| 8 | ★ **Les titres** — un titre sous le prénom, tiré de ses hauts faits (« L'Oracle », « Lanterne Rouge ×3 ») | un mot vaut mieux qu'une icône au mur | plus tard |
+| 9 | ★ **La vitrine** — les hauts faits les plus rares montrés sur la carte | se montrer sans se vanter | lot 1 |
+| 10 | L'entrée en scène — une animation d'arrivée sur l'écran commun à la mesure de ce qu'on porte | la présence commence à la porte | plus tard |
+| 11 | Les légendaires de saison — un avatar qui ne se gagne qu'à Noël, à Halloween, au Nouvel An | revenir à date fixe | plus tard |
+
+### B. Les hauts faits qui brillent
+
+| # | Idée | Pourquoi | Où |
+|---|---|---|---|
+| 12 | ★ **Grand Chelem** — toutes les questions à choix d'un quiz justes, au moins huit | le sans-faute qui compte | lot 1 |
+| 13 | ★ **La Foudre** — le plus rapide à trouver sur trois questions d'un même quiz | la vitesse a son trophée | lot 1 |
+| 14 | ★ **Le Phénix** — gagner un quiz après avoir fini dans la moitié basse du précédent | l'espoir, pour les 47 autres | lot 1 |
+| 15 | ★ **Seul contre tous** — seul de la salle à trouver, six réponses au moins | le frisson du mur | lot 1 |
+| 16 | ★ **L'Oracle** — deux estimations au chiffre près dans la même soirée | l'estimation avait ses prix, pas son légendaire | lot 1 |
+| 17 | ★ **Le Doublé / Le Triplé** — deux, trois quiz gagnés dans la même soirée | une soirée qui se raconte | lot 1 |
+| 18 | ★ **Le Roi de la soirée** — premier d'une soirée d'au moins huit joueurs | la couronne, pour de vrai | lot 1 |
+| 19 | ★ **L'Increvable** — dix bonnes réponses d'affilée | la série qui fait retenir son souffle | lot 1 |
+| 20 | ★ **Le Buzzer d'Or** — trois bonnes réponses dans la dernière seconde | le cœur qui lâche, trois fois | lot 1 |
+| 21 | ★ **Le Flair** — trouver trois fois quand la majorité de la salle se trompe | l'intuition contre la foule | lot 1 |
+| 22 | Le Métronome — dix bonnes réponses à temps presque constant | l'élégance | plus tard |
+
+### C. Les hauts faits qui font rire
+
+| # | Idée | Pourquoi | Où |
+|---|---|---|---|
+| 23 | ★ **La Lanterne Rouge** — dernier d'un quiz en ayant répondu à tout | le dernier a sa lumière | lot 1 |
+| 24 | ★ **L'Ascenseur Émotionnel** — premier après un quiz, dans la moitié basse à la fin | la chute se fête | lot 1 |
+| 25 | ★ **Le Kamikaze** — cinq mauvaises réponses données en moins de deux secondes | la gâchette, en légende | lot 1 |
+| 26 | ★ **La Girouette** — trois revirements sur une même question… pour finir faux | on l'a tous fait | lot 1 |
+| 27 | ★ **L'Estimation Cosmique** — se tromper d'un facteur dix sur une estimation | « 19940 » pour 1994 mérite sa médaille | lot 1 |
+| 28 | ★ **Le Presque** — deuxième d'un quiz à moins de vingt points du premier | la défaite qui fait mal | lot 1 |
+| 29 | ★ **Le Somnambule** — cinq questions d'affilée laissées passer | celui qui dansait | lot 1 |
+| 30 | ★ **Le Zéro Pointé** — zéro point sur un quiz en ayant tout tenté | l'œuf, dignement | lot 1 |
+| 31 | ★ **Le Contre-Courant** — seul de la salle sur sa réponse… et faux, trois fois | l'audace punie | lot 1 |
+| 32 | ★ **Les légendaires de l'ombre** — le Kraken, le Fantôme, le Trou Noir ne se gagnent qu'en jouant mal, souvent | le fond du classement a enfin quelque chose à chasser | lot 1 |
+
+### D. Les chiffres
+
+| # | Idée | Pourquoi | Où |
+|---|---|---|---|
+| 33 | ★ **La fiche de carrière** — précision, réflexe moyen, meilleure série, estimations, soirées, hôtes | « est-ce que je progresse ? » | lot 1 |
+| 34 | ★ **Les courbes** — précision et réflexe soirée après soirée | voir sa progression | lot 1 |
+| 35 | ★ **Les catégories de questions** — Cinéma, Musique, Histoire… à chaque question, et la réussite par catégorie | « je suis nul en sport » devient un chiffre | lot 1 |
+| 36 | ★ **Le flair** — la part des bonnes réponses trouvées quand la salle se trompait | l'intuition mesurée | lot 1 |
+| 37 | Le radar des catégories — le profil par catégorie en une figure | lisible en un coup d'œil | plus tard |
+| 38 | Les records personnels — meilleur coup, meilleur quiz, plus longue série, annoncés quand ils tombent | battre son propre record | plus tard |
+| 39 | Les rivalités — contre qui on a le plus joué, et qui finit devant qui | le sel entre amis | plus tard |
+
+### E. Être vu
+
+| # | Idée | Pourquoi | Où |
+|---|---|---|---|
+| 40 | ★ **La carte de joueur** — toucher un nom ouvre sa carte : avatar, niveau, vitrine, chiffres clés | on peut enfin regarder le profil de quelqu'un | lot 1 |
+| 41 | ★ **Les annonces de scène** — montées de niveau et déblocages projetés au podium de chaque quiz et à la clôture | la salle applaudit ce qu'elle voit | lot 1 |
+| 42 | ★ **La fin de soirée sur le téléphone** — son rang, son expérience, ses hauts faits, ses déblocages, les liens | le téléphone savait jamais que c'était fini | lot 1 |
+| 43 | ★ **Le surnom de soirée** — le renommage de l'animateur devient un surnom pour la soirée ; la carte garde la vraie identité | renommer un invité ne touche pas à son profil | lot 1 |
+| 44 | ★ **Le niveau lisible au mur** — « Niv. 15 » en toutes lettres, à la taille du nom | une pastille de 11 px ne se voit pas à cinq mètres | lot 1 |
+| 45 | Le mur des réponses — pendant la question, les avatars de ceux qui ont répondu s'allument sur l'écran commun | la salle se voit jouer | plus tard |
+
+### F. La soirée et le jeu
+
+| # | Idée | Pourquoi | Où |
+|---|---|---|---|
+| 46 | ★ **L'historique qui s'écrit tout seul, et « Clore la soirée »** — plus de Sauvegarder ni de Nouvelle soirée | rien ne dépend plus d'un clic oublié | lot 1 |
+| 47 | ★ **L'expérience qui se mérite** — plus de présence gratuite, des gains définitifs par quiz, des bonus à la clôture, un seuil de salle | plus dure, et plus juste | lot 1 |
+| 48 | ★ **Les estimations à égalité valent pareil** — deux « 1994 » exacts ne sont plus séparés de 52 points | l'égalité est un rang partagé, partout | lot 1 |
+| 49 | Le temps de lecture offert — le bonus de rapidité ne fond qu'après le temps de lire | la rapidité doit mesurer le réflexe, pas la lecture | plus tard |
+| 50 | Réclamer sa soirée — un anonyme crée son profil à l'écran de fin et garde la soirée qu'il vient de jouer | le meilleur moment pour proposer un profil | plus tard |
+
+## 4. Ce qui est retenu, et pourquoi
+
+Le fil rouge : **une chose à chasser pour chacun, et qu'on le voie.**
+
+- **L'avatar légendaire est le cœur de la demande.** Chaque haut fait qui
+  compte en débloque un, et la galerie montre les autres en silhouette :
+  on sait ce qu'on veut avant de l'avoir. Trois d'entre eux ne se gagnent
+  qu'en jouant mal — le bas du classement a enfin son trophée.
+- **Les hauts faits** donnent la variété : vingt coups d'éclat et coups de
+  malchance, plus des paliers de carrière (bronze, argent, or). Ils se
+  calculent sur les journaux, comme les prix, par une fonction pure.
+- **L'expérience devient une échelle de mérite**, définitive (elle ne
+  redescend plus) et protégée des soirées fabriquées.
+- **L'historique s'écrit tout seul** : c'est la condition pour que tout le
+  reste tombe sans dépendre d'un clic.
+- **La carte, les annonces, l'écran de fin et le niveau lisible** font voir
+  tout cela aux autres — c'était la moitié de la question.
+- **Les catégories et la fiche de carrière** donnent les métriques.
+
+Laissées pour plus tard, sans regret : ce qui demande un calendrier (saisons),
+un nouvel écran de régie (mur des réponses), ou touche encore au barème des
+questions (temps de lecture) — chacune se pose sur ce lot sans le défaire.
+
+---
+
+## 5. La conception
+
+### 5.1 La soirée qui se range toute seule
+
+- **Après chaque quiz** — au podium, puis à « Terminer » —, la soirée
+  s'archive (`archiveParty`) et l'expérience du quiz se crédite. L'historique
+  est donc toujours à jour, et « Sauvegarder » disparaît.
+- **« Clore la soirée »** (`host:closeParty`) est le seul geste de fin. Il
+  range la soirée une dernière fois, sous le titre qu'on lui donne, crédite
+  ce qui ne se décide qu'à la fin — le podium de la soirée, les prix, les
+  hauts faits, les paliers de carrière, les avatars débloqués —, envoie à
+  chaque téléphone son récapitulatif (`soiree:close`), puis repart d'une
+  soirée vierge. Il remplace « Sauvegarder » **et** « Nouvelle soirée ».
+- **« C'était un essai »** (`host:discardParty`) efface la soirée sans rien
+  garder : son archive automatique et tout ce qu'elle avait crédité aux
+  profils repartent avec elle.
+- **Retirer une soirée de l'historique** reprend de même ce qu'elle avait
+  crédité : expérience, hauts faits, prix, Éclat, avatars.
+- Une soirée qu'on oublie de clore n'est jamais perdue : elle est déjà dans
+  l'historique, et elle se clôt la prochaine fois — les hauts faits tombent
+  alors.
+- Les anciens `host:archiveParty` et `host:resetParty` restent entendus, pour
+  un écran resté sur une page d'avant : le premier range, le second clôt.
+
+### 5.2 L'expérience
+
+**Le barème** (`shared/profil.ts`, `XP`) :
+
+| Quand | Gain | XP |
+|---|---|---|
+| chaque question¹ | avoir répondu | 1 |
+| | QCM juste | 3 |
+| | réflexe : juste, et parmi le tiers le plus rapide des bonnes réponses (trois au moins) | +2 |
+| | estimation la plus proche (ex æquo : tous) | 5 |
+| | estimation dans le tiers le plus proche | 3 |
+| chaque quiz² | podium du quiz | 25 / 15 / 10 |
+| | sans-faute : toutes ses questions à choix justes, cinq au moins | 15 |
+| la clôture³ | podium de la soirée | 60 / 40 / 25 |
+| | assiduité : répondu à 90 % des questions posées, quinze au moins | 10 |
+| un haut fait | selon le haut fait (§5.3) | 5 à 100 |
+
+1. Seulement si la question a été posée à trois joueurs au moins.
+2. Seulement pour un quiz d'au moins cinq questions, où quatre joueurs au
+   moins ont répondu.
+3. Seulement pour une soirée d'au moins quinze questions, où six joueurs au
+   moins ont répondu.
+
+Ces seuils ferment les soirées fabriquées. **L'animateur ne gagne rien à sa
+propre soirée** : il connaît les réponses. Son profil y joue hors concours —
+aucune expérience, aucun haut fait —, et gagne normalement chez les autres.
+
+**Définitive.** Ce qu'un quiz rapporte se crédite à son podium et ne bouge
+plus : seul un invité exclu rend ce qu'il avait gagné. Le podium de la
+soirée, qui changeait de mains d'un quiz à l'autre, ne se décide qu'à la
+clôture. L'expérience d'un profil ne redescend donc plus jamais pendant une
+soirée — c'était le bug le plus visible.
+
+**La courbe** : le niveau *n* demande 25 × (*n* − 1)² points (12 avant).
+
+| | une soirée | niveau 5 | niveau 10 | niveau 20 |
+|---|---|---|---|---|
+| joueur moyen (répond à tout, 13 justes sur 30) | ≈ 90 | 5 soirées | 23 soirées | 100 soirées |
+| le meilleur de la salle (24 justes, 2 quiz, 1ᵉʳ) | ≈ 280 | 2 soirées | 8 soirées | 33 soirées |
+
+Les hauts faits accélèrent un peu les deux. Le niveau 20 redevient une
+légende ; le niveau 2 tombe toujours le premier soir.
+
+**Le recalcul.** L'expérience est une dérivation des journaux : au premier
+démarrage après ce changement, chaque soirée archivée est recréditée avec le
+barème du jour (et ses hauts faits décernés), comme le souvenir se relit avec
+le code du jour. Une ligne d'expérience sans archive — la soirée en cours —
+se recalcule à son prochain quiz.
+
+### 5.3 Les hauts faits
+
+Un catalogue unique (`shared/hautsfaits.ts`), calculé à la clôture par une
+fonction pure sur les journaux de la soirée (`server/src/core/hautsfaits.ts`),
+et recalculé pour les soirées archivées. Chacun a un emoji, un titre, une
+règle telle qu'on l'annonce, un ton — **éclat** (un exploit) ou **ombre**
+(une malchance) —, l'expérience qu'il rapporte, et parfois un avatar
+légendaire à débloquer.
+
+**De soirée** — ils se regagnent ; l'étagère compte les fois (« ×3 »).
+
+| Haut fait | Ton | Règle | XP |
+|---|---|---|---|
+| 🎯 Grand Chelem | éclat | toutes les questions à choix d'un quiz justes, huit au moins | 40 |
+| ⚡ La Foudre | éclat | le plus rapide à trouver sur trois questions d'un même quiz (trois bonnes réponses au moins à chacune) | 25 |
+| 🔥 Le Phénix | éclat | gagner un quiz après avoir fini dans la moitié basse du précédent | 40 |
+| 🦄 Seul contre tous | éclat | seul de la salle à trouver, six réponses au moins | 25 |
+| 🔮 L'Oracle | éclat | deux estimations au chiffre près dans la soirée | 50 |
+| 🥇 Le Doublé | éclat | deux quiz gagnés dans la soirée | 25 |
+| 🐉 Le Triplé | éclat | trois quiz gagnés dans la soirée | 60 |
+| 👑 Le Roi de la soirée | éclat | premier de la soirée, devant sept joueurs au moins | 40 |
+| 🛡️ L'Increvable | éclat | dix bonnes réponses d'affilée | 30 |
+| ⏰ Le Buzzer d'Or | éclat | trois bonnes réponses dans la dernière seconde | 20 |
+| 🧭 Le Flair | éclat | trois fois juste quand la majorité de la salle se trompait | 25 |
+| 🏮 La Lanterne Rouge | ombre | dernier d'un quiz en ayant répondu à tout | 5 |
+| 🎢 L'Ascenseur Émotionnel | ombre | premier après un quiz, dans la moitié basse à la fin | 5 |
+| 💥 Le Kamikaze | ombre | cinq mauvaises réponses données en moins de deux secondes | 5 |
+| 🌀 La Girouette | ombre | trois revirements sur une même question… pour finir faux | 5 |
+| 🌌 L'Estimation Cosmique | ombre | se tromper d'un facteur dix sur une estimation | 5 |
+| 🥈 Le Presque | ombre | deuxième d'un quiz à moins de vingt points du premier | 10 |
+| 😴 Le Somnambule | ombre | cinq questions d'affilée laissées passer | 5 |
+| 🥚 Le Zéro Pointé | ombre | zéro point sur un quiz de cinq questions, en ayant répondu à tout | 5 |
+| 🐟 Le Contre-Courant | ombre | seul de la salle sur sa réponse… et faux, trois fois | 5 |
+
+**De carrière** — trois paliers, bronze, argent et or ; ils ne tombent
+qu'une fois chacun et se jugent sur la carrière entière.
+
+| Haut fait | Bronze | Argent | Or |
+|---|---|---|---|
+| 🎟️ L'Habitué — soirées jouées | 3 | 10 | 25 |
+| 💬 Le Bavard — réponses | 100 | 500 | 2 000 |
+| 📚 L'Encyclopédie — bonnes réponses | 50 | 300 | 1 000 |
+| 🏎️ Le Réflexe — réponses réflexe | 20 | 100 | 400 |
+| 🔮 Le Devin — estimations au chiffre près | 3 | 10 | 25 |
+| 🧳 Le Globe-trotteur — hôtes différents | 2 | 4 | 8 |
+| 🥉 Le Podium — podiums de quiz | 3 | 15 | 50 |
+| 🎨 Le Collectionneur — avatars différents joués | 5 | 12 | 24 |
+| ✨ La Pluie d'Éclats — avatars éclatés | 1 | 3 | 6 |
+| 🎖️ La Légende — niveau | 10 | 20 | 30 |
+
+Rapportent 10, 25 et 50 points d'expérience. Les anciens badges de carrière
+(« Le Fidèle », « Le Pilier »…) ont été repris par ce catalogue : le recalcul
+les redécerne sous leurs nouveaux noms.
+
+**La rareté** reste calculée (part des profils qui le portent), et les prix
+de soirée (L'Éclair, Le Cancre…) restent sur l'étagère, comme avant.
+
+### 5.4 Les avatars légendaires
+
+Douze avatars dessinés en SVG, animés sans excès, lisibles à 20 px et
+spectaculaires à 200 : un médaillon, une silhouette forte, une lumière qui
+vit. Chacun se débloque par un haut fait, et **ne s'achète ni ne s'accélère**.
+
+| Avatar | Se débloque avec |
+|---|---|
+| Le Phénix | 🔥 Le Phénix |
+| Le Dragon d'Or | 🐉 Le Triplé |
+| L'Oracle | 🔮 L'Oracle |
+| La Chouette d'Argent | 🎯 Grand Chelem |
+| Le Tigre Foudre | ⚡ La Foudre |
+| La Licorne Astrale | 🦄 Seul contre tous, trois fois |
+| Le Lion Couronné | 👑 Le Roi de la soirée |
+| Le Renard Lunaire | 🎟️ L'Habitué, palier argent |
+| La Comète | 🏎️ Le Réflexe, palier argent |
+| Le Kraken | 🏮 La Lanterne Rouge, trois fois |
+| Le Fantôme | 😴 Le Somnambule, deux fois |
+| Le Trou Noir | 🌌 L'Estimation Cosmique, trois fois |
+
+- On le **porte** depuis `/profil` : il remplace l'emoji partout où l'on se
+  voit — classements, podiums, écran commun, carte. L'emoji choisi reste
+  dessous, pour les lignes de texte (export, messages).
+- La galerie montre les douze : ceux qu'on a, en couleur ; les autres en
+  **silhouette dorée**, avec la règle et la jauge.
+- Un anonyme n'en porte jamais, et rien ne le lui fait remarquer.
+
+### 5.5 Finitions et Éclat
+
+- La meilleure finition débloquée se **porte d'office** (`auto`) ; choisir
+  une finition l'épingle.
+- Mat 1, Argent 3, Or 6, Holo 10, Prisme 15, **Aurore 20**, **Constellation 25**.
+- L'**Éclat** garde sa règle (une chance sur quarante par soirée, sur l'emoji
+  joué ce soir-là) et gagne sa propre signature — un reflet irisé qui passe —
+  au lieu de l'étoile du Prisme.
+- Au mur, le niveau s'écrit **« Niv. 15 »**, à la taille du prénom.
+
+### 5.6 La carte de joueur
+
+Toucher un nom — classement de la salle d'attente, podium, écran de fin —
+ouvre sa carte : l'avatar en grand, avec ce qu'il porte ; le prénom du profil
+et le surnom du soir ; le niveau et sa jauge ; les hauts faits les plus rares ;
+les chiffres clés (soirées, précision, réflexe, meilleure série, quiz
+gagnés) ; et ce qu'il a fait ce soir. Pour un anonyme : ce qu'il a fait ce
+soir, et rien d'autre. Servie par `GET /s/<espace>/joueurs/<id>.json`, qui ne
+rend jamais un identifiant de connexion.
+
+### 5.7 Les métriques
+
+Chaque soirée garde son **relevé** brut (`ReleveSoiree`, version 2) : questions
+posées, réponses, justes, temps sur les bonnes réponses, réflexes, meilleure
+série, estimations (exactes, proches, écart), seul à trouver, flair, dernière
+seconde, revirements, quiz joués, gagnés, podiums, rang, taille de la salle,
+et la réussite par catégorie. La carrière les additionne ; `/profil` en tire
+la fiche (précision, réflexe moyen, record, flair…) et les courbes, soirée
+après soirée.
+
+### 5.8 Le surnom de soirée
+
+Le renommage de l'animateur écrit un **surnom** (`alias`) sur l'invité, pour
+la soirée seulement : l'écran commun, le souvenir et le bilan l'affichent ;
+la fiche de l'invité et son profil gardent son prénom, et sa carte dit les
+deux (« Alice — « Marc » ce soir »). Un surnom s'efface d'un clic.
+
+### 5.9 Les catégories
+
+Chaque question peut porter une catégorie, prise dans une liste fixe — la
+même pour tous les animateurs, pour que la carrière puisse les additionner :
+Culture générale, Histoire, Géographie, Sciences, Nature, Cinéma & séries,
+Musique, Arts & lettres, Sport, Cuisine, Jeux & pop culture, Autour de
+la fête. L'éditeur la propose sur chaque carte ; l'import en liste la lit sur
+une ligne `# Cinéma` ; l'écran commun l'affiche au-dessus de la question ; le
+journal la garde, et la fiche de carrière donne la réussite par catégorie.
+
+### 5.10 Le barème des questions
+
+Une seule correction dans ce lot : **deux estimations à égalité d'écart
+valent pareil**. Elles partagent le rang (et le bonus du plus proche, s'il y
+a lieu), comme partout ailleurs. La rapidité ne départage plus des
+propositions identiques.
+
+---
+
+## 6. Feuille de route
+
+**Lot 1 — en cours** : 1–5, 9, 12–21, 23–36, 40–44, 46–48. Le serveur est
+en place (clôture, barème, hauts faits, paliers, légendaires, recalcul) ;
+les écrans suivent.
+
+**Plus tard**, dans l'ordre où je les prendrais :
+
+1. Réclamer sa soirée (50) — le meilleur moment pour proposer un profil.
+2. Les titres (8) — les hauts faits sont là, il ne manque qu'un choix.
+3. Le mur des réponses (45) et l'entrée en scène (10).
+4. Le temps de lecture offert (49).
+5. Les records personnels (38) et le radar (37).
+6. Les rivalités (39), les légendaires de saison (11), le cadre de soirée (7).
+7. L'Éclat garanti (6) et le Métronome (22).

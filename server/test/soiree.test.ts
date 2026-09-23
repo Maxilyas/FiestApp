@@ -9,7 +9,11 @@
 //
 // Les prix de soirée, eux, se décernaient à chaque archivage sans jamais se
 // reprendre : « Sauvegarder » en cours de soirée figeait des badges que la
-// fin de soirée donnait à quelqu'un d'autre.
+// fin de soirée donnait à quelqu'un d'autre. Ils ne se décident plus qu'à la
+// clôture, sur la soirée entière.
+//
+// Une question ne rapporte d'expérience que posée à trois joueurs au moins :
+// chaque scénario a donc sa salle, deux figurants qui se trompent.
 //
 // Chaque test a son propre serveur jetable : une soirée jouée dans l'un
 // fausserait l'historique et l'expérience de l'autre.
@@ -37,6 +41,12 @@ import {
 } from './banc'
 import { XP } from '../../shared/profil'
 import { archiveIdOf } from '../src/core/archive'
+import { ProfileStore } from '../src/auth/profiles'
+
+// L'Éclat se tire une chance sur quarante par soirée, et le premier fait
+// tomber un palier de carrière : dix points de plus à la clôture, que le
+// crédit de la soirée suivante annoncerait. Ici, le hasard ne décide de rien.
+ProfileStore.tirageEclat = () => false
 
 // ── Outils ────────────────────────────────────────────────────────────────
 
@@ -84,7 +94,10 @@ async function jouerQuiz(host: Socket, quizId: string, questions: Reponses): Pro
   ;(host as any).emit('host:endSession', { sessionId })
 }
 
-/** « Sauvegarder » : la soirée se range dans l'historique, sans rien effacer. */
+/**
+ * L'ancien « Sauvegarder », qu'un écran resté sur une page d'avant peut
+ * encore envoyer : la soirée se range sous un titre, sans rien clore.
+ */
 async function sauvegarder(host: Socket) {
   const toast = attendre<any>(host, 'toast', () => true, 'la soirée rangée', 15_000)
   ;(host as any).emit('host:archiveParty', {})
@@ -92,19 +105,41 @@ async function sauvegarder(host: Socket) {
   assert.equal(t.kind, 'info', `l’archivage a échoué : ${t.message}`)
 }
 
-/** « Nouvelle soirée » : la soirée se range, puis tout repart de zéro. */
-async function nouvelleSoiree(host: Socket) {
-  const toast = attendre<any>(host, 'toast', () => true, 'la soirée vierge', 15_000)
-  ;(host as any).emit('host:resetParty')
+/** « Clore la soirée » : elle se range une dernière fois, puis tout repart de zéro. */
+async function clore(host: Socket) {
+  const toast = attendre<any>(host, 'toast', () => true, 'la soirée close', 15_000)
+  ;(host as any).emit('host:closeParty', {})
   const t = await toast
-  assert.equal(t.kind, 'info', `la remise à zéro a échoué : ${t.message}`)
+  assert.equal(t.kind, 'info', `la clôture a échoué : ${t.message}`)
 }
 
-/** L'historique de l'espace, de la plus récente à la plus ancienne. */
+/** Les soirées closes de l'espace, de la plus récente à la plus ancienne. */
 async function historique(banc: Banc): Promise<{ id: string; heldAt: number }[]> {
   const res = await fetch(`${banc.url}/s/${ADMIN.slug}/soirees.json`)
   return ((await res.json()) as any).archives
 }
+
+/**
+ * La soirée en cours telle que l'historique la montre, à part : elle s'y
+ * range toute seule après chaque quiz, sous `id`.
+ */
+async function enCours(banc: Banc): Promise<{ id?: string; title?: string } | null> {
+  const res = await fetch(`${banc.url}/s/${ADMIN.slug}/soirees.json`)
+  return ((await res.json()) as any).current
+}
+
+/** Deux figurants anonymes : avec eux, chaque question est posée à trois joueurs au moins. */
+async function figurants(banc: Banc): Promise<Invite[]> {
+  return [await invite(banc.url, 'Bob', '🐻'), await invite(banc.url, 'Dora', '🐙')]
+}
+
+/** Des figurants qui se re-présentent après un redémarrage : leurs téléphones gardaient leur jeton. */
+function reviennent(banc: Banc, salle: Invite[]): Promise<Invite[]> {
+  return Promise.all(salle.map(i => invite(banc.url, '', '', { token: i.token })))
+}
+
+/** Ils se trompent tous : Alice reste seule à trouver. */
+const faux = (salle: Invite[]): [Invite, number][] => salle.map(i => [i, 1])
 
 /** Le fichier de la base permanente — celle qui tient le rôle de Turso. */
 const permanente = (banc: Banc) => banc.quizDbUrl.replace(/^file:/, '')
@@ -122,11 +157,14 @@ function lire<T = any>(chemin: string, sql: string, ...args: unknown[]): T[] {
 const profilDe = (banc: Banc, login: string): string =>
   lire<{ id: string }>(permanente(banc), 'SELECT id FROM profiles WHERE login = ?', login)[0].id
 
-/** Les lignes d'expérience d'un profil — une par soirée, s'il n'y a pas de doublon. */
+/**
+ * Les lignes d'expérience d'un profil — une par soirée, s'il n'y a pas de
+ * doublon. Celle des paliers de carrière (`#paliers`) n'est pas une soirée.
+ */
 const lignesXp = (banc: Banc, profileId: string) =>
   lire<{ soiree_id: string; xp: number }>(
     permanente(banc),
-    'SELECT soiree_id, xp FROM profile_xp WHERE profile_id = ? ORDER BY created_at',
+    `SELECT soiree_id, xp FROM profile_xp WHERE profile_id = ? AND soiree_id NOT LIKE '#%' ORDER BY created_at`,
     profileId,
   )
 
@@ -158,13 +196,18 @@ async function badgesALEntree(banc: Banc, cookie: string): Promise<number | unde
   }
 }
 
-/** Ce que vaut une soirée où l'on gagne seul chaque quiz d'une question. */
-const xpDeSoiree = (quiz: number) =>
-  XP.presence + quiz * XP.parReponse + quiz * XP.parBonneReponse + XP.podium[0] + quiz * XP.vainqueurDeQuiz
+/**
+ * Ce que vaut une soirée où Alice trouve seule chaque question d'un quiz
+ * d'une question : une réponse, une bonne réponse. Ni réflexe (il faut trois
+ * bonnes réponses pour avoir un tiers le plus rapide), ni podium de quiz (il
+ * faut cinq questions), ni podium de soirée (il faut quinze questions).
+ */
+const xpDeSoiree = (quiz: number) => quiz * (XP.reponse + XP.juste)
 
 /**
  * Le décor des scénarios d'exclusion : le téléphone d'essai de l'animateur
- * arrive le premier — c'est toujours lui —, Alice ensuite, avec son profil.
+ * arrive le premier — c'est toujours lui —, Alice ensuite, avec son profil,
+ * puis deux figurants.
  */
 async function essaiPuisAlice(banc: Banc) {
   const cookie = await connexionAnimateur(banc.url)
@@ -175,59 +218,58 @@ async function essaiPuisAlice(banc: Banc) {
   // Deux arrivées dans la même milliseconde ne diraient pas qui était là le premier.
   await patienter(20)
   const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
-  return { quiz, aliceCookie, host, essai, alice, aliceId: profilDe(banc, 'alice') }
+  const salle = await figurants(banc)
+  return { quiz, aliceCookie, host, essai, alice, salle, aliceId: profilDe(banc, 'alice') }
 }
 
 // ── L'identifiant de la soirée ────────────────────────────────────────────
 
 test('exclure le premier arrivé entre deux quiz ne rebaptise pas la soirée', () =>
   avecBanc(async banc => {
-    const { quiz, host, essai, alice, aliceId } = await essaiPuisAlice(banc)
+    const { quiz, aliceCookie, host, essai, alice, salle, aliceId } = await essaiPuisAlice(banc)
     const debut = arrivee(banc, essai.playerId)
 
     const premier = attendre<any>(alice.socket, 'player:profil', p => p.xp > 0, 'le crédit du premier quiz', 15_000)
-    await jouerQuiz(host, quiz, [[[alice, 0], [essai, 1]]])
-    assert.equal((await premier).xp, xpDeSoiree(1), 'Alice gagne le premier quiz')
-    await sauvegarder(host)
+    await jouerQuiz(host, quiz, [[[alice, 0], [essai, 1], ...faux(salle)]])
+    assert.equal((await premier).xp, xpDeSoiree(1), 'Alice trouve seule la question du premier quiz')
+    // Le quiz fini, la soirée s'est rangée toute seule sous son nom.
+    const rangee = await enCours(banc)
+    assert.equal(rangee?.id, archiveIdOf(debut), 'la soirée s’est rangée d’elle-même après le quiz')
 
     ;(host as any).emit('host:removePlayer', { playerId: essai.playerId })
     await attendre(essai.socket, 'player:removed', () => true, 'l’exclusion du téléphone d’essai')
 
     const second = attendre<any>(alice.socket, 'player:profil', p => p.xp !== xpDeSoiree(1), 'le crédit du second quiz', 15_000)
-    await jouerQuiz(host, quiz, [[[alice, 0]]])
-    // Présence, deux réponses justes, le podium et deux quiz gagnés.
-    assert.equal(xpDeSoiree(2), 146)
+    await jouerQuiz(host, quiz, [[[alice, 0], ...faux(salle)]])
+    // Deux réponses, deux bonnes réponses.
+    assert.equal(xpDeSoiree(2), 8)
     assert.equal((await second).xp, xpDeSoiree(2), 'l’expérience d’une soirée se remplace, elle ne s’additionne pas')
-    await sauvegarder(host)
+    await clore(host)
 
     const lignes = lignesXp(banc, aliceId)
     assert.equal(lignes.length, 1, `une seule ligne d’expérience pour la soirée (vu : ${lignes.map(l => l.soiree_id).join(', ')})`)
     assert.equal(lignes[0].xp, xpDeSoiree(2))
     const archives = await historique(banc)
-    assert.equal(archives.length, 1, 'la soirée sauvegardée n’apparaît qu’une fois dans l’historique')
+    assert.equal(archives.length, 1, 'la soirée close n’apparaît qu’une fois dans l’historique')
     assert.equal(archives[0].id, lignes[0].soiree_id, 'l’archive et l’expérience portent le même nom')
     // L'heure de début reste celle du premier arrivé, même exclu depuis.
     assert.equal(archives[0].heldAt, debut)
     assert.equal(archives[0].id, archiveIdOf(debut))
-    // Les badges de carrière se comptent en soirées : rebaptisée, celle-ci
-    // aurait compté double, et un prix qui ne tombe qu'une fois aurait pu
-    // tomber sous chacun de ses deux noms.
-    const premiereFois = lire(
-      permanente(banc),
-      `SELECT soiree_id FROM profile_badges WHERE profile_id = ? AND badge = 'carriere:premiere'`,
-      aliceId,
-    )
-    assert.deepEqual(premiereFois, [{ soiree_id: archives[0].id }], '« La Première Fois » ne tombe qu’une fois')
+    // Les paliers de carrière se comptent en soirées : rebaptisée, celle-ci
+    // aurait compté double sur la fiche, et L'Habitué serait tombé une
+    // soirée trop tôt.
+    const moi = (await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: aliceCookie } })).json()) as any
+    assert.equal(moi.profile.fiche.soirees, 1, 'une soirée, comptée une fois')
   }))
 
 test('un réveil sur disque effacé en pleine soirée garde son nom', () =>
   avecBanc(async banc => {
-    const { quiz, aliceCookie, host, essai, alice, aliceId } = await essaiPuisAlice(banc)
+    const { quiz, aliceCookie, host, essai, alice, salle, aliceId } = await essaiPuisAlice(banc)
     const premier = attendre<any>(alice.socket, 'player:profil', p => p.xp > 0, 'le crédit du premier quiz', 15_000)
-    await jouerQuiz(host, quiz, [[[alice, 0], [essai, 1]]])
+    await jouerQuiz(host, quiz, [[[alice, 0], [essai, 1], ...faux(salle)]])
     await premier
-    await sauvegarder(host)
-    const [avant] = await historique(banc)
+    const avant = await enCours(banc)
+    assert.ok(avant?.id, 'la soirée s’est rangée après le premier quiz')
 
     ;(host as any).emit('host:removePlayer', { playerId: essai.playerId })
     await attendre(essai.socket, 'player:removed', () => true, 'l’exclusion du téléphone d’essai')
@@ -239,11 +281,13 @@ test('un réveil sur disque effacé en pleine soirée garde son nom', () =>
     const host2 = await ecranCommun(banc.url, await connexionAnimateur(banc.url))
     const alice2 = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
     assert.equal(alice2.playerId, alice.playerId, 'Alice retrouve son invité après le réveil')
+    const salle2 = await reviennent(banc, salle)
 
     const second = attendre<any>(alice2.socket, 'player:profil', p => p.xp !== xpDeSoiree(1), 'le crédit du second quiz', 15_000)
-    await jouerQuiz(host2, quiz, [[[alice2, 0]]])
+    await jouerQuiz(host2, quiz, [[[alice2, 0], ...faux(salle2)]])
     assert.equal((await second).xp, xpDeSoiree(2), 'le réveil ne crédite pas la soirée une seconde fois')
-    await sauvegarder(host2)
+    assert.equal((await enCours(banc))?.id, avant.id, 'la soirée garde son nom après le réveil')
+    await clore(host2)
 
     const archives = await historique(banc)
     assert.deepEqual(
@@ -258,7 +302,7 @@ test('un réveil sur disque effacé en pleine soirée garde son nom', () =>
     )
   }))
 
-test('« Nouvelle soirée » : la suivante porte un autre nom, même après un réveil sur disque effacé', () =>
+test('« Clore la soirée » : la suivante porte un autre nom, même après un réveil sur disque effacé', () =>
   avecBanc(async banc => {
     const cookie = await connexionAnimateur(banc.url)
     const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
@@ -267,37 +311,36 @@ test('« Nouvelle soirée » : la suivante porte un autre nom, même après un r
     const host = await ecranCommun(banc.url, cookie)
 
     /** Alice joue une soirée d'un quiz ; rend l'expérience que son téléphone annonce. */
-    const soireeDAlice = async (h: Socket, qui: Invite) => {
+    const soireeDAlice = async (h: Socket, qui: Invite, salle: Invite[]) => {
       const credit = attendre<any>(qui.socket, 'player:profil', () => true, 'le crédit du quiz', 15_000)
-      await jouerQuiz(h, quiz, [[[qui, 0]]])
+      await jouerQuiz(h, quiz, [[[qui, 0], ...faux(salle)]])
       return (await credit).xp as number
     }
 
-    // La première soirée, rangée par « Nouvelle soirée ».
+    // La première soirée, close.
     const alice1 = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
-    assert.equal(await soireeDAlice(host, alice1), xpDeSoiree(1))
-    await nouvelleSoiree(host)
+    assert.equal(await soireeDAlice(host, alice1, await figurants(banc)), xpDeSoiree(1))
+    await clore(host)
 
     // La deuxième, dans la foulée : un nom oublié en mémoire la confondrait
     // avec la première, et son expérience écraserait celle d'hier.
     const alice2 = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
-    assert.notEqual(alice2.playerId, alice1.playerId, 'après la remise à zéro, Alice est une nouvelle invitée')
-    assert.equal(await soireeDAlice(host, alice2), 2 * xpDeSoiree(1), 'deux soirées, deux crédits')
-    await sauvegarder(host)
+    assert.notEqual(alice2.playerId, alice1.playerId, 'après la clôture, Alice est une nouvelle invitée')
+    assert.equal(await soireeDAlice(host, alice2, await figurants(banc)), 2 * xpDeSoiree(1), 'deux soirées, deux crédits')
+    await clore(host)
     const deux = (await historique(banc)).map(a => a.id)
     assert.equal(deux.length, 2, 'deux soirées, deux archives')
     assert.notEqual(deux[0], deux[1])
 
     // La troisième commence, puis l'hébergeur recycle l'instance avant le
     // moindre quiz : le miroir ne doit pas lui rendre le nom de la précédente.
-    await nouvelleSoiree(host)
     await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
     await patienter(400)
     await banc.redemarrer({ disqueEfface: true })
     const host3 = await ecranCommun(banc.url, await connexionAnimateur(banc.url))
     const alice3 = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
-    assert.equal(await soireeDAlice(host3, alice3), 3 * xpDeSoiree(1), 'trois soirées, trois crédits')
-    await sauvegarder(host3)
+    assert.equal(await soireeDAlice(host3, alice3, await figurants(banc)), 3 * xpDeSoiree(1), 'trois soirées, trois crédits')
+    await clore(host3)
 
     const trois = (await historique(banc)).map(a => a.id)
     assert.equal(new Set(trois).size, 3, `trois soirées, trois noms (vu : ${trois.join(', ')})`)
@@ -306,16 +349,24 @@ test('« Nouvelle soirée » : la suivante porte un autre nom, même après un r
       [...trois].sort(),
       'une ligne d’expérience par soirée, chacune sous son nom',
     )
+    // Trois soirées font L'Habitué, au Bronze : il tombe à la clôture de la
+    // troisième, une seule fois, et sous son nom.
+    assert.deepEqual(laureats(banc, trois[0], 'hf:habitue:1'), [aliceId], 'L’Habitué tombe à la troisième clôture')
+    const paliers = lire<{ n: number }>(
+      permanente(banc),
+      `SELECT COUNT(*) AS n FROM profile_badges WHERE profile_id = ? AND badge = 'hf:habitue:1'`,
+      aliceId,
+    )
+    assert.equal(paliers[0].n, 1, 'un palier ne tombe qu’une fois')
   }))
 
 test('une soirée commencée avant la mise à jour garde le nom qu’elle avait', () =>
   avecBanc(async banc => {
-    const { quiz, aliceCookie, host, essai, alice, aliceId } = await essaiPuisAlice(banc)
+    const { quiz, aliceCookie, host, essai, alice, salle, aliceId } = await essaiPuisAlice(banc)
     const debut = arrivee(banc, essai.playerId)
     const premier = attendre<any>(alice.socket, 'player:profil', p => p.xp > 0, 'le crédit du premier quiz', 15_000)
-    await jouerQuiz(host, quiz, [[[alice, 0], [essai, 1]]])
+    await jouerQuiz(host, quiz, [[[alice, 0], [essai, 1], ...faux(salle)]])
     await premier
-    await sauvegarder(host)
     await patienter(400)
 
     // Le serveur d'avant ne rangeait le nom de la soirée nulle part : on
@@ -348,11 +399,12 @@ test('une soirée commencée avant la mise à jour garde le nom qu’elle avait'
     const host3 = await ecranCommun(banc.url, await connexionAnimateur(banc.url))
     const alice3 = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
     assert.equal(alice3.playerId, alice.playerId)
+    const salle3 = await reviennent(banc, salle)
 
     const second = attendre<any>(alice3.socket, 'player:profil', p => p.xp !== xpDeSoiree(1), 'le crédit du second quiz', 15_000)
-    await jouerQuiz(host3, quiz, [[[alice3, 0]]])
+    await jouerQuiz(host3, quiz, [[[alice3, 0], ...faux(salle3)]])
     assert.equal((await second).xp, xpDeSoiree(2), 'la soirée d’avant la mise à jour ne se crédite pas deux fois')
-    await sauvegarder(host3)
+    await clore(host3)
 
     const archives = await historique(banc)
     assert.deepEqual(
@@ -365,7 +417,7 @@ test('une soirée commencée avant la mise à jour garde le nom qu’elle avait'
 
 // ── Les prix de soirée ────────────────────────────────────────────────────
 
-test('« Sauvegarder » en cours de soirée ne fige pas ses prix : le dernier archivage fait foi', () =>
+test('les prix ne se décident qu’à la clôture : rien de ce qui se range en cours de soirée ne les fige', () =>
   avecBanc(async banc => {
     const cookie = await connexionAnimateur(banc.url)
     const trois = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?'), qcm('Trois ?')], 'Trois questions')
@@ -389,10 +441,13 @@ test('« Sauvegarder » en cours de soirée ne fige pas ses prix : le dernier ar
       [[chloe, 0], [alice, 0]],
       [[chloe, 0], [alice, 1]],
     ])
+    await patienter(400)
+    const soiree = (await enCours(banc))?.id
+    assert.ok(soiree, 'la soirée s’est rangée après le premier quiz')
+    // À ce moment-là, Chloé mène : un prix décerné maintenant serait le mauvais.
+    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [], 'le rangement d’après quiz ne décerne rien')
     await sauvegarder(host)
-    const [{ id: soiree }] = await historique(banc)
-    // À ce moment-là, le prix est bien à Chloé : c'est lui qui doit repartir.
-    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [chloeId], 'Chloé mène au premier archivage')
+    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [], 'l’ancien « Sauvegarder » non plus')
 
     // Second quiz : tout s'inverse. Chloé finit à 3 sur 7, Alice à 6 sur 7.
     const renversement: [Invite, number][] = [
@@ -400,17 +455,17 @@ test('« Sauvegarder » en cours de soirée ne fige pas ses prix : le dernier ar
       [alice, 0],
     ]
     await jouerQuiz(host, quatre, [renversement, renversement, renversement, renversement])
-    await nouvelleSoiree(host)
+    await clore(host)
     assert.deepEqual(
       (await historique(banc)).map(a => a.id),
       [soiree],
-      'sauvegardée puis rangée, la soirée n’a qu’une archive',
+      'rangée après chaque quiz puis close, la soirée n’a qu’une archive',
     )
 
     // Un seul lauréat par prix et par soirée.
     const prix = lire<{ badge: string; profile_id: string }>(
       permanente(banc),
-      `SELECT badge, profile_id FROM profile_badges WHERE soiree_id = ? AND badge NOT LIKE 'carriere:%'`,
+      `SELECT badge, profile_id FROM profile_badges WHERE soiree_id = ? AND badge NOT LIKE 'hf:%'`,
       soiree,
     )
     const parPrix = new Map<string, string[]>()
@@ -418,7 +473,7 @@ test('« Sauvegarder » en cours de soirée ne fige pas ses prix : le dernier ar
     for (const [badge, porteurs] of parPrix) {
       assert.equal(porteurs.length, 1, `« ${badge} » : ${porteurs.length} lauréats pour une seule soirée`)
     }
-    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [aliceId], 'Chloé, à 3 sur 7, rend Le Sans-Faute')
+    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [aliceId], 'Chloé, à 3 sur 7, n’a pas Le Sans-Faute')
 
     // L'étagère range exactement ce que la salle a vu proclamer à la fin.
     const souvenir = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${soiree}/recap.json`)).json()) as any
@@ -436,7 +491,7 @@ test('« Sauvegarder » en cours de soirée ne fige pas ses prix : le dernier ar
     }
     for (const [profil, cles] of proclames) {
       const ranges = new Set(prix.filter(p => p.profile_id === profil).map(p => p.badge))
-      assert.deepEqual(ranges, cles, 'les prix rangés sont ceux du dernier archivage')
+      assert.deepEqual(ranges, cles, 'les prix rangés sont ceux de la clôture')
     }
 
     // Et le compteur suit — l'écran d'entrée d'abord, avant que la page du
@@ -445,20 +500,16 @@ test('« Sauvegarder » en cours de soirée ne fige pas ses prix : le dernier ar
       [aliceId, aliceCookie],
       [chloeId, chloeCookie],
     ]) {
-      const carriere = lire(
-        permanente(banc),
-        `SELECT DISTINCT badge FROM profile_badges WHERE profile_id = ? AND badge LIKE 'carriere:%'`,
-        profil,
-      ).length
-      const attendu = proclames.get(profil)!.size + carriere
-      assert.equal(await badgesALEntree(banc, profilCookie), attendu, 'l’écran d’entrée annonce le bon nombre de badges')
+      const tout = lire(permanente(banc), 'SELECT DISTINCT badge FROM profile_badges WHERE profile_id = ?', profil).length
+      assert.equal(tout, proclames.get(profil)!.size, 'à deux, ni haut fait ni palier : les prix seuls')
+      assert.equal(await badgesALEntree(banc, profilCookie), tout, 'l’écran d’entrée annonce le bon nombre de badges')
       const moi = (await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: profilCookie } })).json()) as any
-      assert.equal(moi.profile.badges, attendu, 'la page du profil aussi')
-      assert.equal(moi.profile.vitrine.length, attendu, 'et son étagère ne garde rien de périmé')
+      assert.equal(moi.profile.badges, tout, 'la page du profil aussi')
+      assert.equal(moi.profile.vitrine.length, tout, 'et son étagère ne garde rien de périmé')
     }
   }))
 
-test('un invité exclu rend ses prix : chacun garde un seul lauréat', () =>
+test('un invité exclu avant la clôture n’y reçoit rien : chaque prix garde un seul lauréat', () =>
   avecBanc(async banc => {
     const cookie = await connexionAnimateur(banc.url)
     const trois = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?'), qcm('Trois ?')], 'Trois questions')
@@ -469,34 +520,34 @@ test('un invité exclu rend ses prix : chacun garde un seul lauréat', () =>
     const host = await ecranCommun(banc.url, cookie)
     const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
     const chloe = await invite(banc.url, 'Chloé', '🦉', { cookie: chloeCookie })
+    const salle = await figurants(banc)
 
+    // Chloé sans faute, Alice se trompe à la dernière : le quiz crédite
+    // l'une et l'autre dès son podium.
+    const credit = attendre<any>(chloe.socket, 'player:profil', p => p.xp > 0, 'le crédit de Chloé', 15_000)
     await jouerQuiz(host, trois, [
-      [[chloe, 0], [alice, 0]],
-      [[chloe, 0], [alice, 0]],
-      [[chloe, 0], [alice, 1]],
+      [[chloe, 0], [alice, 0], ...faux(salle)],
+      [[chloe, 0], [alice, 0], ...faux(salle)],
+      [[chloe, 0], [alice, 1], ...faux(salle)],
     ])
-    await sauvegarder(host)
-    const [{ id: soiree }] = await historique(banc)
-    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [chloeId], 'Chloé mène au premier archivage')
+    await credit
+    const soiree = (await enCours(banc))?.id
+    assert.ok(soiree)
+    assert.equal(lignesXp(banc, chloeId).length, 1, 'le quiz a crédité Chloé')
 
     // L'animateur exclut Chloé : ses réponses quittent le journal, l'archive
-    // ne la connaît plus, et ses prix retombent sur la salle. Le remplacement
-    // vise donc toute la soirée, pas seulement ceux qui y sont encore.
+    // ne la connaît plus, et son expérience du soir repart avec elle.
     ;(host as any).emit('host:removePlayer', { playerId: chloe.playerId })
     await attendre(chloe.socket, 'player:removed', () => true, 'l’exclusion de Chloé')
-    await sauvegarder(host)
+    await clore(host)
 
-    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [aliceId], 'Le Sans-Faute passe à Alice, seule lauréate')
+    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [aliceId], 'Le Sans-Faute va à Alice, seule lauréate')
     const gardes = lire<{ badge: string }>(
       permanente(banc),
-      `SELECT badge FROM profile_badges WHERE profile_id = ? AND soiree_id = ? AND badge NOT LIKE 'carriere:%'`,
+      'SELECT badge FROM profile_badges WHERE profile_id = ?',
       chloeId,
-      soiree,
     )
-    assert.deepEqual(gardes, [], 'Chloé ne garde aucun prix d’une soirée qui ne la compte plus')
-    // Son badge de carrière, lui, reste : il ne se reprend jamais — et son
-    // compteur descend avec ce qu'elle a rendu.
-    const carriere = lire(permanente(banc), 'SELECT DISTINCT badge FROM profile_badges WHERE profile_id = ?', chloeId)
-    assert.ok(carriere.length > 0, 'la première soirée de Chloé lui a valu son badge de carrière')
-    assert.equal(await badgesALEntree(banc, chloeCookie), carriere.length, 'le compteur de Chloé suit ce qu’elle a rendu')
+    assert.deepEqual(gardes, [], 'Chloé ne reçoit rien d’une soirée qui ne la compte plus')
+    assert.deepEqual(lignesXp(banc, chloeId), [], 'ni l’expérience que le quiz lui avait créditée')
+    assert.equal(await badgesALEntree(banc, chloeCookie), 0, 'et son compteur le dit')
   }))

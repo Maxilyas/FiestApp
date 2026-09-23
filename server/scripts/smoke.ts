@@ -16,6 +16,12 @@ import { finalRanking, rankTeams } from '../../shared/teams'
 import { bestSample, clockOffset } from '../../shared/clock'
 import { XP, finitionsOuvertes, niveauPour, progression, xpDuNiveau } from '../../shared/profil'
 import { reviewFromDatabase, reviewFromServer, writeExport } from '../src/core/export'
+import { ProfileStore } from '../src/auth/profiles'
+
+// L'Éclat se tire une chance sur quarante par soirée, et le premier fait
+// tomber un palier de carrière — dix points de plus à la clôture. Le smoke
+// compte l'expérience au point près : le hasard n'y décide de rien.
+ProfileStore.tirageEclat = () => false
 
 function fail(msg: string): never {
   console.error(`❌ ${msg}`)
@@ -142,8 +148,9 @@ try {
   // reconnexion de repartir propre si le téléphone s'est resynchronisé.
   assert(bestSample(null, lent) === lent, 'la première mesure d’une connexion fait autorité')
 
-  // 0 ter. Les niveaux. La courbe doit faire tomber les premiers dans la
-  //        soirée même — c'est ce qui donne envie de revenir — puis se calmer.
+  // 0 ter. Les niveaux. La courbe se mérite : le niveau 2 tombe dès la
+  //        première soirée — c'est ce qui donne envie de revenir —, puis
+  //        chaque niveau coûte plus cher que le précédent.
   assert(niveauPour(0) === 1, 'on commence au niveau 1, jamais 0')
   assert(niveauPour(-50) === 1, 'une expérience négative ne descend pas sous le niveau 1')
   assert(xpDuNiveau(1) === 0, 'le niveau 1 ne coûte rien')
@@ -151,10 +158,12 @@ try {
     assert(niveauPour(xpDuNiveau(n)) === n, `le seuil du niveau ${n} doit donner le niveau ${n}`)
     assert(niveauPour(xpDuNiveau(n) - 1) === n - 1, `un point sous le seuil du niveau ${n}, on y est pas encore`)
   }
-  // Une soirée ordinaire : venu, trente questions, la moitié juste, pas de podium.
-  const soireeType = XP.presence + 30 * XP.parReponse + 15 * XP.parBonneReponse
-  assert(niveauPour(soireeType) >= 3, `une première soirée doit valoir au moins le niveau 3 (vu ${niveauPour(soireeType)})`)
-  assert(niveauPour(soireeType * 30) < 25, 'trente soirées ne doivent pas mener au bout du monde')
+  // Une soirée ordinaire : trente questions, toutes répondues, la moitié
+  // juste, ni réflexe ni podium.
+  const soireeType = 30 * XP.reponse + 15 * XP.juste
+  assert(niveauPour(soireeType) === 2, `une première soirée ordinaire vaut le niveau 2, pas davantage (vu ${niveauPour(soireeType)})`)
+  assert(niveauPour(soireeType * 10) < 10, 'dix soirées ordinaires ne mènent pas au niveau 10')
+  assert(niveauPour(soireeType * 100) < 20, 'et le niveau 20 reste une légende')
   const barre = progression(xpDuNiveau(4) + 5)
   assert(barre.niveau === 4 && barre.acquis === 5, 'la barre repart de zéro à chaque niveau')
   assert(finitionsOuvertes(1).join() === 'mat', 'au niveau 1, seule la finition Mat')
@@ -596,16 +605,21 @@ try {
   )
   ;(bobHost2 as any).emit('host:endSession', { sessionId: bobSession.sessionId })
 
-  // Bob archive : son historique en a une, celui de l'administrateur aucune,
-  // et l'administrateur ne peut ni la lire dans son espace ni la retirer.
+  // Bob range sa soirée sous un titre : elle est dans son historique, encore
+  // en cours — montrée à part ; celui de l'administrateur n'en voit rien, et
+  // l'administrateur ne peut ni la lire dans son espace ni la retirer.
   const bobArchived = waitFor<any>(bobHost2, 'toast', t => t.kind === 'info', 'soirée de Bob archivée')
   ;(bobHost2 as any).emit('host:archiveParty', { title: 'Chez Bob' })
   await bobArchived
   const bobSoirees = (await (await fetch(`${url}/s/chez-bob/soirees.json`)).json()) as any
-  assert(bobSoirees.archives.length === 1 && bobSoirees.space?.slug === 'chez-bob', 'l’historique de Bob')
+  assert(
+    bobSoirees.current?.id && bobSoirees.current.title === 'Chez Bob' && bobSoirees.space?.slug === 'chez-bob',
+    'l’historique de Bob : sa soirée rangée sous son titre, encore en cours',
+  )
+  assert(bobSoirees.archives.length === 0, 'une soirée en cours ne se mêle pas aux soirées closes')
   const adminSoirees = (await (await fetch(`${url}/s/${SLUG}/soirees.json`)).json()) as any
   assert(adminSoirees.archives.length === 0, 'l’historique de l’administrateur ne voit pas la soirée de Bob')
-  const bobArchiveId = bobSoirees.archives[0].id
+  const bobArchiveId = bobSoirees.current.id
   assert(
     (await apiCall(`/api/soirees/${bobArchiveId}`, { method: 'DELETE' })).status === 404,
     'l’administrateur ne retire pas les soirées des autres',
@@ -702,8 +716,11 @@ try {
   ;(carlaHost as any).emit('host:archiveParty', { title: 'Chez Carla' })
   await carlaArchived
   const carlaSoirees = (await (await fetch(`${url}/s/chez-carla/soirees.json`)).json()) as any
-  assert(carlaSoirees.archives.length === 1 && carlaSoirees.current, 'l’historique de Carla : une archive, une soirée en cours')
-  const carlaArchiveId: string = carlaSoirees.archives[0].id
+  assert(
+    carlaSoirees.current?.id && carlaSoirees.current.title === 'Chez Carla',
+    'l’historique de Carla : une soirée en cours, déjà rangée sous son titre',
+  )
+  const carlaArchiveId: string = carlaSoirees.current.id
   carlaHost.disconnect()
 
   const delAccount = (id: string, call = apiCall) => call(`/api/admin/accounts/${id}`, { method: 'DELETE' })
@@ -1634,11 +1651,12 @@ try {
   await archivedToast
   const soirees = (await (await fetch(`${url2}/s/${SLUG}/soirees.json`)).json()) as any
   assert(soirees.current && soirees.current.players > 0, 'la soirée en cours doit figurer dans l’historique')
+  // Rangée, elle reste en cours : l'historique la montre à part, sous son titre.
   assert(
-    soirees.archives.length === 1 && soirees.archives[0].title === 'Soirée de test',
-    'la soirée archivée doit être listée sous son titre',
+    soirees.current.id && soirees.current.title === 'Soirée de test' && soirees.archives.length === 0,
+    'la soirée rangée doit être montrée, en cours, sous son titre',
   )
-  const archiveId = soirees.archives[0].id
+  const archiveId = soirees.current.id
   // L'ancienne adresse d'une archive mène à celle de l'espace par défaut.
   const archivedBilan = (await (await fetch(`${url2}/soirees/${archiveId}/bilan.json`)).json()) as any
   assert(archivedBilan.archive?.id === archiveId, 'le bilan archivé doit dire quelle soirée il relit')
@@ -2012,12 +2030,11 @@ try {
       ;(pHost as any).emit('host:command', { sessionId: pSession, command: { type: 'next' } })
     }
   }
-  const attendu =
-    XP.presence +
-    QUESTIONS_PROFILS * XP.parReponse +
-    QUESTIONS_PROFILS * XP.parBonneReponse +
-    XP.podium[0] +
-    XP.vainqueurDeQuiz
+  // Chaque question est posée à trois joueurs — Bob compte, même muet : elle
+  // rapporte. Trois bonnes réponses d'Alice, seule à trouver : ni réflexe
+  // (il en faut trois pour un tiers le plus rapide), ni podium de quiz (il
+  // faut cinq questions).
+  const attendu = QUESTIONS_PROFILS * (XP.reponse + XP.juste)
 
   const profilDe = async (cookie: string) =>
     (
@@ -2041,21 +2058,57 @@ try {
     'l’expérience est en base dès la fin du quiz, sans attendre l’archivage',
   )
 
-  // Ranger la soirée recrédite les mêmes chiffres — la ligne est remplacée,
-  // pas ajoutée — et c'est là, en plus, que tombent les badges.
+  // Le niveau se voit de toute la salle — et l'anonyme ne porte toujours rien.
+  const temoin = clientIo(pUrl, { transports: ['websocket'] })
+  const vueSalle = waitFor<any>(temoin, 'party:snapshot', s => s.players.length === 3, 'l’instantané du témoin')
+  await emitAck(temoin, 'party:watch', { slug: SLUG })
+  const salle = await vueSalle
+  const ligneAlice = salle.players.find((p: any) => p.id === aliceIn.playerId)
+  assert(
+    ligneAlice?.niveau === niveauPour(attendu) && ligneAlice?.finition === 'mat',
+    `le niveau d’Alice doit voyager dans l’instantané (vu ${ligneAlice?.niveau})`,
+  )
+  const ligneBob = salle.players.find((p: any) => p.id === anonIn.playerId)
+  assert(
+    ligneBob && ligneBob.niveau === undefined && ligneBob.finition === undefined && ligneBob.eclat === undefined,
+    'un invité anonyme ne porte ni niveau, ni finition, ni éclat',
+  )
+  temoin.disconnect()
+
+  // L'ancien « Sauvegarder », qu'un écran d'avant peut encore envoyer, range
+  // la soirée et recrédite les mêmes chiffres — la ligne est remplacée, pas
+  // ajoutée — sans rien décerner : les prix ne se décident qu'à la clôture.
   const range = waitFor<any>(pHost, 'toast', () => true, 'la soirée rangée')
   ;(pHost as any).emit('host:archiveParty', { title: 'Soirée des profils' })
   await range
+  await new Promise(r => setTimeout(r, 400))
+  const aliceRangee = await profilDe(aliceCookie)
+  assert(aliceRangee.xp === attendu, `ranger la soirée ne recrédite pas en double (${aliceRangee.xp})`)
+  assert(aliceRangee.vitrine.length === 0, 'et ne décerne encore aucun prix')
+
+  // « Clore la soirée » : le seul geste de fin. Chaque téléphone reçoit sa
+  // fin de soirée — son rang, et ce que son profil y a gagné.
+  const finAlice = waitFor<any>(aliceTel, 'soiree:fin', () => true, 'la fin de soirée d’Alice')
+  const finBob = waitFor<any>(anonyme, 'soiree:fin', () => true, 'la fin de soirée de Bob')
+  const cloture = waitFor<any>(pHost, 'soiree:cloture', () => true, 'la clôture sur l’écran commun')
+  const close = waitFor<any>(pHost, 'toast', () => true, 'la soirée close')
+  ;(pHost as any).emit('host:closeParty', { title: 'Soirée des profils' })
+  const fin = await finAlice
+  assert(fin.rang === 1 && fin.profil?.xp === attendu, `Alice lit sa soirée : première, ${attendu} points d’expérience`)
+  assert(fin.soiree.titre === 'Soirée des profils' && fin.soiree.slug === SLUG, 'et où la relire')
+  assert((await finBob).profil === undefined, 'l’anonyme reçoit sa fin de soirée, sans bloc de profil')
+  assert((await cloture).podium[0]?.nom === 'Alice', 'l’écran commun annonce le podium de la soirée')
+  assert((await close).kind === 'info', 'la clôture réussit')
   await new Promise(r => setTimeout(r, 400))
 
   const aliceApres = await profilDe(aliceCookie)
   assert(aliceApres.xp === attendu, `Alice doit gagner ${attendu} points d’expérience, elle en a ${aliceApres.xp}`)
   assert(aliceApres.niveau === niveauPour(attendu), `son niveau doit suivre son expérience (${aliceApres.niveau})`)
-  // Chloé a joué et répondu, mais faux et sans podium : elle gagne moins.
+  // Chloé a joué et répondu, mais faux : elle gagne ses réponses, pas la justesse.
   const chloeApres = await profilDe(chloeCookie)
   assert(
-    chloeApres.xp === XP.presence + QUESTIONS_PROFILS * XP.parReponse && chloeApres.xp < aliceApres.xp,
-    `Chloé gagne la présence et ses réponses, pas la justesse (${chloeApres.xp})`,
+    chloeApres.xp === QUESTIONS_PROFILS * XP.reponse && chloeApres.xp < aliceApres.xp,
+    `Chloé gagne ses réponses, pas la justesse (${chloeApres.xp})`,
   )
 
   // ── Les badges ────────────────────────────────────────────────────────
@@ -2064,14 +2117,13 @@ try {
   // font les badges : pas de second catalogue à tenir, et ce que la salle a
   // entendu est exactement ce qui se range dans l'étagère.
   const cles = (p: any) => (p.vitrine as any[]).map(b => b.key)
-  assert(cles(aliceApres).includes('carriere:premiere'), 'la toute première soirée décroche son badge de carrière')
   assert(
-    cles(aliceApres).some((k: string) => !k.startsWith('carriere:')),
+    cles(aliceApres).some((k: string) => !k.startsWith('hf:')),
     `Alice doit décrocher au moins un prix de soirée (vu : ${cles(aliceApres).join(', ') || 'aucun'})`,
   )
   // Répondre à côté vaut des prix aussi — Le Cancre Magnifique en est un.
   assert(
-    cles(chloeApres).some((k: string) => !k.startsWith('carriere:')),
+    cles(chloeApres).some((k: string) => !k.startsWith('hf:')),
     `Chloé aussi, même en répondant faux (vu : ${cles(chloeApres).join(', ') || 'aucun'})`,
   )
   assert(
@@ -2093,36 +2145,10 @@ try {
     `le relevé garde les chiffres bruts, pas seulement les points (${aliceApres.soirees[0]?.releve.justes})`,
   )
 
-  // Ranger deux fois ne double pas : la ligne est remplacée, pas ajoutée.
-  const rerange = waitFor<any>(pHost, 'toast', () => true, 'la soirée rangée deux fois')
-  ;(pHost as any).emit('host:archiveParty', { title: 'Soirée des profils' })
-  await rerange
-  await new Promise(r => setTimeout(r, 400))
-  const aliceEncore = await profilDe(aliceCookie)
-  assert(aliceEncore.xp === attendu, 'ranger deux fois la même soirée ne crédite qu’une fois')
-  assert(
-    aliceEncore.vitrine.length === aliceApres.vitrine.length &&
-      aliceEncore.vitrine.every((b: any) => b.fois === 1),
-    'ni ne décerne deux fois les mêmes badges',
-  )
+  // Rangée puis close, la soirée n'a crédité qu'une fois et décerné qu'une fois.
+  assert(aliceApres.soirees.length === 1, 'rangée puis close, une seule soirée dans l’historique du profil')
+  assert(aliceApres.vitrine.every((b: any) => b.fois === 1), 'ni ne décerne deux fois les mêmes badges')
 
-  // Le niveau se voit de toute la salle — et l'anonyme ne porte toujours rien.
-  const temoin = clientIo(pUrl, { transports: ['websocket'] })
-  const vueSalle = waitFor<any>(temoin, 'party:snapshot', () => true, 'l’instantané du témoin')
-  await emitAck(temoin, 'party:watch', { slug: SLUG })
-  const salle = await vueSalle
-  const ligneAlice = salle.players.find((p: any) => p.id === aliceIn.playerId)
-  assert(
-    ligneAlice?.niveau === aliceApres.niveau && ligneAlice?.finition === 'mat',
-    `le niveau d’Alice doit voyager dans l’instantané (vu ${ligneAlice?.niveau})`,
-  )
-  const ligneBob = salle.players.find((p: any) => p.id === anonIn.playerId)
-  assert(
-    ligneBob && ligneBob.niveau === undefined && ligneBob.finition === undefined && ligneBob.eclat === undefined,
-    'un invité anonyme ne porte ni niveau, ni finition, ni éclat',
-  )
-
-  temoin.disconnect()
   aliceTel.disconnect()
   prete.disconnect()
   anonyme.disconnect()
@@ -2285,7 +2311,8 @@ try {
   await eRange
   await new Promise(r => setTimeout(r, 400))
   const eSoirees = (await (await fetch(`${eUrl}/s/${SLUG}/soirees.json`)).json()) as any
-  const eArchiveId = eSoirees.archives?.[0]?.id ?? eSoirees[0]?.id
+  // Rangée, elle reste en cours : l'historique la montre à part.
+  const eArchiveId = eSoirees.current?.id
   assert(eArchiveId, 'la soirée des homonymes doit être dans l’historique')
   const eRecap = (await (await fetch(`${eUrl}/s/${SLUG}/soirees/${eArchiveId}/recap.json`)).json()) as any
   const eClassement = (eRecap.recap ?? eRecap).ranking as any[]
@@ -2424,7 +2451,7 @@ try {
     '   statistiques et prix remis à la main, bilan question par question et export, anciennes adresses,',
   )
   console.log('   reprise après coupure avec deux parties en cours, historique des soirées, mise à jour d’une base d’avant les comptes,')
-  console.log('   profils joueurs : inscription, code de secours, rattachement, expérience créditée dès la fin du quiz et badges à l’archivage,')
+  console.log('   profils joueurs : inscription, code de secours, rattachement, expérience créditée dès la fin du quiz, prix et fin de soirée à la clôture,')
   console.log('   entrée : identité prise dans le profil, identifiant libre proposé, homonymes marqués jusque sur l’écran commun et dans l’archive,')
   console.log('   une seule porte : le profil rattaché ouvre la console, la referme, et ne s’empare pas de l’espace du voisin')
   process.exit(0)

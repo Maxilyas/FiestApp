@@ -31,6 +31,11 @@ export interface AnswerRow {
   durationMs: number
   /** La question portait une photo « mémoire ». */
   observed: boolean
+  /**
+   * La catégorie de la question (`shared/categories.ts`), si elle en portait
+   * une. Absente des lignes d'avant les catégories.
+   */
+  category?: string | null
   createdAt: number
 }
 
