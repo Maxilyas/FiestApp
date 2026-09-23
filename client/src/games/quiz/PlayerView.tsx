@@ -225,6 +225,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
             <Icon name="pause" /> En pause — regarde l'écran commun
           </p>
         )}
+        {v.category && <span className="label quiz-categorie">{v.category}</span>}
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
         {v.photoGone && (

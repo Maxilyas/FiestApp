@@ -412,6 +412,18 @@ export async function createQuizServer(opts: QuizServerOptions) {
       .catch((e: unknown) => repondreErreur(req, res, e))
   })
 
+  // La carte d'un invité de la soirée en cours : ce qu'on voit en touchant son
+  // nom. Publique, comme le souvenir — et cloisonnée : l'invité d'un autre
+  // espace vaut « introuvable ».
+  app.get('/s/:slug/joueurs/:id.json', withSpace, (req, res) => {
+    const account = spaceOf(res)
+    registry
+      .get(account.id)
+      .carteDe(req.params.id)
+      .then(carte => (carte ? res.json(carte) : res.status(404).json({ error: 'Joueur introuvable' })))
+      .catch((e: unknown) => repondreErreur(req, res, e))
+  })
+
   // Une soirée archivée se relit avec les mêmes pages que celle en cours.
   const archived = (build: (archive: PartyArchive) => object) => (req: Request, res: Response) => {
     const account = spaceOf(res)

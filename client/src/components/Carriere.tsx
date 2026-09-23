@@ -4,7 +4,7 @@ import type { HautFaitVu } from '../../../shared/hautsfaits'
 import { NOM_PALIER, clePalier, hautFait } from '../../../shared/hautsfaits'
 import { LEGENDAIRES, progresVers } from '../../../shared/legendaires'
 import { NOM_RARETE } from '../../../shared/badges'
-import { formatNumber } from '../format'
+import { formatNumber, pourcent, secondes } from '../format'
 import { Legendaire } from './Legendaire'
 
 /**
@@ -220,9 +220,6 @@ function LigneSoiree({ h }: { h: HautFaitVu }) {
   )
 }
 
-const pourcent = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)} %`)
-const secondes = (ms: number | null) => (ms === null ? '—' : `${(ms / 1000).toFixed(1).replace('.', ',')} s`)
-
 /** La fiche : les chiffres d'une carrière, lisibles d'un coup d'œil. */
 export function FicheCarriere({ fiche }: { fiche: Fiche }) {
   const cases: [string, string][] = [
@@ -233,16 +230,16 @@ export function FicheCarriere({ fiche }: { fiche: Fiche }) {
     ['Quiz gagnés', formatNumber(fiche.quizGagnes)],
     ['Podiums de quiz', formatNumber(fiche.podiumsQuiz)],
     ['Estimations exactes', formatNumber(fiche.estimationsExactes)],
-    ['Écart moyen', fiche.ecartMoyen === null ? '—' : pourcent(fiche.ecartMoyen)],
+    ['Écart moyen', pourcent(fiche.ecartMoyen)],
     ['Flair', pourcent(fiche.flair)],
     ['Soirées', formatNumber(fiche.soirees)],
     ['Réponses', formatNumber(fiche.reponses)],
     ['Hôtes différents', formatNumber(fiche.hotes)],
   ]
   return (
-    <dl className="fiche">
+    <dl className="chiffres">
       {cases.map(([titre, valeur]) => (
-        <div key={titre} className="fiche-case">
+        <div key={titre} className="chiffre">
           <dt className="label">{titre}</dt>
           <dd className="num">{valeur}</dd>
         </div>

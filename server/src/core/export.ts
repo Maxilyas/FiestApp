@@ -231,7 +231,7 @@ export function exportFiles(review: Review): { name: string; content: string }[]
         q.kind === 'number' ? '' : pct(q.answered ? q.correctCount / q.answered : null),
         secs(q.avgMs),
         q.kind === 'number'
-          ? q.closest ? `${who(q.closest.playerId)} (${q.closest.value} ${q.unit})`.trim() : ''
+          ? q.closest.map(c => `${who(c.playerId)} (${c.value} ${q.unit})`.trim()).join(', ')
           : q.fastest ? `${who(q.fastest.playerId)} (${formatSeconds(q.fastest.ms)})` : '',
         q.changes,
         ...[0, 1, 2, 3].map(i => (q.answers[i] === undefined ? '' : `${q.answers[i]} : ${q.counts[i]}`)),

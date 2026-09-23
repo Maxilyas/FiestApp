@@ -1,6 +1,7 @@
 // La bibliothèque de quiz : ce qu'on édite dans le navigateur et qu'on stocke
 // en base. Distinct des vues de jeu (shared/games/quiz.ts), qui sont ce que
 // les téléphones reçoivent pendant une partie.
+import { categorieDe } from './categories'
 import { tronquer } from './avatars'
 
 export const MIN_ANSWERS = 2
@@ -54,6 +55,11 @@ export interface QuizQuestionDef {
    * `null` (le cas courant) = la photo reste affichée pendant la question.
    */
   observeSeconds: number | null
+  /**
+   * Sa catégorie, prise dans la liste fixe (`shared/categories.ts`), ou null.
+   * Absente des quiz écrits avant les catégories.
+   */
+  category?: string | null
 }
 
 export interface QuizDef {
@@ -84,6 +90,7 @@ export type PlayableQuestion =
       duration: number
       image: string | null
       observeSeconds: number | null
+      category?: string | null
     }
   | {
       kind: 'number'
@@ -93,6 +100,7 @@ export type PlayableQuestion =
       duration: number
       image: string | null
       observeSeconds: number | null
+      category?: string | null
     }
 
 /**
@@ -118,6 +126,7 @@ export function emptyQuestion(): QuizQuestionDef {
     duration: DEFAULT_DURATION,
     image: null,
     observeSeconds: null,
+    category: null,
   }
 }
 
@@ -180,6 +189,7 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
     image && typeof q.observeSeconds === 'number' && Number.isFinite(q.observeSeconds)
       ? Math.min(MAX_OBSERVE, Math.max(MIN_OBSERVE, Math.round(q.observeSeconds)))
       : null
+  const category = categorieDe(q.category)
 
   if (q.kind === 'number') {
     if (typeof q.target !== 'number' || !Number.isFinite(q.target)) return null
@@ -194,6 +204,7 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
       duration,
       image,
       observeSeconds,
+      category,
     }
   }
 
@@ -204,7 +215,7 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
   if (kept.length < MIN_ANSWERS) return null
   const correct = kept.findIndex(a => a.index === q.correct)
   if (correct < 0) return null // la bonne réponse pointe une case vide
-  return { kind: 'choice', text, answers: kept.map(a => a.text), correct, duration, image, observeSeconds }
+  return { kind: 'choice', text, answers: kept.map(a => a.text), correct, duration, image, observeSeconds, category }
 }
 
 /** Ce qui manque à une question pour être jouable — message affiché dans l'éditeur. */
@@ -294,17 +305,30 @@ export function parseImportedQuestions(text: string): ImportResult {
   let unmarked = 0
   let ignored = 0
 
+  // La catégorie en cours : une ligne « # Cinéma » range les questions qui
+  // suivent, jusqu'à la prochaine. « # » tout seul les laisse sans catégorie.
+  // Collé au dièse, seul un nom de la liste en est une : « #1 des ventes en
+  // 1985 ? » est une question, qu'on aurait prise pour une catégorie inconnue.
+  const estCategorie = (l: string) => /^#(\s|$)/.test(l) || (l.startsWith('#') && categorieDe(l.slice(1)) !== null)
+  let categorie: string | null = null
   for (const block of blocks) {
     const lines = block
       .split(SEPARATEUR_LIGNES)
       .map(l => l.trim())
       .filter(l => l.length > 0)
+    while (lines.length > 0 && estCategorie(lines[0])) {
+      const nom = lines.shift()!.slice(1).trim()
+      categorie = nom ? categorieDe(nom) : null
+      // Une catégorie qu'on ne connaît pas se signale, comme un bloc illisible.
+      if (nom && !categorie) ignored++
+    }
     if (lines.length < 2) {
       if (lines.length === 1) ignored++
       continue
     }
 
     const question = emptyQuestion()
+    question.category = categorie
     // Coupé par caractère, jamais au milieu d'un emoji.
     question.text = tronquer(lines[0], 300)
     const rest = lines.slice(1)

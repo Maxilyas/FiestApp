@@ -54,6 +54,8 @@ export interface ArchivedAnswer {
   points: number
   durationMs: number
   observed: boolean
+  /** La catégorie de la question, si elle en portait une. Absente des archives d'avant. */
+  category?: string | null
   createdAt: number
 }
 

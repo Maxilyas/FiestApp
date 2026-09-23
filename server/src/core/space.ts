@@ -17,7 +17,10 @@ import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
 import { ProfileStore, type PrixDeSoiree } from '../auth/profiles'
-import { distinctions, finitionPortee, finitionsOuvertes, niveauPour, type Finition } from '../../../shared/profil'
+import { distinctions, ficheDe, finitionPortee, finitionsOuvertes, niveauPour, type Finition } from '../../../shared/profil'
+import { rangPartage } from '../../../shared/classement'
+import type { CarteDeJoueur } from '../../../shared/carte'
+import type { BadgePorte, Rarete } from '../../../shared/badges'
 import { hautFaitDeSoiree, palierDe, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, SoireeClose } from '../../../shared/fin'
 import type { PartySnapshot, Recap } from '../../../shared/types'
@@ -337,6 +340,64 @@ export class SpaceRuntime {
   private horsConcours(): ReadonlySet<string> {
     const lui = this.deps.auth.byId(this.spaceId)?.profileId
     return new Set(lui ? [lui] : [])
+  }
+
+  /**
+   * La carte d'un invité de la soirée en cours : ce qu'on voit en touchant
+   * son nom — sa soirée, et son profil s'il en a un. Null s'il n'en est pas :
+   * un identifiant d'une autre soirée, ou d'un autre espace, vaut
+   * « introuvable ».
+   */
+  async carteDe(playerId: string): Promise<CarteDeJoueur | null> {
+    // Tout ce qui vient de la soirée se lit avant la première attente.
+    const rec = this.party.get(playerId)
+    if (!rec) return null
+    const totals = this.ledger.allTotals()
+    const points = totals.get(playerId) ?? 0
+    const p = this.party.publicOne(playerId, points)
+    if (!p) return null
+    const positifs = [...totals.values()].filter(t => t > 0)
+    const journal = this.answers.all()
+    const lignes = journal.filter(r => r.playerId === playerId)
+    const carte: CarteDeJoueur = {
+      nom: p.nomAffiche ?? p.name,
+      avatar: p.avatar,
+      ...distinctions(p),
+      ceSoir: {
+        points,
+        rang: points > 0 ? rangPartage(points, positifs) : 0,
+        // Toute la salle qui a joué, pas seulement ceux qui ont marqué : « 1ᵉʳ
+        // sur 2 » quand cinq ont répondu laissait croire à une salle vide.
+        joueurs: new Set(journal.filter(r => r.answered).map(r => r.playerId)).size,
+        reponses: lignes.filter(r => r.answered).length,
+        justes: lignes.filter(r => r.correct === true).length,
+      },
+    }
+    if (!rec.profileId) return carte
+    const profil = await this.deps.profiles.byId(rec.profileId)
+    if (!profil) return carte
+    const [vitrine, carriere] = await Promise.all([
+      this.deps.profiles.badgesOf(profil.id),
+      this.deps.profiles.careerOf(profil.id),
+    ])
+    const fiche = ficheDe(carriere)
+    const recompenses = [...this.deps.profiles.recompensesOf(profil.id).keys()]
+    carte.profil = {
+      prenom: profil.name,
+      niveau: niveauPour(profil.xp),
+      legendaires: this.deps.profiles.legendairesOf(profil.id),
+      vitrine: plusRares(vitrine, 6),
+      // Un palier de carrière compte pour son haut fait, pas pour trois.
+      hautsFaits: new Set(recompenses.filter(k => k.startsWith('hf:')).map(k => k.replace(/:[123]$/, ''))).size,
+      fiche: {
+        soirees: fiche.soirees,
+        precision: fiche.precision,
+        reflexeMoyenMs: fiche.reflexeMoyenMs,
+        quizGagnes: fiche.quizGagnes,
+        meilleureSerie: fiche.meilleureSerie,
+      },
+    }
+    return carte
   }
 
   /** Le nom qu'un invité porte sur les écrans, et ce qu'il porte. */
@@ -1067,6 +1128,14 @@ export class SpaceRuntime {
     this.pending = null
     this.engine.stop()
   }
+}
+
+const ORDRE_RARETE: Record<Rarete, number> = { legendaire: 5, epique: 4, rare: 3, peucommune: 2, commune: 1 }
+
+/** Les récompenses les plus rares d'abord, puis les plus souvent regagnées, puis les plus récentes. */
+function plusRares(vitrine: BadgePorte[], n: number): BadgePorte[] {
+  const rang = (b: BadgePorte) => (b.rarete ? ORDRE_RARETE[b.rarete] : 0)
+  return [...vitrine].sort((a, b) => rang(b) - rang(a) || b.fois - a.fois || b.dernier - a.dernier).slice(0, n)
 }
 
 /**

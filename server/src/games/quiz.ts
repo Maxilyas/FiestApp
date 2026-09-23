@@ -2,7 +2,7 @@ import type { GameContext, GameModule, GameSessionRec, ViewContext } from '../co
 import { playableQuestions, type PlayableQuestion, type QuizDef } from '../../../shared/library'
 import { distinctions } from '../../../shared/profil'
 import { nomAffiche } from '../../../shared/homonymes'
-import { classer, type Classe } from '../../../shared/classement'
+import { classer, rangPartage, type Classe } from '../../../shared/classement'
 import type {
   QuizAction,
   QuizCommand,
@@ -227,7 +227,7 @@ function scoreQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
 
   const guesses = Object.entries(st.responses)
     .filter(([, r]) => r.value !== null)
-    .map(([playerId, r]) => ({ playerId, error: Math.abs(r.value! - q.target), ms: r.ms }))
+    .map(([playerId, r]) => ({ playerId, error: Math.abs(r.value! - q.target) }))
   if (guesses.length === 0) return
 
   // La proximité se juge au rang dans le groupe, pas à la distance. Une
@@ -236,15 +236,20 @@ function scoreQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   // frappe ou provocation — repoussait le maximum si loin que toute la salle
   // touchait le plein de points, et la question ne classait plus personne.
   // Avec le rang, l'écart des autres ne change rien à vos points.
-  // À égalité d'écart, le plus rapide passe devant.
-  const ranked = [...guesses].sort((a, b) => a.error - b.error || a.ms - b.ms)
-  const last = ranked.length - 1
-  ranked.forEach((g, i) => {
+  //
+  // Le rang se partage à égalité d'écart (`shared/classement.ts`) : deux
+  // « 1994 » exacts sont premiers tous les deux, et touchent autant, bonus du
+  // plus proche compris. La rapidité les départageait — cinquante-deux points
+  // d'écart pour une seconde de retard sur une réponse identique.
+  const ecarts = guesses.map(g => -g.error)
+  const last = guesses.length - 1
+  for (const g of guesses) {
+    const rang = rangPartage(-g.error, ecarts)
     // Seul à répondre : tout le monde est « le plus proche », personne n'est pénalisé.
-    const ratio = last === 0 ? 1 : (last - i) / last
-    const points = GUESS_POINTS + Math.round(PROXIMITY_POINTS * ratio) + (i === 0 ? CLOSEST_BONUS : 0)
+    const ratio = last === 0 ? 1 : (last - (rang - 1)) / last
+    const points = GUESS_POINTS + Math.round(PROXIMITY_POINTS * ratio) + (rang === 1 ? CLOSEST_BONUS : 0)
     award(sess, g.playerId, points, ctx)
-  })
+  }
 }
 
 /**
@@ -420,6 +425,7 @@ function logQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
           points: st.lastAwards[playerId] ?? 0,
           durationMs,
           observed: !!q.image && !!q.observeSeconds,
+          category: q.category ?? null,
         }
       }),
   )
@@ -685,6 +691,7 @@ export const quizModule: GameModule<QuizState> = {
         text: q.text,
         answers: q.kind === 'choice' ? q.answers : undefined,
         unit: q.kind === 'number' ? q.unit : undefined,
+        category: q.category ?? undefined,
         // Photo « mémoire » : elle a disparu, et son URL avec elle. Elle
         // revient à la révélation, pour qu'on puisse vérifier ensemble.
         image: hiddenPhoto(q, st.phase) ? null : q.image,
@@ -748,6 +755,7 @@ export const quizModule: GameModule<QuizState> = {
         text: q.text,
         answers: q.kind === 'choice' ? q.answers : undefined,
         unit: q.kind === 'number' ? q.unit : undefined,
+        category: q.category ?? undefined,
         image: hiddenPhoto(q, st.phase) ? null : q.image,
         photoGone: hiddenPhoto(q, st.phase) || undefined,
         deadline: st.deadline,

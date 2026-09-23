@@ -18,6 +18,7 @@ import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
+import { CarteJoueur } from '../components/CarteJoueur'
 
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
@@ -40,6 +41,8 @@ export function PlayerApp() {
   const [montrerProfil, setMontrerProfil] = useState(false)
   /** Le serveur ne connaît pas cette adresse : rien à rejoindre ici. */
   const [spaceError, setSpaceError] = useState('')
+  /** La carte ouverte, celle du joueur dont on a touché le nom. */
+  const [carte, setCarte] = useState<string | null>(null)
 
   // Connexion, présentation à la soirée, puis re-join automatique (refresh,
   // coupure réseau, redémarrage serveur).
@@ -379,8 +382,10 @@ export function PlayerApp() {
           <Icon name="trophy" />
           Classement de la soirée
         </h3>
-        <Leaderboard players={snap.players} compact highlightId={s.me.playerId} />
+        <Leaderboard players={snap.players} compact highlightId={s.me.playerId} onOuvrir={setCarte} />
+        <p className="muted small">Touche un nom pour voir sa carte.</p>
       </div>
+      {carte && <CarteJoueur slug={slug} playerId={carte} onFermer={() => setCarte(null)} />}
 
       <p className="waiting">En attente du prochain quiz…</p>
       {/* Entre deux quiz, c'est le moment où l'on regarde son téléphone. */}

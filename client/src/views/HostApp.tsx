@@ -121,15 +121,21 @@ function TeamGroup({
           <div key={p.id} className={'player-chip' + (p.connected ? '' : ' offline')}>
             <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
             <Niveau niveau={p.niveau} />
+            {/* Un surnom pour la soirée : l'écran commun, le souvenir et le
+                bilan l'affichent ; le profil de l'invité garde son prénom, et
+                la soirée suivante le lui rend. */}
             <button
               className="chip-name"
-              title="Renommer"
-              aria-label={`Renommer ${p.name}`}
+              title="Donner un surnom pour la soirée"
+              aria-label={`Donner un surnom à ${p.name}`}
               onClick={async () => {
                 const name = await promptDialog({
-                  title: `Nouveau prénom pour « ${p.name} »`,
-                  input: { value: p.name, placeholder: 'Prénom', maxLength: 24 },
-                  confirmLabel: 'Renommer',
+                  title: `Un surnom pour « ${p.name} » ce soir`,
+                  message: p.niveau
+                    ? 'Il s’affiche partout ce soir. Son profil garde son prénom, et la soirée suivante le lui rend.'
+                    : 'Il s’affiche partout ce soir, à la place du prénom choisi à l’entrée.',
+                  input: { value: p.name, placeholder: 'Surnom', maxLength: 24 },
+                  confirmLabel: 'Donner ce surnom',
                 })
                 if (name) socket.emit('host:renamePlayer', { playerId: p.id, name })
               }}

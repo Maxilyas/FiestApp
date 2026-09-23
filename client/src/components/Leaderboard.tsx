@@ -8,6 +8,8 @@ interface Props {
   players: PublicPlayer[]
   compact?: boolean
   highlightId?: string
+  /** Toucher un nom ouvre sa carte — sur le téléphone, où l'on a le temps de la lire. */
+  onOuvrir?: (playerId: string) => void
 }
 
 /**
@@ -22,21 +24,39 @@ interface Props {
  * C'est la règle commune (shared/classement.ts) : le podium, le souvenir et
  * le bilan écrivent les ex æquo dans ce même ordre.
  */
-export function Leaderboard({ players, compact, highlightId }: Props) {
+export function Leaderboard({ players, compact, highlightId, onOuvrir }: Props) {
   const rows = classer(players, p => p.score, p => p.nomAffiche ?? p.name, p => p.id)
   const list = compact ? rows.slice(0, 8) : rows
 
   return (
     <div className="leaderboard">
-      {list.map(({ item: p, rang }) => (
-        <div key={p.id} className={'lb-row' + (p.id === highlightId ? ' me' : '')}>
-          <Rank n={rang} />
-          <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
-          <span className="lb-name">{p.nomAffiche ?? p.name}</span>
-          <Niveau niveau={p.niveau} />
-          <span className="lb-score">{p.score}</span>
-        </div>
-      ))}
+      {list.map(({ item: p, rang }) => {
+        const contenu = (
+          <>
+            <Rank n={rang} />
+            <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+            <span className="lb-name">{p.nomAffiche ?? p.name}</span>
+            <Niveau niveau={p.niveau} />
+            <span className="lb-score">{p.score}</span>
+          </>
+        )
+        const classe = 'lb-row' + (p.id === highlightId ? ' me' : '')
+        return onOuvrir ? (
+          <button
+            key={p.id}
+            type="button"
+            className={classe + ' lb-ouvrable'}
+            aria-label={`La carte de ${p.nomAffiche ?? p.name}`}
+            onClick={() => onOuvrir(p.id)}
+          >
+            {contenu}
+          </button>
+        ) : (
+          <div key={p.id} className={classe}>
+            {contenu}
+          </div>
+        )
+      })}
       {list.length === 0 && <p className="muted">Personne pour l'instant…</p>}
       {compact && rows.length > list.length && (
         <p className="muted center">et {rows.length - list.length} autres…</p>

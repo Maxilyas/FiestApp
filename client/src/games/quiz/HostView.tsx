@@ -209,6 +209,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
           />
         )}
 
+        {v.category && <span className="label quiz-categorie">{v.category}</span>}
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
         {v.photoGone && (

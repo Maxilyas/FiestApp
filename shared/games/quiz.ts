@@ -54,6 +54,8 @@ export interface QuizPlayerView {
   text?: string
   answers?: string[]
   unit?: string
+  /** La catégorie de la question, si elle en porte une : l'écran l'affiche au-dessus. */
+  category?: string
   image?: string | null
   /** La photo a été observée puis retirée : à répondre de mémoire. */
   photoGone?: boolean
@@ -100,6 +102,8 @@ export interface QuizHostView {
   text?: string
   answers?: string[]
   unit?: string
+  /** La catégorie de la question, si elle en porte une : l'écran l'affiche au-dessus. */
+  category?: string
   image?: string | null
   /** La photo a été observée puis retirée : à répondre de mémoire. */
   photoGone?: boolean

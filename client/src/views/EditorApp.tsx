@@ -19,6 +19,7 @@ import {
   type QuizQuestionDef,
   type QuizSummary,
 } from '../../../shared/library'
+import { CATEGORIES } from '../../../shared/categories'
 import { UnauthorizedError, api, compressImage } from '../api'
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { confirmDialog, promptDialog } from '../components/Dialog'
@@ -554,9 +555,12 @@ function BulkImport({
       </h3>
       <p className="muted">
         Une ligne vide entre deux questions. L'étoile marque la bonne réponse ; le signe égal
-        transforme la question en estimation chiffrée.
+        transforme la question en estimation chiffrée. Une ligne qui commence par un dièse range
+        les questions qui suivent dans une catégorie — « # Musique », « # Cinéma »…
       </p>
-      <pre className="import-example">{`Quelle danse Romane préfère-t-elle ?
+      <pre className="import-example">{`# Autour de la fête
+
+Quelle danse Romane préfère-t-elle ?
 * La salsa
 Le tango
 La bachata
@@ -882,6 +886,25 @@ function QuestionCard({
       )}
 
       <div className="question-tools">
+        {/* La catégorie : une liste fixe, la même chez tous les animateurs —
+            c'est ce qui permet à la fiche d'un joueur de l'additionner d'une
+            soirée à l'autre. */}
+        <label className="row">
+          <span className="muted">Catégorie</span>
+          <select
+            className="team-emoji-select categorie-select"
+            aria-label="Catégorie de la question"
+            value={question.category ?? ''}
+            onChange={e => onChange(q => ({ ...q, category: e.target.value || null }))}
+          >
+            <option value="">Aucune</option>
+            {CATEGORIES.map(c => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="row">
           <span className="muted">Temps</span>
           <input

@@ -149,7 +149,11 @@ export interface ClientToServerEvents {
    * seule après chaque quiz.
    */
   'host:archiveParty': (payload: { title?: string }) => void
-  /** Corrige un pseudo affiché sur l'écran commun. */
+  /**
+   * Donne à un invité un surnom pour la soirée — ou corrige un pseudo. Le
+   * profil de l'invité garde son prénom : la soirée suivante le lui rend, et
+   * sa carte dit les deux.
+   */
   'host:renamePlayer': (payload: { playerId: string; name: string }) => void
   /** Exclut un invité et efface ses points. */
   'host:removePlayer': (payload: { playerId: string }) => void

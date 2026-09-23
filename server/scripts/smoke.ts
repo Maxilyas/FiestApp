@@ -1431,7 +1431,7 @@ try {
     'chaque question du bilan doit porter son intitulé et sa bonne réponse',
   )
   assert(
-    bilan.questions.some((q: any) => q.kind === 'number' && q.closest),
+    bilan.questions.some((q: any) => q.kind === 'number' && q.closest.length > 0),
     'une estimation doit désigner la proposition la plus proche',
   )
   const aliceBilan = bilan.players.find((p: any) => p.id === aliceAck.playerId)

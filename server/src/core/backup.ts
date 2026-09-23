@@ -143,8 +143,8 @@ const SQL = {
   gain: `INSERT INTO party_scores (id, player_id, session_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO NOTHING`,
   reponse: `INSERT INTO party_answers (id, session_id, quiz_title, q_index, kind, player_id, answered,
-              correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, space_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, space_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO NOTHING`,
   partie: `INSERT INTO party_sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -233,6 +233,7 @@ const ligneReponse = (spaceId: string, r: ReponseMiroir) =>
     r.durationMs,
     r.observed ? 1 : 0,
     r.createdAt,
+    r.category ?? null,
     spaceId,
   ])
 const lignePartie = (spaceId: string, s: SessionRow) =>
@@ -428,6 +429,8 @@ export class PartyBackup {
     await ajouterColonne(this.client, 'party_players', 'team_id', 'TEXT')
     await ajouterColonne(this.client, 'party_players', 'profile_id', 'TEXT')
     for (const table of MIRROR_TABLES) await ajouterColonne(this.client, table, 'space_id', 'TEXT')
+    // La catégorie des questions est arrivée après : un miroir d'avant ne l'a pas.
+    await ajouterColonne(this.client, 'party_answers', 'category', 'TEXT')
     await this.client.batch(
       [
         ...MIRROR_TABLES.map(table => `CREATE INDEX IF NOT EXISTS idx_${table}_space ON ${table}(space_id)`),
@@ -1090,8 +1093,8 @@ export class PartyBackup {
     )
     const insertAnswer = db.prepare(
       `INSERT OR IGNORE INTO answer_log (uid, session_id, quiz_title, q_index, kind, player_id, answered, correct,
-         choice, value, target, ms, changes, points, duration_ms, observed, created_at, space_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, space_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     const insertSession = db.prepare(
       `INSERT OR IGNORE INTO sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
@@ -1168,6 +1171,7 @@ export class PartyBackup {
           r.durationMs,
           r.observed ? 1 : 0,
           r.createdAt,
+          r.category ?? null,
           spaceOf(raw),
         )
       }
