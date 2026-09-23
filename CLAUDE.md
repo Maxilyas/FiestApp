@@ -57,6 +57,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) |
 | `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
+| `shared/echange.ts` | un quiz qu'on emporte : le fichier d'export (questions, photos en clair), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin |
 | `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare |
 | `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
 | `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
@@ -75,7 +76,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
 | `client/src/components/Liaison.tsx` | ce que voit l'invité quand la liaison tombe |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
-| `server/scripts/calibrage.ts` | combien de quiz demande chaque légendaire : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits (`npx tsx scripts/calibrage.ts`, format réglable) |
+| `server/scripts/calibrage.ts` | combien de quiz demande chaque légendaire, et combien de soirées chaque niveau : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits et de l'expérience (`npx tsx scripts/calibrage.ts`, format réglable) |
 
 ## Les invariants — à ne jamais casser
 
@@ -158,7 +159,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
     de passe change, que son code de secours sert ou qu'il perd l'espace —
     détaché, ou remplacé par un autre profil —, sauf la console d'où l'on
     fait ce geste. Celles du mot de passe du compte ne bougent pas : c'est
-    l'écran commun de la fête. Pour poser
+    l'écran commun de la soirée. Pour poser
     le lien, il faut prouver les deux identités ; après, une seule porte
     suffit. Ne fusionne pas les deux tables : l'identifiant d'un compte est
     la clé de partition de dix tables et de toutes les archives.
@@ -202,15 +203,20 @@ server/test/        un fichier par thème, un serveur jetable chacun
     de progression, pas de ligne d'étagère (`badgesOf` les écarte), pas même
     un compte de badges qui bougerait. Un Divin ne prend ni finition ni
     Éclat.
-22. **Durcir un légendaire ne le reprend à personne.** Les légendaires se
-    dérivent des récompenses à chaque lecture : relever un seuil suffisait à
-    reprendre celui qu'on portait, et l'Arbre-Monde avec. Une règle qui se
-    durcit ajoute donc une entrée à `DURCISSEMENTS` (`auth/profiles.ts`) —
-    les règles d'avant, un drapeau neuf dans `meta` —, et n'en modifie
-    jamais une : au démarrage, chaque profil retient dans
-    `profile_legendaires` la règle sous laquelle il avait chacun, et le
-    garde tant qu'elle tient. Une soirée retirée de l'historique emporte
-    donc encore ce qu'elle avait fait tomber.
+22. **Durcir un légendaire ou la courbe des niveaux ne reprend rien à
+    personne.** Les légendaires et les niveaux se dérivent à chaque lecture :
+    relever un seuil suffisait à reprendre le légendaire qu'on portait,
+    l'Arbre-Monde avec, et durcir la courbe à faire redescendre de niveau,
+    finitions comprises. Une règle qui se durcit ajoute donc une entrée —
+    à `DURCISSEMENTS` pour un légendaire, à `COURBES_D_AVANT` pour la courbe
+    (`auth/profiles.ts`), avec un drapeau neuf dans `meta` — et n'en modifie
+    jamais une : au démarrage, chaque profil retient ce qu'il avait
+    (`profile_legendaires`, `profile_niveaux`), et le garde tant que la
+    règle d'alors le lui donne. Une soirée retirée de l'historique emporte
+    donc encore ce qu'elle avait fait tomber. Et **tout niveau d'un profil
+    passe par `niveauDuProfil`** (`ProfileStore.niveauOf`, `gardesOf`) : un
+    seul `niveauPour(profil.xp)` oublié, et le mur afficherait un autre
+    niveau que sa page.
 
 ## Les conventions
 
@@ -327,10 +333,11 @@ sans `QUIZ_DB_URL`.
   `XP_PALIER`, l'expérience des hauts faits, `CHANCE_ECLAT`…) sans le dire :
   ce sont des choix de produit, pas des constantes techniques — et sans
   incrémenter `VERSION_BAREME`, l'historique garderait l'ancien.
-- Bouger le seuil d'un légendaire sans le mesurer ni le dire. C'est aussi un
-  choix de produit, mesuré par `calibrage.ts` ; il se relit à chaque
-  lecture, sans `VERSION_BAREME`, et ne se relève jamais sans son entrée à
-  `DURCISSEMENTS` (invariant 22).
+- Bouger le seuil d'un légendaire ou la courbe des niveaux
+  (`XP_PAR_PALIER`) sans le mesurer ni le dire. Ce sont aussi des choix de
+  produit, mesurés par `calibrage.ts` ; ils se relisent à chaque lecture,
+  sans `VERSION_BAREME`, et ne se durcissent jamais sans leur entrée à
+  `DURCISSEMENTS` ou à `COURBES_D_AVANT` (invariant 22).
 - Rendre la connexion obligatoire. L'entrée d'une soirée **est** un écran de
   connexion, et l'accueil (`/`) en est un aussi : c'est un choix assumé — mais
   « Jouer sans compte » et « Rejoindre une soirée » y ont exactement le format

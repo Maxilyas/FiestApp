@@ -209,7 +209,7 @@ export class AuthStore {
     return undefined
   }
 
-  /** Le compte derrière un nom d'adresse, tel qu'il a pu être tapé (« Romane » vaut « romane »). */
+  /** Le compte derrière un nom d'adresse, tel qu'il a pu être tapé (« Demo » vaut « demo »). */
   bySlug(slug: unknown): AccountRec | undefined {
     const clean = normalizeSlug(slug)
     if (!clean) return undefined

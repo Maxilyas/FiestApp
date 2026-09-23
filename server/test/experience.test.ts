@@ -336,7 +336,10 @@ test('la courbe se mérite : le niveau 2 le premier soir, le niveau 10 au bout d
   // Une soirée ordinaire : trente questions, toutes répondues, treize justes.
   const ordinaire = 30 * XP.reponse + 13 * XP.juste
   assert.equal(niveauPour(ordinaire), 2)
-  // Le seuil du niveau 10 demande une vingtaine de soirées ordinaires.
+  // Le seuil du niveau 10 demande une soixantaine de ces soirées-là, sans
+  // réflexe ni podium : avec eux, `calibrage.ts` compte une douzaine à une
+  // trentaine de soirées selon leur longueur. À 25, il en fallait une
+  // trentaine, et les vraies soirées y arrivaient en six.
   const soirees = Math.ceil(xpDuNiveau(10) / ordinaire)
-  assert.ok(soirees >= 20 && soirees <= 30, `niveau 10 en ${soirees} soirées ordinaires`)
+  assert.ok(soirees >= 50 && soirees <= 90, `niveau 10 en ${soirees} soirées ordinaires`)
 })

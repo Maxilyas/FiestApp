@@ -6,7 +6,7 @@ interface Props {
   teams: PublicTeam[]
   /** Mon équipe, mise en avant sur le téléphone. */
   highlightId?: string | null
-  /** Affiche les points rapportés au tableau des trois jeux. */
+  /** Affiche les points de classement du quiz, ceux auxquels les prix s'ajoutent. */
   showGamePoints?: boolean
   compact?: boolean
 }
@@ -49,7 +49,7 @@ export function TeamBoard({ teams, highlightId, showGamePoints, compact }: Props
             )}
           </span>
           {showGamePoints && (
-            <span className="team-gamepoints" title="Points à reporter sur le tableau des trois jeux">
+            <span className="team-gamepoints" title="Points de classement du quiz — les prix s'y ajoutent">
               {played ? t.gamePoints : '–'}
             </span>
           )}

@@ -4,7 +4,7 @@
 //   node scripts/qa-host.mjs <url> end <sessionId>
 //   node scripts/qa-host.mjs <url> state
 // Le script se connecte comme l'animateur (ADMIN_LOGIN / ADMIN_PASSWORD,
-// « antoine » / « romane » par défaut) : c'est sa session qui dit l'espace.
+// « antoine » / « demo » par défaut) : c'est sa session qui dit l'espace.
 import { hostSocket, loginCookie } from './login.mjs'
 
 const [url, verb, a, b] = process.argv.slice(2)

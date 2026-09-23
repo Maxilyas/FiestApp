@@ -35,7 +35,7 @@ import {
 } from './banc'
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 import { xpDesHautsFaits } from '../src/core/hautsfaits'
-import { XP, niveauPour } from '../../shared/profil'
+import { XP, gainVide, niveauPour, releveVide } from '../../shared/profil'
 
 // L'Éclat se tire une chance sur quarante par soirée, et le premier fait
 // tomber un palier de carrière — dix points de plus à la clôture. Ici, le
@@ -157,6 +157,15 @@ test('clore la soirée : chaque téléphone reçoit sa fin, l’écran commun la
     const cookie = await connexionAnimateur(banc.url)
     const huit = await creerQuiz(banc.url, cookie, Array.from({ length: 8 }, (_, i) => qcm(`Question ${i + 1} ?`)), 'Huit')
     const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    // Alice a déjà une soirée derrière elle, chez le même hôte : celle-ci la
+    // fait passer niveau 3, et la finition Argent tombe avec.
+    const AVANT = 150
+    ecrireEnBase(banc, db => {
+      const espace = db.prepare('SELECT id FROM accounts WHERE slug = ?').get(ADMIN.slug) as { id: string }
+      db.prepare(
+        `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, 'une-soiree-d-avant', ?, ?, ?, ?)`,
+      ).run(profilDe(banc, 'alice'), espace.id, AVANT, JSON.stringify({ v: VERSION_BAREME, gain: gainVide(), releve: releveVide() }), Date.now())
+    })
     const host = await ecranCommun(banc.url, cookie)
     const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
     const salle = await figurants(banc)
@@ -184,8 +193,9 @@ test('clore la soirée : chaque téléphone reçoit sa fin, l’écran commun la
     // le Grand Chelem et le Flair à la clôture.
     const xp = 8 * (XP.reponse + XP.juste) + XP.podiumQuiz[0] + XP.sansFaute + xpDesHautsFaits(['hf:grand-chelem', 'hf:flair'])
     assert.equal(fa.profil?.xp, xp)
-    assert.equal(fa.profil?.niveauAvant, 1)
-    assert.equal(fa.profil?.niveauApres, niveauPour(xp))
+    assert.equal(fa.profil?.niveauAvant, niveauPour(AVANT))
+    assert.equal(fa.profil?.niveauApres, niveauPour(AVANT + xp))
+    assert.equal(fa.profil?.niveauApres, 3)
     assert.ok(fa.profil?.finitions.includes('argent'), 'la finition Argent tombe avec le niveau 3')
     assert.deepEqual(fa.profil?.legendaires, ['lg:chouette'], 'le Grand Chelem débloque la Chouette')
 
@@ -198,7 +208,7 @@ test('clore la soirée : chaque téléphone reçoit sa fin, l’écran commun la
     const c = await cloture
     assert.equal(c.podium[0]?.nom, 'Alice')
     assert.deepEqual(c.legendaires.map((l: any) => [l.nom, l.gagne]), [['Alice', 'lg:chouette']])
-    assert.deepEqual(c.montees.map((m: any) => [m.nom, m.avant, m.apres]), [['Alice', 1, niveauPour(xp)]])
+    assert.deepEqual(c.montees.map((m: any) => [m.nom, m.avant, m.apres]), [['Alice', niveauPour(AVANT), 3]])
     assert.equal(c.hautsFaits.length, 4, 'chacun ses hauts faits : un éclat pour Alice, des ombres pour la salle')
 
     // La soirée est dans l'historique, sous son titre, et plus en cours.
@@ -215,7 +225,7 @@ test('clore la soirée : chaque téléphone reçoit sa fin, l’écran commun la
 
     // La page du profil range le Grand Chelem et le légendaire.
     const profil = await moi(banc, aliceCookie)
-    assert.equal(profil.xp, xp)
+    assert.equal(profil.xp, AVANT + xp)
     assert.ok(profil.legendaires.includes('lg:chouette'))
     assert.equal(profil.hautsFaits.find((h: any) => h.key === 'hf:grand-chelem')?.fois, 1)
     assert.ok(profil.vitrine.some((b: any) => b.key === 'hf:grand-chelem'))

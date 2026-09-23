@@ -18,13 +18,14 @@
 # reconstruit du miroir. La séparation entre préprod et prod tient donc à une
 # seule chose : `QUIZ_DB_URL`. Le code, lui, est identique.
 #
-# RÈGLE ABSOLUE : jamais la même base Turso pour les deux. Un « Nouvelle
-# soirée » ou une suppression de compte en préprod effacerait de vraies
-# soirées archivées, et c'est le seul geste sans retour de l'application.
+# RÈGLE ABSOLUE : jamais la même base Turso pour les deux. Un « C'était un
+# essai », une soirée retirée de l'historique ou une suppression de compte en
+# préprod effacerait de vraies soirées archivées : ce sont les seuls gestes
+# sans retour de l'application.
 #
 # La prod ne se déploie PAS toute seule (`autoDeploy: false`). Le mode de
 # panne de cette application est « la soirée est gâchée » : on regarde la
-# préprod tourner, puis on promeut à la main, la veille de la fête.
+# préprod tourner, puis on promeut à la main, la veille d'une soirée.
 #
 # ── Les deux commandes ───────────────────────────────────────────────────
 #
@@ -48,8 +49,8 @@ services:
   # ── PRODUCTION ─────────────────────────────────────────────────────────
   #
   # L'adresse publique s'est fixée à la création du service, et le renommer
-  # ne la change pas. Le recréer, si : les QR imprimés des tables
-  # (jour-j/qr-tables-*.pdf) ne mèneraient plus nulle part.
+  # ne la change pas. Le recréer, si : les QR codes imprimés et les liens
+  # déjà partagés ne mèneraient plus nulle part.
   - type: web
     name: fiestapp-quizz
     runtime: node
@@ -57,7 +58,7 @@ services:
     region: frankfurt
     branch: main
     # On promeut à la main depuis le tableau de bord, quand on a vu la
-    # préprod tourner. C'est un clic contre une fête ratée.
+    # préprod tourner. C'est un clic contre une soirée ratée.
     autoDeploy: false
     buildCommand: npm ci && npm run build
     startCommand: cd server && exec node --import tsx src/index.ts
@@ -117,7 +118,7 @@ services:
       - key: NODE_VERSION
         value: '22'
       # Le bandeau « PRÉPROD » s'affiche alors sur toutes les pages : on ne
-      # projette pas la mauvaise instance un soir de fête, et on n'écrit pas
+      # projette pas la mauvaise instance un soir de quiz, et on n'écrit pas
       # ses quiz dans la mauvaise base.
       - key: APP_ENV
         value: preprod

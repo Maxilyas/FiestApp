@@ -28,7 +28,7 @@ function refuser(message: string): never {
 const admin = {
   login: process.env.ADMIN_LOGIN || 'antoine',
   password: process.env.ADMIN_PASSWORD || MOT_DE_PASSE_PAR_DEFAUT,
-  slug: process.env.ADMIN_SLUG || 'romane',
+  slug: process.env.ADMIN_SLUG || 'demo',
   name: process.env.ADMIN_NAME || 'Antoine',
 }
 
@@ -115,7 +115,9 @@ createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, onlin
     console.log(`🎉 Quizz — serveur prêt sur http://localhost:${server.port}${appEnv ? `  [${appEnv}]` : ''}`)
     // Aucun secret dans les journaux : en ligne, ils sont conservés et
     // lisibles par tout le monde sur le tableau de bord de l'hébergeur.
-    console.log(`   Invités      : http://localhost:${server.port}/${admin.slug}  (l'adresse du QR)`)
+    // Le QR, lui, montre l'adresse que les téléphones peuvent ouvrir : la
+    // publique en ligne, celle du PC sur le réseau chez soi.
+    console.log(`   Invités      : http://localhost:${server.port}/${admin.slug}  (le QR de l'écran commun donne l'adresse réseau)`)
     console.log(`   Écran commun : http://localhost:${server.port}/host  (compte « ${admin.login} »)`)
     console.log(`   Mes quiz     : http://localhost:${server.port}/edit`)
     console.log(`   Les comptes  : http://localhost:${server.port}/admin`)

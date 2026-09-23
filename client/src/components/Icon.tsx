@@ -25,6 +25,7 @@ export type IconName =
   | 'clock'
   | 'copy'
   | 'crown'
+  | 'download'
   | 'edit'
   | 'eye'
   | 'eye-off'
@@ -126,6 +127,9 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
     ),
   },
   crown: { paths: <path d="m3 8 4.5 4L12 5l4.5 7L21 8l-2 11H5L3 8Z" /> },
+  download: {
+    paths: <path d="M12 4v11m-4.5-4.5L12 15l4.5-4.5M5 19h14" />,
+  },
   edit: {
     paths: (
       <>

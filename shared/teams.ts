@@ -6,9 +6,9 @@ export interface TeamStanding extends PublicTeam {
   /** Rang partagé : deux équipes à égalité sont toutes les deux premières. */
   rank: number
   /**
-   * Ce que le quiz rapporte à l'équipe dans le tableau des trois jeux :
-   * autant de points que d'équipes pour la première, un de moins pour la
-   * suivante, etc. Avec six équipes : 6, 5, 4, 3, 2, 1.
+   * Les points de classement du quiz : autant de points que d'équipes pour
+   * la première, un de moins pour la suivante, etc. Avec six équipes : 6, 5,
+   * 4, 3, 2, 1. Les prix de l'animateur s'y ajoutent (`finalPoints`).
    */
   gamePoints: number
   /** gamePoints + les prix remis par l'animateur. C'est le total du quiz. */
@@ -36,12 +36,12 @@ export function teamScores(
 }
 
 /**
- * Trie les équipes et leur attribue leurs points de jeu.
+ * Trie les équipes et leur attribue leurs points de classement.
  *
  * Le barème part du nombre d'équipes créées, pas du nombre d'équipes ayant
  * marqué : avec six équipes, la première rapporte toujours 6 points, même si
- * l'une d'elles est restée sans joueur. C'est ce chiffre-là qu'on reporte à
- * la main sur le tableau des trois jeux.
+ * l'une d'elles est restée sans joueur. C'est sur cette échelle que les prix
+ * de l'animateur s'ajoutent, et que se joue l'équipe gagnante.
  */
 export function rankTeams(teams: PublicTeam[]): TeamStanding[] {
   // La règle commune (shared/classement.ts) : rang partagé, et des ex æquo

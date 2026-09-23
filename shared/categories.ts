@@ -2,7 +2,7 @@
 //
 // Une liste fixe, la même pour tous les animateurs : c'est ce qui permet à la
 // carrière d'un joueur de les additionner d'une soirée à l'autre et d'un hôte
-// à l'autre — « Cinéma » chez Romane et « cinéma » chez Marc sont la même
+// à l'autre — « Cinéma » chez Alice et « cinéma » chez Marc sont la même
 // case. L'éditeur la propose sur chaque carte, l'import en liste la lit sur
 // une ligne `# Cinéma`, l'écran commun l'affiche au-dessus de la question, et
 // le journal la garde : la fiche d'un joueur dit sa réussite par catégorie.

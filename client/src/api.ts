@@ -107,8 +107,8 @@ export const activationUrl = (token: string) => `${window.location.origin}/activ
 export const api = {
   list: () => req<QuizSummary[]>('/api/quizzes'),
   get: (id: string) => req<QuizDef>(`/api/quizzes/${id}`),
-  create: (title: string) =>
-    req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title }) }),
+  create: (title: string, questions?: unknown[]) =>
+    req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions }) }),
   save: (id: string, title: string, questions: QuizQuestionDef[]) =>
     req<QuizDef>(`/api/quizzes/${id}`, { method: 'PUT', body: JSON.stringify({ title, questions }) }),
   remove: (id: string) => req<{ ok: true }>(`/api/quizzes/${id}`, { method: 'DELETE' }),

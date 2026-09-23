@@ -1,10 +1,10 @@
 // Test de charge : simule une salle entière qui se connecte et joue.
 //
-//   node server/scripts/load-test.mjs http://localhost:3001 50 [--slug romane]
+//   node server/scripts/load-test.mjs http://localhost:3001 50 [--slug demo]
 //
 // Le script joue lui-même le rôle de l'écran commun — il se connecte comme
 // l'animateur (ADMIN_LOGIN / ADMIN_PASSWORD) et ses invités rejoignent
-// l'espace de cet animateur (`--slug`, sinon QUIZ_SLUG, sinon « romane »).
+// l'espace de cet animateur (`--slug`, sinon QUIZ_SLUG, sinon « demo »).
 // Il lance un quiz, enchaîne les questions, et mesure ce qui compte le soir J —
 //   · le temps d'inscription quand tout le monde scanne le QR en même temps
 //   · le délai entre l'affichage d'une question et sa réception sur les téléphones

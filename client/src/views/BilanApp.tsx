@@ -67,7 +67,7 @@ export function BilanApp() {
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
-  // Les fiches s'impriment en Ivoire : les couleurs des feuilles de jour-j.
+  // Les fiches s'impriment en Ivoire : de l'encre sur du papier crème, et pas un fond noir à imprimer.
   useEffect(() => {
     if (fiches) document.documentElement.dataset.theme = 'ivoire'
   }, [fiches])
@@ -189,7 +189,7 @@ export function BilanApp() {
   )
 }
 
-/** « Les 30 ans de Romane · 19 septembre 2026 » : le titre et la date de la soirée, archivée ou non. */
+/** « La soirée de Bob · samedi 14 mars » : le titre et la date de la soirée, archivée ou non. */
 function partyLine(ctx: BilanCtx): string {
   const a = ctx.review.archive
   if (a) return `${a.title} · ${formatDay(a.heldAt)}`

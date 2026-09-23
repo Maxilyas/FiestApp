@@ -47,7 +47,7 @@ export function parseRoute(pathname: string): Route {
     archiveId = rest[1]
     tail = rest.slice(2)
   }
-  // « /romane/soirees/<id> » tout court ouvre le souvenir de cette soirée.
+  // « /demo/soirees/<id> » tout court ouvre le souvenir de cette soirée.
   const page = (tail.join('/') || (archiveId ? 'souvenir' : '')) as PublicPage
   if (!PUBLIC_PAGES.includes(page) || (archiveId && page === 'soirees')) return { kind: 'unknown' }
   return { kind: 'public', slug: first, page, archiveId }

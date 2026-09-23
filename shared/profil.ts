@@ -26,19 +26,60 @@ import type { DivinDescendu } from './divins'
 /**
  * Le pas de la courbe de niveau : le niveau n demande XP_PAR_PALIER × (n−1)².
  *
- * Il était à 12, avec 50 points de présence par soirée : un invité qui
- * repartait après une question en touchait presque autant que celui qui
- * avait tout gagné, et le niveau 10 tombait en huit soirées pour tout le
- * monde. À 25, et sans présence gratuite, le niveau se mérite : le meilleur
- * de la salle atteint le niveau 10 en huit soirées, le joueur moyen en une
- * vingtaine, et le niveau 20 redevient une légende. Le niveau 2, lui, tombe
- * toujours le premier soir.
+ * Il était à 12, avec 50 points de présence par soirée : le niveau 10
+ * tombait en huit soirées pour tout le monde. Puis à 25, sans présence
+ * gratuite — mais des soirées de deux quiz de cinquante questions
+ * rapportent deux à trois fois l'expérience de soirées courtes : le joueur
+ * médian passait niveau 5 dès son premier soir et niveau 10 à son sixième,
+ * et toutes les finitions filaient en une dizaine de soirées. On n'avait
+ * plus le temps de progresser.
+ *
+ * À 60, mesuré par `server/scripts/calibrage.ts` : sur des soirées de deux
+ * quiz de trente questions, le meilleur de la bande atteint le niveau 10
+ * vers sa onzième soirée, le joueur médian vers sa dix-neuvième ; à deux
+ * quiz de cinquante, vers la septième et la douzième ; sur des soirées plus
+ * courtes, plus lentement. Le niveau 20 redevient une légende, et le niveau
+ * 2 tombe toujours le premier soir — même d'une petite soirée de trente
+ * questions sans rien d'autre (à 75, elle n'y suffisait plus). Personne n'y
+ * a perdu un niveau : ceux qu'il avait atteints sur la courbe d'avant, un
+ * profil les garde (`niveauDuProfil`).
  */
-export const XP_PAR_PALIER = 25
+export const XP_PAR_PALIER = 60
 
-/** Le niveau que vaut cette expérience. Le premier niveau est 1, jamais 0. */
+/** Le niveau qu'une expérience donne sur une courbe de ce pas. */
+export function niveauSurCourbe(xp: number, pas: number): number {
+  return Math.floor(Math.sqrt(Math.max(0, xp) / pas)) + 1
+}
+
+/** Le niveau que vaut cette expérience sur la courbe du jour. Le premier niveau est 1, jamais 0. */
 export function niveauPour(xp: number): number {
-  return Math.floor(Math.sqrt(Math.max(0, xp) / XP_PAR_PALIER)) + 1
+  return niveauSurCourbe(xp, XP_PAR_PALIER)
+}
+
+/**
+ * Un niveau gardé : celui qu'un profil avait atteint sur une courbe d'avant,
+ * quand elle s'est durcie (`COURBES_D_AVANT`, `auth/profiles.ts`).
+ */
+export interface NiveauGarde {
+  /** Le pas de la courbe d'alors : son niveau n demandait `pas` × (n − 1)². */
+  pas: number
+  niveau: number
+}
+
+/**
+ * Le niveau d'un profil : celui de la courbe du jour, ou celui qu'il avait
+ * gardé d'une courbe d'avant, s'il est plus haut.
+ *
+ * Un niveau gardé tient tant que la courbe d'alors le donne encore : une
+ * soirée retirée de l'historique l'emporte avec son expérience, comme elle
+ * l'aurait fait avant. Tout ce qui montre le niveau d'un profil — le mur, sa
+ * page, sa fin de soirée, ses finitions — passe par ici : un seul oubli, et
+ * il lirait deux niveaux différents.
+ */
+export function niveauDuProfil(xp: number, gardes: readonly NiveauGarde[]): number {
+  let niveau = niveauPour(xp)
+  for (const g of gardes) niveau = Math.max(niveau, Math.min(g.niveau, niveauSurCourbe(xp, g.pas)))
+  return niveau
 }
 
 /** L'expérience totale qu'il faut avoir atteint pour ce niveau. */
@@ -46,11 +87,22 @@ export function xpDuNiveau(niveau: number): number {
   return Math.max(0, niveau - 1) ** 2 * XP_PAR_PALIER
 }
 
-/** Où en est la barre : ce qui est acquis dans le niveau courant, et ce qu'il y faut. */
-export function progression(xp: number): { niveau: number; acquis: number; requis: number } {
-  const niveau = niveauPour(xp)
+/**
+ * Où en est la barre : ce qui est acquis dans le niveau courant, et ce qu'il y
+ * faut.
+ *
+ * Sur un niveau gardé que la courbe du jour n'a pas encore rejoint, il n'y a
+ * pas de « niveau courant » à remplir : la barre compte alors depuis zéro,
+ * jusqu'à ce que demande le niveau suivant. Elle avance à chaque soirée et se
+ * remplit pile quand il tombe — une barre vide pendant des mois, ou un « 0 /
+ * 1 575 » qui en cachait 6 575, ne disaient pas la vérité.
+ */
+export function progression(xp: number, gardes: readonly NiveauGarde[] = []): { niveau: number; acquis: number; requis: number } {
+  const niveau = niveauDuProfil(xp, gardes)
+  const total = Math.max(0, xp)
+  if (niveau > niveauPour(xp)) return { niveau, acquis: total, requis: xpDuNiveau(niveau + 1) }
   const bas = xpDuNiveau(niveau)
-  return { niveau, acquis: Math.max(0, xp) - bas, requis: xpDuNiveau(niveau + 1) - bas }
+  return { niveau, acquis: total - bas, requis: xpDuNiveau(niveau + 1) - bas }
 }
 
 // ── Finitions d'avatar ────────────────────────────────────────────────────

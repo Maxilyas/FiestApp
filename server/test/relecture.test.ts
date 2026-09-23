@@ -1020,7 +1020,7 @@ test('détacher un profil, ou en rattacher un autre, referme les consoles qu’i
     const tele = await connexionAnimateur(banc.url)
     const tv = await ecranCommun(banc.url, tele)
     await inscrireProfil(banc.url, 'anim', 'Antoine')
-    await inscrireProfil(banc.url, 'relais', 'Romane', '🐙')
+    await inscrireProfil(banc.url, 'relais', 'Léa', '🐙')
     const lier = async (login: string) =>
       assert.equal((await ecrire(banc.url, '/api/space/profil', { login, password: 'motdepasse1' }, tele)).status, 200)
     await lier('anim')

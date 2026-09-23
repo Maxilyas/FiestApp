@@ -56,7 +56,7 @@ export interface PublicTeam {
   bonus: number
 }
 
-/** Un prix remis par l'animateur, sur la même échelle que le barème des jeux. */
+/** Un prix remis par l'animateur, sur la même échelle que le barème du quiz. */
 export interface TeamBonus {
   id: string
   teamId: string

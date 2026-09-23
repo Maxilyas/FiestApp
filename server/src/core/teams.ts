@@ -144,7 +144,7 @@ export class Teams {
   //
   // Ils vivent à part des points du quiz : ceux-ci se gagnent question après
   // question, ceux-là s'attribuent en fin de soirée, sur l'échelle du barème
-  // des trois jeux. Les mélanger rendrait les deux illisibles.
+  // du quiz. Les mélanger rendrait les deux illisibles.
 
   /** Attribue un prix. Retirer un prix mal donné doit rester possible. */
   awardBonus(teamId: string, points: number, reason: string): TeamBonus | { error: string } {

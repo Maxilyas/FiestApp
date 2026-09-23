@@ -10,13 +10,16 @@ import {
   finitionPortee,
   finitionsOuvertes,
   gainVide,
+  niveauDuProfil,
   niveauPour,
+  niveauSurCourbe,
   progression,
   releveVide,
   XP,
   type Carriere,
   type FinitionChoisie,
   type GainSoiree,
+  type NiveauGarde,
   type PublicProfile,
   type PublicProfileDetail,
   type ReleveSoiree,
@@ -143,6 +146,17 @@ const DURCISSEMENTS: { drapeau: string; avant: Record<string, Condition> }[] = [
   },
 ]
 
+/**
+ * Chaque fois que la courbe des niveaux s'est durcie : le pas d'avant, et le
+ * drapeau, dans `meta`, qui dit que les niveaux atteints sous elle sont
+ * gardés (`garderLesNiveauxAtteints`). Durcir encore, c'est ajouter une
+ * entrée — jamais en modifier une : son drapeau est déjà posé en production.
+ */
+const COURBES_D_AVANT: { drapeau: string; pas: number }[] = [
+  // Septembre 2026 : le niveau n demandait 25 × (n − 1)².
+  { drapeau: 'courbe_durcie', pas: 25 },
+]
+
 /** Une règle relue en base, si elle en est une. */
 function lireCondition(brut: unknown): Condition | null {
   try {
@@ -257,6 +271,13 @@ export class ProfileStore {
    * démarrage — ils ne bougent plus ensuite.
    */
   private acquis = new Map<string, Map<string, Condition>>()
+  /**
+   * Les niveaux qu'il avait atteints sur une courbe d'avant, quand elle s'est
+   * durcie : il les garde tant que cette courbe les lui donne encore. Écrits
+   * au démarrage qui durcit la courbe (`COURBES_D_AVANT`), et tous chargés au
+   * démarrage — ils ne bougent plus ensuite.
+   */
+  private gardes = new Map<string, NiveauGarde[]>()
 
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
@@ -320,6 +341,14 @@ export class ProfileStore {
            created_at INTEGER NOT NULL,
            PRIMARY KEY (profile_id, avatar)
          )`,
+        // Les niveaux atteints sur une courbe d'avant, quand elle s'est durcie.
+        `CREATE TABLE IF NOT EXISTS profile_niveaux (
+           profile_id TEXT NOT NULL,
+           pas        INTEGER NOT NULL,
+           niveau     INTEGER NOT NULL,
+           created_at INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, pas)
+         )`,
         // Les légendaires gagnés avant que leurs règles se durcissent, avec
         // la règle sous laquelle ils étaient tombés, en JSON.
         `CREATE TABLE IF NOT EXISTS profile_legendaires (
@@ -341,6 +370,13 @@ export class ProfileStore {
     // que de laisser tourner un serveur qui écrirait dans une colonne absente.
     await ajouterColonne(this.client, 'profiles', 'legendaire', 'TEXT')
     await this.garderLesLegendairesAcquis()
+    await this.garderLesNiveauxAtteints()
+    for (const r of (await this.client.execute('SELECT profile_id, pas, niveau FROM profile_niveaux')).rows) {
+      const garde = { pas: Number(r.pas), niveau: Number(r.niveau) }
+      if (!(garde.pas > 0) || !(garde.niveau > 1)) continue
+      const id = String(r.profile_id)
+      this.gardes.set(id, [...(this.gardes.get(id) ?? []), garde])
+    }
     for (const r of (await this.client.execute('SELECT profile_id, legendaire, regle FROM profile_legendaires')).rows) {
       const regle = lireCondition(r.regle)
       if (!regle) continue
@@ -418,6 +454,16 @@ export class ProfileStore {
     return this.recompenses.get(id) ?? new Map()
   }
 
+  /** Les niveaux qu'il garde d'une courbe d'avant. */
+  gardesOf(id: string): NiveauGarde[] {
+    return this.gardes.get(id) ?? []
+  }
+
+  /** Son niveau — celui qu'il garde d'une courbe d'avant, s'il est plus haut. */
+  niveauOf(p: ProfileRec): number {
+    return niveauDuProfil(p.xp, this.gardesOf(p.id))
+  }
+
   /** Les avatars légendaires que ce profil a débloqués — ceux d'avant leur durcissement compris. */
   legendairesOf(id: string): string[] {
     return legendairesDebloques(this.recompensesOf(id), this.acquis.get(id))
@@ -426,6 +472,41 @@ export class ProfileStore {
   /** Les Divins descendus sur ce profil — la liste, jamais ce qui les a fait descendre. */
   divinsOf(id: string): string[] {
     return divinsDebloques(this.recompensesOf(id), this.acquis.get(id))
+  }
+
+  /**
+   * La courbe des niveaux s'est durcie : un profil garde le niveau qu'il avait
+   * atteint. Au premier démarrage qui apporte la nouvelle courbe, chacun
+   * retient le niveau que lui donnait l'ancienne, s'il est plus haut — et le
+   * garde tant qu'elle le lui donne encore (`niveauDuProfil`). Même
+   * mécanique que pour les légendaires : une transaction par durcissement,
+   * avec son drapeau, pour que ce qui s'est joué entre-temps suive la courbe
+   * du jour.
+   */
+  private async garderLesNiveauxAtteints(): Promise<void> {
+    for (const { drapeau, pas } of COURBES_D_AVANT) {
+      const fait = await this.client.execute({ sql: 'SELECT 1 FROM meta WHERE key = ?', args: [drapeau] })
+      if (fait.rows.length > 0) continue
+      const now = Date.now()
+      const gardes = (await this.client.execute('SELECT id, xp FROM profiles')).rows.flatMap(r => {
+        const xp = Number(r.xp ?? 0)
+        const niveau = niveauSurCourbe(xp, pas)
+        // Seul ce que la courbe du jour ne donne pas encore a besoin d'être gardé.
+        return niveau > niveauPour(xp) ? [{ id: String(r.id), niveau }] : []
+      })
+      await this.client.batch(
+        [
+          ...gardes.map(g => ({
+            sql: `INSERT INTO profile_niveaux (profile_id, pas, niveau, created_at) VALUES (?, ?, ?, ?)
+                  ON CONFLICT(profile_id, pas) DO NOTHING`,
+            args: [g.id, pas, g.niveau, now],
+          })),
+          { sql: 'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING', args: [drapeau, String(now)] },
+        ],
+        'write',
+      )
+      if (gardes.length > 0) console.log(`[profils] ${gardes.length} niveau(x) atteint(s) avant le durcissement de la courbe, gardé(s)`)
+    }
   }
 
   /**
@@ -484,7 +565,7 @@ export class ProfileStore {
   }
 
   toPublic(p: ProfileRec): PublicProfile {
-    const { niveau, acquis, requis } = progression(p.xp)
+    const { niveau, acquis, requis } = progression(p.xp, this.gardesOf(p.id))
     return {
       id: p.id,
       login: p.login,
@@ -520,7 +601,7 @@ export class ProfileStore {
     espace?: (spaceId: string) => { nom: string; slug: string } | null,
   ): Promise<PublicProfileDetail> {
     const [vitrine, soirees] = await Promise.all([this.badgesOf(p.id), this.historiqueOf(p.id)])
-    const carriere = carriereDe(soirees, { eclats: this.eclatsOf(p.id).length, niveau: niveauPour(p.xp) })
+    const carriere = carriereDe(soirees, { eclats: this.eclatsOf(p.id).length, niveau: this.niveauOf(p) })
     return {
       ...this.toPublic(p),
       vitrine,
@@ -709,7 +790,7 @@ export class ProfileStore {
       champs.avatar = cleanAvatar(patch.avatar)
       champs.legendaire = null
     }
-    if (patch.finition !== undefined) champs.finition = choixDeFinition(patch.finition, niveauPour(rec.xp))
+    if (patch.finition !== undefined) champs.finition = choixDeFinition(patch.finition, this.niveauOf(rec))
     if (patch.legendaire !== undefined) {
       if (patch.legendaire === null || patch.legendaire === '') champs.legendaire = null
       else if (legendaire(patch.legendaire) && this.legendairesOf(id).includes(String(patch.legendaire))) {
@@ -1171,7 +1252,7 @@ export class ProfileStore {
   async careerOf(profileId: string): Promise<Carriere> {
     const soirees = await this.historiqueOf(profileId)
     const rec = await this.byId(profileId)
-    return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: niveauPour(rec?.xp ?? 0) })
+    return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: rec ? this.niveauOf(rec) : 1 })
   }
 
   // ── Le recalcul ─────────────────────────────────────────────────────────
@@ -1281,7 +1362,8 @@ export class ProfileStore {
       // Borné à la lecture : `auto`, ou une finition qu'il a. L'ancienne
       // valeur par défaut, `mat`, se lit `auto` — personne ne l'avait choisie,
       // c'est ce qu'on donnait à tout le monde.
-      finition: r.finition === 'mat' ? 'auto' : choixDeFinition(r.finition, niveauPour(Number(r.xp ?? 0))),
+      finition:
+        r.finition === 'mat' ? 'auto' : choixDeFinition(r.finition, niveauDuProfil(Number(r.xp ?? 0), this.gardesOf(String(r.id)))),
       legendaire: typeof r.legendaire === 'string' && r.legendaire ? r.legendaire : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),

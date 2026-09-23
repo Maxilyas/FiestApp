@@ -301,7 +301,7 @@ function SettingsForm({ me, onSaved }: { me: Me; onSaved: (space: Me['space']) =
             id="dateLine"
             className="input"
             maxLength={60}
-            placeholder="19 septembre 2026"
+            placeholder="samedi 14 mars"
             value={form.dateLine}
             onChange={e => set('dateLine', e.target.value)}
           />

@@ -123,7 +123,7 @@ export interface ArchiveList {
   space?: PublicSpace
 }
 
-/** « 19 septembre 2026 » */
+/** « 14 mars 2027 » */
 export function formatDay(ts: number): string {
   return new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
 }

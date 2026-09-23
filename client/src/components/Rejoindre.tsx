@@ -46,7 +46,7 @@ export function FormulaireSoiree({ perdu, onCancel }: Props) {
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          placeholder="romane"
+          placeholder="demo"
           value={name}
           onChange={e => setName(e.target.value)}
         />

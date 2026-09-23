@@ -68,7 +68,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                   <th title="Moyenne par membre sur toute la soirée — c'est elle qui classe">Moyenne</th>
                   <th title="Part de bonnes réponses aux QCM, tous membres confondus">Réussite</th>
                   <th title="Temps de réponse moyen">Temps</th>
-                  <th title="Ce que le quiz rapporte au tableau des trois jeux, prix compris">Barème</th>
+                  <th title="Les points de classement du quiz, prix compris">Barème</th>
                 </tr>
               </thead>
               <tbody>
@@ -97,7 +97,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
           </div>
           <p className="muted small">
             Les points de chaque quiz divisés par les membres présents, ★ pour la meilleure équipe du
-            quiz. Le barème est ce que le quiz a rapporté au tableau des trois jeux, prix compris.
+            quiz. Le barème : les points de classement du quiz, prix compris.
           </p>
         </section>
       )}

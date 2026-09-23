@@ -142,7 +142,7 @@ export function RecapApp() {
           <TeamBoard teams={recap.teams} showGamePoints />
           <p className="muted small">
             En champagne, la moyenne par membre — c'est elle qui classe les équipes. Le chiffre
-            cerclé est ce que le quiz a rapporté au tableau des trois jeux.
+            cerclé : les points de classement du quiz, auxquels les prix se sont ajoutés.
           </p>
         </section>
       )}

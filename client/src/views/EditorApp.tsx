@@ -20,6 +20,7 @@ import {
   type QuizSummary,
 } from '../../../shared/library'
 import { CATEGORIES } from '../../../shared/categories'
+import { POIDS_MAX_FICHIER, emporterQuiz, importerQuiz, nomDeFichier } from '../../../shared/echange'
 import { UnauthorizedError, api, compressImage } from '../api'
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { confirmDialog, promptDialog } from '../components/Dialog'
@@ -52,6 +53,32 @@ interface Spot {
 /** Le temps que l'œil retrouve la carte éclairée. */
 const SPOT_MS = 1600
 
+/** Une photo de la bibliothèque, en clair, pour qu'elle voyage dans le fichier ; null si elle ne se lit plus. */
+async function photoEnClair(adresse: string): Promise<string | null> {
+  const res = await fetch(adresse)
+  if (!res.ok) return null
+  const blob = await res.blob()
+  return new Promise(resolve => {
+    const lecteur = new FileReader()
+    lecteur.onload = () => resolve(typeof lecteur.result === 'string' ? lecteur.result : null)
+    lecteur.onerror = () => resolve(null)
+    lecteur.readAsDataURL(blob)
+  })
+}
+
+/** Fait télécharger ce texte sous ce nom, sans passer par le serveur. */
+function telecharger(nom: string, contenu: string) {
+  const url = URL.createObjectURL(new Blob([contenu], { type: 'application/json' }))
+  const lien = document.createElement('a')
+  lien.href = url
+  lien.download = nom
+  document.body.appendChild(lien)
+  lien.click()
+  lien.remove()
+  // Le téléchargement a besoin de l'adresse un instant après le clic.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+}
+
 export function EditorApp() {
   const [needLogin, setNeedLogin] = useState(false)
   const [loginError, setLoginError] = useState('')
@@ -60,6 +87,53 @@ export function EditorApp() {
   const [list, setList] = useState<QuizSummary[] | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  /** Le quiz qu'on emballe, ou l'import en cours : un clic à la fois. */
+  const [echange, setEchange] = useState<string | null>(null)
+  const fichier = useRef<HTMLInputElement>(null)
+
+  const exporter = async (q: QuizSummary) => {
+    setEchange(q.id)
+    setError('')
+    try {
+      const quiz = await api.get(q.id)
+      telecharger(nomDeFichier(quiz.title), JSON.stringify(await emporterQuiz(quiz, photoEnClair)))
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setEchange(null)
+    }
+  }
+
+  const importer = async (choisi: File | undefined) => {
+    if (!choisi) return
+    setError('')
+    setNotice('')
+    if (choisi.size > POIDS_MAX_FICHIER) return setError('Ce fichier est bien trop lourd pour être un quiz')
+    let brut: unknown
+    try {
+      brut = JSON.parse(await choisi.text())
+    } catch {
+      return setError('Ce fichier ne se lit pas : choisis un quiz exporté de l’application (.quiz.json)')
+    }
+    setEchange('import')
+    try {
+      const fait = await importerQuiz(brut, {
+        envoyerPhoto: async enClair => (await api.uploadImage(enClair)).url,
+        creer: (titre, questions) => api.create(titre, questions),
+      })
+      setNotice(
+        `« ${fait.quiz.title} » est dans ta bibliothèque : ${fait.questions} question${fait.questions > 1 ? 's' : ''}` +
+          (fait.photos > 0 ? `, ${fait.photos} photo${fait.photos > 1 ? 's' : ''}` : '') +
+          (fait.photosIgnorees > 0 ? ` — ${fait.photosIgnorees} photo${fait.photosIgnorees > 1 ? 's' : ''} ignorée${fait.photosIgnorees > 1 ? 's' : ''}, dans un format inconnu` : ''),
+      )
+      reload()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setEchange(null)
+    }
+  }
 
   const reload = useCallback(async () => {
     try {
@@ -132,6 +206,23 @@ export function EditorApp() {
               Les comptes
             </a>
           )}
+          {/* Un quiz exporté d'une autre bibliothèque — celle d'un ami, ou d'un autre serveur. */}
+          <input
+            ref={fichier}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={e => {
+              const choisi = e.target.files?.[0]
+              // Le même fichier, choisi deux fois de suite, doit repartir.
+              e.target.value = ''
+              importer(choisi)
+            }}
+          />
+          <button className="btn btn-ghost" disabled={echange !== null} onClick={() => fichier.current?.click()}>
+            <Icon name="download" />
+            {echange === 'import' ? 'Import…' : 'Importer un quiz'}
+          </button>
           <button
             className="btn btn-primary"
             onClick={async () => {
@@ -150,6 +241,7 @@ export function EditorApp() {
       </header>
 
       {error && <p className="error">{error}</p>}
+      {notice && <p className="card notice">{notice}</p>}
       {list === null && <p className="serif-note">Chargement…</p>}
 
       {list?.length === 0 && (
@@ -186,6 +278,14 @@ export function EditorApp() {
                 }}
               >
                 Dupliquer
+              </button>
+              <button
+                className="btn btn-ghost btn-small"
+                disabled={echange !== null}
+                title="Un fichier à envoyer à un autre animateur : les questions et leurs photos"
+                onClick={() => exporter(q)}
+              >
+                {echange === q.id ? 'Export…' : 'Exporter'}
               </button>
               <button
                 className="btn btn-ghost btn-small"
@@ -558,15 +658,15 @@ function BulkImport({
         transforme la question en estimation chiffrée. Une ligne qui commence par un dièse range
         les questions qui suivent dans une catégorie — « # Musique », « # Cinéma »…
       </p>
-      <pre className="import-example">{`# Autour de la fête
+      <pre className="import-example">{`# Géographie
 
-Quelle danse Romane préfère-t-elle ?
-* La salsa
-Le tango
-La bachata
+Quelle est la capitale de l'Australie ?
+Sydney
+* Canberra
+Melbourne
 
-Combien de cours a-t-elle pris cette année ?
-= 42 cours`}</pre>
+Combien de pays composent l'Union européenne ?
+= 27 pays`}</pre>
       <textarea
         className="input import-area"
         rows={10}

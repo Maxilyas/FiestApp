@@ -71,13 +71,13 @@ export function isValidLogin(login: string): boolean {
 
 /** Ce qu'un espace dit de sa soirée aux invités et sur ses pages. */
 export interface SpaceSettings {
-  /** « Les 30 ans de Romane » : le titre des pages souvenir et bilan, et de l'écran commun. */
+  /** « La soirée de Bob » : le titre des pages souvenir et bilan, et de l'écran commun. */
   title: string
-  /** « Les trente ans de » : la ligne au-dessus du grand titre, à l'inscription. */
+  /** « La soirée de » : la ligne au-dessus du grand titre, à l'inscription. */
   eyebrow: string
-  /** « Romane » : le grand titre, à l'inscription. */
+  /** « Bob » : le grand titre, à l'inscription. */
   headline: string
-  /** « 19 septembre 2026 » : la date, telle qu'on l'écrit. Vide si on ne veut rien. */
+  /** « samedi 14 mars » : la date, telle qu'on l'écrit. Vide si on ne veut rien. */
   dateLine: string
   /** Inscriptions au-delà desquelles la soirée est déclarée complète. */
   maxPlayers: number
