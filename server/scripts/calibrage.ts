@@ -21,14 +21,18 @@
 // visent, une vingtaine de quiz —, au quart des joueurs le plus doué pour
 // lui, au joueur médian ; puis la part des joueurs qui l'ont au bout de
 // vingt quiz.
-import { hautsFaitsDeSoiree } from '../src/core/hautsfaits'
-import { relevesDeSoiree } from '../src/core/progress'
+//
+// Et les niveaux : l'expérience de chaque soirée, créditée comme à la clôture
+// (hauts faits et paliers compris), puis le niveau qu'elle donne sur la
+// courbe du jour et sur d'autres qu'on voudrait essayer.
+import { hautsFaitsDeSoiree, xpDesHautsFaits } from '../src/core/hautsfaits'
+import { buildProgress, relevesDeSoiree } from '../src/core/progress'
 import type { AnswerRow } from '../src/core/answers'
 import type { ScoreEntry } from '../src/core/scores'
 import type { PlayerRec } from '../src/core/party'
 import { rangPartage } from '../../shared/classement'
-import { carriereDe, type Carriere, type GainSoiree, type ReleveSoiree } from '../../shared/profil'
-import { paliersAtteints } from '../../shared/hautsfaits'
+import { XP_PAR_PALIER, carriereDe, type Carriere, type GainSoiree, type ReleveSoiree } from '../../shared/profil'
+import { XP_PALIER, palierDe, paliersAtteints } from '../../shared/hautsfaits'
 import { LEGENDAIRES, conditionTenue, type Condition } from '../../shared/legendaires'
 
 // ── Le format ─────────────────────────────────────────────────────────────
@@ -40,7 +44,7 @@ function option(nom: string, defaut: number): number {
 
 const QUIZ_PAR_SOIREE = option('quiz', 2)
 const QUESTIONS_PAR_QUIZ = option('questions', 50)
-/** Une question sur six est une estimation, comme dans « Le Grand Écart ». */
+/** Une question sur six est une estimation. */
 const PART_ESTIMATIONS = option('estimations', 0.17)
 const JOUEURS = option('joueurs', 12)
 const BANDES = option('bandes', 120)
@@ -210,7 +214,7 @@ function soiree(bande: Joueur[], numero: number) {
     }
   }
   const live = { players, scores, answers }
-  return { faits: hautsFaitsDeSoiree(live), releves: relevesDeSoiree(live, { cloture: true }) }
+  return { live, faits: hautsFaitsDeSoiree(live), releves: relevesDeSoiree(live, { cloture: true }) }
 }
 
 // ── Ce qu'on mesure ───────────────────────────────────────────────────────
@@ -265,6 +269,8 @@ const ESSAIS: Record<string, Regle[]> = Object.fromEntries(
 const tombes = new Map<string, number[]>()
 /** Pour chaque essai, le quiz où il tombe pour le premier de chaque bande. */
 const premiers = new Map<string, number[]>()
+/** L'expérience de chaque joueur après chaque soirée, bande par bande. */
+const experiences: number[][][] = []
 const cle = (key: string, r: Regle) => `${key}|${decrire(r)}`
 
 for (let b = 0; b < BANDES; b++) {
@@ -273,17 +279,33 @@ for (let b = 0; b < BANDES; b++) {
     bande.map(j => [j.id, { soirees: [], recompenses: new Map(), carriere: carriereDe([], { eclats: 0, niveau: 1 }) }]),
   )
   const quand = new Map<string, Map<string, number>>(bande.map(j => [j.id, new Map()]))
+  const xp = new Map<string, number>(bande.map(j => [j.id, 0]))
+  const trajectoires = bande.map(() => [] as number[])
   for (let s = 1; s <= SOIREES; s++) {
-    const { faits, releves } = soiree(bande, s)
-    for (const j of bande) {
+    const { live, faits, releves } = soiree(bande, s)
+    const credits = new Map(
+      buildProgress(live, { cloture: true, hautsFaits: new Map([...faits].map(([id, c]) => [id, xpDesHautsFaits(c)])) }).map(g => [
+        g.playerId,
+        g.xp,
+      ]),
+    )
+    for (const [i, j] of bande.entries()) {
       const suivi = suivis.get(j.id)!
       // Comme à la clôture : les hauts faits de la soirée se rangent, la
-      // carrière s'additionne, et les paliers tombent sur elle.
+      // carrière s'additionne, et les paliers tombent sur elle — chacun avec
+      // son expérience. La Légende, qui suit le niveau, est laissée de côté :
+      // elle dépend de la courbe qu'on essaie.
       for (const f of faits.get(j.id) ?? []) suivi.recompenses.set(f, (suivi.recompenses.get(f) ?? 0) + 1)
       const x = releves.get(j.id)
       if (x) suivi.soirees.push({ releve: x.releve, gain: x.gain, spaceId: 'bande' })
       suivi.carriere = carriereDe(suivi.soirees, { eclats: 0, niveau: 1 })
-      for (const palier of paliersAtteints(suivi.carriere)) suivi.recompenses.set(palier, 1)
+      let gagne = credits.get(j.id) ?? 0
+      for (const palier of paliersAtteints(suivi.carriere)) {
+        if (!suivi.recompenses.has(palier)) gagne += XP_PALIER[palierDe(palier)!.palier - 1]
+        suivi.recompenses.set(palier, 1)
+      }
+      xp.set(j.id, xp.get(j.id)! + gagne)
+      trajectoires[i].push(xp.get(j.id)!)
       const siennes = quand.get(j.id)!
       for (const [key, essais] of Object.entries(ESSAIS)) {
         for (const r of essais) {
@@ -303,6 +325,7 @@ for (let b = 0; b < BANDES; b++) {
       premiers.set(k, [...(premiers.get(k) ?? []), Math.min(...siens)])
     }
   }
+  experiences.push(trajectoires)
 }
 
 // ── Le rapport ────────────────────────────────────────────────────────────
@@ -328,3 +351,34 @@ for (const l of LEGENDAIRES) {
   }
 }
 console.log('\n* la règle du catalogue')
+
+// ── Les niveaux ───────────────────────────────────────────────────────────
+
+/** Le niveau que donne cette expérience sur une courbe de ce pas (`niveauPour`). */
+const niveauSur = (pas: number, xpTotale: number) => Math.floor(Math.sqrt(Math.max(0, xpTotale) / pas)) + 1
+const COURBES = [...new Set([XP_PAR_PALIER, 25, 50, 60, 75, 100, 125, 150])]
+const REPERES = [1, 3, 5, 10, 20, 40].filter(s => s <= SOIREES)
+/** La première soirée où l'on atteint ce niveau (Infinity : jamais dans la simulation). */
+const atteint = (pas: number, trajectoire: number[], niveau: number) => {
+  const i = trajectoire.findIndex(x => niveauSur(pas, x) >= niveau)
+  return i < 0 ? Infinity : i + 1
+}
+const soirees = (n: number) => (Number.isFinite(n) ? String(n) : `>${SOIREES}`)
+
+console.log(`\nNiveaux — joueur médian · meilleur de la bande, après n soirées ; « niv. 10 » : soirées pour y arriver`)
+console.log(`${'courbe'.padEnd(12)}${REPERES.map(s => `après ${s}`.padStart(11)).join('')}${'niv. 10'.padStart(11)}${'niv. 2 le 1er soir'.padStart(20)}`)
+for (const pas of COURBES) {
+  const cellules = REPERES.map(s => {
+    const tous = experiences.flatMap(b => b.map(t => niveauSur(pas, t[s - 1])))
+    const meilleurs = experiences.map(b => Math.max(...b.map(t => niveauSur(pas, t[s - 1]))))
+    return `${quantile(tous, 0.5)} · ${quantile(meilleurs, 0.5)}`.padStart(11)
+  })
+  const dix = experiences.flatMap(b => b.map(t => atteint(pas, t, 10)))
+  const dixMeilleurs = experiences.map(b => Math.min(...b.map(t => atteint(pas, t, 10))))
+  const deux = experiences.flatMap(b => b.map(t => niveauSur(pas, t[0]) >= 2)).filter(Boolean).length / (BANDES * JOUEURS)
+  console.log(
+    `${`${pas === XP_PAR_PALIER ? '* ' : '  '}${pas} × (n−1)²`.padEnd(12)}${cellules.join('')}` +
+      `${`${soirees(quantile(dix, 0.5))} · ${soirees(quantile(dixMeilleurs, 0.5))}`.padStart(11)}${`${Math.round(deux * 100)} %`.padStart(20)}`,
+  )
+}
+console.log('\n* la courbe du jour (XP_PAR_PALIER)')

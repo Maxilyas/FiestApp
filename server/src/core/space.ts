@@ -18,7 +18,7 @@ import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
 import { ProfileStore, type PrixDeSoiree } from '../auth/profiles'
-import { distinctions, ficheDe, finitionPortee, finitionsOuvertes, niveauPour, soireeQuiCompte, type Finition } from '../../../shared/profil'
+import { distinctions, ficheDe, finitionPortee, finitionsOuvertes, niveauDuProfil, soireeQuiCompte, type Finition } from '../../../shared/profil'
 import { rangPartage } from '../../../shared/classement'
 import type { CarteDeJoueur } from '../../../shared/carte'
 import type { BadgePorte, Rarete } from '../../../shared/badges'
@@ -122,7 +122,7 @@ export class SpaceRuntime {
     this.party = new Party(deps.db, spaceId, this.mirror, (profileId, avatar) => {
       const profile = deps.profiles.cached(profileId)
       if (!profile) return undefined
-      const niveau = niveauPour(profile.xp)
+      const niveau = deps.profiles.niveauOf(profile)
       return {
         niveau,
         finition: finitionPortee(profile.finition, niveau),
@@ -378,7 +378,7 @@ export class SpaceRuntime {
     const recompenses = [...this.deps.profiles.recompensesOf(profil.id).keys()]
     carte.profil = {
       prenom: profil.name,
-      niveau: niveauPour(profil.xp),
+      niveau: this.deps.profiles.niveauOf(profil),
       legendaires: this.deps.profiles.legendairesOf(profil.id),
       divins: this.deps.profiles.divinsOf(profil.id),
       vitrine: plusRares(vitrine, 6),
@@ -442,9 +442,13 @@ export class SpaceRuntime {
         await this.deps.profiles.grantEclat(g.profileId, this.deps.profiles.cibleEclatDe(g.profileId, g.avatar), soireeId)
       }
       await this.annoncer(soireeId, g, avant, apres)
-      if (niveauPour(apres) > niveauPour(avant)) {
+      // Un niveau gardé d'une courbe d'avant ne se « gagne » pas une seconde
+      // fois : on ne fête que ce qui dépasse le niveau qu'il avait déjà.
+      const gardes = this.deps.profiles.gardesOf(g.profileId)
+      const [niveauAvant, niveauApres] = [niveauDuProfil(avant, gardes), niveauDuProfil(apres, gardes)]
+      if (niveauApres > niveauAvant) {
         const figure = this.figure(g.playerId)
-        if (figure) montees.push({ ...figure, avant: niveauPour(avant), apres: niveauPour(apres) })
+        if (figure) montees.push({ ...figure, avant: niveauAvant, apres: niveauApres })
       }
     }
     this.dernierCredit = empreinteDuCredit(soireeId, gains)
@@ -472,8 +476,9 @@ export class SpaceRuntime {
     if (gagne > 0) {
       // Le téléphone le fête — un niveau, une finition —, au lieu d'un toast
       // qu'on ne lisait pas pendant le podium.
-      const niveauAvant = niveauPour(avant)
-      const niveauApres = niveauPour(apres)
+      const gardes = this.deps.profiles.gardesOf(g.profileId)
+      const niveauAvant = niveauDuProfil(avant, gardes)
+      const niveauApres = niveauDuProfil(apres, gardes)
       salon.emit('player:gain', {
         xp: gagne,
         niveauAvant,
@@ -951,8 +956,9 @@ export class SpaceRuntime {
       if (!profil) continue
       const xpPaliers = paliers.reduce((n, cle) => n + (palierDe(cle) ? XP_PALIER[palierDe(cle)!.palier - 1] : 0), 0)
       const xpSoiree = g.xp + xpPaliers
-      const niveauAvant = niveauPour(profil.xp - xpSoiree)
-      const niveauApres = niveauPour(profil.xp)
+      const gardes = this.deps.profiles.gardesOf(g.profileId)
+      const niveauAvant = niveauDuProfil(profil.xp - xpSoiree, gardes)
+      const niveauApres = niveauDuProfil(profil.xp, gardes)
       const deja = avant.get(g.profileId)?.legendaires ?? []
       const dejaDivins = avant.get(g.profileId)?.divins ?? []
       // L'Éclat a pu tomber à n'importe quel podium de la soirée : c'est ici
