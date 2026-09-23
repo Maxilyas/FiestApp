@@ -1,6 +1,6 @@
 import type { AnswerRow } from './answers'
 import type { ScoreEntry } from './scores'
-import { rangPartage } from '../../../shared/classement'
+import { ecartEstimation, rangPartage } from '../../../shared/classement'
 import { SEUILS } from '../../../shared/profil'
 
 /**
@@ -130,9 +130,10 @@ export function indexerJournal(answers: AnswerRow[], scores: ScoreEntry[]): Quiz
       question.majoriteFausse = repondues.length >= 4 && repondues.length - n > repondues.length / 2
     } else {
       const estimees = repondues.filter(r => r.value !== null && r.target !== null)
-      const ecarts = estimees.map(r => Math.abs(r.value! - r.target!))
+      const ecarts = estimees.map(r => ecartEstimation(r.value!, r.target!))
       // Le rang se partage à égalité d'écart : deux « 1994 » exacts sont
-      // premiers tous les deux, quelle que soit la seconde où ils sont arrivés.
+      // premiers tous les deux, quelle que soit la seconde où ils sont arrivés
+      // — et 0,7 et 0,9 pour 0,8 aussi, que la virgule flottante séparait.
       estimees.forEach((r, i) => question.rangsEstimation.set(r.playerId, rangPartage(-ecarts[i], ecarts.map(e => -e))))
       question.tiersEstimation = tiers(estimees.length)
     }

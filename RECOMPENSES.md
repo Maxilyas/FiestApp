@@ -141,8 +141,9 @@ Deux règles ne bougent pas :
 | 46 | ★ **L'historique qui s'écrit tout seul, et « Clore la soirée »** — plus de Sauvegarder ni de Nouvelle soirée | rien ne dépend plus d'un clic oublié | lot 1 |
 | 47 | ★ **L'expérience qui se mérite** — plus de présence gratuite, des gains définitifs par quiz, des bonus à la clôture, un seuil de salle | plus dure, et plus juste | lot 1 |
 | 48 | ★ **Les estimations à égalité valent pareil** — deux « 1994 » exacts ne sont plus séparés de cinquante points ou plus | l'égalité est un rang partagé, partout | lot 1 |
-| 49 | Le temps de lecture offert — le bonus de rapidité ne fond qu'après le temps de lire | la rapidité doit mesurer le réflexe, pas la lecture | plus tard |
+| 49 | ★ **Le temps de lecture offert** — le bonus de rapidité ne fond qu'après le temps de lire | la rapidité doit mesurer le réflexe, pas la lecture | lot 2 |
 | 50 | Réclamer sa soirée — un anonyme crée son profil à l'écran de fin et garde la soirée qu'il vient de jouer | le meilleur moment pour proposer un profil | plus tard |
+| 51 | ★ **L'estimation paie la distance** — plus le rang : le second d'un duel à 0,1 près ne tombe plus de 200 points à 30 | un pas de plus ne doit pas coûter un gouffre | lot 2 |
 
 ## 4. Ce qui est retenu, et pourquoi
 
@@ -163,9 +164,10 @@ Le fil rouge : **une chose à chasser pour chacun, et qu'on le voie.**
   tout cela aux autres — c'était la moitié de la question.
 - **Les catégories et la fiche de carrière** donnent les métriques.
 
-Laissées pour plus tard, sans regret : ce qui demande un calendrier (saisons),
-un nouvel écran de régie (mur des réponses), ou touche encore au barème des
-questions (temps de lecture) — chacune se pose sur ce lot sans le défaire.
+Laissées pour plus tard, sans regret : ce qui demande un calendrier (saisons)
+ou un nouvel écran de régie (mur des réponses) — chacune se pose sur ce lot
+sans le défaire. Le temps de lecture, qui touchait au barème des questions,
+est venu avec le lot 2 (§ 5.10).
 
 ---
 
@@ -394,7 +396,7 @@ Divin se tait — c'est tout son principe.
 - **Seuls.** Ni finition ni Éclat : ils ont leur lumière, et débordent déjà
   de leur cadre.
 - Comme les hauts faits, ils se jugent à la clôture sur les journaux, se
-  relisent sur l'historique (`VERSION_BAREME` 4), partent avec une soirée
+  relisent sur l'historique (`VERSION_BAREME` 4, à leur arrivée), partent avec une soirée
   retirée, et ne rapportent aucune expérience.
 
 ### 5.5 Finitions et Éclat
@@ -457,10 +459,37 @@ journal la garde, et la fiche de carrière donne la réussite par catégorie.
 
 ### 5.10 Le barème des questions
 
-Une seule correction dans ce lot : **deux estimations à égalité d'écart
-valent pareil**. Elles partagent le rang (et le bonus du plus proche, s'il y
-a lieu), comme partout ailleurs. La rapidité ne départage plus des
-propositions identiques.
+Lot 1 : **deux estimations à égalité d'écart valent pareil**. Elles
+partageaient le rang, et le bonus du plus proche. La rapidité ne départage
+plus des propositions identiques.
+
+Lot 2, après une soirée où 7,9 et 8,1 pour 8 avaient touché 200 et 30 points —
+le même écart, et seulement deux joueurs. Le barème a été confronté à ce que
+font les autres : Kahoot (la question seule au moins cinq secondes, plus
+pour un texte long, puis de 100 à 50 % des points selon la vitesse ; au
+curseur, 80 % de précision), Quizizz (60 % pour la bonne réponse, 40 % de
+rapidité), Mentimeter (de 1 000 à 500 points), GeoGuessr et TimeGuessr (des
+points qui décroissent avec la distance, sans marche d'escalier).
+
+- **Le temps de lecture offert (49).** Au QCM, le bonus de rapidité ne fond
+  qu'après le temps de lire : une seconde, plus 55 ms par caractère de la
+  question et des réponses (180 mots par minute), plus une seconde et demie
+  pour une photo à regarder, jamais plus de la moitié du chrono. La bonne
+  réponse garde son prix : de 100 à 200 points, jamais moins de la moitié
+  du maximum, comme chez Kahoot.
+- **L'estimation paie la distance (51).** Trente points pour avoir joué, puis
+  jusqu'à 170 selon l'écart : la moitié à l'écart typique de la salle (la
+  médiane des écarts), un quart au double, tout à la réponse exacte. Le rang
+  faisait tomber le second d'un duel de 200 à 30 pour 0,1 de plus ; il
+  garde une place à l'écran commun, qui met la cible devant tous les plus
+  proches. L'écart typique ne descend pas sous deux crans du dernier chiffre
+  de la réponse — quand toute la salle tombe près, un cran ne fait pas un
+  gouffre — et ne dépasse pas la réponse elle-même : une proposition absurde
+  ne touche que sa participation, même à deux.
+- **Les écarts se comptent sur ce qu'on a tapé.** La virgule flottante
+  séparait 0,7 et 0,9 pour 0,8 : le journal, le bilan et l'expérience du plus
+  proche lisent maintenant le même écart que le barème (`ecartEstimation`,
+  `VERSION_BAREME` 5).
 
 ---
 
@@ -468,12 +497,13 @@ propositions identiques.
 
 **Lot 1 — fait** : 1–5, 9, 12–21, 23–36, 40–44, 46–48.
 
+**Lot 2 — fait** : 49, 51 — le barème des questions (§ 5.10).
+
 **Plus tard**, dans l'ordre où je les prendrais :
 
 1. Réclamer sa soirée (50) — le meilleur moment pour proposer un profil.
 2. Les titres (8) — les hauts faits sont là, il ne manque qu'un choix.
 3. Le mur des réponses (45) et l'entrée en scène (10).
-4. Le temps de lecture offert (49).
-5. Les records personnels (38) et le radar (37).
-6. Les rivalités (39), les légendaires de saison (11), le cadre de soirée (7).
-7. L'Éclat garanti (6) et le Métronome (22).
+4. Les records personnels (38) et le radar (37).
+5. Les rivalités (39), les légendaires de saison (11), le cadre de soirée (7).
+6. L'Éclat garanti (6) et le Métronome (22).

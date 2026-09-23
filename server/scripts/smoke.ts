@@ -847,8 +847,8 @@ try {
   const after = (await (await apiCall('/api/quizzes')).json()) as any[]
   assert(!after.some((q: any) => q.id === created.id), 'le quiz supprimé ne doit plus être listé')
 
-  // 14. Question « estimation » : le plus proche empoche le maximum, celui qui
-  //     répond quand même marque un minimum, personne n'est bloqué
+  // 14. Question « estimation » : le plus proche marque le plus, selon sa
+  //     distance ; celui qui répond quand même garde sa participation
   const mixed = (await (
     await apiCall('/api/quizzes', {
       method: 'POST',
@@ -884,8 +884,10 @@ try {
   ;(bob as any).emit('player:action', { sessionId: mixedId, action: { type: 'guess', value: 50 } })
   const [aliceG, bobG, hostG] = await Promise.all([aliceGuessRv, bobGuessRv, hostGuessRv])
   assert(aliceG.view.yourGuess === 31, `la correction doit remplacer la 1re estimation, vu ${aliceG.view.yourGuess}`)
-  assert(aliceG.view.yourPoints === 200, `le plus proche marque 200, vu ${aliceG.view.yourPoints}`)
-  assert(bobG.view.yourPoints === 30, `le plus loin marque le minimum de participation, vu ${bobG.view.yourPoints}`)
+  // L'écart typique de la salle est de 10,5 ans (entre 1 et 20) : à un an,
+  // presque toute la proximité ; à vingt, un gros quart.
+  assert(aliceG.view.yourPoints === 189, `à un an près, 189 points attendus, vu ${aliceG.view.yourPoints}`)
+  assert(bobG.view.yourPoints === 75, `à vingt ans, 75 points attendus, vu ${bobG.view.yourPoints}`)
   assert(hostG.view.target === 30, 'la valeur à deviner doit être révélée sur l’écran commun')
   assert(hostG.view.guesses?.[0]?.name === 'Alice', 'Alice doit être en tête des estimations')
 
@@ -945,7 +947,9 @@ try {
   ;(charlie as any).emit('player:action', { sessionId: sabId, action: { type: 'guess', value: 2004 } })
   ;(bob as any).emit('player:action', { sessionId: sabId, action: { type: 'guess', value: 99999 } })
   const [charlieS, bobS] = await Promise.all([charlieSab, bobSab])
-  assert(charlieS.view.yourPoints === 90, `deuxième sur trois : 90 points attendus, vu ${charlieS.view.yourPoints}`)
+  // L'écart typique est une médiane : dix ans, ceux de Charlie, quoi que Bob
+  // ait tapé — la moitié de la proximité.
+  assert(charlieS.view.yourPoints === 115, `à l'écart typique : 115 points attendus, vu ${charlieS.view.yourPoints}`)
   assert(bobS.view.yourPoints === 30, `l'estimation absurde ne rapporte que la participation, vu ${bobS.view.yourPoints}`)
   ;(host as any).emit('host:endSession', { sessionId: sabId })
   await apiCall(`/api/quizzes/${sabotage.id}`, { method: 'DELETE' })

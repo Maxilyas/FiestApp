@@ -950,7 +950,8 @@ function QuestionCard({
             />
           </label>
           <p className="muted">
-            Personne n'est bloqué : chacun propose un nombre, le plus proche empoche le maximum.
+            Personne n'est bloqué : chacun propose un nombre, et plus il tombe près, plus il rapporte — la même
+            distance, les mêmes points.
           </p>
         </div>
       ) : (

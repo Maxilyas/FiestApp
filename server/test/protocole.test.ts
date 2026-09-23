@@ -324,8 +324,10 @@ describe('la question visée', { concurrency: true }, () => {
       [alice, bob, chloe].map(i => vue(i.socket, v => v.phase === 'reveal', 'la révélation')),
     )
     assert.equal(va.yourPoints, vb.yourPoints, 'deux « 1994 » exacts touchent autant')
-    assert.equal(va.yourPoints, 200, 'la participation, la proximité entière et le bonus du plus proche')
-    assert.equal(vc.yourPoints, 30, 'troisième au rang partagé : la participation seule')
+    assert.equal(va.yourPoints, 200, 'la réponse exacte : la participation et toute la proximité')
+    // La salle tombe pile : l'écart typique ne descend pas sous deux ans, et
+    // six ans en font trois fois autant — un huitième de la proximité.
+    assert.equal(vc.yourPoints, 51, 'six ans d’écart quand la salle tombe pile')
 
     // Le bilan dit la même chose que le barème : il ne nommait que le plus
     // rapide des deux, et classait l'autre « 2ᵉ à la vitesse ».

@@ -33,6 +33,8 @@ export interface QuizGuessRow extends Distinctions {
   avatar: string
   value: number
   points: number
+  /** Le rang partagé à égalité d'écart : 7,9 et 8,1 pour 8 sont premiers ensemble. */
+  rank: number
 }
 
 export interface QuizPlayerView {

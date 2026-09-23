@@ -30,7 +30,7 @@ import { buildProgress, relevesDeSoiree } from '../src/core/progress'
 import type { AnswerRow } from '../src/core/answers'
 import type { ScoreEntry } from '../src/core/scores'
 import type { PlayerRec } from '../src/core/party'
-import { rangPartage } from '../../shared/classement'
+import { pointsDesEstimations, pointsDuChoix, tempsDeLecture } from '../src/games/quiz'
 import { XP_PAR_PALIER, carriereDe, type Carriere, type GainSoiree, type ReleveSoiree } from '../../shared/profil'
 import { XP_PALIER, palierDe, paliersAtteints } from '../../shared/hautsfaits'
 import { LEGENDAIRES, conditionTenue, type Condition } from '../../shared/legendaires'
@@ -51,6 +51,19 @@ const BANDES = option('bandes', 120)
 const SOIREES = option('soirees', 40)
 const GRAINE = option('graine', 1)
 const DUREE_S = 20
+/**
+ * Le temps de lecture d'une question type : cinquante-cinq caractères et
+ * quatre réponses de sept — la moyenne des quiz livrés avec le dépôt.
+ */
+const LECTURE_MS = tempsDeLecture({
+  kind: 'choice',
+  text: 'x'.repeat(55),
+  answers: Array.from({ length: 4 }, () => 'x'.repeat(7)),
+  correct: 0,
+  duration: DUREE_S,
+  image: null,
+  observeSeconds: null,
+})
 
 // ── Le hasard, rejouable ──────────────────────────────────────────────────
 
@@ -185,8 +198,8 @@ function soiree(bande: Joueur[], numero: number) {
           const juste = hasard() < p
           ligne.correct = juste
           ligne.choice = juste ? 0 : 1 + Math.floor(hasard() * (qu.choix - 1))
-          // Le barème de `games/quiz.ts` : cent points, et autant de rapidité.
-          if (juste) ligne.points = 100 + Math.round((100 * (DUREE_S * 1000 - ms)) / (DUREE_S * 1000))
+          // Le barème de `games/quiz.ts`, le vrai : le temps de lecture offert, puis la rapidité.
+          if (juste) ligne.points = pointsDuChoix(ms, DUREE_S * 1000, LECTURE_MS)
         } else if (repond) {
           const pile = qu.connue && hasard() < j.exact * 2
           const brut = pile ? qu.cible : qu.cible * Math.exp(j.flou * qu.durete * normale())
@@ -198,14 +211,9 @@ function soiree(bande: Joueur[], numero: number) {
       }
       if (qu.kind === 'number') {
         const estimees = lignes.filter(l => l.answered && l.value !== null)
-        const ecarts = estimees.map(l => -Math.abs(l.value! - l.target!))
-        const dernier = estimees.length - 1
-        estimees.forEach((l, i) => {
-          const rang = rangPartage(ecarts[i], ecarts)
-          const ratio = dernier === 0 ? 1 : (dernier - (rang - 1)) / dernier
-          // Le barème de `games/quiz.ts` : la participation, le rang, le plus proche.
-          l.points = 30 + Math.round(120 * ratio) + (rang === 1 ? 50 : 0)
-        })
+        // Le barème de `games/quiz.ts`, le vrai : la participation, puis la distance.
+        const points = pointsDesEstimations(qu.cible, estimees.map(l => l.value!))
+        estimees.forEach((l, i) => (l.points = points[i]))
       }
       for (const l of lignes) {
         answers.push(l)

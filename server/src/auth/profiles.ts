@@ -114,11 +114,14 @@ export const LIGNE_PALIERS = '#paliers'
  * La version du barème qui a écrit une ligne d'expérience : 2 depuis le
  * barème au mérite, 3 depuis qu'il paie dès deux joueurs et que l'animateur
  * gagne chez lui, 4 depuis les Divins — l'expérience n'a pas bougé, mais
- * les soirées d'avant doivent se relire pour qu'un Divin y descende aussi.
+ * les soirées d'avant doivent se relire pour qu'un Divin y descende aussi —,
+ * 5 depuis que deux estimations à égale distance sont ex æquo même quand la
+ * virgule flottante les séparait (0,7 et 0,9 pour 0,8) : l'expérience du
+ * plus proche allait à un seul des deux.
  * Une ligne d'une version d'avant se relit au démarrage (`recalcul.ts`) —
  * son format, lui, n'a pas changé depuis la 2.
  */
-export const VERSION_BAREME = 4
+export const VERSION_BAREME = 5
 
 /** La première version dont les lignes portent le relevé complet. */
 const VERSION_RELEVE_COMPLET = 2

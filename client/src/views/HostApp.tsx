@@ -971,8 +971,8 @@ export function HostApp() {
                     Jouer depuis cet appareil
                   </a>
                   <p className="muted invite-note">
-                    Répondez vite : la rapidité rapporte des points bonus. Les scores s'ajoutent au
-                    classement de la soirée.
+                    Le temps de lire la question est offert, puis la rapidité rapporte des points bonus.
+                    Les scores s'ajoutent au classement de la soirée.
                   </p>
                   {offlineCount > 0 && (
                     <p className="muted small invite-note">

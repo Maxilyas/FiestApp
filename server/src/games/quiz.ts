@@ -2,7 +2,7 @@ import type { GameContext, GameModule, GameSessionRec, ViewContext } from '../co
 import { playableQuestions, type PlayableQuestion, type QuizDef } from '../../../shared/library'
 import { distinctions } from '../../../shared/profil'
 import { nomAffiche } from '../../../shared/homonymes'
-import { classer, rangPartage, type Classe } from '../../../shared/classement'
+import { classer, decimales, ecartEstimation, rangPartage, type Classe } from '../../../shared/classement'
 import type {
   QuizAction,
   QuizCommand,
@@ -88,16 +88,99 @@ const GRACE_MS = 1500
  */
 const SETTLE_MS = 700
 
-// QCM : bonne réponse + bonus de rapidité.
+// ── Le barème ────────────────────────────────────────────────────────────
+//
+// Deux cents points au plus par question, pour les deux types : un quiz qui
+// mêle QCM et estimations ne doit pas se jouer sur l'un des deux.
+
+// QCM : cent points pour la bonne réponse, et jusqu'à cent de rapidité. Une
+// bonne réponse vaut donc de la moitié au tout du maximum — la part de Kahoot
+// et de Mentimeter.
 const CHOICE_POINTS = 100
 const SPEED_BONUS = 100
 
-// Estimation : on récompense d'abord la participation, puis la proximité
-// relative au groupe (une erreur de 3 ans sur une date n'a pas le même sens
-// qu'une erreur de 3 km sur une distance — seul le classement du groupe le dit).
+/**
+ * Le temps de lecture offert. Le bonus de rapidité fondait dès l'affichage,
+ * alors que les premières secondes toute la salle lit la question et ses
+ * réponses : ce temps-là coûtait des points, et davantage à qui lit moins
+ * vite ou joue loin de l'écran. Kahoot montre la question seule au moins
+ * cinq secondes, plus pour un texte long, avant d'ouvrir les réponses. Ici
+ * elles s'ouvrent tout de suite, mais le bonus ne fond qu'après ce temps :
+ * une seconde pour lever les yeux, 55 ms par caractère de la question et des
+ * réponses — 180 mots par minute, la vitesse de lecture que retient Kahoot —,
+ * une seconde et demie de plus pour une photo à regarder. Jamais plus de la
+ * moitié du chrono : la seconde moitié reste une course.
+ */
+const LECTURE_MS = 1000
+const LECTURE_MS_PAR_CARACTERE = 55
+const LECTURE_PHOTO_MS = 1500
+
+// Estimation : trente points pour avoir proposé un nombre — personne ne reste
+// bloqué faute de savoir —, puis jusqu'à cent soixante-dix selon la distance
+// (voir `pointsDesEstimations`).
 const GUESS_POINTS = 30
-const PROXIMITY_POINTS = 120
-const CLOSEST_BONUS = 50
+const PROXIMITY_POINTS = 170
+/** L'écart qu'on pardonne toujours : deux crans du dernier chiffre de la réponse — deux ans sur 1994, 0,2 sur 7,5. */
+const CRANS_TOLERES = 2
+
+/** Le temps de lire une question et ses réponses, en ms : le bonus de rapidité ne fond qu'après. */
+export function tempsDeLecture(q: PlayableQuestion): number {
+  const textes = [q.text, ...(q.kind === 'choice' ? q.answers : [])]
+  // Par caractère, pas par unité de code : un emoji se lit d'un coup d'œil.
+  const caracteres = textes.reduce((n, t) => n + [...t.trim()].length, 0)
+  // Une photo « mémoire » a été regardée avant, pendant l'observation.
+  const photo = q.image && !q.observeSeconds ? LECTURE_PHOTO_MS : 0
+  return Math.min((q.duration * 1000) / 2, LECTURE_MS + LECTURE_MS_PAR_CARACTERE * caracteres + photo)
+}
+
+/**
+ * Les points d'une bonne réponse à un QCM arrivée `ms` après l'affichage :
+ * le maximum pendant le temps de lecture, puis une pente jusqu'à la moitié à
+ * l'échéance — la moitié encore pour une réponse partie juste avant, que le
+ * réseau livre pendant la marge.
+ */
+export function pointsDuChoix(ms: number, dureeMs: number, lectureMs: number): number {
+  const course = dureeMs - lectureMs
+  const reste = course > 0 ? Math.min(1, Math.max(0, (dureeMs - ms) / course)) : 1
+  return CHOICE_POINTS + Math.round(SPEED_BONUS * reste)
+}
+
+/**
+ * Les points de chaque estimation d'une question, dans l'ordre des valeurs.
+ *
+ * C'est la distance qui paie, plus le rang. Au rang, le plus proche touchait
+ * 200 points et, à deux joueurs, l'autre 30 — qu'il ait tapé 8,2 pour 8 ou
+ * 800. Chacun marque maintenant selon SA distance : la moitié de la
+ * proximité à l'écart typique de la salle (la médiane des écarts), le quart
+ * au double, tout à la réponse exacte — la courbe de GeoGuessr ou de
+ * TimeGuessr, qui ne font pas un gouffre d'un pas de plus. La même distance
+ * vaut les mêmes points, de part et d'autre de la réponse (`ecartEstimation`).
+ *
+ * L'écart typique garde ce que le rang avait de bon : il vient de la salle,
+ * il sait donc qu'une erreur de 3 ans sur une date n'a pas le sens d'une
+ * erreur de 3 km, et une faute de frappe (« 19940 » pour 1994) ne le déplace
+ * pas — c'est une médiane. Deux bornes le tiennent quand la salle est trop
+ * petite pour en juger :
+ * · jamais moins de deux crans du dernier chiffre de la réponse : quand tout
+ *   le monde tombe tout près, 7,9 et 8,2 pour 8 valent presque autant, au
+ *   lieu que le premier prenne tout ;
+ * · jamais plus que la réponse elle-même : une erreur aussi grande que la
+ *   bonne réponse n'a rien de typique, et « 50 » pour 8 ne touche que sa
+ *   participation, même à deux.
+ */
+export function pointsDesEstimations(cible: number, valeurs: readonly number[]): number[] {
+  const ecarts = valeurs.map(v => ecartEstimation(v, cible))
+  const tolerance = CRANS_TOLERES * 10 ** -Math.min(12, decimales(cible))
+  const typique = Math.max(tolerance, Math.min(mediane(ecarts), Math.abs(cible)))
+  return ecarts.map(e => GUESS_POINTS + Math.round(PROXIMITY_POINTS * 2 ** (-e / typique)))
+}
+
+function mediane(xs: readonly number[]): number {
+  if (xs.length === 0) return 0
+  const tries = [...xs].sort((a, b) => a - b)
+  const milieu = tries.length >> 1
+  return tries.length % 2 ? tries[milieu] : (tries[milieu - 1] + tries[milieu]) / 2
+}
 
 // ── Bibliothèque ─────────────────────────────────────────────────────────
 //
@@ -213,45 +296,22 @@ function scoreQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   const q = st.pack!.questions[st.qIndex]
 
   if (q.kind === 'choice') {
+    const lectureMs = tempsDeLecture(q)
     for (const [playerId, r] of Object.entries(st.responses)) {
-      if (r.choice !== q.correct) {
-        award(sess, playerId, 0, ctx)
-        continue
-      }
-      // 100 pts + bonus de rapidité (linéaire sur le temps restant)
-      const remaining = Math.max(0, q.duration * 1000 - r.ms)
-      award(sess, playerId, CHOICE_POINTS + Math.round((SPEED_BONUS * remaining) / (q.duration * 1000)), ctx)
+      award(sess, playerId, r.choice === q.correct ? pointsDuChoix(r.ms, q.duration * 1000, lectureMs) : 0, ctx)
     }
     return
   }
 
-  const guesses = Object.entries(st.responses)
-    .filter(([, r]) => r.value !== null)
-    .map(([playerId, r]) => ({ playerId, error: Math.abs(r.value! - q.target) }))
+  // Une échelle linéaire entre le plus proche et le plus loin avait un défaut
+  // fatal : une seule proposition absurde — « 19940 » pour 1994 — repoussait
+  // le maximum si loin que toute la salle touchait le plein de points. Le
+  // rang l'avait réglé, mais en payant 200 au premier et 30 au second d'un
+  // duel à 0,1 près. La médiane règle les deux : voir `pointsDesEstimations`.
+  const guesses = Object.entries(st.responses).filter(([, r]) => r.value !== null)
   if (guesses.length === 0) return
-
-  // La proximité se juge au rang dans le groupe, pas à la distance. Une
-  // échelle linéaire entre le plus proche et le plus loin avait un défaut
-  // fatal : une seule proposition absurde — « 19940 » pour 1994, faute de
-  // frappe ou provocation — repoussait le maximum si loin que toute la salle
-  // touchait le plein de points, et la question ne classait plus personne.
-  // Avec le rang, l'écart des autres ne change rien à vos points.
-  //
-  // Le rang se partage à égalité d'écart (`shared/classement.ts`) : deux
-  // « 1994 » exacts sont premiers tous les deux, et touchent autant, bonus du
-  // plus proche compris. La rapidité les départageait : pour une seconde de
-  // retard sur une réponse identique, le second perdait le bonus et une part
-  // de la proximité — cent dix points à trois joueurs, plus de cinquante à
-  // soixante.
-  const ecarts = guesses.map(g => -g.error)
-  const last = guesses.length - 1
-  for (const g of guesses) {
-    const rang = rangPartage(-g.error, ecarts)
-    // Seul à répondre : tout le monde est « le plus proche », personne n'est pénalisé.
-    const ratio = last === 0 ? 1 : (last - (rang - 1)) / last
-    const points = GUESS_POINTS + Math.round(PROXIMITY_POINTS * ratio) + (rang === 1 ? CLOSEST_BONUS : 0)
-    award(sess, g.playerId, points, ctx)
-  }
+  const points = pointsDesEstimations(q.target, guesses.map(([, r]) => r.value!))
+  guesses.forEach(([playerId], i) => award(sess, playerId, points[i], ctx))
 }
 
 /**
@@ -374,19 +434,25 @@ function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: n
 /** Les propositions d'une question « estimation », de la plus proche à la plus loin. */
 function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewContext, limit: number): QuizGuessRow[] {
   const st = sess.state
-  return Object.entries(st.responses)
+  const propositions = Object.entries(st.responses)
     .filter(([, r]) => r.value !== null)
-    .map(([playerId, r]) => ({ playerId, r, error: Math.abs(r.value! - target) }))
+    .map(([playerId, r]) => ({ playerId, r, error: ecartEstimation(r.value!, target) }))
+  // Le rang se lit sur toute la salle, pas sur les lignes montrées.
+  const ecarts = propositions.map(p => -p.error)
+  return propositions
     .sort((a, b) => a.error - b.error || a.r.ms - b.r.ms)
     // Même raison que pour le classement : on ne décore que les lignes montrées.
     .slice(0, limit)
-    .map(({ playerId, r }) => {
+    .map(({ playerId, r, error }) => {
       const p = vctx.player(playerId)
       return {
         name: p ? nomAffiche(p) : vctx.playerName(playerId),
         avatar: p?.avatar ?? '🎉',
         value: r.value!,
         points: st.lastAwards[playerId] ?? 0,
+        // L'écran commun numérotait les lignes : 8,1 pour 8 s'affichait
+        // « 2 » sous la cible de 7,9, pour autant de points.
+        rank: rangPartage(-error, ecarts),
         ...distinctions(p),
       }
     })
