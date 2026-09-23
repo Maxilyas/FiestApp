@@ -101,6 +101,23 @@ export function FinDeSoiree({
         )
       })}
 
+      {/* L'Éclat : une chance sur quarante, qui tombait en silence — sous un
+          légendaire, personne ne le voyait jamais. */}
+      {gain?.eclat && (
+        <section className="card fin-eclat">
+          <span className="label">Une chance sur quarante</span>
+          <span className="fin-apparition">
+            {legendaire(gain.eclat) ? (
+              <Avatar avatar={fin.avatar} legendaire={gain.eclat} finition={fin.finition} eclat />
+            ) : (
+              <Avatar avatar={gain.eclat} finition={fin.finition} eclat />
+            )}
+          </span>
+          <h2>{legendaire(gain.eclat) ? `${legendaire(gain.eclat)?.nom} a éclaté !` : `Ton ${gain.eclat} a éclaté !`}</h2>
+          <p className="serif-note">Il a changé de couleurs, pour toujours — et toi seul l’as comme ça.</p>
+        </section>
+      )}
+
       {gain && (
         <section className="card fin-gain">
           <p className="fin-xp">+{formatNumber(gain.xp)} points d’expérience</p>

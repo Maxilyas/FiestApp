@@ -9,7 +9,7 @@ interface Props {
   avatar: string
   /** Sa finition, s'il joue avec un profil. Absente = l'emoji nu, comme avant. */
   finition?: Finition
-  /** Cet emoji-là a éclaté pour lui : il brille, et lui seul. */
+  /** Ce qu'il porte a éclaté pour lui — l'emoji, ou le légendaire : il brille, et lui seul. */
   eclat?: boolean
   /** L'avatar dessiné qu'il porte à la place de l'emoji : un légendaire ou un Divin. */
   legendaire?: string
@@ -26,8 +26,9 @@ interface Props {
  * l'animal auquel la salle l'associe.
  *
  * Sauf pour qui a gagné un avatar légendaire et choisi de le porter : un
- * médaillon dessiné, à la taille de l'emoji, prend sa place. L'Éclat, lui,
- * tient à un emoji : il ne s'applique pas au légendaire.
+ * médaillon dessiné, à la taille de l'emoji, prend sa place, et la finition
+ * devient son cercle — pas un halo de plus autour du sien. Si l'Éclat est
+ * tombé sur ce légendaire-là, il porte sa version rare, et ses paillettes.
  *
  * Un Divin prend la place de l'emoji lui aussi, mais seul : ni finition, ni
  * Éclat. Il a sa propre lumière, et ses rayons, ses ailes débordent déjà du
@@ -42,14 +43,18 @@ export function Avatar({ avatar, finition, eclat, legendaire, className }: Props
   const classes = ['av']
   if (className) classes.push(className)
   if (divin) classes.push('av-divin')
-  else {
+  else if (porte) {
+    classes.push('av-legendaire')
+    if (eclat) classes.push('av-eclat')
+  } else {
     if (finition && finition !== 'mat') classes.push(`av-${finition}`)
-    if (porte) classes.push('av-legendaire')
-    else if (eclat) classes.push('av-eclat')
+    if (eclat) classes.push('av-eclat')
   }
   return (
     <span className={classes.join(' ')}>
-      <span className="av-emoji">{divin ? <Divin cle={divin} /> : porte ? <Legendaire cle={porte} /> : avatar}</span>
+      <span className="av-emoji">
+        {divin ? <Divin cle={divin} /> : porte ? <Legendaire cle={porte} finition={finition} eclat={eclat} /> : avatar}
+      </span>
     </span>
   )
 }

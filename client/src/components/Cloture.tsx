@@ -20,7 +20,9 @@ import { Niveau } from './Niveau'
  * clore.
  *
  * Et si un Divin descend, il passe devant les légendaires : la salle n'en
- * reverra peut-être jamais, elle doit le voir ce soir-là.
+ * reverra peut-être jamais, elle doit le voir ce soir-là. Les Éclats de la
+ * soirée s'y proclament aussi : une chance sur quarante mérite mieux que le
+ * silence.
  */
 export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoiree; souvenirUrl: string }) {
   const c = cloture
@@ -77,6 +79,25 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
                     <b>{l.nom}</b>
                     <span className="muted">{legendaire(l.gagne)?.nom}</span>
                   </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {(c.eclats ?? []).length > 0 && (
+            <section className="cloture-bloc">
+              <h3>{c.eclats.length > 1 ? 'Ils ont éclaté' : 'Un avatar a éclaté'}</h3>
+              <div className="cloture-montees">
+                {c.eclats.map((e, i) => (
+                  <span key={`${e.nom}-${i}`} className="cloture-montee">
+                    {legendaire(e.eclate) ? (
+                      <Avatar className="lb-avatar" avatar={e.avatar} legendaire={e.eclate} finition={e.finition} eclat />
+                    ) : (
+                      <Avatar className="lb-avatar" avatar={e.eclate} finition={e.finition} eclat />
+                    )}
+                    <b>{e.nom}</b>
+                    <span className="muted">une chance sur quarante</span>
+                  </span>
                 ))}
               </div>
             </section>

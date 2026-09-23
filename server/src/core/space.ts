@@ -18,11 +18,12 @@ import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
 import { ProfileStore, type PrixDeSoiree } from '../auth/profiles'
-import { distinctions, ficheDe, finitionPortee, finitionsOuvertes, niveauPour, type Finition } from '../../../shared/profil'
+import { distinctions, ficheDe, finitionPortee, finitionsOuvertes, niveauPour, soireeQuiCompte, type Finition } from '../../../shared/profil'
 import { rangPartage } from '../../../shared/classement'
 import type { CarteDeJoueur } from '../../../shared/carte'
 import type { BadgePorte, Rarete } from '../../../shared/badges'
 import { hautFaitDeSoiree, palierDe, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
+import { cibleEclat } from '../../../shared/legendaires'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, SoireeClose } from '../../../shared/fin'
 import type { PartySnapshot, Recap } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
@@ -125,7 +126,8 @@ export class SpaceRuntime {
       return {
         niveau,
         finition: finitionPortee(profile.finition, niveau),
-        eclat: deps.profiles.eclatsOf(profileId).includes(avatar),
+        // Ce qui brille, c'est ce qu'il porte : le légendaire éclaté, ou l'emoji.
+        eclat: deps.profiles.eclatsOf(profileId).includes(cibleEclat(deps.profiles.legendairePorte(profile), avatar)),
         legendaire: deps.profiles.legendairePorte(profile) ?? undefined,
       }
     })
@@ -425,7 +427,7 @@ export class SpaceRuntime {
       // au moins : un téléphone seul qui enchaînait les soirées d'une
       // question tirait autant d'Éclats qu'il voulait.
       const precedent = await this.deps.profiles.creditPrecedent(g.profileId, soireeId)
-      const tirage = g.gain.reponses > 0 && !(precedent && precedent.gain.reponses > 0)
+      const tirage = soireeQuiCompte(g.gain) && !(precedent && soireeQuiCompte(precedent.gain))
       const apres = await this.deps.profiles.creditSoiree({
         profileId: g.profileId,
         soireeId,
@@ -435,7 +437,9 @@ export class SpaceRuntime {
         xp: g.xp,
       })
       if (tirage && ProfileStore.tirageEclat()) {
-        await this.deps.profiles.grantEclat(g.profileId, g.avatar, soireeId)
+        // Sous un légendaire, c'est lui qui éclate : l'emoji caché dessous
+        // brillait sans que personne le voie.
+        await this.deps.profiles.grantEclat(g.profileId, this.deps.profiles.cibleEclatDe(g.profileId, g.avatar), soireeId)
       }
       await this.annoncer(soireeId, g, avant, apres)
       if (niveauPour(apres) > niveauPour(avant)) {
@@ -951,6 +955,9 @@ export class SpaceRuntime {
       const niveauApres = niveauPour(profil.xp)
       const deja = avant.get(g.profileId)?.legendaires ?? []
       const dejaDivins = avant.get(g.profileId)?.divins ?? []
+      // L'Éclat a pu tomber à n'importe quel podium de la soirée : c'est ici
+      // qu'on le dit, une fois tout joué.
+      const eclat = await this.deps.profiles.eclatDeLaSoiree(g.profileId, soireeId).catch(() => null)
       bilans.set(g.playerId, {
         xp: xpSoiree,
         niveauAvant,
@@ -961,6 +968,7 @@ export class SpaceRuntime {
         // comme les autres, avant et après.
         divins: raconter(this.deps.profiles.divinsOf(g.profileId).filter(d => !dejaDivins.includes(d))),
         finitions: finitionsOuvertes(niveauApres).filter(f => !finitionsOuvertes(niveauAvant).includes(f)) as Finition[],
+        ...(eclat && { eclat }),
       })
       // Le profil à jour, pour les pages qui l'affichent encore.
       this.deps.io.to(`player:${g.playerId}`).emit('player:profil', this.deps.profiles.toPublic(profil))
@@ -1036,6 +1044,11 @@ export class SpaceRuntime {
         const b = profils.get(p.id)
         const figure = figures.get(p.id)
         return b && figure && b.niveauApres > b.niveauAvant ? [{ ...figure, avant: b.niveauAvant, apres: b.niveauApres }] : []
+      }),
+      eclats: players.flatMap(p => {
+        const eclate = profils.get(p.id)?.eclat
+        const figure = figures.get(p.id)
+        return eclate && figure ? [{ ...figure, eclate }] : []
       }),
     }
     this.deps.io.to(`hosts:${this.spaceId}`).emit('soiree:cloture', cloture)

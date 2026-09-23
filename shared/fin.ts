@@ -52,6 +52,12 @@ export interface FinDeSoiree extends Distinctions {
     legendaires: string[]
     /** Les Divins descendus ce soir — presque toujours aucun —, avec leur récit. */
     divins: DivinDescendu[]
+    /**
+     * Ce qui a éclaté pour lui ce soir, s'il y en a un : un emoji, ou un
+     * légendaire (`lg:…`) qui prend sa version rare. Une chance sur quarante —
+     * tombé en silence, il passait inaperçu.
+     */
+    eclat?: string
     /** Les finitions débloquées ce soir. */
     finitions: Finition[]
   }
@@ -73,6 +79,8 @@ export interface ClotureDeSoiree {
   legendaires: (Figure & { gagne: string })[]
   /** Les Divins descendus ce soir : toute la salle doit le voir. */
   divins: (Figure & { gagne: string })[]
+  /** Les Éclats de la soirée : l'emoji ou le légendaire qui a éclaté, pour qui. */
+  eclats: (Figure & { eclate: string })[]
   /** Les montées de niveau de la soirée. */
   montees: (Figure & { avant: number; apres: number })[]
 }

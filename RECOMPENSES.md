@@ -369,6 +369,15 @@ Divin se tait — c'est tout son principe.
 - L'**Éclat** garde sa règle (une chance sur quarante par soirée qui compte,
   sur l'emoji joué ce soir-là) et gagne sa propre signature — des paillettes
   qui scintillent autour de l'emoji — au lieu de l'étoile du Prisme.
+- Sur un **légendaire porté**, la finition devient le cercle du médaillon —
+  bronze, argent, or, irisé, prisme, aurore, nuit étoilée — au lieu d'un halo
+  qui s'empilait sur son cercle d'or ; un légendaire de l'ombre garde un
+  filet violet. Et l'Éclat qui tombe sous un légendaire le fait éclater, lui :
+  chacun a sa **version rare**, dessinée. Un Divin n'a ni l'un ni l'autre.
+- L'Éclat **s'annonce** à la fin de la soirée, au téléphone et à la salle :
+  il tombait en silence, et sous un légendaire personne ne le voyait.
+- Une soirée jouée seul ne compte pas : ni pour l'Éclat, ni pour L'Habitué —
+  sans quoi dix soirées d'une question faisaient le Renard Lunaire.
 - Au mur, le niveau s'écrit **« Niv. 15 »**, à la taille du prénom.
 
 ### 5.6 La carte de joueur

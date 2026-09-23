@@ -35,12 +35,15 @@ function recompensesDe(hautsFaits: HautFaitVu[]): Map<string, number> {
  */
 export function GalerieLegendaires({
   debloques,
+  eclats,
   porte,
   hautsFaits,
   busy,
   onPorter,
 }: {
   debloques: string[]
+  /** Ce qui a éclaté pour lui : un légendaire éclaté se montre dans sa version rare. */
+  eclats: string[]
   porte: string | null
   hautsFaits: HautFaitVu[]
   busy: boolean
@@ -73,7 +76,7 @@ export function GalerieLegendaires({
               onClick={() => setDetail(detail === l.key ? null : l.key)}
             >
               <span className="galerie-medaillon">
-                <Legendaire cle={l.key} verrouille={!gagne} />
+                <Legendaire cle={l.key} verrouille={!gagne} eclat={eclats.includes(l.key)} />
               </span>
               <span className="galerie-nom">{l.nom}</span>
               {gagne ? (
@@ -91,6 +94,9 @@ export function GalerieLegendaires({
         <div className="galerie-detail">
           <b className="galerie-detail-nom">{choisi.nom}</b>
           <p className="serif-note">{choisi.legende}</p>
+          {eclats.includes(choisi.key) && (
+            <p className="small">Il a éclaté : c’est sa version rare, et toi seul l’as comme ça.</p>
+          )}
           <p className="small">
             {debloques.includes(choisi.key) ? 'Gagné par ' : 'Se gagne par '}
             <b>{regleDe(choisi.condition, hautsFaits)}</b>

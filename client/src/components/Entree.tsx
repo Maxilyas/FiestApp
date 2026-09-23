@@ -3,6 +3,7 @@ import type { PublicPlayer, PublicTeam } from '../../../shared/types'
 import type { PublicSpace } from '../../../shared/space'
 import type { PublicProfile } from '../../../shared/profil'
 import { AVATARS } from '../../../shared/avatars'
+import { cibleEclat } from '../../../shared/legendaires'
 import { sansAccent } from '../../../shared/homonymes'
 import { MOTIFS } from '../../../shared/erreurs'
 import { ApiError, api, motifDe } from '../api'
@@ -289,7 +290,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
             className="retour-avatar"
             avatar={profil.avatar}
             finition={profil.finition}
-            eclat={profil.eclats.includes(profil.avatar)}
+            eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))}
             legendaire={profil.legendaire ?? undefined}
           />
           <p className="retour-salut">Content de te revoir,</p>
@@ -570,7 +571,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           <Avatar
             avatar={profil.avatar}
             finition={profil.finition}
-            eclat={profil.eclats.includes(profil.avatar)}
+            eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))}
             legendaire={profil.legendaire ?? undefined}
           />
           Ton profil reste <strong>{profil.name}</strong>

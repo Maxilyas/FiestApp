@@ -6,6 +6,7 @@ import { Icon, type IconName } from '../components/Icon'
 import { ProfilForm } from '../components/ProfilForm'
 import { AVATARS } from '../../../shared/avatars'
 import { DIVINS } from '../../../shared/divins'
+import { cibleEclat } from '../../../shared/legendaires'
 import {
   FINITIONS,
   NIVEAU_FINITION,
@@ -134,7 +135,7 @@ export function ProfilApp() {
           className="player-avatar big"
           avatar={profil.avatar}
           finition={profil.finition}
-          eclat={brille(profil.avatar)}
+          eclat={brille(cibleEclat(profil.legendaire, profil.avatar))}
           legendaire={profil.legendaire ?? undefined}
         />
         {/* Le niveau et sa barre, sous le nom : une carte « Niveau » redisait
@@ -190,7 +191,7 @@ export function ProfilApp() {
             className="repli-avatar"
             avatar={profil.avatar}
             finition={profil.finition}
-            eclat={brille(profil.avatar)}
+            eclat={brille(cibleEclat(profil.legendaire, profil.avatar))}
             legendaire={profil.legendaire ?? undefined}
           />
         }
@@ -231,6 +232,7 @@ export function ProfilApp() {
         </p>
         <GalerieLegendaires
           debloques={profil.legendaires}
+          eclats={profil.eclats}
           porte={profil.legendaire}
           hautsFaits={profil.hautsFaits}
           busy={busy}

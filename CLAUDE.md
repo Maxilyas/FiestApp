@@ -57,7 +57,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) |
 | `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
-| `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée |
+| `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare |
 | `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
 | `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
 | `core/http.ts` | ce qu'une erreur laisse lire : `wrap`, `erreurMontrable`, `messagePourEcran`, `erreurDeRequete` |
@@ -183,7 +183,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
     joue chez lui gagne comme tout le monde. Les hauts faits gardent leur
     salle de quatre (`salleHautsFaits`). Les gains d'un quiz sont
     définitifs : ce qui peut se renverser d'un quiz à l'autre attend la
-    clôture.
+    clôture. Une soirée jouée seul reste dans l'historique mais ne compte
+    pas (`soireeQuiCompte`) : ni tirage de l'Éclat, ni soirée pour L'Habitué
+    — dix « soirées » d'une question faisaient le Renard Lunaire.
 20. **Les récompenses sont des dérivations des journaux**, comme le
     souvenir : quand le barème ou un haut fait change, incrémente
     `VERSION_BAREME` — au démarrage, `recalculerHistorique` relit toutes les

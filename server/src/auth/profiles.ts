@@ -32,7 +32,7 @@ import {
   XP_PALIER,
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
-import { legendaire, legendairesDebloques } from '../../../shared/legendaires'
+import { cibleEclat, legendaire, legendairesDebloques } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
@@ -822,9 +822,31 @@ export class ProfileStore {
   }
 
   /**
-   * Fait éclater un emoji pour ce profil, définitivement. Rend faux s'il
-   * brillait déjà — le tirage est alors tombé dans le vide, et c'est très
-   * bien : l'Éclat est une surprise, pas une récompense due.
+   * Ce qui éclatera si l'Éclat tombe sur ce profil ce soir : le légendaire
+   * qu'il porte, ou l'emoji qu'il a joué (`cibleEclat`).
+   */
+  cibleEclatDe(profileId: string, emoji: string): string {
+    const p = this.profiles.get(profileId)
+    return cibleEclat(p ? this.legendairePorte(p) : null, emoji)
+  }
+
+  /**
+   * Ce qui a éclaté pour ce profil pendant cette soirée, s'il y en a un — la
+   * fin de soirée l'annonce : tombé en silence, un Éclat passait inaperçu, et
+   * plus encore sous un légendaire.
+   */
+  async eclatDeLaSoiree(profileId: string, soireeId: string): Promise<string | null> {
+    const res = await this.client.execute({
+      sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ? AND soiree_id = ? ORDER BY created_at LIMIT 1',
+      args: [profileId, soireeId],
+    })
+    return res.rows.length > 0 ? String(res.rows[0].avatar) : null
+  }
+
+  /**
+   * Fait éclater un emoji ou un légendaire pour ce profil, définitivement.
+   * Rend faux s'il brillait déjà — le tirage est alors tombé dans le vide, et
+   * c'est très bien : l'Éclat est une surprise, pas une récompense due.
    */
   async grantEclat(profileId: string, avatar: string, soireeId: string): Promise<boolean> {
     const deja = this.eclats.get(profileId)
