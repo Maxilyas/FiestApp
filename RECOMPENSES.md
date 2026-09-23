@@ -74,7 +74,7 @@ Deux règles ne bougent pas :
 | 4 | ★ **Aurore (niv. 20) et Constellation (niv. 25)** — deux finitions au-delà du Prisme | un horizon pour ceux qui ont tout | lot 1 |
 | 5 | ★ **Un Éclat qu'on reconnaît** — des paillettes qui scintillent autour de l'emoji, jamais l'étoile du Prisme | la rareté doit se voir | lot 1 |
 | 6 | L'Éclat garanti à la persévérance — une chance sur 40, garantie à la 60ᵉ soirée sans éclat | le hasard sans la frustration infinie | plus tard |
-| 7 | Le cadre de soirée — un cadre commémoratif que portent tous ceux qui y étaient (« les 30 ans de Romane ») | un souvenir qu'on porte | plus tard |
+| 7 | Le cadre de soirée — un cadre commémoratif que portent tous ceux qui y étaient (« l'anniversaire de Léa ») | un souvenir qu'on porte | plus tard |
 | 8 | ★ **Les titres** — un titre sous le prénom, tiré de ses hauts faits (« L'Oracle », « Lanterne Rouge ×3 ») | un mot vaut mieux qu'une icône au mur | plus tard |
 | 9 | ★ **La vitrine** — les hauts faits les plus rares montrés sur la carte | se montrer sans se vanter | lot 1 |
 | 10 | L'entrée en scène — une animation d'arrivée sur l'écran commun à la mesure de ce qu'on porte | la présence commence à la porte | plus tard |
@@ -236,15 +236,26 @@ soirée, qui changeait de mains d'un quiz à l'autre, ne se décide qu'à la
 clôture. L'expérience d'un profil ne redescend donc plus jamais pendant une
 soirée — c'était le bug le plus visible.
 
-**La courbe** : le niveau *n* demande 25 × (*n* − 1)² points (12 avant).
+**La courbe** : le niveau *n* demande 60 × (*n* − 1)² points (12, puis 25
+avant). À 25, sur des soirées de deux quiz de cinquante questions, le joueur
+médian passait niveau 5 dès son premier soir et niveau 10 à son sixième :
+toutes les finitions filaient en une dizaine de soirées. Mesuré par
+`server/scripts/calibrage.ts` (hauts faits et paliers compris), le niveau
+du joueur médian · du meilleur de la bande :
 
-| | une soirée | niveau 5 | niveau 10 | niveau 20 |
-|---|---|---|---|---|
-| joueur moyen (répond à tout, 13 justes sur 30) | ≈ 90 | 5 soirées | 23 soirées | 100 soirées |
-| le meilleur de la salle (24 justes, 2 quiz, 1ᵉʳ) | ≈ 280 | 2 soirées | 8 soirées | 33 soirées |
+| Soirées de… | après 1 | après 5 | après 10 | après 20 | niveau 10 atteint |
+|---|---|---|---|---|---|
+| 2 quiz × 50 questions, 12 joueurs | 3 · 4 | 6 · 8 | 9 · 11 | 12 · 16 | 12ᵉ · 7ᵉ soirée |
+| 2 quiz × 30 questions, 10 joueurs | 3 · 3 | 5 · 7 | 7 · 9 | 10 · 13 | 19ᵉ · 11ᵉ soirée |
+| 3 quiz × 12 questions, 8 joueurs | 2 · 3 | 4 · 6 | 6 · 8 | 8 · 12 | 28ᵉ · 13ᵉ soirée |
 
-Les hauts faits accélèrent un peu les deux. Le niveau 20 redevient une
-légende ; le niveau 2 tombe toujours le premier soir.
+Le niveau 20 redevient une légende ; le niveau 2 tombe toujours le premier
+soir, même d'une petite soirée de trente questions — à 75, elle n'y
+suffisait plus. **Personne n'a perdu un niveau** : au premier démarrage de
+la nouvelle courbe, chaque profil garde celui qu'il avait atteint
+(`profile_niveaux`), tant que l'ancienne courbe le lui donne ; sa barre
+compte alors depuis zéro jusqu'au niveau suivant, qu'elle rattrape soirée
+après soirée.
 
 **Le recalcul.** L'expérience est une dérivation des journaux : au premier
 démarrage après ce changement, chaque soirée archivée est recréditée avec le

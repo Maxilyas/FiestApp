@@ -161,7 +161,7 @@ même format que « Me connecter », visible sans défiler.
 
 ```
         LA SOIRÉE DE
-        Romane
+        Bob
         Le quiz de la soirée
         ─────────────────────────────
         Ton identifiant
@@ -833,8 +833,8 @@ l'auteur, pas dans le code.
   l'équipe est absent la moitié du temps.
 
 - ✅ **L'écran de connexion se montre une fois par espace et par téléphone.**
-  Quelqu'un qui a déjà dit « sans compte » chez Romane n'a pas à le redire à
-  la soirée suivante de Romane. Ce qui s'en souvient, c'est le prénom retenu
+  Quelqu'un qui a déjà dit « sans compte » chez Bob n'a pas à le redire à
+  la soirée suivante de Bob. Ce qui s'en souvient, c'est le prénom retenu
   localement : sa seule présence vaut « l'entrée a déjà été vue ici ».
 - ✅ **Un identifiant pris en propose un libre** (« camille2 »), avec le
   compromis d'énumération assumé et écrit en commentaire dans
