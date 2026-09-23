@@ -3,11 +3,12 @@
 Une soirée entière jouée par huit agents (`/tablee`, voir
 `.claude/skills/tablee/`) : Nadia, qui anime pour la première fois, et sept
 invités de 16 à 71 ans, chacun sur son appareil, dans un vrai navigateur. En
-31 minutes et 868 gestes, Nadia a activé son compte, écrit un quiz de neuf
-questions (dont une estimation et une photo à mémoriser), fait deux équipes,
-animé, remis des prix, clos la soirée et l'a relue ; les invités sont entrés,
-ont joué, et ont relu leur fin de soirée, le souvenir et leur bilan. Chacun a
-ensuite écrit ce qui lui a plu et ce qui l'a gêné.
+une trentaine de minutes et près de 870 gestes, Nadia a activé son compte,
+écrit un quiz de neuf questions (dont une estimation et une photo à
+mémoriser), fait deux équipes, animé, remis des prix, clos la soirée et l'a
+relue ; les invités sont entrés, ont joué, et ont relu leur fin de soirée, le
+souvenir et leur bilan. Chacun a ensuite écrit ce qui lui a plu et ce qui l'a
+gêné.
 
 **Chaque constat ci-dessous a été vérifié** — dans le code, sur les captures ou
 dans le journal de la tablée — et ceux qui venaient du banc d'essai plutôt que
@@ -51,7 +52,7 @@ moins coûteux :
 | **Nadia**, 38 ans | anime pour la première fois | portable 1366 × 768 branché à la télé | activation, quiz de 9 questions, 2 équipes, prix, clôture, relecture | 4 · 4 · 4 · 4 |
 | **Jeanne**, 71 ans | grand-mère, texte agrandi, lit lentement | petit Android 360 × 640, zoom 130 % | 4ᵉ, 1 281 pts | 4 · 5 · 4 · 5 |
 | **Lucas**, 16 ans | cherche la faille, joue vite | iPhone | 2ᵉ, 1 501 pts | 4 · 4 · 4 · 5 |
-| **Sofia**, 34 ans | veut son profil et sa progression | Android | 3ᵉ, 1 366 pts, niveau 2 | *voir son retour* |
+| **Sofia**, 34 ans | veut son profil et sa progression | Android | 3ᵉ, 1 366 pts, prix de l'Éclair, niveau 1 → 2 | 4 · 5 · 5 · 5 |
 | **Karim**, 29 ans | arrive en retard, réseau capricieux, veille | Android | 7ᵉ, 512 pts (4 questions perdues aux incidents) | 4 · 3 · 5 · 4 |
 | **Camille M.**, 27 ans | n'a pas le QR : passe par l'accueil | Android | 1ʳᵉ, 1 611 pts, sans-faute | 4 · 5 · 5 · 5 |
 | **Camille D.**, 45 ans | profil existant, homonyme, daltonienne | Android, vision deutéranope | 5ᵉ, 1 235 pts, « Camille (2) » | 5 · 4 · 5 · 5 |
@@ -163,7 +164,7 @@ captures :
 Personne ne fait défiler une télé pendant une fête. **Pistes** (S-M) : une
 photo de révélation bornée en hauteur (`vh`), une console compacte sur une
 ligne, et vérifier l'écran commun en 1366 × 768 comme on vérifie le
-téléphone en 360 × 640 — la tablée le fait désormais à chaque soirée.
+téléphone en 360 × 640 — l'animatrice de la tablée y joue à chaque soirée.
 
 ### 4. Les finitions du téléphone — P2
 
@@ -176,8 +177,9 @@ téléphone en 360 × 640 — la tablée le fait désormais à chaque soirée.
   n'a ni coupure ni points de suspension, quand le classement juste dessous
   en a (capture `06`). Le champ, lui, coupe à 24 caractères sans rien dire.
 - **Le clavier cache le bouton** de l'écran du prénom (Jeanne : avatars et
-  « Continuer » disparus) et de « Quelle soirée ? » (Camille M.) : ces écrans
-  ancrent leur bouton en bas (`.join-grow`). *Piste* : `interactive-widget=resizes-content`
+  « Continuer » disparus), de la création de profil (Sofia) et de « Quelle
+  soirée ? » (Camille M.) : ces écrans ancrent leur bouton en bas
+  (`.join-grow`). *Piste* : `interactive-widget=resizes-content`
   dans la balise viewport (`client/index.html:7`) — Chrome Android remonte
   alors la page au-dessus du clavier —, à vérifier sur un vrai téléphone,
   puisque le clavier de la tablée est simulé (capture `07`).
@@ -240,8 +242,9 @@ type Estimation et son unité, la liste des catégories.
 
 Tout se lit au mur, par toute la famille. Vérifié :
 - « **Ajoute-lui tes deux jeux physiques** pour désigner l'équipe gagnante de
-  la soirée » s'affiche sous l'écran de victoire : c'est un reste de la
-  soirée « jour-j », retirée au lot 23 (`client/src/views/HostApp.tsx:893`,
+  la soirée » s'affiche sous l'écran de victoire : c'est un reste des
+  « trois jeux » de la fête d'origine, que le commit 553f40c (« Plus de
+  fête ») a retirés de tous les autres textes (`client/src/views/HostApp.tsx:893`,
   capture `02`).
 - **Le tu et le vous** : « Choisis ton mot de passe » (`ActivateApp.tsx:43`),
   « Créez le premier ! » (`EditorApp.tsx:249`), « Choisissez un quiz »
@@ -250,6 +253,8 @@ Tout se lit au mur, par toute la famille. Vérifié :
   l'élision (`shared/space.ts:93`).
 - **La clôture propose « Soirée du 23 septembre 2026 »** plutôt que le titre
   de la soirée, « Les 40 ans de Sam » (`HostApp.tsx:460`).
+- **« Quizz »**, l'ancien nom, titre encore les onglets des pages sans titre
+  propre — activation, compte, éditeur, connexion (`client/index.html:26`).
 - **Le masculin par défaut** : « 1ᵉʳ sur 7 » pour Camille, « toujours
   souriant » pour Camille (2).
 - **Les espaces insécables** : un « ? » ou un « » » orphelin en début de
@@ -273,13 +278,19 @@ Effort S pour chacun.
   toujours dans les premiers.
 - **Nadia** : envoyer tous les bilans d'un coup (une page de liens, ou un QR
   par fiche imprimée) ; une pause qui se voit du canapé.
+- **Sofia** : sur `/profil`, un lien vers la soirée qu'on vient de rejoindre
+  plutôt qu'un « Rejoindre une soirée » générique ; une légende pour les
+  colonnes obscures du tableau des chiffres (« Biais », « Revirements »,
+  « Seul ») ; une montée de niveau fêtée plus longtemps — la fête existe
+  (« +72 XP · Niveau 2 ! », cinq secondes par-dessus l'écran), mais la fin
+  de soirée n'en garde qu'une barre.
 
 ## Ce qui plaît — à ne pas casser
 
 - **Entrer sans compte.** Les cinq invités entrés sans compte ont trouvé
-  « Jouer sans compte » du premier coup, Jeanne comprise ; trois écrans jusqu'à la salle
-  d'attente. Camille M., sans QR, a deviné l'adresse, et l'aperçu de
-  l'adresse sous le champ l'a rassurée avant même de valider.
+  « Jouer sans compte » du premier coup, Jeanne comprise ; trois écrans
+  jusqu'à la salle d'attente. Camille M., sans QR, a deviné l'adresse, et
+  l'aperçu de l'adresse sous le champ l'a rassurée avant même de valider.
 - **Les homonymes.** Deux Camille au même renard, jamais confondues :
   « Camille (2) » partout, à la télé, sur les téléphones, dans le souvenir, le
   bilan, le tableau des chiffres. Les deux l'ont relevé.
@@ -293,6 +304,10 @@ Effort S pour chacun.
   et l'estimation, où la salle a le plus ri.
 - **Le bilan personnel**, relu en détail par presque tous et partagé par son
   lien.
+- **Le profil** (Sofia) : créé sans quitter la soirée, sans e-mail, avec un
+  code de secours copiable ; la page profil dit combien il manque pour le
+  niveau suivant et, d'un toucher sur un médaillon, comment le débloquer ;
+  les Divins voilés donnent envie de revenir.
 - **La console** : « on sait toujours quoi faire ensuite » — le bouton doré
   suit la soirée.
 - **La clôture** : une confirmation où le nom se choisit, et « C'était un
@@ -301,12 +316,12 @@ Effort S pour chacun.
 
 ## Écarté : ce qui venait de la tablée
 
-- **« Ma réponse ne s'affichait pas comme enregistrée »** (six invités sur
-  sept) : un faux positif du banc. Le pilote confiait l'attente de l'accusé à
-  `waitForFunction`, que la politique de sécurité de l'application
-  (`script-src 'self'`, sans `unsafe-eval`) refuse dès que le prédicat n'est
-  pas vrai au premier regard — c'est aussi l'erreur « unsafe-eval » que
-  Camille D. a vue passer en console. Le banc concluait donc dès le premier
+- **« Ma réponse ne s'affichait pas comme enregistrée »** (les sept
+  invités) : un faux positif du banc. Le pilote confiait l'attente de
+  l'accusé à `waitForFunction`, que la politique de sécurité de
+  l'application (`script-src 'self'`, sans `unsafe-eval`) refuse dès que le
+  prédicat n'est pas vrai au premier regard — c'est aussi l'erreur
+  « unsafe-eval » que Camille D. a vue passer en console. Le banc concluait donc dès le premier
   regard, quelques millisecondes après le toucher ; relue un instant plus
   tard, chaque réponse était enregistrée, et le journal n'en a perdu aucune.
   Corrigé : la régie relit la page jusqu'à l'accusé.
@@ -316,6 +331,10 @@ Effort S pour chacun.
   pas la page blanche.
 - **Le rond brun sur la photo du gâteau** (Karim) : le soleil que la régie a
   dessiné.
+- **« Le passage de niveau n'est pas fêté »** (Sofia) : il l'est, cinq
+  secondes par-dessus l'écran ; l'agent, qui met plusieurs secondes à chaque
+  geste, est passé à côté. La régie relève maintenant ces messages
+  éphémères et les dit au geste suivant.
 - **« Aucune réponse possible à la question photo »** (Hugo) : son premier
   geste (`repondre 7`) avait été lu comme le numéro d'une réponse et non comme
   son texte — un défaut du pilote, corrigé —, et le second est arrivé après
@@ -343,6 +362,11 @@ Corrigé dans la régie et les consignes pour la prochaine fois :
 - `question` ne saute plus ni la révélation ni la photo à mémoriser ;
 - l'écran commun n'est reconnu que s'il montre le QR : un invité qui ouvre
   `/host` sur son téléphone n'est pas la télé ;
+- les messages éphémères — un toast, la fête d'une montée de niveau — sont
+  relevés au passage et dits à l'agent à son geste suivant ;
+- après la clôture, aucun quiz ne suit : l'animatrice l'annonce, et les
+  invités ne rentrent plus dans « la soirée suivante » pour l'attendre
+  (Sofia y a patienté dix-huit minutes) ;
 - un filet contre les promesses rejetées, comme celui du serveur.
 
 Et à garder en tête : le clavier et la veille sont simulés, Chromium seul

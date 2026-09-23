@@ -414,6 +414,30 @@ const CLAVIER = `(() => {
   document.addEventListener('focusout', () => setTimeout(() => { if (!estSaisie(document.activeElement)) cacher() }, 0), true)
 })()`
 
+/**
+ * Ce qui ne reste que quelques secondes à l'écran — un message qui glisse,
+ * la fête d'une montée de niveau — et qu'un agent, qui met plusieurs
+ * secondes à chaque geste, ne verrait jamais : on le note au passage, et
+ * l'agent l'apprend à son geste suivant. La première tablée a manqué ainsi
+ * le « +72 XP · Niveau 2 ! » de la joueuse qui l'attendait toute la soirée.
+ */
+const EPHEMERES = `(() => {
+  if (window.__tableeEphemeres) return
+  window.__tableeEphemeres = []
+  const SELECTEUR = '.toast, .celebration'
+  const noter = n => {
+    if (!(n instanceof Element)) return
+    const cible = n.matches(SELECTEUR) ? n : n.querySelector(SELECTEUR)
+    if (!cible) return
+    setTimeout(() => {
+      const texte = (cible.innerText || '').split('\\n').map(l => l.trim()).filter(Boolean).join(' · ')
+      const liste = window.__tableeEphemeres
+      if (texte && liste[liste.length - 1] !== texte) liste.push(texte)
+    }, 60)
+  }
+  new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(noter))).observe(document, { childList: true, subtree: true })
+})()`
+
 /** « Taille du texte » agrandie, comme la règlent beaucoup de téléphones de grands-parents. */
 const zoomScript = (pourcent: number) => `(() => {
   const poser = () => { document.documentElement.style.zoom = '${pourcent}%' }
@@ -560,6 +584,7 @@ async function allumer(qui: string, appareil: string): Promise<Participant> {
   contexte.setDefaultTimeout(5000)
   contexte.setDefaultNavigationTimeout(20000)
   if (a.tactile) await contexte.addInitScript({ content: CLAVIER })
+  await contexte.addInitScript({ content: EPHEMERES })
   const p: Participant = {
     qui,
     appareil,
@@ -704,6 +729,8 @@ async function entete(p: Participant, o: Onglet): Promise<string> {
   const paroles = salle.slice(p.entendu).filter(m => m.qui !== p.qui)
   p.entendu = salle.length
   for (const m of paroles) lignes.push(`🗣 ${m.qui} dit : « ${m.texte} »`)
+  const passes: string[] = await o.page.evaluate('(window.__tableeEphemeres || []).splice(0)').catch(() => [])
+  for (const texte of passes) lignes.push(`✨ Au passage, l'écran a affiché : « ${texte} »`)
   lignes.push(...p.nouvelles.splice(0))
   if (o.erreursNonLues > 0) {
     lignes.push(`⚠ Le navigateur a signalé ${o.erreursNonLues} erreur(s) sur cette page — détail : « console ».`)
