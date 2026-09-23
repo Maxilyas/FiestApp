@@ -290,6 +290,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
             avatar={profil.avatar}
             finition={profil.finition}
             eclat={profil.eclats.includes(profil.avatar)}
+            legendaire={profil.legendaire ?? undefined}
           />
           <p className="retour-salut">Content de te revoir,</p>
           <h1 className="join-title compact">{profil.name}</h1>
@@ -570,6 +571,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
             avatar={profil.avatar}
             finition={profil.finition}
             eclat={profil.eclats.includes(profil.avatar)}
+            legendaire={profil.legendaire ?? undefined}
           />
           Ton profil reste <strong>{profil.name}</strong>
           <Niveau niveau={profil.niveau} />

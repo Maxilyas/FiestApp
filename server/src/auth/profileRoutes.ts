@@ -44,8 +44,14 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
    */
   const inscriptions = new Budget(10, 5, { skipLoopback: true })
   const noStore = (res: express.Response) => res.set('Cache-Control', 'no-store')
-  /** « Chez Bob » plutôt qu'un identifiant, dans l'historique des soirées. */
-  const nomDEspace = (spaceId: string) => deps.auth.byId(spaceId)?.name ?? null
+  /**
+   * « Chez Bob » plutôt qu'un identifiant, dans l'historique des soirées — et
+   * l'adresse de son espace, pour relire la soirée.
+   */
+  const espaceDe = (spaceId: string) => {
+    const account = deps.auth.byId(spaceId)
+    return account ? { nom: account.name, slug: account.slug } : null
+  }
 
   /** Le profil connecté derrière le cookie, ou null. */
   const current = async (req: express.Request) => {
@@ -223,7 +229,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       // ma soirée » sur l'accueil.
       const espace = me ? deps.auth.byProfile(me.id) : undefined
       res.json({
-        profile: me ? await profiles.toDetail(me, nomDEspace) : null,
+        profile: me ? await profiles.toDetail(me, espaceDe) : null,
         espace: espace && !espace.disabledAt ? deps.auth.publicSpace(espace) : null,
       })
     }),
@@ -256,10 +262,13 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       noStore(res)
       const me = await current(req)
       if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      // Le légendaire se choisit ici comme l'emoji : l'un ôte l'autre, et
+      // celui qu'on n'a pas débloqué est refusé en clair.
       const updated = await profiles.update(me.id, {
         name: req.body?.name,
         avatar: req.body?.avatar,
         finition: req.body?.finition,
+        legendaire: req.body?.legendaire,
       })
       res.json({ profile: profiles.toPublic(updated) })
     }),

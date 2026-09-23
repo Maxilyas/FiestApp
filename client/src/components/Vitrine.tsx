@@ -1,6 +1,5 @@
 import type { BadgePorte } from '../../../shared/badges'
 import { NOM_RARETE } from '../../../shared/badges'
-import { Icon } from './Icon'
 
 /**
  * L'étagère à badges d'un profil.
@@ -19,8 +18,8 @@ export function Vitrine({ badges }: { badges: BadgePorte[] }) {
   if (badges.length === 0) {
     return (
       <p className="muted small">
-        Pas encore de badge. Ils tombent en fin de soirée, quand l'application remet ses prix — le plus
-        rapide, le plus têtu, le plus à côté de la plaque…
+        Pas encore de prix. Ils tombent à la clôture de chaque soirée, quand l'application remet les
+        siens — le plus rapide, le plus têtu, le plus à côté de la plaque…
       </p>
     )
   }
@@ -37,27 +36,5 @@ export function Vitrine({ badges }: { badges: BadgePorte[] }) {
         </div>
       ))}
     </div>
-  )
-}
-
-/** Le pavé « ce que tu n'as pas encore », pour donner envie de revenir. */
-export function VitrineVide({ manquants }: { manquants: { emoji: string; title: string; rule: string }[] }) {
-  if (manquants.length === 0) return null
-  return (
-    <details className="a-decrocher">
-      <summary>
-        <Icon name="sparkles" /> Encore {manquants.length} à décrocher
-      </summary>
-      <ul className="a-decrocher-liste">
-        {manquants.map(m => (
-          <li key={m.title}>
-            <span className="badge-emoji muted">{m.emoji}</span>
-            <span>
-              <strong>{m.title}</strong> — {m.rule}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </details>
   )
 }

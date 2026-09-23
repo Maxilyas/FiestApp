@@ -75,7 +75,7 @@ export function ArchivesApp() {
           <div className="soiree-head">
             <div>
               <span className="label">En cours</span>
-              <h2>La soirée du moment</h2>
+              <h2>{current.title ?? 'La soirée du moment'}</h2>
               <p className="muted">
                 {current.players} joueur{current.players > 1 ? 's' : ''} · {current.quizzes} quiz ·{' '}
                 {current.questions} question{current.questions > 1 ? 's' : ''}
@@ -85,8 +85,8 @@ export function ArchivesApp() {
           </div>
           <PageLinks slug={slug} archiveId={null} />
           <p className="muted small">
-            Elle rejoindra l'historique quand l'animateur la sauvegardera depuis l'écran commun, ou
-            repartira de zéro pour la suivante.
+            Elle s'enregistre toute seule après chaque quiz, et rejoindra la liste quand l'animateur
+            la clora depuis l'écran commun.
           </p>
         </section>
       )}
@@ -94,8 +94,8 @@ export function ArchivesApp() {
       {list.archives.length === 0 ? (
         <section className="card">
           <p className="muted">
-            Aucune soirée archivée pour l'instant. Sur l'écran commun, « Sauvegarder » range la
-            soirée en cours ici, et « Nouvelle soirée » le fait avant de tout effacer.
+            Aucune soirée close pour l'instant. Chaque soirée s'enregistre après chaque quiz, et
+            rejoint cette liste quand l'animateur la clôt depuis l'écran commun.
           </p>
         </section>
       ) : (
@@ -116,7 +116,8 @@ export function ArchivesApp() {
             onRemove={async () => {
               const ok = await confirmDialog({
                 title: `Retirer « ${a.title} » de l'historique ?`,
-                message: 'Son souvenir et son bilan disparaissent. C’est définitif.',
+                message:
+                  'Son souvenir et son bilan disparaissent, et ce qu’elle avait rapporté aux profils avec — expérience, prix, hauts faits. C’est définitif.',
                 confirmLabel: 'Retirer',
                 danger: true,
               })

@@ -452,32 +452,45 @@ test('un profil ne tient qu’un seul joueur', async () => {
   assert.equal(joueur(snap, anonyme.playerId)?.niveau, undefined, 'l’invité de la tablette reste anonyme')
 })
 
-// ── 5. « Nouvelle soirée » ────────────────────────────────────────────────
+// ── 5. « Clore la soirée » ────────────────────────────────────────────────
 
-test('« Nouvelle soirée » prévient les téléphones, et la suivante se rejoint', async () => {
+test('« Clore la soirée » prévient les téléphones, et la suivante se rejoint', async () => {
   const host = await ecran()
   const nina = await invité('Nina', '🐱')
   await instantane(nina.socket, s => !!joueur(s, nina.playerId), 'Nina dans la salle')
+  // Une question jouée : la soirée a une fin à raconter.
+  const avant = await creerQuiz(banc.url, cookie, [qcm('Avant la clôture ?')])
+  const joue = await lancerQuiz(host, avant)
+  await attendre(nina.socket, 'session:view', (p: any) => p.sessionId === joue && p.view.phase === 'question', 'la question')
+  const revelee = attendre<any>(host, 'session:view', p => p.sessionId === joue && p.view.phase === 'reveal', 'la révélation')
+  const repondu = await emitAck<any>(nina.socket, 'player:action', { sessionId: joue, action: { type: 'answer', choice: 0 } })
+  assert.equal(repondu.ok, true)
+  await revelee
   // Ce que le téléphone sait de la salle à l'instant où il est prévenu : c'est
-  // cette liste que lit l'entrée qui s'ouvre.
-  const salleAuSignal = new Promise<any>((resolve, reject) => {
-    const delai = setTimeout(() => reject(new Error('délai dépassé en attendant : le téléphone prévenu de la nouvelle soirée')), 8000)
-    nina.socket.once('party:reset', () => {
+  // cette liste que lit l'entrée qui s'ouvrira après sa fin de soirée.
+  const auSignal = new Promise<{ fin: any; salle: Promise<any> }>((resolve, reject) => {
+    const delai = setTimeout(() => reject(new Error('délai dépassé en attendant : la fin de soirée sur le téléphone')), 8000)
+    nina.socket.once('soiree:fin', (fin: any) => {
       clearTimeout(delai)
-      resolve(instantane(nina.socket))
+      resolve({ fin, salle: instantane(nina.socket) })
     })
   })
-  envoyer(host, 'host:resetParty')
+  envoyer(host, 'host:closeParty', {})
+  const { fin, salle } = await auSignal
   // La salle vide arrive avant le signal : l'entrée prenait sinon l'identité
   // effacée du téléphone pour un homonyme, et changeait son avatar « déjà pris ».
-  assert.equal((await salleAuSignal).players.length, 0, 'la salle vide précède le signal')
+  assert.equal((await salle).players.length, 0, 'la salle vide précède le signal')
+  assert.equal(fin.nom, 'Nina', 'le téléphone reçoit sa soirée à lui')
+  assert.equal(fin.rang, 1)
 
   // Sa connexion n'incarne plus personne : elle ne change pas d'équipe en fantôme.
   const equipe = await emitAck<any>(nina.socket, 'player:setTeam', { teamId: null })
   assert.equal(equipe.ok, false, 'plus d’identité sur cette connexion')
-  // L'ancien jeton ne désigne plus personne…
+  // L'ancien jeton désigne la soirée close : un téléphone qui dormait
+  // pendant la clôture y retrouve sa fin de soirée…
   const perime = await reveil({ token: nina.token })
-  assert.equal(perime.ack.reason, 'unknown-token')
+  assert.equal(perime.ack.reason, 'soiree-close')
+  assert.equal(perime.ack.fin?.nom, 'Nina', 'la même fin de soirée, pour le téléphone qui dormait')
 
   // …et l'entrée fait rejoindre la nouvelle soirée.
   const retour = await emitAck<any>(nina.socket, 'player:join', { slug: SLUG, name: 'Nina', avatar: '🐱' })

@@ -1,6 +1,7 @@
 // Protocole Socket.io typé, partagé entre client et serveur.
 import type { PartySnapshot } from './types'
 import type { PublicProfile } from './profil'
+import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz } from './fin'
 
 /**
  * Pourquoi un `player:join` est refusé, quand le téléphone doit faire autre
@@ -14,7 +15,7 @@ import type { PublicProfile } from './profil'
  * Le téléphone oublie maintenant cette identité et repasse par l'entrée,
  * pré-remplie.
  */
-export type JoinRefusal = 'unknown-token'
+export type JoinRefusal = 'unknown-token' | 'soiree-close'
 
 export type JoinAck =
   /**
@@ -24,7 +25,13 @@ export type JoinAck =
    * corrigé par l'animateur entre-temps.
    */
   | { ok: true; playerId: string; token: string; name: string; avatar: string; profile?: PublicProfile }
-  | { ok: false; error: string; reason?: JoinRefusal }
+  /**
+   * `soiree-close` : ce jeton désignait un invité d'une soirée qu'on vient de
+   * clore. Le téléphone dormait pendant la clôture ; il reçoit ici la fin de
+   * sa soirée (`fin`), comme s'il avait été là, au lieu d'un simple « on ne
+   * te retrouve plus ».
+   */
+  | { ok: false; error: string; reason?: JoinRefusal; fin?: FinDeSoiree }
 
 /**
  * Pourquoi une réponse d'invité n'a pas été retenue. Tant que `player:action`
@@ -120,11 +127,33 @@ export interface ClientToServerEvents {
   'host:launch': () => void
   'host:command': (payload: { sessionId: string; command: unknown }) => void
   'host:endSession': (payload: { sessionId: string }) => void
-  /** Range la soirée dans l'historique, puis efface invités, équipes et points. */
+  /**
+   * Clôt la soirée : elle se range une dernière fois dans l'historique, sous
+   * le titre donné, ce qui ne se décide qu'à la fin est crédité (podium de la
+   * soirée, prix, hauts faits, paliers, avatars légendaires), chaque téléphone
+   * reçoit sa fin de soirée — et la suivante part de zéro. C'est le seul
+   * geste de fin : il remplace « Sauvegarder » et « Nouvelle soirée ».
+   */
+  'host:closeParty': (payload: { title?: string }) => void
+  /**
+   * C'était un essai : tout s'efface sans rien garder — l'archive que la
+   * soirée s'était faite après chaque quiz, et tout ce qu'elle avait crédité
+   * aux profils.
+   */
+  'host:discardParty': () => void
+  /** Ancien « Nouvelle soirée », pour un écran resté sur une page d'avant : clôt la soirée. */
   'host:resetParty': () => void
-  /** Range la soirée dans l'historique sans rien effacer, sous le titre donné. */
+  /**
+   * Ancien « Sauvegarder », pour un écran resté sur une page d'avant : range
+   * la soirée sous ce titre sans la clore. Elle s'y range désormais toute
+   * seule après chaque quiz.
+   */
   'host:archiveParty': (payload: { title?: string }) => void
-  /** Corrige un pseudo affiché sur l'écran commun. */
+  /**
+   * Donne à un invité un surnom pour la soirée — ou corrige un pseudo. Le
+   * profil de l'invité garde son prénom : la soirée suivante le lui rend, et
+   * sa carte dit les deux.
+   */
   'host:renamePlayer': (payload: { playerId: string; name: string }) => void
   /** Exclut un invité et efface ses points. */
   'host:removePlayer': (payload: { playerId: string }) => void
@@ -176,5 +205,20 @@ export interface ServerToClientEvents {
    * rafraîchissement, c'est-à-dire jamais pendant la fête.
    */
   'player:profil': (profile: PublicProfile) => void
+  /**
+   * Ce que le téléphone vient de gagner au podium d'un quiz — de quoi fêter
+   * un niveau et une finition, au lieu d'un simple toast.
+   */
+  'player:gain': (gain: GainAnnonce) => void
+  /**
+   * La soirée est close : le téléphone montre sa fin de soirée — rang,
+   * points, hauts faits, et ce que son profil y a gagné. Il n'incarne plus
+   * personne ; la soirée suivante le fera repasser par l'entrée.
+   */
+  'soiree:fin': (fin: FinDeSoiree) => void
+  /** La soirée est close : ce que l'écran commun annonce à la salle. */
+  'soiree:cloture': (cloture: ClotureDeSoiree) => void
+  /** Au podium d'un quiz : les montées de niveau, pour l'écran commun. */
+  'soiree:progres': (progres: ProgresDeQuiz) => void
   'toast': (payload: { kind: 'info' | 'error'; message: string }) => void
 }

@@ -9,13 +9,14 @@ import {
   FINITIONS,
   NIVEAU_FINITION,
   NOM_FINITION,
-  type Finition,
+  type FinitionChoisie,
   type PublicProfileDetail,
 } from '../../../shared/profil'
-import { BADGES_CARRIERE } from '../../../shared/badges'
-import { Vitrine, VitrineVide } from '../components/Vitrine'
+import { Vitrine } from '../components/Vitrine'
 import { FormulaireSoiree } from '../components/Rejoindre'
+import { Categories, Courbes, FicheCarriere, GalerieLegendaires, HautsFaits } from '../components/Carriere'
 import { formatNumber, ordinal } from '../format'
+import { spacePath } from '../routes'
 import type { PublicSpace } from '../../../shared/space'
 
 /**
@@ -74,7 +75,7 @@ export function ProfilApp() {
     }
   }
 
-  const enregistrer = async (patch: { avatar?: string; finition?: Finition }) => {
+  const enregistrer = async (patch: { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null }) => {
     setBusy(true)
     setErreur('')
     try {
@@ -119,6 +120,8 @@ export function ProfilApp() {
   }
 
   const brille = (emoji: string) => profil.eclats.includes(emoji)
+  // Les prix du palmarès : les hauts faits et les paliers ont leur section.
+  const prix = profil.vitrine.filter(b => !b.key.startsWith('hf:'))
   const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
 
   return (
@@ -131,6 +134,7 @@ export function ProfilApp() {
           avatar={profil.avatar}
           finition={profil.finition}
           eclat={brille(profil.avatar)}
+          legendaire={profil.legendaire ?? undefined}
         />
         <div className="profil-identite">
           <h2>
@@ -187,10 +191,34 @@ export function ProfilApp() {
           <div className="xp-fill" style={{ width: `${part}%` }} />
         </div>
         <p className="muted small">
-          L'expérience se gagne en venant jouer : être là, répondre, viser juste, finir sur le podium.
-          Elle ne donne aucun avantage pendant une soirée — les points du quiz se gagnent pareil pour
-          tout le monde, profil ou pas.
+          L'expérience se mérite : répondre, viser juste, trouver parmi les plus rapides, finir sur le
+          podium d'un quiz — et les hauts faits, à la clôture. Une question ne rapporte que posée à
+          trois joueurs au moins. Rien de tout cela ne donne d'avantage pendant une soirée : les points
+          du quiz se gagnent pareil pour tout le monde, profil ou pas.
         </p>
+      </div>
+
+      <div className="card">
+        <div className="card-head">
+          <h3>
+            <Icon name="crown" />
+            Avatars légendaires
+          </h3>
+          <span className="muted small">
+            {profil.legendaires.length} / 12
+          </span>
+        </div>
+        <p className="muted small">
+          Douze médaillons, qui ne se gagnent que par un haut fait. Celui que tu portes remplace ton
+          emoji sur tous les écrans.
+        </p>
+        <GalerieLegendaires
+          debloques={profil.legendaires}
+          porte={profil.legendaire}
+          hautsFaits={profil.hautsFaits}
+          busy={busy}
+          onPorter={cle => enregistrer({ legendaire: cle })}
+        />
       </div>
 
       <div className="card">
@@ -214,9 +242,12 @@ export function ProfilApp() {
         </div>
         {profil.eclats.length > 0 && (
           <p className="muted small">
-            ✧ {profil.eclats.length === 1 ? 'Un de tes avatars a éclaté' : `${profil.eclats.length} de tes avatars ont éclaté`} :
+            {profil.eclats.length === 1 ? 'Un de tes avatars a éclaté' : `${profil.eclats.length} de tes avatars ont éclaté`} :
             il change de couleurs, et toi seul l'as comme ça.
           </p>
+        )}
+        {profil.legendaire && (
+          <p className="muted small">Choisir un emoji ôte ton avatar légendaire : on porte l'un ou l'autre.</p>
         )}
       </div>
 
@@ -228,50 +259,80 @@ export function ProfilApp() {
           </h3>
         </div>
         <div className="finitions">
+          {/* Par défaut, la plus belle qu'on a : chaque niveau qui en ouvre
+              une nouvelle la fait porter d'office. On en épingle une autre si
+              on préfère. */}
+          <button
+            className={'finition-btn' + (profil.finitionChoisie === 'auto' ? ' selected' : '')}
+            disabled={busy}
+            aria-pressed={profil.finitionChoisie === 'auto'}
+            onClick={() => enregistrer({ finition: 'auto' })}
+          >
+            <Avatar avatar={profil.avatar} finition={profil.finition} eclat={brille(profil.avatar)} />
+            <span className="finition-nom">La plus belle</span>
+            <span className="muted small">{profil.finitionChoisie === 'auto' ? 'portée' : 'automatique'}</span>
+          </button>
           {FINITIONS.map(f => {
             const ouverte = profil.ouvertes.includes(f)
+            const choisie = profil.finitionChoisie === f
             return (
               <button
                 key={f}
-                className={'finition-btn' + (f === profil.finition ? ' selected' : '')}
+                className={'finition-btn' + (choisie ? ' selected' : '')}
                 disabled={!ouverte || busy}
-                aria-pressed={f === profil.finition}
+                aria-pressed={choisie}
                 onClick={() => enregistrer({ finition: f })}
               >
                 <Avatar avatar={profil.avatar} finition={f} eclat={brille(profil.avatar)} />
                 <span className="finition-nom">{NOM_FINITION[f]}</span>
                 <span className="muted small">
-                  {ouverte ? (f === profil.finition ? 'portée' : 'ouverte') : `niveau ${NIVEAU_FINITION[f]}`}
+                  {ouverte ? (choisie ? 'épinglée' : 'ouverte') : `niveau ${NIVEAU_FINITION[f]}`}
                 </span>
               </button>
             )
           })}
         </div>
         <p className="muted small">
-          Les finitions se gagnent au niveau. L'Éclat, lui, ne se gagne pas : une chance sur quarante
-          par soirée jouée, et c'est l'emoji lui-même qui change de couleurs.
+          Les finitions se gagnent au niveau, jusqu'à Constellation au niveau 25. L'Éclat, lui, ne se
+          gagne pas : une chance sur quarante par soirée qui compte, et c'est l'emoji lui-même qui
+          change de couleurs.
         </p>
+      </div>
+
+      <div className="card">
+        <h3>
+          <Icon name="star" />
+          Hauts faits
+        </h3>
+        {/* Montrer ce qui manque donne envie de revenir ; le cacher ne donne
+            rien. Tout le catalogue se montre, et ce qu'on n'a pas s'estompe. */}
+        <HautsFaits hautsFaits={profil.hautsFaits} />
+      </div>
+
+      <div className="card">
+        <h3>
+          <Icon name="bar-chart" />
+          Ma fiche
+        </h3>
+        <FicheCarriere fiche={profil.fiche} />
+        <Courbes soirees={profil.soirees} />
+        {Object.keys(profil.categories).length > 0 && (
+          <>
+            <h4 className="hf-groupe">Par catégorie</h4>
+            <Categories categories={profil.categories} />
+          </>
+        )}
       </div>
 
       <div className="card">
         <div className="card-head">
           <h3>
             <Icon name="award" />
-            Mes badges
+            Mes prix
           </h3>
-          {profil.vitrine.length > 0 && <span className="muted small">{profil.vitrine.length}</span>}
+          {prix.length > 0 && <span className="muted small">{prix.length}</span>}
         </div>
-        <Vitrine badges={profil.vitrine} />
-        {/* Montrer ce qui manque donne envie de revenir ; le cacher ne donne
-            rien. Seuls les badges de carrière s'annoncent : les prix de
-            soirée dépendent de ce qui se passe le soir même. */}
-        <VitrineVide
-          manquants={BADGES_CARRIERE.filter(b => !profil.vitrine.some(v => v.key === b.key)).map(b => ({
-            emoji: b.emoji,
-            title: b.title,
-            rule: b.rule,
-          }))}
-        />
+        <Vitrine badges={prix} />
       </div>
 
       {profil.soirees.length > 0 && (
@@ -283,7 +344,14 @@ export function ProfilApp() {
           {profil.soirees.map(s => (
             <div key={s.soireeId} className="soiree-row">
               <span className="soiree-quand">
-                {new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
+                {s.slug ? (
+                  <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
+                    {new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </a>
+                ) : (
+                  new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+                )}
               </span>
               <span className="soiree-detail">
                 {s.chez && `chez ${s.chez} · `}

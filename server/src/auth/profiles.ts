@@ -1,26 +1,38 @@
-import { clientDistant, type Client } from '../core/distante'
+import { ajouterColonne, clientDistant, type Client } from '../core/distante'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
 import { cleanAvatar, cleanName, DEFAULT_AVATAR } from '../../../shared/avatars'
 import {
   CHANCE_ECLAT,
-  finitionValide,
+  carriereDe,
+  choixDeFinition,
+  ficheDe,
+  finitionPortee,
   finitionsOuvertes,
+  gainVide,
   niveauPour,
   progression,
+  releveVide,
   XP,
-  type Finition,
+  type Carriere,
+  type FinitionChoisie,
   type GainSoiree,
   type PublicProfile,
   type PublicProfileDetail,
   type ReleveSoiree,
 } from '../../../shared/profil'
+import { rareteDe, type BadgePorte } from '../../../shared/badges'
 import {
-  BADGES_CARRIERE,
-  rareteDe,
-  type BadgePorte,
-  type Carriere,
-} from '../../../shared/badges'
+  HAUTS_FAITS_DE_CARRIERE,
+  HAUTS_FAITS_DE_SOIREE,
+  clePalier,
+  palierDe,
+  paliersAtteints,
+  titreDePalier,
+  XP_PALIER,
+  type HautFaitVu,
+} from '../../../shared/hautsfaits'
+import { legendaire, legendairesDebloques } from '../../../shared/legendaires'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 
 /**
@@ -50,7 +62,10 @@ export interface ProfileRec {
   login: string
   name: string
   avatar: string
-  finition: Finition
+  /** Ce qu'il a choisi de porter : `auto` porte toujours la plus belle finition qu'il a. */
+  finition: FinitionChoisie
+  /** L'avatar légendaire qu'il porte, s'il en porte un. */
+  legendaire: string | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
   recoveryHash: string
@@ -67,13 +82,27 @@ interface ProfileSessionRec {
   lastSeenAt: number
 }
 
-/** Un prix de soirée et son lauréat — un profil, jamais un invité anonyme. */
+/**
+ * Une récompense de soirée et son lauréat — un profil, jamais un invité
+ * anonyme : un prix (L'Éclair, Le Cancre…) ou un haut fait de soirée.
+ */
 export interface PrixDeSoiree {
   profileId: string
   badge: string
   emoji: string
   title: string
 }
+
+/**
+ * La ligne d'expérience qui porte les paliers de carrière. Un palier ne tombe
+ * qu'une fois, sur toute la carrière : son expérience ne peut pas vivre dans
+ * la ligne d'une soirée, que chaque crédit remplace. Elle a donc la sienne,
+ * recalculée à chaque palier décerné — et l'historique des soirées l'ignore.
+ */
+export const LIGNE_PALIERS = '#paliers'
+
+/** La version des lignes d'expérience : 2 depuis le barème au mérite. */
+export const VERSION_BAREME = 2
 
 /** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
 const SESSION_MS = 365 * 24 * 3600 * 1000
@@ -100,26 +129,54 @@ const normalizeRecovery = (raw: unknown) =>
   String(raw ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
 
 /**
- * Relit le détail d'une soirée. Les toutes premières lignes écrites ne
- * portaient que le gain : on en redéduit alors le relevé par le barème, ce
- * qui vaut mieux que de perdre une soirée de carrière.
+ * Relit le détail d'une soirée.
+ *
+ * Trois générations de lignes : les toutes premières ne portaient que le gain
+ * de l'ancien barème (présence, réponses, justesse, podium, quiz) ; les
+ * suivantes y ajoutaient un relevé de quatre chiffres ; celles du barème au
+ * mérite (`v: 2`) portent le relevé complet. Une ligne d'avant se relit en
+ * relevé v2, les chiffres qu'elle n'avait pas à zéro — mieux que de perdre
+ * une soirée de carrière.
  */
-function decodeDetail(raw: string): { gain: GainSoiree; releve: ReleveSoiree } {
-  const vide: GainSoiree = { presence: 0, reponses: 0, justesse: 0, podium: 0, quiz: 0 }
+export function decodeDetail(raw: string): { v: number; gain: GainSoiree; releve: ReleveSoiree } {
   let parsed: any
   try {
     parsed = JSON.parse(raw)
   } catch {
-    return { gain: vide, releve: { reponses: 0, justes: 0, rang: 0, quiz: 0 } }
+    return { v: 0, gain: gainVide(), releve: releveVide() }
   }
-  const gain: GainSoiree = { ...vide, ...(parsed?.gain ?? parsed) }
-  const releve: ReleveSoiree = parsed?.releve ?? {
-    reponses: Math.round(gain.reponses / XP.parReponse),
-    justes: Math.round(gain.justesse / XP.parBonneReponse),
-    rang: gain.podium > 0 ? (XP.podium as readonly number[]).indexOf(gain.podium) + 1 : 0,
-    quiz: Math.round(gain.quiz / XP.vainqueurDeQuiz),
+  if (parsed?.v === VERSION_BAREME) {
+    return {
+      v: VERSION_BAREME,
+      gain: { ...gainVide(), ...parsed.gain },
+      releve: { ...releveVide(), ...parsed.releve, categories: { ...(parsed.releve?.categories ?? {}) } },
+    }
   }
-  return { gain, releve }
+  // L'ancien barème : 1 par réponse, 2 par bonne réponse, 60/40/25 pour le
+  // podium, 15 par quiz gagné.
+  const ancien = parsed?.gain ?? parsed ?? {}
+  const vieux = parsed?.releve
+  const releve = releveVide()
+  releve.reponses = Number(vieux?.reponses ?? ancien.reponses ?? 0)
+  releve.qcm = releve.reponses
+  releve.questions = releve.reponses
+  releve.justes = Number(vieux?.justes ?? Math.round(Number(ancien.justesse ?? 0) / 2))
+  releve.rang = Number(vieux?.rang ?? (Number(ancien.podium) > 0 ? [60, 40, 25].indexOf(Number(ancien.podium)) + 1 : 0))
+  releve.quizGagnes = Number(vieux?.quiz ?? Math.round(Number(ancien.quiz ?? 0) / 15))
+  return { v: 1, gain: gainVide(), releve }
+}
+
+/**
+ * Une ligne de l'ancien barème, revalorisée au nouveau quand on n'a plus de
+ * quoi la recalculer — sa soirée n'est pas dans l'historique. On ne garde
+ * que ce que le relevé dit encore : ses réponses et ses bonnes réponses. La
+ * présence et les podiums de l'ancien barème s'en vont.
+ */
+export function revaloriser(releve: ReleveSoiree): { gain: GainSoiree; xp: number } {
+  const gain = gainVide()
+  gain.reponses = releve.reponses * XP.reponse
+  gain.justesse = releve.justes * XP.juste
+  return { gain, xp: gain.reponses + gain.justesse }
 }
 
 export class ProfileStore {
@@ -128,6 +185,14 @@ export class ProfileStore {
   private sessions = new Map<string, ProfileSessionRec>()
   /** Les emojis éclatés, par profil — chargés avec le profil. */
   private eclats = new Map<string, Set<string>>()
+  /**
+   * Ses récompenses rangées, par profil : chaque clé d'étagère et le nombre de
+   * soirées où elle est tombée. Chargées avec le profil, tenues à jour à
+   * chaque écriture : les avatars légendaires qu'il a débloqués s'en
+   * déduisent, et l'instantané qui part à toute la salle les lit sans
+   * aller-retour.
+   */
+  private recompenses = new Map<string, Map<string, number>>()
 
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
@@ -141,7 +206,7 @@ export class ProfileStore {
            login         TEXT NOT NULL UNIQUE,
            name          TEXT NOT NULL,
            avatar        TEXT NOT NULL,
-           finition      TEXT NOT NULL DEFAULT 'mat',
+           finition      TEXT NOT NULL DEFAULT 'auto',
            password_hash TEXT NOT NULL,
            recovery_hash TEXT NOT NULL,
            xp            INTEGER NOT NULL DEFAULT 0,
@@ -194,6 +259,10 @@ export class ProfileStore {
       ],
       'write',
     )
+    // L'avatar légendaire porté est arrivé avec les hauts faits : une base
+    // d'avant n'a pas la colonne. Une panne ici arrête le démarrage, plutôt
+    // que de laisser tourner un serveur qui écrirait dans une colonne absente.
+    await ajouterColonne(this.client, 'profiles', 'legendaire', 'TEXT')
     const now = Date.now()
     await this.client.execute({ sql: 'DELETE FROM profile_sessions WHERE expires_at <= ?', args: [now] })
     // Les sessions seules montent en mémoire : la poignée de main d'un socket
@@ -258,8 +327,23 @@ export class ProfileStore {
     return [...(this.eclats.get(id) ?? [])]
   }
 
-  /** Combien de badges chaque profil porte — lu avec lui, gardé avec lui. */
-  private badgeCount = new Map<string, number>()
+  /** Ses récompenses rangées : chaque clé d'étagère, et le nombre de soirées où elle est tombée. */
+  recompensesOf(id: string): ReadonlyMap<string, number> {
+    return this.recompenses.get(id) ?? new Map()
+  }
+
+  /** Les avatars légendaires que ce profil a débloqués. */
+  legendairesOf(id: string): string[] {
+    return legendairesDebloques(this.recompensesOf(id))
+  }
+
+  /**
+   * Le légendaire qu'il porte, s'il l'a vraiment : un légendaire rendu avec
+   * sa soirée (exclusion, essai effacé) ne se porte plus.
+   */
+  legendairePorte(p: ProfileRec): string | null {
+    return p.legendaire && this.legendairesOf(p.id).includes(p.legendaire) ? p.legendaire : null
+  }
 
   toPublic(p: ProfileRec): PublicProfile {
     const { niveau, acquis, requis } = progression(p.xp)
@@ -268,39 +352,97 @@ export class ProfileStore {
       login: p.login,
       name: p.name,
       avatar: p.avatar,
-      // Un profil dont le niveau aurait baissé (barème retouché) ne garde pas
-      // une finition qu'il ne peut plus porter.
-      finition: finitionValide(p.finition, niveau),
+      // La finition qu'on voit sur lui : celle qu'il a épinglée s'il peut
+      // encore la porter, la plus belle qu'il a sinon.
+      finition: finitionPortee(p.finition, niveau),
+      finitionChoisie: choixDeFinition(p.finition, niveau),
       xp: p.xp,
       niveau,
       acquis,
       requis,
       ouvertes: finitionsOuvertes(niveau),
       eclats: this.eclatsOf(p.id),
-      badges: this.badgeCount.get(p.id) ?? 0,
+      badges: this.recompenses.get(p.id)?.size ?? 0,
+      legendaire: this.legendairePorte(p),
+      legendaires: this.legendairesOf(p.id),
     }
   }
 
   /**
-   * Le profil au complet, pour sa propre page : l'étagère et l'historique en
-   * plus. Ces deux-là coûtent deux requêtes, et n'ont donc rien à faire dans
-   * l'accusé de réception que reçoit chaque téléphone qui rejoint une soirée.
+   * Le profil au complet, pour sa propre page : l'étagère, l'historique, la
+   * fiche de carrière et tous les hauts faits, gagnés ou non. Cela coûte
+   * quelques requêtes, et n'a donc rien à faire dans l'accusé de réception
+   * que reçoit chaque téléphone qui rejoint une soirée.
    */
-  async toDetail(p: ProfileRec, nomDEspace?: (spaceId: string) => string | null): Promise<PublicProfileDetail> {
+  async toDetail(
+    p: ProfileRec,
+    espace?: (spaceId: string) => { nom: string; slug: string } | null,
+  ): Promise<PublicProfileDetail> {
     const [vitrine, soirees] = await Promise.all([this.badgesOf(p.id), this.historiqueOf(p.id)])
-    this.badgeCount.set(p.id, vitrine.length)
+    const carriere = carriereDe(soirees, { eclats: this.eclatsOf(p.id).length, niveau: niveauPour(p.xp) })
     return {
       ...this.toPublic(p),
       vitrine,
-      soirees: soirees.map(s => ({
-        soireeId: s.soireeId,
-        chez: nomDEspace?.(s.spaceId) ?? null,
-        xp: s.xp,
-        gain: s.gain,
-        releve: s.releve,
-        at: s.at,
-      })),
+      soirees: soirees.map(s => {
+        const chez = espace?.(s.spaceId) ?? null
+        return {
+          soireeId: s.soireeId,
+          chez: chez?.nom ?? null,
+          slug: chez?.slug ?? null,
+          xp: s.xp,
+          gain: s.gain,
+          releve: s.releve,
+          at: s.at,
+        }
+      }),
+      fiche: ficheDe(carriere),
+      categories: carriere.categories,
+      hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
     }
+  }
+
+  /**
+   * Tout le catalogue des hauts faits, vu par ce profil : ceux de soirée avec
+   * le nombre de fois, ceux de carrière avec leur palier et leur jauge. Ce
+   * qu'on n'a pas encore se montre aussi — savoir ce qui vient donne envie de
+   * revenir.
+   */
+  private async hautsFaitsVus(id: string, carriere: Carriere, vitrine: BadgePorte[]): Promise<HautFaitVu[]> {
+    const recompenses = this.recompensesOf(id)
+    const rarete = new Map(vitrine.map(b => [b.key, b]))
+    const soiree: HautFaitVu[] = HAUTS_FAITS_DE_SOIREE.map(h => {
+      const porte = rarete.get(h.key)
+      return {
+        key: h.key,
+        famille: 'soiree',
+        emoji: h.emoji,
+        title: h.title,
+        rule: h.rule,
+        ton: h.ton,
+        fois: recompenses.get(h.key) ?? 0,
+        ...(porte && { rarete: porte.rarete, porteurs: porte.porteurs }),
+      }
+    })
+    const carrieres: HautFaitVu[] = HAUTS_FAITS_DE_CARRIERE.map(h => {
+      const valeur = h.valeur(carriere)
+      let palier = 0
+      for (let i = 1; i <= 3; i++) if ((recompenses.get(clePalier(h.key, i)) ?? 0) > 0) palier = i
+      const porte = palier > 0 ? rarete.get(clePalier(h.key, palier)) : undefined
+      return {
+        key: h.key,
+        famille: 'carriere',
+        emoji: h.emoji,
+        title: h.title,
+        rule: h.mesure,
+        ruleUne: h.mesureUne,
+        ton: 'eclat',
+        fois: palier,
+        valeur,
+        prochain: palier < 3 ? h.paliers[palier] : null,
+        ...(porte && { rarete: porte.rarete, porteurs: porte.porteurs }),
+      }
+    })
+    return [...soiree, ...carrieres]
   }
 
   // ── Inscription, connexion ──────────────────────────────────────────────
@@ -329,7 +471,8 @@ export class ProfileStore {
       login,
       name,
       avatar: input.avatar ? cleanAvatar(input.avatar) : DEFAULT_AVATAR,
-      finition: 'mat',
+      finition: 'auto',
+      legendaire: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
       xp: 0,
@@ -355,7 +498,7 @@ export class ProfileStore {
       })
     this.profiles.set(rec.id, rec)
     this.eclats.set(rec.id, new Set())
-    this.badgeCount.set(rec.id, 0)
+    this.recompenses.set(rec.id, new Map())
     return { profile: rec, recovery }
   }
 
@@ -399,20 +542,39 @@ export class ProfileStore {
     return recovery
   }
 
-  /** Change ce qu'un joueur choisit lui-même : son prénom, son emoji, sa finition. */
-  async update(id: string, patch: { name?: unknown; avatar?: unknown; finition?: unknown }): Promise<ProfileRec> {
+  /**
+   * Change ce qu'un joueur choisit lui-même : son prénom, son emoji, sa
+   * finition, son avatar légendaire.
+   *
+   * Choisir un emoji ôte le légendaire : on porte l'un ou l'autre. Un
+   * légendaire qu'on n'a pas débloqué est refusé en clair — la page ne le
+   * propose pas, seul un appel forgé l'enverrait.
+   */
+  async update(
+    id: string,
+    patch: { name?: unknown; avatar?: unknown; finition?: unknown; legendaire?: unknown },
+  ): Promise<ProfileRec> {
     const rec = await this.require(id)
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
       champs.name = name
     }
-    if (patch.avatar !== undefined) champs.avatar = cleanAvatar(patch.avatar)
-    if (patch.finition !== undefined) champs.finition = finitionValide(patch.finition, niveauPour(rec.xp))
+    if (patch.avatar !== undefined) {
+      champs.avatar = cleanAvatar(patch.avatar)
+      champs.legendaire = null
+    }
+    if (patch.finition !== undefined) champs.finition = choixDeFinition(patch.finition, niveauPour(rec.xp))
+    if (patch.legendaire !== undefined) {
+      if (patch.legendaire === null || patch.legendaire === '') champs.legendaire = null
+      else if (legendaire(patch.legendaire) && this.legendairesOf(id).includes(String(patch.legendaire))) {
+        champs.legendaire = String(patch.legendaire)
+      } else throw new Error('Cet avatar légendaire n’est pas encore à toi')
+    }
     const colonnes = Object.keys(champs) as (keyof typeof champs)[]
     if (colonnes.length === 0) return rec
     await this.client.execute({
@@ -510,9 +672,9 @@ export class ProfileStore {
 
   /**
    * Crédite (ou recrédite) une soirée. La ligne est remplacée, jamais
-   * ajoutée : un animateur peut ranger sa soirée dans l'historique plusieurs
-   * fois, et le total doit rester celui du journal, pas celui des passages.
-   * Le total du profil est ensuite recalculé de toutes ses soirées.
+   * ajoutée : la soirée se recrédite après chaque quiz puis à sa clôture, et
+   * le total doit rester celui du journal, pas celui des passages. Le total
+   * du profil est ensuite recalculé de toutes ses lignes.
    */
   async creditSoiree(input: {
     profileId: string
@@ -531,34 +693,17 @@ export class ProfileStore {
         input.soireeId,
         input.spaceId,
         input.xp,
-        JSON.stringify({ gain: input.gain, releve: input.releve }),
+        JSON.stringify({ v: VERSION_BAREME, gain: input.gain, releve: input.releve }),
         Date.now(),
       ],
     })
-    const sum = await this.client.execute({
-      sql: 'SELECT COALESCE(SUM(xp), 0) AS total FROM profile_xp WHERE profile_id = ?',
-      args: [input.profileId],
-    })
-    const total = Number(sum.rows[0]?.total ?? 0)
-    await this.client.execute({ sql: 'UPDATE profiles SET xp = ? WHERE id = ?', args: [total, input.profileId] })
-    const rec = this.profiles.get(input.profileId)
-    if (rec) rec.xp = total
-    return total
+    return this.recalculerTotal(input.profileId)
   }
 
-  /**
-   * Reprend à un profil ce qu'une soirée lui avait crédité : sa ligne
-   * d'expérience, et l'Éclat tiré sous son nom. Le total se recalcule sur
-   * ce qui reste, dans la même transaction — le profil n'est jamais lu entre
-   * les deux. Un Éclat tiré lors d'une autre soirée reste : il n'a rien à
-   * voir avec celle-ci. Rend le nouveau total.
-   */
-  async retirerSoiree(profileId: string, soireeId: string): Promise<number> {
-    const [eclats, , , , apres] = await this.client.batch(
+  /** Le total d'un profil, recalculé de toutes ses lignes — en base, puis en mémoire. */
+  private async recalculerTotal(profileId: string): Promise<number> {
+    const [, apres] = await this.client.batch(
       [
-        { sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
-        { sql: 'DELETE FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
-        { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
         {
           sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?',
           args: [profileId, profileId],
@@ -570,17 +715,76 @@ export class ProfileStore {
     const total = Number(apres.rows[0]?.xp ?? 0)
     const rec = this.profiles.get(profileId)
     if (rec) rec.xp = total
-    for (const r of eclats.rows) this.eclats.get(profileId)?.delete(String(r.avatar))
     return total
   }
 
+  /**
+   * Reprend à un profil ce qu'une soirée lui avait crédité : sa ligne
+   * d'expérience, l'Éclat tiré sous son nom, et ce qu'elle avait rangé sur
+   * son étagère. Le total se recalcule sur ce qui reste, dans la même
+   * transaction — le profil n'est jamais lu entre les deux. Un Éclat tiré
+   * lors d'une autre soirée reste : il n'a rien à voir avec celle-ci. Rend
+   * le nouveau total.
+   */
+  async retirerSoiree(profileId: string, soireeId: string): Promise<number> {
+    const [eclats] = await this.client.batch(
+      [
+        { sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+        { sql: 'DELETE FROM profile_eclats WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+        { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+        { sql: 'DELETE FROM profile_badges WHERE profile_id = ? AND soiree_id = ?', args: [profileId, soireeId] },
+      ],
+      'write',
+    )
+    for (const r of eclats.rows) this.eclats.get(profileId)?.delete(String(r.avatar))
+    this.porteurs = null
+    await this.ecrireXpDesPaliers(profileId)
+    await this.recompterRecompenses([profileId])
+    return this.recalculerTotal(profileId)
+  }
+
+  /**
+   * Efface tout ce qu'une soirée avait crédité, à tous ses profils : c'était
+   * un essai, ou on la retire de l'historique. Expérience, Éclats, prix,
+   * hauts faits — et les paliers de carrière qu'elle avait fait tomber : une
+   * soirée qui n'a pas eu lieu ne laisse rien derrière elle. Rend les profils
+   * touchés.
+   */
+  async retirerSoireeEntiere(soireeId: string, spaceId: string): Promise<string[]> {
+    const [xp, badges, eclats] = await this.client.batch(
+      [
+        { sql: 'SELECT DISTINCT profile_id FROM profile_xp WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
+        { sql: 'SELECT DISTINCT profile_id FROM profile_badges WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
+        { sql: 'SELECT profile_id, avatar FROM profile_eclats WHERE soiree_id = ?', args: [soireeId] },
+        { sql: 'DELETE FROM profile_xp WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
+        { sql: 'DELETE FROM profile_badges WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
+        // Les Éclats ne portent pas l'espace : l'identifiant d'une soirée
+        // (sa date et une empreinte de l'heure) suffit à la désigner.
+        { sql: 'DELETE FROM profile_eclats WHERE soiree_id = ?', args: [soireeId] },
+      ],
+      'write',
+    )
+    const touches = new Set([...xp.rows, ...badges.rows, ...eclats.rows].map(r => String(r.profile_id)))
+    for (const r of eclats.rows) this.eclats.get(String(r.profile_id))?.delete(String(r.avatar))
+    this.porteurs = null
+    for (const id of touches) await this.ecrireXpDesPaliers(id)
+    await this.recompterRecompenses([...touches])
+    for (const id of touches) await this.recalculerTotal(id)
+    return [...touches]
+  }
+
   /** Cette soirée a-t-elle déjà été créditée à ce profil ? */
-  async alreadyCredited(profileId: string, soireeId: string): Promise<boolean> {
+  /**
+   * Ce que cette soirée avait déjà crédité à ce profil, s'il y a une ligne —
+   * de quoi savoir si l'Éclat s'y est déjà tiré.
+   */
+  async creditPrecedent(profileId: string, soireeId: string): Promise<{ xp: number; gain: GainSoiree } | null> {
     const rows = await this.client.execute({
-      sql: 'SELECT 1 FROM profile_xp WHERE profile_id = ? AND soiree_id = ? LIMIT 1',
+      sql: 'SELECT xp, detail FROM profile_xp WHERE profile_id = ? AND soiree_id = ? LIMIT 1',
       args: [profileId, soireeId],
     })
-    return rows.rows.length > 0
+    const r = rows.rows[0]
+    return r ? { xp: Number(r.xp), gain: decodeDetail(String(r.detail)).gain } : null
   }
 
   /**
@@ -606,43 +810,33 @@ export class ProfileStore {
     return hasard() * CHANCE_ECLAT < 1
   }
 
-  // ── Badges ──────────────────────────────────────────────────────────────
+  // ── L'étagère ───────────────────────────────────────────────────────────
   //
+  // Une ligne par récompense ET par soirée où elle est tombée : la clé rend
+  // la consolidation idempotente, et compter les lignes donne gratuitement
+  // le nombre de fois. Trois sortes de lignes s'y côtoient :
+  //   · les prix de soirée (`eclair`, `cancre`…), ceux du palmarès ;
+  //   · les hauts faits de soirée (`hf:phenix`…), qui se regagnent ;
+  //   · les paliers de carrière (`hf:bavard:2`), qui ne tombent qu'une fois.
   // L'emoji et le titre sont recopiés dans chaque ligne : une étagère se
-  // relit des années plus tard, et un prix qui changerait de nom entre-temps
-  // ne doit pas rendre illisible ce qui a été gagné sous l'ancien.
+  // relit des années plus tard, même si un titre a changé entre-temps.
 
   /**
-   * Range les prix d'une soirée, en REMPLAÇANT ceux qu'un archivage
-   * précédent de la même soirée avait rangés — comme l'expérience.
-   *
-   * « Sauvegarder » se fait en cours de soirée, et chaque archivage recalcule
-   * les prix sur ce qui a été joué jusque-là : le Sans-Faute de 21 h n'est pas
-   * forcément celui de minuit. On ajoutait sans jamais retirer — Chloé, finie
-   * à 3 sur 7, gardait le prix qu'Alice venait de lui prendre, et la soirée
-   * comptait deux lauréats. Le retrait et les ajouts partent donc en un seul
-   * lot, dans une transaction : une étagère ne se voit jamais à moitié rangée.
+   * Range les récompenses d'une soirée — prix et hauts faits —, en
+   * REMPLAÇANT celles qu'un passage précédent de la même soirée avait rangées.
    *
    * Le retrait vise toute la soirée, pas seulement ses invités du moment : un
    * invité exclu n'a plus de réponses au journal, et le prix qu'il portait est
-   * retombé sur quelqu'un d'autre. Les badges de carrière, eux, ne se
-   * reprennent jamais — ils récompensent une habitude, pas une soirée.
+   * retombé sur quelqu'un d'autre. Les paliers de carrière, eux, ne se
+   * reprennent pas ici — ils récompensent une habitude, pas une soirée.
    */
-  async remplacerPrixDeSoiree(soireeId: string, spaceId: string, laureats: PrixDeSoiree[]): Promise<void> {
+  async remplacerRecompensesDeSoiree(soireeId: string, spaceId: string, laureats: PrixDeSoiree[]): Promise<void> {
     const now = Date.now()
+    const deSoiree = `space_id = ? AND soiree_id = ? AND badge NOT GLOB 'hf:*:[123]' AND badge NOT LIKE 'carriere:%'`
     const [avant] = await this.client.batch(
       [
-        // Ceux qui en portaient jusqu'ici : leur compte peut baisser.
-        {
-          sql: `SELECT DISTINCT profile_id FROM profile_badges
-                WHERE space_id = ? AND soiree_id = ? AND badge NOT LIKE 'carriere:%'`,
-          args: [spaceId, soireeId],
-        },
-        {
-          sql: `DELETE FROM profile_badges
-                WHERE space_id = ? AND soiree_id = ? AND badge NOT LIKE 'carriere:%'`,
-          args: [spaceId, soireeId],
-        },
+        { sql: `SELECT DISTINCT profile_id FROM profile_badges WHERE ${deSoiree}`, args: [spaceId, soireeId] },
+        { sql: `DELETE FROM profile_badges WHERE ${deSoiree}`, args: [spaceId, soireeId] },
         ...laureats.map(l => ({
           sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
@@ -652,70 +846,83 @@ export class ProfileStore {
       'write',
     )
     this.porteurs = null
-    await this.recompterBadges([...new Set([...avant.rows.map(r => String(r.profile_id)), ...laureats.map(l => l.profileId)])])
+    await this.recompterRecompenses([...new Set([...avant.rows.map(r => String(r.profile_id)), ...laureats.map(l => l.profileId)])])
   }
 
   /**
-   * Remet d'aplomb le nombre de badges gardé en mémoire pour ces profils.
-   *
-   * Il part dans l'accusé de chaque téléphone qui se présente à une soirée,
-   * et c'est lui que l'écran d'entrée affiche. On l'effaçait après chaque
-   * badge décerné, en comptant sur une relecture qui ne venait jamais : il
-   * tombait à zéro, et l'entrée annonçait « Niveau 4 » sans « · 7 badges »
-   * jusqu'au prochain passage par la page du profil.
+   * Décerne les paliers de carrière que ce profil vient d'atteindre, sous le
+   * nom de la soirée qui les a fait tomber, et crédite leur expérience. Rend
+   * ceux qui sont nouveaux — il n'y a qu'à la première fois qu'ils comptent.
    */
-  private async recompterBadges(profileIds: string[]): Promise<void> {
-    if (profileIds.length === 0) return
-    const res = await this.client.execute({
-      sql: `SELECT profile_id, COUNT(DISTINCT badge) AS n FROM profile_badges
-            WHERE profile_id IN (${profileIds.map(() => '?').join(', ')}) GROUP BY profile_id`,
-      args: profileIds,
-    })
-    const comptes = new Map(res.rows.map(r => [String(r.profile_id), Number(r.n)]))
-    for (const id of profileIds) this.badgeCount.set(id, comptes.get(id) ?? 0)
-  }
-
-  /**
-   * Décerne un badge qui ne se reprend pas — un badge de carrière. Rend faux
-   * s'il était déjà là pour cette soirée.
-   */
-  async grantBadge(input: {
-    profileId: string
-    badge: string
-    emoji: string
-    title: string
-    soireeId: string
-    spaceId: string
-  }): Promise<boolean> {
-    // Le compte se relit dans le même lot : il suit l'ajout, sans second
-    // aller-retour (voir `recompterBadges`).
-    const [ajout, compte] = await this.client.batch(
-      [
-        {
+  async accorderPaliers(profileId: string, soireeId: string, spaceId: string): Promise<string[]> {
+    const carriere = await this.careerOf(profileId)
+    const deja = this.recompensesOf(profileId)
+    const neufs = paliersAtteints(carriere).filter(cle => !deja.has(cle))
+    if (neufs.length === 0) return []
+    const now = Date.now()
+    await this.client.batch(
+      neufs.map(cle => {
+        const { hautFait, palier } = palierDe(cle)!
+        return {
           sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
-          args: [input.profileId, input.badge, input.soireeId, input.spaceId, input.emoji, input.title, Date.now()],
-        },
-        {
-          sql: 'SELECT COUNT(DISTINCT badge) AS n FROM profile_badges WHERE profile_id = ?',
-          args: [input.profileId],
-        },
-      ],
+          args: [profileId, cle, soireeId, spaceId, hautFait.emoji, titreDePalier(hautFait, palier), now],
+        }
+      }),
       'write',
     )
-    if (ajout.rowsAffected === 0) return false
     this.porteurs = null
-    this.badgeCount.set(input.profileId, Number(compte.rows[0]?.n ?? 0))
-    return true
+    await this.recompterRecompenses([profileId])
+    await this.ecrireXpDesPaliers(profileId)
+    await this.recalculerTotal(profileId)
+    return neufs
   }
 
-  /** Les clés déjà décrochées par ce profil — pour ne pas redonner un badge de carrière. */
-  async badgeKeys(profileId: string): Promise<Set<string>> {
-    const rows = await this.client.execute({
-      sql: 'SELECT DISTINCT badge FROM profile_badges WHERE profile_id = ?',
+  /**
+   * La ligne d'expérience des paliers de carrière, recalculée de ceux qu'il
+   * porte (voir `LIGNE_PALIERS`). Effacée quand il n'en porte plus aucun.
+   */
+  private async ecrireXpDesPaliers(profileId: string): Promise<void> {
+    const res = await this.client.execute({
+      sql: `SELECT badge FROM profile_badges WHERE profile_id = ? AND badge GLOB 'hf:*:[123]'`,
       args: [profileId],
     })
-    return new Set(rows.rows.map(r => String(r.badge)))
+    const cles = [...new Set(res.rows.map(r => String(r.badge)))]
+    const xp = cles.reduce((n, cle) => n + (palierDe(cle) ? XP_PALIER[palierDe(cle)!.palier - 1] : 0), 0)
+    if (xp === 0) {
+      await this.client.execute({
+        sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?',
+        args: [profileId, LIGNE_PALIERS],
+      })
+      return
+    }
+    await this.client.execute({
+      sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
+            VALUES (?, ?, '', ?, ?, ?)
+            ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
+      args: [profileId, LIGNE_PALIERS, xp, JSON.stringify({ v: VERSION_BAREME, paliers: cles }), Date.now()],
+    })
+  }
+
+  /**
+   * Remet d'aplomb les récompenses gardées en mémoire pour ces profils.
+   *
+   * Elles partent dans l'accusé de chaque téléphone qui se présente à une
+   * soirée (le nombre de badges, les légendaires débloqués), et dans
+   * l'instantané de toute la salle (le légendaire porté) : on les relit
+   * après chaque écriture plutôt que de compter sur une relecture qui ne
+   * viendrait jamais.
+   */
+  private async recompterRecompenses(profileIds: string[]): Promise<void> {
+    if (profileIds.length === 0) return
+    const res = await this.client.execute({
+      sql: `SELECT profile_id, badge, COUNT(*) AS n FROM profile_badges
+            WHERE profile_id IN (${profileIds.map(() => '?').join(', ')}) GROUP BY profile_id, badge`,
+      args: profileIds,
+    })
+    const parProfil = new Map<string, Map<string, number>>(profileIds.map(id => [id, new Map()]))
+    for (const r of res.rows) parProfil.get(String(r.profile_id))?.set(String(r.badge), Number(r.n))
+    for (const [id, m] of parProfil) this.recompenses.set(id, m)
   }
 
   /**
@@ -775,8 +982,9 @@ export class ProfileStore {
     { soireeId: string; spaceId: string; xp: number; gain: GainSoiree; releve: ReleveSoiree; at: number }[]
   > {
     const rows = await this.client.execute({
-      sql: 'SELECT soiree_id, space_id, xp, detail, created_at FROM profile_xp WHERE profile_id = ? ORDER BY created_at DESC',
-      args: [profileId],
+      sql: `SELECT soiree_id, space_id, xp, detail, created_at FROM profile_xp
+            WHERE profile_id = ? AND soiree_id <> ? ORDER BY created_at DESC`,
+      args: [profileId, LIGNE_PALIERS],
     })
     return rows.rows.map(r => {
       const { gain, releve } = decodeDetail(String(r.detail))
@@ -791,47 +999,62 @@ export class ProfileStore {
     })
   }
 
-  /** Ce qu'un profil a accumulé sur toutes ses soirées — la base des badges de carrière. */
+  /** Ce qu'un profil a accumulé sur toutes ses soirées — sa fiche, et la base des paliers de carrière. */
   async careerOf(profileId: string): Promise<Carriere> {
     const soirees = await this.historiqueOf(profileId)
     const rec = await this.byId(profileId)
-    return soirees.reduce<Carriere>(
-      (c, s) => ({
-        soirees: c.soirees + 1,
-        reponses: c.reponses + s.releve.reponses,
-        justes: c.justes + s.releve.justes,
-        podiums: c.podiums + (s.gain.podium > 0 ? 1 : 0),
-        quiz: c.quiz + s.releve.quiz,
-        eclats: c.eclats,
-        niveau: c.niveau,
+    return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: niveauPour(rec?.xp ?? 0) })
+  }
+
+  // ── Le recalcul ─────────────────────────────────────────────────────────
+
+  /**
+   * Les lignes d'expérience écrites avec un barème d'avant — et combien
+   * d'anciens badges de carrière traînent encore. C'est ce qui décide du
+   * recalcul au démarrage (`server/src/core/recalcul.ts`).
+   */
+  async aRecalculer(): Promise<{ lignes: { profileId: string; soireeId: string; spaceId: string; detail: string }[]; anciensBadges: number }> {
+    const [lignes, badges] = await Promise.all([
+      this.client.execute({
+        sql: `SELECT profile_id, soiree_id, space_id, detail FROM profile_xp WHERE detail NOT LIKE ?`,
+        args: [`{"v":${VERSION_BAREME},%`],
       }),
-      {
-        soirees: 0,
-        reponses: 0,
-        justes: 0,
-        podiums: 0,
-        quiz: 0,
-        eclats: this.eclatsOf(profileId).length,
-        niveau: niveauPour(rec?.xp ?? 0),
-      },
-    )
+      this.client.execute(`SELECT COUNT(*) AS n FROM profile_badges WHERE badge LIKE 'carriere:%'`),
+    ])
+    return {
+      lignes: lignes.rows.map(r => ({
+        profileId: String(r.profile_id),
+        soireeId: String(r.soiree_id),
+        spaceId: String(r.space_id),
+        detail: String(r.detail),
+      })),
+      anciensBadges: Number(badges.rows[0]?.n ?? 0),
+    }
   }
 
   /**
-   * Décerne les badges de carrière que ce profil vient d'atteindre. Rend ceux
-   * qui sont nouveaux — il n'y a qu'à la première fois qu'ils comptent.
+   * Retire les badges de l'ancien catalogue de carrière (« Le Fidèle »,
+   * « Le Pilier »…) : les paliers de carrière les reprennent sous leurs
+   * nouveaux noms, et le recalcul les redécerne. Rend les profils touchés.
    */
-  async grantCareerBadges(profileId: string, soireeId: string, spaceId: string): Promise<string[]> {
-    const carriere = await this.careerOf(profileId)
-    const deja = await this.badgeKeys(profileId)
-    const neufs: string[] = []
-    for (const b of BADGES_CARRIERE) {
-      if (deja.has(b.key) || !b.atteint(carriere)) continue
-      if (await this.grantBadge({ profileId, badge: b.key, emoji: b.emoji, title: b.title, soireeId, spaceId })) {
-        neufs.push(b.key)
-      }
-    }
-    return neufs
+  async oublierAnciensBadgesDeCarriere(): Promise<string[]> {
+    const [avant] = await this.client.batch(
+      [
+        `SELECT DISTINCT profile_id FROM profile_badges WHERE badge LIKE 'carriere:%'`,
+        `DELETE FROM profile_badges WHERE badge LIKE 'carriere:%'`,
+      ],
+      'write',
+    )
+    const touches = avant.rows.map(r => String(r.profile_id))
+    this.porteurs = null
+    await this.recompterRecompenses(touches)
+    return touches
+  }
+
+  /** Les profils qui ont au moins une ligne d'expérience, c'est-à-dire qui ont joué. */
+  async profilsAvecExperience(): Promise<string[]> {
+    const res = await this.client.execute('SELECT DISTINCT profile_id FROM profile_xp')
+    return res.rows.map(r => String(r.profile_id))
   }
 
   /**
@@ -861,7 +1084,11 @@ export class ProfileStore {
       login: String(r.login),
       name: String(r.name),
       avatar: String(r.avatar),
-      finition: finitionValide(r.finition, niveauPour(Number(r.xp ?? 0))),
+      // Borné à la lecture : `auto`, ou une finition qu'il a. L'ancienne
+      // valeur par défaut, `mat`, se lit `auto` — personne ne l'avait choisie,
+      // c'est ce qu'on donnait à tout le monde.
+      finition: r.finition === 'mat' ? 'auto' : choixDeFinition(r.finition, niveauPour(Number(r.xp ?? 0))),
+      legendaire: typeof r.legendaire === 'string' && r.legendaire ? r.legendaire : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),
@@ -870,18 +1097,13 @@ export class ProfileStore {
       disabledAt: r.disabled_at === null || r.disabled_at === undefined ? null : Number(r.disabled_at),
     }
     this.profiles.set(rec.id, rec)
-    // Les éclats et le nombre de badges arrivent avec le profil : ils partent
-    // dans l'accusé d'inscription à une soirée, qui est synchrone.
+    // Les éclats et les récompenses arrivent avec le profil : ils partent
+    // dans l'accusé d'inscription à une soirée, qui est synchrone, et dans
+    // l'instantané de toute la salle.
     if (!this.eclats.has(rec.id)) {
-      const [eclats, badges] = await Promise.all([
-        this.client.execute({ sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ?', args: [rec.id] }),
-        this.client.execute({
-          sql: 'SELECT COUNT(DISTINCT badge) AS n FROM profile_badges WHERE profile_id = ?',
-          args: [rec.id],
-        }),
-      ])
+      const eclats = await this.client.execute({ sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ?', args: [rec.id] })
       this.eclats.set(rec.id, new Set(eclats.rows.map(e => String(e.avatar))))
-      this.badgeCount.set(rec.id, Number(badges.rows[0]?.n ?? 0))
+      await this.recompterRecompenses([rec.id])
     }
     return rec.disabledAt ? null : rec
   }

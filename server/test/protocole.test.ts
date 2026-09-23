@@ -305,6 +305,40 @@ describe('la question visée', { concurrency: true }, () => {
     assert.equal((await vue(host, v => v.cancelled === true, 'l’écran commun le sait aussi')).phase, 'reveal')
   })
 
+  test('deux estimations exactes valent pareil, quelle que soit la seconde où elles sont arrivées', async () => {
+    const { banc, invites, sessionId } = await soiree([estimation('En quelle année ?', 1994)], ['Alice', 'Bob', 'Chloé'])
+    const [alice, bob, chloe] = invites
+    const q = await vue(alice.socket, v => v.phase === 'question', 'la question')
+    const guess = (qui: Invite, value: number) =>
+      emitAck<any>(qui.socket, 'player:action', {
+        sessionId,
+        action: { type: 'guess', value, qIndex: q.qIndex, round: q.round },
+      })
+    assert.equal((await guess(alice, 1994)).ok, true)
+    // Bob tape la même année, une seconde plus tard : la rapidité les
+    // départageait, 200 points contre 90 pour une réponse identique.
+    await new Promise(r => setTimeout(r, 1_000))
+    assert.equal((await guess(bob, 1994)).ok, true)
+    assert.equal((await guess(chloe, 2000)).ok, true)
+    const [va, vb, vc] = await Promise.all(
+      [alice, bob, chloe].map(i => vue(i.socket, v => v.phase === 'reveal', 'la révélation')),
+    )
+    assert.equal(va.yourPoints, vb.yourPoints, 'deux « 1994 » exacts touchent autant')
+    assert.equal(va.yourPoints, 200, 'la participation, la proximité entière et le bonus du plus proche')
+    assert.equal(vc.yourPoints, 30, 'troisième au rang partagé : la participation seule')
+
+    // Le bilan dit la même chose que le barème : il ne nommait que le plus
+    // rapide des deux, et classait l'autre « 2ᵉ à la vitesse ».
+    const bilan = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/bilan.json`)).json()) as any
+    assert.deepEqual(
+      bilan.questions[0].closest.map((c: any) => c.playerId).sort(),
+      [alice.playerId, bob.playerId].sort(),
+      'les deux « 1994 » sont les plus proches de la salle',
+    )
+    const rang = (qui: Invite) => bilan.players.find((p: any) => p.id === qui.playerId).answers[0].proximityRank
+    assert.deepEqual([rang(alice), rang(bob), rang(chloe)], [1, 1, 3])
+  })
+
   test('une estimation renvoyée à l’identique n’est pas un changement d’avis', async () => {
     const { banc, invites, sessionId } = await soiree([estimation('Combien ?', 42)], ['Alice', 'Bob'])
     const [alice, bob] = invites

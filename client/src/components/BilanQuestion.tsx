@@ -172,12 +172,10 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
             (mine?.answered && mine.value !== null ? (
               <p>
                 Ta proposition : <strong className="num">{formatNumber(mine.value)} {q.unit}</strong>
-                {/* Plusieurs valeurs exactes se départagent à la vitesse, comme au jeu :
-                    « 5ᵉ plus proche » avec la bonne valeur serait incompréhensible. */}
+                {/* Le rang du barème, partagé à égalité d'écart : deux valeurs
+                    exactes sont premières toutes les deux, comme au jeu. */}
                 {mine.value === q.target
-                  ? mine.proximityRank === 1
-                    ? ' · pile-poil, et la plus rapide à tomber juste'
-                    : ` · pile-poil, ${ordinal(mine.proximityRank ?? 1)} sur ${q.guesses} à la vitesse`
+                  ? ' · pile-poil'
                   : mine.proximityRank !== null &&
                     (mine.proximityRank === 1
                       ? ' · la plus proche de toute la salle'
@@ -188,9 +186,11 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
               <p className="muted">Tu n'as rien proposé.</p>
             ))}
           <p className="muted small">
-            {q.closest
-              ? `Le plus proche de la salle : ${playerName(ctx, q.closest.playerId)} avec ${formatNumber(q.closest.value)} ${q.unit}`
-              : "Personne n'a proposé de valeur"}
+            {q.closest.length === 0
+              ? "Personne n'a proposé de valeur"
+              : `${q.closest.length > 1 ? 'Les plus proches de la salle, à égalité' : 'Le plus proche de la salle'} : ${q.closest
+                  .map(c => `${playerName(ctx, c.playerId)} avec ${formatNumber(c.value)} ${q.unit}`.trim())
+                  .join(', ')}`}
             {q.guesses > 0 && ` · ${q.guesses} proposition${q.guesses > 1 ? 's' : ''}`}
           </p>
         </div>

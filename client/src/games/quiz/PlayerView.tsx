@@ -225,6 +225,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
             <Icon name="pause" /> En pause — regarde l'écran commun
           </p>
         )}
+        {v.category && <span className="label quiz-categorie">{v.category}</span>}
         <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
         {v.photoGone && (
@@ -377,7 +378,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
               {/* Rang partagé, comme celui de la phrase au-dessus : deux ex
                   æquo portent le même chiffre. */}
               <Rank n={1 + v.podium!.filter(o => o.points > p.points).length} />
-              <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
+              <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
               <span className="lb-name">{p.name}</span>
               <Niveau niveau={p.niveau} />
               <span className="lb-score">{p.points}</span>

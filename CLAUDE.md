@@ -50,6 +50,14 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `core/distante.ts` | le client libsql, avec un délai : une base muette se dit en dix secondes, pas en cinq minutes ; et `ajouterColonne()`, qui lit le schéma avant de migrer et laisse toute panne arrêter le démarrage |
 | `core/archive.ts` | l'historique : une fiche par soirée, relue avec les règles du jour ; `Soiree`, le nom figé |
 | `core/recap.ts` `review.ts` `stats.ts` `progress.ts` | **dérivations pures** des journaux |
+| `core/journal.ts` | le journal rangé question par question et quiz par quiz : la seule lecture qu'en font l'expérience et les hauts faits |
+| `core/hautsfaits.ts` | les hauts faits d'une soirée, invité par invité — dérivation pure, jouée à la clôture et sur les archives |
+| `core/recalcul.ts` | au démarrage, relit l'historique au barème du jour (`VERSION_BAREME`) : expérience, prix, hauts faits, paliers |
+| `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les douze avatars légendaires qui s'en débloquent |
+| `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) |
+| `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) |
+| `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
+| `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée |
 | `core/http.ts` | ce qu'une erreur laisse lire : `wrap`, `erreurMontrable`, `messagePourEcran`, `erreurDeRequete` |
 | `auth/store.ts` | comptes d'animateurs — c'est-à-dire **des espaces** : `accounts.id` EST le `space_id` |
 | `auth/profiles.ts` | profils de joueurs (autre table, autre cookie) |
@@ -94,25 +102,29 @@ server/test/        un fichier par thème, un serveur jetable chacun
 9. **La fiche du serveur fait foi.** Un `player:join` qui porte un jeton est
    une re-présentation : prénom et avatar envoyés sont ignorés — sinon le
    renommage d'un pseudo par l'animateur tombait au réveil du téléphone. Un
-   jeton qui ne désigne plus personne (exclu, « Nouvelle soirée ») est refusé
+   jeton qui ne désigne plus personne (exclu, essai effacé) est refusé
    (`unknown-token`), **jamais recréé** : le téléphone repasse par l'entrée,
-   pré-remplie.
-10. **Les profils se créditent dès que le quiz rend son verdict** (son podium
-    s'affiche), à la fin de la partie si quelque chose a changé depuis
+   pré-remplie. Celui d'une soirée qu'on vient de clore reçoit sa fin de
+   soirée (`soiree-close`).
+10. **L'expérience d'un quiz se crédite dès qu'il rend son verdict** (son
+    podium s'affiche), à la fin de la partie si quelque chose a changé depuis
     (`dernierCredit`, l'empreinte des gains arrivés en base), puis une
-    dernière fois dans `archiveParty()`, toujours, avant tout effacement.
-    C'est l'idempotence qui le permet : la ligne `(profil, soirée)` est
-    remplacée, jamais ajoutée. Un invité **exclu** rend la sienne, et
-    l'Éclat tiré ce soir-là (`exclure()`, à la file des crédits) : le crédit
-    suivant ne réécrit que les profils encore là. Les **prix de la soirée**
-    se remplacent de même à chaque archivage, en un seul lot
-    (`remplacerPrixDeSoiree`) — un « Sauvegarder » à mi-soirée ne fige rien.
-    Les badges de **carrière**, eux, ne se reprennent jamais.
+    dernière fois à la clôture, toujours, avant tout effacement. C'est
+    l'idempotence qui le permet : la ligne `(profil, soirée)` est remplacée,
+    jamais ajoutée. Un invité **exclu** rend la sienne, et l'Éclat tiré ce
+    soir-là (`exclure()`, à la file des crédits) : le crédit suivant ne
+    réécrit que les profils encore là. Ce qui ne se juge qu'une fois tout
+    joué — le podium de la soirée, l'assiduité, les **prix** du palmarès, les
+    **hauts faits**, les **paliers** de carrière — ne se décide **qu'à la
+    clôture**, en un seul lot (`remplacerRecompensesDeSoiree`) : un
+    rangement à mi-soirée ne fige rien. Un palier ne se reprend que si la
+    soirée qui l'a fait tomber est retirée (essai effacé, soirée supprimée de
+    l'historique) — et tout ce qu'elle avait rapporté part avec elle.
 11. **Le nom d'une soirée se tire une fois** (`soireeEnCours`) et ne se
     recalcule jamais : exclure le premier arrivé ou redémarrer ne le change
-    pas, seul `resetParty` l'oublie. Toute écriture permanente sous ce nom
-    passe d'abord par `recopierSoiree`. Recalculé, il comptait l'expérience
-    deux fois et dédoublait l'archive.
+    pas, seules la clôture et l'essai effacé l'oublient (`viderSoiree`).
+    Toute écriture permanente sous ce nom passe d'abord par `recopierSoiree`.
+    Recalculé, il comptait l'expérience deux fois et dédoublait l'archive.
 12. **Un geste dit ce qu'il visait.** Les commandes `next`, `cancel`, `replay`
     et les réponses portent la phase, la question et le tour : une commande
     périmée est ignorée en silence, une réponse périmée reçoit `too-late`, et
@@ -124,8 +136,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
     gains et réponses portent un `uid` tiré en local, pour un rejeu sans
     doublon ; un `run()` envoie l'état de la partie **avec** ses gains et ses
     réponses, en un seul lot (`ouvrirLot` / `fermerLot`) — sinon un arrêt
-    brutal faisait payer une question deux fois. « Nouvelle soirée » efface le
-    miroir **avant** la base locale.
+    brutal faisait payer une question deux fois. La clôture efface le miroir
+    **avant** la base locale.
 14. **Les dérivations restent pures.** La soirée en cours et une archive
     passent par le même chemin — une amélioration profite aux soirées passées.
 15. **Un classement passe par `shared/classement.ts`.** Rang = 1 + le nombre
@@ -154,6 +166,24 @@ server/test/        un fichier par thème, un serveur jetable chacun
     l'homonyme s'en va. Un prénom sort par trois portes (`publicPlayers`,
     `publicOne`, `ViewContext.playerName`) : c'est la troisième qu'on oublie,
     et c'est elle qui écrit sur le vidéoprojecteur.
+18. **L'historique s'écrit tout seul, et la soirée n'a qu'un geste de fin.**
+    Elle se range après chaque quiz (`apresQuiz`) ; `host:closeParty` la clôt
+    — dernier rangement, crédits de clôture, fin de soirée à chaque téléphone
+    et à la salle, puis la page blanche ; `host:discardParty` efface un essai
+    avec tout ce qu'il avait crédité. La fin de soirée ne part **qu'une fois
+    la soirée effacée** : un miroir qui refuse d'effacer ne doit pas faire
+    lire « c'est fini » à une soirée qui continue. `host:resetParty` et
+    `host:archiveParty` restent compris des pages d'avant.
+19. **L'expérience se mérite, et ne redescend jamais en cours de soirée.**
+    Rien pour la présence ; une question ne rapporte que posée à trois
+    joueurs, un quiz n'a de podium qu'à cinq questions et quatre joueurs, la
+    soirée qu'à quinze questions et six joueurs (`SEUILS`) ; l'animateur joue
+    **hors concours** chez lui. Les gains d'un quiz sont définitifs : ce qui
+    peut se renverser d'un quiz à l'autre attend la clôture.
+20. **Les récompenses sont des dérivations des journaux**, comme le
+    souvenir : quand le barème ou un haut fait change, incrémente
+    `VERSION_BAREME` — au démarrage, `recalculerHistorique` relit toutes les
+    soirées de l'historique avec les règles du jour.
 
 ## Les conventions
 
@@ -196,7 +226,7 @@ change pas, le recréer si, et c'est elle que portent les QR imprimés. Ne
 synchronise aucun blueprint : Render n'adopte pas un service créé à la main,
 il en créerait des copies à de nouvelles adresses (MISE-EN-LIGNE.md, étape 7).
 
-**Jamais la même base Turso pour les deux** : un « Nouvelle soirée » en
+**Jamais la même base Turso pour les deux** : un « C'était un essai » en
 préproduction effacerait de vraies soirées archivées. Hors production,
 `APP_ENV` pose un bandeau sur toutes les pages (injecté dans `index.html` par
 `server.ts`, affiché par `main.tsx`). En ligne, le serveur refuse de démarrer
@@ -226,8 +256,20 @@ sans `QUIZ_DB_URL`.
 - **`loginBudgetOf(app)`, jamais `new LoginBudget()`** : toutes les portes qui
   ouvrent une console partagent la même réserve d'essais.
 - **Les crédits lisent les journaux avant le premier `await`** et passent par
-  `enFile` : un « Nouvelle soirée » cliqué pendant un archivage viderait sinon
-  ce qu'ils lisent.
+  `enFile` : une clôture cliquée pendant un rangement viderait sinon ce
+  qu'ils lisent.
+- **L'Éclat est un tirage** (une chance sur quarante) et le premier fait
+  tomber un palier de carrière : un test qui compte l'expérience au point
+  près après une clôture neutralise `ProfileStore.tirageEclat`, sinon il
+  échoue une fois sur quarante.
+- **Une salle de moins de trois joueurs ne rapporte rien.** Un test qui veut
+  de l'expérience invite des figurants (`figurants()`, `faux()` dans
+  `soiree.test.ts`) ; un test de hauts faits, quatre joueurs au moins.
+- **Une colonne de plus au journal des réponses** se pose dans trois
+  fichiers : `addColumn` dans `db.ts` (la locale) ; `COLUMNS`, l'insertion
+  et `toRow` dans `answers.ts` ; `ajouterColonne` (le miroir), l'écriture
+  (`SQL.reponse`, `ligneReponse`) et la restauration dans `backup.ts`. Une
+  seule oubliée, et la colonne se perd au premier réveil sur disque effacé.
 - **Toute mutation de `Party` qui touche un prénom, un avatar ou la
   composition invalide le cache des marques** d'homonymie.
 - **`/healthz` doit rester un 200** : sur un échec, Render redémarre
@@ -251,8 +293,10 @@ sans `QUIZ_DB_URL`.
 
 ## Ce qu'il ne faut pas faire
 
-- Toucher aux barèmes (`CHOICE_POINTS`, `XP`, `CHANCE_ECLAT`…) sans le dire :
-  ce sont des choix de produit, pas des constantes techniques.
+- Toucher aux barèmes (`CHOICE_POINTS`, `XP`, `SEUILS`, `XP_PAR_PALIER`,
+  `XP_PALIER`, l'expérience des hauts faits, `CHANCE_ECLAT`…) sans le dire :
+  ce sont des choix de produit, pas des constantes techniques — et sans
+  incrémenter `VERSION_BAREME`, l'historique garderait l'ancien.
 - Rendre la connexion obligatoire. L'entrée d'une soirée **est** un écran de
   connexion, et l'accueil (`/`) en est un aussi : c'est un choix assumé — mais
   « Jouer sans compte » et « Rejoindre une soirée » y ont exactement le format

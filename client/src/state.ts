@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { PartySnapshot } from '../../shared/types'
+import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz } from '../../shared/fin'
 import { currentSlug } from './routes'
 
 export interface SessionView {
@@ -36,6 +37,14 @@ export interface AppState {
   me: Me | null
   views: Record<string, SessionView>
   toast: Toast | null
+  /** Téléphone : la soirée est close, voici la sienne — jusqu'à ce qu'il passe à la suivante. */
+  fin: FinDeSoiree | null
+  /** Téléphone : ce que le dernier podium vient de lui rapporter, le temps de le fêter. */
+  gain: GainAnnonce | null
+  /** Écran commun : la soirée qu'on vient de clore, à annoncer à la salle. */
+  cloture: ClotureDeSoiree | null
+  /** Écran commun : les montées de niveau du dernier podium. */
+  progres: ProgresDeQuiz | null
 }
 
 function readJson<T>(key: string): T | null {
@@ -85,6 +94,10 @@ let state: AppState = {
   me: slugAtLoad ? readMe(slugAtLoad) : null,
   views: {},
   toast: null,
+  fin: null,
+  gain: null,
+  cloture: null,
+  progres: null,
 }
 
 const listeners = new Set<() => void>()

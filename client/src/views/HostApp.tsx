@@ -1,8 +1,8 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
-import { showToast, useAppState } from '../state'
-import { confirmDialog, promptDialog } from '../components/Dialog'
+import { setState, showToast, useAppState } from '../state'
+import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { api } from '../api'
 import { dataUrl, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
@@ -26,6 +26,8 @@ import type { QuizHostView } from '../../../shared/games/quiz'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { distinctions } from '../../../shared/profil'
+import type { ArchiveList } from '../../../shared/archive'
+import { AnnoncesDeNiveau, ClotureEcran } from '../components/Cloture'
 
 /** QR wifi standard : le téléphone rejoint le réseau en le scannant. */
 function wifiQrValue(wifi: { ssid: string; pass: string }): string {
@@ -117,17 +119,23 @@ function TeamGroup({
       <div className="players-grid">
         {members.map(p => (
           <div key={p.id} className={'player-chip' + (p.connected ? '' : ' offline')}>
-            <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
+            <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
             <Niveau niveau={p.niveau} />
+            {/* Un surnom pour la soirée : l'écran commun, le souvenir et le
+                bilan l'affichent ; le profil de l'invité garde son prénom, et
+                la soirée suivante le lui rend. */}
             <button
               className="chip-name"
-              title="Renommer"
-              aria-label={`Renommer ${p.name}`}
+              title="Donner un surnom pour la soirée"
+              aria-label={`Donner un surnom à ${p.name}`}
               onClick={async () => {
                 const name = await promptDialog({
-                  title: `Nouveau prénom pour « ${p.name} »`,
-                  input: { value: p.name, placeholder: 'Prénom', maxLength: 24 },
-                  confirmLabel: 'Renommer',
+                  title: `Un surnom pour « ${p.name} » ce soir`,
+                  message: p.niveau
+                    ? 'Il s’affiche partout ce soir. Son profil garde son prénom, et la soirée suivante le lui rend.'
+                    : 'Il s’affiche partout ce soir, à la place du prénom choisi à l’entrée.',
+                  input: { value: p.name, placeholder: 'Surnom', maxLength: 24 },
+                  confirmLabel: 'Donner ce surnom',
                 })
                 if (name) socket.emit('host:renamePlayer', { playerId: p.id, name })
               }}
@@ -201,7 +209,7 @@ export function HostApp() {
    * Les écrans de fin de soirée, projetés à la place du jeu. `null` = on est
    * sur l'écran d'accueil, prêt à lancer un quiz.
    */
-  const [screen, setScreen] = useState<null | 'podium' | 'awards' | 'victory'>(null)
+  const [screen, setScreen] = useState<null | 'podium' | 'awards' | 'victory' | 'cloture'>(null)
   /** Motif et points du prix libre, celui qui ne se calcule pas. */
   const [freeReason, setFreeReason] = useState('')
   const [freePoints, setFreePoints] = useState(1)
@@ -223,8 +231,14 @@ export function HostApp() {
   useEffect(() => {
     if (spaceTitle) document.title = `${spaceTitle} · Écran commun`
   }, [spaceTitle])
+  // La soirée qu'on vient de clore prend l'écran : c'est la dernière chose
+  // que la salle doit voir.
   useEffect(() => {
-    if (!screen || !spaceSlug) return
+    if (s.cloture) setScreen('cloture')
+  }, [s.cloture])
+  const finirAnnonces = useCallback(() => setState({ progres: null }), [])
+  useEffect(() => {
+    if (!screen || screen === 'cloture' || !spaceSlug) return
     fetch(dataUrl(spaceSlug, 'recap.json'))
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(setRecap)
@@ -327,7 +341,9 @@ export function HostApp() {
 
   /** Ce que la bande d'état annonce au centre : où en est la soirée. */
   const stageLabel =
-    screen === 'podium'
+    screen === 'cloture'
+      ? 'Soirée close'
+      : screen === 'podium'
       ? 'Podium'
       : screen === 'awards'
         ? 'Remise des prix'
@@ -395,6 +411,46 @@ export function HostApp() {
     </button>
   )
 
+  /**
+   * « Clore la soirée » : le seul geste de fin. Il remplace « Sauvegarder »
+   * — la soirée s'enregistre toute seule après chaque quiz — et « Nouvelle
+   * soirée », qui effaçait tout et perdait les prix quand on n'avait pas
+   * sauvegardé d'abord. Une soirée d'essai, elle, s'efface sans rien garder.
+   */
+  const clore = async () => {
+    // Le titre sous lequel la soirée est déjà rangée, s'il y en a un.
+    const rangee = await fetch(dataUrl(slug, 'soirees.json'))
+      .then(r => (r.ok ? (r.json() as Promise<ArchiveList>) : null))
+      .then(l => l?.current?.title)
+      .catch(() => undefined)
+    const choix = await choixDialog({
+      title: 'Clore la soirée',
+      message:
+        'Elle rejoint l’historique sous ce nom. Chaque invité reçoit sa fin de soirée sur son téléphone — son rang, ses hauts faits, ses niveaux —, puis la suivante part de zéro.',
+      input: { value: rangee ?? `Soirée du ${formatDay(Date.now())}`, maxLength: 80 },
+      confirmLabel: 'Clore la soirée',
+      alternative: { label: 'C’était un essai', danger: true },
+    })
+    if (!choix) return
+    if (choix.geste === 'confirmer') {
+      socket.emit('host:closeParty', { title: choix.valeur })
+      return
+    }
+    const ok = await confirmDialog({
+      title: 'Effacer cet essai ?',
+      message: `Rien n’est gardé : ni la soirée dans l’historique, ni l’expérience, les prix et les hauts faits de ses ${snap.players.length} invités. Les téléphones repassent par l’entrée.`,
+      confirmLabel: 'Tout effacer',
+      danger: true,
+    })
+    if (ok) socket.emit('host:discardParty')
+  }
+  const cloreButton = snap.players.length > 0 && (
+    <button className="btn" onClick={() => void clore()}>
+      <Icon name="flag" />
+      Clore la soirée
+    </button>
+  )
+
   return (
     <ConsoleSlot.Provider value={consoleSlot}>
       <div className={'host' + (staging ? ' staging' : '')}>
@@ -449,6 +505,9 @@ export function HostApp() {
             </div>
           </div>
         </header>
+
+        {/* Les montées de niveau du dernier podium, proclamées à la salle. */}
+        {s.progres && <AnnoncesDeNiveau progres={s.progres} onFin={finirAnnonces} />}
 
         <div className={'host-grid' + (staging ? ' staging' : '')}>
           {!staging && (
@@ -509,7 +568,32 @@ export function HostApp() {
           )}
 
           <section className="card main-stage">
-            {screen === 'podium' ? (
+            {screen === 'cloture' && s.cloture ? (
+              <>
+                <ClotureEcran cloture={s.cloture} souvenirUrl={`${joinUrl}/soirees/${s.cloture.soiree.id}`} />
+                <ConsoleActions>
+                  <a
+                    className="btn"
+                    href={spacePath(slug, 'souvenir', s.cloture.soiree.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Icon name="book" />
+                    Le souvenir
+                  </a>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setState({ cloture: null })
+                      setScreen(null)
+                    }}
+                  >
+                    <Icon name="play" />
+                    La soirée suivante
+                  </button>
+                </ConsoleActions>
+              </>
+            ) : screen === 'podium' ? (
               <div className="quiz-host stage-scroll">
                 {teams.length > 0 && (
                   <div className="row podium-tabs">
@@ -791,7 +875,7 @@ export function HostApp() {
                           {ranking.slice(0, 12).map((p, i) => (
                             <div key={i} className="lb-row">
                               <Rank n={p.rank} />
-                              <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
+                              <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
                               <span className="lb-name">{p.name}</span>
                               <Niveau niveau={p.niveau} />
                               <span className="lb-score">{p.points}</span>
@@ -812,6 +896,7 @@ export function HostApp() {
                     <Icon name="award" />
                     Revenir aux prix
                   </button>
+                  {cloreButton}
                   {backButton}
                 </ConsoleActions>
               </div>
@@ -906,6 +991,7 @@ export function HostApp() {
                     <Icon name="book" />
                     Historique
                   </a>
+                  {cloreButton}
                 </ConsoleActions>
               </>
             )}
@@ -927,45 +1013,6 @@ export function HostApp() {
               <section className="card">
                 <h2>Classement de la soirée</h2>
                 <Leaderboard players={snap.players} />
-                {snap.players.length > 0 && (
-                  <div className="row reset-row">
-                    <button
-                      className="btn btn-ghost btn-small"
-                      onClick={async () => {
-                        // Range la soirée dans l'historique sans rien effacer :
-                        // à l'abri avant la fin, ou pour lui donner son nom.
-                        const title = await promptDialog({
-                          title: 'Ranger la soirée dans l’historique',
-                          message: `Rien n’est effacé : la soirée continue, et elle se relira plus tard sur /${slug}/soirees. Sous quel nom ?`,
-                          input: { value: `Soirée du ${formatDay(Date.now())}`, maxLength: 80 },
-                          confirmLabel: 'Sauvegarder',
-                        })
-                        if (title) socket.emit('host:archiveParty', { title })
-                      }}
-                    >
-                      <Icon name="book" />
-                      Sauvegarder
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-small"
-                      onClick={async () => {
-                        // La soirée est d'abord rangée dans l'historique, puis
-                        // tout s'efface, sauvegarde distante comprise : à ne
-                        // faire qu'entre deux soirées, jamais pendant.
-                        const ok = await confirmDialog({
-                          title: 'Repartir d’une soirée vierge ?',
-                          message: `La soirée est d'abord rangée dans l'historique (/${slug}/soirees), puis les ${snap.players.length} invités, les ${teams.length} équipes et tous les points sont effacés.\n\nÀ faire une fois la fête finie, pour préparer la suivante.`,
-                          confirmLabel: 'Archiver et tout effacer',
-                          danger: true,
-                        })
-                        if (ok) socket.emit('host:resetParty')
-                      }}
-                    >
-                      <Icon name="trash" />
-                      Nouvelle soirée
-                    </button>
-                  </div>
-                )}
               </section>
             </div>
           )}

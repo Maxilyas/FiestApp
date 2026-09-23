@@ -31,11 +31,16 @@ export interface AnswerRow {
   durationMs: number
   /** La question portait une photo « mémoire ». */
   observed: boolean
+  /**
+   * La catégorie de la question (`shared/categories.ts`), si elle en portait
+   * une. Absente des lignes d'avant les catégories.
+   */
+  category?: string | null
   createdAt: number
 }
 
 const COLUMNS =
-  'session_id, quiz_title, q_index, kind, player_id, answered, correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at'
+  'session_id, quiz_title, q_index, kind, player_id, answered, correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category'
 
 export class AnswerLog {
   private insertStmt
@@ -46,7 +51,7 @@ export class AnswerLog {
     private backup?: PartyMirror,
   ) {
     this.insertStmt = db.prepare(
-      `INSERT INTO answer_log (uid, ${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO answer_log (uid, ${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
   }
 
@@ -78,6 +83,7 @@ export class AnswerLog {
           r.durationMs,
           r.observed ? 1 : 0,
           r.createdAt,
+          r.category ?? null,
           this.spaceId,
         )
       }
@@ -138,6 +144,7 @@ export function toRow(r: any): AnswerRow {
     points: Number(r.points ?? 0),
     durationMs: Number(r.duration_ms ?? 0),
     observed: Number(r.observed) === 1,
+    category: r.category === null || r.category === undefined ? null : String(r.category),
     createdAt: Number(r.created_at),
   }
 }

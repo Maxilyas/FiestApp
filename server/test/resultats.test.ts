@@ -118,18 +118,22 @@ test('une seule règle de classement : rang partagé, ex æquo écrits par prén
 })
 
 test('un quiz à 300–300 a deux vainqueurs : le souvenir, le bilan et l’expérience disent la même chose', () => {
-  // Zoé marque la première ; Alice la rejoint à la question suivante.
+  // Zoé marque la première ; Alice la rejoint à la question suivante. Le
+  // quiz a de quoi avoir un podium : cinq questions, quatre joueurs.
   const zoe = invite('zoe', 'Zoé', { score: 300 })
   const alice = invite('alice', 'Alice', { score: 300 })
+  const salle = [invite('bob', 'Bob'), invite('dora', 'Dora')]
   const scores = [gain('zoe', 300, 's1', 'Quiz « Culture » — Q1'), gain('alice', 300, 's1', 'Quiz « Culture » — Q2')]
   const answers = [
     reponse('zoe', { quizTitle: 'Culture', qIndex: 0, points: 300 }),
     faux('alice', { quizTitle: 'Culture', qIndex: 0 }),
     faux('zoe', { quizTitle: 'Culture', qIndex: 1 }),
     reponse('alice', { quizTitle: 'Culture', qIndex: 1, points: 300 }),
+    ...[2, 3, 4].flatMap(q => ['zoe', 'alice'].map(id => faux(id, { quizTitle: 'Culture', qIndex: q }))),
+    ...[0, 1, 2, 3, 4].flatMap(q => salle.map(p => faux(p.id, { quizTitle: 'Culture', qIndex: q }))),
   ]
 
-  const recap = buildRecap({ players: [zoe, alice], teams: [], bonuses: [], scores, answers })
+  const recap = buildRecap({ players: [zoe, alice, ...salle], teams: [], bonuses: [], scores, answers })
   assert.deepEqual(
     recap.quizWinners.map(w => [w.name, w.points, w.title]),
     [
@@ -141,7 +145,7 @@ test('un quiz à 300–300 a deux vainqueurs : le souvenir, le bilan et l’exp�
 
   const review = buildReview({
     rows: answers,
-    players: [zoe, alice],
+    players: [zoe, alice, ...salle],
     teams: [],
     bonuses: [],
     packsBySession: new Map(),
@@ -150,14 +154,19 @@ test('un quiz à 300–300 a deux vainqueurs : le souvenir, le bilan et l’exp�
   assert.equal(review.quizzes[0].winner?.playerId, 'alice', 'le bilan nomme le premier des vainqueurs du souvenir')
 
   const gains = buildProgress({
-    players: [inscrit('zoe', 'Zoé', 'profil-zoe', 1), inscrit('alice', 'Alice', 'profil-alice', 2)],
+    players: [
+      inscrit('zoe', 'Zoé', 'profil-zoe', 1),
+      inscrit('alice', 'Alice', 'profil-alice', 2),
+      inscrit('bob', 'Bob', null, 3),
+      inscrit('dora', 'Dora', null, 4),
+    ],
     scores,
     answers,
   })
   assert.equal(gains.length, 2)
   for (const g of gains) {
-    assert.equal(g.releve.quiz, 1, `${g.playerId} a gagné le quiz, ex æquo`)
-    assert.equal(g.gain.quiz, XP.vainqueurDeQuiz, 'et touche l’expérience d’une victoire entière, au barème inchangé')
+    assert.equal(g.releve.quizGagnes, 1, `${g.playerId} a gagné le quiz, ex æquo`)
+    assert.equal(g.gain.quiz, XP.podiumQuiz[0], 'et touche l’expérience d’une première place entière')
   }
 })
 
@@ -445,9 +454,24 @@ test('des points fantômes ne comptent ni au souvenir ni à l’expérience', ()
   assert.equal(recap.totalPoints, 300)
 
   const [alice] = buildProgress({ players: [inscrit('alice', 'Alice', 'profil-alice', 1)], scores, answers })
-  assert.equal(alice.releve.rang, 1)
-  assert.equal(alice.gain.podium, XP.podium[0])
-  assert.equal(alice.releve.quiz, 1)
+  assert.equal(alice.releve.rang, 1, 'Alice est première de la soirée, pas deuxième derrière un fantôme')
+  assert.equal(alice.releve.points, 200)
+
+  // Et un quiz qui a un podium le donne à Alice : cinq questions, quatre
+  // joueurs, le fantôme devant tout le monde.
+  const salle = ['bob', 'dora', 'eve']
+  const quiz = [
+    gain('fantome', 900, 's2', 'Quiz « Quiz » — Q1'),
+    gain('alice', 200, 's2', 'Quiz « Quiz » — Q1'),
+    gain('bob', 100, 's2', 'Quiz « Quiz » — Q2'),
+  ]
+  const journal = [0, 1, 2, 3, 4].flatMap(q =>
+    ['fantome', 'alice', ...salle].map(id => reponse(id, { sessionId: 's2', qIndex: q, correct: q === 0 ? id !== 'dora' : false })),
+  )
+  const joueurs = [inscrit('alice', 'Alice', 'profil-alice', 1), ...salle.map((id, i) => inscrit(id, id, null, i + 2))]
+  const [aliceQuiz] = buildProgress({ players: joueurs, scores: quiz, answers: journal })
+  assert.equal(aliceQuiz.releve.quizGagnes, 1, 'le fantôme ne lui prend pas la victoire du quiz')
+  assert.equal(aliceQuiz.gain.quiz, XP.podiumQuiz[0])
 })
 
 test('un profil ne reçoit qu’un gain par soirée, même s’il tient deux joueurs', () => {
@@ -456,8 +480,25 @@ test('un profil ne reçoit qu’un gain par soirée, même s’il tient deux jou
     inscrit('p2', 'Alice', 'profil-alice', 2),
     inscrit('p3', 'Bob', 'profil-bob', 3),
   ]
-  const scores = [gain('p1', 100), gain('p2', 300, 's1', 'Quiz « Quiz » — Q2'), gain('p3', 200, 's1', 'Quiz « Quiz » — Q3')]
-  const answers = [reponse('p1', { points: 100 }), reponse('p2', { qIndex: 1, points: 300 }), reponse('p3', { qIndex: 2, points: 200 })]
+  const scores = [
+    gain('p1', 100),
+    gain('p2', 300, 's1', 'Quiz « Quiz » — Q2'),
+    gain('p2', 300, 's1', 'Quiz « Quiz » — Q3'),
+    gain('p3', 200, 's1', 'Quiz « Quiz » — Q3'),
+  ]
+  // Chaque question est posée aux trois : elle rapporte. Le premier joueur
+  // d'Alice trouve une fois, le second deux.
+  const answers = [
+    reponse('p1', { qIndex: 0, points: 100 }),
+    faux('p2', { qIndex: 0 }),
+    faux('p3', { qIndex: 0 }),
+    faux('p1', { qIndex: 1 }),
+    reponse('p2', { qIndex: 1, points: 300 }),
+    faux('p3', { qIndex: 1 }),
+    faux('p1', { qIndex: 2 }),
+    reponse('p2', { qIndex: 2, points: 300 }),
+    reponse('p3', { qIndex: 2, points: 200 }),
+  ]
   const gains = buildProgress({ players, scores, answers })
   const aAlice = gains.filter(g => g.profileId === 'profil-alice')
   assert.equal(aAlice.length, 1, 'deux lignes (profil, soirée) : la seconde écraserait la première')

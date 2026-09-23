@@ -474,9 +474,10 @@ test('la copie exacte d’un quiz joué survit au réveil : l’archive garde se
     const rangee = attendre<any>(host2, 'toast', () => true, 'la soirée rangée', 15_000)
     ;(host2 as any).emit('host:archiveParty', {})
     assert.equal((await rangee).kind, 'info')
-    const { archives } = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees.json`)).json()) as any
+    // Rangée, elle reste en cours : l'historique la montre à part.
+    const { current } = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees.json`)).json()) as any
     const archive = (await (
-      await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${archives[0].id}/bilan.json`)
+      await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${current.id}/bilan.json`)
     ).json()) as any
     assert.equal(archive.questions[0].text, 'Intitulé d’origine ?', 'l’archive porte l’intitulé posé ce soir-là')
     assert.equal(archive.questions[0].uncertain, false)
@@ -488,9 +489,9 @@ test('la copie exacte d’un quiz joué survit au réveil : l’archive garde se
     )
   }))
 
-// ── 4. « Nouvelle soirée » quand le miroir refuse d'effacer ──────────────
+// ── 4. « Clore la soirée » quand le miroir refuse d’effacer ─────────────
 
-test('« Nouvelle soirée » avec le miroir en panne : rien d’effacé, et le message dit vrai', () =>
+test('« Clore la soirée » avec le miroir en panne : rien d’effacé, et le message dit vrai', () =>
   avecBanc(RAPIDE, async banc => {
     const espace = espaceDuBanc(banc)
     const cookie = await connexionAnimateur(banc.url)
@@ -500,15 +501,18 @@ test('« Nouvelle soirée » avec le miroir en panne : rien d’effacé, et le m
     await jouerQuiz(host, quiz, [[[alice, 0]]])
     await jusqua(() => etat(banc, espace).miroir.gains === 1, 'le gain d’Alice dans le miroir')
     const avant = etat(banc, espace)
+    // Close, la soirée envoie sa fin à chaque téléphone ; un essai effacé,
+    // ou une soirée vierge, le renvoie à l'entrée.
     let reinitialisee = false
     alice.socket.on('party:reset', () => (reinitialisee = true))
+    alice.socket.on('soiree:fin', () => (reinitialisee = true))
 
     // Le miroir accepte encore d'écrire, mais plus d'effacer.
     panne(banc, ['DELETE'])
-    const refus = attendre<any>(host, 'toast', () => true, 'la réponse à « Nouvelle soirée »', 15_000)
-    ;(host as any).emit('host:resetParty')
+    const refus = attendre<any>(host, 'toast', () => true, 'la réponse à « Clore la soirée »', 15_000)
+    ;(host as any).emit('host:closeParty', {})
     const toast = await refus
-    assert.equal(toast.kind, 'error', `la remise à zéro devait échouer : ${toast.message}`)
+    assert.equal(toast.kind, 'error', `la clôture devait échouer : ${toast.message}`)
     assert.match(toast.message, /^Rien n’a été effacé/)
     assert.match(toast.message, /réessaie/, 'le message dit quoi faire')
     await patienter(300)
@@ -518,15 +522,15 @@ test('« Nouvelle soirée » avec le miroir en panne : rien d’effacé, et le m
       'Alice',
       'l’écran commun montre toujours la salle',
     )
-    assert.equal(reinitialisee, false, 'le téléphone d’Alice n’a pas été renvoyé à l’entrée')
+    assert.equal(reinitialisee, false, 'le téléphone d’Alice ne lit pas « c’est fini » pour une soirée qui continue')
     assert.equal(compter(permanente(banc), 'SELECT COUNT(*) FROM party_soiree WHERE space_id = ?', espace), 1)
 
-    // La panne levée, la remise à zéro passe — et efface les deux côtés.
+    // La panne levée, la clôture passe — et efface les deux côtés.
     retablir(banc)
-    const vierge = attendre<any>(host, 'toast', () => true, 'la soirée vierge', 15_000)
-    ;(host as any).emit('host:resetParty')
+    const vierge = attendre<any>(host, 'toast', () => true, 'la soirée close', 15_000)
+    ;(host as any).emit('host:closeParty', {})
     assert.equal((await vierge).kind, 'info')
-    await jusqua(() => reinitialisee, 'le téléphone d’Alice renvoyé à l’entrée')
+    await jusqua(() => reinitialisee, 'le téléphone d’Alice reçoit sa fin de soirée')
     const efface = etat(banc, espace)
     assert.deepEqual(efface.local, { invites: 0, gains: 0, reponses: 0 })
     assert.deepEqual(efface.miroir, { invites: 0, gains: 0, reponses: 0 })

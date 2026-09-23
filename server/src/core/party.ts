@@ -23,6 +23,8 @@ export interface ProfileBadge {
   finition: Finition
   /** Cet emoji-là a éclaté pour lui. */
   eclat: boolean
+  /** L'avatar légendaire qu'il porte : il remplace l'emoji à l'écran. */
+  legendaire?: string
 }
 
 /**
@@ -308,6 +310,7 @@ export class Party {
       // zéro, et l'instantané qui part à toute la salle n'en porte pas le poids.
       ...(badge && { niveau: badge.niveau, finition: badge.finition }),
       ...(badge?.eclat && { eclat: true }),
+      ...(badge?.legendaire && { legendaire: badge.legendaire }),
       // Même raison : absent tant qu'aucun homonyme ne porte le même avatar.
       ...(marques.has(p.id) && { nomAffiche: marques.get(p.id) }),
     }

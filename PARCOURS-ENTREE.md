@@ -144,7 +144,7 @@ Trois mémoires indépendantes, à ne pas confondre :
 
 | Le téléphone porte | Ce qu'on affiche |
 |---|---|
-| un jeton de joueur de cette soirée | **rien** : la salle d'attente, directement. Il se re-présente avec son seul jeton, et la fiche du serveur fait foi. Un jeton que la soirée ne connaît plus — exclu pendant que le téléphone dormait, « Nouvelle soirée » — est refusé (`unknown-token`), jamais recréé : le téléphone oublie son invité, garde son prénom, et repasse par l'entrée — l'écran B′ s'il porte un profil, l'écran B pré-rempli sinon |
+| un jeton de joueur de cette soirée | **rien** : la salle d'attente, directement. Il se re-présente avec son seul jeton, et la fiche du serveur fait foi. Un jeton que la soirée ne connaît plus — exclu pendant que le téléphone dormait, essai effacé — est refusé (`unknown-token`), jamais recréé : le téléphone oublie son invité, garde son prénom, et repasse par l'entrée — l'écran B′ s'il porte un profil, l'écran B pré-rempli sinon. Celui d'une soirée qu'on vient de clore reçoit d'abord sa fin de soirée (`soiree-close`) |
 | un cookie de profil | **Écran B′** « Content de te revoir » — un bouton |
 | un choix local pour cet espace | **Écran B**, pré-rempli du prénom et de l'avatar retenus — puis l'écran d'équipe, s'il y en a |
 | rien du tout | **Écran A** — l'entrée, c'est-à-dire la connexion |
@@ -625,7 +625,7 @@ const avatar = declare ? texte(charge.avatar) || profile?.avatar || '' : ''
 ```
 
   Et un jeton qui ne désigne plus personne — exclu pendant que le téléphone
-  dormait, « Nouvelle soirée », miroir incomplet au redémarrage — ne recrée
+  dormait, essai effacé, miroir incomplet au redémarrage — ne recrée
   plus l'invité en silence : il est refusé avec `reason: 'unknown-token'`, et
   le téléphone repasse par l'entrée, pré-remplie (§4.0).
 - **`core/party.ts`** : `publicPlayers()` applique `nomsAffiches()`.

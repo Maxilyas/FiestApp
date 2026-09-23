@@ -73,8 +73,8 @@ export interface ReviewQuestion {
   fastest: { playerId: string; ms: number } | null
   /** Temps moyen des réponses données, en ms. */
   avgMs: number | null
-  /** Estimation : la proposition la plus proche. */
-  closest: { playerId: string; value: number } | null
+  /** Estimation : les propositions les plus proches — plusieurs quand elles sont à égalité d'écart, vide sans proposition. */
+  closest: { playerId: string; value: number }[]
   /** Estimation : nombre de propositions. */
   guesses: number
   /** Le meneur du classement cumulé a changé après cette question. */
@@ -94,7 +94,7 @@ export interface ReviewAnswer {
   ms: number | null
   changes: number
   points: number
-  /** Estimation : rang de proximité dans la salle, 1 = le plus proche. */
+  /** Estimation : rang de proximité dans la salle, 1 = le plus proche, partagé à égalité d'écart. */
   proximityRank: number | null
 }
 

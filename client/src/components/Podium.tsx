@@ -33,7 +33,7 @@ export function Standings({ rows, offset = 0 }: { rows: PodiumRow[]; offset?: nu
       {rows.map((p, i) => (
         <div key={i} className="lb-row" style={{ animationDelay: `${i * 60}ms` }}>
           <Rank n={rank[i]} />
-          <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
+          <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
           <span className="lb-name">{p.name}</span>
           <Niveau niveau={p.niveau} />
           <span className="lb-score">{p.points}</span>
@@ -61,7 +61,7 @@ export function FinalPodium({ rows }: { rows: PodiumRow[] }) {
         const row = top[i]
         return row ? (
           <div key={slot} className={'podium-col rank-' + rank[i]}>
-            <Avatar className="podium-avatar" avatar={row.avatar} finition={row.finition} eclat={row.eclat} />
+            <Avatar className="podium-avatar" avatar={row.avatar} finition={row.finition} eclat={row.eclat} legendaire={row.legendaire} />
             <span className="podium-name">
               {row.name}
               <Niveau niveau={row.niveau} />

@@ -3,7 +3,7 @@ import { computeStats } from './stats'
 import type { PlayableQuestion } from '../../../shared/library'
 import { rankTeams, teamScores } from '../../../shared/teams'
 import { nomAffiche } from '../../../shared/homonymes'
-import { classer, ordreDeClassement, vainqueurs } from '../../../shared/classement'
+import { classer, ordreDeClassement, rangPartage, vainqueurs } from '../../../shared/classement'
 import type { PublicPlayer, TeamBonus } from '../../../shared/types'
 import { formatSeconds, sharedRank } from '../../../shared/review'
 import type {
@@ -270,7 +270,14 @@ export function buildReview(input: ReviewInput): Review {
         'min',
       )
       const fastest = fastestRow ? { playerId: fastestRow.playerId, ms: fastestRow.ms! } : null
-      const closest = guesses[0] ? { playerId: guesses[0].playerId, value: guesses[0].value! } : null
+      // Le plus petit écart de la salle : tous ceux qui l'atteignent sont « les
+      // plus proches » — la rapidité ne départage plus deux réponses égales,
+      // ni au barème ni ici. Le bilan qui n'en nommait qu'un couronnait le
+      // plus rapide de deux « 1994 » payés pareil.
+      const ecart = (r: AnswerRow) => Math.abs(r.value! - target!)
+      const ecarts = guesses.map(g => -ecart(g))
+      const plusPetitEcart = guesses[0] ? ecart(guesses[0]) : null
+      const closest = guesses.filter(g => ecart(g) === plusPetitEcart).map(g => ({ playerId: g.playerId, value: g.value! }))
 
       const byTeam: TeamOnQuestion[] = []
       for (const t of teams) {
@@ -329,7 +336,8 @@ export function buildReview(input: ReviewInput): Review {
 
       // Ce que chacun a fait, et ses moments forts sur cette question.
       for (const r of qRows) {
-        const proximityRank = guesses.length ? guesses.findIndex(g => g.playerId === r.playerId) + 1 : 0
+        // Le rang du barème : partagé à égalité d'écart (`quiz.ts`).
+        const proximityRank = r.answered && r.value !== null && target !== null ? rangPartage(-ecart(r), ecarts) : 0
         answersByPlayer.set(r.playerId, [
           ...(answersByPlayer.get(r.playerId) ?? []),
           {
@@ -372,7 +380,7 @@ export function buildReview(input: ReviewInput): Review {
         } else if (r.answered && r.value !== null && target !== null) {
           if (r.value === target) {
             push(r.playerId, { kind: 'exact', questionKey: key, text: 'Pile-poil : la valeur exacte' })
-          } else if (closest?.playerId === r.playerId && guesses.length >= 2) {
+          } else if (plusPetitEcart !== null && Math.abs(r.value - target) === plusPetitEcart && guesses.length >= 2) {
             push(r.playerId, { kind: 'closest', questionKey: key, text: "L'estimation la plus proche de toute la salle" })
           }
         }

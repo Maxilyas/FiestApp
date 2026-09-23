@@ -14,6 +14,7 @@ import {
   type QuizQuestionDef,
   type QuizSummary,
 } from '../../../shared/library'
+import { categorieDe } from '../../../shared/categories'
 
 /** Image trop lourde = base qui gonfle pour rien. Le navigateur compresse avant d'envoyer. */
 const MAX_IMAGE_DATAURL = 2_000_000
@@ -388,6 +389,9 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
         q?.observeSeconds === null || q?.observeSeconds === undefined || !Number.isFinite(observe)
           ? null
           : Math.min(MAX_OBSERVE, Math.max(MIN_OBSERVE, Math.round(observe))),
+      // Prise dans la liste fixe, ou rien : c'est ce qui permet à la carrière
+      // d'un joueur d'additionner les catégories d'un hôte à l'autre.
+      category: categorieDe(q?.category),
     }
   })
 }

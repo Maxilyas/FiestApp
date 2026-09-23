@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
-import { getState, oublierIdentite, saveChoix, saveMe, showToast, useAppState } from '../state'
+import { getState, oublierIdentite, saveChoix, saveMe, setState, showToast, useAppState } from '../state'
 import { currentSlug } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
@@ -17,6 +17,8 @@ import { ordinal } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
+import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
+import { CarteJoueur } from '../components/CarteJoueur'
 
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
@@ -39,6 +41,8 @@ export function PlayerApp() {
   const [montrerProfil, setMontrerProfil] = useState(false)
   /** Le serveur ne connaît pas cette adresse : rien à rejoindre ici. */
   const [spaceError, setSpaceError] = useState('')
+  /** La carte ouverte, celle du joueur dont on a touché le nom. */
+  const [carte, setCarte] = useState<string | null>(null)
 
   // Connexion, présentation à la soirée, puis re-join automatique (refresh,
   // coupure réseau, redémarrage serveur).
@@ -64,11 +68,17 @@ export function PlayerApp() {
       const ack = await joinAsPlayer(slug, undefined, undefined, token)
       if (!ack.ok) {
         // Ce jeton ne désigne plus personne — exclu pendant que le téléphone
-        // dormait, « Nouvelle soirée » : on oublie qui l'on était, pas son
-        // prénom, et l'entrée le propose.
+        // dormait, essai effacé : on oublie qui l'on était, pas son prénom,
+        // et l'entrée le propose.
         if (ack.reason === 'unknown-token') {
           oublierIdentite(slug)
           showToast({ kind: 'info', message: ack.error })
+        }
+        // La soirée s'est close pendant que le téléphone dormait : il reçoit
+        // sa fin de soirée, comme s'il avait été là.
+        if (ack.reason === 'soiree-close') {
+          oublierIdentite(slug)
+          if (ack.fin) setState({ fin: ack.fin })
         }
         return
       }
@@ -216,10 +226,24 @@ export function PlayerApp() {
     </div>
   )
 
+  // Ce que le dernier podium vient de rapporter, fêté par-dessus l'écran.
+  const finirCelebration = useCallback(() => setState({ gain: null }), [])
+  const celebration = s.gain && <Celebration gain={s.gain} onFin={finirCelebration} />
+
   // L'adresse ne mène à rien : on redemande le nom de la soirée sur place.
   // Renvoyer à l'accueil enverrait maintenant sur la page du profil, qui ne
   // répond pas à la question que se pose celui qui s'est trompé d'adresse.
   if (spaceError) return <FormulaireSoiree perdu />
+
+  // La soirée est close : sa fin, jusqu'à ce qu'on passe à la suivante.
+  if (s.fin) {
+    return (
+      <>
+        <FinDeSoiree fin={s.fin} profil={profil} onSuivante={() => setState({ fin: null })} />
+        {toast}
+      </>
+    )
+  }
 
   // Le premier instantané dit comment la soirée s'appelle, et la réponse de la
   // soirée dit si ce téléphone porte un profil : on ne montre pas un écran
@@ -282,6 +306,7 @@ export function PlayerApp() {
         />
         <ConseilVeille />
         <BandeauCoupure connecte={s.connected} />
+        {celebration}
         {toast}
       </div>
     )
@@ -298,7 +323,7 @@ export function PlayerApp() {
     <div className="player-shell">
       <ConseilVeille />
       <header className="me-header">
-        <Avatar className="player-avatar big" avatar={me?.avatar ?? ''} finition={me?.finition} eclat={me?.eclat} />
+        <Avatar className="player-avatar big" avatar={me?.avatar ?? ''} finition={me?.finition} eclat={me?.eclat} legendaire={me?.legendaire} />
         <div>
           <h2>
             {/* Le prénom tel qu'il s'affiche : s'il porte une marque
@@ -357,8 +382,10 @@ export function PlayerApp() {
           <Icon name="trophy" />
           Classement de la soirée
         </h3>
-        <Leaderboard players={snap.players} compact highlightId={s.me.playerId} />
+        <Leaderboard players={snap.players} compact highlightId={s.me.playerId} onOuvrir={setCarte} />
+        <p className="muted small">Touche un nom pour voir sa carte.</p>
       </div>
+      {carte && <CarteJoueur slug={slug} playerId={carte} onFermer={() => setCarte(null)} />}
 
       <p className="waiting">En attente du prochain quiz…</p>
       {/* Entre deux quiz, c'est le moment où l'on regarde son téléphone. */}
@@ -373,6 +400,7 @@ export function PlayerApp() {
           </button>
         )}
       </p>
+      {celebration}
       {toast}
     </div>
   )

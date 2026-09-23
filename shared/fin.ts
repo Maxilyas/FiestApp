@@ -1,0 +1,87 @@
+// Ce que la soirée annonce : au podium de chaque quiz, et à sa clôture.
+//
+// Le téléphone ne savait jamais que la soirée était finie : il restait sur
+// « En attente du prochain quiz… », et les niveaux gagnés n'étaient qu'un
+// toast sur l'écran de leur porteur. Ces messages-là font voir la soirée à
+// ceux qui l'ont jouée — et aux autres, sur l'écran commun.
+
+import type { Distinctions, Finition } from './profil'
+import type { Ton } from './hautsfaits'
+
+/** Un haut fait tel qu'on l'annonce. */
+export interface HautFaitAnnonce {
+  key: string
+  emoji: string
+  title: string
+  ton: Ton
+}
+
+/** Où relire la soirée close : son historique, dans l'espace. */
+export interface SoireeClose {
+  id: string
+  titre: string
+  slug: string
+}
+
+/**
+ * Ce qu'un téléphone apprend à la clôture : sa soirée, en une page.
+ *
+ * Un invité anonyme la reçoit aussi — son rang, ses points, ses hauts faits
+ * du soir. Seul le bloc `profil` lui manque : l'absence, pas l'infériorité.
+ */
+export interface FinDeSoiree extends Distinctions {
+  soiree: SoireeClose
+  nom: string
+  avatar: string
+  rang: number
+  points: number
+  /** Joueurs qui ont répondu ce soir-là. */
+  joueurs: number
+  /** Ce qu'il a fait de remarquable ce soir. */
+  hautsFaits: HautFaitAnnonce[]
+  /** Ce que la soirée rapporte à son profil, s'il en a un. */
+  profil?: {
+    /** L'expérience de la soirée entière, paliers compris. */
+    xp: number
+    niveauAvant: number
+    niveauApres: number
+    /** Les paliers de carrière tombés ce soir (« Le Bavard · Argent »). */
+    paliers: HautFaitAnnonce[]
+    /** Les avatars légendaires débloqués ce soir. */
+    legendaires: string[]
+    /** Les finitions débloquées ce soir. */
+    finitions: Finition[]
+  }
+}
+
+/** Une ligne d'annonce sur l'écran commun : qui, avec ce qu'il porte. */
+export interface Figure extends Distinctions {
+  nom: string
+  avatar: string
+}
+
+/** Ce que l'écran commun annonce à la clôture. */
+export interface ClotureDeSoiree {
+  soiree: SoireeClose
+  podium: (Figure & { points: number; rang: number })[]
+  /** Les hauts faits de la soirée, invité par invité. */
+  hautsFaits: (Figure & { faits: HautFaitAnnonce[] })[]
+  /** Les avatars légendaires débloqués ce soir. */
+  legendaires: (Figure & { gagne: string })[]
+  /** Les montées de niveau de la soirée. */
+  montees: (Figure & { avant: number; apres: number })[]
+}
+
+/** Au podium d'un quiz : ce que le téléphone vient de gagner. */
+export interface GainAnnonce {
+  xp: number
+  niveauAvant: number
+  niveauApres: number
+  /** Les finitions débloquées par cette montée — portées d'office. */
+  finitions: Finition[]
+}
+
+/** Au podium d'un quiz : les montées de niveau, pour l'écran commun. */
+export interface ProgresDeQuiz {
+  montees: (Figure & { avant: number; apres: number })[]
+}

@@ -122,6 +122,8 @@ describe('les garde-fous', { concurrency: true }, () => {
     'host:launch': true,
     'host:command': true,
     'host:endSession': true,
+    'host:closeParty': true,
+    'host:discardParty': true,
     'host:resetParty': true,
     'host:archiveParty': true,
     'host:renamePlayer': true,
@@ -163,6 +165,8 @@ describe('les garde-fous', { concurrency: true }, () => {
     ['host:awardTeam', { teamId: c.equipe, points: 5, reason: 'Pot-de-vin' }],
     ['host:removeBonus', { bonusId: c.prix }],
     ['host:archiveParty', { title: 'Soirée volée' }],
+    ['host:closeParty', { title: 'Soirée volée' }],
+    ['host:discardParty'],
     ['host:resetParty'],
   ]
 
@@ -173,6 +177,8 @@ describe('les garde-fous', { concurrency: true }, () => {
     prix: string[]
     partie: string | null
     archives: number
+    /** Le titre sous lequel la soirée en cours est déjà rangée, s'il y en a un. */
+    enCours: string | null
   }
 
   async function photographier(banc: Banc, cookie: string): Promise<Photo> {
@@ -184,7 +190,7 @@ describe('les garde-fous', { concurrency: true }, () => {
       assert.equal((await emitAck<any>(ecran, 'host:hello', {})).ok, true, 'l’écran commun du témoin')
       const snap = await instantane<any>(ecran)
       const v = snap.session ? (await vueEnCours)?.view : null
-      const { archives } = (await (await fetch(`${banc.url}/s/${SLUG}/soirees.json`)).json()) as any
+      const { archives, current } = (await (await fetch(`${banc.url}/s/${SLUG}/soirees.json`)).json()) as any
       return {
         joueurs: snap.players.map((p: any) => `${p.id} ${p.name} ${p.teamId}`).sort(),
         equipes: snap.teams.map((t: any) => `${t.id} ${t.name} ${t.emoji}`).sort(),
@@ -194,6 +200,7 @@ describe('les garde-fous', { concurrency: true }, () => {
             ` · ${v?.answeredCount ?? '-'} réponse(s) · auto ${v?.autoNextSeconds ?? 'non'}`
           : null,
         archives: archives.length,
+        enCours: current?.title ?? null,
       }
     } finally {
       ecran.close()
@@ -317,10 +324,30 @@ describe('les garde-fous', { concurrency: true }, () => {
     await temoin('host:command', { sessionId, command: { type: 'pause' } }, p => /en pause/.test(p.partie ?? ''), 'mettre en pause')
     await temoin('host:command', { sessionId, command: { type: 'next' } }, p => /reveal Q1/.test(p.partie ?? ''), 'révéler')
     await temoin('host:endSession', { sessionId }, p => p.partie === null, 'terminer le quiz')
-    await temoin('host:archiveParty', { title: 'Soirée rangée' }, p => p.archives === 1, 'ranger la soirée')
+    await temoin('host:archiveParty', { title: 'Soirée rangée' }, p => p.enCours === 'Soirée rangée', 'ranger la soirée sous un titre')
     await temoin('host:launch', undefined, p => /pickPack/.test(p.partie ?? ''), 'lancer un quiz')
     await temoin('host:removePlayer', { playerId: bob.playerId }, p => !p.joueurs.some(l => l.startsWith(bob.playerId)), 'exclure')
-    await temoin('host:resetParty', undefined, p => p.joueurs.length === 0, 'Nouvelle soirée')
+    await temoin(
+      'host:closeParty',
+      { title: 'Soirée close' },
+      p => p.joueurs.length === 0 && p.archives === 1 && p.enCours === null,
+      'clore la soirée',
+    )
+    // Une soirée d'essai : on joue, puis on efface sans rien garder.
+    const essai = await arrivee(banc.url, 'Essai', '🦊')
+    const sessionEssai = await lancerQuiz(host, quiz)
+    const qe = await vue(essai.socket, v => v.phase === 'question' && v.qIndex === 0, 'la question de l’essai')
+    assert.equal((await repondre(essai, sessionEssai, qe, 0)).ok, true)
+    // Seule la question révélée entre au journal : celle qu'on refermerait
+    // encore ouverte ne compterait pas.
+    await vue(host, v => v.phase === 'reveal' && v.qIndex === 0, 'la révélation de l’essai')
+    envoyer(host, 'host:endSession', { sessionId: sessionEssai })
+    for (let limite = Date.now() + 8000; (await photo()).enCours === null; await patienter(100)) {
+      if (Date.now() > limite) assert.fail('l’essai aurait dû se ranger tout seul après son quiz')
+    }
+    await temoin('host:discardParty', undefined, p => p.joueurs.length === 0 && p.archives === 1 && p.enCours === null, 'effacer un essai')
+    await arrivee(banc.url, 'Dora', '🐼')
+    await temoin('host:resetParty', undefined, p => p.joueurs.length === 0, 'l’ancien « Nouvelle soirée » clôt la soirée')
   })
 
   // ── 2. Les chronomètres, après un réveil sur disque effacé ──────────────

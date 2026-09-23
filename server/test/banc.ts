@@ -58,6 +58,12 @@ export async function demarrer(opts: Partial<QuizServerOptions> = {}): Promise<B
     quizDbUrl,
     async redemarrer({ disqueEfface = false } = {}) {
       await server.close()
+      // Le serveur referme ses connexions HTTP inactives, mais le client HTTP
+      // de Node garde les siennes en réserve et ne l'apprend qu'au tour
+      // suivant de sa boucle. Sans ce répit, la première requête après un
+      // redémarrage rapide partait sur une connexion morte (« other side
+      // closed ») : le même port, un autre serveur.
+      await patienter(50)
       if (disqueEfface) {
         for (const suffixe of ['', '-wal', '-shm']) rmSync(`${dbPath}${suffixe}`, { force: true })
       }
@@ -223,13 +229,22 @@ export interface Invite {
   token: string
 }
 
-/** Un invité qui suit la soirée puis la rejoint — anonyme, ou avec le cookie de son profil. */
-export async function invite(url: string, name: string, avatar = '🦊', opts: { slug?: string; cookie?: string } = {}): Promise<Invite> {
+/**
+ * Un invité qui suit la soirée puis la rejoint — anonyme, ou avec le cookie de
+ * son profil. Avec `token`, c'est un téléphone qui se re-présente après un
+ * redémarrage : il retrouve son invité, et le prénom envoyé ne compte pas.
+ */
+export async function invite(
+  url: string,
+  name: string,
+  avatar = '🦊',
+  opts: { slug?: string; cookie?: string; token?: string } = {},
+): Promise<Invite> {
   const slug = opts.slug ?? ADMIN.slug
   const socket = connecter(url, opts.cookie)
   const watched = await emitAck<{ ok: boolean; error?: string }>(socket, 'party:watch', { slug })
   if (!watched.ok) throw new Error(`suivre la soirée ${slug} : ${watched.error}`)
-  const res = await emitAck<any>(socket, 'player:join', { slug, name, avatar })
+  const res = await emitAck<any>(socket, 'player:join', { slug, name, avatar, ...(opts.token && { token: opts.token }) })
   if (!res.ok) throw new Error(`${name} n’a pas pu rejoindre : ${res.error}`)
   return { socket, playerId: res.playerId, token: res.token }
 }

@@ -12,6 +12,7 @@ import { photosCitees, QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
 import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
+import { recalculerHistorique } from './core/recalcul'
 import { SpaceRegistry } from './core/space'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore } from './auth/profiles'
@@ -262,6 +263,19 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
   await archives.init(defaultSpace)
 
+  // L'expérience se relit avec le barème du jour : une fois, au premier
+  // démarrage qui le change. Les soirées en cours — celles que le disque ou
+  // le miroir viennent de rendre — n'ont pas fini de se jouer : elles se
+  // recréditeront à leur prochain quiz.
+  const enCours = new Set((db.prepare('SELECT id FROM soiree').all() as { id: string }[]).map(r => r.id))
+  const recalcul = await recalculerHistorique({ profiles, archives, auth, enCours })
+  if (recalcul) {
+    console.log(
+      `[profils] expérience recalculée au barème du jour : ${recalcul.soirees} soirées relues, ` +
+        `${recalcul.lignes} lignes revalorisées, ${recalcul.profils} profils`,
+    )
+  }
+
   let boundPort = opts.port
   const wifi = process.env.WIFI_SSID
     ? { ssid: process.env.WIFI_SSID, pass: process.env.WIFI_PASS ?? '' }
@@ -381,13 +395,32 @@ export async function createQuizServer(opts: QuizServerOptions) {
     archives
       .list(account.id)
       .then(list => {
+        const rt = registry.get(account.id)
+        // La soirée en cours se range toute seule après chaque quiz : elle est
+        // déjà dans la liste, mais elle se montre à part, « en cours », sous
+        // le titre qu'elle y porte.
+        const enCours = rt.soireeId()
+        const rangee = list.find(a => a.id === enCours)
+        const current = rt.currentSummary()
         const body: ArchiveList = {
-          current: registry.get(account.id).currentSummary(),
-          archives: list,
+          current: current && rangee ? { ...current, id: rangee.id, title: rangee.title } : current,
+          archives: list.filter(a => a.id !== enCours),
           space: auth.publicSpace(account),
         }
         res.json(body)
       })
+      .catch((e: unknown) => repondreErreur(req, res, e))
+  })
+
+  // La carte d'un invité de la soirée en cours : ce qu'on voit en touchant son
+  // nom. Publique, comme le souvenir — et cloisonnée : l'invité d'un autre
+  // espace vaut « introuvable ».
+  app.get('/s/:slug/joueurs/:id.json', withSpace, (req, res) => {
+    const account = spaceOf(res)
+    registry
+      .get(account.id)
+      .carteDe(req.params.id)
+      .then(carte => (carte ? res.json(carte) : res.status(404).json({ error: 'Joueur introuvable' })))
       .catch((e: unknown) => repondreErreur(req, res, e))
   })
 
@@ -441,6 +474,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
         photosCitees(r.state),
       ),
     removeAccount,
+    soireeEnCours: spaceId => registry.get(spaceId).soireeId(),
   })
 
   const here = path.dirname(fileURLToPath(import.meta.url))

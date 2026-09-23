@@ -20,12 +20,23 @@ export interface DialogOptions {
   cancelLabel?: string
   /** Action qui efface quelque chose : le bouton prend la couleur d'alerte. */
   danger?: boolean
+  /**
+   * Un second geste, à côté de la confirmation : « Clore la soirée » ou
+   * « C'était un essai ». Discret, et d'alerte s'il efface.
+   */
+  alternative?: { label: string; danger?: boolean }
+}
+
+/** Ce que la boîte rend : le geste choisi et la saisie, ou null si on renonce. */
+interface Reponse {
+  geste: 'confirmer' | 'alternative'
+  valeur: string
 }
 
 interface Pending {
   id: number
   options: DialogOptions
-  resolve: (value: string | null) => void
+  resolve: (value: Reponse | null) => void
 }
 
 let current: Pending | null = null
@@ -33,7 +44,7 @@ let nextId = 1
 const listeners = new Set<() => void>()
 const notify = () => listeners.forEach(l => l())
 
-function open(options: DialogOptions): Promise<string | null> {
+function open(options: DialogOptions): Promise<Reponse | null> {
   // Un dialogue déjà ouvert est abandonné : un seul à la fois.
   current?.resolve(null)
   return new Promise(resolve => {
@@ -42,7 +53,7 @@ function open(options: DialogOptions): Promise<string | null> {
   })
 }
 
-function close(value: string | null) {
+function close(value: Reponse | null) {
   const pending = current
   current = null
   notify()
@@ -51,12 +62,27 @@ function close(value: string | null) {
 
 /** Vrai si l'animateur confirme. */
 export function confirmDialog(options: DialogOptions): Promise<boolean> {
-  return open(options).then(v => v !== null)
+  return open(options).then(v => v?.geste === 'confirmer')
 }
 
 /** La valeur saisie, ou null si on a renoncé. Une saisie vide vaut renoncement. */
 export function promptDialog(options: DialogOptions & { input: DialogOptions['input'] }): Promise<string | null> {
-  return open(options).then(v => (v === null || !v.trim() ? null : v.trim()))
+  return open(options).then(v => (v?.geste !== 'confirmer' || !v.valeur.trim() ? null : v.valeur.trim()))
+}
+
+/**
+ * Deux gestes possibles, et la saisie qui accompagne le premier : le geste
+ * choisi, ou null si on a renoncé. Une saisie vide vaut renoncement pour la
+ * confirmation seulement — l'alternative n'en a pas besoin.
+ */
+export function choixDialog(
+  options: DialogOptions & { alternative: NonNullable<DialogOptions['alternative']> },
+): Promise<Reponse | null> {
+  return open(options).then(v => {
+    if (!v) return null
+    if (v.geste === 'alternative') return v
+    return options.input && !v.valeur.trim() ? null : { geste: 'confirmer', valeur: v.valeur.trim() }
+  })
 }
 
 /** À monter une fois par page : c'est lui qui affiche le dialogue en cours. */
@@ -117,7 +143,7 @@ function DialogBox({ pending }: { pending: Pending }) {
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (options.input && !value.trim()) return
-    close(options.input ? value : '')
+    close({ geste: 'confirmer', valeur: options.input ? value : '' })
   }
 
   return (
@@ -148,6 +174,15 @@ function DialogBox({ pending }: { pending: Pending }) {
           <button type="button" className="btn btn-ghost" onClick={() => close(null)}>
             {options.cancelLabel ?? 'Annuler'}
           </button>
+          {options.alternative && (
+            <button
+              type="button"
+              className={'btn ' + (options.alternative.danger ? 'btn-ghost dialog-alternative' : 'btn-ghost')}
+              onClick={() => close({ geste: 'alternative', valeur: value })}
+            >
+              {options.alternative.label}
+            </button>
+          )}
           <button type="submit" className={'btn ' + (options.danger ? 'btn-danger' : 'btn-primary')}>
             {options.confirmLabel ?? 'Confirmer'}
           </button>

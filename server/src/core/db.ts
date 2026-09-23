@@ -126,6 +126,9 @@ export function initDb(dbPath: string): DB {
   // les renvoyer sous un nouveau les doublerait. Rien ne les renvoie donc.
   addColumn(db, 'score_entries', 'uid', 'TEXT')
   addColumn(db, 'answer_log', 'uid', 'TEXT')
+  // La catégorie de la question (`shared/categories.ts`) : la fiche d'un
+  // joueur en tire sa réussite par catégorie. Vide pour les questions d'avant.
+  addColumn(db, 'answer_log', 'category', 'TEXT')
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_score_entries_uid ON score_entries(uid)')
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_answer_log_uid ON answer_log(uid)')
 

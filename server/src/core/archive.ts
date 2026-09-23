@@ -468,6 +468,12 @@ export class ArchiveStore {
     return res.rowsAffected > 0
   }
 
+  /** Toutes les soirées rangées, tous espaces confondus : le recalcul de l'expérience les relit une à une. */
+  async toutes(): Promise<{ spaceId: string; id: string }[]> {
+    const res = await this.client.execute('SELECT space_id, id FROM soirees ORDER BY held_at')
+    return res.rows.map(r => ({ spaceId: String(r.space_id), id: String(r.id) }))
+  }
+
   /** Efface toutes les soirées d'un espace : son compte est supprimé. Rend leur nombre. */
   async removeSpace(spaceId: string): Promise<number> {
     const res = await this.client.execute({ sql: 'DELETE FROM soirees WHERE space_id = ?', args: [spaceId] })
