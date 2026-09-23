@@ -52,8 +52,9 @@ AGIR — chaque geste te rend l'écran d'après
   attendre <texte> [secondes] [--tele] [--disparu]    qu'un texte apparaisse (ou parte)
 
 JOUER — des raccourcis, parce que le chronomètre n'attend pas
-  question [secondes]         attend la prochaine question ouverte sur ton téléphone et te la lit
-                              (rend la main aussi au podium d'un quiz et à la fin de la soirée)
+  question [secondes]         attend la prochaine question ouverte sur ton téléphone et te la lit ;
+                              rend aussi la main à sa révélation, à la photo d'une question de
+                              mémoire, au podium d'un quiz et à la fin de la soirée
   repondre <n|texte|nombre>   le numéro de la réponse (1 à 4), son texte, ou le nombre d'une estimation
 
 LA SALLE — ce qui se dit à voix haute
@@ -121,20 +122,6 @@ function porter(cible, geste, args) {
     })
     req.end(corps)
   })
-}
-
-// RUSTINE (tablée du 23 septembre 2026, à retirer ensuite) : la régie de ce
-// soir-là échoue sur `attendre … --tele` tant que l'écran commun est éteint ;
-// on attend donc qu'il s'allume avant de lui porter le geste. La régie
-// corrigée attend d'elle-même.
-if (geste === 'attendre' && args.includes('--tele')) {
-  const nombre = args.filter(a => !a.startsWith('--')).at(-1)
-  const secondes = /^\d+$/.test(nombre ?? '') ? nombre : '100'
-  const allumee = await porter('regie', 'attendre-tele', [secondes])
-  if (!allumee.ok) {
-    console.log(allumee.sortie)
-    process.exit(1)
-  }
 }
 
 const { ok, sortie } = await porter(cible, geste, args)

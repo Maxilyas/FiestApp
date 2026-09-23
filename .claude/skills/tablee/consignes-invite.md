@@ -51,13 +51,16 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
    rend la main quand la première question s'ouvre ; sinon, relance-le. Tu
    peux explorer ton téléphone pendant l'attente, si ton personnage le ferait.
 4. **Jouer** : `question` → réfléchis **vite** → `repondre <n>` (ou le nombre
-   d'une estimation). Puis `tele` ou `capture` pour la révélation, et
-   `question` pour la suivante. `question` rend aussi la main à la photo
-   d'une question de mémoire (fais `capture` tout de suite, elle va
-   disparaître), au podium du quiz et à la fin de la soirée.
+   d'une estimation). Puis `question` encore : il te lit la révélation sur
+   ton téléphone (regarde aussi `tele`, ou `capture`), et une fois de plus
+   pour la question suivante. `question` rend aussi la main à la photo d'une
+   question de mémoire (fais `capture` tout de suite, elle va disparaître),
+   au podium du quiz et à la fin de la soirée.
 5. **Après le quiz** : regarde ton podium, ta fin de soirée quand
    l'animatrice clôt la soirée, et explore ce que ton personnage aurait envie
-   de voir (le souvenir, le bilan, ton profil…).
+   de voir (le souvenir, le bilan, ton profil…). Une fois la soirée close, il
+   n'y aura pas d'autre quiz : n'entre pas dans « la soirée suivante » pour en
+   attendre un.
 6. **Écris ton retour** (voir plus bas), puis arrête-toi.
 
 ## Répondre comme ton personnage

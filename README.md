@@ -429,7 +429,7 @@ node server/scripts/tablee/pilote.mjs jeanne capture                  # une phot
 
 Avec Claude Code, **`/tablee`** fait tout : la régie, huit agents — une animatrice qui découvre l'application et sept invités aux profils variés (la grand-mère au petit téléphone et au texte agrandi, l'ado qui cherche la faille, la joueuse qui veut son profil, le retardataire au réseau capricieux, celle qui n'a pas le QR, l'homonyme daltonienne, le lecteur d'écran) —, puis la synthèse de leurs retours, vérifiés un à un. Les fiches des personnages, leurs consignes et le modèle de retour sont dans `.claude/skills/tablee/` : une fiche de plus, c'est un invité de plus.
 
-Tout ce que la soirée laisse va dans `export/tablee/<date-heure>/`, hors de git : le journal de chaque geste, les captures, ce que les navigateurs ont signalé, le journal du serveur, les deux bases et les retours bruts. Les synthèses, elles, se versionnent dans `retours/`.
+Tout ce que la soirée laisse va dans `export/tablee/<date-heure>/`, hors de git : le journal de chaque geste, les captures, ce que les navigateurs ont signalé, le journal du serveur, les deux bases et les retours bruts. `node server/scripts/tablee/chronologie.mjs` résume ce journal en une page — gestes ratés, délais de réponse, paroles. Les synthèses, elles, se versionnent dans `retours/` : la première, [« Les 40 ans de Sam »](retours/2026-09-23/synthese.md), a tiré sept axes d'amélioration de huit retours, chacun vérifié dans le code, les captures ou le journal.
 
 Playwright n'est pas une dépendance du dépôt : la régie le prend dans le dépôt s'il y est, sinon parmi les modules globaux (`npm install -g playwright`, puis `npx playwright install chromium`) — sur Claude Code en ligne, il est déjà installé.
 
@@ -510,6 +510,7 @@ shared/   Types et fonctions pures partagés (protocole socket, vues du quiz, bi
 | 21 | Les Divins : cinq avatars au-dessus des légendaires, aux règles secrètes, annoncés à toute la salle | ✅ |
 | 22 | Les légendaires se méritent : une vingtaine de quiz au premier qui en décroche un, mesurée par simulation ; ce qui était gagné reste gagné | ✅ |
 | 23 | Des quiz entre amis, avec ou sans inscription : des niveaux qui se méritent sans que personne n'en redescende, des quiz qui s'exportent et s'importent d'une bibliothèque à l'autre | ✅ |
+| 24 | La tablée : une soirée jouée par des agents — sept invités et une animatrice, chacun sur son appareil —, et leurs retours vérifiés un à un (`retours/`) | ✅ |
 
 ## La direction
 

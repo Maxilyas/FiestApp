@@ -24,6 +24,7 @@ régler le temps de toutes ses questions d'un coup.
 | `consignes-invite.md`, `consignes-animateur.md` | ce que chaque agent doit savoir, commun à tous |
 | `personas/*.md` | une fiche par personnage : qui, quel appareil, quel scénario, quoi regarder |
 | `modele-retour.md` | le plan du retour que chaque agent écrit |
+| `server/scripts/tablee/chronologie.mjs` | le journal d'une tablée en une page : gestes ratés, délais de réponse, paroles, retours manquants |
 | `export/tablee/<date-heure>/` | tout ce que la soirée laisse (ignoré par git) : `journal.jsonl`, `regie.log`, `captures/`, `retours/`, `bases/` |
 
 ## Le déroulé
@@ -80,22 +81,33 @@ demi-heure à écrire son quiz, c'est prévu.
 ### 3. Pendant la soirée
 
 Ne pilote rien toi-même : c'est leur soirée. Tu peux regarder
-(`regie etat`, `regie salle`, `tail export/tablee/<…>/regie.log`) pour
-repérer un agent bloqué ou une régie tombée. Si un agent s'est arrêté trop
-tôt, relance-le avec SendMessage plutôt qu'un nouvel agent : il garde sa
-mémoire de la soirée.
+(`regie etat`, `regie salle`, `chronologie.mjs`, `tail export/tablee/<…>/regie.log`)
+pour repérer un agent bloqué ou une régie tombée. Si un agent s'est arrêté
+trop tôt, relance-le avec SendMessage plutôt qu'un nouvel agent : il garde
+sa mémoire de la soirée. Un message ne lui parvient qu'à son geste suivant :
+un agent pris dans une attente de neuf minutes l'entendra dans neuf minutes.
+
+Ne lance pas `npm run build` (ni `verify`) pendant une tablée : il réécrit le
+client que la régie sert aux agents. Pour vérifier avant un commit,
+construis le client ailleurs (`npx vite build --outDir <ailleurs>` depuis
+`client/`) et lance le smoke à part.
 
 ### 4. Recueillir et vérifier
 
-Chaque agent écrit `export/tablee/<…>/retours/<nom>.md`. Avant d'en tirer
-quoi que ce soit, **vérifie** :
+Chaque agent écrit `export/tablee/<…>/retours/<nom>.md`. Commence par
+`node server/scripts/tablee/chronologie.mjs` : qui a fait quoi, quels gestes
+ont échoué et pourquoi, en combien de temps chacun a répondu. Puis, avant de
+tirer quoi que ce soit des retours, **vérifie** :
 
 - un bug annoncé se rejoue (avec le pilote, ou en lisant le code) — sinon
   il reste « non confirmé » ;
 - recoupe avec `journal.jsonl` (qui a fait quoi, quand, en combien de temps)
   et `regie.log` (les erreurs du serveur à la même heure) ;
 - écarte ce qui vient de la tablée et non de l'application : la lenteur de
-  réaction des agents, le clavier simulé, un geste mal visé ;
+  réaction des agents, le clavier simulé, un geste mal visé — et quand
+  plusieurs agents rapportent le même « bug » sans trace dans le journal ni
+  la console, soupçonne d'abord le banc (la première tablée en a trouvé un
+  ainsi : `retours/2026-09-23/synthese.md`, « Écarté ») ;
 - un retour qui contredit un parti pris du dépôt (README, « La direction » ;
   CLAUDE.md, invariants) se note comme tel : c'est une tension à arbitrer,
   pas une correction à faire.
@@ -128,7 +140,9 @@ Puis `node server/scripts/tablee/pilote.mjs regie arreter`.
 - **Les options de la régie** : `--animateur <Prénom>`, `--espace <nom>`,
   `--sans-animateur` (l'animateur utilise l'administrateur et ses deux quiz
   livrés), `--profil <Prénom/identifiant/avatar>` (répétable),
-  `--dossier <chemin>`, `--sans-build`.
+  `--dossier <chemin>`, `--sans-build`, et `--fiche <chemin>` pour une
+  seconde tablée à côté d'une autre (ses pilotes la visent avec
+  `TABLEE=<chemin>`).
 
 ## Les limites à garder en tête
 

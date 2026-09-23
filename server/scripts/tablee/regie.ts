@@ -29,6 +29,9 @@
 //   --sans-animateur       personne à activer : on anime avec l'administrateur
 //   --profil <Prénom/identifiant/avatar>   un profil de joueur déjà inscrit (répétable)
 //   --sans-build           garder le client construit, même plus vieux que ses sources
+//   --fiche <chemin>       où écrire la fiche que lisent les pilotes (défaut :
+//                          export/tablee/courante.json) — pour une seconde
+//                          tablée à côté d'une autre : TABLEE=<chemin> la vise
 import { spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
@@ -42,8 +45,6 @@ import { sansAccent } from '../../../shared/homonymes'
 
 const ICI = path.dirname(fileURLToPath(import.meta.url))
 const RACINE = path.resolve(ICI, '../../..')
-/** Le fichier qui dit aux pilotes où frapper : la dernière régie démarrée. */
-const COURANTE = path.join(RACINE, 'export', 'tablee', 'courante.json')
 
 // Playwright est chargé à l'exécution, sans ses types (il n'est pas une
 // dépendance du dépôt) : ces noms disent seulement de quoi on parle.
@@ -61,6 +62,11 @@ const option = (nom: string) => {
 }
 const optionsRepetees = (nom: string) => argv.flatMap((a, i) => (a === `--${nom}` && argv[i + 1] ? [argv[i + 1]] : []))
 const drapeau = (nom: string) => argv.includes(`--${nom}`)
+/** Un chemin donné en relatif se lit depuis là où l'on a tapé la commande, que npm garde dans INIT_CWD. */
+const depuisIci = (chemin: string) => path.resolve(process.env.INIT_CWD ?? process.cwd(), chemin)
+
+/** Le fichier qui dit aux pilotes où frapper : la dernière régie démarrée, sauf `--fiche`. */
+const COURANTE = depuisIci(option('fiche') ?? path.join(RACINE, 'export', 'tablee', 'courante.json'))
 
 function arreter(message: string): never {
   console.error(`❌ ${message}`)
@@ -131,9 +137,7 @@ function horodatage(d = new Date()) {
   return `${d.getFullYear()}-${deux(d.getMonth() + 1)}-${deux(d.getDate())}-${deux(d.getHours())}h${deux(d.getMinutes())}`
 }
 
-// `npm run tablee` se lance depuis `server/` : un dossier donné en relatif se
-// lit depuis là où on a tapé la commande, que npm garde dans INIT_CWD.
-const DOSSIER = path.resolve(process.env.INIT_CWD ?? process.cwd(), option('dossier') ?? path.join(RACINE, 'export', 'tablee', horodatage()))
+const DOSSIER = depuisIci(option('dossier') ?? path.join(RACINE, 'export', 'tablee', horodatage()))
 for (const sous of ['bases', 'captures', 'retours', 'telechargements', 'photos']) {
   mkdirSync(path.join(DOSSIER, sous), { recursive: true })
 }
@@ -434,6 +438,8 @@ const TEXTE = `(() => (document.body ? document.body.innerText : '').split('\\n'
  */
 const LIRE_TELEPHONE = `(() => {
   const txt = el => (el && el.textContent ? el.textContent : '').replace(/\\s+/g, ' ').trim()
+  // Un bandeau de plusieurs lignes se lit ligne à ligne : « Trop tard ! · La bonne réponse : … ».
+  const lignes = el => (el && el.innerText ? el.innerText : '').split('\\n').map(l => l.trim()).filter(Boolean).join(' · ')
   if (document.querySelector('.fin-tete')) return { etat: 'fin' }
   const joueur = document.querySelector('.quiz-player')
   const minuteur = document.querySelector('.quiz-player [role=timer]')
@@ -460,8 +466,8 @@ const LIRE_TELEPHONE = `(() => {
         unite: txt(joueur.querySelector('.guess-unit')), ouvert: !champ.disabled,
         deja: txt(joueur.querySelector('.guess-form .hint')) }
     }
-    if (joueur.querySelector('.podium')) return { etat: 'podium', resume: txt(joueur) }
-    if (joueur.querySelector('.result-banner')) return { etat: 'revelation', resume: txt(joueur.querySelector('.result-banner')) }
+    if (joueur.querySelector('.podium')) return { etat: 'podium', resume: lignes(joueur) }
+    if (joueur.querySelector('.result-banner')) return { etat: 'revelation', resume: lignes(joueur.querySelector('.result-banner')) }
   }
   if (document.querySelector('.getready')) return { etat: 'prepare', resume: txt(document.querySelector('.getready')) }
   if (document.querySelector('.player-shell')) return { etat: 'attente' }
@@ -505,6 +511,8 @@ interface Participant {
   question: { cle: string; vueA: number; repondu: boolean } | null
   /** La photo à mémoriser qu'on lui a déjà signalée : `question` ne la lui annonce qu'une fois. */
   memoriser: string | null
+  /** La question dont on lui a déjà lu la révélation. */
+  revelation: string | null
   podiumAnnonce: boolean
   vision: string
   mouvementReduit: boolean
@@ -564,6 +572,7 @@ async function allumer(qui: string, appareil: string): Promise<Participant> {
     gestes: 0,
     question: null,
     memoriser: null,
+    revelation: null,
     podiumAnnonce: false,
     vision: 'none',
     mouvementReduit: false,
@@ -1047,6 +1056,11 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
         // La photo d'une question de mémoire ne reste que quelques secondes :
         // l'agent doit pouvoir la regarder avant qu'elle disparaisse.
         if (etat.etat === 'memoriser' && p.memoriser !== etat.label) return etat
+        // La révélation de la question qu'on lui a lue : c'est là qu'un invité
+        // apprend s'il avait juste. La première tablée la sautait, et le
+        // lecteur d'écran a conclu que son téléphone ne disait jamais la
+        // bonne réponse — il la dit, en toutes lettres.
+        if (etat.etat === 'revelation' && p.question && p.revelation !== p.question.cle) return etat
         if (etat.etat === 'podium' && !p.podiumAnnonce) return etat
         if (etat.etat === 'fin') return etat
         // Un rechargement ou une reconnexion passe un instant par un autre
@@ -1068,6 +1082,10 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       if (e.etat === 'memoriser') {
         p.memoriser = e.label
         return `${await entete(p, o)}\n\n👁 ${e.label} · Mémorise : une photo s'affiche seule${e.reste !== null ? ` (encore ${e.reste} s)` : ''}, la question arrive quand elle disparaît.\n→ « capture » pour la regarder vite, puis « question ».`
+      }
+      if (e.etat === 'revelation') {
+        p.revelation = p.question?.cle ?? null
+        return `${await entete(p, o)}\n\n🔔 Révélation sur ton téléphone : ${e.resume}\n→ « question » pour la suivante (« tele » pour l'écran commun).`
       }
       if (e.etat === 'podium') {
         p.podiumAnnonce = true
@@ -1097,12 +1115,17 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
           const bas = voulu.toLowerCase()
           n = reponses.findIndex(r => r.toLowerCase() === bas) + 1 || reponses.findIndex(r => r.toLowerCase().includes(bas)) + 1
         }
-        if (n < 1 || n > reponses.length) throw new Refus(`Il n'y a que ${reponses.length} réponses (1 à ${reponses.length}).`)
+        if (n < 1 || n > reponses.length) {
+          throw new Refus(`Aucune réponse ne s'appelle « ${voulu} », et il n'y en a que ${reponses.length} : donne son numéro (1 à ${reponses.length}) ou son texte.`)
+        }
         await toucher(p, page.locator('.quiz-player .ans-btn').nth(n - 1))
-        const accuse = await page
-          .waitForFunction(`(() => { const b = document.querySelectorAll('.quiz-player .ans-btn')[${n - 1}]; return b && b.getAttribute('aria-pressed') === 'true' })()`, null, { timeout: 4000 })
-          .then(() => true)
-          .catch(() => false)
+        // On relit la page plutôt que d'y confier un prédicat à
+        // `waitForFunction` : la politique de sécurité de l'application
+        // (`script-src 'self'`, sans `unsafe-eval`) le refuse dès qu'il n'est
+        // pas vrai au premier regard, et la première tablée annonçait des
+        // réponses « non enregistrées » qui l'étaient aussitôt.
+        const presse = `(() => { const b = document.querySelectorAll('.quiz-player .ans-btn')[${n - 1}]; return !!b && b.getAttribute('aria-pressed') === 'true' })()`
+        const accuse = !!(await guetter(4000, signal, async () => (await page.evaluate(presse).catch(() => false)) === true, 100))
         await stabiliser(page, 1200)
         if (lue && accuse) lue.repondu = true
         consigner({ qui, geste: 'reponse', question: e.label, choix: n, texte: reponses[n - 1], ms: depuis })
