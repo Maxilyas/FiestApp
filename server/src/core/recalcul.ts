@@ -3,6 +3,7 @@ import { recapOfArchive } from './archive'
 import type { PlayerRec } from './party'
 import { buildProgress } from './progress'
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
+import { divinsDeSoiree, laureatsDivins } from './divins'
 import { LIGNE_PALIERS, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
 import { hautFaitDeSoiree } from '../../../shared/hautsfaits'
 import type { PartyArchive } from '../../../shared/archive'
@@ -10,9 +11,9 @@ import type { PartyArchive } from '../../../shared/archive'
 /**
  * Ce qu'une soirée archivée rapporte à ses profils, relu avec les règles du
  * jour : l'expérience de la soirée entière (clôture comprise), et les
- * récompenses à ranger — prix du palmarès et hauts faits. La même lecture que
- * la clôture d'une soirée en cours (`SpaceRuntime.creditDeCloture`), sur les
- * journaux que l'archive a gardés.
+ * récompenses à ranger — prix du palmarès, hauts faits et Divins. La même
+ * lecture que la clôture d'une soirée en cours
+ * (`SpaceRuntime.creditDeCloture`), sur les journaux que l'archive a gardés.
  */
 export function creditDArchive(archive: PartyArchive) {
   const players: PlayerRec[] = archive.players.map(p => ({
@@ -41,6 +42,7 @@ export function creditDArchive(archive: PartyArchive) {
       if (h) laureats.push({ profileId, badge: h.key, emoji: h.emoji, title: h.title })
     }
   }
+  laureats.push(...laureatsDivins(divinsDeSoiree(live), profilDuJoueur))
   return { gains, laureats }
 }
 

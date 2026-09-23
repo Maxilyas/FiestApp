@@ -19,6 +19,7 @@
 
 import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
+import type { DivinDescendu } from './divins'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -481,7 +482,10 @@ export interface Distinctions {
   niveau?: number
   finition?: Finition
   eclat?: boolean
-  /** L'avatar légendaire qu'il porte — il remplace l'emoji à l'écran. */
+  /**
+   * L'avatar dessiné qu'il porte — il remplace l'emoji à l'écran : un
+   * légendaire (`lg:…`) ou un Divin (`dv:…`).
+   */
   legendaire?: string
 }
 
@@ -528,10 +532,12 @@ export interface PublicProfile {
   eclats: string[]
   /** Combien de badges il porte — le détail se demande à part. */
   badges: number
-  /** L'avatar légendaire qu'il porte, s'il en porte un. */
+  /** L'avatar dessiné qu'il porte, s'il en porte un : un légendaire ou un Divin. */
   legendaire: string | null
   /** Les avatars légendaires qu'il a débloqués. */
   legendaires: string[]
+  /** Les Divins descendus sur lui, avec leur récit. Ce qui les fait descendre ne quitte jamais le serveur. */
+  divins: DivinDescendu[]
 }
 
 /** Une soirée jouée, telle que la page profil la relit. */

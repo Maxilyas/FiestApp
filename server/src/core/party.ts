@@ -23,7 +23,7 @@ export interface ProfileBadge {
   finition: Finition
   /** Cet emoji-là a éclaté pour lui. */
   eclat: boolean
-  /** L'avatar légendaire qu'il porte : il remplace l'emoji à l'écran. */
+  /** L'avatar dessiné qu'il porte — légendaire ou Divin : il remplace l'emoji à l'écran. */
   legendaire?: string
 }
 

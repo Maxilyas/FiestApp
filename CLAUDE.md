@@ -58,6 +58,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
 | `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée |
+| `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
+| `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
 | `core/http.ts` | ce qu'une erreur laisse lire : `wrap`, `erreurMontrable`, `messagePourEcran`, `erreurDeRequete` |
 | `auth/store.ts` | comptes d'animateurs — c'est-à-dire **des espaces** : `accounts.id` EST le `space_id` |
 | `auth/profiles.ts` | profils de joueurs (autre table, autre cookie) |
@@ -189,6 +191,14 @@ server/test/        un fichier par thème, un serveur jetable chacun
     du jour les lignes qu'il ne sait pas relire (la soirée en cours, les
     paliers) : sinon il relirait tout à chaque démarrage. `decodeDetail`
     reconnaît le format à `v ≥ 2`, jamais à la version du jour.
+21. **Les règles des Divins ne quittent jamais le serveur.** Elles vivent
+    dans `core/divins.ts`, avec leurs légendes — qui en disent presque
+    autant —, et ni `shared/` ni `client/` ne l'importent ni n'en recopient
+    une ligne (`divins.test.ts` y veille). Le serveur n'envoie que la liste
+    des Divins descendus, le récit à leur seul porteur — pas de jauge, pas
+    de progression, pas de ligne d'étagère (`badgesOf` les écarte), pas même
+    un compte de badges qui bougerait. Un Divin ne prend ni finition ni
+    Éclat.
 
 ## Les conventions
 

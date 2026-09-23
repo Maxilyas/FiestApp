@@ -3,12 +3,14 @@ import type { FinDeSoiree as Fin, GainAnnonce, HautFaitAnnonce } from '../../../
 import type { PublicProfile } from '../../../shared/profil'
 import { NOM_FINITION } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
+import { divin } from '../../../shared/divins'
 import { api } from '../api'
 import { spacePath } from '../routes'
 import { formatNumber, ordinal } from '../format'
 import { showToast } from '../state'
 import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
+import { Divin } from './Divin'
 import { Icon } from './Icon'
 
 /**
@@ -19,7 +21,7 @@ import { Icon } from './Icon'
  * maintenant la soirée de son porteur — son rang, ses hauts faits, éclats
  * et ombres —, et à qui a un profil ce qu'elle lui a rapporté : les niveaux,
  * les finitions, les paliers, et surtout les avatars légendaires, qu'on peut
- * porter tout de suite.
+ * porter tout de suite — et, une fois dans une vie peut-être, un Divin.
  *
  * Un invité anonyme a sa soirée aussi, entière. Le bloc du profil lui manque,
  * sans rien qui le lui reproche.
@@ -42,7 +44,7 @@ export function FinDeSoiree({
     try {
       const { profile } = await api.joueur.enregistrer({ legendaire: cle })
       setPorte(profile.legendaire)
-      showToast({ kind: 'info', message: `Tu portes ${legendaire(cle)?.nom ?? 'ton légendaire'}` })
+      showToast({ kind: 'info', message: `Tu portes ${legendaire(cle)?.nom ?? divin(cle)?.nom ?? 'ton avatar'}` })
     } catch (e) {
       showToast({ kind: 'error', message: (e as Error).message })
     }
@@ -74,6 +76,30 @@ export function FinDeSoiree({
           )}
         </div>
       </section>
+
+      {/* Un Divin passe avant tout le reste : c'est la nouvelle de la soirée.
+          Une page d'avant ne connaît pas le champ — il peut manquer. */}
+      {(gain?.divins ?? []).map(({ key, legende, ton }) => {
+        const d = divin(key)
+        if (!d) return null
+        return (
+          <section key={key} className={`card fin-divin fin-divin-${ton}`}>
+            <span className="label">Un Divin est descendu sur toi</span>
+            <span className="fin-apparition">
+              <Divin cle={key} />
+            </span>
+            <h2>{d.nom}</h2>
+            <p className="serif-note">{legende}</p>
+            {porte === key ? (
+              <p className="muted small">C’est lui que la salle verra, dès la prochaine soirée.</p>
+            ) : (
+              <button className="btn btn-primary" onClick={() => void porter(key)}>
+                Le porter
+              </button>
+            )}
+          </section>
+        )
+      })}
 
       {gain && (
         <section className="card fin-gain">

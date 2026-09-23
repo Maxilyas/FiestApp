@@ -3,9 +3,11 @@ import type { Fiche, SoireeJouee } from '../../../shared/profil'
 import type { HautFaitVu } from '../../../shared/hautsfaits'
 import { NOM_PALIER, clePalier, hautFait } from '../../../shared/hautsfaits'
 import { LEGENDAIRES, progresVers } from '../../../shared/legendaires'
+import { DIVINS, type DivinDescendu } from '../../../shared/divins'
 import { NOM_RARETE } from '../../../shared/badges'
 import { formatNumber, pourcent, secondes } from '../format'
 import { Legendaire } from './Legendaire'
+import { Divin } from './Divin'
 
 /**
  * La carrière d'un profil, telle que sa page la montre : ce qu'il a gagné,
@@ -105,6 +107,77 @@ export function GalerieLegendaires({
             >
               {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
             </button>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
+
+/**
+ * La galerie des cinq Divins. Ceux qui sont descendus se portent comme un
+ * légendaire, et racontent ce qu'il a fallu faire ; les autres restent
+ * voilés — ni nom, ni silhouette, ni jauge : la page n'en sait pas plus que
+ * le joueur, et c'est voulu. Ce qui les fait descendre ne quitte jamais le
+ * serveur.
+ */
+export function GalerieDivins({
+  descendus,
+  porte,
+  busy,
+  onPorter,
+}: {
+  descendus: DivinDescendu[]
+  porte: string | null
+  busy: boolean
+  onPorter: (cle: string | null) => void
+}) {
+  const [detail, setDetail] = useState<string | null>(null)
+  const choisi = DIVINS.find(d => d.key === detail) ?? null
+  const recit = (cle: string) => descendus.find(d => d.key === cle)
+  const la = (cle: string) => !!recit(cle)
+  return (
+    <>
+      <div className="galerie galerie-divine">
+        {DIVINS.map(d => (
+          <button
+            key={d.key}
+            type="button"
+            className={
+              'galerie-case' +
+              (la(d.key) ? '' : ' verrouille') +
+              (porte === d.key ? ' porte' : '') +
+              (detail === d.key ? ' ouverte' : '')
+            }
+            disabled={busy}
+            aria-pressed={detail === d.key}
+            onClick={() => setDetail(detail === d.key ? null : d.key)}
+          >
+            <span className="galerie-medaillon">
+              <Divin cle={d.key} verrouille={!la(d.key)} />
+            </span>
+            <span className="galerie-nom">{la(d.key) ? d.nom : '?'}</span>
+            <span className="muted small">{la(d.key) ? (porte === d.key ? 'porté' : 'descendu') : 'inconnu'}</span>
+          </button>
+        ))}
+      </div>
+      {choisi && (
+        <div className="galerie-detail">
+          {la(choisi.key) ? (
+            <>
+              <b className="galerie-detail-nom">{choisi.nom}</b>
+              <p className="serif-note">{recit(choisi.key)?.legende}</p>
+              <button
+                type="button"
+                className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
+                disabled={busy}
+                onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
+              >
+                {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
+              </button>
+            </>
+          ) : (
+            <p className="serif-note">Personne ne sait ce qui le fait descendre. Ceux qui l’ont vu ne le cherchaient pas.</p>
           )}
         </div>
       )}

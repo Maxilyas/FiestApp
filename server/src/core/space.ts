@@ -13,6 +13,7 @@ import { buildRecap } from './recap'
 import { buildReview, type PlayedPack } from './review'
 import { buildProgress, relevesDeSoiree, type SoireeGain } from './progress'
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
+import { divinsDeSoiree, laureatsDivins, raconter } from './divins'
 import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
@@ -377,6 +378,7 @@ export class SpaceRuntime {
       prenom: profil.name,
       niveau: niveauPour(profil.xp),
       legendaires: this.deps.profiles.legendairesOf(profil.id),
+      divins: this.deps.profiles.divinsOf(profil.id),
       vitrine: plusRares(vitrine, 6),
       // Un palier de carrière compte pour son haut fait, pas pour trois.
       hautsFaits: new Set(recompenses.filter(k => k.startsWith('hf:')).map(k => k.replace(/:[123]$/, ''))).size,
@@ -566,6 +568,10 @@ export class SpaceRuntime {
         if (h) laureats.push({ profileId, badge: h.key, emoji: h.emoji, title: h.title })
       }
     }
+    // Un Divin ne se range que pour un profil ; l'annonce, elle, suit le
+    // bilan de chacun, qui voit aussi l'Arbre-Monde descendre avec son
+    // douzième légendaire.
+    laureats.push(...laureatsDivins(divinsDeSoiree(live), profilDuJoueur))
     return { gains, laureats, faits, releves: relevesDeSoiree(live, { cloture: true }) }
   }
 
@@ -919,10 +925,13 @@ export class SpaceRuntime {
     soireeId: string,
     credit: CreditDeCloture,
   ): Promise<Map<string, NonNullable<FinDeSoiree['profil']>>> {
-    const avant = new Map<string, { legendaires: string[] }>()
+    const avant = new Map<string, { legendaires: string[]; divins: string[] }>()
     for (const g of credit.gains) {
       await this.deps.profiles.byId(g.profileId).catch(() => null)
-      avant.set(g.profileId, { legendaires: this.deps.profiles.legendairesOf(g.profileId) })
+      avant.set(g.profileId, {
+        legendaires: this.deps.profiles.legendairesOf(g.profileId),
+        divins: this.deps.profiles.divinsOf(g.profileId),
+      })
     }
     await this.crediterExperience(soireeId, credit.gains)
     // Les récompenses se remplacent, comme l'expérience — et même sans aucun
@@ -941,12 +950,16 @@ export class SpaceRuntime {
       const niveauAvant = niveauPour(profil.xp - xpSoiree)
       const niveauApres = niveauPour(profil.xp)
       const deja = avant.get(g.profileId)?.legendaires ?? []
+      const dejaDivins = avant.get(g.profileId)?.divins ?? []
       bilans.set(g.playerId, {
         xp: xpSoiree,
         niveauAvant,
         niveauApres,
         paliers: paliers.map(annonceDe).filter((a): a is HautFaitAnnonce => !!a),
         legendaires: this.deps.profiles.legendairesOf(g.profileId).filter(l => !deja.includes(l)),
+        // Le douzième légendaire fait descendre l'Arbre-Monde : il se compare
+        // comme les autres, avant et après.
+        divins: raconter(this.deps.profiles.divinsOf(g.profileId).filter(d => !dejaDivins.includes(d))),
         finitions: finitionsOuvertes(niveauApres).filter(f => !finitionsOuvertes(niveauAvant).includes(f)) as Finition[],
       })
       // Le profil à jour, pour les pages qui l'affichent encore.
@@ -1013,6 +1026,11 @@ export class SpaceRuntime {
       legendaires: players.flatMap(p => {
         const figure = figures.get(p.id)
         return figure ? (profils.get(p.id)?.legendaires ?? []).map(gagne => ({ ...figure, gagne })) : []
+      }),
+      divins: players.flatMap(p => {
+        const figure = figures.get(p.id)
+        // La salle voit le Divin et son nom — son récit reste à son porteur.
+        return figure ? (profils.get(p.id)?.divins ?? []).map(d => ({ ...figure, gagne: d.key })) : []
       }),
       montees: players.flatMap(p => {
         const b = profils.get(p.id)

@@ -7,6 +7,7 @@
 
 import type { Distinctions, Finition } from './profil'
 import type { Ton } from './hautsfaits'
+import type { DivinDescendu } from './divins'
 
 /** Un haut fait tel qu'on l'annonce. */
 export interface HautFaitAnnonce {
@@ -49,6 +50,8 @@ export interface FinDeSoiree extends Distinctions {
     paliers: HautFaitAnnonce[]
     /** Les avatars légendaires débloqués ce soir. */
     legendaires: string[]
+    /** Les Divins descendus ce soir — presque toujours aucun —, avec leur récit. */
+    divins: DivinDescendu[]
     /** Les finitions débloquées ce soir. */
     finitions: Finition[]
   }
@@ -68,6 +71,8 @@ export interface ClotureDeSoiree {
   hautsFaits: (Figure & { faits: HautFaitAnnonce[] })[]
   /** Les avatars légendaires débloqués ce soir. */
   legendaires: (Figure & { gagne: string })[]
+  /** Les Divins descendus ce soir : toute la salle doit le voir. */
+  divins: (Figure & { gagne: string })[]
   /** Les montées de niveau de la soirée. */
   montees: (Figure & { avant: number; apres: number })[]
 }

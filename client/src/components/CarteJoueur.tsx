@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CarteDeJoueur } from '../../../shared/carte'
 import { legendaire } from '../../../shared/legendaires'
+import { divin } from '../../../shared/divins'
 import { NOM_RARETE } from '../../../shared/badges'
 import { formatNumber, ordinal, pourcent, secondes } from '../format'
 import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
+import { Divin } from './Divin'
 import { Niveau } from './Niveau'
 
 /**
  * La carte d'un joueur, ouverte en touchant son nom : ce qu'il fait ce soir,
- * et, s'il a un profil, son niveau, ses légendaires, ses récompenses les plus
- * rares et quelques chiffres. C'est ici que les cosmétiques ont enfin un
- * public.
+ * et, s'il a un profil, son niveau, ses Divins et ses légendaires, ses
+ * récompenses les plus rares et quelques chiffres. C'est ici que les
+ * cosmétiques ont enfin un public.
  *
  * Un invité anonyme a la sienne : sa soirée, sans rien qui dise ce qui lui
  * manque. Un surnom donné par l'animateur ne cache pas le prénom du profil.
@@ -90,6 +92,15 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
 
             {p && (
               <>
+                {(p.divins ?? []).length > 0 && (
+                  <div className="carte-legendaires carte-divins" aria-label="Divins">
+                    {p.divins.map(cle => (
+                      <span key={cle} className="carte-legendaire" title={divin(cle)?.nom}>
+                        <Divin cle={cle} />
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {p.legendaires.length > 0 && (
                   <div className="carte-legendaires" aria-label="Avatars légendaires">
                     {p.legendaires.map(cle => (
