@@ -1,5 +1,5 @@
 // Types partagés entre le client et le serveur.
-import type { ArchiveSummary } from './archive'
+import type { ArchiveSummary, DerniereSoiree } from './archive'
 import type { PublicSpace } from './space'
 import type { Finition } from './profil'
 
@@ -184,6 +184,8 @@ export interface Recap {
   quizWinners: { title: string; name: string; avatar: string; points: number; sessionId?: string }[]
   /** Présent quand la page relit une soirée archivée plutôt que celle en cours. */
   archive?: ArchiveSummary
+  /** Présent quand la soirée en cours n'a rien joué : la dernière soirée close, à montrer à sa place. */
+  derniere?: DerniereSoiree
   /** L'espace dont la page parle — ses titres, sa date. */
   space?: PublicSpace
 }

@@ -5,7 +5,7 @@
 // Distinct des statistiques (shared/types.ts, PartyStats) : celles-ci
 // résument chaque joueur en dix-sept chiffres, le bilan garde le détail
 // question par question — c'est lui qu'on relit le lendemain.
-import type { ArchiveSummary } from './archive'
+import type { ArchiveSummary, DerniereSoiree } from './archive'
 import type { QuestionKind } from './library'
 import type { PublicSpace } from './space'
 import type { PlayerStat, PublicTeam } from './types'
@@ -211,6 +211,8 @@ export interface Review {
   unresolved: number
   /** Présent quand la page relit une soirée archivée plutôt que celle en cours. */
   archive?: ArchiveSummary
+  /** Présent quand la soirée en cours n'a rien joué : la dernière soirée close, à montrer à sa place. */
+  derniere?: DerniereSoiree
   /** L'espace dont la page parle — ses titres, sa date. */
   space?: PublicSpace
 }

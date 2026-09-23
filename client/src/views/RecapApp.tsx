@@ -9,16 +9,18 @@ import { JoinHead } from '../components/Invitation'
 import { Icon } from '../components/Icon'
 import { ArchiveBanner } from '../components/ArchiveBanner'
 import { SpaceError, SpaceNav } from '../components/SpaceNav'
-import { dataUrl, pageContext, route, spacePath } from '../routes'
+import { pageContext, route, spacePath } from '../routes'
+import { lecteurDePage } from '../derniere'
 import { formatDay } from '../../../shared/archive'
 import { rangPartage } from '../../../shared/classement'
 
 /**
  * La page souvenir : le podium, les équipes, le palmarès et tous les chiffres
- * de la soirée. Ouverte le lendemain par les invités, et pendant la fête par
- * l'animateur, sur son téléphone — elle se rafraîchit toute seule tant que la
- * soirée est en cours. Volontairement sans compte : c'est une page à partager
- * aux invités, pas un outil d'animation.
+ * de la soirée. Ouverte pendant la soirée par l'animateur, sur son téléphone —
+ * elle se rafraîchit toute seule tant que la soirée est en cours —, et le
+ * lendemain par les invités : entre deux soirées, celle de l'espace montre la
+ * dernière soirée close (`lecteurDePage`). Volontairement sans compte : c'est
+ * une page à partager aux invités, pas un outil d'animation.
  */
 export function RecapApp() {
   const { slug, archiveId } = pageContext()
@@ -32,10 +34,10 @@ export function RecapApp() {
 
   useEffect(() => {
     let loaded = false
+    const lire = lecteurDePage<Recap>(slug, 'recap.json', archiveId)
     const load = () =>
-      fetch(dataUrl(slug, 'recap.json', archiveId))
-        .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-        .then((data: Recap) => {
+      lire()
+        .then(data => {
           loaded = true
           setRecap(data)
           setError('')
@@ -46,7 +48,8 @@ export function RecapApp() {
         })
     load()
     // Rafraîchi tout seul : la page reste ouverte sur le téléphone de
-    // l'animateur pendant que les quiz s'enchaînent. Une soirée archivée,
+    // l'animateur pendant que les quiz s'enchaînent — et, entre deux
+    // soirées, elle y revient dès que la suivante joue. Une soirée archivée,
     // elle, ne bouge plus.
     if (archiveId) return
     const id = setInterval(load, 20_000)
@@ -185,7 +188,9 @@ export function RecapApp() {
             Ce que tu as répondu à chaque question, ce que ton équipe a choisi, ce que la salle a
             choisi — et les questions qui ont marqué la soirée.
           </p>
-          <a className="btn btn-accent" href={spacePath(slug, 'bilan', archiveId)}>
+          {/* Le bilan de la soirée montrée, à son adresse d'archive quand elle
+              en a une : un lien qui ne changera pas quand la suivante jouera. */}
+          <a className="btn btn-accent" href={spacePath(slug, 'bilan', archiveId ?? archive?.id ?? null)}>
             <Icon name="list" />
             Relire mon bilan
           </a>

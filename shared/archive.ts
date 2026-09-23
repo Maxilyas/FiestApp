@@ -102,6 +102,18 @@ export interface ArchiveSummary {
   teamWinners: { name: string; emoji: string; points: number }[]
 }
 
+/**
+ * La dernière soirée close d'un espace, que ses pages désignent tant que la
+ * suivante n'a rien joué. La clôture efface la soirée en cours : sans elle,
+ * le souvenir scanné au podium et rouvert le lendemain disait « La soirée
+ * n'a pas encore commencé ».
+ */
+export interface DerniereSoiree {
+  id: string
+  title: string
+  heldAt: number
+}
+
 export interface ArchiveList {
   /**
    * La soirée en cours, s'il s'y est déjà passé quelque chose. Elle se range

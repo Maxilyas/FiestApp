@@ -6,7 +6,8 @@ import { PlayerReview } from '../components/BilanPlayer'
 import { RoomReview } from '../components/BilanRoom'
 import { ArchiveBanner } from '../components/ArchiveBanner'
 import { SpaceError, SpaceNav } from '../components/SpaceNav'
-import { dataUrl, pageContext, spacePath } from '../routes'
+import { pageContext, spacePath } from '../routes'
+import { lecteurDePage } from '../derniere'
 import { readMe } from '../state'
 import { formatDay } from '../../../shared/archive'
 
@@ -50,8 +51,8 @@ export function BilanApp() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    fetch(dataUrl(slug, 'bilan.json', archiveId))
-      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+    // Entre deux soirées, celui de l'espace est le bilan de la dernière soirée close.
+    lecteurDePage<Review>(slug, 'bilan.json', archiveId)()
       .then(setReview)
       .catch(() => setError('Impossible de charger le bilan de la soirée.'))
   }, [slug, archiveId])
@@ -99,8 +100,15 @@ export function BilanApp() {
   }
 
   const copyLink = async () => {
+    // Entre deux soirées, la page de l'espace montre la dernière soirée
+    // close : le lien qu'on partage est celui de son archive, qui ne
+    // changera pas quand la suivante jouera.
+    const soiree = !archiveId ? review?.archive?.id : undefined
+    const lien = soiree
+      ? new URL(spacePath(slug, 'bilan', soiree) + window.location.hash, window.location.href).href
+      : window.location.href
     try {
-      await navigator.clipboard.writeText(window.location.href)
+      await navigator.clipboard.writeText(lien)
       setCopied(true)
     } catch {
       // Sans presse-papier (page en http, navigateur ancien) : l'adresse est

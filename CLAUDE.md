@@ -179,7 +179,11 @@ server/test/        un fichier par thème, un serveur jetable chacun
     avec tout ce qu'il avait crédité. La fin de soirée ne part **qu'une fois
     la soirée effacée** : un miroir qui refuse d'effacer ne doit pas faire
     lire « c'est fini » à une soirée qui continue. `host:resetParty` et
-    `host:archiveParty` restent compris des pages d'avant.
+    `host:archiveParty` restent compris des pages d'avant. Entre deux
+    soirées, `recap.json` et `bilan.json` désignent la dernière soirée close
+    (`derniere`), que le souvenir et le bilan de l'espace montrent à sa place
+    (`lecteurDePage`) — sans redirection : la page revient d'elle-même à la
+    suivante dès sa première question jouée.
 19. **L'expérience se mérite, et ne redescend jamais en cours de soirée.**
     Rien pour la présence, rien seul : tout se gagne dès deux joueurs, un
     podium de quiz à cinq questions, celui de la soirée à quinze (`SEUILS`),

@@ -337,6 +337,14 @@ export class SpaceRuntime {
   }
 
   /**
+   * Vrai dès qu'une question a été jouée dans la soirée en cours : ses pages
+   * parlent alors d'elle. Avant, elles montrent la dernière soirée close.
+   */
+  aJoue(): boolean {
+    return !this.answers.estVide()
+  }
+
+  /**
    * La carte d'un invité de la soirée en cours : ce qu'on voit en touchant
    * son nom — sa soirée, et son profil s'il en a un. Null s'il n'en est pas :
    * un identifiant d'une autre soirée, ou d'un autre espace, vaut
