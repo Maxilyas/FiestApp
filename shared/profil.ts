@@ -160,11 +160,14 @@ export const XP = {
   estimationMeilleure: 5,
   /** Estimation : dans le tiers le plus proche, hors la plus proche. */
   estimationProche: 3,
-  /** Podium d'un quiz, rang partagé. */
+  /**
+   * Podium d'un quiz, rang partagé. Il a une marche de moins que la salle :
+   * à deux, seul le premier y monte — le dernier n'est jamais sur le podium.
+   */
   podiumQuiz: [25, 15, 10],
   /** Toutes ses questions à choix d'un quiz justes. */
   sansFaute: 15,
-  /** Podium de la soirée, à la clôture. */
+  /** Podium de la soirée, à la clôture — une marche de moins que la salle, lui aussi. */
   podiumSoiree: [60, 40, 25],
   /** Avoir répondu à presque toutes les questions qu'on vous a posées, à la clôture. */
   assiduite: 10,
@@ -174,24 +177,33 @@ export const XP = {
  * Les seuils sous lesquels rien ne se gagne. Sans eux, une « soirée » d'une
  * question à deux joueurs rapportait une présence, un podium et une victoire
  * de quiz — 128 points par tour, et on recommençait.
+ *
+ * L'expérience se gagne dès deux joueurs : un duel est une vraie partie, et
+ * à trois ou quatre seuils, les petites tablées ne gagnaient rien. Ce qui
+ * ferme la porte aux parties fabriquées, ce sont les questions — cinq pour
+ * un podium de quiz, quinze pour la soirée — et le podium qui a toujours une
+ * marche de moins que la salle. Les hauts faits, eux, gardent leur salle de
+ * quatre : à deux, « la Lanterne Rouge » tomberait à chaque partie.
  */
 export const SEUILS = {
   /** Une question ne rapporte que si elle a été posée à autant de joueurs. */
-  salleQuestion: 3,
+  salleQuestion: 2,
   /** Un quiz ne distribue son podium qu'avec autant de questions… */
   questionsQuiz: 5,
   /** …et autant de joueurs qui ont répondu. */
-  salleQuiz: 4,
+  salleQuiz: 2,
   /** Le sans-faute demande au moins autant de questions à choix. */
   sansFauteQcm: 5,
   /** La soirée ne distribue ses bonus qu'avec autant de questions… */
   questionsSoiree: 15,
   /** …et autant de joueurs qui ont répondu. */
-  salleSoiree: 6,
+  salleSoiree: 2,
   /** L'assiduité : la part des questions posées auxquelles on a répondu. */
   assiduitePart: 0.9,
-  /** Le réflexe se juge parmi au moins autant de bonnes réponses. */
-  reflexeJustes: 3,
+  /** Le réflexe — et le plus rapide — se jugent parmi au moins autant de bonnes réponses. */
+  reflexeJustes: 2,
+  /** Les hauts faits ne se décernent que dans une salle d'autant de joueurs. */
+  salleHautsFaits: 4,
 } as const
 
 /** Le détail d'un gain de soirée — conservé tel quel, pour qu'on puisse l'expliquer. */

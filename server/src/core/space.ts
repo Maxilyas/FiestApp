@@ -334,15 +334,6 @@ export class SpaceRuntime {
   }
 
   /**
-   * Les profils qui jouent ici hors concours : celui de l'animateur. Il
-   * connaît les réponses de ses propres quiz — chez lui, il ne gagne rien.
-   */
-  private horsConcours(): ReadonlySet<string> {
-    const lui = this.deps.auth.byId(this.spaceId)?.profileId
-    return new Set(lui ? [lui] : [])
-  }
-
-  /**
    * La carte d'un invité de la soirée en cours : ce qu'on voit en touchant
    * son nom — sa soirée, et son profil s'il en a un. Null s'il n'en est pas :
    * un identifiant d'une autre soirée, ou d'un autre espace, vaut
@@ -428,9 +419,9 @@ export class SpaceRuntime {
       // quiz joué donnerait une chance de plus — et l'Éclat ne vaut que
       // parce qu'on ne peut pas le provoquer. Il tient au nom de la soirée :
       // rebaptisée, elle redevenait « première ». Et il attend que la soirée
-      // compte vraiment — une réponse à une question posée à trois joueurs
-      // au moins : deux téléphones qui enchaînaient les soirées d'une
-      // question tiraient autant d'Éclats qu'ils voulaient.
+      // compte vraiment — une réponse à une question posée à deux joueurs
+      // au moins : un téléphone seul qui enchaînait les soirées d'une
+      // question tirait autant d'Éclats qu'il voulait.
       const precedent = await this.deps.profiles.creditPrecedent(g.profileId, soireeId)
       const tirage = g.gain.reponses > 0 && !(precedent && precedent.gain.reponses > 0)
       const apres = await this.deps.profiles.creditSoiree({
@@ -508,7 +499,7 @@ export class SpaceRuntime {
     if (!soiree) return
     const players = this.party.all()
     const scores = this.ledger.all()
-    const gains = buildProgress({ players, scores, answers }, { horsConcours: this.horsConcours() })
+    const gains = buildProgress({ players, scores, answers })
     const built = buildArchive({
       soiree,
       players,
@@ -553,10 +544,9 @@ export class SpaceRuntime {
     scores: ReturnType<ScoreLedger['all']>
     answers: AnswerRow[]
   }): CreditDeCloture {
-    const horsConcours = this.horsConcours()
     const faits = hautsFaitsDeSoiree(live)
     const xpDesFaits = new Map([...faits].map(([id, cles]) => [id, xpDesHautsFaits(cles)]))
-    const gains = buildProgress(live, { cloture: true, horsConcours, hautsFaits: xpDesFaits })
+    const gains = buildProgress(live, { cloture: true, hautsFaits: xpDesFaits })
     const profilDuJoueur = new Map(gains.map(g => [g.playerId, g.profileId]))
     // Les prix du palmarès sont déjà calculés pour la page souvenir : ce sont
     // eux, tels quels, qui vont sur les étagères. Pas de second catalogue à
@@ -576,7 +566,7 @@ export class SpaceRuntime {
         if (h) laureats.push({ profileId, badge: h.key, emoji: h.emoji, title: h.title })
       }
     }
-    return { gains, laureats, faits, releves: relevesDeSoiree(live, { cloture: true, horsConcours }) }
+    return { gains, laureats, faits, releves: relevesDeSoiree(live, { cloture: true }) }
   }
 
   /**
@@ -842,7 +832,7 @@ export class SpaceRuntime {
       library: quizLibrary(this.spaceId),
     })
     if (!built) return null
-    const gains = buildProgress({ players, scores, answers }, { horsConcours: this.horsConcours() })
+    const gains = buildProgress({ players, scores, answers })
     const recopie = this.recopierSoiree(soiree)
     return this.enFile(async () => {
       await recopie

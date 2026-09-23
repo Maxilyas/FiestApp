@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { api } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
-import { Icon } from '../components/Icon'
+import { Icon, type IconName } from '../components/Icon'
 import { ProfilForm } from '../components/ProfilForm'
 import { AVATARS } from '../../../shared/avatars'
 import {
@@ -192,33 +192,10 @@ export function ProfilApp() {
         </div>
         <p className="muted small">
           L'expérience se mérite : répondre, viser juste, trouver parmi les plus rapides, finir sur le
-          podium d'un quiz — et les hauts faits, à la clôture. Une question ne rapporte que posée à
-          trois joueurs au moins. Rien de tout cela ne donne d'avantage pendant une soirée : les points
-          du quiz se gagnent pareil pour tout le monde, profil ou pas.
+          podium d'un quiz — et les hauts faits, à la clôture. Tout se gagne dès deux joueurs, et
+          l'animateur aussi, quand il joue. Rien de tout cela ne donne d'avantage pendant une soirée :
+          les points du quiz se gagnent pareil pour tout le monde, profil ou pas.
         </p>
-      </div>
-
-      <div className="card">
-        <div className="card-head">
-          <h3>
-            <Icon name="crown" />
-            Avatars légendaires
-          </h3>
-          <span className="muted small">
-            {profil.legendaires.length} / 12
-          </span>
-        </div>
-        <p className="muted small">
-          Douze médaillons, qui ne se gagnent que par un haut fait. Celui que tu portes remplace ton
-          emoji sur tous les écrans.
-        </p>
-        <GalerieLegendaires
-          debloques={profil.legendaires}
-          porte={profil.legendaire}
-          hautsFaits={profil.hautsFaits}
-          busy={busy}
-          onPorter={cle => enregistrer({ legendaire: cle })}
-        />
       </div>
 
       <div className="card">
@@ -251,13 +228,24 @@ export function ProfilApp() {
         )}
       </div>
 
-      <div className="card">
-        <div className="card-head">
-          <h3>
-            <Icon name="trophy" />
-            Finitions
-          </h3>
-        </div>
+      {/* Trois catalogues repliés : douze médaillons, huit finitions et trente
+          hauts faits allongeaient la page avant même sa fiche. On les déplie
+          d'un toucher sur le titre, qui dit déjà où l'on en est. */}
+      <Repli icone="crown" titre="Avatars légendaires" compte={`${profil.legendaires.length} / 12`}>
+        <p className="muted small">
+          Douze médaillons, qui ne se gagnent que par un haut fait. Celui que tu portes remplace ton
+          emoji sur tous les écrans.
+        </p>
+        <GalerieLegendaires
+          debloques={profil.legendaires}
+          porte={profil.legendaire}
+          hautsFaits={profil.hautsFaits}
+          busy={busy}
+          onPorter={cle => enregistrer({ legendaire: cle })}
+        />
+      </Repli>
+
+      <Repli icone="trophy" titre="Finitions" compte={`${profil.ouvertes.length} / ${FINITIONS.length}`}>
         <div className="finitions">
           {/* Par défaut, la plus belle qu'on a : chaque niveau qui en ouvre
               une nouvelle la fait porter d'office. On en épingle une autre si
@@ -297,17 +285,17 @@ export function ProfilApp() {
           gagne pas : une chance sur quarante par soirée qui compte, et c'est l'emoji lui-même qui
           change de couleurs.
         </p>
-      </div>
+      </Repli>
 
-      <div className="card">
-        <h3>
-          <Icon name="star" />
-          Hauts faits
-        </h3>
+      <Repli
+        icone="star"
+        titre="Hauts faits"
+        compte={`${profil.hautsFaits.filter(h => h.fois > 0).length} / ${profil.hautsFaits.length}`}
+      >
         {/* Montrer ce qui manque donne envie de revenir ; le cacher ne donne
             rien. Tout le catalogue se montre, et ce qu'on n'a pas s'estompe. */}
         <HautsFaits hautsFaits={profil.hautsFaits} />
-      </div>
+      </Repli>
 
       <div className="card">
         <h3>
@@ -380,5 +368,28 @@ export function ProfilApp() {
         </button>
       </div>
     </div>
+  )
+}
+
+/**
+ * Une section du profil qu'on déplie d'un toucher sur son titre. Repliée
+ * d'abord ; son titre dit où l'on en est — « 3 / 12 » —, de quoi donner envie
+ * d'ouvrir.
+ */
+function Repli({ icone, titre, compte, children }: { icone: IconName; titre: string; compte: string; children: ReactNode }) {
+  return (
+    <details className="card repli">
+      <summary className="card-head">
+        <h3>
+          <Icon name={icone} />
+          {titre}
+        </h3>
+        <span className="repli-compte">
+          <span className="muted small">{compte}</span>
+          <Icon name="chevron-down" className="repli-chevron" />
+        </span>
+      </summary>
+      <div className="repli-corps">{children}</div>
+    </details>
   )
 }

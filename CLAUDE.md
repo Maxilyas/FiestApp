@@ -175,15 +175,20 @@ server/test/        un fichier par thème, un serveur jetable chacun
     lire « c'est fini » à une soirée qui continue. `host:resetParty` et
     `host:archiveParty` restent compris des pages d'avant.
 19. **L'expérience se mérite, et ne redescend jamais en cours de soirée.**
-    Rien pour la présence ; une question ne rapporte que posée à trois
-    joueurs, un quiz n'a de podium qu'à cinq questions et quatre joueurs, la
-    soirée qu'à quinze questions et six joueurs (`SEUILS`) ; l'animateur joue
-    **hors concours** chez lui. Les gains d'un quiz sont définitifs : ce qui
-    peut se renverser d'un quiz à l'autre attend la clôture.
+    Rien pour la présence, rien seul : tout se gagne dès deux joueurs, un
+    podium de quiz à cinq questions, celui de la soirée à quinze (`SEUILS`),
+    et un podium a toujours une marche de moins que la salle. L'animateur qui
+    joue chez lui gagne comme tout le monde. Les hauts faits gardent leur
+    salle de quatre (`salleHautsFaits`). Les gains d'un quiz sont
+    définitifs : ce qui peut se renverser d'un quiz à l'autre attend la
+    clôture.
 20. **Les récompenses sont des dérivations des journaux**, comme le
     souvenir : quand le barème ou un haut fait change, incrémente
     `VERSION_BAREME` — au démarrage, `recalculerHistorique` relit toutes les
-    soirées de l'historique avec les règles du jour.
+    soirées de l'historique avec les règles du jour, et remet à la version
+    du jour les lignes qu'il ne sait pas relire (la soirée en cours, les
+    paliers) : sinon il relirait tout à chaque démarrage. `decodeDetail`
+    reconnaît le format à `v ≥ 2`, jamais à la version du jour.
 
 ## Les conventions
 
@@ -262,9 +267,12 @@ sans `QUIZ_DB_URL`.
   tomber un palier de carrière : un test qui compte l'expérience au point
   près après une clôture neutralise `ProfileStore.tirageEclat`, sinon il
   échoue une fois sur quarante.
-- **Une salle de moins de trois joueurs ne rapporte rien.** Un test qui veut
-  de l'expérience invite des figurants (`figurants()`, `faux()` dans
-  `soiree.test.ts`) ; un test de hauts faits, quatre joueurs au moins.
+- **Un joueur seul ne rapporte rien.** Un test qui veut de l'expérience
+  invite un figurant au moins (`figurants()`, `faux()` dans
+  `soiree.test.ts`) ; un test de hauts faits, quatre joueurs au moins. Et
+  deux bonnes réponses font un réflexe au plus rapide, à la milliseconde
+  près : un test qui compte l'expérience au point près fait se tromper
+  l'autre.
 - **Une colonne de plus au journal des réponses** se pose dans trois
   fichiers : `addColumn` dans `db.ts` (la locale) ; `COLUMNS`, l'insertion
   et `toRow` dans `answers.ts` ; `ajouterColonne` (le miroir), l'écriture

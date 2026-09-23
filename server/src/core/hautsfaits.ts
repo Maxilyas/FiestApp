@@ -14,8 +14,9 @@ import { rangPartage } from '../../../shared/classement'
  * qu'une fois tout joué —, et se rejoue sur les soirées archivées : un haut
  * fait inventé aujourd'hui tombe aussi pour une soirée d'il y a un an.
  *
- * Une salle de moins de quatre joueurs n'en décerne aucun : une « soirée »
- * à deux téléphones ne doit rien pouvoir fabriquer.
+ * Une salle de moins de quatre joueurs n'en décerne aucun (`SEUILS.salleHautsFaits`),
+ * même si l'expérience, elle, se gagne dès deux : un haut fait se mesure à
+ * la salle, et à deux, « la Lanterne Rouge » tomberait à chaque partie.
  */
 export function hautsFaitsDeSoiree(live: ProgressInput): Map<string, string[]> {
   const inscrits = new Set(live.players.map(p => p.id))
@@ -26,9 +27,9 @@ export function hautsFaitsDeSoiree(live: ProgressInput): Map<string, string[]> {
   const releves = relevesDeSoiree({ players: live.players, scores, answers }, { cloture: true })
   const joueurs = new Set(answers.filter(r => r.answered).map(r => r.playerId))
   const resultat = new Map<string, string[]>()
-  if (joueurs.size < SEUILS.salleQuiz) return resultat
+  if (joueurs.size < SEUILS.salleHautsFaits) return resultat
 
-  const quizValide = (q: QuizJoue) => q.joueurs.size >= SEUILS.salleQuiz
+  const quizValide = (q: QuizJoue) => q.joueurs.size >= SEUILS.salleHautsFaits
   /** Ses lignes dans un quiz. */
   const lignesDe = (q: QuizJoue, id: string) =>
     q.questions.flatMap(qu => {

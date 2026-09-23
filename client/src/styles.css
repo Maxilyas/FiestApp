@@ -3376,6 +3376,25 @@ h3 > .icon {
 
 /* ── La page profil : légendaires, hauts faits, fiche ──────────────────── */
 
+/* Une section repliée : son titre se touche en entier, et le chevron dit
+   qu'elle s'ouvre. Pas de triangle du navigateur — il n'a pas le même dessin
+   d'un téléphone à l'autre. */
+.repli > summary {
+  list-style: none;
+  cursor: pointer;
+  min-height: 32px;
+  -webkit-tap-highlight-color: transparent;
+}
+.repli > summary::-webkit-details-marker { display: none; }
+.repli > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 6px; }
+.repli-compte { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.repli-chevron { color: var(--accent-text); transition: transform 0.2s ease; }
+.repli[open] .repli-chevron { transform: rotate(180deg); }
+.repli-corps { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+@media (prefers-reduced-motion: reduce) {
+  .repli-chevron { transition: none; }
+}
+
 .galerie {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));

@@ -33,7 +33,7 @@ import {
   type Invite,
   type Socket,
 } from './banc'
-import { ProfileStore } from '../src/auth/profiles'
+import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 import { xpDesHautsFaits } from '../src/core/hautsfaits'
 import { XP, niveauPour } from '../../shared/profil'
 
@@ -334,33 +334,28 @@ test('retirer une soirée de l’historique reprend ce qu’elle avait crédité
     assert.equal(profil.badges, 0)
   }))
 
-// ── 4. Hors concours ──────────────────────────────────────────────────────
+// ── 4. L'animateur joue aussi ─────────────────────────────────────────────
 
-test('chez lui, l’animateur joue hors concours : il connaît les réponses', () =>
+test('chez lui aussi, l’animateur gagne de l’expérience — dès un duel', () =>
   avecBanc(async banc => {
     const cookie = await connexionAnimateur(banc.url)
     const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
     const animCookie = await inscrireProfil(banc.url, 'anim', 'Antoine', '🦁')
-    const animId = profilDe(banc, 'anim')
     const lie = await ecrire(banc.url, '/api/space/profil', { login: 'anim', password: 'motdepasse1' }, cookie)
     assert.equal(lie.status, 200, 'le profil de l’animateur tient l’espace')
-    const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
     const host = await ecranCommun(banc.url, cookie)
     const anim = await invite(banc.url, 'Antoine', '🦁', { cookie: animCookie })
-    const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
     const bob = await invite(banc.url, 'Bob', '🐻')
 
-    const creditee = attendre<any>(alice.socket, 'player:profil', p => p.xp > 0, 'le crédit d’Alice', 15_000)
-    await jouerQuiz(host, quiz, [[[anim, 0], [alice, 0], [bob, 1]]])
-    await creditee
+    // On le tenait hors concours, parce qu'il connaît ses quiz : il ne
+    // progressait jamais aux fêtes qu'il organise — souvent les seules.
+    const credite = attendre<any>(anim.socket, 'player:profil', p => p.xp > 0, 'le crédit de l’animateur', 15_000)
+    await jouerQuiz(host, quiz, [[[anim, 0], [bob, 1]]])
+    await credite
     const finAnim = attendre<any>(anim.socket, 'soiree:fin', () => true, 'la fin de soirée de l’animateur', 15_000)
     await clore(host)
-
-    assert.deepEqual(lire(banc, 'SELECT soiree_id FROM profile_xp WHERE profile_id = ?', animId), [], 'rien ne lui est crédité')
-    assert.equal((await moi(banc, animCookie)).xp, 0)
-    assert.equal((await finAnim).profil, undefined, 'sa fin de soirée ne compte rien pour son profil')
-    // Il reste un joueur de la salle : sa présence compte pour les autres.
-    assert.equal((await moi(banc, aliceCookie)).xp, XP.reponse + XP.juste, 'la question posée à trois rapporte à Alice')
+    assert.equal((await moi(banc, animCookie)).xp, XP.reponse + XP.juste, 'une question posée à deux rapporte')
+    assert.ok((await finAnim).profil, 'sa fin de soirée compte pour son profil')
   }))
 
 // ── 5. Le recalcul ────────────────────────────────────────────────────────
@@ -431,4 +426,57 @@ test('au démarrage, l’expérience d’avant le barème au mérite se relit su
     // Un second démarrage n'a plus rien à relire.
     await banc.redemarrer()
     assert.equal((await moi(banc, aliceCookie)).xp, juste + 10 * XP.reponse + 6 * XP.juste)
+  }))
+
+test('au démarrage d’un barème neuf, l’historique se relit — et la veille garde ses chiffres', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const quiz = await creerQuiz(banc.url, cookie, [{ ...qcm('Qui chante Thriller ?'), category: 'Musique' }])
+    const animCookie = await inscrireProfil(banc.url, 'anim', 'Antoine', '🦁')
+    const animId = profilDe(banc, 'anim')
+    assert.equal((await ecrire(banc.url, '/api/space/profil', { login: 'anim', password: 'motdepasse1' }, cookie)).status, 200)
+    const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const aliceId = profilDe(banc, 'alice')
+    const host = await ecranCommun(banc.url, cookie)
+    const anim = await invite(banc.url, 'Antoine', '🦁', { cookie: animCookie })
+    const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
+    // Alice se trompe : deux bonnes réponses feraient un réflexe, au plus
+    // rapide des deux — à la milliseconde près.
+    await jouerQuiz(host, quiz, [[[anim, 0], [alice, 1]]])
+    const soiree = await rangee(banc)
+    await clore(host)
+    const juste = XP.reponse + XP.juste
+
+    // On remonte le temps : le barème 2 tenait l'animateur hors concours —
+    // aucune ligne pour lui —, Alice avait joué la veille une soirée sortie
+    // depuis de l'historique, et un palier de carrière.
+    const espace = lire<{ space_id: string }>(banc, 'SELECT space_id FROM profile_xp WHERE profile_id = ?', aliceId)[0].space_id
+    const veille = {
+      v: 2,
+      gain: { reponses: 10, justesse: 30 },
+      releve: { questions: 10, reponses: 10, qcm: 10, justes: 10, categories: { Musique: { questions: 10, justes: 10 } } },
+    }
+    ecrireEnBase(banc, db => {
+      db.prepare('DELETE FROM profile_xp WHERE profile_id = ?').run(animId)
+      db.prepare('UPDATE profiles SET xp = 0 WHERE id = ?').run(animId)
+      const { detail } = db.prepare('SELECT detail FROM profile_xp WHERE profile_id = ? AND soiree_id = ?').get(aliceId, soiree) as any
+      db.prepare('UPDATE profile_xp SET detail = ? WHERE profile_id = ? AND soiree_id = ?').run(
+        String(detail).replace(/^\{"v":\d+,/, '{"v":2,'),
+        aliceId,
+        soiree,
+      )
+      db.prepare('INSERT INTO profile_xp VALUES (?, ?, ?, ?, ?, ?)').run(aliceId, '2026-09-22-veille', espace, 40, JSON.stringify(veille), 1)
+      db.prepare('INSERT INTO profile_badges VALUES (?, ?, ?, ?, ?, ?, ?)').run(aliceId, 'hf:habitue:1', soiree, espace, '🎟️', 'L’Habitué', 2)
+      db.prepare('INSERT INTO profile_xp VALUES (?, ?, ?, ?, ?, ?)').run(aliceId, '#paliers', '', 10, JSON.stringify({ v: 2, paliers: ['hf:habitue:1'] }), 3)
+      db.prepare('UPDATE profiles SET xp = ? WHERE id = ?').run(XP.reponse + 40 + 10, aliceId)
+    })
+
+    await banc.redemarrer()
+    assert.equal((await moi(banc, animCookie)).xp, juste, 'la soirée de l’historique se recrédite à l’animateur')
+    const aliceApres = await moi(banc, aliceCookie)
+    assert.equal(aliceApres.xp, XP.reponse + 40 + 10, 'la veille et le palier gardent leur expérience')
+    // Lue comme une ligne de l'ancien barème, la veille perdait ses catégories.
+    assert.deepEqual(aliceApres.categories, { Musique: { questions: 11, justes: 10 } })
+    // Plus rien d'une version d'avant : le démarrage suivant n'a rien à relire.
+    assert.deepEqual(lire(banc, `SELECT soiree_id FROM profile_xp WHERE detail NOT LIKE '{"v":${VERSION_BAREME},%'`), [])
   }))

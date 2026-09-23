@@ -95,13 +95,21 @@ const ids = (n: number, prefixe = 'j') => Array.from({ length: n }, (_, i) => `$
 
 // ── 1. La question ────────────────────────────────────────────────────────
 
-test('une question posée à moins de trois joueurs ne rapporte rien — mais elle compte au relevé', () => {
-  const players = [joueur('alice'), joueur('bob')]
-  const { answers, scores } = quiz('s1', 1, ['alice', 'bob'], (_, id) => (id === 'alice' ? {} : FAUX))
+test('une question posée à un seul joueur ne rapporte rien — mais elle compte au relevé', () => {
+  const players = [joueur('alice')]
+  const { answers, scores } = quiz('s1', 1, ['alice'], () => ({}))
   const alice = de(buildProgress({ players, scores, answers }), 'alice')!
-  assert.equal(alice.xp, 0, 'deux téléphones ne fabriquent pas d’expérience')
+  assert.equal(alice.xp, 0, 'seul devant son téléphone, on ne fabrique pas d’expérience')
   assert.equal(alice.releve.reponses, 1, 'la réponse reste dans ses chiffres de carrière')
   assert.equal(alice.releve.justes, 1)
+})
+
+test('dès deux joueurs, une question rapporte : un duel est une vraie partie', () => {
+  const players = [joueur('alice'), joueur('bob')]
+  const { answers, scores } = quiz('s1', 1, ['alice', 'bob'], (_, id) => (id === 'alice' ? {} : FAUX))
+  const gains = buildProgress({ players, scores, answers })
+  assert.equal(de(gains, 'alice')!.xp, XP.reponse + XP.juste)
+  assert.equal(de(gains, 'bob')!.xp, XP.reponse)
 })
 
 test('posée à trois, une question rapporte la réponse, et la justesse à qui a trouvé', () => {
@@ -130,12 +138,17 @@ test('le réflexe va au tiers le plus rapide des bonnes réponses, ex æquo comp
   assert.equal(de(gains, 'j1')!.releve.reflexes, 1)
 })
 
-test('sous trois bonnes réponses, personne n’a de réflexe : être le plus rapide de deux ne veut rien dire', () => {
+test('à deux bonnes réponses, le plus rapide a son réflexe ; seul à trouver, personne', () => {
   const joueurs = ids(5)
   const players = joueurs.map(id => joueur(id))
-  const { answers, scores } = quiz('s1', 1, joueurs, (_, id) => (id === 'j1' || id === 'j2' ? { ms: id === 'j1' ? 800 : 900 } : FAUX))
-  const gains = buildProgress({ players, scores, answers })
-  assert.ok(gains.every(g => g.gain.reflexe === 0))
+  const deux = quiz('s1', 1, joueurs, (_, id) => (id === 'j1' || id === 'j2' ? { ms: id === 'j1' ? 800 : 900 } : FAUX))
+  const gains = buildProgress({ players, ...deux })
+  assert.equal(de(gains, 'j1')!.gain.reflexe, XP.reflexe, 'un duel se joue aussi à la vitesse')
+  assert.equal(de(gains, 'j2')!.gain.reflexe, 0)
+
+  // Une seule bonne réponse : être le plus rapide de un ne veut rien dire.
+  const une = quiz('s1', 1, joueurs, (_, id) => (id === 'j1' ? { ms: 800 } : FAUX))
+  assert.ok(buildProgress({ players, ...une }).every(g => g.gain.reflexe === 0))
 })
 
 // ── 2. Le quiz ────────────────────────────────────────────────────────────
@@ -148,19 +161,15 @@ const classement = (sessionId: string, questions: number, joueurs: string[]) =>
     return q >= rang ? {} : FAUX
   })
 
-test('un quiz n’a de podium qu’à partir de cinq questions et quatre joueurs', () => {
+test('un quiz n’a de podium qu’à partir de cinq questions et deux joueurs', () => {
   const quatre = ids(4)
   const players = quatre.map(id => joueur(id))
 
   const court = classement('s1', SEUILS.questionsQuiz - 1, quatre)
   assert.ok(buildProgress({ players, ...court }).every(g => g.gain.quiz === 0), 'quatre questions : pas de podium')
 
-  const trois = ids(3)
-  const petit = classement('s1', SEUILS.questionsQuiz, trois)
-  assert.ok(
-    buildProgress({ players: trois.map(id => joueur(id)), ...petit }).every(g => g.gain.quiz === 0),
-    'trois joueurs : pas de podium',
-  )
+  const seul = classement('s1', SEUILS.questionsQuiz, ['j1'])
+  assert.ok(buildProgress({ players: [joueur('j1')], ...seul }).every(g => g.gain.quiz === 0), 'seul : pas de podium')
 
   const vrai = classement('s1', SEUILS.questionsQuiz, quatre)
   const gains = buildProgress({ players, ...vrai })
@@ -172,6 +181,23 @@ test('un quiz n’a de podium qu’à partir de cinq questions et quatre joueurs
   assert.equal(de(gains, 'j1')!.releve.quizGagnes, 1)
   assert.equal(de(gains, 'j3')!.releve.podiumsQuiz, 1)
   assert.equal(de(gains, 'j4')!.releve.podiumsQuiz, 0)
+})
+
+test('le podium d’un quiz a une marche de moins que la salle : le dernier n’y monte jamais', () => {
+  const podium = (n: number) => {
+    const joueurs = ids(n)
+    const gains = buildProgress({ players: joueurs.map(id => joueur(id)), ...classement('s1', 5, joueurs) })
+    return joueurs.map(id => de(gains, id)!.gain.quiz - (id === 'j1' ? XP.sansFaute : 0))
+  }
+  // À deux, le second aurait gagné quinze points à perdre le duel.
+  assert.deepEqual(podium(2), [XP.podiumQuiz[0], 0])
+  assert.deepEqual(podium(3), [XP.podiumQuiz[0], XP.podiumQuiz[1], 0])
+  assert.deepEqual(podium(4), [...XP.podiumQuiz, 0])
+
+  // Deux premiers ex æquo d'un duel gagnent tous les deux : ils sont premiers.
+  const egalite = quiz('s1', 5, ['j1', 'j2'], () => ({}))
+  const gains = buildProgress({ players: [joueur('j1'), joueur('j2')], ...egalite })
+  assert.deepEqual(['j1', 'j2'].map(id => de(gains, id)!.gain.quiz), [XP.podiumQuiz[0] + XP.sansFaute, XP.podiumQuiz[0] + XP.sansFaute])
 })
 
 test('deux premiers ex æquo d’un quiz touchent chacun la première place', () => {
@@ -231,8 +257,7 @@ function vraieSoiree() {
   const joueurs = ids(6)
   const players = joueurs.map(id => joueur(id))
   const parties = ['s1', 's2', 's3'].map(s => classement(s, 5, joueurs))
-  // j6 n'a répondu à rien : il ne fait pas partie des joueurs de la salle,
-  // qui en compte donc cinq — sous le seuil d'une soirée. Il répond faux.
+  // j6 répond faux à tout : il est de la salle, sans jamais marquer.
   for (const p of parties) for (const l of p.answers) if (l.playerId === 'j6') Object.assign(l, { answered: true, correct: false, choice: 1, ms: 5_000 })
   return { players, joueurs, ...soiree(...parties) }
 }
@@ -251,17 +276,24 @@ test('le podium de la soirée et l’assiduité ne se décident qu’à la clôt
   assert.equal(de(close, 'j4')!.gain.soiree, XP.assiduite, 'hors du podium, l’assiduité reste')
 })
 
-test('une soirée trop courte, ou trop peu peuplée, n’a ni podium ni assiduité', () => {
-  const quatre = ids(6)
-  const players = quatre.map(id => joueur(id))
-  const courte = soiree(classement('s1', 5, quatre), classement('s2', 5, quatre))
+test('une soirée trop courte, ou jouée seul, n’a ni podium ni assiduité', () => {
+  const six = ids(6)
+  const players = six.map(id => joueur(id))
+  const courte = soiree(classement('s1', 5, six), classement('s2', 5, six))
   const gains = buildProgress({ players, ...courte }, { cloture: true })
   assert.ok(gains.every(g => g.gain.soiree === 0), 'dix questions ne font pas une soirée')
 
-  const cinq = ids(5)
-  const peu = soiree(...['s1', 's2', 's3'].map(s => classement(s, 5, cinq)))
-  const petits = buildProgress({ players: cinq.map(id => joueur(id)), ...peu }, { cloture: true })
-  assert.ok(petits.every(g => g.gain.soiree === 0), 'cinq joueurs ne font pas une soirée')
+  const seul = soiree(...['s1', 's2', 's3'].map(s => classement(s, 5, ['j1'])))
+  const solitaire = buildProgress({ players: [joueur('j1')], ...seul }, { cloture: true })
+  assert.ok(solitaire.every(g => g.gain.soiree === 0), 'seul, on ne fait pas une soirée')
+})
+
+test('à deux, la soirée a son podium — une seule marche — et son assiduité', () => {
+  const deux = ids(2)
+  const tete = soiree(...['s1', 's2', 's3'].map(s => classement(s, 5, deux)))
+  const gains = buildProgress({ players: deux.map(id => joueur(id)), ...tete }, { cloture: true })
+  assert.equal(de(gains, 'j1')!.gain.soiree, XP.podiumSoiree[0] + XP.assiduite)
+  assert.equal(de(gains, 'j2')!.gain.soiree, XP.assiduite, 'le second d’un tête-à-tête n’est pas sur le podium')
 })
 
 test('l’expérience ne redescend jamais d’un quiz à l’autre, même quand le classement se renverse', () => {
@@ -287,15 +319,15 @@ test('l’expérience ne redescend jamais d’un quiz à l’autre, même quand 
   }
 })
 
-test('l’animateur joue hors concours chez lui, et un invité anonyme ne gagne rien', () => {
+test('un invité anonyme ne gagne rien, et garde sa place dans la salle', () => {
   const joueurs = ids(4)
-  const players = [joueur('j1', 'profil-animateur'), joueur('j2'), joueur('j3', null), joueur('j4')]
+  const players = [joueur('j1'), joueur('j2'), joueur('j3', null), joueur('j4')]
   const partie = classement('s1', 5, joueurs)
-  const gains = buildProgress({ players, ...partie }, { horsConcours: new Set(['profil-animateur']) })
-  assert.equal(de(gains, 'j1'), undefined, 'il connaît les réponses de ses propres quiz : il ne gagne rien')
+  const gains = buildProgress({ players, ...partie })
   assert.equal(de(gains, 'j3'), undefined, 'sans profil, rien à créditer')
-  // Les autres gardent leur rang : celui qui joue hors concours reste dans la salle.
+  // Troisième, il prend la dernière marche : j4 reste quatrième.
   assert.equal(de(gains, 'j2')!.gain.quiz, XP.podiumQuiz[1])
+  assert.equal(de(gains, 'j4')!.gain.quiz, 0)
 })
 
 // ── 5. La courbe ──────────────────────────────────────────────────────────
