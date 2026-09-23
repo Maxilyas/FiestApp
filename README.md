@@ -406,6 +406,33 @@ Le script simule une salle entière : il se connecte comme l'animateur (`ADMIN_L
 
 Ce qui restait au podium, c'étaient les marques d'homonymie (« Camille (2) »), recalculées pour chaque ligne : gardées en mémoire jusqu'à la prochaine arrivée, le prochain renommage ou la prochaine exclusion, elles ont ramené à elles seules une rediffusion du podium de 2,9 s à 17 ms à 150 invités, et de 110 s à 101 ms à 500. Les deux corrections ensemble, elle tient en quelques millisecondes. `server/test/` garde ces coûts à distance : une question complète à 300 invités en moins de 3 s, un podium en moins de 300 ms, et N + 3 lignes décorées par diffusion — c'était N².
 
+## La tablée : une soirée jouée par des agents
+
+Les tests disent si le code fait ce qu'on a voulu. Ils ne disent pas si la grand-mère trouve « Jouer sans compte », si une animatrice comprend l'éditeur du premier coup, ni ce que devient l'écran d'un téléphone quand le clavier s'ouvre. **La tablée** fait jouer une soirée entière à des agents Claude qui incarnent des invités et une animatrice — chacun sur son appareil, dans un vrai navigateur —, puis leur demande ce qui les a gênés.
+
+```bash
+npm run tablee -- --profil "Camille/camille.d/🦊"
+```
+
+La régie (`server/scripts/tablee/regie.ts`) démarre un vrai serveur sur des bases jetables, un Chromium et une porte locale ; elle reconstruit le client s'il est plus vieux que ses sources. Elle crée le compte d'une animatrice à activer par son lien — comme un ami à qui l'administrateur ouvre un espace, bibliothèque vide — et les profils de joueurs demandés. Chaque agent joue ensuite par gestes, un par commande :
+
+```bash
+node server/scripts/tablee/pilote.mjs jeanne appareil petit-telephone
+node server/scripts/tablee/pilote.mjs jeanne scanner                  # le QR de l'écran commun
+node server/scripts/tablee/pilote.mjs jeanne toucher "Jouer sans compte"
+node server/scripts/tablee/pilote.mjs jeanne question                 # attend la prochaine question
+node server/scripts/tablee/pilote.mjs jeanne repondre 2
+node server/scripts/tablee/pilote.mjs jeanne capture                  # une photo de l'écran
+```
+
+`pilote.mjs aide` les liste tous : lire l'écran (l'arbre d'accessibilité, chaque élément avec sa référence), toucher, écrire, lever les yeux vers l'écran commun, couper le réseau, mettre le téléphone en veille, agrandir le texte, voir en daltonien, parler à la salle… Le clavier du téléphone est simulé : il s'ouvre au toucher d'un champ et cache le bas de l'écran, comme en vrai.
+
+Avec Claude Code, **`/tablee`** fait tout : la régie, huit agents — une animatrice qui découvre l'application et sept invités aux profils variés (la grand-mère au petit téléphone et au texte agrandi, l'ado qui cherche la faille, la joueuse qui veut son profil, le retardataire au réseau capricieux, celle qui n'a pas le QR, l'homonyme daltonienne, le lecteur d'écran) —, puis la synthèse de leurs retours, vérifiés un à un. Les fiches des personnages, leurs consignes et le modèle de retour sont dans `.claude/skills/tablee/` : une fiche de plus, c'est un invité de plus.
+
+Tout ce que la soirée laisse va dans `export/tablee/<date-heure>/`, hors de git : le journal de chaque geste, les captures, ce que les navigateurs ont signalé, le journal du serveur, les deux bases et les retours bruts. Les synthèses, elles, se versionnent dans `retours/`.
+
+Playwright n'est pas une dépendance du dépôt : la régie le prend dans le dépôt s'il y est, sinon parmi les modules globaux (`npm install -g playwright`, puis `npx playwright install chromium`) — sur Claude Code en ligne, il est déjà installé.
+
 ## Identité visuelle
 
 Direction **« Velours »** (choisie le 8 septembre 2026, elle remplace « Salsa nocturne ») : un noir chaud éclairé d'un seul halo, du champagne pour ce qui compte, une serif pour ce qui se lit de loin. Tout est dans `client/src/styles.css`, piloté par une vingtaine de variables en tête de fichier — les couleurs, les deux polices, les rayons.
