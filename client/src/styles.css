@@ -3392,6 +3392,8 @@ h3 > .icon {
 .repli > summary::-webkit-details-marker { display: none; }
 .repli > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 6px; }
 .repli-compte { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* L'avatar qu'on porte, dans le titre de « Mon avatar » : un aperçu, pas un bouton. */
+.repli-avatar { font-size: 1.5rem; line-height: 1; }
 .repli-chevron { color: var(--accent-text); transition: transform 0.2s ease; }
 .repli[open] .repli-chevron { transform: rotate(180deg); }
 .repli-corps { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }

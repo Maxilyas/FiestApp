@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react'
 import { api } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
@@ -180,11 +180,20 @@ export function ProfilApp() {
         </div>
       </div>
 
-      <div className="card">
-        <h3>
-          <Icon name="users" />
-          Mon avatar
-        </h3>
+      <Repli
+        id="avatar"
+        icone="users"
+        titre="Mon avatar"
+        apercu={
+          <Avatar
+            className="repli-avatar"
+            avatar={profil.avatar}
+            finition={profil.finition}
+            eclat={brille(profil.avatar)}
+            legendaire={profil.legendaire ?? undefined}
+          />
+        }
+      >
         <div className="emoji-grid" role="group" aria-label="Choisir mon avatar">
           {AVATARS.map(a => (
             <button
@@ -208,12 +217,12 @@ export function ProfilApp() {
         {profil.legendaire && (
           <p className="muted small">Choisir un emoji ôte ton avatar légendaire : on porte l'un ou l'autre.</p>
         )}
-      </div>
+      </Repli>
 
       {/* Trois catalogues repliés : douze médaillons, huit finitions et trente
           hauts faits allongeaient la page avant même sa fiche. On les déplie
           d'un toucher sur le titre, qui dit déjà où l'on en est. */}
-      <Repli icone="crown" titre="Avatars légendaires" compte={`${profil.legendaires.length} / 12`}>
+      <Repli id="legendaires" icone="crown" titre="Avatars légendaires" compte={`${profil.legendaires.length} / 12`}>
         <p className="muted small">
           Douze médaillons, qui ne se gagnent que par un haut fait. Celui que tu portes remplace ton
           emoji sur tous les écrans.
@@ -227,7 +236,7 @@ export function ProfilApp() {
         />
       </Repli>
 
-      <Repli icone="trophy" titre="Finitions" compte={`${profil.ouvertes.length} / ${FINITIONS.length}`}>
+      <Repli id="finitions" icone="trophy" titre="Finitions" compte={`${profil.ouvertes.length} / ${FINITIONS.length}`}>
         <div className="finitions">
           {/* Par défaut, la plus belle qu'on a : chaque niveau qui en ouvre
               une nouvelle la fait porter d'office. On en épingle une autre si
@@ -270,6 +279,7 @@ export function ProfilApp() {
       </Repli>
 
       <Repli
+        id="hauts-faits"
         icone="star"
         titre="Hauts faits"
         compte={`${profil.hautsFaits.filter(h => h.fois > 0).length} / ${profil.hautsFaits.length}`}
@@ -287,11 +297,7 @@ export function ProfilApp() {
         <FicheCarriere fiche={profil.fiche} partie="essentiel" />
         {/* Quatre chiffres d'abord ; les huit autres, les courbes et les
             catégories d'un toucher. */}
-        <details className="repli-interne">
-          <summary>
-            Tous mes chiffres
-            <Icon name="chevron-down" className="repli-chevron" />
-          </summary>
+        <Deplier id="fiche" titre="Tous mes chiffres">
           <FicheCarriere fiche={profil.fiche} partie="reste" />
           <Courbes soirees={profil.soirees} />
           {Object.keys(profil.categories).length > 0 && (
@@ -300,14 +306,14 @@ export function ProfilApp() {
               <Categories categories={profil.categories} />
             </>
           )}
-        </details>
+        </Deplier>
       </div>
 
-      <Repli icone="award" titre="Mes prix" compte={String(prix.length)} vide={prix.length === 0}>
+      <Repli id="prix" icone="award" titre="Mes prix" compte={String(prix.length)} vide={prix.length === 0}>
         <Vitrine badges={prix} />
       </Repli>
 
-      <Repli icone="list" titre="Mes soirées" compte={String(profil.soirees.length)} vide={profil.soirees.length === 0}>
+      <Repli id="soirees" icone="list" titre="Mes soirées" compte={String(profil.soirees.length)} vide={profil.soirees.length === 0}>
         {profil.soirees.map(s => (
           <div key={s.soireeId} className="soiree-row">
             <span className="soiree-quand">
@@ -349,25 +355,64 @@ export function ProfilApp() {
   )
 }
 
+/** Les sections que ce téléphone avait laissées ouvertes. */
+const CLE_OUVERTES = 'quizz.profil.ouvertes'
+
+function lireOuvertes(): Set<string> {
+  // Sous try/catch : des cookies bloqués donnaient une page noire.
+  try {
+    const liste: unknown = JSON.parse(localStorage.getItem(CLE_OUVERTES) ?? '[]')
+    return new Set(Array.isArray(liste) ? liste.filter((x): x is string => typeof x === 'string') : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function retenirOuverte(id: string, ouverte: boolean) {
+  try {
+    const ouvertes = lireOuvertes()
+    if (ouverte) ouvertes.add(id)
+    else ouvertes.delete(id)
+    localStorage.setItem(CLE_OUVERTES, JSON.stringify([...ouvertes]))
+  } catch {
+    // Stockage refusé : la page se rouvrira repliée, comme la première fois.
+  }
+}
+
+/**
+ * Ouverte ou non au dernier passage, et retenue à chaque toucher : la page se
+ * rouvre comme on l'a laissée. Lue une fois, au premier affichage ; ensuite,
+ * c'est le navigateur qui ouvre et referme.
+ */
+function useSouvenir(id: string) {
+  const [open] = useState(() => lireOuvertes().has(id))
+  return { open, onToggle: (e: SyntheticEvent<HTMLDetailsElement>) => retenirOuverte(id, e.currentTarget.open) }
+}
+
 /**
  * Une section du profil qu'on déplie d'un toucher sur son titre. Repliée
- * d'abord ; son titre dit où l'on en est — « 3 / 12 » —, de quoi donner envie
- * d'ouvrir. Vide, elle ne montre que son titre et son zéro : un chevron y
- * promettrait quelque chose à déplier.
+ * d'abord ; son titre dit où l'on en est — « 3 / 12 », ou l'avatar qu'on
+ * porte —, de quoi donner envie d'ouvrir. Vide, elle ne montre que son titre
+ * et son zéro : un chevron y promettrait quelque chose à déplier.
  */
 function Repli({
+  id,
   icone,
   titre,
   compte,
+  apercu,
   vide,
   children,
 }: {
+  id: string
   icone: IconName
   titre: string
-  compte: string
+  compte?: string
+  apercu?: ReactNode
   vide?: boolean
   children: ReactNode
 }) {
+  const souvenir = useSouvenir(id)
   const tete = (
     <>
       <h3>
@@ -375,7 +420,8 @@ function Repli({
         {titre}
       </h3>
       <span className="repli-compte">
-        <span className="muted small">{compte}</span>
+        {apercu}
+        {compte !== undefined && <span className="muted small">{compte}</span>}
         {/* Vide, la place du chevron reste : les comptes s'alignent. */}
         {vide ? <span className="icon" aria-hidden="true" /> : <Icon name="chevron-down" className="repli-chevron" />}
       </span>
@@ -389,9 +435,23 @@ function Repli({
     )
   }
   return (
-    <details className="card repli">
+    <details className="card repli" {...souvenir}>
       <summary className="card-head">{tete}</summary>
       <div className="repli-corps">{children}</div>
+    </details>
+  )
+}
+
+/** Un repli dans une carte — « Tous mes chiffres » : un lien plutôt qu'un titre. */
+function Deplier({ id, titre, children }: { id: string; titre: string; children: ReactNode }) {
+  const souvenir = useSouvenir(id)
+  return (
+    <details className="repli-interne" {...souvenir}>
+      <summary>
+        {titre}
+        <Icon name="chevron-down" className="repli-chevron" />
+      </summary>
+      {children}
     </details>
   )
 }
