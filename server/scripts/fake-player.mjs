@@ -1,7 +1,7 @@
 // Joueur fantôme pour tester sans deuxième téléphone :
-//   node scripts/fake-player.mjs http://localhost:3001 [Nom] [durée-en-s] [--slug romane]
+//   node scripts/fake-player.mjs http://localhost:3001 [Nom] [durée-en-s] [--slug demo]
 // Il rejoint la soirée de l'espace donné (`--slug`, sinon QUIZ_SLUG, sinon
-// « romane ») et répond au hasard à chaque question du quiz, avec un petit
+// « demo ») et répond au hasard à chaque question du quiz, avec un petit
 // délai aléatoire pour imiter un vrai doigt. Utile aussi pour simuler 50
 // invités d'un coup (voir README).
 import { io } from 'socket.io-client'

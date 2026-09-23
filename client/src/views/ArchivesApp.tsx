@@ -65,7 +65,7 @@ export function ArchivesApp() {
       <header className="recap-header">
         <span className="label">{list.space?.title}</span>
         <h1>Les soirées</h1>
-        <p className="join-sub">L'historique, une fête après l'autre</p>
+        <p className="join-sub">L'historique, une soirée après l'autre</p>
         <hr className="hairline" />
       </header>
       <SpaceNav current="soirees" />

@@ -2,14 +2,14 @@
 // et ouvrir un socket d'écran commun avec sa session.
 //
 // L'identifiant et le mot de passe viennent de ADMIN_LOGIN / ADMIN_PASSWORD —
-// « antoine » / « romane » par défaut, comme le serveur chez soi.
+// « antoine » / « demo » par défaut, comme le serveur chez soi.
 import { io } from 'socket.io-client'
 
 /** Se connecte par HTTP et rend le cookie de session, tel que le navigateur le renverrait. */
 export async function loginCookie(
   url,
   login = process.env.ADMIN_LOGIN ?? 'antoine',
-  password = process.env.ADMIN_PASSWORD ?? 'romane',
+  password = process.env.ADMIN_PASSWORD ?? 'demo',
 ) {
   const res = await fetch(`${url.replace(/\/+$/, '')}/api/auth/login`, {
     method: 'POST',
@@ -29,8 +29,8 @@ export function hostSocket(url, cookie) {
   return io(url, { transports: ['websocket'], forceNew: true, extraHeaders: { Cookie: cookie } })
 }
 
-/** Le nom de l'espace dans l'adresse, pour les invités : `--slug`, sinon QUIZ_SLUG, sinon « romane ». */
+/** Le nom de l'espace dans l'adresse, pour les invités : `--slug`, sinon QUIZ_SLUG, sinon « demo ». */
 export function slugArg(argv = process.argv) {
   const i = argv.indexOf('--slug')
-  return (i >= 0 && argv[i + 1]) || process.env.QUIZ_SLUG || 'romane'
+  return (i >= 0 && argv[i + 1]) || process.env.QUIZ_SLUG || 'demo'
 }

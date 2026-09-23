@@ -3,7 +3,7 @@
 // les questions écrites avant.
 //
 //   npm run migrate -w server -- --to libsql://xxx.turso.io --token eyJ...
-//   … --from-slug romane --slug romane     (l'espace source et l'espace cible, par leur nom dans l'adresse)
+//   … --from-slug demo --slug demo         (l'espace source et l'espace cible, par leur nom dans l'adresse)
 //
 // Par défaut la source est la base locale (server/data/quizzes.db) et les
 // quiz vont de l'espace par défaut de la source à l'espace par défaut de la

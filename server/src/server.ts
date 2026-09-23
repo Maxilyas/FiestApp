@@ -59,7 +59,7 @@ export interface QuizServerOptions {
  * Le mot de passe d'amorçage quand `ADMIN_PASSWORD` n'est pas donné. Il est
  * écrit dans le dépôt : chez soi il dépanne, en ligne il ne crée rien.
  */
-export const MOT_DE_PASSE_PAR_DEFAUT = 'romane'
+export const MOT_DE_PASSE_PAR_DEFAUT = 'demo'
 
 /**
  * Un démarrage refusé pour une raison que l'hébergeur doit lire telle quelle :

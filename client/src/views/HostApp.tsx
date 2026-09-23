@@ -653,8 +653,9 @@ export function HostApp() {
                     <FinalPodium rows={teamPodium} />
                     <TeamBoard teams={teams} showGamePoints />
                     <p className="muted center">
-                      Le chiffre cerclé est celui à reporter sur le tableau des trois jeux. En
-                      champagne, la moyenne par membre — c'est elle qui classe les équipes.
+                      Le chiffre cerclé : les points de classement du quiz, auxquels les prix
+                      s'ajoutent pour désigner l'équipe gagnante. En champagne, la moyenne par
+                      membre — c'est elle qui classe les équipes.
                     </p>
                   </>
                 ) : (
@@ -1043,8 +1044,8 @@ export function HostApp() {
                   <h2>Les équipes</h2>
                   <TeamBoard teams={teams} showGamePoints />
                   <p className="muted small">
-                    Classées à la moyenne par membre, en champagne. Le chiffre cerclé est ce que le
-                    quiz rapporte au tableau des trois jeux.
+                    Classées à la moyenne par membre, en champagne. Le chiffre cerclé : leurs points
+                    de classement, auxquels les prix s'ajoutent pour désigner l'équipe gagnante.
                   </p>
                 </section>
               )}

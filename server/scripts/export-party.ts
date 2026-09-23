@@ -2,10 +2,10 @@
 // qui s'ouvrent dans Excel — une ligne par invité avec une colonne par
 // question, une ligne par question, une ligne par équipe.
 //
-//   npm run export -- https://quizz-romane-30.onrender.com
+//   npm run export -- https://ton-app.onrender.com
 //   npm run export -- --db libsql://xxx.turso.io --token eyJ...
 //   npm run export                         (la base locale, chez soi)
-//   … --slug romane                        (l'espace, par son nom dans l'adresse ; sinon celui de l'administrateur)
+//   … --slug demo                          (l'espace, par son nom dans l'adresse ; sinon celui de l'administrateur)
 //   … --soiree 2026-09-19-k7x2q            (une soirée de l'historique, cf. /<espace>/soirees)
 //   … --out dossier                        (par défaut : export/)
 //

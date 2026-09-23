@@ -14,7 +14,7 @@ export function JoinHead({
   eyebrow: string
   title: string
   sub?: string
-  /** Un titre en plusieurs mots : moins grand que le seul prénom de Romane. */
+  /** Un titre en plusieurs mots : moins grand qu'un seul prénom. */
   compact?: boolean
 }) {
   return (

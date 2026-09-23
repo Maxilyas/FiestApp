@@ -288,12 +288,12 @@ function lireEstimation(texte: string): { target: number; unit: string } | null 
  * une par une est long ; les taper dans un carnet puis coller l'ensemble
  * l'est beaucoup moins.
  *
- *   Quelle danse Romane préfère-t-elle ?
- *   * La salsa
- *   Le tango
- *   La bachata
+ *   Quelle est la capitale de l'Australie ?
+ *   Sydney
+ *   * Canberra
+ *   Melbourne
  *
- *   Combien de cours a-t-elle pris cette année ?
+ *   Combien de pays composent l'Union européenne ?
  *   = 42 cours
  *
  * Une ligne vide sépare deux questions. L'étoile marque la bonne réponse ;

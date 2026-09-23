@@ -31,7 +31,7 @@ import type { PublicPlayer, TeamBonus } from '../../../shared/types'
  */
 
 export interface ExportTarget {
-  /** Le nom de l'espace dans l'adresse (`romane`). Absent : l'espace par défaut. */
+  /** Le nom de l'espace dans l'adresse (`demo`). Absent : l'espace par défaut. */
   slug?: string
   /** Une soirée de l'historique plutôt que celle en cours. */
   archiveId?: string
@@ -124,8 +124,10 @@ export async function reviewFromDatabase(dbUrl: string, token?: string, target: 
         createdAt: Number(r.created_at),
       }),
     ),
-    // Les copies exactes des parties vivent sur le disque du serveur, pas
-    // dans la base : ici, tout passe par la bibliothèque.
+    // Les copies exactes des parties sont aussi au miroir, dans l'état de
+    // chaque partie (`party_sessions`), mais ce repli ne les relit pas : tout
+    // passe par la bibliothèque, et un quiz retouché depuis s'y lit de
+    // travers — le bilan le signale. L'adresse du serveur, elle, les a.
     packsBySession: new Map(),
     library,
   })

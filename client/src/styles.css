@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════
-   QUIZZ ROMANE 30 — direction « Velours »
+   FIESTAPP — direction « Velours »
    Un noir chaud, du champagne, une serif : la soirée habillée, pas décorée.
 
    Trois règles gouvernent tout ce fichier :
@@ -103,9 +103,9 @@
    commun en Velours devient un rectangle gris où plus rien ne se lit. Sur
    demande de l'animateur (bouton de la console, choix mémorisé), la page
    passe en Ivoire : fond crème, le noir chaud devient l'encre, le champagne
-   s'assombrit pour rester lisible — les teintes des feuilles imprimées de la
-   soirée (jour-j/). Seules les variables changent ; la mise en page, les
-   tailles et les polices sont les mêmes.
+   s'assombrit pour rester lisible — les teintes des fiches imprimées du
+   bilan. Seules les variables changent ; la mise en page, les tailles et les
+   polices sont les mêmes.
 
    Ne concerne que l'écran commun (client/src/theme.ts) : les téléphones des
    invités restent en Velours, le noir y ménage les yeux dans le noir. */
@@ -1966,8 +1966,8 @@ h3 > .icon {
 /* Le détail passe à la ligne plutôt que d'être coupé net sur un téléphone. */
 .team-sub { font-size: 0.75rem; font-weight: 400; color: var(--muted); white-space: normal; line-height: 1.25; }
 
-/* Les points rapportés au tableau des trois jeux : un chiffre à recopier,
-   volontairement distinct du score du quiz pour qu'on ne les confonde pas. */
+/* Les points de classement du quiz, auxquels les prix s'ajoutent :
+   volontairement distincts du score du quiz pour qu'on ne les confonde pas. */
 .team-gamepoints {
   font-family: var(--serif);
   font-weight: 600;

@@ -26,8 +26,8 @@ export function initDb(dbPath: string): DB {
       space_id   TEXT
     );
 
-    -- Les équipes de la soirée : le quiz est individuel, mais le tableau des
-    -- trois jeux se joue par équipe.
+    -- Les équipes de la soirée : chacun joue le quiz pour soi, et ses points
+    -- font aussi ceux de son équipe.
     CREATE TABLE IF NOT EXISTS teams (
       id         TEXT PRIMARY KEY,
       name       TEXT NOT NULL,
