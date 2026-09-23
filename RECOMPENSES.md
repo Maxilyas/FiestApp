@@ -72,7 +72,7 @@ Deux règles ne bougent pas :
 | 2 | ★ **La galerie des ombres** — les légendaires pas encore gagnés se montrent en silhouette, avec leur condition et la jauge (« 1 / 3 ») | le désir naît de ce qu'on voit sans l'avoir | lot 1 |
 | 3 | ★ **La finition portée d'office** — la meilleure débloquée s'applique toute seule ; on peut en choisir une plus sobre | personne n'allait la chercher sur `/profil` | lot 1 |
 | 4 | ★ **Aurore (niv. 20) et Constellation (niv. 25)** — deux finitions au-delà du Prisme | un horizon pour ceux qui ont tout | lot 1 |
-| 5 | ★ **Un Éclat qu'on reconnaît** — un reflet irisé qui passe sur l'emoji, jamais l'étoile du Prisme | la rareté doit se voir | lot 1 |
+| 5 | ★ **Un Éclat qu'on reconnaît** — des paillettes qui scintillent autour de l'emoji, jamais l'étoile du Prisme | la rareté doit se voir | lot 1 |
 | 6 | L'Éclat garanti à la persévérance — une chance sur 40, garantie à la 60ᵉ soirée sans éclat | le hasard sans la frustration infinie | plus tard |
 | 7 | Le cadre de soirée — un cadre commémoratif que portent tous ceux qui y étaient (« les 30 ans de Romane ») | un souvenir qu'on porte | plus tard |
 | 8 | ★ **Les titres** — un titre sous le prénom, tiré de ses hauts faits (« L'Oracle », « Lanterne Rouge ×3 ») | un mot vaut mieux qu'une icône au mur | plus tard |
@@ -174,14 +174,17 @@ questions (temps de lecture) — chacune se pose sur ce lot sans le défaire.
 ### 5.1 La soirée qui se range toute seule
 
 - **Après chaque quiz** — au podium, puis à « Terminer » —, la soirée
-  s'archive (`archiveParty`) et l'expérience du quiz se crédite. L'historique
+  s'archive (`apresQuiz`) et l'expérience du quiz se crédite. L'historique
   est donc toujours à jour, et « Sauvegarder » disparaît.
 - **« Clore la soirée »** (`host:closeParty`) est le seul geste de fin. Il
   range la soirée une dernière fois, sous le titre qu'on lui donne, crédite
   ce qui ne se décide qu'à la fin — le podium de la soirée, les prix, les
   hauts faits, les paliers de carrière, les avatars débloqués —, envoie à
-  chaque téléphone son récapitulatif (`soiree:close`), puis repart d'une
-  soirée vierge. Il remplace « Sauvegarder » **et** « Nouvelle soirée ».
+  chaque téléphone sa fin de soirée (`soiree:fin`) et à l'écran commun celle
+  de la salle (`soiree:cloture`), puis repart d'une soirée vierge. La fin ne
+  part qu'une fois la soirée effacée : un miroir qui refuse d'effacer laisse
+  la soirée entière, et personne ne lit « c'est fini ». Il remplace
+  « Sauvegarder » **et** « Nouvelle soirée ».
 - **« C'était un essai »** (`host:discardParty`) efface la soirée sans rien
   garder : son archive automatique et tout ce qu'elle avait crédité aux
   profils repartent avec elle.
@@ -208,7 +211,7 @@ questions (temps de lecture) — chacune se pose sur ce lot sans le défaire.
 | | sans-faute : toutes ses questions à choix justes, cinq au moins | 15 |
 | la clôture³ | podium de la soirée | 60 / 40 / 25 |
 | | assiduité : répondu à 90 % des questions posées, quinze au moins | 10 |
-| un haut fait | selon le haut fait (§5.3) | 5 à 100 |
+| un haut fait | selon le haut fait (§5.3) | 5 à 60 |
 
 1. Seulement si la question a été posée à trois joueurs au moins.
 2. Seulement pour un quiz d'au moins cinq questions, où quatre joueurs au
@@ -293,8 +296,8 @@ qu'une fois chacun et se jugent sur la carrière entière.
 | 🎖️ La Légende — niveau | 10 | 20 | 30 |
 
 Rapportent 10, 25 et 50 points d'expérience. Les anciens badges de carrière
-(« Le Fidèle », « Le Pilier »…) ont été repris par ce catalogue : le recalcul
-les redécerne sous leurs nouveaux noms.
+(« Le Fidèle », « Le Pilier »…) laissent place à ce catalogue : le recalcul
+les retire, et décerne les paliers que la carrière de chacun atteint.
 
 **La rareté** reste calculée (part des profils qui le portent), et les prix
 de soirée (L'Éclair, Le Cancre…) restent sur l'étagère, comme avant.
@@ -332,18 +335,18 @@ vit. Chacun se débloque par un haut fait, et **ne s'achète ni ne s'accélère*
 - La meilleure finition débloquée se **porte d'office** (`auto`) ; choisir
   une finition l'épingle.
 - Mat 1, Argent 3, Or 6, Holo 10, Prisme 15, **Aurore 20**, **Constellation 25**.
-- L'**Éclat** garde sa règle (une chance sur quarante par soirée, sur l'emoji
-  joué ce soir-là) et gagne sa propre signature — un reflet irisé qui passe —
-  au lieu de l'étoile du Prisme.
+- L'**Éclat** garde sa règle (une chance sur quarante par soirée qui compte,
+  sur l'emoji joué ce soir-là) et gagne sa propre signature — des paillettes
+  qui scintillent autour de l'emoji — au lieu de l'étoile du Prisme.
 - Au mur, le niveau s'écrit **« Niv. 15 »**, à la taille du prénom.
 
 ### 5.6 La carte de joueur
 
-Toucher un nom — classement de la salle d'attente, podium, écran de fin —
-ouvre sa carte : l'avatar en grand, avec ce qu'il porte ; le prénom du profil
-et le surnom du soir ; le niveau et sa jauge ; les hauts faits les plus rares ;
-les chiffres clés (soirées, précision, réflexe, meilleure série, quiz
-gagnés) ; et ce qu'il a fait ce soir. Pour un anonyme : ce qu'il a fait ce
+Sur le téléphone, toucher un nom du classement ouvre sa carte : l'avatar en
+grand, avec ce qu'il porte ; le nom du soir et le prénom du profil quand ils
+diffèrent ; le niveau ; ses légendaires ; ses récompenses les plus rares ;
+les chiffres clés (soirées, précision, quiz gagnés, hauts faits) ; et ce
+qu'il a fait ce soir. Pour un anonyme : ce qu'il a fait ce
 soir, et rien d'autre. Servie par `GET /s/<espace>/joueurs/<id>.json`, qui ne
 rend jamais un identifiant de connexion.
 
@@ -359,10 +362,12 @@ après soirée.
 
 ### 5.8 Le surnom de soirée
 
-Le renommage de l'animateur écrit un **surnom** (`alias`) sur l'invité, pour
-la soirée seulement : l'écran commun, le souvenir et le bilan l'affichent ;
-la fiche de l'invité et son profil gardent son prénom, et sa carte dit les
-deux (« Alice — « Marc » ce soir »). Un surnom s'efface d'un clic.
+Le renommage de l'animateur est un **surnom pour la soirée** : il remplace le
+nom de l'invité ce soir-là — écran commun, souvenir, bilan —, jamais le
+prénom de son profil, que la soirée suivante lui rend. Sa carte dit les deux
+(« « La Renarde » ce soir — Alice sur son profil »). Rien de plus n'était
+nécessaire : le profil gardait déjà son prénom, il manquait de le dire —
+dans le dialogue de l'animateur comme sur la carte.
 
 ### 5.9 Les catégories
 
@@ -385,9 +390,7 @@ propositions identiques.
 
 ## 6. Feuille de route
 
-**Lot 1 — en cours** : 1–5, 9, 12–21, 23–36, 40–44, 46–48. Le serveur est
-en place (clôture, barème, hauts faits, paliers, légendaires, recalcul) ;
-les écrans suivent.
+**Lot 1 — fait** : 1–5, 9, 12–21, 23–36, 40–44, 46–48.
 
 **Plus tard**, dans l'ordre où je les prendrais :
 
