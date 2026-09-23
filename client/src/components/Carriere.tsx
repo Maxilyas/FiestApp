@@ -98,7 +98,13 @@ export function GalerieLegendaires({
             <p className="small">Il a éclaté : c’est sa version rare, et toi seul l’as comme ça.</p>
           )}
           <p className="small">
-            {debloques.includes(choisi.key) ? 'Gagné par ' : 'Se gagne par '}
+            {/* Gagné avant que sa règle se durcisse : il le garde, mais la
+                règle du jour ne dit pas comment il l'a eu. */}
+            {debloques.includes(choisi.key)
+              ? progres.acquis < progres.requis
+                ? 'Gagné avant que sa règle se durcisse. Il se gagne aujourd’hui par '
+                : 'Gagné par '
+              : 'Se gagne par '}
             <b>{regleDe(choisi.condition, hautsFaits)}</b>
             {hf && hf.famille === 'soiree' && ` — ${hf.rule.charAt(0).toLowerCase()}${hf.rule.slice(1)}`}
             {!debloques.includes(choisi.key) && avancement(choisi.condition, hf, progres)}

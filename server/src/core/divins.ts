@@ -3,7 +3,7 @@ import { relevesDeSoiree } from './progress'
 import { indexerJournal, questionsDe, type QuizJoue } from './journal'
 import { SEUILS } from '../../../shared/profil'
 import { DIVINS, divin, type DivinDescendu } from '../../../shared/divins'
-import { legendairesDebloques } from '../../../shared/legendaires'
+import { legendairesDebloques, type Condition } from '../../../shared/legendaires'
 import type { PrixDeSoiree } from '../auth/profiles'
 
 /**
@@ -181,11 +181,12 @@ function dernierDuQuiz(q: QuizJoue, id: string, plusBas: number, plusHaut: numbe
 /**
  * Les Divins qu'un profil a vus descendre. Ceux d'une soirée se lisent dans
  * ses récompenses rangées, comme les hauts faits ; l'Arbre-Monde se déduit
- * des légendaires — il n'a pas de soirée à lui, et part avec le premier
- * légendaire qu'une soirée retirée lui reprendrait.
+ * des légendaires — ceux qu'il garde d'avant leur durcissement (`acquis`)
+ * compris. Il n'a pas de soirée à lui, et part avec le premier légendaire
+ * qu'une soirée retirée lui reprendrait.
  */
-export function divinsDebloques(recompenses: ReadonlyMap<string, number>): string[] {
-  const legendaires = new Set(legendairesDebloques(recompenses))
+export function divinsDebloques(recompenses: ReadonlyMap<string, number>, acquis?: ReadonlyMap<string, Condition>): string[] {
+  const legendaires = new Set(legendairesDebloques(recompenses, acquis))
   return DIVINS.filter(d =>
     d.key === 'dv:arbre' ? DOUZE_LEGENDAIRES.every(k => legendaires.has(k)) : (recompenses.get(d.key) ?? 0) > 0,
   ).map(d => d.key)
