@@ -2707,7 +2707,11 @@ h3 > .icon {
 /* Le profil rattaché, dans « Mon compte » : l'avatar et son niveau côte à côte. */
 .profil-lie { align-items: center; gap: 12px; margin-bottom: 10px; }
 .profil-lie p { margin: 2px 0 0; }
+/* Le nom, puis le niveau en marche : la barre prend toute la largeur. */
+.profil-identite { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .profil-identite h2 { display: flex; align-items: center; gap: 8px; }
+/* Le titre est déjà en ligne, avec son écart : pas de marge en plus. */
+.profil-identite h2 .niveau { margin-left: 0; }
 
 .finitions {
   display: grid;
@@ -3391,6 +3395,22 @@ h3 > .icon {
 .repli-chevron { color: var(--accent-text); transition: transform 0.2s ease; }
 .repli[open] .repli-chevron { transform: rotate(180deg); }
 .repli-corps { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+
+/* Un repli dans une carte : un lien plutôt qu'un titre. */
+.repli-interne > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  color: var(--accent-text);
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.repli-interne > summary::-webkit-details-marker { display: none; }
+.repli-interne > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+.repli-interne[open] .repli-chevron { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) {
   .repli-chevron { transition: none; }
 }

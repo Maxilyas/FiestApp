@@ -136,12 +136,28 @@ export function ProfilApp() {
           eclat={brille(profil.avatar)}
           legendaire={profil.legendaire ?? undefined}
         />
+        {/* Le niveau et sa barre, sous le nom : une carte « Niveau » redisait
+            ce que l'en-tête disait déjà, la pastille et l'expérience. */}
         <div className="profil-identite">
           <h2>
             {profil.name}
             <Niveau niveau={profil.niveau} big />
           </h2>
-          <p className="muted">{formatNumber(profil.xp)} points d'expérience</p>
+          <div
+            className="xp-bar"
+            role="progressbar"
+            aria-label={`Niveau ${profil.niveau}`}
+            aria-valuemin={0}
+            aria-valuemax={profil.requis || 1}
+            aria-valuenow={profil.requis > 0 ? profil.acquis : 1}
+          >
+            <div className="xp-fill" style={{ width: `${part}%` }} />
+          </div>
+          <p className="muted small">
+            {profil.requis > 0
+              ? `${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} vers le niveau ${profil.niveau + 1}`
+              : 'Au sommet'}
+          </p>
         </div>
       </header>
 
@@ -162,40 +178,6 @@ export function ProfilApp() {
             Rejoindre une soirée
           </button>
         </div>
-        {espace ? (
-          <p className="muted small">
-            « {espace.title} » — tes invités arrivent par{' '}
-            <code>{`${window.location.host}/${espace.slug}`}</code>, l'adresse que portent les QR de
-            tes tables.
-          </p>
-        ) : (
-          <p className="muted small">
-            Tu joues avec ce profil, d'une soirée à l'autre et d'un hôte à l'autre.
-          </p>
-        )}
-      </div>
-
-      <div className="card">
-        <div className="card-head">
-          <h3>
-            <Icon name="sparkles" />
-            Niveau {profil.niveau}
-          </h3>
-          <span className="muted small">
-            {profil.requis > 0
-              ? `${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} vers le niveau ${profil.niveau + 1}`
-              : 'au sommet'}
-          </span>
-        </div>
-        <div className="xp-bar">
-          <div className="xp-fill" style={{ width: `${part}%` }} />
-        </div>
-        <p className="muted small">
-          L'expérience se mérite : répondre, viser juste, trouver parmi les plus rapides, finir sur le
-          podium d'un quiz — et les hauts faits, à la clôture. Tout se gagne dès deux joueurs, et
-          l'animateur aussi, quand il joue. Rien de tout cela ne donne d'avantage pendant une soirée :
-          les points du quiz se gagnent pareil pour tout le monde, profil ou pas.
-        </p>
       </div>
 
       <div className="card">
@@ -302,57 +284,53 @@ export function ProfilApp() {
           <Icon name="bar-chart" />
           Ma fiche
         </h3>
-        <FicheCarriere fiche={profil.fiche} />
-        <Courbes soirees={profil.soirees} />
-        {Object.keys(profil.categories).length > 0 && (
-          <>
-            <h4 className="hf-groupe">Par catégorie</h4>
-            <Categories categories={profil.categories} />
-          </>
-        )}
+        <FicheCarriere fiche={profil.fiche} partie="essentiel" />
+        {/* Quatre chiffres d'abord ; les huit autres, les courbes et les
+            catégories d'un toucher. */}
+        <details className="repli-interne">
+          <summary>
+            Tous mes chiffres
+            <Icon name="chevron-down" className="repli-chevron" />
+          </summary>
+          <FicheCarriere fiche={profil.fiche} partie="reste" />
+          <Courbes soirees={profil.soirees} />
+          {Object.keys(profil.categories).length > 0 && (
+            <>
+              <h4 className="hf-groupe">Par catégorie</h4>
+              <Categories categories={profil.categories} />
+            </>
+          )}
+        </details>
       </div>
 
-      <div className="card">
-        <div className="card-head">
-          <h3>
-            <Icon name="award" />
-            Mes prix
-          </h3>
-          {prix.length > 0 && <span className="muted small">{prix.length}</span>}
-        </div>
+      <Repli icone="award" titre="Mes prix" compte={String(prix.length)} vide={prix.length === 0}>
         <Vitrine badges={prix} />
-      </div>
+      </Repli>
 
-      {profil.soirees.length > 0 && (
-        <div className="card">
-          <h3>
-            <Icon name="list" />
-            Mes soirées
-          </h3>
-          {profil.soirees.map(s => (
-            <div key={s.soireeId} className="soiree-row">
-              <span className="soiree-quand">
-                {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
-                {s.slug ? (
-                  <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
-                    {new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                  </a>
-                ) : (
-                  new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-                )}
-              </span>
-              <span className="soiree-detail">
-                {s.chez && `chez ${s.chez} · `}
-                {s.releve.reponses} réponse{s.releve.reponses > 1 ? 's' : ''}
-                {s.releve.justes > 0 && `, ${s.releve.justes} juste${s.releve.justes > 1 ? 's' : ''}`}
-                {/* `ordinal` connaît le « 1ᵉʳ » : à la main, on écrivait « 1ᵉ ». */}
-                {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${ordinal(s.releve.rang)}`}
-              </span>
-              <span className="soiree-xp">+{formatNumber(s.xp)}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <Repli icone="list" titre="Mes soirées" compte={String(profil.soirees.length)} vide={profil.soirees.length === 0}>
+        {profil.soirees.map(s => (
+          <div key={s.soireeId} className="soiree-row">
+            <span className="soiree-quand">
+              {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
+              {s.slug ? (
+                <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
+                  {new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </a>
+              ) : (
+                new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+              )}
+            </span>
+            <span className="soiree-detail">
+              {s.chez && `chez ${s.chez} · `}
+              {s.releve.reponses} réponse{s.releve.reponses > 1 ? 's' : ''}
+              {s.releve.justes > 0 && `, ${s.releve.justes} juste${s.releve.justes > 1 ? 's' : ''}`}
+              {/* `ordinal` connaît le « 1ᵉʳ » : à la main, on écrivait « 1ᵉ ». */}
+              {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${ordinal(s.releve.rang)}`}
+            </span>
+            <span className="soiree-xp">+{formatNumber(s.xp)}</span>
+          </div>
+        ))}
+      </Repli>
 
       {erreur && <p className="error">{erreur}</p>}
 
@@ -374,21 +352,45 @@ export function ProfilApp() {
 /**
  * Une section du profil qu'on déplie d'un toucher sur son titre. Repliée
  * d'abord ; son titre dit où l'on en est — « 3 / 12 » —, de quoi donner envie
- * d'ouvrir.
+ * d'ouvrir. Vide, elle ne montre que son titre et son zéro : un chevron y
+ * promettrait quelque chose à déplier.
  */
-function Repli({ icone, titre, compte, children }: { icone: IconName; titre: string; compte: string; children: ReactNode }) {
+function Repli({
+  icone,
+  titre,
+  compte,
+  vide,
+  children,
+}: {
+  icone: IconName
+  titre: string
+  compte: string
+  vide?: boolean
+  children: ReactNode
+}) {
+  const tete = (
+    <>
+      <h3>
+        <Icon name={icone} />
+        {titre}
+      </h3>
+      <span className="repli-compte">
+        <span className="muted small">{compte}</span>
+        {/* Vide, la place du chevron reste : les comptes s'alignent. */}
+        {vide ? <span className="icon" aria-hidden="true" /> : <Icon name="chevron-down" className="repli-chevron" />}
+      </span>
+    </>
+  )
+  if (vide) {
+    return (
+      <div className="card repli">
+        <div className="card-head">{tete}</div>
+      </div>
+    )
+  }
   return (
     <details className="card repli">
-      <summary className="card-head">
-        <h3>
-          <Icon name={icone} />
-          {titre}
-        </h3>
-        <span className="repli-compte">
-          <span className="muted small">{compte}</span>
-          <Icon name="chevron-down" className="repli-chevron" />
-        </span>
-      </summary>
+      <summary className="card-head">{tete}</summary>
       <div className="repli-corps">{children}</div>
     </details>
   )
