@@ -12,8 +12,9 @@
 // fin de soirée donnait à quelqu'un d'autre. Ils ne se décident plus qu'à la
 // clôture, sur la soirée entière.
 //
-// Une question ne rapporte d'expérience que posée à trois joueurs au moins :
-// chaque scénario a donc sa salle, deux figurants qui se trompent.
+// Une question ne rapporte d'expérience que posée à deux joueurs au moins :
+// chaque scénario a donc sa salle, deux figurants qui se trompent — Alice
+// reste seule à trouver, sans réflexe à partager.
 //
 // Chaque test a son propre serveur jetable : une soirée jouée dans l'un
 // fausserait l'historique et l'expérience de l'autre.
@@ -128,7 +129,7 @@ async function enCours(banc: Banc): Promise<{ id?: string; title?: string } | nu
   return ((await res.json()) as any).current
 }
 
-/** Deux figurants anonymes : avec eux, chaque question est posée à trois joueurs au moins. */
+/** Deux figurants anonymes : avec eux, Alice ne joue jamais seule. */
 async function figurants(banc: Banc): Promise<Invite[]> {
   return [await invite(banc.url, 'Bob', '🐻'), await invite(banc.url, 'Dora', '🐙')]
 }

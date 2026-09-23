@@ -2032,8 +2032,8 @@ try {
   }
   // Chaque question est posée à trois joueurs — Bob compte, même muet : elle
   // rapporte. Trois bonnes réponses d'Alice, seule à trouver : ni réflexe
-  // (il en faut trois pour un tiers le plus rapide), ni podium de quiz (il
-  // faut cinq questions).
+  // (il faut deux bonnes réponses pour un plus rapide), ni podium de quiz
+  // (il faut cinq questions).
   const attendu = QUESTIONS_PROFILS * (XP.reponse + XP.juste)
 
   const profilDe = async (cookie: string) =>

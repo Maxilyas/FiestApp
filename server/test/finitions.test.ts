@@ -581,7 +581,7 @@ test('l’expérience se crédite dès le podium, sans attendre « Terminer le q
     const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
     const host = await ecranCommun(banc.url, cookie)
     const tel = await invite(banc.url, 'Alice', '🦊', { cookie: profil })
-    // Une question ne rapporte que posée à trois joueurs au moins.
+    // Une question ne rapporte que posée à deux joueurs au moins.
     const salle = [await invite(banc.url, 'Bob', '🐻'), await invite(banc.url, 'Dora', '🐙')]
 
     const sessionId = await lancerQuiz(host, quiz)
