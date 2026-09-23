@@ -62,7 +62,7 @@ socket.on('player:removed', info => {
   // Un téléphone qui s'est re-présenté avec un jeton que la soirée ne connaît
   // plus : l'accusé de son `player:join` s'en est déjà chargé. Ce signal-là
   // ne sert qu'aux pages d'une ancienne version, qui ne lisent pas l'accusé.
-  if (info?.reason === 'unknown-token') return
+  if (info?.reason) return
   // On oublie l'identité : le téléphone revient à l'écran d'inscription.
   const slug = currentSlug()
   if (slug) forgetMe(slug)
@@ -82,6 +82,22 @@ socket.on('party:reset', () => {
   else setState({ me: null, views: {} })
   if (avait) showToast({ kind: 'info', message: 'Nouvelle soirée ! Rejoins-la pour jouer' })
 })
+
+// La soirée est close : le téléphone montre sa fin de soirée, et n'incarne
+// plus personne. Il garde son prénom : la soirée suivante le proposera.
+socket.on('soiree:fin', fin => {
+  const slug = currentSlug()
+  if (slug) oublierIdentite(slug)
+  setState({ fin, gain: null })
+})
+
+// Au podium d'un quiz : de quoi fêter un niveau, au lieu d'un simple toast.
+socket.on('player:gain', gain => setState({ gain }))
+
+// L'écran commun : la clôture à annoncer, et les montées de niveau du podium.
+// Le bandeau du dernier podium s'efface : la clôture prend tout l'écran.
+socket.on('soiree:cloture', cloture => setState({ cloture, progres: null }))
+socket.on('soiree:progres', progres => setState({ progres }))
 
 socket.on('toast', showToast)
 

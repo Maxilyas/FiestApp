@@ -46,6 +46,8 @@ export interface HautFaitDeCarriere {
   title: string
   /** Ce qu'on compte, tel qu'on l'écrit sous la jauge : « réponses envoyées ». */
   mesure: string
+  /** La même, au singulier — « 1 réponse envoyée », et « 0 » aussi, en français. */
+  mesureUne: string
   /** Bronze, argent, or. */
   paliers: readonly [number, number, number]
   valeur: (c: Carriere) => number
@@ -252,6 +254,7 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     emoji: '🎟️',
     title: 'L’Habitué',
     mesure: 'soirées jouées',
+    mesureUne: 'soirée jouée',
     paliers: [3, 10, 25],
     valeur: c => c.soirees,
   },
@@ -261,6 +264,7 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     emoji: '💬',
     title: 'Le Bavard',
     mesure: 'réponses envoyées',
+    mesureUne: 'réponse envoyée',
     paliers: [100, 500, 2000],
     valeur: c => c.reponses,
   },
@@ -270,6 +274,7 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     emoji: '📚',
     title: 'L’Encyclopédie',
     mesure: 'bonnes réponses',
+    mesureUne: 'bonne réponse',
     paliers: [50, 300, 1000],
     valeur: c => c.justes,
   },
@@ -279,6 +284,7 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     emoji: '🏎️',
     title: 'Le Réflexe',
     mesure: 'bonnes réponses parmi les plus rapides',
+    mesureUne: 'bonne réponse parmi les plus rapides',
     paliers: [20, 100, 400],
     valeur: c => c.reflexes,
   },
@@ -288,6 +294,7 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     emoji: '🔮',
     title: 'Le Devin',
     mesure: 'estimations au chiffre près',
+    mesureUne: 'estimation au chiffre près',
     paliers: [3, 10, 25],
     valeur: c => c.estimationsExactes,
   },
@@ -297,6 +304,7 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     emoji: '🧳',
     title: 'Le Globe-trotteur',
     mesure: 'hôtes différents',
+    mesureUne: 'hôte différent',
     paliers: [2, 4, 8],
     valeur: c => c.hotes,
   },
@@ -306,6 +314,7 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     emoji: '🥉',
     title: 'L’Habitué du Podium',
     mesure: 'podiums de quiz',
+    mesureUne: 'podium de quiz',
     paliers: [3, 15, 50],
     valeur: c => c.podiumsQuiz,
   },
@@ -315,6 +324,7 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     emoji: '🎨',
     title: 'Le Collectionneur',
     mesure: 'avatars différents joués',
+    mesureUne: 'avatar différent joué',
     paliers: [5, 12, 24],
     valeur: c => c.avatars,
   },
@@ -324,6 +334,7 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     emoji: '✨',
     title: 'La Pluie d’Éclats',
     mesure: 'avatars éclatés',
+    mesureUne: 'avatar éclaté',
     paliers: [1, 3, 6],
     valeur: c => c.eclats,
   },
@@ -333,6 +344,7 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     emoji: '🎖️',
     title: 'La Légende',
     mesure: 'niveau',
+    mesureUne: 'niveau',
     paliers: [10, 20, 30],
     valeur: c => c.niveau,
   },
@@ -391,6 +403,8 @@ export interface HautFaitVu {
   title: string
   /** Soirée : la règle ; carrière : ce qu'on compte. */
   rule: string
+  /** Carrière : ce qu'on compte, au singulier (moins de deux). */
+  ruleUne?: string
   ton: Ton
   /** Soirée : combien de fois décroché ; carrière : le palier atteint, de 0 à 3. */
   fois: number

@@ -233,7 +233,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                     ) : (
                       <Rank n={i + 1} />
                     )}
-                    <Avatar className="lb-avatar" avatar={g.avatar} finition={g.finition} eclat={g.eclat} />
+                    <Avatar className="lb-avatar" avatar={g.avatar} finition={g.finition} eclat={g.eclat} legendaire={g.legendaire} />
                     <span className="lb-name">{g.name}</span>
                     <Niveau niveau={g.niveau} />
                     <span className="guess-value">

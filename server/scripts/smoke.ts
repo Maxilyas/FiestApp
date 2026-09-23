@@ -2045,14 +2045,14 @@ try {
   // rien donner à qui vient de gagner — un animateur range sa soirée quand il
   // y pense, parfois jamais, et l'expérience ne se voyait alors nulle part.
   const creditee = waitFor<any>(aliceTel, 'player:profil', p => p.xp > 0, 'le profil crédité à chaud')
-  const annonce = waitFor<any>(aliceTel, 'toast', t => t.message.includes('expérience'), 'l’annonce du gain')
+  const annonce = waitFor<any>(aliceTel, 'player:gain', () => true, 'l’annonce du gain')
   ;(pHost as any).emit('host:endSession', { sessionId: pSession })
   const aLaFinDuQuiz = await creditee
   assert(
     aLaFinDuQuiz.xp === attendu && aLaFinDuQuiz.niveau === niveauPour(attendu),
     `le téléphone d’Alice doit recevoir son profil crédité (${aLaFinDuQuiz.xp} au lieu de ${attendu})`,
   )
-  assert((await annonce).message === `+${attendu} points d’expérience`, 'et lire ce qu’elle vient de gagner')
+  assert((await annonce).xp === attendu, 'et fêter ce qu’elle vient de gagner')
   assert(
     (await profilDe(aliceCookie)).xp === attendu,
     'l’expérience est en base dès la fin du quiz, sans attendre l’archivage',

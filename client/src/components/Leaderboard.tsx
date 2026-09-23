@@ -31,7 +31,7 @@ export function Leaderboard({ players, compact, highlightId }: Props) {
       {list.map(({ item: p, rang }) => (
         <div key={p.id} className={'lb-row' + (p.id === highlightId ? ' me' : '')}>
           <Rank n={rang} />
-          <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} />
+          <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
           <span className="lb-name">{p.nomAffiche ?? p.name}</span>
           <Niveau niveau={p.niveau} />
           <span className="lb-score">{p.score}</span>

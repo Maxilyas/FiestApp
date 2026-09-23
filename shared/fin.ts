@@ -29,7 +29,7 @@ export interface SoireeClose {
  * Un invité anonyme la reçoit aussi — son rang, ses points, ses hauts faits
  * du soir. Seul le bloc `profil` lui manque : l'absence, pas l'infériorité.
  */
-export interface FinDeSoiree {
+export interface FinDeSoiree extends Distinctions {
   soiree: SoireeClose
   nom: string
   avatar: string

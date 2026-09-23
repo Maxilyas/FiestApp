@@ -434,6 +434,7 @@ export class ProfileStore {
         emoji: h.emoji,
         title: h.title,
         rule: h.mesure,
+        ruleUne: h.mesureUne,
         ton: 'eclat',
         fois: palier,
         valeur,

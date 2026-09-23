@@ -412,7 +412,8 @@ export class SpaceRuntime {
     salon.emit('player:profil', this.deps.profiles.toPublic(profile))
     const gagne = g.xp - (deja ?? 0)
     if (gagne > 0) {
-      salon.emit('toast', { kind: 'info', message: `+${gagne} points d’expérience` })
+      // Le téléphone le fête — un niveau, une finition —, au lieu d'un toast
+      // qu'on ne lisait pas pendant le podium.
       const niveauAvant = niveauPour(avant)
       const niveauApres = niveauPour(apres)
       salon.emit('player:gain', {
@@ -473,8 +474,12 @@ export class SpaceRuntime {
       }
       if (credit !== this.dernierCredit) {
         const montees = await this.crediterExperience(soiree.id, gains)
-        // Les niveaux gagnés se voient de toute la salle, au podium du quiz.
-        if (montees.length > 0) this.deps.io.to(`hosts:${this.spaceId}`).emit('soiree:progres', { montees })
+        // Les niveaux gagnés se voient de toute la salle, au podium du quiz —
+        // le bandeau, et la pastille du podium qui est à l'écran.
+        if (montees.length > 0) {
+          this.deps.io.to(`hosts:${this.spaceId}`).emit('soiree:progres', { montees })
+          this.engine.rafraichirVues()
+        }
       }
       // Les niveaux ont pu monter : l'écran commun doit le montrer.
       this.broadcastSnapshot()
@@ -829,13 +834,15 @@ export class SpaceRuntime {
       let annonce: (() => void) | undefined
       if (soiree && built) {
         const credit = this.creditDeCloture({ players, scores, answers })
-        const figures = new Map(players.map(p => [p.id, this.figure(p.id)]))
         const recopie = this.recopierSoiree(soiree)
         const bilans = await this.enFile(async () => {
           await recopie
           const archive = await this.deps.archives.save(this.spaceId, built.id, built.heldAt, built.archive, title)
           return { archive, profils: await this.crediterCloture(soiree.id, credit) }
         })
+        // Les figures se lisent APRÈS les crédits : le podium de la clôture
+        // montre le niveau que la soirée vient de donner, pas celui d'avant.
+        const figures = new Map(players.map(p => [p.id, this.figure(p.id)]))
         const close = bilans.archive
         summary = close
         annonce = () => this.annoncerFin(close, players, credit, bilans.profils, figures)
@@ -919,6 +926,9 @@ export class SpaceRuntime {
         soiree,
         nom: figure?.nom ?? p.name,
         avatar: p.avatar,
+        // Ce qu'il porte ce soir — sa finition, son légendaire : sa fin de
+        // soirée le montre comme la salle l'a vu.
+        ...(figure && distinctions(figure)),
         rang: x?.releve.rang ?? 0,
         points: x?.releve.points ?? 0,
         joueurs: x?.releve.joueurs ?? 0,

@@ -1,7 +1,7 @@
 import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
-import type { Finition, PublicProfile, PublicProfileDetail } from '../../shared/profil'
+import type { FinitionChoisie, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, motifEchec, motifHttp } from '../../shared/erreurs'
 
 /**
@@ -161,7 +161,7 @@ export const api = {
      */
     console: () => req<{ espace: PublicSpace }>('/api/joueur/console', { method: 'POST' }),
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
-    enregistrer: (patch: { name?: string; avatar?: string; finition?: Finition }) =>
+    enregistrer: (patch: { name?: string; avatar?: string; finition?: FinitionChoisie; legendaire?: string | null }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
     /**
      * Changer son mot de passe : il faut l'actuel, ou le code de secours pour

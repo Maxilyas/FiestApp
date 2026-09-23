@@ -297,6 +297,18 @@ export class GameEngine {
     this.deps.io.to(`player:${playerId}`).emit('session:view', { sessionId: sess.id, view })
   }
 
+  /**
+   * Rediffuse les vues de la partie en cours, à qui elles ont changé. Un
+   * niveau gagné au podium change la pastille de son porteur sans que la
+   * partie ait bougé : le podium affiché gardait sinon l'ancien niveau, sous
+   * le bandeau qui annonçait le nouveau.
+   */
+  rafraichirVues() {
+    const sess = this.session
+    if (!sess || sess.status !== 'running') return
+    this.fanout(sess)
+  }
+
   /** Renvoie la vue host à un écran commun qui (re)vient. */
   resendHostViews(socket: Socket) {
     const sess = this.session

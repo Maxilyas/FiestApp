@@ -1345,6 +1345,7 @@ h3 > .icon {
 
 .podium-avatar { font-size: 2.6rem; line-height: 1; animation: pop 0.5s ease-out both; }
 .podium-name { font-family: var(--serif); font-weight: 600; font-size: 1.3rem; text-align: center; }
+.podium-name .niveau { margin-left: 0.4em; vertical-align: 0.15em; }
 
 .podium-step {
   width: 100%;
@@ -2566,15 +2567,32 @@ h3 > .icon {
   filter: hue-rotate(150deg) saturate(1.45) drop-shadow(0 0 3px rgba(var(--accent-rgb), 0.8));
 }
 
+/* Ses paillettes : trois ou quatre points qui scintillent autour de l'emoji.
+   L'étoile ✧ d'avant ressemblait trop à celle de Prisme ✦ : on prenait l'un
+   pour l'autre, et l'Éclat — le plus rare des deux — passait inaperçu. */
 .av-eclat::after {
-  content: '✧';
+  content: '';
   position: absolute;
-  top: -30%;
-  right: -30%;
-  font-size: 0.55em;
-  color: #eadf9b;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  width: 1.7em;
+  height: 1.7em;
+  margin: -0.85em 0 0 -0.85em;
+  font-size: inherit;
+  background:
+    radial-gradient(circle at 14% 22%, #fffbe6 0 0.05em, rgba(255, 251, 230, 0) 0.08em),
+    radial-gradient(circle at 88% 24%, #fff3b0 0 0.04em, rgba(255, 243, 176, 0) 0.07em),
+    radial-gradient(circle at 80% 88%, #fffbe6 0 0.045em, rgba(255, 251, 230, 0) 0.075em),
+    radial-gradient(circle at 10% 80%, #fff3b0 0 0.035em, rgba(255, 243, 176, 0) 0.06em);
   z-index: 2;
-  animation: av-scintille 2s ease-in-out infinite;
+  pointer-events: none;
+  animation: av-paillettes 1.7s ease-in-out infinite;
+}
+
+@keyframes av-paillettes {
+  0%, 100% { opacity: 0.35; scale: 0.9; }
+  50% { opacity: 1; scale: 1.06; }
 }
 
 /* `rotate` plutôt que `transform: rotate()` : le halo est déjà centré par un
@@ -2899,3 +2917,577 @@ h3 > .icon {
   color: var(--muted);
   border-color: rgba(var(--alert-rgb), 0.45);
 }
+
+/* ── Les avatars légendaires ───────────────────────────────────────────────
+
+   Douze médaillons dessinés (components/Legendaire.tsx), à la taille du
+   texte : 1 em, comme l'emoji qu'ils remplacent. Un reflet les traverse de
+   temps en temps ; chacun a en plus son mouvement à lui. Tout s'anime en
+   coordonnées du dessin (`transform-box: view-box`), et rien ne bouge si le
+   système demande moins de mouvement. */
+
+.lg {
+  display: block;
+  width: 1em;
+  height: 1em;
+  overflow: visible;
+}
+
+.lg * { transform-box: view-box; }
+
+.lg-reflet { animation: lg-balaye 7s ease-in-out infinite; }
+
+@keyframes lg-balaye {
+  0%, 60% { transform: translateX(0); }
+  85%, 100% { transform: translateX(170px); }
+}
+
+.lg-scintille { transform-box: fill-box; transform-origin: center; animation: lg-scintille 2.4s ease-in-out infinite; }
+.lg-scintille:nth-of-type(2n) { animation-delay: -1.1s; }
+.lg-scintille:nth-of-type(3n) { animation-delay: -0.6s; }
+
+@keyframes lg-scintille {
+  0%, 100% { opacity: 0.35; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+
+.lg-pouls { transform-box: fill-box; transform-origin: center; animation: lg-pouls 2.8s ease-in-out infinite; }
+
+@keyframes lg-pouls {
+  0%, 100% { transform: scale(0.92); opacity: 0.75; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+.lg-flamme { transform-origin: 50px 62px; animation: lg-flamme 1.8s ease-in-out infinite alternate; }
+
+@keyframes lg-flamme {
+  from { transform: scale(1, 1); }
+  to { transform: scale(1.03, 1.06); }
+}
+
+.lg-braise { transform-box: fill-box; animation: lg-braise 3.2s ease-in infinite; }
+.lg-braise:nth-child(2n) { animation-delay: -1.3s; }
+.lg-braise:nth-child(3n) { animation-delay: -2.1s; }
+
+@keyframes lg-braise {
+  0% { transform: translateY(6px); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateY(-16px); opacity: 0; }
+}
+
+.lg-pupille { transform-origin: 50px 52px; animation: lg-pupille 5s ease-in-out infinite; }
+
+@keyframes lg-pupille {
+  0%, 70%, 100% { transform: scaleX(1); }
+  80%, 88% { transform: scaleX(0.45); }
+}
+
+.lg-yeux { transform-origin: 50px 47px; animation: lg-cligne 6s ease-in-out infinite; }
+
+@keyframes lg-cligne {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.08); }
+}
+
+.lg-eclair { animation: lg-eclair 3.6s steps(1) infinite; }
+
+@keyframes lg-eclair {
+  0%, 100% { opacity: 1; }
+  90% { opacity: 0.35; }
+  93% { opacity: 1; }
+  96% { opacity: 0.5; }
+}
+
+.lg-joyau { animation: lg-pouls 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+
+.lg-ondule { transform-origin: 50px 40px; animation: lg-ondule 4s ease-in-out infinite alternate; }
+
+@keyframes lg-ondule {
+  from { transform: rotate(-2.5deg); }
+  to { transform: rotate(2.5deg); }
+}
+
+.lg-bulle { transform-box: fill-box; animation: lg-bulle 4s ease-in infinite; }
+.lg-bulle:nth-child(2n) { animation-delay: -2s; }
+
+@keyframes lg-bulle {
+  0% { transform: translateY(8px); opacity: 0; }
+  30% { opacity: 0.8; }
+  100% { transform: translateY(-14px); opacity: 0; }
+}
+
+.lg-flotte { animation: lg-flotte 3.4s ease-in-out infinite alternate; }
+
+@keyframes lg-flotte {
+  from { transform: translateY(2px); }
+  to { transform: translateY(-3px); }
+}
+
+.lg-brume { animation: lg-brume 6s ease-in-out infinite alternate; }
+.lg-brume-2 { animation-delay: -3s; }
+
+@keyframes lg-brume {
+  from { transform: translateX(-4px); }
+  to { transform: translateX(4px); }
+}
+
+.lg-anneau { animation: lg-anneau 3s ease-in-out infinite alternate; }
+
+@keyframes lg-anneau {
+  from { opacity: 0.85; }
+  to { opacity: 1; }
+}
+
+/* Pas encore gagné : la forme seule, en silhouette dorée sur un disque
+   sombre. On sait ce qu'on veut avant de l'avoir. */
+.lg-verrou .lg-fond { fill: #211915; }
+.lg-verrou .lg-bord { fill: rgba(var(--accent-rgb), 0.3); }
+.lg-verrou .lg-forme,
+.lg-verrou .lg-forme * { fill: rgba(var(--accent-rgb), 0.42); stroke: none; }
+.lg-verrou .lg-forme [fill='none'] { fill: none; stroke: rgba(var(--accent-rgb), 0.42); }
+.lg-verrou .lg-details,
+.lg-verrou .lg-decor { display: none; }
+.lg-verrou * { animation: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lg * { animation: none !important; }
+}
+
+/* ── Aurore et Constellation, les finitions des niveaux 20 et 25 ──────────
+
+   Elles se méritent : il faut des dizaines de soirées pour les voir. Aurore
+   ondule, verte et violette, comme un ciel du Nord ; Constellation pose
+   l'emoji sur un disque de nuit semé d'étoiles, cerclé d'or. */
+.av-aurore::before {
+  background: conic-gradient(
+    from 0deg,
+    rgba(88, 230, 180, 0.62),
+    rgba(90, 170, 255, 0.55),
+    rgba(190, 120, 255, 0.58),
+    rgba(88, 230, 180, 0.62)
+  );
+  filter: blur(4px);
+  animation: av-tourne 9s linear infinite, av-respire 3.2s ease-in-out infinite;
+}
+
+.av-aurore::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.62em;
+  height: 1.62em;
+  margin: -0.81em 0 0 -0.81em;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(120, 255, 210, 0) 56%, rgba(120, 255, 210, 0.38) 63%, rgba(150, 140, 255, 0) 74%);
+  z-index: 0;
+  pointer-events: none;
+  animation: av-respire 4s ease-in-out infinite reverse;
+}
+
+.av-constellation::before {
+  background:
+    radial-gradient(circle at 30% 26%, #ffffff 0 0.035em, rgba(255, 255, 255, 0) 0.06em),
+    radial-gradient(circle at 76% 34%, #fff6d0 0 0.03em, rgba(255, 246, 208, 0) 0.055em),
+    radial-gradient(circle at 64% 78%, #ffffff 0 0.035em, rgba(255, 255, 255, 0) 0.06em),
+    radial-gradient(circle at 22% 66%, #fff6d0 0 0.025em, rgba(255, 246, 208, 0) 0.05em),
+    radial-gradient(circle, rgba(22, 30, 82, 0.95) 0 58%, rgba(22, 30, 82, 0) 74%);
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.6), 0 0 0.35em rgba(120, 150, 255, 0.6);
+  animation: av-tourne 30s linear infinite;
+}
+
+.av-constellation::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.62em;
+  height: 1.62em;
+  margin: -0.81em 0 0 -0.81em;
+  border-radius: 50%;
+  border: 1px dashed rgba(var(--accent-rgb), 0.6);
+  z-index: 0;
+  pointer-events: none;
+  animation: av-tourne 50s linear infinite reverse;
+}
+
+@keyframes av-respire {
+  0%, 100% { scale: 1; }
+  50% { scale: 1.08; }
+}
+
+/* Les halos débordent l'emoji : dans le choix des finitions, ils ont la
+   place de le faire sans mordre sur le nom. */
+.finition-btn .av { margin: 6px 0 8px; }
+
+/* Argent, sur l'Ivoire : un halo clair sur un fond clair ne se voyait pas.
+   Il s'y assombrit, et prend un filet. */
+:root[data-theme='ivoire'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, 0.42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, 0.5);
+}
+
+/* Le médaillon légendaire prend la place de l'emoji, un peu plus grand : il
+   est rond, l'emoji ne l'est pas. */
+.av-legendaire .av-emoji { display: inline-flex; }
+.av-legendaire .lg { width: 1.12em; height: 1.12em; }
+
+/* Au-delà des cinq premières lignes d'une liste, rien ne bouge. */
+.leaderboard .lb-row:nth-child(n + 6) .lg *,
+.stats-table tbody tr:nth-child(n + 6) .lg * {
+  animation: none;
+}
+
+/* ── Le niveau, lisible au mur ─────────────────────────────────────────────
+
+   Une pastille de 11 px avec un chiffre dedans ne se lit pas à cinq mètres :
+   sur l'écran commun, le niveau s'écrit en toutes lettres, à la taille du
+   texte qui l'entoure. */
+.host .niveau {
+  font-size: 0.75em;
+  padding: 0 0.55em;
+  height: 1.6em;
+}
+
+.host .niveau::before {
+  content: 'Niv.\00a0';
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+/* ── Le second geste d'un dialogue ─────────────────────────────────────── */
+.dialog-alternative {
+  order: -1;
+  margin-right: auto;
+  color: var(--alert);
+  border-color: rgba(var(--alert-rgb), 0.45);
+}
+
+/* ── La fin de soirée, sur le téléphone ────────────────────────────────── */
+.fin-soiree { gap: 16px; }
+.fin-tete { text-align: center; }
+.fin-tete h1 { font-size: 2rem; margin-top: 6px; text-wrap: balance; }
+.fin-moi { display: flex; align-items: center; gap: 16px; }
+.fin-moi h2 { font-size: 1.7rem; }
+.fin-moi p { margin: 4px 0 0; }
+.fin-avatar { font-size: 3.2rem; }
+.fin-rang b { font-family: var(--serif); font-size: 1.5rem; color: var(--accent-text); }
+
+.fin-gain { display: flex; flex-direction: column; gap: 12px; text-align: center; }
+.fin-gain h3 { margin-top: 4px; }
+.fin-xp { margin: 0; font-family: var(--serif); font-size: 1.9rem; color: var(--accent-text); }
+.fin-niveaux { justify-content: center; gap: 10px; margin-bottom: 8px; }
+.fin-fleche { color: var(--muted); }
+.fin-niveau-neuf { animation: pop 0.5s ease-out 0.7s both; }
+.fin-monte { font-family: var(--serif); font-size: 1.3rem; color: var(--accent-text); }
+.fin-finition { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 0; }
+.fin-apercu { font-size: 1.8rem; }
+
+.fin-legendaire {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  border-color: var(--edge-strong);
+  background: radial-gradient(circle at 50% 30%, rgba(var(--accent-rgb), 0.18), rgba(var(--accent-rgb), 0) 70%), var(--surface);
+}
+
+.fin-legendaire h2 { font-size: 1.9rem; }
+.fin-legendaire .serif-note { margin: 0; }
+.fin-medaillon { font-size: 150px; line-height: 0; animation: revelation 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+@keyframes revelation {
+  from { opacity: 0; transform: scale(0.35) rotate(-24deg); filter: brightness(3); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+.faits {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 10px;
+}
+
+.fait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--surface-faint);
+  text-align: center;
+}
+
+.fait-eclat { border-color: rgba(var(--accent-rgb), 0.6); }
+.fait-ombre { border-color: rgba(150, 120, 220, 0.55); background: rgba(110, 80, 190, 0.08); }
+.fait-emoji { font-size: 2rem; line-height: 1; }
+.fait-titre { font-size: 0.9rem; font-weight: 500; }
+
+.fin-actions { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-top: 4px; }
+.fin-actions .btn { justify-content: center; }
+.fin-invitation { margin: 6px 0 0; text-align: center; }
+
+/* Ce que le podium vient de rapporter : un instant de fête, par-dessus
+   l'écran. Centré par ses marges, comme le toast : une animation qui pose
+   `transform` écraserait un recentrage par `translate`. */
+.celebration {
+  position: fixed;
+  top: max(64px, 14vh);
+  left: 16px;
+  right: 16px;
+  z-index: 60;
+  width: max-content;
+  max-width: min(360px, calc(100% - 32px));
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 30px;
+  border-radius: 24px;
+  border: 1px solid var(--edge-strong);
+  background: radial-gradient(circle at 50% 0%, rgba(var(--accent-rgb), 0.28), rgba(var(--accent-rgb), 0) 70%), var(--bg-raised);
+  box-shadow: var(--shadow-toast);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  animation: celebre 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.celebration-niveau { border-width: 2px; }
+.celebration-xp { font-family: var(--serif); font-size: 2.3rem; line-height: 1; color: var(--accent-text); }
+.celebration-niveau-texte { font-family: var(--serif); font-size: 1.6rem; }
+.celebration-finition { font-size: 0.9rem; color: var(--muted); }
+
+@keyframes celebre {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── La clôture, sur l'écran commun ────────────────────────────────────── */
+.cloture { gap: 26px; }
+
+/* Le podium à gauche, ce qui s'est débloqué à droite : tout ce qui compte
+   tient dans l'écran, les hauts faits de chacun défilent dessous. */
+.cloture-grille {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: center;
+}
+
+.cloture-colonne { display: flex; flex-direction: column; gap: 22px; }
+
+@media (max-width: 900px) {
+  .cloture-grille { grid-template-columns: 1fr; }
+}
+.cloture-tete { text-align: center; }
+.cloture-tete h2 { font-size: 3rem; margin-top: 6px; text-wrap: balance; }
+.cloture-bloc h3 { margin-bottom: 14px; text-align: center; }
+
+.cloture-legendaires { display: flex; flex-wrap: wrap; justify-content: center; gap: 30px; }
+
+.cloture-legendaire {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  animation: revelation 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.cloture-legendaire b { font-family: var(--serif); font-size: 1.6rem; }
+.cloture-medaillon { font-size: 128px; line-height: 0; }
+
+.cloture-montees { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 30px; }
+.cloture-montee { display: inline-flex; align-items: center; gap: 8px; font-size: 1.25rem; }
+.cloture-montee b { font-family: var(--serif); font-size: 1.4rem; }
+
+.cloture-faits { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+
+.cloture-fait {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--surface-faint);
+}
+
+.cloture-qui { display: flex; align-items: center; gap: 8px; font-size: 1.15rem; }
+.cloture-qui b { font-family: var(--serif); font-size: 1.35rem; }
+.cloture-puces { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.fait-puce {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-pill);
+  font-size: 0.95rem;
+}
+
+.fait-puce.fait-eclat { border-color: rgba(var(--accent-rgb), 0.6); color: var(--accent-text); }
+.fait-puce.fait-ombre { border-color: rgba(150, 120, 220, 0.6); color: #b9a6ee; }
+:root[data-theme='ivoire'] .fait-puce.fait-ombre { color: #5b3f99; }
+
+/* Au podium d'un quiz, les montées de niveau : un bandeau que toute la salle
+   voit, le temps d'applaudir. Centré par ses marges. */
+.annonces-niveau {
+  position: fixed;
+  top: 84px;
+  left: 16px;
+  right: 16px;
+  z-index: 45;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 24px;
+  padding: 12px 28px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--edge-strong);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-toast);
+  pointer-events: none;
+  animation: pop 0.4s ease-out both;
+}
+
+.annonce-niveau { display: inline-flex; align-items: center; gap: 8px; font-size: 1.25rem; animation: pop 0.4s ease-out both; }
+.annonce-niveau b { font-family: var(--serif); font-size: 1.45rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fin-medaillon,
+  .cloture-legendaire,
+  .celebration,
+  .annonces-niveau,
+  .annonce-niveau,
+  .fin-niveau-neuf { animation: none; }
+}
+
+/* ── La page profil : légendaires, hauts faits, fiche ──────────────────── */
+
+.galerie {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  margin: 12px 0 8px;
+}
+
+.galerie-case {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 6px 12px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--surface-faint);
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.galerie-case:disabled { cursor: default; }
+.galerie-case.porte { border-color: var(--accent); background: var(--accent-soft); }
+.galerie-case:not(:disabled):hover { border-color: var(--edge-strong); }
+.galerie-medaillon { font-size: 64px; line-height: 0; }
+.galerie-case.verrouille .galerie-medaillon { font-size: 56px; }
+.galerie-nom { font-family: var(--serif); font-size: 1.02rem; font-weight: 600; line-height: 1.15; }
+.galerie-case.verrouille .galerie-nom { color: var(--muted); }
+.galerie-case.ouverte { border-color: var(--edge-strong); }
+.galerie-case .jauge { margin-top: 3px; }
+
+.galerie-detail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 4px 0 10px;
+  padding: 12px 14px;
+  border-left: 2px solid var(--accent);
+  background: var(--surface-faint);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.galerie-detail-nom { font-family: var(--serif); font-size: 1.3rem; }
+.galerie-detail p { margin: 0; }
+.galerie-detail .serif-note { font-size: 1.1rem; }
+
+.jauge {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--track);
+  overflow: hidden;
+}
+
+.jauge-plein { display: block; height: 100%; border-radius: var(--radius-pill); background: var(--accent); }
+
+.hf-groupe { margin: 16px 0 8px; font-size: 1.05rem; }
+.hf-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.hf { display: flex; align-items: flex-start; gap: 10px; opacity: 0.5; }
+.hf.gagne { opacity: 1; }
+.hf-emoji { font-size: 1.5rem; line-height: 1.2; width: 1.8rem; text-align: center; flex: none; }
+.hf:not(.gagne) .hf-emoji { filter: grayscale(1); }
+.hf-corps { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.hf-titre { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.hf-fois { font-size: 0.8rem; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.hf-corps .jauge { margin-top: 4px; }
+
+.palier {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid currentColor;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.palier-1 { color: #c98b58; }
+.palier-2 { color: #b9c3cf; }
+.palier-3 { color: var(--accent-text); }
+
+.fiche {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 12px 10px;
+  margin: 10px 0 14px;
+}
+
+.fiche-case { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.fiche-case dt { font-size: 10px; letter-spacing: 0.14em; }
+.fiche-case dd { margin: 0; font-size: 1.35rem; color: var(--accent-text); }
+
+.categories { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+.categories li {
+  display: grid;
+  grid-template-columns: minmax(0, 9em) 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.categorie-nom { font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.courbes { margin: 4px 0 8px; }
+.courbes svg { display: block; width: 100%; height: auto; }
+.courbe-axe { stroke: var(--track); stroke-width: 1; }
+.courbe { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.courbe-precision { stroke: var(--accent); }
+.courbe-reflexe { stroke: #8fbfa8; stroke-dasharray: 5 4; }
+.courbe-point { fill: var(--accent); }
+.courbes-legende { gap: 16px; font-size: 0.78rem; color: var(--muted); }
+.courbes-legende span::before { content: ''; display: inline-block; width: 14px; height: 2px; margin-right: 6px; vertical-align: middle; }
+.legende-precision::before { background: var(--accent); }
+.legende-reflexe::before { background: #8fbfa8; }

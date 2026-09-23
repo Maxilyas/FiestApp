@@ -165,7 +165,7 @@ function ProfilLie({ profil, onChange }: { profil: PublicProfile | null; onChang
       <section className="card">
         <h2>Mon profil joueur</h2>
         <div className="row profil-lie">
-          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={profil.eclats.includes(profil.avatar)} />
+          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={profil.eclats.includes(profil.avatar)} legendaire={profil.legendaire ?? undefined} />
           <div>
             <strong>{profil.name}</strong>
             <Niveau niveau={profil.niveau} />
