@@ -189,11 +189,12 @@ Les services ont été créés à la main : c'est leur tableau de bord qui fait
 foi, commandes de build et de démarrage comprises, et `render.yaml` n'en est
 que la référence.
 
-**Noms en suspens** : les services réels s'appellent `quizz-romane-30` et
-`fiestapp-preprod`, mais `render.yaml` porte depuis `b2a09ad` les noms
-`fiestapp-quizz` et `fiestapp-quizz-preprod`. Tant que le propriétaire n'a
-pas tranché, ne synchronise aucun blueprint : Render créerait des copies à de
-nouvelles adresses (MISE-EN-LIGNE.md, étape 7).
+**Les noms** : `fiestapp-quizz` (production) et `fiestapp-quizz-preprod`,
+les mêmes que dans `render.yaml` — les services ont été renommés. L'adresse
+`onrender.com` d'un service, elle, se fixe à sa création : le renommer ne la
+change pas, le recréer si, et c'est elle que portent les QR imprimés. Ne
+synchronise aucun blueprint : Render n'adopte pas un service créé à la main,
+il en créerait des copies à de nouvelles adresses (MISE-EN-LIGNE.md, étape 7).
 
 **Jamais la même base Turso pour les deux** : un « Nouvelle soirée » en
 préproduction effacerait de vraies soirées archivées. Hors production,
