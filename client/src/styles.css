@@ -4496,7 +4496,10 @@ h3 > .icon {
 .host.staging .podium-points { font-size: 2rem; }
 .host.staging .podium-step { min-height: 6.25rem; }
 .host.staging .podium-name .niveau { font-size: 1rem; }
-.host.staging .lb-row { font-size: 1.25rem; }
+/* Un interligne serré : à 1,25 rem, celui de la page faisait les rangées
+   6 px plus hautes que celles d'avant, et c'était une ligne de moins à
+   chaque classement coupé. */
+.host.staging .lb-row { font-size: 1.25rem; line-height: 1.2; }
 .host.staging .lb-avatar { font-size: 1.45rem; }
 .host.staging .lb-rank { font-size: 1.5rem; }
 .host.staging .lb-score { font-size: 1.6rem; }
