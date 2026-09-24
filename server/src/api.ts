@@ -30,6 +30,10 @@ interface ApiDeps {
   removeAccount: (accountId: string) => Promise<void>
   /** L'identifiant de la soirée en cours d'un espace, s'il est tiré : elle ne se retire pas de l'historique. */
   soireeEnCours: (spaceId: string) => string | null
+  /** Rediffuse la salle d'un espace dont les réglages ont changé. */
+  espaceChange: (spaceId: string) => void
+  /** Rediffuse la salle des soirées où joue un profil qui a changé de parure. */
+  profilChange: (profileId: string) => void
 }
 
 /**
@@ -46,10 +50,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // AVANT de lire le corps : sinon n'importe qui pouvait faire analyser
   // quatre mégaoctets de JSON au serveur sans être connecté.
   app.use('/api', csrfGuard({ online: deps.online, publicOrigin: deps.publicOrigin }))
-  mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount })
+  mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount, espaceChange: deps.espaceChange })
   // Les routes du profil joueur passent AVANT la porte : un invité n'a pas
   // de compte d'animateur, et n'a pas à en avoir un pour s'inscrire.
-  mountProfileApi(app, { profiles: deps.profiles, auth: deps.auth, online: deps.online })
+  mountProfileApi(app, { profiles: deps.profiles, auth: deps.auth, online: deps.online, profilChange: deps.profilChange })
   app.use('/api', requireAccount(deps.auth))
 
   // Les photos arrivent en dataURL dans le corps JSON.

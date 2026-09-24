@@ -501,6 +501,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
       ),
     removeAccount,
     soireeEnCours: spaceId => registry.get(spaceId).soireeId(),
+    // Une soirée endormie n'a personne à prévenir : elle lira les réglages
+    // au réveil.
+    espaceChange: spaceId => registry.peek(spaceId)?.broadcastSnapshot(),
+    profilChange: profileId => {
+      for (const rt of registry.all()) if (rt.party.findByProfile(profileId)) rt.broadcastSnapshot()
+    },
   })
 
   const here = path.dirname(fileURLToPath(import.meta.url))

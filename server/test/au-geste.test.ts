@@ -19,14 +19,18 @@ import {
   creerQuiz,
   demarrer,
   ecranCommun,
+  ecrire,
   emitAck,
+  inscrireProfil,
   instantane,
   invite,
   lancerQuiz,
+  patienter,
   qcm,
   type Banc,
   type Socket,
 } from './banc'
+import { ProfileStore } from '../src/auth/profiles'
 
 let banc: Banc
 let cookie: string
@@ -87,6 +91,12 @@ async function terminer(sessionId: string) {
   await fini
 }
 
+/**
+ * Laisse passer la diffusion regroupée d'une arrivée : sans ça, c'est elle
+ * qui porterait le changement qu'on veut voir partir de lui-même.
+ */
+const calme = () => patienter(400)
+
 const dans = (snap: any, playerId: string) => !!snap?.session?.participantIds?.includes(playerId)
 
 test('un retardataire arrivé en pleine question se voit dans la partie dès sa première vue', async () => {
@@ -140,4 +150,81 @@ test('changer d’équipe : l’accusé arrive derrière l’instantané qui le 
     const moi = tel.dernier()?.players.find((p: any) => p.id === res.playerId)
     assert.equal(moi?.teamId, equipe.id, 'à l’accusé, le téléphone se voit déjà dans son équipe')
   }
+})
+
+test('les réglages de l’espace partent aux téléphones sans attendre la veille de quelqu’un', async () => {
+  const tel = await telephone()
+  await tel.rejoindre({ name: 'Lectrice', avatar: '🦉' })
+  await calme()
+  const res = await ecrire(banc.url, '/api/space/settings', { title: 'La grande fête', eyebrow: 'Ce soir chez' }, cookie, 'PUT')
+  assert.equal(res.status, 200)
+  const snap = await instantane<any>(tel.socket, s => s.space?.title === 'La grande fête', 'le nouveau titre au téléphone')
+  assert.equal(snap.space.eyebrow, 'Ce soir chez')
+})
+
+test('les parures d’un profil partent à la salle dès qu’il les change', async () => {
+  // Un niveau élevé, sans jouer vingt soirées : toutes les finitions sont
+  // ouvertes, et le profil peut en épingler une autre que la plus belle.
+  const proto = ProfileStore.prototype as any
+  const niveauOf = proto.niveauOf
+  proto.niveauOf = () => 25
+  try {
+    const profilCookie = await inscrireProfil(banc.url, 'paree', 'Parée', '🦚')
+    const paree = await invite(banc.url, 'Parée', '🦚', { cookie: profilCookie })
+    const temoin = await telephone()
+    await temoin.rejoindre({ name: 'Témoin', avatar: '🐸' })
+    const avant = await instantane<any>(
+      temoin.socket,
+      s => s.players.some((p: any) => p.id === paree.playerId),
+      'la parée dans la salle',
+    )
+    assert.notEqual(avant.players.find((p: any) => p.id === paree.playerId)?.finition, 'argent')
+    await calme()
+    const res = await ecrire(banc.url, '/api/joueur/moi', { finition: 'argent' }, profilCookie, 'PUT')
+    assert.equal(res.status, 200)
+    await instantane<any>(
+      temoin.socket,
+      s => s.players.find((p: any) => p.id === paree.playerId)?.finition === 'argent',
+      'sa nouvelle finition, vue d’un autre téléphone',
+    )
+  } finally {
+    proto.niveauOf = niveauOf
+  }
+})
+
+test('un prénom corrigé au podium repart aux téléphones sans attendre le geste de personne', async () => {
+  const quiz = await creerQuiz(banc.url, cookie, [qcm('Podium ?')], 'Podium')
+  const gros = await invite(banc.url, 'GrosLourd', '🦍')
+  const voisin = await invite(banc.url, 'Voisin', '🐧')
+  const sessionId = await lancerQuiz(host, quiz)
+  await attendre<any>(host, 'session:view', p => p.sessionId === sessionId && p.view.phase === 'question', 'la question', 15_000)
+  // Les deux répondent juste : ils sont en tête du podium, que les
+  // téléphones montrent en entier (les trois premiers).
+  for (const inv of [gros, voisin]) {
+    const ack = await emitAck<any>(inv.socket, 'player:action', { sessionId, action: { type: 'answer', choice: 0 } })
+    assert.equal(ack.ok, true)
+  }
+  const revelee = attendre<any>(host, 'session:view', p => p.view.phase === 'reveal', 'la révélation', 15_000)
+  ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
+  await revelee
+  const podium = attendre<any>(voisin.socket, 'session:view', p => p.view.phase === 'finished', 'le podium', 15_000)
+  ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
+  const vu = await podium
+  assert.ok(JSON.stringify(vu.view).includes('GrosLourd'), 'le podium montre l’ancien prénom')
+
+  ;(host as any).emit('host:renamePlayer', { playerId: gros.playerId, name: 'Marc' })
+  const corrige = await attendre<any>(
+    voisin.socket,
+    'session:view',
+    p => p.view.phase === 'finished' && JSON.stringify(p.view).includes('Marc'),
+    'le podium corrigé au téléphone du voisin',
+  )
+  assert.ok(!JSON.stringify(corrige.view).includes('GrosLourd'))
+  await attendre<any>(
+    host,
+    'session:view',
+    p => p.view.phase === 'finished' && JSON.stringify(p.view).includes('Marc'),
+    'le podium corrigé à l’écran commun',
+  )
+  await terminer(sessionId)
 })

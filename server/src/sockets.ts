@@ -508,7 +508,13 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       const playerId = texte(charge.playerId)
       const name = texte(charge.name)
       if (!rt || !playerId || name === undefined) return
-      if (rt.party.rename(playerId, name)) rt.broadcastSnapshot()
+      if (!rt.party.rename(playerId, name)) return
+      rt.broadcastSnapshot()
+      // Le prénom s'écrit aussi dans les vues de la partie — le podium, le
+      // plus rapide de l'écran commun (`ViewContext.playerName`). Rien ne
+      // les recalculait : c'était le geste égaré d'un autre invité, et une
+      // réponse ne recalcule plus que la vue de son auteur.
+      rt.engine.rafraichirVues()
     })
 
     ecouter('host:removePlayer', charge => {
