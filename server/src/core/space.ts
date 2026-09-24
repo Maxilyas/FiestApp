@@ -368,14 +368,20 @@ export class SpaceRuntime {
   private derniereConnue: DerniereSoiree | null | undefined = undefined
   /** La lecture en vol, pour qu'une rafale de téléphones n'en lance qu'une. */
   private lectureDerniere: Promise<void> | null = null
+  /**
+   * Compte les clôtures : une lecture partie avant l'une d'elles rapporterait
+   * la soirée d'avant, et effacerait de la mémoire celle qu'on vient de clore.
+   */
+  private generationDerniere = 0
 
   /** Relit la dernière soirée close au loin, sans jamais faire attendre personne. */
   private relireDerniere(): Promise<void> {
+    const generation = this.generationDerniere
     this.lectureDerniere ??= this.deps.archives
       .derniere(this.spaceId, this.soireeId())
       .then(
         d => {
-          this.derniereConnue = d
+          if (generation === this.generationDerniere) this.derniereConnue = d
         },
         (e: unknown) => console.warn(`[soirées] la dernière soirée ne se lit pas : ${(e as Error).message}`),
       )
@@ -1158,6 +1164,7 @@ export class SpaceRuntime {
     this.dernieresFins = fins
     // La mémoire sait désormais la dernière soirée close, sans rien relire.
     this.derniereConnue = { id: summary.id, title: summary.title, heldAt: summary.heldAt }
+    this.generationDerniere++
 
     const releveDe = (id: string) => credit.releves.get(id)?.releve
     const podium = players
