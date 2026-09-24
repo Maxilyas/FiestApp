@@ -258,8 +258,52 @@ test('A4 · chaque QR code a un nom, et la page un repère principal', () => {
       assert.match(balise, /title="QR code [^"]+"/, `${fichier} : ${balise}`)
     }
   }
+})
+
+test('A4 · le repère principal entoure le contenu, sans effacer l’en-tête ni la console', () => {
+  // Posé sur `#root`, il enveloppait toute la page : la console de l'écran
+  // commun perdait « banner » et « contentinfo », l'éditeur et le compte
+  // leur « banner », et « aller au contenu » tombait sur le titre.
   const index = readFileSync(new URL('../../client/index.html', import.meta.url), 'utf8')
-  assert.match(index, /<div id="root" role="main">/)
+  assert.match(index, /<div id="root"><\/div>/)
+
+  // À la console : le bandeau, puis la scène en `<main>`, puis la console,
+  // l'un après l'autre et jamais l'un dans l'autre.
+  const hote = readFileSync(new URL('../../client/src/views/HostApp.tsx', import.meta.url), 'utf8')
+  const bandeau = hote.indexOf('</header>', hote.indexOf('<header className="host-band">'))
+  const scene = hote.indexOf("<main className={'host-grid'")
+  const finScene = hote.indexOf('</main>', scene)
+  const console_ = hote.indexOf('<footer className="host-console">')
+  assert.ok(bandeau > 0 && bandeau < scene && scene < finScene && finScene < console_, 'bandeau, scène, console')
+
+  // Une page pose son repère, ou `main.tsx` l'enveloppe — jamais les deux :
+  // un `<main>` dans un autre ne se lit plus comme repère.
+  const racine = readFileSync(new URL('../../client/src/main.tsx', import.meta.url), 'utf8')
+  const propres = /REPERE_PROPRE = new Set<unknown>\(\[([^\]]*)\]\)/.exec(racine)
+  assert.ok(propres, 'la liste des pages qui posent leur repère')
+  const listees = new Set(propres[1].split(',').map(n => n.trim()))
+  for (const { fichier, texte } of sourcesDuClient()) {
+    const vue = /^views[\\/](\w+)\.tsx$/.exec(fichier)?.[1]
+    const pose = /<main\b/.test(texte)
+    if (vue) assert.equal(pose, listees.has(vue), `${vue} : ${pose ? 'pose' : 'ne pose pas'} de <main>`)
+    // Hors des pages, seuls l'enveloppe et le message d'erreur des pages
+    // publiques en posent un : l'entrée, les formulaires, la fin de soirée
+    // vivent dans l'enveloppe.
+    else if (pose) assert.ok(['components/SpaceNav.tsx', 'main.tsx'].includes(fichier.replace(/\\/g, '/')), fichier)
+  }
+
+  // Une page en flux : l'en-tête et la navigation d'abord, puis le repère.
+  for (const vue of ['RecapApp', 'BilanApp', 'ArchivesApp', 'AccountApp', 'AdminApp', 'EditorApp']) {
+    const texte = readFileSync(new URL(`../../client/src/views/${vue}.tsx`, import.meta.url), 'utf8')
+    const repere = texte.indexOf('<main className="page-corps">')
+    const tete = Math.min(...[texte.indexOf('<BilanHead'), texte.indexOf('</header>')].filter(i => i > 0))
+    assert.ok(repere > tete && tete > 0, `${vue} : le repère suit l'en-tête`)
+    const nav = texte.indexOf('<SpaceNav')
+    if (nav > 0) assert.ok(nav < repere, `${vue} : la navigation précède le repère`)
+  }
+  // Le message d'erreur d'une page publique : la navigation, puis le repère.
+  const nav = readFileSync(new URL('../../client/src/components/SpaceNav.tsx', import.meta.url), 'utf8')
+  assert.match(nav, /<SpaceNav current=\{current\} \/>\s*<main className="page-corps">\s*<p className="error center">/)
 })
 
 test('A4 · dans l’éditeur, un bouton répété dit ce qu’il vise', () => {

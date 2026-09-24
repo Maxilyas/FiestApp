@@ -2150,6 +2150,11 @@ h3 > .icon {
 .chip-remove:hover { color: var(--alert); }
 .chip-remove:focus-visible { opacity: 1; }
 
+/* Le repère principal d'une page en flux, sous son en-tête et sa
+   navigation : il reprend l'espacement de sa page, pour que l'envelopper
+   n'ait rien changé à l'œil. */
+.page-corps { display: flex; flex-direction: column; gap: inherit; min-width: 0; }
+
 /* ── Pages souvenir, bilan et historique ────────── */
 .recap {
   max-width: 760px;

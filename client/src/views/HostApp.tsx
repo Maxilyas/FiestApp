@@ -392,22 +392,26 @@ export function HostApp() {
   }, [vue])
 
   if (needLogin) {
-    return <LoginForm title="Écran commun" error={error} busy={busy} onSubmit={submitLogin} />
+    return (
+      <main>
+        <LoginForm title="Écran commun" error={error} busy={busy} onSubmit={submitLogin} />
+      </main>
+    )
   }
   if (!me) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Connexion…</p>
-      </div>
+      </main>
     )
   }
 
   const snap = s.snapshot
   if (!snap) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Connexion…</p>
-      </div>
+      </main>
     )
   }
 
@@ -598,7 +602,9 @@ export function HostApp() {
         {/* Les montées de niveau du dernier podium, proclamées à la salle. */}
         {s.progres && <AnnoncesDeNiveau progres={s.progres} onFin={finirAnnonces} />}
 
-        <div className={'host-grid' + (staging ? ' staging' : '')}>
+        {/* Le repère principal : la scène et ses colonnes, entre le bandeau
+            (banner) et la console (contentinfo). */}
+        <main className={'host-grid' + (staging ? ' staging' : '')}>
           {!staging && (
             <section className="card">
               <h2>Invités ({snap.players.length})</h2>
@@ -1161,7 +1167,7 @@ export function HostApp() {
               </section>
             </div>
           )}
-        </div>
+        </main>
 
         {/* La console animateur : discrète, en bas, toujours au même endroit.
             Chaque écran y pose ses boutons ; le son, l'habillage et le plein
