@@ -5,6 +5,7 @@ import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
+import { horsBornesALEnvoi } from '../../shared/library'
 import { accountOf, csrfGuard, requireAccount } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountProfileApi } from './auth/profileRoutes'
@@ -133,6 +134,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
       // enregistré ailleurs depuis — l'autre appareil —, on refuse au lieu
       // d'écraser en silence. Sans `base` (une page d'avant), comme avant.
       const base = typeof req.body?.base === 'number' && Number.isFinite(req.body.base) ? req.body.base : undefined
+      if (base !== undefined) {
+        const horsBornes = horsBornesALEnvoi(req.body?.questions)
+        if (horsBornes) return res.status(400).json({ error: horsBornes })
+      }
       const quiz = await unParUn(cle, async () => {
         const d = derniers.get(cle)
         const memeClic = jeton !== null && d !== undefined && d.jeton === jeton

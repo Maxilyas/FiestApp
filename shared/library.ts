@@ -391,6 +391,31 @@ export function titreLibre(titre: string, pris: Iterable<string>): string {
 }
 
 /**
+ * Le premier temps ou la première cible qu'`normalizeQuestions` changerait en
+ * silence, dit comme on le corrige, ou null. Le serveur le refuse à l'éditeur
+ * d'aujourd'hui (la requête porte `base`) : son champ borne en le quittant,
+ * et un « 4 » qui arrivait quand même partait en base à 5 s sans que
+ * personne le lise. Une page d'avant, elle, garde le bornage silencieux.
+ */
+export function horsBornesALEnvoi(raw: unknown): string | null {
+  if (!Array.isArray(raw)) return null
+  const dans = (v: number, min: number, max: number) => Number.isFinite(v) && Math.round(v) >= min && Math.round(v) <= max
+  for (const [i, q] of raw.slice(0, MAX_QUESTIONS).entries()) {
+    const ou = `Question ${i + 1} : `
+    if (q?.duration !== undefined && !dans(Number(q.duration), MIN_DURATION, MAX_DURATION)) {
+      return `${ou}le temps de réponse va de ${MIN_DURATION} à ${MAX_DURATION} s. Corrige-le, puis enregistre.`
+    }
+    if (q?.observeSeconds !== undefined && q.observeSeconds !== null && !dans(Number(q.observeSeconds), MIN_OBSERVE, MAX_OBSERVE)) {
+      return `${ou}le temps d’observation va de ${MIN_OBSERVE} à ${MAX_OBSERVE} s. Corrige-le, puis enregistre.`
+    }
+    if (q?.target !== undefined && q.target !== null && !(typeof q.target === 'number' && Number.isFinite(q.target))) {
+      return `${ou}la bonne réponse n’est pas un nombre lisible. Corrige-la, puis enregistre.`
+    }
+  }
+  return null
+}
+
+/**
  * Borne ce qui arrive du navigateur sans rien jeter : un brouillon incomplet
  * reste enregistré tel quel (on ne perd jamais une saisie), c'est `toPlayable`
  * qui décidera au lancement du quiz s'il est jouable.

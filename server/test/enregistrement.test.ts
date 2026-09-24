@@ -160,3 +160,21 @@ test('un quiz d’un autre espace reste introuvable, base ou pas', async () => {
   assert.equal((await chezLeVoisin({ title: 'Volé', questions: [qcm('Écrasé ?')] })).status, 404)
   assert.equal((await lire(id)).questions[0].text, 'Chez moi ?', 'rien n’a bougé chez moi')
 })
+
+test('un temps hors bornes est refusé à l’éditeur d’aujourd’hui, et rangé pour une page d’avant', async () => {
+  const id = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+  const base = (await lire(id)).updatedAt
+  // Le « 4 » d'un champ vidé puis quitté partait en base à 5 s sans un mot.
+  const refus = await enregistrer(id, { title: 'Q', questions: [qcm('Un ?'), qcm('Deux ?', ['Oui', 'Non'], 0, 4)], base, jeton: 't', essai: 1 })
+  assert.equal(refus.status, 400)
+  assert.match(((await refus.json()) as { error: string }).error, /Question 2 .*de 5 à 120 s/)
+  assert.deepEqual((await lire(id)).questions.map(q => q.duration), [20, 20], 'rien n’est écrit')
+
+  const observe = await enregistrer(id, { title: 'Q', questions: [{ ...qcm('Un ?'), observeSeconds: 90 }], base, jeton: 'o', essai: 1 })
+  assert.equal(observe.status, 400)
+  assert.match(((await observe.json()) as { error: string }).error, /de 2 à 30 s/)
+
+  // Une page d'avant, sans base : bornée en silence, comme avant.
+  assert.equal((await enregistrer(id, { title: 'Q', questions: [qcm('Un ?', ['Oui', 'Non'], 0, 4)] })).status, 200)
+  assert.equal((await lire(id)).questions[0].duration, 5)
+})
