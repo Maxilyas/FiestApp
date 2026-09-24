@@ -47,10 +47,10 @@ moins coûteux :
 
 ## Les suites
 
-Chaque axe a été confié à une session, qui l'a porté dans sa propre PR :
-1 → #27, 2 → #26, 3 → #31, 4 → #29, 5 → #30, 6 → #25, 7 → #28 — les trois
-dernières fusionnées le 24 septembre. Les constats qui suivent décrivent
-l'application du 23 : avant de reprendre un axe, regarde sa PR.
+Le lendemain, chaque axe a été confié à une session, qui l'a porté dans sa
+propre PR : 1 → #27, 2 → #26, 3 → #31, 4 → #29, 5 → #30, 6 → #25, 7 → #28.
+Les constats qui suivent décrivent l'application du 23 septembre : avant de
+reprendre un axe, regarde sa PR.
 
 ## Qui était là
 
