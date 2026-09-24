@@ -822,6 +822,16 @@ export class SpaceRuntime {
     return true
   }
 
+  /**
+   * Une nouvelle soirée commence — un premier invité s'inscrit, ou un quiz se
+   * lance : la clôture d'hier cesse d'être la scène. Restée à l'écran, la
+   * télé montrait le QR du souvenir de la veille à ceux qui arrivaient, au
+   * lieu de celui pour rejoindre.
+   */
+  soireeCommence() {
+    if (this.scene?.ecran === 'cloture') this.poserScene(null)
+  }
+
   /** L'annonce de clôture encore à l'écran, pour un écran d'animateur qui se présente. */
   clotureAffichee(): ClotureDeSoiree | null {
     return this.scene?.ecran === 'cloture' ? this.derniereCloture : null

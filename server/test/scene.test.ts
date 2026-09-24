@@ -245,6 +245,29 @@ test('un écran de fin ne s’ouvre pas par-dessus une question en cours', () =>
     await scene(tele, sc => sc?.ecran === 'prix', 'les prix, une fois la partie close')
   }))
 
+test('la clôture quitte la télé dès que la soirée suivante commence', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const quiz = await creerQuiz(banc.url, cookie, [qcm('Première ?', ['Oui', 'Non'], 0, 60)])
+    const alice = await invite(banc.url, 'Alice')
+    await invite(banc.url, 'Bob', '🐻')
+    const tele = await ecranCommun(banc.url, cookie)
+    const sessionId = await lancerQuiz(tele, quiz)
+    await attendre<any>(tele, 'session:view', p => p.view.phase === 'question', 'la question', 15_000)
+    assert.equal((await emitAck<any>(alice.socket, 'player:action', { sessionId, action: { type: 'answer', choice: 0 } })).ok, true)
+    envoyer(tele, 'host:command', { sessionId, command: { type: 'next' } })
+    await attendre<any>(tele, 'session:view', p => p.view.phase === 'reveal', 'la révélation')
+    envoyer(tele, 'host:endSession', { sessionId })
+    envoyer(tele, 'host:closeParty', { title: 'Hier soir' })
+    await scene(tele, sc => sc?.ecran === 'cloture', 'la clôture à la télé')
+
+    // Personne n'a cliqué « La soirée suivante » : le lendemain, le premier
+    // invité qui entre trouvait le QR du souvenir d'hier au lieu de celui
+    // pour rejoindre.
+    await invite(banc.url, 'Chloé', '🐱')
+    await scene(tele, sc => sc === null, 'la salle d’attente au premier invité')
+  }))
+
 /** Un écran commun dont on écoute les messages avant qu'il se présente. */
 function connecterEcran(url: string, cookie: string) {
   const socket = connecter(url, cookie)
