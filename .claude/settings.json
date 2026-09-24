@@ -44,7 +44,10 @@
       "Bash(sed -n:*)",
       "Bash(node -e:*)",
       "Bash(node -p:*)",
-      "Bash(curl -s http://localhost:*)"
+      "Bash(curl -s http://localhost:*)",
+      "Bash(npm run tablee)",
+      "Bash(npm run tablee:*)",
+      "Bash(node server/scripts/tablee/pilote.mjs:*)"
     ]
   }
 }

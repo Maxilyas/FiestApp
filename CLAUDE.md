@@ -16,6 +16,7 @@ npm run dev        # serveur + client, http://localhost:5173
 npm test           # les tests ciblés de server/test/ (node:test, environ une minute)
 npm run smoke      # le test de bout en bout seul (~90 s)
 npm run sauvegarde # la base permanente en SQL daté, dans export/sauvegardes/
+npm run tablee     # une soirée jouée par des agents (régie + /tablee) : voir .claude/skills/tablee/
 ```
 
 Deux suites, aucune dépendance de plus, et toujours ni linter ni formateur.
@@ -77,6 +78,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `client/src/components/Liaison.tsx` | ce que voit l'invité quand la liaison tombe |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
 | `server/scripts/calibrage.ts` | combien de quiz demande chaque légendaire, et combien de soirées chaque niveau : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits et de l'expérience (`npx tsx scripts/calibrage.ts`, format réglable) |
+| `server/scripts/tablee/regie.ts` · `pilote.mjs` | la tablée : un serveur jetable, un Chromium, et les gestes des agents qui y jouent une soirée — la marche à suivre, les personnages et leurs consignes dans `.claude/skills/tablee/` (`/tablee`) |
+| `retours/<date>/synthese.md` | ce qu'une tablée a trouvé : les axes d'amélioration, vérifiés un à un, et les retours bruts des agents — à lire avant de retoucher un écran qu'ils citent |
 
 ## Les invariants — à ne jamais casser
 
@@ -339,6 +342,10 @@ sans `QUIZ_DB_URL`.
   téléphone se regarde en 360 × 640 ; l'écran commun en **1366 × 768** — le
   portable qu'on branche à la télé, où rien ne défile — et en 1920 × 1080,
   avec une question à photo, des équipes et une clôture à hauts faits.
+- **La tablée lit l'écran par ses classes** (`.quiz-player`, `.ans-btn`,
+  `.guess-form`, `.join-url`, `.fin-tete`…) : en renommer une casse ses
+  raccourcis `question`, `repondre` et `scanner` sans que le typecheck le
+  voie. Une tablée courte le dit.
 
 ## Ce qu'il ne faut pas faire
 
