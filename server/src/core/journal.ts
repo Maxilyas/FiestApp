@@ -11,7 +11,8 @@ import { SEUILS } from '../../../shared/profil'
  * visait le plus juste, qui a fini devant dans chaque quiz. Deux lectures
  * écrites chacune de son côté finiraient par ne plus dire la même chose, et
  * un joueur « le plus rapide » pour l'une ne le serait pas pour l'autre. Ce
- * module est la seule : pur, sans base, comme le souvenir et le bilan.
+ * module est la seule : pur, sans base, comme le souvenir et le bilan — qui
+ * y lisent aussi le coup d'œil de chacun (`coupDOeil`).
  */
 
 /** Une question telle qu'elle a été jouée : ses lignes, et ce qu'on en tire. */
@@ -165,4 +166,24 @@ export function indexerJournal(answers: AnswerRow[], scores: ScoreEntry[]): Quiz
 /** Toutes les questions, dans l'ordre où elles ont été posées. */
 export function questionsDe(quiz: QuizJoue[]): QuestionJouee[] {
   return quiz.flatMap(q => q.questions)
+}
+
+/**
+ * Le coup d'œil d'une estimation : la part des autres propositions qu'elle
+ * bat ou égale — 1 quand personne n'a visé plus près, 0 quand toutes l'ont
+ * fait. Null pour qui n'a rien proposé, ou pour qui l'a fait seul : sans
+ * personne à qui se mesurer, il n'y a rien à dire.
+ *
+ * C'est aux estimations ce que la précision est aux QCM. L'écart en pour cent
+ * mesurait la question plus que le joueur — trois ans sur 1994 font 0,15 %,
+ * trois sur 54 en font 6 % — et une faute de frappe (« 19940 ») triplait la
+ * moyenne d'une soirée. Contre la salle, une date et une distance se valent,
+ * une faute ne coûte qu'une question, et le joueur moyen tourne autour de la
+ * moitié, à trois comme à trente. Les ex æquo se partagent le rang
+ * (`rangsEstimation`) : deux « 1994 » pile font 1 chacun.
+ */
+export function coupDOeil(q: QuestionJouee, playerId: string): number | null {
+  const rang = q.rangsEstimation.get(playerId)
+  const n = q.rangsEstimation.size
+  return rang === undefined || n < 2 ? null : (n - rang) / (n - 1)
 }

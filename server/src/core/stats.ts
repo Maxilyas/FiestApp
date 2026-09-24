@@ -2,6 +2,7 @@ import type { AnswerRow } from './answers'
 import type { Award, PartyStats, PlayerStat, PublicPlayer } from '../../../shared/types'
 import { nomAffiche } from '../../../shared/homonymes'
 import { ordreDAffichage, ordreDeClassement, rangPartage } from '../../../shared/classement'
+import { coupDOeil, indexerJournal, questionsDe } from './journal'
 
 /**
  * Statistiques de soirée et prix de fin de partie.
@@ -76,6 +77,21 @@ export function computeStats(journal: AnswerRow[], players: PublicPlayer[]): Par
     choiceCounts.set(key, counts)
   }
 
+  // Le coup d'œil de chacun, lu comme l'expérience le lit (`journal.ts`) :
+  // le souvenir et la fiche de carrière disent le même chiffre de la même
+  // soirée.
+  const coups = new Map<string, { n: number; somme: number }>()
+  for (const q of questionsDe(indexerJournal(rows, []))) {
+    for (const id of q.rangsEstimation.keys()) {
+      const part = coupDOeil(q, id)
+      if (part === null) continue
+      const c = coups.get(id) ?? { n: 0, somme: 0 }
+      c.n++
+      c.somme += part
+      coups.set(id, c)
+    }
+  }
+
   const stats: PlayerStat[] = []
   for (const player of players) {
     const mine = rows.filter(r => r.playerId === player.id)
@@ -140,6 +156,7 @@ export function computeStats(journal: AnswerRow[], players: PublicPlayer[]): Par
       tempsQcm: timed.length ? average(timed.map(r => r.ms!)) : null,
       estimations: sensees.length,
     })
+    const coup = coups.get(player.id)
 
     stats.push({
       playerId: player.id,
@@ -165,6 +182,8 @@ export function computeStats(journal: AnswerRow[], players: PublicPlayer[]): Par
       exact: guessRows.filter(r => r.value === r.target).length,
       avgGapPct: gaps.length ? average(gaps) : null,
       bias: biases.length ? average(biases) : null,
+      coupDOeil: coup ? coup.somme / coup.n : null,
+      estimationsComparees: coup?.n ?? 0,
     })
   }
 
@@ -204,6 +223,8 @@ function emptyStat(p: PublicPlayer): PlayerStat {
     exact: 0,
     avgGapPct: null,
     bias: null,
+    coupDOeil: null,
+    estimationsComparees: 0,
   }
 }
 
@@ -338,18 +359,24 @@ const SPECS: Spec[] = [
     emoji: '🔮',
     title: 'Le Devin',
     rule: 'Le plus juste sur les questions chiffrées',
-    // Les trois prix d'estimation ne comptent que les estimations retenues
-    // (sans les absurdes) : ce sont elles que le pourcentage moyenne.
-    eligible: (s, x) => x.estimations >= MIN_GUESSES && s.avgGapPct !== null,
-    score: s => -s.avgGapPct!,
-    volume: (_, x) => x.estimations,
-    detail: (s, x) => `${percent(s.avgGapPct!)} d'écart moyen sur ${plural(x.estimations, 'estimation')}`,
+    // Au coup d'œil : la part de la salle que chaque estimation bat ou égale.
+    // À l'écart moyen en pour cent, il allait au retardataire qui n'avait vu
+    // que les dates — onze ans sur 1789 font 0,6 % —, et une faute de frappe
+    // (« 19940 » pour 1994) le donnait au voisin, trois ans à côté partout.
+    // Une proposition absurde n'a pas à être écartée : elle finit dernière.
+    eligible: s => s.estimationsComparees >= MIN_GUESSES && s.coupDOeil !== null,
+    score: s => s.coupDOeil!,
+    // Pile sur huit bat pile sur deux, même quand six n'avaient personne à battre.
+    volume: s => s.guesses,
+    detail: s => `${percent(s.coupDOeil!)} de la salle battue ou égalée, sur ${plural(s.estimationsComparees, 'estimation')}`,
   },
   {
     key: 'optimiste',
     emoji: '🎈',
     title: "L'Optimiste",
     rule: "Voit toujours les choses en plus grand qu'elles ne sont",
+    // Les deux prix du biais ne comptent que les estimations retenues (sans
+    // les absurdes) : ce sont elles que le pourcentage moyenne.
     eligible: (s, x) => x.estimations >= MIN_GUESSES && s.bias !== null && s.bias > 0.05,
     score: s => s.bias!,
     volume: (_, x) => x.estimations,

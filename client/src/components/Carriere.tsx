@@ -1,11 +1,11 @@
 import { useState } from 'react'
-import type { Fiche, SoireeJouee } from '../../../shared/profil'
+import { coupDOeilMoyen, type Fiche, type SoireeJouee } from '../../../shared/profil'
 import type { HautFaitVu } from '../../../shared/hautsfaits'
 import { NOM_PALIER, clePalier, hautFait } from '../../../shared/hautsfaits'
 import { LEGENDAIRES, progresVers } from '../../../shared/legendaires'
 import { DIVINS, type DivinDescendu } from '../../../shared/divins'
 import { NOM_RARETE } from '../../../shared/badges'
-import { formatNumber, pourcent, secondes } from '../format'
+import { estimations, formatNumber, pourcent, secondes, surQcm } from '../format'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 
@@ -304,24 +304,66 @@ function LigneSoiree({ h }: { h: HautFaitVu }) {
   )
 }
 
-/** Les quatre chiffres qui disent l'essentiel d'une carrière : la justesse, la vitesse, les victoires, la fidélité. */
-const ESSENTIELS = new Set(['Précision', 'Réflexe moyen', 'Quiz gagnés', 'Soirées'])
+/**
+ * Les quatre chiffres qui disent l'essentiel d'une carrière : la justesse —
+ * aux QCM comme aux estimations —, la vitesse, les victoires. Quatre, pour
+ * tenir en deux rangs sur un téléphone et en un sur un écran ; la fidélité
+ * se lit juste en dessous, au titre de « Mes soirées ».
+ */
+const ESSENTIELS = new Set(['Précision', 'Coup d’œil', 'Réflexe moyen', 'Quiz gagnés'])
+
+/** Un chiffre : son titre, sa valeur, et sur combien de questions il porte quand ça compte. */
+export type Chiffre = [titre: string, valeur: string, base?: string]
+
+/**
+ * Des chiffres en grille, chacun sous son titre. La base s'écrit sous la
+ * valeur : « Précision 50 % », seul, se lisait pareil sur deux QCM et sur
+ * deux cents.
+ */
+export function Chiffres({ cases, className }: { cases: Chiffre[]; className?: string }) {
+  return (
+    <dl className={'chiffres' + (className ? ` ${className}` : '')}>
+      {cases.map(([titre, valeur, base]) => (
+        <div key={titre} className="chiffre">
+          <dt className="label">{titre}</dt>
+          <dd className="num">{valeur}</dd>
+          {base && <dd className="chiffre-base">{base}</dd>}
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/** La précision et le coup d'œil d'une fiche, chacun avec sa base. */
+export function justesses(fiche: Pick<Fiche, 'precision' | 'qcm' | 'justes' | 'coupDOeil' | 'estimationsComparees'>): Chiffre[] {
+  return [
+    ['Précision', pourcent(fiche.precision), fiche.qcm > 0 ? surQcm(fiche.justes, fiche.qcm) : undefined],
+    [
+      'Coup d’œil',
+      pourcent(fiche.coupDOeil),
+      fiche.estimationsComparees > 0 ? `sur ${estimations(fiche.estimationsComparees)}` : undefined,
+    ],
+  ]
+}
 
 /**
  * La fiche : les chiffres d'une carrière, lisibles d'un coup d'œil. Le profil
  * en montre l'essentiel, et le reste à qui le déplie : douze chiffres d'un
  * coup, c'était la moitié de la page.
+ *
+ * L'écart moyen des estimations n'y est plus : il mesurait la question plus
+ * que le joueur — trois ans sur 1994 font 0,15 %, trois sur 54 en font 6 % —,
+ * et une faute de frappe le triplait. Le coup d'œil le remplace.
  */
 export function FicheCarriere({ fiche, partie }: { fiche: Fiche; partie?: 'essentiel' | 'reste' }) {
-  const toutes: [string, string][] = [
-    ['Précision', pourcent(fiche.precision)],
+  const toutes: Chiffre[] = [
+    ...justesses(fiche),
     ['Réflexe moyen', secondes(fiche.reflexeMoyenMs)],
     ['Record de vitesse', secondes(fiche.meilleurTempsMs)],
     ['Plus longue série', formatNumber(fiche.meilleureSerie)],
     ['Quiz gagnés', formatNumber(fiche.quizGagnes)],
     ['Podiums de quiz', formatNumber(fiche.podiumsQuiz)],
     ['Estimations exactes', formatNumber(fiche.estimationsExactes)],
-    ['Écart moyen', pourcent(fiche.ecartMoyen)],
     ['Flair', pourcent(fiche.flair)],
     ['Soirées', formatNumber(fiche.soirees)],
     ['Réponses', formatNumber(fiche.reponses)],
@@ -329,14 +371,12 @@ export function FicheCarriere({ fiche, partie }: { fiche: Fiche; partie?: 'essen
   ]
   const cases = partie ? toutes.filter(([titre]) => ESSENTIELS.has(titre) === (partie === 'essentiel')) : toutes
   return (
-    <dl className="chiffres">
-      {cases.map(([titre, valeur]) => (
-        <div key={titre} className="chiffre">
-          <dt className="label">{titre}</dt>
-          <dd className="num">{valeur}</dd>
-        </div>
-      ))}
-    </dl>
+    <>
+      <Chiffres cases={cases} />
+      {partie !== 'reste' && fiche.coupDOeil !== null && (
+        <p className="muted small">Le coup d’œil : la part de la salle que tes estimations battent ou égalent, en moyenne.</p>
+      )}
+    </>
   )
 }
 
@@ -364,27 +404,48 @@ export function Categories({ categories }: { categories: Record<string, { questi
 }
 
 /**
- * Les courbes : la précision et le réflexe, soirée après soirée. Deux lignes
- * sur les douze dernières soirées, la plus ancienne à gauche — assez pour voir
- * qu'on progresse, pas assez pour se perdre dans les chiffres.
+ * En dessous, un point de courbe dirait le hasard : 50 % sur deux QCM ne
+ * raconte rien, et la courbe plongeait pour une soirée d'estimations.
+ */
+const MIN_PAR_POINT = 5
+
+/**
+ * Les courbes : la précision, le coup d'œil et le réflexe, soirée après
+ * soirée. Trois lignes sur les douze dernières soirées, la plus ancienne à
+ * gauche — assez pour voir qu'on progresse, pas assez pour se perdre dans
+ * les chiffres. Une soirée ne donne un point qu'à ce qu'elle a assez joué :
+ * cinq QCM pour la précision et le réflexe, cinq estimations pour le coup
+ * d'œil. Les deux justesses partagent l'échelle, de 0 à 100 % ; chacune a
+ * sa marque — rond, carré —, le réflexe ses tirets : aucune ne se reconnaît
+ * à la seule couleur.
  */
 export function Courbes({ soirees }: { soirees: SoireeJouee[] }) {
   const points = soirees
-    .filter(s => s.releve.qcm > 0)
+    .map(({ releve: r, at }) => {
+      const assezDeQcm = r.qcm >= MIN_PAR_POINT
+      return {
+        quand: new Date(at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+        qcm: r.qcm,
+        justes: r.justes,
+        comparees: r.estimationsComparees,
+        precision: assezDeQcm ? r.justes / r.qcm : null,
+        coupDOeil: r.estimationsComparees >= MIN_PAR_POINT ? coupDOeilMoyen(r) : null,
+        reflexe: assezDeQcm && r.justes > 0 ? r.tempsJustesMs / r.justes : null,
+      }
+    })
+    .filter(p => p.precision !== null || p.coupDOeil !== null)
     .slice(0, 12)
     .reverse()
-    .map(s => ({
-      precision: s.releve.justes / s.releve.qcm,
-      reflexe: s.releve.justes > 0 ? s.releve.tempsJustesMs / s.releve.justes : null,
-    }))
-  if (points.length < 2) return <p className="muted small">Les courbes apparaissent à la deuxième soirée.</p>
+  if (points.length < 2) {
+    return <p className="muted small">Les courbes apparaissent dès deux soirées d’au moins cinq QCM ou cinq estimations.</p>
+  }
   const l = 300
   const h = 90
   const x = (i: number) => 10 + (i * (l - 20)) / (points.length - 1)
   const reflexes = points.flatMap(p => (p.reflexe === null ? [] : [p.reflexe]))
   const lent = Math.max(...reflexes, 1)
   const vif = Math.min(...reflexes, lent)
-  const yPrecision = (p: number) => h - 10 - p * (h - 20)
+  const yPart = (p: number) => h - 10 - p * (h - 20)
   // Le réflexe se lit à l'envers : plus il est court, plus la courbe monte.
   const yReflexe = (ms: number) => (lent === vif ? h / 2 : 10 + ((ms - vif) / (lent - vif)) * (h - 20))
   const trace = (ys: (number | null)[]) =>
@@ -394,16 +455,29 @@ export function Courbes({ soirees }: { soirees: SoireeJouee[] }) {
       .join(' ')
   return (
     <figure className="courbes">
-      <svg viewBox={`0 0 ${l} ${h}`} role="img" aria-label="Précision et réflexe, soirée après soirée">
+      <svg viewBox={`0 0 ${l} ${h}`} role="img" aria-label="Précision, coup d’œil et réflexe, soirée après soirée">
         <line x1="10" x2={l - 10} y1={h - 10} y2={h - 10} className="courbe-axe" />
-        <polyline className="courbe courbe-precision" points={trace(points.map(p => yPrecision(p.precision)))} />
         <polyline className="courbe courbe-reflexe" points={trace(points.map(p => (p.reflexe === null ? null : yReflexe(p.reflexe))))} />
-        {points.map((p, i) => (
-          <circle key={i} className="courbe-point" cx={x(i)} cy={yPrecision(p.precision)} r="2.6" />
-        ))}
+        <polyline className="courbe courbe-oeil" points={trace(points.map(p => (p.coupDOeil === null ? null : yPart(p.coupDOeil))))} />
+        <polyline className="courbe courbe-precision" points={trace(points.map(p => (p.precision === null ? null : yPart(p.precision))))} />
+        {points.map((p, i) =>
+          p.coupDOeil === null ? null : (
+            <rect key={`o${i}`} className="courbe-point courbe-point-oeil" x={x(i) - 3.4} y={yPart(p.coupDOeil) - 3.4} width="6.8" height="6.8">
+              <title>{`${p.quand} · coup d’œil ${pourcent(p.coupDOeil)}, sur ${estimations(p.comparees)}`}</title>
+            </rect>
+          ),
+        )}
+        {points.map((p, i) =>
+          p.precision === null ? null : (
+            <circle key={`p${i}`} className="courbe-point courbe-point-precision" cx={x(i)} cy={yPart(p.precision)} r="3.8">
+              <title>{`${p.quand} · précision ${pourcent(p.precision)}, ${surQcm(p.justes, p.qcm)}`}</title>
+            </circle>
+          ),
+        )}
       </svg>
       <figcaption className="row courbes-legende">
         <span className="legende-precision">Précision</span>
+        <span className="legende-oeil">Coup d’œil</span>
         <span className="legende-reflexe">Réflexe</span>
       </figcaption>
     </figure>

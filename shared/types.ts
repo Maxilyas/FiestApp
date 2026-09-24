@@ -133,6 +133,14 @@ export interface PlayerStat {
   exact: number
   avgGapPct: number | null
   bias: number | null
+  /**
+   * Le coup d'œil de ses estimations : en moyenne, la part de la salle que
+   * chacune bat ou égale — ce que la précision est aux QCM. Null sans
+   * estimation mesurée à une autre.
+   */
+  coupDOeil: number | null
+  /** Sa base : les estimations mesurées à au moins une autre proposition. */
+  estimationsComparees: number
 }
 
 /**

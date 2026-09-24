@@ -66,7 +66,16 @@ test('la carte d’un invité dit sa soirée ; celle d’un profil, son niveau e
     // Bob est anonyme : sa soirée, et rien qui dise ce qui lui manque.
     const deBob = (await (await carte(banc, bob.playerId)).json()) as any
     assert.equal(deBob.nom, 'Bob')
-    assert.deepEqual(deBob.ceSoir, { points: 0, rang: 0, joueurs: 3, reponses: 1, justes: 0 })
+    assert.deepEqual(deBob.ceSoir, {
+      points: 0,
+      rang: 0,
+      joueurs: 3,
+      reponses: 1,
+      qcm: 1,
+      justes: 0,
+      estimations: 0,
+      coupDOeil: null,
+    })
     assert.equal(deBob.profil, undefined)
     assert.equal(deBob.niveau, undefined, 'ni niveau, ni pastille : l’absence, pas l’infériorité')
 

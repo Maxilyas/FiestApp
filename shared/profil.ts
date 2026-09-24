@@ -329,6 +329,15 @@ export interface ReleveSoiree {
   estimationsProches: number
   /** Somme des écarts relatifs de ses estimations (bornés à 10) — la moyenne se déduit. */
   ecartRelatif: number
+  /** Estimations mesurées à au moins une autre proposition : celles qui ont un coup d'œil. */
+  estimationsComparees: number
+  /**
+   * Somme de leurs coups d'œil — la part de la salle que chacune bat ou
+   * égale (`coupDOeil`, `server/src/core/journal.ts`) —, la moyenne se déduit.
+   * Absente des soirées rangées avant lui (`VERSION_BAREME` 6) que rien n'a
+   * pu relire : elles comptent alors zéro estimation comparée.
+   */
+  coupDOeil: number
   /** Seul de la salle à trouver. */
   seulJuste: number
   /** Juste quand la majorité de la salle se trompait. */
@@ -368,6 +377,8 @@ export function releveVide(): ReleveSoiree {
     estimationsExactes: 0,
     estimationsProches: 0,
     ecartRelatif: 0,
+    estimationsComparees: 0,
+    coupDOeil: 0,
     seulJuste: 0,
     flair: 0,
     derniereSeconde: 0,
@@ -401,6 +412,8 @@ export interface Carriere {
   estimationsExactes: number
   estimationsProches: number
   ecartRelatif: number
+  estimationsComparees: number
+  coupDOeil: number
   seulJuste: number
   flair: number
   derniereSeconde: number
@@ -440,6 +453,8 @@ export function carriereDe(
     estimationsExactes: 0,
     estimationsProches: 0,
     ecartRelatif: 0,
+    estimationsComparees: 0,
+    coupDOeil: 0,
     seulJuste: 0,
     flair: 0,
     derniereSeconde: 0,
@@ -475,6 +490,10 @@ export function carriereDe(
     c.estimationsExactes += r.estimationsExactes
     c.estimationsProches += r.estimationsProches
     c.ecartRelatif += r.ecartRelatif
+    // Estimation par estimation, pas soirée par soirée : une soirée de deux
+    // estimations ne pèse pas autant qu'une de soixante.
+    c.estimationsComparees += r.estimationsComparees
+    c.coupDOeil += r.coupDOeil
     c.seulJuste += r.seulJuste
     c.flair += r.flair
     c.derniereSeconde += r.derniereSeconde
@@ -496,37 +515,68 @@ export function carriereDe(
   return c
 }
 
-/** Les chiffres qu'on montre d'une carrière — dérivés, jamais rangés. */
+/**
+ * Les chiffres qu'on montre d'une carrière — dérivés, jamais rangés.
+ *
+ * Deux mesures de justesse, une par type de question, et chacune avec sa
+ * base : la précision ne compte que les QCM — une estimation n'est ni juste
+ * ni fausse —, et elle s'affichait seule, à côté de réponses qui comptaient
+ * tout. « 50 % » sur deux QCM se lisait comme sur deux cents, chez qui avait
+ * joué soixante-deux estimations. Les estimations ont leur chiffre, le coup
+ * d'œil, et aucune des deux ne se fond dans l'autre : une précision qui les
+ * mélangerait bougerait avec la part d'estimations du quiz, pas avec le
+ * joueur.
+ */
 export interface Fiche {
   soirees: number
   reponses: number
   /** Part des questions à choix justes, null sans réponse. */
   precision: number | null
+  /** La base de la précision : QCM répondus, et justes. */
+  qcm: number
+  justes: number
+  /**
+   * Le coup d'œil moyen des estimations : la part de la salle que chacune
+   * bat ou égale. Null sans estimation comparée — seul, on ne se mesure à
+   * personne.
+   */
+  coupDOeil: number | null
+  /** Sa base : les estimations mesurées à au moins une autre proposition. */
+  estimationsComparees: number
   /** Temps moyen des bonnes réponses, en ms. */
   reflexeMoyenMs: number | null
   meilleurTempsMs: number | null
   meilleureSerie: number
   quizGagnes: number
   podiumsQuiz: number
-  /** Écart relatif moyen des estimations, null sans estimation. */
-  ecartMoyen: number | null
   estimationsExactes: number
   /** Part des bonnes réponses trouvées quand la salle se trompait. */
   flair: number | null
   hotes: number
 }
 
+/**
+ * Le coup d'œil moyen d'une soirée ou d'une carrière : la part de la salle
+ * que ses estimations battent ou égalent. Null sans estimation comparée —
+ * « — », jamais « 0 % ».
+ */
+export const coupDOeilMoyen = (r: Pick<ReleveSoiree, 'coupDOeil' | 'estimationsComparees'>): number | null =>
+  r.estimationsComparees > 0 ? r.coupDOeil / r.estimationsComparees : null
+
 export function ficheDe(c: Carriere): Fiche {
   return {
     soirees: c.soirees,
     reponses: c.reponses,
     precision: c.qcm > 0 ? c.justes / c.qcm : null,
+    qcm: c.qcm,
+    justes: c.justes,
+    coupDOeil: coupDOeilMoyen(c),
+    estimationsComparees: c.estimationsComparees,
     reflexeMoyenMs: c.justes > 0 ? Math.round(c.tempsJustesMs / c.justes) : null,
     meilleurTempsMs: c.meilleurTempsMs,
     meilleureSerie: c.meilleureSerie,
     quizGagnes: c.quizGagnes,
     podiumsQuiz: c.podiumsQuiz,
-    ecartMoyen: c.estimations > 0 ? c.ecartRelatif / c.estimations : null,
     estimationsExactes: c.estimationsExactes,
     flair: c.justes > 0 ? c.flair / c.justes : null,
     hotes: c.hotes,

@@ -3,7 +3,7 @@
 // des réponses, recroisé avec les questions telles qu'elles ont été posées.
 //
 // Distinct des statistiques (shared/types.ts, PartyStats) : celles-ci
-// résument chaque joueur en dix-sept chiffres, le bilan garde le détail
+// résument chaque joueur en dix-huit chiffres, le bilan garde le détail
 // question par question — c'est lui qu'on relit le lendemain.
 import type { ArchiveSummary, DerniereSoiree } from './archive'
 import type { QuestionKind } from './library'
@@ -153,6 +153,8 @@ export interface ReviewTeam extends PublicTeam {
   finalPoints: number
   /** Taux de bonnes réponses aux QCM, tous membres confondus. */
   accuracy: number | null
+  /** Le coup d'œil de ses estimations, toutes mises ensemble : la part de la salle que chacune bat ou égale. */
+  coupDOeil: number | null
   avgMs: number | null
   /** Le membre qui a le plus marqué. */
   best: { playerId: string; points: number } | null

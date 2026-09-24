@@ -51,7 +51,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `core/distante.ts` | le client libsql, avec un délai : une base muette se dit en dix secondes, pas en cinq minutes ; et `ajouterColonne()`, qui lit le schéma avant de migrer et laisse toute panne arrêter le démarrage |
 | `core/archive.ts` | l'historique : une fiche par soirée, relue avec les règles du jour ; `Soiree`, le nom figé |
 | `core/recap.ts` `review.ts` `stats.ts` `progress.ts` | **dérivations pures** des journaux |
-| `core/journal.ts` | le journal rangé question par question et quiz par quiz : la seule lecture qu'en font l'expérience et les hauts faits |
+| `core/journal.ts` | le journal rangé question par question et quiz par quiz : la seule lecture qu'en font l'expérience et les hauts faits — et le coup d'œil de chaque estimation (`coupDOeil`), que lisent aussi le souvenir, le bilan et la carte |
 | `core/hautsfaits.ts` | les hauts faits d'une soirée, invité par invité — dérivation pure, jouée à la clôture et sur les archives |
 | `core/recalcul.ts` | au démarrage, relit l'historique au barème du jour (`VERSION_BAREME`) : expérience, prix, hauts faits, paliers |
 | `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les douze avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un |
@@ -254,6 +254,13 @@ server/test/        un fichier par thème, un serveur jetable chacun
   avec `Number()` : « 35 000 » valait NaN au téléphone, et l'éditeur, qui
   relisait sa cible à chaque touche, faisait 8 de « 0,8 ». Le champ garde le
   texte tapé ; seule la valeur lue part en base.
+- **Une précision ne compte que les QCM, et dit sur combien** (« 50 % ·
+  1 sur 2 QCM ») : une estimation n'est jamais « juste », et comptée au
+  dénominateur elle faisait lire « 1/64 justes ». **Une estimation se juge
+  au coup d'œil** (`coupDOeil`, `core/journal.ts`) — la part de la salle
+  qu'elle bat ou égale —, jamais à l'écart en pour cent : trois ans sur 1994
+  font 0,15 %, trois sur 54 en font 6 %, et une faute de frappe triplait la
+  moyenne. Les deux ne se fondent jamais en un seul chiffre.
 - **Ce qui ne dépend pas du destinataire d'une vue** — un classement, un
   podium — passe par `vctx.memo` : un tri par vue coûtait une demi-minute par
   question à 500 invités.
