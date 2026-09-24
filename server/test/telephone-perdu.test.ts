@@ -191,8 +191,6 @@ describe('le téléphone perdu', () => {
     assert.equal((await repondre(bob, sessionId, v, 0)).ok, true)
     assert.equal(await vient(host, v => v.phase === 'reveal', 1500), false, 'on attend encore Rachid')
 
-    // Seul un hors-ligne se dispense : Alice, connectée, reste dans la règle.
-    commande(host, sessionId, { type: 'nePlusAttendre', playerId: alice.playerId })
     commande(host, sessionId, { type: 'nePlusAttendre', playerId: rachid.playerId })
     v = await revele
     assert.equal(v.qIndex, 0, 'la question 1 se révèle sans lui, sans attendre la fin du chrono')
@@ -205,9 +203,13 @@ describe('le téléphone perdu', () => {
       { playerId: rachid.playerId, name: 'Rachid', avatar: '🦁', horsLigne: true, dispense: true },
       'la console le montre : on ne l’attend plus',
     )
+    // Seul un hors-ligne se dispense : Alice, connectée, reste dans la règle.
+    // Envoyé avant sa réponse — après, le geste n'aurait rien à montrer.
+    commande(host, sessionId, { type: 'nePlusAttendre', playerId: alice.playerId })
+    await repondre(bob, sessionId, v, 0)
+    assert.equal(await vient(host, v => v.phase === 'reveal', 1500), false, 'on attend encore Alice, connectée')
     const revele2 = vue(host, v => v.phase === 'reveal' && v.qIndex === 1, 'la révélation 2', 5000)
     await repondre(alice, sessionId, v, 0)
-    await repondre(bob, sessionId, v, 0)
     v = await revele2
 
     // Il revient pendant la révélation : à la question suivante, on l'attend de nouveau.
