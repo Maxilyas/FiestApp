@@ -3,7 +3,7 @@ import type { CarteDeJoueur } from '../../../shared/carte'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { NOM_RARETE } from '../../../shared/badges'
-import { formatNumber, ordinal, pourcent, secondes } from '../format'
+import { espacesFines, formatNumber, place, pourcent, secondes } from '../format'
 import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
@@ -76,11 +76,11 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                   {carte.nom}
                   <Niveau niveau={p?.niveau} big />
                 </h3>
-                {p && p.prenom !== carte.nom && <p className="muted small">« {carte.nom} » ce soir — {p.prenom} sur son profil</p>}
+                {p && p.prenom !== carte.nom && <p className="muted small">{espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil</p>}
                 <p className="carte-soir">
                   {carte.ceSoir.rang > 0 ? (
                     <>
-                      <b>{ordinal(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {formatNumber(carte.ceSoir.points)} pts
+                      <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {formatNumber(carte.ceSoir.points)} pts
                     </>
                   ) : (
                     'Pas encore de points ce soir'

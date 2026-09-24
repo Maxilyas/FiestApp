@@ -7,6 +7,7 @@ import { buildReview } from './review'
 import { ArchiveStore, reviewOfArchive } from './archive'
 import { playableQuestions } from '../../../shared/library'
 import { nomsAffiches } from '../../../shared/homonymes'
+import { rang } from '../../../shared/typographie'
 import {
   answerLabel,
   formatPercent,
@@ -172,7 +173,6 @@ export function toCsv(rows: unknown[][]): string {
 const pct = (r: number | null) => (r === null ? '' : formatPercent(r))
 const secs = (ms: number | null) => (ms === null ? '' : formatSeconds(ms))
 const short = (s: string, max = 70) => (s.length > max ? s.slice(0, max - 1) + '…' : s)
-const rank = (n: number) => `${n}${n === 1 ? 'ᵉʳ' : 'ᵉ'}`
 
 /** Les quatre fichiers, prêts à écrire : leur nom et leur contenu. */
 export function exportFiles(review: Review): { name: string; content: string }[] {
@@ -206,7 +206,7 @@ export function exportFiles(review: Review): { name: string; content: string }[]
           if (!a.answered) return '—'
           const when = a.ms !== null ? ` · ${formatSeconds(a.ms)}` : ''
           if (q.kind === 'number') {
-            const near = a.proximityRank !== null ? ` · ${rank(a.proximityRank)} plus proche` : ''
+            const near = a.proximityRank !== null ? ` · ${rang(a.proximityRank)} estimation la plus proche` : ''
             return `${a.value} ${q.unit} (vrai : ${q.target ?? '?'})${near}${when} · ${a.points} pts`
           }
           return `${answerLabel(q, a.choice)} ${a.correct ? '✔' : '✘'}${when} · ${a.points} pts`
@@ -255,7 +255,7 @@ export function exportFiles(review: Review): { name: string; content: string }[]
     ...review.teams.map(t => [
       `${t.emoji} ${t.name}`, t.memberCount, t.total, t.average, t.rank, t.gamePoints, t.bonus, pct(t.accuracy),
       secs(t.avgMs), t.best ? `${who(t.best.playerId)} (${t.best.points} pts)` : '',
-      ...t.perQuiz.map(pq => `${pq.average} (${rank(pq.rank)})`),
+      ...t.perQuiz.map(pq => `${pq.average} (${rang(pq.rank)})`),
     ]),
   ]
 

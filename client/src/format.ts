@@ -1,5 +1,6 @@
-/** « 1ᵉʳ », puis « 2ᵉ », « 3ᵉ »… — le premier n'est pas « 1ᵉ ». */
-export const ordinal = (n: number) => (n === 1 ? '1ᵉʳ' : `${n}ᵉ`)
+// Un rang s'écrit devant « place » (« 1ʳᵉ place ») : « 1ᵉʳ sur 7 » mettait au
+// masculin la victoire de n'importe qui. Voir `shared/typographie.ts`.
+export { espacesFines, place, rang } from '../../shared/typographie'
 
 export const formatNumber = (n: number) => n.toLocaleString('fr-FR')
 
