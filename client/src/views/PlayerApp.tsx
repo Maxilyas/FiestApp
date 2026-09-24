@@ -16,7 +16,7 @@ import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import { espacesFines, formatNumber, place } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
-import { AttenteConnexion, BandeauCoupure, ConseilVeille, useEnLigne } from '../components/Liaison'
+import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
 import { CarteJoueur } from '../components/CarteJoueur'
 import { useEcranAllume } from '../veille'
@@ -53,8 +53,6 @@ export function PlayerApp() {
    */
   const [envoi, setEnvoi] = useState<Envoi | null>(null)
   const numeroEnvoi = useRef(0)
-  /** Le réseau du téléphone : la liaison met parfois vingt secondes à se savoir morte. */
-  const enLigne = useEnLigne()
 
   // Connexion, présentation à la soirée, puis re-join automatique (refresh,
   // coupure réseau, redémarrage serveur).
@@ -318,13 +316,19 @@ export function PlayerApp() {
                 ? (vue.answers?.[action.choice] ?? '')
                 : `${formatNumber(action.value)}${vue.unit ? ` ${vue.unit}` : ''}`
             const numero = ++numeroEnvoi.current
-            const suivi = (etat: Envoi['etat']) =>
-              setEnvoi(e => (numero === numeroEnvoi.current && e ? { ...e, etat } : e))
+            const suivi = (etat: Envoi['etat'], enFile?: boolean) =>
+              setEnvoi(e =>
+                numero === numeroEnvoi.current && e ? { ...e, etat, enFile: enFile ?? e.enFile } : e,
+              )
             setEnvoi({
               qIndex: action.qIndex,
               round: action.round,
               choice: action.type === 'answer' ? action.choice : undefined,
+              value: action.type === 'guess' ? action.value : undefined,
               etat: 'envoi',
+              // Lu au même instant que l'envoi : c'est ce qui dit si socket.io
+              // la garde pour la reconnexion.
+              enFile: !socket.connected,
             })
             sendPlayerAction(sessionView.sessionId, action, slug, getState().me?.token, tardive => {
               if (tardive.ok) {
@@ -341,14 +345,18 @@ export function PlayerApp() {
                 showToast({ kind: 'error', message: tardive.error })
               }
             }).then(res => {
-              suivi(res.ok ? 'recu' : res.reason === 'too-late' ? 'trop-tard' : res.reason === 'timeout' ? 'pas-partie' : 'refusee')
+              if (res.ok) suivi('recu')
+              else if (res.reason === 'too-late') suivi('trop-tard')
+              // Partie dans un transport mort, elle ne partira jamais : la
+              // carte redevient libre, et l'écran demande de la retoucher.
+              else if (res.reason === 'timeout') suivi('enFile' in res && res.enFile ? 'pas-partie' : 'perdue', 'enFile' in res && res.enFile)
+              else suivi('refusee')
               // Une réponse refusée se disait jusqu'ici en silence : le
               // téléphone vibrait sous le doigt et rien ne suivait.
               if (!res.ok) showToast({ kind: 'error', message: res.error })
             })
           }}
           envoi={envoi}
-          connecte={s.connected && enLigne}
         />
         <ConseilVeille />
         <BandeauCoupure connecte={s.connected} />

@@ -25,8 +25,6 @@ interface QuizPlayerProps extends Props {
   myTeamId: string | null
   /** La dernière réponse envoyée par ce téléphone, et ce qu'elle est devenue. */
   envoi?: Envoi | null
-  /** La liaison tient-elle ? Hors ligne, une réponse attend le réseau. */
-  connecte?: boolean
 }
 
 /**
@@ -38,7 +36,19 @@ export interface Envoi {
   round?: number
   /** Le choix touché, pour un QCM. */
   choice?: number
-  etat: 'envoi' | 'recu' | 'pas-partie' | 'trop-tard' | 'refusee'
+  /** Le nombre envoyé, pour une estimation. */
+  value?: number
+  /**
+   * socket.io la garde pour la reconnexion : il ne le fait que s'il se sait
+   * déconnecté. Sinon, elle est partie dans un transport peut-être mort.
+   */
+  enFile?: boolean
+  /**
+   * `pas-partie` : le délai est passé, elle attend dans la file et partira
+   * au retour du réseau. `perdue` : le délai est passé et elle n'était dans
+   * aucune file — il faut la retoucher.
+   */
+  etat: 'envoi' | 'recu' | 'pas-partie' | 'perdue' | 'trop-tard' | 'refusee'
 }
 
 /** Cet envoi vise-t-il la question affichée ? */
@@ -104,8 +114,8 @@ function GuessForm({
   send,
   closes,
   envoi,
-  connecte,
-}: Props & { closes: boolean; envoi: Envoi | null; connecte: boolean }) {
+  perdue,
+}: Props & { closes: boolean; envoi: Envoi | null; perdue: boolean }) {
   const [text, setText] = useState('')
   const [illisible, setIllisible] = useState(false)
 
@@ -153,7 +163,9 @@ function GuessForm({
         {view.yourGuess === null ? 'Valider' : 'Corriger'}
       </button>
       {envoi ? (
-        <EnvoiEnCours connecte={connecte} />
+        <EnvoiEnCours envoi={envoi} />
+      ) : perdue ? (
+        <ReponsePerdue />
       ) : view.yourGuess !== null && view.yourGuess !== undefined && (
         <p className="hint">
           Ta réponse : <strong>{formatNumber(view.yourGuess)}</strong> {view.unit}
@@ -165,14 +177,27 @@ function GuessForm({
 }
 
 /**
- * La réponse est partie mais le serveur ne l'a pas encore vue. Hors ligne,
- * socket.io la garde et l'envoie au retour du réseau : on le dit, plutôt
- * que « pas partie », qui faisait retaper.
+ * La réponse est partie mais le serveur ne l'a pas encore vue. Mise en file
+ * par socket.io, elle partira au retour du réseau : on le dit, plutôt que
+ * « pas partie », qui faisait retaper. Hors file, on n'en promet rien.
  */
-function EnvoiEnCours({ connecte }: { connecte: boolean }) {
+function EnvoiEnCours({ envoi }: { envoi: Envoi }) {
   return (
     <p className="hint envoi-en-cours" role="status">
-      {connecte ? 'Envoi…' : 'Pas encore partie — elle partira dès que le réseau revient'}
+      {envoi.enFile ? 'Pas encore partie — elle partira dès que le réseau revient' : 'Envoi…'}
+    </p>
+  )
+}
+
+/**
+ * Partie pendant que la liaison se croyait vivante, elle s'est perdue en
+ * route. La retoucher ne coûte rien : un doublon est confirmé sans rien
+ * réécrire, et une réponse qui vise une question finie est refusée.
+ */
+function ReponsePerdue() {
+  return (
+    <p className="hint envoi-perdu" role="alert">
+      Ta réponse n’est pas partie — touche-la à nouveau
     </p>
   )
 }
@@ -237,7 +262,7 @@ function PointsAnnules() {
   )
 }
 
-export function QuizPlayer({ view: v, send, teams, myTeamId, envoi, connecte = true }: QuizPlayerProps) {
+export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayerProps) {
   // Avant tout retour anticipé : un crochet s'appelle à chaque rendu.
   const closes = useEchue(v.phase === 'question' ? v.deadline : undefined, !!v.paused)
 
@@ -288,12 +313,16 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi, connecte = t
   if (v.phase === 'question') {
     // Touchée, mais pas encore vue par le serveur : l'écran le dit, au lieu
     // de rester inerte sous le doigt tant que la réponse voyage.
+    // Ce que le serveur montre déjà n'attend plus rien : son choix pour un
+    // QCM, son nombre pour une estimation — sinon « Envoi… » cachait « Ta
+    // réponse : X » jusqu'à la révélation.
+    const dejaVue = (e: Envoi) =>
+      v.kind === 'number' ? e.value !== undefined && v.yourGuess === e.value : v.yourChoice === e.choice
     const enAttente =
-      viseLaVue(envoi, v) &&
-      (envoi.etat === 'envoi' || envoi.etat === 'pas-partie') &&
-      (envoi.choice === undefined ? true : v.yourChoice !== envoi.choice)
+      viseLaVue(envoi, v) && (envoi.etat === 'envoi' || envoi.etat === 'pas-partie') && !dejaVue(envoi)
         ? envoi
         : null
+    const perdue = viseLaVue(envoi, v) && envoi.etat === 'perdue' && !dejaVue(envoi) && !closes
     return (
       <div className="quiz-player">
         <div className="quiz-topbar">
@@ -332,7 +361,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi, connecte = t
         )}
 
         {v.kind === 'number' ? (
-          <GuessForm view={v} send={send} closes={closes} envoi={enAttente} connecte={connecte} />
+          <GuessForm view={v} send={send} closes={closes} envoi={enAttente} perdue={perdue} />
         ) : (
           <>
             <div className="ans-grid">
@@ -361,7 +390,9 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi, connecte = t
               ))}
             </div>
             {enAttente ? (
-              <EnvoiEnCours connecte={connecte} />
+              <EnvoiEnCours envoi={enAttente} />
+            ) : perdue ? (
+              <ReponsePerdue />
             ) : v.yourChoice !== null && !closes && (
               <p className="hint">
                 Réponse enregistrée · tu peux encore changer, au prix du bonus de rapidité
