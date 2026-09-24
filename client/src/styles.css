@@ -1770,6 +1770,14 @@ h3 > .icon {
 
 .undo-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 
+/* Des modifications retrouvées dans le navigateur : la carte qui demande quoi en faire. */
+.brouillon-carte {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* Un bouton qui se lit comme un lien, au fil d'une phrase. */
 .link-btn {
   padding: 0;
