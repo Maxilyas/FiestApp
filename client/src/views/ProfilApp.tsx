@@ -17,7 +17,7 @@ import {
 import { Vitrine } from '../components/Vitrine'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { Categories, Courbes, FicheCarriere, GalerieDivins, GalerieLegendaires, HautsFaits } from '../components/Carriere'
-import { formatNumber, ordinal } from '../format'
+import { formatNumber, place } from '../format'
 import { spacePath } from '../routes'
 import type { PublicSpace } from '../../../shared/space'
 
@@ -347,8 +347,7 @@ export function ProfilApp() {
               {s.chez && `chez ${s.chez} · `}
               {s.releve.reponses} réponse{s.releve.reponses > 1 ? 's' : ''}
               {s.releve.justes > 0 && `, ${s.releve.justes} juste${s.releve.justes > 1 ? 's' : ''}`}
-              {/* `ordinal` connaît le « 1ᵉʳ » : à la main, on écrivait « 1ᵉ ». */}
-              {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${ordinal(s.releve.rang)}`}
+              {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${place(s.releve.rang)}`}
             </span>
             <span className="soiree-xp">+{formatNumber(s.xp)}</span>
           </div>

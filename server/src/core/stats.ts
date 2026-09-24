@@ -304,7 +304,7 @@ const SPECS: Spec[] = [
     rule: 'Le plus grand nombre de mauvaises réponses — un prix, pas une punition',
     eligible: s => s.wrong >= 2,
     score: s => s.wrong,
-    detail: s => `${plural(s.wrong, 'réponse fausse', 'réponses fausses')}, et toujours souriant`,
+    detail: s => `${plural(s.wrong, 'réponse fausse', 'réponses fausses')}, le sourire aux lèvres`,
   },
   {
     key: 'abstentionniste',

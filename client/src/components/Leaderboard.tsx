@@ -2,7 +2,7 @@ import type { PublicPlayer } from '../../../shared/types'
 import { classer } from '../../../shared/classement'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
-import { Rank } from './Rank'
+import { Rank, Score, motPoints } from './Rank'
 
 interface Props {
   players: PublicPlayer[]
@@ -37,7 +37,7 @@ export function Leaderboard({ players, compact, highlightId, onOuvrir }: Props) 
             <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
             <span className="lb-name">{p.nomAffiche ?? p.name}</span>
             <Niveau niveau={p.niveau} />
-            <span className="lb-score">{p.score}</span>
+            <Score n={p.score} />
           </>
         )
         const classe = 'lb-row' + (p.id === highlightId ? ' me' : '')
@@ -46,7 +46,9 @@ export function Leaderboard({ players, compact, highlightId, onOuvrir }: Props) 
             key={p.id}
             type="button"
             className={classe + ' lb-ouvrable'}
-            aria-label={`La carte de ${p.nomAffiche ?? p.name}`}
+            // Le nom du bouton remplace tout son contenu : le rang et les
+            // points doivent y être, sinon le lecteur d'écran n'entend qu'un nom.
+            aria-label={`La carte de ${p.nomAffiche ?? p.name} — rang ${rang}, ${p.score} ${motPoints(p.score)}`}
             onClick={() => onOuvrir(p.id)}
           >
             {contenu}
