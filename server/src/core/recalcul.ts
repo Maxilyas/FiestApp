@@ -101,6 +101,7 @@ export async function recalculerHistorique(deps: {
         gain: g.gain,
         releve: g.releve,
         xp: g.xp,
+        playerId: g.playerId,
       })
       touches.add(g.profileId)
       credites.add(`${g.profileId}#${spaceId}#${id}`)

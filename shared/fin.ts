@@ -44,6 +44,13 @@ export interface FinDeSoiree extends Distinctions {
   profil?: {
     /** L'expérience de la soirée entière, paliers compris. */
     xp: number
+    /**
+     * La part des paliers de carrière dans `xp`. « Mes soirées » ne compte
+     * que le reste — les paliers ont leur ligne à part —, et la fin doit dire
+     * les deux : elle annonçait +24 quand la liste en montrait 4. Absent
+     * d'une fin d'avant : zéro.
+     */
+    xpPaliers?: number
     niveauAvant: number
     niveauApres: number
     /** Les paliers de carrière tombés ce soir (« Le Bavard · Argent »). */

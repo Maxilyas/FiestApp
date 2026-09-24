@@ -501,6 +501,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
       ),
     removeAccount,
     soireeEnCours: spaceId => registry.get(spaceId).soireeId(),
+    // La base locale est le registre de la soirée en cours : la clôture et
+    // l'essai effacé la vident, un invité exclu en sort.
+    soireesOuJeJoue: profileId =>
+      (
+        db.prepare('SELECT DISTINCT space_id FROM players WHERE profile_id = ? AND space_id IS NOT NULL').all(profileId) as {
+          space_id: string
+        }[]
+      ).map(r => r.space_id),
   })
 
   const here = path.dirname(fileURLToPath(import.meta.url))

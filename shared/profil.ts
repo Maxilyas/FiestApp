@@ -662,6 +662,14 @@ export interface SoireeJouee {
   chez: string | null
   /** L'adresse de l'espace, pour relire la soirée — null si l'espace n'existe plus. */
   slug: string | null
+  /**
+   * Son titre, tel que l'historique de l'espace le porte aujourd'hui — un
+   * renommage s'y voit. Null si la soirée n'y est plus.
+   */
+  titre: string | null
+  /** L'invité qu'on y était : de quoi ouvrir son bilan sans « Qui es-tu ? ». */
+  joueurId: string | null
+  /** L'expérience de la soirée, hors paliers de carrière (ils ont leur ligne). */
   xp: number
   gain: GainSoiree
   releve: ReleveSoiree
