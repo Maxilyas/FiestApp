@@ -22,6 +22,8 @@ import { formatNumber, place, reponsesParType } from '../format'
 import { route, spacePath } from '../routes'
 import type { PublicSpace } from '../../../shared/space'
 
+const ETAPE_REJOINDRE = 'fiestappRejoindre'
+
 /**
  * L'accueil (`/`) et la page de profil (`/profil`) : c'est le même écran.
  *
@@ -43,7 +45,21 @@ export function ProfilApp() {
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
   /** L'échappée : « quelle soirée ? », à un geste d'ici. */
-  const [rejoindre, setRejoindre] = useState(false)
+  // Une étape de l'accueil, avec son entrée d'historique : le retour du
+  // navigateur y ramène à l'accueil au lieu de quitter l'application.
+  const [rejoindre, setRejoint] = useState(() => history.state?.[ETAPE_REJOINDRE] === true)
+  const setRejoindre = (ouvrir: boolean) => {
+    if (ouvrir) {
+      history.pushState({ [ETAPE_REJOINDRE]: true }, '')
+      setRejoint(true)
+    } else if (history.state?.[ETAPE_REJOINDRE]) history.back()
+    else setRejoint(false)
+  }
+  useEffect(() => {
+    const auRetour = () => setRejoint(history.state?.[ETAPE_REJOINDRE] === true)
+    window.addEventListener('popstate', auRetour)
+    return () => window.removeEventListener('popstate', auRetour)
+  }, [])
   /**
    * La soirée dont une session d'animateur est ouverte sur ce navigateur,
    * profil rattaché ou non. L'animateur qui n'a pas relié de profil n'avait

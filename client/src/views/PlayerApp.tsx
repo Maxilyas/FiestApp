@@ -228,7 +228,7 @@ export function PlayerApp() {
   // L'adresse ne mène à rien : on redemande le nom de la soirée sur place.
   // Renvoyer à l'accueil enverrait maintenant sur la page du profil, qui ne
   // répond pas à la question que se pose celui qui s'est trompé d'adresse.
-  if (spaceError) return <FormulaireSoiree perdu />
+  if (spaceError) return <FormulaireSoiree perdu={slug} onCancel={() => window.location.assign('/')} />
 
   // La soirée est close : sa fin, jusqu'à ce qu'on passe à la suivante.
   if (s.fin) {

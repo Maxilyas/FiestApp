@@ -1,4 +1,5 @@
 import { FormulaireSoiree } from '../components/Rejoindre'
+import { slugTape } from '../../../shared/adresses'
 
 /**
  * Une adresse qui ne mène nulle part.
@@ -9,5 +10,6 @@ import { FormulaireSoiree } from '../components/Rejoindre'
  * plutôt que de laisser quelqu'un devant une page vide.
  */
 export function LandingApp() {
-  return <FormulaireSoiree perdu onCancel={() => window.location.assign('/')} />
+  const tape = slugTape(window.location.pathname.split('/').filter(Boolean)[0] ?? '')
+  return <FormulaireSoiree perdu={tape} onCancel={() => window.location.assign('/')} />
 }

@@ -116,6 +116,13 @@ async function copierTexte(texte: string): Promise<boolean> {
   }
 }
 
+const OUVERT_ICI = 'fiestappQuizOuvert'
+
+/** Le quiz que désigne l'adresse, s'il y en a un. */
+function quizDeLAdresse(): string | null {
+  return new URLSearchParams(window.location.search).get('quiz') || null
+}
+
 /** Fait télécharger ce texte sous ce nom, sans passer par le serveur. */
 function telecharger(nom: string, contenu: string) {
   const url = URL.createObjectURL(new Blob([contenu], { type: 'application/json' }))
@@ -137,7 +144,25 @@ export function EditorApp() {
   const [list, setList] = useState<QuizSummary[] | null>(null)
   /** Les quiz dont ce navigateur garde des modifications non enregistrées. */
   const [brouillons, setBrouillons] = useState<ReadonlySet<string>>(new Set())
-  const [editingId, setEditingId] = useState<string | null>(null)
+  // Le quiz ouvert est dans l'adresse (`/edit?quiz=…`) : le retour du
+  // navigateur ramène à la liste au lieu de quitter l'éditeur, et un
+  // rechargement rouvre le même quiz. Rien ne se perd en route : ce qui
+  // n'est pas enregistré attend dans le brouillon du navigateur.
+  const [editingId, setEditing] = useState<string | null>(quizDeLAdresse)
+  const setEditingId = useCallback((id: string | null) => {
+    if (id === quizDeLAdresse()) return setEditing(id)
+    if (id) history.pushState({ [OUVERT_ICI]: true }, '', `/edit?quiz=${encodeURIComponent(id)}`)
+    // Refermé par « Mes quiz » : on revient d'un cran si c'est d'ici qu'on
+    // l'avait ouvert, sans quoi on remplace — jamais d'entrée en double.
+    else if (history.state?.[OUVERT_ICI]) return history.back()
+    else history.replaceState(null, '', '/edit')
+    setEditing(id)
+  }, [])
+  useEffect(() => {
+    const auRetour = () => setEditing(quizDeLAdresse())
+    window.addEventListener('popstate', auRetour)
+    return () => window.removeEventListener('popstate', auRetour)
+  }, [])
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   /** Le quiz qu'on emballe, ou l'import en cours : un clic à la fois. */
@@ -703,8 +728,11 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           <span className="muted">
             {ready}/{quiz.questions.length} prête{ready > 1 ? 's' : ''}
           </span>
+          {/* Il dit où il mène : « Retour » seul laissait chercher l'écran
+              commun, qui est sur la liste. */}
           <button className="btn btn-ghost" onClick={close}>
-            Retour
+            <Icon name="list" />
+            Mes quiz
           </button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>
             {saving ? (
