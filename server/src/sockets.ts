@@ -532,10 +532,12 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       rt.broadcastSnapshot()
     })
 
-    ecouter('host:seedTeams', () => {
+    ecouter('host:seedTeams', charge => {
       const rt = requireHost()
       if (!rt) return
-      if (rt.teams.seedDefaults() > 0) rt.broadcastSnapshot()
+      // Un nombre, ou rien (une page d'avant) : tout le reste vaut « rien ».
+      const count = typeof charge.count === 'number' ? charge.count : undefined
+      if (rt.teams.seedDefaults(count) > 0) rt.broadcastSnapshot()
     })
 
     ecouter('host:assignPlayer', charge => {

@@ -2151,6 +2151,8 @@ h3 > .icon {
 }
 
 .team-emoji-select { font-size: 1rem; padding: 2px 4px; }
+.team-seed { gap: 8px; align-items: center; }
+.team-seed select { font-size: 0.9rem; padding: 4px 6px; }
 
 /* Réduit à la largeur de l'emoji : le nom complet reste lisible dans la
    liste déroulante, mais cinquante pastilles ne doivent pas s'étirer. */

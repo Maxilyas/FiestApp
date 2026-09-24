@@ -164,8 +164,11 @@ export interface ClientToServerEvents {
   'host:updateTeam': (payload: { teamId: string; name?: string; emoji?: string }) => void
   /** Supprime une équipe — ses membres se retrouvent sans équipe. */
   'host:removeTeam': (payload: { teamId: string }) => void
-  /** Crée d'un coup les six équipes par défaut (écran vierge seulement). */
-  'host:seedTeams': () => void
+  /**
+   * Crée d'un coup les premières équipes par défaut (écran vierge seulement) :
+   * `count` de deux à six, six sans rien.
+   */
+  'host:seedTeams': (payload?: { count?: number }) => void
   /** Déplace un invité vers une autre équipe (ou l'en sort avec null). */
   'host:assignPlayer': (payload: { playerId: string; teamId: string | null }) => void
 
