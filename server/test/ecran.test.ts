@@ -13,6 +13,31 @@ import { answersSizeClass, questionSizeClass } from '../../client/src/games/quiz
 const { hauteurDeMarche } = await import(new URL('../../client/src/components/Podium.tsx', import.meta.url).href)
 const css = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
 
+// Ce que la feuille de style réserve aux grands écrans (`min-width: 1101px`),
+// et ce qui vaut partout — donc aussi pour l'animateur qui tient /host au
+// téléphone, où rien ne doit grossir.
+function blocsGrandsEcrans(): { dedans: string; dehors: string } {
+  let dedans = ''
+  let dehors = ''
+  let i = 0
+  const ouverture = '@media (min-width: 1101px) {'
+  for (let j = css.indexOf(ouverture); j !== -1; j = css.indexOf(ouverture, i)) {
+    dehors += css.slice(i, j)
+    let profondeur = 0
+    let k = j + ouverture.length - 1
+    do {
+      if (css[k] === '{') profondeur++
+      else if (css[k] === '}') profondeur--
+      k++
+    } while (profondeur > 0)
+    dedans += css.slice(j, k)
+    i = k
+  }
+  dehors += css.slice(i)
+  return { dedans, dehors }
+}
+const { dedans: grandsEcrans, dehors: partout } = blocsGrandsEcrans()
+
 test('les réponses longues prennent un palier plus petit, la plus longue décide pour toute la grille', () => {
   assert.equal(answersSizeClass(['Vrai', 'Faux']), '')
   assert.equal(answersSizeClass(undefined), '')
@@ -44,8 +69,11 @@ test('la scène suit la hauteur des grands écrans, et seulement d’eux', () =>
   // /host au téléphone, où rien ne doit grossir.
   const bloc = /@media \(min-width: 1101px\) \{\s*html:has\(\.host\) \{ font-size: max\(100%, min\(100vh \/ 48, 100vw \/ 85\)\); \}/
   assert.match(css, bloc)
-  // Le QR d'accueil et les réponses de la télé ne sont plus en pixels fixes.
-  assert.doesNotMatch(css, /\.invite-qr \.qr-box svg \{ width: 148px/)
+  // Le QR d'accueil et les réponses de la télé ne sont plus en pixels fixes —
+  // sur un grand écran : au téléphone, le QR garde ses 148 px.
+  assert.doesNotMatch(grandsEcrans, /\.invite-qr \.qr-box svg \{ width: 148px/)
+  assert.match(grandsEcrans, /\.invite-qr \.qr-box svg \{ width: clamp\(/)
+  assert.match(partout, /\.invite-qr \.qr-box svg \{ width: 148px; height: 148px; \}/)
   assert.doesNotMatch(css, /\.quiz-host \.ans-btn \{[^}]*padding: 0 30px/)
 })
 
@@ -53,8 +81,10 @@ test('rien ne se lit à travers la console, et aucun classement de la scène ne 
   // Sans fond, « Piment » se lisait derrière « Question suivante ».
   assert.match(css, /\.host-console \{ position: relative; z-index: 1; background: var\(--bg\); \}/)
   // Les classements de la révélation n'ont plus de plancher qui les pousse
-  // sous la console : ils se coupent à ce qui tient.
-  assert.doesNotMatch(css, /\.host\.staging \.reveal-boards \{[^}]*min-height: (120px|7\.5rem)/)
+  // sous la console : ils se coupent à ce qui tient. Sur un grand écran : au
+  // téléphone, la page défile, et ils gardent le plancher d'avant.
+  assert.doesNotMatch(grandsEcrans, /\.host\.staging \.reveal-boards \{[^}]*min-height: (120px|7\.5rem)/)
+  assert.match(grandsEcrans, /\.host\.staging \.reveal-boards \{ flex: 1 1 0; min-height: 0; overflow: hidden;/)
   assert.match(css, /\.host\.staging \.scene-listes \{[^}]*overflow: hidden/)
 })
 
@@ -84,4 +114,24 @@ test('au podium de la soirée, la suite du classement passe avant les distinctio
   // ligne du classement, et « et 4 autres ».
   assert.match(css, /\.host\.staging \.scene-listes \{ align-self: stretch; \}/)
   assert.match(css, /\.host\.staging \.scene-listes > \.coupe-trophees \{ flex: 0 1 auto; max-height: 50%; \}/)
+})
+
+test('la console tenue au téléphone ne grossit pas', () => {
+  // Le bandeau d'état en serif, les prénoms du podium à 2,2 rem, les
+  // classements à 1,25 rem : écrits pour la salle, et réservés à la télé.
+  // Au téléphone, « Ophélie » se coupait en « Ophéli / e ».
+  for (const regle of [
+    /\.host\.staging \.quiz-status \.pill \{/,
+    /\.host\.staging \.podium-name \{ font-size: 2\.2rem/,
+    /\.host\.staging \.lb-row \{ font-size: 1\.25rem/,
+    /\.host\.staging \.final-podium \{ --podium-tete: 9\.5rem/,
+    /\.host\.staging \.estimations \.podium:has\(> :nth-child\(5\)\) \{/,
+  ]) {
+    assert.match(grandsEcrans, regle)
+    assert.doesNotMatch(partout, regle)
+  }
+  // Une liste ne se coupe que sur un grand écran : ailleurs, la page défile.
+  assert.doesNotMatch(partout, /\.coupe-zone \{[^}]*overflow: hidden/)
+  // Un nom se coupe entre deux mots, pas en plein milieu.
+  assert.doesNotMatch(css, /\.podium-name \{[^}]*overflow-wrap: anywhere/)
 })

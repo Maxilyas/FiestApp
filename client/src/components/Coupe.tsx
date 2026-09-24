@@ -38,6 +38,14 @@ export function Coupe({
     if (!el) return
     const aCouper = [...el.querySelectorAll<HTMLElement>(lignes)]
     for (const l of aCouper) l.style.display = ''
+    // Un cadre qui ne cache rien ne coupe rien : au téléphone, la page
+    // défile, et la liste s'y lit en entier (la feuille de style ne cache
+    // qu'au-delà de 1100 px).
+    if (getComputedStyle(el).overflowY === 'visible') {
+      if (pied.current) pied.current.hidden = enPlus === 0
+      setCaches(0)
+      return
+    }
     // La position de mise en page, pas celle de l'écran : les lignes entrent
     // en glissant, et une mesure prise pendant l'animation serait fausse.
     // Deux mesures : sans « et 2 autres » d'abord — si tout tient, il n'a pas

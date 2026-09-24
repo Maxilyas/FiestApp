@@ -1010,9 +1010,13 @@ h3 > .icon {
 .invite-qrs { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.75rem; }
 .invite-qr { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
 .invite-qr .qr-box { padding: 0.4375rem; border-radius: 0.625rem; }
+.invite-qr .qr-box svg { width: 148px; height: 148px; }
 /* À la hauteur de l'écran : 148 px fixes se scannaient à 1,3 m au mieux, et
-   il fallait se lever. Seul au centre, il a la place. */
-.invite-qr .qr-box svg { width: clamp(9.25rem, 28vh, 16rem); height: clamp(9.25rem, 28vh, 16rem); }
+   il fallait se lever. Seul au centre, il a la place. Au téléphone, on le
+   tend : il garde sa taille. */
+@media (min-width: 1101px) {
+  .invite-qr .qr-box svg { width: clamp(9.25rem, 28vh, 16rem); height: clamp(9.25rem, 28vh, 16rem); }
+}
 .invite-note { max-width: 46ch; }
 
 .players-grid { display: flex; flex-wrap: wrap; gap: 0.4375rem; margin-top: 0.625rem; }
@@ -1126,22 +1130,37 @@ h3 > .icon {
    au troisième joueur sur quatre. */
 .host.staging .quiz-host:has(.reveal-boards) .ans-grid { flex: none; grid-auto-rows: auto; }
 .host.staging .quiz-host:has(.reveal-boards) .ans-btn { min-height: 4.5rem; }
-.host.staging .quiz-host:has(.reveal-boards) .guess-reveal { flex: 0 1 auto; min-height: 0; max-height: 60%; }
-.host.staging .reveal-boards { flex: 1 1 0; min-height: 0; overflow: hidden; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
+.host.staging .quiz-host:has(.reveal-boards) .guess-reveal { flex: none; max-height: 45%; overflow-y: auto; }
+.host.staging .reveal-boards { flex: 1 1 0; min-height: 120px; }
+@media (min-width: 1101px) {
+  .host.staging .quiz-host:has(.reveal-boards) .guess-reveal { flex: 0 1 auto; min-height: 0; max-height: 60%; }
+  .host.staging .quiz-host:has(.reveal-boards) .guess-reveal { overflow: visible; }
+  .host.staging .reveal-boards { flex: 1 1 0; min-height: 0; overflow: hidden; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
+}
 
-/* Un tableau de la scène : son titre, puis sa liste coupée à ce qui tient. */
+/* Un tableau de la scène : son titre, puis sa liste coupée à ce qui tient.
+   Coupée sur un grand écran seulement : au téléphone, la page défile, et
+   `Coupe` ne coupe rien d'un cadre qui ne cache rien (`overflow: visible`)
+   — elle cachait les trois estimations sous « et 3 autres ». */
 .tableau { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .coupe { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; min-width: 0; }
-.coupe-zone { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.coupe-zone { position: relative; flex: 1 1 auto; min-height: 0; }
+@media (min-width: 1101px) {
+  .coupe-zone { overflow: hidden; }
+}
 .coupe-autres { flex: none; margin-top: 0.375rem; text-align: center; color: var(--muted); font-size: 0.95rem; }
 
 /* Les estimations sur deux colonnes dès la cinquième : sur une, la sixième
-   passait sous le cadre en 1366 × 768 avec sept invités. */
-.host.staging .estimations .podium:has(> :nth-child(5)) {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-content: start;
-  gap: 0.4375rem 1.125rem;
+   passait sous le cadre en 1366 × 768 avec sept invités. Sur un grand écran :
+   au téléphone, deux colonnes de 150 px écrivaient les estimations l'une
+   sur l'autre. */
+@media (min-width: 1101px) {
+  .host.staging .estimations .podium:has(> :nth-child(5)) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 0.4375rem 1.125rem;
+  }
 }
 
 /* Les écrans de fin de soirée sont plus hauts que l'écran : le podium, les
@@ -1631,7 +1650,9 @@ h3 > .icon {
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  /* Entre deux mots d'abord : `anywhere` coupait « Ophéli / e » alors que
+     « Ophélie » tenait sur sa ligne. */
+  overflow-wrap: break-word;
 }
 .podium-name .niveau { margin-left: 0.4em; vertical-align: 0.15em; }
 
@@ -4409,20 +4430,24 @@ h3 > .icon {
 /* ── Ce que la salle doit savoir, lisible du canapé ─────────────────────
    La pause, « Regardez bien », « Question suivante dans 7 s », le plus
    rapide : des pastilles de 11 px en capitales, cinq minutes d'arc à trois
-   mètres. Sur la scène, elles deviennent un bandeau en serif. */
-.host.staging .quiz-status .pill {
-  min-height: 0;
-  padding: 0;
-  border: 0;
-  gap: 0.5rem;
-  font-family: var(--serif);
-  font-size: 1.6rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
+   mètres. Sur la scène, elles deviennent un bandeau en serif. Sur un grand
+   écran seulement : l'animateur qui tient /host au téléphone le lit à
+   trente centimètres, et le bandeau y prenait 25 px au lieu de 11. */
+@media (min-width: 1101px) {
+  .host.staging .quiz-status .pill {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    gap: 0.5rem;
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .host.staging .quiz-status .pill .icon { width: 1.4rem; height: 1.4rem; }
+  .host.staging .quiz-status { gap: 0.625rem 2.25rem; }
 }
-.host.staging .quiz-status .pill .icon { width: 1.4rem; height: 1.4rem; }
-.host.staging .quiz-status { gap: 0.625rem 2.25rem; }
 
 .timer-seconds.paused { color: var(--muted); gap: 0.15em; }
 
@@ -4469,7 +4494,12 @@ h3 > .icon {
 .pause-bandeau-suite { flex-basis: 100%; font-family: var(--sans); font-weight: 400; font-size: 0.9rem; color: var(--muted); }
 .ans-btn.en-pause { opacity: 0.4; }
 
-/* Pendant une estimation, le compte des réponses au centre de la scène. */
+/* Pendant une estimation, le compte des réponses au centre de la scène. Au
+   téléphone, la bande le donne déjà, et 77 px de chiffres poussaient la
+   console sous le pli. */
+@media (max-width: 1100px) {
+  .compte-reponses { display: none; }
+}
 .compte-reponses {
   display: flex;
   align-items: baseline;
@@ -4488,19 +4518,23 @@ h3 > .icon {
 
 /* Les moments forts, écrits pour la salle : les prénoms du podium faisaient
    20 px sous des marches de 400, et les classements 16 px — sous le seuil
-   de lecture à trois mètres. */
-.host.staging .final-podium { --podium-tete: 9.5rem; }
-.host.staging .podium-avatar { font-size: 3.2rem; }
-.host.staging .podium-name { font-size: 2.2rem; line-height: 1.05; }
-.host.staging .podium-medal { font-size: 2.8rem; }
-.host.staging .podium-points { font-size: 2rem; }
-.host.staging .podium-step { min-height: 6.25rem; }
-.host.staging .podium-name .niveau { font-size: 1rem; }
-/* Un interligne serré : à 1,25 rem, celui de la page faisait les rangées
-   6 px plus hautes que celles d'avant, et c'était une ligne de moins à
-   chaque classement coupé. */
-.host.staging .lb-row { font-size: 1.25rem; line-height: 1.2; }
-.host.staging .lb-avatar { font-size: 1.45rem; }
-.host.staging .lb-rank { font-size: 1.5rem; }
-.host.staging .lb-score { font-size: 1.6rem; }
-.host.staging .guess-value { font-size: 1.35rem; }
+   de lecture à trois mètres. Sur un grand écran seulement : au téléphone,
+   un prénom de 35 px ne tenait plus sous sa marche, et « Ophélie » se
+   coupait en « Ophéli / e ». */
+@media (min-width: 1101px) {
+  .host.staging .final-podium { --podium-tete: 9.5rem; }
+  .host.staging .podium-avatar { font-size: 3.2rem; }
+  .host.staging .podium-name { font-size: 2.2rem; line-height: 1.05; }
+  .host.staging .podium-medal { font-size: 2.8rem; }
+  .host.staging .podium-points { font-size: 2rem; }
+  .host.staging .podium-step { min-height: 6.25rem; }
+  .host.staging .podium-name .niveau { font-size: 1rem; }
+  /* Un interligne serré : à 1,25 rem, celui de la page faisait les rangées
+     6 px plus hautes que celles d'avant, et c'était une ligne de moins à
+     chaque classement coupé. */
+  .host.staging .lb-row { font-size: 1.25rem; line-height: 1.2; }
+  .host.staging .lb-avatar { font-size: 1.45rem; }
+  .host.staging .lb-rank { font-size: 1.5rem; }
+  .host.staging .lb-score { font-size: 1.6rem; }
+  .host.staging .guess-value { font-size: 1.35rem; }
+}
