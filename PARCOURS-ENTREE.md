@@ -682,7 +682,7 @@ en français, ils disent quoi faire.
 | Entrée, bouton de création | **Créer un profil** |
 | Entrée, note sous les boutons | Un profil retient ton niveau et tes prix d'une soirée à l'autre. Il ne change rien aux points de ce soir. |
 | Entrée, connexion refusée | *(le motif rendu par le serveur)*, puis « Tu peux aussi jouer sans compte, juste en dessous. » sur sa propre ligne |
-| Entrée, réseau coupé | Pas de réseau — vérifie ton wifi ou ta 4G, puis réessaie |
+| Entrée, réseau coupé | Pas de réseau — vérifie ton Wi-Fi ou ta 4G, puis réessaie |
 | Entrée, serveur muet | Le serveur ne répond pas — vérifie ta connexion, puis réessaie |
 | Secours, code perdu | Tu n'as plus le code ? Le profil ne se retrouve pas — tu peux jouer sans compte, ou en créer un neuf. |
 | Retrouvailles | Content de te revoir, **Alice** |
@@ -696,7 +696,7 @@ en français, ils disent quoi faire.
 | Code, bouton | C'est noté — j'entre |
 | Secours, titre | Retrouver mon profil |
 | Connexion, lien | J'ai oublié mon mot de passe |
-| Attente, au-delà de dix secondes | Connexion… · Ça traîne — vérifie ton wifi ou ta 4G. · *Recharger la page* |
+| Attente, au-delà de dix secondes | Connexion… · Ça traîne — vérifie ton Wi-Fi ou ta 4G. · *Recharger la page* |
 | Coupure, bandeau en haut de l'écran | Connexion perdue — reconnexion… |
 | Jeton que la soirée ne connaît plus | On ne te retrouve plus dans cette soirée — rejoins-la |
 

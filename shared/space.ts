@@ -74,9 +74,9 @@ export function isValidLogin(login: string): boolean {
 export interface SpaceSettings {
   /** « La soirée de Bob » : le titre des pages souvenir et bilan, et de l'écran commun. */
   title: string
-  /** « La soirée de » : la ligne au-dessus du grand titre, à l'inscription. */
+  /** « La soirée » : la ligne au-dessus du grand titre, à l'inscription. */
   eyebrow: string
-  /** « Bob » : le grand titre, à l'inscription. */
+  /** « de Bob », « d'Hélène » : le grand titre, à l'inscription. */
   headline: string
   /** « samedi 14 mars » : la date, telle qu'on l'écrit. Vide si on ne veut rien. */
   dateLine: string

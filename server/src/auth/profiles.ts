@@ -1152,7 +1152,9 @@ export class ProfileStore {
   //   · les hauts faits de soirée (`hf:phenix`…), qui se regagnent ;
   //   · les paliers de carrière (`hf:bavard:2`), qui ne tombent qu'une fois.
   // L'emoji et le titre sont recopiés dans chaque ligne : une étagère se
-  // relit des années plus tard, même si un titre a changé entre-temps.
+  // relit des années plus tard, même si le catalogue a oublié la récompense.
+  // Elle montre un prix du palmarès sous son nom du jour (`titreDuPrix`), le
+  // reste sous le titre de sa ligne la plus récente (`badgesOf`).
 
   /**
    * Range les récompenses d'une soirée — prix et hauts faits —, en

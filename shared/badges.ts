@@ -14,7 +14,8 @@
 //   fois.
 //
 // Chaque récompense rangée garde une copie de son emoji et de son titre : une
-// étagère se relit des années plus tard, même si un prix a changé de nom. Ce
+// étagère se relit des années plus tard. Un prix du palmarès s'y montre sous
+// son nom du jour, le reste sous le titre de sa ligne la plus récente. Ce
 // fichier-ci ne garde que ce qu'elles ont en commun : leur rareté, et la
 // forme sous laquelle une étagère les montre.
 //

@@ -37,7 +37,7 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
   C'est ce que voit la salle au mur, et ce que tu vois sur ton portable. Fais-
   en une à chaque écran qui compte (activation, compte, éditeur, aperçu,
   salle d'attente, question, révélation, podium, prix, clôture, historique,
-  souvenir, bilan, fiches).
+  souvenir, bilan, pages à imprimer).
 - Tu ne connais pas l'application : découvre-la comme ton personnage. **Ne lis
   ni le code source, ni la documentation du dépôt**, ne lance aucune autre
   commande que le pilote.
