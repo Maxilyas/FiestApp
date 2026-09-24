@@ -18,13 +18,17 @@ test('le double-clic sur « Révéler » ne tombe pas sur « Question suivante �
   assert.equal(gesteAccepte(null, 0), true)
 })
 
-test('l’enchaînement commence au clic, et ses paliers laissent le temps de commenter', () => {
+test('l’enchaînement commence au clic, puis va de la lecture au commentaire', () => {
   assert.equal(PALIERS_ENCHAINEMENT[0], null, 'le premier palier rend la main à l’animateur')
   const secondes = PALIERS_ENCHAINEMENT.slice(1) as number[]
   assert.ok(secondes.length > 0)
   for (const [i, s] of secondes.entries()) {
-    assert.ok(Number.isInteger(s) && s >= 10, `${s} s ne laisse pas le temps de commenter une révélation`)
+    assert.ok(Number.isInteger(s), `${s} s serait arrondi par le serveur`)
     assert.ok(s <= ENCHAINEMENT_MAX_S, `${s} s serait raccourci par le serveur`)
     if (i > 0) assert.ok(s > secondes[i - 1], 'les paliers vont en croissant')
   }
+  // Le plus court laisse lire la bonne réponse, pour le quiz qu'on enchaîne
+  // sans le commenter ; le plus long, le temps de faire rire la salle.
+  assert.equal(secondes[0], 5, 'cinq secondes pour enchaîner sans commenter')
+  assert.ok(secondes[secondes.length - 1] >= 20, 'de quoi commenter une révélation sans reprendre la main')
 })

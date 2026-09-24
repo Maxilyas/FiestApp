@@ -2,15 +2,27 @@
 // le serveur, la page et les tests lisent les mêmes chiffres.
 
 /**
- * L'enchaînement automatique : au clic, ou la question suivante après 10, 20
- * ou 30 s. Cinq et dix secondes ne laissaient pas le temps de commenter une
- * révélation — la première animatrice a vu partir la question suivante
- * pendant qu'elle parlait, et son clic pour reprendre la main est arrivé
- * trop tard. Un réglage d'animation, pas un barème : il ne touche aucun point.
+ * L'enchaînement automatique : au clic, ou la question suivante 5, 10 ou 20 s
+ * après la révélation. Cinq secondes, le temps de lire la bonne réponse, pour
+ * le quiz qu'on enchaîne sans le commenter ; dix et vingt, celui de faire
+ * rire la salle ; au-delà, on reprend la main — trente secondes ont cédé
+ * leur bouton à cinq.
+ *
+ * Cinq secondes avaient disparu après la première animatrice, qui avait vu la
+ * question suivante partir pendant qu'elle parlait : il fallait faire tourner
+ * un bouton unique pour revenir au clic, et son clic était arrivé trop tard.
+ * « Au clic » est maintenant à l'écran, à un seul geste qui n'attend pas.
+ *
+ * Un réglage d'animation, pas un barème : il ne touche aucun point.
  */
-export const PALIERS_ENCHAINEMENT: readonly (number | null)[] = [null, 10, 20, 30]
+export const PALIERS_ENCHAINEMENT: readonly (number | null)[] = [null, 5, 10, 20]
 
-/** Le plus long enchaînement que le serveur accepte : le dernier palier, pas moins. */
+/**
+ * Le plus long enchaînement que le serveur accepte : jamais moins que le
+ * dernier palier, qu'il raccourcirait. Trente secondes, comme depuis le
+ * premier enchaînement : une console ouverte avant la mise à jour propose
+ * encore l'ancien dernier palier.
+ */
 export const ENCHAINEMENT_MAX_S = 30
 
 /**
