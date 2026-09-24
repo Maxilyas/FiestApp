@@ -73,10 +73,6 @@ function adresseCoupable(url: string) {
 const TEAM_EMOJIS = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️', '🦩', '🍹', '⭐', '🔥', '🌙', '🎺', '🌺', '🦜']
 
 /**
- * Une équipe et ses membres, avec de quoi la renommer, la supprimer, et
- * déplacer quelqu'un qui s'est trompé de bouton à l'inscription.
- */
-/**
  * Le prénom d'une pastille d'invité : il se coupe, sa marque d'homonymie
  * jamais (invariant 17). « Camil… » et « Camil… » côte à côte, c'était deux
  * invités qu'on ne distinguait plus là où l'on fait les équipes.
@@ -98,6 +94,10 @@ function NomDePastille({ joueur }: { joueur: PublicPlayer }) {
   )
 }
 
+/**
+ * Une équipe et ses membres, avec de quoi la renommer, la supprimer, et
+ * déplacer quelqu'un qui s'est trompé de bouton à l'inscription.
+ */
 function TeamGroup({
   team,
   members,
