@@ -50,21 +50,23 @@ export function TeamBoard({ teams, highlightId, showFinalPoints, compact }: Prop
         <div
           key={t.id}
           role="listitem"
-          className={'lb-row team-row' + (t.id === highlightId ? ' me' : '')}
+          className={'lb-row team-row' + (compact ? '' : ' team-row-detail') + (t.id === highlightId ? ' me' : '')}
         >
           {played ? <Rank n={t.rank} /> : <span className="lb-rank" aria-hidden="true">·</span>}
           <span className="lb-avatar">{t.emoji}</span>
-          <span className="lb-name">
-            {t.name}
-            {!compact && (
-              <span className="team-sub">
-                {t.memberCount === 0
-                  ? 'aucun membre'
-                  : `${t.memberCount} membre${t.memberCount > 1 ? 's' : ''} · ${t.total} pts au total`}
-                {showFinalPoints && t.bonus !== 0 && ` · ${t.gamePoints} au barème ${t.bonus > 0 ? '+' : '−'} ${Math.abs(t.bonus)} de prix`}
-              </span>
-            )}
-          </span>
+          <span className="lb-name">{t.name}</span>
+          {/* Le détail est le voisin du nom, pas son enfant : la grille le
+              place dessous, ou sur toute la largeur quand la ligne est
+              étroite. Enfant du nom, il n'avait que sa colonne — 14 px au
+              texte agrandi, une lettre par ligne. */}
+          {!compact && (
+            <span className="team-sub">
+              {t.memberCount === 0
+                ? 'aucun membre'
+                : `${t.memberCount} membre${t.memberCount > 1 ? 's' : ''} · ${t.total} pts au total`}
+              {showFinalPoints && t.bonus !== 0 && ` · ${t.gamePoints} au barème ${t.bonus > 0 ? '+' : '−'} ${Math.abs(t.bonus)} de prix`}
+            </span>
+          )}
           {showFinalPoints && (
             <span className="team-gamepoints" title="Total du quiz : le barème, prix compris">
               {played ? t.finalPoints : '–'}

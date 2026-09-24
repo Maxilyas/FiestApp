@@ -8,7 +8,18 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
+import React from 'react'
 import { partsDuNom } from '../../shared/homonymes'
+
+// Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
+Object.assign(globalThis, { React })
+
+/** Un composant du client, rendu en HTML — la recette d'`accessibilite.test.ts`. */
+async function rendu(fichier: string, composant: string, props: object): Promise<string> {
+  const module = await import(new URL(`../../client/src/${fichier}.tsx`, import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  return renderToStaticMarkup(React.createElement(module[composant], props))
+}
 
 const CSS = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
 
@@ -144,4 +155,24 @@ test('S2 · les contrôles natifs suivent le thème', () => {
   // Sans `color-scheme`, les listes d'équipe s'ouvraient en blanc sur le Velours.
   assert.equal(VELOURS.get('color-scheme'), 'dark')
   assert.equal(IVOIRE.get('color-scheme'), 'light')
+})
+
+// ── Au texte agrandi ──────────────────────────────────────────────────────
+
+test('T1 · au souvenir, le détail d’une équipe a sa propre case, pas la colonne du nom', async () => {
+  // Enfant du nom, le détail n'avait que sa colonne : 14 px de large au texte
+  // agrandi, et « 5 / me / · / 188 / pts » tombait une lettre par ligne.
+  const equipe = { id: 'r', name: 'Les Randonneurs', emoji: '🥾', position: 0, memberCount: 5, total: 1014, average: 203, bonus: 0, gamePoints: 2, finalPoints: 2 }
+  const html = await rendu('components/TeamBoard', 'TeamBoard', { teams: [equipe], showFinalPoints: true })
+  assert.match(html, /<span class="lb-name">Les Randonneurs<\/span><span class="team-sub">/)
+  assert.match(html, /team-row-detail/)
+  // Étroite, la ligne passe sur trois étages ; le seuil suit la taille du texte.
+  assert.match(CSS, /\.team-board \{ container-type: inline-size; \}/)
+  assert.match(CSS, /@container \(max-width: [\d.]+rem\) \{\s*\.team-row-detail \{\s*grid-template-areas:\s*'rang av nom nom nom'\s*'rang av sub sub sub'/)
+})
+
+test('T2 · les avatars de l’entrée ne descendent jamais sous la largeur d’un doigt', () => {
+  // Six colonnes forcées faisaient 36 px à 277 de large pour des boutons de
+  // 44 : ils se chevauchaient, et toucher le koala choisissait le lion.
+  assert.match(regle('.emoji-grid'), /grid-template-columns:\s*repeat\(auto-fill, minmax\(44px, 1fr\)\)/)
 })

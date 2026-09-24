@@ -566,8 +566,12 @@ h3 > .icon {
 /* ── Choix d'avatar ─────────────────────────────── */
 .emoji-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 10px;
+  /* Six colonnes tant qu'elles tiennent, jamais plus étroites qu'un doigt :
+     au texte agrandi (360 px à 130 %, soit 277 de large), six colonnes
+     forcées faisaient 36 px pour des boutons de 44 — ils se chevauchaient,
+     et toucher le koala pouvait choisir le lion. */
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 8px;
 }
 
 .emoji-btn {
@@ -2098,11 +2102,38 @@ h3 > .icon {
 
 /* ── Classement des équipes ─────────────────────── */
 .team-row { align-items: center; }
-/* Le nom et son détail, l'un sous l'autre — en bloc, pas en flex : un
-   conteneur flex ne coupe pas son texte, et « Les Carbonara » devenait
-   « Les Carbonar » sans points de suspension. Le nom garde la coupure de
-   `.lb-name` ; le détail, en bloc, passe à la ligne. */
-.team-row .lb-name > .team-sub { display: block; margin-top: 1px; }
+/* Le nom et son détail, l'un sous l'autre : une grille, où le nom garde la
+   coupure de `.lb-name` (« Les Carbonar » sans points de suspension, dans
+   un conteneur flex) et où le détail passe à la ligne dans sa propre case. */
+.team-board { container-type: inline-size; }
+.team-row-detail {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    'rang av nom pts score'
+    'rang av sub pts score';
+  column-gap: 10px;
+  row-gap: 1px;
+}
+.team-row-detail > .lb-rank { grid-area: rang; }
+.team-row-detail > .lb-avatar { grid-area: av; }
+.team-row-detail > .lb-name { grid-area: nom; align-self: end; }
+.team-row-detail > .team-sub { grid-area: sub; align-self: start; }
+.team-row-detail > .team-gamepoints { grid-area: pts; }
+.team-row-detail > .lb-score { grid-area: score; }
+/* Étroite — un petit téléphone, ou le texte agrandi par le système —, la
+   ligne passe sur trois étages : le nom, puis son détail, sur toute la
+   largeur, et les chiffres dessous. En `rem` : le seuil grandit avec le
+   texte. */
+@container (max-width: 17rem) {
+  .team-row-detail {
+    grid-template-areas:
+      'rang av nom nom nom'
+      'rang av sub sub sub'
+      'rang av . pts score';
+    row-gap: 4px;
+  }
+}
 
 /* Le détail passe à la ligne plutôt que d'être coupé net sur un téléphone. */
 .team-sub { font-size: 0.75rem; font-weight: 400; color: var(--muted); white-space: normal; line-height: 1.25; }
