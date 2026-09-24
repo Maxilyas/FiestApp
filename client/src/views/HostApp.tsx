@@ -206,7 +206,7 @@ function TeamGroup({
               aria-label={`Exclure ${p.nomAffiche ?? p.name} de la soirée`}
               onClick={async () => {
                 const ok = await confirmDialog({
-                  title: `Retirer « ${p.nomAffiche ?? p.name} » de la soirée ?`,
+                  title: `Exclure « ${p.nomAffiche ?? p.name} » de la soirée ?`,
                   message: 'Ses points seront effacés et son téléphone reviendra à l’inscription.',
                   confirmLabel: 'Exclure',
                   danger: true,
