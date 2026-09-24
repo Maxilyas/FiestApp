@@ -234,7 +234,45 @@ test('le bilan nomme tous les ex æquo d’un quiz, joueurs comme équipes', asy
   const { makeCtx } = await moduleDuClient('components/BilanQuestion')
   const bilan = texteDe(await rendu('components/BilanRoom', 'RoomReview', { ctx: makeCtx(review) }))
   assert.match(bilan, /🦊 Alice et 🐼 Zoé remportent ce quiz ex æquo avec 300 pts/)
-  assert.match(bilan, /meilleures équipes ex æquo : 🦅 Les Aigles et 🦓 Les Zèbres \(300 pts de moyenne\)/)
+  // La moyenne du quiz seul, sans les prix : le bilan l'appelle par son nom.
+  assert.match(bilan, /meilleures moyennes ex æquo : 🦅 Les Aigles et 🦓 Les Zèbres \(300 pts de moyenne\)/)
+})
+
+test('une fois des prix remis, le souvenir, le bilan et le panneau de la salle couronnent comme l’écran de victoire', async () => {
+  // Les Zèbres gagnent le quiz (300 contre 200 de moyenne) : 2 au barème
+  // contre 1. Le coup de cœur de Sam, +1 aux Aigles : 2 partout, ex æquo —
+  // c'est ce que dit l'écran de victoire. Le souvenir, lui, écrivait
+  // « 1. Les Zèbres (2), 2. Les Aigles (1) », et le bilan « meilleure
+  // équipe : Les Zèbres » ; le prix libre ne se relisait nulle part.
+  const teams = [
+    { id: 'zebres', name: 'Les Zèbres', emoji: '🦓', position: 0 },
+    { id: 'aigles', name: 'Les Aigles', emoji: '🦅', position: 1 },
+  ]
+  const players = [
+    joueur('zoe', 'Zoé', { avatar: '🐼', score: 300, teamId: 'zebres' }),
+    joueur('alice', 'Alice', { score: 200, teamId: 'aigles' }),
+  ]
+  const rows = [reponse('zoe', { qIndex: 0, points: 300 }), reponse('alice', { qIndex: 0, points: 200 })]
+  const bonuses = [{ id: 'b1', teamId: 'aigles', points: 1, reason: 'Le coup de cœur de Sam', createdAt: tic() }]
+  const review = buildReview({ rows, players, teams, bonuses, packsBySession: new Map(), library: [] })
+
+  // Le panneau des équipes — celui du souvenir et de l'écran commun.
+  const tableau = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams: review.teams, showFinalPoints: true }))
+  assert.match(
+    tableau,
+    /^Rang 1 🦅 Les Aigles .*1 au barème \+ 1 de prix 2 points au barème, prix compris, 200 points de moyenne par membre Rang 1 🦓 Les Zèbres .* 2 points au barème, prix compris, 300 points de moyenne par membre$/,
+    tableau,
+  )
+
+  const verdict = texteDe(await rendu('components/TeamBoard', 'VerdictDesEquipes', { teams: review.teams, avecPrix: true }))
+  assert.equal(verdict, '🦅 Les Aigles et 🦓 Les Zèbres remportent le quiz ex æquo, 2 points chacune prix compris.')
+
+  const { makeCtx } = await moduleDuClient('components/BilanQuestion')
+  const bilan = texteDe(await rendu('components/BilanRoom', 'RoomReview', { ctx: makeCtx(review) }))
+  assert.match(bilan, /Les Aigles et 🦓 Les Zèbres remportent le quiz ex æquo, 2 points chacune prix compris/)
+  assert.match(bilan, /meilleure moyenne : 🦓 Les Zèbres \(300 pts de moyenne\)/)
+  assert.doesNotMatch(bilan, /meilleure équipe/)
+  assert.match(bilan, /Remis ce soir-là .* \+1 point Le coup de cœur de Sam 🦅 Les Aigles/)
 })
 
 test('le souvenir accorde « 1 question marquée », et réunit les ex æquo d’un quiz sur une seule carte', async () => {

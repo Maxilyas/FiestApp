@@ -196,7 +196,11 @@ server/test/        un fichier par thème, un serveur jetable chacun
     définitifs : ce qui peut se renverser d'un quiz à l'autre attend la
     clôture. Une soirée jouée seul reste dans l'historique mais ne compte
     pas (`soireeQuiCompte`) : ni tirage de l'Éclat, ni soirée pour L'Habitué
-    — dix « soirées » d'une question faisaient le Renard Lunaire.
+    — dix « soirées » d'une question faisaient le Renard Lunaire. **Un prix
+    ne rapporte jamais d'expérience** : ni ceux du palmarès (une ligne
+    d'étagère, rien de plus), ni ceux remis à l'écran, prix libres compris
+    (des points d'équipe, jamais le score d'un joueur) — l'un se juge sur
+    une seule soirée, l'autre se donne à la main.
 20. **Les récompenses sont des dérivations des journaux**, comme le
     souvenir : quand le barème ou un haut fait change, incrémente
     `VERSION_BAREME` — au démarrage, `recalculerHistorique` relit toutes les

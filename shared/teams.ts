@@ -84,3 +84,17 @@ export function vainqueursDuQuiz(teams: PublicTeam[]): TeamStanding[] {
   if (!teams.some(t => t.average > 0 || t.bonus !== 0)) return []
   return finalRanking(teams).filter(t => t.rank === 1)
 }
+
+/**
+ * Les prix remis, dans l'ordre où l'animateur les a remis, et seulement ceux
+ * d'une équipe encore là. Le registre les rend du plus récent au plus
+ * ancien — c'est l'ordre de la console, où l'on retire le dernier ; le
+ * lendemain, on les relit comme on les a vécus.
+ */
+export function prixRemis<T extends { id: string; teamId: string; createdAt: number }>(
+  bonuses: T[],
+  teams: { id: string }[],
+): T[] {
+  const ids = new Set(teams.map(t => t.id))
+  return bonuses.filter(b => ids.has(b.teamId)).sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id))
+}

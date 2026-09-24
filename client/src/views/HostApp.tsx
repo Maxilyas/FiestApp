@@ -675,11 +675,11 @@ export function HostApp() {
                   <div className="scene-podium">
                     <FinalPodium rows={teamPodium} />
                     <div className="scene-listes">
-                      <TeamBoard teams={teams} showGamePoints />
+                      <TeamBoard teams={teams} showFinalPoints />
                       <p className="muted small">
-                        Le chiffre cerclé : les points de classement du quiz, auxquels les prix
-                        s'ajoutent pour désigner l'équipe gagnante. Le grand chiffre à droite, la
-                        moyenne par membre — c'est elle qui classe les équipes.
+                        Le chiffre cerclé : le barème, prix compris — il range le tableau et
+                        désigne l'équipe gagnante. Le grand chiffre à droite, la moyenne par membre :
+                        c'est elle qui fait le podium du quiz et distribue le barème.
                       </p>
                     </div>
                   </div>
@@ -717,9 +717,15 @@ export function HostApp() {
                   <Icon name="award" />
                   Remise des prix
                 </h2>
+                {/* « Rien n'est attribué tant que tu ne cliques pas » : vrai des
+                    points, faux du palmarès, qui se relit au souvenir et se
+                    range sur l'étagère des profils remis ou non. Une
+                    animatrice qui avait épargné un prix à voix haute le
+                    retrouvait le lendemain. */}
                 <p className="muted center">
-                  Rien n'est attribué tant que tu ne cliques pas. Les points s'ajoutent au total de
-                  l'équipe du lauréat, sur l'échelle du barème.
+                  Des points pour les équipes : un prix ne rapporte rien tant que tu ne cliques pas,
+                  puis s'ajoute au total de l'équipe du lauréat, sur l'échelle du barème. Le palmarès,
+                  lui, reste au souvenir, remis ou non — sans jamais rapporter d'expérience.
                 </p>
 
                 <AwardsBoard
@@ -1053,10 +1059,11 @@ export function HostApp() {
               {teams.length > 0 && (
                 <section className="card">
                   <h2>Les équipes</h2>
-                  <TeamBoard teams={teams} showGamePoints />
+                  <TeamBoard teams={teams} showFinalPoints />
                   <p className="muted small">
-                    Classées à la moyenne par membre, le grand chiffre à droite. Le chiffre cerclé : leurs points
-                    de classement, auxquels les prix s'ajoutent pour désigner l'équipe gagnante.
+                    Le chiffre cerclé : le barème, prix compris — il range les équipes et désigne
+                    la gagnante. Le grand chiffre à droite, la moyenne par membre, qui distribue le
+                    barème.
                   </p>
                 </section>
               )}

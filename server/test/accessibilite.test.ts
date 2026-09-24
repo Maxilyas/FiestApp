@@ -128,20 +128,21 @@ test('une ligne de classement dit lequel des nombres est le rang, lequel les poi
   assert.deepEqual(elements(suite, 'div'), ['Rang 4 🐢 Jeanne 1281 points'])
 })
 
-test('une équipe dit son rang, ses points de classement et sa moyenne', async () => {
+test('une équipe dit son rang, son barème prix compris et sa moyenne', async () => {
   const equipe = (id: string, name: string, emoji: string, average: number) =>
     ({ id, name, emoji, position: 0, memberCount: 2, total: average * 2, average, bonus: 0 })
   const html = await rendu('components/TeamBoard', 'TeamBoard', {
     teams: [equipe('r', 'Les Randonneurs', '🥾', 439), equipe('c', 'Les Carbonara', '🍝', 336)],
-    showGamePoints: true,
+    showFinalPoints: true,
     compact: true,
   })
   assert.match(html, /role="list"/)
   assert.deepEqual(
     [...html.matchAll(/role="listitem"[^>]*>([\s\S]*?)<\/div>/g)].map(m => entendu(m[1])),
     [
-      'Rang 1 🥾 Les Randonneurs 2 points de classement, 439 points de moyenne par membre',
-      'Rang 2 🍝 Les Carbonara 1 point de classement, 336 points de moyenne par membre',
+      // Le chiffre cerclé compte les prix (axe 1) : l'oreille l'entend aussi.
+      'Rang 1 🥾 Les Randonneurs 2 points au barème, prix compris, 439 points de moyenne par membre',
+      'Rang 2 🍝 Les Carbonara 1 point au barème, prix compris, 336 points de moyenne par membre',
     ],
   )
 })

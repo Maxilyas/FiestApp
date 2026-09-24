@@ -1,7 +1,7 @@
 import { computeStats } from './stats'
 import type { AnswerRow } from './answers'
 import type { ScoreEntry } from './scores'
-import { teamScores } from '../../../shared/teams'
+import { prixRemis, teamScores } from '../../../shared/teams'
 import { nomAffiche } from '../../../shared/homonymes'
 import { classer, ordreDAffichage, ordreDeClassement, vainqueurs } from '../../../shared/classement'
 import type { PublicPlayer, Recap, TeamBonus } from '../../../shared/types'
@@ -110,5 +110,6 @@ export function buildRecap(input: RecapInput): Recap {
     steadiest:
       steady && steadyPlayer ? { name: nomAffiche(steadyPlayer), avatar: steadyPlayer.avatar, count: steady[1] } : null,
     quizWinners,
+    bonuses: prixRemis(bonuses, teams),
   }
 }
