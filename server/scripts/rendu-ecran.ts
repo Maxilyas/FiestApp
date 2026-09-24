@@ -120,7 +120,9 @@ invites.forEach((inv, i) => {
     const action =
       view.kind === 'number'
         ? { type: 'guess', value: [112, 120, 95, 150, 80, 200, 110, 130, 60, 250][i] }
-        : { type: 'answer', choice: (i * 7) % (view.answers?.length ?? 2) }
+        : // Le prénom le plus long répond toujours juste : c'est lui qu'on veut
+          // voir en haut du podium.
+          { type: 'answer', choice: i === 0 ? [2, 0, 0, 2, 1, 1][view.qIndex] : (i * 7) % (view.answers?.length ?? 2) }
     setTimeout(() => (inv.socket as any).emit('player:action', { sessionId, action }, () => {}), 150 + i * 90)
   })
 })
@@ -152,6 +154,10 @@ async function capture(moment: string, opts: { telephone?: boolean } = {}) {
   await tele.screenshot({ path: path.join(sortie, `${prefixe}-${moment}-1366.jpg`), type: 'jpeg', quality: 70 })
   await grande.screenshot({ path: path.join(sortie, `${prefixe}-${moment}-1920.jpg`), type: 'jpeg', quality: 70 })
   if (process.env.MESURE) await mesurer(moment)
+  if (process.env.COUPE)
+    console.log(
+      await grande.evaluate(`[...document.querySelectorAll('.coupe-zone')].map(z => z.clientHeight + ' : ' + [...z.querySelectorAll('.lb-row')].map(l => { let h = 0; for (let x = l; x && x !== z; x = x.offsetParent) h += x.offsetTop; return (l.style.display === 'none' ? '-' : '') + (h + l.offsetHeight) + '(' + (l.offsetParent && l.offsetParent.className) + ')' }).join(' ')).join('\\n')`),
+    )
   if (opts.telephone) await telephone.screenshot({ path: path.join(sortie, `${prefixe}-${moment}-tel.jpg`), type: 'jpeg', quality: 70 })
   console.log(`  ${prefixe} ${moment}`)
 }
@@ -279,6 +285,10 @@ await capture('victoire')
 ;(host as any).emit('host:closeParty', { title: 'Le pire cas' })
 await patienter(2500)
 await capture('cloture', { telephone: true })
+// Le souvenir au téléphone : le podium, où un nom long volait sa marche.
+await telephone.goto(`${url}/${ADMIN.slug}/souvenir`)
+await patienter(1500)
+await telephone.screenshot({ path: path.join(sortie, '17-souvenir-tel.jpg'), type: 'jpeg', quality: 70 })
 
 await navigateur.close()
 host.close()

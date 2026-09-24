@@ -3909,8 +3909,8 @@ h3 > .icon {
    hauteur, soit 26 cm sur une télé de 140 cm — dix fois plus loin qu'il
    n'est large, trois mètres. */
 .cloture-qr-grand { flex-direction: column; justify-content: center; text-align: center; gap: 0.875rem; }
-.cloture-qr-grand .qr-box { padding: 0.5rem; border-radius: 0.625rem; }
-.cloture-qr-grand .qr-box svg { width: min(34vh, 22.5rem); height: min(34vh, 22.5rem); }
+.scene-qr.cloture-qr-grand .qr-box { padding: 0.5rem; border-radius: 0.625rem; }
+.scene-qr.cloture-qr-grand .qr-box svg { width: min(34vh, 22.5rem); height: min(34vh, 22.5rem); }
 .scene-qr.cloture-qr-grand .qr-text { align-items: center; text-align: center; max-width: 26rem; }
 .cloture-tete { text-align: center; }
 .cloture-tete h2 { font-size: 3rem; margin-top: 0.375rem; text-wrap: balance; }
@@ -4308,6 +4308,13 @@ h3 > .icon {
   .host.staging .scene-podium { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); }
   .host.staging .scene-podium > .final-podium { min-height: clamp(13.75rem, 50vh, 30rem); margin: 0; }
   .host.staging .scene-listes { min-height: 0; max-height: 100%; overflow: hidden; }
+  /* Deux tableaux l'un sous l'autre ne se partagent pas la hauteur au
+     prorata de leur contenu : la coupe se mesure liste entière, et le
+     premier rétrécissait ensuite sous une ligne qu'on croyait tenir. Le
+     premier prend au plus la moitié, le second ce qui reste ; les notes ne
+     rétrécissent pas. */
+  .host.staging .scene-listes > .tableau:first-child:not(:last-child) { flex: none; max-height: 50%; }
+  .host.staging .scene-listes > :not(.coupe, .tableau) { flex: none; }
 
   /* La victoire : le vainqueur en grand, les deux classements dans ce qui
      reste, coupés à ce qui tient — la liste s'arrêtait au cinquième. */

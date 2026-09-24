@@ -46,11 +46,16 @@ export function Coupe({
   // À chaque rendu : les lignes changent avec les scores. Le même compte ne
   // redessine rien.
   useLayoutEffect(mesurer)
+  // Et chaque fois que le cadre ou sa liste changent de taille : une fenêtre
+  // qu'on agrandit, mais aussi les polices qui arrivent après la première
+  // mesure — la ligne qui tenait en police de secours dépassait à demi.
   useEffect(() => {
     const el = zone.current
     if (!el || typeof ResizeObserver === 'undefined') return
     const ro = new ResizeObserver(() => mesurer())
     ro.observe(el)
+    if (el.firstElementChild) ro.observe(el.firstElementChild)
+    document.fonts?.ready.then(mesurer).catch(() => {})
     return () => ro.disconnect()
   }, [mesurer])
 
