@@ -374,8 +374,8 @@ test('une ligne d’avant la colonne retombe sur la composition du moment ; une 
     rows: lignes.map((l, i) => ligne(l.playerId, l.qIndex, l.points, { sessionId: 's', ...('teamId' in l && { teamId: l.teamId }), createdAt: i })),
     players,
     teams: [
-      { id: 'inv', name: 'Les invités', emoji: '🎁', position: 0, createdAt: 1 },
-      { id: 'coloc', name: 'La coloc', emoji: '🏠', position: 1, createdAt: 1 },
+      { id: 'inv', name: 'Les invités', emoji: '🎁', position: 0 },
+      { id: 'coloc', name: 'La coloc', emoji: '🏠', position: 1 },
     ],
     bonuses: [],
     packsBySession: new Map(),
