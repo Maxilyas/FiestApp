@@ -1,0 +1,263 @@
+// Tenir une grande salle : ce que coûte une réponse, une veille, une arrivée.
+// Rien n'est chronométré ici — une machine chargée ferait échouer un test qui
+// mesure des millisecondes. On compte : les vues calculées, les écritures de
+// l'état, les messages que reçoit chacun.
+import { afterEach, mock, test } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { initDb, type DB } from '../src/core/db'
+import { Party } from '../src/core/party'
+import { ScoreLedger } from '../src/core/scores'
+import { AnswerLog } from '../src/core/answers'
+import { GameEngine } from '../src/core/engine'
+import { quizModule, setQuizLibrary } from '../src/games/quiz'
+import type { GameModule } from '../src/core/types'
+
+// ── Le moteur seul, sur une vraie base et un faux `io` qui écoute ─────────
+
+const QUIZ = {
+  id: 'salle',
+  title: 'Grande salle',
+  updatedAt: 0,
+  questions: [0, 1, 2].map(i => ({
+    id: `q${i}`,
+    kind: 'choice',
+    text: `Question ${i + 1} ?`,
+    answers: ['A', 'B', 'C', 'D'],
+    correct: i % 4,
+    target: null,
+    unit: '',
+    duration: 20,
+    image: null,
+    observeSeconds: null,
+    category: null,
+  })),
+}
+
+interface Salle {
+  engine: GameEngine
+  ids: string[]
+  sid: string
+  db: DB
+  /** Ce que chaque salon a reçu, dans l'ordre (`player:<rang>`, `hosts`). */
+  recu: Map<string, unknown[]>
+  /** Vues de téléphone calculées depuis le début. */
+  vuesCalculees(): number
+  /** Écritures de l'état de la partie dans la base locale. */
+  ecritures(): number
+  fermer(): void
+}
+
+/**
+ * Une salle de `n` invités au compte à rebours d'un quiz. Les horloges sont
+ * simulées : deux salles jouées côte à côte voient les mêmes heures, donc les
+ * mêmes vues.
+ */
+function salle(n: number, module: GameModule = quizModule): Salle {
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-grande-salle-'))
+  const db = initDb(path.join(dir, 'locale.db'))
+  const spaceId = `salle-${Math.random().toString(36).slice(2)}`
+  setQuizLibrary(spaceId, [QUIZ as any])
+  const party = new Party(db, spaceId)
+  const ids: string[] = []
+  for (let i = 0; i < n; i++) {
+    const rec = party.join(`Invité ${i}`, '🦊', undefined, null)
+    if ('error' in rec) throw new Error(rec.error)
+    ids.push(rec.id)
+    party.socketConnected(rec.id, `sock-${i}`)
+  }
+  // Les salons se nomment par le rang de l'invité : deux salles se comparent.
+  const rang = new Map(ids.map((id, i) => [`player:${id}`, `player:${i}`]))
+  const recu = new Map<string, unknown[]>()
+  const io = {
+    to: (salon: string) => ({
+      emit: (_event: string, payload: any) => {
+        const cle = rang.get(salon) ?? (salon.startsWith('hosts:') ? 'hosts' : salon)
+        const { sessionId: _sid, ...reste } = payload ?? {}
+        recu.set(cle, [...(recu.get(cle) ?? []), JSON.parse(JSON.stringify(reste))])
+      },
+    }),
+  }
+  let vues = 0
+  const compte: GameModule = {
+    ...module,
+    playerView: (sess, id, vctx) => {
+      vues++
+      return module.playerView(sess, id, vctx)
+    },
+  }
+  let ecritures = 0
+  const prepare = db.prepare.bind(db)
+  ;(db as any).prepare = (sql: string) => {
+    const st = prepare(sql)
+    if (!sql.includes('INSERT INTO sessions')) return st
+    const run = st.run.bind(st)
+    ;(st as any).run = (...args: unknown[]) => {
+      ecritures++
+      return run(...(args as []))
+    }
+    return st
+  }
+  const engine = new GameEngine(
+    {
+      db,
+      io: io as any,
+      spaceId,
+      party,
+      ledger: new ScoreLedger(db, spaceId),
+      answers: new AnswerLog(db, spaceId),
+      onScoresChanged: () => {},
+      onSessionChanged: () => {},
+      onSessionEnded: () => {},
+      onVerdict: () => {},
+    },
+    compte,
+  )
+  const sid = engine.launch()
+  engine.handleHostCommand(sid, { type: 'selectPack', packId: 'salle' })
+  return {
+    engine,
+    ids,
+    sid,
+    db,
+    recu,
+    vuesCalculees: () => vues,
+    ecritures: () => ecritures,
+    fermer() {
+      engine.stop()
+      db.close()
+      rmSync(dir, { recursive: true, force: true })
+    },
+  }
+}
+
+const derniere = (s: Salle, cle: string) => s.recu.get(cle)?.at(-1) as any
+/** Le compte à rebours passe : la première question s'ouvre. */
+const ouvrir = () => mock.timers.tick(3000)
+
+afterEach(() => mock.timers.reset())
+
+test('une réponse ne recalcule que la vue de son auteur', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+  const s = salle(30)
+  ouvrir()
+  try {
+    assert.equal(derniere(s, 'player:0')?.view.phase, 'question')
+    for (let i = 0; i < 29; i++) {
+      const avant = s.vuesCalculees()
+      assert.equal(s.engine.handlePlayerAction(s.sid, s.ids[i], { type: 'answer', choice: i % 4 }), null)
+      // Mesuré avant : 30 vues par réponse, soit 900 pour une question à 30,
+      // et 250 000 à 500 invités — pour n'en envoyer qu'une.
+      assert.equal(s.vuesCalculees() - avant, 1, `réponse ${i + 1} : une seule vue calculée`)
+      assert.equal(derniere(s, `player:${i}`)?.view.yourChoice, i % 4, 'et son auteur la reçoit')
+    }
+    // Le dernier arme le souffle avant la révélation : un changement de
+    // chronomètres, que toute la salle suit.
+    const avant = s.vuesCalculees()
+    s.engine.handlePlayerAction(s.sid, s.ids[29], { type: 'answer', choice: 1 })
+    assert.equal(s.vuesCalculees() - avant, 30, 'le dernier à répondre repasse par le chemin complet')
+  } finally {
+    s.fermer()
+  }
+})
+
+test('la salle reçoit exactement les mêmes vues, recalculées ou non', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+  // La même soirée, jouée côte à côte : l'une par un module qui promet que la
+  // vue d'un invité ne dépend pas des autres, l'autre par le chemin complet.
+  const ciblee = salle(30)
+  const complete = salle(30, { ...quizModule, vueDependDesAutres: undefined })
+  ouvrir()
+  const deux = [ciblee, complete]
+  const jouer = (i: number, action: unknown) =>
+    deux.map(s => s.engine.handlePlayerAction(s.sid, s.ids[i], action))
+  const commande = (command: unknown) => deux.forEach(s => s.engine.handleHostCommand(s.sid, command))
+  const comparer = (etape: string) => {
+    for (let i = 0; i < 30; i++) {
+      assert.deepEqual(ciblee.recu.get(`player:${i}`), complete.recu.get(`player:${i}`), `${etape} : invité ${i}`)
+    }
+    // L'écran commun reçoit moins de vues, mais la dernière est la même.
+    assert.deepEqual(derniere(ciblee, 'hosts'), derniere(complete, 'hosts'), `${etape} : écran commun`)
+  }
+  try {
+    for (let q = 0; q < 3; q++) {
+      for (let i = 0; i < 25; i++) {
+        mock.timers.tick(37)
+        const refus = jouer(i, { type: 'answer', choice: (i + q) % 4, qIndex: q })
+        assert.equal(refus[0], refus[1])
+      }
+      // Des invités qui se ravisent, qui retapent la même case, qui visent
+      // une question passée, ou qui n'envoient rien de lisible.
+      jouer(3, { type: 'answer', choice: 2, qIndex: q })
+      jouer(4, { type: 'answer', choice: (4 + q) % 4, qIndex: q })
+      jouer(5, { type: 'answer', choice: 1, qIndex: q - 1 })
+      jouer(6, { type: 'answer', choice: 99 })
+      mock.timers.tick(300)
+      comparer(`question ${q + 1}`)
+      commande({ type: 'next' }) // révéler
+      mock.timers.tick(300)
+      comparer(`révélation ${q + 1}`)
+      commande({ type: 'next' }) // suivante, ou le podium
+      mock.timers.tick(300)
+      comparer(`après la révélation ${q + 1}`)
+    }
+    assert.equal(derniere(ciblee, 'player:0')?.view.phase, 'finished')
+    assert.ok(ciblee.vuesCalculees() < complete.vuesCalculees() / 5, 'pour bien moins de vues calculées')
+  } finally {
+    ciblee.fermer()
+    complete.fermer()
+  }
+})
+
+test('l’écran commun reçoit le compteur de réponses quatre fois par seconde au plus, et le dernier compte', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+  const s = salle(30)
+  ouvrir()
+  try {
+    const avant = s.recu.get('hosts')?.length ?? 0
+    mock.timers.tick(1000)
+    // Vingt réponses dans la même seconde : l'écran commun se redessinait
+    // vingt fois. Il en reçoit une tout de suite, puis une au bout de sa
+    // fenêtre, avec le compte juste.
+    for (let i = 0; i < 20; i++) s.engine.handlePlayerAction(s.sid, s.ids[i], { type: 'answer', choice: 0 })
+    assert.ok((s.recu.get('hosts')?.length ?? 0) - avant <= 1, 'une vue au plus pendant la rafale')
+    mock.timers.tick(250)
+    const recues = (s.recu.get('hosts')?.length ?? 0) - avant
+    assert.ok(recues <= 2, `deux vues en tout, pas vingt (vu : ${recues})`)
+    assert.equal(derniere(s, 'hosts')?.view.answeredCount, 20, 'la dernière porte le compte juste')
+    // Une révélation n'attend pas sa fenêtre.
+    s.engine.handlePlayerAction(s.sid, s.ids[20], { type: 'answer', choice: 0 })
+    s.engine.handleHostCommand(s.sid, { type: 'next' })
+    assert.equal(derniere(s, 'hosts')?.view.phase, 'reveal', 'la révélation part sur-le-champ')
+    assert.equal(derniere(s, 'hosts')?.view.answeredCount, 21)
+  } finally {
+    s.fermer()
+  }
+})
+
+test('les réponses lues dans le même tour s’écrivent une fois, et l’arrêt n’en perd aucune', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+  const s = salle(30)
+  ouvrir()
+  try {
+    const avant = s.ecritures()
+    for (let i = 0; i < 20; i++) s.engine.handlePlayerAction(s.sid, s.ids[i], { type: 'answer', choice: 1 })
+    mock.timers.tick(0)
+    // Mesuré avant : vingt écritures de l'état entier de la partie.
+    assert.equal(s.ecritures() - avant, 1, 'une écriture pour la rafale')
+    const etat = () => {
+      const row = s.db.prepare('SELECT state FROM sessions WHERE id = ?').get(s.sid) as { state: string }
+      return JSON.parse(row.state)
+    }
+    assert.equal(Object.keys(etat().responses).length, 20, 'et elle porte les vingt réponses')
+
+    // Une réponse retenue, puis l'arrêt avant la fin du tour : elle est écrite.
+    s.engine.handlePlayerAction(s.sid, s.ids[20], { type: 'answer', choice: 1 })
+    s.engine.stop()
+    assert.equal(Object.keys(etat().responses).length, 21, 'l’arrêt écrit la réponse qui attendait')
+  } finally {
+    s.fermer()
+  }
+})
