@@ -332,12 +332,15 @@ export function PlayerApp() {
             {myTeam && ` · ${myTeam.emoji} ${myTeam.name}`}
           </p>
         </div>
-        {!s.connected && (
-          <span className="pill offline-pill">
-            <Icon name="alert" /> reconnexion…
-          </span>
-        )}
       </header>
+      {/* Sous l'en-tête, pas à côté : dans la même ligne, la pastille
+          réduisait le prénom à « Mari… » au moment même où l'on se demande
+          si le téléphone est encore le sien. */}
+      {!s.connected && (
+        <span className="pill offline-pill">
+          <Icon name="alert" /> reconnexion…
+        </span>
+      )}
 
       {session && !iAmIn && (
         <div className="card notice">Un quiz est en cours — tu entres à la prochaine question.</div>

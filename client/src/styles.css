@@ -367,6 +367,30 @@ h3 > .icon {
 .input::placeholder { color: var(--muted); opacity: 0.7; }
 .input:focus { border-color: var(--focus); }
 
+/* Un mot de passe qu'on peut afficher : l'œil se pose dans le champ, à
+   droite, à la taille d'un doigt, sans rien pousser. */
+.mdp { position: relative; }
+.mdp > .input { padding-right: 48px; }
+.mdp-oeil {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.mdp-oeil:hover,
+.mdp-oeil[aria-pressed='true'] { color: var(--accent-text); }
+
 /* Le champ du prénom : une ligne, en serif, comme sur une invitation. */
 .input-line {
   min-height: 54px;
@@ -707,7 +731,7 @@ h3 > .icon {
 .player-avatar.big { font-size: 2.6rem; }
 
 .offline-pill {
-  margin-left: auto;
+  align-self: flex-start;
   color: var(--alert);
   border-color: rgba(var(--alert-rgb), 0.5);
 }
@@ -2979,9 +3003,11 @@ h3 > .icon {
   border: 1px solid rgba(var(--accent-rgb), 0.45);
   background: var(--accent-soft);
   color: var(--accent-text);
-  font-size: 0.7rem;
+  /* 12 px et des chiffres alignés : à 11 px, en elzévirien, le « 1 » d'un
+     badge se lisait comme un « I » ou une notification. */
+  font-size: 0.75rem;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: lining-nums tabular-nums;
   line-height: 1;
   flex: none;
 }
@@ -4142,9 +4168,11 @@ h3 > .icon {
 
 /* ── La carte d'un joueur ──────────────────────────────────────────────── */
 
-/* Une ligne du classement qu'on peut toucher : la même, sous un bouton. */
+/* Une ligne du classement qu'on peut toucher : la même, sous un bouton —
+   et à la hauteur d'un doigt, qu'elle n'atteignait pas (40 px). */
 .lb-row.lb-ouvrable {
   width: 100%;
+  min-height: 44px;
   color: var(--ink);
   font: inherit;
   text-align: left;

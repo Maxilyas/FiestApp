@@ -15,6 +15,7 @@ import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { TeamPicker } from './TeamPicker'
 import { Icon } from './Icon'
+import { MotDePasse } from './MotDePasse'
 import { espacesFines } from '../format'
 
 /** Ce qu'on envoie au serveur pour être quelqu'un ce soir. */
@@ -199,10 +200,9 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           <label className="label" htmlFor="e-pass">
             Ton mot de passe
           </label>
-          <input
+          <MotDePasse
             id="e-pass"
             className="input input-line"
-            type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             autoComplete="current-password"
@@ -390,7 +390,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           <Icon name="sparkles" /> Garder ma progression
         </h2>
         <p className="muted small center">
-          Ton identifiant te servira à revenir. Il n'y a pas d'adresse e-mail à donner.
+          Ton identifiant te servira à revenir. Il n'y a pas d'adresse e-{/* un gluon : « e- / mail » coupé en bout de ligne */ '\u2060'}mail à donner.
         </p>
         <hr className="hairline" />
         <div className="field">
@@ -412,10 +412,9 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           <label className="label" htmlFor="c-pass">
             Ton mot de passe
           </label>
-          <input
+          <MotDePasse
             id="c-pass"
             className="input input-line"
-            type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             autoComplete="new-password"
@@ -471,7 +470,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
         <div className="card notice">
           <p>
             <strong>C'est la seule façon de retrouver ton profil</strong> si tu oublies ton mot de
-            passe — il n'y a pas d'adresse e-mail, donc pas de lien à recevoir.
+            passe — il n'y a pas d'adresse e-{/* un gluon : « e- / mail » coupé en bout de ligne */ '\u2060'}mail, donc pas de lien à recevoir.
           </p>
           <p className="code-secours">{recovery}</p>
           <p className="muted small">Il ne sera plus jamais affiché.</p>

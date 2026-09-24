@@ -3,6 +3,7 @@ import { Limite } from './Limite'
 import { api, motifDe } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { Icon } from './Icon'
+import { MotDePasse } from './MotDePasse'
 import { FormulaireSecours } from './Secours'
 
 interface Props {
@@ -74,7 +75,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
         <div className="card notice">
           <p>
             <strong>Note ce code de secours.</strong> C'est la seule façon de retrouver ton profil si
-            tu oublies ton mot de passe — il n'y a pas d'adresse e-mail, donc pas de lien à recevoir.
+            tu oublies ton mot de passe — il n'y a pas d'adresse e-{/* un gluon : « e- / mail » coupé en bout de ligne */ '\u2060'}mail, donc pas de lien à recevoir.
           </p>
           <p className="code-secours">{recovery.code}</p>
           <p className="muted small">Il ne sera plus jamais affiché.</p>
@@ -173,10 +174,9 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
         <label className="label" htmlFor="pf-pass">
           Ton mot de passe
         </label>
-        <input
+        <MotDePasse
           id="pf-pass"
           className="input input-line"
-          type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
           autoComplete={creation ? 'new-password' : 'current-password'}

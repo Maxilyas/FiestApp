@@ -250,3 +250,19 @@ test('A4 · dans l’éditeur, un bouton répété dit ce qu’il vise', () => {
   }
   assert.ok(vus >= 5, `les boutons sont bien trouvés (${vus})`)
 })
+
+test('T7 · une ligne de classement qu’on touche a la hauteur d’un doigt', () => {
+  assert.match(regle('.lb-row.lb-ouvrable'), /min-height:\s*44px/)
+})
+
+test('T12 · le mot de passe s’affiche, sous un bouton au nom fixe', async () => {
+  const html = await rendu('components/MotDePasse', 'MotDePasse', { id: 'x', value: 'secret', onChange: () => {} })
+  assert.match(html, /type="password"/)
+  assert.match(html, /aria-label="Afficher le mot de passe" aria-pressed="false"/)
+  // Les trois champs du téléphone le prennent : la connexion, la création, le profil.
+  const entree = readFileSync(new URL('../../client/src/components/Entree.tsx', import.meta.url), 'utf8')
+  const profil = readFileSync(new URL('../../client/src/components/ProfilForm.tsx', import.meta.url), 'utf8')
+  assert.equal([...entree.matchAll(/<MotDePasse\b/g)].length, 2)
+  assert.equal([...profil.matchAll(/<MotDePasse\b/g)].length, 1)
+  assert.doesNotMatch(entree + profil, /type="password"/)
+})

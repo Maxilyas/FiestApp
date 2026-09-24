@@ -7,10 +7,11 @@
 // Les composants sont rendus en HTML, sans navigateur ni serveur, puis lus
 // comme le ferait un lecteur d'écran : dans l'ordre du document, sans ce qui
 // porte `aria-hidden`.
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
+import { attendre, connexionAnimateur, creerQuiz, demarrer, ecranCommun, emitAck, invite, lancerQuiz, qcm } from './banc'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
 Object.assign(globalThis, { React })
@@ -201,4 +202,39 @@ test('le tableau des chiffres dit par quelle colonne il est trié', async () => 
   // Une seule colonne le porte : celle des points, triée du plus grand au plus petit.
   assert.deepEqual([...html.matchAll(/aria-sort="(\w+)"/g)].map(m => m[1]), ['descending'])
   assert.match(html, /<th title="Points marqués sur la soirée" aria-sort="descending">/)
+})
+
+// ── 8. Au podium du téléphone, on se voit ─────────────────────────────────
+
+test('au podium du quiz, le téléphone de chacun surligne sa propre ligne', async () => {
+  // La ligne 1 avait la même carte que les suivantes, et la sienne ne se
+  // distinguait pas — alors que le classement de la salle d'attente la surligne.
+  const banc = await demarrer()
+  after(() => banc.close())
+  const cookie = await connexionAnimateur(banc.url)
+  const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
+  const host = await ecranCommun(banc.url, cookie)
+  const salle = []
+  for (const nom of ['Alice', 'Bob', 'Chloé', 'David']) salle.push(await invite(banc.url, nom))
+  const [alice, bob, chloe, david] = salle
+
+  const sessionId = await lancerQuiz(host, quiz)
+  await attendre(alice.socket, 'session:view', (p: any) => p.view.phase === 'question', 'la question')
+  const fins = salle.map(i => attendre<any>(i.socket, 'session:view', p => p.view.phase === 'finished', 'le podium', 15_000))
+  // Alice et Bob trouvent, Chloé et David se trompent : David reste au pied du podium.
+  for (const [qui, choix] of [[alice, 0], [bob, 0], [chloe, 1], [david, 1]] as const) {
+    await emitAck(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice: choix } })
+  }
+  await attendre(host, 'session:view', (p: any) => p.view.phase === 'reveal', 'la révélation', 15_000)
+  ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
+  const [va, vb, vc, vd] = (await Promise.all(fins)).map(p => p.view)
+
+  assert.deepEqual(va.podium.map((r: any) => r.name), ['Alice', 'Bob', 'Chloé'])
+  assert.deepEqual([va.yourPodiumIndex, vb.yourPodiumIndex, vc.yourPodiumIndex, vd.yourPodiumIndex], [0, 1, 2, undefined])
+
+  // Et le téléphone de Bob le montre.
+  const html = await rendu('games/quiz/PlayerView', 'QuizPlayer', { view: vb, send: () => {}, teams: [], myTeamId: null })
+  assert.equal([...html.matchAll(/class="lb-row me"/g)].length, 1)
+  const ligne = html.slice(html.indexOf('class="lb-row me"'), html.indexOf('class="lb-row"', html.indexOf('class="lb-row me"')))
+  assert.match(ligne, /Bob/)
 })
