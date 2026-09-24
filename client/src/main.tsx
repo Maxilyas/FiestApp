@@ -2,6 +2,7 @@ import React, { Component, Suspense, lazy, type ReactNode } from 'react'
 import ReactDOM from 'react-dom/client'
 import { DialogHost } from './components/Dialog'
 import { applyTheme } from './theme'
+import { installerClavier } from './clavier'
 import { route, type AccountPage, type PublicPage } from './routes'
 import './styles.css'
 
@@ -67,6 +68,10 @@ const App =
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au
 // chargement. Les autres pages — les téléphones surtout — restent en Velours.
 if (App === HostApp) applyTheme()
+
+// Les écrans d'entrée ancrent leur bouton en bas de page : le clavier d'un
+// téléphone le cachait. L'écran commun n'a pas de clavier qui monte.
+if (App !== HostApp) installerClavier()
 
 /**
  * Le bandeau d'environnement.
