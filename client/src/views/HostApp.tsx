@@ -7,7 +7,7 @@ import { api } from '../api'
 import { dataUrl, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
 import { titreDeCloture } from '../../../shared/space'
-import { espacesFines } from '../format'
+import { deNom, espacesFines } from '../format'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
@@ -184,7 +184,7 @@ function TeamGroup({
                 className="chip-team"
                 value={p.teamId ?? ''}
                 title="Changer d'équipe"
-                aria-label={`Équipe de ${p.nomAffiche ?? p.name}`}
+                aria-label={`Équipe ${deNom(p.nomAffiche ?? p.name)}`}
                 onChange={e =>
                   socket.emit('host:assignPlayer', {
                     playerId: p.id,

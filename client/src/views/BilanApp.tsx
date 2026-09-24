@@ -1,3 +1,4 @@
+import { deNom } from '../format'
 import { useEffect, useMemo, useState } from 'react'
 import type { Review, ReviewPlayer } from '../../../shared/review'
 import { Icon } from '../components/Icon'
@@ -304,7 +305,7 @@ function Fiches({ ctx, players }: { ctx: BilanCtx; players: ReviewPlayer[] }) {
         <section key={p.id} className="fiche">
           <header className="fiche-head">
             <span className="label">{partyLine(ctx)}</span>
-            <h1>Le bilan de {p.name}</h1>
+            <h1>Le bilan {deNom(p.name)}</h1>
           </header>
           <PlayerReview ctx={ctx} player={p} />
         </section>

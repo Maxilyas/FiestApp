@@ -1,3 +1,4 @@
+import { deNom } from '../format'
 import type { PublicPlayer } from '../../../shared/types'
 import { classer } from '../../../shared/classement'
 import { Avatar } from './Avatar'
@@ -48,7 +49,7 @@ export function Leaderboard({ players, compact, highlightId, onOuvrir }: Props) 
             className={classe + ' lb-ouvrable'}
             // Le nom du bouton remplace tout son contenu : le rang et les
             // points doivent y être, sinon le lecteur d'écran n'entend qu'un nom.
-            aria-label={`La carte de ${p.nomAffiche ?? p.name} — rang ${rang}, ${p.score} ${motPoints(p.score)}`}
+            aria-label={`La carte ${deNom(p.nomAffiche ?? p.name)} — rang ${rang}, ${p.score} ${motPoints(p.score)}`}
             onClick={() => onOuvrir(p.id)}
           >
             {contenu}
