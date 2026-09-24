@@ -90,11 +90,6 @@ function empreinteDArchive(archive: unknown): string {
 }
 
 /**
- * Ce qu'un crédit d'expérience écrirait : le nom de la soirée, et chaque
- * gain tel quel — profil, invité, emoji, relevé. Deux crédits de même
- * empreinte écrivent exactement les mêmes lignes.
- */
-/**
  * Combien de profils se créditent en même temps. Chacun attend quatre ou
  * cinq allers-retours vers la base permanente : en série, cent profils à
  * 30 ms faisaient attendre quinze secondes la salle qui voulait lire « c'est
@@ -110,7 +105,7 @@ const PROFILS_EN_VOL = 8
  * encore après être « terminé » passerait derrière le travail suivant de la
  * file (`enFile`), et c'est l'ordre des écritures que la file protège.
  */
-async function enParallele<T, R>(elements: T[], limite: number, travail: (e: T) => Promise<R>): Promise<R[]> {
+export async function enParallele<T, R>(elements: T[], limite: number, travail: (e: T) => Promise<R>): Promise<R[]> {
   const resultats: R[] = new Array(elements.length)
   const echecs: unknown[] = []
   let suivant = 0
@@ -125,10 +120,19 @@ async function enParallele<T, R>(elements: T[], limite: number, travail: (e: T) 
     }
   }
   await Promise.all(Array.from({ length: Math.min(limite, elements.length) }, ouvrier))
-  if (echecs.length > 0) throw echecs[0]
-  return resultats
+  if (echecs.length === 0) return resultats
+  // Le premier échec remonte à qui a demandé le travail, qui le journalise ;
+  // les suivants ne seraient écrits nulle part — trois profils sans crédit
+  // n'en laissaient voir qu'un.
+  for (const e of echecs.slice(1)) console.error('[crédits] un autre échec du même lot :', e)
+  throw echecs[0]
 }
 
+/**
+ * Ce qu'un crédit d'expérience écrirait : le nom de la soirée, et chaque
+ * gain tel quel — profil, invité, emoji, relevé. Deux crédits de même
+ * empreinte écrivent exactement les mêmes lignes.
+ */
 function empreinteDuCredit(soireeId: string, gains: SoireeGain[]): string {
   return JSON.stringify([soireeId, gains])
 }

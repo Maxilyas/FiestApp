@@ -33,6 +33,7 @@ import { GameEngine } from '../src/core/engine'
 import { quizModule, setQuizLibrary } from '../src/games/quiz'
 import type { GameModule } from '../src/core/types'
 import { ProfileStore } from '../src/auth/profiles'
+import { enParallele } from '../src/core/space'
 
 // ── Le moteur seul, sur une vraie base et un faux `io` qui écoute ─────────
 
@@ -333,6 +334,27 @@ test('une horloge qui recule ne bloque pas le compteur de l’écran commun', ()
     assert.equal(derniere(s, 'hosts')?.view.answeredCount, 2, 'le compte part au bout de sa fenêtre, pas dix secondes plus tard')
   } finally {
     s.fermer()
+  }
+})
+
+test('les crédits en parallèle : le premier échec remonte, les suivants se journalisent, et tous finissent', async () => {
+  const erreurs = mock.method(console, 'error', () => {})
+  try {
+    const finis: number[] = []
+    const lot = enParallele([0, 1, 2, 3, 4, 5], 2, async i => {
+      await new Promise(r => setImmediate(r))
+      finis.push(i)
+      if (i % 2 === 1) throw new Error(`profil ${i} en panne`)
+      return i
+    })
+    await assert.rejects(lot, /profil 1 en panne/, 'le premier échec va à qui a demandé le lot')
+    assert.deepEqual([...finis].sort(), [0, 1, 2, 3, 4, 5], 'tous ont fini avant que le lot ne rende')
+    // Mesuré avant : seul le premier était écrit quelque part.
+    const lus = erreurs.mock.calls.map(c => c.arguments.map(a => String((a as Error)?.message ?? a)).join(' '))
+    assert.ok(lus.some(l => l.includes('profil 3 en panne')), 'le deuxième est journalisé')
+    assert.ok(lus.some(l => l.includes('profil 5 en panne')), 'le troisième aussi')
+  } finally {
+    erreurs.mock.restore()
   }
 })
 
