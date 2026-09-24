@@ -52,6 +52,33 @@ test('l’étagère relit un prix renommé sous son nom du jour, une seule fois'
   }
 })
 
+test('l’étagère d’un haut fait renommé montre son titre le plus récent, pas le plus grand de l’alphabet', async () => {
+  // Regroupée par clé seule, l'étagère tirait titre et emoji au MAX() : un
+  // haut fait renommé un jour y aurait pris un nom au hasard de l'alphabet.
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-mots-'))
+  const profils = new ProfileStore(`file:${path.join(dir, 'permanente.db').replace(/\\/g, '/')}`)
+  try {
+    await profils.init()
+    const { profile } = await profils.register({ login: 'zoe', password: 'motdepasse1', name: 'Zoé', avatar: '🦊' })
+    const ranger = (soiree: string, emoji: string, title: string, at: number) =>
+      (profils as any).client.execute({
+        sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+              VALUES (?, 'hf:inventé', ?, 'espace', ?, ?, ?)`,
+        args: [profile.id, soiree, emoji, title, at],
+      })
+    await ranger('soiree-1', '🦄', 'Zorro d’autrefois', 1_000)
+    await ranger('soiree-2', '🔮', 'Le Nom du Jour', 2_000)
+    const [ligne] = (await profils.badgesOf(profile.id)).filter(b => b.key === 'hf:inventé')
+    assert.equal(ligne.title, 'Le Nom du Jour')
+    assert.equal(ligne.emoji, '🔮')
+    assert.equal(ligne.fois, 2)
+    assert.equal(ligne.dernier, 2_000)
+  } finally {
+    ;(profils as any).close?.()
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('les erreurs disent quoi faire : soirée complète, son propre compte, une photo', async () => {
   // « La soirée est complète ! », « Pas ton propre compte », « Format d'image
   // non supporté » : trois constats sans geste à faire, lus dans le noir.

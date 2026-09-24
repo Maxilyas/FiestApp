@@ -1278,10 +1278,16 @@ export class ProfileStore {
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
     const rows = await this.client.execute({
       // Par clé seule : un prix renommé porte deux noms en base, l'ancien et
-      // le nouveau, et l'étagère le montrait deux fois.
-      sql: `SELECT badge, MAX(emoji) AS emoji, MAX(title) AS title, COUNT(*) AS fois, MAX(created_at) AS dernier
-            FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%'
-            GROUP BY badge ORDER BY dernier DESC`,
+      // le nouveau, et l'étagère le montrait deux fois. L'emoji et le titre
+      // viennent de la ligne la plus récente : pris au MAX(), un haut fait
+      // renommé aurait montré le nom que l'alphabet range en dernier.
+      sql: `SELECT badge, emoji, title, fois, dernier FROM (
+              SELECT badge, emoji, title,
+                     COUNT(*) OVER (PARTITION BY badge) AS fois,
+                     MAX(created_at) OVER (PARTITION BY badge) AS dernier,
+                     ROW_NUMBER() OVER (PARTITION BY badge ORDER BY created_at DESC, soiree_id DESC) AS n
+              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%'
+            ) WHERE n = 1 ORDER BY dernier DESC`,
       args: [profileId],
     })
     const { porteurs, profils } = await this.populationBadges()
