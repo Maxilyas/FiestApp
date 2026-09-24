@@ -57,6 +57,13 @@
      distinct de celui qui remplit un bouton ou une barre. En Velours, c'est
      le même ; en Ivoire, l'écrit doit être bien plus sombre que l'aplat. */
   --accent-text: var(--accent);
+  /* Et quand on le survole : plus clair en Velours, plus sombre en Ivoire —
+     le survol d'un lien ne doit jamais le rendre moins lisible. */
+  --accent-text-hover: var(--accent-hover);
+  /* L'anneau du focus, le même pour tout ce qui se pilote au clavier. Il se
+     détache du fond (9,3:1 ici, 5,1:1 en Ivoire) : un filet d'or qui
+     s'éclaircissait à peine ne se voyait pas passer d'un champ à l'autre. */
+  --focus: var(--accent);
   --on-accent: #1a1412;
   /* Ce qui alerte : une erreur, les dernières secondes, ce qui efface. */
   --alert: #e06c6c;
@@ -94,6 +101,12 @@
   --radius-sm: 14px;
   --radius-pill: 999px;
 
+  /* Les contrôles natifs (listes déroulantes, cases, ascenseurs) suivent le
+     thème : sans ça, les listes d'équipe s'ouvraient en blanc sur le Velours,
+     devant la salle. */
+  color-scheme: dark;
+  accent-color: var(--accent);
+
   --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
   --sans: Figtree, 'Segoe UI', system-ui, sans-serif;
 }
@@ -126,6 +139,11 @@
      (`--accent-soft`) de la ligne du joueur et du bouton actif. Les aplats,
      eux, gardent l'or clair : l'encre sombre s'y lit à 5,3:1. */
   --accent-text: #836420;
+  /* L'or du survol (`--accent-hover`) tombait à 2,49:1 sur la crème : le
+     survol écrit plus sombre, à 6,9:1. */
+  --accent-text-hover: #6b511a;
+  --focus: var(--accent-text);
+  color-scheme: light;
   /* L'encre sur le champagne, comme en Velours : sur cet or-là, le sombre
      se lit mieux que le blanc. */
   --on-accent: #1a1412;
@@ -202,7 +220,7 @@ label {
 }
 
 a { color: var(--accent-text); }
-a:hover { color: var(--accent-hover); }
+a:hover { color: var(--accent-text-hover); }
 
 /* Les ascenseurs : fins, champagne, sans piste. L'ascenseur blanc de Windows
    se voit du fond de la salle sur un écran noir. */
@@ -338,7 +356,7 @@ h3 > .icon {
 }
 
 .input::placeholder { color: var(--muted); opacity: 0.7; }
-.input:focus { outline: none; border-color: var(--accent); }
+.input:focus { border-color: var(--focus); }
 
 /* Le champ du prénom : une ligne, en serif, comme sur une invitation. */
 .input-line {
@@ -354,7 +372,7 @@ h3 > .icon {
   caret-color: var(--accent);
 }
 
-.input-line:focus { border-bottom-color: var(--accent); }
+.input-line:focus { border-bottom-color: var(--focus); }
 .input-line::placeholder { font-style: italic; }
 
 .field { display: flex; flex-direction: column; gap: 10px; }
@@ -385,17 +403,17 @@ h3 > .icon {
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn .icon { width: 18px; height: 18px; }
 
-/* Un seul anneau de focus, champagne, pour tout ce qui se pilote au clavier. */
-.btn:focus-visible,
-.emoji-btn:focus-visible,
-.pill-btn:focus-visible,
-.stats-sort:focus-visible,
-.team-emoji-select:focus-visible,
-.chip-team:focus-visible,
-.free-team:focus-visible,
-.answer-edit input:focus-visible,
-.observe-edit input:focus-visible {
-  outline: 2px solid var(--accent);
+/* Un seul anneau de focus, pour tout ce qui se pilote au clavier — champs
+   compris : leur seul signe était un filet d'un pixel qui passait de 60 à
+   100 % d'or. `:where()` ne pèse rien : un composant qui veut l'anneau plus
+   loin de son bord n'a qu'à changer `outline-offset`. Neuf sélecteurs le
+   recopiaient, et six composants gardaient celui du navigateur.
+   Tout élément, pas une liste : Chrome rend focalisable au clavier une
+   carte qui défile, et elle gardait l'anneau noir du navigateur. Seul ce
+   qui reçoit le focus par programme (`tabindex="-1"`, un titre de vue, une
+   carte ouverte) n'en porte pas. */
+:where(:not([tabindex='-1'])):focus-visible {
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -421,7 +439,7 @@ h3 > .icon {
 
 /* Le filet champagne sans le fond : l'action qu'on attend, sans crier. */
 .btn-accent { border-color: var(--edge-strong); color: var(--accent-text); }
-.btn-accent:hover { color: var(--accent-hover); border-color: var(--accent); }
+.btn-accent:hover { color: var(--accent-text-hover); border-color: var(--accent); }
 
 .btn-ghost { color: var(--muted); }
 .btn-ghost:hover { color: var(--ink); }
@@ -1286,7 +1304,7 @@ h3 > .icon {
 .quiz-host .ans-btn:hover { border-color: var(--edge); }
 .ans-btn:not(:disabled):active { transform: scale(0.98); }
 .ans-btn:disabled { cursor: default; }
-.ans-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.ans-btn:focus-visible { outline-offset: 3px; }
 
 /* La forme porte la couleur ; le texte reste encre. */
 .ans-shape { width: 22px; height: 22px; flex: none; fill: currentColor; }
@@ -1735,7 +1753,6 @@ h3 > .icon {
   background: rgba(12, 8, 7, 0.7);
   color: #fff;
 }
-.thumb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .loupe-frame { width: auto; max-width: 100%; }
 .loupe-img {
@@ -1790,7 +1807,7 @@ h3 > .icon {
   cursor: pointer;
 }
 
-.link-btn:hover { color: var(--accent-hover); }
+.link-btn:hover { color: var(--accent-text-hover); }
 
 /* « à partir du n° » : un numéro, court, comme le temps de réponse. */
 .position-input { width: 84px; padding: 9px 10px; text-align: center; }
@@ -1915,8 +1932,7 @@ h3 > .icon {
 .chip-remove .icon { width: 14px; height: 14px; }
 .player-chip:hover .chip-remove { opacity: 1; }
 .chip-remove:hover { color: var(--alert); }
-.chip-name:focus-visible,
-.chip-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; opacity: 1; }
+.chip-remove:focus-visible { opacity: 1; }
 
 /* ── Pages souvenir, bilan et historique ────────── */
 .recap {
@@ -2136,7 +2152,6 @@ h3 > .icon {
 
 .team-btn:active { transform: scale(0.97); }
 .team-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.team-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .team-btn.selected { border: 1.5px solid var(--accent); background: var(--accent-soft); }
 
@@ -2517,7 +2532,6 @@ h3 > .icon {
 }
 
 .bilan-chip:hover { border-color: var(--edge-strong); background: var(--accent-soft); }
-.bilan-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* L'en-tête d'un bilan : l'avatar, le prénom, et quatre chiffres en tuiles. */
 .bilan-who { display: flex; align-items: center; gap: 14px; }
@@ -3950,7 +3964,7 @@ h3 > .icon {
   -webkit-tap-highlight-color: transparent;
 }
 .repli > summary::-webkit-details-marker { display: none; }
-.repli > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 6px; }
+.repli > summary:focus-visible { outline-offset: 6px; border-radius: 6px; }
 .repli-compte { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
 /* L'avatar qu'on porte, dans le titre de « Mon avatar » : un aperçu, pas un bouton. */
 .repli-avatar { font-size: 1.5rem; line-height: 1; }
@@ -3971,7 +3985,7 @@ h3 > .icon {
   -webkit-tap-highlight-color: transparent;
 }
 .repli-interne > summary::-webkit-details-marker { display: none; }
-.repli-interne > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+.repli-interne > summary:focus-visible { outline-offset: 4px; border-radius: 6px; }
 .repli-interne[open] .repli-chevron { transform: rotate(180deg); }
 @media (prefers-reduced-motion: reduce) {
   .repli-chevron { transition: none; }

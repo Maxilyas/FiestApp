@@ -80,3 +80,68 @@ test('un bouton bascule garde son nom : l’état ne passe que par aria-pressed'
     }
   }
 })
+
+// ── Les jetons des deux thèmes : focus, survol, contrôles natifs ─────────
+
+/** Les variables d'un bloc de thème, telles qu'écrites. */
+function jetons(ouverture: string): Map<string, string> {
+  const debut = CSS.indexOf(ouverture)
+  assert.ok(debut >= 0, `le bloc ${ouverture} existe`)
+  const corps = CSS.slice(debut, CSS.indexOf('\n}', debut))
+  return new Map([...corps.matchAll(/^\s*(--[\w-]+|color-scheme):\s*([^;]+);/gm)].map(m => [m[1], m[2].trim()]))
+}
+const VELOURS = jetons(':root {')
+const IVOIRE = new Map([...VELOURS, ...jetons(":root[data-theme='ivoire'] {")])
+
+/** La couleur d'un jeton, `var(--autre)` suivi jusqu'à un #rrggbb. */
+function teinte(theme: Map<string, string>, nom: string): string {
+  let valeur = theme.get(nom)
+  for (let i = 0; valeur && i < 5; i++) {
+    const renvoi = /^var\((--[\w-]+)\)$/.exec(valeur)
+    if (!renvoi) break
+    valeur = theme.get(renvoi[1])
+  }
+  assert.match(valeur ?? '', /^#[0-9a-f]{6}$/i, `${nom} se résout en une couleur`)
+  return valeur!
+}
+
+/** Le contraste WCAG entre deux couleurs. */
+function contraste(a: string, b: string): number {
+  const lum = (hex: string) => {
+    const [r, g, v] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * v
+  }
+  const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m)
+  return (x + 0.05) / (y + 0.05)
+}
+
+test('A2 · un seul anneau de focus, qui se voit sur les deux thèmes', () => {
+  // Neuf sélecteurs recopiaient l'anneau, six composants gardaient celui du
+  // navigateur, et un champ n'avait qu'un filet d'un pixel.
+  const anneaux = [...CSS.matchAll(/outline:\s*2px solid/g)]
+  assert.equal(anneaux.length, 1, 'l’anneau est écrit une fois')
+  assert.match(CSS, /:where\([^)]*\)+:focus-visible \{\s*outline: 2px solid var\(--focus\)/)
+  assert.doesNotMatch(regle('.input:focus'), /outline:\s*none/, 'un champ garde l’anneau')
+  // Un indicateur de focus se détache de son fond à 3:1 au moins (WCAG 1.4.11).
+  for (const [nom, theme] of [['Velours', VELOURS], ['Ivoire', IVOIRE]] as const) {
+    for (const fond of ['--bg', '--bg-raised']) {
+      const c = contraste(teinte(theme, '--focus'), teinte(theme, fond))
+      assert.ok(c >= 3, `${nom} : le focus sur ${fond} tient ${c.toFixed(2)}:1`)
+    }
+  }
+})
+
+test('S3 · le survol d’un texte reste lisible, en Ivoire aussi', () => {
+  // `--accent-hover` est un aplat : écrit sur la crème, il tombait à 2,49:1.
+  assert.doesNotMatch(CSS, /[^-]color:\s*var\(--accent-hover\)/, 'aucun texte n’est écrit en --accent-hover')
+  for (const [nom, theme] of [['Velours', VELOURS], ['Ivoire', IVOIRE]] as const) {
+    const c = contraste(teinte(theme, '--accent-text-hover'), teinte(theme, '--bg'))
+    assert.ok(c >= 4.5, `${nom} : le survol tient ${c.toFixed(2)}:1`)
+  }
+})
+
+test('S2 · les contrôles natifs suivent le thème', () => {
+  // Sans `color-scheme`, les listes d'équipe s'ouvraient en blanc sur le Velours.
+  assert.equal(VELOURS.get('color-scheme'), 'dark')
+  assert.equal(IVOIRE.get('color-scheme'), 'light')
+})

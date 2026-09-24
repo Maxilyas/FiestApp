@@ -267,8 +267,11 @@ server/test/        un fichier par thème, un serveur jetable chacun
 - **Ce qui ne dépend pas du destinataire d'une vue** — un classement, un
   podium — passe par `vctx.memo` : un tri par vue coûtait une demi-minute par
   question à 500 invités.
-- **Côté client** : `--accent-text` pour ce qui s'écrit, `--accent` pour les
-  aplats (le contraste d'Ivoire en dépend) ; tout accès au stockage du
+- **Côté client** : `--accent-text` pour ce qui s'écrit, `--accent-text-hover`
+  pour son survol, `--accent` pour les aplats (le contraste d'Ivoire en
+  dépend) ; le focus n'a qu'un anneau, `--focus`, posé une fois pour tout
+  élément (`:where(…):focus-visible`) — un composant n'en règle que
+  l'`outline-offset` ; tout accès au stockage du
   navigateur sous try/catch — des cookies bloqués donnaient une page noire.
 
 ## Les deux environnements
