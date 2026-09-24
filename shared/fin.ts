@@ -145,3 +145,56 @@ export function ligneDeRang(fin: Pick<FinDeSoiree, 'rang' | 'points' | 'joueurs'
 
 /** « 3 joueurs », « 1 joueur ». */
 export const nJoueurs = (n: number) => `${n} joueur${n > 1 ? 's' : ''}`
+
+// ── La fin gardée sur le téléphone ──────────────────────────────────────
+
+/**
+ * Ce que le téléphone range de sa fin de soirée : tout, sauf le récit d'un
+ * Divin. Il reste au seul porteur, au moment où il descend (invariant 21) —
+ * rangé dans le navigateur, il se relisait pendant des heures sur un
+ * téléphone prêté.
+ */
+export function finAGarder(fin: FinDeSoiree): FinDeSoiree {
+  if (!fin.profil) return fin
+  return { ...fin, profil: { ...fin.profil, divins: fin.profil.divins.map(d => ({ key: d.key, ton: d.ton, legende: '' })) } }
+}
+
+const estObjet = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
+const textes = (o: Record<string, unknown>, ...cles: string[]) => cles.every(c => typeof o[c] === 'string')
+const nombres = (o: Record<string, unknown>, ...cles: string[]) => cles.every(c => typeof o[c] === 'number')
+const optionnel = (x: unknown, type: 'string' | 'boolean') => x === undefined || typeof x === type
+const listeDe = (x: unknown, lisible: (e: unknown) => boolean) => Array.isArray(x) && x.every(lisible)
+
+/** Une soirée close lisible : de quoi en faire des liens. */
+export function soireeCloseLisible(x: unknown): x is SoireeClose {
+  return estObjet(x) && textes(x, 'id', 'titre', 'slug')
+}
+
+/**
+ * Une fin de soirée gardée, relue avant qu'on la rouvre. Une fin rangée par
+ * une autre version de la page (un déploiement dans les douze heures) avait
+ * une autre forme, et la page restait sur « Oups » jusqu'à ce qu'elle
+ * expire : ce qu'on ne sait pas lire ne se rouvre pas. Tout ce que
+ * `FinDeSoiree` lit sans le vérifier y passe.
+ */
+export function finLisible(x: unknown): x is FinDeSoiree {
+  if (!estObjet(x) || !soireeCloseLisible(x.soiree)) return false
+  if (!textes(x, 'nom', 'avatar') || !nombres(x, 'rang', 'points', 'joueurs')) return false
+  if (!optionnel(x.joueurId, 'string') || !optionnel(x.aJoue, 'boolean')) return false
+  const annonce = (e: unknown) => estObjet(e) && textes(e, 'key', 'emoji', 'title')
+  if (!listeDe(x.hautsFaits, e => annonce(e) && textes(e as Record<string, unknown>, 'ton'))) return false
+  if (x.prix !== undefined && !listeDe(x.prix, e => annonce(e) && textes(e as Record<string, unknown>, 'detail'))) {
+    return false
+  }
+  if (x.profil === undefined) return true
+  const p = x.profil
+  return (
+    estObjet(p) &&
+    nombres(p, 'xp', 'niveauAvant', 'niveauApres') &&
+    listeDe(p.paliers, e => annonce(e) && textes(e as Record<string, unknown>, 'ton')) &&
+    listeDe(p.legendaires, e => typeof e === 'string') &&
+    listeDe(p.divins, e => estObjet(e) && textes(e, 'key', 'ton')) &&
+    listeDe(p.finitions, e => typeof e === 'string') &&
+    optionnel(p.eclat, 'string')
+  )
+}

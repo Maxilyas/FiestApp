@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
 import {
+  finRouverte,
   garderFin,
   garderSoireeClose,
   getState,
@@ -221,6 +222,16 @@ export function PlayerApp() {
   // d'abord. Pas à l'entrée — on n'y a encore rien à perdre.
   useGardeRetour(!!s.me && !s.fin && !spaceError)
 
+  // Une partie lancée depuis la clôture : la soirée suivante a commencé, la
+  // fin rouverte depuis le téléphone ne se montre plus.
+  const partieLancee = !!snap && (!!snap.session || snap.players.some(p => p.score > 0))
+  useEffect(() => {
+    if (s.fin && finRouverte() && partieLancee) {
+      quitterFin(slug)
+      setGardee(soireeGardee(slug))
+    }
+  }, [s.fin, partieLancee, slug])
+
   // Chaque écran commence en haut, comme ceux de l'entrée. La fin de soirée
   // s'ouvrait au défilement de la salle d'attente, sous son propre titre ; et
   // une question qui suit un classement qu'on a fait défiler, pareil.
@@ -255,7 +266,11 @@ export function PlayerApp() {
   // répond pas à la question que se pose celui qui s'est trompé d'adresse.
   if (spaceError) return <FormulaireSoiree perdu />
 
-  // La soirée est close : sa fin, jusqu'à ce qu'on passe à la suivante.
+  // La soirée est close : sa fin, jusqu'à ce qu'on passe à la suivante. Une
+  // fin rouverte depuis le téléphone attend de savoir où en est l'espace :
+  // l'invité qui rescanne le QR pour une deuxième soirée le même soir
+  // retombait sur l'ancienne fin.
+  if (s.fin && finRouverte() && !snap) return <AttenteConnexion />
   if (s.fin) {
     return (
       <>

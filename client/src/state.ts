@@ -1,6 +1,15 @@
 import { useSyncExternalStore } from 'react'
 import type { PartySnapshot } from '../../shared/types'
-import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz, SoireeClose } from '../../shared/fin'
+import {
+  finAGarder,
+  finLisible,
+  soireeCloseLisible,
+  type ClotureDeSoiree,
+  type FinDeSoiree,
+  type GainAnnonce,
+  type ProgresDeQuiz,
+  type SoireeClose,
+} from '../../shared/fin'
 import { currentSlug } from './routes'
 
 export interface SessionView {
@@ -101,44 +110,100 @@ const FIN_ROUVERTE_MS = 12 * 3600 * 1000
 /** « La dernière soirée » se propose une semaine : c'est le lendemain qu'on la cherche. */
 const DERNIERE_MS = 7 * 24 * 3600 * 1000
 
+/**
+ * La forme de l'entrée gardée. Une page d'une autre version rouvrait une fin
+ * rangée sous une autre forme, et restait sur « Oups » : une entrée d'une
+ * autre version ne se relit pas. Change-la quand `SoireeGardee` ou
+ * `FinDeSoiree` changent de forme.
+ */
+const VERSION_GARDEE = 1
+
 /** Ce que le téléphone garde de la dernière soirée close d'un espace. */
 export interface SoireeGardee {
+  v: typeof VERSION_GARDEE
   soiree: SoireeClose
   /** Son identifiant dans l'archive, pour « Mon bilan » ; absent si on ne le sait pas. */
   joueurId?: string
-  /** La fin entière, quand le téléphone l'a reçue. */
+  /**
+   * La fin entière, quand le téléphone l'a reçue — sans le récit d'un Divin
+   * (`finAGarder`). Elle s'efface dès qu'on passe à la suivante, ou au-delà
+   * de douze heures : sur un téléphone prêté, `/<espace>` rouvrait la fin de
+   * l'emprunteur.
+   */
   fin?: FinDeSoiree
   recueLe: number
   /** Faux dès qu'on passe à la soirée suivante : la fin ne se rouvre plus d'elle-même. */
   ouverte: boolean
 }
 
-export function garderFin(slug: string, fin: FinDeSoiree) {
-  const g: SoireeGardee = { soiree: fin.soiree, joueurId: fin.joueurId, fin, recueLe: Date.now(), ouverte: true }
+function ecrireGardee(slug: string, g: SoireeGardee) {
   writeSafe(storage => storage.setItem(finKey(slug), JSON.stringify(g)))
+}
+
+/**
+ * L'entrée gardée, relue avant de servir : d'une autre version ou abîmée,
+ * elle ne sert pas ; sa fin, illisible ou vieille de plus de douze heures,
+ * s'efface — et s'efface aussi du stockage.
+ */
+function lireGardee(slug: string): SoireeGardee | null {
+  const g = readJson<Partial<SoireeGardee>>(finKey(slug))
+  if (!g || g.v !== VERSION_GARDEE || !soireeCloseLisible(g.soiree) || typeof g.recueLe !== 'number') return null
+  const lue: SoireeGardee = {
+    v: VERSION_GARDEE,
+    soiree: g.soiree,
+    ...(typeof g.joueurId === 'string' && { joueurId: g.joueurId }),
+    recueLe: g.recueLe,
+    ouverte: g.ouverte === true,
+  }
+  if (g.fin === undefined) return lue
+  if (finLisible(g.fin) && Date.now() - g.recueLe < FIN_ROUVERTE_MS) return { ...lue, fin: g.fin }
+  ecrireGardee(slug, lue)
+  return lue
+}
+
+/** Vrai tant que la fin affichée vient du stockage, et pas du serveur à l'instant. */
+let finDuTelephone = false
+
+/** La fin affichée a été rouverte depuis le téléphone, pas reçue du serveur. */
+export function finRouverte(): boolean {
+  return finDuTelephone
+}
+
+export function garderFin(slug: string, fin: FinDeSoiree) {
+  finDuTelephone = false
+  ecrireGardee(slug, {
+    v: VERSION_GARDEE,
+    soiree: fin.soiree,
+    ...(fin.joueurId && { joueurId: fin.joueurId }),
+    fin: finAGarder(fin),
+    recueLe: Date.now(),
+    ouverte: true,
+  })
 }
 
 /** Une soirée close sans sa fin (le serveur l'avait oubliée) : de quoi la revoir, au moins. */
 export function garderSoireeClose(slug: string, soiree: SoireeClose) {
-  const avant = readJson<SoireeGardee>(finKey(slug))
+  const avant = lireGardee(slug)
   // La même soirée, déjà gardée avec sa fin : on ne l'appauvrit pas.
-  if (avant?.soiree?.id === soiree.id) return
-  const g: SoireeGardee = { soiree, recueLe: Date.now(), ouverte: false }
-  writeSafe(storage => storage.setItem(finKey(slug), JSON.stringify(g)))
+  if (avant?.soiree.id === soiree.id) return
+  ecrireGardee(slug, { v: VERSION_GARDEE, soiree, recueLe: Date.now(), ouverte: false })
 }
 
-/** On passe à la soirée suivante : la fin reste gardée, mais ne se rouvre plus. */
+/** On passe à la soirée suivante : la soirée reste gardée pour le lendemain, sa fin s'efface. */
 export function quitterFin(slug: string) {
-  const g = readJson<SoireeGardee>(finKey(slug))
-  if (g) writeSafe(storage => storage.setItem(finKey(slug), JSON.stringify({ ...g, ouverte: false })))
+  const g = lireGardee(slug)
+  if (g) {
+    const { fin: _, ...sansFin } = g
+    ecrireGardee(slug, { ...sansFin, ouverte: false })
+  }
+  finDuTelephone = false
   setState({ fin: null })
 }
 
 /** La dernière soirée close de cet espace, gardée ici cette semaine. */
 export function soireeGardee(slug: string): SoireeGardee | null {
-  const g = readJson<SoireeGardee>(finKey(slug))
-  if (!g?.soiree?.id || typeof g.recueLe !== 'number') return null
-  return Date.now() - g.recueLe < DERNIERE_MS ? g : null
+  const g = lireGardee(slug)
+  return g && Date.now() - g.recueLe < DERNIERE_MS ? g : null
 }
 
 /** La plus récente des soirées closes gardées sur ce téléphone, tous espaces confondus : l'accueil la propose. */
@@ -159,11 +224,17 @@ export function derniereSoireeGardee(): SoireeGardee | null {
   )
 }
 
-/** La fin à rouvrir au chargement : reçue il y a peu, jamais quittée, et le téléphone n'incarne personne. */
+/**
+ * La fin à rouvrir au chargement : reçue il y a peu, lisible, jamais
+ * quittée, et le téléphone n'incarne personne. La page la retire si la
+ * soirée suivante a déjà lancé une partie (`PlayerApp`).
+ */
 function finARouvrir(slug: string): FinDeSoiree | null {
   if (readMe(slug)) return null
-  const g = soireeGardee(slug)
-  return g?.fin && g.ouverte && Date.now() - g.recueLe < FIN_ROUVERTE_MS ? g.fin : null
+  const g = lireGardee(slug)
+  const fin = g?.ouverte ? (g.fin ?? null) : null
+  finDuTelephone = !!fin
+  return fin
 }
 
 const slugAtLoad = currentSlug()

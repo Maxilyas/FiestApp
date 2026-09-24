@@ -84,7 +84,8 @@ export function FinDeSoiree({
               <Divin cle={key} />
             </span>
             <h2>{d.nom}</h2>
-            <p className="serif-note">{legende}</p>
+            {/* Le récit ne se garde pas sur le téléphone : une fin rouverte ne l'a plus. */}
+            {legende && <p className="serif-note">{legende}</p>}
             {porte === key ? (
               <p className="muted small">C’est lui que la salle verra, dès la prochaine soirée.</p>
             ) : (
