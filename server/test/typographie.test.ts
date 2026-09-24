@@ -26,15 +26,20 @@ test('« de » s’élide devant une voyelle et un h, pas devant une consonne ni
 test('un espace neuf s’appelle « La soirée d’Antoine », et l’ancien défaut suit', () => {
   const neuf = defaultSettings('Antoine')
   assert.equal(neuf.title, 'La soirée d’Antoine')
-  assert.equal(neuf.eyebrow, 'La soirée d’')
-  assert.equal(neuf.headline, 'Antoine')
-  assert.equal(defaultSettings('Bob').eyebrow, 'La soirée de')
+  // La préposition descend avec le prénom : « LA SOIRÉE D’ » restait seul
+  // sur sa ligne, en surtitre.
+  assert.equal(neuf.eyebrow, 'La soirée')
+  assert.equal(neuf.headline, 'd’Antoine')
+  assert.equal(defaultSettings('Bob').headline, 'de Bob')
 
   // Un compte créé avant l'élision garde en base l'ancien titre par défaut :
   // relu, il suit le nouveau.
   const ancien = normalizeSettings({ title: 'La soirée de Antoine', eyebrow: 'La soirée de', headline: 'Antoine' }, 'Antoine')
   assert.equal(ancien.title, 'La soirée d’Antoine')
-  assert.equal(ancien.eyebrow, 'La soirée d’')
+  assert.equal(ancien.eyebrow, 'La soirée')
+  assert.equal(ancien.headline, 'd’Antoine')
+  const avantHier = normalizeSettings({ title: 'La soirée d’Antoine', eyebrow: 'La soirée d’', headline: 'Antoine' }, 'Antoine')
+  assert.deepEqual([avantHier.eyebrow, avantHier.headline], ['La soirée', 'd’Antoine'], 'le défaut d’hier suit aussi')
 
   // Ce que l'animateur a tapé lui-même, en revanche, ne bouge pas.
   const tape = normalizeSettings({ title: 'Les 40 ans de Sam', eyebrow: 'La soirée de', headline: 'Sam' }, 'Antoine')
