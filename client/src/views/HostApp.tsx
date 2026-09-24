@@ -30,6 +30,7 @@ import { Niveau } from '../components/Niveau'
 import { distinctions } from '../../../shared/profil'
 import type { ArchiveList } from '../../../shared/archive'
 import { AnnoncesDeNiveau, ClotureEcran } from '../components/Cloture'
+import { BoutonCopier } from '../components/Partage'
 import { useEcranAllume } from '../veille'
 
 /** QR wifi standard : le téléphone rejoint le réseau en le scannant. */
@@ -607,6 +608,11 @@ export function HostApp() {
             {screen === 'cloture' && s.cloture ? (
               <>
                 <ClotureEcran cloture={s.cloture} souvenirUrl={`${joinUrl}/soirees/${s.cloture.soiree.id}`} />
+                {/* La clôture ouvre le lendemain : le bilan, les fiches à
+                    imprimer, l'historique, et le lien à envoyer — celui de
+                    l'archive, que la soirée suivante ne changera pas. On le
+                    trouvait le lendemain, par l'historique, en devinant lequel
+                    des deux « Souvenir » copier. */}
                 <ConsoleActions>
                   <a
                     className="btn"
@@ -616,6 +622,24 @@ export function HostApp() {
                   >
                     <Icon name="book" />
                     Le souvenir
+                  </a>
+                  <BoutonCopier texte={`${joinUrl}/soirees/${s.cloture.soiree.id}`} />
+                  <a className="btn" href={spacePath(slug, 'bilan', s.cloture.soiree.id)} target="_blank" rel="noreferrer">
+                    <Icon name="list" />
+                    Le bilan
+                  </a>
+                  <a
+                    className="btn"
+                    href={spacePath(slug, 'bilan/fiches', s.cloture.soiree.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Icon name="download" />
+                    Les fiches
+                  </a>
+                  <a className="btn" href={spacePath(slug, 'soirees')} target="_blank" rel="noreferrer">
+                    <Icon name="clock" />
+                    L’historique
                   </a>
                   <button
                     className="btn btn-primary"

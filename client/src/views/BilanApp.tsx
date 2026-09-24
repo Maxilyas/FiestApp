@@ -5,7 +5,9 @@ import { makeCtx, type BilanCtx } from '../components/BilanQuestion'
 import { PlayerReview } from '../components/BilanPlayer'
 import { RoomReview } from '../components/BilanRoom'
 import { ArchiveBanner } from '../components/ArchiveBanner'
-import { SpaceError, SpaceNav } from '../components/SpaceNav'
+import { SpaceError, SpaceNav, useIsHost } from '../components/SpaceNav'
+import { BoutonCopier } from '../components/Partage'
+import { liensDesBilans, texteDesLiens } from '../../../shared/liens'
 import { pageContext, spacePath } from '../routes'
 import { lecteurDePage } from '../derniere'
 import { readMe } from '../state'
@@ -42,6 +44,7 @@ function hashOf(mode: Mode): string {
 
 export function BilanApp() {
   const { slug, archiveId } = pageContext()
+  const animateur = useIsHost(slug)
   const fiches = window.location.pathname.endsWith('/bilan/fiches')
   const [review, setReview] = useState<Review | null>(null)
   const [error, setError] = useState('')
@@ -193,7 +196,42 @@ export function BilanApp() {
         Pour l'animateur :{' '}
         <a href={spacePath(slug, 'bilan/fiches', archiveId)}>les fiches à imprimer, une par invité</a>
       </p>
+      {animateur && (archiveId ?? ctx.review.archive?.id) && (
+        <TousLesLiens slug={slug} soireeId={(archiveId ?? ctx.review.archive?.id)!} players={played} />
+      )}
     </div>
+  )
+}
+
+/**
+ * « Tous les liens », pour l'animateur seul : le bilan de chaque invité, à
+ * son adresse d'archive. Envoyer un lien à chacun coûtait six gestes par
+ * invité ; il n'y en a plus qu'un pour tous, à coller dans le groupe. Rien
+ * n'y est plus public qu'avant : chaque bilan l'est déjà, par son lien.
+ */
+function TousLesLiens({ slug, soireeId, players }: { slug: string; soireeId: string; players: ReviewPlayer[] }) {
+  const liens = liensDesBilans(
+    window.location.origin,
+    slug,
+    soireeId,
+    players.map(p => ({ id: p.id, nom: `${p.avatar} ${p.name}` })),
+  )
+  return (
+    <details className="card tous-les-liens">
+      <summary>
+        <Icon name="copy" />
+        Tous les liens — un bilan par invité
+      </summary>
+      <BoutonCopier className="btn btn-small" texte={texteDesLiens(liens)} libelle="Copier tous les liens" />
+      <ul>
+        {liens.map(l => (
+          <li key={l.url}>
+            <span>{l.nom}</span>
+            <BoutonCopier className="btn btn-small btn-ghost" texte={l.url} libelle="Copier" />
+          </li>
+        ))}
+      </ul>
+    </details>
   )
 }
 
