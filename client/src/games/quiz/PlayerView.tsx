@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import type { QuizAction, QuizPlayerView } from '../../../../shared/games/quiz'
+import { lireNombre } from '../../../../shared/nombres'
 import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
 import { TeamBoard } from '../../components/TeamBoard'
@@ -58,15 +59,22 @@ const visee = (v: QuizPlayerView) => ({ qIndex: v.qIndex, round: v.round })
  */
 function GuessForm({ view, send, closes }: Props & { closes: boolean }) {
   const [text, setText] = useState('')
+  const [illisible, setIllisible] = useState(false)
 
   // Nouvelle question → on vide le champ.
-  useEffect(() => setText(''), [view.qIndex])
+  useEffect(() => {
+    setText('')
+    setIllisible(false)
+  }, [view.qIndex])
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    const value = Number(text.replace(',', '.'))
-    if (closes || !Number.isFinite(value) || text.trim() === '') return
-    send({ type: 'guess', value, ...visee(view) })
+    if (closes || text.trim() === '') return
+    const value = lireNombre(text)
+    // Ce qui ne se lit pas le dit : le formulaire se taisait, et l'invité
+    // qui avait tapé « 35 000 » croyait avoir répondu.
+    setIllisible(value === null)
+    if (value !== null) send({ type: 'guess', value, ...visee(view) })
   }
 
   return (
@@ -79,12 +87,20 @@ function GuessForm({ view, send, closes }: Props & { closes: boolean }) {
           placeholder="Ton estimation"
           aria-label="Ton estimation"
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={e => {
+            setText(e.target.value)
+            setIllisible(false)
+          }}
           disabled={closes}
           autoFocus
         />
         {view.unit && <span className="guess-unit">{view.unit}</span>}
       </div>
+      {illisible && (
+        <p className="error" role="alert">
+          Écris seulement un nombre, comme 35&nbsp;000 ou 12,5.
+        </p>
+      )}
       <button className="btn btn-primary btn-big btn-block" disabled={closes || text.trim() === ''}>
         {view.yourGuess === null ? 'Valider' : 'Corriger'}
       </button>

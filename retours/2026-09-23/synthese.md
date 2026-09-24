@@ -51,7 +51,10 @@ Le lendemain, chaque axe a été confié à une session, qui l'a porté dans sa
 propre PR : 1 → #27, 2 → #26, 3 → #31, 4 → #29, 5 → #30, 6 → #25, 7 → #28.
 Les constats qui suivent décrivent l'application du 23 septembre : avant de
 reprendre un axe, regarde sa PR. L'estimation « 35 000 » (axe 4), trouvée en
-rejouant la tablée une fois #29 ouverte, n'y est pas.
+rejouant la tablée une fois #29 ouverte, n'y est pas : elle a eu sa propre
+correction (`shared/nombres.ts`), avec le champ « Bonne réponse » de
+l'éditeur, qui faisait 8 de « 0,8 » — le banc remplit un champ d'un coup, là
+où un humain tape touche par touche.
 
 ## Qui était là
 
