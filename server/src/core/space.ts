@@ -159,7 +159,9 @@ export class SpaceRuntime {
   //   toute la salle.
   private lastSnapshot = ''
   private lastEcrans = ''
+  /** La diffusion regroupée des téléphones, et celle des écrans communs — voir `broadcastSnapshot`. */
   private pending: ReturnType<typeof setTimeout> | null = null
+  private pendingEcrans: ReturnType<typeof setTimeout> | null = null
 
   constructor(
     readonly spaceId: string,
@@ -813,41 +815,58 @@ export class SpaceRuntime {
   }
 
   sendSnapshot(force = false) {
+    const complet = this.snapshotComplet()
+    this.envoyerAuxTelephones(complet, force)
+    this.envoyerAuxEcrans(complet, force)
+  }
+
+  private envoyerAuxTelephones(complet: PartySnapshot, force = false) {
     if (this.pending) clearTimeout(this.pending)
     this.pending = null
-    const complet = this.snapshotComplet()
     const telephones = this.pourLesTelephones(complet)
-    const ecrans = this.pourLesEcrans(complet)
-    const io = this.deps.io
     const json = JSON.stringify(telephones)
-    if (force || json !== this.lastSnapshot) {
-      this.lastSnapshot = json
-      io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`).emit('party:snapshot', telephones)
-    }
-    const jsonEcrans = JSON.stringify(ecrans)
-    if (force || jsonEcrans !== this.lastEcrans) {
-      this.lastEcrans = jsonEcrans
-      io.to(`hosts:${this.spaceId}`).emit('party:snapshot', ecrans)
-    }
+    if (!force && json === this.lastSnapshot) return
+    this.lastSnapshot = json
+    this.deps.io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`).emit('party:snapshot', telephones)
+  }
+
+  private envoyerAuxEcrans(complet: PartySnapshot, force = false) {
+    if (this.pendingEcrans) clearTimeout(this.pendingEcrans)
+    this.pendingEcrans = null
+    const ecrans = this.pourLesEcrans(complet)
+    const json = JSON.stringify(ecrans)
+    if (!force && json === this.lastEcrans) return
+    this.lastEcrans = json
+    this.deps.io.to(`hosts:${this.spaceId}`).emit('party:snapshot', ecrans)
   }
 
   /**
-   * La fenêtre de regroupement grandit avec la salle : 120 ms pour une
-   * tablée, une demi-seconde passé cent quatre-vingt-dix invités. Chaque
-   * envoi coûte à proportion de la salle — sa liste, à chacun de ses
-   * téléphones —, et une vague d'arrivées une par une en faisait autant de
-   * diffusions. Rien de ce qu'il porte n'est pressé à ce point : la vue de la
-   * partie, elle, ne l'attend pas.
+   * Deux fenêtres de regroupement. Celle des téléphones grandit avec la
+   * salle : 120 ms pour une tablée, une demi-seconde passé cent
+   * quatre-vingt-dix invités. Chaque envoi y coûte à proportion de la salle
+   * — sa liste, à chacun de ses téléphones —, et une vague d'arrivées une
+   * par une en faisait autant de diffusions. Celle des écrans communs reste
+   * à 120 ms : une ou deux connexions, et c'est là que l'animateur attend de
+   * voir son quiz s'ouvrir après « Lancer » — la console ne l'ouvre qu'avec
+   * la partie de l'instantané. Celui qui a fait le geste, lui, n'attend
+   * aucune des deux : il reçoit le sien sur-le-champ (`player:join`).
    */
   broadcastSnapshot() {
-    if (this.pending) return
-    this.pending = setTimeout(
-      () => {
-        this.pending = null
-        this.sendSnapshot()
-      },
-      120 + 2 * this.party.count(),
-    )
+    if (!this.pendingEcrans) {
+      this.pendingEcrans = setTimeout(() => {
+        this.pendingEcrans = null
+        this.envoyerAuxEcrans(this.snapshotComplet())
+      }, 120)
+    }
+    if (!this.pending) {
+      this.pending = setTimeout(
+        () => {
+          this.pending = null
+          this.envoyerAuxTelephones(this.snapshotComplet())
+        },
+        120 + 2 * this.party.count(),
+      )
+    }
   }
 
   // ── Les pages publiques : souvenir, bilan, historique ──
@@ -1262,7 +1281,9 @@ export class SpaceRuntime {
 
   stop() {
     if (this.pending) clearTimeout(this.pending)
+    if (this.pendingEcrans) clearTimeout(this.pendingEcrans)
     this.pending = null
+    this.pendingEcrans = null
     this.engine.stop()
   }
 }

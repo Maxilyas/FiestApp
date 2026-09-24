@@ -289,11 +289,27 @@ export class GameEngine {
    * attribué) mais il joue les suivantes — mieux que d'attendre le quiz d'après.
    * Sans effet pour quelqu'un qui participe déjà : une reconnexion n'est pas
    * une arrivée.
+   *
+   * `avantLesVues` est appelé une fois, toujours : dès que l'invité compte
+   * parmi les participants, avant qu'une vue de la partie ne parte. C'est là
+   * que son téléphone reçoit l'instantané qui le compte — reçu après sa
+   * vue, il affichait « tu entres à la prochaine question » par-dessus la
+   * question, le temps que l'instantané suive.
    */
-  joinLate(playerId: string) {
+  joinLate(playerId: string, avantLesVues?: () => void) {
+    const annoncer = () => {
+      // Une annonce qui échoue ne doit pas laisser la partie à moitié
+      // rejointe — inscrite, mais ni écrite ni rediffusée.
+      try {
+        avantLesVues?.()
+      } catch (e) {
+        console.error('[partie] annonce d’une arrivée', e)
+      }
+    }
     const sess = this.session
-    if (!sess || sess.status !== 'running' || sess.participantIds.includes(playerId)) return
+    if (!sess || sess.status !== 'running' || sess.participantIds.includes(playerId)) return annoncer()
     sess.participantIds.push(playerId)
+    annoncer()
     if (this.module.onPlayerJoin) {
       this.run(sess, ctx => this.module.onPlayerJoin!(sess, playerId, ctx))
     } else {
