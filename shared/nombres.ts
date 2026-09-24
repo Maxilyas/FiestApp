@@ -49,3 +49,19 @@ export function lireNombre(texte: string): number | null {
   const lu = lireNombreEnTete(net)
   return lu && lu.reste === '' ? lu.valeur : null
 }
+
+/** Un entier dans ses bornes : l'arrondi d'abord, les bornes ensuite. */
+export function entierBorne(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(n)))
+}
+
+/**
+ * Ce que devient un champ d'entier borné (`ChampNombre`) quand on le quitte :
+ * le texte lu, arrondi et borné — ou, vide ou illisible, la valeur qu'il
+ * avait quand on y est entré. Le champ émet chaque valeur lisible tapée :
+ * vider « 20 » passait par « 2 », et quitter le champ vide gardait ce « 2 »
+ * émis en route, sans le borner — « Enregistrer » envoyait 2 s.
+ */
+export function valeurEnQuittant(texte: string, valeurAuFocus: number, min: number, max: number): number {
+  return entierBorne(lireNombre(texte) ?? valeurAuFocus, min, max)
+}

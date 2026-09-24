@@ -1,5 +1,5 @@
-import { useEffect, useState, type InputHTMLAttributes } from 'react'
-import { lireNombre } from '../../../shared/nombres'
+import { useEffect, useRef, useState, type InputHTMLAttributes } from 'react'
+import { entierBorne, lireNombre, valeurEnQuittant } from '../../../shared/nombres'
 
 /**
  * Un champ où l'on tape un nombre entier : le temps d'une question, les
@@ -42,13 +42,15 @@ export function ChampNombre({
 
   const lu = lireNombre(texte)
   const horsBornes = lu === null || lu < min || lu > max
+  // La valeur d'avant la frappe : vidé puis quitté, le champ y revient — pas
+  // au « 2 » émis en route quand on effaçait « 20 » (voir `valeurEnQuittant`).
+  const auFocus = useRef<number | null>(null)
 
   const quitter = () => {
-    // Vide ou illisible : la dernière valeur reste, et le champ la remontre.
-    if (lu === null) return setTexte(String(valeur))
-    const borne = Math.min(max, Math.max(min, Math.round(lu)))
-    setTexte(String(borne))
-    if (borne !== valeur) onValeur(borne)
+    const n = valeurEnQuittant(texte, auFocus.current ?? valeur, min, max)
+    setTexte(String(n))
+    if (n !== valeur) onValeur(n)
+    return n
   }
 
   return (
@@ -67,17 +69,22 @@ export function ChampNombre({
         const n = lireNombre(e.target.value)
         if (n !== null && n !== valeur) onValeur(n)
       }}
+      onFocus={e => {
+        auFocus.current = valeur
+        reste.onFocus?.(e)
+      }}
       onBlur={e => {
         quitter()
+        auFocus.current = null
         reste.onBlur?.(e)
       }}
       onKeyDown={e => {
         // Entrée valide un formulaire sans quitter le champ : on borne d'abord.
-        if (e.key === 'Enter') quitter()
+        if (e.key === 'Enter') auFocus.current = quitter()
         // Les flèches du clavier, comme dans un champ numérique.
         else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
           e.preventDefault()
-          const n = Math.min(max, Math.max(min, Math.round(lu ?? valeur) + (e.key === 'ArrowUp' ? 1 : -1)))
+          const n = entierBorne((lu ?? auFocus.current ?? valeur) + (e.key === 'ArrowUp' ? 1 : -1), min, max)
           setTexte(String(n))
           if (n !== valeur) onValeur(n)
         }
