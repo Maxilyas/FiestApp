@@ -1,5 +1,6 @@
 import type { Socket } from 'socket.io'
 import type { ActionAck, ActionRefusal, ClientToServerEvents } from '../../shared/events'
+import type { EcranDeScene } from '../../shared/types'
 import type { IoServer } from './core/types'
 import type { SpaceRegistry, SpaceRuntime } from './core/space'
 import type { AccountRec, AuthStore } from './auth/store'
@@ -101,6 +102,10 @@ type Reponse<E extends Evenement> = Accuse<E> extends (res: infer R) => void ? R
 
 /** Une chaîne, ou rien : ce n'est pas au réseau de décider du type d'un champ. */
 const texte = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
+
+/** Un écran de scène, `null` pour la salle d'attente — `undefined` pour ce qui n'en est pas un. */
+const ecranDeScene = (v: unknown): EcranDeScene | null | undefined =>
+  v === null ? null : v === 'podium' || v === 'prix' || v === 'victoire' || v === 'cloture' ? v : undefined
 
 /**
  * L'adresse du client. Derrière le proxy de l'hébergeur, on lit la dernière
@@ -454,6 +459,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         socket.data.authSessionId = found.session.id
         socket.join(`hosts:${found.account.id}`)
         repondre({ ok: true, slug: found.account.slug, name: found.account.name })
+        // L'annonce de clôture d'abord : l'instantané qui suit dit qu'elle
+        // est à l'écran, et un écran rallumé pendant qu'on l'affiche doit
+        // avoir de quoi la montrer.
+        const cloture = rt.clotureAffichee()
+        if (cloture) socket.emit('soiree:cloture', cloture)
         socket.emit('party:snapshot', rt.buildSnapshot(true))
         rt.engine.resendHostViews(socket)
       },
@@ -468,6 +478,9 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       if (!rt) return
       try {
         rt.engine.launch()
+        // Le quiz prend la scène : un podium ou une clôture restés sur la
+        // télé passaient devant tout le quiz suivant.
+        rt.poserScene(null)
       } catch (e) {
         socket.emit('toast', { kind: 'error', message: messagePourEcran(e, 'host:launch') })
       }
@@ -573,6 +586,27 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       if (rt.teams.removeBonus(bonusId)) rt.broadcastSnapshot()
     })
 
+    ecouter('host:scene', charge => {
+      const rt = requireHost()
+      if (!rt) return
+      const ecran = ecranDeScene(charge.ecran)
+      if (ecran === undefined) return
+      const onglet = charge.onglet === 'equipes' || charge.onglet === 'joueurs' ? charge.onglet : undefined
+      // Absent, `depuis` ne vise rien : c'est une page d'avant. Présent mais
+      // illisible, il ne vise rien de connu — le geste est ignoré.
+      if (!('depuis' in charge) || charge.depuis === undefined) return void rt.poserScene(ecran, onglet)
+      const depuis = ecranDeScene(charge.depuis)
+      if (depuis === undefined) return
+      rt.poserScene(ecran, onglet, depuis)
+    })
+
+    ecouter('host:telecommande', charge => {
+      const rt = requireHost()
+      if (!rt) return
+      socket.data.telecommande = charge.active === true
+      rt.sendSnapshot()
+    })
+
     /**
      * Clôt la soirée — le seul geste de fin. « Nouvelle soirée », resté sur
      * une page d'avant, y mène aussi : la soirée est rangée, créditée, et la
@@ -641,6 +675,9 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           rt.party.socketDisconnected(playerId, socket.id)
           rt.broadcastSnapshot()
         }
+        // La télécommande s'en va : la télé reprend les coulisses. Le socket
+        // a déjà quitté ses salons, il ne compte plus.
+        if (socket.data.telecommande && rt) rt.broadcastSnapshot()
       } catch (e) {
         console.error('[socket] « disconnect » a échoué :', e)
       }

@@ -35,7 +35,7 @@ import type { BadgePorte, Rarete } from '../../../shared/badges'
 import { hautFaitDeSoiree, palierDe, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
 import { cibleEclat } from '../../../shared/legendaires'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, SoireeClose } from '../../../shared/fin'
-import type { PartySnapshot, Recap } from '../../../shared/types'
+import type { EcranDeScene, OngletDePodium, PartySnapshot, Recap, Scene } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
 import type { ArchiveList, ArchiveSummary } from '../../../shared/archive'
 import { defaultSettings, type PublicSpace } from '../../../shared/space'
@@ -120,7 +120,19 @@ export class SpaceRuntime {
   //   ça, le filet de sécurité périodique renvoyait 4 Ko à chaque téléphone
   //   toutes les 30 secondes pendant toute la fête, pour rien.
   private lastSnapshot = ''
+  /** Ce que les écrans d'animateur reçoivent en plus, au dernier envoi. */
+  private lastEcrans = ''
   private pending: ReturnType<typeof setTimeout> | null = null
+
+  /**
+   * La scène des écrans d'animateur : en mémoire seulement. Un redémarrage
+   * la ramène à la salle d'attente — c'est un choix d'affichage, pas une
+   * donnée de la soirée : la base locale est jetable, et la salle d'attente
+   * (le QR, les invités) est l'écran qu'on ne regrette jamais d'afficher.
+   */
+  private scene: Scene | null = null
+  /** L'annonce de la dernière clôture, pour un écran qui se présente pendant qu'on l'affiche. */
+  private derniereCloture: ClotureDeSoiree | null = null
 
   constructor(
     readonly spaceId: string,
@@ -745,23 +757,76 @@ export class SpaceRuntime {
 
   /** Ce que l'écran commun reçoit en plus de la salle. */
   private pourLesEcrans(snapshot: PartySnapshot): PartySnapshot {
+    return { ...snapshot, ...this.enPlusPourLesEcrans() }
+  }
+
+  /**
+   * Ces champs changent rarement — une transition du miroir, un écran de fin
+   * ouvert, une télécommande branchée : l'invariant 4 tient.
+   */
+  private enPlusPourLesEcrans(): Partial<PartySnapshot> {
     return {
-      ...snapshot,
       wifi: this.deps.wifi,
       // Absent quand tout va bien : il ne change qu'aux transitions, et
       // l'instantané dédoublonné n'en porte pas le poids le reste du temps.
       ...(this.mirror.enRetard() && { sauvegardeEnRetard: true as const }),
+      ...(this.scene && { scene: this.scene }),
+      ...(this.telecommandeBranchee() && { telecommande: true as const }),
     }
   }
 
   sendSnapshot(force = false) {
     const snapshot = this.buildSnapshot(false)
     const json = JSON.stringify(snapshot)
-    if (!force && json === this.lastSnapshot) return
+    const enPlus = this.enPlusPourLesEcrans()
+    const ecrans = JSON.stringify(enPlus)
+    const salle = force || json !== this.lastSnapshot
+    // La salle n'a rien de neuf, mais les écrans d'animateur si : la scène
+    // a changé. Le dédoublonnage ne regardait que la salle, et une scène
+    // ouverte à la télécommande ne partait jamais à la télé.
+    if (!salle && ecrans === this.lastEcrans) return
     this.lastSnapshot = json
+    this.lastEcrans = ecrans
     const io = this.deps.io
-    io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`).emit('party:snapshot', snapshot)
-    io.to(`hosts:${this.spaceId}`).emit('party:snapshot', this.pourLesEcrans(snapshot))
+    if (salle) io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`).emit('party:snapshot', snapshot)
+    io.to(`hosts:${this.spaceId}`).emit('party:snapshot', { ...snapshot, ...enPlus })
+  }
+
+  // ── La scène des écrans d'animateur ──
+
+  /**
+   * Ouvre un écran de fin de soirée sur tous les écrans d'animateur, ou
+   * revient à la salle d'attente. `depuis`, quand il est donné, est l'écran
+   * que le geste visait : si l'autre console a changé la scène entre-temps,
+   * le geste est périmé et ignoré (invariant 12). La clôture ne s'ouvre pas
+   * d'ici, et ne se quitte que pour la salle d'attente : elle raconte une
+   * soirée qui n'existe plus, ses prix et son podium avec.
+   */
+  poserScene(ecran: EcranDeScene | null, onglet?: OngletDePodium, depuis?: EcranDeScene | null): boolean {
+    const actuel = this.scene?.ecran ?? null
+    if (depuis !== undefined && depuis !== actuel) return false
+    if (ecran === 'cloture') return false
+    if (actuel === 'cloture' && ecran !== null) return false
+    const suivante: Scene | null = ecran ? { ecran, ...(ecran === 'podium' && onglet && { onglet }) } : null
+    if (JSON.stringify(suivante) === JSON.stringify(this.scene)) return false
+    this.scene = suivante
+    if (!suivante) this.derniereCloture = null
+    this.sendSnapshot()
+    return true
+  }
+
+  /** L'annonce de clôture encore à l'écran, pour un écran d'animateur qui se présente. */
+  clotureAffichee(): ClotureDeSoiree | null {
+    return this.scene?.ecran === 'cloture' ? this.derniereCloture : null
+  }
+
+  /** Un écran d'animateur de l'espace se tient-il en télécommande ? */
+  private telecommandeBranchee(): boolean {
+    const io = this.deps.io
+    for (const id of io.sockets.adapter.rooms.get(`hosts:${this.spaceId}`) ?? []) {
+      if (io.sockets.sockets.get(id)?.data.telecommande) return true
+    }
+    return false
   }
 
   broadcastSnapshot() {
@@ -1090,6 +1155,11 @@ export class SpaceRuntime {
       }),
     }
     this.deps.io.to(`hosts:${this.spaceId}`).emit('soiree:cloture', cloture)
+    // La clôture prend tous les écrans d'animateur, et y reste jusqu'à « La
+    // soirée suivante » — cliquée n'importe où, elle les libère tous.
+    this.scene = { ecran: 'cloture' }
+    this.derniereCloture = cloture
+    this.sendSnapshot()
   }
 
   /**
@@ -1153,6 +1223,9 @@ export class SpaceRuntime {
       // La seule porte qui ouvre une nouvelle soirée, et donc le seul endroit
       // où l'on oublie son nom.
       this.oublierSoiree()
+      // Les écrans de fin montraient la soirée effacée.
+      this.scene = null
+      this.derniereCloture = null
     })
     this.broadcastSnapshot()
     // Les téléphones de la soirée effacée n'incarnent plus personne. Laissés

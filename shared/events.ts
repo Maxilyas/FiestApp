@@ -1,5 +1,5 @@
 // Protocole Socket.io typé, partagé entre client et serveur.
-import type { PartySnapshot } from './types'
+import type { EcranDeScene, OngletDePodium, PartySnapshot } from './types'
 import type { PublicProfile } from './profil'
 import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz } from './fin'
 
@@ -173,6 +173,23 @@ export interface ClientToServerEvents {
   'host:awardTeam': (payload: { teamId: string; points: number; reason: string }) => void
   /** Retire un prix mal attribué. */
   'host:removeBonus': (payload: { bonusId: string }) => void
+
+  /**
+   * Ouvre un écran de fin de soirée — ou revient à la salle d'attente avec
+   * `null` — sur TOUS les écrans d'animateur de l'espace : c'était un état de
+   * la page, et la télé restait en salle d'attente pendant la remise des prix
+   * ouverte au téléphone. `depuis` dit l'écran que l'animateur avait sous les
+   * yeux (invariant 12) : si la scène a changé entre-temps, depuis l'autre
+   * console, le geste est ignoré. Absent (une page d'avant), il passe. La
+   * clôture ne s'ouvre pas ainsi : seule `host:closeParty` y mène.
+   */
+  'host:scene': (payload: { ecran: EcranDeScene | null; onglet?: OngletDePodium; depuis?: EcranDeScene | null }) => void
+  /**
+   * Cet écran d'animateur se tient en télécommande (ou ne l'est plus) : tant
+   * qu'il y en a une, les autres écrans de l'espace laissent les coulisses à
+   * sa main.
+   */
+  'host:telecommande': (payload: { active: boolean }) => void
 }
 
 export interface ServerToClientEvents {
