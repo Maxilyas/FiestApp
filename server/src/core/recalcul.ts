@@ -4,7 +4,7 @@ import type { PlayerRec } from './party'
 import { buildProgress } from './progress'
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
 import { divinsDeSoiree, laureatsDivins } from './divins'
-import { LIGNE_PALIERS, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
+import { LIGNE_PALIERS, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
 import { hautFaitDeSoiree } from '../../../shared/hautsfaits'
 import type { PartyArchive } from '../../../shared/archive'
 
@@ -73,7 +73,7 @@ export function creditDArchive(archive: PartyArchive) {
 export async function recalculerHistorique(deps: {
   profiles: ProfileStore
   archives: ArchiveStore
-  /** Les soirées en cours, dans tous les espaces : elles n'ont pas fini de se jouer. */
+  /** Les soirées en cours, dans tous les espaces (`cleDeSoiree`) : elles n'ont pas fini de se jouer. */
   enCours: ReadonlySet<string>
 }): Promise<{ soirees: number; lignes: number; profils: number } | null> {
   const { profiles, archives, enCours } = deps
@@ -86,7 +86,7 @@ export async function recalculerHistorique(deps: {
   const credites = new Set<string>()
   const touches = new Set<string>()
   for (const { spaceId, id } of await archives.toutes()) {
-    if (enCours.has(id)) continue
+    if (enCours.has(cleDeSoiree(spaceId, id))) continue
     const trouvee = await archives.get(spaceId, id).catch(e => {
       console.error(`[recalcul] soirée « ${id} » illisible :`, e)
       return null
@@ -139,7 +139,7 @@ export async function recalculerHistorique(deps: {
   for (const id of await profiles.oublierAnciensBadgesDeCarriere()) touches.add(id)
   for (const id of touches) {
     const [derniere] = await profiles.historiqueOf(id)
-    if (derniere) await profiles.accorderPaliers(id, derniere.soireeId, derniere.spaceId)
+    if (derniere) await profiles.accorderPaliers(id, derniere.soireeId, derniere.spaceId, enCours)
   }
   // La ligne des paliers ne se réécrit qu'avec un palier neuf : sans palier
   // de plus, elle resterait d'une version d'avant.

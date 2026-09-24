@@ -16,7 +16,7 @@ import { recalculerHistorique } from './core/recalcul'
 import { ReserveDInscriptions } from './core/inscriptions'
 import { SpaceRegistry } from './core/space'
 import { AuthStore, type AccountRec } from './auth/store'
-import { ProfileStore } from './auth/profiles'
+import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
 import { erreurDeRequete, repondreErreur } from './core/http'
 import { wireSockets } from './sockets'
@@ -268,7 +268,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // démarrage qui le change. Les soirées en cours — celles que le disque ou
   // le miroir viennent de rendre — n'ont pas fini de se jouer : elles se
   // recréditeront à leur prochain quiz.
-  const enCours = new Set((db.prepare('SELECT id FROM soiree').all() as { id: string }[]).map(r => r.id))
+  const enCours = new Set(
+    (db.prepare('SELECT space_id, id FROM soiree').all() as { space_id: string; id: string }[]).map(r =>
+      cleDeSoiree(r.space_id, r.id),
+    ),
+  )
   const recalcul = await recalculerHistorique({ profiles, archives, enCours })
   if (recalcul) {
     console.log(

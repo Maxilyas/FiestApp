@@ -17,7 +17,7 @@ import { divinsDeSoiree, laureatsDivins, raconter } from './divins'
 import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
-import { ProfileStore, type PrixDeSoiree } from '../auth/profiles'
+import { ProfileStore, cleDeSoiree, type PrixDeSoiree } from '../auth/profiles'
 import {
   coupDOeilMoyen,
   distinctions,
@@ -262,6 +262,19 @@ export class SpaceRuntime {
     // serveur. Celui qui l'attend reçoit bien l'erreur.
     ecriture.catch(() => {})
     return ecriture
+  }
+
+  /**
+   * Les soirées qui se jouent en ce moment dans les autres espaces
+   * (`cleDeSoiree`). La base locale range le nom de chacune dès qu'il est
+   * tiré et l'oublie à sa fin — le miroir le lui rend après un réveil sur
+   * disque effacé.
+   */
+  private soireesEnCoursAilleurs(): Set<string> {
+    const rows = this.deps.db
+      .prepare('SELECT space_id, id FROM soiree WHERE space_id <> ?')
+      .all(this.spaceId) as { space_id: string; id: string }[]
+    return new Set(rows.map(r => cleDeSoiree(r.space_id, r.id)))
   }
 
   /** La soirée suivante tirera son propre nom, sur ses propres invités. */
@@ -980,10 +993,12 @@ export class SpaceRuntime {
     // pouvoir repartir.
     await this.deps.profiles.remplacerRecompensesDeSoiree(soireeId, this.spaceId, credit.laureats)
     const bilans = new Map<string, NonNullable<FinDeSoiree['profil']>>()
+    const ailleurs = this.soireesEnCoursAilleurs()
     for (const g of credit.gains) {
       // Les paliers de carrière viennent en dernier : ils se décident sur les
-      // totaux, expérience et hauts faits de ce soir compris.
-      const paliers = await this.deps.profiles.accorderPaliers(g.profileId, soireeId, this.spaceId)
+      // totaux, expérience et hauts faits de ce soir compris — mais pas sur
+      // les soirées qui se jouent encore dans d'autres espaces.
+      const paliers = await this.deps.profiles.accorderPaliers(g.profileId, soireeId, this.spaceId, ailleurs)
       const profil = await this.deps.profiles.byId(g.profileId).catch(() => null)
       if (!profil) continue
       const xpPaliers = paliers.reduce((n, cle) => n + (palierDe(cle) ? XP_PALIER[palierDe(cle)!.palier - 1] : 0), 0)
