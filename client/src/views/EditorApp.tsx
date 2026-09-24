@@ -53,19 +53,7 @@ import { TimerBar } from '../components/TimerBar'
 import { serverNow } from '../clock'
 import { gesteAccepte } from '../../../shared/console'
 import { LoginForm } from '../components/Invitation'
-import { espacesFines } from '../format'
-
-/**
- * « le 24 sept. à 17 h 10 », ou « à 17 h 10 » le jour même. Le format du
- * navigateur écrivait « Enregistré à 24 sept., 17:10 » : « à » devant une
- * date, et une heure à l'anglaise.
- */
-function quand(ts: number): string {
-  const d = new Date(ts)
-  const heure = `${d.getHours()} h ${String(d.getMinutes()).padStart(2, '0')}`
-  if (d.toDateString() === new Date().toDateString()) return `à ${heure}`
-  return `le ${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} à ${heure}`
-}
+import { espacesFines, quand } from '../format'
 
 /**
  * La carte qui vient d'arriver quelque part — déplacée, insérée, dupliquée,

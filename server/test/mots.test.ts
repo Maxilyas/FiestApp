@@ -117,3 +117,37 @@ test('annuler les points : un seul verbe, et aucun bouton « Annuler » dans la 
   assert.match(boite, /cancelLabel: 'Garder les points'/)
   assert.doesNotMatch(boite, /Label: 'Annuler'/, 'un bouton « Annuler » gardait les points')
 })
+
+test('les petits mots du client : pts(), la précision, la consigne, l’heure, le rang', async () => {
+  const { pts, reponsesParType, quand, scoreEtRang } = await import('../../client/src/format')
+  const { consigneEstimation } = await import('../../client/src/games/quiz/consignes')
+  // « 0 pts » s'écrivait sur chaque téléphone avant le premier quiz.
+  assert.equal(pts(0), '0 pt')
+  assert.equal(pts(1), '1 pt')
+  assert.equal(pts(715), '715 pts')
+  assert.match(pts(35000), /^35\s000 pts$/, 'l’espace fine des milliers')
+
+  // Une précision ne compte que les QCM, et dit sur combien.
+  assert.equal(reponsesParType({ qcm: 6, justes: 4, estimations: 0, coupDOeil: null }), 'précision 67 % (4 sur 6 QCM)')
+  assert.equal(
+    reponsesParType({ qcm: 2, justes: 1, estimations: 3, coupDOeil: 0.5 }),
+    'précision 50 % (1 sur 2 QCM) · 3 estimations, coup d’œil 50 %',
+  )
+  assert.equal(reponsesParType({ qcm: 0, justes: 0, estimations: 1, coupDOeil: null }), '1 estimation')
+
+  // Le mur et l'aperçu de l'éditeur disent la même consigne.
+  assert.equal(consigneEstimation(undefined), 'Tapez votre estimation sur votre téléphone — le plus proche gagne !')
+  assert.equal(consigneEstimation(' km '), 'Tapez votre estimation sur votre téléphone (en km) — le plus proche gagne !')
+  assert.equal(consigneEstimation('  '), consigneEstimation(undefined))
+
+  // « Enregistré à 24 sept., 17:10 » : « à » devant une date, l'heure à l'anglaise.
+  const cinqHeures = new Date(2026, 8, 24, 17, 5).getTime()
+  assert.equal(quand(cinqHeures, new Date(2026, 8, 24, 23, 0).getTime()), 'à 17 h 05')
+  assert.match(quand(cinqHeures, new Date(2026, 8, 25, 9, 0).getTime()), /^le 24 sept\. à 17 h 05$/)
+
+  // Pas de rang tant que personne n'a marqué ; ensuite, le rang partagé.
+  assert.equal(scoreEtRang(0, [0, 0, 0]), '0 pt')
+  assert.equal(scoreEtRang(0, []), '0 pt')
+  assert.match(scoreEtRang(300, [300, 500, 300]), /^300 pts · 2\S* place$/)
+  assert.match(scoreEtRang(500, [300, 500]), /^500 pts · 1\S* place$/)
+})

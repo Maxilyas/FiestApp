@@ -28,7 +28,7 @@ import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer } from '../games/quiz/PlayerView'
 import type { QuizPlayerView } from '../../../shared/games/quiz'
 import { regleDesEquipes } from '../../../shared/teams'
-import { espacesFines, place, pts } from '../format'
+import { espacesFines, scoreEtRang } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
@@ -360,11 +360,6 @@ export function PlayerApp() {
   // ── Salle d'attente ──────────────────────────────
   const myTeam = teams.find(t => t.id === me?.teamId) ?? null
   const sorted = [...snap.players].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
-  // Rang partagé, comme dans le classement en dessous : à égalité de points,
-  // on est premier ensemble, pas quatrième parce que son prénom vient après.
-  // Et pas de rang tant que personne n'a marqué : « 0 pts · 1ʳᵉ place »
-  // avant le premier quiz, c'était premier de rien.
-  const myRank = me && sorted.some(p => p.score > 0) ? sorted.findIndex(p => p.score === me.score) + 1 : 0
 
   return (
     <div className="player-shell">
@@ -380,10 +375,7 @@ export function PlayerApp() {
             <Niveau niveau={me?.niveau} big />
           </h2>
           <p className="muted">
-            {/* Pas de rang tant que personne n'a marqué : « 0 pts · 1ʳᵉ place »
-                s'affichait avant le premier quiz. */}
-            {pts(me?.score ?? 0)}
-            {myRank > 0 && (sorted[0]?.score ?? 0) > 0 && ` · ${place(myRank)}`}
+            {scoreEtRang(me?.score ?? 0, me ? snap.players.map(p => p.score) : [])}
             {myTeam && ` · ${myTeam.emoji} ${myTeam.name}`}
           </p>
         </div>
