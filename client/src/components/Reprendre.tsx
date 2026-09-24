@@ -72,8 +72,8 @@ export function AvisHorsLigne({
  *
  * On ne demande que si un invité porte déjà ce prénom (les prénoms, eux,
  * sont publics) : cinq cents téléphones n'interrogent pas le serveur à
- * chaque instantané pour un homonyme qui n'existe pas. `cle` redemande quand
- * la salle a changé — un nouvel instantané.
+ * chaque instantané pour un homonyme qui n'existe pas. Un nouvel instantané
+ * (`players`) redemande : l'absent a pu revenir, ou un autre tomber.
  */
 export function useHorsLigne(
   slug: string,
