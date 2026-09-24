@@ -666,9 +666,10 @@ export function HostApp() {
                     {showTeamPodium ? 'Les équipes au quiz' : 'Le classement de la soirée'}
                   </h2>
                   {teams.length > 0 && (
-                    <div className="row podium-tabs">
+                    <div className="row podium-tabs" role="group" aria-label="Le podium à montrer">
                       <button
                         className={'pill-btn' + (podiumTab === 'teams' ? ' active' : '')}
+                        aria-pressed={podiumTab === 'teams'}
                         onClick={() => setPodiumTab('teams')}
                       >
                         <Icon name="users" />
@@ -676,6 +677,7 @@ export function HostApp() {
                       </button>
                       <button
                         className={'pill-btn' + (podiumTab === 'solo' ? ' active' : '')}
+                        aria-pressed={podiumTab === 'solo'}
                         onClick={() => setPodiumTab('solo')}
                       >
                         <Icon name="trophy" />
@@ -1106,10 +1108,14 @@ export function HostApp() {
           <span className="console-label">Console animateur</span>
           <div className="console-actions" ref={setConsoleSlot} />
           <div className="console-icons">
+            {/* Un bouton bascule garde un nom fixe et dit son état par
+                `aria-pressed` : avec un libellé qui changeait aussi, un lecteur
+                d'écran lisait « Couper les sons, activé », son allumé. L'infobulle,
+                elle, dit le geste à qui survole. */}
             <button
               className="btn btn-icon"
               title={muted ? 'Activer les sons' : 'Couper les sons'}
-              aria-label={muted ? 'Activer les sons' : 'Couper les sons'}
+              aria-label="Sons"
               aria-pressed={!muted}
               onClick={() => {
                 initAudio()
@@ -1123,7 +1129,7 @@ export function HostApp() {
             <button
               className="btn btn-icon"
               title={theme === 'ivoire' ? 'Fond sombre (Velours)' : 'Fond clair pour le vidéoprojecteur (Ivoire)'}
-              aria-label={theme === 'ivoire' ? 'Revenir au fond sombre' : 'Passer sur fond clair'}
+              aria-label="Fond clair"
               aria-pressed={theme === 'ivoire'}
               onClick={() => setTheme(toggleTheme())}
             >

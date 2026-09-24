@@ -154,6 +154,7 @@ export function BilanApp() {
       <nav className="row bilan-tabs" aria-label="Sections du bilan">
         <button
           className={'pill-btn' + (mode.kind !== 'room' ? ' active' : '')}
+          aria-current={mode.kind !== 'room' ? 'page' : undefined}
           onClick={() => navigate(lastPlayerId ? { kind: 'me', playerId: lastPlayerId } : { kind: 'pick' })}
         >
           <Icon name="star" />
@@ -161,6 +162,7 @@ export function BilanApp() {
         </button>
         <button
           className={'pill-btn' + (mode.kind === 'room' ? ' active' : '')}
+          aria-current={mode.kind === 'room' ? 'page' : undefined}
           onClick={() => navigate({ kind: 'room' })}
         >
           <Icon name="users" />

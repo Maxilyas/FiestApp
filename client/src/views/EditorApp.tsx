@@ -1371,9 +1371,10 @@ function QuestionCard({
           ) : (
             <span className="pill">Question {index + 1}</span>
           )}
-          <div className="kind-toggle">
+          <div className="kind-toggle" role="group" aria-label={`Type de la question ${index + 1}`}>
             <button
               className={'pill-btn' + (question.kind === 'choice' ? ' active' : '')}
+              aria-pressed={question.kind === 'choice'}
               onClick={() => onChange(q => ({ ...q, kind: 'choice' }))}
             >
               <Icon name="list" />
@@ -1381,6 +1382,7 @@ function QuestionCard({
             </button>
             <button
               className={'pill-btn' + (question.kind === 'number' ? ' active' : '')}
+              aria-pressed={question.kind === 'number'}
               onClick={() => onChange(q => ({ ...q, kind: 'number' }))}
             >
               <Icon name="hash" />

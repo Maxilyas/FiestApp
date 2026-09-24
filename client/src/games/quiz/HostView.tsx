@@ -229,12 +229,13 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
 
         {/* Annoncé à la salle avant de lancer : tant qu'un quiz peut tout
             renverser, personne ne décroche du classement. */}
-        <div className="row multiplier-picker">
-          <span className="muted">Ce quiz vaut</span>
+        <div className="row multiplier-picker" role="group" aria-labelledby="multiplier-label">
+          <span className="muted" id="multiplier-label">Ce quiz vaut</span>
           {[1, 2, 3].map(m => (
             <button
               key={m}
               className={'pill-btn' + (multiplier === m ? ' active' : '')}
+              aria-pressed={multiplier === m}
               onClick={() => setMultiplier(m)}
             >
               {m === 1 ? 'points normaux' : `×${m} points`}
