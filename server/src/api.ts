@@ -4,6 +4,8 @@ import type { ArchiveStore } from './core/archive'
 import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
+import { tronquer } from '../../shared/avatars'
+import { horsBornesALEnvoi } from '../../shared/library'
 import { accountOf, csrfGuard, requireAccount } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
@@ -31,6 +33,10 @@ interface ApiDeps {
   removeAccount: (accountId: string) => Promise<void>
   /** L'identifiant de la soirée en cours d'un espace, s'il est tiré : elle ne se retire pas de l'historique. */
   soireeEnCours: (spaceId: string) => string | null
+  /** Rediffuse la salle d'un espace dont les réglages ont changé. */
+  espaceChange: (spaceId: string) => void
+  /** Rediffuse la salle des soirées où joue un profil qui a changé de parure. */
+  profilChange: (profileId: string) => void
 }
 
 /**
@@ -47,12 +53,12 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // AVANT de lire le corps : sinon n'importe qui pouvait faire analyser
   // quatre mégaoctets de JSON au serveur sans être connecté.
   app.use('/api', csrfGuard({ online: deps.online, publicOrigin: deps.publicOrigin }))
-  mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount })
+  mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount, espaceChange: deps.espaceChange })
   // La télé qu'on branche depuis son téléphone, sans rien taper à la télécommande.
   mountAppairage(app, { auth: deps.auth, online: deps.online })
   // Les routes du profil joueur passent AVANT la porte : un invité n'a pas
   // de compte d'animateur, et n'a pas à en avoir un pour s'inscrire.
-  mountProfileApi(app, { profiles: deps.profiles, auth: deps.auth, online: deps.online })
+  mountProfileApi(app, { profiles: deps.profiles, auth: deps.auth, online: deps.online, profilChange: deps.profilChange })
   app.use('/api', requireAccount(deps.auth))
 
   // Les photos arrivent en dataURL dans le corps JSON.
@@ -87,11 +93,76 @@ export function mountApi(app: Express, deps: ApiDeps) {
     }),
   )
 
+  /**
+   * Le dernier enregistrement de chaque quiz, par espace : son jeton, son
+   * numéro d'essai et la version qu'il a écrite. L'éditeur tire un jeton par
+   * clic sur « Enregistrer », et numérote les essais que `auReveil` en fait :
+   * un premier essai passé dont la réponse s'est perdue ne fait pas entrer le
+   * suivant en conflit avec lui-même, et un essai abandonné par le client qui
+   * n'arrive qu'après son rejeu ne réécrit pas l'ancien texte par-dessus. En
+   * mémoire seulement : perdu au redémarrage, il ne coûte qu'un conflit de
+   * trop — qui ne perd rien, le brouillon est là.
+   */
+  const derniers = new Map<string, { jeton: string; essai: number | null; version: number }>()
+  /**
+   * Un enregistrement à la fois par quiz. Sans ça, deux essais du même clic
+   * arrivés ensemble — l'abandonné qui arrive quand même au réveil, et le
+   * rejoué — lisaient tous deux `derniers` avant que l'un l'écrive : le
+   * second recevait « enregistré ailleurs » pour son propre clic.
+   */
+  const enCours = new Map<string, Promise<unknown>>()
+  const unParUn = <T,>(cle: string, fn: () => Promise<T>): Promise<T> => {
+    const suite = (enCours.get(cle) ?? Promise.resolve()).then(fn, fn)
+    const fin = suite.then(
+      () => {},
+      () => {},
+    )
+    enCours.set(cle, fin)
+    // Le dernier de la file la range en partant : la carte ne garde pas un
+    // quiz par quiz jamais enregistré depuis le démarrage.
+    fin.then(() => {
+      if (enCours.get(cle) === fin) enCours.delete(cle)
+    })
+    return suite
+  }
+
   app.put(
     '/api/quizzes/:id',
     wrap(async (req, res) => {
       const spaceId = spaceOf(res)
-      const quiz = await deps.store.save(spaceId, req.params.id, req.body?.title, req.body?.questions)
+      const id = req.params.id
+      const cle = `${spaceId}:${id}`
+      const jeton = typeof req.body?.jeton === 'string' ? tronquer(req.body.jeton, 64) : null
+      // Sans numéro (aucune page n'envoie un jeton sans lui), l'essai n'est
+      // jamais pris pour périmé : il écrit, comme avant.
+      const essai = typeof req.body?.essai === 'number' && Number.isFinite(req.body.essai) ? req.body.essai : null
+      // La version d'où partent les modifications : si le quiz a été
+      // enregistré ailleurs depuis — l'autre appareil —, on refuse au lieu
+      // d'écraser en silence. Sans `base` (une page d'avant), comme avant.
+      const base = typeof req.body?.base === 'number' && Number.isFinite(req.body.base) ? req.body.base : undefined
+      if (base !== undefined) {
+        const horsBornes = horsBornesALEnvoi(req.body?.questions)
+        if (horsBornes) return res.status(400).json({ error: horsBornes })
+      }
+      const quiz = await unParUn(cle, async () => {
+        const d = derniers.get(cle)
+        const memeClic = jeton !== null && d !== undefined && d.jeton === jeton
+        // Un essai périmé de ce clic : un plus récent a déjà écrit, il ne réécrit rien.
+        if (memeClic && essai !== null && d.essai !== null && essai <= d.essai) return deps.store.get(spaceId, id)
+        const q = await deps.store.save(spaceId, id, req.body?.title, req.body?.questions, memeClic ? d.version : base)
+        if (q && q !== 'conflit') {
+          if (jeton !== null) derniers.set(cle, { jeton, essai, version: q.updatedAt })
+          else derniers.delete(cle)
+        }
+        return q
+      })
+      if (quiz === 'conflit') {
+        const actuel = await deps.store.get(spaceId, req.params.id)
+        return res.status(409).json({
+          error: 'Ce quiz a été enregistré ailleurs pendant que tu écrivais — un autre appareil ? Choisis la version à garder.',
+          conflit: { updatedAt: actuel?.updatedAt ?? null },
+        })
+      }
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
       await deps.onLibraryChanged(spaceId)
       res.json(quiz)

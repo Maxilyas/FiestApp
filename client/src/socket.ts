@@ -2,7 +2,7 @@ import { io, type Socket } from 'socket.io-client'
 import type { ActionAck, ClientToServerEvents, JoinAck, ServerToClientEvents } from '../../shared/events'
 import type { PublicProfile } from '../../shared/profil'
 import { MOTIFS } from '../../shared/erreurs'
-import { forgetMe, getState, oublierIdentite, setState, showToast } from './state'
+import { forgetMe, garderFin, getState, oublierIdentite, setState, showToast } from './state'
 import { applySample, resetClock, serverNow } from './clock'
 import { currentSlug } from './routes'
 
@@ -87,7 +87,10 @@ socket.on('party:reset', () => {
 // plus personne. Il garde son prénom : la soirée suivante le proposera.
 socket.on('soiree:fin', fin => {
   const slug = currentSlug()
-  if (slug) oublierIdentite(slug)
+  if (slug) {
+    oublierIdentite(slug)
+    garderFin(slug, fin)
+  }
   setState({ fin, gain: null })
 })
 

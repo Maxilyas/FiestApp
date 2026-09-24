@@ -49,3 +49,41 @@ export function lireNombre(texte: string): number | null {
   const lu = lireNombreEnTete(net)
   return lu && lu.reste === '' ? lu.valeur : null
 }
+
+/** Un entier dans ses bornes : l'arrondi d'abord, les bornes ensuite. */
+export function entierBorne(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(n)))
+}
+
+/**
+ * Ce que devient un champ d'entier borné (`ChampNombre`) quand on le quitte :
+ * le texte lu, arrondi et borné — ou, vide ou illisible, la valeur qu'il
+ * avait quand on y est entré. Le champ émet chaque valeur lisible tapée :
+ * vider « 20 » passait par « 2 », et quitter le champ vide gardait ce « 2 »
+ * émis en route, sans le borner — « Enregistrer » envoyait 2 s.
+ */
+export function valeurEnQuittant(texte: string, valeurAuFocus: number, min: number, max: number): number {
+  return entierBorne(lireNombre(texte) ?? valeurAuFocus, min, max)
+}
+
+/**
+ * Un nombre écrit comme on le tape — virgule décimale, jamais d'exposant —,
+ * pour qu'il se relise tel quel par `lireNombre`. `String(1e21)` donne
+ * « 1e+21 », que la liste copiée relisait 1 avec l'unité « e+21 ».
+ */
+export function ecrireNombre(n: number): string {
+  const texte = String(n)
+  const m = /^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/.exec(texte)
+  if (!m) return texte.replace('.', ',')
+  const [, signe, entier, decimales = '', exposant] = m
+  const chiffres = entier + decimales
+  // La virgule, après `1 + exposant` chiffres.
+  const virgule = 1 + Number(exposant)
+  const clair =
+    virgule >= chiffres.length
+      ? chiffres + '0'.repeat(virgule - chiffres.length)
+      : virgule <= 0
+        ? `0,${'0'.repeat(-virgule)}${chiffres}`
+        : `${chiffres.slice(0, virgule)},${chiffres.slice(virgule)}`
+  return signe + clair
+}

@@ -1,7 +1,7 @@
 // Protocole Socket.io typé, partagé entre client et serveur.
 import type { EcranDeScene, OngletDePodium, PartySnapshot } from './types'
 import type { PublicProfile } from './profil'
-import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz } from './fin'
+import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz, SoireeClose } from './fin'
 
 /**
  * Pourquoi un `player:join` est refusé, quand le téléphone doit faire autre
@@ -30,8 +30,12 @@ export type JoinAck =
    * clore. Le téléphone dormait pendant la clôture ; il reçoit ici la fin de
    * sa soirée (`fin`), comme s'il avait été là, au lieu d'un simple « on ne
    * te retrouve plus ».
+   *
+   * `derniere`, avec `unknown-token` : le serveur a redémarré depuis la
+   * clôture et a oublié les fins de soirée, mais l'espace n'a encore rien
+   * joué depuis — le téléphone propose de revoir la soirée close.
    */
-  | { ok: false; error: string; reason?: JoinRefusal; fin?: FinDeSoiree }
+  | { ok: false; error: string; reason?: JoinRefusal; fin?: FinDeSoiree; derniere?: SoireeClose }
 
 /**
  * Pourquoi une réponse d'invité n'a pas été retenue. Tant que `player:action`

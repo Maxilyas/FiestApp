@@ -59,7 +59,7 @@ export function RemiseEnScene({ bonuses, teams }: { bonuses: TeamBonus[]; teams:
             <Icon name="users" />
             Les équipes, prix compris
           </h3>
-          <TeamBoard teams={teams} showFinalPoints />
+          <TeamBoard teams={teams} />
         </div>
       )}
     </div>

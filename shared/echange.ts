@@ -14,6 +14,7 @@
 // par le même chemin.
 
 import type { QuizDef, QuizQuestionDef } from './library'
+import { titreLibre } from './library'
 
 /** Ce qui dit, en tête du fichier, que c'est bien un quiz de l'application. */
 export const FORMAT_QUIZ = 'fiestapp-quiz'
@@ -115,6 +116,8 @@ export async function importerQuiz<T>(
   portes: {
     envoyerPhoto: (enClair: string) => Promise<string>
     creer: (titre: string, questions: Record<string, unknown>[]) => Promise<T>
+    /** Les titres de la bibliothèque : un quiz importé sous l'un d'eux arrive « (2) ». */
+    titresPris?: Iterable<string>
   },
 ): Promise<{ quiz: T; questions: number; photos: number; photosIgnorees: number }> {
   const deballe = deballerQuiz(brut)
@@ -129,6 +132,6 @@ export async function importerQuiz<T>(
     const photo = deballe.photos[i]
     return { ...q, image: photo ? adresses.get(photo)! : null }
   })
-  const quiz = await portes.creer(deballe.titre, questions)
+  const quiz = await portes.creer(titreLibre(deballe.titre, portes.titresPris ?? []), questions)
   return { quiz, questions: questions.length, photos: adresses.size, photosIgnorees: deballe.photosIgnorees }
 }
