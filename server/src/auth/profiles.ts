@@ -1,4 +1,5 @@
 import { ajouterColonne, clientDistant, type Client } from '../core/distante'
+import type { InStatement } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
 import { cleanAvatar, cleanName, DEFAULT_AVATAR } from '../../../shared/avatars'
@@ -915,7 +916,10 @@ export class ProfileStore {
     releve: ReleveSoiree
     xp: number
   }): Promise<number> {
-    await this.client.execute({
+    // La ligne et le total dans le même envoi : un aller-retour de moins par
+    // profil, à chaque fin de quiz et à la clôture — et le total n'est
+    // jamais lu entre les deux.
+    return this.recalculerTotal(input.profileId, {
       sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
             VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
@@ -928,13 +932,16 @@ export class ProfileStore {
         Date.now(),
       ],
     })
-    return this.recalculerTotal(input.profileId)
   }
 
-  /** Le total d'un profil, recalculé de toutes ses lignes — en base, puis en mémoire. */
-  private async recalculerTotal(profileId: string): Promise<number> {
-    const [, apres] = await this.client.batch(
+  /**
+   * Le total d'un profil, recalculé de toutes ses lignes — en base, puis en
+   * mémoire. `avant`, s'il est donné, s'écrit dans la même transaction.
+   */
+  private async recalculerTotal(profileId: string, avant?: InStatement): Promise<number> {
+    const res = await this.client.batch(
       [
+        ...(avant ? [avant] : []),
         {
           sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?',
           args: [profileId, profileId],
@@ -943,6 +950,7 @@ export class ProfileStore {
       ],
       'write',
     )
+    const apres = res[res.length - 1]
     const total = Number(apres.rows[0]?.xp ?? 0)
     const rec = this.profiles.get(profileId)
     if (rec) rec.xp = total

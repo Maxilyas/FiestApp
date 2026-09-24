@@ -12,12 +12,16 @@ import {
   attendre,
   connecter,
   connexionAnimateur,
+  creerQuiz,
   demarrer,
   ecranCommun,
   emitAck,
+  inscrireProfil,
   instantane,
   invite,
+  lancerQuiz,
   patienter,
+  qcm,
   type Banc,
   type Socket,
 } from './banc'
@@ -28,6 +32,7 @@ import { AnswerLog } from '../src/core/answers'
 import { GameEngine } from '../src/core/engine'
 import { quizModule, setQuizLibrary } from '../src/games/quiz'
 import type { GameModule } from '../src/core/types'
+import { ProfileStore } from '../src/auth/profiles'
 
 // ── Le moteur seul, sur une vraie base et un faux `io` qui écoute ─────────
 
@@ -364,4 +369,69 @@ test('un téléphone qui rejoint reçoit l’instantané de la salle, même sans
   assert.equal(ack.ok, true)
   const snap = await instantane<any>(socket, s => s.players.some((p: any) => p.id === premier.playerId), 'la salle')
   assert.ok(snap.players.length >= 1)
+})
+
+test('la clôture crédite plusieurs profils à la fois, et chacun a sa fin', async () => {
+  // Chaque crédit attend quelques allers-retours vers la base permanente :
+  // on les rend lents, comme un Turso lointain, et on compte combien sont
+  // en vol en même temps. En série, cent profils à 30 ms faisaient attendre
+  // quinze secondes la salle qui voulait lire « c'est fini ».
+  const proto = ProfileStore.prototype as any
+  const credit = proto.creditSoiree
+  const tirage = ProfileStore.tirageEclat
+  ProfileStore.tirageEclat = () => false
+  let enVol = 0
+  let auPlus = 0
+  let credits = 0
+  proto.creditSoiree = async function (...args: unknown[]) {
+    enVol++
+    auPlus = Math.max(auPlus, enVol)
+    try {
+      await patienter(20)
+      return await credit.apply(this, args)
+    } finally {
+      enVol--
+      credits++
+    }
+  }
+  try {
+    const host = await ecranCommun(banc.url, cookie)
+    ouverts.push(host)
+    const quiz = await creerQuiz(banc.url, cookie, [qcm('La clôture ?')], 'Clôture')
+    const salle = []
+    for (let i = 0; i < 10; i++) {
+      const c = await inscrireProfil(banc.url, `cloture${i}`, `Profil ${i}`, '🐨')
+      const inv = await invite(banc.url, `Profil ${i}`, '🐨', { cookie: c })
+      ouverts.push(inv.socket)
+      salle.push(inv)
+    }
+    const sessionId = await lancerQuiz(host, quiz)
+    await attendre<any>(host, 'session:view', p => p.view.phase === 'question', 'la question', 15_000)
+    const podium = attendre<any>(host, 'session:view', p => p.view.phase === 'finished', 'le podium', 15_000)
+    for (const [i, inv] of salle.entries()) {
+      await emitAck(inv.socket, 'player:action', { sessionId, action: { type: 'answer', choice: i % 2 } })
+    }
+    // Les téléphones des tests d'avant sont encore dans la salle : on
+    // n'attend pas leurs réponses, on révèle.
+    const revelee = attendre<any>(host, 'session:view', p => p.view.phase === 'reveal', 'la révélation', 15_000)
+    ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
+    await revelee
+    ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
+    await podium
+    ;(host as any).emit('host:endSession', { sessionId })
+
+    const fins = salle.map(inv => attendre<any>(inv.socket, 'soiree:fin', () => true, 'une fin de soirée', 30_000))
+    auPlus = 0
+    credits = 0
+    ;(host as any).emit('host:closeParty', { title: 'Grande clôture' })
+    const lues = await Promise.all(fins)
+    assert.ok(credits >= 10, `chaque profil est crédité à la clôture (${credits} crédits)`)
+    assert.ok(lues.every(f => f.profil), 'et sa fin de soirée le dit')
+    // Mesuré avant : un seul à la fois.
+    assert.ok(auPlus > 1, `des crédits en même temps (au plus ${auPlus} en vol)`)
+    assert.ok(auPlus <= 8, `mais pas toute la salle d’un coup (${auPlus} en vol)`)
+  } finally {
+    proto.creditSoiree = credit
+    ProfileStore.tirageEclat = tirage
+  }
 })

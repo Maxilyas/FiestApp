@@ -94,6 +94,41 @@ function empreinteDArchive(archive: unknown): string {
  * gain tel quel — profil, invité, emoji, relevé. Deux crédits de même
  * empreinte écrivent exactement les mêmes lignes.
  */
+/**
+ * Combien de profils se créditent en même temps. Chacun attend quatre ou
+ * cinq allers-retours vers la base permanente : en série, cent profils à
+ * 30 ms faisaient attendre quinze secondes la salle qui voulait lire « c'est
+ * fini ». Au-delà de huit, on ne gagne plus grand-chose et on charge la base
+ * d'un coup.
+ */
+const PROFILS_EN_VOL = 8
+
+/**
+ * `travail` sur chaque élément, `limite` à la fois ; les résultats dans
+ * l'ordre des éléments. On attend que TOUS aient fini avant de rendre, même
+ * après un échec — qui remonte ensuite, le premier : un crédit qui écrirait
+ * encore après être « terminé » passerait derrière le travail suivant de la
+ * file (`enFile`), et c'est l'ordre des écritures que la file protège.
+ */
+async function enParallele<T, R>(elements: T[], limite: number, travail: (e: T) => Promise<R>): Promise<R[]> {
+  const resultats: R[] = new Array(elements.length)
+  const echecs: unknown[] = []
+  let suivant = 0
+  const ouvrier = async () => {
+    while (suivant < elements.length) {
+      const i = suivant++
+      try {
+        resultats[i] = await travail(elements[i])
+      } catch (e) {
+        echecs.push(e)
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limite, elements.length) }, ouvrier))
+  if (echecs.length > 0) throw echecs[0]
+  return resultats
+}
+
 function empreinteDuCredit(soireeId: string, gains: SoireeGain[]): string {
   return JSON.stringify([soireeId, gains])
 }
@@ -452,8 +487,9 @@ export class SpaceRuntime {
   ): Promise<(Figure & { avant: number; apres: number })[]> {
     // Tant qu'il n'est pas allé au bout, on ne sait plus ce qui est en base.
     this.dernierCredit = null
-    const montees: (Figure & { avant: number; apres: number })[] = []
-    for (const g of gains) {
+    // Chaque profil a ses lignes : les créditer en même temps ne mêle rien.
+    // Les montées gardent l'ordre des gains, celui de l'écran commun.
+    const parProfil = await enParallele(gains, PROFILS_EN_VOL, async g => {
       const avant = (await this.deps.profiles.byId(g.profileId).catch(() => null))?.xp ?? 0
       // L'Éclat ne se tire qu'une fois par soirée. Sans ce garde-fou, chaque
       // quiz joué donnerait une chance de plus — et l'Éclat ne vaut que
@@ -484,9 +520,11 @@ export class SpaceRuntime {
       const [niveauAvant, niveauApres] = [niveauDuProfil(avant, gardes), niveauDuProfil(apres, gardes)]
       if (niveauApres > niveauAvant) {
         const figure = this.figure(g.playerId)
-        if (figure) montees.push({ ...figure, avant: niveauAvant, apres: niveauApres })
+        if (figure) return { ...figure, avant: niveauAvant, apres: niveauApres }
       }
-    }
+      return null
+    })
+    const montees = parProfil.filter((m): m is NonNullable<typeof m> => m !== null)
     this.dernierCredit = empreinteDuCredit(soireeId, gains)
     return montees
   }
@@ -1007,25 +1045,25 @@ export class SpaceRuntime {
     credit: CreditDeCloture,
   ): Promise<Map<string, NonNullable<FinDeSoiree['profil']>>> {
     const avant = new Map<string, { legendaires: string[]; divins: string[] }>()
-    for (const g of credit.gains) {
+    await enParallele(credit.gains, PROFILS_EN_VOL, async g => {
       await this.deps.profiles.byId(g.profileId).catch(() => null)
       avant.set(g.profileId, {
         legendaires: this.deps.profiles.legendairesOf(g.profileId),
         divins: this.deps.profiles.divinsOf(g.profileId),
       })
-    }
+    })
     await this.crediterExperience(soireeId, credit.gains)
     // Les récompenses se remplacent, comme l'expérience — et même sans aucun
     // profil ce soir : celles qu'un passage précédent avait rangées doivent
     // pouvoir repartir.
     await this.deps.profiles.remplacerRecompensesDeSoiree(soireeId, this.spaceId, credit.laureats)
     const bilans = new Map<string, NonNullable<FinDeSoiree['profil']>>()
-    for (const g of credit.gains) {
+    await enParallele(credit.gains, PROFILS_EN_VOL, async g => {
       // Les paliers de carrière viennent en dernier : ils se décident sur les
       // totaux, expérience et hauts faits de ce soir compris.
       const paliers = await this.deps.profiles.accorderPaliers(g.profileId, soireeId, this.spaceId)
       const profil = await this.deps.profiles.byId(g.profileId).catch(() => null)
-      if (!profil) continue
+      if (!profil) return
       const xpPaliers = paliers.reduce((n, cle) => n + (palierDe(cle) ? XP_PALIER[palierDe(cle)!.palier - 1] : 0), 0)
       const xpSoiree = g.xp + xpPaliers
       const gardes = this.deps.profiles.gardesOf(g.profileId)
@@ -1050,7 +1088,7 @@ export class SpaceRuntime {
       })
       // Le profil à jour, pour les pages qui l'affichent encore.
       this.deps.io.to(`player:${g.playerId}`).emit('player:profil', this.deps.profiles.toPublic(profil))
-    }
+    })
     return bilans
   }
 
