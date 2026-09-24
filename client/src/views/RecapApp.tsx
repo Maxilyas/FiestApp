@@ -184,7 +184,7 @@ export function RecapApp() {
           <p className="muted small">
             {recap.stats.questions} questions posées · {recap.stats.logged} réponses enregistrées.
             Clique sur un en-tête pour trier — chacun peut y chercher son propre chiffre. Le tableau
-            défile dans son cadre : dix-sept colonnes ne tiennent pas sur un téléphone.
+            défile dans son cadre : dix-huit colonnes ne tiennent pas sur un téléphone.
           </p>
           <StatsTable stats={recap.stats} />
         </section>

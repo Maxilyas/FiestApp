@@ -71,6 +71,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                   ))}
                   <th title="Moyenne par membre sur toute la soirée — c'est elle qui classe">Moyenne</th>
                   <th title="Part de bonnes réponses aux QCM, tous membres confondus">Réussite</th>
+                  <th title="Estimations : la part de la salle que celles de l’équipe battent ou égalent, en moyenne">Coup d’œil</th>
                   <th title="Temps de réponse moyen">Temps</th>
                   <th title="Les points de classement du quiz, prix compris">Barème</th>
                 </tr>
@@ -89,6 +90,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                     ))}
                     <td className="stats-active">{t.average}</td>
                     <td>{t.accuracy === null ? '—' : formatPercent(t.accuracy)}</td>
+                    <td>{t.coupDOeil === null ? '—' : formatPercent(t.coupDOeil)}</td>
                     <td>{t.avgMs === null ? '—' : formatSeconds(t.avgMs)}</td>
                     <td>
                       {t.gamePoints}

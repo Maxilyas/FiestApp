@@ -1770,6 +1770,14 @@ h3 > .icon {
 
 .undo-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
 
+/* Des modifications retrouvées dans le navigateur : la carte qui demande quoi en faire. */
+.brouillon-carte {
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* Un bouton qui se lit comme un lien, au fil d'une phrase. */
 .link-btn {
   padding: 0;
@@ -4032,6 +4040,8 @@ h3 > .icon {
 .chiffre { display: flex; flex-direction: column; gap: 2px; margin: 0; }
 .chiffre dt { font-size: 10px; letter-spacing: 0.14em; }
 .chiffre dd { margin: 0; font-size: 1.35rem; color: var(--accent-text); }
+/* Sur combien de questions porte le chiffre : « 1 sur 2 QCM ». */
+.chiffre .chiffre-base { font-size: 0.75rem; line-height: 1.25; color: var(--muted); }
 
 .categories { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 
@@ -4044,17 +4054,38 @@ h3 > .icon {
 
 .categorie-nom { font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.courbes { margin: 4px 0 8px; }
+/* Trois séries, validées ensemble sur le fond du profil — toujours Velours —,
+   daltonismes compris, contraste d'au moins 3:1 : l'or de la précision, le
+   bleu du coup d'œil, le vert du réflexe. L'or de l'accent se confondait avec
+   l'ancien vert pâle du réflexe, même pour un œil qui voit toutes les
+   couleurs. */
+.courbes {
+  --courbe-precision: #c98500;
+  --courbe-oeil: #3987e5;
+  --courbe-reflexe: #1f9a78;
+  margin: 4px 0 8px;
+}
 .courbes svg { display: block; width: 100%; height: auto; }
 .courbe-axe { stroke: var(--track); stroke-width: 1; }
 .courbe { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
-.courbe-precision { stroke: var(--accent); }
-.courbe-reflexe { stroke: #8fbfa8; stroke-dasharray: 5 4; }
-.courbe-point { fill: var(--accent); }
+.courbe-precision { stroke: var(--courbe-precision); }
+.courbe-oeil { stroke: var(--courbe-oeil); }
+.courbe-reflexe { stroke: var(--courbe-reflexe); stroke-dasharray: 5 4; }
+/* Un anneau du fond autour de chaque marque : un rond posé sur un carré se
+   détache encore quand les deux justesses se rejoignent. */
+.courbe-point { stroke: var(--bg); stroke-width: 1.6; paint-order: stroke; }
+.courbe-point-precision { fill: var(--courbe-precision); }
+.courbe-point-oeil { fill: var(--courbe-oeil); }
 .courbes-legende { gap: 16px; font-size: 0.78rem; color: var(--muted); }
-.courbes-legende span::before { content: ''; display: inline-block; width: 14px; height: 2px; margin-right: 6px; vertical-align: middle; }
-.legende-precision::before { background: var(--accent); }
-.legende-reflexe::before { background: #8fbfa8; }
+/* La légende reprend la marque de chaque courbe : le rond, le carré, les tirets. */
+.courbes-legende span::before { content: ''; display: inline-block; margin-right: 6px; vertical-align: middle; }
+.legende-precision::before { width: 8px; height: 8px; border-radius: 50%; background: var(--courbe-precision); }
+.legende-oeil::before { width: 8px; height: 8px; background: var(--courbe-oeil); }
+.legende-reflexe::before {
+  width: 14px;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--courbe-reflexe) 0 5px, transparent 5px 9px);
+}
 
 /* ── La carte d'un joueur ──────────────────────────────────────────────── */
 

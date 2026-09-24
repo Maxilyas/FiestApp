@@ -2,7 +2,8 @@ import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library
 import type { ArchiveSummary } from '../../shared/archive'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
 import type { FinitionChoisie, PublicProfile, PublicProfileDetail } from '../../shared/profil'
-import { MOTIFS, motifEchec, motifHttp } from '../../shared/erreurs'
+import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
+import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 
 /**
  * Une erreur d'API qui porte ce que le serveur a joint au message.
@@ -12,7 +13,12 @@ import { MOTIFS, motifEchec, motifHttp } from '../../shared/erreurs'
  * resterait devant un refus qu'elle ne sait pas contourner.
  */
 export class ApiError extends Error {
-  constructor(message: string, readonly suggestion?: string) {
+  constructor(
+    message: string,
+    readonly suggestion?: string,
+    /** Un échec qui passe tout seul — l'hébergeur qui se réveille : une écriture peut l'attendre (`auReveil`). */
+    readonly passager = false,
+  ) {
     super(message)
   }
 }
@@ -72,7 +78,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
     // compte-gouttes n'est pas une réponse.
     texte = await res.text()
   } catch (e) {
-    throw new ApiError(motifEchec(e))
+    throw new ApiError(motifEchec(e), undefined, echecPassager(e))
   } finally {
     clearTimeout(minuteur)
   }
@@ -82,7 +88,11 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 401) throw new UnauthorizedError(motifHttp(401, corps))
   if (!res.ok) {
     const suggestion = (corps as { suggestion?: unknown } | undefined)?.suggestion
-    throw new ApiError(motifHttp(res.status, corps), typeof suggestion === 'string' ? suggestion : undefined)
+    throw new ApiError(
+      motifHttp(res.status, corps),
+      typeof suggestion === 'string' ? suggestion : undefined,
+      statutPassager(res.status),
+    )
   }
   if (corps === undefined) throw new ApiError(MOTIFS.illisible)
   return corps as T
@@ -206,6 +216,15 @@ export const api = {
     /** Un compte désactivé seulement ; tout ce qu'il a laissé part avec lui. */
     remove: (id: string) => req<{ ok: true }>(`/api/admin/accounts/${id}`, { method: 'DELETE' }),
   },
+}
+
+/**
+ * Un appel qui attend le réveil de l'hébergeur au lieu d'échouer au bout de
+ * vingt secondes — voir `shared/reveil.ts`. Seulement pour ce qu'on peut
+ * rejouer sans dommage : un essai abandonné a pu arriver quand même.
+ */
+export function auReveil<T>(appel: () => Promise<T>, attente: Omit<Attente, 'passager'> = {}): Promise<T> {
+  return enAttendantLeReveil(appel, { ...attente, passager: e => e instanceof ApiError && e.passager })
 }
 
 /**

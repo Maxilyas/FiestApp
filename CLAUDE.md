@@ -51,7 +51,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `core/distante.ts` | le client libsql, avec un délai : une base muette se dit en dix secondes, pas en cinq minutes ; et `ajouterColonne()`, qui lit le schéma avant de migrer et laisse toute panne arrêter le démarrage |
 | `core/archive.ts` | l'historique : une fiche par soirée, relue avec les règles du jour ; `Soiree`, le nom figé |
 | `core/recap.ts` `review.ts` `stats.ts` `progress.ts` | **dérivations pures** des journaux |
-| `core/journal.ts` | le journal rangé question par question et quiz par quiz : la seule lecture qu'en font l'expérience et les hauts faits |
+| `core/journal.ts` | le journal rangé question par question et quiz par quiz : la seule lecture qu'en font l'expérience et les hauts faits — et le coup d'œil de chaque estimation (`coupDOeil`), que lisent aussi le souvenir, le bilan et la carte |
 | `core/hautsfaits.ts` | les hauts faits d'une soirée, invité par invité — dérivation pure, jouée à la clôture et sur les archives |
 | `core/recalcul.ts` | au démarrage, relit l'historique au barème du jour (`VERSION_BAREME`) : expérience, prix, hauts faits, paliers |
 | `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les douze avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un |
@@ -75,7 +75,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/classement.ts` | la seule règle des ex æquo : rang partagé, vainqueurs, ordre d'affichage — et l'écart d'une estimation (`ecartEstimation`) |
 | `shared/nombres.ts` | un nombre tapé par un humain, lu comme on l'écrit en France (« 35 000 », « 0,8 », « −40 ») : l'estimation au téléphone, la cible de l'éditeur, l'import d'une liste — une seule lecture |
 | `shared/securite.ts` | la page de retour après connexion : jamais ailleurs que chez soi |
-| `shared/erreurs.ts` | les motifs que le client montre quand ça coince (réseau, serveur qui redémarre…) |
+| `shared/erreurs.ts` | les motifs que le client montre quand ça coince (réseau, serveur qui redémarre…), et ce qui passe tout seul (`statutPassager`, `echecPassager`) |
+| `shared/reveil.ts` | une écriture qui attend le réveil de l'hébergeur au lieu d'échouer à vingt secondes (`auReveil`, dans `client/src/api.ts`) |
+| `shared/brouillon.ts` · `client/src/brouillon.ts` | le brouillon d'un quiz : ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit (`normalizeQuestions`, `shared/library.ts`) |
 | `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
 | `client/src/components/Liaison.tsx` | ce que voit l'invité quand la liaison tombe |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
@@ -255,6 +257,13 @@ server/test/        un fichier par thème, un serveur jetable chacun
   avec `Number()` : « 35 000 » valait NaN au téléphone, et l'éditeur, qui
   relisait sa cible à chaque touche, faisait 8 de « 0,8 ». Le champ garde le
   texte tapé ; seule la valeur lue part en base.
+- **Une précision ne compte que les QCM, et dit sur combien** (« 50 % ·
+  1 sur 2 QCM ») : une estimation n'est jamais « juste », et comptée au
+  dénominateur elle faisait lire « 1/64 justes ». **Une estimation se juge
+  au coup d'œil** (`coupDOeil`, `core/journal.ts`) — la part de la salle
+  qu'elle bat ou égale —, jamais à l'écart en pour cent : trois ans sur 1994
+  font 0,15 %, trois sur 54 en font 6 %, et une faute de frappe triplait la
+  moyenne. Les deux ne se fondent jamais en un seul chiffre.
 - **Ce qui ne dépend pas du destinataire d'une vue** — un classement, un
   podium — passe par `vctx.memo` : un tri par vue coûtait une demi-minute par
   question à 500 invités.
@@ -327,6 +336,12 @@ sans `QUIZ_DB_URL`.
   seule oubliée, et la colonne se perd au premier réveil sur disque effacé.
 - **Toute mutation de `Party` qui touche un prénom, un avatar ou la
   composition invalide le cache des marques** d'homonymie.
+- **L'éditeur n'envoie rien pendant qu'on écrit** : le serveur s'endort sous
+  les doigts de l'animateur. Une écriture de l'éditeur qui se rejoue sans
+  dommage passe par `auReveil` ; et une réponse qui arrive après deux minutes
+  d'attente ne remplace l'éditeur que si rien n'a bougé depuis
+  (`modifications`). L'envoi d'une photo n'y passe pas : il s'attache à la
+  question par sa position, qu'on a pu déplacer entre-temps.
 - **Un réglage de plus à la liste collée** se lit dans
   `parseImportedQuestions`, s'annonce dans `FORMAT_DE_LISTE` et paraît dans
   son exemple, que `liste.test.ts` relit : le format copié pour une IA ne

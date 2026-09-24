@@ -43,7 +43,7 @@ function messageDu(corps: unknown): string | null {
  * rien à un invité.
  */
 export function motifHttp(statut: number, corps: unknown): string {
-  if (statut === 502 || statut === 503 || statut === 504) return MOTIFS.redemarrage
+  if (statutPassager(statut)) return MOTIFS.redemarrage
   if (statut >= 500) return MOTIFS.panne
   const message = messageDu(corps)
   if (message) return message
@@ -61,8 +61,29 @@ export function motifHttp(statut: number, corps: unknown): string {
  * textes ne se montre tel quel.
  */
 export function motifEchec(erreur: unknown): string {
-  const nom = erreur && typeof erreur === 'object' ? (erreur as { name?: unknown }).name : undefined
-  if (nom === 'AbortError' || nom === 'TimeoutError') return MOTIFS.silence
-  if (nom === 'SyntaxError') return MOTIFS.illisible
+  if (echecPassager(erreur)) return MOTIFS.silence
+  if (nomDe(erreur) === 'SyntaxError') return MOTIFS.illisible
   return MOTIFS.reseau
+}
+
+const nomDe = (erreur: unknown): unknown =>
+  erreur && typeof erreur === 'object' ? (erreur as { name?: unknown }).name : undefined
+
+// ── Un échec qui passe tout seul ─────────────────────────────────────────
+//
+// L'hébergeur endort le serveur après un quart d'heure sans requête, et le
+// réveil prend une minute. Ce qui arrive pendant ce temps n'est pas un refus :
+// une écriture qu'on peut rejouer sans dommage l'attend (`shared/reveil.ts`).
+
+/** 502, 503, 504 : l'hébergeur répond à la place de l'application, le temps d'un réveil ou d'un déploiement. */
+export const statutPassager = (statut: number): boolean => statut === 502 || statut === 503 || statut === 504
+
+/**
+ * Un appel resté sans réponse dans le délai. C'est ainsi que se présente un
+ * réveil : l'hébergeur retient la requête le temps que le serveur démarre,
+ * et le client renonce avant.
+ */
+export function echecPassager(erreur: unknown): boolean {
+  const nom = nomDe(erreur)
+  return nom === 'AbortError' || nom === 'TimeoutError'
 }

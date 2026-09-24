@@ -6,7 +6,7 @@
 // seulement mal tapé son mot de passe.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { MOTIFS, motifEchec, motifHttp } from '../../shared/erreurs'
+import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 
 test('un mot de passe faux se dit tel que le serveur le dit, pas « Connexion requise »', () => {
   assert.equal(
@@ -65,6 +65,18 @@ test('un délai dépassé dit que le serveur ne répond pas', () => {
   // Un DOMException n'hérite pas d'Error dans tous les navigateurs : seul
   // son nom compte.
   assert.equal(motifEchec({ name: 'AbortError', message: 'aborted' }), MOTIFS.silence)
+})
+
+test('un réveil se reconnaît — délai dépassé, 502, 503, 504 — et rien d’autre ne se rejoue', () => {
+  for (const statut of [502, 503, 504]) assert.equal(statutPassager(statut), true, `statut ${statut}`)
+  for (const statut of [400, 401, 404, 409, 429, 500]) assert.equal(statutPassager(statut), false, `statut ${statut}`)
+  assert.equal(echecPassager(new DOMException('The operation was aborted.', 'AbortError')), true)
+  assert.equal(echecPassager({ name: 'TimeoutError', message: 'timed out' }), true)
+  // Le réseau coupé n'est pas un réveil : l'attendre deux minutes en silence
+  // cacherait un wifi tombé, qu'on peut rétablir tout de suite.
+  assert.equal(echecPassager(new TypeError('Failed to fetch')), false)
+  assert.equal(echecPassager(new SyntaxError('Unexpected token < in JSON at position 0')), false)
+  assert.equal(echecPassager(undefined), false)
 })
 
 test('une réponse qui n’est pas du JSON (portail wifi) se dit illisible', () => {

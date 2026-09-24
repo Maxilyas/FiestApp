@@ -29,9 +29,17 @@ import { CATEGORIES } from '../../../shared/categories'
 import { lireNombre } from '../../../shared/nombres'
 import { POIDS_MAX_FICHIER, emporterQuiz, importerQuiz, nomDeFichier } from '../../../shared/echange'
 import { APERCU_DU_FORMAT, FORMAT_DE_LISTE, apparierPhotos, cleDePhoto, joindrePhotos } from '../../../shared/liste'
-import { UnauthorizedError, api, compressImage } from '../api'
+import {
+  brouillonDepasse,
+  brouillonUtile,
+  photosAVerifier,
+  sansPhotosDisparues,
+  type Brouillon,
+} from '../../../shared/brouillon'
+import { ApiError, UnauthorizedError, api, auReveil, compressImage } from '../api'
+import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon } from '../brouillon'
 import { questionSizeClass } from '../games/quiz/questionSize'
-import { confirmDialog, promptDialog } from '../components/Dialog'
+import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
 import { TimerBar } from '../components/TimerBar'
@@ -126,6 +134,8 @@ export function EditorApp() {
   const [busy, setBusy] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [list, setList] = useState<QuizSummary[] | null>(null)
+  /** Les quiz dont ce navigateur garde des modifications non enregistrées. */
+  const [brouillons, setBrouillons] = useState<ReadonlySet<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -186,7 +196,10 @@ export function EditorApp() {
 
   const reload = useCallback(async () => {
     try {
-      setList(await api.list())
+      const quizzes = await api.list()
+      setList(quizzes)
+      // Signalés ici : sans quoi on ne les retrouvait qu'en ouvrant le bon quiz.
+      setBrouillons(new Set(quizzes.filter(q => retrouverBrouillon(q.id)).map(q => q.id)))
       setNeedLogin(false)
     } catch (e) {
       if (e instanceof UnauthorizedError) setNeedLogin(true)
@@ -310,6 +323,11 @@ export function EditorApp() {
                 {' · '}
                 modifié le {formatDate(q.updatedAt)}
               </p>
+              {brouillons.has(q.id) && (
+                <p className="warn small">
+                  <Icon name="edit" /> Des modifications non enregistrées t’attendent dans ce navigateur
+                </p>
+              )}
             </div>
             <div className="row">
               <button className="btn" onClick={() => setEditingId(q.id)}>
@@ -348,6 +366,7 @@ export function EditorApp() {
                   if (!ok) return
                   try {
                     await api.remove(q.id)
+                    oublierBrouillon(q.id)
                     reload()
                   } catch (e) {
                     setError((e as Error).message)
@@ -370,9 +389,25 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const [quiz, setQuiz] = useState<QuizDef | null>(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
+  /** L'enregistrement attend que le serveur se réveille (voir `auReveil`). */
+  const [reveil, setReveil] = useState(false)
   const [error, setError] = useState('')
   const [savedAt, setSavedAt] = useState<number | null>(null)
   const [importing, setImporting] = useState(false)
+  /**
+   * Des modifications de ce quiz que ce navigateur a gardées sans que le
+   * serveur les ait enregistrées. Tant qu'on n'a pas choisi de les reprendre
+   * ou de les effacer, l'éditeur reste fermé : la première touche tapée dans
+   * la version du serveur aurait écrasé le brouillon.
+   */
+  const [retrouve, setRetrouve] = useState<Brouillon | null>(null)
+  const [reprise, setReprise] = useState<'en-cours' | 'faite' | null>(null)
+  /** Les questions dont la photo n'existait plus sur le serveur quand on a repris le brouillon. */
+  const [sansPhoto, setSansPhoto] = useState<ReadonlySet<string>>(new Set())
+  /** `updatedAt` de la version du serveur d'où partent les modifications en cours. */
+  const [base, setBase] = useState(0)
+  /** Faux quand le navigateur refuse de garder le brouillon : l'éditeur ne promet plus rien. */
+  const [garde, setGarde] = useState(true)
   /**
    * Le dernier déplacement, pour le défaire d'un clic : une faute de frappe,
    * 54 pour 45, ne doit pas coûter une recherche dans soixante cartes. On
@@ -385,9 +420,51 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   /** Ce qui vient de bouger, pour les lecteurs d'écran — l'œil, lui, suit la carte éclairée. */
   const [announce, setAnnounce] = useState('')
 
+  /**
+   * Le quiz tel qu'il est à l'instant, et le compte de ses modifications.
+   * Un enregistrement peut attendre le réveil deux minutes, et l'on continue
+   * d'écrire pendant ce temps : chaque essai envoie le quiz du moment, et la
+   * version du serveur ne remplace celle de l'éditeur que si rien n'a bougé
+   * depuis l'essai qui a abouti. Remplacée d'office, elle effaçait ce qu'on
+   * avait tapé en attendant.
+   */
+  const courant = useRef<QuizDef | null>(null)
+  const modifications = useRef(0)
+  /** Faux une fois l'éditeur refermé : l'enregistrement cesse d'attendre le réveil. */
+  const ouvert = useRef(true)
+
+  const poser = (q: QuizDef) => {
+    courant.current = q
+    setQuiz(q)
+  }
+
   useEffect(() => {
-    api.get(id).then(setQuiz).catch(e => setError((e as Error).message))
+    ouvert.current = true
+    return () => {
+      ouvert.current = false
+    }
+  }, [])
+
+  useEffect(() => {
+    api
+      .get(id)
+      .then(serveur => {
+        const brouillon = retrouverBrouillon(id)
+        if (brouillon && brouillonUtile(brouillon, serveur)) setRetrouve(brouillon)
+        else if (brouillon) oublierBrouillon(id)
+        setBase(serveur.updatedAt)
+        poser(serveur)
+      })
+      .catch(e => setError((e as Error).message))
   }, [id])
+
+  // Ce qui n'est pas enregistré va aussi dans le navigateur, et s'en efface
+  // une fois enregistré — ou défait (`undoMove`).
+  useEffect(() => {
+    if (!quiz || retrouve) return
+    if (dirty) setGarde(garderBrouillon(quiz, base))
+    else oublierBrouillon(quiz.id)
+  }, [quiz, dirty, base, retrouve])
 
   useEffect(() => {
     if (!spot) return
@@ -404,7 +481,9 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   }, [dirty])
 
   const patch = (fn: (draft: QuizDef) => QuizDef) => {
-    setQuiz(q => (q ? fn(q) : q))
+    if (!courant.current) return
+    modifications.current++
+    poser(fn(courant.current))
     setDirty(true)
     // Toute autre modification tourne la page : le déplacement n'est plus « le dernier ».
     setUndo(null)
@@ -470,26 +549,54 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   }
 
   const save = async () => {
-    if (!quiz) return
+    if (!courant.current) return
     setSaving(true)
     setError('')
+    let envoi = { quiz: courant.current, modifications: modifications.current }
     try {
-      const saved = await api.save(quiz.id, quiz.title, quiz.questions)
-      setQuiz(saved)
-      setDirty(false)
+      const saved = await auReveil(
+        () => {
+          envoi = { quiz: courant.current ?? envoi.quiz, modifications: modifications.current }
+          return api.save(envoi.quiz.id, envoi.quiz.title, envoi.quiz.questions)
+        },
+        { surAttente: () => setReveil(true), continuer: () => ouvert.current },
+      )
+      setBase(saved.updatedAt)
       setSavedAt(Date.now())
-      // Enregistré, le déplacement est acquis : le défaire ensuite serait une
-      // modification comme une autre, pas un retour à l'état enregistré.
-      setUndo(null)
+      if (modifications.current === envoi.modifications) {
+        poser(saved)
+        setDirty(false)
+        setReprise(null)
+        // Enregistré, le déplacement est acquis : le défaire ensuite serait une
+        // modification comme une autre, pas un retour à l'état enregistré.
+        setUndo(null)
+      } else {
+        // On a écrit pendant l'envoi : ce qui a suivi reste à enregistrer —
+        // même un déplacement défait, que le serveur, lui, a reçu.
+        setDirty(true)
+      }
     } catch (e) {
       setError((e as Error).message)
     } finally {
       setSaving(false)
+      setReveil(false)
     }
   }
 
   const close = async () => {
-    if (dirty) {
+    if (dirty && garde) {
+      // Le brouillon attend dans ce navigateur : partir ne perd plus rien, et
+      // effacer ce qu'on a écrit devient un geste à part.
+      const choix = await choixDialog({
+        title: 'Quitter sans enregistrer ?',
+        message: 'Ce navigateur garde tes modifications : tu les retrouveras en rouvrant ce quiz.',
+        confirmLabel: 'Quitter',
+        cancelLabel: 'Rester',
+        alternative: { label: 'Effacer mes modifications', danger: true },
+      })
+      if (!choix) return
+      if (choix.geste === 'alternative') oublierBrouillon(id)
+    } else if (dirty) {
       const leave = await confirmDialog({
         title: 'Quitter sans enregistrer ?',
         message: 'Des modifications ne sont pas enregistrées. Elles seront perdues.',
@@ -502,10 +609,78 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
     onClose()
   }
 
+  const reprendre = async () => {
+    const serveur = courant.current
+    if (!retrouve || !serveur) return
+    setReprise('en-cours')
+    // Une photo envoyée mais jamais enregistrée a pu être effacée depuis
+    // (voir `photosAVerifier`) : repartie telle quelle, elle manquait en soirée.
+    const disparues = await photosDisparues(photosAVerifier(retrouve, serveur))
+    const { questions, privees } = sansPhotosDisparues(retrouve.questions, disparues)
+    modifications.current++
+    poser({ ...serveur, title: retrouve.title, questions })
+    setDirty(true)
+    setSansPhoto(new Set(privees))
+    setRetrouve(null)
+    setReprise('faite')
+  }
+
+  const effacerLeBrouillon = async () => {
+    if (!quiz) return
+    const ok = await confirmDialog({
+      title: 'Effacer ces modifications ?',
+      message: `Le quiz s’ouvrira tel qu’il a été enregistré, le ${formatDate(quiz.updatedAt)}.`,
+      confirmLabel: 'Effacer',
+      danger: true,
+    })
+    if (!ok) return
+    oublierBrouillon(id)
+    setRetrouve(null)
+  }
+
   if (!quiz) {
     return (
       <div className="center-page">
         <p className={error ? 'error' : 'serif-note'}>{error || 'Chargement…'}</p>
+      </div>
+    )
+  }
+
+  if (retrouve) {
+    return (
+      <div className="center-page">
+        <div className="card brouillon-carte">
+          <h2>
+            <Icon name="edit" />
+            Des modifications t’attendent
+          </h2>
+          <p>
+            {espacesFines(
+              `Ce navigateur a gardé des modifications de « ${quiz.title} » qui n’ont pas été enregistrées — ` +
+                `les dernières le ${formatDate(retrouve.at)}.`,
+            )}
+          </p>
+          {brouillonDepasse(retrouve, quiz) && (
+            <p className="warn">
+              <Icon name="alert" />{' '}
+              {espacesFines(
+                `Le quiz a été enregistré depuis, le ${formatDate(quiz.updatedAt)} — d’un autre appareil ? ` +
+                  'Les reprendre remplacera cette version quand tu enregistreras.',
+              )}
+            </p>
+          )}
+          <div className="row">
+            <button className="btn btn-primary" disabled={reprise === 'en-cours'} onClick={reprendre}>
+              {reprise === 'en-cours' ? 'Reprise…' : 'Reprendre mes modifications'}
+            </button>
+            <button className="btn btn-ghost" disabled={reprise === 'en-cours'} onClick={effacerLeBrouillon}>
+              Les effacer
+            </button>
+            <button className="btn btn-ghost" disabled={reprise === 'en-cours'} onClick={onClose}>
+              Retour
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -532,7 +707,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           </button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>
             {saving ? (
-              'Enregistrement…'
+              reveil ? 'Réveil du serveur…' : 'Enregistrement…'
             ) : dirty ? (
               'Enregistrer'
             ) : (
@@ -545,7 +720,32 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
         </div>
       </header>
 
+      {reveil && (
+        <p className="info" role="status">
+          {espacesFines(
+            'Le serveur dormait : il se réveille, ça prend environ une minute. Tu peux continuer à écrire' +
+              (garde ? ', ce navigateur garde tes modifications.' : '.'),
+          )}
+        </p>
+      )}
       {error && <p className="error">{error}</p>}
+      {/* Le message d'échec pousse à recharger la page : c'était là qu'on perdait tout. */}
+      {error && dirty && garde && (
+        <p className="muted">
+          {espacesFines('Rien n’est perdu : ce navigateur garde tes modifications, même si tu fermes la page.')}
+        </p>
+      )}
+      {reprise === 'faite' && (
+        <p className="info" role="status">
+          {espacesFines(
+            'Tes modifications sont reprises : enregistre-les pour les garder.' +
+              (sansPhoto.size === 1 ? ' Une photo n’existait plus sur le serveur : sa question le signale.' : '') +
+              (sansPhoto.size > 1
+                ? ` ${sansPhoto.size} photos n’existaient plus sur le serveur : leurs questions le signalent.`
+                : ''),
+          )}
+        </p>
+      )}
       {savedAt && !dirty && <p className="muted">Enregistré à {formatDate(savedAt)}</p>}
       {undo && (
         <p className="muted undo-line">
@@ -567,6 +767,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           index={index}
           total={quiz.questions.length}
           question={question}
+          photoDisparue={!!question.id && sansPhoto.has(question.id)}
           spot={spot && spot.id === question.id ? spot : null}
           onChange={fn => patchQuestion(index, fn)}
           onMoveTo={(number, focus) => moveTo(index, number, focus)}
@@ -800,6 +1001,8 @@ function BulkImport({
   const [fichiers, setFichiers] = useState<File[]>([])
   /** L'envoi des photos, au moment d'ajouter : combien sont parties. */
   const [envoi, setEnvoi] = useState<{ faites: number; total: number } | null>(null)
+  /** Une photo attend que le serveur se réveille (voir `auReveil`). */
+  const [reveil, setReveil] = useState(false)
   const choixPhotos = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -837,11 +1040,30 @@ function BulkImport({
   const ajouter = async () => {
     if (!appariees.some(Boolean)) return onImport(result.questions, number)
     setEnvoi({ faites: 0, total: 0 })
+    // Le serveur ne s'est pas réveillé pour une photo : les suivantes n'attendent
+    // plus, sans quoi un serveur tombé coûtait deux minutes par photo.
+    let renonce = false
     const { questions: jointesAuQuiz, echecs } = await joindrePhotos(
       result.questions,
       fichiers,
-      async fichier => (await api.uploadImage(await compressImage(fichier))).url,
-      (faites, total) => setEnvoi({ faites, total }),
+      async fichier => {
+        if (renonce) throw new Error('Serveur endormi')
+        const enClair = await compressImage(fichier)
+        // Une photo rejoint la question qui l'annonçait, pas une place dans le
+        // quiz : elle peut attendre le réveil, contrairement à celle qu'on
+        // joint depuis une carte.
+        try {
+          const { url } = await auReveil(() => api.uploadImage(enClair), { surAttente: () => setReveil(true) })
+          return url
+        } catch (e) {
+          if (e instanceof ApiError && e.passager) renonce = true
+          throw e
+        }
+      },
+      (faites, total) => {
+        setReveil(false)
+        setEnvoi({ faites, total })
+      },
     )
     // Les questions entrent quand même : celle dont la photo n'est pas
     // partie l'attend, et le dit sur sa carte.
@@ -1000,9 +1222,11 @@ function BulkImport({
       )}
       <div className="row">
         <button className="btn btn-primary" disabled={count === 0 || envoi !== null} onClick={ajouter}>
-          {envoi
-            ? `Envoi des photos…${envoi.total > 0 ? ` ${envoi.faites}/${envoi.total}` : ''}`
-            : 'Ajouter au quiz'}
+          {!envoi
+            ? 'Ajouter au quiz'
+            : reveil
+              ? 'Réveil du serveur…'
+              : `Envoi des photos…${envoi.total > 0 ? ` ${envoi.faites}/${envoi.total}` : ''}`}
         </button>
         <label className="row">
           <span className="muted">à partir du n°</span>
@@ -1029,6 +1253,8 @@ interface QuestionCardProps {
   index: number
   total: number
   question: QuizQuestionDef
+  /** Sa photo n'existait plus sur le serveur à la reprise du brouillon : elle le dit, jusqu'à la suivante. */
+  photoDisparue: boolean
   /** Non nul quand la carte vient d'arriver ici : on la montre, on l'éclaire. */
   spot: Spot | null
   onChange: (fn: (q: QuizQuestionDef) => QuizQuestionDef) => void
@@ -1048,6 +1274,7 @@ function QuestionCard({
   index,
   total,
   question,
+  photoDisparue,
   spot,
   onChange,
   onMoveTo,
@@ -1437,6 +1664,12 @@ function QuestionCard({
       {preview && <QuestionPreview question={question} onClose={() => setPreview(false)} />}
       {loupe && question.image && <PhotoLoupe src={question.image} onClose={() => setLoupe(false)} />}
       {imageError && <p className="error">{imageError}</p>}
+      {photoDisparue && !question.image && (
+        <p className="warn">
+          <Icon name="alert" />{' '}
+          {espacesFines('La photo de cette question n’existe plus sur le serveur : ajoute-la de nouveau.')}
+        </p>
+      )}
       {problem && (
         <p className="warn">
           <Icon name="alert" /> {problem} — cette question ne sera pas jouée.

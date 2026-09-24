@@ -20,12 +20,14 @@ import {
   MAX_PHOTO_ATTENDUE,
   MIN_DURATION,
   emptyQuestion,
+  normalizeQuestions,
   parseImportedQuestions,
   questionProblem,
   toPlayable,
   type QuizQuestionDef,
 } from '../../shared/library'
 import { CATEGORIES } from '../../shared/categories'
+import { brouillonUtile, emballerBrouillon, lireBrouillon } from '../../shared/brouillon'
 import {
   APERCU_DU_FORMAT,
   EXEMPLE_DU_FORMAT,
@@ -34,7 +36,6 @@ import {
   cleDePhoto,
   joindrePhotos,
 } from '../../shared/liste'
-import { normalizeQuestions } from '../src/core/quizStore'
 
 /** Une photo d'un pixel, telle que le navigateur l'envoie. */
 const PNG =
@@ -212,6 +213,19 @@ test('le serveur garde la photo attendue, bornée, et l’oublie quand la photo 
   assert.equal(jointe.image, '/media/image/abc')
   assert.equal(rien.photoAttendue, null)
   assert.equal(Array.from(longue.photoAttendue ?? '').length, MAX_PHOTO_ATTENDUE)
+})
+
+test('le brouillon du navigateur garde la photo qu’une question attend', () => {
+  // Collée, puis le serveur endormi à l'enregistrement : le brouillon qu'on
+  // reprend doit encore dire quelle photo manque, et à quelle question.
+  const { questions } = parseImportedQuestions(APERCU_DU_FORMAT)
+  const relu = lireBrouillon(emballerBrouillon({ id: 'quiz-colle', title: 'Collé', questions }, 1, 2), 'quiz-colle')
+  assert.deepEqual(
+    relu?.questions.map(q => q.photoAttendue),
+    [null, 'tour-eiffel.jpg', null],
+  )
+  const sansNote = questions.map(q => ({ ...q, photoAttendue: null }))
+  assert.ok(brouillonUtile(relu!, { title: 'Collé', questions: sansNote }), 'une photo attendue de plus est une modification à reprendre')
 })
 
 // ── 4. Les photos jointes en collant la liste ─────────────────────────────

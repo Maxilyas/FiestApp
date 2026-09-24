@@ -1,7 +1,7 @@
 import type { PlayerRec } from './party'
 import type { ScoreEntry } from './scores'
 import type { AnswerRow } from './answers'
-import { indexerJournal, questionsDe } from './journal'
+import { coupDOeil, indexerJournal, questionsDe } from './journal'
 import { SEUILS, XP, gainVide, releveVide, totalGain, type GainSoiree, type ReleveSoiree } from '../../../shared/profil'
 import { rangPartage } from '../../../shared/classement'
 
@@ -115,6 +115,11 @@ export function relevesDeSoiree(
         rel.estimations++
         if (r.value === r.target) rel.estimationsExactes++
         rel.ecartRelatif += ecartRelatif(r.value, r.target)
+        const part = coupDOeil(q, r.playerId)
+        if (part !== null) {
+          rel.estimationsComparees++
+          rel.coupDOeil += part
+        }
         const rang = q.rangsEstimation.get(r.playerId)
         if (rang !== undefined && rang <= q.tiersEstimation) rel.estimationsProches++
         if (valide && rang !== undefined) {

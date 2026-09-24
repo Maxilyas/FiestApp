@@ -22,8 +22,22 @@ export interface CarteDeJoueur extends Distinctions {
     rang: number
     /** Joueurs qui ont répondu ce soir, pour dire « 3ᵉ sur 12 ». */
     joueurs: number
+    /** Toutes ses réponses, QCM et estimations. */
     reponses: number
+    /**
+     * Les QCM auxquels il a répondu, et ses bonnes réponses : « 1/2 justes ».
+     * Une estimation n'est jamais juste — comptée avec les QCM, elle faisait
+     * lire « 1/64 justes » à qui en avait joué soixante-deux.
+     */
+    qcm: number
     justes: number
+    /**
+     * Les estimations qu'il a proposées, comptées à part, et leur coup d'œil :
+     * la part de la salle qu'elles battent ou égalent, null sans estimation
+     * mesurée à une autre.
+     */
+    estimations: number
+    coupDOeil: number | null
   }
   /** Son profil, s'il en a un. */
   profil?: {
@@ -37,6 +51,22 @@ export interface CarteDeJoueur extends Distinctions {
     vitrine: BadgePorte[]
     /** Combien de hauts faits différents il a décrochés. */
     hautsFaits: number
-    fiche: Pick<Fiche, 'soirees' | 'precision' | 'reflexeMoyenMs' | 'quizGagnes' | 'meilleureSerie'>
+    /**
+     * La précision avec sa base, le coup d'œil avec la sienne. La carte ne
+     * montre plus la plus longue série, qui a cédé sa case au coup d'œil —
+     * elle part encore pour les pages ouvertes avant, qui la lisent.
+     */
+    fiche: Pick<
+      Fiche,
+      | 'soirees'
+      | 'precision'
+      | 'qcm'
+      | 'justes'
+      | 'coupDOeil'
+      | 'estimationsComparees'
+      | 'reflexeMoyenMs'
+      | 'quizGagnes'
+      | 'meilleureSerie'
+    >
   }
 }

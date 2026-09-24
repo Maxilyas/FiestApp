@@ -18,7 +18,17 @@ import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
 import { ProfileStore, type PrixDeSoiree } from '../auth/profiles'
-import { distinctions, ficheDe, finitionPortee, finitionsOuvertes, niveauDuProfil, soireeQuiCompte, type Finition } from '../../../shared/profil'
+import {
+  coupDOeilMoyen,
+  distinctions,
+  ficheDe,
+  finitionPortee,
+  finitionsOuvertes,
+  niveauDuProfil,
+  releveVide,
+  soireeQuiCompte,
+  type Finition,
+} from '../../../shared/profil'
 import { rangPartage } from '../../../shared/classement'
 import type { CarteDeJoueur } from '../../../shared/carte'
 import type { BadgePorte, Rarete } from '../../../shared/badges'
@@ -360,7 +370,11 @@ export class SpaceRuntime {
     if (!p) return null
     const positifs = [...totals.values()].filter(t => t > 0)
     const journal = this.answers.all()
-    const lignes = journal.filter(r => r.playerId === playerId)
+    // Sa soirée telle que sa fiche la rangera : la même lecture du journal,
+    // les mêmes chiffres.
+    const soir =
+      relevesDeSoiree({ players: this.party.all(), scores: this.ledger.all(), answers: journal }).get(playerId)?.releve ??
+      releveVide()
     const carte: CarteDeJoueur = {
       nom: p.nomAffiche ?? p.name,
       avatar: p.avatar,
@@ -371,8 +385,14 @@ export class SpaceRuntime {
         // Toute la salle qui a joué, pas seulement ceux qui ont marqué : « 1ᵉʳ
         // sur 2 » quand cinq ont répondu laissait croire à une salle vide.
         joueurs: new Set(journal.filter(r => r.answered).map(r => r.playerId)).size,
-        reponses: lignes.filter(r => r.answered).length,
-        justes: lignes.filter(r => r.correct === true).length,
+        reponses: soir.reponses,
+        // Les justes se comptent sur les QCM seuls : une estimation n'est
+        // jamais juste, et la compter au dénominateur faisait lire « 1/64
+        // justes » à qui avait joué soixante-deux estimations.
+        qcm: soir.qcm,
+        justes: soir.justes,
+        estimations: soir.estimations,
+        coupDOeil: coupDOeilMoyen(soir),
       },
     }
     if (!rec.profileId) return carte
@@ -395,6 +415,10 @@ export class SpaceRuntime {
       fiche: {
         soirees: fiche.soirees,
         precision: fiche.precision,
+        qcm: fiche.qcm,
+        justes: fiche.justes,
+        coupDOeil: fiche.coupDOeil,
+        estimationsComparees: fiche.estimationsComparees,
         reflexeMoyenMs: fiche.reflexeMoyenMs,
         quizGagnes: fiche.quizGagnes,
         meilleureSerie: fiche.meilleureSerie,
