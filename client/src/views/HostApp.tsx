@@ -895,11 +895,13 @@ export function HostApp() {
                           <Icon name="users" />
                           Les équipes
                         </h3>
-                        {/* Le même tableau qu'au téléphone et au souvenir : il
-                            disait « le gros chiffre est le total du quiz »,
-                            faux dès le deuxième quiz. */}
+                        {/* Le même tableau qu'au téléphone et au souvenir. Sa
+                            légende disait « le gros chiffre est le total du
+                            quiz », faux dès le deuxième quiz ; la règle entière
+                            passait sous la console en 1366 × 768 : chaque
+                            ligne dit d'où viennent ses points, et la règle se
+                            lit au podium et au panneau des équipes. */}
                         <TeamBoard teams={teams} />
-                        <p className="muted small center">{regleDesEquipes(teams.length)}</p>
                       </div>
 
                       {/* Le classement individuel a sa place ici : c'est pour lui

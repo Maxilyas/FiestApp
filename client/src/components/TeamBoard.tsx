@@ -50,20 +50,31 @@ export function TeamBoard({ teams, highlightId, compact }: Props) {
           <span className="lb-avatar">{t.emoji}</span>
           <span className="lb-name">
             {t.name}
-            <span className="team-sub">
-              {t.memberCount === 0 ? (
-                'aucun membre'
-              ) : (
-                <>
-                  {!compact && `${t.memberCount} membre${t.memberCount > 1 ? 's' : ''} · `}
-                  {/* « 439 de moyenne » se lit ; à l'oreille, il faut l'unité. */}
-                  {t.average}
-                  <span className="sr-only"> points</span> de moyenne
-                  {!compact && ` · ${t.total} pts au total`}
-                </>
-              )}
-              {played && !compact && ` · ${detailDesPoints(t)}`}
-            </span>
+            {/* Avant le premier quiz, « 0 de moyenne » sous chaque équipe ne
+                disait rien : au téléphone, le nom seul ; au mur, l'effectif. */}
+            {(played || !compact) && (
+              <span className="team-sub">
+                {t.memberCount === 0 ? (
+                  'aucun membre'
+                ) : (
+                  <>
+                    {!compact && `${t.memberCount} membre${t.memberCount > 1 ? 's' : ''}`}
+                    {!compact && played && ' · '}
+                    {/* « 439 de moyenne » se lit ; à l'oreille, il faut l'unité. */}
+                    {played && (
+                      <>
+                        {t.average}
+                        <span className="sr-only"> points</span> de moyenne
+                      </>
+                    )}
+                    {!compact && played && ` · ${t.total} pts au total`}
+                  </>
+                )}
+                {/* Le détail ne vaut que s'il y a des prix : sans eux, « 3 à la
+                    moyenne » répétait le gros chiffre. */}
+                {played && t.bonus !== 0 && ` · ${detailDesPoints(t)}`}
+              </span>
+            )}
           </span>
           {played && (
             <span className="team-points">

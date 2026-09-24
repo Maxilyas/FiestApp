@@ -260,7 +260,7 @@ test('une fois des prix remis, le souvenir, le bilan et le panneau de la salle c
   const tableau = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams: review.teams }))
   assert.match(
     tableau,
-    /^Rang 1 🦅 Les Aigles .*200 points de moyenne .*1 à la moyenne \+ 1 de prix 2 points d’équipe .*Rang 1 🦓 Les Zèbres .*300 points de moyenne .*2 à la moyenne 2 points d’équipe/,
+    /^Rang 1 🦅 Les Aigles .*200 points de moyenne .*1 à la moyenne \+ 1 de prix 2 points d’équipe .*Rang 1 🦓 Les Zèbres .*300 points de moyenne [^+]*2 points d’équipe/,
     tableau,
   )
 
