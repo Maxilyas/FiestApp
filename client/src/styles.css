@@ -1252,9 +1252,11 @@ h3 > .icon {
    1 280 px : « un téléphone posé au milieu d'une tablette » — une colonne de
    560 px, des réponses de téléphone. Au-delà de 700 px de large, la colonne
    s'élargit, la question et les réponses grandissent avec elle. La hauteur
-   minimale écarte un téléphone couché, resté confortable tel quel (Zoé). */
+   minimale écarte un téléphone couché, resté confortable tel quel (Zoé).
+   Seulement pendant une question : l'accueil, /profil et la fin de soirée
+   partagent la même coquille, et s'étiraient à 760 px sur tout ordinateur. */
 @media (min-width: 700px) and (min-height: 600px) {
-  .player-shell { max-width: 760px; padding-top: 36px; gap: 22px; }
+  .player-shell:has(.quiz-player) { max-width: 760px; padding-top: 36px; gap: 22px; }
   .quiz-player .quiz-question { font-size: 44px; }
   .quiz-player .quiz-question.q-md { font-size: 36px; }
   .quiz-player .quiz-question.q-sm { font-size: 30px; }
