@@ -190,7 +190,7 @@ export function exportFiles(review: Review): { name: string; content: string }[]
   const guests: unknown[][] = [
     [
       'Prénom', 'Avatar', 'Équipe', 'Points', 'Rang', "Rang dans l'équipe", 'Questions', 'Répondu', 'Justes',
-      'Fausses', 'Passées', 'Réussite', 'Temps moyen', 'Meilleur temps', 'Estimations', 'Prix',
+      'Fausses', 'Passées', 'Réussite', 'Temps moyen', 'Meilleur temps', 'Estimations', 'Coup d’œil', 'Prix',
       ...review.questions.map(heading),
     ],
     ...played.map(p => {
@@ -198,7 +198,7 @@ export function exportFiles(review: Review): { name: string; content: string }[]
       const s = p.stat
       return [
         p.name, p.avatar, teamName(p.teamId), p.points, p.rank, p.teamRank ?? '', s.asked, s.answered, s.correct,
-        s.wrong, s.missed, pct(s.accuracy), secs(s.avgMs), secs(s.bestMs), s.guesses,
+        s.wrong, s.missed, pct(s.accuracy), secs(s.avgMs), secs(s.bestMs), s.guesses, pct(s.coupDOeil),
         p.awards.map(a => `${a.emoji} ${a.title}`).join(', '),
         ...review.questions.map(q => {
           const a = byKey.get(q.key)
@@ -249,12 +249,13 @@ export function exportFiles(review: Review): { name: string; content: string }[]
   // Une ligne par équipe, un quiz par colonne.
   const teams: unknown[][] = [
     [
-      'Équipe', 'Membres', 'Total', 'Moyenne', 'Rang', 'Barème', 'Prix', 'Réussite', 'Temps moyen', 'Meilleur membre',
+      'Équipe', 'Membres', 'Total', 'Moyenne', 'Rang', 'Barème', 'Prix', 'Réussite', 'Coup d’œil', 'Temps moyen',
+      'Meilleur membre',
       ...review.quizzes.map(z => `Quiz ${z.number} — ${short(z.title, 40)}`),
     ],
     ...review.teams.map(t => [
       `${t.emoji} ${t.name}`, t.memberCount, t.total, t.average, t.rank, t.gamePoints, t.bonus, pct(t.accuracy),
-      secs(t.avgMs), t.best ? `${who(t.best.playerId)} (${t.best.points} pts)` : '',
+      pct(t.coupDOeil), secs(t.avgMs), t.best ? `${who(t.best.playerId)} (${t.best.points} pts)` : '',
       ...t.perQuiz.map(pq => `${pq.average} (${rang(pq.rank)})`),
     ]),
   ]

@@ -11,13 +11,14 @@ import {
   FINITIONS,
   NIVEAU_FINITION,
   NOM_FINITION,
+  coupDOeilMoyen,
   type FinitionChoisie,
   type PublicProfileDetail,
 } from '../../../shared/profil'
 import { Vitrine } from '../components/Vitrine'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { Categories, Courbes, FicheCarriere, GalerieDivins, GalerieLegendaires, HautsFaits } from '../components/Carriere'
-import { formatNumber, place } from '../format'
+import { formatNumber, place, reponsesParType } from '../format'
 import { spacePath } from '../routes'
 import type { PublicSpace } from '../../../shared/space'
 
@@ -345,8 +346,9 @@ export function ProfilApp() {
             </span>
             <span className="soiree-detail">
               {s.chez && `chez ${s.chez} · `}
-              {s.releve.reponses} réponse{s.releve.reponses > 1 ? 's' : ''}
-              {s.releve.justes > 0 && `, ${s.releve.justes} juste${s.releve.justes > 1 ? 's' : ''}`}
+              {/* Par type de question : « 64 réponses, 1 juste » ne disait pas
+                  que soixante-deux étaient des estimations. */}
+              {reponsesParType({ ...s.releve, coupDOeil: coupDOeilMoyen(s.releve) }, { compte: false }) || 'aucune réponse'}
               {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${place(s.releve.rang)}`}
             </span>
             <span className="soiree-xp">+{formatNumber(s.xp)}</span>

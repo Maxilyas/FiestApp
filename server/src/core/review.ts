@@ -449,9 +449,14 @@ export function buildReview(input: ReviewInput): Review {
         rank: 0,
       }
     })
+    // Estimation par estimation, pas membre par membre : celui qui en a joué
+    // deux ne pèse pas autant que celle qui en a joué trente.
+    const mesurees = members.map(p => statById.get(p.id)!).filter(s => s.coupDOeil !== null)
+    const comparees = sum(mesurees.map(s => s.estimationsComparees))
     return {
       ...t,
       accuracy: accuracyOf(tRows),
+      coupDOeil: comparees ? sum(mesurees.map(s => s.coupDOeil! * s.estimationsComparees)) / comparees : null,
       avgMs: avgMsOf(tRows),
       best: members[0] ? { playerId: members[0].id, points: members[0].score } : null,
       perQuiz,

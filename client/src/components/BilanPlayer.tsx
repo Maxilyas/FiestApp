@@ -68,6 +68,8 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
               {team ? `${team.emoji} ${team.name}` : 'sans équipe'}
               {' · '}
               {s.asked} question{s.asked > 1 ? 's' : ''} jouée{s.asked > 1 ? 's' : ''}
+              {/* Ici et pas sous la réussite : on passe aussi des estimations. */}
+              {s.missed > 0 && `, dont ${s.missed} passée${s.missed > 1 ? 's' : ''}`}
             </p>
           </div>
         </div>
@@ -88,14 +90,27 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
               </span>
             </div>
           )}
-          <div className="bilan-tile">
-            <span className="label">Réussite</span>
-            <span className="bilan-tile-value">{s.accuracy === null ? '—' : formatPercent(s.accuracy)}</span>
-            <span className="bilan-tile-sub">
-              {s.correct} juste{s.correct > 1 ? 's' : ''} sur {s.correct + s.wrong} QCM
-              {s.missed > 0 && ` · ${s.missed} passée${s.missed > 1 ? 's' : ''}`}
-            </span>
-          </div>
+          {/* Une justesse par type de question, chacune avec sa base : la
+              réussite ne compte que les QCM, et « 50 % » sur deux d'entre
+              eux laissait dans l'ombre soixante-deux estimations. */}
+          {s.accuracy !== null && (
+            <div className="bilan-tile">
+              <span className="label">Réussite</span>
+              <span className="bilan-tile-value">{formatPercent(s.accuracy)}</span>
+              <span className="bilan-tile-sub">
+                {s.correct} juste{s.correct > 1 ? 's' : ''} sur {s.correct + s.wrong} QCM
+              </span>
+            </div>
+          )}
+          {s.coupDOeil !== null && (
+            <div className="bilan-tile">
+              <span className="label">Coup d’œil</span>
+              <span className="bilan-tile-value">{formatPercent(s.coupDOeil)}</span>
+              <span className="bilan-tile-sub">
+                de la salle battue ou égalée, sur {s.estimationsComparees} estimation{s.estimationsComparees > 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
           <div className="bilan-tile">
             <span className="label">Temps moyen</span>
             <span className="bilan-tile-value">{s.avgMs === null ? '—' : formatSeconds(s.avgMs)}</span>

@@ -122,6 +122,7 @@ Deux règles ne bougent pas :
 | 37 | Le radar des catégories — le profil par catégorie en une figure | lisible en un coup d'œil | plus tard |
 | 38 | Les records personnels — meilleur coup, meilleur quiz, plus longue série, annoncés quand ils tombent | battre son propre record | plus tard |
 | 39 | Les rivalités — contre qui on a le plus joué, et qui finit devant qui | le sel entre amis | plus tard |
+| 52 | ★ **Le coup d'œil** — la justesse des estimations, à côté de la précision des QCM, chacune avec sa base | « Précision 50 % » sur deux QCM, chez qui avait joué soixante-deux estimations | lot 3 |
 
 ### E. Être vu
 
@@ -423,8 +424,9 @@ Divin se tait — c'est tout son principe.
 Sur le téléphone, toucher un nom du classement ouvre sa carte : l'avatar en
 grand, avec ce qu'il porte ; le nom du soir et le prénom du profil quand ils
 diffèrent ; le niveau ; ses légendaires ; ses récompenses les plus rares ;
-les chiffres clés (soirées, précision, quiz gagnés, hauts faits) ; et ce
-qu'il a fait ce soir. Pour un anonyme : ce qu'il a fait ce
+les chiffres clés (soirées, quiz gagnés, hauts faits, précision et coup
+d'œil, réflexe) ; et ce qu'il a fait ce soir — ses QCM et ses estimations,
+chacun à sa façon (« 1/2 justes · 8 estimations, coup d'œil 100 % »). Pour un anonyme : ce qu'il a fait ce
 soir, et rien d'autre. Servie par `GET /s/<espace>/joueurs/<id>.json`, qui ne
 rend jamais un identifiant de connexion.
 
@@ -432,11 +434,11 @@ rend jamais un identifiant de connexion.
 
 Chaque soirée garde son **relevé** brut (`ReleveSoiree`, version 2) : questions
 posées, réponses, justes, temps sur les bonnes réponses, réflexes, meilleure
-série, estimations (exactes, proches, écart), seul à trouver, flair, dernière
-seconde, revirements, quiz joués, gagnés, podiums, rang, taille de la salle,
-et la réussite par catégorie. La carrière les additionne ; `/profil` en tire
-la fiche (précision, réflexe moyen, record, flair…) et les courbes, soirée
-après soirée.
+série, estimations (exactes, proches, écart, coup d'œil), seul à trouver,
+flair, dernière seconde, revirements, quiz joués, gagnés, podiums, rang,
+taille de la salle, et la réussite par catégorie. La carrière les additionne ;
+`/profil` en tire la fiche (précision et coup d'œil, chacun avec sa base,
+réflexe moyen, record, flair…) et les courbes, soirée après soirée.
 
 ### 5.8 Le surnom de soirée
 
@@ -491,6 +493,38 @@ points qui décroissent avec la distance, sans marche d'escalier).
   proche lisent maintenant le même écart que le barème (`ecartEstimation`,
   `VERSION_BAREME` 5).
 
+### 5.11 Le coup d'œil
+
+Lot 3, après une soirée de deux QCM et soixante-deux estimations : la fiche
+disait « Précision 50 % » à côté de « Réponses 64 ». La précision ne compte
+que les QCM — une estimation n'est ni juste ni fausse —, mais elle
+s'affichait sans sa base, et les estimations n'avaient qu'un écart moyen en
+pour cent, replié, qui mesurait la question plus que le joueur : trois ans
+sur 1994 font 0,15 %, trois sur 54 en font 6 %, et une faute de frappe
+(« 19940 ») triplait la moyenne d'une soirée. La carte, elle, lisait
+« 1/64 justes », et l'historique « 64 réponses, 1 juste ».
+
+- **Deux justesses, jamais fondues (52).** La précision reste celle des QCM,
+  et dit sa base (« 12 sur 14 QCM »). Les estimations ont la leur, le **coup
+  d'œil** : la part de la salle que chacune bat ou égale — 100 % quand
+  personne n'a visé plus près —, en moyenne. Contre la salle, une date et une
+  distance se valent, une faute ne coûte qu'une question, et le joueur moyen
+  tourne autour de la moitié, à trois comme à trente. Une précision qui
+  mêlerait les deux bougerait avec la part d'estimations du quiz, pas avec
+  le joueur.
+- **Partout où la précision se montre** : la fiche (les deux côte à côte,
+  l'écart moyen retiré), la carte (le coup d'œil prend la case de la plus
+  longue série), l'historique (« 5/6 justes · coup d'œil 89 % »), le bilan
+  (une tuile), le souvenir, l'export et le tableau des équipes (une
+  colonne), les courbes (une ligne ; un point seulement à partir de cinq QCM
+  ou de cinq estimations).
+- **Le Devin se juge au coup d'œil** : à l'écart moyen, il allait au
+  retardataire qui n'avait vu que les dates, ou au voisin d'une faute de
+  frappe.
+- `VERSION_BAREME` 6 : l'expérience n'a pas bougé, mais les soirées de
+  l'historique se relisent, pour que la fiche montre leur coup d'œil et que
+  Le Devin y suive la règle du jour.
+
 ---
 
 ## 6. Feuille de route
@@ -498,6 +532,8 @@ points qui décroissent avec la distance, sans marche d'escalier).
 **Lot 1 — fait** : 1–5, 9, 12–21, 23–36, 40–44, 46–48.
 
 **Lot 2 — fait** : 49, 51 — le barème des questions (§ 5.10).
+
+**Lot 3 — fait** : 52 — le coup d'œil (§ 5.11).
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

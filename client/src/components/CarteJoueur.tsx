@@ -3,8 +3,9 @@ import type { CarteDeJoueur } from '../../../shared/carte'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { NOM_RARETE } from '../../../shared/badges'
-import { espacesFines, formatNumber, place, pourcent, secondes } from '../format'
+import { espacesFines, formatNumber, place, reponsesParType, secondes } from '../format'
 import { Avatar } from './Avatar'
+import { Chiffres, justesses } from './Carriere'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { Niveau } from './Niveau'
@@ -85,8 +86,10 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                   ) : (
                     'Pas encore de points ce soir'
                   )}
-                  {carte.ceSoir.reponses > 0 && ` · ${carte.ceSoir.justes}/${carte.ceSoir.reponses} justes`}
                 </p>
+                {/* Les QCM et les estimations, chacun à sa façon : « 1/64
+                    justes » comptait des estimations qui ne sont jamais justes. */}
+                {carte.ceSoir.reponses > 0 && <p className="muted small">{reponsesParType(carte.ceSoir)}</p>}
               </div>
             </header>
 
@@ -110,23 +113,18 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                     ))}
                   </div>
                 )}
-                <dl className="chiffres carte-chiffres">
-                  {(
-                    [
-                      ['Soirées', formatNumber(p.fiche.soirees)],
-                      ['Quiz gagnés', formatNumber(p.fiche.quizGagnes)],
-                      ['Hauts faits', formatNumber(p.hautsFaits)],
-                      ['Précision', pourcent(p.fiche.precision)],
-                      ['Réflexe moyen', secondes(p.fiche.reflexeMoyenMs)],
-                      ['Plus longue série', formatNumber(p.fiche.meilleureSerie)],
-                    ] as const
-                  ).map(([titre, valeur]) => (
-                    <div key={titre} className="chiffre">
-                      <dt className="label">{titre}</dt>
-                      <dd className="num">{valeur}</dd>
-                    </div>
-                  ))}
-                </dl>
+                {/* La justesse aux QCM et aux estimations, côte à côte : la
+                    plus longue série, qui ne compte que les QCM, a cédé sa case. */}
+                <Chiffres
+                  className="carte-chiffres"
+                  cases={[
+                    ['Soirées', formatNumber(p.fiche.soirees)],
+                    ['Quiz gagnés', formatNumber(p.fiche.quizGagnes)],
+                    ['Hauts faits', formatNumber(p.hautsFaits)],
+                    ...justesses(p.fiche),
+                    ['Réflexe moyen', secondes(p.fiche.reflexeMoyenMs)],
+                  ]}
+                />
                 {p.vitrine.length > 0 && (
                   <ul className="carte-vitrine">
                     {p.vitrine.map(b => (

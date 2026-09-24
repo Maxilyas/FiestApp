@@ -21,7 +21,7 @@ const COLUMNS: Column[] = [
   { key: 'answered', label: 'Répondu', title: 'Questions auxquelles il a répondu', value: s => s.answered, format: s => `${s.answered}/${s.asked}` },
   { key: 'correct', label: 'Justes', title: 'Bonnes réponses', value: s => s.correct, format: s => String(s.correct) },
   { key: 'wrong', label: 'Fausses', title: 'Mauvaises réponses', value: s => s.wrong, format: s => String(s.wrong) },
-  { key: 'accuracy', label: 'Réussite', title: 'Part de bonnes réponses parmi celles données', value: s => s.accuracy, format: s => pct(s.accuracy) },
+  { key: 'accuracy', label: 'Réussite', title: 'Part de bonnes réponses parmi les QCM auxquels il a répondu', value: s => s.accuracy, format: s => pct(s.accuracy) },
   { key: 'avgMs', label: 'Temps moy.', title: 'Temps de réponse moyen sur ses bonnes réponses', value: s => s.avgMs, format: s => secs(s.avgMs), asc: true },
   { key: 'bestMs', label: 'Éclair', title: 'Sa réponse juste la plus rapide', value: s => s.bestMs, format: s => secs(s.bestMs), asc: true },
   { key: 'bestStreak', label: 'Série +', title: "Plus longue série de bonnes réponses d'affilée", value: s => s.bestStreak, format: s => String(s.bestStreak) },
@@ -32,6 +32,9 @@ const COLUMNS: Column[] = [
   { key: 'alone', label: 'Seul', title: 'Fois où il était seul de la salle sur sa réponse', value: s => s.alone, format: s => String(s.alone) },
   { key: 'followed', label: 'Majorité', title: 'Fois où il a choisi la réponse la plus populaire', value: s => s.followed, format: s => String(s.followed) },
   { key: 'guesses', label: 'Estim.', title: 'Estimations jouées (dont exactes)', value: s => s.guesses, format: s => (s.guesses ? `${s.guesses} (${s.exact}✓)` : '—') },
+  // La justesse des estimations, comme la réussite est celle des QCM : l'écart
+  // en pour cent qui suit dépend de la question autant que du joueur.
+  { key: 'coupDOeil', label: 'Coup d’œil', title: 'Estimations : la part de la salle que les siennes battent ou égalent, en moyenne', value: s => s.coupDOeil, format: s => pct(s.coupDOeil) },
   { key: 'avgGapPct', label: 'Écart estim.', title: 'Écart relatif moyen sur les estimations', value: s => s.avgGapPct, format: s => pct(s.avgGapPct), asc: true },
   { key: 'bias', label: 'Biais', title: 'Positif : il surestime. Négatif : il sous-estime.', value: s => s.bias, format: s => (s.bias === null ? '—' : `${s.bias > 0 ? '+' : ''}${Math.round(s.bias * 100)} %`) },
 ]
