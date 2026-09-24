@@ -325,7 +325,9 @@ sans `QUIZ_DB_URL`.
   Éclats se rangent sous le nom seul, alors une soirée se désigne par
   `(espace, nom)` partout où l'on en compare plusieurs (`cleDeSoiree`). Et un
   palier ne compte que les soirées closes : `accorderPaliers` écarte celles
-  qui se jouent encore ailleurs.
+  qui se jouent encore ailleurs — leurs lignes, leur expérience dans le
+  niveau et leurs Éclats (`careerOf`) —, mais compte celles dont la clôture
+  est en cours (`cloturesEnCours`).
 - **Les crédits lisent les journaux avant le premier `await`** et passent par
   `enFile` : une clôture cliquée pendant un rangement viderait sinon ce
   qu'ils lisent.

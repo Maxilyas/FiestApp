@@ -1280,9 +1280,26 @@ export class ProfileStore {
    * paliers n'y comptent pas celles qui se jouent encore.
    */
   async careerOf(profileId: string, sauf: ReadonlySet<string> = new Set()): Promise<Carriere> {
-    const soirees = (await this.historiqueOf(profileId)).filter(s => !sauf.has(cleDeSoiree(s.spaceId, s.soireeId)))
+    const toutes = await this.historiqueOf(profileId)
+    const soirees = toutes.filter(s => !sauf.has(cleDeSoiree(s.spaceId, s.soireeId)))
     const rec = await this.byId(profileId)
-    return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: rec ? this.niveauOf(rec) : 1 })
+    if (soirees.length === toutes.length) {
+      return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: rec ? this.niveauOf(rec) : 1 })
+    }
+    // Les soirées écartées ont aussi porté l'expérience du profil, et peut-
+    // être un Éclat : les laisser dans le niveau ou le compte d'Éclats, c'était
+    // faire tomber `hf:eclats:1` sur l'Éclat d'un essai qu'on efface ensuite.
+    // Le niveau se relit sans elles, gardes comprises (invariant 22).
+    const ecartees = toutes.filter(s => sauf.has(cleDeSoiree(s.spaceId, s.soireeId)))
+    const noms = new Set(ecartees.map(s => s.soireeId))
+    // Les Éclats ne portent que le nom de la soirée : un nom d'avant
+    // l'empreinte de l'espace partagé avec une soirée écartée l'écarte aussi —
+    // un palier qui attend, jamais un palier de trop.
+    const res = await this.client.execute({ sql: 'SELECT soiree_id FROM profile_eclats WHERE profile_id = ?', args: [profileId] })
+    const eclats = res.rows.filter(r => !noms.has(String(r.soiree_id))).length
+    const xpEcartee = ecartees.reduce((n, s) => n + s.xp, 0)
+    const niveau = rec ? niveauDuProfil(Math.max(0, rec.xp - xpEcartee), this.gardesOf(profileId)) : 1
+    return carriereDe(soirees, { eclats, niveau })
   }
 
   // ── Le recalcul ─────────────────────────────────────────────────────────

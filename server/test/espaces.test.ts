@@ -311,6 +311,49 @@ test('deux soirées closes au même instant font tomber le palier qu’elles att
   }
 })
 
+test('l’Éclat d’un essai en cours ailleurs ne fait pas tomber La Pluie d’Éclats', async () => {
+  const banc = await demarrer()
+  try {
+    const A = { cookie: await connexionAnimateur(banc.url), slug: ADMIN.slug }
+    const B = await espace(banc, 'bruno', 'chez-bruno')
+    const remi = await inscrireProfil(banc.url, 'remi', 'Rémi', '🐧')
+    const R = profilDe(banc, 'remi')
+    const hA = await ecranCommun(banc.url, A.cookie)
+    const hB = await ecranCommun(banc.url, B.cookie)
+    const qA = await creerQuiz(banc.url, A.cookie, [qcm('A1 ?'), qcm('A2 ?')])
+    const qB = await creerQuiz(banc.url, B.cookie, [qcm('B1 ?'), qcm('B2 ?')])
+    const pluie = () => lire(banc, "SELECT soiree_id FROM profile_badges WHERE profile_id = ? AND badge LIKE 'hf:eclats:%'", R)
+    const eclats = () => lire(banc, 'SELECT soiree_id FROM profile_eclats WHERE profile_id = ?', R)
+
+    // Un essai chez A, où le hasard fait éclater Rémi au premier verdict.
+    const rA = await invite(banc.url, 'Rémi', '🐧', { slug: A.slug, cookie: remi })
+    ProfileStore.tirageEclat = () => true
+    try {
+      await jouerQuiz(hA, qA, [[rA, 0], [await invite(banc.url, 'Fig', '🐻', { slug: A.slug }), 1]], 2)
+      await patienter(500)
+    } finally {
+      ProfileStore.tirageEclat = () => false
+    }
+    assert.equal(eclats().length, 1, 'l’Éclat est tombé pendant l’essai')
+
+    // Pendant ce temps, une vraie soirée chez B, close : l'Éclat de l'essai,
+    // qui se joue encore, ne compte pas pour ses paliers.
+    const rB = await invite(banc.url, 'Rémi', '🐧', { slug: B.slug, cookie: remi })
+    await jouerQuiz(hB, qB, [[rB, 0], [await invite(banc.url, 'Fig', '🐻', { slug: B.slug }), 1]], 2)
+    await geste(hB, 'host:closeParty')
+    assert.deepEqual(pluie(), [], 'pas de palier sur l’Éclat d’une soirée qui n’est pas close')
+
+    // A efface son essai : l'Éclat part, et rien de ce qu'il aurait fait tomber ne reste.
+    await geste(hA, 'host:discardParty')
+    await patienter(300)
+    assert.deepEqual(eclats(), [])
+    assert.deepEqual(pluie(), [], 'l’essai effacé ne laisse pas La Pluie d’Éclats')
+  } finally {
+    ProfileStore.tirageEclat = () => false
+    await banc.close()
+  }
+})
+
 // ── E3. Le nom d'une soirée porte son espace ──────────────────────────────
 
 test('deux soirées nées à la même milliseconde, dans deux espaces : deux noms, deux lignes d’expérience', async () => {
