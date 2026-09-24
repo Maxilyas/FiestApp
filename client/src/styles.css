@@ -469,6 +469,9 @@ h3 > .icon {
 }
 
 .pill .icon { width: 14px; height: 14px; }
+/* Une unité ne prend pas de capitale : « 8.90 S » au mur, avec un point à
+   l'anglaise, là où tout le reste écrit « 8,9 s ». */
+.unite { text-transform: none; letter-spacing: 0.02em; }
 .pill.flash { color: var(--accent-text); }
 
 /* Le multiplicateur doit sauter aux yeux : c'est lui qui relance la salle. */

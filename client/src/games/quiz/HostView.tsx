@@ -14,7 +14,7 @@ import { PALIERS_ENCHAINEMENT, gesteAccepte } from '../../../../shared/console'
 import { espacesFines } from '../../format'
 import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
-import { formatNumber } from '../../format'
+import { formatNumber, secondes } from '../../format'
 import { questionSizeClass } from './questionSize'
 import { consigneEstimation } from './consignes'
 import { Avatar } from '../../components/Avatar'
@@ -312,7 +312,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
             ) : (
               v.fastest && (
                 <span className="pill flash">
-                  <Icon name="zap" /> {v.fastest.name} — {(v.fastest.ms / 1000).toFixed(2)} s
+                  <Icon name="zap" /> {v.fastest.name} — <span className="unite">{secondes(v.fastest.ms)}</span>
                 </span>
               )
             )}
