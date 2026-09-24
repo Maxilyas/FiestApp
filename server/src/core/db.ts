@@ -129,6 +129,10 @@ export function initDb(dbPath: string): DB {
   // La catégorie de la question (`shared/categories.ts`) : la fiche d'un
   // joueur en tire sa réussite par catégorie. Vide pour les questions d'avant.
   addColumn(db, 'answer_log', 'category', 'TEXT')
+  // L'équipe du joueur quand la ligne s'écrit (`AnswerRow.teamId`) : '' pour
+  // « sans équipe », NULL pour les lignes d'avant, qui retombent sur la
+  // composition du moment.
+  addColumn(db, 'answer_log', 'team_id', 'TEXT')
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_score_entries_uid ON score_entries(uid)')
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_answer_log_uid ON answer_log(uid)')
 

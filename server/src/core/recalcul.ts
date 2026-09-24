@@ -4,7 +4,7 @@ import type { PlayerRec } from './party'
 import { buildProgress } from './progress'
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
 import { divinsDeSoiree, laureatsDivins } from './divins'
-import { LIGNE_PALIERS, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
+import { LIGNE_PALIERS, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
 import { hautFaitDeSoiree } from '../../../shared/hautsfaits'
 import type { PartyArchive } from '../../../shared/archive'
 
@@ -100,7 +100,7 @@ async function enParallele<T>(elements: T[], n: number, traiter: (e: T) => Promi
 export async function recalculerHistorique(deps: {
   profiles: ProfileStore
   archives: ArchiveStore
-  /** Les soirées en cours, dans tous les espaces : elles n'ont pas fini de se jouer. */
+  /** Les soirées en cours, dans tous les espaces (`cleDeSoiree`) : elles n'ont pas fini de se jouer. */
   enCours: ReadonlySet<string>
 }): Promise<{ soirees: number; lignes: number; profils: number } | null> {
   const { profiles, archives, enCours } = deps
@@ -112,7 +112,7 @@ export async function recalculerHistorique(deps: {
   /** Les profils recrédités de chaque soirée relue. */
   const credites = new Set<string>()
   const touches = new Set<string>()
-  const soirees = (await archives.toutes()).filter(({ id }) => !enCours.has(id))
+  const soirees = (await archives.toutes()).filter(({ spaceId, id }) => !enCours.has(cleDeSoiree(spaceId, id)))
   await enParallele(soirees, EN_PARALLELE, async ({ spaceId, id }) => {
     const trouvee = await archives.get(spaceId, id).catch(e => {
       console.error(`[recalcul] soirée « ${id} » illisible :`, e)
@@ -163,8 +163,12 @@ export async function recalculerHistorique(deps: {
   await profiles.relireProfils([...touches])
   // Chaque profil a ses paliers à lui : ils se jugent de front, eux aussi.
   await enParallele([...touches], EN_PARALLELE, async id => {
-    const [derniere] = await profiles.historiqueOf(id)
-    if (derniere) await profiles.accorderPaliers(id, derniere.soireeId, derniere.spaceId)
+    // La dernière soirée CLOSE : sa plus récente ligne peut être celle d'un
+    // essai qui se joue encore ailleurs, et son effacement emporterait le
+    // palier rangé sous son nom — un palier que les soirées closes, seules,
+    // avaient fait tomber.
+    const derniere = (await profiles.historiqueOf(id)).find(s => !enCours.has(cleDeSoiree(s.spaceId, s.soireeId)))
+    if (derniere) await profiles.accorderPaliers(id, derniere.soireeId, derniere.spaceId, enCours)
   })
   // La ligne des paliers ne se réécrit qu'avec un palier neuf : sans palier
   // de plus, elle resterait d'une version d'avant.

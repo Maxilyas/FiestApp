@@ -181,3 +181,12 @@ test('au téléphone, « Réponse enregistrée » reste sous des réponses longu
 test('en 1920 × 1080, le toast reste au-dessus de la console', () => {
   assert.match(grandsEcrans, /\.host > \.toast \{ bottom: 5\.25rem; \}/)
 })
+
+test('au téléphone, le compte des réponses d’une estimation s’efface vraiment', () => {
+  // Posée avant la règle de base, à spécificité égale, la règle du téléphone
+  // perdait : `display: flex` venait après elle, et les 77 px de chiffres
+  // restaient au-dessus de la console.
+  const cache = css.search(/@media \(max-width: 1100px\) \{\s*\.compte-reponses \{ display: none; \}/)
+  const base = css.search(/\n\.compte-reponses \{\n  display: flex;/)
+  assert.ok(base !== -1 && cache > base, `la règle du téléphone (${cache}) doit suivre celle de base (${base})`)
+})
