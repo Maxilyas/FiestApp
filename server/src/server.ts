@@ -18,6 +18,7 @@ import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore } from './auth/profiles'
 import { mountApi } from './api'
 import { erreurDeRequete, repondreErreur } from './core/http'
+import { espaceDeLEntree, pageDEntree } from './core/page'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
 import type { ArchiveList, DerniereSoiree, PartyArchive } from '../../shared/archive'
@@ -545,10 +546,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const meta = `<meta name="app-env" content="${opts.appEnv.replace(/[^\w.-]/g, '')}">`
       indexHtml = indexHtml.replace('</head>', `  ${meta}\n  </head>`)
     }
-    app.get('*', (_req, res) => {
+    app.get('*', (req, res) => {
       res.set('Cache-Control', 'no-cache')
       if (!indexHtml) return res.status(404).type('text').send('Client non compilé (npm run build)')
-      res.type('html').send(indexHtml)
+      // Le téléphone d'un invité reçoit sa page nommée (`core/page.ts`).
+      const slug = espaceDeLEntree(req.path)
+      const account = slug ? auth.bySlug(slug) : null
+      res.type('html').send(account ? pageDEntree(indexHtml, auth.publicSpace(account)) : indexHtml)
     })
   }
 

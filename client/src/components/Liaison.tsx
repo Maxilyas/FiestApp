@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { Patience } from '../annonce'
 
 /** Au-delà, « Connexion… » tout seul n'est plus une attente, c'est une impasse. */
 const PATIENCE_MS = 10_000
@@ -17,19 +18,19 @@ export function AttenteConnexion() {
     return () => clearTimeout(minuteur)
   }, [])
   return (
-    <div className="center-page">
-      <div className="attente" role="status">
-        <p className="serif-note">Connexion…</p>
-        {longue && (
+    <Patience
+      texte={<p className="serif-note">Connexion…</p>}
+      suite={
+        longue && (
           <>
             <p className="muted small">Ça traîne — vérifie ton wifi ou ta 4G.</p>
             <button type="button" className="btn btn-small" onClick={() => window.location.reload()}>
               Recharger la page
             </button>
           </>
-        )}
-      </div>
-    </div>
+        )
+      }
+    />
   )
 }
 

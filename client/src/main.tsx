@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { DialogHost } from './components/Dialog'
 import { applyTheme } from './theme'
 import { installerClavier } from './clavier'
+import { Patience } from './annonce'
 import { route, type AccountPage, type PublicPage } from './routes'
 import './styles.css'
 
@@ -135,13 +136,7 @@ class Filet extends Component<{ children: ReactNode }, { panne: boolean }> {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Filet>
-      <Suspense
-        fallback={
-          <div className="center-page">
-            <p className="muted">Chargement…</p>
-          </div>
-        }
-      >
+      <Suspense fallback={<Patience texte={<p className="muted">Chargement…</p>} />}>
         <App />
       </Suspense>
       <DialogHost />
