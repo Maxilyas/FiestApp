@@ -572,13 +572,17 @@ function buildAwards(
   // ── Les deux prix qui distinguent une équipe et non une personne.
   const withTeam = played.filter(s => s.teamId)
   if (withTeam.length > 0) {
-    // Le Coup de Pouce : l'équipe qui compte la personne ayant le moins marqué.
-    const lowest = [...withTeam].sort((a, b) => a.points - b.points || departage(a, b))[0]
-    awards.push({
+    // Le Coup de Pouce : l'équipe qui compte la personne ayant le moins
+    // marqué — parmi celles qui ont joué. Celui qui n'a rien envoyé fermait
+    // toujours la marche, et son équipe touchait un point pour son absence :
+    // le même que L'Abstentionniste lui décernait déjà.
+    const joueurs = withTeam.filter(s => s.answered > 0)
+    const lowest = [...joueurs].sort((a, b) => a.points - b.points || departage(a, b))[0]
+    if (lowest) awards.push({
       key: 'coupdepouce',
       emoji: '🤝',
       title: 'Le Coup de Pouce',
-      rule: 'À l’équipe qui compte la personne ayant le moins marqué',
+      rule: 'À l’équipe qui compte la personne ayant le moins marqué, parmi celles qui ont répondu au moins une fois',
       detail: `${lowest.avatar} ${lowest.name} ferme la marche avec ${lowest.points} points`,
       player: null,
       teamId: lowest.teamId,

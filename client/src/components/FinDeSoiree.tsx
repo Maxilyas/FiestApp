@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { FinDeSoiree as Fin, GainAnnonce, HautFaitAnnonce } from '../../../shared/fin'
+import { ligneDeRang, nJoueurs, type FinDeSoiree as Fin, type GainAnnonce, type HautFaitAnnonce } from '../../../shared/fin'
 import type { PublicProfile } from '../../../shared/profil'
 import { NOM_FINITION } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
@@ -12,6 +12,7 @@ import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { Icon } from './Icon'
+import { lienBilan } from './Lendemain'
 
 /**
  * La fin de soirée, sur le téléphone.
@@ -67,13 +68,7 @@ export function FinDeSoiree({
         />
         <div>
           <h2>{fin.nom}</h2>
-          {fin.rang > 0 ? (
-            <p className="fin-rang">
-              <b>{place(fin.rang)}</b> sur {fin.joueurs} · {pts(fin.points)}
-            </p>
-          ) : (
-            <p className="muted">{fin.joueurs} joueurs ce soir</p>
-          )}
+          <LigneRang fin={fin} />
         </div>
       </section>
 
@@ -89,7 +84,8 @@ export function FinDeSoiree({
               <Divin cle={key} />
             </span>
             <h2>{d.nom}</h2>
-            <p className="serif-note">{legende}</p>
+            {/* Le récit ne se garde pas sur le téléphone : une fin rouverte ne l'a plus. */}
+            {legende && <p className="serif-note">{legende}</p>}
             {porte === key ? (
               <p className="muted small">C’est lui que la salle verra, dès la prochaine soirée.</p>
             ) : (
@@ -158,6 +154,27 @@ export function FinDeSoiree({
         )
       })}
 
+      {/* Ses prix du palmarès : Jeanne cherchait son Éclair, remis à l'écran,
+          et sa fin de soirée n'en disait rien. Une page d'avant n'a pas le champ. */}
+      {(fin.prix ?? []).length > 0 && (
+        <section className="card">
+          <h3>{fin.prix!.length > 1 ? 'Tes prix de la soirée' : 'Ton prix de la soirée'}</h3>
+          <ul className="fin-prix">
+            {fin.prix!.map(p => (
+              <li key={p.key}>
+                <span className="fin-prix-emoji" aria-hidden="true">
+                  {p.emoji}
+                </span>
+                <span>
+                  <b>{p.title}</b>
+                  <span className="muted small"> · {p.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {eclats.length > 0 && (
         <section className="card">
           <Faits titre="Tes exploits" faits={eclats} />
@@ -170,14 +187,29 @@ export function FinDeSoiree({
         </section>
       )}
 
+      {/* Relire sa soirée d'abord : le bouton doré menait à la soirée
+          suivante, qui n'existe pas encore — et celui qui revenait « voir les
+          résultats » y entrait. « Mon bilan » s'ouvre sur lui, sans « Qui
+          es-tu ? ». La suivante reste là, en retrait (README, « Entre deux
+          soirées »). Les liens s'ouvrent dans cet onglet : la fin est gardée
+          sur le téléphone, le retour du navigateur la retrouve. */}
       <div className="fin-actions">
-        <button className="btn btn-primary" onClick={onSuivante}>
-          Rejoindre la soirée suivante
-        </button>
-        <a className="btn" href={spacePath(fin.soiree.slug, 'souvenir', fin.soiree.id)}>
+        {fin.joueurId && (
+          <a className="btn btn-primary" href={lienBilan({ soiree: fin.soiree, joueurId: fin.joueurId })}>
+            <Icon name="check-circle" />
+            Mon bilan
+          </a>
+        )}
+        <a
+          className={'btn' + (fin.joueurId ? '' : ' btn-primary')}
+          href={spacePath(fin.soiree.slug, 'souvenir', fin.soiree.id)}
+        >
           <Icon name="book" />
           Revoir la soirée
         </a>
+        <button className="btn btn-ghost" onClick={onSuivante}>
+          Rejoindre la soirée suivante
+        </button>
         {profil ? (
           <a className="btn btn-ghost" href="/profil">
             Mon profil
@@ -267,4 +299,35 @@ export function Celebration({ gain, onFin }: { gain: GainAnnonce; onFin: () => v
       )}
     </button>
   )
+}
+
+/**
+ * Sous le prénom : son rang, ou ce qu'on sait de lui. Le rang vaut 0 à 0
+ * point — Bob, deux réponses fausses, lisait « Tu n'as pas joué ce soir » —,
+ * c'est donc `aJoue` qui le dit ; une fin d'un serveur d'avant ne l'a pas, et
+ * garde la phrase neutre d'alors.
+ */
+function LigneRang({ fin }: { fin: Fin }) {
+  const l = ligneDeRang(fin)
+  switch (l.cas) {
+    case 'rang':
+      return (
+        <p className="fin-rang">
+          <b>{place(l.rang)}</b> sur {l.joueurs} · {pts(l.points)}
+        </p>
+      )
+    case 'zero':
+      return <p className="fin-rang">0 point · {nJoueurs(l.joueurs)}</p>
+    case 'absent':
+      // Arrivé après la dernière question : la phrase parle de lui, et de la
+      // salle qui, elle, a joué — il lisait « 0 joueurs ce soir ».
+      return (
+        <p className="muted">
+          Tu n’as pas joué ce soir
+          {l.joueurs > 0 && ` · ${nJoueurs(l.joueurs)}`}
+        </p>
+      )
+    case 'neutre':
+      return <p className="muted">{nJoueurs(l.joueurs)} ce soir</p>
+  }
 }

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Recap } from '../../../shared/types'
 import { FinalPodium, Standings } from '../components/Podium'
 import { TeamBoard, VerdictDesEquipes } from '../components/TeamBoard'
+import { regleDesEquipes } from '../../../shared/teams'
 import { PrixRemis } from '../components/PrixRemis'
 import { LEGENDE_DES_COLONNES, StatsTable } from '../components/StatsTable'
 import { AwardsBoard } from '../components/AwardsBoard'
@@ -14,6 +15,7 @@ import { ArchiveBanner } from '../components/ArchiveBanner'
 import { SpaceError, SpaceNav } from '../components/SpaceNav'
 import { pageContext, route, spacePath } from '../routes'
 import { lecteurDePage } from '../derniere'
+import { BoutonCopier, BoutonPartager } from '../components/Partage'
 import { formatDay } from '../../../shared/archive'
 import { rangPartage } from '../../../shared/classement'
 
@@ -54,9 +56,22 @@ export function RecapApp() {
     // l'animateur pendant que les quiz s'enchaînent — et, entre deux
     // soirées, elle y revient dès que la suivante joue. Une soirée archivée,
     // elle, ne bouge plus.
+    //
+    // Mais pas dans un onglet caché : la page restait ouverte dans cinquante
+    // poches toute la fin de soirée, et chacune redemandait le souvenir
+    // toutes les 20 s. Elle se rattrape en revenant au premier plan.
     if (archiveId) return
-    const id = setInterval(load, 20_000)
-    return () => clearInterval(id)
+    const id = setInterval(() => {
+      if (!document.hidden) load()
+    }, 20_000)
+    const auRetour = () => {
+      if (!document.hidden) load()
+    }
+    document.addEventListener('visibilitychange', auRetour)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', auRetour)
+    }
   }, [slug, archiveId])
 
   useEffect(() => {
@@ -108,6 +123,10 @@ export function RecapApp() {
   }
 
   const archive = recap.archive
+  // Le lien qu'on envoie est celui de l'archive, même pendant la soirée :
+  // `/<espace>/souvenir` changera de soirée à la suivante.
+  const soireeMontree = archiveId ?? archive?.id ?? recap.soireeId ?? null
+  const lienStable = new URL(spacePath(slug, 'souvenir', soireeMontree), window.location.href).href
   const dateLine = archive ? formatDay(archive.heldAt) : space?.dateLine
   // Le classement arrive dans l'ordre commun (shared/classement.ts) ; chaque
   // ligne y prend son rang partagé, que la liste sous le podium ne saurait
@@ -129,6 +148,13 @@ export function RecapApp() {
           {joueurs} joueur{joueurs > 1 ? 's' : ''} · {recap.quizCount} quiz ·{' '}
           {formatNumber(recap.totalPoints)} points distribués
         </p>
+        {/* Le lien à envoyer : celui de l'archive, qui ne changera pas quand
+            la suivante jouera — `/<espace>/souvenir`, lui, changera. Pendant
+            la soirée, il n'y a encore que celui-là. */}
+        <div className="row recap-partage">
+          <BoutonCopier className="btn btn-small btn-ghost" texte={lienStable} />
+          <BoutonPartager className="btn btn-small btn-ghost" titre={archive ? archive.title : (space?.title ?? '')} url={lienStable} />
+        </div>
         <hr className="hairline" />
       </header>
       <SpaceNav current="souvenir" />
@@ -148,14 +174,9 @@ export function RecapApp() {
           {/* Le verdict de l'écran de victoire et de l'historique, ex æquo
               compris : le souvenir couronnait la meilleure moyenne, sans
               les prix, et contredisait la soirée qu'on avait vécue. */}
-          <VerdictDesEquipes teams={recap.teams} avecPrix={recap.bonuses.length > 0} />
-          <TeamBoard teams={recap.teams} showFinalPoints />
-          <p className="muted small">
-            Le chiffre cerclé : le barème du quiz, prix compris — c'est lui qui range les équipes
-            et désigne la gagnante. Le grand chiffre à droite, la moyenne par membre, qui a
-            distribué le barème : autant de points que d'équipes pour la meilleure, un de moins
-            pour la suivante.
-          </p>
+          <VerdictDesEquipes teams={recap.teams} avecPrix={recap.bonuses.some(b => b.points !== 0)} />
+          <TeamBoard teams={recap.teams} />
+          <p className="muted small">{regleDesEquipes(recap.teams.length)}</p>
         </section>
       )}
 

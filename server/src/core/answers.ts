@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
 import type { PartyMirror } from './backup'
+import type { LigneDuJournal } from '../../../shared/teams'
 
 /**
  * Une réponse (ou une absence de réponse) d'un joueur à une question.
@@ -36,14 +37,38 @@ export interface AnswerRow {
    * une. Absente des lignes d'avant les catégories.
    */
   category?: string | null
+  /**
+   * L'équipe du joueur quand la ligne s'est écrite — `null` s'il n'en avait
+   * pas. La moyenne des équipes la lit plutôt que la composition du moment :
+   * un invité qui rejoignait une équipe après le quiz, ou un joueur qui
+   * déménageait, retournait un verdict déjà annoncé. Absente (`undefined`)
+   * des lignes d'avant : celles-là retombent sur la composition du moment.
+   */
+  teamId?: string | null
   createdAt: number
 }
 
 const COLUMNS =
-  'session_id, quiz_title, q_index, kind, player_id, answered, correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category'
+  'session_id, quiz_title, q_index, kind, player_id, answered, correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id'
 
 export class AnswerLog {
   private insertStmt
+  /**
+   * Ce que la moyenne des équipes lit du journal, tenu en mémoire comme le
+   * sont les gains : l'instantané la recalcule à chaque arrivée, et il part
+   * d'un minuteur qui peut sonner après la fermeture de la base. Tout ce qui
+   * écrit au journal passe par cette classe et le tient à jour ; la
+   * restauration du miroir, elle, écrit avant qu'aucun espace ne s'ouvre.
+   */
+  private lignes: LigneDuJournal[]
+  /** Avance à chaque écriture ou effacement : la mémoire de l'instantané s'y fie (`SpaceRuntime`). */
+  private versionVue = 0
+  /**
+   * Monte à chaque écriture du journal des réponses : les pages publiques
+   * (`core/pages.ts`) s'en servent pour savoir si leur calcul tient encore,
+   * sans relire le journal.
+   */
+  revision = 0
 
   constructor(
     private db: DB,
@@ -51,8 +76,15 @@ export class AnswerLog {
     private backup?: PartyMirror,
   ) {
     this.insertStmt = db.prepare(
-      `INSERT INTO answer_log (uid, ${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO answer_log (uid, ${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
+    const rows = db
+      .prepare('SELECT player_id, session_id, q_index, points, team_id FROM answer_log WHERE space_id = ?')
+      .all(spaceId) as any[]
+    this.lignes = rows.map(r => {
+      const { playerId, sessionId, qIndex, points, teamId } = toRow(r)
+      return { playerId, sessionId, qIndex, points, teamId }
+    })
   }
 
   /**
@@ -84,11 +116,17 @@ export class AnswerLog {
           r.observed ? 1 : 0,
           r.createdAt,
           r.category ?? null,
+          colonneEquipe(r.teamId),
           this.spaceId,
         )
       }
     })()
+    this.versionVue++
+    for (const r of rows) {
+      this.lignes.push({ playerId: r.playerId, sessionId: r.sessionId, qIndex: r.qIndex, points: r.points, teamId: r.teamId })
+    }
     this.backup?.saveAnswers(signees)
+    this.revision++
   }
 
   /**
@@ -109,6 +147,15 @@ export class AnswerLog {
     return rows.map(toRow)
   }
 
+  get version(): number {
+    return this.versionVue
+  }
+
+  /** Qui a joué quelle question, pour combien : ce que lit la moyenne des équipes (`shared/teams.ts`). */
+  lignesDesEquipes(): readonly LigneDuJournal[] {
+    return this.lignes
+  }
+
   /**
    * Efface une question du journal. L'animateur peut annuler les points d'une
    * question mal posée, ou la reposer : dans les deux cas elle ne doit pas
@@ -116,14 +163,20 @@ export class AnswerLog {
    * deux fois.
    */
   dropQuestion(sessionId: string, qIndex: number) {
+    this.lignes = this.lignes.filter(l => l.sessionId !== sessionId || l.qIndex !== qIndex)
+    this.versionVue++
     this.db
       .prepare('DELETE FROM answer_log WHERE session_id = ? AND q_index = ?')
       .run(sessionId, qIndex)
     this.backup?.dropAnswers(sessionId, qIndex)
+    this.revision++
   }
 
   clearAll() {
+    this.lignes = []
+    this.versionVue++
     this.db.prepare('DELETE FROM answer_log WHERE space_id = ?').run(this.spaceId)
+    this.revision++
   }
 
   /**
@@ -132,8 +185,14 @@ export class AnswerLog {
    * l'écriture de ses lignes.
    */
   removePlayer(playerId: string) {
-    this.db.prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
+    this.lignes = this.lignes.filter(l => l.playerId !== playerId)
+    this.versionVue++
+    const { changes } = this.db
+      .prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?')
+      .run(playerId, this.spaceId)
     this.backup?.deletePlayerAnswers(playerId)
+    // Un invité arrivé après la dernière question n'y avait rien écrit.
+    if (changes > 0) this.revision++
   }
 }
 
@@ -155,6 +214,22 @@ export function toRow(r: any): AnswerRow {
     durationMs: Number(r.duration_ms ?? 0),
     observed: Number(r.observed) === 1,
     category: r.category === null || r.category === undefined ? null : String(r.category),
+    ...equipeDeColonne(r.team_id),
     createdAt: Number(r.created_at),
   }
+}
+
+/**
+ * L'équipe d'une ligne, en base. Trois cas à garder distincts, et une colonne
+ * SQL n'a qu'un NULL : NULL pour une ligne d'avant la colonne (on ne sait
+ * pas), '' pour « sans équipe », l'identifiant sinon. Confondus, un invité
+ * sans équipe pendant le quiz retombait sur celle qu'il a rejointe après.
+ */
+export function colonneEquipe(teamId: string | null | undefined): string | null {
+  return teamId === undefined ? null : (teamId ?? '')
+}
+
+function equipeDeColonne(v: unknown): { teamId?: string | null } {
+  if (v === null || v === undefined) return {}
+  return { teamId: v === '' ? null : String(v) }
 }

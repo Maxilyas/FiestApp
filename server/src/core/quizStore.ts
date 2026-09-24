@@ -159,19 +159,42 @@ export class QuizStore {
     return quiz
   }
 
-  async save(spaceId: string, id: string, title: unknown, questions: unknown): Promise<QuizDef | null> {
-    const now = Date.now()
+  /**
+   * Enregistre le quiz. Avec `attendu`, seulement s'il est encore dans cette
+   * version (`updatedAt`) : sinon « conflit », et rien n'est écrit. La
+   * comparaison se fait dans l'UPDATE même — lue puis écrite en deux temps,
+   * deux enregistrements croisés passaient tous les deux.
+   */
+  async save(
+    spaceId: string,
+    id: string,
+    title: unknown,
+    questions: unknown,
+    attendu?: number,
+  ): Promise<QuizDef | null | 'conflit'> {
+    // Strictement après la version remplacée : deux enregistrements dans la
+    // même milliseconde ne doivent pas porter la même version.
+    const now = attendu === undefined ? Date.now() : Math.max(Date.now(), attendu + 1)
     const quiz: QuizDef = {
       id,
       title: cleanTitle(title),
       questions: normalizeQuestions(questions),
       updatedAt: now,
     }
-    const res = await this.client.execute({
-      sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ? WHERE id = ? AND space_id = ?',
-      args: [quiz.title, JSON.stringify(quiz.questions), now, id, spaceId],
-    })
-    return res.rowsAffected === 0 ? null : quiz
+    const res = await this.client.execute(
+      attendu === undefined
+        ? {
+            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ? WHERE id = ? AND space_id = ?',
+            args: [quiz.title, JSON.stringify(quiz.questions), now, id, spaceId],
+          }
+        : {
+            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ? WHERE id = ? AND space_id = ? AND updated_at = ?',
+            args: [quiz.title, JSON.stringify(quiz.questions), now, id, spaceId, attendu],
+          },
+    )
+    if (res.rowsAffected > 0) return quiz
+    if (attendu === undefined) return null
+    return (await this.get(spaceId, id)) ? 'conflit' : null
   }
 
   async remove(spaceId: string, id: string): Promise<boolean> {

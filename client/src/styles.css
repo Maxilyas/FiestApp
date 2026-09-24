@@ -76,9 +76,11 @@
   /* Ce qui s'efface à la révélation : les réponses fausses restent lisibles,
      mais ne disputent plus l'œil à la bonne. */
   --dim: 0.38;
-  /* Où se pose ce voile : sur toute la carte, compte compris, en Velours. */
-  --dim-carte: var(--dim);
-  --dim-contenu: 1;
+  /* Où se pose ce voile : sur le contenu seulement, pas sur le compte. Posé
+     sur toute la carte, il laissait le nombre de ceux qui s'y sont trompés
+     à 2,39:1 — et c'est ce que la salle cherche des yeux. */
+  --dim-carte: 1;
+  --dim-contenu: var(--dim);
   /* Le voile derrière un dialogue, et les ombres de ce qui flotte. */
   --backdrop: rgba(12, 8, 7, 0.72);
   --shadow-toast: 0 10px 30px rgba(0, 0, 0, 0.45);
@@ -147,11 +149,8 @@
   /* Moins effacé qu'en Velours : à 38 % sur la crème, les réponses fausses
      disparaissaient au projecteur au lieu de s'estomper. */
   --dim: 0.5;
-  /* Et le voile ne couvre que la réponse, pas son compte : à 50 %, le nombre
-     de ceux qui s'y sont trompés tombait à 1,7:1, alors que c'est ce que la
-     salle cherche des yeux. */
-  --dim-carte: 1;
-  --dim-contenu: var(--dim);
+  /* Le voile ne couvre que la réponse, comme en Velours : à 50 %, le compte
+     tombait à 1,7:1. */
   --backdrop: rgba(42, 32, 27, 0.45);
   --shadow-toast: 0 10px 30px rgba(42, 32, 27, 0.18);
   --shadow-dialog: 0 24px 60px rgba(42, 32, 27, 0.25);
@@ -791,15 +790,58 @@ h3 > .icon {
 }
 
 /* ── Écran commun ───────────────────────────────── */
+/* L'écran commun se lit à la hauteur de l'écran : 16 px en 768, 22,5 en
+   1080. Les tailles plafonnaient vers 1 300 px de large, et la même télé
+   montrait tout 30 % plus petit en 1920 × 1080 qu'en 1366 × 768 — les
+   réponses passaient sous le seuil de lecture à trois mètres. La scène
+   compte donc en `rem`, qui suit la hauteur. Réservé aux grands écrans : on
+   anime aussi `/host` au téléphone, où rien ne doit grossir ; et la largeur
+   borne la règle, pour qu'une fenêtre haute et étroite ne déborde pas. Le
+   plancher reste la taille choisie dans le navigateur. */
+@media (min-width: 1101px) {
+  html:has(.host) { font-size: max(100%, min(100vh / 48, 100vw / 85)); }
+  .host { font-size: 1rem; }
+  /* Les contrôles et les listes partagés avec les téléphones restent en
+     pixels là-bas ; ici, les mêmes mesures en `rem` — identiques en 768. */
+  .host .label { font-size: 0.6875rem; }
+  .host .pill { min-height: 1.75rem; padding: 0.25rem 0.75rem; gap: 0.375rem; font-size: 0.6875rem; }
+  .host .pill .icon { width: 0.875rem; height: 0.875rem; }
+  .host .pill-btn { min-height: 2.25rem; padding: 0 0.875rem; gap: 0.375rem; }
+  .host .pill-btn .icon { width: 1rem; height: 1rem; }
+  .host .btn { min-height: 2.75rem; padding: 0 1.125rem; gap: 0.5rem; }
+  .host .btn-small { min-height: 2.25rem; padding: 0 0.875rem; }
+  .host .btn-icon { width: 2.75rem; padding: 0; }
+  .host .btn .icon { width: 1.125rem; height: 1.125rem; }
+  .host .card { padding: 1.125rem; }
+  .host .leaderboard { gap: 0.375rem; margin-top: 0.625rem; }
+  .host .lb-row { gap: 0.625rem; padding: 0.5rem 0.75rem; border-radius: 0.75rem; }
+  /* La grille des prix, partagée avec le souvenir : en pixels, ses colonnes
+     restaient à 320 px sous un texte qui grandissait, et « Le Contemplatif »
+     s'écrivait un mot par ligne. */
+  .host .awards { grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr)); gap: 0.75rem; }
+  .host .award { gap: 0.75rem; padding: 0.875rem 1rem; }
+  .host .award-emoji { width: 2.75rem; height: 2.75rem; }
+  .host .award-give { gap: 0.375rem; }
+  .host .award-points { padding: 0.375rem 0.5rem; }
+  /* Les boîtes de dialogue sont montées hors de .host, mais la taille racine
+     les suit : en 1920 × 1080, « Clore la soirée » gardait 460 px de large
+     et des marges en pixels autour d'un texte agrandi de 40 %. Les mêmes
+     proportions qu'en 1366, en `rem`. */
+  html:has(.host) .dialog { width: min(28.75rem, 100%); font-size: 1rem; gap: 0.875rem; padding: 1.125rem; }
+  html:has(.host) .dialog .row { gap: 0.625rem; }
+  html:has(.host) .dialog .input { min-height: 2.75rem; padding: 0.625rem 0.875rem; border-radius: 0.625rem; }
+  html:has(.host) .dialog .btn { min-height: 2.75rem; padding: 0 1.125rem; gap: 0.5rem; }
+}
+
 .host {
   height: 100vh;
   /* Sur un téléphone, la hauteur que laisse la barre d'adresse. */
   height: 100dvh;
   overflow: hidden;
-  padding: 22px 44px 20px;
+  padding: 1.375rem 2.75rem 1.25rem;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 1.125rem;
   background-color: var(--bg);
   background-image: radial-gradient(90% 70% at 50% -20%, var(--bg-halo) 0%, var(--bg) 65%);
 }
@@ -810,53 +852,53 @@ h3 > .icon {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 18px;
+  gap: 1.125rem;
 }
 
-.band-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.band-left { display: flex; align-items: center; gap: 0.875rem; min-width: 0; }
 
 .brand {
   font-family: var(--serif);
   font-weight: 600;
-  font-size: 27px;
+  font-size: 1.6875rem;
   line-height: 1;
   color: var(--accent-text);
   white-space: nowrap;
 }
 
-.band-sep { width: 1px; height: 16px; background: rgba(var(--accent-rgb), 0.35); flex: none; }
-.band-sub { font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.band-sep { width: 1px; height: 1rem; background: rgba(var(--accent-rgb), 0.35); flex: none; }
+.band-sub { font-size: 0.875rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .band-center {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
   text-align: center;
-  font-size: 12px;
+  font-size: 0.75rem;
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--muted);
   white-space: nowrap;
 }
 
-.band-right { display: flex; align-items: center; justify-content: flex-end; gap: 18px; min-width: 0; }
-.band-answered { font-size: 14px; white-space: nowrap; }
+.band-right { display: flex; align-items: center; justify-content: flex-end; gap: 1.125rem; min-width: 0; }
+.band-answered { font-size: 0.875rem; white-space: nowrap; }
 .band-answered b { color: var(--accent-text); font-weight: 600; }
 
-.qr-stack { display: flex; align-items: center; gap: 10px; }
+.qr-stack { display: flex; align-items: center; gap: 0.625rem; }
 
 .qr-box {
   background: #fff;
-  padding: 4px;
-  border-radius: 6px;
+  padding: 0.25rem;
+  border-radius: 0.375rem;
   line-height: 0;
   flex: none;
 }
 
-.qr-box svg { width: 46px; height: 46px; }
-.qr-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.qr-box svg { width: 2.875rem; height: 2.875rem; }
+.qr-text { display: flex; flex-direction: column; gap: 0.1875rem; min-width: 0; }
 .qr-text .label { letter-spacing: 0.18em; }
-.join-url { font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.join-url { font-size: 0.8125rem; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Sous 1100 px, les trois colonnes de la bande se chevauchaient : le titre
    passait sous « 0 / 12 ont répondu », l'étape sous le QR, et plus rien ne
@@ -868,9 +910,9 @@ h3 > .icon {
     grid-template-areas:
       'titre titre qr'
       'etape compte qr';
-    row-gap: 8px;
+    row-gap: 0.5rem;
   }
-  .band-left { grid-area: titre; flex-wrap: wrap; row-gap: 6px; }
+  .band-left { grid-area: titre; flex-wrap: wrap; row-gap: 0.375rem; }
   .brand { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .band-center { grid-area: etape; }
   .band-right { display: contents; }
@@ -887,9 +929,9 @@ h3 > .icon {
       'titre qr'
       'etape qr'
       'compte qr';
-    row-gap: 4px;
+    row-gap: 0.25rem;
   }
-  .brand { font-size: 22px; }
+  .brand { font-size: 1.375rem; }
   .band-sep,
   .band-sub,
   .host-band .qr-text { display: none; }
@@ -902,19 +944,19 @@ h3 > .icon {
   .host-band {
     grid-template-columns: minmax(0, 1fr) auto auto auto;
     grid-template-areas: 'titre etape compte qr';
-    column-gap: 16px;
+    column-gap: 1rem;
   }
-  .brand { font-size: 22px; }
+  .brand { font-size: 1.375rem; }
   .band-sep,
   .band-sub,
   .host-band .qr-text { display: none; }
-  .host-band .qr-box svg { width: 38px; height: 38px; }
+  .host-band .qr-box svg { width: 2.375rem; height: 2.375rem; }
 }
 
 .host-grid {
   display: grid;
-  grid-template-columns: 290px minmax(0, 1fr) 340px;
-  gap: 18px;
+  grid-template-columns: 18.125rem minmax(0, 1fr) 21.25rem;
+  gap: 1.125rem;
   align-items: stretch;
   flex: 1;
   min-height: 0;
@@ -929,8 +971,8 @@ h3 > .icon {
      téléphone : la page les recouvre (`viewport-fit=cover`), et couché, le
      titre passait sous l'encoche. */
   .host {
-    --marge-y: 20px;
-    --marge-x: 20px;
+    --marge-y: 1.25rem;
+    --marge-x: 1.25rem;
     padding:
       max(var(--marge-y), env(safe-area-inset-top))
       max(var(--marge-x), env(safe-area-inset-right))
@@ -951,7 +993,7 @@ h3 > .icon {
   .host:not(.staging) .host-grid > :not(.main-stage) { order: 3; }
 }
 
-.host-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; min-height: 0; }
+.host-col { display: flex; flex-direction: column; gap: 1.125rem; min-width: 0; min-height: 0; }
 .host-col > .card { min-height: 0; overflow-y: auto; }
 
 /* L'invitation, avant le premier quiz : la seule chose que la salle doit
@@ -961,10 +1003,10 @@ h3 > .icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 22px;
+  gap: 1.375rem;
   text-align: center;
   flex: 1;
-  padding: 10px 0;
+  padding: 0.625rem 0;
 }
 
 .invite-url {
@@ -976,19 +1018,25 @@ h3 > .icon {
   overflow-wrap: anywhere;
 }
 
-.invite-qrs { display: flex; flex-wrap: wrap; justify-content: center; gap: 28px; }
-.invite-qr { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.invite-qr .qr-box { padding: 7px; border-radius: 10px; }
+.invite-qrs { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.75rem; }
+.invite-qr { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.invite-qr .qr-box { padding: 0.4375rem; border-radius: 0.625rem; }
 .invite-qr .qr-box svg { width: 148px; height: 148px; }
+/* À la hauteur de l'écran : 148 px fixes se scannaient à 1,3 m au mieux, et
+   il fallait se lever. Seul au centre, il a la place. Au téléphone, on le
+   tend : il garde sa taille. */
+@media (min-width: 1101px) {
+  .invite-qr .qr-box svg { width: clamp(9.25rem, 28vh, 16rem); height: clamp(9.25rem, 28vh, 16rem); }
+}
 .invite-note { max-width: 46ch; }
 
-.players-grid { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.players-grid { display: flex; flex-wrap: wrap; gap: 0.4375rem; margin-top: 0.625rem; }
 
 .player-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 11px;
+  gap: 0.375rem;
+  padding: 0.3125rem 0.6875rem;
   border-radius: var(--radius-pill);
   background: var(--surface);
   border: 1px solid var(--edge);
@@ -1004,20 +1052,20 @@ h3 > .icon {
    ne se lit pas de loin. */
 .player-chip.offline { opacity: 0.55; }
 .chip-offline { display: inline-flex; color: var(--muted); }
-.chip-offline .icon { width: 14px; height: 14px; }
+.chip-offline .icon { width: 0.875rem; height: 0.875rem; }
 .player-chip .player-name { max-width: 9ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .main-stage { display: flex; flex-direction: column; min-height: 0; }
 
-.game-cards { display: flex; flex-wrap: wrap; gap: 14px; }
+.game-cards { display: flex; flex-wrap: wrap; gap: 0.875rem; }
 
 .game-card {
-  flex: 1 1 240px;
+  flex: 1 1 15rem;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0.625rem;
   align-items: flex-start;
-  padding: 18px;
+  padding: 1.125rem;
   border-radius: var(--radius);
   background: var(--surface);
   border: 1px solid var(--edge);
@@ -1028,30 +1076,30 @@ h3 > .icon {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
-.console-label { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
-.console-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
-.console-icons { display: flex; justify-content: flex-end; gap: 8px; }
+.console-label { font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.console-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+.console-icons { display: flex; justify-content: flex-end; gap: 0.5rem; }
 
 /* Les groupes de la console d'une question. Largeurs fixes pour l'action
    principale et la pause : « Révéler » et « Question suivante », « Pause » et
    « Reprendre » n'ont pas la même longueur, et la bande est centrée — un mot
    plus long déplaçait tous les boutons sous le curseur. */
-.console-groupe { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.console-groupe { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
 .console-principal { min-width: 13em; }
 .console-pause { min-width: 7.5em; }
 /* Les gestes qui défont quelque chose, à l'écart, derrière un filet. */
-.console-risque { padding-left: 12px; margin-left: 4px; border-left: 1px solid var(--edge); }
-.enchainement { display: flex; align-items: center; gap: 4px; }
-.enchainement .pill-btn { padding: 0 10px; }
-.enchainement-label { font-size: 12px; color: var(--muted); margin-right: 4px; }
+.console-risque { padding-left: 0.75rem; margin-left: 0.25rem; border-left: 1px solid var(--edge); }
+.enchainement { display: flex; align-items: center; gap: 0.25rem; }
+.enchainement .pill-btn { padding: 0 0.625rem; }
+.enchainement-label { font-size: 0.75rem; color: var(--muted); margin-right: 0.25rem; }
 
 @media (max-width: 1100px) {
   /* Une seule rangée qui se replie : les icônes suivent les boutons au lieu
      de prendre une ligne à elles, que la hauteur d'un téléphone n'a pas. */
-  .host-console { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .host-console { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
   .console-label { display: none; }
   .console-actions,
   .console-icons { display: contents; }
@@ -1059,38 +1107,80 @@ h3 > .icon {
 }
 
 @media (max-width: 600px), (max-width: 1100px) and (max-height: 500px) {
-  .host-console .btn:not(.btn-icon) { padding: 0 14px; }
+  .host-console .btn:not(.btn-icon) { padding: 0 0.875rem; }
 }
 
 /* Couché, la console tient sur une rangée : une seconde, pour une icône,
    prenait 50 px à une scène qui n'en a que 250. */
 @media (max-width: 1100px) and (max-height: 500px) {
-  .host-console { gap: 6px; }
-  .host-console .btn:not(.btn-icon) { padding: 0 12px; }
+  .host-console { gap: 0.375rem; }
+  .host-console .btn:not(.btn-icon) { padding: 0 0.75rem; }
 }
 
 /* ── Mode scène ─────────────────────────────────── */
 /* Dès qu'une question est à l'écran, le reste s'efface : sur un
    vidéoprojecteur, ce qui compte doit occuper toute la place. */
-.host-grid.staging { grid-template-columns: 1fr; }
+.host-grid.staging { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); }
 
 .host.staging .main-stage { background: transparent; border-color: transparent; padding: 0; overflow: visible; }
 .host.staging .quiz-host { flex: 1; min-height: 0; }
-.host.staging .ans-grid { flex: 1; min-height: 0; grid-auto-rows: minmax(0, 1fr); }
+/* Les réponses prennent la hauteur qui reste, jamais moins que leur texte :
+   écrasées par une photo et une question longue, les cartes rognaient leur
+   première et leur dernière ligne. C'est la photo qui cède (plus bas). */
+.host.staging .ans-grid { flex: 1; min-height: min-content; grid-auto-rows: minmax(min-content, 1fr); }
 .host.staging .ans-btn { min-height: 0; }
 
 /* À la révélation, les classements arrivent sous les réponses. Avec six
    équipes, ils prenaient toute la hauteur et écrasaient les réponses — qui
    sont pourtant ce que la salle regarde. Les réponses se resserrent, les
-   classements prennent le reste et défilent sur eux-mêmes. */
+   classements prennent le reste, coupés à ce qui tient (`Coupe`) : avec un
+   plancher de 120 px, ils passaient sous la console et recouvraient
+   « Question suivante ». Les estimations prennent ce qu'il leur faut, au plus
+   les trois cinquièmes, et les classements le reste : à parts fixes, trois
+   estimations laissaient une bande vide au-dessus d'un « Top du quiz » coupé
+   au troisième joueur sur quatre. */
 .host.staging .quiz-host:has(.reveal-boards) .ans-grid { flex: none; grid-auto-rows: auto; }
-.host.staging .quiz-host:has(.reveal-boards) .ans-btn { min-height: 72px; }
+.host.staging .quiz-host:has(.reveal-boards) .ans-btn { min-height: 4.5rem; }
 .host.staging .quiz-host:has(.reveal-boards) .guess-reveal { flex: none; max-height: 45%; overflow-y: auto; }
 .host.staging .reveal-boards { flex: 1 1 0; min-height: 120px; }
+@media (min-width: 1101px) {
+  .host.staging .quiz-host:has(.reveal-boards) .guess-reveal { flex: 0 1 auto; min-height: 0; max-height: 60%; }
+  .host.staging .quiz-host:has(.reveal-boards) .guess-reveal { overflow: visible; }
+  .host.staging .reveal-boards { flex: 1 1 0; min-height: 0; overflow: hidden; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
+}
+
+/* Un tableau de la scène : son titre, puis sa liste coupée à ce qui tient.
+   Coupée sur un grand écran seulement : au téléphone, la page défile, et
+   `Coupe` ne coupe rien d'un cadre qui ne cache rien (`overflow: visible`)
+   — elle cachait les trois estimations sous « et 3 autres ». */
+.tableau { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.coupe { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; min-width: 0; }
+.coupe-zone { position: relative; flex: 1 1 auto; min-height: 0; }
+@media (min-width: 1101px) {
+  .coupe-zone { overflow: hidden; }
+}
+.coupe-autres { flex: none; margin-top: 0.375rem; text-align: center; color: var(--muted); font-size: 0.95rem; }
+
+/* Les estimations sur deux colonnes dès la cinquième : sur une, la sixième
+   passait sous le cadre en 1366 × 768 avec sept invités. Sur un grand écran :
+   au téléphone, deux colonnes de 150 px écrivaient les estimations l'une
+   sur l'autre. */
+@media (min-width: 1101px) {
+  .host.staging .estimations .podium:has(> :nth-child(5)) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    gap: 0.4375rem 1.125rem;
+  }
+}
 
 /* Les écrans de fin de soirée sont plus hauts que l'écran : le podium, les
    vingt-deux prix. Ils défilent sur eux-mêmes ; la console reste en place. */
-.host.staging .stage-scroll { overflow-y: auto; padding-right: 4px; }
+.host.staging .stage-scroll { overflow-y: auto; padding-right: 0.25rem; }
+
+/* La console est opaque, et passe devant : une scène qui déborde se coupe
+   sous elle au lieu de se lire à travers « Question suivante ». */
+.host-console { position: relative; z-index: 1; background: var(--bg); }
 
 /* Trois tailles de question selon sa longueur : une question fleuve ne doit
    pas chasser les réponses hors de l'écran. */
@@ -1102,11 +1192,11 @@ h3 > .icon {
 
 /* ── Quiz : question ────────────────────────────── */
 .quiz-player { display: flex; flex-direction: column; gap: 18px; }
-.quiz-host { display: flex; flex-direction: column; gap: 18px; }
+.quiz-host { display: flex; flex-direction: column; gap: 1.125rem; }
 
 .quiz-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .quiz-topbar .label { letter-spacing: 0.24em; }
-.quiz-status { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.quiz-status { display: flex; gap: 0.625rem; align-items: center; flex-wrap: wrap; }
 
 .quiz-question {
   font-family: var(--serif);
@@ -1124,7 +1214,7 @@ h3 > .icon {
   font-size: clamp(2rem, 4.4vw, 3.5rem);
   line-height: 1.08;
   letter-spacing: -0.01em;
-  max-width: 1120px;
+  max-width: 70rem;
 }
 
 .quiz-img {
@@ -1148,7 +1238,7 @@ h3 > .icon {
   overflow: hidden;
 }
 
-.quiz-host .timer-track { height: 4px; }
+.quiz-host .timer-track { height: 0.25rem; }
 
 .timer-fill {
   height: 100%;
@@ -1173,7 +1263,7 @@ h3 > .icon {
   font-variant-numeric: lining-nums tabular-nums;
 }
 
-.quiz-host .timer-seconds { font-size: 66px; min-width: 74px; }
+.quiz-host .timer-seconds { font-size: 4.125rem; min-width: 4.625rem; }
 .timer-seconds.urgent { color: var(--alert); }
 .timer-seconds .icon { width: 0.6em; height: 0.6em; color: var(--muted); }
 
@@ -1181,7 +1271,7 @@ h3 > .icon {
 
 /* ── Quiz : réponses ────────────────────────────── */
 .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.quiz-host .ans-grid { gap: 18px; }
+.quiz-host .ans-grid { gap: 1.125rem; }
 
 /* Sur le téléphone, les réponses prennent toute la hauteur restante : des
    cibles plus grandes pour un pouce, et plus d'écran vide sous le pli. */
@@ -1189,7 +1279,7 @@ h3 > .icon {
 /* Entre 52 et 100 px par réponse, jamais moins que son texte : une réponse
    de trois lignes garde ses trois lignes au lieu d'être coupée à la hauteur
    d'un pouce. */
-.quiz-player .ans-grid { flex: 1; grid-auto-rows: minmax(min-content, 100px); align-content: center; }
+.quiz-player .ans-grid { flex: 1; grid-auto-rows: minmax(min-content, 100px); align-content: safe center; }
 .quiz-player .ans-btn { min-height: 52px; }
 
 /* Pendant une question, le téléphone tient en un écran, question longue
@@ -1213,6 +1303,12 @@ h3 > .icon {
    reste. */
 .player-shell:has(.ans-grid) .quiz-player { min-height: 0; }
 .player-shell:has(.ans-grid) .ans-grid { flex: 1 0 244px; min-height: 0; }
+/* Jamais sous la hauteur de leur texte : quatre réponses de cent caractères
+   ne tiennent pas en 640 px, et la grille, centrée, débordait des deux côtés
+   — la première recouvrait la question. Elles gardent leur texte, et la
+   page défile. */
+.player-shell:has(.ans-grid) .ans-grid:is(.ans-md, .ans-sm) { min-height: min-content; }
+.quiz-player .ans-grid:is(.ans-md, .ans-sm) .ans-btn { padding-top: 8px; padding-bottom: 8px; }
 .player-shell:has(.ans-grid) .ans-grid:not(:has(> :nth-child(4))) { flex-basis: 180px; }
 .player-shell:has(.ans-grid) .ans-grid:not(:has(> :nth-child(3))) { flex-basis: 116px; }
 
@@ -1230,6 +1326,14 @@ h3 > .icon {
   right: 20px;
   bottom: 6px;
 }
+/* Des réponses longues ne tiennent pas en un écran, et la page défile
+   (plus haut) : la page grandit avec elles, pour que cette marge reste sous
+   la dernière réponse. À la hauteur de la fenêtre, « Réponse enregistrée »
+   s'écrivait sur la deuxième carte. La photo, qui n'a plus de hauteur à
+   céder, garde la vignette qu'elle devenait : à sa taille, elle poussait la
+   première réponse sous le pli. */
+.player-shell:has(.ans-grid:is(.ans-md, .ans-sm)) { height: auto; min-height: 100dvh; }
+.player-shell:has(.ans-grid:is(.ans-md, .ans-sm)) .quiz-img { max-height: max(80px, 12dvh); }
 
 /* Un petit écran : le chronomètre, la question et les marges se resserrent
    pour laisser aux réponses leur hauteur de pouce. */
@@ -1272,13 +1376,23 @@ h3 > .icon {
 }
 
 .quiz-host .ans-btn {
-  min-height: 112px;
-  gap: 24px;
-  padding: 0 30px;
+  min-height: 7rem;
+  gap: 1.5rem;
+  /* Une marge en haut et en bas : sans elle, une réponse de trois lignes
+     collait au bord et sa dernière ligne était rognée. */
+  padding: 0.75rem 1.875rem;
   border-radius: var(--radius);
   font-size: clamp(1.2rem, 2.4vw, 1.95rem);
   cursor: default;
 }
+
+/* Le palier des réponses longues (`answersSizeClass`), comme celui de la
+   question : au-delà de 60 caractères, quatre lignes ne tenaient plus dans
+   une carte en 1366 × 768. */
+.quiz-host .ans-grid.ans-md .ans-btn { font-size: clamp(1.1rem, 2vw, 1.6rem); }
+.quiz-host .ans-grid.ans-sm .ans-btn { font-size: clamp(1rem, 1.7vw, 1.35rem); }
+.quiz-player .ans-grid.ans-md .ans-btn { font-size: 1.05rem; }
+.quiz-player .ans-grid.ans-sm .ans-btn { font-size: 0.95rem; line-height: 1.3; }
 
 .ans-grid > *:nth-child(1) { animation-delay: 0.04s; }
 .ans-grid > *:nth-child(2) { animation-delay: 0.12s; }
@@ -1293,7 +1407,7 @@ h3 > .icon {
 
 /* La forme porte la couleur ; le texte reste encre. */
 .ans-shape { width: 22px; height: 22px; flex: none; fill: currentColor; }
-.quiz-host .ans-shape { width: 34px; height: 34px; }
+.quiz-host .ans-shape { width: 2.125rem; height: 2.125rem; }
 .shape-0 { color: var(--shape-0); }
 .shape-1 { color: var(--shape-1); }
 .shape-2 { color: var(--shape-2); }
@@ -1324,7 +1438,7 @@ h3 > .icon {
 
 .ans-extra { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: none; }
 .ans-check { width: 22px; height: 22px; color: var(--accent-text); animation: pop 0.4s ease-out both; }
-.quiz-host .ans-check { width: 30px; height: 30px; }
+.quiz-host .ans-check { width: 1.875rem; height: 1.875rem; }
 .ans-btn.correct .ans-check { color: var(--on-accent); }
 
 .ans-count {
@@ -1519,10 +1633,13 @@ h3 > .icon {
   display: grid;
   grid-template-columns: repeat(var(--marches, 3), 1fr);
   align-items: end;
-  gap: 14px;
-  min-height: 260px;
+  gap: 0.875rem;
+  min-height: 16.25rem;
+  /* La place des têtes — avatar et nom sur deux lignes — au-dessus des
+     marches : les marches se partagent le reste, à la même échelle. */
+  --podium-tete: 6.5rem;
   width: min(100%, calc(var(--marches, 3) * 34%));
-  margin: 10px auto 4px;
+  margin: 0.625rem auto 0.25rem;
   padding: 0;
   list-style: none;
 }
@@ -1535,17 +1652,43 @@ h3 > .icon {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
-  gap: 5px;
+  gap: 0.3125rem;
   height: 100%;
 }
 
 .podium-avatar { font-size: 2.6rem; line-height: 1; animation: pop 0.5s ease-out both; }
-.podium-name { font-family: var(--serif); font-weight: 600; font-size: 1.3rem; text-align: center; }
+.podium-name {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.3rem;
+  line-height: 1.15;
+  text-align: center;
+}
+/* Le nom seul, deux lignes au plus : au-delà, il mangeait la place de sa
+   marche. Le niveau reste hors de la coupe — coupé avec le nom, celui du
+   vainqueur au nom long disparaissait. En ligne, il suit un nom court sur
+   la même ligne, et passe dessous quand le nom en prend deux. */
+.podium-nom {
+  display: -webkit-inline-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  max-width: 100%;
+  overflow: hidden;
+  vertical-align: bottom;
+  /* Entre deux mots d'abord : `anywhere` coupait « Ophéli / e » alors que
+     « Ophélie » tenait sur sa ligne. */
+  overflow-wrap: break-word;
+}
 .podium-name .niveau { margin-left: 0.4em; vertical-align: 0.15em; }
 
 .podium-step {
   width: 100%;
-  border-radius: 14px 14px 0 0;
+  flex: none;
+  height: calc((100% - var(--podium-tete)) * var(--h, 1));
+  /* Jamais moins que son rang et son score. */
+  min-height: 4.75rem;
+  border-radius: 0.875rem 0.875rem 0 0;
   background: var(--surface);
   border: 1px solid var(--edge);
   border-bottom: none;
@@ -1553,7 +1696,7 @@ h3 > .icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 0.25rem;
   animation: rise 0.65s cubic-bezier(0.2, 0.9, 0.3, 1.05) both;
   transform-origin: bottom;
 }
@@ -1649,6 +1792,29 @@ h3 > .icon {
   border-bottom: 1px solid var(--edge);
 }
 
+/* L'en-tête de l'éditeur d'un quiz suit la page (voir QuizEditor). */
+.editor-header.is-collant {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  padding-top: 10px;
+  margin-top: -10px;
+}
+.editor-header .undo-line { flex-basis: 100%; margin: 0; }
+/* Un conflit ou un échec d'« Enregistrer » prend sa ligne sous les boutons,
+   et se défile s'il est long : l'en-tête collé ne doit pas manger l'écran
+   d'un téléphone. */
+.editor-header .editor-alerte { flex-basis: 100%; margin: 0; }
+.editor-header .conflit-carte { max-height: 45vh; overflow-y: auto; }
+@media (max-width: 600px) {
+  /* Au téléphone, le titre prend sa ligne et s'en va avec la page : un `top`
+     négatif de sa hauteur (10 + 44 + 8 px) ne laisse collés que « prêtes »,
+     « Retour », « Enregistrer » et l'annulation — une ligne sur 640 px. */
+  .editor-header.is-collant { gap: 8px; padding-bottom: 8px; top: -62px; }
+  .editor-header.is-collant .title-input { flex-basis: 100%; min-width: 0; height: 44px; font-size: 1.15rem; padding-block: 6px; }
+}
+
 .title-input {
   flex: 1;
   min-width: 220px;
@@ -1679,7 +1845,7 @@ h3 > .icon {
   flex-wrap: wrap;
 }
 
-.kind-toggle { display: flex; gap: 6px; }
+.kind-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .answers-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 
@@ -1716,6 +1882,12 @@ h3 > .icon {
 }
 
 .duration-input { width: 84px; padding: 9px 10px; text-align: center; }
+/* Un nombre hors bornes, ou illisible, pendant qu'on le tape (`ChampNombre`) :
+   le cadre le dit avant que le champ ne le borne, en le quittant. Le rouge
+   d'erreur, focus compris : en Velours, le champagne du cadre était
+   exactement celui du focus, et rien ne se voyait pendant la frappe. */
+.input[aria-invalid='true'],
+.input[aria-invalid='true']:focus { border-color: var(--alert); }
 
 .thumb { height: 72px; max-width: 160px; object-fit: cover; border-radius: 10px; border: 1px solid var(--edge); display: block; }
 
@@ -1772,6 +1944,8 @@ h3 > .icon {
 }
 
 .undo-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.regler-tout { display: flex; flex-direction: column; gap: 10px; }
+.regler-tout h3 { display: flex; align-items: center; gap: 8px; }
 
 /* Des modifications retrouvées dans le navigateur : la carte qui demande quoi en faire. */
 .brouillon-carte {
@@ -1964,12 +2138,12 @@ h3 > .icon {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 18px;
+  gap: 1.125rem;
   margin-top: auto;
-  padding-top: 12px;
+  padding-top: 0.75rem;
 }
 
-.stage-foot .qr-box svg { width: 84px; height: 84px; }
+.stage-foot .qr-box svg { width: 5.25rem; height: 5.25rem; }
 .stage-foot .qr-text { align-items: flex-start; }
 
 /* ── Import en masse et aperçu ──────────────────── */
@@ -2063,21 +2237,10 @@ h3 > .icon {
 /* Le détail passe à la ligne plutôt que d'être coupé net sur un téléphone. */
 .team-sub { font-size: 0.75rem; font-weight: 400; color: var(--muted); white-space: normal; line-height: 1.25; }
 
-/* Les points de classement du quiz, auxquels les prix s'ajoutent :
-   volontairement distincts du score du quiz pour qu'on ne les confonde pas. */
-.team-gamepoints {
-  font-family: var(--serif);
-  font-weight: 600;
-  font-size: 1rem;
-  line-height: 1;
-  color: var(--ink);
-  min-width: 2.2em;
-  text-align: center;
-  border: 1px solid var(--edge-strong);
-  border-radius: var(--radius-pill);
-  padding: 4px 0;
-  font-variant-numeric: lining-nums tabular-nums;
-}
+/* Les points d'équipe : le chiffre qui classe, et son nom écrit dessous.
+   Un chiffre cerclé sans étiquette n'a été compris de personne. */
+.team-points { display: flex; flex-direction: column; align-items: flex-end; flex: none; gap: 2px; }
+.team-points-unite { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
 
 /* ── Choix d'équipe (téléphone) ─────────────────── */
 .team-grid {
@@ -2267,6 +2430,11 @@ h3 > .icon {
 
 .award-give { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
 .award-points { width: 4.5em; padding: 6px 8px; text-align: center; }
+.award-points-champ { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.award-points-unite { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+/* Ce que ferait le prix : lu avant le clic, en encre — c'est une annonce. */
+.award-effet { font-size: 0.85rem; color: var(--ink); margin: 2px 0 0; }
+.free-award .award-effet { margin: 0; }
 
 .free-award { display: flex; flex-direction: column; gap: 10px; }
 .free-award .input { flex: 1; min-width: 12ch; }
@@ -2302,8 +2470,8 @@ h3 > .icon {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 20px 0;
+  gap: 0.375rem;
+  padding: 1.25rem 0;
   animation: pop 0.6s ease-out both;
 }
 
@@ -2389,7 +2557,7 @@ h3 > .icon {
 .victory-boards {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 1.25rem;
   align-items: start;
   min-height: 0;
   overflow-y: auto;
@@ -3804,66 +3972,73 @@ h3 > .icon {
 }
 
 /* ── La clôture, sur l'écran commun ────────────────────────────────────── */
-.cloture { gap: 26px; }
+.cloture { gap: 1.625rem; }
 
 /* Le podium à gauche, ce qui s'est débloqué à droite : tout ce qui compte
    tient dans l'écran, les hauts faits de chacun défilent dessous. */
 .cloture-grille {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
-  gap: 28px;
+  gap: 1.75rem;
   align-items: center;
 }
 
-.cloture-colonne { display: flex; flex-direction: column; gap: 22px; }
+.cloture-colonne { display: flex; flex-direction: column; gap: 1.375rem; }
 
 @media (max-width: 900px) {
   .cloture-grille { grid-template-columns: 1fr; }
 }
+/* Seul dans sa colonne, le QR du souvenir se lit du canapé : un tiers de la
+   hauteur, soit 26 cm sur une télé de 140 cm — dix fois plus loin qu'il
+   n'est large, trois mètres. */
+.cloture-qr-grand { flex-direction: column; justify-content: center; text-align: center; gap: 0.875rem; }
+.scene-qr.cloture-qr-grand .qr-box { padding: 0.5rem; border-radius: 0.625rem; }
+.scene-qr.cloture-qr-grand .qr-box svg { width: min(34vh, 22.5rem); height: min(34vh, 22.5rem); }
+.scene-qr.cloture-qr-grand .qr-text { align-items: center; text-align: center; max-width: 26rem; }
 .cloture-tete { text-align: center; }
-.cloture-tete h2 { font-size: 3rem; margin-top: 6px; text-wrap: balance; }
-.cloture-bloc h3 { margin-bottom: 14px; text-align: center; }
+.cloture-tete h2 { font-size: 3rem; margin-top: 0.375rem; text-wrap: balance; }
+.cloture-bloc h3 { margin-bottom: 0.875rem; text-align: center; }
 
-.cloture-legendaires { display: flex; flex-wrap: wrap; justify-content: center; gap: 30px; }
+.cloture-legendaires { display: flex; flex-wrap: wrap; justify-content: center; gap: 1.875rem; }
 
 .cloture-legendaire {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 0.375rem;
   animation: revelation 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .cloture-legendaire b { font-family: var(--serif); font-size: 1.6rem; }
-.cloture-medaillon { font-size: 128px; line-height: 0; }
+.cloture-medaillon { font-size: 8rem; line-height: 0; }
 .cloture-divin { animation-name: apparition; animation-duration: 2.4s; }
-.cloture-apparition { font-size: 180px; line-height: 0; margin: 20px 0 12px; }
+.cloture-apparition { font-size: 11.25rem; line-height: 0; margin: 1.25rem 0 0.75rem; }
 
-.cloture-montees { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 30px; }
-.cloture-montee { display: inline-flex; align-items: center; gap: 8px; font-size: 1.25rem; }
+.cloture-montees { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.875rem 1.875rem; }
+.cloture-montee { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; }
 .cloture-montee b { font-family: var(--serif); font-size: 1.4rem; }
 
-.cloture-faits { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.cloture-faits { display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: 0.75rem; }
 
 .cloture-fait {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px 14px;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
   border: 1px solid var(--edge);
   border-radius: var(--radius);
   background: var(--surface-faint);
 }
 
-.cloture-qui { display: flex; align-items: center; gap: 8px; font-size: 1.15rem; }
+.cloture-qui { display: flex; align-items: center; gap: 0.5rem; font-size: 1.15rem; }
 .cloture-qui b { font-family: var(--serif); font-size: 1.35rem; }
-.cloture-puces { display: flex; flex-wrap: wrap; gap: 6px; }
+.cloture-puces { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 
 .fait-puce {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
   border: 1px solid var(--edge);
   border-radius: var(--radius-pill);
   font-size: 0.95rem;
@@ -3877,18 +4052,18 @@ h3 > .icon {
    voit, le temps d'applaudir. Centré par ses marges. */
 .annonces-niveau {
   position: fixed;
-  top: 84px;
-  left: 16px;
-  right: 16px;
+  top: 5.25rem;
+  left: 1rem;
+  right: 1rem;
   z-index: 45;
   width: max-content;
-  max-width: calc(100% - 32px);
+  max-width: calc(100% - 2rem);
   margin: 0 auto;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px 24px;
-  padding: 12px 28px;
+  gap: 0.625rem 1.5rem;
+  padding: 0.75rem 1.75rem;
   border-radius: var(--radius-pill);
   border: 1px solid var(--edge-strong);
   background: var(--bg-raised);
@@ -3897,7 +4072,7 @@ h3 > .icon {
   animation: pop 0.4s ease-out both;
 }
 
-.annonce-niveau { display: inline-flex; align-items: center; gap: 8px; font-size: 1.25rem; animation: pop 0.4s ease-out both; }
+.annonce-niveau { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; animation: pop 0.4s ease-out both; }
 .annonce-niveau b { font-family: var(--serif); font-size: 1.45rem; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4137,7 +4312,7 @@ h3 > .icon {
 /* L'énoncé d'une question : sa catégorie, son intitulé, sa photo. Empilés
    partout, comme avant ; côte à côte sur un écran large (plus bas). */
 .quiz-enonce,
-.quiz-enonce-texte { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.quiz-enonce-texte { display: flex; flex-direction: column; gap: 1.125rem; min-width: 0; }
 
 /* L'en-tête des écrans de fin : le titre, les onglets, le QR à emporter. */
 .scene-tete {
@@ -4145,26 +4320,26 @@ h3 > .icon {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px 24px;
+  gap: 0.75rem 1.5rem;
 }
 
 /* Plus grand sur une grande télé : on le scanne depuis sa chaise. */
-.scene-qr .qr-box svg { width: clamp(84px, 11vh, 124px); height: clamp(84px, 11vh, 124px); }
-.scene-qr .qr-text { align-items: flex-start; text-align: left; max-width: 250px; }
+.scene-qr .qr-box svg { width: clamp(5.25rem, 11vh, 7.75rem); height: clamp(5.25rem, 11vh, 7.75rem); }
+.scene-qr .qr-text { align-items: flex-start; text-align: left; max-width: 15.625rem; }
 /* L'adresse entière, sur deux lignes s'il le faut : c'est celle qu'on
    recopie quand le QR ne passe pas, et coupée d'une ellipse elle ne sert à
    rien. */
 .scene-qr .join-url { white-space: normal; overflow-wrap: anywhere; }
 
 .scene-podium,
-.scene-listes { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.scene-listes { display: flex; flex-direction: column; gap: 1.125rem; min-width: 0; }
 
 .cloture-tete {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 12px 32px;
+  gap: 0.75rem 2rem;
 }
 
 /* À la clôture, un seul QR : celui du souvenir. Celui de la bande mène à la
@@ -4177,27 +4352,34 @@ h3 > .icon {
   /* La question à gauche, la photo à droite : empilée, la photo prenait le
      tiers de la hauteur au-dessus des réponses. Bornée en hauteur, elle
      garde ses proportions, portrait comme paysage. */
-  .host.staging .quiz-enonce.avec-photo { flex-direction: row; align-items: center; gap: 36px; }
+  .host.staging .quiz-enonce.avec-photo { flex-direction: row; align-items: center; gap: 2.25rem; }
   .host.staging .quiz-enonce.avec-photo > .quiz-enonce-texte { flex: 1; }
-  .host.staging .quiz-enonce.avec-photo > .quiz-img { flex: none; max-width: 46%; max-height: 40vh; }
+  .host.staging .quiz-enonce.avec-photo > .quiz-img { flex: none; max-width: 46%; max-height: min(40vh, 100%); }
+  /* L'énoncé à photo rétrécit avant les réponses : la photo se borne à ce
+     qu'il lui reste (`100 %`), l'intitulé garde sa hauteur. */
+  .host.staging .quiz-enonce.avec-photo { flex: 0 1 auto; min-height: 0; }
 
   /* À la révélation, la photo a été vue : elle cède aux classements ce que
-     la bande, la console et les réponses — en pixels, eux — laissent de la
-     hauteur. En 1366 × 768, c'est une vignette ; en 1920 × 1080, elle garde
-     presque sa taille. Plus petite encore à une estimation, dont les
-     réponses sont une liste. */
-  .host.staging .quiz-host:has(.reveal-boards) .quiz-enonce.avec-photo > .quiz-img { max-height: min(36vh, 100vh - 600px); }
-  .host.staging .quiz-host:has(.guess-reveal) .quiz-enonce.avec-photo > .quiz-img { max-height: min(30vh, 100vh - 630px); }
+     la bande, la console et les réponses laissent de la hauteur : une
+     vignette de 8 rem, en 1366 × 768 comme en 1920 × 1080 — les deux font
+     48 rem de haut. Avec une question longue, c'est elle qui fait la place
+     de la première ligne des classements. Plus petite encore à une
+     estimation, dont les réponses sont une liste. */
+  .host.staging .quiz-host:has(.reveal-boards) .quiz-enonce.avec-photo > .quiz-img { max-height: min(36vh, 100vh - 40rem); }
+  .host.staging .quiz-host:has(.guess-reveal) .quiz-enonce.avec-photo > .quiz-img { max-height: min(30vh, 100vh - 39.375rem); }
 
   /* La valeur à trouver à gauche, les estimations à droite. */
   .host.staging .guess-reveal {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: start;
-    gap: 36px;
+    gap: 2.25rem;
     text-align: left;
   }
   .host.staging .guess-reveal > .podium { margin-top: 0; }
+  .host.staging .guess-reveal { grid-template-rows: minmax(0, 1fr); }
+  .host.staging .guess-reveal > .coupe { align-self: stretch; }
+  .host.staging .guess-reveal .podium { margin-top: 0; }
 
   /* Le titre à gauche, les onglets au centre, le QR à droite. */
   .scene-tete { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
@@ -4205,11 +4387,49 @@ h3 > .icon {
 
   /* Le podium à gauche, les listes à droite, qui défilent sur elles-mêmes
      s'il y a cinquante invités : le podium et le QR restent à l'écran. */
-  .scene-podium { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 36px; align-items: center; }
+  .scene-podium { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 2.25rem; align-items: center; }
   .scene-podium:not(:has(> .scene-listes)) { grid-template-columns: minmax(0, 1fr); }
   .host.staging .scene-podium { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); }
-  .host.staging .scene-podium > .final-podium { min-height: clamp(220px, 50vh, 480px); margin: 0; }
-  .host.staging .scene-listes { min-height: 0; max-height: 100%; overflow-y: auto; padding-right: 4px; }
+  /* Le podium des équipes porte sa légende (« avant les prix ») : son
+     enveloppe ne doit pas lui faire perdre sa taille, sans quoi il tombait
+     à 260 px quand celui des joueurs en garde 480. */
+  .host.staging .scene-podium > .final-podium,
+  .host.staging .scene-podium > .podium-legende > .final-podium { min-height: clamp(13.75rem, 50vh, 30rem); margin: 0; }
+  .host.staging .scene-listes { min-height: 0; max-height: 100%; overflow: hidden; }
+  /* Deux tableaux l'un sous l'autre ne se partagent pas la hauteur au
+     prorata de leur contenu : la coupe se mesure liste entière, et le
+     premier rétrécissait ensuite sous une ligne qu'on croyait tenir. Le
+     premier prend au plus la moitié, le second ce qui reste ; les notes ne
+     rétrécissent pas. */
+  .host.staging .scene-listes > .tableau:first-child:not(:last-child) { flex: none; max-height: 50%; }
+  .host.staging .scene-listes > :not(.coupe, .tableau) { flex: none; }
+  /* Les listes prennent la colonne entière, du haut en bas, au lieu d'être
+     centrées sur leur hauteur : c'est autant de lignes de plus. Et la suite
+     du classement passe avant les distinctions : elle prend ce qu'elles
+     laissent, et elles, au plus la moitié, cartes coupées entières. Sans
+     quoi trois cartes prenaient toute la colonne, et il restait une ligne
+     et « et 4 autres ». */
+  .host.staging .scene-listes { align-self: stretch; }
+  /* Les marges des tableaux de la scène se resserrent : agrandies (E8), les
+     rangées coûtaient une ligne au podium du quiz — cinq au lieu de six en
+     1366 × 768. L'écart sous un titre, entre deux tableaux et dans une
+     rangée d'équipe, ce sont quelques pixels chacun, et une ligne en tout. */
+  .host.staging .tableau :is(.leaderboard, .podium) { margin-top: 0.25rem; gap: 0.375rem; }
+  .host.staging .scene-listes { gap: 0.75rem; }
+  .host.staging .lb-row.team-row { padding-block: 0.375rem; }
+  .host.staging .scene-listes > .coupe,
+  .host.staging .scene-listes > .tableau:last-child { flex: 1 1 0; }
+  .host.staging .scene-listes > .coupe-trophees { flex: 0 1 auto; max-height: 50%; }
+
+  /* La victoire : le vainqueur en grand, les deux classements dans ce qui
+     reste, coupés à ce qui tient — la liste s'arrêtait au cinquième. */
+  .host.staging .victory { overflow: hidden; }
+  /* L'emoji du vainqueur, en vw, mesurait 128 px en 1366 et 180 en 1920 : il
+     laissait deux lignes aux classements. À la hauteur, comme le reste. */
+  .host.staging .victory-winner { flex: none; padding: 0.5rem 0; gap: 0.25rem; }
+  .host.staging .victory-emoji { font-size: clamp(3.5rem, 12vh, 6rem); }
+  .host.staging .victory-name { font-size: clamp(2.2rem, 7vh, 4rem); }
+  .host.staging .victory-boards { flex: 1 1 0; min-height: 0; overflow: hidden; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
 
   /* La clôture : le titre au centre, le QR du souvenir à droite, le podium
      et ce qui s'est débloqué au milieu ; les hauts faits prennent le reste
@@ -4217,45 +4437,216 @@ h3 > .icon {
   .cloture-tete { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr); }
   .cloture-titre { grid-column: 2; }
   .cloture-tete > .scene-qr { grid-column: 3; justify-self: end; min-width: 0; }
-  .host.staging .cloture .final-podium { min-height: clamp(190px, 30vh, 300px); margin: 0; }
-  .host.staging .cloture-hauts-faits { flex: 1 1 0; min-height: 120px; display: flex; flex-direction: column; }
+  .host.staging .cloture .final-podium { min-height: clamp(16rem, 40vh, 26rem); margin: 0; }
+  .host.staging .cloture-hauts-faits { flex: 1 1 0; min-height: 7.5rem; display: flex; flex-direction: column; }
   .host.staging .cloture-hauts-faits .cloture-faits {
     min-height: 0;
     overflow-y: auto;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr));
     align-content: start;
   }
 
   /* La console sur une ligne. Neuf boutons en salle d'attente ne tenaient
-     pas entre deux colonnes de même largeur, gardées pour centrer : sous
-     1600 px, l'étiquette s'efface, les boutons se serrent et prennent la
-     place qu'elle laissait. */
-  @media (max-width: 1599px) {
-    .host-console { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
-    .console-label { display: none; }
-    .console-actions { gap: 6px; }
-    .console-actions .btn { padding: 0 12px; gap: 6px; }
-  }
+     pas entre deux colonnes de même largeur, gardées pour centrer :
+     l'étiquette s'efface, les boutons se serrent et prennent la place
+     qu'elle laissait. Toujours, et plus seulement sous 1600 px : la taille
+     suit la hauteur, et un 1920 × 1080 a la largeur d'un 1366 × 768 en
+     `rem` — la console y passait sur deux lignes. */
+  .host-console { grid-template-columns: minmax(0, 1fr) auto; gap: 0.5rem; }
+  .console-label { display: none; }
+  /* Au-dessus de la console, qui compte en `rem` : à 84 px, le toast mordait
+     sur elle en 1920 × 1080, où elle en mesure 97. */
+  .host > .toast { bottom: 5.25rem; }
+  .console-actions { gap: 0.375rem; }
+  .console-actions .btn { padding: 0 0.75rem; gap: 0.375rem; }
 
-  /* 768 px de haut : les marges et les écarts se resserrent, les réponses
-     révélées aussi — ce sont quelques pixels chacun, et c'est une rangée de
-     classement de plus. */
-  @media (max-height: 820px) {
-    .host { padding-top: 16px; padding-bottom: 14px; gap: 14px; }
-    .host.staging .quiz-host,
-    .host.staging .quiz-enonce,
-    .host.staging .quiz-enonce-texte { gap: 14px; }
-    .quiz-host .timer-seconds { font-size: 54px; }
-    .host.staging .quiz-enonce.avec-photo > .quiz-img { max-height: 36vh; }
-    .host.staging .quiz-host:has(.reveal-boards) .ans-btn { min-height: 60px; }
-    .host.staging .target-value { font-size: 5rem; }
-    .cloture { gap: 18px; }
-    .cloture-tete h2 { font-size: 2.5rem; }
-    .cloture-bloc h3 { margin-bottom: 10px; }
-    .cloture-fait { gap: 6px; padding: 8px 12px; }
-  }
+  /* Les marges et les écarts se resserrent, les réponses révélées aussi —
+     ce sont quelques pixels chacun, et c'est une rangée de classement de
+     plus. Sur tous les grands écrans, et plus seulement sous 820 px de
+     haut : tout compte ici en `rem`, qui suit la hauteur, et un 1920 × 1080
+     a la même hauteur qu'un 1366 × 768 — 48 rem. Réservé au 768, ce bloc
+     laissait moins de place en 1080 : une équipe sur trois et deux joueurs
+     sur cinq à la révélation, là où le 768 en montrait deux fois plus. */
+  .host { padding-top: 1rem; padding-bottom: 0.875rem; gap: 0.875rem; }
+  .host.staging .quiz-host,
+  .host.staging .quiz-enonce,
+  .host.staging .quiz-enonce-texte { gap: 0.875rem; }
+  .quiz-host .timer-seconds { font-size: 3.375rem; }
+  .host.staging .quiz-enonce.avec-photo > .quiz-img { max-height: min(36vh, 100%); }
+  .host.staging .target-value { font-size: 5rem; }
+
+  /* À la révélation, les réponses ne se lisent plus, elles se comptent :
+     une rangée de 3,75 rem, sans la marge des cartes à lire. */
+  .host.staging .quiz-host:has(.reveal-boards) .ans-btn { min-height: 3.75rem; padding-block: 0.25rem; }
+  /* Jamais un classement coupé à zéro ligne : « et 5 autres » seul ne dit
+     rien à la salle. La première ligne tient toujours — celle d'une équipe,
+     la plus haute, avec son sous-titre —, et le cadre des classements
+     réserve son titre, cette ligne et « et 2 autres ». La photo, déjà vue,
+     cède d'autant (plus haut). */
+  .host.staging .reveal-boards .coupe-zone { min-height: 4rem; }
+  .host.staging .reveal-boards { min-height: 8.5rem; }
+
+  .cloture { gap: 1.125rem; }
+  .cloture-tete h2 { font-size: 2.5rem; }
+  .cloture-bloc h3 { margin-bottom: 0.625rem; }
+  .cloture-fait { gap: 0.375rem; padding: 0.5rem 0.75rem; }
 }
 
+/* ── Ce que la salle doit savoir, lisible du canapé ─────────────────────
+   La pause, « Regardez bien », « Question suivante dans 7 s », le plus
+   rapide : des pastilles de 11 px en capitales, cinq minutes d'arc à trois
+   mètres. Sur la scène, elles deviennent un bandeau en serif. Sur un grand
+   écran seulement : l'animateur qui tient /host au téléphone le lit à
+   trente centimètres, et le bandeau y prenait 25 px au lieu de 11. */
+@media (min-width: 1101px) {
+  .host.staging .quiz-status .pill {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    gap: 0.5rem;
+    font-family: var(--serif);
+    font-size: 1.6rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .host.staging .quiz-status .pill .icon { width: 1.4rem; height: 1.4rem; }
+  .host.staging .quiz-status { gap: 0.625rem 2.25rem; }
+}
+
+.timer-seconds.paused { color: var(--muted); gap: 0.15em; }
+
+.quiz-host { position: relative; }
+.pause-voile {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(3rem, 9vh, 6rem);
+  color: var(--accent-text);
+  pointer-events: none;
+  animation: pop 0.3s ease-out both;
+}
+/* Le mot sur un fond : posé au centre de la scène, il s'écrivait sur la
+   dernière ligne d'une question longue, en 1920 × 1080. */
+.pause-voile > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0 0.4em;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.pause-voile .icon { width: 0.8em; height: 0.8em; color: var(--accent-text); }
+/* Au téléphone, la scène défile : le mot centré sur elle tombait sous le
+   pli, hors de l'écran de l'animateur. Il prend sa place sous le chrono. */
+@media (max-width: 1100px) {
+  .pause-voile { position: static; font-size: 2rem; }
+}
+/* Le mot en grand, sur une scène éteinte : les réponses restent lisibles
+   pour qui veut en discuter, mais rien ne dit plus « jouez ». À 40 %, comme
+   l'énoncé : à 15 %, elles tombaient à 1,53:1 en Velours et 1,35:1 en
+   Ivoire, illisibles. */
+.quiz-host:has(> .pause-voile) > .quiz-enonce { opacity: 0.4; }
+.quiz-host:has(> .pause-voile) > :is(.ans-grid, .big-waiting, .compte-reponses) { opacity: 0.4; }
+
+/* Au téléphone : le même mot, et des réponses qui ne ressemblent plus à des
+   boutons qu'on peut toucher. */
+.pause-bandeau {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--edge-strong);
+  background: var(--accent-soft);
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 1.6rem;
+  line-height: 1.1;
+  color: var(--accent-text);
+}
+.pause-bandeau .icon { width: 1.3rem; height: 1.3rem; color: var(--accent-text); }
+.pause-bandeau-suite { flex-basis: 100%; font-family: var(--sans); font-weight: 400; font-size: 0.9rem; color: var(--muted); }
+.ans-btn.en-pause { opacity: 0.4; }
+
+/* Pendant une estimation, le compte des réponses au centre de la scène. */
+.compte-reponses {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.25em;
+  margin: auto 0;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(3rem, 12vh, 7rem);
+  line-height: 1;
+  color: var(--muted);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.compte-reponses b { color: var(--accent-text); font-weight: 600; }
+.compte-reponses-mot { margin-left: 0.3em; font-size: 0.3em; font-weight: 500; }
+/* Au téléphone, la bande le donne déjà, et 77 px de chiffres poussaient la
+   console sous le pli. Après la règle de base, pas avant : à spécificité
+   égale, c'est la dernière qui gagne, et posé devant, `display: flex` le
+   remontrait. */
+@media (max-width: 1100px) {
+  .compte-reponses { display: none; }
+}
+
+/* Les moments forts, écrits pour la salle : les prénoms du podium faisaient
+   20 px sous des marches de 400, et les classements 16 px — sous le seuil
+   de lecture à trois mètres. Sur un grand écran seulement : au téléphone,
+   un prénom de 35 px ne tenait plus sous sa marche, et « Ophélie » se
+   coupait en « Ophéli / e ». */
+@media (min-width: 1101px) {
+  .host.staging .final-podium { --podium-tete: 9.5rem; }
+  .host.staging .podium-avatar { font-size: 3.2rem; }
+  .host.staging .podium-name { font-size: 2.2rem; line-height: 1.05; }
+  .host.staging .podium-medal { font-size: 2.8rem; }
+  .host.staging .podium-points { font-size: 2rem; }
+  .host.staging .podium-step { min-height: 6.25rem; }
+  .host.staging .podium-name .niveau { font-size: 1rem; }
+  /* Un interligne serré : à 1,25 rem, celui de la page faisait les rangées
+     6 px plus hautes que celles d'avant, et c'était une ligne de moins à
+     chaque classement coupé. */
+  .host.staging .lb-row { font-size: 1.25rem; line-height: 1.2; }
+  .host.staging .lb-avatar { font-size: 1.45rem; }
+  .host.staging .lb-rank { font-size: 1.5rem; }
+  .host.staging .lb-score { font-size: 1.6rem; }
+  .host.staging .guess-value { font-size: 1.35rem; }
+}
+
+/* Le verdict des équipes à la clôture : une ligne, lisible du canapé. */
+.cloture-equipe { font-family: var(--serif); font-size: 1.5rem; margin: 0; }
+.cloture-equipe .muted { font-family: var(--sans); font-size: 1rem; }
+/* ── Le lendemain : la dernière soirée, en une ligne ── */
+/* Une ligne et pas une carte : sur l'entrée, « Rejoindre la soirée » doit
+   rester visible sans défiler en 360 × 640. */
+.lendemain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+.lendemain .icon { flex: none; }
+.fin-prix { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.fin-prix li { display: flex; align-items: center; gap: 12px; }
+.fin-prix-emoji { font-size: 1.8rem; line-height: 1; }
+.recap-partage { justify-content: center; gap: 8px; flex-wrap: wrap; }
+.tous-les-liens summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; }
+.tous-les-liens[open] summary { margin-bottom: 12px; }
+.tous-les-liens ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tous-les-liens li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 /* ── Le glossaire ─────────────────────────────────────────────────────────
 
    Replié sur une ligne discrète ; déplié, un terme par ligne, le mot en tête.

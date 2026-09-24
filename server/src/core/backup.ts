@@ -4,7 +4,8 @@ import { lireSoireeLocale, type DB } from './db'
 import type { PlayerRec } from './party'
 import type { TeamRec } from './teams'
 import type { Soiree } from './archive'
-import { toRow, type AnswerRow } from './answers'
+import { colonneEquipe, toRow, type AnswerRow } from './answers'
+import { pouls } from './pouls'
 import type { TeamBonus } from '../../../shared/types'
 
 /** Une partie telle qu'elle est écrite dans la table `sessions` locale. */
@@ -143,8 +144,8 @@ const SQL = {
   gain: `INSERT INTO party_scores (id, player_id, session_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO NOTHING`,
   reponse: `INSERT INTO party_answers (id, session_id, quiz_title, q_index, kind, player_id, answered,
-              correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, space_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id, space_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO NOTHING`,
   partie: `INSERT INTO party_sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -234,6 +235,7 @@ const ligneReponse = (spaceId: string, r: ReponseMiroir) =>
     r.observed ? 1 : 0,
     r.createdAt,
     r.category ?? null,
+    colonneEquipe(r.teamId),
     spaceId,
   ])
 const lignePartie = (spaceId: string, s: SessionRow) =>
@@ -431,6 +433,10 @@ export class PartyBackup {
     for (const table of MIRROR_TABLES) await ajouterColonne(this.client, table, 'space_id', 'TEXT')
     // La catégorie des questions est arrivée après : un miroir d'avant ne l'a pas.
     await ajouterColonne(this.client, 'party_answers', 'category', 'TEXT')
+    // L'équipe de chaque réponse aussi (`AnswerRow.teamId`) : sans elle, une
+    // restauration sur disque effacé rendait le verdict des équipes à la
+    // composition du moment.
+    await ajouterColonne(this.client, 'party_answers', 'team_id', 'TEXT')
     await this.client.batch(
       [
         ...MIRROR_TABLES.map(table => `CREATE INDEX IF NOT EXISTS idx_${table}_space ON ${table}(space_id)`),
@@ -645,9 +651,12 @@ export class PartyBackup {
     if (voie.enVol || voie.reessai || voie.suspendue || this.ferme) return
     if (voie.file.length === 0) return this.signalerVide(voie)
     const tete = this.regrouper(voie)
+    const debut = Date.now()
     voie.enVol = this.envoyer(voie, tete).then(
       () => {
         voie.enVol = null
+        // Ce que coûte la base distante, vue d'ici : `/healthz` le montre.
+        pouls.miroir.noter(Date.now() - debut)
         // Rien ne touche à un envoi en vol : c'est toujours lui, en tête.
         const i = voie.file.indexOf(tete)
         if (i >= 0) {
@@ -1093,8 +1102,8 @@ export class PartyBackup {
     )
     const insertAnswer = db.prepare(
       `INSERT OR IGNORE INTO answer_log (uid, session_id, quiz_title, q_index, kind, player_id, answered, correct,
-         choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, space_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id, space_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     const insertSession = db.prepare(
       `INSERT OR IGNORE INTO sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
@@ -1172,6 +1181,7 @@ export class PartyBackup {
           r.observed ? 1 : 0,
           r.createdAt,
           r.category ?? null,
+          colonneEquipe(r.teamId),
           spaceOf(raw),
         )
       }

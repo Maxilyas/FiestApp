@@ -1,5 +1,4 @@
 import type { ArchiveSummary } from '../../../shared/archive'
-import { formatDay } from '../../../shared/archive'
 import { pageContext, spacePath } from '../routes'
 import { Icon } from './Icon'
 
@@ -11,15 +10,13 @@ import { Icon } from './Icon'
  */
 export function ArchiveBanner({ archive }: { archive: ArchiveSummary }) {
   const { slug, archiveId } = pageContext()
-  // « Soirée du 24 septembre 2026 · 24 septembre 2026 » : un titre qui porte
-  // déjà sa date ne la répète pas.
-  const jour = formatDay(archive.heldAt)
   return (
     <p className="archive-banner">
       <Icon name="book" />
       <span>
+        {/* Sans la date : l'en-tête de la page la dit juste en dessous, et le
+            bilan d'une archive l'écrivait trois fois. */}
         {archiveId ? 'Soirée archivée' : 'La dernière soirée'} : <strong>{archive.title}</strong>
-        {!archive.title.includes(jour) && ` · ${jour}`}
       </span>
       {/* « Historique » : la même page s'appelait aussi Soirées, Mes soirées,
           Les soirées et Toutes les soirées. */}

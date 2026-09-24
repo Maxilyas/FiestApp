@@ -1,7 +1,11 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   DEFAULT_DURATION,
   DEFAULT_OBSERVE,
+  SANS_BONNE_REPONSE,
+  VRAI_FAUX,
+  bonneEnPremier,
+  estVraiFaux,
   MAX_ANSWERS,
   MAX_ANSWER_TEXT,
   MAX_DURATION,
@@ -19,6 +23,7 @@ import {
   photoManquante,
   questionProblem,
   tempsDObservation,
+  tempsDansLesBornes,
   toPlayable,
   voisineDe,
   type QuizDef,
@@ -26,9 +31,9 @@ import {
   type QuizSummary,
 } from '../../../shared/library'
 import { CATEGORIES } from '../../../shared/categories'
-import { lireNombre } from '../../../shared/nombres'
+import { ecrireNombre, lireNombre } from '../../../shared/nombres'
 import { POIDS_MAX_FICHIER, emporterQuiz, importerQuiz, nomDeFichier } from '../../../shared/echange'
-import { APERCU_DU_FORMAT, FORMAT_DE_LISTE, apparierPhotos, cleDePhoto, joindrePhotos } from '../../../shared/liste'
+import { APERCU_DU_FORMAT, FORMAT_DE_LISTE, apparierPhotos, cleDePhoto, ecrireListe, joindrePhotos } from '../../../shared/liste'
 import {
   brouillonDepasse,
   brouillonUtile,
@@ -36,15 +41,17 @@ import {
   sansPhotosDisparues,
   type Brouillon,
 } from '../../../shared/brouillon'
-import { ApiError, UnauthorizedError, api, auReveil, compressImage } from '../api'
+import { ApiError, ConflitError, UnauthorizedError, api, auReveil, compressImage } from '../api'
 import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon } from '../brouillon'
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { consigneEstimation } from '../games/quiz/consignes'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
+import { ChampNombre } from '../components/ChampNombre'
 import { Shape } from '../components/Shape'
 import { TimerBar } from '../components/TimerBar'
 import { serverNow } from '../clock'
+import { gesteAccepte } from '../../../shared/console'
 import { LoginForm } from '../components/Invitation'
 import { espacesFines } from '../format'
 
@@ -67,6 +74,17 @@ function quand(ts: number): string {
  * `focus` dit où il va : l'intitulé d'une question neuve, sinon le bouton
  * qui a servi.
  */
+interface Annulable {
+  label: string
+  /** Le geste inverse, rejoué sur les questions du moment. */
+  defaire: (questions: QuizQuestionDef[]) => QuizQuestionDef[]
+  /** Ce qu'entend le lecteur d'écran une fois défait. */
+  annonce: string
+  /** La carte à montrer une fois défait. */
+  carte?: string
+  wasDirty: boolean
+}
+
 interface Spot {
   id: string
   focus: 'text' | 'number' | 'up' | 'down'
@@ -141,6 +159,8 @@ export function EditorApp() {
   /** Les quiz dont ce navigateur garde des modifications non enregistrées. */
   const [brouillons, setBrouillons] = useState<ReadonlySet<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
+  /** Le quiz s'ouvre sur « Coller une liste » : il vient d'être créé pour ça. */
+  const [ouvrirListe, setOuvrirListe] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   /** Le quiz qu'on emballe, ou l'import en cours : un clic à la fois. */
@@ -184,6 +204,7 @@ export function EditorApp() {
       const fait = await importerQuiz(brut, {
         envoyerPhoto: async enClair => (await api.uploadImage(enClair)).url,
         creer: (titre, questions) => api.create(titre, questions),
+        titresPris: list?.map(q => q.title) ?? [],
       })
       setNotice(
         `« ${fait.quiz.title} » est dans ta bibliothèque : ${fait.questions} question${fait.questions > 1 ? 's' : ''}` +
@@ -242,8 +263,10 @@ export function EditorApp() {
     return (
       <QuizEditor
         id={editingId}
+        ouvrirListe={ouvrirListe}
         onClose={() => {
           setEditingId(null)
+          setOuvrirListe(false)
           reload()
         }}
       />
@@ -288,6 +311,24 @@ export function EditorApp() {
           <button className="btn btn-ghost" disabled={echange !== null} onClick={() => fichier.current?.click()}>
             <Icon name="download" />
             {echange === 'import' ? 'Import…' : 'Importer un quiz'}
+          </button>
+          {/* On cherchait « Coller une liste » en arrivant, et l'on ouvrait
+              « Importer un quiz », qui attend un fichier : le panneau n'existait
+              qu'à l'intérieur d'un quiz. Il crée le quiz, et s'ouvre dedans. */}
+          <button
+            className="btn btn-ghost"
+            onClick={async () => {
+              try {
+                const quiz = await api.create('Nouveau quiz')
+                setOuvrirListe(true)
+                setEditingId(quiz.id)
+              } catch (e) {
+                setError((e as Error).message)
+              }
+            }}
+          >
+            <Icon name="clipboard" />
+            Coller une liste
           </button>
           <button
             className="btn btn-primary"
@@ -363,7 +404,13 @@ export function EditorApp() {
                 onClick={async () => {
                   const ok = await confirmDialog({
                     title: `Supprimer « ${q.title} » ?`,
-                    message: 'Le quiz et ses questions disparaissent pour de bon.',
+                    // Deux quiz du même nom ne se distinguaient pas : ce qu'il
+                    // contient et quand il a changé disent lequel.
+                    message:
+                      q.questionCount === 0
+                        ? `Ce quiz vide, modifié ${quand(q.updatedAt)}, disparaît pour de bon.`
+                        : `Le quiz et ${q.questionCount > 1 ? `ses ${q.questionCount} questions` : 'sa question'}, ` +
+                          `modifié ${quand(q.updatedAt)}, disparaissent pour de bon.`,
                     confirmLabel: 'Supprimer',
                     danger: true,
                   })
@@ -371,6 +418,8 @@ export function EditorApp() {
                   try {
                     await api.remove(q.id)
                     oublierBrouillon(q.id)
+                    // « « Spécial agence » est dans ta bibliothèque » survivait au quiz.
+                    setNotice('')
                     reload()
                   } catch (e) {
                     setError((e as Error).message)
@@ -389,7 +438,7 @@ export function EditorApp() {
 
 // ── Édition d'un quiz ─────────────────────────────────────────────────────
 
-function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
+function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirListe?: boolean; onClose: () => void }) {
   const [quiz, setQuiz] = useState<QuizDef | null>(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -397,7 +446,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const [reveil, setReveil] = useState(false)
   const [error, setError] = useState('')
   const [savedAt, setSavedAt] = useState<number | null>(null)
-  const [importing, setImporting] = useState(false)
+  const [importing, setImporting] = useState(ouvrirListe)
   /**
    * Des modifications de ce quiz que ce navigateur a gardées sans que le
    * serveur les ait enregistrées. Tant qu'on n'a pas choisi de les reprendre
@@ -410,16 +459,28 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const [sansPhoto, setSansPhoto] = useState<ReadonlySet<string>>(new Set())
   /** `updatedAt` de la version du serveur d'où partent les modifications en cours. */
   const [base, setBase] = useState(0)
+  /**
+   * Le quiz a été enregistré ailleurs pendant qu'on écrivait ici : la
+   * version qu'il a laissée. Le dernier « Enregistrer » écrasait l'autre
+   * appareil en silence ; on choisit désormais laquelle garder.
+   */
+  const [conflit, setConflit] = useState<number | null>(null)
   /** Faux quand le navigateur refuse de garder le brouillon : l'éditeur ne promet plus rien. */
   const [garde, setGarde] = useState(true)
   /**
-   * Le dernier déplacement, pour le défaire d'un clic : une faute de frappe,
-   * 54 pour 45, ne doit pas coûter une recherche dans soixante cartes. On
-   * garde le mouvement inverse plutôt qu'une copie de la liste, pour ne pas
-   * écraser une photo arrivée entre-temps. `wasDirty` : défaire un
-   * déplacement sur un quiz enregistré le laisse enregistré.
+   * Le dernier geste qui se défait d'un clic — un déplacement, une
+   * suppression, un réglage de tout le quiz : une faute de frappe, 54 pour
+   * 45, ne doit pas coûter une recherche dans soixante cartes, ni une
+   * question supprimée par erreur sa réécriture. On garde le geste inverse
+   * plutôt qu'une copie de la liste, pour ne pas écraser une photo arrivée
+   * entre-temps. `wasDirty` : défaire un geste sur un quiz enregistré le
+   * laisse enregistré.
    */
-  const [undo, setUndo] = useState<{ label: string; index: number; number: number; wasDirty: boolean } | null>(null)
+  const [undo, setUndo] = useState<Annulable | null>(null)
+  /** « Copier en liste » : copiée, ou refusée par le navigateur — le texte s'affiche alors. */
+  const [listeCopiee, setListeCopiee] = useState<'faite' | 'refusee' | null>(null)
+  /** Le panneau « Régler tout le quiz », ouvert. */
+  const [reglerTout, setReglerTout] = useState(false)
   const [spot, setSpot] = useState<Spot | null>(null)
   /** Ce qui vient de bouger, pour les lecteurs d'écran — l'œil, lui, suit la carte éclairée. */
   const [announce, setAnnounce] = useState('')
@@ -436,6 +497,18 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const modifications = useRef(0)
   /** Faux une fois l'éditeur refermé : l'enregistrement cesse d'attendre le réveil. */
   const ouvert = useRef(true)
+
+  const dernieresActions = useRef<ActionsDesCartes | null>(null)
+  const actions = useMemo<ActionsDesCartes>(
+    () => ({
+      changer: (i, fn) => dernieresActions.current?.changer(i, fn),
+      deplacer: (i, n, f) => dernieresActions.current?.deplacer(i, n, f),
+      insererApres: i => dernieresActions.current?.insererApres(i),
+      dupliquer: i => dernieresActions.current?.dupliquer(i),
+      supprimer: i => dernieresActions.current?.supprimer(i),
+    }),
+    [],
+  )
 
   const poser = (q: QuizDef) => {
     courant.current = q
@@ -515,19 +588,71 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
     const label = `Question déplacée du n° ${index + 1} au n° ${to + 1}`
     patch(q => ({ ...q, questions: moveQuestion(q.questions, index, number) }))
     // Après patch, qui l'efface : c'est bien ce déplacement-ci qu'on pourra défaire.
-    setUndo({ label, index: to, number: index + 1, wasDirty: dirty })
+    setUndo({
+      label,
+      defaire: qs => moveQuestion(qs, to, index + 1),
+      annonce: 'Déplacement annulé',
+      carte: before[index].id,
+      wasDirty: dirty,
+    })
     setAnnounce(label)
     spotlight(before[index].id, focus)
   }
 
-  const undoMove = () => {
-    if (!undo || !quiz) return
-    const { index, number, wasDirty } = undo
-    const id = quiz.questions[index]?.id
-    patch(q => ({ ...q, questions: moveQuestion(q.questions, index, number) }))
+  const defaire = () => {
+    if (!undo) return
+    const { defaire: inverse, annonce, carte, wasDirty } = undo
+    patch(q => ({ ...q, questions: inverse(q.questions) }))
     setDirty(wasDirty)
-    setAnnounce('Déplacement annulé')
-    spotlight(id, 'number')
+    setAnnounce(annonce)
+    spotlight(carte, 'number')
+  }
+
+  /**
+   * Supprimer se défait : la confirmation seule ne rattrapait pas la
+   * mauvaise carte, et le seul recours était d'effacer toutes ses
+   * modifications depuis le dernier enregistrement.
+   */
+  const supprimer = (index: number) => {
+    if (!quiz) return
+    const question = quiz.questions[index]
+    const label = `Question ${index + 1} supprimée`
+    patch(q => ({ ...q, questions: q.questions.filter((_, i) => i !== index) }))
+    setUndo({
+      label,
+      defaire: qs => insertQuestions(qs, index + 1, [question]),
+      annonce: 'Question rétablie',
+      carte: question.id,
+      wasDirty: dirty,
+    })
+    setAnnounce(label)
+  }
+
+  /**
+   * Le même temps, la même catégorie, pour toutes les questions d'un coup :
+   * les trois animateurs de la tablée l'ont cherché — passer un quiz d'ami
+   * de 20 à 30 s coûtait trois gestes par question.
+   */
+  const reglerLeQuiz = (reglage: { duration?: number; category?: string | null }) => {
+    if (!quiz) return
+    const avant = new Map(quiz.questions.map(q => [q.id, { duration: q.duration, category: q.category ?? null }]))
+    const n = quiz.questions.length
+    const quoi = [
+      reglage.duration !== undefined && `${reglage.duration} s`,
+      reglage.category !== undefined && (reglage.category ? `« ${reglage.category} »` : 'sans catégorie'),
+    ]
+      .filter(Boolean)
+      .join(' et ')
+    const label = `${quoi} pour ${n > 1 ? `les ${n} questions` : 'la question'}`
+    patch(q => ({ ...q, questions: q.questions.map(item => ({ ...item, ...reglage })) }))
+    setUndo({
+      label,
+      defaire: qs => qs.map(item => ({ ...item, ...(avant.get(item.id) ?? {}) })),
+      annonce: 'Réglage annulé',
+      wasDirty: dirty,
+    })
+    setAnnounce(label)
+    setReglerTout(false)
   }
 
   /**
@@ -552,16 +677,40 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
     spotlight(id, 'text')
   }
 
-  const save = async () => {
+  const copierEnListe = async () => {
+    if (!courant.current) return
+    const faite = await copierTexte(ecrireListe(courant.current.questions))
+    setListeCopiee(faite ? 'faite' : 'refusee')
+    setAnnounce(
+      faite
+        ? 'Liste copiée dans le presse-papiers. Les photos ne voyagent pas en texte : recollée, chaque question attendra la sienne.'
+        : '',
+    )
+  }
+
+  useEffect(() => {
+    if (listeCopiee !== 'faite') return
+    const timer = setTimeout(() => setListeCopiee(null), 4000)
+    return () => clearTimeout(timer)
+  }, [listeCopiee])
+
+  /** `depuis` : la version à remplacer — celle de l'autre appareil, quand on garde la sienne quand même. */
+  const save = async (depuis = base) => {
     if (!courant.current) return
     setSaving(true)
     setError('')
+    setConflit(null)
     let envoi = { quiz: courant.current, modifications: modifications.current }
+    // Un jeton par clic, repris par chaque essai au réveil, et un numéro par
+    // essai (voir `api.save`).
+    const jeton = newQuestionId()
+    let essai = 0
     try {
       const saved = await auReveil(
         () => {
           envoi = { quiz: courant.current ?? envoi.quiz, modifications: modifications.current }
-          return api.save(envoi.quiz.id, envoi.quiz.title, envoi.quiz.questions)
+          essai++
+          return api.save(envoi.quiz.id, envoi.quiz.title, envoi.quiz.questions, depuis, jeton, essai)
         },
         { surAttente: () => setReveil(true), continuer: () => ouvert.current },
       )
@@ -580,10 +729,35 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
         setDirty(true)
       }
     } catch (e) {
-      setError((e as Error).message)
+      if (e instanceof ConflitError) setConflit(e.updatedAt)
+      else setError((e as Error).message)
     } finally {
       setSaving(false)
       setReveil(false)
+    }
+  }
+
+  /** L'autre appareil l'emporte : ses modifications remplacent les nôtres, brouillon compris. */
+  const prendreLAutre = async () => {
+    const ok = await confirmDialog({
+      title: 'Prendre l’autre version ?',
+      message: 'Tes modifications faites ici seront effacées, et le quiz s’ouvrira tel que l’autre appareil l’a enregistré.',
+      confirmLabel: 'Prendre l’autre version',
+      cancelLabel: 'Garder la mienne',
+      danger: true,
+    })
+    if (!ok) return
+    try {
+      const serveur = await api.get(id)
+      modifications.current++
+      poser(serveur)
+      setBase(serveur.updatedAt)
+      setDirty(false)
+      setUndo(null)
+      setConflit(null)
+      oublierBrouillon(id)
+    } catch (e) {
+      setError((e as Error).message)
     }
   }
 
@@ -642,6 +816,18 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
     setRetrouve(null)
   }
 
+  // Les gestes des cartes, stables d'un rendu à l'autre : chaque frappe
+  // redessinait les cent cartes d'un long quiz — 150 ms par touche sur un
+  // téléphone moyen (ED-9). Une carte ne se redessine plus que si sa
+  // question, son numéro ou le total changent.
+  dernieresActions.current = {
+    changer: patchQuestion,
+    deplacer: moveTo,
+    insererApres: insertAfter,
+    dupliquer: duplicate,
+    supprimer,
+  }
+
   if (!quiz) {
     return (
       <div className="center-page">
@@ -690,10 +876,14 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   }
 
   const ready = quiz.questions.filter(q => toPlayable(q) !== null).length
+  const enPremier = bonneEnPremier(quiz.questions)
 
   return (
     <div className="editor">
-      <header className="editor-header">
+      {/* Collé en haut : « Enregistrer » et « Annuler » restaient au sommet
+          d'une page de cinq à quarante-cinq écrans, et l'« Annuler » d'un
+          déplacement vers la huitième question à 2 000 px de la carte. */}
+      <header className="editor-header is-collant">
         <input
           className="input title-input"
           value={quiz.title}
@@ -709,7 +899,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           <button className="btn btn-ghost" onClick={close}>
             Revenir
           </button>
-          <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>
+          <button className="btn btn-primary" onClick={() => save()} disabled={saving || !dirty}>
             {saving ? (
               reveil ? 'Réveil du serveur…' : 'Enregistrement…'
             ) : dirty ? (
@@ -722,6 +912,47 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
             )}
           </button>
         </div>
+        {undo && (
+          <p className="muted undo-line">
+            {undo.label} ·{' '}
+            <button type="button" className="link-btn" onClick={defaire}>
+              Annuler
+            </button>
+          </p>
+        )}
+        {/* Dans l'en-tête collant, comme l'annulation : rendus en haut de la
+            page, un conflit ou un échec d'« Enregistrer » restaient hors de
+            l'écran dès qu'on avait défilé — le bouton revenait, sans un mot. */}
+        {conflit !== null && (
+          <div className="card conflit-carte editor-alerte" role="alert">
+            <p className="warn">
+              <Icon name="alert" />{' '}
+              {espacesFines(
+                `Ce quiz a été enregistré ailleurs ${quand(conflit)}, pendant que tu écrivais ici — un autre appareil ? ` +
+                  'Rien n’est écrasé : choisis la version à garder.',
+              )}
+            </p>
+            <div className="row">
+              <button className="btn btn-primary" disabled={saving} onClick={() => save(conflit)}>
+                Garder la mienne
+              </button>
+              <button className="btn btn-ghost" disabled={saving} onClick={prendreLAutre}>
+                Prendre l’autre version
+              </button>
+            </div>
+          </div>
+        )}
+        {error && (
+          <p className="error editor-alerte" role="alert">
+            {error}
+          </p>
+        )}
+        {/* Le message d'échec pousse à recharger la page : c'était là qu'on perdait tout. */}
+        {error && dirty && garde && (
+          <p className="muted editor-alerte">
+            {espacesFines('Rien n’est perdu : ce navigateur garde tes modifications, même si tu fermes la page.')}
+          </p>
+        )}
       </header>
 
       {reveil && (
@@ -730,13 +961,6 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
             'Le serveur dormait : il se réveille, ça prend environ une minute. Tu peux continuer à écrire' +
               (garde ? ', ce navigateur garde tes modifications.' : '.'),
           )}
-        </p>
-      )}
-      {error && <p className="error">{error}</p>}
-      {/* Le message d'échec pousse à recharger la page : c'était là qu'on perdait tout. */}
-      {error && dirty && garde && (
-        <p className="muted">
-          {espacesFines('Rien n’est perdu : ce navigateur garde tes modifications, même si tu fermes la page.')}
         </p>
       )}
       {reprise === 'faite' && (
@@ -751,20 +975,41 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
         </p>
       )}
       {savedAt && !dirty && <p className="muted">Enregistré {quand(savedAt)}</p>}
-      {undo && (
-        <p className="muted undo-line">
-          {undo.label} ·{' '}
-          <button type="button" className="link-btn" onClick={undoMove}>
-            Annuler
-          </button>
+      {enPremier && (
+        <p className="muted small">
+          <Icon name="alert" />{' '}
+          {espacesFines(
+            `La bonne réponse est la première dans ${enPremier.premiers} QCM sur ${enPremier.qcm} : ` +
+              'la salle finira par le remarquer. Change-la de case dans quelques questions.',
+          )}
         </p>
+      )}
+      {quiz.questions.length > 1 && (
+        <div className="row">
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            aria-expanded={reglerTout}
+            onClick={() => setReglerTout(v => !v)}
+          >
+            <Icon name="list" />
+            Régler tout le quiz
+          </button>
+        </div>
+      )}
+      {reglerTout && (
+        <ReglerToutLeQuiz
+          questions={quiz.questions}
+          onRegler={reglerLeQuiz}
+          onFermer={() => setReglerTout(false)}
+        />
       )}
       <p className="sr-only" aria-live="polite">
         {announce}
       </p>
 
       {quiz.questions.map((question, index) => (
-        <QuestionCard
+        <CarteDeQuestion
           // L'identifiant, pas la position : réordonner ou supprimer ne doit
           // pas faire glisser l'aperçu ouvert d'une carte sur sa voisine.
           key={question.id ?? index}
@@ -773,13 +1018,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           question={question}
           photoDisparue={!!question.id && sansPhoto.has(question.id)}
           spot={spot && spot.id === question.id ? spot : null}
-          onChange={fn => patchQuestion(index, fn)}
-          onMoveTo={(number, focus) => moveTo(index, number, focus)}
-          onInsertAfter={() => insertAfter(index)}
-          onDuplicate={() => duplicate(index)}
-          onDelete={() =>
-            patch(q => ({ ...q, questions: q.questions.filter((_, i) => i !== index) }))
-          }
+          actions={actions}
         />
       ))}
 
@@ -800,7 +1039,26 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           <Icon name="clipboard" />
           Coller une liste
         </button>
+        {/* L'inverse : le quiz en texte, à passer dans un message ou à faire
+            compléter, qui se recolle tel quel (sans ses photos). */}
+        {quiz.questions.length > 0 && (
+          <button className="btn btn-ghost" onClick={copierEnListe}>
+            <Icon name={listeCopiee === 'faite' ? 'check' : 'copy'} />
+            {listeCopiee === 'faite' ? 'Liste copiée' : 'Copier en liste'}
+          </button>
+        )}
       </div>
+      {listeCopiee === 'refusee' && (
+        <div className="card import-panel">
+          <p className="warn small">Ce navigateur ne laisse pas copier d'ici : sélectionne le texte ci-dessous, puis copie-le.</p>
+          <textarea className="input import-area" rows={10} readOnly value={ecrireListe(quiz.questions)} />
+          <div className="row">
+            <button className="btn btn-ghost btn-small" onClick={() => setListeCopiee(null)}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
 
       {importing && (
         <BulkImport
@@ -819,6 +1077,81 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           onCancel={() => setImporting(false)}
         />
       )}
+    </div>
+  )
+}
+
+/**
+ * « Régler tout le quiz » : le temps, ou la catégorie, de toutes les
+ * questions d'un coup — chacun de son bouton, pour ne changer que ce qu'on
+ * vise. Le geste se défait comme un déplacement.
+ */
+function ReglerToutLeQuiz({
+  questions,
+  onRegler,
+  onFermer,
+}: {
+  questions: QuizQuestionDef[]
+  onRegler: (reglage: { duration?: number; category?: string | null }) => void
+  onFermer: () => void
+}) {
+  const [temps, setTemps] = useState(() => questions[0]?.duration ?? DEFAULT_DURATION)
+  const [categorie, setCategorie] = useState(() => questions[0]?.category ?? '')
+  const n = questions.length
+  return (
+    <div className="card regler-tout">
+      <h3>
+        <Icon name="list" />
+        Régler les {n} questions
+      </h3>
+      <div className="row">
+        <label className="row">
+          <span className="muted">Temps</span>
+          <ChampNombre
+            className="input duration-input"
+            min={MIN_DURATION}
+            max={MAX_DURATION}
+            aria-label="Temps de réponse de toutes les questions, en secondes"
+            valeur={temps}
+            onValeur={setTemps}
+          />
+          <span className="muted">s</span>
+        </label>
+        <button
+          type="button"
+          className="btn btn-small"
+          disabled={!tempsDansLesBornes(temps)}
+          onClick={() => onRegler({ duration: Math.round(temps) })}
+        >
+          {tempsDansLesBornes(temps) ? 'Pour toutes' : `De ${MIN_DURATION} à ${MAX_DURATION} s`}
+        </button>
+      </div>
+      <div className="row">
+        <label className="row">
+          <span className="muted">Catégorie</span>
+          <select
+            className="team-emoji-select categorie-select"
+            aria-label="Catégorie de toutes les questions"
+            value={categorie}
+            onChange={e => setCategorie(e.target.value)}
+          >
+            <option value="">Aucune</option>
+            {CATEGORIES.map(c => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className="btn btn-small" onClick={() => onRegler({ category: categorie || null })}>
+          Pour toutes
+        </button>
+      </div>
+      <div className="row">
+        <button type="button" className="btn btn-ghost btn-small" onClick={onFermer}>
+          Fermer
+        </button>
+      </div>
     </div>
   )
 }
@@ -847,6 +1180,17 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
     return () => clearTimeout(timer)
   }, [observeUntil])
   const observing = observeUntil !== null
+  // « Passer à la question » devient « Revoir la photo » à la même place
+  // quand l'observation finit : un clic parti un instant trop tard relançait
+  // la photo. Comme à la console (`gesteAccepte`), le bouton qui vient de
+  // changer ignore un clic dans la demi-seconde.
+  const bascule = useRef<number | null>(null)
+  useEffect(() => {
+    bascule.current = performance.now()
+  }, [observing])
+  const garde = (geste: () => void) => () => {
+    if (gesteAccepte(bascule.current, performance.now())) geste()
+  }
   // Échap referme l'aperçu, comme n'importe quelle fenêtre.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -918,7 +1262,7 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
           </span>
           <div className="row">
             {observing ? (
-              <button className="btn btn-ghost btn-small" onClick={() => setObserveUntil(null)}>
+              <button className="btn btn-ghost btn-small" onClick={garde(() => setObserveUntil(null))}>
                 <Icon name="skip" />
                 Passer à la question
               </button>
@@ -926,7 +1270,7 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
               observe !== null && (
                 <button
                   className="btn btn-ghost btn-small"
-                  onClick={() => setObserveUntil(serverNow() + observe * 1000)}
+                  onClick={garde(() => setObserveUntil(serverNow() + observe * 1000))}
                 >
                   <Icon name="rotate" />
                   Revoir la photo
@@ -1090,10 +1434,10 @@ function BulkImport({
       <p className="muted">
         {espacesFines(
           'Une ligne vide entre deux questions. L’étoile marque la bonne réponse ; le signe égal ' +
-            'transforme la question en estimation chiffrée. Sous l’intitulé, « Temps : 30 s », « Photo : … » ' +
-            'et « Observation : 5 s » règlent la question ; une ligne qui commence par un dièse range les ' +
-            'questions qui suivent dans une catégorie — « #\u00a0Musique », « #\u00a0Cinéma »… Sans ces lignes, elles ' +
-            'prennent le temps et la catégorie de la question qui les précède.',
+            'transforme la question en estimation chiffrée. Sous l’intitulé, « Photo : … » et « Observation : 5 s » ' +
+            'règlent la question ; « Temps : 30 s » règle celle-ci et les suivantes, comme une ligne qui commence ' +
+            'par un dièse les range dans une catégorie — « #\u00a0Musique », « #\u00a0Cinéma »… Sans ces lignes, elles ' +
+            'prennent le temps et la catégorie de la question qui les précédera dans le quiz.',
         )}
       </p>
       <pre className="import-example">{APERCU_DU_FORMAT}</pre>
@@ -1138,7 +1482,7 @@ function BulkImport({
         {count > 1 ? 's' : ''}
         {count > 0 && (count > 1 ? ` · n° ${number} à ${number + count - 1}` : ` · n° ${number}`)}
         {result.unmarked > 0 &&
-          ` · ${result.unmarked} sans étoile : la 1ʳᵉ réponse sera prise pour la bonne`}
+          ` · ${result.unmarked} sans bonne réponse désignée (une étoile, et une seule) : à choisir sur ${result.unmarked > 1 ? 'leur' : 'sa'} carte`}
         {result.ignored > 0 && ` · ${result.ignored} ${result.ignored > 1 ? 'blocs ignorés' : 'bloc ignoré'}`}
       </p>
       {annoncees.length > 0 && (
@@ -1215,7 +1559,7 @@ function BulkImport({
                 <span className="import-lue-valeur">
                   {/* Sans séparateur de milliers : « 10935 » se lit comme un
                       seul nombre, « 10 935 » ressemblerait à la saisie. */}
-                  <strong>{String(q.target).replace('.', ',')}</strong>{' '}
+                  <strong>{q.target === null ? '' : ecrireNombre(q.target)}</strong>{' '}
                   {q.unit || <span className="muted">sans unité</span>}
                 </span>
               </li>
@@ -1252,6 +1596,36 @@ function BulkImport({
   )
 }
 
+/** Ce qu'une carte peut faire à sa question, désignée par sa place. */
+interface ActionsDesCartes {
+  changer: (index: number, fn: (q: QuizQuestionDef) => QuizQuestionDef) => void
+  deplacer: (index: number, number: number, focus: Spot['focus']) => void
+  insererApres: (index: number) => void
+  dupliquer: (index: number) => void
+  supprimer: (index: number) => void
+}
+
+/** La carte d'une question, qui ne se redessine que si ce qu'elle montre change. */
+const CarteDeQuestion = memo(function CarteDeQuestion({
+  actions,
+  index,
+  ...reste
+}: Omit<QuestionCardProps, 'onChange' | 'onMoveTo' | 'onInsertAfter' | 'onDuplicate' | 'onDelete'> & {
+  actions: ActionsDesCartes
+}) {
+  return (
+    <QuestionCard
+      {...reste}
+      index={index}
+      onChange={fn => actions.changer(index, fn)}
+      onMoveTo={(number, focus) => actions.deplacer(index, number, focus)}
+      onInsertAfter={() => actions.insererApres(index)}
+      onDuplicate={() => actions.dupliquer(index)}
+      onDelete={() => actions.supprimer(index)}
+    />
+  )
+})
+
 interface QuestionCardProps {
   index: number
   total: number
@@ -1270,7 +1644,7 @@ interface QuestionCardProps {
 
 /** Une cible rendue au champ comme on l'écrit : « 0,8 », pas « 0.8 ». */
 function cibleAffichee(target: number | null): string {
-  return target === null ? '' : String(target).replace('.', ',')
+  return target === null ? '' : ecrireNombre(target)
 }
 
 function QuestionCard({
@@ -1295,8 +1669,36 @@ function QuestionCard({
   const [loupe, setLoupe] = useState(false)
   const [busy, setBusy] = useState(false)
   const [imageError, setImageError] = useState('')
-  const problem = questionProblem(question)
   const attendue = photoManquante(question)
+  // « Deux cases » est un mode, posé par le bouton Vrai/Faux et retiré par
+  // QCM — pas une lecture du contenu : taper « Vrai » et « Faux » dans les
+  // cases 1 et 2 d'un QCM faisait disparaître les cases 3 et 4, et « QCM » ne
+  // les rendait pas. À l'ouverture, un vrai ou faux enregistré s'y remet.
+  const [deuxCases, setDeuxCases] = useState(() => estVraiFaux(question))
+  const vraiFaux =
+    deuxCases && question.kind === 'choice' && !question.answers[2]?.trim() && !question.answers[3]?.trim()
+
+  const versVraiFaux = async () => {
+    if (vraiFaux) return
+    // Déjà « Vrai » et « Faux », tapés à la main : il n'y a rien à remplacer.
+    if (estVraiFaux(question) && !question.answers[2]?.trim() && !question.answers[3]?.trim()) {
+      setDeuxCases(true)
+      return
+    }
+    const ecrites = question.answers.map(a => a.trim()).filter(Boolean)
+    if (question.kind === 'choice' && ecrites.length > 0) {
+      const ok = await confirmDialog({
+        title: 'En faire un vrai ou faux ?',
+        message: `Les réponses écrites (${ecrites.join(', ')}) seront remplacées par « Vrai » et « Faux ».`,
+        confirmLabel: 'Remplacer',
+      })
+      if (!ok) return
+    }
+    setDeuxCases(true)
+    // Rien de coché d'office : « Vrai » pris pour bon parce qu'il est en
+    // premier, c'était le quiz faux de la liste collée, en plus petit.
+    onChange(q => ({ ...q, kind: 'choice', answers: [...VRAI_FAUX, '', ''], correct: SANS_BONNE_REPONSE }))
+  }
   // La cible telle qu'on la tape. Relu en nombre à chaque touche, le champ
   // mangeait ce qui n'en est pas encore un : la virgule de « 0,8 » (la cible
   // devenait 8, sans un mot) et le signe de « -40 ».
@@ -1307,6 +1709,12 @@ function QuestionCard({
     if (lireNombre(cible) !== question.target) setCible(cibleAffichee(question.target))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.target])
+  // « trois cents » ne se lit pas : dire « il manque la bonne réponse » à qui
+  // vient d'en taper une faisait chercher ailleurs.
+  const cibleIllisible = question.kind === 'number' && cible.trim() !== '' && lireNombre(cible) === null
+  const problem = cibleIllisible
+    ? `« ${cible.trim()} » ne se lit pas : écris la bonne réponse en chiffres`
+    : questionProblem(question)
 
   useEffect(() => {
     if (!spot) return
@@ -1376,8 +1784,11 @@ function QuestionCard({
           )}
           <div className="kind-toggle">
             <button
-              className={'pill-btn' + (question.kind === 'choice' ? ' active' : '')}
-              onClick={() => onChange(q => ({ ...q, kind: 'choice' }))}
+              className={'pill-btn' + (question.kind === 'choice' && !vraiFaux ? ' active' : '')}
+              onClick={() => {
+                setDeuxCases(false)
+                onChange(q => ({ ...q, kind: 'choice' }))
+              }}
             >
               <Icon name="list" />
               QCM
@@ -1388,6 +1799,12 @@ function QuestionCard({
             >
               <Icon name="hash" />
               Estimation
+            </button>
+            {/* Un vrai ou faux se tapait à la main, « Vrai » puis « Faux », à
+                côté de deux cases « (optionnelle) » qui restaient là. */}
+            <button className={'pill-btn' + (vraiFaux ? ' active' : '')} onClick={versVraiFaux}>
+              <Icon name="check" />
+              Vrai/Faux
             </button>
           </div>
         </div>
@@ -1501,7 +1918,8 @@ function QuestionCard({
         </div>
       ) : (
       <div className="answers-edit">
-        {Array.from({ length: MAX_ANSWERS }, (_, i) => (
+        {/* Un vrai ou faux n'a que ses deux cases. */}
+        {Array.from({ length: vraiFaux ? 2 : MAX_ANSWERS }, (_, i) => (
           <label key={i} className={`answer-edit ans-${i}` + (question.correct === i ? ' is-correct' : '')}>
             <input
               type="radio"
@@ -1553,16 +1971,22 @@ function QuestionCard({
         </label>
         <label className="row">
           <span className="muted">Temps</span>
-          <input
+          <ChampNombre
             className="input duration-input"
-            type="number"
             min={MIN_DURATION}
             max={MAX_DURATION}
             aria-label="Temps de réponse, en secondes"
-            value={question.duration || DEFAULT_DURATION}
-            onChange={e => onChange(q => ({ ...q, duration: Number(e.target.value) }))}
+            valeur={question.duration}
+            onValeur={duration => onChange(q => ({ ...q, duration }))}
           />
-          <span className="muted">s</span>
+          {/* Les bornes se disent pendant qu'on tape ; en quittant le champ, elles s'appliquent. */}
+          {tempsDansLesBornes(question.duration) ? (
+            <span className="muted">s</span>
+          ) : (
+            <span className="warn small">
+              s · de {MIN_DURATION} à {MAX_DURATION}
+            </span>
+          )}
         </label>
 
         <input
@@ -1643,14 +2067,13 @@ function QuestionCard({
           {question.observeSeconds !== null && (
             <label className="row">
               <span className="muted">Temps d'observation</span>
-              <input
+              <ChampNombre
                 className="input duration-input"
-                type="number"
                 min={MIN_OBSERVE}
                 max={MAX_OBSERVE}
                 aria-label="Temps d'observation, en secondes"
-                value={question.observeSeconds}
-                onChange={e => onChange(q => ({ ...q, observeSeconds: Number(e.target.value) }))}
+                valeur={question.observeSeconds}
+                onValeur={observeSeconds => onChange(q => ({ ...q, observeSeconds }))}
               />
               <span className="muted">s</span>
             </label>
