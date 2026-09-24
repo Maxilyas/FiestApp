@@ -68,7 +68,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `auth/profiles.ts` | profils de joueurs (autre table, autre cookie) |
 | `auth/profileRoutes.ts` | la porte d'entrée : se connecter à son profil ouvre aussi la console de l'espace rattaché |
 | `auth/http.ts` | cookies, adresse du client, et `loginBudgetOf(app)` : la réserve d'essais commune à toutes les portes |
-| `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins |
+| `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins — et, sans profil, la porte discrète des animateurs (« J'anime une soirée ») |
+| `shared/adresses.ts` · `core/pages.ts` | une adresse lue une seule fois pour le client et le serveur ; le serveur y pose le statut (404 d'un espace, d'une page ou d'une archive inconnus), les balises d'aperçu (le titre de l'espace, **jamais un prénom**), `noindex` hors de l'accueil, et les deux seules corrections permises : la casse, et `chez-‹saisie›` — jamais un nom voisin (invariant 3) |
+| `client/src/onglets.ts` | les onglets nommés de la console, et « Revenir à la console » d'une page qu'elle a ouverte : jamais une seconde console |
 | `sockets.ts` | tout le protocole temps réel — chaque message passe par `ecouter()` |
 | `shared/events.ts` | le contrat socket, typé des deux côtés |
 | `shared/homonymes.ts` | « Camille (2) » : la dérivation pure qui distingue deux invités identiques |
@@ -346,6 +348,11 @@ sans `QUIZ_DB_URL`.
   `parseImportedQuestions`, s'annonce dans `FORMAT_DE_LISTE` et paraît dans
   son exemple, que `liste.test.ts` relit : le format copié pour une IA ne
   doit rien promettre que la liste ne sache lire.
+- **Une adresse de page n'a jamais de point** : le serveur répond 404 à tout
+  chemin à extension qu'aucun fichier ne sert (`favicon.ico` d'une vieille
+  version), au lieu de la page d'accueil. Et la page se sert en 404 pour un
+  espace inconnu : un test qui lit du HTML démarre son banc avec
+  `clientDist` (`portes.test.ts`) — `client/dist` n'existe qu'après le build.
 - **`/healthz` doit rester un 200** : sur un échec, Render redémarre
   l'instance — disque effacé, file du miroir perdue. La santé du miroir se lit
   dans son bloc `miroir`, et la resynchronisation **n'efface jamais** : un PC
