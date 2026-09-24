@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import {
   DEFAULT_DURATION,
   DEFAULT_OBSERVE,
@@ -488,6 +488,18 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
   /** Faux une fois l'éditeur refermé : l'enregistrement cesse d'attendre le réveil. */
   const ouvert = useRef(true)
 
+  const dernieresActions = useRef<ActionsDesCartes | null>(null)
+  const actions = useMemo<ActionsDesCartes>(
+    () => ({
+      changer: (i, fn) => dernieresActions.current?.changer(i, fn),
+      deplacer: (i, n, f) => dernieresActions.current?.deplacer(i, n, f),
+      insererApres: i => dernieresActions.current?.insererApres(i),
+      dupliquer: i => dernieresActions.current?.dupliquer(i),
+      supprimer: i => dernieresActions.current?.supprimer(i),
+    }),
+    [],
+  )
+
   const poser = (q: QuizDef) => {
     courant.current = q
     setQuiz(q)
@@ -774,6 +786,18 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
     setRetrouve(null)
   }
 
+  // Les gestes des cartes, stables d'un rendu à l'autre : chaque frappe
+  // redessinait les cent cartes d'un long quiz — 150 ms par touche sur un
+  // téléphone moyen (ED-9). Une carte ne se redessine plus que si sa
+  // question, son numéro ou le total changent.
+  dernieresActions.current = {
+    changer: patchQuestion,
+    deplacer: moveTo,
+    insererApres: insertAfter,
+    dupliquer: duplicate,
+    supprimer,
+  }
+
   if (!quiz) {
     return (
       <div className="center-page">
@@ -938,7 +962,7 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
       </p>
 
       {quiz.questions.map((question, index) => (
-        <QuestionCard
+        <CarteDeQuestion
           // L'identifiant, pas la position : réordonner ou supprimer ne doit
           // pas faire glisser l'aperçu ouvert d'une carte sur sa voisine.
           key={question.id ?? index}
@@ -947,11 +971,7 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
           question={question}
           photoDisparue={!!question.id && sansPhoto.has(question.id)}
           spot={spot && spot.id === question.id ? spot : null}
-          onChange={fn => patchQuestion(index, fn)}
-          onMoveTo={(number, focus) => moveTo(index, number, focus)}
-          onInsertAfter={() => insertAfter(index)}
-          onDuplicate={() => duplicate(index)}
-          onDelete={() => supprimer(index)}
+          actions={actions}
         />
       ))}
 
@@ -1510,6 +1530,36 @@ function BulkImport({
     </div>
   )
 }
+
+/** Ce qu'une carte peut faire à sa question, désignée par sa place. */
+interface ActionsDesCartes {
+  changer: (index: number, fn: (q: QuizQuestionDef) => QuizQuestionDef) => void
+  deplacer: (index: number, number: number, focus: Spot['focus']) => void
+  insererApres: (index: number) => void
+  dupliquer: (index: number) => void
+  supprimer: (index: number) => void
+}
+
+/** La carte d'une question, qui ne se redessine que si ce qu'elle montre change. */
+const CarteDeQuestion = memo(function CarteDeQuestion({
+  actions,
+  index,
+  ...reste
+}: Omit<QuestionCardProps, 'onChange' | 'onMoveTo' | 'onInsertAfter' | 'onDuplicate' | 'onDelete'> & {
+  actions: ActionsDesCartes
+}) {
+  return (
+    <QuestionCard
+      {...reste}
+      index={index}
+      onChange={fn => actions.changer(index, fn)}
+      onMoveTo={(number, focus) => actions.deplacer(index, number, focus)}
+      onInsertAfter={() => actions.insererApres(index)}
+      onDuplicate={() => actions.dupliquer(index)}
+      onDelete={() => actions.supprimer(index)}
+    />
+  )
+})
 
 interface QuestionCardProps {
   index: number
