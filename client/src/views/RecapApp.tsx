@@ -147,7 +147,7 @@ export function RecapApp() {
           {/* Le verdict de l'écran de victoire et de l'historique, ex æquo
               compris : le souvenir couronnait la meilleure moyenne, sans
               les prix, et contredisait la soirée qu'on avait vécue. */}
-          <VerdictDesEquipes teams={recap.teams} avecPrix={recap.bonuses.length > 0} />
+          <VerdictDesEquipes teams={recap.teams} avecPrix={recap.bonuses.some(b => b.points !== 0)} />
           <TeamBoard teams={recap.teams} />
           <p className="muted small">{regleDesEquipes(recap.teams.length)}</p>
         </section>

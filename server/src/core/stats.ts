@@ -568,7 +568,7 @@ function buildAwards(
       key: 'coupdepouce',
       emoji: '🤝',
       title: 'Le Coup de Pouce',
-      rule: 'À l’équipe qui compte la personne ayant le moins marqué',
+      rule: 'À l’équipe qui compte la personne ayant le moins marqué, parmi celles qui ont répondu au moins une fois',
       detail: `${lowest.avatar} ${lowest.name} ferme la marche avec ${lowest.points} points`,
       player: null,
       teamId: lowest.teamId,

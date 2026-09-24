@@ -50,7 +50,12 @@ export interface PublicTeam {
   memberCount: number
   /** Somme des points des membres — affichée à titre indicatif. */
   total: number
-  /** total ÷ memberCount, arrondi. C'est lui qui classe les équipes. */
+  /**
+   * La moyenne de l'équipe (`moyenneAuProrata`, `shared/teams.ts`) : pour
+   * chaque question, la moyenne des lignes du journal jouées pour elle, et la
+   * somme de ces moyennes. Elle donne les points d'équipe ; les prix s'y
+   * ajoutent, et ce sont eux qui classent.
+   */
   average: number
   /** Points de prix attribués à la main par l'animateur, cumulés. */
   bonus: number

@@ -96,6 +96,8 @@ export function TeamBoard({ teams, highlightId, compact }: Props) {
  * souvenir et le bilan écrivent avec les mêmes mots.
  */
 export function VerdictDesEquipes({ teams, avecPrix }: { teams: PublicTeam[]; avecPrix: boolean }) {
+  // `avecPrix` : un prix qui compte. Des prix d'honneur, à 0 point, ne
+  // rendent pas le verdict « prix compris ».
   const champions = vainqueursDuQuiz(teams)
   if (champions.length === 0) return null
   const pts = champions[0].finalPoints
@@ -103,8 +105,8 @@ export function VerdictDesEquipes({ teams, avecPrix }: { teams: PublicTeam[]; av
     <p className="team-verdict">
       <Icon name="crown" /> {enumerer(champions.map(t => `${t.emoji} ${t.name}`))}{' '}
       {champions.length > 1
-        ? `remportent le quiz ex æquo, ${pts} points d’équipe chacune`
-        : `remporte le quiz, ${pts} point${pts > 1 ? 's' : ''} d’équipe`}
+        ? `remportent le quiz ex æquo, ${pts} ${motPoints(pts)} d’équipe chacune`
+        : `remporte le quiz, ${pts} ${motPoints(pts)} d’équipe`}
       {avecPrix && ' prix compris'}.
     </p>
   )

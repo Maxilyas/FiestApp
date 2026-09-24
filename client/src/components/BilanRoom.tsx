@@ -59,7 +59,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
       {review.teams.length > 0 && (
         <section className="card">
           <h2>Les équipes, quiz par quiz</h2>
-          <VerdictDesEquipes teams={review.teams} avecPrix={review.bonuses.length > 0} />
+          <VerdictDesEquipes teams={review.teams} avecPrix={review.bonuses.some(b => b.points !== 0)} />
           <div className="stats-scroll">
             <table className="stats-table">
               <thead>

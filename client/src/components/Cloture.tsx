@@ -9,6 +9,7 @@ import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { FinalPodium } from './Podium'
+import { motPoints } from './Rank'
 import { Niveau } from './Niveau'
 
 /**
@@ -64,7 +65,7 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
                 {enumerer(c.equipes!.map(t => `${t.emoji} ${t.nom}`))}
                 <span className="muted">
                   {' '}
-                  · {c.equipes![0].points} point{c.equipes![0].points > 1 ? 's' : ''} d’équipe
+                  · {c.equipes![0].points} {motPoints(c.equipes![0].points)} d’équipe
                   {c.equipes!.length > 1 && ' chacune'}
                 </span>
               </p>

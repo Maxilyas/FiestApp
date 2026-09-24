@@ -593,3 +593,32 @@ test('le bilan et son export rangent les équipes aux points d’équipe, prix c
     ],
   )
 })
+
+test('les textes suivent la règle : « 1 point d’équipe », et pas de « prix compris » pour des prix d’honneur', async () => {
+  const equipe = (id: string, name: string, average: number, bonus: number) =>
+    ({ id, name, emoji: '🎲', position: 0, memberCount: 2, total: average * 2, average, bonus })
+  // Une seule équipe : sa moyenne lui rapporte 1 point d'équipe.
+  const seule = texteDe(await rendu('components/TeamBoard', 'VerdictDesEquipes', { teams: [equipe('a', 'Les Aigles', 300, 0)], avecPrix: false }))
+  assert.match(seule, /remporte le quiz, 1 point d’équipe\./)
+
+  // Un prix d'honneur, à 0 point : le verdict ne se dit pas « prix compris ».
+  const teams = [
+    { id: 'a', name: 'Les Aigles', emoji: '🦅', position: 0, createdAt: 1 },
+    { id: 'z', name: 'Les Zèbres', emoji: '🦓', position: 1, createdAt: 1 },
+  ]
+  const players = [joueur('ana', 'Ana', 'a', 200), joueur('zak', 'Zak', 'z', 100)]
+  const rows = [ligne('ana', 0, 200), ligne('zak', 0, 100)]
+  const honneur = [{ id: 'b1', teamId: 'z', points: 0, reason: 'Pour l’honneur', createdAt: 5 }]
+  Object.assign(globalThis, { React: (await import('react')).default })
+  const { makeCtx } = await import(new URL('../../client/src/components/BilanQuestion.tsx', import.meta.url).href)
+  const bilan = (bonuses: typeof honneur) =>
+    rendu('components/BilanRoom', 'RoomReview', {
+      ctx: makeCtx(buildReview({ rows, players, teams, bonuses, packsBySession: new Map(), library: [] })),
+    }).then(texteDe)
+  assert.doesNotMatch(await bilan(honneur), /prix compris\./)
+  assert.match(await bilan([{ ...honneur[0], points: 1 }]), /prix compris\./)
+
+  // Le Coup de Pouce dit qu'il ne regarde que ceux qui ont répondu.
+  const { awards } = computeStats(rows, players)
+  assert.match(awards.find(a => a.key === 'coupdepouce')!.rule, /parmi celles qui ont répondu au moins une fois/)
+})

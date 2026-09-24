@@ -353,7 +353,7 @@ export function PlayerApp() {
               <Icon name="users" />
               Les équipes
             </h3>
-            {/* Changer d'équipe emporte ses points : le serveur le refuse
+            {/* On ne change pas de camp en plein quiz : le serveur le refuse
                 pendant un quiz, autant ne pas proposer le bouton. */}
             {!session && (
               <button className="btn btn-ghost btn-small" onClick={() => setSwitching(v => !v)}>

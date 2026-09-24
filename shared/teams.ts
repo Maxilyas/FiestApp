@@ -134,7 +134,7 @@ export function teamScores(
 }
 
 /**
- * Trie les équipes et leur attribue leurs points de classement.
+ * Trie les équipes à la moyenne et leur attribue les points d'équipe qu'elle rapporte.
  *
  * Le barème part du nombre d'équipes créées, pas du nombre d'équipes ayant
  * marqué : avec six équipes, la première rapporte toujours 6 points, même si
@@ -210,7 +210,7 @@ export function regleDesEquipes(n: number): string {
   const echelle =
     n >= 3 ? ` : ${n} à la meilleure, ${n - 1} à la suivante, et ainsi de suite` : n === 2 ? ' : 2 à la meilleure, 1 à l’autre' : ''
   return (
-    'La moyenne par membre — chacun y compte pour les questions qu’il a jouées — donne des points d’équipe' +
+    'La moyenne par membre — chacun y compte pour les questions qu’il a jouées dans l’équipe — donne des points d’équipe' +
     `${echelle}. Les prix en ajoutent, et le plus de points d’équipe l’emporte.`
   )
 }

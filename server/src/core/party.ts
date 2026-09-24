@@ -226,9 +226,10 @@ export class Party {
   }
 
   /**
-   * Change l'équipe d'un joueur. Ses points le suivent : le score d'une équipe
-   * est toujours celui de ses membres du moment, donc corriger une erreur
-   * d'aiguillage remet aussi les points au bon endroit.
+   * Change l'équipe d'un joueur, pour la suite. Ce qu'il a déjà joué reste à
+   * l'équipe d'alors : chaque ligne du journal la garde (`AnswerRow.teamId`),
+   * sans quoi un déménagement après un quiz en retournait le verdict annoncé
+   * — même pour corriger une erreur d'aiguillage.
    */
   assign(playerId: string, teamId: string | null): boolean {
     const rec = this.players.get(playerId)

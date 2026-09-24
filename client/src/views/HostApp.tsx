@@ -16,7 +16,7 @@ import { FinalPodium, Standings } from '../components/Podium'
 import { Trophies } from '../components/Trophies'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { Icon } from '../components/Icon'
-import { Rank, Score } from '../components/Rank'
+import { Rank, Score, motPoints } from '../components/Rank'
 import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
 import { detailDesPoints, effetDUnPrix, rankTeams, regleDesEquipes, vainqueursDuQuiz } from '../../../shared/teams'
@@ -881,10 +881,14 @@ export function HostApp() {
                         <span className="victory-emoji">{champions.map(t => t.emoji).join(' ')}</span>
                         <span className="victory-name">{enumerer(champions.map(t => t.name))}</span>
                         {champions.length > 1 ? (
-                          <span className="victory-points">Ex æquo · {champions[0].finalPoints} points d'équipe chacune</span>
+                          <span className="victory-points">
+                            Ex æquo · {champions[0].finalPoints} {motPoints(champions[0].finalPoints)} d'équipe chacune
+                          </span>
                         ) : (
                           <>
-                            <span className="victory-points">{champions[0].finalPoints} points d'équipe</span>
+                            <span className="victory-points">
+                              {champions[0].finalPoints} {motPoints(champions[0].finalPoints)} d'équipe
+                            </span>
                             <span className="muted">{detailDesPoints(champions[0])}</span>
                           </>
                         )}
