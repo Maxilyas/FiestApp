@@ -4327,6 +4327,16 @@ h3 > .icon {
      rétrécissent pas. */
   .host.staging .scene-listes > .tableau:first-child:not(:last-child) { flex: none; max-height: 50%; }
   .host.staging .scene-listes > :not(.coupe, .tableau) { flex: none; }
+  /* Les listes prennent la colonne entière, du haut en bas, au lieu d'être
+     centrées sur leur hauteur : c'est autant de lignes de plus. Et la suite
+     du classement passe avant les distinctions : elle prend ce qu'elles
+     laissent, et elles, au plus la moitié, cartes coupées entières. Sans
+     quoi trois cartes prenaient toute la colonne, et il restait une ligne
+     et « et 4 autres ». */
+  .host.staging .scene-listes { align-self: stretch; }
+  .host.staging .scene-listes > .coupe,
+  .host.staging .scene-listes > .tableau:last-child { flex: 1 1 0; }
+  .host.staging .scene-listes > .coupe-trophees { flex: 0 1 auto; max-height: 50%; }
 
   /* La victoire : le vainqueur en grand, les deux classements dans ce qui
      reste, coupés à ce qui tient — la liste s'arrêtait au cinquième. */

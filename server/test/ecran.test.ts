@@ -78,3 +78,10 @@ test('un 1920 × 1080 a la place d’un 1366 × 768, et un classement révélé 
   // « et 5 autres » sans une seule ligne au-dessus ne disait rien.
   assert.match(css, /\.host\.staging \.reveal-boards \.coupe-zone \{ min-height: 4rem; \}/)
 })
+
+test('au podium de la soirée, la suite du classement passe avant les distinctions', () => {
+  // Trois cartes de distinctions prenaient toute la colonne : il restait une
+  // ligne du classement, et « et 4 autres ».
+  assert.match(css, /\.host\.staging \.scene-listes \{ align-self: stretch; \}/)
+  assert.match(css, /\.host\.staging \.scene-listes > \.coupe-trophees \{ flex: 0 1 auto; max-height: 50%; \}/)
+})

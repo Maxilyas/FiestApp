@@ -696,7 +696,14 @@ export function HostApp() {
                             <Standings rows={ranking.slice(3)} offset={3} />
                           </Coupe>
                         )}
-                        {recap && <Trophies recap={recap} />}
+                        {/* Les distinctions sous la suite du classement, cartes
+                            coupées entières : trois cartes prenaient toute la
+                            colonne, et la liste tombait à une ligne. */}
+                        {recap && (
+                          <Coupe className="coupe-trophees" lignes=".trophy" autres={n => `et ${n} autre${n > 1 ? 's' : ''} distinction${n > 1 ? 's' : ''}`}>
+                            <Trophies recap={recap} />
+                          </Coupe>
+                        )}
                       </div>
                     )}
                   </div>
