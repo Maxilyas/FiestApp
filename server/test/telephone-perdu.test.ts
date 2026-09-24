@@ -26,7 +26,7 @@ import {
   type Invite,
   type Socket,
 } from './banc'
-import { ESSAIS_MANQUES_MAX, PlacesRendues, VIE_DU_CODE_MS } from '../src/core/places'
+import { ESSAIS_MANQUES_MAX, FENETRE_ESSAIS_MS, PlacesRendues, VIE_DU_CODE_MS } from '../src/core/places'
 
 const SLUG = ADMIN.slug
 
@@ -331,6 +331,64 @@ describe('le téléphone perdu', () => {
     await ranger(host, sessionId, [host, alice.socket, emprunte.socket])
   })
 
+  test('trop de codes faux : refusé avec un accusé, sans couper la connexion ; un code neuf rend les essais', async () => {
+    const host = await ecranCommun(banc.url, cookie)
+    await viderLaSalle(host)
+    const rachid = await invite(banc.url, 'Rachid', '🦁')
+    rachid.socket.close()
+    await instantane<any>(host, s => s.players.find((p: any) => p.id === rachid.playerId)?.connected === false, 'Rachid hors ligne')
+    const { code } = await emitAck<any>(host, 'host:rendrePlace', { playerId: rachid.playerId })
+    const faux = code === '000000' ? '000001' : '000000'
+    const plaisantin = await invite(banc.url, 'Plaisantin', '🐸')
+    for (let i = 0; i < 5; i++) {
+      const r = await emitAck<any>(plaisantin.socket, 'player:reprendre', { slug: SLUG, code: faux, token: plaisantin.token })
+      assert.match(r.error, /demande-en un nouveau/)
+    }
+    // Le sixième : un refus qui dit quoi faire — pas une connexion coupée
+    // pour de bon, sans accusé, et un fantôme de plus dans la salle.
+    const refus = await emitAck<any>(plaisantin.socket, 'player:reprendre', { slug: SLUG, code, token: plaisantin.token })
+    assert.equal(refus.ok, false)
+    assert.match(refus.error, /Trop d’essais — demande un nouveau code/)
+    await patienter(100)
+    assert.equal(plaisantin.socket.connected, true, 'la connexion reste ouverte')
+    const snap = await instantane<any>(host, s => s.players.some((p: any) => p.id === plaisantin.playerId), 'le plaisantin')
+    assert.equal(snap.players.find((p: any) => p.id === plaisantin.playerId)?.connected, true, 'pas de fantôme')
+
+    // L'espace aussi a trop manqué cette minute : un autre téléphone patiente.
+    const autre = connecter(banc.url)
+    assert.equal((await emitAck<any>(autre, 'party:watch', { slug: SLUG })).ok, true)
+    assert.match((await emitAck<any>(autre, 'player:reprendre', { slug: SLUG, code })).error, /réessaie dans une minute/)
+
+    // Un code neuf, et les essais reviennent — le code tapé par le vrai Rachid sert.
+    const neuf = await emitAck<any>(host, 'host:rendrePlace', { playerId: rachid.playerId })
+    const reprise = await emitAck<any>(autre, 'player:reprendre', { slug: SLUG, code: neuf.code })
+    assert.equal(reprise.ok, true, reprise.error)
+    assert.equal(reprise.playerId, rachid.playerId)
+    for (const s of [autre, plaisantin.socket, host]) s.close()
+  })
+
+  test('l’ancien téléphone revenu entre-temps : la place ne se donne pas, le code ne resservira pas', async () => {
+    const host = await ecranCommun(banc.url, cookie)
+    await viderLaSalle(host)
+    let rachid = await invite(banc.url, 'Rachid', '🦁')
+    rachid.socket.close()
+    await instantane<any>(host, s => s.players.find((p: any) => p.id === rachid.playerId)?.connected === false, 'Rachid hors ligne')
+    const { code } = await emitAck<any>(host, 'host:rendrePlace', { playerId: rachid.playerId })
+    // Son téléphone se rallume avant que le code soit tapé.
+    rachid = await revient(rachid)
+    const emprunte = await invite(banc.url, 'Rachid', '⚽')
+    const refus = await emitAck<any>(emprunte.socket, 'player:reprendre', { slug: SLUG, code, token: emprunte.token })
+    assert.equal(refus.ok, false)
+    assert.match(refus.error, /ancien téléphone est revenu/)
+    // Deux téléphones pour une place : non — et l'emprunté garde son identité.
+    const snap = await instantane<any>(host, s => s.players.some((p: any) => p.id === emprunte.playerId), 'le second Rachid')
+    assert.equal(snap.players.find((p: any) => p.id === emprunte.playerId)?.connected, true)
+    rachid.socket.close()
+    await instantane<any>(host, s => s.players.find((p: any) => p.id === rachid.playerId)?.connected === false, 'de nouveau hors ligne')
+    assert.equal((await emitAck<any>(emprunte.socket, 'player:reprendre', { slug: SLUG, code, token: emprunte.token })).ok, false, 'le code a servi')
+    for (const s of [emprunte.socket, host]) s.close()
+  })
+
   test('un téléphone au profil d’un autre ne reprend pas une place', async () => {
     const host = await ecranCommun(banc.url, cookie)
     await viderLaSalle(host)
@@ -351,23 +409,49 @@ describe('le téléphone perdu', () => {
 })
 
 describe('les codes « Rendre sa place »', () => {
+  /** Tape un code : la fiche qu'il rend, consommée, ou le motif du refus. */
+  const taper = (places: PlacesRendues, saisie: string, now: number) => {
+    const r = places.lire(saisie, now)
+    if (!r.ok) return r.motif
+    places.consommer(r.code)
+    return r.playerId
+  }
+
   test('périmés vite, à usage unique, et les essais comptés', () => {
     const places = new PlacesRendues()
     const t = 1_000_000
     const a = places.emettre('rachid', t)
-    assert.equal(places.reprendre(a.code, t + VIE_DU_CODE_MS), null, 'périmé')
+    assert.equal(taper(places, a.code, t + VIE_DU_CODE_MS), 'mauvais', 'périmé')
 
     const b = places.emettre('rachid', t)
     // Un code neuf pour la même fiche fait tomber l'ancien.
     const c = places.emettre('rachid', t)
-    if (b.code !== c.code) assert.equal(places.reprendre(b.code, t + 1), null, 'l’ancien code ne vaut plus')
-    assert.equal(places.reprendre(c.code, t + 1), 'rachid')
-    assert.equal(places.reprendre(c.code, t + 2), null, 'à usage unique')
+    if (b.code !== c.code) assert.equal(taper(places, b.code, t + 1), 'mauvais', 'l’ancien code ne vaut plus')
+    assert.equal(taper(places, c.code, t + 1), 'rachid')
+    assert.equal(taper(places, c.code, t + 2), 'mauvais', 'à usage unique')
+  })
 
-    // Trop d'essais manqués, et tous les codes de l'espace tombent.
+  test('trop d’essais manqués ralentit l’espace, sans faire tomber les codes', () => {
+    const places = new PlacesRendues()
+    const t = 1_000_000
     const d = places.emettre('bob', t)
     const faux = d.code === '999999' ? '999998' : '999999'
-    for (let i = 0; i < ESSAIS_MANQUES_MAX; i++) assert.equal(places.reprendre(faux, t + 1), null)
-    assert.equal(places.reprendre(d.code, t + 1), null, 'le bon code est tombé avec les essais')
+    for (let i = 0; i < ESSAIS_MANQUES_MAX; i++) assert.equal(taper(places, faux, t + 1), 'mauvais')
+    // L'espace a trop manqué cette minute : on n'essaie plus, même le bon code…
+    assert.equal(taper(places, d.code, t + 2), 'trop')
+    // … qui n'est pas tombé pour autant : une minute plus tard, il sert.
+    assert.equal(taper(places, d.code, t + 1 + FENETRE_ESSAIS_MS), 'bob', 'le bon code a survécu aux essais d’un autre')
+  })
+
+  test('au plus quinze essais manqués pendant la vie d’un code', () => {
+    const places = new PlacesRendues()
+    const t = 1_000_000
+    const d = places.emettre('rachid', t)
+    const faux = d.code === '999999' ? '999998' : '999999'
+    // Un plaisantin qui tape sans relâche, dix fois par seconde, trois minutes durant.
+    let essaye = 0
+    for (let now = t; now < t + VIE_DU_CODE_MS; now += 100) if (taper(places, faux, now) === 'mauvais') essaye++
+    assert.ok(essaye <= 3 * ESSAIS_MANQUES_MAX, `${essaye} codes essayés`)
+    assert.equal(taper(places, d.code, t + VIE_DU_CODE_MS - 1), 'trop', 'sa minute est pleine')
   })
 })

@@ -8,17 +8,30 @@ const CHIFFRES = 6
  */
 export const VIE_DU_CODE_MS = 3 * 60_000
 /**
- * Essais manqués tolérés par espace, tous codes confondus. Au-delà, tous les
- * codes de l'espace tombent : cinq essais sur un million de codes, c'est une
- * chance sur deux cent mille — et un plaisantin qui tape au hasard ne gagne
- * qu'une chose, que l'animateur en refasse paraître un.
+ * Essais manqués tolérés par espace et par minute glissante, tous codes
+ * confondus. Au-delà, on refuse d'essayer, sans rien faire tomber : au plus
+ * quinze essais pendant les trois minutes d'un code, sur un million — une
+ * chance sur soixante-six mille.
+ *
+ * On faisait tomber tous les codes de l'espace au cinquième essai manqué :
+ * n'importe qui, avec la seule adresse de la soirée, brûlait autant de fois
+ * qu'il voulait le code de Rachid — les fautes de frappe d'un autre invité
+ * aussi —, et la console affichait encore « Valable 3 minutes » sous un code
+ * mort.
  */
 export const ESSAIS_MANQUES_MAX = 5
+export const FENETRE_ESSAIS_MS = 60_000
 
 interface CodeEnCours {
   playerId: string
   expiresAt: number
 }
+
+/** Ce que donne un code tapé. */
+export type Saisie =
+  | { ok: true; playerId: string; code: string }
+  /** `trop` : l'espace a manqué trop d'essais cette minute — on n'a pas même regardé le code. */
+  | { ok: false; motif: 'mauvais' | 'trop' }
 
 /**
  * Les places que l'animateur a promis de rendre, dans un espace.
@@ -33,7 +46,14 @@ interface CodeEnCours {
  */
 export class PlacesRendues {
   private codes = new Map<string, CodeEnCours>()
-  private manques = 0
+  /** Les instants des essais manqués de la dernière minute. */
+  private manques: number[] = []
+  /**
+   * Monte à chaque code émis. Une connexion qui a trop manqué retrouve ses
+   * essais quand l'animateur fait paraître un code neuf : c'est ce que son
+   * message de refus lui dit de demander.
+   */
+  generation = 0
 
   /**
    * Un code neuf pour cette fiche. Celui qu'elle avait encore tombe : deux
@@ -42,39 +62,44 @@ export class PlacesRendues {
    */
   emettre(playerId: string, now: number): { code: string; expiresAt: number } {
     this.purger(now)
-    for (const [code, c] of this.codes) if (c.playerId === playerId) this.codes.delete(code)
+    this.oublier(playerId)
     let code: string
     do code = String(randomInt(0, 10 ** CHIFFRES)).padStart(CHIFFRES, '0')
     while (this.codes.has(code))
     const expiresAt = now + VIE_DU_CODE_MS
     this.codes.set(code, { playerId, expiresAt })
-    // Un code neuf remet le compte des essais à zéro : c'est l'animateur qui
-    // le demande, en face de l'invité.
-    this.manques = 0
+    // Un code neuf rend leurs essais à l'espace et aux connexions : c'est
+    // l'animateur qui le demande, en face de l'invité — et ce que le refus
+    // « Trop d'essais » lui dit de faire.
+    this.manques = []
+    this.generation++
     return { code, expiresAt }
   }
 
   /**
-   * La fiche que ce code rend, et le code est consommé. Null pour un code
-   * inconnu, périmé ou déjà servi — et chaque essai manqué compte.
+   * La fiche que ce code désigne, sans le consommer : l'appelant vérifie
+   * encore que la place peut se rendre, et ne consomme (`consommer`) qu'au
+   * moment de la rendre. Chaque essai manqué compte.
    */
-  reprendre(saisie: string, now: number): string | null {
+  lire(saisie: string, now: number): Saisie {
     this.purger(now)
+    if (this.manques.length >= ESSAIS_MANQUES_MAX) return { ok: false, motif: 'trop' }
     // Tapé au téléphone : « 482 913 », « 482-913 ». Seuls les chiffres comptent.
     const code = saisie.replace(/\D/g, '')
     const c = code.length === CHIFFRES ? this.codes.get(code) : undefined
     if (!c) {
-      if (++this.manques >= ESSAIS_MANQUES_MAX) {
-        this.codes.clear()
-        this.manques = 0
-      }
-      return null
+      this.manques.push(now)
+      return { ok: false, motif: 'mauvais' }
     }
-    this.codes.delete(code)
-    return c.playerId
+    return { ok: true, playerId: c.playerId, code }
   }
 
-  /** Une fiche qui n'existe plus n'a plus de place à rendre : exclue, ou la soirée effacée. */
+  /** Le code a servi : il ne resservira pas. */
+  consommer(code: string) {
+    this.codes.delete(code)
+  }
+
+  /** Une fiche qui n'existe plus n'a plus de place à rendre : exclue, reprise, ou la soirée effacée. */
   oublier(playerId?: string) {
     if (playerId === undefined) return this.codes.clear()
     for (const [code, c] of this.codes) if (c.playerId === playerId) this.codes.delete(code)
@@ -82,5 +107,6 @@ export class PlacesRendues {
 
   private purger(now: number) {
     for (const [code, c] of this.codes) if (c.expiresAt <= now) this.codes.delete(code)
+    this.manques = this.manques.filter(t => now - t < FENETRE_ESSAIS_MS)
   }
 }

@@ -29,9 +29,9 @@ interface SocketDeps {
 /** Présentations refusées tolérées par connexion avant de la couper. */
 const HELLO_MAX_FAILURES = 5
 /**
- * Codes « Rendre sa place » manqués tolérés par connexion avant de la couper.
- * L'espace compte aussi les siens (`PlacesRendues`) : ceci n'empêche que de
- * les brûler tous depuis un seul téléphone sans même se reconnecter.
+ * Codes « Rendre sa place » manqués tolérés par connexion, tant que
+ * l'animateur n'en fait pas paraître un neuf. L'espace compte aussi les siens,
+ * à la minute (`PlacesRendues`).
  */
 const PLACE_MAX_FAILURES = 5
 /** Identités qu'une même connexion peut créer (une reconnexion n'en crée pas). */
@@ -63,6 +63,10 @@ const SERVER_ERROR = 'Erreur serveur — retente'
 const UNKNOWN_TOKEN = 'On ne te retrouve plus dans cette soirée — rejoins-la'
 /** Le code tapé pour reprendre sa place ne mène à rien. */
 const MAUVAIS_CODE = 'Ce code ne marche pas — demande-en un nouveau à l’animateur'
+/** Cette connexion a trop manqué : un code neuf lui rend ses essais. */
+const TROP_D_ESSAIS = 'Trop d’essais — demande un nouveau code à l’animateur'
+/** L'espace entier a trop manqué cette minute : les codes restent bons, on patiente. */
+const TROP_D_ESSAIS_ICI = 'Trop d’essais ici — réessaie dans une minute'
 /** Le jeton d'une soirée qu'on vient de clore : le téléphone montre sa fin de soirée. */
 const SOIREE_CLOSE = 'Cette soirée est close — voici la tienne'
 
@@ -147,6 +151,8 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
   io.on('connection', socket => {
     let helloFailures = 0
     let placeFailures = 0
+    /** La génération de codes à laquelle `placeFailures` se rapporte. */
+    let placeGeneration = -1
     let identitiesCreated = 0
     const ip = clientIp(socket, deps.trustProxy)
 
@@ -390,19 +396,25 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         if (!account) return repondre({ ok: false, error: NO_SUCH_SPACE })
         const rt = bindSpace(account.id)
         if (!rt) return repondre({ ok: false, error: OTHER_SPACE })
-        if (placeFailures >= PLACE_MAX_FAILURES) {
-          socket.disconnect(true)
-          return
+        // Refuser, jamais couper : coupée par le serveur, une connexion
+        // socket.io ne se reconnecte plus — l'invité lisait « Le serveur ne
+        // répond pas », et s'il était inscrit devenait un fantôme de plus.
+        if (placeGeneration !== rt.places.generation) {
+          placeGeneration = rt.places.generation
+          placeFailures = 0
         }
-        // Le code se consomme ici, avant tout autre refus : un code juste,
-        // tombé sur un cas qu'on refuse, ne resservira pas — l'animateur en
-        // refait paraître un, en face de l'invité.
-        const playerId = rt.places.reprendre(texte(charge.code) ?? '', Date.now())
-        const fiche = playerId ? rt.party.get(playerId) : undefined
-        if (!fiche) {
+        if (placeFailures >= PLACE_MAX_FAILURES) return repondre({ ok: false, error: TROP_D_ESSAIS })
+        const saisie = rt.places.lire(texte(charge.code) ?? '', Date.now())
+        const fiche = saisie.ok ? rt.party.get(saisie.playerId) : undefined
+        if (!saisie.ok || !fiche) {
+          if (!saisie.ok && saisie.motif === 'trop') return repondre({ ok: false, error: TROP_D_ESSAIS_ICI })
           placeFailures++
           return repondre({ ok: false, error: MAUVAIS_CODE })
         }
+        // Le code se consomme ici, avant les refus qui suivent : un code
+        // juste, tombé sur un cas qu'on refuse, ne resservira pas —
+        // l'animateur en refait paraître un, en face de l'invité.
+        rt.places.consommer(saisie.code)
         // Revenu entre-temps sur son propre téléphone : deux téléphones pour
         // une place, ce serait deux joueurs qui répondent l'un pour l'autre.
         if (rt.party.isConnected(fiche.id)) {
