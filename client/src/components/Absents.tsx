@@ -4,6 +4,7 @@ import type { QuizCommand, QuizHostView } from '../../../shared/games/quiz'
 import { rendrePlace } from '../socket'
 import { serverNow } from '../clock'
 import { Icon } from './Icon'
+import { espacesFines } from '../format'
 
 interface Props {
   players: PublicPlayer[]
@@ -37,7 +38,12 @@ const lisible = (code: string) => `${code.slice(0, 3)} ${code.slice(3)}`
  */
 export function Absents({ players, quiz, sendCommand }: Props) {
   const [ouvert, setOuvert] = useState(false)
-  const [codes, setCodes] = useState<Record<string, { code: string; expiresAt: number }>>({})
+  /**
+   * Les codes demandés. `montre` : l'animateur l'a fait paraître. Pas
+   * d'office : s'il anime depuis le PC, cette console est sur l'écran commun,
+   * et le premier de la salle qui taperait le code prendrait la place.
+   */
+  const [codes, setCodes] = useState<Record<string, { code: string; expiresAt: number; montre: boolean }>>({})
   const [erreur, setErreur] = useState('')
   const [, setTic] = useState(0)
 
@@ -71,11 +77,14 @@ export function Absents({ players, quiz, sendCommand }: Props) {
 
   if (lignes.length === 0 && enPlus === 0) return null
 
+  const montrer = (playerId: string, montre: boolean) =>
+    setCodes(c => (c[playerId] ? { ...c, [playerId]: { ...c[playerId], montre } } : c))
+
   const demanderCode = async (playerId: string) => {
     setErreur('')
     const res = await rendrePlace(playerId)
     if (!res.ok) return setErreur(res.error)
-    setCodes(c => ({ ...c, [playerId]: { code: res.code, expiresAt: res.expiresAt } }))
+    setCodes(c => ({ ...c, [playerId]: { code: res.code, expiresAt: res.expiresAt, montre: false } }))
   }
 
   const maintenant = serverNow()
@@ -135,12 +144,28 @@ export function Absents({ players, quiz, sendCommand }: Props) {
                     </div>
                   )}
                   {codeValable && (
-                    <p className="absent-code" role="status">
-                      <span className="absent-code-chiffres">{lisible(code.code)}</span>
+                    <div className="absent-code" role="status">
+                      {code.montre ? (
+                        <>
+                          <span className="absent-code-chiffres">{lisible(code.code)}</span>
+                          <span className="small">
+                            <strong>À montrer à {l.name}, pas à la salle.</strong>
+                          </span>
+                          <button className="btn btn-small btn-ghost" onClick={() => montrer(l.playerId, false)}>
+                            Cacher
+                          </button>
+                        </>
+                      ) : (
+                        <button className="btn btn-small" onClick={() => montrer(l.playerId, true)}>
+                          <Icon name="eye" /> Montrer le code
+                        </button>
+                      )}
                       <span className="muted small">
-                        Sur son nouveau téléphone, à l’entrée : « J’ai un code ». Valable 3 minutes, une seule fois.
+                        {espacesFines(
+                          'Sur son nouveau téléphone, sous son prénom : « J’ai un code » — à l’entrée, en salle d’attente ou entre deux questions. Valable 3 minutes, une seule fois.',
+                        )}
                       </span>
-                    </p>
+                    </div>
                   )}
                 </li>
               )

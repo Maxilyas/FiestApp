@@ -4285,8 +4285,10 @@ h3 > .icon {
 .absent-etat { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
 .absent-etat .icon { width: 14px; height: 14px; }
 .absent-gestes { display: flex; flex-wrap: wrap; gap: 6px; }
-.absent-code { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+/* Le code paraît petit, et seulement si l'animateur le demande : la console
+   peut être l'écran commun, et la salle n'a pas à le lire de loin. */
+.absent-code { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 0; }
 .absent-code-chiffres {
-  font-size: 30px; font-weight: 700; letter-spacing: 0.08em;
+  font-size: 18px; font-weight: 700; letter-spacing: 0.08em;
   color: var(--accent-text); font-variant-numeric: tabular-nums;
 }
