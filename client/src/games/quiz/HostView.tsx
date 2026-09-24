@@ -6,7 +6,7 @@ import { FinalPodium, Standings } from '../../components/Podium'
 import { TeamBoard } from '../../components/TeamBoard'
 import { Icon } from '../../components/Icon'
 import { Shape } from '../../components/Shape'
-import { Rank } from '../../components/Rank'
+import { Rank, Score } from '../../components/Rank'
 import { ConsoleActions } from '../../components/HostConsole'
 import { confirmDialog } from '../../components/Dialog'
 import { serverNow } from '../../clock'
@@ -232,6 +232,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                     {g.rank === 1 ? (
                       <span className="lb-rank">
                         <Icon name="target" />
+                        <span className="sr-only">Rang 1</span>
                       </span>
                     ) : (
                       <Rank n={g.rank} />
@@ -242,7 +243,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                     <span className="guess-value">
                       {formatNumber(g.value)} {v.unit}
                     </span>
-                    <span className="lb-score">+{g.points}</span>
+                    <Score n={g.points} texte={`+${g.points}`} />
                   </div>
                 ))}
                 {v.guesses?.length === 0 && <p className="muted">Personne n'a répondu…</p>}

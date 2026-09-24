@@ -17,6 +17,8 @@ export function Niveau({ niveau, big }: Props) {
   if (!niveau) return null
   return (
     <span className={'niveau' + (big ? ' big' : '')} title={`Niveau ${niveau}`}>
+      {/* Au milieu d'une ligne de classement, un troisième nombre nu. */}
+      <span className="sr-only">niveau </span>
       {niveau}
     </span>
   )
