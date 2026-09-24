@@ -75,9 +75,30 @@ interface Props {
   teams: PublicTeam[]
   sendCommand: (command: QuizCommand) => void
   endSession: () => void
+  /** Cet écran se tient en télécommande : les gestes, sans la scène — ni la réponse. */
+  telecommande?: boolean
+  /** Une télécommande est branchée ailleurs : la liste des quiz reste dans sa main. */
+  coulissesAilleurs?: boolean
+  /** « Choisir d'ici » : cet écran reprend la liste des quiz, pour cette fois. */
+  reprendreCoulisses?: () => void
+  /**
+   * Ce qui suit un quiz, proposé à son podium : il n'y avait que « Terminer
+   * le quiz », et la remise des prix se cherchait parmi neuf boutons.
+   * `prix` est absent sans équipes : il n'y a personne à qui les remettre.
+   */
+  apresQuiz?: { suivant: () => void; prix?: () => void; personne?: boolean }
 }
 
-export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
+export function QuizHost({
+  view: v,
+  teams,
+  sendCommand,
+  endSession,
+  telecommande,
+  coulissesAilleurs,
+  reprendreCoulisses,
+  apresQuiz,
+}: Props) {
   /** Choisi avant de lancer : un quiz qui compte double relance toute la salle. */
   const [multiplier, setMultiplier] = useState(1)
 
@@ -91,12 +112,14 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
   const visee: Visee = { phase: v.phase, qIndex: v.qIndex, round: v.round }
   const { garde, principal } = useGardeDePhase(`${v.phase}:${v.qIndex}:${v.round}`)
 
-  // Les sons ponctuent les changements de phase — sur l'écran commun seulement.
+  // Les sons ponctuent les changements de phase — sur l'écran commun
+  // seulement : la télécommande, dans la poche, n'a pas à doubler la télé.
   useEffect(() => {
+    if (telecommande) return
     if (v.phase === 'observe' || v.phase === 'question') sound.go()
     else if (v.phase === 'reveal') (v.kind === 'number' ? sound.target : sound.reveal)()
     else if (v.phase === 'finished') sound.fanfare()
-  }, [v.phase, v.qIndex, v.kind])
+  }, [v.phase, v.qIndex, v.kind, telecommande])
 
   /* L'enchaînement sans cliquer : vingt clics par quiz, ce sont vingt
      occasions de décrocher de la soirée. Tous les paliers sont à l'écran et
@@ -228,6 +251,28 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
     )
   }
 
+  if (v.phase === 'pickPack' && coulissesAilleurs) {
+    // La liste des quiz est l'affaire de l'animateur : la salle attend le
+    // suivant sans lire le menu.
+    return (
+      <div className="quiz-host coulisses">
+        <p className="serif-note center coulisses-attente">Le prochain quiz arrive…</p>
+        <ConsoleActions>
+          <span className="muted small console-note">La liste est à la télécommande</span>
+          {reprendreCoulisses && (
+            <button className="btn" onClick={reprendreCoulisses}>
+              <Icon name="edit" />
+              Choisir d’ici
+            </button>
+          )}
+          <button className="btn btn-ghost" onClick={endSession}>
+            Annuler
+          </button>
+        </ConsoleActions>
+      </div>
+    )
+  }
+
   if (v.phase === 'pickPack') {
     return (
       <div className="quiz-host">
@@ -258,6 +303,11 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
               <p className="muted">
                 {p.questionCount} question{p.questionCount > 1 ? 's' : ''}
               </p>
+              {p.joueCeSoir && (
+                <span className="pill joue-ce-soir">
+                  <Icon name="check" /> Joué ce soir
+                </span>
+              )}
               <button className="btn btn-primary" onClick={() => sendCommand({ type: 'selectPack', packId: p.id, multiplier })}>
                 C'est parti !
               </button>
@@ -273,8 +323,67 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
     )
   }
 
+  // À la télécommande, la question se lit à la télé : ici, où on en est et
+  // les gestes. Jamais la réponse — le téléphone de l'animateur se voit
+  // par-dessus l'épaule.
+  if (telecommande && (v.phase === 'observe' || v.phase === 'question' || v.phase === 'reveal')) {
+    const revealing = v.phase === 'reveal'
+    const last = v.qIndex + 1 >= v.qCount
+    return (
+      <div className="quiz-host telecommande-apercu" role="status">
+        <span className="label">
+          Question {v.qIndex + 1} / {v.qCount}
+          {v.phase === 'observe' ? ' · la photo' : revealing ? ' · révélée' : ''}
+        </span>
+        {v.text && v.phase !== 'observe' && <p className="telecommande-question">{espacesFines(v.text)}</p>}
+        <div className="quiz-status">
+          {v.paused && (
+            <span className="pill">
+              <Icon name="pause" /> En pause
+            </span>
+          )}
+          {revealing && v.cancelled && (
+            <span className="pill">
+              <Icon name="x-circle" /> Points annulés
+            </span>
+          )}
+          {revealing && v.autoNextAt && <AutoNextPill deadline={v.autoNextAt} />}
+        </div>
+        {consoleQuestion(
+          <button
+            ref={principal}
+            className={'btn console-principal ' + (revealing ? 'btn-primary' : 'btn-accent')}
+            onClick={garde(() => sendCommand({ type: 'next', ...visee }))}
+          >
+            {v.phase === 'observe' ? (
+              <>
+                <Icon name="skip" />
+                Passer à la question
+              </>
+            ) : !revealing ? (
+              <>
+                <Icon name="eye" />
+                Révéler
+              </>
+            ) : last ? (
+              <>
+                <Icon name="trophy" />
+                Voir le podium
+              </>
+            ) : (
+              <>
+                <Icon name="skip" />
+                Question suivante
+              </>
+            )}
+          </button>,
+        )}
+      </div>
+    )
+  }
+
   if (v.phase === 'getReady') {
-    return <GetReady deadline={v.deadline!} sounds label="Préparez vos téléphones…" />
+    return <GetReady deadline={v.deadline!} sounds={!telecommande} label="Préparez vos téléphones…" />
   }
 
   // La photo, plein écran, sans la question : c'est le temps d'observation.
@@ -495,6 +604,50 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
   }
 
   // finished
+  // Ce qui suit, en bouton principal : la remise des prix s'il y a des
+  // équipes, sinon le quiz suivant. « Terminer le quiz » ramène à la salle
+  // d'attente, comme avant.
+  const suiteDuQuiz = (
+    <ConsoleActions>
+      {apresQuiz?.prix ? (
+        <>
+          <button ref={principal} className="btn btn-primary" onClick={garde(apresQuiz.prix)}>
+            <Icon name="award" />
+            Remise des prix
+          </button>
+          <button className="btn" disabled={apresQuiz.personne} onClick={garde(apresQuiz.suivant)}>
+            <Icon name="play" />
+            Quiz suivant
+          </button>
+        </>
+      ) : (
+        apresQuiz && (
+          <button
+            ref={principal}
+            className="btn btn-primary"
+            disabled={apresQuiz.personne}
+            onClick={garde(apresQuiz.suivant)}
+          >
+            <Icon name="play" />
+            Quiz suivant
+          </button>
+        )
+      )}
+      <button ref={apresQuiz ? undefined : principal} className={apresQuiz ? 'btn btn-ghost' : 'btn btn-primary'} onClick={garde(endSession)}>
+        Terminer le quiz
+      </button>
+    </ConsoleActions>
+  )
+  if (telecommande) {
+    return (
+      <div className="quiz-host telecommande-apercu" role="status">
+        <span className="label">À l’écran</span>
+        <strong className="telecommande-scene">Podium du quiz</strong>
+        {suiteDuQuiz}
+      </div>
+    )
+  }
+
   // Le podium à gauche, les équipes et la suite du classement à droite :
   // empilés, les équipes passaient sous la console en 1366 × 768, et la
   // salle ne voyait que leur titre.
@@ -539,11 +692,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
           </div>
         )}
       </div>
-      <ConsoleActions>
-        <button ref={principal} className="btn btn-primary" onClick={garde(endSession)}>
-          Terminer le quiz
-        </button>
-      </ConsoleActions>
+      {suiteDuQuiz}
     </div>
   )
 }
