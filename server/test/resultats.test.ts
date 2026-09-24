@@ -604,6 +604,43 @@ test('l’historique se dérive à la lecture, sans relire les archives ni écri
   })
 })
 
+test('les fiches d’avant se refont par lots de dix archives, jamais toutes en une requête', async () => {
+  await dansUnDossier(async dir => {
+    const url = `file:${path.join(dir, 'permanente.db')}`
+    const store = new ArchiveStore(url)
+    await store.init('espace')
+    const brut = createClient({ url })
+    try {
+      // Vingt-cinq soirées à la fiche 2, qui ne dit pas assez pour la
+      // moyenne des équipes : chacune doit relire son archive, une fois.
+      const archive = JSON.stringify(soireeDeCamille())
+      for (let i = 0; i < 25; i++) {
+        await brut.execute({
+          sql: `INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          args: ['espace', `soiree-${i}`, `Soirée ${i}`, i, i, JSON.stringify({ v: 2, invites: [] }), archive],
+        })
+      }
+      const client = (store as any).client
+      const execute = client.execute.bind(client)
+      const lectures: number[] = []
+      client.execute = (req: any) => {
+        if (typeof req === 'object' && /SELECT id, data FROM soirees/.test(req.sql)) lectures.push(req.args.length - 1)
+        return execute(req)
+      }
+      const liste = await store.list('espace')
+      assert.equal(liste.length, 25)
+      assert.ok(liste.every(s => s.winners[0]?.name === 'Camille (2)'), 'toutes relues')
+      assert.deepEqual(lectures, [10, 10, 5], 'trois requêtes, dix archives au plus chacune')
+      lectures.length = 0
+      await store.list('espace')
+      assert.deepEqual(lectures, [], 'les fiches refaites ne se relisent plus')
+    } finally {
+      brut.close()
+      store.close()
+    }
+  })
+})
+
 // ── 5. L'export ────────────────────────────────────────────────────────────
 
 test('le CSV neutralise les cellules qu’Excel prendrait pour des formules', () => {

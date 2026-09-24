@@ -300,6 +300,9 @@ export function summarize(meta: MetaSoiree, a: PartyArchive): ArchiveSummary {
 }
 
 /** Une archive que l'on ne sait plus lire se résume comme une soirée vide. */
+/** Combien d'archives une requête relit pour refaire leurs fiches (`ArchiveStore.refaireFiches`). */
+const LOT_DE_FICHES = 10
+
 const ARCHIVE_VIDE: PartyArchive = { version: 1, players: [], teams: [], bonuses: [], scores: [], answers: [], packs: {} }
 
 // ── Le rangement ─────────────────────────────────────────────────────────
@@ -414,6 +417,22 @@ export class ArchiveStore {
    * une fiche plus récente, qu'on n'écrase pas.
    */
   private async refaireFiches(
+    spaceId: string,
+    anciennes: { meta: MetaSoiree; stocke: string }[],
+  ): Promise<Map<string, FicheSoiree>> {
+    // Par lots de dix : la fiche 3 a rendu toutes les fiches 2 anciennes d'un
+    // coup, et le premier affichage de l'historique relisait toutes les
+    // archives d'un espace — jusqu'à plusieurs Mo chacune — en une seule
+    // requête, sous les dix secondes de la base distante. Un lot fait écrit
+    // ses fiches : un historique interrompu reprend là où il s'est arrêté.
+    const fiches = new Map<string, FicheSoiree>()
+    for (let i = 0; i < anciennes.length; i += LOT_DE_FICHES) {
+      for (const [id, fiche] of await this.refaireUnLot(spaceId, anciennes.slice(i, i + LOT_DE_FICHES))) fiches.set(id, fiche)
+    }
+    return fiches
+  }
+
+  private async refaireUnLot(
     spaceId: string,
     anciennes: { meta: MetaSoiree; stocke: string }[],
   ): Promise<Map<string, FicheSoiree>> {
