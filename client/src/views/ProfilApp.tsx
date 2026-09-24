@@ -280,7 +280,10 @@ export function ProfilApp() {
           >
             <Avatar avatar={profil.avatar} finition={profil.finition} eclat={brille(profil.avatar)} />
             <span className="finition-nom">La plus belle</span>
-            <span className="muted small">{profil.finitionChoisie === 'auto' ? 'portée' : 'automatique'}</span>
+            {/* L'état se dit par `aria-pressed` : lu aussi, il se disait deux fois. */}
+            <span className="muted small" aria-hidden="true">
+              {profil.finitionChoisie === 'auto' ? 'portée' : 'automatique'}
+            </span>
           </button>
           {FINITIONS.map(f => {
             const ouverte = profil.ouvertes.includes(f)
@@ -295,9 +298,11 @@ export function ProfilApp() {
               >
                 <Avatar avatar={profil.avatar} finition={f} eclat={brille(profil.avatar)} />
                 <span className="finition-nom">{NOM_FINITION[f]}</span>
-                <span className="muted small">
+                {/* « épinglée » redit `aria-pressed` : l'oreille entend « ouverte ». */}
+                <span className="muted small" aria-hidden={choisie || undefined}>
                   {ouverte ? (choisie ? 'épinglée' : 'ouverte') : `niveau ${NIVEAU_FINITION[f]}`}
                 </span>
+                {choisie && <span className="sr-only">ouverte</span>}
               </button>
             )
           })}

@@ -6,8 +6,9 @@ import { Icon } from './Icon'
  *
  * Tapé dans le noir, sur un téléphone, un mot de passe se trompe d'une
  * lettre sans qu'on le voie : l'œil le montre le temps de le relire. Le
- * bouton garde son nom et dit son état par `aria-pressed` — la règle des
- * boutons bascule (un libellé qui change aussi faisait lire l'inverse).
+ * bouton garde son nom et son infobulle, et dit son état par `aria-pressed`
+ * — la règle des boutons bascule (un libellé qui change aussi faisait lire
+ * l'inverse).
  */
 export function MotDePasse(props: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
   const [visible, setVisible] = useState(false)
@@ -19,7 +20,7 @@ export function MotDePasse(props: Omit<InputHTMLAttributes<HTMLInputElement>, 't
         className="mdp-oeil"
         aria-label="Afficher le mot de passe"
         aria-pressed={visible}
-        title={visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+        title="Afficher le mot de passe"
         onClick={() => setVisible(v => !v)}
       >
         <Icon name={visible ? 'eye-off' : 'eye'} />

@@ -1178,11 +1178,12 @@ export function HostApp() {
           <div className="console-icons">
             {/* Un bouton bascule garde un nom fixe et dit son état par
                 `aria-pressed` : avec un libellé qui changeait aussi, un lecteur
-                d'écran lisait « Couper les sons, activé », son allumé. L'infobulle,
-                elle, dit le geste à qui survole. */}
+                d'écran lisait « Couper les sons, activé », son allumé. Son
+                infobulle aussi est fixe : elle devient sa description, et
+                « Fond clair — Fond sombre (Velours), activé » se contredisait. */}
             <button
               className="btn btn-icon"
-              title={muted ? 'Activer les sons' : 'Couper les sons'}
+              title="Sons"
               aria-label="Sons"
               aria-pressed={!muted}
               onClick={() => {
@@ -1196,7 +1197,7 @@ export function HostApp() {
                 sur fond clair, sans toucher aux téléphones des invités. */}
             <button
               className="btn btn-icon"
-              title={theme === 'ivoire' ? 'Fond sombre (Velours)' : 'Fond clair pour le vidéoprojecteur (Ivoire)'}
+              title="Fond clair pour le vidéoprojecteur (Ivoire)"
               aria-label="Fond clair"
               aria-pressed={theme === 'ivoire'}
               onClick={() => setTheme(toggleTheme())}

@@ -107,12 +107,36 @@ test('chaque bouton en pastille dit s’il est choisi', () => {
 test('un bouton bascule garde son nom : l’état ne passe que par aria-pressed', () => {
   // « Couper les sons » avec aria-pressed=true, son allumé : un lecteur
   // d'écran lisait « Couper les sons, activé » — l'inverse de la réalité.
+  // L'infobulle et le texte lu non plus : un `title` devient la description
+  // du bouton (« Fond clair — Fond sombre (Velours), activé »), et « La plus
+  // belle, portée, activé » disait l'état deux fois.
+  let vus = 0
   for (const { fichier, texte } of sourcesDuClient()) {
-    for (const b of boutons(texte)) {
+    for (const m of texte.matchAll(/<button\b[\s\S]*?[^=]>(?=[ \t]*$)/gm)) {
+      const b = m[0]
       if (!/aria-pressed=/.test(b)) continue
-      assert.doesNotMatch(b, /aria-label=\{[^}]*\?/, `${fichier} : un libellé qui change avec l'état — ${b.replace(/\s+/g, ' ')}`)
+      vus++
+      const dit = `${fichier} : ${b.replace(/\s+/g, ' ')}`
+      assert.doesNotMatch(b, /aria-label=\{[^}]*\?/, `un libellé qui change avec l'état — ${dit}`)
+      // Le contenu lu : sans les icônes, les commentaires, ni ce qui est
+      // caché à l'oreille.
+      const contenu = texte
+        .slice(m.index! + b.length, texte.indexOf('</button>', m.index!))
+        .replace(/<Icon\b[^>]*\/>/g, '')
+        .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+        .replace(/<(\w+)\b[^>]*aria-hidden[^>]*>[\s\S]*?<\/\1>/g, '')
+      // Une infobulle ou un texte tirés de la condition d'`aria-pressed`,
+      // ou de son contraire, redisent l'état. (Une infobulle propre à chaque
+      // bouton d'un groupe, elle, ne change pas quand on le presse.)
+      const etat = /aria-pressed=\{!?([^}]*)\}/.exec(b)?.[1].trim()
+      if (!etat) continue
+      const echappe = etat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const redit = new RegExp(`[{(]\\s*!?${echappe}\\s*\\?\\s*['"\`]`)
+      assert.doesNotMatch(/title=(\{[^}]*\})/.exec(b)?.[1] ?? '', redit, `une infobulle qui change avec l'état — ${dit}`)
+      assert.doesNotMatch(contenu, redit, `un texte lu qui redit l'état — ${dit}`)
     }
   }
+  assert.ok(vus >= 10, `les bascules sont bien trouvées (${vus})`)
 })
 
 // ── Les jetons des deux thèmes : focus, survol, contrôles natifs ─────────
@@ -329,7 +353,7 @@ test('T7 · une ligne de classement qu’on touche a la hauteur d’un doigt', (
 test('T12 · le mot de passe s’affiche, sous un bouton au nom fixe', async () => {
   const html = await rendu('components/MotDePasse', 'MotDePasse', { id: 'x', value: 'secret', onChange: () => {} })
   assert.match(html, /type="password"/)
-  assert.match(html, /aria-label="Afficher le mot de passe" aria-pressed="false"/)
+  assert.match(html, /aria-label="Afficher le mot de passe" aria-pressed="false" title="Afficher le mot de passe"/)
   // Les trois champs du téléphone le prennent : la connexion, la création, le profil.
   const entree = readFileSync(new URL('../../client/src/components/Entree.tsx', import.meta.url), 'utf8')
   const profil = readFileSync(new URL('../../client/src/components/ProfilForm.tsx', import.meta.url), 'utf8')
