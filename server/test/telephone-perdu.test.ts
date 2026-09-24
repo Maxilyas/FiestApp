@@ -138,6 +138,35 @@ describe('le téléphone perdu', () => {
     await ranger(host, sessionId, [host, alice.socket, camille.socket, camille2.socket])
   })
 
+  test('au-delà de trente attendus, ceux qu’on attend encore passent devant ceux qu’on n’attend plus', async () => {
+    const quiz = await creerQuiz(banc.url, cookie, [qcm('Un ?', ['Oui', 'Non'], 0, 60)], 'La grande salle')
+    const host = await ecranCommun(banc.url, cookie)
+    await viderLaSalle(host)
+    // Trente téléphones morts, tous dispensés ; puis un dernier qui tombe,
+    // qu'on attend encore ; et une invitée bien là.
+    const morts = []
+    for (let i = 0; i < 30; i++) morts.push(await invite(banc.url, `Mort${i}`, '🐼'))
+    const rachid = await invite(banc.url, 'Rachid', '🦁')
+    const alice = await invite(banc.url, 'Alice', '🦊')
+    const sessionId = await lancerQuiz(host, quiz)
+    await vue(host, v => v.phase === 'question', 'la question')
+    for (const m of morts) m.socket.close()
+    await vue(host, v => v.attendus?.filter((a: any) => a.horsLigne).length === 30, 'trente hors ligne')
+    for (const m of morts) commande(host, sessionId, { type: 'nePlusAttendre', playerId: m.playerId })
+    await vue(host, v => v.attendus?.filter((a: any) => a.dispense).length === 30, 'trente dispensés')
+    rachid.socket.close()
+    const v = await vue(host, v => v.attendus?.length === 30 && v.attendusEnPlus === 2, 'Rachid tombé')
+    // Rachid, le seul qu'on attend encore parmi les hors-ligne, doit rester
+    // à portée de « Ne plus l'attendre » : en tête, pas derrière le plafond.
+    assert.equal(v.attendus[0].playerId, rachid.playerId)
+    assert.equal(v.attendus[0].dispense, undefined)
+    assert.ok(v.attendus.slice(1).every((a: any) => a.dispense), 'puis ceux qu’on n’attend plus')
+    // Alice, connectée, passe après : c'est elle que le plafond cache.
+    assert.equal(v.attendus.some((a: any) => a.playerId === alice.playerId), false)
+    await ranger(host, sessionId, [host, alice.socket])
+    await viderLaSalle(await ecranCommun(banc.url, cookie))
+  })
+
   test('« Ne plus l’attendre » : la révélation automatique revient ; revenu, il est de nouveau attendu à la question suivante', async () => {
     const quiz = await creerQuiz(
       banc.url,

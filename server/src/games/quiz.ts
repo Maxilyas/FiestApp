@@ -351,17 +351,24 @@ function awaited(sess: GameSessionRec<QuizState>): string[] {
 }
 
 /**
- * Ceux que la console montre comme attendus : les hors-ligne d'abord — c'est
- * pour les trouver qu'on regarde —, puis l'ordre d'arrivée. Ceux qu'on
- * n'attend plus restent dans la liste, marqués : l'animateur voit qu'il a
- * tranché, et pour qui.
+ * Ceux que la console montre comme attendus : les hors-ligne qu'on attend
+ * encore d'abord — c'est pour les trouver qu'on regarde —, puis ceux qu'on
+ * n'attend plus, puis les connectés, chaque groupe dans l'ordre d'arrivée.
+ * Ceux qu'on n'attend plus restent dans la liste, marqués : l'animateur voit
+ * qu'il a tranché, et pour qui. Mais derrière ceux qu'il doit encore
+ * trancher : triés sur « hors ligne » seul, quarante téléphones morts dont
+ * trente dispensés gardaient la tête de la liste, et les dix autres
+ * passaient derrière le plafond, hors de portée de « Ne plus l'attendre ».
  */
 function attendus(sess: GameSessionRec<QuizState>, vctx: ViewContext): { liste: QuizAttendu[]; enPlus: number } {
   const st = sess.state
   const lignes = sess.participantIds
     .filter(id => (st.playFrom[id] ?? 0) <= st.qIndex && !(id in st.responses))
-    .map(id => ({ id, horsLigne: !vctx.connected(id) }))
-    .sort((a, b) => Number(b.horsLigne) - Number(a.horsLigne))
+    .map(id => {
+      const horsLigne = !vctx.connected(id)
+      return { id, horsLigne, rang: !horsLigne ? 2 : st.dispenses?.includes(id) ? 1 : 0 }
+    })
+    .sort((a, b) => a.rang - b.rang)
   // On ne décore que les lignes montrées : cette vue se recalcule à chaque
   // réponse, et décorer cinq cents invités à chaque fois coûtait le podium.
   const liste = lignes.slice(0, ATTENDUS_MONTRES).map(({ id, horsLigne }) => ({
