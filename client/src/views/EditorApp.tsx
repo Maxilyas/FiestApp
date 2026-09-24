@@ -922,6 +922,14 @@ function QuizEditor({
     return (
       <div className="center-page">
         <p className={error ? 'error' : 'serif-note'}>{error || 'Chargement…'}</p>
+        {/* Un quiz supprimé, une adresse recopiée de travers : sans ce
+            bouton, la page ne menait plus nulle part. */}
+        {error && (
+          <button className="btn" onClick={onClose}>
+            <Icon name="list" />
+            Mes quiz
+          </button>
+        )}
       </div>
     )
   }
