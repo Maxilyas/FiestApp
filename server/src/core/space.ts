@@ -683,6 +683,11 @@ export class SpaceRuntime {
     return { ok: true, ...this.places.emettre(playerId, Date.now()) }
   }
 
+  /** Il a joué ce soir — une réponse donnée, une ligne de gain : `laisserPlace` le gardera. */
+  aJoueCeSoir(playerId: string): boolean {
+    return this.answers.aRepondu(playerId) || this.ledger.aGagne(playerId)
+  }
+
   /**
    * L'identité qu'un téléphone quitte pour reprendre sa place : le second
    * « Rachid », inscrit sur le téléphone emprunté en attendant.
@@ -696,7 +701,7 @@ export class SpaceRuntime {
    */
   laisserPlace(playerId: string): 'efface' | 'garde' | null {
     if (!this.party.get(playerId) || this.party.isConnected(playerId)) return null
-    if (!this.answers.aRepondu(playerId) && !this.ledger.aGagne(playerId)) {
+    if (!this.aJoueCeSoir(playerId)) {
       this.exclure(playerId)
       return 'efface'
     }

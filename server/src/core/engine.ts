@@ -287,6 +287,13 @@ export class GameEngine {
     this.deps.onSessionChanged()
   }
 
+  /** Cet invité a-t-il une réponse que la partie en cours n'a pas encore jugée ? */
+  reponseEnSuspens(playerId: string): boolean {
+    const sess = this.session
+    if (!sess || sess.status !== 'running' || !this.module.reponseEnSuspens) return false
+    return this.module.reponseEnSuspens(sess, playerId)
+  }
+
   /** Renvoie sa vue à un joueur qui (re)vient — reconnexion transparente. */
   resendViews(playerId: string) {
     const sess = this.session

@@ -788,7 +788,13 @@ export const quizModule: GameModule<QuizState> = {
     if (timerId === 'autoNext' && sess.state.phase === 'reveal') goNext(sess, ctx)
   },
 
-  playerView(sess, playerId, vctx): QuizPlayerView {
+  // Pendant la question — en pause comprise —, une réponse donnée n'est pas
+  // encore jugée : elle le sera à la révélation, qui la paie.
+  reponseEnSuspens(sess, playerId) {
+    return sess.state.phase === 'question' && playerId in sess.state.responses
+  },
+
+    playerView(sess, playerId, vctx): QuizPlayerView {
     const st = sess.state
     const mine = st.responses[playerId]
     const base = {

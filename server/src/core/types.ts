@@ -114,6 +114,12 @@ export interface GameModule<S = any> {
    * barème, aux compteurs et au « plus rapide », qui s'affichait « ??? ».
    */
   onPlayerLeave?(session: GameSessionRec<S>, playerId: string, ctx: GameContext): void
+  /**
+   * Vrai si cet invité a une réponse que la partie n'a pas encore jugée : la
+   * place qu'il quitterait pour une autre ferait marquer deux fois la même
+   * personne sur la même question (`player:reprendre`).
+   */
+  reponseEnSuspens?(session: GameSessionRec<S>, playerId: string): boolean
   playerView(session: GameSessionRec<S>, playerId: string, vctx: ViewContext): unknown
   hostView(session: GameSessionRec<S>, vctx: ViewContext): unknown
 }

@@ -442,6 +442,48 @@ describe('le téléphone perdu', () => {
     for (const s of [sonTelephone, prive, host]) s.close()
   })
 
+  test('le second Rachid qui a joué et répondu à la question ouverte : la reprise attend la révélation', async () => {
+    const quiz = await creerQuiz(
+      banc.url,
+      cookie,
+      [qcm('Un ?', ['Oui', 'Non'], 0, 60), qcm('Deux ?', ['Oui', 'Non'], 0, 60)],
+      'Une seule fois',
+    )
+    const host = await ecranCommun(banc.url, cookie)
+    await viderLaSalle(host)
+    const alice = await invite(banc.url, 'Alice', '🦊')
+    const rachid = await invite(banc.url, 'Rachid', '🦁')
+    const sessionId = await lancerQuiz(host, quiz)
+    let v = await vue(host, v => v.phase === 'question' && v.qIndex === 0, 'la question 1')
+    rachid.socket.close()
+    // Le second Rachid joue la question 1 : il sera gardé, avec ses points.
+    const emprunte = await invite(banc.url, 'Rachid', '⚽')
+    assert.equal((await repondre(emprunte, sessionId, v, 0)).ok, true)
+    const revele = vue(host, v => v.phase === 'reveal', 'la révélation 1')
+    await repondre(alice, sessionId, v, 1)
+    commande(host, sessionId, { type: 'nePlusAttendre', playerId: rachid.playerId })
+    v = await revele
+    suivante(host, sessionId, v)
+    v = await vue(host, v => v.phase === 'question' && v.qIndex === 1, 'la question 2')
+    // Il répond à la question 2, encore ouverte, puis tape le code.
+    assert.equal((await repondre(emprunte, sessionId, v, 0)).ok, true)
+    const { code } = await emitAck<any>(host, 'host:rendrePlace', { playerId: rachid.playerId })
+    const tot = await emitAck<any>(emprunte.socket, 'player:reprendre', { slug: SLUG, code, token: emprunte.token })
+    // Repris maintenant, il répondrait une seconde fois sous l'autre fiche :
+    // la même personne marquerait deux fois sur une question.
+    assert.equal(tot.ok, false, 'pas pendant que sa réponse attend la révélation')
+    assert.match(tot.error, /révélation/)
+
+    // La révélation passée, le même code sert : il n'a pas été consommé.
+    const revele2 = vue(host, v => v.phase === 'reveal' && v.qIndex === 1, 'la révélation 2', 5000)
+    await repondre(alice, sessionId, v, 1)
+    await revele2
+    const reprise = await emitAck<any>(emprunte.socket, 'player:reprendre', { slug: SLUG, code, token: emprunte.token })
+    assert.equal(reprise.ok, true, reprise.error)
+    assert.equal(reprise.playerId, rachid.playerId)
+    await ranger(host, sessionId, [host, alice.socket, emprunte.socket])
+  })
+
   test('un téléphone au profil d’un autre ne reprend pas une place', async () => {
     const host = await ecranCommun(banc.url, cookie)
     await viderLaSalle(host)

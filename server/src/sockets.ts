@@ -404,6 +404,17 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           placeFailures = 0
         }
         if (placeFailures >= PLACE_MAX_FAILURES) return repondre({ ok: false, error: TROP_D_ESSAIS })
+        // L'identité que ce téléphone quitte : le second « Rachid » d'avant le code.
+        const token = texte(charge.token)
+        const ancien = (token && rt.party.findByToken(token)) || (socket.data.playerId ? rt.party.get(socket.data.playerId) : undefined)
+        // Il a joué, donc il restera (`laisserPlace`) — et il a une réponse
+        // que la question ouverte n'a pas encore jugée : reprise maintenant,
+        // la même personne répondrait une seconde fois sous l'autre fiche, et
+        // marquerait deux fois. Avant le code, qui n'est donc ni consommé ni
+        // compté : il resservira après la révélation.
+        if (ancien && rt.aJoueCeSoir(ancien.id) && rt.engine.reponseEnSuspens(ancien.id)) {
+          return repondre({ ok: false, error: 'Attends la révélation, puis retape le code' })
+        }
         const saisie = rt.places.lire(texte(charge.code) ?? '', Date.now())
         const fiche = saisie.ok ? rt.party.get(saisie.playerId) : undefined
         if (!saisie.ok || !fiche) {
@@ -440,9 +451,6 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // Ces deux refus-là laissent le code : l'invité le retape dans une
         // fenêtre privée, sans redemander à l'animateur. Il se consomme ici.
         rt.places.consommer(saisie.code)
-        // L'identité que ce téléphone quitte : le second « Rachid » d'avant le code.
-        const token = texte(charge.token)
-        const ancien = (token && rt.party.findByToken(token)) || (socket.data.playerId ? rt.party.get(socket.data.playerId) : undefined)
         // Un jeton neuf, pas celui de la fiche : l'ancien téléphone qui se
         // rallume — ou celui qui l'a ramassé — rejouerait sinon sur la même
         // place, deux téléphones pour un invité (invariant 9).
