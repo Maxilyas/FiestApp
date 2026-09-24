@@ -916,6 +916,39 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
             </button>
           </p>
         )}
+        {/* Dans l'en-tête collant, comme l'annulation : rendus en haut de la
+            page, un conflit ou un échec d'« Enregistrer » restaient hors de
+            l'écran dès qu'on avait défilé — le bouton revenait, sans un mot. */}
+        {conflit !== null && (
+          <div className="card conflit-carte editor-alerte" role="alert">
+            <p className="warn">
+              <Icon name="alert" />{' '}
+              {espacesFines(
+                `Ce quiz a été enregistré ailleurs le ${formatDate(conflit)}, pendant que tu écrivais ici — un autre appareil ? ` +
+                  'Rien n’est écrasé : choisis la version à garder.',
+              )}
+            </p>
+            <div className="row">
+              <button className="btn btn-primary" disabled={saving} onClick={() => save(conflit)}>
+                Garder la mienne
+              </button>
+              <button className="btn btn-ghost" disabled={saving} onClick={prendreLAutre}>
+                Prendre l’autre version
+              </button>
+            </div>
+          </div>
+        )}
+        {error && (
+          <p className="error editor-alerte" role="alert">
+            {error}
+          </p>
+        )}
+        {/* Le message d'échec pousse à recharger la page : c'était là qu'on perdait tout. */}
+        {error && dirty && garde && (
+          <p className="muted editor-alerte">
+            {espacesFines('Rien n’est perdu : ce navigateur garde tes modifications, même si tu fermes la page.')}
+          </p>
+        )}
       </header>
 
       {reveil && (
@@ -924,32 +957,6 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
             'Le serveur dormait : il se réveille, ça prend environ une minute. Tu peux continuer à écrire' +
               (garde ? ', ce navigateur garde tes modifications.' : '.'),
           )}
-        </p>
-      )}
-      {conflit !== null && (
-        <div className="card conflit-carte" role="alert">
-          <p className="warn">
-            <Icon name="alert" />{' '}
-            {espacesFines(
-              `Ce quiz a été enregistré ailleurs le ${formatDate(conflit)}, pendant que tu écrivais ici — un autre appareil ? ` +
-                'Rien n’est écrasé : choisis la version à garder.',
-            )}
-          </p>
-          <div className="row">
-            <button className="btn btn-primary" disabled={saving} onClick={() => save(conflit)}>
-              Garder la mienne
-            </button>
-            <button className="btn btn-ghost" disabled={saving} onClick={prendreLAutre}>
-              Prendre l’autre version
-            </button>
-          </div>
-        </div>
-      )}
-      {error && <p className="error">{error}</p>}
-      {/* Le message d'échec pousse à recharger la page : c'était là qu'on perdait tout. */}
-      {error && dirty && garde && (
-        <p className="muted">
-          {espacesFines('Rien n’est perdu : ce navigateur garde tes modifications, même si tu fermes la page.')}
         </p>
       )}
       {reprise === 'faite' && (

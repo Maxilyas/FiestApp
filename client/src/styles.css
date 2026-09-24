@@ -1656,6 +1656,11 @@ h3 > .icon {
   margin-top: -10px;
 }
 .editor-header .undo-line { flex-basis: 100%; margin: 0; }
+/* Un conflit ou un échec d'« Enregistrer » prend sa ligne sous les boutons,
+   et se défile s'il est long : l'en-tête collé ne doit pas manger l'écran
+   d'un téléphone. */
+.editor-header .editor-alerte { flex-basis: 100%; margin: 0; }
+.editor-header .conflit-carte { max-height: 45vh; overflow-y: auto; }
 @media (max-width: 600px) {
   /* Au téléphone, le titre prend sa ligne et s'en va avec la page : un `top`
      négatif de sa hauteur (10 + 44 + 8 px) ne laisse collés que « prêtes »,
