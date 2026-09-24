@@ -230,6 +230,13 @@ function TeamGroup({
 
 export function HostApp() {
   const s = useAppState()
+  useEffect(() => {
+    // Rouverte dans l'onglet de « Mes quiz » (sa console fermée entre-temps),
+    // la console en gardait le nom : « Mes quiz » la remplaçait alors par
+    // l'éditeur, et le QR quittait l'écran. Une console n'est aucun onglet
+    // nommé : ses liens doivent toujours en ouvrir un autre.
+    if ((Object.values(ONGLETS) as string[]).includes(window.name)) window.name = ''
+  }, [])
   /** L'animateur reconnu par le serveur — `null` tant que la session n'a pas été vérifiée. */
   const [me, setMe] = useState<{ slug: string; name: string } | null>(null)
   /**
