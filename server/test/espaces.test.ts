@@ -354,6 +354,63 @@ test('l’Éclat d’un essai en cours ailleurs ne fait pas tomber La Pluie d’
   }
 })
 
+test('au démarrage, le recalcul ne range pas un palier sous l’essai qui se joue ailleurs', async () => {
+  const banc = await demarrer()
+  try {
+    const A = { cookie: await connexionAnimateur(banc.url), slug: ADMIN.slug }
+    const B = await espace(banc, 'bruno', 'chez-bruno')
+    const remi = await inscrireProfil(banc.url, 'remi', 'Rémi', '🐧')
+    const R = profilDe(banc, 'remi')
+    const hA = await ecranCommun(banc.url, A.cookie)
+    const hB = await ecranCommun(banc.url, B.cookie)
+    const qA = await creerQuiz(banc.url, A.cookie, [qcm('A1 ?'), qcm('A2 ?')])
+    const qB = await creerQuiz(banc.url, B.cookie, [qcm('B1 ?'), qcm('B2 ?')])
+    const habitue = () => lire(banc, "SELECT soiree_id FROM profile_badges WHERE profile_id = ? AND badge LIKE 'hf:habitue:%'", R)
+
+    // Trois soirées closes chez A.
+    for (let i = 0; i < 3; i++) {
+      const r = await invite(banc.url, 'Rémi', '🐧', { slug: A.slug, cookie: remi })
+      await jouerQuiz(hA, qA, [[r, 0], [await invite(banc.url, 'Fig', '🐻', { slug: A.slug }), 1]], 2)
+      await geste(hA, 'host:closeParty')
+    }
+    const closes = lignesXp(banc, R).map(l => l.soiree_id)
+    assert.equal(closes.length, 3)
+
+    // Puis un essai chez B, joué : sa ligne est la plus récente de Rémi.
+    const rB = await invite(banc.url, 'Rémi', '🐧', { slug: B.slug, cookie: remi })
+    await jouerQuiz(hB, qB, [[rB, 0], [await invite(banc.url, 'Fig', '🐻', { slug: B.slug }), 1]], 2)
+    await patienter(500)
+    assert.equal(lignesXp(banc, R).length, 4)
+
+    // On remonte le temps : une ligne d'un barème d'avant, et L'Habitué pas
+    // encore décerné — c'est le recalcul du démarrage qui le fera tomber.
+    const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+    try {
+      db.prepare("DELETE FROM profile_badges WHERE profile_id = ? AND badge LIKE 'hf:habitue:%'").run(R)
+      db.prepare("DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id LIKE '#%'").run(R)
+      const { detail } = db.prepare('SELECT detail FROM profile_xp WHERE profile_id = ? AND soiree_id = ?').get(R, closes[0]) as any
+      db.prepare('UPDATE profile_xp SET detail = ? WHERE profile_id = ? AND soiree_id = ?').run(
+        String(detail).replace(/^\{"v":\d+,/, '{"v":2,'),
+        R,
+        closes[0],
+      )
+    } finally {
+      db.close()
+    }
+    await banc.redemarrer()
+    const tombe = habitue()
+    assert.equal(tombe.length, 1, 'le recalcul fait tomber L’Habitué sur les trois soirées closes')
+    assert.ok(closes.includes(tombe[0].soiree_id), `sous le nom d’une soirée close (vu : ${tombe[0].soiree_id})`)
+
+    // B efface son essai : le palier, qui ne lui devait rien, reste.
+    await geste(await ecranCommun(banc.url, B.cookie), 'host:discardParty')
+    await patienter(300)
+    assert.equal(habitue().length, 1, 'l’essai effacé n’emporte pas le palier des soirées closes')
+  } finally {
+    await banc.close()
+  }
+})
+
 // ── E3. Le nom d'une soirée porte son espace ──────────────────────────────
 
 test('deux soirées nées à la même milliseconde, dans deux espaces : deux noms, deux lignes d’expérience', async () => {

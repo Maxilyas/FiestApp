@@ -138,7 +138,11 @@ export async function recalculerHistorique(deps: {
   // jouée, celle qui les aurait fait tomber.
   for (const id of await profiles.oublierAnciensBadgesDeCarriere()) touches.add(id)
   for (const id of touches) {
-    const [derniere] = await profiles.historiqueOf(id)
+    // La dernière soirée CLOSE : sa plus récente ligne peut être celle d'un
+    // essai qui se joue encore ailleurs, et son effacement emporterait le
+    // palier rangé sous son nom — un palier que les soirées closes, seules,
+    // avaient fait tomber.
+    const derniere = (await profiles.historiqueOf(id)).find(s => !enCours.has(cleDeSoiree(s.spaceId, s.soireeId)))
     if (derniere) await profiles.accorderPaliers(id, derniere.soireeId, derniere.spaceId, enCours)
   }
   // La ligne des paliers ne se réécrit qu'avec un palier neuf : sans palier
