@@ -253,6 +253,11 @@ test('la fin de soirée mène au bilan de son porteur, dit ses prix et la salle 
       [[alice, 0], ...faux(salle)],
     ])
     const id = await rangee(banc)
+    // Pendant la soirée déjà, le souvenir sait l'adresse de son archive —
+    // celle que « Copier » et « Partager » envoient —, et elle répond.
+    const enCours = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/recap.json`)).json()) as any
+    assert.equal(enCours.soireeId, id, 'le souvenir en cours donne l’adresse de son archive')
+    assert.equal((await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${id}/recap.json`)).status, 200)
     // Zoé arrive après la dernière question : elle n'a rien joué.
     const zoe = await invite(banc.url, 'Zoé', '🦄')
 

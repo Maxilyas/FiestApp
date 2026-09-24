@@ -902,6 +902,7 @@ export class SpaceRuntime {
         scores: this.ledger.all(),
         answers: this.answers.all(),
       }),
+      ...(this.aJoue() && this.soireeId() && { soireeId: this.soireeId()! }),
       space: this.publicSpace(),
     }
   }

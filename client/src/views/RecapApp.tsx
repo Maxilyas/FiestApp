@@ -107,7 +107,9 @@ export function RecapApp() {
   }
 
   const archive = recap.archive
-  const soireeMontree = archiveId ?? archive?.id ?? null
+  // Le lien qu'on envoie est celui de l'archive, même pendant la soirée :
+  // `/<espace>/souvenir` changera de soirée à la suivante.
+  const soireeMontree = archiveId ?? archive?.id ?? recap.soireeId ?? null
   const lienStable = new URL(spacePath(slug, 'souvenir', soireeMontree), window.location.href).href
   const dateLine = archive ? formatDay(archive.heldAt) : space?.dateLine
   // Le classement arrive dans l'ordre commun (shared/classement.ts) ; chaque
