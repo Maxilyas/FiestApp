@@ -16,8 +16,9 @@ import { espacesFines } from '../../format'
 import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
 import { formatNumber } from '../../format'
-import { questionSizeClass } from './questionSize'
+import { answersSizeClass, questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
+import { Coupe } from '../../components/Coupe'
 import { Niveau } from '../../components/Niveau'
 
 /** Le décompte avant que la question suivante parte toute seule. */
@@ -30,7 +31,7 @@ function AutoNextPill({ deadline }: { deadline: number }) {
   const seconds = Math.max(0, Math.ceil((deadline - now) / 1000))
   return (
     <span className="pill">
-      <Icon name="skip" /> suivante dans {seconds} s
+      <Icon name="skip" /> Question suivante dans {seconds} s
     </span>
   )
 }
@@ -276,7 +277,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
       <div className="quiz-host">
         <div className="quiz-status">
           <span className="pill flash">
-            <Icon name="eye" /> Regardez bien…
+            <Icon name="eye" /> Regardez bien : la photo va disparaître
           </span>
         </div>
         <TimerBar deadline={v.deadline!} duration={v.duration ?? 5} ticking />
@@ -325,6 +326,18 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
           />
         )}
 
+        {/* La pause se voit du canapé : « En pause » en grand sur la scène, les
+            réponses éteintes dessous. Seul le chiffre du chrono devenait ⏸,
+            et la salle demandait ce qui se passait. */}
+        {!revealing && v.paused && (
+          <div className="pause-voile" role="status">
+            <span>
+              <Icon name="pause" />
+              En pause
+            </span>
+          </div>
+        )}
+
         {/* L'énoncé et sa photo côte à côte : empilée sous la question, la
             photo poussait les réponses sous la console en 1366 × 768, la
             définition des portables qu'on branche à la télé. La largeur d'un
@@ -348,39 +361,51 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
               <p className="target-value">
                 {formatNumber(v.target!)} <span className="target-unit">{v.unit}</span>
               </p>
-              <div className="podium">
-                {v.guesses?.map((g, i) => (
-                  <div key={i} className="lb-row" style={{ animationDelay: `${i * 60}ms` }}>
-                    {/* La cible pour tous les plus proches : deux estimations à
-                        égale distance ne sont ni première ni deuxième. */}
-                    {g.rank === 1 ? (
-                      <span className="lb-rank">
-                        <Icon name="target" />
-                        <span className="sr-only">Rang 1</span>
+              <Coupe className="estimations">
+                <div className="podium">
+                  {v.guesses?.map((g, i) => (
+                    <div key={i} className="lb-row" style={{ animationDelay: `${i * 60}ms` }}>
+                      {/* La cible pour tous les plus proches : deux estimations à
+                          égale distance ne sont ni première ni deuxième. */}
+                      {g.rank === 1 ? (
+                        <span className="lb-rank">
+                          <Icon name="target" />
+                          <span className="sr-only">Rang 1</span>
+                        </span>
+                      ) : (
+                        <Rank n={g.rank} />
+                      )}
+                      <Avatar className="lb-avatar" avatar={g.avatar} finition={g.finition} eclat={g.eclat} legendaire={g.legendaire} />
+                      <span className="lb-name">{g.name}</span>
+                      <Niveau niveau={g.niveau} />
+                      <span className="guess-value">
+                        {formatNumber(g.value)} {v.unit}
                       </span>
-                    ) : (
-                      <Rank n={g.rank} />
-                    )}
-                    <Avatar className="lb-avatar" avatar={g.avatar} finition={g.finition} eclat={g.eclat} legendaire={g.legendaire} />
-                    <span className="lb-name">{g.name}</span>
-                    <Niveau niveau={g.niveau} />
-                    <span className="guess-value">
-                      {formatNumber(g.value)} {v.unit}
-                    </span>
-                    <Score n={g.points} texte={`+${g.points}`} />
-                  </div>
-                ))}
-                {v.guesses?.length === 0 && <p className="muted">Personne n'a répondu…</p>}
-              </div>
+                      <Score n={g.points} texte={`+${g.points}`} />
+                    </div>
+                  ))}
+                  {v.guesses?.length === 0 && <p className="muted">Personne n'a répondu…</p>}
+                </div>
+              </Coupe>
             </div>
           ) : (
-            <p className="big-waiting">
-              <Icon name="keyboard" /> Tapez votre estimation sur votre téléphone{v.unit ? ` (en ${v.unit})` : ''} — le
-              plus proche gagne&nbsp;!
-            </p>
+            <>
+              <p className="big-waiting">
+                <Icon name="keyboard" /> Tapez votre estimation sur votre téléphone{v.unit ? ` (en ${v.unit})` : ''} — le
+                plus proche gagne&nbsp;!
+              </p>
+              {/* Les trois cinquièmes de l'écran étaient vides : le compte des
+                  réponses meuble l'attente, et presse les retardataires. */}
+              {v.participantCount !== undefined && (
+                <p className="compte-reponses">
+                  <b>{v.answeredCount ?? 0}</b> / {v.participantCount}
+                  <span className="compte-reponses-mot">ont répondu</span>
+                </p>
+              )}
+            </>
           )
         ) : (
-          <div className="ans-grid">
+          <div className={'ans-grid' + answersSizeClass(v.answers)}>
             {v.answers!.map((a, i) => (
               <div
                 key={i}
@@ -436,21 +461,25 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
         {revealing && (
           <div className="reveal-boards">
             {teams.length > 0 && (
-              <div>
+              <div className="tableau">
                 <h3>
                   <Icon name="users" />
                   Les équipes
                 </h3>
-                <TeamBoard teams={teams} />
+                <Coupe>
+                  <TeamBoard teams={teams} />
+                </Coupe>
               </div>
             )}
             {v.standings && v.standings.length > 0 && (
-              <div>
+              <div className="tableau">
                 <h3>
                   <Icon name="trophy" />
                   Top du quiz
                 </h3>
-                <Standings rows={v.standings} />
+                <Coupe>
+                  <Standings rows={v.standings} />
+                </Coupe>
               </div>
             )}
           </div>
@@ -474,12 +503,14 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
         {(teams.length > 0 || (v.standings?.length ?? 0) > 3) && (
           <div className="scene-listes">
             {teams.length > 0 && (
-              <div>
+              <div className="tableau">
                 <h3>
                   <Icon name="users" />
                   Les équipes après ce quiz
                 </h3>
-                <TeamBoard teams={teams} />
+                <Coupe>
+                  <TeamBoard teams={teams} />
+                </Coupe>
                 {/* Un prix peut encore renverser l'ordre, c'est voulu : dit
                     ici, le renversement devient un suspense, pas un démenti
                     de ce que l'animateur vient d'annoncer. */}
@@ -489,12 +520,14 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
             {/* Les équipes d'abord : c'est leur classement qui décide de la
                 soirée, et la suite du classement peut être longue. */}
             {v.standings && v.standings.length > 3 && (
-              <div>
+              <div className="tableau">
                 <h3>
                   <Icon name="trophy" />
                   La suite du classement
                 </h3>
-                <Standings rows={v.standings.slice(3)} offset={3} />
+                <Coupe>
+                  <Standings rows={v.standings.slice(3)} offset={3} />
+                </Coupe>
               </div>
             )}
           </div>

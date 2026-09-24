@@ -86,6 +86,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/brouillon.ts` · `client/src/brouillon.ts` | le brouillon d'un quiz : ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit (`normalizeQuestions`, `shared/library.ts`) |
 | `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
 | `client/src/components/Liaison.tsx` | ce que voit l'invité quand la liaison tombe |
+| `client/src/components/Coupe.tsx` | une liste de l'écran commun coupée à ce qui tient, « et 2 autres » dessous : personne ne fait défiler une télé |
+| `server/scripts/rendu-ecran.ts` | le pire cas de l'écran commun, rejoué sur un serveur jetable et photographié à chaque phase en 1366 × 768, 1920 × 1080 et au téléphone (`MESURE=1` : ce qui ne grandit pas en 1920) |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
 | `server/scripts/calibrage.ts` | combien de quiz demande chaque légendaire, et combien de soirées chaque niveau : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits et de l'expérience (`npx tsx scripts/calibrage.ts`, format réglable) |
 | `server/scripts/tablee/regie.ts` · `pilote.mjs` | la tablée : un serveur jetable, un Chromium, et les gestes des agents qui y jouent une soirée — ou plusieurs à la fois, un salon par animateur (`chez <animateur>`) — la marche à suivre, les personnages, les experts et leurs consignes dans `.claude/skills/tablee/` (`/tablee`) |
@@ -430,7 +432,22 @@ sans `QUIZ_DB_URL`.
   l'écran, pas au typecheck. Chromium et Playwright sont disponibles. Le
   téléphone se regarde en 360 × 640 ; l'écran commun en **1366 × 768** — le
   portable qu'on branche à la télé, où rien ne défile — et en 1920 × 1080,
-  avec une question à photo, des équipes et une clôture à hauts faits.
+  avec une question à photo et des réponses longues, des équipes, sept
+  invités et plus (une estimation à six réponses, l'écran de victoire), et
+  une clôture à hauts faits. `server/scripts/rendu-ecran.ts` rejoue tout ça
+  en une commande (client construit d'abord).
+- **Sur grand écran, `/host` compte en `rem`.** Sa taille racine suit la
+  hauteur de l'écran (16 px en 768, 22,5 en 1080) : une taille de scène
+  écrite en pixels ne grandit pas en 1920 × 1080, et la même télé la montre
+  30 % plus petite. Les composants partagés avec les téléphones y ont leurs
+  mesures en `rem` (le bloc en tête de « Écran commun », `styles.css`).
+  Une liste de la scène passe par `Coupe`, jamais par un cadre qui défile,
+  et son cadre tient sa hauteur de la mise en page, pas de son contenu.
+  Et 1920 × 1080 fait 48 rem de haut, comme 1366 × 768 : une règle réservée
+  à l'un (`max-height: 820px`) donne moins de place à l'autre. Tout ce qui
+  grossit la scène vit dans `@media (min-width: 1101px)` : l'animateur tient
+  aussi `/host` au téléphone, où rien ne grossit, où la page défile et où
+  `Coupe` ne coupe rien (`overflow: visible`). `ecran.test.ts` y veille.
 - **La tablée lit l'écran par ses classes** (`.quiz-player`, `.ans-btn`,
   `.guess-form`, `.join-url`, `.fin-tete`…) : en renommer une casse ses
   raccourcis `question`, `repondre` et `scanner` sans que le typecheck le

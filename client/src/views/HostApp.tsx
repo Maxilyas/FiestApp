@@ -12,6 +12,7 @@ import { espacesFines } from '../format'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
+import { Coupe } from '../components/Coupe'
 import { TeamBoard } from '../components/TeamBoard'
 import { FinalPodium, Standings } from '../components/Podium'
 import { Trophies } from '../components/Trophies'
@@ -705,7 +706,9 @@ export function HostApp() {
                       <p className="muted small center">Le podium à la moyenne, avant les prix</p>
                     </div>
                     <div className="scene-listes">
-                      <TeamBoard teams={teams} />
+                      <Coupe>
+                        <TeamBoard teams={teams} />
+                      </Coupe>
                       <p className="muted small">{regleDesEquipes(teams.length)}</p>
                     </div>
                   </div>
@@ -714,8 +717,19 @@ export function HostApp() {
                     <FinalPodium rows={ranking} />
                     {(ranking.length > 3 || recap) && (
                       <div className="scene-listes">
-                        {ranking.length > 3 && <Standings rows={ranking.slice(3)} offset={3} />}
-                        {recap && <Trophies recap={recap} />}
+                        {ranking.length > 3 && (
+                          <Coupe>
+                            <Standings rows={ranking.slice(3)} offset={3} />
+                          </Coupe>
+                        )}
+                        {/* Les distinctions sous la suite du classement, cartes
+                            coupées entières : trois cartes prenaient toute la
+                            colonne, et la liste tombait à une ligne. */}
+                        {recap && (
+                          <Coupe className="coupe-trophees" lignes=".trophy" autres={n => `et ${n} autre${n > 1 ? 's' : ''} distinction${n > 1 ? 's' : ''}`}>
+                            <Trophies recap={recap} />
+                          </Coupe>
+                        )}
                       </div>
                     )}
                   </div>
@@ -919,7 +933,7 @@ export function HostApp() {
                       </div>
                     )}
                     <div className="victory-boards">
-                      <div>
+                      <div className="tableau">
                         <h3>
                           <Icon name="users" />
                           Les équipes
@@ -930,18 +944,23 @@ export function HostApp() {
                             passait sous la console en 1366 × 768 : chaque
                             ligne dit d'où viennent ses points, et la règle se
                             lit au podium et au panneau des équipes. */}
-                        <TeamBoard teams={teams} />
+                        <Coupe>
+                          <TeamBoard teams={teams} />
+                        </Coupe>
                       </div>
 
                       {/* Le classement individuel a sa place ici : c'est pour lui
                           que chacun a joué, et il explique le total des équipes. */}
-                      <div>
+                      <div className="tableau">
                         <h3>
                           <Icon name="trophy" />
                           Les joueurs
                         </h3>
+                        {/* Coupé à ce qui tient : à douze, la liste passait
+                            sous la console en 1366 × 768 dès le sixième. */}
+                        <Coupe enPlus={Math.max(0, ranking.length - 30)}>
                         <div className="leaderboard">
-                          {ranking.slice(0, 12).map((p, i) => (
+                          {ranking.slice(0, 30).map((p, i) => (
                             <div key={i} className="lb-row">
                               <Rank n={p.rank} />
                               <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
@@ -951,9 +970,7 @@ export function HostApp() {
                             </div>
                           ))}
                         </div>
-                        {ranking.length > 12 && (
-                          <p className="muted small center">et {ranking.length - 12} autres…</p>
-                        )}
+                        </Coupe>
                       </div>
                     </div>
                   </>
