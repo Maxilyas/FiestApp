@@ -41,8 +41,13 @@ export class ReserveDInscriptions {
    * journal ne doit jamais permettre de remonter à une adresse.
    */
   private sel = randomBytes(16)
-  /** Par espace, les empreintes des adresses dont une inscription est passée depuis le début de la soirée. */
-  private vues = new Map<string, Set<string>>()
+  /**
+   * Par espace, les empreintes des adresses dont une inscription est passée
+   * depuis le début de la soirée, et combien d'inscriptions en tout. En
+   * mémoire seulement : un redémarrage en pleine soirée fait repartir le
+   * compte, et le journal de clôture le dit.
+   */
+  private vues = new Map<string, { adresses: Set<string>; inscriptions: number }>()
   /** Par clé refusée, l'heure de la dernière ligne au journal. */
   private dites = new Map<string, number>()
   private refus = 0
@@ -68,9 +73,9 @@ export class ReserveDInscriptions {
     const refusePar = locale
       ? null
       : !this.parSoiree.take(`${ip}|${spaceId}`)
-        ? 'la soirée'
+        ? 'de la soirée'
         : !this.parAdresse.take(ip)
-          ? 'le serveur'
+          ? 'du serveur'
           : null
     if (refusePar) {
       this.refus++
@@ -78,8 +83,9 @@ export class ReserveDInscriptions {
       return false
     }
     let vues = this.vues.get(spaceId)
-    if (!vues) this.vues.set(spaceId, (vues = new Set()))
-    vues.add(this.empreinte(ip))
+    if (!vues) this.vues.set(spaceId, (vues = { adresses: new Set(), inscriptions: 0 }))
+    vues.adresses.add(this.empreinte(ip))
+    vues.inscriptions++
     return true
   }
 
@@ -93,7 +99,7 @@ export class ReserveDInscriptions {
       for (const [k, at] of this.dites) if (now - at > SILENCE_MS) this.dites.delete(k)
     }
     console.warn(
-      `[inscriptions] réserve de ${par} vide chez « ${etiquette} » pour l'adresse ${this.empreinte(ip)}` +
+      `[inscriptions] réserve ${par} vide chez « ${etiquette} » pour l'adresse ${this.empreinte(ip)}` +
         ` (x-forwarded-for : ${entrees} entrée${entrees > 1 ? 's' : ''})`,
     )
   }
@@ -107,16 +113,22 @@ export class ReserveDInscriptions {
    * soirée, veut dire qu'on lit celle d'un proxy de l'hébergeur — et alors
    * toutes les soirées du serveur partagent la même réserve.
    */
-  clore(spaceId: string, invites: number, etiquette = spaceId): { adresses: number; invites: number } {
-    const adresses = this.vues.get(spaceId)?.size ?? 0
+  clore(spaceId: string, invites: number, etiquette = spaceId): { invites: number; inscriptions: number; adresses: number } {
+    const vues = this.vues.get(spaceId)
+    const adresses = vues?.adresses.size ?? 0
+    const inscriptions = vues?.inscriptions ?? 0
     this.vues.delete(spaceId)
-    if (invites > 0 || adresses > 0) {
+    const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
+    if (invites > 0 || inscriptions > 0) {
+      // Les inscriptions comptées sont celles que la réserve a vues : moins
+      // que d'invités si le serveur a redémarré pendant la soirée.
       console.log(
-        `[inscriptions] soirée finie chez « ${etiquette} » : ${invites} invité${invites > 1 ? 's' : ''},` +
-          ` ${adresses} adresse${adresses > 1 ? 's' : ''} distincte${adresses > 1 ? 's' : ''}`,
+        `[inscriptions] soirée finie chez « ${etiquette} » : ${pluriel(invites, 'invité')} ;` +
+          ` ${pluriel(inscriptions, 'inscription')} depuis le démarrage du serveur,` +
+          ` sous ${pluriel(adresses, 'adresse')} distincte${adresses > 1 ? 's' : ''}`,
       )
     }
-    return { adresses, invites }
+    return { invites, inscriptions, adresses }
   }
 
   /**
@@ -125,7 +137,7 @@ export class ReserveDInscriptions {
    */
   mesure(): { refus: number; adresses: number } {
     const toutes = new Set<string>()
-    for (const vues of this.vues.values()) for (const e of vues) toutes.add(e)
+    for (const vues of this.vues.values()) for (const e of vues.adresses) toutes.add(e)
     return { refus: this.refus, adresses: toutes.size }
   }
 }

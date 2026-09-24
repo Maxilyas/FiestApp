@@ -169,7 +169,7 @@ test('deux soirées derrière la même box : la vague de l’une ne ferme pas la
     const cloture = await journal(() => geste(host, 'host:closeParty'))
     const bilan = cloture.lignes.filter(l => l.includes('[inscriptions]'))
     assert.equal(bilan.length, 1, `une ligne à la clôture (vu : ${cloture.lignes.join(' | ')})`)
-    assert.match(bilan[0], /« banc » : 6[0-2] invités, 1 adresse distincte/)
+    assert.match(bilan[0], /« banc » : 6[0-2] invités ; 6[0-2] inscriptions depuis le démarrage du serveur, sous 1 adresse distincte/)
   } finally {
     for (const s of ouverts) s.close()
     await banc.close()
@@ -191,13 +191,13 @@ test('la réserve d’une adresse : large pour le serveur, étroite pour chaque 
     // L'adresse locale — les tests, les essais à la maison — passe toujours.
     for (let i = 0; i < 100; i++) assert.equal(reserve.prendre('127.0.0.1', 'espace-0', 0), true)
   })
-  assert.ok(lignes.some(l => l.includes('réserve de le serveur') || l.includes('le serveur')), 'le refus du serveur se dit')
+  assert.ok(lignes.some(l => l.includes('réserve du serveur vide')), 'le refus du serveur se dit')
   assert.ok(!lignes.join('').includes('192.0.2.1'), 'jamais une adresse en clair')
   assert.equal(reserve.empreinte('192.0.2.1'), reserve.empreinte('192.0.2.1'), 'une empreinte reconnaît sa clé')
   assert.notEqual(new ReserveDInscriptions().empreinte('192.0.2.1'), reserve.empreinte('192.0.2.1'), 'salée à chaque démarrage')
   assert.deepEqual(reserve.mesure(), { refus: 10 * PAR_SOIREE.burst - PAR_ADRESSE.burst, adresses: 3 })
-  assert.deepEqual(reserve.clore('espace-0', 42), { adresses: 2, invites: 42 })
-  assert.deepEqual(reserve.clore('espace-0', 0), { adresses: 0, invites: 0 }, 'oubliée une fois close')
+  assert.deepEqual(reserve.clore('espace-0', 42), { invites: 42, inscriptions: PAR_SOIREE.burst + 100, adresses: 2 })
+  assert.deepEqual(reserve.clore('espace-0', 0), { invites: 0, inscriptions: 0, adresses: 0 }, 'oubliée une fois close')
 })
 
 // ── E2. Un palier ne se décide que sur des soirées closes ─────────────────
