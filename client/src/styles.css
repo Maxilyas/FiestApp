@@ -97,6 +97,12 @@
   --shape-2: #a99ad6;
   --shape-3: #8fbfa8;
 
+  /* Les métaux des paliers de carrière, quand ils écrivent. Écrits en dur,
+     ils ne suivaient pas le thème : l'argent tombait à 1,64:1 sur la crème
+     des fiches imprimées du bilan. */
+  --bronze-text: #c98b58;
+  --argent-text: #b9c3cf;
+
   --radius: 16px;
   --radius-sm: 14px;
   --radius-pill: 999px;
@@ -180,6 +186,9 @@
   --shape-1: #ac8536;
   --shape-2: #7a68b8;
   --shape-3: #4e8f6c;
+
+  --bronze-text: #8a5a2e;
+  --argent-text: #5f6b7a;
 }
 
 * {
@@ -3113,9 +3122,11 @@ h3 > .icon {
 /* La rareté se lit à la bordure : plus elle est rare, plus elle se voit. Les
    quatre teintes sont celles des formes de réponse, déjà dans la palette —
    pas de nouvelle couleur à faire cohabiter avec le reste. */
-.badge.rarete-peucommune { border-color: rgba(143, 191, 168, 0.45); }
-.badge.rarete-rare { border-color: rgba(169, 154, 214, 0.55); }
-.badge.rarete-epique { border-color: rgba(217, 138, 154, 0.6); }
+/* Les raretés prennent les teintes des formes, qui s'assombrissent en
+   Ivoire ; `rgba` reste en repli pour un navigateur sans `color-mix`. */
+.badge.rarete-peucommune { border-color: rgba(143, 191, 168, 0.45); border-color: color-mix(in srgb, var(--shape-3) 45%, transparent); }
+.badge.rarete-rare { border-color: rgba(169, 154, 214, 0.55); border-color: color-mix(in srgb, var(--shape-2) 55%, transparent); }
+.badge.rarete-epique { border-color: rgba(217, 138, 154, 0.6); border-color: color-mix(in srgb, var(--shape-0) 60%, transparent); }
 .badge.rarete-legendaire {
   border-color: rgba(var(--accent-rgb), 0.75);
   background: var(--accent-soft);
@@ -4067,8 +4078,8 @@ h3 > .icon {
   letter-spacing: 0.04em;
 }
 
-.palier-1 { color: #c98b58; }
-.palier-2 { color: #b9c3cf; }
+.palier-1 { color: var(--bronze-text); }
+.palier-2 { color: var(--argent-text); }
 .palier-3 { color: var(--accent-text); }
 
 /* Pas `.fiche` : c'est déjà la feuille d'un invité dans le bilan imprimé. */

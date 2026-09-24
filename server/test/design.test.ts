@@ -207,3 +207,16 @@ test('S7 · chaque classe de la feuille de style est nommée quelque part', () =
   assert.deepEqual(mortes, [], 'des classes sans personne pour les porter')
   assert.ok(classes.size > 400, `la feuille est bien lue (${classes.size} classes)`)
 })
+
+test('S6 · les métaux des paliers se lisent sur les deux thèmes', () => {
+  // Écrits en dur, bronze et argent ne suivaient pas le thème : l'argent
+  // tombait à 1,64:1 sur la crème des fiches imprimées du bilan.
+  assert.match(regle('.palier-1'), /var\(--bronze-text\)/)
+  assert.match(regle('.palier-2'), /var\(--argent-text\)/)
+  for (const [nom, theme] of [['Velours', VELOURS], ['Ivoire', IVOIRE]] as const) {
+    for (const metal of ['--bronze-text', '--argent-text']) {
+      const c = contraste(teinte(theme, metal), teinte(theme, '--bg'))
+      assert.ok(c >= 4.5, `${nom} : ${metal} tient ${c.toFixed(2)}:1`)
+    }
+  }
+})
