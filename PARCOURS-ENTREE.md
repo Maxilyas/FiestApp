@@ -145,7 +145,7 @@ Trois mémoires indépendantes, à ne pas confondre :
 | Le téléphone porte | Ce qu'on affiche |
 |---|---|
 | un jeton de joueur de cette soirée | **rien** : la salle d'attente, directement. Il se re-présente avec son seul jeton, et la fiche du serveur fait foi. Un jeton que la soirée ne connaît plus — exclu pendant que le téléphone dormait, essai effacé — est refusé (`unknown-token`), jamais recréé : le téléphone oublie son invité, garde son prénom, et repasse par l'entrée — l'écran B′ s'il porte un profil, l'écran B pré-rempli sinon. Celui d'une soirée qu'on vient de clore reçoit d'abord sa fin de soirée (`soiree-close`) |
-| un cookie de profil | **Écran B′** « Content de te revoir » — un bouton |
+| un cookie de profil | **Écran B′** « Te revoilà » — un bouton |
 | un choix local pour cet espace | **Écran B**, pré-rempli du prénom et de l'avatar retenus — puis l'écran d'équipe, s'il y en a |
 | rien du tout | **Écran A** — l'entrée, c'est-à-dire la connexion |
 
@@ -256,19 +256,22 @@ plus. Chaque écran de l'entrée commence en haut : l'écran d'équipe héritait
 défilement de celui-ci, et son titre passait au-dessus du bord.
 
 C'est aussi **l'étape 1 de la création de profil** : mêmes champs, même écran,
-seul le bouton change (« Continuer » au lieu de « Rejoindre la soirée »). Un
+un mot au-dessus — « Créer ton profil · 1/2 », sans quoi rien ne disait qu'on
+en créait un — et le bouton change (« Continuer » au lieu de « Rejoindre la
+soirée »). Un
 invité qui crée un profil choisit donc son prénom et son avatar **une seule
 fois**, et ce sont ceux de son profil.
 
-### 4.3 Écran B′ — Content de te revoir (profil reconnu)
+### 4.3 Écran B′ — Te revoilà (profil reconnu)
 
 ```
+          La soirée de Nadia          ← chez qui l'on entre
                  ╭─────────╮
                  │   🦊    │   ← gros, avec sa finition et son éclat
                  ╰─────────╯
-        Content de te revoir,
+             Te revoilà,
               Alice
-           Niv. 7 · 12 badges
+              Niveau 7
         ─────────────────────────────
 
         ╔═══════════════════════════╗
@@ -278,6 +281,12 @@ fois**, et ce sont ceux de son profil.
         Ce n'est pas moi
 ```
 
+- **L'en-tête de l'espace** dit chez qui l'on entre : un profil reconnu d'un
+  animateur à l'autre ne savait plus où il était.
+- « Te revoilà » ne dit ni masculin ni féminin (« Content de te revoir »
+  parlait au masculin), et le **niveau seul** : « 12 badges » parlait une
+  langue que la page du profil ne parle nulle part — elle dit « prix » et
+  « hauts faits ».
 - **Aucun champ. Aucune grille d'avatars.** C'est le cœur de la demande : ce
   qu'Alice a choisi en créant son profil, on s'en sert, on ne le redemande pas.
 - « Entrer dans la soirée » envoie `player:join` **sans `name` ni `avatar`** :
@@ -293,6 +302,7 @@ fois**, et ce sont ceux de son profil.
 
 ### 4.4 Écran C — Sécuriser (création, étape 2)
 
+Sous « Créer ton profil · 2/2 », le titre « Garder ma progression ».
 Deux champs, pas un de plus, puisque le prénom et l'avatar sont déjà pris.
 
 - **Ton identifiant** — pré-rempli à partir du prénom (`Camille` → `camille`),
@@ -367,7 +377,7 @@ dernier écran avant la salle d'attente, pour tout le monde — profil ou pas.
         │
         ├─ jeton de cette soirée ────────────────────────────► salle d'attente
         │
-        ├─ cookie de profil ─► [B′ Content de te revoir] ───────────────┐
+        ├─ cookie de profil ─► [B′ Te revoilà] ─────────────────────────┐
         │                           └─ autre prénom ─► [B Moi] ─────────┤
         │                                                               │
         ├─ choix local ─────────────────────────► [B Moi] ──────────────┤
@@ -685,10 +695,13 @@ en français, ils disent quoi faire.
 | Entrée, réseau coupé | Pas de réseau — vérifie ton wifi ou ta 4G, puis réessaie |
 | Entrée, serveur muet | Le serveur ne répond pas — vérifie ta connexion, puis réessaie |
 | Secours, code perdu | Tu n'as plus le code ? Le profil ne se retrouve pas — tu peux jouer sans compte, ou en créer un neuf. |
-| Retrouvailles | Content de te revoir, **Alice** |
+| Retrouvailles, en-tête | La soirée de **Nadia** |
+| Retrouvailles | Te revoilà, **Alice** · Niveau 7 |
 | Retrouvailles, bouton | **Entrer dans la soirée** |
 | Retrouvailles, liens | Jouer sous un autre prénom ce soir · Ce n'est pas moi |
 | Homonyme, avatar libre | Il y a déjà un « Camille » — ton 🐼 vous distinguera. |
+| Création, étape 1 (au-dessus de l'écran B) | Créer ton profil · 1/2 |
+| Création, étape 2 | Créer ton profil · 2/2 — puis le titre **Garder ma progression** |
 | Sécuriser, aide | Ton identifiant te servira à revenir. Il n'y a pas d'adresse e-mail à donner. — puis, sous le mot de passe : Au moins 8 caractères. |
 | Sécuriser, identifiant pris | « camille » est déjà pris · Essaie « camille2 » — *le prendre* |
 | Sécuriser, sortie | Plus tard — je joue |
