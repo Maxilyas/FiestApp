@@ -47,13 +47,16 @@ import { serverNow } from '../clock'
 import { LoginForm } from '../components/Invitation'
 import { espacesFines } from '../format'
 
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+/**
+ * « le 24 sept. à 17 h 10 », ou « à 17 h 10 » le jour même. Le format du
+ * navigateur écrivait « Enregistré à 24 sept., 17:10 » : « à » devant une
+ * date, et une heure à l'anglaise.
+ */
+function quand(ts: number): string {
+  const d = new Date(ts)
+  const heure = `${d.getHours()} h ${String(d.getMinutes()).padStart(2, '0')}`
+  if (d.toDateString() === new Date().toDateString()) return `à ${heure}`
+  return `le ${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} à ${heure}`
 }
 
 /**
@@ -321,7 +324,7 @@ export function EditorApp() {
                 {q.readyCount} question{q.readyCount > 1 ? 's' : ''} prête{q.readyCount > 1 ? 's' : ''}
                 {q.questionCount > q.readyCount && ` · ${q.questionCount - q.readyCount} à compléter`}
                 {' · '}
-                modifié le {formatDate(q.updatedAt)}
+                modifié {quand(q.updatedAt)}
               </p>
               {brouillons.has(q.id) && (
                 <p className="warn small">
@@ -629,7 +632,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
     if (!quiz) return
     const ok = await confirmDialog({
       title: 'Effacer ces modifications ?',
-      message: `Le quiz s’ouvrira tel qu’il a été enregistré, le ${formatDate(quiz.updatedAt)}.`,
+      message: `Le quiz s’ouvrira tel qu’il a été enregistré ${quand(quiz.updatedAt)}.`,
       confirmLabel: 'Effacer',
       danger: true,
     })
@@ -657,14 +660,14 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           <p>
             {espacesFines(
               `Ce navigateur a gardé des modifications de « ${quiz.title} » qui n’ont pas été enregistrées — ` +
-                `les dernières le ${formatDate(retrouve.at)}.`,
+                `les dernières ${quand(retrouve.at)}.`,
             )}
           </p>
           {brouillonDepasse(retrouve, quiz) && (
             <p className="warn">
               <Icon name="alert" />{' '}
               {espacesFines(
-                `Le quiz a été enregistré depuis, le ${formatDate(quiz.updatedAt)} — d’un autre appareil ? ` +
+                `Le quiz a été enregistré depuis, ${quand(quiz.updatedAt)} — d’un autre appareil ? ` +
                   'Les reprendre remplacera cette version quand tu enregistreras.',
               )}
             </p>
@@ -746,7 +749,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           )}
         </p>
       )}
-      {savedAt && !dirty && <p className="muted">Enregistré à {formatDate(savedAt)}</p>}
+      {savedAt && !dirty && <p className="muted">Enregistré {quand(savedAt)}</p>}
       {undo && (
         <p className="muted undo-line">
           {undo.label} ·{' '}
