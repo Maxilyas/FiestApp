@@ -443,8 +443,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // L'identité que ce téléphone quitte : le second « Rachid » d'avant le code.
         const token = texte(charge.token)
         const ancien = (token && rt.party.findByToken(token)) || (socket.data.playerId ? rt.party.get(socket.data.playerId) : undefined)
-        const res = rt.party.join('', '', fiche.token)
-        if ('error' in res) return repondre({ ok: false, error: res.error })
+        // Un jeton neuf, pas celui de la fiche : l'ancien téléphone qui se
+        // rallume — ou celui qui l'a ramassé — rejouerait sinon sur la même
+        // place, deux téléphones pour un invité (invariant 9).
+        const res = rt.party.renouvelerJeton(fiche.id)
+        if (!res) return repondre({ ok: false, error: MAUVAIS_CODE })
         incarner(rt, res.id)
         repondre({
           ok: true,

@@ -264,7 +264,8 @@ describe('le téléphone perdu', () => {
     })
     assert.equal(reprise.ok, true, reprise.error)
     assert.equal(reprise.playerId, rachid.playerId)
-    assert.equal(reprise.token, rachid.token)
+    // Un jeton neuf : l'ancien, resté dans le téléphone mort, ne vaut plus rien.
+    assert.notEqual(reprise.token, rachid.token)
     assert.equal(reprise.name, 'Rachid')
     assert.equal(reprise.avatar, '🦁')
     const snap = await instantane<any>(
@@ -285,7 +286,15 @@ describe('le téléphone perdu', () => {
     assert.equal((await emitAck<any>(encore, 'party:watch', { slug: SLUG })).ok, true)
     assert.equal((await emitAck<any>(encore, 'player:reprendre', { slug: SLUG, code: rendue.code })).ok, false, 'à usage unique')
 
-    await ranger(host, sessionId, [host, alice.socket, emprunte.socket, curieux, voisin, ailleurs, encore])
+    // Le téléphone mort qui se rallume : son jeton ne désigne plus personne,
+    // il repasse par l'entrée — pas deux téléphones sur une place.
+    const rallume = connecter(banc.url)
+    assert.equal((await emitAck<any>(rallume, 'party:watch', { slug: SLUG })).ok, true)
+    const vieux = await emitAck<any>(rallume, 'player:join', { slug: SLUG, token: rachid.token })
+    assert.equal(vieux.ok, false)
+    assert.equal(vieux.reason, 'unknown-token')
+
+    await ranger(host, sessionId, [host, alice.socket, emprunte.socket, curieux, voisin, ailleurs, encore, rallume])
   })
 
   test('le second Rachid qui a joué reste, avec ses points, et on ne l’attend plus', async () => {
@@ -450,6 +459,38 @@ describe('le téléphone perdu', () => {
     bertrand.close()
     host.close()
   })
+})
+
+test('le jeton renouvelé survit au réveil sur disque effacé : l’ancien reste refusé', async () => {
+  // Son propre serveur : on l'éteint, et la base locale part avec.
+  const b = await demarrer()
+  try {
+    const host = await ecranCommun(b.url, await connexionAnimateur(b.url))
+    const rachid = await invite(b.url, 'Rachid', '🦁')
+    rachid.socket.close()
+    await instantane<any>(host, s => s.players.find((p: any) => p.id === rachid.playerId)?.connected === false, 'Rachid hors ligne')
+    const { code } = await emitAck<any>(host, 'host:rendrePlace', { playerId: rachid.playerId })
+    const emprunte = connecter(b.url)
+    assert.equal((await emitAck<any>(emprunte, 'party:watch', { slug: SLUG })).ok, true)
+    const reprise = await emitAck<any>(emprunte, 'player:reprendre', { slug: SLUG, code })
+    assert.equal(reprise.ok, true, reprise.error)
+    emprunte.close()
+    host.close()
+
+    // Le réveil ne relit que le miroir : l'ancien jeton y était resté.
+    await b.redemarrer({ disqueEfface: true })
+    const rallume = connecter(b.url)
+    assert.equal((await emitAck<any>(rallume, 'party:watch', { slug: SLUG })).ok, true)
+    const vieux = await emitAck<any>(rallume, 'player:join', { slug: SLUG, token: rachid.token })
+    assert.equal(vieux.ok, false, 'l’ancien téléphone ne rejoue pas sur la place rendue')
+    assert.equal(vieux.reason, 'unknown-token')
+    const neuf = await emitAck<any>(rallume, 'player:join', { slug: SLUG, token: reprise.token })
+    assert.equal(neuf.ok, true, neuf.error)
+    assert.equal(neuf.playerId, rachid.playerId)
+    rallume.close()
+  } finally {
+    await b.close()
+  }
 })
 
 describe('les codes « Rendre sa place »', () => {
