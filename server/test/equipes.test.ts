@@ -33,6 +33,7 @@ import {
 import * as equipes from '../../shared/teams'
 import { buildReview } from '../src/core/review'
 import { buildRecap } from '../src/core/recap'
+import { exportFiles } from '../src/core/export'
 import { computeStats } from '../src/core/stats'
 import type { AnswerRow } from '../src/core/answers'
 import type { PublicPlayer } from '../../shared/types'
@@ -515,4 +516,35 @@ test('le téléphone classe les équipes comme la télé, prix compris', async (
   const ordre = (texte: string) => [...texte.matchAll(/Les (Aigles|Zèbres)/g)].map(m => m[1])
   assert.deepEqual(ordre(telephone), ['Zèbres', 'Aigles'])
   assert.deepEqual(ordre(tele), ordre(telephone))
+})
+
+test('le bilan et son export rangent les équipes aux points d’équipe, prix compris', async () => {
+  // Les Aigles ont la meilleure moyenne ; deux prix donnent la victoire aux Zèbres.
+  const teams = [
+    { id: 'a', name: 'Les Aigles', emoji: '🦅', position: 0, createdAt: 1 },
+    { id: 'z', name: 'Les Zèbres', emoji: '🦓', position: 1, createdAt: 1 },
+  ]
+  const players = [joueur('ana', 'Ana', 'a', 200), joueur('zak', 'Zak', 'z', 100)]
+  const rows = [ligne('ana', 0, 200), ligne('zak', 0, 100)]
+  const bonuses = [{ id: 'b1', teamId: 'z', points: 2, reason: 'Le karaoké', createdAt: 5 }]
+  const review = buildReview({ rows, players, teams, bonuses, packsBySession: new Map(), library: [] })
+  assert.deepEqual(equipes.vainqueursDuQuiz(review.teams).map(t => t.id), ['z'])
+
+  Object.assign(globalThis, { React: (await import('react')).default })
+  const { makeCtx } = await import(new URL('../../client/src/components/BilanQuestion.tsx', import.meta.url).href)
+  const html = texteDe(await rendu('components/BilanRoom', 'RoomReview', { ctx: makeCtx(review) }))
+  const tableau = html.slice(html.indexOf('Les équipes, quiz par quiz'))
+  const ligneDe = (nom: string) => tableau.indexOf(`${nom} `, tableau.indexOf('Points d’équipe'))
+  assert.ok(ligneDe('Les Zèbres') < ligneDe('Les Aigles'), 'la gagnante en tête du tableau')
+
+  const csv = exportFiles(review).find(f => f.name === 'equipes.csv')!.content.replace(/^\uFEFF/, '').trim().split('\r\n').map(l => l.split(';'))
+  const [entete, ...lignes] = csv
+  const col = (nom: string) => entete.indexOf(nom)
+  assert.deepEqual(
+    lignes.map(l => [l[0], l[col('Rang')], l[col('Points d’équipe')]]),
+    [
+      ['🦓 Les Zèbres', '1', '3'],
+      ['🦅 Les Aigles', '2', '2'],
+    ],
+  )
 })

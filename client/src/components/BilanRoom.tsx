@@ -1,6 +1,6 @@
 import { Icon, type IconName } from './Icon'
 import { espacesFines } from '../format'
-import { enumerer } from '../../../shared/classement'
+import { classer, enumerer } from '../../../shared/classement'
 import { VerdictDesEquipes } from './TeamBoard'
 import { detailDesPoints, regleDesEquipes } from '../../../shared/teams'
 import { PrixRemis } from './PrixRemis'
@@ -78,7 +78,10 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                 </tr>
               </thead>
               <tbody>
-                {review.teams.map(t => (
+                {/* Rangées aux points d'équipe, prix compris : à la moyenne, la
+                    première ligne n'était pas la gagnante dès qu'un prix
+                    renversait l'ordre. */}
+                {classer(review.teams, t => t.finalPoints, t => t.name, t => t.id).map(({ item: t }) => (
                   <tr key={t.id}>
                     <td className="stats-name">
                       {t.emoji} {t.name} <span className="muted small">{t.memberCount}</span>
