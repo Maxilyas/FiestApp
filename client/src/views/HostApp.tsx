@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useState, type FormEvent } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
-import { memesChamps, memesListes } from '../egalite'
+import { memesPuces } from '../egalite'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { ChampNombre } from '../components/ChampNombre'
 import { api } from '../api'
@@ -239,7 +239,7 @@ const PuceJoueur = memo(
       </div>
     )
   },
-  (a, b) => memesChamps(a.p, b.p) && memesListes(a.teams, b.teams),
+  memesPuces,
 )
 
 export function HostApp() {

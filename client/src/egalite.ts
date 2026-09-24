@@ -13,7 +13,22 @@ export function memesChamps<T extends object>(a: T, b: T): boolean {
   return ka.every(k => a[k] === b[k])
 }
 
-/** Deux listes aux mêmes éléments, dans le même ordre, comparés champ à champ. */
-export function memesListes<T extends object>(a: readonly T[], b: readonly T[]): boolean {
-  return a === b || (a.length === b.length && a.every((x, i) => memesChamps(x, b[i])))
+/**
+ * Les props d'une puce de la salle d'attente, avant et après un instantané :
+ * vrai quand rien de ce qu'elle montre n'a changé. De ses équipes, elle ne lit
+ * que l'identifiant, le nom et l'emoji (son menu « Changer d'équipe ») :
+ * comparées champ à champ, elles différaient à chaque instantané —
+ * l'effectif, le total, la moyenne et les prix bougent à chaque arrivée —, et
+ * toutes les puces se redessinaient dès qu'il y avait des équipes.
+ */
+export function memesPuces<P extends object>(
+  a: { p: P; teams: readonly { id: string; name: string; emoji: string }[] },
+  b: { p: P; teams: readonly { id: string; name: string; emoji: string }[] },
+): boolean {
+  return (
+    memesChamps(a.p, b.p) &&
+    (a.teams === b.teams ||
+      (a.teams.length === b.teams.length &&
+        a.teams.every((t, i) => t.id === b.teams[i].id && t.name === b.teams[i].name && t.emoji === b.teams[i].emoji)))
+  )
 }
