@@ -1031,6 +1031,8 @@ h3 > .icon {
 .console-label { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
 .console-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
 .console-icons { display: flex; justify-content: flex-end; gap: 8px; }
+/* Une ligne qui dit où sont passées les coulisses, alignée sur les boutons. */
+.console-note { align-self: center; }
 
 /* Les groupes de la console d'une question. Largeurs fixes pour l'action
    principale et la pause : « Révéler » et « Question suivante », « Pause » et
@@ -4375,4 +4377,15 @@ h3 > .icon {
     .cloture-bloc h3 { margin-bottom: 10px; }
     .cloture-fait { gap: 6px; padding: 8px 12px; }
   }
+}
+
+/* « Branchée par … — Débrancher » : discret, sous l'invitation de la télé. */
+.branchee-par {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  text-align: center;
 }

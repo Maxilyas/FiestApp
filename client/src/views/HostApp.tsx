@@ -230,7 +230,7 @@ function TeamGroup({
 export function HostApp() {
   const s = useAppState()
   /** L'animateur reconnu par le serveur — `null` tant que la session n'a pas été vérifiée. */
-  const [me, setMe] = useState<{ slug: string; name: string } | null>(null)
+  const [me, setMe] = useState<{ slug: string; name: string; branchee: boolean } | null>(null)
   /** Le serveur a refusé la poignée de main : pas de session, ou une session périmée. */
   const [needLogin, setNeedLogin] = useState(false)
   const [error, setError] = useState('')
@@ -302,6 +302,41 @@ export function HostApp() {
     if (ecran !== ecranPrecedent.current && !telecommande && (ecran === 'podium' || ecran === 'victoire')) sound.fanfare()
     ecranPrecedent.current = ecran
   }, [ecran, telecommande])
+  /**
+   * Les coulisses — la liste des quiz, la grille des prix — vont à la
+   * télécommande quand il y en a une. Elles se lisent par scène : l'écran
+   * de fin, ou la phase du quiz.
+   */
+  const sessionEnCours = s.snapshot?.session
+  const phaseEnCours = sessionEnCours
+    ? (s.views[sessionEnCours.id]?.view as QuizHostView | undefined)?.phase
+    : undefined
+  const cleCoulisses = `${ecran ?? ''}:${phaseEnCours ?? ''}`
+  // Un numéro par scène traversée, pas la clé elle-même : les prix rouverts
+  // après un détour par la salle d'attente sont une scène neuve, et ce qu'on
+  // y avait repris « d'ici » ne doit pas y revenir.
+  const scenes = useRef({ cle: cleCoulisses, numero: 0 })
+  if (scenes.current.cle !== cleCoulisses) scenes.current = { cle: cleCoulisses, numero: scenes.current.numero + 1 }
+  const numeroDeScene = scenes.current.numero
+  /**
+   * La télécommande s'est vue pendant cette scène. Son téléphone verrouillé,
+   * ou dix-huit secondes dans l'appareil photo, et le serveur la retire :
+   * la télé projetait alors la grille, tous les lauréats et la consigne
+   * avec. Les coulisses restent donc cachées jusqu'à la scène suivante.
+   */
+  const [telecommandeVue, setTelecommandeVue] = useState<number | null>(null)
+  const telecommandeLa = !!s.snapshot?.telecommande
+  useEffect(() => {
+    if (telecommandeLa) setTelecommandeVue(numeroDeScene)
+  }, [telecommandeLa, numeroDeScene])
+  /**
+   * « Choisir d'ici » : la télé reprend les coulisses pour cette scène. Marc
+   * anime du portable branché à la télé et ouvre /host sur son téléphone —
+   * étroit, donc télécommande —, et son portable ne pouvait plus ni choisir
+   * un quiz ni remettre un prix. Oublié à la scène suivante.
+   */
+  const [coulissesIci, setCoulissesIci] = useState<number | null>(null)
+  const reprendreCoulisses = () => setCoulissesIci(numeroDeScene)
   const finirAnnonces = useCallback(() => setState({ progres: null }), [])
   useEffect(() => {
     if (!screen || screen === 'cloture' || !spaceSlug) return
@@ -335,7 +370,7 @@ export function HostApp() {
       const res = await helloHost().catch(() => null)
       if (!res) return
       if (res.ok && res.slug && res.name) {
-        setMe({ slug: res.slug, name: res.name })
+        setMe({ slug: res.slug, name: res.name, branchee: !!res.branchee })
         setNeedLogin(false)
         // Chaque connexion se redit télécommande : le serveur l'oublie avec
         // la précédente.
@@ -353,7 +388,9 @@ export function HostApp() {
       if (motif !== 'io server disconnect') return
       setMe(null)
       setNeedLogin(true)
-      setError('Session fermée — reconnecte-toi')
+      // Débranchée exprès, la télé n'a pas à dire qu'on l'a fermée.
+      if (!debranchement.current) setError('Session fermée — reconnecte-toi')
+      debranchement.current = false
     }
     if (socket.connected) hello()
     socket.on('connect', hello)
@@ -363,6 +400,27 @@ export function HostApp() {
       socket.off('disconnect', coupe)
     }
   }, [])
+
+  /**
+   * « Ce n'est pas le tien ? Débrancher » : tout animateur du serveur peut
+   * valider le code qu'une télé affiche, et elle s'ouvrait sur son espace
+   * sans que personne devant la télé ne sache lequel. La session de cette
+   * télé se ferme, et elle revient à son code.
+   */
+  const debranchement = useRef(false)
+  const debrancher = async () => {
+    debranchement.current = true
+    try {
+      await api.auth.logout()
+    } catch (e) {
+      debranchement.current = false
+      showToast({ kind: 'error', message: motifDe(e) })
+      return
+    }
+    setMe(null)
+    setError('')
+    setNeedLogin(true)
+  }
 
   // La télé branchée depuis le téléphone : son cookie est posé, la prochaine
   // poignée de main le porte.
@@ -435,7 +493,8 @@ export function HostApp() {
    * salle, et les coulisses — la grille des prix, la liste des quiz, la
    * consigne écrite pour l'animateur — restent dans sa main.
    */
-  const coulissesAilleurs = !!snap.telecommande && !telecommande
+  const coulissesAilleurs =
+    !telecommande && coulissesIci !== numeroDeScene && (!!snap.telecommande || telecommandeVue === numeroDeScene)
   const answering = quizView?.phase === 'question'
 
   /** Ce que la bande d'état annonce au centre : où en est la soirée. */
@@ -836,9 +895,14 @@ export function HostApp() {
               <>
                 <RemiseEnScene bonuses={bonuses} teams={teams} />
                 <ConsoleActions>
+                  <span className="muted small console-note">La grille est à la télécommande</span>
                   <button className="btn btn-primary" onClick={() => openScreen('victory')}>
                     <Icon name="crown" />
                     Écran de victoire
+                  </button>
+                  <button className="btn" onClick={reprendreCoulisses}>
+                    <Icon name="award" />
+                    Remettre les prix d’ici
                   </button>
                   {backButton}
                 </ConsoleActions>
@@ -866,7 +930,9 @@ export function HostApp() {
                   teams={teams}
                   givenTitles={givenTitles}
                   onAward={(teamId, points, reason) => {
-                    sound.reveal()
+                    // La télé sonne le prix remis (RemiseEnScene) : la
+                    // télécommande, dans la main, ne la double pas.
+                    if (!telecommande) sound.reveal()
                     socket.emit('host:awardTeam', { teamId, points, reason })
                   }}
                 />
@@ -913,7 +979,7 @@ export function HostApp() {
                       className="btn btn-primary btn-small"
                       disabled={!freeTeam || !freeReason.trim()}
                       onClick={() => {
-                        sound.reveal()
+                        if (!telecommande) sound.reveal()
                         socket.emit('host:awardTeam', {
                           teamId: freeTeam,
                           points: freePoints,
@@ -1079,7 +1145,7 @@ export function HostApp() {
                 </>
                 )}
                 <ConsoleActions>
-                  <button className="btn btn-primary" onClick={lancerQuiz}>
+                  <button className="btn btn-primary" disabled={connectedCount === 0} onClick={lancerQuiz}>
                     <Icon name="play" />
                     Quiz suivant
                   </button>
@@ -1097,8 +1163,12 @@ export function HostApp() {
                 teams={teams}
                 telecommande={telecommande}
                 coulissesAilleurs={coulissesAilleurs}
+                reprendreCoulisses={reprendreCoulisses}
                 apresQuiz={{
                   suivant: lancerQuiz,
+                  // Comme « Lancer un quiz » : sans invité connecté, il n'y a
+                  // personne à qui le poser.
+                  personne: connectedCount === 0,
                   // Le podium du quiz se referme, et la remise des prix
                   // s'ouvre sur tous les écrans : deux gestes, dans l'ordre,
                   // par la même connexion.
@@ -1168,6 +1238,18 @@ export function HostApp() {
                   )}
                 </div>
                 )}
+                {/* N'importe quel animateur du serveur peut valider le code
+                    qu'une télé affiche : branchée ainsi, elle dit par qui, et
+                    se débranche si ce n'est pas le bon. */}
+                {me.branchee && !telecommande && (
+                  <p className="muted small branchee-par">
+                    Branchée par {me.name} — ce n’est pas le tien ?{' '}
+                    <button className="btn btn-ghost btn-small" onClick={() => void debrancher()}>
+                      <Icon name="x" />
+                      Débrancher
+                    </button>
+                  </p>
+                )}
                 <ConsoleActions>
                   <button
                     className="btn btn-primary"
@@ -1194,30 +1276,35 @@ export function HostApp() {
                     <Icon name="users" />
                     Mon compte
                   </a>
-                  {/* Les écrans de fin, une fois un quiz joué : avant, ils
-                      n'avaient rien à montrer, et neuf boutons d'égale
-                      importance cachaient « Lancer un quiz ». */}
+                  {/* Les écrans de fin, une fois qu'ils ont quelque chose à
+                      montrer : avant, neuf boutons d'égale importance
+                      cachaient « Lancer un quiz ». « Prix » vient avec les
+                      équipes : un prix libre — le déguisement — se remet
+                      avant le premier quiz, et le podium d'un quiz où
+                      personne n'a marqué ne le cache plus. */}
                   {ranking.length > 0 && (
-                    <>
-                      <button className="btn" onClick={() => openScreen('podium')}>
-                        <Icon name="trophy" />
-                        Podium
-                      </button>
-                      <button className="btn" onClick={() => openScreen('awards')}>
-                        <Icon name="award" />
-                        Prix
-                      </button>
-                      {teams.length > 0 && (
-                        <button className="btn" onClick={() => openScreen('victory')}>
-                          <Icon name="crown" />
-                          Victoire
-                        </button>
-                      )}
-                      <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
-                        <Icon name="bar-chart" />
-                        Les chiffres
-                      </a>
-                    </>
+                    <button className="btn" onClick={() => openScreen('podium')}>
+                      <Icon name="trophy" />
+                      Podium
+                    </button>
+                  )}
+                  {teams.length > 0 && (
+                    <button className="btn" onClick={() => openScreen('awards')}>
+                      <Icon name="award" />
+                      Prix
+                    </button>
+                  )}
+                  {teams.length > 0 && (ranking.length > 0 || bonuses.length > 0) && (
+                    <button className="btn" onClick={() => openScreen('victory')}>
+                      <Icon name="crown" />
+                      Victoire
+                    </button>
+                  )}
+                  {ranking.length > 0 && (
+                    <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
+                      <Icon name="bar-chart" />
+                      Les chiffres
+                    </a>
                   )}
                   <a className="btn btn-ghost" href={spacePath(slug, 'soirees')} target="_blank" rel="noreferrer">
                     <Icon name="book" />

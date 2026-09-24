@@ -76,15 +76,26 @@ interface Props {
   telecommande?: boolean
   /** Une télécommande est branchée ailleurs : la liste des quiz reste dans sa main. */
   coulissesAilleurs?: boolean
+  /** « Choisir d'ici » : cet écran reprend la liste des quiz, pour cette fois. */
+  reprendreCoulisses?: () => void
   /**
    * Ce qui suit un quiz, proposé à son podium : il n'y avait que « Terminer
    * le quiz », et la remise des prix se cherchait parmi neuf boutons.
    * `prix` est absent sans équipes : il n'y a personne à qui les remettre.
    */
-  apresQuiz?: { suivant: () => void; prix?: () => void }
+  apresQuiz?: { suivant: () => void; prix?: () => void; personne?: boolean }
 }
 
-export function QuizHost({ view: v, teams, sendCommand, endSession, telecommande, coulissesAilleurs, apresQuiz }: Props) {
+export function QuizHost({
+  view: v,
+  teams,
+  sendCommand,
+  endSession,
+  telecommande,
+  coulissesAilleurs,
+  reprendreCoulisses,
+  apresQuiz,
+}: Props) {
   /** Choisi avant de lancer : un quiz qui compte double relance toute la salle. */
   const [multiplier, setMultiplier] = useState(1)
 
@@ -238,6 +249,13 @@ export function QuizHost({ view: v, teams, sendCommand, endSession, telecommande
       <div className="quiz-host coulisses">
         <p className="serif-note center coulisses-attente">Le prochain quiz arrive…</p>
         <ConsoleActions>
+          <span className="muted small console-note">La liste est à la télécommande</span>
+          {reprendreCoulisses && (
+            <button className="btn" onClick={reprendreCoulisses}>
+              <Icon name="edit" />
+              Choisir d’ici
+            </button>
+          )}
           <button className="btn btn-ghost" onClick={endSession}>
             Annuler
           </button>
@@ -561,14 +579,19 @@ export function QuizHost({ view: v, teams, sendCommand, endSession, telecommande
             <Icon name="award" />
             Remise des prix
           </button>
-          <button className="btn" onClick={garde(apresQuiz.suivant)}>
+          <button className="btn" disabled={apresQuiz.personne} onClick={garde(apresQuiz.suivant)}>
             <Icon name="play" />
             Quiz suivant
           </button>
         </>
       ) : (
         apresQuiz && (
-          <button ref={principal} className="btn btn-primary" onClick={garde(apresQuiz.suivant)}>
+          <button
+            ref={principal}
+            className="btn btn-primary"
+            disabled={apresQuiz.personne}
+            onClick={garde(apresQuiz.suivant)}
+          >
             <Icon name="play" />
             Quiz suivant
           </button>
