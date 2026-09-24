@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { api } from '../api'
+import { MotDePasse } from './MotDePasse'
 import type { PublicProfile } from '../../../shared/profil'
 
 interface Props {
@@ -85,10 +86,11 @@ export function FormulaireSecours({ prefill, onDone, onCancel }: Props) {
         <label className="label" htmlFor="sec-pass">
           Ton nouveau mot de passe
         </label>
-        <input
+        {/* L'œil sert surtout ici : un mot de passe neuf, tapé une seule fois,
+            sans rien pour le confirmer. */}
+        <MotDePasse
           id="sec-pass"
           className="input input-line"
-          type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
           autoComplete="new-password"

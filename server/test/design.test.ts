@@ -359,7 +359,15 @@ test('T12 · le mot de passe s’affiche, sous un bouton au nom fixe', async () 
   const profil = readFileSync(new URL('../../client/src/components/ProfilForm.tsx', import.meta.url), 'utf8')
   assert.equal([...entree.matchAll(/<MotDePasse\b/g)].length, 2)
   assert.equal([...profil.matchAll(/<MotDePasse\b/g)].length, 1)
-  assert.doesNotMatch(entree + profil, /type="password"/)
+  // Et la récupération par le code de secours : un mot de passe neuf, tapé
+  // une fois, sans champ pour le confirmer — là où l'œil sert le plus.
+  const secours = readFileSync(new URL('../../client/src/components/Secours.tsx', import.meta.url), 'utf8')
+  assert.equal([...secours.matchAll(/<MotDePasse\b/g)].length, 1)
+  assert.doesNotMatch(entree + profil + secours, /type="password"/)
+  // Toucher l'œil laisse le focus dans le champ : passé au bouton, il
+  // fermait le clavier du téléphone au milieu de la saisie.
+  const oeil = readFileSync(new URL('../../client/src/components/MotDePasse.tsx', import.meta.url), 'utf8')
+  assert.match(oeil, /onMouseDown=\{e => e\.preventDefault\(\)\}/)
 })
 
 test('T6 · un mot trop long pour sa case se coupe à la syllabe, pas n’importe où', () => {

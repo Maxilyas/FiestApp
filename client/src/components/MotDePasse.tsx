@@ -21,6 +21,9 @@ export function MotDePasse(props: Omit<InputHTMLAttributes<HTMLInputElement>, 't
         aria-label="Afficher le mot de passe"
         aria-pressed={visible}
         title="Afficher le mot de passe"
+        // Le focus reste dans le champ : passé au bouton, il fermait le
+        // clavier du téléphone au milieu de la saisie.
+        onMouseDown={e => e.preventDefault()}
         onClick={() => setVisible(v => !v)}
       >
         <Icon name={visible ? 'eye-off' : 'eye'} />
