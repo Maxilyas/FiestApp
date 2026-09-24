@@ -13,14 +13,25 @@ import { sound } from '../sound'
  * remis, en grand, et ce qu'il fait au classement des équipes.
  */
 export function RemiseEnScene({ bonuses, teams }: { bonuses: TeamBonus[]; teams: PublicTeam[] }) {
-  const dernier = bonuses.reduce<TeamBonus | null>((a, b) => (!a || b.createdAt >= a.createdAt ? b : a), null)
+  // Seuls comptent les prix remis depuis que la remise est à l'écran : le
+  // dernier de toute la soirée faisait réannoncer, à la deuxième remise, le
+  // dernier prix de la première.
+  const avant = useRef<Set<string> | null>(null)
+  if (avant.current === null) avant.current = new Set(bonuses.map(b => b.id))
+  const neufs = bonuses.filter(b => !avant.current!.has(b.id))
+  const dernier = neufs.reduce<TeamBonus | null>((a, b) => (!a || b.createdAt >= a.createdAt ? b : a), null)
   const equipe = dernier ? teams.find(t => t.id === dernier.teamId) : undefined
 
   // Le prix remis sonne sur l'écran de la salle : le clic, lui, est ailleurs.
-  const vu = useRef(dernier?.id)
+  // Un prix retiré ramène le précédent à l'écran, sans le réannoncer : ni
+  // son, ni apparition — la clé ne change qu'à un prix jamais montré.
+  const annonces = useRef(new Set<string>())
+  const apparition = useRef<string | undefined>(undefined)
+  if (dernier && !annonces.current.has(dernier.id)) apparition.current = dernier.id
   useEffect(() => {
-    if (dernier && dernier.id !== vu.current) sound.reveal()
-    vu.current = dernier?.id
+    if (!dernier || annonces.current.has(dernier.id)) return
+    annonces.current.add(dernier.id)
+    sound.reveal()
   }, [dernier?.id])
 
   return (
@@ -30,8 +41,8 @@ export function RemiseEnScene({ bonuses, teams }: { bonuses: TeamBonus[]; teams:
         Remise des prix
       </h2>
       {dernier ? (
-        // La clé relance l'apparition à chaque prix remis.
-        <div key={dernier.id} className="remise-prix" role="status">
+        // La clé relance l'apparition à chaque prix remis, et à lui seul.
+        <div key={apparition.current} className="remise-prix" role="status">
           <span className="remise-motif">{espacesFines(dernier.reason)}</span>
           <span className="remise-equipe">{equipe ? `${equipe.emoji} ${equipe.name}` : '—'}</span>
           <span className="remise-points">
