@@ -512,6 +512,14 @@ function hiddenPhoto(q: PlayableQuestion, phase: QuizState['phase']): boolean {
 // ── Module ───────────────────────────────────────────────────────────────
 
 export const quizModule: GameModule<QuizState> = {
+  // Une réponse n'écrit que la ligne de son auteur (`responses[playerId]`),
+  // et seule la phase `question` en accepte : la vue d'un invité y lit l'état
+  // commun et SA réponse, jamais celle des autres. Le rang et le podium, eux,
+  // ne se lisent qu'à la révélation — un changement de phase, que le moteur
+  // rediffuse à toute la salle. Une vue de téléphone qui viendrait à lire la
+  // réponse d'un autre en pleine question doit faire tomber cette promesse.
+  vueDependDesAutres: false,
+
   createInitialState(spaceId): QuizState {
     const library = quizLibrary(spaceId)
     if (library.length === 0) {

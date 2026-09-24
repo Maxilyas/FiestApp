@@ -1,6 +1,6 @@
 // Les adresses de l'application, lues de la même façon des deux côtés : le
 // client y choisit sa page, le serveur y décide du statut, des balises
-// d'aperçu et de l'indexation (`server/src/core/pages.ts`). Deux lectures
+// d'aperçu et de l'indexation (`server/src/core/apercus.ts`). Deux lectures
 // divergeaient vite : une adresse que le client ouvre et que le serveur
 // déclare introuvable, ou l'inverse.
 import { RESERVED_SLUGS, SLUG, normalizeSlug } from './space'

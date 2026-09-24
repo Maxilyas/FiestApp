@@ -23,6 +23,8 @@ interface AuthApiDeps {
   online: boolean
   /** Supprime un compte et tout ce qu'il a laissé (voir `createQuizServer`). */
   removeAccount: (accountId: string) => Promise<void>
+  /** Les réglages d'un espace ont changé : sa salle doit les recevoir. */
+  espaceChange: (accountId: string) => void
 }
 
 /**
@@ -242,6 +244,10 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     small,
     wrap(async (req, res) => {
       const me = await auth.updateSettings(accountOf(res).id, req.body)
+      // Le titre, l'accroche, la date : les téléphones les lisent dans
+      // l'instantané. La veille suivante de n'importe qui les portait ; plus
+      // maintenant qu'une veille ne repart qu'à l'écran commun.
+      deps.espaceChange(me.id)
       res.json({ space: auth.publicSpace(me) })
     }),
   )
