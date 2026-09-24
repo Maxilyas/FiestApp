@@ -1120,10 +1120,13 @@ h3 > .icon {
    sont pourtant ce que la salle regarde. Les réponses se resserrent, les
    classements prennent le reste, coupés à ce qui tient (`Coupe`) : avec un
    plancher de 120 px, ils passaient sous la console et recouvraient
-   « Question suivante ». Les estimations se partagent la hauteur avec eux. */
+   « Question suivante ». Les estimations prennent ce qu'il leur faut, au plus
+   les trois cinquièmes, et les classements le reste : à parts fixes, trois
+   estimations laissaient une bande vide au-dessus d'un « Top du quiz » coupé
+   au troisième joueur sur quatre. */
 .host.staging .quiz-host:has(.reveal-boards) .ans-grid { flex: none; grid-auto-rows: auto; }
 .host.staging .quiz-host:has(.reveal-boards) .ans-btn { min-height: 4.5rem; }
-.host.staging .quiz-host:has(.reveal-boards) .guess-reveal { flex: 1.4 1 0; min-height: 0; }
+.host.staging .quiz-host:has(.reveal-boards) .guess-reveal { flex: 0 1 auto; min-height: 0; max-height: 60%; }
 .host.staging .reveal-boards { flex: 1 1 0; min-height: 0; overflow: hidden; align-items: stretch; grid-template-rows: minmax(0, 1fr); }
 
 /* Un tableau de la scène : son titre, puis sa liste coupée à ce qui tient. */

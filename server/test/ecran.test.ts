@@ -64,3 +64,9 @@ test('en Velours, le voile d’une mauvaise réponse épargne son compte', () =>
   assert.match(racine, /--dim-carte: 1;/)
   assert.match(racine, /--dim-contenu: var\(--dim\);/)
 })
+
+test('à la révélation d’une estimation, les estimations prennent ce qu’il leur faut, les classements le reste', () => {
+  // À parts fixes (`flex: 1.4 1 0`), trois estimations laissaient 140 px vides
+  // au-dessus d'un « Top du quiz » coupé au troisième joueur sur quatre.
+  assert.match(css, /\.quiz-host:has\(\.reveal-boards\) \.guess-reveal \{ flex: 0 1 auto; min-height: 0; max-height: 60%; \}/)
+})
