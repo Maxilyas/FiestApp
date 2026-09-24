@@ -267,7 +267,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 - **Très peu de dépendances**, et c'est voulu. N'en ajoute pas sans raison forte.
 - **Emojis antérieurs à Unicode 13 uniquement** : l'écran commun tourne sous
   Windows 10, les plus récents s'y affichent en carré vide (`emojis.test.ts`
-  y veille, pour `client/`, `shared/` et `server/src/`).
+  y veille, pour `client/`, `shared/`, `server/src/` et les quiz livrés de
+  `server/content/`).
 - Les messages d'erreur sont lus par des invités dans le noir : courts, en
   français, et ils disent quoi faire.
 - **Une erreur faite pour être lue se lève avec un `new Error('…')` nu**, sans
