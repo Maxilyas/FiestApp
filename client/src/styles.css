@@ -14,7 +14,11 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* Sous-ensemble latin, ~67 Ko pour les trois fichiers. Figtree est une
-   fonte variable : un seul fichier couvre les graisses 400, 500 et 600. */
+   fonte variable : un seul fichier couvre les graisses 400, 500 et 600.
+   Les deux Cormorant sont, octet pour octet, le sous-ensemble « latin » de
+   Google Fonts (v21, police 4.001) : leurs accents qui semblent décalés sont
+   le dessin de la police, pas un défaut de réduction — mesuré le 24
+   septembre, voir retours/2026-09-24/corrections/axe-13-finitions/polices.md. */
 @font-face {
   font-family: 'Cormorant Garamond';
   font-style: normal;
