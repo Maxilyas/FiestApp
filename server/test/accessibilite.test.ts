@@ -188,3 +188,17 @@ test('en pause, l’oreille entend ce qui va se passer, pas « regarde l’écra
   assert.match(texte, /En pause — l'animateur reprend bientôt/)
   assert.doesNotMatch(texte, /regarde l'écran/)
 })
+
+// ── 7. La colonne triée se dit ────────────────────────────────────────────
+
+test('le tableau des chiffres dit par quelle colonne il est trié', async () => {
+  const joueur = {
+    playerId: 'a', name: 'Hugo', avatar: '🐯', points: 120, asked: 3, answered: 3, correct: 2, wrong: 1, accuracy: 0.66,
+    avgMs: 4000, bestMs: 2000, bestStreak: 2, worstStreak: 1, missed: 0, changes: 0, lastSecond: 0, alone: 0,
+    followed: 1, guesses: 0, exact: 0, coupDOeil: null, avgGapPct: null, bias: null,
+  }
+  const html = await rendu('components/StatsTable', 'StatsTable', { stats: { players: [joueur], awards: [], questions: 3, logged: 3 } })
+  // Une seule colonne le porte : celle des points, triée du plus grand au plus petit.
+  assert.deepEqual([...html.matchAll(/aria-sort="(\w+)"/g)].map(m => m[1]), ['descending'])
+  assert.match(html, /<th title="Points marqués sur la soirée" aria-sort="descending">/)
+})
