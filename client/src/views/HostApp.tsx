@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
@@ -360,6 +360,27 @@ export function HostApp() {
     }
   }
 
+  // Le focus suit la vue. « Lancer un quiz » disparaît sous le doigt qui
+  // vient de le presser : au clavier, le focus tombait sur la page entière,
+  // et le Tab suivant repartait du haut de l'écran. Quand la vue change et
+  // que le focus s'est perdu — et seulement alors —, il se pose sur le titre
+  // de la nouvelle scène : un lecteur d'écran le lit, le clavier repart de là.
+  const scene = useRef<HTMLElement>(null)
+  const sessionEnCours = s.snapshot?.session?.id
+  const phaseEnCours = sessionEnCours ? (s.views[sessionEnCours]?.view as QuizHostView | undefined)?.phase : undefined
+  const vue = `${screen ?? ''}|${sessionEnCours ?? ''}|${phaseEnCours ?? ''}`
+  const vuePrecedente = useRef(vue)
+  useEffect(() => {
+    if (vuePrecedente.current === vue) return
+    vuePrecedente.current = vue
+    const actif = document.activeElement
+    if (actif && actif !== document.body) return
+    const titre = scene.current?.querySelector<HTMLElement>('h1, h2, h3')
+    if (!titre) return
+    titre.tabIndex = -1
+    titre.focus({ preventScroll: true })
+  }, [vue])
+
   if (needLogin) {
     return <LoginForm title="Écran commun" error={error} busy={busy} onSubmit={submitLogin} />
   }
@@ -626,7 +647,7 @@ export function HostApp() {
             </section>
           )}
 
-          <section className="card main-stage">
+          <section className="card main-stage" ref={scene}>
             {screen === 'cloture' && s.cloture ? (
               <>
                 <ClotureEcran cloture={s.cloture} souvenirUrl={`${joinUrl}/soirees/${s.cloture.soiree.id}`} />

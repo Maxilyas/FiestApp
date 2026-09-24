@@ -238,3 +238,16 @@ test('au podium du quiz, le téléphone de chacun surligne sa propre ligne', asy
   const ligne = html.slice(html.indexOf('class="lb-row me"'), html.indexOf('class="lb-row"', html.indexOf('class="lb-row me"')))
   assert.match(ligne, /Bob/)
 })
+
+// ── 9. Le focus suit la vue de la console ─────────────────────────────────
+
+test('à la console, un changement de vue rend le focus perdu au titre de la scène', () => {
+  // « Lancer un quiz » disparaissait sous le doigt : le focus tombait sur la
+  // page, et le Tab suivant repartait du haut. Pas de navigateur ici : on
+  // garde la mécanique — la scène tenue par une référence, le titre qui
+  // prend le focus sans défiler, et seulement quand il s'est perdu.
+  const source = readFileSync(new URL('../../client/src/views/HostApp.tsx', import.meta.url), 'utf8')
+  assert.match(source, /<section className="card main-stage" ref=\{scene\}>/)
+  assert.match(source, /if \(actif && actif !== document\.body\) return/)
+  assert.match(source, /titre\.tabIndex = -1\s*\n\s*titre\.focus\(\{ preventScroll: true \}\)/)
+})
