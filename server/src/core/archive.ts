@@ -58,17 +58,31 @@ export interface Soiree {
 }
 
 /**
- * Le nom qu'on donne à une soirée : l'arrivée du plus ancien invité présent.
+ * Le nom qu'on donne à une soirée : l'arrivée du plus ancien invité qui y a
+ * joué.
  *
  * C'est ainsi qu'on le recalculait à chaque besoin, et c'était le piège :
  * exclure ce premier arrivé — le téléphone d'essai de l'animateur, presque
  * toujours — rebaptisait la soirée en cours de route. On ne l'appelle donc
  * plus qu'une fois par soirée, pour le tirer ; et c'est aussi elle qui rend
  * son nom à une soirée commencée avant qu'on le range.
+ *
+ * Seuls ceux qui ont répondu la datent : l'invitée revenue le 17 relire la
+ * veille était entrée dans la soirée suivante sans y jouer, et celle du 24
+ * s'archivait « du 17 », pour toujours. À défaut de réponse, ceux que le
+ * journal a vus ; à défaut de journal, tout le monde.
  */
-export function soireeDesInvites(players: { createdAt: number }[]): Soiree | null {
-  if (players.length === 0) return null
-  const heldAt = Math.min(...players.map(p => p.createdAt))
+export function soireeDesInvites(
+  players: { id: string; createdAt: number }[],
+  answers: { playerId: string; answered: boolean }[] = [],
+): Soiree | null {
+  const ont = (pred: (a: { playerId: string; answered: boolean }) => boolean) => {
+    const ids = new Set(answers.filter(pred).map(a => a.playerId))
+    return players.filter(p => ids.has(p.id))
+  }
+  const datants = [ont(a => a.answered), ont(() => true), players].find(l => l.length > 0)
+  if (!datants) return null
+  const heldAt = Math.min(...datants.map(p => p.createdAt))
   return { id: archiveIdOf(heldAt), heldAt }
 }
 

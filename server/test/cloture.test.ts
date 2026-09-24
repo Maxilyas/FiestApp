@@ -411,6 +411,51 @@ test('le lendemain, les pages de l’espace mènent à la dernière soirée clos
     assert.equal((await page('bilan.json')).derniere, undefined)
   }))
 
+// La soirée se nommait sur l'arrivée du plus ancien invité, absents compris :
+// Mireille, revenue le 17 relire la veille, était entrée dans la soirée
+// suivante sans y jouer — et celle du 24 s'archivait « du 17 », identifiant,
+// historique et titre proposé à la clôture compris, pour toujours. Le nom se
+// tire toujours une fois (invariant 11) ; seuls ceux qui ont répondu le datent.
+
+test('un invité arrivé une semaine avant, reparti sans jouer, ne date pas la soirée — même après un réveil', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const deux = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const semaine = 7 * 24 * 3600 * 1000
+    const maintenant = Date.now
+    Date.now = () => maintenant() - semaine
+    let mireille: Invite
+    try {
+      mireille = await invite(banc.url, 'Mireille', '🦉')
+    } finally {
+      Date.now = maintenant
+    }
+    mireille.socket.close()
+    // L'hébergeur s'endort entre deux soirées : au réveil, des invités sans
+    // nom rangé — rien n'a été joué, il n'y a rien à nommer.
+    await banc.redemarrer()
+
+    const host = await ecranCommun(banc.url, cookie)
+    const salle = await figurants(banc, 2)
+    const debut = Date.now()
+    await jouerQuiz(host, deux, [
+      [[salle[0], 0], [salle[1], 1]],
+      [[salle[0], 0], [salle[1], 1]],
+    ])
+    const id = await rangee(banc)
+    const { current } = await historique(banc)
+    assert.ok(current.since >= debut - 60_000, `la soirée est datée du ${new Date(current.since).toISOString()}`)
+    const jour = new Date(debut).toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' })
+    assert.ok(id.startsWith(jour), `l’identifiant ${id} devait porter le ${jour}`)
+    const message = await clore(host)
+    const [archive] = (await historique(banc)).archives
+    assert.equal(archive.id, id)
+    assert.ok(archive.heldAt >= debut - 60_000, 'l’historique garde la date du soir joué')
+    const veille = new Date(debut - semaine).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long' })
+    assert.ok(!archive.title.includes(veille), `le titre « ${archive.title} » porte le jour de Mireille`)
+    assert.ok(!message.includes(veille), message)
+  }))
+
 // Le lendemain racontait les prix que l'application avait calculés, et pas
 // ceux que l'animateur avait remis : « Le coup de cœur de Sam », un prix
 // libre au motif inventé, ne se relisait nulle part. Le souvenir et le bilan

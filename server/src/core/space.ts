@@ -145,7 +145,10 @@ export class SpaceRuntime {
     this.ledger = new ScoreLedger(deps.db, spaceId, this.mirror)
     this.answers = new AnswerLog(deps.db, spaceId, this.mirror)
     this.soiree = this.soireeRangee()
-    if (!this.soiree) {
+    // Sans réponse au journal, rien n'a été joué : il n'y a rien à nommer.
+    // L'hébergeur s'endort justement entre deux soirées, et l'invité revenu
+    // relire la veille aurait daté de son passage la soirée d'après.
+    if (!this.soiree && this.answers.all().length > 0) {
       // Des invités, mais aucun nom rangé : la soirée a commencé avant qu'on
       // range son nom — elle était en cours au déploiement. On le tire tout
       // de suite, comme on l'a toujours calculé, et on le fige, miroir
@@ -212,7 +215,7 @@ export class SpaceRuntime {
    * s'additionnait sous deux noms, l'Éclat se retirait, la soirée déjà
    * sauvegardée s'archivait en double.
    *
-   * Il se tire donc une seule fois, sur le plus ancien invité présent : la
+   * Il se tire donc une seule fois, sur le plus ancien invité qui a joué : la
    * première fois que quelque chose s'écrit sous ce nom dans la base
    * permanente — ou dès le réveil, pour une soirée qui a des invités mais
    * pas encore de nom rangé (voir le constructeur). Il vit ensuite en
@@ -234,9 +237,9 @@ export class SpaceRuntime {
     return row ? { id: row.id, heldAt: row.held_at } : null
   }
 
-  /** Tire le nom sur les invités présents, et le range sur le disque local. */
+  /** Tire le nom sur les invités qui ont joué, et le range sur le disque local. */
   private tirerSoiree(): Soiree | null {
-    const soiree = soireeDesInvites(this.party.all())
+    const soiree = soireeDesInvites(this.party.all(), this.answers.all())
     if (!soiree) return null
     this.deps.db
       .prepare('INSERT OR REPLACE INTO soiree (space_id, id, held_at) VALUES (?, ?, ?)')
@@ -844,7 +847,7 @@ export class SpaceRuntime {
       // le téléphone d'essai de l'animateur. Tant que le nom n'est pas tiré,
       // c'est l'heure qu'il prendra — sans le tirer ici : une page publique
       // ne décide pas du nom de la soirée.
-      since: (this.soiree ?? soireeDesInvites(this.party.all()))?.heldAt ?? null,
+      since: (this.soiree ?? soireeDesInvites(this.party.all(), rows))?.heldAt ?? null,
     }
   }
 
