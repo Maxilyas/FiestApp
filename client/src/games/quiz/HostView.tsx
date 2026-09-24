@@ -202,10 +202,12 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
             title={v.cancelled ? 'Les points de cette question sont déjà annulés' : revealing ? undefined : 'Possible une fois la réponse révélée'}
             onClick={garde(async () => {
               const ok = await confirmDialog({
-                // Pas d'« Annuler » dans cette boîte : sous pression,
+                // Pas de bouton « Annuler » dans cette boîte : sous pression,
                 // l'animateur qui voulait annuler les points touchait le
-                // bouton « Annuler »… qui les gardait.
-                title: 'Retirer les points de cette question ?',
+                // bouton « Annuler »… qui les gardait. Le titre, lui, garde le
+                // verbe du bouton et du résultat (« Points annulés ») : un
+                // geste, un verbe.
+                title: 'Annuler les points de cette question ?',
                 message: 'Les points gagnés sur cette question sont retirés à tout le monde.',
                 confirmLabel: 'Retirer les points',
                 cancelLabel: 'Garder les points',

@@ -6,7 +6,7 @@
 // sur les étagères des profils, non.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { ProfileStore } from '../src/auth/profiles'
@@ -107,4 +107,13 @@ test('le glossaire ne promet pas un niveau qui ne redescend jamais', () => {
   // (invariants 10 et 22) : il ne redescend pas pendant une soirée, c'est tout.
   assert.doesNotMatch(GLOSSAIRE.niveau.sens, /jamais/)
   assert.match(GLOSSAIRE.niveau.sens, /pendant une soirée/)
+})
+
+test('annuler les points : un seul verbe, et aucun bouton « Annuler » dans la boîte', () => {
+  // La boîte naît dans un clic : on relit sa source plutôt que son rendu.
+  const source = readFileSync(new URL('../../client/src/games/quiz/HostView.tsx', import.meta.url), 'utf8')
+  const boite = /confirmDialog\(\{([^}]*Garder les points[^}]*)\}\)/.exec(source)?.[1] ?? ''
+  assert.match(boite, /title: 'Annuler les points de cette question \?'/, 'le bouton dit « Annuler les points », le résultat « Points annulés »')
+  assert.match(boite, /cancelLabel: 'Garder les points'/)
+  assert.doesNotMatch(boite, /Label: 'Annuler'/, 'un bouton « Annuler » gardait les points')
 })
