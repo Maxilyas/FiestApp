@@ -7,6 +7,7 @@ import type { ProfileRec, ProfileStore } from './auth/profiles'
 import { readPlayerToken, readSessionToken } from './auth/http'
 import { Budget } from './core/budget'
 import { messagePourEcran } from './core/http'
+import { tronquer } from '../../shared/avatars'
 
 interface SocketDeps {
   /** Les soirées en cours, une par espace. */
@@ -57,8 +58,12 @@ const SERVER_ERROR = 'Erreur serveur — retente'
 const UNKNOWN_TOKEN = 'On ne te retrouve plus dans cette soirée — rejoins-la'
 /** Le jeton d'une soirée qu'on vient de clore : le téléphone montre sa fin de soirée. */
 const SOIREE_CLOSE = 'Cette soirée est close — voici la tienne'
-/** Le même jeton après un redémarrage : sa fin est oubliée, la soirée se relit. */
-const SOIREE_REVOIR = 'Cette soirée est close — revois-la'
+/**
+ * Un jeton inconnu entre deux soirées, après un redémarrage : sa fin est
+ * oubliée. On ne sait pas si la dernière soirée close est la sienne — il a pu
+ * dormir pendant deux clôtures — : le message ne le prétend pas.
+ */
+const soireeARevoir = (titre: string) => `La soirée est close. La dernière soirée de cet espace : ${tronquer(titre, 60)}`
 
 /**
  * Ce qu'on dit à l'invité dont la réponse n'est pas passée. Le silence était
@@ -303,15 +308,20 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
             return
           }
           // Le serveur a redémarré depuis la clôture et oublié les fins de
-          // soirée : si l'espace n'a rien joué depuis, ce jeton était presque
-          // sûrement de la soirée close — on la propose au lieu de « on ne te
-          // retrouve plus ». Une base distante muette ne prive que du lien.
-          const derniere = await rt.derniereClose().catch(() => null)
+          // soirée : si l'espace n'a rien joué depuis, ce jeton était sans
+          // doute d'une soirée close — on propose la dernière au lieu de « on
+          // ne te retrouve plus ». Sans prétendre que c'est la sienne : il a
+          // pu dormir pendant deux clôtures. Jamais à l'exclu ni à l'essai
+          // effacé, dont le serveur se souvient ; et jamais au prix d'une
+          // attente : elle vient de mémoire (deux secondes au plus au réveil).
+          const derniere = rt.jetonEfface(token) ? null : await rt.derniereCloseVite().catch(() => null)
+          if (socket.disconnected) return
           if (derniere) {
             const soiree = { id: derniere.id, titre: derniere.title, slug: account.slug }
-            repondre({ ok: false, reason: 'unknown-token', error: SOIREE_REVOIR, derniere: soiree })
+            const message = soireeARevoir(derniere.title)
+            repondre({ ok: false, reason: 'unknown-token', error: message, derniere: soiree })
             socket.emit('player:removed', { reason: 'unknown-token' })
-            socket.emit('toast', { kind: 'info', message: SOIREE_REVOIR })
+            socket.emit('toast', { kind: 'info', message })
             return
           }
           // Le jeton ne désigne plus personne. On recréait l'invité en silence

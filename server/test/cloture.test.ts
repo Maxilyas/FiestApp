@@ -36,6 +36,7 @@ import {
   type Socket,
 } from './banc'
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
+import { ArchiveStore } from '../src/core/archive'
 import { xpDesHautsFaits } from '../src/core/hautsfaits'
 import { XP, gainVide, niveauPour, releveVide } from '../../shared/profil'
 import { ligneDeRang } from '../../shared/fin'
@@ -290,6 +291,83 @@ test('la fin de soirée mène au bilan de son porteur, dit ses prix et la salle 
     assert.equal(reveille.derniere?.id, id, 'la soirée close se propose')
     assert.equal(reveille.derniere?.slug, ADMIN.slug)
     assert.match(reveille.error, /close/)
+    // Il a pu dormir pendant deux clôtures : le message ne dit pas « la tienne ».
+    assert.equal(reveille.error, 'La soirée est close. La dernière soirée de cet espace : La soirée de Zoé')
+  }))
+
+// Le jeton d'une soirée close, après un redémarrage, se voyait proposer la
+// soirée close — mais sa lecture attendait la base permanente, dont le délai
+// (dix secondes) dépasse celui de l'accusé du téléphone : une base muette
+// laissait l'habitué dans une salle d'attente fantôme, sans prénom ni bouton.
+
+test('une base permanente muette ne retient pas l’accusé d’un jeton inconnu', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const deux = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const host = await ecranCommun(banc.url, cookie)
+    const alice = await invite(banc.url, 'Alice', '🦊')
+    const salle = await figurants(banc, 2)
+    await jouerQuiz(host, deux, [
+      [[alice, 0], ...faux(salle)],
+      [[alice, 0], ...faux(salle)],
+    ])
+    const id = await rangee(banc)
+    await clore(host)
+
+    // Le serveur redémarre, et la base permanente se tait.
+    const lire = ArchiveStore.prototype.derniere
+    ArchiveStore.prototype.derniere = function () {
+      return patienter(10_000).then(() => null)
+    }
+    try {
+      await banc.redemarrer()
+      const debut = Date.now()
+      const reveille = await reveil(banc, alice.token)
+      assert.ok(Date.now() - debut < 3000, `l’accusé a mis ${Date.now() - debut} ms`)
+      assert.equal(reveille.ok, false)
+      assert.equal(reveille.reason, 'unknown-token')
+    } finally {
+      ArchiveStore.prototype.derniere = lire
+    }
+    // La base revenue, la soirée close se propose de nouveau.
+    await banc.redemarrer()
+    const apres = await reveil(banc, salle[0].token)
+    assert.equal(apres.derniere?.id, id)
+  }))
+
+// Sur un jeton inconnu, on proposait la dernière soirée close de l'espace,
+// que le jeton en soit ou non : le téléphone d'essai de l'animateur, après
+// « C'était un essai », recevait la vraie soirée de la semaine d'avant ; et
+// l'exclu, une soirée où il n'était plus. Ces jetons-là, le serveur les sait.
+
+test('le jeton d’un essai effacé ou d’un exclu ne se voit pas proposer une soirée qui n’est pas la sienne', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const deux = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const host = await ecranCommun(banc.url, cookie)
+    const salle = await figurants(banc, 2)
+    await jouerQuiz(host, deux, [faux(salle), faux(salle)])
+    await rangee(banc)
+    await clore(host)
+
+    // La soirée suivante : le téléphone d'essai, puis un exclu.
+    const essai = await invite(banc.url, 'Test', '🤖')
+    const exclu = await invite(banc.url, 'Intrus', '🐍')
+    ;(host as any).emit('host:removePlayer', { playerId: exclu.playerId })
+    await attendre(exclu.socket, 'player:removed', () => true, 'l’exclusion')
+    const efface = attendre<any>(host, 'toast', () => true, 'l’essai effacé', 15_000)
+    ;(host as any).emit('host:discardParty')
+    await efface
+    await patienter(200)
+
+    for (const [qui, jeton] of [
+      ['l’exclu', exclu.token],
+      ['le téléphone d’essai', essai.token],
+    ]) {
+      const r = await reveil(banc, jeton)
+      assert.equal(r.reason, 'unknown-token')
+      assert.equal(r.derniere, undefined, `${qui} ne se voit pas proposer la soirée d’avant`)
+    }
   }))
 
 test('un avatar légendaire se porte une fois débloqué — pas avant — et se voit de toute la salle', () =>

@@ -162,6 +162,9 @@ export class SpaceRuntime {
         this.recopierSoiree(tiree).catch(e => console.warn(`[soirée] nom non recopié : ${(e as Error).message}`))
       }
     }
+    // Entre deux soirées, la dernière close se lit dès le réveil, en tâche de
+    // fond : le premier téléphone au jeton périmé n'aura pas à l'attendre.
+    if (!this.aJoue()) void this.relireDerniere()
     this.engine = new GameEngine(
       {
         db: deps.db,
@@ -348,12 +351,74 @@ export class SpaceRuntime {
 
   /**
    * La dernière soirée close de l'espace, tant que la suivante n'a rien joué :
-   * c'est elle que le souvenir et le bilan montrent entre deux soirées, et
-   * elle qu'on propose au téléphone dont le jeton ne désigne plus personne.
+   * c'est elle que le souvenir et le bilan montrent entre deux soirées.
    */
   async derniereClose(): Promise<DerniereSoiree | null> {
     if (this.aJoue()) return null
     return this.deps.archives.derniere(this.spaceId, this.soireeId())
+  }
+
+  /**
+   * La dernière soirée close, telle que la mémoire la connaît : posée à la
+   * clôture, relue au loin en tâche de fond. `undefined` tant qu'on ne sait
+   * pas encore — le réveil la lit.
+   */
+  private derniereConnue: DerniereSoiree | null | undefined = undefined
+  /** La lecture en vol, pour qu'une rafale de téléphones n'en lance qu'une. */
+  private lectureDerniere: Promise<void> | null = null
+
+  /** Relit la dernière soirée close au loin, sans jamais faire attendre personne. */
+  private relireDerniere(): Promise<void> {
+    this.lectureDerniere ??= this.deps.archives
+      .derniere(this.spaceId, this.soireeId())
+      .then(
+        d => {
+          this.derniereConnue = d
+        },
+        (e: unknown) => console.warn(`[soirées] la dernière soirée ne se lit pas : ${(e as Error).message}`),
+      )
+      .finally(() => {
+        this.lectureDerniere = null
+      })
+    return this.lectureDerniere
+  }
+
+  /**
+   * La dernière soirée close, pour le téléphone dont le jeton ne désigne plus
+   * personne. Elle attendait la base permanente, dont le délai (dix
+   * secondes) dépasse celui de l'accusé du téléphone : une base muette
+   * laissait l'habitué dans une salle d'attente fantôme. Elle se répond donc
+   * de mémoire, et se relit derrière ; au réveil, quand la mémoire ne sait
+   * pas encore, on attend la lecture deux secondes au plus.
+   */
+  async derniereCloseVite(): Promise<DerniereSoiree | null> {
+    if (this.aJoue()) return null
+    const lecture = this.relireDerniere()
+    if (this.derniereConnue === undefined) {
+      await Promise.race([lecture, new Promise(r => setTimeout(r, 2000).unref())])
+    }
+    return this.aJoue() ? null : (this.derniereConnue ?? null)
+  }
+
+  /**
+   * Les jetons que la soirée a effacés sans les clore — l'exclu, l'essai
+   * effacé : ils n'ont pas de soirée close à revoir, et la dernière de
+   * l'espace n'est pas la leur. En mémoire : un redémarrage les oublie.
+   */
+  private jetonsEffaces = new Set<string>()
+
+  private effacerJetons(tokens: string[]) {
+    for (const t of tokens) this.jetonsEffaces.add(t)
+    // Un Set ordonné : au-delà de dix mille, les plus anciens s'en vont.
+    for (const t of this.jetonsEffaces) {
+      if (this.jetonsEffaces.size <= 10_000) break
+      this.jetonsEffaces.delete(t)
+    }
+  }
+
+  /** Ce jeton a été effacé — exclu, ou d'un essai effacé — depuis le démarrage. */
+  jetonEfface(token: string): boolean {
+    return this.jetonsEffaces.has(token)
   }
 
   /** L'identifiant de la soirée en cours, s'il est déjà tiré — l'historique la montre à part. */
@@ -651,6 +716,7 @@ export class SpaceRuntime {
     // présent que son crédit a été écrit — une « Nouvelle soirée » cliquée
     // pendant que la file attend n'y change rien.
     const { profileId } = joueur
+    this.effacerJetons([joueur.token])
     const soiree = this.soiree
     // Chaque registre efface ses lignes, et le miroir reçoit le tout — la
     // partie sans lui comprise — en une seule transaction : un réveil sur
@@ -973,6 +1039,9 @@ export class SpaceRuntime {
       // soirée où rien ne s'est joué n'a pas de fin à raconter : ses
       // téléphones repassent par l'entrée, comme après un essai effacé.
       await this.viderSoiree(summary ? 'close' : 'discard', annonce)
+      // Une soirée sans rien de joué s'efface comme un essai : ses jetons non plus
+      // n'ont pas de soirée close à revoir.
+      if (!summary) this.effacerJetons(players.map(p => p.token))
       return summary
     } finally {
       this.fermeture = false
@@ -1076,6 +1145,8 @@ export class SpaceRuntime {
       this.deps.io.to(`player:${p.id}`).emit('soiree:fin', fin)
     }
     this.dernieresFins = fins
+    // La mémoire sait désormais la dernière soirée close, sans rien relire.
+    this.derniereConnue = { id: summary.id, title: summary.title, heldAt: summary.heldAt }
 
     const releveDe = (id: string) => credit.releves.get(id)?.releve
     const podium = players
@@ -1139,7 +1210,9 @@ export class SpaceRuntime {
         await this.deps.profiles.retirerSoireeEntiere(soiree.id, this.spaceId)
       })
       this.dernieresFins = new Map()
+      const jetons = this.party.all().map(p => p.token)
       await this.viderSoiree('discard')
+      this.effacerJetons(jetons)
     } finally {
       this.fermeture = false
     }
