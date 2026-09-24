@@ -6,7 +6,7 @@ import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { api } from '../api'
 import { spacePath } from '../routes'
-import { formatNumber, ordinal } from '../format'
+import { formatNumber, place } from '../format'
 import { showToast } from '../state'
 import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
@@ -69,7 +69,7 @@ export function FinDeSoiree({
           <h2>{fin.nom}</h2>
           {fin.rang > 0 ? (
             <p className="fin-rang">
-              <b>{ordinal(fin.rang)}</b> sur {fin.joueurs} · {formatNumber(fin.points)} pts
+              <b>{place(fin.rang)}</b> sur {fin.joueurs} · {formatNumber(fin.points)} pts
             </p>
           ) : (
             <p className="muted">{fin.joueurs} joueurs ce soir</p>
@@ -114,7 +114,7 @@ export function FinDeSoiree({
             )}
           </span>
           <h2>{legendaire(gain.eclat) ? `${legendaire(gain.eclat)?.nom} a éclaté !` : `Ton ${gain.eclat} a éclaté !`}</h2>
-          <p className="serif-note">Il a changé de couleurs, pour toujours — et toi seul l’as comme ça.</p>
+          <p className="serif-note">Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.</p>
         </section>
       )}
 
@@ -184,8 +184,7 @@ export function FinDeSoiree({
           </a>
         ) : (
           <p className="muted small fin-invitation">
-            Avec un profil, tes hauts faits se gardent d’une soirée à l’autre, et les avatars
-            légendaires se débloquent.{' '}
+            Avec un profil, tu retrouves tes points et tes prix à la prochaine soirée.{' '}
             <a className="link-inline" href="/profil">
               Créer mon profil
             </a>

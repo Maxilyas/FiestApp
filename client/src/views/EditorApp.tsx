@@ -258,7 +258,7 @@ export function EditorApp() {
 
       {list?.length === 0 && (
         <div className="card notice">
-          <p>Aucun quiz pour l'instant. Créez le premier !</p>
+          <p>Aucun quiz pour l'instant. Crée le premier !</p>
         </div>
       )}
 

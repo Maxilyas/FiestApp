@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
+import { espacesFines } from '../format'
 
 /**
  * Boîtes de confirmation et de saisie de l'application.
@@ -157,8 +158,8 @@ function DialogBox({ pending }: { pending: Pending }) {
         onClick={e => e.stopPropagation()}
         onSubmit={submit}
       >
-        <h3 id="dialog-title">{options.title}</h3>
-        {options.message && <p className="muted dialog-message">{options.message}</p>}
+        <h3 id="dialog-title">{espacesFines(options.title)}</h3>
+        {options.message && <p className="muted dialog-message">{espacesFines(options.message)}</p>}
         {options.input && (
           <input
             className="input"

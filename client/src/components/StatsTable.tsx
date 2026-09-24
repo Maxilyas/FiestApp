@@ -61,7 +61,7 @@ export function StatsTable({ stats }: { stats: PartyStats }) {
     })
 
   if (rows.length === 0) {
-    return <p className="muted">Aucune réponse enregistrée — jouez un quiz d'abord.</p>
+    return <p className="muted">Aucune réponse enregistrée — joue un quiz d'abord.</p>
   }
 
   return (
