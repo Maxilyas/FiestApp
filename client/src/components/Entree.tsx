@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Limite } from './Limite'
 import type { PublicPlayer, PublicTeam } from '../../../shared/types'
 import type { PublicSpace } from '../../../shared/space'
 import type { PublicProfile } from '../../../shared/profil'
@@ -593,7 +594,17 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           value={name}
           onChange={e => setName(e.target.value)}
           maxLength={24}
+          // Au téléphone, la touche du clavier le referme au lieu de valider :
+          // les avatars, qu'il cachait, restent à choisir, et « Continuer »
+          // réapparaît juste dessous. Au clavier d'un ordinateur, Entrée valide.
+          enterKeyHint="done"
+          onKeyDown={e => {
+            if (e.key !== 'Enter' || !window.matchMedia?.('(pointer: coarse)').matches) return
+            e.preventDefault()
+            e.currentTarget.blur()
+          }}
         />
+        <Limite valeur={name} max={24} />
       </div>
       <div className="field">
         <div className="field-head">

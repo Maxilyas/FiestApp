@@ -539,6 +539,9 @@ h3 > .icon {
 }
 
 .join-grow { flex: 1; }
+/* Clavier levé (`clavier.ts`) : le bouton suit le formulaire au lieu
+   d'attendre au fond de la page, sous le clavier. */
+.clavier .join-grow { flex: 0 0 4px; }
 .join-foot { text-align: center; font-size: 12px; color: var(--muted); }
 .join-actions { display: flex; flex-direction: column; gap: 10px; }
 
@@ -662,8 +665,13 @@ h3 > .icon {
   gap: 14px;
 }
 
-.me-header h2 { font-size: 1.8rem; }
-.me-header h2 .niveau { margin-left: 0.4em; vertical-align: 0.2em; }
+/* Un pseudo de 24 lettres sans espace sortait de l'écran : coupé, avec ses
+   points de suspension, comme dans le classement juste dessous. La pastille
+   de niveau, elle, reste entière à droite. */
+.me-header > div { flex: 1; min-width: 0; }
+.me-header h2 { font-size: 1.8rem; display: flex; align-items: center; min-width: 0; }
+.me-header h2 .me-nom { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-header h2 .niveau { flex: none; margin-left: 0.4em; }
 .player-avatar { font-size: 1.6rem; line-height: 1; }
 .player-avatar.big { font-size: 2.6rem; }
 
@@ -982,6 +990,10 @@ h3 > .icon {
   background: var(--surface);
   border: 1px solid var(--edge);
   font-size: 0.9rem;
+  /* « Niv. 1 · Camille (2) · équipe » dépassait de la carte de son équipe :
+     la pastille ne dépasse plus sa colonne, c'est le prénom qui se coupe. */
+  max-width: 100%;
+  min-width: 0;
   animation: pop 0.35s ease-out both;
 }
 
@@ -1787,6 +1799,7 @@ h3 > .icon {
   padding: 0;
   cursor: pointer;
   max-width: 9ch;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1961,7 +1974,11 @@ h3 > .icon {
 
 /* ── Classement des équipes ─────────────────────── */
 .team-row { align-items: center; }
-.team-row .lb-name { display: flex; flex-direction: column; gap: 1px; }
+/* Le nom et son détail, l'un sous l'autre — en bloc, pas en flex : un
+   conteneur flex ne coupe pas son texte, et « Les Carbonara » devenait
+   « Les Carbonar » sans points de suspension. Le nom garde la coupure de
+   `.lb-name` ; le détail, en bloc, passe à la ligne. */
+.team-row .lb-name > .team-sub { display: block; margin-top: 1px; }
 
 /* Le détail passe à la ligne plutôt que d'être coupé net sur un téléphone. */
 .team-sub { font-size: 0.75rem; font-weight: 400; color: var(--muted); white-space: normal; line-height: 1.25; }

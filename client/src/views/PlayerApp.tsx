@@ -20,6 +20,7 @@ import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/L
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
 import { CarteJoueur } from '../components/CarteJoueur'
 import { useEcranAllume } from '../veille'
+import { useGardeRetour } from '../retour'
 
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
@@ -191,6 +192,27 @@ export function PlayerApp() {
   // table pendant qu'on écoute la question rate la suivante.
   useEcranAllume(playing)
 
+  // Le geste retour sort de la soirée : dès la salle d'attente, il demande
+  // d'abord. Pas à l'entrée — on n'y a encore rien à perdre.
+  useGardeRetour(!!s.me && !s.fin && !spaceError)
+
+  // Chaque écran commence en haut, comme ceux de l'entrée. La fin de soirée
+  // s'ouvrait au défilement de la salle d'attente, sous son propre titre ; et
+  // une question qui suit un classement qu'on a fait défiler, pareil.
+  const phase = playing && sessionView ? (sessionView.view as QuizPlayerView) : null
+  const ecran = s.fin
+    ? 'fin'
+    : !s.me
+      ? 'entree'
+      : montrerProfil
+        ? 'profil'
+        : phase
+          ? `jeu:${phase.qIndex}:${phase.round ?? 0}:${phase.phase}`
+          : 'salle'
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [ecran])
+
   // Le seul canal d'erreur des invités : un lecteur d'écran doit l'annoncer,
   // tout de suite pour une erreur, sans couper la parole pour le reste.
   const toast = s.toast && (
@@ -302,7 +324,7 @@ export function PlayerApp() {
             {/* Le prénom tel qu'il s'affiche : s'il porte une marque
                 d'homonymie, son porteur doit la lire sur son propre téléphone
                 plutôt que la découvrir sur le mur. */}
-            {me?.nomAffiche ?? me?.name}
+            <span className="me-nom">{me?.nomAffiche ?? me?.name}</span>
             <Niveau niveau={me?.niveau} big />
           </h2>
           <p className="muted">
