@@ -295,6 +295,35 @@ test('la fin de soirée mène au bilan de son porteur, dit ses prix et la salle 
     assert.equal(reveille.error, 'La soirée est close. La dernière soirée de cet espace : La soirée de Zoé')
   }))
 
+// L'arrivé après la dernière question lisait « N joueurs » compté par la
+// fiche de l'archive, qui compte aussi ceux qui n'ont fait que passer : un
+// autre chiffre que celui de la salle. Et « Mon bilan » l'envoyait à un
+// bilan où il ne figure pas, qui lui demandait « Qui es-tu ? ».
+
+test('l’arrivé après la dernière question lit la même salle que les autres, et n’a pas de « Mon bilan »', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const une = await creerQuiz(banc.url, cookie, [qcm('Un ?', ['Oui', 'Non'], 0, 5)])
+    const host = await ecranCommun(banc.url, cookie)
+    const alice = await invite(banc.url, 'Alice', '🦊')
+    // Bob, Dora et Eve : les deux dernières sont là pendant la question, mais
+    // ne répondent pas.
+    const [bob, , eve] = await figurants(banc, 3)
+    await jouerQuiz(host, une, [[[alice, 0], [bob, 1]]])
+    await rangee(banc)
+    const zoe = await invite(banc.url, 'Zoé', '🦄')
+    const finAlice = attendre<any>(alice.socket, 'soiree:fin', () => true, 'la fin d’Alice', 15_000)
+    const finEve = attendre<any>(eve.socket, 'soiree:fin', () => true, 'la fin d’Eve', 15_000)
+    const finZoe = attendre<any>(zoe.socket, 'soiree:fin', () => true, 'la fin de Zoé', 15_000)
+    await clore(host)
+    const [fa, fe, fz] = await Promise.all([finAlice, finEve, finZoe])
+    assert.equal(fa.joueurs, 2, 'seuls Alice et Bob ont répondu')
+    assert.equal(fz.joueurs, fa.joueurs, 'Zoé lit la même salle qu’Alice')
+    assert.equal(fz.joueurId, undefined, 'Zoé n’est pas au bilan : pas de « Mon bilan »')
+    assert.equal(fe.joueurId, eve.playerId, 'Eve figure au journal, et donc au bilan')
+    assert.equal(fe.aJoue, false)
+  }))
+
 // Le jeton d'une soirée close, après un redémarrage, se voyait proposer la
 // soirée close — mais sa lecture attendait la base permanente, dont le délai
 // (dix secondes) dépasse celui de l'accusé du téléphone : une base muette

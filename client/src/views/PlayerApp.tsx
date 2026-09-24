@@ -419,15 +419,22 @@ export function PlayerApp() {
       {/* Entre deux quiz, relire ses réponses : rien ne menait du téléphone au
           bilan en cours, il fallait en connaître l'adresse. Un autre onglet,
           pour ne pas manquer le quiz suivant. Une fois des points marqués
-          seulement : avant, le bilan n'a rien à montrer. */}
+          seulement : avant, le bilan n'a rien à montrer. « Mes réponses »,
+          à qui en a marqué lui-même : l'arrivé entre deux quiz n'est pas
+          encore au bilan, qui lui demandait « Qui es-tu ? ». L'instantané ne
+          dit pas qui a répondu sans marquer — celui-là n'a que le souvenir. */}
       {me && sorted.some(p => p.score > 0) && (
         <p className="join-foot">
-          <a className="link-inline" href={`${spacePath(slug, 'bilan')}#p=${me.id}`} target="_blank" rel="noreferrer">
-            Mes réponses jusqu’ici
-          </a>
-          {' · '}
+          {me.score > 0 && (
+            <>
+              <a className="link-inline" href={`${spacePath(slug, 'bilan')}#p=${me.id}`} target="_blank" rel="noreferrer">
+                Mes réponses jusqu’ici
+              </a>
+              {' · '}
+            </>
+          )}
           <a className="link-inline" href={spacePath(slug, 'souvenir')} target="_blank" rel="noreferrer">
-            le souvenir
+            {me.score > 0 ? 'le souvenir' : 'Le souvenir de la soirée'}
           </a>
         </p>
       )}

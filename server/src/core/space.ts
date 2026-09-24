@@ -71,6 +71,8 @@ interface CreditDeCloture {
   releves: ReturnType<typeof relevesDeSoiree>
   /** Les prix du palmarès, par joueur, profil ou non : sa fin de soirée les lui rappelle. */
   prix: Map<string, PrixAnnonce[]>
+  /** Ceux qui ont répondu ce soir : la salle, telle que les relevés la comptent. */
+  joueurs: number
 }
 
 /** Un haut fait de soirée tel qu'on l'annonce. */
@@ -700,7 +702,9 @@ export class SpaceRuntime {
       liste.push({ key: a.key, emoji: a.emoji, title: a.title, detail: a.detail })
       prixDe.set(a.player.playerId, liste)
     }
-    return { gains, laureats, faits, releves: relevesDeSoiree(live, { cloture: true }), prix: prixDe }
+    const inscrits = new Set(live.players.map(p => p.id))
+    const joueurs = new Set(live.answers.filter(r => r.answered && inscrits.has(r.playerId)).map(r => r.playerId)).size
+    return { gains, laureats, faits, releves: relevesDeSoiree(live, { cloture: true }), prix: prixDe, joueurs }
   }
 
   /**
@@ -1125,7 +1129,10 @@ export class SpaceRuntime {
       const figure = figures.get(p.id)
       const fin: FinDeSoiree = {
         soiree,
-        joueurId: p.id,
+        // Seulement s'il figure au journal : l'arrivé après la dernière
+        // question n'est pas dans l'archive, et « Mon bilan » lui demandait
+        // « Qui es-tu ? ».
+        ...(x && { joueurId: p.id }),
         nom: figure?.nom ?? p.name,
         avatar: p.avatar,
         // Ce qu'il porte ce soir — sa finition, son légendaire : sa fin de
@@ -1134,8 +1141,11 @@ export class SpaceRuntime {
         rang: x?.releve.rang ?? 0,
         points: x?.releve.points ?? 0,
         // Arrivé après la dernière question, il n'a pas de relevé : la salle,
-        // elle, a bien joué — il lisait « 0 joueurs ce soir ».
-        joueurs: x?.releve.joueurs ?? summary.players,
+        // elle, a bien joué — il lisait « 0 joueurs ce soir ». Comptée comme
+        // le relevé la compte, ceux qui ont répondu : la fiche compte aussi
+        // ceux qui n'ont fait que passer, et lui lisait un autre chiffre que
+        // la salle.
+        joueurs: x?.releve.joueurs ?? credit.joueurs,
         aJoue: (x?.releve.reponses ?? 0) > 0,
         ...(credit.prix.has(p.id) && { prix: credit.prix.get(p.id) }),
         hautsFaits: (credit.faits.get(p.id) ?? []).map(annonceDe).filter((a): a is HautFaitAnnonce => !!a),
