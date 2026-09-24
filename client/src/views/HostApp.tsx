@@ -706,9 +706,15 @@ export function HostApp() {
                   <Icon name="award" />
                   Remise des prix
                 </h2>
+                {/* « Rien n'est attribué tant que tu ne cliques pas » : vrai des
+                    points, faux du palmarès, qui se relit au souvenir et se
+                    range sur l'étagère des profils remis ou non. Une
+                    animatrice qui avait épargné un prix à voix haute le
+                    retrouvait le lendemain. */}
                 <p className="muted center">
-                  Rien n'est attribué tant que tu ne cliques pas. Les points s'ajoutent au total de
-                  l'équipe du lauréat, sur l'échelle du barème.
+                  Des points pour les équipes : un prix ne rapporte rien tant que tu ne cliques pas,
+                  puis s'ajoute au total de l'équipe du lauréat, sur l'échelle du barème. Le palmarès,
+                  lui, reste au souvenir, remis ou non — sans jamais rapporter d'expérience.
                 </p>
 
                 <AwardsBoard

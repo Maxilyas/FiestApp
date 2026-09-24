@@ -459,6 +459,41 @@ test('le souvenir et le bilan relisent les prix remis, prix libres compris, en c
     }
   }))
 
+// Un prix ne rapporte jamais d'expérience : celui du palmarès se juge sur une
+// seule soirée, celui qu'on remet à l'écran se donne à la main — prix libre
+// compris. La même soirée, jouée deux fois, avec et sans prix remis, laisse
+// donc au profil la même expérience.
+
+test('un prix remis, même libre, ne rapporte aucune expérience', async () => {
+  const soiree = async (avecPrix: boolean) => {
+    let xp = -1
+    await avecBanc(async banc => {
+      const cookie = await connexionAnimateur(banc.url)
+      const quiz = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+      const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+      const host = await ecranCommun(banc.url, cookie)
+      ;(host as any).emit('host:createTeam', { name: 'Les Carbonara', emoji: '🍝' })
+      const snap = await instantane<any>(host, s => s.teams.length === 1, 'l’équipe')
+      const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
+      const [bob] = await figurants(banc, 1)
+      ;(host as any).emit('host:assignPlayer', { playerId: alice.playerId, teamId: snap.teams[0].id })
+      await jouerQuiz(host, quiz, [[[alice, 0], [bob, 1]], [[alice, 0], [bob, 1]]])
+      await rangee(banc)
+      if (avecPrix) {
+        ;(host as any).emit('host:awardTeam', { teamId: snap.teams[0].id, points: 5, reason: "L'Éclair" })
+        ;(host as any).emit('host:awardTeam', { teamId: snap.teams[0].id, points: 3, reason: 'Le coup de cœur de Sam' })
+        await instantane<any>(host, s => s.bonuses.length === 2, 'les deux prix')
+      }
+      await clore(host)
+      xp = (await moi(banc, aliceCookie)).xp
+    })
+    return xp
+  }
+  const sans = await soiree(false)
+  assert.ok(sans > 0, 'la soirée rapporte, elle')
+  assert.equal(await soiree(true), sans)
+})
+
 // ── 4. L'animateur joue aussi ─────────────────────────────────────────────
 
 test('chez lui aussi, l’animateur gagne de l’expérience — dès un duel', () =>
