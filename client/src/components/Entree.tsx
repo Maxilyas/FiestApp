@@ -257,7 +257,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           points de ce soir.
         </p>
         <div className="join-grow" />
-        {connectes > 0 && <p className="join-foot">{connectes} invité·e·s déjà là</p>}
+        {connectes > 0 && <p className="join-foot">{connectes} invité·e{connectes > 1 ? '·s' : ''} déjà là</p>}
       </form>
     )
   }
@@ -612,7 +612,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           <span className="label" id="avatar-label">
             Ton avatar
           </span>
-          {connectes > 0 && <span className="muted small">{connectes} invité·e·s déjà là</span>}
+          {connectes > 0 && <span className="muted small">{connectes} invité·e{connectes > 1 ? '·s' : ''} déjà là</span>}
         </div>
         <div className="emoji-grid" role="group" aria-labelledby="avatar-label">
           {AVATARS.map(a => (

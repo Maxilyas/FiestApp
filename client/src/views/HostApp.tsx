@@ -527,7 +527,7 @@ export function HostApp() {
                   <b>{quizView?.answeredCount ?? 0}</b> / {quizView?.participantCount ?? 0} ont répondu
                 </>
               ) : (
-                <>{connectedCount} connecté·e·s</>
+                <>{connectedCount} connecté·e{connectedCount > 1 ? '·s' : ''}</>
               )}
             </span>
             <div className="qr-stack">
