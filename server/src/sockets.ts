@@ -337,8 +337,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         if (!known) {
           // Une nouvelle identité, donc : elle passe par les garde-fous.
           if (rt.party.count() >= rt.maxPlayers) {
-            // Il dit quoi faire : la limite est un réglage, pas une fatalité.
-            return repondre({ ok: false, error: 'La soirée est complète — préviens l’animateur : il peut ouvrir des places' })
+            // Il dit quoi faire, sans promettre ce que le serveur refuserait :
+            // l'espace est souvent déjà au plafond du serveur (`MAX_PLAYERS`,
+            // 150 sur Render), mais l'animateur peut toujours libérer des
+            // places — clore un essai, exclure un téléphone fantôme.
+            return repondre({ ok: false, error: 'La soirée est complète — préviens l’animateur, qui peut libérer des places' })
           }
           // Sans prénom, personne n'entrera : refusé avant de puiser dans la
           // réserve. Une connexion qui envoyait soixante `player:join` vides

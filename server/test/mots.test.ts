@@ -94,6 +94,11 @@ test('les erreurs disent quoi faire : soirée complète, son propre compte, une 
     const refus = await emitAck<{ ok: boolean; error?: string }>(troisieme, 'player:join', { slug: ADMIN.slug, name: 'Chloé', avatar: '🐼' })
     assert.equal(refus.ok, false)
     assert.match(refus.error ?? '', /complète.*préviens l’animateur/)
+    // Ouvrir des places n'est pas toujours possible — le plafond du serveur
+    // (`MAX_PLAYERS`, 150 sur Render) est souvent celui de l'espace — ; en
+    // libérer, si : clore un essai, exclure un fantôme.
+    assert.doesNotMatch(refus.error ?? '', /ouvrir des places/)
+    assert.match(refus.error ?? '', /libérer des places/)
 
     const moi = (await (await fetch(`${banc.url}/api/auth/me`, { headers: { Cookie: cookie } })).json()) as any
     const desactiver = await ecrire(banc.url, `/api/admin/accounts/${moi.account.id}/disable`, {}, cookie)
