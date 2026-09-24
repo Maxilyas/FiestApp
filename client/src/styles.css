@@ -1646,6 +1646,24 @@ h3 > .icon {
   border-bottom: 1px solid var(--edge);
 }
 
+/* L'en-tête de l'éditeur d'un quiz suit la page (voir QuizEditor). */
+.editor-header.is-collant {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  padding-top: 10px;
+  margin-top: -10px;
+}
+.editor-header .undo-line { flex-basis: 100%; margin: 0; }
+@media (max-width: 600px) {
+  /* Au téléphone, le titre prend sa ligne et s'en va avec la page : un `top`
+     négatif de sa hauteur (10 + 44 + 8 px) ne laisse collés que « prêtes »,
+     « Retour », « Enregistrer » et l'annulation — une ligne sur 640 px. */
+  .editor-header.is-collant { gap: 8px; padding-bottom: 8px; top: -62px; }
+  .editor-header.is-collant .title-input { flex-basis: 100%; min-width: 0; height: 44px; font-size: 1.15rem; padding-block: 6px; }
+}
+
 .title-input {
   flex: 1;
   min-width: 220px;
@@ -1772,6 +1790,8 @@ h3 > .icon {
 }
 
 .undo-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.regler-tout { display: flex; flex-direction: column; gap: 10px; }
+.regler-tout h3 { display: flex; align-items: center; gap: 8px; }
 
 /* Des modifications retrouvées dans le navigateur : la carte qui demande quoi en faire. */
 .brouillon-carte {

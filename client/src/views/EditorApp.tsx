@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
+  DEFAULT_DURATION,
   DEFAULT_OBSERVE,
   MAX_ANSWERS,
   MAX_ANSWER_TEXT,
@@ -64,6 +65,17 @@ function formatDate(ts: number): string {
  * `focus` dit où il va : l'intitulé d'une question neuve, sinon le bouton
  * qui a servi.
  */
+interface Annulable {
+  label: string
+  /** Le geste inverse, rejoué sur les questions du moment. */
+  defaire: (questions: QuizQuestionDef[]) => QuizQuestionDef[]
+  /** Ce qu'entend le lecteur d'écran une fois défait. */
+  annonce: string
+  /** La carte à montrer une fois défait. */
+  carte?: string
+  wasDirty: boolean
+}
+
 interface Spot {
   id: string
   focus: 'text' | 'number' | 'up' | 'down'
@@ -416,13 +428,17 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   /** Faux quand le navigateur refuse de garder le brouillon : l'éditeur ne promet plus rien. */
   const [garde, setGarde] = useState(true)
   /**
-   * Le dernier déplacement, pour le défaire d'un clic : une faute de frappe,
-   * 54 pour 45, ne doit pas coûter une recherche dans soixante cartes. On
-   * garde le mouvement inverse plutôt qu'une copie de la liste, pour ne pas
-   * écraser une photo arrivée entre-temps. `wasDirty` : défaire un
-   * déplacement sur un quiz enregistré le laisse enregistré.
+   * Le dernier geste qui se défait d'un clic — un déplacement, une
+   * suppression, un réglage de tout le quiz : une faute de frappe, 54 pour
+   * 45, ne doit pas coûter une recherche dans soixante cartes, ni une
+   * question supprimée par erreur sa réécriture. On garde le geste inverse
+   * plutôt qu'une copie de la liste, pour ne pas écraser une photo arrivée
+   * entre-temps. `wasDirty` : défaire un geste sur un quiz enregistré le
+   * laisse enregistré.
    */
-  const [undo, setUndo] = useState<{ label: string; index: number; number: number; wasDirty: boolean } | null>(null)
+  const [undo, setUndo] = useState<Annulable | null>(null)
+  /** Le panneau « Régler tout le quiz », ouvert. */
+  const [reglerTout, setReglerTout] = useState(false)
   const [spot, setSpot] = useState<Spot | null>(null)
   /** Ce qui vient de bouger, pour les lecteurs d'écran — l'œil, lui, suit la carte éclairée. */
   const [announce, setAnnounce] = useState('')
@@ -518,19 +534,71 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
     const label = `Question déplacée du n° ${index + 1} au n° ${to + 1}`
     patch(q => ({ ...q, questions: moveQuestion(q.questions, index, number) }))
     // Après patch, qui l'efface : c'est bien ce déplacement-ci qu'on pourra défaire.
-    setUndo({ label, index: to, number: index + 1, wasDirty: dirty })
+    setUndo({
+      label,
+      defaire: qs => moveQuestion(qs, to, index + 1),
+      annonce: 'Déplacement annulé',
+      carte: before[index].id,
+      wasDirty: dirty,
+    })
     setAnnounce(label)
     spotlight(before[index].id, focus)
   }
 
-  const undoMove = () => {
-    if (!undo || !quiz) return
-    const { index, number, wasDirty } = undo
-    const id = quiz.questions[index]?.id
-    patch(q => ({ ...q, questions: moveQuestion(q.questions, index, number) }))
+  const defaire = () => {
+    if (!undo) return
+    const { defaire: inverse, annonce, carte, wasDirty } = undo
+    patch(q => ({ ...q, questions: inverse(q.questions) }))
     setDirty(wasDirty)
-    setAnnounce('Déplacement annulé')
-    spotlight(id, 'number')
+    setAnnounce(annonce)
+    spotlight(carte, 'number')
+  }
+
+  /**
+   * Supprimer se défait : la confirmation seule ne rattrapait pas la
+   * mauvaise carte, et le seul recours était d'effacer toutes ses
+   * modifications depuis le dernier enregistrement.
+   */
+  const supprimer = (index: number) => {
+    if (!quiz) return
+    const question = quiz.questions[index]
+    const label = `Question ${index + 1} supprimée`
+    patch(q => ({ ...q, questions: q.questions.filter((_, i) => i !== index) }))
+    setUndo({
+      label,
+      defaire: qs => insertQuestions(qs, index + 1, [question]),
+      annonce: 'Question rétablie',
+      carte: question.id,
+      wasDirty: dirty,
+    })
+    setAnnounce(label)
+  }
+
+  /**
+   * Le même temps, la même catégorie, pour toutes les questions d'un coup :
+   * les trois animateurs de la tablée l'ont cherché — passer un quiz d'ami
+   * de 20 à 30 s coûtait trois gestes par question.
+   */
+  const reglerLeQuiz = (reglage: { duration?: number; category?: string | null }) => {
+    if (!quiz) return
+    const avant = new Map(quiz.questions.map(q => [q.id, { duration: q.duration, category: q.category ?? null }]))
+    const n = quiz.questions.length
+    const quoi = [
+      reglage.duration !== undefined && `${reglage.duration} s`,
+      reglage.category !== undefined && (reglage.category ? `« ${reglage.category} »` : 'sans catégorie'),
+    ]
+      .filter(Boolean)
+      .join(' et ')
+    const label = `${quoi} pour ${n > 1 ? `les ${n} questions` : 'la question'}`
+    patch(q => ({ ...q, questions: q.questions.map(item => ({ ...item, ...reglage })) }))
+    setUndo({
+      label,
+      defaire: qs => qs.map(item => ({ ...item, ...(avant.get(item.id) ?? {}) })),
+      annonce: 'Réglage annulé',
+      wasDirty: dirty,
+    })
+    setAnnounce(label)
+    setReglerTout(false)
   }
 
   /**
@@ -725,7 +793,10 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
 
   return (
     <div className="editor">
-      <header className="editor-header">
+      {/* Collé en haut : « Enregistrer » et « Annuler » restaient au sommet
+          d'une page de cinq à quarante-cinq écrans, et l'« Annuler » d'un
+          déplacement vers la huitième question à 2 000 px de la carte. */}
+      <header className="editor-header is-collant">
         <input
           className="input title-input"
           value={quiz.title}
@@ -754,6 +825,14 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
             )}
           </button>
         </div>
+        {undo && (
+          <p className="muted undo-line">
+            {undo.label} ·{' '}
+            <button type="button" className="link-btn" onClick={defaire}>
+              Annuler
+            </button>
+          </p>
+        )}
       </header>
 
       {reveil && (
@@ -802,13 +881,25 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
         </p>
       )}
       {savedAt && !dirty && <p className="muted">Enregistré à {formatDate(savedAt)}</p>}
-      {undo && (
-        <p className="muted undo-line">
-          {undo.label} ·{' '}
-          <button type="button" className="link-btn" onClick={undoMove}>
-            Annuler
+      {quiz.questions.length > 1 && (
+        <div className="row">
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            aria-expanded={reglerTout}
+            onClick={() => setReglerTout(v => !v)}
+          >
+            <Icon name="list" />
+            Régler tout le quiz
           </button>
-        </p>
+        </div>
+      )}
+      {reglerTout && (
+        <ReglerToutLeQuiz
+          questions={quiz.questions}
+          onRegler={reglerLeQuiz}
+          onFermer={() => setReglerTout(false)}
+        />
       )}
       <p className="sr-only" aria-live="polite">
         {announce}
@@ -828,9 +919,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           onMoveTo={(number, focus) => moveTo(index, number, focus)}
           onInsertAfter={() => insertAfter(index)}
           onDuplicate={() => duplicate(index)}
-          onDelete={() =>
-            patch(q => ({ ...q, questions: q.questions.filter((_, i) => i !== index) }))
-          }
+          onDelete={() => supprimer(index)}
         />
       ))}
 
@@ -870,6 +959,81 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           onCancel={() => setImporting(false)}
         />
       )}
+    </div>
+  )
+}
+
+/**
+ * « Régler tout le quiz » : le temps, ou la catégorie, de toutes les
+ * questions d'un coup — chacun de son bouton, pour ne changer que ce qu'on
+ * vise. Le geste se défait comme un déplacement.
+ */
+function ReglerToutLeQuiz({
+  questions,
+  onRegler,
+  onFermer,
+}: {
+  questions: QuizQuestionDef[]
+  onRegler: (reglage: { duration?: number; category?: string | null }) => void
+  onFermer: () => void
+}) {
+  const [temps, setTemps] = useState(() => questions[0]?.duration ?? DEFAULT_DURATION)
+  const [categorie, setCategorie] = useState(() => questions[0]?.category ?? '')
+  const n = questions.length
+  return (
+    <div className="card regler-tout">
+      <h3>
+        <Icon name="list" />
+        Régler les {n} questions
+      </h3>
+      <div className="row">
+        <label className="row">
+          <span className="muted">Temps</span>
+          <ChampNombre
+            className="input duration-input"
+            min={MIN_DURATION}
+            max={MAX_DURATION}
+            aria-label="Temps de réponse de toutes les questions, en secondes"
+            valeur={temps}
+            onValeur={setTemps}
+          />
+          <span className="muted">s</span>
+        </label>
+        <button
+          type="button"
+          className="btn btn-small"
+          disabled={!tempsDansLesBornes(temps)}
+          onClick={() => onRegler({ duration: Math.round(temps) })}
+        >
+          {tempsDansLesBornes(temps) ? 'Pour toutes' : `De ${MIN_DURATION} à ${MAX_DURATION} s`}
+        </button>
+      </div>
+      <div className="row">
+        <label className="row">
+          <span className="muted">Catégorie</span>
+          <select
+            className="team-emoji-select categorie-select"
+            aria-label="Catégorie de toutes les questions"
+            value={categorie}
+            onChange={e => setCategorie(e.target.value)}
+          >
+            <option value="">Aucune</option>
+            {CATEGORIES.map(c => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="button" className="btn btn-small" onClick={() => onRegler({ category: categorie || null })}>
+          Pour toutes
+        </button>
+      </div>
+      <div className="row">
+        <button type="button" className="btn btn-ghost btn-small" onClick={onFermer}>
+          Fermer
+        </button>
+      </div>
     </div>
   )
 }
