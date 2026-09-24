@@ -16,8 +16,12 @@
     <!-- « Ajouter à l'écran d'accueil » ouvre alors l'application sans barre
          d'adresse, comme une vraie application. -->
     <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- Le SVG pour les navigateurs qui le lisent, `favicon.ico` pour les
+         autres ; iOS ignore une icône SVG : la sienne est un PNG, sur fond
+         plein (il arrondit les coins lui-même). -->
     <link rel="icon" href="/icone.svg" type="image/svg+xml" />
-    <link rel="apple-touch-icon" href="/icone.svg" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="apple-touch-icon" href="/icone-180.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Quizz" />
@@ -26,7 +30,8 @@
          exigé par les navigateurs pour précharger une police, même chez soi. -->
     <link rel="preload" href="/fonts/cormorant-garamond-600.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/figtree-variable.woff2" as="font" type="font/woff2" crossorigin />
-    <!-- Chaque page pose ensuite le titre de sa soirée. -->
+    <!-- Le serveur y pose le titre de l'espace et les balises d'aperçu
+         (`server/src/core/pages.ts`) ; chaque page pose ensuite le sien. -->
     <title>FiestApp</title>
   </head>
   <body>

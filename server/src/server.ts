@@ -10,6 +10,7 @@ import { initDb, stampLegacySpace, wipeSpace } from './core/db'
 import { PartyBackup, type ReglagesMiroir } from './core/backup'
 import { photosCitees, QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
+import { INTROUVABLE, ROBOTS_TXT, decrirePage, habillerPage } from './core/pages'
 import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
@@ -53,6 +54,8 @@ export interface QuizServerOptions {
   appEnv?: string
   /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */
   miroir?: Omit<ReglagesMiroir, 'base'>
+  /** Le client compilé. Les tests en donnent un de trois lignes : `client/dist` n'existe qu'après le build. */
+  clientDist?: string
 }
 
 /**
@@ -515,8 +518,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // comprend rien à ce qui lui arrive.
   app.use(['/api', '/media', '/s'], (_req, res) => res.status(404).json({ error: 'Introuvable' }))
 
+  app.get('/robots.txt', (_req, res) => res.type('text').send(ROBOTS_TXT))
+
   // En prod, le serveur sert aussi le client compilé (un seul process à héberger).
-  const clientDist = path.resolve(here, '../../client/dist')
+  const clientDist = opts.clientDist ?? path.resolve(here, '../../client/dist')
   if (fs.existsSync(clientDist)) {
     // Les fichiers compilés portent une empreinte dans leur nom : un an de
     // cache, sans jamais revalider. La page d'accueil, elle, doit toujours
@@ -545,10 +550,39 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const meta = `<meta name="app-env" content="${opts.appEnv.replace(/[^\w.-]/g, '')}">`
       indexHtml = indexHtml.replace('</head>', `  ${meta}\n  </head>`)
     }
-    app.get('*', (_req, res) => {
+    // Un fichier absent (une icône, `favicon.ico` d'une vieille version)
+    // est un 404, pas la page d'accueil : un nom de page n'a jamais de point.
+    app.get(/\.[\w]+$/, (_req, res) => res.status(404).type('text').send('Introuvable'))
+    app.get('*', (req, res, next) => {
       res.set('Cache-Control', 'no-cache')
       if (!indexHtml) return res.status(404).type('text').send('Client non compilé (npm run build)')
-      res.type('html').send(indexHtml)
+      // Chaque adresse porte son statut et ses balises : un aperçu de lien
+      // n'exécute pas le client. Voir `core/pages.ts`.
+      const decision = decrirePage(req.path, slug => {
+        const compte = auth.bySlug(slug)
+        return compte && compte.slug === slug ? auth.publicSpace(compte) : undefined
+      })
+      const requete = req.url.slice(req.path.length)
+      if ('redirection' in decision) return res.redirect(302, decision.redirection + requete)
+      const envoyer = (page: typeof decision) => {
+        if (!page.indexable) res.set('X-Robots-Tag', 'noindex, nofollow')
+        const base = opts.publicUrl ? opts.publicUrl.replace(/\/+$/, '') : `${req.protocol}://${req.get('host')}`
+        res.status(page.statut).type('html').send(habillerPage(indexHtml, page, base, req.path))
+      }
+      if (!decision.archive) return envoyer(decision)
+      // Une soirée archivée se cherche dans la base permanente. Muette, elle
+      // ne fait pas déclarer introuvable une soirée qui existe : la page
+      // s'ouvre, et dira elle-même ce qu'elle peut lire.
+      const compte = auth.bySlug(decision.archive.spaceSlug)
+      if (!compte) return envoyer(INTROUVABLE)
+      archives
+        .existe(compte.id, decision.archive.id)
+        .then(existe => envoyer(existe ? decision : INTROUVABLE))
+        .catch((e: unknown) => {
+          console.error('[pages] une soirée archivée ne se vérifie pas :', e)
+          envoyer(decision)
+        })
+        .catch(next)
     })
   }
 

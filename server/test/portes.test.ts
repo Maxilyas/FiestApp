@@ -1,0 +1,168 @@
+// Les portes d'entrée : ce que le serveur répond à une adresse avant que le
+// client ne s'ouvre — son statut, ses balises d'aperçu, son indexation — et
+// les adresses tapées à la main (« /Chez-Bruno », « /nadia »).
+//
+// Le client compilé n'existe qu'après le build, que `npm run verify` lance
+// après les tests : le banc sert une page de trois lignes, qui suffit à lire
+// ce que le serveur y pose.
+import { after, before, describe, test } from 'node:test'
+import assert from 'node:assert/strict'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { connexionAnimateur, demarrer, ecrire, type Banc } from './banc'
+import { decrirePage } from '../src/core/pages'
+import { parseRoute } from '../../shared/adresses'
+
+let banc: Banc
+let admin: string
+
+before(async () => {
+  const dist = mkdtempSync(path.join(tmpdir(), 'quizz-dist-'))
+  writeFileSync(path.join(dist, 'index.html'), '<!doctype html><html><head><title>FiestApp</title></head><body></body></html>')
+  banc = await demarrer({ clientDist: dist })
+  admin = await connexionAnimateur(banc.url)
+  const cree = await ecrire(banc.url, '/api/admin/accounts', { login: 'nadia', name: 'Nadia', slug: 'chez-nadia' }, admin)
+  assert.equal(cree.status, 201)
+  const bruno = await ecrire(banc.url, '/api/admin/accounts', { login: 'bruno', name: 'Bruno', slug: 'chez-bruno' }, admin)
+  assert.equal(bruno.status, 201)
+})
+
+after(async () => {
+  await banc.close()
+})
+
+const lire = (chemin: string) => fetch(banc.url + chemin, { redirect: 'manual' })
+
+describe('les adresses inconnues', () => {
+  test('un espace inconnu répond 404, avec la page qui redemande le nom de la soirée', async () => {
+    const r = await lire('/personne-ici')
+    assert.equal(r.status, 404)
+    const html = await r.text()
+    assert.match(html, /<title>Soirée introuvable/)
+    // Rien des autres espaces : ni leur nom, ni leur titre.
+    assert.doesNotMatch(html, /nadia|bruno|banc/i)
+  })
+
+  test('une page inconnue d’un espace connu répond 404', async () => {
+    assert.equal((await lire('/banc/nimportequoi')).status, 404)
+  })
+
+  test('une soirée archivée inconnue répond 404', async () => {
+    assert.equal((await lire('/banc/soirees/nexiste-pas')).status, 404)
+    assert.equal((await lire('/banc/soirees/nexiste-pas/bilan')).status, 404)
+  })
+
+  test('un fichier absent répond 404, pas la page d’accueil', async () => {
+    const r = await lire('/icone-inconnue.png')
+    assert.equal(r.status, 404)
+    assert.doesNotMatch(await r.text(), /<html/)
+  })
+
+  test('robots.txt existe, et écarte les données', async () => {
+    const r = await lire('/robots.txt')
+    assert.equal(r.status, 200)
+    assert.match(r.headers.get('content-type') ?? '', /text\/plain/)
+    assert.match(await r.text(), /Disallow: \/s\//)
+  })
+
+  test('les pages connues répondent 200', async () => {
+    for (const chemin of ['/', '/profil', '/host', '/connexion', '/banc', '/banc/souvenir', '/banc/bilan', '/banc/soirees']) {
+      assert.equal((await lire(chemin)).status, 200, chemin)
+    }
+  })
+})
+
+describe('les aperçus de lien et l’indexation', () => {
+  test('l’entrée d’une soirée porte le titre de l’espace, sans aucun prénom d’invité', async () => {
+    const html = await (await lire('/chez-nadia')).text()
+    assert.match(html, /<meta property="og:title" content="La soirée de Nadia">/)
+    assert.match(html, /<title>La soirée de Nadia<\/title>/)
+    assert.match(html, /<meta property="og:image" content="http:\/\/localhost:\d+\/icone-512\.png">/)
+    assert.match(html, /og:description/)
+  })
+
+  test('le souvenir dit ce qu’il est', async () => {
+    const html = await (await lire('/banc/souvenir')).text()
+    assert.match(html, /og:title" content="La soirée d’Antoine · Souvenir"/)
+  })
+
+  test('un titre choisi par l’animateur est échappé', async () => {
+    const reglage = await ecrire(banc.url, '/api/space/settings', { title: 'Les "40" <ans> & Sam' }, admin, 'PUT')
+    assert.equal(reglage.status, 200)
+    const html = await (await lire('/banc')).text()
+    assert.match(html, /og:title" content="Les &quot;40&quot; &lt;ans&gt; &amp; Sam"/)
+    assert.doesNotMatch(html, /<ans>/)
+  })
+
+  test('seul l’accueil se laisse indexer', async () => {
+    const accueil = await lire('/')
+    assert.equal(accueil.headers.get('x-robots-tag'), null)
+    assert.doesNotMatch(await accueil.text(), /noindex/)
+    for (const chemin of ['/banc', '/banc/souvenir', '/host', '/personne-ici']) {
+      const r = await lire(chemin)
+      assert.match(r.headers.get('x-robots-tag') ?? '', /noindex/, chemin)
+      assert.match(await r.text(), /<meta name="robots" content="noindex/, chemin)
+    }
+  })
+})
+
+describe('les adresses tapées à la main', () => {
+  test('une majuscule mène à l’espace, sous son vrai nom', async () => {
+    const r = await lire('/Chez-Bruno')
+    assert.equal(r.status, 302)
+    assert.equal(r.headers.get('location'), '/chez-bruno')
+    const souvenir = await lire('/Chez-Bruno/souvenir')
+    assert.equal(souvenir.headers.get('location'), '/chez-bruno/souvenir')
+  })
+
+  test('« chez bruno » tapé comme on le dit mène à « chez-bruno »', async () => {
+    const r = await lire('/chez%20bruno')
+    assert.equal(r.status, 302)
+    assert.equal(r.headers.get('location'), '/chez-bruno')
+  })
+
+  test('« nadia » mène à « chez-nadia », et rien d’autre n’est deviné', async () => {
+    const r = await lire('/Nadia?x=1')
+    assert.equal(r.status, 302)
+    assert.equal(r.headers.get('location'), '/chez-nadia?x=1')
+    // Ni préfixe, ni ressemblance : « nad » ne mène nulle part.
+    assert.equal((await lire('/nad')).status, 404)
+    assert.equal((await lire('/chez-nad')).status, 404)
+  })
+
+  test('le client lit les mêmes adresses', () => {
+    assert.deepEqual(parseRoute('/Chez-Bruno'), { kind: 'join', slug: 'chez-bruno' })
+    assert.deepEqual(parseRoute('/Chez%20Bruno/souvenir'), { kind: 'public', slug: 'chez-bruno', page: 'souvenir', archiveId: null })
+    assert.deepEqual(parseRoute('/host'), { kind: 'account', page: 'host' })
+  })
+
+  test('la décision ne cherche jamais qu’un nom exact', () => {
+    const demandes: string[] = []
+    decrirePage('/sam', slug => {
+      demandes.push(slug)
+      return undefined
+    })
+    assert.deepEqual(demandes, ['sam', 'chez-sam'])
+  })
+})
+
+describe('les icônes', () => {
+  const publics = path.resolve(import.meta.dirname, '../../client/public')
+
+  test('favicon.ico et les trois PNG sont livrés avec le client', () => {
+    const ico = readFileSync(path.join(publics, 'favicon.ico'))
+    assert.deepEqual([...ico.subarray(0, 4)], [0, 0, 1, 0], 'un en-tête ICO')
+    for (const taille of [180, 192, 512]) {
+      const png = readFileSync(path.join(publics, `icone-${taille}.png`))
+      assert.equal(png.subarray(1, 4).toString(), 'PNG')
+      assert.equal(png.readUInt32BE(16), taille, `icone-${taille}.png fait ${taille} de large`)
+    }
+  })
+
+  test('le manifeste les annonce', () => {
+    const manifeste = JSON.parse(readFileSync(path.join(publics, 'manifest.webmanifest'), 'utf8'))
+    const tailles = manifeste.icons.map((i: { sizes: string }) => i.sizes)
+    assert.ok(tailles.includes('192x192') && tailles.includes('512x512'))
+  })
+})

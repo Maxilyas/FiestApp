@@ -428,6 +428,17 @@ export class ArchiveStore {
     return fiches
   }
 
+  /**
+   * La soirée existe-t-elle ? Sans relire sa fiche entière : c'est ce que
+   * demande chaque ouverture de sa page, pour répondre 404 à une adresse
+   * sans soirée.
+   */
+  async existe(spaceId: string, id: string): Promise<boolean> {
+    if (!ID.test(id)) return false
+    const res = await this.client.execute({ sql: 'SELECT 1 FROM soirees WHERE space_id = ? AND id = ?', args: [spaceId, id] })
+    return res.rows.length > 0
+  }
+
   async get(spaceId: string, id: string): Promise<{ summary: ArchiveSummary; archive: PartyArchive } | null> {
     if (!ID.test(id)) return null
     const res = await this.client.execute({
