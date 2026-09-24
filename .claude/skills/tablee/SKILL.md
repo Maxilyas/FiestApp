@@ -213,5 +213,16 @@ rater des questions aux invités.
   rythme. `coller` remplit d'un coup, comme un texte copié ailleurs.
 - Chromium seulement : ni Safari, ni Firefox. Le profil « iphone » n'en a
   que la taille et l'identité.
-- La salle (`dire`) est commune à toute la tablée : c'est une pièce, pas un
-  espace de l'application.
+- La salle (`dire`) est commune à toute la tablée — ou à tout un salon, s'il y
+  en a plusieurs : c'est une pièce, pas un espace de l'application.
+- **Le nombre d'agents et la réserve d'usage.** Une session ne mène que vingt
+  agents à la fois : les experts de trop vont dans des sessions cloud à part,
+  qui poussent leur rapport sur la branche. Et 35 agents en parallèle ont
+  épuisé en vingt-cinq minutes la réserve d'usage de cinq heures, coupant
+  tout le monde d'un coup (`retours/2026-09-24/synthese.md`) : échelonne les
+  vagues, garde un modèle rapide pour les invités, et reprends un agent coupé
+  par `SendMessage` (il garde sa mémoire de la soirée) — une session cloud, par
+  une routine ponctuelle attachée à elle.
+- **`voir` n'est pas ce qu'entend un lecteur d'écran** : il liste des icônes
+  `aria-hidden` et lit un `<th>` comme une case. Pour juger l'accessibilité,
+  `lecteur` lit l'arbre tel que Chrome l'expose.
