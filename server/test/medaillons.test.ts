@@ -16,8 +16,20 @@ const url = (fichier: string) => new URL(`../../client/src/${fichier}`, import.m
  * Une instance neuve du module des dessins : chaque test simule sa propre
  * panne, et l'état du module vaut pour toute la page — comme au navigateur.
  */
-async function medaillons(instance: string) {
-  return (await import(`${url('components/medaillons.ts')}?${instance}`)) as typeof import('../../client/src/components/medaillons')
+async function medaillons(instance = ''): Promise<Medaillons> {
+  return await import(`${url('components/medaillons.ts')}${instance && `?${instance}`}`)
+}
+
+/**
+ * Ce que le test lit du module — écrit à la main : le typecheck du serveur
+ * ne compile pas le JSX du client, qu'un `typeof import` lui ferait suivre.
+ */
+interface Medaillons {
+  chargeur: { importer: () => Promise<unknown> }
+  chargerDessins(): Promise<void>
+  chargerDessinsAuPlus(ms?: number): Promise<void>
+  complets(): boolean
+  ATTENTE_MAX_DESSINS: number
 }
 
 /** Un composant du client, rendu en HTML — la même recette que `eclat.test.ts`. */
@@ -112,7 +124,7 @@ test('une requête de dessins muette ne retient personne plus que la borne', asy
 
 test('à la fin de soirée, un médaillon qui ne viendra plus mène au profil', async () => {
   // L'instance que lisent `Avatar` et `FinDeSoiree` : sa panne est celle de la page.
-  const m = (await import(url('components/medaillons.ts'))) as typeof import('../../client/src/components/medaillons')
+  const m = await medaillons()
   const fin = {
     soiree: { id: '2026-09-24-k7x2q', titre: 'La soirée de Nadia', slug: 'chez-nadia' },
     nom: 'Jeanne',
