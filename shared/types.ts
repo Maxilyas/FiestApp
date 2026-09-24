@@ -182,6 +182,13 @@ export interface Recap {
    * le titre, qui dit qu'ils ont gagné ensemble. Absente des pages d'avant.
    */
   quizWinners: { title: string; name: string; avatar: string; points: number; sessionId?: string }[]
+  /**
+   * Les prix remis à l'écran, prix libres compris, du premier au dernier.
+   * Le palmarès (`stats.awards`) dit ce que l'application a calculé ; ceci
+   * dit ce que l'animateur a remis — « Le coup de cœur de Sam » n'existe
+   * que là.
+   */
+  bonuses: TeamBonus[]
   /** Présent quand la page relit une soirée archivée plutôt que celle en cours. */
   archive?: ArchiveSummary
   /** Présent quand la soirée en cours n'a rien joué : la dernière soirée close, à montrer à sa place. */

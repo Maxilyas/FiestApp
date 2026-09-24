@@ -1,5 +1,7 @@
 import { Icon, type IconName } from './Icon'
 import { enumerer } from '../../../shared/classement'
+import { VerdictDesEquipes } from './TeamBoard'
+import { PrixRemis } from './PrixRemis'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
 import type { ReviewQuestion } from '../../../shared/review'
 import { QuestionCard, playerName, type BilanCtx } from './BilanQuestion'
@@ -55,6 +57,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
       {review.teams.length > 0 && (
         <section className="card">
           <h2>Les équipes, quiz par quiz</h2>
+          <VerdictDesEquipes teams={review.teams} avecPrix={review.bonuses.length > 0} />
           <div className="stats-scroll">
             <table className="stats-table">
               <thead>
@@ -96,9 +99,18 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
             </table>
           </div>
           <p className="muted small">
-            Les points de chaque quiz divisés par les membres présents, ★ pour la meilleure équipe du
-            quiz. Le barème : les points de classement du quiz, prix compris.
+            Les points de chaque quiz divisés par les membres présents, ★ pour la meilleure moyenne
+            du quiz. Le barème : les points de classement du quiz, prix compris — c'est lui qui
+            désigne l'équipe gagnante.
           </p>
+        </section>
+      )}
+
+      {review.bonuses.length > 0 && (
+        <section className="card">
+          <h2>Remis ce soir-là</h2>
+          <p className="muted small">Les prix remis à l'écran, dans l'ordre, et les points qu'ils ont rapportés.</p>
+          <PrixRemis bonuses={review.bonuses} teams={review.teams} />
         </section>
       )}
 
@@ -130,7 +142,10 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                 {gagnants.length > 0 && equipes.length > 0 && ' · '}
                 {equipes.length > 0 && (
                   <>
-                    {equipes.length > 1 ? 'meilleures équipes ex æquo' : 'meilleure équipe'} :{' '}
+                    {/* La moyenne du quiz seul, sans les prix : « meilleure équipe »
+                        couronnait ici celle que l'écran de victoire ne
+                        couronnait pas. */}
+                    {equipes.length > 1 ? 'meilleures moyennes ex æquo' : 'meilleure moyenne'} :{' '}
                     {enumerer(equipes.map(e => `${e.team.emoji} ${e.team.name}`))} ({equipes[0].average} pts de moyenne)
                   </>
                 )}

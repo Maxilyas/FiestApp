@@ -651,11 +651,11 @@ export function HostApp() {
                       Les équipes au quiz
                     </h2>
                     <FinalPodium rows={teamPodium} />
-                    <TeamBoard teams={teams} showGamePoints />
+                    <TeamBoard teams={teams} showFinalPoints />
                     <p className="muted center">
-                      Le chiffre cerclé : les points de classement du quiz, auxquels les prix
-                      s'ajoutent pour désigner l'équipe gagnante. En champagne, la moyenne par
-                      membre — c'est elle qui classe les équipes.
+                      En champagne, la moyenne par membre : c'est elle qui fait le podium du
+                      quiz et distribue le barème. Le chiffre cerclé : le barème, prix compris —
+                      il range le tableau et désigne l'équipe gagnante.
                     </p>
                   </>
                 ) : (
@@ -1042,10 +1042,10 @@ export function HostApp() {
               {teams.length > 0 && (
                 <section className="card">
                   <h2>Les équipes</h2>
-                  <TeamBoard teams={teams} showGamePoints />
+                  <TeamBoard teams={teams} showFinalPoints />
                   <p className="muted small">
-                    Classées à la moyenne par membre, en champagne. Le chiffre cerclé : leurs points
-                    de classement, auxquels les prix s'ajoutent pour désigner l'équipe gagnante.
+                    Le chiffre cerclé : le barème, prix compris — il range les équipes et désigne
+                    la gagnante. En champagne, la moyenne par membre, qui distribue le barème.
                   </p>
                 </section>
               )}

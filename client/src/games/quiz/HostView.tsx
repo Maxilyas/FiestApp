@@ -379,7 +379,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
             <Icon name="users" />
             Les équipes après ce quiz
           </h3>
-          <TeamBoard teams={teams} showGamePoints />
+          <TeamBoard teams={teams} showFinalPoints />
         </div>
       )}
       <ConsoleActions>

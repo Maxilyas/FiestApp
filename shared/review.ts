@@ -8,7 +8,7 @@
 import type { ArchiveSummary, DerniereSoiree } from './archive'
 import type { QuestionKind } from './library'
 import type { PublicSpace } from './space'
-import type { PlayerStat, PublicTeam } from './types'
+import type { PlayerStat, PublicTeam, TeamBonus } from './types'
 
 /** Ce qu'une équipe a fait sur une question. */
 export interface TeamOnQuestion {
@@ -207,6 +207,8 @@ export interface Review {
   teams: ReviewTeam[]
   quizzes: ReviewQuiz[]
   records: ReviewRecords
+  /** Les prix remis à l'écran, du premier au dernier — comme au souvenir. */
+  bonuses: TeamBonus[]
   /** Questions dont l'intitulé n'a pas été retrouvé. */
   unresolved: number
   /** Présent quand la page relit une soirée archivée plutôt que celle en cours. */
