@@ -5,8 +5,8 @@ import { Icon } from './Icon'
 
 /**
  * Le fil des pages publiques d'un espace, sous l'en-tête de chacune :
- * souvenir, bilan, soirées. Une page qui relit une archive garde son archive
- * sous le pied ; « Soirées » ramène toujours à la liste. L'animateur de
+ * jouer, souvenir, bilan, soirées. Une page qui relit une archive garde son
+ * archive sous le pied ; « Soirées » ramène toujours à la liste. L'animateur de
  * l'espace, connecté, y retrouve aussi le chemin de son compte.
  *
  * Des étiquettes, pas des pilules : les pilules, plus bas sur le bilan, sont
@@ -41,6 +41,10 @@ export function SpaceNav({ current }: { current: SpaceTab }) {
   return (
     <nav className="space-nav" aria-label="Pages de la soirée">
       <div className="space-nav-tabs">
+        {/* De la page publique au jeu : rien n'y menait, et « La soirée n'a
+            pas encore commencé » était une impasse. Toujours la soirée en
+            cours — une archive ne se rejoue pas. */}
+        <a href={spacePath(slug)}>Jouer</a>
         {TABS.map(({ tab, label }) => (
           <a
             key={tab}

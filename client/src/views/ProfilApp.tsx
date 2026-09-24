@@ -20,6 +20,8 @@ import { FormulaireSoiree } from '../components/Rejoindre'
 import { Categories, Courbes, FicheCarriere, GalerieDivins, GalerieLegendaires, HautsFaits } from '../components/Carriere'
 import { formatNumber, place, reponsesParType } from '../format'
 import { spacePath } from '../routes'
+import { derniereSoireeGardee } from '../state'
+import { Lendemain } from '../components/Lendemain'
 import type { PublicSpace } from '../../../shared/space'
 
 /**
@@ -44,6 +46,7 @@ export function ProfilApp() {
   const [busy, setBusy] = useState(false)
   /** L'échappée : « quelle soirée ? », à un geste d'ici. */
   const [rejoindre, setRejoindre] = useState(false)
+  const [gardee] = useState(derniereSoireeGardee)
 
   const relire = () =>
     api.joueur.moi().then(r => {
@@ -93,6 +96,12 @@ export function ProfilApp() {
     }
   }
 
+  // Le lendemain, l'accueil ne connaissait aucune soirée jouée : il fallait
+  // taper `/<espace>/bilan`. La dernière gardée sur ce téléphone, tous
+  // espaces confondus — rien ne quitte le téléphone —, en une ligne sous
+  // « Rejoindre une soirée », qui reste visible sans défiler.
+  const lendemain = gardee && <Lendemain gardee={gardee} titre />
+
   if (rejoindre) return <FormulaireSoiree onCancel={() => setRejoindre(false)} />
 
   if (chargement) {
@@ -114,9 +123,12 @@ export function ProfilApp() {
       <ProfilForm
         onDone={() => relire()}
         echappee={
-          <button type="button" className="btn btn-accent btn-big btn-block" onClick={() => setRejoindre(true)}>
-            Rejoindre une soirée
-          </button>
+          <>
+            <button type="button" className="btn btn-accent btn-big btn-block" onClick={() => setRejoindre(true)}>
+              Rejoindre une soirée
+            </button>
+            {lendemain}
+          </>
         }
       />
     )
@@ -180,6 +192,7 @@ export function ProfilApp() {
           <button className="btn btn-accent btn-big btn-block" onClick={() => setRejoindre(true)}>
             Rejoindre une soirée
           </button>
+          {lendemain}
         </div>
       </div>
 

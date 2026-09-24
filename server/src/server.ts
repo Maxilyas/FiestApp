@@ -480,9 +480,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     page: T,
     provisoire: () => void,
   ): Promise<T & { derniere?: DerniereSoiree }> => {
-    const rt = registry.get(account.id)
-    if (rt.aJoue()) return page
-    const derniere = await archives.derniere(account.id, rt.soireeId()).catch((e: unknown) => {
+    const derniere = await registry.get(account.id).derniereClose().catch((e: unknown) => {
       console.error(`[soirees] la dernière soirée de « ${account.slug} » ne se lit pas :`, e)
       provisoire()
       return null

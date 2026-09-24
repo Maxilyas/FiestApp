@@ -204,6 +204,13 @@ export interface Recap {
   bonuses: TeamBonus[]
   /** Présent quand la page relit une soirée archivée plutôt que celle en cours. */
   archive?: ArchiveSummary
+  /**
+   * L'identifiant de la soirée en cours dans l'historique, dès qu'elle a joué :
+   * « Copier » et « Partager » donnaient `/<espace>/souvenir`, l'adresse qui
+   * changera de soirée à la suivante. L'archive existe dès le premier quiz
+   * rangé. Absent d'un serveur d'avant.
+   */
+  soireeId?: string
   /** Présent quand la soirée en cours n'a rien joué : la dernière soirée close, à montrer à sa place. */
   derniere?: DerniereSoiree
   /** L'espace dont la page parle — ses titres, sa date. */
