@@ -43,7 +43,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 |---|---|
 | `core/engine.ts` | route actions/commandes/timers vers le module de jeu, persiste, rediffuse les vues filtrées |
 | `games/quiz.ts` | **toutes** les règles : phases, chronomètres, barème (le temps de lecture offert au QCM, l'estimation payée à la distance), vues |
-| `core/space.ts` | la soirée d'un espace : ses registres, ses salons socket, ses diffusions, son nom figé, ses crédits |
+| `core/space.ts` | la soirée d'un espace : ses registres, ses salons socket, ses diffusions, son nom figé, ses crédits — et la scène des écrans d'animateur (`poserScene` : podium, prix, victoire, clôture), que la télé suit quand on anime à la télécommande |
 | `core/party.ts` | le registre des invités (identité par jeton, rattachement au profil, marques d'homonymie, connexions par socket) |
 | `core/scores.ts` | journal des gains, en ajout seul |
 | `core/answers.ts` | une ligne par invité et par question posée, y compris sans réponse |
@@ -68,6 +68,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `auth/profiles.ts` | profils de joueurs (autre table, autre cookie) |
 | `auth/profileRoutes.ts` | la porte d'entrée : se connecter à son profil ouvre aussi la console de l'espace rattaché |
 | `auth/http.ts` | cookies, adresse du client, et `loginBudgetOf(app)` : la réserve d'essais commune à toutes les portes |
+| `auth/appairage.ts` | brancher la télé : le code court qu'elle affiche, validé depuis une console ouverte, et la session qu'elle en reçoit |
 | `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins |
 | `sockets.ts` | tout le protocole temps réel — chaque message passe par `ecouter()` |
 | `shared/events.ts` | le contrat socket, typé des deux côtés |
@@ -96,7 +97,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
 3. **Tout est cloisonné par `space_id`.** Un identifiant qui n'est pas du sien
    vaut « introuvable », et le voisin n'en sait rien.
 4. **L'instantané est dédoublonné et regroupé** (`space.ts`). N'y mets jamais
-   un champ qui change à chaque tick : il partirait à toute la salle.
+   un champ qui change à chaque tick : il partirait à toute la salle. Ce qui
+   ne part qu'aux écrans d'animateur (le wifi, la scène, la télécommande)
+   passe par `enPlusPourLesEcrans`, comparé à part : la salle ne reçoit rien
+   quand seule la scène change.
 5. **Les chronomètres sont persistés** et réarmés au redémarrage.
 6. **Une échéance se lit à `serverNow()`**, jamais à `Date.now()` : l'horloge
    d'un téléphone dérive, et on a déjà perdu des réponses pour ça.
@@ -137,7 +141,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
     Toute écriture permanente sous ce nom passe d'abord par `recopierSoiree`.
     Recalculé, il comptait l'expérience deux fois et dédoublait l'archive.
 12. **Un geste dit ce qu'il visait.** Les commandes `next`, `cancel`, `replay`
-    et les réponses portent la phase, la question et le tour : une commande
+    et les réponses portent la phase, la question et le tour (`host:scene`,
+    l'écran qu'il quittait) : une commande
     périmée est ignorée en silence, une réponse périmée reçoit `too-late`, et
     un champ absent (une page d'avant) garde l'ancien comportement. Sans ça,
     un « Révéler » qui croisait la révélation automatique sautait la
@@ -168,7 +173,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
     de passe change, que son code de secours sert ou qu'il perd l'espace —
     détaché, ou remplacé par un autre profil —, sauf la console d'où l'on
     fait ce geste. Celles du mot de passe du compte ne bougent pas : c'est
-    l'écran commun de la soirée. Pour poser
+    l'écran commun de la soirée. Une télé branchée par un code d'appairage
+    hérite de la porte de la console qui l'a validé (`auth/appairage.ts`) :
+    elle tombe avec ce profil, ou tient comme l'écran commun. Pour poser
     le lien, il faut prouver les deux identités ; après, une seule porte
     suffit. Ne fusionne pas les deux tables : l'identifiant d'un compte est
     la clé de partition de dix tables et de toutes les archives.
