@@ -10,6 +10,9 @@ import { slugTape } from '../../../shared/adresses'
  * plutôt que de laisser quelqu'un devant une page vide.
  */
 export function LandingApp() {
-  const tape = slugTape(window.location.pathname.split('/').filter(Boolean)[0] ?? '')
+  // Seule une adresse d'un segment est un nom de soirée mal tapé : sous
+  // « /banc/nimportequoi », « banc » existe, c'est la page qui manque.
+  const seg = window.location.pathname.split('/').filter(Boolean)
+  const tape = seg.length === 1 ? slugTape(seg[0]) : ''
   return <FormulaireSoiree perdu={tape} onCancel={() => window.location.assign('/')} />
 }
