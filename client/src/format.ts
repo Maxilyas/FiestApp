@@ -1,8 +1,7 @@
 // Un rang s'écrit devant « place » (« 1ʳᵉ place ») : « 1ᵉʳ sur 7 » mettait au
 // masculin la victoire de n'importe qui. Voir `shared/typographie.ts`.
-export { deNom, espacesFines, place, rang } from '../../shared/typographie'
-
-export const formatNumber = (n: number) => n.toLocaleString('fr-FR')
+export { deNom, espacesFines, formatNumber, place, rang } from '../../shared/typographie'
+import { formatNumber } from '../../shared/typographie'
 
 /** Une part en pour cent, « — » tant qu'il n'y a rien à diviser. */
 export const pourcent = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)} %`)

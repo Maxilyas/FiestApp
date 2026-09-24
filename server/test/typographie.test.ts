@@ -6,7 +6,7 @@
 // sont que des textes — mais toute la famille les lit.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { de, deNom, espacesFines, place, rang } from '../../shared/typographie'
+import { de, deNom, espacesFines, formatNumber, place, rang } from '../../shared/typographie'
 import { defaultSettings, normalizeSettings, titreChoisi, titreDeCloture } from '../../shared/space'
 
 const FINE = ' '
@@ -111,4 +111,17 @@ test('le trait d’union de « a-t-il » ne se coupe plus en fin de ligne', () =
   assert.equal(espacesFines(une), une, 'idempotente')
   // Le gluon ne change pas ce qu'on lit : sans lui, le texte est celui tapé.
   assert.equal(une.replaceAll(GLUON, '').replaceAll(FINE, ' '), 'Qui a-t-il vu ?')
+})
+
+test('une année s’écrit « 1889 » : les milliers ne se groupent qu’à partir de cinq chiffres', () => {
+  // « 1 889 » en grand au mur, « 1890 » dans la liste des estimations : le
+  // même nombre, deux graphies.
+  const FINE_GROUPE = '\u202f'
+  assert.equal(formatNumber(1889), '1889')
+  assert.equal(formatNumber(9999), '9999')
+  assert.equal(formatNumber(-1500), '-1500')
+  assert.equal(formatNumber(35000), `35${FINE_GROUPE}000`)
+  assert.equal(formatNumber(1234567), `1${FINE_GROUPE}234${FINE_GROUPE}567`)
+  assert.equal(formatNumber(0.8), '0,8')
+  assert.equal(formatNumber(12345.5), `12${FINE_GROUPE}345,5`)
 })

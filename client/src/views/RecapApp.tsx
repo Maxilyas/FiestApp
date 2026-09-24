@@ -1,3 +1,4 @@
+import { formatNumber } from '../format'
 import { useEffect, useRef, useState } from 'react'
 import type { Recap } from '../../../shared/types'
 import { FinalPodium, Standings } from '../components/Podium'
@@ -125,7 +126,7 @@ export function RecapApp() {
         <p className="join-sub">Le souvenir de la soirée</p>
         <p className="muted">
           {joueurs} joueur{joueurs > 1 ? 's' : ''} · {recap.quizCount} quiz ·{' '}
-          {recap.totalPoints.toLocaleString('fr-FR')} points distribués
+          {formatNumber(recap.totalPoints)} points distribués
         </p>
         <hr className="hairline" />
       </header>

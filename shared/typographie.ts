@@ -35,6 +35,14 @@ export function de(nom: string): string {
 export const deNom = (nom: string) => `${de(nom)}${nom.trim()}`
 
 /**
+ * Un nombre à la française : « 35 000 », « 0,8 », mais « 1889 ». L'usage ne
+ * groupe les milliers qu'à partir de cinq chiffres, et une année est l'exemple
+ * même de l'estimation : « 1 889 » en grand au mur, et « 1890 » juste à côté,
+ * dans la liste des estimations, se lisaient comme deux nombres.
+ */
+export const formatNumber = (n: number) => n.toLocaleString('fr-FR', { useGrouping: Math.abs(n) >= 10000 })
+
+/**
  * « 1ʳᵉ », « 2ᵉ »… Au féminin, parce qu'il se lit devant « place » : on ne
  * sait pas qui tient le téléphone, et « 1ᵉʳ sur 7 » écrivait au masculin la
  * victoire de Camille. Les équipes sont féminines, elles aussi.
