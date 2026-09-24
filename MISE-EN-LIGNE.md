@@ -366,7 +366,7 @@ Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours
 
 ### Ce que dit `/healthz`
 
-`https://TON-ADRESSE.onrender.com/healthz` répond toujours 200 (un échec ferait redémarrer l'instance, disque effacé), sans un nom ni une adresse. Sur la dernière minute, tous espaces confondus :
+`https://TON-ADRESSE.onrender.com/healthz` répond toujours 200 (un échec ferait redémarrer l'instance, disque effacé), sans un nom ni une adresse, tous espaces confondus. « Par minute » et « sur la dernière minute » veulent dire ici : la minute en cours et la précédente, donc une à deux minutes selon l'instant où l'on lit.
 
 | Champ | Ce qu'il dit | À surveiller |
 |---|---|---|
@@ -374,7 +374,7 @@ Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours
 | `maxPlayers` | le plafond d'invités en vigueur (`MAX_PLAYERS`) | 150 sur l'offre gratuite |
 | `charge.cpuPct` | le processeur du processus, en pour cent d'un cœur | l'offre gratuite n'en a qu'un dixième : au-delà de 10, le serveur est à son plafond |
 | `charge.boucleOccupeePct`, `retardBoucleP99Ms`, `retardBoucleMaxMs` | la part du temps où le serveur travaille, et ce qu'attend un message d'invité | un retard de plusieurs centaines de ms se sent au téléphone |
-| `charge.retardChronosMaxMs` | de combien une révélation a sonné en retard | au-delà d'une seconde, le journal le dit aussi (`[partie] chronomètre … en retard`) |
+| `charge.retardChronosMaxMs`, `charge.chronosMesures` | de combien une révélation a sonné en retard, et combien de chronomètres ont sonné (un retard de 0 sans aucun chronomètre ne dit rien) | au-delà d'une seconde, le journal le dit aussi (`[partie] chronomètre … en retard`) |
 | `pages` | le souvenir et le bilan : servis, calculés, leur coût, ce qui est gardé en mémoire | une page de plus de 500 ms se dit au journal (`[pages]`) |
 | `inscriptions.clesDistinctes` | les adresses distinctes vues par la réserve d'inscriptions | voir plus bas |
 | `reponses.tropTardParMin` | des réponses refusées pour « trop tard » | en hausse avec la charge : le serveur prend du retard |

@@ -368,52 +368,77 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // quels pour qui les lit déjà ; `espacesActifs` et `quizEnCours` disent ce
   // qui vit vraiment — « puis-je déployer ? ».
   app.get('/healthz', (_req, res) => {
-    const runtimes = registry.all()
-    let joueurs = 0
-    let actifs = 0
-    let enCours = 0
-    let podiums = 0
-    for (const rt of runtimes) {
-      const connectes = rt.party.connectedPlayerIds().length
-      const phase = rt.engine.summary() ? rt.engine.phase() : null
-      joueurs += connectes
-      if (connectes > 0 || phase) actifs++
-      if (phase === 'finished') podiums++
-      else if (phase) enCours++
-    }
-    const memoire = process.memoryUsage()
-    const miroir = pouls.miroir.lire()
-    const calculs = pouls.pagesCalculees.lire()
-    res.json({
+    // Ce qui répond toujours ; chaque mesure, ensuite, sous son propre
+    // filet. Sous `ulimit -n 64`, `process.memoryUsage()` lève EMFILE : une
+    // mesure qui tombe ne doit pas faire tomber la réponse, ni l'instance.
+    const corps: Record<string, unknown> = {
       ok: true,
       env: opts.appEnv ?? 'production',
       uptime: Math.round(process.uptime()),
-      spaces: runtimes.length,
-      players: joueurs,
-      quizzes: runtimes.filter(rt => rt.engine.summary()).length,
-      espacesActifs: actifs,
-      quizEnCours: enCours,
-      podiumsAffiches: podiums,
-      // Le plafond d'invités de chaque soirée, que même le réglage d'un espace
-      // ne dépasse pas (`MAX_PLAYERS`) : le seul garde-fou contre la salle de
-      // 300 qui fait céder le dixième de cœur. Il borne chaque espace, pas
-      // leur somme.
-      maxPlayers: maxPlayersCeiling,
-      rssMo: Math.round(memoire.rss / 1024 / 1024),
-      memoire: { tasMo: Math.round(memoire.heapUsed / 1024 / 1024), connexions: io.engine.clientsCount },
-      charge: charge.lire(),
-      pages: {
-        calculs: pouls.calculsDePage,
-        parMin: pouls.pagesServies.lire().n,
-        calculsParMin: calculs.n,
-        p95Ms: calculs.p95,
-        maxMs: calculs.max,
-        ...pages.etat(),
-      },
-      inscriptions: pouls.inscriptions(),
-      reponses: { tropTardParMin: pouls.tropTard.lire().n },
-      miroir: { ...backup.sante(), latenceP95Ms: miroir.p95, latenceMaxMs: miroir.max, envoisParMin: miroir.n },
+    }
+    const mesurer = (nom: string, mesure: () => Record<string, unknown>) => {
+      try {
+        Object.assign(corps, mesure())
+      } catch (e) {
+        console.error(`[healthz] la mesure « ${nom} » a échoué :`, e)
+      }
+    }
+    mesurer('espaces', () => {
+      const runtimes = registry.all()
+      let joueurs = 0
+      let actifs = 0
+      let enCours = 0
+      let podiums = 0
+      for (const rt of runtimes) {
+        const connectes = rt.party.connectedPlayerIds().length
+        const phase = rt.engine.summary() ? rt.engine.phase() : null
+        joueurs += connectes
+        if (connectes > 0 || phase) actifs++
+        if (phase === 'finished') podiums++
+        else if (phase) enCours++
+      }
+      return {
+        spaces: runtimes.length,
+        players: joueurs,
+        quizzes: runtimes.filter(rt => rt.engine.summary()).length,
+        espacesActifs: actifs,
+        quizEnCours: enCours,
+        podiumsAffiches: podiums,
+      }
     })
+    // Le plafond d'invités de chaque soirée, que même le réglage d'un espace
+    // ne dépasse pas (`MAX_PLAYERS`) : le seul garde-fou contre la salle de
+    // 300 qui fait céder le dixième de cœur. Il borne chaque espace, pas
+    // leur somme.
+    corps.maxPlayers = maxPlayersCeiling
+    mesurer('mémoire', () => {
+      const memoire = process.memoryUsage()
+      return {
+        rssMo: Math.round(memoire.rss / 1024 / 1024),
+        memoire: { tasMo: Math.round(memoire.heapUsed / 1024 / 1024), connexions: io.engine.clientsCount },
+      }
+    })
+    mesurer('charge', () => ({ charge: charge.lire() }))
+    mesurer('pages', () => {
+      const calculs = pouls.pagesCalculees.lire()
+      return {
+        pages: {
+          calculs: pouls.calculsDePage,
+          parMin: pouls.pagesServies.lire().n,
+          calculsParMin: calculs.n,
+          p95Ms: calculs.p95,
+          maxMs: calculs.max,
+          ...pages.etat(),
+        },
+      }
+    })
+    mesurer('inscriptions', () => ({ inscriptions: pouls.inscriptions() }))
+    mesurer('réponses', () => ({ reponses: { tropTardParMin: pouls.tropTard.lire().n } }))
+    mesurer('miroir', () => {
+      const miroir = pouls.miroir.lire()
+      return { miroir: { ...backup.sante(), latenceP95Ms: miroir.p95, latenceMaxMs: miroir.max, envoisParMin: miroir.n } }
+    })
+    res.json(corps)
   })
 
   // ── Les pages publiques d'un espace : souvenir, bilan, historique ──
@@ -610,8 +635,6 @@ export async function createQuizServer(opts: QuizServerOptions) {
     // ainsi dire jamais : un mois de cache, et cinquante téléphones ne les
     // redemandent pas à chaque ouverture.
     app.use('/fonts', express.static(path.join(clientDist, 'fonts'), { maxAge: '30d', fallthrough: false }))
-    app.use(express.static(clientDist, { index: false, maxAge: '1h' }))
-
     // La page d'accueil est lue une fois et gardée en mémoire — elle ne change
     // pas d'un déploiement à l'autre. Hors production, on y glisse le nom de
     // l'environnement : c'est le seul endroit qui atteint TOUTES les pages,
@@ -626,11 +649,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const meta = `<meta name="app-env" content="${opts.appEnv.replace(/[^\w.-]/g, '')}">`
       indexHtml = indexHtml.replace('</head>', `  ${meta}\n  </head>`)
     }
-    app.get('*', (_req, res) => {
+    const accueil = (_req: Request, res: Response) => {
       res.set('Cache-Control', 'no-cache')
       if (!indexHtml) return res.status(404).type('text').send('Client non compilé (npm run build)')
       res.type('html').send(indexHtml)
-    })
+    }
+    // `/index.html` demandé tel quel partait du disque, sans le bandeau de la
+    // préproduction : il passe par la même page que toutes les autres.
+    app.get('/index.html', accueil)
+    app.use(express.static(clientDist, { index: false, maxAge: '1h' }))
+    app.get('*', accueil)
   }
 
   // En tout dernier : ce qu'aucune route n'a su lire répond en JSON, sans pile.

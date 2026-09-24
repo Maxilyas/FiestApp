@@ -592,8 +592,10 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       return rt
         .closeParty(title)
         .then(archived => {
+          // Remises à zéro même quand rien n'a été joué : sinon les adresses
+          // d'une soirée vierge s'ajoutaient à celles de la suivante.
+          const adresses = pouls.adressesVues(rt.spaceId)
           if (soiree) {
-            const adresses = pouls.adressesVues(rt.spaceId)
             console.log(
               `[soirée] close en ${Date.now() - debut} ms : ${soiree.players} invités, ${soiree.quizzes} quiz, ` +
                 `${soiree.questions} questions` +

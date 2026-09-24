@@ -9,7 +9,11 @@ import { monitorEventLoopDelay, performance, type IntervalHistogram } from 'node
 // Trois règles, parce que la route est publique et que l'hébergeur la sonde :
 // tout est agrégé, sans aucun nom ni adresse ; tout se lit en temps constant,
 // sans parcourir de journal ; et rien ici ne peut faire échouer la réponse —
-// un `/healthz` en échec, et Render redémarre l'instance, disque effacé.
+// chaque mesure y passe sous son propre filet (`server.ts`) : un `/healthz`
+// en échec, et Render redémarre l'instance, disque effacé.
+//
+// « Par minute » veut dire ici : sur la minute en cours et la précédente,
+// donc sur une à deux minutes selon l'instant de la lecture.
 
 /** Au-delà, un échantillon de minute ne grandit plus : il se renouvelle au hasard. */
 const ECHANTILLON = 200
@@ -88,25 +92,37 @@ const ADRESSES_PAR_ESPACE = 2_000
  * Les compteurs que les modules nourrissent : un seul par processus, comme
  * le processeur qu'ils décrivent.
  */
-class Pouls {
+export class Pouls {
   /** Le temps de calcul d'une page publique — souvenir ou bilan. */
-  readonly pagesCalculees = new Fenetre()
+  readonly pagesCalculees: Fenetre
   /** Les pages publiques servies, calculées ou reprises. */
-  readonly pagesServies = new Fenetre()
+  readonly pagesServies: Fenetre
   /** Combien de ms un chronomètre de partie a sonné après son échéance. */
-  readonly chronos = new Fenetre()
+  readonly chronos: Fenetre
   /** La durée d'un envoi au miroir, dans la base distante. */
-  readonly miroir = new Fenetre()
+  readonly miroir: Fenetre
   /** Les réponses d'invités refusées pour « trop tard ». */
-  readonly tropTard = new Fenetre()
+  readonly tropTard: Fenetre
   /** Les inscriptions refusées par la réserve. */
-  readonly refus = new Fenetre()
+  readonly refus: Fenetre
+
+  constructor(private readonly now: () => number = Date.now) {
+    this.pagesCalculees = new Fenetre(now)
+    this.pagesServies = new Fenetre(now)
+    this.chronos = new Fenetre(now)
+    this.miroir = new Fenetre(now)
+    this.tropTard = new Fenetre(now)
+    this.refus = new Fenetre(now)
+    this.adressesDebut = now()
+  }
 
   /** Le total des calculs de page depuis le démarrage : les tests le lisent. */
   calculsDePage = 0
 
+  /** Les adresses de la minute en cours, et celles de la précédente : comme une `Fenetre`. */
   private adressesMinute = new Set<string>()
-  private adressesDebut = Date.now()
+  private adressesAvant = new Set<string>()
+  private adressesDebut: number
   private refusesMinute = new Set<string>()
   private adressesParEspace = new Map<string, Set<string>>()
 
@@ -119,11 +135,7 @@ class Pouls {
    * toute la salle. D'où le compte des adresses distinctes.
    */
   reserve(spaceId: string, adresse: string, accepte: boolean, sauts: number): boolean {
-    if (Date.now() - this.adressesDebut >= 60_000) {
-      this.adressesMinute.clear()
-      this.refusesMinute.clear()
-      this.adressesDebut = Date.now()
-    }
+    this.tournerAdresses()
     const cle = empreinteDAdresse(adresse)
     if (this.adressesMinute.size < ADRESSES_PAR_ESPACE) this.adressesMinute.add(cle)
     let vues = this.adressesParEspace.get(spaceId)
@@ -148,8 +160,24 @@ class Pouls {
     return n
   }
 
+  /**
+   * Tourne aussi à la lecture : ne tournant qu'à l'inscription, la fenêtre
+   * gardait les 150 adresses de l'arrivée trois heures plus tard.
+   */
+  private tournerAdresses() {
+    const t = this.now()
+    if (t - this.adressesDebut < 60_000) return
+    this.adressesAvant = t - this.adressesDebut < 120_000 ? this.adressesMinute : new Set()
+    this.adressesMinute = new Set()
+    this.refusesMinute.clear()
+    this.adressesDebut = t - ((t - this.adressesDebut) % 60_000)
+  }
+
   inscriptions() {
-    return { refusParMin: this.refus.lire().n, clesDistinctes: this.adressesMinute.size }
+    this.tournerAdresses()
+    let distinctes = this.adressesAvant.size
+    for (const cle of this.adressesMinute) if (!this.adressesAvant.has(cle)) distinctes++
+    return { refusParMin: this.refus.lire().n, clesDistinctes: distinctes }
   }
 }
 
@@ -207,6 +235,7 @@ export class Charge {
   }
 
   lire() {
+    const chronos = pouls.chronos.lire()
     const r = this.releves
     const moyenne = (f: (x: (typeof r)[number]) => number) =>
       r.length ? Math.round(r.reduce((s, x) => s + f(x), 0) / r.length) : null
@@ -216,7 +245,10 @@ export class Charge {
       boucleOccupeePct: moyenne(x => x.occupePct),
       retardBoucleP99Ms: pire(x => x.p99Ms),
       retardBoucleMaxMs: pire(x => x.maxMs),
-      retardChronosMaxMs: pouls.chronos.lire().max,
+      retardChronosMaxMs: chronos.max,
+      // Combien de chronomètres ont sonné : un retard de 0 ne veut rien dire
+      // si aucun n'a été mesuré.
+      chronosMesures: chronos.n,
     }
   }
 
