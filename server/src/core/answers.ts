@@ -63,6 +63,12 @@ export class AnswerLog {
   private lignes: LigneDuJournal[]
   /** Avance à chaque écriture ou effacement : la mémoire de l'instantané s'y fie (`SpaceRuntime`). */
   private versionVue = 0
+  /**
+   * Monte à chaque écriture du journal des réponses : les pages publiques
+   * (`core/pages.ts`) s'en servent pour savoir si leur calcul tient encore,
+   * sans relire le journal.
+   */
+  revision = 0
 
   constructor(
     private db: DB,
@@ -120,6 +126,7 @@ export class AnswerLog {
       this.lignes.push({ playerId: r.playerId, sessionId: r.sessionId, qIndex: r.qIndex, points: r.points, teamId: r.teamId })
     }
     this.backup?.saveAnswers(signees)
+    this.revision++
   }
 
   /**
@@ -162,12 +169,14 @@ export class AnswerLog {
       .prepare('DELETE FROM answer_log WHERE session_id = ? AND q_index = ?')
       .run(sessionId, qIndex)
     this.backup?.dropAnswers(sessionId, qIndex)
+    this.revision++
   }
 
   clearAll() {
     this.lignes = []
     this.versionVue++
     this.db.prepare('DELETE FROM answer_log WHERE space_id = ?').run(this.spaceId)
+    this.revision++
   }
 
   /**
@@ -178,8 +187,12 @@ export class AnswerLog {
   removePlayer(playerId: string) {
     this.lignes = this.lignes.filter(l => l.playerId !== playerId)
     this.versionVue++
-    this.db.prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
+    const { changes } = this.db
+      .prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?')
+      .run(playerId, this.spaceId)
     this.backup?.deletePlayerAnswers(playerId)
+    // Un invité arrivé après la dernière question n'y avait rien écrit.
+    if (changes > 0) this.revision++
   }
 }
 

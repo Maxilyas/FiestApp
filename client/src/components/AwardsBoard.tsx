@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Award, PublicTeam } from '../../../shared/types'
 import { effetDUnPrix } from '../../../shared/teams'
+import { ChampNombre } from './ChampNombre'
 
 interface Props {
   awards: Award[]
@@ -91,14 +92,13 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles }: Props) {
                 {/* Le « 1 » n'avait pas d'étiquette : ni l'animatrice ni son
                     lecteur d'écran ne savaient de quoi c'était le nombre. */}
                 <label className="award-points-champ">
-                  <input
+                  <ChampNombre
                     className="input award-points"
-                    type="number"
                     min={-10}
                     max={10}
                     aria-label={`Points d’équipe du prix « ${a.title} »`}
-                    value={points[a.key] ?? parDefaut(a)}
-                    onChange={e => setPoints(p => ({ ...p, [a.key]: Number(e.target.value) }))}
+                    valeur={points[a.key] ?? parDefaut(a)}
+                    onValeur={n => setPoints(p => ({ ...p, [a.key]: n }))}
                   />
                   <span className="award-points-unite" aria-hidden="true">pts d’équipe</span>
                 </label>

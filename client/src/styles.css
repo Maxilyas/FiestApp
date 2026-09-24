@@ -1646,6 +1646,29 @@ h3 > .icon {
   border-bottom: 1px solid var(--edge);
 }
 
+/* L'en-tête de l'éditeur d'un quiz suit la page (voir QuizEditor). */
+.editor-header.is-collant {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  padding-top: 10px;
+  margin-top: -10px;
+}
+.editor-header .undo-line { flex-basis: 100%; margin: 0; }
+/* Un conflit ou un échec d'« Enregistrer » prend sa ligne sous les boutons,
+   et se défile s'il est long : l'en-tête collé ne doit pas manger l'écran
+   d'un téléphone. */
+.editor-header .editor-alerte { flex-basis: 100%; margin: 0; }
+.editor-header .conflit-carte { max-height: 45vh; overflow-y: auto; }
+@media (max-width: 600px) {
+  /* Au téléphone, le titre prend sa ligne et s'en va avec la page : un `top`
+     négatif de sa hauteur (10 + 44 + 8 px) ne laisse collés que « prêtes »,
+     « Retour », « Enregistrer » et l'annulation — une ligne sur 640 px. */
+  .editor-header.is-collant { gap: 8px; padding-bottom: 8px; top: -62px; }
+  .editor-header.is-collant .title-input { flex-basis: 100%; min-width: 0; height: 44px; font-size: 1.15rem; padding-block: 6px; }
+}
+
 .title-input {
   flex: 1;
   min-width: 220px;
@@ -1676,7 +1699,7 @@ h3 > .icon {
   flex-wrap: wrap;
 }
 
-.kind-toggle { display: flex; gap: 6px; }
+.kind-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .answers-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 
@@ -1713,6 +1736,12 @@ h3 > .icon {
 }
 
 .duration-input { width: 84px; padding: 9px 10px; text-align: center; }
+/* Un nombre hors bornes, ou illisible, pendant qu'on le tape (`ChampNombre`) :
+   le cadre le dit avant que le champ ne le borne, en le quittant. Le rouge
+   d'erreur, focus compris : en Velours, le champagne du cadre était
+   exactement celui du focus, et rien ne se voyait pendant la frappe. */
+.input[aria-invalid='true'],
+.input[aria-invalid='true']:focus { border-color: var(--alert); }
 
 .thumb { height: 72px; max-width: 160px; object-fit: cover; border-radius: 10px; border: 1px solid var(--edge); display: block; }
 
@@ -1769,6 +1798,8 @@ h3 > .icon {
 }
 
 .undo-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+.regler-tout { display: flex; flex-direction: column; gap: 10px; }
+.regler-tout h3 { display: flex; align-items: center; gap: 8px; }
 
 /* Des modifications retrouvées dans le navigateur : la carte qui demande quoi en faire. */
 .brouillon-carte {
@@ -4254,3 +4285,25 @@ h3 > .icon {
 /* Le verdict des équipes à la clôture : une ligne, lisible du canapé. */
 .cloture-equipe { font-family: var(--serif); font-size: 1.5rem; margin: 0; }
 .cloture-equipe .muted { font-family: var(--sans); font-size: 1rem; }
+/* ── Le lendemain : la dernière soirée, en une ligne ── */
+/* Une ligne et pas une carte : sur l'entrée, « Rejoindre la soirée » doit
+   rester visible sans défiler en 360 × 640. */
+.lendemain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+.lendemain .icon { flex: none; }
+.fin-prix { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.fin-prix li { display: flex; align-items: center; gap: 12px; }
+.fin-prix-emoji { font-size: 1.8rem; line-height: 1; }
+.recap-partage { justify-content: center; gap: 8px; flex-wrap: wrap; }
+.tous-les-liens summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; }
+.tous-les-liens[open] summary { margin-bottom: 12px; }
+.tous-les-liens ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tous-les-liens li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

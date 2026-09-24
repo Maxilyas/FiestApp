@@ -5,6 +5,7 @@ import type { PlayerRec } from './party'
 import type { TeamRec } from './teams'
 import type { Soiree } from './archive'
 import { colonneEquipe, toRow, type AnswerRow } from './answers'
+import { pouls } from './pouls'
 import type { TeamBonus } from '../../../shared/types'
 
 /** Une partie telle qu'elle est écrite dans la table `sessions` locale. */
@@ -650,9 +651,12 @@ export class PartyBackup {
     if (voie.enVol || voie.reessai || voie.suspendue || this.ferme) return
     if (voie.file.length === 0) return this.signalerVide(voie)
     const tete = this.regrouper(voie)
+    const debut = Date.now()
     voie.enVol = this.envoyer(voie, tete).then(
       () => {
         voie.enVol = null
+        // Ce que coûte la base distante, vue d'ici : `/healthz` le montre.
+        pouls.miroir.noter(Date.now() - debut)
         // Rien ne touche à un envoi en vol : c'est toujours lui, en tête.
         const i = voie.file.indexOf(tete)
         if (i >= 0) {
