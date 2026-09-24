@@ -29,7 +29,7 @@ Chez soi, sur une base neuve, le compte administrateur est `antoine` / `demo` et
 | Les comptes | http://localhost:5173/admin | l'administrateur seul : créer un compte à un ami |
 | Souvenir | http://localhost:5173/demo/souvenir | la soirée en cours — et, entre deux soirées, la dernière close : podium, palmarès, équipes et tous les chiffres ; la page se rafraîchit seule (`/demo/stats` y mène, droit sur le tableau) |
 | Bilan | http://localhost:5173/demo/bilan | la soirée en cours — et, entre deux soirées, la dernière close : chacun relit ses réponses ; l'animateur y trouve les fiches à imprimer |
-| Soirées | http://localhost:5173/demo/soirees | l'historique : chaque soirée close, avec son souvenir, chiffres compris, et son bilan, chacune à une adresse qui ne change plus |
+| Historique | http://localhost:5173/demo/soirees | l'historique : chaque soirée close, avec son souvenir, chiffres compris, et son bilan, chacune à une adresse qui ne change plus |
 
 ```bash
 npm run verify

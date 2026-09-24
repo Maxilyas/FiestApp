@@ -17,7 +17,7 @@ export type SpaceTab = 'souvenir' | 'bilan' | 'soirees'
 const TABS: { tab: SpaceTab; label: string }[] = [
   { tab: 'souvenir', label: 'Souvenir' },
   { tab: 'bilan', label: 'Bilan' },
-  { tab: 'soirees', label: 'Soirées' },
+  { tab: 'soirees', label: 'Historique' },
 ]
 
 /** Vrai si le visiteur est l'animateur de cet espace, connecté. Un invité : faux, sans bruit. */

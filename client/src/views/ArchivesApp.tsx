@@ -36,7 +36,7 @@ export function ArchivesApp() {
   }, [slug])
 
   useEffect(() => {
-    if (list?.space) document.title = `${list.space.title} · Les soirées`
+    if (list?.space) document.title = `${list.space.title} · Historique`
   }, [list])
 
   const manage = async (action: () => Promise<unknown>) => {
@@ -64,7 +64,7 @@ export function ArchivesApp() {
     <div className="recap soirees">
       <header className="recap-header">
         <span className="label">{list.space?.title}</span>
-        <h1>Les soirées</h1>
+        <h1>Historique</h1>
         <p className="join-sub">L'historique, une soirée après l'autre</p>
         <hr className="hairline" />
       </header>

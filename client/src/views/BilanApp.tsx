@@ -214,7 +214,7 @@ function BilanHead({ ctx }: { ctx: BilanCtx }) {
     <header className="recap-header">
       {review.archive && <ArchiveBanner archive={review.archive} />}
       {dateLine && <span className="label">{dateLine}</span>}
-      <h1>Le bilan du quiz</h1>
+      <h1>Le bilan de la soirée</h1>
       <p className="join-sub">{review.archive ? review.archive.title : review.space?.title}</p>
       {review.questions.length > 0 && (
         <p className="muted">

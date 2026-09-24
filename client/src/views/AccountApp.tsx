@@ -66,7 +66,7 @@ export function AccountApp() {
         </a>
         <a className="btn" href={`/${me.space.slug}/soirees`}>
           <Icon name="book" />
-          Mes soirées
+          Historique
         </a>
         {me.account.role === 'admin' && (
           <a className="btn btn-accent" href="/admin">
