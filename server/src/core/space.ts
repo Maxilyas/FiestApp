@@ -37,6 +37,7 @@ import { cibleEclat } from '../../../shared/legendaires'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, SoireeClose } from '../../../shared/fin'
 import type { EcranDeScene, OngletDePodium, PartySnapshot, Recap, Scene } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
+import type { LancementDeQuiz } from '../../../shared/games/quiz'
 import type { ArchiveList, ArchiveSummary } from '../../../shared/archive'
 import { defaultSettings, type PublicSpace } from '../../../shared/space'
 import { teamScores } from '../../../shared/teams'
@@ -864,6 +865,31 @@ export class SpaceRuntime {
       }
     }
     return packs
+  }
+
+  /**
+   * Ce que le quiz qu'on lance reprend de la soirée : l'enchaînement du
+   * dernier quiz — il repassait « au clic » à chaque quiz, et l'animateur
+   * qui pilotait debout devait le régler de nouveau — et les quiz déjà
+   * joués. Lu dans les parties de la soirée : la clôture les efface, et
+   * l'oubli vient avec.
+   */
+  lancementDeQuiz(): LancementDeQuiz {
+    const rows = this.deps.db
+      .prepare('SELECT state FROM sessions WHERE space_id = ? ORDER BY created_at')
+      .all(this.spaceId) as { state: string }[]
+    const joues = new Set<string>()
+    let autoNextSeconds: number | null = null
+    for (const row of rows) {
+      try {
+        const st = JSON.parse(row.state) as { pack?: { id?: unknown } | null; autoNextSeconds?: unknown }
+        if (typeof st.pack?.id === 'string') joues.add(st.pack.id)
+        autoNextSeconds = typeof st.autoNextSeconds === 'number' ? st.autoNextSeconds : null
+      } catch {
+        // Un état illisible n'apprend rien : le quiz part au clic.
+      }
+    }
+    return { autoNextSeconds, joues: [...joues] }
   }
 
   liveRecap(): Recap {

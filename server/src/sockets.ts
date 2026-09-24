@@ -477,7 +477,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       const rt = requireHost()
       if (!rt) return
       try {
-        rt.engine.launch()
+        rt.engine.launch(rt.lancementDeQuiz())
         // Le quiz prend la scène : un podium ou une clôture restés sur la
         // télé passaient devant tout le quiz suivant.
         rt.poserScene(null)
