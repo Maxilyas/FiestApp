@@ -201,6 +201,22 @@ test('`/profil` connaît la soirée où l’on joue en ce moment — et elle seu
     assert.equal(encours[0].nom, ADMIN.name)
     assert.deepEqual((await moi(banc, bobCookie)).enCours, [], 'Bob, lui, n’y est pas')
 
+    // Laissée ouverte depuis la veille, sans un signe de vie : elle ne
+    // l'attend plus — « Revenir chez » menait à une salle vide.
+    const vieillir = (ms: number) => {
+      const db = new Database(banc.dbPath)
+      try {
+        db.prepare('UPDATE players SET created_at = created_at - ?').run(ms)
+        db.prepare('UPDATE sessions SET updated_at = updated_at - ?').run(ms)
+      } finally {
+        db.close()
+      }
+    }
+    vieillir(13 * 3600_000)
+    assert.deepEqual((await moi(banc, aliceCookie)).enCours, [], 'treize heures sans rien : plus en cours')
+    vieillir(-13 * 3600_000)
+    assert.equal((await moi(banc, aliceCookie)).enCours.length, 1)
+
     // Close, la soirée ne l'attend plus.
     const salle = [await invite(banc.url, 'Dora', '🐙'), await invite(banc.url, 'Eve', '🐝')]
     await jouer(host, quiz, alice, salle)
