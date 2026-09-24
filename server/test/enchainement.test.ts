@@ -2,10 +2,11 @@
 //
 // Le 24 septembre, une coupure a vidé la salle de Nadia en plein quiz : en
 // mode « 10 s », le serveur a joué trois questions et le podium devant
-// personne. La règle : une question révélée sans une seule réponse de toute
-// la salle n'enchaîne pas toute seule — l'enchaînement attend le clic de
-// l'animateur, et sa console dit pourquoi. Le mode reste choisi : dès qu'une
-// question reçoit une réponse, il reprend de lui-même.
+// personne. La règle : une question close d'elle-même, sans une seule
+// réponse de toute la salle, n'enchaîne pas toute seule — la suite attend le
+// clic de l'animateur, et l'écran dit pourquoi. Un « Révéler » cliqué dit que
+// l'animateur est là : la suite part alors comme il l'a réglée. Le mode reste
+// choisi : dès qu'une question reçoit une réponse, il reprend de lui-même.
 //
 // Le module de jeu se joue ici sans serveur : ce qui compte, c'est quel
 // chronomètre il arme, et ce que dit la vue de l'écran commun.
@@ -96,6 +97,14 @@ test('le clic de l’animateur relance, et une question répondue enchaîne de n
   finDuTemps()
   assert.equal(sess.state.phase, 'reveal')
   assert.equal(minuteurs.get('autoNext'), 10_000, 'une réponse suffit : l’enchaînement repart')
+  assert.equal(ecran().autoNextSuspendu, undefined)
+})
+
+test('« Révéler » au clic, même sans réponse : l’animateur est là, la suite part comme il l’a réglée', () => {
+  const { sess, ctx, minuteurs, ecran } = partie()
+  quizModule.onHostCommand!(sess, { type: 'next' }, ctx)
+  assert.equal(sess.state.phase, 'reveal')
+  assert.equal(minuteurs.get('autoNext'), 10_000)
   assert.equal(ecran().autoNextSuspendu, undefined)
 })
 

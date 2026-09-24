@@ -49,5 +49,4 @@ système.
 Régénérer les deux fichiers depuis la police d'origine redonnerait les mêmes
 glyphes. Corriger vraiment, ce serait redessiner les accents (un fork de la
 police, sous OFL, à renommer) ou changer de police des titres : un choix de
-design, pas une finition — à trancher par l'animateur de l'application, pas
-d'office.
+design, pas une finition — à trancher, pas à faire d'office.

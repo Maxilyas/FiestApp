@@ -279,7 +279,8 @@ function award(sess: GameSessionRec<QuizState>, playerId: string, points: number
   ctx.award(playerId, gain, `Quiz « ${st.pack!.title} » — Q${st.qIndex + 1}`)
 }
 
-function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
+/** `auClic` : l'animateur a forcé la révélation — il est là, lui. */
+function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext, auClic = false) {
   const st = sess.state
   ctx.clearTimer('question')
   ctx.clearTimer('observe')
@@ -289,10 +290,12 @@ function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   // L'enchaînement s'arme quelle que soit la cause de la révélation : fin du
   // chronomètre, dernière réponse, ou clic de l'animateur — sauf devant une
   // salle vide. Le 24 septembre, une coupure a fait jouer trois questions et
-  // un podium à personne : sans une seule réponse de toute la salle, on
-  // attend l'animateur, et sa console dit pourquoi. Le mode reste choisi, et
-  // repart de lui-même à la première question qui reçoit une réponse.
-  st.autoNextSuspendu = st.autoNextSeconds !== null && Object.keys(st.responses).length === 0
+  // un podium à personne : une question close d'elle-même sans une seule
+  // réponse de toute la salle attend l'animateur, et l'écran dit pourquoi.
+  // Son clic « Révéler », lui, dit qu'il est là : la suite part comme il l'a
+  // réglée. Le mode reste choisi, et repart de lui-même à la première
+  // question qui reçoit une réponse.
+  st.autoNextSuspendu = st.autoNextSeconds !== null && !auClic && Object.keys(st.responses).length === 0
   if (st.autoNextSeconds !== null && !st.autoNextSuspendu) {
     st.autoNextAt = ctx.now() + st.autoNextSeconds * 1000
     ctx.setTimer('autoNext', st.autoNextSeconds * 1000)
@@ -682,7 +685,7 @@ export const quizModule: GameModule<QuizState> = {
           // « C'est bon, tout le monde a vu » : on passe à la question.
           beginAnswering(sess, ctx)
         } else if (st.phase === 'question') {
-          reveal(sess, ctx) // l'animateur force la fin de la question
+          reveal(sess, ctx, true) // l'animateur force la fin de la question
         } else if (st.phase === 'reveal') {
           goNext(sess, ctx)
         }
