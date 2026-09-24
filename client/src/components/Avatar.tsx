@@ -39,7 +39,11 @@ interface Props {
  *
  * Les dessins arrivent à la demande (`medaillons.ts`) : le temps qu'ils
  * arrivent, c'est l'emoji qui tient la place. Les pages les font venir avant
- * d'en avoir besoin, et ce repli ne se voit presque jamais.
+ * d'en avoir besoin, sauf une fois : le premier porteur de médaillon qui
+ * entre dans une salle d'anonymes se montre en emoji sur chaque téléphone,
+ * le temps d'un aller-retour (~200 ms en 4G), puis en médaillon. Une fois
+ * par page, et pas de remède bon marché — attendre retarderait son arrivée
+ * chez tout le monde, précharger ferait tout télécharger à chacun.
  */
 export function Avatar({ avatar, finition, eclat, legendaire, className }: Props) {
   const divin = legendaire && divinDe(legendaire) ? legendaire : null

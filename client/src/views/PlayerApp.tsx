@@ -156,7 +156,8 @@ export function PlayerApp() {
 
   // Quelqu'un dans la salle porte un médaillon : ses dessins viennent dès
   // l'instantané, avant la salle d'attente où l'on verra son nom. Une salle
-  // d'anonymes ne les télécharge jamais.
+  // d'anonymes ne les télécharge jamais — et quand un premier porteur y
+  // arrive, son emoji précède son médaillon, une fois (`Avatar`).
   const salleDecoree = porteUnDessin(s.snapshot?.players)
   const dessins = useDessins(salleDecoree)
   // Un téléphone qui revient en pleine soirée (rechargé, réveillé) tombe
