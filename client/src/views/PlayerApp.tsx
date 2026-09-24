@@ -313,6 +313,7 @@ export function PlayerApp() {
   // Rang partagé, comme dans le classement en dessous : à égalité de points,
   // on est premier ensemble, pas quatrième parce que son prénom vient après.
   const myRank = me ? sorted.findIndex(p => p.score === me.score) + 1 : 0
+  const invitationProfil = !profil && (me?.score ?? 0) > 0
 
   return (
     <div className="player-shell">
@@ -341,6 +342,18 @@ export function PlayerApp() {
 
       {session && !iAmIn && (
         <div className="card notice">Un quiz est en cours — tu entres à la prochaine question.</div>
+      )}
+
+      {/* Après un premier quiz marqué, c'est le moment d'y penser — et le lien
+          tout en bas, sous le classement, ne se voyait pas. Créé ce soir, le
+          profil se rattache à l'invité : la soirée entière y compte. */}
+      {invitationProfil && (
+        <div className="card invitation-profil">
+          <p>Ce soir compte déjà : avec un profil, ton niveau part de cette soirée.</p>
+          <button type="button" className="btn btn-small" onClick={() => setMontrerProfil(true)}>
+            Créer mon profil
+          </button>
+        </div>
       )}
 
       {teams.length > 0 && (
@@ -390,9 +403,11 @@ export function PlayerApp() {
             Mon profil · niveau {profil.niveau}
           </a>
         ) : (
-          <button type="button" className="link-inline" onClick={() => setMontrerProfil(true)}>
-            Gagner des niveaux : créer un profil
-          </button>
+          !invitationProfil && (
+            <button type="button" className="link-inline" onClick={() => setMontrerProfil(true)}>
+              Gagner des niveaux : créer un profil
+            </button>
+          )
         )}
       </p>
       {celebration}

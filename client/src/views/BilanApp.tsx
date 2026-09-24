@@ -9,6 +9,7 @@ import { SpaceError, SpaceNav } from '../components/SpaceNav'
 import { pageContext, spacePath } from '../routes'
 import { lecteurDePage } from '../derniere'
 import { readMe } from '../state'
+import { api } from '../api'
 import { formatDay } from '../../../shared/archive'
 
 /**
@@ -78,11 +79,22 @@ export function BilanApp() {
   // Ouvert sur le téléphone qui a joué, sans lien particulier : droit à son bilan.
   useEffect(() => {
     if (!ctx || fiches || mode.kind !== 'pick' || window.location.hash) return
-    const id = readMe(slug)?.playerId ?? null
-    if (id && ctx.playerById.get(id)?.stat.asked) {
+    const ouvrir = (id: string | null) => {
+      if (!id || !ctx.playerById.get(id)?.stat.asked || window.location.hash) return
       history.replaceState(null, '', `#p=${id}`)
       setMode({ kind: 'me', playerId: id })
     }
+    const id = readMe(slug)?.playerId ?? null
+    if (id) return ouvrir(id)
+    // Un autre téléphone, mais le profil connecté y jouait : « Mes soirées »
+    // sait qui il était ce soir-là (Sofia : « un bilan qui me reconnaît »).
+    // Sans profil, rien ne change : on choisit son prénom dans la liste.
+    const soiree = archiveId ?? review?.archive?.id
+    if (!soiree) return
+    api.joueur
+      .moi()
+      .then(r => ouvrir(r.profile?.soirees.find(x => x.soireeId === soiree && x.slug === slug)?.joueurId ?? null))
+      .catch(() => {})
     // Une fois, quand le bilan arrive : pas à chaque changement de mode.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctx])
