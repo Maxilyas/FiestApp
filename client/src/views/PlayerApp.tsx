@@ -13,7 +13,7 @@ import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer } from '../games/quiz/PlayerView'
 import type { QuizPlayerView } from '../../../shared/games/quiz'
-import { espacesFines, place } from '../format'
+import { espacesFines, place, pts } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
@@ -328,7 +328,10 @@ export function PlayerApp() {
             <Niveau niveau={me?.niveau} big />
           </h2>
           <p className="muted">
-            {me?.score ?? 0} pts{myRank > 0 && ` · ${place(myRank)}`}
+            {/* Pas de rang tant que personne n'a marqué : « 0 pts · 1ʳᵉ place »
+                s'affichait avant le premier quiz. */}
+            {pts(me?.score ?? 0)}
+            {myRank > 0 && (sorted[0]?.score ?? 0) > 0 && ` · ${place(myRank)}`}
             {myTeam && ` · ${myTeam.emoji} ${myTeam.name}`}
           </p>
         </div>

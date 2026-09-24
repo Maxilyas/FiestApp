@@ -8,7 +8,7 @@ import { Icon } from '../../components/Icon'
 import { Shape } from '../../components/Shape'
 import { Rank, Score } from '../../components/Rank'
 import type { PublicTeam } from '../../../../shared/types'
-import { espacesFines, formatNumber, place } from '../../format'
+import { espacesFines, formatNumber, place, pts } from '../../format'
 import { questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
 import { Niveau } from '../../components/Niveau'
@@ -131,7 +131,7 @@ function BetweenQuestions({
   return (
     <>
       <p className="center muted">
-        Total quiz : {v.yourQuizTotal} pts · {place(v.yourQuizRank ?? 0)}
+        Total quiz : {pts(v.yourQuizTotal ?? 0)} · {place(v.yourQuizRank ?? 0)}
       </p>
       {teams.length > 0 && (
         <div className="card">
@@ -317,7 +317,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
               <PointsAnnules />
             ) : answered ? (
               <>
-                <span className="big">+{v.yourPoints ?? 0} pts</span>
+                <span className="big">+{pts(v.yourPoints ?? 0)}</span>
                 <p>
                   Tu as dit <strong>{formatNumber(v.yourGuess!)}</strong> {v.unit}
                   {gap === 0 ? ' — pile poil !' : ` — à ${formatNumber(gap!)} ${v.unit} près`}
@@ -358,7 +358,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
             </>
           ) : good ? (
             <>
-              <span className="big">+{v.yourPoints} pts</span>
+              <span className="big">+{pts(v.yourPoints ?? 0)}</span>
               <p>Bien joué !</p>
             </>
           ) : (
@@ -390,7 +390,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           <Icon name="flag" />
         </span>
         <p>
-          Quiz terminé ! Tu finis à la <strong>{place(v.yourQuizRank ?? 0)}</strong> avec {v.yourQuizTotal} pts
+          Quiz terminé ! Tu finis à la <strong>{place(v.yourQuizRank ?? 0)}</strong> avec {pts(v.yourQuizTotal ?? 0)}
         </p>
       </div>
       <div className="card">

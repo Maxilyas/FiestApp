@@ -1,5 +1,5 @@
 import { Icon, type IconName } from './Icon'
-import { formatNumber, place, rang } from '../format'
+import { formatNumber, place, rang, pts } from '../format'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
 import type { HighlightKind, ReviewHighlight, ReviewPlayer, ReviewQuestion } from '../../../shared/review'
 import { QuestionCard, type BilanCtx } from './BilanQuestion'
@@ -95,7 +95,7 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
               eux laissait dans l'ombre soixante-deux estimations. */}
           {s.accuracy !== null && (
             <div className="bilan-tile">
-              <span className="label">Réussite</span>
+              <span className="label">Précision</span>
               <span className="bilan-tile-value">{formatPercent(s.accuracy)}</span>
               <span className="bilan-tile-sub">
                 {s.correct} juste{s.correct > 1 ? 's' : ''} sur {s.correct + s.wrong} QCM
@@ -140,7 +140,7 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
                   <Icon name="trophy" />
                 </span>
                 <div className="bilan-moment-body">
-                  <strong>Ton plus beau coup : +{bestShot.points} pts</strong>
+                  <strong>Ton plus beau coup : +{pts(bestShot.points)}</strong>
                   <span className="muted">{questionRef(bestShot.questionKey)}</span>
                 </div>
               </li>
@@ -192,7 +192,7 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
             <div className="card-head">
               <h2>{quiz.title}</h2>
               <span className="pill">
-                {pq.points} pts{pq.rank !== null && ` · ${place(pq.rank)} sur ${quiz.players}`}
+                {pts(pq.points)}{pq.rank !== null && ` · ${place(pq.rank)} sur ${quiz.players}`}
               </span>
             </div>
             {team && (

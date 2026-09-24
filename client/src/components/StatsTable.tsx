@@ -21,7 +21,7 @@ const COLUMNS: Column[] = [
   { key: 'answered', label: 'Répondu', title: 'Questions auxquelles il a répondu', value: s => s.answered, format: s => `${s.answered}/${s.asked}` },
   { key: 'correct', label: 'Justes', title: 'Bonnes réponses', value: s => s.correct, format: s => String(s.correct) },
   { key: 'wrong', label: 'Fausses', title: 'Mauvaises réponses', value: s => s.wrong, format: s => String(s.wrong) },
-  { key: 'accuracy', label: 'Réussite', title: 'Part de bonnes réponses parmi les QCM auxquels il a répondu', value: s => s.accuracy, format: s => pct(s.accuracy) },
+  { key: 'accuracy', label: 'Précision', title: 'Part de bonnes réponses parmi les QCM auxquels il a répondu', value: s => s.accuracy, format: s => pct(s.accuracy) },
   { key: 'avgMs', label: 'Temps moy.', title: 'Temps de réponse moyen sur ses bonnes réponses', value: s => s.avgMs, format: s => secs(s.avgMs), asc: true },
   { key: 'bestMs', label: 'Éclair', title: 'Sa réponse juste la plus rapide', value: s => s.bestMs, format: s => secs(s.bestMs), asc: true },
   { key: 'bestStreak', label: 'Série +', title: "Plus longue série de bonnes réponses d'affilée", value: s => s.bestStreak, format: s => String(s.bestStreak) },

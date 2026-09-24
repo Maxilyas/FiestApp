@@ -9,6 +9,12 @@ export const pourcent = (x: number | null) => (x === null ? '—' : `${Math.roun
 /** Une durée au dixième de seconde, à la française : « 2,4 s ». */
 export const secondes = (ms: number | null) => (ms === null ? '—' : `${(ms / 1000).toFixed(1).replace('.', ',')} s`)
 
+/**
+ * « 715 pts », « 1 pt », « 0 pt » : zéro et un sont au singulier en français,
+ * et « 0 pts » s'écrivait sur chaque téléphone avant le premier quiz.
+ */
+export const pts = (n: number) => `${formatNumber(n)} ${Math.abs(n) >= 2 ? 'pts' : 'pt'}`
+
 /** « 62 estimations », « 1 estimation ». */
 export const estimations = (n: number) => `${formatNumber(n)} estimation${n > 1 ? 's' : ''}`
 
@@ -31,7 +37,9 @@ export function reponsesParType(
   { compte = true }: { compte?: boolean } = {},
 ): string {
   const morceaux: string[] = []
-  if (r.qcm > 0) morceaux.push(`${formatNumber(r.justes)}/${formatNumber(r.qcm)} justes`)
+  // « Précision », comme au profil et au bilan : « 4/6 justes » sur la carte,
+  // « Réussite » au bilan, « Précision » au profil — un chiffre, trois noms.
+  if (r.qcm > 0) morceaux.push(`précision ${pourcent(r.justes / r.qcm)} (${surQcm(r.justes, r.qcm)})`)
   if (r.coupDOeil !== null) {
     morceaux.push(`${compte ? `${estimations(r.estimations)}, ` : ''}coup d’œil ${pourcent(r.coupDOeil)}`)
   } else if (r.estimations > 0) {

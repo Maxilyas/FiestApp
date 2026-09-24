@@ -6,7 +6,7 @@ import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { api } from '../api'
 import { spacePath } from '../routes'
-import { formatNumber, place } from '../format'
+import { formatNumber, place, pts } from '../format'
 import { showToast } from '../state'
 import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
@@ -69,7 +69,7 @@ export function FinDeSoiree({
           <h2>{fin.nom}</h2>
           {fin.rang > 0 ? (
             <p className="fin-rang">
-              <b>{place(fin.rang)}</b> sur {fin.joueurs} · {formatNumber(fin.points)} pts
+              <b>{place(fin.rang)}</b> sur {fin.joueurs} · {pts(fin.points)}
             </p>
           ) : (
             <p className="muted">{fin.joueurs} joueurs ce soir</p>

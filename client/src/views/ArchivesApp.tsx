@@ -7,7 +7,7 @@ import { confirmDialog, promptDialog } from '../components/Dialog'
 import { SpaceError, SpaceNav, useIsHost } from '../components/SpaceNav'
 import { api, UnauthorizedError } from '../api'
 import { dataUrl, pageContext, spacePath, type PublicPage } from '../routes'
-import { formatNumber } from '../format'
+import { formatNumber, pts } from '../format'
 
 /**
  * L'historique des soirées d'un espace (`/<espace>/soirees`) : la soirée en
@@ -190,7 +190,7 @@ function ArchiveCard({
           {a.winners.length > 0 && (
             <>
               <Icon name="trophy" /> {enumerer(a.winners.map(w => `${w.avatar} ${w.name}`))}
-              {a.winners.length > 1 && ', ex æquo'} · {formatNumber(a.winners[0].points)} pts
+              {a.winners.length > 1 && ', ex æquo'} · {pts(a.winners[0].points)}
             </>
           )}
           {a.winners.length > 0 && a.teamWinners.length > 0 && ' · '}
