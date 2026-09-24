@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MutableRefObject } from 'react'
 import {
   DEFAULT_DURATION,
   DEFAULT_OBSERVE,
@@ -176,8 +176,38 @@ export function EditorApp() {
     else history.replaceState(null, '', '/edit')
     setEditing(id)
   }, [])
+  const editingRef = useRef(editingId)
+  editingRef.current = editingId
+  /**
+   * La garde de « Mes quiz », que l'éditeur ouvert pose ici tant qu'il a des
+   * modifications non enregistrées. Le retour du navigateur ne quitte plus
+   * le document, donc plus de `beforeunload` : sans elle, « retour » refermait
+   * l'éditeur sans rien demander, et si le navigateur avait refusé le
+   * brouillon (cookies bloqués, quota plein), la retouche partait en silence.
+   */
+  const sortie = useRef<(() => Promise<boolean>) | null>(null)
+  /** On a déjà dit « Quitter » : le `history.back()` qui suit ne redemande pas. */
+  const consenti = useRef(false)
   useEffect(() => {
-    const auRetour = () => setEditing(quizDeLAdresse())
+    const auRetour = async () => {
+      const id = quizDeLAdresse()
+      const ouvert = editingRef.current
+      if (ouvert && id !== ouvert && sortie.current && !consenti.current) {
+        // L'entrée est déjà partie : on la remet, le temps de demander.
+        history.pushState({ [OUVERT_ICI]: true }, '', `/edit?quiz=${encodeURIComponent(ouvert)}`)
+        if (await sortie.current()) {
+          consenti.current = true
+          history.back()
+        }
+        return
+      }
+      consenti.current = false
+      setEditing(id)
+      setOuvrirListe(false)
+      // Comme « Mes quiz » : la liste d'avant ne savait rien du quiz qu'on
+      // vient de créer, et « Partir d'un modèle » en refaisait une copie.
+      if (!id) reload()
+    }
     window.addEventListener('popstate', auRetour)
     return () => window.removeEventListener('popstate', auRetour)
   }, [])
@@ -286,6 +316,7 @@ export function EditorApp() {
       <QuizEditor
         id={editingId}
         ouvrirListe={ouvrirListe}
+        sortie={sortie}
         onClose={() => {
           setEditingId(null)
           setOuvrirListe(false)
@@ -460,7 +491,18 @@ export function EditorApp() {
 
 // ── Édition d'un quiz ─────────────────────────────────────────────────────
 
-function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirListe?: boolean; onClose: () => void }) {
+function QuizEditor({
+  id,
+  ouvrirListe = false,
+  sortie,
+  onClose,
+}: {
+  id: string
+  ouvrirListe?: boolean
+  /** Où poser la garde de sortie, pour le retour du navigateur (voir `EditorApp`). */
+  sortie?: MutableRefObject<(() => Promise<boolean>) | null>
+  onClose: () => void
+}) {
   const [quiz, setQuiz] = useState<QuizDef | null>(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -541,8 +583,10 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
     ouvert.current = true
     return () => {
       ouvert.current = false
+      // Refermé, l'éditeur n'a plus rien à garder : le retour suivant passe.
+      if (sortie) sortie.current = null
     }
-  }, [])
+  }, [sortie])
 
   useEffect(() => {
     api
@@ -783,7 +827,8 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
     }
   }
 
-  const close = async () => {
+  /** Vrai si l'on peut refermer l'éditeur — après avoir demandé, s'il le faut. */
+  const peutPartir = async (): Promise<boolean> => {
     if (dirty && garde) {
       // Le brouillon attend dans ce navigateur : partir ne perd plus rien, et
       // effacer ce qu'on a écrit devient un geste à part.
@@ -794,20 +839,23 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
         cancelLabel: 'Rester',
         alternative: { label: 'Effacer mes modifications', danger: true },
       })
-      if (!choix) return
+      if (!choix) return false
       if (choix.geste === 'alternative') oublierBrouillon(id)
     } else if (dirty) {
-      const leave = await confirmDialog({
+      return confirmDialog({
         title: 'Quitter sans enregistrer ?',
         message: 'Des modifications ne sont pas enregistrées. Elles seront perdues.',
         confirmLabel: 'Quitter quand même',
         cancelLabel: 'Rester',
         danger: true,
       })
-      if (!leave) return
     }
-    onClose()
+    return true
   }
+  const close = async () => {
+    if (await peutPartir()) onClose()
+  }
+  if (sortie) sortie.current = dirty ? peutPartir : null
 
   const reprendre = async () => {
     const serveur = courant.current
