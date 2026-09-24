@@ -166,3 +166,8 @@ test('le niveau du vainqueur reste hors de la coupe de son nom', () => {
   const podium = readFileSync(new URL('../../client/src/components/Podium.tsx', import.meta.url), 'utf8')
   assert.match(podium, /<span className="podium-nom">\{row\.name\}<\/span>\s*<Niveau/)
 })
+
+test('la boîte « Clore la soirée » garde ses proportions en 1920 × 1080', () => {
+  // Hors de .host, elle gardait 460 px de large autour d'un texte agrandi.
+  assert.match(grandsEcrans, /html:has\(\.host\) \.dialog \{ width: min\(28\.75rem, 100%\); font-size: 1rem; gap: 0\.875rem;/)
+})
