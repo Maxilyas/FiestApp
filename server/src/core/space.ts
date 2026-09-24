@@ -236,7 +236,7 @@ export class SpaceRuntime {
 
   /** Tire le nom sur les invités présents, et le range sur le disque local. */
   private tirerSoiree(): Soiree | null {
-    const soiree = soireeDesInvites(this.party.all())
+    const soiree = soireeDesInvites(this.party.all(), this.spaceId)
     if (!soiree) return null
     this.deps.db
       .prepare('INSERT OR REPLACE INTO soiree (space_id, id, held_at) VALUES (?, ?, ?)')
@@ -844,7 +844,7 @@ export class SpaceRuntime {
       // le téléphone d'essai de l'animateur. Tant que le nom n'est pas tiré,
       // c'est l'heure qu'il prendra — sans le tirer ici : une page publique
       // ne décide pas du nom de la soirée.
-      since: (this.soiree ?? soireeDesInvites(this.party.all()))?.heldAt ?? null,
+      since: (this.soiree ?? soireeDesInvites(this.party.all(), this.spaceId))?.heldAt ?? null,
     }
   }
 

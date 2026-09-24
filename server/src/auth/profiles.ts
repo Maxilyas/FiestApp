@@ -990,7 +990,9 @@ export class ProfileStore {
         { sql: 'DELETE FROM profile_xp WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
         { sql: 'DELETE FROM profile_badges WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
         // Les Éclats ne portent pas l'espace : l'identifiant d'une soirée
-        // (sa date et une empreinte de l'heure) suffit à la désigner.
+        // (sa date, une empreinte de l'heure et une de l'espace) suffit à la
+        // désigner. Celles d'avant l'empreinte de l'espace n'en ont pas : deux
+        // d'entre elles nées à la même milliseconde se confondraient ici.
         { sql: 'DELETE FROM profile_eclats WHERE soiree_id = ?', args: [soireeId] },
       ],
       'write',

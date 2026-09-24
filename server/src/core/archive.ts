@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { clientDistant, type Client } from './distante'
 import type { AnswerRow } from './answers'
 import type { PlayerRec } from './party'
@@ -23,9 +24,10 @@ import type { ArchiveSummary, DerniereSoiree, PartyArchive } from '../../../shar
  * bilan se relisent depuis ces données brutes, avec le code du jour. Une
  * amélioration des prix ou du bilan profite donc aussi aux soirées passées.
  *
- * L'identifiant d'une soirée est sa date et l'heure d'arrivée du premier
- * invité, figées une fois pour toutes (voir `Soiree`) : archiver deux fois la
- * même soirée met l'archive à jour, sans doublon.
+ * L'identifiant d'une soirée est sa date, l'heure d'arrivée du premier
+ * invité et une empreinte de son espace, figés une fois pour toutes (voir
+ * `Soiree`, `archiveIdOf`) : archiver deux fois la même soirée met l'archive
+ * à jour, sans doublon.
  */
 
 /** Le fuseau de la fête, pour nommer les soirées par leur date. */
@@ -41,10 +43,30 @@ export function archiveTitle(heldAt: number): string {
   return `Soirée du ${day}`
 }
 
-export function archiveIdOf(heldAt: number): string {
-  // « 2026-09-19-k7x2q » : lisible dans une adresse, unique à la seconde près.
+/**
+ * « 2026-09-19-k7x2q-3fz81a » : la date, l'heure du premier arrivé à la
+ * milliseconde (cinq chiffres en base 36, qui bouclent toutes les 16 h 47),
+ * et une empreinte de l'espace.
+ *
+ * L'empreinte est venue tard. Les archives se rangent par (espace, nom),
+ * mais l'expérience d'un profil, ses paliers et ses Éclats se rangent sous
+ * le nom seul : deux soirées de deux espaces nées à la même milliseconde se
+ * partageaient la ligne d'un profil qui jouait les deux, et l'expérience de
+ * l'une écrasait celle de l'autre ; « C'était un essai » chez l'un emportait
+ * les Éclats de l'autre. Six caractères d'une empreinte de l'espace rendent
+ * la coïncidence négligeable — il faudrait la même milliseconde ET la même
+ * empreinte —, sans migrer les tables des profils ni rebaptiser les soirées
+ * passées : leur nom est figé (invariant 11), et il reste lisible.
+ */
+export function archiveIdOf(heldAt: number, spaceId: string): string {
   const day = new Date(heldAt).toLocaleDateString('fr-CA', { timeZone: TIMEZONE })
-  return `${day}-${heldAt.toString(36).slice(-5)}`
+  return `${day}-${heldAt.toString(36).slice(-5)}-${empreinteDEspace(spaceId)}`
+}
+
+/** Six caractères tirés de l'identifiant d'un espace, toujours les mêmes pour lui. */
+function empreinteDEspace(spaceId: string): string {
+  const n = parseInt(createHash('sha256').update(spaceId).digest('hex').slice(0, 8), 16)
+  return n.toString(36).padStart(6, '0').slice(-6)
 }
 
 /**
@@ -66,10 +88,10 @@ export interface Soiree {
  * plus qu'une fois par soirée, pour le tirer ; et c'est aussi elle qui rend
  * son nom à une soirée commencée avant qu'on le range.
  */
-export function soireeDesInvites(players: { createdAt: number }[]): Soiree | null {
+export function soireeDesInvites(players: { createdAt: number }[], spaceId: string): Soiree | null {
   if (players.length === 0) return null
   const heldAt = Math.min(...players.map(p => p.createdAt))
-  return { id: archiveIdOf(heldAt), heldAt }
+  return { id: archiveIdOf(heldAt, spaceId), heldAt }
 }
 
 // ── Construire l'archive de la soirée en cours ───────────────────────────

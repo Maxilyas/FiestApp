@@ -155,6 +155,10 @@ function lire<T = any>(chemin: string, sql: string, ...args: unknown[]): T[] {
   }
 }
 
+/** L'identifiant de l'espace du banc — son nom de soirée en porte l'empreinte. */
+const espaceDe = (banc: Banc): string =>
+  lire<{ id: string }>(permanente(banc), 'SELECT id FROM accounts WHERE slug = ?', ADMIN.slug)[0].id
+
 const profilDe = (banc: Banc, login: string): string =>
   lire<{ id: string }>(permanente(banc), 'SELECT id FROM profiles WHERE login = ?', login)[0].id
 
@@ -235,7 +239,7 @@ test('exclure le premier arrivé entre deux quiz ne rebaptise pas la soirée', (
     assert.equal((await premier).xp, xpDeSoiree(1), 'Alice trouve seule la question du premier quiz')
     // Le quiz fini, la soirée s'est rangée toute seule sous son nom.
     const rangee = await enCours(banc)
-    assert.equal(rangee?.id, archiveIdOf(debut), 'la soirée s’est rangée d’elle-même après le quiz')
+    assert.equal(rangee?.id, archiveIdOf(debut, espaceDe(banc)), 'la soirée s’est rangée d’elle-même après le quiz')
 
     ;(host as any).emit('host:removePlayer', { playerId: essai.playerId })
     await attendre(essai.socket, 'player:removed', () => true, 'l’exclusion du téléphone d’essai')
@@ -255,7 +259,7 @@ test('exclure le premier arrivé entre deux quiz ne rebaptise pas la soirée', (
     assert.equal(archives[0].id, lignes[0].soiree_id, 'l’archive et l’expérience portent le même nom')
     // L'heure de début reste celle du premier arrivé, même exclu depuis.
     assert.equal(archives[0].heldAt, debut)
-    assert.equal(archives[0].id, archiveIdOf(debut))
+    assert.equal(archives[0].id, archiveIdOf(debut, espaceDe(banc)))
     // Les paliers de carrière se comptent en soirées : rebaptisée, celle-ci
     // aurait compté double sur la fiche, et L'Habitué serait tombé une
     // soirée trop tôt.
@@ -410,10 +414,10 @@ test('une soirée commencée avant la mise à jour garde le nom qu’elle avait'
     const archives = await historique(banc)
     assert.deepEqual(
       archives.map(a => a.id),
-      [archiveIdOf(debut)],
+      [archiveIdOf(debut, espaceDe(banc))],
       'l’archive d’avant la mise à jour est mise à jour, pas doublée',
     )
-    assert.deepEqual(lignesXp(banc, aliceId).map(l => l.soiree_id), [archiveIdOf(debut)])
+    assert.deepEqual(lignesXp(banc, aliceId).map(l => l.soiree_id), [archiveIdOf(debut, espaceDe(banc))])
   }))
 
 // ── Les prix de soirée ────────────────────────────────────────────────────
