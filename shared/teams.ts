@@ -229,7 +229,11 @@ export function detailDesPoints(t: Pick<TeamStanding, 'gamePoints' | 'bonus'>): 
  * Mais Nadia et Marc l'ont découvert après l'avoir annoncée, devant toute la
  * salle : le renversement doit se voir venir, pas se subir.
  */
-export function effetDUnPrix(teams: PublicTeam[], teamId: string, points: number): string {
+export function effetDUnPrix(teams: PublicTeam[], teamId: string, tape: number): string {
+  // Arrondi comme le serveur arrondit (`Teams.awardBonus`) : « 1,4 » tapé
+  // s'annonçait « +1.4 → prend la tête », et le serveur remettait +1 — une
+  // égalité.
+  const points = Math.round(tape)
   if (points === 0) return 'Pour l’honneur : aucun point d’équipe, aucun classement ne bouge'
   const nom = (t: { emoji: string; name: string }) => `${t.emoji} ${t.name}`
   const avant = finalRanking(teams)

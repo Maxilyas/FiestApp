@@ -104,7 +104,8 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles }: Props) {
                 </label>
                 <button
                   className={'btn btn-small' + (given ? '' : ' btn-primary')}
-                  onClick={() => onAward(team.id, points[a.key] ?? parDefaut(a), a.title)}
+                  // La valeur que l'effet annonce : arrondie, comme le serveur la lira.
+                  onClick={() => onAward(team.id, Math.round(points[a.key] ?? parDefaut(a)), a.title)}
                 >
                   {given ? 'Redonner' : 'Attribuer'}
                 </button>

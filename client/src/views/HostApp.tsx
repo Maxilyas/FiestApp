@@ -787,7 +787,8 @@ export function HostApp() {
                         sound.reveal()
                         socket.emit('host:awardTeam', {
                           teamId: freeTeam,
-                          points: freePoints,
+                          // Arrondi comme l'effet annoncé en dessous.
+                          points: Math.round(freePoints),
                           reason: freeReason,
                         })
                         setFreeReason('')

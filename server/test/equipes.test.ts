@@ -440,6 +440,9 @@ test('l’effet d’un prix se dit avant de cliquer', () => {
   assert.equal(equipes.effetDUnPrix(salle, 'rando', 1), '+1 pour 🥾 Randonneurs → à égalité avec 🎸 Guitaristes, 2ᵉ')
   assert.equal(equipes.effetDUnPrix(salle, 'arra', -2), '−2 pour 🍝 Arrabbiata → cède la tête à 🎸 Guitaristes')
   assert.equal(equipes.effetDUnPrix(salle, 'rando', 0), 'Pour l’honneur : aucun point d’équipe, aucun classement ne bouge')
+  // Arrondi comme le serveur : « 1,4 » annonçait « +1.4 → prend la tête », et le serveur remettait +1.
+  assert.equal(equipes.effetDUnPrix(salle, 'guit', 1.4), '+1 pour 🎸 Guitaristes → à égalité en tête avec 🍝 Arrabbiata')
+  assert.equal(equipes.effetDUnPrix(salle, 'guit', 0.4), 'Pour l’honneur : aucun point d’équipe, aucun classement ne bouge')
 })
 
 test('L’Abstentionniste ne pèse pas sur le Coup de Pouce : il revient à qui a joué', () => {
