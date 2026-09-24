@@ -50,6 +50,29 @@ test('le prénom d’une pastille se coupe, sa marque « (2) » jamais', () => {
   assert.match(hote, /className="chip-marque"/)
 })
 
+test('une pastille de profil au prénom long, dans une équipe, tient dans sa carte', () => {
+  // Une boîte flex compte le prénom entier dans son `min-content` : avec le
+  // bouton à `min-width: min-content`, le plancher du prénom n'était jamais
+  // atteint. « Rachid (tél. HS) » hors ligne, badge et équipe, finissait sa
+  // croix « Exclure » à 352 px pour une pastille qui s'arrête à 304 — la
+  // colonne défilait en largeur, en 1366 comme en 1920.
+  const bouton = regle('.player-chip .chip-name')
+  assert.match(bouton, /display:\s*inline-grid/)
+  // La première colonne descend jusqu'au plancher, jamais en dessous ; la
+  // marque a la sienne, entière : le `min-content` vaut « plancher + marque ».
+  assert.match(bouton, /grid-template-columns:\s*minmax\(var\(--plancher[^)]*\),\s*max-content\)\s+auto/)
+  assert.match(regle('.chip-prenom'), /min-width:\s*0/)
+  // Le sélecteur d'équipe cède jusqu'à sa flèche : 3 em de plancher
+  // laissaient déborder le pire cas (badge, marque, lune, équipe, croix).
+  const equipe = /min-width:\s*([\d.]+)em/.exec(regle('.player-chip .chip-team'))
+  assert.ok(equipe && Number(equipe[1]) <= 2.2, `le sélecteur garde ${equipe?.[1]} em`)
+  // Le plancher est posé sur le bouton, pas en `minWidth` sur le prénom :
+  // posé sur le prénom, il ne pèse pas sur la colonne de la grille.
+  const hote = readFileSync(new URL('../../client/src/views/HostApp.tsx', import.meta.url), 'utf8')
+  assert.match(hote, /className="chip-name"\s*style=\{\{ '--plancher': /)
+  assert.doesNotMatch(hote, /className="chip-prenom" style=/)
+})
+
 // ── A1 · Un bouton bascule dit son état, et un seul ───────────────────────
 
 /** Tous les fichiers `.tsx` du client, avec leur texte. */

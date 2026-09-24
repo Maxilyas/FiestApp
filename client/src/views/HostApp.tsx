@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
@@ -82,19 +82,25 @@ const TEAM_EMOJIS = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️', '🦩', '
  */
 function NomDePastille({ joueur }: { joueur: PublicPlayer }) {
   const { prenom, marque } = partsDuNom(joueur)
-  // Le prénom garde au moins cinq caractères : c'est le sélecteur d'équipe
-  // qui cède d'abord. Un prénom plus court ne se coupe pas du tout — un
-  // plancher en `ch` l'aurait suivi d'un blanc, la lettre « 0 » étant plus
-  // large que la plupart des autres.
-  const plancher = [...prenom].length > 5 ? '5ch' : 'max-content'
   return (
     <>
-      <span className="chip-prenom" style={{ minWidth: plancher }}>
-        {prenom}
-      </span>
+      <span className="chip-prenom">{prenom}</span>
       {marque && <span className="chip-marque">{marque.trim()}</span>}
     </>
   )
+}
+
+/**
+ * Le plancher du prénom, posé sur le bouton (`--plancher`) : la première
+ * colonne de sa grille ne descend pas plus bas. Quatre caractères — c'est
+ * le sélecteur d'équipe qui cède avec lui, et au pire cas (badge, marque,
+ * lune, équipe, croix) cinq ne tenaient plus dans la colonne de 1366. Un
+ * prénom plus court ne se coupe pas du tout : un plancher en `ch` l'aurait
+ * suivi d'un blanc, la lettre « 0 » étant plus large que la plupart des
+ * autres.
+ */
+function plancherDuPrenom(joueur: PublicPlayer): string {
+  return [...partsDuNom(joueur).prenom].length > 4 ? '4ch' : 'max-content'
 }
 
 /**
@@ -182,6 +188,7 @@ function TeamGroup({
                 la soirée suivante le lui rend. */}
             <button
               className="chip-name"
+              style={{ '--plancher': plancherDuPrenom(p) } as CSSProperties}
               title={`${p.nomAffiche ?? p.name} — donner un surnom pour la soirée`}
               aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}`}
               onClick={async () => {

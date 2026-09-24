@@ -2097,14 +2097,19 @@ h3 > .icon {
 .chip-name:hover { color: var(--accent-text); }
 
 /* Dans une pastille d'invité, c'est le prénom seul qui se coupe : la marque
-   « (2) » reste entière (invariant 17), et le prénom garde au moins cinq
-   caractères (le plancher est posé par la vue). Le sélecteur d'équipe cède
-   avant lui, dix fois plus prompt à rétrécir, jusqu'à ne plus montrer que
-   son emoji. */
+   « (2) » reste entière (invariant 17), et le prénom garde un plancher de
+   quelques caractères (`--plancher`, posé par la vue). Le sélecteur
+   d'équipe cède avec lui, jusqu'à ne plus montrer que son emoji.
+   Une grille, pas une boîte flex : le `min-content` d'une boîte flex compte
+   le prénom entier, et le plancher n'était jamais atteint — « Rachid (tél.
+   HS) » hors ligne, badge et équipe, poussait la croix « Exclure » 48 px
+   hors de sa carte. Ici, la première colonne descend jusqu'au plancher, et
+   le `min-content` du bouton vaut « plancher + marque ». */
 .player-chip .chip-name {
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: minmax(var(--plancher, 4ch), max-content) auto;
+  column-gap: 0.3ch;
   align-items: baseline;
-  gap: 0.3ch;
   max-width: none;
   /* Un bouton ne se laisse pas réduire à son contenu tout seul : sans ce
      plancher, la marque débordait sur le sélecteur d'équipe. */
@@ -2122,7 +2127,7 @@ h3 > .icon {
 .chip-marque { flex: none; white-space: nowrap; }
 .player-chip .player-avatar,
 .player-chip .chip-remove { flex: none; }
-.player-chip .chip-team { flex: 0 10 auto; min-width: 3em; }
+.player-chip .chip-team { flex: 0 10 auto; min-width: 2.2em; }
 @media (min-width: 1600px) {
   .chip-prenom { max-width: 16ch; }
 }
