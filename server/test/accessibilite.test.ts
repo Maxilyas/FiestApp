@@ -22,7 +22,10 @@ async function rendu(fichier: string, composant: string, props: object): Promise
   return renderToStaticMarkup(React.createElement(module[composant], props))
 }
 
-const VIDES = new Set(['img', 'br', 'hr', 'input', 'meta', 'link', 'source', 'path', 'circle', 'rect'])
+// Les seules balises vides du HTML : React ferme `<path></path>` et
+// `<rect></rect>`, et les compter pour vides décalait la profondeur — un
+// `aria-hidden` voisin cessait alors de masquer quoi que ce soit.
+const VIDES = new Set(['img', 'br', 'hr', 'input', 'meta', 'link', 'source'])
 
 /**
  * Le texte d'un fragment tel qu'un lecteur d'écran le parcourt : l'ordre du
@@ -165,4 +168,23 @@ test('à l’écran commun, aucun libellé accessible ne prend le prénom sans s
   const libelles = [...source.matchAll(/aria-label=\{`[^`]*`\}/g)].map(m => m[0])
   assert.ok(libelles.some(l => l.includes('p.nomAffiche ?? p.name')), 'les libellés des invités sont bien là')
   for (const l of libelles) assert.doesNotMatch(l, /\$\{p\.name\}/, l)
+})
+
+// ── 6. Pas d'annonces en trop au téléphone ────────────────────────────────
+
+test('le compte à rebours ne s’égrène pas dans la région vivante du téléphone', async () => {
+  // Tout le téléphone est une région annoncée : « 3 », « 2 », « 1 », « GO ! »
+  // étaient lus par-dessus la question qui arrivait.
+  const html = await rendu('components/GetReady', 'GetReady', { deadline: Date.now() + 3000, label: 'Prépare-toi…' })
+  assert.match(html, /class="big-count" aria-live="off"/)
+})
+
+test('en pause, l’oreille entend ce qui va se passer, pas « regarde l’écran »', async () => {
+  const view = {
+    phase: 'question', qIndex: 0, qCount: 3, kind: 'choice', text: 'La capitale ?', answers: ['A', 'B'],
+    deadline: Date.now() + 5000, duration: 20, paused: true, remainingMs: 5000, yourChoice: null,
+  }
+  const texte = entendu(await rendu('games/quiz/PlayerView', 'QuizPlayer', { view, send: () => {}, teams: [], myTeamId: null }))
+  assert.match(texte, /En pause — l'animateur reprend bientôt/)
+  assert.doesNotMatch(texte, /regarde l'écran/)
 })

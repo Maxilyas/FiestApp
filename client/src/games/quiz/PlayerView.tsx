@@ -247,7 +247,10 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
         />
         {v.paused && (
           <p className="hint">
-            <Icon name="pause" /> En pause — regarde l'écran commun
+            {/* « Regarde l'écran » ne dit rien à qui ne voit pas : l'oreille
+                entend ce qui va se passer. */}
+            <Icon name="pause" /> En pause — <span aria-hidden="true">regarde l'écran commun</span>
+            <span className="sr-only">l'animateur reprend bientôt</span>
           </p>
         )}
         {v.category && <span className="label quiz-categorie">{v.category}</span>}
