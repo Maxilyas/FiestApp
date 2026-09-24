@@ -120,7 +120,7 @@ function finDeQuiz(totaux: Record<string, number>, noms: Record<string, string>)
 
 /** Les lignes d'un classement rendu : le rang affiché, puis le prénom. */
 const lignesDuClassement = (html: string) =>
-  [...html.matchAll(/<span class="lb-rank[^"]*">(\d+)<\/span>.*?<span class="lb-name">([^<]*)<\/span>/g)].map(m => [
+  [...html.matchAll(/<span class="lb-rank[^"]*">(?:<span class="sr-only">Rang <\/span>)?(\d+)<\/span>.*?<span class="lb-name">([^<]*)<\/span>/g)].map(m => [
     Number(m[1]),
     m[2],
   ])
@@ -258,7 +258,11 @@ test('une fois des prix remis, le souvenir, le bilan et le panneau de la salle c
 
   // Le panneau des équipes — celui du souvenir et de l'écran commun.
   const tableau = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams: review.teams, showFinalPoints: true }))
-  assert.match(tableau, /^1 🦅 Les Aigles .*1 au barème \+ 1 de prix 2 200 1 🦓 Les Zèbres .* 2 300$/, tableau)
+  assert.match(
+    tableau,
+    /^Rang 1 🦅 Les Aigles .*1 au barème \+ 1 de prix 2 points au barème, prix compris, 200 points de moyenne par membre Rang 1 🦓 Les Zèbres .* 2 points au barème, prix compris, 300 points de moyenne par membre$/,
+    tableau,
+  )
 
   const verdict = texteDe(await rendu('components/TeamBoard', 'VerdictDesEquipes', { teams: review.teams, avecPrix: true }))
   assert.equal(verdict, '🦅 Les Aigles et 🦓 Les Zèbres remportent le quiz ex æquo, 2 points chacune prix compris.')

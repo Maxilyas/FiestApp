@@ -1,7 +1,7 @@
 import { finalRanking, rankTeams, vainqueursDuQuiz } from '../../../shared/teams'
 import { enumerer } from '../../../shared/classement'
 import type { PublicTeam } from '../../../shared/types'
-import { Rank } from './Rank'
+import { Rank, Score, motPoints } from './Rank'
 import { Icon } from './Icon'
 
 interface Props {
@@ -43,13 +43,16 @@ export function TeamBoard({ teams, highlightId, showFinalPoints, compact }: Prop
   const played = rows.some(t => t.average > 0 || (showFinalPoints && t.bonus !== 0))
 
   return (
-    <div className="leaderboard team-board">
+    // Une liste : sans elle, le lecteur d'écran lisait toutes les équipes
+    // d'une traite, sans dire où l'une finit et l'autre commence.
+    <div className="leaderboard team-board" role="list">
       {rows.map(t => (
         <div
           key={t.id}
+          role="listitem"
           className={'lb-row team-row' + (t.id === highlightId ? ' me' : '')}
         >
-          {played ? <Rank n={t.rank} /> : <span className="lb-rank">·</span>}
+          {played ? <Rank n={t.rank} /> : <span className="lb-rank" aria-hidden="true">·</span>}
           <span className="lb-avatar">{t.emoji}</span>
           <span className="lb-name">
             {t.name}
@@ -65,9 +68,10 @@ export function TeamBoard({ teams, highlightId, showFinalPoints, compact }: Prop
           {showFinalPoints && (
             <span className="team-gamepoints" title="Total du quiz : le barème, prix compris">
               {played ? t.finalPoints : '–'}
+              {played && <span className="sr-only"> {motPoints(t.finalPoints)} au barème, prix compris,</span>}
             </span>
           )}
-          <span className="lb-score">{t.average}</span>
+          <Score n={t.average} precision="de moyenne par membre" />
         </div>
       ))}
     </div>
