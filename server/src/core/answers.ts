@@ -44,6 +44,12 @@ const COLUMNS =
 
 export class AnswerLog {
   private insertStmt
+  /**
+   * Monte à chaque écriture du journal des réponses : les pages publiques
+   * (`core/pages.ts`) s'en servent pour savoir si leur calcul tient encore,
+   * sans relire le journal.
+   */
+  revision = 0
 
   constructor(
     private db: DB,
@@ -89,6 +95,7 @@ export class AnswerLog {
       }
     })()
     this.backup?.saveAnswers(signees)
+    this.revision++
   }
 
   /**
@@ -120,10 +127,12 @@ export class AnswerLog {
       .prepare('DELETE FROM answer_log WHERE session_id = ? AND q_index = ?')
       .run(sessionId, qIndex)
     this.backup?.dropAnswers(sessionId, qIndex)
+    this.revision++
   }
 
   clearAll() {
     this.db.prepare('DELETE FROM answer_log WHERE space_id = ?').run(this.spaceId)
+    this.revision++
   }
 
   /**
@@ -132,8 +141,12 @@ export class AnswerLog {
    * l'écriture de ses lignes.
    */
   removePlayer(playerId: string) {
-    this.db.prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
+    const { changes } = this.db
+      .prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?')
+      .run(playerId, this.spaceId)
     this.backup?.deletePlayerAnswers(playerId)
+    // Un invité arrivé après la dernière question n'y avait rien écrit.
+    if (changes > 0) this.revision++
   }
 }
 

@@ -99,6 +99,13 @@ function empreinteDuCredit(soireeId: string, gains: SoireeGain[]): string {
 }
 
 /**
+ * Chaque soirée chargée reçoit son numéro : un espace déchargé puis réveillé
+ * repart de journaux relus, dont les compteurs d'écriture repartent de zéro
+ * — sans ce numéro, une page gardée d'avant pourrait passer pour à jour.
+ */
+let incarnations = 0
+
+/**
  * La soirée d'un espace : ses invités, ses équipes, ses points, son journal,
  * sa partie en cours — et ses diffusions, qui ne sortent jamais de ses
  * salons. Chaque animateur en a une ; elles ne se voient pas.
@@ -121,6 +128,7 @@ export class SpaceRuntime {
   //   toutes les 30 secondes pendant toute la fête, pour rien.
   private lastSnapshot = ''
   private pending: ReturnType<typeof setTimeout> | null = null
+  private readonly incarnation = ++incarnations
 
   constructor(
     readonly spaceId: string,
@@ -347,6 +355,30 @@ export class SpaceRuntime {
   }
 
   /**
+   * Ce dont se dérivent les pages publiques de la soirée en cours : le numéro
+   * d'écriture de chaque journal et, tant que rien n'est joué, le nom de la
+   * soirée et l'historique de l'espace, où se lit la dernière soirée close
+   * (`derniere`). Une fois une question jouée, la page ne dépend plus
+   * de l'historique : le rangement qui suit chaque podium, au moment même où
+   * la salle scanne le QR, refaisait la page pour rien. Sans lire le
+   * journal : les pages le demandent à chaque requête. Ce qui n'y est pas — le niveau d'un
+   * profil, l'intitulé d'un quiz de la bibliothèque — paraît à la durée de
+   * vie de la page (`core/pages.ts`).
+   */
+  empreinteDesPages(): string {
+    return [
+      this.incarnation,
+      this.party.revision,
+      this.teams.revision,
+      this.ledger.revision,
+      this.answers.revision,
+      // `derniere` écarte la soirée en cours par son nom : l'un et l'autre
+      // ne comptent que tant que rien n'est joué.
+      this.aJoue() ? '' : `${this.soiree?.id ?? ''}.${this.deps.archives.revision(this.spaceId)}`,
+    ].join('.')
+  }
+
+  /**
    * Vrai dès qu'une question a été jouée dans la soirée en cours : ses pages
    * parlent alors d'elle. Avant, elles montrent la dernière soirée close.
    */
@@ -369,12 +401,10 @@ export class SpaceRuntime {
     const p = this.party.publicOne(playerId, points)
     if (!p) return null
     const positifs = [...totals.values()].filter(t => t > 0)
-    const journal = this.answers.all()
+    const { releves, joueurs } = this.relevesDesCartes()
     // Sa soirée telle que sa fiche la rangera : la même lecture du journal,
     // les mêmes chiffres.
-    const soir =
-      relevesDeSoiree({ players: this.party.all(), scores: this.ledger.all(), answers: journal }).get(playerId)?.releve ??
-      releveVide()
+    const soir = releves.get(playerId)?.releve ?? releveVide()
     const carte: CarteDeJoueur = {
       nom: p.nomAffiche ?? p.name,
       avatar: p.avatar,
@@ -384,7 +414,7 @@ export class SpaceRuntime {
         rang: points > 0 ? rangPartage(points, positifs) : 0,
         // Toute la salle qui a joué, pas seulement ceux qui ont marqué : « 1ᵉʳ
         // sur 2 » quand cinq ont répondu laissait croire à une salle vide.
-        joueurs: new Set(journal.filter(r => r.answered).map(r => r.playerId)).size,
+        joueurs,
         reponses: soir.reponses,
         // Les justes se comptent sur les QCM seuls : une estimation n'est
         // jamais juste, et la compter au dénominateur faisait lire « 1/64
@@ -425,6 +455,27 @@ export class SpaceRuntime {
       },
     }
     return carte
+  }
+
+  private cartesGardees: { empreinte: string; releves: ReturnType<typeof relevesDeSoiree>; joueurs: number } | null =
+    null
+
+  /**
+   * Les relevés de toute la salle, gardés tant que les journaux ne bougent
+   * pas : chaque carte ouverte relisait le journal entier pour n'en garder
+   * qu'une ligne, et toute la salle touche les noms au podium.
+   */
+  private relevesDesCartes() {
+    const empreinte = this.empreinteDesPages()
+    if (this.cartesGardees?.empreinte !== empreinte) {
+      const journal = this.answers.all()
+      this.cartesGardees = {
+        empreinte,
+        releves: relevesDeSoiree({ players: this.party.all(), scores: this.ledger.all(), answers: journal }),
+        joueurs: new Set(journal.filter(r => r.answered).map(r => r.playerId)).size,
+      }
+    }
+    return this.cartesGardees
   }
 
   /** Le nom qu'un invité porte sur les écrans, et ce qu'il porte. */

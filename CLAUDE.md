@@ -63,6 +63,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare |
 | `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
 | `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
+| `core/pages.ts` | le souvenir et le bilan, en cours ou archivés, calculés **une fois** pour toute la salle qui scanne le QR : gardés sous une empreinte des journaux (`revision` de chaque registre, `ArchiveStore.revision`, `empreinteDesPages`), la rafale attend la promesse du premier calcul ; compressés une fois, avec leur ETag |
+| `core/pouls.ts` | ce que `/healthz` dit de la charge — processeur, boucle, chronomètres, pages, miroir, réserve d'inscriptions —, agrégé, sans un nom, lu sans rien parcourir |
+| `core/precompresse.ts` | les fichiers du paquet servis tels que le build les a compressés (`.br` en brotli 11, `.gz`), selon ce que le téléphone accepte — la précompression est un greffon de `client/vite.config.ts` |
 | `core/http.ts` | ce qu'une erreur laisse lire : `wrap`, `erreurMontrable`, `messagePourEcran`, `erreurDeRequete` |
 | `auth/store.ts` | comptes d'animateurs — c'est-à-dire **des espaces** : `accounts.id` EST le `space_id` |
 | `auth/profiles.ts` | profils de joueurs (autre table, autre cookie) |
@@ -358,7 +361,20 @@ sans `QUIZ_DB_URL`.
 - **`/healthz` doit rester un 200** : sur un échec, Render redémarre
   l'instance — disque effacé, file du miroir perdue. La santé du miroir se lit
   dans son bloc `miroir`, et la resynchronisation **n'efface jamais** : un PC
-  de secours lancé sur de vieux essais viderait sinon la vraie soirée.
+  de secours lancé sur de vieux essais viderait sinon la vraie soirée. Ce
+  qu'on y ajoute reste agrégé, **sans un nom** (la route est publique), et se
+  lit sans parcourir de journal ; une sonde de retard de boucle ne descend
+  jamais sous 20 ms de résolution (à 1 ms, elle doublait le processeur
+  qu'elle mesurait).
+- **Les pages publiques se gardent** (`core/pages.ts`) tant que leur
+  empreinte ne bouge pas. Une écriture d'un journal (`Party`, `Teams`,
+  `ScoreLedger`, `AnswerLog`) qui change vraiment quelque chose fait monter
+  sa `revision` — pas un téléphone qui se re-présente au réveil, sinon toute
+  la salle qui sort de veille refait le souvenir —, une écriture de
+  l'historique passe par `ArchiveStore.ecrire` : une nouvelle écriture qui
+  les contournerait laisserait le souvenir en retard — une minute au plus en
+  cours de soirée —, et une nouvelle source d'une page publique entre dans
+  `empreinteDesPages`. La place d'une page porte toujours l'espace.
 - **Simuler une panne** : un déclencheur `RAISE(ABORT)` sur le fichier `file:`
   qui tient lieu de Turso (`miroir.test.ts`) ; un vrai démarrage, un SIGTERM
   ou un SIGKILL, en lançant `src/index.ts` dans un processus enfant

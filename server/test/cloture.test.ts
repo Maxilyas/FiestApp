@@ -640,3 +640,107 @@ test('au démarrage d’un barème neuf, l’historique se relit — et la veill
     // Plus rien d'une version d'avant : le démarrage suivant n'a rien à relire.
     assert.deepEqual(lire(banc, `SELECT soiree_id FROM profile_xp WHERE detail NOT LIKE '{"v":${VERSION_BAREME},%'`), [])
   }))
+
+// Le recalcul passe avant l'ouverture du port, et chaque profil de chaque
+// soirée y coûtait deux allers-retours, en série : 101 soirées, 68 s de
+// démarrage à 20 ms de latence — des minutes de 502 au premier déploiement
+// d'un barème neuf. Une soirée se crédite maintenant d'un seul lot, quel que
+// soit le nombre de ses profils. On compte les requêtes, on ne chronomètre
+// rien.
+test('le recalcul au barème du jour écrit une soirée d’un seul lot, quel que soit le nombre de ses profils', async () => {
+  const { mkdtempSync, rmSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const path = await import('node:path')
+  const { Sqlite3Client } = await import('@libsql/client/sqlite3')
+  const { ArchiveStore, buildArchive } = await import('../src/core/archive')
+  const { recalculerHistorique } = await import('../src/core/recalcul')
+
+  /** Un historique de `soirees` soirées, chacune jouée par `profils` profils, et une ligne d'un barème d'avant. */
+  const historique = async (soirees: number, profils: number) => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'quizz-recalcul-'))
+    const url = `file:${path.join(dir, 'permanente.db').replace(/\\/g, '/')}`
+    const profiles = new ProfileStore(url)
+    await profiles.init()
+    const archives = new ArchiveStore(url)
+    await archives.init('espace')
+    const ids: string[] = []
+    for (let i = 0; i < profils; i++) {
+      ids.push((await profiles.register({ login: `p${i}`, password: 'motdepasse1', name: `P${i}`, avatar: '🦊' })).profile.id)
+    }
+    for (let k = 0; k < soirees; k++) {
+      const t0 = Date.UTC(2025, 0, 1) + k * 86_400_000
+      const players = ids.map((profileId, i) => ({
+        id: `j${k}-${i}`, name: `P${i}`, avatar: '🦊', token: '', teamId: null, profileId, createdAt: t0 + i,
+      }))
+      // Deux figurants anonymes : un joueur seul ne rapporte rien.
+      for (const f of ['x', 'y']) players.push({ id: `j${k}-${f}`, name: f, avatar: '🐻', token: '', teamId: null, profileId: null as any, createdAt: t0 + 99 })
+      const answers = players.map((p, i) => ({
+        sessionId: `s${k}`, quizTitle: 'Quiz', qIndex: 0, kind: 'choice' as const, playerId: p.id, answered: true,
+        correct: i % 2 === 0, choice: i % 2, value: null, target: null, ms: 1000 + i * 37, changes: 0,
+        points: i % 2 === 0 ? 500 : 0, durationMs: 20_000, observed: false, category: null, createdAt: t0 + 1000,
+      }))
+      const scores = answers.filter(a => a.points > 0).map(a => ({ playerId: a.playerId, sessionId: a.sessionId, points: a.points, reason: 'Q1', createdAt: a.createdAt }))
+      const a = buildArchive({
+        soiree: { id: `soiree-${k}`, heldAt: t0 } as any, players: players as any, teams: [], bonuses: [], scores, answers: answers as any,
+        packsBySession: new Map([[`s${k}`, { title: 'Quiz', questions: [{ kind: 'choice', text: 'Q ?', answers: ['A', 'B'], correct: 0, duration: 20, image: null }] as any }]]),
+        library: [],
+      })!
+      await archives.save('espace', a.id, a.heldAt, a.archive)
+    }
+    const c = (profiles as any).client
+    await c.execute({
+      sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, 'soiree-0', 'espace', 1, '{"v":1}', 0)
+            ON CONFLICT(profile_id, soiree_id) DO UPDATE SET detail = '{"v":1}'`,
+      args: [ids[0]],
+    })
+    return { dir, profiles, archives, ids }
+  }
+
+  const proto = Sqlite3Client.prototype as any
+  const origines = { execute: proto.execute, batch: proto.batch }
+  let requetes = 0
+  for (const m of ['execute', 'batch'] as const) {
+    proto[m] = function (...args: unknown[]) {
+      requetes++
+      return origines[m].apply(this, args)
+    }
+  }
+  const mesurer = async (soirees: number, profils: number) => {
+    const h = await historique(soirees, profils)
+    try {
+      // Le recalcul d'abord ; puis les paliers, jugés profil par profil — hors du compte par soirée.
+      requetes = 0
+      const fait = await recalculerHistorique({ profiles: h.profiles, archives: h.archives, enCours: new Set() })
+      assert.equal(fait?.soirees, soirees)
+      // Chaque total dit la somme de ses lignes, en base comme en mémoire.
+      const c = (h.profiles as any).client
+      for (const id of h.ids) {
+        const somme = Number((await c.execute({ sql: 'SELECT COALESCE(SUM(xp), 0) AS n FROM profile_xp WHERE profile_id = ?', args: [id] })).rows[0].n)
+        assert.ok(somme > 0, 'chaque profil a gagné')
+        assert.equal((await h.profiles.byId(id))?.xp, somme, 'le total suit ses lignes')
+      }
+      return requetes
+    } finally {
+      h.profiles.close()
+      h.archives.close()
+      rmSync(h.dir, { recursive: true, force: true })
+    }
+  }
+  try {
+    const peu = await mesurer(6, 3)
+    const beaucoup = await mesurer(6, 12)
+    // Neuf profils de plus dans chacune des six soirées : sur l'ancien
+    // chemin, 6 × 9 × 2 = 108 requêtes de plus rien que pour les crédits.
+    // Il ne reste que ce que chaque profil coûte une fois : ses paliers.
+    assert.ok(
+      beaucoup - peu <= 9 * 10,
+      `neuf profils de plus coûtent ${beaucoup - peu} requêtes (${peu} → ${beaucoup}) : ils ne se paient plus par soirée`,
+    )
+    const plus = await mesurer(12, 3)
+    console.log(`[recalcul] requêtes : 6 soirées × 3 profils ${peu}, × 12 profils ${beaucoup}, 12 soirées × 3 profils ${plus}`)
+    assert.ok(plus - peu <= 6 * 4, `six soirées de plus coûtent ${plus - peu} requêtes : quelques-unes chacune, pas une par profil`)
+  } finally {
+    proto.execute = origines.execute
+    proto.batch = origines.batch
+  }
+})
