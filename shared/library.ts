@@ -564,18 +564,34 @@ const sansGras = (l: string) => l.replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+
  * Le numéro d'un intitulé : « 1. », « 2) », « Q3 : », « Question 4 - », et
  * le « ## » d'un titre. Un nombre sans point ni parenthèse n'en est pas un
  * (« 1984 est un roman de ? »), ni un point sans espace (« 3.14, c'est pi ? »).
+ * Un « Q » seul veut son séparateur : « Q7 est une voiture de quelle
+ * marque ? » et « Q2 2024 : quel trimestre ? » perdaient leur début.
  */
 const TITRE_MARKDOWN = /^#{2,}\s*/
-const NUMERO_D_INTITULE = /^(?:q(?:uestion)?\s*(?:n°\s*)?\d{1,3}\s*[.):–—-]?\s+|\d{1,3}\s*[.)]\s+)/i
+const NUMERO_D_INTITULE =
+  /^(?:question\s*(?:n°\s*)?\d{1,3}\s*[.):–—-]?\s+|q\s*(?:n°\s*)?\d{1,3}\s*[.):–—-]\s+|\d{1,3}\s*[.)]\s+)/i
+/**
+ * Une ligne qui n'est qu'un en-tête : « ### Question 1 », « Q3 : », « 2. ».
+ * L'intitulé vient à la ligne suivante — lu comme intitulé, l'en-tête faisait
+ * une question « prête » nommée « Question 1 », son vrai texte parmi les choix.
+ */
+const ENTETE_SEUL =
+  /^(?:#{2,}\s*(?:(?:question|q)\s*(?:n°\s*)?)?\d{1,3}\s*[.):–—-]?|(?:question|q)\s*(?:n°\s*)?\d{1,3}\s*[.):–—-]?|\d{1,3}\s*[.)])$/i
 
 /**
  * Une puce. L'étoile n'en est pas une — c'est la marque de la bonne
- * réponse —, ni un tiret collé : « -41 °C » est un nombre négatif.
+ * réponse —, ni un tiret collé : « -41 °C » est un nombre négatif. Ni un
+ * tiret suivi d'un chiffre : « - 30 °C » est un signe, qu'on retirait ; une
+ * liste à puces de nombres garde donc ses tirets, qui se retouchent sur la
+ * carte, plutôt qu'une réponse ne change de signe en silence.
  */
-const PUCE = /^[-•–—+·▪◦]\s+/
+const PUCE = /^[-•–—+·▪◦]\s+(?![\d.,])/
 /** La bonne réponse, marquée devant — « * », « ✓ » — ou derrière, comme on l'écrit aussi. */
-const MARQUE_DEVANT = /^[*✓✔]\s*/
-const MARQUE_DERRIERE = /\s*(?:\*|✓|✔|\(\s*\*\s*\)|\(\s*bonne\s+r[ée]ponse\s*\))$/i
+// Les coches d'emoji comprises, « ✔️ » (avec son sélecteur U+FE0F) et
+// « ✅ » : une IA les met volontiers, et la question restait sans bonne
+// réponse, la coche collée au texte.
+const MARQUE_DEVANT = /^(?:\*|[✓✔☑✅]\uFE0F?)\s*/
+const MARQUE_DERRIERE = /\s*(?:\*|[✓✔☑✅]\uFE0F?|\(\s*\*\s*\)|\(\s*bonne\s+r[ée]ponse\s*\))$/i
 /** « A) », « b. », « 1) » : l'étiquette d'une réponse, qui ne se retire que si toutes se suivent. */
 const ETIQUETTE = /^\(?([a-h]|\d)[.)]\s+/i
 const SUITE_D_ETIQUETTES = 'abcdefgh'
@@ -696,6 +712,8 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
     const question = emptyQuestion(modele)
     question.category = categorie
     // Coupé par caractère, jamais au milieu d'un emoji.
+    // Un en-tête seul sur sa ligne : l'intitulé est la suivante.
+    if (lines.length > 2 && ENTETE_SEUL.test(lines[0])) lines.shift()
     question.text = tronquer(lines[0].replace(TITRE_MARKDOWN, '').replace(NUMERO_D_INTITULE, '').trim() || lines[0], MAX_TEXT)
 
     // Les réglages d'abord, où qu'ils soient sous l'intitulé : ce qui reste

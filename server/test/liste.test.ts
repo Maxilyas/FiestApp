@@ -390,6 +390,31 @@ test('ce qui ressemble à une mise en forme sans en être une reste tel quel', (
   assert.deepEqual([questions[0].category, questions[0].text], ['Musique', '#1 des ventes en 1985 ?'])
 })
 
+// Relus par la relecture de l'axe 3 : la première lecture « bavarde »
+// nettoyait trop, face à main — un signe pris pour une puce, un « Q7 » pris
+// pour un numéro, un en-tête seul lu comme intitulé, les coches d'emoji.
+test('la liste bavarde ne retire que la mise en forme, jamais le texte', () => {
+  // « - 30 °C » est un signe, pas une puce.
+  const froid = une('Température record en Antarctique ?', '- 30 °C', '* - 89 °C', '- 12 °C')
+  assert.deepEqual(froid.answers, ['- 30 °C', '- 89 °C', '- 12 °C', ''])
+  assert.equal(froid.correct, 1)
+  // Un « Q » sans séparateur fait partie de l'intitulé.
+  assert.equal(une('Q7 est une voiture de quelle marque ?', '* Audi', 'BMW').text, 'Q7 est une voiture de quelle marque ?')
+  assert.equal(une('Q2 2024 : quel trimestre ?', '* Le deuxième', 'Le premier').text, 'Q2 2024 : quel trimestre ?')
+  assert.equal(une('Q3 : Capitale ?', '* Canberra', 'Sydney').text, 'Capitale ?', 'avec son séparateur, il reste un numéro')
+  // Un en-tête seul sur sa ligne : l'intitulé est la suivante.
+  for (const entete of ['### Question 1', '**Question 1**', 'Q1 :', '1.', '## 1']) {
+    const q = une(entete, 'Quelle est la capitale de l’Australie ?', 'Sydney', '* Canberra')
+    assert.equal(q.text, 'Quelle est la capitale de l’Australie ?', entete)
+    assert.deepEqual([q.answers, q.correct], [['Sydney', 'Canberra', '', ''], 1], entete)
+  }
+  // Les coches d'emoji, devant ou derrière, sélecteur U+FE0F compris.
+  for (const ligne of ['✔️ Bleu', '✔\uFE0F Bleu', '✅ Bleu', 'Bleu ✅', 'Bleu ✔️', '☑ Bleu']) {
+    const q = une('Couleur du ciel ?', 'Vert', ligne, 'Rouge')
+    assert.deepEqual([q.answers[1], q.correct], ['Bleu', 1], ligne)
+  }
+})
+
 test('une question sans bonne réponse désignée n’est pas prête, et le dit', () => {
   const sansEtoile = parseImportedQuestions('Capitale ?\nSydney\nCanberra')
   assert.equal(sansEtoile.unmarked, 1)
