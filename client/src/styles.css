@@ -4252,3 +4252,15 @@ h3 > .icon {
     .cloture-fait { gap: 6px; padding: 8px 12px; }
   }
 }
+
+/* L'accueil dit ce qu'est l'application, en une ligne : le surtitre des
+   invitations, sans en prendre la hauteur — « Rejoindre une soirée » reste
+   au-dessus du bord d'un 360 × 640. */
+.accueil-marque {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}

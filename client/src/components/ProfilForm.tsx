@@ -26,6 +26,16 @@ interface Props {
    * formulaire que l'invité n'avait aucun moyen de remplir.
    */
   creer?: boolean
+  /**
+   * L'accueil seulement : une ligne qui dit ce qu'est l'application. Sans
+   * elle, la première page d'un lien partagé ne disait que « Retrouver mon
+   * profil » — à quelqu'un qui n'en a jamais eu.
+   */
+  marque?: ReactNode
+  /** Sous le refus d'une connexion : une aide qui ne dépend pas de ce qu'on a tapé. */
+  aideErreur?: ReactNode
+  /** Tout en bas, après l'explication : la porte discrète des animateurs. */
+  pied?: ReactNode
 }
 
 /**
@@ -36,7 +46,7 @@ interface Props {
  * obligé d'en passer par là — l'invité anonyme joue exactement comme avant,
  * et c'est le chemin par défaut.
  */
-export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props) {
+export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, pied }: Props) {
   const [mode, setMode] = useState<'connexion' | 'inscription' | 'secours'>(creer ? 'inscription' : 'connexion')
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
@@ -119,6 +129,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
     // Resserré comme l'entrée d'une soirée : en 360 × 640, « Revenir » —
     // la seule sortie de la salle d'attente — tombait sous le bord.
     <form className="join entree" onSubmit={submit}>
+      {marque}
       <h2 className="center">
         <Icon name="sparkles" /> {creation ? 'Créer un profil' : 'Retrouver mon profil'}
       </h2>
@@ -183,9 +194,10 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
         />
       </div>
       {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
+        <div role="alert">
+          <p className="error">{error}</p>
+          {!creation && aideErreur}
+        </div>
       )}
       {info && (
         <p className="info" role="status">
@@ -252,6 +264,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
           </p>
         </>
       )}
+      {pied}
     </form>
   )
 }

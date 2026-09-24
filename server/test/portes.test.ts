@@ -166,3 +166,31 @@ describe('les icônes', () => {
     assert.ok(tailles.includes('192x192') && tailles.includes('512x512'))
   })
 })
+
+describe('la porte des animateurs', () => {
+  test('un compte en pause se dit en pause — à qui connaît son mot de passe seulement', async () => {
+    const cree = await ecrire(banc.url, '/api/admin/accounts', { login: 'lea', name: 'Léa', slug: 'chez-lea' }, admin)
+    const { account, activation } = (await cree.json()) as any
+    assert.equal((await ecrire(banc.url, '/api/auth/activate', { token: activation.token, password: 'motdepasse-lea' })).status, 200)
+    assert.equal((await ecrire(banc.url, `/api/admin/accounts/${account.id}/disable`, {}, admin)).status, 200)
+
+    const juste = await ecrire(banc.url, '/api/auth/login', { login: 'lea', password: 'motdepasse-lea' })
+    assert.equal(juste.status, 403)
+    assert.match(((await juste.json()) as any).error, /en pause/)
+    assert.equal(juste.headers.get('set-cookie'), null, 'aucune session ouverte')
+
+    // Un mot de passe faux ne dit rien de plus qu'ailleurs.
+    const faux = await ecrire(banc.url, '/api/auth/login', { login: 'lea', password: 'pas-le-bon' })
+    assert.equal(faux.status, 401)
+    assert.match(((await faux.json()) as any).error, /incorrect/)
+  })
+
+  test('un compte en pause ne reçoit pas de lien d’activation', async () => {
+    const liste = (await (await fetch(`${banc.url}/api/admin/accounts`, { headers: { Cookie: admin } })).json()) as any[]
+    const lea = liste.find(a => a.login === 'lea')
+    const lien = await ecrire(banc.url, `/api/admin/accounts/${lea.id}/activation`, {}, admin)
+    assert.equal(lien.status, 400)
+    assert.equal((await ecrire(banc.url, `/api/admin/accounts/${lea.id}/enable`, {}, admin)).status, 200)
+    assert.equal((await ecrire(banc.url, `/api/admin/accounts/${lea.id}/activation`, {}, admin)).status, 200)
+  })
+})

@@ -495,7 +495,8 @@ try {
   const meDisabled = await fetch(`${url}/api/auth/me`, { headers: { Cookie: bobCookie } })
   assert(meDisabled.status === 401, 'la session d’un compte désactivé ne vaut plus rien')
   const loginDisabled = await write(url, '/api/auth/login', { login: 'bob', password: 'bob-pass-12' })
-  assert(loginDisabled.status === 401, 'un compte désactivé ne se connecte plus')
+  // Le bon mot de passe sur un compte en pause : refusé, et dit (403) — pas « incorrect ».
+  assert(loginDisabled.status === 403 && !loginDisabled.headers.get('set-cookie'), 'un compte désactivé ne se connecte plus')
   // Sa soirée est fermée aux invités, mais ses pages restent lisibles.
   const closedDoor = await emitAck<any>(connect(), 'party:watch', { slug: 'chez-bob' })
   assert(!closedDoor.ok, 'la soirée d’un compte désactivé ne se rejoint plus')

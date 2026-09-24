@@ -65,9 +65,16 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
       // Un identifiant inconnu coûte le même temps qu'un mot de passe faux :
       // rien, pas même la durée, ne dit si le compte existe.
       const ok = await verifyPassword(password, found?.passwordHash ?? (await dummyHash()))
-      if (!found || !found.passwordHash || found.disabledAt || !ok) {
+      if (!found || !found.passwordHash || !ok) {
         budget.failed(cle)
         return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' })
+      }
+      // Le bon mot de passe, sur un compte en pause : le dire. « Incorrect »
+      // faisait retaper un mot de passe juste, puis réveiller l'administrateur
+      // pour un lien qui n'y changeait rien. Ne l'apprend que qui connaît
+      // déjà le mot de passe.
+      if (found.disabledAt) {
+        return res.status(403).json({ error: 'Ton compte est en pause : demande à l’administrateur de le réactiver' })
       }
       budget.succeeded(cle)
       await openSession(req, res, found.id)
@@ -252,6 +259,9 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       const target = auth.byId(req.params.id)
       if (!target) return res.status(404).json({ error: 'Compte introuvable' })
+      // Un lien pour un compte en pause ouvrait une session sur un espace
+      // que l'administrateur venait de fermer.
+      if (target.disabledAt) return res.status(400).json({ error: 'Réactive d’abord le compte' })
       res.json({ activation: await auth.createActivation(target.id) })
     }),
   )

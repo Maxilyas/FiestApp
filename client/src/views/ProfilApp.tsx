@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react'
-import { api } from '../api'
+import { api, currentMe } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Icon, type IconName } from '../components/Icon'
@@ -19,7 +19,7 @@ import { Vitrine } from '../components/Vitrine'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { Categories, Courbes, FicheCarriere, GalerieDivins, GalerieLegendaires, HautsFaits } from '../components/Carriere'
 import { formatNumber, place, reponsesParType } from '../format'
-import { spacePath } from '../routes'
+import { route, spacePath } from '../routes'
 import type { PublicSpace } from '../../../shared/space'
 
 /**
@@ -44,6 +44,12 @@ export function ProfilApp() {
   const [busy, setBusy] = useState(false)
   /** L'échappée : « quelle soirée ? », à un geste d'ici. */
   const [rejoindre, setRejoindre] = useState(false)
+  /**
+   * La soirée dont une session d'animateur est ouverte sur ce navigateur,
+   * profil rattaché ou non. L'animateur qui n'a pas relié de profil n'avait
+   * ici aucune porte, et ses identifiants de compte y étaient « incorrects ».
+   */
+  const [console_, setConsole] = useState<PublicSpace | null>(null)
 
   const relire = () =>
     api.joueur.moi().then(r => {
@@ -52,7 +58,10 @@ export function ProfilApp() {
     })
 
   useEffect(() => {
-    document.title = 'Mon profil'
+    // L'onglet de l'accueil dit ce qu'est l'application ; celui de `/profil`,
+    // ce qu'on y regarde.
+    document.title = route.kind === 'landing' ? 'FiestApp · le quiz de soirée' : 'Mon profil · FiestApp'
+    currentMe().then(m => setConsole(m?.space ?? null))
     relire()
       .catch(() => setProfil(null))
       .finally(() => setChargement(false))
@@ -113,6 +122,13 @@ export function ProfilApp() {
     return (
       <ProfilForm
         onDone={() => relire()}
+        marque={<p className="accueil-marque">FiestApp · le quiz de soirée</p>}
+        aideErreur={
+          // La même phrase pour tout refus : dire « c'est un identifiant
+          // d'animateur » apprendrait à n'importe qui quels comptes existent.
+          <p className="muted small">Tu animes une soirée ? Ta porte est tout en bas : « J’anime une soirée ».</p>
+        }
+        pied={<PorteAnimateur console_={console_} />}
         echappee={
           <button type="button" className="btn btn-accent btn-big btn-block" onClick={() => setRejoindre(true)}>
             Rejoindre une soirée
@@ -177,10 +193,22 @@ export function ProfilApp() {
               Animer ma soirée
             </button>
           )}
+          {!espace && console_ && (
+            <a className="btn btn-primary btn-big btn-block" href="/host">
+              Animer « {console_.title} »
+            </a>
+          )}
           <button className="btn btn-accent btn-big btn-block" onClick={() => setRejoindre(true)}>
             Rejoindre une soirée
           </button>
         </div>
+        {!espace && !console_ && (
+          <p className="join-foot">
+            <a className="link-inline" href="/connexion?next=/host">
+              J’anime une soirée
+            </a>
+          </p>
+        )}
       </div>
 
       <Repli
@@ -370,6 +398,29 @@ export function ProfilApp() {
         </button>
       </div>
     </div>
+  )
+}
+
+/**
+ * La porte des animateurs, sur l'accueil d'un visiteur sans profil : sa
+ * console s'il en a une ouverte ici, sinon un lien discret vers la connexion
+ * au compte. Discret, parce que l'accueil est d'abord celui des invités —
+ * « Rejoindre une soirée » ne doit jamais descendre sous le bord.
+ */
+function PorteAnimateur({ console_ }: { console_: PublicSpace | null }) {
+  if (console_) {
+    return (
+      <a className="btn btn-block" href="/host">
+        Animer « {console_.title} »
+      </a>
+    )
+  }
+  return (
+    <p className="join-foot">
+      <a className="link-inline" href="/connexion?next=/host">
+        J’anime une soirée
+      </a>
+    </p>
   )
 }
 

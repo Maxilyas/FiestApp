@@ -201,7 +201,11 @@ function ProfilLie({ profil, onChange }: { profil: PublicProfile | null; onChang
       <h2>Mon profil joueur</h2>
       <p className="muted small">
         Rattache le profil avec lequel tu joues : il ouvrira cette console depuis l'accueil, et tu
-        n'auras plus qu'un mot de passe à retenir. Si tu n'en as pas encore, crée-le depuis l'accueil.
+        n'auras plus qu'un mot de passe à retenir. Si tu n'en as pas encore,{' '}
+        <a className="link-inline" href="/">
+          crée-le depuis l'accueil
+        </a>
+        .
       </p>
       <div className="field">
         <label className="label" htmlFor="lien-login">
@@ -358,7 +362,10 @@ function PasswordForm() {
 
   return (
     <form className="card settings-form" onSubmit={submit}>
-      <h2>Changer de mot de passe</h2>
+      {/* « du compte » : l'animateur qui joue aussi avec un profil a deux
+          mots de passe, et changeait celui-ci en croyant changer l'autre. */}
+      <h2>Changer le mot de passe du compte</h2>
+      <p className="muted small">Celui de ton espace d'animateur — pas celui de ton profil joueur.</p>
       <div className="field">
         <label className="label" htmlFor="current">
           Mot de passe actuel

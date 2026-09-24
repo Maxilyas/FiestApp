@@ -62,7 +62,6 @@ export function LoginForm({
           spellCheck={false}
           value={login}
           onChange={e => setLogin(e.target.value)}
-          autoFocus
         />
       </div>
       <div className="field">
@@ -79,17 +78,18 @@ export function LoginForm({
         />
       </div>
       {error && <p className="error">{error}</p>}
-      <div className="join-grow" />
-      <button className="btn btn-primary btn-big btn-block" disabled={busy}>
-        Entrer
-      </button>
       {/* Celui qui a rattaché son profil n'a plus qu'un mot de passe, et ce
           n'est pas celui-ci : l'écrire ici lui évite de réveiller
-          l'administrateur pour un lien dont il n'a pas besoin. */}
+          l'administrateur pour un lien dont il n'a pas besoin. Au-dessus du
+          bouton : en dessous, le clavier ouvert la cachait. */}
       <p className="join-foot">
         Tu as rattaché ton profil ? <a href="/">Connecte-toi depuis l'accueil</a>. Sinon, mot de passe
         oublié : demande un nouveau lien d'activation à l'administrateur.
       </p>
+      <div className="join-grow" />
+      <button className="btn btn-primary btn-big btn-block" disabled={busy}>
+        Entrer
+      </button>
     </form>
   )
 }
