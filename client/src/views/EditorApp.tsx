@@ -1667,10 +1667,21 @@ function QuestionCard({
   const [busy, setBusy] = useState(false)
   const [imageError, setImageError] = useState('')
   const attendue = photoManquante(question)
-  const vraiFaux = estVraiFaux(question)
+  // « Deux cases » est un mode, posé par le bouton Vrai/Faux et retiré par
+  // QCM — pas une lecture du contenu : taper « Vrai » et « Faux » dans les
+  // cases 1 et 2 d'un QCM faisait disparaître les cases 3 et 4, et « QCM » ne
+  // les rendait pas. À l'ouverture, un vrai ou faux enregistré s'y remet.
+  const [deuxCases, setDeuxCases] = useState(() => estVraiFaux(question))
+  const vraiFaux =
+    deuxCases && question.kind === 'choice' && !question.answers[2]?.trim() && !question.answers[3]?.trim()
 
   const versVraiFaux = async () => {
     if (vraiFaux) return
+    // Déjà « Vrai » et « Faux », tapés à la main : il n'y a rien à remplacer.
+    if (estVraiFaux(question) && !question.answers[2]?.trim() && !question.answers[3]?.trim()) {
+      setDeuxCases(true)
+      return
+    }
     const ecrites = question.answers.map(a => a.trim()).filter(Boolean)
     if (question.kind === 'choice' && ecrites.length > 0) {
       const ok = await confirmDialog({
@@ -1680,6 +1691,7 @@ function QuestionCard({
       })
       if (!ok) return
     }
+    setDeuxCases(true)
     // Rien de coché d'office : « Vrai » pris pour bon parce qu'il est en
     // premier, c'était le quiz faux de la liste collée, en plus petit.
     onChange(q => ({ ...q, kind: 'choice', answers: [...VRAI_FAUX, '', ''], correct: SANS_BONNE_REPONSE }))
@@ -1770,7 +1782,10 @@ function QuestionCard({
           <div className="kind-toggle">
             <button
               className={'pill-btn' + (question.kind === 'choice' && !vraiFaux ? ' active' : '')}
-              onClick={() => onChange(q => ({ ...q, kind: 'choice' }))}
+              onClick={() => {
+                setDeuxCases(false)
+                onChange(q => ({ ...q, kind: 'choice' }))
+              }}
             >
               <Icon name="list" />
               QCM
