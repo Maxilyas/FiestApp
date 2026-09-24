@@ -518,20 +518,20 @@ export class ArchiveStore {
   }
 
   /**
-   * Une écriture de l'historique, encadrée de deux numéros : avant, pour
-   * qu'aucune page ne se garde sous le numéro d'avant l'écriture ; après,
-   * pour qu'une lecture partie pendant l'écriture — qui a pu lire l'ancienne
-   * ligne — ne vaille pas pour la nouvelle. Échouée, l'écriture fait monter
-   * le numéro quand même : relire coûte un calcul, se tromper montrerait
-   * une page fausse.
+   * Une écriture de l'historique, qui fait monter le numéro une fois
+   * terminée. Une page se garde sous le numéro lu à l'ARRIVÉE de sa requête :
+   * une lecture partie avant ou pendant l'écriture — qui a pu voir l'ancienne
+   * ligne — reste donc sous l'ancien numéro, et ne vaut plus dès que celle-ci
+   * aboutit. Pendant l'écriture, la page d'avant se sert encore : elle dit
+   * ce que la base disait. Échouée, l'écriture fait monter le numéro quand
+   * même : elle a pu aboutir au loin, et relire coûte un calcul, là où se
+   * tromper montrerait une page fausse.
    */
   private async ecrire<T>(spaceId: string, ecriture: () => Promise<T>): Promise<T> {
-    const monter = () => this.revisions.set(spaceId, this.revision(spaceId) + 1)
-    monter()
     try {
       return await ecriture()
     } finally {
-      monter()
+      this.revisions.set(spaceId, this.revision(spaceId) + 1)
     }
   }
 

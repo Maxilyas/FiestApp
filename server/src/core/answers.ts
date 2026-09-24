@@ -141,9 +141,12 @@ export class AnswerLog {
    * l'écriture de ses lignes.
    */
   removePlayer(playerId: string) {
-    this.db.prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
+    const { changes } = this.db
+      .prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?')
+      .run(playerId, this.spaceId)
     this.backup?.deletePlayerAnswers(playerId)
-    this.revision++
+    // Un invité arrivé après la dernière question n'y avait rien écrit.
+    if (changes > 0) this.revision++
   }
 }
 

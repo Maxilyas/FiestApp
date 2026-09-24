@@ -101,7 +101,9 @@ export class Party {
     if (token) {
       const existing = this.findByToken(token)
       if (existing) {
-        if ((clean && clean !== existing.name) || (nice && nice !== existing.avatar)) this.marquesCache = null
+        const identite = (clean && clean !== existing.name) || (nice && nice !== existing.avatar)
+        const change = identite || (teamId !== undefined && teamId !== existing.teamId)
+        if (identite) this.marquesCache = null
         if (clean) existing.name = clean
         if (nice) existing.avatar = nice
         // `undefined` = le téléphone se reconnecte sans rien dire de l'équipe :
@@ -116,7 +118,11 @@ export class Party {
           .prepare('UPDATE players SET name = ?, avatar = ?, team_id = ? WHERE id = ?')
           .run(existing.name, existing.avatar, existing.teamId, existing.id)
         this.backup?.savePlayer(existing, existing.createdAt)
-        this.revision++
+        // Mais la fiche n'a changé que si le prénom, l'avatar ou l'équipe ont
+        // bougé : chaque téléphone qui sort de veille se re-présente, et
+        // faire monter le numéro à chaque réveil refaisait le souvenir de
+        // toute la salle pour rien.
+        if (change) this.revision++
         return existing
       }
     }

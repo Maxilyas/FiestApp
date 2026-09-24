@@ -71,10 +71,13 @@ export class ScoreLedger {
    * disait plus la même chose que son agrégat.
    */
   removePlayer(playerId: string) {
-    this.db.prepare('DELETE FROM score_entries WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
+    const { changes } = this.db
+      .prepare('DELETE FROM score_entries WHERE player_id = ? AND space_id = ?')
+      .run(playerId, this.spaceId)
     this.totals.delete(playerId)
     this.backup?.deletePlayerScores(playerId)
-    this.revision++
+    // Un invité qui n'avait rien gagné ne change pas le journal.
+    if (changes > 0) this.revision++
   }
 
   total(playerId: string): number {

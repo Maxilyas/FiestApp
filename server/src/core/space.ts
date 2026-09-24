@@ -356,9 +356,12 @@ export class SpaceRuntime {
 
   /**
    * Ce dont se dérivent les pages publiques de la soirée en cours : le numéro
-   * d'écriture de chaque journal, le nom de la soirée et l'historique de
-   * l'espace (la dernière soirée close s'y lit). Sans lire une ligne : les
-   * pages le demandent à chaque requête. Ce qui n'y est pas — le niveau d'un
+   * d'écriture de chaque journal et, tant que rien n'est joué, le nom de la
+   * soirée et l'historique de l'espace, où se lit la dernière soirée close
+   * (`derniere`). Une fois une question jouée, la page ne dépend plus
+   * de l'historique : le rangement qui suit chaque podium, au moment même où
+   * la salle scanne le QR, refaisait la page pour rien. Sans lire le
+   * journal : les pages le demandent à chaque requête. Ce qui n'y est pas — le niveau d'un
    * profil, l'intitulé d'un quiz de la bibliothèque — paraît à la durée de
    * vie de la page (`core/pages.ts`).
    */
@@ -369,8 +372,9 @@ export class SpaceRuntime {
       this.teams.revision,
       this.ledger.revision,
       this.answers.revision,
-      this.soiree?.id ?? '',
-      this.deps.archives.revision(this.spaceId),
+      // `derniere` écarte la soirée en cours par son nom : l'un et l'autre
+      // ne comptent que tant que rien n'est joué.
+      this.aJoue() ? '' : `${this.soiree?.id ?? ''}.${this.deps.archives.revision(this.spaceId)}`,
     ].join('.')
   }
 
