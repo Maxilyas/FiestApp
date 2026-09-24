@@ -673,7 +673,6 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
     spotlight(id, 'text')
   }
 
-  /** `depuis` : la version à remplacer — celle de l'autre appareil, quand on garde la sienne quand même. */
   const copierEnListe = async () => {
     if (!courant.current) return
     const faite = await copierTexte(ecrireListe(courant.current.questions))
@@ -691,19 +690,23 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
     return () => clearTimeout(timer)
   }, [listeCopiee])
 
+  /** `depuis` : la version à remplacer — celle de l'autre appareil, quand on garde la sienne quand même. */
   const save = async (depuis = base) => {
     if (!courant.current) return
     setSaving(true)
     setError('')
     setConflit(null)
     let envoi = { quiz: courant.current, modifications: modifications.current }
-    // Un jeton par clic, repris par chaque essai au réveil (voir `api.save`).
+    // Un jeton par clic, repris par chaque essai au réveil, et un numéro par
+    // essai (voir `api.save`).
     const jeton = newQuestionId()
+    let essai = 0
     try {
       const saved = await auReveil(
         () => {
           envoi = { quiz: courant.current ?? envoi.quiz, modifications: modifications.current }
-          return api.save(envoi.quiz.id, envoi.quiz.title, envoi.quiz.questions, depuis, jeton)
+          essai++
+          return api.save(envoi.quiz.id, envoi.quiz.title, envoi.quiz.questions, depuis, jeton, essai)
         },
         { surAttente: () => setReveil(true), continuer: () => ouvert.current },
       )

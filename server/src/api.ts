@@ -4,6 +4,7 @@ import type { ArchiveStore } from './core/archive'
 import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
+import { tronquer } from '../../shared/avatars'
 import { accountOf, csrfGuard, requireAccount } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountProfileApi } from './auth/profileRoutes'
@@ -85,27 +86,65 @@ export function mountApi(app: Express, deps: ApiDeps) {
   )
 
   /**
-   * Le jeton du dernier enregistrement de chaque quiz, par espace. L'éditeur
-   * en tire un par clic sur « Enregistrer », que ses essais répétés au
-   * réveil de l'hébergeur (`auReveil`) reprennent : un premier essai passé
-   * dont la réponse s'est perdue ne fait pas entrer le suivant en conflit
-   * avec lui-même. En mémoire seulement : perdu au redémarrage, il ne coûte
-   * qu'un conflit de trop — qui ne perd rien, le brouillon est là.
+   * Le dernier enregistrement de chaque quiz, par espace : son jeton, son
+   * numéro d'essai et la version qu'il a écrite. L'éditeur tire un jeton par
+   * clic sur « Enregistrer », et numérote les essais que `auReveil` en fait :
+   * un premier essai passé dont la réponse s'est perdue ne fait pas entrer le
+   * suivant en conflit avec lui-même, et un essai abandonné par le client qui
+   * n'arrive qu'après son rejeu ne réécrit pas l'ancien texte par-dessus. En
+   * mémoire seulement : perdu au redémarrage, il ne coûte qu'un conflit de
+   * trop — qui ne perd rien, le brouillon est là.
    */
-  const derniersJetons = new Map<string, string | null>()
+  const derniers = new Map<string, { jeton: string; essai: number; version: number }>()
+  /**
+   * Un enregistrement à la fois par quiz. Sans ça, deux essais du même clic
+   * arrivés ensemble — l'abandonné qui arrive quand même au réveil, et le
+   * rejoué — lisaient tous deux `derniers` avant que l'un l'écrive : le
+   * second recevait « enregistré ailleurs » pour son propre clic.
+   */
+  const enCours = new Map<string, Promise<unknown>>()
+  const unParUn = <T,>(cle: string, fn: () => Promise<T>): Promise<T> => {
+    const suite = (enCours.get(cle) ?? Promise.resolve()).then(fn, fn)
+    const fin = suite.then(
+      () => {},
+      () => {},
+    )
+    enCours.set(cle, fin)
+    // Le dernier de la file la range en partant : la carte ne garde pas un
+    // quiz par quiz jamais enregistré depuis le démarrage.
+    fin.then(() => {
+      if (enCours.get(cle) === fin) enCours.delete(cle)
+    })
+    return suite
+  }
 
   app.put(
     '/api/quizzes/:id',
     wrap(async (req, res) => {
       const spaceId = spaceOf(res)
-      const cle = `${spaceId}:${req.params.id}`
-      const jeton = typeof req.body?.jeton === 'string' ? req.body.jeton.slice(0, 64) : null
+      const id = req.params.id
+      const cle = `${spaceId}:${id}`
+      const jeton = typeof req.body?.jeton === 'string' ? tronquer(req.body.jeton, 64) : null
+      // Sans numéro (aucune page n'envoie un jeton sans lui), l'essai compte
+      // pour le plus récent : il écrit, comme avant.
+      const essai =
+        typeof req.body?.essai === 'number' && Number.isFinite(req.body.essai) ? req.body.essai : Number.POSITIVE_INFINITY
       // La version d'où partent les modifications : si le quiz a été
       // enregistré ailleurs depuis — l'autre appareil —, on refuse au lieu
       // d'écraser en silence. Sans `base` (une page d'avant), comme avant.
       const base = typeof req.body?.base === 'number' && Number.isFinite(req.body.base) ? req.body.base : undefined
-      const sienne = jeton !== null && derniersJetons.get(cle) === jeton
-      const quiz = await deps.store.save(spaceId, req.params.id, req.body?.title, req.body?.questions, sienne ? undefined : base)
+      const quiz = await unParUn(cle, async () => {
+        const d = derniers.get(cle)
+        const memeClic = jeton !== null && d !== undefined && d.jeton === jeton
+        // Un essai périmé de ce clic : un plus récent a déjà écrit, il ne réécrit rien.
+        if (memeClic && essai <= d.essai) return deps.store.get(spaceId, id)
+        const q = await deps.store.save(spaceId, id, req.body?.title, req.body?.questions, memeClic ? d.version : base)
+        if (q && q !== 'conflit') {
+          if (jeton !== null) derniers.set(cle, { jeton, essai, version: q.updatedAt })
+          else derniers.delete(cle)
+        }
+        return q
+      })
       if (quiz === 'conflit') {
         const actuel = await deps.store.get(spaceId, req.params.id)
         return res.status(409).json({
@@ -114,7 +153,6 @@ export function mountApi(app: Express, deps: ApiDeps) {
         })
       }
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
-      derniersJetons.set(cle, jeton)
       await deps.onLibraryChanged(spaceId)
       res.json(quiz)
       // Après coup : une photo retirée d'une question n'a plus à occuper la

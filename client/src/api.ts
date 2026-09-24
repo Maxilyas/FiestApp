@@ -142,9 +142,14 @@ export const api = {
    * (`ConflitError`) si le quiz a été enregistré ailleurs depuis. `jeton` :
    * le même pour tous les essais d'un même « Enregistrer », pour qu'un essai
    * rejoué au réveil n'entre pas en conflit avec celui qui était passé.
+   * `essai` : son numéro, qui croît d'un essai à l'autre — un essai abandonné
+   * qui n'arrive qu'après le suivant ne réécrit pas son ancien texte.
    */
-  save: (id: string, title: string, questions: QuizQuestionDef[], base?: number, jeton?: string) =>
-    req<QuizDef>(`/api/quizzes/${id}`, { method: 'PUT', body: JSON.stringify({ title, questions, base, jeton }) }),
+  save: (id: string, title: string, questions: QuizQuestionDef[], base?: number, jeton?: string, essai?: number) =>
+    req<QuizDef>(`/api/quizzes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ title, questions, base, jeton, essai }),
+    }),
   remove: (id: string) => req<{ ok: true }>(`/api/quizzes/${id}`, { method: 'DELETE' }),
   duplicate: (id: string) => req<QuizDef>(`/api/quizzes/${id}/duplicate`, { method: 'POST' }),
   uploadImage: (dataUrl: string) =>

@@ -345,9 +345,12 @@ sans `QUIZ_DB_URL`.
   d'attente ne remplace l'éditeur que si rien n'a bougé depuis
   (`modifications`). L'envoi d'une photo n'y passe pas : il s'attache à la
   question par sa position, qu'on a pu déplacer entre-temps. « Enregistrer » envoie
-  la version d'où il part (`base`) et un `jeton` que ses essais au réveil
-  reprennent : le serveur répond 409 si le quiz a été enregistré ailleurs
-  depuis — l'autre appareil —, jamais à un essai rejoué de son propre clic.
+  la version d'où il part (`base`), un `jeton` que ses essais au réveil
+  reprennent et le numéro de l'essai (`essai`) : le serveur répond 409 si le
+  quiz a été enregistré ailleurs depuis — l'autre appareil —, jamais à un
+  essai rejoué de son propre clic. Il enregistre un quiz à la fois, et un
+  essai plus ancien que le dernier écrit ne réécrit rien : il rend le quiz
+  en base.
 - **Un réglage de plus à la liste collée** se lit dans
   `parseImportedQuestions`, s'annonce dans `FORMAT_DE_LISTE` et paraît dans
   son exemple, que `liste.test.ts` relit : le format copié pour une IA ne
