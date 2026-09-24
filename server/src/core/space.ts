@@ -113,6 +113,14 @@ export class SpaceRuntime {
   readonly engine: GameEngine
   /** Les codes « Rendre sa place » en cours — voir `rendrePlace`. */
   readonly places = new PlacesRendues()
+  /**
+   * Les seconds « Rachid » gardés après une reprise (`laisserPlace`) : hors
+   * ligne pour toujours, puisque leur porteur joue sous l'autre fiche. Ils
+   * ne sont le « c'est peut-être toi » de personne — l'avis de l'entrée
+   * renverrait sinon Rachid vers la place qu'il vient de quitter. En mémoire :
+   * un redémarrage les oublie, l'avis reparaîtrait, rien de plus.
+   */
+  readonly laissees = new Set<string>()
   private readonly mirror: PartyMirror
 
   // Diffusion du classement : deux garde-fous mesurés sur une soirée simulée.
@@ -649,6 +657,7 @@ export class SpaceRuntime {
       this.mirror.fermerLot()
     }
     this.places.oublier(playerId)
+    this.laissees.delete(playerId)
     this.broadcastSnapshot()
     // Son téléphone repart sur l'écran d'inscription, et sa connexion
     // n'incarne plus personne.
@@ -707,6 +716,7 @@ export class SpaceRuntime {
     }
     const sessionId = this.engine.activeSessionId
     if (sessionId) this.engine.handleHostCommand(sessionId, { type: 'nePlusAttendre', playerId })
+    this.laissees.add(playerId)
     return 'garde'
   }
 
@@ -1191,6 +1201,7 @@ export class SpaceRuntime {
     await this.mirror.reset(() => {
       this.party.clearAll()
       this.places.oublier()
+      this.laissees.clear()
       this.xpAnnoncee.clear()
       this.dernierCredit = null
       this.derniereArchive = null

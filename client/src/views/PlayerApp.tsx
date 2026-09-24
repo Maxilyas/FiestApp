@@ -9,7 +9,7 @@ import { Icon } from '../components/Icon'
 import { Entree, type Identite } from '../components/Entree'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { ProfilForm } from '../components/ProfilForm'
-import { AvisHorsLigne, FormulaireCode, horsLigneDuMemeNom } from '../components/Reprendre'
+import { AvisHorsLigne, FormulaireCode, useHorsLigne } from '../components/Reprendre'
 import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer } from '../games/quiz/PlayerView'
@@ -25,6 +25,11 @@ import { useGardeRetour } from '../retour'
 
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
+
+/** Stable d'un rendu à l'autre : un tableau neuf relancerait la demande à chaque rendu. */
+const SANS_JOUEURS: never[] = []
+/** Les phases où l'écran du téléphone est plein : l'avis du téléphone perdu attend la suivante. */
+const PHASES_PLEINES = new Set<QuizPlayerView['phase']>(['getReady', 'observe', 'question'])
 
 export function PlayerApp() {
   const s = useAppState()
@@ -214,6 +219,14 @@ export function PlayerApp() {
   // d'abord. Pas à l'entrée — on n'y a encore rien à perdre.
   useGardeRetour(!!s.me && !s.fin && !spaceError)
 
+  // Inscrit une seconde fois sur un téléphone emprunté : sa première place
+  // l'attend, points compris, s'il demande le code — en salle d'attente
+  // comme en plein quiz, entre deux questions.
+  const absent = useHorsLigne(slug, me?.name ?? '', snap?.players ?? SANS_JOUEURS, { actif: !!me, sauf: me?.id })
+  const avisAbsent = absent && (
+    <AvisHorsLigne absent={absent} profilIci={!!profil} onCode={() => setReprise(true)} />
+  )
+
   // Chaque écran commence en haut, comme ceux de l'entrée. La fin de soirée
   // s'ouvrait au défilement de la salle d'attente, sous son propre titre ; et
   // une question qui suit un classement qu'on a fait défiler, pareil.
@@ -314,6 +327,12 @@ export function PlayerApp() {
       // Région « vivante » : un lecteur d'écran annonce la question, puis le
       // résultat, sans qu'on ait à parcourir la page à chaque changement.
       <div className="player-shell" aria-live="polite">
+        {/* Pas pendant la question : sur 640 px, quatre réponses remplissent
+            l'écran, et l'avis pousserait la dernière dehors. Entre deux
+            questions, il y a la place — et le temps de taper un code. */}
+        {phase && !PHASES_PLEINES.has(phase.phase) && absent && (
+          <AvisHorsLigne absent={absent} profilIci={!!profil} onCode={() => setReprise(true)} discret />
+        )}
         <QuizPlayer
           view={sessionView.view as QuizPlayerView}
           teams={teams}
@@ -368,12 +387,7 @@ export function PlayerApp() {
         )}
       </header>
 
-      {/* Inscrit une seconde fois sur un téléphone emprunté : sa première
-          place l'attend, points compris, s'il demande le code. */}
-      {(() => {
-        const absent = me && !profil ? horsLigneDuMemeNom(snap.players, me.name, me.id) : undefined
-        return absent ? <AvisHorsLigne joueur={absent} onCode={() => setReprise(true)} /> : null
-      })()}
+      {avisAbsent}
 
       {session && !iAmIn && (
         <div className="card notice">Un quiz est en cours — tu entres à la prochaine question.</div>

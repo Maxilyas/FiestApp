@@ -7,6 +7,7 @@ import type { ProfileRec, ProfileStore } from './auth/profiles'
 import { readPlayerToken, readSessionToken } from './auth/http'
 import { Budget } from './core/budget'
 import { messagePourEcran } from './core/http'
+import { sansAccent } from '../../shared/homonymes'
 
 interface SocketDeps {
   /** Les soirées en cours, une par espace. */
@@ -377,6 +378,43 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // Arrivé en cours de quiz : on l'y intègre pour les questions à venir.
         rt.engine.joinLate(res.id)
         rt.engine.resendViews(res.id)
+      },
+      { ok: false, error: SERVER_ERROR },
+    )
+
+    /**
+     * « Un Rachid 🦁 est hors ligne » : l'entrée le demande pour le prénom
+     * qu'on tape. Le serveur répond, plutôt que le téléphone ne le lise dans
+     * l'instantané — qui n'a pas à dire à toute la salle qui est connecté.
+     * La réponse ne va qu'à ce téléphone.
+     */
+    ecouter(
+      'player:horsLigne',
+      async (charge, repondre) => {
+        const account = spaceOf(charge.slug)
+        if (!account) return repondre({ ok: false, error: NO_SUCH_SPACE })
+        const rt = bindSpace(account.id)
+        if (!rt) return repondre({ ok: false, error: OTHER_SPACE })
+        const cle = sansAccent(texte(charge.name) ?? '')
+        if (!cle) return repondre({ ok: true })
+        const profile = await profileOfSocket().catch(() => null)
+        const absent = rt.party
+          .all()
+          .find(
+            p =>
+              p.id !== socket.data.playerId &&
+              // Le joueur de son propre profil lui revient en entrant : ce
+              // n'est pas un autre qui l'attend.
+              !(profile && p.profileId === profile.id) &&
+              !rt.party.isConnected(p.id) &&
+              !rt.laissees.has(p.id) &&
+              sansAccent(p.name) === cle,
+          )
+        if (!absent) return repondre({ ok: true })
+        repondre({
+          ok: true,
+          absent: { name: rt.party.nomAffiche(absent.id) ?? absent.name, avatar: absent.avatar, profil: !!absent.profileId },
+        })
       },
       { ok: false, error: SERVER_ERROR },
     )

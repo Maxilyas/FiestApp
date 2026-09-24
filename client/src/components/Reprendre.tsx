@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
-import type { PublicPlayer } from '../../../shared/types'
+import { useEffect, useState, type FormEvent } from 'react'
+import type { AbsentDuMemeNom } from '../../../shared/events'
 import { sansAccent } from '../../../shared/homonymes'
 import { motifDe } from '../api'
+import { horsLigneDuMemeNom } from '../socket'
 import { espacesFines } from '../format'
 import { Icon } from './Icon'
 
@@ -11,12 +12,52 @@ import { Icon } from './Icon'
  * Un téléphone mort emporte son jeton, et un nouveau ne peut qu'inscrire un
  * second Rachid, dont les points ne rejoindront jamais ceux du premier. On
  * ne rend pas une place sur parole — n'importe qui taperait « Rachid » :
- * c'est l'animateur, qui le voit en face, qui fait paraître un code.
+ * c'est l'animateur, qui le voit en face, qui fait paraître un code. Sauf
+ * pour une fiche à profil : c'est le profil qui la rend, jamais un code.
+ *
+ * `profilIci` : ce téléphone porte un profil — le serveur y refuse un code,
+ * sinon la place reprise se rattacherait à ce profil.
  */
-export function AvisHorsLigne({ joueur, onCode }: { joueur: PublicPlayer; onCode: () => void }) {
+export function AvisHorsLigne({
+  absent,
+  profilIci,
+  onCode,
+  onProfil,
+  discret,
+}: {
+  absent: AbsentDuMemeNom
+  profilIci: boolean
+  /** Pendant un quiz : une ligne en petit, au-dessus du résultat, pas un avertissement. */
+  discret?: boolean
+  onCode: () => void
+  /** Mène à « Me connecter » — absent quand ce téléphone porte déjà un profil. */
+  onProfil?: () => void
+}) {
+  const qui = `Un « ${absent.name} » ${absent.avatar} est hors ligne : si c'est toi,`
+  if (absent.profil) {
+    return (
+      <p className={'warn avis-hors-ligne' + (discret ? ' small' : '')}>
+        {espacesFines(`${qui} connecte-toi à ton profil — il te rend ta place.`)}{' '}
+        {onProfil && !profilIci && (
+          <button type="button" className="link-inline" onClick={onProfil}>
+            Me connecter
+          </button>
+        )}
+      </p>
+    )
+  }
+  if (profilIci) {
+    return (
+      <p className={'warn avis-hors-ligne' + (discret ? ' small' : '')}>
+        {espacesFines(
+          `${qui} ouvre la soirée dans une fenêtre privée, et demande à l'animateur de te rendre ta place.`,
+        )}
+      </p>
+    )
+  }
   return (
-    <p className="warn avis-hors-ligne">
-      {espacesFines(`Un « ${joueur.nomAffiche ?? joueur.name} » ${joueur.avatar} est hors ligne : si c'est toi, demande à l'animateur de te rendre ta place.`)}{' '}
+    <p className={'warn avis-hors-ligne' + (discret ? ' small' : '')}>
+      {espacesFines(`${qui} demande à l'animateur de te rendre ta place.`)}{' '}
       <button type="button" className="link-inline" onClick={onCode}>
         J'ai un code
       </button>
@@ -24,11 +65,42 @@ export function AvisHorsLigne({ joueur, onCode }: { joueur: PublicPlayer; onCode
   )
 }
 
-/** L'invité hors ligne qui porte ce prénom — le candidat à « c'est moi ». */
-export function horsLigneDuMemeNom(players: PublicPlayer[], nom: string, sauf?: string): PublicPlayer | undefined {
+/**
+ * L'invité hors ligne qui porte ce prénom — le candidat à « c'est moi » —,
+ * demandé au serveur. L'instantané des téléphones ne dit pas qui est
+ * connecté, ou plus pour longtemps : ce n'est pas l'affaire de la salle.
+ *
+ * On ne demande que si un invité porte déjà ce prénom (les prénoms, eux,
+ * sont publics) : cinq cents téléphones n'interrogent pas le serveur à
+ * chaque instantané pour un homonyme qui n'existe pas. `cle` redemande quand
+ * la salle a changé — un nouvel instantané.
+ */
+export function useHorsLigne(
+  slug: string,
+  nom: string,
+  players: { id: string; name: string }[],
+  opts: { actif?: boolean; sauf?: string } = {},
+): AbsentDuMemeNom | undefined {
+  const [absent, setAbsent] = useState<AbsentDuMemeNom>()
   const cle = sansAccent(nom)
-  if (!cle) return undefined
-  return players.find(p => p.id !== sauf && !p.connected && sansAccent(p.name) === cle)
+  const candidat =
+    opts.actif !== false && !!cle && players.some(p => p.id !== opts.sauf && sansAccent(p.name) === cle)
+  useEffect(() => {
+    if (!candidat) return setAbsent(undefined)
+    let perime = false
+    // Le temps de finir de taper : une demande par prénom, pas par lettre.
+    const t = setTimeout(() => {
+      void horsLigneDuMemeNom(slug, nom).then(a => {
+        if (!perime) setAbsent(a)
+      })
+    }, 400)
+    return () => {
+      perime = true
+      clearTimeout(t)
+    }
+    // `players` change à chaque instantané : c'est voulu, l'absent a pu revenir.
+  }, [slug, nom, candidat, players])
+  return candidat ? absent : undefined
 }
 
 interface Props {

@@ -359,6 +359,9 @@ describe('le téléphone perdu', () => {
       'le second Rachid, gardé, hors ligne',
     )
     assert.ok(snap.players.find((p: any) => p.id === emprunte.playerId).score > 0, 'ses points restent')
+    // Hors ligne et du même prénom, il n'est pourtant pas « peut-être toi » :
+    // Rachid vient de le quitter.
+    assert.deepEqual(await emitAck<any>(emprunte.socket, 'player:horsLigne', { slug: SLUG, name: 'Rachid' }), { ok: true })
 
     // La question suivante ne l'attend pas : son porteur joue sous l'autre fiche.
     suivante(host, sessionId, v)
@@ -513,6 +516,46 @@ describe('le téléphone perdu', () => {
     assert.equal(reprise.ok, true, reprise.error)
     assert.equal(reprise.playerId, rachid.playerId)
     await ranger(host, sessionId, [host, alice.socket, emprunte.socket])
+  })
+
+  test('« Un Rachid est hors ligne » : le serveur le dit au seul téléphone qui demande', async () => {
+    const host = await ecranCommun(banc.url, cookie)
+    await viderLaSalle(host)
+    const rachid = await invite(banc.url, 'Rachid', '🦁')
+    const cookieLea = await inscrireProfil(banc.url, 'lea8b', 'Léa', '🐼')
+    const lea = await invite(banc.url, '', '', { cookie: cookieLea })
+    const sophie = await invite(banc.url, 'Sophie', '🐸')
+    const demander = (s: Socket, name: string) => emitAck<any>(s, 'player:horsLigne', { slug: SLUG, name })
+    const entree = connecter(banc.url)
+    assert.equal((await emitAck<any>(entree, 'party:watch', { slug: SLUG })).ok, true)
+    // Connecté, il n'est pas « hors ligne ».
+    assert.deepEqual(await demander(entree, 'Rachid'), { ok: true })
+
+    const recu: string[] = []
+    for (const s of [sophie.socket, host]) s.onAny((ev: string) => recu.push(ev))
+    rachid.socket.close()
+    lea.socket.close()
+    await instantane<any>(host, s => s.players.filter((p: any) => !p.connected).length === 2, 'les deux hors ligne')
+    recu.length = 0
+    // Tapé sans majuscule ni accent : c'est bien lui.
+    assert.deepEqual(await demander(entree, ' rachid '), { ok: true, absent: { name: 'Rachid', avatar: '🦁', profil: false } })
+    // Une fiche à profil : c'est son profil qui la rend, l'avis le dira.
+    assert.deepEqual(await demander(entree, 'lea'), { ok: true, absent: { name: 'Léa', avatar: '🐼', profil: true } })
+    assert.deepEqual(await demander(entree, 'Personne'), { ok: true })
+    await patienter(200)
+    assert.deepEqual(recu, [], 'rien ne part à la salle')
+
+    // Le téléphone du profil de Léa : sa fiche lui revient en entrant, pas d'avis.
+    const telLea = connecter(banc.url, cookieLea)
+    assert.equal((await emitAck<any>(telLea, 'party:watch', { slug: SLUG })).ok, true)
+    assert.deepEqual(await demander(telLea, 'Léa'), { ok: true })
+    // Son propre invité n'est jamais « un autre » : Sophie ne se voit pas.
+    sophie.socket.close()
+    const telSophie = connecter(banc.url)
+    assert.equal((await emitAck<any>(telSophie, 'party:watch', { slug: SLUG })).ok, true)
+    assert.equal((await emitAck<any>(telSophie, 'player:join', { slug: SLUG, token: sophie.token })).ok, true)
+    assert.deepEqual(await demander(telSophie, 'Sophie'), { ok: true })
+    for (const s of [entree, telLea, telSophie, host]) s.close()
   })
 
   test('un téléphone au profil d’un autre ne reprend pas une place', async () => {

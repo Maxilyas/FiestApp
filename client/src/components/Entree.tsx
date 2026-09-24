@@ -11,7 +11,7 @@ import { ApiError, api, motifDe } from '../api'
 import { loadChoix } from '../state'
 import { JoinHead } from './Invitation'
 import { FormulaireSecours } from './Secours'
-import { AvisHorsLigne, FormulaireCode, horsLigneDuMemeNom } from './Reprendre'
+import { AvisHorsLigne, FormulaireCode, useHorsLigne } from './Reprendre'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { TeamPicker } from './TeamPicker'
@@ -107,6 +107,10 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
     if (libre) setAvatar(libre)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name])
+
+  // Son téléphone est mort, et il revient sur un autre : c'est peut-être lui.
+  // Le serveur le dit, pour le prénom tapé à l'écran « moi ».
+  const absent = useHorsLigne(space.slug, name, players, { actif: etape === 'moi' })
 
   // Chaque écran commence en haut. L'écran « moi » est plus long que la
   // fenêtre d'un petit téléphone : on y défile pour atteindre « Continuer »,
@@ -570,10 +574,6 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
   }
 
   const homonyme = name.trim() && players.some(p => sansAccent(p.name) === sansAccent(name))
-  // Son téléphone est mort, et il revient sur un autre : c'est peut-être lui.
-  // Pas pour un profil : se connecter lui rend déjà sa place, et le serveur
-  // refuse un code sur le téléphone d'un profil qui n'est pas celui de la fiche.
-  const absent = profil ? undefined : horsLigneDuMemeNom(players, name)
 
   return (
     // Le même en-tête resserré qu'à l'écran A : avec le grand titre, « Rejoindre
@@ -647,7 +647,12 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
       {/* On ne demande plus d'ajouter une initiale : c'était du travail pour
           l'invité. L'avatar distingue, et il est à côté du prénom partout. */}
       {absent ? (
-        <AvisHorsLigne joueur={absent} onCode={() => setEtape('place')} />
+        <AvisHorsLigne
+          absent={absent}
+          profilIci={!!profil}
+          onCode={() => setEtape('place')}
+          onProfil={() => setEtape('entree')}
+        />
       ) : homonyme && (
         <p className="warn">
           Il y a déjà un {espacesFines(`« ${name.trim()} »`)} — ton {avatar} vous distinguera.

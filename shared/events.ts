@@ -60,6 +60,18 @@ export type ActionRefusal =
   /** Le serveur n'a pas répondu à temps — motif posé par le téléphone. */
   | 'timeout'
 
+/**
+ * L'invité hors ligne qui porte ce prénom, tel qu'un téléphone le montre à
+ * l'entrée : « Un « Rachid » 🦁 est hors ligne ». `profil` : sa fiche est
+ * liée à un profil, et c'est en s'y connectant qu'il retrouvera sa place —
+ * jamais par un code.
+ */
+export interface AbsentDuMemeNom {
+  name: string
+  avatar: string
+  profil: boolean
+}
+
 /** Ce que la console reçoit quand elle demande à rendre sa place à un invité. */
 export type PlaceRendue =
   | { ok: true; code: string; expiresAt: number }
@@ -129,6 +141,17 @@ export interface ClientToServerEvents {
   'player:reprendre': (
     payload: { slug: string; code: string; token?: string },
     ack: (res: JoinAck) => void,
+  ) => void
+  /**
+   * Un invité hors ligne porte-t-il ce prénom ? Demandé par le téléphone qui
+   * le tape à l'entrée, ou qui s'est inscrit une seconde fois — et répondu à
+   * lui seul : rien ne part à la salle, et l'instantané des téléphones n'a
+   * pas à dire qui est connecté. Son propre invité n'est jamais compté, ni
+   * celui du profil que porte ce téléphone (s'y connecter le lui rend déjà).
+   */
+  'player:horsLigne': (
+    payload: { slug: string; name: string },
+    ack: (res: { ok: true; absent?: AbsentDuMemeNom } | { ok: false; error: string }) => void,
   ) => void
   /** Changer d'équipe depuis la salle d'attente — refusé pendant un quiz. */
   'player:setTeam': (

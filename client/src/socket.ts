@@ -1,5 +1,12 @@
 import { io, type Socket } from 'socket.io-client'
-import type { ActionAck, ClientToServerEvents, JoinAck, PlaceRendue, ServerToClientEvents } from '../../shared/events'
+import type {
+  AbsentDuMemeNom,
+  ActionAck,
+  ClientToServerEvents,
+  JoinAck,
+  PlaceRendue,
+  ServerToClientEvents,
+} from '../../shared/events'
 import type { PublicProfile } from '../../shared/profil'
 import { MOTIFS } from '../../shared/erreurs'
 import { forgetMe, getState, oublierIdentite, setState, showToast } from './state'
@@ -240,6 +247,16 @@ export function reprendrePlace(slug: string, code: string, token?: string): Prom
   return demander<JoinAck>(ack => socket.emit('player:reprendre', { slug, code, token }, ack)).catch(
     (e: Error): JoinAck => ({ ok: false, error: e.message }),
   )
+}
+
+/**
+ * L'invité hors ligne qui porte ce prénom, s'il y en a un. Une panne vaut
+ * « personne » : l'avis est une aide, pas un passage obligé.
+ */
+export function horsLigneDuMemeNom(slug: string, name: string): Promise<AbsentDuMemeNom | undefined> {
+  return demander<{ ok: boolean; absent?: AbsentDuMemeNom }>(ack => socket.emit('player:horsLigne', { slug, name }, ack))
+    .then(res => (res.ok ? res.absent : undefined))
+    .catch(() => undefined)
 }
 
 /** La console fait paraître le code qui rend sa place à un invité hors ligne. */
