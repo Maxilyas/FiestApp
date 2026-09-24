@@ -29,6 +29,7 @@ import {
   MIN_ANSWERS,
   MIN_DURATION,
   MIN_OBSERVE,
+  SANS_BONNE_REPONSE,
   photoManquante,
   type QuizQuestionDef,
 } from './library'
@@ -190,4 +191,57 @@ export async function joindrePhotos<F extends { name: string }>(
     }),
     echecs,
   }
+}
+
+/**
+ * Le quiz écrit dans le format que « Coller une liste » relit — l'inverse de
+ * `parseImportedQuestions`. On ne pouvait pas se passer un quiz en texte :
+ * dans un message, à relire, à faire compléter par une IA (AD-7). La
+ * catégorie et le temps ne s'écrivent que lorsqu'ils changent, puisqu'ils
+ * courent d'une question à l'autre. Les photos ne voyagent pas en texte :
+ * elles s'annoncent (« Photo : »), et la question recollée les attendra.
+ * Une question sans intitulé ne s'écrit pas : elle n'aurait rien à relire.
+ */
+export function ecrireListe(questions: readonly QuizQuestionDef[]): string {
+  const blocs: string[] = []
+  // Rien de connu au départ : la première question dit sa catégorie et son
+  // temps, sans quoi, recollée, elle prendrait ceux de sa nouvelle voisine.
+  // Un quiz sans aucune catégorie n'en dit rien : un « # » seul en tête
+  // intriguerait qui lit la liste, pour un cas rare.
+  let categorie: string | null | undefined = questions.some(q => q.category) ? undefined : null
+  let temps: number | null = null
+  let n = 0
+  for (const q of questions) {
+    const intitule = (q.text ?? '').trim()
+    if (!intitule) continue
+    n++
+    const lignes: string[] = []
+    const cat = q.category ?? null
+    if (cat !== categorie) {
+      lignes.push(cat ? `# ${cat}` : '#')
+      categorie = cat
+    }
+    // Sur une seule ligne, comme l'éditeur l'affichera.
+    lignes.push(intitule.replace(/\s*\n\s*/g, ' '))
+    if (q.duration !== temps) {
+      lignes.push(`Temps : ${q.duration} s`)
+      temps = q.duration
+    }
+    const photo = q.image ? `photo de la question ${n}` : photoManquante(q)
+    if (photo) {
+      lignes.push(`Photo : ${photo}`)
+      if (q.observeSeconds !== null && q.observeSeconds !== undefined) lignes.push(`Observation : ${q.observeSeconds} s`)
+    }
+    if (q.kind === 'number') {
+      const cible = q.target === null ? '' : String(q.target).replace('.', ',')
+      lignes.push(`= ${cible}${q.unit.trim() ? ` ${q.unit.trim()}` : ''}`)
+    } else {
+      q.answers.forEach((a, i) => {
+        const reponse = (a ?? '').trim()
+        if (reponse) lignes.push(i === q.correct && q.correct !== SANS_BONNE_REPONSE ? `* ${reponse}` : reponse)
+      })
+    }
+    blocs.push(lignes.join('\n'))
+  }
+  return blocs.join('\n\n')
 }

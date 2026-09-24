@@ -33,7 +33,7 @@ import {
 import { CATEGORIES } from '../../../shared/categories'
 import { lireNombre } from '../../../shared/nombres'
 import { POIDS_MAX_FICHIER, emporterQuiz, importerQuiz, nomDeFichier } from '../../../shared/echange'
-import { APERCU_DU_FORMAT, FORMAT_DE_LISTE, apparierPhotos, cleDePhoto, joindrePhotos } from '../../../shared/liste'
+import { APERCU_DU_FORMAT, FORMAT_DE_LISTE, apparierPhotos, cleDePhoto, ecrireListe, joindrePhotos } from '../../../shared/liste'
 import {
   brouillonDepasse,
   brouillonUtile,
@@ -473,6 +473,8 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
    * laisse enregistré.
    */
   const [undo, setUndo] = useState<Annulable | null>(null)
+  /** « Copier en liste » : copiée, ou refusée par le navigateur — le texte s'affiche alors. */
+  const [listeCopiee, setListeCopiee] = useState<'faite' | 'refusee' | null>(null)
   /** Le panneau « Régler tout le quiz », ouvert. */
   const [reglerTout, setReglerTout] = useState(false)
   const [spot, setSpot] = useState<Spot | null>(null)
@@ -672,6 +674,23 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
   }
 
   /** `depuis` : la version à remplacer — celle de l'autre appareil, quand on garde la sienne quand même. */
+  const copierEnListe = async () => {
+    if (!courant.current) return
+    const faite = await copierTexte(ecrireListe(courant.current.questions))
+    setListeCopiee(faite ? 'faite' : 'refusee')
+    setAnnounce(
+      faite
+        ? 'Liste copiée dans le presse-papiers. Les photos ne voyagent pas en texte : recollée, chaque question attendra la sienne.'
+        : '',
+    )
+  }
+
+  useEffect(() => {
+    if (listeCopiee !== 'faite') return
+    const timer = setTimeout(() => setListeCopiee(null), 4000)
+    return () => clearTimeout(timer)
+  }, [listeCopiee])
+
   const save = async (depuis = base) => {
     if (!courant.current) return
     setSaving(true)
@@ -1006,7 +1025,26 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
           <Icon name="clipboard" />
           Coller une liste
         </button>
+        {/* L'inverse : le quiz en texte, à passer dans un message ou à faire
+            compléter, qui se recolle tel quel (sans ses photos). */}
+        {quiz.questions.length > 0 && (
+          <button className="btn btn-ghost" onClick={copierEnListe}>
+            <Icon name={listeCopiee === 'faite' ? 'check' : 'copy'} />
+            {listeCopiee === 'faite' ? 'Liste copiée' : 'Copier en liste'}
+          </button>
+        )}
       </div>
+      {listeCopiee === 'refusee' && (
+        <div className="card import-panel">
+          <p className="warn small">Ce navigateur ne laisse pas copier d'ici : sélectionne le texte ci-dessous, puis copie-le.</p>
+          <textarea className="input import-area" rows={10} readOnly value={ecrireListe(quiz.questions)} />
+          <div className="row">
+            <button className="btn btn-ghost btn-small" onClick={() => setListeCopiee(null)}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
 
       {importing && (
         <BulkImport

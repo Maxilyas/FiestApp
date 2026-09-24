@@ -34,6 +34,7 @@ import {
   FORMAT_DE_LISTE,
   apparierPhotos,
   cleDePhoto,
+  ecrireListe,
   joindrePhotos,
 } from '../../shared/liste'
 
@@ -441,4 +442,48 @@ test('l’aide du panneau, le format et son exemple disent la même règle du te
   const { questions } = parseImportedQuestions(EXEMPLE_DU_FORMAT)
   const i = questions.findIndex(q => q.duration === 30)
   assert.ok(i >= 0 && questions[i + 1]?.duration === 30, 'la question qui suit un « Temps : 30 s » garde 30 s')
+})
+
+// ── 8. Copier en liste ────────────────────────────────────────────────────
+//
+// On ne pouvait pas se passer un quiz en texte — dans un message, à relire
+// ou à faire compléter par une IA (AD-7). « Copier en liste » l'écrit dans
+// le format que « Coller une liste » relit : l'aller et retour ne perd rien,
+// sauf les photos, qui ne voyagent pas en texte et reviennent « attendues ».
+
+test('un quiz copié en liste se recolle à l’identique, photos attendues comprises', () => {
+  const base = { ...emptyQuestion(), duration: 30 }
+  const questions: QuizQuestionDef[] = [
+    { ...base, text: 'Capitale de l’Australie ?', answers: ['Sydney', 'Canberra', 'Perth', ''], correct: 1, category: 'Géographie' },
+    { ...base, text: 'Altitude de l’Everest ?', kind: 'number', target: 8849, unit: 'm', category: 'Géographie' },
+    { ...base, text: 'Record de froid en France ?', kind: 'number', target: -41.5, unit: '°C', duration: 45, category: null },
+    { ...base, text: 'La tour Eiffel mesure 330 m.', answers: ['Vrai', 'Faux', '', ''], correct: 0, duration: 45, category: 'Histoire' },
+    { ...base, text: 'Quel est ce monument ?', answers: ['Big Ben', 'Tour Eiffel', '', ''], correct: 1, image: '/media/image/abc', observeSeconds: 5, category: 'Histoire' },
+    { ...base, text: 'Sans bonne réponse ?', answers: ['Oui', 'Non', '', ''], correct: -1, category: 'Histoire', photoAttendue: 'plage.jpg' },
+    { ...base, text: '   ', answers: ['a', 'b', '', ''] },
+  ]
+  const texte = ecrireListe(questions)
+  const relu = parseImportedQuestions(texte)
+  assert.equal(relu.ignored, 0, texte)
+  assert.equal(relu.unmarked, 1)
+  const resume = (q: QuizQuestionDef) => ({
+    text: q.text,
+    kind: q.kind,
+    answers: q.kind === 'choice' ? q.answers : null,
+    correct: q.kind === 'choice' ? q.correct : null,
+    target: q.kind === 'number' ? q.target : null,
+    unit: q.kind === 'number' ? q.unit : null,
+    duration: q.duration,
+    category: q.category,
+  })
+  // La question sans intitulé ne s'écrit pas : elle n'aurait rien à relire.
+  assert.deepEqual(relu.questions.map(resume), questions.slice(0, 6).map(resume))
+  // La photo jointe revient attendue, avec son observation ; l'attendue reste attendue.
+  assert.deepEqual(
+    relu.questions.map(q => [q.photoAttendue !== null, q.observeSeconds]),
+    [[false, null], [false, null], [false, null], [false, null], [true, 5], [true, null]],
+  )
+  assert.equal(relu.questions[5].photoAttendue, 'plage.jpg')
+  // Le temps ne s'écrit que lorsqu'il change : il court, comme la catégorie.
+  assert.equal(texte.match(/^Temps :/gm)?.length, 3)
 })
