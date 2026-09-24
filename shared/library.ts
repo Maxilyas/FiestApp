@@ -114,7 +114,16 @@ export function newQuestionId(): string {
   return `q-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-export function emptyQuestion(): QuizQuestionDef {
+/**
+ * Une question vierge. Donnée, `modele` — sa voisine — lui prête son temps et
+ * sa catégorie : un quiz se règle d'un bloc, 45 s partout, une manche de
+ * cinéma. Repartir à 20 s sans catégorie à chaque ajout, c'était corriger
+ * les deux, une question après l'autre, sur tout le quiz. Le reste — type,
+ * réponses, photo — est propre à chaque question et ne se reprend pas ;
+ * c'est le rôle de la duplication.
+ */
+export function emptyQuestion(modele?: QuizQuestionDef | null): QuizQuestionDef {
+  const temps = Number(modele?.duration)
   return {
     id: newQuestionId(),
     kind: 'choice',
@@ -123,11 +132,27 @@ export function emptyQuestion(): QuizQuestionDef {
     correct: 0,
     target: null,
     unit: '',
-    duration: DEFAULT_DURATION,
+    // Un temps tapé hors bornes (le champ l'accepte, la partie le recale) ne
+    // se propage pas : la voisine le garde, la nouvelle repart d'un temps sûr.
+    duration:
+      Number.isFinite(temps) && temps >= MIN_DURATION && temps <= MAX_DURATION ? Math.round(temps) : DEFAULT_DURATION,
     image: null,
     observeSeconds: null,
-    category: null,
+    category: categorieDe(modele?.category),
   }
+}
+
+/**
+ * La voisine dont une question neuve, arrivant au numéro `number`, reprend
+ * les réglages : celle qui la précédera — c'est elle qu'on vient de régler —,
+ * ou, arrivée en tête, celle qui la suivra. Le numéro se borne comme dans
+ * `insertQuestions`.
+ */
+export function voisineDe<T>(questions: T[], number: number): T | undefined {
+  const at = Number.isFinite(number)
+    ? Math.min(questions.length, Math.max(0, Math.trunc(number) - 1))
+    : questions.length
+  return questions[at - 1] ?? questions[at]
 }
 
 /**
@@ -172,6 +197,21 @@ export function insertQuestions<T>(questions: T[], number: number, items: T[]): 
 }
 
 /**
+ * Les secondes pendant lesquelles la photo passe seule, telles que la partie
+ * les jouera, ou null si elle reste affichée. L'aperçu de l'éditeur les lit
+ * ici, même sur un brouillon : il joue la même observation que la salle.
+ */
+export function tempsDObservation(q: QuizQuestionDef): number | null {
+  // Un temps d'observation sans photo à observer n'a aucun sens : on l'ignore
+  // plutôt que de faire patienter la salle devant un carré vide.
+  // `Number(null)` vaut 0, pas NaN : sans ce test explicite, une photo sans
+  // observation se verrait attribuer le minimum et disparaîtrait toute seule.
+  return q.image && typeof q.observeSeconds === 'number' && Number.isFinite(q.observeSeconds)
+    ? Math.min(MAX_OBSERVE, Math.max(MIN_OBSERVE, Math.round(q.observeSeconds)))
+    : null
+}
+
+/**
  * Convertit une question éditée en question jouable, ou null si elle n'est pas
  * prête. Pour un QCM, retirer les réponses vides décale les index : on retrouve
  * la bonne réponse par sa position d'origine, jamais par son numéro final.
@@ -181,14 +221,7 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
   if (!text) return null
   const duration = Math.min(MAX_DURATION, Math.max(MIN_DURATION, Number(q.duration) || DEFAULT_DURATION))
   const image = q.image ?? null
-  // Un temps d'observation sans photo à observer n'a aucun sens : on l'ignore
-  // plutôt que de faire patienter la salle devant un carré vide.
-  // `Number(null)` vaut 0, pas NaN : sans ce test explicite, une photo sans
-  // observation se verrait attribuer le minimum et disparaîtrait toute seule.
-  const observeSeconds =
-    image && typeof q.observeSeconds === 'number' && Number.isFinite(q.observeSeconds)
-      ? Math.min(MAX_OBSERVE, Math.max(MIN_OBSERVE, Math.round(q.observeSeconds)))
-      : null
+  const observeSeconds = tempsDObservation(q)
   const category = categorieDe(q.category)
 
   if (q.kind === 'number') {
@@ -297,9 +330,11 @@ function lireEstimation(texte: string): { target: number; unit: string } | null 
  *   = 42 cours
  *
  * Une ligne vide sépare deux questions. L'étoile marque la bonne réponse ;
- * le signe égal transforme la question en estimation chiffrée.
+ * le signe égal transforme la question en estimation chiffrée. `modele`, la
+ * voisine de l'endroit où la liste arrive, lui prête son temps et sa
+ * catégorie (voir emptyQuestion).
  */
-export function parseImportedQuestions(text: string): ImportResult {
+export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | null): ImportResult {
   const blocks = text.split(SEPARATEUR_BLOCS)
   const questions: QuizQuestionDef[] = []
   let unmarked = 0
@@ -310,7 +345,9 @@ export function parseImportedQuestions(text: string): ImportResult {
   // Collé au dièse, seul un nom de la liste en est une : « #1 des ventes en
   // 1985 ? » est une question, qu'on aurait prise pour une catégorie inconnue.
   const estCategorie = (l: string) => /^#(\s|$)/.test(l) || (l.startsWith('#') && categorieDe(l.slice(1)) !== null)
-  let categorie: string | null = null
+  // Sans dièse, la liste collée reprend la catégorie de sa voisine, comme une
+  // question ajoutée à la main (voir emptyQuestion) ; « # » seul l'efface.
+  let categorie: string | null = categorieDe(modele?.category)
   for (const block of blocks) {
     const lines = block
       .split(SEPARATEUR_LIGNES)
@@ -327,7 +364,7 @@ export function parseImportedQuestions(text: string): ImportResult {
       continue
     }
 
-    const question = emptyQuestion()
+    const question = emptyQuestion(modele)
     question.category = categorie
     // Coupé par caractère, jamais au milieu d'un emoji.
     question.text = tronquer(lines[0], 300)

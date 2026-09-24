@@ -14,7 +14,9 @@ import {
   newQuestionId,
   parseImportedQuestions,
   questionProblem,
+  tempsDObservation,
   toPlayable,
+  voisineDe,
   type QuizDef,
   type QuizQuestionDef,
   type QuizSummary,
@@ -26,6 +28,8 @@ import { questionSizeClass } from '../games/quiz/questionSize'
 import { confirmDialog, promptDialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
+import { TimerBar } from '../components/TimerBar'
+import { serverNow } from '../clock'
 import { LoginForm } from '../components/Invitation'
 
 function formatDate(ts: number): string {
@@ -95,9 +99,17 @@ export function EditorApp() {
   const exporter = async (q: QuizSummary) => {
     setEchange(q.id)
     setError('')
+    setNotice('')
     try {
       const quiz = await api.get(q.id)
-      telecharger(nomDeFichier(quiz.title), JSON.stringify(await emporterQuiz(quiz, photoEnClair)))
+      const nom = nomDeFichier(quiz.title)
+      telecharger(nom, JSON.stringify(await emporterQuiz(quiz, photoEnClair)))
+      // Le fichier part en silence dans les téléchargements : sans ce mot, on
+      // ne sait ni où il est, ni ce que l'ami doit en faire.
+      setNotice(
+        `« ${quiz.title} » est dans tes téléchargements : ${nom}. Envoie ce fichier à un autre animateur — ` +
+          'il l’ouvre avec « Importer un quiz », en haut de sa page Mes quiz.',
+      )
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -282,7 +294,7 @@ export function EditorApp() {
               <button
                 className="btn btn-ghost btn-small"
                 disabled={echange !== null}
-                title="Un fichier à envoyer à un autre animateur : les questions et leurs photos"
+                title="Un fichier à envoyer à un autre animateur, qui l’ouvre avec « Importer un quiz » : les questions et leurs photos"
                 onClick={() => exporter(q)}
               >
                 {echange === q.id ? 'Export…' : 'Exporter'}
@@ -398,9 +410,12 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
     spotlight(id, 'number')
   }
 
-  /** Une question vide juste après celle-ci, le curseur déjà dans son intitulé. */
+  /**
+   * Une question vide juste après celle-ci, le curseur déjà dans son
+   * intitulé — avec son temps et sa catégorie (voir emptyQuestion).
+   */
   const insertAfter = (index: number) => {
-    const question = emptyQuestion()
+    const question = emptyQuestion(quiz?.questions[index])
     patch(q => ({ ...q, questions: insertQuestions(q.questions, index + 2, [question]) }))
     setAnnounce(`Question insérée en n° ${index + 2}`)
     spotlight(question.id, 'text')
@@ -530,7 +545,8 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
         <button
           className="btn btn-big"
           onClick={() => {
-            const question = emptyQuestion()
+            // La dernière prête ses réglages : un quiz se règle d'un bloc.
+            const question = emptyQuestion(quiz.questions[quiz.questions.length - 1])
             patch(q => ({ ...q, questions: [...q.questions, question] }))
             spotlight(question.id, 'text')
           }}
@@ -546,7 +562,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
 
       {importing && (
         <BulkImport
-          total={quiz.questions.length}
+          questions={quiz.questions}
           onImport={(questions, number) => {
             patch(q => ({ ...q, questions: insertQuestions(q.questions, number, questions) }))
             setAnnounce(
@@ -568,15 +584,34 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
  * La question telle qu'elle sera projetée. Vérifier qu'un intitulé trop long
  * ou une photo mal cadrée passe bien ne devrait pas obliger à lancer une
  * vraie partie devant les invités.
+ *
+ * Un brouillon se projette aussi, tel qu'il est : l'animatrice de la première
+ * tablée tapait deux fausses réponses pour voir sa photo en grand. Ce qui
+ * manque est dit au-dessus, et la question ne sera pas jouée pour autant.
  */
 function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onClose: () => void }) {
-  const playable = toPlayable(question)
+  const problem = questionProblem(question)
+  const text = question.text.trim()
+  const observe = tempsDObservation(question)
+  // Une photo « mémoire » passe d'abord seule, comme dans la salle : l'aperçu
+  // en joue le compte à rebours, puis la question sans la photo.
+  const [observeUntil, setObserveUntil] = useState<number | null>(() =>
+    observe ? serverNow() + observe * 1000 : null,
+  )
+  useEffect(() => {
+    if (observeUntil === null) return
+    const timer = setTimeout(() => setObserveUntil(null), Math.max(0, observeUntil - serverNow()))
+    return () => clearTimeout(timer)
+  }, [observeUntil])
+  const observing = observeUntil !== null
   // Échap referme l'aperçu, comme n'importe quelle fenêtre.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
+  // Les cases vides ne sont pas projetées : la partie les retire aussi.
+  const answers = question.answers.map(a => a.trim()).filter(a => a.length > 0)
   return (
     <div className="preview-backdrop" onClick={onClose}>
       <div
@@ -586,31 +621,108 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
         aria-label="Aperçu de l'écran commun"
         onClick={e => e.stopPropagation()}
       >
-        {!playable ? (
-          <p className="warn">{questionProblem(question)} — rien à projeter pour l'instant.</p>
+        {problem && (
+          <p className="warn">
+            <Icon name="alert" /> {problem} — cette question ne sera pas jouée.
+          </p>
+        )}
+        {observing ? (
+          <div className="preview-stage">
+            <div className="quiz-status">
+              <span className="pill flash">
+                <Icon name="eye" /> Regardez bien…
+              </span>
+            </div>
+            <TimerBar deadline={observeUntil} duration={observe ?? 5} />
+            {question.image && <img className="quiz-img observe-img" src={question.image} alt="Photo à observer" />}
+          </div>
         ) : (
           <div className="preview-stage">
-            <h2 className={'quiz-question' + questionSizeClass(playable.text)}>{playable.text}</h2>
-            {playable.image && <img className="quiz-img" src={playable.image} alt="Photo de la question" />}
-            {playable.kind === 'number' ? (
+            {question.category && <span className="label quiz-categorie">{question.category}</span>}
+            {text ? (
+              <h2 className={'quiz-question' + questionSizeClass(text)}>{text}</h2>
+            ) : (
+              <p className="serif-note">L'intitulé de la question s'affichera ici.</p>
+            )}
+            {question.image && observe === null && <img className="quiz-img" src={question.image} alt="Photo de la question" />}
+            {observe !== null && (
+              <p className="photo-gone">
+                <Icon name="eye-off" /> La photo a disparu — de mémoire !
+              </p>
+            )}
+            {question.kind === 'number' ? (
               <p className="big-waiting">
-                <Icon name="keyboard" /> Chacun tape son estimation{playable.unit ? ` (en ${playable.unit})` : ''} — le plus
-                proche gagne !
+                <Icon name="keyboard" /> Chacun tape son estimation
+                {question.unit.trim() ? ` (en ${question.unit.trim()})` : ''} — le plus proche gagne !
               </p>
             ) : (
-              <div className="ans-grid">
-                {playable.answers.map((a, i) => (
-                  <div key={i} className={`ans-btn ans-${i}`}>
-                    <Shape index={i} />
-                    <span className="ans-text">{a}</span>
-                  </div>
-                ))}
-              </div>
+              answers.length > 0 && (
+                <div className="ans-grid">
+                  {answers.map((a, i) => (
+                    <div key={i} className={`ans-btn ans-${i}`}>
+                      <Shape index={i} />
+                      <span className="ans-text">{a}</span>
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </div>
         )}
         <div className="row">
-          <span className="muted">Aperçu de l'écran commun · {question.duration} s</span>
+          <span className="muted">
+            Aperçu de l'écran commun ·{' '}
+            {observing ? `la photo seule, ${observe} s` : `${question.duration} s pour répondre`}
+          </span>
+          <div className="row">
+            {observing ? (
+              <button className="btn btn-ghost btn-small" onClick={() => setObserveUntil(null)}>
+                <Icon name="skip" />
+                Passer à la question
+              </button>
+            ) : (
+              observe !== null && (
+                <button
+                  className="btn btn-ghost btn-small"
+                  onClick={() => setObserveUntil(serverNow() + observe * 1000)}
+                >
+                  <Icon name="rotate" />
+                  Revoir la photo
+                </button>
+              )
+            )}
+            <button className="btn btn-ghost btn-small" onClick={onClose}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * La photo en grand, seule. La vignette de la carte suffit à la reconnaître,
+ * pas à la lire : on n'y comptait pas les bougies d'un gâteau.
+ */
+function PhotoLoupe({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="preview-backdrop" onClick={onClose}>
+      <div
+        className="preview-frame loupe-frame"
+        role="dialog"
+        aria-modal="true"
+        aria-label="La photo en grand"
+        onClick={e => e.stopPropagation()}
+      >
+        <img className="loupe-img" src={src} alt="Photo de la question, en grand" />
+        <div className="row">
+          <span className="muted">La photo telle qu'elle sera projetée, en grand</span>
           <button className="btn btn-ghost btn-small" onClick={onClose}>
             Fermer
           </button>
@@ -625,22 +737,24 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
  * les taper dans un carnet puis coller l'ensemble prend une minute.
  */
 function BulkImport({
-  total,
+  questions,
   onImport,
   onCancel,
 }: {
   /** Questions déjà dans le quiz : la liste collée arrive après, sauf avis contraire. */
-  total: number
+  questions: QuizQuestionDef[]
   /** Les questions reconnues, et le numéro que prendra la première. */
   onImport: (questions: QuizQuestionDef[], number: number) => void
   onCancel: () => void
 }) {
+  const total = questions.length
   const [text, setText] = useState('')
   const [at, setAt] = useState(String(total + 1))
-  const result = parseImportedQuestions(text)
   // Un champ vide ou illisible vaut « à la fin » ; un numéro trop grand aussi.
   const typed = Number.parseInt(at, 10)
   const number = Number.isNaN(typed) ? total + 1 : Math.min(total + 1, Math.max(1, typed))
+  // Les questions collées prennent les réglages de celle qui les précédera.
+  const result = parseImportedQuestions(text, voisineDe(questions, number))
   const count = result.questions.length
   // Ce que chaque « = … » a donné, la cible à part de l'unité. « 10 935
   // mètres » lu comme 10, avec « 935 mètres » pour unité, s'affichait à
@@ -656,7 +770,8 @@ function BulkImport({
       <p className="muted">
         Une ligne vide entre deux questions. L'étoile marque la bonne réponse ; le signe égal
         transforme la question en estimation chiffrée. Une ligne qui commence par un dièse range
-        les questions qui suivent dans une catégorie — « # Musique », « # Cinéma »…
+        les questions qui suivent dans une catégorie — « # Musique », « # Cinéma »… Sans dièse, elles
+        prennent le temps et la catégorie de la question qui les précède.
       </p>
       <pre className="import-example">{`# Géographie
 
@@ -760,6 +875,7 @@ function QuestionCard({
   const upButton = useRef<HTMLButtonElement>(null)
   const downButton = useRef<HTMLButtonElement>(null)
   const [preview, setPreview] = useState(false)
+  const [loupe, setLoupe] = useState(false)
   const [busy, setBusy] = useState(false)
   const [imageError, setImageError] = useState('')
   const problem = questionProblem(question)
@@ -1029,7 +1145,16 @@ function QuestionCard({
         />
         {question.image ? (
           <div className="row">
-            <img className="thumb" src={question.image} alt="Photo de la question" />
+            <button
+              type="button"
+              className="thumb-btn"
+              title="Voir la photo en grand"
+              aria-label="Voir la photo en grand"
+              onClick={() => setLoupe(true)}
+            >
+              <img className="thumb" src={question.image} alt="" />
+              <Icon name="maximize" />
+            </button>
             <button
               className="btn btn-ghost btn-small"
               onClick={() => onChange(q => ({ ...q, image: null, observeSeconds: null }))}
@@ -1092,6 +1217,7 @@ function QuestionCard({
       )}
 
       {preview && <QuestionPreview question={question} onClose={() => setPreview(false)} />}
+      {loupe && question.image && <PhotoLoupe src={question.image} onClose={() => setLoupe(false)} />}
       {imageError && <p className="error">{imageError}</p>}
       {problem && (
         <p className="warn">
