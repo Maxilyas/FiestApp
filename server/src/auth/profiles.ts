@@ -243,6 +243,30 @@ export function decodeDetail(raw: string): { v: number; gain: GainSoiree; releve
   return { v: 1, gain: gainVide(), releve }
 }
 
+/** La ligne d'expérience d'un profil pour une soirée : remplacée, jamais ajoutée (invariant 10). */
+function ligneDeCredit(input: {
+  profileId: string
+  soireeId: string
+  spaceId: string
+  gain: GainSoiree
+  releve: ReleveSoiree
+  xp: number
+}) {
+  return {
+    sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
+    args: [
+      input.profileId,
+      input.soireeId,
+      input.spaceId,
+      input.xp,
+      JSON.stringify({ v: VERSION_BAREME, gain: input.gain, releve: input.releve }),
+      Date.now(),
+    ],
+  }
+}
+
 /**
  * Une ligne de l'ancien barème, revalorisée au nouveau quand on n'a plus de
  * quoi la recalculer — sa soirée n'est pas dans l'historique. On ne garde
@@ -915,20 +939,58 @@ export class ProfileStore {
     releve: ReleveSoiree
     xp: number
   }): Promise<number> {
-    await this.client.execute({
-      sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
-      args: [
-        input.profileId,
-        input.soireeId,
-        input.spaceId,
-        input.xp,
-        JSON.stringify({ v: VERSION_BAREME, gain: input.gain, releve: input.releve }),
-        Date.now(),
-      ],
-    })
+    await this.client.execute(ligneDeCredit(input))
     return this.recalculerTotal(input.profileId)
+  }
+
+  /**
+   * Les crédits de toute une soirée en un seul aller-retour : ses lignes,
+   * puis le total de chaque profil touché. Le recalcul au barème du jour en
+   * faisait deux par profil, soirée après soirée : 3 094 requêtes pour 101
+   * soirées, 68 s de démarrage à 20 ms de latence — avant l'ouverture du
+   * port. Même lignes, mêmes totaux que `creditSoiree`.
+   */
+  async crediterSoireeEntiere(
+    soireeId: string,
+    spaceId: string,
+    gains: { profileId: string; gain: GainSoiree; releve: ReleveSoiree; xp: number }[],
+  ): Promise<void> {
+    if (gains.length === 0) return
+    const ids = [...new Set(gains.map(g => g.profileId))]
+    const resultats = await this.client.batch(
+      [
+        ...gains.map(g => ligneDeCredit({ ...g, soireeId, spaceId })),
+        ...ids.map(id => ({
+          sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?',
+          args: [id, id],
+        })),
+        { sql: `SELECT id, xp FROM profiles WHERE id IN (${ids.map(() => '?').join(', ')})`, args: ids },
+      ],
+      'write',
+    )
+    for (const r of resultats[resultats.length - 1].rows) {
+      const rec = this.profiles.get(String(r.id))
+      if (rec) rec.xp = Number(r.xp)
+    }
+  }
+
+  /**
+   * Relit en un aller-retour les totaux et les récompenses de ces profils.
+   * Après des écritures menées de front, la mémoire a pu garder la réponse
+   * arrivée la dernière plutôt que la plus récente : la base, elle, fait foi.
+   */
+  async relireProfils(profileIds: string[]): Promise<void> {
+    if (profileIds.length === 0) return
+    const res = await this.client.execute({
+      sql: `SELECT id, xp FROM profiles WHERE id IN (${profileIds.map(() => '?').join(', ')})`,
+      args: profileIds,
+    })
+    for (const r of res.rows) {
+      const rec = this.profiles.get(String(r.id))
+      if (rec) rec.xp = Number(r.xp)
+    }
+    this.porteurs = null
+    await this.recompterRecompenses(profileIds)
   }
 
   /** Le total d'un profil, recalculé de toutes ses lignes — en base, puis en mémoire. */

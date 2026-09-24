@@ -85,12 +85,13 @@ Puis ses variables (*Environment*) :
 | `QUIZ_DB_URL` | l'URL Turso de l'étape 2 — sans elle, le serveur refuse de démarrer : le disque de Render s'efface à chaque réveil, et tout ce qui y serait écrit disparaîtrait |
 | `QUIZ_DB_TOKEN` | le jeton de l'étape 2 |
 | `NODE_VERSION` | `22` |
+| `MAX_PLAYERS` | `150` — le plafond d'invités d'une soirée, que le réglage d'un espace ne dépasse pas. Sans elle, le code laisse monter jusqu'à 500, et une salle de 300 fait céder le dixième de processeur de l'offre gratuite (mesuré). Il borne **chaque** espace, pas leur somme |
 
 Enfin, dans *Settings*, coupe **Auto-Deploy** : la production ne se déploie qu'à la main, une fois la préproduction vue tourner (étape 7).
 
 > Pourquoi pas **New → Blueprint** ? Il lirait `render.yaml` et réglerait tout d'un coup — mais pour les **deux** services que le fichier décrit, production et préproduction, chacun avec sa base Turso. Et le choix est sans retour : Render n'adopte jamais un service qu'un blueprint n'a pas créé, il en fabrique des copies (étape 7).
 
-Deux à trois minutes de construction, et Render t'affiche ton adresse publique. Au premier démarrage, le serveur crée ton compte et, si la base contenait déjà des quiz ou des soirées d'avant les comptes, il te les rattache — regarde le journal : `[comptes] administrateur « … » créé`, et s'il y a lieu `[espaces] … lignes d'avant les comptes rattachées`. L'adresse apparaîtra automatiquement dans le QR code, suivie du nom de ton espace — rien à configurer de plus.
+Deux à trois minutes de construction, et Render t'affiche ton adresse publique. Chaque démarrage se dit au journal : `[serveur] prêt en … ms — au plus 150 invités par soirée` — si la ligne dit 500 et « MAX_PLAYERS non défini », la variable manque. Au premier démarrage, le serveur crée ton compte et, si la base contenait déjà des quiz ou des soirées d'avant les comptes, il te les rattache — regarde le journal : `[comptes] administrateur « … » créé`, et s'il y a lieu `[espaces] … lignes d'avant les comptes rattachées`. L'adresse apparaîtra automatiquement dans le QR code, suivie du nom de ton espace — rien à configurer de plus.
 
 **Ensuite, tout de suite :** ouvre `https://TON-ADRESSE.onrender.com/connexion`, connecte-toi, va dans **Mon compte**, change ton mot de passe, puis retire `ADMIN_PASSWORD` des variables de Render. Le redémarrage qui suit se fait très bien sans.
 
@@ -362,6 +363,25 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 | « Sauvegarde en retard — la soirée continue », à côté du titre de l'écran commun | la base Turso refuse les écritures depuis une dizaine de secondes : Turso en panne, jeton révoqué, base supprimée… | la soirée continue, et rien n'est perdu tant que le serveur tourne : la file réessaie jusqu'au succès, et la pastille s'en va d'elle-même au rétablissement. D'ici là, garde un écran connecté et ne déploie pas — un serveur qui s'endort ou redémarre perd son disque, et la file avec. `/healthz` dit depuis quand ça dure et combien d'écritures attendent (bloc `miroir`) ; vérifie la base et son jeton sur turso.tech |
 
 Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours est recopiée dans la base distante à chaque question posée ou révélée — avec ses gains, d'un seul tenant : une révélation ne se paie jamais deux fois au réveil —, et au plus toutes les deux secondes pendant qu'on répond. Elle reprend là où elle en était (au pire, deux secondes de réponses en moins), ses chronomètres réarmés à leur heure, les scores sont intacts et les téléphones se reconnectent seuls — pour chaque espace. À une condition : que la sauvegarde ait suivi. Si l'écran commun affichait « Sauvegarde en retard », ce qui attendait encore d'être écrit part avec le disque.
+
+### Ce que dit `/healthz`
+
+`https://TON-ADRESSE.onrender.com/healthz` répond toujours 200 (un échec ferait redémarrer l'instance, disque effacé), sans un nom ni une adresse, tous espaces confondus. « Par minute » et « sur la dernière minute » veulent dire ici : la minute en cours et la précédente, donc une à deux minutes selon l'instant où l'on lit.
+
+| Champ | Ce qu'il dit | À surveiller |
+|---|---|---|
+| `espacesActifs`, `quizEnCours`, `podiumsAffiches` | les soirées qui vivent vraiment (`spaces` et `quizzes` comptent aussi ce qui dort) | ne pas déployer tant que `quizEnCours` n'est pas à 0 |
+| `maxPlayers` | le plafond d'invités en vigueur (`MAX_PLAYERS`) | 150 sur l'offre gratuite |
+| `charge.cpuPct` | le processeur du processus, en pour cent d'un cœur | l'offre gratuite n'en a qu'un dixième : au-delà de 10, le serveur est à son plafond |
+| `charge.boucleOccupeePct`, `retardBoucleP99Ms`, `retardBoucleMaxMs` | la part du temps où le serveur travaille, et ce qu'attend un message d'invité | un retard de plusieurs centaines de ms se sent au téléphone |
+| `charge.retardChronosMaxMs`, `charge.chronosMesures` | de combien une révélation a sonné en retard, et combien de chronomètres ont sonné (un retard de 0 sans aucun chronomètre ne dit rien) | au-delà d'une seconde, le journal le dit aussi (`[partie] chronomètre … en retard`) |
+| `pages` | le souvenir et le bilan : servis, calculés, leur coût, ce qui est gardé en mémoire | une page de plus de 500 ms se dit au journal (`[pages]`) |
+| `inscriptions.clesDistinctes` | les adresses distinctes vues par la réserve d'inscriptions | voir plus bas |
+| `reponses.tropTardParMin` | des réponses refusées pour « trop tard » | en hausse avec la charge : le serveur prend du retard |
+| `miroir` | la santé de la sauvegarde dans Turso, et la durée de ses envois | voir « Sauvegarde en retard » ci-dessus |
+| `memoire`, `rssMo` | le tas, la mémoire du processus, les connexions ouvertes | 512 Mo sur l'offre gratuite |
+
+Chaque réveil de l'offre gratuite remet ces compteurs à zéro : ce qui compte part aussi au journal. À chaque clôture, `[soirée] close en … ms : N invités, … ; la réserve d'inscriptions a vu K adresses`. Une salle de téléphones en 4G sous une ou deux adresses veut dire que le serveur lit celle du proxy de Render, pas celle du téléphone — et que toute la salle partage une seule réserve d'inscriptions. Au premier refus d'une adresse dans la minute, `[inscriptions] réserve épuisée pour l'adresse …` donne une empreinte (jamais l'adresse) et le nombre d'entrées de `x-forwarded-for`.
 
 ### Le serveur tombe en pleine partie, et ne revient pas
 

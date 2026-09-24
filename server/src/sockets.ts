@@ -7,6 +7,7 @@ import type { ProfileRec, ProfileStore } from './auth/profiles'
 import { readPlayerToken, readSessionToken } from './auth/http'
 import { Budget } from './core/budget'
 import { messagePourEcran } from './core/http'
+import { pouls } from './core/pouls'
 
 interface SocketDeps {
   /** Les soirées en cours, une par espace. */
@@ -140,6 +141,9 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     let helloFailures = 0
     let identitiesCreated = 0
     const ip = clientIp(socket, deps.trustProxy)
+    /** Les entrées de `x-forwarded-for`, pour le journal : une seule, et c'est peut-être un proxy qu'on lit. */
+    const forwarded = socket.handshake.headers['x-forwarded-for']
+    const sauts = typeof forwarded === 'string' && forwarded.trim() ? forwarded.split(',').length : 0
 
     /**
      * Pose un écouteur que rien de ce qui arrive du réseau ne peut faire tomber.
@@ -319,7 +323,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           if (rt.party.count() >= rt.maxPlayers) {
             return repondre({ ok: false, error: 'La soirée est complète !' })
           }
-          if (identitiesCreated >= JOINS_PER_SOCKET || !joinBudget.take(ip)) {
+          if (identitiesCreated >= JOINS_PER_SOCKET || !pouls.reserve(rt.spaceId, ip, joinBudget.take(ip), sauts)) {
             return repondre({ ok: false, error: 'Trop d’inscriptions d’un coup — réessaie dans une minute' })
           }
         }
@@ -408,6 +412,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // Le moteur de l'espace ne connaît que sa partie : l'identifiant
         // d'une partie voisine vaut « terminée », et la voisine n'en sait rien.
         const refusal = rt.engine.handlePlayerAction(texte(charge.sessionId) ?? '', playerId, charge.action)
+        if (refusal === 'too-late') pouls.tropTard.noter()
         repondre(refusal ? refuse(refusal) : { ok: true })
       },
       refuse('error'),
@@ -581,9 +586,23 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     const clore = (title?: string) => {
       const rt = requireHost()
       if (!rt) return
+      // De quoi dire au journal ce que la clôture a coûté — lu avant : elle efface tout.
+      const soiree = rt.currentSummary()
+      const debut = Date.now()
       return rt
         .closeParty(title)
         .then(archived => {
+          // Remises à zéro même quand rien n'a été joué : sinon les adresses
+          // d'une soirée vierge s'ajoutaient à celles de la suivante.
+          const adresses = pouls.adressesVues(rt.spaceId)
+          if (soiree) {
+            console.log(
+              `[soirée] close en ${Date.now() - debut} ms : ${soiree.players} invités, ${soiree.quizzes} quiz, ` +
+                `${soiree.questions} questions` +
+                (soiree.since ? `, ${Math.round((debut - soiree.since) / 60_000)} min de soirée` : '') +
+                ` ; la réserve d’inscriptions a vu ${adresses} adresse${adresses > 1 ? 's' : ''}`,
+            )
+          }
           socket.emit(
             'toast',
             archived
@@ -604,7 +623,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       if (!rt) return
       return rt
         .discardParty()
-        .then(() => socket.emit('toast', { kind: 'info', message: 'Essai effacé — rien n’a été gardé' }))
+        .then(() => {
+          // Les adresses de l'essai ne compteront pas dans la clôture de la vraie soirée.
+          pouls.adressesVues(rt.spaceId)
+          socket.emit('toast', { kind: 'info', message: 'Essai effacé — rien n’a été gardé' })
+        })
         .catch(e => {
           socket.emit('toast', { kind: 'error', message: `Rien n’a été effacé : ${messagePourEcran(e, 'host:discardParty')}` })
         })

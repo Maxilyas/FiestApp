@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
+import { ChampNombre } from '../components/ChampNombre'
 import { api } from '../api'
 import { dataUrl, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
@@ -781,14 +782,13 @@ export function HostApp() {
                       value={freeReason}
                       onChange={e => setFreeReason(e.target.value)}
                     />
-                    <input
+                    <ChampNombre
                       className="input award-points"
-                      type="number"
                       min={-10}
                       max={10}
                       aria-label="Points du prix"
-                      value={freePoints}
-                      onChange={e => setFreePoints(Number(e.target.value))}
+                      valeur={freePoints}
+                      onValeur={setFreePoints}
                     />
                     <button
                       className="btn btn-primary btn-small"
