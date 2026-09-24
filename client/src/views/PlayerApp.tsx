@@ -261,6 +261,7 @@ export function PlayerApp() {
           space={snap.space}
           players={snap.players}
           teams={teams}
+          quizEnCours={!!snap.session}
           profil={profil}
           reconnecter={reconnecter}
           rejoindre={rejoindre}
@@ -393,14 +394,16 @@ export function PlayerApp() {
             </h3>
             {/* Changer d'équipe emporte ses points : le serveur le refuse
                 pendant un quiz, autant ne pas proposer le bouton. */}
-            {!session && (
+            {!session && myTeam && (
               <button className="btn btn-ghost btn-small" onClick={() => setSwitching(v => !v)}>
-                {switching ? 'Annuler' : myTeam ? 'Changer' : 'Choisir mon équipe'}
+                {switching ? 'Annuler' : 'Changer'}
               </button>
             )}
           </div>
-          {switching ? (
-            <TeamPicker teams={teams} value={me?.teamId ?? null} onPick={changeTeam} />
+          {/* Entré pendant un quiz, sans équipe : le quiz fini, c'est le
+              moment de la choisir — le choix se montre de lui-même. */}
+          {switching || (!myTeam && !session) ? (
+            <TeamPicker teams={teams} value={me?.teamId ?? null} onPick={changeTeam} players={snap.players} />
           ) : (
             <>
               <TeamBoard teams={teams} highlightId={me?.teamId ?? null} compact />

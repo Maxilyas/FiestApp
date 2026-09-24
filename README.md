@@ -267,7 +267,7 @@ Avec cinquante invités et un classement cumulé, les mêmes trois personnes mè
 
 Chacun joue pour soi, et ses points font aussi ceux de son équipe : les équipes se déduisent des points de leurs membres — pas de score collectif saisi à la main, pas de double comptabilité.
 
-**Rejoindre son équipe.** L'inscription se fait en deux écrans : prénom + avatar, puis l'équipe. Le deuxième n'apparaît que si l'animateur a créé des équipes ; sinon on rejoint directement, comme avant. Depuis la salle d'attente, chacun peut encore se corriger tant qu'aucun quiz ne tourne — pendant une partie, c'est refusé : changer d'équipe emporte ses points, ce serait un déménagement de score entre deux questions.
+**Rejoindre son équipe.** L'inscription se fait en deux écrans : prénom + avatar, puis l'équipe. Le deuxième n'apparaît que si l'animateur a créé des équipes ; sinon on rejoint directement, comme avant. Chaque équipe y montre les prénoms de ses membres : on cherche ses amis, pas un nom d'équipe. Et pendant un quiz, il n'apparaît pas : le retardataire entre tout de suite, répond à la question en cours, et choisit son équipe à la fin du quiz, dans la salle d'attente, où le choix l'attend. Depuis la salle d'attente, chacun peut encore se corriger tant qu'aucun quiz ne tourne — pendant une partie, c'est refusé : changer d'équipe emporte ses points, ce serait un déménagement de score entre deux questions.
 
 **Le classement d'équipe se fait à la moyenne par membre, pas au total.** Six équipes ne se remplissent jamais à égalité parfaite, et une équipe de neuf battrait mécaniquement une équipe de six. Le total reste affiché en petit — c'est lui qu'on commente à voix haute — mais c'est la moyenne qui classe.
 

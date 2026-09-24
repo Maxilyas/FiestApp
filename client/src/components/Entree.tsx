@@ -29,6 +29,12 @@ interface Props {
   /** Les invités déjà là — c'est d'eux qu'on déduit les homonymes. */
   players: PublicPlayer[]
   teams: PublicTeam[]
+  /**
+   * Un quiz est en cours : l'équipe attendra sa fin. Karim, arrivé en pleine
+   * question, l'a rejointe à six secondes de la fin — le temps de choisir une
+   * équipe qu'on ne peut de toute façon plus changer avant la fin du quiz.
+   */
+  quizEnCours?: boolean
   /** Le profil reconnu au cookie sur ce téléphone, s'il y en a un. */
   profil: PublicProfile | null
   /** Rouvre la connexion pour que le serveur voie le cookie tout juste posé. */
@@ -64,7 +70,9 @@ const identifiantPour = (prenom: string) =>
  * Et un profil reconnu ne choisit plus rien : il a choisi son prénom et son
  * avatar une fois, en créant son profil. On les lit, on ne les redemande pas.
  */
-export function Entree({ space, players, teams, profil, reconnecter, rejoindre, oublierProfil }: Props) {
+export function Entree({ space, players, teams, quizEnCours = false, profil, reconnecter, rejoindre, oublierProfil }: Props) {
+  /** L'écran d'équipe ne se montre qu'entre deux quiz : pendant un quiz, on répond d'abord. */
+  const choisirEquipe = teams.length > 0 && !quizEnCours
   // Ce que ce téléphone a déjà choisi ici : sa présence dit que l'entrée a
   // déjà été vue dans cet espace, et qu'il est inutile de la remontrer.
   const [choix] = useState(() => loadChoix(space.slug))
@@ -147,7 +155,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
   const versLaSoiree = (qui: Identite) => {
     setIdentite(qui)
     setErreur('')
-    if (teams.length > 0) return setEtape('equipe')
+    if (choisirEquipe) return setEtape('equipe')
     void entrer(qui, null)
   }
 
@@ -525,16 +533,23 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           sub="Tes points restent les tiens — ils comptent aussi pour ton équipe."
         />
         <hr className="hairline" />
-        <TeamPicker teams={teams} value={teamId} onPick={setTeamId} disabled={busy} />
+        <TeamPicker teams={teams} value={teamId} onPick={setTeamId} disabled={busy} players={players} />
         {erreur && <p className="error" role="alert">{erreur}</p>}
+        {/* Le quiz a commencé pendant qu'on choisissait : la question
+            n'attend pas, l'équipe si. */}
+        {quizEnCours && (
+          <p className="hint">
+            Un quiz a commencé : entre tout de suite, tu choisiras ton équipe à la fin.
+          </p>
+        )}
         <div className="join-grow" />
         <div className="join-actions">
           <button
             className="btn btn-primary btn-big btn-block"
-            disabled={busy || !teamId}
+            disabled={busy || (!teamId && !quizEnCours)}
             onClick={() => entrer(identite, teamId)}
           >
-            {teamId ? 'Rejoindre la soirée' : 'Choisis ton équipe'}
+            {teamId || quizEnCours ? 'Rejoindre la soirée' : 'Choisis ton équipe'}
           </button>
           <button
             className="btn btn-ghost"
@@ -642,7 +657,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
       {erreur && <p className="error" role="alert">{erreur}</p>}
       <div className="join-grow" />
       <button className="btn btn-primary btn-big btn-block" disabled={busy || !name.trim()}>
-        {creation || teams.length > 0 ? 'Continuer' : 'Rejoindre la soirée'}
+        {creation || choisirEquipe ? 'Continuer' : 'Rejoindre la soirée'}
       </button>
       <p className="join-foot">
         Rien à installer · ton prénom suffit ·{' '}

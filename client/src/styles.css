@@ -2115,6 +2115,9 @@ h3 > .icon {
 .team-btn-emoji { font-size: 1.9rem; line-height: 1.2; }
 .team-btn-name { font-family: var(--serif); font-weight: 600; font-size: 1.25rem; text-align: center; }
 .team-btn-count { font-size: 0.74rem; color: var(--muted); }
+/* Qui y est déjà : c'est ce qu'on cherche en choisissant. Coupé au mot près,
+   jamais au milieu d'un prénom. */
+.team-btn-membres { font-size: 0.78rem; color: var(--muted); text-align: center; overflow-wrap: break-word; max-width: 100%; }
 
 /* ── Gestion des équipes (écran commun) ─────────── */
 .team-groups { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
