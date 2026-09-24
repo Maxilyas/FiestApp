@@ -297,7 +297,7 @@ function Fiches({ ctx, players }: { ctx: BilanCtx; players: ReviewPlayer[] }) {
             Imprimer
           </button>
           <a className="btn btn-ghost" href={spacePath(pageContext().slug, 'bilan', pageContext().archiveId)}>
-            Retour au bilan
+            Revenir au bilan
           </a>
         </div>
       </div>

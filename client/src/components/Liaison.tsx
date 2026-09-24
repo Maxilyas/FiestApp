@@ -22,7 +22,7 @@ export function AttenteConnexion() {
         <p className="serif-note">Connexion…</p>
         {longue && (
           <>
-            <p className="muted small">Ça traîne — vérifie ton wifi ou ta 4G.</p>
+            <p className="muted small">Ça traîne — vérifie ton Wi-Fi ou ta 4G.</p>
             <button type="button" className="btn btn-small" onClick={() => window.location.reload()}>
               Recharger la page
             </button>

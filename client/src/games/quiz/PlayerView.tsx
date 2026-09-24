@@ -320,7 +320,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
                 <span className="big">+{pts(v.yourPoints ?? 0)}</span>
                 <p>
                   Tu as dit <strong>{formatNumber(v.yourGuess!)}</strong> {v.unit}
-                  {gap === 0 ? ' — pile poil !' : ` — à ${formatNumber(gap!)} ${v.unit} près`}
+                  {gap === 0 ? ' — pile-poil !' : ` — à ${formatNumber(gap!)} ${v.unit} près`}
                 </p>
               </>
             ) : (

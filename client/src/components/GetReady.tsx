@@ -34,7 +34,7 @@ export function GetReady({ deadline, sounds, label }: { deadline: number; sounds
       </span>
       <p>{label}</p>
       <div key={seconds} className="big-count">
-        {seconds > 0 ? seconds : 'GO !'}
+        {seconds > 0 ? seconds : 'Top !'}
       </div>
     </div>
   )

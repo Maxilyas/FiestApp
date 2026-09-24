@@ -451,7 +451,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
               <div>
                 <h3>
                   <Icon name="trophy" />
-                  Top du quiz
+                  En tête du quiz
                 </h3>
                 <Standings rows={v.standings} />
               </div>

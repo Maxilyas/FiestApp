@@ -335,7 +335,7 @@ export function EditorApp() {
             </div>
             <div className="row">
               <button className="btn" onClick={() => setEditingId(q.id)}>
-                Éditer
+                Modifier
               </button>
               <button
                 className="btn btn-ghost btn-small"
@@ -681,7 +681,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
               Les effacer
             </button>
             <button className="btn btn-ghost" disabled={reprise === 'en-cours'} onClick={onClose}>
-              Retour
+              Revenir
             </button>
           </div>
         </div>
@@ -707,7 +707,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
             {ready}/{quiz.questions.length} prête{ready > 1 ? 's' : ''}
           </span>
           <button className="btn btn-ghost" onClick={close}>
-            Retour
+            Revenir
           </button>
           <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>
             {saving ? (
@@ -1139,7 +1139,7 @@ function BulkImport({
         {count > 0 && (count > 1 ? ` · n° ${number} à ${number + count - 1}` : ` · n° ${number}`)}
         {result.unmarked > 0 &&
           ` · ${result.unmarked} sans étoile : la 1ʳᵉ réponse sera prise pour la bonne`}
-        {result.ignored > 0 && ` · ${result.ignored} bloc(s) ignoré(s)`}
+        {result.ignored > 0 && ` · ${result.ignored} ${result.ignored > 1 ? 'blocs ignorés' : 'bloc ignoré'}`}
       </p>
       {annoncees.length > 0 && (
         <div className="import-photos">

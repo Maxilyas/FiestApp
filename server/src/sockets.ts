@@ -48,7 +48,7 @@ const JOIN_REFILL_PER_MINUTE = 60
 
 const NO_SUCH_SPACE = 'Cette adresse ne mène à aucune soirée'
 const OTHER_SPACE = 'Cette connexion suit déjà une autre soirée'
-const SERVER_ERROR = 'Erreur serveur — retente'
+const SERVER_ERROR = 'Erreur serveur — réessaie'
 /**
  * Le jeton du téléphone ne désigne plus personne : exclu, « Nouvelle
  * soirée », ou un miroir qui n'avait pas encore sa fiche au redémarrage. Le
@@ -63,13 +63,13 @@ const SOIREE_CLOSE = 'Cette soirée est close — voici la tienne'
  * le pire des messages : il laissait croire que la réponse était partie.
  */
 const REFUSAL_MESSAGE: Record<ActionRefusal, string> = {
-  'no-party': 'Ta réponse n’est pas partie — reconnexion en cours, retente',
-  'unknown-player': 'Ta réponse n’est pas partie — reconnexion en cours, retente',
+  'no-party': 'Ta réponse n’est pas partie — reconnexion en cours, réessaie',
+  'unknown-player': 'Ta réponse n’est pas partie — reconnexion en cours, réessaie',
   ended: 'Ce quiz est terminé',
   'not-participant': 'Tu n’es pas dans cette partie — tu joues à la prochaine question',
   'too-late': 'Trop tard — la question était finie',
   paused: 'Le quiz est en pause — regarde l’écran commun',
-  invalid: 'Réponse non comprise — retente',
+  invalid: 'Réponse non comprise — réessaie',
   error: SERVER_ERROR,
   timeout: 'Ta réponse n’est pas partie — vérifie ta connexion',
 }
