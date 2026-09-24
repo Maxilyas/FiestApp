@@ -13,7 +13,7 @@ import {
   soireeGardee,
   useAppState,
 } from '../state'
-import { currentSlug } from '../routes'
+import { currentSlug, spacePath } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
 import { TeamPicker } from '../components/TeamPicker'
@@ -416,6 +416,21 @@ export function PlayerApp() {
       {carte && <CarteJoueur slug={slug} playerId={carte} onFermer={() => setCarte(null)} />}
 
       <p className="waiting">En attente du prochain quiz…</p>
+      {/* Entre deux quiz, relire ses réponses : rien ne menait du téléphone au
+          bilan en cours, il fallait en connaître l'adresse. Un autre onglet,
+          pour ne pas manquer le quiz suivant. Une fois des points marqués
+          seulement : avant, le bilan n'a rien à montrer. */}
+      {me && sorted.some(p => p.score > 0) && (
+        <p className="join-foot">
+          <a className="link-inline" href={`${spacePath(slug, 'bilan')}#p=${me.id}`} target="_blank" rel="noreferrer">
+            Mes réponses jusqu’ici
+          </a>
+          {' · '}
+          <a className="link-inline" href={spacePath(slug, 'souvenir')} target="_blank" rel="noreferrer">
+            le souvenir
+          </a>
+        </p>
+      )}
       {/* Entre deux quiz, c'est le moment où l'on regarde son téléphone. */}
       <p className="join-foot">
         {profil ? (
