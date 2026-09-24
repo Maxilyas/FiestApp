@@ -808,6 +808,24 @@ async function localiser(page: Page, cible: string): Promise<Element> {
   throw new Refus(`Rien de visible ne s'appelle « ${cible} ». Relis l'écran avec « voir » et vise une référence (e12).`)
 }
 
+/**
+ * Écrire comme un humain : on efface, puis on tape touche par touche. La
+ * première tablée remplissait le champ d'un coup (`fill`), un seul événement
+ * là où un doigt en envoie un par touche, et ne pouvait pas voir le champ
+ * « Bonne réponse » de l'éditeur manger la virgule de « 0,8 » : relu en
+ * nombre à chaque touche, il en faisait 8.
+ */
+async function taper(el: Element, texte: string) {
+  try {
+    await el.fill('')
+    // Le délai couvre la frappe entière : une longue réponse ne doit pas
+    // tomber sur celui d'un simple toucher.
+    if (texte) await el.pressSequentially(texte, { timeout: 5000 + 50 * texte.length })
+  } catch (e) {
+    throw new Refus(`Impossible d'écrire ici : ${(e as Error).message.split('\n')[0]}`)
+  }
+}
+
 /** Toucher du doigt sur un téléphone, cliquer ailleurs — et dire pourquoi ça n'a pas pris. */
 async function toucher(p: Participant, el: Element) {
   // Clavier ouvert, l'écran s'arrête au-dessus : ce qui est plus bas, un doigt
@@ -1005,11 +1023,23 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const el = await localiser(page, champ)
       // Le doigt d'abord : c'est lui qui ouvre le clavier d'un téléphone.
       if (APPAREILS[p.appareil].tactile) await toucher(p, el).catch(() => {})
-      await el.fill(mots.join(' ')).catch((e: Error) => {
-        throw new Refus(`Impossible d'écrire ici : ${e.message.split('\n')[0]}`)
-      })
+      await taper(el, mots.join(' '))
       await stabiliser(page)
       return ecran(p, o)
+    }
+
+    case 'coller': {
+      const [champ, ...mots] = args
+      if (!champ || mots.length === 0) throw new Refus('Coller où, et quoi ? ex. « coller e14 "Quelle est… ?" ».')
+      const el = await localiser(page, champ)
+      if (APPAREILS[p.appareil].tactile) await toucher(p, el).catch(() => {})
+      // D'un coup, comme un texte copié ailleurs : une liste de questions
+      // préparée dans ses notes ne se tape pas lettre à lettre.
+      await el.fill(mots.join(' ')).catch((e: Error) => {
+        throw new Refus(`Impossible de coller ici : ${e.message.split('\n')[0]}`)
+      })
+      await stabiliser(page)
+      return ecran(p, o, '📋 Tu colles le texte.')
     }
 
     case 'touche': {
@@ -1207,18 +1237,24 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       }
       const champ = page.locator('.quiz-player .guess-form input')
       if (APPAREILS[p.appareil].tactile) await toucher(p, champ).catch(() => {})
-      await champ.fill(voulu)
+      await taper(champ, voulu)
       await champ.press('Enter')
-      const accuse = await page
-        .getByText('Ta réponse')
-        .first()
-        .waitFor({ state: 'visible', timeout: 4000 })
-        .then(() => true)
-        .catch(() => false)
+      // Ce qu'il ne lit pas, le téléphone le dit sous le champ. Sans cette
+      // lecture, la régie attendait un accusé qui ne viendrait pas — ou prenait
+      // pour le sien celui d'une réponse d'avant.
+      const alerte = page.locator('.quiz-player .guess-form [role=alert]')
+      const reponse = page.getByText('Ta réponse').first()
+      const alerteVue = async () => (await alerte.count().catch(() => 0)) > 0
+      await guetter(4000, signal, async () => (await alerteVue()) || (await reponse.isVisible().catch(() => false)), 100)
+      const refus = (await alerteVue()) ? (await alerte.first().innerText().catch(() => '')).trim() || 'illisible' : ''
+      const accuse = !refus && (await reponse.isVisible().catch(() => false))
       await stabiliser(page, 1200)
       if (lue && accuse) lue.repondu = true
-      consigner({ qui, geste: 'reponse', question: e.label, estimation: voulu, ms: depuis })
-      return `${accuse ? '✅' : '⚠'} Tu proposes ${voulu}${delai}${accuse ? '' : ' — le téléphone ne montre pas de réponse enregistrée'}.\n${await entete(p, o)}\n\n${await texteVisible(page)}`
+      consigner({ qui, geste: 'reponse', question: e.label, estimation: voulu, ms: depuis, ...(refus ? { illisible: true } : {}) })
+      const ligne = refus
+        ? `⚠ Tu proposes ${voulu}${delai} — le téléphone ne le lit pas : « ${refus} »`
+        : `${accuse ? '✅' : '⚠'} Tu proposes ${voulu}${delai}${accuse ? '' : ' — le téléphone ne montre pas de réponse enregistrée'}.`
+      return `${ligne}\n${await entete(p, o)}\n\n${await texteVisible(page)}`
     }
 
     case 'tele': {

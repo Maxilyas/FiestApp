@@ -154,6 +154,9 @@ Puis `node server/scripts/tablee/pilote.mjs regie arreter`.
   FiestApp (`interactive-widget=resizes-content`) — Safari, lui, ne rétrécit
   que ce qu'il montre. La veille aussi est simulée (page figée, réseau
   coupé, visibilité cachée).
+- `ecrire` tape touche par touche, sans pause entre deux touches : un champ
+  qui se relit à chaque frappe s'y trahit, pas une saisie qui dépend du
+  rythme. `coller` remplit d'un coup, comme un texte copié ailleurs.
 - Chromium seulement : ni Safari, ni Firefox. Le profil « iphone » n'en a
   que la taille et l'identité.
 - La salle (`dire`) est commune à toute la tablée : c'est une pièce, pas un

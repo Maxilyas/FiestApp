@@ -63,7 +63,7 @@ const mediane = v => {
 for (const nom of personnages) {
   const siens = lignes.filter(l => qui(l) === nom)
   const gestes = siens.filter(l => l.geste !== 'reponse')
-  const reponses = siens.filter(l => l.geste === 'reponse')
+  const reponses = siens.filter(l => l.geste === 'reponse' && !l.illisible)
   const delais = reponses.map(r => r.ms).filter(ms => typeof ms === 'number')
   const m = mediane(delais)
   console.log(
@@ -100,7 +100,7 @@ if (reponses.length) {
   }
   for (const [question, liste] of parQuestion) {
     const detail = liste
-      .map(r => `${qui(r)} ${r.texte !== undefined ? `« ${r.texte} »` : r.estimation}${typeof r.ms === 'number' ? ` en ${s(r.ms)}` : ''}`)
+      .map(r => `${qui(r)} ${r.texte !== undefined ? `« ${r.texte} »` : r.estimation}${r.illisible ? ' (illisible)' : ''}${typeof r.ms === 'number' ? ` en ${s(r.ms)}` : ''}`)
       .join(' · ')
     console.log(`- ${heure(liste[0].t)} ${question} : ${detail}`)
   }

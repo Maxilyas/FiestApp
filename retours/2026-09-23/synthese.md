@@ -53,8 +53,8 @@ Les constats qui suivent décrivent l'application du 23 septembre : avant de
 reprendre un axe, regarde sa PR. L'estimation « 35 000 » (axe 4), trouvée en
 rejouant la tablée une fois #29 ouverte, n'y est pas : elle a eu sa propre
 correction (`shared/nombres.ts`), avec le champ « Bonne réponse » de
-l'éditeur, qui faisait 8 de « 0,8 » — le banc remplit un champ d'un coup, là
-où un humain tape touche par touche.
+l'éditeur, qui faisait 8 de « 0,8 » — le banc remplissait alors un champ
+d'un coup, là où un humain tape touche par touche.
 
 ## Qui était là
 
@@ -392,6 +392,10 @@ Corrigé dans la régie et les consignes pour la prochaine fois :
   #29 remonte au-dessus du clavier (en 412 × 915 ; en 360 × 640, il reste
   dessous, comme sur un vrai téléphone, et la touche Entrée referme le
   clavier) ;
+- `ecrire` tape touche par touche, comme un doigt, et `coller` remplit d'un
+  coup, comme un texte copié : rempli d'un coup, le champ « Bonne réponse »
+  cachait qu'il faisait 8 de « 0,8 » — rejoué sur l'éditeur d'avant sa
+  correction, le nouveau geste le voit ;
 - un filet contre les promesses rejetées, comme celui du serveur.
 
 Et à garder en tête : le clavier et la veille sont simulés, Chromium seul
