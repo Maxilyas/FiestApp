@@ -47,6 +47,23 @@ export function creditDArchive(archive: PartyArchive) {
 }
 
 /**
+ * Combien de soirées — puis de profils — se relisent de front. Assez pour
+ * que la latence de la base distante ne s'additionne plus d'une soirée à
+ * l'autre ; pas assez pour noyer Turso, ni la mémoire, sous des archives de
+ * plusieurs Mo téléchargées ensemble.
+ */
+const EN_PARALLELE = 4
+
+/** Traite chaque élément, jamais plus de `n` à la fois. */
+async function enParallele<T>(elements: T[], n: number, traiter: (e: T) => Promise<void>): Promise<void> {
+  let suivant = 0
+  const ouvrier = async () => {
+    while (suivant < elements.length) await traiter(elements[suivant++])
+  }
+  await Promise.all(Array.from({ length: Math.min(n, elements.length) }, ouvrier))
+}
+
+/**
  * Le recalcul de l'expérience et des hauts faits, depuis l'historique.
  *
  * L'expérience est une dérivation des journaux, comme le souvenir et le
@@ -69,6 +86,16 @@ export function creditDArchive(archive: PartyArchive) {
  *
  * Ne fait rien quand tout est déjà au barème du jour : c'est ce qui le rend
  * sûr à chaque démarrage. Rend ce qu'il a fait, ou null.
+ *
+ * Il passe avant l'ouverture du port, et y reste : une soirée en cours qui
+ * créditerait un quiz, ou une clôture qui déciderait d'un palier, pendant
+ * que la carrière d'un profil n'est relue qu'à moitié, écrirait sur une
+ * valeur fausse — et un palier décerné ne se reprend pas. Il se fait donc
+ * vite plutôt que tard : un lot par soirée au lieu de deux requêtes par
+ * profil, et quatre soirées de front (68 s → quelques secondes pour 101
+ * soirées, à 20 ms de latence). Deux soirées menées de front écrivent des
+ * lignes distinctes (une par profil et par soirée) et recalculent chaque
+ * total par une somme en base : l'ordre d'arrivée n'y change rien.
  */
 export async function recalculerHistorique(deps: {
   profiles: ProfileStore
@@ -85,29 +112,22 @@ export async function recalculerHistorique(deps: {
   /** Les profils recrédités de chaque soirée relue. */
   const credites = new Set<string>()
   const touches = new Set<string>()
-  for (const { spaceId, id } of await archives.toutes()) {
-    if (enCours.has(cleDeSoiree(spaceId, id))) continue
+  const soirees = (await archives.toutes()).filter(({ spaceId, id }) => !enCours.has(cleDeSoiree(spaceId, id)))
+  await enParallele(soirees, EN_PARALLELE, async ({ spaceId, id }) => {
     const trouvee = await archives.get(spaceId, id).catch(e => {
       console.error(`[recalcul] soirée « ${id} » illisible :`, e)
       return null
     })
-    if (!trouvee) continue
+    if (!trouvee) return
     const { gains, laureats } = creditDArchive(trouvee.archive)
+    await profiles.crediterSoireeEntiere(id, spaceId, gains)
     for (const g of gains) {
-      await profiles.creditSoiree({
-        profileId: g.profileId,
-        soireeId: id,
-        spaceId,
-        gain: g.gain,
-        releve: g.releve,
-        xp: g.xp,
-      })
       touches.add(g.profileId)
       credites.add(`${g.profileId}#${spaceId}#${id}`)
     }
     await profiles.remplacerRecompensesDeSoiree(id, spaceId, laureats)
     recalculees.add(`${spaceId}#${id}`)
-  }
+  })
 
   // Les lignes d'une version d'avant que la relecture n'a pas réécrites.
   let revalorisees = 0
@@ -137,14 +157,19 @@ export async function recalculerHistorique(deps: {
   // décernent sur la carrière recalculée — sous le nom de la dernière soirée
   // jouée, celle qui les aurait fait tomber.
   for (const id of await profiles.oublierAnciensBadgesDeCarriere()) touches.add(id)
-  for (const id of touches) {
+  // Les soirées menées de front ont pu laisser en mémoire un total ou une
+  // étagère arrivés dans le désordre : on relit ce que la base dit, avant
+  // d'y juger les paliers.
+  await profiles.relireProfils([...touches])
+  // Chaque profil a ses paliers à lui : ils se jugent de front, eux aussi.
+  await enParallele([...touches], EN_PARALLELE, async id => {
     // La dernière soirée CLOSE : sa plus récente ligne peut être celle d'un
     // essai qui se joue encore ailleurs, et son effacement emporterait le
     // palier rangé sous son nom — un palier que les soirées closes, seules,
     // avaient fait tomber.
     const derniere = (await profiles.historiqueOf(id)).find(s => !enCours.has(cleDeSoiree(s.spaceId, s.soireeId)))
     if (derniere) await profiles.accorderPaliers(id, derniere.soireeId, derniere.spaceId, enCours)
-  }
+  })
   // La ligne des paliers ne se réécrit qu'avec un palier neuf : sans palier
   // de plus, elle resterait d'une version d'avant.
   for (const id of paliers) await profiles.remettreAuBareme(id, LIGNE_PALIERS)

@@ -8,6 +8,7 @@ import type { AnswerLog } from './answers'
 import type { PartyMirror, SessionRow } from './backup'
 import type { SessionSummary } from '../../../shared/types'
 import type { ActionRefusal } from '../../../shared/events'
+import { pouls } from './pouls'
 
 /**
  * Cadence du miroir distant de la partie, pour le simple va-et-vient des
@@ -162,6 +163,12 @@ export class GameEngine {
   summary(): SessionSummary | null {
     if (!this.session) return null
     return { id: this.session.id, participantIds: this.session.participantIds }
+  }
+
+  /** La phase de la partie en cours, si son état en porte une : `/healthz` distingue un quiz joué d'un podium affiché. */
+  phase(): string | null {
+    const phase = (this.session?.state as { phase?: unknown } | null | undefined)?.phase
+    return typeof phase === 'string' ? phase : null
   }
 
   launch(config?: unknown): string {
@@ -394,8 +401,14 @@ export class GameEngine {
 
   private armTimer(sess: LiveSession, timerId: string, ms: number) {
     this.disarmTimer(sess, timerId)
+    const deadline = Date.now() + ms
     const handle = setTimeout(() => {
       sess.timers.delete(timerId)
+      // Le retard d'un chronomètre, c'est la révélation que la salle attend :
+      // la première chose que voit un serveur qui ne suit plus.
+      const retard = Date.now() - deadline
+      pouls.chronos.noter(retard)
+      if (retard > 1000) console.warn(`[partie] chronomètre « ${timerId} » en retard de ${retard} ms`)
       // Un chronomètre sonne hors de toute requête : une exception pendant la
       // révélation qu'il déclenche remontait jusqu'au processus, et emportait
       // les soirées de tous les espaces avec elle. Elle s'arrête ici, dans le
@@ -408,7 +421,7 @@ export class GameEngine {
         console.error(`[partie] le chronomètre « ${timerId} » a échoué :`, e)
       }
     }, ms)
-    sess.timers.set(timerId, { deadline: Date.now() + ms, handle })
+    sess.timers.set(timerId, { deadline, handle })
   }
 
   private disarmTimer(sess: LiveSession, timerId: string) {

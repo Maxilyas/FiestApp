@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { lireNombre } from '../../shared/nombres'
+import { ecrireNombre, lireNombre, valeurEnQuittant } from '../../shared/nombres'
 
 test('une estimation se lit comme on l’écrit en France', () => {
   const lus: [string, number][] = [
@@ -61,4 +61,37 @@ test('le client ne lit plus un nombre tapé avec replace(\',\', \'.\')', () => {
     .filter(f => /\.replace\(\s*['"],['"]\s*,\s*['"]\.['"]\s*\)/.test(readFileSync(f, 'utf8')))
     .map(f => path.relative(racine, f))
   assert.deepEqual(fautifs, [], 'un nombre tapé se lit avec lireNombre (shared/nombres.ts)')
+})
+
+test('un champ d’entier borné, vidé puis quitté, revient à sa valeur d’avant — bornée', () => {
+  // Effacer « 20 » passait par « 2 », que le champ émettait : quitté vide, il
+  // le gardait sans le borner, et « Enregistrer » envoyait 2 s.
+  assert.equal(valeurEnQuittant('', 20, 5, 120), 20)
+  assert.equal(valeurEnQuittant('  ', 20, 5, 120), 20)
+  assert.equal(valeurEnQuittant('vingt', 20, 5, 120), 20)
+  // Tapé, il se borne en quittant, et s'arrondit.
+  assert.equal(valeurEnQuittant('4', 20, 5, 120), 5)
+  assert.equal(valeurEnQuittant('2045', 20, 5, 120), 120)
+  assert.equal(valeurEnQuittant('45', 20, 5, 120), 45)
+  assert.equal(valeurEnQuittant('12,6', 20, 5, 120), 13)
+  // Une valeur d'avant déjà hors bornes (une page d'avant) se borne aussi.
+  assert.equal(valeurEnQuittant('', 500, 5, 120), 120)
+  // Des points de prix, négatifs permis.
+  assert.equal(valeurEnQuittant('−3', 0, -10, 10), -3)
+})
+
+test('un nombre s’écrit sans exposant, et se relit tel quel', () => {
+  // `String(1e21)` donnait « 1e+21 » : relu 1, avec l'unité « e+21 ».
+  for (const [n, texte] of [
+    [1e21, '1000000000000000000000'],
+    [1.5e22, '15000000000000000000000'],
+    [-2.5e-7, '-0,00000025'],
+    [1e-7, '0,0000001'],
+    [0.8, '0,8'],
+    [-41.5, '-41,5'],
+    [8849, '8849'],
+  ] as const) {
+    assert.equal(ecrireNombre(n), texte)
+    assert.equal(lireNombre(ecrireNombre(n)), n, texte)
+  }
 })

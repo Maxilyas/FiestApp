@@ -15,6 +15,9 @@ import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
 import { ReserveDInscriptions } from './core/inscriptions'
 import { SpaceRegistry } from './core/space'
+import { PagesPubliques } from './core/pages'
+import { servirPrecompresse } from './core/precompresse'
+import { Charge, pouls } from './core/pouls'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
@@ -151,6 +154,8 @@ function contentPolicy(host: string | undefined): string {
 const PUBLIC_PAGES = ['souvenir', 'stats', 'bilan', 'bilan/fiches']
 
 export async function createQuizServer(opts: QuizServerOptions) {
+  const debutDuDemarrage = Date.now()
+  const maxPlayersCeiling = opts.maxPlayers ?? MAX_PLAYERS_CEILING
   const app = express()
   const httpServer = createServer(app)
 
@@ -163,8 +168,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Un seul saut de proxy devant nous en ligne : c'est lui qui écrit la
   // dernière adresse de `x-forwarded-for`, celle qu'on lit.
   if (opts.online) app.set('trust proxy', 1)
-  // Le JS de l'application pèse 320 Ko à nu, 100 Ko compressé — cinquante
-  // téléphones en 4G au moment du scan font vite la différence.
+  // Le chemin de l'invité pèse 381 Ko à nu, 121 Ko compressé — cinquante
+  // téléphones en 4G au moment du scan font vite la différence. Les fichiers
+  // du paquet arrivent déjà compressés (`core/precompresse.ts`), les pages
+  // publiques aussi (`core/pages.ts`) : `compression()` ne compresse plus que
+  // le reste, et laisse passer ce qui porte déjà son encodage.
   app.use(compression())
   app.use((req, res, next) => {
     res.set(SECURITY_HEADERS)
@@ -273,11 +281,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
       cleDeSoiree(r.space_id, r.id),
     ),
   )
+  const debutDuRecalcul = Date.now()
   const recalcul = await recalculerHistorique({ profiles, archives, enCours })
   if (recalcul) {
     console.log(
       `[profils] expérience recalculée au barème du jour : ${recalcul.soirees} soirées relues, ` +
-        `${recalcul.lignes} lignes revalorisées, ${recalcul.profils} profils`,
+        `${recalcul.lignes} lignes revalorisées, ${recalcul.profils} profils, en ${Date.now() - debutDuRecalcul} ms`,
     )
   }
 
@@ -301,7 +310,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const ip = lanAddress()
       return ip ? `http://${ip}:${boundPort}` : null
     },
-    maxPlayersCeiling: opts.maxPlayers ?? MAX_PLAYERS_CEILING,
+    maxPlayersCeiling,
     cloturesEnCours: new Set(),
   })
   const woken = registry.wakeRunning()
@@ -346,6 +355,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // se répare tout seul. Toutes les cinq minutes suffisent — une reconnexion
   // reçoit de toute façon un classement frais, et le dédoublonnage rendait
   // l'ancien rythme de 30 secondes aussi inutile que coûteux.
+  const charge = new Charge()
   const resync = setInterval(() => {
     for (const runtime of registry.all()) runtime.sendSnapshot(true)
   }, 300_000)
@@ -359,18 +369,85 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // réveil. Mais `ok` reste vrai, et la réponse un 200 : Render redémarre
   // une instance dont la santé échoue, et un redémarrage, c'est le disque
   // effacé — la file et tout ce qu'elle attendait d'envoyer avec.
+  //
+  // Et la charge, pour savoir si le serveur tient (`core/pouls.ts`) : tout
+  // agrégé, sans un nom ni une adresse — la route est publique —, et lu sans
+  // parcourir aucun journal. `spaces` compte les espaces chargés depuis le
+  // démarrage, `quizzes` les parties ouvertes, podium compris : gardés tels
+  // quels pour qui les lit déjà ; `espacesActifs` et `quizEnCours` disent ce
+  // qui vit vraiment — « puis-je déployer ? ».
   app.get('/healthz', (_req, res) => {
-    const runtimes = registry.all()
-    res.json({
+    // Ce qui répond toujours ; chaque mesure, ensuite, sous son propre
+    // filet. Sous `ulimit -n 64`, `process.memoryUsage()` lève EMFILE : une
+    // mesure qui tombe ne doit pas faire tomber la réponse, ni l'instance.
+    const corps: Record<string, unknown> = {
       ok: true,
       env: opts.appEnv ?? 'production',
       uptime: Math.round(process.uptime()),
-      spaces: runtimes.length,
-      players: runtimes.reduce((n, rt) => n + rt.party.connectedPlayerIds().length, 0),
-      quizzes: runtimes.filter(rt => rt.engine.summary()).length,
-      rssMo: Math.round(process.memoryUsage().rss / 1024 / 1024),
-      miroir: backup.sante(),
+    }
+    const mesurer = (nom: string, mesure: () => Record<string, unknown>) => {
+      try {
+        Object.assign(corps, mesure())
+      } catch (e) {
+        console.error(`[healthz] la mesure « ${nom} » a échoué :`, e)
+      }
+    }
+    mesurer('espaces', () => {
+      const runtimes = registry.all()
+      let joueurs = 0
+      let actifs = 0
+      let enCours = 0
+      let podiums = 0
+      for (const rt of runtimes) {
+        const connectes = rt.party.connectedPlayerIds().length
+        const phase = rt.engine.summary() ? rt.engine.phase() : null
+        joueurs += connectes
+        if (connectes > 0 || phase) actifs++
+        if (phase === 'finished') podiums++
+        else if (phase) enCours++
+      }
+      return {
+        spaces: runtimes.length,
+        players: joueurs,
+        quizzes: runtimes.filter(rt => rt.engine.summary()).length,
+        espacesActifs: actifs,
+        quizEnCours: enCours,
+        podiumsAffiches: podiums,
+      }
     })
+    // Le plafond d'invités de chaque soirée, que même le réglage d'un espace
+    // ne dépasse pas (`MAX_PLAYERS`) : le seul garde-fou contre la salle de
+    // 300 qui fait céder le dixième de cœur. Il borne chaque espace, pas
+    // leur somme.
+    corps.maxPlayers = maxPlayersCeiling
+    mesurer('mémoire', () => {
+      const memoire = process.memoryUsage()
+      return {
+        rssMo: Math.round(memoire.rss / 1024 / 1024),
+        memoire: { tasMo: Math.round(memoire.heapUsed / 1024 / 1024), connexions: io.engine.clientsCount },
+      }
+    })
+    mesurer('charge', () => ({ charge: charge.lire() }))
+    mesurer('pages', () => {
+      const calculs = pouls.pagesCalculees.lire()
+      return {
+        pages: {
+          calculs: pouls.calculsDePage,
+          parMin: pouls.pagesServies.lire().n,
+          calculsParMin: calculs.n,
+          p95Ms: calculs.p95,
+          maxMs: calculs.max,
+          ...pages.etat(),
+        },
+      }
+    })
+    mesurer('inscriptions', () => ({ inscriptions: pouls.inscriptions() }))
+    mesurer('réponses', () => ({ reponses: { tropTardParMin: pouls.tropTard.lire().n } }))
+    mesurer('miroir', () => {
+      const miroir = pouls.miroir.lire()
+      return { miroir: { ...backup.sante(), latenceP95Ms: miroir.p95, latenceMaxMs: miroir.max, envoisParMin: miroir.n } }
+    })
+    res.json(corps)
   })
 
   // ── Les pages publiques d'un espace : souvenir, bilan, historique ──
@@ -398,27 +475,45 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // close (`derniere`), et la page la montre à sa place. Une base distante
   // muette ne prive que de ce lien : la soirée en cours, elle, se lit en
   // local, et s'affiche quand même.
-  const avecLaDerniere = async <T extends object>(account: AccountRec, page: T): Promise<T & { derniere?: DerniereSoiree }> => {
+  const avecLaDerniere = async <T extends object>(
+    account: AccountRec,
+    page: T,
+    provisoire: () => void,
+  ): Promise<T & { derniere?: DerniereSoiree }> => {
     const rt = registry.get(account.id)
     if (rt.aJoue()) return page
     const derniere = await archives.derniere(account.id, rt.soireeId()).catch((e: unknown) => {
       console.error(`[soirees] la dernière soirée de « ${account.slug} » ne se lit pas :`, e)
+      provisoire()
       return null
     })
     return derniere ? { ...page, derniere } : page
   }
-  app.get('/s/:slug/recap.json', withSpace, (req, res) => {
+
+  // Le souvenir et le bilan se gardent, calculés une fois pour toute la
+  // salle qui scanne le QR (`core/pages.ts`). Celles de la soirée en cours
+  // se gardent tant que ses journaux ne bougent pas, une minute au plus ;
+  // celles d'une soirée archivée, tant que l'historique de l'espace ne bouge
+  // pas. Les réglages de l'espace sont dans l'empreinte : son nom, sa
+  // couleur changent la page.
+  const pages = new PagesPubliques()
+  const reglagesDe = (account: AccountRec) => JSON.stringify(auth.publicSpace(account))
+  const pageEnCours = (sorte: 'recap' | 'bilan') => (req: Request, res: Response) => {
     const account = spaceOf(res)
-    avecLaDerniere(account, registry.get(account.id).liveRecap())
-      .then(page => res.json(page))
+    const rt = registry.get(account.id)
+    pages
+      .servir(req, res, {
+        place: `${account.id}|${sorte}`,
+        empreinte: `${rt.empreinteDesPages()}|${reglagesDe(account)}`,
+        dureeMs: 60_000,
+        sorte: sorte === 'recap' ? 'souvenir en cours' : 'bilan en cours',
+        calculer: provisoire =>
+          avecLaDerniere(account, sorte === 'recap' ? rt.liveRecap() : rt.liveReview(), provisoire),
+      })
       .catch((e: unknown) => repondreErreur(req, res, e))
-  })
-  app.get('/s/:slug/bilan.json', withSpace, (req, res) => {
-    const account = spaceOf(res)
-    avecLaDerniere(account, registry.get(account.id).liveReview())
-      .then(page => res.json(page))
-      .catch((e: unknown) => repondreErreur(req, res, e))
-  })
+  }
+  app.get('/s/:slug/recap.json', withSpace, pageEnCours('recap'))
+  app.get('/s/:slug/bilan.json', withSpace, pageEnCours('bilan'))
 
   // L'historique : la soirée en cours et les soirées archivées.
   //
@@ -460,18 +555,28 @@ export async function createQuizServer(opts: QuizServerOptions) {
   })
 
   // Une soirée archivée se relit avec les mêmes pages que celle en cours.
-  const archived = (build: (archive: PartyArchive) => object) => (req: Request, res: Response) => {
-    const account = spaceOf(res)
-    archives
-      .get(account.id, req.params.id)
-      .then(found => {
-        if (!found) return res.status(404).json({ error: 'Soirée introuvable' })
-        res.json({ ...build(found.archive), archive: found.summary, space: auth.publicSpace(account) })
-      })
-      .catch((e: unknown) => repondreErreur(req, res, e))
-  }
-  app.get('/s/:slug/soirees/:id/recap.json', withSpace, archived(recapOfArchive))
-  app.get('/s/:slug/soirees/:id/bilan.json', withSpace, archived(reviewOfArchive))
+  // Chaque requête téléchargeait l'archive entière — 2 Mo pour 150 invités —
+  // et la réanalysait : elle se garde désormais comme les autres pages, et
+  // ne se relit que si l'historique de l'espace a bougé.
+  const archived =
+    (sorte: 'recap' | 'bilan', build: (archive: PartyArchive) => object) => (req: Request, res: Response) => {
+      const account = spaceOf(res)
+      pages
+        .servir(req, res, {
+          place: `${account.id}|${sorte}|${req.params.id}`,
+          empreinte: `${archives.revision(account.id)}|${reglagesDe(account)}`,
+          dureeMs: 10 * 60_000,
+          sorte: sorte === 'recap' ? 'souvenir archivé' : 'bilan archivé',
+          calculer: async () => {
+            const found = await archives.get(account.id, req.params.id)
+            if (!found) return null
+            return { ...build(found.archive), archive: found.summary, space: auth.publicSpace(account) }
+          },
+        })
+        .catch((e: unknown) => repondreErreur(req, res, e))
+    }
+  app.get('/s/:slug/soirees/:id/recap.json', withSpace, archived('recap', recapOfArchive))
+  app.get('/s/:slug/soirees/:id/bilan.json', withSpace, archived('bilan', reviewOfArchive))
 
   // Les adresses d'avant les espaces — celles des liens déjà partagés et des
   // QR déjà imprimés — mènent à l'espace par défaut, celui de l'administrateur.
@@ -530,6 +635,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     // Les fichiers compilés portent une empreinte dans leur nom : un an de
     // cache, sans jamais revalider. La page d'accueil, elle, doit toujours
     // être redemandée — c'est elle qui pointe vers la bonne empreinte.
+    app.use('/assets', servirPrecompresse(path.join(clientDist, 'assets'), { maxAge: '1y', immutable: true }))
     app.use(
       '/assets',
       express.static(path.join(clientDist, 'assets'), { maxAge: '1y', immutable: true, fallthrough: false }),
@@ -538,8 +644,6 @@ export async function createQuizServer(opts: QuizServerOptions) {
     // ainsi dire jamais : un mois de cache, et cinquante téléphones ne les
     // redemandent pas à chaque ouverture.
     app.use('/fonts', express.static(path.join(clientDist, 'fonts'), { maxAge: '30d', fallthrough: false }))
-    app.use(express.static(clientDist, { index: false, maxAge: '1h' }))
-
     // La page d'accueil est lue une fois et gardée en mémoire — elle ne change
     // pas d'un déploiement à l'autre. Hors production, on y glisse le nom de
     // l'environnement : c'est le seul endroit qui atteint TOUTES les pages,
@@ -554,11 +658,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const meta = `<meta name="app-env" content="${opts.appEnv.replace(/[^\w.-]/g, '')}">`
       indexHtml = indexHtml.replace('</head>', `  ${meta}\n  </head>`)
     }
-    app.get('*', (_req, res) => {
+    const accueil = (_req: Request, res: Response) => {
       res.set('Cache-Control', 'no-cache')
       if (!indexHtml) return res.status(404).type('text').send('Client non compilé (npm run build)')
       res.type('html').send(indexHtml)
-    })
+    }
+    // `/index.html` demandé tel quel partait du disque, sans le bandeau de la
+    // préproduction : il passe par la même page que toutes les autres.
+    app.get('/index.html', accueil)
+    app.use(express.static(clientDist, { index: false, maxAge: '1h' }))
+    app.get('*', accueil)
   }
 
   // En tout dernier : ce qu'aucune route n'a su lire répond en JSON, sans pile.
@@ -568,6 +677,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const address = httpServer.address()
   const port = typeof address === 'object' && address ? address.port : opts.port
   boundPort = port
+  // Sur l'hébergeur, le seul endroit où lire ce que vaut vraiment
+  // `MAX_PLAYERS` : c'est son tableau de bord qui fait foi, pas render.yaml.
+  console.log(
+    `[serveur] prêt en ${Date.now() - debutDuDemarrage} ms — au plus ${maxPlayersCeiling} invités par soirée` +
+      (opts.maxPlayers ? '' : ' (MAX_PLAYERS non défini : le plafond du code)'),
+  )
 
   return {
     httpServer,
@@ -576,6 +691,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     close: () =>
       new Promise<void>(resolve => {
         clearInterval(resync)
+        charge.arreter()
         registry.stopAll()
         io.close(async () => {
           // La file du miroir se vide d'abord, dans le délai qu'on lui laisse :
