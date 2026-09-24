@@ -84,12 +84,37 @@ export function mountApi(app: Express, deps: ApiDeps) {
     }),
   )
 
+  /**
+   * Le jeton du dernier enregistrement de chaque quiz, par espace. L'éditeur
+   * en tire un par clic sur « Enregistrer », que ses essais répétés au
+   * réveil de l'hébergeur (`auReveil`) reprennent : un premier essai passé
+   * dont la réponse s'est perdue ne fait pas entrer le suivant en conflit
+   * avec lui-même. En mémoire seulement : perdu au redémarrage, il ne coûte
+   * qu'un conflit de trop — qui ne perd rien, le brouillon est là.
+   */
+  const derniersJetons = new Map<string, string | null>()
+
   app.put(
     '/api/quizzes/:id',
     wrap(async (req, res) => {
       const spaceId = spaceOf(res)
-      const quiz = await deps.store.save(spaceId, req.params.id, req.body?.title, req.body?.questions)
+      const cle = `${spaceId}:${req.params.id}`
+      const jeton = typeof req.body?.jeton === 'string' ? req.body.jeton.slice(0, 64) : null
+      // La version d'où partent les modifications : si le quiz a été
+      // enregistré ailleurs depuis — l'autre appareil —, on refuse au lieu
+      // d'écraser en silence. Sans `base` (une page d'avant), comme avant.
+      const base = typeof req.body?.base === 'number' && Number.isFinite(req.body.base) ? req.body.base : undefined
+      const sienne = jeton !== null && derniersJetons.get(cle) === jeton
+      const quiz = await deps.store.save(spaceId, req.params.id, req.body?.title, req.body?.questions, sienne ? undefined : base)
+      if (quiz === 'conflit') {
+        const actuel = await deps.store.get(spaceId, req.params.id)
+        return res.status(409).json({
+          error: 'Ce quiz a été enregistré ailleurs pendant que tu écrivais — un autre appareil ? Choisis la version à garder.',
+          conflit: { updatedAt: actuel?.updatedAt ?? null },
+        })
+      }
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
+      derniersJetons.set(cle, jeton)
       await deps.onLibraryChanged(spaceId)
       res.json(quiz)
       // Après coup : une photo retirée d'une question n'a plus à occuper la

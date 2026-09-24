@@ -36,7 +36,7 @@ import {
   sansPhotosDisparues,
   type Brouillon,
 } from '../../../shared/brouillon'
-import { ApiError, UnauthorizedError, api, auReveil, compressImage } from '../api'
+import { ApiError, ConflitError, UnauthorizedError, api, auReveil, compressImage } from '../api'
 import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon } from '../brouillon'
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
@@ -407,6 +407,12 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const [sansPhoto, setSansPhoto] = useState<ReadonlySet<string>>(new Set())
   /** `updatedAt` de la version du serveur d'où partent les modifications en cours. */
   const [base, setBase] = useState(0)
+  /**
+   * Le quiz a été enregistré ailleurs pendant qu'on écrivait ici : la
+   * version qu'il a laissée. Le dernier « Enregistrer » écrasait l'autre
+   * appareil en silence ; on choisit désormais laquelle garder.
+   */
+  const [conflit, setConflit] = useState<number | null>(null)
   /** Faux quand le navigateur refuse de garder le brouillon : l'éditeur ne promet plus rien. */
   const [garde, setGarde] = useState(true)
   /**
@@ -549,16 +555,20 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
     spotlight(id, 'text')
   }
 
-  const save = async () => {
+  /** `depuis` : la version à remplacer — celle de l'autre appareil, quand on garde la sienne quand même. */
+  const save = async (depuis = base) => {
     if (!courant.current) return
     setSaving(true)
     setError('')
+    setConflit(null)
     let envoi = { quiz: courant.current, modifications: modifications.current }
+    // Un jeton par clic, repris par chaque essai au réveil (voir `api.save`).
+    const jeton = newQuestionId()
     try {
       const saved = await auReveil(
         () => {
           envoi = { quiz: courant.current ?? envoi.quiz, modifications: modifications.current }
-          return api.save(envoi.quiz.id, envoi.quiz.title, envoi.quiz.questions)
+          return api.save(envoi.quiz.id, envoi.quiz.title, envoi.quiz.questions, depuis, jeton)
         },
         { surAttente: () => setReveil(true), continuer: () => ouvert.current },
       )
@@ -577,10 +587,35 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
         setDirty(true)
       }
     } catch (e) {
-      setError((e as Error).message)
+      if (e instanceof ConflitError) setConflit(e.updatedAt)
+      else setError((e as Error).message)
     } finally {
       setSaving(false)
       setReveil(false)
+    }
+  }
+
+  /** L'autre appareil l'emporte : ses modifications remplacent les nôtres, brouillon compris. */
+  const prendreLAutre = async () => {
+    const ok = await confirmDialog({
+      title: 'Prendre l’autre version ?',
+      message: 'Tes modifications faites ici seront effacées, et le quiz s’ouvrira tel que l’autre appareil l’a enregistré.',
+      confirmLabel: 'Prendre l’autre version',
+      cancelLabel: 'Garder la mienne',
+      danger: true,
+    })
+    if (!ok) return
+    try {
+      const serveur = await api.get(id)
+      modifications.current++
+      poser(serveur)
+      setBase(serveur.updatedAt)
+      setDirty(false)
+      setUndo(null)
+      setConflit(null)
+      oublierBrouillon(id)
+    } catch (e) {
+      setError((e as Error).message)
     }
   }
 
@@ -706,7 +741,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
           <button className="btn btn-ghost" onClick={close}>
             Retour
           </button>
-          <button className="btn btn-primary" onClick={save} disabled={saving || !dirty}>
+          <button className="btn btn-primary" onClick={() => save()} disabled={saving || !dirty}>
             {saving ? (
               reveil ? 'Réveil du serveur…' : 'Enregistrement…'
             ) : dirty ? (
@@ -728,6 +763,25 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
               (garde ? ', ce navigateur garde tes modifications.' : '.'),
           )}
         </p>
+      )}
+      {conflit !== null && (
+        <div className="card conflit-carte" role="alert">
+          <p className="warn">
+            <Icon name="alert" />{' '}
+            {espacesFines(
+              `Ce quiz a été enregistré ailleurs le ${formatDate(conflit)}, pendant que tu écrivais ici — un autre appareil ? ` +
+                'Rien n’est écrasé : choisis la version à garder.',
+            )}
+          </p>
+          <div className="row">
+            <button className="btn btn-primary" disabled={saving} onClick={() => save(conflit)}>
+              Garder la mienne
+            </button>
+            <button className="btn btn-ghost" disabled={saving} onClick={prendreLAutre}>
+              Prendre l’autre version
+            </button>
+          </div>
+        </div>
       )}
       {error && <p className="error">{error}</p>}
       {/* Le message d'échec pousse à recharger la page : c'était là qu'on perdait tout. */}

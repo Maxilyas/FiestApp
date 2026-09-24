@@ -31,6 +31,20 @@ export class ApiError extends Error {
 export class UnauthorizedError extends ApiError {}
 
 /**
+ * Le quiz a été enregistré ailleurs depuis que les modifications en cours
+ * sont parties — l'autre appareil. `updatedAt` : la version qu'il a laissée,
+ * d'où repartir pour garder la sienne quand même.
+ */
+export class ConflitError extends ApiError {
+  constructor(
+    message: string,
+    readonly updatedAt: number,
+  ) {
+    super(message)
+  }
+}
+
+/**
  * Ce qu'on montre d'un échec : le motif du serveur, ou l'un des nôtres, qui
  * disent quoi faire. Jamais le texte d'une exception du navigateur — il est
  * en anglais, et il ne dit rien à un invité.
@@ -86,6 +100,10 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   // Le motif du serveur d'abord : un mot de passe faux n'est pas une session
   // expirée, et le dire « Connexion requise » faisait chercher ailleurs.
   if (res.status === 401) throw new UnauthorizedError(motifHttp(401, corps))
+  const conflit = (corps as { conflit?: { updatedAt?: unknown } } | undefined)?.conflit
+  if (res.status === 409 && typeof conflit?.updatedAt === 'number') {
+    throw new ConflitError(motifHttp(409, corps), conflit.updatedAt)
+  }
   if (!res.ok) {
     const suggestion = (corps as { suggestion?: unknown } | undefined)?.suggestion
     throw new ApiError(
@@ -119,8 +137,14 @@ export const api = {
   get: (id: string) => req<QuizDef>(`/api/quizzes/${id}`),
   create: (title: string, questions?: unknown[]) =>
     req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions }) }),
-  save: (id: string, title: string, questions: QuizQuestionDef[]) =>
-    req<QuizDef>(`/api/quizzes/${id}`, { method: 'PUT', body: JSON.stringify({ title, questions }) }),
+  /**
+   * `base` : la version d'où partent les modifications — le serveur refuse
+   * (`ConflitError`) si le quiz a été enregistré ailleurs depuis. `jeton` :
+   * le même pour tous les essais d'un même « Enregistrer », pour qu'un essai
+   * rejoué au réveil n'entre pas en conflit avec celui qui était passé.
+   */
+  save: (id: string, title: string, questions: QuizQuestionDef[], base?: number, jeton?: string) =>
+    req<QuizDef>(`/api/quizzes/${id}`, { method: 'PUT', body: JSON.stringify({ title, questions, base, jeton }) }),
   remove: (id: string) => req<{ ok: true }>(`/api/quizzes/${id}`, { method: 'DELETE' }),
   duplicate: (id: string) => req<QuizDef>(`/api/quizzes/${id}/duplicate`, { method: 'POST' }),
   uploadImage: (dataUrl: string) =>
