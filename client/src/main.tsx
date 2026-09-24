@@ -64,6 +64,19 @@ const App =
           ? ProfilApp
           : LandingApp
 
+// Le titre d'onglet des pages qui ne le posent pas elles-mêmes : six pages
+// s'appelaient toutes « FiestApp », et trois onglets ouverts côte à côte ne
+// se distinguaient plus. Celles qui connaissent leur soirée le réécrivent.
+const TITRES: Partial<Record<AccountPage, string>> = {
+  edit: 'Mes quiz',
+  connexion: 'Espace animateur',
+  activer: 'Activer mon compte',
+  compte: 'Mon espace',
+  admin: 'Les comptes',
+}
+const titre = route.kind === 'account' ? TITRES[route.page] : route.kind === 'unknown' ? 'Adresse introuvable' : undefined
+if (titre) document.title = `${titre} · FiestApp`
+
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au
 // chargement. Les autres pages — les téléphones surtout — restent en Velours.
