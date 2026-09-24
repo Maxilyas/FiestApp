@@ -1,0 +1,293 @@
+// Le verdict des équipes, et la règle unique qui le rend.
+//
+// Chez Léa, les invités avaient gagné le quiz ; Inès arrive après, choisit
+// leur équipe à 0 point, et la moyenne tombe de 1 280 à 640 : l'écran de
+// victoire couronne l'autre équipe, et l'historique l'aurait gardé. Chez
+// Nadia, Karim arrive à la deuxième question et fait baisser la moyenne des
+// Randonneurs pour une question qu'il n'a jamais vue. Et le bilan, lui,
+// divisait par les présents au quiz : deux règles, deux vainqueurs possibles.
+//
+// Une seule règle désormais (`shared/teams.ts`) : pour chaque question, la
+// moyenne des membres qui y ont une ligne au journal des réponses, et la
+// moyenne de l'équipe est la somme de ces moyennes.
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import {
+  ADMIN,
+  attendre,
+  connexionAnimateur,
+  creerQuiz,
+  demarrer,
+  ecranCommun,
+  emitAck,
+  instantane,
+  invite,
+  lancerQuiz,
+  patienter,
+  qcm,
+  type Banc,
+  type Invite,
+  type Socket,
+} from './banc'
+import * as equipes from '../../shared/teams'
+import { buildReview } from '../src/core/review'
+import { buildRecap } from '../src/core/recap'
+import { computeStats } from '../src/core/stats'
+import type { AnswerRow } from '../src/core/answers'
+import type { PublicPlayer } from '../../shared/types'
+
+// ── Outils ────────────────────────────────────────────────────────────────
+
+async function avecBanc(scenario: (banc: Banc) => Promise<void>) {
+  const banc = await demarrer()
+  try {
+    await scenario(banc)
+  } finally {
+    await banc.close()
+  }
+}
+
+/** Un quiz joué de bout en bout : chacun répond à chaque question, puis « Terminer le quiz ». */
+async function jouerQuiz(host: Socket, quizId: string, questions: [Invite, number][][]): Promise<void> {
+  const vue = (sessionId: string, pred: (v: any) => boolean, label: string) =>
+    attendre<any>(host, 'session:view', p => p.sessionId === sessionId && pred(p.view), label, 15_000)
+  const sessionId = await lancerQuiz(host, quizId)
+  let suivante = vue(sessionId, v => v.phase === 'question' && v.qIndex === 0, 'la première question')
+  for (let q = 0; q < questions.length; q++) {
+    await suivante
+    const revelee = vue(sessionId, v => v.phase === 'reveal' && v.qIndex === q, `la révélation ${q + 1}`)
+    for (const [qui, choice] of questions[q]) {
+      const ack = await emitAck<any>(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice } })
+      assert.equal(ack.ok, true, `réponse ${q + 1} refusée : ${ack.error}`)
+    }
+    await revelee
+    suivante =
+      q + 1 < questions.length
+        ? vue(sessionId, v => v.phase === 'question' && v.qIndex === q + 1, `la question ${q + 2}`)
+        : vue(sessionId, v => v.phase === 'finished', 'le podium')
+    ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
+  }
+  await suivante
+  ;(host as any).emit('host:endSession', { sessionId })
+}
+
+async function lire(banc: Banc, chemin: string): Promise<any> {
+  const res = await fetch(`${banc.url}/s/${ADMIN.slug}/${chemin}`)
+  assert.equal(res.status, 200, chemin)
+  return res.json()
+}
+
+const moyennes = (teams: { name: string; average: number }[]) =>
+  Object.fromEntries(teams.map(t => [t.name, t.average]))
+
+let horloge = 1_000
+const tic = () => ++horloge
+
+function joueur(id: string, name: string, teamId: string | null, score = 0): PublicPlayer {
+  return { id, name, avatar: '🦊', connected: true, score, teamId }
+}
+
+function ligne(playerId: string, qIndex: number, points: number, extra: Partial<AnswerRow> = {}): AnswerRow {
+  return {
+    sessionId: 's1',
+    quizTitle: 'Quiz',
+    qIndex,
+    kind: 'choice',
+    playerId,
+    answered: points > 0,
+    correct: points > 0 ? true : null,
+    choice: points > 0 ? 0 : null,
+    value: null,
+    target: null,
+    ms: points > 0 ? 3_000 : null,
+    changes: 0,
+    points,
+    durationMs: 20_000,
+    observed: false,
+    createdAt: tic(),
+    ...extra,
+  }
+}
+
+// ── 1. Le verdict d'un quiz joué ne bouge plus ───────────────────────────
+
+test('un invité qui rejoint une équipe après le quiz ne change ni sa moyenne ni le vainqueur — salle, souvenir, bilan, historique', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const quiz = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const host = await ecranCommun(banc.url, cookie)
+    ;(host as any).emit('host:createTeam', { name: 'Les invités', emoji: '🎁' })
+    ;(host as any).emit('host:createTeam', { name: 'La coloc', emoji: '🏠' })
+    const snap = await instantane<any>(host, s => s.teams.length === 2, 'les deux équipes')
+    const idDe = (nom: string) => snap.teams.find((t: any) => t.name === nom).id as string
+    const liam = await invite(banc.url, 'Liam', '🦁')
+    const zoe = await invite(banc.url, 'Zoé', '🐼')
+    const malik = await invite(banc.url, 'Malik', '🐯')
+    ;(host as any).emit('host:assignPlayer', { playerId: liam.playerId, teamId: idDe('Les invités') })
+    ;(host as any).emit('host:assignPlayer', { playerId: zoe.playerId, teamId: idDe('La coloc') })
+    ;(host as any).emit('host:assignPlayer', { playerId: malik.playerId, teamId: idDe('La coloc') })
+    await instantane<any>(host, s => s.players.filter((p: any) => p.teamId).length === 3, 'les trois rangés')
+
+    await jouerQuiz(host, quiz, [
+      [[liam, 0], [zoe, 0], [malik, 1]],
+      [[liam, 0], [zoe, 1], [malik, 1]],
+    ])
+    await patienter(300)
+    const avant = await instantane<any>(host, s => !s.session && s.teams.some((t: any) => t.average > 0), 'le quiz fini')
+    const vainqueurs = equipes.vainqueursDuQuiz(avant.teams).map(t => t.name)
+    assert.deepEqual(vainqueurs, ['Les invités'], 'Liam a tout juste, la coloc à moitié')
+
+    // Inès arrive après le quiz, et choisit l'équipe des invités.
+    const ines = await invite(banc.url, 'Inès', '🐰')
+    ;(host as any).emit('host:assignPlayer', { playerId: ines.playerId, teamId: idDe('Les invités') })
+    const apres = await instantane<any>(
+      host,
+      s => s.players.some((p: any) => p.id === ines.playerId && p.teamId),
+      'Inès dans l’équipe des invités',
+    )
+    assert.equal(apres.teams.find((t: any) => t.name === 'Les invités').memberCount, 2, 'elle en est bien membre')
+    assert.deepEqual(moyennes(apres.teams), moyennes(avant.teams), 'la salle : les moyennes n’ont pas bougé')
+    assert.deepEqual(equipes.vainqueursDuQuiz(apres.teams).map(t => t.name), vainqueurs, 'la salle : le même vainqueur')
+
+    // Le souvenir et le bilan, pendant la soirée : la même règle.
+    assert.deepEqual(moyennes((await lire(banc, 'recap.json')).teams), moyennes(avant.teams), 'le souvenir')
+    assert.deepEqual(moyennes((await lire(banc, 'bilan.json')).teams), moyennes(avant.teams), 'le bilan')
+
+    // Et l'historique, une fois la soirée close.
+    const close = attendre<any>(host, 'toast', () => true, 'la soirée close', 15_000)
+    ;(host as any).emit('host:closeParty', {})
+    assert.equal((await close).kind, 'info')
+    const { archives } = await lire(banc, 'soirees.json')
+    assert.deepEqual(
+      archives[0].teamWinners.map((t: any) => t.name),
+      vainqueurs,
+      'l’historique garde le vainqueur annoncé',
+    )
+    const soiree = archives[0].id
+    assert.deepEqual(moyennes((await lire(banc, `soirees/${soiree}/recap.json`)).teams), moyennes(avant.teams), 'le souvenir archivé')
+    assert.deepEqual(moyennes((await lire(banc, `soirees/${soiree}/bilan.json`)).teams), moyennes(avant.teams), 'le bilan archivé')
+  }))
+
+// ── 2. La règle, chiffrée ────────────────────────────────────────────────
+
+test('la moyenne d’une équipe se fait question par question, entre les membres qui y étaient', () => {
+  // Chez Nadia : Sofia et Hugo jouent la question 1 (200 et 164) ; Karim
+  // arrive à la question 2, que les trois jouent (100, 100, 100) ; Inès
+  // choisit l'équipe après le quiz, sans une question jouée.
+  const teams = [{ id: 'rando', name: 'Les Randonneurs', emoji: '🥾', position: 0 }]
+  const players = [
+    joueur('sofia', 'Sofia', 'rando', 300),
+    joueur('hugo', 'Hugo', 'rando', 264),
+    joueur('karim', 'Karim', 'rando', 100),
+    joueur('ines', 'Inès', 'rando', 0),
+  ]
+  const q1 = [ligne('sofia', 0, 200), ligne('hugo', 0, 164)]
+  const q2 = [ligne('sofia', 1, 100), ligne('hugo', 1, 100), ligne('karim', 1, 100)]
+
+  const apresQ1 = equipes.teamScores(teams, players, [], equipes.questionsDesEquipes(players, q1))[0]
+  assert.equal(apresQ1.average, 182, 'Karim et Inès n’ont rien joué : ni l’un ni l’autre ne pèse sur la question 1')
+  assert.equal(apresQ1.memberCount, 4, 'ils restent membres')
+
+  const apresQ2 = equipes.teamScores(teams, players, [], equipes.questionsDesEquipes(players, [...q1, ...q2]))[0]
+  assert.equal(apresQ2.average, 282, '182 à la question 1, 100 à la question 2')
+  assert.equal(apresQ2.total, 664, 'le total, lui, reste la somme des points de chacun')
+
+  // Une équipe dont tout le monde joue tout : la moyenne par membre d'avant.
+  const pleine = equipes.teamScores(
+    teams,
+    players.slice(0, 2),
+    [],
+    equipes.questionsDesEquipes(players.slice(0, 2), [...q1, ...q2.slice(0, 2)]),
+  )[0]
+  assert.equal(pleine.average, Math.round((300 + 264) / 2))
+})
+
+test('le bilan classe chaque quiz avec la même règle que la salle', () => {
+  const teams = [
+    { id: 'rando', name: 'Les Randonneurs', emoji: '🥾', position: 0, createdAt: 1 },
+    { id: 'guit', name: 'Les Guitaristes', emoji: '🎸', position: 1, createdAt: 1 },
+  ]
+  const players = [
+    joueur('sofia', 'Sofia', 'rando', 300),
+    joueur('karim', 'Karim', 'rando', 100),
+    joueur('lucas', 'Lucas', 'guit', 250),
+  ]
+  const rows = [
+    ligne('sofia', 0, 200),
+    ligne('lucas', 0, 150),
+    ligne('sofia', 1, 100),
+    ligne('karim', 1, 100),
+    ligne('lucas', 1, 100),
+  ]
+  const review = buildReview({ rows, players, teams, bonuses: [], packsBySession: new Map(), library: [] })
+  const rando = review.teams.find(t => t.id === 'rando')!
+  assert.equal(rando.average, 300, 'la soirée : 200 puis 100')
+  assert.equal(rando.perQuiz[0].average, 300, 'le quiz : la même règle, pas 400 / 2')
+  assert.equal(review.quizzes[0].teamWinners[0].teamId, 'rando')
+  const recap = buildRecap({ players, teams, bonuses: [], scores: [], answers: rows })
+  assert.deepEqual(moyennes(recap.teams), moyennes(review.teams), 'le souvenir dit la même chose')
+})
+
+// ── 3. Les prix ──────────────────────────────────────────────────────────
+
+test('un prix d’honneur à 0 point se remet, et ne change aucun classement', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const host = await ecranCommun(banc.url, cookie)
+    ;(host as any).emit('host:createTeam', { name: 'Les Carbonara', emoji: '🍝' })
+    const snap = await instantane<any>(host, s => s.teams.length === 1, 'l’équipe')
+    const refus = attendre<any>(host, 'toast', () => true, 'un refus', 1_500).catch(() => null)
+    ;(host as any).emit('host:awardTeam', { teamId: snap.teams[0].id, points: 0, reason: 'Pour l’honneur' })
+    const remis = await instantane<any>(host, s => s.bonuses.length === 1, 'le prix d’honneur')
+    assert.equal(remis.bonuses[0].points, 0)
+    assert.equal(remis.teams[0].bonus, 0)
+    assert.equal(await refus, null, 'aucun message d’erreur')
+  }))
+
+test('l’effet d’un prix se dit avant de cliquer', () => {
+  const t = (id: string, name: string, emoji: string, average: number, bonus = 0) => ({
+    id,
+    name,
+    emoji,
+    position: 0,
+    memberCount: 2,
+    total: average * 2,
+    average,
+    bonus,
+  })
+  // Chez Nadia : Arrabbiata 3, Guitaristes 2, Randonneurs 1.
+  const salle = [
+    t('arra', 'Arrabbiata', '🍝', 1002),
+    t('guit', 'Guitaristes', '🎸', 944),
+    t('rando', 'Randonneurs', '🥾', 733),
+  ]
+  assert.equal(equipes.effetDUnPrix(salle, 'guit', 1), '+1 pour 🎸 Guitaristes → à égalité en tête avec 🍝 Arrabbiata')
+  assert.equal(equipes.effetDUnPrix(salle, 'guit', 2), '+2 pour 🎸 Guitaristes → prend la tête')
+  assert.equal(equipes.effetDUnPrix(salle, 'arra', 1), '+1 pour 🍝 Arrabbiata → toujours en tête')
+  assert.equal(equipes.effetDUnPrix(salle, 'rando', 1), '+1 pour 🥾 Randonneurs → à égalité avec 🎸 Guitaristes, 2ᵉ')
+  assert.equal(equipes.effetDUnPrix(salle, 'arra', -2), '−2 pour 🍝 Arrabbiata → cède la tête à 🎸 Guitaristes')
+  assert.equal(equipes.effetDUnPrix(salle, 'rando', 0), 'Pour l’honneur : aucun point d’équipe, aucun classement ne bouge')
+})
+
+test('L’Abstentionniste ne pèse pas sur le Coup de Pouce : il revient à qui a joué', () => {
+  // Paul n'a rien envoyé : c'était lui, « la personne ayant le moins marqué »,
+  // et son équipe touchait un point pour son absence.
+  const players = [joueur('paul', 'Paul', 'a'), joueur('lea', 'Léa', 'b', 50), joueur('max', 'Max', 'a', 300)]
+  const rows = [
+    ligne('paul', 0, 0),
+    ligne('paul', 1, 0),
+    ligne('lea', 0, 50),
+    ligne('lea', 1, 0, { answered: true, correct: false, choice: 1, ms: 4_000 }),
+    ligne('max', 0, 150),
+    ligne('max', 1, 150),
+  ]
+  const { awards } = computeStats(rows, players)
+  assert.equal(awards.find(a => a.key === 'coupdepouce')?.teamId, 'b', 'Léa ferme la marche de ceux qui ont joué')
+})
+
+test('le verdict des équipes s’explique d’une seule phrase, en points d’équipe', () => {
+  assert.match(equipes.regleDesEquipes(3), /points d’équipe : 3 à la meilleure, 2 à la suivante/)
+  assert.match(equipes.regleDesEquipes(3), /Les prix en ajoutent/)
+  assert.doesNotMatch(equipes.regleDesEquipes(3), /barème|cerclé/)
+  assert.match(equipes.regleDesEquipes(2), /2 à la meilleure, 1 à l’autre/)
+})

@@ -215,14 +215,14 @@ test('l’écran de victoire couronne les ex æquo au lieu de choisir par l’al
   const { teams, bonuses } = zebresEtAigles
   const joueurs = [invite('zack', 'Zack', { score: 300, teamId: 'zebres' }), invite('anna', 'Anna', { score: 200, teamId: 'aigles' })]
   assert.deepEqual(
-    equipes.vainqueursDuQuiz(equipes.teamScores(teams, joueurs, bonuses)).map(t => [t.name, t.finalPoints]),
+    equipes.vainqueursDuQuiz(equipes.teamScores(teams, joueurs, bonuses, equipes.questionsDesEquipes(joueurs, zebresEtAigles.answers()))).map(t => [t.name, t.finalPoints]),
     [
       ['Les Aigles', 2],
       ['Les Zèbres', 2],
     ],
     'deux équipes à 2 points : ex æquo, pas « Les Aigles » seuls',
   )
-  assert.deepEqual(equipes.vainqueursDuQuiz(equipes.teamScores(teams, [], [])), [], 'rien joué, rien remis : personne à couronner')
+  assert.deepEqual(equipes.vainqueursDuQuiz(equipes.teamScores(teams, [], [], new Map())), [], 'rien joué, rien remis : personne à couronner')
 })
 
 // ── 2. Les prix de la soirée ──────────────────────────────────────────────

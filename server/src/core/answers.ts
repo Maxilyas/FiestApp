@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { DB } from './db'
 import type { PartyMirror } from './backup'
+import type { LigneDuJournal } from '../../../shared/teams'
 
 /**
  * Une réponse (ou une absence de réponse) d'un joueur à une question.
@@ -44,6 +45,14 @@ const COLUMNS =
 
 export class AnswerLog {
   private insertStmt
+  /**
+   * Ce que la moyenne des équipes lit du journal, tenu en mémoire comme le
+   * sont les gains : l'instantané la recalcule à chaque arrivée, et il part
+   * d'un minuteur qui peut sonner après la fermeture de la base. Tout ce qui
+   * écrit au journal passe par cette classe et le tient à jour ; la
+   * restauration du miroir, elle, écrit avant qu'aucun espace ne s'ouvre.
+   */
+  private lignes: LigneDuJournal[]
 
   constructor(
     private db: DB,
@@ -53,6 +62,15 @@ export class AnswerLog {
     this.insertStmt = db.prepare(
       `INSERT INTO answer_log (uid, ${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
+    const rows = db
+      .prepare('SELECT player_id, session_id, q_index, points FROM answer_log WHERE space_id = ?')
+      .all(spaceId) as { player_id: string; session_id: string; q_index: number; points: number }[]
+    this.lignes = rows.map(r => ({
+      playerId: String(r.player_id),
+      sessionId: String(r.session_id),
+      qIndex: Number(r.q_index),
+      points: Number(r.points ?? 0),
+    }))
   }
 
   /**
@@ -88,6 +106,7 @@ export class AnswerLog {
         )
       }
     })()
+    for (const r of rows) this.lignes.push({ playerId: r.playerId, sessionId: r.sessionId, qIndex: r.qIndex, points: r.points })
     this.backup?.saveAnswers(signees)
   }
 
@@ -109,6 +128,11 @@ export class AnswerLog {
     return rows.map(toRow)
   }
 
+  /** Qui a joué quelle question, pour combien : ce que lit la moyenne des équipes (`shared/teams.ts`). */
+  lignesDesEquipes(): readonly LigneDuJournal[] {
+    return this.lignes
+  }
+
   /**
    * Efface une question du journal. L'animateur peut annuler les points d'une
    * question mal posée, ou la reposer : dans les deux cas elle ne doit pas
@@ -116,6 +140,7 @@ export class AnswerLog {
    * deux fois.
    */
   dropQuestion(sessionId: string, qIndex: number) {
+    this.lignes = this.lignes.filter(l => l.sessionId !== sessionId || l.qIndex !== qIndex)
     this.db
       .prepare('DELETE FROM answer_log WHERE session_id = ? AND q_index = ?')
       .run(sessionId, qIndex)
@@ -123,6 +148,7 @@ export class AnswerLog {
   }
 
   clearAll() {
+    this.lignes = []
     this.db.prepare('DELETE FROM answer_log WHERE space_id = ?').run(this.spaceId)
   }
 
@@ -132,6 +158,7 @@ export class AnswerLog {
    * l'écriture de ses lignes.
    */
   removePlayer(playerId: string) {
+    this.lignes = this.lignes.filter(l => l.playerId !== playerId)
     this.db.prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
     this.backup?.deletePlayerAnswers(playerId)
   }

@@ -39,7 +39,7 @@ import type { PartySnapshot, Recap } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
 import type { ArchiveList, ArchiveSummary } from '../../../shared/archive'
 import { defaultSettings, type PublicSpace } from '../../../shared/space'
-import { teamScores } from '../../../shared/teams'
+import { questionsDesEquipes, teamScores } from '../../../shared/teams'
 
 export interface SpaceDeps {
   db: DB
@@ -733,7 +733,7 @@ export class SpaceRuntime {
     const base = this.deps.baseUrl()
     const snapshot: PartySnapshot = {
       players,
-      teams: teamScores(this.teams.all(), players, bonuses),
+      teams: teamScores(this.teams.all(), players, bonuses, questionsDesEquipes(players, this.answers.lignesDesEquipes())),
       bonuses,
       session: this.engine.summary(),
       joinUrl: base ? `${base}/${space.slug}` : null,

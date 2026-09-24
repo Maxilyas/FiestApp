@@ -1,7 +1,7 @@
 import type { AnswerRow } from './answers'
 import { computeStats } from './stats'
 import type { PlayableQuestion } from '../../../shared/library'
-import { prixRemis, rankTeams, teamScores } from '../../../shared/teams'
+import { moyenneAuProrata, prixRemis, questionsDesEquipes, rankTeams, teamScores } from '../../../shared/teams'
 import { nomAffiche } from '../../../shared/homonymes'
 import { classer, ecartEstimation, ordreDeClassement, rangPartage, vainqueurs } from '../../../shared/classement'
 import type { PublicPlayer, TeamBonus } from '../../../shared/types'
@@ -432,18 +432,22 @@ export function buildReview(input: ReviewInput): Review {
   })
 
   // ── Les équipes
-  const reviewTeams: ReviewTeam[] = rankTeams(teamScores(teams, players, bonuses)).map(t => {
+  // La règle de la salle (`shared/teams.ts`), quiz par quiz : le bilan
+  // divisait par les présents au quiz quand la victoire divisait par tous
+  // les membres, et un invité arrivé après le quiz changeait l'un sans
+  // l'autre.
+  const parQuiz = sessions.map(g => questionsDesEquipes(players, rows.filter(r => r.sessionId === g.id)))
+  const reviewTeams: ReviewTeam[] = rankTeams(teamScores(teams, players, bonuses, questionsDesEquipes(players, rows))).map(t => {
     const members = sortedPlayers.filter(p => p.teamId === t.id)
     const memberIds = new Set(members.map(p => p.id))
     const tRows = rows.filter(r => memberIds.has(r.playerId))
-    const perQuiz: ReviewTeamQuiz[] = sessions.map(g => {
+    const perQuiz: ReviewTeamQuiz[] = sessions.map((g, i) => {
       const sRows = tRows.filter(r => r.sessionId === g.id)
-      const present = new Set(sRows.map(r => r.playerId)).size
       const total = sum(sRows.map(r => r.points))
       return {
         sessionId: g.id,
         total,
-        average: present ? Math.round(total / present) : 0,
+        average: moyenneAuProrata(parQuiz[i].get(t.id) ?? []),
         accuracy: accuracyOf(sRows),
         avgMs: avgMsOf(sRows),
         rank: 0,
