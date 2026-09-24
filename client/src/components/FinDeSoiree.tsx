@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { FinDeSoiree as Fin, GainAnnonce, HautFaitAnnonce } from '../../../shared/fin'
+import { ligneDeRang, nJoueurs, type FinDeSoiree as Fin, type GainAnnonce, type HautFaitAnnonce } from '../../../shared/fin'
 import type { PublicProfile } from '../../../shared/profil'
 import { NOM_FINITION } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
@@ -68,18 +68,7 @@ export function FinDeSoiree({
         />
         <div>
           <h2>{fin.nom}</h2>
-          {fin.rang > 0 ? (
-            <p className="fin-rang">
-              <b>{place(fin.rang)}</b> sur {fin.joueurs} · {formatNumber(fin.points)} pts
-            </p>
-          ) : (
-            // Arrivé après la dernière question : la phrase parle de lui, et
-            // de la salle qui, elle, a joué — il lisait « 0 joueurs ce soir ».
-            <p className="muted">
-              Tu n’as pas joué ce soir
-              {fin.joueurs > 0 && ` · ${fin.joueurs} joueur${fin.joueurs > 1 ? 's' : ''}`}
-            </p>
-          )}
+          <LigneRang fin={fin} />
         </div>
       </section>
 
@@ -309,4 +298,35 @@ export function Celebration({ gain, onFin }: { gain: GainAnnonce; onFin: () => v
       )}
     </button>
   )
+}
+
+/**
+ * Sous le prénom : son rang, ou ce qu'on sait de lui. Le rang vaut 0 à 0
+ * point — Bob, deux réponses fausses, lisait « Tu n'as pas joué ce soir » —,
+ * c'est donc `aJoue` qui le dit ; une fin d'un serveur d'avant ne l'a pas, et
+ * garde la phrase neutre d'alors.
+ */
+function LigneRang({ fin }: { fin: Fin }) {
+  const l = ligneDeRang(fin)
+  switch (l.cas) {
+    case 'rang':
+      return (
+        <p className="fin-rang">
+          <b>{place(l.rang)}</b> sur {l.joueurs} · {formatNumber(l.points)} pts
+        </p>
+      )
+    case 'zero':
+      return <p className="fin-rang">0 point · {nJoueurs(l.joueurs)}</p>
+    case 'absent':
+      // Arrivé après la dernière question : la phrase parle de lui, et de la
+      // salle qui, elle, a joué — il lisait « 0 joueurs ce soir ».
+      return (
+        <p className="muted">
+          Tu n’as pas joué ce soir
+          {l.joueurs > 0 && ` · ${nJoueurs(l.joueurs)}`}
+        </p>
+      )
+    case 'neutre':
+      return <p className="muted">{nJoueurs(l.joueurs)} ce soir</p>
+  }
 }

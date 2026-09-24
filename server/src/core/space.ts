@@ -1067,6 +1067,7 @@ export class SpaceRuntime {
         // Arrivé après la dernière question, il n'a pas de relevé : la salle,
         // elle, a bien joué — il lisait « 0 joueurs ce soir ».
         joueurs: x?.releve.joueurs ?? summary.players,
+        aJoue: (x?.releve.reponses ?? 0) > 0,
         ...(credit.prix.has(p.id) && { prix: credit.prix.get(p.id) }),
         hautsFaits: (credit.faits.get(p.id) ?? []).map(annonceDe).filter((a): a is HautFaitAnnonce => !!a),
         ...(profils.has(p.id) && { profil: profils.get(p.id) }),

@@ -54,6 +54,12 @@ export interface FinDeSoiree extends Distinctions {
   /** Joueurs qui ont répondu ce soir-là — lui compris ou non. */
   joueurs: number
   /**
+   * A-t-il répondu au moins une fois ? Le rang seul ne le dit pas : il vaut 0
+   * à 0 point, et Bob, deux réponses fausses, lisait « Tu n'as pas joué ce
+   * soir » au-dessus de « Le Cancre Magnifique ». Absent d'un serveur d'avant.
+   */
+  aJoue?: boolean
+  /**
    * Les prix du palmarès qu'il remporte (« L'Éclair ») : Jeanne cherchait le
    * sien sur sa fin de soirée. Absent d'un serveur d'avant.
    */
@@ -118,3 +124,24 @@ export interface GainAnnonce {
 export interface ProgresDeQuiz {
   montees: (Figure & { avant: number; apres: number })[]
 }
+
+/**
+ * La ligne sous le prénom, à la fin de soirée : son rang s'il en a un, sinon
+ * ce qu'on sait de lui — joué pour rien, pas joué, ou rien du tout (une fin
+ * d'un serveur d'avant, qui ne disait pas s'il avait joué).
+ */
+export type LigneDeRang =
+  | { cas: 'rang'; rang: number; joueurs: number; points: number }
+  | { cas: 'zero'; joueurs: number }
+  | { cas: 'absent'; joueurs: number }
+  | { cas: 'neutre'; joueurs: number }
+
+export function ligneDeRang(fin: Pick<FinDeSoiree, 'rang' | 'points' | 'joueurs' | 'aJoue'>): LigneDeRang {
+  if (fin.rang > 0) return { cas: 'rang', rang: fin.rang, joueurs: fin.joueurs, points: fin.points }
+  if (fin.aJoue === true) return { cas: 'zero', joueurs: fin.joueurs }
+  if (fin.aJoue === false) return { cas: 'absent', joueurs: fin.joueurs }
+  return { cas: 'neutre', joueurs: fin.joueurs }
+}
+
+/** « 3 joueurs », « 1 joueur ». */
+export const nJoueurs = (n: number) => `${n} joueur${n > 1 ? 's' : ''}`

@@ -38,6 +38,7 @@ import {
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 import { xpDesHautsFaits } from '../src/core/hautsfaits'
 import { XP, gainVide, niveauPour, releveVide } from '../../shared/profil'
+import { ligneDeRang } from '../../shared/fin'
 
 // L'Éclat se tire une chance sur quarante par soirée, et le premier fait
 // tomber un palier de carrière — dix points de plus à la clôture. Ici, le
@@ -255,10 +256,18 @@ test('la fin de soirée mène au bilan de son porteur, dit ses prix et la salle 
     const zoe = await invite(banc.url, 'Zoé', '🦄')
 
     const finAlice = attendre<any>(alice.socket, 'soiree:fin', () => true, 'la fin d’Alice', 15_000)
+    const finBob = attendre<any>(salle[0].socket, 'soiree:fin', () => true, 'la fin de Bob', 15_000)
     const finZoe = attendre<any>(zoe.socket, 'soiree:fin', () => true, 'la fin de Zoé', 15_000)
     await clore(host, 'La soirée de Zoé')
     const fa = await finAlice
     assert.equal(fa.joueurId, alice.playerId, '« Mon bilan » s’ouvre sur elle')
+    assert.equal(ligneDeRang(fa).cas, 'rang')
+    // Bob a répondu deux fois, faux : 0 point, pas de rang — mais il a joué.
+    // Il lisait « Tu n'as pas joué ce soir » au-dessus de ses prix.
+    const fb = await finBob
+    assert.equal(fb.points, 0)
+    assert.equal(fb.aJoue, true, 'Bob a joué, même pour rien')
+    assert.deepEqual(ligneDeRang(fb), { cas: 'zero', joueurs: 3 })
     const recap = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${id}/recap.json`)).json()) as any
     const siens = recap.stats.awards.filter((a: any) => a.player?.playerId === alice.playerId).map((a: any) => a.key)
     assert.ok(siens.length > 0, 'Alice, seule à trouver, remporte au moins un prix')
@@ -267,6 +276,11 @@ test('la fin de soirée mène au bilan de son porteur, dit ses prix et la salle 
     assert.equal(fz.rang, 0)
     assert.equal(fz.joueurs, 3, 'la salle a joué, même sans elle')
     assert.equal(fz.prix, undefined)
+    assert.equal(fz.aJoue, false)
+    assert.deepEqual(ligneDeRang(fz), { cas: 'absent', joueurs: 3 })
+    // Une fin d'un serveur d'avant ne dit pas s'il a joué : la phrase neutre.
+    const { aJoue: _, ...davant } = fz
+    assert.equal(ligneDeRang(davant).cas, 'neutre')
 
     // Le téléphone de Zoé dormait ; le serveur redémarre et oublie les fins.
     await banc.redemarrer()
