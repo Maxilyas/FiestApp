@@ -45,6 +45,13 @@ moins coûteux :
 7. **Les mots** : un texte périmé projeté au mur, le tu et le vous mêlés,
    l'élision, le masculin par défaut, la typographie.
 
+## Les suites
+
+Chaque axe a été confié à une session, qui l'a porté dans sa propre PR :
+1 → #27, 2 → #26, 3 → #31, 4 → #29, 5 → #30, 6 → #25, 7 → #28 — les trois
+dernières fusionnées le 24 septembre. Les constats qui suivent décrivent
+l'application du 23 : avant de reprendre un axe, regarde sa PR.
+
 ## Qui était là
 
 | Personnage | L'angle | Appareil | Sa soirée | Entrer · Jouer · Lire · Revenir |
@@ -183,6 +190,15 @@ téléphone en 360 × 640 — l'animatrice de la tablée y joue à chaque soiré
   dans la balise viewport (`client/index.html:7`) — Chrome Android remonte
   alors la page au-dessus du clavier —, à vérifier sur un vrai téléphone,
   puisque le clavier de la tablée est simulé (capture `07`).
+- **Une estimation tapée « 35 000 » est ignorée sans un mot.** Le téléphone
+  lit le nombre par `Number(text.replace(',', '.'))` (`GuessForm`,
+  `client/src/games/quiz/PlayerView.tsx`), qui ne sait rien d'une espace de
+  milliers — or c'est ainsi qu'on l'écrit en France, la révélation affiche
+  elle-même « 35 000 communes », et l'éditeur sait déjà lire « 10 935 »
+  (`lireEstimation`, `shared/library.ts`). Trouvé le 24 septembre en rejouant
+  la tablée sur `main` : les agents de la première soirée tapaient leurs
+  nombres sans espace. *Piste* : lire l'estimation comme l'éditeur, et dire
+  quand un nombre ne se lit pas.
 - **La fin de soirée s'ouvre au milieu de la page**, sous son titre : seule
   l'entrée remet le défilement en haut (`Entree.tsx:111`).
 - **Un invité changé d'équipe par l'animatrice n'en sait rien** (Camille D.) :

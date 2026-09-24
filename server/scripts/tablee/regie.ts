@@ -1139,7 +1139,11 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
         // le texte d'une réponse, pas son numéro.
         let n = /^\d+$/.test(voulu) && Number(voulu) <= reponses.length ? Number(voulu) : 0
         if (!n) {
-          const bas = voulu.toLowerCase()
+          // Les réponses lues au téléphone ont déjà leurs blancs ramenés à des
+          // espaces simples ; on en fait autant de ce que l'agent a tapé — les
+          // espaces fines insécables que l'affichage pose avant « ! » ou « ? »
+          // ne doivent pas faire manquer « 40, évidemment ! ».
+          const bas = voulu.replace(/\s+/g, ' ').toLowerCase()
           n = reponses.findIndex(r => r.toLowerCase() === bas) + 1 || reponses.findIndex(r => r.toLowerCase().includes(bas)) + 1
         }
         if (n < 1 || n > reponses.length) {
