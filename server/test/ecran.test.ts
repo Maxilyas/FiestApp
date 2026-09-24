@@ -10,7 +10,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { answersSizeClass, questionSizeClass } from '../../client/src/games/quiz/questionSize'
 
-const { hauteurDeMarche } = await import(new URL('../../client/src/components/Podium.tsx', import.meta.url).href)
+const { hauteursDesMarches } = await import(new URL('../../client/src/components/Podium.tsx', import.meta.url).href)
 const css = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
 
 // Ce que la feuille de style réserve aux grands écrans (`min-width: 1101px`),
@@ -50,18 +50,31 @@ test('les réponses longues prennent un palier plus petit, la plus longue décid
   assert.equal(questionSizeClass('x'.repeat(130)), ' q-sm')
 })
 
-test('un podium serré reste un podium : le premier est toujours le plus haut, à 14 points d’écart au moins', () => {
+test('un podium serré reste un podium : chaque marche à 14 points sous la précédente au moins', () => {
+  const h = (...marches: [number, number][]) => hauteursDesMarches(marches.map(([rang, points]) => ({ rang, points })))
+  const ecart = (a: number, b: number, quoi: string) => assert.ok(a - b >= 0.14 - 1e-9, `${quoi} : ${a} contre ${b}`)
   // 1 030, 882, 828 : les marches faisaient 100, 90 et 86 %.
-  const serre = [hauteurDeMarche(1, 1030, 1030), hauteurDeMarche(2, 882, 1030), hauteurDeMarche(3, 828, 1030)]
+  const serre = h([1, 1030], [2, 882], [3, 828])
   assert.equal(serre[0], 1)
-  assert.ok(serre[0] - serre[1] >= 0.14 - 1e-9, `1er ${serre[0]} contre 2e ${serre[1]}`)
-  assert.ok(serre[1] - serre[2] >= 0.14 - 1e-9, `2e ${serre[1]} contre 3e ${serre[2]}`)
+  ecart(serre[0], serre[1], '1er et 2e')
+  ecart(serre[1], serre[2], '2e et 3e')
+  // 315, 115, 114 : plafonnée par rang seulement (0,86, puis 0,72), chaque
+  // marche gardait sa proportion, et la 2e et la 3e mesuraient 0,555 et
+  // 0,553 — deux blocs égaux. Plafonnée par la marche d'avant, la 3e descend.
+  const decroche = h([1, 315], [2, 115], [3, 114])
+  ecart(decroche[1], decroche[2], '2e et 3e à un point')
   // Un écart franc garde sa proportion : la hauteur dit encore l'écart.
-  assert.ok(Math.abs(hauteurDeMarche(3, 108, 395) - (0.3 + (0.7 * 108) / 395)) < 1e-9)
-  // Deux ex æquo, à la même hauteur ; le plancher tient à zéro point.
-  assert.equal(hauteurDeMarche(1, 500, 500), hauteurDeMarche(1, 500, 500))
-  assert.equal(hauteurDeMarche(2, 0, 500), 0.3)
-  assert.equal(hauteurDeMarche(1, 0, 0), 0.3)
+  assert.ok(Math.abs(h([1, 395], [2, 300], [3, 108])[2] - (0.3 + (0.7 * 108) / 395)) < 1e-9)
+  // Deux ex æquo, à la même hauteur — en tête comme derrière.
+  const [a, b, c] = h([1, 500], [1, 500], [3, 200])
+  assert.equal(a, 1)
+  assert.equal(b, a)
+  ecart(b, c, 'ex æquo en tête et 3e')
+  const [, d, e] = h([1, 500], [2, 300], [2, 300])
+  assert.equal(e, d)
+  // Le plancher tient à zéro point, et personne ne marque : tous au plancher.
+  assert.equal(h([1, 500], [2, 0])[1], 0.3)
+  assert.deepEqual(h([1, 0], [1, 0], [1, 0]), [0.3, 0.3, 0.3])
 })
 
 test('la scène suit la hauteur des grands écrans, et seulement d’eux', () => {
