@@ -60,7 +60,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
 | `shared/echange.ts` | un quiz qu'on emporte : le fichier d'export (questions, photos en clair), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin |
 | `shared/liste.ts` | « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) |
-| `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare |
+| `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare ; figés dans les listes, animés là où ils sont le sujet |
+| `client/src/components/medaillons.ts` | les dessins des légendaires et des Divins, chargés à la demande : un invité anonyme ne les télécharge jamais — ne les importe pas statiquement sur son chemin (`Avatar`, `PlayerApp`, la carte) |
 | `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
 | `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
 | `core/http.ts` | ce qu'une erreur laisse lire : `wrap`, `erreurMontrable`, `messagePourEcran`, `erreurDeRequete` |

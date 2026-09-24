@@ -163,8 +163,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Un seul saut de proxy devant nous en ligne : c'est lui qui écrit la
   // dernière adresse de `x-forwarded-for`, celle qu'on lit.
   if (opts.online) app.set('trust proxy', 1)
-  // Le JS de l'application pèse 320 Ko à nu, 100 Ko compressé — cinquante
-  // téléphones en 4G au moment du scan font vite la différence.
+  // Le chemin d'un invité, du scan à la salle d'attente, pèse encore 320 Ko
+  // de JS à nu, 106 Ko compressé — cinquante téléphones en 4G au moment du
+  // scan font vite la différence.
   app.use(compression())
   app.use((req, res, next) => {
     res.set(SECURITY_HEADERS)
