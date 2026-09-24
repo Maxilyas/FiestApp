@@ -13,12 +13,13 @@ import { seedLibrary } from './core/seed'
 import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
+import { ReserveDInscriptions } from './core/inscriptions'
 import { SpaceRegistry } from './core/space'
 import { PagesPubliques } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
 import { Charge, pouls } from './core/pouls'
 import { AuthStore, type AccountRec } from './auth/store'
-import { ProfileStore } from './auth/profiles'
+import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
 import { erreurDeRequete, repondreErreur } from './core/http'
 import { wireSockets } from './sockets'
@@ -275,7 +276,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // démarrage qui le change. Les soirées en cours — celles que le disque ou
   // le miroir viennent de rendre — n'ont pas fini de se jouer : elles se
   // recréditeront à leur prochain quiz.
-  const enCours = new Set((db.prepare('SELECT id FROM soiree').all() as { id: string }[]).map(r => r.id))
+  const enCours = new Set(
+    (db.prepare('SELECT space_id, id FROM soiree').all() as { space_id: string; id: string }[]).map(r =>
+      cleDeSoiree(r.space_id, r.id),
+    ),
+  )
   const debutDuRecalcul = Date.now()
   const recalcul = await recalculerHistorique({ profiles, archives, enCours })
   if (recalcul) {
@@ -306,11 +311,15 @@ export async function createQuizServer(opts: QuizServerOptions) {
       return ip ? `http://${ip}:${boundPort}` : null
     },
     maxPlayersCeiling,
+    cloturesEnCours: new Set(),
   })
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
 
-  wireSockets(io, { registry, auth, profiles, trustProxy: !!opts.online })
+  // La réserve d'inscriptions des invités, par adresse et par espace — de
+  // quoi en compter les refus (`mesure()`).
+  const inscriptions = new ReserveDInscriptions()
+  wireSockets(io, { registry, auth, profiles, trustProxy: !!opts.online, inscriptions })
 
   /**
    * Supprime un compte et tout ce qu'il a laissé. L'ordre compte : d'abord

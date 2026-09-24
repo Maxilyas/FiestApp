@@ -123,7 +123,6 @@ export class Pouls {
   private adressesMinute = new Set<string>()
   private adressesAvant = new Set<string>()
   private adressesDebut: number
-  private refusesMinute = new Set<string>()
   private adressesParEspace = new Map<string, Set<string>>()
 
   /**
@@ -134,22 +133,18 @@ export class Pouls {
    * c'est que l'adresse lue est celle d'un proxy — et la réserve, commune à
    * toute la salle. D'où le compte des adresses distinctes.
    */
-  reserve(spaceId: string, adresse: string, accepte: boolean, sauts: number): boolean {
+  reserve(spaceId: string, adresse: string, accepte: boolean): boolean {
     this.tournerAdresses()
     const cle = empreinteDAdresse(adresse)
     if (this.adressesMinute.size < ADRESSES_PAR_ESPACE) this.adressesMinute.add(cle)
     let vues = this.adressesParEspace.get(spaceId)
     if (!vues) this.adressesParEspace.set(spaceId, (vues = new Set()))
     if (vues.size < ADRESSES_PAR_ESPACE) vues.add(cle)
-    if (!accepte) {
-      this.refus.noter()
-      if (!this.refusesMinute.has(cle)) {
-        this.refusesMinute.add(cle)
-        console.warn(
-          `[inscriptions] réserve épuisée pour l’adresse ${cle} — ${sauts} entrée${sauts > 1 ? 's' : ''} dans x-forwarded-for`,
-        )
-      }
-    }
+    // Le refus, lui, s'écrit au journal par la réserve elle-même
+    // (`core/inscriptions.ts`), une ligne par clé et par minute, avec la
+    // réserve qui a dit non et le nombre d'entrées de `x-forwarded-for` :
+    // une seconde ligne ici la doublait.
+    if (!accepte) this.refus.noter()
     return accepte
   }
 
@@ -169,7 +164,6 @@ export class Pouls {
     if (t - this.adressesDebut < 60_000) return
     this.adressesAvant = t - this.adressesDebut < 120_000 ? this.adressesMinute : new Set()
     this.adressesMinute = new Set()
-    this.refusesMinute.clear()
     this.adressesDebut = t - ((t - this.adressesDebut) % 60_000)
   }
 

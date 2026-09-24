@@ -17,7 +17,7 @@ import { divinsDeSoiree, laureatsDivins, raconter } from './divins'
 import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
-import { ProfileStore, type PrixDeSoiree } from '../auth/profiles'
+import { ProfileStore, cleDeSoiree, type PrixDeSoiree } from '../auth/profiles'
 import {
   coupDOeilMoyen,
   distinctions,
@@ -55,6 +55,14 @@ export interface SpaceDeps {
   baseUrl: () => string | null
   /** Plafond d'invités que même le réglage d'un espace ne dépasse pas. */
   maxPlayersCeiling: number
+  /**
+   * Les espaces dont la soirée est en train de se clore, communs à tout le
+   * serveur. Leur ligne de la table `soiree` ne part qu'à la fin de leur
+   * clôture, après leurs crédits : sans eux, deux soirées closes au même
+   * instant s'écartaient l'une l'autre des paliers (`soireesEnCoursAilleurs`),
+   * et celui qu'elles atteignaient ensemble ne tombait nulle part.
+   */
+  cloturesEnCours: Set<string>
 }
 
 /**
@@ -160,7 +168,14 @@ export class SpaceRuntime {
       // compris : une archive et de l'expérience ont pu être écrites sous ce
       // nom-là, et si le premier arrivé s'en allait avant qu'il ne resserve,
       // plus rien ne permettrait de le retrouver.
-      const tiree = this.tirerSoiree()
+      //
+      // Des réponses au journal sans nom rangé : un quiz s'est joué sur un
+      // serveur qui ne rangeait pas les noms, et il a pu écrire son archive et
+      // son expérience sous le nom d'alors, sans l'empreinte de l'espace. Le
+      // tirer au format du jour doublait l'archive et recomptait
+      // l'expérience du premier quiz (invariant 11). Sans réponse, rien n'a
+      // pu s'écrire : le nom du jour ne rebaptise rien.
+      const tiree = this.tirerSoiree(this.answers.all().length > 0)
       if (tiree) {
         this.recopierSoiree(tiree).catch(e => console.warn(`[soirée] nom non recopié : ${(e as Error).message}`))
       }
@@ -242,9 +257,13 @@ export class SpaceRuntime {
     return row ? { id: row.id, heldAt: row.held_at } : null
   }
 
-  /** Tire le nom sur les invités présents, et le range sur le disque local. */
-  private tirerSoiree(): Soiree | null {
-    const soiree = soireeDesInvites(this.party.all())
+  /**
+   * Tire le nom sur les invités présents, et le range sur le disque local.
+   * `commeAvant` le tire sans l'empreinte de l'espace, comme le faisait le
+   * serveur d'avant — pour retrouver le nom d'une soirée qu'il a commencée.
+   */
+  private tirerSoiree(commeAvant = false): Soiree | null {
+    const soiree = soireeDesInvites(this.party.all(), commeAvant ? null : this.spaceId)
     if (!soiree) return null
     this.deps.db
       .prepare('INSERT OR REPLACE INTO soiree (space_id, id, held_at) VALUES (?, ?, ?)')
@@ -270,6 +289,20 @@ export class SpaceRuntime {
     // serveur. Celui qui l'attend reçoit bien l'erreur.
     ecriture.catch(() => {})
     return ecriture
+  }
+
+  /**
+   * Les soirées qui se jouent en ce moment dans les autres espaces
+   * (`cleDeSoiree`). La base locale range le nom de chacune dès qu'il est
+   * tiré et l'oublie à sa fin — le miroir le lui rend après un réveil sur
+   * disque effacé. Une soirée dont la clôture est en cours compte pour
+   * close (`cloturesEnCours`).
+   */
+  private soireesEnCoursAilleurs(): Set<string> {
+    const rows = this.deps.db
+      .prepare('SELECT space_id, id FROM soiree WHERE space_id <> ?')
+      .all(this.spaceId) as { space_id: string; id: string }[]
+    return new Set(rows.filter(r => !this.deps.cloturesEnCours.has(r.space_id)).map(r => cleDeSoiree(r.space_id, r.id)))
   }
 
   /** La soirée suivante tirera son propre nom, sur ses propres invités. */
@@ -895,7 +928,7 @@ export class SpaceRuntime {
       // le téléphone d'essai de l'animateur. Tant que le nom n'est pas tiré,
       // c'est l'heure qu'il prendra — sans le tirer ici : une page publique
       // ne décide pas du nom de la soirée.
-      since: (this.soiree ?? soireeDesInvites(this.party.all()))?.heldAt ?? null,
+      since: (this.soiree ?? soireeDesInvites(this.party.all(), this.spaceId))?.heldAt ?? null,
     }
   }
 
@@ -982,6 +1015,9 @@ export class SpaceRuntime {
       let summary: ArchiveSummary | null = null
       let annonce: (() => void) | undefined
       if (soiree && built) {
+        // Dès ici, pour les paliers des autres espaces, cette soirée est
+        // close : elle ne rendra plus que ce qu'elle a déjà écrit.
+        this.deps.cloturesEnCours.add(this.spaceId)
         const credit = this.creditDeCloture({ players, scores, answers })
         const recopie = this.recopierSoiree(soiree)
         const bilans = await this.enFile(async () => {
@@ -1004,6 +1040,9 @@ export class SpaceRuntime {
       await this.viderSoiree(summary ? 'close' : 'discard', annonce)
       return summary
     } finally {
+      // Close pour de bon, sa ligne est partie ; refusée par le miroir, elle
+      // se joue encore et redevient une soirée en cours pour les autres.
+      this.deps.cloturesEnCours.delete(this.spaceId)
       this.fermeture = false
     }
   }
@@ -1031,10 +1070,12 @@ export class SpaceRuntime {
     // pouvoir repartir.
     await this.deps.profiles.remplacerRecompensesDeSoiree(soireeId, this.spaceId, credit.laureats)
     const bilans = new Map<string, NonNullable<FinDeSoiree['profil']>>()
+    const ailleurs = this.soireesEnCoursAilleurs()
     for (const g of credit.gains) {
       // Les paliers de carrière viennent en dernier : ils se décident sur les
-      // totaux, expérience et hauts faits de ce soir compris.
-      const paliers = await this.deps.profiles.accorderPaliers(g.profileId, soireeId, this.spaceId)
+      // totaux, expérience et hauts faits de ce soir compris — mais pas sur
+      // les soirées qui se jouent encore dans d'autres espaces.
+      const paliers = await this.deps.profiles.accorderPaliers(g.profileId, soireeId, this.spaceId, ailleurs)
       const profil = await this.deps.profiles.byId(g.profileId).catch(() => null)
       if (!profil) continue
       const xpPaliers = paliers.reduce((n, cle) => n + (palierDe(cle) ? XP_PALIER[palierDe(cle)!.palier - 1] : 0), 0)

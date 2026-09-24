@@ -63,6 +63,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare |
 | `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
 | `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
+| `core/inscriptions.ts` | la réserve d'inscriptions des invités, par adresse **et par espace**, plus une large par adresse ; et sa mesure (au refus, à la clôture) qui dira en ligne si l'adresse lue est celle d'un proxy |
 | `core/pages.ts` | le souvenir et le bilan, en cours ou archivés, calculés **une fois** pour toute la salle qui scanne le QR : gardés sous une empreinte des journaux (`revision` de chaque registre, `ArchiveStore.revision`, `empreinteDesPages`), la rafale attend la promesse du premier calcul ; compressés une fois, avec leur ETag |
 | `core/pouls.ts` | ce que `/healthz` dit de la charge — processeur, boucle, chronomètres, pages, miroir, réserve d'inscriptions —, agrégé, sans un nom, lu sans rien parcourir |
 | `core/precompresse.ts` | les fichiers du paquet servis tels que le build les a compressés (`.br` en brotli 11, `.gz`), selon ce que le téléphone accepte — la précompression est un greffon de `client/vite.config.ts` |
@@ -321,7 +322,18 @@ sans `QUIZ_DB_URL`.
   `watchParty` et `helloHost` rejettent sur délai (`demander`), alors que
   `joinAsPlayer` et `setMyTeam` résolvent un refus.
 - **`loginBudgetOf(app)`, jamais `new LoginBudget()`** : toutes les portes qui
-  ouvrent une console partagent la même réserve d'essais.
+  ouvrent une console partagent la même réserve d'essais. Celle des
+  inscriptions d'invités, elle, se compte **par espace**
+  (`core/inscriptions.ts`) : commune à tout le serveur, la vague d'une salle
+  fermait la porte à la salle voisine derrière la même box.
+- **Le nom d'une soirée porte une empreinte de son espace** (`archiveIdOf`),
+  mais les soirées d'avant n'en ont pas : l'expérience, les paliers et les
+  Éclats se rangent sous le nom seul, alors une soirée se désigne par
+  `(espace, nom)` partout où l'on en compare plusieurs (`cleDeSoiree`). Et un
+  palier ne compte que les soirées closes : `accorderPaliers` écarte celles
+  qui se jouent encore ailleurs — leurs lignes, leur expérience dans le
+  niveau et leurs Éclats (`careerOf`) —, mais compte celles dont la clôture
+  est en cours (`cloturesEnCours`).
 - **Les crédits lisent les journaux avant le premier `await`** et passent par
   `enFile` : une clôture cliquée pendant un rangement viderait sinon ce
   qu'ils lisent.
