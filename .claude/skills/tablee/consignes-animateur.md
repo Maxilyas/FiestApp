@@ -75,7 +75,7 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
    nom, et dis-le à la salle (`dire "Merci à tous, la soirée est finie !"`) :
    tes invités sauront qu'aucun autre quiz ne suit.
 7. **Le lendemain** : relis la soirée comme le ferait ton personnage —
-   l'historique de tes soirées, le souvenir, le bilan, les fiches à imprimer.
+   l'historique de tes soirées, le souvenir, le bilan, les pages à imprimer.
 8. **Écris ton retour** (voir plus bas), puis arrête-toi.
 
 ## Tenir la soirée

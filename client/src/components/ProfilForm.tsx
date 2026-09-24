@@ -119,8 +119,10 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
     // Resserré comme l'entrée d'une soirée : en 360 × 640, « Revenir » —
     // la seule sortie de la salle d'attente — tombait sous le bord.
     <form className="join entree" onSubmit={submit}>
+      {/* « Retrouver mon profil » titrait aussi la récupération par code de
+          secours (`Secours.tsx`) : deux écrans, un seul nom. */}
       <h2 className="center">
-        <Icon name="sparkles" /> {creation ? 'Créer un profil' : 'Retrouver mon profil'}
+        <Icon name="sparkles" /> {creation ? 'Créer un profil' : 'Me connecter'}
       </h2>
       {/* Avec une échappée, l'explication passe SOUS les boutons — comme à
           l'entrée d'une soirée. En haut, elle pousse « Rejoindre une

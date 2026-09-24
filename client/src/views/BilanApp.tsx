@@ -191,7 +191,7 @@ export function BilanApp() {
       <p className="recap-foot muted">Merci d'avoir joué.</p>
       <p className="muted small center">
         Pour l'animateur :{' '}
-        <a href={spacePath(slug, 'bilan/fiches', archiveId)}>les fiches à imprimer, une par invité</a>
+        <a href={spacePath(slug, 'bilan/fiches', archiveId)}>les pages à imprimer, une par invité</a>
       </p>
     </div>
   )
@@ -281,10 +281,12 @@ function Fiches({ ctx, players }: { ctx: BilanCtx; players: ReviewPlayer[] }) {
     <div className="recap bilan fiches">
       <div className="card no-print bilan-print-bar">
         <div>
-          <h2>Les fiches</h2>
+          <h2>Les pages à imprimer</h2>
           <p className="muted small">
-            {sorted.length} fiche{sorted.length > 1 ? 's' : ''}, une par invité, par équipe puis par
-            prénom. Dans la boîte d'impression, choisis « Enregistrer en PDF » : chaque fiche commence
+            {/* « Fiche » était aussi le mot des chiffres d'un profil (« Ma fiche ») :
+                ici, ce sont des bilans qu'on imprime. */}
+            {sorted.length} bilan{sorted.length > 1 ? 's' : ''}, un par invité, par équipe puis par
+            prénom. Dans la boîte d'impression, choisis « Enregistrer en PDF » : chaque bilan commence
             sur une nouvelle page.
           </p>
         </div>
