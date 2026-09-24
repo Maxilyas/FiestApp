@@ -411,24 +411,35 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           placeFailures++
           return repondre({ ok: false, error: MAUVAIS_CODE })
         }
-        // Le code se consomme ici, avant les refus qui suivent : un code
-        // juste, tombé sur un cas qu'on refuse, ne resservira pas —
-        // l'animateur en refait paraître un, en face de l'invité.
-        rt.places.consommer(saisie.code)
         // Revenu entre-temps sur son propre téléphone : deux téléphones pour
         // une place, ce serait deux joueurs qui répondent l'un pour l'autre.
+        // Le code a servi : il ne resservira pas si ce téléphone-là retombe —
+        // l'animateur en refait paraître un, en face de l'invité.
         if (rt.party.isConnected(fiche.id)) {
+          rt.places.consommer(saisie.code)
           return repondre({ ok: false, error: 'Ton ancien téléphone est revenu — joue dessus' })
         }
-        // Ce téléphone est au profil de quelqu'un d'autre : à la prochaine
-        // re-présentation, la soirée lui rendrait le joueur de ce profil — ou
-        // rattacherait la place reprise à ce profil, et ses points avec.
+        // Une fiche à profil ne se rend que par son profil — la console ne
+        // fait d'ailleurs pas paraître de code pour elle (`rendrePlace`) :
+        // sinon le téléphone qui tape le code recevrait ce profil ensuite.
+        if (fiche.profileId && fiche.profileId !== profile?.id) {
+          return repondre({ ok: false, error: 'Connecte-toi à ton profil : il te rend ta place' })
+        }
+        // Ce téléphone porte un profil, et la fiche n'en a pas : à la
+        // prochaine re-présentation, la soirée lui rendrait le joueur de ce
+        // profil — ou rattacherait la place reprise à ce profil, et ses
+        // points avec. Ce peut être le profil de Rachid lui-même, dont la
+        // fiche de ce soir était anonyme : le message ne dit donc pas « de
+        // quelqu'un d'autre ».
         if (profile && fiche.profileId !== profile.id) {
           return repondre({
             ok: false,
-            error: 'Ce téléphone est au profil de quelqu’un d’autre — ouvre la soirée dans une fenêtre privée',
+            error: 'Ce téléphone est connecté à un profil — ouvre la soirée dans une fenêtre privée pour reprendre ta place',
           })
         }
+        // Ces deux refus-là laissent le code : l'invité le retape dans une
+        // fenêtre privée, sans redemander à l'animateur. Il se consomme ici.
+        rt.places.consommer(saisie.code)
         // L'identité que ce téléphone quitte : le second « Rachid » d'avant le code.
         const token = texte(charge.token)
         const ancien = (token && rt.party.findByToken(token)) || (socket.data.playerId ? rt.party.get(socket.data.playerId) : undefined)

@@ -389,6 +389,50 @@ describe('le téléphone perdu', () => {
     for (const s of [emprunte.socket, host]) s.close()
   })
 
+  test('jamais de code pour une fiche à profil : se connecter à son profil la rend déjà', async () => {
+    const host = await ecranCommun(banc.url, cookie)
+    await viderLaSalle(host)
+    const cookieRachid = await inscrireProfil(banc.url, 'rachid8b', 'Rachid', '🦁')
+    const rachid = await invite(banc.url, '', '', { cookie: cookieRachid })
+    rachid.socket.close()
+    await instantane<any>(host, s => s.players.find((p: any) => p.id === rachid.playerId)?.connected === false, 'Rachid hors ligne')
+    // Un code pour sa fiche donnerait, au téléphone qui le tape, le profil
+    // de Rachid : son identifiant, son expérience, les récits de ses Divins.
+    const rendue = await emitAck<any>(host, 'host:rendrePlace', { playerId: rachid.playerId })
+    assert.equal(rendue.ok, false)
+    assert.equal('code' in rendue, false)
+    assert.match(rendue.error, /profil/)
+
+    // Sa porte à lui : son profil, sur le nouveau téléphone, lui rend sa fiche.
+    const nouveau = await invite(banc.url, '', '', { cookie: cookieRachid })
+    assert.equal(nouveau.playerId, rachid.playerId)
+    for (const s of [nouveau.socket, host]) s.close()
+  })
+
+  test('Rachid connecté à son propre profil, sa fiche de ce soir anonyme : le refus dit vrai, et le code reste bon', async () => {
+    const host = await ecranCommun(banc.url, cookie)
+    await viderLaSalle(host)
+    const cookieRachid = await inscrireProfil(banc.url, 'rachid8c', 'Rachid', '🦁')
+    // Ce soir, il était entré sans compte.
+    const rachid = await invite(banc.url, 'Rachid', '🦁')
+    rachid.socket.close()
+    await instantane<any>(host, s => s.players.find((p: any) => p.id === rachid.playerId)?.connected === false, 'Rachid hors ligne')
+    const { code } = await emitAck<any>(host, 'host:rendrePlace', { playerId: rachid.playerId })
+    const sonTelephone = connecter(banc.url, cookieRachid)
+    assert.equal((await emitAck<any>(sonTelephone, 'party:watch', { slug: SLUG })).ok, true)
+    const refus = await emitAck<any>(sonTelephone, 'player:reprendre', { slug: SLUG, code })
+    assert.equal(refus.ok, false)
+    assert.doesNotMatch(refus.error, /quelqu’un d’autre/, 'c’est son profil à lui')
+    assert.match(refus.error, /fenêtre privée/)
+    // Dans une fenêtre privée, sans le cookie : le même code sert encore.
+    const prive = connecter(banc.url)
+    assert.equal((await emitAck<any>(prive, 'party:watch', { slug: SLUG })).ok, true)
+    const reprise = await emitAck<any>(prive, 'player:reprendre', { slug: SLUG, code })
+    assert.equal(reprise.ok, true, reprise.error)
+    assert.equal(reprise.playerId, rachid.playerId)
+    for (const s of [sonTelephone, prive, host]) s.close()
+  })
+
   test('un téléphone au profil d’un autre ne reprend pas une place', async () => {
     const host = await ecranCommun(banc.url, cookie)
     await viderLaSalle(host)

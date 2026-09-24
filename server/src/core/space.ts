@@ -669,10 +669,17 @@ export class SpaceRuntime {
    * téléphone qui répond encore n'est pas à donner.
    */
   rendrePlace(playerId: string): PlaceRendue {
-    if (!this.party.get(playerId)) return { ok: false, error: 'Cet invité n’est plus dans la soirée' }
+    const fiche = this.party.get(playerId)
+    if (!fiche) return { ok: false, error: 'Cet invité n’est plus dans la soirée' }
     if (this.party.isConnected(playerId)) {
       return { ok: false, error: 'Son téléphone est encore connecté — rien à rendre' }
     }
+    // Jamais de code pour une fiche à profil : le téléphone qui le taperait
+    // recevrait ensuite ce profil (`player:profil`, au podium et à la
+    // clôture) — son identifiant, son expérience, les récits de ses Divins
+    // (invariant 21). Sa porte existe déjà : se connecter à son profil rend
+    // la fiche (`findByProfile`), derrière le mot de passe et `loginBudgetOf`.
+    if (fiche.profileId) return { ok: false, error: 'Il a un profil : qu’il s’y connecte sur son nouveau téléphone' }
     return { ok: true, ...this.places.emettre(playerId, Date.now()) }
   }
 
