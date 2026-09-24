@@ -7,7 +7,7 @@ import { Icon } from '../../components/Icon'
 import { Shape } from '../../components/Shape'
 import { Rank } from '../../components/Rank'
 import type { PublicTeam } from '../../../../shared/types'
-import { formatNumber, ordinal } from '../../format'
+import { espacesFines, formatNumber, place } from '../../format'
 import { questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
 import { Niveau } from '../../components/Niveau'
@@ -115,7 +115,7 @@ function BetweenQuestions({
   return (
     <>
       <p className="center muted">
-        Total quiz : {v.yourQuizTotal} pts · {ordinal(v.yourQuizRank ?? 0)}
+        Total quiz : {v.yourQuizTotal} pts · {place(v.yourQuizRank ?? 0)}
       </p>
       {teams.length > 0 && (
         <div className="card">
@@ -226,7 +226,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           </p>
         )}
         {v.category && <span className="label quiz-categorie">{v.category}</span>}
-        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
+        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{espacesFines(v.text ?? '')}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
         {v.photoGone && (
           <p className="photo-gone">
@@ -255,7 +255,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
                   className={'ans-btn' + (v.yourChoice === i ? ' chosen' : closes ? ' dim' : '')}
                 >
                   <Shape index={i} />
-                  <span className="ans-text">{a}</span>
+                  <span className="ans-text">{espacesFines(a)}</span>
                   {v.yourChoice === i && <Icon name="check" className="ans-check" />}
                 </button>
               ))}
@@ -342,13 +342,13 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
               </span>
               <p>
                 Raté… tu avais dit <Shape index={v.yourChoice!} inline />
-                <strong>{v.answers![v.yourChoice!]}</strong>
+                <strong>{espacesFines(v.answers![v.yourChoice!])}</strong>
               </p>
             </>
           )}
           <p className="muted">
             {attendue} : <Shape index={v.correct!} inline />
-            <strong>{v.answers![v.correct!]}</strong>
+            <strong>{espacesFines(v.answers![v.correct!])}</strong>
           </p>
         </div>
         <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
@@ -364,7 +364,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           <Icon name="flag" />
         </span>
         <p>
-          Quiz terminé ! Tu finis <strong>{ordinal(v.yourQuizRank ?? 0)}</strong> avec {v.yourQuizTotal} pts
+          Quiz terminé ! Tu finis à la <strong>{place(v.yourQuizRank ?? 0)}</strong> avec {v.yourQuizTotal} pts
         </p>
       </div>
       <div className="card">

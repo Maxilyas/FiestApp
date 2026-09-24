@@ -13,7 +13,7 @@ import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer } from '../games/quiz/PlayerView'
 import type { QuizPlayerView } from '../../../shared/games/quiz'
-import { ordinal } from '../format'
+import { espacesFines, place } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
@@ -217,7 +217,7 @@ export function PlayerApp() {
   // tout de suite pour une erreur, sans couper la parole pour le reste.
   const toast = s.toast && (
     <div className={`toast toast-${s.toast.kind}`} role={s.toast.kind === 'error' ? 'alert' : 'status'}>
-      {s.toast.message}
+      {espacesFines(s.toast.message)}
     </div>
   )
 
@@ -328,7 +328,7 @@ export function PlayerApp() {
             <Niveau niveau={me?.niveau} big />
           </h2>
           <p className="muted">
-            {me?.score ?? 0} pts{myRank > 0 && ` · ${ordinal(myRank)}`}
+            {me?.score ?? 0} pts{myRank > 0 && ` · ${place(myRank)}`}
             {myTeam && ` · ${myTeam.emoji} ${myTeam.name}`}
           </p>
         </div>

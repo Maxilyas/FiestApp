@@ -112,7 +112,7 @@ function poserLeFilet() {
 createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv }).then(
   server => {
     poserLeFilet()
-    console.log(`🎉 Quizz — serveur prêt sur http://localhost:${server.port}${appEnv ? `  [${appEnv}]` : ''}`)
+    console.log(`🎉 FiestApp — serveur prêt sur http://localhost:${server.port}${appEnv ? `  [${appEnv}]` : ''}`)
     // Aucun secret dans les journaux : en ligne, ils sont conservés et
     // lisibles par tout le monde sur le tableau de bord de l'hébergeur.
     // Le QR, lui, montre l'adresse que les téléphones peuvent ouvrir : la

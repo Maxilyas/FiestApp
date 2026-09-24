@@ -2,6 +2,7 @@
 // Partagé : le serveur valide, le client route et affiche.
 
 import { tronquer } from './avatars'
+import { de, deNom } from './typographie'
 
 /** Le nom dans l'adresse : minuscules, chiffres, tirets. Court, il se dicte. */
 export const SLUG = /^[a-z0-9-]{2,24}$/
@@ -87,23 +88,57 @@ export const DEFAULT_MAX_PLAYERS = 150
 /** Au-delà, l'instance gratuite de l'hébergeur ne suit plus. */
 export const MAX_PLAYERS_CEILING = 500
 
-/** Les réglages d'un espace tout neuf : le prénom de l'animateur fait le titre (« La soirée de / Bob »). */
+/**
+ * Les réglages d'un espace tout neuf : le prénom de l'animateur fait le titre
+ * (« La soirée de / Bob », « La soirée d’ / Antoine »). Élidé devant une
+ * voyelle : « La soirée de Antoine » s'affichait au mur de toute la famille.
+ */
 export function defaultSettings(name: string): SpaceSettings {
   return {
-    title: `La soirée de ${name}`,
-    eyebrow: 'La soirée de',
+    title: `La soirée ${deNom(name)}`,
+    eyebrow: `La soirée ${de(name).trim()}`,
     headline: name,
     dateLine: '',
     maxPlayers: DEFAULT_MAX_PLAYERS,
   }
 }
 
+/**
+ * Le titre que l'animateur a donné à sa soirée, ou `null` s'il a gardé celui
+ * par défaut. À la clôture, « Les 40 ans de Sam » nomme la soirée mieux que
+ * « Soirée du 23 septembre 2026 » ; mais « La soirée d’Antoine », identique
+ * d'une soirée à l'autre, ne distinguerait rien dans l'historique : la date,
+ * alors.
+ */
+export function titreChoisi(space: { title: string; name: string }): string | null {
+  const titre = space.title.trim()
+  if (!titre || titre === defaultSettings(space.name).title || titre === `La soirée de ${space.name}`) return null
+  return titre
+}
+
+/**
+ * Le nom que « Clore la soirée » propose. La soirée se range d'elle-même après
+ * chaque quiz, sous sa date (`archiveTitle`) : ce nom automatique cède devant
+ * le titre choisi par l'animateur. Un nom qu'il a tapé dans l'historique, lui,
+ * reste proposé tel quel.
+ */
+export function titreDeCloture(rangee: string | undefined, space: { title: string; name: string }, jour: string): string {
+  const automatique = !rangee || /^Soirée du /.test(rangee)
+  if (!automatique) return rangee
+  return titreChoisi(space) ?? rangee ?? `Soirée du ${jour}`
+}
+
 /** Borne ce qui arrive du navigateur, et comble ce qui manque. */
 export function normalizeSettings(raw: unknown, name: string): SpaceSettings {
   const d = defaultSettings(name)
-  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>
+  const r = { ...(raw && typeof raw === 'object' ? raw : {}) } as Record<string, unknown>
   const text = (v: unknown, fallback: string, max: number) =>
     typeof v === 'string' && v.trim() ? tronquer(v.trim(), max) : fallback
+  // Les espaces créés avant l'élision gardent en base « La soirée de Antoine » :
+  // l'ancien titre par défaut, reconnu mot pour mot, suit le nouveau. Un titre
+  // que l'animateur a tapé lui-même n'est jamais touché.
+  if (r.title === `La soirée de ${name}`) r.title = d.title
+  if (r.eyebrow === 'La soirée de' && (r.headline === undefined || r.headline === name)) r.eyebrow = d.eyebrow
   const n = Number(r.maxPlayers)
   return {
     title: text(r.title, d.title, 80),

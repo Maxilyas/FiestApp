@@ -15,6 +15,7 @@ import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { TeamPicker } from './TeamPicker'
 import { Icon } from './Icon'
+import { espacesFines } from '../format'
 
 /** Ce qu'on envoie au serveur pour être quelqu'un ce soir. */
 export interface Identite {
@@ -635,7 +636,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
           l'invité. L'avatar distingue, et il est à côté du prénom partout. */}
       {homonyme && (
         <p className="warn">
-          Il y a déjà un « {name.trim()} » — ton {avatar} vous distinguera.
+          Il y a déjà un {espacesFines(`« ${name.trim()} »`)} — ton {avatar} vous distinguera.
         </p>
       )}
       {erreur && <p className="error" role="alert">{erreur}</p>}
