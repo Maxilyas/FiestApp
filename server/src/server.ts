@@ -13,6 +13,7 @@ import { seedLibrary } from './core/seed'
 import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
+import { ReserveDInscriptions } from './core/inscriptions'
 import { SpaceRegistry } from './core/space'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore } from './auth/profiles'
@@ -301,7 +302,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
 
-  wireSockets(io, { registry, auth, profiles, trustProxy: !!opts.online })
+  // La réserve d'inscriptions des invités, par adresse et par espace — de
+  // quoi en compter les refus (`mesure()`).
+  const inscriptions = new ReserveDInscriptions()
+  wireSockets(io, { registry, auth, profiles, trustProxy: !!opts.online, inscriptions })
 
   /**
    * Supprime un compte et tout ce qu'il a laissé. L'ordre compte : d'abord

@@ -5,7 +5,7 @@ import type { SpaceRegistry, SpaceRuntime } from './core/space'
 import type { AccountRec, AuthStore } from './auth/store'
 import type { ProfileRec, ProfileStore } from './auth/profiles'
 import { readPlayerToken, readSessionToken } from './auth/http'
-import { Budget } from './core/budget'
+import type { ReserveDInscriptions } from './core/inscriptions'
 import { messagePourEcran } from './core/http'
 
 interface SocketDeps {
@@ -17,6 +17,8 @@ interface SocketDeps {
   profiles: ProfileStore
   /** Derrière le proxy de l'hébergeur, l'adresse du client est dans un en-tête. */
   trustProxy: boolean
+  /** La réserve d'inscriptions par adresse et par espace (`core/inscriptions.ts`) : une par serveur. */
+  inscriptions: ReserveDInscriptions
 }
 
 // ── Garde-fous ───────────────────────────────────────────────────────────
@@ -30,21 +32,7 @@ interface SocketDeps {
 const HELLO_MAX_FAILURES = 5
 /** Identités qu'une même connexion peut créer (une reconnexion n'en crée pas). */
 const JOINS_PER_SOCKET = 3
-/**
- * Inscriptions par adresse : une réserve qui se recharge.
- *
- * Toute une salle peut n'avoir qu'une adresse : le wifi de la fête sort sur
- * Internet par une seule box — c'est l'écran commun lui-même qui en projette
- * le QR —, et en 4G des dizaines d'invités partagent celle de leur opérateur.
- * À 25 d'un coup, la vague de scans qui suit l'apparition du QR prenait des
- * refus. Soixante d'un coup la laissent passer, et soixante par minute font
- * entrer une salle de 150 (le plafond par défaut d'un espace) en moins de
- * deux minutes, retardataires compris. L'attaque mesurée — 200 inscriptions
- * en moins d'une seconde depuis une même adresse — n'en place plus que
- * soixante, puis une par seconde, et le plafond de la soirée borne le reste.
- */
-const JOIN_BURST = 60
-const JOIN_REFILL_PER_MINUTE = 60
+// Les inscriptions par adresse ont leur réserve, par espace : `core/inscriptions.ts`.
 
 const NO_SUCH_SPACE = 'Cette adresse ne mène à aucune soirée'
 const OTHER_SPACE = 'Cette connexion suit déjà une autre soirée'
@@ -116,11 +104,18 @@ function clientIp(socket: Socket, trustProxy: boolean): string {
   return socket.handshake.address
 }
 
+/**
+ * Combien d'adresses porte `x-forwarded-for` — 0 sans l'en-tête. On ne s'en
+ * sert pas pour décider : c'est ce que le journal donne à lire au refus, pour
+ * savoir combien de proxys se tiennent entre les téléphones et nous.
+ */
+function entreesDuProxy(socket: Socket): number {
+  const forwarded = socket.handshake.headers['x-forwarded-for']
+  return typeof forwarded === 'string' && forwarded.trim() ? forwarded.split(',').length : 0
+}
+
 export function wireSockets(io: IoServer, deps: SocketDeps) {
-  // Réserve d'inscriptions par adresse. Les tests et les essais à la maison
-  // passent par l'adresse locale : ils inscrivent cinquante invités d'un
-  // coup, et c'est voulu.
-  const joinBudget = new Budget(JOIN_BURST, JOIN_REFILL_PER_MINUTE, { skipLoopback: true })
+  const { inscriptions } = deps
 
   /** L'espace derrière un nom d'adresse — s'il existe et n'est pas fermé. */
   const spaceOf = (slug: unknown): AccountRec | null => {
@@ -319,7 +314,10 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           if (rt.party.count() >= rt.maxPlayers) {
             return repondre({ ok: false, error: 'La soirée est complète !' })
           }
-          if (identitiesCreated >= JOINS_PER_SOCKET || !joinBudget.take(ip)) {
+          if (
+            identitiesCreated >= JOINS_PER_SOCKET ||
+            !inscriptions.prendre(ip, rt.spaceId, entreesDuProxy(socket), deps.auth.byId(rt.spaceId)?.slug)
+          ) {
             return repondre({ ok: false, error: 'Trop d’inscriptions d’un coup — réessaie dans une minute' })
           }
         }
@@ -581,9 +579,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     const clore = (title?: string) => {
       const rt = requireHost()
       if (!rt) return
+      const invites = rt.party.count()
       return rt
         .closeParty(title)
         .then(archived => {
+          inscriptions.clore(rt.spaceId, invites, deps.auth.byId(rt.spaceId)?.slug)
           socket.emit(
             'toast',
             archived
@@ -602,9 +602,15 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     ecouter('host:discardParty', () => {
       const rt = requireHost()
       if (!rt) return
+      const invites = rt.party.count()
       return rt
         .discardParty()
-        .then(() => socket.emit('toast', { kind: 'info', message: 'Essai effacé — rien n’a été gardé' }))
+        .then(() => {
+          // Un essai compte aussi pour la mesure : ses invités sont venus
+          // par les mêmes proxys que ceux d'une vraie soirée.
+          inscriptions.clore(rt.spaceId, invites, deps.auth.byId(rt.spaceId)?.slug)
+          socket.emit('toast', { kind: 'info', message: 'Essai effacé — rien n’a été gardé' })
+        })
         .catch(e => {
           socket.emit('toast', { kind: 'error', message: `Rien n’a été effacé : ${messagePourEcran(e, 'host:discardParty')}` })
         })
