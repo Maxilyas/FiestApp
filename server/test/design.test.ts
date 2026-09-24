@@ -266,3 +266,10 @@ test('T12 · le mot de passe s’affiche, sous un bouton au nom fixe', async () 
   assert.equal([...profil.matchAll(/<MotDePasse\b/g)].length, 1)
   assert.doesNotMatch(entree + profil, /type="password"/)
 })
+
+test('T6 · un mot trop long pour sa case se coupe à la syllabe, pas n’importe où', () => {
+  assert.match(regle('.ans-text'), /hyphens:\s*auto/)
+  assert.doesNotMatch(regle('.ans-text'), /overflow-wrap:\s*anywhere/)
+  // La césure suit la langue de la page.
+  assert.match(readFileSync(new URL('../../client/index.html', import.meta.url), 'utf8'), /<html lang="fr">/)
+})

@@ -1351,7 +1351,10 @@ h3 > .icon {
 /* Dans une phrase, la forme s'aligne sur le texte. */
 .ans-shape.inline { width: 0.9em; height: 0.9em; vertical-align: -0.08em; margin-right: 0.15em; }
 
-.ans-text { position: relative; z-index: 1; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* Un mot trop long pour sa case se coupe à une syllabe, avec son tiret
+   (`lang="fr"`) : `anywhere` coupait « L'Exposit / ion » au texte très
+   agrandi. `break-word` ne coupe qu'en dernier recours. */
+.ans-text { position: relative; z-index: 1; flex: 1; min-width: 0; overflow-wrap: break-word; hyphens: auto; }
 
 /* Réponse choisie : le filet champagne, un fond à 12 %, une coche. */
 .ans-btn.chosen { border: 1.5px solid var(--accent); background: var(--accent-soft); }
