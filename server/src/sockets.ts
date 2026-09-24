@@ -374,9 +374,18 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           avatar: res.avatar,
           ...(profile && { profile: deps.profiles.toPublic(profile) }),
         })
-        rt.broadcastSnapshot()
         // Arrivé en cours de quiz : on l'y intègre pour les questions à venir.
-        rt.engine.joinLate(res.id)
+        // Celui qui vient de faire le geste ne passe pas par le regroupement :
+        // sa page ne montre la question que si l'instantané le compte parmi
+        // les participants, et la fenêtre des téléphones grandit avec la
+        // salle — une seconde à 500 invités, à lire « tu entres à la
+        // prochaine question » en pleine question. Un téléphone qui se
+        // re-présente, lui, ne change même pas la salle des téléphones (qui
+        // dort et qui veille n'y figure plus) : le regroupement ne lui
+        // renverrait rien du tout. L'instantané part une fois l'invité
+        // compté dans la partie, et avant sa première vue.
+        rt.engine.joinLate(res.id, () => socket.emit('party:snapshot', rt.buildSnapshot(false)))
+        rt.broadcastSnapshot()
         rt.engine.resendViews(res.id)
       },
       { ok: false, error: SERVER_ERROR },
@@ -445,6 +454,9 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           return repondre({ ok: false, error: 'Pas pendant un quiz — on verra à la fin !' })
         }
         rt.party.assign(playerId, validTeam(rt, texte(charge.teamId)))
+        // Sa nouvelle équipe, à lui d'abord et avant l'accusé : la page qui
+        // le reçoit relit son en-tête dans l'instantané, pas dans l'accusé.
+        socket.emit('party:snapshot', rt.buildSnapshot(false))
         rt.broadcastSnapshot()
         repondre({ ok: true })
       },
@@ -515,7 +527,13 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       const playerId = texte(charge.playerId)
       const name = texte(charge.name)
       if (!rt || !playerId || name === undefined) return
-      if (rt.party.rename(playerId, name)) rt.broadcastSnapshot()
+      if (!rt.party.rename(playerId, name)) return
+      rt.broadcastSnapshot()
+      // Le prénom s'écrit aussi dans les vues de la partie — le podium, le
+      // plus rapide de l'écran commun (`ViewContext.playerName`). Rien ne
+      // les recalculait : c'était le geste égaré d'un autre invité, et une
+      // réponse ne recalcule plus que la vue de son auteur.
+      rt.engine.rafraichirVues()
     })
 
     ecouter('host:removePlayer', charge => {

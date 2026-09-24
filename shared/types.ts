@@ -8,7 +8,12 @@ export interface PublicPlayer {
   id: string
   name: string
   avatar: string
-  connected: boolean
+  /**
+   * Son téléphone est-il connecté ? Seul l'écran commun le reçoit : dans
+   * l'instantané des téléphones, chaque veille d'écran renvoyait sinon toute
+   * la salle à tout le monde.
+   */
+  connected?: boolean
   /** Score cumulé sur toute la soirée (tous les quiz confondus). */
   score: number
   /** Son équipe, ou null tant qu'il n'en a pas choisi. */

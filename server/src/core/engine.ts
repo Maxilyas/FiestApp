@@ -23,6 +23,16 @@ import { pouls } from './pouls'
 const MIRROR_INTERVAL_MS = 2000
 
 /**
+ * Pendant une question, l'écran commun ne reçoit pas plus de quatre vues par
+ * seconde pour un compteur « 12 / 50 ont répondu » qui monte. Chaque réponse
+ * lui renvoyait sa vue entière, et il se redessinait tout entier : 23 fois
+ * par seconde à 140 invités. Le dernier compte part toujours, au plus tard
+ * au bout de l'intervalle ; une révélation, un changement de phase, partent
+ * sur-le-champ.
+ */
+const HOST_INTERVAL_MS = 250
+
+/**
  * Ce qui, dans une partie, décide d'une recopie immédiate : sa phase, et les
  * chronomètres armés. Le moteur ne connaît pas les règles ; il sait qu'une
  * partie qui change de phase ou de chronomètres (une révélation, une
@@ -89,6 +99,28 @@ export class GameEngine {
   private mirrorDirty = false
   /** Dernier état écrit localement — celui à envoyer si on coupe pendant l'attente. */
   private lastRow: SessionRow | null = null
+
+  /**
+   * L'écriture locale d'une simple réponse, remise à la fin du tour de
+   * boucle. Deux cents réponses lues dans le même tour réécrivaient deux
+   * cents fois l'état entier de la partie (86 Ko à 500 invités) : une seule
+   * suffit, celle du dernier état. Une phase, un chronomètre armé ou
+   * désarmé, des gains ou des réponses au journal s'écrivent sur-le-champ,
+   * dans le même lot que le reste (voir `run()`).
+   *
+   * La fenêtre ouverte entre l'accusé et l'écriture est de l'ordre de la
+   * milliseconde — quelques dizaines sous une rafale au dixième de cœur :
+   * c'est ce qu'un SIGKILL peut emporter, et seulement la réponse elle-même.
+   * Un chronomètre RÉARMÉ sous la même clé (le souffle qu'un invité qui se
+   * ravise relance, `quiz.ts`) ne change pas l'`empreinte` : sa nouvelle
+   * échéance attend, elle aussi, la fin du tour. Au pire, un réveil
+   * reprend l'ancienne, un souffle plus tôt.
+   */
+  private persistEnAttente: ReturnType<typeof setImmediate> | null = null
+
+  /** La vue de l'écran commun en attente de sa fenêtre, et l'heure du dernier envoi. */
+  private hostTimer: ReturnType<typeof setTimeout> | null = null
+  private hostEnvoyeA = 0
 
   /**
    * Le mémo de la diffusion en cours — voir `ViewContext.memo`. Null entre
@@ -206,9 +238,13 @@ export class GameEngine {
     if (!sess || sess.id !== sessionId || sess.status !== 'running') return 'ended'
     if (!sess.participantIds.includes(playerId)) return 'not-participant'
     let refusal: ActionRefusal | null = null
-    this.run(sess, ctx => {
-      refusal = this.module.onPlayerAction(sess, playerId, action, ctx) ?? null
-    })
+    this.run(
+      sess,
+      ctx => {
+        refusal = this.module.onPlayerAction(sess, playerId, action, ctx) ?? null
+      },
+      playerId,
+    )
     return refusal
   }
 
@@ -223,6 +259,8 @@ export class GameEngine {
     if (!sess || sess.id !== sessionId) return
     for (const t of sess.timers.values()) clearTimeout(t.handle)
     sess.timers.clear()
+    if (this.hostTimer) clearTimeout(this.hostTimer)
+    this.hostTimer = null
     sess.status = 'ended'
     this.persist(sess)
     this.session = null
@@ -245,6 +283,13 @@ export class GameEngine {
    */
   stop() {
     if (this.session) for (const t of this.session.timers.values()) clearTimeout(t.handle)
+    if (this.hostTimer) clearTimeout(this.hostTimer)
+    this.hostTimer = null
+    // Une réponse retenue attend encore son écriture : elle part maintenant,
+    // en local comme au miroir — la base locale est encore ouverte.
+    if (this.persistEnAttente && this.session?.status === 'running') this.persist(this.session)
+    if (this.persistEnAttente) clearImmediate(this.persistEnAttente)
+    this.persistEnAttente = null
     if (this.mirrorTimer) clearTimeout(this.mirrorTimer)
     this.mirrorTimer = null
     if (this.mirrorDirty && this.lastRow && this.session?.status === 'running') {
@@ -259,11 +304,27 @@ export class GameEngine {
    * attribué) mais il joue les suivantes — mieux que d'attendre le quiz d'après.
    * Sans effet pour quelqu'un qui participe déjà : une reconnexion n'est pas
    * une arrivée.
+   *
+   * `avantLesVues` est appelé une fois, toujours : dès que l'invité compte
+   * parmi les participants, avant qu'une vue de la partie ne parte. C'est là
+   * que son téléphone reçoit l'instantané qui le compte — reçu après sa
+   * vue, il affichait « tu entres à la prochaine question » par-dessus la
+   * question, le temps que l'instantané suive.
    */
-  joinLate(playerId: string) {
+  joinLate(playerId: string, avantLesVues?: () => void) {
+    const annoncer = () => {
+      // Une annonce qui échoue ne doit pas laisser la partie à moitié
+      // rejointe — inscrite, mais ni écrite ni rediffusée.
+      try {
+        avantLesVues?.()
+      } catch (e) {
+        console.error('[partie] annonce d’une arrivée', e)
+      }
+    }
     const sess = this.session
-    if (!sess || sess.status !== 'running' || sess.participantIds.includes(playerId)) return
+    if (!sess || sess.status !== 'running' || sess.participantIds.includes(playerId)) return annoncer()
     sess.participantIds.push(playerId)
+    annoncer()
     if (this.module.onPlayerJoin) {
       this.run(sess, ctx => this.module.onPlayerJoin!(sess, playerId, ctx))
     } else {
@@ -347,22 +408,29 @@ export class GameEngine {
    * ouverte, et ses gains déjà payés — au réveil, elle se révélait une
    * seconde fois, et 177 points devenaient 354.
    */
-  private run(sess: LiveSession, fn: (ctx: GameContext) => void) {
+  private run(sess: LiveSession, fn: (ctx: GameContext) => void, auteur?: string) {
     if (sess.status !== 'running') return
     const avant = empreinte(sess)
     let scoresChanged = false
+    /** Le passage a écrit au journal : l'état doit partir avec, tout de suite. */
+    let journal = false
     let shouldEnd = false
     let verdict = false
     const ctx: GameContext = {
       award: (playerId, points, reason) => {
         this.deps.ledger.award(playerId, points, reason, sess.id)
         scoresChanged = true
+        journal = true
       },
       logAnswers: rows => {
         const createdAt = Date.now()
         this.deps.answers.write(rows.map(r => ({ ...r, sessionId: sess.id, createdAt })))
+        journal = true
       },
-      dropAnswers: qIndex => this.deps.answers.dropQuestion(sess.id, qIndex),
+      dropAnswers: qIndex => {
+        this.deps.answers.dropQuestion(sess.id, qIndex)
+        journal = true
+      },
       setTimer: (timerId, ms) => this.armTimer(sess, timerId, ms),
       clearTimer: timerId => this.disarmTimer(sess, timerId),
       end: () => {
@@ -385,8 +453,17 @@ export class GameEngine {
       if (shouldEnd) {
         this.endSession(sess.id)
       } else {
-        this.persist(sess, empreinte(sess) !== avant)
-        this.fanout(sess)
+        const urgent = empreinte(sess) !== avant
+        // Une réponse d'invité qui ne change ni la phase, ni les chronomètres,
+        // ni le journal : c'est le va-et-vient d'une question. Son état attend
+        // la fin du tour de boucle, et seules deux vues sont recalculées si le
+        // module le promet. Tout le reste — le dernier à répondre, qui arme
+        // le souffle, compris — suit le chemin complet.
+        const vaEtVient = auteur !== undefined && !urgent && !journal
+        if (vaEtVient) this.persistBientot(sess)
+        else this.persist(sess, urgent)
+        if (vaEtVient && this.module.vueDependDesAutres === false) this.fanoutCible(sess, auteur)
+        else this.fanout(sess)
       }
     } finally {
       // Même quand le handler lève une exception : ce qu'il a écrit en local
@@ -434,19 +511,62 @@ export class GameEngine {
 
   private fanout(sess: LiveSession) {
     this.broadcast(() => {
-      for (const playerId of sess.participantIds) {
-        const view = this.module.playerView(sess, playerId, this.vctx)
-        if (this.changed(`player:${playerId}`, view)) {
-          this.deps.io.to(`player:${playerId}`).emit('session:view', { sessionId: sess.id, view })
-        }
-      }
-      // L'écran commun, lui, bouge à chaque réponse (le compteur « 12/50 ont
-      // répondu ») : sa vue change vraiment, on la renvoie.
-      const hostView = this.module.hostView(sess, this.vctx)
-      if (this.changed('__host__', hostView)) {
-        this.deps.io.to(`hosts:${this.deps.spaceId}`).emit('session:view', { sessionId: sess.id, view: hostView })
-      }
+      for (const playerId of sess.participantIds) this.envoyerVue(sess, playerId)
+      this.fanoutHost(sess)
     })
+  }
+
+  /**
+   * La rediffusion d'une simple réponse : la vue de son auteur, et celle de
+   * l'écran commun à sa cadence. Les autres téléphones n'ont rien reçu de
+   * plus avec le chemin complet — `changed` les écartait —, mais chacune de
+   * leurs vues était recalculée et resérialisée pour rien.
+   */
+  private fanoutCible(sess: LiveSession, playerId: string) {
+    this.broadcast(() => {
+      if (sess.participantIds.includes(playerId)) this.envoyerVue(sess, playerId)
+    })
+    if (this.hostTimer) return
+    // Borné à la fenêtre : `Date.now()` n'est pas monotone, et une horloge
+    // qui recule (une resynchronisation de l'heure) repoussait sinon le
+    // compteur jusqu'au prochain changement de phase.
+    const attente = Math.min(HOST_INTERVAL_MS, this.hostEnvoyeA + HOST_INTERVAL_MS - Date.now())
+    if (attente <= 0) {
+      this.broadcast(() => this.fanoutHost(sess))
+      return
+    }
+    this.hostTimer = setTimeout(() => {
+      this.hostTimer = null
+      // Hors de tout `ecouter()` : une vue qui lève ici remontait au filet
+      // global — et tuait le processus avant qu'il soit posé.
+      try {
+        if (this.session === sess && sess.status === 'running') this.broadcast(() => this.fanoutHost(sess))
+      } catch (e) {
+        console.error('[partie] vue de l’écran commun', e)
+      }
+    }, attente)
+  }
+
+  private envoyerVue(sess: LiveSession, playerId: string) {
+    const view = this.module.playerView(sess, playerId, this.vctx)
+    if (this.changed(`player:${playerId}`, view)) {
+      this.deps.io.to(`player:${playerId}`).emit('session:view', { sessionId: sess.id, view })
+    }
+  }
+
+  /**
+   * L'écran commun, lui, bouge à chaque réponse (le compteur « 12/50 ont
+   * répondu ») : sa vue change vraiment, on la renvoie — et elle emporte
+   * celle qui attendait sa fenêtre.
+   */
+  private fanoutHost(sess: LiveSession) {
+    if (this.hostTimer) clearTimeout(this.hostTimer)
+    this.hostTimer = null
+    const hostView = this.module.hostView(sess, this.vctx)
+    if (this.changed('__host__', hostView)) {
+      this.hostEnvoyeA = Date.now()
+      this.deps.io.to(`hosts:${this.deps.spaceId}`).emit('session:view', { sessionId: sess.id, view: hostView })
+    }
   }
 
   /**
@@ -472,8 +592,26 @@ export class GameEngine {
     return true
   }
 
+  /** Écrit la partie à la fin du tour de boucle — une fois pour toutes les réponses lues pendant ce tour. */
+  private persistBientot(sess: LiveSession) {
+    if (this.persistEnAttente) return
+    this.persistEnAttente = setImmediate(() => {
+      this.persistEnAttente = null
+      // Hors de tout `ecouter()`, comme un chronomètre : une erreur SQLite ne
+      // donne plus d'accusé d'erreur à personne, elle se journalise.
+      try {
+        if (this.session === sess && sess.status === 'running') this.persist(sess)
+      } catch (e) {
+        console.error('[partie] écriture regroupée', e)
+      }
+    })
+  }
+
   /** Écrit la partie en local, puis la recopie — tout de suite si `urgent`, à la cadence du va-et-vient sinon. */
   private persist(sess: LiveSession, urgent = false) {
+    // L'état écrit ici est le dernier : celui qui attendait n'a plus rien à dire.
+    if (this.persistEnAttente) clearImmediate(this.persistEnAttente)
+    this.persistEnAttente = null
     const timers: Record<string, number> = {}
     for (const [id, t] of sess.timers) timers[id] = t.deadline
     const row: SessionRow = {
