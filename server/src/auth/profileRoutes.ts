@@ -22,6 +22,8 @@ interface ProfileApiDeps {
   auth: AuthStore
   /** En ligne, le cookie ne voyage qu'en HTTPS. */
   online: boolean
+  /** Un profil a changé ce que la salle voit de lui (finition, légendaire) : les soirées où il joue le rediffusent. */
+  profilChange: (profileId: string) => void
 }
 
 /**
@@ -270,6 +272,10 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         finition: req.body?.finition,
         legendaire: req.body?.legendaire,
       })
+      // Sa finition et son légendaire se lisent en mémoire à chaque
+      // instantané, mais rien ne le renvoyait : c'était la veille suivante
+      // de n'importe qui, et une veille ne repart plus aux téléphones.
+      deps.profilChange(updated.id)
       res.json({ profile: profiles.toPublic(updated) })
     }),
   )

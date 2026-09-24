@@ -1,146 +1,106 @@
-// L'enchaînement automatique devant une salle vide.
+// L'enchaînement des questions et le choix du quiz, vus de la console.
 //
-// Le 24 septembre, une coupure a vidé la salle de Nadia en plein quiz : en
-// mode « 10 s », le serveur a joué trois questions et le podium devant
-// personne. La règle : une question close d'elle-même, sans une seule
-// réponse de toute la salle, n'enchaîne pas toute seule — la suite attend le
-// clic de l'animateur, et l'écran dit pourquoi. Un « Révéler » cliqué dit que
-// l'animateur est là : la suite part alors comme il l'a réglée. Le mode reste
-// choisi : dès qu'une question reçoit une réponse, il reprend de lui-même.
+// Léa pilotait debout, l'enchaînement réglé sur 20 s : pendant la photo à
+// mémoriser, la console affichait « au clic », et chaque nouveau quiz
+// repartait « au clic » — à régler de nouveau, téléphone en main. Et le
+// choix du quiz ne disait pas lequel on avait déjà joué ce soir.
 //
-// Le module de jeu se joue ici sans serveur : ce qui compte, c'est quel
-// chronomètre il arme, et ce que dit la vue de l'écran commun.
+// Chaque test a son propre serveur jetable.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { quizModule, setQuizLibrary } from '../src/games/quiz'
-import type { GameContext, GameSessionRec, ViewContext } from '../src/core/types'
-import type { QuizDef } from '../../shared/library'
+import {
+  attendre,
+  connexionAnimateur,
+  creerQuiz,
+  demarrer,
+  ecranCommun,
+  invite,
+  lancerQuiz,
+  qcm,
+  type Banc,
+  type Socket,
+} from './banc'
 
-function partie(nbQuestions = 3) {
-  const spaceId = 'banc-enchainement'
-  const quiz: QuizDef = {
-    id: 'enchainement',
-    title: 'Enchaînement',
-    updatedAt: 0,
-    questions: Array.from({ length: nbQuestions }, (_, i) => ({
-      kind: 'choice' as const,
-      text: `Question ${i + 1} ?`,
-      answers: ['Oui', 'Non'],
-      correct: 0,
-      target: null,
-      unit: '',
-      duration: 20,
-      image: null,
-      observeSeconds: null,
-    })),
+async function avecBanc(scenario: (banc: Banc) => Promise<void>) {
+  const banc = await demarrer()
+  try {
+    await scenario(banc)
+  } finally {
+    await banc.close()
   }
-  setQuizLibrary(spaceId, [quiz])
-  const ids = ['alice', 'bob']
-  /** Les chronomètres armés, par nom : c'est ce que le moteur persiste et réarme. */
-  const minuteurs = new Map<string, number>()
-  let now = 1_000_000
-  const ctx: GameContext = {
-    award: () => {},
-    logAnswers: () => {},
-    dropAnswers: () => {},
-    setTimer: (id, ms) => void minuteurs.set(id, ms),
-    clearTimer: id => void minuteurs.delete(id),
-    end: () => {},
-    verdict: () => {},
-    participants: () => [],
-    playerName: id => id,
-    now: () => (now += 13),
-  }
-  const vctx: ViewContext = {
-    playerName: id => id,
-    player: () => undefined as any,
-    memo: <T>(_: string, calculer: () => T) => calculer(),
-  }
-  const sess: GameSessionRec<any> = {
-    id: 'enchainement',
-    spaceId,
-    status: 'running',
-    participantIds: ids,
-    state: quizModule.createInitialState(spaceId, ids, undefined),
-  }
-  quizModule.onHostCommand!(sess, { type: 'selectPack', packId: 'enchainement' }, ctx)
-  quizModule.onHostCommand!(sess, { type: 'autoNext', seconds: 10 }, ctx)
-  quizModule.onTimer!(sess, 'ready', ctx)
-  const ecran = () => quizModule.hostView(sess, vctx) as any
-  /** La fin du chronomètre de la question : la révélation. */
-  const finDuTemps = () => quizModule.onTimer!(sess, 'question', ctx)
-  return { sess, ctx, minuteurs, ecran, finDuTemps }
 }
 
-test('personne n’a répondu : la révélation n’enchaîne pas, et la console dit pourquoi', () => {
-  const { sess, minuteurs, ecran, finDuTemps } = partie()
-  assert.equal(sess.state.phase, 'question')
-  finDuTemps()
-  assert.equal(sess.state.phase, 'reveal')
-  assert.equal(minuteurs.has('autoNext'), false, 'aucun enchaînement ne doit partir devant une salle vide')
-  const v = ecran()
-  assert.equal(v.autoNextAt, undefined, 'aucun compte à rebours à l’écran')
-  assert.equal(v.autoNextSuspendu, true, 'la console doit dire pourquoi elle attend')
-  // Le mode reste choisi : c'est l'animateur qui relance, d'un clic.
-  assert.equal(v.autoNextSeconds, 10)
-})
+/** Une photo « mémoire » : son adresse suffit, le serveur ne sert pas l'image pendant la partie. */
+const PHOTO = '/media/image/00000000-0000-4000-8000-000000000000'
 
-test('le clic de l’animateur relance, et une question répondue enchaîne de nouveau toute seule', () => {
-  const { sess, ctx, minuteurs, ecran, finDuTemps } = partie()
-  finDuTemps()
-  assert.equal(minuteurs.has('autoNext'), false, 'suspendu : c’est le clic qui relance, pas le chronomètre')
-  quizModule.onHostCommand!(sess, { type: 'next' }, ctx)
-  assert.equal(sess.state.phase, 'question')
-  assert.equal(sess.state.qIndex, 1)
-  assert.equal(ecran().autoNextSuspendu, undefined, 'la question suivante n’a plus rien à justifier')
+const commande = (host: Socket, sessionId: string, command: unknown) =>
+  (host as any).emit('host:command', { sessionId, command })
 
-  quizModule.onPlayerAction(sess, 'alice', { type: 'answer', choice: 0 }, ctx)
-  finDuTemps()
-  assert.equal(sess.state.phase, 'reveal')
-  assert.equal(minuteurs.get('autoNext'), 10_000, 'une réponse suffit : l’enchaînement repart')
-  assert.equal(ecran().autoNextSuspendu, undefined)
-})
+const vue = (host: Socket, pred: (v: any) => boolean, label: string) =>
+  attendre<any>(host, 'session:view', p => pred(p.view), label, 15_000).then(p => p.view)
 
-test('« Révéler » au clic, même sans réponse : l’animateur est là, la suite part comme il l’a réglée', () => {
-  const { sess, ctx, minuteurs, ecran } = partie()
-  quizModule.onHostCommand!(sess, { type: 'next' }, ctx)
-  assert.equal(sess.state.phase, 'reveal')
-  assert.equal(minuteurs.get('autoNext'), 10_000)
-  assert.equal(ecran().autoNextSuspendu, undefined)
-})
+test('pendant la photo à mémoriser, la console sait que l’enchaînement est réglé', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const quiz = await creerQuiz(banc.url, cookie, [
+      qcm('Pour commencer ?', ['Oui', 'Non'], 0, 60),
+      { ...qcm('Combien de bougies ?', ['Trente', 'Quarante'], 0, 60), image: PHOTO, observeSeconds: 30 },
+    ])
+    await invite(banc.url, 'Alice')
+    const host = await ecranCommun(banc.url, cookie)
+    const sessionId = await lancerQuiz(host, quiz)
+    await vue(host, v => v.phase === 'question', 'la première question')
+    commande(host, sessionId, { type: 'autoNext', seconds: 20 })
+    await vue(host, v => v.phase === 'question' && v.autoNextSeconds === 20, 'l’enchaînement réglé')
+    commande(host, sessionId, { type: 'next' })
+    await vue(host, v => v.phase === 'reveal', 'la révélation')
+    commande(host, sessionId, { type: 'next' })
+    const photo = await vue(host, v => v.phase === 'observe', 'la photo')
+    assert.equal(photo.autoNextSeconds, 20, 'la photo dit l’enchaînement réglé')
 
-test('en manuel, rien ne change : pas de pause à dire', () => {
-  const { sess, ctx, ecran, finDuTemps } = partie()
-  quizModule.onHostCommand!(sess, { type: 'autoNext', seconds: null }, ctx)
-  finDuTemps()
-  assert.equal(ecran().autoNextSuspendu, undefined)
-})
+    // Et « au clic » y reprend vraiment la main.
+    commande(host, sessionId, { type: 'autoNext', seconds: null })
+    await vue(host, v => v.phase === 'observe' && v.autoNextSeconds === null, 'la main reprise pendant la photo')
+  }))
 
-test('choisir un palier pendant la révélation suspendue relance l’enchaînement', () => {
-  const { sess, ctx, minuteurs, ecran, finDuTemps } = partie()
-  finDuTemps()
-  assert.equal(minuteurs.has('autoNext'), false, 'suspendu avant le choix du palier')
-  quizModule.onHostCommand!(sess, { type: 'autoNext', seconds: 5 }, ctx)
-  assert.equal(minuteurs.get('autoNext'), 5_000)
-  assert.equal(ecran().autoNextSuspendu, undefined)
-})
+test('le quiz suivant garde l’enchaînement du précédent, et le choix dit ce qui a été joué ce soir', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const premier = await creerQuiz(banc.url, cookie, [qcm('Première ?', ['Oui', 'Non'], 0, 60)], 'Le premier')
+    const second = await creerQuiz(banc.url, cookie, [qcm('Seconde ?', ['Oui', 'Non'], 0, 60)], 'Le second')
+    await invite(banc.url, 'Alice')
+    const host = await ecranCommun(banc.url, cookie)
 
-test('retoucher le palier déjà allumé relance aussi : allumé et inerte, il se lisait comme une panne', () => {
-  // La console renvoie le palier actif pendant la suspension (HostView) :
-  // le serveur doit l'entendre comme un « c'est reparti ».
-  const { sess, ctx, minuteurs, ecran, finDuTemps } = partie()
-  finDuTemps()
-  assert.equal(minuteurs.has('autoNext'), false)
-  quizModule.onHostCommand!(sess, { type: 'autoNext', seconds: 10 }, ctx)
-  assert.equal(minuteurs.get('autoNext'), 10_000)
-  assert.equal(ecran().autoNextSuspendu, undefined)
-})
+    const choix = vue(host, v => v.phase === 'pickPack', 'le choix du premier quiz')
+    const sessionId = await lancerQuiz(host, premier)
+    const avant = await choix
+    assert.equal(avant.packs.some((p: any) => p.joueCeSoir), false, 'rien n’est joué avant le premier quiz')
+    await vue(host, v => v.phase === 'question', 'la question')
+    commande(host, sessionId, { type: 'autoNext', seconds: 10 })
+    await vue(host, v => v.autoNextSeconds === 10, 'l’enchaînement réglé')
+    ;(host as any).emit('host:endSession', { sessionId })
 
-test('« personne » est pris au mot : à la dernière question, c’est le podium qui attend le clic', () => {
-  const { sess, ctx, minuteurs, finDuTemps } = partie(1)
-  finDuTemps()
-  assert.equal(sess.state.phase, 'reveal')
-  assert.equal(minuteurs.has('autoNext'), false, 'le podium ne part pas devant une salle qui a séché')
-  quizModule.onHostCommand!(sess, { type: 'next' }, ctx)
-  assert.equal(sess.state.phase, 'finished')
-})
+    // Le quiz suivant : même enchaînement, et le premier marqué.
+    const choixSuivant = vue(host, v => v.phase === 'pickPack', 'le choix du quiz suivant')
+    const suivant = await lancerQuiz(host, second)
+    const apres = await choixSuivant
+    const joues = apres.packs.filter((p: any) => p.joueCeSoir).map((p: any) => p.id)
+    assert.deepEqual(joues, [premier], 'le premier quiz est « joué ce soir », pas le second')
+    const question = await vue(host, v => v.phase === 'question', 'la question du quiz suivant')
+    assert.equal(question.autoNextSeconds, 10, 'l’enchaînement suit d’un quiz à l’autre')
+
+    // La clôture l'oublie : la soirée suivante repart au clic, sans rien de joué.
+    commande(host, suivant, { type: 'next' })
+    await vue(host, v => v.phase === 'reveal', 'la révélation')
+    ;(host as any).emit('host:endSession', { sessionId: suivant })
+    const close = attendre<any>(host, 'toast', () => true, 'la clôture', 15_000)
+    ;(host as any).emit('host:discardParty')
+    await close
+    await invite(banc.url, 'Bob', '🐻')
+    const vierge = vue(host, v => v.phase === 'pickPack', 'le choix de la soirée suivante')
+    const nouvelle = await lancerQuiz(host, premier)
+    assert.equal((await vierge).packs.some((p: any) => p.joueCeSoir), false, 'une nouvelle soirée n’a rien joué')
+    const q = await vue(host, v => v.phase === 'question', 'la question de la soirée suivante')
+    assert.equal(q.autoNextSeconds, null, 'la soirée suivante repart au clic')
+    ;(host as any).emit('host:endSession', { sessionId: nouvelle })
+  }))

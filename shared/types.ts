@@ -8,7 +8,12 @@ export interface PublicPlayer {
   id: string
   name: string
   avatar: string
-  connected: boolean
+  /**
+   * Son téléphone est-il connecté ? Seul l'écran commun le reçoit : dans
+   * l'instantané des téléphones, chaque veille d'écran renvoyait sinon toute
+   * la salle à tout le monde.
+   */
+  connected?: boolean
   /** Score cumulé sur toute la soirée (tous les quiz confondus). */
   score: number
   /** Son équipe, ou null tant qu'il n'en a pas choisi. */
@@ -50,7 +55,12 @@ export interface PublicTeam {
   memberCount: number
   /** Somme des points des membres — affichée à titre indicatif. */
   total: number
-  /** total ÷ memberCount, arrondi. C'est lui qui classe les équipes. */
+  /**
+   * La moyenne de l'équipe (`moyenneAuProrata`, `shared/teams.ts`) : pour
+   * chaque question, la moyenne des lignes du journal jouées pour elle, et la
+   * somme de ces moyennes. Elle donne les points d'équipe ; les prix s'y
+   * ajoutent, et ce sont eux qui classent.
+   */
   average: number
   /** Points de prix attribués à la main par l'animateur, cumulés. */
   bonus: number
@@ -91,6 +101,30 @@ export interface PartySnapshot {
    * — il ne change qu'aux transitions, jamais à chaque essai.
    */
   sauvegardeEnRetard?: true
+  /**
+   * Ce que les écrans d'animateur montrent hors du jeu — podium de la
+   * soirée, remise des prix, victoire, clôture. Tenue par le serveur : ouverte
+   * à la télécommande, elle passe à la télé. Envoyée aux écrans d'animateur
+   * seulement, et absente en salle d'attente.
+   */
+  scene?: Scene
+  /**
+   * Un écran d'animateur de l'espace se tient en télécommande : la télé peut
+   * garder les coulisses (la grille des prix, la liste des quiz) pour lui.
+   */
+  telecommande?: true
+}
+
+/** Les écrans de fin de soirée, projetés à la place du jeu. */
+export type EcranDeScene = 'podium' | 'prix' | 'victoire' | 'cloture'
+
+/** Le podium de la soirée montre les équipes ou les joueurs. */
+export type OngletDePodium = 'equipes' | 'joueurs'
+
+export interface Scene {
+  ecran: EcranDeScene
+  /** Au podium seulement : ce qu'on y montre. */
+  onglet?: OngletDePodium
 }
 
 /** Page souvenir : ce qu'il reste de la soirée, le lendemain. */
@@ -214,6 +248,13 @@ export interface Recap {
   bonuses: TeamBonus[]
   /** Présent quand la page relit une soirée archivée plutôt que celle en cours. */
   archive?: ArchiveSummary
+  /**
+   * L'identifiant de la soirée en cours dans l'historique, dès qu'elle a joué :
+   * « Copier » et « Partager » donnaient `/<espace>/souvenir`, l'adresse qui
+   * changera de soirée à la suivante. L'archive existe dès le premier quiz
+   * rangé. Absent d'un serveur d'avant.
+   */
+  soireeId?: string
   /** Présent quand la soirée en cours n'a rien joué : la dernière soirée close, à montrer à sa place. */
   derniere?: DerniereSoiree
   /** L'espace dont la page parle — ses titres, sa date. */

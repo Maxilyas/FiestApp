@@ -1,12 +1,16 @@
 import type { Socket } from 'socket.io'
 import type { ActionAck, ActionRefusal, ClientToServerEvents } from '../../shared/events'
+import type { EcranDeScene } from '../../shared/types'
 import type { IoServer } from './core/types'
 import type { SpaceRegistry, SpaceRuntime } from './core/space'
 import type { AccountRec, AuthStore } from './auth/store'
 import type { ProfileRec, ProfileStore } from './auth/profiles'
 import { readPlayerToken, readSessionToken } from './auth/http'
-import { Budget } from './core/budget'
+import type { ReserveDInscriptions } from './core/inscriptions'
 import { messagePourEcran } from './core/http'
+import { sansAccent } from '../../shared/homonymes'
+import { cleanName, tronquer } from '../../shared/avatars'
+import { pouls } from './core/pouls'
 
 interface SocketDeps {
   /** Les soirées en cours, une par espace. */
@@ -17,6 +21,8 @@ interface SocketDeps {
   profiles: ProfileStore
   /** Derrière le proxy de l'hébergeur, l'adresse du client est dans un en-tête. */
   trustProxy: boolean
+  /** La réserve d'inscriptions par adresse et par espace (`core/inscriptions.ts`) : une par serveur. */
+  inscriptions: ReserveDInscriptions
 }
 
 // ── Garde-fous ───────────────────────────────────────────────────────────
@@ -28,23 +34,15 @@ interface SocketDeps {
 
 /** Présentations refusées tolérées par connexion avant de la couper. */
 const HELLO_MAX_FAILURES = 5
+/**
+ * Codes « Rendre sa place » manqués tolérés par connexion, tant que
+ * l'animateur n'en fait pas paraître un neuf. L'espace compte aussi les siens,
+ * à la minute (`PlacesRendues`).
+ */
+const PLACE_MAX_FAILURES = 5
 /** Identités qu'une même connexion peut créer (une reconnexion n'en crée pas). */
 const JOINS_PER_SOCKET = 3
-/**
- * Inscriptions par adresse : une réserve qui se recharge.
- *
- * Toute une salle peut n'avoir qu'une adresse : le wifi de la fête sort sur
- * Internet par une seule box — c'est l'écran commun lui-même qui en projette
- * le QR —, et en 4G des dizaines d'invités partagent celle de leur opérateur.
- * À 25 d'un coup, la vague de scans qui suit l'apparition du QR prenait des
- * refus. Soixante d'un coup la laissent passer, et soixante par minute font
- * entrer une salle de 150 (le plafond par défaut d'un espace) en moins de
- * deux minutes, retardataires compris. L'attaque mesurée — 200 inscriptions
- * en moins d'une seconde depuis une même adresse — n'en place plus que
- * soixante, puis une par seconde, et le plafond de la soirée borne le reste.
- */
-const JOIN_BURST = 60
-const JOIN_REFILL_PER_MINUTE = 60
+// Les inscriptions par adresse ont leur réserve, par espace : `core/inscriptions.ts`.
 
 const NO_SUCH_SPACE = 'Cette adresse ne mène à aucune soirée'
 const OTHER_SPACE = 'Cette connexion suit déjà une autre soirée'
@@ -55,8 +53,20 @@ const SERVER_ERROR = 'Erreur serveur — retente'
  * message vaut pour les trois, et l'entrée qui suit est pré-remplie.
  */
 const UNKNOWN_TOKEN = 'On ne te retrouve plus dans cette soirée — rejoins-la'
+/** Le code tapé pour reprendre sa place ne mène à rien. */
+const MAUVAIS_CODE = 'Ce code ne marche pas — demande-en un nouveau à l’animateur'
+/** Cette connexion a trop manqué : un code neuf lui rend ses essais. */
+const TROP_D_ESSAIS = 'Trop d’essais — demande un nouveau code à l’animateur'
+/** L'espace entier a trop manqué cette minute : les codes restent bons, on patiente. */
+const TROP_D_ESSAIS_ICI = 'Trop d’essais ici — réessaie dans une minute'
 /** Le jeton d'une soirée qu'on vient de clore : le téléphone montre sa fin de soirée. */
 const SOIREE_CLOSE = 'Cette soirée est close — voici la tienne'
+/**
+ * Un jeton inconnu entre deux soirées, après un redémarrage : sa fin est
+ * oubliée. On ne sait pas si la dernière soirée close est la sienne — il a pu
+ * dormir pendant deux clôtures — : le message ne le prétend pas.
+ */
+const soireeARevoir = (titre: string) => `La soirée est close. La dernière soirée de cet espace : ${tronquer(titre, 60)}`
 
 /**
  * Ce qu'on dit à l'invité dont la réponse n'est pas passée. Le silence était
@@ -102,6 +112,10 @@ type Reponse<E extends Evenement> = Accuse<E> extends (res: infer R) => void ? R
 /** Une chaîne, ou rien : ce n'est pas au réseau de décider du type d'un champ. */
 const texte = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined)
 
+/** Un écran de scène, `null` pour la salle d'attente — `undefined` pour ce qui n'en est pas un. */
+const ecranDeScene = (v: unknown): EcranDeScene | null | undefined =>
+  v === null ? null : v === 'podium' || v === 'prix' || v === 'victoire' || v === 'cloture' ? v : undefined
+
 /**
  * L'adresse du client. Derrière le proxy de l'hébergeur, on lit la dernière
  * entrée de `x-forwarded-for` : c'est celle que le proxy a écrite lui-même,
@@ -116,11 +130,18 @@ function clientIp(socket: Socket, trustProxy: boolean): string {
   return socket.handshake.address
 }
 
+/**
+ * Combien d'adresses porte `x-forwarded-for` — 0 sans l'en-tête. On ne s'en
+ * sert pas pour décider : c'est ce que le journal donne à lire au refus, pour
+ * savoir combien de proxys se tiennent entre les téléphones et nous.
+ */
+function entreesDuProxy(socket: Socket): number {
+  const forwarded = socket.handshake.headers['x-forwarded-for']
+  return typeof forwarded === 'string' && forwarded.trim() ? forwarded.split(',').length : 0
+}
+
 export function wireSockets(io: IoServer, deps: SocketDeps) {
-  // Réserve d'inscriptions par adresse. Les tests et les essais à la maison
-  // passent par l'adresse locale : ils inscrivent cinquante invités d'un
-  // coup, et c'est voulu.
-  const joinBudget = new Budget(JOIN_BURST, JOIN_REFILL_PER_MINUTE, { skipLoopback: true })
+  const { inscriptions } = deps
 
   /** L'espace derrière un nom d'adresse — s'il existe et n'est pas fermé. */
   const spaceOf = (slug: unknown): AccountRec | null => {
@@ -138,6 +159,9 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
 
   io.on('connection', socket => {
     let helloFailures = 0
+    let placeFailures = 0
+    /** La génération de codes à laquelle `placeFailures` se rapporte. */
+    let placeGeneration = -1
     let identitiesCreated = 0
     const ip = clientIp(socket, deps.trustProxy)
 
@@ -231,6 +255,8 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       socket.data.playerId = playerId
       socket.join(`player:${playerId}`)
       rt.party.socketConnected(playerId, socket.id)
+      // La console montre qui, parmi ceux qu'on attend, est hors ligne.
+      rt.engine.rafraichirAnimateur()
     }
 
     // L'heure du serveur. Sans identité ni espace : un écran doit pouvoir
@@ -300,6 +326,23 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
             socket.emit('player:removed', { reason: 'soiree-close' })
             return
           }
+          // Le serveur a redémarré depuis la clôture et oublié les fins de
+          // soirée : si l'espace n'a rien joué depuis, ce jeton était sans
+          // doute d'une soirée close — on propose la dernière au lieu de « on
+          // ne te retrouve plus ». Sans prétendre que c'est la sienne : il a
+          // pu dormir pendant deux clôtures. Jamais à l'exclu ni à l'essai
+          // effacé, dont le serveur se souvient ; et jamais au prix d'une
+          // attente : elle vient de mémoire (deux secondes au plus au réveil).
+          const derniere = rt.jetonEfface(token) ? null : await rt.derniereCloseVite().catch(() => null)
+          if (socket.disconnected) return
+          if (derniere) {
+            const soiree = { id: derniere.id, titre: derniere.title, slug: account.slug }
+            const message = soireeARevoir(derniere.title)
+            repondre({ ok: false, reason: 'unknown-token', error: message, derniere: soiree })
+            socket.emit('player:removed', { reason: 'unknown-token' })
+            socket.emit('toast', { kind: 'info', message })
+            return
+          }
           // Le jeton ne désigne plus personne. On recréait l'invité en silence
           // avec le prénom retenu par le téléphone : l'exclu dont le téléphone
           // dormait revenait, et l'habitué d'avant « Nouvelle soirée »
@@ -319,7 +362,24 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           if (rt.party.count() >= rt.maxPlayers) {
             return repondre({ ok: false, error: 'La soirée est complète !' })
           }
-          if (identitiesCreated >= JOINS_PER_SOCKET || !joinBudget.take(ip)) {
+          // Sans prénom, personne n'entrera : refusé avant de puiser dans la
+          // réserve. Une connexion qui envoyait soixante `player:join` vides
+          // la vidait une minute sans créer personne, et fermait la porte à
+          // toute la salle derrière la même box.
+          if (!cleanName(texte(charge.name) || profile?.name || '')) {
+            return repondre({ ok: false, error: 'Il faut un prénom !' })
+          }
+          // La réserve par adresse et par espace (`core/inscriptions.ts`)
+          // décide ; le pouls de `/healthz` (`core/pouls.ts`) compte ce
+          // qu'elle a décidé, sans rien y changer.
+          if (
+            identitiesCreated >= JOINS_PER_SOCKET ||
+            !pouls.reserve(
+              rt.spaceId,
+              ip,
+              inscriptions.prendre(ip, rt.spaceId, entreesDuProxy(socket), deps.auth.byId(rt.spaceId)?.slug),
+            )
+          ) {
             return repondre({ ok: false, error: 'Trop d’inscriptions d’un coup — réessaie dans une minute' })
           }
         }
@@ -340,10 +400,17 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         const avatar = declare ? texte(charge.avatar) || profile?.avatar || '' : ''
         const res = rt.party.join(name, avatar, known?.token, teamId)
         if ('error' in res) return repondre({ ok: false, error: res.error })
-        if (!known) identitiesCreated++
+        if (!known) {
+          identitiesCreated++
+          // La mesure de la clôture ne compte que les invités vraiment entrés.
+          inscriptions.compter(ip, rt.spaceId, entreesDuProxy(socket))
+        }
         // Le rattachement, enfin : c'est lui qui fera compter la soirée dans
         // l'expérience du profil.
         if (profile) rt.party.bindProfile(res.id, profile.id)
+        // Un invité neuf : la soirée suivante a commencé, et la clôture
+        // d'hier quitte la télé pour le QR qui fait entrer.
+        if (!known) rt.soireeCommence()
         incarner(rt, res.id)
         repondre({
           ok: true,
@@ -356,10 +423,155 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           avatar: res.avatar,
           ...(profile && { profile: deps.profiles.toPublic(profile) }),
         })
-        rt.broadcastSnapshot()
         // Arrivé en cours de quiz : on l'y intègre pour les questions à venir.
+        // Celui qui vient de faire le geste ne passe pas par le regroupement :
+        // sa page ne montre la question que si l'instantané le compte parmi
+        // les participants, et la fenêtre des téléphones grandit avec la
+        // salle — une seconde à 500 invités, à lire « tu entres à la
+        // prochaine question » en pleine question. Un téléphone qui se
+        // re-présente, lui, ne change même pas la salle des téléphones (qui
+        // dort et qui veille n'y figure plus) : le regroupement ne lui
+        // renverrait rien du tout. L'instantané part une fois l'invité
+        // compté dans la partie, et avant sa première vue.
+        rt.engine.joinLate(res.id, () => socket.emit('party:snapshot', rt.buildSnapshot(false)))
+        rt.broadcastSnapshot()
+        rt.engine.resendViews(res.id)
+      },
+      { ok: false, error: SERVER_ERROR },
+    )
+
+    /**
+     * « Un Rachid 🦁 est hors ligne » : l'entrée le demande pour le prénom
+     * qu'on tape. Le serveur répond, plutôt que le téléphone ne le lise dans
+     * l'instantané — qui n'a pas à dire à toute la salle qui est connecté.
+     * La réponse ne va qu'à ce téléphone.
+     */
+    ecouter(
+      'player:horsLigne',
+      async (charge, repondre) => {
+        const account = spaceOf(charge.slug)
+        if (!account) return repondre({ ok: false, error: NO_SUCH_SPACE })
+        const rt = bindSpace(account.id)
+        if (!rt) return repondre({ ok: false, error: OTHER_SPACE })
+        const cle = sansAccent(texte(charge.name) ?? '')
+        if (!cle) return repondre({ ok: true })
+        const profile = await profileOfSocket().catch(() => null)
+        const absent = rt.party
+          .all()
+          .find(
+            p =>
+              p.id !== socket.data.playerId &&
+              // Le joueur de son propre profil lui revient en entrant : ce
+              // n'est pas un autre qui l'attend.
+              !(profile && p.profileId === profile.id) &&
+              !rt.party.isConnected(p.id) &&
+              !rt.laissees.has(p.id) &&
+              sansAccent(p.name) === cle,
+          )
+        if (!absent) return repondre({ ok: true })
+        repondre({
+          ok: true,
+          absent: { name: rt.party.nomAffiche(absent.id) ?? absent.name, avatar: absent.avatar, profil: !!absent.profileId },
+        })
+      },
+      { ok: false, error: SERVER_ERROR },
+    )
+
+    /**
+     * Reprendre sa place avec le code de l'animateur. Tout ce qui suit le code
+     * est une re-présentation ordinaire : la fiche du serveur fait foi —
+     * prénom, avatar, équipe, points —, et le téléphone reçoit son jeton comme
+     * s'il l'avait toujours eu.
+     */
+    ecouter(
+      'player:reprendre',
+      async (charge, repondre) => {
+        const profile = await profileOfSocket().catch(() => null)
+        if (socket.disconnected) return
+        const account = spaceOf(charge.slug)
+        if (!account) return repondre({ ok: false, error: NO_SUCH_SPACE })
+        const rt = bindSpace(account.id)
+        if (!rt) return repondre({ ok: false, error: OTHER_SPACE })
+        // Refuser, jamais couper : coupée par le serveur, une connexion
+        // socket.io ne se reconnecte plus — l'invité lisait « Le serveur ne
+        // répond pas », et s'il était inscrit devenait un fantôme de plus.
+        if (placeGeneration !== rt.places.generation) {
+          placeGeneration = rt.places.generation
+          placeFailures = 0
+        }
+        if (placeFailures >= PLACE_MAX_FAILURES) return repondre({ ok: false, error: TROP_D_ESSAIS })
+        // L'identité que ce téléphone quitte : le second « Rachid » d'avant le code.
+        const token = texte(charge.token)
+        const ancien = (token && rt.party.findByToken(token)) || (socket.data.playerId ? rt.party.get(socket.data.playerId) : undefined)
+        // Il a joué, donc il restera (`laisserPlace`) — et il a une réponse
+        // que la question ouverte n'a pas encore jugée : reprise maintenant,
+        // la même personne répondrait une seconde fois sous l'autre fiche, et
+        // marquerait deux fois. Avant le code, qui n'est donc ni consommé ni
+        // compté : il resservira après la révélation.
+        if (ancien && rt.aJoueCeSoir(ancien.id) && rt.engine.reponseEnSuspens(ancien.id)) {
+          return repondre({ ok: false, error: 'Attends la révélation, puis retape le code' })
+        }
+        const saisie = rt.places.lire(texte(charge.code) ?? '', Date.now())
+        const fiche = saisie.ok ? rt.party.get(saisie.playerId) : undefined
+        if (!saisie.ok || !fiche) {
+          if (!saisie.ok && saisie.motif === 'trop') return repondre({ ok: false, error: TROP_D_ESSAIS_ICI })
+          placeFailures++
+          return repondre({ ok: false, error: MAUVAIS_CODE })
+        }
+        // Revenu entre-temps sur son propre téléphone : deux téléphones pour
+        // une place, ce serait deux joueurs qui répondent l'un pour l'autre.
+        // Le code a servi : il ne resservira pas si ce téléphone-là retombe —
+        // l'animateur en refait paraître un, en face de l'invité.
+        if (rt.party.isConnected(fiche.id)) {
+          rt.places.consommer(saisie.code)
+          return repondre({ ok: false, error: 'Ton ancien téléphone est revenu — joue dessus' })
+        }
+        // Une fiche à profil ne se rend que par son profil — la console ne
+        // fait d'ailleurs pas paraître de code pour elle (`rendrePlace`) :
+        // sinon le téléphone qui tape le code recevrait ce profil ensuite.
+        if (fiche.profileId && fiche.profileId !== profile?.id) {
+          return repondre({ ok: false, error: 'Connecte-toi à ton profil : il te rend ta place' })
+        }
+        // Ce téléphone porte un profil, et la fiche n'en a pas : à la
+        // prochaine re-présentation, la soirée lui rendrait le joueur de ce
+        // profil — ou rattacherait la place reprise à ce profil, et ses
+        // points avec. Ce peut être le profil de Rachid lui-même, dont la
+        // fiche de ce soir était anonyme : le message ne dit donc pas « de
+        // quelqu'un d'autre ».
+        if (profile && fiche.profileId !== profile.id) {
+          return repondre({
+            ok: false,
+            error: 'Ce téléphone est connecté à un profil — ouvre la soirée dans une fenêtre privée pour reprendre ta place',
+          })
+        }
+        // Ces deux refus-là laissent le code : l'invité le retape dans une
+        // fenêtre privée, sans redemander à l'animateur. Il se consomme ici.
+        rt.places.consommer(saisie.code)
+        // Un jeton neuf, pas celui de la fiche : l'ancien téléphone qui se
+        // rallume — ou celui qui l'a ramassé — rejouerait sinon sur la même
+        // place, deux téléphones pour un invité (invariant 9).
+        const res = rt.party.renouvelerJeton(fiche.id)
+        if (!res) return repondre({ ok: false, error: MAUVAIS_CODE })
+        incarner(rt, res.id)
+        repondre({
+          ok: true,
+          playerId: res.id,
+          token: res.token,
+          name: res.name,
+          avatar: res.avatar,
+          ...(profile && { profile: deps.profiles.toPublic(profile) }),
+        })
+        if (ancien && ancien.id !== res.id) {
+          // Les autres onglets de ce téléphone qui l'incarnaient encore le
+          // gardent : il n'est alors pas « laissé », et on n'y touche pas.
+          rt.laisserPlace(ancien.id)
+        }
+        rt.broadcastSnapshot()
         rt.engine.joinLate(res.id)
         rt.engine.resendViews(res.id)
+        // Le téléphone de l'animateur le dit à la salle mieux qu'un toast :
+        // ici, c'est la console qui doit savoir que la place est reprise.
+        io.to(`hosts:${rt.spaceId}`).emit('toast', { kind: 'info', message: `${rt.party.nomAffiche(res.id) ?? res.name} a repris sa place` })
       },
       { ok: false, error: SERVER_ERROR },
     )
@@ -408,14 +620,16 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // Le moteur de l'espace ne connaît que sa partie : l'identifiant
         // d'une partie voisine vaut « terminée », et la voisine n'en sait rien.
         const refusal = rt.engine.handlePlayerAction(texte(charge.sessionId) ?? '', playerId, charge.action)
+        if (refusal === 'too-late') pouls.tropTard.noter()
         repondre(refusal ? refuse(refusal) : { ok: true })
       },
       refuse('error'),
     )
 
-    // Changer d'équipe emporte ses points : en pleine partie, ça permettrait
-    // de déménager un gros score d'une équipe à l'autre entre deux questions.
-    // Hors quiz, c'est juste une correction d'inattention.
+    // Pas de changement d'équipe en pleine partie : on ne change pas de camp
+    // entre deux questions. Hors quiz, c'est une correction d'inattention —
+    // qui ne touche plus aux quiz déjà joués : chaque ligne du journal garde
+    // l'équipe de son moment (`AnswerRow.teamId`).
     ecouter(
       'player:setTeam',
       (charge, repondre) => {
@@ -426,6 +640,9 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           return repondre({ ok: false, error: 'Pas pendant un quiz — on verra à la fin !' })
         }
         rt.party.assign(playerId, validTeam(rt, texte(charge.teamId)))
+        // Sa nouvelle équipe, à lui d'abord et avant l'accusé : la page qui
+        // le reçoit relit son en-tête dans l'instantané, pas dans l'accusé.
+        socket.emit('party:snapshot', rt.buildSnapshot(false))
         rt.broadcastSnapshot()
         repondre({ ok: true })
       },
@@ -453,7 +670,17 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         socket.data.accountId = found.account.id
         socket.data.authSessionId = found.session.id
         socket.join(`hosts:${found.account.id}`)
-        repondre({ ok: true, slug: found.account.slug, name: found.account.name })
+        repondre({
+          ok: true,
+          slug: found.account.slug,
+          name: found.account.name,
+          ...(found.session.finMax !== null && { branchee: true as const }),
+        })
+        // L'annonce de clôture d'abord : l'instantané qui suit dit qu'elle
+        // est à l'écran, et un écran rallumé pendant qu'on l'affiche doit
+        // avoir de quoi la montrer.
+        const cloture = rt.clotureAffichee()
+        if (cloture) socket.emit('soiree:cloture', cloture)
         socket.emit('party:snapshot', rt.buildSnapshot(true))
         rt.engine.resendHostViews(socket)
       },
@@ -467,7 +694,10 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       const rt = requireHost()
       if (!rt) return
       try {
-        rt.engine.launch()
+        rt.engine.launch(rt.lancementDeQuiz())
+        // Le quiz prend la scène : un podium ou une clôture restés sur la
+        // télé passaient devant tout le quiz suivant.
+        rt.poserScene(null)
       } catch (e) {
         socket.emit('toast', { kind: 'error', message: messagePourEcran(e, 'host:launch') })
       }
@@ -496,7 +726,13 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       const playerId = texte(charge.playerId)
       const name = texte(charge.name)
       if (!rt || !playerId || name === undefined) return
-      if (rt.party.rename(playerId, name)) rt.broadcastSnapshot()
+      if (!rt.party.rename(playerId, name)) return
+      rt.broadcastSnapshot()
+      // Le prénom s'écrit aussi dans les vues de la partie — le podium, le
+      // plus rapide de l'écran commun (`ViewContext.playerName`). Rien ne
+      // les recalculait : c'était le geste égaré d'un autre invité, et une
+      // réponse ne recalcule plus que la vue de son auteur.
+      rt.engine.rafraichirVues()
     })
 
     ecouter('host:removePlayer', charge => {
@@ -505,6 +741,21 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       if (!rt || !playerId) return
       rt.exclure(playerId)
     })
+
+    // Un code pour rendre sa place à un invité dont le téléphone est mort.
+    // Refusé à tout autre qu'un écran de l'animateur de CET espace : un
+    // identifiant d'invité voisin vaut « plus dans la soirée ».
+    ecouter(
+      'host:rendrePlace',
+      (charge, repondre) => {
+        const rt = requireHost()
+        const playerId = texte(charge.playerId)
+        if (!rt) return repondre({ ok: false, error: 'Réservé à l’animateur' })
+        if (!playerId) return repondre({ ok: false, error: 'Cet invité n’est plus dans la soirée' })
+        repondre(rt.rendrePlace(playerId))
+      },
+      { ok: false, error: SERVER_ERROR },
+    )
 
     // ── Équipes ────────────────────────────────────
     ecouter('host:createTeam', charge => {
@@ -575,6 +826,27 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       if (rt.teams.removeBonus(bonusId)) rt.broadcastSnapshot()
     })
 
+    ecouter('host:scene', charge => {
+      const rt = requireHost()
+      if (!rt) return
+      const ecran = ecranDeScene(charge.ecran)
+      if (ecran === undefined) return
+      const onglet = charge.onglet === 'equipes' || charge.onglet === 'joueurs' ? charge.onglet : undefined
+      // Absent, `depuis` ne vise rien : c'est une page d'avant. Présent mais
+      // illisible, il ne vise rien de connu — le geste est ignoré.
+      if (!('depuis' in charge) || charge.depuis === undefined) return void rt.poserScene(ecran, onglet)
+      const depuis = ecranDeScene(charge.depuis)
+      if (depuis === undefined) return
+      rt.poserScene(ecran, onglet, depuis)
+    })
+
+    ecouter('host:telecommande', charge => {
+      const rt = requireHost()
+      if (!rt) return
+      socket.data.telecommande = charge.active === true
+      rt.sendSnapshot()
+    })
+
     /**
      * Clôt la soirée — le seul geste de fin. « Nouvelle soirée », resté sur
      * une page d'avant, y mène aussi : la soirée est rangée, créditée, et la
@@ -583,9 +855,25 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     const clore = (title?: string) => {
       const rt = requireHost()
       if (!rt) return
+      const invites = rt.party.count()
+      // De quoi dire au journal ce que la clôture a coûté — lu avant : elle efface tout.
+      const soiree = rt.currentSummary()
+      const debut = Date.now()
       return rt
         .closeParty(title)
         .then(archived => {
+          inscriptions.clore(rt.spaceId, invites, deps.auth.byId(rt.spaceId)?.slug)
+          // Remises à zéro même quand rien n'a été joué : sinon les adresses
+          // d'une soirée vierge s'ajoutaient à celles de la suivante.
+          const adresses = pouls.adressesVues(rt.spaceId)
+          if (soiree) {
+            console.log(
+              `[soirée] close en ${Date.now() - debut} ms : ${soiree.players} invités, ${soiree.quizzes} quiz, ` +
+                `${soiree.questions} questions` +
+                (soiree.since ? `, ${Math.round((debut - soiree.since) / 60_000)} min de soirée` : '') +
+                ` ; la réserve d’inscriptions a vu ${adresses} adresse${adresses > 1 ? 's' : ''}`,
+            )
+          }
           socket.emit(
             'toast',
             archived
@@ -604,9 +892,17 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     ecouter('host:discardParty', () => {
       const rt = requireHost()
       if (!rt) return
+      const invites = rt.party.count()
       return rt
         .discardParty()
-        .then(() => socket.emit('toast', { kind: 'info', message: 'Essai effacé — rien n’a été gardé' }))
+        .then(() => {
+          // Un essai compte aussi pour la mesure : ses invités sont venus
+          // par les mêmes proxys que ceux d'une vraie soirée.
+          inscriptions.clore(rt.spaceId, invites, deps.auth.byId(rt.spaceId)?.slug)
+          // Les adresses de l'essai ne compteront pas dans la clôture de la vraie soirée.
+          pouls.adressesVues(rt.spaceId)
+          socket.emit('toast', { kind: 'info', message: 'Essai effacé — rien n’a été gardé' })
+        })
         .catch(e => {
           socket.emit('toast', { kind: 'error', message: `Rien n’a été effacé : ${messagePourEcran(e, 'host:discardParty')}` })
         })
@@ -642,7 +938,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         if (playerId && rt) {
           rt.party.socketDisconnected(playerId, socket.id)
           rt.broadcastSnapshot()
+          rt.engine.rafraichirAnimateur()
         }
+        // La télécommande s'en va : la télé reprend les coulisses. Le socket
+        // a déjà quitté ses salons, il ne compte plus.
+        if (socket.data.telecommande && rt) rt.broadcastSnapshot()
       } catch (e) {
         console.error('[socket] « disconnect » a échoué :', e)
       }

@@ -1,8 +1,15 @@
 import { io, type Socket } from 'socket.io-client'
-import type { ActionAck, ClientToServerEvents, JoinAck, ServerToClientEvents } from '../../shared/events'
+import type {
+  AbsentDuMemeNom,
+  ActionAck,
+  ClientToServerEvents,
+  JoinAck,
+  PlaceRendue,
+  ServerToClientEvents,
+} from '../../shared/events'
 import type { PublicProfile } from '../../shared/profil'
 import { MOTIFS } from '../../shared/erreurs'
-import { forgetMe, getState, oublierIdentite, setState, showToast } from './state'
+import { forgetMe, garderFin, getState, oublierIdentite, setState, showToast } from './state'
 import { applySample, resetClock, serverNow } from './clock'
 import { currentSlug } from './routes'
 
@@ -87,7 +94,10 @@ socket.on('party:reset', () => {
 // plus personne. Il garde son prénom : la soirée suivante le proposera.
 socket.on('soiree:fin', fin => {
   const slug = currentSlug()
-  if (slug) oublierIdentite(slug)
+  if (slug) {
+    oublierIdentite(slug)
+    garderFin(slug, fin)
+  }
   setState({ fin, gain: null })
 })
 
@@ -229,6 +239,34 @@ export function joinAsPlayer(
   return demander<JoinAck>(ack =>
     socket.emit('player:join', { slug, name, avatar, token, teamId }, ack),
   ).catch((e: Error): JoinAck => ({ ok: false, error: e.message }))
+}
+
+/**
+ * Reprendre sa place avec le code de l'animateur. `token` : l'identité que ce
+ * téléphone portait jusque-là, s'il en avait une — le serveur l'efface si
+ * elle n'a rien joué. Résout un refus, comme `joinAsPlayer`.
+ */
+export function reprendrePlace(slug: string, code: string, token?: string): Promise<JoinAck> {
+  return demander<JoinAck>(ack => socket.emit('player:reprendre', { slug, code, token }, ack)).catch(
+    (e: Error): JoinAck => ({ ok: false, error: e.message }),
+  )
+}
+
+/**
+ * L'invité hors ligne qui porte ce prénom, s'il y en a un. Une panne vaut
+ * « personne » : l'avis est une aide, pas un passage obligé.
+ */
+export function horsLigneDuMemeNom(slug: string, name: string): Promise<AbsentDuMemeNom | undefined> {
+  return demander<{ ok: boolean; absent?: AbsentDuMemeNom }>(ack => socket.emit('player:horsLigne', { slug, name }, ack))
+    .then(res => (res.ok ? res.absent : undefined))
+    .catch(() => undefined)
+}
+
+/** La console fait paraître le code qui rend sa place à un invité hors ligne. */
+export function rendrePlace(playerId: string): Promise<PlaceRendue> {
+  return demander<PlaceRendue>(ack => socket.emit('host:rendrePlace', { playerId }, ack)).catch(
+    (e: Error): PlaceRendue => ({ ok: false, error: e.message }),
+  )
 }
 
 export function setMyTeam(teamId: string | null): Promise<{ ok: boolean; error?: string }> {
@@ -387,7 +425,7 @@ export function sendPlayerAction(
  * ramène au formulaire de connexion, et un serveur muet n'a rien dit de la
  * session.
  */
-export function helloHost(): Promise<{ ok: boolean; slug?: string; name?: string }> {
+export function helloHost(): Promise<{ ok: boolean; slug?: string; name?: string; branchee?: true }> {
   return demander(ack => socket.emit('host:hello', {}, ack))
 }
 

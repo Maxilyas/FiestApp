@@ -1,7 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
-import { getState, oublierIdentite, saveChoix, saveMe, setState, showToast, useAppState } from '../state'
-import { currentSlug } from '../routes'
+import { joinAsPlayer, reprendrePlace, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
+import {
+  finRouverte,
+  garderFin,
+  garderSoireeClose,
+  getState,
+  oublierIdentite,
+  quitterFin,
+  saveChoix,
+  saveMe,
+  setState,
+  showToast,
+  soireeGardee,
+  useAppState,
+} from '../state'
+import { currentSlug, spacePath } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
 import { TeamPicker } from '../components/TeamPicker'
@@ -9,21 +22,29 @@ import { Icon } from '../components/Icon'
 import { Entree, type Identite } from '../components/Entree'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { ProfilForm } from '../components/ProfilForm'
+import { AvisHorsLigne, FormulaireCode, useHorsLigne } from '../components/Reprendre'
 import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
+import { regleDesEquipes } from '../../../shared/teams'
 import { espacesFines, formatNumber, place } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
 import { CarteJoueur } from '../components/CarteJoueur'
+import { Lendemain } from '../components/Lendemain'
 import { useEcranAllume } from '../veille'
 import { useGardeRetour } from '../retour'
 
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
+
+/** Stable d'un rendu à l'autre : un tableau neuf relancerait la demande à chaque rendu. */
+const SANS_JOUEURS: never[] = []
+/** Les phases où l'écran du téléphone est plein : l'avis du téléphone perdu attend la suivante. */
+const PHASES_PLEINES = new Set<QuizPlayerView['phase']>(['getReady', 'observe', 'question'])
 
 export function PlayerApp() {
   const s = useAppState()
@@ -43,6 +64,8 @@ export function PlayerApp() {
   const [montrerProfil, setMontrerProfil] = useState(false)
   /** Le serveur ne connaît pas cette adresse : rien à rejoindre ici. */
   const [spaceError, setSpaceError] = useState('')
+  /** Salle d'attente : « J'ai un code » — reprendre la place d'un téléphone mort. */
+  const [reprise, setReprise] = useState(false)
   /** La carte ouverte, celle du joueur dont on a touché le nom. */
   const [carte, setCarte] = useState<string | null>(null)
   /**
@@ -53,6 +76,8 @@ export function PlayerApp() {
    */
   const [envoi, setEnvoi] = useState<Envoi | null>(null)
   const numeroEnvoi = useRef(0)
+  /** La dernière soirée close d'ici, gardée sur ce téléphone : l'entrée la propose. */
+  const [gardee, setGardee] = useState(() => soireeGardee(slug))
 
   // Connexion, présentation à la soirée, puis re-join automatique (refresh,
   // coupure réseau, redémarrage serveur).
@@ -83,12 +108,22 @@ export function PlayerApp() {
         if (ack.reason === 'unknown-token') {
           oublierIdentite(slug)
           showToast({ kind: 'info', message: ack.error })
+          // Le serveur a redémarré depuis la clôture et oublié les fins : il
+          // dit au moins quelle soirée vient de se clore, et l'entrée la
+          // propose au lieu d'un simple « on ne te retrouve plus ».
+          if (ack.derniere) {
+            garderSoireeClose(slug, ack.derniere)
+            setGardee(soireeGardee(slug))
+          }
         }
         // La soirée s'est close pendant que le téléphone dormait : il reçoit
         // sa fin de soirée, comme s'il avait été là.
         if (ack.reason === 'soiree-close') {
           oublierIdentite(slug)
-          if (ack.fin) setState({ fin: ack.fin })
+          if (ack.fin) {
+            garderFin(slug, ack.fin)
+            setState({ fin: ack.fin })
+          }
         }
         return
       }
@@ -167,6 +202,21 @@ export function PlayerApp() {
     return null
   }
 
+  /**
+   * Reprend sa place avec le code de l'animateur. L'identité que ce téléphone
+   * portait jusque-là part avec la demande : le serveur l'efface si elle n'a
+   * rien joué — c'était la même personne.
+   */
+  const reprendre = async (code: string) => {
+    const ack = await reprendrePlace(slug, code, getState().me?.token)
+    if (!ack.ok) return ack.error
+    saveChoix(slug, { name: ack.name, avatar: ack.avatar })
+    saveMe(slug, { playerId: ack.playerId, token: ack.token })
+    setReprise(false)
+    showToast({ kind: 'info', message: `Te revoilà, ${ack.name} ${ack.avatar}` })
+    return null
+  }
+
   /** « Ce n'est pas moi » : le téléphone oublie le profil qu'il portait. */
   const oublierProfil = async () => {
     await api.joueur.deconnexion().catch(() => {})
@@ -211,6 +261,23 @@ export function PlayerApp() {
   // d'abord. Pas à l'entrée — on n'y a encore rien à perdre.
   useGardeRetour(!!s.me && !s.fin && !spaceError)
 
+  // Inscrit une seconde fois sur un téléphone emprunté : sa première place
+  // l'attend, points compris, s'il demande le code — en salle d'attente
+  // comme en plein quiz, entre deux questions.
+  const absent = useHorsLigne(slug, me?.name ?? '', snap?.players ?? SANS_JOUEURS, { actif: !!me, sauf: me?.id })
+  const avisAbsent = absent && (
+    <AvisHorsLigne absent={absent} profilIci={!!profil} onCode={() => setReprise(true)} />
+  )
+  // Une partie lancée depuis la clôture : la soirée suivante a commencé, la
+  // fin rouverte depuis le téléphone ne se montre plus.
+  const partieLancee = !!snap && (!!snap.session || snap.players.some(p => p.score > 0))
+  useEffect(() => {
+    if (s.fin && finRouverte() && partieLancee) {
+      quitterFin(slug)
+      setGardee(soireeGardee(slug))
+    }
+  }, [s.fin, partieLancee, slug])
+
   // Chaque écran commence en haut, comme ceux de l'entrée. La fin de soirée
   // s'ouvrait au défilement de la salle d'attente, sous son propre titre ; et
   // une question qui suit un classement qu'on a fait défiler, pareil.
@@ -245,11 +312,22 @@ export function PlayerApp() {
   // répond pas à la question que se pose celui qui s'est trompé d'adresse.
   if (spaceError) return <FormulaireSoiree perdu />
 
-  // La soirée est close : sa fin, jusqu'à ce qu'on passe à la suivante.
+  // La soirée est close : sa fin, jusqu'à ce qu'on passe à la suivante. Une
+  // fin rouverte depuis le téléphone attend de savoir où en est l'espace :
+  // l'invité qui rescanne le QR pour une deuxième soirée le même soir
+  // retombait sur l'ancienne fin.
+  if (s.fin && finRouverte() && !snap) return <AttenteConnexion />
   if (s.fin) {
     return (
       <>
-        <FinDeSoiree fin={s.fin} profil={profil} onSuivante={() => setState({ fin: null })} />
+        <FinDeSoiree
+          fin={s.fin}
+          profil={profil}
+          onSuivante={() => {
+            quitterFin(slug)
+            setGardee(soireeGardee(slug))
+          }}
+        />
         {toast}
       </>
     )
@@ -273,6 +351,8 @@ export function PlayerApp() {
           reconnecter={reconnecter}
           rejoindre={rejoindre}
           oublierProfil={oublierProfil}
+          reprendre={reprendre}
+          lendemain={gardee && <Lendemain gardee={gardee} />}
         />
         <BandeauCoupure connecte={s.connected} />
         {toast}
@@ -296,11 +376,27 @@ export function PlayerApp() {
     )
   }
 
+  if (reprise) {
+    return (
+      <>
+        <FormulaireCode reprendre={reprendre} onCancel={() => setReprise(false)} />
+        <BandeauCoupure connecte={s.connected} />
+        {toast}
+      </>
+    )
+  }
+
   if (sessionView && iAmIn) {
     return (
       // Région « vivante » : un lecteur d'écran annonce la question, puis le
       // résultat, sans qu'on ait à parcourir la page à chaque changement.
       <div className="player-shell" aria-live="polite">
+        {/* Pas pendant la question : sur 640 px, quatre réponses remplissent
+            l'écran, et l'avis pousserait la dernière dehors. Entre deux
+            questions, il y a la place — et le temps de taper un code. */}
+        {phase && !PHASES_PLEINES.has(phase.phase) && absent && (
+          <AvisHorsLigne absent={absent} profilIci={!!profil} onCode={() => setReprise(true)} discret />
+        )}
         <QuizPlayer
           view={sessionView.view as QuizPlayerView}
           teams={teams}
@@ -371,7 +467,9 @@ export function PlayerApp() {
   const sorted = [...snap.players].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
   // Rang partagé, comme dans le classement en dessous : à égalité de points,
   // on est premier ensemble, pas quatrième parce que son prénom vient après.
-  const myRank = me ? sorted.findIndex(p => p.score === me.score) + 1 : 0
+  // Et pas de rang tant que personne n'a marqué : « 0 pts · 1ʳᵉ place »
+  // avant le premier quiz, c'était premier de rien.
+  const myRank = me && sorted.some(p => p.score > 0) ? sorted.findIndex(p => p.score === me.score) + 1 : 0
 
   return (
     <div className="player-shell">
@@ -398,6 +496,8 @@ export function PlayerApp() {
         )}
       </header>
 
+      {avisAbsent}
+
       {session && !iAmIn && (
         <div className="card notice">Un quiz est en cours — tu entres à la prochaine question.</div>
       )}
@@ -409,7 +509,7 @@ export function PlayerApp() {
               <Icon name="users" />
               Les équipes
             </h3>
-            {/* Changer d'équipe emporte ses points : le serveur le refuse
+            {/* On ne change pas de camp en plein quiz : le serveur le refuse
                 pendant un quiz, autant ne pas proposer le bouton. */}
             {!session && (
               <button className="btn btn-ghost btn-small" onClick={() => setSwitching(v => !v)}>
@@ -425,10 +525,7 @@ export function PlayerApp() {
           ) : (
             <>
               <TeamBoard teams={teams} highlightId={me?.teamId ?? null} compact />
-              <p className="muted small">
-                Les équipes sont classées à la moyenne par membre : une petite équipe n'est pas
-                pénalisée.
-              </p>
+              <p className="muted small">{regleDesEquipes(teams.length)}</p>
             </>
           )}
         </div>
@@ -445,6 +542,28 @@ export function PlayerApp() {
       {carte && <CarteJoueur slug={slug} playerId={carte} onFermer={() => setCarte(null)} />}
 
       <p className="waiting">En attente du prochain quiz…</p>
+      {/* Entre deux quiz, relire ses réponses : rien ne menait du téléphone au
+          bilan en cours, il fallait en connaître l'adresse. Un autre onglet,
+          pour ne pas manquer le quiz suivant. Une fois des points marqués
+          seulement : avant, le bilan n'a rien à montrer. « Mes réponses »,
+          à qui en a marqué lui-même : l'arrivé entre deux quiz n'est pas
+          encore au bilan, qui lui demandait « Qui es-tu ? ». L'instantané ne
+          dit pas qui a répondu sans marquer — celui-là n'a que le souvenir. */}
+      {me && sorted.some(p => p.score > 0) && (
+        <p className="join-foot">
+          {me.score > 0 && (
+            <>
+              <a className="link-inline" href={`${spacePath(slug, 'bilan')}#p=${me.id}`} target="_blank" rel="noreferrer">
+                Mes réponses jusqu’ici
+              </a>
+              {' · '}
+            </>
+          )}
+          <a className="link-inline" href={spacePath(slug, 'souvenir')} target="_blank" rel="noreferrer">
+            {me.score > 0 ? 'le souvenir' : 'Le souvenir de la soirée'}
+          </a>
+        </p>
+      )}
       {/* Entre deux quiz, c'est le moment où l'on regarde son téléphone. */}
       <p className="join-foot">
         {profil ? (

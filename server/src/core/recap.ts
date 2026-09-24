@@ -1,7 +1,7 @@
 import { computeStats } from './stats'
 import type { AnswerRow } from './answers'
 import type { ScoreEntry } from './scores'
-import { prixRemis, teamScores } from '../../../shared/teams'
+import { prixRemis, questionsDesEquipes, teamScores } from '../../../shared/teams'
 import { nomAffiche } from '../../../shared/homonymes'
 import { classer, ordreDAffichage, ordreDeClassement, vainqueurs } from '../../../shared/classement'
 import type { PublicPlayer, Recap, TeamBonus } from '../../../shared/types'
@@ -91,7 +91,7 @@ export function buildRecap(input: RecapInput): Recap {
       .filter(p => p.score !== 0)
       .sort(ordreDeClassement<PublicPlayer>(p => p.score, nomAffiche, p => p.id))
       .map(p => ({ name: nomAffiche(p), avatar: p.avatar, points: p.score })),
-    teams: teamScores(teams, players, bonuses),
+    teams: teamScores(teams, players, bonuses, questionsDesEquipes(players, answers)),
     stats: computeStats(answers, players),
     // Un quiz joué a laissé des réponses, pas forcément des points : quand
     // toute la salle s'est trompée, le journal des gains n'en dit rien.

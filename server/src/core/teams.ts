@@ -45,6 +45,12 @@ const emojiDEquipe = (emoji: string | undefined) => tronquer(emoji?.trim() ?? ''
 export class Teams {
   private teams = new Map<string, TeamRec>()
   private bonuses = new Map<string, TeamBonus>()
+  /**
+   * Monte à chaque écriture — équipe ou prix remis : les pages publiques
+   * (`core/pages.ts`) s'en servent pour savoir si leur calcul tient encore,
+   * sans relire le journal.
+   */
+  revision = 0
 
   constructor(
     private db: DB,
@@ -100,6 +106,7 @@ export class Teams {
       .prepare('INSERT INTO teams (id, name, emoji, position, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)')
       .run(rec.id, rec.name, rec.emoji, rec.position, rec.createdAt, this.spaceId)
     this.backup?.saveTeam(rec)
+    this.revision++
     return rec
   }
 
@@ -112,6 +119,7 @@ export class Teams {
     if (emoji) rec.emoji = emoji
     this.db.prepare('UPDATE teams SET name = ?, emoji = ? WHERE id = ?').run(rec.name, rec.emoji, id)
     this.backup?.saveTeam(rec)
+    this.revision++
     return true
   }
 
@@ -123,6 +131,7 @@ export class Teams {
       if (bonus.teamId === id) this.removeBonus(bonus.id)
     }
     this.backup?.deleteTeam(id)
+    this.revision++
     return true
   }
 
@@ -144,6 +153,7 @@ export class Teams {
     this.db.prepare('DELETE FROM team_bonus WHERE space_id = ?').run(this.spaceId)
     this.teams.clear()
     this.bonuses.clear()
+    this.revision++
   }
 
   // ── Prix remis par l'animateur ──────────────────────────────────────────
@@ -152,11 +162,16 @@ export class Teams {
   // question, ceux-là s'attribuent en fin de soirée, sur l'échelle du barème
   // du quiz. Les mélanger rendrait les deux illisibles.
 
-  /** Attribue un prix. Retirer un prix mal donné doit rester possible. */
+  /**
+   * Attribue un prix. Retirer un prix mal donné doit rester possible. Un prix
+   * à 0 point se remet « pour l'honneur » : il paraît dans « Remis ce
+   * soir-là » sans toucher au classement — Nadia voulait saluer Jeanne sans
+   * renverser la victoire qu'elle venait d'annoncer.
+   */
   awardBonus(teamId: string, points: number, reason: string): TeamBonus | { error: string } {
     if (!this.teams.has(teamId)) return { error: 'Équipe introuvable' }
     const value = Math.round(Number(points))
-    if (!Number.isFinite(value) || value === 0) return { error: 'Il faut un nombre de points' }
+    if (!Number.isFinite(value)) return { error: 'Il faut un nombre de points' }
     const rec: TeamBonus = {
       id: randomUUID(),
       teamId,
@@ -169,6 +184,7 @@ export class Teams {
       .prepare('INSERT INTO team_bonus (id, team_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)')
       .run(rec.id, rec.teamId, rec.points, rec.reason, rec.createdAt, this.spaceId)
     this.backup?.saveBonus(rec)
+    this.revision++
     return rec
   }
 
@@ -176,6 +192,7 @@ export class Teams {
     if (!this.bonuses.delete(bonusId)) return false
     this.db.prepare('DELETE FROM team_bonus WHERE id = ?').run(bonusId)
     this.backup?.deleteBonus(bonusId)
+    this.revision++
     return true
   }
 

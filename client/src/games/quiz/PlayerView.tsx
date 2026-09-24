@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import type { QuizAction, QuizPlayerView } from '../../../../shared/games/quiz'
 import { lireNombre } from '../../../../shared/nombres'
 import { GetReady } from '../../components/GetReady'
@@ -9,7 +9,7 @@ import { Shape } from '../../components/Shape'
 import { Rank, Score } from '../../components/Rank'
 import type { PublicTeam } from '../../../../shared/types'
 import { espacesFines, formatNumber, place } from '../../format'
-import { questionSizeClass } from './questionSize'
+import { answersSizeClass, questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
 import { Niveau } from '../../components/Niveau'
 import { serverNow } from '../../clock'
@@ -265,6 +265,14 @@ function PointsAnnules() {
 export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayerProps) {
   // Avant tout retour anticipé : un crochet s'appelle à chaque rendu.
   const closes = useEchue(v.phase === 'question' ? v.deadline : undefined, !!v.paused)
+  // La reprise se sent dans la main : on ne regarde pas son téléphone pendant
+  // une pause, et rien ne disait que la question était repartie.
+  const enPause = v.phase === 'question' && !!v.paused
+  const etaitEnPause = useRef(enPause)
+  useEffect(() => {
+    if (etaitEnPause.current && !enPause && v.phase === 'question') navigator.vibrate?.([60, 80, 60])
+    etaitEnPause.current = enPause
+  }, [enPause, v.phase])
 
   if (v.phase === 'pickPack') {
     return (
@@ -345,9 +353,12 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
           duration={v.duration ?? 20}
           frozenMs={v.paused ? v.remainingMs : undefined}
         />
+        {/* En grand, et les réponses éteintes : un petit texte atténué ne
+            disait pas pourquoi les réponses ne répondaient plus. */}
         {v.paused && (
-          <p className="hint">
-            <Icon name="pause" /> En pause — regarde l'écran commun
+          <p className="pause-bandeau" role="status">
+            <Icon name="pause" /> En pause
+            <span className="pause-bandeau-suite">Le chrono reprendra où il s'est arrêté</span>
           </p>
         )}
         {v.category && <span className="label quiz-categorie">{v.category}</span>}
@@ -364,7 +375,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
           <GuessForm view={v} send={send} closes={closes} envoi={enAttente} perdue={perdue} />
         ) : (
           <>
-            <div className="ans-grid">
+            <div className={'ans-grid' + answersSizeClass(v.answers)}>
               {v.answers!.map((a, i) => (
                 <button
                   key={i}
@@ -380,7 +391,8 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
                   }}
                   className={
                     'ans-btn' +
-                    (enAttente?.choice === i ? ' pending' : v.yourChoice === i ? ' chosen' : closes ? ' dim' : '')
+                    (enAttente?.choice === i ? ' pending' : v.yourChoice === i ? ' chosen' : closes ? ' dim' : '') +
+                    (v.paused ? ' en-pause' : '')
                   }
                 >
                   <Shape index={i} />

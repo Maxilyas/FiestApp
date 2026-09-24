@@ -137,7 +137,7 @@ export interface ReviewPlayer {
 
 export interface ReviewTeamQuiz {
   sessionId: string
-  /** Points du quiz, divisés par les membres présents. */
+  /** La moyenne de l'équipe sur ce quiz seul, avec la règle de la salle (`moyenneAuProrata`). */
   average: number
   total: number
   /** Taux de bonnes réponses aux QCM. */

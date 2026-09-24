@@ -82,7 +82,8 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
               {place(player.rank)} sur {played.length}
             </span>
           </div>
-          {team && player.teamRank !== null && (
+          {/* Seul dans son équipe, « 1ʳᵉ place sur 1 » ne dit rien. */}
+          {team && player.teamRank !== null && mates.length >= 2 && (
             <div className="bilan-tile">
               <span className="label">Dans ton équipe</span>
               <span className="bilan-tile-value">{rang(player.teamRank)}</span>

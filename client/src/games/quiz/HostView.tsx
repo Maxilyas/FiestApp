@@ -4,6 +4,7 @@ import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
 import { FinalPodium, Standings } from '../../components/Podium'
 import { TeamBoard } from '../../components/TeamBoard'
+import { mentionDesPrix } from '../../../../shared/teams'
 import { Icon } from '../../components/Icon'
 import { Shape } from '../../components/Shape'
 import { Rank, Score } from '../../components/Rank'
@@ -15,8 +16,9 @@ import { espacesFines } from '../../format'
 import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
 import { formatNumber } from '../../format'
-import { questionSizeClass } from './questionSize'
+import { answersSizeClass, questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
+import { Coupe } from '../../components/Coupe'
 import { Niveau } from '../../components/Niveau'
 
 /** Le décompte avant que la question suivante parte toute seule. */
@@ -29,7 +31,7 @@ function AutoNextPill({ deadline }: { deadline: number }) {
   const seconds = Math.max(0, Math.ceil((deadline - now) / 1000))
   return (
     <span className="pill">
-      <Icon name="skip" /> suivante dans {seconds} s
+      <Icon name="skip" /> Question suivante dans {seconds} s
     </span>
   )
 }
@@ -72,9 +74,30 @@ interface Props {
   teams: PublicTeam[]
   sendCommand: (command: QuizCommand) => void
   endSession: () => void
+  /** Cet écran se tient en télécommande : les gestes, sans la scène — ni la réponse. */
+  telecommande?: boolean
+  /** Une télécommande est branchée ailleurs : la liste des quiz reste dans sa main. */
+  coulissesAilleurs?: boolean
+  /** « Choisir d'ici » : cet écran reprend la liste des quiz, pour cette fois. */
+  reprendreCoulisses?: () => void
+  /**
+   * Ce qui suit un quiz, proposé à son podium : il n'y avait que « Terminer
+   * le quiz », et la remise des prix se cherchait parmi neuf boutons.
+   * `prix` est absent sans équipes : il n'y a personne à qui les remettre.
+   */
+  apresQuiz?: { suivant: () => void; prix?: () => void; personne?: boolean }
 }
 
-export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
+export function QuizHost({
+  view: v,
+  teams,
+  sendCommand,
+  endSession,
+  telecommande,
+  coulissesAilleurs,
+  reprendreCoulisses,
+  apresQuiz,
+}: Props) {
   /** Choisi avant de lancer : un quiz qui compte double relance toute la salle. */
   const [multiplier, setMultiplier] = useState(1)
 
@@ -88,12 +111,14 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
   const visee: Visee = { phase: v.phase, qIndex: v.qIndex, round: v.round }
   const { garde, principal } = useGardeDePhase(`${v.phase}:${v.qIndex}:${v.round}`)
 
-  // Les sons ponctuent les changements de phase — sur l'écran commun seulement.
+  // Les sons ponctuent les changements de phase — sur l'écran commun
+  // seulement : la télécommande, dans la poche, n'a pas à doubler la télé.
   useEffect(() => {
+    if (telecommande) return
     if (v.phase === 'observe' || v.phase === 'question') sound.go()
     else if (v.phase === 'reveal') (v.kind === 'number' ? sound.target : sound.reveal)()
     else if (v.phase === 'finished') sound.fanfare()
-  }, [v.phase, v.qIndex, v.kind])
+  }, [v.phase, v.qIndex, v.kind, telecommande])
 
   /* L'enchaînement sans cliquer : vingt clics par quiz, ce sont vingt
      occasions de décrocher de la soirée. Tous les paliers sont à l'écran et
@@ -229,6 +254,28 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
     )
   }
 
+  if (v.phase === 'pickPack' && coulissesAilleurs) {
+    // La liste des quiz est l'affaire de l'animateur : la salle attend le
+    // suivant sans lire le menu.
+    return (
+      <div className="quiz-host coulisses">
+        <p className="serif-note center coulisses-attente">Le prochain quiz arrive…</p>
+        <ConsoleActions>
+          <span className="muted small console-note">La liste est à la télécommande</span>
+          {reprendreCoulisses && (
+            <button className="btn" onClick={reprendreCoulisses}>
+              <Icon name="edit" />
+              Choisir d’ici
+            </button>
+          )}
+          <button className="btn btn-ghost" onClick={endSession}>
+            Annuler
+          </button>
+        </ConsoleActions>
+      </div>
+    )
+  }
+
   if (v.phase === 'pickPack') {
     return (
       <div className="quiz-host">
@@ -259,6 +306,11 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
               <p className="muted">
                 {p.questionCount} question{p.questionCount > 1 ? 's' : ''}
               </p>
+              {p.joueCeSoir && (
+                <span className="pill joue-ce-soir">
+                  <Icon name="check" /> Joué ce soir
+                </span>
+              )}
               <button className="btn btn-primary" onClick={() => sendCommand({ type: 'selectPack', packId: p.id, multiplier })}>
                 C'est parti !
               </button>
@@ -274,8 +326,67 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
     )
   }
 
+  // À la télécommande, la question se lit à la télé : ici, où on en est et
+  // les gestes. Jamais la réponse — le téléphone de l'animateur se voit
+  // par-dessus l'épaule.
+  if (telecommande && (v.phase === 'observe' || v.phase === 'question' || v.phase === 'reveal')) {
+    const revealing = v.phase === 'reveal'
+    const last = v.qIndex + 1 >= v.qCount
+    return (
+      <div className="quiz-host telecommande-apercu" role="status">
+        <span className="label">
+          Question {v.qIndex + 1} / {v.qCount}
+          {v.phase === 'observe' ? ' · la photo' : revealing ? ' · révélée' : ''}
+        </span>
+        {v.text && v.phase !== 'observe' && <p className="telecommande-question">{espacesFines(v.text)}</p>}
+        <div className="quiz-status">
+          {v.paused && (
+            <span className="pill">
+              <Icon name="pause" /> En pause
+            </span>
+          )}
+          {revealing && v.cancelled && (
+            <span className="pill">
+              <Icon name="x-circle" /> Points annulés
+            </span>
+          )}
+          {revealing && v.autoNextAt && <AutoNextPill deadline={v.autoNextAt} />}
+        </div>
+        {consoleQuestion(
+          <button
+            ref={principal}
+            className={'btn console-principal ' + (revealing ? 'btn-primary' : 'btn-accent')}
+            onClick={garde(() => sendCommand({ type: 'next', ...visee }))}
+          >
+            {v.phase === 'observe' ? (
+              <>
+                <Icon name="skip" />
+                Passer à la question
+              </>
+            ) : !revealing ? (
+              <>
+                <Icon name="eye" />
+                Révéler
+              </>
+            ) : last ? (
+              <>
+                <Icon name="trophy" />
+                Voir le podium
+              </>
+            ) : (
+              <>
+                <Icon name="skip" />
+                Question suivante
+              </>
+            )}
+          </button>,
+        )}
+      </div>
+    )
+  }
+
   if (v.phase === 'getReady') {
-    return <GetReady deadline={v.deadline!} sounds label="Préparez vos téléphones…" />
+    return <GetReady deadline={v.deadline!} sounds={!telecommande} label="Préparez vos téléphones…" />
   }
 
   // La photo, plein écran, sans la question : c'est le temps d'observation.
@@ -285,7 +396,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
       <div className="quiz-host">
         <div className="quiz-status">
           <span className="pill flash">
-            <Icon name="eye" /> Regardez bien…
+            <Icon name="eye" /> Regardez bien : la photo va disparaître
           </span>
         </div>
         <TimerBar deadline={v.deadline!} duration={v.duration ?? 5} ticking />
@@ -341,6 +452,18 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
           />
         )}
 
+        {/* La pause se voit du canapé : « En pause » en grand sur la scène, les
+            réponses éteintes dessous. Seul le chiffre du chrono devenait ⏸,
+            et la salle demandait ce qui se passait. */}
+        {!revealing && v.paused && (
+          <div className="pause-voile" role="status">
+            <span>
+              <Icon name="pause" />
+              En pause
+            </span>
+          </div>
+        )}
+
         {/* L'énoncé et sa photo côte à côte : empilée sous la question, la
             photo poussait les réponses sous la console en 1366 × 768, la
             définition des portables qu'on branche à la télé. La largeur d'un
@@ -364,39 +487,51 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
               <p className="target-value">
                 {formatNumber(v.target!)} <span className="target-unit">{v.unit}</span>
               </p>
-              <div className="podium">
-                {v.guesses?.map((g, i) => (
-                  <div key={i} className="lb-row" style={{ animationDelay: `${i * 60}ms` }}>
-                    {/* La cible pour tous les plus proches : deux estimations à
-                        égale distance ne sont ni première ni deuxième. */}
-                    {g.rank === 1 ? (
-                      <span className="lb-rank">
-                        <Icon name="target" />
-                        <span className="sr-only">Rang 1</span>
+              <Coupe className="estimations">
+                <div className="podium">
+                  {v.guesses?.map((g, i) => (
+                    <div key={i} className="lb-row" style={{ animationDelay: `${i * 60}ms` }}>
+                      {/* La cible pour tous les plus proches : deux estimations à
+                          égale distance ne sont ni première ni deuxième. */}
+                      {g.rank === 1 ? (
+                        <span className="lb-rank">
+                          <Icon name="target" />
+                          <span className="sr-only">Rang 1</span>
+                        </span>
+                      ) : (
+                        <Rank n={g.rank} />
+                      )}
+                      <Avatar className="lb-avatar" avatar={g.avatar} finition={g.finition} eclat={g.eclat} legendaire={g.legendaire} />
+                      <span className="lb-name">{g.name}</span>
+                      <Niveau niveau={g.niveau} />
+                      <span className="guess-value">
+                        {formatNumber(g.value)} {v.unit}
                       </span>
-                    ) : (
-                      <Rank n={g.rank} />
-                    )}
-                    <Avatar className="lb-avatar" avatar={g.avatar} finition={g.finition} eclat={g.eclat} legendaire={g.legendaire} />
-                    <span className="lb-name">{g.name}</span>
-                    <Niveau niveau={g.niveau} />
-                    <span className="guess-value">
-                      {formatNumber(g.value)} {v.unit}
-                    </span>
-                    <Score n={g.points} texte={`+${g.points}`} />
-                  </div>
-                ))}
-                {v.guesses?.length === 0 && <p className="muted">Personne n'a répondu…</p>}
-              </div>
+                      <Score n={g.points} texte={`+${g.points}`} />
+                    </div>
+                  ))}
+                  {v.guesses?.length === 0 && <p className="muted">Personne n'a répondu…</p>}
+                </div>
+              </Coupe>
             </div>
           ) : (
-            <p className="big-waiting">
-              <Icon name="keyboard" /> Tapez votre estimation sur votre téléphone{v.unit ? ` (en ${v.unit})` : ''} — le
-              plus proche gagne&nbsp;!
-            </p>
+            <>
+              <p className="big-waiting">
+                <Icon name="keyboard" /> Tapez votre estimation sur votre téléphone{v.unit ? ` (en ${v.unit})` : ''} — le
+                plus proche gagne&nbsp;!
+              </p>
+              {/* Les trois cinquièmes de l'écran étaient vides : le compte des
+                  réponses meuble l'attente, et presse les retardataires. */}
+              {v.participantCount !== undefined && (
+                <p className="compte-reponses">
+                  <b>{v.answeredCount ?? 0}</b> / {v.participantCount}
+                  <span className="compte-reponses-mot">ont répondu</span>
+                </p>
+              )}
+            </>
           )
         ) : (
-          <div className="ans-grid">
+          <div className={'ans-grid' + answersSizeClass(v.answers)}>
             {v.answers!.map((a, i) => (
               <div
                 key={i}
@@ -452,21 +587,25 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
         {revealing && (
           <div className="reveal-boards">
             {teams.length > 0 && (
-              <div>
+              <div className="tableau">
                 <h3>
                   <Icon name="users" />
                   Les équipes
                 </h3>
-                <TeamBoard teams={teams} />
+                <Coupe>
+                  <TeamBoard teams={teams} />
+                </Coupe>
               </div>
             )}
             {v.standings && v.standings.length > 0 && (
-              <div>
+              <div className="tableau">
                 <h3>
                   <Icon name="trophy" />
                   Top du quiz
                 </h3>
-                <Standings rows={v.standings} />
+                <Coupe>
+                  <Standings rows={v.standings} />
+                </Coupe>
               </div>
             )}
           </div>
@@ -476,6 +615,50 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
   }
 
   // finished
+  // Ce qui suit, en bouton principal : la remise des prix s'il y a des
+  // équipes, sinon le quiz suivant. « Terminer le quiz » ramène à la salle
+  // d'attente, comme avant.
+  const suiteDuQuiz = (
+    <ConsoleActions>
+      {apresQuiz?.prix ? (
+        <>
+          <button ref={principal} className="btn btn-primary" onClick={garde(apresQuiz.prix)}>
+            <Icon name="award" />
+            Remise des prix
+          </button>
+          <button className="btn" disabled={apresQuiz.personne} onClick={garde(apresQuiz.suivant)}>
+            <Icon name="play" />
+            Quiz suivant
+          </button>
+        </>
+      ) : (
+        apresQuiz && (
+          <button
+            ref={principal}
+            className="btn btn-primary"
+            disabled={apresQuiz.personne}
+            onClick={garde(apresQuiz.suivant)}
+          >
+            <Icon name="play" />
+            Quiz suivant
+          </button>
+        )
+      )}
+      <button ref={apresQuiz ? undefined : principal} className={apresQuiz ? 'btn btn-ghost' : 'btn btn-primary'} onClick={garde(endSession)}>
+        Terminer le quiz
+      </button>
+    </ConsoleActions>
+  )
+  if (telecommande) {
+    return (
+      <div className="quiz-host telecommande-apercu" role="status">
+        <span className="label">À l’écran</span>
+        <strong className="telecommande-scene">Podium du quiz</strong>
+        {suiteDuQuiz}
+      </div>
+    )
+  }
+
   // Le podium à gauche, les équipes et la suite du classement à droite :
   // empilés, les équipes passaient sous la console en 1366 × 768, et la
   // salle ne voyait que leur titre.
@@ -490,33 +673,37 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
         {(teams.length > 0 || (v.standings?.length ?? 0) > 3) && (
           <div className="scene-listes">
             {teams.length > 0 && (
-              <div>
+              <div className="tableau">
                 <h3>
                   <Icon name="users" />
                   Les équipes après ce quiz
                 </h3>
-                <TeamBoard teams={teams} showFinalPoints />
+                <Coupe>
+                  <TeamBoard teams={teams} />
+                </Coupe>
+                {/* Un prix peut encore renverser l'ordre, c'est voulu : dit
+                    ici, le renversement devient un suspense, pas un démenti
+                    de ce que l'animateur vient d'annoncer. */}
+                <p className="muted small">{mentionDesPrix(teams)}</p>
               </div>
             )}
             {/* Les équipes d'abord : c'est leur classement qui décide de la
                 soirée, et la suite du classement peut être longue. */}
             {v.standings && v.standings.length > 3 && (
-              <div>
+              <div className="tableau">
                 <h3>
                   <Icon name="trophy" />
                   La suite du classement
                 </h3>
-                <Standings rows={v.standings.slice(3)} offset={3} />
+                <Coupe>
+                  <Standings rows={v.standings.slice(3)} offset={3} />
+                </Coupe>
               </div>
             )}
           </div>
         )}
       </div>
-      <ConsoleActions>
-        <button ref={principal} className="btn btn-primary" onClick={garde(endSession)}>
-          Terminer le quiz
-        </button>
-      </ConsoleActions>
+      {suiteDuQuiz}
     </div>
   )
 }
