@@ -23,9 +23,8 @@ import {
   type Banc,
   type Invite,
 } from './banc'
-import { parseImportedQuestions, toPlayable } from '../../shared/library'
+import { normalizeQuestions, parseImportedQuestions, toPlayable } from '../../shared/library'
 import { categorieDe } from '../../shared/categories'
-import { normalizeQuestions } from '../src/core/quizStore'
 
 // ── 1. La liste, l'import, l'enregistrement ───────────────────────────────
 

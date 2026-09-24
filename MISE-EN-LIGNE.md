@@ -116,6 +116,8 @@ Mets-le dans ta routine d'avant soirée (section 6) — c'est la seule chose à 
 
 > Un service de ping extérieur (cron-job.org, UptimeRobot…) appelant `/healthz` toutes les dix minutes ferait le même travail sans y penser. Ce dépôt ne s'en sert pas : avec **deux services gratuits** (production et préproduction), les 750 heures mensuelles de l'offre ne suffisent de toute façon pas à en garder deux allumés en permanence. Laisser dormir les deux est le choix cohérent.
 
+La veille ne menace pas davantage les quiz qu'on prépare : l'éditeur n'envoie rien pendant qu'on écrit, et le serveur peut s'endormir entre deux enregistrements — mais « Enregistrer » attend son réveil (« Réveil du serveur… », une minute), et le navigateur garde ce qui n'est pas encore enregistré, même si l'on recharge la page.
+
 ### Étape 6 — Vérifier pour de vrai
 
 Ouvre l'écran commun, puis **scanne le QR avec ton téléphone en 4G, wifi coupé**. C'est le seul test qui prouve que les invités pourront jouer.

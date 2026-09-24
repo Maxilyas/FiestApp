@@ -74,7 +74,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/classement.ts` | la seule règle des ex æquo : rang partagé, vainqueurs, ordre d'affichage — et l'écart d'une estimation (`ecartEstimation`) |
 | `shared/nombres.ts` | un nombre tapé par un humain, lu comme on l'écrit en France (« 35 000 », « 0,8 », « −40 ») : l'estimation au téléphone, la cible de l'éditeur, l'import d'une liste — une seule lecture |
 | `shared/securite.ts` | la page de retour après connexion : jamais ailleurs que chez soi |
-| `shared/erreurs.ts` | les motifs que le client montre quand ça coince (réseau, serveur qui redémarre…) |
+| `shared/erreurs.ts` | les motifs que le client montre quand ça coince (réseau, serveur qui redémarre…), et ce qui passe tout seul (`statutPassager`, `echecPassager`) |
+| `shared/reveil.ts` | une écriture qui attend le réveil de l'hébergeur au lieu d'échouer à vingt secondes (`auReveil`, dans `client/src/api.ts`) |
+| `shared/brouillon.ts` · `client/src/brouillon.ts` | le brouillon d'un quiz : ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit (`normalizeQuestions`, `shared/library.ts`) |
 | `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
 | `client/src/components/Liaison.tsx` | ce que voit l'invité quand la liaison tombe |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
@@ -326,6 +328,12 @@ sans `QUIZ_DB_URL`.
   seule oubliée, et la colonne se perd au premier réveil sur disque effacé.
 - **Toute mutation de `Party` qui touche un prénom, un avatar ou la
   composition invalide le cache des marques** d'homonymie.
+- **L'éditeur n'envoie rien pendant qu'on écrit** : le serveur s'endort sous
+  les doigts de l'animateur. Une écriture de l'éditeur qui se rejoue sans
+  dommage passe par `auReveil` ; et une réponse qui arrive après deux minutes
+  d'attente ne remplace l'éditeur que si rien n'a bougé depuis
+  (`modifications`). L'envoi d'une photo n'y passe pas : il s'attache à la
+  question par sa position, qu'on a pu déplacer entre-temps.
 - **`/healthz` doit rester un 200** : sur un échec, Render redémarre
   l'instance — disque effacé, file du miroir perdue. La santé du miroir se lit
   dans son bloc `miroir`, et la resynchronisation **n'efface jamais** : un PC
