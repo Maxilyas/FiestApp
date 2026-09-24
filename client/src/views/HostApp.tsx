@@ -856,7 +856,12 @@ export function HostApp() {
               <div className="quiz-host victory stage-scroll">
                 <h2>
                   <Icon name="crown" />
-                  {champions.length > 1 ? 'Les équipes qui remportent le quiz' : "L'équipe qui remporte le quiz"}
+                  {/* Sans équipes, « L'équipe qui remporte le quiz » au-dessus de
+                      « rien à couronner » se lisait comme un verdict contre Jo,
+                      qui venait de gagner la soirée seul. */}
+                  {final.length === 0
+                    ? "Pas d'équipes ce soir"
+                    : champions.length > 1 ? 'Les équipes qui remportent le quiz' : "L'équipe qui remporte le quiz"}
                 </h2>
                 {final.length > 0 ? (
                   <>
@@ -937,7 +942,7 @@ export function HostApp() {
                     </div>
                   </>
                 ) : (
-                  <p className="muted">Aucune équipe — rien à couronner.</p>
+                  <p className="muted">Sans équipes, c’est le classement des joueurs qui dit qui mène.</p>
                 )}
                 <ConsoleActions>
                   <button className="btn" onClick={() => openScreen('awards')}>
