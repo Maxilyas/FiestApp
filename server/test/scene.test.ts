@@ -222,6 +222,29 @@ test('au redémarrage, la scène repart de la salle d’attente', () =>
     assert.equal(snap.scene, undefined)
   }))
 
+test('un écran de fin ne s’ouvre pas par-dessus une question en cours', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const quiz = await creerQuiz(banc.url, cookie, [qcm('Première ?', ['Oui', 'Non'], 0, 60)])
+    await invite(banc.url, 'Alice')
+    const tele = await ecranCommun(banc.url, cookie)
+    const autre = await ecranCommun(banc.url, cookie)
+    const sessionId = await lancerQuiz(tele, quiz)
+    await attendre<any>(tele, 'session:view', p => p.view.phase === 'question', 'la question', 15_000)
+
+    // Une autre console ouvre le podium pendant que les téléphones répondent :
+    // la télé l'aurait posé sur la question.
+    envoyer(autre, 'host:scene', { ecran: 'podium', depuis: null })
+    await barriere(autre)
+    assert.equal((await instantane<any>(tele)).scene, undefined, 'la question garde l’écran')
+
+    // « Remise des prix », au podium du quiz : la partie se clôt d'abord, par
+    // la même connexion, et la scène passe.
+    envoyer(autre, 'host:endSession', { sessionId })
+    envoyer(autre, 'host:scene', { ecran: 'prix', depuis: null })
+    await scene(tele, sc => sc?.ecran === 'prix', 'les prix, une fois la partie close')
+  }))
+
 /** Un écran commun dont on écoute les messages avant qu'il se présente. */
 function connecterEcran(url: string, cookie: string) {
   const socket = connecter(url, cookie)

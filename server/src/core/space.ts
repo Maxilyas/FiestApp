@@ -808,6 +808,12 @@ export class SpaceRuntime {
     if (depuis !== undefined && depuis !== actuel) return false
     if (ecran === 'cloture') return false
     if (actuel === 'cloture' && ecran !== null) return false
+    // Un écran de fin ne s'ouvre pas par-dessus une question : une autre
+    // console qui ouvrait le podium pendant qu'on jouait le posait sur la
+    // télé, et les téléphones répondaient à une question que la salle ne
+    // voyait plus. « Remise des prix », au podium du quiz, clôt la partie
+    // d'abord (`host:endSession`, par la même connexion) : elle passe.
+    if (ecran !== null && this.engine.activeSessionId) return false
     const suivante: Scene | null = ecran ? { ecran, ...(ecran === 'podium' && onglet && { onglet }) } : null
     if (JSON.stringify(suivante) === JSON.stringify(this.scene)) return false
     this.scene = suivante
