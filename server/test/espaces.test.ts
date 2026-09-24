@@ -169,7 +169,13 @@ test('deux soirées derrière la même box : la vague de l’une ne ferme pas la
     const cloture = await journal(() => geste(host, 'host:closeParty'))
     const bilan = cloture.lignes.filter(l => l.includes('[inscriptions]'))
     assert.equal(bilan.length, 1, `une ligne à la clôture (vu : ${cloture.lignes.join(' | ')})`)
-    assert.match(bilan[0], /« banc » : 6[0-2] invités ; 6[0-2] inscriptions depuis le démarrage du serveur, sous 1 adresse distincte/)
+    // Soixante sous une seule entrée ; le robot, s'il est entré, sous deux.
+    const n = 60 + robot.valeur
+    assert.equal(
+      bilan[0],
+      `[inscriptions] soirée finie chez « banc » : ${n} invités ; ${n} inscriptions depuis la dernière clôture de l'espace,` +
+        ` sous 1 adresse distincte ; x-forwarded-for : ${robot.valeur > 0 ? '1 à 2 entrées' : '1 entrée'}`,
+    )
   } finally {
     for (const s of ouverts) s.close()
     await banc.close()
@@ -195,9 +201,65 @@ test('la réserve d’une adresse : large pour le serveur, étroite pour chaque 
   assert.ok(!lignes.join('').includes('192.0.2.1'), 'jamais une adresse en clair')
   assert.equal(reserve.empreinte('192.0.2.1'), reserve.empreinte('192.0.2.1'), 'une empreinte reconnaît sa clé')
   assert.notEqual(new ReserveDInscriptions().empreinte('192.0.2.1'), reserve.empreinte('192.0.2.1'), 'salée à chaque démarrage')
-  assert.deepEqual(reserve.mesure(), { refus: 10 * PAR_SOIREE.burst - PAR_ADRESSE.burst, adresses: 3 })
-  assert.deepEqual(reserve.clore('espace-0', 42), { invites: 42, inscriptions: PAR_SOIREE.burst + 100, adresses: 2 })
-  assert.deepEqual(reserve.clore('espace-0', 0), { invites: 0, inscriptions: 0, adresses: 0 }, 'oubliée une fois close')
+  const refus = 10 * PAR_SOIREE.burst - PAR_ADRESSE.burst
+  // Puiser dans la réserve ne mesure rien : seul un invité vraiment entré compte.
+  assert.deepEqual(reserve.mesure(), { refus, adresses: 0 })
+  reserve.compter('192.0.2.1', 'espace-0', 2)
+  reserve.compter('192.0.2.1', 'espace-0', 1)
+  reserve.compter('127.0.0.1', 'espace-0', 0)
+  reserve.compter('192.0.2.2', 'espace-9', 1)
+  assert.deepEqual(reserve.mesure(), { refus, adresses: 3 })
+  const cloture = await journal(async () => reserve.clore('espace-0', 42))
+  assert.deepEqual(cloture.valeur, { invites: 42, inscriptions: 3, adresses: 2, entrees: { min: 0, max: 2 } })
+  assert.match(cloture.lignes[0], /3 inscriptions depuis la dernière clôture de l'espace, sous 2 adresses distinctes ; x-forwarded-for : 0 à 2 entrées$/)
+  assert.deepEqual(reserve.clore('espace-0', 0), { invites: 0, inscriptions: 0, adresses: 0, entrees: null }, 'oubliée une fois close')
+})
+
+test('la mesure d’un espace qui ne clôt jamais ne grossit pas sans fin', async () => {
+  const reserve = new ReserveDInscriptions()
+  for (let i = 0; i < 10_050; i++) reserve.compter(`10.${(i >> 16) & 255}.${(i >> 8) & 255}.${i & 255}`, 'espace', 1)
+  const { lignes, valeur } = await journal(async () => reserve.clore('espace', 10_050))
+  assert.equal(valeur.adresses, 10_000, 'les adresses retenues sont plafonnées')
+  assert.equal(valeur.inscriptions, 10_050, 'les inscriptions, elles, se comptent toutes')
+  assert.match(lignes[0], /sous au moins 10000 adresses distinctes ; x-forwarded-for : 1 entrée$/)
+})
+
+test('des inscriptions sans prénom ne vident pas la réserve de la salle', async () => {
+  const banc = await demarrer({ online: true, publicUrl: 'http://localhost' })
+  const ouverts: Socket[] = []
+  const derriere = (xff: string) => {
+    const s = clientIo(banc.url, { transports: ['websocket'], forceNew: true, extraHeaders: { 'x-forwarded-for': xff } })
+    ouverts.push(s)
+    return s
+  }
+  try {
+    const BOX = '203.0.113.20'
+    // Une seule connexion, derrière la box de la fête, envoie soixante
+    // inscriptions au prénom vide : aucune ne crée personne.
+    const robot = derriere(BOX)
+    await emitAck(robot, 'party:watch', { slug: ADMIN.slug })
+    for (let i = 0; i < PAR_SOIREE.burst; i++) {
+      const ack = await emitAck<any>(robot, 'player:join', { slug: ADMIN.slug, name: i % 2 ? '' : '   ', avatar: '🎲' })
+      assert.equal(ack.ok, false)
+      assert.equal(ack.error, 'Il faut un prénom !')
+    }
+    // Le premier vrai invité derrière la même box entre.
+    const tel = derriere(BOX)
+    await emitAck(tel, 'party:watch', { slug: ADMIN.slug })
+    const ack = await emitAck<any>(tel, 'player:join', { slug: ADMIN.slug, name: 'Camille', avatar: '🐱' })
+    assert.equal(ack.ok, true, `le premier invité est refusé : ${ack.error}`)
+
+    // Et la clôture ne compte que l'invité entré.
+    const host = await ecranCommun(banc.url, await connexionAnimateur(banc.url))
+    ouverts.push(host)
+    const { lignes } = await journal(() => geste(host, 'host:discardParty'))
+    const bilan = lignes.filter(l => l.includes('[inscriptions]'))
+    assert.equal(bilan.length, 1, `une ligne à l’essai effacé (vu : ${lignes.join(' | ')})`)
+    assert.match(bilan[0], /1 invité ; 1 inscription depuis la dernière clôture de l'espace, sous 1 adresse distincte ; x-forwarded-for : 1 entrée$/)
+  } finally {
+    for (const s of ouverts) s.close()
+    await banc.close()
+  }
 })
 
 // ── E2. Un palier ne se décide que sur des soirées closes ─────────────────

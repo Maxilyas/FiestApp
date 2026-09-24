@@ -7,6 +7,7 @@ import type { ProfileRec, ProfileStore } from './auth/profiles'
 import { readPlayerToken, readSessionToken } from './auth/http'
 import type { ReserveDInscriptions } from './core/inscriptions'
 import { messagePourEcran } from './core/http'
+import { cleanName } from '../../shared/avatars'
 
 interface SocketDeps {
   /** Les soirées en cours, une par espace. */
@@ -314,6 +315,13 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           if (rt.party.count() >= rt.maxPlayers) {
             return repondre({ ok: false, error: 'La soirée est complète !' })
           }
+          // Sans prénom, personne n'entrera : refusé avant de puiser dans la
+          // réserve. Une connexion qui envoyait soixante `player:join` vides
+          // la vidait une minute sans créer personne, et fermait la porte à
+          // toute la salle derrière la même box.
+          if (!cleanName(texte(charge.name) || profile?.name || '')) {
+            return repondre({ ok: false, error: 'Il faut un prénom !' })
+          }
           if (
             identitiesCreated >= JOINS_PER_SOCKET ||
             !inscriptions.prendre(ip, rt.spaceId, entreesDuProxy(socket), deps.auth.byId(rt.spaceId)?.slug)
@@ -338,7 +346,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         const avatar = declare ? texte(charge.avatar) || profile?.avatar || '' : ''
         const res = rt.party.join(name, avatar, known?.token, teamId)
         if ('error' in res) return repondre({ ok: false, error: res.error })
-        if (!known) identitiesCreated++
+        if (!known) {
+          identitiesCreated++
+          // La mesure de la clôture ne compte que les invités vraiment entrés.
+          inscriptions.compter(ip, rt.spaceId, entreesDuProxy(socket))
+        }
         // Le rattachement, enfin : c'est lui qui fera compter la soirée dans
         // l'expérience du profil.
         if (profile) rt.party.bindProfile(res.id, profile.id)

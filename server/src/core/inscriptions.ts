@@ -29,8 +29,23 @@ import { Budget, LOOPBACK } from './budget'
 export const PAR_SOIREE = { burst: 60, parMinute: 60 }
 export const PAR_ADRESSE = { burst: 300, parMinute: 300 }
 
-/** Ce que le journal retient des refus : une ligne par clé et par minute, pas une par invité. */
+/** Ce que le journal retient des refus : une ligne par minute pour chaque couple (adresse, espace), pas une par invité. */
 const SILENCE_MS = 60_000
+
+/**
+ * Les adresses retenues par espace pour la mesure, au plus. Au-delà, on ne
+ * compte plus que les inscriptions : un espace qui ne clôt jamais sa soirée
+ * ne doit pas faire grossir la mémoire du serveur sans fin.
+ */
+const ADRESSES_MAX = 10_000
+
+interface Vues {
+  adresses: Set<string>
+  /** Des adresses n'ont pas été retenues, faute de place : le compte est un minimum. */
+  pleine: boolean
+  inscriptions: number
+  entrees: { min: number; max: number } | null
+}
 
 export class ReserveDInscriptions {
   private parSoiree = new Budget(PAR_SOIREE.burst, PAR_SOIREE.parMinute)
@@ -43,11 +58,12 @@ export class ReserveDInscriptions {
   private sel = randomBytes(16)
   /**
    * Par espace, les empreintes des adresses dont une inscription est passée
-   * depuis le début de la soirée, et combien d'inscriptions en tout. En
-   * mémoire seulement : un redémarrage en pleine soirée fait repartir le
-   * compte, et le journal de clôture le dit.
+   * depuis sa dernière clôture, combien d'inscriptions en tout, et le moins
+   * et le plus d'entrées de `x-forwarded-for` qu'on y a vus. En mémoire
+   * seulement : un redémarrage en pleine soirée fait repartir le compte, et
+   * le journal de clôture le montre.
    */
-  private vues = new Map<string, { adresses: Set<string>; inscriptions: number }>()
+  private vues = new Map<string, Vues>()
   /** Par clé refusée, l'heure de la dernière ligne au journal. */
   private dites = new Map<string, number>()
   private refus = 0
@@ -63,30 +79,39 @@ export class ReserveDInscriptions {
    * de `x-forwarded-for` à la poignée de main (0 sans en-tête) : on le
    * journalise au refus, c'est lui qui dira si l'adresse lue est bien celle
    * du téléphone (voir `MISE-EN-LIGNE.md`, « Vérifier l'adresse des invités »).
+   *
+   * Ne mesure rien : seule une inscription réussie compte (`compter`). Une
+   * demande refusée plus loin — un prénom vide, une soirée pleine — n'est
+   * pas un invité de plus.
    */
   prendre(ip: string, spaceId: string, entrees: number, etiquette = spaceId): boolean {
     // Les tests et les essais à la maison passent par l'adresse locale : ils
     // inscrivent cinquante invités d'un coup, et c'est voulu.
-    const locale = LOOPBACK.has(ip)
+    if (LOOPBACK.has(ip)) return true
     // La réserve de la soirée d'abord : c'est elle qui refuse d'ordinaire,
     // et un refus n'entame pas celle de l'adresse.
-    const refusePar = locale
-      ? null
-      : !this.parSoiree.take(`${ip}|${spaceId}`)
-        ? 'de la soirée'
-        : !this.parAdresse.take(ip)
-          ? 'du serveur'
-          : null
-    if (refusePar) {
-      this.refus++
-      this.journaliserRefus(ip, spaceId, entrees, etiquette, refusePar)
-      return false
-    }
+    const refusePar = !this.parSoiree.take(`${ip}|${spaceId}`)
+      ? 'de la soirée'
+      : !this.parAdresse.take(ip)
+        ? 'du serveur'
+        : null
+    if (!refusePar) return true
+    this.refus++
+    this.journaliserRefus(ip, spaceId, entrees, etiquette, refusePar)
+    return false
+  }
+
+  /** Un invité vient d'entrer dans cet espace depuis cette adresse : la mesure de la clôture le comptera. */
+  compter(ip: string, spaceId: string, entrees: number): void {
     let vues = this.vues.get(spaceId)
-    if (!vues) this.vues.set(spaceId, (vues = { adresses: new Set(), inscriptions: 0 }))
-    vues.adresses.add(this.empreinte(ip))
+    if (!vues) this.vues.set(spaceId, (vues = { adresses: new Set(), pleine: false, inscriptions: 0, entrees: null }))
+    const empreinte = this.empreinte(ip)
+    if (vues.adresses.has(empreinte) || vues.adresses.size < ADRESSES_MAX) vues.adresses.add(empreinte)
+    else vues.pleine = true
     vues.inscriptions++
-    return true
+    vues.entrees = vues.entrees
+      ? { min: Math.min(vues.entrees.min, entrees), max: Math.max(vues.entrees.max, entrees) }
+      : { min: entrees, max: entrees }
   }
 
   private journaliserRefus(ip: string, spaceId: string, entrees: number, etiquette: string, par: string) {
@@ -113,22 +138,34 @@ export class ReserveDInscriptions {
    * soirée, veut dire qu'on lit celle d'un proxy de l'hébergeur — et alors
    * toutes les soirées du serveur partagent la même réserve.
    */
-  clore(spaceId: string, invites: number, etiquette = spaceId): { invites: number; inscriptions: number; adresses: number } {
+  clore(
+    spaceId: string,
+    invites: number,
+    etiquette = spaceId,
+  ): { invites: number; inscriptions: number; adresses: number; entrees: { min: number; max: number } | null } {
     const vues = this.vues.get(spaceId)
     const adresses = vues?.adresses.size ?? 0
     const inscriptions = vues?.inscriptions ?? 0
+    const entrees = vues?.entrees ?? null
     this.vues.delete(spaceId)
     const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`
     if (invites > 0 || inscriptions > 0) {
-      // Les inscriptions comptées sont celles que la réserve a vues : moins
-      // que d'invités si le serveur a redémarré pendant la soirée.
+      // Les inscriptions comptées sont celles que la réserve a vues depuis la
+      // dernière clôture de l'espace : moins que d'invités si le serveur a
+      // redémarré pendant la soirée. Le nombre d'entrées de l'en-tête se dit
+      // ici, à chaque soirée, et pas seulement au refus : c'est lui qui dit
+      // combien de proxys se tiennent devant le serveur.
+      const plage = entrees
+        ? ` ; x-forwarded-for : ${entrees.min === entrees.max ? entrees.min : `${entrees.min} à ${entrees.max}`}` +
+          ` entrée${entrees.max > 1 ? 's' : ''}`
+        : ''
       console.log(
         `[inscriptions] soirée finie chez « ${etiquette} » : ${pluriel(invites, 'invité')} ;` +
-          ` ${pluriel(inscriptions, 'inscription')} depuis le démarrage du serveur,` +
-          ` sous ${pluriel(adresses, 'adresse')} distincte${adresses > 1 ? 's' : ''}`,
+          ` ${pluriel(inscriptions, 'inscription')} depuis la dernière clôture de l'espace,` +
+          ` sous ${vues?.pleine ? 'au moins ' : ''}${pluriel(adresses, 'adresse')} distincte${adresses > 1 ? 's' : ''}${plage}`,
       )
     }
-    return { invites, inscriptions, adresses }
+    return { invites, inscriptions, adresses, entrees }
   }
 
   /**
