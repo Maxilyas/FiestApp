@@ -12,6 +12,13 @@ export const MAX_DURATION = 120
 export const DEFAULT_DURATION = 20
 
 /**
+ * La bonne réponse d'un QCM qui n'en a pas encore. Une liste collée sans
+ * étoile prenait la première réponse pour la bonne, et le quiz se disait
+ * « prêt » : la salle le découvrait à la révélation. Rien de coché, plutôt.
+ */
+export const SANS_BONNE_REPONSE = -1
+
+/**
  * Les bornes d'un quiz, en caractères et en questions : l'éditeur, la liste
  * collée et le serveur les appliquent, et le format qu'on donne à écrire
  * (`shared/liste.ts`) les annonce — il ne peut pas en promettre d'autres.
@@ -52,7 +59,11 @@ export interface QuizQuestionDef {
   text: string
   /** QCM : toujours MAX_ANSWERS cases dans l'éditeur, les vides sont ignorées. */
   answers: string[]
-  /** QCM : index de la bonne réponse dans `answers`, à partir de 0. */
+  /**
+   * QCM : index de la bonne réponse dans `answers`, à partir de 0 — ou
+   * `SANS_BONNE_REPONSE` quand une liste collée n'en désignait aucune : la
+   * question attend qu'on la choisisse sur sa carte, et ne se joue pas d'ici là.
+   */
   correct: number
   /** Estimation : la bonne valeur. */
   target: number | null
@@ -240,6 +251,26 @@ export function photoManquante(q: Pick<QuizQuestionDef, 'image' | 'photoAttendue
   return note && !q.image ? note : null
 }
 
+/** Un temps de réponse que la partie jouera tel quel : un entier, dans les bornes. */
+export const tempsDansLesBornes = (secondes: unknown): boolean =>
+  typeof secondes === 'number' && Number.isFinite(secondes) && secondes >= MIN_DURATION && secondes <= MAX_DURATION
+
+/**
+ * Le temps de réponse ou d'observation hors de ses bornes, dit comme on le
+ * corrige, ou null. Ramené en silence, « 2045 » (un « 20 » revenu tout seul
+ * dans le champ, et le 45 tapé derrière) se jouait en deux minutes, la
+ * question comptée « prête » ; arrêté sur le « 4 », en cinq secondes.
+ */
+function horsBornes(q: QuizQuestionDef): string | null {
+  if (!tempsDansLesBornes(q.duration)) return `Le temps de réponse va de ${MIN_DURATION} à ${MAX_DURATION} s`
+  // Sans photo, l'observation est ignorée (voir tempsDObservation) : rien à reprocher.
+  const obs = q.observeSeconds
+  if (q.image && obs !== null && obs !== undefined && !(Number.isFinite(obs) && obs >= MIN_OBSERVE && obs <= MAX_OBSERVE)) {
+    return `Le temps d’observation va de ${MIN_OBSERVE} à ${MAX_OBSERVE} s`
+  }
+  return null
+}
+
 /**
  * Convertit une question éditée en question jouable, ou null si elle n'est pas
  * prête. Pour un QCM, retirer les réponses vides décale les index : on retrouve
@@ -249,7 +280,10 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
   const text = (q.text ?? '').trim()
   if (!text) return null
   if (photoManquante(q)) return null
-  const duration = Math.min(MAX_DURATION, Math.max(MIN_DURATION, Number(q.duration) || DEFAULT_DURATION))
+  // Hors bornes, la question attend qu'on la corrige : elle le dit sur sa
+  // carte (`questionProblem`), la partie ne la ramène pas en silence.
+  if (horsBornes(q)) return null
+  const duration = Math.round(q.duration)
   const image = q.image ?? null
   const observeSeconds = tempsDObservation(q)
   const category = categorieDe(q.category)
@@ -291,10 +325,12 @@ export function questionProblem(q: QuizQuestionDef): string | null {
   } else {
     const filled = (q.answers ?? []).filter(a => (a ?? '').trim().length > 0)
     if (filled.length < MIN_ANSWERS) return `Il faut au moins ${MIN_ANSWERS} réponses`
+    if (q.correct === SANS_BONNE_REPONSE) return 'Choisis la bonne réponse'
     if (!((q.answers ?? [])[q.correct] ?? '').trim()) return 'La bonne réponse désignée est vide'
   }
   const photo = photoManquante(q)
-  return photo ? `Il manque la photo « ${photo} »` : null
+  if (photo) return `Il manque la photo « ${photo} »`
+  return horsBornes(q)
 }
 
 export function playableQuestions(quiz: QuizDef): PlayableQuestion[] {
@@ -345,7 +381,12 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
       answers,
       target: q?.target === null || q?.target === undefined || !Number.isFinite(target) ? null : target,
       unit: typeof q?.unit === 'string' ? tronquer(q.unit, MAX_UNIT) : '',
-      correct: Number.isInteger(correct) && correct >= 0 && correct < MAX_ANSWERS ? correct : 0,
+      // « À choisir » survit à l'enregistrement : rangée en 0, la question
+      // redevenait prête avec la première réponse pour bonne.
+      correct: Number.isInteger(correct) && correct >= SANS_BONNE_REPONSE && correct < MAX_ANSWERS ? correct : 0,
+      // Une page d'avant, qui lisait « 2045 », l'envoie encore : on le range
+      // dans les bornes. L'éditeur d'aujourd'hui ne l'envoie plus — son champ
+      // borne en le quittant, sous les yeux de l'animateur (`ChampNombre`).
       duration: Number.isFinite(duration)
         ? Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.round(duration)))
         : DEFAULT_DURATION,
@@ -443,6 +484,78 @@ const SANS_PHOTO = /^(aucune?|non|sans|rien|pas de photo|[-–—/])$/
 
 const borner = (n: number, min: number, max: number) => Math.min(max, Math.max(min, Math.round(n)))
 
+// ── La mise en forme d'une liste « bavarde » ─────────────────────────────
+//
+// Le format demande du texte brut, mais une IA « met en forme » sa réponse,
+// et un ami numérote : `**1. Quelle… ?**`, `- Canberra *`, `B) *1989`. Lu
+// tel quel, l'intitulé gardait ses `**`, les réponses leurs puces, l'étoile
+// en fin de ligne n'était pas vue — et la première réponse devenait la
+// bonne. On retire ce qui ne se lit pas comme un doute : le gras, les puces,
+// un numéro suivi d'un point, des lettres qui se suivent (A, B, C).
+
+/** `**gras**` et `__gras__`, où qu'ils soient dans la ligne. */
+const sansGras = (l: string) => l.replace(/\*\*(.+?)\*\*/g, '$1').replace(/__(.+?)__/g, '$1')
+
+/**
+ * Le numéro d'un intitulé : « 1. », « 2) », « Q3 : », « Question 4 - », et
+ * le « ## » d'un titre. Un nombre sans point ni parenthèse n'en est pas un
+ * (« 1984 est un roman de ? »), ni un point sans espace (« 3.14, c'est pi ? »).
+ */
+const TITRE_MARKDOWN = /^#{2,}\s*/
+const NUMERO_D_INTITULE = /^(?:q(?:uestion)?\s*(?:n°\s*)?\d{1,3}\s*[.):–—-]?\s+|\d{1,3}\s*[.)]\s+)/i
+
+/**
+ * Une puce. L'étoile n'en est pas une — c'est la marque de la bonne
+ * réponse —, ni un tiret collé : « -41 °C » est un nombre négatif.
+ */
+const PUCE = /^[-•–—+·▪◦]\s+/
+/** La bonne réponse, marquée devant — « * », « ✓ » — ou derrière, comme on l'écrit aussi. */
+const MARQUE_DEVANT = /^[*✓✔]\s*/
+const MARQUE_DERRIERE = /\s*(?:\*|✓|✔|\(\s*\*\s*\)|\(\s*bonne\s+r[ée]ponse\s*\))$/i
+/** « A) », « b. », « 1) » : l'étiquette d'une réponse, qui ne se retire que si toutes se suivent. */
+const ETIQUETTE = /^\(?([a-h]|\d)[.)]\s+/i
+const SUITE_D_ETIQUETTES = 'abcdefgh'
+/** « Réponse : Canberra », « Bonne réponse : B » : la bonne, désignée sous les choix. */
+const REPONSE_DESIGNEE = /^(?:la\s+)?(?:bonne\s+)?r[ée]ponse(?:\s+correcte)?\s*:\s*(.+)$/i
+
+interface ReponseLue {
+  /** Le texte, sans puce ni marque ; `etiquette` le précède encore. */
+  texte: string
+  /** Le même, sans son étiquette. */
+  nu: string
+  etiquette: string | null
+  marquee: boolean
+}
+
+function lireReponse(ligne: string): ReponseLue {
+  let l = ligne.replace(PUCE, '')
+  let marquee = MARQUE_DEVANT.test(l)
+  l = l.replace(MARQUE_DEVANT, '')
+  const m = ETIQUETTE.exec(l)
+  let nu = m ? l.slice(m[0].length) : l
+  // « B) *1989 » : la marque après l'étiquette.
+  if (m && MARQUE_DEVANT.test(nu)) {
+    marquee = true
+    nu = nu.replace(MARQUE_DEVANT, '')
+    l = `${m[0]}${nu}`
+  }
+  if (MARQUE_DERRIERE.test(nu)) {
+    marquee = true
+    nu = nu.replace(MARQUE_DERRIERE, '')
+    l = l.replace(MARQUE_DERRIERE, '')
+  }
+  return { texte: l.trim(), nu: nu.trim(), etiquette: m ? m[1].toLowerCase() : null, marquee }
+}
+
+/** Pour comparer une réponse désignée à un choix : sans casse, sans accent, sans ponctuation finale. */
+const comparable = (s: string) => sansAccents(s).toLowerCase().replace(/[.!]+$/, '').trim()
+
+/** Une ligne « Temps : 45 s » lisible, ou null : elle peut alors précéder un intitulé. */
+function tempsSeul(ligne: string): number | null {
+  const lu = lireReglage(ligne)
+  return lu?.reglage === 'temps' ? lireSecondes(lu.valeur) : null
+}
+
 /**
  * Analyse un bloc de texte collé dans l'éditeur. Saisir cinquante questions
  * une par une est long ; les taper dans un carnet puis coller l'ensemble
@@ -465,9 +578,10 @@ const borner = (n: number, min: number, max: number) => Math.min(max, Math.max(m
  *
  * Une ligne vide sépare deux questions. L'étoile marque la bonne réponse ;
  * le signe égal transforme la question en estimation chiffrée. Sous
- * l'intitulé, « Temps », « Photo » et « Observation » règlent la question.
- * `modele`, la voisine de l'endroit où la liste arrive, lui prête son temps
- * et sa catégorie (voir emptyQuestion).
+ * l'intitulé, « Photo » et « Observation » règlent la question ; « Temps »
+ * la règle, elle et les suivantes, comme une catégorie. `modele`, la voisine
+ * de l'endroit où la liste arrive, prête son temps et sa catégorie à ce qui
+ * n'en dit rien (voir emptyQuestion).
  */
 export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | null): ImportResult {
   // Une clôture devient une ligne vide : elle sépare, elle ne se lit pas.
@@ -488,13 +602,24 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
   // Sans dièse, la liste collée reprend la catégorie de sa voisine, comme une
   // question ajoutée à la main (voir emptyQuestion) ; « # » seul l'efface.
   let categorie: string | null = categorieDe(modele?.category)
+  // Le temps court comme la catégorie : « Temps : 50 s » sous la première
+  // question valait pour elle seule, et les huit suivantes de Léa sont
+  // arrivées à 20 s — l'aide promettait l'inverse. Sans ligne, la voisine.
+  let temps = emptyQuestion(modele).duration
   for (const block of blocks) {
     const lines = block
       .split(SEPARATEUR_LIGNES)
-      .map(l => l.trim())
+      .map(l => sansGras(l).trim())
       .filter(l => l.length > 0)
-    while (lines.length > 0 && estCategorie(lines[0])) {
-      const nom = lines.shift()!.slice(1).trim()
+    // En tête de bloc, ou seules : les catégories, et un temps pour la suite.
+    while (lines.length > 0 && (estCategorie(lines[0]) || tempsSeul(lines[0]) !== null)) {
+      const ligne = lines.shift()!
+      const secondes = tempsSeul(ligne)
+      if (secondes !== null) {
+        temps = borner(secondes, MIN_DURATION, MAX_DURATION)
+        continue
+      }
+      const nom = ligne.slice(1).trim()
       categorie = nom ? categorieDe(nom) : null
       // Une catégorie qu'on ne connaît pas se signale, comme un bloc illisible.
       if (nom && !categorie) ignored++
@@ -507,21 +632,25 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
     const question = emptyQuestion(modele)
     question.category = categorie
     // Coupé par caractère, jamais au milieu d'un emoji.
-    question.text = tronquer(lines[0], MAX_TEXT)
+    question.text = tronquer(lines[0].replace(TITRE_MARKDOWN, '').replace(NUMERO_D_INTITULE, '').trim() || lines[0], MAX_TEXT)
 
     // Les réglages d'abord, où qu'ils soient sous l'intitulé : ce qui reste
     // est la réponse — le « = » d'une estimation, ou les choix d'un QCM.
     const rest: string[] = []
     let observation: number | null = null
+    let designee: string | null = null
     for (const line of lines.slice(1)) {
       const lu = lireReglage(line)
-      if (!lu) {
+      const reponse = REPONSE_DESIGNEE.exec(line)
+      if (reponse) {
+        designee = reponse[1]
+      } else if (!lu) {
         rest.push(line)
       } else if (lu.reglage === 'temps') {
-        // Illisible, le temps reste celui de la voisine : il se corrige sur
-        // la carte, et ne vaut pas qu'on perde la question.
+        // Illisible, le temps reste celui qui court : il se corrige sur la
+        // carte, et ne vaut pas qu'on perde la question.
         const secondes = lireSecondes(lu.valeur)
-        if (secondes !== null) question.duration = borner(secondes, MIN_DURATION, MAX_DURATION)
+        if (secondes !== null) temps = borner(secondes, MIN_DURATION, MAX_DURATION)
       } else if (lu.reglage === 'photo') {
         const photo = tronquer(lu.valeur, MAX_PHOTO_ATTENDUE).trim()
         question.photoAttendue = photo && !SANS_PHOTO.test(sansAccents(photo).toLowerCase()) ? photo : null
@@ -532,10 +661,11 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
         observation = secondes === null ? null : borner(secondes, MIN_OBSERVE, MAX_OBSERVE)
       }
     }
+    question.duration = temps
     // Sans photo, rien à observer (voir tempsDObservation).
     question.observeSeconds = question.photoAttendue ? observation : null
 
-    const numberLine = rest.find(l => l.startsWith('='))
+    const numberLine = rest.map(l => l.replace(PUCE, '')).find(l => l.startsWith('='))
     if (numberLine) {
       const lue = lireEstimation(numberLine.slice(1).trim())
       if (!lue) {
@@ -549,23 +679,45 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
       continue
     }
 
+    const lues = rest.map(lireReponse).filter(r => r.texte.length > 0)
+    // « A. Lincoln » seul n'est pas une liste lettrée : les étiquettes ne se
+    // retirent que si toutes se suivent, depuis A ou 1.
+    const etiquetees =
+      lues.length >= MIN_ANSWERS &&
+      lues.every((r, i) => r.etiquette === SUITE_D_ETIQUETTES[i] || r.etiquette === String(i + 1))
     let correct = -1
+    let marques = 0
     const answers: string[] = []
-    for (const line of rest) {
-      const marked = line.startsWith('*') || line.startsWith('✓')
-      const answer = (marked ? line.slice(1) : line).trim()
-      if (!answer || answers.length >= MAX_ANSWERS) continue
-      if (marked && correct < 0) correct = answers.length
+    for (const r of lues) {
+      const answer = etiquetees ? r.nu : r.texte
+      if (!answer) continue
+      if (r.marquee) marques++
+      // Au-delà de quatre, la réponse est coupée — et sa marque avec : la
+      // question attend alors qu'on choisisse, plutôt qu'une autre ne gagne.
+      if (answers.length >= MAX_ANSWERS) continue
+      if (r.marquee && correct < 0) correct = answers.length
       answers.push(tronquer(answer, MAX_ANSWER_TEXT))
     }
     if (answers.length < MIN_ANSWERS) {
       ignored++
       continue
     }
-    // Sans étoile, on garde la première réponse mais on le signale : mieux
-    // vaut une alerte qu'un quiz faux découvert devant cinquante personnes.
-    if (correct < 0) {
-      correct = 0
+    // « Réponse : Canberra » ou « Bonne réponse : B », quand aucune n'est marquée.
+    if (marques === 0 && designee) {
+      const cherchee = comparable(lireReponse(designee).texte)
+      const i = lues.findIndex(
+        (r, n) => n < MAX_ANSWERS && (comparable(r.nu) === cherchee || comparable(r.texte) === cherchee || (etiquetees && r.etiquette === cherchee)),
+      )
+      if (i >= 0) {
+        correct = i
+        marques = 1
+      }
+    }
+    // Sans marque, ou avec plusieurs, la question attend qu'on choisisse sur
+    // sa carte : prendre la première, c'était un quiz faux découvert devant
+    // cinquante personnes — le panneau le disait, puis se refermait.
+    if (marques !== 1 || correct < 0) {
+      correct = SANS_BONNE_REPONSE
       unmarked++
     }
     question.correct = correct
