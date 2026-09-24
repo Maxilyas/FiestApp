@@ -57,6 +57,8 @@ const SERVER_ERROR = 'Erreur serveur — retente'
 const UNKNOWN_TOKEN = 'On ne te retrouve plus dans cette soirée — rejoins-la'
 /** Le jeton d'une soirée qu'on vient de clore : le téléphone montre sa fin de soirée. */
 const SOIREE_CLOSE = 'Cette soirée est close — voici la tienne'
+/** Le même jeton après un redémarrage : sa fin est oubliée, la soirée se relit. */
+const SOIREE_REVOIR = 'Cette soirée est close — revois-la'
 
 /**
  * Ce qu'on dit à l'invité dont la réponse n'est pas passée. Le silence était
@@ -298,6 +300,18 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
             // Une page d'avant ne lit ni ce motif ni ce message : ce signal-là
             // la ramène au moins à l'entrée.
             socket.emit('player:removed', { reason: 'soiree-close' })
+            return
+          }
+          // Le serveur a redémarré depuis la clôture et oublié les fins de
+          // soirée : si l'espace n'a rien joué depuis, ce jeton était presque
+          // sûrement de la soirée close — on la propose au lieu de « on ne te
+          // retrouve plus ». Une base distante muette ne prive que du lien.
+          const derniere = await rt.derniereClose().catch(() => null)
+          if (derniere) {
+            const soiree = { id: derniere.id, titre: derniere.title, slug: account.slug }
+            repondre({ ok: false, reason: 'unknown-token', error: SOIREE_REVOIR, derniere: soiree })
+            socket.emit('player:removed', { reason: 'unknown-token' })
+            socket.emit('toast', { kind: 'info', message: SOIREE_REVOIR })
             return
           }
           // Le jeton ne désigne plus personne. On recréait l'invité en silence

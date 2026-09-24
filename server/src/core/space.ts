@@ -34,10 +34,10 @@ import type { CarteDeJoueur } from '../../../shared/carte'
 import type { BadgePorte, Rarete } from '../../../shared/badges'
 import { hautFaitDeSoiree, palierDe, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
 import { cibleEclat } from '../../../shared/legendaires'
-import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, SoireeClose } from '../../../shared/fin'
+import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, PrixAnnonce, SoireeClose } from '../../../shared/fin'
 import type { PartySnapshot, Recap } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
-import type { ArchiveList, ArchiveSummary } from '../../../shared/archive'
+import type { ArchiveList, ArchiveSummary, DerniereSoiree } from '../../../shared/archive'
 import { defaultSettings, type PublicSpace } from '../../../shared/space'
 import { teamScores } from '../../../shared/teams'
 
@@ -69,6 +69,8 @@ interface CreditDeCloture {
   faits: Map<string, string[]>
   /** Rang, points et taille de la salle, pour chacun. */
   releves: ReturnType<typeof relevesDeSoiree>
+  /** Les prix du palmarès, par joueur, profil ou non : sa fin de soirée les lui rappelle. */
+  prix: Map<string, PrixAnnonce[]>
 }
 
 /** Un haut fait de soirée tel qu'on l'annonce. */
@@ -344,6 +346,16 @@ export class SpaceRuntime {
     return this.dernieresFins.get(token)
   }
 
+  /**
+   * La dernière soirée close de l'espace, tant que la suivante n'a rien joué :
+   * c'est elle que le souvenir et le bilan montrent entre deux soirées, et
+   * elle qu'on propose au téléphone dont le jeton ne désigne plus personne.
+   */
+  async derniereClose(): Promise<DerniereSoiree | null> {
+    if (this.aJoue()) return null
+    return this.deps.archives.derniere(this.spaceId, this.soireeId())
+  }
+
   /** L'identifiant de la soirée en cours, s'il est déjà tiré — l'historique la montre à part. */
   soireeId(): string | null {
     return this.soiree?.id ?? null
@@ -616,7 +628,14 @@ export class SpaceRuntime {
     // bilan de chacun, qui voit aussi l'Arbre-Monde descendre avec son
     // douzième légendaire.
     laureats.push(...laureatsDivins(divinsDeSoiree(live), profilDuJoueur))
-    return { gains, laureats, faits, releves: relevesDeSoiree(live, { cloture: true }) }
+    const prixDe = new Map<string, PrixAnnonce[]>()
+    for (const a of prix) {
+      if (!a.player) continue
+      const liste = prixDe.get(a.player.playerId) ?? []
+      liste.push({ key: a.key, emoji: a.emoji, title: a.title, detail: a.detail })
+      prixDe.set(a.player.playerId, liste)
+    }
+    return { gains, laureats, faits, releves: relevesDeSoiree(live, { cloture: true }), prix: prixDe }
   }
 
   /**
@@ -1037,6 +1056,7 @@ export class SpaceRuntime {
       const figure = figures.get(p.id)
       const fin: FinDeSoiree = {
         soiree,
+        joueurId: p.id,
         nom: figure?.nom ?? p.name,
         avatar: p.avatar,
         // Ce qu'il porte ce soir — sa finition, son légendaire : sa fin de
@@ -1044,7 +1064,10 @@ export class SpaceRuntime {
         ...(figure && distinctions(figure)),
         rang: x?.releve.rang ?? 0,
         points: x?.releve.points ?? 0,
-        joueurs: x?.releve.joueurs ?? 0,
+        // Arrivé après la dernière question, il n'a pas de relevé : la salle,
+        // elle, a bien joué — il lisait « 0 joueurs ce soir ».
+        joueurs: x?.releve.joueurs ?? summary.players,
+        ...(credit.prix.has(p.id) && { prix: credit.prix.get(p.id) }),
         hautsFaits: (credit.faits.get(p.id) ?? []).map(annonceDe).filter((a): a is HautFaitAnnonce => !!a),
         ...(profils.has(p.id) && { profil: profils.get(p.id) }),
       }

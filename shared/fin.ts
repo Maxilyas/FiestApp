@@ -17,6 +17,15 @@ export interface HautFaitAnnonce {
   ton: Ton
 }
 
+/** Un prix du palmarès, tel que la fin de soirée le rappelle à son lauréat. */
+export interface PrixAnnonce {
+  key: string
+  emoji: string
+  title: string
+  /** Le chiffre qui le justifie (« 2,4 s de moyenne »). */
+  detail: string
+}
+
 /** Où relire la soirée close : son historique, dans l'espace. */
 export interface SoireeClose {
   id: string
@@ -32,12 +41,23 @@ export interface SoireeClose {
  */
 export interface FinDeSoiree extends Distinctions {
   soiree: SoireeClose
+  /**
+   * Son identifiant de joueur dans l'archive : « Mon bilan » s'ouvre sur lui
+   * (`#p=…`) au lieu de demander « Qui es-tu ? ». Il est déjà public dans le
+   * bilan. Absent d'un serveur d'avant.
+   */
+  joueurId?: string
   nom: string
   avatar: string
   rang: number
   points: number
-  /** Joueurs qui ont répondu ce soir-là. */
+  /** Joueurs qui ont répondu ce soir-là — lui compris ou non. */
   joueurs: number
+  /**
+   * Les prix du palmarès qu'il remporte (« L'Éclair ») : Jeanne cherchait le
+   * sien sur sa fin de soirée. Absent d'un serveur d'avant.
+   */
+  prix?: PrixAnnonce[]
   /** Ce qu'il a fait de remarquable ce soir. */
   hautsFaits: HautFaitAnnonce[]
   /** Ce que la soirée rapporte à son profil, s'il en a un. */

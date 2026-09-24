@@ -233,6 +233,51 @@ test('clore la soirée : chaque téléphone reçoit sa fin, l’écran commun la
     assert.ok(profil.vitrine.some((b: any) => b.key === 'hf:grand-chelem'))
   }))
 
+// La fin de soirée était une porte à sens unique : elle ne savait pas qui
+// était son porteur dans l'archive (« Mon bilan » redemandait « Qui es-tu ? »),
+// taisait ses prix, disait « 0 joueurs ce soir » à qui arrivait après la
+// dernière question — et, après un redémarrage, le téléphone qui dormait
+// lisait « On ne te retrouve plus » au lieu de revoir sa soirée.
+
+test('la fin de soirée mène au bilan de son porteur, dit ses prix et la salle — et survit à un redémarrage', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const deux = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const host = await ecranCommun(banc.url, cookie)
+    const alice = await invite(banc.url, 'Alice', '🦊')
+    const salle = await figurants(banc, 2)
+    await jouerQuiz(host, deux, [
+      [[alice, 0], ...faux(salle)],
+      [[alice, 0], ...faux(salle)],
+    ])
+    const id = await rangee(banc)
+    // Zoé arrive après la dernière question : elle n'a rien joué.
+    const zoe = await invite(banc.url, 'Zoé', '🦄')
+
+    const finAlice = attendre<any>(alice.socket, 'soiree:fin', () => true, 'la fin d’Alice', 15_000)
+    const finZoe = attendre<any>(zoe.socket, 'soiree:fin', () => true, 'la fin de Zoé', 15_000)
+    await clore(host, 'La soirée de Zoé')
+    const fa = await finAlice
+    assert.equal(fa.joueurId, alice.playerId, '« Mon bilan » s’ouvre sur elle')
+    const recap = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${id}/recap.json`)).json()) as any
+    const siens = recap.stats.awards.filter((a: any) => a.player?.playerId === alice.playerId).map((a: any) => a.key)
+    assert.ok(siens.length > 0, 'Alice, seule à trouver, remporte au moins un prix')
+    assert.deepEqual((fa.prix ?? []).map((p: any) => p.key), siens, 'sa fin de soirée dit ses prix, ceux du souvenir')
+    const fz = await finZoe
+    assert.equal(fz.rang, 0)
+    assert.equal(fz.joueurs, 3, 'la salle a joué, même sans elle')
+    assert.equal(fz.prix, undefined)
+
+    // Le téléphone de Zoé dormait ; le serveur redémarre et oublie les fins.
+    await banc.redemarrer()
+    const reveille = await reveil(banc, zoe.token)
+    assert.equal(reveille.ok, false)
+    assert.equal(reveille.reason, 'unknown-token', 'une page d’avant repasse par l’entrée')
+    assert.equal(reveille.derniere?.id, id, 'la soirée close se propose')
+    assert.equal(reveille.derniere?.slug, ADMIN.slug)
+    assert.match(reveille.error, /close/)
+  }))
+
 test('un avatar légendaire se porte une fois débloqué — pas avant — et se voit de toute la salle', () =>
   avecBanc(async banc => {
     const cookie = await connexionAnimateur(banc.url)

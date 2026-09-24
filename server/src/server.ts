@@ -390,9 +390,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // muette ne prive que de ce lien : la soirée en cours, elle, se lit en
   // local, et s'affiche quand même.
   const avecLaDerniere = async <T extends object>(account: AccountRec, page: T): Promise<T & { derniere?: DerniereSoiree }> => {
-    const rt = registry.get(account.id)
-    if (rt.aJoue()) return page
-    const derniere = await archives.derniere(account.id, rt.soireeId()).catch((e: unknown) => {
+    const derniere = await registry.get(account.id).derniereClose().catch((e: unknown) => {
       console.error(`[soirees] la dernière soirée de « ${account.slug} » ne se lit pas :`, e)
       return null
     })
