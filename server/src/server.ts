@@ -15,6 +15,7 @@ import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
 import { SpaceRegistry } from './core/space'
 import { PagesPubliques } from './core/pages'
+import { servirPrecompresse } from './core/precompresse'
 import { Charge, pouls } from './core/pouls'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore } from './auth/profiles'
@@ -166,8 +167,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Un seul saut de proxy devant nous en ligne : c'est lui qui écrit la
   // dernière adresse de `x-forwarded-for`, celle qu'on lit.
   if (opts.online) app.set('trust proxy', 1)
-  // Le JS de l'application pèse 320 Ko à nu, 100 Ko compressé — cinquante
-  // téléphones en 4G au moment du scan font vite la différence.
+  // Le chemin de l'invité pèse 381 Ko à nu, 121 Ko compressé — cinquante
+  // téléphones en 4G au moment du scan font vite la différence. Les fichiers
+  // du paquet arrivent déjà compressés (`core/precompresse.ts`), les pages
+  // publiques aussi (`core/pages.ts`) : `compression()` ne compresse plus que
+  // le reste, et laisse passer ce qui porte déjà son encodage.
   app.use(compression())
   app.use((req, res, next) => {
     res.set(SECURITY_HEADERS)
@@ -597,6 +601,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     // Les fichiers compilés portent une empreinte dans leur nom : un an de
     // cache, sans jamais revalider. La page d'accueil, elle, doit toujours
     // être redemandée — c'est elle qui pointe vers la bonne empreinte.
+    app.use('/assets', servirPrecompresse(path.join(clientDist, 'assets'), { maxAge: '1y', immutable: true }))
     app.use(
       '/assets',
       express.static(path.join(clientDist, 'assets'), { maxAge: '1y', immutable: true, fallthrough: false }),
