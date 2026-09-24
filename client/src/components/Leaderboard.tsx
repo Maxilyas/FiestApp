@@ -1,4 +1,6 @@
+import { memo } from 'react'
 import type { PublicPlayer } from '../../../shared/types'
+import { memesChamps } from '../egalite'
 import { classer } from '../../../shared/classement'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
@@ -30,35 +32,9 @@ export function Leaderboard({ players, compact, highlightId, onOuvrir }: Props) 
 
   return (
     <div className="leaderboard">
-      {list.map(({ item: p, rang }) => {
-        const contenu = (
-          <>
-            <Rank n={rang} />
-            <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
-            <span className="lb-name">{p.nomAffiche ?? p.name}</span>
-            <Niveau niveau={p.niveau} />
-            <Score n={p.score} />
-          </>
-        )
-        const classe = 'lb-row' + (p.id === highlightId ? ' me' : '')
-        return onOuvrir ? (
-          <button
-            key={p.id}
-            type="button"
-            className={classe + ' lb-ouvrable'}
-            // Le nom du bouton remplace tout son contenu : le rang et les
-            // points doivent y être, sinon le lecteur d'écran n'entend qu'un nom.
-            aria-label={`La carte de ${p.nomAffiche ?? p.name} — rang ${rang}, ${p.score} ${motPoints(p.score)}`}
-            onClick={() => onOuvrir(p.id)}
-          >
-            {contenu}
-          </button>
-        ) : (
-          <div key={p.id} className={classe}>
-            {contenu}
-          </div>
-        )
-      })}
+      {list.map(({ item: p, rang }) => (
+        <Ligne key={p.id} p={p} rang={rang} moi={p.id === highlightId} onOuvrir={onOuvrir} />
+      ))}
       {list.length === 0 && <p className="muted">Personne pour l'instant…</p>}
       {compact && rows.length > list.length && (
         <p className="muted center">et {rows.length - list.length} autres…</p>
@@ -66,3 +42,41 @@ export function Leaderboard({ players, compact, highlightId, onOuvrir }: Props) 
     </div>
   )
 }
+
+interface LigneProps {
+  p: PublicPlayer
+  rang: number
+  moi: boolean
+  onOuvrir?: (playerId: string) => void
+}
+
+/**
+ * Une ligne du classement, redessinée seulement quand elle change : chaque
+ * arrivée dans la salle redessinait sinon toutes les autres (voir `egalite.ts`).
+ */
+const Ligne = memo(function Ligne({ p, rang, moi, onOuvrir }: LigneProps) {
+  const contenu = (
+    <>
+      <Rank n={rang} />
+      <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+      <span className="lb-name">{p.nomAffiche ?? p.name}</span>
+      <Niveau niveau={p.niveau} />
+      <Score n={p.score} />
+    </>
+  )
+  const classe = 'lb-row' + (moi ? ' me' : '')
+  return onOuvrir ? (
+    <button
+      type="button"
+      className={classe + ' lb-ouvrable'}
+      // Le nom du bouton remplace tout son contenu : le rang et les
+      // points doivent y être, sinon le lecteur d'écran n'entend qu'un nom.
+      aria-label={`La carte de ${p.nomAffiche ?? p.name} — rang ${rang}, ${p.score} ${motPoints(p.score)}`}
+      onClick={() => onOuvrir(p.id)}
+    >
+      {contenu}
+    </button>
+  ) : (
+    <div className={classe}>{contenu}</div>
+  )
+}, (a, b) => a.rang === b.rang && a.moi === b.moi && a.onOuvrir === b.onOuvrir && memesChamps(a.p, b.p))

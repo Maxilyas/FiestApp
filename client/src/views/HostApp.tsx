@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { memo, useCallback, useEffect, useState, type FormEvent } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
+import { memesChamps, memesListes } from '../egalite'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { api } from '../api'
 import { dataUrl, spacePath } from '../routes'
@@ -144,85 +145,99 @@ function TeamGroup({
 
       <div className="players-grid">
         {members.map(p => (
-          <div key={p.id} className={'player-chip' + (p.connected ? '' : ' offline')}>
-            <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
-            <Niveau niveau={p.niveau} />
-            {/* Les libellés de la puce prennent le nom affiché, marque comprise :
-                c'est une porte de plus par où sort un prénom (invariant 17).
-                Avec `p.name`, deux « Camille » avaient les mêmes boutons pour
-                qui les entend, et « Exclure Camille » ne disait pas laquelle. */}
-            {/* Un surnom pour la soirée : l'écran commun, le souvenir et le
-                bilan l'affichent ; le profil de l'invité garde son prénom, et
-                la soirée suivante le lui rend. */}
-            <button
-              className="chip-name"
-              title="Donner un surnom pour la soirée"
-              aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}`}
-              onClick={async () => {
-                const name = await promptDialog({
-                  title: `Un surnom pour « ${p.nomAffiche ?? p.name} » ce soir`,
-                  message: p.niveau
-                    ? 'Il s’affiche partout ce soir. Son profil garde son prénom, et la soirée suivante le lui rend.'
-                    : 'Il s’affiche partout ce soir, à la place du prénom choisi à l’entrée.',
-                  input: { value: p.name, placeholder: 'Surnom', maxLength: 24 },
-                  confirmLabel: 'Donner ce surnom',
-                })
-                if (name) socket.emit('host:renamePlayer', { playerId: p.id, name })
-              }}
-            >
-              {p.nomAffiche ?? p.name}
-            </button>
-            {/* Hors ligne : la transparence seule ne se lit pas du fond de la
-                salle, et un lecteur d'écran n'en sait rien. */}
-            {!p.connected && (
-              <span className="chip-offline" title="Hors ligne" role="img" aria-label="hors ligne">
-                <Icon name="moon" />
-              </span>
-            )}
-            {teams.length > 0 && (
-              <select
-                className="chip-team"
-                value={p.teamId ?? ''}
-                title="Changer d'équipe"
-                aria-label={`Équipe de ${p.nomAffiche ?? p.name}`}
-                onChange={e =>
-                  socket.emit('host:assignPlayer', {
-                    playerId: p.id,
-                    teamId: e.target.value || null,
-                  })
-                }
-              >
-                <option value="">— sans équipe</option>
-                {teams.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.emoji} {t.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            <button
-              className="chip-remove"
-              title="Exclure de la soirée"
-              aria-label={`Exclure ${p.nomAffiche ?? p.name} de la soirée`}
-              onClick={async () => {
-                const ok = await confirmDialog({
-                  title: `Retirer « ${p.nomAffiche ?? p.name} » de la soirée ?`,
-                  message: 'Ses points seront effacés et son téléphone reviendra à l’inscription.',
-                  confirmLabel: 'Exclure',
-                  danger: true,
-                })
-                if (ok) socket.emit('host:removePlayer', { playerId: p.id })
-              }}
-            >
-              <Icon name="x" />
-            </button>
-          </div>
+          <PuceJoueur key={p.id} p={p} teams={teams} />
         ))}
         {members.length === 0 && <p className="muted small">Personne pour l'instant</p>}
       </div>
     </div>
   )
 }
+
+/**
+ * Un invité de la salle d'attente, redessiné seulement quand il change :
+ * chaque arrivée redessinait sinon toute la salle, deux listes durant
+ * (voir `egalite.ts`).
+ */
+const PuceJoueur = memo(
+  function PuceJoueur({ p, teams }: { p: PublicPlayer; teams: PublicTeam[] }) {
+    return (
+      <div className={'player-chip' + (p.connected ? '' : ' offline')}>
+        <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+        <Niveau niveau={p.niveau} />
+        {/* Les libellés de la puce prennent le nom affiché, marque comprise :
+            c'est une porte de plus par où sort un prénom (invariant 17).
+            Avec `p.name`, deux « Camille » avaient les mêmes boutons pour
+            qui les entend, et « Exclure Camille » ne disait pas laquelle. */}
+        {/* Un surnom pour la soirée : l'écran commun, le souvenir et le
+            bilan l'affichent ; le profil de l'invité garde son prénom, et
+            la soirée suivante le lui rend. */}
+        <button
+          className="chip-name"
+          title="Donner un surnom pour la soirée"
+          aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}`}
+          onClick={async () => {
+            const name = await promptDialog({
+              title: `Un surnom pour « ${p.nomAffiche ?? p.name} » ce soir`,
+              message: p.niveau
+                ? 'Il s’affiche partout ce soir. Son profil garde son prénom, et la soirée suivante le lui rend.'
+                : 'Il s’affiche partout ce soir, à la place du prénom choisi à l’entrée.',
+              input: { value: p.name, placeholder: 'Surnom', maxLength: 24 },
+              confirmLabel: 'Donner ce surnom',
+            })
+            if (name) socket.emit('host:renamePlayer', { playerId: p.id, name })
+          }}
+        >
+          {p.nomAffiche ?? p.name}
+        </button>
+        {/* Hors ligne : la transparence seule ne se lit pas du fond de la
+            salle, et un lecteur d'écran n'en sait rien. */}
+        {!p.connected && (
+          <span className="chip-offline" title="Hors ligne" role="img" aria-label="hors ligne">
+            <Icon name="moon" />
+          </span>
+        )}
+        {teams.length > 0 && (
+          <select
+            className="chip-team"
+            value={p.teamId ?? ''}
+            title="Changer d'équipe"
+            aria-label={`Équipe de ${p.nomAffiche ?? p.name}`}
+            onChange={e =>
+              socket.emit('host:assignPlayer', {
+                playerId: p.id,
+                teamId: e.target.value || null,
+              })
+            }
+          >
+            <option value="">— sans équipe</option>
+            {teams.map(t => (
+              <option key={t.id} value={t.id}>
+                {t.emoji} {t.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <button
+          className="chip-remove"
+          title="Exclure de la soirée"
+          aria-label={`Exclure ${p.nomAffiche ?? p.name} de la soirée`}
+          onClick={async () => {
+            const ok = await confirmDialog({
+              title: `Retirer « ${p.nomAffiche ?? p.name} » de la soirée ?`,
+              message: 'Ses points seront effacés et son téléphone reviendra à l’inscription.',
+              confirmLabel: 'Exclure',
+              danger: true,
+            })
+            if (ok) socket.emit('host:removePlayer', { playerId: p.id })
+          }}
+        >
+          <Icon name="x" />
+        </button>
+      </div>
+    )
+  },
+  (a, b) => memesChamps(a.p, b.p) && memesListes(a.teams, b.teams),
+)
 
 export function HostApp() {
   const s = useAppState()
