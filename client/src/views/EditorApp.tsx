@@ -150,6 +150,8 @@ export function EditorApp() {
   /** Les quiz dont ce navigateur garde des modifications non enregistrées. */
   const [brouillons, setBrouillons] = useState<ReadonlySet<string>>(new Set())
   const [editingId, setEditingId] = useState<string | null>(null)
+  /** Le quiz s'ouvre sur « Coller une liste » : il vient d'être créé pour ça. */
+  const [ouvrirListe, setOuvrirListe] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   /** Le quiz qu'on emballe, ou l'import en cours : un clic à la fois. */
@@ -193,6 +195,7 @@ export function EditorApp() {
       const fait = await importerQuiz(brut, {
         envoyerPhoto: async enClair => (await api.uploadImage(enClair)).url,
         creer: (titre, questions) => api.create(titre, questions),
+        titresPris: list?.map(q => q.title) ?? [],
       })
       setNotice(
         `« ${fait.quiz.title} » est dans ta bibliothèque : ${fait.questions} question${fait.questions > 1 ? 's' : ''}` +
@@ -251,8 +254,10 @@ export function EditorApp() {
     return (
       <QuizEditor
         id={editingId}
+        ouvrirListe={ouvrirListe}
         onClose={() => {
           setEditingId(null)
+          setOuvrirListe(false)
           reload()
         }}
       />
@@ -297,6 +302,24 @@ export function EditorApp() {
           <button className="btn btn-ghost" disabled={echange !== null} onClick={() => fichier.current?.click()}>
             <Icon name="download" />
             {echange === 'import' ? 'Import…' : 'Importer un quiz'}
+          </button>
+          {/* On cherchait « Coller une liste » en arrivant, et l'on ouvrait
+              « Importer un quiz », qui attend un fichier : le panneau n'existait
+              qu'à l'intérieur d'un quiz. Il crée le quiz, et s'ouvre dedans. */}
+          <button
+            className="btn btn-ghost"
+            onClick={async () => {
+              try {
+                const quiz = await api.create('Nouveau quiz')
+                setOuvrirListe(true)
+                setEditingId(quiz.id)
+              } catch (e) {
+                setError((e as Error).message)
+              }
+            }}
+          >
+            <Icon name="clipboard" />
+            Coller une liste
           </button>
           <button
             className="btn btn-primary"
@@ -372,7 +395,13 @@ export function EditorApp() {
                 onClick={async () => {
                   const ok = await confirmDialog({
                     title: `Supprimer « ${q.title} » ?`,
-                    message: 'Le quiz et ses questions disparaissent pour de bon.',
+                    // Deux quiz du même nom ne se distinguaient pas : ce qu'il
+                    // contient et quand il a changé disent lequel.
+                    message:
+                      q.questionCount === 0
+                        ? `Ce quiz vide, modifié le ${formatDate(q.updatedAt)}, disparaît pour de bon.`
+                        : `Le quiz et ${q.questionCount > 1 ? `ses ${q.questionCount} questions` : 'sa question'}, ` +
+                          `modifié le ${formatDate(q.updatedAt)}, disparaissent pour de bon.`,
                     confirmLabel: 'Supprimer',
                     danger: true,
                   })
@@ -380,6 +409,8 @@ export function EditorApp() {
                   try {
                     await api.remove(q.id)
                     oublierBrouillon(q.id)
+                    // « « Spécial agence » est dans ta bibliothèque » survivait au quiz.
+                    setNotice('')
                     reload()
                   } catch (e) {
                     setError((e as Error).message)
@@ -398,7 +429,7 @@ export function EditorApp() {
 
 // ── Édition d'un quiz ─────────────────────────────────────────────────────
 
-function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
+function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirListe?: boolean; onClose: () => void }) {
   const [quiz, setQuiz] = useState<QuizDef | null>(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -406,7 +437,7 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
   const [reveil, setReveil] = useState(false)
   const [error, setError] = useState('')
   const [savedAt, setSavedAt] = useState<number | null>(null)
-  const [importing, setImporting] = useState(false)
+  const [importing, setImporting] = useState(ouvrirListe)
   /**
    * Des modifications de ce quiz que ce navigateur a gardées sans que le
    * serveur les ait enregistrées. Tant qu'on n'a pas choisi de les reprendre

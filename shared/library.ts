@@ -352,6 +352,23 @@ export function cleanTitle(title: unknown): string {
 }
 
 /**
+ * Ce titre, ou le premier « Titre (2) », « Titre (3) »… qu'aucun de ces
+ * titres ne porte déjà. Importé deux fois, un quiz faisait deux homonymes,
+ * et « Supprimer « Spécial agence » ? » ne disait pas lequel.
+ */
+export function titreLibre(titre: string, pris: Iterable<string>): string {
+  const cle = (t: string) => t.trim().toLowerCase()
+  const occupes = new Set(Array.from(pris, cle))
+  const propre = cleanTitle(titre)
+  if (!occupes.has(cle(propre))) return propre
+  for (let n = 2; ; n++) {
+    const suffixe = ` (${n})`
+    const candidat = `${tronquer(propre, 80 - suffixe.length).trim()}${suffixe}`
+    if (!occupes.has(cle(candidat))) return candidat
+  }
+}
+
+/**
  * Borne ce qui arrive du navigateur sans rien jeter : un brouillon incomplet
  * reste enregistré tel quel (on ne perd jamais une saisie), c'est `toPlayable`
  * qui décidera au lancement du quiz s'il est jouable.
