@@ -272,8 +272,17 @@ export function sendPlayerAction(
   action: unknown,
   slug: string,
   token?: string,
+  /**
+   * L'accusé qui arrive après le délai. Hors ligne, socket.io garde la
+   * réponse et l'envoie à la reconnexion : le serveur la refuse alors, à
+   * raison, si la question est finie — mais le téléphone, qui avait déjà
+   * conclu « pas partie », ne le disait jamais.
+   */
+  tardif?: (res: ActionAck) => void,
 ): Promise<ActionAck> {
   const numero = ++derniereReponse
+  /** Un seul accusé tardif par réponse : l'envoi et son renvoi partent ensemble à la reconnexion. */
+  let tardifDit = false
   const envoyer = () =>
     new Promise<ActionAck>(resolve => {
       let settled = false
@@ -286,10 +295,25 @@ export function sendPlayerAction(
       // Sans ce garde-fou, une réponse partie dans le vide laisserait la
       // promesse en suspens pour toujours — donc le joueur sans nouvelle.
       const timer = setTimeout(
-        () => settle({ ok: false, reason: 'timeout', error: 'Ta réponse n’est pas partie — vérifie ta connexion' }),
+        () =>
+          settle({
+            ok: false,
+            reason: 'timeout',
+            // Hors ligne, elle n'est pas perdue : socket.io la garde et
+            // l'envoie dès que le réseau revient. Autant le dire.
+            error: socket.connected
+              ? 'Ta réponse n’est pas partie — vérifie ta connexion'
+              : 'Ta réponse n’est pas encore partie — elle partira dès que le réseau revient',
+          }),
         ACTION_TIMEOUT_MS,
       )
-      socket.emit('player:action', { sessionId, action, slug, token }, settle)
+      socket.emit('player:action', { sessionId, action, slug, token }, (res: ActionAck) => {
+        if (settled && !tardifDit && numero === derniereReponse) {
+          tardifDit = true
+          tardif?.(res)
+        }
+        settle(res)
+      })
     })
 
   /** La question que vise la réponse est-elle encore ouverte, à l'heure du serveur ? */

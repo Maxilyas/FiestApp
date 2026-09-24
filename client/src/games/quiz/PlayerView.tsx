@@ -23,6 +23,48 @@ interface QuizPlayerProps extends Props {
   /** Les équipes de la soirée — montrées entre deux questions. */
   teams: PublicTeam[]
   myTeamId: string | null
+  /** La dernière réponse envoyée par ce téléphone, et ce qu'elle est devenue. */
+  envoi?: Envoi | null
+  /** La liaison tient-elle ? Hors ligne, une réponse attend le réseau. */
+  connecte?: boolean
+}
+
+/**
+ * Le sort de la dernière réponse envoyée, vu du téléphone : le serveur, lui,
+ * ne montre une réponse qu'une fois reçue.
+ */
+export interface Envoi {
+  qIndex?: number
+  round?: number
+  /** Le choix touché, pour un QCM. */
+  choice?: number
+  etat: 'envoi' | 'recu' | 'pas-partie' | 'trop-tard' | 'refusee'
+}
+
+/** Cet envoi vise-t-il la question affichée ? */
+const viseLaVue = (e: Envoi | null | undefined, v: QuizPlayerView): e is Envoi =>
+  !!e && e.qIndex === v.qIndex && (e.round === undefined || e.round === v.round)
+
+/**
+ * Rien de retenu pour cette question. « Trop tard ! » ne vaut que pour une
+ * réponse que le serveur a refusée parce qu'elle arrivait après la fin : à
+ * qui n'a rien touché, il faisait croire à une réponse perdue.
+ */
+function SansReponse({ envoi }: { envoi: Envoi | null }) {
+  const [icone, texte] =
+    envoi?.etat === 'trop-tard'
+      ? (['clock', 'Trop tard ! Ta réponse est arrivée après la fin.'] as const)
+      : envoi && envoi.etat !== 'recu'
+        ? (['alert', 'Ta réponse n’est pas arrivée à temps.'] as const)
+        : (['clock', 'Pas de réponse à cette question.'] as const)
+  return (
+    <>
+      <span className="result-icon">
+        <Icon name={icone} />
+      </span>
+      <p>{texte}</p>
+    </>
+  )
 }
 
 /**
@@ -57,7 +99,13 @@ const visee = (v: QuizPlayerView) => ({ qIndex: v.qIndex, round: v.round })
  * Saisie d'une estimation. Tant que tout le monde n'a pas répondu, on peut
  * corriger : sur un clavier de téléphone, un chiffre en trop est vite arrivé.
  */
-function GuessForm({ view, send, closes }: Props & { closes: boolean }) {
+function GuessForm({
+  view,
+  send,
+  closes,
+  envoi,
+  connecte,
+}: Props & { closes: boolean; envoi: Envoi | null; connecte: boolean }) {
   const [text, setText] = useState('')
   const [illisible, setIllisible] = useState(false)
 
@@ -104,13 +152,28 @@ function GuessForm({ view, send, closes }: Props & { closes: boolean }) {
       <button className="btn btn-primary btn-big btn-block" disabled={closes || text.trim() === ''}>
         {view.yourGuess === null ? 'Valider' : 'Corriger'}
       </button>
-      {view.yourGuess !== null && view.yourGuess !== undefined && (
+      {envoi ? (
+        <EnvoiEnCours connecte={connecte} />
+      ) : view.yourGuess !== null && view.yourGuess !== undefined && (
         <p className="hint">
           Ta réponse : <strong>{formatNumber(view.yourGuess)}</strong> {view.unit}
           {!closes && ' · tu peux encore la corriger'}
         </p>
       )}
     </form>
+  )
+}
+
+/**
+ * La réponse est partie mais le serveur ne l'a pas encore vue. Hors ligne,
+ * socket.io la garde et l'envoie au retour du réseau : on le dit, plutôt
+ * que « pas partie », qui faisait retaper.
+ */
+function EnvoiEnCours({ connecte }: { connecte: boolean }) {
+  return (
+    <p className="hint envoi-en-cours" role="status">
+      {connecte ? 'Envoi…' : 'Pas encore partie — elle partira dès que le réseau revient'}
+    </p>
   )
 }
 
@@ -174,7 +237,7 @@ function PointsAnnules() {
   )
 }
 
-export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) {
+export function QuizPlayer({ view: v, send, teams, myTeamId, envoi, connecte = true }: QuizPlayerProps) {
   // Avant tout retour anticipé : un crochet s'appelle à chaque rendu.
   const closes = useEchue(v.phase === 'question' ? v.deadline : undefined, !!v.paused)
 
@@ -223,6 +286,14 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
   }
 
   if (v.phase === 'question') {
+    // Touchée, mais pas encore vue par le serveur : l'écran le dit, au lieu
+    // de rester inerte sous le doigt tant que la réponse voyage.
+    const enAttente =
+      viseLaVue(envoi, v) &&
+      (envoi.etat === 'envoi' || envoi.etat === 'pas-partie') &&
+      (envoi.choice === undefined ? true : v.yourChoice !== envoi.choice)
+        ? envoi
+        : null
     return (
       <div className="quiz-player">
         <div className="quiz-topbar">
@@ -261,7 +332,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
         )}
 
         {v.kind === 'number' ? (
-          <GuessForm view={v} send={send} closes={closes} />
+          <GuessForm view={v} send={send} closes={closes} envoi={enAttente} connecte={connecte} />
         ) : (
           <>
             <div className="ans-grid">
@@ -273,20 +344,25 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
                   // hors d'atteinte — c'est justement ce qu'il faut dire une
                   // fois l'échéance passée, et seulement alors.
                   disabled={v.paused || closes}
-                  aria-pressed={v.yourChoice === i}
+                  aria-pressed={v.yourChoice === i || enAttente?.choice === i}
                   onClick={() => {
                     navigator.vibrate?.(35)
                     send({ type: 'answer', choice: i, ...visee(v) })
                   }}
-                  className={'ans-btn' + (v.yourChoice === i ? ' chosen' : closes ? ' dim' : '')}
+                  className={
+                    'ans-btn' +
+                    (enAttente?.choice === i ? ' pending' : v.yourChoice === i ? ' chosen' : closes ? ' dim' : '')
+                  }
                 >
                   <Shape index={i} />
                   <span className="ans-text">{espacesFines(a)}</span>
-                  {v.yourChoice === i && <Icon name="check" className="ans-check" />}
+                  {v.yourChoice === i && enAttente?.choice !== i && <Icon name="check" className="ans-check" />}
                 </button>
               ))}
             </div>
-            {v.yourChoice !== null && !closes && (
+            {enAttente ? (
+              <EnvoiEnCours connecte={connecte} />
+            ) : v.yourChoice !== null && !closes && (
               <p className="hint">
                 Réponse enregistrée · tu peux encore changer, au prix du bonus de rapidité
               </p>
@@ -307,7 +383,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
     if (v.kind === 'number') {
       const answered = v.yourGuess !== null && v.yourGuess !== undefined
       const gap = answered ? Math.abs(v.yourGuess! - v.target!) : null
-      const ton = v.cancelled || (!answered && v.justArrived) ? '' : answered ? 'result-ok' : 'result-ko'
+      const ton = v.cancelled || !answered ? '' : 'result-ok'
       return (
         <div className="quiz-player">
           <div className={'card result-banner ' + ton}>
@@ -324,12 +400,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
                 </p>
               </>
             ) : (
-              <>
-                <span className="result-icon">
-                  <Icon name="clock" />
-                </span>
-                <p>Trop tard !</p>
-              </>
+              <SansReponse envoi={viseLaVue(envoi, v) ? envoi : null} />
             )}
             <p className="muted">
               {attendue} : <strong>{formatNumber(v.target!)}</strong> {v.unit}
@@ -341,7 +412,8 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
     }
 
     const good = v.yourChoice !== null && v.yourChoice === v.correct
-    const ton = v.cancelled || (!good && v.justArrived) ? '' : good ? 'result-ok' : 'result-ko'
+    // Sans réponse, un bandeau neutre : ne rien toucher n'est pas une faute.
+    const ton = v.cancelled || v.justArrived || v.yourChoice === null ? '' : good ? 'result-ok' : 'result-ko'
     return (
       <div className="quiz-player">
         <div className={'card result-banner ' + ton}>
@@ -350,12 +422,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           ) : v.cancelled ? (
             <PointsAnnules />
           ) : v.yourChoice === null ? (
-            <>
-              <span className="result-icon">
-                <Icon name="clock" />
-              </span>
-              <p>Trop tard !</p>
-            </>
+            <SansReponse envoi={viseLaVue(envoi, v) ? envoi : null} />
           ) : good ? (
             <>
               <span className="big">+{v.yourPoints} pts</span>

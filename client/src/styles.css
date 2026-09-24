@@ -1303,6 +1303,9 @@ h3 > .icon {
 
 /* Réponse choisie : le filet champagne, un fond à 12 %, une coche. */
 .ans-btn.chosen { border: 1.5px solid var(--accent); background: var(--accent-soft); }
+/* Touchée, pas encore reçue : le même filet, en pointillé. Un toucher hors
+   ligne ne changeait rien à l'écran — on croyait avoir raté la carte. */
+.ans-btn.pending { border: 1.5px dashed var(--accent); background: var(--accent-soft); }
 /* Le voile des réponses fausses : la carte entière en Velours, son contenu
    seul en Ivoire, où le compte (dans `.ans-extra`) garde toute son encre. */
 .ans-btn.dim { opacity: var(--dim-carte); }

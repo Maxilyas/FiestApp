@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
 import { getState, oublierIdentite, saveChoix, saveMe, setState, showToast, useAppState } from '../state'
 import { currentSlug } from '../routes'
@@ -11,9 +11,9 @@ import { FormulaireSoiree } from '../components/Rejoindre'
 import { ProfilForm } from '../components/ProfilForm'
 import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
-import { QuizPlayer } from '../games/quiz/PlayerView'
-import type { QuizPlayerView } from '../../../shared/games/quiz'
-import { espacesFines, place } from '../format'
+import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
+import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
+import { espacesFines, formatNumber, place } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
@@ -45,6 +45,14 @@ export function PlayerApp() {
   const [spaceError, setSpaceError] = useState('')
   /** La carte ouverte, celle du joueur dont on a touché le nom. */
   const [carte, setCarte] = useState<string | null>(null)
+  /**
+   * La dernière réponse envoyée, et ce qu'elle est devenue. Le serveur ne
+   * montre une réponse qu'une fois reçue : sans ce suivi, un toucher hors
+   * ligne ne changeait rien à l'écran, et la révélation disait « Trop tard ! »
+   * à qui n'avait rien touché comme à qui avait répondu dans un tunnel.
+   */
+  const [envoi, setEnvoi] = useState<Envoi | null>(null)
+  const numeroEnvoi = useRef(0)
 
   // Connexion, présentation à la soirée, puis re-join automatique (refresh,
   // coupure réseau, redémarrage serveur).
@@ -291,13 +299,46 @@ export function PlayerApp() {
           myTeamId={me?.teamId ?? null}
           // Le jeton est relu au moment de l'envoi : celui du rendu pourrait
           // dater d'avant une reconnexion.
-          send={action => {
-            sendPlayerAction(sessionView.sessionId, action, slug, getState().me?.token).then(res => {
+          send={(action: QuizAction) => {
+            const vue = sessionView.view as QuizPlayerView
+            // Ce qu'on a répondu, en mots : si elle arrive trop tard, on le
+            // dit avec elle — la question suivante est peut-être déjà là.
+            const libelle =
+              action.type === 'answer'
+                ? (vue.answers?.[action.choice] ?? '')
+                : `${formatNumber(action.value)}${vue.unit ? ` ${vue.unit}` : ''}`
+            const numero = ++numeroEnvoi.current
+            const suivi = (etat: Envoi['etat']) =>
+              setEnvoi(e => (numero === numeroEnvoi.current && e ? { ...e, etat } : e))
+            setEnvoi({
+              qIndex: action.qIndex,
+              round: action.round,
+              choice: action.type === 'answer' ? action.choice : undefined,
+              etat: 'envoi',
+            })
+            sendPlayerAction(sessionView.sessionId, action, slug, getState().me?.token, tardive => {
+              if (tardive.ok) {
+                suivi('recu')
+                showToast({ kind: 'info', message: 'Ta réponse est bien arrivée' })
+              } else if (tardive.reason === 'too-late') {
+                suivi('trop-tard')
+                showToast({
+                  kind: 'error',
+                  message: `Ta réponse à la question ${(action.qIndex ?? vue.qIndex) + 1} est arrivée trop tard — c'était « ${libelle} »`,
+                })
+              } else {
+                suivi('refusee')
+                showToast({ kind: 'error', message: tardive.error })
+              }
+            }).then(res => {
+              suivi(res.ok ? 'recu' : res.reason === 'too-late' ? 'trop-tard' : res.reason === 'timeout' ? 'pas-partie' : 'refusee')
               // Une réponse refusée se disait jusqu'ici en silence : le
               // téléphone vibrait sous le doigt et rien ne suivait.
               if (!res.ok) showToast({ kind: 'error', message: res.error })
             })
           }}
+          envoi={envoi}
+          connecte={s.connected}
         />
         <ConseilVeille />
         <BandeauCoupure connecte={s.connected} />
