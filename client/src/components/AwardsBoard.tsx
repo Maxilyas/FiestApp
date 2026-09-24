@@ -44,6 +44,10 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles }: Props) {
       {awards.map(a => {
         const team = teamOf(a.teamId)
         const given = givenTitles?.has(a.title)
+        // Une équipe se nomme avec les équipes de la soirée ; une équipe
+        // retirée depuis n'a plus de nom à donner.
+        const exAequo =
+          a.exAequo ?? a.exAequoEquipes?.flatMap(id => teamOf(id)?.name ?? []) ?? []
         return (
           <div key={a.key} className={'card award' + (given ? ' award-given' : '')}>
             <span className="award-emoji">{a.emoji}</span>
@@ -65,9 +69,12 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles }: Props) {
               {/* Un seul lauréat, départagé au prénom : la règle se dit, sinon
                   Zoé, à égalité avec Liam, ne comprend pas qu'elle a perdu
                   parce que « L » vient avant « Z ». */}
-              {a.exAequo && (
+              {exAequo.length > 0 && (
                 <p className="muted small award-exaequo">
-                  Ex æquo avec {enumerer(a.exAequo)} — départagé par ordre alphabétique
+                  Ex æquo avec {enumerer(exAequo)} —{' '}
+                  {a.departage === 'classement'
+                    ? 'départagé par le mieux classé de chaque équipe'
+                    : 'départagé par ordre alphabétique'}
                 </p>
               )}
               <p className="award-team">

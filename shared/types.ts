@@ -164,6 +164,16 @@ export interface Award {
    * lauréat — absent quand il est seul. Le prix le dit là où il s'affiche.
    */
   exAequo?: string[]
+  /**
+   * Pour un prix d'équipe : les autres équipes à égalité parfaite, par leur
+   * identifiant — la carte les nomme avec les équipes qu'elle connaît.
+   */
+  exAequoEquipes?: string[]
+  /**
+   * Ce qui a tranché l'égalité, s'il ne s'agit pas du prénom : La Plus
+   * Solidaire garde l'équipe du mieux classé.
+   */
+  departage?: 'classement'
 }
 
 export interface PartyStats {

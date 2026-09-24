@@ -459,3 +459,46 @@ test('un prix départagé au prénom le dit : les ex æquo sont nommés, la règ
   assert.equal(prix(seul, 'pilepoil')?.player?.name, 'Zoé')
   assert.equal(prix(seul, 'pilepoil')?.exAequo, undefined)
 })
+
+test('les prix d’équipe départagés en silence le disent aussi : Le Coup de Pouce au prénom, La Plus Solidaire au classement', () => {
+  // Le README promet que « la carte du prix le dit » : les deux prix
+  // d'équipe tranchaient encore sans un mot. La règle ne change pas.
+  // Les points d'un prix d'équipe sont ceux du classement de la soirée.
+  const membre = (id: string, name: string, teamId: string, score: number) => joueur(id, name, { teamId, score })
+  const stats = computeStats(
+    [ligne('bob'), ligne('liam'), ligne('anne'), ligne('zoe'), ligne('paul'), ligne('yann')],
+    [
+      // Cinq points d'écart chez les Salseras comme chez les Rumberos : ceux
+      // de Bob, mieux classé qu'Anne, gardent La Plus Solidaire.
+      membre('anne', 'Anne', 'salseras', 5),
+      membre('zoe', 'Zoé', 'salseras', 0),
+      membre('bob', 'Bob', 'rumberos', 6),
+      membre('liam', 'Liam', 'rumberos', 1),
+      membre('paul', 'Paul', 'micros', 0),
+      membre('yann', 'Yann', 'micros', 9),
+    ],
+  )
+  const pouce = prix(stats, 'coupdepouce')
+  assert.equal(pouce?.teamId, 'micros', 'Paul ferme la marche, avant Zoé à l’alphabet')
+  assert.deepEqual(pouce?.exAequo, ['Zoé'])
+
+  const solidaire = prix(stats, 'solidaire')
+  assert.equal(solidaire?.teamId, 'rumberos', 'la règle d’avant : la première équipe rencontrée au classement')
+  assert.deepEqual(solidaire?.exAequoEquipes, ['salseras'], 'les Micros, à 9 points d’écart, ne sont pas à égalité')
+  assert.equal(solidaire?.departage, 'classement')
+
+  // Un coéquipier à égalité ne départage rien : le prix va à la même équipe.
+  const memeEquipe = computeStats(
+    [ligne('bob'), ligne('liam'), ligne('lea'), ligne('anne'), ligne('zoe')],
+    [
+      membre('bob', 'Bob', 'rumberos', 5),
+      membre('liam', 'Liam', 'rumberos', 0),
+      membre('lea', 'Léa', 'rumberos', 0),
+      membre('anne', 'Anne', 'salseras', 3),
+      membre('zoe', 'Zoé', 'salseras', 1),
+    ],
+  )
+  assert.equal(prix(memeEquipe, 'coupdepouce')?.exAequo, undefined)
+  assert.equal(prix(memeEquipe, 'solidaire')?.teamId, 'salseras')
+  assert.equal(prix(memeEquipe, 'solidaire')?.exAequoEquipes, undefined)
+})

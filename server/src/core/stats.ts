@@ -558,7 +558,8 @@ function buildAwards(
   const withTeam = played.filter(s => s.teamId)
   if (withTeam.length > 0) {
     // Le Coup de Pouce : l'équipe qui compte la personne ayant le moins marqué.
-    const lowest = [...withTeam].sort((a, b) => a.points - b.points || departage(a, b))[0]
+    const derniers = [...withTeam].sort((a, b) => a.points - b.points || departage(a, b))
+    const lowest = derniers[0]
     awards.push({
       key: 'coupdepouce',
       emoji: '🤝',
@@ -567,11 +568,16 @@ function buildAwards(
       detail: `${lowest.avatar} ${lowest.name} ferme la marche avec ${lowest.points} points`,
       player: null,
       teamId: lowest.teamId,
+      // Le prénom départage aussi les derniers ; un coéquipier à égalité ne
+      // change rien au prix, qui va à l'équipe — seuls ceux d'une autre
+      // équipe l'ont perdu à l'alphabet.
+      ...exAequoDe(derniers, s => s.points === lowest.points && s.teamId !== lowest.teamId),
     })
 
     // La Plus Solidaire : le plus petit écart entre son meilleur et son moins bon.
     let bestTeam: string | null = null
     let bestSpread = Infinity
+    const ecarts = new Map<string, number>()
     for (const teamId of new Set(withTeam.map(s => s.teamId!))) {
       const members = withTeam.filter(s => s.teamId === teamId)
       // Il faut des réponses, de deux membres au moins : une équipe dont
@@ -580,12 +586,17 @@ function buildAwards(
       if (members.filter(s => s.answered > 0).length < 2) continue
       const points = members.map(s => s.points)
       const spread = Math.max(...points) - Math.min(...points)
+      ecarts.set(teamId, spread)
       if (spread < bestSpread) {
         bestSpread = spread
         bestTeam = teamId
       }
     }
     if (bestTeam) {
+      // À égalité d'écart, la première équipe rencontrée dans l'ordre du
+      // classement : celle du mieux classé. La règle reste ; la carte dit
+      // maintenant qu'elle a tranché.
+      const exAequoEquipes = [...ecarts].filter(([id, e]) => id !== bestTeam && e === bestSpread).map(([id]) => id)
       awards.push({
         key: 'solidaire',
         emoji: '⚖️',
@@ -594,6 +605,7 @@ function buildAwards(
         detail: `${plural(bestSpread, 'point')} d’écart entre son meilleur et son moins bon`,
         player: null,
         teamId: bestTeam,
+        ...(exAequoEquipes.length > 0 && { exAequoEquipes, departage: 'classement' as const }),
       })
     }
   }
