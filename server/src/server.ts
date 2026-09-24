@@ -28,6 +28,13 @@ import type { IoServer } from './core/types'
 import type { ArchiveList, DerniereSoiree, PartyArchive } from '../../shared/archive'
 import { MAX_PLAYERS_CEILING } from '../../shared/space'
 
+/**
+ * Ce que la page d'une soirée archivée attend la base permanente pour dire
+ * 404 à une soirée qui n'existe pas. Au-delà, elle s'ouvre en 200 et dira
+ * elle-même ce qu'elle peut lire.
+ */
+const DELAI_VERIFICATION_ARCHIVE_MS = 1500
+
 export interface QuizServerOptions {
   port: number
   /** Base locale jetable : joueurs et état de la partie en cours. */
@@ -689,13 +696,20 @@ export async function createQuizServer(opts: QuizServerOptions) {
       // s'ouvre, et dira elle-même ce qu'elle peut lire.
       const compte = auth.bySlug(decision.archive.spaceSlug)
       if (!compte) return envoyer(INTROUVABLE)
-      archives
-        .existe(compte.id, decision.archive.id)
-        .then(existe => envoyer(existe ? decision : INTROUVABLE))
+      // Muette, elle ne répond qu'au bout de dix secondes (`distante.ts`) :
+      // autant de page blanche avant le moindre octet. Passé ce délai, la
+      // page part comme sur une panne.
+      let delai: NodeJS.Timeout | undefined
+      const muette = new Promise<'muette'>(r => {
+        delai = setTimeout(() => r('muette'), DELAI_VERIFICATION_ARCHIVE_MS)
+      })
+      Promise.race([archives.existe(compte.id, decision.archive.id), muette])
+        .then(existe => envoyer(existe === false ? INTROUVABLE : decision))
         .catch((e: unknown) => {
           console.error('[pages] une soirée archivée ne se vérifie pas :', e)
           envoyer(decision)
         })
+        .finally(() => clearTimeout(delai))
         .catch(next)
     }
     // `/index.html` demandé tel quel partait du disque, sans le bandeau de la

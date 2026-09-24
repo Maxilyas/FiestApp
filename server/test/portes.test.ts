@@ -13,6 +13,7 @@ import path from 'node:path'
 import { createClient } from '@libsql/client'
 import { connexionAnimateur, demarrer, ecrire, type Banc } from './banc'
 import { decrirePage } from '../src/core/apercus'
+import { ArchiveStore } from '../src/core/archive'
 import { parseRoute } from '../../shared/adresses'
 
 let banc: Banc
@@ -52,6 +53,31 @@ describe('les adresses inconnues', () => {
   test('une soirée archivée inconnue répond 404', async () => {
     assert.equal((await lire('/banc/soirees/nexiste-pas')).status, 404)
     assert.equal((await lire('/banc/soirees/nexiste-pas/bilan')).status, 404)
+  })
+
+  test('une base permanente en panne ne fait pas déclarer introuvable une soirée archivée', async () => {
+    const existe = ArchiveStore.prototype.existe
+    ArchiveStore.prototype.existe = () => Promise.reject(new Error('base injoignable'))
+    try {
+      assert.equal((await lire('/banc/soirees/peut-etre')).status, 200)
+    } finally {
+      ArchiveStore.prototype.existe = existe
+    }
+  })
+
+  test('une base permanente muette ne retient pas la page d’une soirée archivée', async () => {
+    // Une base qui ne répond pas se dit en dix secondes (`distante.ts`) :
+    // autant de page blanche. La page part avant, et dira ce qu'elle lit.
+    const existe = ArchiveStore.prototype.existe
+    ArchiveStore.prototype.existe = () => new Promise<boolean>(() => {})
+    try {
+      const debut = Date.now()
+      const r = await fetch(banc.url + '/banc/soirees/peut-etre', { signal: AbortSignal.timeout(5000) })
+      assert.equal(r.status, 200)
+      assert.ok(Date.now() - debut < 4000, `servie en ${Date.now() - debut} ms`)
+    } finally {
+      ArchiveStore.prototype.existe = existe
+    }
   })
 
   test('un fichier absent répond 404, pas la page d’accueil', async () => {
