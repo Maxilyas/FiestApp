@@ -149,8 +149,11 @@ Puis `node server/scripts/tablee/pilote.mjs regie arreter`.
 - Un agent réagit en plusieurs secondes : les questions de la tablée durent
   45 à 60 s (consigne de l'animatrice), et le temps de réaction qu'on mesure
   est celui de l'outil, pas celui d'un humain.
-- Le clavier du téléphone est simulé (un bandeau qui cache le bas de
-  l'écran) ; la veille aussi (page figée, réseau coupé, visibilité cachée).
+- Le clavier du téléphone est simulé : il prend 40 % de la hauteur et la
+  page rétrécit au-dessus, comme le fait Chrome Android à la demande de
+  FiestApp (`interactive-widget=resizes-content`) — Safari, lui, ne rétrécit
+  que ce qu'il montre. La veille aussi est simulée (page figée, réseau
+  coupé, visibilité cachée).
 - Chromium seulement : ni Safari, ni Firefox. Le profil « iphone » n'en a
   que la taille et l'identité.
 - La salle (`dire`) est commune à toute la tablée : c'est une pièce, pas un

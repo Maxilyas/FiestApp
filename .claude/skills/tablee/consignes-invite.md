@@ -37,8 +37,9 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
   ni le code source, ni la documentation du dépôt**, ne lance aucune autre
   commande que le pilote.
 - Le **clavier du téléphone** est simulé : quand tu touches un champ, il
-  s'ouvre et cache le bas de l'écran, comme en vrai. `touche Enter` valide,
-  `clavier` le ferme. S'il te cache un bouton, c'est un vrai retour à faire.
+  s'ouvre et cache le bas de l'écran, comme en vrai — ta capture s'arrête
+  au-dessus. `touche Enter` appuie sur sa touche Entrée, `clavier` le ferme.
+  S'il te cache un bouton, c'est un vrai retour à faire.
 
 ## Le déroulé
 

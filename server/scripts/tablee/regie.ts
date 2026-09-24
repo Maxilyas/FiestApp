@@ -372,40 +372,46 @@ const APPAREILS: Record<string, Appareil> = {
 //
 // Des chaînes et non des fonctions : `tsx` renomme les fonctions qu'il
 // compile (`__name`), et une fonction envoyée au navigateur y arriverait avec
-// un appel qui n'y existe pas.
+// un appel qui n'y existe pas. Mais une chaîne s'y évalue comme une
+// expression : `evaluate('n => …')` rend la fonction sans jamais l'appeler.
+// D'où les `(() => { … })()`, et, pour un élément, l'API de Playwright.
 
 /**
  * Le clavier du téléphone. Il ne s'ouvre qu'au toucher d'un champ — un
- * `autoFocus` ne l'ouvre pas sur un vrai téléphone — et cache alors le bas de
- * l'écran : le bouton qu'on ne voit plus, c'est précisément ce que la tablée
- * doit montrer (CLAUDE.md : « le clavier pousserait le bouton hors de
- * l'écran »). Comme un vrai navigateur, on remonte le champ au-dessus.
+ * `autoFocus` ne l'ouvre pas sur un vrai téléphone — et l'écran rétrécit
+ * alors d'autant, comme Chrome Android le fait pour FiestApp
+ * (`interactive-widget=resizes-content`, `client/index.html`). Le bouton
+ * qu'on ne voit plus, c'est précisément ce que la tablée doit montrer
+ * (CLAUDE.md : « le clavier pousserait le bouton hors de l'écran ») — mais
+ * la page doit le savoir : `clavier.ts` remonte le bouton quand il tient
+ * au-dessus du clavier. La première tablée posait un bandeau par-dessus la
+ * page, qui ne s'en apercevait pas, et le banc aurait jugé encore caché un
+ * bouton que l'application remontait. Comme un vrai navigateur, on remonte
+ * aussi le champ au-dessus. C'est la régie qui retaille (`clavierDe`).
  */
 const CLAVIER = `(() => {
   if (window.__tablee) return
   window.__tablee = { clavier: false }
   const SAISIE = /^(text|search|email|password|tel|url|number)$/
   const estSaisie = el => !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && SAISIE.test(el.type || 'text')) || el.isContentEditable)
-  let touche = null, clavier = null, cale = null
-  const cacher = () => { if (clavier) clavier.remove(); if (cale) cale.remove(); clavier = cale = null; window.__tablee.clavier = false }
-  const montrer = champ => {
-    if (!clavier) {
-      clavier = document.createElement('div')
-      clavier.setAttribute('aria-hidden', 'true')
-      clavier.dataset.tablee = 'clavier'
-      clavier.style.cssText = 'position:fixed;left:0;right:0;bottom:0;height:40vh;z-index:2147483647;background:#3c3f44;color:#c9ccd1;display:flex;align-items:center;justify-content:center;font:500 15px/1.2 system-ui,sans-serif;border-top:1px solid #55585e'
-      clavier.textContent = '⌨ clavier du téléphone'
-      cale = document.createElement('div')
-      cale.setAttribute('aria-hidden', 'true')
-      cale.style.cssText = 'height:40vh'
-      document.documentElement.appendChild(cale)
-      document.documentElement.appendChild(clavier)
-    }
-    window.__tablee.clavier = true
-    const bas = champ.getBoundingClientRect().bottom
-    const visible = window.innerHeight * 0.6
-    if (bas > visible - 8) window.scrollBy(0, bas - visible + 16)
+  const retailler = ouvert => Promise.resolve(typeof window.__tableeClavier === 'function' ? window.__tableeClavier(ouvert) : null).catch(() => {})
+  let touche = null
+  const cacher = () => {
+    if (!window.__tablee.clavier) return
+    window.__tablee.clavier = false
+    retailler(false)
   }
+  const montrer = champ => {
+    const deja = window.__tablee.clavier
+    window.__tablee.clavier = true
+    ;(deja ? Promise.resolve() : retailler(true)).then(() => {
+      const bas = champ.getBoundingClientRect().bottom
+      if (document.activeElement === champ && bas > innerHeight - 8) window.scrollBy(0, bas - innerHeight + 16)
+    })
+  }
+  // Une page neuve n'a pas de clavier : celui de la page d'avant, s'il était
+  // ouvert (un rechargement ne passe pas par « focusout »), part avec elle.
+  retailler(false)
   document.addEventListener('pointerdown', e => {
     const el = e.target && e.target.closest ? e.target.closest('input,textarea,[contenteditable]') : null
     touche = estSaisie(el) ? el : null
@@ -570,6 +576,26 @@ const chemin = (url: string) => {
 }
 const secondes = (ms: number) => `${(ms / 1000).toFixed(1).replace('.', ',')} s`
 
+/** Ce que le clavier prend de l'écran d'un téléphone, en hauteur. */
+const PART_DU_CLAVIER = 0.4
+/** La taille de chaque page sans son clavier : la rotation la tourne, le clavier en prend le bas. */
+const tailles = new WeakMap<Page, { width: number; height: number }>()
+/** Les pages dont le clavier est ouvert, donc l'écran rétréci. */
+const retrecies = new WeakSet<Page>()
+
+const sousLeClavier = (t: { width: number; height: number }) => ({ width: t.width, height: Math.round(t.height * (1 - PART_DU_CLAVIER)) })
+
+/** Le clavier s'ouvre ou se ferme : l'écran rétrécit, ou reprend sa taille. */
+async function clavierDe(page: Page, ouvert: boolean) {
+  if (ouvert === retrecies.has(page)) return
+  const plein = tailles.get(page) ?? page.viewportSize()
+  if (!plein) return
+  tailles.set(page, plein)
+  if (ouvert) retrecies.add(page)
+  else retrecies.delete(page)
+  await page.setViewportSize(ouvert ? sousLeClavier(plein) : plein)
+}
+
 async function allumer(qui: string, appareil: string): Promise<Participant> {
   const a = APPAREILS[appareil]
   if (!a) throw new Refus(`Appareil inconnu : « ${appareil} ». Au choix : ${Object.keys(APPAREILS).join(', ')}.`)
@@ -583,7 +609,10 @@ async function allumer(qui: string, appareil: string): Promise<Participant> {
   })
   contexte.setDefaultTimeout(5000)
   contexte.setDefaultNavigationTimeout(20000)
-  if (a.tactile) await contexte.addInitScript({ content: CLAVIER })
+  if (a.tactile) {
+    await contexte.exposeBinding('__tableeClavier', ({ page }: { page: Page }, ouvert: boolean) => clavierDe(page, ouvert))
+    await contexte.addInitScript({ content: CLAVIER })
+  }
   await contexte.addInitScript({ content: EPHEMERES })
   const p: Participant = {
     qui,
@@ -781,15 +810,25 @@ async function localiser(page: Page, cible: string): Promise<Element> {
 
 /** Toucher du doigt sur un téléphone, cliquer ailleurs — et dire pourquoi ça n'a pas pris. */
 async function toucher(p: Participant, el: Element) {
+  // Clavier ouvert, l'écran s'arrête au-dessus : ce qui est plus bas, un doigt
+  // ne l'atteint qu'en fermant le clavier ou en faisant défiler. Playwright,
+  // lui, défilerait tout seul jusqu'au bouton — et la gêne passerait inaperçue.
+  const page = el.page()
+  if (retrecies.has(page)) {
+    const boite = await el.boundingBox().catch(() => null)
+    const ecran = page.viewportSize()
+    if (boite && ecran && ecran.height - boite.y < Math.min(boite.height / 2, 20)) {
+      throw new Refus(
+        'Ce bouton est sous le clavier du téléphone : ferme le clavier (« clavier »), appuie sur sa touche Entrée (« touche Enter ») ou fais défiler (« defiler bas »).',
+      )
+    }
+  }
   try {
     if (APPAREILS[p.appareil].tactile) await el.tap({ timeout: 4000 })
     else await el.click({ timeout: 4000 })
   } catch (e) {
     const m = (e as Error).message
     if (/intercepts pointer events/.test(m)) {
-      if (/data-tablee="clavier"/.test(m)) {
-        throw new Refus('Ce bouton est caché sous le clavier du téléphone : ferme-le (« clavier ») ou valide avec « touche Enter ».')
-      }
       const ligne = m.split('\n').find(l => l.includes('intercepts pointer events')) ?? ''
       const dessus = ligne.replace('intercepts pointer events', '').replace(/^\s*-\s*/, '').trim()
       throw new Refus(`Quelque chose recouvre ce bouton${dessus ? ` (${dessus.slice(0, 160)})` : ''} : il ne réagit pas au toucher.`)
@@ -1020,7 +1059,8 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const fichier = path.isAbsolute(fichierDemande) ? fichierDemande : path.join(DOSSIER, fichierDemande)
       if (!existsSync(fichier)) throw new Refus(`Pas de fichier ${fichier}.`)
       const el = await localiser(page, champ)
-      const estChamp = await el.evaluate("n => n.tagName === 'INPUT' && n.type === 'file'").catch(() => false)
+      // Seul un <input type="file"> porte ce type.
+      const estChamp = (await el.getAttribute('type').catch(() => null)) === 'file'
       if (estChamp) await el.setInputFiles(fichier)
       else {
         const [selecteur] = await Promise.all([page.waitForEvent('filechooser', { timeout: 4000 }), toucher(p, el)])
@@ -1260,11 +1300,14 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
     }
 
     case 'orientation': {
-      const vue = page.viewportSize()
+      // La taille de l'appareil, pas celle que le clavier lui laisse.
+      const vue = tailles.get(page) ?? page.viewportSize()
       if (!vue) throw new Refus('Pas d’écran à tourner.')
       const paysage = args[0] === 'paysage'
       const [petit, grand] = [Math.min(vue.width, vue.height), Math.max(vue.width, vue.height)]
-      await page.setViewportSize(paysage ? { width: grand, height: petit } : { width: petit, height: grand })
+      const plein = paysage ? { width: grand, height: petit } : { width: petit, height: grand }
+      tailles.set(page, plein)
+      await page.setViewportSize(retrecies.has(page) ? sousLeClavier(plein) : plein)
       await stabiliser(page)
       return ecran(p, o, paysage ? '↻ Tu tournes le téléphone à l’horizontale.' : '↻ Tu remets le téléphone droit.')
     }

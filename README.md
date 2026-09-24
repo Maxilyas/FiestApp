@@ -427,7 +427,7 @@ node server/scripts/tablee/pilote.mjs jeanne repondre 2
 node server/scripts/tablee/pilote.mjs jeanne capture                  # une photo de l'écran
 ```
 
-`pilote.mjs aide` les liste tous : lire l'écran (l'arbre d'accessibilité, chaque élément avec sa référence), toucher, écrire, lever les yeux vers l'écran commun, couper le réseau, mettre le téléphone en veille, agrandir le texte, voir en daltonien, parler à la salle… Le clavier du téléphone est simulé : il s'ouvre au toucher d'un champ et cache le bas de l'écran, comme en vrai.
+`pilote.mjs aide` les liste tous : lire l'écran (l'arbre d'accessibilité, chaque élément avec sa référence), toucher, écrire, lever les yeux vers l'écran commun, couper le réseau, mettre le téléphone en veille, agrandir le texte, voir en daltonien, parler à la salle… Le clavier du téléphone est simulé : il s'ouvre au toucher d'un champ et prend le bas de l'écran, la page rétrécissant au-dessus, comme sur Chrome Android — l'application le voit, et remonte ce qu'elle peut.
 
 Avec Claude Code, **`/tablee`** fait tout : la régie, huit agents — une animatrice qui découvre l'application et sept invités aux profils variés (la grand-mère au petit téléphone et au texte agrandi, l'ado qui cherche la faille, la joueuse qui veut son profil, le retardataire au réseau capricieux, celle qui n'a pas le QR, l'homonyme daltonienne, le lecteur d'écran) —, puis la synthèse de leurs retours, vérifiés un à un. Les fiches des personnages, leurs consignes et le modèle de retour sont dans `.claude/skills/tablee/` : une fiche de plus, c'est un invité de plus.
 

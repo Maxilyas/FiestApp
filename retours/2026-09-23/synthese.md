@@ -50,7 +50,8 @@ moins coûteux :
 Le lendemain, chaque axe a été confié à une session, qui l'a porté dans sa
 propre PR : 1 → #27, 2 → #26, 3 → #31, 4 → #29, 5 → #30, 6 → #25, 7 → #28.
 Les constats qui suivent décrivent l'application du 23 septembre : avant de
-reprendre un axe, regarde sa PR.
+reprendre un axe, regarde sa PR. L'estimation « 35 000 » (axe 4), trouvée en
+rejouant la tablée une fois #29 ouverte, n'y est pas.
 
 ## Qui était là
 
@@ -383,6 +384,11 @@ Corrigé dans la régie et les consignes pour la prochaine fois :
 - après la clôture, aucun quiz ne suit : l'animatrice l'annonce, et les
   invités ne rentrent plus dans « la soirée suivante » pour l'attendre
   (Sofia y a patienté dix-huit minutes) ;
+- le clavier rétrécit l'écran au lieu d'y poser un bandeau : la page ne
+  voyait pas le bandeau, et le banc aurait jugé encore caché le bouton que
+  #29 remonte au-dessus du clavier (en 412 × 915 ; en 360 × 640, il reste
+  dessous, comme sur un vrai téléphone, et la touche Entrée referme le
+  clavier) ;
 - un filet contre les promesses rejetées, comme celui du serveur.
 
 Et à garder en tête : le clavier et la veille sont simulés, Chromium seul
