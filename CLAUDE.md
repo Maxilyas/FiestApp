@@ -68,7 +68,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `auth/profiles.ts` | profils de joueurs (autre table, autre cookie) |
 | `auth/profileRoutes.ts` | la porte d'entrée : se connecter à son profil ouvre aussi la console de l'espace rattaché |
 | `auth/http.ts` | cookies, adresse du client, et `loginBudgetOf(app)` : la réserve d'essais commune à toutes les portes |
-| `auth/appairage.ts` | brancher la télé : le code court qu'elle affiche, validé depuis une console ouverte, et la session qu'elle en reçoit |
+| `auth/appairage.ts` | brancher la télé : le code court qu'elle affiche, validé depuis une console ouverte, et la session d'une soirée qu'elle en reçoit ; `/attente` dit `perime` dans une réponse, jamais dans une erreur |
 | `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins |
 | `sockets.ts` | tout le protocole temps réel — chaque message passe par `ecouter()` |
 | `shared/events.ts` | le contrat socket, typé des deux côtés |
@@ -175,7 +175,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
     fait ce geste. Celles du mot de passe du compte ne bougent pas : c'est
     l'écran commun de la soirée. Une télé branchée par un code d'appairage
     hérite de la porte de la console qui l'a validé (`auth/appairage.ts`) :
-    elle tombe avec ce profil, ou tient comme l'écran commun. Pour poser
+    elle tombe avec ce profil, ou tient comme l'écran commun — et jamais
+    plus de 24 heures (`fin_max`, qui plafonne le glissement). Pour poser
     le lien, il faut prouver les deux identités ; après, une seule porte
     suffit. Ne fusionne pas les deux tables : l'identifiant d'un compte est
     la clé de partition de dix tables et de toutes les archives.
