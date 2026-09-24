@@ -118,6 +118,8 @@ export interface QuizHostView {
   autoNextSeconds?: number | null
   /** Échéance de l'enchaînement automatique, pendant une révélation. */
   autoNextAt?: number
+  /** L'enchaînement attend le clic : personne n'a répondu à la question révélée. */
+  autoNextSuspendu?: boolean
   answeredCount?: number
   participantCount?: number
   // reveal + finished

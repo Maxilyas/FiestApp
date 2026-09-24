@@ -296,7 +296,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
     const maxCount = Math.max(1, ...(v.counts ?? [0]))
     return (
       <div className="quiz-host">
-        {revealing && (v.cancelled || v.fastest || v.autoNextAt) && (
+        {revealing && (v.cancelled || v.fastest || v.autoNextAt || v.autoNextSuspendu) && (
           <div className="quiz-status">
             {/* Points annulés : la salle doit le lire, et le plus rapide
                 d'une question qui ne compte plus n'a rien gagné. */}
@@ -312,6 +312,13 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
               )
             )}
             {v.autoNextAt && <AutoNextPill deadline={v.autoNextAt} />}
+            {/* La salle s'est vidée — une coupure, une pause gâteau : on ne
+                joue pas la suite devant personne. */}
+            {v.autoNextSuspendu && (
+              <span className="pill">
+                <Icon name="pause" /> Personne n'a répondu — la suite attend l'animateur
+              </span>
+            )}
           </div>
         )}
 

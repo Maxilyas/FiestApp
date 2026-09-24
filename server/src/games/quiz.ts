@@ -63,6 +63,11 @@ interface QuizState {
   autoNextSeconds: number | null
   /** Échéance de cet enchaînement, pour l'afficher côté écran commun. */
   autoNextAt: number | null
+  /**
+   * L'enchaînement attend le clic : la question vient d'être révélée sans une
+   * seule réponse. Absent d'une partie d'avant — elle enchaîne comme avant.
+   */
+  autoNextSuspendu?: boolean
 }
 
 const READY_MS = 3000
@@ -282,8 +287,13 @@ function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   st.phase = 'reveal'
   st.lastAwards = {}
   // L'enchaînement s'arme quelle que soit la cause de la révélation : fin du
-  // chronomètre, dernière réponse, ou clic de l'animateur.
-  if (st.autoNextSeconds !== null) {
+  // chronomètre, dernière réponse, ou clic de l'animateur — sauf devant une
+  // salle vide. Le 24 septembre, une coupure a fait jouer trois questions et
+  // un podium à personne : sans une seule réponse de toute la salle, on
+  // attend l'animateur, et sa console dit pourquoi. Le mode reste choisi, et
+  // repart de lui-même à la première question qui reçoit une réponse.
+  st.autoNextSuspendu = st.autoNextSeconds !== null && Object.keys(st.responses).length === 0
+  if (st.autoNextSeconds !== null && !st.autoNextSuspendu) {
     st.autoNextAt = ctx.now() + st.autoNextSeconds * 1000
     ctx.setTimer('autoNext', st.autoNextSeconds * 1000)
   }
@@ -366,6 +376,7 @@ function goNext(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   if (!st.pack) return
   ctx.clearTimer('autoNext')
   st.autoNextAt = null
+  st.autoNextSuspendu = false
   if (st.qIndex + 1 < st.pack.questions.length) startQuestion(sess, st.qIndex + 1, ctx)
   else {
     st.phase = 'finished'
@@ -679,6 +690,9 @@ export const quizModule: GameModule<QuizState> = {
       case 'autoNext': {
         const seconds = command.seconds
         st.autoNextSeconds = seconds === null ? null : Math.min(ENCHAINEMENT_MAX_S, Math.max(2, Math.round(seconds)))
+        // Un palier choisi à la main relance, même devant une salle vide :
+        // c'est l'animateur qui le demande.
+        st.autoNextSuspendu = false
         if (st.autoNextSeconds === null) {
           // Reprendre la main : l'enchaînement en attente est annulé.
           ctx.clearTimer('autoNext')
@@ -832,6 +846,7 @@ export const quizModule: GameModule<QuizState> = {
         ...(st.pausedMs !== null && { paused: true, remainingMs: st.pausedMs }),
         autoNextSeconds: st.autoNextSeconds,
         ...(st.autoNextAt !== null && { autoNextAt: st.autoNextAt }),
+        ...(st.phase === 'reveal' && st.autoNextSuspendu && { autoNextSuspendu: true }),
         answeredCount: Object.keys(st.responses).length,
         participantCount: sess.participantIds.length,
       }
