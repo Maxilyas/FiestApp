@@ -3,11 +3,16 @@ import { ajouterColonne, clientDistant, type Client } from './distante'
 import { tronquer } from '../../../shared/avatars'
 import {
   MAX_ANSWERS,
+  MAX_ANSWER_TEXT,
   MAX_DURATION,
   MIN_DURATION,
   DEFAULT_DURATION,
   MAX_OBSERVE,
   MIN_OBSERVE,
+  MAX_PHOTO_ATTENDUE,
+  MAX_QUESTIONS,
+  MAX_TEXT,
+  MAX_UNIT,
   newQuestionId,
   playableQuestions,
   type QuizDef,
@@ -19,7 +24,6 @@ import { categorieDe } from '../../../shared/categories'
 /** Image trop lourde = base qui gonfle pour rien. Le navigateur compresse avant d'envoyer. */
 const MAX_IMAGE_DATAURL = 2_000_000
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp']
-const MAX_QUESTIONS = 100
 /** Délai avant qu'une photo sans quiz soit considérée comme abandonnée. */
 const IMAGE_GRACE_MS = 60 * 60 * 1000
 /**
@@ -360,28 +364,30 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
     const answers: string[] = []
     for (let i = 0; i < MAX_ANSWERS; i++) {
       const a = Array.isArray(q?.answers) ? q.answers[i] : ''
-      answers.push(typeof a === 'string' ? tronquer(a, 120) : '')
+      answers.push(typeof a === 'string' ? tronquer(a, MAX_ANSWER_TEXT) : '')
     }
     const correct = Number(q?.correct)
     const duration = Number(q?.duration)
     const target = Number(q?.target)
     const observe = Number(q?.observeSeconds)
+    // Une URL d'image ne peut venir que du serveur (/media/…) : on refuse le reste.
+    const image = typeof q?.image === 'string' && q.image.startsWith('/media/') ? q.image : null
+    const photoAttendue = typeof q?.photoAttendue === 'string' ? tronquer(q.photoAttendue.trim(), MAX_PHOTO_ATTENDUE).trim() : ''
     return {
       // L'éditeur s'appuie sur cet identifiant pour suivre chaque carte ; les
       // quiz écrits avant en reçoivent un ici, une fois pour toutes.
       id: typeof q?.id === 'string' && QUESTION_ID.test(q.id) ? q.id : newQuestionId(),
       // Les quiz écrits avant l'arrivée des estimations n'ont pas de `kind`.
       kind: q?.kind === 'number' ? 'number' : 'choice',
-      text: typeof q?.text === 'string' ? tronquer(q.text, 300) : '',
+      text: typeof q?.text === 'string' ? tronquer(q.text, MAX_TEXT) : '',
       answers,
       target: q?.target === null || q?.target === undefined || !Number.isFinite(target) ? null : target,
-      unit: typeof q?.unit === 'string' ? tronquer(q.unit, 12) : '',
+      unit: typeof q?.unit === 'string' ? tronquer(q.unit, MAX_UNIT) : '',
       correct: Number.isInteger(correct) && correct >= 0 && correct < MAX_ANSWERS ? correct : 0,
       duration: Number.isFinite(duration)
         ? Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.round(duration)))
         : DEFAULT_DURATION,
-      // Une URL d'image ne peut venir que du serveur (/media/…) : on refuse le reste.
-      image: typeof q?.image === 'string' && q.image.startsWith('/media/') ? q.image : null,
+      image,
       // Absent des quiz écrits avant la photo « mémoire » : elle reste alors
       // affichée. Comme pour `target`, le null explicite doit être testé avant
       // la conversion — `Number(null)` vaut 0, pas NaN.
@@ -392,6 +398,9 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
       // Prise dans la liste fixe, ou rien : c'est ce qui permet à la carrière
       // d'un joueur d'additionner les catégories d'un hôte à l'autre.
       category: categorieDe(q?.category),
+      // La photo annoncée par une liste collée, le temps qu'elle arrive : la
+      // question ne se joue pas sans elle. Jointe, elle n'a plus rien à dire.
+      photoAttendue: photoAttendue && !image ? photoAttendue : null,
     }
   })
 }

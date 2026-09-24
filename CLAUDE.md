@@ -59,6 +59,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
 | `shared/echange.ts` | un quiz qu'on emporte : le fichier d'export (questions, photos en clair), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin |
+| `shared/liste.ts` | « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) |
 | `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare |
 | `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
 | `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
@@ -326,6 +327,10 @@ sans `QUIZ_DB_URL`.
   seule oubliée, et la colonne se perd au premier réveil sur disque effacé.
 - **Toute mutation de `Party` qui touche un prénom, un avatar ou la
   composition invalide le cache des marques** d'homonymie.
+- **Un réglage de plus à la liste collée** se lit dans
+  `parseImportedQuestions`, s'annonce dans `FORMAT_DE_LISTE` et paraît dans
+  son exemple, que `liste.test.ts` relit : le format copié pour une IA ne
+  doit rien promettre que la liste ne sache lire.
 - **`/healthz` doit rester un 200** : sur un échec, Render redémarre
   l'instance — disque effacé, file du miroir perdue. La santé du miroir se lit
   dans son bloc `miroir`, et la resynchronisation **n'efface jamais** : un PC
