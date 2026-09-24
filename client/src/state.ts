@@ -122,7 +122,7 @@ export function garderFin(slug: string, fin: FinDeSoiree) {
 export function garderSoireeClose(slug: string, soiree: SoireeClose) {
   const avant = readJson<SoireeGardee>(finKey(slug))
   // La même soirée, déjà gardée avec sa fin : on ne l'appauvrit pas.
-  if (avant?.soiree.id === soiree.id) return
+  if (avant?.soiree?.id === soiree.id) return
   const g: SoireeGardee = { soiree, recueLe: Date.now(), ouverte: false }
   writeSafe(storage => storage.setItem(finKey(slug), JSON.stringify(g)))
 }
