@@ -138,9 +138,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
     pas, seules la clôture et l'essai effacé l'oublient (`viderSoiree`).
     Toute écriture permanente sous ce nom passe d'abord par `recopierSoiree`.
     Recalculé, il comptait l'expérience deux fois et dédoublait l'archive.
-    Il se tire sur ceux qui ont **répondu** (`soireeDesInvites`), jamais
-    avant la première réponse : l'invitée revenue relire la veille datait
-    sinon la soirée suivante de son passage, pour toujours.
+    Il se date à sa **première question jouée** (`soireeDesInvites`, l'heure
+    de la révélation au journal), jamais avant : l'invitée revenue relire la
+    veille, ou le QR testé la veille, datait sinon la soirée suivante de
+    l'arrivée d'un invité, pour toujours.
 12. **Un geste dit ce qu'il visait.** Les commandes `next`, `cancel`, `replay`
     et les réponses portent la phase, la question et le tour : une commande
     périmée est ignorée en silence, une réponse périmée reçoit `too-late`, et

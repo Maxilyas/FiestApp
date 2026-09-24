@@ -217,7 +217,7 @@ export class SpaceRuntime {
    * s'additionnait sous deux noms, l'Éclat se retirait, la soirée déjà
    * sauvegardée s'archivait en double.
    *
-   * Il se tire donc une seule fois, sur le plus ancien invité qui a joué : la
+   * Il se tire donc une seule fois, à sa première question jouée : la
    * première fois que quelque chose s'écrit sous ce nom dans la base
    * permanente — ou dès le réveil, pour une soirée qui a des invités mais
    * pas encore de nom rangé (voir le constructeur). Il vit ensuite en
@@ -239,7 +239,7 @@ export class SpaceRuntime {
     return row ? { id: row.id, heldAt: row.held_at } : null
   }
 
-  /** Tire le nom sur les invités qui ont joué, et le range sur le disque local. */
+  /** Tire le nom à sa première question jouée, et le range sur le disque local. */
   private tirerSoiree(): Soiree | null {
     const soiree = soireeDesInvites(this.party.all(), this.answers.all())
     if (!soiree) return null

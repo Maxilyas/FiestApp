@@ -179,8 +179,9 @@ const laureats = (banc: Banc, soiree: string, badge: string) =>
   ).map(r => r.profile_id)
 
 /** L'heure d'arrivée d'un invité, telle que la base locale l'a notée. */
-const arrivee = (banc: Banc, playerId: string): number =>
-  lire<{ created_at: number }>(banc.dbPath, 'SELECT created_at FROM players WHERE id = ?', playerId)[0].created_at
+/** L'heure de la première question jouée dans la soirée : celle qui la date. */
+const premiereQuestion = (banc: Banc): number =>
+  lire<{ t: number }>(banc.dbPath, 'SELECT MIN(created_at) AS t FROM answer_log WHERE answered = 1')[0].t
 
 /**
  * Le nombre de badges que l'écran d'entrée annonce à ce profil. Il vient du
@@ -228,11 +229,12 @@ async function essaiPuisAlice(banc: Banc) {
 test('exclure le premier arrivé entre deux quiz ne rebaptise pas la soirée', () =>
   avecBanc(async banc => {
     const { quiz, aliceCookie, host, essai, alice, salle, aliceId } = await essaiPuisAlice(banc)
-    const debut = arrivee(banc, essai.playerId)
 
     const premier = attendre<any>(alice.socket, 'player:profil', p => p.xp > 0, 'le crédit du premier quiz', 15_000)
     await jouerQuiz(host, quiz, [[[alice, 0], [essai, 1], ...faux(salle)]])
     assert.equal((await premier).xp, xpDeSoiree(1), 'Alice trouve seule la question du premier quiz')
+    // Une soirée se date à sa première question jouée.
+    const debut = premiereQuestion(banc)
     // Le quiz fini, la soirée s'est rangée toute seule sous son nom.
     const rangee = await enCours(banc)
     assert.equal(rangee?.id, archiveIdOf(debut), 'la soirée s’est rangée d’elle-même après le quiz')
@@ -364,11 +366,15 @@ test('« Clore la soirée » : la suivante porte un autre nom, même après un r
 test('une soirée commencée avant la mise à jour garde le nom qu’elle avait', () =>
   avecBanc(async banc => {
     const { quiz, aliceCookie, host, essai, alice, salle, aliceId } = await essaiPuisAlice(banc)
-    const debut = arrivee(banc, essai.playerId)
     const premier = attendre<any>(alice.socket, 'player:profil', p => p.xp > 0, 'le crédit du premier quiz', 15_000)
     await jouerQuiz(host, quiz, [[[alice, 0], [essai, 1], ...faux(salle)]])
     await premier
     await patienter(400)
+    // Le nom qu'elle avait : l'heure de sa première question jouée. Le vrai
+    // serveur d'avant la datait à l'arrivée du premier invité ; tous ceux qui
+    // tournent aujourd'hui rangent leur nom, et ce qu'on garde ici, c'est
+    // qu'un nom perdu se retrouve pareil au réveil, et se fige.
+    const debut = premiereQuestion(banc)
 
     // Le serveur d'avant ne rangeait le nom de la soirée nulle part : on
     // efface celui qu'on vient de ranger. Il ne reste que ce qu'une soirée en

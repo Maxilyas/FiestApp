@@ -58,29 +58,35 @@ export interface Soiree {
 }
 
 /**
- * Le nom qu'on donne à une soirée : l'arrivée du plus ancien invité qui y a
- * joué.
+ * Le nom qu'on donne à une soirée : l'heure de sa première question jouée.
  *
- * C'est ainsi qu'on le recalculait à chaque besoin, et c'était le piège :
- * exclure ce premier arrivé — le téléphone d'essai de l'animateur, presque
- * toujours — rebaptisait la soirée en cours de route. On ne l'appelle donc
- * plus qu'une fois par soirée, pour le tirer ; et c'est aussi elle qui rend
- * son nom à une soirée commencée avant qu'on le range.
+ * On la lisait sur l'arrivée du plus ancien invité présent, et c'était le
+ * piège : exclure ce premier arrivé — le téléphone d'essai de l'animateur,
+ * presque toujours — rebaptisait la soirée en cours de route. On ne l'appelle
+ * donc plus qu'une fois par soirée, pour le tirer ; et c'est aussi elle qui
+ * rend son nom à une soirée commencée avant qu'on le range.
  *
- * Seuls ceux qui ont répondu la datent : l'invitée revenue le 17 relire la
- * veille était entrée dans la soirée suivante sans y jouer, et celle du 24
- * s'archivait « du 17 », pour toujours. À défaut de réponse, ceux que le
- * journal a vus ; à défaut de journal, tout le monde.
+ * Ni l'arrivée d'un invité : l'invitée revenue le 17 relire la veille, ou le
+ * QR que l'animateur a testé la veille, inscrivaient un invité qui jouait bel
+ * et bien le 24 — et la soirée s'archivait « du 17 », pour toujours. Une
+ * réponse porte l'heure de sa révélation (`AnswerRow.createdAt`, recopiée au
+ * miroir) : c'est le soir où l'on a joué.
  */
 export function soireeDesInvites(
   players: { id: string; createdAt: number }[],
-  answers: { playerId: string; answered: boolean }[] = [],
+  answers: { playerId: string; answered: boolean; createdAt: number }[] = [],
 ): Soiree | null {
-  const ont = (pred: (a: { playerId: string; answered: boolean }) => boolean) => {
-    const ids = new Set(answers.filter(pred).map(a => a.playerId))
-    return players.filter(p => ids.has(p.id))
-  }
-  const datants = [ont(a => a.answered), ont(() => true), players].find(l => l.length > 0)
+  // Une boucle, pas `Math.min(...)` : le journal d'une grande soirée se compte
+  // en dizaines de milliers de lignes, trop d'arguments pour un appel.
+  let premiere = Infinity
+  for (const a of answers) if (a.answered && a.createdAt < premiere) premiere = a.createdAt
+  if (premiere !== Infinity) return { id: archiveIdOf(premiere), heldAt: premiere }
+  // Rien de joué : l'arrivée de ceux que le journal a vus, puis de tout le
+  // monde. Le nom ne se tire pourtant jamais avant la première réponse (le
+  // constructeur de `space.ts` attend le journal) : c'est l'heure qu'affiche
+  // l'historique d'une soirée tout juste commencée.
+  const vus = new Set(answers.map(a => a.playerId))
+  const datants = [players.filter(p => vus.has(p.id)), players].find(l => l.length > 0)
   if (!datants) return null
   const heldAt = Math.min(...datants.map(p => p.createdAt))
   return { id: archiveIdOf(heldAt), heldAt }

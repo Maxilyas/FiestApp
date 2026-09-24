@@ -501,6 +501,46 @@ test('un invité arrivé une semaine avant, reparti sans jouer, ne date pas la s
     assert.ok(!message.includes(veille), message)
   }))
 
+// Dater sur ceux qui ont répondu ne suffisait pas : l'animateur teste son QR
+// le 17, ou l'invitée qui relisait la veille touche « Rejoindre la soirée
+// suivante » — et le 24, ce même invité JOUE. Son arrivée datait encore la
+// soirée « du 17 ». Elle se date à sa première question jouée.
+
+test('un invité inscrit une semaine avant, qui joue ce soir, ne date pas la soirée de son arrivée', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const deux = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const semaine = 7 * 24 * 3600 * 1000
+    const maintenant = Date.now
+    Date.now = () => maintenant() - semaine
+    let veille: Invite
+    try {
+      veille = await invite(banc.url, 'Antoine', '🦁')
+    } finally {
+      Date.now = maintenant
+    }
+    veille.socket.close()
+    // Le 24, son téléphone revient avec le jeton du 17 : c'est le même invité.
+    const testeur = await invite(banc.url, 'Antoine', '🦁', { token: veille.token })
+    assert.equal(testeur.playerId, veille.playerId)
+    const host = await ecranCommun(banc.url, cookie)
+    const salle = await figurants(banc, 2)
+    const debut = Date.now()
+    await jouerQuiz(host, deux, [
+      [[testeur, 0], [salle[0], 1], [salle[1], 1]],
+      [[testeur, 0], [salle[0], 1], [salle[1], 1]],
+    ])
+    const id = await rangee(banc)
+    const jour = new Date(debut).toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' })
+    assert.ok(id.startsWith(jour), `soirée jouée le ${jour}, identifiant ${id}`)
+    const { current } = await historique(banc)
+    assert.ok(current.since >= debut, `la soirée est datée du ${new Date(current.since).toISOString()}`)
+    await clore(host)
+    const [archive] = (await historique(banc)).archives
+    assert.equal(archive.id, id)
+    assert.ok(archive.heldAt >= debut, 'l’historique garde l’heure de la première question')
+  }))
+
 // Le lendemain racontait les prix que l'application avait calculés, et pas
 // ceux que l'animateur avait remis : « Le coup de cœur de Sam », un prix
 // libre au motif inventé, ne se relisait nulle part. Le souvenir et le bilan
