@@ -318,6 +318,10 @@ test('la veille d’un téléphone ne repart qu’à l’écran commun', async (
   const hote = await instantane<any>(host, s => s.players.length >= 6)
   assert.ok(hote.players.every((p: any) => typeof p.connected === 'boolean'), 'celui de l’écran commun, si')
 
+  // La salle au complet chez chacun, pas seulement chez le premier : la même
+  // diffusion peut encore être en route vers les autres, et elle serait
+  // comptée comme une veille.
+  await Promise.all(invites.map(i => instantane<any>(i.socket, s => s.players.length >= 6, 'la salle au complet')))
   let recus = 0
   const compter = () => recus++
   for (const inv of invites.slice(0, 5)) inv.socket.on('party:snapshot', compter)
