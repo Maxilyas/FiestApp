@@ -79,6 +79,9 @@ const packId = await creerQuiz(
     { kind: 'number', text: 'Combien de kilomètres sépare Paris de Rouen, à vol d’oiseau ?', target: 112, unit: 'km', duration: 60, image: null, answers: [], correct: 0 },
     { kind: 'choice', text: 'La tour Eiffel mesure plus de 300 mètres.', answers: ['Vrai', 'Faux'], correct: 0, duration: 60, image: null },
     { kind: 'choice', text: 'Combien de bougies sur le gâteau ?', answers: ['Cinq', 'Six', 'Sept', 'Huit'], correct: 2, duration: 60, image, observeSeconds: 8 },
+    // De quoi faire un vrai quiz, qui décerne ses hauts faits à la clôture.
+    { kind: 'choice', text: 'Quelle est la capitale de l’Australie ?', answers: ['Sydney', 'Canberra', 'Melbourne'], correct: 1, duration: 60, image: null },
+    { kind: 'choice', text: 'Combien de pattes a une araignée ?', answers: ['Six', 'Huit'], correct: 1, duration: 60, image: null },
   ],
   'Le pire cas',
 )
@@ -148,8 +151,47 @@ async function capture(moment: string, opts: { telephone?: boolean } = {}) {
   const prefixe = String(n).padStart(2, '0')
   await tele.screenshot({ path: path.join(sortie, `${prefixe}-${moment}-1366.jpg`), type: 'jpeg', quality: 70 })
   await grande.screenshot({ path: path.join(sortie, `${prefixe}-${moment}-1920.jpg`), type: 'jpeg', quality: 70 })
+  if (process.env.MESURE) await mesurer(moment)
   if (opts.telephone) await telephone.screenshot({ path: path.join(sortie, `${prefixe}-${moment}-tel.jpg`), type: 'jpeg', quality: 70 })
   console.log(`  ${prefixe} ${moment}`)
+}
+
+// Ce qui ne grandit pas entre 1366 × 768 et 1920 × 1080 : chaque texte
+// visible, retrouvé par son chemin dans la page, et le rapport de ses tailles
+// aux deux définitions. Tout ce qui reste sous 1,25 est écrit en pixels.
+async function mesurer(moment: string) {
+  // Évalué dans la page, et passé en texte : tsx nomme les fonctions
+  // fléchées par un assistant (`__name`) que la page ne connaît pas.
+  const releve = (page: any): Promise<Record<string, number>> =>
+    page.evaluate(`(() => {
+      const chemin = e => {
+        const parts = []
+        for (let x = e; x && x !== document.body; x = x.parentElement) {
+          const i = x.parentElement ? [...x.parentElement.children].indexOf(x) : 0
+          parts.unshift(x.tagName.toLowerCase() + (x.classList.length ? '.' + [...x.classList].join('.') : '') + ':' + i)
+        }
+        return parts.join('>')
+      }
+      const r = {}
+      for (const e of document.querySelectorAll('.host *')) {
+        const b = e.getBoundingClientRect()
+        if (!b.width || !b.height) continue
+        if ([...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) r[chemin(e) + ' font'] = parseFloat(getComputedStyle(e).fontSize)
+        if (e.tagName === 'svg' || e.tagName === 'IMG' || e.classList.contains('qr-box')) r[chemin(e) + ' box'] = b.height
+      }
+      return r
+    })()`)
+  const [a, b] = await Promise.all([releve(tele), releve(grande)])
+  const petits = new Map<string, string>()
+  for (const [k, v] of Object.entries(a)) {
+    if (!(k in b) || v === 0) continue
+    const ratio = b[k] / v
+    if (ratio < 1.25) {
+      const feuille = k.split('>').pop()!
+      petits.set(feuille.replace(/:\d+/, '') + ` (${v.toFixed(1)} → ${b[k].toFixed(1)})`, k)
+    }
+  }
+  if (petits.size) console.log(`    ${moment} — ne grandit pas :\n      ` + [...petits.keys()].slice(0, 40).join('\n      '))
 }
 
 let vue: any = null
@@ -187,6 +229,7 @@ await capture('q2-estimation', { telephone: true })
 await patienter(1500)
 suivant()
 await phase('reveal', 1)
+console.log(`    ${vue.view.guesses?.length} estimations`)
 await capture('q2-estimation-revelation', { telephone: true })
 suivant()
 
@@ -207,6 +250,13 @@ await phase('question', 3)
 await patienter(1500)
 suivant()
 await phase('reveal', 3)
+for (const q of [4, 5]) {
+  suivant()
+  await phase('question', q)
+  await patienter(1500)
+  suivant()
+  await phase('reveal', q)
+}
 suivant()
 await phase('finished')
 await capture('podium-du-quiz', { telephone: true })

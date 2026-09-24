@@ -12,3 +12,17 @@ export function questionSizeClass(text: string | undefined): string {
   if (n > 70) return ' q-md'
   return ''
 }
+
+/**
+ * Le palier des réponses : la plus longue décide pour toute la grille — des
+ * cartes de tailles différentes feraient croire qu'une réponse compte plus.
+ * Au-delà de 60 caractères, une réponse passait en quatre lignes à la télé
+ * et sortait de sa carte ; une liste écrite par une IA en produit volontiers
+ * (120 permis).
+ */
+export function answersSizeClass(answers: readonly string[] | undefined): string {
+  const n = Math.max(0, ...(answers ?? []).map(a => a.length))
+  if (n > 90) return ' ans-sm'
+  if (n > 60) return ' ans-md'
+  return ''
+}

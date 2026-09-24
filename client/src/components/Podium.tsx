@@ -44,6 +44,19 @@ export function Standings({ rows, offset = 0 }: { rows: PodiumRow[]; offset?: nu
 }
 
 /**
+ * La hauteur d'une marche, en fraction de la hauteur qu'on lui laisse : elle
+ * suit le score, avec un plancher pour que la 3e reste visible quand l'écart
+ * est énorme — et un plafond par rang, pour qu'un podium serré reste un
+ * podium : à 1 030, 882 et 828 points, les marches faisaient 100, 90 et 86 %,
+ * trois blocs presque égaux. Deux rangs distincts sont toujours à 14 points
+ * d'écart au moins ; deux ex æquo, à la même hauteur.
+ */
+export function hauteurDeMarche(rang: number, points: number, meilleur: number): number {
+  const proportion = 0.3 + (0.7 * Math.max(0, points)) / Math.max(1, meilleur)
+  return Math.min(proportion, 1 - 0.14 * (Math.max(1, rang) - 1))
+}
+
+/**
  * Les trois marches montent depuis le bas, la première au milieu. La hauteur
  * suit le score, avec un plancher pour que la 3e marche reste visible même
  * quand l'écart est énorme. Chaque marche porte le rang partagé : deux ex
@@ -72,7 +85,11 @@ export function FinalPodium({ rows }: { rows: PodiumRow[] }) {
             {row.name}
             <Niveau niveau={row.niveau} />
           </span>
-          <div className="podium-step" style={{ height: `${30 + 70 * (row.points / best)}%` }}>
+          {/* La marche ne rétrécit pas sous un nom long : elle prend sa part de
+              ce qui reste sous les têtes (`--h`), et le nom tient en deux
+              lignes. Un nom de trois lignes volait la hauteur de sa marche, et
+              le vainqueur se retrouvait sur la plus petite. */}
+          <div className="podium-step" style={{ ['--h' as string]: hauteurDeMarche(rank[i], row.points, best) }}>
             <span className="podium-medal" aria-hidden="true">
               {rank[i]}
             </span>
