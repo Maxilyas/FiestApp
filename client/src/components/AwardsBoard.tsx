@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Award, PublicTeam } from '../../../shared/types'
+import { ChampNombre } from './ChampNombre'
 
 interface Props {
   awards: Award[]
@@ -74,13 +75,12 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles }: Props) {
 
             {onAward && team && (
               <div className="award-give">
-                <input
+                <ChampNombre
                   className="input award-points"
-                  type="number"
                   min={-10}
                   max={10}
-                  value={points[a.key] ?? DEFAULT_POINTS}
-                  onChange={e => setPoints(p => ({ ...p, [a.key]: Number(e.target.value) }))}
+                  valeur={points[a.key] ?? DEFAULT_POINTS}
+                  onValeur={n => setPoints(p => ({ ...p, [a.key]: n }))}
                 />
                 <button
                   className={'btn btn-small' + (given ? '' : ' btn-primary')}

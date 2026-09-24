@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import {
-  DEFAULT_DURATION,
   DEFAULT_OBSERVE,
   MAX_ANSWERS,
   MAX_ANSWER_TEXT,
@@ -19,6 +18,7 @@ import {
   photoManquante,
   questionProblem,
   tempsDObservation,
+  tempsDansLesBornes,
   toPlayable,
   voisineDe,
   type QuizDef,
@@ -41,6 +41,7 @@ import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon 
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
+import { ChampNombre } from '../components/ChampNombre'
 import { Shape } from '../components/Shape'
 import { TimerBar } from '../components/TimerBar'
 import { serverNow } from '../clock'
@@ -1087,10 +1088,10 @@ function BulkImport({
       <p className="muted">
         {espacesFines(
           'Une ligne vide entre deux questions. L’étoile marque la bonne réponse ; le signe égal ' +
-            'transforme la question en estimation chiffrée. Sous l’intitulé, « Temps : 30 s », « Photo : … » ' +
-            'et « Observation : 5 s » règlent la question ; une ligne qui commence par un dièse range les ' +
-            'questions qui suivent dans une catégorie — « #\u00a0Musique », « #\u00a0Cinéma »… Sans ces lignes, elles ' +
-            'prennent le temps et la catégorie de la question qui les précède.',
+            'transforme la question en estimation chiffrée. Sous l’intitulé, « Photo : … » et « Observation : 5 s » ' +
+            'règlent la question ; « Temps : 30 s » règle celle-ci et les suivantes, comme une ligne qui commence ' +
+            'par un dièse les range dans une catégorie — « #\u00a0Musique », « #\u00a0Cinéma »… Sans ces lignes, elles ' +
+            'prennent le temps et la catégorie de la question qui les précédera dans le quiz.',
         )}
       </p>
       <pre className="import-example">{APERCU_DU_FORMAT}</pre>
@@ -1135,7 +1136,7 @@ function BulkImport({
         {count > 1 ? 's' : ''}
         {count > 0 && (count > 1 ? ` · n° ${number} à ${number + count - 1}` : ` · n° ${number}`)}
         {result.unmarked > 0 &&
-          ` · ${result.unmarked} sans étoile : la 1ʳᵉ réponse sera prise pour la bonne`}
+          ` · ${result.unmarked} sans bonne réponse désignée (une étoile, et une seule) : à choisir sur ${result.unmarked > 1 ? 'leur' : 'sa'} carte`}
         {result.ignored > 0 && ` · ${result.ignored} bloc(s) ignoré(s)`}
       </p>
       {annoncees.length > 0 && (
@@ -1292,7 +1293,6 @@ function QuestionCard({
   const [loupe, setLoupe] = useState(false)
   const [busy, setBusy] = useState(false)
   const [imageError, setImageError] = useState('')
-  const problem = questionProblem(question)
   const attendue = photoManquante(question)
   // La cible telle qu'on la tape. Relu en nombre à chaque touche, le champ
   // mangeait ce qui n'en est pas encore un : la virgule de « 0,8 » (la cible
@@ -1304,6 +1304,12 @@ function QuestionCard({
     if (lireNombre(cible) !== question.target) setCible(cibleAffichee(question.target))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.target])
+  // « trois cents » ne se lit pas : dire « il manque la bonne réponse » à qui
+  // vient d'en taper une faisait chercher ailleurs.
+  const cibleIllisible = question.kind === 'number' && cible.trim() !== '' && lireNombre(cible) === null
+  const problem = cibleIllisible
+    ? `« ${cible.trim()} » ne se lit pas : écris la bonne réponse en chiffres`
+    : questionProblem(question)
 
   useEffect(() => {
     if (!spot) return
@@ -1550,16 +1556,22 @@ function QuestionCard({
         </label>
         <label className="row">
           <span className="muted">Temps</span>
-          <input
+          <ChampNombre
             className="input duration-input"
-            type="number"
             min={MIN_DURATION}
             max={MAX_DURATION}
             aria-label="Temps de réponse, en secondes"
-            value={question.duration || DEFAULT_DURATION}
-            onChange={e => onChange(q => ({ ...q, duration: Number(e.target.value) }))}
+            valeur={question.duration}
+            onValeur={duration => onChange(q => ({ ...q, duration }))}
           />
-          <span className="muted">s</span>
+          {/* Les bornes se disent pendant qu'on tape ; en quittant le champ, elles s'appliquent. */}
+          {tempsDansLesBornes(question.duration) ? (
+            <span className="muted">s</span>
+          ) : (
+            <span className="warn small">
+              s · de {MIN_DURATION} à {MAX_DURATION}
+            </span>
+          )}
         </label>
 
         <input
@@ -1640,14 +1652,13 @@ function QuestionCard({
           {question.observeSeconds !== null && (
             <label className="row">
               <span className="muted">Temps d'observation</span>
-              <input
+              <ChampNombre
                 className="input duration-input"
-                type="number"
                 min={MIN_OBSERVE}
                 max={MAX_OBSERVE}
                 aria-label="Temps d'observation, en secondes"
-                value={question.observeSeconds}
-                onChange={e => onChange(q => ({ ...q, observeSeconds: Number(e.target.value) }))}
+                valeur={question.observeSeconds}
+                onValeur={observeSeconds => onChange(q => ({ ...q, observeSeconds }))}
               />
               <span className="muted">s</span>
             </label>

@@ -256,7 +256,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
 - **Un nombre tapé se lit avec `lireNombre()`** (`shared/nombres.ts`), jamais
   avec `Number()` : « 35 000 » valait NaN au téléphone, et l'éditeur, qui
   relisait sa cible à chaque touche, faisait 8 de « 0,8 ». Le champ garde le
-  texte tapé ; seule la valeur lue part en base.
+  texte tapé ; seule la valeur lue part en base. Un entier borné se tape dans
+  `ChampNombre` (`client/src/components/`) : vidé, `Number('')` valait 0, la
+  valeur revenait, et le 45 tapé derrière faisait « 2045 » — les bornes
+  s'appliquent en quittant le champ, jamais à chaque frappe.
 - **Une précision ne compte que les QCM, et dit sur combien** (« 50 % ·
   1 sur 2 QCM ») : une estimation n'est jamais « juste », et comptée au
   dénominateur elle faisait lire « 1/64 justes ». **Une estimation se juge
