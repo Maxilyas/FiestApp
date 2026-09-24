@@ -1,7 +1,7 @@
 // Protocole Socket.io typé, partagé entre client et serveur.
-import type { PartySnapshot } from './types'
+import type { EcranDeScene, OngletDePodium, PartySnapshot } from './types'
 import type { PublicProfile } from './profil'
-import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz } from './fin'
+import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz, SoireeClose } from './fin'
 
 /**
  * Pourquoi un `player:join` est refusé, quand le téléphone doit faire autre
@@ -30,8 +30,12 @@ export type JoinAck =
    * clore. Le téléphone dormait pendant la clôture ; il reçoit ici la fin de
    * sa soirée (`fin`), comme s'il avait été là, au lieu d'un simple « on ne
    * te retrouve plus ».
+   *
+   * `derniere`, avec `unknown-token` : le serveur a redémarré depuis la
+   * clôture et a oublié les fins de soirée, mais l'espace n'a encore rien
+   * joué depuis — le téléphone propose de revoir la soirée close.
    */
-  | { ok: false; error: string; reason?: JoinRefusal; fin?: FinDeSoiree }
+  | { ok: false; error: string; reason?: JoinRefusal; fin?: FinDeSoiree; derniere?: SoireeClose }
 
 /**
  * Pourquoi une réponse d'invité n'a pas été retenue. Tant que `player:action`
@@ -165,7 +169,12 @@ export interface ClientToServerEvents {
    */
   'host:hello': (
     payload: Record<string, never>,
-    ack: (res: { ok: boolean; slug?: string; name?: string }) => void,
+    /**
+     * `branchee` : cet écran a été ouvert par un code d'appairage — la télé
+     * dit alors par qui, puisque tout animateur du serveur peut valider le
+     * code qu'elle affiche.
+     */
+    ack: (res: { ok: boolean; slug?: string; name?: string; branchee?: true }) => void,
   ) => void
   /** Démarre une partie de quiz (l'animateur choisit ensuite le quiz à jouer). */
   'host:launch': () => void
@@ -223,6 +232,23 @@ export interface ClientToServerEvents {
   'host:awardTeam': (payload: { teamId: string; points: number; reason: string }) => void
   /** Retire un prix mal attribué. */
   'host:removeBonus': (payload: { bonusId: string }) => void
+
+  /**
+   * Ouvre un écran de fin de soirée — ou revient à la salle d'attente avec
+   * `null` — sur TOUS les écrans d'animateur de l'espace : c'était un état de
+   * la page, et la télé restait en salle d'attente pendant la remise des prix
+   * ouverte au téléphone. `depuis` dit l'écran que l'animateur avait sous les
+   * yeux (invariant 12) : si la scène a changé entre-temps, depuis l'autre
+   * console, le geste est ignoré. Absent (une page d'avant), il passe. La
+   * clôture ne s'ouvre pas ainsi : seule `host:closeParty` y mène.
+   */
+  'host:scene': (payload: { ecran: EcranDeScene | null; onglet?: OngletDePodium; depuis?: EcranDeScene | null }) => void
+  /**
+   * Cet écran d'animateur se tient en télécommande (ou ne l'est plus) : tant
+   * qu'il y en a une, les autres écrans de l'espace laissent les coulisses à
+   * sa main.
+   */
+  'host:telecommande': (payload: { active: boolean }) => void
 }
 
 export interface ServerToClientEvents {

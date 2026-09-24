@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Limite } from './Limite'
 import type { PublicPlayer, PublicTeam } from '../../../shared/types'
 import type { PublicSpace } from '../../../shared/space'
@@ -40,6 +40,12 @@ interface Props {
   oublierProfil: () => Promise<void>
   /** Reprend sa place avec le code de l'animateur. Rend le motif du refus, ou null. */
   reprendre: (code: string) => Promise<string | null>
+  /**
+   * « La dernière soirée : le souvenir · mon bilan », quand ce téléphone en
+   * garde une : celui qui revient voir les résultats n'a pas à entrer dans
+   * la suivante pour les chercher.
+   */
+  lendemain?: ReactNode
 }
 
 type Etape = 'entree' | 'moi' | 'retour' | 'securiser' | 'code' | 'secours' | 'equipe' | 'place'
@@ -67,7 +73,7 @@ const identifiantPour = (prenom: string) =>
  * Et un profil reconnu ne choisit plus rien : il a choisi son prénom et son
  * avatar une fois, en créant son profil. On les lit, on ne les redemande pas.
  */
-export function Entree({ space, players, teams, profil, reconnecter, rejoindre, oublierProfil, reprendre }: Props) {
+export function Entree({ space, players, teams, profil, reconnecter, rejoindre, oublierProfil, reprendre, lendemain }: Props) {
   // Ce que ce téléphone a déjà choisi ici : sa présence dit que l'entrée a
   // déjà été vue dans cet espace, et qu'il est inutile de la remontrer.
   const [choix] = useState(() => loadChoix(space.slug))
@@ -120,7 +126,10 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
     window.scrollTo(0, 0)
   }, [etape])
 
-  const connectes = players.filter(p => p.connected).length
+  // Les inscrits, et non plus les connectés : l'instantané des téléphones ne
+  // dit plus qui dort (voir `pourLesTelephones`, côté serveur). Un invité
+  // dont l'écran s'est mis en veille est toujours « déjà là ».
+  const connectes = players.length
   const salut = (
     <JoinHead
       eyebrow={space.eyebrow}
@@ -184,6 +193,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
     return (
       <form className="join entree" onSubmit={connexion}>
         {salut}
+        {lendemain}
         <div className="field">
           <label className="label" htmlFor="e-login">
             Ton identifiant
@@ -296,6 +306,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
   if (etape === 'retour' && profil) {
     return (
       <div className="join">
+        {lendemain}
         {/* Centré, pas collé en haut : c'est un visage qu'on reconnaît, pas un
             formulaire qu'on remplit. */}
         <div className="join-grow" />
@@ -580,6 +591,7 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
     // la soirée » tombait à 619–677 px, sous le bord d'un 360 × 640.
     <form className="join entree" onSubmit={suivant}>
       {salut}
+      {lendemain}
       {profil && (
         <p className="profil-salut">
           <Avatar

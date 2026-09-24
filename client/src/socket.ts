@@ -9,7 +9,7 @@ import type {
 } from '../../shared/events'
 import type { PublicProfile } from '../../shared/profil'
 import { MOTIFS } from '../../shared/erreurs'
-import { forgetMe, getState, oublierIdentite, setState, showToast } from './state'
+import { forgetMe, garderFin, getState, oublierIdentite, setState, showToast } from './state'
 import { applySample, resetClock, serverNow } from './clock'
 import { currentSlug } from './routes'
 
@@ -94,7 +94,10 @@ socket.on('party:reset', () => {
 // plus personne. Il garde son prénom : la soirée suivante le proposera.
 socket.on('soiree:fin', fin => {
   const slug = currentSlug()
-  if (slug) oublierIdentite(slug)
+  if (slug) {
+    oublierIdentite(slug)
+    garderFin(slug, fin)
+  }
   setState({ fin, gain: null })
 })
 
@@ -363,7 +366,7 @@ export function sendPlayerAction(
  * ramène au formulaire de connexion, et un serveur muet n'a rien dit de la
  * session.
  */
-export function helloHost(): Promise<{ ok: boolean; slug?: string; name?: string }> {
+export function helloHost(): Promise<{ ok: boolean; slug?: string; name?: string; branchee?: true }> {
   return demander(ack => socket.emit('host:hello', {}, ack))
 }
 

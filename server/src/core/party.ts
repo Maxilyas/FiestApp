@@ -54,6 +54,20 @@ export class Party {
   private connections = new Map<string, Set<string>>()
   /** Les marques d'homonymie, tant que personne n'arrive, ne part ni ne change de prénom ou d'avatar. */
   private marquesCache: Map<string, string> | null = null
+  /**
+   * Avance à chaque arrivée, départ ou changement d'équipe : l'instantané
+   * garde la moyenne des équipes tant qu'elle ne bouge pas (`SpaceRuntime`),
+   * au lieu de relire tout le journal à chaque reconnexion.
+   */
+  private compositionVue = 0
+  /**
+   * Monte à chaque écriture d'une fiche d'invité (arrivée, prénom, avatar,
+   * équipe, profil, départ) : les pages publiques (`core/pages.ts`) s'en
+   * servent pour savoir si leur calcul tient encore, sans relire le journal.
+   * Une connexion ou une veille ne la fait pas monter : ces pages ne la
+   * montrent pas, et toute la salle qui s'endort referait le calcul.
+   */
+  revision = 0
 
   constructor(
     private db: DB,
@@ -93,12 +107,17 @@ export class Party {
     if (token) {
       const existing = this.findByToken(token)
       if (existing) {
-        if ((clean && clean !== existing.name) || (nice && nice !== existing.avatar)) this.marquesCache = null
+        const identite = (clean && clean !== existing.name) || (nice && nice !== existing.avatar)
+        const change = identite || (teamId !== undefined && teamId !== existing.teamId)
+        if (identite) this.marquesCache = null
         if (clean) existing.name = clean
         if (nice) existing.avatar = nice
         // `undefined` = le téléphone se reconnecte sans rien dire de l'équipe :
         // on garde la sienne. `null` serait un retrait volontaire.
-        if (teamId !== undefined) existing.teamId = teamId
+        if (teamId !== undefined && teamId !== existing.teamId) {
+          existing.teamId = teamId
+          this.compositionVue++
+        }
         // Réécrite même inchangée. La file du miroir insiste jusqu'au succès,
         // mais un arrêt trop court peut abandonner ce qu'elle attendait
         // encore : cette réécriture recopie alors la fiche au retour du
@@ -108,6 +127,11 @@ export class Party {
           .prepare('UPDATE players SET name = ?, avatar = ?, team_id = ? WHERE id = ?')
           .run(existing.name, existing.avatar, existing.teamId, existing.id)
         this.backup?.savePlayer(existing, existing.createdAt)
+        // Mais la fiche n'a changé que si le prénom, l'avatar ou l'équipe ont
+        // bougé : chaque téléphone qui sort de veille se re-présente, et
+        // faire monter le numéro à chaque réveil refaisait le souvenir de
+        // toute la salle pour rien.
+        if (change) this.revision++
         return existing
       }
     }
@@ -123,13 +147,20 @@ export class Party {
     }
     this.players.set(rec.id, rec)
     this.marquesCache = null
+    this.compositionVue++
     this.db
       .prepare(
         'INSERT INTO players (id, name, avatar, token, team_id, profile_id, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       )
       .run(rec.id, rec.name, rec.avatar, rec.token, rec.teamId, rec.profileId, rec.createdAt, this.spaceId)
     this.backup?.savePlayer(rec, rec.createdAt)
+    this.revision++
     return rec
+  }
+
+  /** Le numéro de la composition : il change dès qu'un invité arrive, part ou change d'équipe. */
+  get composition(): number {
+    return this.compositionVue
   }
 
   get(id: string): PlayerRec | undefined {
@@ -187,6 +218,7 @@ export class Party {
     rec.profileId = profileId
     this.db.prepare('UPDATE players SET profile_id = ? WHERE id = ?').run(profileId, playerId)
     this.backup?.savePlayer(rec, rec.createdAt)
+    this.revision++
     return true
   }
 
@@ -222,20 +254,24 @@ export class Party {
     this.marquesCache = null
     this.db.prepare('UPDATE players SET name = ? WHERE id = ?').run(clean, playerId)
     this.backup?.savePlayer(rec, rec.createdAt)
+    this.revision++
     return true
   }
 
   /**
-   * Change l'équipe d'un joueur. Ses points le suivent : le score d'une équipe
-   * est toujours celui de ses membres du moment, donc corriger une erreur
-   * d'aiguillage remet aussi les points au bon endroit.
+   * Change l'équipe d'un joueur, pour la suite. Ce qu'il a déjà joué reste à
+   * l'équipe d'alors : chaque ligne du journal la garde (`AnswerRow.teamId`),
+   * sans quoi un déménagement après un quiz en retournait le verdict annoncé
+   * — même pour corriger une erreur d'aiguillage.
    */
   assign(playerId: string, teamId: string | null): boolean {
     const rec = this.players.get(playerId)
     if (!rec || rec.teamId === teamId) return false
     rec.teamId = teamId
+    this.compositionVue++
     this.db.prepare('UPDATE players SET team_id = ? WHERE id = ?').run(teamId, playerId)
     this.backup?.savePlayer(rec, rec.createdAt)
+    this.revision++
     return true
   }
 
@@ -256,9 +292,11 @@ export class Party {
   remove(playerId: string): boolean {
     if (!this.players.delete(playerId)) return false
     this.marquesCache = null
+    this.compositionVue++
     this.connections.delete(playerId)
     this.db.prepare('DELETE FROM players WHERE id = ?').run(playerId)
     this.backup?.deletePlayer(playerId)
+    this.revision++
     return true
   }
 
@@ -267,7 +305,9 @@ export class Party {
     this.db.prepare('DELETE FROM players WHERE space_id = ?').run(this.spaceId)
     this.players.clear()
     this.marquesCache = null
+    this.compositionVue++
     this.connections.clear()
+    this.revision++
   }
 
   /**

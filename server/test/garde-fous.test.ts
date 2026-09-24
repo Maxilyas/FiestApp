@@ -137,6 +137,8 @@ describe('les garde-fous', { concurrency: true }, () => {
     'host:assignPlayer': true,
     'host:awardTeam': true,
     'host:removeBonus': true,
+    'host:scene': true,
+    'host:telecommande': true,
   }
 
   interface Cibles {
@@ -167,6 +169,9 @@ describe('les garde-fous', { concurrency: true }, () => {
     ['host:seedTeams'],
     ['host:awardTeam', { teamId: c.equipe, points: 5, reason: 'Pot-de-vin' }],
     ['host:removeBonus', { bonusId: c.prix }],
+    ['host:scene', { ecran: 'victoire', depuis: null }],
+    ['host:scene', { ecran: 'prix' }],
+    ['host:telecommande', { active: true }],
     ['host:archiveParty', { title: 'Soirée volée' }],
     ['host:closeParty', { title: 'Soirée volée' }],
     ['host:discardParty'],
@@ -182,6 +187,8 @@ describe('les garde-fous', { concurrency: true }, () => {
     archives: number
     /** Le titre sous lequel la soirée en cours est déjà rangée, s'il y en a un. */
     enCours: string | null
+    /** L'écran de fin ouvert sur les écrans d'animateur, et la télécommande branchée. */
+    scene: string | null
   }
 
   async function photographier(banc: Banc, cookie: string): Promise<Photo> {
@@ -204,6 +211,7 @@ describe('les garde-fous', { concurrency: true }, () => {
           : null,
         archives: archives.length,
         enCours: current?.title ?? null,
+        scene: `${snap.scene?.ecran ?? 'salle d’attente'}${snap.telecommande ? ' · télécommande' : ''}`,
       }
     } finally {
       ecran.close()

@@ -152,6 +152,13 @@ describe('une seule réserve pour toutes les portes de la console', () => {
     const res = await depuis(ip, '/api/auth/login', { login: ADMIN.login, password: ADMIN.password })
     assert.equal(res.status, 429)
   })
+
+  test('les codes demandés par la télé comptent dans la réserve commune', async () => {
+    const ip = '203.0.113.32'
+    await epuiser(ip, '/api/auth/appairage', {})
+    const res = await depuis(ip, '/api/auth/login', { login: ADMIN.login, password: ADMIN.password })
+    assert.equal(res.status, 429)
+  })
 })
 
 describe('un verrou par secret visé, quelle que soit la porte', () => {

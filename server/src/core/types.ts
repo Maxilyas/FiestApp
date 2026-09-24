@@ -14,6 +14,8 @@ export interface SocketData {
   /** L'animateur connecté derrière cet écran commun, et sa session. */
   accountId?: string
   authSessionId?: string
+  /** Cet écran d'animateur se tient en télécommande (`host:telecommande`). */
+  telecommande?: boolean
 }
 
 export type IoServer = Server<
@@ -120,6 +122,19 @@ export interface GameModule<S = any> {
    * personne sur la même question (`player:reprendre`).
    */
   reponseEnSuspens?(session: GameSessionRec<S>, playerId: string): boolean
+  /**
+   * `false` quand la vue d'un invité ne dépend pas de ce que les autres
+   * envoient : tant qu'une action ne change ni la phase, ni les chronomètres,
+   * ni les scores, seules la vue de son auteur et celle de l'écran commun
+   * peuvent avoir bougé. Le moteur ne recalcule alors que celles-là.
+   *
+   * Sans cette déclaration, chaque réponse recalculait et resérialisait la
+   * vue des N téléphones pour n'en envoyer qu'une : à 500 invités, une
+   * question coûtait une seconde de processeur. Le moteur ne connaît pas les
+   * règles — c'est au module de promettre, et à lui seul. Absent : toute la
+   * salle est recalculée, comme avant.
+   */
+  vueDependDesAutres?: boolean
   playerView(session: GameSessionRec<S>, playerId: string, vctx: ViewContext): unknown
   hostView(session: GameSessionRec<S>, vctx: ViewContext): unknown
 }

@@ -536,6 +536,10 @@ describe('le téléphone perdu', () => {
     rachid.socket.close()
     lea.socket.close()
     await instantane<any>(host, s => s.players.filter((p: any) => !p.connected).length === 2, 'les deux hors ligne')
+    // Les téléphones reçoivent leur instantané regroupé après les écrans
+    // (120 ms, plus 2 ms par invité) : celui qui porte l'arrivée de Sophie
+    // pouvait encore tomber ici. On laisse la salle se taire avant d'écouter.
+    await patienter(300)
     recu.length = 0
     // Tapé sans majuscule ni accent : c'est bien lui.
     assert.deepEqual(await demander(entree, ' rachid '), { ok: true, absent: { name: 'Rachid', avatar: '🦁', profil: false } })

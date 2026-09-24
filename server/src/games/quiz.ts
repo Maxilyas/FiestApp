@@ -14,6 +14,7 @@ import type {
   QuizPlayerView,
   QuizPodiumRow,
   Visee,
+  LancementDeQuiz,
 } from '../../../shared/games/quiz'
 
 interface QuizPack {
@@ -564,14 +565,30 @@ function hiddenPhoto(q: PlayableQuestion, phase: QuizState['phase']): boolean {
 // ── Module ───────────────────────────────────────────────────────────────
 
 export const quizModule: GameModule<QuizState> = {
-  createInitialState(spaceId): QuizState {
+  // Une réponse n'écrit que la ligne de son auteur (`responses[playerId]`),
+  // et seule la phase `question` en accepte : la vue d'un invité y lit l'état
+  // commun et SA réponse, jamais celle des autres. Le rang et le podium, eux,
+  // ne se lisent qu'à la révélation — un changement de phase, que le moteur
+  // rediffuse à toute la salle. Une vue de téléphone qui viendrait à lire la
+  // réponse d'un autre en pleine question doit faire tomber cette promesse.
+  vueDependDesAutres: false,
+
+  createInitialState(spaceId, _participants, config): QuizState {
     const library = quizLibrary(spaceId)
     if (library.length === 0) {
       throw new Error('Aucun quiz prêt à jouer — crée-en un dans l’espace animateur (/edit)')
     }
+    const lancement = (config ?? {}) as LancementDeQuiz
+    const joues = new Set(Array.isArray(lancement.joues) ? lancement.joues : [])
+    const auto = lancement.autoNextSeconds
     return {
       phase: 'pickPack',
-      packs: library.map(p => ({ id: p.id, title: p.title, questionCount: p.questions.length })),
+      packs: library.map(p => ({
+        id: p.id,
+        title: p.title,
+        questionCount: p.questions.length,
+        ...(joues.has(p.id) && { joueCeSoir: true as const }),
+      })),
       pack: null,
       qIndex: 0,
       round: 0,
@@ -583,7 +600,9 @@ export const quizModule: GameModule<QuizState> = {
       playFrom: {},
       multiplier: 1,
       pausedMs: null,
-      autoNextSeconds: null,
+      // Le réglage du quiz d'avant, relu comme la commande le relit.
+      autoNextSeconds:
+        typeof auto === 'number' && Number.isFinite(auto) ? Math.min(ENCHAINEMENT_MAX_S, Math.max(2, Math.round(auto))) : null,
       autoNextAt: null,
     }
   },
@@ -801,7 +820,7 @@ export const quizModule: GameModule<QuizState> = {
     return sess.state.phase === 'question' && playerId in sess.state.responses
   },
 
-    playerView(sess, playerId, vctx): QuizPlayerView {
+  playerView(sess, playerId, vctx): QuizPlayerView {
     const st = sess.state
     const mine = st.responses[playerId]
     const base = {
@@ -887,6 +906,10 @@ export const quizModule: GameModule<QuizState> = {
         deadline: st.deadline,
         duration: q.observeSeconds ?? 0,
         participantCount: sess.participantIds.length,
+        // Sans lui, la console affichait « au clic » pendant la photo alors
+        // que l'enchaînement était réglé — et un clic sur « au clic », qui se
+        // croyait déjà actif, n'envoyait rien.
+        autoNextSeconds: st.autoNextSeconds,
       }
     }
     if ((st.phase === 'question' || st.phase === 'reveal') && st.pack) {

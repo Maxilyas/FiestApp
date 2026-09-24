@@ -58,8 +58,11 @@ export function TimerBar({ deadline, duration, ticking, frozenMs }: Props) {
       <div className={'timer-track' + (urgent && !paused ? ' urgent' : '') + (paused ? ' paused' : '')}>
         <div className="timer-fill" style={{ width: `${ratio * 100}%` }} />
       </div>
-      <span className={'timer-seconds' + (urgent && !paused ? ' urgent' : '')}>
-        {paused ? <Icon name="pause" /> : seconds}
+      {/* En pause, les secondes restent à côté de l'icône : on sait combien
+          il en restera à la reprise. */}
+      <span className={'timer-seconds' + (urgent && !paused ? ' urgent' : '') + (paused ? ' paused' : '')}>
+        {paused && <Icon name="pause" />}
+        {seconds}
       </span>
     </div>
   )
