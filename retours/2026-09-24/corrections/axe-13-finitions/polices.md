@@ -6,8 +6,9 @@ surtout.
 
 ## D'où viennent les deux fichiers
 
-Aucun script ni note dans le dépôt : ils sont arrivés avec le premier commit
-(`989e298`, « Affiche »). Ils sont **identiques, octet pour octet**, au
+Aucun script dans le dépôt : ils sont arrivés avec `39990c8` (« Les polices
+voyagent avec l'application », 9 septembre), dont le message dit déjà leur
+provenance — sous-ensemble latin, licence OFL jointe. Ils sont **identiques, octet pour octet**, au
 sous-ensemble « latin » que sert Google Fonts aujourd'hui (Cormorant Garamond
 v21, police version 4.001) :
 
