@@ -367,6 +367,23 @@ test('une ligne d’avant la colonne retombe sur la composition du moment ; une 
   const q = equipes.questionsDesEquipes(players, lignes)
   assert.deepEqual(q.get('inv'), [{ presents: 1, points: 200 }], 'Inès, sans équipe à la question 1, n’y pèse pas')
   assert.deepEqual(q.get('coloc'), [{ presents: 1, points: 100 }], 'la question 2, jouée pour la coloc, y reste')
+
+  // Le bilan lit les mêmes lignes : la question 2 se détaille sous la coloc,
+  // où Liam l'a jouée, pas sous les invités, où il est aujourd'hui.
+  const review = buildReview({
+    rows: lignes.map((l, i) => ligne(l.playerId, l.qIndex, l.points, { sessionId: 's', ...('teamId' in l && { teamId: l.teamId }), createdAt: i })),
+    players,
+    teams: [
+      { id: 'inv', name: 'Les invités', emoji: '🎁', position: 0, createdAt: 1 },
+      { id: 'coloc', name: 'La coloc', emoji: '🏠', position: 1, createdAt: 1 },
+    ],
+    bonuses: [],
+    packsBySession: new Map(),
+    library: [],
+  })
+  const q2 = review.questions.find(x => x.qIndex === 1)!
+  assert.deepEqual(q2.byTeam.map(t => [t.teamId, t.asked, t.points]), [['coloc', 1, 100]])
+  assert.equal(review.teams.find(t => t.id === 'coloc')!.perQuiz[0].total, 100, 'le total du quiz aussi')
 })
 
 // ── 2. La règle, chiffrée ────────────────────────────────────────────────

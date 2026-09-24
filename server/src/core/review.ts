@@ -217,6 +217,10 @@ function argBest<T>(list: T[], value: (t: T) => number, best: 'min' | 'max'): T 
 export function buildReview(input: ReviewInput): Review {
   const { players, teams, bonuses } = input
   const byId = new Map(players.map(p => [p.id, p]))
+  // L'équipe de chaque ligne est celle qu'elle a figée en s'écrivant
+  // (`equipeDeLaLigne`) : la moyenne, la réussite et le détail de chaque
+  // question lisent les mêmes lignes, quoi que le joueur ait fait depuis.
+  const equipeDuMoment = new Map(players.flatMap(p => (p.teamId ? [[p.id, p.teamId] as const] : [])))
   // Un invité exclu emporte ses réponses ; par sécurité, une ligne orpheline
   // n'entre pas dans le bilan.
   const rows = input.rows.filter(r => byId.has(r.playerId))
@@ -281,7 +285,7 @@ export function buildReview(input: ReviewInput): Review {
 
       const byTeam: TeamOnQuestion[] = []
       for (const t of teams) {
-        const tRows = qRows.filter(r => byId.get(r.playerId)?.teamId === t.id)
+        const tRows = qRows.filter(r => equipeDeLaLigne(r, equipeDuMoment) === t.id)
         if (tRows.length === 0) continue
         const tAnswered = tRows.filter(r => r.answered)
         byTeam.push({
@@ -436,7 +440,6 @@ export function buildReview(input: ReviewInput): Review {
   // divisait par les présents au quiz quand la victoire divisait par tous
   // les membres, et un invité arrivé après le quiz changeait l'un sans
   // l'autre.
-  const equipeDuMoment = new Map(players.flatMap(p => (p.teamId ? [[p.id, p.teamId] as const] : [])))
   const parQuiz = sessions.map(g => questionsDesEquipes(players, rows.filter(r => r.sessionId === g.id)))
   const reviewTeams: ReviewTeam[] = rankTeams(teamScores(teams, players, bonuses, questionsDesEquipes(players, rows))).map(t => {
     const members = sortedPlayers.filter(p => p.teamId === t.id)
