@@ -106,14 +106,24 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
       <span className="enchainement-label">Suivante</span>
       {PALIERS_ENCHAINEMENT.map(palier => {
         const actif = (v.autoNextSeconds ?? null) === palier
+        // Personne n'a répondu : le palier reste allumé, mais n'enchaîne
+        // plus. Le retoucher relance — allumé et inerte, il se lisait comme
+        // une panne.
+        const relance = actif && palier !== null && !!v.autoNextSuspendu
         return (
           <button
             key={palier ?? 'clic'}
             className={'pill-btn' + (actif ? ' active' : '')}
             aria-pressed={actif}
-            title={palier === null ? 'La question suivante attend ton clic' : `La question suivante part seule ${palier} s après la révélation`}
+            title={
+              relance
+                ? `Personne n'a répondu : touche pour relancer — la suite part dans ${palier} s`
+                : palier === null
+                  ? 'La question suivante attend ton clic'
+                  : `La question suivante part seule ${palier} s après la révélation — sauf si personne n'a répondu, même présent : la suite, ou le podium après la dernière, attend alors ton clic`
+            }
             onClick={() => {
-              if (!actif) sendCommand({ type: 'autoNext', seconds: palier })
+              if (!actif || relance) sendCommand({ type: 'autoNext', seconds: palier })
             }}
           >
             {palier === null ? 'au clic' : `${palier} s`}

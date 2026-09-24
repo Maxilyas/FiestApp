@@ -88,6 +88,7 @@ test('personne n’a répondu : la révélation n’enchaîne pas, et la console
 test('le clic de l’animateur relance, et une question répondue enchaîne de nouveau toute seule', () => {
   const { sess, ctx, minuteurs, ecran, finDuTemps } = partie()
   finDuTemps()
+  assert.equal(minuteurs.has('autoNext'), false, 'suspendu : c’est le clic qui relance, pas le chronomètre')
   quizModule.onHostCommand!(sess, { type: 'next' }, ctx)
   assert.equal(sess.state.phase, 'question')
   assert.equal(sess.state.qIndex, 1)
@@ -118,7 +119,28 @@ test('en manuel, rien ne change : pas de pause à dire', () => {
 test('choisir un palier pendant la révélation suspendue relance l’enchaînement', () => {
   const { sess, ctx, minuteurs, ecran, finDuTemps } = partie()
   finDuTemps()
+  assert.equal(minuteurs.has('autoNext'), false, 'suspendu avant le choix du palier')
   quizModule.onHostCommand!(sess, { type: 'autoNext', seconds: 5 }, ctx)
   assert.equal(minuteurs.get('autoNext'), 5_000)
   assert.equal(ecran().autoNextSuspendu, undefined)
+})
+
+test('retoucher le palier déjà allumé relance aussi : allumé et inerte, il se lisait comme une panne', () => {
+  // La console renvoie le palier actif pendant la suspension (HostView) :
+  // le serveur doit l'entendre comme un « c'est reparti ».
+  const { sess, ctx, minuteurs, ecran, finDuTemps } = partie()
+  finDuTemps()
+  assert.equal(minuteurs.has('autoNext'), false)
+  quizModule.onHostCommand!(sess, { type: 'autoNext', seconds: 10 }, ctx)
+  assert.equal(minuteurs.get('autoNext'), 10_000)
+  assert.equal(ecran().autoNextSuspendu, undefined)
+})
+
+test('« personne » est pris au mot : à la dernière question, c’est le podium qui attend le clic', () => {
+  const { sess, ctx, minuteurs, finDuTemps } = partie(1)
+  finDuTemps()
+  assert.equal(sess.state.phase, 'reveal')
+  assert.equal(minuteurs.has('autoNext'), false, 'le podium ne part pas devant une salle qui a séché')
+  quizModule.onHostCommand!(sess, { type: 'next' }, ctx)
+  assert.equal(sess.state.phase, 'finished')
 })
