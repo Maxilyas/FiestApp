@@ -28,6 +28,12 @@ interface Props {
    * formulaire que l'invité n'avait aucun moyen de remplir.
    */
   creer?: boolean
+  /**
+   * Un bandeau en tête du formulaire : « Le quiz commence » dans la salle
+   * d'attente. Le formulaire passait devant le quiz, et l'invité qui
+   * remplissait son profil ratait les premières questions sans le savoir.
+   */
+  bandeau?: ReactNode
 }
 
 /**
@@ -38,9 +44,11 @@ interface Props {
  * obligé d'en passer par là — l'invité anonyme joue exactement comme avant,
  * et c'est le chemin par défaut.
  */
-export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props) {
+export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, bandeau }: Props) {
   const [mode, setMode] = useState<'connexion' | 'inscription' | 'secours'>(creer ? 'inscription' : 'connexion')
-  const [login, setLogin] = useState(() => (prefill?.name ? identifiantPour(prefill.name) : ''))
+  // Deviné du prénom à la création seulement : en connexion, ses échecs se
+  // compteraient sur le profil d'un autre, qui fermerait un quart d'heure.
+  const [login, setLogin] = useState(() => (creer && prefill?.name ? identifiantPour(prefill.name) : ''))
   /**
    * Tant qu'on n'y a pas touché, l'identifiant suit le prénom — comme à
    * l'entrée d'une soirée : ici, on ne le proposait pas.
@@ -132,6 +140,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
     // Resserré comme l'entrée d'une soirée : en 360 × 640, « Revenir » —
     // la seule sortie de la salle d'attente — tombait sous le bord.
     <form className="join entree" onSubmit={submit}>
+      {bandeau}
       <h2 className="center">
         <Icon name="sparkles" /> {creation ? 'Créer un profil' : 'Retrouver mon profil'}
       </h2>
@@ -139,7 +148,8 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
           l'entrée d'une soirée. En haut, elle pousse « Rejoindre une
           soirée » sous la ligne de flottaison d'un 360 × 640, et c'est
           exactement ce qu'on s'interdit. */}
-      {!echappee && (
+      {/* Le bandeau prend sa place : sinon « Revenir » repassait sous le bord. */}
+      {!echappee && !bandeau && (
         <>
           <p className="muted small center">
             {PITCH_PROFIL} Il ne change rien au jeu : les points de la soirée se gagnent pareil pour
@@ -167,7 +177,10 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
           <Limite valeur={name} max={24} />
         </div>
       )}
-      {creation && (
+      {/* L'avatar ne se choisit qu'à l'accueil : ailleurs, celui du soir est
+          déjà choisi (on ne le choisit jamais deux fois), et sa ligne poussait
+          « Revenir », la seule sortie de la salle d'attente, sous le bord. */}
+      {creation && echappee && (
         <div className="field">
           <div className="field-head">
             <span className="label" id="pf-avatar-label">
@@ -270,6 +283,10 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
             onClick={() => {
               setError('')
               setInfo('')
+              // L'identifiant deviné du prénom ne suit pas en connexion :
+              // Camille y aurait essayé « camille », et ses échecs fermaient
+              // le vrai profil « camille » un quart d'heure.
+              if (!loginTouche) setLogin(creation ? '' : identifiantPour(name))
               setMode(creation ? 'connexion' : 'inscription')
             }}
           >
@@ -300,6 +317,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
               onClick={() => {
                 setError('')
                 setInfo('')
+                if (!loginTouche) setLogin(creation ? '' : identifiantPour(name))
                 setMode(creation ? 'connexion' : 'inscription')
               }}
             >
