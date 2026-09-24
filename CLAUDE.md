@@ -404,6 +404,11 @@ sans `QUIZ_DB_URL`.
   mesures en `rem` (le bloc en tête de « Écran commun », `styles.css`).
   Une liste de la scène passe par `Coupe`, jamais par un cadre qui défile,
   et son cadre tient sa hauteur de la mise en page, pas de son contenu.
+  Et 1920 × 1080 fait 48 rem de haut, comme 1366 × 768 : une règle réservée
+  à l'un (`max-height: 820px`) donne moins de place à l'autre. Tout ce qui
+  grossit la scène vit dans `@media (min-width: 1101px)` : l'animateur tient
+  aussi `/host` au téléphone, où rien ne grossit, où la page défile et où
+  `Coupe` ne coupe rien (`overflow: visible`). `ecran.test.ts` y veille.
 - **La tablée lit l'écran par ses classes** (`.quiz-player`, `.ans-btn`,
   `.guess-form`, `.join-url`, `.fin-tete`…) : en renommer une casse ses
   raccourcis `question`, `repondre` et `scanner` sans que le typecheck le
