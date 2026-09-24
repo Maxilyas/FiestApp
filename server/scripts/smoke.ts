@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { createQuizServer } from '../src/server'
 import { insertQuestions, moveQuestion, parseImportedQuestions } from '../../shared/library'
 import { QuizStore } from '../src/core/quizStore'
-import { finalRanking, rankTeams } from '../../shared/teams'
+import { finalRanking, moyenneAuProrata, questionsDesEquipes, rankTeams } from '../../shared/teams'
 import { bestSample, clockOffset } from '../../shared/clock'
 import { XP, finitionsOuvertes, niveauPour, progression, xpDuNiveau } from '../../shared/profil'
 import { reviewFromDatabase, reviewFromServer, writeExport } from '../src/core/export'
@@ -1326,10 +1326,28 @@ try {
 
   const t1 = regroupedSnap.teams.find((t: any) => t.id === T[1].id)
   assert(t1.total === aliceScore2 + charlieScore, 'le total d’équipe doit suivre le déménagement')
-  assert(
-    t1.average === Math.round((aliceScore2 + charlieScore) / 2),
-    `moyenne par membre à ${t1.average}, attendu ${Math.round((aliceScore2 + charlieScore) / 2)}`,
+  // La moyenne suit aussi, question par question : Charlie, retardataire,
+  // ne compte que pour les questions qu'il a jouées (`shared/teams.ts`).
+  // Relue au journal des réponses, tel que le bilan le rend.
+  const journal = (await (await fetch(`${url}/s/${SLUG}/bilan.json`)).json()) as any
+  const lignes = journal.players
+    .filter((p: any) => p.id === aliceAck.playerId || p.id === charlieAck.playerId)
+    .flatMap((p: any) =>
+      p.answers.map((a: any) => ({ playerId: p.id, sessionId: a.questionKey, qIndex: 0, points: a.points })),
+    )
+  const attendue = moyenneAuProrata(
+    questionsDesEquipes(
+      [aliceAck.playerId, charlieAck.playerId].map(id => ({ id, teamId: T[1].id })),
+      lignes,
+    ).get(T[1].id) ?? [],
   )
+  assert(
+    lignes.some((l: any) => l.playerId === charlieAck.playerId) &&
+      new Set(lignes.filter((l: any) => l.playerId === aliceAck.playerId).map((l: any) => l.sessionId)).size >
+        new Set(lignes.filter((l: any) => l.playerId === charlieAck.playerId).map((l: any) => l.sessionId)).size,
+    'Charlie, retardataire, a joué moins de questions qu’Alice',
+  )
+  assert(t1.average === attendue, `moyenne de l’équipe à ${t1.average}, attendu ${attendue}`)
   const vide = regroupedSnap.teams.find((t: any) => t.id === T[0].id)
   assert(vide.memberCount === 0 && vide.average === 0, 'une équipe quittée retombe à zéro')
 
