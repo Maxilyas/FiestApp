@@ -30,10 +30,15 @@ L'APPAREIL (avant tout autre geste)
   vision <deuteranopie|protanopie|tritanopie|achromatopsie|flou|contraste|normale>
   mouvement <reduit|normal>   la préférence « réduire les animations »
   orientation <portrait|paysage>
+  chez <salon>                quand plusieurs soirées ont lieu en même temps (plusieurs écrans communs) :
+                              le salon où tu es, ex. « chez nadia » — scanner, tele et la salle ne visent
+                              plus que lui. Un animateur est d'office dans le sien.
 
 REGARDER
   voir                        l'écran : son texte et ses éléments, chacun avec sa référence [ref=e12]
   texte                       seulement le texte visible — plus court, pour lire une longue page
+  lecteur                     ce qu'annoncerait un lecteur d'écran : l'arbre d'accessibilité de Chrome,
+                              sans ce qui lui est caché — pour juger ; « voir » donne les références pour agir
   capture [nom] [--entiere]   une photo de l'écran : un fichier PNG, à regarder avec l'outil Read
   tele [--capture]            lever les yeux vers l'écran commun (la télé de la soirée)
 
@@ -59,7 +64,7 @@ JOUER — des raccourcis, parce que le chronomètre n'attend pas
   repondre <n|texte|nombre>   le numéro de la réponse (1 à 4), son texte, ou le nombre d'une estimation
 
 LA SALLE — ce qui se dit à voix haute
-  dire <message>              tout le monde l'entend à son prochain geste
+  dire <message>              tout le monde l'entend à son prochain geste (tout ton salon, s'il y en a plusieurs)
   ecouter [secondes]          attendre que quelqu'un parle
 
 LES IMPRÉVUS
@@ -70,7 +75,7 @@ LES IMPRÉVUS
   onglets · fermer · partir   tes onglets · fermer celui-ci · ranger l'appareil (quitter la soirée)
 
 LA RÉGIE (pour qui orchestre)
-  regie etat · regie salle · regie attendre-tele [secondes] · regie arreter
+  regie etat · regie salle · regie attendre-tele [secondes] [salon] · regie arreter
 
 Les gestes qui attendent (question, scanner, attendre, ecouter) attendent 100 s par défaut,
 sous le délai de l'outil Bash. Pour plus long (540 s au plus), donne les secondes ET règle le

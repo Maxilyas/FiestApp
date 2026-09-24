@@ -24,6 +24,7 @@ régler le temps de toutes ses questions d'un coup.
 | `consignes-invite.md`, `consignes-animateur.md` | ce que chaque agent doit savoir, commun à tous |
 | `personas/*.md` | une fiche par personnage : qui, quel appareil, quel scénario, quoi regarder |
 | `modele-retour.md` | le plan du retour que chaque agent écrit |
+| `consignes-expert.md`, `experts/*.md`, `modele-rapport.md` | les experts : une mission chacun (parcours, design, mots, accessibilité, performance…), leur atelier, le plan de leur rapport |
 | `server/scripts/tablee/chronologie.mjs` | le journal d'une tablée en une page : gestes ratés, délais de réponse, paroles, retours manquants |
 | `export/tablee/<date-heure>/` | tout ce que la soirée laisse (ignoré par git) : `journal.jsonl`, `regie.log`, `captures/`, `retours/`, `bases/` |
 
@@ -127,6 +128,58 @@ Dans `retours/<AAAA-MM-JJ>/` à la racine du dépôt :
 
 Puis `node server/scripts/tablee/pilote.mjs regie arreter`.
 
+## Plusieurs salons
+
+Plusieurs soirées en même temps sur **le même serveur**, chez des animateurs
+différents : ce que vit un hébergement partagé un samedi soir. `--animateur`
+se répète (`--animateur Nadia --animateur Marc --animateur Léa`) : un compte,
+un espace et un salon par animateur. Le salon d'un animateur porte son
+identifiant (`nadia`) ; un invité dit où il est par `chez nadia`, juste après
+`appareil` — `scanner`, `tele`, `attendre --tele` ne visent plus que l'écran
+commun de ce salon, et `dire` ne s'entend que là. Un invité sans salon entend
+tout le monde, et son `scanner` refuse de choisir entre deux écrans allumés.
+Un invité qui passe d'une fête à l'autre refait `chez <l'autre>`. Une
+animatrice qui projette depuis un second appareil (`lea-tele`) y fait
+`chez lea` : l'écran commun d'un salon est celui qui n'est pas dans une main.
+
+Les personnages des salons de Marc (`marc`, `ines`, `bertrand`, `maelle`,
+`rachid`) et de Léa (`lea`, `zoe`, `malik`, `liam`) jouent à côté de ceux de
+Nadia ; Inès passe de l'un à l'autre. Leur régie :
+
+```bash
+npm run tablee -- --animateur Nadia --animateur Marc --animateur Léa \
+  --profil "Camille/camille.d/🦊" --profil "Inès/ines/🦉" --profil "Malik/malik/🐺"
+```
+
+Donne à chaque invité son salon dans ses valeurs du jour (« ton salon :
+`chez marc` ») ; la chronologie range alors les réponses salon par salon.
+
+## Les experts
+
+À côté des personnages, des **experts** : pas un invité, un regard — le
+parcours de l'animateur et ses allers-retours, celui de l'invité, le liant
+entre les pages, l'écran commun vu du canapé, les mots, l'accessibilité, la
+performance… Une fiche par mission dans `experts/`, des consignes communes
+(`consignes-expert.md`) et un plan de rapport (`modele-rapport.md`). Un
+expert peut lire le code et la documentation, écrire des scripts dans son
+dossier (`export/evaluations/<mission>/`), démarrer son propre serveur
+jetable ; il rend `export/evaluations/rapports/<mission>.md`.
+
+Ils travaillent dans **l'atelier**, une seconde régie à côté de la tablée en
+direct, avec un compte d'animateur préparé pour chacun :
+
+```bash
+npm run tablee -- --sans-build --fiche export/tablee/atelier.json \
+  --dossier export/tablee/<date>-atelier --animateur Aline --animateur Bruno …
+```
+
+Chaque geste d'un expert commence alors par `TABLEE=<fiche de l'atelier>` —
+sans lui, il piloterait la tablée en direct. Les mesures de performance qui
+chargent la machine (`perf-chargement`, `perf-temps-reel`, `perf-rendu`)
+attendent la fin des soirées en direct : quatre cœurs partagés par une
+trentaine d'agents faussent un chronomètre, et un test de charge ferait
+rater des questions aux invités.
+
 ## Adapter la tablée
 
 - **Une autre soirée** : une fiche de plus dans `personas/`, sur le modèle des
@@ -137,7 +190,8 @@ Puis `node server/scripts/tablee/pilote.mjs regie arreter`.
   de quiz, en créant trois quiz différents ») plutôt qu'une soirée entière.
 - **Après une correction** : rejoue la même tablée et compare les retours —
   c'est la mesure de l'amélioration.
-- **Les options de la régie** : `--animateur <Prénom>`, `--espace <nom>`,
+- **Les options de la régie** : `--animateur <Prénom>[/<espace>]` (répétable :
+  un salon par animateur), `--espace <nom>`,
   `--sans-animateur` (l'animateur utilise l'administrateur et ses deux quiz
   livrés), `--profil <Prénom/identifiant/avatar>` (répétable),
   `--dossier <chemin>`, `--sans-build`, et `--fiche <chemin>` pour une
@@ -159,5 +213,16 @@ Puis `node server/scripts/tablee/pilote.mjs regie arreter`.
   rythme. `coller` remplit d'un coup, comme un texte copié ailleurs.
 - Chromium seulement : ni Safari, ni Firefox. Le profil « iphone » n'en a
   que la taille et l'identité.
-- La salle (`dire`) est commune à toute la tablée : c'est une pièce, pas un
-  espace de l'application.
+- La salle (`dire`) est commune à toute la tablée — ou à tout un salon, s'il y
+  en a plusieurs : c'est une pièce, pas un espace de l'application.
+- **Le nombre d'agents et la réserve d'usage.** Une session ne mène que vingt
+  agents à la fois : les experts de trop vont dans des sessions cloud à part,
+  qui poussent leur rapport sur la branche. Et 35 agents en parallèle ont
+  épuisé en vingt-cinq minutes la réserve d'usage de cinq heures, coupant
+  tout le monde d'un coup (`retours/2026-09-24/synthese.md`) : échelonne les
+  vagues, garde un modèle rapide pour les invités, et reprends un agent coupé
+  par `SendMessage` (il garde sa mémoire de la soirée) — une session cloud, par
+  une routine ponctuelle attachée à elle.
+- **`voir` n'est pas ce qu'entend un lecteur d'écran** : il liste des icônes
+  `aria-hidden` et lit un `<th>` comme une case. Pour juger l'accessibilité,
+  `lecteur` lit l'arbre tel que Chrome l'expose.

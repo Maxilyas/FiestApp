@@ -20,9 +20,13 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
 `<toi>` est l'identifiant de ta fiche (ex. `nadia`). La liste des gestes :
 `node server/scripts/tablee/pilote.mjs aide` — lis-la en premier.
 
-- **Ton premier geste** allume ton ordinateur : `appareil portable`. Ton
-  onglet principal sera **l'écran commun**, celui qui est projeté : une fois
-  la soirée ouverte, garde-le sur `/host`. Les liens de la console s'ouvrent
+- **Ton premier geste** allume ton ordinateur : `appareil portable` (ou
+  l'appareil que dit ta fiche). Ton onglet principal sera **l'écran commun**,
+  celui qui est projeté : une fois la soirée ouverte, garde-le sur `/host`.
+- **D'autres soirées peuvent avoir lieu en même temps**, chez d'autres
+  animateurs, sur le même serveur : ton salon porte ton identifiant, et tes
+  invités ne voient que ton écran. Si tu projettes depuis un second appareil
+  (ta fiche le dit), fais-y d'abord `chez <ton identifiant>`. Les liens de la console s'ouvrent
   dans d'autres onglets (`nadia:onglet2`…), et tu peux en ouvrir toi-même :
   `nadia:prepa ouvrir /edit`.
 - **`voir`** te lit l'écran avec des références (`[ref=e12]`) que `toucher`,
@@ -57,10 +61,11 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
    personnage : ne le reproche pas à l'application — mais dis si régler le
    temps de chaque question a été pénible.
 4. **Ouvrir l'écran commun** (`/host`) et accueillir tes invités. Dis-le à la
-   salle : `dire "L'écran est allumé, scannez le QR !"`. Sept invités sont
-   annoncés, dont un en retard. Pendant qu'ils arrivent : fais des équipes si
-   l'application le permet (deux ou trois), repère un prénom à corriger.
-   Lance le quiz quand six sont là, ou au bout de dix minutes d'attente.
+   salle : `dire "L'écran est allumé, scannez le QR !"`. Ta fiche dit combien
+   d'invités sont annoncés, et qui sera en retard. Pendant qu'ils arrivent :
+   fais des équipes si l'application le permet (deux ou trois), repère un
+   prénom à corriger. Lance le quiz quand tous sont là sauf le retardataire,
+   ou au bout de dix minutes d'attente.
 5. **Animer** : fais avancer les questions, commente à voix haute (`dire`),
    regarde les réponses de la salle. Essaie au moins une fois ce qu'offre la
    console (pause, révéler, le mode automatique…). Si un invité a un pseudo
