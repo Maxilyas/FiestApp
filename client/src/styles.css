@@ -1150,7 +1150,11 @@ h3 > .icon {
 .timer-fill {
   height: 100%;
   background: var(--accent);
-  transition: width 0.12s linear;
+  /* Toute la largeur, toujours : la barre se vide par `scaleX`, animé par
+     `TimerBar` — une transition de `width` refaisait la mise en page à
+     chaque image. `throb`, à l'urgence, n'anime que l'opacité : il ne
+     touche pas au `transform` de la barre. */
+  transform-origin: left center;
 }
 
 .timer-track.urgent .timer-fill { background: var(--alert); animation: throb 0.8s ease-in-out infinite; }

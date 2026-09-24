@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import { serverNow } from '../clock'
+import { useSecondesRestantes } from '../decompte'
 import { sound } from '../sound'
 import { Icon } from './Icon'
 
@@ -25,19 +26,36 @@ const URGENT_FROM = 5
  * chiffre — et elle rend la tension visible sans avoir à compter.
  */
 export function TimerBar({ deadline, duration, ticking, frozenMs }: Props) {
-  const [now, setNow] = useState(() => serverNow())
   const lastTick = useRef<number>(-1)
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(serverNow()), 100)
-    return () => clearInterval(id)
-  }, [])
-
+  const barre = useRef<HTMLDivElement>(null)
   const paused = frozenMs !== undefined
-  const remainingMs = paused ? Math.max(0, frozenMs) : Math.max(0, deadline - now)
-  const seconds = Math.ceil(remainingMs / 1000)
-  const ratio = Math.max(0, Math.min(1, remainingMs / (duration * 1000)))
+  const enCours = useSecondesRestantes(deadline, !paused)
+  const seconds = frozenMs !== undefined ? Math.ceil(Math.max(0, frozenMs) / 1000) : enCours
   const urgent = seconds <= URGENT_FROM
+
+  // La barre ne change jamais de largeur : elle se vide par `scaleX`, en une
+  // seule animation que le compositeur joue sans réveiller la page. Réécrire
+  // `width` tous les dixièmes, sous une transition qui ne s'arrêtait jamais,
+  // refaisait la mise en page soixante fois par seconde pendant toute la
+  // question, sur chaque téléphone et sur la télé. L'animation repart à
+  // chaque seconde, de là où l'heure du serveur dit qu'elle en est : une
+  // horloge resynchronisée entre-temps ne décale la barre que d'une seconde
+  // au plus. En pause, elle reste où elle est, sans animation.
+  useLayoutEffect(() => {
+    const el = barre.current
+    if (!el) return
+    const total = Math.max(1, duration * 1000)
+    const reste = Math.max(0, frozenMs ?? deadline - serverNow())
+    const depart = Math.min(1, reste / total)
+    el.style.transform = `scaleX(${depart})`
+    if (frozenMs !== undefined || reste <= 0 || typeof el.animate !== 'function') return
+    const vidage = el.animate([{ transform: `scaleX(${depart})` }, { transform: 'scaleX(0)' }], {
+      duration: reste,
+      easing: 'linear',
+      fill: 'forwards',
+    })
+    return () => vidage.cancel()
+  }, [deadline, duration, frozenMs, seconds])
 
   // Un bip par seconde sur la fin, jamais deux fois la même seconde.
   useEffect(() => {
@@ -56,7 +74,7 @@ export function TimerBar({ deadline, duration, ticking, frozenMs }: Props) {
       aria-label={paused ? 'Chronomètre en pause' : `${seconds} secondes restantes`}
     >
       <div className={'timer-track' + (urgent && !paused ? ' urgent' : '') + (paused ? ' paused' : '')}>
-        <div className="timer-fill" style={{ width: `${ratio * 100}%` }} />
+        <div ref={barre} className="timer-fill" />
       </div>
       <span className={'timer-seconds' + (urgent && !paused ? ' urgent' : '')}>
         {paused ? <Icon name="pause" /> : seconds}
