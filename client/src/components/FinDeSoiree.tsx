@@ -79,7 +79,7 @@ export function FinDeSoiree({
           <section key={key} className={`card fin-divin fin-divin-${ton}`}>
             <span className="label">Un Divin est descendu sur toi</span>
             <span className="fin-apparition">
-              <Dessin cle={key} />
+              <Dessin cle={key} repli={<VoirSurProfil />} />
             </span>
             <h2>{d.nom}</h2>
             {/* Le récit ne se garde pas sur le téléphone : une fin rouverte ne l'a plus. */}
@@ -137,7 +137,7 @@ export function FinDeSoiree({
           <section key={cle} className="card fin-legendaire">
             <span className="label">Avatar légendaire débloqué</span>
             <span className="fin-medaillon">
-              <Dessin cle={cle} />
+              <Dessin cle={cle} repli={<VoirSurProfil />} />
             </span>
             <h2>{l.nom}</h2>
             <p className="serif-note">{l.legende}</p>
@@ -328,4 +328,17 @@ function LigneRang({ fin }: { fin: Fin }) {
     case 'neutre':
       return <p className="muted">{nJoueurs(l.joueurs)} ce soir</p>
   }
+}
+
+/**
+ * À la place d'un médaillon dont le dessin n'a pas pu venir (`medaillons.ts`) :
+ * la page ne le chargera plus, et la recharger ne suffirait pas — la fin de
+ * soirée a oublié le jeton de l'invité. Son profil, lui, le montre.
+ */
+function VoirSurProfil() {
+  return (
+    <a className="link-inline" href="/profil">
+      Le voir sur ton profil
+    </a>
+  )
 }

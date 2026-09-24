@@ -20,13 +20,27 @@ import type { Divin } from './Divin'
 interface Dessins {
   Legendaire?: typeof Legendaire
   Divin?: typeof Divin
-  /** Le dernier chargement a échoué : on n'attend plus, l'emoji tient la place. */
+  /**
+   * Le chargement a échoué : c'est pour toute la page. Le navigateur garde
+   * l'échec d'un `import()` — le même fichier redemandé échoue aussitôt, sans
+   * requête —, et après un redéploiement l'ancienne empreinte répond 404 de
+   * toute façon. Réessayer ne ferait que redessiner la page à chaque avatar :
+   * l'emoji tient la place, et ce qui n'a pas d'emoji le dit (`Dessin`).
+   */
   echec?: boolean
 }
 
 let dessins: Dessins = {}
 let enRoute: Promise<void> | null = null
 const abonnes = new Set<() => void>()
+
+/**
+ * Ce qui va chercher les deux fichiers — remplaçable par un test, qui simule
+ * une coupure sans navigateur.
+ */
+export const chargeur = {
+  importer: (): Promise<unknown> => Promise.all([import('./Legendaire'), import('./Divin')]),
+}
 
 /** Appelé par `Legendaire.tsx` et `Divin.tsx` à leur évaluation. */
 export function inscrireDessin(d: Dessins) {
@@ -40,20 +54,29 @@ export function complets(d: Dessins = dessins): boolean {
 }
 
 /**
- * Lance le chargement, une fois. Un réseau coupé ne laisse pas de promesse
- * rejetée : le prochain besoin réessaie, et d'ici là l'emoji tient la place.
+ * Lance le chargement, une fois pour toute la page — un échec compris. La
+ * promesse ne rejette jamais : qui l'attend repart, avec ou sans dessins.
  */
 export function chargerDessins(): Promise<void> {
-  if (complets()) return Promise.resolve()
-  if (!enRoute && dessins.echec) inscrireDessin({ echec: false })
-  enRoute ??= Promise.all([import('./Legendaire'), import('./Divin')]).then(
+  if (complets() || dessins.echec) return Promise.resolve()
+  enRoute ??= chargeur.importer().then(
     () => {},
-    () => {
-      enRoute = null
-      inscrireDessin({ echec: true })
-    },
+    () => inscrireDessin({ echec: true }),
   )
   return enRoute
+}
+
+/** Ce qu'une page accepte d'attendre ses dessins avant de s'afficher sans eux. */
+export const ATTENTE_MAX_DESSINS = 2500
+
+/**
+ * Les dessins, attendus au plus `ms` : une requête qui ne répond pas — une 4G
+ * qui traîne, un proxy muet — ne doit pas garder un téléphone sous « On
+ * arrive… ». Passé ce délai, l'emoji tient la place, et le médaillon le
+ * remplace s'il finit par arriver.
+ */
+export function chargerDessinsAuPlus(ms = ATTENTE_MAX_DESSINS): Promise<void> {
+  return Promise.race([chargerDessins(), new Promise<void>(r => setTimeout(r, ms))])
 }
 
 const abonner = (f: () => void) => {

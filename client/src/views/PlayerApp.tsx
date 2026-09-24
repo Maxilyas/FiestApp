@@ -33,7 +33,7 @@ import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
 import { CarteJoueur } from '../components/CarteJoueur'
-import { chargerDessins, complets, porteUnDessin, useDessins } from '../components/medaillons'
+import { ATTENTE_MAX_DESSINS, chargerDessins, chargerDessinsAuPlus, complets, porteUnDessin, useDessins } from '../components/medaillons'
 import { Lendemain } from '../components/Lendemain'
 import { useEcranAllume } from '../veille'
 import { useGardeRetour } from '../retour'
@@ -72,13 +72,16 @@ export function PlayerApp() {
       const watched = await watchParty(slug)
       if (!watched.ok) return setSpaceError(watched.error ?? 'Cette adresse ne mène à aucune soirée')
       setSpaceError('')
-      // Qui porte un médaillon attend ses dessins avant d'être salué : sinon
-      // l'entrée montrerait son emoji, puis le médaillon.
-      if (watched.profile?.legendaire) await chargerDessins()
       // Le serveur reconnaît le profil au cookie posé dans la poignée de main :
       // l'entrée peut saluer avant même qu'on rejoigne.
       setProfil(watched.profile ?? null)
-      setPresente(true)
+      // Qui porte un médaillon attend ses dessins avant d'être salué : sinon
+      // l'entrée montrerait son emoji, puis le médaillon. Deux secondes et
+      // demie au plus — une requête muette le gardait sous « On arrive… »
+      // sans limite —, et la reprise par jeton, juste en dessous, n'attend
+      // pas : elle part pendant que les dessins arrivent.
+      if (watched.profile?.legendaire) void chargerDessinsAuPlus().then(() => setPresente(true))
+      else setPresente(true)
       // Sans jeton, rien à reprendre : c'est l'entrée qui fait entrer —
       // pré-remplie avec le prénom et l'avatar retenus ici, écran d'équipe
       // compris. Rejoindre tout seul avec le prénom retenu faisait atterrir
@@ -167,6 +170,13 @@ export function PlayerApp() {
   useEffect(() => {
     if (affiche) setDejaVu(true)
   }, [affiche])
+  // Une requête de dessins qui ne répond pas n'y garde personne : passé deux
+  // secondes et demie, la page s'affiche avec les emojis.
+  useEffect(() => {
+    if (!attendreDessins) return
+    const t = setTimeout(() => setDejaVu(true), ATTENTE_MAX_DESSINS)
+    return () => clearTimeout(t)
+  }, [attendreDessins])
 
   const space = s.snapshot?.space
   useEffect(() => {

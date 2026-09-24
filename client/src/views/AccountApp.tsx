@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { chargerDessins } from '../components/medaillons'
+import { chargerDessinsAuPlus } from '../components/medaillons'
 import { api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
 import { ChampNombre } from '../components/ChampNombre'
@@ -22,9 +22,10 @@ export function AccountApp() {
     api.auth
       .me()
       // Un profil rattaché qui porte un médaillon l'attend sous le
-      // « Chargement… » : son emoji ne précède pas son dessin.
+      // « Chargement… » : son emoji ne précède pas son dessin — deux secondes
+      // et demie au plus, une requête muette n'y garde personne.
       .then(async m => {
-        if (m.profil?.legendaire) await chargerDessins()
+        if (m.profil?.legendaire) await chargerDessinsAuPlus()
         setMe(m)
       })
       .catch(e => {
