@@ -16,7 +16,7 @@ import { FinalPodium, Standings } from '../components/Podium'
 import { Trophies } from '../components/Trophies'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { Icon } from '../components/Icon'
-import { Rank } from '../components/Rank'
+import { Rank, Score } from '../components/Rank'
 import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
 import { finalRanking, rankTeams, vainqueursDuQuiz } from '../../../shared/teams'
@@ -147,16 +147,20 @@ function TeamGroup({
           <div key={p.id} className={'player-chip' + (p.connected ? '' : ' offline')}>
             <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
             <Niveau niveau={p.niveau} />
+            {/* Les libellés de la puce prennent le nom affiché, marque comprise :
+                c'est une porte de plus par où sort un prénom (invariant 17).
+                Avec `p.name`, deux « Camille » avaient les mêmes boutons pour
+                qui les entend, et « Exclure Camille » ne disait pas laquelle. */}
             {/* Un surnom pour la soirée : l'écran commun, le souvenir et le
                 bilan l'affichent ; le profil de l'invité garde son prénom, et
                 la soirée suivante le lui rend. */}
             <button
               className="chip-name"
               title="Donner un surnom pour la soirée"
-              aria-label={`Donner un surnom à ${p.name}`}
+              aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}`}
               onClick={async () => {
                 const name = await promptDialog({
-                  title: `Un surnom pour « ${p.name} » ce soir`,
+                  title: `Un surnom pour « ${p.nomAffiche ?? p.name} » ce soir`,
                   message: p.niveau
                     ? 'Il s’affiche partout ce soir. Son profil garde son prénom, et la soirée suivante le lui rend.'
                     : 'Il s’affiche partout ce soir, à la place du prénom choisi à l’entrée.',
@@ -180,7 +184,7 @@ function TeamGroup({
                 className="chip-team"
                 value={p.teamId ?? ''}
                 title="Changer d'équipe"
-                aria-label={`Équipe de ${p.name}`}
+                aria-label={`Équipe de ${p.nomAffiche ?? p.name}`}
                 onChange={e =>
                   socket.emit('host:assignPlayer', {
                     playerId: p.id,
@@ -199,10 +203,10 @@ function TeamGroup({
             <button
               className="chip-remove"
               title="Exclure de la soirée"
-              aria-label={`Exclure ${p.name} de la soirée`}
+              aria-label={`Exclure ${p.nomAffiche ?? p.name} de la soirée`}
               onClick={async () => {
                 const ok = await confirmDialog({
-                  title: `Retirer « ${p.name} » de la soirée ?`,
+                  title: `Retirer « ${p.nomAffiche ?? p.name} » de la soirée ?`,
                   message: 'Ses points seront effacés et son téléphone reviendra à l’inscription.',
                   confirmLabel: 'Exclure',
                   danger: true,
@@ -887,7 +891,7 @@ export function HostApp() {
                                   {t.bonus !== 0 && ` · ${t.bonus > 0 ? '+' : ''}${t.bonus} de prix`}
                                 </span>
                               </span>
-                              <span className="lb-score">{t.finalPoints}</span>
+                              <Score n={t.finalPoints} precision="au total, prix compris" />
                             </div>
                           ))}
                         </div>
@@ -911,7 +915,7 @@ export function HostApp() {
                               <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
                               <span className="lb-name">{p.name}</span>
                               <Niveau niveau={p.niveau} />
-                              <span className="lb-score">{p.points}</span>
+                              <Score n={p.points} />
                             </div>
                           ))}
                         </div>

@@ -120,7 +120,7 @@ function finDeQuiz(totaux: Record<string, number>, noms: Record<string, string>)
 
 /** Les lignes d'un classement rendu : le rang affiché, puis le prénom. */
 const lignesDuClassement = (html: string) =>
-  [...html.matchAll(/<span class="lb-rank[^"]*">(\d+)<\/span>.*?<span class="lb-name">([^<]*)<\/span>/g)].map(m => [
+  [...html.matchAll(/<span class="lb-rank[^"]*">(?:<span class="sr-only">Rang <\/span>)?(\d+)<\/span>.*?<span class="lb-name">([^<]*)<\/span>/g)].map(m => [
     Number(m[1]),
     m[2],
   ])

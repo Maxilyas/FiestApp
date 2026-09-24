@@ -110,7 +110,14 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
                       {espacesFines(a)}
                       {isMine && <span className="bilan-you">toi</span>}
                     </span>
-                    {isCorrect && <Icon name="check" className="bilan-ans-check" />}
+                    {/* La coche ne parle qu'aux yeux : le lecteur d'écran lisait
+                        les réponses sans jamais dire laquelle était la bonne. */}
+                    {isCorrect && (
+                      <>
+                        <Icon name="check" className="bilan-ans-check" />
+                        <span className="sr-only">la bonne réponse</span>
+                      </>
+                    )}
                     <span className="bilan-ans-pct num" title={`${q.counts[i]} réponse${q.counts[i] > 1 ? 's' : ''}`}>
                       {formatPercent(share)}
                     </span>
