@@ -39,6 +39,7 @@ import {
 import { ApiError, UnauthorizedError, api, auReveil, compressImage } from '../api'
 import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon } from '../brouillon'
 import { questionSizeClass } from '../games/quiz/questionSize'
+import { consigneEstimation } from '../games/quiz/consignes'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
@@ -894,8 +895,7 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
             )}
             {question.kind === 'number' ? (
               <p className="big-waiting">
-                <Icon name="keyboard" /> Chacun tape son estimation
-                {question.unit.trim() ? ` (en ${question.unit.trim()})` : ''} — le plus proche gagne !
+                <Icon name="keyboard" /> {espacesFines(consigneEstimation(question.unit))}
               </p>
             ) : (
               answers.length > 0 && (

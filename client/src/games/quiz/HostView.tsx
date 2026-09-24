@@ -16,6 +16,7 @@ import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
 import { formatNumber } from '../../format'
 import { questionSizeClass } from './questionSize'
+import { consigneEstimation } from './consignes'
 import { Avatar } from '../../components/Avatar'
 import { Niveau } from '../../components/Niveau'
 
@@ -378,8 +379,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
             </div>
           ) : (
             <p className="big-waiting">
-              <Icon name="keyboard" /> Tapez votre estimation sur votre téléphone{v.unit ? ` (en ${v.unit})` : ''} — le
-              plus proche gagne&nbsp;!
+              <Icon name="keyboard" /> {espacesFines(consigneEstimation(v.unit))}
             </p>
           )
         ) : (
