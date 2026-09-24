@@ -506,14 +506,23 @@ export class GameEngine {
       if (sess.participantIds.includes(playerId)) this.envoyerVue(sess, playerId)
     })
     if (this.hostTimer) return
-    const attente = this.hostEnvoyeA + HOST_INTERVAL_MS - Date.now()
+    // Borné à la fenêtre : `Date.now()` n'est pas monotone, et une horloge
+    // qui recule (une resynchronisation de l'heure) repoussait sinon le
+    // compteur jusqu'au prochain changement de phase.
+    const attente = Math.min(HOST_INTERVAL_MS, this.hostEnvoyeA + HOST_INTERVAL_MS - Date.now())
     if (attente <= 0) {
       this.broadcast(() => this.fanoutHost(sess))
       return
     }
     this.hostTimer = setTimeout(() => {
       this.hostTimer = null
-      if (this.session === sess && sess.status === 'running') this.broadcast(() => this.fanoutHost(sess))
+      // Hors de tout `ecouter()` : une vue qui lève ici remontait au filet
+      // global — et tuait le processus avant qu'il soit posé.
+      try {
+        if (this.session === sess && sess.status === 'running') this.broadcast(() => this.fanoutHost(sess))
+      } catch (e) {
+        console.error('[partie] vue de l’écran commun', e)
+      }
     }, attente)
   }
 
@@ -567,7 +576,13 @@ export class GameEngine {
     if (this.persistEnAttente) return
     this.persistEnAttente = setImmediate(() => {
       this.persistEnAttente = null
-      if (this.session === sess && sess.status === 'running') this.persist(sess)
+      // Hors de tout `ecouter()`, comme un chronomètre : une erreur SQLite ne
+      // donne plus d'accusé d'erreur à personne, elle se journalise.
+      try {
+        if (this.session === sess && sess.status === 'running') this.persist(sess)
+      } catch (e) {
+        console.error('[partie] écriture regroupée', e)
+      }
     })
   }
 

@@ -281,6 +281,61 @@ test('les réponses lues dans le même tour s’écrivent une fois, et l’arrê
   }
 })
 
+test('une panne dans l’écriture regroupée ou dans la vue de l’écran commun se journalise, sans rien faire tomber', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+  // Ces deux rappels partent hors de tout `ecouter()` : une exception y
+  // remontait au filet global, et tuait le processus avant `poserLeFilet`.
+  let casse = false
+  const s = salle(30, {
+    ...quizModule,
+    hostView: (sess, vctx) => {
+      if (casse) throw new Error('vue cassée')
+      return quizModule.hostView(sess, vctx)
+    },
+  })
+  const erreurs = mock.method(console, 'error', () => {})
+  ouvrir()
+  try {
+    mock.timers.tick(1000)
+    // L'écriture regroupée : la base locale refuse.
+    ;(s.engine as any).persist = () => {
+      throw new Error('disque plein')
+    }
+    s.engine.handlePlayerAction(s.sid, s.ids[0], { type: 'answer', choice: 0 })
+    assert.doesNotThrow(() => mock.timers.tick(0), 'l’écriture en panne ne remonte pas')
+    assert.equal(erreurs.mock.callCount(), 1, 'elle est journalisée')
+    delete (s.engine as any).persist
+
+    // La vue de l'écran commun, à la fin de sa fenêtre.
+    s.engine.handlePlayerAction(s.sid, s.ids[1], { type: 'answer', choice: 0 })
+    casse = true
+    assert.doesNotThrow(() => mock.timers.tick(250), 'la vue en panne ne remonte pas')
+    assert.equal(erreurs.mock.callCount(), 2, 'elle est journalisée')
+  } finally {
+    erreurs.mock.restore()
+    s.fermer()
+  }
+})
+
+test('une horloge qui recule ne bloque pas le compteur de l’écran commun', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+  const s = salle(30)
+  ouvrir()
+  try {
+    mock.timers.tick(1000)
+    s.engine.handlePlayerAction(s.sid, s.ids[0], { type: 'answer', choice: 0 })
+    assert.equal(derniere(s, 'hosts')?.view.answeredCount, 1)
+    // L'heure de la machine recule de dix secondes (une synchronisation
+    // NTP) : la fenêtre se calculait à dix secondes et quart.
+    mock.timers.setTime(Date.now() - 10_000)
+    s.engine.handlePlayerAction(s.sid, s.ids[1], { type: 'answer', choice: 0 })
+    mock.timers.tick(250)
+    assert.equal(derniere(s, 'hosts')?.view.answeredCount, 2, 'le compte part au bout de sa fenêtre, pas dix secondes plus tard')
+  } finally {
+    s.fermer()
+  }
+})
+
 // ── Un vrai serveur : l'instantané de la salle ────────────────────────────
 
 let banc: Banc
