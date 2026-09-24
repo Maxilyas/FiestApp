@@ -403,15 +403,16 @@ export function PlayerApp() {
             </h3>
             {/* Changer d'équipe emporte ses points : le serveur le refuse
                 pendant un quiz, autant ne pas proposer le bouton. */}
-            {!session && myTeam && (
+            {!session && (
               <button className="btn btn-ghost btn-small" onClick={() => setSwitching(v => !v)}>
-                {switching ? 'Annuler' : 'Changer'}
+                {switching ? 'Annuler' : myTeam ? 'Changer' : 'Choisir mon équipe'}
               </button>
             )}
           </div>
-          {/* Entré pendant un quiz, sans équipe : le quiz fini, c'est le
-              moment de la choisir — le choix se montre de lui-même. */}
-          {switching || (!myTeam && !session) ? (
+          {/* Le choix ne s'ouvre plus de lui-même à qui est entré sans équipe
+              pendant un quiz : le rejoindre après le podium retournait le
+              vainqueur annoncé. L'entrée le lui a proposé ; le bouton reste. */}
+          {switching ? (
             <TeamPicker teams={teams} value={me?.teamId ?? null} onPick={changeTeam} players={snap.players} />
           ) : (
             <>
