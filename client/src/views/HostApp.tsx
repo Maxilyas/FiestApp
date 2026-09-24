@@ -599,8 +599,10 @@ export function HostApp() {
               {teams.length === 0 &&
                 (() => {
                   // Six équipes pour sept invités, c'était une soirée en solo
-                  // déguisée : on propose une équipe pour quatre, de deux à six.
-                  const nombre = nbEquipes ?? Math.min(6, Math.max(2, Math.round(snap.players.length / 4)))
+                  // déguisée : on propose une équipe pour quatre, de deux à
+                  // six — et six, comme avant, tant que personne n'est là.
+                  const invites = snap.players.length
+                  const nombre = nbEquipes ?? (invites === 0 ? 6 : Math.min(6, Math.max(2, Math.round(invites / 4))))
                   return (
                     <div className="row team-seed">
                       <select

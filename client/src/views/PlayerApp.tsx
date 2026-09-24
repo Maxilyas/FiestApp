@@ -195,6 +195,13 @@ export function PlayerApp() {
   const me = snap?.players.find(p => p.id === s.me?.playerId)
   const session = snap?.session ?? null
   const sessionView = session ? s.views[session.id] : undefined
+  // Un quiz neuf recommence à la question 1, au tour 1 : l'envoi du quiz
+  // d'avant y viserait sinon la même question, et dirait « Trop tard ! » à
+  // qui n'a rien touché.
+  const sessionId = session?.id
+  useEffect(() => {
+    setEnvoi(null)
+  }, [sessionId])
   const iAmIn = !!(s.me && session?.participantIds.includes(s.me.playerId))
   const playing = !!sessionView && iAmIn
 
