@@ -1,3 +1,4 @@
+import { MAX_NAME_LENGTH } from '../../../shared/avatars'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Limite } from './Limite'
 import { api, motifDe } from '../api'
@@ -139,18 +140,21 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
       )}
       {creation && (
         <div className="field">
-          <label className="label" htmlFor="pf-name">
-            Ton prénom
-          </label>
+          <div className="field-head">
+            <label className="label" htmlFor="pf-name">
+              Ton prénom
+            </label>
+            <span className="muted small">{MAX_NAME_LENGTH} caractères au plus</span>
+          </div>
           <input
             id="pf-name"
             className="input input-line"
             value={name}
             onChange={e => setName(e.target.value)}
-            maxLength={24}
+            maxLength={MAX_NAME_LENGTH}
             autoComplete="given-name"
           />
-          <Limite valeur={name} max={24} />
+          <Limite valeur={name} max={MAX_NAME_LENGTH} />
         </div>
       )}
       <div className="field">
