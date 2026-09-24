@@ -23,9 +23,13 @@ export const route: Route = parseRoute(window.location.pathname)
 // « /Chez-Bruno » s'ouvre sous le nom que l'espace porte vraiment : l'adresse
 // qu'on recopie ou qu'on partage ensuite est la bonne. En ligne, le serveur a
 // déjà redirigé ; ceci sert au serveur de développement.
-if ((route.kind === 'join' || route.kind === 'public') && window.location.pathname.split('/')[1] !== route.slug) {
-  const reste = window.location.pathname.split('/').slice(2).join('/')
-  history.replaceState(null, '', `/${route.slug}${reste ? `/${reste}` : ''}${window.location.search}${window.location.hash}`)
+// Des segments filtrés, comme `parseRoute` : « //banc » devenait « /banc/banc ».
+if (route.kind === 'join' || route.kind === 'public') {
+  const segs = window.location.pathname.split('/').filter(Boolean)
+  const voulu = '/' + [route.slug, ...segs.slice(1)].join('/')
+  if (window.location.pathname !== voulu) {
+    history.replaceState(null, '', `${voulu}${window.location.search}${window.location.hash}`)
+  }
 }
 
 /** Le nom de l'espace dans l'adresse de la page ouverte, s'il y en a un. */
