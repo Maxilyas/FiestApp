@@ -1737,8 +1737,11 @@ h3 > .icon {
 
 .duration-input { width: 84px; padding: 9px 10px; text-align: center; }
 /* Un nombre hors bornes, ou illisible, pendant qu'on le tape (`ChampNombre`) :
-   le cadre le dit avant que le champ ne le borne, en le quittant. */
-.input[aria-invalid='true'] { border-color: var(--accent-text); }
+   le cadre le dit avant que le champ ne le borne, en le quittant. Le rouge
+   d'erreur, focus compris : en Velours, le champagne du cadre était
+   exactement celui du focus, et rien ne se voyait pendant la frappe. */
+.input[aria-invalid='true'],
+.input[aria-invalid='true']:focus { border-color: var(--alert); }
 
 .thumb { height: 72px; max-width: 160px; object-fit: cover; border-radius: 10px; border: 1px solid var(--edge); display: block; }
 
