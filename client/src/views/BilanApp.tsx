@@ -226,7 +226,12 @@ function TousLesLiens({ slug, soireeId, players }: { slug: string; soireeId: str
       <ul>
         {liens.map(l => (
           <li key={l.url}>
-            <span>{l.nom}</span>
+            {/* Un lien, pas un texte : sans presse-papier (la page en http sur
+                l'adresse du PC), « Copier » ne s'affiche pas, et la liste
+                ne montrait plus aucune adresse. Un appui long la copie. */}
+            <a className="link-inline" href={l.url}>
+              {l.nom}
+            </a>
             <BoutonCopier className="btn btn-small btn-ghost" texte={l.url} libelle="Copier" />
           </li>
         ))}
