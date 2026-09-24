@@ -401,9 +401,12 @@ sans `QUIZ_DB_URL`.
   `parseImportedQuestions`, s'annonce dans `FORMAT_DE_LISTE` et paraît dans
   son exemple, que `liste.test.ts` relit : le format copié pour une IA ne
   doit rien promettre que la liste ne sache lire.
-- **Une adresse de page n'a jamais de point** : le serveur répond 404 à tout
-  chemin à extension qu'aucun fichier ne sert (`favicon.ico` d'une vieille
-  version), au lieu de la page d'accueil. Et la page se sert en 404 pour un
+- **Un fichier absent est un 404, pas la page d'accueil** : le serveur répond
+  404 à tout chemin qui finit par une extension qu'il sert (`.ico`, `.png`,
+  `.js`… — `favicon.ico` d'une vieille version) et qu'aucun fichier ne sert.
+  Une nouvelle sorte de fichier dans `client/public` rejoint cette liste
+  (`server.ts`). Un autre point (« /chez.nadia ») ouvre l'application,
+  qui y lit `chez-nadia`. Et la page se sert en 404 pour un
   espace inconnu : un test qui lit du HTML démarre son banc avec
   `clientDist` (`portes.test.ts`) — `client/dist` n'existe qu'après le build.
 - **`/healthz` doit rester un 200** : sur un échec, Render redémarre

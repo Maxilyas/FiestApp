@@ -59,6 +59,18 @@ describe('les adresses inconnues', () => {
     assert.doesNotMatch(await r.text(), /<html/)
   })
 
+  test('une adresse à point qui n’est pas un fichier ouvre l’application', async () => {
+    // « chez.nadia » dicté au téléphone : ce n'est pas un fichier, et la
+    // réponse en texte brut n'avait ni bandeau ni « Revenir ».
+    const r = await lire('/chez.nadia')
+    assert.equal(r.status, 302)
+    assert.equal(r.headers.get('location'), '/chez-nadia')
+    const inconnu = await lire('/personne.ici')
+    assert.equal(inconnu.status, 404)
+    assert.match(inconnu.headers.get('content-type') ?? '', /html/)
+    assert.match(await inconnu.text(), /<html/)
+  })
+
   test('robots.txt existe, et écarte les données', async () => {
     const r = await lire('/robots.txt')
     assert.equal(r.status, 200)

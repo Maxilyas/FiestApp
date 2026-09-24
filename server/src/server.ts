@@ -703,8 +703,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
     app.get('/index.html', (req, res, next) => servirPage('/', req, res, next))
     app.use(express.static(clientDist, { index: false, maxAge: '1h' }))
     // Un fichier absent (une icône, `favicon.ico` d'une vieille version)
-    // est un 404, pas la page d'accueil : un nom de page n'a jamais de point.
-    app.get(/\.[\w]+$/, (_req, res) => res.status(404).type('text').send('Introuvable'))
+    // est un 404, pas la page d'accueil. Seulement les extensions que l'on
+    // sert : « /chez.nadia », dicté au téléphone, n'est pas un fichier — il
+    // ouvre l'application, qui y lit `chez-nadia`.
+    app.get(/\.(?:ico|png|jpe?g|gif|svg|webp|js|mjs|css|map|json|webmanifest|txt|xml|woff2?)$/i, (_req, res) =>
+      res.status(404).type('text').send('Introuvable'),
+    )
     app.get('*', (req, res, next) => servirPage(req.path, req, res, next))
   }
 
