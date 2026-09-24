@@ -1,4 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
+import { Limite } from './Limite'
 import { api, motifDe } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { Icon } from './Icon'
@@ -147,6 +148,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer }: Props
             maxLength={24}
             autoComplete="given-name"
           />
+          <Limite valeur={name} max={24} />
         </div>
       )}
       <div className="field">
