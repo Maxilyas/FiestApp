@@ -16,7 +16,7 @@ import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import { espacesFines, formatNumber, place } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
-import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
+import { AttenteConnexion, BandeauCoupure, ConseilVeille, useEnLigne } from '../components/Liaison'
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
 import { CarteJoueur } from '../components/CarteJoueur'
 import { useEcranAllume } from '../veille'
@@ -53,6 +53,8 @@ export function PlayerApp() {
    */
   const [envoi, setEnvoi] = useState<Envoi | null>(null)
   const numeroEnvoi = useRef(0)
+  /** Le réseau du téléphone : la liaison met parfois vingt secondes à se savoir morte. */
+  const enLigne = useEnLigne()
 
   // Connexion, présentation à la soirée, puis re-join automatique (refresh,
   // coupure réseau, redémarrage serveur).
@@ -339,7 +341,7 @@ export function PlayerApp() {
             })
           }}
           envoi={envoi}
-          connecte={s.connected}
+          connecte={s.connected && enLigne}
         />
         <ConseilVeille />
         <BandeauCoupure connecte={s.connected} />

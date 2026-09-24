@@ -1244,6 +1244,21 @@ h3 > .icon {
   .quiz-player .ans-grid { grid-template-columns: 1fr; }
 }
 
+/* La tablette n'est pas un téléphone étiré. Bertrand, sur sa tablette de
+   1 280 px : « un téléphone posé au milieu d'une tablette » — une colonne de
+   560 px, des réponses de téléphone. Au-delà de 700 px de large, la colonne
+   s'élargit, la question et les réponses grandissent avec elle. La hauteur
+   minimale écarte un téléphone couché, resté confortable tel quel (Zoé). */
+@media (min-width: 700px) and (min-height: 600px) {
+  .player-shell { max-width: 760px; padding-top: 36px; gap: 22px; }
+  .quiz-player .quiz-question { font-size: 44px; }
+  .quiz-player .quiz-question.q-md { font-size: 36px; }
+  .quiz-player .quiz-question.q-sm { font-size: 30px; }
+  .quiz-player .ans-grid { grid-auto-rows: minmax(min-content, 170px); gap: 16px; }
+  .quiz-player .ans-btn { font-size: 1.45rem; padding: 0 28px; }
+  .quiz-player .ans-grid .ans-shape { width: 1.4rem; height: 1.4rem; }
+}
+
 /* Résultat d'une question : centré verticalement plutôt que collé en haut. */
 .quiz-player:has(.result-banner) { justify-content: center; }
 
@@ -2359,6 +2374,22 @@ h3 > .icon {
   background: var(--bg);
   font-weight: 500;
   box-shadow: inset -1px 0 0 var(--edge);
+}
+/* « td » l'emportait sur la classe seule : les prénoms étaient poussés à droite. */
+.stats-table .stats-name { text-align: left; }
+/* Les points, figés juste après le prénom — à la largeur mesurée de sa
+   colonne (StatsTable). Tant qu'elle n'est pas mesurée, ils défilent. */
+.stats-table[style*='--stats-nom'] .stats-fige {
+  position: sticky;
+  left: var(--stats-nom);
+  z-index: 1;
+  background: var(--bg);
+  box-shadow: inset -1px 0 0 var(--edge);
+}
+.stats-table[style*='--stats-nom'] thead th.stats-fige {
+  z-index: 3;
+  background: var(--bg-raised);
+  box-shadow: inset -1px -1px 0 var(--edge);
 }
 /* La case du coin tient les deux axes, au-dessus de tout — « thead th » est
    plus spécifique que « .stats-name », d'où la règle à part. */

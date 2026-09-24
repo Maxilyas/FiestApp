@@ -48,7 +48,7 @@ function suivreReseau(prevenir: () => void) {
  * huit secondes — pour s'en apercevoir. `true` ne prouve rien (un wifi sans
  * internet se dit « en ligne ») ; `false`, si.
  */
-function useEnLigne(): boolean {
+export function useEnLigne(): boolean {
   return useSyncExternalStore(suivreReseau, () => navigator.onLine)
 }
 

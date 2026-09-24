@@ -301,7 +301,7 @@ export function sendPlayerAction(
             reason: 'timeout',
             // Hors ligne, elle n'est pas perdue : socket.io la garde et
             // l'envoie dès que le réseau revient. Autant le dire.
-            error: socket.connected
+            error: socket.connected && navigator.onLine
               ? 'Ta réponse n’est pas partie — vérifie ta connexion'
               : 'Ta réponse n’est pas encore partie — elle partira dès que le réseau revient',
           }),
