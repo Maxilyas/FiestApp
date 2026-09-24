@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Recap } from '../../../shared/types'
 import { FinalPodium, Standings } from '../components/Podium'
-import { TeamBoard } from '../components/TeamBoard'
+import { TeamBoard, VerdictDesEquipes } from '../components/TeamBoard'
+import { PrixRemis } from '../components/PrixRemis'
 import { StatsTable } from '../components/StatsTable'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { Trophies } from '../components/Trophies'
@@ -142,11 +143,25 @@ export function RecapApp() {
       {recap.teams.length > 0 && (
         <section className="card">
           <h2>Les équipes au quiz</h2>
-          <TeamBoard teams={recap.teams} showGamePoints />
+          {/* Le verdict de l'écran de victoire et de l'historique, ex æquo
+              compris : le souvenir couronnait la meilleure moyenne, sans
+              les prix, et contredisait la soirée qu'on avait vécue. */}
+          <VerdictDesEquipes teams={recap.teams} avecPrix={recap.bonuses.length > 0} />
+          <TeamBoard teams={recap.teams} showFinalPoints />
           <p className="muted small">
-            Le grand chiffre à droite, la moyenne par membre — c'est elle qui classe les équipes. Le chiffre
-            cerclé : les points de classement du quiz, auxquels les prix se sont ajoutés.
+            Le chiffre cerclé : le barème du quiz, prix compris — c'est lui qui range les équipes
+            et désigne la gagnante. Le grand chiffre à droite, la moyenne par membre, qui a
+            distribué le barème : autant de points que d'équipes pour la meilleure, un de moins
+            pour la suivante.
           </p>
+        </section>
+      )}
+
+      {recap.bonuses.length > 0 && (
+        <section className="card">
+          <h2>Remis ce soir-là</h2>
+          <p className="muted small">Les prix remis à l'écran, dans l'ordre, et les points qu'ils ont rapportés.</p>
+          <PrixRemis bonuses={recap.bonuses} teams={recap.teams} />
         </section>
       )}
 
@@ -154,7 +169,8 @@ export function RecapApp() {
         <section className="card">
           <h2>Le palmarès</h2>
           <p className="muted small">
-            Les prix de la soirée — ceux qui ne se jouent pas au sommet du classement.
+            Les prix que les chiffres de la soirée désignent, remis à l'écran ou non — ceux qui ne
+            se jouent pas au sommet du classement.
           </p>
           <AwardsBoard awards={recap.stats.awards} teams={recap.teams} />
         </section>

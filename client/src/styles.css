@@ -2258,6 +2258,13 @@ h3 > .icon {
 .given-team { font-weight: 500; }
 .given-reason { flex: 1; color: var(--muted); font-size: 0.9rem; }
 .given-row .chip-remove { opacity: 0.6; }
+/* Le lendemain, relu sur un téléphone : le motif d'abord, l'équipe dessous —
+   sur une ligne, un nom d'équipe long écrasait le motif à trois lettres. */
+.given-lendemain { list-style: none; padding: 0; margin: 8px 0 0; }
+.given-lendemain .given-row { align-items: flex-start; }
+.given-body { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.given-title { font-weight: 500; }
+.given-lendemain .given-team { font-weight: 400; color: var(--muted); font-size: 0.9rem; }
 
 /* ── Écran de victoire ──────────────────────────── */
 .victory { align-items: stretch; }

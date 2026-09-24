@@ -1,7 +1,7 @@
 import type { AnswerRow } from './answers'
 import { computeStats } from './stats'
 import type { PlayableQuestion } from '../../../shared/library'
-import { rankTeams, teamScores } from '../../../shared/teams'
+import { prixRemis, rankTeams, teamScores } from '../../../shared/teams'
 import { nomAffiche } from '../../../shared/homonymes'
 import { classer, ecartEstimation, ordreDeClassement, rangPartage, vainqueurs } from '../../../shared/classement'
 import type { PublicPlayer, TeamBonus } from '../../../shared/types'
@@ -516,6 +516,7 @@ export function buildReview(input: ReviewInput): Review {
     teams: reviewTeams,
     quizzes,
     records,
+    bonuses: prixRemis(bonuses, teams),
     unresolved: questions.filter(q => !q.resolved).length,
   }
 }
