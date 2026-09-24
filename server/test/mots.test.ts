@@ -12,6 +12,7 @@ import path from 'node:path'
 import { ProfileStore } from '../src/auth/profiles'
 import { titreDuPrix } from '../src/core/stats'
 import { hautFait } from '../../shared/hautsfaits'
+import { connecter, connexionAnimateur, demarrer, ecrire, emitAck, invite, ADMIN } from './banc'
 
 test('un prix et un haut fait ne portent jamais le même nom', () => {
   assert.equal(titreDuPrix('sansfaute'), 'Le Plus Précis', 'un prix décerné à 67 % ne promet pas un sans-faute')
@@ -45,5 +46,37 @@ test('l’étagère relit un prix renommé sous son nom du jour, une seule fois'
   } finally {
     ;(profils as any).close?.()
     rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('les erreurs disent quoi faire : soirée complète, son propre compte, une photo', async () => {
+  // « La soirée est complète ! », « Pas ton propre compte », « Format d'image
+  // non supporté » : trois constats sans geste à faire, lus dans le noir.
+  const banc = await demarrer()
+  const sockets: { close(): void }[] = []
+  try {
+    const cookie = await connexionAnimateur(banc.url)
+    assert.ok((await ecrire(banc.url, '/api/space/settings', { maxPlayers: 2 }, cookie, 'PUT')).ok)
+    sockets.push((await invite(banc.url, 'Alice')).socket, (await invite(banc.url, 'Bob')).socket)
+    const troisieme = connecter(banc.url)
+    sockets.push(troisieme)
+    await emitAck(troisieme, 'party:watch', { slug: ADMIN.slug })
+    const refus = await emitAck<{ ok: boolean; error?: string }>(troisieme, 'player:join', { slug: ADMIN.slug, name: 'Chloé', avatar: '🐼' })
+    assert.equal(refus.ok, false)
+    assert.match(refus.error ?? '', /complète.*préviens l’animateur/)
+
+    const moi = (await (await fetch(`${banc.url}/api/auth/me`, { headers: { Cookie: cookie } })).json()) as any
+    const desactiver = await ecrire(banc.url, `/api/admin/accounts/${moi.account.id}/disable`, {}, cookie)
+    assert.equal(desactiver.status, 400)
+    assert.equal(((await desactiver.json()) as any).error, 'Tu ne peux pas désactiver ton propre compte')
+
+    const gif = await ecrire(banc.url, '/api/images', { dataUrl: 'data:image/gif;base64,R0lGOD' }, cookie)
+    assert.equal(gif.status, 400)
+    assert.match(((await gif.json()) as any).error, /choisis-la en JPEG, PNG ou WebP/)
+    const lourde = await ecrire(banc.url, '/api/images', { dataUrl: 'x'.repeat(2_500_000) }, cookie)
+    assert.match(((await lourde.json()) as any).error ?? '', /choisis-en une plus petite/)
+  } finally {
+    for (const s of sockets) s.close()
+    await banc.close()
   }
 })

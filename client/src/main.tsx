@@ -139,6 +139,9 @@ class Filet extends Component<{ children: ReactNode }, { panne: boolean }> {
     return (
       <button type="button" className="filet" onClick={() => window.location.reload()}>
         <span className="filet-titre">Oups</span>
+        {/* « Oups » seul ne disait pas l'essentiel à qui a une soirée en cours :
+            sa place et ses points sont au serveur, pas dans la page. */}
+        <span className="muted">Un souci d’affichage — rien n’est perdu.</span>
         <span className="btn btn-primary btn-big">Touche pour recharger</span>
       </button>
     )

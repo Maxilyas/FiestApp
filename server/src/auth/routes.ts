@@ -263,7 +263,7 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       const target = auth.byId(req.params.id)
       if (!target) return res.status(404).json({ error: 'Compte introuvable' })
-      if (target.id === accountOf(res).id) return res.status(400).json({ error: 'Pas ton propre compte' })
+      if (target.id === accountOf(res).id) return res.status(400).json({ error: 'Tu ne peux pas désactiver ton propre compte' })
       res.json({ account: auth.toPublic(await auth.setDisabled(target.id, true)) })
     }),
   )
@@ -302,7 +302,7 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       const target = auth.byId(req.params.id)
       if (!target) return res.status(404).json({ error: 'Compte introuvable' })
-      if (target.id === accountOf(res).id) return res.status(400).json({ error: 'Pas ton propre compte' })
+      if (target.id === accountOf(res).id) return res.status(400).json({ error: 'Tu ne peux pas supprimer ton propre compte' })
       if (target.id === auth.defaultSpaceId) {
         return res.status(400).json({ error: 'L’espace par défaut ne se supprime pas : les anciennes adresses mènent chez lui' })
       }

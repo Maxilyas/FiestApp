@@ -317,7 +317,8 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         if (!known) {
           // Une nouvelle identité, donc : elle passe par les garde-fous.
           if (rt.party.count() >= rt.maxPlayers) {
-            return repondre({ ok: false, error: 'La soirée est complète !' })
+            // Il dit quoi faire : la limite est un réglage, pas une fatalité.
+            return repondre({ ok: false, error: 'La soirée est complète — préviens l’animateur : il peut ouvrir des places' })
           }
           if (identitiesCreated >= JOINS_PER_SOCKET || !joinBudget.take(ip)) {
             return repondre({ ok: false, error: 'Trop d’inscriptions d’un coup — réessaie dans une minute' })

@@ -1,3 +1,4 @@
+import { MOTIFS } from '../../../shared/erreurs'
 import { useCallback, useEffect, useState } from 'react'
 import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
 import { getState, oublierIdentite, saveChoix, saveMe, setState, showToast, useAppState } from '../state'
@@ -175,7 +176,7 @@ export function PlayerApp() {
 
   const changeTeam = async (id: string) => {
     const res = await setMyTeam(id)
-    if (!res.ok) return showToast({ kind: 'error', message: res.error ?? 'Impossible' })
+    if (!res.ok) return showToast({ kind: 'error', message: res.error ?? MOTIFS.imprevu })
     setSwitching(false)
   }
 
