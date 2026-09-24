@@ -3613,10 +3613,21 @@ h3 > .icon {
 .av-divin .av-emoji { display: inline-flex; }
 .av-divin .dv { width: 1.12em; height: 1.12em; }
 
-/* Au-delà des cinq premières lignes d'une liste, rien ne bouge. */
-.leaderboard .lb-row:nth-child(n + 6) .lg *,
+/* Dans une liste, un médaillon se tient tranquille. Ses animations portent
+   sur les formes internes du SVG, que le navigateur ne compose pas : chacune
+   refaisait le style et la mise en page de tout l'écran, à chaque image.
+   Une salle d'habitués (un sur trois en légendaire) tombait à 40 images par
+   seconde à la clôture de l'écran commun, et la salle d'attente occupait le
+   téléphone de chacun. Il bouge là où il est le sujet : les trois marches du
+   podium, les médaillons qu'on vient de gagner et les éclats (`av-sujet`) de
+   la clôture, la carte, le profil, la fin de soirée, l'en-tête de son propre
+   téléphone. Figé, il garde la pose que lui laisse « réduire les
+   animations ». */
+.av.lb-avatar:not(.av-sujet) .lg *,
+.av.lb-avatar:not(.av-sujet) .dv *,
+.player-chip .lg *,
+.player-chip .dv *,
 .stats-table tbody tr:nth-child(n + 6) .lg *,
-.leaderboard .lb-row:nth-child(n + 6) .dv *,
 .stats-table tbody tr:nth-child(n + 6) .dv *,
 .chips .dv * {
   animation: none;

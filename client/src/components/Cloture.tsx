@@ -105,7 +105,7 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
                 {c.eclats.map((e, i) => (
                   <span key={`${e.nom}-${i}`} className="cloture-montee">
                     {legendaire(e.eclate) ? (
-                      <Avatar className="lb-avatar" avatar={e.avatar} legendaire={e.eclate} finition={e.finition} eclat />
+                      <Avatar className="lb-avatar av-sujet" avatar={e.avatar} legendaire={e.eclate} finition={e.finition} eclat />
                     ) : (
                       <Avatar className="lb-avatar" avatar={e.eclate} finition={e.finition} eclat />
                     )}
