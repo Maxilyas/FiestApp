@@ -23,7 +23,9 @@ export function AccountApp() {
   useEffect(() => {
     api
       .list()
-      .then(l => setDebut(l.length === 0))
+      // Un quiz commencé puis laissé vide ne se joue pas : on n'a pas
+      // encore commencé.
+      .then(l => setDebut(l.every(q => q.readyCount === 0)))
       .catch(() => {})
     api.auth
       .me()

@@ -243,7 +243,9 @@ export function HostApp() {
     const lire = () =>
       api
         .list()
-        .then(l => setBibliothequeVide(l.length === 0))
+        // Des quiz sans question prête ne se jouent pas (`setQuizLibrary`) :
+        // pour « Lancer un quiz », c'est encore une bibliothèque vide.
+        .then(l => setBibliothequeVide(l.every(q => q.readyCount === 0)))
         .catch(() => {})
     const auRetour = () => {
       if (document.visibilityState === 'visible') lire()

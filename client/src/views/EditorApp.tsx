@@ -213,6 +213,8 @@ export function EditorApp() {
   }, [])
   /** Le quiz s'ouvre sur « Coller une liste » : il vient d'être créé pour ça. */
   const [ouvrirListe, setOuvrirListe] = useState(false)
+  /** Les modèles, rouverts depuis l'en-tête une fois la bibliothèque commencée. */
+  const [voirModeles, setVoirModeles] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   /** Le quiz qu'on emballe, ou l'import en cours : un clic à la fois. */
@@ -307,6 +309,14 @@ export function EditorApp() {
     }
   }
 
+  /**
+   * Tant qu'aucun quiz n'est prêt à jouer, les premiers pas restent : un ami
+   * qui cliquait « Créer mon quiz » et ressortait sans rien écrire perdait
+   * les modèles pour de bon, et la console, qui ne joue que les quiz prêts,
+   * l'y renvoyait quand même.
+   */
+  const aucunPret = list !== null && list.every(q => q.readyCount === 0)
+
   if (needLogin) {
     return <LoginForm title="Mes quiz" error={loginError} busy={busy} onSubmit={submitLogin} />
   }
@@ -358,6 +368,12 @@ export function EditorApp() {
               importer(choisi)
             }}
           />
+          {list && !aucunPret && (
+            <button className="btn btn-ghost" aria-expanded={voirModeles} onClick={() => setVoirModeles(v => !v)}>
+              <Icon name="copy" />
+              Partir d'un modèle
+            </button>
+          )}
           <button className="btn btn-ghost" disabled={echange !== null} onClick={() => fichier.current?.click()}>
             <Icon name="download" />
             {echange === 'import' ? 'Import…' : 'Importer un quiz'}
@@ -401,10 +417,14 @@ export function EditorApp() {
       {notice && <p className="card notice">{notice}</p>}
       {list === null && <p className="serif-note">Chargement…</p>}
 
-      {list?.length === 0 && (
+      {list && (aucunPret || voirModeles) && (
         <PremiersPas
+          debut={aucunPret}
           occupe={echange !== null}
-          onOuvrir={id => setEditingId(id)}
+          onOuvrir={id => {
+            setVoirModeles(false)
+            setEditingId(id)
+          }}
           onImporter={() => fichier.current?.click()}
           onErreur={setError}
         />
@@ -2186,11 +2206,14 @@ function QuestionCard({
  * s'importe comme depuis l'en-tête.
  */
 function PremiersPas({
+  debut,
   occupe,
   onOuvrir,
   onImporter,
   onErreur,
 }: {
+  /** Aucun quiz prêt : les trois départs. Sinon, les modèles seuls, rouverts depuis l'en-tête. */
+  debut: boolean
   occupe: boolean
   onOuvrir: (id: string) => void
   onImporter: () => void
@@ -2215,8 +2238,12 @@ function PremiersPas({
 
   return (
     <section className="card premiers-pas">
-      <h2>Ton premier quiz</h2>
-      <p className="muted small">Ta bibliothèque est vide. Pars d'un quiz tout fait, que tu retoucheras à ton goût, ou du tien.</p>
+      <h2>{debut ? 'Ton premier quiz' : 'Partir d’un modèle'}</h2>
+      <p className="muted small">
+        {debut
+          ? 'Aucun de tes quiz n’est encore prêt à jouer. Pars d’un quiz tout fait, que tu retoucheras à ton goût, ou du tien.'
+          : 'Chaque clic ajoute une copie du modèle à ta bibliothèque, que tu retoucheras à ton goût.'}
+      </p>
       <div className="premiers-pas-choix">
         {modeles.map(m => (
           <button
@@ -2237,14 +2264,18 @@ function PremiersPas({
             {copie === m.id ? 'Copie…' : `Partir de « ${m.title} » · ${m.questionCount} questions`}
           </button>
         ))}
-        <button className="btn" disabled={occupe} onClick={onImporter}>
-          <Icon name="download" />
-          Importer le quiz d'un ami
-        </button>
-        <button className="btn btn-primary" onClick={creer}>
-          <Icon name="plus" />
-          Créer mon quiz
-        </button>
+        {debut && (
+          <>
+            <button className="btn" disabled={occupe} onClick={onImporter}>
+              <Icon name="download" />
+              Importer le quiz d'un ami
+            </button>
+            <button className="btn btn-primary" onClick={creer}>
+              <Icon name="plus" />
+              Créer mon quiz
+            </button>
+          </>
+        )}
       </div>
     </section>
   )
