@@ -376,3 +376,20 @@ test('T6 · un mot trop long pour sa case se coupe à la syllabe, pas n’import
   // La césure suit la langue de la page.
   assert.match(readFileSync(new URL('../../client/index.html', import.meta.url), 'utf8'), /<html lang="fr">/)
 })
+
+test('A4 · chaque page d’animateur a son nom d’onglet', async () => {
+  // `/connexion`, `/activer`, `/compte`, `/edit` et `/admin` s'appelaient
+  // toutes « FiestApp » : ni la liste des onglets ni le lecteur d'écran qui
+  // annonce la page ne les distinguaient.
+  const { titreDePage } = (await import(new URL('../../client/src/titres.ts', import.meta.url).href)) as {
+    titreDePage: (page: string) => string
+  }
+  const pages = ['connexion', 'activer', 'compte', 'edit', 'admin', 'host', 'profil']
+  const titres = pages.map(p => titreDePage(p))
+  assert.equal(new Set(titres).size, pages.length, titres.join(' / '))
+  for (const t of titres) assert.notEqual(t, 'FiestApp')
+  assert.equal(titreDePage('edit'), 'Mes quiz · FiestApp')
+  // Et la page le pose dès son premier rendu.
+  const racine = readFileSync(new URL('../../client/src/main.tsx', import.meta.url), 'utf8')
+  assert.match(racine, /if \(route\.kind === 'account'\) document\.title = titreDePage\(route\.page\)/)
+})

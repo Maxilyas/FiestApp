@@ -4,6 +4,7 @@ import { DialogHost } from './components/Dialog'
 import { applyTheme } from './theme'
 import { installerClavier } from './clavier'
 import { route, type AccountPage, type PublicPage } from './routes'
+import { titreDePage } from './titres'
 import './styles.css'
 
 // Les adresses (client/src/routes.ts) :
@@ -83,6 +84,9 @@ const Page = () =>
       <App />
     </main>
   )
+
+// Un nom d'onglet dès le premier rendu, avant le préfixe d'environnement.
+if (route.kind === 'account') document.title = titreDePage(route.page)
 
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au
