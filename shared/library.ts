@@ -11,6 +11,18 @@ export const MIN_DURATION = 5
 export const MAX_DURATION = 120
 export const DEFAULT_DURATION = 20
 
+/**
+ * Les bornes d'un quiz, en caractères et en questions : l'éditeur, la liste
+ * collée et le serveur les appliquent, et le format qu'on donne à écrire
+ * (`shared/liste.ts`) les annonce — il ne peut pas en promettre d'autres.
+ */
+export const MAX_TEXT = 300
+export const MAX_ANSWER_TEXT = 120
+export const MAX_UNIT = 12
+export const MAX_QUESTIONS = 100
+/** Le nom ou la description d'une photo annoncée, le temps qu'elle arrive. */
+export const MAX_PHOTO_ATTENDUE = 200
+
 /** Temps d'observation d'une photo avant qu'elle disparaisse. */
 export const MIN_OBSERVE = 2
 export const MAX_OBSERVE = 30
@@ -61,6 +73,15 @@ export interface QuizQuestionDef {
    * Absente des quiz écrits avant les catégories.
    */
   category?: string | null
+  /**
+   * La photo qu'une liste collée annonçait (« Photo : tour-eiffel.jpg ») et
+   * qui n'est pas encore jointe : son nom de fichier, ou ce qu'elle montre.
+   * Une liste écrite par un ami ou par une IA arrive sans ses photos : sans
+   * cette note, on ne savait plus laquelle allait à quelle question. Tant
+   * qu'elle attend, la question ne se joue pas — « Quel est ce monument ? »
+   * sans son monument. La photo jointe l'efface. Absente des quiz d'avant.
+   */
+  photoAttendue?: string | null
 }
 
 export interface QuizDef {
@@ -140,6 +161,7 @@ export function emptyQuestion(modele?: QuizQuestionDef | null): QuizQuestionDef 
     image: null,
     observeSeconds: null,
     category: categorieDe(modele?.category),
+    photoAttendue: null,
   }
 }
 
@@ -212,6 +234,12 @@ export function tempsDObservation(q: QuizQuestionDef): number | null {
     : null
 }
 
+/** La photo que la question attend encore — annoncée, pas jointe —, ou null. */
+export function photoManquante(q: Pick<QuizQuestionDef, 'image' | 'photoAttendue'>): string | null {
+  const note = typeof q.photoAttendue === 'string' ? q.photoAttendue.trim() : ''
+  return note && !q.image ? note : null
+}
+
 /**
  * Convertit une question éditée en question jouable, ou null si elle n'est pas
  * prête. Pour un QCM, retirer les réponses vides décale les index : on retrouve
@@ -220,6 +248,7 @@ export function tempsDObservation(q: QuizQuestionDef): number | null {
 export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
   const text = (q.text ?? '').trim()
   if (!text) return null
+  if (photoManquante(q)) return null
   const duration = Math.min(MAX_DURATION, Math.max(MIN_DURATION, Number(q.duration) || DEFAULT_DURATION))
   const image = q.image ?? null
   const observeSeconds = tempsDObservation(q)
@@ -234,7 +263,7 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
       // Coupée par caractère, comme à l'import : « parts de 🍕🍕🍕🍕 » coupé
       // en unités UTF-16 gardait une moitié de pizza, affichée « � » sur le
       // mur à côté de la bonne réponse.
-      unit: tronquer((q.unit ?? '').trim(), 12),
+      unit: tronquer((q.unit ?? '').trim(), MAX_UNIT),
       duration,
       image,
       observeSeconds,
@@ -259,12 +288,13 @@ export function questionProblem(q: QuizQuestionDef): string | null {
     if (typeof q.target !== 'number' || !Number.isFinite(q.target)) {
       return 'Il manque la bonne réponse (un nombre)'
     }
-    return null
+  } else {
+    const filled = (q.answers ?? []).filter(a => (a ?? '').trim().length > 0)
+    if (filled.length < MIN_ANSWERS) return `Il faut au moins ${MIN_ANSWERS} réponses`
+    if (!((q.answers ?? [])[q.correct] ?? '').trim()) return 'La bonne réponse désignée est vide'
   }
-  const filled = (q.answers ?? []).filter(a => (a ?? '').trim().length > 0)
-  if (filled.length < MIN_ANSWERS) return `Il faut au moins ${MIN_ANSWERS} réponses`
-  if (!((q.answers ?? [])[q.correct] ?? '').trim()) return 'La bonne réponse désignée est vide'
-  return null
+  const photo = photoManquante(q)
+  return photo ? `Il manque la photo « ${photo} »` : null
 }
 
 export function playableQuestions(quiz: QuizDef): PlayableQuestion[] {
@@ -277,7 +307,6 @@ export function playableQuestions(quiz: QuizDef): PlayableQuestion[] {
 // qu'il retrouve dans le navigateur (`shared/brouillon.ts`) : ce qu'on
 // reprend est exactement ce qu'« Enregistrer » aurait gardé.
 
-const MAX_QUESTIONS = 100
 /** Identifiants de question acceptés tels quels — le reste en reçoit un neuf. */
 const QUESTION_ID = /^[\w-]{1,48}$/
 
@@ -297,28 +326,30 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
     const answers: string[] = []
     for (let i = 0; i < MAX_ANSWERS; i++) {
       const a = Array.isArray(q?.answers) ? q.answers[i] : ''
-      answers.push(typeof a === 'string' ? tronquer(a, 120) : '')
+      answers.push(typeof a === 'string' ? tronquer(a, MAX_ANSWER_TEXT) : '')
     }
     const correct = Number(q?.correct)
     const duration = Number(q?.duration)
     const target = Number(q?.target)
     const observe = Number(q?.observeSeconds)
+    // Une URL d'image ne peut venir que du serveur (/media/…) : on refuse le reste.
+    const image = typeof q?.image === 'string' && q.image.startsWith('/media/') ? q.image : null
+    const photoAttendue = typeof q?.photoAttendue === 'string' ? tronquer(q.photoAttendue.trim(), MAX_PHOTO_ATTENDUE).trim() : ''
     return {
       // L'éditeur s'appuie sur cet identifiant pour suivre chaque carte ; les
       // quiz écrits avant en reçoivent un ici, une fois pour toutes.
       id: typeof q?.id === 'string' && QUESTION_ID.test(q.id) ? q.id : newQuestionId(),
       // Les quiz écrits avant l'arrivée des estimations n'ont pas de `kind`.
       kind: q?.kind === 'number' ? 'number' : 'choice',
-      text: typeof q?.text === 'string' ? tronquer(q.text, 300) : '',
+      text: typeof q?.text === 'string' ? tronquer(q.text, MAX_TEXT) : '',
       answers,
       target: q?.target === null || q?.target === undefined || !Number.isFinite(target) ? null : target,
-      unit: typeof q?.unit === 'string' ? tronquer(q.unit, 12) : '',
+      unit: typeof q?.unit === 'string' ? tronquer(q.unit, MAX_UNIT) : '',
       correct: Number.isInteger(correct) && correct >= 0 && correct < MAX_ANSWERS ? correct : 0,
       duration: Number.isFinite(duration)
         ? Math.min(MAX_DURATION, Math.max(MIN_DURATION, Math.round(duration)))
         : DEFAULT_DURATION,
-      // Une URL d'image ne peut venir que du serveur (/media/…) : on refuse le reste.
-      image: typeof q?.image === 'string' && q.image.startsWith('/media/') ? q.image : null,
+      image,
       // Absent des quiz écrits avant la photo « mémoire » : elle reste alors
       // affichée. Comme pour `target`, le null explicite doit être testé avant
       // la conversion — `Number(null)` vaut 0, pas NaN.
@@ -329,6 +360,9 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
       // Prise dans la liste fixe, ou rien : c'est ce qui permet à la carrière
       // d'un joueur d'additionner les catégories d'un hôte à l'autre.
       category: categorieDe(q?.category),
+      // La photo annoncée par une liste collée, le temps qu'elle arrive : la
+      // question ne se joue pas sans elle. Jointe, elle n'a plus rien à dire.
+      photoAttendue: photoAttendue && !image ? photoAttendue : null,
     }
   })
 }
@@ -347,6 +381,15 @@ const SEPARATEUR_BLOCS = /\r?\n\s*\r?\n/
 const SEPARATEUR_LIGNES = /\r?\n/
 
 /**
+ * Les clôtures d'un bloc de code (« ``` », « ```text ») : une IA y range
+ * volontiers sa réponse, et le bouton qui copie sa réponse les emporte. Lue
+ * comme le reste, la première devenait l'intitulé de la première question.
+ */
+const CLOTURE = /^\s*(```|~~~)/
+
+const sansAccents = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+
+/**
  * « = 10 935 mètres » : le nombre, lu comme partout ailleurs (`lireNombreEnTete`),
  * puis l'unité éventuelle. Ce qui ne se lit pas sans ambiguïté — « = 10 93
  * mètres », « = 1,000,000 » — est compté parmi les blocs ignorés, que
@@ -354,29 +397,85 @@ const SEPARATEUR_LIGNES = /\r?\n/
  */
 function lireEstimation(texte: string): { target: number; unit: string } | null {
   const lu = lireNombreEnTete(texte)
-  return lu && { target: lu.valeur, unit: tronquer(lu.reste.trim(), 12) }
+  return lu && { target: lu.valeur, unit: tronquer(lu.reste.trim(), MAX_UNIT) }
 }
+
+/**
+ * Les réglages d'une question, chacun sur sa ligne sous l'intitulé —
+ * « Temps : 30 s », « Photo : tour-eiffel.jpg », « Observation : 5 s » —,
+ * reconnus à leur mot, sans accent ni majuscule. Jamais en tête du bloc : la
+ * première ligne reste l'intitulé, fût-ce « Photo : qui est-ce ? ».
+ */
+type Reglage = 'temps' | 'photo' | 'observation'
+const REGLAGES = new Map<string, Reglage>([
+  ['temps', 'temps'],
+  ['duree', 'temps'],
+  ['photo', 'photo'],
+  ['image', 'photo'],
+  ['observation', 'observation'],
+  ['memoire', 'observation'],
+])
+
+function lireReglage(ligne: string): { reglage: Reglage; valeur: string } | null {
+  const deuxPoints = ligne.indexOf(':')
+  if (deuxPoints < 0) return null
+  // `trim` retire aussi l'insécable qu'un traitement de texte glisse avant
+  // les deux-points.
+  const reglage = REGLAGES.get(sansAccents(ligne.slice(0, deuxPoints)).trim().toLowerCase())
+  return reglage ? { reglage, valeur: ligne.slice(deuxPoints + 1).trim() } : null
+}
+
+/**
+ * Des secondes, écrites comme on les écrit : « 30 », « 30 s », « 45
+ * secondes », « 1 min ». Null si ça ne se lit pas, ou si ça ne dure rien.
+ */
+function lireSecondes(texte: string): number | null {
+  const lu = lireNombreEnTete(texte)
+  if (!lu || !(lu.valeur > 0)) return null
+  const unite = sansAccents(lu.reste).toLowerCase().replace(/\.$/, '').trim()
+  if (/^(s|sec|secondes?)?$/.test(unite)) return lu.valeur
+  if (/^(mn|min|minutes?)$/.test(unite)) return lu.valeur * 60
+  return null
+}
+
+/** « Photo : aucune » : une ligne remplie pour la forme, sans photo derrière. */
+const SANS_PHOTO = /^(aucune?|non|sans|rien|pas de photo|[-–—/])$/
+
+const borner = (n: number, min: number, max: number) => Math.min(max, Math.max(min, Math.round(n)))
 
 /**
  * Analyse un bloc de texte collé dans l'éditeur. Saisir cinquante questions
  * une par une est long ; les taper dans un carnet puis coller l'ensemble
- * l'est beaucoup moins.
+ * l'est beaucoup moins — ou les faire écrire à quelqu'un d'autre, à qui l'on
+ * donne le format complet (`shared/liste.ts`).
  *
  *   Quelle est la capitale de l'Australie ?
  *   Sydney
  *   * Canberra
  *   Melbourne
  *
+ *   Quel est ce monument ?
+ *   Photo : tour-eiffel.jpg
+ *   Temps : 30 s
+ *   * La tour Eiffel
+ *   Big Ben
+ *
  *   Combien de pays composent l'Union européenne ?
  *   = 42 cours
  *
  * Une ligne vide sépare deux questions. L'étoile marque la bonne réponse ;
- * le signe égal transforme la question en estimation chiffrée. `modele`, la
- * voisine de l'endroit où la liste arrive, lui prête son temps et sa
- * catégorie (voir emptyQuestion).
+ * le signe égal transforme la question en estimation chiffrée. Sous
+ * l'intitulé, « Temps », « Photo » et « Observation » règlent la question.
+ * `modele`, la voisine de l'endroit où la liste arrive, lui prête son temps
+ * et sa catégorie (voir emptyQuestion).
  */
 export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | null): ImportResult {
-  const blocks = text.split(SEPARATEUR_BLOCS)
+  // Une clôture devient une ligne vide : elle sépare, elle ne se lit pas.
+  const blocks = text
+    .split(SEPARATEUR_LIGNES)
+    .map(l => (CLOTURE.test(l) ? '' : l))
+    .join('\n')
+    .split(SEPARATEUR_BLOCS)
   const questions: QuizQuestionDef[] = []
   let unmarked = 0
   let ignored = 0
@@ -408,8 +507,33 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
     const question = emptyQuestion(modele)
     question.category = categorie
     // Coupé par caractère, jamais au milieu d'un emoji.
-    question.text = tronquer(lines[0], 300)
-    const rest = lines.slice(1)
+    question.text = tronquer(lines[0], MAX_TEXT)
+
+    // Les réglages d'abord, où qu'ils soient sous l'intitulé : ce qui reste
+    // est la réponse — le « = » d'une estimation, ou les choix d'un QCM.
+    const rest: string[] = []
+    let observation: number | null = null
+    for (const line of lines.slice(1)) {
+      const lu = lireReglage(line)
+      if (!lu) {
+        rest.push(line)
+      } else if (lu.reglage === 'temps') {
+        // Illisible, le temps reste celui de la voisine : il se corrige sur
+        // la carte, et ne vaut pas qu'on perde la question.
+        const secondes = lireSecondes(lu.valeur)
+        if (secondes !== null) question.duration = borner(secondes, MIN_DURATION, MAX_DURATION)
+      } else if (lu.reglage === 'photo') {
+        const photo = tronquer(lu.valeur, MAX_PHOTO_ATTENDUE).trim()
+        question.photoAttendue = photo && !SANS_PHOTO.test(sansAccents(photo).toLowerCase()) ? photo : null
+      } else {
+        // Illisible — « Observation : aucune » —, la photo reste affichée :
+        // une photo qui disparaît sans qu'on l'ait voulu gâche la question.
+        const secondes = lireSecondes(lu.valeur)
+        observation = secondes === null ? null : borner(secondes, MIN_OBSERVE, MAX_OBSERVE)
+      }
+    }
+    // Sans photo, rien à observer (voir tempsDObservation).
+    question.observeSeconds = question.photoAttendue ? observation : null
 
     const numberLine = rest.find(l => l.startsWith('='))
     if (numberLine) {
@@ -432,7 +556,7 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
       const answer = (marked ? line.slice(1) : line).trim()
       if (!answer || answers.length >= MAX_ANSWERS) continue
       if (marked && correct < 0) correct = answers.length
-      answers.push(tronquer(answer, 120))
+      answers.push(tronquer(answer, MAX_ANSWER_TEXT))
     }
     if (answers.length < MIN_ANSWERS) {
       ignored++

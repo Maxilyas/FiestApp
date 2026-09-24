@@ -1988,6 +1988,24 @@ h3 > .icon {
 
 .import-area { font-family: Consolas, 'Cascadia Mono', ui-monospace, monospace; font-size: 0.9rem; }
 
+/* Le format complet, à copier pour quelqu'un d'autre : déplié, il défile
+   dans son cadre plutôt que de repousser le champ où l'on colle. */
+.import-format { display: flex; flex-direction: column; gap: 8px; }
+.import-format p { margin: 0; }
+.import-format-complet { max-height: 360px; overflow-y: auto; }
+
+/* Les photos annoncées par la liste, et le fichier trouvé pour chacune. */
+.import-photos {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-faint);
+  border: 1px solid var(--edge);
+}
+.import-photos p { margin: 0; }
+
 .preview-backdrop {
   position: fixed;
   inset: 0;
@@ -3148,6 +3166,12 @@ h3 > .icon {
 .import-lues li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .import-lue-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .import-lue-valeur { flex-shrink: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Une photo peut être décrite plutôt que nommée : au-delà de la moitié de
+   la ligne, elle se coupe à son tour. */
+.import-lue-photo { max-width: 55%; overflow: hidden; text-overflow: ellipsis; }
+
+/* Sur la carte, la photo qu'une liste annonçait et qu'il reste à joindre. */
+.photo-attendue { color: var(--accent-text); overflow-wrap: anywhere; }
 
 /* ── La sauvegarde en retard ─────────────────────────────────────────────
 

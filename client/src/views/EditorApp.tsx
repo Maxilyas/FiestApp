@@ -3,8 +3,11 @@ import {
   DEFAULT_DURATION,
   DEFAULT_OBSERVE,
   MAX_ANSWERS,
+  MAX_ANSWER_TEXT,
   MAX_DURATION,
   MAX_OBSERVE,
+  MAX_TEXT,
+  MAX_UNIT,
   MIN_DURATION,
   MIN_OBSERVE,
   cloneQuestion,
@@ -13,6 +16,7 @@ import {
   moveQuestion,
   newQuestionId,
   parseImportedQuestions,
+  photoManquante,
   questionProblem,
   tempsDObservation,
   toPlayable,
@@ -24,6 +28,7 @@ import {
 import { CATEGORIES } from '../../../shared/categories'
 import { lireNombre } from '../../../shared/nombres'
 import { POIDS_MAX_FICHIER, emporterQuiz, importerQuiz, nomDeFichier } from '../../../shared/echange'
+import { APERCU_DU_FORMAT, FORMAT_DE_LISTE, apparierPhotos, cleDePhoto, joindrePhotos } from '../../../shared/liste'
 import {
   brouillonDepasse,
   brouillonUtile,
@@ -31,7 +36,7 @@ import {
   sansPhotosDisparues,
   type Brouillon,
 } from '../../../shared/brouillon'
-import { UnauthorizedError, api, auReveil, compressImage } from '../api'
+import { ApiError, UnauthorizedError, api, auReveil, compressImage } from '../api'
 import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon } from '../brouillon'
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
@@ -78,6 +83,36 @@ async function photoEnClair(adresse: string): Promise<string | null> {
     lecteur.onerror = () => resolve(null)
     lecteur.readAsDataURL(blob)
   })
+}
+
+/**
+ * Copie ce texte dans le presse-papiers ; faux si le navigateur refuse. Hors
+ * https — le wifi de repli —, le presse-papiers moderne n'existe pas :
+ * l'ancienne commande marche encore presque partout.
+ */
+async function copierTexte(texte: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(texte)
+    return true
+  } catch {
+    const avant = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const zone = document.createElement('textarea')
+    zone.value = texte
+    zone.setAttribute('readonly', '')
+    zone.style.position = 'fixed'
+    zone.style.opacity = '0'
+    document.body.appendChild(zone)
+    zone.select()
+    try {
+      return document.execCommand('copy')
+    } catch {
+      return false
+    } finally {
+      zone.remove()
+      // Le clavier revient au bouton qui a copié.
+      avant?.focus()
+    }
+  }
 }
 
 /** Fait télécharger ce texte sous ce nom, sans passer par le serveur. */
@@ -766,8 +801,9 @@ function QuizEditor({ id, onClose }: { id: string; onClose: () => void }) {
       {importing && (
         <BulkImport
           questions={quiz.questions}
-          onImport={(questions, number) => {
+          onImport={(questions, number, alerte) => {
             patch(q => ({ ...q, questions: insertQuestions(q.questions, number, questions) }))
+            if (alerte) setError(alerte)
             setAnnounce(
               questions.length > 1
                 ? `${questions.length} questions ajoutées à partir du n° ${number}`
@@ -937,7 +973,9 @@ function PhotoLoupe({ src, onClose }: { src: string; onClose: () => void }) {
 
 /**
  * Import en masse. Saisir cinquante questions une par une prend une soirée ;
- * les taper dans un carnet puis coller l'ensemble prend une minute.
+ * les taper dans un carnet puis coller l'ensemble prend une minute — et les
+ * faire écrire par quelqu'un d'autre, à qui l'on donne le format complet,
+ * pas davantage.
  */
 function BulkImport({
   questions,
@@ -946,13 +984,33 @@ function BulkImport({
 }: {
   /** Questions déjà dans le quiz : la liste collée arrive après, sauf avis contraire. */
   questions: QuizQuestionDef[]
-  /** Les questions reconnues, et le numéro que prendra la première. */
-  onImport: (questions: QuizQuestionDef[], number: number) => void
+  /**
+   * Les questions reconnues, le numéro que prendra la première, et ce qui
+   * mérite d'être dit une fois le panneau refermé : une photo partie de travers.
+   */
+  onImport: (questions: QuizQuestionDef[], number: number, alerte?: string) => void
   onCancel: () => void
 }) {
   const total = questions.length
   const [text, setText] = useState('')
   const [at, setAt] = useState(String(total + 1))
+  /** Le format complet, déplié sous le bouton qui le copie. */
+  const [voirFormat, setVoirFormat] = useState(false)
+  const [copie, setCopie] = useState<'faite' | 'refusee' | null>(null)
+  /** Les photos choisies pour la liste : chacune rejoint sa question par son nom de fichier. */
+  const [fichiers, setFichiers] = useState<File[]>([])
+  /** L'envoi des photos, au moment d'ajouter : combien sont parties. */
+  const [envoi, setEnvoi] = useState<{ faites: number; total: number } | null>(null)
+  /** Une photo attend que le serveur se réveille (voir `auReveil`). */
+  const [reveil, setReveil] = useState(false)
+  const choixPhotos = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (copie !== 'faite') return
+    const timer = setTimeout(() => setCopie(null), 4000)
+    return () => clearTimeout(timer)
+  }, [copie])
+
   // Un champ vide ou illisible vaut « à la fin » ; un numéro trop grand aussi.
   const typed = Number.parseInt(at, 10)
   const number = Number.isNaN(typed) ? total + 1 : Math.min(total + 1, Math.max(1, typed))
@@ -963,6 +1021,62 @@ function BulkImport({
   // mètres » lu comme 10, avec « 935 mètres » pour unité, s'affichait à
   // l'identique à la révélation — et classait toute la salle sur un faux.
   const estimations = result.questions.filter(q => q.kind === 'number')
+  // Les photos que la liste annonce, et le fichier choisi pour chacune.
+  const appariees = apparierPhotos(result.questions, fichiers)
+  const annoncees = result.questions.flatMap((q, i) => (q.photoAttendue ? [{ q, fichier: appariees[i] }] : []))
+  const jointes = annoncees.filter(a => a.fichier).length
+  // Un fichier dont le nom ne répond à aucune « Photo : » se signale : une
+  // faute de frappe dans la liste, ou le mauvais dossier.
+  const clesAnnoncees = new Set(annoncees.map(a => cleDePhoto(a.q.photoAttendue ?? '')))
+  const orphelins = fichiers.filter(f => !clesAnnoncees.has(cleDePhoto(f.name)))
+
+  const copierLeFormat = async () => {
+    const faite = await copierTexte(FORMAT_DE_LISTE)
+    setCopie(faite ? 'faite' : 'refusee')
+    // Refusée, la copie se fait à la main : le texte se déplie, prêt à sélectionner.
+    if (!faite) setVoirFormat(true)
+  }
+
+  const ajouter = async () => {
+    if (!appariees.some(Boolean)) return onImport(result.questions, number)
+    setEnvoi({ faites: 0, total: 0 })
+    // Le serveur ne s'est pas réveillé pour une photo : les suivantes n'attendent
+    // plus, sans quoi un serveur tombé coûtait deux minutes par photo.
+    let renonce = false
+    const { questions: jointesAuQuiz, echecs } = await joindrePhotos(
+      result.questions,
+      fichiers,
+      async fichier => {
+        if (renonce) throw new Error('Serveur endormi')
+        const enClair = await compressImage(fichier)
+        // Une photo rejoint la question qui l'annonçait, pas une place dans le
+        // quiz : elle peut attendre le réveil, contrairement à celle qu'on
+        // joint depuis une carte.
+        try {
+          const { url } = await auReveil(() => api.uploadImage(enClair), { surAttente: () => setReveil(true) })
+          return url
+        } catch (e) {
+          if (e instanceof ApiError && e.passager) renonce = true
+          throw e
+        }
+      },
+      (faites, total) => {
+        setReveil(false)
+        setEnvoi({ faites, total })
+      },
+    )
+    // Les questions entrent quand même : celle dont la photo n'est pas
+    // partie l'attend, et le dit sur sa carte.
+    onImport(
+      jointesAuQuiz,
+      number,
+      echecs.length === 0
+        ? undefined
+        : echecs.length === 1
+          ? `La photo ${echecs[0]} n’est pas partie : ajoute-la depuis sa question.`
+          : `${echecs.length} photos ne sont pas parties (${echecs.join(', ')}) : ajoute-les depuis leur question.`,
+    )
+  }
 
   return (
     <div className="card import-panel">
@@ -971,25 +1085,49 @@ function BulkImport({
         Coller une liste de questions
       </h3>
       <p className="muted">
-        Une ligne vide entre deux questions. L'étoile marque la bonne réponse ; le signe égal
-        transforme la question en estimation chiffrée. Une ligne qui commence par un dièse range
-        les questions qui suivent dans une catégorie — « # Musique », « # Cinéma »… Sans dièse, elles
-        prennent le temps et la catégorie de la question qui les précède.
+        {espacesFines(
+          'Une ligne vide entre deux questions. L’étoile marque la bonne réponse ; le signe égal ' +
+            'transforme la question en estimation chiffrée. Sous l’intitulé, « Temps : 30 s », « Photo : … » ' +
+            'et « Observation : 5 s » règlent la question ; une ligne qui commence par un dièse range les ' +
+            'questions qui suivent dans une catégorie — « #\u00a0Musique », « #\u00a0Cinéma »… Sans ces lignes, elles ' +
+            'prennent le temps et la catégorie de la question qui les précède.',
+        )}
       </p>
-      <pre className="import-example">{`# Géographie
-
-Quelle est la capitale de l'Australie ?
-Sydney
-* Canberra
-Melbourne
-
-Combien de pays composent l'Union européenne ?
-= 27 pays`}</pre>
+      <pre className="import-example">{APERCU_DU_FORMAT}</pre>
+      <div className="import-format">
+        <div className="row">
+          <button type="button" className="btn btn-small" onClick={copierLeFormat}>
+            <Icon name={copie === 'faite' ? 'check' : 'copy'} />
+            {copie === 'faite' ? 'Format copié' : 'Copier le format complet'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-small"
+            aria-expanded={voirFormat}
+            onClick={() => setVoirFormat(v => !v)}
+          >
+            <Icon name={voirFormat ? 'eye-off' : 'eye'} />
+            {voirFormat ? 'Masquer le format' : 'Voir le format'}
+          </button>
+        </div>
+        <p className="muted small">
+          Toutes les règles, les catégories et un exemple : à donner à quelqu'un, ou à une IA, qui
+          écrira le quiz pour toi. Tu n'auras plus qu'à coller sa réponse ici.
+        </p>
+        {copie === 'refusee' && (
+          <p className="warn small">Ce navigateur ne laisse pas copier d'ici : sélectionne le texte ci-dessous, puis copie-le.</p>
+        )}
+        {voirFormat && <pre className="import-example import-format-complet">{FORMAT_DE_LISTE}</pre>}
+        <p className="sr-only" aria-live="polite">
+          {copie === 'faite' ? 'Format copié dans le presse-papiers' : ''}
+        </p>
+      </div>
       <textarea
         className="input import-area"
         rows={10}
         placeholder="Colle tes questions ici…"
         value={text}
+        readOnly={envoi !== null}
         onChange={e => setText(e.target.value)}
       />
       <p className={result.unmarked > 0 ? 'warn' : 'muted'}>
@@ -1000,6 +1138,67 @@ Combien de pays composent l'Union européenne ?
           ` · ${result.unmarked} sans étoile : la 1ʳᵉ réponse sera prise pour la bonne`}
         {result.ignored > 0 && ` · ${result.ignored} bloc(s) ignoré(s)`}
       </p>
+      {annoncees.length > 0 && (
+        <div className="import-photos">
+          <div className="row">
+            <input
+              ref={choixPhotos}
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={e => {
+                const choisis = Array.from(e.target.files ?? [])
+                // Les mêmes photos, choisies deux fois de suite, doivent repartir.
+                e.target.value = ''
+                // Les choix s'ajoutent ; une photo choisie à nouveau remplace son homonyme.
+                const noms = new Set(choisis.map(f => f.name))
+                if (choisis.length > 0) setFichiers(avant => [...avant.filter(f => !noms.has(f.name)), ...choisis])
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-small"
+              disabled={envoi !== null}
+              onClick={() => choixPhotos.current?.click()}
+            >
+              <Icon name="camera" />
+              Joindre les photos
+            </button>
+            <span className={jointes === annoncees.length ? 'muted' : 'warn'}>
+              {jointes} photo{jointes > 1 ? 's' : ''} jointe{jointes > 1 ? 's' : ''} sur {annoncees.length}
+            </span>
+          </div>
+          <p className="muted small">
+            Choisis-les toutes d'un coup : chacune rejoint sa question par son nom de fichier. Celles qui
+            manquent s'ajouteront ensuite, depuis leur question — qui ne sera pas jouée sans sa photo.
+          </p>
+          <ul className="import-lues">
+            {annoncees.map(({ q, fichier }, i) => (
+              <li key={i}>
+                <span className="import-lue-texte">{q.text}</span>
+                <span className="import-lue-valeur import-lue-photo" title={fichier?.name ?? q.photoAttendue ?? undefined}>
+                  {fichier ? (
+                    <>
+                      <Icon name="check" /> {fichier.name}
+                    </>
+                  ) : (
+                    <span className="muted">{q.photoAttendue}</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {orphelins.length > 0 && (
+            <p className="warn small">
+              {espacesFines(
+                `Sans question : ${orphelins.map(f => f.name).join(', ')} — aucune ligne « Photo : » ne porte ` +
+                  (orphelins.length > 1 ? 'leur nom.' : 'ce nom.'),
+              )}
+            </p>
+          )}
+        </div>
+      )}
       {estimations.length > 0 && (
         <div>
           <p className="muted small">
@@ -1022,8 +1221,12 @@ Combien de pays composent l'Union européenne ?
         </div>
       )}
       <div className="row">
-        <button className="btn btn-primary" disabled={count === 0} onClick={() => onImport(result.questions, number)}>
-          Ajouter au quiz
+        <button className="btn btn-primary" disabled={count === 0 || envoi !== null} onClick={ajouter}>
+          {!envoi
+            ? 'Ajouter au quiz'
+            : reveil
+              ? 'Réveil du serveur…'
+              : `Envoi des photos…${envoi.total > 0 ? ` ${envoi.faites}/${envoi.total}` : ''}`}
         </button>
         <label className="row">
           <span className="muted">à partir du n°</span>
@@ -1038,7 +1241,7 @@ Combien de pays composent l'Union européenne ?
             onChange={e => setAt(e.target.value)}
           />
         </label>
-        <button className="btn btn-ghost" onClick={onCancel}>
+        <button className="btn btn-ghost" disabled={envoi !== null} onClick={onCancel}>
           Annuler
         </button>
       </div>
@@ -1090,6 +1293,7 @@ function QuestionCard({
   const [busy, setBusy] = useState(false)
   const [imageError, setImageError] = useState('')
   const problem = questionProblem(question)
+  const attendue = photoManquante(question)
   // La cible telle qu'on la tape. Relu en nombre à chaque touche, le champ
   // mangeait ce qui n'en est pas encore un : la virgule de « 0,8 » (la cible
   // devenait 8, sans un mot) et le signe de « -40 ».
@@ -1138,7 +1342,8 @@ function QuestionCard({
     try {
       const dataUrl = await compressImage(file)
       const { url } = await api.uploadImage(dataUrl)
-      onChange(q => ({ ...q, image: url }))
+      // La photo que la liste annonçait est arrivée : la note n'a plus rien à dire.
+      onChange(q => ({ ...q, image: url, photoAttendue: null }))
     } catch (e) {
       setImageError((e as Error).message)
     } finally {
@@ -1252,7 +1457,7 @@ function QuestionCard({
         ref={textArea}
         className="input"
         rows={2}
-        maxLength={300}
+        maxLength={MAX_TEXT}
         placeholder="Ta question…"
         aria-label={`Intitulé de la question ${index + 1}`}
         value={question.text}
@@ -1280,7 +1485,7 @@ function QuestionCard({
             <span className="muted">Unité</span>
             <input
               className="input unit-input"
-              maxLength={12}
+              maxLength={MAX_UNIT}
               placeholder="ans, km, €…"
               value={question.unit}
               onChange={e => onChange(q => ({ ...q, unit: e.target.value }))}
@@ -1306,7 +1511,7 @@ function QuestionCard({
             <Shape index={i} />
             <input
               className="input"
-              maxLength={120}
+              maxLength={MAX_ANSWER_TEXT}
               aria-label={`Réponse ${i + 1}`}
               placeholder={i < 2 ? `Réponse ${i + 1}` : `Réponse ${i + 1} (optionnelle)`}
               value={question.answers[i] ?? ''}
@@ -1384,16 +1589,35 @@ function QuestionCard({
             </button>
           </div>
         ) : (
-          <button className="btn btn-small" disabled={busy} onClick={() => fileInput.current?.click()}>
-            {busy ? (
-              'Envoi…'
-            ) : (
-              <>
-                <Icon name="camera" />
-                Ajouter une photo
-              </>
+          <div className="row">
+            {/* La photo qu'une liste collée annonçait : son nom de fichier, ou
+                ce qu'elle doit montrer — ce qu'il faut aller chercher. */}
+            {attendue && (
+              <span className="photo-attendue">
+                {'Photo attendue\u00a0: '}
+                <strong>{attendue}</strong>
+              </span>
             )}
-          </button>
+            <button className="btn btn-small" disabled={busy} onClick={() => fileInput.current?.click()}>
+              {busy ? (
+                'Envoi…'
+              ) : (
+                <>
+                  <Icon name="camera" />
+                  {attendue ? 'Ajouter la photo' : 'Ajouter une photo'}
+                </>
+              )}
+            </button>
+            {attendue && (
+              <button
+                className="btn btn-ghost btn-small"
+                title="Jouer la question sans photo"
+                onClick={() => onChange(q => ({ ...q, photoAttendue: null, observeSeconds: null }))}
+              >
+                Sans photo
+              </button>
+            )}
+          </div>
         )}
       </div>
 
