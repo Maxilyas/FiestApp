@@ -1,3 +1,4 @@
+import { Glossaire } from './Glossaire'
 import { useState } from 'react'
 import type { PartyStats, PlayerStat } from '../../../shared/types'
 
@@ -68,38 +69,43 @@ export function StatsTable({ stats }: { stats: PartyStats }) {
   }
 
   return (
-    <div className="stats-scroll">
-      <table className="stats-table">
-        <thead>
-          <tr>
-            <th className="stats-name">Joueur</th>
-            {COLUMNS.map(c => (
-              <th key={c.key} title={c.title}>
-                <button
-                  className={'stats-sort' + (c.key === sortKey ? ' active' : '')}
-                  onClick={() => setSortKey(c.key)}
-                >
-                  {c.label}
-                </button>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(s => (
-            <tr key={s.playerId}>
-              <td className="stats-name">
-                <span className="lb-avatar">{s.avatar}</span> {s.name}
-              </td>
+    <>
+      <div className="stats-scroll">
+        <table className="stats-table">
+          <thead>
+            <tr>
+              <th className="stats-name">Joueur</th>
               {COLUMNS.map(c => (
-                <td key={c.key} className={c.key === sortKey ? 'stats-active' : undefined}>
-                  {c.format(s)}
-                </td>
+                <th key={c.key} title={c.title}>
+                  <button
+                    className={'stats-sort' + (c.key === sortKey ? ' active' : '')}
+                    onClick={() => setSortKey(c.key)}
+                  >
+                    {c.label}
+                  </button>
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {rows.map(s => (
+              <tr key={s.playerId}>
+                <td className="stats-name">
+                  <span className="lb-avatar">{s.avatar}</span> {s.name}
+                </td>
+                {COLUMNS.map(c => (
+                  <td key={c.key} className={c.key === sortKey ? 'stats-active' : undefined}>
+                    {c.format(s)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {/* Les colonnes abrégées — « Biais », « Écart estim. », « Série − » —
+          s'expliquaient dans un `title`, que le toucher n'affiche pas. */}
+      <Glossaire titre="Que veulent dire ces colonnes ?" mots={[]} extra={COLUMNS.map(c => ({ terme: c.label, sens: c.title }))} />
+    </>
   )
 }

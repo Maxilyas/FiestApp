@@ -301,7 +301,8 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
               prénom elle se comprend, sur sa propre ligne c'est un « 1 » nu. */}
           <p className="muted">
             Niveau {profil.niveau}
-            {profil.badges > 0 && ` · ${profil.badges} badge${profil.badges > 1 ? 's' : ''}`}
+            {/* « badge » n'existait nulle part ailleurs à l'écran. */}
+            {profil.badges > 0 && ` · ${profil.badges} récompense${profil.badges > 1 ? 's' : ''}`}
           </p>
         </div>
         {erreur && <p className="error" role="alert">{erreur}</p>}

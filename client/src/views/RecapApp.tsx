@@ -1,3 +1,4 @@
+import { Glossaire } from '../components/Glossaire'
 import { formatNumber } from '../format'
 import { useEffect, useRef, useState } from 'react'
 import type { Recap } from '../../../shared/types'
@@ -181,10 +182,10 @@ export function RecapApp() {
 
       {recap.stats.logged > 0 && (
         <section id="stats" className="card">
-          <h2>Toutes les statistiques</h2>
+          <h2>Les chiffres</h2>
           <p className="muted small">
             {recap.stats.questions} questions posées · {recap.stats.logged} réponses enregistrées.
-            Clique sur un en-tête pour trier — chacun peut y chercher son propre chiffre. Le tableau
+            Touche un en-tête pour trier — chacun peut y chercher son propre chiffre. Le tableau
             défile dans son cadre : dix-huit colonnes ne tiennent pas sur un téléphone.
           </p>
           <StatsTable stats={recap.stats} />
@@ -214,6 +215,7 @@ export function RecapApp() {
         </section>
       )}
 
+      <Glossaire mots={['souvenir', 'bilan', 'historique', 'palmares', 'prix', 'hautsFaits', 'carte']} />
       <p className="recap-foot muted">Merci d'être venus.</p>
     </div>
   )

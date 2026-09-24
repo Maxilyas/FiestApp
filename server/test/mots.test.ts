@@ -12,6 +12,9 @@ import path from 'node:path'
 import { ProfileStore } from '../src/auth/profiles'
 import { titreDuPrix } from '../src/core/stats'
 import { hautFait } from '../../shared/hautsfaits'
+import { GLOSSAIRE } from '../../shared/glossaire'
+import { DIVINS } from '../../shared/divins'
+import { raconter } from '../src/core/divins'
 import { connecter, connexionAnimateur, demarrer, ecrire, emitAck, invite, ADMIN } from './banc'
 
 test('un prix et un haut fait ne portent jamais le même nom', () => {
@@ -79,4 +82,21 @@ test('les erreurs disent quoi faire : soirée complète, son propre compte, une 
     for (const s of sockets) s.close()
     await banc.close()
   }
+})
+
+test('le glossaire : une phrase courte par mot, et rien des règles des Divins', () => {
+  const lignes = Object.values(GLOSSAIRE)
+  assert.equal(new Set(lignes.map(l => l.terme)).size, lignes.length, 'un mot, une définition')
+  for (const { terme, sens } of lignes) {
+    // Lue au téléphone, dépliée sous la page : deux lignes au plus en 360 px.
+    assert.ok(sens.length <= 100, `${terme} : trop long (${sens.length})`)
+    assert.match(sens, /[.!]$/, `${terme} : une phrase`)
+    assert.doesNotMatch(sens, /'/, `${terme} : l’apostrophe courbe`)
+  }
+  // Invariant 21 : le nom et le mystère, jamais la règle ni la légende.
+  const divin = GLOSSAIRE.divin.sens
+  for (const { legende } of raconter(DIVINS.map(d => d.key))) assert.ok(!divin.includes(legende), legende)
+  assert.match(divin, /Personne ne sait/)
+  // La précision ne compte que les QCM : le glossaire le dit.
+  assert.match(GLOSSAIRE.precision.sens, /QCM/)
 })

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react'
+import { Glossaire } from '../components/Glossaire'
 import { api } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
@@ -291,7 +292,7 @@ export function ProfilApp() {
         </div>
         <p className="muted small">
           Les finitions se gagnent au niveau, jusqu'à Constellation au niveau 25. L'Éclat, lui, ne se
-          gagne pas : une chance sur quarante par soirée qui compte, et c'est l'emoji lui-même qui
+          gagne pas : une chance sur quarante par soirée jouée à deux ou plus, et c'est l'emoji lui-même qui
           change de couleurs.
         </p>
       </Repli>
@@ -355,6 +356,10 @@ export function ProfilApp() {
           </div>
         ))}
       </Repli>
+
+      <Glossaire
+        mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'precision', 'coupDOeil', 'reflexe', 'flair']}
+      />
 
       {erreur && <p className="error">{erreur}</p>}
 

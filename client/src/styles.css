@@ -4255,3 +4255,27 @@ h3 > .icon {
     .cloture-fait { gap: 6px; padding: 8px 12px; }
   }
 }
+
+/* ── Le glossaire ─────────────────────────────────────────────────────────
+
+   Replié sur une ligne discrète ; déplié, un terme par ligne, le mot en tête.
+   Pas de marqueur natif : le triangle de Safari et celui de Chrome ne se
+   ressemblent pas, l'icône dit assez qu'on peut ouvrir. */
+.glossaire { margin-top: 14px; }
+.glossaire > summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.glossaire > summary::-webkit-details-marker { display: none; }
+.glossaire > summary .icon { width: 15px; height: 15px; }
+.glossaire > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+.glossaire dl { margin: 4px 0 0; display: grid; gap: 8px; }
+.glossaire dt { font-weight: 600; color: var(--accent-text); display: inline; }
+.glossaire dt::after { content: ' · '; color: var(--muted); font-weight: 400; }
+.glossaire dd { display: inline; margin: 0; color: var(--ink); }

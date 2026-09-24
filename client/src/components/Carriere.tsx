@@ -240,7 +240,7 @@ export function HautsFaits({ hautsFaits }: { hautsFaits: HautFaitVu[] }) {
   return (
     <>
       <p className="muted small">
-        Ils se lisent à la clôture de chaque soirée, et certains débloquent un avatar légendaire.
+        Ils se décernent à la fin de chaque soirée, et certains débloquent un avatar légendaire.
       </p>
       <h4 className="hf-groupe">Exploits</h4>
       <ul className="hf-liste">{eclats.map(h => <LigneSoiree key={h.key} h={h} />)}</ul>

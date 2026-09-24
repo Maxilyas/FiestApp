@@ -1,3 +1,4 @@
+import { Glossaire } from '../components/Glossaire'
 import { deNom } from '../format'
 import { useEffect, useMemo, useState } from 'react'
 import type { Review, ReviewPlayer } from '../../../shared/review'
@@ -189,6 +190,7 @@ export function BilanApp() {
         <Picker ctx={ctx} players={played} onPick={id => navigate({ kind: 'me', playerId: id })} />
       )}
 
+      <Glossaire mots={['bilan', 'souvenir', 'precision', 'coupDOeil']} />
       <p className="recap-foot muted">Merci d'avoir joué.</p>
       <p className="muted small center">
         Pour l'animateur :{' '}
