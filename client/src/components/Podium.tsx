@@ -82,7 +82,7 @@ export function FinalPodium({ rows }: { rows: PodiumRow[] }) {
           <span className="sr-only">Rang {rank[i]} : </span>
           <Avatar className="podium-avatar" avatar={row.avatar} finition={row.finition} eclat={row.eclat} legendaire={row.legendaire} />
           <span className="podium-name">
-            {row.name}
+            <span className="podium-nom">{row.name}</span>
             <Niveau niveau={row.niveau} />
           </span>
           {/* La marche ne rétrécit pas sous un nom long : elle prend sa part de

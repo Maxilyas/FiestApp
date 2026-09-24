@@ -145,3 +145,11 @@ test('la pause se lit partout : sur la question longue, au téléphone, et les r
   // À 15 %, les réponses tombaient à 1,35:1 en Ivoire.
   assert.match(css, /\.quiz-host:has\(> \.pause-voile\) > :is\(\.ans-grid, \.big-waiting, \.compte-reponses\) \{ opacity: 0\.4; \}/)
 })
+
+test('le niveau du vainqueur reste hors de la coupe de son nom', () => {
+  // Coupé à deux lignes avec le nom, le niveau d'un nom long disparaissait.
+  assert.doesNotMatch(css, /\.podium-name \{[^}]*line-clamp/)
+  assert.match(css, /\.podium-nom \{[^}]*-webkit-line-clamp: 2;/)
+  const podium = readFileSync(new URL('../../client/src/components/Podium.tsx', import.meta.url), 'utf8')
+  assert.match(podium, /<span className="podium-nom">\{row\.name\}<\/span>\s*<Niveau/)
+})

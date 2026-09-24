@@ -1644,12 +1644,19 @@ h3 > .icon {
   font-size: 1.3rem;
   line-height: 1.15;
   text-align: center;
-  /* Deux lignes au plus : au-delà, le nom mangeait la place de sa marche. */
-  display: -webkit-box;
+}
+/* Le nom seul, deux lignes au plus : au-delà, il mangeait la place de sa
+   marche. Le niveau reste hors de la coupe — coupé avec le nom, celui du
+   vainqueur au nom long disparaissait. En ligne, il suit un nom court sur
+   la même ligne, et passe dessous quand le nom en prend deux. */
+.podium-nom {
+  display: -webkit-inline-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
+  max-width: 100%;
   overflow: hidden;
+  vertical-align: bottom;
   /* Entre deux mots d'abord : `anywhere` coupait « Ophéli / e » alors que
      « Ophélie » tenait sur sa ligne. */
   overflow-wrap: break-word;
