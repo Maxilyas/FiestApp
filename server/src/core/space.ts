@@ -152,7 +152,14 @@ export class SpaceRuntime {
       // compris : une archive et de l'expérience ont pu être écrites sous ce
       // nom-là, et si le premier arrivé s'en allait avant qu'il ne resserve,
       // plus rien ne permettrait de le retrouver.
-      const tiree = this.tirerSoiree()
+      //
+      // Des réponses au journal sans nom rangé : un quiz s'est joué sur un
+      // serveur qui ne rangeait pas les noms, et il a pu écrire son archive et
+      // son expérience sous le nom d'alors, sans l'empreinte de l'espace. Le
+      // tirer au format du jour doublait l'archive et recomptait
+      // l'expérience du premier quiz (invariant 11). Sans réponse, rien n'a
+      // pu s'écrire : le nom du jour ne rebaptise rien.
+      const tiree = this.tirerSoiree(this.answers.all().length > 0)
       if (tiree) {
         this.recopierSoiree(tiree).catch(e => console.warn(`[soirée] nom non recopié : ${(e as Error).message}`))
       }
@@ -234,9 +241,13 @@ export class SpaceRuntime {
     return row ? { id: row.id, heldAt: row.held_at } : null
   }
 
-  /** Tire le nom sur les invités présents, et le range sur le disque local. */
-  private tirerSoiree(): Soiree | null {
-    const soiree = soireeDesInvites(this.party.all(), this.spaceId)
+  /**
+   * Tire le nom sur les invités présents, et le range sur le disque local.
+   * `commeAvant` le tire sans l'empreinte de l'espace, comme le faisait le
+   * serveur d'avant — pour retrouver le nom d'une soirée qu'il a commencée.
+   */
+  private tirerSoiree(commeAvant = false): Soiree | null {
+    const soiree = soireeDesInvites(this.party.all(), commeAvant ? null : this.spaceId)
     if (!soiree) return null
     this.deps.db
       .prepare('INSERT OR REPLACE INTO soiree (space_id, id, held_at) VALUES (?, ?, ?)')

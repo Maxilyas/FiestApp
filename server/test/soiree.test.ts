@@ -374,14 +374,26 @@ test('une soirée commencée avant la mise à jour garde le nom qu’elle avait'
     await premier
     await patienter(400)
 
-    // Le serveur d'avant ne rangeait le nom de la soirée nulle part : on
-    // efface celui qu'on vient de ranger. Il ne reste que ce qu'une soirée en
-    // cours au moment du déploiement aurait laissé — des invités, leurs
-    // points, une archive et de l'expérience déjà écrites sous ce nom-là.
+    // Le serveur d'avant ne rangeait le nom de la soirée nulle part, et le
+    // tirait sans l'empreinte de l'espace. On imite ce qu'il aurait laissé à
+    // une soirée en cours au moment du déploiement : des invités, leurs
+    // points, une archive et de l'expérience déjà écrites sous ce nom-là —
+    // et aucune ligne dans `party_soiree`.
+    const avant = archiveIdOf(debut, null)
+    const duJour = archiveIdOf(debut, espaceDe(banc))
+    assert.notEqual(avant, duJour)
     const db = new Database(permanente(banc))
     try {
-      const table = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'party_soiree'").get()
-      if (table) db.prepare('DELETE FROM party_soiree').run()
+      const rebaptiser = db.transaction(() => {
+        assert.equal(db.prepare('UPDATE soirees SET id = ? WHERE id = ?').run(avant, duJour).changes, 1, 'l’archive du premier quiz')
+        assert.ok(
+          db.prepare('UPDATE profile_xp SET soiree_id = ? WHERE soiree_id = ?').run(avant, duJour).changes > 0,
+          'l’expérience du premier quiz',
+        )
+        db.prepare('UPDATE profile_badges SET soiree_id = ? WHERE soiree_id = ?').run(avant, duJour)
+        db.prepare('DELETE FROM party_soiree').run()
+      })
+      rebaptiser()
     } finally {
       db.close()
     }
@@ -412,12 +424,8 @@ test('une soirée commencée avant la mise à jour garde le nom qu’elle avait'
     await clore(host3)
 
     const archives = await historique(banc)
-    assert.deepEqual(
-      archives.map(a => a.id),
-      [archiveIdOf(debut, espaceDe(banc))],
-      'l’archive d’avant la mise à jour est mise à jour, pas doublée',
-    )
-    assert.deepEqual(lignesXp(banc, aliceId).map(l => l.soiree_id), [archiveIdOf(debut, espaceDe(banc))])
+    assert.deepEqual(archives.map(a => a.id), [avant], 'l’archive d’avant la mise à jour est mise à jour, pas doublée')
+    assert.deepEqual(lignesXp(banc, aliceId).map(l => l.soiree_id), [avant])
   }))
 
 // ── Les prix de soirée ────────────────────────────────────────────────────

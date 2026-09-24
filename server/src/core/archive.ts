@@ -58,9 +58,12 @@ export function archiveTitle(heldAt: number): string {
  * empreinte —, sans migrer les tables des profils ni rebaptiser les soirées
  * passées : leur nom est figé (invariant 11), et il reste lisible.
  */
-export function archiveIdOf(heldAt: number, spaceId: string): string {
+export function archiveIdOf(heldAt: number, spaceId: string | null): string {
   const day = new Date(heldAt).toLocaleDateString('fr-CA', { timeZone: TIMEZONE })
-  return `${day}-${heldAt.toString(36).slice(-5)}-${empreinteDEspace(spaceId)}`
+  const avant = `${day}-${heldAt.toString(36).slice(-5)}`
+  // Sans espace, le nom tel qu'on le tirait avant l'empreinte : celui d'une
+  // soirée commencée avant qu'on range son nom (voir `SpaceRuntime`).
+  return spaceId === null ? avant : `${avant}-${empreinteDEspace(spaceId)}`
 }
 
 /** Six caractères tirés de l'identifiant d'un espace, toujours les mêmes pour lui. */
@@ -88,7 +91,7 @@ export interface Soiree {
  * plus qu'une fois par soirée, pour le tirer ; et c'est aussi elle qui rend
  * son nom à une soirée commencée avant qu'on le range.
  */
-export function soireeDesInvites(players: { createdAt: number }[], spaceId: string): Soiree | null {
+export function soireeDesInvites(players: { createdAt: number }[], spaceId: string | null): Soiree | null {
   if (players.length === 0) return null
   const heldAt = Math.min(...players.map(p => p.createdAt))
   return { id: archiveIdOf(heldAt, spaceId), heldAt }
