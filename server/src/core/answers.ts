@@ -101,6 +101,13 @@ export class AnswerLog {
     return !this.db.prepare('SELECT 1 FROM answer_log WHERE space_id = ? LIMIT 1').get(this.spaceId)
   }
 
+  /** Vrai s'il a donné au moins une réponse ce soir — une question laissée passer ne compte pas. */
+  aRepondu(playerId: string): boolean {
+    return !!this.db
+      .prepare('SELECT 1 FROM answer_log WHERE player_id = ? AND space_id = ? AND answered = 1 LIMIT 1')
+      .get(playerId, this.spaceId)
+  }
+
   /** Le journal complet de l'espace, dans l'ordre où les questions ont été posées. */
   all(): AnswerRow[] {
     const rows = this.db

@@ -60,6 +60,11 @@ export type ActionRefusal =
   /** Le serveur n'a pas répondu à temps — motif posé par le téléphone. */
   | 'timeout'
 
+/** Ce que la console reçoit quand elle demande à rendre sa place à un invité. */
+export type PlaceRendue =
+  | { ok: true; code: string; expiresAt: number }
+  | { ok: false; error: string }
+
 export type ActionAck =
   | { ok: true }
   | { ok: false; reason: ActionRefusal; error: string }
@@ -109,6 +114,22 @@ export interface ClientToServerEvents {
     payload: { sessionId: string; action: unknown; slug?: string; token?: string },
     ack: (res: ActionAck) => void,
   ) => void
+  /**
+   * Reprendre sa place avec le code que l'animateur a fait paraître : le
+   * téléphone mort en pleine soirée, et celui qu'on emprunte pour revenir.
+   * Un nouveau téléphone n'a pas le jeton de l'ancien — c'est voulu, sinon
+   * n'importe qui prendrait la place de n'importe qui (invariant 9) : seul
+   * l'animateur peut la rendre. Le code vaut une re-présentation ordinaire,
+   * la fiche du serveur fait foi, et l'accusé est celui d'un `player:join`.
+   *
+   * `token` : l'identité que ce téléphone portait jusque-là, s'il en avait
+   * une — le second « Rachid » créé en attendant. Sans rien joué, il
+   * s'efface ; sinon il reste, avec ses points, et on ne l'attend plus.
+   */
+  'player:reprendre': (
+    payload: { slug: string; code: string; token?: string },
+    ack: (res: JoinAck) => void,
+  ) => void
   /** Changer d'équipe depuis la salle d'attente — refusé pendant un quiz. */
   'player:setTeam': (
     payload: { teamId: string | null },
@@ -157,6 +178,12 @@ export interface ClientToServerEvents {
   'host:renamePlayer': (payload: { playerId: string; name: string }) => void
   /** Exclut un invité et efface ses points. */
   'host:removePlayer': (payload: { playerId: string }) => void
+  /**
+   * Rendre sa place à un invité hors ligne : un code court, à usage unique,
+   * vite périmé, que l'invité tape à l'entrée de son nouveau téléphone
+   * (`player:reprendre`). Il ne vaut que dans cet espace et pour cette fiche.
+   */
+  'host:rendrePlace': (payload: { playerId: string }, ack: (res: PlaceRendue) => void) => void
 
   /** Crée une équipe. */
   'host:createTeam': (payload: { name: string; emoji: string }) => void

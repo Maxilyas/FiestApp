@@ -6,6 +6,7 @@ import { Teams } from './teams'
 import { ScoreLedger } from './scores'
 import { AnswerLog, type AnswerRow } from './answers'
 import { GameEngine } from './engine'
+import { PlacesRendues } from './places'
 import type { PartyBackup, PartyMirror } from './backup'
 import type { ArchiveStore } from './archive'
 import { buildArchive, soireeDesInvites, type Soiree } from './archive'
@@ -36,6 +37,7 @@ import { hautFaitDeSoiree, palierDe, titreDePalier, XP_PALIER } from '../../../s
 import { cibleEclat } from '../../../shared/legendaires'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, SoireeClose } from '../../../shared/fin'
 import type { PartySnapshot, Recap } from '../../../shared/types'
+import type { PlaceRendue } from '../../../shared/events'
 import type { Review } from '../../../shared/review'
 import type { ArchiveList, ArchiveSummary } from '../../../shared/archive'
 import { defaultSettings, type PublicSpace } from '../../../shared/space'
@@ -109,6 +111,8 @@ export class SpaceRuntime {
   readonly ledger: ScoreLedger
   readonly answers: AnswerLog
   readonly engine: GameEngine
+  /** Les codes « Rendre sa place » en cours — voir `rendrePlace`. */
+  readonly places = new PlacesRendues()
   private readonly mirror: PartyMirror
 
   // Diffusion du classement : deux garde-fous mesurés sur une soirée simulée.
@@ -644,6 +648,7 @@ export class SpaceRuntime {
     } finally {
       this.mirror.fermerLot()
     }
+    this.places.oublier(playerId)
     this.broadcastSnapshot()
     // Son téléphone repart sur l'écran d'inscription, et sa connexion
     // n'incarne plus personne.
@@ -656,6 +661,41 @@ export class SpaceRuntime {
       this.rendreCredit(profileId, soiree).catch(e => console.error('[xp]', e))
     }
     return true
+  }
+
+  /**
+   * Fait paraître, pour la console, le code qui rend sa place à un invité
+   * dont le téléphone est mort. Seulement hors ligne : la place d'un
+   * téléphone qui répond encore n'est pas à donner.
+   */
+  rendrePlace(playerId: string): PlaceRendue {
+    if (!this.party.get(playerId)) return { ok: false, error: 'Cet invité n’est plus dans la soirée' }
+    if (this.party.isConnected(playerId)) {
+      return { ok: false, error: 'Son téléphone est encore connecté — rien à rendre' }
+    }
+    return { ok: true, ...this.places.emettre(playerId, Date.now()) }
+  }
+
+  /**
+   * L'identité qu'un téléphone quitte pour reprendre sa place : le second
+   * « Rachid », inscrit sur le téléphone emprunté en attendant.
+   *
+   * Sans rien joué — ni réponse donnée, ni point au journal —, il s'efface :
+   * c'était la même personne, et le laisser ferait un fantôme de plus dans
+   * la salle. S'il a joué, il reste avec ses points — les réunir à ceux de
+   * la place reprise est un autre chantier, qui réécrirait deux journaux —,
+   * mais on ne l'attend plus : son porteur joue désormais sous l'autre fiche,
+   * et l'attendre referait le fantôme qu'on vient de chasser.
+   */
+  laisserPlace(playerId: string): 'efface' | 'garde' | null {
+    if (!this.party.get(playerId) || this.party.isConnected(playerId)) return null
+    if (!this.answers.aRepondu(playerId) && !this.ledger.aGagne(playerId)) {
+      this.exclure(playerId)
+      return 'efface'
+    }
+    const sessionId = this.engine.activeSessionId
+    if (sessionId) this.engine.handleHostCommand(sessionId, { type: 'nePlusAttendre', playerId })
+    return 'garde'
   }
 
   /**
@@ -1138,6 +1178,7 @@ export class SpaceRuntime {
     // que s'il y est arrivé, et pendant que ses envois sont encore suspendus.
     await this.mirror.reset(() => {
       this.party.clearAll()
+      this.places.oublier()
       this.xpAnnoncee.clear()
       this.dernierCredit = null
       this.derniereArchive = null

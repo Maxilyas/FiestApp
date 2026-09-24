@@ -28,6 +28,12 @@ interface SocketDeps {
 
 /** Présentations refusées tolérées par connexion avant de la couper. */
 const HELLO_MAX_FAILURES = 5
+/**
+ * Codes « Rendre sa place » manqués tolérés par connexion avant de la couper.
+ * L'espace compte aussi les siens (`PlacesRendues`) : ceci n'empêche que de
+ * les brûler tous depuis un seul téléphone sans même se reconnecter.
+ */
+const PLACE_MAX_FAILURES = 5
 /** Identités qu'une même connexion peut créer (une reconnexion n'en crée pas). */
 const JOINS_PER_SOCKET = 3
 /**
@@ -55,6 +61,8 @@ const SERVER_ERROR = 'Erreur serveur — retente'
  * message vaut pour les trois, et l'entrée qui suit est pré-remplie.
  */
 const UNKNOWN_TOKEN = 'On ne te retrouve plus dans cette soirée — rejoins-la'
+/** Le code tapé pour reprendre sa place ne mène à rien. */
+const MAUVAIS_CODE = 'Ce code ne marche pas — demande-en un nouveau à l’animateur'
 /** Le jeton d'une soirée qu'on vient de clore : le téléphone montre sa fin de soirée. */
 const SOIREE_CLOSE = 'Cette soirée est close — voici la tienne'
 
@@ -138,6 +146,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
 
   io.on('connection', socket => {
     let helloFailures = 0
+    let placeFailures = 0
     let identitiesCreated = 0
     const ip = clientIp(socket, deps.trustProxy)
 
@@ -231,6 +240,8 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       socket.data.playerId = playerId
       socket.join(`player:${playerId}`)
       rt.party.socketConnected(playerId, socket.id)
+      // La console montre qui, parmi ceux qu'on attend, est hors ligne.
+      rt.engine.rafraichirAnimateur()
     }
 
     // L'heure du serveur. Sans identité ni espace : un écran doit pouvoir
@@ -360,6 +371,77 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // Arrivé en cours de quiz : on l'y intègre pour les questions à venir.
         rt.engine.joinLate(res.id)
         rt.engine.resendViews(res.id)
+      },
+      { ok: false, error: SERVER_ERROR },
+    )
+
+    /**
+     * Reprendre sa place avec le code de l'animateur. Tout ce qui suit le code
+     * est une re-présentation ordinaire : la fiche du serveur fait foi —
+     * prénom, avatar, équipe, points —, et le téléphone reçoit son jeton comme
+     * s'il l'avait toujours eu.
+     */
+    ecouter(
+      'player:reprendre',
+      async (charge, repondre) => {
+        const profile = await profileOfSocket().catch(() => null)
+        if (socket.disconnected) return
+        const account = spaceOf(charge.slug)
+        if (!account) return repondre({ ok: false, error: NO_SUCH_SPACE })
+        const rt = bindSpace(account.id)
+        if (!rt) return repondre({ ok: false, error: OTHER_SPACE })
+        if (placeFailures >= PLACE_MAX_FAILURES) {
+          socket.disconnect(true)
+          return
+        }
+        // Le code se consomme ici, avant tout autre refus : un code juste,
+        // tombé sur un cas qu'on refuse, ne resservira pas — l'animateur en
+        // refait paraître un, en face de l'invité.
+        const playerId = rt.places.reprendre(texte(charge.code) ?? '', Date.now())
+        const fiche = playerId ? rt.party.get(playerId) : undefined
+        if (!fiche) {
+          placeFailures++
+          return repondre({ ok: false, error: MAUVAIS_CODE })
+        }
+        // Revenu entre-temps sur son propre téléphone : deux téléphones pour
+        // une place, ce serait deux joueurs qui répondent l'un pour l'autre.
+        if (rt.party.isConnected(fiche.id)) {
+          return repondre({ ok: false, error: 'Ton ancien téléphone est revenu — joue dessus' })
+        }
+        // Ce téléphone est au profil de quelqu'un d'autre : à la prochaine
+        // re-présentation, la soirée lui rendrait le joueur de ce profil — ou
+        // rattacherait la place reprise à ce profil, et ses points avec.
+        if (profile && fiche.profileId !== profile.id) {
+          return repondre({
+            ok: false,
+            error: 'Ce téléphone est au profil de quelqu’un d’autre — ouvre la soirée dans une fenêtre privée',
+          })
+        }
+        // L'identité que ce téléphone quitte : le second « Rachid » d'avant le code.
+        const token = texte(charge.token)
+        const ancien = (token && rt.party.findByToken(token)) || (socket.data.playerId ? rt.party.get(socket.data.playerId) : undefined)
+        const res = rt.party.join('', '', fiche.token)
+        if ('error' in res) return repondre({ ok: false, error: res.error })
+        incarner(rt, res.id)
+        repondre({
+          ok: true,
+          playerId: res.id,
+          token: res.token,
+          name: res.name,
+          avatar: res.avatar,
+          ...(profile && { profile: deps.profiles.toPublic(profile) }),
+        })
+        if (ancien && ancien.id !== res.id) {
+          // Les autres onglets de ce téléphone qui l'incarnaient encore le
+          // gardent : il n'est alors pas « laissé », et on n'y touche pas.
+          rt.laisserPlace(ancien.id)
+        }
+        rt.broadcastSnapshot()
+        rt.engine.joinLate(res.id)
+        rt.engine.resendViews(res.id)
+        // Le téléphone de l'animateur le dit à la salle mieux qu'un toast :
+        // ici, c'est la console qui doit savoir que la place est reprise.
+        io.to(`hosts:${rt.spaceId}`).emit('toast', { kind: 'info', message: `${rt.party.nomAffiche(res.id) ?? res.name} a repris sa place` })
       },
       { ok: false, error: SERVER_ERROR },
     )
@@ -506,6 +588,21 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       rt.exclure(playerId)
     })
 
+    // Un code pour rendre sa place à un invité dont le téléphone est mort.
+    // Refusé à tout autre qu'un écran de l'animateur de CET espace : un
+    // identifiant d'invité voisin vaut « plus dans la soirée ».
+    ecouter(
+      'host:rendrePlace',
+      (charge, repondre) => {
+        const rt = requireHost()
+        const playerId = texte(charge.playerId)
+        if (!rt) return repondre({ ok: false, error: 'Réservé à l’animateur' })
+        if (!playerId) return repondre({ ok: false, error: 'Cet invité n’est plus dans la soirée' })
+        repondre(rt.rendrePlace(playerId))
+      },
+      { ok: false, error: SERVER_ERROR },
+    )
+
     // ── Équipes ────────────────────────────────────
     ecouter('host:createTeam', charge => {
       const rt = requireHost()
@@ -640,6 +737,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         if (playerId && rt) {
           rt.party.socketDisconnected(playerId, socket.id)
           rt.broadcastSnapshot()
+          rt.engine.rafraichirAnimateur()
         }
       } catch (e) {
         console.error('[socket] « disconnect » a échoué :', e)

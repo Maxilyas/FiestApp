@@ -410,6 +410,7 @@ function partieSimulee(n: number) {
   let memo: Map<string, unknown> | null = null
   const vctx: ViewContext = {
     playerName: id => party.nomAffiche(id) ?? '???',
+    connected: id => party.isConnected(id),
     player: id => {
       compte.player++
       return party.publicOne(id, ledger.total(id))
@@ -431,6 +432,7 @@ function partieSimulee(n: number) {
     verdict: () => {},
     participants: () => [],
     playerName: id => vctx.playerName(id),
+    connected: id => party.isConnected(id),
     now: () => (now += 13),
   }
   const sess: GameSessionRec<any> = {

@@ -57,6 +57,8 @@ export interface GameContext {
   verdict(): void
   participants(): PublicPlayer[]
   playerName(playerId: string): string
+  /** Un téléphone l'incarne en ce moment. */
+  connected(playerId: string): boolean
   now(): number
 }
 
@@ -64,6 +66,8 @@ export interface GameContext {
 export interface ViewContext {
   playerName(playerId: string): string
   player(playerId: string): PublicPlayer | undefined
+  /** Un téléphone l'incarne en ce moment — sans décorer tout le joueur pour le savoir. */
+  connected(playerId: string): boolean
   /**
    * Ce qui ne dépend pas du destinataire — un classement, un podium — ne se
    * calcule qu'une fois par diffusion, pas une fois par téléphone.

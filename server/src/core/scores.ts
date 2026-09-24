@@ -68,6 +68,16 @@ export class ScoreLedger {
     this.backup?.deletePlayerScores(playerId)
   }
 
+  /**
+   * Vrai s'il a au moins une ligne au journal des gains — un prix annulé
+   * compris : le total peut revenir à zéro, pas l'histoire.
+   */
+  aGagne(playerId: string): boolean {
+    return !!this.db
+      .prepare('SELECT 1 FROM score_entries WHERE player_id = ? AND space_id = ? LIMIT 1')
+      .get(playerId, this.spaceId)
+  }
+
   total(playerId: string): number {
     return this.totals.get(playerId) ?? 0
   }

@@ -101,6 +101,7 @@ export class GameEngine {
     // commun, et il doit être celui du classement — « Camille (2) » aussi.
     playerName: id => this.deps.party.nomAffiche(id) ?? '???',
     player: id => this.deps.party.publicOne(id, this.deps.ledger.total(id)),
+    connected: id => this.deps.party.isConnected(id),
     memo: <T>(key: string, compute: () => T): T => {
       const memo = this.memo
       if (!memo) return compute()
@@ -309,6 +310,23 @@ export class GameEngine {
     this.fanout(sess)
   }
 
+  /**
+   * Un téléphone vient de tomber ou de revenir : la console le montre dans
+   * la liste de ceux qu'on attend (« hors ligne »). Rien d'autre n'a bougé,
+   * les téléphones n'ont rien à recevoir — seule la vue de l'animateur se
+   * recalcule, et ne part que si elle a changé.
+   */
+  rafraichirAnimateur() {
+    const sess = this.session
+    if (!sess || sess.status !== 'running') return
+    this.broadcast(() => {
+      const hostView = this.module.hostView(sess, this.vctx)
+      if (this.changed('__host__', hostView)) {
+        this.deps.io.to(`hosts:${this.deps.spaceId}`).emit('session:view', { sessionId: sess.id, view: hostView })
+      }
+    })
+  }
+
   /** Renvoie la vue host à un écran commun qui (re)vient. */
   resendHostViews(socket: Socket) {
     const sess = this.session
@@ -369,6 +387,7 @@ export class GameEngine {
           .map(id => this.deps.party.publicOne(id, this.deps.ledger.total(id)))
           .filter((p): p is NonNullable<typeof p> => !!p),
       playerName: id => this.vctx.playerName(id),
+      connected: id => this.deps.party.isConnected(id),
       now: () => Date.now(),
     }
     const backup = this.deps.backup
