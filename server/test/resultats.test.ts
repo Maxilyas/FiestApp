@@ -241,7 +241,7 @@ test('La Gâchette Facile se juge sur toutes les réponses, et son texte dit ce 
   assert.equal(gachette?.detail, '6 erreurs sur 6 réponses, en 1,0 s de moyenne')
 })
 
-test('Le Sans-Faute exige au moins une bonne réponse', () => {
+test('Le Plus Précis (le prix « sansfaute ») exige au moins une bonne réponse', () => {
   const answers = [...serie(3, q => faux('anne', { qIndex: q })), ...serie(4, q => faux('bea', { qIndex: q }))]
   const { awards } = computeStats(answers, [invite('anne', 'Anne'), invite('bea', 'Béa')])
   assert.equal(prix(awards, 'sansfaute'), undefined, 'personne n’est « sans faute » à 0 % de réussite')

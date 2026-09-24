@@ -39,6 +39,7 @@ import { cibleEclat, conditionTenue, legendaire, legendairesDebloques, type Cond
 import { divin } from '../../../shared/divins'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
+import { titreDuPrix } from '../core/stats'
 
 /**
  * Les profils des joueurs récurrents, leurs sessions, leur expérience et
@@ -118,8 +119,8 @@ export const LIGNE_PALIERS = '#paliers'
  * 5 depuis que deux estimations à égale distance sont ex æquo même quand la
  * virgule flottante les séparait (0,7 et 0,9 pour 0,8) : l'expérience du
  * plus proche allait à un seul des deux ; 6 depuis le coup d'œil — le relevé
- * compte la part de la salle que chaque estimation bat ou égale, et Le Devin
- * se juge dessus. L'expérience n'a pas bougé, mais les soirées d'avant
+ * compte la part de la salle que chaque estimation bat ou égale, et le prix
+ * du coup d'œil (clé `devin`) se juge dessus. L'expérience n'a pas bougé, mais les soirées d'avant
  * doivent se relire pour que la fiche le montre.
  * Une ligne d'une version d'avant se relit au démarrage (`recalcul.ts`) —
  * son format, lui, n'a pas changé depuis la 2.
@@ -1186,9 +1187,11 @@ export class ProfileStore {
     // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
     const rows = await this.client.execute({
-      sql: `SELECT badge, emoji, title, COUNT(*) AS fois, MAX(created_at) AS dernier
+      // Par clé seule : un prix renommé porte deux noms en base, l'ancien et
+      // le nouveau, et l'étagère le montrait deux fois.
+      sql: `SELECT badge, MAX(emoji) AS emoji, MAX(title) AS title, COUNT(*) AS fois, MAX(created_at) AS dernier
             FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%'
-            GROUP BY badge, emoji, title ORDER BY dernier DESC`,
+            GROUP BY badge ORDER BY dernier DESC`,
       args: [profileId],
     })
     const { porteurs, profils } = await this.populationBadges()
@@ -1198,7 +1201,7 @@ export class ProfileStore {
       return {
         key,
         emoji: String(r.emoji),
-        title: String(r.title),
+        title: titreDuPrix(key) ?? String(r.title),
         fois: Number(r.fois),
         dernier: Number(r.dernier),
         porteurs: n,

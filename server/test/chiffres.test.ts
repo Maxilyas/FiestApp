@@ -185,10 +185,10 @@ test('la fiche dit sur combien de QCM porte la précision, et mesure les estimat
 
 const prix = (stats: ReturnType<typeof computeStats>, key: string) => stats.awards.find(a => a.key === key)
 
-test('Le Devin va au meilleur coup d’œil : ni au retardataire qui n’a vu que les dates, ni au voisin d’une faute de frappe', () => {
+test('Le Compas dans l’Œil (le prix « devin ») va au meilleur coup d’œil : ni au retardataire qui n’a vu que les dates, ni au voisin d’une faute de frappe', () => {
   // Côme arrive pour les dates, et finit le plus loin de la salle à chaque
   // fois — mais onze ans sur 1789, c'est 0,6 % d'écart : à l'écart moyen,
-  // Le Devin, c'était lui.
+  // Le prix du coup d'œil, c'était lui.
   const retard = computeStats(
     [
       estime('anne', 0, 50, 54),

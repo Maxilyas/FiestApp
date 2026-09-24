@@ -474,7 +474,7 @@ test('les prix ne se décident qu’à la clôture : rien de ce qui se range en 
     for (const [badge, porteurs] of parPrix) {
       assert.equal(porteurs.length, 1, `« ${badge} » : ${porteurs.length} lauréats pour une seule soirée`)
     }
-    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [aliceId], 'Chloé, à 3 sur 7, n’a pas Le Sans-Faute')
+    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [aliceId], 'Chloé, à 3 sur 7, n’est pas Le Plus Précis')
 
     // L'étagère range exactement ce que la salle a vu proclamer à la fin.
     const souvenir = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${soiree}/recap.json`)).json()) as any
@@ -542,7 +542,7 @@ test('un invité exclu avant la clôture n’y reçoit rien : chaque prix garde 
     await attendre(chloe.socket, 'player:removed', () => true, 'l’exclusion de Chloé')
     await clore(host)
 
-    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [aliceId], 'Le Sans-Faute va à Alice, seule lauréate')
+    assert.deepEqual(laureats(banc, soiree, 'sansfaute'), [aliceId], 'Le Plus Précis va à Alice, seule lauréate')
     const gardes = lire<{ badge: string }>(
       permanente(banc),
       'SELECT badge FROM profile_badges WHERE profile_id = ?',
