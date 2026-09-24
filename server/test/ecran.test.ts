@@ -177,3 +177,7 @@ test('au téléphone, « Réponse enregistrée » reste sous des réponses longu
   // deuxième carte quand quatre réponses longues faisaient défiler la page.
   assert.match(css, /\.player-shell:has\(\.ans-grid:is\(\.ans-md, \.ans-sm\)\) \{ height: auto; min-height: 100dvh; \}/)
 })
+
+test('en 1920 × 1080, le toast reste au-dessus de la console', () => {
+  assert.match(grandsEcrans, /\.host > \.toast \{ bottom: 5\.25rem; \}/)
+})
