@@ -55,6 +55,14 @@ export interface SpaceDeps {
   baseUrl: () => string | null
   /** Plafond d'invités que même le réglage d'un espace ne dépasse pas. */
   maxPlayersCeiling: number
+  /**
+   * Les espaces dont la soirée est en train de se clore, communs à tout le
+   * serveur. Leur ligne de la table `soiree` ne part qu'à la fin de leur
+   * clôture, après leurs crédits : sans eux, deux soirées closes au même
+   * instant s'écartaient l'une l'autre des paliers (`soireesEnCoursAilleurs`),
+   * et celui qu'elles atteignaient ensemble ne tombait nulle part.
+   */
+  cloturesEnCours: Set<string>
 }
 
 /**
@@ -279,13 +287,14 @@ export class SpaceRuntime {
    * Les soirées qui se jouent en ce moment dans les autres espaces
    * (`cleDeSoiree`). La base locale range le nom de chacune dès qu'il est
    * tiré et l'oublie à sa fin — le miroir le lui rend après un réveil sur
-   * disque effacé.
+   * disque effacé. Une soirée dont la clôture est en cours compte pour
+   * close (`cloturesEnCours`).
    */
   private soireesEnCoursAilleurs(): Set<string> {
     const rows = this.deps.db
       .prepare('SELECT space_id, id FROM soiree WHERE space_id <> ?')
       .all(this.spaceId) as { space_id: string; id: string }[]
-    return new Set(rows.map(r => cleDeSoiree(r.space_id, r.id)))
+    return new Set(rows.filter(r => !this.deps.cloturesEnCours.has(r.space_id)).map(r => cleDeSoiree(r.space_id, r.id)))
   }
 
   /** La soirée suivante tirera son propre nom, sur ses propres invités. */
@@ -955,6 +964,9 @@ export class SpaceRuntime {
       let summary: ArchiveSummary | null = null
       let annonce: (() => void) | undefined
       if (soiree && built) {
+        // Dès ici, pour les paliers des autres espaces, cette soirée est
+        // close : elle ne rendra plus que ce qu'elle a déjà écrit.
+        this.deps.cloturesEnCours.add(this.spaceId)
         const credit = this.creditDeCloture({ players, scores, answers })
         const recopie = this.recopierSoiree(soiree)
         const bilans = await this.enFile(async () => {
@@ -977,6 +989,9 @@ export class SpaceRuntime {
       await this.viderSoiree(summary ? 'close' : 'discard', annonce)
       return summary
     } finally {
+      // Close pour de bon, sa ligne est partie ; refusée par le miroir, elle
+      // se joue encore et redevient une soirée en cours pour les autres.
+      this.deps.cloturesEnCours.delete(this.spaceId)
       this.fermeture = false
     }
   }

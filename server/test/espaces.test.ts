@@ -258,6 +258,59 @@ test('un essai en cours ailleurs ne fait pas tomber de palier, et son effacement
   }
 })
 
+test('deux soirées closes au même instant font tomber le palier qu’elles atteignent ensemble', async () => {
+  const banc = await demarrer()
+  // Une base distante lente : chaque clôture s'attarde dans ses crédits, et
+  // les deux se chevauchent vraiment.
+  const proto = ProfileStore.prototype as any
+  const [remplacer, accorder] = [proto.remplacerRecompensesDeSoiree, proto.accorderPaliers]
+  const lent =
+    (f: (...a: unknown[]) => Promise<unknown>) =>
+    async function (this: unknown, ...a: unknown[]) {
+      await patienter(300)
+      return f.apply(this, a)
+    }
+  try {
+    const A = { cookie: await connexionAnimateur(banc.url), slug: ADMIN.slug }
+    const B = await espace(banc, 'bruno', 'chez-bruno')
+    const remi = await inscrireProfil(banc.url, 'remi', 'Rémi', '🐧')
+    const R = profilDe(banc, 'remi')
+    const hA = await ecranCommun(banc.url, A.cookie)
+    const hB = await ecranCommun(banc.url, B.cookie)
+    const qA = await creerQuiz(banc.url, A.cookie, [qcm('A1 ?'), qcm('A2 ?')])
+    const qB = await creerQuiz(banc.url, B.cookie, [qcm('B1 ?'), qcm('B2 ?')])
+    const habitue = () => lire(banc, "SELECT soiree_id FROM profile_badges WHERE profile_id = ? AND badge LIKE 'hf:habitue:%'", R)
+
+    // Une première soirée close chez A.
+    const r1 = await invite(banc.url, 'Rémi', '🐧', { slug: A.slug, cookie: remi })
+    await jouerQuiz(hA, qA, [[r1, 0], [await invite(banc.url, 'Fig', '🐻', { slug: A.slug }), 1]], 2)
+    await geste(hA, 'host:closeParty')
+
+    // Puis Rémi joue chez A et chez B le même soir, et les deux animateurs
+    // cliquent « Clore » en même temps : trois soirées closes, L'Habitué.
+    const rA = await invite(banc.url, 'Rémi', '🐧', { slug: A.slug, cookie: remi })
+    const rB = await invite(banc.url, 'Rémi', '🐧', { slug: B.slug, cookie: remi })
+    const figA = await invite(banc.url, 'Fig', '🐻', { slug: A.slug })
+    const figB = await invite(banc.url, 'Fig', '🐻', { slug: B.slug })
+    await Promise.all([jouerQuiz(hA, qA, [[rA, 0], [figA, 1]], 2), jouerQuiz(hB, qB, [[rB, 0], [figB, 1]], 2)])
+    await patienter(500)
+    assert.equal(lignesXp(banc, R).length, 3)
+    const avant = new Set(lignesXp(banc, R).map(l => l.soiree_id))
+
+    proto.remplacerRecompensesDeSoiree = lent(remplacer)
+    proto.accorderPaliers = lent(accorder)
+    await Promise.all([geste(hA, 'host:closeParty'), geste(hB, 'host:closeParty')])
+
+    const tombe = habitue()
+    assert.equal(tombe.length, 1, 'L’Habitué tombe une fois, à l’une des deux clôtures')
+    assert.ok(avant.has(tombe[0].soiree_id), 'sous le nom de l’une des deux soirées')
+  } finally {
+    proto.remplacerRecompensesDeSoiree = remplacer
+    proto.accorderPaliers = accorder
+    await banc.close()
+  }
+})
+
 // ── E3. Le nom d'une soirée porte son espace ──────────────────────────────
 
 test('deux soirées nées à la même milliseconde, dans deux espaces : deux noms, deux lignes d’expérience', async () => {

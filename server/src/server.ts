@@ -302,6 +302,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       return ip ? `http://${ip}:${boundPort}` : null
     },
     maxPlayersCeiling: opts.maxPlayers ?? MAX_PLAYERS_CEILING,
+    cloturesEnCours: new Set(),
   })
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
