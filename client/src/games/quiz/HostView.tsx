@@ -11,6 +11,7 @@ import { ConsoleActions } from '../../components/HostConsole'
 import { confirmDialog } from '../../components/Dialog'
 import { serverNow } from '../../clock'
 import { PALIERS_ENCHAINEMENT, gesteAccepte } from '../../../../shared/console'
+import { espacesFines } from '../../format'
 import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
 import { formatNumber } from '../../format'
@@ -223,7 +224,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
       <div className="quiz-host">
         <h2>
           <Icon name="sparkles" />
-          Choisissez un quiz
+          Choisis un quiz
         </h2>
 
         {/* Annoncé à la salle avant de lancer : tant qu'un quiz peut tout
@@ -324,7 +325,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
         )}
 
         {v.category && <span className="label quiz-categorie">{v.category}</span>}
-        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
+        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{espacesFines(v.text ?? '')}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
         {v.photoGone && (
           <p className="photo-gone">
@@ -376,7 +377,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                 className={'ans-btn' + (revealing ? (i === v.correct ? ' correct' : ' dim') : '')}
               >
                 <Shape index={i} />
-                <span className="ans-text">{a}</span>
+                <span className="ans-text">{espacesFines(a)}</span>
                 {revealing && (
                   <>
                     <span className="ans-extra">
