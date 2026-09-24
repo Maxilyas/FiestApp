@@ -56,6 +56,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `core/recalcul.ts` | au démarrage, relit l'historique au barème du jour (`VERSION_BAREME`) : expérience, prix, hauts faits, paliers |
 | `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les douze avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un |
 | `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) |
+| `shared/liens.ts` · `client/src/components/Lendemain.tsx` | les liens d'une soirée close, à l'adresse de son archive (`/<espace>/souvenir` change de soirée à la suivante) ; et « La dernière soirée », que le téléphone garde (`garderFin`, `client/src/state.ts`) pour l'entrée et l'accueil |
 | `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
 | `shared/echange.ts` | un quiz qu'on emporte : le fichier d'export (questions, photos en clair), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin |
@@ -116,7 +117,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
    jeton qui ne désigne plus personne (exclu, essai effacé) est refusé
    (`unknown-token`), **jamais recréé** : le téléphone repasse par l'entrée,
    pré-remplie. Celui d'une soirée qu'on vient de clore reçoit sa fin de
-   soirée (`soiree-close`).
+   soirée (`soiree-close`) ; après un redémarrage qui l'a oubliée, un
+   `unknown-token` qui porte la soirée close à revoir (`derniere`).
 10. **L'expérience d'un quiz se crédite dès qu'il rend son verdict** (son
     podium s'affiche), à la fin de la partie si quelque chose a changé depuis
     (`dernierCredit`, l'empreinte des gains arrivés en base), puis une
@@ -136,6 +138,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
     pas, seules la clôture et l'essai effacé l'oublient (`viderSoiree`).
     Toute écriture permanente sous ce nom passe d'abord par `recopierSoiree`.
     Recalculé, il comptait l'expérience deux fois et dédoublait l'archive.
+    Il se tire sur ceux qui ont **répondu** (`soireeDesInvites`), jamais
+    avant la première réponse : l'invitée revenue relire la veille datait
+    sinon la soirée suivante de son passage, pour toujours.
 12. **Un geste dit ce qu'il visait.** Les commandes `next`, `cancel`, `replay`
     et les réponses portent la phase, la question et le tour : une commande
     périmée est ignorée en silence, une réponse périmée reçoit `too-late`, et
