@@ -984,8 +984,8 @@ h3 > .icon {
 .player-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 11px;
+  gap: 5px;
+  padding: 5px 9px;
   border-radius: var(--radius-pill);
   background: var(--surface);
   border: 1px solid var(--edge);
@@ -1867,6 +1867,37 @@ h3 > .icon {
 }
 
 .chip-name:hover { color: var(--accent-text); }
+
+/* Dans une pastille d'invité, c'est le prénom seul qui se coupe : la marque
+   « (2) » reste entière (invariant 17), et le prénom garde au moins cinq
+   caractères (le plancher est posé par la vue). Le sélecteur d'équipe cède
+   avant lui, dix fois plus prompt à rétrécir, jusqu'à ne plus montrer que
+   son emoji. */
+.player-chip .chip-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3ch;
+  max-width: none;
+  /* Un bouton ne se laisse pas réduire à son contenu tout seul : sans ce
+     plancher, la marque débordait sur le sélecteur d'équipe. */
+  min-width: min-content;
+  overflow: visible;
+  flex: 0 1 auto;
+}
+.chip-prenom {
+  min-width: 0;
+  max-width: 10ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip-marque { flex: none; white-space: nowrap; }
+.player-chip .player-avatar,
+.player-chip .chip-remove { flex: none; }
+.player-chip .chip-team { flex: 0 10 auto; min-width: 3em; }
+@media (min-width: 1600px) {
+  .chip-prenom { max-width: 16ch; }
+}
 
 .chip-remove {
   display: inline-flex;

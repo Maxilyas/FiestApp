@@ -28,6 +28,7 @@ import type { QuizHostView } from '../../../shared/games/quiz'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { distinctions } from '../../../shared/profil'
+import { partsDuNom } from '../../../shared/homonymes'
 import type { ArchiveList } from '../../../shared/archive'
 import { AnnoncesDeNiveau, ClotureEcran } from '../components/Cloture'
 import { useEcranAllume } from '../veille'
@@ -75,6 +76,28 @@ const TEAM_EMOJIS = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️', '🦩', '
  * Une équipe et ses membres, avec de quoi la renommer, la supprimer, et
  * déplacer quelqu'un qui s'est trompé de bouton à l'inscription.
  */
+/**
+ * Le prénom d'une pastille d'invité : il se coupe, sa marque d'homonymie
+ * jamais (invariant 17). « Camil… » et « Camil… » côte à côte, c'était deux
+ * invités qu'on ne distinguait plus là où l'on fait les équipes.
+ */
+function NomDePastille({ joueur }: { joueur: PublicPlayer }) {
+  const { prenom, marque } = partsDuNom(joueur)
+  // Le prénom garde au moins cinq caractères : c'est le sélecteur d'équipe
+  // qui cède d'abord. Un prénom plus court ne se coupe pas du tout — un
+  // plancher en `ch` l'aurait suivi d'un blanc, la lettre « 0 » étant plus
+  // large que la plupart des autres.
+  const plancher = [...prenom].length > 5 ? '5ch' : 'max-content'
+  return (
+    <>
+      <span className="chip-prenom" style={{ minWidth: plancher }}>
+        {prenom}
+      </span>
+      {marque && <span className="chip-marque">{marque.trim()}</span>}
+    </>
+  )
+}
+
 function TeamGroup({
   team,
   members,
@@ -156,7 +179,7 @@ function TeamGroup({
                 la soirée suivante le lui rend. */}
             <button
               className="chip-name"
-              title="Donner un surnom pour la soirée"
+              title={`${p.nomAffiche ?? p.name} — donner un surnom pour la soirée`}
               aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}`}
               onClick={async () => {
                 const name = await promptDialog({
@@ -170,7 +193,7 @@ function TeamGroup({
                 if (name) socket.emit('host:renamePlayer', { playerId: p.id, name })
               }}
             >
-              {p.nomAffiche ?? p.name}
+              <NomDePastille joueur={p} />
             </button>
             {/* Hors ligne : la transparence seule ne se lit pas du fond de la
                 salle, et un lecteur d'écran n'en sait rien. */}
