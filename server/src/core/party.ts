@@ -54,6 +54,14 @@ export class Party {
   private connections = new Map<string, Set<string>>()
   /** Les marques d'homonymie, tant que personne n'arrive, ne part ni ne change de prénom ou d'avatar. */
   private marquesCache: Map<string, string> | null = null
+  /**
+   * Monte à chaque écriture d'une fiche d'invité (arrivée, prénom, avatar,
+   * équipe, profil, départ) : les pages publiques (`core/pages.ts`) s'en
+   * servent pour savoir si leur calcul tient encore, sans relire le journal.
+   * Une connexion ou une veille ne la fait pas monter : ces pages ne la
+   * montrent pas, et toute la salle qui s'endort referait le calcul.
+   */
+  revision = 0
 
   constructor(
     private db: DB,
@@ -93,7 +101,9 @@ export class Party {
     if (token) {
       const existing = this.findByToken(token)
       if (existing) {
-        if ((clean && clean !== existing.name) || (nice && nice !== existing.avatar)) this.marquesCache = null
+        const identite = (clean && clean !== existing.name) || (nice && nice !== existing.avatar)
+        const change = identite || (teamId !== undefined && teamId !== existing.teamId)
+        if (identite) this.marquesCache = null
         if (clean) existing.name = clean
         if (nice) existing.avatar = nice
         // `undefined` = le téléphone se reconnecte sans rien dire de l'équipe :
@@ -108,6 +118,11 @@ export class Party {
           .prepare('UPDATE players SET name = ?, avatar = ?, team_id = ? WHERE id = ?')
           .run(existing.name, existing.avatar, existing.teamId, existing.id)
         this.backup?.savePlayer(existing, existing.createdAt)
+        // Mais la fiche n'a changé que si le prénom, l'avatar ou l'équipe ont
+        // bougé : chaque téléphone qui sort de veille se re-présente, et
+        // faire monter le numéro à chaque réveil refaisait le souvenir de
+        // toute la salle pour rien.
+        if (change) this.revision++
         return existing
       }
     }
@@ -129,6 +144,7 @@ export class Party {
       )
       .run(rec.id, rec.name, rec.avatar, rec.token, rec.teamId, rec.profileId, rec.createdAt, this.spaceId)
     this.backup?.savePlayer(rec, rec.createdAt)
+    this.revision++
     return rec
   }
 
@@ -172,6 +188,7 @@ export class Party {
     rec.profileId = profileId
     this.db.prepare('UPDATE players SET profile_id = ? WHERE id = ?').run(profileId, playerId)
     this.backup?.savePlayer(rec, rec.createdAt)
+    this.revision++
     return true
   }
 
@@ -207,6 +224,7 @@ export class Party {
     this.marquesCache = null
     this.db.prepare('UPDATE players SET name = ? WHERE id = ?').run(clean, playerId)
     this.backup?.savePlayer(rec, rec.createdAt)
+    this.revision++
     return true
   }
 
@@ -221,6 +239,7 @@ export class Party {
     rec.teamId = teamId
     this.db.prepare('UPDATE players SET team_id = ? WHERE id = ?').run(teamId, playerId)
     this.backup?.savePlayer(rec, rec.createdAt)
+    this.revision++
     return true
   }
 
@@ -244,6 +263,7 @@ export class Party {
     this.connections.delete(playerId)
     this.db.prepare('DELETE FROM players WHERE id = ?').run(playerId)
     this.backup?.deletePlayer(playerId)
+    this.revision++
     return true
   }
 
@@ -253,6 +273,7 @@ export class Party {
     this.players.clear()
     this.marquesCache = null
     this.connections.clear()
+    this.revision++
   }
 
   /**

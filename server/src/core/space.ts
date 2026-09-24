@@ -17,7 +17,7 @@ import { divinsDeSoiree, laureatsDivins, raconter } from './divins'
 import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
-import { ProfileStore, type PrixDeSoiree } from '../auth/profiles'
+import { ProfileStore, cleDeSoiree, type PrixDeSoiree } from '../auth/profiles'
 import {
   coupDOeilMoyen,
   distinctions,
@@ -55,6 +55,14 @@ export interface SpaceDeps {
   baseUrl: () => string | null
   /** Plafond d'invités que même le réglage d'un espace ne dépasse pas. */
   maxPlayersCeiling: number
+  /**
+   * Les espaces dont la soirée est en train de se clore, communs à tout le
+   * serveur. Leur ligne de la table `soiree` ne part qu'à la fin de leur
+   * clôture, après leurs crédits : sans eux, deux soirées closes au même
+   * instant s'écartaient l'une l'autre des paliers (`soireesEnCoursAilleurs`),
+   * et celui qu'elles atteignaient ensemble ne tombait nulle part.
+   */
+  cloturesEnCours: Set<string>
 }
 
 /**
@@ -94,6 +102,45 @@ function empreinteDArchive(archive: unknown): string {
 }
 
 /**
+ * Combien de profils se créditent en même temps. Chacun attend quatre ou
+ * cinq allers-retours vers la base permanente : en série, cent profils à
+ * 30 ms faisaient attendre quinze secondes la salle qui voulait lire « c'est
+ * fini ». Au-delà de huit, on ne gagne plus grand-chose et on charge la base
+ * d'un coup.
+ */
+const PROFILS_EN_VOL = 8
+
+/**
+ * `travail` sur chaque élément, `limite` à la fois ; les résultats dans
+ * l'ordre des éléments. On attend que TOUS aient fini avant de rendre, même
+ * après un échec — qui remonte ensuite, le premier : un crédit qui écrirait
+ * encore après être « terminé » passerait derrière le travail suivant de la
+ * file (`enFile`), et c'est l'ordre des écritures que la file protège.
+ */
+export async function enParallele<T, R>(elements: T[], limite: number, travail: (e: T) => Promise<R>): Promise<R[]> {
+  const resultats: R[] = new Array(elements.length)
+  const echecs: unknown[] = []
+  let suivant = 0
+  const ouvrier = async () => {
+    while (suivant < elements.length) {
+      const i = suivant++
+      try {
+        resultats[i] = await travail(elements[i])
+      } catch (e) {
+        echecs.push(e)
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limite, elements.length) }, ouvrier))
+  if (echecs.length === 0) return resultats
+  // Le premier échec remonte à qui a demandé le travail, qui le journalise ;
+  // les suivants ne seraient écrits nulle part — trois profils sans crédit
+  // n'en laissaient voir qu'un.
+  for (const e of echecs.slice(1)) console.error('[crédits] un autre échec du même lot :', e)
+  throw echecs[0]
+}
+
+/**
  * Ce qu'un crédit d'expérience écrirait : le nom de la soirée, et chaque
  * gain tel quel — profil, invité, emoji, relevé. Deux crédits de même
  * empreinte écrivent exactement les mêmes lignes.
@@ -101,6 +148,13 @@ function empreinteDArchive(archive: unknown): string {
 function empreinteDuCredit(soireeId: string, gains: SoireeGain[]): string {
   return JSON.stringify([soireeId, gains])
 }
+
+/**
+ * Chaque soirée chargée reçoit son numéro : un espace déchargé puis réveillé
+ * repart de journaux relus, dont les compteurs d'écriture repartent de zéro
+ * — sans ce numéro, une page gardée d'avant pourrait passer pour à jour.
+ */
+let incarnations = 0
 
 /**
  * La soirée d'un espace : ses invités, ses équipes, ses points, son journal,
@@ -122,9 +176,16 @@ export class SpaceRuntime {
   //   le monde. On n'en envoie qu'une par fenêtre courte.
   // · Dédoublonnage — un classement identique au précédent ne part pas. Sans
   //   ça, le filet de sécurité périodique renvoyait 4 Ko à chaque téléphone
-  //   toutes les 30 secondes pendant toute la fête, pour rien.
+  //   toutes les 30 secondes pendant toute la fête, pour rien. Les téléphones
+  //   et les écrans communs ont chacun le leur : qui dort et qui veille ne
+  //   regarde que l'écran commun, et une veille ne doit plus repartir à
+  //   toute la salle.
   private lastSnapshot = ''
+  private lastEcrans = ''
+  /** La diffusion regroupée des téléphones, et celle des écrans communs — voir `broadcastSnapshot`. */
   private pending: ReturnType<typeof setTimeout> | null = null
+  private pendingEcrans: ReturnType<typeof setTimeout> | null = null
+  private readonly incarnation = ++incarnations
 
   constructor(
     readonly spaceId: string,
@@ -159,7 +220,14 @@ export class SpaceRuntime {
       // compris : une archive et de l'expérience ont pu être écrites sous ce
       // nom-là, et si le premier arrivé s'en allait avant qu'il ne resserve,
       // plus rien ne permettrait de le retrouver.
-      const tiree = this.tirerSoiree()
+      //
+      // Des réponses au journal sans nom rangé : un quiz s'est joué sur un
+      // serveur qui ne rangeait pas les noms, et il a pu écrire son archive et
+      // son expérience sous le nom d'alors, sans l'empreinte de l'espace. Le
+      // tirer au format du jour doublait l'archive et recomptait
+      // l'expérience du premier quiz (invariant 11). Sans réponse, rien n'a
+      // pu s'écrire : le nom du jour ne rebaptise rien.
+      const tiree = this.tirerSoiree(this.answers.all().length > 0)
       if (tiree) {
         this.recopierSoiree(tiree).catch(e => console.warn(`[soirée] nom non recopié : ${(e as Error).message}`))
       }
@@ -244,9 +312,14 @@ export class SpaceRuntime {
     return row ? { id: row.id, heldAt: row.held_at } : null
   }
 
-  /** Tire le nom à sa première question jouée, et le range sur le disque local. */
-  private tirerSoiree(): Soiree | null {
-    const soiree = soireeDesInvites(this.party.all(), this.answers.all())
+  /**
+   * Tire le nom à sa première question jouée, et le range sur le disque local.
+   * `commeAvant` le tire comme le faisait le serveur d'avant — sans
+   * l'empreinte de l'espace, à l'arrivée du plus ancien invité — pour
+   * retrouver le nom d'une soirée qu'il a commencée.
+   */
+  private tirerSoiree(commeAvant = false): Soiree | null {
+    const soiree = soireeDesInvites(this.party.all(), this.answers.all(), commeAvant ? null : this.spaceId)
     if (!soiree) return null
     this.deps.db
       .prepare('INSERT OR REPLACE INTO soiree (space_id, id, held_at) VALUES (?, ?, ?)')
@@ -272,6 +345,20 @@ export class SpaceRuntime {
     // serveur. Celui qui l'attend reçoit bien l'erreur.
     ecriture.catch(() => {})
     return ecriture
+  }
+
+  /**
+   * Les soirées qui se jouent en ce moment dans les autres espaces
+   * (`cleDeSoiree`). La base locale range le nom de chacune dès qu'il est
+   * tiré et l'oublie à sa fin — le miroir le lui rend après un réveil sur
+   * disque effacé. Une soirée dont la clôture est en cours compte pour
+   * close (`cloturesEnCours`).
+   */
+  private soireesEnCoursAilleurs(): Set<string> {
+    const rows = this.deps.db
+      .prepare('SELECT space_id, id FROM soiree WHERE space_id <> ?')
+      .all(this.spaceId) as { space_id: string; id: string }[]
+    return new Set(rows.filter(r => !this.deps.cloturesEnCours.has(r.space_id)).map(r => cleDeSoiree(r.space_id, r.id)))
   }
 
   /** La soirée suivante tirera son propre nom, sur ses propres invités. */
@@ -435,6 +522,30 @@ export class SpaceRuntime {
   }
 
   /**
+   * Ce dont se dérivent les pages publiques de la soirée en cours : le numéro
+   * d'écriture de chaque journal et, tant que rien n'est joué, le nom de la
+   * soirée et l'historique de l'espace, où se lit la dernière soirée close
+   * (`derniere`). Une fois une question jouée, la page ne dépend plus
+   * de l'historique : le rangement qui suit chaque podium, au moment même où
+   * la salle scanne le QR, refaisait la page pour rien. Sans lire le
+   * journal : les pages le demandent à chaque requête. Ce qui n'y est pas — le niveau d'un
+   * profil, l'intitulé d'un quiz de la bibliothèque — paraît à la durée de
+   * vie de la page (`core/pages.ts`).
+   */
+  empreinteDesPages(): string {
+    return [
+      this.incarnation,
+      this.party.revision,
+      this.teams.revision,
+      this.ledger.revision,
+      this.answers.revision,
+      // `derniere` écarte la soirée en cours par son nom : l'un et l'autre
+      // ne comptent que tant que rien n'est joué.
+      this.aJoue() ? '' : `${this.soiree?.id ?? ''}.${this.deps.archives.revision(this.spaceId)}`,
+    ].join('.')
+  }
+
+  /**
    * Vrai dès qu'une question a été jouée dans la soirée en cours : ses pages
    * parlent alors d'elle. Avant, elles montrent la dernière soirée close.
    */
@@ -457,12 +568,10 @@ export class SpaceRuntime {
     const p = this.party.publicOne(playerId, points)
     if (!p) return null
     const positifs = [...totals.values()].filter(t => t > 0)
-    const journal = this.answers.all()
+    const { releves, joueurs } = this.relevesDesCartes()
     // Sa soirée telle que sa fiche la rangera : la même lecture du journal,
     // les mêmes chiffres.
-    const soir =
-      relevesDeSoiree({ players: this.party.all(), scores: this.ledger.all(), answers: journal }).get(playerId)?.releve ??
-      releveVide()
+    const soir = releves.get(playerId)?.releve ?? releveVide()
     const carte: CarteDeJoueur = {
       nom: p.nomAffiche ?? p.name,
       avatar: p.avatar,
@@ -472,7 +581,7 @@ export class SpaceRuntime {
         rang: points > 0 ? rangPartage(points, positifs) : 0,
         // Toute la salle qui a joué, pas seulement ceux qui ont marqué : « 1ᵉʳ
         // sur 2 » quand cinq ont répondu laissait croire à une salle vide.
-        joueurs: new Set(journal.filter(r => r.answered).map(r => r.playerId)).size,
+        joueurs,
         reponses: soir.reponses,
         // Les justes se comptent sur les QCM seuls : une estimation n'est
         // jamais juste, et la compter au dénominateur faisait lire « 1/64
@@ -515,6 +624,27 @@ export class SpaceRuntime {
     return carte
   }
 
+  private cartesGardees: { empreinte: string; releves: ReturnType<typeof relevesDeSoiree>; joueurs: number } | null =
+    null
+
+  /**
+   * Les relevés de toute la salle, gardés tant que les journaux ne bougent
+   * pas : chaque carte ouverte relisait le journal entier pour n'en garder
+   * qu'une ligne, et toute la salle touche les noms au podium.
+   */
+  private relevesDesCartes() {
+    const empreinte = this.empreinteDesPages()
+    if (this.cartesGardees?.empreinte !== empreinte) {
+      const journal = this.answers.all()
+      this.cartesGardees = {
+        empreinte,
+        releves: relevesDeSoiree({ players: this.party.all(), scores: this.ledger.all(), answers: journal }),
+        joueurs: new Set(journal.filter(r => r.answered).map(r => r.playerId)).size,
+      }
+    }
+    return this.cartesGardees
+  }
+
   /** Le nom qu'un invité porte sur les écrans, et ce qu'il porte. */
   private figure(playerId: string): Figure | null {
     const p = this.party.publicOne(playerId, this.ledger.total(playerId))
@@ -536,8 +666,9 @@ export class SpaceRuntime {
   ): Promise<(Figure & { avant: number; apres: number })[]> {
     // Tant qu'il n'est pas allé au bout, on ne sait plus ce qui est en base.
     this.dernierCredit = null
-    const montees: (Figure & { avant: number; apres: number })[] = []
-    for (const g of gains) {
+    // Chaque profil a ses lignes : les créditer en même temps ne mêle rien.
+    // Les montées gardent l'ordre des gains, celui de l'écran commun.
+    const parProfil = await enParallele(gains, PROFILS_EN_VOL, async g => {
       const avant = (await this.deps.profiles.byId(g.profileId).catch(() => null))?.xp ?? 0
       // L'Éclat ne se tire qu'une fois par soirée. Sans ce garde-fou, chaque
       // quiz joué donnerait une chance de plus — et l'Éclat ne vaut que
@@ -568,9 +699,11 @@ export class SpaceRuntime {
       const [niveauAvant, niveauApres] = [niveauDuProfil(avant, gardes), niveauDuProfil(apres, gardes)]
       if (niveauApres > niveauAvant) {
         const figure = this.figure(g.playerId)
-        if (figure) montees.push({ ...figure, avant: niveauAvant, apres: niveauApres })
+        if (figure) return { ...figure, avant: niveauAvant, apres: niveauApres }
       }
-    }
+      return null
+    })
+    const montees = parProfil.filter((m): m is NonNullable<typeof m> => m !== null)
     this.dernierCredit = empreinteDuCredit(soireeId, gains)
     return montees
   }
@@ -825,6 +958,11 @@ export class SpaceRuntime {
    * celle d'un invité.
    */
   buildSnapshot(forHost: boolean): PartySnapshot {
+    const snapshot = this.snapshotComplet()
+    return forHost ? this.pourLesEcrans(snapshot) : this.pourLesTelephones(snapshot)
+  }
+
+  private snapshotComplet(): PartySnapshot {
     const space = this.publicSpace()
     const players = this.party.publicPlayers(this.ledger.allTotals())
     const bonuses = this.teams.allBonuses()
@@ -838,7 +976,18 @@ export class SpaceRuntime {
       wifi: null,
       space,
     }
-    return forHost ? this.pourLesEcrans(snapshot) : snapshot
+    return snapshot
+  }
+
+  /**
+   * Ce que les téléphones reçoivent : la salle, sans dire qui est connecté.
+   * Chaque veille d'écran, chaque retour, basculait un `connected` et
+   * renvoyait la salle entière à chacun — à 300 invités, un gigaoctet pour
+   * une vague d'arrivées une par une. Aucun téléphone ne le lisait, sauf
+   * l'entrée pour compter les présents : elle compte désormais les inscrits.
+   */
+  private pourLesTelephones(snapshot: PartySnapshot): PartySnapshot {
+    return { ...snapshot, players: snapshot.players.map(({ connected: _connected, ...p }) => p) }
   }
 
   /** Ce que l'écran commun reçoit en plus de la salle. */
@@ -853,21 +1002,58 @@ export class SpaceRuntime {
   }
 
   sendSnapshot(force = false) {
-    const snapshot = this.buildSnapshot(false)
-    const json = JSON.stringify(snapshot)
-    if (!force && json === this.lastSnapshot) return
-    this.lastSnapshot = json
-    const io = this.deps.io
-    io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`).emit('party:snapshot', snapshot)
-    io.to(`hosts:${this.spaceId}`).emit('party:snapshot', this.pourLesEcrans(snapshot))
+    const complet = this.snapshotComplet()
+    this.envoyerAuxTelephones(complet, force)
+    this.envoyerAuxEcrans(complet, force)
   }
 
+  private envoyerAuxTelephones(complet: PartySnapshot, force = false) {
+    if (this.pending) clearTimeout(this.pending)
+    this.pending = null
+    const telephones = this.pourLesTelephones(complet)
+    const json = JSON.stringify(telephones)
+    if (!force && json === this.lastSnapshot) return
+    this.lastSnapshot = json
+    this.deps.io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`).emit('party:snapshot', telephones)
+  }
+
+  private envoyerAuxEcrans(complet: PartySnapshot, force = false) {
+    if (this.pendingEcrans) clearTimeout(this.pendingEcrans)
+    this.pendingEcrans = null
+    const ecrans = this.pourLesEcrans(complet)
+    const json = JSON.stringify(ecrans)
+    if (!force && json === this.lastEcrans) return
+    this.lastEcrans = json
+    this.deps.io.to(`hosts:${this.spaceId}`).emit('party:snapshot', ecrans)
+  }
+
+  /**
+   * Deux fenêtres de regroupement. Celle des téléphones grandit avec la
+   * salle : 120 ms pour une tablée, une demi-seconde passé cent
+   * quatre-vingt-dix invités. Chaque envoi y coûte à proportion de la salle
+   * — sa liste, à chacun de ses téléphones —, et une vague d'arrivées une
+   * par une en faisait autant de diffusions. Celle des écrans communs reste
+   * à 120 ms : une ou deux connexions, et c'est là que l'animateur attend de
+   * voir son quiz s'ouvrir après « Lancer » — la console ne l'ouvre qu'avec
+   * la partie de l'instantané. Celui qui a fait le geste, lui, n'attend
+   * aucune des deux : il reçoit le sien sur-le-champ (`player:join`).
+   */
   broadcastSnapshot() {
-    if (this.pending) return
-    this.pending = setTimeout(() => {
-      this.pending = null
-      this.sendSnapshot()
-    }, 120)
+    if (!this.pendingEcrans) {
+      this.pendingEcrans = setTimeout(() => {
+        this.pendingEcrans = null
+        this.envoyerAuxEcrans(this.snapshotComplet())
+      }, 120)
+    }
+    if (!this.pending) {
+      this.pending = setTimeout(
+        () => {
+          this.pending = null
+          this.envoyerAuxTelephones(this.snapshotComplet())
+        },
+        120 + 2 * this.party.count(),
+      )
+    }
   }
 
   // ── Les pages publiques : souvenir, bilan, historique ──
@@ -943,7 +1129,7 @@ export class SpaceRuntime {
       // le téléphone d'essai de l'animateur. Tant que le nom n'est pas tiré,
       // c'est l'heure qu'il prendra — sans le tirer ici : une page publique
       // ne décide pas du nom de la soirée.
-      since: (this.soiree ?? soireeDesInvites(this.party.all(), rows))?.heldAt ?? null,
+      since: (this.soiree ?? soireeDesInvites(this.party.all(), rows, this.spaceId))?.heldAt ?? null,
     }
   }
 
@@ -1030,6 +1216,9 @@ export class SpaceRuntime {
       let summary: ArchiveSummary | null = null
       let annonce: (() => void) | undefined
       if (soiree && built) {
+        // Dès ici, pour les paliers des autres espaces, cette soirée est
+        // close : elle ne rendra plus que ce qu'elle a déjà écrit.
+        this.deps.cloturesEnCours.add(this.spaceId)
         const credit = this.creditDeCloture({ players, scores, answers })
         const recopie = this.recopierSoiree(soiree)
         const bilans = await this.enFile(async () => {
@@ -1055,6 +1244,9 @@ export class SpaceRuntime {
       if (!summary) this.effacerJetons(players.map(p => p.token))
       return summary
     } finally {
+      // Close pour de bon, sa ligne est partie ; refusée par le miroir, elle
+      // se joue encore et redevient une soirée en cours pour les autres.
+      this.deps.cloturesEnCours.delete(this.spaceId)
       this.fermeture = false
     }
   }
@@ -1069,25 +1261,27 @@ export class SpaceRuntime {
     credit: CreditDeCloture,
   ): Promise<Map<string, NonNullable<FinDeSoiree['profil']>>> {
     const avant = new Map<string, { legendaires: string[]; divins: string[] }>()
-    for (const g of credit.gains) {
+    await enParallele(credit.gains, PROFILS_EN_VOL, async g => {
       await this.deps.profiles.byId(g.profileId).catch(() => null)
       avant.set(g.profileId, {
         legendaires: this.deps.profiles.legendairesOf(g.profileId),
         divins: this.deps.profiles.divinsOf(g.profileId),
       })
-    }
+    })
     await this.crediterExperience(soireeId, credit.gains)
     // Les récompenses se remplacent, comme l'expérience — et même sans aucun
     // profil ce soir : celles qu'un passage précédent avait rangées doivent
     // pouvoir repartir.
     await this.deps.profiles.remplacerRecompensesDeSoiree(soireeId, this.spaceId, credit.laureats)
     const bilans = new Map<string, NonNullable<FinDeSoiree['profil']>>()
-    for (const g of credit.gains) {
+    const ailleurs = this.soireesEnCoursAilleurs()
+    await enParallele(credit.gains, PROFILS_EN_VOL, async g => {
       // Les paliers de carrière viennent en dernier : ils se décident sur les
-      // totaux, expérience et hauts faits de ce soir compris.
-      const paliers = await this.deps.profiles.accorderPaliers(g.profileId, soireeId, this.spaceId)
+      // totaux, expérience et hauts faits de ce soir compris — mais pas sur
+      // les soirées qui se jouent encore dans d'autres espaces.
+      const paliers = await this.deps.profiles.accorderPaliers(g.profileId, soireeId, this.spaceId, ailleurs)
       const profil = await this.deps.profiles.byId(g.profileId).catch(() => null)
-      if (!profil) continue
+      if (!profil) return
       const xpPaliers = paliers.reduce((n, cle) => n + (palierDe(cle) ? XP_PALIER[palierDe(cle)!.palier - 1] : 0), 0)
       const xpSoiree = g.xp + xpPaliers
       const gardes = this.deps.profiles.gardesOf(g.profileId)
@@ -1112,7 +1306,7 @@ export class SpaceRuntime {
       })
       // Le profil à jour, pour les pages qui l'affichent encore.
       this.deps.io.to(`player:${g.playerId}`).emit('player:profil', this.deps.profiles.toPublic(profil))
-    }
+    })
     return bilans
   }
 
@@ -1302,7 +1496,9 @@ export class SpaceRuntime {
 
   stop() {
     if (this.pending) clearTimeout(this.pending)
+    if (this.pendingEcrans) clearTimeout(this.pendingEcrans)
     this.pending = null
+    this.pendingEcrans = null
     this.engine.stop()
   }
 }

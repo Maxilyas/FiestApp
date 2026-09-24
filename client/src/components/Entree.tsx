@@ -119,7 +119,10 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
     window.scrollTo(0, 0)
   }, [etape])
 
-  const connectes = players.filter(p => p.connected).length
+  // Les inscrits, et non plus les connectés : l'instantané des téléphones ne
+  // dit plus qui dort (voir `pourLesTelephones`, côté serveur). Un invité
+  // dont l'écran s'est mis en veille est toujours « déjà là ».
+  const connectes = players.length
   const salut = (
     <JoinHead
       eyebrow={space.eyebrow}

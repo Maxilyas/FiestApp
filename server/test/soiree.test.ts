@@ -155,6 +155,10 @@ function lire<T = any>(chemin: string, sql: string, ...args: unknown[]): T[] {
   }
 }
 
+/** L'identifiant de l'espace du banc — son nom de soirée en porte l'empreinte. */
+const espaceDe = (banc: Banc): string =>
+  lire<{ id: string }>(permanente(banc), 'SELECT id FROM accounts WHERE slug = ?', ADMIN.slug)[0].id
+
 const profilDe = (banc: Banc, login: string): string =>
   lire<{ id: string }>(permanente(banc), 'SELECT id FROM profiles WHERE login = ?', login)[0].id
 
@@ -179,6 +183,9 @@ const laureats = (banc: Banc, soiree: string, badge: string) =>
   ).map(r => r.profile_id)
 
 /** L'heure d'arrivée d'un invité, telle que la base locale l'a notée. */
+const arrivee = (banc: Banc, playerId: string): number =>
+  lire<{ created_at: number }>(banc.dbPath, 'SELECT created_at FROM players WHERE id = ?', playerId)[0].created_at
+
 /** L'heure de la première question jouée dans la soirée : celle qui la date. */
 const premiereQuestion = (banc: Banc): number =>
   lire<{ t: number }>(banc.dbPath, 'SELECT MIN(created_at) AS t FROM answer_log WHERE answered = 1')[0].t
@@ -237,7 +244,7 @@ test('exclure le premier arrivé entre deux quiz ne rebaptise pas la soirée', (
     const debut = premiereQuestion(banc)
     // Le quiz fini, la soirée s'est rangée toute seule sous son nom.
     const rangee = await enCours(banc)
-    assert.equal(rangee?.id, archiveIdOf(debut), 'la soirée s’est rangée d’elle-même après le quiz')
+    assert.equal(rangee?.id, archiveIdOf(debut, espaceDe(banc)), 'la soirée s’est rangée d’elle-même après le quiz')
 
     ;(host as any).emit('host:removePlayer', { playerId: essai.playerId })
     await attendre(essai.socket, 'player:removed', () => true, 'l’exclusion du téléphone d’essai')
@@ -257,7 +264,7 @@ test('exclure le premier arrivé entre deux quiz ne rebaptise pas la soirée', (
     assert.equal(archives[0].id, lignes[0].soiree_id, 'l’archive et l’expérience portent le même nom')
     // L'heure de début reste celle du premier arrivé, même exclu depuis.
     assert.equal(archives[0].heldAt, debut)
-    assert.equal(archives[0].id, archiveIdOf(debut))
+    assert.equal(archives[0].id, archiveIdOf(debut, espaceDe(banc)))
     // Les paliers de carrière se comptent en soirées : rebaptisée, celle-ci
     // aurait compté double sur la fiche, et L'Habitué serait tombé une
     // soirée trop tôt.
@@ -370,20 +377,32 @@ test('une soirée commencée avant la mise à jour garde le nom qu’elle avait'
     await jouerQuiz(host, quiz, [[[alice, 0], [essai, 1], ...faux(salle)]])
     await premier
     await patienter(400)
-    // Le nom qu'elle avait : l'heure de sa première question jouée. Le vrai
-    // serveur d'avant la datait à l'arrivée du premier invité ; tous ceux qui
-    // tournent aujourd'hui rangent leur nom, et ce qu'on garde ici, c'est
-    // qu'un nom perdu se retrouve pareil au réveil, et se fige.
-    const debut = premiereQuestion(banc)
+    // Le nom qu'elle avait : le serveur d'avant la datait à l'arrivée du
+    // premier invité, sans l'empreinte de l'espace ; celui du jour la date à
+    // sa première question jouée, avec l'empreinte. Ce qu'on garde ici, c'est
+    // que le nom d'avant se retrouve pareil au réveil, et se fige.
+    const debut = arrivee(banc, essai.playerId)
 
-    // Le serveur d'avant ne rangeait le nom de la soirée nulle part : on
-    // efface celui qu'on vient de ranger. Il ne reste que ce qu'une soirée en
-    // cours au moment du déploiement aurait laissé — des invités, leurs
-    // points, une archive et de l'expérience déjà écrites sous ce nom-là.
+    // Le serveur d'avant ne rangeait le nom de la soirée nulle part, et le
+    // tirait sans l'empreinte de l'espace. On imite ce qu'il aurait laissé à
+    // une soirée en cours au moment du déploiement : des invités, leurs
+    // points, une archive et de l'expérience déjà écrites sous ce nom-là —
+    // et aucune ligne dans `party_soiree`.
+    const avant = archiveIdOf(debut, null)
+    const duJour = archiveIdOf(premiereQuestion(banc), espaceDe(banc))
+    assert.notEqual(avant, duJour)
     const db = new Database(permanente(banc))
     try {
-      const table = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'party_soiree'").get()
-      if (table) db.prepare('DELETE FROM party_soiree').run()
+      const rebaptiser = db.transaction(() => {
+        assert.equal(db.prepare('UPDATE soirees SET id = ? WHERE id = ?').run(avant, duJour).changes, 1, 'l’archive du premier quiz')
+        assert.ok(
+          db.prepare('UPDATE profile_xp SET soiree_id = ? WHERE soiree_id = ?').run(avant, duJour).changes > 0,
+          'l’expérience du premier quiz',
+        )
+        db.prepare('UPDATE profile_badges SET soiree_id = ? WHERE soiree_id = ?').run(avant, duJour)
+        db.prepare('DELETE FROM party_soiree').run()
+      })
+      rebaptiser()
     } finally {
       db.close()
     }
@@ -414,12 +433,8 @@ test('une soirée commencée avant la mise à jour garde le nom qu’elle avait'
     await clore(host3)
 
     const archives = await historique(banc)
-    assert.deepEqual(
-      archives.map(a => a.id),
-      [archiveIdOf(debut)],
-      'l’archive d’avant la mise à jour est mise à jour, pas doublée',
-    )
-    assert.deepEqual(lignesXp(banc, aliceId).map(l => l.soiree_id), [archiveIdOf(debut)])
+    assert.deepEqual(archives.map(a => a.id), [avant], 'l’archive d’avant la mise à jour est mise à jour, pas doublée')
+    assert.deepEqual(lignesXp(banc, aliceId).map(l => l.soiree_id), [avant])
   }))
 
 // ── Les prix de soirée ────────────────────────────────────────────────────
