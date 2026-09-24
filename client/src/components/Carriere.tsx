@@ -95,7 +95,7 @@ export function GalerieLegendaires({
           <b className="galerie-detail-nom">{choisi.nom}</b>
           <p className="serif-note">{choisi.legende}</p>
           {eclats.includes(choisi.key) && (
-            <p className="small">Il a éclaté : c’est sa version rare, et toi seul l’as comme ça.</p>
+            <p className="small">Il a éclaté : c’est sa version rare, et personne d’autre ne l’a comme ça.</p>
           )}
           <p className="small">
             {/* Gagné avant que sa règle se durcisse : il le garde, mais la

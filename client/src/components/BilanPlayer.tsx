@@ -1,5 +1,5 @@
 import { Icon, type IconName } from './Icon'
-import { formatNumber, ordinal } from '../format'
+import { formatNumber, place, rang } from '../format'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
 import type { HighlightKind, ReviewHighlight, ReviewPlayer, ReviewQuestion } from '../../../shared/review'
 import { QuestionCard, type BilanCtx } from './BilanQuestion'
@@ -76,15 +76,15 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
             <span className="label">Points</span>
             <span className="bilan-tile-value">{formatNumber(player.points)}</span>
             <span className="bilan-tile-sub">
-              {ordinal(player.rank)} sur {played.length}
+              {place(player.rank)} sur {played.length}
             </span>
           </div>
           {team && player.teamRank !== null && (
             <div className="bilan-tile">
               <span className="label">Dans ton équipe</span>
-              <span className="bilan-tile-value">{ordinal(player.teamRank)}</span>
+              <span className="bilan-tile-value">{rang(player.teamRank)}</span>
               <span className="bilan-tile-sub">
-                sur {mates.length} · {team.emoji} {team.name}
+                place sur {mates.length} · {team.emoji} {team.name}
               </span>
             </div>
           )}
@@ -177,7 +177,7 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
             <div className="card-head">
               <h2>{quiz.title}</h2>
               <span className="pill">
-                {pq.points} pts{pq.rank !== null && ` · ${ordinal(pq.rank)} sur ${quiz.players}`}
+                {pq.points} pts{pq.rank !== null && ` · ${place(pq.rank)} sur ${quiz.players}`}
               </span>
             </div>
             {team && (

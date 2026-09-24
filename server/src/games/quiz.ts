@@ -514,7 +514,7 @@ export const quizModule: GameModule<QuizState> = {
   createInitialState(spaceId): QuizState {
     const library = quizLibrary(spaceId)
     if (library.length === 0) {
-      throw new Error('Aucun quiz prêt à jouer — créez-en un dans l’espace animateur (/edit)')
+      throw new Error('Aucun quiz prêt à jouer — crée-en un dans l’espace animateur (/edit)')
     }
     return {
       phase: 'pickPack',
