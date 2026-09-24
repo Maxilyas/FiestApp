@@ -334,7 +334,10 @@ sans `QUIZ_DB_URL`.
   `transform` écrase celui de l'élément : le toast, centré par
   `translateX(-50%)`, partait sur la droite. Centre par marges.
 - **Regarde le rendu.** Plusieurs bugs de cette base n'étaient visibles qu'à
-  l'écran, pas au typecheck. Chromium et Playwright sont disponibles.
+  l'écran, pas au typecheck. Chromium et Playwright sont disponibles. Le
+  téléphone se regarde en 360 × 640 ; l'écran commun en **1366 × 768** — le
+  portable qu'on branche à la télé, où rien ne défile — et en 1920 × 1080,
+  avec une question à photo, des équipes et une clôture à hauts faits.
 - **La tablée lit l'écran par ses classes** (`.quiz-player`, `.ans-btn`,
   `.guess-form`, `.join-url`, `.fin-tete`…) : en renommer une casse ses
   raccourcis `question`, `repondre` et `scanner` sans que le typecheck le

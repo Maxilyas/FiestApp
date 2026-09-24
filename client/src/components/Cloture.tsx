@@ -28,9 +28,23 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
   const c = cloture
   return (
     <div className="quiz-host stage-scroll cloture">
+      {/* Le QR du souvenir en haut, à côté du titre : au pied de la scène, il
+          tombait sous la console en 1366 × 768, coupé — celui-là même que
+          les invités doivent scanner pour emporter leur soirée. */}
       <header className="cloture-tete">
-        <span className="label">La soirée est close</span>
-        <h2>{c.soiree.titre}</h2>
+        <div className="cloture-titre">
+          <span className="label">La soirée est close</span>
+          <h2>{c.soiree.titre}</h2>
+        </div>
+        <div className="qr-stack scene-qr">
+          <div className="qr-box">
+            <QRCodeSVG value={souvenirUrl} size={84} bgColor="#ffffff" fgColor="#1a1412" />
+          </div>
+          <div className="qr-text">
+            <span className="label">Le souvenir de la soirée</span>
+            <span className="join-url">{souvenirUrl}</span>
+          </div>
+        </div>
       </header>
 
       <div className="cloture-grille">
@@ -123,7 +137,7 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
       </div>
 
       {c.hautsFaits.length > 0 && (
-        <section className="cloture-bloc">
+        <section className="cloture-bloc cloture-hauts-faits">
           <h3>Les hauts faits de la soirée</h3>
           <div className="cloture-faits">
             {c.hautsFaits.map((h, i) => (
@@ -144,18 +158,6 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
           </div>
         </section>
       )}
-
-      <div className="stage-foot">
-        <div className="qr-stack">
-          <div className="qr-box">
-            <QRCodeSVG value={souvenirUrl} size={84} bgColor="#ffffff" fgColor="#1a1412" />
-          </div>
-          <div className="qr-text">
-            <span className="label">Le souvenir de la soirée</span>
-            <span className="join-url">{souvenirUrl}</span>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

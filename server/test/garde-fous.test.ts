@@ -35,6 +35,7 @@ import {
   type Socket,
 } from './banc'
 import type { ClientToServerEvents } from '../../shared/events'
+import { PALIERS_ENCHAINEMENT } from '../../shared/console'
 import type { QuizQuestionDef } from '../../shared/library'
 
 const SLUG = ADMIN.slug
@@ -348,6 +349,29 @@ describe('les garde-fous', { concurrency: true }, () => {
     await temoin('host:discardParty', undefined, p => p.joueurs.length === 0 && p.archives === 1 && p.enCours === null, 'effacer un essai')
     await arrivee(banc.url, 'Dora', '🐼')
     await temoin('host:resetParty', undefined, p => p.joueurs.length === 0, 'l’ancien « Nouvelle soirée » clôt la soirée')
+  })
+
+  test('chaque palier d’enchaînement de la console s’arme tel quel à la révélation', async () => {
+    // Le serveur bornait l'enchaînement : un palier que la console propose
+    // mais qu'il raccourcirait ferait partir la question suivante pendant
+    // que l'animateur commente encore — ce que les paliers longs évitent.
+    const { quiz, host } = await soiree([qcm('Une ?'), qcm('Deux ?')], ['Alice'])
+    const sessionId = await lancerQuiz(host, quiz)
+    const question = await vue(host, v => v.phase === 'question' && v.qIndex === 0, 'la première question')
+    commande(host, sessionId, { type: 'next', ...viseeDe(question) })
+    await vue(host, v => v.phase === 'reveal' && v.qIndex === 0, 'la révélation')
+    for (const palier of [...PALIERS_ENCHAINEMENT.slice(1), null]) {
+      const avant = Date.now()
+      commande(host, sessionId, { type: 'autoNext', seconds: palier })
+      const v = await vue(host, v => (v.autoNextSeconds ?? null) === palier, `l’enchaînement à ${palier ?? 'la main'}`)
+      assert.equal(v.phase, 'reveal', 'la révélation est toujours à l’écran')
+      if (palier === null) {
+        assert.equal(v.autoNextAt, undefined, 'repasser au clic désarme l’enchaînement')
+      } else {
+        assert.ok(v.autoNextAt >= avant + palier * 1000, `${palier} s : armé ${avant + palier * 1000 - v.autoNextAt} ms trop court`)
+        assert.ok(v.autoNextAt <= Date.now() + palier * 1000, `${palier} s : armé trop loin`)
+      }
+    }
   })
 
   // ── 2. Les chronomètres, après un réveil sur disque effacé ──────────────
