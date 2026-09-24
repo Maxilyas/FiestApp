@@ -125,7 +125,12 @@ export function habillerPage(
   ]
     .filter(Boolean)
     .join('\n    ')
-  return html.replace(/<title>[^<]*<\/title>/, `<title>${titre}</title>`).replace('</head>', `  ${balises}\n  </head>`)
+  // Des fonctions, pas des chaînes : une chaîne de remplacement lit « $& »,
+  // « $` », « $' » et « $$ », et le titre « Soirée $& co » recopiait le
+  // `<title>` d'origine au milieu de la page.
+  return html
+    .replace(/<title>[^<]*<\/title>/, () => `<title>${titre}</title>`)
+    .replace('</head>', () => `  ${balises}\n  </head>`)
 }
 
 /**

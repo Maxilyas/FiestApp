@@ -93,6 +93,14 @@ describe('les aperçus de lien et l’indexation', () => {
     const html = await (await lire('/banc')).text()
     assert.match(html, /og:title" content="Les &quot;40&quot; &lt;ans&gt; &amp; Sam"/)
     assert.doesNotMatch(html, /<ans>/)
+    // `String.replace` lit « $& », « $` », « $' » et « $$ » dans une chaîne de
+    // remplacement : « $& » recopiait le `<title>` d'origine au milieu du titre.
+    const dollars = await ecrire(banc.url, '/api/space/settings', { title: "Soirée $& $` $' $$" }, admin, 'PUT')
+    assert.equal(dollars.status, 200)
+    const page = await (await lire('/banc')).text()
+    assert.match(page, /<title>Soirée \$&amp; \$` \$&#39; \$\$<\/title>/)
+    assert.match(page, /og:title" content="Soirée \$&amp; \$` \$&#39; \$\$"/)
+    assert.equal(page.match(/<title>/g)?.length, 1)
   })
 
   test('seul l’accueil se laisse indexer', async () => {
