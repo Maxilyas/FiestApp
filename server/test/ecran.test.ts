@@ -70,3 +70,11 @@ test('à la révélation d’une estimation, les estimations prennent ce qu’il
   // au-dessus d'un « Top du quiz » coupé au troisième joueur sur quatre.
   assert.match(css, /\.quiz-host:has\(\.reveal-boards\) \.guess-reveal \{ flex: 0 1 auto; min-height: 0; max-height: 60%; \}/)
 })
+
+test('un 1920 × 1080 a la place d’un 1366 × 768, et un classement révélé garde toujours sa première ligne', () => {
+  // Tout compte en `rem` sur grand écran : un bloc réservé au 768 laissait
+  // moins de place en 1080, où la révélation montrait une équipe sur trois.
+  assert.doesNotMatch(css, /@media \(max-height: 820px\)/)
+  // « et 5 autres » sans une seule ligne au-dessus ne disait rien.
+  assert.match(css, /\.host\.staging \.reveal-boards \.coupe-zone \{ min-height: 4rem; \}/)
+})
