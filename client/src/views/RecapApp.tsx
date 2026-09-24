@@ -52,9 +52,22 @@ export function RecapApp() {
     // l'animateur pendant que les quiz s'enchaînent — et, entre deux
     // soirées, elle y revient dès que la suivante joue. Une soirée archivée,
     // elle, ne bouge plus.
+    //
+    // Mais pas dans un onglet caché : la page restait ouverte dans cinquante
+    // poches toute la fin de soirée, et chacune redemandait le souvenir
+    // toutes les 20 s. Elle se rattrape en revenant au premier plan.
     if (archiveId) return
-    const id = setInterval(load, 20_000)
-    return () => clearInterval(id)
+    const id = setInterval(() => {
+      if (!document.hidden) load()
+    }, 20_000)
+    const auRetour = () => {
+      if (!document.hidden) load()
+    }
+    document.addEventListener('visibilitychange', auRetour)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', auRetour)
+    }
   }, [slug, archiveId])
 
   useEffect(() => {
