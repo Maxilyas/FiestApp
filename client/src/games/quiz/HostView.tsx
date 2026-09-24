@@ -330,8 +330,10 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
             et la salle demandait ce qui se passait. */}
         {!revealing && v.paused && (
           <div className="pause-voile" role="status">
-            <Icon name="pause" />
-            En pause
+            <span>
+              <Icon name="pause" />
+              En pause
+            </span>
           </div>
         )}
 

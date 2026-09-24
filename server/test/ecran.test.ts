@@ -135,3 +135,13 @@ test('la console tenue au téléphone ne grossit pas', () => {
   // Un nom se coupe entre deux mots, pas en plein milieu.
   assert.doesNotMatch(css, /\.podium-name \{[^}]*overflow-wrap: anywhere/)
 })
+
+test('la pause se lit partout : sur la question longue, au téléphone, et les réponses restent lisibles', () => {
+  // Au centre d'une scène qui défile, « En pause » tombait hors de l'écran
+  // de l'animateur qui tient /host au téléphone.
+  assert.match(css, /@media \(max-width: 1100px\) \{\s*\.pause-voile \{ position: static; font-size: 2rem; \}/)
+  // Sur un fond, pour ne pas s'écrire sur la dernière ligne de la question.
+  assert.match(css, /\.pause-voile > span \{[^}]*background: var\(--bg\);/)
+  // À 15 %, les réponses tombaient à 1,35:1 en Ivoire.
+  assert.match(css, /\.quiz-host:has\(> \.pause-voile\) > :is\(\.ans-grid, \.big-waiting, \.compte-reponses\) \{ opacity: 0\.4; \}/)
+})

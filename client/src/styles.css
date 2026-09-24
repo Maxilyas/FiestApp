@@ -4459,7 +4459,6 @@ h3 > .icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.3em;
   font-family: var(--serif);
   font-weight: 600;
   font-size: clamp(3rem, 9vh, 6rem);
@@ -4467,11 +4466,28 @@ h3 > .icon {
   pointer-events: none;
   animation: pop 0.3s ease-out both;
 }
+/* Le mot sur un fond : posé au centre de la scène, il s'écrivait sur la
+   dernière ligne d'une question longue, en 1920 × 1080. */
+.pause-voile > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0 0.4em;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
 .pause-voile .icon { width: 0.8em; height: 0.8em; color: var(--accent-text); }
+/* Au téléphone, la scène défile : le mot centré sur elle tombait sous le
+   pli, hors de l'écran de l'animateur. Il prend sa place sous le chrono. */
+@media (max-width: 1100px) {
+  .pause-voile { position: static; font-size: 2rem; }
+}
 /* Le mot en grand, sur une scène éteinte : les réponses restent lisibles
-   pour qui veut en discuter, mais rien ne dit plus « jouez ». */
+   pour qui veut en discuter, mais rien ne dit plus « jouez ». À 40 %, comme
+   l'énoncé : à 15 %, elles tombaient à 1,53:1 en Velours et 1,35:1 en
+   Ivoire, illisibles. */
 .quiz-host:has(> .pause-voile) > .quiz-enonce { opacity: 0.4; }
-.quiz-host:has(> .pause-voile) > :is(.ans-grid, .big-waiting, .compte-reponses) { opacity: 0.15; }
+.quiz-host:has(> .pause-voile) > :is(.ans-grid, .big-waiting, .compte-reponses) { opacity: 0.4; }
 
 /* Au téléphone : le même mot, et des réponses qui ne ressemblent plus à des
    boutons qu'on peut toucher. */
