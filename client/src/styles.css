@@ -1323,6 +1323,14 @@ h3 > .icon {
   right: 20px;
   bottom: 6px;
 }
+/* Des réponses longues ne tiennent pas en un écran, et la page défile
+   (plus haut) : la page grandit avec elles, pour que cette marge reste sous
+   la dernière réponse. À la hauteur de la fenêtre, « Réponse enregistrée »
+   s'écrivait sur la deuxième carte. La photo, qui n'a plus de hauteur à
+   céder, garde la vignette qu'elle devenait : à sa taille, elle poussait la
+   première réponse sous le pli. */
+.player-shell:has(.ans-grid:is(.ans-md, .ans-sm)) { height: auto; min-height: 100dvh; }
+.player-shell:has(.ans-grid:is(.ans-md, .ans-sm)) .quiz-img { max-height: max(80px, 12dvh); }
 
 /* Un petit écran : le chronomètre, la question et les marges se resserrent
    pour laisser aux réponses leur hauteur de pouce. */

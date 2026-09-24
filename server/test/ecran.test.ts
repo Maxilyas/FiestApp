@@ -171,3 +171,9 @@ test('la boîte « Clore la soirée » garde ses proportions en 1920 × 1080', (
   // Hors de .host, elle gardait 460 px de large autour d'un texte agrandi.
   assert.match(grandsEcrans, /html:has\(\.host\) \.dialog \{ width: min\(28\.75rem, 100%\); font-size: 1rem; gap: 0\.875rem;/)
 })
+
+test('au téléphone, « Réponse enregistrée » reste sous des réponses longues', () => {
+  // Posé au bas d'une page de la hauteur de la fenêtre, il s'écrivait sur la
+  // deuxième carte quand quatre réponses longues faisaient défiler la page.
+  assert.match(css, /\.player-shell:has\(\.ans-grid:is\(\.ans-md, \.ans-sm\)\) \{ height: auto; min-height: 100dvh; \}/)
+})
