@@ -220,3 +220,33 @@ test('S6 · les métaux des paliers se lisent sur les deux thèmes', () => {
     }
   }
 })
+
+// ── A4 · Des noms qui manquaient ──────────────────────────────────────────
+
+test('A4 · chaque QR code a un nom, et la page un repère principal', () => {
+  // `qrcode.react` pose role="img" : sans titre, un lecteur d'écran
+  // annonçait « image » six fois, sans dire où elle menait.
+  for (const { fichier, texte } of sourcesDuClient()) {
+    for (const [balise] of texte.matchAll(/<QRCodeSVG\b[^>]*\/>/g)) {
+      assert.match(balise, /title="QR code [^"]+"/, `${fichier} : ${balise}`)
+    }
+  }
+  const index = readFileSync(new URL('../../client/index.html', import.meta.url), 'utf8')
+  assert.match(index, /<div id="root" role="main">/)
+})
+
+test('A4 · dans l’éditeur, un bouton répété dit ce qu’il vise', () => {
+  // Dix « Supprimer » à la suite, au lecteur d'écran, ne disaient pas quel
+  // quiz ni quelle question partirait.
+  const source = readFileSync(new URL('../../client/src/views/EditorApp.tsx', import.meta.url), 'utf8')
+  let vus = 0
+  for (const m of source.matchAll(/<button\b[\s\S]*?[^=]>(?=[ \t]*$)/gm)) {
+    const fin = source.indexOf('</button>', m.index! + m[0].length)
+    const texte = source.slice(m.index! + m[0].length, fin).replace(/<[^>]*>/g, '').trim()
+    if (!['Supprimer', 'Éditer', 'Dupliquer', 'Aperçu'].includes(texte)) continue
+    vus++
+    // Et le nom commence par le mot affiché : c'est lui qu'une commande vocale dit.
+    assert.match(m[0], new RegExp(`aria-label=\\{\`${texte} `), `${texte} : ${m[0].replace(/\s+/g, ' ')}`)
+  }
+  assert.ok(vus >= 5, `les boutons sont bien trouvés (${vus})`)
+})

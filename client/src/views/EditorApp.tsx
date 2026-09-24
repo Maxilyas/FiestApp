@@ -329,12 +329,17 @@ export function EditorApp() {
                 </p>
               )}
             </div>
+            {/* Chaque bouton nomme son quiz : dix « Supprimer » à la suite ne
+                disent pas lequel à qui les parcourt au lecteur d'écran. Le
+                libellé commence par le mot affiché, qu'une commande vocale
+                reconnaît. */}
             <div className="row">
-              <button className="btn" onClick={() => setEditingId(q.id)}>
+              <button className="btn" aria-label={`Éditer « ${q.title} »`} onClick={() => setEditingId(q.id)}>
                 Éditer
               </button>
               <button
                 className="btn btn-ghost btn-small"
+                aria-label={`Dupliquer « ${q.title} »`}
                 onClick={async () => {
                   try {
                     await api.duplicate(q.id)
@@ -349,6 +354,7 @@ export function EditorApp() {
               <button
                 className="btn btn-ghost btn-small"
                 disabled={echange !== null}
+                aria-label={`${echange === q.id ? 'Export…' : 'Exporter'} « ${q.title} »`}
                 title="Un fichier à envoyer à un autre animateur, qui l’ouvre avec « Importer un quiz » : les questions et leurs photos"
                 onClick={() => exporter(q)}
               >
@@ -356,6 +362,7 @@ export function EditorApp() {
               </button>
               <button
                 className="btn btn-ghost btn-small"
+                aria-label={`Supprimer « ${q.title} »`}
                 onClick={async () => {
                   const ok = await confirmDialog({
                     title: `Supprimer « ${q.title} » ?`,
@@ -1395,7 +1402,7 @@ function QuestionCard({
             ref={upButton}
             className="btn btn-ghost btn-small"
             disabled={index === 0}
-            aria-label="Monter la question"
+            aria-label={`Monter la question ${index + 1}`}
             title="Monter"
             onClick={() => onMoveTo(index, 'up')}
           >
@@ -1405,7 +1412,7 @@ function QuestionCard({
             ref={downButton}
             className="btn btn-ghost btn-small"
             disabled={index === total - 1}
-            aria-label="Descendre la question"
+            aria-label={`Descendre la question ${index + 1}`}
             title="Descendre"
             onClick={() => onMoveTo(index + 2, 'down')}
           >
@@ -1413,7 +1420,7 @@ function QuestionCard({
           </button>
           <button
             className="btn btn-ghost btn-small"
-            aria-label="Insérer une question après celle-ci"
+            aria-label={`Insérer une question après la question ${index + 1}`}
             title="Insérer une question après"
             onClick={onInsertAfter}
           >
@@ -1421,18 +1428,19 @@ function QuestionCard({
           </button>
           <button
             className="btn btn-ghost btn-small"
-            aria-label="Dupliquer la question"
+            aria-label={`Dupliquer la question ${index + 1}`}
             title="Dupliquer"
             onClick={onDuplicate}
           >
             <Icon name="copy" />
           </button>
-          <button className="btn btn-ghost btn-small" onClick={() => setPreview(true)}>
+          <button className="btn btn-ghost btn-small" aria-label={`Aperçu de la question ${index + 1}`} onClick={() => setPreview(true)}>
             <Icon name="eye" />
             Aperçu
           </button>
           <button
             className="btn btn-ghost btn-small"
+            aria-label={`Supprimer la question ${index + 1}`}
             onClick={async () => {
               // Une question vide s'efface sans cérémonie ; une question écrite
               // mérite qu'on demande — dix minutes de rédaction ne doivent pas

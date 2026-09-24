@@ -555,7 +555,7 @@ export function HostApp() {
             </span>
             <div className="qr-stack">
               <div className="qr-box">
-                <QRCodeSVG value={joinUrl} size={46} bgColor="#ffffff" fgColor={QR_INK} />
+                <QRCodeSVG value={joinUrl} size={46} bgColor="#ffffff" fgColor={QR_INK} title="QR code pour rejoindre la soirée" />
               </div>
               <div className="qr-text">
                 <span className="label">Rejoindre</span>
@@ -687,7 +687,7 @@ export function HostApp() {
                   )}
                   <div className="qr-stack scene-qr">
                     <div className="qr-box">
-                      <QRCodeSVG value={`${joinUrl}/souvenir`} size={84} bgColor="#ffffff" fgColor={QR_INK} />
+                      <QRCodeSVG value={`${joinUrl}/souvenir`} size={84} bgColor="#ffffff" fgColor={QR_INK} title="QR code du souvenir de la soirée" />
                     </div>
                     <div className="qr-text">
                       <span className="label">Le souvenir de la soirée</span>
@@ -856,7 +856,7 @@ export function HostApp() {
                 <div className="stage-foot">
                   <div className="qr-stack">
                     <div className="qr-box">
-                      <QRCodeSVG value={`${joinUrl}/stats`} size={84} bgColor="#ffffff" fgColor={QR_INK} />
+                      <QRCodeSVG value={`${joinUrl}/stats`} size={84} bgColor="#ffffff" fgColor={QR_INK} title="QR code des chiffres de la soirée" />
                     </div>
                     <div className="qr-text">
                       <span className="label">Les chiffres</span>
@@ -991,14 +991,14 @@ export function HostApp() {
                     {snap.wifi && (
                       <div className="invite-qr">
                         <div className="qr-box">
-                          <QRCodeSVG value={wifiQrValue(snap.wifi)} size={148} bgColor="#ffffff" fgColor={QR_INK} />
+                          <QRCodeSVG value={wifiQrValue(snap.wifi)} size={148} bgColor="#ffffff" fgColor={QR_INK} title="QR code du wifi" />
                         </div>
                         <span className="label">1 · Wifi {espacesFines(`« ${snap.wifi.ssid} »`)}</span>
                       </div>
                     )}
                     <div className="invite-qr">
                       <div className="qr-box">
-                        <QRCodeSVG value={joinUrl} size={148} bgColor="#ffffff" fgColor={QR_INK} />
+                        <QRCodeSVG value={joinUrl} size={148} bgColor="#ffffff" fgColor={QR_INK} title="QR code pour rejoindre la soirée" />
                       </div>
                       <span className="label">{snap.wifi ? '2 · Le quiz' : 'Scanner pour jouer'}</span>
                     </div>

@@ -38,7 +38,7 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
         </div>
         <div className="qr-stack scene-qr">
           <div className="qr-box">
-            <QRCodeSVG value={souvenirUrl} size={84} bgColor="#ffffff" fgColor="#1a1412" />
+            <QRCodeSVG value={souvenirUrl} size={84} bgColor="#ffffff" fgColor="#1a1412" title="QR code du souvenir de la soirée" />
           </div>
           <div className="qr-text">
             <span className="label">Le souvenir de la soirée</span>

@@ -30,7 +30,10 @@
     <title>FiestApp</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Le repère principal, pour qui saute de région en région au lecteur
+         d'écran : posé sur la racine plutôt qu'en balise autour de l'appli,
+         pour ne rien changer aux hauteurs dont dépendent les pages. -->
+    <div id="root" role="main"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
