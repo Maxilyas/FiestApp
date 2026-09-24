@@ -4,10 +4,12 @@ import type { ClotureDeSoiree, ProgresDeQuiz } from '../../../shared/fin'
 import { distinctions } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
+import { enumerer } from '../../../shared/classement'
 import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { FinalPodium } from './Podium'
+import { motPoints } from './Rank'
 import { Niveau } from './Niveau'
 
 /**
@@ -26,6 +28,22 @@ import { Niveau } from './Niveau'
  */
 export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoiree; souvenirUrl: string }) {
   const c = cloture
+  /* Le QR du souvenir est le dernier geste que l'écran demande, et la salle
+     est assise : de 84 px, il se scannait à 75 cm. Quand rien ne s'est
+     débloqué, la colonne de droite est vide — il la prend, en grand. */
+  const rienDebloque =
+    (c.divins ?? []).length === 0 && c.legendaires.length === 0 && (c.eclats ?? []).length === 0 && c.montees.length === 0
+  const qr = (
+    <div className={'qr-stack scene-qr' + (rienDebloque ? ' cloture-qr-grand' : '')}>
+      <div className="qr-box">
+        <QRCodeSVG value={souvenirUrl} size={84} bgColor="#ffffff" fgColor="#1a1412" title="QR code du souvenir de la soirée" />
+      </div>
+      <div className="qr-text">
+        <span className="label">Le souvenir de la soirée</span>
+        <span className="join-url">{souvenirUrl}</span>
+      </div>
+    </div>
+  )
   return (
     <div className="quiz-host stage-scroll cloture">
       {/* Le QR du souvenir en haut, à côté du titre : au pied de la scène, il
@@ -36,15 +54,7 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
           <span className="label">La soirée est close</span>
           <h2>{c.soiree.titre}</h2>
         </div>
-        <div className="qr-stack scene-qr">
-          <div className="qr-box">
-            <QRCodeSVG value={souvenirUrl} size={84} bgColor="#ffffff" fgColor="#1a1412" title="QR code du souvenir de la soirée" />
-          </div>
-          <div className="qr-text">
-            <span className="label">Le souvenir de la soirée</span>
-            <span className="join-url">{souvenirUrl}</span>
-          </div>
-        </div>
+        {!rienDebloque && qr}
       </header>
 
       <div className="cloture-grille">
@@ -56,6 +66,20 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
           )}
         </div>
         <div className="cloture-colonne">
+          {(c.equipes ?? []).length > 0 && (
+            <section className="cloture-bloc cloture-equipes">
+              <h3>{c.equipes!.length > 1 ? 'Les équipes qui l’emportent, ex æquo' : 'L’équipe qui l’emporte'}</h3>
+              <p className="cloture-equipe">
+                {enumerer(c.equipes!.map(t => `${t.emoji} ${t.nom}`))}
+                <span className="muted">
+                  {' '}
+                  · {c.equipes![0].points} {motPoints(c.equipes![0].points)} d’équipe
+                  {c.equipes!.length > 1 && ' chacune'}
+                </span>
+              </p>
+            </section>
+          )}
+          {rienDebloque && qr}
           {(c.divins ?? []).length > 0 && (
             <section className="cloture-bloc cloture-divins">
               <h3>{c.divins.length > 1 ? 'Des Divins sont descendus' : 'Un Divin est descendu'}</h3>

@@ -132,21 +132,20 @@ test('une ligne de classement dit lequel des nombres est le rang, lequel les poi
   assert.deepEqual(elements(suite, 'div'), ['Rang 4 🐢 Jeanne 1281 points'])
 })
 
-test('une équipe dit son rang, son barème prix compris et sa moyenne', async () => {
+test('une équipe dit son rang, ses points d’équipe et sa moyenne', async () => {
   const equipe = (id: string, name: string, emoji: string, average: number) =>
     ({ id, name, emoji, position: 0, memberCount: 2, total: average * 2, average, bonus: 0 })
   const html = await rendu('components/TeamBoard', 'TeamBoard', {
     teams: [equipe('r', 'Les Randonneurs', '🥾', 439), equipe('c', 'Les Carbonara', '🍝', 336)],
-    showFinalPoints: true,
     compact: true,
   })
   assert.match(html, /role="list"/)
   assert.deepEqual(
     [...html.matchAll(/role="listitem"[^>]*>([\s\S]*?)<\/div>/g)].map(m => entendu(m[1])),
     [
-      // Le chiffre cerclé compte les prix (axe 1) : l'oreille l'entend aussi.
-      'Rang 1 🥾 Les Randonneurs 2 points au barème, prix compris, 439 points de moyenne par membre',
-      'Rang 2 🍝 Les Carbonara 1 point au barème, prix compris, 336 points de moyenne par membre',
+      // Les points d'équipe comptent les prix : l'oreille les entend, avec leur nom.
+      'Rang 1 🥾 Les Randonneurs 439 points de moyenne 2 points d’équipe',
+      'Rang 2 🍝 Les Carbonara 336 points de moyenne 1 point d’équipe',
     ],
   )
 })
@@ -186,7 +185,8 @@ test('en pause, l’oreille entend ce qui va se passer, pas « regarde l’écra
     deadline: Date.now() + 5000, duration: 20, paused: true, remainingMs: 5000, yourChoice: null,
   }
   const texte = entendu(await rendu('games/quiz/PlayerView', 'QuizPlayer', { view, send: () => {}, teams: [], myTeamId: null }))
-  assert.match(texte, /En pause — l'animateur reprend bientôt/)
+  // Le bandeau de pause de l'axe 1 le dit à tous : le chrono reprendra.
+  assert.match(texte, /En pause\s*Le chrono reprendra où il s'est arrêté/)
   assert.doesNotMatch(texte, /regarde l'écran/)
 })
 

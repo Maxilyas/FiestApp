@@ -1,5 +1,4 @@
 import type { ArchiveSummary } from '../../../shared/archive'
-import { formatDay } from '../../../shared/archive'
 import { pageContext, spacePath } from '../routes'
 import { Icon } from './Icon'
 
@@ -15,8 +14,9 @@ export function ArchiveBanner({ archive }: { archive: ArchiveSummary }) {
     <p className="archive-banner">
       <Icon name="book" />
       <span>
-        {archiveId ? 'Soirée archivée' : 'La dernière soirée'} : <strong>{archive.title}</strong> ·{' '}
-        {formatDay(archive.heldAt)}
+        {/* Sans la date : l'en-tête de la page la dit juste en dessous, et le
+            bilan d'une archive l'écrivait trois fois. */}
+        {archiveId ? 'Soirée archivée' : 'La dernière soirée'} : <strong>{archive.title}</strong>
       </span>
       <a href={spacePath(slug, 'soirees')}>Toutes les soirées</a>
     </p>

@@ -163,12 +163,16 @@ test('T1 · au souvenir, le détail d’une équipe a sa propre case, pas la col
   // Enfant du nom, le détail n'avait que sa colonne : 14 px de large au texte
   // agrandi, et « 5 / me / · / 188 / pts » tombait une lettre par ligne.
   const equipe = { id: 'r', name: 'Les Randonneurs', emoji: '🥾', position: 0, memberCount: 5, total: 1014, average: 203, bonus: 0, gamePoints: 2, finalPoints: 2 }
-  const html = await rendu('components/TeamBoard', 'TeamBoard', { teams: [equipe], showFinalPoints: true })
-  assert.match(html, /<span class="lb-name">Les Randonneurs<\/span><span class="team-sub">/)
-  assert.match(html, /team-row-detail/)
+  for (const compact of [false, true]) {
+    const html = await rendu('components/TeamBoard', 'TeamBoard', { teams: [equipe], compact })
+    assert.match(html, /<span class="lb-name">Les Randonneurs<\/span><span class="team-sub">/)
+  }
   // Étroite, la ligne passe sur trois étages ; le seuil suit la taille du texte.
   assert.match(CSS, /\.team-board \{ container-type: inline-size; \}/)
-  assert.match(CSS, /@container \(max-width: [\d.]+rem\) \{\s*\.team-row-detail \{\s*grid-template-areas:\s*'rang av nom nom nom'\s*'rang av sub sub sub'/)
+  assert.match(CSS, /@container \(max-width: [\d.]+rem\) \{\s*\.lb-row\.team-row \{[^}]*grid-template-areas:\s*'rang av nom'\s*'rang av sub'\s*'pts pts pts'/)
+  // Les points ont toute la largeur de leur étage : dans la seule colonne
+  // des chiffres, « 420 » devenait « 42 » à 240 px de large.
+  assert.match(CSS, /@container \(max-width: [\d.]+rem\) \{[^@]*\.team-row > \.team-points \{ justify-self: end; \}/)
 })
 
 test('T2 · les avatars de l’entrée ne descendent jamais sous la largeur d’un doigt', () => {
