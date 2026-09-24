@@ -156,7 +156,7 @@ test('à la fin de soirée, un médaillon qui ne viendra plus mène au profil', 
   // Le légendaire et le Divin gagnés ce soir : chacun son lien vers le profil.
   assert.equal(html.split('Le voir sur ton profil').length - 1, 2, html)
   assert.ok(html.includes('href="/profil"'))
-  // Ailleurs, sans repli, un médaillon manquant garde sa place vide.
+  // Ailleurs, un médaillon manquant garde sa place vide : la page dit le reste.
   assert.equal(await rendu('components/Avatar', 'Dessin', { cle: 'lg:phenix' }), '<span class="lg" aria-hidden="true"></span>')
 })
 
