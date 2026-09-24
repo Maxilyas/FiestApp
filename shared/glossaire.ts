@@ -51,7 +51,7 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   finition: { terme: 'Finition', sens: 'Le cadre autour de ton avatar, que toute la salle voit. Il se gagne au niveau.' },
   eclat: { terme: 'Éclat', sens: 'Une chance sur quarante, à chaque soirée jouée à deux ou plus : ton avatar change de couleurs.' },
   xp: { terme: 'XP', sens: 'L’expérience, gagnée en jouant avec un profil. Elle fait monter de niveau.' },
-  niveau: { terme: 'Niveau', sens: 'Il monte avec l’XP, et ne redescend jamais. Il ne donne aucun avantage de jeu.' },
+  niveau: { terme: 'Niveau', sens: 'Il monte avec l’XP, et ne redescend pas pendant une soirée. Il ne donne aucun avantage de jeu.' },
   precision: { terme: 'Précision', sens: 'La part de bonnes réponses aux QCM. Une estimation ne compte pas.' },
   coupDOeil: { terme: 'Coup d’œil', sens: 'Aux estimations : la part de la salle que les tiennes battent ou égalent.' },
   reflexe: { terme: 'Réflexe', sens: 'Ton temps moyen sur tes bonnes réponses.' },

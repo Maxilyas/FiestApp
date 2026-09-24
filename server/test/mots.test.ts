@@ -100,3 +100,11 @@ test('le glossaire : une phrase courte par mot, et rien des règles des Divins',
   // La précision ne compte que les QCM : le glossaire le dit.
   assert.match(GLOSSAIRE.precision.sens, /QCM/)
 })
+
+test('le glossaire ne promet pas un niveau qui ne redescend jamais', () => {
+  // Un invité exclu, « C'était un essai » ou une soirée retirée de
+  // l'historique reprennent l'expérience d'une soirée, et le niveau en dérive
+  // (invariants 10 et 22) : il ne redescend pas pendant une soirée, c'est tout.
+  assert.doesNotMatch(GLOSSAIRE.niveau.sens, /jamais/)
+  assert.match(GLOSSAIRE.niveau.sens, /pendant une soirée/)
+})
