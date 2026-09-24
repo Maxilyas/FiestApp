@@ -619,9 +619,11 @@ export class ProfileStore {
     for (const s of soirees) {
       // Une ligne créditée avant qu'on retienne l'invité le retrouve dans
       // l'archive, une fois pour toutes. Sans archive, pas de bilan à ouvrir.
-      if (s.joueurId || !historique || !titres.has(`${s.spaceId}#${s.soireeId}`)) continue
+      // Une archive qui ne le nomme pas (rangée avant les profils) retient
+      // une chaîne vide : sinon on la relirait en entier à chaque visite.
+      if (s.joueurId !== null || !historique || !titres.has(`${s.spaceId}#${s.soireeId}`)) continue
       s.joueurId = await historique.joueurDuProfil(s.spaceId, s.soireeId, p.id)
-      if (s.joueurId) await this.retenirJoueur(p.id, s.soireeId, s.joueurId)
+      await this.retenirJoueur(p.id, s.soireeId, s.joueurId ?? '')
     }
     const carriere = carriereDe(soirees, { eclats: this.eclatsOf(p.id).length, niveau: this.niveauOf(p) })
     return {
@@ -634,7 +636,7 @@ export class ProfileStore {
           chez: chez?.nom ?? null,
           slug: chez?.slug ?? null,
           titre: titres.get(`${s.spaceId}#${s.soireeId}`) ?? null,
-          joueurId: s.joueurId,
+          joueurId: s.joueurId || null,
           xp: s.xp,
           gain: s.gain,
           releve: s.releve,

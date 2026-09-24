@@ -547,7 +547,7 @@ test('au démarrage, l’expérience d’avant le barème au mérite se relit su
       })
     ecrireEnBase(banc, db => {
       db.prepare('UPDATE profile_xp SET xp = 999, detail = ? WHERE profile_id = ? AND soiree_id = ?').run(ancien(3, 3), aliceId, soiree)
-      db.prepare('INSERT INTO profile_xp VALUES (?, ?, ?, ?, ?, ?)').run(aliceId, '2025-01-01-orpheline', espace, 145, ancien(10, 6), 1)
+      db.prepare('INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(aliceId, '2025-01-01-orpheline', espace, 145, ancien(10, 6), 1)
       db.prepare('INSERT INTO profile_badges VALUES (?, ?, ?, ?, ?, ?, ?)').run(
         aliceId,
         'carriere:premiere',
@@ -625,9 +625,9 @@ test('au démarrage d’un barème neuf, l’historique se relit — et la veill
         aliceId,
         soiree,
       )
-      db.prepare('INSERT INTO profile_xp VALUES (?, ?, ?, ?, ?, ?)').run(aliceId, '2026-09-22-veille', espace, 40, JSON.stringify(veille), 1)
+      db.prepare('INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(aliceId, '2026-09-22-veille', espace, 40, JSON.stringify(veille), 1)
       db.prepare('INSERT INTO profile_badges VALUES (?, ?, ?, ?, ?, ?, ?)').run(aliceId, 'hf:habitue:1', soiree, espace, '🎟️', 'L’Habitué', 2)
-      db.prepare('INSERT INTO profile_xp VALUES (?, ?, ?, ?, ?, ?)').run(aliceId, '#paliers', '', 10, JSON.stringify({ v: 2, paliers: ['hf:habitue:1'] }), 3)
+      db.prepare('INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(aliceId, '#paliers', '', 10, JSON.stringify({ v: 2, paliers: ['hf:habitue:1'] }), 3)
       db.prepare('UPDATE profiles SET xp = ? WHERE id = ?').run(XP.reponse + 40 + 10, aliceId)
     })
 
