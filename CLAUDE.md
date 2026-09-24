@@ -99,8 +99,13 @@ server/test/        un fichier par thème, un serveur jetable chacun
    un champ qui change à chaque tick : il partirait à toute la salle. Il en
    part deux versions, chacune dédoublonnée : celle de l'écran commun, et
    celle des téléphones, **sans `connected`** (`pourLesTelephones`) — une
-   veille d'écran ne repart qu'à l'écran commun. Le regroupement grandit
-   avec la salle (120 ms + 2 ms par invité).
+   veille d'écran ne repart qu'à l'écran commun. Le regroupement des
+   téléphones grandit avec la salle (120 ms + 2 ms par invité), celui des
+   écrans communs reste à 120 ms ; et celui qui fait le geste (`join`,
+   `setTeam`) reçoit le sien sur-le-champ — au `join`, une fois compté dans
+   la partie et avant sa première vue. Ce qui change la salle sans veille
+   (réglages, parures, un prénom) diffuse de lui-même : la veille des autres
+   ne le porte plus.
 5. **Les chronomètres sont persistés** et réarmés au redémarrage.
 6. **Une échéance se lit à `serverNow()`**, jamais à `Date.now()` : l'horloge
    d'un téléphone dérive, et on a déjà perdu des réponses pour ça.
