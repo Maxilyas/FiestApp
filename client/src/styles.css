@@ -4264,3 +4264,20 @@ h3 > .icon {
   text-transform: uppercase;
   color: var(--muted);
 }
+
+/* Au téléphone, une carte par compte : en tableau, « Lien », « Désactiver »
+   et « Supprimer » partaient hors de l'écran, derrière un défilement de côté
+   que personne ne devine. */
+@media (max-width: 600px) {
+  .accounts-table thead { display: none; }
+  .accounts-table,
+  .accounts-table tbody,
+  .accounts-table tr,
+  .accounts-table td { display: block; width: 100%; }
+  .accounts-table tr { padding: 10px 4px; }
+  .accounts-table td { padding: 3px 4px; position: static; background: none; box-shadow: none; }
+  .accounts-table .account-actions { flex-wrap: wrap; margin-top: 4px; }
+  .stats-scroll:has(.accounts-table) { max-height: none; overflow: visible; }
+  /* En carte, la colonne n'a plus d'en-tête : la date dit ce qu'elle date. */
+  .accounts-table td[data-libelle]::before { content: attr(data-libelle); }
+}

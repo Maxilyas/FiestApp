@@ -194,3 +194,24 @@ describe('la porte des animateurs', () => {
     assert.equal((await ecrire(banc.url, `/api/admin/accounts/${lea.id}/activation`, {}, admin)).status, 200)
   })
 })
+
+describe('le lien d’activation', () => {
+  test('il dit l’identifiant et l’espace qu’il ouvre, sans se consommer, puis qu’il a servi', async () => {
+    const cree = await ecrire(banc.url, '/api/admin/accounts', { login: 'marc', name: 'Marc', slug: 'agence' }, admin)
+    const { activation } = (await cree.json()) as any
+    const lire = async () => ecrire(banc.url, '/api/auth/activation', { token: activation.token })
+    const avant = await lire()
+    assert.equal(avant.status, 200)
+    assert.deepEqual(await avant.json(), { login: 'marc', name: 'Marc', slug: 'agence', etat: 'valide' })
+    // Lu deux fois, il sert encore.
+    assert.equal(((await (await lire()).json()) as any).etat, 'valide')
+    assert.equal((await ecrire(banc.url, '/api/auth/activate', { token: activation.token, password: 'motdepasse-marc' })).status, 200)
+    assert.equal(((await (await lire()).json()) as any).etat, 'servi')
+  })
+
+  test('un jeton inconnu ne dit rien', async () => {
+    const r = await ecrire(banc.url, '/api/auth/activation', { token: 'x'.repeat(43) })
+    assert.equal(r.status, 404)
+    assert.doesNotMatch(JSON.stringify(await r.json()), /marc|nadia|agence/)
+  })
+})

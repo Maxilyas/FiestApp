@@ -120,24 +120,29 @@ export function AdminApp() {
                       {a.status === 'pending' ? 'en attente' : a.status === 'active' ? 'actif' : 'désactivé'}
                     </span>
                   </td>
-                  <td className="muted">{a.lastLoginAt ? formatDay(a.lastLoginAt) : 'jamais'}</td>
+                  <td className="muted" data-libelle="Dernière connexion : ">{a.lastLoginAt ? formatDay(a.lastLoginAt) : 'jamais'}</td>
                   <td>
                     <div className="row account-actions">
-                      <button
-                        className="btn btn-small"
-                        title="Un nouveau lien d'activation — pour un mot de passe oublié"
-                        onClick={async () => {
-                          try {
-                            const { activation } = await api.admin.activation(a.id)
-                            await showActivation(a, activation.token)
-                          } catch (e) {
-                            showToast({ kind: 'error', message: (e as Error).message })
-                          }
-                        }}
-                      >
-                        <Icon name="sparkles" />
-                        Lien
-                      </button>
+                      {/* Un compte en pause ne reçoit pas de lien : le serveur
+                          le refuse, et le proposer laissait croire qu'il
+                          rouvrirait la porte. */}
+                      {a.status !== 'disabled' && (
+                        <button
+                          className="btn btn-small"
+                          title="Un nouveau lien d'activation — pour un mot de passe oublié"
+                          onClick={async () => {
+                            try {
+                              const { activation } = await api.admin.activation(a.id)
+                              await showActivation(a, activation.token)
+                            } catch (e) {
+                              showToast({ kind: 'error', message: (e as Error).message })
+                            }
+                          }}
+                        >
+                          <Icon name="sparkles" />
+                          Lien
+                        </button>
+                      )}
                       <button
                         className="btn btn-small btn-ghost"
                         title="Renommer, ou changer l'adresse"
@@ -234,6 +239,12 @@ function CreateForm({ onCreated }: { onCreated: (account: PublicAccount, token: 
   const [login, setLogin] = useState('')
   const [slug, setSlug] = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
+  /**
+   * L'identifiant suit le prénom tant qu'on n'y a pas touché. Il ne se
+   * remplissait qu'à la première lettre (« if (!login) ») : « Nadia »
+   * donnait l'identifiant « n ».
+   */
+  const [loginTouched, setLoginTouched] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
@@ -242,11 +253,12 @@ function CreateForm({ onCreated }: { onCreated: (account: PublicAccount, token: 
     setBusy(true)
     setError('')
     try {
-      const { account, activation } = await api.admin.create({ login, name, slug })
+      const { account, activation } = await api.admin.create({ login, name, slug: normalizeSlug(slug) })
       setName('')
       setLogin('')
       setSlug('')
       setSlugTouched(false)
+      setLoginTouched(false)
       onCreated(account, activation.token)
     } catch (err) {
       setError((err as Error).message)
@@ -274,7 +286,7 @@ function CreateForm({ onCreated }: { onCreated: (account: PublicAccount, token: 
             onChange={e => {
               setName(e.target.value)
               if (!slugTouched) setSlug(normalizeSlug(e.target.value))
-              if (!login) setLogin(normalizeSlug(e.target.value).replace(/-/g, '.'))
+              if (!loginTouched) setLogin(normalizeSlug(e.target.value).replace(/-/g, '.'))
             }}
           />
         </div>
@@ -288,8 +300,12 @@ function CreateForm({ onCreated }: { onCreated: (account: PublicAccount, token: 
             maxLength={32}
             autoCapitalize="none"
             value={login}
-            onChange={e => setLogin(e.target.value.toLowerCase())}
+            onChange={e => {
+              setLoginTouched(true)
+              setLogin(e.target.value.toLowerCase())
+            }}
           />
+          {login.trim().length === 1 && <p className="muted small">Trop court : deux caractères au moins.</p>}
         </div>
       </div>
       <div className="field">
@@ -302,18 +318,23 @@ function CreateForm({ onCreated }: { onCreated: (account: PublicAccount, token: 
           maxLength={24}
           autoCapitalize="none"
           value={slug}
+          // Normalisé à la sortie du champ, pas à chaque touche : le tiret
+          // qu'on venait de taper au bout de « chez » disparaissait aussitôt
+          // (`normalizeSlug` retire le tiret final), et « chez-nadia » ne se
+          // tapait pas.
           onChange={e => {
             setSlugTouched(true)
-            setSlug(normalizeSlug(e.target.value))
+            setSlug(e.target.value)
           }}
+          onBlur={() => setSlug(normalizeSlug(slug))}
         />
         <p className="muted small">
-          Ses invités ouvriront <code>{window.location.origin}/{slug || '…'}</code>
+          Ses invités ouvriront <code>{window.location.origin}/{normalizeSlug(slug) || '…'}</code>
         </p>
       </div>
       {error && <p className="error">{error}</p>}
       <div className="row">
-        <button className="btn btn-primary" disabled={busy || !name || !login || !slug}>
+        <button className="btn btn-primary" disabled={busy || !name || !login || !normalizeSlug(slug)}>
           <Icon name="plus" />
           Créer et obtenir le lien
         </button>

@@ -137,6 +137,12 @@ export const api = {
     login: (login: string, password: string) =>
       req<Me>('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, password }) }),
     logout: () => req<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
+    /** Ce qu'ouvre un lien d'activation, sans le consommer. */
+    lireActivation: (token: string) =>
+      req<{ login: string; name: string; slug: string; etat: 'valide' | 'servi' | 'perime' }>('/api/auth/activation', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      }),
     activate: (token: string, password: string) =>
       req<Me>('/api/auth/activate', { method: 'POST', body: JSON.stringify({ token, password }) }),
     changePassword: (current: string, next: string) =>

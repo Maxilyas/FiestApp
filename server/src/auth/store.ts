@@ -616,6 +616,26 @@ export class AuthStore {
     return account && !account.disabledAt ? account : null
   }
 
+  /**
+   * Ce que dit un lien, sans le consommer : le compte qu'il ouvre, et s'il
+   * peut encore servir. La page d'activation n'affichait ni l'identifiant ni
+   * l'adresse de l'espace — l'ami choisissait un mot de passe pour un compte
+   * dont il ignorait le nom —, et un lien déjà servi se disait « invalide ».
+   * Le jeton se montre à qui le détient : c'est à lui qu'il a été envoyé.
+   */
+  async lireActivation(token: string): Promise<{ account: AccountRec; etat: 'valide' | 'servi' | 'perime' } | null> {
+    if (typeof token !== 'string' || token.length < 20) return null
+    const res = await this.client.execute({
+      sql: 'SELECT account_id, expires_at, used_at FROM activations WHERE id = ?',
+      args: [fingerprint(token)],
+    })
+    const r = res.rows[0]
+    const account = r ? this.accounts.get(String(r.account_id)) : undefined
+    if (!r || !account || account.disabledAt) return null
+    const etat = r.used_at != null ? 'servi' : Number(r.expires_at) <= Date.now() ? 'perime' : 'valide'
+    return { account, etat }
+  }
+
   // ── Drapeaux ────────────────────────────────────────────────────────────
 
   async getFlag(key: string): Promise<string | null> {

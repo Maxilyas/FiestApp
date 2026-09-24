@@ -118,6 +118,23 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
   // adresse ne protégerait rien de plus — un jeton de 256 bits ne se devine
   // pas — tout en refusant son nouveau lien à qui a recliqué cinq fois
   // l'ancien, ou à une tablée qui partage la même adresse.
+  // Lire un lien avant de s'en servir : l'identifiant et l'espace qu'il
+  // ouvre, pour les dire sur la page — et au gestionnaire de mots de passe,
+  // qui range le mot de passe choisi sous cet identifiant.
+  app.post(
+    '/api/auth/activation',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      if (!budget.allow(clientIp(req))) {
+        return res.status(429).json({ error: 'Trop d’essais — réessaie dans un quart d’heure' })
+      }
+      const lu = await auth.lireActivation(String(req.body?.token ?? ''))
+      if (!lu) return res.status(404).json({ error: 'Lien invalide — demande un nouveau lien à l’administrateur' })
+      res.json({ login: lu.account.login, name: lu.account.name, slug: lu.account.slug, etat: lu.etat })
+    }),
+  )
+
   app.post(
     '/api/auth/activate',
     small,
