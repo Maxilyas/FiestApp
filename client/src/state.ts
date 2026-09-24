@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import type { PartySnapshot } from '../../shared/types'
-import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz } from '../../shared/fin'
+import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz, SoireeClose } from '../../shared/fin'
 import { currentSlug } from './routes'
 
 export interface SessionView {
@@ -86,6 +86,86 @@ export function readMe(slug: string): Me | null {
   return readJson<Me>(meKey(slug))
 }
 
+// ── La fin de soirée, gardée ─────────────────────────────────────────────
+//
+// Elle ne vivait qu'en mémoire : un rechargement, le retour du navigateur
+// depuis le souvenir qu'elle venait d'ouvrir, un redémarrage du serveur — et
+// l'invité retombait sur « Entrer dans la soirée », sans rien de la veille.
+// Elle se range maintenant sur le téléphone, par espace ; rien n'en part.
+
+const finKey = (slug: string) => `quizz.fin.${slug}`
+const FIN_PREFIXE = 'quizz.fin.'
+
+/** Une fin de soirée rouverte au rechargement, tant qu'on ne l'a pas quittée, et pas le surlendemain. */
+const FIN_ROUVERTE_MS = 12 * 3600 * 1000
+/** « La dernière soirée » se propose une semaine : c'est le lendemain qu'on la cherche. */
+const DERNIERE_MS = 7 * 24 * 3600 * 1000
+
+/** Ce que le téléphone garde de la dernière soirée close d'un espace. */
+export interface SoireeGardee {
+  soiree: SoireeClose
+  /** Son identifiant dans l'archive, pour « Mon bilan » ; absent si on ne le sait pas. */
+  joueurId?: string
+  /** La fin entière, quand le téléphone l'a reçue. */
+  fin?: FinDeSoiree
+  recueLe: number
+  /** Faux dès qu'on passe à la soirée suivante : la fin ne se rouvre plus d'elle-même. */
+  ouverte: boolean
+}
+
+export function garderFin(slug: string, fin: FinDeSoiree) {
+  const g: SoireeGardee = { soiree: fin.soiree, joueurId: fin.joueurId, fin, recueLe: Date.now(), ouverte: true }
+  writeSafe(storage => storage.setItem(finKey(slug), JSON.stringify(g)))
+}
+
+/** Une soirée close sans sa fin (le serveur l'avait oubliée) : de quoi la revoir, au moins. */
+export function garderSoireeClose(slug: string, soiree: SoireeClose) {
+  const avant = readJson<SoireeGardee>(finKey(slug))
+  // La même soirée, déjà gardée avec sa fin : on ne l'appauvrit pas.
+  if (avant?.soiree.id === soiree.id) return
+  const g: SoireeGardee = { soiree, recueLe: Date.now(), ouverte: false }
+  writeSafe(storage => storage.setItem(finKey(slug), JSON.stringify(g)))
+}
+
+/** On passe à la soirée suivante : la fin reste gardée, mais ne se rouvre plus. */
+export function quitterFin(slug: string) {
+  const g = readJson<SoireeGardee>(finKey(slug))
+  if (g) writeSafe(storage => storage.setItem(finKey(slug), JSON.stringify({ ...g, ouverte: false })))
+  setState({ fin: null })
+}
+
+/** La dernière soirée close de cet espace, gardée ici cette semaine. */
+export function soireeGardee(slug: string): SoireeGardee | null {
+  const g = readJson<SoireeGardee>(finKey(slug))
+  if (!g?.soiree?.id || typeof g.recueLe !== 'number') return null
+  return Date.now() - g.recueLe < DERNIERE_MS ? g : null
+}
+
+/** La plus récente des soirées closes gardées sur ce téléphone, tous espaces confondus : l'accueil la propose. */
+export function derniereSoireeGardee(): SoireeGardee | null {
+  let slugs: string[] = []
+  try {
+    slugs = Object.keys(localStorage)
+      .filter(k => k.startsWith(FIN_PREFIXE))
+      .map(k => k.slice(FIN_PREFIXE.length))
+  } catch {
+    return null
+  }
+  return (
+    slugs
+      .map(soireeGardee)
+      .filter((g): g is SoireeGardee => !!g)
+      .sort((a, b) => b.recueLe - a.recueLe)[0] ?? null
+  )
+}
+
+/** La fin à rouvrir au chargement : reçue il y a peu, jamais quittée, et le téléphone n'incarne personne. */
+function finARouvrir(slug: string): FinDeSoiree | null {
+  if (readMe(slug)) return null
+  const g = soireeGardee(slug)
+  return g?.fin && g.ouverte && Date.now() - g.recueLe < FIN_ROUVERTE_MS ? g.fin : null
+}
+
 const slugAtLoad = currentSlug()
 
 let state: AppState = {
@@ -94,7 +174,7 @@ let state: AppState = {
   me: slugAtLoad ? readMe(slugAtLoad) : null,
   views: {},
   toast: null,
-  fin: null,
+  fin: slugAtLoad ? finARouvrir(slugAtLoad) : null,
   gain: null,
   cloture: null,
   progres: null,

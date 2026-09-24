@@ -12,6 +12,7 @@ import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { Icon } from './Icon'
+import { lienBilan } from './Lendemain'
 
 /**
  * La fin de soirée, sur le téléphone.
@@ -72,7 +73,12 @@ export function FinDeSoiree({
               <b>{place(fin.rang)}</b> sur {fin.joueurs} · {formatNumber(fin.points)} pts
             </p>
           ) : (
-            <p className="muted">{fin.joueurs} joueurs ce soir</p>
+            // Arrivé après la dernière question : la phrase parle de lui, et
+            // de la salle qui, elle, a joué — il lisait « 0 joueurs ce soir ».
+            <p className="muted">
+              Tu n’as pas joué ce soir
+              {fin.joueurs > 0 && ` · ${fin.joueurs} joueur${fin.joueurs > 1 ? 's' : ''}`}
+            </p>
           )}
         </div>
       </section>
@@ -158,6 +164,27 @@ export function FinDeSoiree({
         )
       })}
 
+      {/* Ses prix du palmarès : Jeanne cherchait son Éclair, remis à l'écran,
+          et sa fin de soirée n'en disait rien. Une page d'avant n'a pas le champ. */}
+      {(fin.prix ?? []).length > 0 && (
+        <section className="card">
+          <h3>{fin.prix!.length > 1 ? 'Tes prix de la soirée' : 'Ton prix de la soirée'}</h3>
+          <ul className="fin-prix">
+            {fin.prix!.map(p => (
+              <li key={p.key}>
+                <span className="fin-prix-emoji" aria-hidden="true">
+                  {p.emoji}
+                </span>
+                <span>
+                  <b>{p.title}</b>
+                  <span className="muted small"> · {p.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {eclats.length > 0 && (
         <section className="card">
           <Faits titre="Tes exploits" faits={eclats} />
@@ -170,14 +197,29 @@ export function FinDeSoiree({
         </section>
       )}
 
+      {/* Relire sa soirée d'abord : le bouton doré menait à la soirée
+          suivante, qui n'existe pas encore — et celui qui revenait « voir les
+          résultats » y entrait. « Mon bilan » s'ouvre sur lui, sans « Qui
+          es-tu ? ». La suivante reste là, en retrait (README, « Entre deux
+          soirées »). Les liens s'ouvrent dans cet onglet : la fin est gardée
+          sur le téléphone, le retour du navigateur la retrouve. */}
       <div className="fin-actions">
-        <button className="btn btn-primary" onClick={onSuivante}>
-          Rejoindre la soirée suivante
-        </button>
-        <a className="btn" href={spacePath(fin.soiree.slug, 'souvenir', fin.soiree.id)}>
+        {fin.joueurId && (
+          <a className="btn btn-primary" href={lienBilan({ soiree: fin.soiree, joueurId: fin.joueurId })}>
+            <Icon name="check-circle" />
+            Mon bilan
+          </a>
+        )}
+        <a
+          className={'btn' + (fin.joueurId ? '' : ' btn-primary')}
+          href={spacePath(fin.soiree.slug, 'souvenir', fin.soiree.id)}
+        >
           <Icon name="book" />
           Revoir la soirée
         </a>
+        <button className="btn btn-ghost" onClick={onSuivante}>
+          Rejoindre la soirée suivante
+        </button>
         {profil ? (
           <a className="btn btn-ghost" href="/profil">
             Mon profil

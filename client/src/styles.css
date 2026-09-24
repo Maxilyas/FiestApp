@@ -4252,3 +4252,21 @@ h3 > .icon {
     .cloture-fait { gap: 6px; padding: 8px 12px; }
   }
 }
+
+/* ── Le lendemain : la dernière soirée, en une ligne ── */
+/* Une ligne et pas une carte : sur l'entrée, « Rejoindre la soirée » doit
+   rester visible sans défiler en 360 × 640. */
+.lendemain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+.lendemain .icon { flex: none; }
+.fin-prix { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.fin-prix li { display: flex; align-items: center; gap: 12px; }
+.fin-prix-emoji { font-size: 1.8rem; line-height: 1; }

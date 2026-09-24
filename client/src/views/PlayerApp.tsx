@@ -1,6 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
-import { getState, oublierIdentite, saveChoix, saveMe, setState, showToast, useAppState } from '../state'
+import {
+  garderFin,
+  garderSoireeClose,
+  getState,
+  oublierIdentite,
+  quitterFin,
+  saveChoix,
+  saveMe,
+  setState,
+  showToast,
+  soireeGardee,
+  useAppState,
+} from '../state'
 import { currentSlug } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
@@ -19,6 +31,7 @@ import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
 import { CarteJoueur } from '../components/CarteJoueur'
+import { Lendemain } from '../components/Lendemain'
 import { useEcranAllume } from '../veille'
 import { useGardeRetour } from '../retour'
 
@@ -45,6 +58,8 @@ export function PlayerApp() {
   const [spaceError, setSpaceError] = useState('')
   /** La carte ouverte, celle du joueur dont on a touché le nom. */
   const [carte, setCarte] = useState<string | null>(null)
+  /** La dernière soirée close d'ici, gardée sur ce téléphone : l'entrée la propose. */
+  const [gardee, setGardee] = useState(() => soireeGardee(slug))
 
   // Connexion, présentation à la soirée, puis re-join automatique (refresh,
   // coupure réseau, redémarrage serveur).
@@ -75,12 +90,22 @@ export function PlayerApp() {
         if (ack.reason === 'unknown-token') {
           oublierIdentite(slug)
           showToast({ kind: 'info', message: ack.error })
+          // Le serveur a redémarré depuis la clôture et oublié les fins : il
+          // dit au moins quelle soirée vient de se clore, et l'entrée la
+          // propose au lieu d'un simple « on ne te retrouve plus ».
+          if (ack.derniere) {
+            garderSoireeClose(slug, ack.derniere)
+            setGardee(soireeGardee(slug))
+          }
         }
         // La soirée s'est close pendant que le téléphone dormait : il reçoit
         // sa fin de soirée, comme s'il avait été là.
         if (ack.reason === 'soiree-close') {
           oublierIdentite(slug)
-          if (ack.fin) setState({ fin: ack.fin })
+          if (ack.fin) {
+            garderFin(slug, ack.fin)
+            setState({ fin: ack.fin })
+          }
         }
         return
       }
@@ -234,7 +259,14 @@ export function PlayerApp() {
   if (s.fin) {
     return (
       <>
-        <FinDeSoiree fin={s.fin} profil={profil} onSuivante={() => setState({ fin: null })} />
+        <FinDeSoiree
+          fin={s.fin}
+          profil={profil}
+          onSuivante={() => {
+            quitterFin(slug)
+            setGardee(soireeGardee(slug))
+          }}
+        />
         {toast}
       </>
     )
@@ -257,6 +289,7 @@ export function PlayerApp() {
           reconnecter={reconnecter}
           rejoindre={rejoindre}
           oublierProfil={oublierProfil}
+          lendemain={gardee && <Lendemain gardee={gardee} />}
         />
         <BandeauCoupure connecte={s.connected} />
         {toast}
