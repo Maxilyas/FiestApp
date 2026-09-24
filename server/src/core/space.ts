@@ -829,7 +829,12 @@ export class SpaceRuntime {
    * lieu de celui pour rejoindre.
    */
   soireeCommence() {
-    if (this.scene?.ecran === 'cloture') this.poserScene(null)
+    if (this.scene?.ecran !== 'cloture') return
+    // Sans rien envoyer : la diffusion regroupée de l'inscription porte la
+    // scène. Un envoi immédiat partait avant le rattachement au profil, et
+    // les écrans voyaient l'invité sans son légendaire.
+    this.scene = null
+    this.derniereCloture = null
   }
 
   /** L'annonce de clôture encore à l'écran, pour un écran d'animateur qui se présente. */

@@ -345,15 +345,13 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         const avatar = declare ? texte(charge.avatar) || profile?.avatar || '' : ''
         const res = rt.party.join(name, avatar, known?.token, teamId)
         if ('error' in res) return repondre({ ok: false, error: res.error })
-        if (!known) {
-          identitiesCreated++
-          // Un invité neuf : la soirée suivante a commencé, et la clôture
-          // d'hier quitte la télé pour le QR qui fait entrer.
-          rt.soireeCommence()
-        }
+        if (!known) identitiesCreated++
         // Le rattachement, enfin : c'est lui qui fera compter la soirée dans
         // l'expérience du profil.
         if (profile) rt.party.bindProfile(res.id, profile.id)
+        // Un invité neuf : la soirée suivante a commencé, et la clôture
+        // d'hier quitte la télé pour le QR qui fait entrer.
+        if (!known) rt.soireeCommence()
         incarner(rt, res.id)
         repondre({
           ok: true,
