@@ -415,7 +415,8 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
               {/* Rang partagé, comme celui de la phrase au-dessus : deux ex
                   æquo portent le même chiffre. */}
               <Rank n={1 + v.podium!.filter(o => o.points > p.points).length} />
-              <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+              {/* Le podium est le sujet : ses médaillons bougent (`av-sujet`). */}
+              <Avatar className="lb-avatar av-sujet" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
               <span className="lb-name">{p.name}</span>
               <Niveau niveau={p.niveau} />
               <Score n={p.points} />

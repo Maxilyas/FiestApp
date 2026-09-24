@@ -159,3 +159,23 @@ test('à la fin de soirée, un médaillon qui ne viendra plus mène au profil', 
   // Ailleurs, sans repli, un médaillon manquant garde sa place vide.
   assert.equal(await rendu('components/Avatar', 'Dessin', { cle: 'lg:phenix' }), '<span class="lg" aria-hidden="true"></span>')
 })
+
+// ── 5. Figés dans les listes, animés là où ils sont le sujet ──────────────
+
+test('au podium du quiz, le téléphone anime ses trois médaillons', async () => {
+  const podium = [
+    { id: 'a', name: 'Jeanne', avatar: '🦊', points: 900, legendaire: 'lg:phenix', finition: 'or' },
+    { id: 'b', name: 'Bob', avatar: '🐼', points: 600 },
+    { id: 'c', name: 'Léa', avatar: '🐸', points: 300, legendaire: 'dv:seraphin' },
+  ]
+  const html = await rendu('games/quiz/PlayerView', 'QuizPlayer', {
+    view: { phase: 'finished', podium, yourQuizRank: 2, yourQuizTotal: 600 },
+    send: () => {},
+    teams: [],
+  })
+  // `.av.lb-avatar:not(.av-sujet)` fige un médaillon dans une liste : les
+  // trois marches, elles, sont le sujet de l'écran.
+  const avatars = [...html.matchAll(/class="(av [^"]*)"/g)].map(m => m[1])
+  assert.equal(avatars.length, 3, html)
+  for (const classes of avatars) assert.ok(classes.split(' ').includes('av-sujet'), classes)
+})
