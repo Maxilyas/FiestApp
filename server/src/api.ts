@@ -96,7 +96,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
    * mémoire seulement : perdu au redémarrage, il ne coûte qu'un conflit de
    * trop — qui ne perd rien, le brouillon est là.
    */
-  const derniers = new Map<string, { jeton: string; essai: number; version: number }>()
+  const derniers = new Map<string, { jeton: string; essai: number | null; version: number }>()
   /**
    * Un enregistrement à la fois par quiz. Sans ça, deux essais du même clic
    * arrivés ensemble — l'abandonné qui arrive quand même au réveil, et le
@@ -126,10 +126,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
       const id = req.params.id
       const cle = `${spaceId}:${id}`
       const jeton = typeof req.body?.jeton === 'string' ? tronquer(req.body.jeton, 64) : null
-      // Sans numéro (aucune page n'envoie un jeton sans lui), l'essai compte
-      // pour le plus récent : il écrit, comme avant.
-      const essai =
-        typeof req.body?.essai === 'number' && Number.isFinite(req.body.essai) ? req.body.essai : Number.POSITIVE_INFINITY
+      // Sans numéro (aucune page n'envoie un jeton sans lui), l'essai n'est
+      // jamais pris pour périmé : il écrit, comme avant.
+      const essai = typeof req.body?.essai === 'number' && Number.isFinite(req.body.essai) ? req.body.essai : null
       // La version d'où partent les modifications : si le quiz a été
       // enregistré ailleurs depuis — l'autre appareil —, on refuse au lieu
       // d'écraser en silence. Sans `base` (une page d'avant), comme avant.
@@ -142,7 +141,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
         const d = derniers.get(cle)
         const memeClic = jeton !== null && d !== undefined && d.jeton === jeton
         // Un essai périmé de ce clic : un plus récent a déjà écrit, il ne réécrit rien.
-        if (memeClic && essai <= d.essai) return deps.store.get(spaceId, id)
+        if (memeClic && essai !== null && d.essai !== null && essai <= d.essai) return deps.store.get(spaceId, id)
         const q = await deps.store.save(spaceId, id, req.body?.title, req.body?.questions, memeClic ? d.version : base)
         if (q && q !== 'conflit') {
           if (jeton !== null) derniers.set(cle, { jeton, essai, version: q.updatedAt })
