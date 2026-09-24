@@ -675,7 +675,7 @@ export function HostApp() {
                     {/* Le podium se fait à la moyenne, avant les prix ; le
                         tableau, aux points d'équipe, prix compris. Sans le
                         dire, l'un démentait l'autre dès le premier prix. */}
-                    <div>
+                    <div className="podium-legende">
                       <FinalPodium rows={teamPodium} />
                       <p className="muted small center">Le podium à la moyenne, avant les prix</p>
                     </div>

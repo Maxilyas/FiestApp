@@ -4199,7 +4199,11 @@ h3 > .icon {
   .scene-podium { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 36px; align-items: center; }
   .scene-podium:not(:has(> .scene-listes)) { grid-template-columns: minmax(0, 1fr); }
   .host.staging .scene-podium { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); }
-  .host.staging .scene-podium > .final-podium { min-height: clamp(220px, 50vh, 480px); margin: 0; }
+  /* Le podium des équipes porte sa légende (« avant les prix ») : son
+     enveloppe ne doit pas lui faire perdre sa taille, sans quoi il tombait
+     à 260 px quand celui des joueurs en garde 480. */
+  .host.staging .scene-podium > .final-podium,
+  .host.staging .scene-podium > .podium-legende > .final-podium { min-height: clamp(220px, 50vh, 480px); margin: 0; }
   .host.staging .scene-listes { min-height: 0; max-height: 100%; overflow-y: auto; padding-right: 4px; }
 
   /* La clôture : le titre au centre, le QR du souvenir à droite, le podium
