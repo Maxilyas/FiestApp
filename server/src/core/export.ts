@@ -191,7 +191,7 @@ export function exportFiles(review: Review): { name: string; content: string }[]
   const guests: unknown[][] = [
     [
       'Prénom', 'Avatar', 'Équipe', 'Points', 'Rang', "Rang dans l'équipe", 'Questions', 'Répondu', 'Justes',
-      'Fausses', 'Passées', 'Réussite', 'Temps moyen', 'Meilleur temps', 'Estimations', 'Coup d’œil', 'Prix',
+      'Fausses', 'Passées', 'Précision', 'Temps moyen', 'Meilleur temps', 'Estimations', 'Coup d’œil', 'Prix',
       ...review.questions.map(heading),
     ],
     ...played.map(p => {
@@ -219,7 +219,7 @@ export function exportFiles(review: Review): { name: string; content: string }[]
   // Une ligne par question : ce que la salle et chaque équipe en ont fait.
   const questions: unknown[][] = [
     [
-      'N°', 'Quiz', 'Question', 'Type', 'Bonne réponse', 'Posée à', 'Répondu', 'Justes', 'Réussite',
+      'N°', 'Quiz', 'Question', 'Type', 'Bonne réponse', 'Posée à', 'Répondu', 'Justes', 'Précision',
       'Temps moyen', 'Plus rapide', 'Changements d’avis', 'Réponse 1', 'Réponse 2', 'Réponse 3', 'Réponse 4',
       ...review.teams.map(t => `${t.emoji} ${t.name}`),
     ],
@@ -252,7 +252,7 @@ export function exportFiles(review: Review): { name: string; content: string }[]
   // son « Rang » démentait la gagnante dès le premier prix.
   const teams: unknown[][] = [
     [
-      'Équipe', 'Membres', 'Total', 'Moyenne', 'Rang', 'Points à la moyenne', 'Prix', 'Points d’équipe', 'Réussite',
+      'Équipe', 'Membres', 'Total', 'Moyenne', 'Rang', 'Points à la moyenne', 'Prix', 'Points d’équipe', 'Précision',
       'Coup d’œil', 'Temps moyen', 'Meilleur membre',
       ...review.quizzes.map(z => `Quiz ${z.number} — ${short(z.title, 40)}`),
     ],

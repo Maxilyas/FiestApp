@@ -327,7 +327,7 @@ const SPECS: Spec[] = [
     eligible: s => s.correct >= 1 && s.correct + s.wrong >= MIN_ANSWERS && s.accuracy !== null,
     score: s => s.accuracy!,
     volume: s => s.correct + s.wrong,
-    detail: s => `${percent(s.accuracy!)} de réussite sur ${plural(s.correct + s.wrong, 'question')}`,
+    detail: s => `${percent(s.accuracy!)} de précision sur ${plural(s.correct + s.wrong, 'QCM', 'QCM')}`,
   },
   {
     key: 'cancre',

@@ -148,7 +148,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                         couronnait ici celle que l'écran de victoire ne
                         couronnait pas. */}
                     {equipes.length > 1 ? 'meilleures moyennes ex æquo' : 'meilleure moyenne'} :{' '}
-                    {enumerer(equipes.map(e => `${e.team.emoji} ${e.team.name}`))} ({equipes[0].average} pts de moyenne)
+                    {enumerer(equipes.map(e => `${e.team.emoji} ${e.team.name}`))} ({pts(equipes[0].average)} de moyenne)
                   </>
                 )}
               </p>

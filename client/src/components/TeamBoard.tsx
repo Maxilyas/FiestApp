@@ -3,6 +3,7 @@ import { enumerer } from '../../../shared/classement'
 import type { PublicTeam } from '../../../shared/types'
 import { Rank, Score, motPoints } from './Rank'
 import { Icon } from './Icon'
+import { pts } from '../format'
 
 interface Props {
   teams: PublicTeam[]
@@ -64,10 +65,10 @@ export function TeamBoard({ teams, highlightId, compact }: Props) {
                     {played && (
                       <>
                         {t.average}
-                        <span className="sr-only"> points</span> de moyenne
+                        <span className="sr-only"> {motPoints(t.average)}</span> de moyenne
                       </>
                     )}
-                    {!compact && played && ` · ${t.total} pts au total`}
+                    {!compact && played && ` · ${pts(t.total)} au total`}
                   </>
                 )}
                 {/* Le détail ne vaut que s'il y a des prix : sans eux, « 3 à la
@@ -100,13 +101,13 @@ export function VerdictDesEquipes({ teams, avecPrix }: { teams: PublicTeam[]; av
   // rendent pas le verdict « prix compris ».
   const champions = vainqueursDuQuiz(teams)
   if (champions.length === 0) return null
-  const pts = champions[0].finalPoints
+  const points = champions[0].finalPoints
   return (
     <p className="team-verdict">
       <Icon name="crown" /> {enumerer(champions.map(t => `${t.emoji} ${t.name}`))}{' '}
       {champions.length > 1
-        ? `remportent le quiz ex æquo, ${pts} ${motPoints(pts)} d’équipe chacune`
-        : `remporte le quiz, ${pts} ${motPoints(pts)} d’équipe`}
+        ? `remportent le quiz ex æquo, ${points} ${motPoints(points)} d’équipe chacune`
+        : `remporte le quiz, ${points} ${motPoints(points)} d’équipe`}
       {avecPrix && ' prix compris'}.
     </p>
   )
