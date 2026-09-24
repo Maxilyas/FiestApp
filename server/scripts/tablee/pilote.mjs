@@ -41,7 +41,8 @@ AGIR — chaque geste te rend l'écran d'après
   ouvrir <adresse>            ouvrir /  ·  ouvrir /chez-nadia  ·  ouvrir http://…
   scanner [secondes]          scanner le QR code de l'écran commun (attend qu'il s'allume)
   toucher <ref|texte>         toucher e12  ·  toucher "Jouer sans compte"
-  ecrire <ref|étiquette> <texte>     ecrire e7 "Jeanne" (le doigt touche d'abord le champ)
+  ecrire <ref|étiquette> <texte>     ecrire e7 "Jeanne" : touche le champ, l'efface, puis tape lettre à lettre
+  coller <ref|étiquette> <texte>     coller d'un coup un texte préparé ailleurs (une liste de questions)
   touche <Enter|Tab|Escape|Backspace|ArrowDown…>
   clavier                     fermer le clavier du téléphone (il cache le bas de l'écran)
   choisir <ref> <option>      une liste déroulante

@@ -27,6 +27,8 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
   `nadia:prepa ouvrir /edit`.
 - **`voir`** te lit l'écran avec des références (`[ref=e12]`) que `toucher`,
   `ecrire` et `choisir` utilisent. Chaque action te rend l'écran d'après.
+- **`ecrire`** tape touche par touche, comme tes doigts. Une liste de
+  questions préparée dans tes notes se colle d'un coup : **`coller`**.
 - **`capture`** prend une photo de l'écran : **regarde-la avec l'outil Read**.
   C'est ce que voit la salle au mur, et ce que tu vois sur ton portable. Fais-
   en une à chaque écran qui compte (activation, compte, éditeur, aperçu,
