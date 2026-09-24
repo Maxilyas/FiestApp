@@ -553,6 +553,37 @@ test('les marques d’homonymie suivent les exclusions et les renommages', async
   envoyer(host, 'host:endSession', { sessionId })
 })
 
+test('l’invité que l’animateur change d’équipe l’apprend sur son téléphone, et lui seul', async () => {
+  const host = await ecran()
+  envoyer(host, 'host:createTeam', { name: 'Les Randonneurs', emoji: '⭐' })
+  const snap = await instantane(host, s => s.teams.some((t: any) => t.name === 'Les Randonneurs'), 'l’équipe')
+  const rando = snap.teams.find((t: any) => t.name === 'Les Randonneurs').id
+  const nadia = await invité('Nadia', '🐯')
+  const voisin = await invité('Voisin', '🐸')
+  const toasts: any[] = []
+  voisin.socket.on('toast', (t: any) => toasts.push(t))
+
+  const place = attendre<any>(nadia.socket, 'toast', () => true, 'le toast du placement')
+  envoyer(host, 'host:assignPlayer', { playerId: nadia.playerId, teamId: rando })
+  assert.deepEqual(await place, {
+    kind: 'info',
+    message: `${ADMIN.name} t'a placé·e dans l'équipe ⭐ Les Randonneurs`,
+  })
+
+  const sortie = attendre<any>(nadia.socket, 'toast', () => true, 'le toast de la sortie')
+  envoyer(host, 'host:assignPlayer', { playerId: nadia.playerId, teamId: null })
+  assert.equal((await sortie).message, `${ADMIN.name} t'a sorti·e de ton équipe`)
+
+  // Sans changement réel, rien : un second clic sur la même équipe ne
+  // redit pas la nouvelle.
+  const recus: any[] = []
+  nadia.socket.on('toast', (t: any) => recus.push(t))
+  envoyer(host, 'host:assignPlayer', { playerId: nadia.playerId, teamId: null })
+  await patienter(300)
+  assert.deepEqual(recus, [], 'une équipe inchangée ne se redit pas')
+  assert.deepEqual(toasts, [], 'la nouvelle ne part qu’au téléphone concerné')
+})
+
 // ── 7. Les registres, sans serveur ────────────────────────────────────────
 
 /** Une base locale jetable, pour les tests qui n'ont pas besoin d'un serveur. */

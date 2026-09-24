@@ -542,7 +542,19 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       const rt = requireHost()
       const playerId = texte(charge.playerId)
       if (!rt || !playerId) return
-      if (rt.party.assign(playerId, validTeam(rt, texte(charge.teamId)))) rt.broadcastSnapshot()
+      const teamId = validTeam(rt, texte(charge.teamId))
+      if (!rt.party.assign(playerId, teamId)) return
+      rt.broadcastSnapshot()
+      // L'invité déplacé l'apprenait en relisant son en-tête, s'il le
+      // relisait : son téléphone le lui dit, à lui seul — pas à la salle.
+      const hote = rt.publicSpace().name
+      const equipe = rt.teams.all().find(t => t.id === teamId)
+      io.to(`player:${playerId}`).emit('toast', {
+        kind: 'info',
+        message: equipe
+          ? `${hote} t'a placé·e dans l'équipe ${equipe.emoji} ${equipe.name}`
+          : `${hote} t'a sorti·e de ton équipe`,
+      })
     })
 
     ecouter('host:awardTeam', charge => {
