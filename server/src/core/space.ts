@@ -35,7 +35,7 @@ import type { BadgePorte, Rarete } from '../../../shared/badges'
 import { hautFaitDeSoiree, palierDe, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
 import { cibleEclat } from '../../../shared/legendaires'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, SoireeClose } from '../../../shared/fin'
-import type { PartySnapshot, Recap } from '../../../shared/types'
+import type { PartySnapshot, PublicPlayer, Recap } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
 import type { ArchiveList, ArchiveSummary } from '../../../shared/archive'
 import { defaultSettings, type PublicSpace } from '../../../shared/space'
@@ -721,6 +721,21 @@ export class SpaceRuntime {
   }
 
   /**
+   * Le journal rangé par équipe, gardé tant que ni le journal ni la
+   * composition ne bougent : relu à chaque instantané, il coûtait 3,5 ms à
+   * 30 000 lignes, et une vague de 500 reconnexions tenait la boucle près de
+   * deux secondes.
+   */
+  private questionsVues: { cle: string; questions: ReturnType<typeof questionsDesEquipes> } | null = null
+  private questionsDesEquipes(players: PublicPlayer[]) {
+    const cle = `${this.answers.version}:${this.party.composition}`
+    if (this.questionsVues?.cle !== cle) {
+      this.questionsVues = { cle, questions: questionsDesEquipes(players, this.answers.lignesDesEquipes()) }
+    }
+    return this.questionsVues.questions
+  }
+
+  /**
    * L'état de la soirée. Le wifi n'est envoyé qu'à l'écran commun : c'est lui
    * qui l'affiche en QR, les téléphones n'ont pas à recevoir le mot de passe.
    * La santé de la sauvegarde aussi : c'est l'affaire de l'animateur, pas
@@ -733,7 +748,7 @@ export class SpaceRuntime {
     const base = this.deps.baseUrl()
     const snapshot: PartySnapshot = {
       players,
-      teams: teamScores(this.teams.all(), players, bonuses, questionsDesEquipes(players, this.answers.lignesDesEquipes())),
+      teams: teamScores(this.teams.all(), players, bonuses, this.questionsDesEquipes(players)),
       bonuses,
       session: this.engine.summary(),
       joinUrl: base ? `${base}/${space.slug}` : null,

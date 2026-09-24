@@ -61,6 +61,8 @@ export class AnswerLog {
    * restauration du miroir, elle, écrit avant qu'aucun espace ne s'ouvre.
    */
   private lignes: LigneDuJournal[]
+  /** Avance à chaque écriture ou effacement : la mémoire de l'instantané s'y fie (`SpaceRuntime`). */
+  private versionVue = 0
 
   constructor(
     private db: DB,
@@ -113,6 +115,7 @@ export class AnswerLog {
         )
       }
     })()
+    this.versionVue++
     for (const r of rows) {
       this.lignes.push({ playerId: r.playerId, sessionId: r.sessionId, qIndex: r.qIndex, points: r.points, teamId: r.teamId })
     }
@@ -137,6 +140,10 @@ export class AnswerLog {
     return rows.map(toRow)
   }
 
+  get version(): number {
+    return this.versionVue
+  }
+
   /** Qui a joué quelle question, pour combien : ce que lit la moyenne des équipes (`shared/teams.ts`). */
   lignesDesEquipes(): readonly LigneDuJournal[] {
     return this.lignes
@@ -150,6 +157,7 @@ export class AnswerLog {
    */
   dropQuestion(sessionId: string, qIndex: number) {
     this.lignes = this.lignes.filter(l => l.sessionId !== sessionId || l.qIndex !== qIndex)
+    this.versionVue++
     this.db
       .prepare('DELETE FROM answer_log WHERE session_id = ? AND q_index = ?')
       .run(sessionId, qIndex)
@@ -158,6 +166,7 @@ export class AnswerLog {
 
   clearAll() {
     this.lignes = []
+    this.versionVue++
     this.db.prepare('DELETE FROM answer_log WHERE space_id = ?').run(this.spaceId)
   }
 
@@ -168,6 +177,7 @@ export class AnswerLog {
    */
   removePlayer(playerId: string) {
     this.lignes = this.lignes.filter(l => l.playerId !== playerId)
+    this.versionVue++
     this.db.prepare('DELETE FROM answer_log WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
     this.backup?.deletePlayerAnswers(playerId)
   }

@@ -54,13 +54,14 @@ async function avecBanc(scenario: (banc: Banc) => Promise<void>) {
  * « Terminer le quiz ». Un invité qui ne répond pas n'attend pas le
  * chronomètre : « Révéler », qui vise la question, ne fait rien si elle
  * s'est déjà révélée. `avant` joue un geste pendant la question, avant les
- * réponses.
+ * réponses ; `apres`, pendant sa révélation.
  */
 async function jouerQuiz(
   host: Socket,
   quizId: string,
   questions: [Invite, number][][],
   avant?: (q: number) => Promise<void>,
+  apres?: (q: number, sessionId: string) => Promise<void>,
 ): Promise<void> {
   const vue = (sessionId: string, pred: (v: any) => boolean, label: string) =>
     attendre<any>(host, 'session:view', p => p.sessionId === sessionId && pred(p.view), label, 15_000)
@@ -76,6 +77,7 @@ async function jouerQuiz(
     }
     ;(host as any).emit('host:command', { sessionId, command: { type: 'next', phase: 'question', qIndex: q } })
     await revelee
+    await apres?.(q, sessionId)
     suivante =
       q + 1 < questions.length
         ? vue(sessionId, v => v.phase === 'question' && v.qIndex === q + 1, `la question ${q + 2}`)
@@ -310,6 +312,49 @@ test('un membre qui change d’équipe entre deux quiz, ou pendant une question,
     assert.equal(invites.perQuiz[0].average, bilan1.teams.find((t: any) => t.name === 'Les invités').perQuiz[0].average)
     assert.equal(coloc.perQuiz[1].average, 0, 'au second quiz, la coloc n’avait plus personne')
     assert.ok(invites.perQuiz[1].average > 0, 'et les invités ont joué pour eux trois')
+  }))
+
+test('la mémoire du journal reste d’accord avec la base : question annulée, invité exclu, redémarrage', () =>
+  avecBanc(async banc => {
+    const { quiz, host, liam, zoe, malik } = await laSoireeDeLea(banc)
+    const annulee = attendre<any>(host, 'session:view', p => p.view.phase === 'reveal' && p.view.cancelled, 'la question annulée', 15_000)
+    await jouerQuiz(
+      host,
+      quiz,
+      [
+        [[liam, 0], [zoe, 0], [malik, 1]],
+        [[liam, 0], [zoe, 0], [malik, 0]],
+      ],
+      undefined,
+      async (q, sessionId) => {
+        if (q !== 1) return
+        // Un instantané part avec la question 2 : la mémoire la tient.
+        await instantane<any>(host, s => s.teams.some((t: any) => t.average > 0), 'la question 2 comptée')
+        await patienter(400)
+        // Malik avait enfin trouvé : l'animateur annule la question.
+        ;(host as any).emit('host:command', { sessionId, command: { type: 'cancel', phase: 'reveal', qIndex: 1 } })
+        await annulee
+      },
+    )
+    await patienter(300)
+    /** L'instantané (la mémoire) face au bilan, relu en base. */
+    const accord = async (ecran: Socket, pred: (s: any) => boolean, quoi: string) => {
+      const salle = await instantane<any>(ecran, pred, quoi)
+      const base = moyennes((await lire(banc, 'bilan.json')).teams)
+      assert.deepEqual(moyennes(salle.teams), base, `${quoi} : la salle lit ce que dit la base`)
+      return base
+    }
+    const apresAnnulation = await accord(host, s => !s.session, 'après l’annulation')
+    assert.equal((await lire(banc, 'bilan.json')).questions.length, 1, 'la question 2 ne compte plus')
+    assert.ok(apresAnnulation['La coloc'] > 0)
+
+    ;(host as any).emit('host:removePlayer', { playerId: zoe.playerId })
+    const apresExclusion = await accord(host, s => s.players.length === 3, 'après l’exclusion de Zoé')
+    assert.equal(apresExclusion['La coloc'], 0, 'il ne reste à la coloc que Malik, qui n’a rien marqué')
+
+    await banc.redemarrer()
+    const reveil = await accord(await ecranCommun(banc.url, await connexionAnimateur(banc.url)), s => s.players.length === 3, 'après le redémarrage')
+    assert.deepEqual(reveil, apresExclusion)
   }))
 
 test('une ligne d’avant la colonne retombe sur la composition du moment ; une ligne sans équipe ne compte pour aucune', () => {
