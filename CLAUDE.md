@@ -45,6 +45,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `games/quiz.ts` | **toutes** les règles : phases, chronomètres, barème (le temps de lecture offert au QCM, l'estimation payée à la distance), vues |
 | `core/space.ts` | la soirée d'un espace : ses registres, ses salons socket, ses diffusions, son nom figé, ses crédits |
 | `core/party.ts` | le registre des invités (identité par jeton, rattachement au profil, marques d'homonymie, connexions par socket) |
+| `core/places.ts` | « Rendre sa place » : les codes à usage unique qui rendent sa fiche à un invité dont le téléphone est mort — en mémoire, vite périmés, essais comptés |
 | `core/scores.ts` | journal des gains, en ajout seul |
 | `core/answers.ts` | une ligne par invité et par question posée, y compris sans réponse |
 | `core/backup.ts` | le miroir de la soirée dans Turso : une file par espace, ordonnée, qui insiste ; la resynchronisation après une panne ; sa santé |
@@ -80,6 +81,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/brouillon.ts` · `client/src/brouillon.ts` | le brouillon d'un quiz : ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit (`normalizeQuestions`, `shared/library.ts`) |
 | `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
 | `client/src/components/Liaison.tsx` | ce que voit l'invité quand la liaison tombe |
+| `client/src/components/Absents.tsx` · `Reprendre.tsx` | le téléphone perdu : « Qui manque ? » à la console (ne plus l'attendre, rendre sa place), et le code tapé par l'invité |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
 | `server/scripts/calibrage.ts` | combien de quiz demande chaque légendaire, et combien de soirées chaque niveau : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits et de l'expérience (`npx tsx scripts/calibrage.ts`, format réglable) |
 | `server/scripts/tablee/regie.ts` · `pilote.mjs` | la tablée : un serveur jetable, un Chromium, et les gestes des agents qui y jouent une soirée — ou plusieurs à la fois, un salon par animateur (`chez <animateur>`) — la marche à suivre, les personnages, les experts et leurs consignes dans `.claude/skills/tablee/` (`/tablee`) |
@@ -116,7 +118,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
    jeton qui ne désigne plus personne (exclu, essai effacé) est refusé
    (`unknown-token`), **jamais recréé** : le téléphone repasse par l'entrée,
    pré-remplie. Celui d'une soirée qu'on vient de clore reçoit sa fin de
-   soirée (`soiree-close`).
+   soirée (`soiree-close`). Un nouveau téléphone ne prend le jeton d'une
+   fiche que par le code que l'animateur fait paraître (`player:reprendre`),
+   jamais sur un prénom retapé.
 10. **L'expérience d'un quiz se crédite dès qu'il rend son verdict** (son
     podium s'affiche), à la fin de la partie si quelque chose a changé depuis
     (`dernierCredit`, l'empreinte des gains arrivés en base), puis une

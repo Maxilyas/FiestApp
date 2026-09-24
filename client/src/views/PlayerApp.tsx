@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
+import { joinAsPlayer, reprendrePlace, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
 import { getState, oublierIdentite, saveChoix, saveMe, setState, showToast, useAppState } from '../state'
 import { currentSlug } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
@@ -9,6 +9,7 @@ import { Icon } from '../components/Icon'
 import { Entree, type Identite } from '../components/Entree'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { ProfilForm } from '../components/ProfilForm'
+import { AvisHorsLigne, FormulaireCode, horsLigneDuMemeNom } from '../components/Reprendre'
 import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer } from '../games/quiz/PlayerView'
@@ -43,6 +44,8 @@ export function PlayerApp() {
   const [montrerProfil, setMontrerProfil] = useState(false)
   /** Le serveur ne connaît pas cette adresse : rien à rejoindre ici. */
   const [spaceError, setSpaceError] = useState('')
+  /** Salle d'attente : « J'ai un code » — reprendre la place d'un téléphone mort. */
+  const [reprise, setReprise] = useState(false)
   /** La carte ouverte, celle du joueur dont on a touché le nom. */
   const [carte, setCarte] = useState<string | null>(null)
 
@@ -159,6 +162,21 @@ export function PlayerApp() {
     return null
   }
 
+  /**
+   * Reprend sa place avec le code de l'animateur. L'identité que ce téléphone
+   * portait jusque-là part avec la demande : le serveur l'efface si elle n'a
+   * rien joué — c'était la même personne.
+   */
+  const reprendre = async (code: string) => {
+    const ack = await reprendrePlace(slug, code, getState().me?.token)
+    if (!ack.ok) return ack.error
+    saveChoix(slug, { name: ack.name, avatar: ack.avatar })
+    saveMe(slug, { playerId: ack.playerId, token: ack.token })
+    setReprise(false)
+    showToast({ kind: 'info', message: `Te revoilà, ${ack.name} ${ack.avatar}` })
+    return null
+  }
+
   /** « Ce n'est pas moi » : le téléphone oublie le profil qu'il portait. */
   const oublierProfil = async () => {
     await api.joueur.deconnexion().catch(() => {})
@@ -257,6 +275,7 @@ export function PlayerApp() {
           reconnecter={reconnecter}
           rejoindre={rejoindre}
           oublierProfil={oublierProfil}
+          reprendre={reprendre}
         />
         <BandeauCoupure connecte={s.connected} />
         {toast}
@@ -275,6 +294,16 @@ export function PlayerApp() {
           onCancel={() => setMontrerProfil(false)}
           creer
         />
+        {toast}
+      </>
+    )
+  }
+
+  if (reprise) {
+    return (
+      <>
+        <FormulaireCode reprendre={reprendre} onCancel={() => setReprise(false)} />
+        <BandeauCoupure connecte={s.connected} />
         {toast}
       </>
     )
@@ -338,6 +367,13 @@ export function PlayerApp() {
           </span>
         )}
       </header>
+
+      {/* Inscrit une seconde fois sur un téléphone emprunté : sa première
+          place l'attend, points compris, s'il demande le code. */}
+      {(() => {
+        const absent = me && !profil ? horsLigneDuMemeNom(snap.players, me.name, me.id) : undefined
+        return absent ? <AvisHorsLigne joueur={absent} onCode={() => setReprise(true)} /> : null
+      })()}
 
       {session && !iAmIn && (
         <div className="card notice">Un quiz est en cours — tu entres à la prochaine question.</div>

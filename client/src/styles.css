@@ -4252,3 +4252,41 @@ h3 > .icon {
     .cloture-fait { gap: 6px; padding: 8px 12px; }
   }
 }
+
+/* ── « Qui manque ? » ────────────────────────────── */
+/* Dans la console, sous un bouton : fermé, la salle ne lit pas qui traîne. */
+.absents { position: relative; display: inline-flex; }
+.absents-btn { position: relative; }
+.absents-nombre {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--accent); color: var(--on-accent);
+  font-size: 11px; font-weight: 700; line-height: 18px; text-align: center;
+}
+/* Fixé au-dessus de la console, à droite : sur une scène à photo, il ne
+   pousse rien — il se pose par-dessus, le temps d'un geste. */
+.absents-panneau {
+  position: fixed; right: 16px; bottom: 76px; z-index: 40;
+  width: min(380px, calc(100vw - 32px)); max-height: min(60vh, 520px); overflow: auto;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--bg-raised); border: 1px solid var(--edge-strong);
+  box-shadow: var(--shadow-dialog);
+  text-align: left;
+}
+.absents-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.absents-liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.absent { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px solid var(--edge); }
+.absent:first-child { border-top: 0; }
+.absent-qui { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.absent-avatar { font-size: 22px; line-height: 1; }
+.absent-nom { font-weight: 600; overflow-wrap: anywhere; }
+.absent-etat { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
+.absent-etat .icon { width: 14px; height: 14px; }
+.absent-gestes { display: flex; flex-wrap: wrap; gap: 6px; }
+.absent-code { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.absent-code-chiffres {
+  font-size: 30px; font-weight: 700; letter-spacing: 0.08em;
+  color: var(--accent-text); font-variant-numeric: tabular-nums;
+}

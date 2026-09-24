@@ -19,6 +19,7 @@ import { Icon } from '../components/Icon'
 import { Rank, Score } from '../components/Rank'
 import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
+import { Absents } from '../components/Absents'
 import { finalRanking, rankTeams, vainqueursDuQuiz } from '../../../shared/teams'
 import { classer, enumerer } from '../../../shared/classement'
 import type { PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
@@ -1083,6 +1084,15 @@ export function HostApp() {
           <span className="console-label">Console animateur</span>
           <div className="console-actions" ref={setConsoleSlot} />
           <div className="console-icons">
+            {/* Qui manque, et les gestes d'un téléphone perdu : ici, parce que
+                pendant un quiz le panneau des invités disparaît. */}
+            <Absents
+              players={snap.players}
+              quiz={quizView}
+              sendCommand={
+                activeView ? command => socket.emit('host:command', { sessionId: activeView.sessionId, command }) : undefined
+              }
+            />
             <button
               className="btn btn-icon"
               title={muted ? 'Activer les sons' : 'Couper les sons'}

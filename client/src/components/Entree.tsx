@@ -11,6 +11,7 @@ import { ApiError, api, motifDe } from '../api'
 import { loadChoix } from '../state'
 import { JoinHead } from './Invitation'
 import { FormulaireSecours } from './Secours'
+import { AvisHorsLigne, FormulaireCode, horsLigneDuMemeNom } from './Reprendre'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { TeamPicker } from './TeamPicker'
@@ -37,9 +38,11 @@ interface Props {
   rejoindre: (choix: Identite & { teamId: string | null }) => Promise<string | null>
   /** Oublie le profil de ce téléphone — « ce n'est pas moi ». */
   oublierProfil: () => Promise<void>
+  /** Reprend sa place avec le code de l'animateur. Rend le motif du refus, ou null. */
+  reprendre: (code: string) => Promise<string | null>
 }
 
-type Etape = 'entree' | 'moi' | 'retour' | 'securiser' | 'code' | 'secours' | 'equipe'
+type Etape = 'entree' | 'moi' | 'retour' | 'securiser' | 'code' | 'secours' | 'equipe' | 'place'
 
 /** Un avatar au hasard : sans ça, tous ceux qui ne touchent à rien arrivent identiques. */
 const tirage = () => AVATARS[Math.floor(Math.random() * AVATARS.length)]
@@ -64,7 +67,7 @@ const identifiantPour = (prenom: string) =>
  * Et un profil reconnu ne choisit plus rien : il a choisi son prénom et son
  * avatar une fois, en créant son profil. On les lit, on ne les redemande pas.
  */
-export function Entree({ space, players, teams, profil, reconnecter, rejoindre, oublierProfil }: Props) {
+export function Entree({ space, players, teams, profil, reconnecter, rejoindre, oublierProfil, reprendre }: Props) {
   // Ce que ce téléphone a déjà choisi ici : sa présence dit que l'entrée a
   // déjà été vue dans cet espace, et qu'il est inutile de la remontrer.
   const [choix] = useState(() => loadChoix(space.slug))
@@ -260,6 +263,11 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
         {connectes > 0 && <p className="join-foot">{connectes} invité·e·s déjà là</p>}
       </form>
     )
+  }
+
+  // ── Écran F : reprendre sa place, avec le code de l'animateur ────────
+  if (etape === 'place') {
+    return <FormulaireCode reprendre={reprendre} onCancel={() => setEtape('moi')} />
   }
 
   // ── Écran D : le code de secours ─────────────────────────────────────
@@ -562,6 +570,10 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
   }
 
   const homonyme = name.trim() && players.some(p => sansAccent(p.name) === sansAccent(name))
+  // Son téléphone est mort, et il revient sur un autre : c'est peut-être lui.
+  // Pas pour un profil : se connecter lui rend déjà sa place, et le serveur
+  // refuse un code sur le téléphone d'un profil qui n'est pas celui de la fiche.
+  const absent = profil ? undefined : horsLigneDuMemeNom(players, name)
 
   return (
     // Le même en-tête resserré qu'à l'écran A : avec le grand titre, « Rejoindre
@@ -634,7 +646,9 @@ export function Entree({ space, players, teams, profil, reconnecter, rejoindre, 
       </div>
       {/* On ne demande plus d'ajouter une initiale : c'était du travail pour
           l'invité. L'avatar distingue, et il est à côté du prénom partout. */}
-      {homonyme && (
+      {absent ? (
+        <AvisHorsLigne joueur={absent} onCode={() => setEtape('place')} />
+      ) : homonyme && (
         <p className="warn">
           Il y a déjà un {espacesFines(`« ${name.trim()} »`)} — ton {avatar} vous distinguera.
         </p>
