@@ -357,6 +357,24 @@ test('la moyenne d’une équipe se fait question par question, entre les membre
   assert.equal(pleine.average, Math.round((300 + 264) / 2))
 })
 
+test('deux équipes exactement ex æquo à ,5 le restent : la virgule flottante ne les sépare plus', () => {
+  // Les Aigles, deux membres, 10 825 points sur 11 questions ; les Zèbres,
+  // six membres, 32 475 : 5 412,5 de moyenne chacune. Les sixièmes, additionnés
+  // en virgule flottante, faisaient 5 412,4999… : 5 413 contre 5 412.
+  const zebres = [2504, 1921, 1385, 4569, 2649, 2322, 4705, 250, 3808, 3851, 4511]
+  const aigles = [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 825]
+  assert.equal(zebres.reduce((a, b) => a + b), 32_475)
+  assert.equal(aigles.reduce((a, b) => a + b), 10_825)
+  const z = equipes.moyenneAuProrata(zebres.map(points => ({ presents: 6, points })))
+  const a = equipes.moyenneAuProrata(aigles.map(points => ({ presents: 2, points })))
+  assert.equal(z, a, 'la même moyenne, au point près')
+  const teams = [
+    { id: 'a', name: 'Les Aigles', emoji: '🦅', position: 0, memberCount: 2, total: 10_825, average: a, bonus: 0 },
+    { id: 'z', name: 'Les Zèbres', emoji: '🦓', position: 1, memberCount: 6, total: 32_475, average: z, bonus: 0 },
+  ]
+  assert.deepEqual(equipes.vainqueursDuQuiz(teams).map(t => t.id), ['a', 'z'], 'elles gagnent ensemble')
+})
+
 test('le bilan classe chaque quiz avec la même règle que la salle', () => {
   const teams = [
     { id: 'rando', name: 'Les Randonneurs', emoji: '🥾', position: 0, createdAt: 1 },

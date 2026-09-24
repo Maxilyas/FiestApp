@@ -96,12 +96,16 @@ export function equipeDeLaLigne(
  * moyenne par membre d'avant, au point près.
  *
  * L'arrondi vient à la fin : arrondir chaque question aurait fait dériver
- * d'un point par question deux équipes égales.
+ * d'un point par question deux équipes égales. Et il passe d'abord par six
+ * décimales : des sixièmes additionnés en virgule flottante donnaient
+ * 5 412,4999… aux Zèbres (six membres) quand les Aigles (deux) tombaient
+ * juste sur 5 412,5 — 5 412 contre 5 413 pour deux équipes exactement ex
+ * æquo (invariant 15).
  */
 export function moyenneAuProrata(questions: Iterable<QuestionDEquipe>): number {
   let somme = 0
   for (const q of questions) if (q.presents > 0) somme += q.points / q.presents
-  return Math.round(somme)
+  return Math.round(Number(somme.toFixed(6)))
 }
 
 /**
