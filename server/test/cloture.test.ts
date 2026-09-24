@@ -632,6 +632,13 @@ test('au démarrage d’un barème neuf, l’historique se relit — et la veill
     })
 
     await banc.redemarrer()
+    // Lu en base avant toute visite : la page `/profil` rattraperait sinon
+    // dans l'archive un joueur que la relecture aurait oublié d'écrire.
+    assert.deepEqual(
+      lire(banc, 'SELECT joueur_id FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', animId, soiree),
+      [{ joueur_id: anim.playerId }],
+      'la ligne recréditée retient le joueur qu’il était ce soir-là',
+    )
     assert.equal((await moi(banc, animCookie)).xp, juste, 'la soirée de l’historique se recrédite à l’animateur')
     const aliceApres = await moi(banc, aliceCookie)
     assert.equal(aliceApres.xp, XP.reponse + 40 + 10, 'la veille et le palier gardent leur expérience')
