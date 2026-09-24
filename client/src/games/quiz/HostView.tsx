@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import type { QuizCommand, QuizHostView, Visee } from '../../../../shared/games/quiz'
 import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
@@ -10,6 +10,7 @@ import { Rank, Score } from '../../components/Rank'
 import { ConsoleActions } from '../../components/HostConsole'
 import { confirmDialog } from '../../components/Dialog'
 import { serverNow } from '../../clock'
+import { PALIERS_ENCHAINEMENT, gesteAccepte } from '../../../../shared/console'
 import { espacesFines } from '../../format'
 import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
@@ -33,8 +34,37 @@ function AutoNextPill({ deadline }: { deadline: number }) {
   )
 }
 
-/** Manuel → 5 s → 10 s → manuel : trois réglages suffisent. */
-const PALIERS_AUTO: (number | null)[] = [null, 5, 10]
+/**
+ * Les gestes de phase n'agissent qu'une demi-seconde après le dernier
+ * changement de phase, et le focus revient à l'action principale à chaque
+ * changement (voir `GARDE_APRES_PHASE_MS`).
+ *
+ * Le focus d'abord : il restait sur la position cliquée — sur « Reposer »
+ * après une révélation, qui avait pris la place de « Pause ». Une
+ * télécommande de présentation, qui n'envoie qu'Entrée, aurait reposé la
+ * question au lieu d'avancer. Il ne revient à l'action principale que s'il
+ * était dans la console ou nulle part : une boîte de dialogue ouverte le
+ * garde.
+ */
+function useGardeDePhase(cle: string) {
+  const changement = useRef<number | null>(null)
+  const principal = useRef<HTMLButtonElement>(null)
+  useLayoutEffect(() => {
+    changement.current = performance.now()
+    const bouton = principal.current
+    if (!bouton) return
+    const actif = document.activeElement
+    const bande = bouton.parentElement?.closest('.console-actions')
+    if (!actif || actif === document.body || bande?.contains(actif)) bouton.focus({ preventScroll: true })
+  }, [cle])
+  /** Le geste, s'il ne suit pas de trop près un changement de phase. */
+  const garde =
+    (geste: () => void): (() => void) =>
+    () => {
+      if (gesteAccepte(changement.current, performance.now())) geste()
+    }
+  return { garde, principal }
+}
 
 interface Props {
   view: QuizHostView
@@ -56,6 +86,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
    * boîte de dialogue fait attendre la commande.
    */
   const visee: Visee = { phase: v.phase, qIndex: v.qIndex, round: v.round }
+  const { garde, principal } = useGardeDePhase(`${v.phase}:${v.qIndex}:${v.round}`)
 
   // Les sons ponctuent les changements de phase — sur l'écran commun seulement.
   useEffect(() => {
@@ -64,45 +95,129 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
     else if (v.phase === 'finished') sound.fanfare()
   }, [v.phase, v.qIndex, v.kind])
 
-  /* Le bouton qui enchaîne les questions sans cliquer : vingt clics par quiz,
-     ce sont vingt occasions de décrocher de la soirée. */
-  const autoButton = (
-    <button
-      className={'btn' + (v.autoNextSeconds ? ' auto-on' : ' btn-ghost')}
-      title="Enchaîner les questions sans cliquer"
-      onClick={() => {
-        const i = PALIERS_AUTO.indexOf(v.autoNextSeconds ?? null)
-        sendCommand({ type: 'autoNext', seconds: PALIERS_AUTO[(i + 1) % PALIERS_AUTO.length] })
-      }}
-    >
-      <Icon name="skip" />
-      {v.autoNextSeconds ? `Auto ${v.autoNextSeconds} s` : 'Manuel'}
-    </button>
+  /* L'enchaînement sans cliquer : vingt clics par quiz, ce sont vingt
+     occasions de décrocher de la soirée. Tous les paliers sont à l'écran et
+     disent ce qui se passera : le bouton unique affichait l'état (« Manuel »)
+     et se lisait comme une action, et il fallait le faire tourner pour
+     revenir au clic — le temps que la question suivante parte. Ces boutons-là
+     ne passent pas par la garde : reprendre la main ne doit jamais attendre. */
+  const enchainement = (
+    <div className="enchainement" role="group" aria-label="Passer à la question suivante">
+      <span className="enchainement-label">Suivante</span>
+      {PALIERS_ENCHAINEMENT.map(palier => {
+        const actif = (v.autoNextSeconds ?? null) === palier
+        return (
+          <button
+            key={palier ?? 'clic'}
+            className={'pill-btn' + (actif ? ' active' : '')}
+            aria-pressed={actif}
+            title={palier === null ? 'La question suivante attend ton clic' : `La question suivante part seule ${palier} s après la révélation`}
+            onClick={() => {
+              if (!actif) sendCommand({ type: 'autoNext', seconds: palier })
+            }}
+          >
+            {palier === null ? 'au clic' : `${palier} s`}
+          </button>
+        )
+      })}
+    </div>
   )
 
-  // La fin d'un quiz ne se rattrape pas, et ce bouton est collé à « Manuel » :
-  // en pleine question, on demande avant de tout arrêter.
+  // La fin d'un quiz ne se rattrape pas : tant qu'il reste à jouer, on
+  // demande avant de tout arrêter. Même à la révélation, où « Terminer »
+  // passait sans un mot — et sautait aussi le podium du quiz.
   const endButton = (
     <button
-      className="btn btn-ghost"
-      onClick={async () => {
-        if (v.phase === 'observe' || v.phase === 'question') {
-          const ok = await confirmDialog({
-            title: 'Terminer le quiz maintenant ?',
-            message:
-              'La question en cours ne comptera pas, et les suivantes ne seront pas posées. Les points déjà gagnés restent acquis.',
-            confirmLabel: 'Terminer le quiz',
-            danger: true,
-          })
-          if (!ok) return
-        }
-        endSession()
-      }}
+      className="btn btn-ghost btn-small"
+      onClick={garde(async () => {
+        const ok = await confirmDialog({
+          title: 'Terminer le quiz maintenant ?',
+          message:
+            v.phase === 'reveal'
+              ? 'Les questions suivantes ne seront pas posées, et le podium du quiz ne s’affichera pas. Les points déjà gagnés restent acquis.'
+              : 'La question en cours ne comptera pas, et les suivantes ne seront pas posées. Les points déjà gagnés restent acquis.',
+          confirmLabel: 'Terminer le quiz',
+          danger: true,
+        })
+        if (ok) endSession()
+      })}
     >
       <Icon name="x" />
       Terminer
     </button>
   )
+
+  /**
+   * La console d'une question, de la photo à la révélation : toujours les
+   * mêmes boutons, aux mêmes places, ceux qui ne servent pas grisés plutôt
+   * qu'escamotés — la bande est centrée, un bouton de moins décalait tous
+   * les autres sous le curseur. À gauche, l'action principale ; au milieu,
+   * la pause et l'enchaînement ; à droite, à l'écart, les gestes qui
+   * défont quelque chose.
+   */
+  const consoleQuestion = (primaire: ReactNode) => {
+    const revealing = v.phase === 'reveal'
+    const enQuestion = v.phase === 'question'
+    return (
+      <ConsoleActions>
+        <div className="console-groupe">
+          {primaire}
+          <button
+            className="btn console-pause"
+            disabled={!enQuestion}
+            title={enQuestion ? undefined : 'La pause fige le chronomètre d’une question'}
+            onClick={garde(() => sendCommand({ type: v.paused ? 'resume' : 'pause' }))}
+          >
+            <Icon name={v.paused ? 'play' : 'pause'} />
+            {v.paused ? 'Reprendre' : 'Pause'}
+          </button>
+          {enchainement}
+        </div>
+        <div className="console-groupe console-risque" role="group" aria-label="Corriger ou arrêter">
+          <button
+            className="btn btn-ghost btn-small"
+            disabled={!revealing}
+            title={revealing ? undefined : 'Possible une fois la réponse révélée'}
+            onClick={garde(async () => {
+              const ok = await confirmDialog({
+                title: 'Reposer cette question ?',
+                message: 'Les points gagnés sur cette question sont retirés à tout le monde, puis elle repart de zéro, chronomètre compris.',
+                confirmLabel: 'Reposer la question',
+                danger: true,
+              })
+              // La visée du clic, comme pour « Annuler les points ».
+              if (ok) sendCommand({ type: 'replay', ...visee })
+            })}
+          >
+            <Icon name="rotate" />
+            Reposer
+          </button>
+          <button
+            className="btn btn-ghost btn-small"
+            // Déjà annulés : il n'y a plus rien à retirer.
+            disabled={!revealing || v.cancelled}
+            title={v.cancelled ? 'Les points de cette question sont déjà annulés' : revealing ? undefined : 'Possible une fois la réponse révélée'}
+            onClick={garde(async () => {
+              const ok = await confirmDialog({
+                title: 'Annuler les points de cette question ?',
+                message: 'Les points gagnés sur cette question sont retirés à tout le monde.',
+                confirmLabel: 'Retirer les points',
+                danger: true,
+              })
+              // `visee` est celle du clic, pas celle de la confirmation :
+              // si la partie a avancé pendant que la boîte était
+              // ouverte, le serveur ne touche pas à la question suivante.
+              if (ok) sendCommand({ type: 'cancel', ...visee })
+            })}
+          >
+            <Icon name="x-circle" />
+            Annuler les points
+          </button>
+          {endButton}
+        </div>
+      </ConsoleActions>
+    )
+  }
 
   if (v.phase === 'pickPack') {
     return (
@@ -165,13 +280,12 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
         </div>
         <TimerBar deadline={v.deadline!} duration={v.duration ?? 5} ticking />
         {v.image && <img className="quiz-img observe-img" src={v.image} alt="" />}
-        <ConsoleActions>
-          <button className="btn btn-accent" onClick={() => sendCommand({ type: 'next', ...visee })}>
+        {consoleQuestion(
+          <button ref={principal} className="btn btn-accent console-principal" onClick={garde(() => sendCommand({ type: 'next', ...visee }))}>
             <Icon name="skip" />
             Passer à la question
-          </button>
-          {endButton}
-        </ConsoleActions>
+          </button>,
+        )}
       </div>
     )
   }
@@ -210,14 +324,22 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
           />
         )}
 
-        {v.category && <span className="label quiz-categorie">{v.category}</span>}
-        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{espacesFines(v.text ?? '')}</h2>
-        {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
-        {v.photoGone && (
-          <p className="photo-gone">
-            <Icon name="eye-off" /> La photo a disparu — de mémoire !
-          </p>
-        )}
+        {/* L'énoncé et sa photo côte à côte : empilée sous la question, la
+            photo poussait les réponses sous la console en 1366 × 768, la
+            définition des portables qu'on branche à la télé. La largeur d'un
+            écran 16/9, elle, ne manque jamais (styles.css). */}
+        <div className={'quiz-enonce' + (v.image ? ' avec-photo' : '')}>
+          <div className="quiz-enonce-texte">
+            {v.category && <span className="label quiz-categorie">{v.category}</span>}
+            <h2 className={'quiz-question' + questionSizeClass(v.text)}>{espacesFines(v.text ?? '')}</h2>
+            {v.photoGone && (
+              <p className="photo-gone">
+                <Icon name="eye-off" /> La photo a disparu — de mémoire !
+              </p>
+            )}
+          </div>
+          {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
+        </div>
 
         {v.kind === 'number' ? (
           revealing ? (
@@ -282,60 +404,30 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
           </div>
         )}
 
-        <ConsoleActions>
-          {revealing ? (
-            <>
-              <button className="btn btn-primary" onClick={() => sendCommand({ type: 'next', ...visee })}>
-                {last ? (
-                  <>
-                    <Icon name="trophy" />
-                    Voir le podium
-                  </>
-                ) : (
-                  'Question suivante'
-                )}
-              </button>
-              <button className="btn btn-ghost" onClick={() => sendCommand({ type: 'replay', ...visee })}>
-                <Icon name="rotate" />
-                Reposer
-              </button>
-              {/* Déjà annulés : il n'y a plus rien à retirer. */}
-              {!v.cancelled && (
-                <button
-                  className="btn btn-ghost"
-                  onClick={async () => {
-                    const ok = await confirmDialog({
-                      title: 'Annuler les points de cette question ?',
-                      message: 'Les points gagnés sur cette question sont retirés à tout le monde.',
-                      confirmLabel: 'Retirer les points',
-                      danger: true,
-                    })
-                    // `visee` est celle du clic, pas celle de la confirmation :
-                    // si la partie a avancé pendant que la boîte était
-                    // ouverte, le serveur ne touche pas à la question suivante.
-                    if (ok) sendCommand({ type: 'cancel', ...visee })
-                  }}
-                >
-                  <Icon name="x-circle" />
-                  Annuler les points
-                </button>
-              )}
-            </>
-          ) : (
-            <>
-              <button className="btn btn-accent" onClick={() => sendCommand({ type: 'next', ...visee })}>
+        {consoleQuestion(
+          <button
+            ref={principal}
+            className={'btn console-principal ' + (revealing ? 'btn-primary' : 'btn-accent')}
+            onClick={garde(() => sendCommand({ type: 'next', ...visee }))}
+          >
+            {!revealing ? (
+              <>
                 <Icon name="eye" />
                 Révéler
-              </button>
-              <button className="btn" onClick={() => sendCommand({ type: v.paused ? 'resume' : 'pause' })}>
-                <Icon name={v.paused ? 'play' : 'pause'} />
-                {v.paused ? 'Reprendre' : 'Pause'}
-              </button>
-            </>
-          )}
-          {autoButton}
-          {endButton}
-        </ConsoleActions>
+              </>
+            ) : last ? (
+              <>
+                <Icon name="trophy" />
+                Voir le podium
+              </>
+            ) : (
+              <>
+                <Icon name="skip" />
+                Question suivante
+              </>
+            )}
+          </button>,
+        )}
 
         {/* Entre deux questions, c'est le moment où l'animateur annonce qui
             mène. Les équipes passent en premier : c'est le classement qui
@@ -367,25 +459,44 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
   }
 
   // finished
+  // Le podium à gauche, les équipes et la suite du classement à droite :
+  // empilés, les équipes passaient sous la console en 1366 × 768, et la
+  // salle ne voyait que leur titre.
   return (
     <div className="quiz-host stage-scroll">
       <h2>
         <Icon name="trophy" />
         Podium du quiz
       </h2>
-      {v.standings && <FinalPodium rows={v.standings} />}
-      {v.standings && v.standings.length > 3 && <Standings rows={v.standings.slice(3)} offset={3} />}
-      {teams.length > 0 && (
-        <div>
-          <h3>
-            <Icon name="users" />
-            Les équipes après ce quiz
-          </h3>
-          <TeamBoard teams={teams} showFinalPoints />
-        </div>
-      )}
+      <div className="scene-podium">
+        {v.standings && <FinalPodium rows={v.standings} />}
+        {(teams.length > 0 || (v.standings?.length ?? 0) > 3) && (
+          <div className="scene-listes">
+            {teams.length > 0 && (
+              <div>
+                <h3>
+                  <Icon name="users" />
+                  Les équipes après ce quiz
+                </h3>
+                <TeamBoard teams={teams} showFinalPoints />
+              </div>
+            )}
+            {/* Les équipes d'abord : c'est leur classement qui décide de la
+                soirée, et la suite du classement peut être longue. */}
+            {v.standings && v.standings.length > 3 && (
+              <div>
+                <h3>
+                  <Icon name="trophy" />
+                  La suite du classement
+                </h3>
+                <Standings rows={v.standings.slice(3)} offset={3} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       <ConsoleActions>
-        <button className="btn btn-primary" onClick={endSession}>
+        <button ref={principal} className="btn btn-primary" onClick={garde(endSession)}>
           Terminer le quiz
         </button>
       </ConsoleActions>
