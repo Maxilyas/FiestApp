@@ -41,6 +41,7 @@ import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon 
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
+import { LienConsole } from '../components/LienConsole'
 import { Shape } from '../components/Shape'
 import { TimerBar } from '../components/TimerBar'
 import { serverNow } from '../clock'
@@ -254,10 +255,7 @@ export function EditorApp() {
           Mes quiz
         </h1>
         <div className="row">
-          <a className="btn btn-ghost" href="/host">
-            <Icon name="monitor" />
-            Écran commun
-          </a>
+          <LienConsole />
           <a className="btn btn-ghost" href="/compte">
             <Icon name="users" />
             Mon compte
@@ -307,9 +305,12 @@ export function EditorApp() {
       {list === null && <p className="serif-note">Chargement…</p>}
 
       {list?.length === 0 && (
-        <div className="card notice">
-          <p>Aucun quiz pour l'instant. Crée le premier !</p>
-        </div>
+        <PremiersPas
+          occupe={echange !== null}
+          onOuvrir={id => setEditingId(id)}
+          onImporter={() => fichier.current?.click()}
+          onErreur={setError}
+        />
       )}
 
       <div className="quiz-list">
@@ -1676,5 +1677,76 @@ function QuestionCard({
         </p>
       )}
     </div>
+  )
+}
+
+/**
+ * Une bibliothèque vide : de quoi partir. Chaque ami découvrait l'espace par
+ * « Aucun quiz », puis « Lancer un quiz » répondait par un refus. Les quiz
+ * livrés avec l'application se copient ici d'un geste, et le quiz d'un ami
+ * s'importe comme depuis l'en-tête.
+ */
+function PremiersPas({
+  occupe,
+  onOuvrir,
+  onImporter,
+  onErreur,
+}: {
+  occupe: boolean
+  onOuvrir: (id: string) => void
+  onImporter: () => void
+  onErreur: (message: string) => void
+}) {
+  const [modeles, setModeles] = useState<{ id: string; title: string; questionCount: number }[]>([])
+  const [copie, setCopie] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Sans modèles (une panne, un serveur sans contenu livré), il reste
+    // l'import et la création : rien à dire de plus.
+    api.modeles().then(setModeles).catch(() => {})
+  }, [])
+
+  const creer = async () => {
+    try {
+      onOuvrir((await api.create('Nouveau quiz')).id)
+    } catch (e) {
+      onErreur((e as Error).message)
+    }
+  }
+
+  return (
+    <section className="card premiers-pas">
+      <h2>Ton premier quiz</h2>
+      <p className="muted small">Ta bibliothèque est vide. Pars d'un quiz tout fait, que tu retoucheras à ton goût, ou du tien.</p>
+      <div className="premiers-pas-choix">
+        {modeles.map(m => (
+          <button
+            key={m.id}
+            className="btn"
+            disabled={copie !== null || occupe}
+            onClick={async () => {
+              setCopie(m.id)
+              try {
+                onOuvrir((await api.partirDe(m.id)).id)
+              } catch (e) {
+                onErreur((e as Error).message)
+                setCopie(null)
+              }
+            }}
+          >
+            <Icon name="copy" />
+            {copie === m.id ? 'Copie…' : `Partir de « ${m.title} » · ${m.questionCount} questions`}
+          </button>
+        ))}
+        <button className="btn" disabled={occupe} onClick={onImporter}>
+          <Icon name="download" />
+          Importer le quiz d'un ami
+        </button>
+        <button className="btn btn-primary" onClick={creer}>
+          <Icon name="plus" />
+          Créer mon quiz
+        </button>
+      </div>
+    </section>
   )
 }

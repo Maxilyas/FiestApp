@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { activationUrl, api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
+import { LienConsole } from '../components/LienConsole'
 import { confirmDialog, promptDialog } from '../components/Dialog'
 import { showToast, useAppState } from '../state'
 import { formatDay } from '../../../shared/archive'
@@ -84,10 +85,7 @@ export function AdminApp() {
           <Icon name="users" />
           Mon compte
         </a>
-        <a className="btn" href="/host">
-          <Icon name="monitor" />
-          Écran commun
-        </a>
+        <LienConsole className="btn" />
       </nav>
 
       <CreateForm onCreated={(account, token) => load().then(() => showActivation(account, token))} />

@@ -123,6 +123,9 @@ export const api = {
     req<QuizDef>(`/api/quizzes/${id}`, { method: 'PUT', body: JSON.stringify({ title, questions }) }),
   remove: (id: string) => req<{ ok: true }>(`/api/quizzes/${id}`, { method: 'DELETE' }),
   duplicate: (id: string) => req<QuizDef>(`/api/quizzes/${id}/duplicate`, { method: 'POST' }),
+  /** Les quiz livrés avec l'application, et la copie de l'un d'eux dans son espace. */
+  modeles: () => req<{ id: string; title: string; questionCount: number }[]>('/api/modeles'),
+  partirDe: (modele: string) => req<QuizDef>(`/api/modeles/${encodeURIComponent(modele)}`, { method: 'POST' }),
   uploadImage: (dataUrl: string) =>
     req<{ url: string }>('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
   /** L'historique des soirées : le lire est public, le retoucher demande d'être connecté. */

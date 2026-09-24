@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
+import { LienConsole } from '../components/LienConsole'
 import { showToast, useAppState } from '../state'
 import type { SpaceSettings } from '../../../shared/space'
 import type { PublicProfile } from '../../../shared/profil'
@@ -15,8 +16,14 @@ export function AccountApp() {
   const { toast } = useAppState()
   const [me, setMe] = useState<Me | null>(null)
   const [error, setError] = useState('')
+  /** Tant que la bibliothèque est vide, la page dit par où commencer. */
+  const [debut, setDebut] = useState(false)
 
   useEffect(() => {
+    api
+      .list()
+      .then(l => setDebut(l.length === 0))
+      .catch(() => {})
     api.auth
       .me()
       .then(setMe)
@@ -56,10 +63,7 @@ export function AccountApp() {
       </header>
 
       <nav className="row bilan-tabs">
-        <a className="btn" href="/host">
-          <Icon name="monitor" />
-          Écran commun
-        </a>
+        <LienConsole className="btn" />
         <a className="btn" href="/edit">
           <Icon name="edit" />
           Mes quiz
@@ -75,6 +79,22 @@ export function AccountApp() {
           </a>
         )}
       </nav>
+
+      {debut && (
+        <section className="card premiers-pas">
+          <h2>Par où commencer</h2>
+          <ol className="premiers-pas-etapes">
+            <li>
+              <a className="link-inline" href="/edit">
+                Mes quiz
+              </a>{' '}
+              : pars d'un quiz tout fait, importe celui d'un ami, ou écris le tien.
+            </li>
+            <li>Ouvre l'écran commun sur l'ordinateur branché à la télé.</li>
+            <li>Tes invités scannent le QR qu'il affiche, et c'est parti.</li>
+          </ol>
+        </section>
+      )}
 
       <section className="card">
         <h2>L'adresse de mes invités</h2>

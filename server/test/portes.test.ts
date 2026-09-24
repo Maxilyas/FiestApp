@@ -215,3 +215,33 @@ describe('le lien d’activation', () => {
     assert.doesNotMatch(JSON.stringify(await r.json()), /marc|nadia|agence/)
   })
 })
+
+describe('partir d’un modèle', () => {
+  test('un nouvel espace copie un quiz livré dans sa bibliothèque, et seulement la sienne', async () => {
+    const marc = await connexionAnimateur(banc.url, 'marc', 'motdepasse-marc')
+    const lister = async (cookie: string) => (await (await fetch(`${banc.url}/api/quizzes`, { headers: { Cookie: cookie } })).json()) as any[]
+    assert.deepEqual(await lister(marc), [], 'un nouvel espace part vide')
+    const avantAdmin = (await lister(admin)).length
+
+    const modeles = (await (await fetch(`${banc.url}/api/modeles`, { headers: { Cookie: marc } })).json()) as any[]
+    assert.ok(modeles.length >= 1, 'des modèles sont proposés')
+    assert.ok(modeles.every(m => m.id && m.title && m.questionCount > 0))
+
+    const copie = await ecrire(banc.url, `/api/modeles/${modeles[0].id}`, {}, marc)
+    assert.equal(copie.status, 201)
+    const quiz = (await copie.json()) as any
+    assert.equal(quiz.title, modeles[0].title)
+    assert.equal(quiz.questions.length, modeles[0].questionCount)
+    assert.notEqual(quiz.id, modeles[0].id, 'une copie à soi, pas le quiz de l’administrateur')
+
+    assert.equal((await lister(marc)).length, 1)
+    assert.equal((await lister(admin)).length, avantAdmin, 'rien ne bouge chez les autres')
+  })
+
+  test('un modèle inconnu vaut introuvable, et il faut une session', async () => {
+    const marc = await connexionAnimateur(banc.url, 'marc', 'motdepasse-marc')
+    assert.equal((await ecrire(banc.url, '/api/modeles/../../etc', {}, marc)).status, 404)
+    assert.equal((await ecrire(banc.url, '/api/modeles/nexiste-pas', {}, marc)).status, 404)
+    assert.equal((await fetch(`${banc.url}/api/modeles`)).status, 401)
+  })
+})

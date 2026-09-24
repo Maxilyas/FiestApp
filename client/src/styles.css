@@ -4281,3 +4281,12 @@ h3 > .icon {
   /* En carte, la colonne n'a plus d'en-tête : la date dit ce qu'elle date. */
   .accounts-table td[data-libelle]::before { content: attr(data-libelle); }
 }
+
+/* Une bibliothèque vide : trois départs, empilés au téléphone. */
+.premiers-pas h2 { margin: 0 0 4px; }
+.premiers-pas-choix { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+@media (max-width: 600px) {
+  .premiers-pas-choix { flex-direction: column; }
+  .premiers-pas-choix .btn { width: 100%; justify-content: flex-start; white-space: normal; text-align: left; }
+}
+.premiers-pas-etapes { margin: 6px 0 0; padding-left: 1.3em; display: grid; gap: 4px; }
