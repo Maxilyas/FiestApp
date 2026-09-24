@@ -1,4 +1,3 @@
-import { Glossaire } from './Glossaire'
 import { useState } from 'react'
 import type { PartyStats, PlayerStat } from '../../../shared/types'
 
@@ -41,6 +40,13 @@ const COLUMNS: Column[] = [
 ]
 
 /**
+ * Les colonnes abrégées — « Biais », « Écart estim. », « Série − » — et ce
+ * qu'elles comptent. Leur `title` ne s'affiche pas au toucher : la page les
+ * déplie en légende sous le tableau (`Glossaire`).
+ */
+export const LEGENDE_DES_COLONNES = COLUMNS.map(c => ({ terme: c.label, sens: c.title }))
+
+/**
  * Le tableau complet, une ligne par joueur, triable par colonne.
  *
  * Toutes les colonnes tiennent rarement sur un téléphone, ni toutes les
@@ -69,43 +75,38 @@ export function StatsTable({ stats }: { stats: PartyStats }) {
   }
 
   return (
-    <>
-      <div className="stats-scroll">
-        <table className="stats-table">
-          <thead>
-            <tr>
-              <th className="stats-name">Joueur</th>
+    <div className="stats-scroll">
+      <table className="stats-table">
+        <thead>
+          <tr>
+            <th className="stats-name">Joueur</th>
+            {COLUMNS.map(c => (
+              <th key={c.key} title={c.title}>
+                <button
+                  className={'stats-sort' + (c.key === sortKey ? ' active' : '')}
+                  onClick={() => setSortKey(c.key)}
+                >
+                  {c.label}
+                </button>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(s => (
+            <tr key={s.playerId}>
+              <td className="stats-name">
+                <span className="lb-avatar">{s.avatar}</span> {s.name}
+              </td>
               {COLUMNS.map(c => (
-                <th key={c.key} title={c.title}>
-                  <button
-                    className={'stats-sort' + (c.key === sortKey ? ' active' : '')}
-                    onClick={() => setSortKey(c.key)}
-                  >
-                    {c.label}
-                  </button>
-                </th>
+                <td key={c.key} className={c.key === sortKey ? 'stats-active' : undefined}>
+                  {c.format(s)}
+                </td>
               ))}
             </tr>
-          </thead>
-          <tbody>
-            {rows.map(s => (
-              <tr key={s.playerId}>
-                <td className="stats-name">
-                  <span className="lb-avatar">{s.avatar}</span> {s.name}
-                </td>
-                {COLUMNS.map(c => (
-                  <td key={c.key} className={c.key === sortKey ? 'stats-active' : undefined}>
-                    {c.format(s)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {/* Les colonnes abrégées — « Biais », « Écart estim. », « Série − » —
-          s'expliquaient dans un `title`, que le toucher n'affiche pas. */}
-      <Glossaire titre="Que veulent dire ces colonnes ?" mots={[]} extra={COLUMNS.map(c => ({ terme: c.label, sens: c.title }))} />
-    </>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }

@@ -5,7 +5,7 @@ import type { Recap } from '../../../shared/types'
 import { FinalPodium, Standings } from '../components/Podium'
 import { TeamBoard, VerdictDesEquipes } from '../components/TeamBoard'
 import { PrixRemis } from '../components/PrixRemis'
-import { StatsTable } from '../components/StatsTable'
+import { LEGENDE_DES_COLONNES, StatsTable } from '../components/StatsTable'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { Trophies } from '../components/Trophies'
 import { JoinHead } from '../components/Invitation'
@@ -189,6 +189,7 @@ export function RecapApp() {
             défile dans son cadre : dix-huit colonnes ne tiennent pas sur un téléphone.
           </p>
           <StatsTable stats={recap.stats} />
+          <Glossaire titre="Que veulent dire ces colonnes ?" mots={[]} extra={LEGENDE_DES_COLONNES} />
         </section>
       )}
 
