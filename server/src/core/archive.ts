@@ -452,10 +452,29 @@ export class ArchiveStore {
    * L'invité qu'un profil était lors d'une soirée rangée, s'il y était
    * rattaché. Le rattachement survit dans l'archive : c'est là qu'une ligne
    * d'expérience écrite avant qu'on retienne le joueur le retrouve.
+   *
+   * Null veut dire « lue, et elle ne le nomme pas » — une archive rangée
+   * avant les profils, ou illisible : on peut le retenir pour toujours. Une
+   * base muette, elle, lève : avaler l'erreur ici faisait retenir « personne »
+   * sur une panne d'une seconde, et « Mon bilan » disparaissait pour de bon.
+   *
+   * On ne lit que l'identifiant, jamais l'archive : la première visite d'un
+   * profil ancien en relit une par soirée, et chacune pèse tous les
+   * journaux de la soirée.
    */
   async joueurDuProfil(spaceId: string, id: string, profileId: string): Promise<string | null> {
-    const trouvee = await this.get(spaceId, id).catch(() => null)
-    return trouvee?.archive.players.find(p => p.profileId === profileId)?.id ?? null
+    if (!ID.test(id)) return null
+    // `json_valid` d'abord : sur un JSON abîmé, `json_each` lève à chaque
+    // lecture, et la ligne serait relue à chaque visite sans jamais aboutir.
+    const res = await this.client.execute({
+      sql: `SELECT json_extract(j.value, '$.id') AS id
+            FROM soirees, json_each(CASE WHEN json_valid(soirees.data) THEN soirees.data ELSE '{}' END, '$.players') j
+            WHERE soirees.space_id = ? AND soirees.id = ? AND json_extract(j.value, '$.profileId') = ?
+            LIMIT 1`,
+      args: [spaceId, id, profileId],
+    })
+    const r = res.rows[0]
+    return r && r.id != null ? String(r.id) : null
   }
 
   async get(spaceId: string, id: string): Promise<{ summary: ArchiveSummary; archive: PartyArchive } | null> {

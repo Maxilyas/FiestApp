@@ -622,8 +622,16 @@ export class ProfileStore {
       // Une archive qui ne le nomme pas (rangée avant les profils) retient
       // une chaîne vide : sinon on la relirait en entier à chaque visite.
       if (s.joueurId !== null || !historique || !titres.has(`${s.spaceId}#${s.soireeId}`)) continue
-      s.joueurId = await historique.joueurDuProfil(s.spaceId, s.soireeId, p.id)
-      await this.retenirJoueur(p.id, s.soireeId, s.joueurId ?? '')
+      // Une panne (archive muette, écriture refusée) n'ôte que le lien de ce
+      // soir : elle faisait répondre 500 à toute la page, et l'accueil
+      // proposait « Retrouver mon profil » à quelqu'un de connecté. Rien
+      // n'est retenu, et la prochaine visite relira.
+      try {
+        s.joueurId = await historique.joueurDuProfil(s.spaceId, s.soireeId, p.id)
+        await this.retenirJoueur(p.id, s.soireeId, s.joueurId ?? '')
+      } catch (e) {
+        console.error(`[profil] joueur de « ${s.soireeId} » non relu :`, e)
+      }
     }
     const carriere = carriereDe(soirees, { eclats: this.eclatsOf(p.id).length, niveau: this.niveauOf(p) })
     return {
