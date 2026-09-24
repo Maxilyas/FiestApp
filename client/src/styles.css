@@ -1495,14 +1495,23 @@ h3 > .icon {
 .guess-value { font-family: var(--serif); font-weight: 600; font-size: 1.15rem; margin-right: 10px; font-variant-numeric: lining-nums; }
 
 /* ── Podium final ───────────────────────────────── */
+/* Une liste dans l'ordre des rangs, que la grille dresse en 2e — 1er — 3e :
+   l'oreille entend le premier d'abord, l'œil le voit au milieu. Autant de
+   colonnes que de marches, et centrées : à deux équipes, plus de trou. */
 .final-podium {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(var(--marches, 3), 1fr);
   align-items: end;
   gap: 14px;
   min-height: 260px;
-  margin: 10px 0 4px;
+  width: min(100%, calc(var(--marches, 3) * 34%));
+  margin: 10px auto 4px;
+  padding: 0;
+  list-style: none;
 }
+.final-podium > :nth-child(1) { order: 2; }
+.final-podium > :nth-child(2) { order: 1; }
+.final-podium > :nth-child(3) { order: 3; }
 
 .podium-col {
   display: flex;
