@@ -621,7 +621,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       if (!rt) return
       return rt
         .discardParty()
-        .then(() => socket.emit('toast', { kind: 'info', message: 'Essai effacé — rien n’a été gardé' }))
+        .then(() => {
+          // Les adresses de l'essai ne compteront pas dans la clôture de la vraie soirée.
+          pouls.adressesVues(rt.spaceId)
+          socket.emit('toast', { kind: 'info', message: 'Essai effacé — rien n’a été gardé' })
+        })
         .catch(e => {
           socket.emit('toast', { kind: 'error', message: `Rien n’a été effacé : ${messagePourEcran(e, 'host:discardParty')}` })
         })
