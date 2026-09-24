@@ -59,7 +59,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
 | `shared/echange.ts` | un quiz qu'on emporte : le fichier d'export (questions, photos en clair), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin |
-| `shared/liste.ts` | « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) |
+| `shared/liste.ts` | « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) ; et l'inverse, `ecrireListe` (« Copier en liste »), que `liste.test.ts` recolle |
 | `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare |
 | `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
 | `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
@@ -259,7 +259,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
 - **Un nombre tapé se lit avec `lireNombre()`** (`shared/nombres.ts`), jamais
   avec `Number()` : « 35 000 » valait NaN au téléphone, et l'éditeur, qui
   relisait sa cible à chaque touche, faisait 8 de « 0,8 ». Le champ garde le
-  texte tapé ; seule la valeur lue part en base.
+  texte tapé ; seule la valeur lue part en base. Un entier borné se tape dans
+  `ChampNombre` (`client/src/components/`) : vidé, `Number('')` valait 0, la
+  valeur revenait, et le 45 tapé derrière faisait « 2045 » — les bornes
+  s'appliquent en quittant le champ, jamais à chaque frappe.
 - **Une précision ne compte que les QCM, et dit sur combien** (« 50 % ·
   1 sur 2 QCM ») : une estimation n'est jamais « juste », et comptée au
   dénominateur elle faisait lire « 1/64 justes ». **Une estimation se juge
@@ -344,7 +347,13 @@ sans `QUIZ_DB_URL`.
   dommage passe par `auReveil` ; et une réponse qui arrive après deux minutes
   d'attente ne remplace l'éditeur que si rien n'a bougé depuis
   (`modifications`). L'envoi d'une photo n'y passe pas : il s'attache à la
-  question par sa position, qu'on a pu déplacer entre-temps.
+  question par sa position, qu'on a pu déplacer entre-temps. « Enregistrer » envoie
+  la version d'où il part (`base`), un `jeton` que ses essais au réveil
+  reprennent et le numéro de l'essai (`essai`) : le serveur répond 409 si le
+  quiz a été enregistré ailleurs depuis — l'autre appareil —, jamais à un
+  essai rejoué de son propre clic. Il enregistre un quiz à la fois, et un
+  essai plus ancien que le dernier écrit ne réécrit rien : il rend le quiz
+  en base.
 - **Un réglage de plus à la liste collée** se lit dans
   `parseImportedQuestions`, s'annonce dans `FORMAT_DE_LISTE` et paraît dans
   son exemple, que `liste.test.ts` relit : le format copié pour une IA ne

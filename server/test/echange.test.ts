@@ -141,3 +141,30 @@ test('un quiz passe d’un espace à l’autre, photos comprises — et personne
     assert.ok(!chezAdmin.some(q => q.id === fait.quiz.id))
     assert.equal((await lire(banc, autre, `/api/quizzes/${id}`)).status, 404)
   }))
+
+// ── 3. Deux quiz du même nom ──────────────────────────────────────────────
+//
+// Importé deux fois, « Spécial agence » faisait deux quiz homonymes, que
+// seule l'heure distinguait — et « Supprimer « Spécial agence » ? » ne
+// disait pas lequel (tablée du 24 septembre, ED-8). Le second arrive
+// « Spécial agence (2) ».
+
+test('un quiz importé sous un titre déjà pris prend le premier numéro libre', async () => {
+  const quiz = { title: 'Spécial agence', questions: [qcm('Un ?')] }
+  const fichier = await emporterQuiz(quiz as never, async () => null)
+  const crees: string[] = []
+  const importer = (titresPris: string[]) =>
+    importerQuiz(fichier, {
+      envoyerPhoto: async () => '/media/image/x',
+      creer: async titre => {
+        crees.push(titre)
+        return titre
+      },
+      titresPris,
+    })
+  await importer([])
+  await importer(['Spécial agence', 'Autre'])
+  await importer(['Spécial agence', 'Spécial agence (2)'])
+  await importer(['spécial agence ', 'Spécial agence (3)'])
+  assert.deepEqual(crees, ['Spécial agence', 'Spécial agence (2)', 'Spécial agence (3)', 'Spécial agence (2)'])
+})
