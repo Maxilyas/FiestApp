@@ -1694,7 +1694,7 @@ h3 > .icon {
   flex-wrap: wrap;
 }
 
-.kind-toggle { display: flex; gap: 6px; }
+.kind-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .answers-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 

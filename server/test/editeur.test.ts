@@ -8,7 +8,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   DEFAULT_DURATION,
+  bonneEnPremier,
   cloneQuestion,
+  estVraiFaux,
   emptyQuestion,
   normalizeQuestions,
   parseImportedQuestions,
@@ -137,4 +139,21 @@ test('le serveur range un temps venu d’une page d’avant dans les bornes, com
     { text: 'Deux ?', answers: ['a', 'b'], duration: 2045 },
   ])
   assert.deepEqual([court.duration, long.duration], [5, 120])
+})
+
+// ── Vrai ou faux, et la bonne réponse toujours en premier ─────────────────
+
+test('un vrai ou faux se reconnaît, et ne compte pas dans « la bonne réponse en premier »', () => {
+  const vf = (correct: number): QuizQuestionDef => ({ ...reglee(20, null), image: null, answers: ['Vrai', 'Faux', '', ''], correct })
+  assert.equal(estVraiFaux(vf(0)), true)
+  assert.equal(estVraiFaux({ ...vf(0), answers: [' faux', 'VRAI', '', ''] }), true)
+  assert.equal(estVraiFaux({ ...vf(0), answers: ['Vrai', 'Faux', 'Peut-être', ''] }), false)
+  assert.equal(estVraiFaux({ ...vf(0), kind: 'number' }), false)
+
+  const qcm = (correct: number): QuizQuestionDef => ({ ...reglee(20, null), image: null, answers: ['A', 'B', 'C', ''], correct })
+  // Six QCM sur neuf, comme chez Nadia : on le dit.
+  assert.deepEqual(bonneEnPremier([...Array(6)].map(() => qcm(0)).concat([qcm(1), qcm(2), qcm(1)])), { premiers: 6, qcm: 9 })
+  // Les vrai ou faux n'y entrent pas ; trois QCM, c'est trop peu pour conclure.
+  assert.equal(bonneEnPremier([qcm(0), qcm(0), qcm(0), vf(0), vf(0)]), null)
+  assert.equal(bonneEnPremier([qcm(0), qcm(1), qcm(2), qcm(0), qcm(1)]), null)
 })

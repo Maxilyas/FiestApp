@@ -2,6 +2,10 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent
 import {
   DEFAULT_DURATION,
   DEFAULT_OBSERVE,
+  SANS_BONNE_REPONSE,
+  VRAI_FAUX,
+  bonneEnPremier,
+  estVraiFaux,
   MAX_ANSWERS,
   MAX_ANSWER_TEXT,
   MAX_DURATION,
@@ -846,6 +850,7 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
   }
 
   const ready = quiz.questions.filter(q => toPlayable(q) !== null).length
+  const enPremier = bonneEnPremier(quiz.questions)
 
   return (
     <div className="editor">
@@ -937,6 +942,15 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
         </p>
       )}
       {savedAt && !dirty && <p className="muted">Enregistré à {formatDate(savedAt)}</p>}
+      {enPremier && (
+        <p className="muted small">
+          <Icon name="alert" />{' '}
+          {espacesFines(
+            `La bonne réponse est la première dans ${enPremier.premiers} QCM sur ${enPremier.qcm} : ` +
+              'la salle finira par le remarquer. Change-la de case dans quelques questions.',
+          )}
+        </p>
+      )}
       {quiz.questions.length > 1 && (
         <div className="row">
           <button
@@ -1605,6 +1619,23 @@ function QuestionCard({
   const [busy, setBusy] = useState(false)
   const [imageError, setImageError] = useState('')
   const attendue = photoManquante(question)
+  const vraiFaux = estVraiFaux(question)
+
+  const versVraiFaux = async () => {
+    if (vraiFaux) return
+    const ecrites = question.answers.map(a => a.trim()).filter(Boolean)
+    if (question.kind === 'choice' && ecrites.length > 0) {
+      const ok = await confirmDialog({
+        title: 'En faire un vrai ou faux ?',
+        message: `Les réponses écrites (${ecrites.join(', ')}) seront remplacées par « Vrai » et « Faux ».`,
+        confirmLabel: 'Remplacer',
+      })
+      if (!ok) return
+    }
+    // Rien de coché d'office : « Vrai » pris pour bon parce qu'il est en
+    // premier, c'était le quiz faux de la liste collée, en plus petit.
+    onChange(q => ({ ...q, kind: 'choice', answers: [...VRAI_FAUX, '', ''], correct: SANS_BONNE_REPONSE }))
+  }
   // La cible telle qu'on la tape. Relu en nombre à chaque touche, le champ
   // mangeait ce qui n'en est pas encore un : la virgule de « 0,8 » (la cible
   // devenait 8, sans un mot) et le signe de « -40 ».
@@ -1690,7 +1721,7 @@ function QuestionCard({
           )}
           <div className="kind-toggle">
             <button
-              className={'pill-btn' + (question.kind === 'choice' ? ' active' : '')}
+              className={'pill-btn' + (question.kind === 'choice' && !vraiFaux ? ' active' : '')}
               onClick={() => onChange(q => ({ ...q, kind: 'choice' }))}
             >
               <Icon name="list" />
@@ -1702,6 +1733,12 @@ function QuestionCard({
             >
               <Icon name="hash" />
               Estimation
+            </button>
+            {/* Un vrai ou faux se tapait à la main, « Vrai » puis « Faux », à
+                côté de deux cases « (optionnelle) » qui restaient là. */}
+            <button className={'pill-btn' + (vraiFaux ? ' active' : '')} onClick={versVraiFaux}>
+              <Icon name="check" />
+              Vrai/Faux
             </button>
           </div>
         </div>
@@ -1815,7 +1852,8 @@ function QuestionCard({
         </div>
       ) : (
       <div className="answers-edit">
-        {Array.from({ length: MAX_ANSWERS }, (_, i) => (
+        {/* Un vrai ou faux n'a que ses deux cases. */}
+        {Array.from({ length: vraiFaux ? 2 : MAX_ANSWERS }, (_, i) => (
           <label key={i} className={`answer-edit ans-${i}` + (question.correct === i ? ' is-correct' : '')}>
             <input
               type="radio"
