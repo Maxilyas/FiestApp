@@ -512,3 +512,29 @@ test('un quiz copié en liste se recolle à l’identique, photos attendues comp
   // Le temps ne s'écrit que lorsqu'il change : il court, comme la catégorie.
   assert.equal(texte.match(/^Temps :/gm)?.length, 3)
 })
+
+// Relu par la relecture de l'axe 3 : ce que « Copier en liste » perdait en
+// plus des photos. L'estimation sans cible, elle, se perd encore au
+// recollage : on ne devine pas une cible (voir `ecrireListe`).
+test('copié en liste, un intitulé à dièse, un choix « Photo : » et un grand nombre se recollent tels quels', () => {
+  const base = emptyQuestion()
+  const questions: QuizQuestionDef[] = [
+    { ...base, text: '# Quiz musical ?', answers: ['Photo : la plage', 'Réponse : B', 'Temps : 30 s', 'Observation : 5'], correct: 0 },
+    { ...base, text: 'Temps : combien dure un match ?', answers: ['90', '80', '', ''], correct: 0 },
+    { ...base, text: 'Temps : 30 s', answers: ['a', 'b', '', ''], correct: 1 },
+    { ...base, text: '2. étape ?', answers: ['a', 'b', '', ''], correct: 1 },
+    { ...base, text: 'Atomes dans un gramme ?', kind: 'number', target: 1e21, unit: 'atomes' },
+    { ...base, text: 'Tout petit ?', kind: 'number', target: -1.5e-7, unit: 'm' },
+  ]
+  const texte = ecrireListe(questions)
+  assert.doesNotMatch(texte, /e\+|e-\d/, 'jamais d’exposant')
+  const relu = parseImportedQuestions(texte)
+  assert.equal(relu.ignored, 0, texte)
+  assert.deepEqual(
+    relu.questions.map(q => [q.text, q.kind === 'choice' ? [q.answers, q.correct] : [q.target, q.unit]]),
+    questions.map(q => [q.text, q.kind === 'choice' ? [q.answers, q.correct] : [q.target, q.unit]]),
+    texte,
+  )
+  assert.equal(relu.questions[0].category, null, 'le dièse n’a pas fait une catégorie')
+  assert.equal(relu.questions[0].photoAttendue, null, 'le choix n’a pas fait une photo')
+})

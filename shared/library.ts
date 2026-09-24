@@ -521,6 +521,16 @@ const REGLAGES = new Map<string, Reglage>([
   ['memoire', 'observation'],
 ])
 
+/**
+ * Une ligne que la liste collée lit comme un réglage (« Photo : … », « Temps
+ * : … ») ou comme la bonne réponse désignée (« Réponse : … ») : sous un
+ * intitulé, elle ne compte pas parmi les choix. « Copier en liste » la fait
+ * précéder d'une puce quand c'est un choix (`ecrireListe`).
+ */
+export function luCommeReglage(ligne: string): boolean {
+  return lireReglage(ligne) !== null || REPONSE_DESIGNEE.test(ligne)
+}
+
 function lireReglage(ligne: string): { reglage: Reglage; valeur: string } | null {
   const deuxPoints = ligne.indexOf(':')
   if (deuxPoints < 0) return null

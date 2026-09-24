@@ -65,3 +65,25 @@ export function entierBorne(n: number, min: number, max: number): number {
 export function valeurEnQuittant(texte: string, valeurAuFocus: number, min: number, max: number): number {
   return entierBorne(lireNombre(texte) ?? valeurAuFocus, min, max)
 }
+
+/**
+ * Un nombre écrit comme on le tape — virgule décimale, jamais d'exposant —,
+ * pour qu'il se relise tel quel par `lireNombre`. `String(1e21)` donne
+ * « 1e+21 », que la liste copiée relisait 1 avec l'unité « e+21 ».
+ */
+export function ecrireNombre(n: number): string {
+  const texte = String(n)
+  const m = /^(-?)(\d)(?:\.(\d+))?e([+-]\d+)$/.exec(texte)
+  if (!m) return texte.replace('.', ',')
+  const [, signe, entier, decimales = '', exposant] = m
+  const chiffres = entier + decimales
+  // La virgule, après `1 + exposant` chiffres.
+  const virgule = 1 + Number(exposant)
+  const clair =
+    virgule >= chiffres.length
+      ? chiffres + '0'.repeat(virgule - chiffres.length)
+      : virgule <= 0
+        ? `0,${'0'.repeat(-virgule)}${chiffres}`
+        : `${chiffres.slice(0, virgule)},${chiffres.slice(virgule)}`
+  return signe + clair
+}

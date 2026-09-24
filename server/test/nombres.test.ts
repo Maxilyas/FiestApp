@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { lireNombre, valeurEnQuittant } from '../../shared/nombres'
+import { ecrireNombre, lireNombre, valeurEnQuittant } from '../../shared/nombres'
 
 test('une estimation se lit comme on l’écrit en France', () => {
   const lus: [string, number][] = [
@@ -78,4 +78,20 @@ test('un champ d’entier borné, vidé puis quitté, revient à sa valeur d’a
   assert.equal(valeurEnQuittant('', 500, 5, 120), 120)
   // Des points de prix, négatifs permis.
   assert.equal(valeurEnQuittant('−3', 0, -10, 10), -3)
+})
+
+test('un nombre s’écrit sans exposant, et se relit tel quel', () => {
+  // `String(1e21)` donnait « 1e+21 » : relu 1, avec l'unité « e+21 ».
+  for (const [n, texte] of [
+    [1e21, '1000000000000000000000'],
+    [1.5e22, '15000000000000000000000'],
+    [-2.5e-7, '-0,00000025'],
+    [1e-7, '0,0000001'],
+    [0.8, '0,8'],
+    [-41.5, '-41,5'],
+    [8849, '8849'],
+  ] as const) {
+    assert.equal(ecrireNombre(n), texte)
+    assert.equal(lireNombre(ecrireNombre(n)), n, texte)
+  }
 })

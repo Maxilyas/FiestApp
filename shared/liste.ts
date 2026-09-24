@@ -30,9 +30,12 @@ import {
   MIN_DURATION,
   MIN_OBSERVE,
   SANS_BONNE_REPONSE,
+  luCommeReglage,
+  parseImportedQuestions,
   photoManquante,
   type QuizQuestionDef,
 } from './library'
+import { ecrireNombre } from './nombres'
 
 /** L'exemple court, sous le champ où l'on colle : les gestes de tous les jours. */
 export const APERCU_DU_FORMAT = `# Géographie
@@ -221,8 +224,12 @@ export function ecrireListe(questions: readonly QuizQuestionDef[]): string {
       lignes.push(cat ? `# ${cat}` : '#')
       categorie = cat
     }
-    // Sur une seule ligne, comme l'éditeur l'affichera.
-    lignes.push(intitule.replace(/\s*\n\s*/g, ' '))
+    // Sur une seule ligne, comme l'éditeur l'affichera. Un intitulé que la
+    // liste relirait autrement — « # Quiz musical ? » pris pour une
+    // catégorie, « Temps : 30 s » pour un réglage, « 2. étape » amputé de son
+    // numéro — prend un numéro devant, que la relecture retire.
+    const ligne = intitule.replace(/\s*\n\s*/g, ' ')
+    lignes.push(parseImportedQuestions(`${ligne}\n* a\nb`).questions[0]?.text === ligne ? ligne : `${n}. ${ligne}`)
     if (q.duration !== temps) {
       lignes.push(`Temps : ${q.duration} s`)
       temps = q.duration
@@ -233,12 +240,17 @@ export function ecrireListe(questions: readonly QuizQuestionDef[]): string {
       if (q.observeSeconds !== null && q.observeSeconds !== undefined) lignes.push(`Observation : ${q.observeSeconds} s`)
     }
     if (q.kind === 'number') {
-      const cible = q.target === null ? '' : String(q.target).replace('.', ',')
+      // Sans cible, la ligne « = » ne se relit pas, et la question se perd
+      // au recollage (compté parmi les blocs ignorés) : on ne devine pas.
+      const cible = q.target === null ? '' : ecrireNombre(q.target)
       lignes.push(`= ${cible}${q.unit.trim() ? ` ${q.unit.trim()}` : ''}`)
     } else {
       q.answers.forEach((a, i) => {
         const reponse = (a ?? '').trim()
-        if (reponse) lignes.push(i === q.correct && q.correct !== SANS_BONNE_REPONSE ? `* ${reponse}` : reponse)
+        if (!reponse) return
+        const marquee = i === q.correct && q.correct !== SANS_BONNE_REPONSE ? `* ${reponse}` : reponse
+        // « Photo : la plage » est un choix, pas un réglage : la puce le dit.
+        lignes.push(luCommeReglage(reponse) ? `- ${marquee}` : marquee)
       })
     }
     blocs.push(lignes.join('\n'))

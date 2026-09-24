@@ -31,7 +31,7 @@ import {
   type QuizSummary,
 } from '../../../shared/library'
 import { CATEGORIES } from '../../../shared/categories'
-import { lireNombre } from '../../../shared/nombres'
+import { ecrireNombre, lireNombre } from '../../../shared/nombres'
 import { POIDS_MAX_FICHIER, emporterQuiz, importerQuiz, nomDeFichier } from '../../../shared/echange'
 import { APERCU_DU_FORMAT, FORMAT_DE_LISTE, apparierPhotos, cleDePhoto, ecrireListe, joindrePhotos } from '../../../shared/liste'
 import {
@@ -1556,7 +1556,7 @@ function BulkImport({
                 <span className="import-lue-valeur">
                   {/* Sans séparateur de milliers : « 10935 » se lit comme un
                       seul nombre, « 10 935 » ressemblerait à la saisie. */}
-                  <strong>{String(q.target).replace('.', ',')}</strong>{' '}
+                  <strong>{q.target === null ? '' : ecrireNombre(q.target)}</strong>{' '}
                   {q.unit || <span className="muted">sans unité</span>}
                 </span>
               </li>
@@ -1641,7 +1641,7 @@ interface QuestionCardProps {
 
 /** Une cible rendue au champ comme on l'écrit : « 0,8 », pas « 0.8 ». */
 function cibleAffichee(target: number | null): string {
-  return target === null ? '' : String(target).replace('.', ',')
+  return target === null ? '' : ecrireNombre(target)
 }
 
 function QuestionCard({
