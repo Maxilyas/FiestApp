@@ -6,6 +6,7 @@ import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { accountOf, csrfGuard, requireAccount } from './auth/http'
 import { mountAuthApi } from './auth/routes'
+import { mountAppairage } from './auth/appairage'
 import { mountProfileApi } from './auth/profileRoutes'
 
 interface ApiDeps {
@@ -47,6 +48,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // quatre mégaoctets de JSON au serveur sans être connecté.
   app.use('/api', csrfGuard({ online: deps.online, publicOrigin: deps.publicOrigin }))
   mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount })
+  // La télé qu'on branche depuis son téléphone, sans rien taper à la télécommande.
+  mountAppairage(app, { auth: deps.auth, online: deps.online })
   // Les routes du profil joueur passent AVANT la porte : un invité n'a pas
   // de compte d'animateur, et n'a pas à en avoir un pour s'inscrire.
   mountProfileApi(app, { profiles: deps.profiles, auth: deps.auth, online: deps.online })

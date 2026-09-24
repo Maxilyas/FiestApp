@@ -3,7 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
-import { api } from '../api'
+import { api, motifDe } from '../api'
 import { dataUrl, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
 import { titreDeCloture } from '../../../shared/space'
@@ -32,6 +32,7 @@ import type { ArchiveList } from '../../../shared/archive'
 import { AnnoncesDeNiveau, ClotureEcran } from '../components/Cloture'
 import { useEcranAllume } from '../veille'
 import { RemiseEnScene } from '../components/RemiseEnScene'
+import { CodeDeLaTele } from '../components/Appairage'
 import { retenirTelecommande, telecommandeParDefaut } from '../telecommande'
 
 /** QR wifi standard : le téléphone rejoint le réseau en le scannant. */
@@ -363,6 +364,14 @@ export function HostApp() {
     }
   }, [])
 
+  // La télé branchée depuis le téléphone : son cookie est posé, la prochaine
+  // poignée de main le porte.
+  const branchee = useCallback(() => {
+    setError('')
+    socket.disconnect()
+    socket.connect()
+  }, [])
+
   const submitLogin = async (login: string, password: string) => {
     setBusy(true)
     setError('')
@@ -379,7 +388,12 @@ export function HostApp() {
   }
 
   if (needLogin) {
-    return <LoginForm title="Écran commun" error={error} busy={busy} onSubmit={submitLogin} />
+    return (
+      <div className="porte-ecran">
+        <LoginForm title="Écran commun" error={error} busy={busy} onSubmit={submitLogin} />
+        <CodeDeLaTele onBranchee={branchee} />
+      </div>
+    )
   }
   if (!me) {
     return (
@@ -489,6 +503,27 @@ export function HostApp() {
   const openScreen = (next: 'podium' | 'awards' | 'victory') =>
     poserScene(next === 'awards' ? 'prix' : next === 'victory' ? 'victoire' : 'podium')
   const setPodiumTab = (onglet: 'teams' | 'solo') => poserScene('podium', onglet === 'teams' ? 'equipes' : 'joueurs')
+
+  /**
+   * Brancher la télé depuis ce téléphone : elle affiche un code sur sa page
+   * de connexion, on le tape ici, et elle s'ouvre sur cet espace — sans
+   * taper d'adresse ni de mot de passe à la télécommande de la télé.
+   */
+  const brancherTele = async () => {
+    const code = await promptDialog({
+      title: 'Brancher la télé',
+      message: 'Ouvre /host sur la télé : elle affiche un code. Tape-le ici — la télé pourra alors piloter ta soirée.',
+      input: { value: '', placeholder: 'ABC 234', maxLength: 12 },
+      confirmLabel: 'Brancher',
+    })
+    if (!code) return
+    try {
+      await api.auth.validerAppairage(code)
+      showToast({ kind: 'info', message: 'La télé est branchée — elle s’ouvre dans un instant' })
+    } catch (e) {
+      showToast({ kind: 'error', message: motifDe(e) })
+    }
+  }
 
   /** Premier geste de l'animateur : c'est aussi le moment où le navigateur autorise enfin le son. */
   const lancerQuiz = () => {
@@ -1148,6 +1183,13 @@ export function HostApp() {
                     <Icon name="edit" />
                     Mes quiz
                   </a>
+                  {/* À la télécommande seulement : c'est d'ici qu'on allume la télé. */}
+                  {telecommande && (
+                    <button className="btn" onClick={() => void brancherTele()}>
+                      <Icon name="monitor" />
+                      Brancher la télé
+                    </button>
+                  )}
                   <a className="btn btn-ghost" href="/compte" target="_blank" rel="noreferrer">
                     <Icon name="users" />
                     Mon compte

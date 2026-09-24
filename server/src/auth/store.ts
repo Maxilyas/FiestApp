@@ -527,6 +527,12 @@ export class AuthStore {
     return { account, session }
   }
 
+  /** Une session encore ouverte, par son identifiant — celle qui valide un appairage. */
+  sessionById(sessionId: string): SessionRec | undefined {
+    const session = this.sessions.get(sessionId)
+    return session && session.expiresAt > Date.now() ? session : undefined
+  }
+
   async revokeSession(sessionId: string): Promise<void> {
     if (!this.sessions.has(sessionId)) return
     await this.client.execute({ sql: 'DELETE FROM auth_sessions WHERE id = ?', args: [sessionId] })

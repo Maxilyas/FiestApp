@@ -1066,6 +1066,40 @@ h3 > .icon {
   .host-console .btn:not(.btn-icon) { padding: 0 12px; }
 }
 
+/* ── La télé qu'on branche ─────────────────────── */
+/* Sans session, l'écran commun montre la connexion ET le code à valider au
+   téléphone, côte à côte : sous la connexion, le code tombait sous le pli
+   d'une télé, et on ne fait pas défiler une page à la télécommande. */
+.porte-ecran {
+  min-height: 100dvh;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 64px;
+  background-color: var(--bg);
+}
+.porte-ecran .join { min-height: 0; margin: 0; }
+.appairage {
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px;
+  text-align: center;
+}
+.appairage-code {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(3rem, 8vw, 5.5rem);
+  line-height: 1;
+  letter-spacing: 0.1em;
+  color: var(--accent-text);
+  font-variant-numeric: lining-nums;
+  white-space: nowrap;
+}
+
 /* ── La télécommande ───────────────────────────── */
 /* La console tenue au téléphone : la scène est à la télé, et ici les gestes
    de la soirée en grand, à portée de pouce — debout, près du gâteau. Même
