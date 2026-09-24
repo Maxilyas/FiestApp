@@ -421,7 +421,7 @@ export function buildReview(input: ReviewInput): Review {
       answers: answersByPlayer.get(p.id) ?? [],
       awards: stats.awards
         .filter(a => a.player?.playerId === p.id)
-        .map(a => ({ emoji: a.emoji, title: a.title, detail: a.detail })),
+        .map(a => ({ emoji: a.emoji, title: a.title, detail: a.detail, ...(a.exAequo && { exAequo: a.exAequo }) })),
       highlights: highlightsByPlayer.get(p.id) ?? [],
       perQuiz: sessions.map((g, i) => ({
         sessionId: g.id,

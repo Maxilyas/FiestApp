@@ -448,12 +448,10 @@ function buildAwards(
     // parce que « A » vient avant « Z ». Le prénom (puis l'identifiant) ne
     // tranche qu'en dernier, pour que le prix ne change pas de mains à
     // chaque rechargement de la page.
-    const winner = [...pool].sort(
-      (a, b) =>
-        spec.score(b, x(b)) - spec.score(a, x(a)) ||
-        (spec.volume ? spec.volume(b, x(b)) - spec.volume(a, x(a)) : 0) ||
-        departage(a, b),
-    )[0]
+    const valeur = (s: PlayerStat) => spec.score(s, x(s))
+    const volume = (s: PlayerStat) => (spec.volume ? spec.volume(s, x(s)) : 0)
+    const classes = [...pool].sort((a, b) => valeur(b) - valeur(a) || volume(b) - volume(a) || departage(a, b))
+    const winner = classes[0]
     awards.push({
       key: spec.key,
       emoji: spec.emoji,
@@ -462,6 +460,7 @@ function buildAwards(
       detail: spec.detail(winner, x(winner)),
       player: { playerId: winner.playerId, name: winner.name, avatar: winner.avatar },
       teamId: winner.teamId,
+      ...exAequoDe(classes, s => valeur(s) === valeur(winner) && volume(s) === volume(winner)),
     })
   }
 
@@ -618,10 +617,8 @@ function pushBest(
     detail: (s: PlayerStat) => string
   },
 ) {
-  const ranked = [...pool].sort(
-    (a, b) =>
-      spec.value(b) - spec.value(a) || (spec.volume ? spec.volume(b) - spec.volume(a) : 0) || departage(a, b),
-  )
+  const volume = (s: PlayerStat) => (spec.volume ? spec.volume(s) : 0)
+  const ranked = [...pool].sort((a, b) => spec.value(b) - spec.value(a) || volume(b) - volume(a) || departage(a, b))
   const winner = ranked[0]
   if (!winner || spec.value(winner) < spec.min) return
   awards.push({
@@ -632,7 +629,20 @@ function pushBest(
     detail: spec.detail(winner),
     player: { playerId: winner.playerId, name: winner.name, avatar: winner.avatar },
     teamId: winner.teamId,
+    ...exAequoDe(ranked, s => spec.value(s) === spec.value(winner) && volume(s) === volume(winner)),
   })
+}
+
+/**
+ * Ceux que le prénom a départagés du lauréat. La règle ne change pas — un
+ * seul lauréat, pour que le prix ne change pas de mains à chaque
+ * rechargement (une tension avec l'invariant 15, à arbitrer) —, mais elle se
+ * dit : chez Léa, Le Pile-Poil allait à Liam, à égalité avec Zoé et Malik,
+ * et personne ne le savait.
+ */
+function exAequoDe(classes: PlayerStat[], egal: (s: PlayerStat) => boolean): { exAequo?: string[] } {
+  const autres = classes.slice(1).filter(egal).map(s => s.name)
+  return autres.length > 0 ? { exAequo: autres } : {}
 }
 
 /**

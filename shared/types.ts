@@ -159,6 +159,11 @@ export interface Award {
   player: { playerId: string; name: string; avatar: string } | null
   /** L'équipe qui encaisserait les points — null si le lauréat n'en a pas. */
   teamId: string | null
+  /**
+   * Les autres en tête, à égalité parfaite, que le prénom a départagés du
+   * lauréat — absent quand il est seul. Le prix le dit là où il s'affiche.
+   */
+  exAequo?: string[]
 }
 
 export interface PartyStats {

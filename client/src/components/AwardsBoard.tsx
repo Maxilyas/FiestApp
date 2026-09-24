@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Award, PublicTeam } from '../../../shared/types'
+import { enumerer } from '../../../shared/classement'
 
 interface Props {
   awards: Award[]
@@ -61,6 +62,14 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles }: Props) {
                   <>{a.detail}</>
                 )}
               </p>
+              {/* Un seul lauréat, départagé au prénom : la règle se dit, sinon
+                  Zoé, à égalité avec Liam, ne comprend pas qu'elle a perdu
+                  parce que « L » vient avant « Z ». */}
+              {a.exAequo && (
+                <p className="muted small award-exaequo">
+                  Ex æquo avec {enumerer(a.exAequo)} — départagé par ordre alphabétique
+                </p>
+              )}
               <p className="award-team">
                 {team ? (
                   <>

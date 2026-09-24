@@ -432,3 +432,30 @@ test('au démarrage, une soirée rangée avant le coup d’œil se relit, et la 
     await banc.redemarrer()
     assert.deepEqual(await fiche(), attendu, 'relue au démarrage, la soirée dit son coup d’œil')
   }))
+
+test('un prix départagé au prénom le dit : les ex æquo sont nommés, la règle ne change pas', () => {
+  // Chez Léa, le 24 septembre : Le Pile-Poil à Liam, à égalité avec Zoé et
+  // Malik — « L » vient avant « M » et « Z », et personne ne le savait. La
+  // règle reste (le prix ne change pas de mains à chaque rechargement) ;
+  // la carte du prix nomme maintenant ceux qu'il a départagés.
+  const stats = computeStats(
+    [
+      estime('zoe', 0, 42, 42),
+      estime('liam', 0, 42, 42),
+      estime('malik', 0, 42, 42),
+      estime('anne', 0, 50, 42),
+    ],
+    [joueur('zoe', 'Zoé'), joueur('liam', 'Liam'), joueur('malik', 'Malik'), joueur('anne', 'Anne')],
+  )
+  const pilePoil = prix(stats, 'pilepoil')
+  assert.equal(pilePoil?.player?.name, 'Liam', 'la règle du prénom tient toujours')
+  assert.deepEqual(pilePoil?.exAequo, ['Malik', 'Zoé'])
+
+  // Seul en tête : rien à dire.
+  const seul = computeStats(
+    [estime('zoe', 0, 42, 42), estime('liam', 0, 40, 42)],
+    [joueur('zoe', 'Zoé'), joueur('liam', 'Liam')],
+  )
+  assert.equal(prix(seul, 'pilepoil')?.player?.name, 'Zoé')
+  assert.equal(prix(seul, 'pilepoil')?.exAequo, undefined)
+})
