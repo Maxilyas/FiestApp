@@ -155,14 +155,21 @@ class Pouls {
 
 export const pouls = new Pouls()
 
+/** La période de l'histogramme de retard : voir `Charge`. */
+const RESOLUTION_MS = 100
+
 /**
  * La charge du processus, relevée toutes les dix secondes et gardée sur la
  * dernière minute : `/healthz` lit le dernier relevé, sans rien mesurer.
  *
- * Le retard de la boucle passe par un histogramme à 50 ms de résolution. À
+ * Le retard de la boucle passe par un histogramme à 100 ms de résolution. À
  * 1 ms, la sonde d'un expert réveillait le processus mille fois par seconde
- * et presque doublait le processeur qu'elle mesurait (vérifié avec et sans) ;
- * l'occupation, elle, se lit par `eventLoopUtilization`, qui n'arme rien.
+ * et presque doublait le processeur qu'elle mesurait (vérifié avec et sans).
+ * Au repos, mesuré seul : 11,5 ms de processeur par seconde à 1 ms, 3,9 à
+ * 20 ms, 1,6 à 50 ms, 0,9 à 100 ms — moins d'un centième du dixième de cœur
+ * de l'hébergeur. Un gel de la boucle se voit quand même en entier : c'est
+ * l'écart au réveil attendu qui se mesure, pas le réveil. L'occupation, elle,
+ * se lit par `eventLoopUtilization`, qui n'arme rien.
  */
 export class Charge {
   private histogramme: IntervalHistogram
@@ -173,7 +180,7 @@ export class Charge {
   private releves: { cpuPct: number; occupePct: number; p99Ms: number; maxMs: number }[] = []
 
   constructor(periodeMs = 10_000) {
-    this.histogramme = monitorEventLoopDelay({ resolution: 50 })
+    this.histogramme = monitorEventLoopDelay({ resolution: RESOLUTION_MS })
     this.histogramme.enable()
     this.minuterie = setInterval(() => this.relever(), periodeMs)
     this.minuterie.unref()
@@ -189,8 +196,8 @@ export class Charge {
       occupePct: elu.utilization * 100,
       // L'histogramme compte en nanosecondes, résolution comprise : c'est le
       // retard au-delà de ce qu'on attendait qu'on veut lire.
-      p99Ms: Math.max(0, this.histogramme.percentile(99) / 1e6 - 50),
-      maxMs: Math.max(0, this.histogramme.max / 1e6 - 50),
+      p99Ms: Math.max(0, this.histogramme.percentile(99) / 1e6 - RESOLUTION_MS),
+      maxMs: Math.max(0, this.histogramme.max / 1e6 - RESOLUTION_MS),
     })
     if (this.releves.length > 6) this.releves.shift()
     this.histogramme.reset()
