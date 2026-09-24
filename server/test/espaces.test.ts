@@ -307,14 +307,17 @@ test('un essai en cours ailleurs ne fait pas tomber de palier, et son effacement
     assert.equal(xp, somme, 'le total reste la somme de ses lignes')
 
     // Une troisième soirée close, cette fois : L'Habitué tombe, sous son nom.
+    // Son nom se lit après la clôture, qui a fini d'écrire sa ligne — lu
+    // juste après le podium, il pouvait manquer à l'appel.
+    const deuxPremieres = new Set(lignesXp(banc, R).map(l => l.soiree_id))
     const r3 = await invite(banc.url, 'Rémi', '🐧', { slug: A.slug, cookie: remi })
     await jouerQuiz(hA, qA, [[r3, 0], [await invite(banc.url, 'Fig', '🐻', { slug: A.slug }), 1]], 2)
-    await patienter(300)
-    const troisieme = lignesXp(banc, R).map(l => l.soiree_id)
     await geste(hA, 'host:closeParty')
+    const troisieme = lignesXp(banc, R).map(l => l.soiree_id).filter(id => !deuxPremieres.has(id))
+    assert.equal(troisieme.length, 1, 'la troisième soirée a sa ligne')
     const tombe = habitue()
     assert.equal(tombe.length, 1, 'L’Habitué tombe à la troisième soirée close')
-    assert.ok(troisieme.includes(tombe[0].soiree_id), 'sous le nom de la soirée qui l’a fait tomber')
+    assert.equal(tombe[0].soiree_id, troisieme[0], 'sous le nom de la soirée qui l’a fait tomber')
   } finally {
     await banc.close()
   }
