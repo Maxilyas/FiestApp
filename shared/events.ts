@@ -121,7 +121,12 @@ export interface ClientToServerEvents {
    */
   'host:hello': (
     payload: Record<string, never>,
-    ack: (res: { ok: boolean; slug?: string; name?: string }) => void,
+    /**
+     * `branchee` : cet écran a été ouvert par un code d'appairage — la télé
+     * dit alors par qui, puisque tout animateur du serveur peut valider le
+     * code qu'elle affiche.
+     */
+    ack: (res: { ok: boolean; slug?: string; name?: string; branchee?: true }) => void,
   ) => void
   /** Démarre une partie de quiz (l'animateur choisit ensuite le quiz à jouer). */
   'host:launch': () => void

@@ -71,6 +71,12 @@ export interface SessionRec {
    * l'espace.
    */
   profileId: string | null
+  /**
+   * L'échéance que la session ne dépasse jamais, même en glissant : celle
+   * d'une télé branchée par un code (`auth/appairage.ts`), qui ne tient
+   * qu'une soirée. Null pour une console, qui glisse sans fin.
+   */
+  finMax: number | null
 }
 
 const SESSION_MS = 30 * 24 * 3600 * 1000
@@ -159,6 +165,9 @@ export class AuthStore {
     // profil qui ouvre une console après lui : une base d'avant ne les a pas.
     await ajouterColonne(this.client, 'accounts', 'profile_id', 'TEXT')
     await ajouterColonne(this.client, 'auth_sessions', 'profile_id', 'TEXT')
+    // La télé branchée par un code est venue ensuite : sa session ne glisse
+    // pas au-delà d'une soirée.
+    await ajouterColonne(this.client, 'auth_sessions', 'fin_max', 'INTEGER')
     // La porte du profil ouvrait déjà la console avant que la session retienne
     // qui l'avait ouverte, et se déconnecter de son profil fermait alors la
     // console de ce navigateur dès que l'espace lui était rattaché. Sans
@@ -193,6 +202,7 @@ export class AuthStore {
         expiresAt: Number(row.expires_at),
         lastSeenAt: Number(row.last_seen_at),
         profileId: row.profile_id === null || row.profile_id === undefined ? null : String(row.profile_id),
+        finMax: row.fin_max === null || row.fin_max === undefined ? null : Number(row.fin_max),
       })
     }
   }
@@ -473,21 +483,28 @@ export class AuthStore {
   // ── Sessions ────────────────────────────────────────────────────────────
 
   /** Ouvre une session et rend le jeton brut — la seule fois où il existe côté serveur. */
-  async createSession(accountId: string, userAgent: string, profileId: string | null = null): Promise<string> {
+  async createSession(
+    accountId: string,
+    userAgent: string,
+    profileId: string | null = null,
+    options: { dureeMax?: number } = {},
+  ): Promise<string> {
     const token = newToken()
     const now = Date.now()
+    const finMax = options.dureeMax === undefined ? null : now + options.dureeMax
     const rec: SessionRec = {
       id: fingerprint(token),
       accountId,
       createdAt: now,
-      expiresAt: now + SESSION_MS,
+      expiresAt: Math.min(now + SESSION_MS, finMax ?? Infinity),
       lastSeenAt: now,
       profileId,
+      finMax,
     }
     await this.client.execute({
-      sql: `INSERT INTO auth_sessions (id, account_id, created_at, expires_at, last_seen_at, user_agent, profile_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      args: [rec.id, accountId, now, rec.expiresAt, now, userAgent.slice(0, 200), profileId],
+      sql: `INSERT INTO auth_sessions (id, account_id, created_at, expires_at, last_seen_at, user_agent, profile_id, fin_max)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [rec.id, accountId, now, rec.expiresAt, now, userAgent.slice(0, 200), profileId, finMax],
     })
     this.sessions.set(rec.id, rec)
     return token
@@ -516,7 +533,7 @@ export class AuthStore {
     if (!account || account.disabledAt) return null
     if (now - session.lastSeenAt > SLIDE_EVERY_MS) {
       session.lastSeenAt = now
-      session.expiresAt = now + SESSION_MS
+      session.expiresAt = Math.min(now + SESSION_MS, session.finMax ?? Infinity)
       this.client
         .execute({
           sql: 'UPDATE auth_sessions SET last_seen_at = ?, expires_at = ? WHERE id = ?',

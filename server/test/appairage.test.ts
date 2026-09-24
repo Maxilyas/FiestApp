@@ -18,7 +18,12 @@ import {
   inscrireProfil,
   type Banc,
 } from './banc'
-import { APPAIRAGE_MS, Appairages, normaliserCode } from '../src/auth/appairage'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { createClient } from '@libsql/client'
+import { APPAIRAGE_MS, Appairages, normaliserCode, TELE_BRANCHEE_MS } from '../src/auth/appairage'
+import { AuthStore } from '../src/auth/store'
 
 async function avecBanc(scenario: (banc: Banc) => Promise<void>) {
   const banc = await demarrer()
@@ -69,7 +74,9 @@ test('la télé affiche un code, le téléphone le valide, la télé devient éc
     assert.equal(hello.slug, ADMIN.slug, 'celui de l’espace qui a validé')
 
     // Le jeton ne sert qu'une fois : rejoué, il ne rouvre rien.
-    assert.equal((await attente(banc, jeton)).status, 410)
+    const rejoue = await attente(banc, jeton)
+    assert.deepEqual(await rejoue.json(), { perime: true })
+    assert.equal(rejoue.headers.get('set-cookie'), null)
   }))
 
 test('un code se valide une fois, depuis une console ouverte, et cinq erreurs ferment cette console', () =>
@@ -139,6 +146,108 @@ test('la console qui a validé s’est fermée avant que la télé ne réclame :
     assert.equal((await valider(banc, code, telephone)).status, 200)
     assert.equal((await ecrire(banc.url, '/api/auth/logout', {}, telephone)).status, 200)
     const res = await attente(banc, jeton)
-    assert.equal(res.status, 410)
+    assert.deepEqual(await res.json(), { perime: true })
     assert.equal(res.headers.get('set-cookie'), null)
   }))
+
+test('un code périmé se dit dans une réponse, pas dans une erreur : la télé ne jette son code que là', () =>
+  avecBanc(async banc => {
+    // Un 410 et une coupure du wifi finissaient dans le même `catch` : la
+    // télé jetait son code sur une simple coupure, et celui que l'animateur
+    // validait entre-temps ne servait plus à rien.
+    const res = await attente(banc, 'un-jeton-que-personne-n-a')
+    assert.equal(res.status, 200)
+    assert.deepEqual(await res.json(), { perime: true })
+  }))
+
+test('trop de télés en attente : « réessaie », pas « le serveur redémarre »', () =>
+  avecBanc(async banc => {
+    // Un 503 se lit comme un redémarrage (`statutPassager`) : la télé
+    // annonçait une panne au lieu de dire d'attendre.
+    const ouvrir = Appairages.prototype.ouvrir
+    Appairages.prototype.ouvrir = () => null
+    try {
+      const res = await ecrire(banc.url, '/api/auth/appairage', {})
+      assert.equal(res.status, 429)
+      assert.match(((await res.json()) as any).error, /Trop de télés/)
+    } finally {
+      Appairages.prototype.ouvrir = ouvrir
+    }
+  }))
+
+test('un code validé qui périme n’efface pas le même code, tiré depuis pour une autre télé', () => {
+  const appairages = new Appairages()
+  const t0 = 1_000_000
+  const qui = { accountId: 'a', sessionId: 's', profileId: null }
+  const premier = appairages.ouvrir(t0)!
+  assert.equal(appairages.valider(premier.code, qui, t0), true)
+  // Le même code, retiré pour une télé arrivée après : l'alphabet est petit,
+  // la rencontre arrive.
+  const second = appairages.ouvrir(t0 + 60_000)!
+  const index = (appairages as any).parCode as Map<string, { code: string }>
+  const attente = index.get(second.code)!
+  index.delete(second.code)
+  attente.code = premier.code
+  index.set(premier.code, attente)
+  // Le premier périme sans avoir été réclamé : le ménage ne doit retirer que lui.
+  assert.equal(appairages.valider(premier.code, qui, t0 + APPAIRAGE_MS + 1), true, 'le code de la seconde télé vaut encore')
+})
+
+test('une télé branchée tient une soirée, sans glisser — et le dit à qui l’allume', () =>
+  avecBanc(async banc => {
+    const avant = Date.now()
+    const telephone = await connexionAnimateur(banc.url)
+    const { code, jeton } = await demanderCode(banc)
+    assert.equal((await valider(banc, code, telephone)).status, 200)
+    const tele = cookieDe(await attente(banc, jeton))
+
+    // La télé se sait branchée par un code, la console non.
+    assert.equal((await emitAck<any>(connecter(banc.url, tele), 'host:hello', {})).branchee, true)
+    assert.equal((await emitAck<any>(connecter(banc.url, telephone), 'host:hello', {})).branchee, undefined)
+
+    // Relue en base, comme au démarrage : une soirée au plus, et brancher
+    // une télé compte comme une connexion à l'espace.
+    const base = createClient({ url: banc.quizDbUrl })
+    try {
+      const sessions = (await base.execute('SELECT created_at, expires_at, fin_max FROM auth_sessions')).rows
+      const branchee = sessions.filter(r => r.fin_max !== null)
+      assert.equal(branchee.length, 1, 'la seule session plafonnée est celle de la télé')
+      assert.equal(Number(branchee[0].fin_max) - Number(branchee[0].created_at), TELE_BRANCHEE_MS)
+      assert.ok(Number(branchee[0].expires_at) <= Number(branchee[0].fin_max))
+      const compte = (await base.execute({ sql: 'SELECT last_login_at FROM accounts WHERE slug = ?', args: [ADMIN.slug] })).rows[0]
+      assert.ok(Number(compte.last_login_at) >= avant)
+    } finally {
+      base.close()
+    }
+  }))
+
+test('la session d’une télé branchée glisse, mais jamais au-delà de sa soirée', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'quizz-tele-'))
+  const url = `file:${path.join(dir, 'auth.db').replace(/\\/g, '/')}`
+  const vraiNow = Date.now
+  try {
+    const auth = new AuthStore(url)
+    await auth.init()
+    const espace = await auth.ensureDefaultSpace({ login: 'antoine', password: 'amorcage-2026', slug: 'demo', name: 'Antoine' })
+    const t0 = vraiNow()
+    const tele = await auth.createSession(espace, 'tele', null, { dureeMax: TELE_BRANCHEE_MS })
+    const console = await auth.createSession(espace, 'telephone')
+    // Vingt-trois heures plus tard, les deux glissent — la télé, pas plus
+    // loin que sa soirée.
+    Date.now = () => t0 + 23 * 3600_000
+    assert.ok(auth.resolveSession(tele))
+    assert.ok(auth.resolveSession(console))
+    auth.close()
+
+    // Relue au démarrage suivant : le plafond a tenu en base.
+    const relue = new AuthStore(url)
+    await relue.init()
+    Date.now = () => t0 + TELE_BRANCHEE_MS + 1000
+    assert.equal(relue.resolveSession(tele), null, 'la télé est débranchée le lendemain')
+    assert.ok(relue.resolveSession(console), 'la console, elle, glisse sur trente jours')
+    relue.close()
+  } finally {
+    Date.now = vraiNow
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

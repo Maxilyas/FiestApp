@@ -328,7 +328,7 @@ export function sendPlayerAction(
  * ramène au formulaire de connexion, et un serveur muet n'a rien dit de la
  * session.
  */
-export function helloHost(): Promise<{ ok: boolean; slug?: string; name?: string }> {
+export function helloHost(): Promise<{ ok: boolean; slug?: string; name?: string; branchee?: true }> {
   return demander(ack => socket.emit('host:hello', {}, ack))
 }
 

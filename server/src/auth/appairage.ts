@@ -36,6 +36,8 @@ const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 const LONGUEUR = 6
 /** Codes en attente au plus : au-delà, un plaisantin remplirait la mémoire — et l'espace des codes. */
 const EN_ATTENTE_MAX = 500
+/** Une télé branchée par un code tient une soirée, pas un mois. */
+export const TELE_BRANCHEE_MS = 24 * 3600 * 1000
 
 interface Attente {
   code: string
@@ -58,7 +60,9 @@ export class Appairages {
     for (const a of this.parJeton.values()) {
       if (a.expireA <= now) {
         this.parJeton.delete(a.jeton)
-        this.parCode.delete(a.code)
+        // Un code validé a quitté l'index, et le même code a pu être tiré
+        // depuis pour une autre télé : on n'efface que le sien.
+        if (this.parCode.get(a.code) === a) this.parCode.delete(a.code)
       }
     }
   }
@@ -134,7 +138,9 @@ export function mountAppairage(app: Express, deps: { auth: AuthStore; online: bo
       res.set('Cache-Control', 'no-store')
       if (!budget.allow(clientIp(req))) return res.status(429).json(trop)
       const ouvert = attentes.ouvrir()
-      if (!ouvert) return res.status(503).json({ error: 'Trop de télés en attente — réessaie dans quelques minutes' })
+      // 429, pas 503 : un 503 se lit « le serveur redémarre » (`statutPassager`),
+      // et la télé l'annonçait au lieu de dire d'attendre.
+      if (!ouvert) return res.status(429).json({ error: 'Trop de télés en attente — réessaie dans quelques minutes' })
       res.json({ code: ouvert.code, jeton: ouvert.jeton, expireA: ouvert.expireA })
     }),
   )
@@ -173,16 +179,27 @@ export function mountAppairage(app: Express, deps: { auth: AuthStore; online: bo
       const jeton = typeof req.body?.jeton === 'string' ? req.body.jeton : ''
       const r = attentes.reclamer(jeton)
       if (r.etat === 'attente') return res.json({ attente: true })
-      if (r.etat === 'perime') return res.status(410).json({ error: 'Ce code a expiré — en voici un autre' })
+      // Un code périmé se dit dans une réponse, pas dans une erreur : la télé
+      // ne jette son code que sur `perime`, et garde le même jeton sur toute
+      // autre panne — une coupure du wifi la faisait redemander un code, et
+      // celui que l'animateur venait de valider ne servait plus à rien.
+      if (r.etat === 'perime') return res.json({ perime: true })
       // Entre la validation et ce moment, la console qui a validé a pu se
       // fermer, ou son profil perdre l'espace : la télé n'hérite pas d'un
       // accès que sa source n'a plus.
       const account = auth.byId(r.qui.accountId)
       const source = auth.sessionById(r.qui.sessionId)
       if (!account || account.disabledAt || !source || source.accountId !== account.id) {
-        return res.status(410).json({ error: 'La console qui a validé ce code s’est fermée — recommence' })
+        return res.json({ perime: true })
       }
-      const token = await auth.createSession(account.id, req.header('user-agent') ?? '', r.qui.profileId)
+      // Une télé branchée ainsi est souvent celle de quelqu'un d'autre — le
+      // bar, les parents, la salle louée : sa session ne dure qu'une soirée,
+      // sans glisser, au lieu des trente jours d'une console.
+      const token = await auth.createSession(account.id, req.header('user-agent') ?? '', r.qui.profileId, {
+        dureeMax: TELE_BRANCHEE_MS,
+      })
+      // Brancher une télé, c'est ouvrir l'espace : la dernière connexion le dit.
+      await auth.touchLogin(account.id)
       setSessionCookie(res, token, deps.online)
       res.json({ ok: true })
     }),

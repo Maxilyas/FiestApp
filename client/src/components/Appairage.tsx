@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, ApiError, motifDe } from '../api'
+import { api, motifDe } from '../api'
 
 /** Toutes les deux secondes : la télé s'allume à peine le code validé. */
 const ATTENTE_MS = 2000
@@ -40,12 +40,14 @@ export function CodeDeLaTele({ onBranchee }: { onBranchee: () => void }) {
         const r = await api.auth.attenteAppairage(jeton)
         if (fini) return
         if (r.ok) return onBranchee()
-        minuteur = setTimeout(attendre, ATTENTE_MS)
-      } catch (e) {
-        if (fini) return
         // Périmé, ou la console qui l'a validé s'est fermée : un code neuf.
-        // Une coupure réseau, elle, laisse le code en place.
-        if (e instanceof ApiError && !e.passager) return void demander()
+        if (r.perime) return void demander()
+        minuteur = setTimeout(attendre, ATTENTE_MS)
+      } catch {
+        if (fini) return
+        // Toute autre panne — le wifi coupé, le serveur qui redémarre — garde
+        // le code et son jeton : une coupure le faisait jeter, et celui que
+        // l'animateur validait entre-temps ne rouvrait jamais la télé.
         minuteur = setTimeout(attendre, ATTENTE_MS)
       }
     }

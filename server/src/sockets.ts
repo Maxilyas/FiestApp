@@ -463,7 +463,12 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         socket.data.accountId = found.account.id
         socket.data.authSessionId = found.session.id
         socket.join(`hosts:${found.account.id}`)
-        repondre({ ok: true, slug: found.account.slug, name: found.account.name })
+        repondre({
+          ok: true,
+          slug: found.account.slug,
+          name: found.account.name,
+          ...(found.session.finMax !== null && { branchee: true as const }),
+        })
         // L'annonce de clôture d'abord : l'instantané qui suit dit qu'elle
         // est à l'écran, et un écran rallumé pendant qu'on l'affiche doit
         // avoir de quoi la montrer.
