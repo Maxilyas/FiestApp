@@ -23,9 +23,12 @@
 // Options :
 //   --dossier <chemin>     où ranger la tablée (défaut : export/tablee/<date-heure>)
 //   --port <n>             le port du serveur de jeu (défaut : un port libre)
-//   --animateur <Prénom>   le compte que l'administrateur crée pour un ami, à
-//                          activer par son lien (défaut : Nadia) ; --espace <nom>
-//                          son adresse (défaut : chez-<prénom>)
+//   --animateur <Prénom>[/<espace>]   le compte que l'administrateur crée pour
+//                          un ami, à activer par son lien (défaut : Nadia) ;
+//                          son adresse, chez-<prénom> sauf /<espace> ou
+//                          --espace <nom>. Répétable : plusieurs soirées en
+//                          même temps sur le même serveur, une par salon
+//                          (voir « chez » dans l'aide du pilote)
 //   --sans-animateur       personne à activer : on anime avec l'administrateur
 //   --profil <Prénom/identifiant/avatar>   un profil de joueur déjà inscrit (répétable)
 //   --sans-build           garder le client construit, même plus vieux que ses sources
@@ -228,14 +231,23 @@ interface Animateur {
   espace: string
   activation: string
 }
-let animateur: Animateur | null = null
+// Plusieurs animateurs, c'est plusieurs soirées à la fois sur le même
+// serveur : ce que vit un hébergement partagé entre amis un samedi soir, et
+// ce qu'aucune tablée à un seul salon ne montre — deux quiz qui se croisent,
+// un invité qui passe d'une fête à l'autre, des prénoms qui se répètent d'un
+// espace à l'autre sans jamais s'y marquer « (2) ».
+const animateurs: Animateur[] = []
 if (!drapeau('sans-animateur')) {
-  const prenom = option('animateur') ?? 'Nadia'
-  const identifiant = sansAccent(prenom).replace(/[^a-z0-9._-]+/g, '') || 'animateur'
-  const espace = option('espace') ?? `chez-${identifiant.replace(/[^a-z0-9-]+/g, '')}`
+  const demandes = optionsRepetees('animateur')
   const admin = await appeler('/api/auth/login', { login: ADMIN.login, password: ADMIN.password })
-  const cree = await appeler('/api/admin/accounts', { login: identifiant, name: prenom, slug: espace }, `qz_session=${admin.cookie}`)
-  animateur = { prenom, identifiant, espace, activation: `${BASE}/activer#t=${cree.json.activation.token}` }
+  for (const spec of demandes.length ? demandes : ['Nadia']) {
+    const [prenom, espaceDemande] = spec.split('/')
+    const identifiant = sansAccent(prenom).replace(/[^a-z0-9._-]+/g, '') || 'animateur'
+    const espace =
+      espaceDemande || (demandes.length <= 1 ? option('espace') : undefined) || `chez-${identifiant.replace(/[^a-z0-9-]+/g, '')}`
+    const cree = await appeler('/api/admin/accounts', { login: identifiant, name: prenom, slug: espace }, `qz_session=${admin.cookie}`)
+    animateurs.push({ prenom, identifiant, espace, activation: `${BASE}/activer#t=${cree.json.activation.token}` })
+  }
 }
 
 // Les profils déjà inscrits : l'habituée qui revient, l'homonyme qui a déjà
@@ -548,6 +560,8 @@ interface Participant {
   mouvementReduit: boolean
   horsLigne: boolean
   zoom: number
+  /** Le salon où il a dit être (« chez nadia ») : son écran commun, et la seule salle qu'il entend. */
+  salon: string | null
 }
 
 const participants = new Map<string, Participant>()
@@ -559,8 +573,26 @@ interface Parole {
   t: number
   qui: string
   texte: string
+  /** Le salon où c'est dit ; null, un couloir que tout le monde entend. */
+  salon: string | null
 }
 const salle: Parole[] = []
+
+/**
+ * Le salon d'un participant : celui qu'il a dit (« chez marc »), sinon le
+ * sien s'il est l'un des animateurs — le prénom de Nadia est son salon. Un
+ * invité qui n'a rien dit n'est dans aucun : il entend tout le monde, et son
+ * `scanner` vise le seul écran allumé, comme dans une tablée à un salon.
+ */
+function salonDe(p: Participant): string | null {
+  return p.salon ?? (animateurs.some(a => a.identifiant === p.qui) ? p.qui : null)
+}
+
+/** Deux salons s'entendent s'ils sont le même — ou si l'un des deux n'en est pas un. */
+function entend(p: Participant, m: Parole): boolean {
+  const ici = salonDe(p)
+  return m.qui !== p.qui && (!m.salon || !ici || m.salon === ici)
+}
 
 /** Un refus qu'on explique à l'agent : pas une panne de la régie. */
 class Refus extends Error {}
@@ -632,6 +664,7 @@ async function allumer(qui: string, appareil: string): Promise<Participant> {
     mouvementReduit: false,
     horsLigne: false,
     zoom: 100,
+    salon: null,
   }
   // Un lien `target="_blank"` ouvre un onglet : on le branche, on le nomme,
   // et on le dit à l'agent — l'écran commun ouvre ainsi « Mes quiz », le
@@ -755,7 +788,7 @@ async function entete(p: Participant, o: Onglet): Promise<string> {
     `${a.icone} ${p.qui}${o.nom === 'principal' ? '' : `:${o.nom}`} · ${chemin(o.page.url())}${titre ? ` · « ${titre} »` : ''}`,
   ]
   if (etats.length) lignes.push(`   ${etats.join(' · ')}`)
-  const paroles = salle.slice(p.entendu).filter(m => m.qui !== p.qui)
+  const paroles = salle.slice(p.entendu).filter(m => entend(p, m))
   p.entendu = salle.length
   for (const m of paroles) lignes.push(`🗣 ${m.qui} dit : « ${m.texte} »`)
   const passes: string[] = await o.page.evaluate('(window.__tableeEphemeres || []).splice(0)').catch(() => [])
@@ -873,8 +906,17 @@ async function adresseDuQr(o: Onglet): Promise<string | null> {
  * invité curieux qui ouvre `/host` sur son téléphone n'y voit qu'une page de
  * connexion : ce n'est pas la télé.
  */
-async function trouverTele(): Promise<{ p: Participant; o: Onglet; adresse: string } | null> {
+interface Tele {
+  p: Participant
+  o: Onglet
+  adresse: string
+}
+
+/** Les écrans communs allumés, un par onglet — ceux du salon demandé seulement, s'il l'est. */
+async function lesTeles(salon?: string | null): Promise<Tele[]> {
+  const teles: Tele[] = []
   for (const p of participants.values()) {
+    if (salon && salonDe(p) !== salon) continue
     for (const o of p.onglets.values()) {
       let surHost = false
       try {
@@ -883,10 +925,39 @@ async function trouverTele(): Promise<{ p: Participant; o: Onglet; adresse: stri
         // Une page encore vierge n'a pas d'adresse lisible.
       }
       const adresse = surHost ? await adresseDuQr(o) : null
-      if (adresse) return { p, o, adresse }
+      if (adresse) teles.push({ p, o, adresse })
     }
   }
-  return null
+  return teles
+}
+
+/**
+ * L'animatrice qui tient sa console au téléphone a elle aussi le QR sous les
+ * yeux : l'écran que la salle regarde, c'est celui qui n'est pas dans une main.
+ */
+const laPlusGrande = (teles: Tele[]): Tele | null => teles.find(t => !APPAREILS[t.p.appareil].tactile) ?? teles[0] ?? null
+
+async function trouverTele(salon?: string | null): Promise<Tele | null> {
+  return laPlusGrande(await lesTeles(salon))
+}
+
+/**
+ * L'écran commun que ce participant a sous les yeux : celui de son salon.
+ * Sans salon, le seul allumé — et s'il y en a plusieurs, on ne choisit pas
+ * pour lui : scanner le QR d'une autre fête, c'est finir la soirée chez des
+ * inconnus.
+ */
+async function teleDe(p: Participant): Promise<Tele | null> {
+  const salon = salonDe(p)
+  if (salon) return trouverTele(salon)
+  const teles = await lesTeles()
+  const salons = [...new Set(teles.map(t => salonDe(t.p) ?? t.p.qui))]
+  if (salons.length > 1) {
+    throw new Refus(
+      `Plusieurs écrans communs sont allumés (${salons.map(s => `chez ${s}`).join(', ')}) : dis d'abord chez qui tu es — « chez ${salons[0]} ».`,
+    )
+  }
+  return laPlusGrande(teles)
 }
 
 /** Attend qu'une condition tienne, en rendant la main si l'agent a lâché la commande. */
@@ -927,22 +998,36 @@ async function gesteRegie(geste: string, args: string[], signal: { annule: boole
   switch (geste) {
     case 'etat': {
       const lignes = [`🎲 Tablée ${lisible(DOSSIER)} — serveur ${BASE}`]
-      if (animateur) lignes.push(`   ${animateur.prenom} : activation ${animateur.activation} · espace ${BASE}/${animateur.espace}`)
+      for (const a of animateurs) lignes.push(`   ${a.prenom} : activation ${a.activation} · espace ${BASE}/${a.espace}`)
       for (const pp of profils) lignes.push(`   profil ${pp.prenom} ${pp.avatar} : ${pp.identifiant} / ${MOT_DE_PASSE_PROFIL}`)
-      const tv = await trouverTele()
-      lignes.push(tv ? `📺 écran commun : ${tv.p.qui} — ${(await texteVisible(tv.o.page)).split('\n').slice(0, 3).join(' · ')}` : '📺 écran commun éteint')
+      const teles = await lesTeles()
+      for (const tv of teles) {
+        const salon = salonDe(tv.p)
+        lignes.push(
+          `📺 écran commun${salon ? ` chez ${salon}` : ''} : ${tv.p.qui}${tv.o.nom === 'principal' ? '' : `:${tv.o.nom}`} — ${(await texteVisible(tv.o.page)).split('\n').slice(0, 3).join(' · ')}`,
+        )
+      }
+      if (!teles.length) lignes.push('📺 aucun écran commun allumé')
       for (const p of participants.values()) {
         const pages = [...p.onglets.values()].map(o => `${o.nom} ${chemin(o.page.url())}`).join(', ')
-        lignes.push(`${APPAREILS[p.appareil].icone} ${p.qui} (${p.appareil}) — ${p.gestes} gestes, ${p.captures} captures — ${pages || 'aucun onglet'}`)
+        const salon = salonDe(p)
+        lignes.push(
+          `${APPAREILS[p.appareil].icone} ${p.qui} (${p.appareil})${salon ? ` chez ${salon}` : ''} — ${p.gestes} gestes, ${p.captures} captures — ${pages || 'aucun onglet'}`,
+        )
       }
       lignes.push(`🗣 ${salle.length} paroles dans la salle`)
       return lignes.join('\n')
     }
     case 'salle':
-      return salle.length ? salle.map(m => `${new Date(m.t).toLocaleTimeString('fr-FR')} ${m.qui} : « ${m.texte} »`).join('\n') : 'Personne n’a encore parlé.'
+      return salle.length
+        ? salle.map(m => `${new Date(m.t).toLocaleTimeString('fr-FR')}${m.salon ? ` [chez ${m.salon}]` : ''} ${m.qui} : « ${m.texte} »`).join('\n')
+        : 'Personne n’a encore parlé.'
     case 'attendre-tele': {
-      const tv = await guetter(duree(args[0], 590), signal, trouverTele, 1000)
-      if (!tv) throw new Refus('Toujours pas d’écran commun allumé.')
+      // « regie attendre-tele [secondes] [salon] » : l'un, l'autre, ou les deux.
+      const nombre = args.find(a => /^\d+$/.test(a))
+      const salon = args.find(a => !/^\d+$/.test(a)) ?? null
+      const tv = await guetter(duree(nombre, 590), signal, () => trouverTele(salon), 1000)
+      if (!tv) throw new Refus(`Toujours pas d’écran commun allumé${salon ? ` chez ${salon}` : ''}.`)
       return `📺 L'écran commun est allumé (${tv.p.qui}).\n${await texteVisible(tv.o.page)}`
     }
     case 'arreter':
@@ -1001,8 +1086,18 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       return ecran(p, o)
     }
 
+    case 'chez': {
+      const salon = (args[0] ?? '').toLowerCase()
+      if (!/^[a-z0-9-]{1,24}$/.test(salon)) throw new Refus('Chez qui ? ex. « chez nadia » : l’identifiant de qui projette l’écran commun.')
+      p.salon = salon
+      const tv = await trouverTele(salon)
+      return `${await entete(p, o)}\n🏠 Tu es chez ${salon} : « scanner », « tele » et « attendre --tele » visent son écran commun (${
+        tv ? 'allumé' : 'pas encore allumé'
+      }), et tu n'entends plus que ce salon.`
+    }
+
     case 'scanner': {
-      const tv = await guetter(duree(args[0]), signal, trouverTele, 1000)
+      const tv = await guetter(duree(args[0]), signal, () => teleDe(p), 1000)
       if (!tv) throw new Refus('Pas de QR code à scanner : l’écran commun n’est pas encore allumé. Réessaie un peu plus tard.')
       await page.goto(tv.adresse, { waitUntil: 'domcontentloaded' })
       await stabiliser(page, 6000)
@@ -1122,13 +1217,13 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       // chaque regard, sans quoi le retardataire qui guette la question 2
       // échouait tant que l'animatrice écrivait encore son quiz.
       const vue = await guetter(maxMs, signal, async () => {
-        const v = tele ? (await trouverTele())?.o.page : page
+        const v = tele ? (await teleDe(p))?.o.page : page
         if (!v) return null
         const visible = await v.getByText(texte).first().isVisible().catch(() => false)
         return (disparu ? !visible : visible) ? v : null
       }, 300)
       if (!vue) {
-        const eteinte = tele && !(await trouverTele()) ? ' (l’écran commun n’est toujours pas allumé)' : ''
+        const eteinte = tele && !(await teleDe(p)) ? ' (l’écran commun n’est toujours pas allumé)' : ''
         throw new Refus(`Au bout de ${secondes(maxMs)}, « ${texte} » ${disparu ? 'est toujours là' : 'n’est pas apparu'}${eteinte}.`)
       }
       if (tele) return `📺 ${disparu ? 'Parti' : 'Apparu'} sur l'écran commun : « ${texte} »\n\n${await texteVisible(vue)}`
@@ -1229,7 +1324,7 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
         const accuse = !!(await guetter(4000, signal, async () => (await page.evaluate(presse).catch(() => false)) === true, 100))
         await stabiliser(page, 1200)
         if (lue && accuse) lue.repondu = true
-        consigner({ qui, geste: 'reponse', question: e.label, choix: n, texte: reponses[n - 1], ms: depuis })
+        consigner({ qui, salon: salonDe(p), geste: 'reponse', question: e.label, choix: n, texte: reponses[n - 1], ms: depuis })
         const ligne = accuse
           ? `✅ Tu touches ${n}. « ${reponses[n - 1]} »${delai}.`
           : `⚠ Tu touches ${n}. « ${reponses[n - 1]} »${delai} — mais le téléphone ne montre pas ta réponse comme enregistrée.`
@@ -1250,7 +1345,7 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const accuse = !refus && (await reponse.isVisible().catch(() => false))
       await stabiliser(page, 1200)
       if (lue && accuse) lue.repondu = true
-      consigner({ qui, geste: 'reponse', question: e.label, estimation: voulu, ms: depuis, ...(refus ? { illisible: true } : {}) })
+      consigner({ qui, salon: salonDe(p), geste: 'reponse', question: e.label, estimation: voulu, ms: depuis, ...(refus ? { illisible: true } : {}) })
       const ligne = refus
         ? `⚠ Tu proposes ${voulu}${delai} — le téléphone ne le lit pas : « ${refus} »`
         : `${accuse ? '✅' : '⚠'} Tu proposes ${voulu}${delai}${accuse ? '' : ' — le téléphone ne montre pas de réponse enregistrée'}.`
@@ -1258,7 +1353,7 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
     }
 
     case 'tele': {
-      const tv = await trouverTele()
+      const tv = await teleDe(p)
       if (!tv) throw new Refus('L’écran commun n’est pas allumé pour l’instant.')
       let photo = ''
       if (args.includes('--capture')) {
@@ -1273,14 +1368,17 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
     case 'dire': {
       const texte = args.join(' ').trim().slice(0, 280)
       if (!texte) throw new Refus('Dire quoi ?')
-      salle.push({ t: Date.now(), qui, texte })
+      // Ce qu'on n'a pas encore entendu reste à entendre : parler ne vaut pas écouter.
+      const pasEntendu = salle.slice(p.entendu).filter(m => entend(p, m))
+      salle.push({ t: Date.now(), qui, texte, salon: salonDe(p) })
       p.entendu = salle.length
-      return `🗣 Tu dis à la salle : « ${texte} »`
+      const avant = pasEntendu.map(m => `🗣 ${m.qui} dit : « ${m.texte} »`)
+      return [...avant, `🗣 Tu dis à ${salonDe(p) ? `la salle, chez ${salonDe(p)}` : 'la salle'} : « ${texte} »`].join('\n')
     }
 
     case 'ecouter': {
-      const deja = salle.slice(p.entendu).some(m => m.qui !== qui)
-      if (!deja) await guetter(duree(args[0], 60), signal, async () => salle.slice(p.entendu).some(m => m.qui !== qui), 500)
+      const deja = salle.slice(p.entendu).some(m => entend(p, m))
+      if (!deja) await guetter(duree(args[0], 60), signal, async () => salle.slice(p.entendu).some(m => entend(p, m)), 500)
       const tete = await entete(p, o)
       return tete.includes('🗣') ? tete : `${tete}\n(personne n'a parlé)`
     }
@@ -1385,6 +1483,12 @@ function lireCorps(req: IncomingMessage): Promise<string> {
   })
 }
 
+/** Le salon de qui fait le geste, pour le journal : la chronologie range les réponses par soirée. */
+function salonDuGeste(cible: unknown): string | undefined {
+  const p = participants.get(String(cible ?? '').toLowerCase().split(':')[0])
+  return (p && salonDe(p)) ?? undefined
+}
+
 const porte = createServer(async (req: IncomingMessage, res: ServerResponse) => {
   const repondre = (ok: boolean, sortie: string) => {
     if (res.writableEnded) return
@@ -1408,13 +1512,13 @@ const porte = createServer(async (req: IncomingMessage, res: ServerResponse) => 
     const geste = String(demande.geste ?? 'voir')
     const args = Array.isArray(demande.args) ? demande.args.map(String) : []
     const sortie = await executer(cible, geste, args, signal)
-    consigner({ qui: cible, geste, args, ok: true, ms: Date.now() - debut })
+    consigner({ qui: cible, salon: salonDuGeste(cible), geste, args, ok: true, ms: Date.now() - debut })
     repondre(true, sortie)
   } catch (e) {
     const refus = e instanceof Refus
     const message = refus ? (e as Error).message : `La régie a trébuché : ${(e as Error).message?.split('\n')[0]}`
     if (!refus) console.error('[tablee] geste en échec :', demande, e)
-    consigner({ qui: demande.cible, geste: demande.geste, args: demande.args, ok: false, erreur: message, ms: Date.now() - debut })
+    consigner({ qui: demande.cible, salon: salonDuGeste(demande.cible), geste: demande.geste, args: demande.args, ok: false, erreur: message, ms: Date.now() - debut })
     repondre(false, `✗ ${message}`)
   }
 })
@@ -1429,7 +1533,9 @@ const fiche = {
   pid: process.pid,
   lancee: new Date().toISOString(),
   admin: { identifiant: ADMIN.login, motDePasse: ADMIN.password, espace: `${BASE}/${ADMIN.slug}` },
-  animateur: animateur && { ...animateur, espace: `${BASE}/${animateur.espace}` },
+  // `animateur`, le premier, pour qui lit la fiche d'avant les salons ; `animateurs`, un par salon.
+  animateur: animateurs[0] ? { ...animateurs[0], espace: `${BASE}/${animateurs[0].espace}` } : null,
+  animateurs: animateurs.map(a => ({ ...a, salon: a.identifiant, espace: `${BASE}/${a.espace}` })),
   profils: profils.map(pp => ({ ...pp, motDePasse: MOT_DE_PASSE_PROFIL })),
   photos: Object.keys(PHOTOS).map(nom => `photos/${nom}`),
 }
@@ -1461,13 +1567,13 @@ console.log(`
 🎲 La tablée est prête — ${lisible(DOSSIER)}
 
    Serveur de jeu   ${BASE}
-   Administrateur   ${ADMIN.login} / ${ADMIN.password} — son espace : ${BASE}/${ADMIN.slug} (deux quiz livrés)${
-     animateur
-       ? `
-   ${animateur.prenom.padEnd(16)} ${animateur.identifiant}, à activer : ${animateur.activation}
-                    son espace : ${BASE}/${animateur.espace} (bibliothèque vide)`
-       : ''
-   }${profils
+   Administrateur   ${ADMIN.login} / ${ADMIN.password} — son espace : ${BASE}/${ADMIN.slug} (deux quiz livrés)${animateurs
+     .map(
+       a => `
+   ${a.prenom.padEnd(16)} ${a.identifiant}, à activer : ${a.activation}
+                    son espace : ${BASE}/${a.espace} (bibliothèque vide)${animateurs.length > 1 ? ` — son salon : chez ${a.identifiant}` : ''}`,
+     )
+     .join('')}${profils
      .map(
        pp => `
    Profil prêt      ${pp.prenom} ${pp.avatar} — ${pp.identifiant} / ${MOT_DE_PASSE_PROFIL} (code de secours ${pp.secours})`,

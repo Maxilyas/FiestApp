@@ -52,9 +52,13 @@ if (debut) console.log(`${heure(debut)} → ${heure(fin)} · ${Math.round((Date.
 
 // ── Par personnage ──
 const personnages = [...new Set(lignes.map(qui))]
+/** Le dernier salon où chacun a été vu : une tablée à plusieurs salons se lit salon par salon. */
+const salonDe = nom => lignes.filter(l => qui(l) === nom && l.salon).at(-1)?.salon
+const avecSalons = personnages.some(salonDe)
+if (avecSalons) personnages.sort((a, b) => String(salonDe(a) ?? '').localeCompare(String(salonDe(b) ?? '')))
 console.log('## Qui a fait quoi\n')
-console.log('| Qui | Gestes | Ratés | Captures | Réponses | Délai médian | Paroles |')
-console.log('|---|---|---|---|---|---|---|')
+console.log(`| Qui |${avecSalons ? ' Salon |' : ''} Gestes | Ratés | Captures | Réponses | Délai médian | Paroles |`)
+console.log(`|---|${avecSalons ? '---|' : ''}---|---|---|---|---|---|`)
 const mediane = v => {
   if (!v.length) return null
   const t = [...v].sort((a, b) => a - b)
@@ -67,7 +71,7 @@ for (const nom of personnages) {
   const delais = reponses.map(r => r.ms).filter(ms => typeof ms === 'number')
   const m = mediane(delais)
   console.log(
-    `| ${nom} | ${gestes.length} | ${gestes.filter(l => l.ok === false).length} | ${gestes.filter(l => l.geste === 'capture' && l.ok).length} | ${reponses.length} | ${m === null ? '—' : s(m)} | ${gestes.filter(l => l.geste === 'dire' && l.ok).length} |`,
+    `| ${nom} |${avecSalons ? ` ${salonDe(nom) ?? '—'} |` : ''} ${gestes.length} | ${gestes.filter(l => l.ok === false).length} | ${gestes.filter(l => l.geste === 'capture' && l.ok).length} | ${reponses.length} | ${m === null ? '—' : s(m)} | ${gestes.filter(l => l.geste === 'dire' && l.ok).length} |`,
   )
 }
 
@@ -89,14 +93,17 @@ if (rates.length) {
 }
 
 // ── Les réponses, question par question ──
+// Plusieurs salons, plusieurs quiz : « Question 1 » de chez Nadia n'est pas
+// celle de chez Marc.
 const reponses = lignes.filter(l => l.geste === 'reponse')
 if (reponses.length) {
   console.log('\n## Les réponses\n')
   const parQuestion = new Map()
   for (const r of reponses) {
-    const liste = parQuestion.get(r.question) ?? []
+    const cle = r.salon ? `chez ${r.salon} · ${r.question}` : r.question
+    const liste = parQuestion.get(cle) ?? []
     liste.push(r)
-    parQuestion.set(r.question, liste)
+    parQuestion.set(cle, liste)
   }
   for (const [question, liste] of parQuestion) {
     const detail = liste
@@ -110,7 +117,7 @@ if (reponses.length) {
 const paroles = lignes.filter(l => l.geste === 'dire' && l.ok)
 if (paroles.length) {
   console.log('\n## Ce qui s’est dit\n')
-  for (const p of paroles) console.log(`- ${heure(p.t)} **${qui(p)}** : ${p.args.join(' ')}`)
+  for (const p of paroles) console.log(`- ${heure(p.t)}${p.salon ? ` [chez ${p.salon}]` : ''} **${qui(p)}** : ${p.args.join(' ')}`)
 }
 
 // ── Les retours ──

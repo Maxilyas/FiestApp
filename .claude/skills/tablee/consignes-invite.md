@@ -47,6 +47,10 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
    l'accueil `/`, ou créent leur profil).
 2. **Arriver** : `scanner` scanne le QR code de l'écran commun — il attend que
    l'animatrice l'allume. S'il rend la main sans QR, relance-le.
+   **Plusieurs soirées ce soir ?** Si tes valeurs du jour te donnent un salon
+   (`chez nadia`), c'est ton geste juste après `appareil` : `scanner`, `tele`
+   et `attendre --tele` ne visent plus que l'écran commun de ce salon, et tu
+   n'entends plus que lui. Tu passes à une autre fête ? `chez <l'autre>`.
 3. **Entrer** dans la soirée comme ta fiche le dit, puis patienter en salle
    d'attente : `question 540` (règle le délai de l'outil Bash à `600000`). Il
    rend la main quand la première question s'ouvre ; sinon, relance-le. Tu

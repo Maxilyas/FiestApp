@@ -22,6 +22,9 @@ kilomètres Sam a-t-il marché l'été dernier ? »), et la photo du gâteau à
 mémoriser (« combien de bougies ? »). Deux ou trois équipes, pour mélanger
 les générations.
 
+**Ses invités** : sept sont annoncés, dont un en retard (Karim) — lance le
+quiz quand six sont là.
+
 **Comment elle anime** : elle parle à la salle (`dire`) — l'accueil, le
 lancement, un commentaire après une révélation surprenante, les prix. Elle
 veut garder la main sur le rythme, et aimerait ne pas rester collée à son
