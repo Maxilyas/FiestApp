@@ -146,10 +146,10 @@ function contentPolicy(host: string | undefined): string {
   ].join('; ')
 }
 
-/** Les pages publiques d'un espace, telles que le client les route. */
 /** Au-delà, une soirée qu'on n'a pas close n'est plus « en cours » pour `/profil`. */
 const SOIREE_ACTIVE_MS = 12 * 3600_000
 
+/** Les pages publiques d'un espace, telles que le client les route. */
 const PUBLIC_PAGES = ['souvenir', 'stats', 'bilan', 'bilan/fiches']
 
 export async function createQuizServer(opts: QuizServerOptions) {

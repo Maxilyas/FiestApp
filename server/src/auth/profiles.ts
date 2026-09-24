@@ -620,7 +620,7 @@ export class ProfileStore {
       // Une ligne créditée avant qu'on retienne l'invité le retrouve dans
       // l'archive, une fois pour toutes. Sans archive, pas de bilan à ouvrir.
       // Une archive qui ne le nomme pas (rangée avant les profils) retient
-      // une chaîne vide : sinon on la relirait en entier à chaque visite.
+      // une chaîne vide : sinon on la relirait à chaque visite.
       if (s.joueurId !== null || !historique || !titres.has(`${s.spaceId}#${s.soireeId}`)) continue
       // Une panne (archive muette, écriture refusée) n'ôte que le lien de ce
       // soir : elle faisait répondre 500 à toute la page, et l'accueil
