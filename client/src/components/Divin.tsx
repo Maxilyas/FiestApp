@@ -1,5 +1,6 @@
 import { useId, type ReactNode } from 'react'
 import { divin as divinDe } from '../../../shared/divins'
+import { inscrireDessin } from './medaillons'
 
 /**
  * Les avatars divins : cinq dessins au-dessus des légendaires
@@ -955,3 +956,6 @@ export function Divin({ cle, verrouille, className }: Props) {
     </svg>
   )
 }
+
+// Évalué, le dessin est là pour tout `Avatar` de la page (voir `medaillons.ts`).
+inscrireDessin({ Divin })

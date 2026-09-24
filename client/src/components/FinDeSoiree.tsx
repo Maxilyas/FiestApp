@@ -8,9 +8,7 @@ import { api } from '../api'
 import { spacePath } from '../routes'
 import { formatNumber, place } from '../format'
 import { showToast } from '../state'
-import { Avatar } from './Avatar'
-import { Legendaire } from './Legendaire'
-import { Divin } from './Divin'
+import { Avatar, Dessin } from './Avatar'
 import { Icon } from './Icon'
 
 /**
@@ -86,7 +84,7 @@ export function FinDeSoiree({
           <section key={key} className={`card fin-divin fin-divin-${ton}`}>
             <span className="label">Un Divin est descendu sur toi</span>
             <span className="fin-apparition">
-              <Divin cle={key} />
+              <Dessin cle={key} />
             </span>
             <h2>{d.nom}</h2>
             <p className="serif-note">{legende}</p>
@@ -143,7 +141,7 @@ export function FinDeSoiree({
           <section key={cle} className="card fin-legendaire">
             <span className="label">Avatar légendaire débloqué</span>
             <span className="fin-medaillon">
-              <Legendaire cle={cle} />
+              <Dessin cle={cle} />
             </span>
             <h2>{l.nom}</h2>
             <p className="serif-note">{l.legende}</p>

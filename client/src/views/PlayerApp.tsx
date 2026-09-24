@@ -19,6 +19,7 @@ import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
 import { CarteJoueur } from '../components/CarteJoueur'
+import { chargerDessins, complets, porteUnDessin, useDessins } from '../components/medaillons'
 import { useEcranAllume } from '../veille'
 import { useGardeRetour } from '../retour'
 
@@ -54,6 +55,9 @@ export function PlayerApp() {
       const watched = await watchParty(slug)
       if (!watched.ok) return setSpaceError(watched.error ?? 'Cette adresse ne mène à aucune soirée')
       setSpaceError('')
+      // Qui porte un médaillon attend ses dessins avant d'être salué : sinon
+      // l'entrée montrerait son emoji, puis le médaillon.
+      if (watched.profile?.legendaire) await chargerDessins()
       // Le serveur reconnaît le profil au cookie posé dans la poignée de main :
       // l'entrée peut saluer avant même qu'on rejoigne.
       setProfil(watched.profile ?? null)
@@ -112,6 +116,30 @@ export function PlayerApp() {
       socket.off('player:profil', maj)
     }
   }, [])
+
+  // Un profil peut en gagner un ce soir, et sa fin de soirée le montrera :
+  // ses dessins viennent dès qu'on le connaît (`medaillons.ts`).
+  const avecProfil = !!profil
+  useEffect(() => {
+    if (avecProfil) void chargerDessins()
+  }, [avecProfil])
+
+  // Quelqu'un dans la salle porte un médaillon : ses dessins viennent dès
+  // l'instantané, avant la salle d'attente où l'on verra son nom. Une salle
+  // d'anonymes ne les télécharge jamais.
+  const salleDecoree = porteUnDessin(s.snapshot?.players)
+  const dessins = useDessins(salleDecoree)
+  // Un téléphone qui revient en pleine soirée (rechargé, réveillé) tombe
+  // droit sur la salle ou la question : il attend ses dessins sous
+  // « Connexion… », une fois, plutôt que montrer des emojis qui se changent
+  // en médaillons. L'entrée, elle, n'en montre aucun et n'attend pas ; et
+  // après le premier écran, une arrivée ne fait plus rien attendre à personne.
+  const [dejaVu, setDejaVu] = useState(false)
+  const attendreDessins = !dejaVu && !!s.me && salleDecoree && !complets(dessins) && !dessins.echec
+  const affiche = !!s.snapshot && presente && !attendreDessins
+  useEffect(() => {
+    if (affiche) setDejaVu(true)
+  }, [affiche])
 
   const space = s.snapshot?.space
   useEffect(() => {
@@ -243,7 +271,7 @@ export function PlayerApp() {
   // Le premier instantané dit comment la soirée s'appelle, et la réponse de la
   // soirée dit si ce téléphone porte un profil : on ne montre pas un écran
   // d'entrée avant de savoir lequel des deux il faut.
-  if (!snap || !presente) return <AttenteConnexion />
+  if (!snap || !presente || attendreDessins) return <AttenteConnexion />
 
   // ── L'entrée ─────────────────────────────────────
   if (!s.me) {

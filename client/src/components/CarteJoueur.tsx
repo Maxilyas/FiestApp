@@ -4,10 +4,9 @@ import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { NOM_RARETE } from '../../../shared/badges'
 import { espacesFines, formatNumber, place, reponsesParType, secondes } from '../format'
-import { Avatar } from './Avatar'
-import { Chiffres, justesses } from './Carriere'
-import { Legendaire } from './Legendaire'
-import { Divin } from './Divin'
+import { Avatar, Dessin } from './Avatar'
+import { chargerDessins } from './medaillons'
+import { Chiffres, justesses } from './Chiffres'
 import { Niveau } from './Niveau'
 
 /**
@@ -28,6 +27,12 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
     let vivant = true
     fetch(`/s/${slug}/joueurs/${encodeURIComponent(playerId)}.json`)
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(r.status === 404 ? 'Ce joueur a quitté la soirée' : 'Carte indisponible'))))
+      // Une carte à médaillons attend leurs dessins sous son « Chargement… » :
+      // ouverte avant, elle montrerait des cercles vides qui se remplissent.
+      .then(async (c: CarteDeJoueur) => {
+        if (c.legendaire || c.profil?.legendaires.length || c.profil?.divins?.length) await chargerDessins()
+        return c
+      })
       .then(c => vivant && setCarte(c))
       .catch((e: Error) => vivant && setErreur(e.message))
     return () => {
@@ -99,7 +104,7 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                   <div className="carte-legendaires carte-divins" aria-label="Divins">
                     {p.divins.map(cle => (
                       <span key={cle} className="carte-legendaire" title={divin(cle)?.nom}>
-                        <Divin cle={cle} />
+                        <Dessin cle={cle} />
                       </span>
                     ))}
                   </div>
@@ -108,7 +113,7 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                   <div className="carte-legendaires" aria-label="Avatars légendaires">
                     {p.legendaires.map(cle => (
                       <span key={cle} className="carte-legendaire" title={legendaire(cle)?.nom}>
-                        <Legendaire cle={cle} />
+                        <Dessin cle={cle} />
                       </span>
                     ))}
                   </div>

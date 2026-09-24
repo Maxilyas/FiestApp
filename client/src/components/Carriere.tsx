@@ -8,6 +8,7 @@ import { NOM_RARETE } from '../../../shared/badges'
 import { estimations, formatNumber, pourcent, secondes, surQcm } from '../format'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
+import { Chiffres, justesses, type Chiffre } from './Chiffres'
 
 /**
  * La carrière d'un profil, telle que sa page la montre : ce qu'il a gagné,
@@ -311,40 +312,6 @@ function LigneSoiree({ h }: { h: HautFaitVu }) {
  * se lit juste en dessous, au titre de « Mes soirées ».
  */
 const ESSENTIELS = new Set(['Précision', 'Coup d’œil', 'Réflexe moyen', 'Quiz gagnés'])
-
-/** Un chiffre : son titre, sa valeur, et sur combien de questions il porte quand ça compte. */
-export type Chiffre = [titre: string, valeur: string, base?: string]
-
-/**
- * Des chiffres en grille, chacun sous son titre. La base s'écrit sous la
- * valeur : « Précision 50 % », seul, se lisait pareil sur deux QCM et sur
- * deux cents.
- */
-export function Chiffres({ cases, className }: { cases: Chiffre[]; className?: string }) {
-  return (
-    <dl className={'chiffres' + (className ? ` ${className}` : '')}>
-      {cases.map(([titre, valeur, base]) => (
-        <div key={titre} className="chiffre">
-          <dt className="label">{titre}</dt>
-          <dd className="num">{valeur}</dd>
-          {base && <dd className="chiffre-base">{base}</dd>}
-        </div>
-      ))}
-    </dl>
-  )
-}
-
-/** La précision et le coup d'œil d'une fiche, chacun avec sa base. */
-export function justesses(fiche: Pick<Fiche, 'precision' | 'qcm' | 'justes' | 'coupDOeil' | 'estimationsComparees'>): Chiffre[] {
-  return [
-    ['Précision', pourcent(fiche.precision), fiche.qcm > 0 ? surQcm(fiche.justes, fiche.qcm) : undefined],
-    [
-      'Coup d’œil',
-      pourcent(fiche.coupDOeil),
-      fiche.estimationsComparees > 0 ? `sur ${estimations(fiche.estimationsComparees)}` : undefined,
-    ],
-  ]
-}
 
 /**
  * La fiche : les chiffres d'une carrière, lisibles d'un coup d'œil. Le profil

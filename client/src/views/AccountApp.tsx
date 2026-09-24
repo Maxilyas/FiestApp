@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { chargerDessins } from '../components/medaillons'
 import { api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
 import { showToast, useAppState } from '../state'
@@ -19,7 +20,12 @@ export function AccountApp() {
   useEffect(() => {
     api.auth
       .me()
-      .then(setMe)
+      // Un profil rattaché qui porte un médaillon l'attend sous le
+      // « Chargement… » : son emoji ne précède pas son dessin.
+      .then(async m => {
+        if (m.profil?.legendaire) await chargerDessins()
+        setMe(m)
+      })
       .catch(e => {
         if (e instanceof UnauthorizedError) window.location.replace('/connexion?next=/compte')
         else setError((e as Error).message)
