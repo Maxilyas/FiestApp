@@ -46,6 +46,7 @@ import { ChampNombre } from '../components/ChampNombre'
 import { Shape } from '../components/Shape'
 import { TimerBar } from '../components/TimerBar'
 import { serverNow } from '../clock'
+import { gesteAccepte } from '../../../shared/console'
 import { LoginForm } from '../components/Invitation'
 import { espacesFines } from '../format'
 
@@ -1093,6 +1094,17 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
     return () => clearTimeout(timer)
   }, [observeUntil])
   const observing = observeUntil !== null
+  // « Passer à la question » devient « Revoir la photo » à la même place
+  // quand l'observation finit : un clic parti un instant trop tard relançait
+  // la photo. Comme à la console (`gesteAccepte`), le bouton qui vient de
+  // changer ignore un clic dans la demi-seconde.
+  const bascule = useRef<number | null>(null)
+  useEffect(() => {
+    bascule.current = performance.now()
+  }, [observing])
+  const garde = (geste: () => void) => () => {
+    if (gesteAccepte(bascule.current, performance.now())) geste()
+  }
   // Échap referme l'aperçu, comme n'importe quelle fenêtre.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -1165,7 +1177,7 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
           </span>
           <div className="row">
             {observing ? (
-              <button className="btn btn-ghost btn-small" onClick={() => setObserveUntil(null)}>
+              <button className="btn btn-ghost btn-small" onClick={garde(() => setObserveUntil(null))}>
                 <Icon name="skip" />
                 Passer à la question
               </button>
@@ -1173,7 +1185,7 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
               observe !== null && (
                 <button
                   className="btn btn-ghost btn-small"
-                  onClick={() => setObserveUntil(serverNow() + observe * 1000)}
+                  onClick={garde(() => setObserveUntil(serverNow() + observe * 1000))}
                 >
                   <Icon name="rotate" />
                   Revoir la photo
