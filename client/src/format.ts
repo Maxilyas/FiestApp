@@ -49,10 +49,11 @@ export const surQcm = (justes: number, qcm: number) => `${formatNumber(justes)} 
 
 /**
  * Ce qu'on a répondu, par type de question : « précision 50 % (1 sur 2 QCM)
- * · 62 estimations, coup d’œil 83 % ». Une estimation n'est ni juste ni fausse : comptée avec
- * les QCM, elle faisait lire « 1/64 justes » — ou « 64 réponses, 1 juste » —
- * à qui en avait joué soixante-deux. Sans `compte`, le coup d'œil se passe
- * du nombre d'estimations : une ligne d'historique tient sur un téléphone.
+ * · 62 estimations, coup d’œil 83 % ». Une estimation n'est ni juste ni
+ * fausse : comptée avec les QCM, elle faisait lire « 1/64 justes » — ou
+ * « 64 réponses, 1 juste » — à qui en avait joué soixante-deux. Sans
+ * `compte`, le coup d'œil se passe du nombre d'estimations : une ligne
+ * d'historique tient sur un téléphone.
  * Vide sans réponse.
  */
 export function reponsesParType(
