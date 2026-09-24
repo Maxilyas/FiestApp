@@ -1,4 +1,5 @@
 import { Icon, type IconName } from './Icon'
+import { espacesFines } from '../format'
 import { enumerer } from '../../../shared/classement'
 import { VerdictDesEquipes } from './TeamBoard'
 import { PrixRemis } from './PrixRemis'
@@ -24,9 +25,9 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
           <Icon name={icon} />
         </span>
         <h3>{title}</h3>
-        <p>{q.text}</p>
+        <p>{espacesFines(q.text)}</p>
         <p className="muted small">
-          {questionLabel(q)} du quiz « {q.quizTitle} » · {sub(q)}
+          {questionLabel(q)} du quiz {espacesFines(`« ${q.quizTitle} »`)} · {sub(q)}
         </p>
       </div>
     )

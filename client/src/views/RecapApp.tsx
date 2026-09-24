@@ -150,8 +150,9 @@ export function RecapApp() {
           <TeamBoard teams={recap.teams} showFinalPoints />
           <p className="muted small">
             Le chiffre cerclé : le barème du quiz, prix compris — c'est lui qui range les équipes
-            et désigne la gagnante. En champagne, la moyenne par membre, qui a distribué le barème :
-            autant de points que d'équipes pour la meilleure, un de moins pour la suivante.
+            et désigne la gagnante. Le grand chiffre à droite, la moyenne par membre, qui a
+            distribué le barème : autant de points que d'équipes pour la meilleure, un de moins
+            pour la suivante.
           </p>
         </section>
       )}

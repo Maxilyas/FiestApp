@@ -6,6 +6,8 @@ import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { api } from '../api'
 import { dataUrl, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
+import { titreDeCloture } from '../../../shared/space'
+import { espacesFines } from '../format'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
@@ -457,7 +459,7 @@ export function HostApp() {
       title: 'Clore la soirée',
       message:
         'Elle rejoint l’historique sous ce nom. Chaque invité reçoit sa fin de soirée sur son téléphone — son rang, ses hauts faits, ses niveaux —, puis la suivante part de zéro.',
-      input: { value: rangee ?? `Soirée du ${formatDay(Date.now())}`, maxLength: 80 },
+      input: { value: titreDeCloture(rangee, snap.space, formatDay(Date.now())), maxLength: 80 },
       confirmLabel: 'Clore la soirée',
       alternative: { label: 'C’était un essai', danger: true },
     })
@@ -487,7 +489,7 @@ export function HostApp() {
         {/* La bande d'état : le titre, où on en est, comment rejoindre. */}
         <header className="host-band">
           <div className="band-left">
-            <span className="brand">{snap.space.title}</span>
+            <span className="brand">{espacesFines(snap.space.title)}</span>
             {quizView?.packTitle && (
               <>
                 <span className="band-sep" aria-hidden="true" />
@@ -653,9 +655,9 @@ export function HostApp() {
                     <FinalPodium rows={teamPodium} />
                     <TeamBoard teams={teams} showFinalPoints />
                     <p className="muted center">
-                      En champagne, la moyenne par membre : c'est elle qui fait le podium du
-                      quiz et distribue le barème. Le chiffre cerclé : le barème, prix compris —
-                      il range le tableau et désigne l'équipe gagnante.
+                      Le grand chiffre à droite, la moyenne par membre : c'est elle qui fait le
+                      podium du quiz et distribue le barème. Le chiffre cerclé : le barème, prix
+                      compris — il range le tableau et désigne l'équipe gagnante.
                     </p>
                   </>
                 ) : (
@@ -896,8 +898,8 @@ export function HostApp() {
                           ))}
                         </div>
                         <p className="muted small center">
-                          Le gros chiffre est le total du quiz, prix compris. Ajoute-lui tes deux jeux
-                          physiques pour désigner l'équipe gagnante de la soirée.
+                          Le gros chiffre est le total du quiz, prix compris : c'est lui qui
+                          classe les équipes.
                         </p>
                       </div>
 
@@ -957,7 +959,7 @@ export function HostApp() {
                         <div className="qr-box">
                           <QRCodeSVG value={wifiQrValue(snap.wifi)} size={148} bgColor="#ffffff" fgColor={QR_INK} />
                         </div>
-                        <span className="label">1 · Wifi « {snap.wifi.ssid} »</span>
+                        <span className="label">1 · Wifi {espacesFines(`« ${snap.wifi.ssid} »`)}</span>
                       </div>
                     )}
                     <div className="invite-qr">
@@ -1051,7 +1053,8 @@ export function HostApp() {
                   <TeamBoard teams={teams} showFinalPoints />
                   <p className="muted small">
                     Le chiffre cerclé : le barème, prix compris — il range les équipes et désigne
-                    la gagnante. En champagne, la moyenne par membre, qui distribue le barème.
+                    la gagnante. Le grand chiffre à droite, la moyenne par membre, qui distribue le
+                    barème.
                   </p>
                 </section>
               )}
@@ -1110,7 +1113,7 @@ export function HostApp() {
           </div>
         </footer>
 
-        {s.toast && <div className={`toast toast-${s.toast.kind}`}>{s.toast.message}</div>}
+        {s.toast && <div className={`toast toast-${s.toast.kind}`}>{espacesFines(s.toast.message)}</div>}
       </div>
     </ConsoleSlot.Provider>
   )
