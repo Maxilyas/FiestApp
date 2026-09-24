@@ -324,14 +324,22 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
           />
         )}
 
-        {v.category && <span className="label quiz-categorie">{v.category}</span>}
-        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{espacesFines(v.text ?? '')}</h2>
-        {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
-        {v.photoGone && (
-          <p className="photo-gone">
-            <Icon name="eye-off" /> La photo a disparu — de mémoire !
-          </p>
-        )}
+        {/* L'énoncé et sa photo côte à côte : empilée sous la question, la
+            photo poussait les réponses sous la console en 1366 × 768, la
+            définition des portables qu'on branche à la télé. La largeur d'un
+            écran 16/9, elle, ne manque jamais (styles.css). */}
+        <div className={'quiz-enonce' + (v.image ? ' avec-photo' : '')}>
+          <div className="quiz-enonce-texte">
+            {v.category && <span className="label quiz-categorie">{v.category}</span>}
+            <h2 className={'quiz-question' + questionSizeClass(v.text)}>{espacesFines(v.text ?? '')}</h2>
+            {v.photoGone && (
+              <p className="photo-gone">
+                <Icon name="eye-off" /> La photo a disparu — de mémoire !
+              </p>
+            )}
+          </div>
+          {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
+        </div>
 
         {v.kind === 'number' ? (
           revealing ? (
@@ -451,23 +459,42 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
   }
 
   // finished
+  // Le podium à gauche, les équipes et la suite du classement à droite :
+  // empilés, les équipes passaient sous la console en 1366 × 768, et la
+  // salle ne voyait que leur titre.
   return (
     <div className="quiz-host stage-scroll">
       <h2>
         <Icon name="trophy" />
         Podium du quiz
       </h2>
-      {v.standings && <FinalPodium rows={v.standings} />}
-      {v.standings && v.standings.length > 3 && <Standings rows={v.standings.slice(3)} offset={3} />}
-      {teams.length > 0 && (
-        <div>
-          <h3>
-            <Icon name="users" />
-            Les équipes après ce quiz
-          </h3>
-          <TeamBoard teams={teams} showGamePoints />
-        </div>
-      )}
+      <div className="scene-podium">
+        {v.standings && <FinalPodium rows={v.standings} />}
+        {(teams.length > 0 || (v.standings?.length ?? 0) > 3) && (
+          <div className="scene-listes">
+            {teams.length > 0 && (
+              <div>
+                <h3>
+                  <Icon name="users" />
+                  Les équipes après ce quiz
+                </h3>
+                <TeamBoard teams={teams} showGamePoints />
+              </div>
+            )}
+            {/* Les équipes d'abord : c'est leur classement qui décide de la
+                soirée, et la suite du classement peut être longue. */}
+            {v.standings && v.standings.length > 3 && (
+              <div>
+                <h3>
+                  <Icon name="trophy" />
+                  La suite du classement
+                </h3>
+                <Standings rows={v.standings.slice(3)} offset={3} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       <ConsoleActions>
         <button ref={principal} className="btn btn-primary" onClick={garde(endSession)}>
           Terminer le quiz

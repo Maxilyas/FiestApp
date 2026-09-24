@@ -631,55 +631,36 @@ export function HostApp() {
               </>
             ) : screen === 'podium' ? (
               <div className="quiz-host stage-scroll">
-                {teams.length > 0 && (
-                  <div className="row podium-tabs">
-                    <button
-                      className={'pill-btn' + (podiumTab === 'teams' ? ' active' : '')}
-                      onClick={() => setPodiumTab('teams')}
-                    >
-                      <Icon name="users" />
-                      Les équipes
-                    </button>
-                    <button
-                      className={'pill-btn' + (podiumTab === 'solo' ? ' active' : '')}
-                      onClick={() => setPodiumTab('solo')}
-                    >
-                      <Icon name="trophy" />
-                      Les joueurs
-                    </button>
-                  </div>
-                )}
-
-                {showTeamPodium ? (
-                  <>
-                    <h2>
-                      <Icon name="users" />
-                      Les équipes au quiz
-                    </h2>
-                    <FinalPodium rows={teamPodium} />
-                    <TeamBoard teams={teams} showGamePoints />
-                    <p className="muted center">
-                      Le chiffre cerclé : les points de classement du quiz, auxquels les prix
-                      s'ajoutent pour désigner l'équipe gagnante. Le grand chiffre à droite, la
-                      moyenne par membre — c'est elle qui classe les équipes.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <h2>
-                      <Icon name="trophy" />
-                      Le classement de la soirée
-                    </h2>
-                    <FinalPodium rows={ranking} />
-                    {ranking.length > 3 && <Standings rows={ranking.slice(3)} offset={3} />}
-                    {recap && <Trophies recap={recap} />}
-                  </>
-                )}
-
-                {/* Le QR est le seul moyen pour un invité d'emporter la page :
-                    il ne peut pas cliquer sur un lien projeté au mur. */}
-                <div className="stage-foot">
-                  <div className="qr-stack">
+                {/* Le titre, les onglets et le QR du souvenir sur une ligne,
+                    le podium à gauche et les listes à droite : empilés, ils
+                    faisaient deux écrans en 1366 × 768, et le QR — le seul
+                    moyen pour un invité d'emporter la page, il ne peut pas
+                    cliquer sur un lien projeté au mur — tombait sous la
+                    console. */}
+                <div className="scene-tete">
+                  <h2>
+                    <Icon name={showTeamPodium ? 'users' : 'trophy'} />
+                    {showTeamPodium ? 'Les équipes au quiz' : 'Le classement de la soirée'}
+                  </h2>
+                  {teams.length > 0 && (
+                    <div className="row podium-tabs">
+                      <button
+                        className={'pill-btn' + (podiumTab === 'teams' ? ' active' : '')}
+                        onClick={() => setPodiumTab('teams')}
+                      >
+                        <Icon name="users" />
+                        Les équipes
+                      </button>
+                      <button
+                        className={'pill-btn' + (podiumTab === 'solo' ? ' active' : '')}
+                        onClick={() => setPodiumTab('solo')}
+                      >
+                        <Icon name="trophy" />
+                        Les joueurs
+                      </button>
+                    </div>
+                  )}
+                  <div className="qr-stack scene-qr">
                     <div className="qr-box">
                       <QRCodeSVG value={`${joinUrl}/souvenir`} size={84} bgColor="#ffffff" fgColor={QR_INK} />
                     </div>
@@ -689,6 +670,30 @@ export function HostApp() {
                     </div>
                   </div>
                 </div>
+
+                {showTeamPodium ? (
+                  <div className="scene-podium">
+                    <FinalPodium rows={teamPodium} />
+                    <div className="scene-listes">
+                      <TeamBoard teams={teams} showGamePoints />
+                      <p className="muted small">
+                        Le chiffre cerclé : les points de classement du quiz, auxquels les prix
+                        s'ajoutent pour désigner l'équipe gagnante. Le grand chiffre à droite, la
+                        moyenne par membre — c'est elle qui classe les équipes.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="scene-podium">
+                    <FinalPodium rows={ranking} />
+                    {(ranking.length > 3 || recap) && (
+                      <div className="scene-listes">
+                        {ranking.length > 3 && <Standings rows={ranking.slice(3)} offset={3} />}
+                        {recap && <Trophies recap={recap} />}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <ConsoleActions>
                   <a className="btn btn-accent" href={spacePath(slug, 'souvenir')} target="_blank" rel="noreferrer">
