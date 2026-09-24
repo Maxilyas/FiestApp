@@ -1024,7 +1024,6 @@ h3 > .icon {
 .player-chip.offline { opacity: 0.55; }
 .chip-offline { display: inline-flex; color: var(--muted); }
 .chip-offline .icon { width: 14px; height: 14px; }
-.player-chip .player-name { max-width: 9ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .main-stage { display: flex; flex-direction: column; min-height: 0; }
 
@@ -1195,8 +1194,6 @@ h3 > .icon {
 .quiz-host .timer-seconds { font-size: 66px; min-width: 74px; }
 .timer-seconds.urgent { color: var(--alert); }
 .timer-seconds .icon { width: 0.6em; height: 0.6em; color: var(--muted); }
-
-.question-timer { display: flex; flex-direction: column; gap: 4px; }
 
 /* ── Quiz : réponses ────────────────────────────── */
 .ans-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -2004,8 +2001,6 @@ h3 > .icon {
   font-weight: 500;
   font-size: 1.4rem;
 }
-
-.podium-actions { align-items: center; gap: 18px; }
 
 /* Le pied de scène : un QR à emporter, sans encombrer la console. */
 .stage-foot {
@@ -2958,9 +2953,7 @@ h3 > .icon {
 .leaderboard .lb-row:nth-child(n + 6) .av::before,
 .leaderboard .lb-row:nth-child(n + 6) .av::after,
 .stats-table tbody tr:nth-child(n + 6) .av::before,
-.stats-table tbody tr:nth-child(n + 6) .av::after,
-.chips .av::before,
-.chips .av::after {
+.stats-table tbody tr:nth-child(n + 6) .av::after {
   animation: none;
 }
 
@@ -3128,32 +3121,6 @@ h3 > .icon {
   background: var(--accent-soft);
 }
 .badge.rarete-legendaire .badge-pied { color: var(--accent-text); }
-
-.a-decrocher { margin-top: 12px; }
-.a-decrocher summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.a-decrocher summary .icon { width: 15px; height: 15px; }
-.a-decrocher-liste {
-  list-style: none;
-  padding: 10px 0 0;
-  margin: 0;
-  display: grid;
-  gap: 8px;
-}
-.a-decrocher-liste li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-.a-decrocher-liste .badge-emoji { font-size: 1.3rem; opacity: 0.5; }
 
 /* ── L'historique des soirées ──────────────────────────────────────────── */
 
@@ -3689,8 +3656,7 @@ h3 > .icon {
 .leaderboard .lb-row:nth-child(n + 6) .lg *,
 .stats-table tbody tr:nth-child(n + 6) .lg *,
 .leaderboard .lb-row:nth-child(n + 6) .dv *,
-.stats-table tbody tr:nth-child(n + 6) .dv *,
-.chips .dv * {
+.stats-table tbody tr:nth-child(n + 6) .dv * {
   animation: none;
 }
 

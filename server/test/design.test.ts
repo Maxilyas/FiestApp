@@ -176,3 +176,34 @@ test('T2 · les avatars de l’entrée ne descendent jamais sous la largeur d’
   // 44 : ils se chevauchaient, et toucher le koala choisissait le lion.
   assert.match(regle('.emoji-grid'), /grid-template-columns:\s*repeat\(auto-fill, minmax\(44px, 1fr\)\)/)
 })
+
+// ── S7 · Aucune classe morte ──────────────────────────────────────────────
+
+test('S7 · chaque classe de la feuille de style est nommée quelque part', () => {
+  // Une règle morte trompe qui cherche une cause : un expert a pris
+  // `.player-chip .player-name`, que plus rien ne portait, pour celle de la
+  // coupure des prénoms. Le repérage est celui de `css-mort.mjs` (la tablée
+  // du 24 septembre) : un nom en entier, ou un préfixe construit.
+  const css = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
+  const classes = new Set<string>()
+  for (const [, sel] of css.matchAll(/([^{}]+)\{/g)) {
+    if (sel.trim().startsWith('@')) continue
+    for (const m of sel.matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)) classes.add(m[1])
+  }
+  const lire = (dossier: URL): string[] =>
+    (readdirSync(dossier, { recursive: true }) as string[])
+      .filter(f => /\.(tsx?|html)$/.test(f))
+      .map(f => readFileSync(new URL(f.replace(/\\/g, '/'), dossier), 'utf8'))
+  const source = [
+    ...lire(new URL('../../client/src/', import.meta.url)),
+    ...lire(new URL('../../shared/', import.meta.url)),
+    readFileSync(new URL('../../client/index.html', import.meta.url), 'utf8'),
+  ].join('\n')
+  // `av-${finition}`, `'status-' + a.status` : des noms assemblés.
+  const prefixes = [...source.matchAll(/[`'" ]([a-z][\w-]*-)(?:\$\{|['"`] *\+)/g)].map(m => m[1])
+  const nommee = (c: string) =>
+    new RegExp(`(^|[^\\w-])${c.replace(/-/g, '\\-')}($|[^\\w-])`).test(source) || prefixes.some(p => c.startsWith(p))
+  const mortes = [...classes].filter(c => !nommee(c)).sort()
+  assert.deepEqual(mortes, [], 'des classes sans personne pour les porter')
+  assert.ok(classes.size > 400, `la feuille est bien lue (${classes.size} classes)`)
+})
