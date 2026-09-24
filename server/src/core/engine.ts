@@ -103,9 +103,17 @@ export class GameEngine {
    * L'écriture locale d'une simple réponse, remise à la fin du tour de
    * boucle. Deux cents réponses lues dans le même tour réécrivaient deux
    * cents fois l'état entier de la partie (86 Ko à 500 invités) : une seule
-   * suffit, celle du dernier état. Rien d'autre n'attend — une phase, un
-   * chronomètre, des gains ou des réponses au journal s'écrivent sur-le-champ,
+   * suffit, celle du dernier état. Une phase, un chronomètre armé ou
+   * désarmé, des gains ou des réponses au journal s'écrivent sur-le-champ,
    * dans le même lot que le reste (voir `run()`).
+   *
+   * La fenêtre ouverte entre l'accusé et l'écriture est de l'ordre de la
+   * milliseconde — quelques dizaines sous une rafale au dixième de cœur :
+   * c'est ce qu'un SIGKILL peut emporter, et seulement la réponse elle-même.
+   * Un chronomètre RÉARMÉ sous la même clé (le souffle qu'un invité qui se
+   * ravise relance, `quiz.ts`) ne change pas l'`empreinte` : sa nouvelle
+   * échéance attend, elle aussi, la fin du tour. Au pire, un réveil
+   * reprend l'ancienne, un souffle plus tôt.
    */
   private persistEnAttente: ReturnType<typeof setImmediate> | null = null
 
