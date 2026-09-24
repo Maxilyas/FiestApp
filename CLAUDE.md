@@ -359,7 +359,9 @@ sans `QUIZ_DB_URL`.
   qu'elle mesurait).
 - **Les pages publiques se gardent** (`core/pages.ts`) tant que leur
   empreinte ne bouge pas. Une écriture d'un journal (`Party`, `Teams`,
-  `ScoreLedger`, `AnswerLog`) fait monter sa `revision`, une écriture de
+  `ScoreLedger`, `AnswerLog`) qui change vraiment quelque chose fait monter
+  sa `revision` — pas un téléphone qui se re-présente au réveil, sinon toute
+  la salle qui sort de veille refait le souvenir —, une écriture de
   l'historique passe par `ArchiveStore.ecrire` : une nouvelle écriture qui
   les contournerait laisserait le souvenir en retard — une minute au plus en
   cours de soirée —, et une nouvelle source d'une page publique entre dans
