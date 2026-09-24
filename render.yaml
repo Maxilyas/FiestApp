@@ -70,9 +70,14 @@ services:
     envVars:
       - key: NODE_VERSION
         value: '22'
-      # MAX_PLAYERS (facultatif, à saisir dans l'interface) plafonne les
-      # invités d'une soirée. Sur l'offre gratuite, pas au-delà de 150 environ
-      # tant que le coût des diffusions à toute la salle n'est pas réglé.
+      # MAX_PLAYERS plafonne les invités d'une soirée, par-dessus le réglage
+      # de chaque espace. Sur l'offre gratuite, 150 : une salle de 300 fait
+      # céder le dixième de processeur (mesuré), et le code, sans elle, laisse
+      # monter jusqu'à 500. Il borne chaque espace, pas leur somme. C'est le
+      # tableau de bord qui fait foi : le journal de démarrage (« au plus …
+      # invités par soirée ») et /healthz (`maxPlayers`) disent la valeur lue.
+      - key: MAX_PLAYERS
+        value: '150'
       # Le compte administrateur, créé au tout premier démarrage seulement :
       # identifiant, mot de passe d'amorçage (à changer ensuite depuis
       # « Mon compte », puis à retirer d'ici : une fois le compte créé, le
@@ -122,6 +127,9 @@ services:
       # ses quiz dans la mauvaise base.
       - key: APP_ENV
         value: preprod
+      # Le même plafond que la production : c'est sur elle qu'on mesure.
+      - key: MAX_PLAYERS
+        value: '150'
       - key: ADMIN_LOGIN
         sync: false
       # Un mot de passe DIFFÉRENT de celui de la production.

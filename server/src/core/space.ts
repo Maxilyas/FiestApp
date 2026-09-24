@@ -17,7 +17,7 @@ import { divinsDeSoiree, laureatsDivins, raconter } from './divins'
 import { computeStats } from './stats'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
-import { ProfileStore, type PrixDeSoiree } from '../auth/profiles'
+import { ProfileStore, cleDeSoiree, type PrixDeSoiree } from '../auth/profiles'
 import {
   coupDOeilMoyen,
   distinctions,
@@ -55,6 +55,14 @@ export interface SpaceDeps {
   baseUrl: () => string | null
   /** Plafond d'invités que même le réglage d'un espace ne dépasse pas. */
   maxPlayersCeiling: number
+  /**
+   * Les espaces dont la soirée est en train de se clore, communs à tout le
+   * serveur. Leur ligne de la table `soiree` ne part qu'à la fin de leur
+   * clôture, après leurs crédits : sans eux, deux soirées closes au même
+   * instant s'écartaient l'une l'autre des paliers (`soireesEnCoursAilleurs`),
+   * et celui qu'elles atteignaient ensemble ne tombait nulle part.
+   */
+  cloturesEnCours: Set<string>
 }
 
 /**
@@ -138,6 +146,13 @@ function empreinteDuCredit(soireeId: string, gains: SoireeGain[]): string {
 }
 
 /**
+ * Chaque soirée chargée reçoit son numéro : un espace déchargé puis réveillé
+ * repart de journaux relus, dont les compteurs d'écriture repartent de zéro
+ * — sans ce numéro, une page gardée d'avant pourrait passer pour à jour.
+ */
+let incarnations = 0
+
+/**
  * La soirée d'un espace : ses invités, ses équipes, ses points, son journal,
  * sa partie en cours — et ses diffusions, qui ne sortent jamais de ses
  * salons. Chaque animateur en a une ; elles ne se voient pas.
@@ -166,6 +181,7 @@ export class SpaceRuntime {
   /** La diffusion regroupée des téléphones, et celle des écrans communs — voir `broadcastSnapshot`. */
   private pending: ReturnType<typeof setTimeout> | null = null
   private pendingEcrans: ReturnType<typeof setTimeout> | null = null
+  private readonly incarnation = ++incarnations
 
   constructor(
     readonly spaceId: string,
@@ -197,7 +213,14 @@ export class SpaceRuntime {
       // compris : une archive et de l'expérience ont pu être écrites sous ce
       // nom-là, et si le premier arrivé s'en allait avant qu'il ne resserve,
       // plus rien ne permettrait de le retrouver.
-      const tiree = this.tirerSoiree()
+      //
+      // Des réponses au journal sans nom rangé : un quiz s'est joué sur un
+      // serveur qui ne rangeait pas les noms, et il a pu écrire son archive et
+      // son expérience sous le nom d'alors, sans l'empreinte de l'espace. Le
+      // tirer au format du jour doublait l'archive et recomptait
+      // l'expérience du premier quiz (invariant 11). Sans réponse, rien n'a
+      // pu s'écrire : le nom du jour ne rebaptise rien.
+      const tiree = this.tirerSoiree(this.answers.all().length > 0)
       if (tiree) {
         this.recopierSoiree(tiree).catch(e => console.warn(`[soirée] nom non recopié : ${(e as Error).message}`))
       }
@@ -279,9 +302,13 @@ export class SpaceRuntime {
     return row ? { id: row.id, heldAt: row.held_at } : null
   }
 
-  /** Tire le nom sur les invités présents, et le range sur le disque local. */
-  private tirerSoiree(): Soiree | null {
-    const soiree = soireeDesInvites(this.party.all())
+  /**
+   * Tire le nom sur les invités présents, et le range sur le disque local.
+   * `commeAvant` le tire sans l'empreinte de l'espace, comme le faisait le
+   * serveur d'avant — pour retrouver le nom d'une soirée qu'il a commencée.
+   */
+  private tirerSoiree(commeAvant = false): Soiree | null {
+    const soiree = soireeDesInvites(this.party.all(), commeAvant ? null : this.spaceId)
     if (!soiree) return null
     this.deps.db
       .prepare('INSERT OR REPLACE INTO soiree (space_id, id, held_at) VALUES (?, ?, ?)')
@@ -307,6 +334,20 @@ export class SpaceRuntime {
     // serveur. Celui qui l'attend reçoit bien l'erreur.
     ecriture.catch(() => {})
     return ecriture
+  }
+
+  /**
+   * Les soirées qui se jouent en ce moment dans les autres espaces
+   * (`cleDeSoiree`). La base locale range le nom de chacune dès qu'il est
+   * tiré et l'oublie à sa fin — le miroir le lui rend après un réveil sur
+   * disque effacé. Une soirée dont la clôture est en cours compte pour
+   * close (`cloturesEnCours`).
+   */
+  private soireesEnCoursAilleurs(): Set<string> {
+    const rows = this.deps.db
+      .prepare('SELECT space_id, id FROM soiree WHERE space_id <> ?')
+      .all(this.spaceId) as { space_id: string; id: string }[]
+    return new Set(rows.filter(r => !this.deps.cloturesEnCours.has(r.space_id)).map(r => cleDeSoiree(r.space_id, r.id)))
   }
 
   /** La soirée suivante tirera son propre nom, sur ses propres invités. */
@@ -392,6 +433,30 @@ export class SpaceRuntime {
   }
 
   /**
+   * Ce dont se dérivent les pages publiques de la soirée en cours : le numéro
+   * d'écriture de chaque journal et, tant que rien n'est joué, le nom de la
+   * soirée et l'historique de l'espace, où se lit la dernière soirée close
+   * (`derniere`). Une fois une question jouée, la page ne dépend plus
+   * de l'historique : le rangement qui suit chaque podium, au moment même où
+   * la salle scanne le QR, refaisait la page pour rien. Sans lire le
+   * journal : les pages le demandent à chaque requête. Ce qui n'y est pas — le niveau d'un
+   * profil, l'intitulé d'un quiz de la bibliothèque — paraît à la durée de
+   * vie de la page (`core/pages.ts`).
+   */
+  empreinteDesPages(): string {
+    return [
+      this.incarnation,
+      this.party.revision,
+      this.teams.revision,
+      this.ledger.revision,
+      this.answers.revision,
+      // `derniere` écarte la soirée en cours par son nom : l'un et l'autre
+      // ne comptent que tant que rien n'est joué.
+      this.aJoue() ? '' : `${this.soiree?.id ?? ''}.${this.deps.archives.revision(this.spaceId)}`,
+    ].join('.')
+  }
+
+  /**
    * Vrai dès qu'une question a été jouée dans la soirée en cours : ses pages
    * parlent alors d'elle. Avant, elles montrent la dernière soirée close.
    */
@@ -414,12 +479,10 @@ export class SpaceRuntime {
     const p = this.party.publicOne(playerId, points)
     if (!p) return null
     const positifs = [...totals.values()].filter(t => t > 0)
-    const journal = this.answers.all()
+    const { releves, joueurs } = this.relevesDesCartes()
     // Sa soirée telle que sa fiche la rangera : la même lecture du journal,
     // les mêmes chiffres.
-    const soir =
-      relevesDeSoiree({ players: this.party.all(), scores: this.ledger.all(), answers: journal }).get(playerId)?.releve ??
-      releveVide()
+    const soir = releves.get(playerId)?.releve ?? releveVide()
     const carte: CarteDeJoueur = {
       nom: p.nomAffiche ?? p.name,
       avatar: p.avatar,
@@ -429,7 +492,7 @@ export class SpaceRuntime {
         rang: points > 0 ? rangPartage(points, positifs) : 0,
         // Toute la salle qui a joué, pas seulement ceux qui ont marqué : « 1ᵉʳ
         // sur 2 » quand cinq ont répondu laissait croire à une salle vide.
-        joueurs: new Set(journal.filter(r => r.answered).map(r => r.playerId)).size,
+        joueurs,
         reponses: soir.reponses,
         // Les justes se comptent sur les QCM seuls : une estimation n'est
         // jamais juste, et la compter au dénominateur faisait lire « 1/64
@@ -470,6 +533,27 @@ export class SpaceRuntime {
       },
     }
     return carte
+  }
+
+  private cartesGardees: { empreinte: string; releves: ReturnType<typeof relevesDeSoiree>; joueurs: number } | null =
+    null
+
+  /**
+   * Les relevés de toute la salle, gardés tant que les journaux ne bougent
+   * pas : chaque carte ouverte relisait le journal entier pour n'en garder
+   * qu'une ligne, et toute la salle touche les noms au podium.
+   */
+  private relevesDesCartes() {
+    const empreinte = this.empreinteDesPages()
+    if (this.cartesGardees?.empreinte !== empreinte) {
+      const journal = this.answers.all()
+      this.cartesGardees = {
+        empreinte,
+        releves: relevesDeSoiree({ players: this.party.all(), scores: this.ledger.all(), answers: journal }),
+        joueurs: new Set(journal.filter(r => r.answered).map(r => r.playerId)).size,
+      }
+    }
+    return this.cartesGardees
   }
 
   /** Le nom qu'un invité porte sur les écrans, et ce qu'il porte. */
@@ -945,7 +1029,7 @@ export class SpaceRuntime {
       // le téléphone d'essai de l'animateur. Tant que le nom n'est pas tiré,
       // c'est l'heure qu'il prendra — sans le tirer ici : une page publique
       // ne décide pas du nom de la soirée.
-      since: (this.soiree ?? soireeDesInvites(this.party.all()))?.heldAt ?? null,
+      since: (this.soiree ?? soireeDesInvites(this.party.all(), this.spaceId))?.heldAt ?? null,
     }
   }
 
@@ -1032,6 +1116,9 @@ export class SpaceRuntime {
       let summary: ArchiveSummary | null = null
       let annonce: (() => void) | undefined
       if (soiree && built) {
+        // Dès ici, pour les paliers des autres espaces, cette soirée est
+        // close : elle ne rendra plus que ce qu'elle a déjà écrit.
+        this.deps.cloturesEnCours.add(this.spaceId)
         const credit = this.creditDeCloture({ players, scores, answers })
         const recopie = this.recopierSoiree(soiree)
         const bilans = await this.enFile(async () => {
@@ -1054,6 +1141,9 @@ export class SpaceRuntime {
       await this.viderSoiree(summary ? 'close' : 'discard', annonce)
       return summary
     } finally {
+      // Close pour de bon, sa ligne est partie ; refusée par le miroir, elle
+      // se joue encore et redevient une soirée en cours pour les autres.
+      this.deps.cloturesEnCours.delete(this.spaceId)
       this.fermeture = false
     }
   }
@@ -1081,10 +1171,12 @@ export class SpaceRuntime {
     // pouvoir repartir.
     await this.deps.profiles.remplacerRecompensesDeSoiree(soireeId, this.spaceId, credit.laureats)
     const bilans = new Map<string, NonNullable<FinDeSoiree['profil']>>()
+    const ailleurs = this.soireesEnCoursAilleurs()
     await enParallele(credit.gains, PROFILS_EN_VOL, async g => {
       // Les paliers de carrière viennent en dernier : ils se décident sur les
-      // totaux, expérience et hauts faits de ce soir compris.
-      const paliers = await this.deps.profiles.accorderPaliers(g.profileId, soireeId, this.spaceId)
+      // totaux, expérience et hauts faits de ce soir compris — mais pas sur
+      // les soirées qui se jouent encore dans d'autres espaces.
+      const paliers = await this.deps.profiles.accorderPaliers(g.profileId, soireeId, this.spaceId, ailleurs)
       const profil = await this.deps.profiles.byId(g.profileId).catch(() => null)
       if (!profil) return
       const xpPaliers = paliers.reduce((n, cle) => n + (palierDe(cle) ? XP_PALIER[palierDe(cle)!.palier - 1] : 0), 0)

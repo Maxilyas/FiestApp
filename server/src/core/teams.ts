@@ -45,6 +45,12 @@ const emojiDEquipe = (emoji: string | undefined) => tronquer(emoji?.trim() ?? ''
 export class Teams {
   private teams = new Map<string, TeamRec>()
   private bonuses = new Map<string, TeamBonus>()
+  /**
+   * Monte à chaque écriture — équipe ou prix remis : les pages publiques
+   * (`core/pages.ts`) s'en servent pour savoir si leur calcul tient encore,
+   * sans relire le journal.
+   */
+  revision = 0
 
   constructor(
     private db: DB,
@@ -100,6 +106,7 @@ export class Teams {
       .prepare('INSERT INTO teams (id, name, emoji, position, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)')
       .run(rec.id, rec.name, rec.emoji, rec.position, rec.createdAt, this.spaceId)
     this.backup?.saveTeam(rec)
+    this.revision++
     return rec
   }
 
@@ -112,6 +119,7 @@ export class Teams {
     if (emoji) rec.emoji = emoji
     this.db.prepare('UPDATE teams SET name = ?, emoji = ? WHERE id = ?').run(rec.name, rec.emoji, id)
     this.backup?.saveTeam(rec)
+    this.revision++
     return true
   }
 
@@ -123,6 +131,7 @@ export class Teams {
       if (bonus.teamId === id) this.removeBonus(bonus.id)
     }
     this.backup?.deleteTeam(id)
+    this.revision++
     return true
   }
 
@@ -138,6 +147,7 @@ export class Teams {
     this.db.prepare('DELETE FROM team_bonus WHERE space_id = ?').run(this.spaceId)
     this.teams.clear()
     this.bonuses.clear()
+    this.revision++
   }
 
   // ── Prix remis par l'animateur ──────────────────────────────────────────
@@ -163,6 +173,7 @@ export class Teams {
       .prepare('INSERT INTO team_bonus (id, team_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)')
       .run(rec.id, rec.teamId, rec.points, rec.reason, rec.createdAt, this.spaceId)
     this.backup?.saveBonus(rec)
+    this.revision++
     return rec
   }
 
@@ -170,6 +181,7 @@ export class Teams {
     if (!this.bonuses.delete(bonusId)) return false
     this.db.prepare('DELETE FROM team_bonus WHERE id = ?').run(bonusId)
     this.backup?.deleteBonus(bonusId)
+    this.revision++
     return true
   }
 

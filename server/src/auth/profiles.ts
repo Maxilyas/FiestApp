@@ -244,6 +244,30 @@ export function decodeDetail(raw: string): { v: number; gain: GainSoiree; releve
   return { v: 1, gain: gainVide(), releve }
 }
 
+/** La ligne d'expérience d'un profil pour une soirée : remplacée, jamais ajoutée (invariant 10). */
+function ligneDeCredit(input: {
+  profileId: string
+  soireeId: string
+  spaceId: string
+  gain: GainSoiree
+  releve: ReleveSoiree
+  xp: number
+}) {
+  return {
+    sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
+    args: [
+      input.profileId,
+      input.soireeId,
+      input.spaceId,
+      input.xp,
+      JSON.stringify({ v: VERSION_BAREME, gain: input.gain, releve: input.releve }),
+      Date.now(),
+    ],
+  }
+}
+
 /**
  * Une ligne de l'ancien barème, revalorisée au nouveau quand on n'a plus de
  * quoi la recalculer — sa soirée n'est pas dans l'historique. On ne garde
@@ -256,6 +280,13 @@ export function revaloriser(releve: ReleveSoiree): { gain: GainSoiree; xp: numbe
   gain.justesse = releve.justes * XP.juste
   return { gain, xp: gain.reponses + gain.justesse }
 }
+
+/**
+ * Une soirée désignée par son espace et son nom : les noms d'avant
+ * l'empreinte de l'espace (`archiveIdOf`) peuvent se répéter d'un espace à
+ * l'autre.
+ */
+export const cleDeSoiree = (spaceId: string, soireeId: string): string => `${spaceId}#${soireeId}`
 
 export class ProfileStore {
   private client: Client
@@ -919,19 +950,57 @@ export class ProfileStore {
     // La ligne et le total dans le même envoi : un aller-retour de moins par
     // profil, à chaque fin de quiz et à la clôture — et le total n'est
     // jamais lu entre les deux.
-    return this.recalculerTotal(input.profileId, {
-      sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
-      args: [
-        input.profileId,
-        input.soireeId,
-        input.spaceId,
-        input.xp,
-        JSON.stringify({ v: VERSION_BAREME, gain: input.gain, releve: input.releve }),
-        Date.now(),
+    return this.recalculerTotal(input.profileId, ligneDeCredit(input))
+  }
+
+  /**
+   * Les crédits de toute une soirée en un seul aller-retour : ses lignes,
+   * puis le total de chaque profil touché. Le recalcul au barème du jour en
+   * faisait deux par profil, soirée après soirée : 3 094 requêtes pour 101
+   * soirées, 68 s de démarrage à 20 ms de latence — avant l'ouverture du
+   * port. Même lignes, mêmes totaux que `creditSoiree`.
+   */
+  async crediterSoireeEntiere(
+    soireeId: string,
+    spaceId: string,
+    gains: { profileId: string; gain: GainSoiree; releve: ReleveSoiree; xp: number }[],
+  ): Promise<void> {
+    if (gains.length === 0) return
+    const ids = [...new Set(gains.map(g => g.profileId))]
+    const resultats = await this.client.batch(
+      [
+        ...gains.map(g => ligneDeCredit({ ...g, soireeId, spaceId })),
+        ...ids.map(id => ({
+          sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?',
+          args: [id, id],
+        })),
+        { sql: `SELECT id, xp FROM profiles WHERE id IN (${ids.map(() => '?').join(', ')})`, args: ids },
       ],
+      'write',
+    )
+    for (const r of resultats[resultats.length - 1].rows) {
+      const rec = this.profiles.get(String(r.id))
+      if (rec) rec.xp = Number(r.xp)
+    }
+  }
+
+  /**
+   * Relit en un aller-retour les totaux et les récompenses de ces profils.
+   * Après des écritures menées de front, la mémoire a pu garder la réponse
+   * arrivée la dernière plutôt que la plus récente : la base, elle, fait foi.
+   */
+  async relireProfils(profileIds: string[]): Promise<void> {
+    if (profileIds.length === 0) return
+    const res = await this.client.execute({
+      sql: `SELECT id, xp FROM profiles WHERE id IN (${profileIds.map(() => '?').join(', ')})`,
+      args: profileIds,
     })
+    for (const r of res.rows) {
+      const rec = this.profiles.get(String(r.id))
+      if (rec) rec.xp = Number(r.xp)
+    }
+    this.porteurs = null
+    await this.recompterRecompenses(profileIds)
   }
 
   /**
@@ -998,7 +1067,9 @@ export class ProfileStore {
         { sql: 'DELETE FROM profile_xp WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
         { sql: 'DELETE FROM profile_badges WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
         // Les Éclats ne portent pas l'espace : l'identifiant d'une soirée
-        // (sa date et une empreinte de l'heure) suffit à la désigner.
+        // (sa date, une empreinte de l'heure et une de l'espace) suffit à la
+        // désigner. Celles d'avant l'empreinte de l'espace n'en ont pas : deux
+        // d'entre elles nées à la même milliseconde se confondraient ici.
         { sql: 'DELETE FROM profile_eclats WHERE soiree_id = ?', args: [soireeId] },
       ],
       'write',
@@ -1115,8 +1186,19 @@ export class ProfileStore {
    * nom de la soirée qui les a fait tomber, et crédite leur expérience. Rend
    * ceux qui sont nouveaux — il n'y a qu'à la première fois qu'ils comptent.
    */
-  async accorderPaliers(profileId: string, soireeId: string, spaceId: string): Promise<string[]> {
-    const carriere = await this.careerOf(profileId)
+  async accorderPaliers(
+    profileId: string,
+    soireeId: string,
+    spaceId: string,
+    enCours: ReadonlySet<string> = new Set(),
+  ): Promise<string[]> {
+    // Un palier ne se décide que sur des soirées closes. Celles qui se
+    // jouent encore ailleurs sont déjà créditées, au verdict de chaque quiz
+    // (invariant 10) : les compter faisait tomber L'Habitué sur un essai en
+    // cours dans un autre espace — et le palier restait, rangé sous le nom
+    // de celle-ci, quand l'essai s'effaçait. L'autre soirée le recroisera à
+    // sa propre clôture, si elle est gardée.
+    const carriere = await this.careerOf(profileId, enCours)
     const deja = this.recompensesOf(profileId)
     const neufs = paliersAtteints(carriere).filter(cle => !deja.has(cle))
     if (neufs.length === 0) return []
@@ -1262,11 +1344,32 @@ export class ProfileStore {
     })
   }
 
-  /** Ce qu'un profil a accumulé sur toutes ses soirées — sa fiche, et la base des paliers de carrière. */
-  async careerOf(profileId: string): Promise<Carriere> {
-    const soirees = await this.historiqueOf(profileId)
+  /**
+   * Ce qu'un profil a accumulé sur toutes ses soirées — sa fiche, et la base
+   * des paliers de carrière. `sauf` écarte des soirées (`cleDeSoiree`) : les
+   * paliers n'y comptent pas celles qui se jouent encore.
+   */
+  async careerOf(profileId: string, sauf: ReadonlySet<string> = new Set()): Promise<Carriere> {
+    const toutes = await this.historiqueOf(profileId)
+    const soirees = toutes.filter(s => !sauf.has(cleDeSoiree(s.spaceId, s.soireeId)))
     const rec = await this.byId(profileId)
-    return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: rec ? this.niveauOf(rec) : 1 })
+    if (soirees.length === toutes.length) {
+      return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: rec ? this.niveauOf(rec) : 1 })
+    }
+    // Les soirées écartées ont aussi porté l'expérience du profil, et peut-
+    // être un Éclat : les laisser dans le niveau ou le compte d'Éclats, c'était
+    // faire tomber `hf:eclats:1` sur l'Éclat d'un essai qu'on efface ensuite.
+    // Le niveau se relit sans elles, gardes comprises (invariant 22).
+    const ecartees = toutes.filter(s => sauf.has(cleDeSoiree(s.spaceId, s.soireeId)))
+    const noms = new Set(ecartees.map(s => s.soireeId))
+    // Les Éclats ne portent que le nom de la soirée : un nom d'avant
+    // l'empreinte de l'espace partagé avec une soirée écartée l'écarte aussi —
+    // un palier qui attend, jamais un palier de trop.
+    const res = await this.client.execute({ sql: 'SELECT soiree_id FROM profile_eclats WHERE profile_id = ?', args: [profileId] })
+    const eclats = res.rows.filter(r => !noms.has(String(r.soiree_id))).length
+    const xpEcartee = ecartees.reduce((n, s) => n + s.xp, 0)
+    const niveau = rec ? niveauDuProfil(Math.max(0, rec.xp - xpEcartee), this.gardesOf(profileId)) : 1
+    return carriereDe(soirees, { eclats, niveau })
   }
 
   // ── Le recalcul ─────────────────────────────────────────────────────────
