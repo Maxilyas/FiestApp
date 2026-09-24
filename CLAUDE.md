@@ -72,6 +72,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/events.ts` | le contrat socket, typé des deux côtés |
 | `shared/homonymes.ts` | « Camille (2) » : la dérivation pure qui distingue deux invités identiques |
 | `shared/classement.ts` | la seule règle des ex æquo : rang partagé, vainqueurs, ordre d'affichage — et l'écart d'une estimation (`ecartEstimation`) |
+| `shared/nombres.ts` | un nombre tapé par un humain, lu comme on l'écrit en France (« 35 000 », « 0,8 », « −40 ») : l'estimation au téléphone, la cible de l'éditeur, l'import d'une liste — une seule lecture |
 | `shared/securite.ts` | la page de retour après connexion : jamais ailleurs que chez soi |
 | `shared/erreurs.ts` | les motifs que le client montre quand ça coince (réseau, serveur qui redémarre…) |
 | `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
@@ -249,6 +250,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
   l'écran commun (`messagePourEcran`), et son détail part au journal.
 - **Un texte se coupe avec `tronquer()`** (`shared/avatars.ts`), jamais avec
   `slice()` : un emoji à la frontière laissait sa moitié en base.
+- **Un nombre tapé se lit avec `lireNombre()`** (`shared/nombres.ts`), jamais
+  avec `Number()` : « 35 000 » valait NaN au téléphone, et l'éditeur, qui
+  relisait sa cible à chaque touche, faisait 8 de « 0,8 ». Le champ garde le
+  texte tapé ; seule la valeur lue part en base.
 - **Ce qui ne dépend pas du destinataire d'une vue** — un classement, un
   podium — passe par `vctx.memo` : un tri par vue coûtait une demi-minute par
   question à 500 invités.

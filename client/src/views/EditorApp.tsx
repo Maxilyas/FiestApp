@@ -22,6 +22,7 @@ import {
   type QuizSummary,
 } from '../../../shared/library'
 import { CATEGORIES } from '../../../shared/categories'
+import { lireNombre } from '../../../shared/nombres'
 import { POIDS_MAX_FICHIER, emporterQuiz, importerQuiz, nomDeFichier } from '../../../shared/echange'
 import { UnauthorizedError, api, compressImage } from '../api'
 import { questionSizeClass } from '../games/quiz/questionSize'
@@ -857,6 +858,11 @@ interface QuestionCardProps {
   onDelete: () => void
 }
 
+/** Une cible rendue au champ comme on l'écrit : « 0,8 », pas « 0.8 ». */
+function cibleAffichee(target: number | null): string {
+  return target === null ? '' : String(target).replace('.', ',')
+}
+
 function QuestionCard({
   index,
   total,
@@ -879,6 +885,16 @@ function QuestionCard({
   const [busy, setBusy] = useState(false)
   const [imageError, setImageError] = useState('')
   const problem = questionProblem(question)
+  // La cible telle qu'on la tape. Relu en nombre à chaque touche, le champ
+  // mangeait ce qui n'en est pas encore un : la virgule de « 0,8 » (la cible
+  // devenait 8, sans un mot) et le signe de « -40 ».
+  const [cible, setCible] = useState(() => cibleAffichee(question.target))
+  useEffect(() => {
+    // Une cible changée sans passer par ce champ y revient ; celle qu'on tape
+    // garde son texte.
+    if (lireNombre(cible) !== question.target) setCible(cibleAffichee(question.target))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question.target])
 
   useEffect(() => {
     if (!spot) return
@@ -1047,11 +1063,11 @@ function QuestionCard({
               type="text"
               inputMode="decimal"
               placeholder="Ex. 1994"
-              value={question.target ?? ''}
+              value={cible}
               onChange={e => {
-                const raw = e.target.value.replace(',', '.').trim()
-                const value = Number(raw)
-                onChange(q => ({ ...q, target: raw !== '' && Number.isFinite(value) ? value : null }))
+                const target = lireNombre(e.target.value)
+                setCible(e.target.value)
+                onChange(q => ({ ...q, target }))
               }}
             />
           </label>

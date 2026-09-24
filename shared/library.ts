@@ -3,6 +3,7 @@
 // les téléphones reçoivent pendant une partie.
 import { categorieDe } from './categories'
 import { tronquer } from './avatars'
+import { lireNombreEnTete } from './nombres'
 
 export const MIN_ANSWERS = 2
 export const MAX_ANSWERS = 4
@@ -284,36 +285,14 @@ const SEPARATEUR_BLOCS = /\r?\n\s*\r?\n/
 const SEPARATEUR_LIGNES = /\r?\n/
 
 /**
- * « = 10 935 mètres » : le nombre, puis l'unité éventuelle.
- *
- * Le nombre s'écrit comme on l'écrit en France : virgule décimale (le point
- * passe aussi), milliers séparés par une espace — simple, insécable, ou fine,
- * celle que les traitements de texte glissent d'office — ou par une
- * apostrophe à la suisse, et signe moins typographique « − », qu'ils
- * substituent au tiret. L'ancien lecteur s'arrêtait au premier groupe de
- * chiffres : « = 10 935 mètres » visait 10, avec « 935 mètres » pour unité, et
- * la révélation affichait « 10 935 mètres » — l'air juste — en classant tout
- * le monde sur son écart à 10.
+ * « = 10 935 mètres » : le nombre, lu comme partout ailleurs (`lireNombreEnTete`),
+ * puis l'unité éventuelle. Ce qui ne se lit pas sans ambiguïté — « = 10 93
+ * mètres », « = 1,000,000 » — est compté parmi les blocs ignorés, que
+ * l'aperçu signale, plutôt que mal lu en silence.
  */
-const NOMBRE = /^([+\-\u2212]?)(\d{1,3}(?:[ \u00a0\u202f'\u2019]\d{3})+|\d+)(?:[.,](\d+))?\s*(.*)$/u
-
-/**
- * Ce qui suit le nombre repart sur un chiffre : « = 10 93 mètres »,
- * « = 1,000,000 ». On ne sait pas lire ; on ne devine pas. Le bloc est compté
- * parmi les ignorés, que l'aperçu signale, plutôt que mal lu en silence.
- */
-const SUITE_AMBIGUE = /^[.,'\u2019]?\d/
-
-/** La cible et l'unité d'une ligne « = … », ou null si elle ne se lit pas sans ambiguïté. */
 function lireEstimation(texte: string): { target: number; unit: string } | null {
-  const m = NOMBRE.exec(texte)
-  if (!m) return null
-  const [, signe, entier, decimales, reste] = m
-  if (SUITE_AMBIGUE.test(reste)) return null
-  const negatif = signe === '-' || signe === '\u2212'
-  const target = Number(`${negatif ? '-' : ''}${entier.replace(/\D/g, '')}${decimales ? `.${decimales}` : ''}`)
-  if (!Number.isFinite(target)) return null
-  return { target, unit: tronquer(reste.trim(), 12) }
+  const lu = lireNombreEnTete(texte)
+  return lu && { target: lu.valeur, unit: tronquer(lu.reste.trim(), 12) }
 }
 
 /**
