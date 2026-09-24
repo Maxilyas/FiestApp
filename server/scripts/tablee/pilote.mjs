@@ -37,6 +37,8 @@ L'APPAREIL (avant tout autre geste)
 REGARDER
   voir                        l'écran : son texte et ses éléments, chacun avec sa référence [ref=e12]
   texte                       seulement le texte visible — plus court, pour lire une longue page
+  lecteur                     ce qu'annoncerait un lecteur d'écran : l'arbre d'accessibilité de Chrome,
+                              sans ce qui lui est caché — pour juger ; « voir » donne les références pour agir
   capture [nom] [--entiere]   une photo de l'écran : un fichier PNG, à regarder avec l'outil Read
   tele [--capture]            lever les yeux vers l'écran commun (la télé de la soirée)
 

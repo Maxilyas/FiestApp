@@ -550,7 +550,7 @@ interface Participant {
   captures: number
   gestes: number
   /** La dernière question que `question` lui a lue, quand elle est apparue, et s'il y a répondu. */
-  question: { cle: string; vueA: number; repondu: boolean } | null
+  question: { cle: string; vueA: number; repondu: boolean; enPause?: boolean } | null
   /** La photo à mémoriser qu'on lui a déjà signalée : `question` ne la lui annonce qu'une fois. */
   memoriser: string | null
   /** La question dont on lui a déjà lu la révélation. */
@@ -766,6 +766,53 @@ async function arbre(page: Page): Promise<string> {
     return typeof brut === 'string' ? brut : String(brut?.full ?? brut)
   } catch (e) {
     return `(écran illisible : ${(e as Error).message})`
+  }
+}
+
+/**
+ * Ce qu'annoncerait un lecteur d'écran : l'arbre d'accessibilité tel que Chrome
+ * l'expose (CDP), et non l'instantané de `voir`, qui calcule les rôles lui-même.
+ * La deuxième tablée l'a appris à ses dépens : `voir` montrait à l'invité aveugle
+ * 53 icônes `aria-hidden` qu'aucun lecteur d'écran n'annonce, et les en-têtes du
+ * tableau des chiffres comme de simples cases — deux « bugs » qui venaient du banc.
+ */
+async function arbreLecteur(p: Participant, page: Page): Promise<string> {
+  const cdp = await p.contexte.newCDPSession(page)
+  try {
+    const { nodes } = await cdp.send('Accessibility.getFullAXTree')
+    const parId = new Map<string, any>(nodes.map((n: any) => [n.nodeId, n]))
+    const ETATS = ['checked', 'pressed', 'selected', 'expanded', 'disabled', 'level', 'required', 'invalid']
+    const MUETS = new Set(['generic', 'none', 'presentation', 'InlineTextBox', 'LineBreak', 'RootWebArea'])
+    const lignes: string[] = []
+    const visiter = (n: any, profondeur: number, nomParent: string) => {
+      const role = n.role?.value ?? ''
+      // Des morceaux de ligne pour le rendu, que le texte de leur parent dit déjà.
+      if (role === 'InlineTextBox') return
+      const nom = String(n.name?.value ?? '').replace(/\s+/g, ' ').trim()
+      // Un nœud ignoré, un conteneur sans nom, ou le texte qui répète le nom de son parent : rien à dire.
+      const dit = !n.ignored && !(MUETS.has(role) && !nom) && !(role === 'StaticText' && (!nom || nom === nomParent))
+      if (dit) {
+        const etats = (n.properties ?? [])
+          .filter((pr: any) => ETATS.includes(pr.name) && pr.value?.value !== undefined && pr.value.value !== false && pr.value.value !== 'false')
+          .map((pr: any) => (pr.value.value === true || pr.value.value === 'true' ? pr.name : `${pr.name}=${pr.value.value}`))
+        const texte = role === 'StaticText' ? `« ${nom} »` : `${role}${nom ? ` « ${nom} »` : ''}`
+        lignes.push(`${'  '.repeat(profondeur)}${texte}${etats.length ? ` [${etats.join(', ')}]` : ''}`)
+      }
+      for (const id of n.childIds ?? []) {
+        const enfant = parId.get(id)
+        if (enfant) visiter(enfant, dit ? profondeur + 1 : profondeur, dit ? nom : nomParent)
+      }
+    }
+    const racine = nodes.find((n: any) => !n.parentId)
+    if (racine) visiter(racine, 0, '')
+    const limite = 400
+    return lignes.length > limite
+      ? `${lignes.slice(0, limite).join('\n')}\n… (${lignes.length - limite} lignes de plus — fais défiler, ou lis la suite avec « texte »)`
+      : lignes.join('\n') || '(rien à annoncer)'
+  } catch (e) {
+    return `(arbre illisible : ${(e as Error).message})`
+  } finally {
+    await cdp.detach().catch(() => {})
   }
 }
 
@@ -1067,6 +1114,9 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
     case 'texte':
       return `${await entete(p, o)}\n\n${await texteVisible(page)}`
 
+    case 'lecteur':
+      return `${await entete(p, o)}\n🔊 Ce qu'annoncerait un lecteur d'écran (pour agir, les références sont dans « voir ») :\n\n${await arbreLecteur(p, page)}`
+
     case 'capture': {
       const entiere = args.includes('--entiere')
       const nom = (args.find(a => !a.startsWith('--')) ?? 'ecran').replace(/[^\w-]+/g, '-').slice(0, 40)
@@ -1244,6 +1294,12 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
           // La même, reposée par l'animateur : le téléphone a oublié la réponse donnée.
           const vierge = etat.etat === 'qcm' ? etat.choisi === 0 : !etat.deja
           if (p.question.repondu && vierge) return etat
+          // La même, rouverte après une pause, et toujours sans sa réponse : la
+          // deuxième tablée attendait une question « nouvelle », et l'invitée qui
+          // avait voulu répondre pendant la pause a laissé passer celle-ci.
+          if (!p.question.repondu && p.question.enPause) return etat
+        } else if ((etat.etat === 'qcm' || etat.etat === 'estimation') && etat.pause && p.question?.cle === `${etat.label}|${etat.question}`) {
+          p.question.enPause = true
         }
         // La photo d'une question de mémoire ne reste que quelques secondes :
         // l'agent doit pouvoir la regarder avant qu'elle disparaisse.
@@ -1294,7 +1350,12 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       if (!e || (e.etat !== 'qcm' && e.etat !== 'estimation')) {
         throw new Refus(`Pas de question ouverte sur ton téléphone (il affiche : ${e?.etat ?? '?'}).`)
       }
-      if (!e.ouvert) throw new Refus(e.pause ? 'La question est en pause : les réponses sont bloquées.' : 'Trop tard : les réponses sont closes.')
+      if (!e.ouvert) {
+        // Refusée pendant une pause : `question` la lui rendra à la reprise, même
+        // si la pause est finie avant qu'il la guette.
+        if (e.pause && p.question?.cle === `${e.label}|${e.question}`) p.question.enPause = true
+        throw new Refus(e.pause ? 'La question est en pause : les réponses sont bloquées.' : 'Trop tard : les réponses sont closes.')
+      }
       const lue = p.question && p.question.cle === `${e.label}|${e.question}` ? p.question : null
       const depuis = lue ? Date.now() - lue.vueA : null
       const delai = depuis === null ? '' : ` — ${secondes(depuis)} après l'apparition de la question`
