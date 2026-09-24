@@ -18,6 +18,12 @@ export interface ScoreEntry {
 export class ScoreLedger {
   private totals = new Map<string, number>()
   private insertStmt
+  /**
+   * Monte à chaque écriture du journal des gains : les pages publiques
+   * (`core/pages.ts`) s'en servent pour savoir si leur calcul tient encore,
+   * sans relire le journal.
+   */
+  revision = 0
 
   constructor(
     private db: DB,
@@ -41,6 +47,7 @@ export class ScoreLedger {
     this.insertStmt.run(uid, playerId, sessionId ?? null, points, reason, createdAt, this.spaceId)
     this.totals.set(playerId, (this.totals.get(playerId) ?? 0) + points)
     this.backup?.saveScore({ uid, playerId, sessionId: sessionId ?? null, points, reason, createdAt })
+    this.revision++
   }
 
   /**
@@ -50,6 +57,7 @@ export class ScoreLedger {
   clearAll() {
     this.db.prepare('DELETE FROM score_entries WHERE space_id = ?').run(this.spaceId)
     this.totals.clear()
+    this.revision++
   }
 
   /**
@@ -66,6 +74,7 @@ export class ScoreLedger {
     this.db.prepare('DELETE FROM score_entries WHERE player_id = ? AND space_id = ?').run(playerId, this.spaceId)
     this.totals.delete(playerId)
     this.backup?.deletePlayerScores(playerId)
+    this.revision++
   }
 
   total(playerId: string): number {

@@ -303,6 +303,12 @@ const SOIREES_COLUMNS = `
  */
 export class ArchiveStore {
   private client: Client
+  /**
+   * Le numéro d'écriture de l'historique de chaque espace. Les pages
+   * publiques (`core/pages.ts`) gardent le souvenir et le bilan calculés
+   * sous ce numéro, et le lisent pour savoir si leur calcul tient encore.
+   */
+  private revisions = new Map<string, number>()
 
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
@@ -457,32 +463,38 @@ export class ArchiveStore {
     // La colonne `summary` porte la fiche, pas le résumé : des faits bruts,
     // que la liste relira avec les règles du jour.
     const fiche = ficheDe(archive)
-    await this.client.execute({
-      sql: `INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(space_id, id) DO UPDATE SET title = excluded.title, held_at = excluded.held_at,
-              archived_at = excluded.archived_at, summary = excluded.summary, data = excluded.data`,
-      args: [spaceId, id, finalTitle, heldAt, archivedAt, JSON.stringify(fiche), JSON.stringify(archive)],
-    })
+    await this.ecrire(spaceId, () =>
+      this.client.execute({
+        sql: `INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(space_id, id) DO UPDATE SET title = excluded.title, held_at = excluded.held_at,
+                archived_at = excluded.archived_at, summary = excluded.summary, data = excluded.data`,
+        args: [spaceId, id, finalTitle, heldAt, archivedAt, JSON.stringify(fiche), JSON.stringify(archive)],
+      }),
+    )
     return resumer({ id, title: finalTitle, heldAt, archivedAt }, fiche)
   }
 
   async rename(spaceId: string, id: string, title: unknown): Promise<ArchiveSummary | null> {
     const clean = tronquer(String(title ?? '').trim(), 80)
     if (!ID.test(id) || !clean) return null
-    const res = await this.client.execute({
-      sql: 'UPDATE soirees SET title = ? WHERE space_id = ? AND id = ?',
-      args: [clean, spaceId, id],
-    })
+    const res = await this.ecrire(spaceId, () =>
+      this.client.execute({
+        sql: 'UPDATE soirees SET title = ? WHERE space_id = ? AND id = ?',
+        args: [clean, spaceId, id],
+      }),
+    )
     if (res.rowsAffected === 0) return null
     return (await this.list(spaceId)).find(s => s.id === id) ?? null
   }
 
   async remove(spaceId: string, id: string): Promise<boolean> {
     if (!ID.test(id)) return false
-    const res = await this.client.execute({
-      sql: 'DELETE FROM soirees WHERE space_id = ? AND id = ?',
-      args: [spaceId, id],
-    })
+    const res = await this.ecrire(spaceId, () =>
+      this.client.execute({
+        sql: 'DELETE FROM soirees WHERE space_id = ? AND id = ?',
+        args: [spaceId, id],
+      }),
+    )
     return res.rowsAffected > 0
   }
 
@@ -494,8 +506,33 @@ export class ArchiveStore {
 
   /** Efface toutes les soirées d'un espace : son compte est supprimé. Rend leur nombre. */
   async removeSpace(spaceId: string): Promise<number> {
-    const res = await this.client.execute({ sql: 'DELETE FROM soirees WHERE space_id = ?', args: [spaceId] })
+    const res = await this.ecrire(spaceId, () =>
+      this.client.execute({ sql: 'DELETE FROM soirees WHERE space_id = ?', args: [spaceId] }),
+    )
     return res.rowsAffected
+  }
+
+  /** Où en est l'historique de cet espace : il bouge à chaque rangement, renommage ou effacement. */
+  revision(spaceId: string): number {
+    return this.revisions.get(spaceId) ?? 0
+  }
+
+  /**
+   * Une écriture de l'historique, encadrée de deux numéros : avant, pour
+   * qu'aucune page ne se garde sous le numéro d'avant l'écriture ; après,
+   * pour qu'une lecture partie pendant l'écriture — qui a pu lire l'ancienne
+   * ligne — ne vaille pas pour la nouvelle. Échouée, l'écriture fait monter
+   * le numéro quand même : relire coûte un calcul, se tromper montrerait
+   * une page fausse.
+   */
+  private async ecrire<T>(spaceId: string, ecriture: () => Promise<T>): Promise<T> {
+    const monter = () => this.revisions.set(spaceId, this.revision(spaceId) + 1)
+    monter()
+    try {
+      return await ecriture()
+    } finally {
+      monter()
+    }
   }
 
   close() {

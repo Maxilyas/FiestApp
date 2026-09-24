@@ -732,3 +732,158 @@ test('un prénom trop long se coupe entre deux caractères, jamais au milieu d�
     assert.ok(!/[\ud800-\udfff]/u.test(cleanName(nom)), `demi-caractère dans « ${cleanName(nom)} »`)
   }
 })
+
+// ── 8. Les pages publiques, calculées une fois pour toute la salle ─────────
+//
+// Le QR du podium et celui de la clôture mènent toute la salle au souvenir
+// d'un coup, et chaque requête recalculait tout : cinquante scans d'une
+// soirée de 150 invités figeaient le serveur de tous les espaces 32 s au
+// dixième de cœur. La page se garde maintenant tant que ce dont elle se
+// dérive ne bouge pas — et la rafale qui arrive pendant le calcul l'attend
+// au lieu de le refaire. On compte les calculs (`/healthz`), on ne
+// chronomètre rien.
+
+test('le souvenir et le bilan se calculent une fois pour toute la salle, et se refont dès que la soirée bouge', async () => {
+  const banc = await import('./banc')
+  const b = await banc.demarrer()
+  try {
+    const calculs = async () => ((await (await fetch(`${b.url}/healthz`)).json()) as any).pages?.calculs as number
+    const lire = async (chemin: string) => {
+      const res = await fetch(`${b.url}/s/${banc.ADMIN.slug}${chemin}`)
+      assert.equal(res.status, 200, chemin)
+      return (await res.json()) as any
+    }
+    /** Toute la salle d'un coup : rend les pages, et combien de calculs elles ont coûté. */
+    const rafale = async (chemin: string, n = 30) => {
+      const avant = await calculs()
+      const lues = await Promise.all(Array.from({ length: n }, () => lire(chemin)))
+      for (const l of lues) assert.deepEqual(l, lues[0], 'toute la salle lit la même page')
+      return { page: lues[0], calculs: (await calculs()) - avant }
+    }
+
+    const cookie = await banc.connexionAnimateur(b.url)
+    const host = await banc.ecranCommun(b.url, cookie)
+    const quiz = await banc.creerQuiz(b.url, cookie, [banc.qcm('Première ?'), banc.qcm('Seconde ?')])
+    const alice = await banc.invite(b.url, 'Alice', '🦊')
+    const bob = await banc.invite(b.url, 'Bob', '🐻')
+    const vue = (sessionId: string, pred: (v: any) => boolean, label: string) =>
+      banc.attendre<any>(host, 'session:view', p => p.sessionId === sessionId && pred(p.view), label, 15_000)
+    const repondre = async (sessionId: string, q: number) => {
+      await vue(sessionId, v => v.phase === 'question' && v.qIndex === q, `la question ${q + 1}`)
+      const revelee = vue(sessionId, v => v.phase === 'reveal' && v.qIndex === q, `la révélation ${q + 1}`)
+      for (const [qui, choice] of [[alice, 0], [bob, 1]] as const) {
+        const ack = await banc.emitAck<any>(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice } })
+        assert.equal(ack.ok, true, `réponse refusée : ${ack.error}`)
+      }
+      await revelee
+    }
+
+    const session = await banc.lancerQuiz(host, quiz)
+    await repondre(session, 0)
+
+    // Trente scans : un calcul par page.
+    const souvenir = await rafale('/recap.json')
+    assert.equal(souvenir.calculs, 1, 'trente souvenirs, un seul calcul')
+    assert.equal((await rafale('/bilan.json')).calculs, 1, 'trente bilans, un seul calcul')
+    assert.equal((await rafale('/recap.json', 5)).calculs, 0, 'rien n’a bougé : rien ne se recalcule')
+
+    // Une question de plus : la page suit.
+    ;(host as any).emit('host:command', { sessionId: session, command: { type: 'next' } })
+    await repondre(session, 1)
+    const apres = await rafale('/recap.json')
+    assert.equal(apres.calculs, 1, 'une réponse de plus refait la page')
+    assert.notDeepEqual(apres.page, souvenir.page, 'et la page montre la question jouée')
+
+    // Un rangement, sans rien jouer de plus : l'historique a bougé.
+    const range = banc.attendre<any>(host, 'toast', () => true, 'la soirée rangée', 15_000)
+    ;(host as any).emit('host:archiveParty', { title: 'Le grand soir' })
+    assert.equal((await range).kind, 'info')
+    assert.equal((await rafale('/recap.json')).calculs, 1, 'un rangement refait la page')
+    const { current } = await lire('/soirees.json')
+    assert.ok(current?.id, 'la soirée est rangée')
+
+    // La soirée rangée se relit à son adresse, une fois pour toute la salle.
+    const archivee = await rafale(`/soirees/${current.id}/recap.json`)
+    assert.equal(archivee.calculs, 1, 'trente souvenirs archivés, un seul téléchargement')
+    assert.equal(archivee.page.archive?.title, 'Le grand soir')
+    assert.equal((await rafale(`/soirees/${current.id}/bilan.json`)).calculs, 1)
+    assert.equal((await rafale(`/soirees/${current.id}/recap.json`, 5)).calculs, 0)
+
+    // La clôture : la page de l'espace montre la soirée close, l'archive se relit.
+    const close = banc.attendre<any>(host, 'toast', () => true, 'la soirée close', 15_000)
+    ;(host as any).emit('host:closeParty', {})
+    assert.equal((await close).kind, 'info')
+    const apresCloture = await rafale('/recap.json')
+    assert.equal(apresCloture.calculs, 1, 'la clôture refait la page')
+    assert.equal(apresCloture.page.derniere?.id, current.id, 'qui désigne la soirée close')
+    assert.equal((await rafale(`/soirees/${current.id}/recap.json`)).calculs, 1, 'l’archive réécrite se relit')
+
+    // Un essai : dès sa première question, la page parle de lui ; effacé, la veille revient.
+    const essai = await banc.invite(b.url, 'Chloé', '🐙')
+    const encore = await banc.invite(b.url, 'Dan', '🐸')
+    const session2 = await banc.lancerQuiz(host, quiz)
+    await banc.attendre<any>(host, 'session:view', p => p.sessionId === session2 && p.view.phase === 'question', 'l’essai')
+    const revelee = vue(session2, v => v.phase === 'reveal' && v.qIndex === 0, 'la révélation de l’essai')
+    for (const qui of [alice, bob, essai, encore]) {
+      await banc.emitAck<any>(qui.socket, 'player:action', { sessionId: session2, action: { type: 'answer', choice: 0 } })
+    }
+    await revelee
+    const pendant = await rafale('/recap.json')
+    assert.equal(pendant.calculs, 1)
+    assert.equal(pendant.page.derniere, undefined, 'l’essai a joué : la page parle de lui')
+    const efface = banc.attendre<any>(host, 'toast', () => true, 'l’essai effacé', 15_000)
+    ;(host as any).emit('host:discardParty')
+    assert.equal((await efface).kind, 'info')
+    const apresEssai = await rafale('/recap.json')
+    assert.equal(apresEssai.calculs, 1, 'un essai effacé refait la page')
+    assert.equal(apresEssai.page.derniere?.id, current.id, 'la veille revient')
+
+    // Une soirée retirée de l'historique ne se sert plus, même gardée.
+    assert.equal((await banc.ecrire(b.url, `/api/soirees/${current.id}`, {}, cookie, 'DELETE')).status, 200)
+    assert.equal((await fetch(`${b.url}/s/${banc.ADMIN.slug}/soirees/${current.id}/recap.json`)).status, 404)
+    assert.equal((await rafale('/recap.json')).page.derniere, undefined, 'plus rien où mener')
+  } finally {
+    await b.close()
+  }
+})
+
+test('une page gardée part compressée et se revalide sans rien renvoyer', async () => {
+  const banc = await import('./banc')
+  const http = await import('node:http')
+  const zlib = await import('node:zlib')
+  const b = await banc.demarrer()
+  // `fetch` décompresse de lui-même, et ajoute `Cache-Control: no-cache` à
+  // une requête conditionnelle : on parle HTTP à la main, comme un téléphone.
+  const get = (url: string, headers: Record<string, string>) =>
+    new Promise<{ status: number; headers: Record<string, unknown>; corps: Buffer }>((resolve, reject) => {
+      http
+        .get(url, { headers }, res => {
+          const morceaux: Buffer[] = []
+          res.on('data', m => morceaux.push(m))
+          res.on('end', () => resolve({ status: res.statusCode!, headers: res.headers, corps: Buffer.concat(morceaux) }))
+        })
+        .on('error', reject)
+    })
+  try {
+    // Assez de salle pour que la page dépasse le seuil de compression.
+    for (let i = 0; i < 12; i++) await banc.invite(b.url, `Invité numéro ${i}`, '🦊')
+    const url = `${b.url}/s/${banc.ADMIN.slug}/bilan.json`
+    const clair = await get(url, { 'Accept-Encoding': 'identity' })
+    assert.equal(clair.status, 200)
+    assert.equal(clair.headers['content-encoding'], undefined)
+    assert.ok(clair.corps.length > 1024, `une page assez longue (${clair.corps.length} octets)`)
+    const etag = String(clair.headers.etag ?? '')
+    assert.ok(etag, 'la page porte son empreinte')
+
+    const gz = await get(url, { 'Accept-Encoding': 'gzip, deflate, br' })
+    assert.equal(gz.headers['content-encoding'], 'gzip')
+    assert.equal(zlib.gunzipSync(gz.corps).toString(), clair.corps.toString(), 'le même contenu, compressé')
+    assert.ok(gz.corps.length < clair.corps.length)
+
+    const revalidee = await get(url, { 'Accept-Encoding': 'gzip', 'If-None-Match': etag })
+    assert.equal(revalidee.status, 304, 'le téléphone qui l’a déjà ne la retélécharge pas')
+    assert.equal(revalidee.corps.length, 0)
+  } finally {
+    await b.close()
+  }
+})
