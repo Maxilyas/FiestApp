@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Icon } from './Icon'
 import { Shape } from './Shape'
-import { formatNumber, ordinal } from '../format'
+import { espacesFines, formatNumber, rang } from '../format'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
 import type {
   Review,
@@ -80,7 +80,7 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
         </span>
         {result && <span className="bilan-q-result">{result}</span>}
       </div>
-      <h3 className="bilan-q-text">{q.text}</h3>
+      <h3 className="bilan-q-text">{espacesFines(q.text)}</h3>
       {!q.resolved && (
         <p className="muted small">
           L'intitulé n'a pas été retrouvé : le quiz a été supprimé ou renommé depuis la soirée.
@@ -107,10 +107,17 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
                   <div className="bilan-ans-row">
                     <Shape index={i} />
                     <span className="bilan-ans-text">
-                      {a}
+                      {espacesFines(a)}
                       {isMine && <span className="bilan-you">toi</span>}
                     </span>
-                    {isCorrect && <Icon name="check" className="bilan-ans-check" />}
+                    {/* La coche ne parle qu'aux yeux : le lecteur d'écran lisait
+                        les réponses sans jamais dire laquelle était la bonne. */}
+                    {isCorrect && (
+                      <>
+                        <Icon name="check" className="bilan-ans-check" />
+                        <span className="sr-only">la bonne réponse</span>
+                      </>
+                    )}
                     <span className="bilan-ans-pct num" title={`${q.counts[i]} réponse${q.counts[i] > 1 ? 's' : ''}`}>
                       {formatPercent(share)}
                     </span>
@@ -153,8 +160,8 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
               <span>
                 <Icon name="zap" />{' '}
                 {me && q.fastest.playerId === me.id
-                  ? `Le plus rapide de la salle : toi, en ${formatSeconds(q.fastest.ms)}`
-                  : `Le plus rapide : ${playerName(ctx, q.fastest.playerId)} en ${formatSeconds(q.fastest.ms)}`}
+                  ? `La réponse la plus rapide de la salle : la tienne, en ${formatSeconds(q.fastest.ms)}`
+                  : `La plus rapide : ${playerName(ctx, q.fastest.playerId)}, en ${formatSeconds(q.fastest.ms)}`}
               </span>
             )}
           </p>
@@ -179,7 +186,7 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
                   : mine.proximityRank !== null &&
                     (mine.proximityRank === 1
                       ? ' · la plus proche de toute la salle'
-                      : ` · ${ordinal(mine.proximityRank)} plus proche sur ${q.guesses}`)}
+                      : ` · ${rang(mine.proximityRank)} estimation la plus proche sur ${q.guesses}`)}
                 {mine.ms !== null && ` · en ${formatSeconds(mine.ms)}`}
               </p>
             ) : (

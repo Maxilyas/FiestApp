@@ -6,10 +6,11 @@ import { FinalPodium, Standings } from '../../components/Podium'
 import { TeamBoard } from '../../components/TeamBoard'
 import { Icon } from '../../components/Icon'
 import { Shape } from '../../components/Shape'
-import { Rank } from '../../components/Rank'
+import { Rank, Score } from '../../components/Rank'
 import { ConsoleActions } from '../../components/HostConsole'
 import { confirmDialog } from '../../components/Dialog'
 import { serverNow } from '../../clock'
+import { espacesFines } from '../../format'
 import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
 import { formatNumber } from '../../format'
@@ -108,7 +109,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
       <div className="quiz-host">
         <h2>
           <Icon name="sparkles" />
-          Choisissez un quiz
+          Choisis un quiz
         </h2>
 
         {/* Annoncé à la salle avant de lancer : tant qu'un quiz peut tout
@@ -210,7 +211,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
         )}
 
         {v.category && <span className="label quiz-categorie">{v.category}</span>}
-        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
+        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{espacesFines(v.text ?? '')}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
         {v.photoGone && (
           <p className="photo-gone">
@@ -232,6 +233,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                     {g.rank === 1 ? (
                       <span className="lb-rank">
                         <Icon name="target" />
+                        <span className="sr-only">Rang 1</span>
                       </span>
                     ) : (
                       <Rank n={g.rank} />
@@ -242,7 +244,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                     <span className="guess-value">
                       {formatNumber(g.value)} {v.unit}
                     </span>
-                    <span className="lb-score">+{g.points}</span>
+                    <Score n={g.points} texte={`+${g.points}`} />
                   </div>
                 ))}
                 {v.guesses?.length === 0 && <p className="muted">Personne n'a répondu…</p>}
@@ -262,7 +264,7 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                 className={'ans-btn' + (revealing ? (i === v.correct ? ' correct' : ' dim') : '')}
               >
                 <Shape index={i} />
-                <span className="ans-text">{a}</span>
+                <span className="ans-text">{espacesFines(a)}</span>
                 {revealing && (
                   <>
                     <span className="ans-extra">

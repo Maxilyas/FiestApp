@@ -2,7 +2,7 @@ import type { Distinctions } from '../../../shared/profil'
 import { rangPartage } from '../../../shared/classement'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
-import { Rank } from './Rank'
+import { Rank, Score } from './Rank'
 
 export interface PodiumRow extends Distinctions {
   name: string
@@ -29,14 +29,14 @@ function rangs(rows: PodiumRow[], offset: number): number[] {
 export function Standings({ rows, offset = 0 }: { rows: PodiumRow[]; offset?: number }) {
   const rank = rangs(rows, offset)
   return (
-    <div className="podium">
+    <div className="podium" role="list">
       {rows.map((p, i) => (
-        <div key={i} className="lb-row" style={{ animationDelay: `${i * 60}ms` }}>
+        <div key={i} className="lb-row" role="listitem" style={{ animationDelay: `${i * 60}ms` }}>
           <Rank n={rank[i]} />
           <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
           <span className="lb-name">{p.name}</span>
           <Niveau niveau={p.niveau} />
-          <span className="lb-score">{p.points}</span>
+          <Score n={p.points} />
         </div>
       ))}
     </div>
@@ -48,33 +48,38 @@ export function Standings({ rows, offset = 0 }: { rows: PodiumRow[]; offset?: nu
  * suit le score, avec un plancher pour que la 3e marche reste visible même
  * quand l'écart est énorme. Chaque marche porte le rang partagé : deux ex
  * æquo en tête montent sur deux marches de premier, à la même hauteur.
+ *
+ * Le document suit l'ordre des rangs, et seule la feuille de style dresse
+ * les marches 2e — 1er — 3e (`order`) : placées ainsi dans le document, elles
+ * se lisaient à l'oreille « 2, Lucas » avant « 1, Camille », et Hugo a cru
+ * Lucas en tête. La grille prend autant de colonnes que de marches : avec
+ * deux équipes, une troisième colonne vide décentrait le podium.
  */
 export function FinalPodium({ rows }: { rows: PodiumRow[] }) {
   const top = rows.slice(0, 3)
   if (top.length === 0) return <p className="muted">Personne n'a joué…</p>
   const rank = rangs(rows, 0)
   const best = Math.max(...top.map(r => r.points), 1)
-  const order = [1, 0, 2] // 2e — 1er — 3e
   return (
-    <div className="final-podium">
-      {order.map((i, slot) => {
-        const row = top[i]
-        return row ? (
-          <div key={slot} className={'podium-col rank-' + rank[i]}>
-            <Avatar className="podium-avatar" avatar={row.avatar} finition={row.finition} eclat={row.eclat} legendaire={row.legendaire} />
-            <span className="podium-name">
-              {row.name}
-              <Niveau niveau={row.niveau} />
+    <ol className="final-podium" style={{ ['--marches' as string]: top.length }}>
+      {top.map((row, i) => (
+        <li key={i} className={'podium-col rank-' + rank[i]}>
+          {/* Le rang d'abord pour l'oreille, comme dans les autres classements ;
+              l'œil, lui, le lit sur la marche, sous le nom. */}
+          <span className="sr-only">Rang {rank[i]} : </span>
+          <Avatar className="podium-avatar" avatar={row.avatar} finition={row.finition} eclat={row.eclat} legendaire={row.legendaire} />
+          <span className="podium-name">
+            {row.name}
+            <Niveau niveau={row.niveau} />
+          </span>
+          <div className="podium-step" style={{ height: `${30 + 70 * (row.points / best)}%` }}>
+            <span className="podium-medal" aria-hidden="true">
+              {rank[i]}
             </span>
-            <div className="podium-step" style={{ height: `${30 + 70 * (row.points / best)}%` }}>
-              <span className="podium-medal">{rank[i]}</span>
-              <span className="podium-points">{row.points}</span>
-            </div>
+            <Score n={row.points} className="podium-points" />
           </div>
-        ) : (
-          <div key={slot} className="podium-col" />
-        )
-      })}
-    </div>
+        </li>
+      ))}
+    </ol>
   )
 }

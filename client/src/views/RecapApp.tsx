@@ -144,7 +144,7 @@ export function RecapApp() {
           <h2>Les équipes au quiz</h2>
           <TeamBoard teams={recap.teams} showGamePoints />
           <p className="muted small">
-            En champagne, la moyenne par membre — c'est elle qui classe les équipes. Le chiffre
+            Le grand chiffre à droite, la moyenne par membre — c'est elle qui classe les équipes. Le chiffre
             cerclé : les points de classement du quiz, auxquels les prix se sont ajoutés.
           </p>
         </section>

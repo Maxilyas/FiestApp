@@ -5,9 +5,9 @@ import { TimerBar } from '../../components/TimerBar'
 import { TeamBoard } from '../../components/TeamBoard'
 import { Icon } from '../../components/Icon'
 import { Shape } from '../../components/Shape'
-import { Rank } from '../../components/Rank'
+import { Rank, Score } from '../../components/Rank'
 import type { PublicTeam } from '../../../../shared/types'
-import { formatNumber, ordinal } from '../../format'
+import { espacesFines, formatNumber, place } from '../../format'
 import { questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
 import { Niveau } from '../../components/Niveau'
@@ -115,7 +115,7 @@ function BetweenQuestions({
   return (
     <>
       <p className="center muted">
-        Total quiz : {v.yourQuizTotal} pts · {ordinal(v.yourQuizRank ?? 0)}
+        Total quiz : {v.yourQuizTotal} pts · {place(v.yourQuizRank ?? 0)}
       </p>
       {teams.length > 0 && (
         <div className="card">
@@ -191,6 +191,15 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           </span>
         </div>
         <TimerBar deadline={v.deadline!} duration={v.duration ?? 5} />
+        {/* Sans la vue, cette question ne se joue pas : c'est son principe.
+            Le dire d'emblée, plutôt que laisser l'invité chercher une photo
+            que rien ne décrit — et lui rappeler qu'il pourra tenter sa
+            chance. Le jeu du téléphone est une région annoncée : le texte
+            est lu dès que la phase arrive. */}
+        <p className="sr-only">
+          Question visuelle : une photo passe seule quelques secondes, sans l'intitulé. La
+          question arrive ensuite, avec ses réponses : tu pourras tenter ta chance.
+        </p>
         {v.image && <img className="quiz-img observe-img" src={v.image} alt="Photo à mémoriser" />}
         <p className="hint">La photo va disparaître, la question arrive après…</p>
       </div>
@@ -226,11 +235,12 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           </p>
         )}
         {v.category && <span className="label quiz-categorie">{v.category}</span>}
-        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{v.text}</h2>
+        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{espacesFines(v.text ?? '')}</h2>
         {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
         {v.photoGone && (
           <p className="photo-gone">
             <Icon name="eye-off" /> La photo a disparu — de mémoire !
+            <span className="sr-only"> Question visuelle, sur la photo d'avant.</span>
           </p>
         )}
 
@@ -255,7 +265,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
                   className={'ans-btn' + (v.yourChoice === i ? ' chosen' : closes ? ' dim' : '')}
                 >
                   <Shape index={i} />
-                  <span className="ans-text">{a}</span>
+                  <span className="ans-text">{espacesFines(a)}</span>
                   {v.yourChoice === i && <Icon name="check" className="ans-check" />}
                 </button>
               ))}
@@ -342,13 +352,13 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
               </span>
               <p>
                 Raté… tu avais dit <Shape index={v.yourChoice!} inline />
-                <strong>{v.answers![v.yourChoice!]}</strong>
+                <strong>{espacesFines(v.answers![v.yourChoice!])}</strong>
               </p>
             </>
           )}
           <p className="muted">
             {attendue} : <Shape index={v.correct!} inline />
-            <strong>{v.answers![v.correct!]}</strong>
+            <strong>{espacesFines(v.answers![v.correct!])}</strong>
           </p>
         </div>
         <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
@@ -364,7 +374,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
           <Icon name="flag" />
         </span>
         <p>
-          Quiz terminé ! Tu finis <strong>{ordinal(v.yourQuizRank ?? 0)}</strong> avec {v.yourQuizTotal} pts
+          Quiz terminé ! Tu finis à la <strong>{place(v.yourQuizRank ?? 0)}</strong> avec {v.yourQuizTotal} pts
         </p>
       </div>
       <div className="card">
@@ -381,7 +391,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId }: QuizPlayerProps) 
               <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
               <span className="lb-name">{p.name}</span>
               <Niveau niveau={p.niveau} />
-              <span className="lb-score">{p.points}</span>
+              <Score n={p.points} />
             </div>
           ))}
         </div>
