@@ -424,7 +424,11 @@ export class GameEngine {
       },
       logAnswers: rows => {
         const createdAt = Date.now()
-        this.deps.answers.write(rows.map(r => ({ ...r, sessionId: sess.id, createdAt })))
+        // L'équipe de chacun à l'instant où la ligne s'écrit : c'est elle
+        // que le verdict des équipes lira, quoi qu'il déménage ensuite.
+        this.deps.answers.write(
+          rows.map(r => ({ ...r, sessionId: sess.id, createdAt, teamId: this.deps.party.get(r.playerId)?.teamId ?? null })),
+        )
         journal = true
       },
       dropAnswers: qIndex => {

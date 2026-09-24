@@ -99,6 +99,12 @@ export interface Figure extends Distinctions {
 export interface ClotureDeSoiree {
   soiree: SoireeClose
   podium: (Figure & { points: number; rang: number })[]
+  /**
+   * L'équipe ou les équipes qui l'emportent, points d'équipe prix compris :
+   * le verdict de l'historique, dit à la salle. Absent d'un serveur d'avant,
+   * vide d'une soirée sans équipes.
+   */
+  equipes?: { nom: string; emoji: string; points: number }[]
   /** Les hauts faits de la soirée, invité par invité. */
   hautsFaits: (Figure & { faits: HautFaitAnnonce[] })[]
   /** Les avatars légendaires débloqués ce soir. */

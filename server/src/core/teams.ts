@@ -156,11 +156,16 @@ export class Teams {
   // question, ceux-là s'attribuent en fin de soirée, sur l'échelle du barème
   // du quiz. Les mélanger rendrait les deux illisibles.
 
-  /** Attribue un prix. Retirer un prix mal donné doit rester possible. */
+  /**
+   * Attribue un prix. Retirer un prix mal donné doit rester possible. Un prix
+   * à 0 point se remet « pour l'honneur » : il paraît dans « Remis ce
+   * soir-là » sans toucher au classement — Nadia voulait saluer Jeanne sans
+   * renverser la victoire qu'elle venait d'annoncer.
+   */
   awardBonus(teamId: string, points: number, reason: string): TeamBonus | { error: string } {
     if (!this.teams.has(teamId)) return { error: 'Équipe introuvable' }
     const value = Math.round(Number(points))
-    if (!Number.isFinite(value) || value === 0) return { error: 'Il faut un nombre de points' }
+    if (!Number.isFinite(value)) return { error: 'Il faut un nombre de points' }
     const rec: TeamBonus = {
       id: randomUUID(),
       teamId,

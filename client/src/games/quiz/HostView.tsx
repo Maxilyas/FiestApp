@@ -4,6 +4,7 @@ import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
 import { FinalPodium, Standings } from '../../components/Podium'
 import { TeamBoard } from '../../components/TeamBoard'
+import { mentionDesPrix } from '../../../../shared/teams'
 import { Icon } from '../../components/Icon'
 import { Shape } from '../../components/Shape'
 import { Rank, Score } from '../../components/Rank'
@@ -478,7 +479,11 @@ export function QuizHost({ view: v, teams, sendCommand, endSession }: Props) {
                   <Icon name="users" />
                   Les équipes après ce quiz
                 </h3>
-                <TeamBoard teams={teams} showFinalPoints />
+                <TeamBoard teams={teams} />
+                {/* Un prix peut encore renverser l'ordre, c'est voulu : dit
+                    ici, le renversement devient un suspense, pas un démenti
+                    de ce que l'animateur vient d'annoncer. */}
+                <p className="muted small">{mentionDesPrix(teams)}</p>
               </div>
             )}
             {/* Les équipes d'abord : c'est leur classement qui décide de la

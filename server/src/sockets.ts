@@ -464,9 +464,10 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       refuse('error'),
     )
 
-    // Changer d'équipe emporte ses points : en pleine partie, ça permettrait
-    // de déménager un gros score d'une équipe à l'autre entre deux questions.
-    // Hors quiz, c'est juste une correction d'inattention.
+    // Pas de changement d'équipe en pleine partie : on ne change pas de camp
+    // entre deux questions. Hors quiz, c'est une correction d'inattention —
+    // qui ne touche plus aux quiz déjà joués : chaque ligne du journal garde
+    // l'équipe de son moment (`AnswerRow.teamId`).
     ecouter(
       'player:setTeam',
       (charge, repondre) => {

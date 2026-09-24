@@ -6,7 +6,7 @@ import type { TeamRec } from './teams'
 import type { ScoreEntry } from './scores'
 import { buildRecap } from './recap'
 import { buildReview, resolvePacks, type PlayedPack } from './review'
-import { teamScores, vainqueursDuQuiz } from '../../../shared/teams'
+import { questionsDesEquipes, teamScores, vainqueursDuQuiz, type QuestionDEquipe } from '../../../shared/teams'
 import { nomAffiche, nomsAffiches } from '../../../shared/homonymes'
 import { vainqueurs } from '../../../shared/classement'
 import { tronquer } from '../../../shared/avatars'
@@ -247,10 +247,21 @@ type MetaSoiree = { id: string; title: string; heldAt: number; archivedAt: numbe
  * affichage de l'historique, c'était télécharger toute la base distante.
  */
 interface FicheSoiree {
-  v: 2
+  /**
+   * 3 depuis que la moyenne d'une équipe se lit question par question : une
+   * fiche 2 n'en dit pas assez, et se refait une fois depuis son archive,
+   * comme un résumé d'avant les fiches.
+   */
+  v: 3
   /** Tous les invités, dans l'ordre d'arrivée : celui des marques d'homonymie. */
   invites: { id: string; name: string; avatar: string; teamId: string | null; points: number; joue: boolean }[]
-  equipes: { id: string; name: string; emoji: string; position: number }[]
+  /**
+   * `questions` : pour chaque question que l'équipe a jouée, combien de ses
+   * membres y étaient et ce qu'ils y ont gagné — `[présents, points]`. Des
+   * faits bruts, rangés par la composition de l'archive, que la règle du
+   * jour (`moyenneAuProrata`) relit ; quelques octets par question.
+   */
+  equipes: { id: string; name: string; emoji: string; position: number; questions: [number, number][] }[]
   prix: { teamId: string; points: number }[]
   quiz: number
   questions: number
@@ -261,8 +272,9 @@ function ficheDe(a: PartyArchive): FicheSoiree {
   const totals = new Map<string, number>()
   for (const s of a.scores) totals.set(s.playerId, (totals.get(s.playerId) ?? 0) + s.points)
   const joue = new Set(a.answers.map(r => r.playerId))
+  const parEquipe = questionsDesEquipes(a.players, a.answers)
   return {
-    v: 2,
+    v: 3,
     invites: [...a.players]
       .sort((x, y) => x.createdAt - y.createdAt)
       .map(p => ({
@@ -273,7 +285,13 @@ function ficheDe(a: PartyArchive): FicheSoiree {
         points: totals.get(p.id) ?? 0,
         joue: joue.has(p.id),
       })),
-    equipes: a.teams.map(t => ({ id: t.id, name: t.name, emoji: t.emoji, position: t.position })),
+    equipes: a.teams.map(t => ({
+      id: t.id,
+      name: t.name,
+      emoji: t.emoji,
+      position: t.position,
+      questions: (parEquipe.get(t.id) ?? []).map(q => [q.presents, q.points] as [number, number]),
+    })),
     prix: a.bonuses.map(b => ({ teamId: b.teamId, points: b.points })),
     quiz: new Set(a.answers.map(r => r.sessionId)).size,
     questions: new Set(a.answers.map(r => `${r.sessionId}#${r.qIndex}`)).size,
@@ -284,7 +302,7 @@ function ficheDe(a: PartyArchive): FicheSoiree {
 function lireFiche(texte: string): FicheSoiree | null {
   try {
     const f = JSON.parse(texte) as Partial<FicheSoiree> | null
-    return f && f.v === 2 && Array.isArray(f.invites) ? (f as FicheSoiree) : null
+    return f && f.v === 3 && Array.isArray(f.invites) ? (f as FicheSoiree) : null
   } catch {
     return null
   }
@@ -319,12 +337,16 @@ function resumer(meta: MetaSoiree, fiche: FicheSoiree): ArchiveSummary {
     quizzes: fiche.quiz,
     questions: fiche.questions,
     winners: enTete.map(p => ({ name: nomAffiche(p), avatar: p.avatar, points: p.score })),
-    teamWinners: vainqueursDuQuiz(teamScores(fiche.equipes, joueurs, fiche.prix)).map(t => ({
+    teamWinners: vainqueursDuQuiz(teamScores(fiche.equipes, joueurs, fiche.prix, questionsDeLaFiche(fiche))).map(t => ({
       name: t.name,
       emoji: t.emoji,
       points: t.finalPoints,
     })),
   }
+}
+
+function questionsDeLaFiche(fiche: FicheSoiree): Map<string, QuestionDEquipe[]> {
+  return new Map(fiche.equipes.map(e => [e.id, e.questions.map(([presents, points]) => ({ presents, points }))]))
 }
 
 /** Ce que la liste de l'historique montre d'une soirée — ici, archive en main. */
@@ -333,6 +355,9 @@ export function summarize(meta: MetaSoiree, a: PartyArchive): ArchiveSummary {
 }
 
 /** Une archive que l'on ne sait plus lire se résume comme une soirée vide. */
+/** Combien d'archives une requête relit pour refaire leurs fiches (`ArchiveStore.refaireFiches`). */
+const LOT_DE_FICHES = 10
+
 const ARCHIVE_VIDE: PartyArchive = { version: 1, players: [], teams: [], bonuses: [], scores: [], answers: [], packs: {} }
 
 // ── Le rangement ─────────────────────────────────────────────────────────
@@ -453,6 +478,22 @@ export class ArchiveStore {
    * une fiche plus récente, qu'on n'écrase pas.
    */
   private async refaireFiches(
+    spaceId: string,
+    anciennes: { meta: MetaSoiree; stocke: string }[],
+  ): Promise<Map<string, FicheSoiree>> {
+    // Par lots de dix : la fiche 3 a rendu toutes les fiches 2 anciennes d'un
+    // coup, et le premier affichage de l'historique relisait toutes les
+    // archives d'un espace — jusqu'à plusieurs Mo chacune — en une seule
+    // requête, sous les dix secondes de la base distante. Un lot fait écrit
+    // ses fiches : un historique interrompu reprend là où il s'est arrêté.
+    const fiches = new Map<string, FicheSoiree>()
+    for (let i = 0; i < anciennes.length; i += LOT_DE_FICHES) {
+      for (const [id, fiche] of await this.refaireUnLot(spaceId, anciennes.slice(i, i + LOT_DE_FICHES))) fiches.set(id, fiche)
+    }
+    return fiches
+  }
+
+  private async refaireUnLot(
     spaceId: string,
     anciennes: { meta: MetaSoiree; stocke: string }[],
   ): Promise<Map<string, FicheSoiree>> {

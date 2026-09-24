@@ -1,7 +1,7 @@
 import type { AnswerRow } from './answers'
 import { computeStats } from './stats'
 import type { PlayableQuestion } from '../../../shared/library'
-import { prixRemis, rankTeams, teamScores } from '../../../shared/teams'
+import { equipeDeLaLigne, moyenneAuProrata, prixRemis, questionsDesEquipes, rankTeams, teamScores } from '../../../shared/teams'
 import { nomAffiche } from '../../../shared/homonymes'
 import { classer, ecartEstimation, ordreDeClassement, rangPartage, vainqueurs } from '../../../shared/classement'
 import type { PublicPlayer, TeamBonus } from '../../../shared/types'
@@ -217,6 +217,10 @@ function argBest<T>(list: T[], value: (t: T) => number, best: 'min' | 'max'): T 
 export function buildReview(input: ReviewInput): Review {
   const { players, teams, bonuses } = input
   const byId = new Map(players.map(p => [p.id, p]))
+  // L'équipe de chaque ligne est celle qu'elle a figée en s'écrivant
+  // (`equipeDeLaLigne`) : la moyenne, la réussite et le détail de chaque
+  // question lisent les mêmes lignes, quoi que le joueur ait fait depuis.
+  const equipeDuMoment = new Map(players.flatMap(p => (p.teamId ? [[p.id, p.teamId] as const] : [])))
   // Un invité exclu emporte ses réponses ; par sécurité, une ligne orpheline
   // n'entre pas dans le bilan.
   const rows = input.rows.filter(r => byId.has(r.playerId))
@@ -281,7 +285,7 @@ export function buildReview(input: ReviewInput): Review {
 
       const byTeam: TeamOnQuestion[] = []
       for (const t of teams) {
-        const tRows = qRows.filter(r => byId.get(r.playerId)?.teamId === t.id)
+        const tRows = qRows.filter(r => equipeDeLaLigne(r, equipeDuMoment) === t.id)
         if (tRows.length === 0) continue
         const tAnswered = tRows.filter(r => r.answered)
         byTeam.push({
@@ -432,18 +436,23 @@ export function buildReview(input: ReviewInput): Review {
   })
 
   // ── Les équipes
-  const reviewTeams: ReviewTeam[] = rankTeams(teamScores(teams, players, bonuses)).map(t => {
+  // La règle de la salle (`shared/teams.ts`), quiz par quiz : le bilan
+  // divisait par les présents au quiz quand la victoire divisait par tous
+  // les membres, et un invité arrivé après le quiz changeait l'un sans
+  // l'autre.
+  const parQuiz = sessions.map(g => questionsDesEquipes(players, rows.filter(r => r.sessionId === g.id)))
+  const reviewTeams: ReviewTeam[] = rankTeams(teamScores(teams, players, bonuses, questionsDesEquipes(players, rows))).map(t => {
     const members = sortedPlayers.filter(p => p.teamId === t.id)
-    const memberIds = new Set(members.map(p => p.id))
-    const tRows = rows.filter(r => memberIds.has(r.playerId))
-    const perQuiz: ReviewTeamQuiz[] = sessions.map(g => {
+    // Les lignes jouées pour l'équipe, comme la moyenne les range : celles
+    // d'un membre parti ailleurs après le quiz restent ici.
+    const tRows = rows.filter(r => equipeDeLaLigne(r, equipeDuMoment) === t.id)
+    const perQuiz: ReviewTeamQuiz[] = sessions.map((g, i) => {
       const sRows = tRows.filter(r => r.sessionId === g.id)
-      const present = new Set(sRows.map(r => r.playerId)).size
       const total = sum(sRows.map(r => r.points))
       return {
         sessionId: g.id,
         total,
-        average: present ? Math.round(total / present) : 0,
+        average: moyenneAuProrata(parQuiz[i].get(t.id) ?? []),
         accuracy: accuracyOf(sRows),
         avgMs: avgMsOf(sRows),
         rank: 0,

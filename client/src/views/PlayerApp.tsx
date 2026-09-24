@@ -26,6 +26,7 @@ import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer } from '../games/quiz/PlayerView'
 import type { QuizPlayerView } from '../../../shared/games/quiz'
+import { regleDesEquipes } from '../../../shared/teams'
 import { espacesFines, place } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
@@ -360,7 +361,9 @@ export function PlayerApp() {
   const sorted = [...snap.players].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
   // Rang partagé, comme dans le classement en dessous : à égalité de points,
   // on est premier ensemble, pas quatrième parce que son prénom vient après.
-  const myRank = me ? sorted.findIndex(p => p.score === me.score) + 1 : 0
+  // Et pas de rang tant que personne n'a marqué : « 0 pts · 1ʳᵉ place »
+  // avant le premier quiz, c'était premier de rien.
+  const myRank = me && sorted.some(p => p.score > 0) ? sorted.findIndex(p => p.score === me.score) + 1 : 0
 
   return (
     <div className="player-shell">
@@ -398,7 +401,7 @@ export function PlayerApp() {
               <Icon name="users" />
               Les équipes
             </h3>
-            {/* Changer d'équipe emporte ses points : le serveur le refuse
+            {/* On ne change pas de camp en plein quiz : le serveur le refuse
                 pendant un quiz, autant ne pas proposer le bouton. */}
             {!session && (
               <button className="btn btn-ghost btn-small" onClick={() => setSwitching(v => !v)}>
@@ -411,10 +414,7 @@ export function PlayerApp() {
           ) : (
             <>
               <TeamBoard teams={teams} highlightId={me?.teamId ?? null} compact />
-              <p className="muted small">
-                Les équipes sont classées à la moyenne par membre : une petite équipe n'est pas
-                pénalisée.
-              </p>
+              <p className="muted small">{regleDesEquipes(teams.length)}</p>
             </>
           )}
         </div>

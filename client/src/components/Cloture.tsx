@@ -4,10 +4,12 @@ import type { ClotureDeSoiree, ProgresDeQuiz } from '../../../shared/fin'
 import { distinctions } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
+import { enumerer } from '../../../shared/classement'
 import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { FinalPodium } from './Podium'
+import { motPoints } from './Rank'
 import { Niveau } from './Niveau'
 
 /**
@@ -56,6 +58,19 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
           )}
         </div>
         <div className="cloture-colonne">
+          {(c.equipes ?? []).length > 0 && (
+            <section className="cloture-bloc cloture-equipes">
+              <h3>{c.equipes!.length > 1 ? 'Les équipes qui l’emportent, ex æquo' : 'L’équipe qui l’emporte'}</h3>
+              <p className="cloture-equipe">
+                {enumerer(c.equipes!.map(t => `${t.emoji} ${t.nom}`))}
+                <span className="muted">
+                  {' '}
+                  · {c.equipes![0].points} {motPoints(c.equipes![0].points)} d’équipe
+                  {c.equipes!.length > 1 && ' chacune'}
+                </span>
+              </p>
+            </section>
+          )}
           {(c.divins ?? []).length > 0 && (
             <section className="cloture-bloc cloture-divins">
               <h3>{c.divins.length > 1 ? 'Des Divins sont descendus' : 'Un Divin est descendu'}</h3>
