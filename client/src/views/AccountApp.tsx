@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { chargerDessins } from '../components/medaillons'
 import { api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
+import { ChampNombre } from '../components/ChampNombre'
 import { showToast, useAppState } from '../state'
 import type { SpaceSettings } from '../../../shared/space'
 import type { PublicProfile } from '../../../shared/profil'
@@ -316,14 +317,12 @@ function SettingsForm({ me, onSaved }: { me: Me; onSaved: (space: Me['space']) =
           <label className="label" htmlFor="maxPlayers">
             Invités au plus
           </label>
-          <input
+          <ChampNombre
             id="maxPlayers"
-            className="input"
-            type="number"
             min={2}
             max={500}
-            value={form.maxPlayers}
-            onChange={e => set('maxPlayers', Number(e.target.value))}
+            valeur={form.maxPlayers}
+            onValeur={n => set('maxPlayers', n)}
           />
         </div>
       </div>

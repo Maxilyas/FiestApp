@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { createQuizServer } from '../src/server'
 import { insertQuestions, moveQuestion, parseImportedQuestions } from '../../shared/library'
 import { QuizStore } from '../src/core/quizStore'
-import { finalRanking, rankTeams } from '../../shared/teams'
+import { finalRanking, moyenneAuProrata, questionsDesEquipes, rankTeams, vainqueursDuQuiz } from '../../shared/teams'
 import { bestSample, clockOffset } from '../../shared/clock'
 import { XP, finitionsOuvertes, niveauPour, progression, xpDuNiveau } from '../../shared/profil'
 import { reviewFromDatabase, reviewFromServer, writeExport } from '../src/core/export'
@@ -1301,8 +1301,10 @@ try {
   ;(host as any).emit('host:removeTeam', { teamId: jetable.id })
   await backToSix
 
-  // Alice et Charlie ont marqué pendant la soirée : leurs points suivent leur
-  // équipe, sans que le journal des scores soit touché.
+  // Alice et Charlie ont marqué pendant la soirée, sans équipe : leur total
+  // suit leur équipe, sans que le journal des scores soit touché ; leurs
+  // réponses, elles, gardent l'équipe qu'ils avaient en les donnant — aucune
+  // (`AnswerRow.teamId`) —, et ne font la moyenne de personne.
   const split = onSnap(
     s => s.players.every((p: any) => p.teamId) && s.teams.filter((t: any) => t.memberCount === 1).length === 2,
     'les deux invités répartis',
@@ -1315,7 +1317,7 @@ try {
   const charlieScore = splitSnap.players.find((p: any) => p.id === charlieAck.playerId).score
   const t0 = splitSnap.teams.find((t: any) => t.id === T[0].id)
   assert(t0.memberCount === 1 && t0.total === aliceScore2, `équipe d'Alice à ${t0.total}, attendu ${aliceScore2}`)
-  assert(t0.average === aliceScore2, 'à un seul membre, la moyenne vaut le total')
+  assert(t0.average === 0, 'Alice a joué sans équipe : ses réponses ne comptent pour aucune')
 
   // Un invité peut se corriger lui-même hors partie — le cas « je me suis
   // trompé de bouton à l'inscription ».
@@ -1326,23 +1328,55 @@ try {
 
   const t1 = regroupedSnap.teams.find((t: any) => t.id === T[1].id)
   assert(t1.total === aliceScore2 + charlieScore, 'le total d’équipe doit suivre le déménagement')
+  // La moyenne, elle, se lit question par question, ligne par ligne, avec
+  // l'équipe que chaque ligne a gardée (`shared/teams.ts`) : Charlie,
+  // retardataire, n'a pas joué les premières questions, et aucun des deux
+  // n'avait d'équipe. Relue au journal des réponses, tel que le bilan le rend.
+  const journal = (await (await fetch(`${url}/s/${SLUG}/bilan.json`)).json()) as any
+  const lignes = journal.players
+    .filter((p: any) => p.id === aliceAck.playerId || p.id === charlieAck.playerId)
+    .flatMap((p: any) =>
+      p.answers.map((a: any) => ({ playerId: p.id, sessionId: a.questionKey, qIndex: 0, points: a.points, teamId: null })),
+    )
+  const attendue = moyenneAuProrata(
+    questionsDesEquipes(
+      [aliceAck.playerId, charlieAck.playerId].map(id => ({ id, teamId: T[1].id })),
+      lignes,
+    ).get(T[1].id) ?? [],
+  )
   assert(
-    t1.average === Math.round((aliceScore2 + charlieScore) / 2),
-    `moyenne par membre à ${t1.average}, attendu ${Math.round((aliceScore2 + charlieScore) / 2)}`,
+    lignes.some((l: any) => l.playerId === charlieAck.playerId) &&
+      new Set(lignes.filter((l: any) => l.playerId === aliceAck.playerId).map((l: any) => l.sessionId)).size >
+        new Set(lignes.filter((l: any) => l.playerId === charlieAck.playerId).map((l: any) => l.sessionId)).size,
+    'Charlie, retardataire, a joué moins de questions qu’Alice',
+  )
+  assert(t1.average === attendue && attendue === 0, `moyenne de l’équipe à ${t1.average}, attendu ${attendue}`)
+  // Rangés sous la composition du moment, comme une ligne d'avant la colonne,
+  // ils auraient fait une moyenne : c'est elle que le déménagement
+  // n'emporte plus.
+  assert(
+    moyenneAuProrata(
+      questionsDesEquipes(
+        [aliceAck.playerId, charlieAck.playerId].map(id => ({ id, teamId: T[1].id })),
+        lignes.map(({ teamId: _, ...l }: any) => l),
+      ).get(T[1].id) ?? [],
+    ) > 0,
+    'une ligne d’avant la colonne suivrait encore la composition du moment',
   )
   const vide = regroupedSnap.teams.find((t: any) => t.id === T[0].id)
   assert(vide.memberCount === 0 && vide.average === 0, 'une équipe quittée retombe à zéro')
 
-  // Le barème part du nombre d'équipes : à six équipes, la première rapporte 6.
+  // Le barème part du nombre d'équipes : à six équipes, la première rapporte
+  // 6. Aucune n'a encore joué une question pour elle : les six sont à
+  // égalité, premières, et partagent rang et points.
   const standings = rankTeams(regroupedSnap.teams)
-  assert(standings[0].id === T[1].id, 'la seule équipe à avoir marqué doit être première')
+  assert(standings.length === 6, `${standings.length} équipes classées, attendu 6`)
   assert(standings[0].gamePoints === 6, `première équipe à ${standings[0].gamePoints} points de jeu, attendu 6`)
-  // Les cinq équipes encore vides sont à égalité : même rang, mêmes points.
-  const exAequo = standings.slice(1)
   assert(
-    exAequo.every(t => t.rank === 2 && t.gamePoints === 5),
+    standings.every(t => t.rank === 1 && t.gamePoints === 6),
     'les équipes à égalité doivent partager rang et points',
   )
+  assert(vainqueursDuQuiz(regroupedSnap.teams).length === 0, 'six équipes à égalité ne sont pas six gagnantes')
 
   // Le barème lui-même, sur six équipes toutes différentes : 6, 5, 4, 3, 2, 1.
   const bareme = rankTeams(
@@ -1462,9 +1496,12 @@ try {
     bilan.teams.every((t: any) => t.perQuiz.length === bilan.quizzes.length),
     'chaque équipe doit avoir une ligne par quiz',
   )
+  // Le détail des équipes, question par question, lit les mêmes lignes que
+  // la moyenne : Alice a joué sans équipe, sa nouvelle n'y paraît pas.
   assert(
-    bilan.questions.some((q: any) => q.byTeam.some((t: any) => t.teamId === T[0].id && t.asked >= 1)),
-    'l’équipe d’Alice doit apparaître sur les questions qu’elle a jouées',
+    bilan.questions.some((q: any) => aliceBilan.answers.some((a: any) => a.questionKey === q.key)) &&
+      !bilan.questions.some((q: any) => q.byTeam.some((t: any) => t.teamId === T[0].id)),
+    'l’équipe d’Alice ne doit pas apparaître sur les questions jouées avant qu’elle la rejoigne',
   )
   assert(!bilan.players.some((p: any) => p.id === bobAck.playerId), 'un invité exclu n’a pas de bilan')
 

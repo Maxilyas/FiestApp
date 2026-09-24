@@ -34,6 +34,7 @@ import {
   FORMAT_DE_LISTE,
   apparierPhotos,
   cleDePhoto,
+  ecrireListe,
   joindrePhotos,
 } from '../../shared/liste'
 
@@ -68,14 +69,15 @@ test('l’exemple du format complet se relit tel quel, chaque possibilité compr
     [
       { kind: 'choice', reponse: 'Canberra', choix: 4, temps: 20, categorie: 'Géographie', photo: null, observation: null },
       { kind: 'number', reponse: '8849 m', choix: 0, temps: 30, categorie: 'Géographie', photo: null, observation: null },
-      { kind: 'choice', reponse: 'Vrai', choix: 2, temps: 20, categorie: 'Histoire', photo: null, observation: null },
-      { kind: 'number', reponse: '1969', choix: 0, temps: 20, categorie: 'Histoire', photo: null, observation: null },
+      // Le temps court, comme la catégorie : les deux questions d'histoire gardent les 30 s de l'Everest.
+      { kind: 'choice', reponse: 'Vrai', choix: 2, temps: 30, categorie: 'Histoire', photo: null, observation: null },
+      { kind: 'number', reponse: '1969', choix: 0, temps: 30, categorie: 'Histoire', photo: null, observation: null },
       { kind: 'choice', reponse: 'Titanic', choix: 4, temps: 15, categorie: 'Cinéma & séries', photo: 'titanic.jpg', observation: null },
       {
         kind: 'number',
         reponse: '30 bougies',
         choix: 0,
-        temps: 20,
+        temps: 15,
         categorie: 'Autour de la fête',
         photo: "le gâteau d'anniversaire, bougies allumées",
         observation: 5,
@@ -93,7 +95,8 @@ test('l’aperçu sous le champ se relit aussi, et le format annonce toutes les 
     [
       ['choice', 20, null],
       ['choice', 30, 'tour-eiffel.jpg'],
-      ['number', 20, null],
+      // Le temps de la tour Eiffel vaut pour la suite.
+      ['number', 30, null],
     ],
   )
   for (const c of CATEGORIES) assert.ok(FORMAT_DE_LISTE.includes(c), `la catégorie « ${c} » manque au format`)
@@ -306,7 +309,7 @@ test('une question collée attend sa photo jusque dans la bibliothèque, puis se
       [
         [20, null],
         [30, 'tour-eiffel.jpg'],
-        [20, null],
+        [30, null],
       ],
     )
     const avant = await resume()
@@ -329,4 +332,209 @@ test('une question collée attend sa photo jusque dans la bibliothèque, puis se
   } finally {
     await banc.close()
   }
+})
+
+// ── 6. La liste « bavarde » ───────────────────────────────────────────────
+//
+// Une IA qui « met en forme » sa réponse, un ami qui numérote : `**1. …**`,
+// `- Canberra *`, `B) *1989`. L'intitulé gardait ses `**`, les réponses
+// leurs puces, l'étoile en fin de ligne n'était pas vue — et la première
+// réponse devenait la bonne, dans un quiz qui se disait « prêt ». Rejoué le
+// 24 septembre (parcours ED-1).
+
+test('une liste mise en forme par une IA se lit comme une liste propre', () => {
+  const gras = une('**1. Quelle est la capitale de l’Australie ?**', '- Sydney', '- Canberra *', '- Perth')
+  assert.equal(gras.text, 'Quelle est la capitale de l’Australie ?')
+  assert.deepEqual(gras.answers, ['Sydney', 'Canberra', 'Perth', ''])
+  assert.equal(gras.correct, 1)
+  assert.notEqual(toPlayable(gras), null)
+
+  const lettres = une('Question 2 : En quelle année le mur de Berlin est-il tombé ?', 'A) 1987', 'B) *1989', 'C) 1991')
+  assert.equal(lettres.text, 'En quelle année le mur de Berlin est-il tombé ?')
+  assert.deepEqual(lettres.answers, ['1987', '1989', '1991', ''])
+  assert.equal(lettres.correct, 1)
+
+  for (const [ligne, attendue] of [
+    ['• Canberra ✓', 'Canberra'],
+    ['– Canberra (bonne réponse)', 'Canberra'],
+    ['__Canberra__ ✔', 'Canberra'],
+    ['* **Canberra**', 'Canberra'],
+    ['Canberra (*)', 'Canberra'],
+  ]) {
+    const q = une('### Capitale de l’Australie ?', 'Sydney', ligne, 'Perth')
+    assert.equal(q.text, 'Capitale de l’Australie ?', ligne)
+    assert.equal(q.answers[q.correct], attendue, ligne)
+  }
+
+  // « Réponse : … » sous les choix désigne la bonne, par son texte ou sa lettre.
+  const parTexte = une('Capitale ?', 'Sydney', 'Canberra', 'Réponse : Canberra')
+  assert.deepEqual([parTexte.answers, parTexte.correct], [['Sydney', 'Canberra', '', ''], 1])
+  const parLettre = une('Capitale ?', 'a. Sydney', 'b. Canberra', 'Bonne réponse : B')
+  assert.deepEqual([parLettre.answers, parLettre.correct], [['Sydney', 'Canberra', '', ''], 1])
+})
+
+test('ce qui ressemble à une mise en forme sans en être une reste tel quel', () => {
+  // Un nombre en tête d'intitulé n'est pas un numéro ; un signe moins n'est pas une puce.
+  assert.equal(une('1984 est un roman de ?', '* Orwell', 'Huxley').text, '1984 est un roman de ?')
+  assert.equal(une('3.14, c’est pi ?', '* Oui', 'Non').text, '3.14, c’est pi ?')
+  assert.deepEqual(une('Record de froid en France ?', '* -41 °C', '-30 °C').answers, ['-41 °C', '-30 °C', '', ''])
+  // Une seule réponse qui commence par une lettre n'est pas une liste lettrée.
+  assert.deepEqual(une('Seizième président des États-Unis ?', '* A. Lincoln', 'G. Washington').answers, [
+    'A. Lincoln',
+    'G. Washington',
+    '',
+    '',
+  ])
+  // Une catégorie reste une catégorie, un intitulé à dièse reste un intitulé.
+  const { questions } = parseImportedQuestions('# Musique\n\n#1 des ventes en 1985 ?\n* Madonna\nPrince')
+  assert.deepEqual([questions[0].category, questions[0].text], ['Musique', '#1 des ventes en 1985 ?'])
+})
+
+// Relus par la relecture de l'axe 3 : la première lecture « bavarde »
+// nettoyait trop, face à main — un signe pris pour une puce, un « Q7 » pris
+// pour un numéro, un en-tête seul lu comme intitulé, les coches d'emoji.
+test('la liste bavarde ne retire que la mise en forme, jamais le texte', () => {
+  // « - 30 °C » est un signe, pas une puce.
+  const froid = une('Température record en Antarctique ?', '- 30 °C', '* - 89 °C', '- 12 °C')
+  assert.deepEqual(froid.answers, ['- 30 °C', '- 89 °C', '- 12 °C', ''])
+  assert.equal(froid.correct, 1)
+  // Un « Q » sans séparateur fait partie de l'intitulé.
+  assert.equal(une('Q7 est une voiture de quelle marque ?', '* Audi', 'BMW').text, 'Q7 est une voiture de quelle marque ?')
+  assert.equal(une('Q2 2024 : quel trimestre ?', '* Le deuxième', 'Le premier').text, 'Q2 2024 : quel trimestre ?')
+  assert.equal(une('Q3 : Capitale ?', '* Canberra', 'Sydney').text, 'Capitale ?', 'avec son séparateur, il reste un numéro')
+  // Un en-tête seul sur sa ligne : l'intitulé est la suivante.
+  for (const entete of ['### Question 1', '**Question 1**', 'Q1 :', '1.', '## 1']) {
+    const q = une(entete, 'Quelle est la capitale de l’Australie ?', 'Sydney', '* Canberra')
+    assert.equal(q.text, 'Quelle est la capitale de l’Australie ?', entete)
+    assert.deepEqual([q.answers, q.correct], [['Sydney', 'Canberra', '', ''], 1], entete)
+  }
+  // Les coches d'emoji, devant ou derrière, sélecteur U+FE0F compris.
+  for (const ligne of ['✔️ Bleu', '✔\uFE0F Bleu', '✅ Bleu', 'Bleu ✅', 'Bleu ✔️', '☑ Bleu']) {
+    const q = une('Couleur du ciel ?', 'Vert', ligne, 'Rouge')
+    assert.deepEqual([q.answers[1], q.correct], ['Bleu', 1], ligne)
+  }
+})
+
+test('une question sans bonne réponse désignée n’est pas prête, et le dit', () => {
+  const sansEtoile = parseImportedQuestions('Capitale ?\nSydney\nCanberra')
+  assert.equal(sansEtoile.unmarked, 1)
+  const q = sansEtoile.questions[0]
+  assert.equal(toPlayable(q), null, 'la première réponse n’est plus prise pour la bonne')
+  assert.match(questionProblem(q) ?? '', /Choisis la bonne réponse/)
+
+  // Deux étoiles, ou l'étoile sur une cinquième réponse coupée : à choisir aussi.
+  const deux = parseImportedQuestions('Capitale ?\n* Sydney\n* Canberra\nPerth')
+  assert.deepEqual([deux.unmarked, toPlayable(deux.questions[0])], [1, null])
+  const cinquieme = parseImportedQuestions('Capitale ?\nSydney\nPerth\nMelbourne\nDarwin\n* Canberra')
+  assert.deepEqual([cinquieme.unmarked, toPlayable(cinquieme.questions[0])], [1, null])
+
+  // Le serveur et le brouillon gardent « à choisir » : l'enregistrement ne la fait pas prête.
+  const [relue] = normalizeQuestions([q])
+  assert.equal(relue.correct, -1)
+  assert.equal(toPlayable(relue), null)
+  // Choisie sur la carte, elle se joue.
+  assert.equal(toPlayable({ ...relue, correct: 1 })?.kind, 'choice')
+})
+
+// ── 7. Le temps d'une liste collée ────────────────────────────────────────
+//
+// L'aide du panneau disait « le temps de la question qui précède », le
+// format copié pour l'IA « celui réglé dans FiestApp », et le lecteur prenait
+// celui de la voisine du point où l'on colle : Léa a mis « Temps : 50 s »
+// sous sa première question, et les huit autres sont arrivées à 20 s
+// (rejoué : [50, 20, 20]). Le temps court maintenant comme la catégorie.
+
+test('une ligne « Temps » vaut pour sa question et les suivantes, jusqu’à la prochaine', () => {
+  const temps = (texte: string, voisine = 20) =>
+    parseImportedQuestions(texte, { ...emptyQuestion(), duration: voisine }).questions.map(q => q.duration)
+  assert.deepEqual(temps('Q1 ?\nTemps : 50 s\n* a\nb\n\nQ2 ?\n* a\nb\n\nQ3 ?\n* a\nb'), [50, 50, 50])
+  assert.deepEqual(temps('Q1 ?\n* a\nb\n\nQ2 ?\nTemps : 30\n* a\nb\n\nQ3 ?\n= 4\nTemps : 15 s\n\nQ4 ?\n* a\nb'), [20, 30, 15, 15])
+  // Écrite seule, ou en tête de bloc comme une catégorie, elle vaut pour ce qui suit.
+  assert.deepEqual(temps('Temps : 45 s\n\nQ1 ?\n* a\nb\n\nQ2 ?\n* a\nb'), [45, 45])
+  assert.deepEqual(temps('# Musique\nTemps : 45 s\nQ1 ?\n* a\nb\n\nQ2 ?\n* a\nb'), [45, 45])
+  // Sans ligne, celui de la voisine ; illisible, le temps en cours.
+  assert.deepEqual(temps('Q1 ?\n* a\nb', 35), [35])
+  assert.deepEqual(temps('Q1 ?\nTemps : 40\n* a\nb\n\nQ2 ?\nTemps : vite\n* a\nb', 35), [40, 40])
+  // Une ligne « Temps » seule ne compte pas parmi les blocs ignorés.
+  assert.equal(parseImportedQuestions('Temps : 45 s\n\nQ1 ?\n* a\nb').ignored, 0)
+  // Un intitulé qui commence par « Temps : » sans durée lisible reste un intitulé.
+  assert.equal(une('Temps : combien de minutes dure un match ?', '* 90', '80').text, 'Temps : combien de minutes dure un match ?')
+})
+
+test('l’aide du panneau, le format et son exemple disent la même règle du temps', () => {
+  assert.match(FORMAT_DE_LISTE, /Temps : 30 s — le temps pour répondre[^\n]*cette question et les suivantes/)
+  // L'exemple montre un temps qui court : la question sans ligne « Temps » garde celui d'avant.
+  const { questions } = parseImportedQuestions(EXEMPLE_DU_FORMAT)
+  const i = questions.findIndex(q => q.duration === 30)
+  assert.ok(i >= 0 && questions[i + 1]?.duration === 30, 'la question qui suit un « Temps : 30 s » garde 30 s')
+})
+
+// ── 8. Copier en liste ────────────────────────────────────────────────────
+//
+// On ne pouvait pas se passer un quiz en texte — dans un message, à relire
+// ou à faire compléter par une IA (AD-7). « Copier en liste » l'écrit dans
+// le format que « Coller une liste » relit : l'aller et retour ne perd rien,
+// sauf les photos, qui ne voyagent pas en texte et reviennent « attendues ».
+
+test('un quiz copié en liste se recolle à l’identique, photos attendues comprises', () => {
+  const base = { ...emptyQuestion(), duration: 30 }
+  const questions: QuizQuestionDef[] = [
+    { ...base, text: 'Capitale de l’Australie ?', answers: ['Sydney', 'Canberra', 'Perth', ''], correct: 1, category: 'Géographie' },
+    { ...base, text: 'Altitude de l’Everest ?', kind: 'number', target: 8849, unit: 'm', category: 'Géographie' },
+    { ...base, text: 'Record de froid en France ?', kind: 'number', target: -41.5, unit: '°C', duration: 45, category: null },
+    { ...base, text: 'La tour Eiffel mesure 330 m.', answers: ['Vrai', 'Faux', '', ''], correct: 0, duration: 45, category: 'Histoire' },
+    { ...base, text: 'Quel est ce monument ?', answers: ['Big Ben', 'Tour Eiffel', '', ''], correct: 1, image: '/media/image/abc', observeSeconds: 5, category: 'Histoire' },
+    { ...base, text: 'Sans bonne réponse ?', answers: ['Oui', 'Non', '', ''], correct: -1, category: 'Histoire', photoAttendue: 'plage.jpg' },
+    { ...base, text: '   ', answers: ['a', 'b', '', ''] },
+  ]
+  const texte = ecrireListe(questions)
+  const relu = parseImportedQuestions(texte)
+  assert.equal(relu.ignored, 0, texte)
+  assert.equal(relu.unmarked, 1)
+  const resume = (q: QuizQuestionDef) => ({
+    text: q.text,
+    kind: q.kind,
+    answers: q.kind === 'choice' ? q.answers : null,
+    correct: q.kind === 'choice' ? q.correct : null,
+    target: q.kind === 'number' ? q.target : null,
+    unit: q.kind === 'number' ? q.unit : null,
+    duration: q.duration,
+    category: q.category,
+  })
+  // La question sans intitulé ne s'écrit pas : elle n'aurait rien à relire.
+  assert.deepEqual(relu.questions.map(resume), questions.slice(0, 6).map(resume))
+  // La photo jointe revient attendue, avec son observation ; l'attendue reste attendue.
+  assert.deepEqual(
+    relu.questions.map(q => [q.photoAttendue !== null, q.observeSeconds]),
+    [[false, null], [false, null], [false, null], [false, null], [true, 5], [true, null]],
+  )
+  assert.equal(relu.questions[5].photoAttendue, 'plage.jpg')
+  // Le temps ne s'écrit que lorsqu'il change : il court, comme la catégorie.
+  assert.equal(texte.match(/^Temps :/gm)?.length, 3)
+})
+
+// Relu par la relecture de l'axe 3 : ce que « Copier en liste » perdait en
+// plus des photos. L'estimation sans cible, elle, se perd encore au
+// recollage : on ne devine pas une cible (voir `ecrireListe`).
+test('copié en liste, un intitulé à dièse, un choix « Photo : » et un grand nombre se recollent tels quels', () => {
+  const base = emptyQuestion()
+  const questions: QuizQuestionDef[] = [
+    { ...base, text: '# Quiz musical ?', answers: ['Photo : la plage', 'Réponse : B', 'Temps : 30 s', 'Observation : 5'], correct: 0 },
+    { ...base, text: 'Temps : combien dure un match ?', answers: ['90', '80', '', ''], correct: 0 },
+    { ...base, text: 'Temps : 30 s', answers: ['a', 'b', '', ''], correct: 1 },
+    { ...base, text: '2. étape ?', answers: ['a', 'b', '', ''], correct: 1 },
+    { ...base, text: 'Atomes dans un gramme ?', kind: 'number', target: 1e21, unit: 'atomes' },
+    { ...base, text: 'Tout petit ?', kind: 'number', target: -1.5e-7, unit: 'm' },
+  ]
+  const texte = ecrireListe(questions)
+  assert.doesNotMatch(texte, /e\+|e-\d/, 'jamais d’exposant')
+  const relu = parseImportedQuestions(texte)
+  assert.equal(relu.ignored, 0, texte)
+  assert.deepEqual(
+    relu.questions.map(q => [q.text, q.kind === 'choice' ? [q.answers, q.correct] : [q.target, q.unit]]),
+    questions.map(q => [q.text, q.kind === 'choice' ? [q.answers, q.correct] : [q.target, q.unit]]),
+    texte,
+  )
+  assert.equal(relu.questions[0].category, null, 'le dièse n’a pas fait une catégorie')
+  assert.equal(relu.questions[0].photoAttendue, null, 'le choix n’a pas fait une photo')
 })

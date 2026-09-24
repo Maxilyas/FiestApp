@@ -8,9 +8,14 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   DEFAULT_DURATION,
+  bonneEnPremier,
   cloneQuestion,
+  estVraiFaux,
   emptyQuestion,
+  normalizeQuestions,
   parseImportedQuestions,
+  questionProblem,
+  toPlayable,
   voisineDe,
   type QuizQuestionDef,
 } from '../../shared/library'
@@ -100,4 +105,55 @@ test('une duplication garde tout, temps et catégorie compris', () => {
   assert.equal(copie.duration, 45)
   assert.equal(copie.category, 'Sport')
   assert.equal(copie.text, voisine.text)
+})
+
+// ── Un temps hors bornes se dit ───────────────────────────────────────────
+//
+// Le champ « Temps » ne se vidait pas : on effaçait « 20 », il revenait, et
+// taper 45 donnait « 2045 » — ramené à 120 s à l'enregistrement, sans un
+// mot, la question comptée « prête » (tablée du 24 septembre, AN-15, ED-7).
+// Le champ garde maintenant ce qu'on tape (`ChampNombre`) ; ce qui sort des
+// bornes se dit sur la carte, et la question n'est pas prête tant qu'il y reste.
+
+test('un temps ou une observation hors bornes rend la question « à compléter », et dit les bornes', () => {
+  const q: QuizQuestionDef = { ...reglee(20, null), image: null }
+  assert.equal(questionProblem(q), null)
+  for (const duration of [2045, 4, 0, Number.NaN]) {
+    assert.equal(toPlayable({ ...q, duration }), null, `${duration} s`)
+    assert.match(questionProblem({ ...q, duration }) ?? '', /de 5 à 120 s/, `${duration} s`)
+  }
+  assert.notEqual(toPlayable({ ...q, duration: 120 }), null)
+  assert.notEqual(toPlayable({ ...q, duration: 5 }), null)
+
+  const photo: QuizQuestionDef = { ...q, image: '/media/image/abc', observeSeconds: 5 }
+  assert.equal(questionProblem(photo), null)
+  assert.match(questionProblem({ ...photo, observeSeconds: 40 }) ?? '', /de 2 à 30 s/)
+  assert.equal(toPlayable({ ...photo, observeSeconds: 1 }), null)
+  // Sans photo, l'observation n'a rien à dire : elle est ignorée, pas reprochée.
+  assert.equal(questionProblem({ ...q, observeSeconds: 40 }), null)
+})
+
+test('le serveur range un temps venu d’une page d’avant dans les bornes, comme avant', () => {
+  const [court, long] = normalizeQuestions([
+    { text: 'Un ?', answers: ['a', 'b'], duration: 2 },
+    { text: 'Deux ?', answers: ['a', 'b'], duration: 2045 },
+  ])
+  assert.deepEqual([court.duration, long.duration], [5, 120])
+})
+
+// ── Vrai ou faux, et la bonne réponse toujours en premier ─────────────────
+
+test('un vrai ou faux se reconnaît, et ne compte pas dans « la bonne réponse en premier »', () => {
+  const vf = (correct: number): QuizQuestionDef => ({ ...reglee(20, null), image: null, answers: ['Vrai', 'Faux', '', ''], correct })
+  assert.equal(estVraiFaux(vf(0)), true)
+  assert.equal(estVraiFaux({ ...vf(0), answers: [' faux', 'VRAI', '', ''] }), true)
+  assert.equal(estVraiFaux({ ...vf(0), answers: ['Vrai', 'Faux', 'Peut-être', ''] }), false)
+  assert.equal(estVraiFaux({ ...vf(0), kind: 'number' }), false)
+
+  const qcm = (correct: number): QuizQuestionDef => ({ ...reglee(20, null), image: null, answers: ['A', 'B', 'C', ''], correct })
+  // Six QCM sur neuf, comme chez Nadia : on le dit.
+  assert.deepEqual(bonneEnPremier([...Array(6)].map(() => qcm(0)).concat([qcm(1), qcm(2), qcm(1)])), { premiers: 6, qcm: 9 })
+  // Les vrai ou faux n'y entrent pas ; trois QCM, c'est trop peu pour conclure.
+  assert.equal(bonneEnPremier([qcm(0), qcm(0), qcm(0), vf(0), vf(0)]), null)
+  assert.equal(bonneEnPremier([qcm(0), qcm(1), qcm(2), qcm(0), qcm(1)]), null)
 })

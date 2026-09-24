@@ -4,6 +4,7 @@ import { helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
 import { memesChamps, memesListes } from '../egalite'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
+import { ChampNombre } from '../components/ChampNombre'
 import { api } from '../api'
 import { dataUrl, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
@@ -12,15 +13,16 @@ import { espacesFines } from '../format'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
+import { Coupe } from '../components/Coupe'
 import { TeamBoard } from '../components/TeamBoard'
 import { FinalPodium, Standings } from '../components/Podium'
 import { Trophies } from '../components/Trophies'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { Icon } from '../components/Icon'
-import { Rank, Score } from '../components/Rank'
+import { Rank, Score, motPoints } from '../components/Rank'
 import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
-import { finalRanking, rankTeams, vainqueursDuQuiz } from '../../../shared/teams'
+import { detailDesPoints, effetDUnPrix, rankTeams, regleDesEquipes, vainqueursDuQuiz } from '../../../shared/teams'
 import { classer, enumerer } from '../../../shared/classement'
 import type { PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
 import { sound } from '../sound'
@@ -31,6 +33,7 @@ import { Niveau } from '../components/Niveau'
 import { distinctions } from '../../../shared/profil'
 import type { ArchiveList } from '../../../shared/archive'
 import { AnnoncesDeNiveau, ClotureEcran } from '../components/Cloture'
+import { BoutonCopier } from '../components/Partage'
 import { useEcranAllume } from '../veille'
 
 /** QR wifi standard : le téléphone rejoint le réseau en le scannant. */
@@ -434,7 +437,6 @@ export function HostApp() {
   // Le vainqueur se joue sur le barème plus les prix : les prix peuvent
   // renverser l'ordre du quiz, c'est tout leur intérêt. Et à égalité, elles
   // gagnent ensemble : la liste départage par nom, pas l'écran de victoire.
-  const final = finalRanking(teams)
   const champions = vainqueursDuQuiz(teams)
   const bonuses = snap.bonuses
   const givenTitles = new Set(bonuses.map(b => b.reason))
@@ -622,6 +624,11 @@ export function HostApp() {
             {screen === 'cloture' && s.cloture ? (
               <>
                 <ClotureEcran cloture={s.cloture} souvenirUrl={`${joinUrl}/soirees/${s.cloture.soiree.id}`} />
+                {/* La clôture ouvre le lendemain : le bilan, les fiches à
+                    imprimer, l'historique, et le lien à envoyer — celui de
+                    l'archive, que la soirée suivante ne changera pas. On le
+                    trouvait le lendemain, par l'historique, en devinant lequel
+                    des deux « Souvenir » copier. */}
                 <ConsoleActions>
                   <a
                     className="btn"
@@ -631,6 +638,24 @@ export function HostApp() {
                   >
                     <Icon name="book" />
                     Le souvenir
+                  </a>
+                  <BoutonCopier texte={`${joinUrl}/soirees/${s.cloture.soiree.id}`} />
+                  <a className="btn" href={spacePath(slug, 'bilan', s.cloture.soiree.id)} target="_blank" rel="noreferrer">
+                    <Icon name="list" />
+                    Le bilan
+                  </a>
+                  <a
+                    className="btn"
+                    href={spacePath(slug, 'bilan/fiches', s.cloture.soiree.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Icon name="download" />
+                    Les fiches
+                  </a>
+                  <a className="btn" href={spacePath(slug, 'soirees')} target="_blank" rel="noreferrer">
+                    <Icon name="clock" />
+                    L’historique
                   </a>
                   <button
                     className="btn btn-primary"
@@ -688,14 +713,18 @@ export function HostApp() {
 
                 {showTeamPodium ? (
                   <div className="scene-podium">
-                    <FinalPodium rows={teamPodium} />
+                    {/* Le podium se fait à la moyenne, avant les prix ; le
+                        tableau, aux points d'équipe, prix compris. Sans le
+                        dire, l'un démentait l'autre dès le premier prix. */}
+                    <div className="podium-legende">
+                      <FinalPodium rows={teamPodium} />
+                      <p className="muted small center">Le podium à la moyenne, avant les prix</p>
+                    </div>
                     <div className="scene-listes">
-                      <TeamBoard teams={teams} showFinalPoints />
-                      <p className="muted small">
-                        Le chiffre cerclé : le barème, prix compris — il range le tableau et
-                        désigne l'équipe gagnante. Le grand chiffre à droite, la moyenne par membre :
-                        c'est elle qui fait le podium du quiz et distribue le barème.
-                      </p>
+                      <Coupe>
+                        <TeamBoard teams={teams} />
+                      </Coupe>
+                      <p className="muted small">{regleDesEquipes(teams.length)}</p>
                     </div>
                   </div>
                 ) : (
@@ -703,8 +732,19 @@ export function HostApp() {
                     <FinalPodium rows={ranking} />
                     {(ranking.length > 3 || recap) && (
                       <div className="scene-listes">
-                        {ranking.length > 3 && <Standings rows={ranking.slice(3)} offset={3} />}
-                        {recap && <Trophies recap={recap} />}
+                        {ranking.length > 3 && (
+                          <Coupe>
+                            <Standings rows={ranking.slice(3)} offset={3} />
+                          </Coupe>
+                        )}
+                        {/* Les distinctions sous la suite du classement, cartes
+                            coupées entières : trois cartes prenaient toute la
+                            colonne, et la liste tombait à une ligne. */}
+                        {recap && (
+                          <Coupe className="coupe-trophees" lignes=".trophy" autres={n => `et ${n} autre${n > 1 ? 's' : ''} distinction${n > 1 ? 's' : ''}`}>
+                            <Trophies recap={recap} />
+                          </Coupe>
+                        )}
                       </div>
                     )}
                   </div>
@@ -738,9 +778,9 @@ export function HostApp() {
                     animatrice qui avait épargné un prix à voix haute le
                     retrouvait le lendemain. */}
                 <p className="muted center">
-                  Des points pour les équipes : un prix ne rapporte rien tant que tu ne cliques pas,
-                  puis s'ajoute au total de l'équipe du lauréat, sur l'échelle du barème. Le palmarès,
-                  lui, reste au souvenir, remis ou non — sans jamais rapporter d'expérience.
+                  Chaque prix attribué ajoute ses points d'équipe à l'équipe du lauréat — 0 pour
+                  l'honneur — et peut changer la gagnante. Le palmarès reste au souvenir, remis ou
+                  non, sans jamais rapporter d'expérience.
                 </p>
 
                 <AwardsBoard
@@ -782,15 +822,17 @@ export function HostApp() {
                       value={freeReason}
                       onChange={e => setFreeReason(e.target.value)}
                     />
-                    <input
-                      className="input award-points"
-                      type="number"
-                      min={-10}
-                      max={10}
-                      aria-label="Points du prix"
-                      value={freePoints}
-                      onChange={e => setFreePoints(Number(e.target.value))}
-                    />
+                    <label className="award-points-champ">
+                      <ChampNombre
+                        className="input award-points"
+                        min={-10}
+                        max={10}
+                        aria-label="Points d’équipe du prix"
+                        valeur={freePoints}
+                        onValeur={setFreePoints}
+                      />
+                      <span className="award-points-unite" aria-hidden="true">pts d’équipe</span>
+                    </label>
                     <button
                       className="btn btn-primary btn-small"
                       disabled={!freeTeam || !freeReason.trim()}
@@ -798,7 +840,8 @@ export function HostApp() {
                         sound.reveal()
                         socket.emit('host:awardTeam', {
                           teamId: freeTeam,
-                          points: freePoints,
+                          // Arrondi comme l'effet annoncé en dessous.
+                          points: Math.round(freePoints),
                           reason: freeReason,
                         })
                         setFreeReason('')
@@ -807,6 +850,11 @@ export function HostApp() {
                       Attribuer
                     </button>
                   </div>
+                  {freeTeam && Number.isFinite(freePoints) && (
+                    <p className="award-effet" aria-live="polite">
+                      {effetDUnPrix(teams, freeTeam, freePoints)}
+                    </p>
+                  )}
                 </div>
 
                 {bonuses.length > 0 && (
@@ -873,7 +921,7 @@ export function HostApp() {
                   <Icon name="crown" />
                   {champions.length > 1 ? 'Les équipes qui remportent le quiz' : "L'équipe qui remporte le quiz"}
                 </h2>
-                {final.length > 0 ? (
+                {teams.length > 0 ? (
                   <>
                     {/* Couronner la première de la liste, c'était couronner
                         l'alphabet : un prix à +1 remis aux Aigles, deuxièmes,
@@ -886,56 +934,48 @@ export function HostApp() {
                         <span className="victory-emoji">{champions.map(t => t.emoji).join(' ')}</span>
                         <span className="victory-name">{enumerer(champions.map(t => t.name))}</span>
                         {champions.length > 1 ? (
-                          <span className="victory-points">Ex æquo · {champions[0].finalPoints} points chacune</span>
+                          <span className="victory-points">
+                            Ex æquo · {champions[0].finalPoints} {motPoints(champions[0].finalPoints)} d'équipe chacune
+                          </span>
                         ) : (
                           <>
-                            <span className="victory-points">{champions[0].finalPoints} points</span>
-                            <span className="muted">
-                              {champions[0].gamePoints} au barème
-                              {champions[0].bonus !== 0 &&
-                                ` · ${champions[0].bonus > 0 ? '+' : ''}${champions[0].bonus} de prix`}
+                            <span className="victory-points">
+                              {champions[0].finalPoints} {motPoints(champions[0].finalPoints)} d'équipe
                             </span>
+                            <span className="muted">{detailDesPoints(champions[0])}</span>
                           </>
                         )}
                       </div>
                     )}
                     <div className="victory-boards">
-                      <div>
+                      <div className="tableau">
                         <h3>
                           <Icon name="users" />
                           Les équipes
                         </h3>
-                        <div className="leaderboard">
-                          {final.map(t => (
-                            <div key={t.id} className="lb-row team-row">
-                              <Rank n={t.rank} />
-                              <span className="lb-avatar">{t.emoji}</span>
-                              <span className="lb-name">
-                                {t.name}
-                                <span className="team-sub">
-                                  {t.total} pts cumulés · {t.average} de moyenne
-                                  {t.bonus !== 0 && ` · ${t.bonus > 0 ? '+' : ''}${t.bonus} de prix`}
-                                </span>
-                              </span>
-                              <Score n={t.finalPoints} precision="au total, prix compris" />
-                            </div>
-                          ))}
-                        </div>
-                        <p className="muted small center">
-                          Le gros chiffre est le total du quiz, prix compris : c'est lui qui
-                          classe les équipes.
-                        </p>
+                        {/* Le même tableau qu'au téléphone et au souvenir. Sa
+                            légende disait « le gros chiffre est le total du
+                            quiz », faux dès le deuxième quiz ; la règle entière
+                            passait sous la console en 1366 × 768 : chaque
+                            ligne dit d'où viennent ses points, et la règle se
+                            lit au podium et au panneau des équipes. */}
+                        <Coupe>
+                          <TeamBoard teams={teams} />
+                        </Coupe>
                       </div>
 
                       {/* Le classement individuel a sa place ici : c'est pour lui
                           que chacun a joué, et il explique le total des équipes. */}
-                      <div>
+                      <div className="tableau">
                         <h3>
                           <Icon name="trophy" />
                           Les joueurs
                         </h3>
+                        {/* Coupé à ce qui tient : à douze, la liste passait
+                            sous la console en 1366 × 768 dès le sixième. */}
+                        <Coupe enPlus={Math.max(0, ranking.length - 30)}>
                         <div className="leaderboard">
-                          {ranking.slice(0, 12).map((p, i) => (
+                          {ranking.slice(0, 30).map((p, i) => (
                             <div key={i} className="lb-row">
                               <Rank n={p.rank} />
                               <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
@@ -945,9 +985,7 @@ export function HostApp() {
                             </div>
                           ))}
                         </div>
-                        {ranking.length > 12 && (
-                          <p className="muted small center">et {ranking.length - 12} autres…</p>
-                        )}
+                        </Coupe>
                       </div>
                     </div>
                   </>
@@ -1074,12 +1112,8 @@ export function HostApp() {
               {teams.length > 0 && (
                 <section className="card">
                   <h2>Les équipes</h2>
-                  <TeamBoard teams={teams} showFinalPoints />
-                  <p className="muted small">
-                    Le chiffre cerclé : le barème, prix compris — il range les équipes et désigne
-                    la gagnante. Le grand chiffre à droite, la moyenne par membre, qui distribue le
-                    barème.
-                  </p>
+                  <TeamBoard teams={teams} />
+                  <p className="muted small">{regleDesEquipes(teams.length)}</p>
                 </section>
               )}
 
