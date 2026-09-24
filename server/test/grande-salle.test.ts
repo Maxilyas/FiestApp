@@ -2,11 +2,25 @@
 // Rien n'est chronométré ici — une machine chargée ferait échouer un test qui
 // mesure des millisecondes. On compte : les vues calculées, les écritures de
 // l'état, les messages que reçoit chacun.
-import { afterEach, mock, test } from 'node:test'
+import { after, afterEach, before, mock, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import {
+  ADMIN,
+  attendre,
+  connecter,
+  connexionAnimateur,
+  demarrer,
+  ecranCommun,
+  emitAck,
+  instantane,
+  invite,
+  patienter,
+  type Banc,
+  type Socket,
+} from './banc'
 import { initDb, type DB } from '../src/core/db'
 import { Party } from '../src/core/party'
 import { ScoreLedger } from '../src/core/scores'
@@ -260,4 +274,94 @@ test('les réponses lues dans le même tour s’écrivent une fois, et l’arrê
   } finally {
     s.fermer()
   }
+})
+
+// ── Un vrai serveur : l'instantané de la salle ────────────────────────────
+
+let banc: Banc
+let cookie: string
+const ouverts: Socket[] = []
+
+before(async () => {
+  banc = await demarrer()
+  cookie = await connexionAnimateur(banc.url)
+})
+
+after(async () => {
+  for (const s of ouverts) s.close()
+  await banc.close()
+})
+
+test('la veille d’un téléphone ne repart qu’à l’écran commun', async () => {
+  const host = await ecranCommun(banc.url, cookie)
+  ouverts.push(host)
+  const invites = []
+  for (let i = 0; i < 6; i++) {
+    const inv = await invite(banc.url, `Veilleur ${i}`, '🐼')
+    ouverts.push(inv.socket)
+    invites.push(inv)
+  }
+  const tel = invites[0].socket
+  const snap = await instantane<any>(tel, s => s.players.length >= 6, 'la salle au complet')
+  // Qui dort, qui veille : l'affaire de l'écran commun. Un téléphone qui le
+  // recevait devait recevoir aussi chaque veille de chacun — à 300 invités,
+  // un gigaoctet pour une vague d'arrivées.
+  assert.ok(
+    snap.players.every((p: any) => !('connected' in p)),
+    'l’instantané d’un téléphone ne dit pas qui est connecté',
+  )
+  const hote = await instantane<any>(host, s => s.players.length >= 6)
+  assert.ok(hote.players.every((p: any) => typeof p.connected === 'boolean'), 'celui de l’écran commun, si')
+
+  let recus = 0
+  const compter = () => recus++
+  for (const inv of invites.slice(0, 5)) inv.socket.on('party:snapshot', compter)
+  const dormeur = invites[5]
+  dormeur.socket.close()
+  await instantane<any>(
+    host,
+    s => s.players.find((p: any) => p.id === dormeur.playerId)?.connected === false,
+    'l’écran commun voit la veille',
+  )
+  await patienter(150)
+  assert.equal(recus, 0, 'les autres téléphones ne reçoivent rien')
+
+  // Le dormeur se réveille : connexion neuve, il se re-présente. La salle
+  // n'a pas changé pour les téléphones, mais lui doit avoir la sienne.
+  const reveil = await invite(banc.url, 'ignoré', '🐼', { token: dormeur.token })
+  ouverts.push(reveil.socket)
+  assert.equal(reveil.playerId, dormeur.playerId)
+  const sien = await instantane<any>(reveil.socket, s => s.players.some((p: any) => p.id === dormeur.playerId))
+  assert.equal(sien.players.length, 6, 'le réveillé retrouve toute la salle')
+  await instantane<any>(host, s => s.players.find((p: any) => p.id === dormeur.playerId)?.connected === true)
+  await patienter(150)
+  assert.equal(recus, 0, 'et son retour ne repart pas non plus aux autres')
+
+  // Une arrivée, elle, change la salle de tout le monde.
+  const nouvelle = await invite(banc.url, 'Nouvelle', '🐸')
+  ouverts.push(nouvelle.socket)
+  await attendre<any>(tel, 'party:snapshot', s => s.players.length === 7, 'l’arrivée vue des téléphones')
+})
+
+test('un téléphone qui rejoint reçoit l’instantané de la salle, même sans l’avoir suivie', async () => {
+  // Une page qui se re-présente sans repasser par `party:watch` : la salle
+  // n'a pas bougé pour les téléphones, le regroupement n'envoie donc rien,
+  // et c'est la réponse au `join` qui doit porter la salle.
+  const premier = await invite(banc.url, 'Témoin', '🦁')
+  ouverts.push(premier.socket)
+  await instantane<any>(premier.socket, s => s.players.some((p: any) => p.id === premier.playerId), 'son arrivée')
+  premier.socket.close()
+  const host = await ecranCommun(banc.url, cookie)
+  ouverts.push(host)
+  await instantane<any>(
+    host,
+    s => s.players.find((p: any) => p.id === premier.playerId)?.connected === false,
+    'l’écran commun voit la veille',
+  )
+  const socket = connecter(banc.url)
+  ouverts.push(socket)
+  const ack = await emitAck<any>(socket, 'player:join', { slug: ADMIN.slug, token: premier.token })
+  assert.equal(ack.ok, true)
+  const snap = await instantane<any>(socket, s => s.players.some((p: any) => p.id === premier.playerId), 'la salle')
+  assert.ok(snap.players.length >= 1)
 })

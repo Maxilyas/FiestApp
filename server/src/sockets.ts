@@ -356,6 +356,12 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           avatar: res.avatar,
           ...(profile && { profile: deps.profiles.toPublic(profile) }),
         })
+        // Un téléphone qui se re-présente ne change pas la salle des
+        // téléphones — qui dort et qui veille n'y figure plus : le
+        // regroupement ne renverra rien, et c'est ici qu'il la reçoit. Une
+        // page restée ouverte l'avait déjà ; une page rechargée qui ne
+        // repasserait pas par `party:watch`, non.
+        if (known) socket.emit('party:snapshot', rt.buildSnapshot(false))
         rt.broadcastSnapshot()
         // Arrivé en cours de quiz : on l'y intègre pour les questions à venir.
         rt.engine.joinLate(res.id)

@@ -118,8 +118,12 @@ export class SpaceRuntime {
   //   le monde. On n'en envoie qu'une par fenêtre courte.
   // · Dédoublonnage — un classement identique au précédent ne part pas. Sans
   //   ça, le filet de sécurité périodique renvoyait 4 Ko à chaque téléphone
-  //   toutes les 30 secondes pendant toute la fête, pour rien.
+  //   toutes les 30 secondes pendant toute la fête, pour rien. Les téléphones
+  //   et les écrans communs ont chacun le leur : qui dort et qui veille ne
+  //   regarde que l'écran commun, et une veille ne doit plus repartir à
+  //   toute la salle.
   private lastSnapshot = ''
+  private lastEcrans = ''
   private pending: ReturnType<typeof setTimeout> | null = null
 
   constructor(
@@ -727,6 +731,11 @@ export class SpaceRuntime {
    * celle d'un invité.
    */
   buildSnapshot(forHost: boolean): PartySnapshot {
+    const snapshot = this.snapshotComplet()
+    return forHost ? this.pourLesEcrans(snapshot) : this.pourLesTelephones(snapshot)
+  }
+
+  private snapshotComplet(): PartySnapshot {
     const space = this.publicSpace()
     const players = this.party.publicPlayers(this.ledger.allTotals())
     const bonuses = this.teams.allBonuses()
@@ -740,7 +749,18 @@ export class SpaceRuntime {
       wifi: null,
       space,
     }
-    return forHost ? this.pourLesEcrans(snapshot) : snapshot
+    return snapshot
+  }
+
+  /**
+   * Ce que les téléphones reçoivent : la salle, sans dire qui est connecté.
+   * Chaque veille d'écran, chaque retour, basculait un `connected` et
+   * renvoyait la salle entière à chacun — à 300 invités, un gigaoctet pour
+   * une vague d'arrivées une par une. Aucun téléphone ne le lisait, sauf
+   * l'entrée pour compter les présents : elle compte désormais les inscrits.
+   */
+  private pourLesTelephones(snapshot: PartySnapshot): PartySnapshot {
+    return { ...snapshot, players: snapshot.players.map(({ connected: _connected, ...p }) => p) }
   }
 
   /** Ce que l'écran commun reçoit en plus de la salle. */
@@ -755,21 +775,41 @@ export class SpaceRuntime {
   }
 
   sendSnapshot(force = false) {
-    const snapshot = this.buildSnapshot(false)
-    const json = JSON.stringify(snapshot)
-    if (!force && json === this.lastSnapshot) return
-    this.lastSnapshot = json
+    if (this.pending) clearTimeout(this.pending)
+    this.pending = null
+    const complet = this.snapshotComplet()
+    const telephones = this.pourLesTelephones(complet)
+    const ecrans = this.pourLesEcrans(complet)
     const io = this.deps.io
-    io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`).emit('party:snapshot', snapshot)
-    io.to(`hosts:${this.spaceId}`).emit('party:snapshot', this.pourLesEcrans(snapshot))
+    const json = JSON.stringify(telephones)
+    if (force || json !== this.lastSnapshot) {
+      this.lastSnapshot = json
+      io.to(`space:${this.spaceId}`).except(`hosts:${this.spaceId}`).emit('party:snapshot', telephones)
+    }
+    const jsonEcrans = JSON.stringify(ecrans)
+    if (force || jsonEcrans !== this.lastEcrans) {
+      this.lastEcrans = jsonEcrans
+      io.to(`hosts:${this.spaceId}`).emit('party:snapshot', ecrans)
+    }
   }
 
+  /**
+   * La fenêtre de regroupement grandit avec la salle : 120 ms pour une
+   * tablée, une demi-seconde passé cent quatre-vingt-dix invités. Chaque
+   * envoi coûte à proportion de la salle — sa liste, à chacun de ses
+   * téléphones —, et une vague d'arrivées une par une en faisait autant de
+   * diffusions. Rien de ce qu'il porte n'est pressé à ce point : la vue de la
+   * partie, elle, ne l'attend pas.
+   */
   broadcastSnapshot() {
     if (this.pending) return
-    this.pending = setTimeout(() => {
-      this.pending = null
-      this.sendSnapshot()
-    }, 120)
+    this.pending = setTimeout(
+      () => {
+        this.pending = null
+        this.sendSnapshot()
+      },
+      120 + 2 * this.party.count(),
+    )
   }
 
   // ── Les pages publiques : souvenir, bilan, historique ──
