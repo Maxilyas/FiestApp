@@ -96,7 +96,11 @@ server/test/        un fichier par thème, un serveur jetable chacun
 3. **Tout est cloisonné par `space_id`.** Un identifiant qui n'est pas du sien
    vaut « introuvable », et le voisin n'en sait rien.
 4. **L'instantané est dédoublonné et regroupé** (`space.ts`). N'y mets jamais
-   un champ qui change à chaque tick : il partirait à toute la salle.
+   un champ qui change à chaque tick : il partirait à toute la salle. Il en
+   part deux versions, chacune dédoublonnée : celle de l'écran commun, et
+   celle des téléphones, **sans `connected`** (`pourLesTelephones`) — une
+   veille d'écran ne repart qu'à l'écran commun. Le regroupement grandit
+   avec la salle (120 ms + 2 ms par invité).
 5. **Les chronomètres sont persistés** et réarmés au redémarrage.
 6. **Une échéance se lit à `serverNow()`**, jamais à `Date.now()` : l'horloge
    d'un téléphone dérive, et on a déjà perdu des réponses pour ça.
@@ -266,7 +270,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
   moyenne. Les deux ne se fondent jamais en un seul chiffre.
 - **Ce qui ne dépend pas du destinataire d'une vue** — un classement, un
   podium — passe par `vctx.memo` : un tri par vue coûtait une demi-minute par
-  question à 500 invités.
+  question à 500 invités. Et **une réponse ne recalcule que deux vues** —
+  la sienne et celle de l'écran commun — parce que le quiz le promet
+  (`vueDependDesAutres: false`) : une vue de téléphone qui lirait la réponse
+  d'un autre en pleine question doit retirer cette promesse.
 - **Côté client** : `--accent-text` pour ce qui s'écrit, `--accent` pour les
   aplats (le contraste d'Ivoire en dépend) ; tout accès au stockage du
   navigateur sous try/catch — des cookies bloqués donnaient une page noire.
@@ -318,7 +325,15 @@ sans `QUIZ_DB_URL`.
   ouvrent une console partagent la même réserve d'essais.
 - **Les crédits lisent les journaux avant le premier `await`** et passent par
   `enFile` : une clôture cliquée pendant un rangement viderait sinon ce
-  qu'ils lisent.
+  qu'ils lisent. Les profils s'y créditent huit à la fois (`enParallele`),
+  qui attend qu'ils aient tous fini, échec compris : un crédit qui écrirait
+  encore après avoir rendu passerait derrière le travail suivant de la file.
+- **Le va-et-vient d'une question attend** : l'écran commun reçoit le
+  compteur de réponses quatre fois par seconde au plus (le dernier compte
+  toujours), et l'état d'une simple réponse s'écrit à la fin du tour de
+  boucle (`persistBientot`) — `stop()` écrit celui qui attendait. Un test
+  qui lit le compteur de l'écran commun attend la vue qui porte le bon
+  chiffre, pas la suivante.
 - **L'Éclat est un tirage** (une chance sur quarante) et le premier fait
   tomber un palier de carrière : un test qui compte l'expérience au point
   près après une clôture neutralise `ProfileStore.tirageEclat`, sinon il
