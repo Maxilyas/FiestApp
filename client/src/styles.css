@@ -1020,6 +1020,19 @@ h3 > .icon {
 .console-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; }
 .console-icons { display: flex; justify-content: flex-end; gap: 8px; }
 
+/* Les groupes de la console d'une question. Largeurs fixes pour l'action
+   principale et la pause : « Révéler » et « Question suivante », « Pause » et
+   « Reprendre » n'ont pas la même longueur, et la bande est centrée — un mot
+   plus long déplaçait tous les boutons sous le curseur. */
+.console-groupe { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.console-principal { min-width: 13em; }
+.console-pause { min-width: 7.5em; }
+/* Les gestes qui défont quelque chose, à l'écart, derrière un filet. */
+.console-risque { padding-left: 12px; margin-left: 4px; border-left: 1px solid var(--edge); }
+.enchainement { display: flex; align-items: center; gap: 4px; }
+.enchainement .pill-btn { padding: 0 10px; }
+.enchainement-label { font-size: 12px; color: var(--muted); margin-right: 4px; }
+
 @media (max-width: 1100px) {
   /* Une seule rangée qui se replie : les icônes suivent les boutons au lieu
      de prendre une ligne à elles, que la hauteur d'un téléphone n'a pas. */
@@ -1027,6 +1040,7 @@ h3 > .icon {
   .console-label { display: none; }
   .console-actions,
   .console-icons { display: contents; }
+  .console-risque { padding-left: 0; margin-left: 0; border-left: 0; }
 }
 
 @media (max-width: 600px), (max-width: 1100px) and (max-height: 500px) {
@@ -1947,8 +1961,6 @@ h3 > .icon {
 
 /* Encoches et barres système des téléphones récents. */
 .player-shell { padding: max(24px, env(safe-area-inset-top)) 20px max(28px, env(safe-area-inset-bottom)); }
-
-.btn.auto-on { border-color: var(--edge-strong); color: var(--accent-text); }
 
 .multiplier-picker { margin-bottom: 4px; }
 

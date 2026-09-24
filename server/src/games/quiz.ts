@@ -3,6 +3,7 @@ import { playableQuestions, type PlayableQuestion, type QuizDef } from '../../..
 import { distinctions } from '../../../shared/profil'
 import { nomAffiche } from '../../../shared/homonymes'
 import { classer, decimales, ecartEstimation, rangPartage, type Classe } from '../../../shared/classement'
+import { ENCHAINEMENT_MAX_S } from '../../../shared/console'
 import type {
   QuizAction,
   QuizCommand,
@@ -677,7 +678,7 @@ export const quizModule: GameModule<QuizState> = {
         break
       case 'autoNext': {
         const seconds = command.seconds
-        st.autoNextSeconds = seconds === null ? null : Math.min(30, Math.max(2, Math.round(seconds)))
+        st.autoNextSeconds = seconds === null ? null : Math.min(ENCHAINEMENT_MAX_S, Math.max(2, Math.round(seconds)))
         if (st.autoNextSeconds === null) {
           // Reprendre la main : l'enchaînement en attente est annulé.
           ctx.clearTimer('autoNext')
