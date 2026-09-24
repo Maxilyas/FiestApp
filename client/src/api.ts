@@ -171,7 +171,11 @@ export const api = {
     logout: () => req<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
     /** Ce qu'ouvre un lien d'activation, sans le consommer. */
     lireActivation: (token: string) =>
-      req<{ login: string; name: string; slug: string; etat: 'valide' | 'servi' | 'perime' }>('/api/auth/activation', {
+      // Le compte ne vient qu'avec un lien encore valide.
+      req<
+        | { login: string; name: string; slug: string; etat: 'valide' }
+        | { login?: undefined; name?: undefined; slug?: undefined; etat: 'servi' | 'perime' }
+      >('/api/auth/activation', {
         method: 'POST',
         body: JSON.stringify({ token }),
       }),

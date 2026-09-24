@@ -133,6 +133,10 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
       }
       const lu = await auth.lireActivation(String(req.body?.token ?? ''))
       if (!lu) return res.status(404).json({ error: 'Lien invalide — demande un nouveau lien à l’administrateur' })
+      // Le compte ne se dit qu'à un lien qui sert encore : servi ou expiré, un
+      // lien qui traîne dans une messagerie ne vaut plus rien, et ne doit pas
+      // donner la moitié des identifiants. Qui l'a servi connaît son identifiant.
+      if (lu.etat !== 'valide') return res.json({ etat: lu.etat })
       res.json({ login: lu.account.login, name: lu.account.name, slug: lu.account.slug, etat: lu.etat })
     }),
   )

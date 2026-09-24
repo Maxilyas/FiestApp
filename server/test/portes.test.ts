@@ -10,6 +10,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { createClient } from '@libsql/client'
 import { connexionAnimateur, demarrer, ecrire, type Banc } from './banc'
 import { decrirePage } from '../src/core/apercus'
 import { parseRoute } from '../../shared/adresses'
@@ -226,7 +227,32 @@ describe('le lien d’activation', () => {
     // Lu deux fois, il sert encore.
     assert.equal(((await (await lire()).json()) as any).etat, 'valide')
     assert.equal((await ecrire(banc.url, '/api/auth/activate', { token: activation.token, password: 'motdepasse-marc' })).status, 200)
-    assert.equal(((await (await lire()).json()) as any).etat, 'servi')
+    // Servi, il ne dit plus rien du compte : un vieux lien qui traîne dans
+    // une messagerie ne doit pas donner la moitié des identifiants.
+    assert.deepEqual(await (await lire()).json(), { etat: 'servi' })
+  })
+
+  test('expiré, il le dit, sans rien dire du compte', async () => {
+    const cree = await ecrire(banc.url, '/api/admin/accounts', { login: 'zoe', name: 'Zoé', slug: 'chez-zoe' }, admin)
+    const { account, activation } = (await cree.json()) as any
+    const brut = createClient({ url: banc.quizDbUrl })
+    try {
+      await brut.execute({ sql: 'UPDATE activations SET expires_at = ? WHERE account_id = ?', args: [Date.now() - 1000, account.id] })
+    } finally {
+      brut.close()
+    }
+    const r = await ecrire(banc.url, '/api/auth/activation', { token: activation.token })
+    assert.equal(r.status, 200)
+    assert.deepEqual(await r.json(), { etat: 'perime' })
+  })
+
+  test('le lien d’un compte mis en pause ne dit rien', async () => {
+    const cree = await ecrire(banc.url, '/api/admin/accounts', { login: 'ines', name: 'Inès', slug: 'chez-ines' }, admin)
+    const { account, activation } = (await cree.json()) as any
+    assert.equal((await ecrire(banc.url, `/api/admin/accounts/${account.id}/disable`, {}, admin)).status, 200)
+    const r = await ecrire(banc.url, '/api/auth/activation', { token: activation.token })
+    assert.equal(r.status, 404)
+    assert.doesNotMatch(JSON.stringify(await r.json()), /ines|Inès|chez-ines/)
   })
 
   test('un jeton inconnu ne dit rien', async () => {

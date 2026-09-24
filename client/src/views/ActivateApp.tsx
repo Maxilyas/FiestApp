@@ -19,7 +19,7 @@ export function ActivateApp() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   /** Le compte qu'ouvre ce lien, lu avant de s'en servir. */
-  const [compte, setCompte] = useState<{ login: string; slug: string; etat: 'valide' | 'servi' | 'perime' } | null>(null)
+  const [compte, setCompte] = useState<Awaited<ReturnType<typeof api.auth.lireActivation>> | null>(null)
 
   useEffect(() => {
     if (!token) return setError('Ce lien est incomplet : demande-en un nouveau à l’administrateur.')
@@ -38,7 +38,7 @@ export function ActivateApp() {
         <hr className="hairline" />
         <p className="center">
           {compte.etat === 'servi'
-            ? <>Ce lien a déjà servi : ton compte <strong>{compte.login}</strong> est prêt. Connecte-toi.</>
+            ? 'Ce lien a déjà servi : ton compte est prêt. Connecte-toi avec l’identifiant et le mot de passe choisis ce jour-là.'
             : 'Ce lien a expiré : demande-en un nouveau à l’administrateur.'}
         </p>
         <div className="join-grow" />
