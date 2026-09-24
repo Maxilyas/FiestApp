@@ -12,6 +12,7 @@
 // moyenne de l'équipe est la somme de ces moyennes.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import Database from 'better-sqlite3'
 import {
   ADMIN,
   attendre,
@@ -47,8 +48,19 @@ async function avecBanc(scenario: (banc: Banc) => Promise<void>) {
   }
 }
 
-/** Un quiz joué de bout en bout : chacun répond à chaque question, puis « Terminer le quiz ». */
-async function jouerQuiz(host: Socket, quizId: string, questions: [Invite, number][][]): Promise<void> {
+/**
+ * Un quiz joué de bout en bout : chacun répond à chaque question, puis
+ * « Terminer le quiz ». Un invité qui ne répond pas n'attend pas le
+ * chronomètre : « Révéler », qui vise la question, ne fait rien si elle
+ * s'est déjà révélée. `avant` joue un geste pendant la question, avant les
+ * réponses.
+ */
+async function jouerQuiz(
+  host: Socket,
+  quizId: string,
+  questions: [Invite, number][][],
+  avant?: (q: number) => Promise<void>,
+): Promise<void> {
   const vue = (sessionId: string, pred: (v: any) => boolean, label: string) =>
     attendre<any>(host, 'session:view', p => p.sessionId === sessionId && pred(p.view), label, 15_000)
   const sessionId = await lancerQuiz(host, quizId)
@@ -56,10 +68,12 @@ async function jouerQuiz(host: Socket, quizId: string, questions: [Invite, numbe
   for (let q = 0; q < questions.length; q++) {
     await suivante
     const revelee = vue(sessionId, v => v.phase === 'reveal' && v.qIndex === q, `la révélation ${q + 1}`)
+    await avant?.(q)
     for (const [qui, choice] of questions[q]) {
       const ack = await emitAck<any>(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice } })
       assert.equal(ack.ok, true, `réponse ${q + 1} refusée : ${ack.error}`)
     }
+    ;(host as any).emit('host:command', { sessionId, command: { type: 'next', phase: 'question', qIndex: q } })
     await revelee
     suivante =
       q + 1 < questions.length
@@ -173,6 +187,141 @@ test('un invité qui rejoint une équipe après le quiz ne change ni sa moyenne 
     assert.deepEqual(moyennes((await lire(banc, `soirees/${soiree}/recap.json`)).teams), moyennes(avant.teams), 'le souvenir archivé')
     assert.deepEqual(moyennes((await lire(banc, `soirees/${soiree}/bilan.json`)).teams), moyennes(avant.teams), 'le bilan archivé')
   }))
+
+// ── 1 bis. L'équipe figée à chaque ligne du journal ─────────────────────
+
+/** Deux équipes, trois joueurs rangés, et Inès connectée sans équipe. */
+async function laSoireeDeLea(banc: Banc) {
+  const cookie = await connexionAnimateur(banc.url)
+  const quiz = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+  const host = await ecranCommun(banc.url, cookie)
+  ;(host as any).emit('host:createTeam', { name: 'Les invités', emoji: '🎁' })
+  ;(host as any).emit('host:createTeam', { name: 'La coloc', emoji: '🏠' })
+  const snap = await instantane<any>(host, s => s.teams.length === 2, 'les deux équipes')
+  const idDe = (nom: string) => snap.teams.find((t: any) => t.name === nom).id as string
+  const liam = await invite(banc.url, 'Liam', '🦁')
+  const zoe = await invite(banc.url, 'Zoé', '🐼')
+  const malik = await invite(banc.url, 'Malik', '🐯')
+  const ines = await invite(banc.url, 'Inès', '🐰')
+  const ranger = async (qui: Invite, equipe: string | null) => {
+    const teamId = equipe && idDe(equipe)
+    ;(host as any).emit('host:assignPlayer', { playerId: qui.playerId, teamId })
+    await instantane<any>(host, s => s.players.some((p: any) => p.id === qui.playerId && p.teamId === teamId), 'le rangement')
+  }
+  await ranger(liam, 'Les invités')
+  await ranger(zoe, 'La coloc')
+  await ranger(malik, 'La coloc')
+  return { cookie, quiz, host, idDe, liam, zoe, malik, ines, ranger }
+}
+
+/** L'équipe que chaque ligne du journal a figée, lue dans la base locale. */
+function equipesAuJournal(banc: Banc, playerId: string): (string | null)[] {
+  const db = new Database(banc.dbPath, { readonly: true })
+  try {
+    return (
+      db.prepare('SELECT team_id FROM answer_log WHERE player_id = ? ORDER BY created_at, q_index').all(playerId) as {
+        team_id: string | null
+      }[]
+    ).map(r => r.team_id)
+  } finally {
+    db.close()
+  }
+}
+
+test('un déménagement après le quiz ne retourne plus son verdict — ni Inès, connectée sans équipe, ni Malik, qui change de camp', () =>
+  avecBanc(async banc => {
+    const { quiz, host, idDe, liam, zoe, malik, ines, ranger } = await laSoireeDeLea(banc)
+    // Liam et Zoé ont tout juste, Malik tout faux ; Inès, là sans équipe, ne répond pas.
+    await jouerQuiz(host, quiz, [
+      [[liam, 0], [zoe, 0], [malik, 1]],
+      [[liam, 0], [zoe, 0], [malik, 1]],
+    ])
+    await patienter(300)
+    const avant = await instantane<any>(host, s => !s.session && s.teams.some((t: any) => t.average > 0), 'le quiz fini')
+    const vainqueurs = equipes.vainqueursDuQuiz(avant.teams).map(t => t.name)
+    assert.deepEqual(vainqueurs, ['Les invités'])
+    assert.deepEqual(equipesAuJournal(banc, ines.playerId), ['', ''], 'Inès a ses lignes, sans équipe')
+    assert.deepEqual(equipesAuJournal(banc, malik.playerId), [idDe('La coloc'), idDe('La coloc')])
+
+    // (a) Inès rejoint les invités : sa ligne à 0 ne compte pour aucune équipe.
+    await ranger(ines, 'Les invités')
+    const a = await instantane<any>(host, s => s.teams.find((t: any) => t.name === 'Les invités').memberCount === 2, 'Inès rangée')
+    assert.deepEqual(moyennes(a.teams), moyennes(avant.teams), 'Inès ne fait pas tomber les invités')
+    assert.deepEqual(equipes.vainqueursDuQuiz(a.teams).map(t => t.name), vainqueurs)
+
+    // (b) Malik passe aux invités : ses points restent à la coloc.
+    await ranger(malik, 'Les invités')
+    const b = await instantane<any>(host, s => s.teams.find((t: any) => t.name === 'Les invités').memberCount === 3, 'Malik déménagé')
+    assert.deepEqual(moyennes(b.teams), moyennes(avant.teams), 'le déménagement de Malik ne change rien au quiz joué')
+    assert.deepEqual(equipes.vainqueursDuQuiz(b.teams).map(t => t.name), vainqueurs)
+    assert.deepEqual(moyennes((await lire(banc, 'recap.json')).teams), moyennes(avant.teams), 'le souvenir')
+    assert.deepEqual(moyennes((await lire(banc, 'bilan.json')).teams), moyennes(avant.teams), 'le bilan')
+
+    // Le disque effacé : le miroir rend le journal avec ses équipes.
+    await banc.redemarrer({ disqueEfface: true })
+    assert.deepEqual(equipesAuJournal(banc, ines.playerId), ['', ''], 'restaurée : Inès toujours sans équipe')
+    assert.deepEqual(equipesAuJournal(banc, malik.playerId), [idDe('La coloc'), idDe('La coloc')], 'restaurée : Malik à la coloc')
+    const host2 = await ecranCommun(banc.url, await connexionAnimateur(banc.url))
+    const reveil = await instantane<any>(host2, s => s.teams.length === 2 && s.players.length === 4, 'la soirée restaurée')
+    assert.deepEqual(moyennes(reveil.teams), moyennes(avant.teams), 'le verdict survit au disque effacé')
+  }))
+
+test('un membre qui change d’équipe entre deux quiz, ou pendant une question, compte pour celle où il était quand la ligne s’écrit', () =>
+  avecBanc(async banc => {
+    const { quiz, host, idDe, liam, zoe, malik, ranger } = await laSoireeDeLea(banc)
+    await jouerQuiz(host, quiz, [
+      [[liam, 0], [zoe, 0], [malik, 0]],
+      [[liam, 0], [zoe, 0], [malik, 0]],
+    ])
+    await patienter(300)
+    const bilan1 = await lire(banc, 'bilan.json')
+    const quiz1 = (b: any) => Object.fromEntries(b.teams.map((t: any) => [t.name, t.perQuiz[0].average]))
+
+    // Entre deux quiz, Malik passe aux invités ; au second, Zoé les rejoint
+    // pendant la première question, avant d'y répondre.
+    await ranger(malik, 'Les invités')
+    await jouerQuiz(
+      host,
+      quiz,
+      [
+        [[liam, 0], [zoe, 0], [malik, 1]],
+        [[liam, 0], [zoe, 0], [malik, 1]],
+      ],
+      async q => {
+        if (q === 0) await ranger(zoe, 'Les invités')
+      },
+    )
+    await patienter(300)
+    assert.deepEqual(equipesAuJournal(banc, malik.playerId), [idDe('La coloc'), idDe('La coloc'), idDe('Les invités'), idDe('Les invités')])
+    assert.deepEqual(equipesAuJournal(banc, zoe.playerId), [idDe('La coloc'), idDe('La coloc'), idDe('Les invités'), idDe('Les invités')])
+
+    // Tout le monde retourne à la coloc : rien ne bouge, ni au premier quiz ni au second.
+    const bilan2 = await lire(banc, 'bilan.json')
+    assert.deepEqual(quiz1(bilan2), quiz1(bilan1), 'le premier quiz garde son verdict')
+    await ranger(liam, 'La coloc')
+    await ranger(zoe, 'La coloc')
+    await ranger(malik, 'La coloc')
+    await patienter(300)
+    const bilan3 = await lire(banc, 'bilan.json')
+    assert.deepEqual(moyennes(bilan3.teams), moyennes(bilan2.teams), 'la soirée entière garde ses moyennes')
+    const coloc = bilan3.teams.find((t: any) => t.name === 'La coloc')
+    const invites = bilan3.teams.find((t: any) => t.name === 'Les invités')
+    assert.equal(invites.perQuiz[0].average, bilan1.teams.find((t: any) => t.name === 'Les invités').perQuiz[0].average)
+    assert.equal(coloc.perQuiz[1].average, 0, 'au second quiz, la coloc n’avait plus personne')
+    assert.ok(invites.perQuiz[1].average > 0, 'et les invités ont joué pour eux trois')
+  }))
+
+test('une ligne d’avant la colonne retombe sur la composition du moment ; une ligne sans équipe ne compte pour aucune', () => {
+  const players = [joueur('liam', 'Liam', 'inv'), joueur('ines', 'Inès', 'inv')]
+  const lignes = [
+    { playerId: 'liam', sessionId: 's', qIndex: 0, points: 200 },
+    { playerId: 'ines', sessionId: 's', qIndex: 0, points: 0, teamId: null },
+    { playerId: 'liam', sessionId: 's', qIndex: 1, points: 100, teamId: 'coloc' },
+  ]
+  const q = equipes.questionsDesEquipes(players, lignes)
+  assert.deepEqual(q.get('inv'), [{ presents: 1, points: 200 }], 'Inès, sans équipe à la question 1, n’y pèse pas')
+  assert.deepEqual(q.get('coloc'), [{ presents: 1, points: 100 }], 'la question 2, jouée pour la coloc, y reste')
+})
 
 // ── 2. La règle, chiffrée ────────────────────────────────────────────────
 

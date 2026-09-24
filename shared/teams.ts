@@ -32,13 +32,26 @@ export interface LigneDuJournal {
   sessionId: string
   qIndex: number
   points: number
+  /**
+   * L'équipe du joueur quand la ligne s'est écrite, `null` s'il n'en avait
+   * pas ; absente des lignes d'avant, qui retombent sur la composition du
+   * moment.
+   */
+  teamId?: string | null
 }
 
 /**
- * Le journal des réponses rangé par équipe, question par question, avec la
- * composition du moment : un invité compte pour l'équipe qu'il a aujourd'hui.
- * Déplacer un joueur qui a joué emporte donc ses points (README, « Les
- * équipes ») ; y ajouter quelqu'un qui n'a rien joué n'y change rien.
+ * Le journal des réponses rangé par équipe, question par question, chaque
+ * ligne sous l'équipe qu'elle a figée en s'écrivant : un joueur qui
+ * déménage après un quiz laisse ses points à l'équipe pour laquelle il a
+ * joué, et un invité sans équipe pendant le quiz ne compte pour aucune.
+ * Compter avec la composition du moment retournait un verdict annoncé : Inès,
+ * connectée sans équipe pendant le quiz, rejoignait les invités après, et
+ * sa ligne à 0 faisait gagner la coloc ; Malik passait de la coloc aux
+ * invités, et la coloc gagnait encore.
+ *
+ * Seules les lignes d'avant la colonne, qui n'en savent rien, se rangent
+ * sous l'équipe du moment : les archives d'avant ne bougent pas.
  */
 export function questionsDesEquipes(
   players: readonly { id: string; teamId: string | null }[],
@@ -48,7 +61,7 @@ export function questionsDesEquipes(
   for (const p of players) if (p.teamId) equipeDe.set(p.id, p.teamId)
   const parEquipe = new Map<string, Map<string, QuestionDEquipe>>()
   for (const l of lignes) {
-    const teamId = equipeDe.get(l.playerId)
+    const teamId = equipeDeLaLigne(l, equipeDe)
     if (!teamId) continue
     let questions = parEquipe.get(teamId)
     if (!questions) parEquipe.set(teamId, (questions = new Map()))
@@ -60,6 +73,14 @@ export function questionsDesEquipes(
     } else questions.set(cle, { presents: 1, points: l.points })
   }
   return new Map([...parEquipe].map(([teamId, questions]) => [teamId, [...questions.values()]]))
+}
+
+/** L'équipe sous laquelle une ligne du journal compte : la sienne, ou celle du moment pour une ligne d'avant. */
+export function equipeDeLaLigne(
+  l: Pick<LigneDuJournal, 'playerId' | 'teamId'>,
+  equipeDuMoment: ReadonlyMap<string, string>,
+): string | null {
+  return l.teamId !== undefined ? l.teamId : (equipeDuMoment.get(l.playerId) ?? null)
 }
 
 /**

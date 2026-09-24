@@ -37,11 +37,19 @@ export interface AnswerRow {
    * une. Absente des lignes d'avant les catégories.
    */
   category?: string | null
+  /**
+   * L'équipe du joueur quand la ligne s'est écrite — `null` s'il n'en avait
+   * pas. La moyenne des équipes la lit plutôt que la composition du moment :
+   * un invité qui rejoignait une équipe après le quiz, ou un joueur qui
+   * déménageait, retournait un verdict déjà annoncé. Absente (`undefined`)
+   * des lignes d'avant : celles-là retombent sur la composition du moment.
+   */
+  teamId?: string | null
   createdAt: number
 }
 
 const COLUMNS =
-  'session_id, quiz_title, q_index, kind, player_id, answered, correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category'
+  'session_id, quiz_title, q_index, kind, player_id, answered, correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id'
 
 export class AnswerLog {
   private insertStmt
@@ -60,17 +68,15 @@ export class AnswerLog {
     private backup?: PartyMirror,
   ) {
     this.insertStmt = db.prepare(
-      `INSERT INTO answer_log (uid, ${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO answer_log (uid, ${COLUMNS}, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     const rows = db
-      .prepare('SELECT player_id, session_id, q_index, points FROM answer_log WHERE space_id = ?')
-      .all(spaceId) as { player_id: string; session_id: string; q_index: number; points: number }[]
-    this.lignes = rows.map(r => ({
-      playerId: String(r.player_id),
-      sessionId: String(r.session_id),
-      qIndex: Number(r.q_index),
-      points: Number(r.points ?? 0),
-    }))
+      .prepare('SELECT player_id, session_id, q_index, points, team_id FROM answer_log WHERE space_id = ?')
+      .all(spaceId) as any[]
+    this.lignes = rows.map(r => {
+      const { playerId, sessionId, qIndex, points, teamId } = toRow(r)
+      return { playerId, sessionId, qIndex, points, teamId }
+    })
   }
 
   /**
@@ -102,11 +108,14 @@ export class AnswerLog {
           r.observed ? 1 : 0,
           r.createdAt,
           r.category ?? null,
+          colonneEquipe(r.teamId),
           this.spaceId,
         )
       }
     })()
-    for (const r of rows) this.lignes.push({ playerId: r.playerId, sessionId: r.sessionId, qIndex: r.qIndex, points: r.points })
+    for (const r of rows) {
+      this.lignes.push({ playerId: r.playerId, sessionId: r.sessionId, qIndex: r.qIndex, points: r.points, teamId: r.teamId })
+    }
     this.backup?.saveAnswers(signees)
   }
 
@@ -182,6 +191,22 @@ export function toRow(r: any): AnswerRow {
     durationMs: Number(r.duration_ms ?? 0),
     observed: Number(r.observed) === 1,
     category: r.category === null || r.category === undefined ? null : String(r.category),
+    ...equipeDeColonne(r.team_id),
     createdAt: Number(r.created_at),
   }
+}
+
+/**
+ * L'équipe d'une ligne, en base. Trois cas à garder distincts, et une colonne
+ * SQL n'a qu'un NULL : NULL pour une ligne d'avant la colonne (on ne sait
+ * pas), '' pour « sans équipe », l'identifiant sinon. Confondus, un invité
+ * sans équipe pendant le quiz retombait sur celle qu'il a rejointe après.
+ */
+export function colonneEquipe(teamId: string | null | undefined): string | null {
+  return teamId === undefined ? null : (teamId ?? '')
+}
+
+function equipeDeColonne(v: unknown): { teamId?: string | null } {
+  if (v === null || v === undefined) return {}
+  return { teamId: v === '' ? null : String(v) }
 }
