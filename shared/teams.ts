@@ -231,3 +231,13 @@ export function effetDUnPrix(teams: PublicTeam[], teamId: string, points: number
   }
   return `${signe} → ${effet}`
 }
+
+/**
+ * Sous le classement d'un podium de quiz : ce que les prix peuvent encore y
+ * faire. Annoncé, le renversement devient un suspense au lieu d'un démenti.
+ */
+export function mentionDesPrix(teams: readonly { bonus: number }[]): string {
+  return teams.some(t => t.bonus !== 0)
+    ? 'Prix déjà remis compris — les suivants peuvent encore changer l’ordre.'
+    : 'Avant les prix : ils peuvent encore changer l’ordre.'
+}

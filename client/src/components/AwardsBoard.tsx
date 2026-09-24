@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Award, PublicTeam } from '../../../shared/types'
+import { effetDUnPrix } from '../../../shared/teams'
 
 interface Props {
   awards: Award[]
@@ -16,6 +17,14 @@ interface Props {
 
 /** Ce qu'un prix vaut par défaut. L'animateur reste libre de changer. */
 const DEFAULT_POINTS = 1
+
+/**
+ * Les prix qui ne rapportent rien par défaut : ils se remettent pour
+ * l'honneur. L'Abstentionniste donnait un point d'équipe à l'équipe de celui
+ * qui n'avait rien envoyé — une récompense pour l'absence.
+ */
+const POUR_L_HONNEUR = new Set(['abstentionniste'])
+const parDefaut = (a: Award) => (POUR_L_HONNEUR.has(a.key) ? 0 : DEFAULT_POINTS)
 
 /**
  * Les prix de fin de soirée.
@@ -70,21 +79,32 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles }: Props) {
                   <span className="muted">sans équipe — aucun point à donner</span>
                 )}
               </p>
+              {/* Ce que le clic changerait, dit avant : un prix peut renverser
+                  la victoire, et l'animateur doit le voir venir. */}
+              {onAward && team && Number.isFinite(points[a.key] ?? parDefaut(a)) && (
+                <p className="award-effet">{effetDUnPrix(teams, team.id, points[a.key] ?? parDefaut(a))}</p>
+              )}
             </div>
 
             {onAward && team && (
               <div className="award-give">
-                <input
-                  className="input award-points"
-                  type="number"
-                  min={-10}
-                  max={10}
-                  value={points[a.key] ?? DEFAULT_POINTS}
-                  onChange={e => setPoints(p => ({ ...p, [a.key]: Number(e.target.value) }))}
-                />
+                {/* Le « 1 » n'avait pas d'étiquette : ni l'animatrice ni son
+                    lecteur d'écran ne savaient de quoi c'était le nombre. */}
+                <label className="award-points-champ">
+                  <input
+                    className="input award-points"
+                    type="number"
+                    min={-10}
+                    max={10}
+                    aria-label={`Points d’équipe du prix « ${a.title} »`}
+                    value={points[a.key] ?? parDefaut(a)}
+                    onChange={e => setPoints(p => ({ ...p, [a.key]: Number(e.target.value) }))}
+                  />
+                  <span className="award-points-unite" aria-hidden="true">pts d’équipe</span>
+                </label>
                 <button
                   className={'btn btn-small' + (given ? '' : ' btn-primary')}
-                  onClick={() => onAward(team.id, points[a.key] ?? DEFAULT_POINTS, a.title)}
+                  onClick={() => onAward(team.id, points[a.key] ?? parDefaut(a), a.title)}
                 >
                   {given ? 'Redonner' : 'Attribuer'}
                 </button>

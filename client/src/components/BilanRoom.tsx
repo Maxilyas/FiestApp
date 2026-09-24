@@ -2,6 +2,7 @@ import { Icon, type IconName } from './Icon'
 import { espacesFines } from '../format'
 import { enumerer } from '../../../shared/classement'
 import { VerdictDesEquipes } from './TeamBoard'
+import { detailDesPoints, regleDesEquipes } from '../../../shared/teams'
 import { PrixRemis } from './PrixRemis'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
 import type { ReviewQuestion } from '../../../shared/review'
@@ -69,11 +70,11 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                       Quiz {q.number}
                     </th>
                   ))}
-                  <th title="Moyenne par membre sur toute la soirée — c'est elle qui classe">Moyenne</th>
+                  <th title="Moyenne par membre sur toute la soirée — c'est elle qui donne les points d'équipe">Moyenne</th>
                   <th title="Part de bonnes réponses aux QCM, tous membres confondus">Réussite</th>
                   <th title="Estimations : la part de la salle que celles de l’équipe battent ou égalent, en moyenne">Coup d’œil</th>
                   <th title="Temps de réponse moyen">Temps</th>
-                  <th title="Les points de classement du quiz, prix compris">Barème</th>
+                  <th title="Les points d'équipe : ceux de la moyenne, prix compris — ils désignent la gagnante">Points d’équipe</th>
                 </tr>
               </thead>
               <tbody>
@@ -92,19 +93,14 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                     <td>{t.accuracy === null ? '—' : formatPercent(t.accuracy)}</td>
                     <td>{t.coupDOeil === null ? '—' : formatPercent(t.coupDOeil)}</td>
                     <td>{t.avgMs === null ? '—' : formatSeconds(t.avgMs)}</td>
-                    <td>
-                      {t.gamePoints}
-                      {t.bonus !== 0 && ` ${t.bonus > 0 ? '+' : ''}${t.bonus}`}
-                    </td>
+                    <td title={detailDesPoints(t)}>{t.finalPoints}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
           <p className="muted small">
-            Les points de chaque quiz divisés par les membres présents, ★ pour la meilleure moyenne
-            du quiz. Le barème : les points de classement du quiz, prix compris — c'est lui qui
-            désigne l'équipe gagnante.
+            La moyenne de chaque quiz, ★ pour la meilleure. {regleDesEquipes(review.teams.length)}
           </p>
         </section>
       )}

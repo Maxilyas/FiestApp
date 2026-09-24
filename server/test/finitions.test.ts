@@ -257,19 +257,19 @@ test('une fois des prix remis, le souvenir, le bilan et le panneau de la salle c
   const review = buildReview({ rows, players, teams, bonuses, packsBySession: new Map(), library: [] })
 
   // Le panneau des équipes — celui du souvenir et de l'écran commun.
-  const tableau = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams: review.teams, showFinalPoints: true }))
+  const tableau = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams: review.teams }))
   assert.match(
     tableau,
-    /^Rang 1 🦅 Les Aigles .*1 au barème \+ 1 de prix 2 points au barème, prix compris, 200 points de moyenne par membre Rang 1 🦓 Les Zèbres .* 2 points au barème, prix compris, 300 points de moyenne par membre$/,
+    /^Rang 1 🦅 Les Aigles .*200 points de moyenne .*1 à la moyenne \+ 1 de prix 2 points d’équipe .*Rang 1 🦓 Les Zèbres .*300 points de moyenne .*2 à la moyenne 2 points d’équipe/,
     tableau,
   )
 
   const verdict = texteDe(await rendu('components/TeamBoard', 'VerdictDesEquipes', { teams: review.teams, avecPrix: true }))
-  assert.equal(verdict, '🦅 Les Aigles et 🦓 Les Zèbres remportent le quiz ex æquo, 2 points chacune prix compris.')
+  assert.equal(verdict, '🦅 Les Aigles et 🦓 Les Zèbres remportent le quiz ex æquo, 2 points d’équipe chacune prix compris.')
 
   const { makeCtx } = await moduleDuClient('components/BilanQuestion')
   const bilan = texteDe(await rendu('components/BilanRoom', 'RoomReview', { ctx: makeCtx(review) }))
-  assert.match(bilan, /Les Aigles et 🦓 Les Zèbres remportent le quiz ex æquo, 2 points chacune prix compris/)
+  assert.match(bilan, /Les Aigles et 🦓 Les Zèbres remportent le quiz ex æquo, 2 points d’équipe chacune prix compris/)
   assert.match(bilan, /meilleure moyenne : 🦓 Les Zèbres \(300 pts de moyenne\)/)
   assert.doesNotMatch(bilan, /meilleure équipe/)
   assert.match(bilan, /Remis ce soir-là .* \+1 point Le coup de cœur de Sam 🦅 Les Aigles/)

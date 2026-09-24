@@ -1064,6 +1064,9 @@ export class SpaceRuntime {
     const cloture: ClotureDeSoiree = {
       soiree,
       podium,
+      // Le verdict que l'historique gardera : l'écran de clôture ne disait
+      // rien des équipes, qui décident pourtant de la soirée.
+      equipes: summary.teamWinners.map(t => ({ nom: t.name, emoji: t.emoji, points: t.points })),
       hautsFaits: players.flatMap(p => {
         const faits = (credit.faits.get(p.id) ?? []).map(annonceDe).filter((a): a is HautFaitAnnonce => !!a)
         const figure = figures.get(p.id)

@@ -2060,21 +2060,10 @@ h3 > .icon {
 /* Le détail passe à la ligne plutôt que d'être coupé net sur un téléphone. */
 .team-sub { font-size: 0.75rem; font-weight: 400; color: var(--muted); white-space: normal; line-height: 1.25; }
 
-/* Les points de classement du quiz, auxquels les prix s'ajoutent :
-   volontairement distincts du score du quiz pour qu'on ne les confonde pas. */
-.team-gamepoints {
-  font-family: var(--serif);
-  font-weight: 600;
-  font-size: 1rem;
-  line-height: 1;
-  color: var(--ink);
-  min-width: 2.2em;
-  text-align: center;
-  border: 1px solid var(--edge-strong);
-  border-radius: var(--radius-pill);
-  padding: 4px 0;
-  font-variant-numeric: lining-nums tabular-nums;
-}
+/* Les points d'équipe : le chiffre qui classe, et son nom écrit dessous.
+   Un chiffre cerclé sans étiquette n'a été compris de personne. */
+.team-points { display: flex; flex-direction: column; align-items: flex-end; flex: none; gap: 2px; }
+.team-points-unite { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
 
 /* ── Choix d'équipe (téléphone) ─────────────────── */
 .team-grid {
@@ -2264,6 +2253,11 @@ h3 > .icon {
 
 .award-give { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
 .award-points { width: 4.5em; padding: 6px 8px; text-align: center; }
+.award-points-champ { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.award-points-unite { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+/* Ce que ferait le prix : lu avant le clic, en encre — c'est une annonce. */
+.award-effet { font-size: 0.85rem; color: var(--ink); margin: 2px 0 0; }
+.free-award .award-effet { margin: 0; }
 
 .free-award { display: flex; flex-direction: column; gap: 10px; }
 .free-award .input { flex: 1; min-width: 12ch; }
@@ -4252,3 +4246,7 @@ h3 > .icon {
     .cloture-fait { gap: 6px; padding: 8px 12px; }
   }
 }
+
+/* Le verdict des équipes à la clôture : une ligne, lisible du canapé. */
+.cloture-equipe { font-family: var(--serif); font-size: 1.5rem; margin: 0; }
+.cloture-equipe .muted { font-family: var(--sans); font-size: 1rem; }

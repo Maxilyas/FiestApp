@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Recap } from '../../../shared/types'
 import { FinalPodium, Standings } from '../components/Podium'
 import { TeamBoard, VerdictDesEquipes } from '../components/TeamBoard'
+import { regleDesEquipes } from '../../../shared/teams'
 import { PrixRemis } from '../components/PrixRemis'
 import { StatsTable } from '../components/StatsTable'
 import { AwardsBoard } from '../components/AwardsBoard'
@@ -147,13 +148,8 @@ export function RecapApp() {
               compris : le souvenir couronnait la meilleure moyenne, sans
               les prix, et contredisait la soirée qu'on avait vécue. */}
           <VerdictDesEquipes teams={recap.teams} avecPrix={recap.bonuses.length > 0} />
-          <TeamBoard teams={recap.teams} showFinalPoints />
-          <p className="muted small">
-            Le chiffre cerclé : le barème du quiz, prix compris — c'est lui qui range les équipes
-            et désigne la gagnante. Le grand chiffre à droite, la moyenne par membre, qui a
-            distribué le barème : autant de points que d'équipes pour la meilleure, un de moins
-            pour la suivante.
-          </p>
+          <TeamBoard teams={recap.teams} />
+          <p className="muted small">{regleDesEquipes(recap.teams.length)}</p>
         </section>
       )}
 

@@ -154,9 +154,15 @@ test('un invité qui rejoint une équipe après le quiz ne change ni sa moyenne 
     assert.deepEqual(moyennes((await lire(banc, 'bilan.json')).teams), moyennes(avant.teams), 'le bilan')
 
     // Et l'historique, une fois la soirée close.
+    const cloture = attendre<any>(host, 'soiree:cloture', () => true, 'l’écran de clôture', 15_000)
     const close = attendre<any>(host, 'toast', () => true, 'la soirée close', 15_000)
     ;(host as any).emit('host:closeParty', {})
     assert.equal((await close).kind, 'info')
+    assert.deepEqual(
+      (await cloture).equipes.map((t: any) => t.nom),
+      vainqueurs,
+      'l’écran de clôture annonce l’équipe qui l’emporte',
+    )
     const { archives } = await lire(banc, 'soirees.json')
     assert.deepEqual(
       archives[0].teamWinners.map((t: any) => t.name),
@@ -290,4 +296,53 @@ test('le verdict des équipes s’explique d’une seule phrase, en points d’�
   assert.match(equipes.regleDesEquipes(3), /Les prix en ajoutent/)
   assert.doesNotMatch(equipes.regleDesEquipes(3), /barème|cerclé/)
   assert.match(equipes.regleDesEquipes(2), /2 à la meilleure, 1 à l’autre/)
+})
+
+// ── 4. Ce que les écrans en disent ───────────────────────────────────────
+
+/** Un composant du client rendu en HTML, comme dans `finitions.test.ts`. */
+async function rendu(fichier: string, composant: string, props: object): Promise<string> {
+  Object.assign(globalThis, { React: (await import('react')).default })
+  const module = await import(new URL(`../../client/src/${fichier}.tsx`, import.meta.url).href)
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const React = (await import('react')).default
+  return renderToStaticMarkup(React.createElement(module[composant], props))
+}
+
+const texteDe = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+
+test('la grille des prix nomme ses points, dit l’effet de chacun, et L’Abstentionniste vaut 0 par défaut', async () => {
+  const equipe = (id: string, name: string, emoji: string, average: number) =>
+    ({ id, name, emoji, position: 0, memberCount: 2, total: average * 2, average, bonus: 0 })
+  const teams = [equipe('arra', 'Arrabbiata', '🍝', 1002), equipe('guit', 'Guitaristes', '🎸', 944)]
+  const prix = (key: string, title: string, teamId: string) => ({
+    key,
+    emoji: '⚡',
+    title,
+    rule: 'La règle',
+    detail: 'le détail',
+    player: { playerId: 'p', name: 'Jeanne', avatar: '🐢' },
+    teamId,
+  })
+  const html = await rendu('components/AwardsBoard', 'AwardsBoard', {
+    awards: [prix('eclair', "L'Éclair", 'guit'), prix('abstentionniste', "L'Abstentionniste", 'arra')],
+    teams,
+    onAward: () => {},
+  })
+  assert.match(html, /aria-label="Points d’équipe du prix « L&#x27;Éclair »"/)
+  assert.match(texteDe(html), /\+1 pour 🎸 Guitaristes → à égalité en tête avec 🍝 Arrabbiata/)
+  assert.match(texteDe(html), /Pour l’honneur : aucun point d’équipe/, 'L’Abstentionniste ne récompense pas l’absence')
+  assert.equal((html.match(/pts d’équipe/g) ?? []).length, 2, 'l’unité se lit à côté de chaque champ')
+})
+
+test('le téléphone classe les équipes comme la télé, prix compris', async () => {
+  const equipe = (id: string, name: string, average: number, bonus: number) =>
+    ({ id, name, emoji: '🎲', position: 0, memberCount: 2, total: average * 2, average, bonus })
+  // Les Aigles ont la meilleure moyenne ; deux prix donnent la victoire aux Zèbres.
+  const teams = [equipe('a', 'Les Aigles', 300, 0), equipe('z', 'Les Zèbres', 200, 2)]
+  const telephone = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams, compact: true }))
+  const tele = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams }))
+  const ordre = (texte: string) => [...texte.matchAll(/Les (Aigles|Zèbres)/g)].map(m => m[1])
+  assert.deepEqual(ordre(telephone), ['Zèbres', 'Aigles'])
+  assert.deepEqual(ordre(tele), ordre(telephone))
 })

@@ -19,7 +19,7 @@ import { Icon } from '../components/Icon'
 import { Rank, Score } from '../components/Rank'
 import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
-import { finalRanking, rankTeams, vainqueursDuQuiz } from '../../../shared/teams'
+import { detailDesPoints, effetDUnPrix, rankTeams, regleDesEquipes, vainqueursDuQuiz } from '../../../shared/teams'
 import { classer, enumerer } from '../../../shared/classement'
 import type { PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
 import { sound } from '../sound'
@@ -419,7 +419,6 @@ export function HostApp() {
   // Le vainqueur se joue sur le barème plus les prix : les prix peuvent
   // renverser l'ordre du quiz, c'est tout leur intérêt. Et à égalité, elles
   // gagnent ensemble : la liste départage par nom, pas l'écran de victoire.
-  const final = finalRanking(teams)
   const champions = vainqueursDuQuiz(teams)
   const bonuses = snap.bonuses
   const givenTitles = new Set(bonuses.map(b => b.reason))
@@ -673,14 +672,16 @@ export function HostApp() {
 
                 {showTeamPodium ? (
                   <div className="scene-podium">
-                    <FinalPodium rows={teamPodium} />
+                    {/* Le podium se fait à la moyenne, avant les prix ; le
+                        tableau, aux points d'équipe, prix compris. Sans le
+                        dire, l'un démentait l'autre dès le premier prix. */}
+                    <div>
+                      <FinalPodium rows={teamPodium} />
+                      <p className="muted small center">Le podium à la moyenne, avant les prix</p>
+                    </div>
                     <div className="scene-listes">
-                      <TeamBoard teams={teams} showFinalPoints />
-                      <p className="muted small">
-                        Le chiffre cerclé : le barème, prix compris — il range le tableau et
-                        désigne l'équipe gagnante. Le grand chiffre à droite, la moyenne par membre :
-                        c'est elle qui fait le podium du quiz et distribue le barème.
-                      </p>
+                      <TeamBoard teams={teams} />
+                      <p className="muted small">{regleDesEquipes(teams.length)}</p>
                     </div>
                   </div>
                 ) : (
@@ -723,9 +724,9 @@ export function HostApp() {
                     animatrice qui avait épargné un prix à voix haute le
                     retrouvait le lendemain. */}
                 <p className="muted center">
-                  Des points pour les équipes : un prix ne rapporte rien tant que tu ne cliques pas,
-                  puis s'ajoute au total de l'équipe du lauréat, sur l'échelle du barème. Le palmarès,
-                  lui, reste au souvenir, remis ou non — sans jamais rapporter d'expérience.
+                  Chaque prix attribué ajoute ses points d'équipe à l'équipe du lauréat — 0 pour
+                  l'honneur — et peut changer la gagnante. Le palmarès reste au souvenir, remis ou
+                  non, sans jamais rapporter d'expérience.
                 </p>
 
                 <AwardsBoard
@@ -767,15 +768,18 @@ export function HostApp() {
                       value={freeReason}
                       onChange={e => setFreeReason(e.target.value)}
                     />
-                    <input
-                      className="input award-points"
-                      type="number"
-                      min={-10}
-                      max={10}
-                      aria-label="Points du prix"
-                      value={freePoints}
-                      onChange={e => setFreePoints(Number(e.target.value))}
-                    />
+                    <label className="award-points-champ">
+                      <input
+                        className="input award-points"
+                        type="number"
+                        min={-10}
+                        max={10}
+                        aria-label="Points d’équipe du prix"
+                        value={freePoints}
+                        onChange={e => setFreePoints(Number(e.target.value))}
+                      />
+                      <span className="award-points-unite" aria-hidden="true">pts d’équipe</span>
+                    </label>
                     <button
                       className="btn btn-primary btn-small"
                       disabled={!freeTeam || !freeReason.trim()}
@@ -792,6 +796,11 @@ export function HostApp() {
                       Attribuer
                     </button>
                   </div>
+                  {freeTeam && Number.isFinite(freePoints) && (
+                    <p className="award-effet" aria-live="polite">
+                      {effetDUnPrix(teams, freeTeam, freePoints)}
+                    </p>
+                  )}
                 </div>
 
                 {bonuses.length > 0 && (
@@ -858,7 +867,7 @@ export function HostApp() {
                   <Icon name="crown" />
                   {champions.length > 1 ? 'Les équipes qui remportent le quiz' : "L'équipe qui remporte le quiz"}
                 </h2>
-                {final.length > 0 ? (
+                {teams.length > 0 ? (
                   <>
                     {/* Couronner la première de la liste, c'était couronner
                         l'alphabet : un prix à +1 remis aux Aigles, deuxièmes,
@@ -871,15 +880,11 @@ export function HostApp() {
                         <span className="victory-emoji">{champions.map(t => t.emoji).join(' ')}</span>
                         <span className="victory-name">{enumerer(champions.map(t => t.name))}</span>
                         {champions.length > 1 ? (
-                          <span className="victory-points">Ex æquo · {champions[0].finalPoints} points chacune</span>
+                          <span className="victory-points">Ex æquo · {champions[0].finalPoints} points d'équipe chacune</span>
                         ) : (
                           <>
-                            <span className="victory-points">{champions[0].finalPoints} points</span>
-                            <span className="muted">
-                              {champions[0].gamePoints} au barème
-                              {champions[0].bonus !== 0 &&
-                                ` · ${champions[0].bonus > 0 ? '+' : ''}${champions[0].bonus} de prix`}
-                            </span>
+                            <span className="victory-points">{champions[0].finalPoints} points d'équipe</span>
+                            <span className="muted">{detailDesPoints(champions[0])}</span>
                           </>
                         )}
                       </div>
@@ -890,26 +895,11 @@ export function HostApp() {
                           <Icon name="users" />
                           Les équipes
                         </h3>
-                        <div className="leaderboard">
-                          {final.map(t => (
-                            <div key={t.id} className="lb-row team-row">
-                              <Rank n={t.rank} />
-                              <span className="lb-avatar">{t.emoji}</span>
-                              <span className="lb-name">
-                                {t.name}
-                                <span className="team-sub">
-                                  {t.total} pts cumulés · {t.average} de moyenne
-                                  {t.bonus !== 0 && ` · ${t.bonus > 0 ? '+' : ''}${t.bonus} de prix`}
-                                </span>
-                              </span>
-                              <Score n={t.finalPoints} precision="au total, prix compris" />
-                            </div>
-                          ))}
-                        </div>
-                        <p className="muted small center">
-                          Le gros chiffre est le total du quiz, prix compris : c'est lui qui
-                          classe les équipes.
-                        </p>
+                        {/* Le même tableau qu'au téléphone et au souvenir : il
+                            disait « le gros chiffre est le total du quiz »,
+                            faux dès le deuxième quiz. */}
+                        <TeamBoard teams={teams} />
+                        <p className="muted small center">{regleDesEquipes(teams.length)}</p>
                       </div>
 
                       {/* Le classement individuel a sa place ici : c'est pour lui
@@ -1059,12 +1049,8 @@ export function HostApp() {
               {teams.length > 0 && (
                 <section className="card">
                   <h2>Les équipes</h2>
-                  <TeamBoard teams={teams} showFinalPoints />
-                  <p className="muted small">
-                    Le chiffre cerclé : le barème, prix compris — il range les équipes et désigne
-                    la gagnante. Le grand chiffre à droite, la moyenne par membre, qui distribue le
-                    barème.
-                  </p>
+                  <TeamBoard teams={teams} />
+                  <p className="muted small">{regleDesEquipes(teams.length)}</p>
                 </section>
               )}
 
