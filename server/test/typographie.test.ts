@@ -11,6 +11,7 @@ import { defaultSettings, normalizeSettings, titreChoisi, titreDeCloture } from 
 
 const FINE = ' '
 const INSECABLE = ' '
+const GLUON = '\u2060'
 
 test('« de » s’élide devant une voyelle et un h, pas devant une consonne ni un y', () => {
   assert.equal(deNom('Antoine'), 'd’Antoine')
@@ -68,7 +69,7 @@ test('un rang s’écrit au féminin, devant « place »', () => {
 test('les espaces avant ? ! ; : deviennent insécables, et les guillemets en reçoivent', () => {
   assert.equal(
     espacesFines('Vous avez bien regardé le gâteau de Sam ? Combien y avait-il de bougies dessus ?'),
-    `Vous avez bien regardé le gâteau de Sam${FINE}? Combien y avait-il de bougies dessus${FINE}?`,
+    `Vous avez bien regardé le gâteau de Sam${FINE}? Combien y avait-${GLUON}il de bougies dessus${FINE}?`,
   )
   assert.equal(espacesFines('40, évidemment !'), `40, évidemment${FINE}!`)
   assert.equal(espacesFines('Réponse : Paris ; ou Lyon'), `Réponse${INSECABLE}: Paris${FINE}; ou Lyon`)
@@ -87,4 +88,22 @@ test('les espaces fines sont idempotentes : un texte déjà traité ne change pl
   const une = espacesFines('Qui ? « Moi » : oui !')
   assert.equal(espacesFines(une), une)
   assert.ok(!/ [?!:;»]|« /.test(une), 'plus aucune espace sécable autour de la ponctuation')
+})
+
+test('le trait d’union de « a-t-il » ne se coupe plus en fin de ligne', () => {
+  // Chez Nadia, le mur a lu « Sam a- » en fin de ligne, et « t-il marché ? »
+  // sous lui. Un gluon (U+2060) après chaque trait d'union de l'inversion : il
+  // ne se dessine pas, et aucune coupure ne passe de part et d'autre.
+  assert.equal(espacesFines('Sam a-t-il marché ?'), `Sam a-${GLUON}t-${GLUON}il marché${FINE}?`)
+  assert.equal(espacesFines('Va-t-on gagner'), `Va-${GLUON}t-${GLUON}on gagner`)
+  assert.equal(espacesFines('Est-elle là'), `Est-${GLUON}elle là`)
+  assert.equal(espacesFines('Sont-ils venus'), `Sont-${GLUON}ils venus`)
+  assert.equal(espacesFines('Y A-T-IL'), `Y A-${GLUON}T-${GLUON}IL`, 'en capitales aussi')
+  // Ce qui ressemble sans être une inversion ne bouge pas.
+  assert.equal(espacesFines('Jean-Onésime, peut-être, sous-titre'), 'Jean-Onésime, peut-être, sous-titre')
+  assert.equal(espacesFines('Rendez-vous'), 'Rendez-vous')
+  const une = espacesFines('Qui a-t-il vu ?')
+  assert.equal(espacesFines(une), une, 'idempotente')
+  // Le gluon ne change pas ce qu'on lit : sans lui, le texte est celui tapé.
+  assert.equal(une.replaceAll(GLUON, '').replaceAll(FINE, ' '), 'Qui a-t-il vu ?')
 })
