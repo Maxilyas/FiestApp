@@ -4764,6 +4764,45 @@ h3 > .icon {
   .cloture-fait { gap: 0.375rem; padding: 0.5rem 0.75rem; }
 }
 
+/* L'accueil dit ce qu'est l'application, en une ligne : le surtitre des
+   invitations, sans en prendre la hauteur — « Rejoindre une soirée » reste
+   au-dessus du bord d'un 360 × 640. */
+.accueil-marque {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Au téléphone, une carte par compte : en tableau, « Lien », « Désactiver »
+   et « Supprimer » partaient hors de l'écran, derrière un défilement de côté
+   que personne ne devine. */
+@media (max-width: 600px) {
+  .accounts-table thead { display: none; }
+  .accounts-table,
+  .accounts-table tbody,
+  .accounts-table tr,
+  .accounts-table td { display: block; width: 100%; }
+  .accounts-table tr { padding: 10px 4px; }
+  .accounts-table td { padding: 3px 4px; position: static; background: none; box-shadow: none; }
+  .accounts-table .account-actions { flex-wrap: wrap; margin-top: 4px; }
+  .stats-scroll:has(.accounts-table) { max-height: none; overflow: visible; }
+  /* En carte, la colonne n'a plus d'en-tête : la date dit ce qu'elle date. */
+  .accounts-table td[data-libelle]::before { content: attr(data-libelle); }
+}
+
+/* Une bibliothèque vide : trois départs, empilés au téléphone. */
+.premiers-pas h2 { margin: 0 0 4px; }
+.premiers-pas-choix { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+@media (max-width: 600px) {
+  .premiers-pas-choix { flex-direction: column; }
+  .premiers-pas-choix .btn { width: 100%; justify-content: flex-start; white-space: normal; text-align: left; }
+}
+.premiers-pas-etapes { margin: 6px 0 0; padding-left: 1.3em; display: grid; gap: 4px; }
+.center-row { justify-content: center; }
+
 /* ── Ce que la salle doit savoir, lisible du canapé ─────────────────────
    La pause, « Regardez bien », « Question suivante dans 7 s », le plus
    rapide : des pastilles de 11 px en capitales, cinq minutes d'arc à trois

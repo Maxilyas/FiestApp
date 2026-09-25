@@ -4,7 +4,7 @@ import { formatDay } from '../../../shared/archive'
 import { enumerer } from '../../../shared/classement'
 import { Icon } from '../components/Icon'
 import { confirmDialog, promptDialog } from '../components/Dialog'
-import { SpaceError, SpaceNav, useIsHost } from '../components/SpaceNav'
+import { INTROUVABLE, SpaceError, SpaceNav, estIntrouvable, useIsHost } from '../components/SpaceNav'
 import { api, UnauthorizedError } from '../api'
 import { dataUrl, pageContext, spacePath, type PublicPage } from '../routes'
 import { formatNumber, pts } from '../format'
@@ -29,7 +29,7 @@ export function ArchivesApp() {
     fetch(dataUrl(slug, 'soirees.json'))
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(setList)
-      .catch(() => setError("Impossible de charger l'historique."))
+      .catch(e => setError(estIntrouvable(e) ? INTROUVABLE : "Impossible de charger l'historique."))
   useEffect(() => {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps

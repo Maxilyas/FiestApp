@@ -10,6 +10,7 @@ import { initDb, stampLegacySpace, wipeSpace } from './core/db'
 import { PartyBackup, type ReglagesMiroir } from './core/backup'
 import { photosCitees, QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
+import { INTROUVABLE, ROBOTS_TXT, decrirePage, habillerPage } from './core/apercus'
 import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
@@ -26,6 +27,13 @@ import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
 import type { ArchiveList, DerniereSoiree, PartyArchive } from '../../shared/archive'
 import { MAX_PLAYERS_CEILING } from '../../shared/space'
+
+/**
+ * Ce que la page d'une soirée archivée attend la base permanente pour dire
+ * 404 à une soirée qui n'existe pas. Au-delà, elle s'ouvre en 200 et dira
+ * elle-même ce qu'elle peut lire.
+ */
+const DELAI_VERIFICATION_ARCHIVE_MS = 1500
 
 export interface QuizServerOptions {
   port: number
@@ -57,6 +65,8 @@ export interface QuizServerOptions {
   appEnv?: string
   /** Les délais du miroir de la soirée — les tests les resserrent, la production garde les siens. */
   miroir?: Omit<ReglagesMiroir, 'base'>
+  /** Le client compilé. Les tests en donnent un de trois lignes : `client/dist` n'existe qu'après le build. */
+  clientDist?: string
 }
 
 /**
@@ -654,8 +664,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // comprend rien à ce qui lui arrive.
   app.use(['/api', '/media', '/s'], (_req, res) => res.status(404).json({ error: 'Introuvable' }))
 
+  app.get('/robots.txt', (_req, res) => res.type('text').send(ROBOTS_TXT))
+
   // En prod, le serveur sert aussi le client compilé (un seul process à héberger).
-  const clientDist = path.resolve(here, '../../client/dist')
+  const clientDist = opts.clientDist ?? path.resolve(here, '../../client/dist')
   if (fs.existsSync(clientDist)) {
     // Les fichiers compilés portent une empreinte dans leur nom : un an de
     // cache, sans jamais revalider. La page d'accueil, elle, doit toujours
@@ -683,16 +695,56 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const meta = `<meta name="app-env" content="${opts.appEnv.replace(/[^\w.-]/g, '')}">`
       indexHtml = indexHtml.replace('</head>', `  ${meta}\n  </head>`)
     }
-    const accueil = (_req: Request, res: Response) => {
+    // Chaque adresse porte son statut et ses balises : un aperçu de lien
+    // n'exécute pas le client. Voir `core/apercus.ts`.
+    const servirPage = (chemin: string, req: Request, res: Response, next: NextFunction) => {
       res.set('Cache-Control', 'no-cache')
       if (!indexHtml) return res.status(404).type('text').send('Client non compilé (npm run build)')
-      res.type('html').send(indexHtml)
+      const decision = decrirePage(chemin, slug => {
+        const compte = auth.bySlug(slug)
+        return compte && compte.slug === slug ? auth.publicSpace(compte) : undefined
+      })
+      const requete = req.url.slice(req.path.length)
+      if ('redirection' in decision) return res.redirect(302, decision.redirection + requete)
+      const envoyer = (page: typeof decision) => {
+        if (!page.indexable) res.set('X-Robots-Tag', 'noindex, nofollow')
+        const base = opts.publicUrl ? opts.publicUrl.replace(/\/+$/, '') : `${req.protocol}://${req.get('host')}`
+        res.status(page.statut).type('html').send(habillerPage(indexHtml, page, base, chemin))
+      }
+      if (!decision.archive) return envoyer(decision)
+      // Une soirée archivée se cherche dans la base permanente. Muette, elle
+      // ne fait pas déclarer introuvable une soirée qui existe : la page
+      // s'ouvre, et dira elle-même ce qu'elle peut lire.
+      const compte = auth.bySlug(decision.archive.spaceSlug)
+      if (!compte) return envoyer(INTROUVABLE)
+      // Muette, elle ne répond qu'au bout de dix secondes (`distante.ts`) :
+      // autant de page blanche avant le moindre octet. Passé ce délai, la
+      // page part comme sur une panne.
+      let delai: NodeJS.Timeout | undefined
+      const muette = new Promise<'muette'>(r => {
+        delai = setTimeout(() => r('muette'), DELAI_VERIFICATION_ARCHIVE_MS)
+      })
+      Promise.race([archives.existe(compte.id, decision.archive.id), muette])
+        .then(existe => envoyer(existe === false ? INTROUVABLE : decision))
+        .catch((e: unknown) => {
+          console.error('[pages] une soirée archivée ne se vérifie pas :', e)
+          envoyer(decision)
+        })
+        .finally(() => clearTimeout(delai))
+        .catch(next)
     }
     // `/index.html` demandé tel quel partait du disque, sans le bandeau de la
-    // préproduction : il passe par la même page que toutes les autres.
-    app.get('/index.html', accueil)
+    // préproduction : il passe par la même page que l'accueil.
+    app.get('/index.html', (req, res, next) => servirPage('/', req, res, next))
     app.use(express.static(clientDist, { index: false, maxAge: '1h' }))
-    app.get('*', accueil)
+    // Un fichier absent (une icône, `favicon.ico` d'une vieille version)
+    // est un 404, pas la page d'accueil. Seulement les extensions que l'on
+    // sert : « /chez.nadia », dicté au téléphone, n'est pas un fichier — il
+    // ouvre l'application, qui y lit `chez-nadia`.
+    app.get(/\.(?:ico|png|jpe?g|gif|svg|webp|js|mjs|css|map|json|webmanifest|txt|xml|woff2?)$/i, (_req, res) =>
+      res.status(404).type('text').send('Introuvable'),
+    )
+    app.get('*', (req, res, next) => servirPage(req.path, req, res, next))
   }
 
   // En tout dernier : ce qu'aucune route n'a su lire répond en JSON, sans pile.

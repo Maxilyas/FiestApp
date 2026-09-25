@@ -531,6 +531,17 @@ export class ArchiveStore {
   }
 
   /**
+   * La soirée existe-t-elle ? Sans relire sa fiche entière : c'est ce que
+   * demande chaque ouverture de sa page, pour répondre 404 à une adresse
+   * sans soirée.
+   */
+  async existe(spaceId: string, id: string): Promise<boolean> {
+    if (!ID.test(id)) return false
+    const res = await this.client.execute({ sql: 'SELECT 1 FROM soirees WHERE space_id = ? AND id = ?', args: [spaceId, id] })
+    return res.rows.length > 0
+  }
+
+  /**
    * Les titres de ces soirées, tels que l'historique les porte aujourd'hui
    * — clé `espace#soirée`. On ne lit que les titres, jamais les archives :
    * la page « Mes soirées » les demande à chaque visite.

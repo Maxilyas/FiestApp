@@ -7,7 +7,7 @@ import { makeCtx, type BilanCtx } from '../components/BilanQuestion'
 import { PlayerReview } from '../components/BilanPlayer'
 import { RoomReview } from '../components/BilanRoom'
 import { ArchiveBanner } from '../components/ArchiveBanner'
-import { SpaceError, SpaceNav, useIsHost } from '../components/SpaceNav'
+import { INTROUVABLE, SpaceError, SpaceNav, estIntrouvable, useIsHost } from '../components/SpaceNav'
 import { BoutonCopier } from '../components/Partage'
 import { liensDesBilans, texteDesLiens } from '../../../shared/liens'
 import { pageContext, spacePath } from '../routes'
@@ -60,7 +60,7 @@ export function BilanApp() {
     // Entre deux soirées, celui de l'espace est le bilan de la dernière soirée close.
     lecteurDePage<Review>(slug, 'bilan.json', archiveId)()
       .then(setReview)
-      .catch(() => setError('Impossible de charger le bilan de la soirée.'))
+      .catch(e => setError(estIntrouvable(e) ? INTROUVABLE : 'Impossible de charger le bilan de la soirée.'))
   }, [slug, archiveId])
 
   useEffect(() => {

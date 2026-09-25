@@ -1,7 +1,7 @@
 import { MAX_NAME_LENGTH } from '../../../shared/avatars'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Limite } from './Limite'
-import { api, motifDe } from '../api'
+import { api, motifDe, UnauthorizedError } from '../api'
 import { PITCH_PROFIL, type PublicProfile } from '../../../shared/profil'
 import { AVATARS } from '../../../shared/avatars'
 import { Icon } from './Icon'
@@ -31,6 +31,16 @@ interface Props {
    */
   creer?: boolean
   /**
+   * L'accueil seulement : une ligne qui dit ce qu'est l'application. Sans
+   * elle, la première page d'un lien partagé ne disait que « Retrouver mon
+   * profil » — à quelqu'un qui n'en a jamais eu.
+   */
+  marque?: ReactNode
+  /** Sous le refus d'une connexion : une aide qui ne dépend pas de ce qu'on a tapé. */
+  aideErreur?: ReactNode
+  /** Tout en bas, après l'explication : la porte discrète des animateurs. */
+  pied?: ReactNode
+  /**
    * Un bandeau en tête du formulaire : « Le quiz commence » dans la salle
    * d'attente. Le formulaire passait devant le quiz, et l'invité qui
    * remplissait son profil ratait les premières questions sans le savoir.
@@ -46,7 +56,7 @@ interface Props {
  * obligé d'en passer par là — l'invité anonyme joue exactement comme avant,
  * et c'est le chemin par défaut.
  */
-export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, bandeau }: Props) {
+export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, pied, bandeau }: Props) {
   const [mode, setMode] = useState<'connexion' | 'inscription' | 'secours'>(creer ? 'inscription' : 'connexion')
   // Deviné du prénom à la création seulement : en connexion, ses échecs se
   // compteraient sur le profil d'un autre, qui fermerait un quart d'heure.
@@ -67,6 +77,8 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, bandeau
   const [grille, setGrille] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  /** L'erreur est un refus d'identifiants — pas le réseau, ni la réserve d'essais épuisée. */
+  const [refus, setRefus] = useState(false)
   /** Une bonne nouvelle, pas une erreur : elle ne s'écrit pas en rouge. */
   const [info, setInfo] = useState('')
   /** Le code de secours, à noter — il ne repassera jamais. `neuf` : il remplace celui qu'on vient de donner. */
@@ -132,6 +144,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, bandeau
       // « Identifiant ou mot de passe incorrect », tel que le serveur le dit
       // — et non plus « Connexion requise », ni « Failed to fetch ».
       setError(motifDe(e))
+      setRefus(mode === 'connexion' && e instanceof UnauthorizedError)
     } finally {
       setBusy(false)
     }
@@ -142,6 +155,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, bandeau
     // Resserré comme l'entrée d'une soirée : en 360 × 640, « Revenir » —
     // la seule sortie de la salle d'attente — tombait sous le bord.
     <form className="join entree" onSubmit={submit}>
+      {marque}
       {/* « Retrouver mon profil » titrait aussi la récupération par code de
           secours (`Secours.tsx`) : deux écrans, un seul nom. */}
       {bandeau}
@@ -262,9 +276,10 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, bandeau
         />
       </div>
       {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
+        <div role="alert">
+          <p className="error">{error}</p>
+          {refus && aideErreur}
+        </div>
       )}
       {info && (
         <p className="info" role="status">
@@ -336,6 +351,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, bandeau
           </p>
         </>
       )}
+      {pied}
     </form>
   )
 }

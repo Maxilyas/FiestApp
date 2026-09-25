@@ -10,6 +10,7 @@ import { accountOf, csrfGuard, requireAccount } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
 import { mountProfileApi } from './auth/profileRoutes'
+import { lireModeles } from './core/seed'
 
 interface ApiDeps {
   store: QuizStore
@@ -199,6 +200,30 @@ export function mountApi(app: Express, deps: ApiDeps) {
       const spaceId = spaceOf(res)
       const quiz = await deps.store.duplicate(spaceId, req.params.id)
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
+      await deps.onLibraryChanged(spaceId)
+      res.status(201).json(quiz)
+    }),
+  )
+
+  // Les quiz livrés avec l'application, pour partir d'autre chose qu'une
+  // bibliothèque vide : ils n'allaient qu'à l'espace de l'administrateur, et
+  // chaque ami découvrait « Lancer un quiz » par un refus. On en copie un
+  // dans son espace — une copie à soi, qu'on retouche sans rien changer
+  // chez les autres.
+  app.get(
+    '/api/modeles',
+    wrap(async (_req, res) => {
+      res.json(lireModeles().map(m => ({ id: m.id, title: m.title, questionCount: m.questions.length })))
+    }),
+  )
+
+  app.post(
+    '/api/modeles/:id',
+    wrap(async (req, res) => {
+      const modele = lireModeles().find(m => m.id === req.params.id)
+      if (!modele) return res.status(404).json({ error: 'Modèle introuvable' })
+      const spaceId = spaceOf(res)
+      const quiz = await deps.store.create(spaceId, modele.title, modele.questions)
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),

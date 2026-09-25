@@ -282,6 +282,10 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
             onClick={() => {
               setCreation(true)
               setErreur('')
+              // Un mot de passe que la connexion vient de refuser — souvent
+              // celui du compte d'animateur, tapé à sa propre porte — ne
+              // devient pas en silence celui du profil qu'on crée.
+              if (erreur) setPassword('')
               setEtape('moi')
             }}
           >

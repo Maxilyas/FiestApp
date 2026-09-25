@@ -66,8 +66,39 @@ export function SpaceNav({ current }: { current: SpaceTab }) {
   )
 }
 
-/** Une page publique qui n'a pas pu se charger : le message, et le fil pour aller ailleurs. */
+/** Le motif d'une page d'espace dont l'adresse ne mène à rien — pas une panne. */
+export const INTROUVABLE = 'Il n’y a pas de soirée à cette adresse — ou plus. Vérifie le lien avec ton hôte.'
+
+/** Vrai si la lecture a échoué parce que la soirée n'existe pas (un 404), et non sur une panne. */
+export function estIntrouvable(e: unknown): boolean {
+  return e instanceof Error && e.message === '404'
+}
+
+/**
+ * Une page publique qui n'a pas pu se charger : le message, et le fil pour
+ * aller ailleurs. Introuvable, le fil de l'espace menait trois fois à la même
+ * erreur : on propose plutôt la liste de ses soirées (depuis une soirée
+ * archivée) et l'accueil.
+ */
 export function SpaceError({ current, message }: { current: SpaceTab; message: string }) {
+  if (message === INTROUVABLE) {
+    const { slug, archiveId } = pageContext()
+    return (
+      <div className="recap">
+        <p className="warn center">{message}</p>
+        <p className="row center-row">
+          {archiveId && (
+            <a className="btn" href={spacePath(slug, 'soirees')}>
+              Les soirées de cet espace
+            </a>
+          )}
+          <a className="btn btn-ghost" href="/">
+            L’accueil
+          </a>
+        </p>
+      </div>
+    )
+  }
   return (
     <div className="recap">
       <SpaceNav current={current} />

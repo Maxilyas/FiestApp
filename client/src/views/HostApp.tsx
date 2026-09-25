@@ -6,6 +6,7 @@ import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { ChampNombre } from '../components/ChampNombre'
 import { api, motifDe } from '../api'
 import { dataUrl, spacePath } from '../routes'
+import { ONGLETS } from '../onglets'
 import { formatDay } from '../../../shared/archive'
 import { titreDeCloture } from '../../../shared/space'
 import { deNom, espacesFines } from '../format'
@@ -263,8 +264,41 @@ function TeamGroup({
 
 export function HostApp() {
   const s = useAppState()
+  useEffect(() => {
+    // Rouverte dans l'onglet de « Mes quiz » (sa console fermée entre-temps),
+    // la console en gardait le nom : « Mes quiz » la remplaçait alors par
+    // l'éditeur, et le QR quittait l'écran. Une console n'est aucun onglet
+    // nommé : ses liens doivent toujours en ouvrir un autre.
+    if ((Object.values(ONGLETS) as string[]).includes(window.name)) window.name = ''
+  }, [])
   /** L'animateur reconnu par le serveur — `null` tant que la session n'a pas été vérifiée. */
   const [me, setMe] = useState<{ slug: string; name: string; branchee: boolean } | null>(null)
+  /**
+   * Une bibliothèque vide : « Lancer un quiz » ne répondait que par un toast
+   * qui dictait une adresse. Relue au retour dans l'onglet — c'est dans
+   * « Mes quiz », à côté, qu'on vient d'en créer un.
+   */
+  const [bibliothequeVide, setBibliothequeVide] = useState(false)
+  useEffect(() => {
+    if (!me) return
+    const lire = () =>
+      api
+        .list()
+        // Des quiz sans question prête ne se jouent pas (`setQuizLibrary`) :
+        // pour « Lancer un quiz », c'est encore une bibliothèque vide.
+        .then(l => setBibliothequeVide(l.every(q => q.readyCount === 0)))
+        .catch(() => {})
+    const auRetour = () => {
+      if (document.visibilityState === 'visible') lire()
+    }
+    lire()
+    document.addEventListener('visibilitychange', auRetour)
+    window.addEventListener('focus', lire)
+    return () => {
+      document.removeEventListener('visibilitychange', auRetour)
+      window.removeEventListener('focus', lire)
+    }
+  }, [me])
   /** Le serveur a refusé la poignée de main : pas de session, ou une session périmée. */
   const [needLogin, setNeedLogin] = useState(false)
   const [error, setError] = useState('')
@@ -887,27 +921,25 @@ export function HostApp() {
                   <a
                     className="btn"
                     href={spacePath(slug, 'souvenir', s.cloture.soiree.id)}
-                    target="_blank"
-                    rel="noreferrer"
+                    target={ONGLETS.soiree}
                   >
                     <Icon name="book" />
                     Le souvenir
                   </a>
                   <BoutonCopier texte={`${joinUrl}/soirees/${s.cloture.soiree.id}`} />
-                  <a className="btn" href={spacePath(slug, 'bilan', s.cloture.soiree.id)} target="_blank" rel="noreferrer">
+                  <a className="btn" href={spacePath(slug, 'bilan', s.cloture.soiree.id)} target={ONGLETS.soiree}>
                     <Icon name="list" />
                     Le bilan
                   </a>
                   <a
                     className="btn"
                     href={spacePath(slug, 'bilan/fiches', s.cloture.soiree.id)}
-                    target="_blank"
-                    rel="noreferrer"
+                    target={ONGLETS.soiree}
                   >
                     <Icon name="download" />
                     Les fiches
                   </a>
-                  <a className="btn" href={spacePath(slug, 'soirees')} target="_blank" rel="noreferrer">
+                  <a className="btn" href={spacePath(slug, 'soirees')} target={ONGLETS.soiree}>
                     <Icon name="clock" />
                     L’historique
                   </a>
@@ -991,11 +1023,11 @@ export function HostApp() {
                 )}
 
                 <ConsoleActions>
-                  <a className="btn btn-accent" href={spacePath(slug, 'souvenir')} target="_blank" rel="noreferrer">
+                  <a className="btn btn-accent" href={spacePath(slug, 'souvenir')} target={ONGLETS.soiree}>
                     <Icon name="book" />
                     Page souvenir
                   </a>
-                  <a className="btn" href={spacePath(slug, 'bilan')} target="_blank" rel="noreferrer">
+                  <a className="btn" href={spacePath(slug, 'bilan')} target={ONGLETS.soiree}>
                     <Icon name="list" />
                     Le bilan
                   </a>
@@ -1167,7 +1199,7 @@ export function HostApp() {
                     <Icon name="crown" />
                     Écran de victoire
                   </button>
-                  <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
+                  <a className="btn" href={spacePath(slug, 'stats')} target={ONGLETS.soiree}>
                     <Icon name="bar-chart" />
                     Les chiffres
                   </a>
@@ -1310,7 +1342,7 @@ export function HostApp() {
                   // l'adresse à dicter, et de quoi jouer depuis ce téléphone.
                   <div className="telecommande-invite">
                     {apercu(<span className="join-url">{joinUrl}</span>)}
-                    <a className="btn btn-accent jouer-ici" href={spacePath(slug)} target="_blank" rel="noreferrer">
+                    <a className="btn btn-accent jouer-ici" href={spacePath(slug)} target={ONGLETS.jouer}>
                       <Icon name="play" />
                       Jouer depuis cet appareil
                     </a>
@@ -1340,7 +1372,7 @@ export function HostApp() {
                       soirée dans un autre onglet, où le cookie de son profil
                       et celui de la console cohabitent. Au mur, où rien ne se
                       touche, le lien reste caché (styles.css). */}
-                  <a className="btn btn-accent jouer-ici" href={spacePath(slug)} target="_blank" rel="noreferrer">
+                  <a className="btn btn-accent jouer-ici" href={spacePath(slug)} target={ONGLETS.jouer}>
                     <Icon name="play" />
                     Jouer depuis cet appareil
                   </a>
@@ -1369,17 +1401,24 @@ export function HostApp() {
                   </p>
                 )}
                 <ConsoleActions>
-                  <button
-                    className="btn btn-primary"
-                    disabled={connectedCount === 0}
-                    onClick={lancerQuiz}
-                  >
-                    <Icon name="play" />
-                    {connectedCount === 0 ? 'En attente des invités…' : 'Lancer un quiz'}
-                  </button>
+                  {bibliothequeVide ? (
+                    <a className="btn btn-primary" href="/edit" target={ONGLETS.quiz}>
+                      <Icon name="plus" />
+                      Créer mon premier quiz
+                    </a>
+                  ) : (
+                    <button
+                      className="btn btn-primary"
+                      disabled={connectedCount === 0}
+                      onClick={lancerQuiz}
+                    >
+                      <Icon name="play" />
+                      {connectedCount === 0 ? 'En attente des invités…' : 'Lancer un quiz'}
+                    </button>
+                  )}
                   {/* Dans un autre onglet : l'écran commun reste projeté. La
                       session est dans le cookie, rien à passer dans l'adresse. */}
-                  <a className="btn" href="/edit" target="_blank" rel="noreferrer">
+                  <a className="btn" href="/edit" target={ONGLETS.quiz}>
                     <Icon name="edit" />
                     Mes quiz
                   </a>
@@ -1390,7 +1429,7 @@ export function HostApp() {
                       Brancher la télé
                     </button>
                   )}
-                  <a className="btn btn-ghost" href="/compte" target="_blank" rel="noreferrer">
+                  <a className="btn btn-ghost" href="/compte" target={ONGLETS.compte}>
                     <Icon name="users" />
                     Mon compte
                   </a>
@@ -1419,12 +1458,12 @@ export function HostApp() {
                     </button>
                   )}
                   {ranking.length > 0 && (
-                    <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
+                    <a className="btn" href={spacePath(slug, 'stats')} target={ONGLETS.soiree}>
                       <Icon name="bar-chart" />
                       Les chiffres
                     </a>
                   )}
-                  <a className="btn btn-ghost" href={spacePath(slug, 'soirees')} target="_blank" rel="noreferrer">
+                  <a className="btn btn-ghost" href={spacePath(slug, 'soirees')} target={ONGLETS.soiree}>
                     <Icon name="book" />
                     Historique
                   </a>

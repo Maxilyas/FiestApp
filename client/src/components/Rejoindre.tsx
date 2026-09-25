@@ -3,8 +3,12 @@ import { JoinHead } from './Invitation'
 import { normalizeSlug } from '../../../shared/space'
 
 interface Props {
-  /** Affiché quand on arrive d'une adresse qui ne mène nulle part. */
-  perdu?: boolean
+  /**
+   * Affiché quand on arrive d'une adresse qui ne mène nulle part : le nom
+   * tapé, qu'on retrouve dans le champ pour le corriger au lieu de tout
+   * retaper. Le serveur a déjà essayé la casse et « chez-‹nom› ».
+   */
+  perdu?: string
   /** Sans lui, pas de bouton « Revenir » : il n'y a rien derrière. */
   onCancel?: () => void
 }
@@ -18,7 +22,7 @@ interface Props {
  * de l'écran d'un téléphone de 360 × 640.
  */
 export function FormulaireSoiree({ perdu, onCancel }: Props) {
-  const [name, setName] = useState('')
+  const [name, setName] = useState(perdu ?? '')
   const slug = normalizeSlug(name)
 
   const go = (e: FormEvent) => {
@@ -30,10 +34,10 @@ export function FormulaireSoiree({ perdu, onCancel }: Props) {
     <form className="join" onSubmit={go}>
       <JoinHead eyebrow="Le quiz de la soirée" title="Quelle soirée ?" compact sub="Chaque soirée a son adresse." />
       <hr className="hairline" />
-      {perdu && (
+      {perdu !== undefined && (
         <p className="warn">
-          Cette adresse ne mène à aucune soirée. Vérifie le nom avec ton hôte, ou scanne à nouveau le QR
-          de l'écran.
+          {perdu ? <>« {perdu} » ne mène à aucune soirée.</> : 'Cette adresse ne mène à aucune soirée.'} Vérifie
+          le nom avec ton hôte, ou scanne à nouveau le QR de l'écran.
         </p>
       )}
       <div className="field">
@@ -46,19 +50,19 @@ export function FormulaireSoiree({ perdu, onCancel }: Props) {
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          placeholder="demo"
+          placeholder="chez-camille"
           value={name}
           onChange={e => setName(e.target.value)}
         />
         <p className="muted small">
-          C'est le dernier mot de l'adresse que ton hôte t'a donnée
+          Le dernier mot de l'adresse que ton hôte t'a donnée
           {slug && (
             <>
               {' '}
               : <code>{`${window.location.host}/${slug}`}</code>
             </>
           )}
-          .
+          . « chez camille » se tape aussi comme on le dit.
         </p>
       </div>
       <div className="join-grow" />

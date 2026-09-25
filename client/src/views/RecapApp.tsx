@@ -12,7 +12,7 @@ import { Trophies } from '../components/Trophies'
 import { JoinHead } from '../components/Invitation'
 import { Icon } from '../components/Icon'
 import { ArchiveBanner } from '../components/ArchiveBanner'
-import { SpaceError, SpaceNav } from '../components/SpaceNav'
+import { INTROUVABLE, SpaceError, SpaceNav, estIntrouvable } from '../components/SpaceNav'
 import { pageContext, route, spacePath } from '../routes'
 import { lecteurDePage } from '../derniere'
 import { BoutonCopier, BoutonPartager } from '../components/Partage'
@@ -48,8 +48,8 @@ export function RecapApp() {
           setError('')
         })
         // Un rafraîchissement raté ne vide pas la page : elle garde ce qu'elle a.
-        .catch(() => {
-          if (!loaded) setError('Impossible de charger le souvenir de la soirée.')
+        .catch(e => {
+          if (!loaded) setError(estIntrouvable(e) ? INTROUVABLE : 'Impossible de charger le souvenir de la soirée.')
         })
     load()
     // Rafraîchi tout seul : la page reste ouverte sur le téléphone de

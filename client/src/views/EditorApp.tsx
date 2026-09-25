@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MutableRefObject } from 'react'
 import {
   DEFAULT_DURATION,
   DEFAULT_OBSERVE,
@@ -47,6 +47,7 @@ import { questionSizeClass } from '../games/quiz/questionSize'
 import { consigneEstimation } from '../games/quiz/consignes'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
+import { LienConsole } from '../components/LienConsole'
 import { ChampNombre } from '../components/ChampNombre'
 import { Shape } from '../components/Shape'
 import { TimerBar } from '../components/TimerBar'
@@ -125,6 +126,13 @@ async function copierTexte(texte: string): Promise<boolean> {
   }
 }
 
+const OUVERT_ICI = 'fiestappQuizOuvert'
+
+/** Le quiz que désigne l'adresse, s'il y en a un. */
+function quizDeLAdresse(): string | null {
+  return new URLSearchParams(window.location.search).get('quiz') || null
+}
+
 /** Fait télécharger ce texte sous ce nom, sans passer par le serveur. */
 function telecharger(nom: string, contenu: string) {
   const url = URL.createObjectURL(new Blob([contenu], { type: 'application/json' }))
@@ -146,9 +154,59 @@ export function EditorApp() {
   const [list, setList] = useState<QuizSummary[] | null>(null)
   /** Les quiz dont ce navigateur garde des modifications non enregistrées. */
   const [brouillons, setBrouillons] = useState<ReadonlySet<string>>(new Set())
-  const [editingId, setEditingId] = useState<string | null>(null)
+  // Le quiz ouvert est dans l'adresse (`/edit?quiz=…`) : le retour du
+  // navigateur ramène à la liste au lieu de quitter l'éditeur, et un
+  // rechargement rouvre le même quiz. Rien ne se perd en route : ce qui
+  // n'est pas enregistré attend dans le brouillon du navigateur.
+  const [editingId, setEditing] = useState<string | null>(quizDeLAdresse)
+  const setEditingId = useCallback((id: string | null) => {
+    if (id === quizDeLAdresse()) return setEditing(id)
+    if (id) history.pushState({ [OUVERT_ICI]: true }, '', `/edit?quiz=${encodeURIComponent(id)}`)
+    // Refermé par « Mes quiz » : on revient d'un cran si c'est d'ici qu'on
+    // l'avait ouvert, sans quoi on remplace — jamais d'entrée en double.
+    else if (history.state?.[OUVERT_ICI]) return history.back()
+    else history.replaceState(null, '', '/edit')
+    setEditing(id)
+  }, [])
+  const editingRef = useRef(editingId)
+  editingRef.current = editingId
+  /**
+   * La garde de « Mes quiz », que l'éditeur ouvert pose ici tant qu'il a des
+   * modifications non enregistrées. Le retour du navigateur ne quitte plus
+   * le document, donc plus de `beforeunload` : sans elle, « retour » refermait
+   * l'éditeur sans rien demander, et si le navigateur avait refusé le
+   * brouillon (cookies bloqués, quota plein), la retouche partait en silence.
+   */
+  const sortie = useRef<(() => Promise<boolean>) | null>(null)
+  /** On a déjà dit « Quitter » : le `history.back()` qui suit ne redemande pas. */
+  const consenti = useRef(false)
+  useEffect(() => {
+    const auRetour = async () => {
+      const id = quizDeLAdresse()
+      const ouvert = editingRef.current
+      if (ouvert && id !== ouvert && sortie.current && !consenti.current) {
+        // L'entrée est déjà partie : on la remet, le temps de demander.
+        history.pushState({ [OUVERT_ICI]: true }, '', `/edit?quiz=${encodeURIComponent(ouvert)}`)
+        if (await sortie.current()) {
+          consenti.current = true
+          history.back()
+        }
+        return
+      }
+      consenti.current = false
+      setEditing(id)
+      setOuvrirListe(false)
+      // Comme « Mes quiz » : la liste d'avant ne savait rien du quiz qu'on
+      // vient de créer, et « Partir d'un modèle » en refaisait une copie.
+      if (!id) reload()
+    }
+    window.addEventListener('popstate', auRetour)
+    return () => window.removeEventListener('popstate', auRetour)
+  }, [])
   /** Le quiz s'ouvre sur « Coller une liste » : il vient d'être créé pour ça. */
   const [ouvrirListe, setOuvrirListe] = useState(false)
+  /** Les modèles, rouverts depuis l'en-tête une fois la bibliothèque commencée. */
+  const [voirModeles, setVoirModeles] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   /** Le quiz qu'on emballe, ou l'import en cours : un clic à la fois. */
@@ -243,6 +301,14 @@ export function EditorApp() {
     }
   }
 
+  /**
+   * Tant qu'aucun quiz n'est prêt à jouer, les premiers pas restent : un ami
+   * qui cliquait « Créer mon quiz » et ressortait sans rien écrire perdait
+   * les modèles pour de bon, et la console, qui ne joue que les quiz prêts,
+   * l'y renvoyait quand même.
+   */
+  const aucunPret = list !== null && list.every(q => q.readyCount === 0)
+
   if (needLogin) {
     return (
       <main>
@@ -256,7 +322,12 @@ export function EditorApp() {
       <QuizEditor
         id={editingId}
         ouvrirListe={ouvrirListe}
+        sortie={sortie}
         onClose={() => {
+          // « Mes quiz » a déjà demandé : le `history.back()` qui referme
+          // l'éditeur (`setEditingId`) ne doit pas redemander au passage. Sans
+          // retour à suivre, le drapeau resterait levé pour le quiz suivant.
+          consenti.current = history.state?.[OUVERT_ICI] === true
           setEditingId(null)
           setOuvrirListe(false)
           reload()
@@ -273,10 +344,7 @@ export function EditorApp() {
           Mes quiz
         </h1>
         <div className="row">
-          <a className="btn btn-ghost" href="/host">
-            <Icon name="monitor" />
-            Écran commun
-          </a>
+          <LienConsole />
           <a className="btn btn-ghost" href="/compte">
             <Icon name="users" />
             Mon compte
@@ -300,6 +368,12 @@ export function EditorApp() {
               importer(choisi)
             }}
           />
+          {list && !aucunPret && (
+            <button className="btn btn-ghost" aria-expanded={voirModeles} onClick={() => setVoirModeles(v => !v)}>
+              <Icon name="copy" />
+              Partir d'un modèle
+            </button>
+          )}
           <button className="btn btn-ghost" disabled={echange !== null} onClick={() => fichier.current?.click()}>
             <Icon name="download" />
             {echange === 'import' ? 'Import…' : 'Importer un quiz'}
@@ -343,10 +417,17 @@ export function EditorApp() {
         {notice && <p className="card notice">{notice}</p>}
         {list === null && <p className="serif-note">Chargement…</p>}
 
-        {list?.length === 0 && (
-          <div className="card notice">
-            <p>Aucun quiz pour l'instant. Crée le premier !</p>
-          </div>
+        {list && (aucunPret || voirModeles) && (
+          <PremiersPas
+            debut={aucunPret}
+            occupe={echange !== null}
+            onOuvrir={id => {
+              setVoirModeles(false)
+              setEditingId(id)
+            }}
+            onImporter={() => fichier.current?.click()}
+            onErreur={setError}
+          />
         )}
 
         <div className="quiz-list">
@@ -438,7 +519,18 @@ export function EditorApp() {
 
 // ── Édition d'un quiz ─────────────────────────────────────────────────────
 
-function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirListe?: boolean; onClose: () => void }) {
+function QuizEditor({
+  id,
+  ouvrirListe = false,
+  sortie,
+  onClose,
+}: {
+  id: string
+  ouvrirListe?: boolean
+  /** Où poser la garde de sortie, pour le retour du navigateur (voir `EditorApp`). */
+  sortie?: MutableRefObject<(() => Promise<boolean>) | null>
+  onClose: () => void
+}) {
   const [quiz, setQuiz] = useState<QuizDef | null>(null)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -519,8 +611,10 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
     ouvert.current = true
     return () => {
       ouvert.current = false
+      // Refermé, l'éditeur n'a plus rien à garder : le retour suivant passe.
+      if (sortie) sortie.current = null
     }
-  }, [])
+  }, [sortie])
 
   useEffect(() => {
     api
@@ -761,7 +855,8 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
     }
   }
 
-  const close = async () => {
+  /** Vrai si l'on peut refermer l'éditeur — après avoir demandé, s'il le faut. */
+  const peutPartir = async (): Promise<boolean> => {
     if (dirty && garde) {
       // Le brouillon attend dans ce navigateur : partir ne perd plus rien, et
       // effacer ce qu'on a écrit devient un geste à part.
@@ -772,20 +867,23 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
         cancelLabel: 'Rester',
         alternative: { label: 'Effacer mes modifications', danger: true },
       })
-      if (!choix) return
+      if (!choix) return false
       if (choix.geste === 'alternative') oublierBrouillon(id)
     } else if (dirty) {
-      const leave = await confirmDialog({
+      return confirmDialog({
         title: 'Quitter sans enregistrer ?',
         message: 'Des modifications ne sont pas enregistrées. Elles seront perdues.',
         confirmLabel: 'Quitter quand même',
         cancelLabel: 'Rester',
         danger: true,
       })
-      if (!leave) return
     }
-    onClose()
+    return true
   }
+  const close = async () => {
+    if (await peutPartir()) onClose()
+  }
+  if (sortie) sortie.current = dirty ? peutPartir : null
 
   const reprendre = async () => {
     const serveur = courant.current
@@ -832,6 +930,14 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
     return (
       <main className="center-page">
         <p className={error ? 'error' : 'serif-note'}>{error || 'Chargement…'}</p>
+        {/* Un quiz supprimé, une adresse recopiée de travers : sans ce
+            bouton, la page ne menait plus nulle part. */}
+        {error && (
+          <button className="btn" onClick={onClose}>
+            <Icon name="list" />
+            Mes quiz
+          </button>
+        )}
       </main>
     )
   }
@@ -896,8 +1002,11 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
           <span className="muted">
             {ready}/{quiz.questions.length} prête{ready > 1 ? 's' : ''}
           </span>
+          {/* Il dit où il mène : « Retour » seul laissait chercher l'écran
+              commun, qui est sur la liste. */}
           <button className="btn btn-ghost" onClick={close}>
-            Revenir
+            <Icon name="list" />
+            Mes quiz
           </button>
           <button className="btn btn-primary" onClick={() => save()} disabled={saving || !dirty}>
             {saving ? (
@@ -2107,5 +2216,87 @@ function QuestionCard({
         </p>
       )}
     </div>
+  )
+}
+
+/**
+ * Une bibliothèque vide : de quoi partir. Chaque ami découvrait l'espace par
+ * « Aucun quiz », puis « Lancer un quiz » répondait par un refus. Les quiz
+ * livrés avec l'application se copient ici d'un geste, et le quiz d'un ami
+ * s'importe comme depuis l'en-tête.
+ */
+function PremiersPas({
+  debut,
+  occupe,
+  onOuvrir,
+  onImporter,
+  onErreur,
+}: {
+  /** Aucun quiz prêt : les trois départs. Sinon, les modèles seuls, rouverts depuis l'en-tête. */
+  debut: boolean
+  occupe: boolean
+  onOuvrir: (id: string) => void
+  onImporter: () => void
+  onErreur: (message: string) => void
+}) {
+  const [modeles, setModeles] = useState<{ id: string; title: string; questionCount: number }[]>([])
+  const [copie, setCopie] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Sans modèles (une panne, un serveur sans contenu livré), il reste
+    // l'import et la création : rien à dire de plus.
+    api.modeles().then(setModeles).catch(() => {})
+  }, [])
+
+  const creer = async () => {
+    try {
+      onOuvrir((await api.create('Nouveau quiz')).id)
+    } catch (e) {
+      onErreur((e as Error).message)
+    }
+  }
+
+  return (
+    <section className="card premiers-pas">
+      <h2>{debut ? 'Ton premier quiz' : 'Partir d’un modèle'}</h2>
+      <p className="muted small">
+        {debut
+          ? 'Aucun de tes quiz n’est encore prêt à jouer. Pars d’un quiz tout fait, que tu retoucheras à ton goût, ou du tien.'
+          : 'Chaque clic ajoute une copie du modèle à ta bibliothèque, que tu retoucheras à ton goût.'}
+      </p>
+      <div className="premiers-pas-choix">
+        {modeles.map(m => (
+          <button
+            key={m.id}
+            className="btn"
+            disabled={copie !== null || occupe}
+            onClick={async () => {
+              setCopie(m.id)
+              try {
+                onOuvrir((await api.partirDe(m.id)).id)
+              } catch (e) {
+                onErreur((e as Error).message)
+                setCopie(null)
+              }
+            }}
+          >
+            <Icon name="copy" />
+            {copie === m.id ? 'Copie…' : `Partir de « ${m.title} » · ${m.questionCount} questions`}
+          </button>
+        ))}
+        {debut && (
+          <>
+            <button className="btn" disabled={occupe} onClick={onImporter}>
+              <Icon name="download" />
+              Importer le quiz d'un ami
+            </button>
+            <button className="btn btn-primary" onClick={creer}>
+              <Icon name="plus" />
+              Créer mon quiz
+            </button>
+          </>
+        )}
+      </div>
+    </section>
   )
 }
