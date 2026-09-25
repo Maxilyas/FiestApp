@@ -328,6 +328,10 @@ export function EditorApp() {
         ouvrirListe={ouvrirListe}
         sortie={sortie}
         onClose={() => {
+          // « Mes quiz » a déjà demandé : le `history.back()` qui referme
+          // l'éditeur (`setEditingId`) ne doit pas redemander au passage. Sans
+          // retour à suivre, le drapeau resterait levé pour le quiz suivant.
+          consenti.current = history.state?.[OUVERT_ICI] === true
           setEditingId(null)
           setOuvrirListe(false)
           reload()
