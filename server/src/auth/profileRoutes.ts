@@ -2,6 +2,7 @@ import express, { type Express } from 'express'
 import { wrap } from '../core/http'
 import type { ProfileRec, ProfileStore } from './profiles'
 import type { AuthStore } from './store'
+import type { ArchiveStore } from '../core/archive'
 import { dummyHash, passwordProblem, verifyPassword } from './password'
 import {
   clearPlayerCookie,
@@ -20,6 +21,13 @@ interface ProfileApiDeps {
   profiles: ProfileStore
   /** Pour dire chez qui une soirée passée s'est jouée, dans l'historique. */
   auth: AuthStore
+  /** Le titre de chaque soirée de « Mes soirées », et qui l'on y était. */
+  archives: ArchiveStore
+  /**
+   * Les espaces dont la soirée en cours compte ce profil parmi ses invités :
+   * « Rejoindre une soirée » redemandait le nom de celle où l'on jouait déjà.
+   */
+  soireesOuJeJoue: (profileId: string) => string[]
   /** En ligne, le cookie ne voyage qu'en HTTPS. */
   online: boolean
   /** Un profil a changé ce que la salle voit de lui (finition, légendaire) : les soirées où il joue le rediffusent. */
@@ -231,8 +239,16 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       // ma soirée » sur l'accueil.
       const espace = me ? deps.auth.byProfile(me.id) : undefined
       res.json({
-        profile: me ? await profiles.toDetail(me, espaceDe) : null,
+        profile: me ? await profiles.toDetail(me, espaceDe, deps.archives) : null,
         espace: espace && !espace.disabledAt ? deps.auth.publicSpace(espace) : null,
+        // La soirée où il joue déjà, en tête de « Ce soir » : un nom, une
+        // adresse, rien de plus — et seulement les siennes.
+        enCours: me
+          ? deps.soireesOuJeJoue(me.id).flatMap(spaceId => {
+              const chez = espaceDe(spaceId)
+              return chez ? [chez] : []
+            })
+          : [],
       })
     }),
   )

@@ -63,6 +63,18 @@ export function PlayerApp() {
   const [switching, setSwitching] = useState(false)
   /** Salle d'attente : la parenthèse « créer un profil », entre deux quiz. */
   const [montrerProfil, setMontrerProfil] = useState(false)
+  /**
+   * L'invité à qui l'on a dit « Plus tard » : la carte « Ce soir compte déjà »
+   * ne revient pas de la soirée. Retenu par invité — un autre soir, c'est un
+   * autre invité, et la question se repose.
+   */
+  const [plusTard, setPlusTard] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(`quizz.plus-tard.${slug}`)
+    } catch {
+      return null
+    }
+  })
   /** Le serveur ne connaît pas cette adresse : rien à rejoindre ici. */
   const [spaceError, setSpaceError] = useState('')
   /** Salle d'attente : « J'ai un code » — reprendre la place d'un téléphone mort. */
@@ -409,6 +421,16 @@ export function PlayerApp() {
           onDone={profilConnecte}
           onCancel={() => setMontrerProfil(false)}
           creer
+          bandeau={
+            sessionView && iAmIn ? (
+              <div className="card notice quiz-commence" role="status">
+                <span>Le quiz commence</span>
+                <button type="button" className="btn btn-primary btn-small" onClick={() => setMontrerProfil(false)}>
+                  Y aller
+                </button>
+              </div>
+            ) : null
+          }
         />
         {toast}
       </>
@@ -509,6 +531,17 @@ export function PlayerApp() {
   // Et pas de rang tant que personne n'a marqué : « 0 pts · 1ʳᵉ place »
   // avant le premier quiz, c'était premier de rien.
   const myRank = me && sorted.some(p => p.score > 0) ? sorted.findIndex(p => p.score === me.score) + 1 : 0
+  // Seul, on ne gagne rien (invariant 19) : « Ce soir compte déjà » serait faux.
+  const invitationProfil = !profil && (me?.score ?? 0) > 0 && snap.players.length > 1 && plusTard !== me?.id
+  const remettreAPlusTard = () => {
+    const id = me?.id ?? null
+    setPlusTard(id)
+    try {
+      if (id) localStorage.setItem(`quizz.plus-tard.${slug}`, id)
+    } catch {
+      // Stockage bloqué : la carte reste fermée jusqu'au rechargement.
+    }
+  }
 
   return (
     <div className="player-shell">
@@ -539,6 +572,25 @@ export function PlayerApp() {
 
       {session && !iAmIn && (
         <div className="card notice">Un quiz est en cours — tu entres à la prochaine question.</div>
+      )}
+
+      {/* Après un premier quiz marqué, c'est le moment d'y penser — et le lien
+          tout en bas, sous le classement, ne se voyait pas. Créé ce soir, le
+          profil se rattache à l'invité : la soirée entière y compte. */}
+      {invitationProfil && (
+        <div className="card invitation-profil">
+          <p>Ce soir compte déjà : avec un profil, ton niveau part de cette soirée.</p>
+          <div className="invitation-profil-actions">
+            <button type="button" className="btn btn-small" onClick={() => setMontrerProfil(true)}>
+              Créer mon profil
+            </button>
+            {/* Sans lui, la carte restait là toute la soirée, au-dessus des
+                équipes, pour qui avait déjà répondu non. */}
+            <button type="button" className="btn btn-ghost btn-small" onClick={remettreAPlusTard}>
+              Plus tard
+            </button>
+          </div>
+        </div>
       )}
 
       {teams.length > 0 && (
@@ -610,9 +662,11 @@ export function PlayerApp() {
             Mon profil · niveau {profil.niveau}
           </a>
         ) : (
-          <button type="button" className="link-inline" onClick={() => setMontrerProfil(true)}>
-            Gagner des niveaux : créer un profil
-          </button>
+          !invitationProfil && (
+            <button type="button" className="link-inline" onClick={() => setMontrerProfil(true)}>
+              Gagner des niveaux : créer un profil
+            </button>
+          )
         )}
       </p>
       {celebration}

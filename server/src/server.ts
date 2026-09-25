@@ -151,6 +151,9 @@ function contentPolicy(host: string | undefined): string {
   ].join('; ')
 }
 
+/** Au-delà, une soirée qu'on n'a pas close n'est plus « en cours » pour `/profil`. */
+const SOIREE_ACTIVE_MS = 12 * 3600_000
+
 /** Les pages publiques d'un espace, telles que le client les route. */
 const PUBLIC_PAGES = ['souvenir', 'stats', 'bilan', 'bilan/fiches']
 
@@ -615,6 +618,24 @@ export async function createQuizServer(opts: QuizServerOptions) {
       ),
     removeAccount,
     soireeEnCours: spaceId => registry.get(spaceId).soireeId(),
+    // La base locale est le registre de la soirée en cours : la clôture et
+    // l'essai effacé la vident, un invité exclu en sort. Mais une soirée
+    // qu'on n'a pas close reste là jusqu'à la suivante : sans son dernier
+    // signe de vie (une arrivée, un quiz qui avance) de moins de douze
+    // heures, « Revenir chez Nadia » renvoyait le lendemain vers une salle vide.
+    soireesOuJeJoue: profileId =>
+      (
+        db
+          .prepare(
+            `SELECT DISTINCT p.space_id FROM players p
+             WHERE p.profile_id = ? AND p.space_id IS NOT NULL
+               AND MAX(
+                 (SELECT COALESCE(MAX(created_at), 0) FROM players WHERE space_id = p.space_id),
+                 (SELECT COALESCE(MAX(updated_at), 0) FROM sessions WHERE space_id = p.space_id)
+               ) > ?`,
+          )
+          .all(profileId, Date.now() - SOIREE_ACTIVE_MS) as { space_id: string }[]
+      ).map(r => r.space_id),
     // Une soirée endormie n'a personne à prévenir : elle lira les réglages
     // au réveil.
     espaceChange: spaceId => registry.peek(spaceId)?.broadcastSnapshot(),

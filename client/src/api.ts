@@ -190,9 +190,16 @@ export const api = {
     /**
      * Sa propre page : le détail complet, étagère à badges et historique.
      * Sans cookie, rend `null` — ce n'est pas une erreur, c'est un invité.
-     * `espace` est la soirée qu'anime ce profil, s'il en anime une.
+     * `espace` est la soirée qu'anime ce profil, s'il en anime une ;
+     * `enCours`, celles où il joue en ce moment.
      */
-    moi: () => req<{ profile: PublicProfileDetail | null; espace: PublicSpace | null }>('/api/joueur/moi'),
+    moi: () =>
+      req<{
+        profile: PublicProfileDetail | null
+        espace: PublicSpace | null
+        /** Les soirées en cours où ce profil est inscrit. Absent d'un serveur d'avant. */
+        enCours?: { nom: string; slug: string }[]
+      }>('/api/joueur/moi'),
     connexion: (login: string, password: string) =>
       req<{ profile: PublicProfile; espace: PublicSpace | null }>('/api/joueur/connexion', {
         method: 'POST',
