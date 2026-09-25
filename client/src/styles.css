@@ -4976,7 +4976,9 @@ h3 > .icon {
 }
 .glossaire > summary::-webkit-details-marker { display: none; }
 .glossaire > summary .icon { width: 15px; height: 15px; }
-.glossaire > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+/* L'anneau est celui de toute l'application (`:focus-visible`, plus haut) :
+   le glossaire n'en règle que l'écart et l'arrondi. */
+.glossaire > summary:focus-visible { outline-offset: 4px; border-radius: 6px; }
 .glossaire dl { margin: 4px 0 0; display: grid; gap: 8px; }
 .glossaire dt { font-weight: 600; color: var(--accent-text); display: inline; }
 .glossaire dt::after { content: ' · '; color: var(--muted); font-weight: 400; }
