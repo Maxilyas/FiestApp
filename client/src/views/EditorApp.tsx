@@ -3,7 +3,6 @@ import {
   DEFAULT_DURATION,
   DEFAULT_OBSERVE,
   SANS_BONNE_REPONSE,
-  VRAI_FAUX,
   bonneEnPremier,
   estVraiFaux,
   MAX_ANECDOTE,
@@ -1661,6 +1660,15 @@ function QuizEditor({
           d'une page de cinq à quarante-cinq écrans, et l'« Annuler » d'un
           déplacement vers la huitième question à 2 000 px de la carte. */}
       <header className="editor-header is-collant">
+        {/* Le retour à la liste, là où l'on cherche un retour : en haut à
+            gauche, sa flèche devant — et il dit où il mène, « Retour » seul
+            laissait chercher l'écran commun, qui est sur la liste. Rangé à
+            droite, entre « prêtes » et « Enregistrer », « Mes quiz » ne se
+            lisait pas comme un retour : « on n'a plus de bouton pour revenir ». */}
+        <button type="button" className="btn btn-ghost retour-liste" onClick={close}>
+          <Icon name="arrow-left" />
+          <span className="retour-liste-texte">Mes quiz</span>
+        </button>
         <input
           className="input title-input"
           value={quiz.title}
@@ -1683,12 +1691,6 @@ function QuizEditor({
             </span>
           )}
           {duree > 0 && <span className="muted duree-quiz" title="Temps de jeu estimé, révélations comprises">{ecrireDuree(duree)}</span>}
-          {/* Il dit où il mène : « Retour » seul laissait chercher l'écran
-              commun, qui est sur la liste. */}
-          <button className="btn btn-ghost" onClick={close}>
-            <Icon name="list" />
-            Mes quiz
-          </button>
           <button className="btn btn-primary" onClick={() => save()} disabled={saving || !dirty}>
             {saving ? (
               reveil ? 'Réveil du serveur…' : 'Enregistrement…'
@@ -2753,41 +2755,14 @@ function QuestionCard({
   const [busy, setBusy] = useState(false)
   const [imageError, setImageError] = useState('')
   const attendue = photoManquante(question)
-  // « Deux cases » est un mode, posé par le bouton Vrai/Faux et retiré par
-  // QCM — pas une lecture du contenu : taper « Vrai » et « Faux » dans les
-  // cases 1 et 2 d'un QCM faisait disparaître les cases 3 et 4, et « QCM » ne
-  // les rendait pas. À l'ouverture, un vrai ou faux enregistré s'y remet.
-  const [deuxCases, setDeuxCases] = useState(() => estVraiFaux(question))
-  const vraiFaux =
-    deuxCases && question.kind === 'choice' && !question.answers[2]?.trim() && !question.answers[3]?.trim()
-  // Les variantes d'un QCM (`shared/library.ts`, `Variante`).
+  // Les variantes d'un QCM (`shared/library.ts`, `Variante`). Un vrai ou
+  // faux n'en est pas une : c'est un QCM où l'on tape « Vrai » et « Faux ».
+  // Le bouton qui le faisait posait un quatrième « type » dans la rangée,
+  // pour ce qu'un QCM sait déjà faire.
   const sondage = question.kind === 'choice' && question.variante === 'sondage'
-  const plusieurs = question.kind === 'choice' && question.variante === 'plusieurs' && !vraiFaux
-  const enOrdre = question.kind === 'choice' && question.variante === 'ordre' && !vraiFaux
-  const qcm = question.kind === 'choice' && !vraiFaux && !sondage
-
-  const versVraiFaux = async () => {
-    if (vraiFaux) return
-    // Déjà « Vrai » et « Faux », tapés à la main : il n'y a rien à remplacer.
-    if (estVraiFaux(question) && !question.answers[2]?.trim() && !question.answers[3]?.trim()) {
-      setDeuxCases(true)
-      return
-    }
-    const ecrites = question.answers.map(a => a.trim()).filter(Boolean)
-    if (question.kind === 'choice' && ecrites.length > 0) {
-      const ok = await confirmDialog({
-        title: 'En faire un vrai ou faux ?',
-        message: `Les réponses écrites (${ecrites.join(', ')}) seront remplacées par « Vrai » et « Faux ».`,
-        confirmLabel: 'Remplacer',
-      })
-      if (!ok) return
-    }
-    setDeuxCases(true)
-    // Rien de coché d'office : « Vrai » pris pour bon parce qu'il est en
-    // premier, c'était le quiz faux de la liste collée, en plus petit. Un
-    // vrai ou faux n'a qu'une bonne réponse, et rien à remettre dans l'ordre.
-    onChange(q => ({ ...q, kind: 'choice', variante: undefined, bonnes: undefined, answers: [...VRAI_FAUX, '', ''], correct: SANS_BONNE_REPONSE }))
-  }
+  const plusieurs = question.kind === 'choice' && question.variante === 'plusieurs'
+  const enOrdre = question.kind === 'choice' && question.variante === 'ordre'
+  const qcm = question.kind === 'choice' && !sondage
   // La cible telle qu'on la tape. Relu en nombre à chaque touche, le champ
   // mangeait ce qui n'en est pas encore un : la virgule de « 0,8 » (la cible
   // devenait 8, sans un mot) et le signe de « -40 ».
@@ -2938,10 +2913,7 @@ function QuestionCard({
             <button
               className={'pill-btn' + (qcm ? ' active' : '')}
               aria-pressed={qcm}
-              onClick={() => {
-                setDeuxCases(false)
-                onChange(q => ({ ...q, kind: 'choice', variante: q.variante === 'sondage' ? undefined : q.variante }))
-              }}
+              onClick={() => onChange(q => ({ ...q, kind: 'choice', variante: q.variante === 'sondage' ? undefined : q.variante }))}
             >
               <Icon name="list" />
               QCM
@@ -2954,22 +2926,13 @@ function QuestionCard({
               <Icon name="hash" />
               Estimation
             </button>
-            {/* Un vrai ou faux se tapait à la main, « Vrai » puis « Faux », à
-                côté de deux cases « (optionnelle) » qui restaient là. */}
-            <button className={'pill-btn' + (vraiFaux ? ' active' : '')} aria-pressed={vraiFaux} onClick={versVraiFaux}>
-              <Icon name="check" />
-              Vrai/Faux
-            </button>
             {/* « Qui dans la salle ? » : les invités sont les réponses, et
                 personne n'a raison — un vote, pour rire. */}
             <button
               className={'pill-btn' + (sondage ? ' active' : '')}
               aria-pressed={sondage}
               title="Chacun désigne un invité de la soirée, et l’écran montre qui la salle a choisi"
-              onClick={() => {
-                setDeuxCases(false)
-                onChange(q => ({ ...q, kind: 'choice', variante: 'sondage', bonnes: undefined }))
-              }}
+              onClick={() => onChange(q => ({ ...q, kind: 'choice', variante: 'sondage', bonnes: undefined }))}
             >
               <Icon name="users" />
               Qui dans la salle ?
@@ -3114,8 +3077,7 @@ function QuestionCard({
         {enOrdre && (
           <p className="muted small answers-consigne">{espacesFines('Écris-les dans le bon ordre : elles s’afficheront mélangées.')}</p>
         )}
-        {/* Un vrai ou faux n'a que ses deux cases. */}
-        {Array.from({ length: vraiFaux ? 2 : MAX_ANSWERS }, (_, i) => (
+        {Array.from({ length: MAX_ANSWERS }, (_, i) => (
           <label
             key={i}
             className={
@@ -3190,9 +3152,9 @@ function QuestionCard({
             <Icon name="list" />
             À remettre dans l’ordre
           </button>
-          {/* L'ordre à retrouver se mélange toujours : « Garder cet ordre »
-              n'y voudrait rien dire. */}
-          {melange && !enOrdre && (
+          {/* L'ordre à retrouver se mélange toujours, un vrai ou faux jamais
+              (`shared/hasard.ts`) : « Garder cet ordre » n'y voudrait rien dire. */}
+          {melange && !enOrdre && !estVraiFaux(question) && (
             <button
               type="button"
               className={'pill-btn' + (question.ordreFixe ? ' active' : '')}
