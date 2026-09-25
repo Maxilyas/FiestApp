@@ -2026,6 +2026,8 @@ h3 > .icon {
   margin-top: -10px;
 }
 .editor-header .undo-line { flex-basis: 100%; margin: 0; }
+/* Le retour à « Mes quiz », en tête : sa flèche et le nom de la liste. */
+.editor-header .retour-liste { flex: none; padding: 0 14px 0 10px; }
 /* Un conflit ou un échec d'« Enregistrer » prend sa ligne sous les boutons,
    et se défile s'il est long : l'en-tête collé ne doit pas manger l'écran
    d'un téléphone. */
@@ -2036,7 +2038,20 @@ h3 > .icon {
      négatif de sa hauteur (10 + 44 + 8 px) ne laisse collés que « prêtes »,
      « Retour », « Enregistrer » et l'annulation — une ligne sur 640 px. */
   .editor-header.is-collant { gap: 8px; padding-bottom: 8px; top: -62px; }
-  .editor-header.is-collant .title-input { flex-basis: 100%; min-width: 0; height: 44px; font-size: 1.15rem; padding-block: 6px; }
+  /* Le titre passe devant et s'en va avec la page ; le retour reste collé,
+     sa flèche seule, devant « prêtes » et « Enregistrer ». Son nom reste
+     celui qu'on entend. */
+  .editor-header.is-collant .title-input { order: -1; flex-basis: 100%; min-width: 0; height: 44px; font-size: 1.15rem; padding-block: 6px; }
+  .editor-header .retour-liste { width: 44px; padding: 0; justify-content: center; }
+  .editor-header .retour-liste-texte {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .editor-header.is-collant > .row { flex: 1 1 0; min-width: 0; }
 }
 
 .title-input {

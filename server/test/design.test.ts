@@ -73,6 +73,29 @@ test('une pastille de profil au prénom long, dans une équipe, tient dans sa ca
   assert.doesNotMatch(hote, /className="chip-prenom" style=/)
 })
 
+// ── Le retour à la liste, dans l'éditeur d'un quiz ────────────────────────
+
+test('l’éditeur d’un quiz ouvre son en-tête par le retour à « Mes quiz », flèche devant', () => {
+  // « ☰ Mes quiz », rangé à droite entre « prêtes » et « Enregistrer », ne se
+  // lisait pas comme un retour : « quand on clique sur un quiz, on n'a plus
+  // de bouton pour revenir ». Un retour se cherche en haut à gauche.
+  const editeur = readFileSync(new URL('../../client/src/views/EditorApp.tsx', import.meta.url), 'utf8')
+  const debut = editeur.indexOf('<header className="editor-header is-collant">')
+  assert.ok(debut >= 0, 'l’en-tête collant de l’éditeur existe')
+  const entete = editeur.slice(debut, editeur.indexOf('</header>', debut))
+  const premier = /<(button|input)\b[^>]*>/.exec(entete.replace(/\{\/\*[\s\S]*?\*\/\}/g, ''))
+  assert.match(premier?.[0] ?? '', /className="btn btn-ghost retour-liste"/, 'le retour vient en premier, avant le titre')
+  assert.match(entete, /retour-liste"[^>]*onClick=\{close\}>\s*<Icon name="arrow-left" \/>\s*<span className="retour-liste-texte">Mes quiz<\/span>/)
+  assert.equal(entete.match(/onClick=\{close\}/g)?.length, 1, 'un seul retour : plus de « Mes quiz » à droite')
+  // Au téléphone, le titre passe devant et s'en va avec la page ; le retour
+  // reste dans la partie collée, sa flèche seule — son nom reste celui
+  // qu'on entend.
+  assert.match(regle('.editor-header.is-collant .title-input'), /order:\s*-1/)
+  const nom = regle('.editor-header .retour-liste-texte')
+  assert.match(nom, /clip-path:\s*inset\(50%\)/)
+  assert.doesNotMatch(nom, /display:\s*none/, 'caché aux yeux, pas à l’oreille')
+})
+
 // ── A1 · Un bouton bascule dit son état, et un seul ───────────────────────
 
 /** Tous les fichiers `.tsx` du client, avec leur texte. */

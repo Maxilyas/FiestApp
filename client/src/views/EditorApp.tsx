@@ -1661,6 +1661,15 @@ function QuizEditor({
           d'une page de cinq à quarante-cinq écrans, et l'« Annuler » d'un
           déplacement vers la huitième question à 2 000 px de la carte. */}
       <header className="editor-header is-collant">
+        {/* Le retour à la liste, là où l'on cherche un retour : en haut à
+            gauche, sa flèche devant — et il dit où il mène, « Retour » seul
+            laissait chercher l'écran commun, qui est sur la liste. Rangé à
+            droite, entre « prêtes » et « Enregistrer », « Mes quiz » ne se
+            lisait pas comme un retour : « on n'a plus de bouton pour revenir ». */}
+        <button type="button" className="btn btn-ghost retour-liste" onClick={close}>
+          <Icon name="arrow-left" />
+          <span className="retour-liste-texte">Mes quiz</span>
+        </button>
         <input
           className="input title-input"
           value={quiz.title}
@@ -1683,12 +1692,6 @@ function QuizEditor({
             </span>
           )}
           {duree > 0 && <span className="muted duree-quiz" title="Temps de jeu estimé, révélations comprises">{ecrireDuree(duree)}</span>}
-          {/* Il dit où il mène : « Retour » seul laissait chercher l'écran
-              commun, qui est sur la liste. */}
-          <button className="btn btn-ghost" onClick={close}>
-            <Icon name="list" />
-            Mes quiz
-          </button>
           <button className="btn btn-primary" onClick={() => save()} disabled={saving || !dirty}>
             {saving ? (
               reveil ? 'Réveil du serveur…' : 'Enregistrement…'
