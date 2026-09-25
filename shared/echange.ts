@@ -15,6 +15,7 @@
 
 import type { QuizDef, QuizQuestionDef } from './library'
 import { titreLibre } from './library'
+import { normaliserReglages, type ReglagesDuQuiz } from './hasard'
 
 /** Ce qui dit, en tête du fichier, que c'est bien un quiz de l'application. */
 export const FORMAT_QUIZ = 'fiestapp-quiz'
@@ -32,6 +33,8 @@ export interface QuizEmporte {
   titre: string
   /** Les questions, leur photo en clair (`data:image/…`) au lieu de son adresse. */
   questions: (Omit<QuizQuestionDef, 'id' | 'image'> & { image: string | null })[]
+  /** Les réglages du quiz — absents d'un fichier d'avant, qui se joue alors tel qu'écrit. */
+  reglages?: ReglagesDuQuiz
 }
 
 /** « Culture générale » → `culture-generale.quiz.json`. */
@@ -51,7 +54,7 @@ export function nomDeFichier(titre: string): string {
  * lit plus : le quiz part alors sans elle plutôt que de ne pas partir.
  */
 export async function emporterQuiz(
-  quiz: Pick<QuizDef, 'title' | 'questions'>,
+  quiz: Pick<QuizDef, 'title' | 'questions' | 'reglages'>,
   lirePhoto: (adresse: string) => Promise<string | null>,
 ): Promise<QuizEmporte> {
   // Une même photo peut servir à plusieurs questions : on ne la lit qu'une fois.
@@ -64,6 +67,7 @@ export async function emporterQuiz(
     version: VERSION_QUIZ,
     titre: quiz.title,
     questions: quiz.questions.map(({ id: _id, image, ...q }) => ({ ...q, image: image ? (enClair.get(image) ?? null) : null })),
+    ...(quiz.reglages && Object.keys(quiz.reglages).length > 0 && { reglages: quiz.reglages }),
   }
 }
 
@@ -75,6 +79,7 @@ export interface QuizDeballe {
   photos: (string | null)[]
   /** Les photos qu'on n'a pas su reprendre : ni JPEG, ni PNG, ni WebP. */
   photosIgnorees: number
+  reglages: ReglagesDuQuiz
 }
 
 /** Déballe un fichier lu : le quiz qu'il porte, ou ce qui ne va pas, en une phrase. */
@@ -103,7 +108,7 @@ export function deballerQuiz(brut: unknown): QuizDeballe | { erreur: string } {
     }
     questions.push(question)
   }
-  return { titre, questions, photos, photosIgnorees }
+  return { titre, questions, photos, photosIgnorees, reglages: normaliserReglages(f.reglages) }
 }
 
 /**
@@ -115,7 +120,7 @@ export async function importerQuiz<T>(
   brut: unknown,
   portes: {
     envoyerPhoto: (enClair: string) => Promise<string>
-    creer: (titre: string, questions: Record<string, unknown>[]) => Promise<T>
+    creer: (titre: string, questions: Record<string, unknown>[], reglages: ReglagesDuQuiz) => Promise<T>
     /** Les titres de la bibliothèque : un quiz importé sous l'un d'eux arrive « (2) ». */
     titresPris?: Iterable<string>
   },
@@ -132,6 +137,6 @@ export async function importerQuiz<T>(
     const photo = deballe.photos[i]
     return { ...q, image: photo ? adresses.get(photo)! : null }
   })
-  const quiz = await portes.creer(titreLibre(deballe.titre, portes.titresPris ?? []), questions)
+  const quiz = await portes.creer(titreLibre(deballe.titre, portes.titresPris ?? []), questions, deballe.reglages)
   return { quiz, questions: questions.length, photos: adresses.size, photosIgnorees: deballe.photosIgnorees }
 }

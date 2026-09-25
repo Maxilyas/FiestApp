@@ -51,6 +51,7 @@ import {
   type DemandeIA,
 } from '../../../shared/liste'
 import { avisEmojis, emojisRecents } from '../../../shared/emojis'
+import type { ReglagesDuQuiz } from '../../../shared/hasard'
 import { SEUILS } from '../../../shared/profil'
 import { MAX_PRENOM, type Accord, type ModeleResume, type PourQui } from '../../../shared/modeles'
 import {
@@ -268,7 +269,7 @@ export function EditorApp() {
     try {
       const fait = await importerQuiz(brut, {
         envoyerPhoto: async enClair => (await api.uploadImage(enClair)).url,
-        creer: (titre, questions) => api.create(titre, questions),
+        creer: (titre, questions, reglages) => api.create(titre, questions, reglages),
         titresPris: list?.map(q => q.title) ?? [],
       })
       setNotice(
@@ -306,7 +307,9 @@ export function EditorApp() {
   const creeIci = useRef(new Set<string>())
   const creer = async (avecListe = false) => {
     try {
-      const quiz = await api.create(TITRE_PAR_DEFAUT)
+      // Un quiz neuf mélange ses réponses à chaque partie : on écrit la bonne
+      // d'abord, et la salle finissait par répondre ▲ sans lire.
+      const quiz = await api.create(TITRE_PAR_DEFAUT, [], { melangerReponses: true })
       creeIci.current.add(quiz.id)
       if (avecListe) setOuvrirListe(true)
       setEditingId(quiz.id)
@@ -805,6 +808,27 @@ function QuizEditor({
   }
 
   /**
+   * Les réglages du hasard, qui font partie du quiz comme ses questions :
+   * ils s'enregistrent avec lui, et voyagent dans son fichier.
+   */
+  const changerReglages = (changement: ReglagesDuQuiz) => {
+    patch(q => {
+      const suivants: ReglagesDuQuiz = { ...(q.reglages ?? {}), ...changement }
+      for (const cle of Object.keys(suivants) as (keyof ReglagesDuQuiz)[]) if (!suivants[cle]) delete suivants[cle]
+      return { ...q, reglages: suivants }
+    })
+    setAnnounce(
+      changement.melangerReponses !== undefined
+        ? changement.melangerReponses
+          ? 'Les réponses se mélangeront à chaque partie'
+          : 'Les réponses garderont l’ordre écrit'
+        : changement.melangerQuestions
+          ? 'Les questions se joueront dans un ordre tiré à chaque partie'
+          : 'Les questions se joueront dans l’ordre écrit',
+    )
+  }
+
+  /**
    * Une question vide juste après celle-ci, le curseur déjà dans son
    * intitulé — avec son temps et sa catégorie (voir emptyQuestion).
    */
@@ -859,7 +883,7 @@ function QuizEditor({
         () => {
           envoi = { quiz: courant.current ?? envoi.quiz, modifications: modifications.current }
           essai++
-          return api.save(envoi.quiz.id, envoi.quiz.title, envoi.quiz.questions, depuis, jeton, essai)
+          return api.save(envoi.quiz.id, envoi.quiz.title, envoi.quiz.questions, depuis, jeton, essai, envoi.quiz.reglages ?? {})
         },
         { surAttente: () => setReveil(true), continuer: () => ouvert.current },
       )
@@ -949,7 +973,7 @@ function QuizEditor({
     const disparues = await photosDisparues(photosAVerifier(retrouve, serveur))
     const { questions, privees } = sansPhotosDisparues(retrouve.questions, disparues)
     modifications.current++
-    poser({ ...serveur, title: retrouve.title, questions })
+    poser({ ...serveur, title: retrouve.title, questions, ...(retrouve.reglages && { reglages: retrouve.reglages }) })
     setDirty(true)
     setSansPhoto(new Set(privees))
     setRetrouve(null)
@@ -1038,6 +1062,7 @@ function QuizEditor({
 
   const ready = quiz.questions.filter(q => toPlayable(q) !== null).length
   const aCompleter = quiz.questions.length - ready
+  const reglages: ReglagesDuQuiz = quiz.reglages ?? {}
   const enPremier = bonneEnPremier(quiz.questions)
   const duree = dureeEstimeeS(quiz.questions)
   const emojisDuTitre = avisEmojis(emojisRecents(quiz.title))
@@ -1183,16 +1208,22 @@ function QuizEditor({
             )}
           </p>
         )}
-        {enPremier && (
-          <p className="muted small">
-            <Icon name="alert" />{' '}
-            {espacesFines(
-              `La bonne réponse est la première dans ${enPremier.premiers} QCM sur ${enPremier.qcm} : ` +
-                'la salle finira par le remarquer. Change-la de case dans quelques questions.',
-            )}
-          </p>
+        {enPremier && !reglages.melangerReponses && (
+          <div className="row en-premier">
+            <p className="muted small">
+              <Icon name="alert" />{' '}
+              {espacesFines(
+                `La bonne réponse est la première dans ${enPremier.premiers} QCM sur ${enPremier.qcm} : ` +
+                  'la salle finira par le remarquer.',
+              )}
+            </p>
+            <button type="button" className="btn btn-small" onClick={() => changerReglages({ melangerReponses: true })}>
+              <Icon name="shuffle" />
+              Mélanger les réponses à chaque partie
+            </button>
+          </div>
         )}
-        {quiz.questions.length > 1 && (
+        {quiz.questions.length > 0 && (
           <div className="row">
             <button
               type="button"
@@ -1208,6 +1239,8 @@ function QuizEditor({
         {reglerTout && (
           <ReglerToutLeQuiz
             questions={quiz.questions}
+            reglages={reglages}
+            onReglages={changerReglages}
             onRegler={reglerLeQuiz}
             onFermer={() => setReglerTout(false)}
           />
@@ -1224,6 +1257,7 @@ function QuizEditor({
             index={index}
             total={quiz.questions.length}
             question={question}
+            melange={!!reglages.melangerReponses}
             photoDisparue={!!question.id && sansPhoto.has(question.id)}
             spot={spot && spot.id === question.id ? spot : null}
             actions={actions}
@@ -1304,10 +1338,14 @@ function QuizEditor({
  */
 function ReglerToutLeQuiz({
   questions,
+  reglages,
+  onReglages,
   onRegler,
   onFermer,
 }: {
   questions: QuizQuestionDef[]
+  reglages: ReglagesDuQuiz
+  onReglages: (changement: ReglagesDuQuiz) => void
   onRegler: (reglage: { duration?: number; category?: string | null }) => void
   onFermer: () => void
 }) {
@@ -1363,6 +1401,53 @@ function ReglerToutLeQuiz({
           Pour toutes
         </button>
       </div>
+      {/* Le hasard, tiré une fois au lancement de chaque partie, le même pour
+          toute la salle (`shared/hasard.ts`). */}
+      <div className="row" role="group" aria-label="Ordre des réponses">
+        <span className="muted">Réponses</span>
+        <button
+          type="button"
+          className={'pill-btn' + (!reglages.melangerReponses ? ' active' : '')}
+          aria-pressed={!reglages.melangerReponses}
+          onClick={() => onReglages({ melangerReponses: false })}
+        >
+          Dans l’ordre écrit
+        </button>
+        <button
+          type="button"
+          className={'pill-btn' + (reglages.melangerReponses ? ' active' : '')}
+          aria-pressed={!!reglages.melangerReponses}
+          onClick={() => onReglages({ melangerReponses: true })}
+        >
+          Mélangées à chaque partie
+        </button>
+      </div>
+      <div className="row" role="group" aria-label="Ordre des questions">
+        <span className="muted">Questions</span>
+        <button
+          type="button"
+          className={'pill-btn' + (!reglages.melangerQuestions ? ' active' : '')}
+          aria-pressed={!reglages.melangerQuestions}
+          onClick={() => onReglages({ melangerQuestions: false })}
+        >
+          Dans l’ordre écrit
+        </button>
+        <button
+          type="button"
+          className={'pill-btn' + (reglages.melangerQuestions ? ' active' : '')}
+          aria-pressed={!!reglages.melangerQuestions}
+          onClick={() => onReglages({ melangerQuestions: true })}
+        >
+          Tirées dans un autre ordre
+        </button>
+      </div>
+      {reglages.melangerReponses && (
+        <p className="muted small">
+          {espacesFines(
+            'Tirées une fois au lancement, le même ordre pour toute la salle. Un vrai ou faux garde « Vrai, Faux », des nombres se rangent du plus petit au plus grand, et « Garder cet ordre », sur une question, la laisse telle qu’écrite.',
+          )}
+        </p>
+      )}
       <div className="row">
         <button type="button" className="btn btn-ghost btn-small" onClick={onFermer}>
           Fermer
@@ -1968,6 +2053,8 @@ interface QuestionCardProps {
   index: number
   total: number
   question: QuizQuestionDef
+  /** Le quiz mélange ses réponses à chaque partie : la carte propose de garder son ordre. */
+  melange: boolean
   /** Sa photo n'existait plus sur le serveur à la reprise du brouillon : elle le dit, jusqu'à la suivante. */
   photoDisparue: boolean
   /** Non nul quand la carte vient d'arriver ici : on la montre, on l'éclaire. */
@@ -1989,6 +2076,7 @@ function QuestionCard({
   index,
   total,
   question,
+  melange,
   photoDisparue,
   spot,
   onChange,
@@ -2325,6 +2413,24 @@ function QuestionCard({
           </label>
         ))}
       </div>
+      )}
+
+      {/* Dans un quiz qui mélange ses réponses, celles qui ont un ordre —
+          « Aucune de ces réponses » en dernier — le gardent. Un vrai ou faux
+          le garde toujours, et des nombres se rangent d'eux-mêmes. */}
+      {melange && question.kind === 'choice' && !vraiFaux && (
+        <div className="row">
+          <button
+            type="button"
+            className={'pill-btn' + (question.ordreFixe ? ' active' : '')}
+            aria-pressed={!!question.ordreFixe}
+            title="Les réponses de cette question restent dans l'ordre écrit"
+            onClick={() => onChange(q => ({ ...q, ordreFixe: !q.ordreFixe || undefined }))}
+          >
+            <Icon name="lock" />
+            Garder cet ordre
+          </button>
+        </div>
       )}
 
       <div className="question-tools">

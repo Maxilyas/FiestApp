@@ -4,6 +4,7 @@
 import { categorieDe } from './categories'
 import { tronquer } from './avatars'
 import { lireNombreEnTete } from './nombres'
+import type { ReglagesDuQuiz } from './hasard'
 
 export const MIN_ANSWERS = 2
 export const MAX_ANSWERS = 4
@@ -95,6 +96,12 @@ export interface QuizQuestionDef {
    * sans son monument. La photo jointe l'efface. Absente des quiz d'avant.
    */
   photoAttendue?: string | null
+  /**
+   * QCM : les réponses gardent l'ordre écrit, même quand le quiz les mélange
+   * à chaque partie — « Aucune de ces réponses » reste la dernière. Absent
+   * (le cas courant) : elles suivent le réglage du quiz.
+   */
+  ordreFixe?: boolean
 }
 
 export interface QuizDef {
@@ -102,6 +109,8 @@ export interface QuizDef {
   title: string
   questions: QuizQuestionDef[]
   updatedAt: number
+  /** Ce que le quiz demande au hasard : l'ordre de ses réponses, de ses questions (`shared/hasard.ts`). */
+  reglages?: ReglagesDuQuiz
 }
 
 /** Ligne de la liste des quiz (sans les questions). */
@@ -126,6 +135,8 @@ export type PlayableQuestion =
       image: string | null
       observeSeconds: number | null
       category?: string | null
+      /** Ses réponses ne se mélangent pas (voir `QuizQuestionDef.ordreFixe`). */
+      ordreFixe?: true
     }
   | {
       kind: 'number'
@@ -415,7 +426,17 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
   if (kept.length < MIN_ANSWERS) return null
   const correct = kept.findIndex(a => a.index === q.correct)
   if (correct < 0) return null // la bonne réponse pointe une case vide
-  return { kind: 'choice', text, answers: kept.map(a => a.text), correct, duration, image, observeSeconds, category }
+  return {
+    kind: 'choice',
+    text,
+    answers: kept.map(a => a.text),
+    correct,
+    duration,
+    image,
+    observeSeconds,
+    category,
+    ...(q.ordreFixe === true && { ordreFixe: true as const }),
+  }
 }
 
 /** Ce qui manque à une question pour être jouable — message affiché dans l'éditeur. */
@@ -551,6 +572,9 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
       // La photo annoncée par une liste collée, le temps qu'elle arrive : la
       // question ne se joue pas sans elle. Jointe, elle n'a plus rien à dire.
       photoAttendue: photoAttendue && !image ? photoAttendue : null,
+      // Seulement quand il est posé : absent, il ne pèse rien, et les quiz
+      // d'avant se relisent à l'identique.
+      ...(q?.ordreFixe === true && { ordreFixe: true }),
     }
   })
 }
@@ -603,7 +627,7 @@ function lireEstimation(texte: string): { target: number; unit: string } | null 
  * reconnus à leur mot, sans accent ni majuscule. Jamais en tête du bloc : la
  * première ligne reste l'intitulé, fût-ce « Photo : qui est-ce ? ».
  */
-type Reglage = 'temps' | 'photo' | 'observation'
+type Reglage = 'temps' | 'photo' | 'observation' | 'ordre'
 const REGLAGES = new Map<string, Reglage>([
   ['temps', 'temps'],
   ['duree', 'temps'],
@@ -611,6 +635,7 @@ const REGLAGES = new Map<string, Reglage>([
   ['image', 'photo'],
   ['observation', 'observation'],
   ['memoire', 'observation'],
+  ['ordre', 'ordre'],
 ])
 
 /**
@@ -865,6 +890,10 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
         // carte, et ne vaut pas qu'on perde la question.
         const secondes = lireSecondes(lu.valeur)
         if (secondes !== null) temps = borner(secondes, MIN_DURATION, MAX_DURATION)
+      } else if (lu.reglage === 'ordre') {
+        // « Ordre : fixe » : les réponses gardent l'ordre écrit, même dans un
+        // quiz qui les mélange. Toute autre valeur laisse le réglage du quiz.
+        if (/^(fixe|tel quel|telle quelle|garde|garder|ecrit)$/.test(sansAccents(lu.valeur).toLowerCase().trim())) question.ordreFixe = true
       } else if (lu.reglage === 'photo') {
         const photo = tronquer(lu.valeur, MAX_PHOTO_ATTENDUE).trim()
         question.photoAttendue = photo && !SANS_PHOTO.test(sansAccents(photo).toLowerCase()) ? photo : null

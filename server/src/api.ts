@@ -89,7 +89,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
     '/api/quizzes',
     wrap(async (req, res) => {
       const spaceId = spaceOf(res)
-      const quiz = await deps.store.create(spaceId, req.body?.title ?? 'Nouveau quiz', req.body?.questions ?? [])
+      const quiz = await deps.store.create(spaceId, req.body?.title ?? 'Nouveau quiz', req.body?.questions ?? [], undefined, req.body?.reglages)
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),
@@ -160,7 +160,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
         const memeClic = jeton !== null && d !== undefined && d.jeton === jeton
         // Un essai périmé de ce clic : un plus récent a déjà écrit, il ne réécrit rien.
         if (memeClic && essai !== null && d.essai !== null && essai <= d.essai) return deps.store.get(spaceId, id)
-        const q = await deps.store.save(spaceId, id, req.body?.title, req.body?.questions, memeClic ? d.version : base)
+        const q = await deps.store.save(spaceId, id, req.body?.title, req.body?.questions, memeClic ? d.version : base, req.body?.reglages)
         if (q && q !== 'conflit') {
           if (jeton !== null) derniers.set(cle, { jeton, essai, version: q.updatedAt })
           else derniers.delete(cle)
@@ -247,7 +247,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
         title = fait.titre
         questions = fait.questions
       }
-      const quiz = await deps.store.create(spaceId, title, questions)
+      // Une copie de modèle mélange ses réponses : on écrit la bonne d'abord,
+      // et la salle finirait par le voir.
+      const quiz = await deps.store.create(spaceId, title, questions, undefined, { melangerReponses: true })
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),

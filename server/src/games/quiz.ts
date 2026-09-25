@@ -4,6 +4,7 @@ import { distinctions } from '../../../shared/profil'
 import { nomAffiche } from '../../../shared/homonymes'
 import { classer, decimales, ecartEstimation, rangPartage, type Classe } from '../../../shared/classement'
 import { ENCHAINEMENT_MAX_S } from '../../../shared/console'
+import { preparerPartie, type ReglagesDuQuiz } from '../../../shared/hasard'
 import type {
   QuizAction,
   QuizAttendu,
@@ -21,6 +22,8 @@ interface QuizPack {
   id: string
   title: string
   questions: PlayableQuestion[]
+  /** Les réglages du quiz, lus au lancement : la copie jouée ne les garde pas, elle en est le résultat. */
+  reglages?: ReglagesDuQuiz
 }
 
 /** Ce qu'un joueur a envoyé pour la question en cours. */
@@ -213,7 +216,12 @@ export function setQuizLibrary(spaceId: string, quizzes: QuizDef[]) {
   libraries.set(
     spaceId,
     quizzes
-      .map(q => ({ id: q.id, title: q.title, questions: playableQuestions(q) }))
+      .map(q => ({
+        id: q.id,
+        title: q.title,
+        questions: playableQuestions(q),
+        ...(q.reglages && Object.keys(q.reglages).length > 0 && { reglages: q.reglages }),
+      }))
       .filter(p => p.questions.length > 0),
   )
 }
@@ -696,7 +704,10 @@ export const quizModule: GameModule<QuizState> = {
         if (st.phase !== 'pickPack') return
         const pack = quizLibrary(sess.spaceId).find(p => p.id === command.packId)
         if (!pack) throw new Error('Quiz introuvable')
-        st.pack = pack
+        // La copie jouée : ses réponses et ses questions dans l'ordre que ses
+        // réglages demandent, tiré une fois pour toute la salle. C'est elle
+        // que le journal numérote et que l'archive range (`shared/hasard.ts`).
+        st.pack = { id: pack.id, title: pack.title, questions: preparerPartie(pack.questions, pack.reglages) }
         const m = Number(command.multiplier ?? 1)
         st.multiplier = [1, 2, 3].includes(m) ? m : 1
         st.phase = 'getReady'

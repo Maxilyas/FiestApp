@@ -1,6 +1,7 @@
 import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
+import type { ReglagesDuQuiz } from '../../shared/hasard'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
 import type { FinitionChoisie, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
@@ -136,8 +137,8 @@ export const activationUrl = (token: string) => `${window.location.origin}/activ
 export const api = {
   list: () => req<QuizSummary[]>('/api/quizzes'),
   get: (id: string) => req<QuizDef>(`/api/quizzes/${id}`),
-  create: (title: string, questions?: unknown[]) =>
-    req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions }) }),
+  create: (title: string, questions?: unknown[], reglages?: ReglagesDuQuiz) =>
+    req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions, reglages }) }),
   /**
    * `base` : la version d'où partent les modifications — le serveur refuse
    * (`ConflitError`) si le quiz a été enregistré ailleurs depuis. `jeton` :
@@ -146,10 +147,18 @@ export const api = {
    * `essai` : son numéro, qui croît d'un essai à l'autre — un essai abandonné
    * qui n'arrive qu'après le suivant ne réécrit pas son ancien texte.
    */
-  save: (id: string, title: string, questions: QuizQuestionDef[], base?: number, jeton?: string, essai?: number) =>
+  save: (
+    id: string,
+    title: string,
+    questions: QuizQuestionDef[],
+    base?: number,
+    jeton?: string,
+    essai?: number,
+    reglages?: ReglagesDuQuiz,
+  ) =>
     req<QuizDef>(`/api/quizzes/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ title, questions, base, jeton, essai }),
+      body: JSON.stringify({ title, questions, base, jeton, essai, reglages }),
     }),
   remove: (id: string) => req<{ ok: true }>(`/api/quizzes/${id}`, { method: 'DELETE' }),
   duplicate: (id: string) => req<QuizDef>(`/api/quizzes/${id}/duplicate`, { method: 'POST' }),

@@ -8,6 +8,7 @@ import {
   type QuizQuestionDef,
   type QuizSummary,
 } from '../../../shared/library'
+import { normaliserReglages } from '../../../shared/hasard'
 
 /** Image trop lourde = base qui gonfle pour rien. Le navigateur compresse avant d'envoyer. */
 const MAX_IMAGE_DATAURL = 2_000_000
@@ -85,6 +86,9 @@ export class QuizStore {
     await ajouterColonne(this.client, 'quiz_images', 'bytes', 'BLOB')
     await ajouterColonne(this.client, 'quizzes', 'space_id', 'TEXT')
     await ajouterColonne(this.client, 'quiz_images', 'space_id', 'TEXT')
+    // Les réglages du quiz (l'ordre des réponses, des questions) : absents des
+    // quiz d'avant, qui se jouent tels qu'écrits.
+    await ajouterColonne(this.client, 'quizzes', 'reglages', 'TEXT')
     await this.client.batch(
       [
         'CREATE INDEX IF NOT EXISTS idx_quizzes_space ON quizzes(space_id)',
@@ -144,17 +148,24 @@ export class QuizStore {
     return res.rows[0] ? rowToQuiz(res.rows[0]) : null
   }
 
-  async create(spaceId: string, title: unknown, questions: unknown = [], id: string = randomUUID()): Promise<QuizDef> {
+  async create(
+    spaceId: string,
+    title: unknown,
+    questions: unknown = [],
+    id: string = randomUUID(),
+    reglages?: unknown,
+  ): Promise<QuizDef> {
     const now = Date.now()
     const quiz: QuizDef = {
       id,
       title: cleanTitle(title),
       questions: normalizeQuestions(questions),
       updatedAt: now,
+      reglages: normaliserReglages(reglages),
     }
     await this.client.execute({
-      sql: 'INSERT INTO quizzes (id, title, questions, created_at, updated_at, space_id) VALUES (?, ?, ?, ?, ?, ?)',
-      args: [quiz.id, quiz.title, JSON.stringify(quiz.questions), now, now, spaceId],
+      sql: 'INSERT INTO quizzes (id, title, questions, created_at, updated_at, space_id, reglages) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      args: [quiz.id, quiz.title, JSON.stringify(quiz.questions), now, now, spaceId, JSON.stringify(quiz.reglages)],
     })
     return quiz
   }
@@ -171,6 +182,7 @@ export class QuizStore {
     title: unknown,
     questions: unknown,
     attendu?: number,
+    reglages?: unknown,
   ): Promise<QuizDef | null | 'conflit'> {
     // Strictement après la version remplacée : deux enregistrements dans la
     // même milliseconde ne doivent pas porter la même version.
@@ -181,18 +193,20 @@ export class QuizStore {
       questions: normalizeQuestions(questions),
       updatedAt: now,
     }
+    // Sans réglages (une page d'avant), ceux du quiz restent : `COALESCE`.
+    const regles = reglages === undefined ? null : JSON.stringify(normaliserReglages(reglages))
     const res = await this.client.execute(
       attendu === undefined
         ? {
-            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ? WHERE id = ? AND space_id = ?',
-            args: [quiz.title, JSON.stringify(quiz.questions), now, id, spaceId],
+            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ?, reglages = COALESCE(?, reglages) WHERE id = ? AND space_id = ?',
+            args: [quiz.title, JSON.stringify(quiz.questions), now, regles, id, spaceId],
           }
         : {
-            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ? WHERE id = ? AND space_id = ? AND updated_at = ?',
-            args: [quiz.title, JSON.stringify(quiz.questions), now, id, spaceId, attendu],
+            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ?, reglages = COALESCE(?, reglages) WHERE id = ? AND space_id = ? AND updated_at = ?',
+            args: [quiz.title, JSON.stringify(quiz.questions), now, regles, id, spaceId, attendu],
           },
     )
-    if (res.rowsAffected > 0) return quiz
+    if (res.rowsAffected > 0) return (await this.get(spaceId, id)) ?? quiz
     if (attendu === undefined) return null
     return (await this.get(spaceId, id)) ? 'conflit' : null
   }
@@ -208,7 +222,7 @@ export class QuizStore {
   async duplicate(spaceId: string, id: string): Promise<QuizDef | null> {
     const source = await this.get(spaceId, id)
     if (!source) return null
-    return this.create(spaceId, `${source.title} (copie)`, source.questions)
+    return this.create(spaceId, `${source.title} (copie)`, source.questions, undefined, source.reglages)
   }
 
   async count(spaceId: string): Promise<number> {
@@ -362,10 +376,17 @@ function rowToQuiz(row: Record<string, unknown>): QuizDef {
   } catch {
     questions = []
   }
+  let reglages: unknown = null
+  try {
+    reglages = row.reglages ? JSON.parse(String(row.reglages)) : null
+  } catch {
+    // Illisibles, les réglages valent « tel qu'écrit ».
+  }
   return {
     id: String(row.id),
     title: String(row.title),
     questions,
     updatedAt: Number(row.updated_at),
+    reglages: normaliserReglages(reglages),
   }
 }

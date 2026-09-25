@@ -66,6 +66,13 @@ Sydney
 Melbourne
 Perth
 
+Laquelle de ces villes est la capitale du Canada ?
+Ordre : fixe
+Toronto
+Montréal
+* Ottawa
+Aucune de ces villes
+
 Quelle est l'altitude du mont Everest ?
 = 8 849 m
 Temps : 30 s
@@ -124,6 +131,7 @@ RÉGLAGES — facultatifs, chacun sur sa ligne sous l'intitulé, dans n'importe 
 Temps : 30 s — le temps pour répondre, de ${MIN_DURATION} à ${MAX_DURATION} secondes, pour cette question et les suivantes, jusqu'à la prochaine ligne Temps : inutile de la répéter. Écrite seule avant la première question, elle vaut pour tout le quiz. Sans aucune ligne Temps, celui réglé dans FiestApp (${DEFAULT_DURATION} s au départ).
 Photo : tour-eiffel.jpg — une photo montrée avec la question : le nom de son fichier, à envoyer avec la liste, ou, à défaut, ce qu'elle doit montrer (« Photo : la tour Eiffel illuminée, de nuit »).
 Observation : 5 s — avec une photo seulement : elle passe seule pendant ce temps, de ${MIN_OBSERVE} à ${MAX_OBSERVE} secondes, puis disparaît, et l'on répond de mémoire.
+Ordre : fixe — les réponses restent dans l'ordre écrit, même si le quiz les mélange à chaque partie : pour « Aucune de ces réponses », ou une suite qui a un sens.
 
 CATÉGORIES — facultatives
 Une ligne # suivie d'une catégorie, placée avant une question, range cette question et les suivantes dans la catégorie, jusqu'à la prochaine ligne #. Un # seul : les suivantes n'en ont plus. Seulement l'une de celles-ci, écrite telle quelle : ${CATEGORIES.join(', ')}.
@@ -242,6 +250,7 @@ export function ecrireListe(questions: readonly QuizQuestionDef[], titre?: strin
       lignes.push(`Temps : ${q.duration} s`)
       temps = q.duration
     }
+    if (q.kind === 'choice' && q.ordreFixe) lignes.push('Ordre : fixe')
     const photo = q.image ? `photo de la question ${n}` : photoManquante(q)
     if (photo) {
       lignes.push(`Photo : ${photo}`)

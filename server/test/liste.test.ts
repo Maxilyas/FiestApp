@@ -68,6 +68,8 @@ test('l’exemple du format complet se relit tel quel, chaque possibilité compr
     })),
     [
       { kind: 'choice', reponse: 'Canberra', choix: 4, temps: 20, categorie: 'Géographie', photo: null, observation: null },
+      // « Ordre : fixe » : « Aucune de ces villes » reste la dernière, même dans un quiz qui mélange.
+      { kind: 'choice', reponse: 'Ottawa', choix: 4, temps: 20, categorie: 'Géographie', photo: null, observation: null },
       { kind: 'number', reponse: '8849 m', choix: 0, temps: 30, categorie: 'Géographie', photo: null, observation: null },
       // Le temps court, comme la catégorie : les deux questions d'histoire gardent les 30 s de l'Everest.
       { kind: 'choice', reponse: 'Vrai', choix: 2, temps: 30, categorie: 'Histoire', photo: null, observation: null },
@@ -537,4 +539,22 @@ test('copié en liste, un intitulé à dièse, un choix « Photo : » et un gran
   )
   assert.equal(relu.questions[0].category, null, 'le dièse n’a pas fait une catégorie')
   assert.equal(relu.questions[0].photoAttendue, null, 'le choix n’a pas fait une photo')
+})
+
+// ── 9. L'ordre des réponses ───────────────────────────────────────────────
+//
+// Un quiz peut mélanger ses réponses à chaque partie (`shared/hasard.ts`) :
+// « Ordre : fixe » garde celles d'une question dans l'ordre écrit, et
+// l'aller-retour par « Copier en liste » ne le perd pas.
+
+test('« Ordre : fixe » se lit sous l’intitulé, et se recolle tel quel', () => {
+  const lu = une('Laquelle est la capitale du Canada ?', 'Ordre : fixe', 'Toronto', '* Ottawa', 'Aucune de ces villes')
+  assert.equal(lu.ordreFixe, true)
+  assert.deepEqual(lu.answers.slice(0, 3), ['Toronto', 'Ottawa', 'Aucune de ces villes'], 'jamais pris pour une réponse')
+  assert.equal(une('Q ?', 'Ordre : au hasard', '* a', 'b').ordreFixe, undefined, 'une autre valeur laisse le réglage du quiz')
+  const { questions } = parseImportedQuestions(EXEMPLE_DU_FORMAT)
+  assert.equal(questions.filter(q => q.ordreFixe).length, 1, 'l’exemple le montre une fois')
+  const relu = parseImportedQuestions(ecrireListe([lu]))
+  assert.equal(relu.questions[0].ordreFixe, true)
+  assert.match(FORMAT_DE_LISTE, /Ordre : fixe — les réponses restent dans l'ordre écrit/)
 })

@@ -33,7 +33,16 @@ export type IconName =
   | 'hash'
   | 'keyboard'
   | 'list'
+  | 'lock'
   | 'maximize'
+  | 'message'
+  | 'more'
+  | 'music'
+  | 'image'
+  | 'archive'
+  | 'search'
+  | 'share'
+  | 'shuffle'
   | 'monitor'
   | 'smartphone'
   | 'moon'
@@ -58,6 +67,64 @@ export type IconName =
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
+  // Les réglages du hasard, l'ordre gardé, le menu d'une ligne, la recherche,
+  // le partage, l'extrait sonore, la photo de la révélation, l'anecdote.
+  shuffle: { paths: <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /> },
+  lock: {
+    paths: (
+      <>
+        <rect x="5" y="11" width="14" height="10" rx="2" />
+        <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+      </>
+    ),
+  },
+  more: {
+    filled: true,
+    paths: (
+      <>
+        <circle cx="5" cy="12" r="1.9" />
+        <circle cx="12" cy="12" r="1.9" />
+        <circle cx="19" cy="12" r="1.9" />
+      </>
+    ),
+  },
+  search: {
+    paths: (
+      <>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20.5 20.5-4.2-4.2" />
+      </>
+    ),
+  },
+  share: {
+    paths: (
+      <>
+        <circle cx="18" cy="5" r="3" />
+        <circle cx="6" cy="12" r="3" />
+        <circle cx="18" cy="19" r="3" />
+        <path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" />
+      </>
+    ),
+  },
+  music: {
+    paths: (
+      <>
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+      </>
+    ),
+  },
+  image: {
+    paths: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="9" cy="9" r="2" />
+        <path d="m21 15-3.5-3.5L6 21" />
+      </>
+    ),
+  },
+  message: { paths: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10Z" /> },
   alert: {
     paths: (
       <>
@@ -67,6 +134,14 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
     ),
   },
   'arrow-down': { paths: <path d="M12 5v14M6 13l6 6 6-6" /> },
+  archive: {
+    paths: (
+      <>
+        <rect x="3" y="4" width="18" height="4" rx="1" />
+        <path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4" />
+      </>
+    ),
+  },
   'arrow-up': { paths: <path d="M12 19V5M6 11l6-6 6 6" /> },
   award: {
     paths: (
