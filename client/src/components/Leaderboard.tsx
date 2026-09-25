@@ -29,15 +29,27 @@ interface Props {
 export function Leaderboard({ players, compact, highlightId, onOuvrir }: Props) {
   const rows = classer(players, p => p.score, p => p.nomAffiche ?? p.name, p => p.id)
   const list = compact ? rows.slice(0, 8) : rows
+  // Au-delà de la 8ᵉ ligne, l'invité ne se voyait plus : une vraie soirée
+  // compte quinze à cinquante invités. On garde les huit premiers, puis sa
+  // propre ligne, avec le rang que `classer` lui donne (ex æquo compris).
+  const moi = compact && highlightId ? rows.slice(list.length).find(r => r.item.id === highlightId) : undefined
+  const caches = rows.length - list.length - (moi ? 1 : 0)
+
+  // Chaque ligne est mémoïsée (`Ligne`) : la sienne, hors des huit, aussi.
+  const ligne = ({ item: p, rang }: (typeof rows)[number]) => (
+    <Ligne key={p.id} p={p} rang={rang} moi={p.id === highlightId} onOuvrir={onOuvrir} />
+  )
 
   return (
     <div className="leaderboard">
-      {list.map(({ item: p, rang }) => (
-        <Ligne key={p.id} p={p} rang={rang} moi={p.id === highlightId} onOuvrir={onOuvrir} />
-      ))}
+      {list.map(ligne)}
       {list.length === 0 && <p className="muted">Personne pour l'instant…</p>}
-      {compact && rows.length > list.length && (
-        <p className="muted center">et {rows.length - list.length} autres…</p>
+      {moi && (
+        <p className="muted center lb-ellipse" aria-hidden="true">⋯</p>
+      )}
+      {moi && ligne(moi)}
+      {compact && caches > 0 && (
+        <p className="muted center">et {caches} {caches > 1 ? 'autres' : 'autre'}…</p>
       )}
     </div>
   )

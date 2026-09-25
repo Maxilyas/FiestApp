@@ -184,6 +184,21 @@ export class Party {
   }
 
   /**
+   * Un jeton neuf pour cette fiche : sa place vient d'être rendue à un
+   * autre téléphone. L'ancien jeton ne désigne plus personne — le téléphone
+   * mort qui se rallume, ou celui qui l'a ramassé, reçoit `unknown-token` et
+   * repasse par l'entrée, au lieu de jouer sur la même place que le nouveau.
+   */
+  renouvelerJeton(playerId: string): PlayerRec | undefined {
+    const rec = this.players.get(playerId)
+    if (!rec) return undefined
+    rec.token = randomUUID()
+    this.db.prepare('UPDATE players SET token = ? WHERE id = ?').run(rec.token, playerId)
+    this.backup?.savePlayer(rec, rec.createdAt)
+    return rec
+  }
+
+  /**
    * Le joueur de ce profil dans cette soirée, s'il y est déjà. Un profil ne
    * doit tenir qu'un seul joueur par soirée : deux téléphones connectés au
    * même profil reprennent la même identité, sinon l'expérience du soir se

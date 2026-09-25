@@ -86,6 +86,7 @@ function finDeQuiz(totaux: Record<string, number>, noms: Record<string, string>)
   const memo = new Map<string, unknown>()
   const vctx = {
     playerName: (id: string) => noms[id],
+    connected: () => true,
     player: (id: string): PublicPlayer => ({
       id,
       name: noms[id],
