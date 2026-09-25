@@ -1,0 +1,78 @@
+{
+  "title": "🎄 Noël en famille",
+  "description": "Les traditions et les souvenirs de la famille, à deviner entre la bûche et les cadeaux. Tu écris les réponses que toute la table croit connaître.",
+  "rayon": "fete",
+  "ordre": 6,
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "Chez qui a eu lieu le Noël le plus mémorable ?",
+      "answers": ["Maison A ✏️", "Maison B ✏️", "Maison C ✏️", "Maison D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Quel plat ne manque jamais au réveillon ?",
+      "answers": ["Plat A ✏️", "Plat B ✏️", "Plat C ✏️", "Plat D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Qui ouvre toujours ses cadeaux en premier ?",
+      "answers": ["Qui A ✏️", "Qui B ✏️", "Qui C ✏️", "Qui D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Vrai ou faux : quelqu’un de la famille a déjà cru au père Noël jusqu’à 12 ans.",
+      "answers": ["Vrai", "Faux"],
+      "correct": -1,
+      "duration": 15
+    },
+    {
+      "kind": "choice",
+      "text": "Quel a été le cadeau le plus raté de la famille ?",
+      "answers": ["Cadeau A ✏️", "Cadeau B ✏️", "Cadeau C ✏️", "Cadeau D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Qui s’endort toujours avant minuit ?",
+      "answers": ["Qui A ✏️", "Qui B ✏️", "Qui C ✏️", "Qui D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "number",
+      "text": "En quelle année la famille a-t-elle fêté Noël sous la neige ?",
+      "target": null,
+      "unit": "",
+      "duration": 30
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle chanson de Noël chante-t-on le plus fort ?",
+      "answers": ["Chanson A ✏️", "Chanson B ✏️", "Chanson C ✏️", "Chanson D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Qui décore le sapin chaque année ?",
+      "answers": ["Qui A ✏️", "Qui B ✏️", "Qui C ✏️", "Qui D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "number",
+      "text": "Combien de personnes étaient à table au plus grand réveillon ?",
+      "target": null,
+      "unit": "personnes",
+      "duration": 30
+    }
+  ]
+}

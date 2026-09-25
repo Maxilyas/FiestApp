@@ -38,6 +38,8 @@ export interface Envoi {
   choice?: number
   /** Le nombre envoyé, pour une estimation. */
   value?: number
+  /** Les cases cochées (« plusieurs »), l'ordre choisi (« ordre »). */
+  choix?: number[]
   /**
    * socket.io la garde pour la reconnexion : il ne le fait que s'il se sait
    * déconnecté. Sinon, elle est partie dans un transport peut-être mort.
@@ -104,6 +106,176 @@ function useEchue(deadline: number | undefined, figee: boolean): boolean {
 
 /** Chaque réponse dit à quelle question elle répond : le serveur refuse celles qui arrivent après. */
 const visee = (v: QuizPlayerView) => ({ qIndex: v.qIndex, round: v.round })
+
+/** Deux suites d'index identiques, dans le même ordre. */
+const memes = (a: readonly number[] | null | undefined, b: readonly number[] | null | undefined) =>
+  !!a && !!b && a.length === b.length && a.every((x, i) => x === b[i])
+
+interface PropsDeVariante extends Props {
+  closes: boolean
+  /** L'envoi pas encore vu par le serveur, s'il vise cette question. */
+  enAttente: Envoi | null
+  perdue: boolean
+}
+
+/**
+ * Ce qui s'écrit sous une variante : l'envoi en route, la réponse perdue, la
+ * réponse enregistrée — ou la consigne. Toujours une ligne : apparue au
+ * premier envoi, elle rétrécissait les cases sous le doigt.
+ */
+function PiedDeVariante({ enAttente, perdue, consigne, enregistree }: { enAttente: Envoi | null; perdue: boolean; consigne: string; enregistree: string | null }) {
+  if (enAttente) return <EnvoiEnCours envoi={enAttente} />
+  if (perdue) return <ReponsePerdue />
+  return <p className="hint">{espacesFines(enregistree ?? consigne)}</p>
+}
+
+/**
+ * « Plusieurs bonnes réponses » : on coche, puis on valide — un toucher par
+ * case ne dirait pas quand on a fini. C'est l'envoi qui compte, et son heure
+ * qui paie le bonus : cocher sans valider ne répond pas.
+ */
+function ChoixMultiples({ view: v, send, closes, enAttente, perdue }: PropsDeVariante) {
+  const [coches, setCoches] = useState<number[]>(() => v.yourChoices ?? [])
+  // Une nouvelle question, ou la même reposée : rien de coché.
+  useEffect(() => setCoches(v.yourChoices ?? []), [v.qIndex, v.round]) // eslint-disable-line react-hooks/exhaustive-deps
+  const bloque = !!v.paused || closes
+  return (
+    <>
+      <div className={'ans-grid' + answersSizeClass(v.answers)}>
+        {v.answers!.map((a, i) => {
+          const coche = coches.includes(i)
+          return (
+            <button
+              key={i}
+              disabled={bloque}
+              aria-pressed={coche}
+              onClick={() => {
+                navigator.vibrate?.(20)
+                setCoches(c => (c.includes(i) ? c.filter(x => x !== i) : [...c, i].sort((x, y) => x - y)))
+              }}
+              className={'ans-btn' + (coche ? ' chosen' : closes ? ' dim' : '') + (v.paused ? ' en-pause' : '')}
+            >
+              <Shape index={i} />
+              <span className="ans-text">{espacesFines(a)}</span>
+              {coche && <Icon name="check" className="ans-check" />}
+            </button>
+          )
+        })}
+      </div>
+      <button
+        className="btn btn-primary btn-block valider-variante"
+        disabled={bloque || coches.length === 0 || memes(coches, v.yourChoices)}
+        onClick={() => {
+          navigator.vibrate?.(35)
+          send({ type: 'answers', choices: coches, ...visee(v) })
+        }}
+      >
+        {v.yourChoices ? 'Corriger ma réponse' : 'Valider'}
+      </button>
+      <PiedDeVariante
+        enAttente={enAttente}
+        perdue={perdue}
+        consigne="Plusieurs bonnes réponses : coche-les toutes, puis valide."
+        enregistree={v.yourChoices && !closes ? 'Réponse enregistrée · tu peux encore la corriger, au prix du bonus de rapidité' : null}
+      />
+    </>
+  )
+}
+
+/**
+ * « Remettez dans l'ordre » : on touche les réponses dans l'ordre, et chacune
+ * prend son numéro, sans bouger de sa place — une carte qui se déplace sous
+ * le pouce, c'est la voisine qu'on touche. Retoucher un numéro le retire.
+ */
+function OrdreARetrouver({ view: v, send, closes, enAttente, perdue }: PropsDeVariante) {
+  const [suite, setSuite] = useState<number[]>(() => v.yourChoices ?? [])
+  useEffect(() => setSuite(v.yourChoices ?? []), [v.qIndex, v.round]) // eslint-disable-line react-hooks/exhaustive-deps
+  const n = v.answers?.length ?? 0
+  const bloque = !!v.paused || closes
+  return (
+    <>
+      <div className={'ans-grid ordre-grid' + answersSizeClass(v.answers)}>
+        {v.answers!.map((a, i) => {
+          const rang = suite.indexOf(i)
+          return (
+            <button
+              key={i}
+              disabled={bloque}
+              aria-pressed={rang >= 0}
+              aria-describedby={rang >= 0 ? `rang-${i}` : undefined}
+              onClick={() => {
+                navigator.vibrate?.(20)
+                setSuite(s => (s.includes(i) ? s.filter(x => x !== i) : [...s, i]))
+              }}
+              className={'ans-btn' + (rang >= 0 ? ' chosen' : closes ? ' dim' : '') + (v.paused ? ' en-pause' : '')}
+            >
+              {/* Hors du nom du bouton, qui ne change pas quand on le touche : le rang le décrit. */}
+              <span className="rang-ordre" id={`rang-${i}`} aria-hidden="true">
+                {rang >= 0 ? rang + 1 : ''}
+              </span>
+              <span className="ans-text">{espacesFines(a)}</span>
+            </button>
+          )
+        })}
+      </div>
+      <button
+        className="btn btn-primary btn-block valider-variante"
+        disabled={bloque || suite.length !== n || memes(suite, v.yourChoices)}
+        onClick={() => {
+          navigator.vibrate?.(35)
+          send({ type: 'order', order: suite, ...visee(v) })
+        }}
+      >
+        {v.yourChoices ? 'Corriger mon ordre' : 'Valider cet ordre'}
+      </button>
+      <PiedDeVariante
+        enAttente={enAttente}
+        perdue={perdue}
+        consigne={suite.length < n ? 'Touche les réponses dans le bon ordre, la première d’abord.' : 'Retouche un numéro pour le retirer.'}
+        enregistree={v.yourChoices && !closes ? 'Ordre enregistré · tu peux encore le corriger, au prix du bonus de rapidité' : null}
+      />
+    </>
+  )
+}
+
+/**
+ * « Qui dans la salle ? » : les invités, un toucher pour désigner. Jusqu'à
+ * soixante noms : ils se suivent en deux colonnes, et la page défile — la
+ * grille des réponses, qui tient en un écran, les écrasait.
+ */
+function QuiDansLaSalle({ view: v, send, closes, enAttente, perdue }: PropsDeVariante) {
+  return (
+    <>
+      <div className="sondage-grid">
+        {v.answers!.map((nom, i) => (
+          <button
+            key={i}
+            disabled={v.paused || closes}
+            aria-pressed={v.yourChoice === i || enAttente?.choice === i}
+            onClick={() => {
+              navigator.vibrate?.(35)
+              send({ type: 'answer', choice: i, ...visee(v) })
+            }}
+            className={
+              'ans-btn sondage-btn' +
+              (enAttente?.choice === i ? ' pending' : v.yourChoice === i ? ' chosen' : closes ? ' dim' : '') +
+              (v.paused ? ' en-pause' : '')
+            }
+          >
+            <span className="ans-text">{nom}</span>
+            {v.yourChoice === i && enAttente?.choice !== i && <Icon name="check" className="ans-check" />}
+          </button>
+        ))}
+      </div>
+      <PiedDeVariante
+        enAttente={enAttente}
+        perdue={perdue}
+        consigne="Touche un nom : personne ne saura qui a voté pour qui."
+        enregistree={v.yourChoice !== null && !closes ? 'Vote enregistré · tu peux encore changer d’avis' : null}
+      />
+    </>
+  )
+}
 
 /**
  * Saisie d'une estimation. Tant que tout le monde n'a pas répondu, on peut
@@ -218,6 +390,15 @@ function BetweenQuestions({
 }) {
   return (
     <>
+      {/* « Le saviez-vous ? » : à la révélation seulement (invariant 1). */}
+      {v.anecdote && (
+        <p className="card anecdote">
+          <Icon name="message" />
+          <span>
+            <b>Le saviez-vous ?</b> {espacesFines(v.anecdote)}
+          </span>
+        </p>
+      )}
       <p className="center muted">
         Total quiz : {pts(v.yourQuizTotal ?? 0)} · {place(v.yourQuizRank ?? 0)}
       </p>
@@ -231,6 +412,109 @@ function BetweenQuestions({
         </div>
       )}
     </>
+  )
+}
+
+/**
+ * « Plusieurs » et « ordre », révélées : tout juste ou raté — la question se
+ * juge en entier —, puis les bonnes réponses, ou le bon ordre.
+ */
+function VarianteRevelee({
+  view: v,
+  teams,
+  myTeamId,
+  envoi,
+  attendue,
+}: {
+  view: QuizPlayerView
+  teams: PublicTeam[]
+  myTeamId: string | null
+  envoi: Envoi | null
+  attendue: string
+}) {
+  const repondu = !!v.yourChoices?.length
+  const ton = v.cancelled || v.justArrived || !repondu ? '' : v.yourCorrect ? 'result-ok' : 'result-ko'
+  const enOrdre = v.variante === 'ordre'
+  const mots = (index: readonly number[]) => index.map(i => v.answers?.[i] ?? '')
+  return (
+    <div className="quiz-player">
+      <div className={'card result-banner ' + ton}>
+        {v.justArrived ? (
+          <Welcome />
+        ) : v.cancelled ? (
+          <PointsAnnules />
+        ) : !repondu ? (
+          <SansReponse envoi={envoi} />
+        ) : v.yourCorrect ? (
+          <>
+            <span className="big">+{pts(v.yourPoints ?? 0)}</span>
+            <p>{enOrdre ? 'Le bon ordre, bien joué !' : 'Toutes trouvées, bien joué !'}</p>
+          </>
+        ) : (
+          <>
+            <span className="result-icon">
+              <Icon name="x-circle" />
+            </span>
+            <p>
+              {enOrdre ? 'Raté… tu avais mis ' : 'Raté… tu avais coché '}
+              <strong>{espacesFines(mots(v.yourChoices!).join(enOrdre ? ' → ' : ', '))}</strong>
+            </p>
+          </>
+        )}
+        {enOrdre ? (
+          <div className="muted">
+            <p>{attendue === 'La bonne réponse' ? 'Le bon ordre' : 'L’ordre prévu'} :</p>
+            <ol className="ordre-revele">
+              {mots(v.ordre ?? []).map((m, i) => (
+                <li key={i}>{espacesFines(m)}</li>
+              ))}
+            </ol>
+          </div>
+        ) : (
+          <p className="muted">
+            {attendue === 'La bonne réponse' ? 'Les bonnes réponses' : 'Les réponses prévues'} :{' '}
+            {(v.bonnes ?? []).map((i, n) => (
+              <span key={i}>
+                {n > 0 && ', '}
+                <Shape index={i} inline />
+                <strong>{espacesFines(v.answers?.[i] ?? '')}</strong>
+              </span>
+            ))}
+          </p>
+        )}
+      </div>
+      <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
+    </div>
+  )
+}
+
+/**
+ * « Qui dans la salle ? », révélé : qui la salle a désigné — ex æquo
+ * compris —, et pour qui on avait voté. Personne n'a gagné ni perdu.
+ */
+function SondageRevele({ view: v, teams, myTeamId }: { view: QuizPlayerView; teams: PublicTeam[]; myTeamId: string | null }) {
+  const votes = v.votes ?? []
+  const tete = votes.filter(x => x.votes === votes[0]?.votes)
+  const choisi = v.yourChoice !== null && v.yourChoice !== undefined ? v.answers?.[v.yourChoice] : null
+  return (
+    <div className="quiz-player">
+      <div className="card result-banner">
+        <span className="result-icon">
+          <Icon name="users" />
+        </span>
+        {tete.length > 0 ? (
+          <p>
+            La salle a désigné <strong>{tete.map(x => x.name).join(' et ')}</strong> —{' '}
+            {tete[0].votes} vote{tete[0].votes > 1 ? 's' : ''}
+            {tete.length > 1 ? ' chacun' : ''}
+          </p>
+        ) : (
+          <p>Personne n’a voté.</p>
+        )}
+        {choisi && <p className="muted">Tu avais désigné <strong>{choisi}</strong></p>}
+      </div>
+      <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
+    </div>
   )
 }
 
@@ -289,6 +573,19 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
     return <GetReady deadline={v.deadline!} label="Prépare-toi…" />
   }
 
+  // L'intertitre : la diapo que la salle lit sur la télé, reprise ici.
+  if (v.phase === 'intertitre') {
+    return (
+      <div className="quiz-player intertitre">
+        <span className="label">
+          Question {v.qIndex + 1} / {v.qCount}
+        </span>
+        <p className="intertitre-texte">{espacesFines(v.intertitre ?? '')}</p>
+        <p className="hint">La question arrive…</p>
+      </div>
+    )
+  }
+
   // Observation : la photo seule. Ni l'intitulé ni les réponses ne sont encore
   // arrivés — c'est ce qui fait le jeu de mémoire.
   if (v.phase === 'observe') {
@@ -325,7 +622,11 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
     // QCM, son nombre pour une estimation — sinon « Envoi… » cachait « Ta
     // réponse : X » jusqu'à la révélation.
     const dejaVue = (e: Envoi) =>
-      v.kind === 'number' ? e.value !== undefined && v.yourGuess === e.value : v.yourChoice === e.choice
+      v.kind === 'number'
+        ? e.value !== undefined && v.yourGuess === e.value
+        : e.choix
+          ? memes(v.yourChoices, e.choix)
+          : v.yourChoice === e.choice
     const enAttente =
       viseLaVue(envoi, v) && (envoi.etat === 'envoi' || envoi.etat === 'pas-partie') && !dejaVue(envoi)
         ? envoi
@@ -373,6 +674,12 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
 
         {v.kind === 'number' ? (
           <GuessForm view={v} send={send} closes={closes} envoi={enAttente} perdue={perdue} />
+        ) : v.variante === 'plusieurs' ? (
+          <ChoixMultiples view={v} send={send} closes={closes} enAttente={enAttente} perdue={perdue} />
+        ) : v.variante === 'ordre' ? (
+          <OrdreARetrouver view={v} send={send} closes={closes} enAttente={enAttente} perdue={perdue} />
+        ) : v.variante === 'sondage' ? (
+          <QuiDansLaSalle view={v} send={send} closes={closes} enAttente={enAttente} perdue={perdue} />
         ) : (
           <>
             <div className={'ans-grid' + answersSizeClass(v.answers)}>
@@ -416,6 +723,40 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
     )
   }
 
+  // Une estimation en direct : les réponses sont closes, et l'animateur
+  // mesure — le gâteau passe sur la balance.
+  if (v.phase === 'cible') {
+    const answered = v.yourGuess !== null && v.yourGuess !== undefined
+    return (
+      <div className="quiz-player">
+        <div className="quiz-topbar">
+          <span className="label">
+            Question {v.qIndex + 1} / {v.qCount}
+          </span>
+          <span className="pill">
+            <Icon name="clock" /> Réponses closes
+          </span>
+        </div>
+        <h2 className={'quiz-question' + questionSizeClass(v.text)}>{espacesFines(v.text ?? '')}</h2>
+        <div className="card result-banner">
+          <span className="result-icon">
+            <Icon name="target" />
+          </span>
+          <p>On mesure la bonne réponse…</p>
+          <p className="muted">
+            {answered ? (
+              <>
+                Ta réponse : <strong>{formatNumber(v.yourGuess!)}</strong> {v.unit}
+              </>
+            ) : (
+              'Pas de réponse à cette question.'
+            )}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   if (v.phase === 'reveal') {
     // Points annulés : la réponse attendue s'est sans doute révélée fausse.
     // On la montre encore — c'est ce que la salle vient de lire —, mais sans
@@ -425,7 +766,9 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
     // Estimation : pas de bonne ou mauvaise réponse, seulement un écart.
     if (v.kind === 'number') {
       const answered = v.yourGuess !== null && v.yourGuess !== undefined
-      const gap = answered ? Math.abs(v.yourGuess! - v.target!) : null
+      // Une estimation en direct annulée avant d'être mesurée n'a pas de cible.
+      const cible = v.target ?? null
+      const gap = answered && cible !== null ? Math.abs(v.yourGuess! - cible) : null
       const ton = v.cancelled || !answered ? '' : 'result-ok'
       return (
         <div className="quiz-player">
@@ -439,19 +782,28 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
                 <span className="big">+{pts(v.yourPoints ?? 0)}</span>
                 <p>
                   Tu as dit <strong>{formatNumber(v.yourGuess!)}</strong> {v.unit}
-                  {gap === 0 ? ' — pile-poil !' : ` — à ${formatNumber(gap!)} ${v.unit} près`}
+                  {gap === null ? '' : gap === 0 ? ' — pile-poil !' : ` — à ${formatNumber(gap)} ${v.unit} près`}
                 </p>
               </>
             ) : (
               <SansReponse envoi={viseLaVue(envoi, v) ? envoi : null} />
             )}
-            <p className="muted">
-              {attendue} : <strong>{formatNumber(v.target!)}</strong> {v.unit}
-            </p>
+            {cible !== null ? (
+              <p className="muted">
+                {attendue} : <strong>{formatNumber(cible)}</strong> {v.unit}
+              </p>
+            ) : (
+              <p className="muted">La bonne réponse n’a pas été mesurée.</p>
+            )}
           </div>
           <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
         </div>
       )
+    }
+
+    if (v.variante === 'sondage') return <SondageRevele view={v} teams={teams} myTeamId={myTeamId} />
+    if (v.variante === 'plusieurs' || v.variante === 'ordre') {
+      return <VarianteRevelee view={v} teams={teams} myTeamId={myTeamId} envoi={viseLaVue(envoi, v) ? envoi : null} attendue={attendue} />
     }
 
     const good = v.yourChoice !== null && v.yourChoice === v.correct

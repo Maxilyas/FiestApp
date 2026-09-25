@@ -1,0 +1,134 @@
+{
+  "title": "🧒 Le quiz des 8-12 ans",
+  "description": "Des questions d’école et de dessins animés, à la portée d’un CM1 : les enfants jouent contre les grands, et parfois les battent.",
+  "rayon": "jeu",
+  "ordre": 5,
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "Combien de pattes a une araignée ?",
+      "answers": ["6", "8", "10", "12"],
+      "correct": 1,
+      "duration": 20,
+      "category": "Nature",
+      "source": "Wikipédia, « Araneae »"
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle planète est surnommée la planète rouge ?",
+      "answers": ["Vénus", "Jupiter", "Mars", "Saturne"],
+      "correct": 2,
+      "duration": 20,
+      "category": "Sciences",
+      "source": "Wikipédia, « Mars (planète) »"
+    },
+    {
+      "kind": "choice",
+      "text": "Quel est le plus grand océan du monde ?",
+      "answers": ["L’océan Pacifique", "L’océan Atlantique", "L’océan Indien", "L’océan Arctique"],
+      "correct": 0,
+      "duration": 20,
+      "category": "Géographie",
+      "source": "Wikipédia, « Océan Pacifique »"
+    },
+    {
+      "kind": "choice",
+      "text": "Qui a écrit « Le Petit Prince » ?",
+      "answers": ["Jules Verne", "Victor Hugo", "Roald Dahl", "Antoine de Saint-Exupéry"],
+      "correct": 3,
+      "duration": 20,
+      "category": "Arts & lettres",
+      "source": "Wikipédia, « Le Petit Prince »"
+    },
+    {
+      "kind": "choice",
+      "text": "Combien de côtés a un hexagone ?",
+      "answers": ["5", "6", "7", "8"],
+      "correct": 1,
+      "duration": 20,
+      "category": "Culture générale",
+      "source": "Wikipédia, « Hexagone »"
+    },
+    {
+      "kind": "choice",
+      "text": "Quel animal est le plus rapide sur terre ?",
+      "answers": ["Le guépard", "Le lion", "Le cheval", "L’antilope"],
+      "correct": 0,
+      "duration": 20,
+      "category": "Nature",
+      "source": "Wikipédia, « Guépard »"
+    },
+    {
+      "kind": "choice",
+      "text": "Dans quel pays se trouvent les pyramides de Gizeh ?",
+      "answers": ["Le Mexique", "La Grèce", "L’Égypte", "Le Pérou"],
+      "correct": 2,
+      "duration": 20,
+      "category": "Géographie",
+      "source": "Wikipédia, « Pyramides de Gizeh »"
+    },
+    {
+      "kind": "choice",
+      "text": "Quel animal est le symbole de la France ?",
+      "answers": ["L’aigle", "Le coq", "Le lion", "L’ours"],
+      "correct": 1,
+      "duration": 20,
+      "category": "Culture générale",
+      "source": "Wikipédia, « Coq gaulois »"
+    },
+    {
+      "kind": "choice",
+      "text": "La baleine est un poisson.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Nature",
+      "source": "Wikipédia, « Baleine »"
+    },
+    {
+      "kind": "choice",
+      "text": "Dans « Harry Potter », comment s’appelle la chouette d’Harry ?",
+      "answers": ["Croûtard", "Pattenrond", "Buck", "Hedwige"],
+      "correct": 3,
+      "duration": 20,
+      "category": "Cinéma & séries",
+      "source": "J. K. Rowling, Harry Potter à l’école des sorciers"
+    },
+    {
+      "kind": "choice",
+      "text": "Combien font 7 × 8 ?",
+      "answers": ["54", "56", "58", "64"],
+      "correct": 1,
+      "duration": 20,
+      "category": "Culture générale",
+      "source": "Table de multiplication"
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle est la capitale de l’Italie ?",
+      "answers": ["Rome", "Milan", "Venise", "Naples"],
+      "correct": 0,
+      "duration": 20,
+      "category": "Géographie",
+      "source": "Wikipédia, « Rome »"
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle couleur obtient-on en mélangeant du bleu et du jaune ?",
+      "answers": ["Du violet", "De l’orange", "Du vert", "Du marron"],
+      "correct": 2,
+      "duration": 20,
+      "category": "Arts & lettres",
+      "source": "Wikipédia, « Couleur secondaire »"
+    },
+    {
+      "kind": "number",
+      "text": "Combien de jours compte une année bissextile ?",
+      "target": 366,
+      "unit": "jours",
+      "duration": 20,
+      "category": "Sciences",
+      "source": "Wikipédia, « Année bissextile »"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "title": "📸 Le quiz de mémoire",
+  "description": "Une image à l’écran quelques secondes, puis elle disparaît et la question tombe. Le quiz qui montre les photos « à mémoriser » — et qu’on refait avec les siennes.",
+  "rayon": "jeu",
+  "ordre": 4,
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "Combien y avait-il de triangles jaunes ?",
+      "answers": ["2", "3", "4", "5"],
+      "correct": 2,
+      "duration": 20,
+      "image": "memoire-1-formes.jpg",
+      "observeSeconds": 6,
+      "category": "Jeux & pop culture",
+      "source": "L’image elle-même, dessinée pour l’application (memoire-1-formes.jpg)"
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle heure indiquait l’horloge ?",
+      "answers": ["2 h 45", "3 h 45", "9 h 15", "9 h 10"],
+      "correct": 0,
+      "duration": 20,
+      "image": "memoire-2-horloge.jpg",
+      "observeSeconds": 5,
+      "category": "Jeux & pop culture",
+      "source": "L’image elle-même, dessinée pour l’application (memoire-2-horloge.jpg)"
+    },
+    {
+      "kind": "choice",
+      "text": "Lequel de ces articles n’était PAS sur la liste ?",
+      "answers": ["Le lait", "Le beurre", "Le café", "Les pommes"],
+      "correct": 1,
+      "duration": 20,
+      "image": "memoire-3-liste.jpg",
+      "observeSeconds": 7,
+      "category": "Jeux & pop culture",
+      "source": "L’image elle-même, dessinée pour l’application (memoire-3-liste.jpg)"
+    },
+    {
+      "kind": "choice",
+      "text": "De quelle couleur était la troisième bande, en partant de la gauche ?",
+      "answers": ["Orange", "Bleu", "Vert", "Violet"],
+      "correct": 3,
+      "duration": 20,
+      "image": "memoire-4-bandes.jpg",
+      "observeSeconds": 5,
+      "category": "Jeux & pop culture",
+      "source": "L’image elle-même, dessinée pour l’application (memoire-4-bandes.jpg)"
+    },
+    {
+      "kind": "number",
+      "text": "Combien la maison avait-elle de fenêtres ?",
+      "target": 7,
+      "unit": "fenêtres",
+      "duration": 25,
+      "image": "memoire-5-maison.jpg",
+      "observeSeconds": 6,
+      "category": "Jeux & pop culture",
+      "source": "L’image elle-même, dessinée pour l’application (memoire-5-maison.jpg)"
+    },
+    {
+      "kind": "choice",
+      "text": "Où était l’étoile ?",
+      "answers": ["En haut à gauche", "Au milieu, à droite", "En bas, au centre", "En haut à droite"],
+      "correct": 1,
+      "duration": 20,
+      "image": "memoire-6-grille.jpg",
+      "observeSeconds": 5,
+      "category": "Jeux & pop culture",
+      "source": "L’image elle-même, dessinée pour l’application (memoire-6-grille.jpg)"
+    },
+    {
+      "kind": "choice",
+      "text": "Quel était le plus grand nombre ?",
+      "answers": ["25", "27", "31", "34"],
+      "correct": 2,
+      "duration": 20,
+      "image": "memoire-7-nombres.jpg",
+      "observeSeconds": 5,
+      "category": "Jeux & pop culture",
+      "source": "L’image elle-même, dessinée pour l’application (memoire-7-nombres.jpg)"
+    },
+    {
+      "kind": "number",
+      "text": "Combien y avait-il de ballons en tout ?",
+      "target": 9,
+      "unit": "ballons",
+      "duration": 25,
+      "image": "memoire-8-ballons.jpg",
+      "observeSeconds": 6,
+      "category": "Jeux & pop culture",
+      "source": "L’image elle-même, dessinée pour l’application (memoire-8-ballons.jpg)"
+    }
+  ]
+}

@@ -1,16 +1,21 @@
 import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
+import type { ProgrammeStore } from './core/programmes'
+import type { PartageStore } from './core/partages'
+import { mountPartages } from './partages'
+import type { Programme } from '../../shared/programme'
 import type { ArchiveStore } from './core/archive'
 import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
-import { horsBornesALEnvoi } from '../../shared/library'
+import { horsBornesALEnvoi, type MemoireDuQuiz } from '../../shared/library'
 import { accountOf, csrfGuard, requireAccount } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
 import { mountProfileApi } from './auth/profileRoutes'
 import { lireModeles } from './core/seed'
+import { lirePourQui, personnaliser } from '../../shared/modeles'
 
 interface ApiDeps {
   store: QuizStore
@@ -24,6 +29,12 @@ interface ApiDeps {
   publicOrigin: string | null
   /** Appelé après chaque modification : recharge le cache lu par le module de jeu. */
   onLibraryChanged: (spaceId: string) => Promise<void>
+  /** Les programmes de soirée, rangés avec la bibliothèque. */
+  programmes: ProgrammeStore
+  /** Recharge le programme de ce soir que la console lit au lancement. */
+  onProgrammeChanged: (spaceId: string) => Promise<void>
+  /** Les codes de partage et le catalogue du serveur : des copies, jamais un quiz public. */
+  partages: PartageStore
   /**
    * Les photos que citent les parties de l'espace encore sur le disque local
    * — celle qui se joue, et celles déjà jouées que la soirée n'a pas encore
@@ -77,10 +88,43 @@ export function mountApi(app: Express, deps: ApiDeps) {
   /** L'espace de l'animateur connecté : celui de sa session, et pas un autre. */
   const spaceOf = (res: express.Response) => accountOf(res).id
 
+  // Partager : un code à quelqu'un, une copie au catalogue (`partages.ts`).
+  mountPartages(app, { store: deps.store, partages: deps.partages, onLibraryChanged: deps.onLibraryChanged })
+
+  /**
+   * Le ménage des photos de l'espace. Celles qu'une partie encore sur le
+   * disque cite, et celles d'un partage vivant — un code valable, une copie
+   * au catalogue —, que le destinataire n'a peut-être pas encore recopiées,
+   * ne partent pas.
+   */
+  const menageDesPhotos = (spaceId: string) => {
+    deps.partages
+      .photosProtegees(spaceId)
+      .then(protegees => deps.store.pruneImages(spaceId, undefined, [...deps.photosEnJeu(spaceId), ...protegees]))
+      .catch(() => {})
+  }
+
   app.get(
     '/api/quizzes',
-    wrap(async (_req, res) => {
-      res.json(await deps.store.list(spaceOf(res)))
+    wrap(async (req, res) => {
+      // `?q=` : les quiz qui contiennent ces mots — titre, intitulés, réponses.
+      const q = typeof req.query.q === 'string' ? tronquer(req.query.q, 120) : undefined
+      const spaceId = spaceOf(res)
+      const [quizzes, memoire] = await Promise.all([deps.store.list(spaceId, q), deps.archives.memoire(spaceId)])
+      // « Joué 3 fois · le 14 mars » : ce que l'historique en sait.
+      res.json(quizzes.map(s => ({ ...s, ...(memoire.quiz.has(s.id) && { joue: memoire.quiz.get(s.id) }) })))
+    }),
+  )
+
+  // Archiver : hors de la liste et du choix de la soirée, sans rien effacer.
+  app.post(
+    '/api/quizzes/:id/archive',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      const ok = await deps.store.archiver(spaceId, req.params.id, req.body?.archive !== false)
+      if (!ok) return res.status(404).json({ error: 'Quiz introuvable' })
+      await deps.onLibraryChanged(spaceId)
+      res.json({ ok: true })
     }),
   )
 
@@ -88,7 +132,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
     '/api/quizzes',
     wrap(async (req, res) => {
       const spaceId = spaceOf(res)
-      const quiz = await deps.store.create(spaceId, req.body?.title ?? 'Nouveau quiz', req.body?.questions ?? [])
+      const quiz = await deps.store.create(spaceId, req.body?.title ?? 'Nouveau quiz', req.body?.questions ?? [], undefined, req.body?.reglages)
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),
@@ -100,6 +144,24 @@ export function mountApi(app: Express, deps: ApiDeps) {
       const quiz = await deps.store.get(spaceOf(res), req.params.id)
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
       res.json(quiz)
+    }),
+  )
+
+  // Ce que l'historique sait de chaque question de ce quiz : sa dernière
+  // soirée, et qui y a trouvé — « réussie par 23 % le 14 mars ».
+  app.get(
+    '/api/quizzes/:id/memoire',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      const quiz = await deps.store.get(spaceId, req.params.id)
+      if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
+      const memoire = await deps.archives.memoire(spaceId)
+      const reponse: MemoireDuQuiz = { joue: memoire.quiz.get(quiz.id) ?? null, questions: {} }
+      for (const q of quiz.questions) {
+        const souvenir = q.id ? memoire.questions.get(q.id) : undefined
+        if (souvenir) reponse.questions[q.id!] = souvenir
+      }
+      res.json(reponse)
     }),
   )
 
@@ -159,7 +221,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
         const memeClic = jeton !== null && d !== undefined && d.jeton === jeton
         // Un essai périmé de ce clic : un plus récent a déjà écrit, il ne réécrit rien.
         if (memeClic && essai !== null && d.essai !== null && essai <= d.essai) return deps.store.get(spaceId, id)
-        const q = await deps.store.save(spaceId, id, req.body?.title, req.body?.questions, memeClic ? d.version : base)
+        const q = await deps.store.save(spaceId, id, req.body?.title, req.body?.questions, memeClic ? d.version : base, req.body?.reglages)
         if (q && q !== 'conflit') {
           if (jeton !== null) derniers.set(cle, { jeton, essai, version: q.updatedAt })
           else derniers.delete(cle)
@@ -178,7 +240,74 @@ export function mountApi(app: Express, deps: ApiDeps) {
       res.json(quiz)
       // Après coup : une photo retirée d'une question n'a plus à occuper la
       // base — sauf si la partie en cours ou une soirée archivée la montre encore.
-      deps.store.pruneImages(spaceId, undefined, deps.photosEnJeu(spaceId)).catch(() => {})
+      menageDesPhotos(spaceId)
+    }),
+  )
+
+  // ── Les programmes de soirée ──
+  //
+  // Un programme range des quiz de l'espace, et seulement les siens : une
+  // entrée qui désigne le quiz d'un autre espace n'entre pas (invariant 3).
+  const garderLesSiens = async (spaceId: string, entrees: unknown) => {
+    if (!Array.isArray(entrees)) return entrees
+    const siens = await deps.store.ids(spaceId)
+    return entrees.filter(e => siens.has((e as { quizId?: unknown } | null)?.quizId as string))
+  }
+  /** Ce que l'éditeur lit d'un programme : ses entrées encore dans la bibliothèque. */
+  const lisible = async (spaceId: string, p: Programme) => ({ ...p, entrees: (await garderLesSiens(spaceId, p.entrees)) as Programme['entrees'] })
+
+  app.get(
+    '/api/programmes',
+    wrap(async (_req, res) => {
+      const spaceId = spaceOf(res)
+      res.json(await Promise.all((await deps.programmes.list(spaceId)).map(p => lisible(spaceId, p))))
+    }),
+  )
+
+  // Commencer un programme en fait celui de ce soir ; l'ancien reste, rangé.
+  app.post(
+    '/api/programmes',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      const cree = await deps.programmes.creer(spaceId, req.body?.titre, await garderLesSiens(spaceId, req.body?.entrees))
+      await deps.onProgrammeChanged(spaceId)
+      res.status(201).json(cree)
+    }),
+  )
+
+  app.put(
+    '/api/programmes/:id',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      const modifie = await deps.programmes.modifier(spaceId, req.params.id, {
+        titre: req.body?.titre,
+        entrees: req.body?.entrees === undefined ? undefined : await garderLesSiens(spaceId, req.body.entrees),
+      })
+      if (!modifie) return res.status(404).json({ error: 'Programme introuvable' })
+      await deps.onProgrammeChanged(spaceId)
+      res.json(await lisible(spaceId, modifie))
+    }),
+  )
+
+  app.post(
+    '/api/programmes/:id/activer',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      if (!(await deps.programmes.activer(spaceId, req.params.id, req.body?.actif !== false))) {
+        return res.status(404).json({ error: 'Programme introuvable' })
+      }
+      await deps.onProgrammeChanged(spaceId)
+      res.json({ ok: true })
+    }),
+  )
+
+  app.delete(
+    '/api/programmes/:id',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      if (!(await deps.programmes.supprimer(spaceId, req.params.id))) return res.status(404).json({ error: 'Programme introuvable' })
+      await deps.onProgrammeChanged(spaceId)
+      res.json({ ok: true })
     }),
   )
 
@@ -190,7 +319,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
       if (!ok) return res.status(404).json({ error: 'Quiz introuvable' })
       await deps.onLibraryChanged(spaceId)
       res.json({ ok: true })
-      deps.store.pruneImages(spaceId, undefined, deps.photosEnJeu(spaceId)).catch(() => {})
+      menageDesPhotos(spaceId)
     }),
   )
 
@@ -213,7 +342,16 @@ export function mountApi(app: Express, deps: ApiDeps) {
   app.get(
     '/api/modeles',
     wrap(async (_req, res) => {
-      res.json(lireModeles().map(m => ({ id: m.id, title: m.title, questionCount: m.questions.length })))
+      res.json(
+        lireModeles().map(m => ({
+          id: m.id,
+          title: m.title,
+          questionCount: m.questions.length,
+          ...(m.personnaliser && { personnaliser: m.personnaliser }),
+          ...(m.description && { description: m.description }),
+          rayon: m.rayon,
+        })),
+      )
     }),
   )
 
@@ -223,7 +361,24 @@ export function mountApi(app: Express, deps: ApiDeps) {
       const modele = lireModeles().find(m => m.id === req.params.id)
       if (!modele) return res.status(404).json({ error: 'Modèle introuvable' })
       const spaceId = spaceOf(res)
-      const quiz = await deps.store.create(spaceId, modele.title, modele.questions)
+      let { title, questions } = modele
+      // « Pour qui ? » : le prénom — ou les deux — remplace les trous du
+      // modèle, titre compris. Sans prénom, le modèle arrive tel quel, ses
+      // trous signalés sur chaque carte.
+      if (modele.personnaliser && req.body?.prenoms !== undefined) {
+        const pourQui = lirePourQui(req.body, modele.personnaliser.prenoms)
+        if (!pourQui) {
+          return res
+            .status(400)
+            .json({ error: modele.personnaliser.prenoms === 2 ? 'Écris les deux prénoms' : 'Écris le prénom de la personne fêtée' })
+        }
+        const fait = personnaliser(title, questions as Record<string, unknown>[], pourQui)
+        title = fait.titre
+        questions = fait.questions
+      }
+      // Une copie de modèle mélange ses réponses : on écrit la bonne d'abord,
+      // et la salle finirait par le voir.
+      const quiz = await deps.store.create(spaceId, title, questions, undefined, { melangerReponses: true })
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),
@@ -277,8 +432,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // question : dans l'éditeur de son espace, à l'écran pendant la partie, ou
   // dans le bilan public une fois qu'elle est jouée. Celle d'une question pas
   // encore jouée reste introuvable, même du voisin. Formats bornés à JPEG,
-  // PNG et WebP : jamais de SVG, qui porterait du script. Ce qui ferait
-  // tomber la règle : un identifiant prévisible, ou une route qui les liste.
+  // PNG et WebP — et aux extraits sonores du blind test (`SON_MIMES`) : jamais
+  // de SVG, qui porterait du script. Ce qui ferait tomber la règle : un
+  // identifiant prévisible, ou une route qui les liste. L'extrait, lui, ne
+  // part qu'aux écrans d'animateur : un téléphone ne l'apprend jamais.
   app.get(
     '/media/image/:id',
     wrap(async (req, res) => {

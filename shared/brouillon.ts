@@ -10,6 +10,7 @@
 // Pur et sans navigateur : le client range et relit (`client/src/brouillon.ts`),
 // `server/test/brouillon.test.ts` vérifie.
 import { cleanTitle, normalizeQuestions, type QuizDef, type QuizQuestionDef } from './library'
+import { normaliserReglages, type ReglagesDuQuiz } from './hasard'
 
 /** Un brouillon d'un autre format est ignoré, jamais mal lu. */
 const FORMAT = 1
@@ -18,6 +19,8 @@ export interface Brouillon {
   id: string
   title: string
   questions: QuizQuestionDef[]
+  /** Les réglages du quiz — l'ordre des réponses, des questions. Absent d'un brouillon d'avant. */
+  reglages?: ReglagesDuQuiz
   /**
    * `updatedAt` de la version du serveur d'où ces modifications sont parties :
    * s'il a bougé depuis, le quiz a été enregistré ailleurs entre-temps.
@@ -30,8 +33,8 @@ export interface Brouillon {
 /** Un brouillon par quiz : son identifiant ne se retrouve dans aucun autre espace. */
 export const cleDuBrouillon = (id: string) => `quizz.brouillon.${id}`
 
-export function emballerBrouillon(quiz: Pick<QuizDef, 'id' | 'title' | 'questions'>, base: number, at: number): string {
-  return JSON.stringify({ v: FORMAT, id: quiz.id, title: quiz.title, questions: quiz.questions, base, at })
+export function emballerBrouillon(quiz: Pick<QuizDef, 'id' | 'title' | 'questions' | 'reglages'>, base: number, at: number): string {
+  return JSON.stringify({ v: FORMAT, id: quiz.id, title: quiz.title, questions: quiz.questions, reglages: quiz.reglages, base, at })
 }
 
 const nombre = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? x : null)
@@ -54,18 +57,25 @@ export function lireBrouillon(brut: string | null, id: string): Brouillon | null
   const base = nombre(b.base)
   const at = nombre(b.at)
   if (b.v !== FORMAT || b.id !== id || !Array.isArray(b.questions) || base === null || at === null) return null
-  return { id, title: cleanTitle(b.title), questions: normalizeQuestions(b.questions), base, at }
+  return {
+    id,
+    title: cleanTitle(b.title),
+    questions: normalizeQuestions(b.questions),
+    ...(b.reglages !== undefined && { reglages: normaliserReglages(b.reglages) }),
+    base,
+    at,
+  }
 }
 
-const contenu = (quiz: Pick<QuizDef, 'title' | 'questions'>) =>
-  JSON.stringify([cleanTitle(quiz.title), normalizeQuestions(quiz.questions)])
+const contenu = (quiz: Pick<QuizDef, 'title' | 'questions' | 'reglages'>) =>
+  JSON.stringify([cleanTitle(quiz.title), normalizeQuestions(quiz.questions), normaliserReglages(quiz.reglages)])
 
 /**
  * Le brouillon apporte-t-il quelque chose à la version du serveur ? Un
  * enregistrement dont la réponse s'est perdue en route laisse un brouillon
  * identique à ce que le serveur a gardé : il s'efface sans rien demander.
  */
-export function brouillonUtile(brouillon: Brouillon, serveur: Pick<QuizDef, 'title' | 'questions'>): boolean {
+export function brouillonUtile(brouillon: Brouillon, serveur: Pick<QuizDef, 'title' | 'questions' | 'reglages'>): boolean {
   return contenu(brouillon) !== contenu(serveur)
 }
 

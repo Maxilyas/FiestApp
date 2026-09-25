@@ -1,46 +1,51 @@
 {
-  "title": "⭐ Qui connaît le mieux [Prénom] ? (✏️ à personnaliser !)",
+  "title": "⭐ Qui connaît le mieux [Prénom] ?",
+  "description": "La personne fêtée au centre du quiz : ses goûts, son enfance, ses manies. Tu écris les vraies réponses : c’est toi qui les connais.",
+  "rayon": "fete",
+  "ordre": 1,
+  "amorce": true,
+  "personnaliser": { "prenoms": 1 },
   "questions": [
     {
       "text": "Où [Prénom] est-il/elle né·e ?",
       "answers": ["Ville A ✏️", "Ville B ✏️", "Ville C ✏️", "Ville D ✏️"],
-      "correct": 0
+      "correct": -1
     },
     {
       "text": "Quel était le métier rêvé de [Prénom] enfant ?",
       "answers": ["Métier A ✏️", "Métier B ✏️", "Métier C ✏️", "Métier D ✏️"],
-      "correct": 0
+      "correct": -1
     },
     {
       "text": "Quel est le plat que [Prénom] pourrait manger tous les jours ?",
       "answers": ["Plat A ✏️", "Plat B ✏️", "Plat C ✏️", "Plat D ✏️"],
-      "correct": 0
+      "correct": -1
     },
     {
       "text": "Quelle chanson [Prénom] chante-t-il/elle sous la douche ?",
       "answers": ["Chanson A ✏️", "Chanson B ✏️", "Chanson C ✏️", "Chanson D ✏️"],
-      "correct": 0
+      "correct": -1
     },
     {
       "text": "Vrai ou faux : [Prénom] a déjà rencontré une célébrité.",
       "answers": ["Vrai", "Faux"],
-      "correct": 0,
+      "correct": -1,
       "duration": 15
     },
     {
       "text": "Quelle est la plus grande phobie de [Prénom] ?",
       "answers": ["Phobie A ✏️", "Phobie B ✏️", "Phobie C ✏️", "Phobie D ✏️"],
-      "correct": 0
+      "correct": -1
     },
     {
       "text": "À quel âge [Prénom] a-t-il/elle eu son premier téléphone ?",
       "answers": ["Âge A ✏️", "Âge B ✏️", "Âge C ✏️", "Âge D ✏️"],
-      "correct": 0
+      "correct": -1
     },
     {
       "text": "Quel emoji résume le mieux [Prénom] ?",
       "answers": ["😂", "😴", "🤪", "👑"],
-      "correct": 0
+      "correct": -1
     }
   ]
 }

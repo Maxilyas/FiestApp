@@ -96,12 +96,24 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
 
       {q.kind === 'choice' ? (
         <>
+          {q.variante === 'ordre' ? (
+            // L'ordre à retrouver : le bon, dans l'ordre. Le journal dit qui
+            // l'a retrouvé, pas l'ordre de chacun : pas de barres.
+            <ol className="bilan-ordre">
+              {(q.ordre ?? []).map(i => (
+                <li key={i}>{espacesFines(q.answers[i] ?? '')}</li>
+              ))}
+            </ol>
+          ) : (
           <ul className="bilan-answers">
             {q.answers.map((a, i) => {
-              const share = q.answered ? q.counts[i] / q.answered : 0
-              const teamShare = team && team.answered ? team.counts[i] / team.answered : 0
-              const isCorrect = i === q.correct
-              const isMine = mine?.choice === i
+              // « Plusieurs » : chaque bonne se coche ; le journal ne garde
+              // que le verdict, pas les cases de chacun — pas de barres.
+              const parCase = !q.variante
+              const share = parCase && q.answered ? q.counts[i] / q.answered : 0
+              const teamShare = parCase && team && team.answered ? team.counts[i] / team.answered : 0
+              const isCorrect = q.variante === 'plusieurs' ? !!q.bonnes?.includes(i) : i === q.correct
+              const isMine = parCase && mine?.choice === i
               return (
                 <li key={i} className={'bilan-ans' + (isCorrect ? ' correct' : '') + (isMine ? ' mine' : '')}>
                   <div className="bilan-ans-row">
@@ -115,27 +127,32 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
                     {isCorrect && (
                       <>
                         <Icon name="check" className="bilan-ans-check" />
-                        <span className="sr-only">la bonne réponse</span>
+                        <span className="sr-only">{q.variante === 'plusieurs' ? 'une bonne réponse' : 'la bonne réponse'}</span>
                       </>
                     )}
-                    <span className="bilan-ans-pct num" title={`${q.counts[i]} réponse${q.counts[i] > 1 ? 's' : ''}`}>
-                      {formatPercent(share)}
-                    </span>
-                  </div>
-                  <div className="bilan-bars">
-                    <span className="bilan-bar salle" style={bar(share)}>
-                      <i />
-                    </span>
-                    {team && (
-                      <span className="bilan-bar equipe" style={bar(teamShare)}>
-                        <i />
+                    {parCase && (
+                      <span className="bilan-ans-pct num" title={`${q.counts[i]} réponse${q.counts[i] > 1 ? 's' : ''}`}>
+                        {formatPercent(share)}
                       </span>
                     )}
                   </div>
+                  {parCase && (
+                    <div className="bilan-bars">
+                      <span className="bilan-bar salle" style={bar(share)}>
+                        <i />
+                      </span>
+                      {team && (
+                        <span className="bilan-bar equipe" style={bar(teamShare)}>
+                          <i />
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </li>
               )
             })}
           </ul>
+          )}
           <p className="bilan-q-foot muted small">
             {me &&
               (mine?.answered && mine.ms !== null ? (
@@ -149,7 +166,8 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
             <span>
               {q.answered === 0
                 ? "Personne n'a répondu"
-                : successRate !== null && `${formatPercent(successRate)} de la salle a trouvé`}
+                : successRate !== null &&
+                  `${formatPercent(successRate)} de la salle ${q.variante === 'ordre' ? 'a retrouvé l’ordre' : q.variante === 'plusieurs' ? 'a tout trouvé' : 'a trouvé'}`}
             </span>
             {team && (
               <span>

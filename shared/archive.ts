@@ -62,6 +62,11 @@ export interface ArchivedAnswer {
 /** Un quiz tel qu'il a été joué dans une partie. */
 export interface ArchivedPack {
   title: string
+  /**
+   * Le quiz de la bibliothèque dont c'est la copie : « Mes quiz » y lit
+   * quand il a été joué (`core/memoire.ts`). Absent des soirées d'avant.
+   */
+  quizId?: string
   questions: PlayableQuestion[]
   /**
    * Copie exacte gardée par le moteur, ou reconstituée depuis la bibliothèque

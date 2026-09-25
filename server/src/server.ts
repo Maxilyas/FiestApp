@@ -11,7 +11,10 @@ import { PartyBackup, type ReglagesMiroir } from './core/backup'
 import { photosCitees, QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
 import { INTROUVABLE, ROBOTS_TXT, decrirePage, habillerPage } from './core/apercus'
-import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
+import { clearQuizLibrary, setProgramme, setQuestionsPosees, setQuizLibrary } from './games/quiz'
+import { dernieresFois } from './core/memoire'
+import { ProgrammeStore } from './core/programmes'
+import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
 import { ReserveDInscriptions } from './core/inscriptions'
@@ -282,10 +285,33 @@ export async function createQuizServer(opts: QuizServerOptions) {
   }
   await refreshLibrary()
 
+  // Les programmes de soirée : celui de ce soir, par espace, est ce que la
+  // console propose au lancement.
+  const programmes = new ProgrammeStore(opts.quizDbUrl, opts.quizDbToken)
+  await programmes.init()
+  const refreshProgramme = async (spaceId?: string) => {
+    if (spaceId) return setProgramme(spaceId, await programmes.actif(spaceId))
+    for (const [id, programme] of await programmes.actifs()) setProgramme(id, programme)
+  }
+  await refreshProgramme()
+
+  // Les partages : les codes, et le catalogue du serveur.
+  const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
+  await partages.init()
+
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
   await archives.init(defaultSpace)
+  // Le tirage d'un quiz choisit d'abord les questions jamais posées : il lit
+  // ce que l'historique en sait, relu après chaque rangement.
+  for (const [spaceId, memoire] of await archives.memoiresDeTous()) setQuestionsPosees(spaceId, dernieresFois(memoire))
+  archives.surEcriture(spaceId => {
+    archives
+      .memoire(spaceId)
+      .then(memoire => setQuestionsPosees(spaceId, dernieresFois(memoire)))
+      .catch(e => console.error('[historique] mémoire des quiz :', e))
+  })
 
   // L'expérience se relit avec le barème du jour : une fois, au premier
   // démarrage qui le change. Les soirées en cours — celles que le disque ou
@@ -357,6 +383,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     await backup.settle()
     await backup.forSpace(accountId).reset()
     const soirees = await archives.removeSpace(accountId)
+    await programmes.removeSpace(accountId)
+    await partages.removeSpace(accountId)
     const { quizzes, images } = await store.removeSpace(accountId)
     await auth.remove(accountId)
     // Une page publique lue pendant le ménage a pu réveiller la soirée.
@@ -620,6 +648,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,
+    programmes,
+    onProgrammeChanged: refreshProgramme,
+    partages,
     // Les parties de l'espace encore sur le disque, terminées comprises :
     // c'est leur copie du quiz que l'archivage rangera, photos avec.
     photosEnJeu: spaceId =>
@@ -787,6 +818,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
           await backup.close()
           db.close()
           store.close()
+          programmes.close()
+          partages.close()
           archives.close()
           auth.close()
           // Les profils en dernier : un crédit d'expérience parti avec la fin

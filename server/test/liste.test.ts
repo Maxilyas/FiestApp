@@ -59,20 +59,86 @@ test('l’exemple du format complet se relit tel quel, chaque possibilité compr
   assert.deepEqual(
     questions.map(q => ({
       kind: q.kind,
-      reponse: q.kind === 'number' ? `${q.target} ${q.unit}`.trim() : q.answers[q.correct],
+      // Chaque sorte dit sa réponse : toutes les bonnes, le bon ordre, « ? » pour une mesure en direct.
+      reponse:
+        q.kind === 'number'
+          ? `${q.enDirect ? '?' : q.target} ${q.unit}`.trim()
+          : q.variante === 'plusieurs'
+            ? q.bonnes!.map(i => q.answers[i]).join(', ')
+            : q.variante === 'ordre'
+              ? q.answers.filter(Boolean).join(' → ')
+              : q.variante === 'sondage'
+                ? 'les invités'
+                : q.answers[q.correct],
+      ...(q.variante && { variante: q.variante }),
       choix: q.answers.filter(Boolean).length,
       temps: q.duration,
       categorie: q.category,
       photo: q.photoAttendue,
       observation: q.observeSeconds,
+      ...(q.anecdote && { anecdote: q.anecdote }),
+      ...(q.note && { note: q.note }),
+      ...(q.intertitre && { intertitre: q.intertitre }),
     })),
     [
       { kind: 'choice', reponse: 'Canberra', choix: 4, temps: 20, categorie: 'Géographie', photo: null, observation: null },
-      { kind: 'number', reponse: '8849 m', choix: 0, temps: 30, categorie: 'Géographie', photo: null, observation: null },
-      // Le temps court, comme la catégorie : les deux questions d'histoire gardent les 30 s de l'Everest.
-      { kind: 'choice', reponse: 'Vrai', choix: 2, temps: 30, categorie: 'Histoire', photo: null, observation: null },
+      // « Ordre : fixe » : « Aucune de ces villes » reste la dernière, même dans un quiz qui mélange.
+      { kind: 'choice', reponse: 'Ottawa', choix: 4, temps: 20, categorie: 'Géographie', photo: null, observation: null },
+      {
+        kind: 'number',
+        reponse: '8849 m',
+        choix: 0,
+        temps: 30,
+        categorie: 'Géographie',
+        photo: null,
+        observation: null,
+        anecdote: 'Elle grandit encore de quelques millimètres par an.',
+      },
+      // « Type : plusieurs réponses » : une étoile devant chacune des bonnes.
+      {
+        kind: 'choice',
+        reponse: 'Brésil, Kenya, Indonésie',
+        variante: 'plusieurs',
+        choix: 4,
+        temps: 30,
+        categorie: 'Géographie',
+        photo: null,
+        observation: null,
+      },
+      // Le temps court, comme la catégorie : les questions d'histoire gardent les 30 s de l'Everest.
+      {
+        kind: 'choice',
+        reponse: 'Vrai',
+        choix: 2,
+        temps: 30,
+        categorie: 'Histoire',
+        photo: null,
+        observation: null,
+        intertitre: "Manche 2 : l'histoire",
+        anecdote: "Elle ne devait rester que vingt ans ; la radio l'a sauvée.",
+      },
       { kind: 'number', reponse: '1969', choix: 0, temps: 30, categorie: 'Histoire', photo: null, observation: null },
-      { kind: 'choice', reponse: 'Titanic', choix: 4, temps: 15, categorie: 'Cinéma & séries', photo: 'titanic.jpg', observation: null },
+      // « Type : dans l'ordre » : écrites dans le bon ordre, sans étoile.
+      {
+        kind: 'choice',
+        reponse: "L'imprimerie → La machine à vapeur → Le téléphone → Internet",
+        variante: 'ordre',
+        choix: 4,
+        temps: 30,
+        categorie: 'Histoire',
+        photo: null,
+        observation: null,
+      },
+      {
+        kind: 'choice',
+        reponse: 'Titanic',
+        choix: 4,
+        temps: 15,
+        categorie: 'Cinéma & séries',
+        photo: 'titanic.jpg',
+        observation: null,
+        note: "demande qui l'a vu trois fois au cinéma",
+      },
       {
         kind: 'number',
         reponse: '30 bougies',
@@ -81,6 +147,19 @@ test('l’exemple du format complet se relit tel quel, chaque possibilité compr
         categorie: 'Autour de la fête',
         photo: "le gâteau d'anniversaire, bougies allumées",
         observation: 5,
+      },
+      // « = ? g » : la bonne valeur se mesure pendant la soirée.
+      { kind: 'number', reponse: '? g', choix: 0, temps: 15, categorie: 'Autour de la fête', photo: null, observation: null },
+      // « Type : qui dans la salle » : rien à écrire, les invités sont les réponses.
+      {
+        kind: 'choice',
+        reponse: 'les invités',
+        variante: 'sondage',
+        choix: 0,
+        temps: 15,
+        categorie: 'Autour de la fête',
+        photo: null,
+        observation: null,
       },
     ],
   )
@@ -537,4 +616,22 @@ test('copié en liste, un intitulé à dièse, un choix « Photo : » et un gran
   )
   assert.equal(relu.questions[0].category, null, 'le dièse n’a pas fait une catégorie')
   assert.equal(relu.questions[0].photoAttendue, null, 'le choix n’a pas fait une photo')
+})
+
+// ── 9. L'ordre des réponses ───────────────────────────────────────────────
+//
+// Un quiz peut mélanger ses réponses à chaque partie (`shared/hasard.ts`) :
+// « Ordre : fixe » garde celles d'une question dans l'ordre écrit, et
+// l'aller-retour par « Copier en liste » ne le perd pas.
+
+test('« Ordre : fixe » se lit sous l’intitulé, et se recolle tel quel', () => {
+  const lu = une('Laquelle est la capitale du Canada ?', 'Ordre : fixe', 'Toronto', '* Ottawa', 'Aucune de ces villes')
+  assert.equal(lu.ordreFixe, true)
+  assert.deepEqual(lu.answers.slice(0, 3), ['Toronto', 'Ottawa', 'Aucune de ces villes'], 'jamais pris pour une réponse')
+  assert.equal(une('Q ?', 'Ordre : au hasard', '* a', 'b').ordreFixe, undefined, 'une autre valeur laisse le réglage du quiz')
+  const { questions } = parseImportedQuestions(EXEMPLE_DU_FORMAT)
+  assert.equal(questions.filter(q => q.ordreFixe).length, 1, 'l’exemple le montre une fois')
+  const relu = parseImportedQuestions(ecrireListe([lu]))
+  assert.equal(relu.questions[0].ordreFixe, true)
+  assert.match(FORMAT_DE_LISTE, /Ordre : fixe — les réponses restent dans l'ordre écrit/)
 })

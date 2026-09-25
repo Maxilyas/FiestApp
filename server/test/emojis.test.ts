@@ -6,55 +6,10 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import ts from 'typescript'
+import { EMOJI, emojisRecents, estRecent } from '../../shared/emojis'
 
-// Les points de code d'Emoji 13.0 et au-delà (emoji-data.txt d'Unicode). Le
-// moteur d'expressions de Node connaît tous les emojis, mais pas l'année de
-// chacun. Le bloc « Symbols and Pictographs Extended-A » (1FA70–1FAFF) ne
-// porte que du récent, sauf les quinze points d'Emoji 12 : on le prend
-// entier, moins ceux-là — une table point par point oubliait 🪎 (Emoji 17).
-const EMOJI_12_DU_BLOC: [number, number][] = [
-  [0x1fa70, 0x1fa73], [0x1fa78, 0x1fa7a], [0x1fa80, 0x1fa82], [0x1fa90, 0x1fa95],
-]
-const RECENTS_HORS_BLOC: [number, number][] = [
-  // Emoji 13.0
-  [0x1f6d6, 0x1f6d7], [0x1f6fb, 0x1f6fc], [0x1f90c, 0x1f90c], [0x1f972, 0x1f972], [0x1f977, 0x1f978],
-  [0x1f9a3, 0x1f9a4], [0x1f9ab, 0x1f9ad], [0x1f9cb, 0x1f9cb], [0x26a7, 0x26a7],
-  // Emoji 14.0 et suivants (U+1F6D8, l'éboulement, est d'Emoji 17)
-  [0x1f6d8, 0x1f6d8], [0x1f6dc, 0x1f6df], [0x1f7f0, 0x1f7f0], [0x1f979, 0x1f979], [0x1f9cc, 0x1f9cc],
-]
-function pointRecent(p: number): boolean {
-  if (p >= 0x1fa70 && p <= 0x1faff) return !EMOJI_12_DU_BLOC.some(([a, b]) => p >= a && p <= b)
-  return RECENTS_HORS_BLOC.some(([a, b]) => p >= a && p <= b)
-}
-
-// Des séquences d'Emoji 13.0 à 15.1 faites de points de code anciens : un
-// ours et un flocon, séparés par un liant, font un carré vide sous Windows 10.
-// Écrites sans variante (FE0F) ni couleur de peau, retirées aussi de l'emoji
-// avant de comparer : « 👰🏽‍♀️ » est une 👰‍♀ comme une autre.
-const SEQUENCES_RECENTES = [
-  // 13.0
-  '🐻‍❄', '🐈‍⬛', '🧑‍🎄', '👩‍🍼', '👨‍🍼', '🧑‍🍼', '🏳‍⚧', '👰‍♀', '👰‍♂', '🤵‍♀', '🤵‍♂',
-  // 13.1
-  '❤‍🔥', '❤‍🩹', '😮‍💨', '😵‍💫', '😶‍🌫', '🧔‍♀', '🧔‍♂',
-  // 15.0 et 15.1
-  '🐦‍⬛', '🐦‍🔥', '🍋‍🟩', '🍄‍🟫', '⛓‍💥', '🙂‍↔', '🙂‍↕', '🧑‍🧑‍🧒', '🧑‍🧒',
-  // 15.1 : toute personne tournée vers la droite (🚶‍➡️, 🏃‍➡️, 🧑‍🦯‍➡️…)
-  '‍➡',
-]
-const VARIANTE = /\u{FE0F}/gu
-const PEAU = /[\u{1F3FB}-\u{1F3FF}]/u
-
-/** Un emoji qui s'afficherait en carré vide sous Windows 10. */
-function estRecent(e: string): boolean {
-  if ([...e].some(c => pointRecent(c.codePointAt(0)!))) return true
-  // Les couples à couleurs de peau (💏🏻, 👩🏻‍❤️‍👨🏾) sont d'Emoji 13.1 ; sans
-  // couleur, ils sont bien plus anciens.
-  if (PEAU.test(e) && /[💏💑❤]/u.test(e)) return true
-  const nu = e.replace(VARIANTE, '').replace(new RegExp(PEAU.source, 'gu'), '')
-  return SEQUENCES_RECENTES.some(s => nu.includes(s))
-}
-
-const EMOJI = /\p{Extended_Pictographic}(?:\u{FE0F}|\p{Emoji_Modifier})*(?:\u{200D}(?:\p{Extended_Pictographic}|\u{27A1})(?:\u{FE0F}|\p{Emoji_Modifier})*)*/gu
+// La règle vit dans `shared/emojis.ts` : l'éditeur et la liste collée la
+// partagent, pour les quiz qu'écrivent les animateurs.
 
 /**
  * Ce qu'un fichier peut afficher : ses littéraux, pas ses commentaires — un
@@ -162,4 +117,14 @@ test('la garde reconnaît un emoji récent, où qu’il s’affiche', () => {
   assert.deepEqual(fautifsDe('x.css', '/* 🫠 */ .a { color: red }'), [])
   assert.equal(fautifsDe('x.css', ".a::before { content: '🫠' }").length, 1, 'un contenu de CSS')
   assert.deepEqual(fautifsDe('x.html', '<!-- 🫠 --><p>ok</p>'), [])
+})
+
+test('ce qu’écrit un animateur : chaque emoji récent une fois, les anciens jamais', () => {
+  // Le même contrôle que la garde du dépôt, sur les quiz de l'éditeur et les
+  // listes collées : un 🫠 tapé au téléphone s'affichait en carré à la télé.
+  assert.deepEqual(emojisRecents('Complète : « Toy … » 🫠', 'Bravo 🥳 🫠', null, undefined, '🦊 et 🥲'), ['🫠', '🥲'])
+  assert.deepEqual(emojisRecents('Quel emoji résume le mieux Julie ?', '😂', '😴', '🤪', '👑', '🇫🇷', '👍🏽'), [])
+  assert.deepEqual(emojisRecents('Le mariage 👰‍♀️ et le phénix 🐦‍🔥'), ['👰‍♀️', '🐦‍🔥'])
+  // `EMOJI` est bien celui que la garde du dépôt utilise.
+  assert.equal([...'🫠 et 🦊'.matchAll(EMOJI)].length, 2)
 })

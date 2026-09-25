@@ -1302,6 +1302,20 @@ h3 > .icon {
 /* Un quiz déjà joué ce soir, au moment d'en choisir un. */
 .joue-ce-soir { font-size: 0.8rem; }
 
+/* Le prochain quiz du programme : son titre en grand, un bouton, la suite
+   en pied. Tout en rem : sur grand écran, /host grandit avec la hauteur. */
+.prochain-surtitre { margin: 0; font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.prochain-titre { margin: 0; font-size: clamp(2rem, 4vw, 3rem); overflow-wrap: anywhere; }
+.prochain-pied {
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--edge);
+}
+.prochain-pied .pill.multi { margin-left: 0.5rem; }
+.choix-tete { justify-content: space-between; }
+.choix-tete h2 { margin: 0; }
+
 /* ── Mode scène ─────────────────────────────────── */
 /* Dès qu'une question est à l'écran, le reste s'efface : sur un
    vidéoprojecteur, ce qui compte doit occuper toute la place. */
@@ -2033,17 +2047,269 @@ h3 > .icon {
   font-weight: 600;
 }
 
-.quiz-list { display: flex; flex-direction: column; gap: 10px; }
-
-.quiz-row {
+/* ── Mes quiz ─────────────────────────────────────────────────────────────
+   Une ligne par quiz, qui s'ouvre d'un clic ; les gestes rares sous « ⋯ ». */
+.quiz-list { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.quiz-ligne { display: flex; align-items: center; gap: 8px; padding: 0; }
+.quiz-ligne.is-archive { opacity: 0.8; }
+.quiz-ligne-ouvrir {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+.quiz-ligne-ouvrir:hover .quiz-ligne-titre { color: var(--accent-text-hover); }
+.quiz-ligne-titre { font-family: var(--serif); font-weight: 600; font-size: 1.25rem; line-height: 1.2; overflow-wrap: anywhere; }
+.quiz-ligne-trouve { font-style: italic; }
+.quiz-ligne .menu-ancre { margin-right: 10px; }
+
+.bibliotheque-tete { align-items: center; }
+.bibliotheque-tete h1 { flex: 1; margin: 0; white-space: nowrap; }
+.bibliotheque-nav { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.88rem; }
+.lien-discret { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; min-height: 32px; }
+.lien-discret:hover { color: var(--accent-text-hover); }
+.bibliotheque-outils { display: grid; gap: 10px; min-width: 0; }
+.champ-recherche { position: relative; display: flex; align-items: center; }
+.champ-recherche > .icon { position: absolute; left: 12px; color: var(--muted); pointer-events: none; }
+.champ-recherche .input { width: 100%; padding-left: 38px; }
+.filtres { display: flex; flex-wrap: wrap; gap: 6px; }
+.bibliotheque-compte { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bibliotheque-compte label { gap: 6px; }
+/* Un choix discret, au poids du texte qui l'entoure : le natif s'ouvre au
+   clavier et au doigt, rien de plus à inventer. */
+.select-discret {
+  background: transparent;
+  color: var(--accent-text);
+  border: 0;
+  border-bottom: 1px dashed var(--edge-strong);
+  font: inherit;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.select-discret option { background: var(--bg-raised); color: var(--ink); }
+.bibliotheque-vide { text-align: center; }
+.bibliotheque-pied { justify-content: center; }
+
+/* ── Le programme de ce soir ─────────────────────────────────────────────
+   En tête de « Mes quiz » : les quiz dans l'ordre, leur multiplicateur. */
+.programme { display: grid; gap: 10px; }
+.programme-range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 16px; }
+.programme-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -4px 0; }
+.programme-surtitre { font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent-text); }
+.programme-replier .icon { transition: transform 0.15s ease; }
+.programme-replier[aria-expanded='true'] .icon { transform: rotate(180deg); }
+.programme-resume { margin: 0; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; overflow-wrap: anywhere; }
+.programme-resume .muted { font-family: var(--sans); font-weight: 400; }
+.programme-corps { display: grid; gap: 10px; }
+.programme-nommer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.programme-nom { flex: 1; min-width: 12rem; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; padding: 4px 10px; }
+.programme-liste { list-style: none; margin: 0; padding: 0; display: grid; }
+.programme-entree { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-top: 1px solid var(--edge); }
+.programme-rang {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.programme-quiz { flex: 1; min-width: 10rem; display: flex; flex-direction: column; gap: 2px; }
+.programme-quiz-titre { font-weight: 600; overflow-wrap: anywhere; }
+.programme-gestes { gap: 4px; flex-wrap: nowrap; }
+.programme-points { gap: 4px; margin-right: 6px; flex-wrap: nowrap; }
+.programme-points .pill-btn { min-height: 32px; padding: 0 10px; }
+.programme-pied { justify-content: space-between; gap: 8px 12px; }
+.programme-aide { flex: 1; min-width: 14rem; }
+.programme-bascule { flex: none; }
+
+/* Ce que l'historique sait d'une question, au pied de sa carte. */
+.souvenir-question { margin: 0; }
+
+/* Ce qui entoure une question, replié sur sa carte tant qu'il est vide. */
+.entourage { border-top: 1px dashed var(--edge); padding-top: 8px; }
+.entourage > summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--muted); font-size: 0.88rem; min-height: 32px; }
+.entourage[open] > summary { margin-bottom: 8px; }
+.entourage-champ { display: grid; gap: 4px; margin-bottom: 8px; }
+.entourage-champ textarea { resize: vertical; }
+.de-cote-note { margin: 0; font-style: italic; }
+
+/* L'intertitre : une diapo, en grand, sans rien d'autre. En rem : sur grand
+   écran, /host grandit avec la hauteur. */
+.quiz-host.intertitre { flex: 1; justify-content: center; align-items: center; text-align: center; }
+.intertitre-texte {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(2.2rem, 6vw, 4.5rem);
+  line-height: 1.1;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.quiz-player.intertitre { min-height: 60vh; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 12px; text-align: center; }
+.quiz-player .intertitre-texte { font-size: 2rem; }
+.quiz-host.intertitre.telecommande-apercu { align-items: stretch; text-align: left; }
+.quiz-host.intertitre.telecommande-apercu .intertitre-texte { font-size: 1.4rem; }
+
+/* « Le saviez-vous ? », à la révélation. */
+.anecdote { display: flex; align-items: flex-start; gap: 0.5rem; margin: 0; font-size: 1.05rem; line-height: 1.35; }
+.anecdote > .icon { flex: none; margin-top: 0.2rem; color: var(--accent-text); }
+.anecdote b { color: var(--accent-text); font-weight: 600; }
+.quiz-player .anecdote { font-size: 0.95rem; padding: 12px 14px; }
+
+/* La note de l'animateur, à sa télécommande seulement. */
+.note-animateur {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  font-size: 0.95rem;
+}
+.note-animateur > .icon { flex: none; margin-top: 2px; color: var(--accent-text); }
+
+/* ── Les sortes de questions (lot 7) ──────────────── */
+/* La consigne d'une variante, sous l'énoncé : « Plusieurs bonnes réponses ». */
+.consigne-variante {
+  margin: 0;
+  text-align: center;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.1rem, 2vw, 1.6rem);
+  color: var(--accent-text);
+}
+.quiz-player .consigne-variante { font-size: 1rem; }
+/* Le rang d'une réponse à remettre dans l'ordre : un chiffre dans un rond,
+   vide tant qu'on ne l'a pas touchée. */
+.rang-ordre {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  color: var(--accent-text);
+  font-family: var(--serif);
+  font-weight: 600;
+  line-height: 1;
+  /* Les chiffres elzéviriens du serif font d'un « 1 » un « ı » : ici, des capitales. */
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.ans-btn.chosen .rang-ordre { background: var(--accent); color: var(--on-accent); }
+.quiz-host .rang-ordre { width: 1.5em; height: 1.5em; font-size: 0.9em; }
+/* L'ordre révélé : chaque carte en pleine encre, son rang en aplat. */
+.ans-btn.ordre-place { border-color: var(--accent); }
+.ans-btn.ordre-place .rang-ordre { background: var(--accent); color: var(--on-accent); }
+.valider-variante { margin-top: 4px; flex: none; }
+.quiz-player .ordre-revele { width: fit-content; margin: 4px auto 0; padding-left: 1.4rem; text-align: left; }
+/* « Qui dans la salle ? » au téléphone : les noms en deux colonnes, la page
+   défile au-delà — la grille des réponses, faite pour tenir en un écran,
+   écrasait soixante noms. */
+.sondage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sondage-grid .ans-btn { min-height: 48px; padding: 6px 12px; gap: 8px; font-size: 1rem; }
+.sondage-grid .ans-btn:only-child { grid-column: 1 / -1; }
+/* La mesure d'une estimation en direct : le champ, l'unité, « Révéler ». */
+.cible-form { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+.cible-input { width: 9em; }
+/* Le champ et son bouton tiennent la place de l'action principale : la bande garde une ligne. */
+.cible-form .console-principal { min-width: 0; }
+.cible-form .error { flex-basis: 100%; margin: 0; text-align: center; }
+.host.telecommande .cible-form { grid-column: 1 / -1; }
+.host.telecommande .cible-input { flex: 1; min-height: 60px; font-size: 1.25rem; }
+.host.telecommande .cible-form .console-principal { flex-basis: 100%; }
+/* Le blind test : de quoi relancer l'extrait, sous l'énoncé. */
+.extrait { display: flex; justify-content: center; }
+.extrait-edit .extrait-audio { height: 36px; max-width: 260px; }
+
+/* « Partir d'un modèle » : un rayon par sorte de quiz. */
+.rayon { display: grid; gap: 8px; }
+.rayon-titre { margin: 8px 0 0; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-text); font-family: var(--sans); }
+
+/* Le catalogue, à relire par l'administrateur. */
+.catalogue-admin { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.catalogue-entree { border-top: 1px solid var(--edge); padding-top: 10px; }
+.catalogue-entree-tete { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; }
+.catalogue-entree-tete p { margin: 4px 0 0; }
+.catalogue-questions { display: grid; gap: 6px; margin: 10px 0 0; padding-left: 1.4rem; }
+.catalogue-photo { width: 64px; height: 40px; object-fit: cover; border-radius: 6px; vertical-align: middle; margin-right: 8px; }
+.catalogue-juste { color: var(--accent-text); font-weight: 600; }
+@media (max-width: 600px) {
+  .programme-bascule { padding: 0 11px; }
+  .programme-bascule-texte { display: none; }
+  .programme-gestes { width: 100%; justify-content: flex-end; }
 }
 
-.quiz-row-main { min-width: 200px; flex: 1; }
+/* Les menus d'une ligne et de « Nouveau quiz » : sous leur bouton, à droite. */
+.menu-ancre { position: relative; }
+.menu-deroulant {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.menu-deroulant.vers-la-droite { right: auto; left: 0; }
+.menu-deroulant.vers-le-haut { top: auto; bottom: calc(100% + 6px); }
+.menu-deroulant button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-deroulant button:hover:not(:disabled) { background: var(--accent-soft); }
+.menu-deroulant button:disabled { color: var(--muted); cursor: default; }
+.menu-deroulant .menu-danger { color: var(--alert); }
+.menu-nouveau { min-width: 300px; }
+.bouton-plus { width: 40px; padding: 0; }
+@media (max-width: 600px) {
+  .bibliotheque-nav { gap: 2px 14px; }
+  .bibliotheque-tete h1 { font-size: 1.8rem; }
+  .menu-nouveau { min-width: 260px; }
+  .quiz-ligne-ouvrir { padding: 10px 12px; }
+  /* Une ligne qui défile sous le doigt, jusqu'au bord de l'écran : la
+     pastille coupée au bord dit qu'il y en a d'autres. */
+  .filtres {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -16px;
+    padding: 0 16px 2px;
+  }
+  .filtres::-webkit-scrollbar { display: none; }
+  .filtres .pill-btn { flex: none; }
+}
 
 .question-card { display: flex; flex-direction: column; gap: 12px; }
 
@@ -2058,6 +2324,8 @@ h3 > .icon {
 .kind-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .answers-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+/* La consigne de l'ordre, sur toute la largeur : dans une case, elle décalait les éléments. */
+.answers-edit .answers-consigne { grid-column: 1 / -1; margin: 0; }
 
 /* Sur un téléphone, deux colonnes laissaient 73 px à chaque réponse. */
 @media (max-width: 600px) {
@@ -2153,6 +2421,16 @@ h3 > .icon {
 }
 
 .undo-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+/* Une photo glissée au-dessus de la carte : l'endroit où la lâcher s'éclaire. */
+.question-card.is-survolee { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+/* « ⚠ 2 à compléter ↓ » : ce qui manque se passe en revue d'un clic chacun. */
+.editor-header .a-completer { color: var(--accent-text); }
+.editor-header .a-completer:hover { color: var(--accent-text-hover); }
+.duree-quiz { white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Ce que la liste collée laisse, nommé par son début. */
+.import-laisses { margin: 0; padding-left: 1.2em; display: grid; gap: 2px; }
+.demande-ia { display: grid; gap: 8px; padding: 10px 12px; border: 1px dashed var(--edge); border-radius: var(--radius-sm); }
+.demande-ia .input { flex: 1; min-width: 0; }
 .regler-tout { display: flex; flex-direction: column; gap: 10px; }
 .regler-tout h3 { display: flex; align-items: center; gap: 8px; }
 
@@ -3049,6 +3327,7 @@ h3 > .icon {
 .bilan-q-img { max-height: 160px; width: auto; max-width: 100%; border-radius: 10px; }
 
 .bilan-answers { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.bilan-ordre { margin: 0; padding-left: 1.6rem; display: grid; gap: 4px; }
 
 .bilan-ans {
   display: flex;
@@ -4816,6 +5095,20 @@ h3 > .icon {
   .premiers-pas-choix .btn { width: 100%; justify-content: flex-start; white-space: normal; text-align: left; }
 }
 .premiers-pas-etapes { margin: 6px 0 0; padding-left: 1.3em; display: grid; gap: 4px; }
+
+/* Les modèles : un par ligne, ce qu'il est à gauche, le geste à droite ;
+   « Pour qui ? » se déplie dessous, sur place. */
+.modeles { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.modele { border: 1px solid var(--edge); border-radius: var(--radius-sm); padding: 10px 12px; display: grid; gap: 10px; }
+.modele-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.modele-tete h3 { margin: 0; font-size: 1.1rem; }
+.modele-tete p { margin: 2px 0 0; }
+.modele-tete .btn { flex-shrink: 0; }
+.pour-qui { display: grid; gap: 10px; }
+.pour-qui-champ { display: grid; gap: 4px; flex: 1 1 160px; }
+@media (max-width: 600px) {
+  .modele-tete { flex-direction: column; align-items: stretch; }
+}
 .center-row { justify-content: center; }
 
 /* ── Ce que la salle doit savoir, lisible du canapé ─────────────────────

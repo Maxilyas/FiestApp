@@ -2,16 +2,27 @@ import { randomUUID } from 'node:crypto'
 import { ajouterColonne, clientDistant, type Client } from './distante'
 import {
   cleanTitle,
+  MAX_SON_OCTETS,
   normalizeQuestions,
-  playableQuestions,
+  PIECES_DE_QUESTION,
+  rechercherDans,
+  resumerQuiz,
+  SON_MIMES,
+  type PieceDeQuestion,
   type QuizDef,
   type QuizQuestionDef,
   type QuizSummary,
 } from '../../../shared/library'
+import { normaliserReglages } from '../../../shared/hasard'
 
 /** Image trop lourde = base qui gonfle pour rien. Le navigateur compresse avant d'envoyer. */
 const MAX_IMAGE_DATAURL = 2_000_000
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp']
+/**
+ * Un extrait du blind test, lui, arrive tel quel — le navigateur ne sait pas
+ * le recompresser : sa borne est en octets, en-tête du base64 compris.
+ */
+const MAX_SON_DATAURL = Math.ceil(MAX_SON_OCTETS / 3) * 4 + 40
 /** Délai avant qu'une photo sans quiz soit considérée comme abandonnée. */
 const IMAGE_GRACE_MS = 60 * 60 * 1000
 /**
@@ -85,6 +96,11 @@ export class QuizStore {
     await ajouterColonne(this.client, 'quiz_images', 'bytes', 'BLOB')
     await ajouterColonne(this.client, 'quizzes', 'space_id', 'TEXT')
     await ajouterColonne(this.client, 'quiz_images', 'space_id', 'TEXT')
+    // Les réglages du quiz (l'ordre des réponses, des questions) : absents des
+    // quiz d'avant, qui se jouent tels qu'écrits.
+    await ajouterColonne(this.client, 'quizzes', 'reglages', 'TEXT')
+    // Un quiz archivé sort de la liste et du choix de la soirée, sans disparaître.
+    await ajouterColonne(this.client, 'quizzes', 'archived_at', 'INTEGER')
     await this.client.batch(
       [
         'CREATE INDEX IF NOT EXISTS idx_quizzes_space ON quizzes(space_id)',
@@ -98,21 +114,43 @@ export class QuizStore {
 
   // ── Quiz ────────────────────────────────────────────────────────────────
 
-  async list(spaceId: string): Promise<QuizSummary[]> {
+  /**
+   * La liste de « Mes quiz », chaque quiz résumé (`resumerQuiz`). Avec une
+   * recherche, seulement ceux qui la contiennent — titre, intitulés,
+   * réponses —, et l'intitulé qui les a fait trouver.
+   */
+  async list(spaceId: string, recherche?: string): Promise<QuizSummary[]> {
     const res = await this.client.execute({
-      sql: 'SELECT id, title, questions, updated_at FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC',
+      sql: 'SELECT id, title, questions, updated_at, archived_at, reglages FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC',
       args: [spaceId],
     })
-    return res.rows.map(row => {
+    const resumes: QuizSummary[] = []
+    for (const row of res.rows) {
       const quiz = rowToQuiz(row)
-      return {
-        id: quiz.id,
-        title: quiz.title,
-        questionCount: quiz.questions.length,
-        readyCount: playableQuestions(quiz).length,
-        updatedAt: quiz.updatedAt,
+      if (!recherche?.trim()) {
+        resumes.push(resumerQuiz(quiz))
+        continue
       }
+      const trouve = rechercherDans(quiz, recherche)
+      if (trouve === null) continue
+      resumes.push({ ...resumerQuiz(quiz), ...(trouve !== true && { trouve }) })
+    }
+    return resumes
+  }
+
+  /** Les identifiants des quiz d'un espace, sans rien lire d'autre : ce qu'un programme a le droit de nommer. */
+  async ids(spaceId: string): Promise<Set<string>> {
+    const res = await this.client.execute({ sql: 'SELECT id FROM quizzes WHERE space_id = ?', args: [spaceId] })
+    return new Set(res.rows.map(r => String(r.id)))
+  }
+
+  /** Range un quiz à l'écart, ou l'en ressort. Sa date de modification ne bouge pas : il garde sa place. */
+  async archiver(spaceId: string, id: string, archive: boolean): Promise<boolean> {
+    const res = await this.client.execute({
+      sql: 'UPDATE quizzes SET archived_at = ? WHERE id = ? AND space_id = ?',
+      args: [archive ? Date.now() : null, id, spaceId],
     })
+    return res.rowsAffected > 0
   }
 
   /** Tous les quiz d'un espace, questions comprises — alimente le cache du module de jeu. */
@@ -144,17 +182,24 @@ export class QuizStore {
     return res.rows[0] ? rowToQuiz(res.rows[0]) : null
   }
 
-  async create(spaceId: string, title: unknown, questions: unknown = [], id: string = randomUUID()): Promise<QuizDef> {
+  async create(
+    spaceId: string,
+    title: unknown,
+    questions: unknown = [],
+    id: string = randomUUID(),
+    reglages?: unknown,
+  ): Promise<QuizDef> {
     const now = Date.now()
     const quiz: QuizDef = {
       id,
       title: cleanTitle(title),
       questions: normalizeQuestions(questions),
       updatedAt: now,
+      reglages: normaliserReglages(reglages),
     }
     await this.client.execute({
-      sql: 'INSERT INTO quizzes (id, title, questions, created_at, updated_at, space_id) VALUES (?, ?, ?, ?, ?, ?)',
-      args: [quiz.id, quiz.title, JSON.stringify(quiz.questions), now, now, spaceId],
+      sql: 'INSERT INTO quizzes (id, title, questions, created_at, updated_at, space_id, reglages) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      args: [quiz.id, quiz.title, JSON.stringify(quiz.questions), now, now, spaceId, JSON.stringify(quiz.reglages)],
     })
     return quiz
   }
@@ -171,6 +216,7 @@ export class QuizStore {
     title: unknown,
     questions: unknown,
     attendu?: number,
+    reglages?: unknown,
   ): Promise<QuizDef | null | 'conflit'> {
     // Strictement après la version remplacée : deux enregistrements dans la
     // même milliseconde ne doivent pas porter la même version.
@@ -181,18 +227,20 @@ export class QuizStore {
       questions: normalizeQuestions(questions),
       updatedAt: now,
     }
+    // Sans réglages (une page d'avant), ceux du quiz restent : `COALESCE`.
+    const regles = reglages === undefined ? null : JSON.stringify(normaliserReglages(reglages))
     const res = await this.client.execute(
       attendu === undefined
         ? {
-            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ? WHERE id = ? AND space_id = ?',
-            args: [quiz.title, JSON.stringify(quiz.questions), now, id, spaceId],
+            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ?, reglages = COALESCE(?, reglages) WHERE id = ? AND space_id = ?',
+            args: [quiz.title, JSON.stringify(quiz.questions), now, regles, id, spaceId],
           }
         : {
-            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ? WHERE id = ? AND space_id = ? AND updated_at = ?',
-            args: [quiz.title, JSON.stringify(quiz.questions), now, id, spaceId, attendu],
+            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ?, reglages = COALESCE(?, reglages) WHERE id = ? AND space_id = ? AND updated_at = ?',
+            args: [quiz.title, JSON.stringify(quiz.questions), now, regles, id, spaceId, attendu],
           },
     )
-    if (res.rowsAffected > 0) return quiz
+    if (res.rowsAffected > 0) return (await this.get(spaceId, id)) ?? quiz
     if (attendu === undefined) return null
     return (await this.get(spaceId, id)) ? 'conflit' : null
   }
@@ -208,7 +256,7 @@ export class QuizStore {
   async duplicate(spaceId: string, id: string): Promise<QuizDef | null> {
     const source = await this.get(spaceId, id)
     if (!source) return null
-    return this.create(spaceId, `${source.title} (copie)`, source.questions)
+    return this.create(spaceId, `${source.title} (copie)`, source.questions, undefined, source.reglages)
   }
 
   async count(spaceId: string): Promise<number> {
@@ -218,13 +266,20 @@ export class QuizStore {
 
   // ── Images ──────────────────────────────────────────────────────────────
 
-  /** Enregistre une image envoyée en dataURL (déjà compressée côté navigateur). */
+  /**
+   * Enregistre une image envoyée en dataURL (déjà compressée côté navigateur)
+   * — ou l'extrait d'un blind test : la même table, la même adresse, le même
+   * ménage, qui le lit dans la question comme une photo.
+   */
   async saveImage(spaceId: string, dataUrl: unknown): Promise<string> {
-    if (typeof dataUrl !== 'string' || dataUrl.length > MAX_IMAGE_DATAURL) {
-      throw new Error('Photo trop lourde — choisis-en une plus petite')
+    const son = typeof dataUrl === 'string' && dataUrl.startsWith('data:audio/')
+    if (typeof dataUrl !== 'string' || dataUrl.length > (son ? MAX_SON_DATAURL : MAX_IMAGE_DATAURL)) {
+      throw new Error(son ? 'Extrait trop lourd — coupe-le à une trentaine de secondes' : 'Photo trop lourde — choisis-en une plus petite')
     }
-    const match = /^data:([a-z/+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl)
-    if (!match || !IMAGE_MIMES.includes(match[1])) throw new Error('Cette photo ne se lit pas — choisis-la en JPEG, PNG ou WebP')
+    const match = /^data:([a-z0-9/+.-]+);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl)
+    if (!match || !(son ? SON_MIMES : IMAGE_MIMES).includes(match[1])) {
+      throw new Error(son ? 'Cet extrait ne se lit pas — choisis-le en MP3, M4A, OGG ou WAV' : 'Cette photo ne se lit pas — choisis-la en JPEG, PNG ou WebP')
+    }
     const id = randomUUID()
     // `data` reste vide : c'est la colonne historique, gardée pour relire les
     // photos d'avant.
@@ -233,6 +288,43 @@ export class QuizStore {
       args: [id, match[1], Buffer.from(match[2], 'base64'), Date.now(), spaceId],
     })
     return id
+  }
+
+  /**
+   * Recopie dans un espace les photos que citent des questions reçues — un
+   * code de partage, le catalogue (`core/partages.ts`) : chacune y prend une
+   * adresse à elle, comme à l'import d'un fichier, et le quiz d'origine peut
+   * être retouché ou supprimé sans rien emporter chez le destinataire. Une
+   * photo qui n'existe plus laisse sa question sans photo ; une photo livrée
+   * avec l'application (`/media/quiz/…`) se garde telle quelle.
+   */
+  async copierPhotos<Q extends { [k in PieceDeQuestion]?: string | null }>(spaceId: string, questions: readonly Q[]): Promise<Q[]> {
+    const idDe = (adresse: string | null | undefined) => /^\/media\/image\/([0-9a-f-]{36})$/.exec(adresse ?? '')?.[1] ?? null
+    const copies = new Map<string, string | null>()
+    // Toutes ses pièces : la photo, celle de la révélation, l'extrait.
+    for (const id of questions.flatMap(q => PIECES_DE_QUESTION.map(champ => idDe(q[champ])))) {
+      if (!id || copies.has(id)) continue
+      const res = await this.client.execute({ sql: 'SELECT mime, data, bytes FROM quiz_images WHERE id = ?', args: [id] })
+      const photo = res.rows[0]
+      if (!photo) {
+        copies.set(id, null)
+        continue
+      }
+      const copie = randomUUID()
+      await this.client.execute({
+        sql: 'INSERT INTO quiz_images (id, mime, data, bytes, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [copie, photo.mime, photo.data ?? '', photo.bytes ?? null, Date.now(), spaceId],
+      })
+      copies.set(id, `/media/image/${copie}`)
+    }
+    return questions.map(q => {
+      const copie = { ...q }
+      for (const champ of PIECES_DE_QUESTION) {
+        const id = idDe(q[champ])
+        if (id) copie[champ] = (copies.get(id) ?? null) as Q[typeof champ]
+      }
+      return copie
+    })
   }
 
   /**
@@ -362,10 +454,19 @@ function rowToQuiz(row: Record<string, unknown>): QuizDef {
   } catch {
     questions = []
   }
+  let reglages: unknown = null
+  try {
+    reglages = row.reglages ? JSON.parse(String(row.reglages)) : null
+  } catch {
+    // Illisibles, les réglages valent « tel qu'écrit ».
+  }
+  const archivedAt = row.archived_at === null || row.archived_at === undefined ? null : Number(row.archived_at)
   return {
     id: String(row.id),
     title: String(row.title),
     questions,
     updatedAt: Number(row.updated_at),
+    reglages: normaliserReglages(reglages),
+    archivedAt,
   }
 }

@@ -4,6 +4,7 @@
 import { categorieDe } from './categories'
 import { tronquer } from './avatars'
 import { lireNombreEnTete } from './nombres'
+import type { ReglagesDuQuiz } from './hasard'
 
 export const MIN_ANSWERS = 2
 export const MAX_ANSWERS = 4
@@ -24,11 +25,20 @@ export const SANS_BONNE_REPONSE = -1
  * (`shared/liste.ts`) les annonce — il ne peut pas en promettre d'autres.
  */
 export const MAX_TEXT = 300
+/** Le titre d'un quiz : il s'affiche dans le bandeau de l'écran commun. */
+export const MAX_TITRE = 80
 export const MAX_ANSWER_TEXT = 120
 export const MAX_UNIT = 12
 export const MAX_QUESTIONS = 100
 /** Le nom ou la description d'une photo annoncée, le temps qu'elle arrive. */
 export const MAX_PHOTO_ATTENDUE = 200
+/** Une anecdote ou une note : deux phrases, pas un exposé — elles se lisent de loin, ou d'un coup d'œil. */
+export const MAX_ANECDOTE = 280
+export const MAX_NOTE = 280
+/** Un intertitre se lit comme un titre : « Manche 2 : le cinéma ». */
+export const MAX_INTERTITRE = 80
+/** Le temps qu'un intertitre compte dans la durée estimée : on l'annonce, on boit un verre. */
+export const INTERTITRE_S = 10
 
 /** Temps d'observation d'une photo avant qu'elle disparaisse. */
 export const MIN_OBSERVE = 2
@@ -93,13 +103,102 @@ export interface QuizQuestionDef {
    * sans son monument. La photo jointe l'efface. Absente des quiz d'avant.
    */
   photoAttendue?: string | null
+  /**
+   * QCM : les réponses gardent l'ordre écrit, même quand le quiz les mélange
+   * à chaque partie — « Aucune de ces réponses » reste la dernière. Absent
+   * (le cas courant) : elles suivent le réglage du quiz.
+   */
+  ordreFixe?: boolean
+  // ── Ce qui entoure la question (rapport du 25 septembre 2026, lot 7) ──
+  // Chacun n'est écrit que s'il est posé : les quiz d'avant se relisent à
+  // l'identique.
+  /**
+   * « Le saviez-vous ? » : une ligne racontée à la révélation, sur l'écran
+   * commun, au téléphone et dans le bilan. Jamais envoyée avant la
+   * révélation (invariant 1) : elle trahirait la réponse.
+   */
+  anecdote?: string | null
+  /**
+   * Pour l'animateur seul, à la télécommande : « raconte le voyage à Rome ».
+   * Ni la télé, ni les téléphones.
+   */
+  note?: string | null
+  /** Une photo pour la révélation, distincte de celle de la question : le bébé, puis l'adulte. */
+  imageRevelation?: string | null
+  /**
+   * Une diapo avant la question, sans réponse ni points : « Manche 2 : le
+   * cinéma », « Pause buvette », les règles. L'animateur la passe d'un clic.
+   */
+  intertitre?: string | null
+  /**
+   * Gardée dans le quiz, pas jouée : une question de réserve, ou trop dure
+   * pour ce soir. Pour ne pas la jouer, il fallait la supprimer ou la rendre
+   * incomplète.
+   */
+  deCote?: boolean
+  /**
+   * QCM : sa variante (`Variante`). Absente : un QCM ordinaire, une bonne
+   * réponse.
+   */
+  variante?: Variante
+  /** « Plusieurs » : les index des bonnes réponses dans `answers` — toutes à trouver. */
+  bonnes?: number[]
+  /**
+   * Estimation : la bonne réponse se tape à la révélation — le poids du
+   * gâteau, les bonbons du bocal, la durée du discours. La cible n'a pas à
+   * être écrite d'avance.
+   */
+  enDirect?: boolean
+  /**
+   * Blind test : l'extrait que l'écran commun joue pendant la question —
+   * lui seul : les téléphones ne le reçoivent jamais.
+   */
+  son?: string | null
 }
+
+/**
+ * Les variantes d'un QCM (rapport du 25 septembre 2026, lot 7). « plusieurs »
+ * : plusieurs bonnes réponses, toutes à trouver. « ordre » : les réponses,
+ * écrites dans le bon ordre, se montrent mélangées ; on les remet dans
+ * l'ordre. « sondage » : « Qui dans la salle ? » — les invités sont les
+ * réponses, et la révélation est la répartition des votes.
+ *
+ * Le barème, choix de produit (CLAUDE.md) : « plusieurs » et « ordre » sont
+ * tout ou rien, payés comme un QCM (`pointsDuChoix`) ; « sondage » ne
+ * rapporte rien. Aucune constante ne bouge, et l'historique n'en contient
+ * aucune : `VERSION_BAREME` ne change pas.
+ */
+export type Variante = 'plusieurs' | 'ordre' | 'sondage'
+export const VARIANTES: readonly Variante[] = ['plusieurs', 'ordre', 'sondage']
+/** Trois éléments au moins à remettre dans l'ordre : à deux, on a une chance sur deux sans rien savoir. */
+export const MIN_ORDRE = 3
+/** Un extrait sonore : quelques secondes, pas une chanson entière — la base gratuite s'en souviendra. */
+export const MAX_SON_OCTETS = 1_500_000
+/** Les extraits qu'une télé sait jouer, celle sous Windows 10 comprise : MP3, M4A, OGG, WAV, WebM. */
+export const SON_MIMES: readonly string[] = ['audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg', 'audio/wav', 'audio/x-wav', 'audio/webm']
+
+/**
+ * Les pièces d'une question qui vivent à part, sous une adresse
+ * `/media/image/…` : sa photo, celle de la révélation, l'extrait du blind
+ * test. Ce qui emporte une question — l'export, un code de partage, le
+ * catalogue — les emporte toutes : la photo de la révélation, oubliée,
+ * restait l'adresse de l'autre espace, et partait au premier ménage du sien.
+ */
+export const PIECES_DE_QUESTION = ['image', 'imageRevelation', 'son'] as const
+export type PieceDeQuestion = (typeof PIECES_DE_QUESTION)[number]
 
 export interface QuizDef {
   id: string
   title: string
   questions: QuizQuestionDef[]
   updatedAt: number
+  /**
+   * Rangé à l'écart : hors de « Mes quiz » et du choix de la soirée, sans
+   * disparaître. Null ou absent : dans la bibliothèque.
+   */
+  archivedAt?: number | null
+  /** Ce que le quiz demande au hasard : l'ordre de ses réponses, de ses questions (`shared/hasard.ts`). */
+  reglages?: ReglagesDuQuiz
 }
 
 /** Ligne de la liste des quiz (sans les questions). */
@@ -111,12 +210,113 @@ export interface QuizSummary {
   /** Nombre de questions réellement jouables. */
   readyCount: number
   updatedAt: number
+  /** Archivé : hors de la liste et du choix de la soirée (voir `QuizDef.archivedAt`). */
+  archivedAt?: number | null
+  /**
+   * Ce qui se dérive des questions, pour trier et filtrer sans rien saisir :
+   * une bibliothèque se range toute seule par ce qu'elle contient — les
+   * douze catégories fixes valent des étiquettes que personne n'a à poser.
+   */
+  photos?: number
+  estimations?: number
+  /** Les catégories présentes, de la plus fréquente à la moins. */
+  categories?: string[]
+  /** Le temps de jeu estimé, en secondes (`dureeEstimeeS`). */
+  dureeS?: number
+  /** L'intitulé qui a fait trouver ce quiz à une recherche, s'il ne l'a pas été par son titre. */
+  trouve?: string
+  /** Les questions mises de côté : ni prêtes, ni à compléter. */
+  deCote?: number
+  /**
+   * Ce que l'historique en sait : combien de parties, et le début de la
+   * dernière soirée où il a été joué. Absent : jamais joué depuis que
+   * l'historique s'en souvient.
+   */
+  joue?: { fois: number; dernier: number }
+}
+
+/** Ce que l'historique sait d'une question (`core/memoire.ts`) : sa dernière soirée, et ce qui s'y est joué. */
+export interface SouvenirDeQuestion {
+  /** Le nombre de parties où elle a été posée. */
+  fois: number
+  /** Le début de la dernière soirée où elle a été posée. */
+  dernier: number
+  /** Ce soir-là : à combien d'invités, et combien ont trouvé (null pour une estimation, jamais « juste »). */
+  posees: number
+  justes: number | null
+}
+
+/** La mémoire d'un quiz, telle que l'éditeur la lit (`GET /api/quizzes/:id/memoire`). */
+export interface MemoireDuQuiz {
+  joue: { fois: number; dernier: number } | null
+  /** Par identifiant de question : celles que l'historique a vues passer. */
+  questions: Record<string, SouvenirDeQuestion>
+}
+
+/** Le résumé d'un quiz, tel que « Mes quiz » le liste. */
+export function resumerQuiz(quiz: QuizDef): QuizSummary {
+  const parCategorie = new Map<string, number>()
+  for (const q of quiz.questions) if (q.category) parCategorie.set(q.category, (parCategorie.get(q.category) ?? 0) + 1)
+  return {
+    id: quiz.id,
+    title: quiz.title,
+    questionCount: quiz.questions.length,
+    readyCount: playableQuestions(quiz).length,
+    updatedAt: quiz.updatedAt,
+    archivedAt: quiz.archivedAt ?? null,
+    // Les photos jointes : une photo seulement annoncée rend la question « à compléter », pas illustrée.
+    photos: quiz.questions.filter(q => q.image).length,
+    estimations: quiz.questions.filter(q => q.kind === 'number').length,
+    ...(quiz.questions.some(q => q.deCote) && { deCote: quiz.questions.filter(q => q.deCote).length }),
+    categories: [...parCategorie.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr')).map(([c]) => c),
+    dureeS: dureeEstimeeS(quiz.questions, quiz.reglages?.tirage),
+  }
+}
+
+/** Sans accent ni casse, espaces réduits : ce que la recherche compare. */
+export function pourChercher(texte: string): string {
+  return texte
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[’']/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Ce qu'une recherche trouve dans un quiz : `true` pour son titre, l'intitulé
+ * de la question qui contient les mots cherchés — dans son texte ou ses
+ * réponses —, ou null. « Macarena » trouve le quiz des années 90 qui la
+ * cite, sans qu'on ait à se souvenir de son titre. Chaque mot doit y être,
+ * dans n'importe quel ordre.
+ */
+export function rechercherDans(quiz: Pick<QuizDef, 'title' | 'questions'>, recherche: string): true | string | null {
+  const mots = pourChercher(recherche).split(' ').filter(Boolean)
+  if (mots.length === 0) return true
+  const contient = (texte: string) => {
+    const t = pourChercher(texte)
+    return mots.every(m => t.includes(m))
+  }
+  if (contient(quiz.title)) return true
+  for (const q of quiz.questions) {
+    const textes = [q.text, ...(q.kind === 'number' ? [q.unit] : q.answers)].join(' ')
+    // Une question sans intitulé trouve son quiz sans rien pouvoir en citer.
+    if (contient(textes)) return q.text.trim() || true
+  }
+  return null
 }
 
 /** Une question prête à être jouée : réponses vides retirées, index recalés. */
 export type PlayableQuestion =
-  | {
+  | ({
       kind: 'choice'
+      /**
+       * L'identifiant de la question dans la bibliothèque : l'historique s'en
+       * souvient (`core/memoire.ts`), et le tirage évite ce qu'on a déjà posé.
+       * Absent des copies jouées avant qu'il existe.
+       */
+      id?: string
       text: string
       answers: string[]
       correct: number
@@ -124,9 +324,20 @@ export type PlayableQuestion =
       image: string | null
       observeSeconds: number | null
       category?: string | null
-    }
-  | {
+      /** Ses réponses ne se mélangent pas (voir `QuizQuestionDef.ordreFixe`). */
+      ordreFixe?: true
+      variante?: Variante
+      /** « Plusieurs » : les index des bonnes réponses, dans l'ordre montré. */
+      bonnes?: number[]
+      /**
+       * « Ordre » : le bon ordre, en index des réponses telles qu'elles sont
+       * montrées — la copie jouée les montre toujours mélangées.
+       */
+      ordre?: number[]
+    } & Entourage)
+  | ({
       kind: 'number'
+      id?: string
       text: string
       target: number
       unit: string
@@ -134,7 +345,34 @@ export type PlayableQuestion =
       image: string | null
       observeSeconds: number | null
       category?: string | null
-    }
+      /** La cible se tape à la révélation : jusque-là, `target` ne vaut rien. */
+      enDirect?: true
+    } & Entourage)
+
+/**
+ * Ce qui entoure une question jouée (voir `QuizQuestionDef`) : l'anecdote et
+ * la photo de la révélation, la note de l'animateur, l'intertitre. Le module
+ * du quiz décide qui les reçoit, et quand.
+ */
+export interface Entourage {
+  anecdote?: string
+  note?: string
+  imageRevelation?: string
+  intertitre?: string
+  /** Blind test : l'extrait, pour l'écran commun seul. */
+  son?: string
+}
+
+/** L'entourage d'une question, tel que la copie jouée le garde : seulement ce qui est posé. */
+function entourageDe(q: QuizQuestionDef): Entourage {
+  return {
+    ...(q.anecdote && { anecdote: q.anecdote }),
+    ...(q.note && { note: q.note }),
+    ...(q.imageRevelation && { imageRevelation: q.imageRevelation }),
+    ...(q.intertitre && { intertitre: q.intertitre }),
+    ...(q.son && { son: q.son }),
+  }
+}
 
 /**
  * Identifiant de question. `crypto.randomUUID` n'existe que dans un contexte
@@ -251,6 +489,91 @@ export function photoManquante(q: Pick<QuizQuestionDef, 'image' | 'photoAttendue
   return note && !q.image ? note : null
 }
 
+// ── Les trous d'un modèle à personnaliser ────────────────────────────────
+//
+// Le modèle « Qui connaît le mieux [Prénom] ? » s'ouvrait « 8/8 prêtes » avec
+// ses vingt-quatre réponses « Ville A ✏️ » : il se jouait tel quel, et une
+// seule réponse oubliée faisait lire « Métier C ✏️ » à toute la salle comme
+// bonne réponse. Un crayon ou un prénom à écrire rend la question « à
+// personnaliser », comme une photo attendue.
+
+/** Le crayon qu'un modèle pose sur ce qu'on doit remplacer (avec ou sans sélecteur de variante). */
+const CRAYON = /✏️?/u
+/** Un prénom à écrire : « [Prénom] », « [Prénom 2] ». Les autres crochets — « Je [...] la vie en rose » — ne sont pas des trous. */
+export const PRENOM_A_ECRIRE = /\[\s*pr[ée]nom(?:\s*(\d))?\s*\]/giu
+
+/** Ce qui reste à personnaliser dans ces textes, dit comme on le corrige, ou null. */
+export function trouDans(...textes: (string | null | undefined)[]): string | null {
+  const presents = textes.filter((t): t is string => typeof t === 'string' && t.length > 0)
+  const prenom = presents.map(t => t.match(PRENOM_A_ECRIRE)?.[0]).find(Boolean)
+  if (prenom) return `Écris le prénom à la place de « ${prenom} »`
+  if (presents.some(t => CRAYON.test(t))) return 'Remplace ce qui est marqué ✏️'
+  return null
+}
+
+/** Le trou d'une question : son intitulé, ses réponses, son unité. */
+function trouDeLaQuestion(q: QuizQuestionDef): string | null {
+  return trouDans(q.text, ...(q.kind === 'number' ? [q.unit] : (q.answers ?? [])))
+}
+
+// ── La durée d'un quiz ───────────────────────────────────────────────────
+
+/**
+ * Ce qu'une révélation prend, en moyenne : lire la bonne réponse, commenter,
+ * passer à la suite — le palier « 10 s » de l'enchaînement, un peu moins
+ * quand on clique.
+ */
+const REVELATION_S = 8
+/** Le compte à rebours du départ, puis le podium. */
+const DEPART_ET_PODIUM_S = 3 + 15
+
+/**
+ * Le temps qu'un quiz prend à jouer, en secondes : ses questions jouables,
+ * leur observation, et une révélation chacune. Combien de manches tiennent
+ * entre le dessert et minuit, c'est ce que l'animateur se demande en
+ * préparant — et rien ne le lui disait.
+ */
+export function dureeEstimeeS(questions: readonly QuizQuestionDef[], tirage?: number | null): number {
+  // Un tirage ne joue que N questions : on compte les N premières, à peu près ce qu'il en tirera.
+  return dureeDesJouables(questions.map(toPlayable).filter((q): q is PlayableQuestion => q !== null).slice(0, tirage || undefined))
+}
+
+/** La même durée, pour des questions déjà jouables — celles que la console propose. */
+export function dureeDesJouables(jouables: readonly PlayableQuestion[]): number {
+  if (jouables.length === 0) return 0
+  return jouables.reduce(
+    (s, q) => s + q.duration + (q.image && q.observeSeconds ? q.observeSeconds : 0) + (q.intertitre ? INTERTITRE_S : 0) + REVELATION_S,
+    DEPART_ET_PODIUM_S,
+  )
+}
+
+/** « ≈ 9 min », « ≈ 1 h 05 », pour une durée en secondes. */
+export function ecrireDuree(secondes: number): string {
+  const minutes = Math.max(1, Math.round(secondes / 60))
+  if (minutes < 60) return `≈ ${minutes} min`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return `≈ ${h} h${m ? ` ${String(m).padStart(2, '0')}` : ''}`
+}
+
+// ── Le quiz qu'on ouvre et qu'on quitte sans rien y écrire ───────────────
+
+/** Le titre d'un quiz qu'on vient de créer, avant qu'on le nomme. */
+export const TITRE_PAR_DEFAUT = 'Nouveau quiz'
+
+/**
+ * Vrai pour un quiz resté tel qu'on l'a créé : aucune question, et le titre
+ * par défaut. « Nouveau quiz » puis retour, ou « Coller une liste » puis
+ * « Annuler », laissaient chaque fois un « Nouveau quiz · 0 question prête »
+ * en tête de la bibliothèque. L'éditeur efface celui qu'il vient de créer,
+ * s'il le quitte ainsi — jamais un quiz plus ancien, qu'on a pu garder vide
+ * exprès.
+ */
+export function quizAbandonne(quiz: Pick<QuizDef, 'title' | 'questions'>): boolean {
+  const titre = quiz.title.trim()
+  return quiz.questions.length === 0 && (titre === '' || titre === TITRE_PAR_DEFAUT)
+}
+
 /** Les deux réponses d'un vrai ou faux : un QCM à deux cases, rien de plus pour la partie. */
 export const VRAI_FAUX = ['Vrai', 'Faux'] as const
 
@@ -299,9 +622,13 @@ function horsBornes(q: QuizQuestionDef): string | null {
  * la bonne réponse par sa position d'origine, jamais par son numéro final.
  */
 export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
+  // Mise de côté : elle attend dans le quiz, sans se jouer.
+  if (q.deCote) return null
   const text = (q.text ?? '').trim()
   if (!text) return null
   if (photoManquante(q)) return null
+  // Un modèle pas encore personnalisé : « Ville A ✏️ » ne part pas au mur.
+  if (trouDeLaQuestion(q)) return null
   // Hors bornes, la question attend qu'on la corrige : elle le dit sur sa
   // carte (`questionProblem`), la partie ne la ramène pas en silence.
   if (horsBornes(q)) return null
@@ -311,11 +638,16 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
   const category = categorieDe(q.category)
 
   if (q.kind === 'number') {
-    if (typeof q.target !== 'number' || !Number.isFinite(q.target)) return null
+    // En direct, la cible se tape à la révélation : elle n'a pas à exister.
+    const enDirect = q.enDirect === true
+    if (!enDirect && (typeof q.target !== 'number' || !Number.isFinite(q.target))) return null
     return {
       kind: 'number',
+      ...(q.id && { id: q.id }),
+      ...entourageDe(q),
+      ...(enDirect && { enDirect: true as const }),
       text,
-      target: q.target,
+      target: enDirect ? 0 : q.target!,
       // Coupée par caractère, comme à l'import : « parts de 🍕🍕🍕🍕 » coupé
       // en unités UTF-16 gardait une moitié de pizza, affichée « � » sur le
       // mur à côté de la bonne réponse.
@@ -327,28 +659,59 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
     }
   }
 
+  const commun = { kind: 'choice' as const, ...(q.id && { id: q.id }), ...entourageDe(q), text, duration, image, observeSeconds, category }
+  // « Qui dans la salle ? » : les réponses sont les invités, posées au
+  // moment de la question — rien à écrire d'avance, rien de juste.
+  if (q.variante === 'sondage') return { ...commun, variante: 'sondage', answers: [], correct: SANS_BONNE_REPONSE }
+
   const kept = (q.answers ?? [])
     .map((a, i) => ({ text: (a ?? '').trim(), index: i }))
     .filter(a => a.text.length > 0)
     .slice(0, MAX_ANSWERS)
   if (kept.length < MIN_ANSWERS) return null
+  if (q.variante === 'ordre') {
+    if (kept.length < MIN_ORDRE) return null
+    // Écrites dans le bon ordre : la copie jouée les mélange (`preparerPartie`).
+    const ordre = kept.map((_, i) => i)
+    return { ...commun, variante: 'ordre', answers: kept.map(a => a.text), correct: 0, ordre }
+  }
+  if (q.variante === 'plusieurs') {
+    const bonnes = kept.map((a, i) => (q.bonnes?.includes(a.index) ? i : -1)).filter(i => i >= 0)
+    if (bonnes.length === 0) return null
+    return { ...commun, variante: 'plusieurs', answers: kept.map(a => a.text), correct: bonnes[0], bonnes }
+  }
   const correct = kept.findIndex(a => a.index === q.correct)
   if (correct < 0) return null // la bonne réponse pointe une case vide
-  return { kind: 'choice', text, answers: kept.map(a => a.text), correct, duration, image, observeSeconds, category }
+  return {
+    ...commun,
+    answers: kept.map(a => a.text),
+    correct,
+    ...(q.ordreFixe === true && { ordreFixe: true as const }),
+  }
 }
 
 /** Ce qui manque à une question pour être jouable — message affiché dans l'éditeur. */
 export function questionProblem(q: QuizQuestionDef): string | null {
   if (!(q.text ?? '').trim()) return 'Il manque l’intitulé de la question'
+  const trou = trouDeLaQuestion(q)
+  if (trou) return trou
   if (q.kind === 'number') {
-    if (typeof q.target !== 'number' || !Number.isFinite(q.target)) {
+    if (!q.enDirect && (typeof q.target !== 'number' || !Number.isFinite(q.target))) {
       return 'Il manque la bonne réponse (un nombre)'
     }
-  } else {
+  } else if (q.variante !== 'sondage') {
     const filled = (q.answers ?? []).filter(a => (a ?? '').trim().length > 0)
-    if (filled.length < MIN_ANSWERS) return `Il faut au moins ${MIN_ANSWERS} réponses`
-    if (q.correct === SANS_BONNE_REPONSE) return 'Choisis la bonne réponse'
-    if (!((q.answers ?? [])[q.correct] ?? '').trim()) return 'La bonne réponse désignée est vide'
+    if (q.variante === 'ordre') {
+      if (filled.length < MIN_ORDRE) return `Il faut au moins ${MIN_ORDRE} éléments à remettre dans l’ordre`
+    } else {
+      if (filled.length < MIN_ANSWERS) return `Il faut au moins ${MIN_ANSWERS} réponses`
+      if (q.variante === 'plusieurs') {
+        if (!(q.bonnes ?? []).some(i => ((q.answers ?? [])[i] ?? '').trim())) return 'Coche les bonnes réponses'
+      } else {
+        if (q.correct === SANS_BONNE_REPONSE) return 'Choisis la bonne réponse'
+        if (!((q.answers ?? [])[q.correct] ?? '').trim()) return 'La bonne réponse désignée est vide'
+      }
+    }
   }
   const photo = photoManquante(q)
   if (photo) return `Il manque la photo « ${photo} »`
@@ -369,7 +732,7 @@ export function playableQuestions(quiz: QuizDef): PlayableQuestion[] {
 const QUESTION_ID = /^[\w-]{1,48}$/
 
 export function cleanTitle(title: unknown): string {
-  const clean = tronquer(String(title ?? '').trim(), 80)
+  const clean = tronquer(String(title ?? '').trim(), MAX_TITRE)
   return clean || 'Quiz sans titre'
 }
 
@@ -385,7 +748,7 @@ export function titreLibre(titre: string, pris: Iterable<string>): string {
   if (!occupes.has(cle(propre))) return propre
   for (let n = 2; ; n++) {
     const suffixe = ` (${n})`
-    const candidat = `${tronquer(propre, 80 - suffixe.length).trim()}${suffixe}`
+    const candidat = `${tronquer(propre, MAX_TITRE - suffixe.length).trim()}${suffixe}`
     if (!occupes.has(cle(candidat))) return candidat
   }
 }
@@ -468,8 +831,33 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
       // La photo annoncée par une liste collée, le temps qu'elle arrive : la
       // question ne se joue pas sans elle. Jointe, elle n'a plus rien à dire.
       photoAttendue: photoAttendue && !image ? photoAttendue : null,
+      // Seulement quand il est posé : absent, il ne pèse rien, et les quiz
+      // d'avant se relisent à l'identique.
+      ...(q?.ordreFixe === true && { ordreFixe: true }),
+      ...texteLibre('anecdote', q?.anecdote, MAX_ANECDOTE),
+      ...texteLibre('note', q?.note, MAX_NOTE),
+      ...texteLibre('intertitre', q?.intertitre, MAX_INTERTITRE),
+      ...(typeof q?.imageRevelation === 'string' && q.imageRevelation.startsWith('/media/') && { imageRevelation: q.imageRevelation }),
+      ...(q?.deCote === true && { deCote: true }),
+      ...(q?.kind !== 'number' && VARIANTES.includes(q?.variante) && { variante: q.variante as Variante }),
+      ...(q?.kind !== 'number' && q?.variante === 'plusieurs' && { bonnes: lireBonnes(q?.bonnes) }),
+      ...(q?.kind === 'number' && q?.enDirect === true && { enDirect: true }),
+      // Un extrait se joue sous un QCM comme sous une estimation : « En quelle année est sorti ce titre ? ».
+      ...(typeof q?.son === 'string' && q.son.startsWith('/media/') && { son: q.son }),
     }
   })
+}
+
+/** Les bonnes réponses d'une question à plusieurs : des cases qui existent, chacune une fois, dans l'ordre. */
+function lireBonnes(brut: unknown): number[] {
+  if (!Array.isArray(brut)) return []
+  return [...new Set(brut.filter(i => Number.isInteger(i) && i >= 0 && i < MAX_ANSWERS) as number[])].sort((a, b) => a - b)
+}
+
+/** Un texte libre de la question, sans espaces en trop, coupé à sa longueur — ou rien. */
+function texteLibre<K extends string>(cle: K, brut: unknown, max: number): { [k in K]?: string } {
+  const texte = typeof brut === 'string' ? tronquer(brut.trim().replace(/[ \t]+/g, ' '), max).trim() : ''
+  return texte ? ({ [cle]: texte } as { [k in K]: string }) : {}
 }
 
 /** Résultat d'un import en masse : ce qui est entré, et ce qui mérite un œil. */
@@ -479,6 +867,15 @@ export interface ImportResult {
   unmarked: number
   /** Blocs ignorés faute de contenu exploitable. */
   ignored: number
+  /**
+   * Le début de chacun de ces blocs : « 1 bloc ignoré » ne disait pas
+   * lequel, et sur trente blocs on cherchait.
+   */
+  ignores: string[]
+  /** Les réponses au-delà de la quatrième, que la question n'a pas gardées — effacées sans un mot jusqu'ici. */
+  enTrop: { question: string; reponse: string }[]
+  /** Le titre annoncé en tête de la liste (« Titre : Soirée années 90 »), s'il y en a un. */
+  titre: string | null
 }
 
 /** Une ligne vide sépare deux questions ; chaque ligne porte un élément. */
@@ -511,14 +908,26 @@ function lireEstimation(texte: string): { target: number; unit: string } | null 
  * reconnus à leur mot, sans accent ni majuscule. Jamais en tête du bloc : la
  * première ligne reste l'intitulé, fût-ce « Photo : qui est-ce ? ».
  */
-type Reglage = 'temps' | 'photo' | 'observation'
+type Reglage = 'temps' | 'photo' | 'observation' | 'ordre' | 'anecdote' | 'note' | 'intertitre' | 'type'
 const REGLAGES = new Map<string, Reglage>([
+  // La sorte de question : « Type : plusieurs réponses », « Type : dans
+  // l'ordre », « Type : qui dans la salle », « Type : en direct ».
+  ['type', 'type'],
+  ['sorte', 'type'],
   ['temps', 'temps'],
   ['duree', 'temps'],
   ['photo', 'photo'],
   ['image', 'photo'],
   ['observation', 'observation'],
   ['memoire', 'observation'],
+  ['ordre', 'ordre'],
+  // Ce qui entoure la question : l'IA sait écrire une anecdote, et
+  // l'animateur une note pour lui-même.
+  ['anecdote', 'anecdote'],
+  ['le saviez-vous', 'anecdote'],
+  ['le saviez vous', 'anecdote'],
+  ['note', 'note'],
+  ['intertitre', 'intertitre'],
 ])
 
 /**
@@ -555,6 +964,24 @@ function lireSecondes(texte: string): number | null {
 
 /** « Photo : aucune » : une ligne remplie pour la forme, sans photo derrière. */
 const SANS_PHOTO = /^(aucune?|non|sans|rien|pas de photo|[-–—/])$/
+
+/** Ce qu'une ligne « Type : » peut dire, écrit comme on l'écrit — ou null : un QCM ordinaire. */
+type Sorte = Variante | 'direct'
+function lireSorte(valeur: string): Sorte | null {
+  const v = sansAccents(valeur).toLowerCase().replace(/[’']/g, ' ').replace(/[?!.]+$/, '').replace(/\s+/g, ' ').trim()
+  if (/^(plusieurs( bonnes)?( reponses)?|choix multiples?|reponses? multiples?)$/.test(v)) return 'plusieurs'
+  if (/^((a remettre |remettre )?dans l ordre|ordre|a remettre en ordre|classement)$/.test(v)) return 'ordre'
+  if (/^(qui dans la salle|sondage|vote)$/.test(v)) return 'sondage'
+  if (/^((estimation )?en direct|direct)$/.test(v)) return 'direct'
+  return null
+}
+
+/** Ce que « Copier en liste » écrit derrière « Type : » — que `lireSorte` relit. */
+export const ECRITURE_DES_SORTES: Record<Variante, string> = {
+  plusieurs: 'plusieurs réponses',
+  ordre: 'dans l’ordre',
+  sondage: 'qui dans la salle',
+}
 
 const borner = (n: number, min: number, max: number) => Math.min(max, Math.max(min, Math.round(n)))
 
@@ -640,6 +1067,15 @@ function lireReponse(ligne: string): ReponseLue {
 /** Pour comparer une réponse désignée à un choix : sans casse, sans accent, sans ponctuation finale. */
 const comparable = (s: string) => sansAccents(s).toLowerCase().replace(/[.!]+$/, '').trim()
 
+/** « Titre : Soirée années 90 » : le titre du quiz, en tête de la liste. */
+const TITRE_DE_LISTE = /^titre\s*:\s*(.+)$/i
+
+function titreSeul(ligne: string): string | null {
+  const m = TITRE_DE_LISTE.exec(ligne)
+  const titre = m ? tronquer(m[1].trim(), MAX_TITRE).trim() : ''
+  return titre || null
+}
+
 /** Une ligne « Temps : 45 s » lisible, ou null : elle peut alors précéder un intitulé. */
 function tempsSeul(ligne: string): number | null {
   const lu = lireReglage(ligne)
@@ -683,6 +1119,14 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
   const questions: QuizQuestionDef[] = []
   let unmarked = 0
   let ignored = 0
+  const ignores: string[] = []
+  const enTrop: ImportResult['enTrop'] = []
+  let titre: string | null = null
+  /** Un bloc qu'on ne sait pas lire : compté, et nommé par son début. */
+  const ignorer = (debut: string) => {
+    ignored++
+    ignores.push(tronquer(debut.replace(/\s+/g, ' ').trim(), 60))
+  }
 
   // La catégorie en cours : une ligne « # Cinéma » range les questions qui
   // suivent, jusqu'à la prochaine. « # » tout seul les laisse sans catégorie.
@@ -696,11 +1140,24 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
   // question valait pour elle seule, et les huit suivantes de Léa sont
   // arrivées à 20 s — l'aide promettait l'inverse. Sans ligne, la voisine.
   let temps = emptyQuestion(modele).duration
+  let premierBloc = true
   for (const block of blocks) {
     const lines = block
       .split(SEPARATEUR_LIGNES)
       .map(l => sansGras(l).trim())
       .filter(l => l.length > 0)
+    if (lines.length === 0) continue
+    // Le titre du quiz, tout en haut : « Titre : Soirée années 90 ». Seulement
+    // seul sur sa ligne en tête de la liste, ou suivi de catégories et de
+    // temps — « Titre : quel film… ? » suivi de ses choix est une question.
+    if (premierBloc) {
+      premierBloc = false
+      const lu = titreSeul(lines[0])
+      if (lu && lines.slice(1).every(l => estCategorie(l) || tempsSeul(l) !== null)) {
+        titre = lu
+        lines.shift()
+      }
+    }
     // En tête de bloc, ou seules : les catégories, et un temps pour la suite.
     while (lines.length > 0 && (estCategorie(lines[0]) || tempsSeul(lines[0]) !== null)) {
       const ligne = lines.shift()!
@@ -712,10 +1169,10 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
       const nom = ligne.slice(1).trim()
       categorie = nom ? categorieDe(nom) : null
       // Une catégorie qu'on ne connaît pas se signale, comme un bloc illisible.
-      if (nom && !categorie) ignored++
+      if (nom && !categorie) ignorer(ligne)
     }
     if (lines.length < 2) {
-      if (lines.length === 1) ignored++
+      if (lines.length === 1) ignorer(lines[0])
       continue
     }
 
@@ -731,6 +1188,7 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
     const rest: string[] = []
     let observation: number | null = null
     let designee: string | null = null
+    let sorte: Sorte | null = null
     for (const line of lines.slice(1)) {
       const lu = lireReglage(line)
       const reponse = REPONSE_DESIGNEE.exec(line)
@@ -743,6 +1201,20 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
         // carte, et ne vaut pas qu'on perde la question.
         const secondes = lireSecondes(lu.valeur)
         if (secondes !== null) temps = borner(secondes, MIN_DURATION, MAX_DURATION)
+      } else if (lu.reglage === 'anecdote' || lu.reglage === 'note' || lu.reglage === 'intertitre') {
+        const max = lu.reglage === 'anecdote' ? MAX_ANECDOTE : lu.reglage === 'note' ? MAX_NOTE : MAX_INTERTITRE
+        const texte = tronquer(lu.valeur.replace(/\s+/g, ' '), max).trim()
+        if (texte) question[lu.reglage] = texte
+      } else if (lu.reglage === 'type') {
+        // Une sorte qu'on ne connaît pas laisse un QCM : il se règle sur la carte.
+        sorte = lireSorte(lu.valeur) ?? sorte
+      } else if (lu.reglage === 'ordre') {
+        // « Ordre : fixe » : les réponses gardent l'ordre écrit, même dans un
+        // quiz qui les mélange. Toute autre valeur laisse le réglage du quiz
+        // — sauf « Ordre : à retrouver », ce qu'on écrit pour « Type : dans l'ordre ».
+        const valeur = sansAccents(lu.valeur).toLowerCase().trim()
+        if (/^(fixe|tel quel|telle quelle|garde|garder|ecrit)$/.test(valeur)) question.ordreFixe = true
+        else if (/^a (retrouver|remettre|reconstituer)\b/.test(valeur)) sorte = 'ordre'
       } else if (lu.reglage === 'photo') {
         const photo = tronquer(lu.valeur, MAX_PHOTO_ATTENDUE).trim()
         question.photoAttendue = photo && !SANS_PHOTO.test(sansAccents(photo).toLowerCase()) ? photo : null
@@ -757,11 +1229,30 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
     // Sans photo, rien à observer (voir tempsDObservation).
     question.observeSeconds = question.photoAttendue ? observation : null
 
+    // « Qui dans la salle ? » : les réponses sont les invités, il n'y a rien à lire dessous.
+    if (sorte === 'sondage') {
+      question.variante = 'sondage'
+      questions.push(question)
+      continue
+    }
+
     const numberLine = rest.map(l => l.replace(PUCE, '')).find(l => l.startsWith('='))
+    // « = ? g » : la bonne valeur se mesure pendant la soirée — le poids du
+    // gâteau —, et l'animateur la tape à la révélation.
+    const valeurEcrite = numberLine?.slice(1).trim() ?? ''
+    if (sorte === 'direct' || (numberLine && valeurEcrite.startsWith('?'))) {
+      const unite = valeurEcrite.startsWith('?') ? valeurEcrite.slice(1).trim() : (lireEstimation(valeurEcrite)?.unit ?? '')
+      question.kind = 'number'
+      question.enDirect = true
+      question.target = null
+      question.unit = tronquer(unite, MAX_UNIT).trim()
+      questions.push(question)
+      continue
+    }
     if (numberLine) {
-      const lue = lireEstimation(numberLine.slice(1).trim())
+      const lue = lireEstimation(valeurEcrite)
       if (!lue) {
-        ignored++
+        ignorer(question.text)
         continue
       }
       question.kind = 'number'
@@ -780,18 +1271,43 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
     let correct = -1
     let marques = 0
     const answers: string[] = []
+    /** « Plusieurs réponses » : chaque réponse marquée, dans l'ordre. */
+    const marquees: number[] = []
     for (const r of lues) {
       const answer = etiquetees ? r.nu : r.texte
       if (!answer) continue
       if (r.marquee) marques++
+      if (r.marquee && answers.length < MAX_ANSWERS) marquees.push(answers.length)
       // Au-delà de quatre, la réponse est coupée — et sa marque avec : la
       // question attend alors qu'on choisisse, plutôt qu'une autre ne gagne.
-      if (answers.length >= MAX_ANSWERS) continue
+      // Elle se dit, au lieu de disparaître en silence.
+      if (answers.length >= MAX_ANSWERS) {
+        enTrop.push({ question: question.text, reponse: tronquer(answer, MAX_ANSWER_TEXT) })
+        continue
+      }
       if (r.marquee && correct < 0) correct = answers.length
       answers.push(tronquer(answer, MAX_ANSWER_TEXT))
     }
     if (answers.length < MIN_ANSWERS) {
-      ignored++
+      ignorer(question.text)
+      continue
+    }
+    for (let i = 0; i < MAX_ANSWERS; i++) question.answers[i] = answers[i] ?? ''
+    // Plusieurs étoiles, voulues : chacune marque une bonne réponse. Sans la
+    // ligne « Type », deux étoiles restent une erreur à trancher (plus bas).
+    if (sorte === 'plusieurs') {
+      question.variante = 'plusieurs'
+      question.bonnes = marquees
+      question.correct = marquees[0] ?? SANS_BONNE_REPONSE
+      if (marquees.length === 0) unmarked++
+      questions.push(question)
+      continue
+    }
+    // Écrites dans le bon ordre, sans étoile : la partie les mélange.
+    if (sorte === 'ordre') {
+      question.variante = 'ordre'
+      question.correct = SANS_BONNE_REPONSE
+      questions.push(question)
       continue
     }
     // « Réponse : Canberra » ou « Bonne réponse : B », quand aucune n'est marquée.
@@ -813,9 +1329,8 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
       unmarked++
     }
     question.correct = correct
-    for (let i = 0; i < MAX_ANSWERS; i++) question.answers[i] = answers[i] ?? ''
     questions.push(question)
   }
 
-  return { questions, unmarked, ignored }
+  return { questions, unmarked, ignored, ignores, enTrop, titre }
 }

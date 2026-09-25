@@ -3,7 +3,8 @@ import path from 'node:path'
 import { clientDistant, type Client } from './distante'
 import { QuizStore } from './quizStore'
 import { toRow } from './answers'
-import { buildReview } from './review'
+import { buildReview, type PlayedPack } from './review'
+import { playedPackOf } from '../games/quiz'
 import { ArchiveStore, reviewOfArchive } from './archive'
 import { playableQuestions } from '../../../shared/library'
 import { nomsAffiches } from '../../../shared/homonymes'
@@ -11,6 +12,7 @@ import { rang } from '../../../shared/typographie'
 import { classer } from '../../../shared/classement'
 import {
   answerLabel,
+  bonneReponseEnMots,
   formatPercent,
   formatSeconds,
   questionLabel,
@@ -82,6 +84,25 @@ export async function reviewFromDatabase(dbUrl: string, token?: string, target: 
       args: [spaceId],
     }),
   ])
+  // Les copies exactes des quiz joués, dans l'état de chaque partie au
+  // miroir : une partie qui mélange ses réponses (`shared/hasard.ts`) ne se
+  // relit juste que par elle — la bibliothèque garde l'ordre écrit. Une base
+  // sans cette table (un miroir d'avant) se relit par la bibliothèque, comme
+  // avant, et le bilan signale ce qui ne colle pas.
+  const packsBySession = new Map<string, PlayedPack>()
+  try {
+    const parties = await client.execute({ sql: 'SELECT id, state FROM party_sessions WHERE space_id = ?', args: [spaceId] })
+    for (const r of parties.rows) {
+      try {
+        const pack = playedPackOf(JSON.parse(String(r.state)))
+        if (pack) packsBySession.set(String(r.id), pack)
+      } catch {
+        // Un état illisible : la bibliothèque prend le relais pour cette partie.
+      }
+    }
+  } catch {
+    // Pas de table des parties : la bibliothèque seule.
+  }
   client.close()
   const totals = new Map(scores.rows.map(r => [String(r.player_id), Number(r.total ?? 0)]))
   const store = new QuizStore(dbUrl, token)
@@ -126,11 +147,9 @@ export async function reviewFromDatabase(dbUrl: string, token?: string, target: 
         createdAt: Number(r.created_at),
       }),
     ),
-    // Les copies exactes des parties sont aussi au miroir, dans l'état de
-    // chaque partie (`party_sessions`), mais ce repli ne les relit pas : tout
-    // passe par la bibliothèque, et un quiz retouché depuis s'y lit de
-    // travers — le bilan le signale. L'adresse du serveur, elle, les a.
-    packsBySession: new Map(),
+    // Les copies exactes d'abord ; la bibliothèque pour une partie qui n'en a
+    // pas — un quiz retouché depuis s'y lit de travers, le bilan le signale.
+    packsBySession,
     library,
   })
 }
@@ -210,7 +229,9 @@ export function exportFiles(review: Review): { name: string; content: string }[]
             const near = a.proximityRank !== null ? ` · ${rang(a.proximityRank)} estimation la plus proche` : ''
             return `${a.value} ${q.unit} (vrai : ${q.target ?? '?'})${near}${when} · ${a.points} pts`
           }
-          return `${answerLabel(q, a.choice)} ${a.correct ? '✔' : '✘'}${when} · ${a.points} pts`
+          // « Plusieurs » et « ordre » : le journal dit juste ou faux, pas les cases.
+          const reponse = q.variante ? (a.correct ? 'Tout juste' : 'Raté') : answerLabel(q, a.choice)
+          return `${reponse} ${a.correct ? '✔' : '✘'}${when} · ${a.points} pts`
         }),
       ]
     }),
@@ -229,7 +250,7 @@ export function exportFiles(review: Review): { name: string; content: string }[]
       return [
         q.order, q.quizTitle, q.text + note,
         q.kind === 'number' ? 'Estimation' : 'QCM',
-        q.kind === 'number' ? `${q.target ?? '?'} ${q.unit}`.trim() : answerLabel(q, q.correct),
+        q.kind === 'number' ? `${q.target ?? '?'} ${q.unit}`.trim() : bonneReponseEnMots(q),
         q.asked, q.answered, q.kind === 'number' ? '' : q.correctCount,
         q.kind === 'number' ? '' : pct(q.answered ? q.correctCount / q.answered : null),
         secs(q.avgMs),

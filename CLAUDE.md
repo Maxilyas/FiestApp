@@ -42,7 +42,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | Fichier | Ce qu'il porte |
 |---|---|
 | `core/engine.ts` | route actions/commandes/timers vers le module de jeu, persiste, rediffuse les vues filtrées |
-| `games/quiz.ts` | **toutes** les règles : phases, chronomètres, barème (le temps de lecture offert au QCM, l'estimation payée à la distance), vues |
+| `games/quiz.ts` | **toutes** les règles : phases (l'intertitre, `cible` — la mesure d'une estimation en direct), chronomètres, barème (le temps de lecture offert au QCM, l'estimation payée à la distance, `reponseJuste` pour « plusieurs » et « ordre », tout ou rien), vues |
 | `core/space.ts` | la soirée d'un espace : ses registres, ses salons socket, ses diffusions, son nom figé, ses crédits — et la scène des écrans d'animateur (`poserScene` : podium, prix, victoire, clôture), que la télé suit quand on anime à la télécommande |
 | `core/party.ts` | le registre des invités (identité par jeton, rattachement au profil, marques d'homonymie, connexions par socket) |
 | `core/places.ts` | « Rendre sa place » : les codes à usage unique qui rendent sa fiche à un invité dont le téléphone est mort — en mémoire, vite périmés, cinq essais manqués par minute ; jamais pour une fiche à profil, et la reprise renouvelle le jeton |
@@ -61,7 +61,12 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) |
 | `shared/glossaire.ts` · `client/src/components/Glossaire.tsx` | les mots maison (souvenir, bilan, coup d'œil, finition…), une phrase chacun, dépliée au toucher sous les pages qui les emploient — des Divins, le nom et le mystère seulement |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
-| `shared/echange.ts` | un quiz qu'on emporte : le fichier d'export (questions, photos en clair), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin |
+| `shared/echange.ts` | un quiz qu'on emporte : le fichier d'export (questions, et toutes leurs pièces en clair — photos, extraits), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin |
+| `shared/hasard.ts` | le hasard d'une partie : les réglages du quiz (réponses mélangées, questions dans le désordre, tirage de N questions, les jamais posées d'abord) et `preparerPartie`, qui tire **une fois** la copie jouée — l'ordre à retrouver toujours mélangé, jamais tel qu'écrit. Les index d'une réponse sont ceux de la copie : c'est elle que le journal numérote et que l'archive range |
+| `shared/programme.ts` · `core/programmes.ts` · `client/src/components/Programme.tsx` | le programme de la soirée : les quiz de ce soir dans l'ordre, leur multiplicateur, le prochain à lancer — aux écrans d'animateur seulement |
+| `core/memoire.ts` | la mémoire des quiz : « joué 3 fois », « trouvée par 3 sur 13 », le tirage des jamais posées — dérivée des fiches des soirées (`jeux`), jamais des archives entières |
+| `shared/partage.ts` · `core/partages.ts` · `server/src/partages.ts` | partager, par copie seulement : un code court (sept jours, annulable, dix essais manqués par quart d'heure) et le catalogue que l'administrateur relit ; la copie reçue recopie toutes les pièces de ses questions (`copierPhotos`) |
+| `shared/modeles.ts` · `shared/emojis.ts` | les modèles livrés, leurs rayons et « Pour qui ? » ; la règle des emojis d'avant Unicode 13, que l'éditeur dit sur la carte et que `emojis.test.ts` garde |
 | `shared/liste.ts` | « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) ; et l'inverse, `ecrireListe` (« Copier en liste »), que `liste.test.ts` recolle |
 | `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare ; figés dans les listes, animés là où ils sont le sujet |
 | `client/src/components/medaillons.ts` | les dessins des légendaires et des Divins, chargés à la demande : un invité anonyme ne les télécharge que si quelqu'un, dans la salle, en porte un — ne les importe pas statiquement sur son chemin (`Avatar`, `PlayerApp`, la carte ; `medaillons.test.ts` y veille), et un échec vaut pour toute la page |
@@ -104,7 +109,11 @@ server/test/        un fichier par thème, un serveur jetable chacun
 
 1. **La logique de jeu est 100 % serveur.** Les clients reçoivent
    `playerView` / `hostView`, jamais l'état brut : sinon la bonne réponse
-   arrive dans le téléphone avant la révélation.
+   arrive dans le téléphone avant la révélation. Ce qui la trahit aussi :
+   l'anecdote, la photo de la révélation, les bonnes réponses de
+   « plusieurs » et le bon ordre n'arrivent qu'à la révélation ; la note de
+   l'animateur, l'extrait d'un blind test et le programme de la soirée ne
+   partent jamais aux téléphones.
 2. **Deux bases, deux rôles.** La locale (SQLite) est **jetable** et « Nouvelle
    soirée » la vide. Ce qui doit survivre — comptes, quiz, archives, profils —
    va dans la permanente (libsql/Turso).
@@ -426,6 +435,19 @@ sans `QUIZ_DB_URL`.
   `parseImportedQuestions`, s'annonce dans `FORMAT_DE_LISTE` et paraît dans
   son exemple, que `liste.test.ts` relit : le format copié pour une IA ne
   doit rien promettre que la liste ne sache lire.
+- **Une question a trois pièces à part** — sa photo, celle de la
+  révélation, l'extrait d'un blind test (`PIECES_DE_QUESTION`,
+  `shared/library.ts`) —, chacune sous une adresse `/media/image/…`. Ce qui
+  emporte une question — l'export, un code de partage, le catalogue — les
+  emporte toutes : la photo de la révélation oubliée restait l'adresse de
+  l'autre espace, et partait au premier ménage du sien. Une quatrième pièce
+  rejoint cette liste.
+- **Une variante se juge par `reponseJuste`**, jamais par
+  `r.choice === q.correct` : « plusieurs » et « ordre » envoient leurs cases
+  (`choix`), et le journal n'en garde que le verdict (`choice` à null) — le
+  bilan n'a donc pas de répartition pour elles. « Qui dans la salle ? »
+  n'entre pas au journal : ni juste ni faux, il ferait baisser la précision
+  de ceux qui votent.
 - **Un fichier absent est un 404, pas la page d'accueil** : le serveur répond
   404 à tout chemin qui finit par une extension qu'il sert (`.ico`, `.png`,
   `.js`… — `favicon.ico` d'une vieille version) et qu'aucun fichier ne sert.

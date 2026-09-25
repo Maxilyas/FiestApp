@@ -36,6 +36,8 @@ import type {
 
 /** Un quiz tel qu'il a été joué : son titre et ses questions jouables. */
 export interface PlayedPack {
+  /** Le quiz de la bibliothèque, quand on le connaît. */
+  id?: string
   title: string
   questions: PlayableQuestion[]
 }
@@ -159,7 +161,7 @@ export function resolvePacks(
   const packs = new Map<string, PlayedPack & { exact: boolean }>()
   for (const group of groupSessions(rows)) {
     const { pack, exact } = choosePack(group, input)
-    if (pack) packs.set(group.id, { title: pack.title, questions: pack.questions, exact })
+    if (pack) packs.set(group.id, { ...(pack.id && { id: pack.id }), title: pack.title, questions: pack.questions, exact })
   }
   return packs
 }
@@ -318,9 +320,14 @@ export function buildReview(input: ReviewInput): Review {
         text: pq?.text ?? `Question ${qIndex + 1} du quiz « ${group.title} »`,
         answers,
         correct: pq?.kind === 'choice' ? pq.correct : null,
+        ...(pq?.kind === 'choice' && pq.variante && { variante: pq.variante }),
+        ...(pq?.kind === 'choice' && pq.bonnes && { bonnes: pq.bonnes }),
+        ...(pq?.kind === 'choice' && pq.ordre && { ordre: pq.ordre }),
         target,
         unit: pq?.kind === 'number' ? pq.unit : '',
         image: pq?.image ?? null,
+        // Jamais la note de l'animateur : le bilan se lit en public.
+        ...(pq?.anecdote && { anecdote: pq.anecdote }),
         durationMs: qRows[0].durationMs,
         observed: qRows[0].observed,
         resolved: pq !== null,

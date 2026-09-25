@@ -1,0 +1,79 @@
+{
+  "title": "💍 Le mariage de [Prénom 1] et [Prénom 2]",
+  "description": "Leur histoire, de la première rencontre au oui. Pour le vin d’honneur ou la soirée : ceux qui les connaissent le mieux gagnent.",
+  "rayon": "fete",
+  "ordre": 3,
+  "personnaliser": { "prenoms": 2 },
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "Où a eu lieu la première rencontre de [Prénom 1] et [Prénom 2] ?",
+      "answers": ["Lieu A ✏️", "Lieu B ✏️", "Lieu C ✏️", "Lieu D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Qui a fait le premier pas ?",
+      "answers": ["[Prénom 1]", "[Prénom 2]"],
+      "correct": -1,
+      "duration": 20
+    },
+    {
+      "kind": "number",
+      "text": "En quelle année a eu lieu leur première rencontre ?",
+      "target": null,
+      "unit": "",
+      "duration": 30
+    },
+    {
+      "kind": "choice",
+      "text": "Quel a été leur premier restaurant en amoureux ?",
+      "answers": ["Restaurant A ✏️", "Restaurant B ✏️", "Restaurant C ✏️", "Restaurant D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Qui cuisine le mieux ?",
+      "answers": ["[Prénom 1]", "[Prénom 2]"],
+      "correct": -1,
+      "duration": 20
+    },
+    {
+      "kind": "choice",
+      "text": "Qui a fait la demande ?",
+      "answers": ["[Prénom 1]", "[Prénom 2]"],
+      "correct": -1,
+      "duration": 20
+    },
+    {
+      "kind": "choice",
+      "text": "Où ont eu lieu leurs premières vacances à deux ?",
+      "answers": ["Destination A ✏️", "Destination B ✏️", "Destination C ✏️", "Destination D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Quel est le petit nom de [Prénom 1] dans la bouche de [Prénom 2] ?",
+      "answers": ["Surnom A ✏️", "Surnom B ✏️", "Surnom C ✏️", "Surnom D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Qui est toujours en retard ?",
+      "answers": ["[Prénom 1]", "[Prénom 2]"],
+      "correct": -1,
+      "duration": 20
+    },
+    {
+      "kind": "number",
+      "text": "Combien de mois ont duré les fiançailles ?",
+      "target": null,
+      "unit": "mois",
+      "duration": 30
+    }
+  ]
+}

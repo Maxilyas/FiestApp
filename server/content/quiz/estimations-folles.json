@@ -1,0 +1,125 @@
+{
+  "title": "📏 Les estimations folles",
+  "description": "Que des nombres à deviner : le plus proche gagne, et personne n’a jamais tout à fait tort. Le quiz qui fait parler la salle.",
+  "rayon": "jeu",
+  "ordre": 2,
+  "questions": [
+    {
+      "kind": "number",
+      "text": "Combien d’os compte le squelette d’un adulte ?",
+      "target": 206,
+      "unit": "os",
+      "duration": 30,
+      "category": "Sciences",
+      "source": "Wikipédia, « Squelette humain »"
+    },
+    {
+      "kind": "number",
+      "text": "Combien de touches compte un piano standard ?",
+      "target": 88,
+      "unit": "touches",
+      "duration": 30,
+      "category": "Musique",
+      "source": "Wikipédia, « Piano »"
+    },
+    {
+      "kind": "number",
+      "text": "Quelle est l’altitude de l’Everest ?",
+      "target": 8849,
+      "unit": "m",
+      "duration": 30,
+      "category": "Géographie",
+      "source": "Mesure sino-népalaise de 2020 (Wikipédia, « Everest »)"
+    },
+    {
+      "kind": "number",
+      "text": "En quelle année la tour Eiffel a-t-elle été inaugurée ?",
+      "target": 1889,
+      "unit": "",
+      "duration": 30,
+      "category": "Histoire",
+      "source": "Wikipédia, « Tour Eiffel »"
+    },
+    {
+      "kind": "number",
+      "text": "Quelle distance sépare en moyenne la Terre de la Lune ?",
+      "target": 384400,
+      "unit": "km",
+      "duration": 30,
+      "category": "Sciences",
+      "source": "Wikipédia, « Lune »"
+    },
+    {
+      "kind": "number",
+      "text": "Combien de cases compte un échiquier ?",
+      "target": 64,
+      "unit": "cases",
+      "duration": 30,
+      "category": "Jeux & pop culture",
+      "source": "Wikipédia, « Échiquier »"
+    },
+    {
+      "kind": "number",
+      "text": "Combien de cartes compte un jeu de tarot ?",
+      "target": 78,
+      "unit": "cartes",
+      "duration": 30,
+      "category": "Jeux & pop culture",
+      "source": "Wikipédia, « Tarot (jeu) »"
+    },
+    {
+      "kind": "number",
+      "text": "Quelle est la longueur d’un marathon ?",
+      "target": 42195,
+      "unit": "m",
+      "duration": 30,
+      "category": "Sport",
+      "source": "World Athletics (Wikipédia, « Marathon »)"
+    },
+    {
+      "kind": "number",
+      "text": "En quelle année un homme a-t-il marché sur la Lune pour la première fois ?",
+      "target": 1969,
+      "unit": "",
+      "duration": 30,
+      "category": "Histoire",
+      "source": "Wikipédia, « Apollo 11 »"
+    },
+    {
+      "kind": "number",
+      "text": "À combien de degrés Fahrenheit l’eau bout-elle, au niveau de la mer ?",
+      "target": 212,
+      "unit": "°F",
+      "duration": 30,
+      "category": "Sciences",
+      "source": "Wikipédia, « Degré Fahrenheit »"
+    },
+    {
+      "kind": "number",
+      "text": "Combien de dents compte la dentition complète d’un adulte, dents de sagesse comprises ?",
+      "target": 32,
+      "unit": "dents",
+      "duration": 30,
+      "category": "Sciences",
+      "source": "Wikipédia, « Dentition humaine »"
+    },
+    {
+      "kind": "number",
+      "text": "En quelle année le mur de Berlin est-il tombé ?",
+      "target": 1989,
+      "unit": "",
+      "duration": 30,
+      "category": "Histoire",
+      "source": "Wikipédia, « Mur de Berlin »"
+    },
+    {
+      "kind": "number",
+      "text": "Combien de secondes compte une journée ?",
+      "target": 86400,
+      "unit": "secondes",
+      "duration": 30,
+      "category": "Culture générale",
+      "source": "24 × 60 × 60"
+    }
+  ]
+}

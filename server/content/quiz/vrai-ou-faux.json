@@ -1,0 +1,143 @@
+{
+  "title": "✅ Vrai ou faux express",
+  "description": "Quinze secondes par affirmation, deux boutons : le quiz qui va vite, pour lancer une soirée ou la relancer.",
+  "rayon": "jeu",
+  "ordre": 3,
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "La Grande Muraille de Chine se voit à l’œil nu depuis la Lune.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Sciences",
+      "source": "NASA (Wikipédia, « Grande Muraille »)"
+    },
+    {
+      "kind": "choice",
+      "text": "Pour un botaniste, la tomate est un fruit.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15,
+      "category": "Nature",
+      "source": "Wikipédia, « Tomate »"
+    },
+    {
+      "kind": "choice",
+      "text": "Le poulpe a trois cœurs.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15,
+      "category": "Nature",
+      "source": "Wikipédia, « Octopoda »"
+    },
+    {
+      "kind": "choice",
+      "text": "Les chauves-souris sont aveugles.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Nature",
+      "source": "Wikipédia, « Chiroptera »"
+    },
+    {
+      "kind": "choice",
+      "text": "Vénus est la planète la plus chaude du système solaire.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15,
+      "category": "Sciences",
+      "source": "Wikipédia, « Vénus (planète) »"
+    },
+    {
+      "kind": "choice",
+      "text": "La tour Eiffel a été construite pour l’Exposition universelle de 1889.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15,
+      "category": "Histoire",
+      "source": "Wikipédia, « Tour Eiffel »"
+    },
+    {
+      "kind": "choice",
+      "text": "L’autruche enfouit sa tête dans le sable quand elle a peur.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Nature",
+      "source": "Wikipédia, « Autruche d’Afrique »"
+    },
+    {
+      "kind": "choice",
+      "text": "Le diamant est fait de carbone.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15,
+      "category": "Sciences",
+      "source": "Wikipédia, « Diamant »"
+    },
+    {
+      "kind": "choice",
+      "text": "Un poisson rouge oublie tout au bout de trois secondes.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Nature",
+      "source": "Wikipédia, « Poisson rouge »"
+    },
+    {
+      "kind": "choice",
+      "text": "La Joconde est exposée au musée d’Orsay.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Arts & lettres",
+      "source": "Musée du Louvre (Wikipédia, « La Joconde »)"
+    },
+    {
+      "kind": "choice",
+      "text": "Le cœur humain compte quatre cavités.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15,
+      "category": "Sciences",
+      "source": "Wikipédia, « Cœur humain »"
+    },
+    {
+      "kind": "choice",
+      "text": "La Loire traverse Paris.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Géographie",
+      "source": "Wikipédia, « Seine »"
+    },
+    {
+      "kind": "choice",
+      "text": "Le mot « robot » vient du tchèque.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15,
+      "category": "Arts & lettres",
+      "source": "Karel Čapek, R.U.R., 1920 (Wikipédia, « Robot »)"
+    },
+    {
+      "kind": "choice",
+      "text": "La foudre ne frappe jamais deux fois au même endroit.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Sciences",
+      "source": "Wikipédia, « Foudre »"
+    },
+    {
+      "kind": "choice",
+      "text": "Le sang est bleu dans les veines.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Sciences",
+      "source": "Wikipédia, « Sang »"
+    }
+  ]
+}

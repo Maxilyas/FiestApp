@@ -38,6 +38,18 @@ export function quand(ts: number, maintenant = Date.now()): string {
   return `le ${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} à ${heure}`
 }
 
+/**
+ * « le 14 mars », « le 1er mars », « le 14 mars 2025 » d'une autre année,
+ * « aujourd’hui » le jour même. `maintenant` : pour les tests.
+ */
+export function jour(ts: number, maintenant = Date.now()): string {
+  const d = new Date(ts)
+  const n = new Date(maintenant)
+  if (d.toDateString() === n.toDateString()) return 'aujourd’hui'
+  const date = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', ...(d.getFullYear() !== n.getFullYear() && { year: 'numeric' }) })
+  return `le ${d.getDate() === 1 ? date.replace(/^1 /, '1er ') : date}`
+}
+
 /** « 62 estimations », « 1 estimation ». */
 export const estimations = (n: number) => `${formatNumber(n)} estimation${n > 1 ? 's' : ''}`
 

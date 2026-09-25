@@ -1,5 +1,9 @@
-import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
+import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
+import type { ModeleResume, PourQui } from '../../shared/modeles'
+import type { ReglagesDuQuiz } from '../../shared/hasard'
+import type { EntreeDeProgramme, Programme } from '../../shared/programme'
+import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
 import type { FinitionChoisie, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
@@ -134,9 +138,16 @@ export const activationUrl = (token: string) => `${window.location.origin}/activ
 
 export const api = {
   list: () => req<QuizSummary[]>('/api/quizzes'),
+  /** Les quiz qui contiennent ces mots — titre, intitulés, réponses. */
+  chercher: (q: string) => req<QuizSummary[]>(`/api/quizzes?q=${encodeURIComponent(q)}`),
+  /** Range un quiz à l'écart (hors de la liste et du choix de la soirée), ou l'en ressort. */
+  archiver: (id: string, archive: boolean) =>
+    req<{ ok: true }>(`/api/quizzes/${id}/archive`, { method: 'POST', body: JSON.stringify({ archive }) }),
   get: (id: string) => req<QuizDef>(`/api/quizzes/${id}`),
-  create: (title: string, questions?: unknown[]) =>
-    req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions }) }),
+  /** Ce que l'historique sait du quiz et de chacune de ses questions : « réussie par 23 % le 14 mars ». */
+  memoire: (id: string) => req<MemoireDuQuiz>(`/api/quizzes/${id}/memoire`),
+  create: (title: string, questions?: unknown[], reglages?: ReglagesDuQuiz) =>
+    req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions, reglages }) }),
   /**
    * `base` : la version d'où partent les modifications — le serveur refuse
    * (`ConflitError`) si le quiz a été enregistré ailleurs depuis. `jeton` :
@@ -145,18 +156,54 @@ export const api = {
    * `essai` : son numéro, qui croît d'un essai à l'autre — un essai abandonné
    * qui n'arrive qu'après le suivant ne réécrit pas son ancien texte.
    */
-  save: (id: string, title: string, questions: QuizQuestionDef[], base?: number, jeton?: string, essai?: number) =>
+  save: (
+    id: string,
+    title: string,
+    questions: QuizQuestionDef[],
+    base?: number,
+    jeton?: string,
+    essai?: number,
+    reglages?: ReglagesDuQuiz,
+  ) =>
     req<QuizDef>(`/api/quizzes/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ title, questions, base, jeton, essai }),
+      body: JSON.stringify({ title, questions, base, jeton, essai, reglages }),
     }),
   remove: (id: string) => req<{ ok: true }>(`/api/quizzes/${id}`, { method: 'DELETE' }),
   duplicate: (id: string) => req<QuizDef>(`/api/quizzes/${id}/duplicate`, { method: 'POST' }),
   /** Les quiz livrés avec l'application, et la copie de l'un d'eux dans son espace. */
-  modeles: () => req<{ id: string; title: string; questionCount: number }[]>('/api/modeles'),
-  partirDe: (modele: string) => req<QuizDef>(`/api/modeles/${encodeURIComponent(modele)}`, { method: 'POST' }),
+  modeles: () => req<ModeleResume[]>('/api/modeles'),
+  /** Une copie du modèle — personnalisée, s'il le demande et qu'on a répondu à « Pour qui ? ». */
+  partirDe: (modele: string, pourQui?: PourQui) =>
+    req<QuizDef>(`/api/modeles/${encodeURIComponent(modele)}`, { method: 'POST', body: JSON.stringify(pourQui ?? {}) }),
   uploadImage: (dataUrl: string) =>
     req<{ url: string }>('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
+  /** Partager : un code à un animateur de ce serveur, une copie au catalogue (`shared/partage.ts`). */
+  partage: {
+    /** Un code neuf, valable sept jours, sur le quiz tel qu'il est maintenant. */
+    creer: (quizId: string) => req<{ code: string; expiresAt: number }>(`/api/quizzes/${quizId}/partage`, { method: 'POST' }),
+    revoquer: (code: string) => req<{ ok: true }>(`/api/partages/${encodeURIComponent(code)}`, { method: 'DELETE' }),
+    /** La copie du quiz qu'un code désigne, rangée dans sa bibliothèque. */
+    recevoir: (code: string) => req<QuizDef>('/api/partages/recevoir', { method: 'POST', body: JSON.stringify({ code }) }),
+    proposer: (quizId: string, description: string) =>
+      req<EntreeDuCatalogue>(`/api/quizzes/${quizId}/catalogue`, { method: 'POST', body: JSON.stringify({ description }) }),
+    /** Les copies publiées au catalogue du serveur. */
+    catalogue: () => req<EntreeDuCatalogue[]>('/api/catalogue'),
+    partirDuCatalogue: (id: string) => req<QuizDef>(`/api/catalogue/${encodeURIComponent(id)}`, { method: 'POST' }),
+  },
+  /** Les programmes de soirée : les quiz de ce soir, dans l'ordre, chacun avec son multiplicateur. */
+  programmes: {
+    list: () => req<Programme[]>('/api/programmes'),
+    /** Commence un programme, qui devient celui de ce soir. */
+    creer: (titre: string, entrees: EntreeDeProgramme[] = []) =>
+      req<Programme>('/api/programmes', { method: 'POST', body: JSON.stringify({ titre, entrees }) }),
+    modifier: (id: string, patch: { titre?: string; entrees?: EntreeDeProgramme[] }) =>
+      req<Programme>(`/api/programmes/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
+    /** En fait le programme de ce soir — ou le range, avec `actif` à faux. */
+    activer: (id: string, actif: boolean) =>
+      req<{ ok: true }>(`/api/programmes/${id}/activer`, { method: 'POST', body: JSON.stringify({ actif }) }),
+    supprimer: (id: string) => req<{ ok: true }>(`/api/programmes/${id}`, { method: 'DELETE' }),
+  },
   /** L'historique des soirées : le lire est public, le retoucher demande d'être connecté. */
   archives: {
     rename: (id: string, title: string) =>
@@ -275,6 +322,13 @@ export const api = {
       req<{ account: PublicAccount }>(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
     /** Un compte désactivé seulement ; tout ce qu'il a laissé part avec lui. */
     remove: (id: string) => req<{ ok: true }>(`/api/admin/accounts/${id}`, { method: 'DELETE' }),
+    /** Le catalogue du serveur, toutes les copies : proposées, publiées, refusées, retirées. */
+    catalogue: () => req<EntreeDuCatalogue[]>('/api/admin/catalogue'),
+    /** Une copie proposée, questions comprises, pour la relire. */
+    entreeDuCatalogue: (id: string) =>
+      req<EntreeDuCatalogue & { questions: QuizQuestionDef[] }>(`/api/admin/catalogue/${encodeURIComponent(id)}`),
+    statutAuCatalogue: (id: string, statut: StatutAuCatalogue) =>
+      req<{ ok: true }>(`/api/admin/catalogue/${encodeURIComponent(id)}`, { method: 'POST', body: JSON.stringify({ statut }) }),
   },
 }
 

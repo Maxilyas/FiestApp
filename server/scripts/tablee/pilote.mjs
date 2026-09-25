@@ -61,7 +61,9 @@ JOUER — des raccourcis, parce que le chronomètre n'attend pas
   question [secondes]         attend la prochaine question ouverte sur ton téléphone et te la lit ;
                               rend aussi la main à sa révélation, à la photo d'une question de
                               mémoire, au podium d'un quiz et à la fin de la soirée
-  repondre <n|texte|nombre>   le numéro de la réponse (1 à 4), son texte, ou le nombre d'une estimation
+  repondre <n|texte|nombre>   le numéro de la réponse (1 à 4), son texte, ou le nombre d'une estimation ;
+                              plusieurs bonnes réponses : « repondre 1 3 » ; un ordre : « repondre 3 1 4 2 »,
+                              le premier d'abord — le téléphone valide pour toi
 
 LA SALLE — ce qui se dit à voix haute
   dire <message>              tout le monde l'entend à son prochain geste (tout ton salon, s'il y en a plusieurs)

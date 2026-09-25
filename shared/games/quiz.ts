@@ -1,13 +1,25 @@
 // Vues et actions du Quiz (QCM style Kahoot + estimation chiffrée).
-import type { QuestionKind } from '../library'
+import type { QuestionKind, Variante } from '../library'
 import type { Distinctions } from '../profil'
+import type { Multiplicateur } from '../programme'
 
 /**
  * `observe` : la photo est projetée seule, sans la question ni les réponses.
  * C'est ce qui rend le jeu de mémoire possible — sans cette phase, il suffirait
  * de répondre pendant que la photo est encore à l'écran.
  */
-export type QuizPhase = 'pickPack' | 'getReady' | 'observe' | 'question' | 'reveal' | 'finished'
+/**
+ * `cible` : une estimation en direct (`enDirect`) est close, et l'animateur
+ * tape la bonne réponse — le poids du gâteau — avant la révélation.
+ */
+export type QuizPhase = 'pickPack' | 'getReady' | 'intertitre' | 'observe' | 'question' | 'cible' | 'reveal' | 'finished'
+
+/** « Qui dans la salle ? » : un invité, et les votes qu'il a reçus. */
+export interface VoteDeSondage {
+  name: string
+  avatar: string
+  votes: number
+}
 
 export interface QuizPackInfo {
   id: string
@@ -15,6 +27,30 @@ export interface QuizPackInfo {
   questionCount: number
   /** Déjà joué ce soir : l'animateur ne le relance pas sans le savoir. */
   joueCeSoir?: true
+  /**
+   * Ce qui se dérive de ses questions, pour le reconnaître sans l'ouvrir :
+   * ses catégories (la plus fréquente d'abord), ses estimations, sa durée
+   * estimée en secondes. Absents d'une partie lancée avant qu'ils existent.
+   */
+  categories?: string[]
+  estimations?: number
+  dureeS?: number
+  /** Sa place au programme de ce soir (1 pour le premier), et son multiplicateur réglé d'avance. */
+  auProgramme?: { rang: number; multiplier: Multiplicateur }
+}
+
+/**
+ * Le programme de ce soir, vu de la console au moment de choisir
+ * (`shared/programme.ts`). Écrans d'animateur seulement : il annonce les
+ * titres à venir, et les téléphones n'ont pas à les lire.
+ */
+export interface ProgrammeDuSoir {
+  titre: string
+  /** Les quiz du programme qui se jouent encore. */
+  total: number
+  /** Le premier qu'on n'a pas joué ce soir, et celui d'après ; null quand tout est joué. */
+  prochain: string | null
+  ensuite: string | null
 }
 
 /**
@@ -85,6 +121,23 @@ export interface QuizPlayerView {
   // reveal
   /** Vrai si le joueur vient d'arriver : il n'a pas raté la question, il n'était pas là. */
   justArrived?: boolean
+  /** L'intertitre qui précède la question — « Manche 2 : le cinéma » —, pendant sa diapo. */
+  intertitre?: string
+  /** QCM : sa variante (`shared/library.ts`). Pour un sondage, `answers` sont les invités. */
+  variante?: Variante
+  /** « Plusieurs » et « ordre » : ce que le joueur a envoyé — les cases cochées, l'ordre choisi. */
+  yourChoices?: number[] | null
+  /** À la révélation : les bonnes réponses (« plusieurs »), le bon ordre (« ordre »). */
+  bonnes?: number[]
+  ordre?: number[]
+  /** À la révélation d'une variante : juste ou non, pour ce joueur. */
+  yourCorrect?: boolean
+  /** Sondage, à la révélation : les invités les plus désignés. */
+  votes?: VoteDeSondage[]
+  /** « Le saviez-vous ? » — à la révélation seulement : avant, il trahirait la réponse. */
+  anecdote?: string
+  /** La photo de la révélation, distincte de celle de la question — à la révélation seulement. */
+  imageRevelation?: string
   correct?: number
   target?: number
   yourPoints?: number | null
@@ -134,6 +187,27 @@ export interface QuizHostView {
   kind?: QuestionKind
   // pickPack
   packs?: QuizPackInfo[]
+  programme?: ProgrammeDuSoir
+  /** L'intertitre, pendant sa diapo (voir `QuizPlayerView.intertitre`). */
+  intertitre?: string
+  /** À la révélation : l'anecdote et la photo qui l'accompagne. */
+  anecdote?: string
+  imageRevelation?: string
+  /**
+   * La note de l'animateur : les écrans d'animateur la reçoivent, et seule
+   * la télécommande la montre — la télé, c'est la salle qui la lit.
+   */
+  note?: string
+  /** QCM : sa variante ; à la révélation, ses bonnes réponses et son bon ordre. */
+  variante?: Variante
+  bonnes?: number[]
+  ordre?: number[]
+  /** Sondage, à la révélation : les invités les plus désignés, et combien ont voté. */
+  votes?: VoteDeSondage[]
+  /** Estimation en direct : la cible se tape à la révélation (phase `cible`). */
+  enDirect?: boolean
+  /** Blind test : l'extrait que joue l'écran commun — jamais les téléphones. */
+  son?: string
   // question + reveal
   text?: string
   answers?: string[]
@@ -209,6 +283,10 @@ export interface Visee extends QuestionVisee {
 export type QuizAction =
   | ({ type: 'answer'; choice: number } & QuestionVisee)
   | ({ type: 'guess'; value: number } & QuestionVisee)
+  /** « Plusieurs » : les cases cochées. */
+  | ({ type: 'answers'; choices: number[] } & QuestionVisee)
+  /** « Ordre » : les réponses dans l'ordre choisi, en index de celles montrées. */
+  | ({ type: 'order'; order: number[] } & QuestionVisee)
 
 export type QuizCommand =
   /** `multiplier` : 1 par défaut, 2 ou 3 pour un quiz qui compte double ou triple. */
@@ -221,6 +299,8 @@ export type QuizCommand =
   | ({ type: 'cancel' } & Visee)
   /** Annule et repose la même question. */
   | ({ type: 'replay' } & Visee)
+  /** Estimation en direct : la bonne réponse, tapée par l'animateur — elle révèle. */
+  | ({ type: 'cible'; value: number } & Visee)
   /** Enchaîne les questions tout seul après N secondes ; null = manuel. */
   | { type: 'autoNext'; seconds: number | null }
   /**

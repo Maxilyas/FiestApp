@@ -500,6 +500,8 @@ const LIRE_TELEPHONE = `(() => {
     const boutons = [...joueur.querySelectorAll('.ans-btn')]
     if (question && boutons.length) {
       return { etat: 'qcm', label, categorie, question, reste, image, photoPartie, pause,
+        // Les sortes du lot 7 : cocher puis valider, un ordre à remettre, un invité à désigner.
+        variante: joueur.querySelector('.valider-variante') ? (joueur.querySelector('.ordre-grid') ? 'ordre' : 'plusieurs') : joueur.querySelector('.sondage-grid') ? 'sondage' : null,
         reponses: boutons.map(b => txt(b.querySelector('.ans-text'))),
         ouvert: boutons.some(b => !b.disabled),
         choisi: boutons.findIndex(b => b.getAttribute('aria-pressed') === 'true' && !b.classList.contains('pending')) + 1 }
@@ -906,6 +908,21 @@ async function taper(el: Element, texte: string) {
   } catch (e) {
     throw new Refus(`Impossible d'écrire ici : ${(e as Error).message.split('\n')[0]}`)
   }
+}
+
+/**
+ * Le numéro d'une réponse, donné par son numéro ou par son texte ; 0 si
+ * aucune ne répond. « 2007 » à une question dont les réponses sont des
+ * années : c'est le texte d'une réponse, pas son numéro.
+ */
+function numeroDeReponse(voulu: string, reponses: string[]): number {
+  if (/^\d+$/.test(voulu) && Number(voulu) <= reponses.length) return Number(voulu)
+  // Les réponses lues au téléphone ont déjà leurs blancs ramenés à des
+  // espaces simples ; on en fait autant de ce que l'agent a tapé — les
+  // espaces fines insécables que l'affichage pose avant « ! » ou « ? »
+  // ne doivent pas faire manquer « 40, évidemment ! ».
+  const bas = voulu.replace(/\s+/g, ' ').toLowerCase()
+  return reponses.findIndex(r => r.toLowerCase() === bas) + 1 || reponses.findIndex(r => r.toLowerCase().includes(bas)) + 1
 }
 
 /** Toucher du doigt sur un téléphone, cliquer ailleurs — et dire pourquoi ça n'a pas pris. */
@@ -1361,19 +1378,41 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
       const lue = p.question && p.question.cle === `${e.label}|${e.question}` ? p.question : null
       const depuis = lue ? Date.now() - lue.vueA : null
       const delai = depuis === null ? '' : ` — ${secondes(depuis)} après l'apparition de la question`
+      if (e.etat === 'qcm' && (e.variante === 'plusieurs' || e.variante === 'ordre')) {
+        const reponses: string[] = e.reponses
+        const enOrdre = e.variante === 'ordre'
+        // « 1 3 », « 1, 3 », ou des textes séparés par des virgules — la
+        // première d'abord, pour un ordre.
+        const morceaux = /^[\d\s,;]+$/.test(voulu) ? voulu.split(/[\s,;]+/).filter(Boolean) : voulu.split(/\s*[,;]\s*/).filter(Boolean)
+        const numeros = morceaux.map(m => numeroDeReponse(m, reponses))
+        const inconnue = morceaux.find((_, i) => numeros[i] < 1)
+        if (inconnue !== undefined) {
+          throw new Refus(`Aucune réponse ne s'appelle « ${inconnue} » : donne leurs numéros (1 à ${reponses.length}), séparés par des espaces.`)
+        }
+        if (new Set(numeros).size !== numeros.length) throw new Refus('Chaque réponse une fois seulement.')
+        if (enOrdre && numeros.length !== reponses.length) {
+          throw new Refus(`Un ordre complet : les ${reponses.length} numéros, le premier d'abord — « repondre ${reponses.map((_, i) => i + 1).join(' ')} ».`)
+        }
+        // On repart de zéro : ce qui est déjà coché ou numéroté se retire d'abord.
+        const boutons = page.locator('.quiz-player .ans-btn')
+        for (let i = 0; i < reponses.length; i++) {
+          if ((await boutons.nth(i).getAttribute('aria-pressed').catch(() => null)) === 'true') await toucher(p, boutons.nth(i))
+        }
+        for (const n of numeros) await toucher(p, boutons.nth(n - 1))
+        await toucher(p, page.locator('.quiz-player .valider-variante'))
+        const enregistree = async () => /enregistr/i.test(await page.locator('.quiz-player .hint').last().innerText().catch(() => ''))
+        const accuse = !!(await guetter(4000, signal, enregistree, 100))
+        await stabiliser(page, 1200)
+        if (lue && accuse) lue.repondu = true
+        const textes = numeros.map(n => reponses[n - 1])
+        const lien = enOrdre ? ' → ' : ', '
+        consigner({ qui, salon: salonDe(p), geste: 'reponse', question: e.label, choix: numeros, texte: textes.join(lien), ms: depuis })
+        const ligne = `${accuse ? '✅' : '⚠'} Tu ${enOrdre ? 'remets dans l’ordre' : 'coches'} ${numeros.map((n, i) => `${n}. « ${textes[i]} »`).join(lien)}, puis tu valides${delai}${accuse ? '' : ' — mais le téléphone ne montre pas ta réponse comme enregistrée'}.`
+        return `${ligne}\n${await entete(p, o)}\n\n${await texteVisible(page)}`
+      }
       if (e.etat === 'qcm') {
         const reponses: string[] = e.reponses
-        // « 2007 » à une question dont les réponses sont des années : c'est
-        // le texte d'une réponse, pas son numéro.
-        let n = /^\d+$/.test(voulu) && Number(voulu) <= reponses.length ? Number(voulu) : 0
-        if (!n) {
-          // Les réponses lues au téléphone ont déjà leurs blancs ramenés à des
-          // espaces simples ; on en fait autant de ce que l'agent a tapé — les
-          // espaces fines insécables que l'affichage pose avant « ! » ou « ? »
-          // ne doivent pas faire manquer « 40, évidemment ! ».
-          const bas = voulu.replace(/\s+/g, ' ').toLowerCase()
-          n = reponses.findIndex(r => r.toLowerCase() === bas) + 1 || reponses.findIndex(r => r.toLowerCase().includes(bas)) + 1
-        }
+        const n = numeroDeReponse(voulu, reponses)
         if (n < 1 || n > reponses.length) {
           throw new Refus(`Aucune réponse ne s'appelle « ${voulu} », et il n'y en a que ${reponses.length} : donne son numéro (1 à ${reponses.length}) ou son texte.`)
         }

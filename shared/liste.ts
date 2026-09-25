@@ -19,17 +19,23 @@
 import { CATEGORIES } from './categories'
 import {
   DEFAULT_DURATION,
+  MAX_ANECDOTE,
   MAX_ANSWERS,
+  MAX_INTERTITRE,
+  MAX_NOTE,
   MAX_ANSWER_TEXT,
   MAX_DURATION,
   MAX_OBSERVE,
   MAX_QUESTIONS,
   MAX_TEXT,
+  MAX_TITRE,
   MAX_UNIT,
   MIN_ANSWERS,
   MIN_DURATION,
   MIN_OBSERVE,
+  MIN_ORDRE,
   SANS_BONNE_REPONSE,
+  ECRITURE_DES_SORTES,
   luCommeReglage,
   parseImportedQuestions,
   photoManquante,
@@ -55,7 +61,9 @@ Combien de pays composent l'Union européenne ?
 = 27 pays`
 
 /** L'exemple du format complet : chaque possibilité, une fois au moins. */
-export const EXEMPLE_DU_FORMAT = `# Géographie
+export const EXEMPLE_DU_FORMAT = `Titre : Le tour du monde en six questions
+
+# Géographie
 
 Quelle est la capitale de l'Australie ?
 Sydney
@@ -63,24 +71,49 @@ Sydney
 Melbourne
 Perth
 
+Laquelle de ces villes est la capitale du Canada ?
+Ordre : fixe
+Toronto
+Montréal
+* Ottawa
+Aucune de ces villes
+
 Quelle est l'altitude du mont Everest ?
 = 8 849 m
 Temps : 30 s
+Anecdote : Elle grandit encore de quelques millimètres par an.
+
+Lesquels de ces pays l'équateur traverse-t-il ?
+Type : plusieurs réponses
+* Brésil
+* Kenya
+Égypte
+* Indonésie
 
 # Histoire
 
 La tour Eiffel a été construite pour l'Exposition universelle de 1889.
+Intertitre : Manche 2 : l'histoire
 * Vrai
 Faux
+Anecdote : Elle ne devait rester que vingt ans ; la radio l'a sauvée.
 
 En quelle année l'homme a-t-il marché sur la Lune pour la première fois ?
 = 1969
+
+Remettez ces inventions dans l'ordre, de la plus ancienne à la plus récente.
+Type : dans l'ordre
+L'imprimerie
+La machine à vapeur
+Le téléphone
+Internet
 
 # Cinéma & séries
 
 De quel film vient cette image ?
 Photo : titanic.jpg
 Temps : 15 s
+Note : demande qui l'a vu trois fois au cinéma
 * Titanic
 Avatar
 Le Grand Bleu
@@ -91,7 +124,13 @@ Pearl Harbor
 Combien de bougies y avait-il sur le gâteau ?
 Photo : le gâteau d'anniversaire, bougies allumées
 Observation : 5 s
-= 30 bougies`
+= 30 bougies
+
+Combien pèse le gâteau ?
+= ? g
+
+Qui, dans la salle, s'endormira le premier ce soir ?
+Type : qui dans la salle`
 
 /**
  * Ce que copie « Copier le format complet » : de quoi écrire un quiz sans
@@ -105,20 +144,32 @@ FiestApp est un quiz de soirée : les questions s'affichent en grand sur un écr
 
 LES RÈGLES
 - Une ligne vide entre deux questions.
+- Tout en haut, seule sur sa ligne, « Titre : » suivi du titre du quiz (${MAX_TITRE} caractères au plus). Facultative.
 - La première ligne d'une question est son intitulé : ${MAX_TEXT} caractères au plus, et le plus court possible — il s'affiche en grand.
 - Ni numéros, ni puces, ni gras, ni tableau ; ni introduction, ni conclusion : rien que les questions.
 - ${MAX_QUESTIONS} questions au plus par quiz.
+- Des emojis courants seulement : les plus récents s'affichent en carré vide sur certains écrans.
 
 QCM
 Sous l'intitulé, de ${MIN_ANSWERS} à ${MAX_ANSWERS} réponses, une par ligne (${MAX_ANSWER_TEXT} caractères au plus). Une étoile * devant la bonne réponse, et une seule. Un vrai ou faux est un QCM à deux réponses : « Vrai » et « Faux ».
 
 ESTIMATION
 Sous l'intitulé, une seule ligne : le signe = suivi de la bonne valeur, en chiffres, puis de son unité s'il y en a une (${MAX_UNIT} caractères au plus) : « = 1889 », « = 8 849 m », « = 0,8 % ». Chacun propose un nombre, et plus il tombe près, plus il rapporte : idéal pour une date, une distance, un prix, que personne ne connaît au chiffre près.
+En direct : « = ? » suivi de l'unité (« = ? g ») — la bonne valeur se mesure pendant la soirée (le poids du gâteau, les bonbons du bocal), et l'animateur la tape à la révélation.
+
+AUTRES SORTES DE QUESTIONS — une ligne « Type : » sous l'intitulé
+Type : plusieurs réponses — un QCM dont plusieurs réponses sont bonnes : une étoile * devant chacune. Il faut les trouver toutes, et elles seules.
+Type : dans l'ordre — de ${MIN_ORDRE} à ${MAX_ANSWERS} réponses, écrites dans le bon ordre (la plus ancienne d'abord, la plus petite d'abord…), sans étoile : elles s'affichent mélangées, et chacun les remet dans l'ordre.
+Type : qui dans la salle — aucune réponse à écrire : chacun désigne un invité de la soirée (« Qui arrivera en retard demain ? »), et l'écran montre qui la salle a choisi. Pour rire : elle ne rapporte aucun point.
 
 RÉGLAGES — facultatifs, chacun sur sa ligne sous l'intitulé, dans n'importe quel ordre
 Temps : 30 s — le temps pour répondre, de ${MIN_DURATION} à ${MAX_DURATION} secondes, pour cette question et les suivantes, jusqu'à la prochaine ligne Temps : inutile de la répéter. Écrite seule avant la première question, elle vaut pour tout le quiz. Sans aucune ligne Temps, celui réglé dans FiestApp (${DEFAULT_DURATION} s au départ).
 Photo : tour-eiffel.jpg — une photo montrée avec la question : le nom de son fichier, à envoyer avec la liste, ou, à défaut, ce qu'elle doit montrer (« Photo : la tour Eiffel illuminée, de nuit »).
 Observation : 5 s — avec une photo seulement : elle passe seule pendant ce temps, de ${MIN_OBSERVE} à ${MAX_OBSERVE} secondes, puis disparaît, et l'on répond de mémoire.
+Ordre : fixe — les réponses restent dans l'ordre écrit, même si le quiz les mélange à chaque partie : pour « Aucune de ces réponses », ou une suite qui a un sens.
+Anecdote : … — une phrase racontée à la révélation, « Le saviez-vous ? » (${MAX_ANECDOTE} caractères au plus) : ce qu'on a envie d'ajouter une fois la réponse connue.
+Note : … — pour l'animateur seul, à sa télécommande, jamais à l'écran (${MAX_NOTE} caractères au plus) : ce qu'il racontera, à qui poser la question.
+Intertitre : … — une diapo avant la question, sans réponse ni points (${MAX_INTERTITRE} caractères au plus) : « Manche 2 : le cinéma », « Pause buvette ».
 
 CATÉGORIES — facultatives
 Une ligne # suivie d'une catégorie, placée avant une question, range cette question et les suivantes dans la catégorie, jusqu'à la prochaine ligne #. Un # seul : les suivantes n'en ont plus. Seulement l'une de celles-ci, écrite telle quelle : ${CATEGORIES.join(', ')}.
@@ -205,8 +256,11 @@ export async function joindrePhotos<F extends { name: string }>(
  * elles s'annoncent (« Photo : »), et la question recollée les attendra.
  * Une question sans intitulé ne s'écrit pas : elle n'aurait rien à relire.
  */
-export function ecrireListe(questions: readonly QuizQuestionDef[]): string {
+export function ecrireListe(questions: readonly QuizQuestionDef[], titre?: string | null): string {
   const blocs: string[] = []
+  // Le titre voyage avec la liste : recollée dans un quiz neuf, elle le nomme.
+  const t = (titre ?? '').replace(/\s+/g, ' ').trim()
+  if (t) blocs.push(`Titre : ${t}`)
   // Rien de connu au départ : la première question dit sa catégorie et son
   // temps, sans quoi, recollée, elle prendrait ceux de sa nouvelle voisine.
   // Un quiz sans aucune catégorie n'en dit rien : un « # » seul en tête
@@ -234,6 +288,12 @@ export function ecrireListe(questions: readonly QuizQuestionDef[]): string {
       lignes.push(`Temps : ${q.duration} s`)
       temps = q.duration
     }
+    if (q.kind === 'choice' && q.variante) lignes.push(`Type : ${ECRITURE_DES_SORTES[q.variante]}`)
+    // L'ordre à retrouver se mélange toujours : « fixe » n'y voudrait rien dire.
+    if (q.kind === 'choice' && q.ordreFixe && q.variante !== 'ordre') lignes.push('Ordre : fixe')
+    if (q.intertitre) lignes.push(`Intertitre : ${q.intertitre}`)
+    if (q.anecdote) lignes.push(`Anecdote : ${q.anecdote}`)
+    if (q.note) lignes.push(`Note : ${q.note}`)
     const photo = q.image ? `photo de la question ${n}` : photoManquante(q)
     if (photo) {
       lignes.push(`Photo : ${photo}`)
@@ -242,13 +302,16 @@ export function ecrireListe(questions: readonly QuizQuestionDef[]): string {
     if (q.kind === 'number') {
       // Sans cible, la ligne « = » ne se relit pas, et la question se perd
       // au recollage (compté parmi les blocs ignorés) : on ne devine pas.
-      const cible = q.target === null ? '' : ecrireNombre(q.target)
+      // En direct, la cible se tape à la révélation : « = ? ».
+      const cible = q.enDirect ? '?' : q.target === null ? '' : ecrireNombre(q.target)
       lignes.push(`= ${cible}${q.unit.trim() ? ` ${q.unit.trim()}` : ''}`)
-    } else {
+    } else if (q.variante !== 'sondage') {
       q.answers.forEach((a, i) => {
         const reponse = (a ?? '').trim()
         if (!reponse) return
-        const marquee = i === q.correct && q.correct !== SANS_BONNE_REPONSE ? `* ${reponse}` : reponse
+        const bonne =
+          q.variante === 'plusieurs' ? !!q.bonnes?.includes(i) : q.variante !== 'ordre' && i === q.correct && q.correct !== SANS_BONNE_REPONSE
+        const marquee = bonne ? `* ${reponse}` : reponse
         // « Photo : la plage » est un choix, pas un réglage : la puce le dit.
         lignes.push(luCommeReglage(reponse) ? `- ${marquee}` : marquee)
       })
@@ -256,4 +319,61 @@ export function ecrireListe(questions: readonly QuizQuestionDef[]): string {
     blocs.push(lignes.join('\n'))
   }
   return blocs.join('\n\n')
+}
+
+// ── La demande pour une IA ───────────────────────────────────────────────
+//
+// « Copier le format complet » donnait les règles ; la demande, il fallait
+// l'écrire à côté — et l'IA à qui l'on ne disait ni le public, ni le niveau,
+// ni la part d'estimations rendait vingt questions de culture générale à
+// quatre réponses. La demande se remplit en quatre choix, et part avec le
+// format, d'un seul geste.
+
+export type PublicDuQuiz = 'adultes' | 'famille' | 'enfants'
+export type NiveauDuQuiz = 'facile' | 'moyen' | 'difficile'
+export type PartDEstimations = 'aucune' | 'quelques' | 'beaucoup'
+
+export interface DemandeIA {
+  theme: string
+  nombre: number
+  public: PublicDuQuiz
+  niveau: NiveauDuQuiz
+  estimations: PartDEstimations
+}
+
+export const DEMANDE_PAR_DEFAUT: DemandeIA = { theme: '', nombre: 15, public: 'adultes', niveau: 'moyen', estimations: 'quelques' }
+
+const PUBLICS: Record<PublicDuQuiz, string> = {
+  adultes: 'des adultes, entre amis, un soir de fête',
+  famille: 'une famille, des grands-parents aux ados : rien qui exclue une génération',
+  enfants: 'des enfants de 8 à 12 ans : des questions simples, sans piège, un vocabulaire qu’ils connaissent',
+}
+
+const NIVEAUX: Record<NiveauDuQuiz, string> = {
+  facile: 'facile — la salle doit trouver la plupart des réponses',
+  moyen: 'moyen — ni évident, ni introuvable : on hésite, on discute, on trouve souvent',
+  difficile: 'difficile — pour des connaisseurs, mais jamais une question que personne ne peut deviner',
+}
+
+/** La demande complète, format compris, à coller telle quelle dans une IA. */
+export function demandePourIA(d: DemandeIA): string {
+  const nombre = Math.min(MAX_QUESTIONS, Math.max(1, Math.round(Number(d.nombre) || DEMANDE_PAR_DEFAUT.nombre)))
+  const theme = d.theme.replace(/\s+/g, ' ').trim() || 'culture générale, des sujets variés'
+  const estimations =
+    d.estimations === 'aucune'
+      ? 'Uniquement des QCM et quelques vrai ou faux : aucune estimation chiffrée.'
+      : d.estimations === 'beaucoup'
+        ? `Environ la moitié en estimations chiffrées (une date, une distance, un prix, un nombre…), le reste en QCM à ${MAX_ANSWERS} réponses et quelques vrai ou faux.`
+        : `Deux ou trois estimations chiffrées (une date, une distance, un prix…), le reste en QCM à ${MAX_ANSWERS} réponses et quelques vrai ou faux.`
+  return [
+    `Écris un quiz de ${nombre} question${nombre > 1 ? 's' : ''} sur ce thème : « ${theme} ».`,
+    `Public : ${PUBLICS[d.public] ?? PUBLICS.adultes}.`,
+    `Niveau : ${NIVEAUX[d.niveau] ?? NIVEAUX.moyen}.`,
+    estimations,
+    'Vérifie chaque fait. Rien qui change avec le temps : pas de record en cours, de champion en titre ni de prix du jour.',
+    'Des réponses fausses plausibles, de la même longueur que la bonne. Des intitulés courts : ils s’affichent en grand sur un écran.',
+    'Donne un titre au quiz. Réponds uniquement dans le format ci-dessous, sans introduction ni conclusion.',
+    '',
+    FORMAT_DE_LISTE,
+  ].join('\n')
 }

@@ -1526,11 +1526,14 @@ try {
   assert(!fromDb.players.some((p: any) => p.name === 'Bobette'), 'l’export sans nom d’espace lit l’espace par défaut, pas celui de Bob')
   const bobFromDb = await reviewFromDatabase(quizDbUrl, undefined, { slug: 'chez-bob' })
   assert(bobFromDb.players.some((p: any) => p.name === 'Bobette'), 'l’export sait viser l’espace de Bob')
-  // Sans les copies des parties, seuls les quiz encore en bibliothèque retrouvent leurs intitulés.
+  // Les copies exactes des parties, gardées au miroir, relisent chaque
+  // question — celles d'un quiz supprimé depuis comprises : une partie aux
+  // réponses mélangées ne se relirait pas juste dans la bibliothèque.
   const deletedTitles = new Set(['Spécial Romane', 'Sabotage', 'Photos de mémoire'])
   assert(
-    fromDb.questions.every((q: any) => q.resolved === !deletedTitles.has(q.quizTitle)),
-    'depuis la base, un quiz supprimé n’a plus d’intitulé, les autres si',
+    fromDb.questions.some((q: any) => deletedTitles.has(q.quizTitle)) &&
+      fromDb.questions.every((q: any) => q.resolved && !q.uncertain),
+    'depuis la base, les copies des parties relisent chaque question, celles d’un quiz supprimé comprises',
   )
 
   // Attribution : les points s'ajoutent au total de l'équipe, pas à la moyenne.
