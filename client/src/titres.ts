@@ -7,11 +7,14 @@ import type { AccountPage } from './routes'
  * « Mes quiz » de « Mon compte ». L'écran commun et le profil le remplacent
  * ensuite par le nom de la soirée ou du joueur.
  */
+// Les mots de la page elle-même : « Espace animateur » au-dessus de la
+// connexion, « Activer mon compte » sur le bouton de l'activation, « Mon
+// compte » dans la console et la navigation.
 const TITRES: Record<AccountPage, string> = {
   host: 'Écran commun',
   edit: 'Mes quiz',
-  connexion: 'Connexion',
-  activer: 'Activer mon espace',
+  connexion: 'Espace animateur',
+  activer: 'Activer mon compte',
   compte: 'Mon compte',
   admin: 'Les comptes',
   profil: 'Mon profil',

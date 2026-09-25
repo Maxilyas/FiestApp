@@ -19,7 +19,7 @@ pour peupler la salle.
    jusqu'au podium, remettre les prix, **lancer un second quiz** dans la
    même soirée, clore la soirée.
 5. Le lendemain : retrouver la soirée dans l'historique, ouvrir le souvenir,
-   le bilan, les fiches ; envoyer leurs liens ; relancer le même quiz pour
+   le bilan, les pages à imprimer ; envoyer leurs liens ; relancer le même quiz pour
    une autre soirée ; exporter le quiz pour un ami.
 
 **Ce que tu comptes, à chaque étape** : les clics et les saisies ; chaque

@@ -1,3 +1,5 @@
+import { Glossaire } from '../components/Glossaire'
+import { deNom } from '../format'
 import { useEffect, useMemo, useState } from 'react'
 import type { Review, ReviewPlayer } from '../../../shared/review'
 import { Icon } from '../components/Icon'
@@ -207,10 +209,11 @@ export function BilanApp() {
           <Picker ctx={ctx} players={played} onPick={id => navigate({ kind: 'me', playerId: id })} />
         )}
 
+        <Glossaire mots={['bilan', 'souvenir', 'precision', 'coupDOeil']} />
         <p className="recap-foot muted">Merci d'avoir joué.</p>
         <p className="muted small center">
           Pour l'animateur :{' '}
-          <a href={spacePath(slug, 'bilan/fiches', archiveId)}>les fiches à imprimer, une par invité</a>
+          <a href={spacePath(slug, 'bilan/fiches', archiveId)}>les pages à imprimer, une par invité</a>
         </p>
         {animateur && (archiveId ?? ctx.review.archive?.id) && (
           <TousLesLiens slug={slug} soireeId={(archiveId ?? ctx.review.archive?.id)!} players={played} />
@@ -273,7 +276,7 @@ function BilanHead({ ctx }: { ctx: BilanCtx }) {
     <header className="recap-header">
       {review.archive && <ArchiveBanner archive={review.archive} />}
       {dateLine && <span className="label">{dateLine}</span>}
-      <h1>Le bilan du quiz</h1>
+      <h1>Le bilan de la soirée</h1>
       <p className="join-sub">{review.archive ? review.archive.title : review.space?.title}</p>
       {review.questions.length > 0 && (
         <p className="muted">
@@ -341,10 +344,12 @@ function Fiches({ ctx, players }: { ctx: BilanCtx; players: ReviewPlayer[] }) {
     <main className="recap bilan fiches">
       <div className="card no-print bilan-print-bar">
         <div>
-          <h2>Les fiches</h2>
+          <h2>Les pages à imprimer</h2>
           <p className="muted small">
-            {sorted.length} fiche{sorted.length > 1 ? 's' : ''}, une par invité, par équipe puis par
-            prénom. Dans la boîte d'impression, choisis « Enregistrer en PDF » : chaque fiche commence
+            {/* « Fiche » était aussi le mot des chiffres d'un profil (« Ma fiche ») :
+                ici, ce sont des bilans qu'on imprime. */}
+            {sorted.length} bilan{sorted.length > 1 ? 's' : ''}, un par invité, par équipe puis par
+            prénom. Dans la boîte d'impression, choisis « Enregistrer en PDF » : chaque bilan commence
             sur une nouvelle page.
           </p>
         </div>
@@ -354,7 +359,7 @@ function Fiches({ ctx, players }: { ctx: BilanCtx; players: ReviewPlayer[] }) {
             Imprimer
           </button>
           <a className="btn btn-ghost" href={spacePath(pageContext().slug, 'bilan', pageContext().archiveId)}>
-            Retour au bilan
+            Revenir au bilan
           </a>
         </div>
       </div>
@@ -362,7 +367,7 @@ function Fiches({ ctx, players }: { ctx: BilanCtx; players: ReviewPlayer[] }) {
         <section key={p.id} className="fiche">
           <header className="fiche-head">
             <span className="label">{partyLine(ctx)}</span>
-            <h1>Le bilan de {p.name}</h1>
+            <h1>Le bilan {deNom(p.name)}</h1>
           </header>
           <PlayerReview ctx={ctx} player={p} />
         </section>

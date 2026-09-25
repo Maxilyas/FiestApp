@@ -87,6 +87,8 @@ const Page = () =>
 
 // Un nom d'onglet dès le premier rendu, avant le préfixe d'environnement.
 if (route.kind === 'account') document.title = titreDePage(route.page)
+// Une adresse qui ne mène nulle part le dit aussi dans son onglet.
+else if (route.kind === 'unknown') document.title = 'Adresse introuvable · FiestApp'
 
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au
@@ -150,6 +152,9 @@ class Filet extends Component<{ children: ReactNode }, { panne: boolean }> {
     return (
       <button type="button" className="filet" onClick={() => window.location.reload()}>
         <span className="filet-titre">Oups</span>
+        {/* « Oups » seul ne disait pas l'essentiel à qui a une soirée en cours :
+            sa place et ses points sont au serveur, pas dans la page. */}
+        <span className="muted">Un souci d’affichage — rien n’est perdu.</span>
         <span className="btn btn-primary btn-big">Touche pour recharger</span>
       </button>
     )

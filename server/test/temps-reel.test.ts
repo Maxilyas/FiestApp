@@ -221,7 +221,7 @@ test('une panne dans un écouteur finit au journal, et le client a quand même s
     // Dans la promesse d'un écouteur…
     const vu = await new Promise<any>(resolve => socket.emit('party:watch', { slug: SLUG }, resolve))
     assert.equal(vu.ok, false, 'le téléphone apprend que ça n’a pas marché')
-    assert.match(vu.error, /retente/, 'avec un message qui dit quoi faire')
+    assert.match(vu.error, /réessaie/, 'avec un message qui dit quoi faire')
     // …comme en direct : une réponse d'invité a toujours son accusé.
     const accuse = await new Promise<any>(resolve =>
       socket.emit('player:action', { slug: SLUG, sessionId: 's', action: { type: 'answer', choice: 0 } }, resolve),

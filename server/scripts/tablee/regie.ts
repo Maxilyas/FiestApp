@@ -479,7 +479,9 @@ const TEXTE = `(() => (document.body ? document.body.innerText : '').split('\\n'
  * réagir, le chronomètre ne l'attend pas.
  */
 const LIRE_TELEPHONE = `(() => {
-  const txt = el => (el && el.textContent ? el.textContent : '').replace(/\\s+/g, ' ').trim()
+  // Le gluon (U+2060) que l'affichage pose dans « a-t-il » est invisible : sans
+  // l'ôter, « repondre Y a-t-il un pilote ? » ne trouvait pas sa réponse.
+  const txt = el => (el && el.textContent ? el.textContent : '').replace(/\\u2060/g, '').replace(/\\s+/g, ' ').trim()
   // Un bandeau de plusieurs lignes se lit ligne à ligne : « Trop tard ! · La bonne réponse : … ».
   const lignes = el => (el && el.innerText ? el.innerText : '').split('\\n').map(l => l.trim()).filter(Boolean).join(' · ')
   if (document.querySelector('.fin-tete')) return { etat: 'fin' }

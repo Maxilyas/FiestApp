@@ -18,7 +18,9 @@ export function ArchiveBanner({ archive }: { archive: ArchiveSummary }) {
             bilan d'une archive l'écrivait trois fois. */}
         {archiveId ? 'Soirée archivée' : 'La dernière soirée'} : <strong>{archive.title}</strong>
       </span>
-      <a href={spacePath(slug, 'soirees')}>Toutes les soirées</a>
+      {/* « Historique » : la même page s'appelait aussi Soirées, Mes soirées,
+          Les soirées et Toutes les soirées. */}
+      <a href={spacePath(slug, 'soirees')}>Historique</a>
     </p>
   )
 }

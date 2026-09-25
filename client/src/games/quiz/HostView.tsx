@@ -15,8 +15,9 @@ import { PALIERS_ENCHAINEMENT, gesteAccepte } from '../../../../shared/console'
 import { espacesFines } from '../../format'
 import type { PublicTeam } from '../../../../shared/types'
 import { sound } from '../../sound'
-import { formatNumber } from '../../format'
+import { formatNumber, secondes } from '../../format'
 import { answersSizeClass, questionSizeClass } from './questionSize'
+import { consigneEstimation } from './consignes'
 import { Avatar } from '../../components/Avatar'
 import { Coupe } from '../../components/Coupe'
 import { Niveau } from '../../components/Niveau'
@@ -234,9 +235,15 @@ export function QuizHost({
             title={v.cancelled ? 'Les points de cette question sont déjà annulés' : revealing ? undefined : 'Possible une fois la réponse révélée'}
             onClick={garde(async () => {
               const ok = await confirmDialog({
+                // Pas de bouton « Annuler » dans cette boîte : sous pression,
+                // l'animateur qui voulait annuler les points touchait le
+                // bouton « Annuler »… qui les gardait. Le titre, lui, garde le
+                // verbe du bouton et du résultat (« Points annulés ») : un
+                // geste, un verbe.
                 title: 'Annuler les points de cette question ?',
                 message: 'Les points gagnés sur cette question sont retirés à tout le monde.',
                 confirmLabel: 'Retirer les points',
+                cancelLabel: 'Garder les points',
                 danger: true,
               })
               // `visee` est celle du clic, pas celle de la confirmation :
@@ -429,7 +436,7 @@ export function QuizHost({
             ) : (
               v.fastest && (
                 <span className="pill flash">
-                  <Icon name="zap" /> {v.fastest.name} — {(v.fastest.ms / 1000).toFixed(2)} s
+                  <Icon name="zap" /> {v.fastest.name} — <span className="unite">{secondes(v.fastest.ms)}</span>
                 </span>
               )
             )}
@@ -518,8 +525,7 @@ export function QuizHost({
           ) : (
             <>
               <p className="big-waiting">
-                <Icon name="keyboard" /> Tapez votre estimation sur votre téléphone{v.unit ? ` (en ${v.unit})` : ''} — le
-                plus proche gagne&nbsp;!
+                <Icon name="keyboard" /> {espacesFines(consigneEstimation(v.unit))}
               </p>
               {/* Les trois cinquièmes de l'écran étaient vides : le compte des
                   réponses meuble l'attente, et presse les retardataires. */}
@@ -602,7 +608,7 @@ export function QuizHost({
               <div className="tableau">
                 <h3>
                   <Icon name="trophy" />
-                  Top du quiz
+                  En tête du quiz
                 </h3>
                 <Coupe>
                   <Standings rows={v.standings} />

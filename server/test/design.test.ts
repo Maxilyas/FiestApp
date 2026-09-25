@@ -338,7 +338,7 @@ test('A4 · dans l’éditeur, un bouton répété dit ce qu’il vise', () => {
   for (const m of source.matchAll(/<button\b[\s\S]*?[^=]>(?=[ \t]*$)/gm)) {
     const fin = source.indexOf('</button>', m.index! + m[0].length)
     const texte = source.slice(m.index! + m[0].length, fin).replace(/<[^>]*>/g, '').trim()
-    if (!['Supprimer', 'Éditer', 'Dupliquer', 'Aperçu'].includes(texte)) continue
+    if (!['Supprimer', 'Modifier', 'Dupliquer', 'Aperçu'].includes(texte)) continue
     vus++
     // Et le nom commence par le mot affiché : c'est lui qu'une commande vocale dit.
     assert.match(m[0], new RegExp(`aria-label=\\{\`${texte} `), `${texte} : ${m[0].replace(/\s+/g, ' ')}`)

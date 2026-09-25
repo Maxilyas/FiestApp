@@ -7,7 +7,7 @@ export const ERREUR_SERVEUR = 'Erreur serveur — réessaie dans un instant'
  * Vrai si le message de cette erreur est fait pour être lu.
  *
  * Le code lève exprès des `Error` nus, en français, pour la personne devant
- * l'écran : « Cet identifiant est déjà pris », « Image trop lourde ». Tout le
+ * l'écran : « Cet identifiant est déjà pris », « Photo trop lourde ». Tout le
  * reste vient des entrailles — LibsqlError, SqliteError, TypeError,
  * SyntaxError… — et parle de tables, de colonnes, voire recopie le début
  * d'une ligne de la base : rien qui aide un invité, tout ce qui renseigne un

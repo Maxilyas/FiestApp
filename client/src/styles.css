@@ -523,6 +523,9 @@ h3 > .icon {
 }
 
 .pill .icon { width: 14px; height: 14px; }
+/* Une unité ne prend pas de capitale : « 8.90 S » au mur, avec un point à
+   l'anglaise, là où tout le reste écrit « 8,9 s ». */
+.unite { text-transform: none; letter-spacing: 0.02em; }
 .pill.flash { color: var(--accent-text); }
 
 /* Le multiplicateur doit sauter aux yeux : c'est lui qui relance la salle. */
@@ -4916,6 +4919,31 @@ h3 > .icon {
 .tous-les-liens[open] summary { margin-bottom: 12px; }
 .tous-les-liens ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .tous-les-liens li { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* ── Le glossaire ─────────────────────────────────────────────────────────
+
+   Replié sur une ligne discrète ; déplié, un terme par ligne, le mot en tête.
+   Pas de marqueur natif : le triangle de Safari et celui de Chrome ne se
+   ressemblent pas, l'icône dit assez qu'on peut ouvrir. */
+.glossaire { margin-top: 14px; }
+.glossaire > summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.glossaire > summary::-webkit-details-marker { display: none; }
+.glossaire > summary .icon { width: 15px; height: 15px; }
+/* L'anneau est celui de toute l'application (`:focus-visible`, plus haut) :
+   le glossaire n'en règle que l'écart et l'arrondi. */
+.glossaire > summary:focus-visible { outline-offset: 4px; border-radius: 6px; }
+.glossaire dl { margin: 4px 0 0; display: grid; gap: 8px; }
+.glossaire dt { font-weight: 600; color: var(--accent-text); display: inline; }
+.glossaire dt::after { content: ' · '; color: var(--muted); font-weight: 400; }
+.glossaire dd { display: inline; margin: 0; color: var(--ink); }
 
 /* « Branchée par … — Débrancher » : discret, sous l'invitation de la télé. */
 .branchee-par {

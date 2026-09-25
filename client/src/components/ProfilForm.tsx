@@ -1,3 +1,4 @@
+import { MAX_NAME_LENGTH } from '../../../shared/avatars'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Limite } from './Limite'
 import { api, motifDe } from '../api'
@@ -141,9 +142,11 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, bandeau
     // Resserré comme l'entrée d'une soirée : en 360 × 640, « Revenir » —
     // la seule sortie de la salle d'attente — tombait sous le bord.
     <form className="join entree" onSubmit={submit}>
+      {/* « Retrouver mon profil » titrait aussi la récupération par code de
+          secours (`Secours.tsx`) : deux écrans, un seul nom. */}
       {bandeau}
       <h2 className="center">
-        <Icon name="sparkles" /> {creation ? 'Créer un profil' : 'Retrouver mon profil'}
+        <Icon name="sparkles" /> {creation ? 'Créer un profil' : 'Me connecter'}
       </h2>
       {/* Avec une échappée, l'explication passe SOUS les boutons — comme à
           l'entrée d'une soirée. En haut, elle pousse « Rejoindre une
@@ -161,9 +164,12 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, bandeau
       )}
       {creation && (
         <div className="field">
-          <label className="label" htmlFor="pf-name">
-            Ton prénom
-          </label>
+          <div className="field-head">
+            <label className="label" htmlFor="pf-name">
+              Ton prénom
+            </label>
+            <span className="muted small">{MAX_NAME_LENGTH} caractères au plus</span>
+          </div>
           <input
             id="pf-name"
             className="input input-line"
@@ -172,10 +178,10 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, bandeau
               setName(e.target.value)
               if (!loginTouche) setLogin(identifiantPour(e.target.value))
             }}
-            maxLength={24}
+            maxLength={MAX_NAME_LENGTH}
             autoComplete="given-name"
           />
-          <Limite valeur={name} max={24} />
+          <Limite valeur={name} max={MAX_NAME_LENGTH} />
         </div>
       )}
       {/* L'avatar ne se choisit qu'à l'accueil : ailleurs, celui du soir est

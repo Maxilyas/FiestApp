@@ -67,7 +67,7 @@ export function AccountApp() {
         </a>
         <a className="btn" href={`/${me.space.slug}/soirees`}>
           <Icon name="book" />
-          Mes soirées
+          Historique
         </a>
         {me.account.role === 'admin' && (
           <a className="btn btn-accent" href="/admin">
@@ -77,50 +77,50 @@ export function AccountApp() {
         )}
       </nav>
       <main className="page-corps">
-        <section className="card">
-          <h2>L'adresse de mes invités</h2>
-          <p className="muted small">
-            C'est elle que montre le QR de l'écran commun, et qu'on peut aussi dicter ou écrire sur une affiche.
-          </p>
-          <div className="link-box">
-            <code>{guestUrl}</code>
-            <button
-              className="btn btn-small"
-              onClick={() =>
-                navigator.clipboard
-                  .writeText(guestUrl)
-                  .then(() => showToast({ kind: 'info', message: 'Adresse copiée' }))
-                  .catch(() => showToast({ kind: 'error', message: 'Copie impossible ici : sélectionne l’adresse' }))
-              }
-            >
-              <Icon name="clipboard" />
-              Copier
-            </button>
-          </div>
-        </section>
-
-        <SettingsForm me={me} onSaved={space => setMe({ ...me, space })} />
-        <ProfilLie profil={me.profil ?? null} onChange={profil => setMe({ ...me, profil })} />
-        <PasswordForm />
-
-        <section className="card">
-          <h2>Se déconnecter</h2>
-          <p className="muted small">Sur cet appareil seulement. L'écran commun ouvert avec cette session se fermera.</p>
+      <section className="card">
+        <h2>L'adresse de mes invités</h2>
+        <p className="muted small">
+          C'est elle que montre le QR de l'écran commun, et qu'on peut aussi dicter ou écrire sur une affiche.
+        </p>
+        <div className="link-box">
+          <code>{guestUrl}</code>
           <button
-            className="btn"
+            className="btn btn-small"
             onClick={() =>
-              api.auth
-                .logout()
-                .catch(() => {})
-                .then(() => window.location.assign('/connexion'))
+              navigator.clipboard
+                .writeText(guestUrl)
+                .then(() => showToast({ kind: 'info', message: 'Adresse copiée' }))
+                .catch(() => showToast({ kind: 'error', message: 'Copie impossible ici : sélectionne l’adresse' }))
             }
           >
-            <Icon name="x" />
-            Me déconnecter
+            <Icon name="clipboard" />
+            Copier
           </button>
-        </section>
+        </div>
+      </section>
 
-        {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
+      <SettingsForm me={me} onSaved={space => setMe({ ...me, space })} />
+      <ProfilLie profil={me.profil ?? null} onChange={profil => setMe({ ...me, profil })} />
+      <PasswordForm />
+
+      <section className="card">
+        <h2>Se déconnecter</h2>
+        <p className="muted small">Sur cet appareil seulement. L'écran commun ouvert avec cette session se fermera.</p>
+        <button
+          className="btn"
+          onClick={() =>
+            api.auth
+              .logout()
+              .catch(() => {})
+              .then(() => window.location.assign('/connexion'))
+          }
+        >
+          <Icon name="x" />
+          Me déconnecter
+        </button>
+      </section>
+
+      {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>
     </div>
   )

@@ -7,7 +7,7 @@ import { confirmDialog, promptDialog } from '../components/Dialog'
 import { SpaceError, SpaceNav, useIsHost } from '../components/SpaceNav'
 import { api, UnauthorizedError } from '../api'
 import { dataUrl, pageContext, spacePath, type PublicPage } from '../routes'
-import { formatNumber } from '../format'
+import { formatNumber, pts } from '../format'
 
 /**
  * L'historique des soirées d'un espace (`/<espace>/soirees`) : la soirée en
@@ -36,7 +36,7 @@ export function ArchivesApp() {
   }, [slug])
 
   useEffect(() => {
-    if (list?.space) document.title = `${list.space.title} · Les soirées`
+    if (list?.space) document.title = `${list.space.title} · Historique`
   }, [list])
 
   const manage = async (action: () => Promise<unknown>) => {
@@ -64,68 +64,68 @@ export function ArchivesApp() {
     <div className="recap soirees">
       <header className="recap-header">
         <span className="label">{list.space?.title}</span>
-        <h1>Les soirées</h1>
+        <h1>Historique</h1>
         <p className="join-sub">L'historique, une soirée après l'autre</p>
         <hr className="hairline" />
       </header>
       <SpaceNav current="soirees" />
       <main className="page-corps">
-        {current && (
-          <section className="card soiree soiree-current">
-            <div className="soiree-head">
-              <div>
-                <span className="label">En cours</span>
-                <h2>{current.title ?? 'La soirée du moment'}</h2>
-                <p className="muted">
-                  {current.players} joueur{current.players > 1 ? 's' : ''} · {current.quizzes} quiz ·{' '}
-                  {current.questions} question{current.questions > 1 ? 's' : ''}
-                  {current.since !== null && ` · depuis le ${formatDay(current.since)}`}
-                </p>
-              </div>
+      {current && (
+        <section className="card soiree soiree-current">
+          <div className="soiree-head">
+            <div>
+              <span className="label">En cours</span>
+              <h2>{current.title ?? 'La soirée du moment'}</h2>
+              <p className="muted">
+                {current.players} joueur{current.players > 1 ? 's' : ''} · {current.quizzes} quiz ·{' '}
+                {current.questions} question{current.questions > 1 ? 's' : ''}
+                {current.since !== null && ` · depuis le ${formatDay(current.since)}`}
+              </p>
             </div>
-            <PageLinks slug={slug} archiveId={null} />
-            <p className="muted small">
-              Elle s'enregistre toute seule après chaque quiz, et rejoindra la liste quand l'animateur
-              la clora depuis l'écran commun.
-            </p>
-          </section>
-        )}
+          </div>
+          <PageLinks slug={slug} archiveId={null} />
+          <p className="muted small">
+            Elle s'enregistre toute seule après chaque quiz, et rejoindra la liste quand l'animateur
+            la clora depuis l'écran commun.
+          </p>
+        </section>
+      )}
 
-        {list.archives.length === 0 ? (
-          <section className="card">
-            <p className="muted">
-              Aucune soirée close pour l'instant. Chaque soirée s'enregistre après chaque quiz, et
-              rejoint cette liste quand l'animateur la clôt depuis l'écran commun.
-            </p>
-          </section>
-        ) : (
-          list.archives.map(a => (
-            <ArchiveCard
-              key={a.id}
-              slug={slug}
-              archive={a}
-              host={host}
-              onRename={async () => {
-                const title = await promptDialog({
-                  title: 'Renommer la soirée',
-                  input: { value: a.title, maxLength: 80 },
-                  confirmLabel: 'Renommer',
-                })
-                if (title) await manage(() => api.archives.rename(a.id, title))
-              }}
-              onRemove={async () => {
-                const ok = await confirmDialog({
-                  title: `Retirer « ${a.title} » de l'historique ?`,
-                  message:
-                    'Son souvenir et son bilan disparaissent, et ce qu’elle avait rapporté aux profils avec — expérience, prix, hauts faits. C’est définitif.',
-                  confirmLabel: 'Retirer',
-                  danger: true,
-                })
-                if (ok) await manage(() => api.archives.remove(a.id))
-              }}
-            />
-          ))
-        )}
+      {list.archives.length === 0 ? (
+        <section className="card">
+          <p className="muted">
+            Aucune soirée close pour l'instant. Chaque soirée s'enregistre après chaque quiz, et
+            rejoint cette liste quand l'animateur la clôt depuis l'écran commun.
+          </p>
+        </section>
+      ) : (
+        list.archives.map(a => (
+          <ArchiveCard
+            key={a.id}
+            slug={slug}
+            archive={a}
+            host={host}
+            onRename={async () => {
+              const title = await promptDialog({
+                title: 'Renommer la soirée',
+                input: { value: a.title, maxLength: 80 },
+                confirmLabel: 'Renommer',
+              })
+              if (title) await manage(() => api.archives.rename(a.id, title))
+            }}
+            onRemove={async () => {
+              const ok = await confirmDialog({
+                title: `Retirer « ${a.title} » de l'historique ?`,
+                message:
+                  'Son souvenir et son bilan disparaissent, et ce qu’elle avait rapporté aux profils avec — expérience, prix, hauts faits. C’est définitif.',
+                confirmLabel: 'Retirer',
+                danger: true,
+              })
+              if (ok) await manage(() => api.archives.remove(a.id))
+            }}
+          />
+        ))
+      )}
       </main>
     </div>
   )
@@ -191,7 +191,7 @@ function ArchiveCard({
           {a.winners.length > 0 && (
             <>
               <Icon name="trophy" /> {enumerer(a.winners.map(w => `${w.avatar} ${w.name}`))}
-              {a.winners.length > 1 && ', ex æquo'} · {formatNumber(a.winners[0].points)} pts
+              {a.winners.length > 1 && ', ex æquo'} · {pts(a.winners[0].points)}
             </>
           )}
           {a.winners.length > 0 && a.teamWinners.length > 0 && ' · '}

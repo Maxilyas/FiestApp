@@ -221,10 +221,10 @@ export class QuizStore {
   /** Enregistre une image envoyée en dataURL (déjà compressée côté navigateur). */
   async saveImage(spaceId: string, dataUrl: unknown): Promise<string> {
     if (typeof dataUrl !== 'string' || dataUrl.length > MAX_IMAGE_DATAURL) {
-      throw new Error('Image trop lourde')
+      throw new Error('Photo trop lourde — choisis-en une plus petite')
     }
     const match = /^data:([a-z/+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl)
-    if (!match || !IMAGE_MIMES.includes(match[1])) throw new Error("Format d'image non supporté")
+    if (!match || !IMAGE_MIMES.includes(match[1])) throw new Error('Cette photo ne se lit pas — choisis-la en JPEG, PNG ou WebP')
     const id = randomUUID()
     // `data` reste vide : c'est la colonne historique, gardée pour relire les
     // photos d'avant.

@@ -126,7 +126,7 @@ test('une ligne de classement dit lequel des nombres est le rang, lequel les poi
 
   // Le bouton qui ouvre la carte : son nom remplace son contenu, il doit tout porter.
   const boutons = await rendu('components/Leaderboard', 'Leaderboard', { players: joueurs, onOuvrir: () => {} })
-  assert.match(boutons, /aria-label="La carte de Hugo — rang 2, 0 point"/)
+  assert.match(boutons, /aria-label="La carte d’Hugo — rang 2, 0 point"/)
 
   const suite = await rendu('components/Podium', 'Standings', { rows: [rangee('Jeanne', '🐢', 1281)], offset: 3 })
   assert.deepEqual(elements(suite, 'div'), ['Rang 4 🐢 Jeanne 1281 points'])

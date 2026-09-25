@@ -34,10 +34,10 @@ export function GetReady({ deadline, sounds, label }: { deadline: number; sounds
       </span>
       <p>{label}</p>
       {/* Hors de la région vivante du téléphone : un lecteur d'écran lisait
-          « 3 », « 2 », « 1 », « GO ! » par-dessus la question qui arrive. La
+          « 3 », « 2 », « 1 », « Top ! » par-dessus la question qui arrive. La
           phrase au-dessus suffit à dire ce qui vient. */}
       <div key={seconds} className="big-count" aria-live="off">
-        {seconds > 0 ? seconds : 'GO !'}
+        {seconds > 0 ? seconds : 'Top !'}
       </div>
     </div>
   )

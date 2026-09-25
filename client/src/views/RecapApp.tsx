@@ -1,10 +1,12 @@
+import { Glossaire } from '../components/Glossaire'
+import { formatNumber } from '../format'
 import { useEffect, useRef, useState } from 'react'
 import type { Recap } from '../../../shared/types'
 import { FinalPodium, Standings } from '../components/Podium'
 import { TeamBoard, VerdictDesEquipes } from '../components/TeamBoard'
 import { regleDesEquipes } from '../../../shared/teams'
 import { PrixRemis } from '../components/PrixRemis'
-import { StatsTable } from '../components/StatsTable'
+import { LEGENDE_DES_COLONNES, StatsTable } from '../components/StatsTable'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { Trophies } from '../components/Trophies'
 import { JoinHead } from '../components/Invitation'
@@ -144,7 +146,7 @@ export function RecapApp() {
         <p className="join-sub">Le souvenir de la soirée</p>
         <p className="muted">
           {joueurs} joueur{joueurs > 1 ? 's' : ''} · {recap.quizCount} quiz ·{' '}
-          {recap.totalPoints.toLocaleString('fr-FR')} points distribués
+          {formatNumber(recap.totalPoints)} points distribués
         </p>
         {/* Le lien à envoyer : celui de l'archive, qui ne changera pas quand
             la suivante jouera — `/<espace>/souvenir`, lui, changera. Pendant
@@ -201,14 +203,15 @@ export function RecapApp() {
 
         {recap.stats.logged > 0 && (
           <section id="stats" className="card">
-            <h2>Toutes les statistiques</h2>
+            <h2>Les chiffres</h2>
             <p className="muted small">
               {recap.stats.questions} questions posées · {recap.stats.logged} réponses enregistrées.
-              Clique sur un en-tête pour trier — chacun peut y chercher son propre chiffre. Le tableau
+              Touche un en-tête pour trier — chacun peut y chercher son propre chiffre. Le tableau
               défile dans son cadre, le prénom et les points restent en vue : dix-huit colonnes ne
               tiennent pas sur un téléphone.
             </p>
             <StatsTable stats={recap.stats} />
+            <Glossaire titre="Que veulent dire ces colonnes ?" mots={[]} extra={LEGENDE_DES_COLONNES} />
           </section>
         )}
 
@@ -235,6 +238,7 @@ export function RecapApp() {
           </section>
         )}
 
+        <Glossaire mots={['souvenir', 'bilan', 'historique', 'palmares', 'prix', 'hautsFaits', 'carte']} />
         <p className="recap-foot muted">Merci d'être venus.</p>
       </main>
     </div>

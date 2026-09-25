@@ -3,7 +3,7 @@ import { Limite } from './Limite'
 import type { PublicPlayer, PublicTeam } from '../../../shared/types'
 import type { PublicSpace } from '../../../shared/space'
 import type { PublicProfile } from '../../../shared/profil'
-import { AVATARS } from '../../../shared/avatars'
+import { AVATARS, MAX_NAME_LENGTH } from '../../../shared/avatars'
 import { cibleEclat } from '../../../shared/legendaires'
 import { sansAccent } from '../../../shared/homonymes'
 import { MOTIFS } from '../../../shared/erreurs'
@@ -293,7 +293,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           points de ce soir.
         </p>
         <div className="join-grow" />
-        {connectes > 0 && <p className="join-foot">{connectes} invité·e·s déjà là</p>}
+        {connectes > 0 && <p className="join-foot">{connectes} invité·e{connectes > 1 ? '·s' : ''} déjà là</p>}
       </form>
     )
   }
@@ -614,9 +614,14 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
       )}
       <hr className="hairline" />
       <div className="field">
-        <label className="label" htmlFor="join-name">
-          Ton prénom
-        </label>
+        {/* La limite dite avant qu'on tape : Lucas l'a découverte à la
+            vingt-quatrième lettre, son pseudo coupé net. */}
+        <div className="field-head">
+          <label className="label" htmlFor="join-name">
+            Ton prénom
+          </label>
+          <span className="muted small">{MAX_NAME_LENGTH} caractères au plus</span>
+        </div>
         {/* Pas d'`autoFocus`, ici non plus : le clavier ouvert d'office
             poussait « Rejoindre la soirée » hors de l'écran — et l'habitué
             qui revient, écran pré-rempli, n'a souvent rien à retaper. */}
@@ -626,7 +631,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           autoComplete="given-name"
           value={name}
           onChange={e => setName(e.target.value)}
-          maxLength={24}
+          maxLength={MAX_NAME_LENGTH}
           // Au téléphone, la touche du clavier le referme au lieu de valider :
           // les avatars, qu'il cachait, restent à choisir, et « Continuer »
           // réapparaît juste dessous. Au clavier d'un ordinateur, Entrée valide.
@@ -637,14 +642,14 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
             e.currentTarget.blur()
           }}
         />
-        <Limite valeur={name} max={24} />
+        <Limite valeur={name} max={MAX_NAME_LENGTH} />
       </div>
       <div className="field">
         <div className="field-head">
           <span className="label" id="avatar-label">
             Ton avatar
           </span>
-          {connectes > 0 && <span className="muted small">{connectes} invité·e·s déjà là</span>}
+          {connectes > 0 && <span className="muted small">{connectes} invité·e{connectes > 1 ? '·s' : ''} déjà là</span>}
         </div>
         <div className="emoji-grid" role="group" aria-labelledby="avatar-label">
           {AVATARS.map(a => (

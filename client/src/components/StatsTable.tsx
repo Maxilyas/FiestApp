@@ -21,7 +21,7 @@ const COLUMNS: Column[] = [
   { key: 'answered', label: 'Répondu', title: 'Questions auxquelles il a répondu', value: s => s.answered, format: s => `${s.answered}/${s.asked}` },
   { key: 'correct', label: 'Justes', title: 'Bonnes réponses', value: s => s.correct, format: s => String(s.correct) },
   { key: 'wrong', label: 'Fausses', title: 'Mauvaises réponses', value: s => s.wrong, format: s => String(s.wrong) },
-  { key: 'accuracy', label: 'Réussite', title: 'Part de bonnes réponses parmi les QCM auxquels il a répondu', value: s => s.accuracy, format: s => pct(s.accuracy) },
+  { key: 'accuracy', label: 'Précision', title: 'Part de bonnes réponses parmi les QCM auxquels il a répondu', value: s => s.accuracy, format: s => pct(s.accuracy) },
   { key: 'avgMs', label: 'Temps moy.', title: 'Temps de réponse moyen sur ses bonnes réponses', value: s => s.avgMs, format: s => secs(s.avgMs), asc: true },
   { key: 'bestMs', label: 'Éclair', title: 'Sa réponse juste la plus rapide', value: s => s.bestMs, format: s => secs(s.bestMs), asc: true },
   { key: 'bestStreak', label: 'Série +', title: "Plus longue série de bonnes réponses d'affilée", value: s => s.bestStreak, format: s => String(s.bestStreak) },
@@ -38,6 +38,13 @@ const COLUMNS: Column[] = [
   { key: 'avgGapPct', label: 'Écart estim.', title: 'Écart relatif moyen sur les estimations', value: s => s.avgGapPct, format: s => pct(s.avgGapPct), asc: true },
   { key: 'bias', label: 'Biais', title: 'Positif : il surestime. Négatif : il sous-estime.', value: s => s.bias, format: s => (s.bias === null ? '—' : `${s.bias > 0 ? '+' : ''}${Math.round(s.bias * 100)} %`) },
 ]
+
+/**
+ * Les colonnes abrégées — « Biais », « Écart estim. », « Série − » — et ce
+ * qu'elles comptent. Leur `title` ne s'affiche pas au toucher : la page les
+ * déplie en légende sous le tableau (`Glossaire`).
+ */
+export const LEGENDE_DES_COLONNES = COLUMNS.map(c => ({ terme: c.label, sens: c.title }))
 
 /**
  * Le tableau complet, une ligne par joueur, triable par colonne.

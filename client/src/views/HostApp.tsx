@@ -8,7 +8,7 @@ import { api, motifDe } from '../api'
 import { dataUrl, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
 import { titreDeCloture } from '../../../shared/space'
-import { espacesFines } from '../format'
+import { deNom, espacesFines } from '../format'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
@@ -221,7 +221,7 @@ function TeamGroup({
                 className="chip-team"
                 value={p.teamId ?? ''}
                 title="Changer d'équipe"
-                aria-label={`Équipe de ${p.nomAffiche ?? p.name}`}
+                aria-label={`Équipe ${deNom(p.nomAffiche ?? p.name)}`}
                 onChange={e =>
                   socket.emit('host:assignPlayer', {
                     playerId: p.id,
@@ -243,7 +243,7 @@ function TeamGroup({
               aria-label={`Exclure ${p.nomAffiche ?? p.name} de la soirée`}
               onClick={async () => {
                 const ok = await confirmDialog({
-                  title: `Retirer « ${p.nomAffiche ?? p.name} » de la soirée ?`,
+                  title: `Exclure « ${p.nomAffiche ?? p.name} » de la soirée ?`,
                   message: 'Ses points seront effacés et son téléphone reviendra à l’inscription.',
                   confirmLabel: 'Exclure',
                   danger: true,
@@ -771,7 +771,7 @@ export function HostApp() {
                   <b>{quizView?.answeredCount ?? 0}</b> / {quizView?.participantCount ?? 0} ont répondu
                 </>
               ) : (
-                <>{connectedCount} connecté·e·s</>
+                <>{connectedCount} connecté·e{connectedCount > 1 ? '·s' : ''}</>
               )}
             </span>
             <div className="qr-stack">
@@ -1182,7 +1182,12 @@ export function HostApp() {
                 <>
                 <h2>
                   <Icon name="crown" />
-                  {champions.length > 1 ? 'Les équipes qui remportent le quiz' : "L'équipe qui remporte le quiz"}
+                  {/* Sans équipes, « L'équipe qui remporte le quiz » au-dessus de
+                      « rien à couronner » se lisait comme un verdict contre Jo,
+                      qui venait de gagner la soirée seul. */}
+                  {teams.length === 0
+                    ? "Pas d'équipes ce soir"
+                    : champions.length > 1 ? 'Les équipes qui remportent le quiz' : "L'équipe qui remporte le quiz"}
                 </h2>
                 {teams.length > 0 ? (
                   <>
@@ -1253,7 +1258,7 @@ export function HostApp() {
                     </div>
                   </>
                 ) : (
-                  <p className="muted">Aucune équipe — rien à couronner.</p>
+                  <p className="muted">Sans équipes, c’est le classement des joueurs qui dit qui mène.</p>
                 )}
                 </>
                 )}
@@ -1320,7 +1325,7 @@ export function HostApp() {
                         <div className="qr-box">
                           <QRCodeSVG value={wifiQrValue(snap.wifi)} size={148} bgColor="#ffffff" fgColor={QR_INK} title="QR code du wifi" />
                         </div>
-                        <span className="label">1 · Wifi {espacesFines(`« ${snap.wifi.ssid} »`)}</span>
+                        <span className="label">1 · Wi-Fi {espacesFines(`« ${snap.wifi.ssid} »`)}</span>
                       </div>
                     )}
                     <div className="invite-qr">

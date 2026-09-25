@@ -44,6 +44,7 @@ import {
 import { ApiError, ConflitError, UnauthorizedError, api, auReveil, compressImage } from '../api'
 import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon } from '../brouillon'
 import { questionSizeClass } from '../games/quiz/questionSize'
+import { consigneEstimation } from '../games/quiz/consignes'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
 import { ChampNombre } from '../components/ChampNombre'
@@ -52,16 +53,7 @@ import { TimerBar } from '../components/TimerBar'
 import { serverNow } from '../clock'
 import { gesteAccepte } from '../../../shared/console'
 import { LoginForm } from '../components/Invitation'
-import { espacesFines } from '../format'
-
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { espacesFines, quand } from '../format'
 
 /**
  * La carte qui vient d'arriver quelque part — déplacée, insérée, dupliquée,
@@ -366,7 +358,7 @@ export function EditorApp() {
                   {q.readyCount} question{q.readyCount > 1 ? 's' : ''} prête{q.readyCount > 1 ? 's' : ''}
                   {q.questionCount > q.readyCount && ` · ${q.questionCount - q.readyCount} à compléter`}
                   {' · '}
-                  modifié le {formatDate(q.updatedAt)}
+                  modifié {quand(q.updatedAt)}
                 </p>
                 {brouillons.has(q.id) && (
                   <p className="warn small">
@@ -379,8 +371,8 @@ export function EditorApp() {
                   libellé commence par le mot affiché, qu'une commande vocale
                   reconnaît. */}
               <div className="row">
-                <button className="btn" aria-label={`Éditer « ${q.title} »`} onClick={() => setEditingId(q.id)}>
-                  Éditer
+                <button className="btn" aria-label={`Modifier « ${q.title} »`} onClick={() => setEditingId(q.id)}>
+                  Modifier
                 </button>
                 <button
                   className="btn btn-ghost btn-small"
@@ -415,9 +407,9 @@ export function EditorApp() {
                       // contient et quand il a changé disent lequel.
                       message:
                         q.questionCount === 0
-                          ? `Ce quiz vide, modifié le ${formatDate(q.updatedAt)}, disparaît pour de bon.`
+                          ? `Ce quiz vide, modifié ${quand(q.updatedAt)}, disparaît pour de bon.`
                           : `Le quiz et ${q.questionCount > 1 ? `ses ${q.questionCount} questions` : 'sa question'}, ` +
-                            `modifié le ${formatDate(q.updatedAt)}, disparaissent pour de bon.`,
+                            `modifié ${quand(q.updatedAt)}, disparaissent pour de bon.`,
                       confirmLabel: 'Supprimer',
                       danger: true,
                     })
@@ -815,7 +807,7 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
     if (!quiz) return
     const ok = await confirmDialog({
       title: 'Effacer ces modifications ?',
-      message: `Le quiz s’ouvrira tel qu’il a été enregistré, le ${formatDate(quiz.updatedAt)}.`,
+      message: `Le quiz s’ouvrira tel qu’il a été enregistré ${quand(quiz.updatedAt)}.`,
       confirmLabel: 'Effacer',
       danger: true,
     })
@@ -855,14 +847,14 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
           <p>
             {espacesFines(
               `Ce navigateur a gardé des modifications de « ${quiz.title} » qui n’ont pas été enregistrées — ` +
-                `les dernières le ${formatDate(retrouve.at)}.`,
+                `les dernières ${quand(retrouve.at)}.`,
             )}
           </p>
           {brouillonDepasse(retrouve, quiz) && (
             <p className="warn">
               <Icon name="alert" />{' '}
               {espacesFines(
-                `Le quiz a été enregistré depuis, le ${formatDate(quiz.updatedAt)} — d’un autre appareil ? ` +
+                `Le quiz a été enregistré depuis, ${quand(quiz.updatedAt)} — d’un autre appareil ? ` +
                   'Les reprendre remplacera cette version quand tu enregistreras.',
               )}
             </p>
@@ -875,7 +867,7 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
               Les effacer
             </button>
             <button className="btn btn-ghost" disabled={reprise === 'en-cours'} onClick={onClose}>
-              Retour
+              Revenir
             </button>
           </div>
         </div>
@@ -905,7 +897,7 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
             {ready}/{quiz.questions.length} prête{ready > 1 ? 's' : ''}
           </span>
           <button className="btn btn-ghost" onClick={close}>
-            Retour
+            Revenir
           </button>
           <button className="btn btn-primary" onClick={() => save()} disabled={saving || !dirty}>
             {saving ? (
@@ -936,7 +928,7 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
             <p className="warn">
               <Icon name="alert" />{' '}
               {espacesFines(
-                `Ce quiz a été enregistré ailleurs le ${formatDate(conflit)}, pendant que tu écrivais ici — un autre appareil ? ` +
+                `Ce quiz a été enregistré ailleurs ${quand(conflit)}, pendant que tu écrivais ici — un autre appareil ? ` +
                   'Rien n’est écrasé : choisis la version à garder.',
               )}
             </p>
@@ -983,7 +975,7 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
             )}
           </p>
         )}
-        {savedAt && !dirty && <p className="muted">Enregistré à {formatDate(savedAt)}</p>}
+        {savedAt && !dirty && <p className="muted">Enregistré {quand(savedAt)}</p>}
         {enPremier && (
           <p className="muted small">
             <Icon name="alert" />{' '}
@@ -1249,8 +1241,7 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
             )}
             {question.kind === 'number' ? (
               <p className="big-waiting">
-                <Icon name="keyboard" /> Chacun tape son estimation
-                {question.unit.trim() ? ` (en ${question.unit.trim()})` : ''} — le plus proche gagne !
+                <Icon name="keyboard" /> {espacesFines(consigneEstimation(question.unit))}
               </p>
             ) : (
               answers.length > 0 && (
@@ -1494,7 +1485,7 @@ function BulkImport({
         {count > 0 && (count > 1 ? ` · n° ${number} à ${number + count - 1}` : ` · n° ${number}`)}
         {result.unmarked > 0 &&
           ` · ${result.unmarked} sans bonne réponse désignée (une étoile, et une seule) : à choisir sur ${result.unmarked > 1 ? 'leur' : 'sa'} carte`}
-        {result.ignored > 0 && ` · ${result.ignored} bloc(s) ignoré(s)`}
+        {result.ignored > 0 && ` · ${result.ignored} ${result.ignored > 1 ? 'blocs ignorés' : 'bloc ignoré'}`}
       </p>
       {annoncees.length > 0 && (
         <div className="import-photos">
