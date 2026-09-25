@@ -193,6 +193,21 @@ export interface Award {
   player: { playerId: string; name: string; avatar: string } | null
   /** L'équipe qui encaisserait les points — null si le lauréat n'en a pas. */
   teamId: string | null
+  /**
+   * Les autres en tête, à égalité parfaite, que le prénom a départagés du
+   * lauréat — absent quand il est seul. Le prix le dit là où il s'affiche.
+   */
+  exAequo?: string[]
+  /**
+   * Pour un prix d'équipe : les autres équipes à égalité parfaite, par leur
+   * identifiant — la carte les nomme avec les équipes qu'elle connaît.
+   */
+  exAequoEquipes?: string[]
+  /**
+   * Ce qui a tranché l'égalité, s'il ne s'agit pas du prénom : La Plus
+   * Solidaire garde l'équipe du mieux classé.
+   */
+  departage?: 'classement'
 }
 
 export interface PartyStats {

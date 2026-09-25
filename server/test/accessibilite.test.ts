@@ -201,7 +201,8 @@ test('le tableau des chiffres dit par quelle colonne il est trié', async () => 
   const html = await rendu('components/StatsTable', 'StatsTable', { stats: { players: [joueur], awards: [], questions: 3, logged: 3 } })
   // Une seule colonne le porte : celle des points, triée du plus grand au plus petit.
   assert.deepEqual([...html.matchAll(/aria-sort="(\w+)"/g)].map(m => m[1]), ['descending'])
-  assert.match(html, /<th title="Points marqués sur la soirée" aria-sort="descending">/)
+  // (La classe `stats-fige`, la colonne qui reste en vue, s'y intercale.)
+  assert.match(html, /<th title="Points marqués sur la soirée"(?: class="[^"]*")? aria-sort="descending">/)
 })
 
 // ── 8. Au podium du téléphone, on se voit ─────────────────────────────────

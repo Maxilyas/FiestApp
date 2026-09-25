@@ -762,6 +762,7 @@ test('le podium du quiz range les ex æquo comme le souvenir : par nom affiché,
   const memo = new Map<string, unknown>()
   const vctx: ViewContext = {
     playerName: id => joueurs[id].nomAffiche ?? joueurs[id].name,
+    connected: () => true,
     player: id => ({
       id,
       name: joueurs[id].name,

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { PartyStats, PlayerStat } from '../../../shared/types'
 
 /** Ce qu'on peut trier, et comment chaque colonne se lit. */
@@ -48,6 +48,7 @@ const COLUMNS: Column[] = [
  */
 export function StatsTable({ stats }: { stats: PartyStats }) {
   const [sortKey, setSortKey] = useState('points')
+  const table = useRef<HTMLTableElement>(null)
   const column = COLUMNS.find(c => c.key === sortKey) ?? COLUMNS[0]
 
   const rows = [...stats.players]
@@ -63,13 +64,30 @@ export function StatsTable({ stats }: { stats: PartyStats }) {
       return diff || a.name.localeCompare(b.name, 'fr')
     })
 
-  if (rows.length === 0) {
+  // Les points restent en vue avec le prénom : au téléphone, dix-huit
+  // colonnes défilent, et Zoé comparait son « Coup d'œil » à une ligne dont
+  // elle ne voyait plus le total. Leur place dépend de la largeur des
+  // prénoms : elle se mesure, et se remesure quand ils changent.
+  const aDesLignes = rows.length > 0
+  useLayoutEffect(() => {
+    const el = table.current
+    const coin = el?.querySelector('th.stats-name')
+    if (!el || !coin) return
+    const poser = () => el.style.setProperty('--stats-nom', `${coin.getBoundingClientRect().width}px`)
+    poser()
+    if (typeof ResizeObserver === 'undefined') return
+    const suivi = new ResizeObserver(poser)
+    suivi.observe(coin)
+    return () => suivi.disconnect()
+  }, [aDesLignes])
+
+  if (!aDesLignes) {
     return <p className="muted">Aucune réponse enregistrée — joue un quiz d'abord.</p>
   }
 
   return (
     <div className="stats-scroll">
-      <table className="stats-table">
+      <table className="stats-table" ref={table}>
         <thead>
           <tr>
             <th className="stats-name">Joueur</th>
@@ -79,6 +97,7 @@ export function StatsTable({ stats }: { stats: PartyStats }) {
               <th
                 key={c.key}
                 title={c.title}
+                className={c.key === 'points' ? 'stats-fige' : undefined}
                 aria-sort={c.key === sortKey ? (c.asc ? 'ascending' : 'descending') : undefined}
               >
                 <button
@@ -98,7 +117,10 @@ export function StatsTable({ stats }: { stats: PartyStats }) {
                 <span className="lb-avatar">{s.avatar}</span> {s.name}
               </td>
               {COLUMNS.map(c => (
-                <td key={c.key} className={c.key === sortKey ? 'stats-active' : undefined}>
+                <td
+                  key={c.key}
+                  className={[c.key === sortKey && 'stats-active', c.key === 'points' && 'stats-fige'].filter(Boolean).join(' ') || undefined}
+                >
                   {c.format(s)}
                 </td>
               ))}
