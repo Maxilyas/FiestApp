@@ -778,6 +778,39 @@ espace, il descend.
 
 ![Maquette : l'anecdote à la révélation](captures/14-maquette-revelation-anecdote.jpg)
 
+## Ce qui a été livré
+
+Les sept lots, le même jour, chacun avec ses tests et regardé en 1366 × 768,
+1920 × 1080 et 360 × 640 (branche `claude/amazing-bell-s8ctj6`).
+
+| Lot | Tests | Ce qui a été tranché en route |
+|---|---|---|
+| **1. Les petits gestes** | `gestes.test.ts`, `emojis.test.ts` | Le modèle à trous n'est « prêt » qu'une fois personnalisé ; la règle des emojis vit dans `shared/emojis.ts`, que la garde du dépôt et l'éditeur partagent |
+| **2. Le hasard** | `hasard.test.ts` | Mélange par défaut pour un quiz neuf, un modèle ou une liste ; un quiz d'avant se joue tel qu'écrit. L'export de secours relit la copie jouée : le smoke l'affirme désormais, quiz supprimé compris |
+| **4. La bibliothèque** | `bibliotheque.test.ts` | Pas d'arborescence ; l'archive sort un quiz du choix de la soirée sans rien effacer |
+| **3. Le programme** | `programme.test.ts` | Pas de nouvelle commande `host:*` : le programme se règle par l'API, `selectPack` ne change pas |
+| **5. La mémoire** | `memoire.test.ts` | La fiche de chaque soirée garde un relevé de quelques octets par question ; une soirée d'avant n'en sait rien |
+| **6. Partager** | `partage.test.ts` | Une copie, jamais un quiz vivant ; onze modèles, dont huit illustrations dessinées pour le dépôt |
+| **7. Des questions plus riches** | `entourage.test.ts`, `variantes.test.ts` | Voir ci-dessous |
+
+**Le barème du lot 7, décidé ici** (CLAUDE.md : un barème se dit) :
+« plusieurs bonnes réponses » et « remettre dans l'ordre » sont **tout ou
+rien, payés comme un QCM** — une réponse à moitié juste ne vaut rien, comme une
+case voisine, et le temps de lecture reste offert ; « Qui dans la salle ? » ne
+rapporte **aucun point** et n'entre pas au journal des réponses (ni juste ni
+faux, il ferait baisser la précision des votants) ; l'estimation en direct est
+une estimation, payée à la distance de la valeur tapée. Aucune constante n'a
+bougé, et l'historique ne contient aucune de ces questions : `VERSION_BAREME`
+reste le même. Le blind test garde la règle du son : l'écran commun seul.
+
+**Ce qui reste** des idées marquées ✅ hors des lots : la vue « Plan » au
+téléphone (5, constat 9), coller un tableau (8), le mode répétition (24) et la
+fiche imprimable de l'animateur (25). Les 🟡 attendent leur décision : les
+raccourcis clavier (7), le lien de contribution (10), les réponses en images
+(18), la photo qui se dévoile (19), revenir à la version jouée (30). La mesure
+du nombre de quiz par espace en production (plus bas) n'a pas été faite : les
+lots ont été livrés dans l'ordre proposé, la bibliothèque comprise.
+
 ## Limites
 
 - **La mesure qui manque** : combien de quiz par espace en production. Une
