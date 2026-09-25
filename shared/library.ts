@@ -574,9 +574,6 @@ export function quizAbandonne(quiz: Pick<QuizDef, 'title' | 'questions'>): boole
   return quiz.questions.length === 0 && (titre === '' || titre === TITRE_PAR_DEFAUT)
 }
 
-/** Les deux réponses d'un vrai ou faux : un QCM à deux cases, rien de plus pour la partie. */
-export const VRAI_FAUX = ['Vrai', 'Faux'] as const
-
 /** Un QCM qui n'a que « Vrai » et « Faux » pour réponses — dans cet ordre ou l'autre. */
 export function estVraiFaux(q: Pick<QuizQuestionDef, 'kind' | 'answers'>): boolean {
   if (q.kind !== 'choice') return false
