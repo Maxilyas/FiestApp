@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { joinAsPlayer, reprendrePlace, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
 import {
   finRouverte,
@@ -25,10 +25,10 @@ import { ProfilForm } from '../components/ProfilForm'
 import { AvisHorsLigne, FormulaireCode, useHorsLigne } from '../components/Reprendre'
 import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
-import { QuizPlayer } from '../games/quiz/PlayerView'
-import type { QuizPlayerView } from '../../../shared/games/quiz'
+import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
+import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import { regleDesEquipes } from '../../../shared/teams'
-import { espacesFines, place } from '../format'
+import { espacesFines, formatNumber, place } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
@@ -68,6 +68,14 @@ export function PlayerApp() {
   const [reprise, setReprise] = useState(false)
   /** La carte ouverte, celle du joueur dont on a touché le nom. */
   const [carte, setCarte] = useState<string | null>(null)
+  /**
+   * La dernière réponse envoyée, et ce qu'elle est devenue. Le serveur ne
+   * montre une réponse qu'une fois reçue : sans ce suivi, un toucher hors
+   * ligne ne changeait rien à l'écran, et la révélation disait « Trop tard ! »
+   * à qui n'avait rien touché comme à qui avait répondu dans un tunnel.
+   */
+  const [envoi, setEnvoi] = useState<Envoi | null>(null)
+  const numeroEnvoi = useRef(0)
   /** La dernière soirée close d'ici, gardée sur ce téléphone : l'entrée la propose. */
   const [gardee, setGardee] = useState(() => soireeGardee(slug))
 
@@ -235,6 +243,13 @@ export function PlayerApp() {
   const me = snap?.players.find(p => p.id === s.me?.playerId)
   const session = snap?.session ?? null
   const sessionView = session ? s.views[session.id] : undefined
+  // Un quiz neuf recommence à la question 1, au tour 1 : l'envoi du quiz
+  // d'avant y viserait sinon la même question, et dirait « Trop tard ! » à
+  // qui n'a rien touché.
+  const sessionId = session?.id
+  useEffect(() => {
+    setEnvoi(null)
+  }, [sessionId])
   const iAmIn = !!(s.me && session?.participantIds.includes(s.me.playerId))
   const playing = !!sessionView && iAmIn
 
@@ -331,6 +346,7 @@ export function PlayerApp() {
           space={snap.space}
           players={snap.players}
           teams={teams}
+          quizEnCours={!!snap.session}
           profil={profil}
           reconnecter={reconnecter}
           rejoindre={rejoindre}
@@ -387,13 +403,56 @@ export function PlayerApp() {
           myTeamId={me?.teamId ?? null}
           // Le jeton est relu au moment de l'envoi : celui du rendu pourrait
           // dater d'avant une reconnexion.
-          send={action => {
-            sendPlayerAction(sessionView.sessionId, action, slug, getState().me?.token).then(res => {
+          send={(action: QuizAction) => {
+            const vue = sessionView.view as QuizPlayerView
+            // Ce qu'on a répondu, en mots : si elle arrive trop tard, on le
+            // dit avec elle — la question suivante est peut-être déjà là.
+            const libelle =
+              action.type === 'answer'
+                ? (vue.answers?.[action.choice] ?? '')
+                : `${formatNumber(action.value)}${vue.unit ? ` ${vue.unit}` : ''}`
+            const numero = ++numeroEnvoi.current
+            const suivi = (etat: Envoi['etat'], enFile?: boolean) =>
+              setEnvoi(e =>
+                numero === numeroEnvoi.current && e ? { ...e, etat, enFile: enFile ?? e.enFile } : e,
+              )
+            setEnvoi({
+              qIndex: action.qIndex,
+              round: action.round,
+              choice: action.type === 'answer' ? action.choice : undefined,
+              value: action.type === 'guess' ? action.value : undefined,
+              etat: 'envoi',
+              // Lu au même instant que l'envoi : c'est ce qui dit si socket.io
+              // la garde pour la reconnexion.
+              enFile: !socket.connected,
+            })
+            sendPlayerAction(sessionView.sessionId, action, slug, getState().me?.token, tardive => {
+              if (tardive.ok) {
+                suivi('recu')
+                showToast({ kind: 'info', message: 'Ta réponse est bien arrivée' })
+              } else if (tardive.reason === 'too-late') {
+                suivi('trop-tard')
+                showToast({
+                  kind: 'error',
+                  message: `Ta réponse à la question ${(action.qIndex ?? vue.qIndex) + 1} est arrivée trop tard — c'était « ${libelle} »`,
+                })
+              } else {
+                suivi('refusee')
+                showToast({ kind: 'error', message: tardive.error })
+              }
+            }).then(res => {
+              if (res.ok) suivi('recu')
+              else if (res.reason === 'too-late') suivi('trop-tard')
+              // Partie dans un transport mort, elle ne partira jamais : la
+              // carte redevient libre, et l'écran demande de la retoucher.
+              else if (res.reason === 'timeout') suivi('enFile' in res && res.enFile ? 'pas-partie' : 'perdue', 'enFile' in res && res.enFile)
+              else suivi('refusee')
               // Une réponse refusée se disait jusqu'ici en silence : le
               // téléphone vibrait sous le doigt et rien ne suivait.
               if (!res.ok) showToast({ kind: 'error', message: res.error })
             })
           }}
+          envoi={envoi}
         />
         <ConseilVeille />
         <BandeauCoupure connecte={s.connected} />
@@ -458,8 +517,11 @@ export function PlayerApp() {
               </button>
             )}
           </div>
+          {/* Le choix ne s'ouvre plus de lui-même à qui est entré sans équipe
+              pendant un quiz : le rejoindre après le podium retournait le
+              vainqueur annoncé. L'entrée le lui a proposé ; le bouton reste. */}
           {switching ? (
-            <TeamPicker teams={teams} value={me?.teamId ?? null} onPick={changeTeam} />
+            <TeamPicker teams={teams} value={me?.teamId ?? null} onPick={changeTeam} players={snap.players} />
           ) : (
             <>
               <TeamBoard teams={teams} highlightId={me?.teamId ?? null} compact />

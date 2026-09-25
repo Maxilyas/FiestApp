@@ -14,7 +14,11 @@
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* Sous-ensemble latin, ~67 Ko pour les trois fichiers. Figtree est une
-   fonte variable : un seul fichier couvre les graisses 400, 500 et 600. */
+   fonte variable : un seul fichier couvre les graisses 400, 500 et 600.
+   Les deux Cormorant sont, octet pour octet, le sous-ensemble « latin » de
+   Google Fonts (v21, police 4.001) : leurs accents qui semblent décalés sont
+   le dessin de la police, pas un défaut de réduction — mesuré le 24
+   septembre, voir retours/2026-09-24/corrections/axe-13-finitions/polices.md. */
 @font-face {
   font-family: 'Cormorant Garamond';
   font-style: normal;
@@ -1475,6 +1479,23 @@ h3 > .icon {
   .quiz-player .ans-grid { grid-template-columns: 1fr; }
 }
 
+/* La tablette n'est pas un téléphone étiré. Bertrand, sur sa tablette de
+   1 280 px : « un téléphone posé au milieu d'une tablette » — une colonne de
+   560 px, des réponses de téléphone. Au-delà de 700 px de large, la colonne
+   s'élargit, la question et les réponses grandissent avec elle. La hauteur
+   minimale écarte un téléphone couché, resté confortable tel quel (Zoé).
+   Seulement pendant une question : l'accueil, /profil et la fin de soirée
+   partagent la même coquille, et s'étiraient à 760 px sur tout ordinateur. */
+@media (min-width: 700px) and (min-height: 600px) {
+  .player-shell:has(.quiz-player) { max-width: 760px; padding-top: 36px; gap: 22px; }
+  .quiz-player .quiz-question { font-size: 44px; }
+  .quiz-player .quiz-question.q-md { font-size: 36px; }
+  .quiz-player .quiz-question.q-sm { font-size: 30px; }
+  .quiz-player .ans-grid { grid-auto-rows: minmax(min-content, 170px); gap: 16px; }
+  .quiz-player .ans-btn { font-size: 1.45rem; padding: 0 28px; }
+  .quiz-player .ans-grid .ans-shape { width: 1.4rem; height: 1.4rem; }
+}
+
 /* Résultat d'une question : centré verticalement plutôt que collé en haut. */
 .quiz-player:has(.result-banner) { justify-content: center; }
 
@@ -1544,6 +1565,9 @@ h3 > .icon {
 
 /* Réponse choisie : le filet champagne, un fond à 12 %, une coche. */
 .ans-btn.chosen { border: 1.5px solid var(--accent); background: var(--accent-soft); }
+/* Touchée, pas encore reçue : le même filet, en pointillé. Un toucher hors
+   ligne ne changeait rien à l'écran — on croyait avoir raté la carte. */
+.ans-btn.pending { border: 1.5px dashed var(--accent); background: var(--accent-soft); }
 /* Le voile des réponses fausses : la carte entière en Velours, son contenu
    seul en Ivoire, où le compte (dans `.ans-extra`) garde toute son encre. */
 .ans-btn.dim { opacity: var(--dim-carte); }
@@ -2402,6 +2426,9 @@ h3 > .icon {
 .team-btn-emoji { font-size: 1.9rem; line-height: 1.2; }
 .team-btn-name { font-family: var(--serif); font-weight: 600; font-size: 1.25rem; text-align: center; }
 .team-btn-count { font-size: 0.74rem; color: var(--muted); }
+/* Qui y est déjà : c'est ce qu'on cherche en choisissant. Coupé au mot près,
+   jamais au milieu d'un prénom. */
+.team-btn-membres { font-size: 0.78rem; color: var(--muted); text-align: center; overflow-wrap: break-word; max-width: 100%; }
 
 /* ── Gestion des équipes (écran commun) ─────────── */
 .team-groups { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
@@ -2435,6 +2462,8 @@ h3 > .icon {
 }
 
 .team-emoji-select { font-size: 1rem; padding: 2px 4px; }
+.team-seed { gap: 8px; align-items: center; }
+.team-seed select { font-size: 0.9rem; padding: 4px 6px; }
 
 /* Réduit à la largeur de l'emoji : le nom complet reste lisible dans la
    liste déroulante, mais cinquante pastilles ne doivent pas s'étirer. */
@@ -2646,6 +2675,22 @@ h3 > .icon {
   background: var(--bg);
   font-weight: 500;
   box-shadow: inset -1px 0 0 var(--edge);
+}
+/* « td » l'emportait sur la classe seule : les prénoms étaient poussés à droite. */
+.stats-table .stats-name { text-align: left; }
+/* Les points, figés juste après le prénom — à la largeur mesurée de sa
+   colonne (StatsTable). Tant qu'elle n'est pas mesurée, ils défilent. */
+.stats-table[style*='--stats-nom'] .stats-fige {
+  position: sticky;
+  left: var(--stats-nom);
+  z-index: 1;
+  background: var(--bg);
+  box-shadow: inset -1px 0 0 var(--edge);
+}
+.stats-table[style*='--stats-nom'] thead th.stats-fige {
+  z-index: 3;
+  background: var(--bg-raised);
+  box-shadow: inset -1px -1px 0 var(--edge);
 }
 /* La case du coin tient les deux axes, au-dessus de tout — « thead th » est
    plus spécifique que « .stats-name », d'où la règle à part. */

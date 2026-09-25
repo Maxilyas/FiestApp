@@ -291,6 +291,13 @@ const ACTION_TIMEOUT_MS = 4000
 let derniereReponse = 0
 
 /**
+ * L'accusé d'une réponse, vu du téléphone : un délai dépassé dit en plus si
+ * la réponse attend dans la file de socket.io (elle partira au retour du
+ * réseau) ou si elle est partie dans le vide (il faut la retoucher).
+ */
+export type EnvoiAck = ActionAck | { ok: false; reason: 'timeout'; error: string; enFile: boolean }
+
+/**
  * Envoie une réponse et attend l'accusé de réception.
  *
  * L'espace et le jeton voyagent avec : un téléphone qui sort d'une coupure a,
@@ -310,24 +317,71 @@ export function sendPlayerAction(
   action: unknown,
   slug: string,
   token?: string,
-): Promise<ActionAck> {
+  /**
+   * L'accusé qui arrive après le délai. Hors ligne, socket.io garde la
+   * réponse et l'envoie à la reconnexion : le serveur la refuse alors, à
+   * raison, si la question est finie — mais le téléphone, qui avait déjà
+   * conclu « pas partie », ne le disait jamais.
+   */
+  tardif?: (res: ActionAck) => void,
+): Promise<EnvoiAck> {
   const numero = ++derniereReponse
+  /**
+   * Le premier accusé arrivé après son délai. Sur un réseau lent, celui du
+   * premier envoi arrive pendant le renvoi : c'est lui qui fait foi, pas le
+   * délai du renvoi — sinon le téléphone lisait « bien arrivée », puis « pas
+   * partie », et restait sur « pas partie » d'une réponse enregistrée.
+   */
+  let dejaRecu: ActionAck | null = null
+  /** L'envoi en attente de son accusé : un accusé tardif le libère aussitôt. */
+  let enAttente: ((res: ActionAck) => void) | null = null
+  /** Ce que la promesse a rendu ; un accusé tardif ne se dit que s'il le contredit. */
+  let issue: EnvoiAck | null = null
+  let tardifDit = false
   const envoyer = () =>
-    new Promise<ActionAck>(resolve => {
+    new Promise<EnvoiAck>(resolve => {
+      // socket.io ne garde une réponse pour la reconnexion que s'il se sait
+      // déconnecté. Tant qu'il se croit relié — un wifi sans internet, le
+      // passage du wifi à la 4G : jusqu'à dix-huit secondes —, il l'écrit
+      // dans un transport mort, et elle est perdue. Seule la première
+      // mérite la promesse « elle partira ».
+      const enFile = !socket.connected
       let settled = false
-      const settle = (res: ActionAck) => {
+      const settle = (res: EnvoiAck) => {
         if (settled) return
         settled = true
         clearTimeout(timer)
         resolve(res)
       }
+      enAttente = settle
       // Sans ce garde-fou, une réponse partie dans le vide laisserait la
       // promesse en suspens pour toujours — donc le joueur sans nouvelle.
       const timer = setTimeout(
-        () => settle({ ok: false, reason: 'timeout', error: 'Ta réponse n’est pas partie — vérifie ta connexion' }),
+        () =>
+          settle({
+            ok: false,
+            reason: 'timeout',
+            enFile,
+            error: enFile
+              ? 'Ta réponse n’est pas encore partie — elle partira dès que le réseau revient'
+              : 'Ta réponse n’est pas partie — touche-la à nouveau',
+          }),
         ACTION_TIMEOUT_MS,
       )
-      socket.emit('player:action', { sessionId, action, slug, token }, settle)
+      socket.emit('player:action', { sessionId, action, slug, token }, (res: ActionAck) => {
+        if (settled) {
+          dejaRecu ??= res
+          enAttente?.(res)
+          // Un doublon (l'envoi et son renvoi, livrés ensemble à la
+          // reconnexion) ne se dit qu'une fois, et seulement si la promesse
+          // avait conclu au délai : sinon, elle a déjà tout dit.
+          if (issue && !issue.ok && issue.reason === 'timeout' && !tardifDit && numero === derniereReponse) {
+            tardifDit = true
+            tardif?.(res)
+          }
+        }
+        settle(res)
+      })
     })
 
   /** La question que vise la réponse est-elle encore ouverte, à l'heure du serveur ? */
@@ -350,11 +404,16 @@ export function sendPlayerAction(
     )
   }
 
-  return envoyer().then(res => {
-    if (res.ok || res.reason !== 'timeout') return res
-    if (numero !== derniereReponse || !encoreOuverte()) return res
-    return envoyer()
-  })
+  return envoyer()
+    .then(res => {
+      if (res.ok || res.reason !== 'timeout') return res
+      if (numero !== derniereReponse || !encoreOuverte()) return res
+      return envoyer().then(r => (!r.ok && r.reason === 'timeout' && dejaRecu ? dejaRecu : r))
+    })
+    .then(res => {
+      issue = res
+      return res
+    })
 }
 
 /**

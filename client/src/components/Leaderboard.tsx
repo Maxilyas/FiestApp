@@ -27,41 +27,52 @@ interface Props {
 export function Leaderboard({ players, compact, highlightId, onOuvrir }: Props) {
   const rows = classer(players, p => p.score, p => p.nomAffiche ?? p.name, p => p.id)
   const list = compact ? rows.slice(0, 8) : rows
+  // Au-delà de la 8ᵉ ligne, l'invité ne se voyait plus : une vraie soirée
+  // compte quinze à cinquante invités. On garde les huit premiers, puis sa
+  // propre ligne, avec le rang que `classer` lui donne (ex æquo compris).
+  const moi = compact && highlightId ? rows.slice(list.length).find(r => r.item.id === highlightId) : undefined
+  const caches = rows.length - list.length - (moi ? 1 : 0)
+
+  const ligne = ({ item: p, rang }: (typeof rows)[number]) => {
+    const contenu = (
+      <>
+        <Rank n={rang} />
+        <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+        <span className="lb-name">{p.nomAffiche ?? p.name}</span>
+        <Niveau niveau={p.niveau} />
+        <Score n={p.score} />
+      </>
+    )
+    const classe = 'lb-row' + (p.id === highlightId ? ' me' : '')
+    return onOuvrir ? (
+      <button
+        key={p.id}
+        type="button"
+        className={classe + ' lb-ouvrable'}
+        // Le nom du bouton remplace tout son contenu : le rang et les
+        // points doivent y être, sinon le lecteur d'écran n'entend qu'un nom.
+        aria-label={`La carte de ${p.nomAffiche ?? p.name} — rang ${rang}, ${p.score} ${motPoints(p.score)}`}
+        onClick={() => onOuvrir(p.id)}
+      >
+        {contenu}
+      </button>
+    ) : (
+      <div key={p.id} className={classe}>
+        {contenu}
+      </div>
+    )
+  }
 
   return (
     <div className="leaderboard">
-      {list.map(({ item: p, rang }) => {
-        const contenu = (
-          <>
-            <Rank n={rang} />
-            <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
-            <span className="lb-name">{p.nomAffiche ?? p.name}</span>
-            <Niveau niveau={p.niveau} />
-            <Score n={p.score} />
-          </>
-        )
-        const classe = 'lb-row' + (p.id === highlightId ? ' me' : '')
-        return onOuvrir ? (
-          <button
-            key={p.id}
-            type="button"
-            className={classe + ' lb-ouvrable'}
-            // Le nom du bouton remplace tout son contenu : le rang et les
-            // points doivent y être, sinon le lecteur d'écran n'entend qu'un nom.
-            aria-label={`La carte de ${p.nomAffiche ?? p.name} — rang ${rang}, ${p.score} ${motPoints(p.score)}`}
-            onClick={() => onOuvrir(p.id)}
-          >
-            {contenu}
-          </button>
-        ) : (
-          <div key={p.id} className={classe}>
-            {contenu}
-          </div>
-        )
-      })}
+      {list.map(ligne)}
       {list.length === 0 && <p className="muted">Personne pour l'instant…</p>}
-      {compact && rows.length > list.length && (
-        <p className="muted center">et {rows.length - list.length} autres…</p>
+      {moi && (
+        <p className="muted center lb-ellipse" aria-hidden="true">⋯</p>
+      )}
+      {moi && ligne(moi)}
+      {compact && caches > 0 && (
+        <p className="muted center">et {caches} {caches > 1 ? 'autres' : 'autre'}…</p>
       )}
     </div>
   )

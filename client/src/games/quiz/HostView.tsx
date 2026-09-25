@@ -131,14 +131,24 @@ export function QuizHost({
       <span className="enchainement-label">Suivante</span>
       {PALIERS_ENCHAINEMENT.map(palier => {
         const actif = (v.autoNextSeconds ?? null) === palier
+        // Personne n'a répondu : le palier reste allumé, mais n'enchaîne
+        // plus. Le retoucher relance — allumé et inerte, il se lisait comme
+        // une panne.
+        const relance = actif && palier !== null && !!v.autoNextSuspendu
         return (
           <button
             key={palier ?? 'clic'}
             className={'pill-btn' + (actif ? ' active' : '')}
             aria-pressed={actif}
-            title={palier === null ? 'La question suivante attend ton clic' : `La question suivante part seule ${palier} s après la révélation`}
+            title={
+              relance
+                ? `Personne n'a répondu : touche pour relancer — la suite part dans ${palier} s`
+                : palier === null
+                  ? 'La question suivante attend ton clic'
+                  : `La question suivante part seule ${palier} s après la révélation — sauf si personne n'a répondu, même présent : la suite, ou le podium après la dernière, attend alors ton clic`
+            }
             onClick={() => {
-              if (!actif) sendCommand({ type: 'autoNext', seconds: palier })
+              if (!actif || relance) sendCommand({ type: 'autoNext', seconds: palier })
             }}
           >
             {palier === null ? 'au clic' : `${palier} s`}
@@ -407,7 +417,7 @@ export function QuizHost({
     const maxCount = Math.max(1, ...(v.counts ?? [0]))
     return (
       <div className="quiz-host">
-        {revealing && (v.cancelled || v.fastest || v.autoNextAt) && (
+        {revealing && (v.cancelled || v.fastest || v.autoNextAt || v.autoNextSuspendu) && (
           <div className="quiz-status">
             {/* Points annulés : la salle doit le lire, et le plus rapide
                 d'une question qui ne compte plus n'a rien gagné. */}
@@ -423,6 +433,13 @@ export function QuizHost({
               )
             )}
             {v.autoNextAt && <AutoNextPill deadline={v.autoNextAt} />}
+            {/* La salle s'est vidée — une coupure, une pause gâteau : on ne
+                joue pas la suite devant personne. */}
+            {v.autoNextSuspendu && (
+              <span className="pill">
+                <Icon name="pause" /> Personne n'a répondu — la suite attend l'animateur
+              </span>
+            )}
           </div>
         )}
 

@@ -66,6 +66,11 @@ interface QuizState {
   /** Échéance de cet enchaînement, pour l'afficher côté écran commun. */
   autoNextAt: number | null
   /**
+   * L'enchaînement attend le clic : la question vient d'être révélée sans une
+   * seule réponse. Absent d'une partie d'avant — elle enchaîne comme avant.
+   */
+  autoNextSuspendu?: boolean
+  /**
    * Les invités hors ligne que l'animateur a choisi de ne plus attendre. Ils
    * le restent tant que leur téléphone se tait : une question posée pendant
    * qu'ils sont revenus les attend de nouveau (voir `startQuestion`).
@@ -291,7 +296,8 @@ function award(sess: GameSessionRec<QuizState>, playerId: string, points: number
   ctx.award(playerId, gain, `Quiz « ${st.pack!.title} » — Q${st.qIndex + 1}`)
 }
 
-function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
+/** `auClic` : l'animateur a forcé la révélation — il est là, lui. */
+function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext, auClic = false) {
   const st = sess.state
   ctx.clearTimer('question')
   ctx.clearTimer('observe')
@@ -299,8 +305,15 @@ function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   st.phase = 'reveal'
   st.lastAwards = {}
   // L'enchaînement s'arme quelle que soit la cause de la révélation : fin du
-  // chronomètre, dernière réponse, ou clic de l'animateur.
-  if (st.autoNextSeconds !== null) {
+  // chronomètre, dernière réponse, ou clic de l'animateur — sauf devant une
+  // salle vide. Le 24 septembre, une coupure a fait jouer trois questions et
+  // un podium à personne : une question close d'elle-même sans une seule
+  // réponse de toute la salle attend l'animateur, et l'écran dit pourquoi.
+  // Son clic « Révéler », lui, dit qu'il est là : la suite part comme il l'a
+  // réglée. Le mode reste choisi, et repart de lui-même à la première
+  // question qui reçoit une réponse.
+  st.autoNextSuspendu = st.autoNextSeconds !== null && !auClic && Object.keys(st.responses).length === 0
+  if (st.autoNextSeconds !== null && !st.autoNextSuspendu) {
     st.autoNextAt = ctx.now() + st.autoNextSeconds * 1000
     ctx.setTimer('autoNext', st.autoNextSeconds * 1000)
   }
@@ -419,6 +432,7 @@ function goNext(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   if (!st.pack) return
   ctx.clearTimer('autoNext')
   st.autoNextAt = null
+  st.autoNextSuspendu = false
   if (st.qIndex + 1 < st.pack.questions.length) startQuestion(sess, st.qIndex + 1, ctx)
   else {
     st.phase = 'finished'
@@ -742,7 +756,7 @@ export const quizModule: GameModule<QuizState> = {
           // « C'est bon, tout le monde a vu » : on passe à la question.
           beginAnswering(sess, ctx)
         } else if (st.phase === 'question') {
-          reveal(sess, ctx) // l'animateur force la fin de la question
+          reveal(sess, ctx, true) // l'animateur force la fin de la question
         } else if (st.phase === 'reveal') {
           goNext(sess, ctx)
         }
@@ -750,6 +764,9 @@ export const quizModule: GameModule<QuizState> = {
       case 'autoNext': {
         const seconds = command.seconds
         st.autoNextSeconds = seconds === null ? null : Math.min(ENCHAINEMENT_MAX_S, Math.max(2, Math.round(seconds)))
+        // Un palier choisi à la main relance, même devant une salle vide :
+        // c'est l'animateur qui le demande.
+        st.autoNextSuspendu = false
         if (st.autoNextSeconds === null) {
           // Reprendre la main : l'enchaînement en attente est annulé.
           ctx.clearTimer('autoNext')
@@ -928,6 +945,7 @@ export const quizModule: GameModule<QuizState> = {
         ...(st.pausedMs !== null && { paused: true, remainingMs: st.pausedMs }),
         autoNextSeconds: st.autoNextSeconds,
         ...(st.autoNextAt !== null && { autoNextAt: st.autoNextAt }),
+        ...(st.phase === 'reveal' && st.autoNextSuspendu && { autoNextSuspendu: true }),
         answeredCount: Object.keys(st.responses).length,
         participantCount: sess.participantIds.length,
       }

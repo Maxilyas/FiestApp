@@ -253,6 +253,8 @@ export function HostApp() {
   /** Formulaire de création d'équipe. */
   const [newTeam, setNewTeam] = useState('')
   const [newEmoji, setNewEmoji] = useState(TEAM_EMOJIS[0])
+  /** Combien d'équipes créer d'un coup ; null tant qu'on garde la suggestion. */
+  const [nbEquipes, setNbEquipes] = useState<number | null>(null)
   /** L'emplacement de la console animateur, où chaque écran pose ses boutons. */
   const [consoleSlot, setConsoleSlot] = useState<HTMLElement | null>(null)
 
@@ -787,12 +789,33 @@ export function HostApp() {
                   Ajouter
                 </button>
               </form>
-              {teams.length === 0 && (
-                <button className="btn btn-small" onClick={() => socket.emit('host:seedTeams')}>
-                  <Icon name="sparkles" />
-                  Créer les 6 équipes d'un coup
-                </button>
-              )}
+              {teams.length === 0 &&
+                (() => {
+                  // Six équipes pour sept invités, c'était une soirée en solo
+                  // déguisée : on propose une équipe pour quatre, de deux à
+                  // six — et six, comme avant, tant que personne n'est là.
+                  const invites = snap.players.length
+                  const nombre = nbEquipes ?? (invites === 0 ? 6 : Math.min(6, Math.max(2, Math.round(invites / 4))))
+                  return (
+                    <div className="row team-seed">
+                      <select
+                        value={nombre}
+                        aria-label="Nombre d'équipes à créer"
+                        onChange={e => setNbEquipes(Number(e.target.value))}
+                      >
+                        {[2, 3, 4, 5, 6].map(n => (
+                          <option key={n} value={n}>
+                            {n} équipes
+                          </option>
+                        ))}
+                      </select>
+                      <button className="btn btn-small" onClick={() => socket.emit('host:seedTeams', { count: nombre })}>
+                        <Icon name="sparkles" />
+                        Les créer d'un coup
+                      </button>
+                    </div>
+                  )
+                })()}
             </section>
           )}
 
