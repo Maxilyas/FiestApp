@@ -93,6 +93,38 @@ export function classer<T>(
 }
 
 /**
+ * Le rang partagé d'une valeur parmi des valeurs déjà rangées du plus haut au
+ * plus bas : la règle de `rangPartage`, lue par dichotomie. Le rang d'avant
+ * la question se cherche pour chaque téléphone de la salle : compté en
+ * parcourant toutes les valeurs, il coûtait un tour de salle par téléphone.
+ */
+export function rangDansLesTries(valeur: number, tries: readonly number[]): number {
+  let bas = 0
+  let haut = tries.length
+  while (bas < haut) {
+    const milieu = (bas + haut) >> 1
+    if (tries[milieu] > valeur) bas = milieu + 1
+    else haut = milieu
+  }
+  return bas + 1
+}
+
+/**
+ * Les groupes d'ex æquo d'un classement rangé par `classer` : pour chaque
+ * position, la première et la dernière de son groupe. Le plus proche devant
+ * soi est juste avant son groupe, le plus proche derrière juste après — un ex
+ * æquo n'est ni devant ni derrière, et « à 0 point de Léa » ne dit rien.
+ */
+export function groupesDExAequo<T>(classes: readonly Classe<T>[]): { premier: number[]; dernier: number[] } {
+  const n = classes.length
+  const premier = new Array<number>(n)
+  const dernier = new Array<number>(n)
+  for (let i = 0; i < n; i++) premier[i] = i > 0 && classes[i].rang === classes[i - 1].rang ? premier[i - 1] : i
+  for (let i = n - 1; i >= 0; i--) dernier[i] = i < n - 1 && classes[i + 1].rang === classes[i].rang ? dernier[i + 1] : i
+  return { premier, dernier }
+}
+
+/**
  * Les vainqueurs : tous ceux qui partagent la première place, dans l'ordre
  * d'affichage. Personne quand le meilleur n'a rien marqué — un quiz où tout
  * le monde finit à zéro n'a pas de vainqueur.

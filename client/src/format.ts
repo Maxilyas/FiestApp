@@ -1,20 +1,14 @@
 // Un rang s'écrit devant « place » (« 1ʳᵉ place ») : « 1ᵉʳ sur 7 » mettait au
 // masculin la victoire de n'importe qui. Voir `shared/typographie.ts`.
-import { formatNumber, place } from '../../shared/typographie'
+import { formatNumber, place, pts } from '../../shared/typographie'
 import { rangPartage } from '../../shared/classement'
-export { deNom, espacesFines, formatNumber, place, rang } from '../../shared/typographie'
+export { deNom, espacesFines, formatNumber, place, pts, rang } from '../../shared/typographie'
 
 /** Une part en pour cent, « — » tant qu'il n'y a rien à diviser. */
 export const pourcent = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)} %`)
 
 /** Une durée au dixième de seconde, à la française : « 2,4 s ». */
 export const secondes = (ms: number | null) => (ms === null ? '—' : `${(ms / 1000).toFixed(1).replace('.', ',')} s`)
-
-/**
- * « 715 pts », « 1 pt », « 0 pt » : zéro et un sont au singulier en français,
- * et « 0 pts » s'écrivait sur chaque téléphone avant le premier quiz.
- */
-export const pts = (n: number) => `${formatNumber(n)} ${Math.abs(n) >= 2 ? 'pts' : 'pt'}`
 
 /**
  * L'en-tête du joueur : « 715 pts · 2ᵉ place » — le rang partagé, comme au

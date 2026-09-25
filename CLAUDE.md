@@ -42,7 +42,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | Fichier | Ce qu'il porte |
 |---|---|
 | `core/engine.ts` | route actions/commandes/timers vers le module de jeu, persiste, rediffuse les vues filtrées |
-| `games/quiz.ts` | **toutes** les règles : phases (l'intertitre, `cible` — la mesure d'une estimation en direct), chronomètres, barème (le temps de lecture offert au QCM, l'estimation payée à la distance, `reponseJuste` pour « plusieurs » et « ordre », tout ou rien), vues |
+| `games/quiz.ts` | **toutes** les règles : phases (l'intertitre, `cible` — la mesure d'une estimation en direct), chronomètres, barème (le temps de lecture offert au QCM, l'estimation payée à la distance, `reponseJuste` pour « plusieurs » et « ordre », tout ou rien), vues — et la place de chacun entre deux questions (`placeAuQuiz`) |
 | `core/space.ts` | la soirée d'un espace : ses registres, ses salons socket, ses diffusions, son nom figé, ses crédits — et la scène des écrans d'animateur (`poserScene` : podium, prix, victoire, clôture), que la télé suit quand on anime à la télécommande |
 | `core/party.ts` | le registre des invités (identité par jeton, rattachement au profil, marques d'homonymie, connexions par socket) |
 | `core/places.ts` | « Rendre sa place » : les codes à usage unique qui rendent sa fiche à un invité dont le téléphone est mort — en mémoire, vite périmés, cinq essais manqués par minute ; jamais pour une fiche à profil, et la reprise renouvelle le jeton |
@@ -88,7 +88,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `sockets.ts` | tout le protocole temps réel — chaque message passe par `ecouter()` |
 | `shared/events.ts` | le contrat socket, typé des deux côtés |
 | `shared/homonymes.ts` | « Camille (2) » : la dérivation pure qui distingue deux invités identiques |
-| `shared/classement.ts` | la seule règle des ex æquo : rang partagé, vainqueurs, ordre d'affichage — et l'écart d'une estimation (`ecartEstimation`) |
+| `shared/classement.ts` | la seule règle des ex æquo : rang partagé, vainqueurs, ordre d'affichage — et l'écart d'une estimation (`ecartEstimation`), les groupes d'ex æquo d'où se lisent les voisins (`groupesDExAequo`), le rang lu par dichotomie (`rangDansLesTries`) |
+| `shared/course.ts` · `client/src/games/quiz/Course.tsx` | sa place dans la course, à chaque révélation : « Ce quiz · encore 6 questions », « 5ᵉ place sur 12 · 450 pts ↑ 2 », « À 40 pts d'Hugo » — les bonnes nouvelles seulement, pas de rang à zéro, une phrase pour le lecteur d'écran ; au podium, l'échelle de ses voisins et sa place à la soirée |
 | `shared/teams.ts` | la seule règle des équipes : la moyenne question par question des lignes jouées pour l'équipe — chaque ligne du journal fige la sienne (`team_id`) — (`questionsDesEquipes`, `moyenneAuProrata`), les points d'équipe, prix compris, la phrase qui l'explique (`regleDesEquipes`) et l'effet d'un prix avant le clic |
 | `shared/nombres.ts` | un nombre tapé par un humain, lu comme on l'écrit en France (« 35 000 », « 0,8 », « −40 ») : l'estimation au téléphone, la cible de l'éditeur, l'import d'une liste — une seule lecture |
 | `shared/securite.ts` | la page de retour après connexion : jamais ailleurs que chez soi |
@@ -464,6 +465,15 @@ sans `QUIZ_DB_URL`.
   lit sans parcourir de journal ; une sonde de retard de boucle ne descend
   jamais sous 20 ms de résolution (à 1 ms, elle doublait le processeur
   qu'elle mesurait).
+- **La place d'un invité se lit, elle ne se trie pas** (`placeAuQuiz`) :
+  à la révélation, chaque vue de téléphone porte l'identifiant, les points et
+  le rang de ses voisins, lus dans le classement que la diffusion trie une
+  fois (`indexDesPlaces`, `vctx.memo`) — et le téléphone les décore avec
+  l'instantané. Rien pendant la question. Le retardataire qui n'a encore
+  rien joué n'y tient pas de place : compté, il rejoindrait les ex æquo à
+  zéro, et chaque arrivée pendant une révélation renverrait leur vue à
+  tous. Un champ de plus dans la place qui changerait pour toute la salle à
+  une arrivée ferait la même chose (`classement-en-cours.test.ts` y veille).
 - **Les pages publiques se gardent** (`core/pages.ts`) tant que leur
   empreinte ne bouge pas. Une écriture d'un journal (`Party`, `Teams`,
   `ScoreLedger`, `AnswerLog`) qui change vraiment quelque chose fait monter
