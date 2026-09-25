@@ -244,7 +244,11 @@ export function EditorApp() {
   }
 
   if (needLogin) {
-    return <LoginForm title="Mes quiz" error={loginError} busy={busy} onSubmit={submitLogin} />
+    return (
+      <main>
+        <LoginForm title="Mes quiz" error={loginError} busy={busy} onSubmit={submitLogin} />
+      </main>
+    )
   }
 
   if (editingId) {
@@ -334,92 +338,100 @@ export function EditorApp() {
           </button>
         </div>
       </header>
+      <main className="page-corps">
+        {error && <p className="error">{error}</p>}
+        {notice && <p className="card notice">{notice}</p>}
+        {list === null && <p className="serif-note">Chargement…</p>}
 
-      {error && <p className="error">{error}</p>}
-      {notice && <p className="card notice">{notice}</p>}
-      {list === null && <p className="serif-note">Chargement…</p>}
-
-      {list?.length === 0 && (
-        <div className="card notice">
-          <p>Aucun quiz pour l'instant. Crée le premier !</p>
-        </div>
-      )}
-
-      <div className="quiz-list">
-        {list?.map(q => (
-          <div key={q.id} className="card quiz-row">
-            <div className="quiz-row-main">
-              <h3>{q.title}</h3>
-              <p className="muted">
-                {q.readyCount} question{q.readyCount > 1 ? 's' : ''} prête{q.readyCount > 1 ? 's' : ''}
-                {q.questionCount > q.readyCount && ` · ${q.questionCount - q.readyCount} à compléter`}
-                {' · '}
-                modifié {quand(q.updatedAt)}
-              </p>
-              {brouillons.has(q.id) && (
-                <p className="warn small">
-                  <Icon name="edit" /> Des modifications non enregistrées t’attendent dans ce navigateur
-                </p>
-              )}
-            </div>
-            <div className="row">
-              <button className="btn" onClick={() => setEditingId(q.id)}>
-                Modifier
-              </button>
-              <button
-                className="btn btn-ghost btn-small"
-                onClick={async () => {
-                  try {
-                    await api.duplicate(q.id)
-                    reload()
-                  } catch (e) {
-                    setError((e as Error).message)
-                  }
-                }}
-              >
-                Dupliquer
-              </button>
-              <button
-                className="btn btn-ghost btn-small"
-                disabled={echange !== null}
-                title="Un fichier à envoyer à un autre animateur, qui l’ouvre avec « Importer un quiz » : les questions et leurs photos"
-                onClick={() => exporter(q)}
-              >
-                {echange === q.id ? 'Export…' : 'Exporter'}
-              </button>
-              <button
-                className="btn btn-ghost btn-small"
-                onClick={async () => {
-                  const ok = await confirmDialog({
-                    title: `Supprimer « ${q.title} » ?`,
-                    // Deux quiz du même nom ne se distinguaient pas : ce qu'il
-                    // contient et quand il a changé disent lequel.
-                    message:
-                      q.questionCount === 0
-                        ? `Ce quiz vide, modifié ${quand(q.updatedAt)}, disparaît pour de bon.`
-                        : `Le quiz et ${q.questionCount > 1 ? `ses ${q.questionCount} questions` : 'sa question'}, ` +
-                          `modifié ${quand(q.updatedAt)}, disparaissent pour de bon.`,
-                    confirmLabel: 'Supprimer',
-                    danger: true,
-                  })
-                  if (!ok) return
-                  try {
-                    await api.remove(q.id)
-                    oublierBrouillon(q.id)
-                    // « « Spécial agence » est dans ta bibliothèque » survivait au quiz.
-                    setNotice('')
-                    reload()
-                  } catch (e) {
-                    setError((e as Error).message)
-                  }
-                }}
-              >
-                Supprimer
-              </button>
-            </div>
+        {list?.length === 0 && (
+          <div className="card notice">
+            <p>Aucun quiz pour l'instant. Crée le premier !</p>
           </div>
-        ))}
-      </div>
+        )}
+
+        <div className="quiz-list">
+          {list?.map(q => (
+            <div key={q.id} className="card quiz-row">
+              <div className="quiz-row-main">
+                <h3>{q.title}</h3>
+                <p className="muted">
+                  {q.readyCount} question{q.readyCount > 1 ? 's' : ''} prête{q.readyCount > 1 ? 's' : ''}
+                  {q.questionCount > q.readyCount && ` · ${q.questionCount - q.readyCount} à compléter`}
+                  {' · '}
+                  modifié {quand(q.updatedAt)}
+                </p>
+                {brouillons.has(q.id) && (
+                  <p className="warn small">
+                    <Icon name="edit" /> Des modifications non enregistrées t’attendent dans ce navigateur
+                  </p>
+                )}
+              </div>
+              {/* Chaque bouton nomme son quiz : dix « Supprimer » à la suite ne
+                  disent pas lequel à qui les parcourt au lecteur d'écran. Le
+                  libellé commence par le mot affiché, qu'une commande vocale
+                  reconnaît. */}
+              <div className="row">
+                <button className="btn" aria-label={`Modifier « ${q.title} »`} onClick={() => setEditingId(q.id)}>
+                  Modifier
+                </button>
+                <button
+                  className="btn btn-ghost btn-small"
+                  aria-label={`Dupliquer « ${q.title} »`}
+                  onClick={async () => {
+                    try {
+                      await api.duplicate(q.id)
+                      reload()
+                    } catch (e) {
+                      setError((e as Error).message)
+                    }
+                  }}
+                >
+                  Dupliquer
+                </button>
+                <button
+                  className="btn btn-ghost btn-small"
+                  disabled={echange !== null}
+                  aria-label={`${echange === q.id ? 'Export…' : 'Exporter'} « ${q.title} »`}
+                  title="Un fichier à envoyer à un autre animateur, qui l’ouvre avec « Importer un quiz » : les questions et leurs photos"
+                  onClick={() => exporter(q)}
+                >
+                  {echange === q.id ? 'Export…' : 'Exporter'}
+                </button>
+                <button
+                  className="btn btn-ghost btn-small"
+                  aria-label={`Supprimer « ${q.title} »`}
+                  onClick={async () => {
+                    const ok = await confirmDialog({
+                      title: `Supprimer « ${q.title} » ?`,
+                      // Deux quiz du même nom ne se distinguaient pas : ce qu'il
+                      // contient et quand il a changé disent lequel.
+                      message:
+                        q.questionCount === 0
+                          ? `Ce quiz vide, modifié ${quand(q.updatedAt)}, disparaît pour de bon.`
+                          : `Le quiz et ${q.questionCount > 1 ? `ses ${q.questionCount} questions` : 'sa question'}, ` +
+                            `modifié ${quand(q.updatedAt)}, disparaissent pour de bon.`,
+                      confirmLabel: 'Supprimer',
+                      danger: true,
+                    })
+                    if (!ok) return
+                    try {
+                      await api.remove(q.id)
+                      oublierBrouillon(q.id)
+                      // « « Spécial agence » est dans ta bibliothèque » survivait au quiz.
+                      setNotice('')
+                      reload()
+                    } catch (e) {
+                      setError((e as Error).message)
+                    }
+                  }}
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
     </div>
   )
 }
@@ -818,15 +830,15 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
 
   if (!quiz) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className={error ? 'error' : 'serif-note'}>{error || 'Chargement…'}</p>
-      </div>
+      </main>
     )
   }
 
   if (retrouve) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <div className="card brouillon-carte">
           <h2>
             <Icon name="edit" />
@@ -859,7 +871,7 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
             </button>
           </div>
         </div>
-      </div>
+      </main>
     )
   }
 
@@ -943,128 +955,130 @@ function QuizEditor({ id, ouvrirListe = false, onClose }: { id: string; ouvrirLi
         )}
       </header>
 
-      {reveil && (
-        <p className="info" role="status">
-          {espacesFines(
-            'Le serveur dormait : il se réveille, ça prend environ une minute. Tu peux continuer à écrire' +
-              (garde ? ', ce navigateur garde tes modifications.' : '.'),
-          )}
-        </p>
-      )}
-      {reprise === 'faite' && (
-        <p className="info" role="status">
-          {espacesFines(
-            'Tes modifications sont reprises : enregistre-les pour les garder.' +
-              (sansPhoto.size === 1 ? ' Une photo n’existait plus sur le serveur : sa question le signale.' : '') +
-              (sansPhoto.size > 1
-                ? ` ${sansPhoto.size} photos n’existaient plus sur le serveur : leurs questions le signalent.`
-                : ''),
-          )}
-        </p>
-      )}
-      {savedAt && !dirty && <p className="muted">Enregistré {quand(savedAt)}</p>}
-      {enPremier && (
-        <p className="muted small">
-          <Icon name="alert" />{' '}
-          {espacesFines(
-            `La bonne réponse est la première dans ${enPremier.premiers} QCM sur ${enPremier.qcm} : ` +
-              'la salle finira par le remarquer. Change-la de case dans quelques questions.',
-          )}
-        </p>
-      )}
-      {quiz.questions.length > 1 && (
-        <div className="row">
-          <button
-            type="button"
-            className="btn btn-ghost btn-small"
-            aria-expanded={reglerTout}
-            onClick={() => setReglerTout(v => !v)}
-          >
-            <Icon name="list" />
-            Régler tout le quiz
-          </button>
-        </div>
-      )}
-      {reglerTout && (
-        <ReglerToutLeQuiz
-          questions={quiz.questions}
-          onRegler={reglerLeQuiz}
-          onFermer={() => setReglerTout(false)}
-        />
-      )}
-      <p className="sr-only" aria-live="polite">
-        {announce}
-      </p>
-
-      {quiz.questions.map((question, index) => (
-        <CarteDeQuestion
-          // L'identifiant, pas la position : réordonner ou supprimer ne doit
-          // pas faire glisser l'aperçu ouvert d'une carte sur sa voisine.
-          key={question.id ?? index}
-          index={index}
-          total={quiz.questions.length}
-          question={question}
-          photoDisparue={!!question.id && sansPhoto.has(question.id)}
-          spot={spot && spot.id === question.id ? spot : null}
-          actions={actions}
-        />
-      ))}
-
-      <div className="row">
-        <button
-          className="btn btn-big"
-          onClick={() => {
-            // La dernière prête ses réglages : un quiz se règle d'un bloc.
-            const question = emptyQuestion(quiz.questions[quiz.questions.length - 1])
-            patch(q => ({ ...q, questions: [...q.questions, question] }))
-            spotlight(question.id, 'text')
-          }}
-        >
-          <Icon name="plus" />
-          Ajouter une question
-        </button>
-        <button className="btn" onClick={() => setImporting(v => !v)}>
-          <Icon name="clipboard" />
-          Coller une liste
-        </button>
-        {/* L'inverse : le quiz en texte, à passer dans un message ou à faire
-            compléter, qui se recolle tel quel (sans ses photos). */}
-        {quiz.questions.length > 0 && (
-          <button className="btn btn-ghost" onClick={copierEnListe}>
-            <Icon name={listeCopiee === 'faite' ? 'check' : 'copy'} />
-            {listeCopiee === 'faite' ? 'Liste copiée' : 'Copier en liste'}
-          </button>
+      <main className="page-corps">
+        {reveil && (
+          <p className="info" role="status">
+            {espacesFines(
+              'Le serveur dormait : il se réveille, ça prend environ une minute. Tu peux continuer à écrire' +
+                (garde ? ', ce navigateur garde tes modifications.' : '.'),
+            )}
+          </p>
         )}
-      </div>
-      {listeCopiee === 'refusee' && (
-        <div className="card import-panel">
-          <p className="warn small">Ce navigateur ne laisse pas copier d'ici : sélectionne le texte ci-dessous, puis copie-le.</p>
-          <textarea className="input import-area" rows={10} readOnly value={ecrireListe(quiz.questions)} />
+        {reprise === 'faite' && (
+          <p className="info" role="status">
+            {espacesFines(
+              'Tes modifications sont reprises : enregistre-les pour les garder.' +
+                (sansPhoto.size === 1 ? ' Une photo n’existait plus sur le serveur : sa question le signale.' : '') +
+                (sansPhoto.size > 1
+                  ? ` ${sansPhoto.size} photos n’existaient plus sur le serveur : leurs questions le signalent.`
+                  : ''),
+            )}
+          </p>
+        )}
+        {savedAt && !dirty && <p className="muted">Enregistré {quand(savedAt)}</p>}
+        {enPremier && (
+          <p className="muted small">
+            <Icon name="alert" />{' '}
+            {espacesFines(
+              `La bonne réponse est la première dans ${enPremier.premiers} QCM sur ${enPremier.qcm} : ` +
+                'la salle finira par le remarquer. Change-la de case dans quelques questions.',
+            )}
+          </p>
+        )}
+        {quiz.questions.length > 1 && (
           <div className="row">
-            <button className="btn btn-ghost btn-small" onClick={() => setListeCopiee(null)}>
-              Fermer
+            <button
+              type="button"
+              className="btn btn-ghost btn-small"
+              aria-expanded={reglerTout}
+              onClick={() => setReglerTout(v => !v)}
+            >
+              <Icon name="list" />
+              Régler tout le quiz
             </button>
           </div>
-        </div>
-      )}
+        )}
+        {reglerTout && (
+          <ReglerToutLeQuiz
+            questions={quiz.questions}
+            onRegler={reglerLeQuiz}
+            onFermer={() => setReglerTout(false)}
+          />
+        )}
+        <p className="sr-only" aria-live="polite">
+          {announce}
+        </p>
 
-      {importing && (
-        <BulkImport
-          questions={quiz.questions}
-          onImport={(questions, number, alerte) => {
-            patch(q => ({ ...q, questions: insertQuestions(q.questions, number, questions) }))
-            if (alerte) setError(alerte)
-            setAnnounce(
-              questions.length > 1
-                ? `${questions.length} questions ajoutées à partir du n° ${number}`
-                : `Question ajoutée en n° ${number}`,
-            )
-            spotlight(questions[0]?.id, 'number')
-            setImporting(false)
-          }}
-          onCancel={() => setImporting(false)}
-        />
-      )}
+        {quiz.questions.map((question, index) => (
+          <CarteDeQuestion
+            // L'identifiant, pas la position : réordonner ou supprimer ne doit
+            // pas faire glisser l'aperçu ouvert d'une carte sur sa voisine.
+            key={question.id ?? index}
+            index={index}
+            total={quiz.questions.length}
+            question={question}
+            photoDisparue={!!question.id && sansPhoto.has(question.id)}
+            spot={spot && spot.id === question.id ? spot : null}
+            actions={actions}
+          />
+        ))}
+
+        <div className="row">
+          <button
+            className="btn btn-big"
+            onClick={() => {
+              // La dernière prête ses réglages : un quiz se règle d'un bloc.
+              const question = emptyQuestion(quiz.questions[quiz.questions.length - 1])
+              patch(q => ({ ...q, questions: [...q.questions, question] }))
+              spotlight(question.id, 'text')
+            }}
+          >
+            <Icon name="plus" />
+            Ajouter une question
+          </button>
+          <button className="btn" onClick={() => setImporting(v => !v)}>
+            <Icon name="clipboard" />
+            Coller une liste
+          </button>
+          {/* L'inverse : le quiz en texte, à passer dans un message ou à faire
+              compléter, qui se recolle tel quel (sans ses photos). */}
+          {quiz.questions.length > 0 && (
+            <button className="btn btn-ghost" onClick={copierEnListe}>
+              <Icon name={listeCopiee === 'faite' ? 'check' : 'copy'} />
+              {listeCopiee === 'faite' ? 'Liste copiée' : 'Copier en liste'}
+            </button>
+          )}
+        </div>
+        {listeCopiee === 'refusee' && (
+          <div className="card import-panel">
+            <p className="warn small">Ce navigateur ne laisse pas copier d'ici : sélectionne le texte ci-dessous, puis copie-le.</p>
+            <textarea className="input import-area" rows={10} readOnly value={ecrireListe(quiz.questions)} />
+            <div className="row">
+              <button className="btn btn-ghost btn-small" onClick={() => setListeCopiee(null)}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        )}
+
+        {importing && (
+          <BulkImport
+            questions={quiz.questions}
+            onImport={(questions, number, alerte) => {
+              patch(q => ({ ...q, questions: insertQuestions(q.questions, number, questions) }))
+              if (alerte) setError(alerte)
+              setAnnounce(
+                questions.length > 1
+                  ? `${questions.length} questions ajoutées à partir du n° ${number}`
+                  : `Question ajoutée en n° ${number}`,
+              )
+              spotlight(questions[0]?.id, 'number')
+              setImporting(false)
+            }}
+            onCancel={() => setImporting(false)}
+          />
+        )}
+      </main>
     </div>
   )
 }
@@ -1770,9 +1784,10 @@ function QuestionCard({
           ) : (
             <span className="pill">Question {index + 1}</span>
           )}
-          <div className="kind-toggle">
+          <div className="kind-toggle" role="group" aria-label={`Type de la question ${index + 1}`}>
             <button
               className={'pill-btn' + (question.kind === 'choice' && !vraiFaux ? ' active' : '')}
+              aria-pressed={question.kind === 'choice' && !vraiFaux}
               onClick={() => {
                 setDeuxCases(false)
                 onChange(q => ({ ...q, kind: 'choice' }))
@@ -1783,6 +1798,7 @@ function QuestionCard({
             </button>
             <button
               className={'pill-btn' + (question.kind === 'number' ? ' active' : '')}
+              aria-pressed={question.kind === 'number'}
               onClick={() => onChange(q => ({ ...q, kind: 'number' }))}
             >
               <Icon name="hash" />
@@ -1790,7 +1806,7 @@ function QuestionCard({
             </button>
             {/* Un vrai ou faux se tapait à la main, « Vrai » puis « Faux », à
                 côté de deux cases « (optionnelle) » qui restaient là. */}
-            <button className={'pill-btn' + (vraiFaux ? ' active' : '')} onClick={versVraiFaux}>
+            <button className={'pill-btn' + (vraiFaux ? ' active' : '')} aria-pressed={vraiFaux} onClick={versVraiFaux}>
               <Icon name="check" />
               Vrai/Faux
             </button>
@@ -1801,7 +1817,7 @@ function QuestionCard({
             ref={upButton}
             className="btn btn-ghost btn-small"
             disabled={index === 0}
-            aria-label="Monter la question"
+            aria-label={`Monter la question ${index + 1}`}
             title="Monter"
             onClick={() => onMoveTo(index, 'up')}
           >
@@ -1811,7 +1827,7 @@ function QuestionCard({
             ref={downButton}
             className="btn btn-ghost btn-small"
             disabled={index === total - 1}
-            aria-label="Descendre la question"
+            aria-label={`Descendre la question ${index + 1}`}
             title="Descendre"
             onClick={() => onMoveTo(index + 2, 'down')}
           >
@@ -1819,7 +1835,7 @@ function QuestionCard({
           </button>
           <button
             className="btn btn-ghost btn-small"
-            aria-label="Insérer une question après celle-ci"
+            aria-label={`Insérer une question après la question ${index + 1}`}
             title="Insérer une question après"
             onClick={onInsertAfter}
           >
@@ -1827,18 +1843,19 @@ function QuestionCard({
           </button>
           <button
             className="btn btn-ghost btn-small"
-            aria-label="Dupliquer la question"
+            aria-label={`Dupliquer la question ${index + 1}`}
             title="Dupliquer"
             onClick={onDuplicate}
           >
             <Icon name="copy" />
           </button>
-          <button className="btn btn-ghost btn-small" onClick={() => setPreview(true)}>
+          <button className="btn btn-ghost btn-small" aria-label={`Aperçu de la question ${index + 1}`} onClick={() => setPreview(true)}>
             <Icon name="eye" />
             Aperçu
           </button>
           <button
             className="btn btn-ghost btn-small"
+            aria-label={`Supprimer la question ${index + 1}`}
             onClick={async () => {
               // Une question vide s'efface sans cérémonie ; une question écrite
               // mérite qu'on demande — dix minutes de rédaction ne doivent pas

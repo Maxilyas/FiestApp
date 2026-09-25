@@ -510,7 +510,9 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
         </h3>
         <div className="podium">
           {v.podium?.map((p, i) => (
-            <div key={i} className="lb-row" style={{ animationDelay: `${i * 120}ms` }}>
+            // Sa propre ligne surlignée, comme au classement de la salle
+            // d'attente : sur le podium, elle ne se distinguait pas.
+            <div key={i} className={'lb-row' + (i === v.yourPodiumIndex ? ' me' : '')} style={{ animationDelay: `${i * 120}ms` }}>
               {/* Rang partagé, comme celui de la phrase au-dessus : deux ex
                   æquo portent le même chiffre. */}
               <Rank n={1 + v.podium!.filter(o => o.points > p.points).length} />

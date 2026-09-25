@@ -29,16 +29,16 @@ export function AccountApp() {
 
   if (error) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="error">{error}</p>
-      </div>
+      </main>
     )
   }
   if (!me) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Chargement…</p>
-      </div>
+      </main>
     )
   }
 
@@ -76,7 +76,7 @@ export function AccountApp() {
           </a>
         )}
       </nav>
-
+      <main className="page-corps">
       <section className="card">
         <h2>L'adresse de mes invités</h2>
         <p className="muted small">
@@ -121,6 +121,7 @@ export function AccountApp() {
       </section>
 
       {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
+      </main>
     </div>
   )
 }

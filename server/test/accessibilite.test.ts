@@ -7,10 +7,11 @@
 // Les composants sont rendus en HTML, sans navigateur ni serveur, puis lus
 // comme le ferait un lecteur d'écran : dans l'ordre du document, sans ce qui
 // porte `aria-hidden`.
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import React from 'react'
+import { attendre, connexionAnimateur, creerQuiz, demarrer, ecranCommun, emitAck, invite, lancerQuiz, qcm } from './banc'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
 Object.assign(globalThis, { React })
@@ -22,7 +23,10 @@ async function rendu(fichier: string, composant: string, props: object): Promise
   return renderToStaticMarkup(React.createElement(module[composant], props))
 }
 
-const VIDES = new Set(['img', 'br', 'hr', 'input', 'meta', 'link', 'source', 'path', 'circle', 'rect'])
+// Les seules balises vides du HTML : React ferme `<path></path>` et
+// `<rect></rect>`, et les compter pour vides décalait la profondeur — un
+// `aria-hidden` voisin cessait alors de masquer quoi que ce soit.
+const VIDES = new Set(['img', 'br', 'hr', 'input', 'meta', 'link', 'source'])
 
 /**
  * Le texte d'un fragment tel qu'un lecteur d'écran le parcourt : l'ordre du
@@ -164,4 +168,87 @@ test('à l’écran commun, aucun libellé accessible ne prend le prénom sans s
   const libelles = [...source.matchAll(/aria-label=\{`[^`]*`\}/g)].map(m => m[0])
   assert.ok(libelles.some(l => l.includes('p.nomAffiche ?? p.name')), 'les libellés des invités sont bien là')
   for (const l of libelles) assert.doesNotMatch(l, /\$\{p\.name\}/, l)
+})
+
+// ── 6. Pas d'annonces en trop au téléphone ────────────────────────────────
+
+test('le compte à rebours ne s’égrène pas dans la région vivante du téléphone', async () => {
+  // Tout le téléphone est une région annoncée : « 3 », « 2 », « 1 », « GO ! »
+  // étaient lus par-dessus la question qui arrivait.
+  const html = await rendu('components/GetReady', 'GetReady', { deadline: Date.now() + 3000, label: 'Prépare-toi…' })
+  assert.match(html, /class="big-count" aria-live="off"/)
+})
+
+test('en pause, l’oreille entend ce qui va se passer, pas « regarde l’écran »', async () => {
+  const view = {
+    phase: 'question', qIndex: 0, qCount: 3, kind: 'choice', text: 'La capitale ?', answers: ['A', 'B'],
+    deadline: Date.now() + 5000, duration: 20, paused: true, remainingMs: 5000, yourChoice: null,
+  }
+  const texte = entendu(await rendu('games/quiz/PlayerView', 'QuizPlayer', { view, send: () => {}, teams: [], myTeamId: null }))
+  // Le bandeau de pause de l'axe 1 le dit à tous : le chrono reprendra.
+  assert.match(texte, /En pause\s*Le chrono reprendra où il s'est arrêté/)
+  assert.doesNotMatch(texte, /regarde l'écran/)
+})
+
+// ── 7. La colonne triée se dit ────────────────────────────────────────────
+
+test('le tableau des chiffres dit par quelle colonne il est trié', async () => {
+  const joueur = {
+    playerId: 'a', name: 'Hugo', avatar: '🐯', points: 120, asked: 3, answered: 3, correct: 2, wrong: 1, accuracy: 0.66,
+    avgMs: 4000, bestMs: 2000, bestStreak: 2, worstStreak: 1, missed: 0, changes: 0, lastSecond: 0, alone: 0,
+    followed: 1, guesses: 0, exact: 0, coupDOeil: null, avgGapPct: null, bias: null,
+  }
+  const html = await rendu('components/StatsTable', 'StatsTable', { stats: { players: [joueur], awards: [], questions: 3, logged: 3 } })
+  // Une seule colonne le porte : celle des points, triée du plus grand au plus petit.
+  assert.deepEqual([...html.matchAll(/aria-sort="(\w+)"/g)].map(m => m[1]), ['descending'])
+  // (La classe `stats-fige`, la colonne qui reste en vue, s'y intercale.)
+  assert.match(html, /<th title="Points marqués sur la soirée"(?: class="[^"]*")? aria-sort="descending">/)
+})
+
+// ── 8. Au podium du téléphone, on se voit ─────────────────────────────────
+
+test('au podium du quiz, le téléphone de chacun surligne sa propre ligne', async () => {
+  // La ligne 1 avait la même carte que les suivantes, et la sienne ne se
+  // distinguait pas — alors que le classement de la salle d'attente la surligne.
+  const banc = await demarrer()
+  after(() => banc.close())
+  const cookie = await connexionAnimateur(banc.url)
+  const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
+  const host = await ecranCommun(banc.url, cookie)
+  const salle = []
+  for (const nom of ['Alice', 'Bob', 'Chloé', 'David']) salle.push(await invite(banc.url, nom))
+  const [alice, bob, chloe, david] = salle
+
+  const sessionId = await lancerQuiz(host, quiz)
+  await attendre(alice.socket, 'session:view', (p: any) => p.view.phase === 'question', 'la question')
+  const fins = salle.map(i => attendre<any>(i.socket, 'session:view', p => p.view.phase === 'finished', 'le podium', 15_000))
+  // Alice et Bob trouvent, Chloé et David se trompent : David reste au pied du podium.
+  for (const [qui, choix] of [[alice, 0], [bob, 0], [chloe, 1], [david, 1]] as const) {
+    await emitAck(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice: choix } })
+  }
+  await attendre(host, 'session:view', (p: any) => p.view.phase === 'reveal', 'la révélation', 15_000)
+  ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
+  const [va, vb, vc, vd] = (await Promise.all(fins)).map(p => p.view)
+
+  assert.deepEqual(va.podium.map((r: any) => r.name), ['Alice', 'Bob', 'Chloé'])
+  assert.deepEqual([va.yourPodiumIndex, vb.yourPodiumIndex, vc.yourPodiumIndex, vd.yourPodiumIndex], [0, 1, 2, undefined])
+
+  // Et le téléphone de Bob le montre.
+  const html = await rendu('games/quiz/PlayerView', 'QuizPlayer', { view: vb, send: () => {}, teams: [], myTeamId: null })
+  assert.equal([...html.matchAll(/class="lb-row me"/g)].length, 1)
+  const ligne = html.slice(html.indexOf('class="lb-row me"'), html.indexOf('class="lb-row"', html.indexOf('class="lb-row me"')))
+  assert.match(ligne, /Bob/)
+})
+
+// ── 9. Le focus suit la vue de la console ─────────────────────────────────
+
+test('à la console, un changement de vue rend le focus perdu au titre de la scène', () => {
+  // « Lancer un quiz » disparaissait sous le doigt : le focus tombait sur la
+  // page, et le Tab suivant repartait du haut. Pas de navigateur ici : on
+  // garde la mécanique — la scène tenue par une référence, le titre qui
+  // prend le focus sans défiler, et seulement quand il s'est perdu.
+  const source = readFileSync(new URL('../../client/src/views/HostApp.tsx', import.meta.url), 'utf8')
+  assert.match(source, /<section className="card main-stage" ref=\{scene\}>/)
+  assert.match(source, /if \(actif && actif !== document\.body\) return/)
+  assert.match(source, /titre\.tabIndex = -1\s*\n\s*titre\.focus\(\{ preventScroll: true \}\)/)
 })

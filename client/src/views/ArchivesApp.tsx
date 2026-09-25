@@ -53,9 +53,9 @@ export function ArchivesApp() {
   if (error) return <SpaceError current="soirees" message={error} />
   if (!list) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Chargement…</p>
-      </div>
+      </main>
     )
   }
 
@@ -69,7 +69,7 @@ export function ArchivesApp() {
         <hr className="hairline" />
       </header>
       <SpaceNav current="soirees" />
-
+      <main className="page-corps">
       {current && (
         <section className="card soiree soiree-current">
           <div className="soiree-head">
@@ -126,6 +126,7 @@ export function ArchivesApp() {
           />
         ))
       )}
+      </main>
     </div>
   )
 }
