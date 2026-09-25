@@ -36,6 +36,8 @@ import type {
 
 /** Un quiz tel qu'il a été joué : son titre et ses questions jouables. */
 export interface PlayedPack {
+  /** Le quiz de la bibliothèque, quand on le connaît. */
+  id?: string
   title: string
   questions: PlayableQuestion[]
 }
@@ -159,7 +161,7 @@ export function resolvePacks(
   const packs = new Map<string, PlayedPack & { exact: boolean }>()
   for (const group of groupSessions(rows)) {
     const { pack, exact } = choosePack(group, input)
-    if (pack) packs.set(group.id, { title: pack.title, questions: pack.questions, exact })
+    if (pack) packs.set(group.id, { ...(pack.id && { id: pack.id }), title: pack.title, questions: pack.questions, exact })
   }
   return packs
 }

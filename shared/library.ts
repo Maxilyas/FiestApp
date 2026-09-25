@@ -142,6 +142,30 @@ export interface QuizSummary {
   dureeS?: number
   /** L'intitulé qui a fait trouver ce quiz à une recherche, s'il ne l'a pas été par son titre. */
   trouve?: string
+  /**
+   * Ce que l'historique en sait : combien de parties, et le début de la
+   * dernière soirée où il a été joué. Absent : jamais joué depuis que
+   * l'historique s'en souvient.
+   */
+  joue?: { fois: number; dernier: number }
+}
+
+/** Ce que l'historique sait d'une question (`core/memoire.ts`) : sa dernière soirée, et ce qui s'y est joué. */
+export interface SouvenirDeQuestion {
+  /** Le nombre de parties où elle a été posée. */
+  fois: number
+  /** Le début de la dernière soirée où elle a été posée. */
+  dernier: number
+  /** Ce soir-là : à combien d'invités, et combien ont trouvé (null pour une estimation, jamais « juste »). */
+  posees: number
+  justes: number | null
+}
+
+/** La mémoire d'un quiz, telle que l'éditeur la lit (`GET /api/quizzes/:id/memoire`). */
+export interface MemoireDuQuiz {
+  joue: { fois: number; dernier: number } | null
+  /** Par identifiant de question : celles que l'historique a vues passer. */
+  questions: Record<string, SouvenirDeQuestion>
 }
 
 /** Le résumé d'un quiz, tel que « Mes quiz » le liste. */
@@ -159,7 +183,7 @@ export function resumerQuiz(quiz: QuizDef): QuizSummary {
     photos: quiz.questions.filter(q => q.image).length,
     estimations: quiz.questions.filter(q => q.kind === 'number').length,
     categories: [...parCategorie.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr')).map(([c]) => c),
-    dureeS: dureeEstimeeS(quiz.questions),
+    dureeS: dureeEstimeeS(quiz.questions, quiz.reglages?.tirage),
   }
 }
 
@@ -201,6 +225,12 @@ export function rechercherDans(quiz: Pick<QuizDef, 'title' | 'questions'>, reche
 export type PlayableQuestion =
   | {
       kind: 'choice'
+      /**
+       * L'identifiant de la question dans la bibliothèque : l'historique s'en
+       * souvient (`core/memoire.ts`), et le tirage évite ce qu'on a déjà posé.
+       * Absent des copies jouées avant qu'il existe.
+       */
+      id?: string
       text: string
       answers: string[]
       correct: number
@@ -213,6 +243,7 @@ export type PlayableQuestion =
     }
   | {
       kind: 'number'
+      id?: string
       text: string
       target: number
       unit: string
@@ -381,8 +412,9 @@ const DEPART_ET_PODIUM_S = 3 + 15
  * entre le dessert et minuit, c'est ce que l'animateur se demande en
  * préparant — et rien ne le lui disait.
  */
-export function dureeEstimeeS(questions: readonly QuizQuestionDef[]): number {
-  return dureeDesJouables(questions.map(toPlayable).filter((q): q is PlayableQuestion => q !== null))
+export function dureeEstimeeS(questions: readonly QuizQuestionDef[], tirage?: number | null): number {
+  // Un tirage ne joue que N questions : on compte les N premières, à peu près ce qu'il en tirera.
+  return dureeDesJouables(questions.map(toPlayable).filter((q): q is PlayableQuestion => q !== null).slice(0, tirage || undefined))
 }
 
 /** La même durée, pour des questions déjà jouables — celles que la console propose. */
@@ -483,6 +515,7 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
     if (typeof q.target !== 'number' || !Number.isFinite(q.target)) return null
     return {
       kind: 'number',
+      ...(q.id && { id: q.id }),
       text,
       target: q.target,
       // Coupée par caractère, comme à l'import : « parts de 🍕🍕🍕🍕 » coupé
@@ -505,6 +538,7 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
   if (correct < 0) return null // la bonne réponse pointe une case vide
   return {
     kind: 'choice',
+    ...(q.id && { id: q.id }),
     text,
     answers: kept.map(a => a.text),
     correct,

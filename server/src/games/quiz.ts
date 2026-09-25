@@ -241,6 +241,7 @@ export function quizLibrary(spaceId: string): QuizPack[] {
 export function clearQuizLibrary(spaceId: string) {
   libraries.delete(spaceId)
   programmes.delete(spaceId)
+  questionsPosees.delete(spaceId)
 }
 
 /**
@@ -272,14 +273,17 @@ function choixDeLaSoiree(
     const parCategorie = new Map<string, number>()
     for (const q of p.questions) if (q.category) parCategorie.set(q.category, (parCategorie.get(q.category) ?? 0) + 1)
     const auProgramme = rangs.get(p.id)
+    // Un tirage joue moins de questions que le quiz n'en a : la carte dit
+    // ce qui se jouera, et la durée suit.
+    const jouees = Math.min(p.questions.length, p.reglages?.tirage ?? Infinity)
     return {
       id: p.id,
       title: p.title,
-      questionCount: p.questions.length,
+      questionCount: jouees,
       ...(joues.has(p.id) && { joueCeSoir: true as const }),
       categories: [...parCategorie.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr')).map(([c]) => c),
       estimations: p.questions.filter(q => q.kind === 'number').length,
-      dureeS: dureeDesJouables(p.questions),
+      dureeS: dureeDesJouables(p.questions.slice(0, jouees)),
       ...(auProgramme && { auProgramme }),
     }
   })
@@ -302,10 +306,21 @@ function choixDeLaSoiree(
  * partie. Le bilan s'en sert pour retrouver les intitulés exacts : la
  * bibliothèque a pu être retouchée depuis, pas cette copie.
  */
-export function playedPackOf(state: unknown): { title: string; questions: PlayableQuestion[] } | null {
+export function playedPackOf(state: unknown): { id?: string; title: string; questions: PlayableQuestion[] } | null {
   const pack = (state as Partial<QuizState> | null)?.pack
   if (!pack || typeof pack.title !== 'string' || !Array.isArray(pack.questions)) return null
-  return { title: pack.title, questions: pack.questions }
+  return { ...(typeof pack.id === 'string' && { id: pack.id }), title: pack.title, questions: pack.questions }
+}
+
+/**
+ * Pour chaque question de l'espace, le début de la dernière soirée où elle a
+ * été posée : le tirage d'un quiz (`tirerQuestions`) choisit d'abord celles
+ * qu'on n'a jamais posées. Rechargé à chaque écriture de l'historique.
+ */
+const questionsPosees = new Map<string, ReadonlyMap<string, number>>()
+
+export function setQuestionsPosees(spaceId: string, dernieres: ReadonlyMap<string, number>) {
+  questionsPosees.set(spaceId, dernieres)
 }
 
 // ── Déroulé ──────────────────────────────────────────────────────────────
@@ -765,7 +780,11 @@ export const quizModule: GameModule<QuizState> = {
         // La copie jouée : ses réponses et ses questions dans l'ordre que ses
         // réglages demandent, tiré une fois pour toute la salle. C'est elle
         // que le journal numérote et que l'archive range (`shared/hasard.ts`).
-        st.pack = { id: pack.id, title: pack.title, questions: preparerPartie(pack.questions, pack.reglages) }
+        st.pack = {
+          id: pack.id,
+          title: pack.title,
+          questions: preparerPartie(pack.questions, pack.reglages, Math.random, questionsPosees.get(sess.spaceId)),
+        }
         const m = Number(command.multiplier ?? 1)
         st.multiplier = [1, 2, 3].includes(m) ? m : 1
         st.phase = 'getReady'

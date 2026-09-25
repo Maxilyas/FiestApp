@@ -11,7 +11,8 @@ import { PartyBackup, type ReglagesMiroir } from './core/backup'
 import { photosCitees, QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
 import { INTROUVABLE, ROBOTS_TXT, decrirePage, habillerPage } from './core/apercus'
-import { clearQuizLibrary, setProgramme, setQuizLibrary } from './games/quiz'
+import { clearQuizLibrary, setProgramme, setQuestionsPosees, setQuizLibrary } from './games/quiz'
+import { dernieresFois } from './core/memoire'
 import { ProgrammeStore } from './core/programmes'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
@@ -297,6 +298,15 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
   await archives.init(defaultSpace)
+  // Le tirage d'un quiz choisit d'abord les questions jamais posées : il lit
+  // ce que l'historique en sait, relu après chaque rangement.
+  for (const [spaceId, memoire] of await archives.memoiresDeTous()) setQuestionsPosees(spaceId, dernieresFois(memoire))
+  archives.surEcriture(spaceId => {
+    archives
+      .memoire(spaceId)
+      .then(memoire => setQuestionsPosees(spaceId, dernieresFois(memoire)))
+      .catch(e => console.error('[historique] mémoire des quiz :', e))
+  })
 
   // L'expérience se relit avec le barème du jour : une fois, au premier
   // démarrage qui le change. Les soirées en cours — celles que le disque ou

@@ -13,6 +13,7 @@ import { tronquer } from '../../../shared/avatars'
 import type { PublicPlayer, Recap, TeamBonus } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
 import type { ArchiveSummary, DerniereSoiree, PartyArchive } from '../../../shared/archive'
+import { jeuxDeLArchive, memoireDesSoirees, type Jeu, type MemoireDesQuiz } from './memoire'
 
 /**
  * L'historique des soirées.
@@ -146,8 +147,8 @@ export interface LiveParty {
 export function buildArchive(live: LiveParty): { id: string; heldAt: number; archive: PartyArchive } | null {
   if (live.answers.length === 0 || live.players.length === 0) return null
   const packs: PartyArchive['packs'] = {}
-  for (const [sessionId, pack] of resolvePacks(live.answers, live.packsBySession, live.library)) {
-    packs[sessionId] = pack
+  for (const [sessionId, { id, ...pack }] of resolvePacks(live.answers, live.packsBySession, live.library)) {
+    packs[sessionId] = { ...pack, ...(id && { quizId: id }) }
   }
   return {
     // Lu, pas recalculé : les invités présents ne sont plus forcément ceux
@@ -265,6 +266,12 @@ interface FicheSoiree {
   prix: { teamId: string; points: number }[]
   quiz: number
   questions: number
+  /**
+   * Le relevé des parties dont on connaît le quiz (`core/memoire.ts`) : ce
+   * que « Mes quiz » lit pour dire quand il a été joué. Absent d'une fiche
+   * d'avant — son archive n'en savait rien non plus.
+   */
+  jeux?: Jeu[]
 }
 
 /** Les faits bruts d'une archive, ceux que la liste relira. */
@@ -295,6 +302,7 @@ function ficheDe(a: PartyArchive): FicheSoiree {
     prix: a.bonuses.map(b => ({ teamId: b.teamId, points: b.points })),
     quiz: new Set(a.answers.map(r => r.sessionId)).size,
     questions: new Set(a.answers.map(r => `${r.sessionId}#${r.qIndex}`)).size,
+    jeux: jeuxDeLArchive(a),
   }
 }
 
@@ -389,6 +397,10 @@ export class ArchiveStore {
    * sous ce numéro, et le lisent pour savoir si leur calcul tient encore.
    */
   private revisions = new Map<string, number>()
+  /** La mémoire des quiz de chaque espace, sous le numéro d'écriture qui l'a vue naître. */
+  private memoires = new Map<string, { revision: number; memoire: Promise<MemoireDesQuiz> }>()
+  /** Ceux qui veulent savoir qu'un historique a bougé — le tirage des questions (`setQuestionsPosees`). */
+  private ecoutes: ((spaceId: string) => void)[] = []
 
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
@@ -668,6 +680,44 @@ export class ArchiveStore {
     return res.rowsAffected
   }
 
+  /**
+   * Ce que l'historique d'un espace sait de ses quiz (`core/memoire.ts`),
+   * lu dans les fiches — jamais dans les archives — et gardé tant que
+   * l'historique ne bouge pas.
+   */
+  memoire(spaceId: string): Promise<MemoireDesQuiz> {
+    const revision = this.revision(spaceId)
+    const garde = this.memoires.get(spaceId)
+    if (garde && garde.revision === revision) return garde.memoire
+    const memoire = this.client
+      .execute({ sql: 'SELECT held_at, summary FROM soirees WHERE space_id = ?', args: [spaceId] })
+      .then(res => memoireDesSoirees(res.rows.map(r => ({ heldAt: Number(r.held_at), jeux: lireFiche(String(r.summary))?.jeux }))))
+    // Une lecture échouée ne se garde pas : la suivante réessaie.
+    memoire.catch(() => {
+      if (this.memoires.get(spaceId)?.memoire === memoire) this.memoires.delete(spaceId)
+    })
+    this.memoires.set(spaceId, { revision, memoire })
+    return memoire
+  }
+
+  /** La mémoire de tous les espaces, d'une seule lecture : au démarrage, pour le tirage des questions. */
+  async memoiresDeTous(): Promise<Map<string, MemoireDesQuiz>> {
+    const res = await this.client.execute('SELECT space_id, held_at, summary FROM soirees')
+    const parEspace = new Map<string, { heldAt: number; jeux?: Jeu[] }[]>()
+    for (const r of res.rows) {
+      const spaceId = String(r.space_id)
+      const soirees = parEspace.get(spaceId) ?? []
+      soirees.push({ heldAt: Number(r.held_at), jeux: lireFiche(String(r.summary))?.jeux })
+      parEspace.set(spaceId, soirees)
+    }
+    return new Map([...parEspace].map(([spaceId, soirees]) => [spaceId, memoireDesSoirees(soirees)]))
+  }
+
+  /** Appelé après chaque écriture de l'historique d'un espace. */
+  surEcriture(ecoute: (spaceId: string) => void) {
+    this.ecoutes.push(ecoute)
+  }
+
   /** Où en est l'historique de cet espace : il bouge à chaque rangement, renommage ou effacement. */
   revision(spaceId: string): number {
     return this.revisions.get(spaceId) ?? 0
@@ -688,6 +738,7 @@ export class ArchiveStore {
       return await ecriture()
     } finally {
       this.revisions.set(spaceId, this.revision(spaceId) + 1)
+      for (const ecoute of this.ecoutes) ecoute(spaceId)
     }
   }
 

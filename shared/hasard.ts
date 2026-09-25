@@ -84,16 +84,44 @@ function reordonner(q: PlayableQuestion, ordre: readonly number[]): PlayableQues
 }
 
 /**
- * La copie jouée d'un quiz : ses réponses et ses questions dans l'ordre que
- * ses réglages demandent. Sans réglage, le quiz tel qu'il est écrit — le même
- * tableau, pour qu'un quiz d'avant ne change en rien.
+ * Les questions d'un tirage : `n` parmi toutes, celles que l'espace n'a
+ * jamais posées d'abord, puis celles posées il y a le plus longtemps — au
+ * hasard entre égales. Un gros quiz devient une banque de questions qu'on
+ * rejoue avec les mêmes amis sans leur reposer les mêmes. Les tirées gardent
+ * l'ordre écrit : la mise en jambes, la photo et sa question, la finale.
+ *
+ * `dejaPosees` : pour chaque question, le début de la dernière soirée où
+ * elle a été posée (`core/memoire.ts`).
+ */
+export function tirerQuestions(
+  questions: readonly PlayableQuestion[],
+  n: number,
+  dejaPosees: ReadonlyMap<string, number>,
+  aleatoire: Aleatoire,
+): PlayableQuestion[] {
+  if (n >= questions.length) return [...questions]
+  const hasard = permutation(questions.length, aleatoire)
+  return questions
+    .map((q, i) => ({ i, quand: (q.id && dejaPosees.get(q.id)) || 0, sort: hasard[i] }))
+    .sort((a, b) => a.quand - b.quand || a.sort - b.sort)
+    .slice(0, n)
+    .sort((a, b) => a.i - b.i)
+    .map(x => questions[x.i])
+}
+
+/**
+ * La copie jouée d'un quiz : ses questions — toutes, ou un tirage — et ses
+ * réponses dans l'ordre que ses réglages demandent. Sans réglage, le quiz
+ * tel qu'il est écrit — le même tableau, pour qu'un quiz d'avant ne change
+ * en rien.
  */
 export function preparerPartie(
   questions: readonly PlayableQuestion[],
   reglages: ReglagesDuQuiz | undefined,
   aleatoire: Aleatoire = Math.random,
+  dejaPosees: ReadonlyMap<string, number> = new Map(),
 ): PlayableQuestion[] {
-  let jouees = [...questions]
+  let jouees = reglages?.tirage ? tirerQuestions(questions, reglages.tirage, dejaPosees, aleatoire) : [...questions]
   if (reglages?.melangerQuestions) jouees = permutation(jouees.length, aleatoire).map(i => jouees[i])
   if (reglages?.melangerReponses) jouees = jouees.map(q => reordonner(q, ordreDesReponses(q, aleatoire)))
   return jouees

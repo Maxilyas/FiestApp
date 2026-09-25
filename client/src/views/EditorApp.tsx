@@ -32,9 +32,11 @@ import {
   tempsDansLesBornes,
   toPlayable,
   voisineDe,
+  type MemoireDuQuiz,
   type QuizDef,
   type QuizQuestionDef,
   type QuizSummary,
+  type SouvenirDeQuestion,
 } from '../../../shared/library'
 import { CATEGORIES } from '../../../shared/categories'
 import { ecrireNombre, lireNombre } from '../../../shared/nombres'
@@ -58,7 +60,7 @@ import {
   type DemandeIA,
 } from '../../../shared/liste'
 import { avisEmojis, emojisRecents } from '../../../shared/emojis'
-import type { ReglagesDuQuiz } from '../../../shared/hasard'
+import { TIRAGE_MIN, type ReglagesDuQuiz } from '../../../shared/hasard'
 import { SEUILS } from '../../../shared/profil'
 import { MAX_PRENOM, type Accord, type ModeleResume, type PourQui } from '../../../shared/modeles'
 import {
@@ -82,7 +84,7 @@ import { TimerBar } from '../components/TimerBar'
 import { serverNow } from '../clock'
 import { gesteAccepte } from '../../../shared/console'
 import { LoginForm } from '../components/Invitation'
-import { espacesFines, quand } from '../format'
+import { espacesFines, jour, quand } from '../format'
 
 /**
  * La carte qui vient d'arriver quelque part — déplacée, insérée, dupliquée,
@@ -638,6 +640,7 @@ export function EditorApp() {
                   onChange={e => changerTri(e.target.value as TriDeLaBibliotheque)}
                 >
                   <option value="recents">du plus récent</option>
+                  <option value="joues">du dernier joué</option>
                   <option value="alpha">de A à Z</option>
                 </select>
               </label>
@@ -698,14 +701,14 @@ export function EditorApp() {
 
 // ── La bibliothèque : ranger, filtrer, les gestes d'une ligne ─────────────
 
-type TriDeLaBibliotheque = 'recents' | 'alpha'
+type TriDeLaBibliotheque = 'recents' | 'joues' | 'alpha'
 const TRI_GARDE = 'fiestappTriDesQuiz'
 
 /** Le rangement choisi, retenu par ce navigateur — rien de grave s'il refuse. */
 function lireTri(): TriDeLaBibliotheque {
   try {
     const t = localStorage.getItem(TRI_GARDE)
-    return t === 'alpha' ? t : 'recents'
+    return t === 'alpha' || t === 'joues' ? t : 'recents'
   } catch {
     return 'recents'
   }
@@ -727,6 +730,8 @@ function garderTri(t: TriDeLaBibliotheque) {
 function trier(quizzes: QuizSummary[], tri: TriDeLaBibliotheque): QuizSummary[] {
   const copie = [...quizzes]
   if (tri === 'alpha') return copie.sort((a, b) => a.title.localeCompare(b.title, 'fr', { sensitivity: 'base', numeric: true }))
+  // Le dernier joué d'abord, les jamais joués au fond, rangés par modification.
+  if (tri === 'joues') return copie.sort((a, b) => (b.joue?.dernier ?? 0) - (a.joue?.dernier ?? 0) || b.updatedAt - a.updatedAt)
   return copie.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
@@ -743,6 +748,7 @@ function garderSelon(filtre: string, q: QuizSummary): boolean {
   if (filtre === 'archives') return !!q.archivedAt
   if (q.archivedAt) return false
   if (filtre === 'a-completer') return aCompleter(q)
+  if (filtre === 'jamais') return !q.joue && q.readyCount > 0
   if (filtre === 'photos') return (q.photos ?? 0) > 0
   if (filtre === 'estimations') return (q.estimations ?? 0) > 0
   if (filtre.startsWith('cat:')) return !!q.categories?.includes(filtre.slice(4))
@@ -757,6 +763,7 @@ function filtresDeLaBibliotheque(actifs: QuizSummary[], archives: number): Filtr
   const filtres: FiltreDeLaBibliotheque[] = [
     { id: 'tous', label: 'Tous', nombre: actifs.length },
     { id: 'a-completer', label: 'À compléter', nombre: compter('a-completer') },
+    { id: 'jamais', label: 'Jamais joués', nombre: compter('jamais') },
     { id: 'photos', label: 'Avec photos', nombre: compter('photos') },
     { id: 'estimations', label: 'Avec estimations', nombre: compter('estimations') },
     ...[...categories.entries()]
@@ -907,6 +914,8 @@ function LigneDeQuiz({
     (q.photos ?? 0) > 0 && `${q.photos} photo${q.photos! > 1 ? 's' : ''}`,
     (q.estimations ?? 0) > 0 && `${q.estimations} estimation${q.estimations! > 1 ? 's' : ''}`,
     (q.dureeS ?? 0) > 0 && ecrireDuree(q.dureeS!),
+    // Pour ne pas reposer le même quiz aux mêmes amis sans s'en souvenir.
+    q.joue && (q.joue.fois > 1 ? `joué ${q.joue.fois} fois, la dernière ${jour(q.joue.dernier)}` : `joué ${jour(q.joue.dernier)}`),
     `modifié ${quand(q.updatedAt)}`,
   ].filter(Boolean)
   return (
@@ -1107,6 +1116,16 @@ function QuizEditor({
     [id],
   )
 
+  /** Ce que l'historique sait de chaque question : « posée le 14 mars, trouvée par 3 sur 13 ». */
+  const [memoire, setMemoire] = useState<MemoireDuQuiz | null>(null)
+  useEffect(() => {
+    // Rien de grave s'il ne vient pas : l'éditeur se passe de souvenirs.
+    api
+      .memoire(id)
+      .then(setMemoire)
+      .catch(() => setMemoire(null))
+  }, [id])
+
   useEffect(() => {
     api
       .get(id)
@@ -1255,9 +1274,13 @@ function QuizEditor({
         ? changement.melangerReponses
           ? 'Les réponses se mélangeront à chaque partie'
           : 'Les réponses garderont l’ordre écrit'
-        : changement.melangerQuestions
-          ? 'Les questions se joueront dans un ordre tiré à chaque partie'
-          : 'Les questions se joueront dans l’ordre écrit',
+        : changement.tirage !== undefined
+          ? changement.tirage
+            ? `${changement.tirage} questions tirées à chaque partie`
+            : 'Toutes les questions se joueront à chaque partie'
+          : changement.melangerQuestions
+            ? 'Les questions se joueront dans un ordre tiré à chaque partie'
+            : 'Les questions se joueront dans l’ordre écrit',
     )
   }
 
@@ -1497,7 +1520,7 @@ function QuizEditor({
   const aCompleter = quiz.questions.length - ready
   const reglages: ReglagesDuQuiz = quiz.reglages ?? {}
   const enPremier = bonneEnPremier(quiz.questions)
-  const duree = dureeEstimeeS(quiz.questions)
+  const duree = dureeEstimeeS(quiz.questions, reglages.tirage)
   const emojisDuTitre = avisEmojis(emojisRecents(quiz.title))
 
   /**
@@ -1692,6 +1715,7 @@ function QuizEditor({
             question={question}
             melange={!!reglages.melangerReponses}
             photoDisparue={!!question.id && sansPhoto.has(question.id)}
+            souvenir={(question.id && memoire?.questions[question.id]) || null}
             spot={spot && spot.id === question.id ? spot : null}
             actions={actions}
           />
@@ -1785,6 +1809,7 @@ function ReglerToutLeQuiz({
   const [temps, setTemps] = useState(() => questions[0]?.duration ?? DEFAULT_DURATION)
   const [categorie, setCategorie] = useState(() => questions[0]?.category ?? '')
   const n = questions.length
+  const pretes = questions.filter(q => toPlayable(q) !== null).length
   return (
     <div className="card regler-tout">
       <h3>
@@ -1878,6 +1903,49 @@ function ReglerToutLeQuiz({
         <p className="muted small">
           {espacesFines(
             'Tirées une fois au lancement, le même ordre pour toute la salle. Un vrai ou faux garde « Vrai, Faux », des nombres se rangent du plus petit au plus grand, et « Garder cet ordre », sur une question, la laisse telle qu’écrite.',
+          )}
+        </p>
+      )}
+      {/* Le tirage : un gros quiz devient une banque de questions qu'on
+          rejoue avec les mêmes amis sans leur reposer les mêmes. */}
+      <div className="row" role="group" aria-label="Combien de questions à chaque partie">
+        <span className="muted">Par partie</span>
+        <button
+          type="button"
+          className={'pill-btn' + (!reglages.tirage ? ' active' : '')}
+          aria-pressed={!reglages.tirage}
+          onClick={() => onReglages({ tirage: null })}
+        >
+          Toutes les questions
+        </button>
+        <button
+          type="button"
+          className={'pill-btn' + (reglages.tirage ? ' active' : '')}
+          aria-pressed={!!reglages.tirage}
+          disabled={pretes <= TIRAGE_MIN && !reglages.tirage}
+          title={pretes <= TIRAGE_MIN ? `Il faut plus de ${TIRAGE_MIN} questions prêtes pour en tirer une partie` : undefined}
+          onClick={() => onReglages({ tirage: Math.max(TIRAGE_MIN, Math.min(15, pretes - 1)) })}
+        >
+          Un tirage au hasard
+        </button>
+        {!!reglages.tirage && (
+          <label className="row">
+            <ChampNombre
+              className="input duration-input"
+              min={TIRAGE_MIN}
+              max={Math.min(100, Math.max(TIRAGE_MIN, pretes))}
+              aria-label="Nombre de questions tirées à chaque partie"
+              valeur={reglages.tirage}
+              onValeur={n => onReglages({ tirage: Math.round(n) })}
+            />
+            <span className="muted">sur {pretes}</span>
+          </label>
+        )}
+      </div>
+      {!!reglages.tirage && (
+        <p className="muted small">
+          {espacesFines(
+            'À chaque partie, celles que tu n’as jamais posées ici d’abord, puis les plus anciennes. Les tirées gardent l’ordre écrit — sauf si les questions sont tirées dans un autre ordre.',
           )}
         </p>
       )}
@@ -2490,6 +2558,8 @@ interface QuestionCardProps {
   melange: boolean
   /** Sa photo n'existait plus sur le serveur à la reprise du brouillon : elle le dit, jusqu'à la suivante. */
   photoDisparue: boolean
+  /** Sa dernière soirée, et qui y a trouvé — null si l'historique ne l'a jamais vue passer. */
+  souvenir: SouvenirDeQuestion | null
   /** Non nul quand la carte vient d'arriver ici : on la montre, on l'éclaire. */
   spot: Spot | null
   onChange: (fn: (q: QuizQuestionDef) => QuizQuestionDef) => void
@@ -2511,6 +2581,7 @@ function QuestionCard({
   question,
   melange,
   photoDisparue,
+  souvenir,
   spot,
   onChange,
   onMoveTo,
@@ -3023,8 +3094,20 @@ function QuestionCard({
           <Icon name="alert" /> {espacesFines(`${emojis}.`)}
         </p>
       )}
+      {souvenir && <p className="muted small souvenir-question">{espacesFines(souvenirDeLaQuestion(souvenir))}</p>}
     </div>
   )
+}
+
+/**
+ * « Posée le 14 mars : trouvée par 3 sur 13 (23 %) » — de quoi savoir, en
+ * rejouant un quiz, laquelle était trop facile. Une estimation n'est jamais
+ * « trouvée » : on dit seulement à combien d'invités elle a été posée.
+ */
+function souvenirDeLaQuestion(s: SouvenirDeQuestion): string {
+  const quand = `Posée ${jour(s.dernier)}${s.fois > 1 ? ` (${s.fois} fois en tout)` : ''}`
+  if (s.justes === null) return `${quand}, à ${s.posees} invité${s.posees > 1 ? 's' : ''}.`
+  return `${quand} : trouvée par ${s.justes} sur ${s.posees} (${Math.round((100 * s.justes) / Math.max(1, s.posees))} %).`
 }
 
 /**

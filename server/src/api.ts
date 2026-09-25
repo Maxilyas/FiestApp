@@ -7,7 +7,7 @@ import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
-import { horsBornesALEnvoi } from '../../shared/library'
+import { horsBornesALEnvoi, type MemoireDuQuiz } from '../../shared/library'
 import { accountOf, csrfGuard, requireAccount } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
@@ -89,7 +89,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
     wrap(async (req, res) => {
       // `?q=` : les quiz qui contiennent ces mots — titre, intitulés, réponses.
       const q = typeof req.query.q === 'string' ? tronquer(req.query.q, 120) : undefined
-      res.json(await deps.store.list(spaceOf(res), q))
+      const spaceId = spaceOf(res)
+      const [quizzes, memoire] = await Promise.all([deps.store.list(spaceId, q), deps.archives.memoire(spaceId)])
+      // « Joué 3 fois · le 14 mars » : ce que l'historique en sait.
+      res.json(quizzes.map(s => ({ ...s, ...(memoire.quiz.has(s.id) && { joue: memoire.quiz.get(s.id) }) })))
     }),
   )
 
@@ -121,6 +124,24 @@ export function mountApi(app: Express, deps: ApiDeps) {
       const quiz = await deps.store.get(spaceOf(res), req.params.id)
       if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
       res.json(quiz)
+    }),
+  )
+
+  // Ce que l'historique sait de chaque question de ce quiz : sa dernière
+  // soirée, et qui y a trouvé — « réussie par 23 % le 14 mars ».
+  app.get(
+    '/api/quizzes/:id/memoire',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      const quiz = await deps.store.get(spaceId, req.params.id)
+      if (!quiz) return res.status(404).json({ error: 'Quiz introuvable' })
+      const memoire = await deps.archives.memoire(spaceId)
+      const reponse: MemoireDuQuiz = { joue: memoire.quiz.get(quiz.id) ?? null, questions: {} }
+      for (const q of quiz.questions) {
+        const souvenir = q.id ? memoire.questions.get(q.id) : undefined
+        if (souvenir) reponse.questions[q.id!] = souvenir
+      }
+      res.json(reponse)
     }),
   )
 

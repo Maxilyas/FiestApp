@@ -1,4 +1,4 @@
-import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
+import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
 import type { ReglagesDuQuiz } from '../../shared/hasard'
@@ -143,6 +143,8 @@ export const api = {
   archiver: (id: string, archive: boolean) =>
     req<{ ok: true }>(`/api/quizzes/${id}/archive`, { method: 'POST', body: JSON.stringify({ archive }) }),
   get: (id: string) => req<QuizDef>(`/api/quizzes/${id}`),
+  /** Ce que l'historique sait du quiz et de chacune de ses questions : « réussie par 23 % le 14 mars ». */
+  memoire: (id: string) => req<MemoireDuQuiz>(`/api/quizzes/${id}/memoire`),
   create: (title: string, questions?: unknown[], reglages?: ReglagesDuQuiz) =>
     req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions, reglages }) }),
   /**
