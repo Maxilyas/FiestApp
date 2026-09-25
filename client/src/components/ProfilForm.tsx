@@ -1,6 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Limite } from './Limite'
-import { api, motifDe } from '../api'
+import { api, motifDe, UnauthorizedError } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { Icon } from './Icon'
 import { FormulaireSecours } from './Secours'
@@ -53,6 +53,8 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
   const [name, setName] = useState(prefill?.name ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  /** L'erreur est un refus d'identifiants — pas le réseau, ni la réserve d'essais épuisée. */
+  const [refus, setRefus] = useState(false)
   /** Une bonne nouvelle, pas une erreur : elle ne s'écrit pas en rouge. */
   const [info, setInfo] = useState('')
   /** Le code de secours, à noter — il ne repassera jamais. */
@@ -119,6 +121,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
       // « Identifiant ou mot de passe incorrect », tel que le serveur le dit
       // — et non plus « Connexion requise », ni « Failed to fetch ».
       setError(motifDe(e))
+      setRefus(mode === 'connexion' && e instanceof UnauthorizedError)
     } finally {
       setBusy(false)
     }
@@ -196,7 +199,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
       {error && (
         <div role="alert">
           <p className="error">{error}</p>
-          {!creation && aideErreur}
+          {refus && aideErreur}
         </div>
       )}
       {info && (

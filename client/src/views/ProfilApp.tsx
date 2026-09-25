@@ -151,7 +151,10 @@ export function ProfilApp() {
         aideErreur={
           // La même phrase pour tout refus : dire « c'est un identifiant
           // d'animateur » apprendrait à n'importe qui quels comptes existent.
-          <p className="muted small">Tu animes une soirée ? Ta porte est tout en bas : « J’anime une soirée ».</p>
+          // Une console ouverte met « Animer « … » » en bas, pas cette porte.
+          !console_ && (
+            <p className="muted small">Tu animes une soirée ? Ta porte est tout en bas : « J’anime une soirée ».</p>
+          )
         }
         pied={<PorteAnimateur console_={console_} />}
         echappee={
