@@ -6,6 +6,7 @@ import { classer, decimales, ecartEstimation, rangPartage, type Classe } from '.
 import { ENCHAINEMENT_MAX_S } from '../../../shared/console'
 import type {
   QuizAction,
+  QuizAttendu,
   QuizCommand,
   QuizGuessRow,
   QuizHostView,
@@ -64,7 +65,17 @@ interface QuizState {
   autoNextSeconds: number | null
   /** Échéance de cet enchaînement, pour l'afficher côté écran commun. */
   autoNextAt: number | null
+  /**
+   * Les invités hors ligne que l'animateur a choisi de ne plus attendre. Ils
+   * le restent tant que leur téléphone se tait : une question posée pendant
+   * qu'ils sont revenus les attend de nouveau (voir `startQuestion`).
+   * Absent d'une partie lancée avant qu'il existe.
+   */
+  dispenses?: string[]
 }
+
+/** Au-delà, la console dit « et 12 autres » : les prénoms servent à trouver le fantôme, pas à faire l'appel d'une salle de cinq cents. */
+const ATTENDUS_MONTRES = 30
 
 const READY_MS = 3000
 
@@ -241,6 +252,11 @@ function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: Game
   st.responses = {}
   st.lastAwards = {}
   st.pausedMs = null
+  // Revenu en ligne, on l'attend de nouveau — à partir de cette question-ci,
+  // jamais au milieu de celle où il revient : la salle n'a pas à réattendre
+  // pour une question déjà presque jouée. Ne plus l'attendre est un choix de
+  // l'animateur sur une panne, pas une sortie du jeu.
+  if (st.dispenses?.length) st.dispenses = st.dispenses.filter(id => !ctx.connected(id))
   // Une question reposée hérite sinon du souffle armé par la précédente, qui
   // la révélerait avant que personne ait eu le temps de répondre.
   ctx.clearTimer('settle')
@@ -323,12 +339,48 @@ function scoreQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
  * sinon la salle patienterait pour quelqu'un qui n'a jamais vu la question.
  *
  * Un téléphone en veille reste attendu, lui : l'exclure reviendrait à révéler
- * dans le dos de quelqu'un dont le réseau a hoqueté une seconde.
+ * dans le dos de quelqu'un dont le réseau a hoqueté une seconde. Mais une
+ * panne définitive — le téléphone mort de Rachid — faisait attendre toute la
+ * salle, chrono entier, à chaque question : l'animateur peut donc « ne plus
+ * l'attendre » (`dispenses`). C'est lui qui choisit, jamais le serveur.
  */
-function awaited(sess: GameSessionRec<QuizState>): number {
+function awaited(sess: GameSessionRec<QuizState>): string[] {
   const st = sess.state
-  return sess.participantIds.filter(id => (st.playFrom[id] ?? 0) <= st.qIndex && !(id in st.responses))
-    .length
+  return sess.participantIds.filter(
+    id => (st.playFrom[id] ?? 0) <= st.qIndex && !(id in st.responses) && !st.dispenses?.includes(id),
+  )
+}
+
+/**
+ * Ceux que la console montre comme attendus : les hors-ligne qu'on attend
+ * encore d'abord — c'est pour les trouver qu'on regarde —, puis ceux qu'on
+ * n'attend plus, puis les connectés, chaque groupe dans l'ordre d'arrivée.
+ * Ceux qu'on n'attend plus restent dans la liste, marqués : l'animateur voit
+ * qu'il a tranché, et pour qui. Mais derrière ceux qu'il doit encore
+ * trancher : triés sur « hors ligne » seul, quarante téléphones morts dont
+ * trente dispensés gardaient la tête de la liste, et les dix autres
+ * passaient derrière le plafond, hors de portée de « Ne plus l'attendre ».
+ */
+function attendus(sess: GameSessionRec<QuizState>, vctx: ViewContext): { liste: QuizAttendu[]; enPlus: number } {
+  const st = sess.state
+  const lignes = sess.participantIds
+    .filter(id => (st.playFrom[id] ?? 0) <= st.qIndex && !(id in st.responses))
+    .map(id => {
+      const horsLigne = !vctx.connected(id)
+      return { id, horsLigne, rang: !horsLigne ? 2 : st.dispenses?.includes(id) ? 1 : 0 }
+    })
+    .sort((a, b) => a.rang - b.rang)
+  // On ne décore que les lignes montrées : cette vue se recalcule à chaque
+  // réponse, et décorer cinq cents invités à chaque fois coûtait le podium.
+  const liste = lignes.slice(0, ATTENDUS_MONTRES).map(({ id, horsLigne }) => ({
+    playerId: id,
+    // La troisième porte du prénom (invariant 17) : « Camille (2) », pas « Camille ».
+    name: vctx.playerName(id),
+    avatar: vctx.player(id)?.avatar ?? '🎉',
+    ...(horsLigne && { horsLigne: true as const }),
+    ...(st.dispenses?.includes(id) && { dispense: true as const }),
+  }))
+  return { liste, enPlus: lignes.length - liste.length }
 }
 
 function cancelQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
@@ -613,7 +665,7 @@ export const quizModule: GameModule<QuizState> = {
     }
 
     // Tout le monde a répondu → on révèle, mais après un souffle : voir SETTLE_MS.
-    if (awaited(sess) === 0) ctx.setTimer('settle', SETTLE_MS)
+    if (awaited(sess).length === 0) ctx.setTimer('settle', SETTLE_MS)
   },
 
   onHostCommand(sess, command: QuizCommand, ctx) {
@@ -650,7 +702,7 @@ export const quizModule: GameModule<QuizState> = {
         st.pausedMs = null
         ctx.setTimer('question', frozen + GRACE_MS)
         // La salle avait fini de répondre avant la pause : on lui rend son souffle.
-        if (awaited(sess) === 0) ctx.setTimer('settle', SETTLE_MS)
+        if (awaited(sess).length === 0) ctx.setTimer('settle', SETTLE_MS)
         break
       }
       case 'cancel': {
@@ -709,6 +761,20 @@ export const quizModule: GameModule<QuizState> = {
         }
         break
       }
+      case 'nePlusAttendre': {
+        const playerId = command.playerId
+        // Seulement un participant hors ligne : un téléphone qui répond encore
+        // n'est pas en panne, et la règle d'attendre le protège d'un hoquet.
+        if (typeof playerId !== 'string' || !sess.participantIds.includes(playerId) || ctx.connected(playerId)) return
+        if (st.dispenses?.includes(playerId)) return
+        st.dispenses = [...(st.dispenses ?? []), playerId]
+        // C'était peut-être le dernier qu'on attendait : la salle a fini, on
+        // révèle après le souffle, comme après une dernière réponse.
+        if (st.phase === 'question' && st.pausedMs === null && awaited(sess).length === 0) {
+          ctx.setTimer('settle', SETTLE_MS)
+        }
+        break
+      }
     }
   },
 
@@ -731,10 +797,11 @@ export const quizModule: GameModule<QuizState> = {
     delete st.lastAwards[playerId]
     delete st.playFrom[playerId]
     delete st.totals[playerId]
+    if (st.dispenses) st.dispenses = st.dispenses.filter(id => id !== playerId)
     // Il était peut-être le dernier qu'on attendait : la salle a fini, on
     // révèle après le souffle, comme après une dernière réponse — pas au
     // bout du chronomètre.
-    if (st.phase === 'question' && st.pausedMs === null && awaited(sess) === 0) {
+    if (st.phase === 'question' && st.pausedMs === null && awaited(sess).length === 0) {
       ctx.setTimer('settle', SETTLE_MS)
     }
   },
@@ -745,6 +812,12 @@ export const quizModule: GameModule<QuizState> = {
     if (timerId === 'question' && sess.state.phase === 'question') reveal(sess, ctx)
     if (timerId === 'settle' && sess.state.phase === 'question') reveal(sess, ctx)
     if (timerId === 'autoNext' && sess.state.phase === 'reveal') goNext(sess, ctx)
+  },
+
+  // Pendant la question — en pause comprise —, une réponse donnée n'est pas
+  // encore jugée : elle le sera à la révélation, qui la paie.
+  reponseEnSuspens(sess, playerId) {
+    return sess.state.phase === 'question' && playerId in sess.state.responses
   },
 
   playerView(sess, playerId, vctx): QuizPlayerView {
@@ -857,6 +930,13 @@ export const quizModule: GameModule<QuizState> = {
         ...(st.autoNextAt !== null && { autoNextAt: st.autoNextAt }),
         answeredCount: Object.keys(st.responses).length,
         participantCount: sess.participantIds.length,
+      }
+      // Qui n'a pas répondu : à la console seulement. `playerView` n'en dit
+      // rien — la salle n'a pas à savoir qui traîne (invariant 1).
+      if (st.phase === 'question') {
+        const { liste, enPlus } = attendus(sess, vctx)
+        view.attendus = liste
+        if (enPlus > 0) view.attendusEnPlus = enPlus
       }
       if (st.phase === 'reveal') {
         if (q.kind === 'choice') {

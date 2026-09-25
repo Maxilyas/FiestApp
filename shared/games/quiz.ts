@@ -100,6 +100,22 @@ export interface QuizPlayerView {
   podium?: QuizPodiumRow[]
 }
 
+/** Un invité que la question attend encore, tel que la console le montre. */
+export interface QuizAttendu {
+  playerId: string
+  /** Le nom affiché, marque d'homonymie comprise : « Camille (2) ». */
+  name: string
+  avatar: string
+  /** Son téléphone ne répond plus : c'est peut-être une panne définitive. */
+  horsLigne?: true
+  /**
+   * L'animateur a choisi de ne plus l'attendre : la question se révèle sans
+   * lui. Il peut toujours répondre, et redevient attendu à la première
+   * question qu'on pose une fois qu'il est revenu.
+   */
+  dispense?: true
+}
+
 export interface QuizHostView {
   phase: QuizPhase
   qIndex: number
@@ -132,6 +148,15 @@ export interface QuizHostView {
   autoNextAt?: number
   answeredCount?: number
   participantCount?: number
+  /**
+   * Ceux que la question attend encore — la vue de l'animateur seulement,
+   * jamais celle d'un téléphone. Les hors-ligne d'abord : c'est d'eux que
+   * l'animateur a besoin, le fantôme dont le téléphone est mort attendu à
+   * chaque question.
+   */
+  attendus?: QuizAttendu[]
+  /** Attendus au-delà de la liste : une grande salle n'a pas besoin de cinq cents prénoms. */
+  attendusEnPlus?: number
   // reveal + finished
   correct?: number
   target?: number
@@ -190,3 +215,9 @@ export type QuizCommand =
   | ({ type: 'replay' } & Visee)
   /** Enchaîne les questions tout seul après N secondes ; null = manuel. */
   | { type: 'autoNext'; seconds: number | null }
+  /**
+   * Ne plus attendre cet invité hors ligne : la révélation automatique
+   * revient. C'est l'animateur qui choisit — le serveur, lui, attend toujours
+   * un téléphone muet, qui n'a peut-être qu'un hoquet de réseau.
+   */
+  | { type: 'nePlusAttendre'; playerId: string }

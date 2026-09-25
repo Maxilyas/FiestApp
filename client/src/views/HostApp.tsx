@@ -21,6 +21,7 @@ import { Icon } from '../components/Icon'
 import { Rank, Score, motPoints } from '../components/Rank'
 import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
+import { Absents } from '../components/Absents'
 import { detailDesPoints, effetDUnPrix, rankTeams, regleDesEquipes, vainqueursDuQuiz } from '../../../shared/teams'
 import { classer, enumerer } from '../../../shared/classement'
 import type { EcranDeScene, PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
@@ -1379,6 +1380,15 @@ export function HostApp() {
           <span className="console-label">{telecommande ? 'Télécommande' : 'Console animateur'}</span>
           <div className="console-actions" ref={setConsoleSlot} />
           <div className="console-icons">
+            {/* Qui manque, et les gestes d'un téléphone perdu : ici, parce que
+                pendant un quiz le panneau des invités disparaît. */}
+            <Absents
+              players={snap.players}
+              quiz={quizView}
+              sendCommand={
+                activeView ? command => socket.emit('host:command', { sessionId: activeView.sessionId, command }) : undefined
+              }
+            />
             {/* Un téléphone tenu droit est une télécommande, sauf s'il est
                 recopié sur la télé : c'est l'animateur qui tranche. */}
             <button

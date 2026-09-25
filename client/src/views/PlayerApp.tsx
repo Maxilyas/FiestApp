@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { joinAsPlayer, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
+import { joinAsPlayer, reprendrePlace, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
 import {
   finRouverte,
   garderFin,
@@ -22,6 +22,7 @@ import { Icon } from '../components/Icon'
 import { Entree, type Identite } from '../components/Entree'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { ProfilForm } from '../components/ProfilForm'
+import { AvisHorsLigne, FormulaireCode, useHorsLigne } from '../components/Reprendre'
 import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer } from '../games/quiz/PlayerView'
@@ -39,6 +40,11 @@ import { useGardeRetour } from '../retour'
 
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
+
+/** Stable d'un rendu à l'autre : un tableau neuf relancerait la demande à chaque rendu. */
+const SANS_JOUEURS: never[] = []
+/** Les phases où l'écran du téléphone est plein : l'avis du téléphone perdu attend la suivante. */
+const PHASES_PLEINES = new Set<QuizPlayerView['phase']>(['getReady', 'observe', 'question'])
 
 export function PlayerApp() {
   const s = useAppState()
@@ -58,6 +64,8 @@ export function PlayerApp() {
   const [montrerProfil, setMontrerProfil] = useState(false)
   /** Le serveur ne connaît pas cette adresse : rien à rejoindre ici. */
   const [spaceError, setSpaceError] = useState('')
+  /** Salle d'attente : « J'ai un code » — reprendre la place d'un téléphone mort. */
+  const [reprise, setReprise] = useState(false)
   /** La carte ouverte, celle du joueur dont on a touché le nom. */
   const [carte, setCarte] = useState<string | null>(null)
   /** La dernière soirée close d'ici, gardée sur ce téléphone : l'entrée la propose. */
@@ -186,6 +194,21 @@ export function PlayerApp() {
     return null
   }
 
+  /**
+   * Reprend sa place avec le code de l'animateur. L'identité que ce téléphone
+   * portait jusque-là part avec la demande : le serveur l'efface si elle n'a
+   * rien joué — c'était la même personne.
+   */
+  const reprendre = async (code: string) => {
+    const ack = await reprendrePlace(slug, code, getState().me?.token)
+    if (!ack.ok) return ack.error
+    saveChoix(slug, { name: ack.name, avatar: ack.avatar })
+    saveMe(slug, { playerId: ack.playerId, token: ack.token })
+    setReprise(false)
+    showToast({ kind: 'info', message: `Te revoilà, ${ack.name} ${ack.avatar}` })
+    return null
+  }
+
   /** « Ce n'est pas moi » : le téléphone oublie le profil qu'il portait. */
   const oublierProfil = async () => {
     await api.joueur.deconnexion().catch(() => {})
@@ -223,6 +246,13 @@ export function PlayerApp() {
   // d'abord. Pas à l'entrée — on n'y a encore rien à perdre.
   useGardeRetour(!!s.me && !s.fin && !spaceError)
 
+  // Inscrit une seconde fois sur un téléphone emprunté : sa première place
+  // l'attend, points compris, s'il demande le code — en salle d'attente
+  // comme en plein quiz, entre deux questions.
+  const absent = useHorsLigne(slug, me?.name ?? '', snap?.players ?? SANS_JOUEURS, { actif: !!me, sauf: me?.id })
+  const avisAbsent = absent && (
+    <AvisHorsLigne absent={absent} profilIci={!!profil} onCode={() => setReprise(true)} />
+  )
   // Une partie lancée depuis la clôture : la soirée suivante a commencé, la
   // fin rouverte depuis le téléphone ne se montre plus.
   const partieLancee = !!snap && (!!snap.session || snap.players.some(p => p.score > 0))
@@ -305,6 +335,7 @@ export function PlayerApp() {
           reconnecter={reconnecter}
           rejoindre={rejoindre}
           oublierProfil={oublierProfil}
+          reprendre={reprendre}
           lendemain={gardee && <Lendemain gardee={gardee} />}
         />
         <BandeauCoupure connecte={s.connected} />
@@ -329,11 +360,27 @@ export function PlayerApp() {
     )
   }
 
+  if (reprise) {
+    return (
+      <>
+        <FormulaireCode reprendre={reprendre} onCancel={() => setReprise(false)} />
+        <BandeauCoupure connecte={s.connected} />
+        {toast}
+      </>
+    )
+  }
+
   if (sessionView && iAmIn) {
     return (
       // Région « vivante » : un lecteur d'écran annonce la question, puis le
       // résultat, sans qu'on ait à parcourir la page à chaque changement.
       <div className="player-shell" aria-live="polite">
+        {/* Pas pendant la question : sur 640 px, quatre réponses remplissent
+            l'écran, et l'avis pousserait la dernière dehors. Entre deux
+            questions, il y a la place — et le temps de taper un code. */}
+        {phase && !PHASES_PLEINES.has(phase.phase) && absent && (
+          <AvisHorsLigne absent={absent} profilIci={!!profil} onCode={() => setReprise(true)} discret />
+        )}
         <QuizPlayer
           view={sessionView.view as QuizPlayerView}
           teams={teams}
@@ -389,6 +436,8 @@ export function PlayerApp() {
           </span>
         )}
       </header>
+
+      {avisAbsent}
 
       {session && !iAmIn && (
         <div className="card notice">Un quiz est en cours — tu entres à la prochaine question.</div>

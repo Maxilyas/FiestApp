@@ -90,13 +90,17 @@ function salle(n: number, module: GameModule = quizModule): Salle {
   }
   // Les salons se nomment par le rang de l'invité : deux salles se comparent.
   const rang = new Map(ids.map((id, i) => [`player:${id}`, `player:${i}`]))
+  // Les identifiants que portent les vues aussi — ceux des invités qu'on
+  // attend encore, à l'écran commun : tirés au hasard, ils différaient d'une
+  // salle à l'autre, alors que tout le reste était identique.
+  const parRang = (json: string) => ids.reduce((texte, id, i) => texte.split(id).join(`joueur-${i}`), json)
   const recu = new Map<string, unknown[]>()
   const io = {
     to: (salon: string) => ({
       emit: (_event: string, payload: any) => {
         const cle = rang.get(salon) ?? (salon.startsWith('hosts:') ? 'hosts' : salon)
         const { sessionId: _sid, ...reste } = payload ?? {}
-        recu.set(cle, [...(recu.get(cle) ?? []), JSON.parse(JSON.stringify(reste))])
+        recu.set(cle, [...(recu.get(cle) ?? []), JSON.parse(parRang(JSON.stringify(reste)))])
       },
     }),
   }

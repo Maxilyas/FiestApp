@@ -619,6 +619,7 @@ test('le podium d’une grande salle se calcule sans faire attendre la salle', (
     const vctx = {
       playerName: (id: string) => party.nomAffiche(id) ?? '???',
       player: (id: string) => party.publicOne(id, ledger.total(id)),
+      connected: (id: string) => party.isConnected(id),
       memo: <T>(key: string, compute: () => T): T => {
         if (!memo.has(key)) memo.set(key, compute())
         return memo.get(key) as T
