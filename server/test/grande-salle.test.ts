@@ -58,6 +58,7 @@ const QUIZ = {
 
 interface Salle {
   engine: GameEngine
+  party: Party
   ids: string[]
   sid: string
   db: DB
@@ -65,6 +66,8 @@ interface Salle {
   recu: Map<string, unknown[]>
   /** Vues de téléphone calculées depuis le début. */
   vuesCalculees(): number
+  /** Vues de l'écran commun calculées depuis le début, parties ou non. */
+  vuesAnimateur(): number
   /** Écritures de l'état de la partie dans la base locale. */
   ecritures(): number
   fermer(): void
@@ -105,11 +108,16 @@ function salle(n: number, module: GameModule = quizModule): Salle {
     }),
   }
   let vues = 0
+  let vuesAnimateur = 0
   const compte: GameModule = {
     ...module,
     playerView: (sess, id, vctx) => {
       vues++
       return module.playerView(sess, id, vctx)
+    },
+    hostView: (sess, vctx) => {
+      vuesAnimateur++
+      return module.hostView(sess, vctx)
     },
   }
   let ecritures = 0
@@ -143,11 +151,13 @@ function salle(n: number, module: GameModule = quizModule): Salle {
   engine.handleHostCommand(sid, { type: 'selectPack', packId: 'salle' })
   return {
     engine,
+    party,
     ids,
     sid,
     db,
     recu,
     vuesCalculees: () => vues,
+    vuesAnimateur: () => vuesAnimateur,
     ecritures: () => ecritures,
     fermer() {
       engine.stop()
@@ -336,6 +346,120 @@ test('une horloge qui recule ne bloque pas le compteur de l’écran commun', ()
     s.engine.handlePlayerAction(s.sid, s.ids[1], { type: 'answer', choice: 0 })
     mock.timers.tick(250)
     assert.equal(derniere(s, 'hosts')?.view.answeredCount, 2, 'le compte part au bout de sa fenêtre, pas dix secondes plus tard')
+  } finally {
+    s.fermer()
+  }
+})
+
+/** Ce que fait `sockets.ts` quand le téléphone d'un invité tombe (`disconnect`). */
+const tombe = (s: Salle, i: number) => {
+  s.party.socketDisconnected(s.ids[i], `sock-${i}`)
+  s.engine.rafraichirAnimateur()
+}
+/** … et quand il revient et se re-présente (`incarner()`). */
+const revient = (s: Salle, i: number) => {
+  s.party.socketConnected(s.ids[i], `sock-${i}`)
+  s.engine.rafraichirAnimateur()
+}
+/** Les invités que la console montre hors ligne, par rang. */
+const horsLigne = (s: Salle): string[] =>
+  (derniere(s, 'hosts')?.view.attendus ?? [])
+    .filter((a: any) => a.horsLigne)
+    .map((a: any) => a.playerId)
+    .sort()
+const joueurs = (...rangs: number[]) => rangs.map(i => `joueur-${i}`).sort()
+
+test('une vague de reconnexions à la révélation ne recalcule l’écran commun qu’une fois par fenêtre', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+  const n = 100
+  const s = salle(n)
+  ouvrir()
+  try {
+    for (let i = 0; i < 60; i++) s.engine.handlePlayerAction(s.sid, s.ids[i], { type: 'answer', choice: i % 4 })
+    s.engine.handleHostCommand(s.sid, { type: 'next' })
+    assert.equal(derniere(s, 'hosts')?.view.phase, 'reveal')
+    mock.timers.tick(1000)
+    const calculs = s.vuesAnimateur()
+    const envois = s.recu.get('hosts')?.length ?? 0
+    // Toute la salle sort de veille pendant la révélation : chaque téléphone
+    // tombe, puis revient sur une connexion neuve, le tout en deux secondes —
+    // la vague de la contre-expertise (retours/2026-09-25/classement-perf.md).
+    const pas = 10
+    for (let i = 0; i < n; i++) {
+      mock.timers.tick(pas)
+      tombe(s, i)
+    }
+    for (let i = 0; i < n; i++) {
+      mock.timers.tick(pas)
+      revient(s, i)
+    }
+    mock.timers.tick(250)
+    // Mesuré avant : 200 vues pour 200 connexions, chacune avec son tri du
+    // classement — 20 % du processeur de la vague, à 480 invités.
+    const vues = s.vuesAnimateur() - calculs
+    const fenetres = (2 * n * pas) / 250
+    assert.ok(vues <= fenetres + 1, `une vue par fenêtre de 250 ms, pas une par connexion (vu : ${vues} pour ${2 * n} connexions)`)
+    // La vue de la révélation ne lit pas les connexions : elle ne partait
+    // déjà pas, c'est son calcul qui coûtait.
+    assert.equal(s.recu.get('hosts')?.length ?? 0, envois, 'rien ne part à l’écran commun')
+  } finally {
+    s.fermer()
+  }
+})
+
+test('en pleine question, l’écran commun voit qui est hors ligne, au plus 250 ms plus tard', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+  const s = salle(30)
+  ouvrir()
+  try {
+    mock.timers.tick(1000)
+    // Une rafale dans le même tour de boucle : dix téléphones tombent, cinq
+    // invités répondent, trois téléphones reviennent. La console doit finir
+    // sur l'état d'après la rafale, pas sur celui de son premier geste.
+    for (let i = 0; i < 10; i++) tombe(s, i)
+    for (let i = 20; i < 25; i++) s.engine.handlePlayerAction(s.sid, s.ids[i], { type: 'answer', choice: 0 })
+    for (let i = 0; i < 3; i++) revient(s, i)
+    mock.timers.tick(250)
+    assert.deepEqual(horsLigne(s), joueurs(3, 4, 5, 6, 7, 8, 9), 'les sept qui manquent encore')
+    assert.equal(derniere(s, 'hosts')?.view.answeredCount, 5, 'et le compte des réponses, dans la même vue')
+
+    // Un téléphone tombe toutes les 50 ms pendant une seconde : la console ne
+    // doit jamais avoir plus de 250 ms de retard — une vue qui attendrait la
+    // fin de la vague ne montrerait personne tant qu'elle dure.
+    const tombes: { rang: number; a: number }[] = []
+    for (let i = 10; i < 20; i++) {
+      mock.timers.tick(50)
+      tombe(s, i)
+      tombes.push({ rang: i, a: Date.now() })
+      const vus = horsLigne(s)
+      for (const t of tombes) {
+        if (Date.now() - t.a >= 250) assert.ok(vus.includes(`joueur-${t.rang}`), `invité ${t.rang}, tombé il y a ${Date.now() - t.a} ms`)
+      }
+    }
+    mock.timers.tick(250)
+    assert.deepEqual(horsLigne(s), joueurs(3, 4, 5, 6, 7, 8, 9, ...tombes.map(t => t.rang)), 'toute la vague, à la fin')
+  } finally {
+    s.fermer()
+  }
+})
+
+test('hors de toute partie, une connexion ne calcule rien, et la fenêtre en attente ne part pas', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+  const s = salle(30)
+  ouvrir()
+  try {
+    mock.timers.tick(1000)
+    tombe(s, 0)
+    // Celui-là attend sa fenêtre… que la fin de la partie referme.
+    tombe(s, 1)
+    const calculs = s.vuesAnimateur()
+    const envois = s.recu.get('hosts')?.length ?? 0
+    s.engine.endSession(s.sid)
+    for (let i = 2; i < 10; i++) tombe(s, i)
+    for (let i = 0; i < 10; i++) revient(s, i)
+    mock.timers.tick(1000)
+    assert.equal(s.vuesAnimateur(), calculs, 'aucune vue calculée')
+    assert.equal(s.recu.get('hosts')?.length ?? 0, envois, 'aucune vue envoyée')
   } finally {
     s.fermer()
   }

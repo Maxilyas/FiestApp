@@ -222,6 +222,10 @@ try {
   // salle un jour.
   const troll = connect()
   const trollIds: string[] = []
+  // Écouté avant les inscriptions : l'instantané de l'écran commun part 120 ms
+  // après la première, et quatre accusés d'une CI lente passaient derrière —
+  // « timeout en attendant : troll inscrit », l'instantané déjà reçu.
+  const seen = waitFor<any>(host, 'party:snapshot', s => s.players.some((p: any) => p.name === 'Zed'), 'troll inscrit')
   for (const name of ['Zed', 'Zoé', 'Zia']) {
     const ack = await emitAck<any>(troll, 'player:join', { slug: SLUG, name, avatar: 'X'.repeat(5000) })
     assert(ack.ok, `inscription de ${name} refusée`)
@@ -229,8 +233,7 @@ try {
   }
   const fourth = await emitAck<any>(troll, 'player:join', { slug: SLUG, name: 'Zack', avatar: '🤖' })
   assert(!fourth.ok, 'une même connexion ne doit pas créer une quatrième identité')
-  const seen = await waitFor<any>(host, 'party:snapshot', s => s.players.some((p: any) => p.name === 'Zed'), 'troll inscrit')
-  const zed = seen.players.find((p: any) => p.name === 'Zed')
+  const zed = (await seen).players.find((p: any) => p.name === 'Zed')
   assert([...zed.avatar].length <= 4, `avatar non borné : ${zed.avatar.length} caractères diffusés`)
   // Le ménage : ces identités n'ont rien à faire dans la suite du test.
   const trollGone = waitFor<any>(host, 'party:snapshot', s => s.players.length === 0, 'trolls exclus')

@@ -400,9 +400,13 @@ sans `QUIZ_DB_URL`.
 - **Le va-et-vient d'une question attend** : l'écran commun reçoit le
   compteur de réponses quatre fois par seconde au plus (le dernier compte
   toujours), et l'état d'une simple réponse s'écrit à la fin du tour de
-  boucle (`persistBientot`) — `stop()` écrit celui qui attendait. Un test
-  qui lit le compteur de l'écran commun attend la vue qui porte le bon
-  chiffre, pas la suivante.
+  boucle (`persistBientot`) — `stop()` écrit celui qui attendait. Les
+  téléphones qui tombent et reviennent passent par la même fenêtre
+  (`rafraichirAnimateur`), qui compte depuis le dernier calcul, parti ou
+  non : une vague de reconnexions à la révélation recalculait sinon la vue
+  deux fois par téléphone. Un test qui lit le compteur ou les « hors
+  ligne » de l'écran commun attend la vue qui porte le bon état, pas la
+  suivante.
 - **L'Éclat est un tirage** (une chance sur quarante) et le premier fait
   tomber un palier de carrière : un test qui compte l'expérience au point
   près après une clôture neutralise `ProfileStore.tirageEclat`, sinon il
