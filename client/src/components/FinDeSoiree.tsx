@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ligneDeRang, nJoueurs, type FinDeSoiree as Fin, type GainAnnonce, type HautFaitAnnonce } from '../../../shared/fin'
 import type { PublicProfile } from '../../../shared/profil'
-import { NOM_FINITION } from '../../../shared/profil'
+import { NOM_FINITION, PITCH_PROFIL } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { api } from '../api'
@@ -116,7 +116,13 @@ export function FinDeSoiree({
 
       {gain && (
         <section className="card fin-gain">
-          <p className="fin-xp">+{formatNumber(gain.xp)} points d’expérience</p>
+          {/* Les paliers à part : « Mes soirées » ne compte que la soirée (ils
+              ont leur ligne), et annoncer +24 ici quand la liste en montrait
+              4 faisait croire à une erreur. */}
+          <p className="fin-xp">+{formatNumber(gain.xp - (gain.xpPaliers ?? 0))} points d’expérience</p>
+          {(gain.xpPaliers ?? 0) > 0 && (
+            <p className="muted small">+{formatNumber(gain.xpPaliers ?? 0)} de paliers de carrière</p>
+          )}
           <BarreDeNiveau avant={gain.niveauAvant} apres={gain.niveauApres} profil={profil} />
           {gain.finitions.length > 0 && (
             <p className="fin-finition">
@@ -215,9 +221,13 @@ export function FinDeSoiree({
             Mon profil
           </a>
         ) : (
+          // Vrai sur ce soir : la soirée close ne suit pas le profil créé
+          // après coup — le dire évite de le promettre. Le lien ouvre la
+          // création, prénom et avatar de la soirée déjà remplis : il ouvrait
+          // la connexion, vide.
           <p className="muted small fin-invitation">
-            Avec un profil, tu retrouves tes points et tes prix à la prochaine soirée.{' '}
-            <a className="link-inline" href="/profil">
+            {PITCH_PROFIL} Il commence à la prochaine : celle-ci ne s’y ajoute pas.{' '}
+            <a className="link-inline" href={lienCreation(fin.nom, fin.avatar)}>
               Créer mon profil
             </a>
           </p>
@@ -225,6 +235,16 @@ export function FinDeSoiree({
       </div>
     </div>
   )
+}
+
+/**
+ * La création d'un profil, préremplie avec le prénom et l'avatar du soir. La
+ * marque d'homonymie (« Camille (2) ») n'est que d'affichage : elle ne se
+ * recopie pas dans un prénom (invariant 17).
+ */
+function lienCreation(nom: string, avatar: string): string {
+  const params = new URLSearchParams({ creer: '1', prenom: nom.replace(/ \(\d+\)$/, ''), avatar })
+  return `/profil?${params}`
 }
 
 /** Une rangée de hauts faits : l'emoji en grand, le titre dessous. */

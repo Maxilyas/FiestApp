@@ -41,6 +41,7 @@ import { divin } from '../../../shared/divins'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
 import { titreDuPrix } from '../core/stats'
+import type { ArchiveStore } from '../core/archive'
 
 /**
  * Les profils des joueurs récurrents, leurs sessions, leur expérience et
@@ -253,11 +254,14 @@ function ligneDeCredit(input: {
   gain: GainSoiree
   releve: ReleveSoiree
   xp: number
+  /** L'invité que ce profil était ce soir-là ; absent, celui déjà retenu reste. */
+  playerId?: string
 }) {
   return {
-    sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
-          VALUES (?, ?, ?, ?, ?, ?)
-          ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
+    sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at, joueur_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail,
+            joueur_id = COALESCE(excluded.joueur_id, profile_xp.joueur_id)`,
     args: [
       input.profileId,
       input.soireeId,
@@ -265,6 +269,7 @@ function ligneDeCredit(input: {
       input.xp,
       JSON.stringify({ v: VERSION_BAREME, gain: input.gain, releve: input.releve }),
       Date.now(),
+      input.playerId ?? null,
     ],
   }
 }
@@ -408,6 +413,10 @@ export class ProfileStore {
     // d'avant n'a pas la colonne. Une panne ici arrête le démarrage, plutôt
     // que de laisser tourner un serveur qui écrirait dans une colonne absente.
     await ajouterColonne(this.client, 'profiles', 'legendaire', 'TEXT')
+    // Le joueur qu'on était ce soir-là, pour ouvrir SON bilan depuis « Mes
+    // soirées » : sans lui, le bilan redemandait « Qui es-tu ? ». Une ligne
+    // d'avant la colonne le retrouve dans l'archive (`retenirJoueur`).
+    await ajouterColonne(this.client, 'profile_xp', 'joueur_id', 'TEXT')
     await this.garderLesLegendairesAcquis()
     await this.garderLesNiveauxAtteints()
     for (const r of (await this.client.execute('SELECT profile_id, pas, niveau FROM profile_niveaux')).rows) {
@@ -638,8 +647,29 @@ export class ProfileStore {
   async toDetail(
     p: ProfileRec,
     espace?: (spaceId: string) => { nom: string; slug: string } | null,
+    historique?: Pick<ArchiveStore, 'titres' | 'joueurDuProfil'>,
   ): Promise<PublicProfileDetail> {
     const [vitrine, soirees] = await Promise.all([this.badgesOf(p.id), this.historiqueOf(p.id)])
+    // Le titre que l'historique donne AUJOURD'HUI à chaque soirée — un
+    // renommage s'y voit, ce qu'un titre recopié au crédit n'aurait pas fait.
+    const titres = historique ? await historique.titres(soirees.map(s => ({ spaceId: s.spaceId, id: s.soireeId }))) : new Map()
+    for (const s of soirees) {
+      // Une ligne créditée avant qu'on retienne l'invité le retrouve dans
+      // l'archive, une fois pour toutes. Sans archive, pas de bilan à ouvrir.
+      // Une archive qui ne le nomme pas (rangée avant les profils) retient
+      // une chaîne vide : sinon on la relirait à chaque visite.
+      if (s.joueurId !== null || !historique || !titres.has(`${s.spaceId}#${s.soireeId}`)) continue
+      // Une panne (archive muette, écriture refusée) n'ôte que le lien de ce
+      // soir : elle faisait répondre 500 à toute la page, et l'accueil
+      // proposait « Retrouver mon profil » à quelqu'un de connecté. Rien
+      // n'est retenu, et la prochaine visite relira.
+      try {
+        s.joueurId = await historique.joueurDuProfil(s.spaceId, s.soireeId, p.id)
+        await this.retenirJoueur(p.id, s.soireeId, s.joueurId ?? '')
+      } catch (e) {
+        console.error(`[profil] joueur de « ${s.soireeId} » non relu :`, e)
+      }
+    }
     const carriere = carriereDe(soirees, { eclats: this.eclatsOf(p.id).length, niveau: this.niveauOf(p) })
     return {
       ...this.toPublic(p),
@@ -650,6 +680,8 @@ export class ProfileStore {
           soireeId: s.soireeId,
           chez: chez?.nom ?? null,
           slug: chez?.slug ?? null,
+          titre: titres.get(`${s.spaceId}#${s.soireeId}`) ?? null,
+          joueurId: s.joueurId || null,
           xp: s.xp,
           gain: s.gain,
           releve: s.releve,
@@ -947,6 +979,8 @@ export class ProfileStore {
     gain: GainSoiree
     releve: ReleveSoiree
     xp: number
+    /** L'invité que ce profil était ce soir-là ; absent, celui déjà retenu reste. */
+    playerId?: string
   }): Promise<number> {
     // La ligne et le total dans le même envoi : un aller-retour de moins par
     // profil, à chaque fin de quiz et à la clôture — et le total n'est
@@ -964,7 +998,7 @@ export class ProfileStore {
   async crediterSoireeEntiere(
     soireeId: string,
     spaceId: string,
-    gains: { profileId: string; gain: GainSoiree; releve: ReleveSoiree; xp: number }[],
+    gains: { profileId: string; gain: GainSoiree; releve: ReleveSoiree; xp: number; playerId?: string }[],
   ): Promise<void> {
     if (gains.length === 0) return
     const ids = [...new Set(gains.map(g => g.profileId))]
@@ -1335,10 +1369,18 @@ export class ProfileStore {
 
   /** Toutes les soirées d'un profil, de la plus récente à la plus ancienne. */
   async historiqueOf(profileId: string): Promise<
-    { soireeId: string; spaceId: string; xp: number; gain: GainSoiree; releve: ReleveSoiree; at: number }[]
+    {
+      soireeId: string
+      spaceId: string
+      xp: number
+      gain: GainSoiree
+      releve: ReleveSoiree
+      at: number
+      joueurId: string | null
+    }[]
   > {
     const rows = await this.client.execute({
-      sql: `SELECT soiree_id, space_id, xp, detail, created_at FROM profile_xp
+      sql: `SELECT soiree_id, space_id, xp, detail, created_at, joueur_id FROM profile_xp
             WHERE profile_id = ? AND soiree_id <> ? ORDER BY created_at DESC`,
       args: [profileId, LIGNE_PALIERS],
     })
@@ -1351,7 +1393,20 @@ export class ProfileStore {
         gain,
         releve,
         at: Number(r.created_at),
+        joueurId: r.joueur_id == null ? null : String(r.joueur_id),
       }
+    })
+  }
+
+  /**
+   * Retient le joueur qu'un profil était lors d'une soirée créditée avant
+   * qu'on le retienne — retrouvé dans l'archive, où le rattachement survit.
+   * Une fois écrit, on ne relit plus l'archive pour lui.
+   */
+  async retenirJoueur(profileId: string, soireeId: string, joueurId: string): Promise<void> {
+    await this.client.execute({
+      sql: 'UPDATE profile_xp SET joueur_id = ? WHERE profile_id = ? AND soiree_id = ? AND joueur_id IS NULL',
+      args: [joueurId, profileId, soireeId],
     })
   }
 
