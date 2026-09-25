@@ -109,20 +109,10 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     }),
   )
 
-  // Le lien d'activation : le jeton arrive dans le corps (la page l'a lu dans
-  // le fragment de l'adresse), avec le mot de passe choisi.
-  //
-  // Seule la réserve de l'adresse compte ici, sans verrou d'échecs. Les
-  // échecs étaient comptés sous une clé unique, « activation », que rien ne
-  // remettait à zéro : cinq liens périmés, venus de n'importe qui et à
-  // n'importe quel moment, fermaient toutes les activations et toutes les
-  // réinitialisations du serveur pendant un quart d'heure. Et un verrou par
-  // adresse ne protégerait rien de plus — un jeton de 256 bits ne se devine
-  // pas — tout en refusant son nouveau lien à qui a recliqué cinq fois
-  // l'ancien, ou à une tablée qui partage la même adresse.
   // Lire un lien avant de s'en servir : l'identifiant et l'espace qu'il
   // ouvre, pour les dire sur la page — et au gestionnaire de mots de passe,
   // qui range le mot de passe choisi sous cet identifiant.
+  // Comme l'activation, sans verrou d'échecs : la réserve de l'adresse suffit.
   app.post(
     '/api/auth/activation',
     small,
@@ -141,6 +131,17 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     }),
   )
 
+  // Le lien d'activation : le jeton arrive dans le corps (la page l'a lu dans
+  // le fragment de l'adresse), avec le mot de passe choisi.
+  //
+  // Seule la réserve de l'adresse compte ici, sans verrou d'échecs. Les
+  // échecs étaient comptés sous une clé unique, « activation », que rien ne
+  // remettait à zéro : cinq liens périmés, venus de n'importe qui et à
+  // n'importe quel moment, fermaient toutes les activations et toutes les
+  // réinitialisations du serveur pendant un quart d'heure. Et un verrou par
+  // adresse ne protégerait rien de plus — un jeton de 256 bits ne se devine
+  // pas — tout en refusant son nouveau lien à qui a recliqué cinq fois
+  // l'ancien, ou à une tablée qui partage la même adresse.
   app.post(
     '/api/auth/activate',
     small,
