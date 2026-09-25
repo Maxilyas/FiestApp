@@ -11,6 +11,7 @@ import { Rank, Score } from '../../components/Rank'
 import { ConsoleActions } from '../../components/HostConsole'
 import { confirmDialog } from '../../components/Dialog'
 import { serverNow } from '../../clock'
+import { useSecondesRestantes } from '../../decompte'
 import { PALIERS_ENCHAINEMENT, gesteAccepte } from '../../../../shared/console'
 import { espacesFines } from '../../format'
 import type { PublicTeam } from '../../../../shared/types'
@@ -24,12 +25,7 @@ import { Niveau } from '../../components/Niveau'
 
 /** Le décompte avant que la question suivante parte toute seule. */
 function AutoNextPill({ deadline }: { deadline: number }) {
-  const [now, setNow] = useState(() => serverNow())
-  useEffect(() => {
-    const id = setInterval(() => setNow(serverNow()), 200)
-    return () => clearInterval(id)
-  }, [])
-  const seconds = Math.max(0, Math.ceil((deadline - now) / 1000))
+  const seconds = useSecondesRestantes(deadline)
   return (
     <span className="pill">
       <Icon name="skip" /> Question suivante dans {seconds} s

@@ -35,6 +35,7 @@ import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
 import { CarteJoueur } from '../components/CarteJoueur'
+import { ATTENTE_MAX_DESSINS, chargerDessins, chargerDessinsAuPlus, complets, porteUnDessin, useDessins } from '../components/medaillons'
 import { Lendemain } from '../components/Lendemain'
 import { useEcranAllume } from '../veille'
 import { useGardeRetour } from '../retour'
@@ -103,7 +104,13 @@ export function PlayerApp() {
       // Le serveur reconnaît le profil au cookie posé dans la poignée de main :
       // l'entrée peut saluer avant même qu'on rejoigne.
       setProfil(watched.profile ?? null)
-      setPresente(true)
+      // Qui porte un médaillon attend ses dessins avant d'être salué : sinon
+      // l'entrée montrerait son emoji, puis le médaillon. Deux secondes et
+      // demie au plus — une requête muette le gardait sous « On arrive… »
+      // sans limite —, et la reprise par jeton, juste en dessous, n'attend
+      // pas : elle part pendant que les dessins arrivent.
+      if (watched.profile?.legendaire) void chargerDessinsAuPlus().then(() => setPresente(true))
+      else setPresente(true)
       // Sans jeton, rien à reprendre : c'est l'entrée qui fait entrer —
       // pré-remplie avec le prénom et l'avatar retenus ici, écran d'équipe
       // compris. Rejoindre tout seul avec le prénom retenu faisait atterrir
@@ -168,6 +175,38 @@ export function PlayerApp() {
       socket.off('player:profil', maj)
     }
   }, [])
+
+  // Un profil peut en gagner un ce soir, et sa fin de soirée le montrera :
+  // ses dessins viennent dès qu'on le connaît (`medaillons.ts`).
+  const avecProfil = !!profil
+  useEffect(() => {
+    if (avecProfil) void chargerDessins()
+  }, [avecProfil])
+
+  // Quelqu'un dans la salle porte un médaillon : ses dessins viennent dès
+  // l'instantané, avant la salle d'attente où l'on verra son nom. Une salle
+  // d'anonymes ne les télécharge jamais — et quand un premier porteur y
+  // arrive, son emoji précède son médaillon, une fois (`Avatar`).
+  const salleDecoree = porteUnDessin(s.snapshot?.players)
+  const dessins = useDessins(salleDecoree)
+  // Un téléphone qui revient en pleine soirée (rechargé, réveillé) tombe
+  // droit sur la salle ou la question : il attend ses dessins sous
+  // « Connexion… », une fois, plutôt que montrer des emojis qui se changent
+  // en médaillons. L'entrée, elle, n'en montre aucun et n'attend pas ; et
+  // après le premier écran, une arrivée ne fait plus rien attendre à personne.
+  const [dejaVu, setDejaVu] = useState(false)
+  const attendreDessins = !dejaVu && !!s.me && salleDecoree && !complets(dessins) && !dessins.echec
+  const affiche = !!s.snapshot && presente && !attendreDessins
+  useEffect(() => {
+    if (affiche) setDejaVu(true)
+  }, [affiche])
+  // Une requête de dessins qui ne répond pas n'y garde personne : passé deux
+  // secondes et demie, la page s'affiche avec les emojis.
+  useEffect(() => {
+    if (!attendreDessins) return
+    const t = setTimeout(() => setDejaVu(true), ATTENTE_MAX_DESSINS)
+    return () => clearTimeout(t)
+  }, [attendreDessins])
 
   const space = s.snapshot?.space
   useEffect(() => {
@@ -349,7 +388,7 @@ export function PlayerApp() {
   // Le premier instantané dit comment la soirée s'appelle, et la réponse de la
   // soirée dit si ce téléphone porte un profil : on ne montre pas un écran
   // d'entrée avant de savoir lequel des deux il faut.
-  if (!snap || !presente) return <AttenteConnexion />
+  if (!snap || !presente || attendreDessins) return <AttenteConnexion />
 
   // ── L'entrée ─────────────────────────────────────
   if (!s.me) {

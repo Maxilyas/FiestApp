@@ -25,13 +25,21 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FiestApp" />
-    <!-- Les deux polices partent en même temps que le script, pas après la
-         feuille de style : le premier écran arrive habillé. `crossorigin` est
-         exigé par les navigateurs pour précharger une police, même chez soi. -->
+    <!-- Une seule police part avec le script : celle du nom de la soirée, que
+         l'attente d'un invité écrit en grand avant tout le reste (le serveur
+         le glisse dans la page). Sans elle, ce nom s'affichait 650 ms dans une
+         police de repli, puis sautait. Figtree, elle, ne part plus en tête :
+         préchargée, elle prenait au script la bande passante d'une 4G, et
+         l'écran d'entrée arrivait plus tard (mesuré : 2 026 ms avec les deux,
+         1 991 avec Cormorant seul) ; demandée par la feuille de style, elle
+         est là bien avant lui. Pas de `modulepreload` des morceaux de la
+         route non plus : mesuré, c'est pire — le goulot est la bande
+         passante, pas la cascade. `crossorigin` est exigé par les navigateurs
+         pour précharger une police, même chez soi. -->
     <link rel="preload" href="/fonts/cormorant-garamond-600.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/figtree-variable.woff2" as="font" type="font/woff2" crossorigin />
     <!-- Le serveur y pose le titre de l'espace et les balises d'aperçu
-         (`server/src/core/apercus.ts`) ; chaque page pose ensuite le sien. -->
+         (`server/src/core/apercus.ts`) — l'entrée d'un invité, aussi son
+         en-tête (`server/src/core/page.ts`) ; chaque page pose ensuite le sien. -->
     <title>FiestApp</title>
   </head>
   <body>

@@ -4,10 +4,9 @@ import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { NOM_RARETE } from '../../../shared/badges'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
-import { Avatar } from './Avatar'
-import { Chiffres, justesses } from './Carriere'
-import { Legendaire } from './Legendaire'
-import { Divin } from './Divin'
+import { Avatar, Dessin } from './Avatar'
+import { chargerDessinsAuPlus, complets, useDessins } from './medaillons'
+import { Chiffres, justesses } from './Chiffres'
 import { Niveau } from './Niveau'
 
 /**
@@ -28,6 +27,14 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
     let vivant = true
     fetch(`/s/${slug}/joueurs/${encodeURIComponent(playerId)}.json`)
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(r.status === 404 ? 'Ce joueur a quitté la soirée' : 'Carte indisponible'))))
+      // Une carte à médaillons attend leurs dessins sous son « Chargement… » :
+      // ouverte avant, elle montrerait des cercles vides qui se remplissent.
+      // Deux secondes et demie au plus : une requête muette ne garde pas la
+      // carte fermée, elle s'ouvre sans ses galeries.
+      .then(async (c: CarteDeJoueur) => {
+        if (c.legendaire || c.profil?.legendaires.length || c.profil?.divins?.length) await chargerDessinsAuPlus()
+        return c
+      })
       .then(c => vivant && setCarte(c))
       .catch((e: Error) => vivant && setErreur(e.message))
     return () => {
@@ -49,6 +56,10 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
   }, [onFermer])
 
   const p = carte?.profil
+  // Les galeries ne se montrent qu'avec leurs dessins : sans eux (un échec,
+  // qui vaut pour toute la page), ce seraient des rangées de cercles vides.
+  // Ils peuvent aussi arriver après l'ouverture : la carte les ajoute alors.
+  const avecDessins = complets(useDessins(false))
   return (
     <div className="dialog-backdrop" onClick={onFermer}>
       <div
@@ -95,20 +106,20 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
 
             {p && (
               <>
-                {(p.divins ?? []).length > 0 && (
+                {avecDessins && (p.divins ?? []).length > 0 && (
                   <div className="carte-legendaires carte-divins" aria-label="Divins">
                     {p.divins.map(cle => (
                       <span key={cle} className="carte-legendaire" title={divin(cle)?.nom}>
-                        <Divin cle={cle} />
+                        <Dessin cle={cle} />
                       </span>
                     ))}
                   </div>
                 )}
-                {p.legendaires.length > 0 && (
+                {avecDessins && p.legendaires.length > 0 && (
                   <div className="carte-legendaires" aria-label="Avatars légendaires">
                     {p.legendaires.map(cle => (
                       <span key={cle} className="carte-legendaire" title={legendaire(cle)?.nom}>
-                        <Legendaire cle={cle} />
+                        <Dessin cle={cle} />
                       </span>
                     ))}
                   </div>

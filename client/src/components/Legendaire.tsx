@@ -1,6 +1,7 @@
 import { useId, type ReactNode } from 'react'
 import type { Finition } from '../../../shared/profil'
 import { legendaire as legendaireDe } from '../../../shared/legendaires'
+import { inscrireDessin } from './medaillons'
 
 /**
  * Les avatars légendaires : douze médaillons dessinés, qui ne se gagnent que
@@ -787,3 +788,6 @@ export function Legendaire({ cle, verrouille, finition, eclat, className }: Prop
     </svg>
   )
 }
+
+// Évalué, le dessin est là pour tout `Avatar` de la page (voir `medaillons.ts`).
+inscrireDessin({ Legendaire })

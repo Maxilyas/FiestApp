@@ -47,7 +47,16 @@ async function rendu(fichier: string, composant: string, props: object): Promise
   return renderToStaticMarkup(React.createElement(module[composant], props))
 }
 
-const avatar = (props: object) => rendu('components/Avatar', 'Avatar', { avatar: '🦊', ...props })
+/**
+ * Un avatar, ses dessins chargés : ils arrivent à la demande (`medaillons.ts`),
+ * et la page les fait venir avant d'en afficher un. Sans eux, `Avatar` rend
+ * l'emoji qui tient la place.
+ */
+async function avatar(props: object): Promise<string> {
+  await import(new URL('../../client/src/components/Legendaire.tsx', import.meta.url).href)
+  await import(new URL('../../client/src/components/Divin.tsx', import.meta.url).href)
+  return rendu('components/Avatar', 'Avatar', { avatar: '🦊', ...props })
+}
 
 // ── 1. La finition devient le cercle ──────────────────────────────────────
 

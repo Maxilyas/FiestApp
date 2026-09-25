@@ -63,7 +63,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
 | `shared/echange.ts` | un quiz qu'on emporte : le fichier d'export (questions, photos en clair), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin |
 | `shared/liste.ts` | « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) ; et l'inverse, `ecrireListe` (« Copier en liste »), que `liste.test.ts` recolle |
-| `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare |
+| `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare ; figés dans les listes, animés là où ils sont le sujet |
+| `client/src/components/medaillons.ts` | les dessins des légendaires et des Divins, chargés à la demande : un invité anonyme ne les télécharge que si quelqu'un, dans la salle, en porte un — ne les importe pas statiquement sur son chemin (`Avatar`, `PlayerApp`, la carte ; `medaillons.test.ts` y veille), et un échec vaut pour toute la page |
 | `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
 | `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
 | `core/inscriptions.ts` | la réserve d'inscriptions des invités, par adresse **et par espace**, plus une large par adresse ; et sa mesure (au refus, à la clôture) qui dira en ligne si l'adresse lue est celle d'un proxy |
@@ -348,6 +349,12 @@ sans `QUIZ_DB_URL`.
   pourquoi les nouveaux tests vont dans `server/test/`, un serveur jetable par
   fichier ; ceux qui vivent encore en fin de smoke (sections 32 à 35) y ont
   chacun le leur.
+- **Un fichier de tests a deux minutes, pas seulement une épreuve** : sous
+  Node 22, `--test-timeout` (120 s) vaut aussi pour le fichier entier, et la
+  CI est plus lente qu'ici. Dix-sept épreuves à serveur jetable dans
+  `cloture.test.ts` l'ont dépassé (« test timed out after 120000ms » sur le
+  fichier) : un fichier qui approche la minute et demie se coupe par thème
+  (`credits.test.ts`), sans rien changer à ses épreuves.
 - **Le serveur envoie l'instantané juste derrière l'accusé** de `host:hello`
   ou de `party:watch`, souvent dans le même paquet : un écouteur posé après
   avoir attendu l'accusé le rate. `banc.ts` retient le dernier pour ça

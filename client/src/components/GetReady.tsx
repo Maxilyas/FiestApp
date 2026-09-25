@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { serverNow } from '../clock'
+import { useEffect, useRef } from 'react'
+import { useSecondesRestantes } from '../decompte'
 import { sound } from '../sound'
 import { Icon } from './Icon'
 
@@ -10,16 +10,10 @@ import { Icon } from './Icon'
  */
 export function GetReady({ deadline, sounds, label }: { deadline: number; sounds?: boolean; label: string }) {
   // À l'heure du serveur : le 3-2-1 doit tomber en même temps sur la TV et
-  // sur cinquante téléphones dont les horloges ne s'accordent pas.
-  const [now, setNow] = useState(() => serverNow())
+  // sur cinquante téléphones dont les horloges ne s'accordent pas. Un réveil
+  // par seconde, pas dix : seul le chiffre change.
+  const seconds = useSecondesRestantes(deadline)
   const lastTick = useRef<number>(-1)
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(serverNow()), 100)
-    return () => clearInterval(id)
-  }, [])
-
-  const seconds = Math.max(0, Math.ceil((deadline - now) / 1000))
 
   useEffect(() => {
     if (!sounds || seconds <= 0 || lastTick.current === seconds) return

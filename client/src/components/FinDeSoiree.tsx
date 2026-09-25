@@ -8,9 +8,8 @@ import { api } from '../api'
 import { spacePath } from '../routes'
 import { formatNumber, place, pts } from '../format'
 import { showToast } from '../state'
-import { Avatar } from './Avatar'
-import { Legendaire } from './Legendaire'
-import { Divin } from './Divin'
+import { Avatar, Dessin } from './Avatar'
+import { complets, useDessins } from './medaillons'
 import { Icon } from './Icon'
 import { lienBilan } from './Lendemain'
 
@@ -80,9 +79,7 @@ export function FinDeSoiree({
         return (
           <section key={key} className={`card fin-divin fin-divin-${ton}`}>
             <span className="label">Un Divin est descendu sur toi</span>
-            <span className="fin-apparition">
-              <Divin cle={key} />
-            </span>
+            <Medaillon cle={key} className="fin-apparition" />
             <h2>{d.nom}</h2>
             {/* Le récit ne se garde pas sur le téléphone : une fin rouverte ne l'a plus. */}
             {legende && <p className="serif-note">{legende}</p>}
@@ -144,9 +141,7 @@ export function FinDeSoiree({
         return (
           <section key={cle} className="card fin-legendaire">
             <span className="label">Avatar légendaire débloqué</span>
-            <span className="fin-medaillon">
-              <Legendaire cle={cle} />
-            </span>
+            <Medaillon cle={cle} className="fin-medaillon" />
             <h2>{l.nom}</h2>
             <p className="serif-note">{l.legende}</p>
             {porte === cle ? (
@@ -350,4 +345,29 @@ function LigneRang({ fin }: { fin: Fin }) {
     case 'neutre':
       return <p className="muted">{nJoueurs(l.joueurs)} ce soir</p>
   }
+}
+
+/**
+ * Un médaillon gagné ce soir, dans son cadre. Si son dessin n'a pas pu venir
+ * (`medaillons.ts`), la page ne le chargera plus, et la recharger ne
+ * suffirait pas — la fin de soirée a oublié le jeton de l'invité. Son profil,
+ * lui, le montre : un lien prend la place du cadre, dont la taille est celle
+ * d'un dessin, pas d'un texte.
+ */
+function Medaillon({ cle, className }: { cle: string; className: string }) {
+  const dessins = useDessins(true)
+  if (dessins.echec && !complets(dessins)) {
+    return (
+      <p className="small">
+        <a className="link-inline" href="/profil">
+          Le voir sur ton profil
+        </a>
+      </p>
+    )
+  }
+  return (
+    <span className={className}>
+      <Dessin cle={cle} />
+    </span>
+  )
 }

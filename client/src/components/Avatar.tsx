@@ -1,8 +1,7 @@
 import type { Finition } from '../../../shared/profil'
 import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { divin as divinDe } from '../../../shared/divins'
-import { Legendaire } from './Legendaire'
-import { Divin } from './Divin'
+import { useDessins } from './medaillons'
 
 interface Props {
   /** L'emoji — il ne change jamais : Alice reste le renard. */
@@ -36,14 +35,25 @@ interface Props {
  *
  * Un invité anonyme n'a ni finition ni éclat : il rend exactement ce que la
  * page rendait avant, un emoji et rien d'autre.
+ *
+ * Les dessins arrivent à la demande (`medaillons.ts`) : le temps qu'ils
+ * arrivent, c'est l'emoji qui tient la place. Les pages les font venir avant
+ * d'en avoir besoin, sauf une fois : le premier porteur de médaillon qui
+ * entre dans une salle d'anonymes se montre en emoji sur chaque téléphone,
+ * le temps d'un aller-retour (~200 ms en 4G), puis en médaillon. Une fois
+ * par page, et pas de remède bon marché — attendre retarderait son arrivée
+ * chez tout le monde, précharger ferait tout télécharger à chacun.
  */
 export function Avatar({ avatar, finition, eclat, legendaire, className }: Props) {
   const divin = legendaire && divinDe(legendaire) ? legendaire : null
   const porte = !divin && legendaire && legendaireDe(legendaire) ? legendaire : null
+  const { Legendaire, Divin } = useDessins(!!(divin || porte))
   const classes = ['av']
   if (className) classes.push(className)
-  if (divin) classes.push('av-divin')
-  else if (porte) {
+  if (divin) {
+    // En attendant son dessin, un Divin reste un emoji nu : ni finition, ni Éclat.
+    if (Divin) classes.push('av-divin')
+  } else if (porte && Legendaire) {
     classes.push('av-legendaire')
     if (eclat) classes.push('av-eclat')
   } else {
@@ -53,8 +63,30 @@ export function Avatar({ avatar, finition, eclat, legendaire, className }: Props
   return (
     <span className={classes.join(' ')}>
       <span className="av-emoji">
-        {divin ? <Divin cle={divin} /> : porte ? <Legendaire cle={porte} finition={finition} eclat={eclat} /> : avatar}
+        {divin && Divin ? (
+          <Divin cle={divin} />
+        ) : porte && Legendaire ? (
+          <Legendaire cle={porte} finition={finition} eclat={eclat} />
+        ) : (
+          avatar
+        )}
       </span>
     </span>
   )
+}
+
+/**
+ * Un médaillon seul, légendaire ou Divin, hors d'un avatar : la fin de
+ * soirée, la carte d'un joueur. En attendant son dessin, sa place est
+ * gardée, vide — il n'y a pas d'emoji à montrer à la place d'un médaillon
+ * qu'on vient de gagner. Si les dessins n'arriveront plus (`echec`), c'est à
+ * la page de dire autre chose : la carte cache ses galeries, la fin de
+ * soirée mène au profil.
+ */
+export function Dessin({ cle }: { cle: string }) {
+  const divin = !!divinDe(cle)
+  const { Legendaire, Divin } = useDessins(true)
+  if (divin && Divin) return <Divin cle={cle} />
+  if (!divin && Legendaire) return <Legendaire cle={cle} />
+  return <span className={divin ? 'dv' : 'lg'} aria-hidden="true" />
 }

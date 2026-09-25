@@ -23,6 +23,7 @@ import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
 import { erreurDeRequete, repondreErreur } from './core/http'
+import { espaceDeLEntree, pageDEntree } from './core/page'
 import { wireSockets } from './sockets'
 import type { IoServer } from './core/types'
 import type { ArchiveList, DerniereSoiree, PartyArchive } from '../../shared/archive'
@@ -181,11 +182,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Un seul saut de proxy devant nous en ligne : c'est lui qui écrit la
   // dernière adresse de `x-forwarded-for`, celle qu'on lit.
   if (opts.online) app.set('trust proxy', 1)
-  // Le chemin de l'invité pèse 381 Ko à nu, 121 Ko compressé — cinquante
-  // téléphones en 4G au moment du scan font vite la différence. Les fichiers
-  // du paquet arrivent déjà compressés (`core/precompresse.ts`), les pages
-  // publiques aussi (`core/pages.ts`) : `compression()` ne compresse plus que
-  // le reste, et laisse passer ce qui porte déjà son encodage.
+  // Le chemin d'un invité, du scan à la salle d'attente, pèse encore 320 Ko
+  // de JS à nu, 106 Ko compressé — cinquante téléphones en 4G au moment du
+  // scan font vite la différence. Les fichiers du paquet arrivent déjà
+  // compressés (`core/precompresse.ts`), les pages publiques aussi
+  // (`core/pages.ts`) : `compression()` ne compresse plus que le reste, et
+  // laisse passer ce qui porte déjà son encodage.
   app.use(compression())
   app.use((req, res, next) => {
     res.set(SECURITY_HEADERS)
@@ -709,7 +711,15 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const envoyer = (page: typeof decision) => {
         if (!page.indexable) res.set('X-Robots-Tag', 'noindex, nofollow')
         const base = opts.publicUrl ? opts.publicUrl.replace(/\/+$/, '') : `${req.protocol}://${req.get('host')}`
-        res.status(page.statut).type('html').send(habillerPage(indexHtml, page, base, chemin))
+        const habillee = habillerPage(indexHtml, page, base, chemin)
+        // Le téléphone d'un invité reçoit aussi l'en-tête de son entrée
+        // (`core/page.ts`) : l'attente l'écrit avant que le script n'arrive.
+        const entree = page.statut === 200 ? espaceDeLEntree(chemin) : null
+        const compte = entree ? auth.bySlug(entree) : undefined
+        res
+          .status(page.statut)
+          .type('html')
+          .send(compte && compte.slug === entree ? pageDEntree(habillee, auth.publicSpace(compte)) : habillee)
       }
       if (!decision.archive) return envoyer(decision)
       // Une soirée archivée se cherche dans la base permanente. Muette, elle
