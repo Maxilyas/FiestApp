@@ -36,8 +36,10 @@ import {
   type Socket,
 } from './banc'
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
+import { ArchiveStore } from '../src/core/archive'
 import { xpDesHautsFaits } from '../src/core/hautsfaits'
 import { XP, gainVide, niveauPour, releveVide } from '../../shared/profil'
+import { ligneDeRang } from '../../shared/fin'
 
 // L'Éclat se tire une chance sur quarante par soirée, et le premier fait
 // tomber un palier de carrière — dix points de plus à la clôture. Ici, le
@@ -233,6 +235,175 @@ test('clore la soirée : chaque téléphone reçoit sa fin, l’écran commun la
     assert.ok(profil.vitrine.some((b: any) => b.key === 'hf:grand-chelem'))
   }))
 
+// La fin de soirée était une porte à sens unique : elle ne savait pas qui
+// était son porteur dans l'archive (« Mon bilan » redemandait « Qui es-tu ? »),
+// taisait ses prix, disait « 0 joueurs ce soir » à qui arrivait après la
+// dernière question — et, après un redémarrage, le téléphone qui dormait
+// lisait « On ne te retrouve plus » au lieu de revoir sa soirée.
+
+test('la fin de soirée mène au bilan de son porteur, dit ses prix et la salle — et survit à un redémarrage', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const deux = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const host = await ecranCommun(banc.url, cookie)
+    const alice = await invite(banc.url, 'Alice', '🦊')
+    const salle = await figurants(banc, 2)
+    await jouerQuiz(host, deux, [
+      [[alice, 0], ...faux(salle)],
+      [[alice, 0], ...faux(salle)],
+    ])
+    const id = await rangee(banc)
+    // Pendant la soirée déjà, le souvenir sait l'adresse de son archive —
+    // celle que « Copier » et « Partager » envoient —, et elle répond.
+    const enCours = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/recap.json`)).json()) as any
+    assert.equal(enCours.soireeId, id, 'le souvenir en cours donne l’adresse de son archive')
+    assert.equal((await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${id}/recap.json`)).status, 200)
+    // Zoé arrive après la dernière question : elle n'a rien joué.
+    const zoe = await invite(banc.url, 'Zoé', '🦄')
+
+    const finAlice = attendre<any>(alice.socket, 'soiree:fin', () => true, 'la fin d’Alice', 15_000)
+    const finBob = attendre<any>(salle[0].socket, 'soiree:fin', () => true, 'la fin de Bob', 15_000)
+    const finZoe = attendre<any>(zoe.socket, 'soiree:fin', () => true, 'la fin de Zoé', 15_000)
+    await clore(host, 'La soirée de Zoé')
+    const fa = await finAlice
+    assert.equal(fa.joueurId, alice.playerId, '« Mon bilan » s’ouvre sur elle')
+    assert.equal(ligneDeRang(fa).cas, 'rang')
+    // Bob a répondu deux fois, faux : 0 point, pas de rang — mais il a joué.
+    // Il lisait « Tu n'as pas joué ce soir » au-dessus de ses prix.
+    const fb = await finBob
+    assert.equal(fb.points, 0)
+    assert.equal(fb.aJoue, true, 'Bob a joué, même pour rien')
+    assert.deepEqual(ligneDeRang(fb), { cas: 'zero', joueurs: 3 })
+    const recap = (await (await fetch(`${banc.url}/s/${ADMIN.slug}/soirees/${id}/recap.json`)).json()) as any
+    const siens = recap.stats.awards.filter((a: any) => a.player?.playerId === alice.playerId).map((a: any) => a.key)
+    assert.ok(siens.length > 0, 'Alice, seule à trouver, remporte au moins un prix')
+    assert.deepEqual((fa.prix ?? []).map((p: any) => p.key), siens, 'sa fin de soirée dit ses prix, ceux du souvenir')
+    const fz = await finZoe
+    assert.equal(fz.rang, 0)
+    assert.equal(fz.joueurs, 3, 'la salle a joué, même sans elle')
+    assert.equal(fz.prix, undefined)
+    assert.equal(fz.aJoue, false)
+    assert.deepEqual(ligneDeRang(fz), { cas: 'absent', joueurs: 3 })
+    // Une fin d'un serveur d'avant ne dit pas s'il a joué : la phrase neutre.
+    const { aJoue: _, ...davant } = fz
+    assert.equal(ligneDeRang(davant).cas, 'neutre')
+
+    // Le téléphone de Zoé dormait ; le serveur redémarre et oublie les fins.
+    await banc.redemarrer()
+    const reveille = await reveil(banc, zoe.token)
+    assert.equal(reveille.ok, false)
+    assert.equal(reveille.reason, 'unknown-token', 'une page d’avant repasse par l’entrée')
+    assert.equal(reveille.derniere?.id, id, 'la soirée close se propose')
+    assert.equal(reveille.derniere?.slug, ADMIN.slug)
+    assert.match(reveille.error, /close/)
+    // Il a pu dormir pendant deux clôtures : le message ne dit pas « la tienne ».
+    assert.equal(reveille.error, 'La soirée est close. La dernière soirée de cet espace : La soirée de Zoé')
+  }))
+
+// L'arrivé après la dernière question lisait « N joueurs » compté par la
+// fiche de l'archive, qui compte aussi ceux qui n'ont fait que passer : un
+// autre chiffre que celui de la salle. Et « Mon bilan » l'envoyait à un
+// bilan où il ne figure pas, qui lui demandait « Qui es-tu ? ».
+
+test('l’arrivé après la dernière question lit la même salle que les autres, et n’a pas de « Mon bilan »', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const une = await creerQuiz(banc.url, cookie, [qcm('Un ?', ['Oui', 'Non'], 0, 5)])
+    const host = await ecranCommun(banc.url, cookie)
+    const alice = await invite(banc.url, 'Alice', '🦊')
+    // Bob, Dora et Eve : les deux dernières sont là pendant la question, mais
+    // ne répondent pas.
+    const [bob, , eve] = await figurants(banc, 3)
+    await jouerQuiz(host, une, [[[alice, 0], [bob, 1]]])
+    await rangee(banc)
+    const zoe = await invite(banc.url, 'Zoé', '🦄')
+    const finAlice = attendre<any>(alice.socket, 'soiree:fin', () => true, 'la fin d’Alice', 15_000)
+    const finEve = attendre<any>(eve.socket, 'soiree:fin', () => true, 'la fin d’Eve', 15_000)
+    const finZoe = attendre<any>(zoe.socket, 'soiree:fin', () => true, 'la fin de Zoé', 15_000)
+    await clore(host)
+    const [fa, fe, fz] = await Promise.all([finAlice, finEve, finZoe])
+    assert.equal(fa.joueurs, 2, 'seuls Alice et Bob ont répondu')
+    assert.equal(fz.joueurs, fa.joueurs, 'Zoé lit la même salle qu’Alice')
+    assert.equal(fz.joueurId, undefined, 'Zoé n’est pas au bilan : pas de « Mon bilan »')
+    assert.equal(fe.joueurId, eve.playerId, 'Eve figure au journal, et donc au bilan')
+    assert.equal(fe.aJoue, false)
+  }))
+
+// Le jeton d'une soirée close, après un redémarrage, se voyait proposer la
+// soirée close — mais sa lecture attendait la base permanente, dont le délai
+// (dix secondes) dépasse celui de l'accusé du téléphone : une base muette
+// laissait l'habitué dans une salle d'attente fantôme, sans prénom ni bouton.
+
+test('une base permanente muette ne retient pas l’accusé d’un jeton inconnu', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const deux = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const host = await ecranCommun(banc.url, cookie)
+    const alice = await invite(banc.url, 'Alice', '🦊')
+    const salle = await figurants(banc, 2)
+    await jouerQuiz(host, deux, [
+      [[alice, 0], ...faux(salle)],
+      [[alice, 0], ...faux(salle)],
+    ])
+    const id = await rangee(banc)
+    await clore(host)
+
+    // Le serveur redémarre, et la base permanente se tait.
+    const lire = ArchiveStore.prototype.derniere
+    ArchiveStore.prototype.derniere = function () {
+      return patienter(10_000).then(() => null)
+    }
+    try {
+      await banc.redemarrer()
+      const debut = Date.now()
+      const reveille = await reveil(banc, alice.token)
+      assert.ok(Date.now() - debut < 3000, `l’accusé a mis ${Date.now() - debut} ms`)
+      assert.equal(reveille.ok, false)
+      assert.equal(reveille.reason, 'unknown-token')
+    } finally {
+      ArchiveStore.prototype.derniere = lire
+    }
+    // La base revenue, la soirée close se propose de nouveau.
+    await banc.redemarrer()
+    const apres = await reveil(banc, salle[0].token)
+    assert.equal(apres.derniere?.id, id)
+  }))
+
+// Sur un jeton inconnu, on proposait la dernière soirée close de l'espace,
+// que le jeton en soit ou non : le téléphone d'essai de l'animateur, après
+// « C'était un essai », recevait la vraie soirée de la semaine d'avant ; et
+// l'exclu, une soirée où il n'était plus. Ces jetons-là, le serveur les sait.
+
+test('le jeton d’un essai effacé ou d’un exclu ne se voit pas proposer une soirée qui n’est pas la sienne', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const deux = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const host = await ecranCommun(banc.url, cookie)
+    const salle = await figurants(banc, 2)
+    await jouerQuiz(host, deux, [faux(salle), faux(salle)])
+    await rangee(banc)
+    await clore(host)
+
+    // La soirée suivante : le téléphone d'essai, puis un exclu.
+    const essai = await invite(banc.url, 'Test', '🤖')
+    const exclu = await invite(banc.url, 'Intrus', '🐍')
+    ;(host as any).emit('host:removePlayer', { playerId: exclu.playerId })
+    await attendre(exclu.socket, 'player:removed', () => true, 'l’exclusion')
+    const efface = attendre<any>(host, 'toast', () => true, 'l’essai effacé', 15_000)
+    ;(host as any).emit('host:discardParty')
+    await efface
+    await patienter(200)
+
+    for (const [qui, jeton] of [
+      ['l’exclu', exclu.token],
+      ['le téléphone d’essai', essai.token],
+    ]) {
+      const r = await reveil(banc, jeton)
+      assert.equal(r.reason, 'unknown-token')
+      assert.equal(r.derniere, undefined, `${qui} ne se voit pas proposer la soirée d’avant`)
+    }
+  }))
+
 test('un avatar légendaire se porte une fois débloqué — pas avant — et se voit de toute la salle', () =>
   avecBanc(async banc => {
     const cookie = await connexionAnimateur(banc.url)
@@ -409,6 +580,91 @@ test('le lendemain, les pages de l’espace mènent à la dernière soirée clos
     assert.equal((await ecrire(banc.url, `/api/soirees/${veille}`, {}, cookie, 'DELETE')).status, 200)
     assert.equal((await page('recap.json')).derniere, undefined)
     assert.equal((await page('bilan.json')).derniere, undefined)
+  }))
+
+// La soirée se nommait sur l'arrivée du plus ancien invité, absents compris :
+// Mireille, revenue le 17 relire la veille, était entrée dans la soirée
+// suivante sans y jouer — et celle du 24 s'archivait « du 17 », identifiant,
+// historique et titre proposé à la clôture compris, pour toujours. Le nom se
+// tire toujours une fois (invariant 11) ; seuls ceux qui ont répondu le datent.
+
+test('un invité arrivé une semaine avant, reparti sans jouer, ne date pas la soirée — même après un réveil', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const deux = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const semaine = 7 * 24 * 3600 * 1000
+    const maintenant = Date.now
+    Date.now = () => maintenant() - semaine
+    let mireille: Invite
+    try {
+      mireille = await invite(banc.url, 'Mireille', '🦉')
+    } finally {
+      Date.now = maintenant
+    }
+    mireille.socket.close()
+    // L'hébergeur s'endort entre deux soirées : au réveil, des invités sans
+    // nom rangé — rien n'a été joué, il n'y a rien à nommer.
+    await banc.redemarrer()
+
+    const host = await ecranCommun(banc.url, cookie)
+    const salle = await figurants(banc, 2)
+    const debut = Date.now()
+    await jouerQuiz(host, deux, [
+      [[salle[0], 0], [salle[1], 1]],
+      [[salle[0], 0], [salle[1], 1]],
+    ])
+    const id = await rangee(banc)
+    const { current } = await historique(banc)
+    assert.ok(current.since >= debut - 60_000, `la soirée est datée du ${new Date(current.since).toISOString()}`)
+    const jour = new Date(debut).toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' })
+    assert.ok(id.startsWith(jour), `l’identifiant ${id} devait porter le ${jour}`)
+    const message = await clore(host)
+    const [archive] = (await historique(banc)).archives
+    assert.equal(archive.id, id)
+    assert.ok(archive.heldAt >= debut - 60_000, 'l’historique garde la date du soir joué')
+    const veille = new Date(debut - semaine).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long' })
+    assert.ok(!archive.title.includes(veille), `le titre « ${archive.title} » porte le jour de Mireille`)
+    assert.ok(!message.includes(veille), message)
+  }))
+
+// Dater sur ceux qui ont répondu ne suffisait pas : l'animateur teste son QR
+// le 17, ou l'invitée qui relisait la veille touche « Rejoindre la soirée
+// suivante » — et le 24, ce même invité JOUE. Son arrivée datait encore la
+// soirée « du 17 ». Elle se date à sa première question jouée.
+
+test('un invité inscrit une semaine avant, qui joue ce soir, ne date pas la soirée de son arrivée', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const deux = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')])
+    const semaine = 7 * 24 * 3600 * 1000
+    const maintenant = Date.now
+    Date.now = () => maintenant() - semaine
+    let veille: Invite
+    try {
+      veille = await invite(banc.url, 'Antoine', '🦁')
+    } finally {
+      Date.now = maintenant
+    }
+    veille.socket.close()
+    // Le 24, son téléphone revient avec le jeton du 17 : c'est le même invité.
+    const testeur = await invite(banc.url, 'Antoine', '🦁', { token: veille.token })
+    assert.equal(testeur.playerId, veille.playerId)
+    const host = await ecranCommun(banc.url, cookie)
+    const salle = await figurants(banc, 2)
+    const debut = Date.now()
+    await jouerQuiz(host, deux, [
+      [[testeur, 0], [salle[0], 1], [salle[1], 1]],
+      [[testeur, 0], [salle[0], 1], [salle[1], 1]],
+    ])
+    const id = await rangee(banc)
+    const jour = new Date(debut).toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' })
+    assert.ok(id.startsWith(jour), `soirée jouée le ${jour}, identifiant ${id}`)
+    const { current } = await historique(banc)
+    assert.ok(current.since >= debut, `la soirée est datée du ${new Date(current.since).toISOString()}`)
+    await clore(host)
+    const [archive] = (await historique(banc)).archives
+    assert.equal(archive.id, id)
+    assert.ok(archive.heldAt >= debut, 'l’historique garde l’heure de la première question')
   }))
 
 // Le lendemain racontait les prix que l'application avait calculés, et pas
@@ -647,3 +903,107 @@ test('au démarrage d’un barème neuf, l’historique se relit — et la veill
     // Plus rien d'une version d'avant : le démarrage suivant n'a rien à relire.
     assert.deepEqual(lire(banc, `SELECT soiree_id FROM profile_xp WHERE detail NOT LIKE '{"v":${VERSION_BAREME},%'`), [])
   }))
+
+// Le recalcul passe avant l'ouverture du port, et chaque profil de chaque
+// soirée y coûtait deux allers-retours, en série : 101 soirées, 68 s de
+// démarrage à 20 ms de latence — des minutes de 502 au premier déploiement
+// d'un barème neuf. Une soirée se crédite maintenant d'un seul lot, quel que
+// soit le nombre de ses profils. On compte les requêtes, on ne chronomètre
+// rien.
+test('le recalcul au barème du jour écrit une soirée d’un seul lot, quel que soit le nombre de ses profils', async () => {
+  const { mkdtempSync, rmSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const path = await import('node:path')
+  const { Sqlite3Client } = await import('@libsql/client/sqlite3')
+  const { ArchiveStore, buildArchive } = await import('../src/core/archive')
+  const { recalculerHistorique } = await import('../src/core/recalcul')
+
+  /** Un historique de `soirees` soirées, chacune jouée par `profils` profils, et une ligne d'un barème d'avant. */
+  const historique = async (soirees: number, profils: number) => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'quizz-recalcul-'))
+    const url = `file:${path.join(dir, 'permanente.db').replace(/\\/g, '/')}`
+    const profiles = new ProfileStore(url)
+    await profiles.init()
+    const archives = new ArchiveStore(url)
+    await archives.init('espace')
+    const ids: string[] = []
+    for (let i = 0; i < profils; i++) {
+      ids.push((await profiles.register({ login: `p${i}`, password: 'motdepasse1', name: `P${i}`, avatar: '🦊' })).profile.id)
+    }
+    for (let k = 0; k < soirees; k++) {
+      const t0 = Date.UTC(2025, 0, 1) + k * 86_400_000
+      const players = ids.map((profileId, i) => ({
+        id: `j${k}-${i}`, name: `P${i}`, avatar: '🦊', token: '', teamId: null, profileId, createdAt: t0 + i,
+      }))
+      // Deux figurants anonymes : un joueur seul ne rapporte rien.
+      for (const f of ['x', 'y']) players.push({ id: `j${k}-${f}`, name: f, avatar: '🐻', token: '', teamId: null, profileId: null as any, createdAt: t0 + 99 })
+      const answers = players.map((p, i) => ({
+        sessionId: `s${k}`, quizTitle: 'Quiz', qIndex: 0, kind: 'choice' as const, playerId: p.id, answered: true,
+        correct: i % 2 === 0, choice: i % 2, value: null, target: null, ms: 1000 + i * 37, changes: 0,
+        points: i % 2 === 0 ? 500 : 0, durationMs: 20_000, observed: false, category: null, createdAt: t0 + 1000,
+      }))
+      const scores = answers.filter(a => a.points > 0).map(a => ({ playerId: a.playerId, sessionId: a.sessionId, points: a.points, reason: 'Q1', createdAt: a.createdAt }))
+      const a = buildArchive({
+        soiree: { id: `soiree-${k}`, heldAt: t0 } as any, players: players as any, teams: [], bonuses: [], scores, answers: answers as any,
+        packsBySession: new Map([[`s${k}`, { title: 'Quiz', questions: [{ kind: 'choice', text: 'Q ?', answers: ['A', 'B'], correct: 0, duration: 20, image: null }] as any }]]),
+        library: [],
+      })!
+      await archives.save('espace', a.id, a.heldAt, a.archive)
+    }
+    const c = (profiles as any).client
+    await c.execute({
+      sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, 'soiree-0', 'espace', 1, '{"v":1}', 0)
+            ON CONFLICT(profile_id, soiree_id) DO UPDATE SET detail = '{"v":1}'`,
+      args: [ids[0]],
+    })
+    return { dir, profiles, archives, ids }
+  }
+
+  const proto = Sqlite3Client.prototype as any
+  const origines = { execute: proto.execute, batch: proto.batch }
+  let requetes = 0
+  for (const m of ['execute', 'batch'] as const) {
+    proto[m] = function (...args: unknown[]) {
+      requetes++
+      return origines[m].apply(this, args)
+    }
+  }
+  const mesurer = async (soirees: number, profils: number) => {
+    const h = await historique(soirees, profils)
+    try {
+      // Le recalcul d'abord ; puis les paliers, jugés profil par profil — hors du compte par soirée.
+      requetes = 0
+      const fait = await recalculerHistorique({ profiles: h.profiles, archives: h.archives, enCours: new Set() })
+      assert.equal(fait?.soirees, soirees)
+      // Chaque total dit la somme de ses lignes, en base comme en mémoire.
+      const c = (h.profiles as any).client
+      for (const id of h.ids) {
+        const somme = Number((await c.execute({ sql: 'SELECT COALESCE(SUM(xp), 0) AS n FROM profile_xp WHERE profile_id = ?', args: [id] })).rows[0].n)
+        assert.ok(somme > 0, 'chaque profil a gagné')
+        assert.equal((await h.profiles.byId(id))?.xp, somme, 'le total suit ses lignes')
+      }
+      return requetes
+    } finally {
+      h.profiles.close()
+      h.archives.close()
+      rmSync(h.dir, { recursive: true, force: true })
+    }
+  }
+  try {
+    const peu = await mesurer(6, 3)
+    const beaucoup = await mesurer(6, 12)
+    // Neuf profils de plus dans chacune des six soirées : sur l'ancien
+    // chemin, 6 × 9 × 2 = 108 requêtes de plus rien que pour les crédits.
+    // Il ne reste que ce que chaque profil coûte une fois : ses paliers.
+    assert.ok(
+      beaucoup - peu <= 9 * 10,
+      `neuf profils de plus coûtent ${beaucoup - peu} requêtes (${peu} → ${beaucoup}) : ils ne se paient plus par soirée`,
+    )
+    const plus = await mesurer(12, 3)
+    console.log(`[recalcul] requêtes : 6 soirées × 3 profils ${peu}, × 12 profils ${beaucoup}, 12 soirées × 3 profils ${plus}`)
+    assert.ok(plus - peu <= 6 * 4, `six soirées de plus coûtent ${plus - peu} requêtes : quelques-unes chacune, pas une par profil`)
+  } finally {
+    proto.execute = origines.execute
+    proto.batch = origines.batch
+  }
+})

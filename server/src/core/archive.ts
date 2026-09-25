@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { clientDistant, type Client } from './distante'
 import type { AnswerRow } from './answers'
 import type { PlayerRec } from './party'
@@ -5,7 +6,7 @@ import type { TeamRec } from './teams'
 import type { ScoreEntry } from './scores'
 import { buildRecap } from './recap'
 import { buildReview, resolvePacks, type PlayedPack } from './review'
-import { teamScores, vainqueursDuQuiz } from '../../../shared/teams'
+import { questionsDesEquipes, teamScores, vainqueursDuQuiz, type QuestionDEquipe } from '../../../shared/teams'
 import { nomAffiche, nomsAffiches } from '../../../shared/homonymes'
 import { vainqueurs } from '../../../shared/classement'
 import { tronquer } from '../../../shared/avatars'
@@ -23,9 +24,10 @@ import type { ArchiveSummary, DerniereSoiree, PartyArchive } from '../../../shar
  * bilan se relisent depuis ces données brutes, avec le code du jour. Une
  * amélioration des prix ou du bilan profite donc aussi aux soirées passées.
  *
- * L'identifiant d'une soirée est sa date et l'heure d'arrivée du premier
- * invité, figées une fois pour toutes (voir `Soiree`) : archiver deux fois la
- * même soirée met l'archive à jour, sans doublon.
+ * L'identifiant d'une soirée est sa date, l'heure d'arrivée du premier
+ * invité et une empreinte de son espace, figés une fois pour toutes (voir
+ * `Soiree`, `archiveIdOf`) : archiver deux fois la même soirée met l'archive
+ * à jour, sans doublon.
  */
 
 /** Le fuseau de la fête, pour nommer les soirées par leur date. */
@@ -41,10 +43,33 @@ export function archiveTitle(heldAt: number): string {
   return `Soirée du ${day}`
 }
 
-export function archiveIdOf(heldAt: number): string {
-  // « 2026-09-19-k7x2q » : lisible dans une adresse, unique à la seconde près.
+/**
+ * « 2026-09-19-k7x2q-3fz81a » : la date, l'heure du premier arrivé à la
+ * milliseconde (cinq chiffres en base 36, qui bouclent toutes les 16 h 47),
+ * et une empreinte de l'espace.
+ *
+ * L'empreinte est venue tard. Les archives se rangent par (espace, nom),
+ * mais l'expérience d'un profil, ses paliers et ses Éclats se rangent sous
+ * le nom seul : deux soirées de deux espaces nées à la même milliseconde se
+ * partageaient la ligne d'un profil qui jouait les deux, et l'expérience de
+ * l'une écrasait celle de l'autre ; « C'était un essai » chez l'un emportait
+ * les Éclats de l'autre. Six caractères d'une empreinte de l'espace rendent
+ * la coïncidence négligeable — il faudrait la même milliseconde ET la même
+ * empreinte —, sans migrer les tables des profils ni rebaptiser les soirées
+ * passées : leur nom est figé (invariant 11), et il reste lisible.
+ */
+export function archiveIdOf(heldAt: number, spaceId: string | null): string {
   const day = new Date(heldAt).toLocaleDateString('fr-CA', { timeZone: TIMEZONE })
-  return `${day}-${heldAt.toString(36).slice(-5)}`
+  const avant = `${day}-${heldAt.toString(36).slice(-5)}`
+  // Sans espace, le nom tel qu'on le tirait avant l'empreinte : celui d'une
+  // soirée commencée avant qu'on range son nom (voir `SpaceRuntime`).
+  return spaceId === null ? avant : `${avant}-${empreinteDEspace(spaceId)}`
+}
+
+/** Six caractères tirés de l'identifiant d'un espace, toujours les mêmes pour lui. */
+function empreinteDEspace(spaceId: string): string {
+  const n = parseInt(createHash('sha256').update(spaceId).digest('hex').slice(0, 8), 16)
+  return n.toString(36).padStart(6, '0').slice(-6)
 }
 
 /**
@@ -58,18 +83,48 @@ export interface Soiree {
 }
 
 /**
- * Le nom qu'on donne à une soirée : l'arrivée du plus ancien invité présent.
+ * Le nom qu'on donne à une soirée : l'heure de sa première question jouée.
  *
- * C'est ainsi qu'on le recalculait à chaque besoin, et c'était le piège :
- * exclure ce premier arrivé — le téléphone d'essai de l'animateur, presque
- * toujours — rebaptisait la soirée en cours de route. On ne l'appelle donc
- * plus qu'une fois par soirée, pour le tirer ; et c'est aussi elle qui rend
- * son nom à une soirée commencée avant qu'on le range.
+ * On la lisait sur l'arrivée du plus ancien invité présent, et c'était le
+ * piège : exclure ce premier arrivé — le téléphone d'essai de l'animateur,
+ * presque toujours — rebaptisait la soirée en cours de route. On ne l'appelle
+ * donc plus qu'une fois par soirée, pour le tirer ; et c'est aussi elle qui
+ * rend son nom à une soirée commencée avant qu'on le range.
+ *
+ * Ni l'arrivée d'un invité : l'invitée revenue le 17 relire la veille, ou le
+ * QR que l'animateur a testé la veille, inscrivaient un invité qui jouait bel
+ * et bien le 24 — et la soirée s'archivait « du 17 », pour toujours. Une
+ * réponse porte l'heure de sa révélation (`AnswerRow.createdAt`, recopiée au
+ * miroir) : c'est le soir où l'on a joué.
  */
-export function soireeDesInvites(players: { createdAt: number }[]): Soiree | null {
-  if (players.length === 0) return null
-  const heldAt = Math.min(...players.map(p => p.createdAt))
-  return { id: archiveIdOf(heldAt), heldAt }
+export function soireeDesInvites(
+  players: { id: string; createdAt: number }[],
+  answers: { playerId: string; answered: boolean; createdAt: number }[],
+  spaceId: string | null,
+): Soiree | null {
+  // Sans espace, le nom tel que le tirait le serveur d'avant — l'arrivée du
+  // plus ancien invité, sans empreinte — pour retrouver celui d'une soirée
+  // qu'il a commencée sans le ranger (voir `SpaceRuntime`) : tiré à la façon
+  // du jour, il doublait l'archive et recomptait l'expérience (invariant 11).
+  if (spaceId === null) {
+    if (players.length === 0) return null
+    const avant = Math.min(...players.map(p => p.createdAt))
+    return { id: archiveIdOf(avant, null), heldAt: avant }
+  }
+  // Une boucle, pas `Math.min(...)` : le journal d'une grande soirée se compte
+  // en dizaines de milliers de lignes, trop d'arguments pour un appel.
+  let premiere = Infinity
+  for (const a of answers) if (a.answered && a.createdAt < premiere) premiere = a.createdAt
+  if (premiere !== Infinity) return { id: archiveIdOf(premiere, spaceId), heldAt: premiere }
+  // Rien de joué : l'arrivée de ceux que le journal a vus, puis de tout le
+  // monde. Le nom ne se tire pourtant jamais avant la première réponse (le
+  // constructeur de `space.ts` attend le journal) : c'est l'heure qu'affiche
+  // l'historique d'une soirée tout juste commencée.
+  const vus = new Set(answers.map(a => a.playerId))
+  const datants = [players.filter(p => vus.has(p.id)), players].find(l => l.length > 0)
+  if (!datants) return null
+  const heldAt = Math.min(...datants.map(p => p.createdAt))
+  return { id: archiveIdOf(heldAt, spaceId), heldAt }
 }
 
 // ── Construire l'archive de la soirée en cours ───────────────────────────
@@ -192,10 +247,21 @@ type MetaSoiree = { id: string; title: string; heldAt: number; archivedAt: numbe
  * affichage de l'historique, c'était télécharger toute la base distante.
  */
 interface FicheSoiree {
-  v: 2
+  /**
+   * 3 depuis que la moyenne d'une équipe se lit question par question : une
+   * fiche 2 n'en dit pas assez, et se refait une fois depuis son archive,
+   * comme un résumé d'avant les fiches.
+   */
+  v: 3
   /** Tous les invités, dans l'ordre d'arrivée : celui des marques d'homonymie. */
   invites: { id: string; name: string; avatar: string; teamId: string | null; points: number; joue: boolean }[]
-  equipes: { id: string; name: string; emoji: string; position: number }[]
+  /**
+   * `questions` : pour chaque question que l'équipe a jouée, combien de ses
+   * membres y étaient et ce qu'ils y ont gagné — `[présents, points]`. Des
+   * faits bruts, rangés par la composition de l'archive, que la règle du
+   * jour (`moyenneAuProrata`) relit ; quelques octets par question.
+   */
+  equipes: { id: string; name: string; emoji: string; position: number; questions: [number, number][] }[]
   prix: { teamId: string; points: number }[]
   quiz: number
   questions: number
@@ -206,8 +272,9 @@ function ficheDe(a: PartyArchive): FicheSoiree {
   const totals = new Map<string, number>()
   for (const s of a.scores) totals.set(s.playerId, (totals.get(s.playerId) ?? 0) + s.points)
   const joue = new Set(a.answers.map(r => r.playerId))
+  const parEquipe = questionsDesEquipes(a.players, a.answers)
   return {
-    v: 2,
+    v: 3,
     invites: [...a.players]
       .sort((x, y) => x.createdAt - y.createdAt)
       .map(p => ({
@@ -218,7 +285,13 @@ function ficheDe(a: PartyArchive): FicheSoiree {
         points: totals.get(p.id) ?? 0,
         joue: joue.has(p.id),
       })),
-    equipes: a.teams.map(t => ({ id: t.id, name: t.name, emoji: t.emoji, position: t.position })),
+    equipes: a.teams.map(t => ({
+      id: t.id,
+      name: t.name,
+      emoji: t.emoji,
+      position: t.position,
+      questions: (parEquipe.get(t.id) ?? []).map(q => [q.presents, q.points] as [number, number]),
+    })),
     prix: a.bonuses.map(b => ({ teamId: b.teamId, points: b.points })),
     quiz: new Set(a.answers.map(r => r.sessionId)).size,
     questions: new Set(a.answers.map(r => `${r.sessionId}#${r.qIndex}`)).size,
@@ -229,7 +302,7 @@ function ficheDe(a: PartyArchive): FicheSoiree {
 function lireFiche(texte: string): FicheSoiree | null {
   try {
     const f = JSON.parse(texte) as Partial<FicheSoiree> | null
-    return f && f.v === 2 && Array.isArray(f.invites) ? (f as FicheSoiree) : null
+    return f && f.v === 3 && Array.isArray(f.invites) ? (f as FicheSoiree) : null
   } catch {
     return null
   }
@@ -264,12 +337,16 @@ function resumer(meta: MetaSoiree, fiche: FicheSoiree): ArchiveSummary {
     quizzes: fiche.quiz,
     questions: fiche.questions,
     winners: enTete.map(p => ({ name: nomAffiche(p), avatar: p.avatar, points: p.score })),
-    teamWinners: vainqueursDuQuiz(teamScores(fiche.equipes, joueurs, fiche.prix)).map(t => ({
+    teamWinners: vainqueursDuQuiz(teamScores(fiche.equipes, joueurs, fiche.prix, questionsDeLaFiche(fiche))).map(t => ({
       name: t.name,
       emoji: t.emoji,
       points: t.finalPoints,
     })),
   }
+}
+
+function questionsDeLaFiche(fiche: FicheSoiree): Map<string, QuestionDEquipe[]> {
+  return new Map(fiche.equipes.map(e => [e.id, e.questions.map(([presents, points]) => ({ presents, points }))]))
 }
 
 /** Ce que la liste de l'historique montre d'une soirée — ici, archive en main. */
@@ -278,6 +355,9 @@ export function summarize(meta: MetaSoiree, a: PartyArchive): ArchiveSummary {
 }
 
 /** Une archive que l'on ne sait plus lire se résume comme une soirée vide. */
+/** Combien d'archives une requête relit pour refaire leurs fiches (`ArchiveStore.refaireFiches`). */
+const LOT_DE_FICHES = 10
+
 const ARCHIVE_VIDE: PartyArchive = { version: 1, players: [], teams: [], bonuses: [], scores: [], answers: [], packs: {} }
 
 // ── Le rangement ─────────────────────────────────────────────────────────
@@ -303,6 +383,12 @@ const SOIREES_COLUMNS = `
  */
 export class ArchiveStore {
   private client: Client
+  /**
+   * Le numéro d'écriture de l'historique de chaque espace. Les pages
+   * publiques (`core/pages.ts`) gardent le souvenir et le bilan calculés
+   * sous ce numéro, et le lisent pour savoir si leur calcul tient encore.
+   */
+  private revisions = new Map<string, number>()
 
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
@@ -392,6 +478,22 @@ export class ArchiveStore {
    * une fiche plus récente, qu'on n'écrase pas.
    */
   private async refaireFiches(
+    spaceId: string,
+    anciennes: { meta: MetaSoiree; stocke: string }[],
+  ): Promise<Map<string, FicheSoiree>> {
+    // Par lots de dix : la fiche 3 a rendu toutes les fiches 2 anciennes d'un
+    // coup, et le premier affichage de l'historique relisait toutes les
+    // archives d'un espace — jusqu'à plusieurs Mo chacune — en une seule
+    // requête, sous les dix secondes de la base distante. Un lot fait écrit
+    // ses fiches : un historique interrompu reprend là où il s'est arrêté.
+    const fiches = new Map<string, FicheSoiree>()
+    for (let i = 0; i < anciennes.length; i += LOT_DE_FICHES) {
+      for (const [id, fiche] of await this.refaireUnLot(spaceId, anciennes.slice(i, i + LOT_DE_FICHES))) fiches.set(id, fiche)
+    }
+    return fiches
+  }
+
+  private async refaireUnLot(
     spaceId: string,
     anciennes: { meta: MetaSoiree; stocke: string }[],
   ): Promise<Map<string, FicheSoiree>> {
@@ -506,32 +608,38 @@ export class ArchiveStore {
     // La colonne `summary` porte la fiche, pas le résumé : des faits bruts,
     // que la liste relira avec les règles du jour.
     const fiche = ficheDe(archive)
-    await this.client.execute({
-      sql: `INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(space_id, id) DO UPDATE SET title = excluded.title, held_at = excluded.held_at,
-              archived_at = excluded.archived_at, summary = excluded.summary, data = excluded.data`,
-      args: [spaceId, id, finalTitle, heldAt, archivedAt, JSON.stringify(fiche), JSON.stringify(archive)],
-    })
+    await this.ecrire(spaceId, () =>
+      this.client.execute({
+        sql: `INSERT INTO soirees (space_id, id, title, held_at, archived_at, summary, data) VALUES (?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(space_id, id) DO UPDATE SET title = excluded.title, held_at = excluded.held_at,
+                archived_at = excluded.archived_at, summary = excluded.summary, data = excluded.data`,
+        args: [spaceId, id, finalTitle, heldAt, archivedAt, JSON.stringify(fiche), JSON.stringify(archive)],
+      }),
+    )
     return resumer({ id, title: finalTitle, heldAt, archivedAt }, fiche)
   }
 
   async rename(spaceId: string, id: string, title: unknown): Promise<ArchiveSummary | null> {
     const clean = tronquer(String(title ?? '').trim(), 80)
     if (!ID.test(id) || !clean) return null
-    const res = await this.client.execute({
-      sql: 'UPDATE soirees SET title = ? WHERE space_id = ? AND id = ?',
-      args: [clean, spaceId, id],
-    })
+    const res = await this.ecrire(spaceId, () =>
+      this.client.execute({
+        sql: 'UPDATE soirees SET title = ? WHERE space_id = ? AND id = ?',
+        args: [clean, spaceId, id],
+      }),
+    )
     if (res.rowsAffected === 0) return null
     return (await this.list(spaceId)).find(s => s.id === id) ?? null
   }
 
   async remove(spaceId: string, id: string): Promise<boolean> {
     if (!ID.test(id)) return false
-    const res = await this.client.execute({
-      sql: 'DELETE FROM soirees WHERE space_id = ? AND id = ?',
-      args: [spaceId, id],
-    })
+    const res = await this.ecrire(spaceId, () =>
+      this.client.execute({
+        sql: 'DELETE FROM soirees WHERE space_id = ? AND id = ?',
+        args: [spaceId, id],
+      }),
+    )
     return res.rowsAffected > 0
   }
 
@@ -543,8 +651,33 @@ export class ArchiveStore {
 
   /** Efface toutes les soirées d'un espace : son compte est supprimé. Rend leur nombre. */
   async removeSpace(spaceId: string): Promise<number> {
-    const res = await this.client.execute({ sql: 'DELETE FROM soirees WHERE space_id = ?', args: [spaceId] })
+    const res = await this.ecrire(spaceId, () =>
+      this.client.execute({ sql: 'DELETE FROM soirees WHERE space_id = ?', args: [spaceId] }),
+    )
     return res.rowsAffected
+  }
+
+  /** Où en est l'historique de cet espace : il bouge à chaque rangement, renommage ou effacement. */
+  revision(spaceId: string): number {
+    return this.revisions.get(spaceId) ?? 0
+  }
+
+  /**
+   * Une écriture de l'historique, qui fait monter le numéro une fois
+   * terminée. Une page se garde sous le numéro lu à l'ARRIVÉE de sa requête :
+   * une lecture partie avant ou pendant l'écriture — qui a pu voir l'ancienne
+   * ligne — reste donc sous l'ancien numéro, et ne vaut plus dès que celle-ci
+   * aboutit. Pendant l'écriture, la page d'avant se sert encore : elle dit
+   * ce que la base disait. Échouée, l'écriture fait monter le numéro quand
+   * même : elle a pu aboutir au loin, et relire coûte un calcul, là où se
+   * tromper montrerait une page fausse.
+   */
+  private async ecrire<T>(spaceId: string, ecriture: () => Promise<T>): Promise<T> {
+    try {
+      return await ecriture()
+    } finally {
+      this.revisions.set(spaceId, this.revision(spaceId) + 1)
+    }
   }
 
   close() {

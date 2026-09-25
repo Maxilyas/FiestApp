@@ -6,6 +6,7 @@ import { classer, decimales, ecartEstimation, rangPartage, type Classe } from '.
 import { ENCHAINEMENT_MAX_S } from '../../../shared/console'
 import type {
   QuizAction,
+  QuizAttendu,
   QuizCommand,
   QuizGuessRow,
   QuizHostView,
@@ -13,6 +14,7 @@ import type {
   QuizPlayerView,
   QuizPodiumRow,
   Visee,
+  LancementDeQuiz,
 } from '../../../shared/games/quiz'
 
 interface QuizPack {
@@ -63,7 +65,22 @@ interface QuizState {
   autoNextSeconds: number | null
   /** Échéance de cet enchaînement, pour l'afficher côté écran commun. */
   autoNextAt: number | null
+  /**
+   * L'enchaînement attend le clic : la question vient d'être révélée sans une
+   * seule réponse. Absent d'une partie d'avant — elle enchaîne comme avant.
+   */
+  autoNextSuspendu?: boolean
+  /**
+   * Les invités hors ligne que l'animateur a choisi de ne plus attendre. Ils
+   * le restent tant que leur téléphone se tait : une question posée pendant
+   * qu'ils sont revenus les attend de nouveau (voir `startQuestion`).
+   * Absent d'une partie lancée avant qu'il existe.
+   */
+  dispenses?: string[]
 }
+
+/** Au-delà, la console dit « et 12 autres » : les prénoms servent à trouver le fantôme, pas à faire l'appel d'une salle de cinq cents. */
+const ATTENDUS_MONTRES = 30
 
 const READY_MS = 3000
 
@@ -240,6 +257,11 @@ function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: Game
   st.responses = {}
   st.lastAwards = {}
   st.pausedMs = null
+  // Revenu en ligne, on l'attend de nouveau — à partir de cette question-ci,
+  // jamais au milieu de celle où il revient : la salle n'a pas à réattendre
+  // pour une question déjà presque jouée. Ne plus l'attendre est un choix de
+  // l'animateur sur une panne, pas une sortie du jeu.
+  if (st.dispenses?.length) st.dispenses = st.dispenses.filter(id => !ctx.connected(id))
   // Une question reposée hérite sinon du souffle armé par la précédente, qui
   // la révélerait avant que personne ait eu le temps de répondre.
   ctx.clearTimer('settle')
@@ -274,7 +296,8 @@ function award(sess: GameSessionRec<QuizState>, playerId: string, points: number
   ctx.award(playerId, gain, `Quiz « ${st.pack!.title} » — Q${st.qIndex + 1}`)
 }
 
-function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
+/** `auClic` : l'animateur a forcé la révélation — il est là, lui. */
+function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext, auClic = false) {
   const st = sess.state
   ctx.clearTimer('question')
   ctx.clearTimer('observe')
@@ -282,8 +305,15 @@ function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   st.phase = 'reveal'
   st.lastAwards = {}
   // L'enchaînement s'arme quelle que soit la cause de la révélation : fin du
-  // chronomètre, dernière réponse, ou clic de l'animateur.
-  if (st.autoNextSeconds !== null) {
+  // chronomètre, dernière réponse, ou clic de l'animateur — sauf devant une
+  // salle vide. Le 24 septembre, une coupure a fait jouer trois questions et
+  // un podium à personne : une question close d'elle-même sans une seule
+  // réponse de toute la salle attend l'animateur, et l'écran dit pourquoi.
+  // Son clic « Révéler », lui, dit qu'il est là : la suite part comme il l'a
+  // réglée. Le mode reste choisi, et repart de lui-même à la première
+  // question qui reçoit une réponse.
+  st.autoNextSuspendu = st.autoNextSeconds !== null && !auClic && Object.keys(st.responses).length === 0
+  if (st.autoNextSeconds !== null && !st.autoNextSuspendu) {
     st.autoNextAt = ctx.now() + st.autoNextSeconds * 1000
     ctx.setTimer('autoNext', st.autoNextSeconds * 1000)
   }
@@ -322,12 +352,48 @@ function scoreQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
  * sinon la salle patienterait pour quelqu'un qui n'a jamais vu la question.
  *
  * Un téléphone en veille reste attendu, lui : l'exclure reviendrait à révéler
- * dans le dos de quelqu'un dont le réseau a hoqueté une seconde.
+ * dans le dos de quelqu'un dont le réseau a hoqueté une seconde. Mais une
+ * panne définitive — le téléphone mort de Rachid — faisait attendre toute la
+ * salle, chrono entier, à chaque question : l'animateur peut donc « ne plus
+ * l'attendre » (`dispenses`). C'est lui qui choisit, jamais le serveur.
  */
-function awaited(sess: GameSessionRec<QuizState>): number {
+function awaited(sess: GameSessionRec<QuizState>): string[] {
   const st = sess.state
-  return sess.participantIds.filter(id => (st.playFrom[id] ?? 0) <= st.qIndex && !(id in st.responses))
-    .length
+  return sess.participantIds.filter(
+    id => (st.playFrom[id] ?? 0) <= st.qIndex && !(id in st.responses) && !st.dispenses?.includes(id),
+  )
+}
+
+/**
+ * Ceux que la console montre comme attendus : les hors-ligne qu'on attend
+ * encore d'abord — c'est pour les trouver qu'on regarde —, puis ceux qu'on
+ * n'attend plus, puis les connectés, chaque groupe dans l'ordre d'arrivée.
+ * Ceux qu'on n'attend plus restent dans la liste, marqués : l'animateur voit
+ * qu'il a tranché, et pour qui. Mais derrière ceux qu'il doit encore
+ * trancher : triés sur « hors ligne » seul, quarante téléphones morts dont
+ * trente dispensés gardaient la tête de la liste, et les dix autres
+ * passaient derrière le plafond, hors de portée de « Ne plus l'attendre ».
+ */
+function attendus(sess: GameSessionRec<QuizState>, vctx: ViewContext): { liste: QuizAttendu[]; enPlus: number } {
+  const st = sess.state
+  const lignes = sess.participantIds
+    .filter(id => (st.playFrom[id] ?? 0) <= st.qIndex && !(id in st.responses))
+    .map(id => {
+      const horsLigne = !vctx.connected(id)
+      return { id, horsLigne, rang: !horsLigne ? 2 : st.dispenses?.includes(id) ? 1 : 0 }
+    })
+    .sort((a, b) => a.rang - b.rang)
+  // On ne décore que les lignes montrées : cette vue se recalcule à chaque
+  // réponse, et décorer cinq cents invités à chaque fois coûtait le podium.
+  const liste = lignes.slice(0, ATTENDUS_MONTRES).map(({ id, horsLigne }) => ({
+    playerId: id,
+    // La troisième porte du prénom (invariant 17) : « Camille (2) », pas « Camille ».
+    name: vctx.playerName(id),
+    avatar: vctx.player(id)?.avatar ?? '🎉',
+    ...(horsLigne && { horsLigne: true as const }),
+    ...(st.dispenses?.includes(id) && { dispense: true as const }),
+  }))
+  return { liste, enPlus: lignes.length - liste.length }
 }
 
 function cancelQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
@@ -366,6 +432,7 @@ function goNext(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   if (!st.pack) return
   ctx.clearTimer('autoNext')
   st.autoNextAt = null
+  st.autoNextSuspendu = false
   if (st.qIndex + 1 < st.pack.questions.length) startQuestion(sess, st.qIndex + 1, ctx)
   else {
     st.phase = 'finished'
@@ -512,14 +579,30 @@ function hiddenPhoto(q: PlayableQuestion, phase: QuizState['phase']): boolean {
 // ── Module ───────────────────────────────────────────────────────────────
 
 export const quizModule: GameModule<QuizState> = {
-  createInitialState(spaceId): QuizState {
+  // Une réponse n'écrit que la ligne de son auteur (`responses[playerId]`),
+  // et seule la phase `question` en accepte : la vue d'un invité y lit l'état
+  // commun et SA réponse, jamais celle des autres. Le rang et le podium, eux,
+  // ne se lisent qu'à la révélation — un changement de phase, que le moteur
+  // rediffuse à toute la salle. Une vue de téléphone qui viendrait à lire la
+  // réponse d'un autre en pleine question doit faire tomber cette promesse.
+  vueDependDesAutres: false,
+
+  createInitialState(spaceId, _participants, config): QuizState {
     const library = quizLibrary(spaceId)
     if (library.length === 0) {
       throw new Error('Aucun quiz prêt à jouer — crée-en un dans l’espace animateur (/edit)')
     }
+    const lancement = (config ?? {}) as LancementDeQuiz
+    const joues = new Set(Array.isArray(lancement.joues) ? lancement.joues : [])
+    const auto = lancement.autoNextSeconds
     return {
       phase: 'pickPack',
-      packs: library.map(p => ({ id: p.id, title: p.title, questionCount: p.questions.length })),
+      packs: library.map(p => ({
+        id: p.id,
+        title: p.title,
+        questionCount: p.questions.length,
+        ...(joues.has(p.id) && { joueCeSoir: true as const }),
+      })),
       pack: null,
       qIndex: 0,
       round: 0,
@@ -531,7 +614,9 @@ export const quizModule: GameModule<QuizState> = {
       playFrom: {},
       multiplier: 1,
       pausedMs: null,
-      autoNextSeconds: null,
+      // Le réglage du quiz d'avant, relu comme la commande le relit.
+      autoNextSeconds:
+        typeof auto === 'number' && Number.isFinite(auto) ? Math.min(ENCHAINEMENT_MAX_S, Math.max(2, Math.round(auto))) : null,
       autoNextAt: null,
     }
   },
@@ -594,7 +679,7 @@ export const quizModule: GameModule<QuizState> = {
     }
 
     // Tout le monde a répondu → on révèle, mais après un souffle : voir SETTLE_MS.
-    if (awaited(sess) === 0) ctx.setTimer('settle', SETTLE_MS)
+    if (awaited(sess).length === 0) ctx.setTimer('settle', SETTLE_MS)
   },
 
   onHostCommand(sess, command: QuizCommand, ctx) {
@@ -631,7 +716,7 @@ export const quizModule: GameModule<QuizState> = {
         st.pausedMs = null
         ctx.setTimer('question', frozen + GRACE_MS)
         // La salle avait fini de répondre avant la pause : on lui rend son souffle.
-        if (awaited(sess) === 0) ctx.setTimer('settle', SETTLE_MS)
+        if (awaited(sess).length === 0) ctx.setTimer('settle', SETTLE_MS)
         break
       }
       case 'cancel': {
@@ -671,7 +756,7 @@ export const quizModule: GameModule<QuizState> = {
           // « C'est bon, tout le monde a vu » : on passe à la question.
           beginAnswering(sess, ctx)
         } else if (st.phase === 'question') {
-          reveal(sess, ctx) // l'animateur force la fin de la question
+          reveal(sess, ctx, true) // l'animateur force la fin de la question
         } else if (st.phase === 'reveal') {
           goNext(sess, ctx)
         }
@@ -679,6 +764,9 @@ export const quizModule: GameModule<QuizState> = {
       case 'autoNext': {
         const seconds = command.seconds
         st.autoNextSeconds = seconds === null ? null : Math.min(ENCHAINEMENT_MAX_S, Math.max(2, Math.round(seconds)))
+        // Un palier choisi à la main relance, même devant une salle vide :
+        // c'est l'animateur qui le demande.
+        st.autoNextSuspendu = false
         if (st.autoNextSeconds === null) {
           // Reprendre la main : l'enchaînement en attente est annulé.
           ctx.clearTimer('autoNext')
@@ -687,6 +775,20 @@ export const quizModule: GameModule<QuizState> = {
           // Activé pendant une révélation : elle enchaîne sans attendre la suivante.
           st.autoNextAt = ctx.now() + st.autoNextSeconds * 1000
           ctx.setTimer('autoNext', st.autoNextSeconds * 1000)
+        }
+        break
+      }
+      case 'nePlusAttendre': {
+        const playerId = command.playerId
+        // Seulement un participant hors ligne : un téléphone qui répond encore
+        // n'est pas en panne, et la règle d'attendre le protège d'un hoquet.
+        if (typeof playerId !== 'string' || !sess.participantIds.includes(playerId) || ctx.connected(playerId)) return
+        if (st.dispenses?.includes(playerId)) return
+        st.dispenses = [...(st.dispenses ?? []), playerId]
+        // C'était peut-être le dernier qu'on attendait : la salle a fini, on
+        // révèle après le souffle, comme après une dernière réponse.
+        if (st.phase === 'question' && st.pausedMs === null && awaited(sess).length === 0) {
+          ctx.setTimer('settle', SETTLE_MS)
         }
         break
       }
@@ -712,10 +814,11 @@ export const quizModule: GameModule<QuizState> = {
     delete st.lastAwards[playerId]
     delete st.playFrom[playerId]
     delete st.totals[playerId]
+    if (st.dispenses) st.dispenses = st.dispenses.filter(id => id !== playerId)
     // Il était peut-être le dernier qu'on attendait : la salle a fini, on
     // révèle après le souffle, comme après une dernière réponse — pas au
     // bout du chronomètre.
-    if (st.phase === 'question' && st.pausedMs === null && awaited(sess) === 0) {
+    if (st.phase === 'question' && st.pausedMs === null && awaited(sess).length === 0) {
       ctx.setTimer('settle', SETTLE_MS)
     }
   },
@@ -726,6 +829,12 @@ export const quizModule: GameModule<QuizState> = {
     if (timerId === 'question' && sess.state.phase === 'question') reveal(sess, ctx)
     if (timerId === 'settle' && sess.state.phase === 'question') reveal(sess, ctx)
     if (timerId === 'autoNext' && sess.state.phase === 'reveal') goNext(sess, ctx)
+  },
+
+  // Pendant la question — en pause comprise —, une réponse donnée n'est pas
+  // encore jugée : elle le sera à la révélation, qui la paie.
+  reponseEnSuspens(sess, playerId) {
+    return sess.state.phase === 'question' && playerId in sess.state.responses
   },
 
   playerView(sess, playerId, vctx): QuizPlayerView {
@@ -814,6 +923,10 @@ export const quizModule: GameModule<QuizState> = {
         deadline: st.deadline,
         duration: q.observeSeconds ?? 0,
         participantCount: sess.participantIds.length,
+        // Sans lui, la console affichait « au clic » pendant la photo alors
+        // que l'enchaînement était réglé — et un clic sur « au clic », qui se
+        // croyait déjà actif, n'envoyait rien.
+        autoNextSeconds: st.autoNextSeconds,
       }
     }
     if ((st.phase === 'question' || st.phase === 'reveal') && st.pack) {
@@ -832,8 +945,16 @@ export const quizModule: GameModule<QuizState> = {
         ...(st.pausedMs !== null && { paused: true, remainingMs: st.pausedMs }),
         autoNextSeconds: st.autoNextSeconds,
         ...(st.autoNextAt !== null && { autoNextAt: st.autoNextAt }),
+        ...(st.phase === 'reveal' && st.autoNextSuspendu && { autoNextSuspendu: true }),
         answeredCount: Object.keys(st.responses).length,
         participantCount: sess.participantIds.length,
+      }
+      // Qui n'a pas répondu : à la console seulement. `playerView` n'en dit
+      // rien — la salle n'a pas à savoir qui traîne (invariant 1).
+      if (st.phase === 'question') {
+        const { liste, enPlus } = attendus(sess, vctx)
+        view.attendus = liste
+        if (enPlus > 0) view.attendusEnPlus = enPlus
       }
       if (st.phase === 'reveal') {
         if (q.kind === 'choice') {

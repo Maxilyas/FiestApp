@@ -35,6 +35,7 @@ export type IconName =
   | 'list'
   | 'maximize'
   | 'monitor'
+  | 'smartphone'
   | 'moon'
   | 'pause'
   | 'play'
@@ -187,6 +188,14 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
       <>
         <rect x="3" y="4" width="18" height="12" rx="2" />
         <path d="M8 20h8M12 16v4" />
+      </>
+    ),
+  },
+  smartphone: {
+    paths: (
+      <>
+        <rect x="7" y="2.5" width="10" height="19" rx="2" />
+        <path d="M11 18h2" />
       </>
     ),
   },

@@ -29,9 +29,13 @@ import {
   MIN_ANSWERS,
   MIN_DURATION,
   MIN_OBSERVE,
+  SANS_BONNE_REPONSE,
+  luCommeReglage,
+  parseImportedQuestions,
   photoManquante,
   type QuizQuestionDef,
 } from './library'
+import { ecrireNombre } from './nombres'
 
 /** L'exemple court, sous le champ où l'on colle : les gestes de tous les jours. */
 export const APERCU_DU_FORMAT = `# Géographie
@@ -112,7 +116,7 @@ ESTIMATION
 Sous l'intitulé, une seule ligne : le signe = suivi de la bonne valeur, en chiffres, puis de son unité s'il y en a une (${MAX_UNIT} caractères au plus) : « = 1889 », « = 8 849 m », « = 0,8 % ». Chacun propose un nombre, et plus il tombe près, plus il rapporte : idéal pour une date, une distance, un prix, que personne ne connaît au chiffre près.
 
 RÉGLAGES — facultatifs, chacun sur sa ligne sous l'intitulé, dans n'importe quel ordre
-Temps : 30 s — le temps pour répondre, de ${MIN_DURATION} à ${MAX_DURATION} secondes. Sans cette ligne, celui réglé dans FiestApp (${DEFAULT_DURATION} s au départ).
+Temps : 30 s — le temps pour répondre, de ${MIN_DURATION} à ${MAX_DURATION} secondes, pour cette question et les suivantes, jusqu'à la prochaine ligne Temps : inutile de la répéter. Écrite seule avant la première question, elle vaut pour tout le quiz. Sans aucune ligne Temps, celui réglé dans FiestApp (${DEFAULT_DURATION} s au départ).
 Photo : tour-eiffel.jpg — une photo montrée avec la question : le nom de son fichier, à envoyer avec la liste, ou, à défaut, ce qu'elle doit montrer (« Photo : la tour Eiffel illuminée, de nuit »).
 Observation : 5 s — avec une photo seulement : elle passe seule pendant ce temps, de ${MIN_OBSERVE} à ${MAX_OBSERVE} secondes, puis disparaît, et l'on répond de mémoire.
 
@@ -190,4 +194,66 @@ export async function joindrePhotos<F extends { name: string }>(
     }),
     echecs,
   }
+}
+
+/**
+ * Le quiz écrit dans le format que « Coller une liste » relit — l'inverse de
+ * `parseImportedQuestions`. On ne pouvait pas se passer un quiz en texte :
+ * dans un message, à relire, à faire compléter par une IA (AD-7). La
+ * catégorie et le temps ne s'écrivent que lorsqu'ils changent, puisqu'ils
+ * courent d'une question à l'autre. Les photos ne voyagent pas en texte :
+ * elles s'annoncent (« Photo : »), et la question recollée les attendra.
+ * Une question sans intitulé ne s'écrit pas : elle n'aurait rien à relire.
+ */
+export function ecrireListe(questions: readonly QuizQuestionDef[]): string {
+  const blocs: string[] = []
+  // Rien de connu au départ : la première question dit sa catégorie et son
+  // temps, sans quoi, recollée, elle prendrait ceux de sa nouvelle voisine.
+  // Un quiz sans aucune catégorie n'en dit rien : un « # » seul en tête
+  // intriguerait qui lit la liste, pour un cas rare.
+  let categorie: string | null | undefined = questions.some(q => q.category) ? undefined : null
+  let temps: number | null = null
+  let n = 0
+  for (const q of questions) {
+    const intitule = (q.text ?? '').trim()
+    if (!intitule) continue
+    n++
+    const lignes: string[] = []
+    const cat = q.category ?? null
+    if (cat !== categorie) {
+      lignes.push(cat ? `# ${cat}` : '#')
+      categorie = cat
+    }
+    // Sur une seule ligne, comme l'éditeur l'affichera. Un intitulé que la
+    // liste relirait autrement — « # Quiz musical ? » pris pour une
+    // catégorie, « Temps : 30 s » pour un réglage, « 2. étape » amputé de son
+    // numéro — prend un numéro devant, que la relecture retire.
+    const ligne = intitule.replace(/\s*\n\s*/g, ' ')
+    lignes.push(parseImportedQuestions(`${ligne}\n* a\nb`).questions[0]?.text === ligne ? ligne : `${n}. ${ligne}`)
+    if (q.duration !== temps) {
+      lignes.push(`Temps : ${q.duration} s`)
+      temps = q.duration
+    }
+    const photo = q.image ? `photo de la question ${n}` : photoManquante(q)
+    if (photo) {
+      lignes.push(`Photo : ${photo}`)
+      if (q.observeSeconds !== null && q.observeSeconds !== undefined) lignes.push(`Observation : ${q.observeSeconds} s`)
+    }
+    if (q.kind === 'number') {
+      // Sans cible, la ligne « = » ne se relit pas, et la question se perd
+      // au recollage (compté parmi les blocs ignorés) : on ne devine pas.
+      const cible = q.target === null ? '' : ecrireNombre(q.target)
+      lignes.push(`= ${cible}${q.unit.trim() ? ` ${q.unit.trim()}` : ''}`)
+    } else {
+      q.answers.forEach((a, i) => {
+        const reponse = (a ?? '').trim()
+        if (!reponse) return
+        const marquee = i === q.correct && q.correct !== SANS_BONNE_REPONSE ? `* ${reponse}` : reponse
+        // « Photo : la plage » est un choix, pas un réglage : la puce le dit.
+        lignes.push(luCommeReglage(reponse) ? `- ${marquee}` : marquee)
+      })
+    }
+    blocs.push(lignes.join('\n'))
+  }
+  return blocs.join('\n\n')
 }

@@ -1,4 +1,5 @@
 import { Icon, type IconName } from './Icon'
+import { enumerer } from '../../../shared/classement'
 import { formatNumber, place, rang } from '../format'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
 import type { HighlightKind, ReviewHighlight, ReviewPlayer, ReviewQuestion } from '../../../shared/review'
@@ -81,7 +82,8 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
               {place(player.rank)} sur {played.length}
             </span>
           </div>
-          {team && player.teamRank !== null && (
+          {/* Seul dans son équipe, « 1ʳᵉ place sur 1 » ne dit rien. */}
+          {team && player.teamRank !== null && mates.length >= 2 && (
             <div className="bilan-tile">
               <span className="label">Dans ton équipe</span>
               <span className="bilan-tile-value">{rang(player.teamRank)}</span>
@@ -130,7 +132,10 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
                 <span className="award-emoji">{a.emoji}</span>
                 <div className="bilan-moment-body">
                   <strong>{a.title}</strong>
-                  <span className="muted">{a.detail}</span>
+                  <span className="muted">
+                    {a.detail}
+                    {a.exAequo && ` · ex æquo avec ${enumerer(a.exAequo)}, départagé par ordre alphabétique`}
+                  </span>
                 </div>
               </li>
             ))}

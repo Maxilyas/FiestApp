@@ -4,7 +4,8 @@ import { lireSoireeLocale, type DB } from './db'
 import type { PlayerRec } from './party'
 import type { TeamRec } from './teams'
 import type { Soiree } from './archive'
-import { toRow, type AnswerRow } from './answers'
+import { colonneEquipe, toRow, type AnswerRow } from './answers'
+import { pouls } from './pouls'
 import type { TeamBonus } from '../../../shared/types'
 
 /** Une partie telle qu'elle est écrite dans la table `sessions` locale. */
@@ -134,7 +135,7 @@ const MIRROR_TABLES = ['party_players', 'party_teams', 'party_bonus', 'party_ans
 
 const SQL = {
   joueur: `INSERT INTO party_players (id, name, avatar, token, team_id, profile_id, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar,
+           ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar, token = excluded.token,
              team_id = excluded.team_id, profile_id = excluded.profile_id`,
   equipe: `INSERT INTO party_teams (id, name, emoji, position, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET name = excluded.name, emoji = excluded.emoji`,
@@ -143,8 +144,8 @@ const SQL = {
   gain: `INSERT INTO party_scores (id, player_id, session_id, points, reason, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO NOTHING`,
   reponse: `INSERT INTO party_answers (id, session_id, quiz_title, q_index, kind, player_id, answered,
-              correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, space_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              correct, choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id, space_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO NOTHING`,
   partie: `INSERT INTO party_sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -234,6 +235,7 @@ const ligneReponse = (spaceId: string, r: ReponseMiroir) =>
     r.observed ? 1 : 0,
     r.createdAt,
     r.category ?? null,
+    colonneEquipe(r.teamId),
     spaceId,
   ])
 const lignePartie = (spaceId: string, s: SessionRow) =>
@@ -431,6 +433,10 @@ export class PartyBackup {
     for (const table of MIRROR_TABLES) await ajouterColonne(this.client, table, 'space_id', 'TEXT')
     // La catégorie des questions est arrivée après : un miroir d'avant ne l'a pas.
     await ajouterColonne(this.client, 'party_answers', 'category', 'TEXT')
+    // L'équipe de chaque réponse aussi (`AnswerRow.teamId`) : sans elle, une
+    // restauration sur disque effacé rendait le verdict des équipes à la
+    // composition du moment.
+    await ajouterColonne(this.client, 'party_answers', 'team_id', 'TEXT')
     await this.client.batch(
       [
         ...MIRROR_TABLES.map(table => `CREATE INDEX IF NOT EXISTS idx_${table}_space ON ${table}(space_id)`),
@@ -645,9 +651,12 @@ export class PartyBackup {
     if (voie.enVol || voie.reessai || voie.suspendue || this.ferme) return
     if (voie.file.length === 0) return this.signalerVide(voie)
     const tete = this.regrouper(voie)
+    const debut = Date.now()
     voie.enVol = this.envoyer(voie, tete).then(
       () => {
         voie.enVol = null
+        // Ce que coûte la base distante, vue d'ici : `/healthz` le montre.
+        pouls.miroir.noter(Date.now() - debut)
         // Rien ne touche à un envoi en vol : c'est toujours lui, en tête.
         const i = voie.file.indexOf(tete)
         if (i >= 0) {
@@ -837,7 +846,7 @@ export class PartyBackup {
     // qui suit chaque panne, d'ordinaire.
     const [joueursLoin, equipesLoin, prixLoin, soireeLoin, gainsLoin, reponsesLoin, partiesLoin] = await this.client.batch(
       [
-        { sql: 'SELECT id, name, avatar, team_id, profile_id FROM party_players WHERE space_id = ?', args: [spaceId] },
+        { sql: 'SELECT id, name, avatar, token, team_id, profile_id FROM party_players WHERE space_id = ?', args: [spaceId] },
         { sql: 'SELECT id, name, emoji FROM party_teams WHERE space_id = ?', args: [spaceId] },
         { sql: 'SELECT id FROM party_bonus WHERE space_id = ?', args: [spaceId] },
         { sql: 'SELECT id, held_at FROM party_soiree WHERE space_id = ?', args: [spaceId] },
@@ -851,7 +860,9 @@ export class PartyBackup {
     const empreintes = (r: ResultSet, colonnes: string[]) =>
       new Map(r.rows.map(row => [String(row.id), colonnes.map(c => texte(row[c]) ?? '∅').join('|')]))
     const loin = {
-      joueurs: empreintes(joueursLoin, ['name', 'avatar', 'team_id', 'profile_id']),
+      // Le jeton aussi : une place rendue le renouvelle (`renouvelerJeton`),
+      // et l'ancien, resté au miroir, rouvrirait la fiche à l'ancien téléphone.
+      joueurs: empreintes(joueursLoin, ['name', 'avatar', 'token', 'team_id', 'profile_id']),
       equipes: empreintes(equipesLoin, ['name', 'emoji']),
       prix: empreintes(prixLoin, []),
       soiree: empreintes(soireeLoin, ['held_at']),
@@ -869,7 +880,7 @@ export class PartyBackup {
     decouper(
       [
         ...local.players
-          .filter(p => !pareil(loin.joueurs, p.id, p.name, p.avatar, p.team_id, p.profile_id))
+          .filter(p => !pareil(loin.joueurs, p.id, p.name, p.avatar, p.token, p.team_id, p.profile_id))
           .map(p =>
             ligneJoueur(
               spaceId,
@@ -1093,8 +1104,8 @@ export class PartyBackup {
     )
     const insertAnswer = db.prepare(
       `INSERT OR IGNORE INTO answer_log (uid, session_id, quiz_title, q_index, kind, player_id, answered, correct,
-         choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, space_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         choice, value, target, ms, changes, points, duration_ms, observed, created_at, category, team_id, space_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     const insertSession = db.prepare(
       `INSERT OR IGNORE INTO sessions (id, status, participant_ids, state, timers, created_at, updated_at, space_id)
@@ -1172,6 +1183,7 @@ export class PartyBackup {
           r.observed ? 1 : 0,
           r.createdAt,
           r.category ?? null,
+          colonneEquipe(r.teamId),
           spaceOf(raw),
         )
       }

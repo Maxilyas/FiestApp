@@ -17,6 +17,15 @@ export interface HautFaitAnnonce {
   ton: Ton
 }
 
+/** Un prix du palmarès, tel que la fin de soirée le rappelle à son lauréat. */
+export interface PrixAnnonce {
+  key: string
+  emoji: string
+  title: string
+  /** Le chiffre qui le justifie (« 2,4 s de moyenne »). */
+  detail: string
+}
+
 /** Où relire la soirée close : son historique, dans l'espace. */
 export interface SoireeClose {
   id: string
@@ -32,12 +41,29 @@ export interface SoireeClose {
  */
 export interface FinDeSoiree extends Distinctions {
   soiree: SoireeClose
+  /**
+   * Son identifiant de joueur dans l'archive : « Mon bilan » s'ouvre sur lui
+   * (`#p=…`) au lieu de demander « Qui es-tu ? ». Il est déjà public dans le
+   * bilan. Absent d'un serveur d'avant.
+   */
+  joueurId?: string
   nom: string
   avatar: string
   rang: number
   points: number
-  /** Joueurs qui ont répondu ce soir-là. */
+  /** Joueurs qui ont répondu ce soir-là — lui compris ou non. */
   joueurs: number
+  /**
+   * A-t-il répondu au moins une fois ? Le rang seul ne le dit pas : il vaut 0
+   * à 0 point, et Bob, deux réponses fausses, lisait « Tu n'as pas joué ce
+   * soir » au-dessus de « Le Cancre Magnifique ». Absent d'un serveur d'avant.
+   */
+  aJoue?: boolean
+  /**
+   * Les prix du palmarès qu'il remporte (« L'Éclair ») : Jeanne cherchait le
+   * sien sur sa fin de soirée. Absent d'un serveur d'avant.
+   */
+  prix?: PrixAnnonce[]
   /** Ce qu'il a fait de remarquable ce soir. */
   hautsFaits: HautFaitAnnonce[]
   /** Ce que la soirée rapporte à son profil, s'il en a un. */
@@ -80,6 +106,12 @@ export interface Figure extends Distinctions {
 export interface ClotureDeSoiree {
   soiree: SoireeClose
   podium: (Figure & { points: number; rang: number })[]
+  /**
+   * L'équipe ou les équipes qui l'emportent, points d'équipe prix compris :
+   * le verdict de l'historique, dit à la salle. Absent d'un serveur d'avant,
+   * vide d'une soirée sans équipes.
+   */
+  equipes?: { nom: string; emoji: string; points: number }[]
   /** Les hauts faits de la soirée, invité par invité. */
   hautsFaits: (Figure & { faits: HautFaitAnnonce[] })[]
   /** Les avatars légendaires débloqués ce soir. */
@@ -104,4 +136,78 @@ export interface GainAnnonce {
 /** Au podium d'un quiz : les montées de niveau, pour l'écran commun. */
 export interface ProgresDeQuiz {
   montees: (Figure & { avant: number; apres: number })[]
+}
+
+/**
+ * La ligne sous le prénom, à la fin de soirée : son rang s'il en a un, sinon
+ * ce qu'on sait de lui — joué pour rien, pas joué, ou rien du tout (une fin
+ * d'un serveur d'avant, qui ne disait pas s'il avait joué).
+ */
+export type LigneDeRang =
+  | { cas: 'rang'; rang: number; joueurs: number; points: number }
+  | { cas: 'zero'; joueurs: number }
+  | { cas: 'absent'; joueurs: number }
+  | { cas: 'neutre'; joueurs: number }
+
+export function ligneDeRang(fin: Pick<FinDeSoiree, 'rang' | 'points' | 'joueurs' | 'aJoue'>): LigneDeRang {
+  if (fin.rang > 0) return { cas: 'rang', rang: fin.rang, joueurs: fin.joueurs, points: fin.points }
+  if (fin.aJoue === true) return { cas: 'zero', joueurs: fin.joueurs }
+  if (fin.aJoue === false) return { cas: 'absent', joueurs: fin.joueurs }
+  return { cas: 'neutre', joueurs: fin.joueurs }
+}
+
+/** « 3 joueurs », « 1 joueur ». */
+export const nJoueurs = (n: number) => `${n} joueur${n > 1 ? 's' : ''}`
+
+// ── La fin gardée sur le téléphone ──────────────────────────────────────
+
+/**
+ * Ce que le téléphone range de sa fin de soirée : tout, sauf le récit d'un
+ * Divin. Il reste au seul porteur, au moment où il descend (invariant 21) —
+ * rangé dans le navigateur, il se relisait pendant des heures sur un
+ * téléphone prêté.
+ */
+export function finAGarder(fin: FinDeSoiree): FinDeSoiree {
+  if (!fin.profil) return fin
+  return { ...fin, profil: { ...fin.profil, divins: fin.profil.divins.map(d => ({ key: d.key, ton: d.ton, legende: '' })) } }
+}
+
+const estObjet = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
+const textes = (o: Record<string, unknown>, ...cles: string[]) => cles.every(c => typeof o[c] === 'string')
+const nombres = (o: Record<string, unknown>, ...cles: string[]) => cles.every(c => typeof o[c] === 'number')
+const optionnel = (x: unknown, type: 'string' | 'boolean') => x === undefined || typeof x === type
+const listeDe = (x: unknown, lisible: (e: unknown) => boolean) => Array.isArray(x) && x.every(lisible)
+
+/** Une soirée close lisible : de quoi en faire des liens. */
+export function soireeCloseLisible(x: unknown): x is SoireeClose {
+  return estObjet(x) && textes(x, 'id', 'titre', 'slug')
+}
+
+/**
+ * Une fin de soirée gardée, relue avant qu'on la rouvre. Une fin rangée par
+ * une autre version de la page (un déploiement dans les douze heures) avait
+ * une autre forme, et la page restait sur « Oups » jusqu'à ce qu'elle
+ * expire : ce qu'on ne sait pas lire ne se rouvre pas. Tout ce que
+ * `FinDeSoiree` lit sans le vérifier y passe.
+ */
+export function finLisible(x: unknown): x is FinDeSoiree {
+  if (!estObjet(x) || !soireeCloseLisible(x.soiree)) return false
+  if (!textes(x, 'nom', 'avatar') || !nombres(x, 'rang', 'points', 'joueurs')) return false
+  if (!optionnel(x.joueurId, 'string') || !optionnel(x.aJoue, 'boolean')) return false
+  const annonce = (e: unknown) => estObjet(e) && textes(e, 'key', 'emoji', 'title')
+  if (!listeDe(x.hautsFaits, e => annonce(e) && textes(e as Record<string, unknown>, 'ton'))) return false
+  if (x.prix !== undefined && !listeDe(x.prix, e => annonce(e) && textes(e as Record<string, unknown>, 'detail'))) {
+    return false
+  }
+  if (x.profil === undefined) return true
+  const p = x.profil
+  return (
+    estObjet(p) &&
+    nombres(p, 'xp', 'niveauAvant', 'niveauApres') &&
+    listeDe(p.paliers, e => annonce(e) && textes(e as Record<string, unknown>, 'ton')) &&
+    listeDe(p.legendaires, e => typeof e === 'string') &&
+    listeDe(p.divins, e => estObjet(e) && textes(e, 'key', 'ton')) &&
+    listeDe(p.finitions, e => typeof e === 'string') &&
+    optionnel(p.eclat, 'string')
+  )
 }

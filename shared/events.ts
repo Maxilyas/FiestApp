@@ -1,7 +1,7 @@
 // Protocole Socket.io typé, partagé entre client et serveur.
-import type { PartySnapshot } from './types'
+import type { EcranDeScene, OngletDePodium, PartySnapshot } from './types'
 import type { PublicProfile } from './profil'
-import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz } from './fin'
+import type { ClotureDeSoiree, FinDeSoiree, GainAnnonce, ProgresDeQuiz, SoireeClose } from './fin'
 
 /**
  * Pourquoi un `player:join` est refusé, quand le téléphone doit faire autre
@@ -30,8 +30,12 @@ export type JoinAck =
    * clore. Le téléphone dormait pendant la clôture ; il reçoit ici la fin de
    * sa soirée (`fin`), comme s'il avait été là, au lieu d'un simple « on ne
    * te retrouve plus ».
+   *
+   * `derniere`, avec `unknown-token` : le serveur a redémarré depuis la
+   * clôture et a oublié les fins de soirée, mais l'espace n'a encore rien
+   * joué depuis — le téléphone propose de revoir la soirée close.
    */
-  | { ok: false; error: string; reason?: JoinRefusal; fin?: FinDeSoiree }
+  | { ok: false; error: string; reason?: JoinRefusal; fin?: FinDeSoiree; derniere?: SoireeClose }
 
 /**
  * Pourquoi une réponse d'invité n'a pas été retenue. Tant que `player:action`
@@ -59,6 +63,23 @@ export type ActionRefusal =
   | 'error'
   /** Le serveur n'a pas répondu à temps — motif posé par le téléphone. */
   | 'timeout'
+
+/**
+ * L'invité hors ligne qui porte ce prénom, tel qu'un téléphone le montre à
+ * l'entrée : « Un « Rachid » 🦁 est hors ligne ». `profil` : sa fiche est
+ * liée à un profil, et c'est en s'y connectant qu'il retrouvera sa place —
+ * jamais par un code.
+ */
+export interface AbsentDuMemeNom {
+  name: string
+  avatar: string
+  profil: boolean
+}
+
+/** Ce que la console reçoit quand elle demande à rendre sa place à un invité. */
+export type PlaceRendue =
+  | { ok: true; code: string; expiresAt: number }
+  | { ok: false; error: string }
 
 export type ActionAck =
   | { ok: true }
@@ -109,6 +130,33 @@ export interface ClientToServerEvents {
     payload: { sessionId: string; action: unknown; slug?: string; token?: string },
     ack: (res: ActionAck) => void,
   ) => void
+  /**
+   * Reprendre sa place avec le code que l'animateur a fait paraître : le
+   * téléphone mort en pleine soirée, et celui qu'on emprunte pour revenir.
+   * Un nouveau téléphone n'a pas le jeton de l'ancien — c'est voulu, sinon
+   * n'importe qui prendrait la place de n'importe qui (invariant 9) : seul
+   * l'animateur peut la rendre. Le code vaut une re-présentation ordinaire,
+   * la fiche du serveur fait foi, et l'accusé est celui d'un `player:join`.
+   *
+   * `token` : l'identité que ce téléphone portait jusque-là, s'il en avait
+   * une — le second « Rachid » créé en attendant. Sans rien joué, il
+   * s'efface ; sinon il reste, avec ses points, et on ne l'attend plus.
+   */
+  'player:reprendre': (
+    payload: { slug: string; code: string; token?: string },
+    ack: (res: JoinAck) => void,
+  ) => void
+  /**
+   * Un invité hors ligne porte-t-il ce prénom ? Demandé par le téléphone qui
+   * le tape à l'entrée, ou qui s'est inscrit une seconde fois — et répondu à
+   * lui seul : rien ne part à la salle, et l'instantané des téléphones n'a
+   * pas à dire qui est connecté. Son propre invité n'est jamais compté, ni
+   * celui du profil que porte ce téléphone (s'y connecter le lui rend déjà).
+   */
+  'player:horsLigne': (
+    payload: { slug: string; name: string },
+    ack: (res: { ok: true; absent?: AbsentDuMemeNom } | { ok: false; error: string }) => void,
+  ) => void
   /** Changer d'équipe depuis la salle d'attente — refusé pendant un quiz. */
   'player:setTeam': (
     payload: { teamId: string | null },
@@ -121,7 +169,12 @@ export interface ClientToServerEvents {
    */
   'host:hello': (
     payload: Record<string, never>,
-    ack: (res: { ok: boolean; slug?: string; name?: string }) => void,
+    /**
+     * `branchee` : cet écran a été ouvert par un code d'appairage — la télé
+     * dit alors par qui, puisque tout animateur du serveur peut valider le
+     * code qu'elle affiche.
+     */
+    ack: (res: { ok: boolean; slug?: string; name?: string; branchee?: true }) => void,
   ) => void
   /** Démarre une partie de quiz (l'animateur choisit ensuite le quiz à jouer). */
   'host:launch': () => void
@@ -157,6 +210,12 @@ export interface ClientToServerEvents {
   'host:renamePlayer': (payload: { playerId: string; name: string }) => void
   /** Exclut un invité et efface ses points. */
   'host:removePlayer': (payload: { playerId: string }) => void
+  /**
+   * Rendre sa place à un invité hors ligne : un code court, à usage unique,
+   * vite périmé, que l'invité tape à l'entrée de son nouveau téléphone
+   * (`player:reprendre`). Il ne vaut que dans cet espace et pour cette fiche.
+   */
+  'host:rendrePlace': (payload: { playerId: string }, ack: (res: PlaceRendue) => void) => void
 
   /** Crée une équipe. */
   'host:createTeam': (payload: { name: string; emoji: string }) => void
@@ -164,8 +223,11 @@ export interface ClientToServerEvents {
   'host:updateTeam': (payload: { teamId: string; name?: string; emoji?: string }) => void
   /** Supprime une équipe — ses membres se retrouvent sans équipe. */
   'host:removeTeam': (payload: { teamId: string }) => void
-  /** Crée d'un coup les six équipes par défaut (écran vierge seulement). */
-  'host:seedTeams': () => void
+  /**
+   * Crée d'un coup les premières équipes par défaut (écran vierge seulement) :
+   * `count` de deux à six, six sans rien.
+   */
+  'host:seedTeams': (payload?: { count?: number }) => void
   /** Déplace un invité vers une autre équipe (ou l'en sort avec null). */
   'host:assignPlayer': (payload: { playerId: string; teamId: string | null }) => void
 
@@ -173,6 +235,23 @@ export interface ClientToServerEvents {
   'host:awardTeam': (payload: { teamId: string; points: number; reason: string }) => void
   /** Retire un prix mal attribué. */
   'host:removeBonus': (payload: { bonusId: string }) => void
+
+  /**
+   * Ouvre un écran de fin de soirée — ou revient à la salle d'attente avec
+   * `null` — sur TOUS les écrans d'animateur de l'espace : c'était un état de
+   * la page, et la télé restait en salle d'attente pendant la remise des prix
+   * ouverte au téléphone. `depuis` dit l'écran que l'animateur avait sous les
+   * yeux (invariant 12) : si la scène a changé entre-temps, depuis l'autre
+   * console, le geste est ignoré. Absent (une page d'avant), il passe. La
+   * clôture ne s'ouvre pas ainsi : seule `host:closeParty` y mène.
+   */
+  'host:scene': (payload: { ecran: EcranDeScene | null; onglet?: OngletDePodium; depuis?: EcranDeScene | null }) => void
+  /**
+   * Cet écran d'animateur se tient en télécommande (ou ne l'est plus) : tant
+   * qu'il y en a une, les autres écrans de l'espace laissent les coulisses à
+   * sa main.
+   */
+  'host:telecommande': (payload: { active: boolean }) => void
 }
 
 export interface ServerToClientEvents {

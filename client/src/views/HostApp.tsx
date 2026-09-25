@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
-import { api } from '../api'
+import { ChampNombre } from '../components/ChampNombre'
+import { api, motifDe } from '../api'
 import { dataUrl, spacePath } from '../routes'
 import { formatDay } from '../../../shared/archive'
 import { titreDeCloture } from '../../../shared/space'
@@ -11,17 +12,19 @@ import { espacesFines } from '../format'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
+import { Coupe } from '../components/Coupe'
 import { TeamBoard } from '../components/TeamBoard'
 import { FinalPodium, Standings } from '../components/Podium'
 import { Trophies } from '../components/Trophies'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { Icon } from '../components/Icon'
-import { Rank, Score } from '../components/Rank'
+import { Rank, Score, motPoints } from '../components/Rank'
 import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
-import { finalRanking, rankTeams, vainqueursDuQuiz } from '../../../shared/teams'
+import { Absents } from '../components/Absents'
+import { detailDesPoints, effetDUnPrix, rankTeams, regleDesEquipes, vainqueursDuQuiz } from '../../../shared/teams'
 import { classer, enumerer } from '../../../shared/classement'
-import type { PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
+import type { EcranDeScene, PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
 import { sound } from '../sound'
 import { QuizHost } from '../games/quiz/HostView'
 import type { QuizHostView } from '../../../shared/games/quiz'
@@ -30,7 +33,11 @@ import { Niveau } from '../components/Niveau'
 import { distinctions } from '../../../shared/profil'
 import type { ArchiveList } from '../../../shared/archive'
 import { AnnoncesDeNiveau, ClotureEcran } from '../components/Cloture'
+import { BoutonCopier } from '../components/Partage'
 import { useEcranAllume } from '../veille'
+import { RemiseEnScene } from '../components/RemiseEnScene'
+import { CodeDeLaTele } from '../components/Appairage'
+import { retenirTelecommande, telecommandeParDefaut } from '../telecommande'
 
 /** QR wifi standard : le téléphone rejoint le réseau en le scannant. */
 function wifiQrValue(wifi: { ssid: string; pass: string }): string {
@@ -227,7 +234,7 @@ function TeamGroup({
 export function HostApp() {
   const s = useAppState()
   /** L'animateur reconnu par le serveur — `null` tant que la session n'a pas été vérifiée. */
-  const [me, setMe] = useState<{ slug: string; name: string } | null>(null)
+  const [me, setMe] = useState<{ slug: string; name: string; branchee: boolean } | null>(null)
   /** Le serveur a refusé la poignée de main : pas de session, ou une session périmée. */
   const [needLogin, setNeedLogin] = useState(false)
   const [error, setError] = useState('')
@@ -235,22 +242,19 @@ export function HostApp() {
   const [muted, setMuted] = useState(isMuted)
   /** Velours (noir chaud) ou Ivoire (fond clair, pour un vidéoprojecteur qui délave les noirs). */
   const [theme, setTheme] = useState(currentTheme)
-  /**
-   * Les écrans de fin de soirée, projetés à la place du jeu. `null` = on est
-   * sur l'écran d'accueil, prêt à lancer un quiz.
-   */
-  const [screen, setScreen] = useState<null | 'podium' | 'awards' | 'victory' | 'cloture'>(null)
+  /** Cet écran se tient en télécommande : les gestes en grand, sans la scène projetée. */
+  const [telecommande, setTelecommande] = useState(telecommandeParDefaut)
   /** Motif et points du prix libre, celui qui ne se calcule pas. */
   const [freeReason, setFreeReason] = useState('')
   const [freePoints, setFreePoints] = useState(1)
   const [freeTeam, setFreeTeam] = useState('')
-  /** Le podium montre les équipes ou les individus — on bascule pendant la remise. */
-  const [podiumTab, setPodiumTab] = useState<'teams' | 'solo'>('teams')
   /** Les prix de caractère, calculés côté serveur à partir du journal des points. */
   const [recap, setRecap] = useState<Recap | null>(null)
   /** Formulaire de création d'équipe. */
   const [newTeam, setNewTeam] = useState('')
   const [newEmoji, setNewEmoji] = useState(TEAM_EMOJIS[0])
+  /** Combien d'équipes créer d'un coup ; null tant qu'on garde la suggestion. */
+  const [nbEquipes, setNbEquipes] = useState<number | null>(null)
   /** L'emplacement de la console animateur, où chaque écran pose ses boutons. */
   const [consoleSlot, setConsoleSlot] = useState<HTMLElement | null>(null)
 
@@ -264,14 +268,81 @@ export function HostApp() {
   // statistiques changent après chaque quiz joué.
   const spaceSlug = s.snapshot?.space.slug ?? null
   const spaceTitle = s.snapshot?.space.title ?? null
+  /**
+   * L'écran de fin de soirée projeté à la place du jeu, `null` en salle
+   * d'attente. C'était un état de la page : ouvert au téléphone, il ne
+   * passait pas à la télé. Le serveur le tient maintenant pour tous les
+   * écrans d'animateur de l'espace (`host:scene`). La clôture ne se montre
+   * qu'avec son annonce : un écran qui ne l'a pas reçue reste en salle
+   * d'attente.
+   */
+  const ecran = s.snapshot?.scene?.ecran ?? null
+  const screen =
+    ecran === 'cloture'
+      ? s.cloture
+        ? 'cloture'
+        : null
+      : ecran === 'prix'
+        ? 'awards'
+        : ecran === 'victoire'
+          ? 'victory'
+          : ecran
   useEffect(() => {
     if (spaceTitle) document.title = `${spaceTitle} · Écran commun`
   }, [spaceTitle])
-  // La soirée qu'on vient de clore prend l'écran : c'est la dernière chose
-  // que la salle doit voir.
+  // La clôture quittée — « La soirée suivante », cliquée ici ou à l'autre
+  // console — ne laisse pas son annonce derrière elle. Un écran qui n'en a
+  // jamais reçu la scène n'y touche pas : l'annonce arrive avant elle.
+  const aVuLaCloture = useRef(false)
   useEffect(() => {
-    if (s.cloture) setScreen('cloture')
-  }, [s.cloture])
+    if (ecran === 'cloture') aVuLaCloture.current = true
+    else if (aVuLaCloture.current && s.snapshot) {
+      aVuLaCloture.current = false
+      setState({ cloture: null })
+    }
+  }, [ecran, s.snapshot])
+  // La fanfare sonne sur l'écran qui montre la scène, pas sur la
+  // télécommande qui l'a ouverte.
+  const ecranPrecedent = useRef(ecran)
+  useEffect(() => {
+    if (ecran !== ecranPrecedent.current && !telecommande && (ecran === 'podium' || ecran === 'victoire')) sound.fanfare()
+    ecranPrecedent.current = ecran
+  }, [ecran, telecommande])
+  /**
+   * Les coulisses — la liste des quiz, la grille des prix — vont à la
+   * télécommande quand il y en a une. Elles se lisent par scène : l'écran
+   * de fin, ou la phase du quiz.
+   */
+  const sessionEnCours = s.snapshot?.session
+  const phaseEnCours = sessionEnCours
+    ? (s.views[sessionEnCours.id]?.view as QuizHostView | undefined)?.phase
+    : undefined
+  const cleCoulisses = `${ecran ?? ''}:${phaseEnCours ?? ''}`
+  // Un numéro par scène traversée, pas la clé elle-même : les prix rouverts
+  // après un détour par la salle d'attente sont une scène neuve, et ce qu'on
+  // y avait repris « d'ici » ne doit pas y revenir.
+  const scenes = useRef({ cle: cleCoulisses, numero: 0 })
+  if (scenes.current.cle !== cleCoulisses) scenes.current = { cle: cleCoulisses, numero: scenes.current.numero + 1 }
+  const numeroDeScene = scenes.current.numero
+  /**
+   * La télécommande s'est vue pendant cette scène. Son téléphone verrouillé,
+   * ou dix-huit secondes dans l'appareil photo, et le serveur la retire :
+   * la télé projetait alors la grille, tous les lauréats et la consigne
+   * avec. Les coulisses restent donc cachées jusqu'à la scène suivante.
+   */
+  const [telecommandeVue, setTelecommandeVue] = useState<number | null>(null)
+  const telecommandeLa = !!s.snapshot?.telecommande
+  useEffect(() => {
+    if (telecommandeLa) setTelecommandeVue(numeroDeScene)
+  }, [telecommandeLa, numeroDeScene])
+  /**
+   * « Choisir d'ici » : la télé reprend les coulisses pour cette scène. Marc
+   * anime du portable branché à la télé et ouvre /host sur son téléphone —
+   * étroit, donc télécommande —, et son portable ne pouvait plus ni choisir
+   * un quiz ni remettre un prix. Oublié à la scène suivante.
+   */
+  const [coulissesIci, setCoulissesIci] = useState<number | null>(null)
+  const reprendreCoulisses = () => setCoulissesIci(numeroDeScene)
   const finirAnnonces = useCallback(() => setState({ progres: null }), [])
   useEffect(() => {
     if (!screen || screen === 'cloture' || !spaceSlug) return
@@ -286,6 +357,15 @@ export function HostApp() {
       })
   }, [screen, spaceSlug])
 
+  const telecommandeRef = useRef(telecommande)
+  const basculerTelecommande = () => {
+    const active = !telecommande
+    telecommandeRef.current = active
+    retenirTelecommande(active)
+    setTelecommande(active)
+    socket.emit('host:telecommande', { active })
+  }
+
   // La session voyage dans le cookie de la poignée de main : le serveur la
   // reconnaît (ou non) à chaque connexion, sans rien à retenir ici.
   useEffect(() => {
@@ -296,8 +376,11 @@ export function HostApp() {
       const res = await helloHost().catch(() => null)
       if (!res) return
       if (res.ok && res.slug && res.name) {
-        setMe({ slug: res.slug, name: res.name })
+        setMe({ slug: res.slug, name: res.name, branchee: !!res.branchee })
         setNeedLogin(false)
+        // Chaque connexion se redit télécommande : le serveur l'oublie avec
+        // la précédente.
+        socket.emit('host:telecommande', { active: telecommandeRef.current })
       } else {
         setMe(null)
         setNeedLogin(true)
@@ -311,7 +394,9 @@ export function HostApp() {
       if (motif !== 'io server disconnect') return
       setMe(null)
       setNeedLogin(true)
-      setError('Session fermée — reconnecte-toi')
+      // Débranchée exprès, la télé n'a pas à dire qu'on l'a fermée.
+      if (!debranchement.current) setError('Session fermée — reconnecte-toi')
+      debranchement.current = false
     }
     if (socket.connected) hello()
     socket.on('connect', hello)
@@ -320,6 +405,35 @@ export function HostApp() {
       socket.off('connect', hello)
       socket.off('disconnect', coupe)
     }
+  }, [])
+
+  /**
+   * « Ce n'est pas le tien ? Débrancher » : tout animateur du serveur peut
+   * valider le code qu'une télé affiche, et elle s'ouvrait sur son espace
+   * sans que personne devant la télé ne sache lequel. La session de cette
+   * télé se ferme, et elle revient à son code.
+   */
+  const debranchement = useRef(false)
+  const debrancher = async () => {
+    debranchement.current = true
+    try {
+      await api.auth.logout()
+    } catch (e) {
+      debranchement.current = false
+      showToast({ kind: 'error', message: motifDe(e) })
+      return
+    }
+    setMe(null)
+    setError('')
+    setNeedLogin(true)
+  }
+
+  // La télé branchée depuis le téléphone : son cookie est posé, la prochaine
+  // poignée de main le porte.
+  const branchee = useCallback(() => {
+    setError('')
+    socket.disconnect()
+    socket.connect()
   }, [])
 
   const submitLogin = async (login: string, password: string) => {
@@ -338,7 +452,12 @@ export function HostApp() {
   }
 
   if (needLogin) {
-    return <LoginForm title="Écran commun" error={error} busy={busy} onSubmit={submitLogin} />
+    return (
+      <div className="porte-ecran">
+        <LoginForm title="Écran commun" error={error} busy={busy} onSubmit={submitLogin} />
+        <CodeDeLaTele onBranchee={branchee} />
+      </div>
+    )
   }
   if (!me) {
     return (
@@ -372,7 +491,16 @@ export function HostApp() {
 
   // Dès qu'une question est à l'écran, tout le reste s'efface : sur un
   // vidéoprojecteur, ce qui compte doit occuper toute la place.
-  const staging = (!!quizView && quizView.phase !== 'pickPack') || screen !== null
+  // La télécommande garde la salle d'attente sous la main — les invités, les
+  // équipes — pendant que la télé projette la scène.
+  const staging = !telecommande && ((!!quizView && quizView.phase !== 'pickPack') || screen !== null)
+  /**
+   * Une télécommande est branchée ailleurs : cet écran est celui de la
+   * salle, et les coulisses — la grille des prix, la liste des quiz, la
+   * consigne écrite pour l'animateur — restent dans sa main.
+   */
+  const coulissesAilleurs =
+    !telecommande && coulissesIci !== numeroDeScene && (!!snap.telecommande || telecommandeVue === numeroDeScene)
   const answering = quizView?.phase === 'question'
 
   /** Ce que la bande d'état annonce au centre : où en est la soirée. */
@@ -415,21 +543,56 @@ export function HostApp() {
 
   const teamStandings = rankTeams(teams)
   const teamPodium = teamStandings.map(t => ({ name: t.name, avatar: t.emoji, points: t.average, rank: t.rank }))
+  // L'onglet du podium est dans la scène : la télé montre ce qu'on choisit
+  // à la télécommande. Sans choix, les équipes d'abord, s'il y en a.
+  const podiumTab = snap.scene?.onglet === 'joueurs' || teams.length === 0 ? 'solo' : 'teams'
   const showTeamPodium = podiumTab === 'teams' && teams.length > 0
   // Le vainqueur se joue sur le barème plus les prix : les prix peuvent
   // renverser l'ordre du quiz, c'est tout leur intérêt. Et à égalité, elles
   // gagnent ensemble : la liste départage par nom, pas l'écran de victoire.
-  const final = finalRanking(teams)
   const champions = vainqueursDuQuiz(teams)
   const bonuses = snap.bonuses
   const givenTitles = new Set(bonuses.map(b => b.reason))
   const teamById = (id: string) => teams.find(t => t.id === id)
 
-  const openScreen = (next: 'podium' | 'awards' | 'victory') => {
+  /**
+   * Ouvre un écran de fin — ou revient à la salle d'attente — sur tous les
+   * écrans d'animateur de l'espace. Le geste dit l'écran qu'il quittait : si
+   * l'autre console a changé la scène entre-temps, le serveur l'ignore.
+   */
+  const poserScene = (suivant: EcranDeScene | null, onglet?: 'equipes' | 'joueurs') => {
     initAudio()
-    if (next !== 'awards') sound.fanfare()
-    if (next === 'podium') setPodiumTab(teams.length > 0 ? 'teams' : 'solo')
-    setScreen(next)
+    socket.emit('host:scene', { ecran: suivant, ...(onglet && { onglet }), depuis: ecran })
+  }
+  const openScreen = (next: 'podium' | 'awards' | 'victory') =>
+    poserScene(next === 'awards' ? 'prix' : next === 'victory' ? 'victoire' : 'podium')
+  const setPodiumTab = (onglet: 'teams' | 'solo') => poserScene('podium', onglet === 'teams' ? 'equipes' : 'joueurs')
+
+  /**
+   * Brancher la télé depuis ce téléphone : elle affiche un code sur sa page
+   * de connexion, on le tape ici, et elle s'ouvre sur cet espace — sans
+   * taper d'adresse ni de mot de passe à la télécommande de la télé.
+   */
+  const brancherTele = async () => {
+    const code = await promptDialog({
+      title: 'Brancher la télé',
+      message: 'Ouvre /host sur la télé : elle affiche un code. Tape-le ici — la télé pourra alors piloter ta soirée.',
+      input: { value: '', placeholder: 'ABC 234', maxLength: 12 },
+      confirmLabel: 'Brancher',
+    })
+    if (!code) return
+    try {
+      await api.auth.validerAppairage(code)
+      showToast({ kind: 'info', message: 'La télé est branchée — elle s’ouvre dans un instant' })
+    } catch (e) {
+      showToast({ kind: 'error', message: motifDe(e) })
+    }
+  }
+
+  /** Premier geste de l'animateur : c'est aussi le moment où le navigateur autorise enfin le son. */
+  const lancerQuiz = () => {
+    initAudio()
+    socket.emit('host:launch')
   }
 
   const createTeam = (e: FormEvent) => {
@@ -442,9 +605,41 @@ export function HostApp() {
   }
 
   const backButton = (
-    <button className="btn btn-ghost" onClick={() => setScreen(null)}>
+    <button className="btn btn-ghost" onClick={() => poserScene(null)}>
       Revenir
     </button>
+  )
+
+  // Les onglets du podium : dans son en-tête à la télé, sous la main à la
+  // télécommande.
+  const ongletsPodium = teams.length > 0 && (
+    <div className="row podium-tabs">
+      <button
+        className={'pill-btn' + (podiumTab === 'teams' ? ' active' : '')}
+        aria-pressed={podiumTab === 'teams'}
+        onClick={() => setPodiumTab('teams')}
+      >
+        <Icon name="users" />
+        Les équipes
+      </button>
+      <button
+        className={'pill-btn' + (podiumTab === 'solo' ? ' active' : '')}
+        aria-pressed={podiumTab === 'solo'}
+        onClick={() => setPodiumTab('solo')}
+      >
+        <Icon name="trophy" />
+        Les joueurs
+      </button>
+    </div>
+  )
+
+  /** Ce que la télécommande dit de la scène projetée, au lieu de la projeter. */
+  const apercu = (contenu?: ReactNode) => (
+    <div className="telecommande-apercu" role="status">
+      <span className="label">À l’écran</span>
+      <strong className="telecommande-scene">{stageLabel}</strong>
+      {contenu}
+    </div>
   )
 
   /**
@@ -489,7 +684,7 @@ export function HostApp() {
 
   return (
     <ConsoleSlot.Provider value={consoleSlot}>
-      <div className={'host' + (staging ? ' staging' : '')}>
+      <div className={'host' + (staging ? ' staging' : '') + (telecommande ? ' telecommande' : '')}>
         {/* La bande d'état : le titre, où on en est, comment rejoindre. */}
         <header className="host-band">
           <div className="band-left">
@@ -594,19 +789,49 @@ export function HostApp() {
                   Ajouter
                 </button>
               </form>
-              {teams.length === 0 && (
-                <button className="btn btn-small" onClick={() => socket.emit('host:seedTeams')}>
-                  <Icon name="sparkles" />
-                  Créer les 6 équipes d'un coup
-                </button>
-              )}
+              {teams.length === 0 &&
+                (() => {
+                  // Six équipes pour sept invités, c'était une soirée en solo
+                  // déguisée : on propose une équipe pour quatre, de deux à
+                  // six — et six, comme avant, tant que personne n'est là.
+                  const invites = snap.players.length
+                  const nombre = nbEquipes ?? (invites === 0 ? 6 : Math.min(6, Math.max(2, Math.round(invites / 4))))
+                  return (
+                    <div className="row team-seed">
+                      <select
+                        value={nombre}
+                        aria-label="Nombre d'équipes à créer"
+                        onChange={e => setNbEquipes(Number(e.target.value))}
+                      >
+                        {[2, 3, 4, 5, 6].map(n => (
+                          <option key={n} value={n}>
+                            {n} équipes
+                          </option>
+                        ))}
+                      </select>
+                      <button className="btn btn-small" onClick={() => socket.emit('host:seedTeams', { count: nombre })}>
+                        <Icon name="sparkles" />
+                        Les créer d'un coup
+                      </button>
+                    </div>
+                  )
+                })()}
             </section>
           )}
 
           <section className="card main-stage">
             {screen === 'cloture' && s.cloture ? (
               <>
-                <ClotureEcran cloture={s.cloture} souvenirUrl={`${joinUrl}/soirees/${s.cloture.soiree.id}`} />
+                {telecommande ? (
+                  apercu()
+                ) : (
+                  <ClotureEcran cloture={s.cloture} souvenirUrl={`${joinUrl}/soirees/${s.cloture.soiree.id}`} />
+                )}
+                {/* La clôture ouvre le lendemain : le bilan, les fiches à
+                    imprimer, l'historique, et le lien à envoyer — celui de
+                    l'archive, que la soirée suivante ne changera pas. On le
+                    trouvait le lendemain, par l'historique, en devinant lequel
+                    des deux « Souvenir » copier. */}
                 <ConsoleActions>
                   <a
                     className="btn"
@@ -617,12 +842,27 @@ export function HostApp() {
                     <Icon name="book" />
                     Le souvenir
                   </a>
+                  <BoutonCopier texte={`${joinUrl}/soirees/${s.cloture.soiree.id}`} />
+                  <a className="btn" href={spacePath(slug, 'bilan', s.cloture.soiree.id)} target="_blank" rel="noreferrer">
+                    <Icon name="list" />
+                    Le bilan
+                  </a>
+                  <a
+                    className="btn"
+                    href={spacePath(slug, 'bilan/fiches', s.cloture.soiree.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <Icon name="download" />
+                    Les fiches
+                  </a>
+                  <a className="btn" href={spacePath(slug, 'soirees')} target="_blank" rel="noreferrer">
+                    <Icon name="clock" />
+                    L’historique
+                  </a>
                   <button
                     className="btn btn-primary"
-                    onClick={() => {
-                      setState({ cloture: null })
-                      setScreen(null)
-                    }}
+                    onClick={() => poserScene(null)}
                   >
                     <Icon name="play" />
                     La soirée suivante
@@ -637,29 +877,16 @@ export function HostApp() {
                     moyen pour un invité d'emporter la page, il ne peut pas
                     cliquer sur un lien projeté au mur — tombait sous la
                     console. */}
+                {telecommande ? (
+                  apercu(ongletsPodium)
+                ) : (
+                <>
                 <div className="scene-tete">
                   <h2>
                     <Icon name={showTeamPodium ? 'users' : 'trophy'} />
                     {showTeamPodium ? 'Les équipes au quiz' : 'Le classement de la soirée'}
                   </h2>
-                  {teams.length > 0 && (
-                    <div className="row podium-tabs">
-                      <button
-                        className={'pill-btn' + (podiumTab === 'teams' ? ' active' : '')}
-                        onClick={() => setPodiumTab('teams')}
-                      >
-                        <Icon name="users" />
-                        Les équipes
-                      </button>
-                      <button
-                        className={'pill-btn' + (podiumTab === 'solo' ? ' active' : '')}
-                        onClick={() => setPodiumTab('solo')}
-                      >
-                        <Icon name="trophy" />
-                        Les joueurs
-                      </button>
-                    </div>
-                  )}
+                  {ongletsPodium}
                   <div className="qr-stack scene-qr">
                     <div className="qr-box">
                       <QRCodeSVG value={`${joinUrl}/souvenir`} size={84} bgColor="#ffffff" fgColor={QR_INK} />
@@ -673,14 +900,18 @@ export function HostApp() {
 
                 {showTeamPodium ? (
                   <div className="scene-podium">
-                    <FinalPodium rows={teamPodium} />
+                    {/* Le podium se fait à la moyenne, avant les prix ; le
+                        tableau, aux points d'équipe, prix compris. Sans le
+                        dire, l'un démentait l'autre dès le premier prix. */}
+                    <div className="podium-legende">
+                      <FinalPodium rows={teamPodium} />
+                      <p className="muted small center">Le podium à la moyenne, avant les prix</p>
+                    </div>
                     <div className="scene-listes">
-                      <TeamBoard teams={teams} showFinalPoints />
-                      <p className="muted small">
-                        Le chiffre cerclé : le barème, prix compris — il range le tableau et
-                        désigne l'équipe gagnante. Le grand chiffre à droite, la moyenne par membre :
-                        c'est elle qui fait le podium du quiz et distribue le barème.
-                      </p>
+                      <Coupe>
+                        <TeamBoard teams={teams} />
+                      </Coupe>
+                      <p className="muted small">{regleDesEquipes(teams.length)}</p>
                     </div>
                   </div>
                 ) : (
@@ -688,11 +919,24 @@ export function HostApp() {
                     <FinalPodium rows={ranking} />
                     {(ranking.length > 3 || recap) && (
                       <div className="scene-listes">
-                        {ranking.length > 3 && <Standings rows={ranking.slice(3)} offset={3} />}
-                        {recap && <Trophies recap={recap} />}
+                        {ranking.length > 3 && (
+                          <Coupe>
+                            <Standings rows={ranking.slice(3)} offset={3} />
+                          </Coupe>
+                        )}
+                        {/* Les distinctions sous la suite du classement, cartes
+                            coupées entières : trois cartes prenaient toute la
+                            colonne, et la liste tombait à une ligne. */}
+                        {recap && (
+                          <Coupe className="coupe-trophees" lignes=".trophy" autres={n => `et ${n} autre${n > 1 ? 's' : ''} distinction${n > 1 ? 's' : ''}`}>
+                            <Trophies recap={recap} />
+                          </Coupe>
+                        )}
                       </div>
                     )}
                   </div>
+                )}
+                </>
                 )}
 
                 <ConsoleActions>
@@ -711,8 +955,25 @@ export function HostApp() {
                   {backButton}
                 </ConsoleActions>
               </div>
+            ) : screen === 'awards' && coulissesAilleurs ? (
+              <>
+                <RemiseEnScene bonuses={bonuses} teams={teams} />
+                <ConsoleActions>
+                  <span className="muted small console-note">La grille est à la télécommande</span>
+                  <button className="btn btn-primary" onClick={() => openScreen('victory')}>
+                    <Icon name="crown" />
+                    Écran de victoire
+                  </button>
+                  <button className="btn" onClick={reprendreCoulisses}>
+                    <Icon name="award" />
+                    Remettre les prix d’ici
+                  </button>
+                  {backButton}
+                </ConsoleActions>
+              </>
             ) : screen === 'awards' ? (
               <div className="quiz-host stage-scroll">
+                {telecommande && apercu()}
                 <h2>
                   <Icon name="award" />
                   Remise des prix
@@ -723,9 +984,9 @@ export function HostApp() {
                     animatrice qui avait épargné un prix à voix haute le
                     retrouvait le lendemain. */}
                 <p className="muted center">
-                  Des points pour les équipes : un prix ne rapporte rien tant que tu ne cliques pas,
-                  puis s'ajoute au total de l'équipe du lauréat, sur l'échelle du barème. Le palmarès,
-                  lui, reste au souvenir, remis ou non — sans jamais rapporter d'expérience.
+                  Chaque prix attribué ajoute ses points d'équipe à l'équipe du lauréat — 0 pour
+                  l'honneur — et peut changer la gagnante. Le palmarès reste au souvenir, remis ou
+                  non, sans jamais rapporter d'expérience.
                 </p>
 
                 <AwardsBoard
@@ -733,7 +994,9 @@ export function HostApp() {
                   teams={teams}
                   givenTitles={givenTitles}
                   onAward={(teamId, points, reason) => {
-                    sound.reveal()
+                    // La télé sonne le prix remis (RemiseEnScene) : la
+                    // télécommande, dans la main, ne la double pas.
+                    if (!telecommande) sound.reveal()
                     socket.emit('host:awardTeam', { teamId, points, reason })
                   }}
                 />
@@ -767,23 +1030,26 @@ export function HostApp() {
                       value={freeReason}
                       onChange={e => setFreeReason(e.target.value)}
                     />
-                    <input
-                      className="input award-points"
-                      type="number"
-                      min={-10}
-                      max={10}
-                      aria-label="Points du prix"
-                      value={freePoints}
-                      onChange={e => setFreePoints(Number(e.target.value))}
-                    />
+                    <label className="award-points-champ">
+                      <ChampNombre
+                        className="input award-points"
+                        min={-10}
+                        max={10}
+                        aria-label="Points d’équipe du prix"
+                        valeur={freePoints}
+                        onValeur={setFreePoints}
+                      />
+                      <span className="award-points-unite" aria-hidden="true">pts d’équipe</span>
+                    </label>
                     <button
                       className="btn btn-primary btn-small"
                       disabled={!freeTeam || !freeReason.trim()}
                       onClick={() => {
-                        sound.reveal()
+                        if (!telecommande) sound.reveal()
                         socket.emit('host:awardTeam', {
                           teamId: freeTeam,
-                          points: freePoints,
+                          // Arrondi comme l'effet annoncé en dessous.
+                          points: Math.round(freePoints),
                           reason: freeReason,
                         })
                         setFreeReason('')
@@ -792,6 +1058,11 @@ export function HostApp() {
                       Attribuer
                     </button>
                   </div>
+                  {freeTeam && Number.isFinite(freePoints) && (
+                    <p className="award-effet" aria-live="polite">
+                      {effetDUnPrix(teams, freeTeam, freePoints)}
+                    </p>
+                  )}
                 </div>
 
                 {bonuses.length > 0 && (
@@ -828,7 +1099,7 @@ export function HostApp() {
                 {/* Le tableau complet se lit sur un téléphone, pas au
                     vidéoprojecteur : le souvenir s'ouvre à côté, droit sur
                     ses chiffres. */}
-                <div className="stage-foot">
+                <div className="stage-foot scene-projetee">
                   <div className="qr-stack">
                     <div className="qr-box">
                       <QRCodeSVG value={`${joinUrl}/stats`} size={84} bgColor="#ffffff" fgColor={QR_INK} />
@@ -854,11 +1125,15 @@ export function HostApp() {
               </div>
             ) : screen === 'victory' ? (
               <div className="quiz-host victory stage-scroll">
+                {telecommande ? (
+                  apercu()
+                ) : (
+                <>
                 <h2>
                   <Icon name="crown" />
                   {champions.length > 1 ? 'Les équipes qui remportent le quiz' : "L'équipe qui remporte le quiz"}
                 </h2>
-                {final.length > 0 ? (
+                {teams.length > 0 ? (
                   <>
                     {/* Couronner la première de la liste, c'était couronner
                         l'alphabet : un prix à +1 remis aux Aigles, deuxièmes,
@@ -871,56 +1146,48 @@ export function HostApp() {
                         <span className="victory-emoji">{champions.map(t => t.emoji).join(' ')}</span>
                         <span className="victory-name">{enumerer(champions.map(t => t.name))}</span>
                         {champions.length > 1 ? (
-                          <span className="victory-points">Ex æquo · {champions[0].finalPoints} points chacune</span>
+                          <span className="victory-points">
+                            Ex æquo · {champions[0].finalPoints} {motPoints(champions[0].finalPoints)} d'équipe chacune
+                          </span>
                         ) : (
                           <>
-                            <span className="victory-points">{champions[0].finalPoints} points</span>
-                            <span className="muted">
-                              {champions[0].gamePoints} au barème
-                              {champions[0].bonus !== 0 &&
-                                ` · ${champions[0].bonus > 0 ? '+' : ''}${champions[0].bonus} de prix`}
+                            <span className="victory-points">
+                              {champions[0].finalPoints} {motPoints(champions[0].finalPoints)} d'équipe
                             </span>
+                            <span className="muted">{detailDesPoints(champions[0])}</span>
                           </>
                         )}
                       </div>
                     )}
                     <div className="victory-boards">
-                      <div>
+                      <div className="tableau">
                         <h3>
                           <Icon name="users" />
                           Les équipes
                         </h3>
-                        <div className="leaderboard">
-                          {final.map(t => (
-                            <div key={t.id} className="lb-row team-row">
-                              <Rank n={t.rank} />
-                              <span className="lb-avatar">{t.emoji}</span>
-                              <span className="lb-name">
-                                {t.name}
-                                <span className="team-sub">
-                                  {t.total} pts cumulés · {t.average} de moyenne
-                                  {t.bonus !== 0 && ` · ${t.bonus > 0 ? '+' : ''}${t.bonus} de prix`}
-                                </span>
-                              </span>
-                              <Score n={t.finalPoints} precision="au total, prix compris" />
-                            </div>
-                          ))}
-                        </div>
-                        <p className="muted small center">
-                          Le gros chiffre est le total du quiz, prix compris : c'est lui qui
-                          classe les équipes.
-                        </p>
+                        {/* Le même tableau qu'au téléphone et au souvenir. Sa
+                            légende disait « le gros chiffre est le total du
+                            quiz », faux dès le deuxième quiz ; la règle entière
+                            passait sous la console en 1366 × 768 : chaque
+                            ligne dit d'où viennent ses points, et la règle se
+                            lit au podium et au panneau des équipes. */}
+                        <Coupe>
+                          <TeamBoard teams={teams} />
+                        </Coupe>
                       </div>
 
                       {/* Le classement individuel a sa place ici : c'est pour lui
                           que chacun a joué, et il explique le total des équipes. */}
-                      <div>
+                      <div className="tableau">
                         <h3>
                           <Icon name="trophy" />
                           Les joueurs
                         </h3>
+                        {/* Coupé à ce qui tient : à douze, la liste passait
+                            sous la console en 1366 × 768 dès le sixième. */}
+                        <Coupe enPlus={Math.max(0, ranking.length - 30)}>
                         <div className="leaderboard">
-                          {ranking.slice(0, 12).map((p, i) => (
+                          {ranking.slice(0, 30).map((p, i) => (
                             <div key={i} className="lb-row">
                               <Rank n={p.rank} />
                               <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
@@ -930,16 +1197,20 @@ export function HostApp() {
                             </div>
                           ))}
                         </div>
-                        {ranking.length > 12 && (
-                          <p className="muted small center">et {ranking.length - 12} autres…</p>
-                        )}
+                        </Coupe>
                       </div>
                     </div>
                   </>
                 ) : (
                   <p className="muted">Aucune équipe — rien à couronner.</p>
                 )}
+                </>
+                )}
                 <ConsoleActions>
+                  <button className="btn btn-primary" disabled={connectedCount === 0} onClick={lancerQuiz}>
+                    <Icon name="play" />
+                    Quiz suivant
+                  </button>
                   <button className="btn" onClick={() => openScreen('awards')}>
                     <Icon name="award" />
                     Revenir aux prix
@@ -952,6 +1223,25 @@ export function HostApp() {
               <QuizHost
                 view={quizView}
                 teams={teams}
+                telecommande={telecommande}
+                coulissesAilleurs={coulissesAilleurs}
+                reprendreCoulisses={reprendreCoulisses}
+                apresQuiz={{
+                  suivant: lancerQuiz,
+                  // Comme « Lancer un quiz » : sans invité connecté, il n'y a
+                  // personne à qui le poser.
+                  personne: connectedCount === 0,
+                  // Le podium du quiz se referme, et la remise des prix
+                  // s'ouvre sur tous les écrans : deux gestes, dans l'ordre,
+                  // par la même connexion.
+                  prix:
+                    teams.length > 0
+                      ? () => {
+                          socket.emit('host:endSession', { sessionId: activeView.sessionId })
+                          poserScene('prix')
+                        }
+                      : undefined,
+                }}
                 sendCommand={command => socket.emit('host:command', { sessionId: activeView.sessionId, command })}
                 endSession={() => socket.emit('host:endSession', { sessionId: activeView.sessionId })}
               />
@@ -959,6 +1249,17 @@ export function HostApp() {
               <>
                 {/* L'invitation : avant le premier quiz, la seule chose que la
                     salle doit voir de loin, c'est comment entrer. */}
+                {telecommande ? (
+                  // Le QR se scanne à la télé ; la télécommande garde
+                  // l'adresse à dicter, et de quoi jouer depuis ce téléphone.
+                  <div className="telecommande-invite">
+                    {apercu(<span className="join-url">{joinUrl}</span>)}
+                    <a className="btn btn-accent jouer-ici" href={spacePath(slug)} target="_blank" rel="noreferrer">
+                      <Icon name="play" />
+                      Jouer depuis cet appareil
+                    </a>
+                  </div>
+                ) : (
                 <div className="invite">
                   <span className="label">Pour rejoindre le quiz</span>
                   <p className="invite-url">{adresseCoupable(joinUrl)}</p>
@@ -998,16 +1299,24 @@ export function HostApp() {
                     </p>
                   )}
                 </div>
+                )}
+                {/* N'importe quel animateur du serveur peut valider le code
+                    qu'une télé affiche : branchée ainsi, elle dit par qui, et
+                    se débranche si ce n'est pas le bon. */}
+                {me.branchee && !telecommande && (
+                  <p className="muted small branchee-par">
+                    Branchée par {me.name} — ce n’est pas le tien ?{' '}
+                    <button className="btn btn-ghost btn-small" onClick={() => void debrancher()}>
+                      <Icon name="x" />
+                      Débrancher
+                    </button>
+                  </p>
+                )}
                 <ConsoleActions>
                   <button
                     className="btn btn-primary"
                     disabled={connectedCount === 0}
-                    onClick={() => {
-                      // Premier geste de l'animateur : c'est le moment où le
-                      // navigateur autorise enfin le son.
-                      initAudio()
-                      socket.emit('host:launch')
-                    }}
+                    onClick={lancerQuiz}
                   >
                     <Icon name="play" />
                     {connectedCount === 0 ? 'En attente des invités…' : 'Lancer un quiz'}
@@ -1018,31 +1327,46 @@ export function HostApp() {
                     <Icon name="edit" />
                     Mes quiz
                   </a>
+                  {/* À la télécommande seulement : c'est d'ici qu'on allume la télé. */}
+                  {telecommande && (
+                    <button className="btn" onClick={() => void brancherTele()}>
+                      <Icon name="monitor" />
+                      Brancher la télé
+                    </button>
+                  )}
                   <a className="btn btn-ghost" href="/compte" target="_blank" rel="noreferrer">
                     <Icon name="users" />
                     Mon compte
                   </a>
-                  {(ranking.length > 0 || teams.length > 0) && (
-                    <>
-                      <button className="btn" onClick={() => openScreen('podium')}>
-                        <Icon name="trophy" />
-                        Podium
-                      </button>
-                      <button className="btn" onClick={() => openScreen('awards')}>
-                        <Icon name="award" />
-                        Prix
-                      </button>
-                      {teams.length > 0 && (
-                        <button className="btn" onClick={() => openScreen('victory')}>
-                          <Icon name="crown" />
-                          Victoire
-                        </button>
-                      )}
-                      <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
-                        <Icon name="bar-chart" />
-                        Les chiffres
-                      </a>
-                    </>
+                  {/* Les écrans de fin, une fois qu'ils ont quelque chose à
+                      montrer : avant, neuf boutons d'égale importance
+                      cachaient « Lancer un quiz ». « Prix » vient avec les
+                      équipes : un prix libre — le déguisement — se remet
+                      avant le premier quiz, et le podium d'un quiz où
+                      personne n'a marqué ne le cache plus. */}
+                  {ranking.length > 0 && (
+                    <button className="btn" onClick={() => openScreen('podium')}>
+                      <Icon name="trophy" />
+                      Podium
+                    </button>
+                  )}
+                  {teams.length > 0 && (
+                    <button className="btn" onClick={() => openScreen('awards')}>
+                      <Icon name="award" />
+                      Prix
+                    </button>
+                  )}
+                  {teams.length > 0 && (ranking.length > 0 || bonuses.length > 0) && (
+                    <button className="btn" onClick={() => openScreen('victory')}>
+                      <Icon name="crown" />
+                      Victoire
+                    </button>
+                  )}
+                  {ranking.length > 0 && (
+                    <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
+                      <Icon name="bar-chart" />
+                      Les chiffres
+                    </a>
                   )}
                   <a className="btn btn-ghost" href={spacePath(slug, 'soirees')} target="_blank" rel="noreferrer">
                     <Icon name="book" />
@@ -1059,12 +1383,8 @@ export function HostApp() {
               {teams.length > 0 && (
                 <section className="card">
                   <h2>Les équipes</h2>
-                  <TeamBoard teams={teams} showFinalPoints />
-                  <p className="muted small">
-                    Le chiffre cerclé : le barème, prix compris — il range les équipes et désigne
-                    la gagnante. Le grand chiffre à droite, la moyenne par membre, qui distribue le
-                    barème.
-                  </p>
+                  <TeamBoard teams={teams} />
+                  <p className="muted small">{regleDesEquipes(teams.length)}</p>
                 </section>
               )}
 
@@ -1080,9 +1400,31 @@ export function HostApp() {
             Chaque écran y pose ses boutons ; le son, l'habillage et le plein
             écran restent à droite quoi qu'il arrive. */}
         <footer className="host-console">
-          <span className="console-label">Console animateur</span>
+          <span className="console-label">{telecommande ? 'Télécommande' : 'Console animateur'}</span>
           <div className="console-actions" ref={setConsoleSlot} />
           <div className="console-icons">
+            {/* Qui manque, et les gestes d'un téléphone perdu : ici, parce que
+                pendant un quiz le panneau des invités disparaît. */}
+            <Absents
+              players={snap.players}
+              quiz={quizView}
+              sendCommand={
+                activeView ? command => socket.emit('host:command', { sessionId: activeView.sessionId, command }) : undefined
+              }
+            />
+            {/* Un téléphone tenu droit est une télécommande, sauf s'il est
+                recopié sur la télé : c'est l'animateur qui tranche. */}
+            <button
+              className="btn btn-icon"
+              // Une bascule garde son nom : c'est `aria-pressed` qui dit
+              // son état, sinon on entend l'inverse de ce qui est.
+              title={telecommande ? 'Télécommande : la scène est à la télé' : 'Télécommande : les gestes en grand, la scène à la télé'}
+              aria-label="Télécommande"
+              aria-pressed={telecommande}
+              onClick={basculerTelecommande}
+            >
+              <Icon name={telecommande ? 'monitor' : 'smartphone'} />
+            </button>
             <button
               className="btn btn-icon"
               title={muted ? 'Activer les sons' : 'Couper les sons'}
