@@ -28,7 +28,8 @@ const MIRROR_INTERVAL_MS = 2000
  * lui renvoyait sa vue entière, et il se redessinait tout entier : 23 fois
  * par seconde à 140 invités. Le dernier compte part toujours, au plus tard
  * au bout de l'intervalle ; une révélation, un changement de phase, partent
- * sur-le-champ.
+ * sur-le-champ. Les téléphones qui tombent et reviennent passent par la même
+ * fenêtre (`rafraichirAnimateur`).
  */
 const HOST_INTERVAL_MS = 250
 
@@ -118,9 +119,15 @@ export class GameEngine {
    */
   private persistEnAttente: ReturnType<typeof setImmediate> | null = null
 
-  /** La vue de l'écran commun en attente de sa fenêtre, et l'heure du dernier envoi. */
+  /**
+   * La vue de l'écran commun en attente de sa fenêtre, et l'heure de son
+   * dernier calcul — parti ou non : c'est le calcul qui coûte. Comptée depuis
+   * le dernier envoi, la fenêtre ne bridait rien à la révélation, où un
+   * téléphone qui tombe ou revient ne change pas la vue : chacun y refaisait
+   * le tri du classement.
+   */
   private hostTimer: ReturnType<typeof setTimeout> | null = null
-  private hostEnvoyeA = 0
+  private hostCalculeA = 0
 
   /**
    * Le mémo de la diffusion en cours — voir `ViewContext.memo`. Null entre
@@ -389,17 +396,19 @@ export class GameEngine {
    * Un téléphone vient de tomber ou de revenir : la console le montre dans
    * la liste de ceux qu'on attend (« hors ligne »). Rien d'autre n'a bougé,
    * les téléphones n'ont rien à recevoir — seule la vue de l'animateur se
-   * recalcule, et ne part que si elle a changé.
+   * recalcule, à la cadence du compteur de réponses, et ne part que si elle
+   * a changé.
+   *
+   * Recalculée à chaque connexion, elle prenait 20 % du processeur d'une
+   * vague de reconnexions à 480 invités (retours/2026-09-25/classement-perf.md) :
+   * deux tris du classement par téléphone qui sort de veille pendant une
+   * révélation, dont la vue ne lit même pas les connexions. Une vague ne
+   * coûte plus qu'un calcul par fenêtre, et le dernier état part toujours.
    */
   rafraichirAnimateur() {
     const sess = this.session
     if (!sess || sess.status !== 'running') return
-    this.broadcast(() => {
-      const hostView = this.module.hostView(sess, this.vctx)
-      if (this.changed('__host__', hostView)) {
-        this.deps.io.to(`hosts:${this.deps.spaceId}`).emit('session:view', { sessionId: sess.id, view: hostView })
-      }
-    })
+    this.fanoutHostBientot(sess)
   }
 
   /** Renvoie la vue host à un écran commun qui (re)vient. */
@@ -556,11 +565,20 @@ export class GameEngine {
     this.broadcast(() => {
       if (sess.participantIds.includes(playerId)) this.envoyerVue(sess, playerId)
     })
+    this.fanoutHostBientot(sess)
+  }
+
+  /**
+   * La vue de l'écran commun à sa cadence : tout de suite si la fenêtre est
+   * passée, sinon à sa fin — une fois pour tout ce qui arrive d'ici là,
+   * réponses et connexions mêlées, et sur l'état du moment.
+   */
+  private fanoutHostBientot(sess: LiveSession) {
     if (this.hostTimer) return
     // Borné à la fenêtre : `Date.now()` n'est pas monotone, et une horloge
     // qui recule (une resynchronisation de l'heure) repoussait sinon le
     // compteur jusqu'au prochain changement de phase.
-    const attente = Math.min(HOST_INTERVAL_MS, this.hostEnvoyeA + HOST_INTERVAL_MS - Date.now())
+    const attente = Math.min(HOST_INTERVAL_MS, this.hostCalculeA + HOST_INTERVAL_MS - Date.now())
     if (attente <= 0) {
       this.broadcast(() => this.fanoutHost(sess))
       return
@@ -592,9 +610,9 @@ export class GameEngine {
   private fanoutHost(sess: LiveSession) {
     if (this.hostTimer) clearTimeout(this.hostTimer)
     this.hostTimer = null
+    this.hostCalculeA = Date.now()
     const hostView = this.module.hostView(sess, this.vctx)
     if (this.changed('__host__', hostView)) {
-      this.hostEnvoyeA = Date.now()
       this.deps.io.to(`hosts:${this.deps.spaceId}`).emit('session:view', { sessionId: sess.id, view: hostView })
     }
   }
