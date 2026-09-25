@@ -9,6 +9,14 @@
 const FINE = ' '
 /** Espace insécable, pleine : avant les deux-points, comme le veut l'usage. */
 const INSECABLE = ' '
+/**
+ * Gluon (U+2060, WORD JOINER) : aucune coupure de part et d'autre, et rien à
+ * dessiner. Le trait d'union insécable (U+2011) aurait fait l'affaire, mais ni
+ * Figtree ni Cormorant ne l'ont : le navigateur l'aurait pris dans une autre
+ * police, trait plus court ou carré vide sous Windows 10. Le gluon, lui, est
+ * invisible par définition — aucune police n'a besoin de le connaître.
+ */
+const GLUON = '\u2060'
 
 /**
  * « de » ou « d’ » devant un prénom : « La soirée d’Antoine », « de Bob ».
@@ -25,6 +33,14 @@ export function de(nom: string): string {
 
 /** « d’Antoine », « de Bob » : la préposition collée au prénom. */
 export const deNom = (nom: string) => `${de(nom)}${nom.trim()}`
+
+/**
+ * Un nombre à la française : « 35 000 », « 0,8 », mais « 1889 ». L'usage ne
+ * groupe les milliers qu'à partir de cinq chiffres, et une année est l'exemple
+ * même de l'estimation : « 1 889 » en grand au mur, et « 1890 » juste à côté,
+ * dans la liste des estimations, se lisaient comme deux nombres.
+ */
+export const formatNumber = (n: number) => n.toLocaleString('fr-FR', { useGrouping: Math.abs(n) >= 10000 })
 
 /**
  * « 1ʳᵉ », « 2ᵉ »… Au féminin, parce qu'il se lit devant « place » : on ne
@@ -44,8 +60,10 @@ export const place = (n: number) => `${rang(n)} place`
  * remplace que les espaces **déjà là** devant ? ! ; : — une question tapée en
  * anglais (« Why? ») ne reçoit pas une espace qu'elle n'avait pas —, mais on
  * en pose toujours à l'intérieur des guillemets français, qui n'existent que
- * dans un texte français. Idempotente : repasser un texte déjà traité ne le
- * change plus.
+ * dans un texte français. Le trait d'union de l'inversion (« a-t-il »,
+ * « est-elle », « va-t-on ») ne se coupe plus : le mur lisait « Sam a- » en
+ * fin de ligne et « t-il marché ? » sous lui. Idempotente : repasser un texte
+ * déjà traité ne le change plus.
  */
 export function espacesFines(texte: string): string {
   return texte
@@ -53,4 +71,5 @@ export function espacesFines(texte: string): string {
     .replace(/[   ]+:/g, `${INSECABLE}:`)
     .replace(/«[   ]*/g, `«${FINE}`)
     .replace(/[   ]*»/g, `${FINE}»`)
+    .replace(/-(t-)?(?=(?:il|elle|on)s?(?![\p{L}\p{N}]))/giu, (_, t: string | undefined) => (t ? `-${GLUON}${t.charAt(0)}-${GLUON}` : `-${GLUON}`))
 }

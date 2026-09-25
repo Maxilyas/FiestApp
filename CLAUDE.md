@@ -59,6 +59,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) |
 | `shared/liens.ts` · `client/src/components/Lendemain.tsx` | les liens d'une soirée close, à l'adresse de son archive (`/<espace>/souvenir` change de soirée à la suivante) ; et « La dernière soirée », que le téléphone garde (`garderFin`, `client/src/state.ts`) pour l'entrée et l'accueil |
 | `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) |
+| `shared/glossaire.ts` · `client/src/components/Glossaire.tsx` | les mots maison (souvenir, bilan, coup d'œil, finition…), une phrase chacun, dépliée au toucher sous les pages qui les emploient — des Divins, le nom et le mystère seulement |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
 | `shared/echange.ts` | un quiz qu'on emporte : le fichier d'export (questions, photos en clair), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin |
 | `shared/liste.ts` | « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) ; et l'inverse, `ecrireListe` (« Copier en liste »), que `liste.test.ts` recolle |
@@ -280,7 +281,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
   français pour le domaine récent (`Finition`, `niveauPour`, `Carriere`).
 - **Très peu de dépendances**, et c'est voulu. N'en ajoute pas sans raison forte.
 - **Emojis antérieurs à Unicode 13 uniquement** : l'écran commun tourne sous
-  Windows 10, les plus récents s'y affichent en carré vide.
+  Windows 10, les plus récents s'y affichent en carré vide (`emojis.test.ts`
+  y veille, pour `client/`, `shared/`, `server/src/` et les quiz livrés de
+  `server/content/`).
 - Les messages d'erreur sont lus par des invités dans le noir : courts, en
   français, et ils disent quoi faire.
 - **Une erreur faite pour être lue se lève avec un `new Error('…')` nu**, sans
@@ -309,8 +312,11 @@ server/test/        un fichier par thème, un serveur jetable chacun
   la sienne et celle de l'écran commun — parce que le quiz le promet
   (`vueDependDesAutres: false`) : une vue de téléphone qui lirait la réponse
   d'un autre en pleine question doit retirer cette promesse.
-- **Côté client** : `--accent-text` pour ce qui s'écrit, `--accent` pour les
-  aplats (le contraste d'Ivoire en dépend) ; tout accès au stockage du
+- **Côté client** : `--accent-text` pour ce qui s'écrit, `--accent-text-hover`
+  pour son survol, `--accent` pour les aplats (le contraste d'Ivoire en
+  dépend) ; le focus n'a qu'un anneau, `--focus`, posé une fois pour tout
+  élément (`:where(…):focus-visible`) — un composant n'en règle que
+  l'`outline-offset` ; tout accès au stockage du
   navigateur sous try/catch — des cookies bloqués donnaient une page noire.
 
 ## Les deux environnements

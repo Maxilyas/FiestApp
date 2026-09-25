@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode, type SyntheticEvent } from 'react'
+import { Glossaire } from '../components/Glossaire'
 import { api, currentMe, motifDe } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
@@ -347,7 +348,10 @@ export function ProfilApp() {
           >
             <Avatar avatar={profil.avatar} finition={profil.finition} eclat={brille(profil.avatar)} />
             <span className="finition-nom">La plus belle</span>
-            <span className="muted small">{profil.finitionChoisie === 'auto' ? 'portée' : 'automatique'}</span>
+            {/* L'état se dit par `aria-pressed` : lu aussi, il se disait deux fois. */}
+            <span className="muted small" aria-hidden="true">
+              {profil.finitionChoisie === 'auto' ? 'portée' : 'automatique'}
+            </span>
           </button>
           {FINITIONS.map(f => {
             const ouverte = profil.ouvertes.includes(f)
@@ -362,16 +366,18 @@ export function ProfilApp() {
               >
                 <Avatar avatar={profil.avatar} finition={f} eclat={brille(profil.avatar)} />
                 <span className="finition-nom">{NOM_FINITION[f]}</span>
-                <span className="muted small">
+                {/* « épinglée » redit `aria-pressed` : l'oreille entend « ouverte ». */}
+                <span className="muted small" aria-hidden={choisie || undefined}>
                   {ouverte ? (choisie ? 'épinglée' : 'ouverte') : `niveau ${NIVEAU_FINITION[f]}`}
                 </span>
+                {choisie && <span className="sr-only">ouverte</span>}
               </button>
             )
           })}
         </div>
         <p className="muted small">
           Les finitions se gagnent au niveau, jusqu'à Constellation au niveau 25. L'Éclat, lui, ne se
-          gagne pas : une chance sur quarante par soirée qui compte, et c'est l'emoji lui-même qui
+          gagne pas : une chance sur quarante par soirée jouée à deux ou plus, et c'est l'emoji lui-même qui
           change de couleurs.
         </p>
       </Repli>
@@ -457,6 +463,10 @@ export function ProfilApp() {
       <Repli id="acces" icone="users" titre="Identifiant et mot de passe">
         <MotDePasse login={profil.login} />
       </Repli>
+
+      <Glossaire
+        mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'precision', 'coupDOeil', 'reflexe', 'flair']}
+      />
 
       {erreur && <p className="error">{erreur}</p>}
 

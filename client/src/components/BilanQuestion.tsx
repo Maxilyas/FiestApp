@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 import { Icon } from './Icon'
 import { Shape } from './Shape'
-import { espacesFines, formatNumber, rang } from '../format'
+import { espacesFines, formatNumber, rang, pts } from '../format'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
 import type {
   Review,
@@ -66,7 +66,7 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
     : !mine?.answered
       ? 'sans réponse'
       : mine.points > 0
-        ? `+${mine.points} pts`
+        ? `+${pts(mine.points)}`
         : 'raté'
 
   const successRate = q.answered ? q.correctCount / q.answered : null
@@ -217,7 +217,7 @@ export function QuestionCard({ ctx, q, me, answer }: Props) {
               const top = i === 0 && (q.kind === 'choice' ? t.correct > 0 : t.points > 0)
               return (
                 <span key={t.teamId} className={'bilan-teamchip' + (top ? ' top' : '')} title={rec.name}>
-                  {rec.emoji} {q.kind === 'choice' ? `${t.correct}/${t.asked}` : `${t.points} pts`}
+                  {rec.emoji} {q.kind === 'choice' ? `${t.correct}/${t.asked}` : pts(t.points)}
                 </span>
               )
             })}

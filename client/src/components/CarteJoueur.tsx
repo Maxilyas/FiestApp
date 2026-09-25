@@ -3,7 +3,7 @@ import type { CarteDeJoueur } from '../../../shared/carte'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { NOM_RARETE } from '../../../shared/badges'
-import { espacesFines, formatNumber, place, reponsesParType, secondes } from '../format'
+import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar } from './Avatar'
 import { Chiffres, justesses } from './Carriere'
 import { Legendaire } from './Legendaire'
@@ -56,7 +56,7 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
         className="card dialog carte-joueur"
         role="dialog"
         aria-modal="true"
-        aria-label={carte ? `Carte de ${carte.nom}` : 'Carte du joueur'}
+        aria-label={carte ? `Carte ${deNom(carte.nom)}` : 'Carte du joueur'}
         tabIndex={-1}
         onClick={e => e.stopPropagation()}
       >
@@ -81,7 +81,7 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                 <p className="carte-soir">
                   {carte.ceSoir.rang > 0 ? (
                     <>
-                      <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {formatNumber(carte.ceSoir.points)} pts
+                      <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
                     </>
                   ) : (
                     'Pas encore de points ce soir'

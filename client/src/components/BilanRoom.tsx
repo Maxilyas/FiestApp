@@ -1,5 +1,5 @@
 import { Icon, type IconName } from './Icon'
-import { espacesFines } from '../format'
+import { espacesFines, pts } from '../format'
 import { classer, enumerer } from '../../../shared/classement'
 import { VerdictDesEquipes } from './TeamBoard'
 import { detailDesPoints, regleDesEquipes } from '../../../shared/teams'
@@ -71,7 +71,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                     </th>
                   ))}
                   <th title="Moyenne par membre sur toute la soirée — c'est elle qui donne les points d'équipe">Moyenne</th>
-                  <th title="Part de bonnes réponses aux QCM, tous membres confondus">Réussite</th>
+                  <th title="Part de bonnes réponses aux QCM, tous membres confondus">Précision</th>
                   <th title="Estimations : la part de la salle que celles de l’équipe battent ou égalent, en moyenne">Coup d’œil</th>
                   <th title="Temps de réponse moyen">Temps</th>
                   <th title="Les points d'équipe : ceux de la moyenne, prix compris — ils désignent la gagnante">Points d’équipe</th>
@@ -87,7 +87,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                       {t.emoji} {t.name} <span className="muted small">{t.memberCount}</span>
                     </td>
                     {t.perQuiz.map(pq => (
-                      <td key={pq.sessionId} title={`${pq.total} pts au total`}>
+                      <td key={pq.sessionId} title={`${pts(pq.total)} au total`}>
                         {pq.average}
                         {pq.rank === 1 && pq.average > 0 && ' ★'}
                       </td>
@@ -138,7 +138,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                 {gagnants.length > 0 && (
                   <>
                     <Icon name="trophy" /> {enumerer(gagnants.map(w => playerName(ctx, w.playerId)))}{' '}
-                    {gagnants.length > 1 ? 'remportent ce quiz ex æquo' : 'remporte ce quiz'} avec {gagnants[0].points} pts
+                    {gagnants.length > 1 ? 'remportent ce quiz ex æquo' : 'remporte ce quiz'} avec {pts(gagnants[0].points)}
                   </>
                 )}
                 {gagnants.length > 0 && equipes.length > 0 && ' · '}
@@ -148,7 +148,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                         couronnait ici celle que l'écran de victoire ne
                         couronnait pas. */}
                     {equipes.length > 1 ? 'meilleures moyennes ex æquo' : 'meilleure moyenne'} :{' '}
-                    {enumerer(equipes.map(e => `${e.team.emoji} ${e.team.name}`))} ({equipes[0].average} pts de moyenne)
+                    {enumerer(equipes.map(e => `${e.team.emoji} ${e.team.name}`))} ({pts(equipes[0].average)} de moyenne)
                   </>
                 )}
               </p>

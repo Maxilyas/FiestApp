@@ -38,16 +38,16 @@ export function AccountApp() {
 
   if (error) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="error">{error}</p>
-      </div>
+      </main>
     )
   }
   if (!me) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Chargement…</p>
-      </div>
+      </main>
     )
   }
 
@@ -73,7 +73,7 @@ export function AccountApp() {
         </a>
         <a className="btn" href={`/${me.space.slug}/soirees`}>
           <Icon name="book" />
-          Mes soirées
+          Historique
         </a>
         {me.account.role === 'admin' && (
           <a className="btn btn-accent" href="/admin">
@@ -82,7 +82,7 @@ export function AccountApp() {
           </a>
         )}
       </nav>
-
+      <main className="page-corps">
       {debut && (
         <section className="card premiers-pas">
           <h2>Par où commencer</h2>
@@ -143,6 +143,7 @@ export function AccountApp() {
       </section>
 
       {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
+      </main>
     </div>
   )
 }

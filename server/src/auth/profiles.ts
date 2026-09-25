@@ -40,6 +40,7 @@ import { cibleEclat, conditionTenue, legendaire, legendairesDebloques, type Cond
 import { divin } from '../../../shared/divins'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
+import { titreDuPrix } from '../core/stats'
 import type { ArchiveStore } from '../core/archive'
 
 /**
@@ -120,8 +121,8 @@ export const LIGNE_PALIERS = '#paliers'
  * 5 depuis que deux estimations à égale distance sont ex æquo même quand la
  * virgule flottante les séparait (0,7 et 0,9 pour 0,8) : l'expérience du
  * plus proche allait à un seul des deux ; 6 depuis le coup d'œil — le relevé
- * compte la part de la salle que chaque estimation bat ou égale, et Le Devin
- * se juge dessus. L'expérience n'a pas bougé, mais les soirées d'avant
+ * compte la part de la salle que chaque estimation bat ou égale, et le prix
+ * du coup d'œil (clé `devin`) se juge dessus. L'expérience n'a pas bougé, mais les soirées d'avant
  * doivent se relire pour que la fiche le montre.
  * Une ligne d'une version d'avant se relit au démarrage (`recalcul.ts`) —
  * son format, lui, n'a pas changé depuis la 2.
@@ -1185,7 +1186,9 @@ export class ProfileStore {
   //   · les hauts faits de soirée (`hf:phenix`…), qui se regagnent ;
   //   · les paliers de carrière (`hf:bavard:2`), qui ne tombent qu'une fois.
   // L'emoji et le titre sont recopiés dans chaque ligne : une étagère se
-  // relit des années plus tard, même si un titre a changé entre-temps.
+  // relit des années plus tard, même si le catalogue a oublié la récompense.
+  // Elle montre un prix du palmarès sous son nom du jour (`titreDuPrix`), le
+  // reste sous le titre de sa ligne la plus récente (`badgesOf`).
 
   /**
    * Range les récompenses d'une soirée — prix et hauts faits —, en
@@ -1310,9 +1313,17 @@ export class ProfileStore {
     // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
     const rows = await this.client.execute({
-      sql: `SELECT badge, emoji, title, COUNT(*) AS fois, MAX(created_at) AS dernier
-            FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%'
-            GROUP BY badge, emoji, title ORDER BY dernier DESC`,
+      // Par clé seule : un prix renommé porte deux noms en base, l'ancien et
+      // le nouveau, et l'étagère le montrait deux fois. L'emoji et le titre
+      // viennent de la ligne la plus récente : pris au MAX(), un haut fait
+      // renommé aurait montré le nom que l'alphabet range en dernier.
+      sql: `SELECT badge, emoji, title, fois, dernier FROM (
+              SELECT badge, emoji, title,
+                     COUNT(*) OVER (PARTITION BY badge) AS fois,
+                     MAX(created_at) OVER (PARTITION BY badge) AS dernier,
+                     ROW_NUMBER() OVER (PARTITION BY badge ORDER BY created_at DESC, soiree_id DESC) AS n
+              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%'
+            ) WHERE n = 1 ORDER BY dernier DESC`,
       args: [profileId],
     })
     const { porteurs, profils } = await this.populationBadges()
@@ -1322,7 +1333,7 @@ export class ProfileStore {
       return {
         key,
         emoji: String(r.emoji),
-        title: String(r.title),
+        title: titreDuPrix(key) ?? String(r.title),
         fois: Number(r.fois),
         dernier: Number(r.dernier),
         porteurs: n,

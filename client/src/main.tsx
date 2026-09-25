@@ -4,6 +4,7 @@ import { DialogHost } from './components/Dialog'
 import { applyTheme } from './theme'
 import { installerClavier } from './clavier'
 import { route, type AccountPage, type PublicPage } from './routes'
+import { titreDePage } from './titres'
 import './styles.css'
 
 // Les adresses (client/src/routes.ts) :
@@ -63,6 +64,31 @@ const App =
         : route.kind === 'landing'
           ? ProfilApp
           : LandingApp
+
+/**
+ * Le repère principal, pour qui saute de région en région au lecteur
+ * d'écran. Les pages qui ont un en-tête, une navigation ou une console le
+ * posent elles-mêmes autour de leur contenu : posé sur la racine, il
+ * effaçait leurs « banner » et « contentinfo » — la console de l'écran
+ * commun n'était plus qu'un « main » — et « aller au contenu » tombait sur le
+ * titre. Les autres pages, l'entrée, les formulaires et le téléphone, sont
+ * tout entières contenu : un `<main>` les enveloppe, sans rien changer à
+ * leurs hauteurs, qui se comptent en `vh`.
+ */
+const REPERE_PROPRE = new Set<unknown>([HostApp, EditorApp, AccountApp, AdminApp, ArchivesApp, RecapApp, BilanApp])
+const Page = () =>
+  REPERE_PROPRE.has(App) ? (
+    <App />
+  ) : (
+    <main>
+      <App />
+    </main>
+  )
+
+// Un nom d'onglet dès le premier rendu, avant le préfixe d'environnement.
+if (route.kind === 'account') document.title = titreDePage(route.page)
+// Une adresse qui ne mène nulle part le dit aussi dans son onglet.
+else if (route.kind === 'unknown') document.title = 'Adresse introuvable · FiestApp'
 
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au
@@ -126,6 +152,9 @@ class Filet extends Component<{ children: ReactNode }, { panne: boolean }> {
     return (
       <button type="button" className="filet" onClick={() => window.location.reload()}>
         <span className="filet-titre">Oups</span>
+        {/* « Oups » seul ne disait pas l'essentiel à qui a une soirée en cours :
+            sa place et ses points sont au serveur, pas dans la page. */}
+        <span className="muted">Un souci d’affichage — rien n’est perdu.</span>
         <span className="btn btn-primary btn-big">Touche pour recharger</span>
       </button>
     )
@@ -142,7 +171,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           </div>
         }
       >
-        <App />
+        <Page />
       </Suspense>
       <DialogHost />
     </Filet>

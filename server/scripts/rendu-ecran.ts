@@ -269,9 +269,12 @@ await capture('podium-du-quiz', { telephone: true })
 ;(host as any).emit('host:endSession', { sessionId: vue.sessionId })
 await patienter(1000)
 
-// Les écrans de fin, ouverts depuis la console de chaque écran.
+// Les écrans de fin, ouverts depuis une console : la scène est tenue par le
+// serveur (`poserScene`), et l'autre écran la suit. Cliquée sur les deux, la
+// seconde ne trouvait plus son bouton — son écran avait déjà changé.
 async function cliquer(texte: string) {
-  for (const page of [tele, grande]) await page.getByRole('button', { name: texte, exact: true }).first().click()
+  await tele.getByRole('button', { name: texte, exact: true }).first().click()
+  await patienter(800)
 }
 await capture('salle-apres-quiz')
 await cliquer('Podium')

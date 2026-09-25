@@ -12,7 +12,7 @@
 /** Les phrases toutes faites, pour quand le serveur n'a rien dit d'utilisable. */
 export const MOTIFS = {
   /** La requête n'est même pas partie : wifi coupé, 4G perdue, mode avion. */
-  reseau: 'Pas de réseau — vérifie ton wifi ou ta 4G, puis réessaie',
+  reseau: 'Pas de réseau — vérifie ton Wi-Fi ou ta 4G, puis réessaie',
   /** Partie, mais rien n'est revenu dans le délai. */
   silence: 'Le serveur ne répond pas — vérifie ta connexion, puis réessaie',
   /** 502, 503, 504 : c'est l'hébergeur qui répond, pendant un déploiement ou un réveil. */

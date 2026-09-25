@@ -256,6 +256,14 @@ interface Spec {
   detail: (s: PlayerStat, x: Extra) => string
 }
 
+/**
+ * Le nom du jour d'un prix du palmarès, ou `undefined` pour une autre clé.
+ * L'étagère d'un profil garde en base le nom du soir où le prix est tombé : un
+ * prix renommé s'y relit ici, comme le souvenir le relit avec les règles du
+ * jour (invariant 14).
+ */
+export const titreDuPrix = (key: string): string | undefined => SPECS.find(s => s.key === key)?.title
+
 /** Au moins deux temps moyens différents : il y a un plus rapide, et un plus lent qui n'est pas lui. */
 const tempsDistincts = (pool: PlayerStat[]) => new Set(pool.map(s => s.avgMs)).size > 1
 
@@ -309,14 +317,17 @@ const SPECS: Spec[] = [
   {
     key: 'sansfaute',
     emoji: '💯',
-    title: 'Le Sans-Faute',
+    // « Le Sans-Faute » tombait à 67 % : le nom promettait ce que le critère
+    // ne demande pas. Le critère reste (c'est un barème), le nom suit ; la
+    // clé, écrite sur les étagères, ne bouge pas.
+    title: 'Le Plus Précis',
     rule: 'Le meilleur pourcentage de bonnes réponses',
     // Au moins une bonne réponse : quand toute la salle se trompait, le prix
     // tombait à « 0 % de réussite ».
     eligible: s => s.correct >= 1 && s.correct + s.wrong >= MIN_ANSWERS && s.accuracy !== null,
     score: s => s.accuracy!,
     volume: s => s.correct + s.wrong,
-    detail: s => `${percent(s.accuracy!)} de réussite sur ${plural(s.correct + s.wrong, 'question')}`,
+    detail: s => `${percent(s.accuracy!)} de précision sur ${plural(s.correct + s.wrong, 'QCM', 'QCM')}`,
   },
   {
     key: 'cancre',
@@ -357,7 +368,10 @@ const SPECS: Spec[] = [
   {
     key: 'devin',
     emoji: '🔮',
-    title: 'Le Devin',
+    // « Le Devin » était aussi le haut fait des estimations exactes — qui ont
+    // déjà leur prix, Le Pile-Poil. Celui-ci juge le coup d'œil : il en prend
+    // le nom. La clé `devin` reste, pour les étagères déjà garnies.
+    title: "Le Compas dans l'Œil",
     rule: 'Le plus juste sur les questions chiffrées',
     // Au coup d'œil : la part de la salle que chaque estimation bat ou égale.
     // À l'écart moyen en pour cent, il allait au retardataire qui n'avait vu

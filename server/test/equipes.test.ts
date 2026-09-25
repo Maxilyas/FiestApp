@@ -639,3 +639,25 @@ test('les textes suivent la règle : « 1 point d’équipe », et pas de « pri
   const { awards } = computeStats(rows, players)
   assert.match(awards.find(a => a.key === 'coupdepouce')!.rule, /parmi celles qui ont répondu au moins une fois/)
 })
+
+test('les points d’une équipe s’accordent : « 1 pt au total », « 1 pt de moyenne »', async () => {
+  // « 1 pts au total » au tableau, « (1 pts de moyenne) » au bilan : les
+  // totaux d'équipe écrivaient l'unité à la main, sans `pts()`.
+  const equipe = (id: string, name: string, average: number, total: number) =>
+    ({ id, name, emoji: '🎲', position: 0, memberCount: 1, total, average, bonus: 0 })
+  const tableau = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams: [equipe('a', 'Les Aigles', 1, 1), equipe('z', 'Les Zèbres', 0, 12345)] }))
+  assert.match(tableau, /· 1 pt au total/)
+  assert.match(tableau, /· 12 345 pts au total/)
+  assert.doesNotMatch(tableau, /1 pts/)
+
+  const teams = [{ id: 'a', name: 'Les Aigles', emoji: '🦅', position: 0, createdAt: 1 }]
+  const players = [joueur('ana', 'Ana', 'a', 1)]
+  Object.assign(globalThis, { React: (await import('react')).default })
+  const { makeCtx } = await import(new URL('../../client/src/components/BilanQuestion.tsx', import.meta.url).href)
+  const bilan = texteDe(
+    await rendu('components/BilanRoom', 'RoomReview', {
+      ctx: makeCtx(buildReview({ rows: [ligne('ana', 0, 1)], players, teams, bonuses: [], packsBySession: new Map(), library: [] })),
+    }),
+  )
+  assert.match(bilan, /\(1 pt de moyenne\)/)
+})

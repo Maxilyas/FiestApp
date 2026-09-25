@@ -3,7 +3,7 @@ import { Limite } from './Limite'
 import type { PublicPlayer, PublicTeam } from '../../../shared/types'
 import type { PublicSpace } from '../../../shared/space'
 import type { PublicProfile } from '../../../shared/profil'
-import { AVATARS } from '../../../shared/avatars'
+import { AVATARS, MAX_NAME_LENGTH } from '../../../shared/avatars'
 import { cibleEclat } from '../../../shared/legendaires'
 import { sansAccent } from '../../../shared/homonymes'
 import { MOTIFS } from '../../../shared/erreurs'
@@ -16,6 +16,7 @@ import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { TeamPicker } from './TeamPicker'
 import { Icon } from './Icon'
+import { MotDePasse } from './MotDePasse'
 import { espacesFines } from '../format'
 
 /** Ce qu'on envoie au serveur pour être quelqu'un ce soir. */
@@ -226,10 +227,9 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           <label className="label" htmlFor="e-pass">
             Ton mot de passe
           </label>
-          <input
+          <MotDePasse
             id="e-pass"
             className="input input-line"
-            type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             autoComplete="current-password"
@@ -297,7 +297,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           points de ce soir.
         </p>
         <div className="join-grow" />
-        {connectes > 0 && <p className="join-foot">{connectes} invité·e·s déjà là</p>}
+        {connectes > 0 && <p className="join-foot">{connectes} invité·e{connectes > 1 ? '·s' : ''} déjà là</p>}
       </form>
     )
   }
@@ -442,7 +442,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           <Icon name="sparkles" /> Garder ma progression
         </h2>
         <p className="muted small center">
-          Ton identifiant te servira à revenir. Il n'y a pas d'adresse e-mail à donner.
+          Ton identifiant te servira à revenir. Il n'y a pas d'adresse e-{/* un gluon : « e- / mail » coupé en bout de ligne */ '\u2060'}mail à donner.
         </p>
         <hr className="hairline" />
         <div className="field">
@@ -464,10 +464,9 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           <label className="label" htmlFor="c-pass">
             Ton mot de passe
           </label>
-          <input
+          <MotDePasse
             id="c-pass"
             className="input input-line"
-            type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             autoComplete="new-password"
@@ -619,9 +618,14 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
       )}
       <hr className="hairline" />
       <div className="field">
-        <label className="label" htmlFor="join-name">
-          Ton prénom
-        </label>
+        {/* La limite dite avant qu'on tape : Lucas l'a découverte à la
+            vingt-quatrième lettre, son pseudo coupé net. */}
+        <div className="field-head">
+          <label className="label" htmlFor="join-name">
+            Ton prénom
+          </label>
+          <span className="muted small">{MAX_NAME_LENGTH} caractères au plus</span>
+        </div>
         {/* Pas d'`autoFocus`, ici non plus : le clavier ouvert d'office
             poussait « Rejoindre la soirée » hors de l'écran — et l'habitué
             qui revient, écran pré-rempli, n'a souvent rien à retaper. */}
@@ -631,7 +635,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           autoComplete="given-name"
           value={name}
           onChange={e => setName(e.target.value)}
-          maxLength={24}
+          maxLength={MAX_NAME_LENGTH}
           // Au téléphone, la touche du clavier le referme au lieu de valider :
           // les avatars, qu'il cachait, restent à choisir, et « Continuer »
           // réapparaît juste dessous. Au clavier d'un ordinateur, Entrée valide.
@@ -642,14 +646,14 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
             e.currentTarget.blur()
           }}
         />
-        <Limite valeur={name} max={24} />
+        <Limite valeur={name} max={MAX_NAME_LENGTH} />
       </div>
       <div className="field">
         <div className="field-head">
           <span className="label" id="avatar-label">
             Ton avatar
           </span>
-          {connectes > 0 && <span className="muted small">{connectes} invité·e·s déjà là</span>}
+          {connectes > 0 && <span className="muted small">{connectes} invité·e{connectes > 1 ? '·s' : ''} déjà là</span>}
         </div>
         <div className="emoji-grid" role="group" aria-labelledby="avatar-label">
           {AVATARS.map(a => (

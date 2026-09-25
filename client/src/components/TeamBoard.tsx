@@ -3,6 +3,7 @@ import { enumerer } from '../../../shared/classement'
 import type { PublicTeam } from '../../../shared/types'
 import { Rank, Score, motPoints } from './Rank'
 import { Icon } from './Icon'
+import { pts } from '../format'
 
 interface Props {
   teams: PublicTeam[]
@@ -48,34 +49,36 @@ export function TeamBoard({ teams, highlightId, compact }: Props) {
         >
           {played ? <Rank n={t.rank} /> : <span className="lb-rank" aria-hidden="true">·</span>}
           <span className="lb-avatar">{t.emoji}</span>
-          <span className="lb-name">
-            {t.name}
-            {/* Avant le premier quiz, « 0 de moyenne » sous chaque équipe ne
-                disait rien : au téléphone, le nom seul ; au mur, l'effectif. */}
-            {(played || !compact) && (
-              <span className="team-sub">
-                {t.memberCount === 0 ? (
-                  'aucun membre'
-                ) : (
-                  <>
-                    {!compact && `${t.memberCount} membre${t.memberCount > 1 ? 's' : ''}`}
-                    {!compact && played && ' · '}
-                    {/* « 439 de moyenne » se lit ; à l'oreille, il faut l'unité. */}
-                    {played && (
-                      <>
-                        {t.average}
-                        <span className="sr-only"> points</span> de moyenne
-                      </>
-                    )}
-                    {!compact && played && ` · ${t.total} pts au total`}
-                  </>
-                )}
-                {/* Le détail ne vaut que s'il y a des prix : sans eux, « 3 à la
-                    moyenne » répétait le gros chiffre. */}
-                {played && t.bonus !== 0 && ` · ${detailDesPoints(t)}`}
-              </span>
-            )}
-          </span>
+          <span className="lb-name">{t.name}</span>
+          {/* Le détail est le voisin du nom, pas son enfant : la grille le
+              place dessous, ou sur toute la largeur quand la ligne est
+              étroite. Enfant du nom, il n'avait que sa colonne — 14 px au
+              texte agrandi, une lettre par ligne. Avant le premier quiz,
+              « 0 de moyenne » sous chaque équipe ne disait rien : au
+              téléphone, le nom seul ; au mur, l'effectif. */}
+          {(played || !compact) && (
+            <span className="team-sub">
+              {t.memberCount === 0 ? (
+                'aucun membre'
+              ) : (
+                <>
+                  {!compact && `${t.memberCount} membre${t.memberCount > 1 ? 's' : ''}`}
+                  {!compact && played && ' · '}
+                  {/* « 439 de moyenne » se lit ; à l'oreille, il faut l'unité. */}
+                  {played && (
+                    <>
+                      {t.average}
+                      <span className="sr-only"> {motPoints(t.average)}</span> de moyenne
+                    </>
+                  )}
+                  {!compact && played && ` · ${pts(t.total)} au total`}
+                </>
+              )}
+              {/* Le détail ne vaut que s'il y a des prix : sans eux, « 3 à la
+                  moyenne » répétait le gros chiffre. */}
+              {played && t.bonus !== 0 && ` · ${detailDesPoints(t)}`}
+            </span>
+          )}
           {played && (
             <span className="team-points">
               <Score n={t.finalPoints} precision="d’équipe" />
@@ -100,13 +103,13 @@ export function VerdictDesEquipes({ teams, avecPrix }: { teams: PublicTeam[]; av
   // rendent pas le verdict « prix compris ».
   const champions = vainqueursDuQuiz(teams)
   if (champions.length === 0) return null
-  const pts = champions[0].finalPoints
+  const points = champions[0].finalPoints
   return (
     <p className="team-verdict">
       <Icon name="crown" /> {enumerer(champions.map(t => `${t.emoji} ${t.name}`))}{' '}
       {champions.length > 1
-        ? `remportent le quiz ex æquo, ${pts} ${motPoints(pts)} d’équipe chacune`
-        : `remporte le quiz, ${pts} ${motPoints(pts)} d’équipe`}
+        ? `remportent le quiz ex æquo, ${points} ${motPoints(points)} d’équipe chacune`
+        : `remporte le quiz, ${points} ${motPoints(points)} d’équipe`}
       {avecPrix && ' prix compris'}.
     </p>
   )

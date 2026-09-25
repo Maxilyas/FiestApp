@@ -1,3 +1,4 @@
+import { MOTIFS } from '../../../shared/erreurs'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { joinAsPlayer, reprendrePlace, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
 import {
@@ -28,7 +29,7 @@ import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import { regleDesEquipes } from '../../../shared/teams'
-import { espacesFines, formatNumber, place } from '../format'
+import { espacesFines, formatNumber, scoreEtRang } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
@@ -245,7 +246,7 @@ export function PlayerApp() {
 
   const changeTeam = async (id: string) => {
     const res = await setMyTeam(id)
-    if (!res.ok) return showToast({ kind: 'error', message: res.error ?? 'Impossible' })
+    if (!res.ok) return showToast({ kind: 'error', message: res.error ?? MOTIFS.imprevu })
     setSwitching(false)
   }
 
@@ -487,11 +488,6 @@ export function PlayerApp() {
   // ── Salle d'attente ──────────────────────────────
   const myTeam = teams.find(t => t.id === me?.teamId) ?? null
   const sorted = [...snap.players].sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
-  // Rang partagé, comme dans le classement en dessous : à égalité de points,
-  // on est premier ensemble, pas quatrième parce que son prénom vient après.
-  // Et pas de rang tant que personne n'a marqué : « 0 pts · 1ʳᵉ place »
-  // avant le premier quiz, c'était premier de rien.
-  const myRank = me && sorted.some(p => p.score > 0) ? sorted.findIndex(p => p.score === me.score) + 1 : 0
   // Seul, on ne gagne rien (invariant 19) : « Ce soir compte déjà » serait faux.
   const invitationProfil = !profil && (me?.score ?? 0) > 0 && snap.players.length > 1 && plusTard !== me?.id
   const remettreAPlusTard = () => {
@@ -518,16 +514,19 @@ export function PlayerApp() {
             <Niveau niveau={me?.niveau} big />
           </h2>
           <p className="muted">
-            {me?.score ?? 0} pts{myRank > 0 && ` · ${place(myRank)}`}
+            {scoreEtRang(me?.score ?? 0, me ? snap.players.map(p => p.score) : [])}
             {myTeam && ` · ${myTeam.emoji} ${myTeam.name}`}
           </p>
         </div>
+      </header>
+      {/* Sous l'en-tête, pas à côté : dans la même ligne, la pastille
+          réduisait le prénom à « Mari… » au moment même où l'on se demande
+          si le téléphone est encore le sien. */}
         {!s.connected && (
           <span className="pill offline-pill">
             <Icon name="alert" /> reconnexion…
           </span>
         )}
-      </header>
 
       {avisAbsent}
 

@@ -74,9 +74,9 @@ export function isValidLogin(login: string): boolean {
 export interface SpaceSettings {
   /** « La soirée de Bob » : le titre des pages souvenir et bilan, et de l'écran commun. */
   title: string
-  /** « La soirée de » : la ligne au-dessus du grand titre, à l'inscription. */
+  /** « La soirée » : la ligne au-dessus du grand titre, à l'inscription. */
   eyebrow: string
-  /** « Bob » : le grand titre, à l'inscription. */
+  /** « de Bob », « d'Hélène » : le grand titre, à l'inscription. */
   headline: string
   /** « samedi 14 mars » : la date, telle qu'on l'écrit. Vide si on ne veut rien. */
   dateLine: string
@@ -90,14 +90,16 @@ export const MAX_PLAYERS_CEILING = 500
 
 /**
  * Les réglages d'un espace tout neuf : le prénom de l'animateur fait le titre
- * (« La soirée de / Bob », « La soirée d’ / Antoine »). Élidé devant une
+ * (« La soirée / de Bob », « La soirée / d’Antoine »). Élidé devant une
  * voyelle : « La soirée de Antoine » s'affichait au mur de toute la famille.
+ * La préposition descend avec le prénom : en surtitre, « LA SOIRÉE D’ »
+ * restait seul sur sa ligne, l'apostrophe flottant en capitales espacées.
  */
 export function defaultSettings(name: string): SpaceSettings {
   return {
     title: `La soirée ${deNom(name)}`,
-    eyebrow: `La soirée ${de(name).trim()}`,
-    headline: name,
+    eyebrow: 'La soirée',
+    headline: deNom(name),
     dateLine: '',
     maxPlayers: DEFAULT_MAX_PLAYERS,
   }
@@ -138,7 +140,15 @@ export function normalizeSettings(raw: unknown, name: string): SpaceSettings {
   // l'ancien titre par défaut, reconnu mot pour mot, suit le nouveau. Un titre
   // que l'animateur a tapé lui-même n'est jamais touché.
   if (r.title === `La soirée de ${name}`) r.title = d.title
-  if (r.eyebrow === 'La soirée de' && (r.headline === undefined || r.headline === name)) r.eyebrow = d.eyebrow
+  // De même pour les défauts d'avant, « La soirée de / Antoine » puis « La
+  // soirée d’ / Antoine » : reconnus au prénom seul en grand titre.
+  if (
+    (r.eyebrow === 'La soirée de' || r.eyebrow === `La soirée ${de(name).trim()}`) &&
+    (r.headline === undefined || r.headline === name)
+  ) {
+    r.eyebrow = d.eyebrow
+    r.headline = d.headline
+  }
   const n = Number(r.maxPlayers)
   return {
     title: text(r.title, d.title, 80),

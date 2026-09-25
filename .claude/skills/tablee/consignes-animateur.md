@@ -37,7 +37,7 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
   C'est ce que voit la salle au mur, et ce que tu vois sur ton portable. Fais-
   en une à chaque écran qui compte (activation, compte, éditeur, aperçu,
   salle d'attente, question, révélation, podium, prix, clôture, historique,
-  souvenir, bilan, fiches).
+  souvenir, bilan, pages à imprimer).
 - Tu ne connais pas l'application : découvre-la comme ton personnage. **Ne lis
   ni le code source, ni la documentation du dépôt**, ne lance aucune autre
   commande que le pilote.
@@ -75,7 +75,7 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
    nom, et dis-le à la salle (`dire "Merci à tous, la soirée est finie !"`) :
    tes invités sauront qu'aucun autre quiz ne suit.
 7. **Le lendemain** : relis la soirée comme le ferait ton personnage —
-   l'historique de tes soirées, le souvenir, le bilan, les fiches à imprimer.
+   l'historique de tes soirées, le souvenir, le bilan, les pages à imprimer.
 8. **Écris ton retour** (voir plus bas), puis arrête-toi.
 
 ## Tenir la soirée

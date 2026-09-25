@@ -1,3 +1,4 @@
+import { deNom } from '../format'
 import { useEffect, useState, type FormEvent } from 'react'
 import { activationUrl, api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
@@ -44,7 +45,7 @@ export function AdminApp() {
   const showActivation = async (account: PublicAccount, token: string) => {
     const link = activationUrl(token)
     const value = await promptDialog({
-      title: `Le lien d'activation de ${account.name}`,
+      title: `Le lien d'activation ${deNom(account.name)}`,
       message:
         'Envoie-lui ce lien : il choisira son mot de passe. Il vaut sept jours et ne sert qu’une fois — en refaire un annule celui-ci.',
       input: { value: link },
@@ -58,16 +59,16 @@ export function AdminApp() {
 
   if (error) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="error">{error}</p>
-      </div>
+      </main>
     )
   }
   if (!me || !accounts) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Chargement…</p>
-      </div>
+      </main>
     )
   }
 
@@ -87,147 +88,148 @@ export function AdminApp() {
         </a>
         <LienConsole className="btn" />
       </nav>
+      <main className="page-corps">
+        <CreateForm onCreated={(account, token) => load().then(() => showActivation(account, token))} />
 
-      <CreateForm onCreated={(account, token) => load().then(() => showActivation(account, token))} />
-
-      <section className="card">
-        <h2>Tous les comptes</h2>
-        <div className="stats-scroll">
-          <table className="stats-table accounts-table">
-            <thead>
-              <tr>
-                <th className="stats-name">Compte</th>
-                <th>Adresse</th>
-                <th>État</th>
-                <th>Dernière connexion</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map(a => (
-                <tr key={a.id}>
-                  <td className="stats-name">
-                    <strong>{a.name}</strong> <span className="muted">{a.login}</span>
-                    {a.role === 'admin' && <span className="pill">admin</span>}
-                  </td>
-                  <td>
-                    <code>/{a.slug}</code>
-                  </td>
-                  <td>
-                    <span className={'pill status-' + a.status}>
-                      {a.status === 'pending' ? 'en attente' : a.status === 'active' ? 'actif' : 'désactivé'}
-                    </span>
-                  </td>
-                  <td className="muted" data-libelle="Dernière connexion : ">{a.lastLoginAt ? formatDay(a.lastLoginAt) : 'jamais'}</td>
-                  <td>
-                    <div className="row account-actions">
-                      {/* Un compte en pause ne reçoit pas de lien : le serveur
-                          le refuse, et le proposer laissait croire qu'il
-                          rouvrirait la porte. */}
-                      {a.status !== 'disabled' && (
+        <section className="card">
+          <h2>Tous les comptes</h2>
+          <div className="stats-scroll">
+            <table className="stats-table accounts-table">
+              <thead>
+                <tr>
+                  <th className="stats-name">Compte</th>
+                  <th>Adresse</th>
+                  <th>État</th>
+                  <th>Dernière connexion</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {accounts.map(a => (
+                  <tr key={a.id}>
+                    <td className="stats-name">
+                      <strong>{a.name}</strong> <span className="muted">{a.login}</span>
+                      {a.role === 'admin' && <span className="pill">admin</span>}
+                    </td>
+                    <td>
+                      <code>/{a.slug}</code>
+                    </td>
+                    <td>
+                      <span className={'pill status-' + a.status}>
+                        {a.status === 'pending' ? 'en attente' : a.status === 'active' ? 'actif' : 'désactivé'}
+                      </span>
+                    </td>
+                    <td className="muted" data-libelle="Dernière connexion : ">{a.lastLoginAt ? formatDay(a.lastLoginAt) : 'jamais'}</td>
+                    <td>
+                      <div className="row account-actions">
+                        {/* Un compte en pause ne reçoit pas de lien : le serveur
+                            le refuse, et le proposer laissait croire qu'il
+                            rouvrirait la porte. */}
+                        {a.status !== 'disabled' && (
+                          <button
+                            className="btn btn-small"
+                            title="Un nouveau lien d'activation — pour un mot de passe oublié"
+                            onClick={async () => {
+                              try {
+                                const { activation } = await api.admin.activation(a.id)
+                                await showActivation(a, activation.token)
+                              } catch (e) {
+                                showToast({ kind: 'error', message: (e as Error).message })
+                              }
+                            }}
+                          >
+                            <Icon name="sparkles" />
+                            Lien
+                          </button>
+                        )}
                         <button
-                          className="btn btn-small"
-                          title="Un nouveau lien d'activation — pour un mot de passe oublié"
+                          className="btn btn-small btn-ghost"
+                          title="Renommer, ou changer l'adresse"
                           onClick={async () => {
+                            const name = await promptDialog({
+                              title: 'Le prénom ou le nom affiché',
+                              input: { value: a.name, maxLength: 40 },
+                              confirmLabel: 'Suivant',
+                            })
+                            if (!name) return
+                            const slug = await promptDialog({
+                              title: 'Le nom dans l’adresse',
+                              message: 'Minuscules, chiffres et tirets. Changer l’adresse casse les liens déjà partagés.',
+                              input: { value: a.slug, maxLength: 24 },
+                              confirmLabel: 'Enregistrer',
+                            })
+                            if (!slug) return
                             try {
-                              const { activation } = await api.admin.activation(a.id)
-                              await showActivation(a, activation.token)
+                              await api.admin.update(a.id, { name, slug: normalizeSlug(slug) })
+                              await load()
                             } catch (e) {
                               showToast({ kind: 'error', message: (e as Error).message })
                             }
                           }}
                         >
-                          <Icon name="sparkles" />
-                          Lien
+                          <Icon name="edit" />
                         </button>
-                      )}
-                      <button
-                        className="btn btn-small btn-ghost"
-                        title="Renommer, ou changer l'adresse"
-                        onClick={async () => {
-                          const name = await promptDialog({
-                            title: 'Le prénom ou le nom affiché',
-                            input: { value: a.name, maxLength: 40 },
-                            confirmLabel: 'Suivant',
-                          })
-                          if (!name) return
-                          const slug = await promptDialog({
-                            title: 'Le nom dans l’adresse',
-                            message: 'Minuscules, chiffres et tirets. Changer l’adresse casse les liens déjà partagés.',
-                            input: { value: a.slug, maxLength: 24 },
-                            confirmLabel: 'Enregistrer',
-                          })
-                          if (!slug) return
-                          try {
-                            await api.admin.update(a.id, { name, slug: normalizeSlug(slug) })
-                            await load()
-                          } catch (e) {
-                            showToast({ kind: 'error', message: (e as Error).message })
-                          }
-                        }}
-                      >
-                        <Icon name="edit" />
-                      </button>
-                      {a.id !== me.account.id &&
-                        (a.status === 'disabled' ? (
-                          <>
+                        {a.id !== me.account.id &&
+                          (a.status === 'disabled' ? (
+                            <>
+                              <button
+                                className="btn btn-small btn-ghost"
+                                onClick={() => api.admin.enable(a.id).then(load).catch(e => showToast({ kind: 'error', message: e.message }))}
+                              >
+                                Réactiver
+                              </button>
+                              <button
+                                className="btn btn-small btn-ghost"
+                                title="Supprimer le compte et tout ce qu'il a laissé"
+                                onClick={async () => {
+                                  const ok = await confirmDialog({
+                                    title: `Supprimer le compte ${deNom(a.name)} ?`,
+                                    message:
+                                      'Ses quiz, ses photos, ses soirées archivées et sa soirée en cours seront effacés, sans retour. Son identifiant et son adresse redeviennent libres.\n\nPour en garder une trace, exporte ses soirées avant (npm run export).',
+                                    confirmLabel: 'Supprimer le compte',
+                                    danger: true,
+                                  })
+                                  if (!ok) return
+                                  try {
+                                    await api.admin.remove(a.id)
+                                    await load()
+                                    showToast({ kind: 'info', message: `Le compte ${deNom(a.name)} est supprimé` })
+                                  } catch (e) {
+                                    showToast({ kind: 'error', message: (e as Error).message })
+                                  }
+                                }}
+                              >
+                                <Icon name="trash" />
+                                Supprimer
+                              </button>
+                            </>
+                          ) : (
                             <button
                               className="btn btn-small btn-ghost"
-                              onClick={() => api.admin.enable(a.id).then(load).catch(e => showToast({ kind: 'error', message: e.message }))}
-                            >
-                              Réactiver
-                            </button>
-                            <button
-                              className="btn btn-small btn-ghost"
-                              title="Supprimer le compte et tout ce qu'il a laissé"
                               onClick={async () => {
                                 const ok = await confirmDialog({
-                                  title: `Supprimer le compte de ${a.name} ?`,
-                                  message:
-                                    'Ses quiz, ses photos, ses soirées archivées et sa soirée en cours seront effacés, sans retour. Son identifiant et son adresse redeviennent libres.\n\nPour en garder une trace, exporte ses soirées avant (npm run export).',
-                                  confirmLabel: 'Supprimer le compte',
+                                  title: `Désactiver le compte ${deNom(a.name)} ?`,
+                                  message: 'Il ne pourra plus se connecter et ses écrans communs se fermeront. Ses quiz et ses soirées restent : tu peux le réactiver, ou le supprimer pour de bon.',
+                                  confirmLabel: 'Désactiver',
                                   danger: true,
                                 })
-                                if (!ok) return
-                                try {
-                                  await api.admin.remove(a.id)
-                                  await load()
-                                  showToast({ kind: 'info', message: `Le compte de ${a.name} est supprimé` })
-                                } catch (e) {
-                                  showToast({ kind: 'error', message: (e as Error).message })
-                                }
+                                if (ok) api.admin.disable(a.id).then(load).catch(e => showToast({ kind: 'error', message: e.message }))
                               }}
                             >
-                              <Icon name="trash" />
-                              Supprimer
+                              Désactiver
                             </button>
-                          </>
-                        ) : (
-                          <button
-                            className="btn btn-small btn-ghost"
-                            onClick={async () => {
-                              const ok = await confirmDialog({
-                                title: `Désactiver le compte de ${a.name} ?`,
-                                message: 'Il ne pourra plus se connecter et ses écrans communs se fermeront. Ses quiz et ses soirées restent : tu peux le réactiver, ou le supprimer pour de bon.',
-                                confirmLabel: 'Désactiver',
-                                danger: true,
-                              })
-                              if (ok) api.admin.disable(a.id).then(load).catch(e => showToast({ kind: 'error', message: e.message }))
-                            }}
-                          >
-                            Désactiver
-                          </button>
-                        ))}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                          ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
-      {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
+        {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
+      </main>
     </div>
   )
 }

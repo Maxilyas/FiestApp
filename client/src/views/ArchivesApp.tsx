@@ -7,7 +7,7 @@ import { confirmDialog, promptDialog } from '../components/Dialog'
 import { INTROUVABLE, SpaceError, SpaceNav, estIntrouvable, useIsHost } from '../components/SpaceNav'
 import { api, UnauthorizedError } from '../api'
 import { dataUrl, pageContext, spacePath, type PublicPage } from '../routes'
-import { formatNumber } from '../format'
+import { formatNumber, pts } from '../format'
 
 /**
  * L'historique des soirées d'un espace (`/<espace>/soirees`) : la soirée en
@@ -36,7 +36,7 @@ export function ArchivesApp() {
   }, [slug])
 
   useEffect(() => {
-    if (list?.space) document.title = `${list.space.title} · Les soirées`
+    if (list?.space) document.title = `${list.space.title} · Historique`
   }, [list])
 
   const manage = async (action: () => Promise<unknown>) => {
@@ -53,9 +53,9 @@ export function ArchivesApp() {
   if (error) return <SpaceError current="soirees" message={error} />
   if (!list) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Chargement…</p>
-      </div>
+      </main>
     )
   }
 
@@ -64,12 +64,12 @@ export function ArchivesApp() {
     <div className="recap soirees">
       <header className="recap-header">
         <span className="label">{list.space?.title}</span>
-        <h1>Les soirées</h1>
+        <h1>Historique</h1>
         <p className="join-sub">L'historique, une soirée après l'autre</p>
         <hr className="hairline" />
       </header>
       <SpaceNav current="soirees" />
-
+      <main className="page-corps">
       {current && (
         <section className="card soiree soiree-current">
           <div className="soiree-head">
@@ -126,6 +126,7 @@ export function ArchivesApp() {
           />
         ))
       )}
+      </main>
     </div>
   )
 }
@@ -190,7 +191,7 @@ function ArchiveCard({
           {a.winners.length > 0 && (
             <>
               <Icon name="trophy" /> {enumerer(a.winners.map(w => `${w.avatar} ${w.name}`))}
-              {a.winners.length > 1 && ', ex æquo'} · {formatNumber(a.winners[0].points)} pts
+              {a.winners.length > 1 && ', ex æquo'} · {pts(a.winners[0].points)}
             </>
           )}
           {a.winners.length > 0 && a.teamWinners.length > 0 && ' · '}

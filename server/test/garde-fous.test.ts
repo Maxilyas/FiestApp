@@ -498,7 +498,7 @@ describe('les garde-fous', { concurrency: true }, () => {
       action,
     })
     assert.equal(jetonInconnu.reason, 'unknown-player')
-    assert.match(jetonInconnu.error, /retente/)
+    assert.match(jetonInconnu.error, /réessaie/)
     const curieux = connecter(banc.url)
     await emitAck(curieux, 'party:watch', { slug: SLUG })
     assert.equal((await emitAck<any>(curieux, 'player:action', { sessionId, action })).reason, 'unknown-player')

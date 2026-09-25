@@ -1,6 +1,6 @@
 {
-  "name": "Quizz",
-  "short_name": "Quizz",
+  "name": "FiestApp",
+  "short_name": "FiestApp",
   "description": "Le quiz de la soirée, sur ton téléphone",
   "lang": "fr",
   "start_url": "/",
