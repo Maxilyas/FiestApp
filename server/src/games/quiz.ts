@@ -40,7 +40,7 @@ interface Response {
 }
 
 interface QuizState {
-  phase: 'pickPack' | 'getReady' | 'observe' | 'question' | 'reveal' | 'finished'
+  phase: 'pickPack' | 'getReady' | 'intertitre' | 'observe' | 'question' | 'reveal' | 'finished'
   packs: QuizPackInfo[]
   /** Le programme de ce soir, tel qu'il était au lancement (écrans d'animateur seulement). */
   programme?: ProgrammeDuSoir
@@ -330,7 +330,7 @@ export function setQuestionsPosees(spaceId: string, dernieres: ReadonlyMap<strin
  * phase, la question et les réponses seraient à l'écran en même temps que la
  * photo, et il suffirait de répondre vite en la regardant.
  */
-function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: GameContext) {
+function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: GameContext, sansIntertitre = false) {
   const st = sess.state
   const q = st.pack!.questions[index]
   st.qIndex = index
@@ -349,6 +349,26 @@ function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: Game
   // Une question reposée hérite sinon du souffle armé par la précédente, qui
   // la révélerait avant que personne ait eu le temps de répondre.
   ctx.clearTimer('settle')
+  // L'intertitre d'abord : une diapo sans réponse, que l'animateur passe d'un
+  // clic — ou qui dure ce que dure l'enchaînement, s'il en a réglé un. Une
+  // question reposée ne le rejoue pas : la salle vient de le voir.
+  if (q.intertitre && !sansIntertitre) {
+    st.phase = 'intertitre'
+    st.deadline = 0
+    if (st.autoNextSeconds !== null) {
+      st.deadline = ctx.now() + st.autoNextSeconds * 1000
+      ctx.setTimer('intertitre', st.autoNextSeconds * 1000)
+    }
+    return
+  }
+  apresIntertitre(sess, ctx)
+}
+
+/** La photo à observer, s'il y en a une ; sinon la question. */
+function apresIntertitre(sess: GameSessionRec<QuizState>, ctx: GameContext) {
+  const st = sess.state
+  const q = st.pack!.questions[st.qIndex]
+  ctx.clearTimer('intertitre')
   if (q.image && q.observeSeconds) {
     st.phase = 'observe'
     st.deadline = ctx.now() + q.observeSeconds * 1000
@@ -837,7 +857,7 @@ export const quizModule: GameModule<QuizState> = {
         for (const id of sess.participantIds) {
           if ((st.playFrom[id] ?? 0) > st.qIndex) st.playFrom[id] = st.qIndex
         }
-        startQuestion(sess, st.qIndex, ctx)
+        startQuestion(sess, st.qIndex, ctx, true)
         break
       }
       case 'next':
@@ -847,7 +867,10 @@ export const quizModule: GameModule<QuizState> = {
         // quatre-vingt-seize millisecondes. Un clic qui ne vise plus le moment
         // présent est un doublon : ignoré sans un mot.
         if (perimee(st, command)) return
-        if (st.phase === 'observe') {
+        if (st.phase === 'intertitre') {
+          // La diapo a assez duré : la question.
+          apresIntertitre(sess, ctx)
+        } else if (st.phase === 'observe') {
           // « C'est bon, tout le monde a vu » : on passe à la question.
           beginAnswering(sess, ctx)
         } else if (st.phase === 'question') {
@@ -920,6 +943,7 @@ export const quizModule: GameModule<QuizState> = {
 
   onTimer(sess, timerId, ctx) {
     if (timerId === 'ready' && sess.state.phase === 'getReady') startQuestion(sess, 0, ctx)
+    if (timerId === 'intertitre' && sess.state.phase === 'intertitre') apresIntertitre(sess, ctx)
     if (timerId === 'observe' && sess.state.phase === 'observe') beginAnswering(sess, ctx)
     if (timerId === 'question' && sess.state.phase === 'question') reveal(sess, ctx)
     if (timerId === 'settle' && sess.state.phase === 'question') reveal(sess, ctx)
@@ -944,6 +968,8 @@ export const quizModule: GameModule<QuizState> = {
       yourGuess: mine?.value ?? null,
     }
     if (st.phase === 'getReady') return { ...base, deadline: st.deadline }
+    // L'intertitre ne dit rien de la question : il part à toute la salle.
+    if (st.phase === 'intertitre' && st.pack) return { ...base, intertitre: st.pack.questions[st.qIndex].intertitre }
     // Observation : la photo, et rien d'autre. Ni l'intitulé ni les réponses ne
     // partent au téléphone — sinon il suffirait de répondre en la regardant.
     if (st.phase === 'observe' && st.pack) {
@@ -974,6 +1000,9 @@ export const quizModule: GameModule<QuizState> = {
         multiplier: st.multiplier,
         ...(st.pausedMs !== null && { paused: true, remainingMs: st.pausedMs }),
         ...(st.phase === 'reveal' && {
+          // L'anecdote et la photo de la révélation : jamais avant (invariant 1).
+          ...(q.anecdote && { anecdote: q.anecdote }),
+          ...(q.imageRevelation && { imageRevelation: q.imageRevelation }),
           justArrived: (st.playFrom[playerId] ?? 0) > st.qIndex,
           correct: q.kind === 'choice' ? q.correct : undefined,
           target: q.kind === 'number' ? q.target : undefined,
@@ -1011,10 +1040,22 @@ export const quizModule: GameModule<QuizState> = {
     }
     if (st.phase === 'pickPack') return { ...base, packs: st.packs, ...(st.programme && { programme: st.programme }) }
     if (st.phase === 'getReady') return { ...base, deadline: st.deadline }
+    if (st.phase === 'intertitre' && st.pack) {
+      const q = st.pack.questions[st.qIndex]
+      return {
+        ...base,
+        intertitre: q.intertitre,
+        ...(st.deadline > 0 && { deadline: st.deadline }),
+        ...(q.note && { note: q.note }),
+        autoNextSeconds: st.autoNextSeconds,
+      }
+    }
     if (st.phase === 'observe' && st.pack) {
       const q = st.pack.questions[st.qIndex]
       return {
         ...base,
+        // La note suit l'animateur dès la photo : il la lit pendant qu'on observe.
+        ...(q.note && { note: q.note }),
         image: q.image,
         deadline: st.deadline,
         duration: q.observeSeconds ?? 0,
@@ -1038,6 +1079,7 @@ export const quizModule: GameModule<QuizState> = {
         photoGone: hiddenPhoto(q, st.phase) || undefined,
         deadline: st.deadline,
         duration: q.duration,
+        ...(q.note && { note: q.note }),
         ...(st.pausedMs !== null && { paused: true, remainingMs: st.pausedMs }),
         autoNextSeconds: st.autoNextSeconds,
         ...(st.autoNextAt !== null && { autoNextAt: st.autoNextAt }),
@@ -1070,6 +1112,8 @@ export const quizModule: GameModule<QuizState> = {
           view.guesses = guessRows(sess, q.target, vctx, 8)
         }
         if (st.cancelled) view.cancelled = true
+        if (q.anecdote) view.anecdote = q.anecdote
+        if (q.imageRevelation) view.imageRevelation = q.imageRevelation
         view.standings = standings(sess, vctx, 5)
       }
       return view

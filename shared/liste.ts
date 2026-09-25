@@ -19,7 +19,10 @@
 import { CATEGORIES } from './categories'
 import {
   DEFAULT_DURATION,
+  MAX_ANECDOTE,
   MAX_ANSWERS,
+  MAX_INTERTITRE,
+  MAX_NOTE,
   MAX_ANSWER_TEXT,
   MAX_DURATION,
   MAX_OBSERVE,
@@ -76,12 +79,15 @@ Aucune de ces villes
 Quelle est l'altitude du mont Everest ?
 = 8 849 m
 Temps : 30 s
+Anecdote : Elle grandit encore de quelques millimètres par an.
 
 # Histoire
 
 La tour Eiffel a été construite pour l'Exposition universelle de 1889.
+Intertitre : Manche 2 : l'histoire
 * Vrai
 Faux
+Anecdote : Elle ne devait rester que vingt ans ; la radio l'a sauvée.
 
 En quelle année l'homme a-t-il marché sur la Lune pour la première fois ?
 = 1969
@@ -91,6 +97,7 @@ En quelle année l'homme a-t-il marché sur la Lune pour la première fois ?
 De quel film vient cette image ?
 Photo : titanic.jpg
 Temps : 15 s
+Note : demande qui l'a vu trois fois au cinéma
 * Titanic
 Avatar
 Le Grand Bleu
@@ -132,6 +139,9 @@ Temps : 30 s — le temps pour répondre, de ${MIN_DURATION} à ${MAX_DURATION} 
 Photo : tour-eiffel.jpg — une photo montrée avec la question : le nom de son fichier, à envoyer avec la liste, ou, à défaut, ce qu'elle doit montrer (« Photo : la tour Eiffel illuminée, de nuit »).
 Observation : 5 s — avec une photo seulement : elle passe seule pendant ce temps, de ${MIN_OBSERVE} à ${MAX_OBSERVE} secondes, puis disparaît, et l'on répond de mémoire.
 Ordre : fixe — les réponses restent dans l'ordre écrit, même si le quiz les mélange à chaque partie : pour « Aucune de ces réponses », ou une suite qui a un sens.
+Anecdote : … — une phrase racontée à la révélation, « Le saviez-vous ? » (${MAX_ANECDOTE} caractères au plus) : ce qu'on a envie d'ajouter une fois la réponse connue.
+Note : … — pour l'animateur seul, à sa télécommande, jamais à l'écran (${MAX_NOTE} caractères au plus) : ce qu'il racontera, à qui poser la question.
+Intertitre : … — une diapo avant la question, sans réponse ni points (${MAX_INTERTITRE} caractères au plus) : « Manche 2 : le cinéma », « Pause buvette ».
 
 CATÉGORIES — facultatives
 Une ligne # suivie d'une catégorie, placée avant une question, range cette question et les suivantes dans la catégorie, jusqu'à la prochaine ligne #. Un # seul : les suivantes n'en ont plus. Seulement l'une de celles-ci, écrite telle quelle : ${CATEGORIES.join(', ')}.
@@ -251,6 +261,9 @@ export function ecrireListe(questions: readonly QuizQuestionDef[], titre?: strin
       temps = q.duration
     }
     if (q.kind === 'choice' && q.ordreFixe) lignes.push('Ordre : fixe')
+    if (q.intertitre) lignes.push(`Intertitre : ${q.intertitre}`)
+    if (q.anecdote) lignes.push(`Anecdote : ${q.anecdote}`)
+    if (q.note) lignes.push(`Note : ${q.note}`)
     const photo = q.image ? `photo de la question ${n}` : photoManquante(q)
     if (photo) {
       lignes.push(`Photo : ${photo}`)

@@ -32,6 +32,13 @@ export const MAX_UNIT = 12
 export const MAX_QUESTIONS = 100
 /** Le nom ou la description d'une photo annoncée, le temps qu'elle arrive. */
 export const MAX_PHOTO_ATTENDUE = 200
+/** Une anecdote ou une note : deux phrases, pas un exposé — elles se lisent de loin, ou d'un coup d'œil. */
+export const MAX_ANECDOTE = 280
+export const MAX_NOTE = 280
+/** Un intertitre se lit comme un titre : « Manche 2 : le cinéma ». */
+export const MAX_INTERTITRE = 80
+/** Le temps qu'un intertitre compte dans la durée estimée : on l'annonce, on boit un verre. */
+export const INTERTITRE_S = 10
 
 /** Temps d'observation d'une photo avant qu'elle disparaisse. */
 export const MIN_OBSERVE = 2
@@ -102,6 +109,33 @@ export interface QuizQuestionDef {
    * (le cas courant) : elles suivent le réglage du quiz.
    */
   ordreFixe?: boolean
+  // ── Ce qui entoure la question (rapport du 25 septembre 2026, lot 7) ──
+  // Chacun n'est écrit que s'il est posé : les quiz d'avant se relisent à
+  // l'identique.
+  /**
+   * « Le saviez-vous ? » : une ligne racontée à la révélation, sur l'écran
+   * commun, au téléphone et dans le bilan. Jamais envoyée avant la
+   * révélation (invariant 1) : elle trahirait la réponse.
+   */
+  anecdote?: string | null
+  /**
+   * Pour l'animateur seul, à la télécommande : « raconte le voyage à Rome ».
+   * Ni la télé, ni les téléphones.
+   */
+  note?: string | null
+  /** Une photo pour la révélation, distincte de celle de la question : le bébé, puis l'adulte. */
+  imageRevelation?: string | null
+  /**
+   * Une diapo avant la question, sans réponse ni points : « Manche 2 : le
+   * cinéma », « Pause buvette », les règles. L'animateur la passe d'un clic.
+   */
+  intertitre?: string | null
+  /**
+   * Gardée dans le quiz, pas jouée : une question de réserve, ou trop dure
+   * pour ce soir. Pour ne pas la jouer, il fallait la supprimer ou la rendre
+   * incomplète.
+   */
+  deCote?: boolean
 }
 
 export interface QuizDef {
@@ -142,6 +176,8 @@ export interface QuizSummary {
   dureeS?: number
   /** L'intitulé qui a fait trouver ce quiz à une recherche, s'il ne l'a pas été par son titre. */
   trouve?: string
+  /** Les questions mises de côté : ni prêtes, ni à compléter. */
+  deCote?: number
   /**
    * Ce que l'historique en sait : combien de parties, et le début de la
    * dernière soirée où il a été joué. Absent : jamais joué depuis que
@@ -182,6 +218,7 @@ export function resumerQuiz(quiz: QuizDef): QuizSummary {
     // Les photos jointes : une photo seulement annoncée rend la question « à compléter », pas illustrée.
     photos: quiz.questions.filter(q => q.image).length,
     estimations: quiz.questions.filter(q => q.kind === 'number').length,
+    ...(quiz.questions.some(q => q.deCote) && { deCote: quiz.questions.filter(q => q.deCote).length }),
     categories: [...parCategorie.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr')).map(([c]) => c),
     dureeS: dureeEstimeeS(quiz.questions, quiz.reglages?.tirage),
   }
@@ -223,7 +260,7 @@ export function rechercherDans(quiz: Pick<QuizDef, 'title' | 'questions'>, reche
 
 /** Une question prête à être jouée : réponses vides retirées, index recalés. */
 export type PlayableQuestion =
-  | {
+  | ({
       kind: 'choice'
       /**
        * L'identifiant de la question dans la bibliothèque : l'historique s'en
@@ -240,8 +277,8 @@ export type PlayableQuestion =
       category?: string | null
       /** Ses réponses ne se mélangent pas (voir `QuizQuestionDef.ordreFixe`). */
       ordreFixe?: true
-    }
-  | {
+    } & Entourage)
+  | ({
       kind: 'number'
       id?: string
       text: string
@@ -251,7 +288,29 @@ export type PlayableQuestion =
       image: string | null
       observeSeconds: number | null
       category?: string | null
-    }
+    } & Entourage)
+
+/**
+ * Ce qui entoure une question jouée (voir `QuizQuestionDef`) : l'anecdote et
+ * la photo de la révélation, la note de l'animateur, l'intertitre. Le module
+ * du quiz décide qui les reçoit, et quand.
+ */
+export interface Entourage {
+  anecdote?: string
+  note?: string
+  imageRevelation?: string
+  intertitre?: string
+}
+
+/** L'entourage d'une question, tel que la copie jouée le garde : seulement ce qui est posé. */
+function entourageDe(q: QuizQuestionDef): Entourage {
+  return {
+    ...(q.anecdote && { anecdote: q.anecdote }),
+    ...(q.note && { note: q.note }),
+    ...(q.imageRevelation && { imageRevelation: q.imageRevelation }),
+    ...(q.intertitre && { intertitre: q.intertitre }),
+  }
+}
 
 /**
  * Identifiant de question. `crypto.randomUUID` n'existe que dans un contexte
@@ -420,7 +479,10 @@ export function dureeEstimeeS(questions: readonly QuizQuestionDef[], tirage?: nu
 /** La même durée, pour des questions déjà jouables — celles que la console propose. */
 export function dureeDesJouables(jouables: readonly PlayableQuestion[]): number {
   if (jouables.length === 0) return 0
-  return jouables.reduce((s, q) => s + q.duration + (q.image && q.observeSeconds ? q.observeSeconds : 0) + REVELATION_S, DEPART_ET_PODIUM_S)
+  return jouables.reduce(
+    (s, q) => s + q.duration + (q.image && q.observeSeconds ? q.observeSeconds : 0) + (q.intertitre ? INTERTITRE_S : 0) + REVELATION_S,
+    DEPART_ET_PODIUM_S,
+  )
 }
 
 /** « ≈ 9 min », « ≈ 1 h 05 », pour une durée en secondes. */
@@ -498,6 +560,8 @@ function horsBornes(q: QuizQuestionDef): string | null {
  * la bonne réponse par sa position d'origine, jamais par son numéro final.
  */
 export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
+  // Mise de côté : elle attend dans le quiz, sans se jouer.
+  if (q.deCote) return null
   const text = (q.text ?? '').trim()
   if (!text) return null
   if (photoManquante(q)) return null
@@ -516,6 +580,7 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
     return {
       kind: 'number',
       ...(q.id && { id: q.id }),
+      ...entourageDe(q),
       text,
       target: q.target,
       // Coupée par caractère, comme à l'import : « parts de 🍕🍕🍕🍕 » coupé
@@ -539,6 +604,7 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
   return {
     kind: 'choice',
     ...(q.id && { id: q.id }),
+    ...entourageDe(q),
     text,
     answers: kept.map(a => a.text),
     correct,
@@ -686,8 +752,19 @@ export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
       // Seulement quand il est posé : absent, il ne pèse rien, et les quiz
       // d'avant se relisent à l'identique.
       ...(q?.ordreFixe === true && { ordreFixe: true }),
+      ...texteLibre('anecdote', q?.anecdote, MAX_ANECDOTE),
+      ...texteLibre('note', q?.note, MAX_NOTE),
+      ...texteLibre('intertitre', q?.intertitre, MAX_INTERTITRE),
+      ...(typeof q?.imageRevelation === 'string' && q.imageRevelation.startsWith('/media/') && { imageRevelation: q.imageRevelation }),
+      ...(q?.deCote === true && { deCote: true }),
     }
   })
+}
+
+/** Un texte libre de la question, sans espaces en trop, coupé à sa longueur — ou rien. */
+function texteLibre<K extends string>(cle: K, brut: unknown, max: number): { [k in K]?: string } {
+  const texte = typeof brut === 'string' ? tronquer(brut.trim().replace(/[ \t]+/g, ' '), max).trim() : ''
+  return texte ? ({ [cle]: texte } as { [k in K]: string }) : {}
 }
 
 /** Résultat d'un import en masse : ce qui est entré, et ce qui mérite un œil. */
@@ -738,7 +815,7 @@ function lireEstimation(texte: string): { target: number; unit: string } | null 
  * reconnus à leur mot, sans accent ni majuscule. Jamais en tête du bloc : la
  * première ligne reste l'intitulé, fût-ce « Photo : qui est-ce ? ».
  */
-type Reglage = 'temps' | 'photo' | 'observation' | 'ordre'
+type Reglage = 'temps' | 'photo' | 'observation' | 'ordre' | 'anecdote' | 'note' | 'intertitre'
 const REGLAGES = new Map<string, Reglage>([
   ['temps', 'temps'],
   ['duree', 'temps'],
@@ -747,6 +824,13 @@ const REGLAGES = new Map<string, Reglage>([
   ['observation', 'observation'],
   ['memoire', 'observation'],
   ['ordre', 'ordre'],
+  // Ce qui entoure la question : l'IA sait écrire une anecdote, et
+  // l'animateur une note pour lui-même.
+  ['anecdote', 'anecdote'],
+  ['le saviez-vous', 'anecdote'],
+  ['le saviez vous', 'anecdote'],
+  ['note', 'note'],
+  ['intertitre', 'intertitre'],
 ])
 
 /**
@@ -1001,6 +1085,10 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
         // carte, et ne vaut pas qu'on perde la question.
         const secondes = lireSecondes(lu.valeur)
         if (secondes !== null) temps = borner(secondes, MIN_DURATION, MAX_DURATION)
+      } else if (lu.reglage === 'anecdote' || lu.reglage === 'note' || lu.reglage === 'intertitre') {
+        const max = lu.reglage === 'anecdote' ? MAX_ANECDOTE : lu.reglage === 'note' ? MAX_NOTE : MAX_INTERTITRE
+        const texte = tronquer(lu.valeur.replace(/\s+/g, ' '), max).trim()
+        if (texte) question[lu.reglage] = texte
       } else if (lu.reglage === 'ordre') {
         // « Ordre : fixe » : les réponses gardent l'ordre écrit, même dans un
         // quiz qui les mélange. Toute autre valeur laisse le réglage du quiz.

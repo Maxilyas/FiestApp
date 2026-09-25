@@ -218,6 +218,15 @@ function BetweenQuestions({
 }) {
   return (
     <>
+      {/* « Le saviez-vous ? » : à la révélation seulement (invariant 1). */}
+      {v.anecdote && (
+        <p className="card anecdote">
+          <Icon name="message" />
+          <span>
+            <b>Le saviez-vous ?</b> {espacesFines(v.anecdote)}
+          </span>
+        </p>
+      )}
       <p className="center muted">
         Total quiz : {pts(v.yourQuizTotal ?? 0)} · {place(v.yourQuizRank ?? 0)}
       </p>
@@ -287,6 +296,19 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
 
   if (v.phase === 'getReady') {
     return <GetReady deadline={v.deadline!} label="Prépare-toi…" />
+  }
+
+  // L'intertitre : la diapo que la salle lit sur la télé, reprise ici.
+  if (v.phase === 'intertitre') {
+    return (
+      <div className="quiz-player intertitre">
+        <span className="label">
+          Question {v.qIndex + 1} / {v.qCount}
+        </span>
+        <p className="intertitre-texte">{espacesFines(v.intertitre ?? '')}</p>
+        <p className="hint">La question arrive…</p>
+      </div>
+    )
   }
 
   // Observation : la photo seule. Ni l'intitulé ni les réponses ne sont encore

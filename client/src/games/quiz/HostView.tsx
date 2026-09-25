@@ -240,6 +240,16 @@ function ChoixDuQuiz({
   )
 }
 
+/** La note de l'animateur, à sa télécommande : ce qu'il voulait raconter. */
+function NoteDeLAnimateur({ note }: { note: string }) {
+  return (
+    <p className="note-animateur">
+      <Icon name="edit" />
+      <span>{espacesFines(note)}</span>
+    </p>
+  )
+}
+
 interface Props {
   view: QuizHostView
   /** Les équipes de la soirée — annoncées entre deux questions. */
@@ -470,6 +480,8 @@ export function QuizHost({
           {v.phase === 'observe' ? ' · la photo' : revealing ? ' · révélée' : ''}
         </span>
         {v.text && v.phase !== 'observe' && <p className="telecommande-question">{espacesFines(v.text)}</p>}
+        {/* Sa note : ici seulement — la télé, c'est la salle qui la lit. */}
+        {v.note && <NoteDeLAnimateur note={v.note} />}
         <div className="quiz-status">
           {v.paused && (
             <span className="pill">
@@ -518,6 +530,32 @@ export function QuizHost({
 
   if (v.phase === 'getReady') {
     return <GetReady deadline={v.deadline!} sounds={!telecommande} label="Préparez vos téléphones…" />
+  }
+
+  // L'intertitre : une diapo sans réponse — « Manche 2 : le cinéma ». Elle
+  // dure ce que l'animateur veut : un clic, ou l'enchaînement s'il en a réglé un.
+  if (v.phase === 'intertitre') {
+    return (
+      <div className={'quiz-host intertitre' + (telecommande ? ' telecommande-apercu' : '')}>
+        {!telecommande && <p className="intertitre-texte">{espacesFines(v.intertitre ?? '')}</p>}
+        {telecommande && (
+          <>
+            <span className="label">
+              Question {v.qIndex + 1} / {v.qCount} · l’intertitre
+            </span>
+            <p className="telecommande-question">{espacesFines(v.intertitre ?? '')}</p>
+            {v.note && <NoteDeLAnimateur note={v.note} />}
+          </>
+        )}
+        {v.deadline && <AutoNextPill deadline={v.deadline} />}
+        {consoleQuestion(
+          <button ref={principal} className="btn btn-accent console-principal" onClick={garde(() => sendCommand({ type: 'next', ...visee }))}>
+            <Icon name="skip" />
+            Passer à la question
+          </button>,
+        )}
+      </div>
+    )
   }
 
   // La photo, plein écran, sans la question : c'est le temps d'observation.
@@ -599,7 +637,7 @@ export function QuizHost({
             photo poussait les réponses sous la console en 1366 × 768, la
             définition des portables qu'on branche à la télé. La largeur d'un
             écran 16/9, elle, ne manque jamais (styles.css). */}
-        <div className={'quiz-enonce' + (v.image ? ' avec-photo' : '')}>
+        <div className={'quiz-enonce' + ((revealing && v.imageRevelation) || v.image ? ' avec-photo' : '')}>
           <div className="quiz-enonce-texte">
             {v.category && <span className="label quiz-categorie">{v.category}</span>}
             <h2 className={'quiz-question' + questionSizeClass(v.text)}>{espacesFines(v.text ?? '')}</h2>
@@ -609,7 +647,12 @@ export function QuizHost({
               </p>
             )}
           </div>
-          {v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />}
+          {/* À la révélation, sa photo à elle quand elle en a une : le bébé, puis l'adulte. */}
+          {revealing && v.imageRevelation ? (
+            <img className="quiz-img" src={v.imageRevelation} alt="Photo de la révélation" />
+          ) : (
+            v.image && <img className="quiz-img" src={v.image} alt="Photo de la question" />
+          )}
         </div>
 
         {v.kind === 'number' ? (
@@ -684,6 +727,17 @@ export function QuizHost({
               </div>
             ))}
           </div>
+        )}
+
+        {/* « Le saviez-vous ? » : l'histoire qu'on avait envie de raconter,
+            une fois la réponse connue — jamais avant (invariant 1). */}
+        {revealing && v.anecdote && (
+          <p className="anecdote">
+            <Icon name="message" />
+            <span>
+              <b>Le saviez-vous ?</b> {espacesFines(v.anecdote)}
+            </span>
+          </p>
         )}
 
         {consoleQuestion(

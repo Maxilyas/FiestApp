@@ -323,6 +323,8 @@ export function buildReview(input: ReviewInput): Review {
         target,
         unit: pq?.kind === 'number' ? pq.unit : '',
         image: pq?.image ?? null,
+        // Jamais la note de l'animateur : le bilan se lit en public.
+        ...(pq?.anecdote && { anecdote: pq.anecdote }),
         durationMs: qRows[0].durationMs,
         observed: qRows[0].observed,
         resolved: pq !== null,

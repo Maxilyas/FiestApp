@@ -8,7 +8,7 @@ import type { Multiplicateur } from '../programme'
  * C'est ce qui rend le jeu de mémoire possible — sans cette phase, il suffirait
  * de répondre pendant que la photo est encore à l'écran.
  */
-export type QuizPhase = 'pickPack' | 'getReady' | 'observe' | 'question' | 'reveal' | 'finished'
+export type QuizPhase = 'pickPack' | 'getReady' | 'intertitre' | 'observe' | 'question' | 'reveal' | 'finished'
 
 export interface QuizPackInfo {
   id: string
@@ -110,6 +110,12 @@ export interface QuizPlayerView {
   // reveal
   /** Vrai si le joueur vient d'arriver : il n'a pas raté la question, il n'était pas là. */
   justArrived?: boolean
+  /** L'intertitre qui précède la question — « Manche 2 : le cinéma » —, pendant sa diapo. */
+  intertitre?: string
+  /** « Le saviez-vous ? » — à la révélation seulement : avant, il trahirait la réponse. */
+  anecdote?: string
+  /** La photo de la révélation, distincte de celle de la question — à la révélation seulement. */
+  imageRevelation?: string
   correct?: number
   target?: number
   yourPoints?: number | null
@@ -160,6 +166,16 @@ export interface QuizHostView {
   // pickPack
   packs?: QuizPackInfo[]
   programme?: ProgrammeDuSoir
+  /** L'intertitre, pendant sa diapo (voir `QuizPlayerView.intertitre`). */
+  intertitre?: string
+  /** À la révélation : l'anecdote et la photo qui l'accompagne. */
+  anecdote?: string
+  imageRevelation?: string
+  /**
+   * La note de l'animateur : les écrans d'animateur la reçoivent, et seule
+   * la télécommande la montre — la télé, c'est la salle qui la lit.
+   */
+  note?: string
   // question + reveal
   text?: string
   answers?: string[]

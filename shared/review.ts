@@ -47,6 +47,8 @@ export interface ReviewQuestion {
   target: number | null
   unit: string
   image: string | null
+  /** « Le saviez-vous ? », si la question en racontait un. */
+  anecdote?: string
   durationMs: number
   /** La photo avait disparu avant la question. */
   observed: boolean

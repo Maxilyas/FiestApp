@@ -6,9 +6,12 @@ import {
   VRAI_FAUX,
   bonneEnPremier,
   estVraiFaux,
+  MAX_ANECDOTE,
   MAX_ANSWERS,
   MAX_ANSWER_TEXT,
   MAX_DURATION,
+  MAX_INTERTITRE,
+  MAX_NOTE,
   MAX_OBSERVE,
   MAX_QUESTIONS,
   MAX_TEXT,
@@ -837,7 +840,7 @@ interface FiltreDeLaBibliotheque {
   nombre: number
 }
 
-const aCompleter = (q: QuizSummary) => q.questionCount === 0 || q.readyCount < q.questionCount
+const aCompleter = (q: QuizSummary) => q.questionCount === 0 || q.readyCount < q.questionCount - (q.deCote ?? 0)
 
 /** Ce qu'un filtre garde. Les archivés ne se montrent que sous le leur. */
 function garderSelon(filtre: string, q: QuizSummary): boolean {
@@ -1012,7 +1015,7 @@ function LigneDeQuiz({
     setOuvert(false)
     geste()
   }
-  const manque = q.questionCount - q.readyCount
+  const manque = q.questionCount - q.readyCount - (q.deCote ?? 0)
   const faits = [
     q.questionCount === 0
       ? 'Aucune question encore'
@@ -1629,7 +1632,9 @@ function QuizEditor({
   }
 
   const ready = quiz.questions.filter(q => toPlayable(q) !== null).length
-  const aCompleter = quiz.questions.length - ready
+  // Une question mise de côté n'est pas à compléter : elle attend, exprès.
+  const deCote = quiz.questions.filter(q => q.deCote).length
+  const aCompleter = quiz.questions.length - ready - deCote
   const reglages: ReglagesDuQuiz = quiz.reglages ?? {}
   const enPremier = bonneEnPremier(quiz.questions)
   const duree = dureeEstimeeS(quiz.questions, reglages.tirage)
@@ -1641,7 +1646,7 @@ function QuizEditor({
    * prêtes » ne disait pas laquelle, et elle se cherchait dans vingt écrans.
    */
   const suivanteACompleter = () => {
-    const incompletes = quiz.questions.filter(q => toPlayable(q) === null)
+    const incompletes = quiz.questions.filter(q => !q.deCote && toPlayable(q) === null)
     if (incompletes.length === 0) return
     const depuis = quiz.questions.findIndex(q => q.id === derniereMontree.current)
     const suivante = incompletes.find(q => quiz.questions.indexOf(q) > depuis) ?? incompletes[0]
@@ -1672,7 +1677,8 @@ function QuizEditor({
             </button>
           ) : (
             <span className="muted">
-              {ready}/{quiz.questions.length} prête{ready > 1 ? 's' : ''}
+              {ready}/{quiz.questions.length - deCote} prête{ready > 1 ? 's' : ''}
+              {deCote > 0 && ` · ${deCote} de côté`}
             </span>
           )}
           {duree > 0 && <span className="muted duree-quiz" title="Temps de jeu estimé, révélations comprises">{ecrireDuree(duree)}</span>}
@@ -2798,7 +2804,7 @@ function QuestionCard({
     onMoveTo(number, 'number')
   }
 
-  const pickImage = async (file: File | undefined) => {
+  const pickImage = async (file: File | undefined, pour: 'question' | 'revelation' = 'question') => {
     if (!file) return
     setBusy(true)
     setImageError('')
@@ -2806,14 +2812,18 @@ function QuestionCard({
       const dataUrl = await compressImage(file)
       const { url } = await api.uploadImage(dataUrl)
       // La photo que la liste annonçait est arrivée : la note n'a plus rien à dire.
-      onChange(q => ({ ...q, image: url, photoAttendue: null }))
+      onChange(q => (pour === 'revelation' ? { ...q, imageRevelation: url } : { ...q, image: url, photoAttendue: null }))
     } catch (e) {
       setImageError((e as Error).message)
     } finally {
       setBusy(false)
       if (fileInput.current) fileInput.current.value = ''
+      if (photoDeRevelation.current) photoDeRevelation.current.value = ''
     }
   }
+  const photoDeRevelation = useRef<HTMLInputElement>(null)
+  /** Ce qui entoure la question : ouvert d'emblée s'il y a déjà quelque chose. */
+  const entourage = [question.anecdote, question.note, question.intertitre, question.imageRevelation].filter(Boolean).length
 
   return (
     <div
@@ -3050,6 +3060,18 @@ function QuestionCard({
       )}
 
       <div className="question-tools">
+        {/* Une question de réserve, ou trop dure pour ce soir : elle reste
+            écrite, et ne se joue pas. */}
+        <button
+          type="button"
+          className={'pill-btn' + (question.deCote ? ' active' : '')}
+          aria-pressed={!!question.deCote}
+          title="Garder la question dans le quiz, sans la jouer"
+          onClick={() => onChange(q => ({ ...q, deCote: !q.deCote || undefined }))}
+        >
+          <Icon name="archive" />
+          Mise de côté
+        </button>
         {/* La catégorie : une liste fixe, la même chez tous les animateurs —
             c'est ce qui permet à la fiche d'un joueur de l'additionner d'une
             soirée à l'autre. */}
@@ -3187,6 +3209,71 @@ function QuestionCard({
         </div>
       )}
 
+      {/* Ce qui entoure la question : ce qu'on raconte à la révélation, ce
+          qu'on se note pour soi, la diapo qui la précède. Replié tant qu'il
+          est vide : une carte a déjà vingt commandes. */}
+      <details className="entourage" open={entourage > 0}>
+        <summary>
+          <Icon name="message" />
+          Anecdote, note, intertitre{entourage > 0 ? ` · ${entourage}` : ''}
+        </summary>
+        <label className="entourage-champ">
+          <span className="muted small">Le saviez-vous ? — racontée à la révélation, jamais avant</span>
+          <textarea
+            className="input"
+            rows={2}
+            maxLength={MAX_ANECDOTE}
+            value={question.anecdote ?? ''}
+            placeholder="Elle ne devait rester que vingt ans…"
+            onChange={e => onChange(q => ({ ...q, anecdote: e.target.value || null }))}
+          />
+        </label>
+        <label className="entourage-champ">
+          <span className="muted small">Note pour toi — à la télécommande seulement, jamais à l’écran</span>
+          <textarea
+            className="input"
+            rows={2}
+            maxLength={MAX_NOTE}
+            value={question.note ?? ''}
+            placeholder="Raconte le voyage à Rome"
+            onChange={e => onChange(q => ({ ...q, note: e.target.value || null }))}
+          />
+        </label>
+        <label className="entourage-champ">
+          <span className="muted small">Intertitre — une diapo avant la question, sans réponse</span>
+          <input
+            className="input"
+            maxLength={MAX_INTERTITRE}
+            value={question.intertitre ?? ''}
+            placeholder="Manche 2 : le cinéma"
+            onChange={e => onChange(q => ({ ...q, intertitre: e.target.value || null }))}
+          />
+        </label>
+        <input
+          ref={photoDeRevelation}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={e => pickImage(e.target.files?.[0], 'revelation')}
+        />
+        <div className="row">
+          <span className="muted small">Photo de la révélation — le bébé, puis l’adulte</span>
+          {question.imageRevelation ? (
+            <>
+              <img className="thumb" src={question.imageRevelation} alt="" />
+              <button className="btn btn-ghost btn-small" onClick={() => onChange(q => ({ ...q, imageRevelation: null }))}>
+                Retirer
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-small" disabled={busy} onClick={() => photoDeRevelation.current?.click()}>
+              <Icon name="image" />
+              Ajouter
+            </button>
+          )}
+        </div>
+      </details>
+
       {preview && <QuestionPreview question={question} onClose={() => setPreview(false)} />}
       {loupe && question.image && <PhotoLoupe src={question.image} onClose={() => setLoupe(false)} />}
       {imageError && <p className="error">{imageError}</p>}
@@ -3196,10 +3283,16 @@ function QuestionCard({
           {espacesFines('La photo de cette question n’existe plus sur le serveur : ajoute-la de nouveau.')}
         </p>
       )}
-      {problem && (
-        <p className="warn">
-          <Icon name="alert" /> {problem} — cette question ne sera pas jouée.
+      {question.deCote ? (
+        <p className="muted small de-cote-note">
+          {espacesFines('Mise de côté : elle reste dans le quiz, sans être jouée. « Mise de côté », encore, pour la remettre en jeu.')}
         </p>
+      ) : (
+        problem && (
+          <p className="warn">
+            <Icon name="alert" /> {problem} — cette question ne sera pas jouée.
+          </p>
+        )
       )}
       {emojis && (
         <p className="warn small">
