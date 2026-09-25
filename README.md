@@ -154,7 +154,7 @@ Six sortes de questions, au choix pour chacune :
 | 🎯 **Estimation en direct** | chacun tape un nombre ; la bonne réponse se mesure pendant la soirée (le poids du gâteau, les bonbons du bocal), et l'animateur la tape à la révélation | comme une estimation |
 | 👥 **Qui dans la salle ?** | chacun désigne un invité (« Qui arrivera en retard demain ? ») ; l'écran montre qui la salle a choisi | aucun point : c'est un vote, pour rire |
 
-Un **vrai/faux** n'est qu'un QCM à deux réponses : le bouton « Vrai/Faux » de la carte remplit les deux cases.
+Un **vrai/faux** n'est qu'un QCM à deux réponses : on tape « Vrai » et « Faux » dans les deux premières cases et on laisse les autres vides. Il garde alors son ordre, même dans un quiz qui mélange ses réponses.
 
 **Plusieurs réponses et l'ordre se jugent en entier** : tout ou rien, payés comme un QCM — une réponse à moitié juste ne vaut rien, comme une case voisine. L'écran de la révélation allume toutes les bonnes, ou donne son rang à chaque carte, sans la déplacer ; « l'ordre à retrouver » se montre toujours mélangé, jamais dans le bon ordre. **« Qui dans la salle ? » n'entre pas au journal** : il n'a ni juste ni faux, et compté, il ferait baisser la précision de ceux qui ont voté. Les noms sont aux téléphones (soixante au plus, figés quand la question paraît) ; la télé montre les plus désignés à la révélation. **L'estimation en direct** se ferme comme une autre, puis attend : l'écran dit « Réponses closes — on mesure ! », et la console demande la bonne réponse — la taper, c'est révéler ; « Annuler les points » la révèle sans cible, et « Reposer » la rejoue. Aucune constante du barème n'a bougé.
 

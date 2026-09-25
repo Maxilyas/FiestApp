@@ -96,6 +96,29 @@ test('l’éditeur d’un quiz ouvre son en-tête par le retour à « Mes quiz �
   assert.doesNotMatch(nom, /display:\s*none/, 'caché aux yeux, pas à l’oreille')
 })
 
+// ── Les sortes de question, sans « Vrai/Faux » ─────────────────────────────
+
+test('la carte d’une question propose ses sortes — un vrai ou faux est un QCM, pas un bouton', () => {
+  // Rangé avec QCM, Estimation et « Qui dans la salle ? », le bouton
+  // Vrai/Faux se lisait comme une quatrième sorte de question, pour ce qu'un
+  // QCM à deux réponses fait déjà : « pourquoi un Vrai/Faux, alors que le
+  // QCM peut déjà le faire ? ».
+  const editeur = readFileSync(new URL('../../client/src/views/EditorApp.tsx', import.meta.url), 'utf8')
+  const debut = editeur.indexOf('<div className="kind-toggle"')
+  assert.ok(debut >= 0, 'la rangée des sortes existe')
+  const rangee = editeur.slice(debut, editeur.indexOf('</div>', debut))
+  const sortes = [...rangee.matchAll(/<button\b[\s\S]*?<\/button>/g)].map(m =>
+    m[0]
+      .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
+      .replace(/<button\b[\s\S]*?[^=]>(?=\s*$)/m, '')
+      .replace(/<[^>]+>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim(),
+  )
+  assert.deepEqual(sortes, ['QCM', 'Estimation', 'Qui dans la salle ?'])
+  assert.doesNotMatch(editeur, /Vrai\/Faux/, 'plus de bouton Vrai/Faux nulle part dans l’éditeur')
+})
+
 // ── A1 · Un bouton bascule dit son état, et un seul ───────────────────────
 
 /** Tous les fichiers `.tsx` du client, avec leur texte. */
