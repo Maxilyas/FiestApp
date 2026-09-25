@@ -71,7 +71,9 @@ export function SpaceError({ current, message }: { current: SpaceTab; message: s
   return (
     <div className="recap">
       <SpaceNav current={current} />
-      <p className="error center">{message}</p>
+      <main className="page-corps">
+        <p className="error center">{message}</p>
+      </main>
     </div>
   )
 }

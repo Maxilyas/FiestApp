@@ -278,7 +278,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
   français pour le domaine récent (`Finition`, `niveauPour`, `Carriere`).
 - **Très peu de dépendances**, et c'est voulu. N'en ajoute pas sans raison forte.
 - **Emojis antérieurs à Unicode 13 uniquement** : l'écran commun tourne sous
-  Windows 10, les plus récents s'y affichent en carré vide.
+  Windows 10, les plus récents s'y affichent en carré vide (`emojis.test.ts`
+  y veille, pour `client/`, `shared/`, `server/src/` et les quiz livrés de
+  `server/content/`).
 - Les messages d'erreur sont lus par des invités dans le noir : courts, en
   français, et ils disent quoi faire.
 - **Une erreur faite pour être lue se lève avec un `new Error('…')` nu**, sans
@@ -307,8 +309,11 @@ server/test/        un fichier par thème, un serveur jetable chacun
   la sienne et celle de l'écran commun — parce que le quiz le promet
   (`vueDependDesAutres: false`) : une vue de téléphone qui lirait la réponse
   d'un autre en pleine question doit retirer cette promesse.
-- **Côté client** : `--accent-text` pour ce qui s'écrit, `--accent` pour les
-  aplats (le contraste d'Ivoire en dépend) ; tout accès au stockage du
+- **Côté client** : `--accent-text` pour ce qui s'écrit, `--accent-text-hover`
+  pour son survol, `--accent` pour les aplats (le contraste d'Ivoire en
+  dépend) ; le focus n'a qu'un anneau, `--focus`, posé une fois pour tout
+  élément (`:where(…):focus-visible`) — un composant n'en règle que
+  l'`outline-offset` ; tout accès au stockage du
   navigateur sous try/catch — des cookies bloqués donnaient une page noire.
 
 ## Les deux environnements

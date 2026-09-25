@@ -4,6 +4,7 @@ import { DialogHost } from './components/Dialog'
 import { applyTheme } from './theme'
 import { installerClavier } from './clavier'
 import { route, type AccountPage, type PublicPage } from './routes'
+import { titreDePage } from './titres'
 import './styles.css'
 
 // Les adresses (client/src/routes.ts) :
@@ -63,6 +64,29 @@ const App =
         : route.kind === 'landing'
           ? ProfilApp
           : LandingApp
+
+/**
+ * Le repère principal, pour qui saute de région en région au lecteur
+ * d'écran. Les pages qui ont un en-tête, une navigation ou une console le
+ * posent elles-mêmes autour de leur contenu : posé sur la racine, il
+ * effaçait leurs « banner » et « contentinfo » — la console de l'écran
+ * commun n'était plus qu'un « main » — et « aller au contenu » tombait sur le
+ * titre. Les autres pages, l'entrée, les formulaires et le téléphone, sont
+ * tout entières contenu : un `<main>` les enveloppe, sans rien changer à
+ * leurs hauteurs, qui se comptent en `vh`.
+ */
+const REPERE_PROPRE = new Set<unknown>([HostApp, EditorApp, AccountApp, AdminApp, ArchivesApp, RecapApp, BilanApp])
+const Page = () =>
+  REPERE_PROPRE.has(App) ? (
+    <App />
+  ) : (
+    <main>
+      <App />
+    </main>
+  )
+
+// Un nom d'onglet dès le premier rendu, avant le préfixe d'environnement.
+if (route.kind === 'account') document.title = titreDePage(route.page)
 
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au
@@ -142,7 +166,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           </div>
         }
       >
-        <App />
+        <Page />
       </Suspense>
       <DialogHost />
     </Filet>
