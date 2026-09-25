@@ -135,7 +135,7 @@ const MIRROR_TABLES = ['party_players', 'party_teams', 'party_bonus', 'party_ans
 
 const SQL = {
   joueur: `INSERT INTO party_players (id, name, avatar, token, team_id, profile_id, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar,
+           ON CONFLICT(id) DO UPDATE SET name = excluded.name, avatar = excluded.avatar, token = excluded.token,
              team_id = excluded.team_id, profile_id = excluded.profile_id`,
   equipe: `INSERT INTO party_teams (id, name, emoji, position, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)
            ON CONFLICT(id) DO UPDATE SET name = excluded.name, emoji = excluded.emoji`,
@@ -846,7 +846,7 @@ export class PartyBackup {
     // qui suit chaque panne, d'ordinaire.
     const [joueursLoin, equipesLoin, prixLoin, soireeLoin, gainsLoin, reponsesLoin, partiesLoin] = await this.client.batch(
       [
-        { sql: 'SELECT id, name, avatar, team_id, profile_id FROM party_players WHERE space_id = ?', args: [spaceId] },
+        { sql: 'SELECT id, name, avatar, token, team_id, profile_id FROM party_players WHERE space_id = ?', args: [spaceId] },
         { sql: 'SELECT id, name, emoji FROM party_teams WHERE space_id = ?', args: [spaceId] },
         { sql: 'SELECT id FROM party_bonus WHERE space_id = ?', args: [spaceId] },
         { sql: 'SELECT id, held_at FROM party_soiree WHERE space_id = ?', args: [spaceId] },
@@ -860,7 +860,9 @@ export class PartyBackup {
     const empreintes = (r: ResultSet, colonnes: string[]) =>
       new Map(r.rows.map(row => [String(row.id), colonnes.map(c => texte(row[c]) ?? '∅').join('|')]))
     const loin = {
-      joueurs: empreintes(joueursLoin, ['name', 'avatar', 'team_id', 'profile_id']),
+      // Le jeton aussi : une place rendue le renouvelle (`renouvelerJeton`),
+      // et l'ancien, resté au miroir, rouvrirait la fiche à l'ancien téléphone.
+      joueurs: empreintes(joueursLoin, ['name', 'avatar', 'token', 'team_id', 'profile_id']),
       equipes: empreintes(equipesLoin, ['name', 'emoji']),
       prix: empreintes(prixLoin, []),
       soiree: empreintes(soireeLoin, ['held_at']),
@@ -878,7 +880,7 @@ export class PartyBackup {
     decouper(
       [
         ...local.players
-          .filter(p => !pareil(loin.joueurs, p.id, p.name, p.avatar, p.team_id, p.profile_id))
+          .filter(p => !pareil(loin.joueurs, p.id, p.name, p.avatar, p.token, p.team_id, p.profile_id))
           .map(p =>
             ligneJoueur(
               spaceId,

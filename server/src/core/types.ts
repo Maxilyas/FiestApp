@@ -59,6 +59,8 @@ export interface GameContext {
   verdict(): void
   participants(): PublicPlayer[]
   playerName(playerId: string): string
+  /** Un téléphone l'incarne en ce moment. */
+  connected(playerId: string): boolean
   now(): number
 }
 
@@ -66,6 +68,8 @@ export interface GameContext {
 export interface ViewContext {
   playerName(playerId: string): string
   player(playerId: string): PublicPlayer | undefined
+  /** Un téléphone l'incarne en ce moment — sans décorer tout le joueur pour le savoir. */
+  connected(playerId: string): boolean
   /**
    * Ce qui ne dépend pas du destinataire — un classement, un podium — ne se
    * calcule qu'une fois par diffusion, pas une fois par téléphone.
@@ -112,6 +116,12 @@ export interface GameModule<S = any> {
    * barème, aux compteurs et au « plus rapide », qui s'affichait « ??? ».
    */
   onPlayerLeave?(session: GameSessionRec<S>, playerId: string, ctx: GameContext): void
+  /**
+   * Vrai si cet invité a une réponse que la partie n'a pas encore jugée : la
+   * place qu'il quitterait pour une autre ferait marquer deux fois la même
+   * personne sur la même question (`player:reprendre`).
+   */
+  reponseEnSuspens?(session: GameSessionRec<S>, playerId: string): boolean
   /**
    * `false` quand la vue d'un invité ne dépend pas de ce que les autres
    * envoient : tant qu'une action ne change ni la phase, ni les chronomètres,

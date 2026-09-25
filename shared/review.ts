@@ -128,7 +128,8 @@ export interface ReviewPlayer {
   /** Une entrée par question où il était dans la partie, dans l'ordre. */
   answers: ReviewAnswer[]
   /** Les prix de la soirée dont il est le lauréat proposé. */
-  awards: { emoji: string; title: string; detail: string }[]
+  /** `exAequo` : ceux que le prénom a départagés de lui (voir `Award`). */
+  awards: { emoji: string; title: string; detail: string; exAequo?: string[] }[]
   highlights: ReviewHighlight[]
   /** Ses points et son rang sur chaque quiz, dans l'ordre des quiz. */
   perQuiz: { sessionId: string; points: number; rank: number | null }[]

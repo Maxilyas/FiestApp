@@ -207,7 +207,8 @@ export function RecapApp() {
           <p className="muted small">
             {recap.stats.questions} questions posées · {recap.stats.logged} réponses enregistrées.
             Touche un en-tête pour trier — chacun peut y chercher son propre chiffre. Le tableau
-            défile dans son cadre : dix-huit colonnes ne tiennent pas sur un téléphone.
+            défile dans son cadre, le prénom et les points restent en vue : dix-huit colonnes ne
+            tiennent pas sur un téléphone.
           </p>
           <StatsTable stats={recap.stats} />
           <Glossaire titre="Que veulent dire ces colonnes ?" mots={[]} extra={LEGENDE_DES_COLONNES} />

@@ -502,7 +502,7 @@ const LIRE_TELEPHONE = `(() => {
       return { etat: 'qcm', label, categorie, question, reste, image, photoPartie, pause,
         reponses: boutons.map(b => txt(b.querySelector('.ans-text'))),
         ouvert: boutons.some(b => !b.disabled),
-        choisi: boutons.findIndex(b => b.getAttribute('aria-pressed') === 'true') + 1 }
+        choisi: boutons.findIndex(b => b.getAttribute('aria-pressed') === 'true' && !b.classList.contains('pending')) + 1 }
     }
     const champ = joueur.querySelector('.guess-form input')
     if (question && champ) {
@@ -1383,7 +1383,7 @@ async function executer(cible: string, geste: string, args: string[], signal: { 
         // (`script-src 'self'`, sans `unsafe-eval`) le refuse dès qu'il n'est
         // pas vrai au premier regard, et la première tablée annonçait des
         // réponses « non enregistrées » qui l'étaient aussitôt.
-        const presse = `(() => { const b = document.querySelectorAll('.quiz-player .ans-btn')[${n - 1}]; return !!b && b.getAttribute('aria-pressed') === 'true' })()`
+        const presse = `(() => { const b = document.querySelectorAll('.quiz-player .ans-btn')[${n - 1}]; return !!b && b.getAttribute('aria-pressed') === 'true' && !b.classList.contains('pending') })()`
         const accuse = !!(await guetter(4000, signal, async () => (await page.evaluate(presse).catch(() => false)) === true, 100))
         await stabiliser(page, 1200)
         if (lue && accuse) lue.repondu = true

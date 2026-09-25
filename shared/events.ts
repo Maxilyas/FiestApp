@@ -64,6 +64,23 @@ export type ActionRefusal =
   /** Le serveur n'a pas répondu à temps — motif posé par le téléphone. */
   | 'timeout'
 
+/**
+ * L'invité hors ligne qui porte ce prénom, tel qu'un téléphone le montre à
+ * l'entrée : « Un « Rachid » 🦁 est hors ligne ». `profil` : sa fiche est
+ * liée à un profil, et c'est en s'y connectant qu'il retrouvera sa place —
+ * jamais par un code.
+ */
+export interface AbsentDuMemeNom {
+  name: string
+  avatar: string
+  profil: boolean
+}
+
+/** Ce que la console reçoit quand elle demande à rendre sa place à un invité. */
+export type PlaceRendue =
+  | { ok: true; code: string; expiresAt: number }
+  | { ok: false; error: string }
+
 export type ActionAck =
   | { ok: true }
   | { ok: false; reason: ActionRefusal; error: string }
@@ -112,6 +129,33 @@ export interface ClientToServerEvents {
   'player:action': (
     payload: { sessionId: string; action: unknown; slug?: string; token?: string },
     ack: (res: ActionAck) => void,
+  ) => void
+  /**
+   * Reprendre sa place avec le code que l'animateur a fait paraître : le
+   * téléphone mort en pleine soirée, et celui qu'on emprunte pour revenir.
+   * Un nouveau téléphone n'a pas le jeton de l'ancien — c'est voulu, sinon
+   * n'importe qui prendrait la place de n'importe qui (invariant 9) : seul
+   * l'animateur peut la rendre. Le code vaut une re-présentation ordinaire,
+   * la fiche du serveur fait foi, et l'accusé est celui d'un `player:join`.
+   *
+   * `token` : l'identité que ce téléphone portait jusque-là, s'il en avait
+   * une — le second « Rachid » créé en attendant. Sans rien joué, il
+   * s'efface ; sinon il reste, avec ses points, et on ne l'attend plus.
+   */
+  'player:reprendre': (
+    payload: { slug: string; code: string; token?: string },
+    ack: (res: JoinAck) => void,
+  ) => void
+  /**
+   * Un invité hors ligne porte-t-il ce prénom ? Demandé par le téléphone qui
+   * le tape à l'entrée, ou qui s'est inscrit une seconde fois — et répondu à
+   * lui seul : rien ne part à la salle, et l'instantané des téléphones n'a
+   * pas à dire qui est connecté. Son propre invité n'est jamais compté, ni
+   * celui du profil que porte ce téléphone (s'y connecter le lui rend déjà).
+   */
+  'player:horsLigne': (
+    payload: { slug: string; name: string },
+    ack: (res: { ok: true; absent?: AbsentDuMemeNom } | { ok: false; error: string }) => void,
   ) => void
   /** Changer d'équipe depuis la salle d'attente — refusé pendant un quiz. */
   'player:setTeam': (
@@ -166,6 +210,12 @@ export interface ClientToServerEvents {
   'host:renamePlayer': (payload: { playerId: string; name: string }) => void
   /** Exclut un invité et efface ses points. */
   'host:removePlayer': (payload: { playerId: string }) => void
+  /**
+   * Rendre sa place à un invité hors ligne : un code court, à usage unique,
+   * vite périmé, que l'invité tape à l'entrée de son nouveau téléphone
+   * (`player:reprendre`). Il ne vaut que dans cet espace et pour cette fiche.
+   */
+  'host:rendrePlace': (payload: { playerId: string }, ack: (res: PlaceRendue) => void) => void
 
   /** Crée une équipe. */
   'host:createTeam': (payload: { name: string; emoji: string }) => void
@@ -173,8 +223,11 @@ export interface ClientToServerEvents {
   'host:updateTeam': (payload: { teamId: string; name?: string; emoji?: string }) => void
   /** Supprime une équipe — ses membres se retrouvent sans équipe. */
   'host:removeTeam': (payload: { teamId: string }) => void
-  /** Crée d'un coup les six équipes par défaut (écran vierge seulement). */
-  'host:seedTeams': () => void
+  /**
+   * Crée d'un coup les premières équipes par défaut (écran vierge seulement) :
+   * `count` de deux à six, six sans rien.
+   */
+  'host:seedTeams': (payload?: { count?: number }) => void
   /** Déplace un invité vers une autre équipe (ou l'en sort avec null). */
   'host:assignPlayer': (payload: { playerId: string; teamId: string | null }) => void
 

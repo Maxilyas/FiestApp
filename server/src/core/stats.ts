@@ -462,12 +462,10 @@ function buildAwards(
     // parce que « A » vient avant « Z ». Le prénom (puis l'identifiant) ne
     // tranche qu'en dernier, pour que le prix ne change pas de mains à
     // chaque rechargement de la page.
-    const winner = [...pool].sort(
-      (a, b) =>
-        spec.score(b, x(b)) - spec.score(a, x(a)) ||
-        (spec.volume ? spec.volume(b, x(b)) - spec.volume(a, x(a)) : 0) ||
-        departage(a, b),
-    )[0]
+    const valeur = (s: PlayerStat) => spec.score(s, x(s))
+    const volume = (s: PlayerStat) => (spec.volume ? spec.volume(s, x(s)) : 0)
+    const classes = [...pool].sort((a, b) => valeur(b) - valeur(a) || volume(b) - volume(a) || departage(a, b))
+    const winner = classes[0]
     awards.push({
       key: spec.key,
       emoji: spec.emoji,
@@ -476,6 +474,7 @@ function buildAwards(
       detail: spec.detail(winner, x(winner)),
       player: { playerId: winner.playerId, name: winner.name, avatar: winner.avatar },
       teamId: winner.teamId,
+      ...exAequoDe(classes, s => valeur(s) === valeur(winner) && volume(s) === volume(winner)),
     })
   }
 
@@ -576,8 +575,8 @@ function buildAwards(
     // marqué — parmi celles qui ont joué. Celui qui n'a rien envoyé fermait
     // toujours la marche, et son équipe touchait un point pour son absence :
     // le même que L'Abstentionniste lui décernait déjà.
-    const joueurs = withTeam.filter(s => s.answered > 0)
-    const lowest = [...joueurs].sort((a, b) => a.points - b.points || departage(a, b))[0]
+    const derniers = withTeam.filter(s => s.answered > 0).sort((a, b) => a.points - b.points || departage(a, b))
+    const lowest = derniers[0]
     if (lowest) awards.push({
       key: 'coupdepouce',
       emoji: '🤝',
@@ -586,11 +585,16 @@ function buildAwards(
       detail: `${lowest.avatar} ${lowest.name} ferme la marche avec ${lowest.points} points`,
       player: null,
       teamId: lowest.teamId,
+      // Le prénom départage aussi les derniers ; un coéquipier à égalité ne
+      // change rien au prix, qui va à l'équipe — seuls ceux d'une autre
+      // équipe l'ont perdu à l'alphabet.
+      ...exAequoDe(derniers, s => s.points === lowest.points && s.teamId !== lowest.teamId),
     })
 
     // La Plus Solidaire : le plus petit écart entre son meilleur et son moins bon.
     let bestTeam: string | null = null
     let bestSpread = Infinity
+    const ecarts = new Map<string, number>()
     for (const teamId of new Set(withTeam.map(s => s.teamId!))) {
       const members = withTeam.filter(s => s.teamId === teamId)
       // Il faut des réponses, de deux membres au moins : une équipe dont
@@ -599,12 +603,17 @@ function buildAwards(
       if (members.filter(s => s.answered > 0).length < 2) continue
       const points = members.map(s => s.points)
       const spread = Math.max(...points) - Math.min(...points)
+      ecarts.set(teamId, spread)
       if (spread < bestSpread) {
         bestSpread = spread
         bestTeam = teamId
       }
     }
     if (bestTeam) {
+      // À égalité d'écart, la première équipe rencontrée dans l'ordre du
+      // classement : celle du mieux classé. La règle reste ; la carte dit
+      // maintenant qu'elle a tranché.
+      const exAequoEquipes = [...ecarts].filter(([id, e]) => id !== bestTeam && e === bestSpread).map(([id]) => id)
       awards.push({
         key: 'solidaire',
         emoji: '⚖️',
@@ -613,6 +622,7 @@ function buildAwards(
         detail: `${plural(bestSpread, 'point')} d’écart entre son meilleur et son moins bon`,
         player: null,
         teamId: bestTeam,
+        ...(exAequoEquipes.length > 0 && { exAequoEquipes, departage: 'classement' as const }),
       })
     }
   }
@@ -636,10 +646,8 @@ function pushBest(
     detail: (s: PlayerStat) => string
   },
 ) {
-  const ranked = [...pool].sort(
-    (a, b) =>
-      spec.value(b) - spec.value(a) || (spec.volume ? spec.volume(b) - spec.volume(a) : 0) || departage(a, b),
-  )
+  const volume = (s: PlayerStat) => (spec.volume ? spec.volume(s) : 0)
+  const ranked = [...pool].sort((a, b) => spec.value(b) - spec.value(a) || volume(b) - volume(a) || departage(a, b))
   const winner = ranked[0]
   if (!winner || spec.value(winner) < spec.min) return
   awards.push({
@@ -650,7 +658,20 @@ function pushBest(
     detail: spec.detail(winner),
     player: { playerId: winner.playerId, name: winner.name, avatar: winner.avatar },
     teamId: winner.teamId,
+    ...exAequoDe(ranked, s => spec.value(s) === spec.value(winner) && volume(s) === volume(winner)),
   })
+}
+
+/**
+ * Ceux que le prénom a départagés du lauréat. La règle ne change pas — un
+ * seul lauréat, pour que le prix ne change pas de mains à chaque
+ * rechargement (une tension avec l'invariant 15, à arbitrer) —, mais elle se
+ * dit : chez Léa, Le Pile-Poil allait à Liam, à égalité avec Zoé et Malik,
+ * et personne ne le savait.
+ */
+function exAequoDe(classes: PlayerStat[], egal: (s: PlayerStat) => boolean): { exAequo?: string[] } {
+  const autres = classes.slice(1).filter(egal).map(s => s.name)
+  return autres.length > 0 ? { exAequo: autres } : {}
 }
 
 /**
