@@ -25,7 +25,8 @@ interface Dessins {
    * l'échec d'un `import()` — le même fichier redemandé échoue aussitôt, sans
    * requête —, et après un redéploiement l'ancienne empreinte répond 404 de
    * toute façon. Réessayer ne ferait que redessiner la page à chaque avatar :
-   * l'emoji tient la place, et ce qui n'a pas d'emoji le dit (`Dessin`).
+   * l'emoji tient la place, et ce qui n'a pas d'emoji le dit — la carte
+   * cache ses galeries, la fin de soirée mène au profil.
    */
   echec?: boolean
 }
