@@ -21,8 +21,13 @@ import { normaliserReglages, type ReglagesDuQuiz } from './hasard'
 export const FORMAT_QUIZ = 'fiestapp-quiz'
 /** La version du fichier : un fichier plus récent que l'application ne se lit pas à moitié. */
 export const VERSION_QUIZ = 1
-/** Au-delà, le navigateur peinerait à le lire, et aucun quiz raisonnable n'y arrive. */
-export const POIDS_MAX_FICHIER = 40 * 1024 * 1024
+
+/**
+ * Au-delà, le navigateur peinerait à le lire. Un quiz seul n'en approche
+ * jamais ; toute une bibliothèque — quarante quiz et leurs photos en clair —
+ * dépassait les 40 Mo d'avant.
+ */
+export const POIDS_MAX_FICHIER = 200 * 1024 * 1024
 
 /** Une photo telle qu'elle voyage : en clair, dans un format que le serveur accepte. */
 const PHOTO = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/
@@ -139,4 +144,87 @@ export async function importerQuiz<T>(
   })
   const quiz = await portes.creer(titreLibre(deballe.titre, portes.titresPris ?? []), questions, deballe.reglages)
   return { quiz, questions: questions.length, photos: adresses.size, photosIgnorees: deballe.photosIgnorees }
+}
+
+// ── Toute la bibliothèque ────────────────────────────────────────────────
+//
+// Un animateur ne pouvait sauvegarder ses quiz qu'un par un ; la sauvegarde
+// de la base est à l'administrateur. Un seul fichier les emporte tous — le
+// même format de quiz, en liste —, et « Importer » le relit comme un quiz.
+
+export const FORMAT_BIBLIOTHEQUE = 'fiestapp-bibliotheque'
+
+export interface BibliothequeEmportee {
+  format: typeof FORMAT_BIBLIOTHEQUE
+  version: number
+  quiz: QuizEmporte[]
+}
+
+/** Emballe plusieurs quiz, chacun comme `emporterQuiz`, photos en clair. */
+export async function emporterBibliotheque(
+  quizzes: Pick<QuizDef, 'title' | 'questions' | 'reglages'>[],
+  lirePhoto: (adresse: string) => Promise<string | null>,
+  avancer?: (faits: number, total: number) => void,
+): Promise<BibliothequeEmportee> {
+  const quiz: QuizEmporte[] = []
+  for (const q of quizzes) {
+    quiz.push(await emporterQuiz(q, lirePhoto))
+    avancer?.(quiz.length, quizzes.length)
+  }
+  return { format: FORMAT_BIBLIOTHEQUE, version: VERSION_QUIZ, quiz }
+}
+
+/**
+ * Importe un fichier lu — un quiz, ou une bibliothèque entière —, chaque quiz
+ * par les portes de `importerQuiz`. Un quiz illisible dans une bibliothèque
+ * se compte, sans arrêter les autres.
+ */
+export async function importerFichier<T>(
+  brut: unknown,
+  portes: Parameters<typeof importerQuiz<T>>[1],
+): Promise<{ quiz: T[]; questions: number; photos: number; photosIgnorees: number; illisibles: number }> {
+  const f = brut && typeof brut === 'object' ? (brut as Record<string, unknown>) : null
+  if (f?.format !== FORMAT_BIBLIOTHEQUE) {
+    const un = await importerQuiz(brut, portes)
+    return { quiz: [un.quiz], questions: un.questions, photos: un.photos, photosIgnorees: un.photosIgnorees, illisibles: 0 }
+  }
+  if (typeof f.version !== 'number' || f.version > VERSION_QUIZ) {
+    throw new Error('Cette bibliothèque vient d’une version plus récente de l’application : il faut la mettre à jour pour l’importer')
+  }
+  const tous = Array.isArray(f.quiz) ? f.quiz : []
+  if (tous.length === 0) throw new Error('Cette bibliothèque n’a aucun quiz')
+  // Les titres pris grandissent de chaque quiz créé — deux « Blind test »
+  // dans le même fichier arrivent « (2) » et « (3) » —, et une photo qui
+  // sert à deux quiz ne s'envoie qu'une fois.
+  const pris = [...(portes.titresPris ?? [])]
+  const envoyees = new Map<string, Promise<string>>()
+  const envoyerPhoto = (enClair: string) => {
+    let adresse = envoyees.get(enClair)
+    if (!adresse) envoyees.set(enClair, (adresse = portes.envoyerPhoto(enClair)))
+    return adresse
+  }
+  const creer: typeof portes.creer = (titre, questions, reglages) => {
+    pris.push(titre)
+    return portes.creer(titre, questions, reglages)
+  }
+  const bilan = { quiz: [] as T[], questions: 0, photos: 0, photosIgnorees: 0, illisibles: 0 }
+  for (const un of tous) {
+    try {
+      const fait = await importerQuiz(un, { envoyerPhoto, creer, titresPris: pris })
+      bilan.quiz.push(fait.quiz)
+      bilan.questions += fait.questions
+      bilan.photosIgnorees += fait.photosIgnorees
+    } catch {
+      bilan.illisibles++
+    }
+  }
+  bilan.photos = envoyees.size
+  if (bilan.quiz.length === 0) throw new Error('Aucun quiz de cette bibliothèque ne se lit')
+  return bilan
+}
+
+/** « Mes quiz » du 25 septembre 2026 → `mes-quiz-2026-09-25.bibliotheque.json`. */
+export function nomDeBibliotheque(date: Date): string {
+  const j = (n: number) => String(n).padStart(2, '0')
+  return `mes-quiz-${date.getFullYear()}-${j(date.getMonth() + 1)}-${j(date.getDate())}.bibliotheque.json`
 }

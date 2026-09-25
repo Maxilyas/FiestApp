@@ -80,8 +80,22 @@ export function mountApi(app: Express, deps: ApiDeps) {
 
   app.get(
     '/api/quizzes',
-    wrap(async (_req, res) => {
-      res.json(await deps.store.list(spaceOf(res)))
+    wrap(async (req, res) => {
+      // `?q=` : les quiz qui contiennent ces mots — titre, intitulés, réponses.
+      const q = typeof req.query.q === 'string' ? tronquer(req.query.q, 120) : undefined
+      res.json(await deps.store.list(spaceOf(res), q))
+    }),
+  )
+
+  // Archiver : hors de la liste et du choix de la soirée, sans rien effacer.
+  app.post(
+    '/api/quizzes/:id/archive',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      const ok = await deps.store.archiver(spaceId, req.params.id, req.body?.archive !== false)
+      if (!ok) return res.status(404).json({ error: 'Quiz introuvable' })
+      await deps.onLibraryChanged(spaceId)
+      res.json({ ok: true })
     }),
   )
 

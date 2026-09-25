@@ -216,6 +216,8 @@ export function setQuizLibrary(spaceId: string, quizzes: QuizDef[]) {
   libraries.set(
     spaceId,
     quizzes
+      // Archivé, il attend à l'écart : il ne se propose plus au choix de la soirée.
+      .filter(q => !q.archivedAt)
       .map(q => ({
         id: q.id,
         title: q.title,

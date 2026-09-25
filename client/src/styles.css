@@ -2033,17 +2033,114 @@ h3 > .icon {
   font-weight: 600;
 }
 
-.quiz-list { display: flex; flex-direction: column; gap: 10px; }
-
-.quiz-row {
+/* ── Mes quiz ─────────────────────────────────────────────────────────────
+   Une ligne par quiz, qui s'ouvre d'un clic ; les gestes rares sous « ⋯ ». */
+.quiz-list { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.quiz-ligne { display: flex; align-items: center; gap: 8px; padding: 0; }
+.quiz-ligne.is-archive { opacity: 0.8; }
+.quiz-ligne-ouvrir {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius);
 }
+.quiz-ligne-ouvrir:hover .quiz-ligne-titre { color: var(--accent-text-hover); }
+.quiz-ligne-titre { font-family: var(--serif); font-weight: 600; font-size: 1.25rem; line-height: 1.2; overflow-wrap: anywhere; }
+.quiz-ligne-trouve { font-style: italic; }
+.quiz-ligne .menu-ancre { margin-right: 10px; }
 
-.quiz-row-main { min-width: 200px; flex: 1; }
+.bibliotheque-tete { align-items: center; }
+.bibliotheque-tete h1 { flex: 1; margin: 0; white-space: nowrap; }
+.bibliotheque-nav { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.88rem; }
+.lien-discret { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; min-height: 32px; }
+.lien-discret:hover { color: var(--accent-text-hover); }
+.bibliotheque-outils { display: grid; gap: 10px; min-width: 0; }
+.champ-recherche { position: relative; display: flex; align-items: center; }
+.champ-recherche > .icon { position: absolute; left: 12px; color: var(--muted); pointer-events: none; }
+.champ-recherche .input { width: 100%; padding-left: 38px; }
+.filtres { display: flex; flex-wrap: wrap; gap: 6px; }
+.bibliotheque-compte { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bibliotheque-compte label { gap: 6px; }
+/* Un choix discret, au poids du texte qui l'entoure : le natif s'ouvre au
+   clavier et au doigt, rien de plus à inventer. */
+.select-discret {
+  background: transparent;
+  color: var(--accent-text);
+  border: 0;
+  border-bottom: 1px dashed var(--edge-strong);
+  font: inherit;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.select-discret option { background: var(--bg-raised); color: var(--ink); }
+.bibliotheque-vide { text-align: center; }
+.bibliotheque-pied { justify-content: center; }
+
+/* Les menus d'une ligne et de « Nouveau quiz » : sous leur bouton, à droite. */
+.menu-ancre { position: relative; }
+.menu-deroulant {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--bg-raised);
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.menu-deroulant.vers-la-droite { right: auto; left: 0; }
+.menu-deroulant.vers-le-haut { top: auto; bottom: calc(100% + 6px); }
+.menu-deroulant button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-deroulant button:hover:not(:disabled) { background: var(--accent-soft); }
+.menu-deroulant button:disabled { color: var(--muted); cursor: default; }
+.menu-deroulant .menu-danger { color: var(--alert); }
+.menu-nouveau { min-width: 300px; }
+.bouton-plus { width: 40px; padding: 0; }
+@media (max-width: 600px) {
+  .bibliotheque-nav { gap: 2px 14px; }
+  .bibliotheque-tete h1 { font-size: 1.8rem; }
+  .menu-nouveau { min-width: 260px; }
+  .quiz-ligne-ouvrir { padding: 10px 12px; }
+  /* Une ligne qui défile sous le doigt, jusqu'au bord de l'écran : la
+     pastille coupée au bord dit qu'il y en a d'autres. */
+  .filtres {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -16px;
+    padding: 0 16px 2px;
+  }
+  .filtres::-webkit-scrollbar { display: none; }
+  .filtres .pill-btn { flex: none; }
+}
 
 .question-card { display: flex; flex-direction: column; gap: 12px; }
 

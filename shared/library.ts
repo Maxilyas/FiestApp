@@ -109,6 +109,11 @@ export interface QuizDef {
   title: string
   questions: QuizQuestionDef[]
   updatedAt: number
+  /**
+   * Rangé à l'écart : hors de « Mes quiz » et du choix de la soirée, sans
+   * disparaître. Null ou absent : dans la bibliothèque.
+   */
+  archivedAt?: number | null
   /** Ce que le quiz demande au hasard : l'ordre de ses réponses, de ses questions (`shared/hasard.ts`). */
   reglages?: ReglagesDuQuiz
 }
@@ -122,6 +127,74 @@ export interface QuizSummary {
   /** Nombre de questions réellement jouables. */
   readyCount: number
   updatedAt: number
+  /** Archivé : hors de la liste et du choix de la soirée (voir `QuizDef.archivedAt`). */
+  archivedAt?: number | null
+  /**
+   * Ce qui se dérive des questions, pour trier et filtrer sans rien saisir :
+   * une bibliothèque se range toute seule par ce qu'elle contient — les
+   * douze catégories fixes valent des étiquettes que personne n'a à poser.
+   */
+  photos?: number
+  estimations?: number
+  /** Les catégories présentes, de la plus fréquente à la moins. */
+  categories?: string[]
+  /** Le temps de jeu estimé, en secondes (`dureeEstimeeS`). */
+  dureeS?: number
+  /** L'intitulé qui a fait trouver ce quiz à une recherche, s'il ne l'a pas été par son titre. */
+  trouve?: string
+}
+
+/** Le résumé d'un quiz, tel que « Mes quiz » le liste. */
+export function resumerQuiz(quiz: QuizDef): QuizSummary {
+  const parCategorie = new Map<string, number>()
+  for (const q of quiz.questions) if (q.category) parCategorie.set(q.category, (parCategorie.get(q.category) ?? 0) + 1)
+  return {
+    id: quiz.id,
+    title: quiz.title,
+    questionCount: quiz.questions.length,
+    readyCount: playableQuestions(quiz).length,
+    updatedAt: quiz.updatedAt,
+    archivedAt: quiz.archivedAt ?? null,
+    // Les photos jointes : une photo seulement annoncée rend la question « à compléter », pas illustrée.
+    photos: quiz.questions.filter(q => q.image).length,
+    estimations: quiz.questions.filter(q => q.kind === 'number').length,
+    categories: [...parCategorie.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr')).map(([c]) => c),
+    dureeS: dureeEstimeeS(quiz.questions),
+  }
+}
+
+/** Sans accent ni casse, espaces réduits : ce que la recherche compare. */
+export function pourChercher(texte: string): string {
+  return texte
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[’']/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Ce qu'une recherche trouve dans un quiz : `true` pour son titre, l'intitulé
+ * de la question qui contient les mots cherchés — dans son texte ou ses
+ * réponses —, ou null. « Macarena » trouve le quiz des années 90 qui la
+ * cite, sans qu'on ait à se souvenir de son titre. Chaque mot doit y être,
+ * dans n'importe quel ordre.
+ */
+export function rechercherDans(quiz: Pick<QuizDef, 'title' | 'questions'>, recherche: string): true | string | null {
+  const mots = pourChercher(recherche).split(' ').filter(Boolean)
+  if (mots.length === 0) return true
+  const contient = (texte: string) => {
+    const t = pourChercher(texte)
+    return mots.every(m => t.includes(m))
+  }
+  if (contient(quiz.title)) return true
+  for (const q of quiz.questions) {
+    const textes = [q.text, ...(q.kind === 'number' ? [q.unit] : q.answers)].join(' ')
+    // Une question sans intitulé trouve son quiz sans rien pouvoir en citer.
+    if (contient(textes)) return q.text.trim() || true
+  }
+  return null
 }
 
 /** Une question prête à être jouée : réponses vides retirées, index recalés. */

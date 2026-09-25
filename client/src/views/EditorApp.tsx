@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MutableRefObject } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type MutableRefObject } from 'react'
 import {
   DEFAULT_DURATION,
   DEFAULT_OBSERVE,
@@ -38,7 +38,14 @@ import {
 } from '../../../shared/library'
 import { CATEGORIES } from '../../../shared/categories'
 import { ecrireNombre, lireNombre } from '../../../shared/nombres'
-import { POIDS_MAX_FICHIER, emporterQuiz, importerQuiz, nomDeFichier } from '../../../shared/echange'
+import {
+  POIDS_MAX_FICHIER,
+  emporterBibliotheque,
+  emporterQuiz,
+  importerFichier,
+  nomDeBibliotheque,
+  nomDeFichier,
+} from '../../../shared/echange'
 import {
   APERCU_DU_FORMAT,
   DEMANDE_PAR_DEFAUT,
@@ -258,7 +265,7 @@ export function EditorApp() {
     if (!choisi) return
     setError('')
     setNotice('')
-    if (choisi.size > POIDS_MAX_FICHIER) return setError('Ce fichier est bien trop lourd pour être un quiz')
+    if (choisi.size > POIDS_MAX_FICHIER) return setError('Ce fichier est bien trop lourd pour être un quiz exporté')
     let brut: unknown
     try {
       brut = JSON.parse(await choisi.text())
@@ -267,15 +274,21 @@ export function EditorApp() {
     }
     setEchange('import')
     try {
-      const fait = await importerQuiz(brut, {
+      // Un quiz exporté, ou toute une bibliothèque (« Exporter tous mes quiz »).
+      const fait = await importerFichier(brut, {
         envoyerPhoto: async enClair => (await api.uploadImage(enClair)).url,
         creer: (titre, questions, reglages) => api.create(titre, questions, reglages),
         titresPris: list?.map(q => q.title) ?? [],
       })
+      const quoi =
+        fait.quiz.length === 1
+          ? `« ${fait.quiz[0].title} » est dans ta bibliothèque : ${fait.questions} question${fait.questions > 1 ? 's' : ''}`
+          : `${fait.quiz.length} quiz sont dans ta bibliothèque : ${fait.questions} questions`
       setNotice(
-        `« ${fait.quiz.title} » est dans ta bibliothèque : ${fait.questions} question${fait.questions > 1 ? 's' : ''}` +
+        quoi +
           (fait.photos > 0 ? `, ${fait.photos} photo${fait.photos > 1 ? 's' : ''}` : '') +
-          (fait.photosIgnorees > 0 ? ` — ${fait.photosIgnorees} photo${fait.photosIgnorees > 1 ? 's' : ''} ignorée${fait.photosIgnorees > 1 ? 's' : ''}, dans un format inconnu` : ''),
+          (fait.photosIgnorees > 0 ? ` — ${fait.photosIgnorees} photo${fait.photosIgnorees > 1 ? 's' : ''} ignorée${fait.photosIgnorees > 1 ? 's' : ''}, dans un format inconnu` : '') +
+          (fait.illisibles > 0 ? ` — ${fait.illisibles} quiz illisible${fait.illisibles > 1 ? 's' : ''}, laissé${fait.illisibles > 1 ? 's' : ''} de côté` : ''),
       )
       reload()
     } catch (e) {
@@ -335,12 +348,114 @@ export function EditorApp() {
 
   useEffect(() => {
     reload()
-    // Le lien « Les comptes » n'a de sens que pour l'administrateur.
+    // Le lien « Les comptes » n'a de sens que pour l'administrateur ; celui de
+    // l'historique a besoin du nom de l'espace.
     api.auth
       .me()
-      .then(m => setIsAdmin(m.account.role === 'admin'))
+      .then(m => {
+        setIsAdmin(m.account.role === 'admin')
+        setSlug(m.account.slug)
+      })
       .catch(() => setIsAdmin(false))
   }, [reload])
+
+  // ── Retrouver : la recherche, le tri, le filtre ──
+  const [slug, setSlug] = useState<string | null>(null)
+  const [recherche, setRecherche] = useState('')
+  /** Les quiz que le serveur a trouvés pour la recherche en cours (titres, intitulés, réponses). */
+  const [trouves, setTrouves] = useState<QuizSummary[] | null>(null)
+  const [tri, setTri] = useState<TriDeLaBibliotheque>(() => lireTri())
+  const [filtre, setFiltre] = useState<string>('tous')
+  useEffect(() => {
+    const mots = recherche.trim()
+    if (!mots) return setTrouves(null)
+    // Le temps de finir le mot : une requête par frappe ne sert à personne.
+    const timer = setTimeout(() => {
+      api
+        .chercher(mots)
+        .then(setTrouves)
+        .catch(() => setTrouves(null))
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [recherche, list])
+  const changerTri = (t: TriDeLaBibliotheque) => {
+    setTri(t)
+    garderTri(t)
+  }
+
+  /** Le quiz à l'écart, ou ressorti : la liste le montre aussitôt à sa nouvelle place. */
+  const archiver = async (q: QuizSummary, archive: boolean) => {
+    setError('')
+    try {
+      await api.archiver(q.id, archive)
+      setNotice(
+        archive
+          ? `« ${q.title} » est archivé : il ne se propose plus à la soirée. Tu le retrouves sous « Archivés ».`
+          : `« ${q.title} » est de retour dans ta bibliothèque.`,
+      )
+      reload()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  const dupliquer = async (q: QuizSummary) => {
+    try {
+      await api.duplicate(q.id)
+      reload()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  const supprimer = async (q: QuizSummary) => {
+    const ok = await confirmDialog({
+      title: `Supprimer « ${q.title} » ?`,
+      // Deux quiz du même nom ne se distinguaient pas : ce qu'il contient et
+      // quand il a changé disent lequel. Archiver le garde sans l'encombrer.
+      message:
+        (q.questionCount === 0
+          ? `Ce quiz vide, modifié ${quand(q.updatedAt)}, disparaît pour de bon.`
+          : `Le quiz et ${q.questionCount > 1 ? `ses ${q.questionCount} questions` : 'sa question'}, ` +
+            `modifié ${quand(q.updatedAt)}, disparaissent pour de bon.`) +
+        (q.archivedAt ? '' : ' Pour seulement l’écarter de la liste, archive-le.'),
+      confirmLabel: 'Supprimer',
+      danger: true,
+    })
+    if (!ok) return
+    try {
+      await api.remove(q.id)
+      oublierBrouillon(q.id)
+      // « « Spécial agence » est dans ta bibliothèque » survivait au quiz.
+      setNotice('')
+      reload()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  /** « Exporter tous mes quiz » : un seul fichier, photos en clair, que « Importer » relit. */
+  const [exportTout, setExportTout] = useState<{ faits: number; total: number } | null>(null)
+  // Un quiz vide n'a rien à emporter : relu, il ne se créerait même pas.
+  const aEmporter = list?.filter(q => q.questionCount > 0) ?? []
+  const exporterTout = async () => {
+    if (aEmporter.length === 0) return
+    setError('')
+    setNotice('')
+    setExportTout({ faits: 0, total: aEmporter.length })
+    try {
+      const quizzes = []
+      for (const q of aEmporter) quizzes.push(await api.get(q.id))
+      const fichierDeTout = await emporterBibliotheque(quizzes, photoEnClair, (faits, total) => setExportTout({ faits, total }))
+      const nom = nomDeBibliotheque(new Date())
+      telecharger(nom, JSON.stringify(fichierDeTout))
+      setNotice(`Tes ${aEmporter.length} quiz sont dans tes téléchargements : ${nom}. « Importer un fichier » les rend, ici ou sur un autre serveur.`)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setExportTout(null)
+    }
+  }
 
   const submitLogin = async (login: string, password: string) => {
     setBusy(true)
@@ -348,6 +463,7 @@ export function EditorApp() {
     try {
       const m = await api.auth.login(login, password)
       setIsAdmin(m.account.role === 'admin')
+      setSlug(m.account.slug)
       await reload()
     } catch (e) {
       setLoginError((e as Error).message)
@@ -394,64 +510,66 @@ export function EditorApp() {
     )
   }
 
+  const actifs = list?.filter(q => !q.archivedAt) ?? []
+  const archives = list?.filter(q => q.archivedAt) ?? []
+  const filtres = filtresDeLaBibliotheque(actifs, archives.length)
+  const base = recherche.trim() ? (trouves ?? []) : (list ?? [])
+  const visibles = trier(base.filter(q => garderSelon(filtre, q)), tri)
+  const filtreActif = filtres.find(f => f.id === filtre) ?? filtres[0]
+
   return (
     <div className="editor">
-      <header className="editor-header">
-        <h1>
-          <Icon name="edit" />
-          Mes quiz
-        </h1>
-        <div className="row">
-          <LienConsole />
-          <a className="btn btn-ghost" href="/compte">
+      <header className="editor-header bibliotheque-tete">
+        {/* Les pages de l'animateur, en une ligne fine : sept boutons de même
+            poids prenaient six lignes au téléphone, le premier quiz à 364 px. */}
+        <nav className="bibliotheque-nav" aria-label="Pages de l’animateur">
+          <LienConsole className="lien-discret" />
+          {slug && (
+            <a className="lien-discret" href={`/${slug}/soirees`}>
+              <Icon name="book" />
+              Historique
+            </a>
+          )}
+          <a className="lien-discret" href="/compte">
             <Icon name="users" />
             Mon compte
           </a>
           {isAdmin && (
-            <a className="btn btn-ghost" href="/admin">
+            <a className="lien-discret" href="/admin">
               <Icon name="sparkles" />
               Les comptes
             </a>
           )}
-          {/* Un quiz exporté d'une autre bibliothèque — celle d'un ami, ou d'un autre serveur. */}
-          <input
-            ref={fichier}
-            type="file"
-            accept=".json,application/json"
-            hidden
-            onChange={e => {
-              const choisi = e.target.files?.[0]
-              // Le même fichier, choisi deux fois de suite, doit repartir.
-              e.target.value = ''
-              importer(choisi)
-            }}
-          />
-          {list && !aucunPret && (
-            <button className="btn btn-ghost" aria-expanded={voirModeles} onClick={() => setVoirModeles(v => !v)}>
-              <Icon name="copy" />
-              Partir d'un modèle
-            </button>
-          )}
-          <button className="btn btn-ghost" disabled={echange !== null} onClick={() => fichier.current?.click()}>
-            <Icon name="download" />
-            {echange === 'import' ? 'Import…' : 'Importer un quiz'}
-          </button>
-          {/* On cherchait « Coller une liste » en arrivant, et l'on ouvrait
-              « Importer un quiz », qui attend un fichier : le panneau n'existait
-              qu'à l'intérieur d'un quiz. Il crée le quiz, et s'ouvre dedans. */}
-          <button className="btn btn-ghost" onClick={() => creer(true)}>
-            <Icon name="clipboard" />
-            Coller une liste
-          </button>
-          <button className="btn btn-primary" onClick={() => creer()}>
-            <Icon name="plus" />
-            Nouveau quiz
-          </button>
-        </div>
+        </nav>
+        <h1>
+          <Icon name="edit" />
+          Mes quiz
+        </h1>
+        {/* Un quiz exporté d'une autre bibliothèque — celle d'un ami, ou d'un autre serveur —, ou toute une bibliothèque. */}
+        <input
+          ref={fichier}
+          type="file"
+          accept=".json,application/json"
+          hidden
+          onChange={e => {
+            const choisi = e.target.files?.[0]
+            // Le même fichier, choisi deux fois de suite, doit repartir.
+            e.target.value = ''
+            importer(choisi)
+          }}
+        />
+        <MenuNouveau
+          occupe={echange !== null}
+          onVide={() => creer()}
+          onListe={() => creer(true)}
+          onModele={() => setVoirModeles(true)}
+          onFichier={() => fichier.current?.click()}
+        />
       </header>
       <main className="page-corps">
         {error && <p className="error">{error}</p>}
         {notice && <p className="card notice">{notice}</p>}
+        {echange === 'import' && <p className="serif-note">Import…</p>}
         {list === null && <p className="serif-note">Chargement…</p>}
 
         {list && (aucunPret || voirModeles) && (
@@ -464,94 +582,376 @@ export function EditorApp() {
             }}
             onImporter={() => fichier.current?.click()}
             onCreer={() => creer()}
+            onListe={() => creer(true)}
+            onFermer={aucunPret ? undefined : () => setVoirModeles(false)}
             onErreur={setError}
           />
         )}
 
-        <div className="quiz-list">
-          {list?.map(q => (
-            <div key={q.id} className="card quiz-row">
-              <div className="quiz-row-main">
-                <h3>{q.title}</h3>
-                <p className="muted">
-                  {q.readyCount} question{q.readyCount > 1 ? 's' : ''} prête{q.readyCount > 1 ? 's' : ''}
-                  {q.questionCount > q.readyCount && ` · ${q.questionCount - q.readyCount} à compléter`}
-                  {' · '}
-                  modifié {quand(q.updatedAt)}
-                </p>
-                {brouillons.has(q.id) && (
-                  <p className="warn small">
-                    <Icon name="edit" /> Des modifications non enregistrées t’attendent dans ce navigateur
-                  </p>
-                )}
-              </div>
-              {/* Chaque bouton nomme son quiz : dix « Supprimer » à la suite ne
-                  disent pas lequel à qui les parcourt au lecteur d'écran. Le
-                  libellé commence par le mot affiché, qu'une commande vocale
-                  reconnaît. */}
-              <div className="row">
-                <button className="btn" aria-label={`Modifier « ${q.title} »`} onClick={() => setEditingId(q.id)}>
-                  Modifier
-                </button>
+        {list && list.length > 0 && (
+          <div className="bibliotheque-outils">
+            <label className="champ-recherche">
+              <Icon name="search" />
+              <input
+                className="input"
+                type="search"
+                value={recherche}
+                placeholder="Chercher un quiz, ou une question…"
+                aria-label="Chercher dans mes quiz : titres, questions et réponses"
+                onChange={e => setRecherche(e.target.value)}
+              />
+            </label>
+            {/* Des filtres qui se dérivent des questions, sans rien saisir :
+                les douze catégories fixes valent des étiquettes que personne
+                n'a eu à poser. Au téléphone, une seule ligne qui défile : sur
+                six lignes, ils repoussaient le premier quiz sous l'écran. */}
+            <div className="filtres" role="group" aria-label="Montrer">
+              {filtres.map(f => (
                 <button
-                  className="btn btn-ghost btn-small"
-                  aria-label={`Dupliquer « ${q.title} »`}
-                  onClick={async () => {
-                    try {
-                      await api.duplicate(q.id)
-                      reload()
-                    } catch (e) {
-                      setError((e as Error).message)
-                    }
-                  }}
+                  key={f.id}
+                  type="button"
+                  className={'pill-btn' + (filtre === f.id ? ' active' : '')}
+                  aria-pressed={filtre === f.id}
+                  onClick={() => setFiltre(f.id)}
                 >
-                  Dupliquer
+                  {f.label} · {f.nombre}
                 </button>
-                <button
-                  className="btn btn-ghost btn-small"
-                  disabled={echange !== null}
-                  aria-label={`${echange === q.id ? 'Export…' : 'Exporter'} « ${q.title} »`}
-                  title="Un fichier à envoyer à un autre animateur, qui l’ouvre avec « Importer un quiz » : les questions et leurs photos"
-                  onClick={() => exporter(q)}
-                >
-                  {echange === q.id ? 'Export…' : 'Exporter'}
-                </button>
-                <button
-                  className="btn btn-ghost btn-small"
-                  aria-label={`Supprimer « ${q.title} »`}
-                  onClick={async () => {
-                    const ok = await confirmDialog({
-                      title: `Supprimer « ${q.title} » ?`,
-                      // Deux quiz du même nom ne se distinguaient pas : ce qu'il
-                      // contient et quand il a changé disent lequel.
-                      message:
-                        q.questionCount === 0
-                          ? `Ce quiz vide, modifié ${quand(q.updatedAt)}, disparaît pour de bon.`
-                          : `Le quiz et ${q.questionCount > 1 ? `ses ${q.questionCount} questions` : 'sa question'}, ` +
-                            `modifié ${quand(q.updatedAt)}, disparaissent pour de bon.`,
-                      confirmLabel: 'Supprimer',
-                      danger: true,
-                    })
-                    if (!ok) return
-                    try {
-                      await api.remove(q.id)
-                      oublierBrouillon(q.id)
-                      // « « Spécial agence » est dans ta bibliothèque » survivait au quiz.
-                      setNotice('')
-                      reload()
-                    } catch (e) {
-                      setError((e as Error).message)
-                    }
-                  }}
-                >
-                  Supprimer
-                </button>
-              </div>
+              ))}
             </div>
+            <div className="bibliotheque-compte muted small">
+              <span aria-live="polite">
+                {visibles.length} quiz{recherche.trim() || filtre !== 'tous' ? ` sur ${actifs.length + archives.length}` : ''}
+              </span>
+              <label className="row">
+                Rangés
+                <select
+                  className="select-discret"
+                  value={tri}
+                  onChange={e => changerTri(e.target.value as TriDeLaBibliotheque)}
+                >
+                  <option value="recents">du plus récent</option>
+                  <option value="alpha">de A à Z</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {list && list.length > 0 && visibles.length === 0 && (
+          <p className="serif-note bibliotheque-vide">
+            {recherche.trim() && trouves === null ? 'Recherche…' : 'Aucun quiz ne correspond.'}{' '}
+            {(recherche.trim() || filtre !== 'tous') && trouves !== null && (
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => {
+                  setRecherche('')
+                  setFiltre('tous')
+                }}
+              >
+                Tout montrer
+              </button>
+            )}
+          </p>
+        )}
+
+        <ul className="quiz-list" aria-label={filtreActif ? `Mes quiz : ${filtreActif.label}` : 'Mes quiz'}>
+          {visibles.map(q => (
+            <LigneDeQuiz
+              key={q.id}
+              quiz={q}
+              brouillon={brouillons.has(q.id)}
+              occupe={echange !== null}
+              exportEnCours={echange === q.id}
+              onOuvrir={() => setEditingId(q.id)}
+              onDupliquer={() => dupliquer(q)}
+              onExporter={() => exporter(q)}
+              onArchiver={() => archiver(q, !q.archivedAt)}
+              onSupprimer={() => supprimer(q)}
+            />
           ))}
-        </div>
+        </ul>
+
+        {aEmporter.length > 1 && (
+          <div className="row bibliotheque-pied">
+            <button type="button" className="btn btn-ghost btn-small" disabled={exportTout !== null} onClick={exporterTout}>
+              <Icon name="download" />
+              {exportTout ? `Export… ${exportTout.faits}/${exportTout.total}` : `Exporter tous mes quiz (${aEmporter.length})`}
+            </button>
+          </div>
+        )}
       </main>
     </div>
+  )
+}
+
+// ── La bibliothèque : ranger, filtrer, les gestes d'une ligne ─────────────
+
+type TriDeLaBibliotheque = 'recents' | 'alpha'
+const TRI_GARDE = 'fiestappTriDesQuiz'
+
+/** Le rangement choisi, retenu par ce navigateur — rien de grave s'il refuse. */
+function lireTri(): TriDeLaBibliotheque {
+  try {
+    const t = localStorage.getItem(TRI_GARDE)
+    return t === 'alpha' ? t : 'recents'
+  } catch {
+    return 'recents'
+  }
+}
+
+function garderTri(t: TriDeLaBibliotheque) {
+  try {
+    localStorage.setItem(TRI_GARDE, t)
+  } catch {
+    // Un navigateur qui refuse de garder : le rangement reviendra au défaut.
+  }
+}
+
+/**
+ * Corriger une faute faisait remonter un quiz en tête, et les modèles
+ * coulaient au fond : l'ordre de la dernière modification reste le défaut,
+ * l'alphabet se choisit.
+ */
+function trier(quizzes: QuizSummary[], tri: TriDeLaBibliotheque): QuizSummary[] {
+  const copie = [...quizzes]
+  if (tri === 'alpha') return copie.sort((a, b) => a.title.localeCompare(b.title, 'fr', { sensitivity: 'base', numeric: true }))
+  return copie.sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
+interface FiltreDeLaBibliotheque {
+  id: string
+  label: string
+  nombre: number
+}
+
+const aCompleter = (q: QuizSummary) => q.questionCount === 0 || q.readyCount < q.questionCount
+
+/** Ce qu'un filtre garde. Les archivés ne se montrent que sous le leur. */
+function garderSelon(filtre: string, q: QuizSummary): boolean {
+  if (filtre === 'archives') return !!q.archivedAt
+  if (q.archivedAt) return false
+  if (filtre === 'a-completer') return aCompleter(q)
+  if (filtre === 'photos') return (q.photos ?? 0) > 0
+  if (filtre === 'estimations') return (q.estimations ?? 0) > 0
+  if (filtre.startsWith('cat:')) return !!q.categories?.includes(filtre.slice(4))
+  return true
+}
+
+/** Les filtres utiles à cette bibliothèque : ceux qui ne gardent rien ne se proposent pas. */
+function filtresDeLaBibliotheque(actifs: QuizSummary[], archives: number): FiltreDeLaBibliotheque[] {
+  const compter = (f: string) => actifs.filter(q => garderSelon(f, q)).length
+  const categories = new Map<string, number>()
+  for (const q of actifs) for (const c of q.categories ?? []) categories.set(c, (categories.get(c) ?? 0) + 1)
+  const filtres: FiltreDeLaBibliotheque[] = [
+    { id: 'tous', label: 'Tous', nombre: actifs.length },
+    { id: 'a-completer', label: 'À compléter', nombre: compter('a-completer') },
+    { id: 'photos', label: 'Avec photos', nombre: compter('photos') },
+    { id: 'estimations', label: 'Avec estimations', nombre: compter('estimations') },
+    ...[...categories.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr'))
+      .slice(0, 6)
+      .map(([c, n]) => ({ id: `cat:${c}`, label: c, nombre: n })),
+    { id: 'archives', label: 'Archivés', nombre: archives },
+  ]
+  return filtres.filter(f => f.id === 'tous' || f.nombre > 0)
+}
+
+/**
+ * « ＋ Nouveau quiz ▾ » : les quatre façons de commencer, chacune avec sa
+ * ligne d'explication, sous un seul bouton. Elles occupaient quatre boutons
+ * de l'en-tête, au même poids que « Mon compte ».
+ */
+function MenuNouveau({
+  occupe,
+  onVide,
+  onListe,
+  onModele,
+  onFichier,
+}: {
+  occupe: boolean
+  onVide: () => void
+  onListe: () => void
+  onModele: () => void
+  onFichier: () => void
+}) {
+  const { ouvert, setOuvert, ancre } = useFermeture()
+  const choisir = (geste: () => void) => () => {
+    setOuvert(false)
+    geste()
+  }
+  return (
+    <div className="menu-ancre" ref={ancre}>
+      <button type="button" className="btn btn-primary" aria-expanded={ouvert} onClick={() => setOuvert(v => !v)}>
+        <Icon name="plus" />
+        Nouveau quiz
+        <Icon name="chevron-down" />
+      </button>
+      {ouvert && (
+        <div className="menu-deroulant menu-nouveau">
+          <button type="button" onClick={choisir(onVide)}>
+            <b>Quiz vide</b>
+            <span className="muted small">Écrire les questions une à une</span>
+          </button>
+          <button type="button" onClick={choisir(onListe)}>
+            <b>Coller une liste</b>
+            <span className="muted small">Tes notes, ou la réponse d’une IA</span>
+          </button>
+          <button type="button" onClick={choisir(onModele)}>
+            <b>Partir d’un modèle</b>
+            <span className="muted small">Un quiz tout fait, à retoucher — ou à personnaliser pour quelqu’un</span>
+          </button>
+          <button type="button" disabled={occupe} onClick={choisir(onFichier)}>
+            <b>Importer un fichier</b>
+            <span className="muted small">Le quiz d’un ami, ou toute une bibliothèque (.json)</span>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Un menu qui se referme tout seul : Échap — qui rend la main à son bouton —,
+ * ou un toucher hors de son ancre. Un toucher dans le menu ne le ferme pas :
+ * fermé au `pointerdown`, il disparaissait avant que le clic n'arrive.
+ */
+function useFermeture() {
+  const [ouvert, setOuvert] = useState(false)
+  const ancre = useRef<HTMLDivElement>(null)
+  // Le menu s'ouvre sous son bouton, aligné à droite — sauf s'il sortirait
+  // de l'écran : au téléphone, « Nouveau quiz » passe à gauche sous le
+  // titre, et le menu d'une ligne du bas s'ouvrait sous le pli.
+  useLayoutEffect(() => {
+    const menu = ancre.current?.querySelector<HTMLElement>('.menu-deroulant')
+    if (!ouvert || !menu) return
+    const r = menu.getBoundingClientRect()
+    if (r.left < 8) menu.classList.add('vers-la-droite')
+    const bouton = ancre.current!.getBoundingClientRect()
+    if (r.bottom > window.innerHeight - 8 && bouton.top - r.height - 6 > 8) menu.classList.add('vers-le-haut')
+  }, [ouvert])
+  useEffect(() => {
+    if (!ouvert) return
+    const fermer = (e: Event) => {
+      if (e instanceof KeyboardEvent) {
+        if (e.key !== 'Escape') return
+        ancre.current?.querySelector<HTMLElement>('[aria-expanded]')?.focus()
+      } else if (ancre.current?.contains(e.target as Node)) return
+      setOuvert(false)
+    }
+    document.addEventListener('keydown', fermer)
+    document.addEventListener('pointerdown', fermer)
+    return () => {
+      document.removeEventListener('keydown', fermer)
+      document.removeEventListener('pointerdown', fermer)
+    }
+  }, [ouvert])
+  return { ouvert, setOuvert, ancre }
+}
+
+/**
+ * Une ligne de « Mes quiz » : elle s'ouvre d'un clic, et ses gestes rares —
+ * dupliquer, exporter, archiver, supprimer — attendent sous « ⋯ ». Quatre
+ * boutons par ligne faisaient 160 boutons pour 40 quiz, et « Supprimer » à
+ * un clic de « Modifier ».
+ */
+function LigneDeQuiz({
+  quiz: q,
+  brouillon,
+  occupe,
+  exportEnCours,
+  onOuvrir,
+  onDupliquer,
+  onExporter,
+  onArchiver,
+  onSupprimer,
+}: {
+  quiz: QuizSummary
+  brouillon: boolean
+  occupe: boolean
+  exportEnCours: boolean
+  onOuvrir: () => void
+  onDupliquer: () => void
+  onExporter: () => void
+  onArchiver: () => void
+  onSupprimer: () => void
+}) {
+  const { ouvert, setOuvert, ancre } = useFermeture()
+  const choisir = (geste: () => void) => () => {
+    setOuvert(false)
+    geste()
+  }
+  const manque = q.questionCount - q.readyCount
+  const faits = [
+    q.questionCount === 0
+      ? 'Aucune question encore'
+      : `${q.readyCount} question${q.readyCount > 1 ? 's' : ''} prête${q.readyCount > 1 ? 's' : ''}`,
+    (q.photos ?? 0) > 0 && `${q.photos} photo${q.photos! > 1 ? 's' : ''}`,
+    (q.estimations ?? 0) > 0 && `${q.estimations} estimation${q.estimations! > 1 ? 's' : ''}`,
+    (q.dureeS ?? 0) > 0 && ecrireDuree(q.dureeS!),
+    `modifié ${quand(q.updatedAt)}`,
+  ].filter(Boolean)
+  return (
+    <li className={'card quiz-ligne' + (q.archivedAt ? ' is-archive' : '')}>
+      {/* Chaque bouton nomme son quiz : dix « Supprimer » à la suite ne disent
+          pas lequel à qui les parcourt au lecteur d'écran. Le libellé commence
+          par le mot affiché, qu'une commande vocale reconnaît. */}
+      <button type="button" className="quiz-ligne-ouvrir" aria-label={`Modifier « ${q.title} »`} onClick={onOuvrir}>
+        <span className="quiz-ligne-titre">{q.title}</span>
+        <span className="muted small">{faits.join(' · ')}</span>
+        {manque > 0 && (
+          <span className="warn small">
+            <Icon name="alert" /> {manque} à compléter
+          </span>
+        )}
+        {q.trouve && <span className="muted small quiz-ligne-trouve">{espacesFines(`Trouvé dans « ${q.trouve} »`)}</span>}
+        {brouillon && (
+          <span className="warn small">
+            <Icon name="edit" /> Des modifications non enregistrées t’attendent dans ce navigateur
+          </span>
+        )}
+      </button>
+      <div className="menu-ancre" ref={ancre}>
+        <button
+          type="button"
+          className="btn btn-ghost btn-small bouton-plus"
+          aria-label={`Plus d’options pour « ${q.title} »`}
+          aria-expanded={ouvert}
+          onClick={() => setOuvert(v => !v)}
+        >
+          <Icon name="more" />
+        </button>
+        {ouvert && (
+          <div className="menu-deroulant">
+            <button type="button" aria-label={`Modifier « ${q.title} »`} onClick={choisir(onOuvrir)}>
+              Modifier
+            </button>
+            <button type="button" aria-label={`Dupliquer « ${q.title} »`} onClick={choisir(onDupliquer)}>
+              Dupliquer
+            </button>
+            <button
+              type="button"
+              disabled={occupe}
+              title="Un fichier à envoyer à un autre animateur, qui l’ouvre avec « Importer un fichier » : les questions et leurs photos"
+              onClick={choisir(onExporter)}
+            >
+              {exportEnCours ? 'Export…' : 'Exporter en fichier'}
+            </button>
+            <button type="button" onClick={choisir(onArchiver)}>
+              {q.archivedAt ? 'Ressortir de l’archive' : 'Archiver'}
+            </button>
+            <button
+              type="button"
+              className="menu-danger"
+              aria-label={`Supprimer « ${q.title} »`}
+              onClick={choisir(onSupprimer)}
+            >
+              Supprimer
+            </button>
+          </div>
+        )}
+      </div>
+    </li>
   )
 }
 
@@ -2606,14 +3006,20 @@ function PremiersPas({
   onOuvrir,
   onImporter,
   onCreer,
+  onListe,
+  onFermer,
   onErreur,
 }: {
-  /** Aucun quiz prêt : les trois départs. Sinon, les modèles seuls, rouverts depuis l'en-tête. */
+  /** Aucun quiz prêt : les quatre départs. Sinon, les modèles seuls, rouverts depuis « Nouveau quiz ». */
   debut: boolean
   occupe: boolean
   onOuvrir: (id: string) => void
   onImporter: () => void
   onCreer: () => void
+  /** « Coller une liste » : le départ le plus rapide, celui qui accueille la réponse d'une IA. */
+  onListe: () => void
+  /** Refermer les modèles, rouverts depuis « Nouveau quiz ». */
+  onFermer?: () => void
   onErreur: (message: string) => void
 }) {
   const [modeles, setModeles] = useState<ModeleResume[]>([])
@@ -2694,6 +3100,10 @@ function PremiersPas({
       </ul>
       {debut && (
         <div className="premiers-pas-choix">
+          <button className="btn" onClick={onListe}>
+            <Icon name="clipboard" />
+            Coller une liste — tes notes, ou la réponse d’une IA
+          </button>
           <button className="btn" disabled={occupe} onClick={onImporter}>
             <Icon name="download" />
             Importer le quiz d'un ami
@@ -2701,6 +3111,13 @@ function PremiersPas({
           <button className="btn btn-primary" onClick={onCreer}>
             <Icon name="plus" />
             Créer mon quiz
+          </button>
+        </div>
+      )}
+      {onFermer && (
+        <div className="row">
+          <button type="button" className="btn btn-ghost btn-small" onClick={onFermer}>
+            Fermer les modèles
           </button>
         </div>
       )}

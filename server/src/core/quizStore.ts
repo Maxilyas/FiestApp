@@ -3,7 +3,8 @@ import { ajouterColonne, clientDistant, type Client } from './distante'
 import {
   cleanTitle,
   normalizeQuestions,
-  playableQuestions,
+  rechercherDans,
+  resumerQuiz,
   type QuizDef,
   type QuizQuestionDef,
   type QuizSummary,
@@ -89,6 +90,8 @@ export class QuizStore {
     // Les réglages du quiz (l'ordre des réponses, des questions) : absents des
     // quiz d'avant, qui se jouent tels qu'écrits.
     await ajouterColonne(this.client, 'quizzes', 'reglages', 'TEXT')
+    // Un quiz archivé sort de la liste et du choix de la soirée, sans disparaître.
+    await ajouterColonne(this.client, 'quizzes', 'archived_at', 'INTEGER')
     await this.client.batch(
       [
         'CREATE INDEX IF NOT EXISTS idx_quizzes_space ON quizzes(space_id)',
@@ -102,21 +105,37 @@ export class QuizStore {
 
   // ── Quiz ────────────────────────────────────────────────────────────────
 
-  async list(spaceId: string): Promise<QuizSummary[]> {
+  /**
+   * La liste de « Mes quiz », chaque quiz résumé (`resumerQuiz`). Avec une
+   * recherche, seulement ceux qui la contiennent — titre, intitulés,
+   * réponses —, et l'intitulé qui les a fait trouver.
+   */
+  async list(spaceId: string, recherche?: string): Promise<QuizSummary[]> {
     const res = await this.client.execute({
-      sql: 'SELECT id, title, questions, updated_at FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC',
+      sql: 'SELECT id, title, questions, updated_at, archived_at, reglages FROM quizzes WHERE space_id = ? ORDER BY updated_at DESC',
       args: [spaceId],
     })
-    return res.rows.map(row => {
+    const resumes: QuizSummary[] = []
+    for (const row of res.rows) {
       const quiz = rowToQuiz(row)
-      return {
-        id: quiz.id,
-        title: quiz.title,
-        questionCount: quiz.questions.length,
-        readyCount: playableQuestions(quiz).length,
-        updatedAt: quiz.updatedAt,
+      if (!recherche?.trim()) {
+        resumes.push(resumerQuiz(quiz))
+        continue
       }
+      const trouve = rechercherDans(quiz, recherche)
+      if (trouve === null) continue
+      resumes.push({ ...resumerQuiz(quiz), ...(trouve !== true && { trouve }) })
+    }
+    return resumes
+  }
+
+  /** Range un quiz à l'écart, ou l'en ressort. Sa date de modification ne bouge pas : il garde sa place. */
+  async archiver(spaceId: string, id: string, archive: boolean): Promise<boolean> {
+    const res = await this.client.execute({
+      sql: 'UPDATE quizzes SET archived_at = ? WHERE id = ? AND space_id = ?',
+      args: [archive ? Date.now() : null, id, spaceId],
     })
+    return res.rowsAffected > 0
   }
 
   /** Tous les quiz d'un espace, questions comprises — alimente le cache du module de jeu. */
@@ -382,11 +401,13 @@ function rowToQuiz(row: Record<string, unknown>): QuizDef {
   } catch {
     // Illisibles, les réglages valent « tel qu'écrit ».
   }
+  const archivedAt = row.archived_at === null || row.archived_at === undefined ? null : Number(row.archived_at)
   return {
     id: String(row.id),
     title: String(row.title),
     questions,
     updatedAt: Number(row.updated_at),
     reglages: normaliserReglages(reglages),
+    archivedAt,
   }
 }

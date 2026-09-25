@@ -136,6 +136,11 @@ export const activationUrl = (token: string) => `${window.location.origin}/activ
 
 export const api = {
   list: () => req<QuizSummary[]>('/api/quizzes'),
+  /** Les quiz qui contiennent ces mots — titre, intitulés, réponses. */
+  chercher: (q: string) => req<QuizSummary[]>(`/api/quizzes?q=${encodeURIComponent(q)}`),
+  /** Range un quiz à l'écart (hors de la liste et du choix de la soirée), ou l'en ressort. */
+  archiver: (id: string, archive: boolean) =>
+    req<{ ok: true }>(`/api/quizzes/${id}/archive`, { method: 'POST', body: JSON.stringify({ archive }) }),
   get: (id: string) => req<QuizDef>(`/api/quizzes/${id}`),
   create: (title: string, questions?: unknown[], reglages?: ReglagesDuQuiz) =>
     req<QuizDef>('/api/quizzes', { method: 'POST', body: JSON.stringify({ title, questions, reglages }) }),
