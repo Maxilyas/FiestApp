@@ -75,6 +75,43 @@ export interface QuizPodiumRow extends Distinctions {
   rank: number
 }
 
+/**
+ * Un voisin au classement du quiz, tel qu'un téléphone le reçoit : qui, ses
+ * points, son rang. Le téléphone le décore lui-même — prénom affiché, avatar,
+ * niveau — avec l'instantané de la salle qu'il a déjà : décorés au serveur,
+ * deux voisins par téléphone feraient décorer toute la salle à chaque
+ * révélation, et un prénom renommé ne les suivrait pas.
+ */
+export interface VoisinAuClassement {
+  id: string
+  points: number
+  rang: number
+}
+
+/**
+ * Sa place au classement du quiz, entre deux questions : ceux qui
+ * l'encadrent, et d'où il vient. Quelques octets par téléphone, lus dans un
+ * classement trié une fois pour toute la salle — jamais le classement
+ * entier, qui ferait à 500 invités 500 lignes pour chacun des 500 téléphones.
+ */
+export interface PlaceAuQuiz {
+  // « Sur combien » n'y est pas : il dépend de toute la salle, et une
+  // exclusion pendant la révélation renverrait sa vue à chaque téléphone. Le
+  // téléphone le lit dans l'instantané, que l'exclusion renvoie déjà à tous.
+  /** Le plus proche strictement devant lui — un ex æquo n'est pas devant. Absent pour qui mène. */
+  devant?: VoisinAuClassement
+  /** Le plus proche strictement derrière lui. Absent pour le dernier. */
+  derriere?: VoisinAuClassement
+  /** Combien d'autres partagent son rang. Absent : personne. */
+  exAequo?: number
+  /**
+   * Son rang avant la question révélée, quand il a changé. Absent tant que
+   * personne n'avait marqué : à zéro, tout le monde était premier ex æquo, et
+   * chacun aurait « perdu des places » qu'il n'avait jamais eues.
+   */
+  avant?: number
+}
+
 /** Estimation : ce que chacun a proposé, du plus proche au plus loin. */
 export interface QuizGuessRow extends Distinctions {
   name: string
@@ -149,8 +186,20 @@ export interface QuizPlayerView {
   yourQuizTotal?: number
   /** Rang dans le quiz, partagé à égalité : trois joueurs à zéro sont premiers ensemble. */
   yourQuizRank?: number
+  /**
+   * Sa place au classement du quiz — à la révélation et au podium, pour qui a
+   * joué. Jamais pendant la question : les points ne tombent qu'à la
+   * révélation, et rien ne s'y calcule pour une réponse.
+   */
+  place?: PlaceAuQuiz
   // finished
   podium?: QuizPodiumRow[]
+  /**
+   * Au podium : un autre quiz s'est joué avant celui-ci, ce soir. Le
+   * classement de la soirée n'est plus celui du quiz, et le téléphone dit
+   * les deux — au premier quiz, ils n'en font qu'un.
+   */
+  soireeEntamee?: true
   /**
    * Sa ligne sur le podium (0 à 2), s'il y monte. Le podium est le même pour
    * toute la salle ; seule cette place dépend du téléphone, pour qu'il s'y

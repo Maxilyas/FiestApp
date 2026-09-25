@@ -463,6 +463,9 @@ export function PlayerApp() {
           view={sessionView.view as QuizPlayerView}
           teams={teams}
           myTeamId={me?.teamId ?? null}
+          players={snap.players}
+          moi={me}
+          participants={session?.participantIds.length ?? 0}
           // Le jeton est relu au moment de l'envoi : celui du rendu pourrait
           // dater d'avant une reconnexion.
           send={(action: QuizAction) => {

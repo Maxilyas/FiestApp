@@ -53,6 +53,15 @@ export const rang = (n: number) => (n === 1 ? '1ʳᵉ' : `${n}ᵉ`)
 export const place = (n: number) => `${rang(n)} place`
 
 /**
+ * « 715 pts », « 1 pt », « 0 pt » : zéro et un sont au singulier en français,
+ * et « 0 pts » s'écrivait sur chaque téléphone avant le premier quiz.
+ */
+export const pts = (n: number) => `${formatNumber(n)} ${Math.abs(n) >= 2 ? 'pts' : 'pt'}`
+
+/** « 715 points », « 1 point » : le même, pour l'oreille, qui ne lit pas « pts ». */
+export const points = (n: number) => `${formatNumber(n)} ${Math.abs(n) >= 2 ? 'points' : 'point'}`
+
+/**
  * Les espaces insécables de la typographie française, posées à l'affichage.
  *
  * Une espace ordinaire avant « ? » laissait le point d'interrogation seul en

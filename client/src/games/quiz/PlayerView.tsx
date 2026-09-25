@@ -7,12 +7,14 @@ import { TeamBoard } from '../../components/TeamBoard'
 import { Icon } from '../../components/Icon'
 import { Shape } from '../../components/Shape'
 import { Rank, Score } from '../../components/Rank'
-import type { PublicTeam } from '../../../../shared/types'
+import type { PublicPlayer, PublicTeam } from '../../../../shared/types'
 import { espacesFines, formatNumber, place, pts } from '../../format'
 import { answersSizeClass, questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
 import { Niveau } from '../../components/Niveau'
 import { serverNow } from '../../clock'
+import { Echelle, LigneDeCourse } from './Course'
+import { ligneDeSoiree, moitieHaute } from '../../../../shared/course'
 
 interface Props {
   view: QuizPlayerView
@@ -23,6 +25,12 @@ interface QuizPlayerProps extends Props {
   /** Les équipes de la soirée — montrées entre deux questions. */
   teams: PublicTeam[]
   myTeamId: string | null
+  /** La salle, qui décore les voisins de sa place au classement. */
+  players: readonly PublicPlayer[]
+  /** Soi, tel que la salle le voit. */
+  moi: PublicPlayer | undefined
+  /** Combien jouent ce quiz, d'après l'instantané : « 5ᵉ place sur 12 ». */
+  participants: number
   /** La dernière réponse envoyée par ce téléphone, et ce qu'elle est devenue. */
   envoi?: Envoi | null
 }
@@ -374,34 +382,29 @@ function ReponsePerdue() {
   )
 }
 
-/**
- * Le bilan affiché entre deux questions : mon total, mon rang, et où en est
- * mon équipe. C'est le seul moment où l'on regarde son téléphone sans être
- * en train de répondre — autant y mettre ce qui donne envie de continuer.
- */
-function BetweenQuestions({
-  view: v,
-  teams,
-  myTeamId,
-}: {
-  view: QuizPlayerView
+/** Ce que la salle ajoute aux écrans du quiz : les équipes, et les invités qui décorent un classement. */
+interface Salle {
   teams: PublicTeam[]
   myTeamId: string | null
-}) {
+  players: readonly PublicPlayer[]
+  participants: number
+}
+
+/**
+ * Le bilan affiché entre deux questions : sa place dans la course, puis où en
+ * est son équipe. C'est le seul moment où l'on regarde son téléphone sans
+ * être en train de répondre — autant y mettre ce qui donne envie de
+ * continuer. Les invités le demandaient : « Total quiz : 450 pts · 3ᵉ
+ * place », en petit sous l'anecdote, ne disait rien des autres.
+ *
+ * L'anecdote vient en dernier : la télé la montre en grand au même instant,
+ * et devant les équipes, elle les poussait sous le pouce.
+ */
+function BetweenQuestions({ view: v, salle: { teams, myTeamId, players, participants } }: { view: QuizPlayerView; salle: Salle }) {
   return (
     <>
-      {/* « Le saviez-vous ? » : à la révélation seulement (invariant 1). */}
-      {v.anecdote && (
-        <p className="card anecdote">
-          <Icon name="message" />
-          <span>
-            <b>Le saviez-vous ?</b> {espacesFines(v.anecdote)}
-          </span>
-        </p>
-      )}
-      <p className="center muted">
-        Total quiz : {pts(v.yourQuizTotal ?? 0)} · {place(v.yourQuizRank ?? 0)}
-      </p>
+      {/* Qui vient d'arriver n'en a pas encore : il n'a rien joué. */}
+      <LigneDeCourse view={v} players={players} sur={participants} />
       {teams.length > 0 && (
         <div className="card">
           <h3>
@@ -410,6 +413,15 @@ function BetweenQuestions({
           </h3>
           <TeamBoard teams={teams} highlightId={myTeamId} compact />
         </div>
+      )}
+      {/* « Le saviez-vous ? » : à la révélation seulement (invariant 1). */}
+      {v.anecdote && (
+        <p className="card anecdote">
+          <Icon name="message" />
+          <span>
+            <b>Le saviez-vous ?</b> {espacesFines(v.anecdote)}
+          </span>
+        </p>
       )}
     </>
   )
@@ -421,14 +433,12 @@ function BetweenQuestions({
  */
 function VarianteRevelee({
   view: v,
-  teams,
-  myTeamId,
+  salle,
   envoi,
   attendue,
 }: {
   view: QuizPlayerView
-  teams: PublicTeam[]
-  myTeamId: string | null
+  salle: Salle
   envoi: Envoi | null
   attendue: string
 }) {
@@ -483,7 +493,7 @@ function VarianteRevelee({
           </p>
         )}
       </div>
-      <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
+      <BetweenQuestions view={v} salle={salle} />
     </div>
   )
 }
@@ -492,7 +502,7 @@ function VarianteRevelee({
  * « Qui dans la salle ? », révélé : qui la salle a désigné — ex æquo
  * compris —, et pour qui on avait voté. Personne n'a gagné ni perdu.
  */
-function SondageRevele({ view: v, teams, myTeamId }: { view: QuizPlayerView; teams: PublicTeam[]; myTeamId: string | null }) {
+function SondageRevele({ view: v, salle }: { view: QuizPlayerView; salle: Salle }) {
   const votes = v.votes ?? []
   const tete = votes.filter(x => x.votes === votes[0]?.votes)
   const choisi = v.yourChoice !== null && v.yourChoice !== undefined ? v.answers?.[v.yourChoice] : null
@@ -513,7 +523,7 @@ function SondageRevele({ view: v, teams, myTeamId }: { view: QuizPlayerView; tea
         )}
         {choisi && <p className="muted">Tu avais désigné <strong>{choisi}</strong></p>}
       </div>
-      <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
+      <BetweenQuestions view={v} salle={salle} />
     </div>
   )
 }
@@ -546,7 +556,8 @@ function PointsAnnules() {
   )
 }
 
-export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayerProps) {
+export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, participants, envoi }: QuizPlayerProps) {
+  const salle: Salle = { teams, myTeamId, players, participants }
   // Avant tout retour anticipé : un crochet s'appelle à chaque rendu.
   const closes = useEchue(v.phase === 'question' ? v.deadline : undefined, !!v.paused)
   // La reprise se sent dans la main : on ne regarde pas son téléphone pendant
@@ -796,14 +807,14 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
               <p className="muted">La bonne réponse n’a pas été mesurée.</p>
             )}
           </div>
-          <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
+          <BetweenQuestions view={v} salle={salle} />
         </div>
       )
     }
 
-    if (v.variante === 'sondage') return <SondageRevele view={v} teams={teams} myTeamId={myTeamId} />
+    if (v.variante === 'sondage') return <SondageRevele view={v} salle={salle} />
     if (v.variante === 'plusieurs' || v.variante === 'ordre') {
-      return <VarianteRevelee view={v} teams={teams} myTeamId={myTeamId} envoi={viseLaVue(envoi, v) ? envoi : null} attendue={attendue} />
+      return <VarianteRevelee view={v} salle={salle} envoi={viseLaVue(envoi, v) ? envoi : null} attendue={attendue} />
     }
 
     const good = v.yourChoice !== null && v.yourChoice === v.correct
@@ -839,21 +850,33 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
             <strong>{espacesFines(v.answers![v.correct!])}</strong>
           </p>
         </div>
-        <BetweenQuestions view={v} teams={teams} myTeamId={myTeamId} />
+        <BetweenQuestions view={v} salle={salle} />
       </div>
     )
   }
 
   // finished
+  const total = v.yourQuizTotal ?? 0
+  // La soirée, dès qu'elle ne se confond plus avec ce quiz : lue dans
+  // l'instantané, qui porte les points de toute la soirée.
+  const soiree = v.soireeEntamee && moi ? ligneDeSoiree(moi.score, players.map(p => p.score)) : null
   return (
     <div className="quiz-player">
       <div className="card result-banner result-ok">
         <span className="result-icon">
           <Icon name="flag" />
         </span>
-        <p>
-          Quiz terminé ! Tu finis à la <strong>{place(v.yourQuizRank ?? 0)}</strong> avec {pts(v.yourQuizTotal ?? 0)}
-        </p>
+        {/* Pas de rang à zéro point : « 1ʳᵉ place avec 0 pt », quand toute la
+            salle avait séché, c'était premier de rien. */}
+        {total > 0 ? (
+          <p>
+            Quiz terminé ! Tu finis à la <strong>{place(v.yourQuizRank ?? 0)}</strong>
+            {participants > 0 && moitieHaute(v.yourQuizRank ?? 0, participants) ? ` sur ${participants}` : ''} avec {pts(total)}
+          </p>
+        ) : (
+          <p>Quiz terminé ! Pas de points cette fois.</p>
+        )}
+        {soiree && <p className="muted">{soiree}</p>}
       </div>
       <div className="card">
         <h3>
@@ -877,6 +900,8 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, envoi }: QuizPlayer
           ))}
         </div>
       </div>
+      {/* Hors du podium, on veut savoir qui l'on a talonné jusqu'au bout. */}
+      <Echelle view={v} players={players} moi={moi} />
     </div>
   )
 }

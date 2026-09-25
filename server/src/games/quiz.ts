@@ -3,7 +3,7 @@ import { dureeDesJouables, playableQuestions, type PlayableQuestion, type QuizDe
 import { MAX_ENTREES, avancementDuProgramme, type EntreeDeProgramme } from '../../../shared/programme'
 import { distinctions } from '../../../shared/profil'
 import { nomAffiche } from '../../../shared/homonymes'
-import { classer, decimales, ecartEstimation, rangPartage, type Classe } from '../../../shared/classement'
+import { classer, decimales, ecartEstimation, groupesDExAequo, rangDansLesTries, rangPartage, type Classe } from '../../../shared/classement'
 import { ENCHAINEMENT_MAX_S } from '../../../shared/console'
 import { preparerPartie, type ReglagesDuQuiz } from '../../../shared/hasard'
 import type {
@@ -17,7 +17,9 @@ import type {
   QuizPodiumRow,
   Visee,
   LancementDeQuiz,
+  PlaceAuQuiz,
   ProgrammeDuSoir,
+  VoisinAuClassement,
   VoteDeSondage,
 } from '../../../shared/games/quiz'
 
@@ -87,6 +89,12 @@ interface QuizState {
    * seule réponse. Absent d'une partie d'avant — elle enchaîne comme avant.
    */
   autoNextSuspendu?: boolean
+  /**
+   * Un autre quiz s'est joué avant celui-ci, ce soir : le classement de la
+   * soirée n'est plus le sien, et son podium le dit. Absent d'une partie
+   * lancée avant qu'il existe.
+   */
+  soireeEntamee?: boolean
   /**
    * Les invités hors ligne que l'animateur a choisi de ne plus attendre. Ils
    * le restent tant que leur téléphone se tait : une question posée pendant
@@ -631,9 +639,107 @@ function classement(sess: GameSessionRec<QuizState>, vctx: ViewContext): Classe<
   )
 }
 
-/** Le rang de chacun, pour la vue de chaque téléphone. */
-function rangs(sess: GameSessionRec<QuizState>, vctx: ViewContext): Map<string, number> {
-  return vctx.memo('quiz:rangs', () => new Map(classement(sess, vctx).map(c => [c.item.playerId, c.rang])))
+/**
+ * Le classement des places, indexé une fois par diffusion : la position de
+ * chacun, et les bornes de son groupe d'ex æquo. Les voisins de chaque
+ * téléphone s'y lisent en temps constant — les chercher en parcourant le
+ * classement ferait un tour de salle par téléphone, N² par révélation.
+ *
+ * Seuls ceux qui ont pu jouer une question y tiennent une place. Un
+ * retardataire arrivé pendant la révélation n'a rien joué : compté, il
+ * rejoindrait les ex æquo à zéro, et chacun d'eux recevrait sa vue une fois
+ * de plus — à la première question d'une grande salle, des centaines de
+ * téléphones par arrivée. À zéro, il n'est devant personne : aucun rang ne
+ * change de l'écarter.
+ */
+function indexDesPlaces(sess: GameSessionRec<QuizState>, vctx: ViewContext) {
+  const st = sess.state
+  return vctx.memo('quiz:places', () => {
+    const lignes = classement(sess, vctx).filter(c => (st.playFrom[c.item.playerId] ?? 0) <= st.qIndex)
+    return { lignes, position: new Map(lignes.map((c, i) => [c.item.playerId, i])), ...groupesDExAequo(lignes) }
+  })
+}
+
+/**
+ * Son rang au quiz, lu dans le même index que sa place : une reconnexion ne
+ * calcule que sa vue, et ne doit pas indexer deux fois toute la salle pour
+ * elle. Un retardataire qui n'a encore rien joué n'y est pas : il est
+ * derrière tous ceux qui ont plus que lui — la règle du rang partagé,
+ * comptée pour lui seul.
+ */
+function rangDe(sess: GameSessionRec<QuizState>, vctx: ViewContext, playerId: string): number | undefined {
+  const { lignes, position } = indexDesPlaces(sess, vctx)
+  const i = position.get(playerId)
+  if (i !== undefined) return lignes[i].rang
+  if (!sess.participantIds.includes(playerId)) return undefined
+  // Les retardataires sont tous à zéro : un seul compte par diffusion.
+  const sien = sess.state.totals[playerId] ?? 0
+  return vctx.memo(`quiz:rang-hors-place:${sien}`, () => 1 + lignes.reduce((devant, c) => devant + (c.item.points > sien ? 1 : 0), 0))
+}
+
+/** Son total avant la question révélée : ce qu'elle lui a rapporté en moins. */
+function totalDAvant(st: QuizState, playerId: string): number {
+  return (st.totals[playerId] ?? 0) - (st.lastAwards[playerId] ?? 0)
+}
+
+/**
+ * Son rang avant la question révélée — rien tant que personne n'avait
+ * marqué : tout le monde était alors premier ex æquo.
+ *
+ * Une diffusion lit ici toute la salle, une reconnexion un seul téléphone.
+ * La première lecture compte donc ceux qui étaient devant ; à la deuxième,
+ * c'est une diffusion : les totaux d'avant se rangent, une fois, et chacun y
+ * lit le sien par dichotomie. Rangés dès la première, une vague de cinq
+ * cents réveils rangerait cinq cents fois la salle, pour un téléphone chacun.
+ */
+function rangDAvant(sess: GameSessionRec<QuizState>, vctx: ViewContext, playerId: string): number | undefined {
+  const st = sess.state
+  const avant = vctx.memo('quiz:avant', () => ({ lectures: 0, tries: null as number[] | null }))
+  const sien = totalDAvant(st, playerId)
+  if (avant.lectures++ === 0) {
+    let devant = 0
+    let marque = false
+    for (const id of sess.participantIds) {
+      const total = totalDAvant(st, id)
+      if (total > 0) marque = true
+      if (total > sien) devant++
+    }
+    return marque ? devant + 1 : undefined
+  }
+  avant.tries ??= sess.participantIds.map(id => totalDAvant(st, id)).sort((a, b) => b - a)
+  return avant.tries[0] > 0 ? rangDansLesTries(sien, avant.tries) : undefined
+}
+
+/**
+ * Sa place au classement du quiz : le plus proche devant lui, le plus proche
+ * derrière, ses ex æquo — et, à la révélation, le rang qu'il avait avant la
+ * question. Rien ne se trie ni ne se décore pour un téléphone : le
+ * classement l'a été une fois pour toute la salle, et le téléphone décore
+ * ses voisins avec l'instantané qu'il a déjà.
+ */
+function placeAuQuiz(
+  sess: GameSessionRec<QuizState>,
+  vctx: ViewContext,
+  playerId: string,
+  avecAvant: boolean,
+): PlaceAuQuiz | undefined {
+  const { lignes, position, premier, dernier } = indexDesPlaces(sess, vctx)
+  const i = position.get(playerId)
+  if (i === undefined) return undefined
+  const voisin = (j: number): VoisinAuClassement | undefined => {
+    const c = lignes[j]
+    return c && { id: c.item.playerId, points: c.item.points, rang: c.rang }
+  }
+  const devant = voisin(premier[i] - 1)
+  const derriere = voisin(dernier[i] + 1)
+  const exAequo = dernier[i] - premier[i]
+  const avant = avecAvant ? rangDAvant(sess, vctx, playerId) : undefined
+  return {
+    ...(devant && { devant }),
+    ...(derriere && { derriere }),
+    ...(exAequo > 0 && { exAequo }),
+    ...(avant !== undefined && avant !== lignes[i].rang && { avant }),
+  }
 }
 
 function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: number): QuizPodiumRow[] {
@@ -816,6 +922,7 @@ export const quizModule: GameModule<QuizState> = {
       phase: 'pickPack',
       packs,
       ...(programme && { programme }),
+      ...(joues.size > 0 && { soireeEntamee: true }),
       pack: null,
       qIndex: 0,
       round: 0,
@@ -1056,8 +1163,12 @@ export const quizModule: GameModule<QuizState> = {
   onPlayerJoin(sess, playerId) {
     const st = sess.state
     // Arrivé pendant une question : il peut encore répondre (avec moins de
-    // temps). Arrivé pendant une révélation : il démarre à la suivante.
-    st.playFrom[playerId] = st.phase === 'reveal' ? st.qIndex + 1 : st.qIndex
+    // temps). Arrivé quand elle est close — révélée, attendant sa cible, ou
+    // le quiz fini — : il démarre à la suivante. Compté pour une estimation
+    // qu'on mesurait, il entrait au journal d'une question qu'il n'avait
+    // jamais vue, et sa révélation lui disait « Pas de réponse » au lieu de
+    // « Bienvenue » ; arrivé au podium, il y tenait une place de dernier.
+    st.playFrom[playerId] = st.phase === 'reveal' || st.phase === 'cible' || st.phase === 'finished' ? st.qIndex + 1 : st.qIndex
   },
 
   onPlayerLeave(sess, playerId, ctx) {
@@ -1132,6 +1243,7 @@ export const quizModule: GameModule<QuizState> = {
     }
     if ((st.phase === 'question' || st.phase === 'reveal') && st.pack) {
       const q = st.pack.questions[st.qIndex]
+      const justArrived = (st.playFrom[playerId] ?? 0) > st.qIndex
       return {
         ...base,
         kind: q.kind,
@@ -1152,7 +1264,7 @@ export const quizModule: GameModule<QuizState> = {
           // L'anecdote et la photo de la révélation : jamais avant (invariant 1).
           ...(q.anecdote && { anecdote: q.anecdote }),
           ...(q.imageRevelation && { imageRevelation: q.imageRevelation }),
-          justArrived: (st.playFrom[playerId] ?? 0) > st.qIndex,
+          justArrived,
           correct: q.kind === 'choice' ? q.correct : undefined,
           ...(q.kind === 'choice' && q.variante === 'plusieurs' && { bonnes: q.bonnes }),
           ...(q.kind === 'choice' && q.variante === 'ordre' && { ordre: q.ordre }),
@@ -1165,7 +1277,10 @@ export const quizModule: GameModule<QuizState> = {
           yourQuizTotal: st.totals[playerId] ?? 0,
           // Le rang ne se lit qu'entre deux questions : pendant la question,
           // aucun classement n'est calculé.
-          yourQuizRank: rangs(sess, vctx).get(playerId),
+          yourQuizRank: rangDe(sess, vctx, playerId),
+          // Sa place entre ses voisins — pas pour qui vient d'arriver : il n'a
+          // encore rien joué, et « à 180 pts de Karim » l'accueillerait mal.
+          ...(!justArrived && { place: placeAuQuiz(sess, vctx, playerId, true) }),
         }),
       }
     }
@@ -1173,10 +1288,14 @@ export const quizModule: GameModule<QuizState> = {
       return {
         ...base,
         yourQuizTotal: st.totals[playerId] ?? 0,
-        yourQuizRank: rangs(sess, vctx).get(playerId),
+        yourQuizRank: rangDe(sess, vctx, playerId),
         // Le même podium pour toute la salle : construit une fois par diffusion.
         podium: vctx.memo('quiz:podium', () => standings(sess, vctx, 3)),
         ...podiumDe(sess, vctx, playerId),
+        // Sa place, à chacun : ses voisins, pour qui n'y monte pas. Arrivé
+        // après la dernière question, on n'a rien joué : pas de place.
+        ...((st.playFrom[playerId] ?? 0) <= st.qIndex && { place: placeAuQuiz(sess, vctx, playerId, false) }),
+        ...(st.soireeEntamee && { soireeEntamee: true }),
       }
     }
     return base
