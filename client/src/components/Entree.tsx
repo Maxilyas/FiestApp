@@ -10,7 +10,7 @@ import { MOTIFS } from '../../../shared/erreurs'
 import { ApiError, api, motifDe } from '../api'
 import { loadChoix } from '../state'
 import { JoinHead } from './Invitation'
-import { FormulaireSecours } from './Secours'
+import { CodeSecours, FormulaireSecours } from './Secours'
 import { AvisHorsLigne, FormulaireCode, useHorsLigne } from './Reprendre'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
@@ -61,10 +61,10 @@ interface Props {
 type Etape = 'entree' | 'moi' | 'retour' | 'securiser' | 'code' | 'secours' | 'equipe' | 'place'
 
 /** Un avatar au hasard : sans ça, tous ceux qui ne touchent à rien arrivent identiques. */
-const tirage = () => AVATARS[Math.floor(Math.random() * AVATARS.length)]
+export const tirage = () => AVATARS[Math.floor(Math.random() * AVATARS.length)]
 
 /** « Camille » → « camille » : un identifiant proposé, qu'on peut changer. */
-const identifiantPour = (prenom: string) =>
+export const identifiantPour = (prenom: string) =>
   sansAccent(prenom).replace(/[^a-z0-9._-]+/g, '').slice(0, 32)
 
 /**
@@ -101,7 +101,6 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
   const [suggestion, setSuggestion] = useState('')
   /** Le code de secours, à noter — il ne repassera jamais. */
   const [recovery, setRecovery] = useState('')
-  const [copie, setCopie] = useState(false)
   const [busy, setBusy] = useState(false)
   const [erreur, setErreur] = useState('')
 
@@ -249,7 +248,16 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           Me connecter
         </button>
         <p className="join-foot">
-          <button type="button" className="link-inline" onClick={() => setEtape('secours')}>
+          {/* L'erreur de la connexion ratée ne suit pas : elle restait affichée
+              sous le code neuf, une fois le profil retrouvé (Malik). */}
+          <button
+            type="button"
+            className="link-inline"
+            onClick={() => {
+              setErreur('')
+              setEtape('secours')
+            }}
+          >
             J'ai oublié mon mot de passe
           </button>
         </p>
@@ -309,6 +317,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           if (!connu && !p) return setEtape('entree')
           // Le code vient d'être consommé : celui qu'on rend est le nouveau,
           // et il doit se noter tout de suite comme à l'inscription.
+          setErreur('')
           setRecovery(neuf)
           setEtape('code')
         }}
@@ -320,7 +329,10 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
   // ── Écran B′ : content de te revoir ──────────────────────────────────
   if (etape === 'retour' && profil) {
     return (
-      <div className="join">
+      <div className="join entree">
+        {/* Chez qui l'on entre : les retrouvailles ne le disaient pas, et un
+            profil reconnu d'un animateur à l'autre ne savait plus où il était. */}
+        {salut}
         {lendemain}
         {/* Centré, pas collé en haut : c'est un visage qu'on reconnaît, pas un
             formulaire qu'on remplit. */}
@@ -333,14 +345,15 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
             eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))}
             legendaire={profil.legendaire ?? undefined}
           />
-          <p className="retour-salut">Content de te revoir,</p>
+          {/* « Content de te revoir » parlait au masculin, et dès la première
+              visite : « Te revoilà » ne dit ni l'un ni l'autre. */}
+          <p className="retour-salut">Te revoilà,</p>
           <h1 className="join-title compact">{profil.name}</h1>
           {/* La pastille de niveau toute seule ne dit rien : posée à côté d'un
               prénom elle se comprend, sur sa propre ligne c'est un « 1 » nu. */}
-          <p className="muted">
-            Niveau {profil.niveau}
-            {profil.badges > 0 && ` · ${profil.badges} badge${profil.badges > 1 ? 's' : ''}`}
-          </p>
+          {/* Le niveau seul : « 3 badges » parlait une langue que la page du
+              profil ne parle nulle part — elle dit « prix » et « hauts faits ». */}
+          <p className="muted">Niveau {profil.niveau}</p>
         </div>
         {erreur && <p className="error" role="alert">{erreur}</p>}
         <div className="join-grow" />
@@ -424,6 +437,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
 
     return (
       <form className="join" onSubmit={creer}>
+        <p className="label center">Créer ton profil · 2/2</p>
         <h2 className="center">
           <Icon name="sparkles" /> Garder ma progression
         </h2>
@@ -506,34 +520,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
     return (
       <div className="join">
         <h2 className="center">Note ce code de secours</h2>
-        <div className="card notice">
-          <p>
-            <strong>C'est la seule façon de retrouver ton profil</strong> si tu oublies ton mot de
-            passe — il n'y a pas d'adresse e-mail, donc pas de lien à recevoir.
-          </p>
-          <p className="code-secours">{recovery}</p>
-          <p className="muted small">Il ne sera plus jamais affiché.</p>
-          {/* Sans presse-papier — hors HTTPS, c'est-à-dire en wifi local, et
-              dans certains navigateurs — le bouton ne faisait rien du tout.
-              Absent, il ne promet rien : le code reste lisible à l'écran. */}
-          {navigator.clipboard && (
-            <button
-              type="button"
-              className="btn btn-small"
-              onClick={() => {
-                // Refusé quand même par certains navigateurs : ce n'est qu'un
-                // confort.
-                navigator.clipboard
-                  .writeText(recovery)
-                  .then(() => setCopie(true))
-                  .catch(() => {})
-              }}
-            >
-              <Icon name={copie ? 'check' : 'copy'} />
-              {copie ? 'Copié' : 'Copier'}
-            </button>
-          )}
-        </div>
+        <CodeSecours code={recovery} />
         {erreur && <p className="error" role="alert">{erreur}</p>}
         <div className="join-grow" />
         {/* Court : en capitales espacées, « entrer dans la soirée » débordait
@@ -613,7 +600,11 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
     // la soirée » tombait à 619–677 px, sous le bord d'un 360 × 640.
     <form className="join entree" onSubmit={suivant}>
       {salut}
-      {lendemain}
+      {/* Sans ce mot, l'étape 1 d'un profil ressemblait trait pour trait à une
+          entrée sans compte : rien ne disait qu'on en créait un. Il prend la
+          ligne du lendemain : les deux ensemble poussaient le bouton sous le
+          pli d'un 360 × 640. */}
+      {creation ? <p className="label center">Créer ton profil · 1/2</p> : lendemain}
       {profil && (
         <p className="profil-salut">
           <Avatar

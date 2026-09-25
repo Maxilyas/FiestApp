@@ -4906,3 +4906,22 @@ h3 > .icon {
   font-size: 18px; font-weight: 700; letter-spacing: 0.08em;
   color: var(--accent-text); font-variant-numeric: tabular-nums;
 }
+
+/* « Mes soirées » : le titre, puis la date et le détail, puis « Mon bilan » —
+   une colonne à gauche, l'expérience à droite. */
+.soiree-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+
+/* Changer son mot de passe, sur la page du profil. */
+.mdp-form { display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+.mdp-form .link-inline { align-self: center; }
+
+/* L'invitation à créer un profil, en salle d'attente, après un premier quiz marqué. */
+.invitation-profil { display: flex; align-items: center; gap: 12px; }
+.invitation-profil p { flex: 1; margin: 0; font-size: 0.9rem; }
+.invitation-profil-actions { display: flex; flex-direction: column; gap: 4px; }
+/* Le quiz démarre pendant qu'on crée son profil : la sortie se voit d'abord. */
+.quiz-commence { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 10px 14px; }
+
+/* L'avatar d'un profil qu'on crée : tiré d'avance, la grille à la demande. */
+.pf-avatar { gap: 8px; }
+.pf-avatar-emoji { font-size: 1.4rem; line-height: 1; }

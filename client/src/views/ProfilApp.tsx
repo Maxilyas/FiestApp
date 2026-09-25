@@ -1,10 +1,11 @@
-import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react'
-import { api, currentMe } from '../api'
+import { useEffect, useState, type FormEvent, type ReactNode, type SyntheticEvent } from 'react'
+import { api, currentMe, motifDe } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Icon, type IconName } from '../components/Icon'
 import { ProfilForm } from '../components/ProfilForm'
-import { AVATARS } from '../../../shared/avatars'
+import { CodeSecours } from '../components/Secours'
+import { AVATARS, tronquer } from '../../../shared/avatars'
 import { DIVINS } from '../../../shared/divins'
 import { cibleEclat } from '../../../shared/legendaires'
 import {
@@ -68,12 +69,17 @@ export function ProfilApp() {
    * ici aucune porte, et ses identifiants de compte y étaient « incorrects ».
    */
   const [console_, setConsole] = useState<PublicSpace | null>(null)
+  /** Les soirées en cours où ce profil joue déjà : on y revient d'un toucher. */
+  const [enCours, setEnCours] = useState<{ nom: string; slug: string }[]>([])
+  /** « Créer mon profil » depuis une fin de soirée : la création, préremplie. */
+  const [creation] = useState(lireCreation)
   const [gardee] = useState(derniereSoireeGardee)
 
   const relire = () =>
     api.joueur.moi().then(r => {
       setProfil(r.profile)
       setEspace(r.espace)
+      setEnCours(r.enCours ?? [])
     })
 
   useEffect(() => {
@@ -146,7 +152,6 @@ export function ProfilApp() {
     // ne doit jamais le laisser croire.
     return (
       <ProfilForm
-        onDone={() => relire()}
         marque={<p className="accueil-marque">FiestApp · le quiz de soirée</p>}
         aideErreur={
           // La même phrase pour tout refus : dire « c'est un identifiant
@@ -157,6 +162,13 @@ export function ProfilApp() {
           )
         }
         pied={<PorteAnimateur console_={console_} />}
+        creer={!!creation}
+        prefill={creation ?? undefined}
+        onDone={() => {
+          // Le profil est là : un rafraîchissement ne doit pas rouvrir la création.
+          if (creation) history.replaceState(null, '', window.location.pathname)
+          void relire()
+        }}
         echappee={
           <>
             <button type="button" className="btn btn-accent btn-big btn-block" onClick={() => setRejoindre(true)}>
@@ -205,7 +217,7 @@ export function ProfilApp() {
           </div>
           <p className="muted small">
             {profil.requis > 0
-              ? `${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} vers le niveau ${profil.niveau + 1}`
+              ? `${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} XP vers le niveau ${profil.niveau + 1}`
               : 'Au sommet'}
           </p>
         </div>
@@ -219,6 +231,14 @@ export function ProfilApp() {
           Ce soir
         </h3>
         <div className="join-actions">
+          {/* La soirée où l'on joue déjà d'abord : « Rejoindre une soirée »
+              redemandait son nom à qui y était inscrit, et faisait douter
+              d'avoir quitté la partie (Sofia, le 23 et le 24). */}
+          {enCours.map(e => (
+            <a key={e.slug} className="btn btn-primary btn-big btn-block" href={spacePath(e.slug)}>
+              Revenir chez {e.nom}
+            </a>
+          ))}
           {espace && (
             <button className="btn btn-primary btn-big btn-block" disabled={busy} onClick={animer}>
               Animer ma soirée
@@ -392,28 +412,50 @@ export function ProfilApp() {
       </Repli>
 
       <Repli id="soirees" icone="list" titre="Mes soirées" compte={String(profil.soirees.length)} vide={profil.soirees.length === 0}>
-        {profil.soirees.map(s => (
-          <div key={s.soireeId} className="soiree-row">
-            <span className="soiree-quand">
-              {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
-              {s.slug ? (
-                <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
-                  {new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </a>
-              ) : (
-                new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-              )}
-            </span>
-            <span className="soiree-detail">
-              {s.chez && `chez ${s.chez} · `}
-              {/* Par type de question : « 64 réponses, 1 juste » ne disait pas
-                  que soixante-deux étaient des estimations. */}
-              {reponsesParType({ ...s.releve, coupDOeil: coupDOeilMoyen(s.releve) }, { compte: false }) || 'aucune réponse'}
-              {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${place(s.releve.rang)}`}
-            </span>
-            <span className="soiree-xp">+{formatNumber(s.xp)}</span>
-          </div>
-        ))}
+        {profil.soirees.map(s => {
+          const date = new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+          // Le titre que l'animateur lui a donné, la date sinon : une liste de
+          // dates ne disait pas laquelle était la fête de Marc.
+          const nom = s.titre ?? date
+          return (
+            <div key={s.soireeId} className="soiree-row">
+              <div className="soiree-texte">
+                <span className="soiree-quand">
+                  {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
+                  {s.slug ? (
+                    <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
+                      {nom}
+                    </a>
+                  ) : (
+                    nom
+                  )}
+                </span>
+                <span className="soiree-detail">
+                  {s.titre && `${date} · `}
+                  {s.chez && `chez ${s.chez} · `}
+                  {/* Par type de question : « 64 réponses, 1 juste » ne disait pas
+                      que soixante-deux étaient des estimations. */}
+                  {reponsesParType({ ...s.releve, coupDOeil: coupDOeilMoyen(s.releve) }, { compte: false }) || 'aucune réponse'}
+                  {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${place(s.releve.rang)}`}
+                </span>
+                {/* Son bilan à soi, d'un toucher : il redemandait « Qui es-tu ? ». */}
+                {s.slug && s.joueurId && (
+                  <a className="link-inline small" href={`${spacePath(s.slug, 'bilan', s.soireeId)}#p=${encodeURIComponent(s.joueurId)}`}>
+                    Mon bilan
+                  </a>
+                )}
+              </div>
+              <span className="soiree-xp">+{formatNumber(s.xp)} XP</span>
+            </div>
+          )
+        })}
+        {/* Les paliers ont leur ligne à part : sans ce mot, la somme des
+            soirées ne faisait pas le total, et rien ne disait pourquoi. */}
+        <p className="muted small">Les paliers de carrière s'ajoutent à part, dans « Hauts faits ».</p>
+      </Repli>
+
+      <Repli id="acces" icone="users" titre="Identifiant et mot de passe">
+        <MotDePasse login={profil.login} />
       </Repli>
 
       {erreur && <p className="error">{erreur}</p>}
@@ -453,6 +495,124 @@ function PorteAnimateur({ console_ }: { console_: PublicSpace | null }) {
         J’anime une soirée
       </a>
     </p>
+  )
+}
+
+/**
+ * La création préremplie qu'ouvre « Créer mon profil » à la fin d'une
+ * soirée (`/profil?creer=1&prenom=…&avatar=…`) : elle ouvrait la connexion,
+ * vide, et il fallait tout retaper.
+ */
+function lireCreation(): { name: string; avatar: string } | null {
+  const q = new URLSearchParams(window.location.search)
+  if (!q.has('creer')) return null
+  return { name: tronquer((q.get('prenom') ?? '').trim(), 24), avatar: q.get('avatar') ?? '' }
+}
+
+/**
+ * Relire son identifiant, changer son mot de passe. La route existait, pas
+ * l'écran. Il faut l'actuel — ou le code de secours, qui se consomme et en
+ * rend un neuf, à noter aussitôt. Les consoles que ce profil avait ouvertes
+ * ailleurs se referment (invariant 16) : c'est le serveur qui s'en charge.
+ */
+function MotDePasse({ login }: { login: string }) {
+  const [parCode, setParCode] = useState(false)
+  const [preuve, setPreuve] = useState('')
+  const [suivant, setSuivant] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [erreur, setErreur] = useState('')
+  const [fait, setFait] = useState(false)
+  const [code, setCode] = useState('')
+
+  const envoyer = async (e: FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setErreur('')
+    try {
+      const res = await api.joueur.motDePasse(
+        parCode ? { code: preuve.trim(), next: suivant } : { current: preuve, next: suivant },
+      )
+      setFait(true)
+      setCode(res.recovery ?? '')
+      setPreuve('')
+      setSuivant('')
+    } catch (e) {
+      setErreur(motifDe(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <p>
+        Ton identifiant : <strong>{login}</strong>
+      </p>
+      {fait ? (
+        <>
+          <p className="info" role="status">
+            Mot de passe changé. Tes autres appareils devront se reconnecter.
+          </p>
+          {code && (
+            <>
+              <p className="muted small">Ton code de secours a servi : voici le nouveau.</p>
+              <CodeSecours code={code} />
+            </>
+          )}
+        </>
+      ) : (
+        <form className="mdp-form" onSubmit={envoyer}>
+          <div className="field">
+            <label className="label" htmlFor="mdp-preuve">
+              {parCode ? 'Ton code de secours' : 'Ton mot de passe actuel'}
+            </label>
+            <input
+              id="mdp-preuve"
+              className="input input-line"
+              type={parCode ? 'text' : 'password'}
+              value={preuve}
+              onChange={e => setPreuve(e.target.value)}
+              autoComplete={parCode ? 'off' : 'current-password'}
+              autoCapitalize={parCode ? 'characters' : 'none'}
+              spellCheck={false}
+            />
+          </div>
+          <div className="field">
+            <label className="label" htmlFor="mdp-suivant">
+              Ton nouveau mot de passe
+            </label>
+            <input
+              id="mdp-suivant"
+              className="input input-line"
+              type="password"
+              value={suivant}
+              onChange={e => setSuivant(e.target.value)}
+              autoComplete="new-password"
+            />
+            <span className="muted small">Au moins 8 caractères.</span>
+          </div>
+          {erreur && (
+            <p className="error" role="alert">
+              {erreur}
+            </p>
+          )}
+          <button className="btn btn-primary btn-block" disabled={busy || !preuve.trim() || !suivant}>
+            Changer mon mot de passe
+          </button>
+          <button
+            type="button"
+            className="link-inline"
+            onClick={() => {
+              setParCode(c => !c)
+              setPreuve('')
+              setErreur('')
+            }}
+          >
+            {parCode ? 'Je connais mon mot de passe' : "Mot de passe oublié ? Mon code de secours"}
+          </button>
+        </form>
+      )}
+    </>
   )
 }
 
