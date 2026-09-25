@@ -42,7 +42,7 @@ direction, s'il y en a un.
 
 **Après la soirée** : il veut **réutiliser ce quiz l'an prochain et le
 prêter au bureau de Lyon** (un fichier ? un lien ?), et récupérer les
-résultats pour la newsletter interne (le souvenir, le bilan, les fiches).
+résultats pour la newsletter interne (le souvenir, le bilan, les pages à imprimer).
 
 **Ce qu'il regarde** : le temps pour avoir un quiz jouable avec une liste ;
 les allers-retours entre l'éditeur, l'aperçu, l'écran commun et son compte

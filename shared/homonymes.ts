@@ -61,3 +61,20 @@ export function nomsAffiches(joueurs: readonly Homonymable[]): Map<string, strin
 export function nomAffiche(joueur: { name: string; nomAffiche?: string }): string {
   return joueur.nomAffiche ?? joueur.name
 }
+
+/**
+ * Le prénom affiché en deux parts : ce qui peut se couper, et la marque qui
+ * ne se coupe jamais.
+ *
+ * Une pastille étroite coupait « Camille (2) » en « Camil… » : la marque
+ * partait la première, et c'est la seule chose qui distingue deux invités
+ * identiques. Couper le prénom seul garde « Cam… (2) » lisible là où
+ * l'animateur fait les équipes.
+ */
+export function partsDuNom(joueur: { name: string; nomAffiche?: string }): { prenom: string; marque: string } {
+  const affiche = nomAffiche(joueur)
+  if (affiche !== joueur.name && affiche.startsWith(joueur.name)) {
+    return { prenom: joueur.name, marque: affiche.slice(joueur.name.length) }
+  }
+  return { prenom: affiche, marque: '' }
+}

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { chargerDessinsAuPlus } from '../components/medaillons'
 import { api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
+import { LienConsole } from '../components/LienConsole'
 import { ChampNombre } from '../components/ChampNombre'
 import { showToast, useAppState } from '../state'
 import type { SpaceSettings } from '../../../shared/space'
@@ -17,8 +18,16 @@ export function AccountApp() {
   const { toast } = useAppState()
   const [me, setMe] = useState<Me | null>(null)
   const [error, setError] = useState('')
+  /** Tant que la bibliothèque est vide, la page dit par où commencer. */
+  const [debut, setDebut] = useState(false)
 
   useEffect(() => {
+    api
+      .list()
+      // Un quiz commencé puis laissé vide ne se joue pas : on n'a pas
+      // encore commencé.
+      .then(l => setDebut(l.every(q => q.readyCount === 0)))
+      .catch(() => {})
     api.auth
       .me()
       // Un profil rattaché qui porte un médaillon l'attend sous le
@@ -36,16 +45,16 @@ export function AccountApp() {
 
   if (error) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="error">{error}</p>
-      </div>
+      </main>
     )
   }
   if (!me) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Chargement…</p>
-      </div>
+      </main>
     )
   }
 
@@ -64,17 +73,14 @@ export function AccountApp() {
       </header>
 
       <nav className="row bilan-tabs">
-        <a className="btn" href="/host">
-          <Icon name="monitor" />
-          Écran commun
-        </a>
+        <LienConsole className="btn" />
         <a className="btn" href="/edit">
           <Icon name="edit" />
           Mes quiz
         </a>
         <a className="btn" href={`/${me.space.slug}/soirees`}>
           <Icon name="book" />
-          Mes soirées
+          Historique
         </a>
         {me.account.role === 'admin' && (
           <a className="btn btn-accent" href="/admin">
@@ -83,6 +89,22 @@ export function AccountApp() {
           </a>
         )}
       </nav>
+      <main className="page-corps">
+      {debut && (
+        <section className="card premiers-pas">
+          <h2>Par où commencer</h2>
+          <ol className="premiers-pas-etapes">
+            <li>
+              <a className="link-inline" href="/edit">
+                Mes quiz
+              </a>{' '}
+              : pars d'un quiz tout fait, importe celui d'un ami, ou écris le tien.
+            </li>
+            <li>Ouvre l'écran commun sur l'ordinateur branché à la télé.</li>
+            <li>Tes invités scannent le QR qu'il affiche, et c'est parti.</li>
+          </ol>
+        </section>
+      )}
 
       <section className="card">
         <h2>L'adresse de mes invités</h2>
@@ -128,6 +150,7 @@ export function AccountApp() {
       </section>
 
       {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
+      </main>
     </div>
   )
 }
@@ -209,7 +232,11 @@ function ProfilLie({ profil, onChange }: { profil: PublicProfile | null; onChang
       <h2>Mon profil joueur</h2>
       <p className="muted small">
         Rattache le profil avec lequel tu joues : il ouvrira cette console depuis l'accueil, et tu
-        n'auras plus qu'un mot de passe à retenir. Si tu n'en as pas encore, crée-le depuis l'accueil.
+        n'auras plus qu'un mot de passe à retenir. Si tu n'en as pas encore,{' '}
+        <a className="link-inline" href="/">
+          crée-le depuis l'accueil
+        </a>
+        .
       </p>
       <div className="field">
         <label className="label" htmlFor="lien-login">
@@ -364,7 +391,10 @@ function PasswordForm() {
 
   return (
     <form className="card settings-form" onSubmit={submit}>
-      <h2>Changer de mot de passe</h2>
+      {/* « du compte » : l'animateur qui joue aussi avec un profil a deux
+          mots de passe, et changeait celui-ci en croyant changer l'autre. */}
+      <h2>Changer le mot de passe du compte</h2>
+      <p className="muted small">Celui de ton espace d'animateur — pas celui de ton profil joueur.</p>
       <div className="field">
         <label className="label" htmlFor="current">
           Mot de passe actuel

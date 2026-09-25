@@ -46,7 +46,7 @@ const JOINS_PER_SOCKET = 3
 
 const NO_SUCH_SPACE = 'Cette adresse ne mène à aucune soirée'
 const OTHER_SPACE = 'Cette connexion suit déjà une autre soirée'
-const SERVER_ERROR = 'Erreur serveur — retente'
+const SERVER_ERROR = 'Erreur serveur — réessaie'
 /**
  * Le jeton du téléphone ne désigne plus personne : exclu, « Nouvelle
  * soirée », ou un miroir qui n'avait pas encore sa fiche au redémarrage. Le
@@ -73,13 +73,13 @@ const soireeARevoir = (titre: string) => `La soirée est close. La dernière soi
  * le pire des messages : il laissait croire que la réponse était partie.
  */
 const REFUSAL_MESSAGE: Record<ActionRefusal, string> = {
-  'no-party': 'Ta réponse n’est pas partie — reconnexion en cours, retente',
-  'unknown-player': 'Ta réponse n’est pas partie — reconnexion en cours, retente',
+  'no-party': 'Ta réponse n’est pas partie — reconnexion en cours, réessaie',
+  'unknown-player': 'Ta réponse n’est pas partie — reconnexion en cours, réessaie',
   ended: 'Ce quiz est terminé',
   'not-participant': 'Tu n’es pas dans cette partie — tu joues à la prochaine question',
   'too-late': 'Trop tard — la question était finie',
   paused: 'Le quiz est en pause — regarde l’écran commun',
-  invalid: 'Réponse non comprise — retente',
+  invalid: 'Réponse non comprise — réessaie',
   error: SERVER_ERROR,
   timeout: 'Ta réponse n’est pas partie — vérifie ta connexion',
 }
@@ -360,7 +360,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         if (!known) {
           // Une nouvelle identité, donc : elle passe par les garde-fous.
           if (rt.party.count() >= rt.maxPlayers) {
-            return repondre({ ok: false, error: 'La soirée est complète !' })
+            // Il dit quoi faire, sans promettre ce que le serveur refuserait :
+            // l'espace est souvent déjà au plafond du serveur (`MAX_PLAYERS`,
+            // 150 sur Render), mais l'animateur peut toujours libérer des
+            // places — clore un essai, exclure un téléphone fantôme.
+            return repondre({ ok: false, error: 'La soirée est complète — préviens l’animateur, qui peut libérer des places' })
           }
           // Sans prénom, personne n'entrera : refusé avant de puiser dans la
           // réserve. Une connexion qui envoyait soixante `player:join` vides

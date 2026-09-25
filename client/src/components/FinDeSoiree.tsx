@@ -6,7 +6,7 @@ import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { api } from '../api'
 import { spacePath } from '../routes'
-import { formatNumber, place } from '../format'
+import { formatNumber, place, pts } from '../format'
 import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
 import { complets, useDessins } from './medaillons'
@@ -328,7 +328,7 @@ function LigneRang({ fin }: { fin: Fin }) {
     case 'rang':
       return (
         <p className="fin-rang">
-          <b>{place(l.rang)}</b> sur {l.joueurs} · {formatNumber(l.points)} pts
+          <b>{place(l.rang)}</b> sur {l.joueurs} · {pts(l.points)}
         </p>
       )
     case 'zero':

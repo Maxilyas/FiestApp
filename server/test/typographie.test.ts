@@ -6,11 +6,12 @@
 // sont que des textes — mais toute la famille les lit.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { de, deNom, espacesFines, place, rang } from '../../shared/typographie'
+import { de, deNom, espacesFines, formatNumber, place, rang } from '../../shared/typographie'
 import { defaultSettings, normalizeSettings, titreChoisi, titreDeCloture } from '../../shared/space'
 
 const FINE = ' '
 const INSECABLE = ' '
+const GLUON = '\u2060'
 
 test('« de » s’élide devant une voyelle et un h, pas devant une consonne ni un y', () => {
   assert.equal(deNom('Antoine'), 'd’Antoine')
@@ -25,15 +26,20 @@ test('« de » s’élide devant une voyelle et un h, pas devant une consonne ni
 test('un espace neuf s’appelle « La soirée d’Antoine », et l’ancien défaut suit', () => {
   const neuf = defaultSettings('Antoine')
   assert.equal(neuf.title, 'La soirée d’Antoine')
-  assert.equal(neuf.eyebrow, 'La soirée d’')
-  assert.equal(neuf.headline, 'Antoine')
-  assert.equal(defaultSettings('Bob').eyebrow, 'La soirée de')
+  // La préposition descend avec le prénom : « LA SOIRÉE D’ » restait seul
+  // sur sa ligne, en surtitre.
+  assert.equal(neuf.eyebrow, 'La soirée')
+  assert.equal(neuf.headline, 'd’Antoine')
+  assert.equal(defaultSettings('Bob').headline, 'de Bob')
 
   // Un compte créé avant l'élision garde en base l'ancien titre par défaut :
   // relu, il suit le nouveau.
   const ancien = normalizeSettings({ title: 'La soirée de Antoine', eyebrow: 'La soirée de', headline: 'Antoine' }, 'Antoine')
   assert.equal(ancien.title, 'La soirée d’Antoine')
-  assert.equal(ancien.eyebrow, 'La soirée d’')
+  assert.equal(ancien.eyebrow, 'La soirée')
+  assert.equal(ancien.headline, 'd’Antoine')
+  const avantHier = normalizeSettings({ title: 'La soirée d’Antoine', eyebrow: 'La soirée d’', headline: 'Antoine' }, 'Antoine')
+  assert.deepEqual([avantHier.eyebrow, avantHier.headline], ['La soirée', 'd’Antoine'], 'le défaut d’hier suit aussi')
 
   // Ce que l'animateur a tapé lui-même, en revanche, ne bouge pas.
   const tape = normalizeSettings({ title: 'Les 40 ans de Sam', eyebrow: 'La soirée de', headline: 'Sam' }, 'Antoine')
@@ -68,7 +74,7 @@ test('un rang s’écrit au féminin, devant « place »', () => {
 test('les espaces avant ? ! ; : deviennent insécables, et les guillemets en reçoivent', () => {
   assert.equal(
     espacesFines('Vous avez bien regardé le gâteau de Sam ? Combien y avait-il de bougies dessus ?'),
-    `Vous avez bien regardé le gâteau de Sam${FINE}? Combien y avait-il de bougies dessus${FINE}?`,
+    `Vous avez bien regardé le gâteau de Sam${FINE}? Combien y avait-${GLUON}il de bougies dessus${FINE}?`,
   )
   assert.equal(espacesFines('40, évidemment !'), `40, évidemment${FINE}!`)
   assert.equal(espacesFines('Réponse : Paris ; ou Lyon'), `Réponse${INSECABLE}: Paris${FINE}; ou Lyon`)
@@ -87,4 +93,35 @@ test('les espaces fines sont idempotentes : un texte déjà traité ne change pl
   const une = espacesFines('Qui ? « Moi » : oui !')
   assert.equal(espacesFines(une), une)
   assert.ok(!/ [?!:;»]|« /.test(une), 'plus aucune espace sécable autour de la ponctuation')
+})
+
+test('le trait d’union de « a-t-il » ne se coupe plus en fin de ligne', () => {
+  // Chez Nadia, le mur a lu « Sam a- » en fin de ligne, et « t-il marché ? »
+  // sous lui. Un gluon (U+2060) après chaque trait d'union de l'inversion : il
+  // ne se dessine pas, et aucune coupure ne passe de part et d'autre.
+  assert.equal(espacesFines('Sam a-t-il marché ?'), `Sam a-${GLUON}t-${GLUON}il marché${FINE}?`)
+  assert.equal(espacesFines('Va-t-on gagner'), `Va-${GLUON}t-${GLUON}on gagner`)
+  assert.equal(espacesFines('Est-elle là'), `Est-${GLUON}elle là`)
+  assert.equal(espacesFines('Sont-ils venus'), `Sont-${GLUON}ils venus`)
+  assert.equal(espacesFines('Y A-T-IL'), `Y A-${GLUON}T-${GLUON}IL`, 'en capitales aussi')
+  // Ce qui ressemble sans être une inversion ne bouge pas.
+  assert.equal(espacesFines('Jean-Onésime, peut-être, sous-titre'), 'Jean-Onésime, peut-être, sous-titre')
+  assert.equal(espacesFines('Rendez-vous'), 'Rendez-vous')
+  const une = espacesFines('Qui a-t-il vu ?')
+  assert.equal(espacesFines(une), une, 'idempotente')
+  // Le gluon ne change pas ce qu'on lit : sans lui, le texte est celui tapé.
+  assert.equal(une.replaceAll(GLUON, '').replaceAll(FINE, ' '), 'Qui a-t-il vu ?')
+})
+
+test('une année s’écrit « 1889 » : les milliers ne se groupent qu’à partir de cinq chiffres', () => {
+  // « 1 889 » en grand au mur, « 1890 » dans la liste des estimations : le
+  // même nombre, deux graphies.
+  const FINE_GROUPE = '\u202f'
+  assert.equal(formatNumber(1889), '1889')
+  assert.equal(formatNumber(9999), '9999')
+  assert.equal(formatNumber(-1500), '-1500')
+  assert.equal(formatNumber(35000), `35${FINE_GROUPE}000`)
+  assert.equal(formatNumber(1234567), `1${FINE_GROUPE}234${FINE_GROUPE}567`)
+  assert.equal(formatNumber(0.8), '0,8')
+  assert.equal(formatNumber(12345.5), `12${FINE_GROUPE}345,5`)
 })

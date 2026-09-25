@@ -67,9 +67,16 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
       // Un identifiant inconnu coûte le même temps qu'un mot de passe faux :
       // rien, pas même la durée, ne dit si le compte existe.
       const ok = await verifyPassword(password, found?.passwordHash ?? (await dummyHash()))
-      if (!found || !found.passwordHash || found.disabledAt || !ok) {
+      if (!found || !found.passwordHash || !ok) {
         budget.failed(cle)
         return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' })
+      }
+      // Le bon mot de passe, sur un compte en pause : le dire. « Incorrect »
+      // faisait retaper un mot de passe juste, puis réveiller l'administrateur
+      // pour un lien qui n'y changeait rien. Ne l'apprend que qui connaît
+      // déjà le mot de passe.
+      if (found.disabledAt) {
+        return res.status(403).json({ error: 'Ton compte est en pause : demande à l’administrateur de le réactiver' })
       }
       budget.succeeded(cle)
       await openSession(req, res, found.id)
@@ -99,6 +106,28 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
         space: auth.publicSpace(me),
         profil: profil ? deps.profiles.toPublic(profil) : null,
       })
+    }),
+  )
+
+  // Lire un lien avant de s'en servir : l'identifiant et l'espace qu'il
+  // ouvre, pour les dire sur la page — et au gestionnaire de mots de passe,
+  // qui range le mot de passe choisi sous cet identifiant.
+  // Comme l'activation, sans verrou d'échecs : la réserve de l'adresse suffit.
+  app.post(
+    '/api/auth/activation',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      if (!budget.allow(clientIp(req))) {
+        return res.status(429).json({ error: 'Trop d’essais — réessaie dans un quart d’heure' })
+      }
+      const lu = await auth.lireActivation(String(req.body?.token ?? ''))
+      if (!lu) return res.status(404).json({ error: 'Lien invalide — demande un nouveau lien à l’administrateur' })
+      // Le compte ne se dit qu'à un lien qui sert encore : servi ou expiré, un
+      // lien qui traîne dans une messagerie ne vaut plus rien, et ne doit pas
+      // donner la moitié des identifiants. Qui l'a servi connaît son identifiant.
+      if (lu.etat !== 'valide') return res.json({ etat: lu.etat })
+      res.json({ login: lu.account.login, name: lu.account.name, slug: lu.account.slug, etat: lu.etat })
     }),
   )
 
@@ -258,6 +287,9 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       const target = auth.byId(req.params.id)
       if (!target) return res.status(404).json({ error: 'Compte introuvable' })
+      // Un lien pour un compte en pause ouvrait une session sur un espace
+      // que l'administrateur venait de fermer.
+      if (target.disabledAt) return res.status(400).json({ error: 'Réactive d’abord le compte' })
       res.json({ activation: await auth.createActivation(target.id) })
     }),
   )
@@ -269,7 +301,7 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       const target = auth.byId(req.params.id)
       if (!target) return res.status(404).json({ error: 'Compte introuvable' })
-      if (target.id === accountOf(res).id) return res.status(400).json({ error: 'Pas ton propre compte' })
+      if (target.id === accountOf(res).id) return res.status(400).json({ error: 'Tu ne peux pas désactiver ton propre compte' })
       res.json({ account: auth.toPublic(await auth.setDisabled(target.id, true)) })
     }),
   )
@@ -308,7 +340,7 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       const target = auth.byId(req.params.id)
       if (!target) return res.status(404).json({ error: 'Compte introuvable' })
-      if (target.id === accountOf(res).id) return res.status(400).json({ error: 'Pas ton propre compte' })
+      if (target.id === accountOf(res).id) return res.status(400).json({ error: 'Tu ne peux pas supprimer ton propre compte' })
       if (target.id === auth.defaultSpaceId) {
         return res.status(400).json({ error: 'L’espace par défaut ne se supprime pas : les anciennes adresses mènent chez lui' })
       }

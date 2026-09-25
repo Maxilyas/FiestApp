@@ -11,50 +11,26 @@
 //
 // Le serveur redirige les adresses d'avant les espaces (`/bilan`, `/soirees`…)
 // vers l'espace de l'administrateur : les liens déjà partagés restent bons.
-import { RESERVED_SLUGS, SLUG } from '../../shared/space'
+import { parseRoute, type AccountPage, type PublicPage, type Route } from '../../shared/adresses'
 
-export type PublicPage = 'souvenir' | 'stats' | 'bilan' | 'bilan/fiches' | 'soirees'
-/**
- * Les pages qui ne portent pas d'espace dans leur adresse. « profil » est la
- * seule qui ne soit pas réservée aux animateurs : c'est celle des joueurs, et
- * c'est aussi l'accueil — demander « quelle soirée ? » avant même de savoir
- * qui est là n'avait aucun sens pour celui qui revient.
- */
-export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin' | 'profil'
+export { parseRoute }
+export type { AccountPage, PublicPage, Route }
 export type DataFile = 'recap.json' | 'bilan.json' | 'soirees.json' | 'space.json'
-
-export type Route =
-  | { kind: 'landing' }
-  | { kind: 'account'; page: AccountPage }
-  | { kind: 'join'; slug: string }
-  | { kind: 'public'; slug: string; page: PublicPage; archiveId: string | null }
-  | { kind: 'unknown' }
-
-const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil']
-const PUBLIC_PAGES: PublicPage[] = ['souvenir', 'stats', 'bilan', 'bilan/fiches', 'soirees']
-const ARCHIVE_ID = /^[\w-]{1,64}$/
-
-export function parseRoute(pathname: string): Route {
-  const parts = pathname.split('/').filter(Boolean)
-  if (parts.length === 0) return { kind: 'landing' }
-  const [first, ...rest] = parts
-  if ((ACCOUNT_PAGES as string[]).includes(first)) return { kind: 'account', page: first as AccountPage }
-  if (!SLUG.test(first) || RESERVED_SLUGS.has(first)) return { kind: 'unknown' }
-  if (rest.length === 0) return { kind: 'join', slug: first }
-  let archiveId: string | null = null
-  let tail = rest
-  if (rest[0] === 'soirees' && rest.length >= 2 && ARCHIVE_ID.test(rest[1])) {
-    archiveId = rest[1]
-    tail = rest.slice(2)
-  }
-  // « /demo/soirees/<id> » tout court ouvre le souvenir de cette soirée.
-  const page = (tail.join('/') || (archiveId ? 'souvenir' : '')) as PublicPage
-  if (!PUBLIC_PAGES.includes(page) || (archiveId && page === 'soirees')) return { kind: 'unknown' }
-  return { kind: 'public', slug: first, page, archiveId }
-}
 
 /** La route de la page ouverte, lue une fois pour toutes. */
 export const route: Route = parseRoute(window.location.pathname)
+
+// « /Chez-Bruno » s'ouvre sous le nom que l'espace porte vraiment : l'adresse
+// qu'on recopie ou qu'on partage ensuite est la bonne. En ligne, le serveur a
+// déjà redirigé ; ceci sert au serveur de développement.
+// Des segments filtrés, comme `parseRoute` : « //banc » devenait « /banc/banc ».
+if (route.kind === 'join' || route.kind === 'public') {
+  const segs = window.location.pathname.split('/').filter(Boolean)
+  const voulu = '/' + [route.slug, ...segs.slice(1)].join('/')
+  if (window.location.pathname !== voulu) {
+    history.replaceState(null, '', `${voulu}${window.location.search}${window.location.hash}`)
+  }
+}
 
 /** Le nom de l'espace dans l'adresse de la page ouverte, s'il y en a un. */
 export function currentSlug(): string | null {

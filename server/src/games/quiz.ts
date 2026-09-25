@@ -499,6 +499,13 @@ function standings(sess: GameSessionRec<QuizState>, vctx: ViewContext, limit?: n
   })
 }
 
+/** Sa place sur le podium, s'il y monte : les mêmes trois lignes que `standings`. */
+function podiumDe(sess: GameSessionRec<QuizState>, vctx: ViewContext, playerId: string): { yourPodiumIndex?: number } {
+  const ids = vctx.memo('quiz:podium-ids', () => classement(sess, vctx).slice(0, 3).map(c => c.item.playerId))
+  const i = ids.indexOf(playerId)
+  return i >= 0 ? { yourPodiumIndex: i } : {}
+}
+
 /** Les propositions d'une question « estimation », de la plus proche à la plus loin. */
 function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewContext, limit: number): QuizGuessRow[] {
   const st = sess.state
@@ -590,7 +597,7 @@ export const quizModule: GameModule<QuizState> = {
   createInitialState(spaceId, _participants, config): QuizState {
     const library = quizLibrary(spaceId)
     if (library.length === 0) {
-      throw new Error('Aucun quiz prêt à jouer — crée-en un dans l’espace animateur (/edit)')
+      throw new Error('Aucun quiz prêt à jouer — ouvre « Mes quiz » pour en créer un, ou partir d’un modèle')
     }
     const lancement = (config ?? {}) as LancementDeQuiz
     const joues = new Set(Array.isArray(lancement.joues) ? lancement.joues : [])
@@ -898,6 +905,7 @@ export const quizModule: GameModule<QuizState> = {
         yourQuizRank: rangs(sess, vctx).get(playerId),
         // Le même podium pour toute la salle : construit une fois par diffusion.
         podium: vctx.memo('quiz:podium', () => standings(sess, vctx, 3)),
+        ...podiumDe(sess, vctx, playerId),
       }
     }
     return base

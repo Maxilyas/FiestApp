@@ -514,16 +514,16 @@ sur 1994 font 0,15 %, trois sur 54 en font 6 %, et une faute de frappe
   le joueur.
 - **Partout où la précision se montre** : la fiche (les deux côte à côte,
   l'écart moyen retiré), la carte (le coup d'œil prend la case de la plus
-  longue série), l'historique (« 5/6 justes · coup d'œil 89 % »), le bilan
+  longue série), l'historique (« précision 83 % (5 sur 6 QCM) · coup d'œil 89 % »), le bilan
   (une tuile), le souvenir, l'export et le tableau des équipes (une
   colonne), les courbes (une ligne ; un point seulement à partir de cinq QCM
   ou de cinq estimations).
-- **Le Devin se juge au coup d'œil** : à l'écart moyen, il allait au
+- **Le Compas dans l'Œil (le prix `devin`, qui s'appelait Le Devin) se juge au coup d'œil** : à l'écart moyen, il allait au
   retardataire qui n'avait vu que les dates, ou au voisin d'une faute de
   frappe.
 - `VERSION_BAREME` 6 : l'expérience n'a pas bougé, mais les soirées de
   l'historique se relisent, pour que la fiche montre leur coup d'œil et que
-  Le Devin y suive la règle du jour.
+  Le Compas dans l'Œil y suive la règle du jour.
 
 ---
 

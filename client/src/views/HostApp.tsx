@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
@@ -7,9 +7,10 @@ import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { ChampNombre } from '../components/ChampNombre'
 import { api, motifDe } from '../api'
 import { dataUrl, spacePath } from '../routes'
+import { ONGLETS } from '../onglets'
 import { formatDay } from '../../../shared/archive'
 import { titreDeCloture } from '../../../shared/space'
-import { espacesFines } from '../format'
+import { deNom, espacesFines } from '../format'
 import { initAudio, isMuted, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
@@ -32,6 +33,7 @@ import type { QuizHostView } from '../../../shared/games/quiz'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { distinctions } from '../../../shared/profil'
+import { partsDuNom } from '../../../shared/homonymes'
 import type { ArchiveList } from '../../../shared/archive'
 import { AnnoncesDeNiveau, ClotureEcran } from '../components/Cloture'
 import { BoutonCopier } from '../components/Partage'
@@ -78,6 +80,34 @@ function adresseCoupable(url: string) {
 // Tous antérieurs à Unicode 13 : les emojis récents (boule à facettes,
 // visage pointillé…) s'affichent en carré vide sur Windows 10.
 const TEAM_EMOJIS = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️', '🦩', '🍹', '⭐', '🔥', '🌙', '🎺', '🌺', '🦜']
+
+/**
+ * Le prénom d'une pastille d'invité : il se coupe, sa marque d'homonymie
+ * jamais (invariant 17). « Camil… » et « Camil… » côte à côte, c'était deux
+ * invités qu'on ne distinguait plus là où l'on fait les équipes.
+ */
+function NomDePastille({ joueur }: { joueur: PublicPlayer }) {
+  const { prenom, marque } = partsDuNom(joueur)
+  return (
+    <>
+      <span className="chip-prenom">{prenom}</span>
+      {marque && <span className="chip-marque">{marque.trim()}</span>}
+    </>
+  )
+}
+
+/**
+ * Le plancher du prénom, posé sur le bouton (`--plancher`) : la première
+ * colonne de sa grille ne descend pas plus bas. Quatre caractères — c'est
+ * le sélecteur d'équipe qui cède avec lui, et au pire cas (badge, marque,
+ * lune, équipe, croix) cinq ne tenaient plus dans la colonne de 1366. Un
+ * prénom plus court ne se coupe pas du tout : un plancher en `ch` l'aurait
+ * suivi d'un blanc, la lettre « 0 » étant plus large que la plupart des
+ * autres.
+ */
+function plancherDuPrenom(joueur: PublicPlayer): string {
+  return [...partsDuNom(joueur).prenom].length > 4 ? '4ch' : 'max-content'
+}
 
 /**
  * Une équipe et ses membres, avec de quoi la renommer, la supprimer, et
@@ -180,7 +210,8 @@ const PuceJoueur = memo(
             la soirée suivante le lui rend. */}
         <button
           className="chip-name"
-          title="Donner un surnom pour la soirée"
+              style={{ '--plancher': plancherDuPrenom(p) } as CSSProperties}
+              title={`${p.nomAffiche ?? p.name} — donner un surnom pour la soirée`}
           aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}`}
           onClick={async () => {
             const name = await promptDialog({
@@ -194,7 +225,7 @@ const PuceJoueur = memo(
             if (name) socket.emit('host:renamePlayer', { playerId: p.id, name })
           }}
         >
-          {p.nomAffiche ?? p.name}
+              <NomDePastille joueur={p} />
         </button>
         {/* Hors ligne : la transparence seule ne se lit pas du fond de la
             salle, et un lecteur d'écran n'en sait rien. */}
@@ -208,7 +239,7 @@ const PuceJoueur = memo(
             className="chip-team"
             value={p.teamId ?? ''}
             title="Changer d'équipe"
-            aria-label={`Équipe de ${p.nomAffiche ?? p.name}`}
+                aria-label={`Équipe ${deNom(p.nomAffiche ?? p.name)}`}
             onChange={e =>
               socket.emit('host:assignPlayer', {
                 playerId: p.id,
@@ -230,7 +261,7 @@ const PuceJoueur = memo(
           aria-label={`Exclure ${p.nomAffiche ?? p.name} de la soirée`}
           onClick={async () => {
             const ok = await confirmDialog({
-              title: `Retirer « ${p.nomAffiche ?? p.name} » de la soirée ?`,
+                  title: `Exclure « ${p.nomAffiche ?? p.name} » de la soirée ?`,
               message: 'Ses points seront effacés et son téléphone reviendra à l’inscription.',
               confirmLabel: 'Exclure',
               danger: true,
@@ -248,8 +279,41 @@ const PuceJoueur = memo(
 
 export function HostApp() {
   const s = useAppState()
+  useEffect(() => {
+    // Rouverte dans l'onglet de « Mes quiz » (sa console fermée entre-temps),
+    // la console en gardait le nom : « Mes quiz » la remplaçait alors par
+    // l'éditeur, et le QR quittait l'écran. Une console n'est aucun onglet
+    // nommé : ses liens doivent toujours en ouvrir un autre.
+    if ((Object.values(ONGLETS) as string[]).includes(window.name)) window.name = ''
+  }, [])
   /** L'animateur reconnu par le serveur — `null` tant que la session n'a pas été vérifiée. */
   const [me, setMe] = useState<{ slug: string; name: string; branchee: boolean } | null>(null)
+  /**
+   * Une bibliothèque vide : « Lancer un quiz » ne répondait que par un toast
+   * qui dictait une adresse. Relue au retour dans l'onglet — c'est dans
+   * « Mes quiz », à côté, qu'on vient d'en créer un.
+   */
+  const [bibliothequeVide, setBibliothequeVide] = useState(false)
+  useEffect(() => {
+    if (!me) return
+    const lire = () =>
+      api
+        .list()
+        // Des quiz sans question prête ne se jouent pas (`setQuizLibrary`) :
+        // pour « Lancer un quiz », c'est encore une bibliothèque vide.
+        .then(l => setBibliothequeVide(l.every(q => q.readyCount === 0)))
+        .catch(() => {})
+    const auRetour = () => {
+      if (document.visibilityState === 'visible') lire()
+    }
+    lire()
+    document.addEventListener('visibilitychange', auRetour)
+    window.addEventListener('focus', lire)
+    return () => {
+      document.removeEventListener('visibilitychange', auRetour)
+      window.removeEventListener('focus', lire)
+    }
+  }, [me])
   /** Le serveur a refusé la poignée de main : pas de session, ou une session périmée. */
   const [needLogin, setNeedLogin] = useState(false)
   const [error, setError] = useState('')
@@ -466,28 +530,47 @@ export function HostApp() {
     }
   }
 
+  // Le focus suit la vue. « Lancer un quiz » disparaît sous le doigt qui
+  // vient de le presser : au clavier, le focus tombait sur la page entière,
+  // et le Tab suivant repartait du haut de l'écran. Quand la vue change et
+  // que le focus s'est perdu — et seulement alors —, il se pose sur le titre
+  // de la nouvelle scène : un lecteur d'écran le lit, le clavier repart de là.
+  const scene = useRef<HTMLElement>(null)
+  const vue = `${screen ?? ''}|${sessionEnCours?.id ?? ''}|${phaseEnCours ?? ''}`
+  const vuePrecedente = useRef(vue)
+  useEffect(() => {
+    if (vuePrecedente.current === vue) return
+    vuePrecedente.current = vue
+    const actif = document.activeElement
+    if (actif && actif !== document.body) return
+    const titre = scene.current?.querySelector<HTMLElement>('h1, h2, h3')
+    if (!titre) return
+    titre.tabIndex = -1
+    titre.focus({ preventScroll: true })
+  }, [vue])
+
   if (needLogin) {
     return (
-      <div className="porte-ecran">
+      <main className="porte-ecran">
         <LoginForm title="Écran commun" error={error} busy={busy} onSubmit={submitLogin} />
         <CodeDeLaTele onBranchee={branchee} />
-      </div>
+      </main>
     )
   }
   if (!me) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Connexion…</p>
-      </div>
+      </main>
     )
   }
 
   const snap = s.snapshot
   if (!snap) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Connexion…</p>
-      </div>
+      </main>
     )
   }
 
@@ -737,12 +820,12 @@ export function HostApp() {
                   <b>{quizView?.answeredCount ?? 0}</b> / {quizView?.participantCount ?? 0} ont répondu
                 </>
               ) : (
-                <>{connectedCount} connecté·e·s</>
+                <>{connectedCount} connecté·e{connectedCount > 1 ? '·s' : ''}</>
               )}
             </span>
             <div className="qr-stack">
               <div className="qr-box">
-                <QRCodeSVG value={joinUrl} size={46} bgColor="#ffffff" fgColor={QR_INK} />
+                <QRCodeSVG value={joinUrl} size={46} bgColor="#ffffff" fgColor={QR_INK} title="QR code pour rejoindre la soirée" />
               </div>
               <div className="qr-text">
                 <span className="label">Rejoindre</span>
@@ -755,7 +838,9 @@ export function HostApp() {
         {/* Les montées de niveau du dernier podium, proclamées à la salle. */}
         {s.progres && <AnnoncesDeNiveau progres={s.progres} onFin={finirAnnonces} />}
 
-        <div className={'host-grid' + (staging ? ' staging' : '')}>
+        {/* Le repère principal : la scène et ses colonnes, entre le bandeau
+            (banner) et la console (contentinfo). */}
+        <main className={'host-grid' + (staging ? ' staging' : '')}>
           {!staging && (
             <section className="card">
               <h2>Invités ({snap.players.length})</h2>
@@ -834,7 +919,7 @@ export function HostApp() {
             </section>
           )}
 
-          <section className="card main-stage">
+          <section className="card main-stage" ref={scene}>
             {screen === 'cloture' && s.cloture ? (
               <>
                 {telecommande ? (
@@ -851,27 +936,25 @@ export function HostApp() {
                   <a
                     className="btn"
                     href={spacePath(slug, 'souvenir', s.cloture.soiree.id)}
-                    target="_blank"
-                    rel="noreferrer"
+                    target={ONGLETS.soiree}
                   >
                     <Icon name="book" />
                     Le souvenir
                   </a>
                   <BoutonCopier texte={`${joinUrl}/soirees/${s.cloture.soiree.id}`} />
-                  <a className="btn" href={spacePath(slug, 'bilan', s.cloture.soiree.id)} target="_blank" rel="noreferrer">
+                  <a className="btn" href={spacePath(slug, 'bilan', s.cloture.soiree.id)} target={ONGLETS.soiree}>
                     <Icon name="list" />
                     Le bilan
                   </a>
                   <a
                     className="btn"
                     href={spacePath(slug, 'bilan/fiches', s.cloture.soiree.id)}
-                    target="_blank"
-                    rel="noreferrer"
+                    target={ONGLETS.soiree}
                   >
                     <Icon name="download" />
                     Les fiches
                   </a>
-                  <a className="btn" href={spacePath(slug, 'soirees')} target="_blank" rel="noreferrer">
+                  <a className="btn" href={spacePath(slug, 'soirees')} target={ONGLETS.soiree}>
                     <Icon name="clock" />
                     L’historique
                   </a>
@@ -904,7 +987,7 @@ export function HostApp() {
                   {ongletsPodium}
                   <div className="qr-stack scene-qr">
                     <div className="qr-box">
-                      <QRCodeSVG value={`${joinUrl}/souvenir`} size={84} bgColor="#ffffff" fgColor={QR_INK} />
+                      <QRCodeSVG value={`${joinUrl}/souvenir`} size={84} bgColor="#ffffff" fgColor={QR_INK} title="QR code du souvenir de la soirée" />
                     </div>
                     <div className="qr-text">
                       <span className="label">Le souvenir de la soirée</span>
@@ -955,11 +1038,11 @@ export function HostApp() {
                 )}
 
                 <ConsoleActions>
-                  <a className="btn btn-accent" href={spacePath(slug, 'souvenir')} target="_blank" rel="noreferrer">
+                  <a className="btn btn-accent" href={spacePath(slug, 'souvenir')} target={ONGLETS.soiree}>
                     <Icon name="book" />
                     Page souvenir
                   </a>
-                  <a className="btn" href={spacePath(slug, 'bilan')} target="_blank" rel="noreferrer">
+                  <a className="btn" href={spacePath(slug, 'bilan')} target={ONGLETS.soiree}>
                     <Icon name="list" />
                     Le bilan
                   </a>
@@ -1117,7 +1200,7 @@ export function HostApp() {
                 <div className="stage-foot scene-projetee">
                   <div className="qr-stack">
                     <div className="qr-box">
-                      <QRCodeSVG value={`${joinUrl}/stats`} size={84} bgColor="#ffffff" fgColor={QR_INK} />
+                      <QRCodeSVG value={`${joinUrl}/stats`} size={84} bgColor="#ffffff" fgColor={QR_INK} title="QR code des chiffres de la soirée" />
                     </div>
                     <div className="qr-text">
                       <span className="label">Les chiffres</span>
@@ -1131,7 +1214,7 @@ export function HostApp() {
                     <Icon name="crown" />
                     Écran de victoire
                   </button>
-                  <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
+                  <a className="btn" href={spacePath(slug, 'stats')} target={ONGLETS.soiree}>
                     <Icon name="bar-chart" />
                     Les chiffres
                   </a>
@@ -1146,7 +1229,12 @@ export function HostApp() {
                 <>
                 <h2>
                   <Icon name="crown" />
-                  {champions.length > 1 ? 'Les équipes qui remportent le quiz' : "L'équipe qui remporte le quiz"}
+                  {/* Sans équipes, « L'équipe qui remporte le quiz » au-dessus de
+                      « rien à couronner » se lisait comme un verdict contre Jo,
+                      qui venait de gagner la soirée seul. */}
+                  {teams.length === 0
+                    ? "Pas d'équipes ce soir"
+                    : champions.length > 1 ? 'Les équipes qui remportent le quiz' : "L'équipe qui remporte le quiz"}
                 </h2>
                 {teams.length > 0 ? (
                   <>
@@ -1217,7 +1305,7 @@ export function HostApp() {
                     </div>
                   </>
                 ) : (
-                  <p className="muted">Aucune équipe — rien à couronner.</p>
+                  <p className="muted">Sans équipes, c’est le classement des joueurs qui dit qui mène.</p>
                 )}
                 </>
                 )}
@@ -1269,7 +1357,7 @@ export function HostApp() {
                   // l'adresse à dicter, et de quoi jouer depuis ce téléphone.
                   <div className="telecommande-invite">
                     {apercu(<span className="join-url">{joinUrl}</span>)}
-                    <a className="btn btn-accent jouer-ici" href={spacePath(slug)} target="_blank" rel="noreferrer">
+                    <a className="btn btn-accent jouer-ici" href={spacePath(slug)} target={ONGLETS.jouer}>
                       <Icon name="play" />
                       Jouer depuis cet appareil
                     </a>
@@ -1282,14 +1370,14 @@ export function HostApp() {
                     {snap.wifi && (
                       <div className="invite-qr">
                         <div className="qr-box">
-                          <QRCodeSVG value={wifiQrValue(snap.wifi)} size={148} bgColor="#ffffff" fgColor={QR_INK} />
+                          <QRCodeSVG value={wifiQrValue(snap.wifi)} size={148} bgColor="#ffffff" fgColor={QR_INK} title="QR code du wifi" />
                         </div>
-                        <span className="label">1 · Wifi {espacesFines(`« ${snap.wifi.ssid} »`)}</span>
+                        <span className="label">1 · Wi-Fi {espacesFines(`« ${snap.wifi.ssid} »`)}</span>
                       </div>
                     )}
                     <div className="invite-qr">
                       <div className="qr-box">
-                        <QRCodeSVG value={joinUrl} size={148} bgColor="#ffffff" fgColor={QR_INK} />
+                        <QRCodeSVG value={joinUrl} size={148} bgColor="#ffffff" fgColor={QR_INK} title="QR code pour rejoindre la soirée" />
                       </div>
                       <span className="label">{snap.wifi ? '2 · Le quiz' : 'Scanner pour jouer'}</span>
                     </div>
@@ -1299,7 +1387,7 @@ export function HostApp() {
                       soirée dans un autre onglet, où le cookie de son profil
                       et celui de la console cohabitent. Au mur, où rien ne se
                       touche, le lien reste caché (styles.css). */}
-                  <a className="btn btn-accent jouer-ici" href={spacePath(slug)} target="_blank" rel="noreferrer">
+                  <a className="btn btn-accent jouer-ici" href={spacePath(slug)} target={ONGLETS.jouer}>
                     <Icon name="play" />
                     Jouer depuis cet appareil
                   </a>
@@ -1328,17 +1416,24 @@ export function HostApp() {
                   </p>
                 )}
                 <ConsoleActions>
-                  <button
-                    className="btn btn-primary"
-                    disabled={connectedCount === 0}
-                    onClick={lancerQuiz}
-                  >
-                    <Icon name="play" />
-                    {connectedCount === 0 ? 'En attente des invités…' : 'Lancer un quiz'}
-                  </button>
+                  {bibliothequeVide ? (
+                    <a className="btn btn-primary" href="/edit" target={ONGLETS.quiz}>
+                      <Icon name="plus" />
+                      Créer mon premier quiz
+                    </a>
+                  ) : (
+                    <button
+                      className="btn btn-primary"
+                      disabled={connectedCount === 0}
+                      onClick={lancerQuiz}
+                    >
+                      <Icon name="play" />
+                      {connectedCount === 0 ? 'En attente des invités…' : 'Lancer un quiz'}
+                    </button>
+                  )}
                   {/* Dans un autre onglet : l'écran commun reste projeté. La
                       session est dans le cookie, rien à passer dans l'adresse. */}
-                  <a className="btn" href="/edit" target="_blank" rel="noreferrer">
+                  <a className="btn" href="/edit" target={ONGLETS.quiz}>
                     <Icon name="edit" />
                     Mes quiz
                   </a>
@@ -1349,7 +1444,7 @@ export function HostApp() {
                       Brancher la télé
                     </button>
                   )}
-                  <a className="btn btn-ghost" href="/compte" target="_blank" rel="noreferrer">
+                  <a className="btn btn-ghost" href="/compte" target={ONGLETS.compte}>
                     <Icon name="users" />
                     Mon compte
                   </a>
@@ -1378,12 +1473,12 @@ export function HostApp() {
                     </button>
                   )}
                   {ranking.length > 0 && (
-                    <a className="btn" href={spacePath(slug, 'stats')} target="_blank" rel="noreferrer">
+                    <a className="btn" href={spacePath(slug, 'stats')} target={ONGLETS.soiree}>
                       <Icon name="bar-chart" />
                       Les chiffres
                     </a>
                   )}
-                  <a className="btn btn-ghost" href={spacePath(slug, 'soirees')} target="_blank" rel="noreferrer">
+                  <a className="btn btn-ghost" href={spacePath(slug, 'soirees')} target={ONGLETS.soiree}>
                     <Icon name="book" />
                     Historique
                   </a>
@@ -1409,7 +1504,7 @@ export function HostApp() {
               </section>
             </div>
           )}
-        </div>
+        </main>
 
         {/* La console animateur : discrète, en bas, toujours au même endroit.
             Chaque écran y pose ses boutons ; le son, l'habillage et le plein
@@ -1431,19 +1526,25 @@ export function HostApp() {
                 recopié sur la télé : c'est l'animateur qui tranche. */}
             <button
               className="btn btn-icon"
-              // Une bascule garde son nom : c'est `aria-pressed` qui dit
-              // son état, sinon on entend l'inverse de ce qui est.
-              title={telecommande ? 'Télécommande : la scène est à la télé' : 'Télécommande : les gestes en grand, la scène à la télé'}
+              // Une bascule garde son nom et son infobulle : c'est
+              // `aria-pressed` qui dit son état, sinon on entend l'inverse de
+              // ce qui est.
+              title="Télécommande : les gestes en grand, la scène à la télé"
               aria-label="Télécommande"
               aria-pressed={telecommande}
               onClick={basculerTelecommande}
             >
               <Icon name={telecommande ? 'monitor' : 'smartphone'} />
             </button>
+            {/* Un bouton bascule garde un nom fixe et dit son état par
+                `aria-pressed` : avec un libellé qui changeait aussi, un lecteur
+                d'écran lisait « Couper les sons, activé », son allumé. Son
+                infobulle aussi est fixe : elle devient sa description, et
+                « Fond clair — Fond sombre (Velours), activé » se contredisait. */}
             <button
               className="btn btn-icon"
-              title={muted ? 'Activer les sons' : 'Couper les sons'}
-              aria-label={muted ? 'Activer les sons' : 'Couper les sons'}
+              title="Sons"
+              aria-label="Sons"
               aria-pressed={!muted}
               onClick={() => {
                 initAudio()
@@ -1456,8 +1557,8 @@ export function HostApp() {
                 sur fond clair, sans toucher aux téléphones des invités. */}
             <button
               className="btn btn-icon"
-              title={theme === 'ivoire' ? 'Fond sombre (Velours)' : 'Fond clair pour le vidéoprojecteur (Ivoire)'}
-              aria-label={theme === 'ivoire' ? 'Revenir au fond sombre' : 'Passer sur fond clair'}
+              title="Fond clair pour le vidéoprojecteur (Ivoire)"
+              aria-label="Fond clair"
               aria-pressed={theme === 'ivoire'}
               onClick={() => setTheme(toggleTheme())}
             >

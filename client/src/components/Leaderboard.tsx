@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { deNom } from '../format'
 import type { PublicPlayer } from '../../../shared/types'
 import { memesChamps } from '../egalite'
 import { classer } from '../../../shared/classement'
@@ -83,7 +84,7 @@ const Ligne = memo(function Ligne({ p, rang, moi, onOuvrir }: LigneProps) {
       className={classe + ' lb-ouvrable'}
       // Le nom du bouton remplace tout son contenu : le rang et les
       // points doivent y être, sinon le lecteur d'écran n'entend qu'un nom.
-      aria-label={`La carte de ${p.nomAffiche ?? p.name} — rang ${rang}, ${p.score} ${motPoints(p.score)}`}
+      aria-label={`La carte ${deNom(p.nomAffiche ?? p.name)} — rang ${rang}, ${p.score} ${motPoints(p.score)}`}
       onClick={() => onOuvrir(p.id)}
     >
       {contenu}

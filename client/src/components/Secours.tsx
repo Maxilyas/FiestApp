@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { api } from '../api'
+import { MotDePasse } from './MotDePasse'
 import type { PublicProfile } from '../../../shared/profil'
 import { Icon } from './Icon'
 
@@ -14,7 +15,8 @@ export function CodeSecours({ code }: { code: string }) {
     <div className="card notice">
       <p>
         <strong>C'est la seule façon de retrouver ton profil</strong> si tu oublies ton mot de
-        passe — il n'y a pas d'adresse e-mail, donc pas de lien à recevoir.
+        passe — il n'y a pas d'adresse e-{/* un gluon : « e- / mail » coupé en bout de ligne */ '\u2060'}mail, donc pas de
+        lien à recevoir.
       </p>
       <p className="code-secours">{code}</p>
       <p className="muted small">Il ne sera plus jamais affiché.</p>
@@ -125,10 +127,11 @@ export function FormulaireSecours({ prefill, onDone, onCancel }: Props) {
         <label className="label" htmlFor="sec-pass">
           Ton nouveau mot de passe
         </label>
-        <input
+        {/* L'œil sert surtout ici : un mot de passe neuf, tapé une seule fois,
+            sans rien pour le confirmer. */}
+        <MotDePasse
           id="sec-pass"
           className="input input-line"
-          type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
           autoComplete="new-password"

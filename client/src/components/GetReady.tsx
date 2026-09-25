@@ -27,8 +27,11 @@ export function GetReady({ deadline, sounds, label }: { deadline: number; sounds
         <Icon name="timer" />
       </span>
       <p>{label}</p>
-      <div key={seconds} className="big-count">
-        {seconds > 0 ? seconds : 'GO !'}
+      {/* Hors de la région vivante du téléphone : un lecteur d'écran lisait
+          « 3 », « 2 », « 1 », « Top ! » par-dessus la question qui arrive. La
+          phrase au-dessus suffit à dire ce qui vient. */}
+      <div key={seconds} className="big-count" aria-live="off">
+        {seconds > 0 ? seconds : 'Top !'}
       </div>
     </div>
   )

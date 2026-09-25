@@ -1,6 +1,6 @@
 {
-  "name": "Quizz",
-  "short_name": "Quizz",
+  "name": "FiestApp",
+  "short_name": "FiestApp",
   "description": "Le quiz de la soirée, sur ton téléphone",
   "lang": "fr",
   "start_url": "/",
@@ -10,6 +10,18 @@
   "background_color": "#1a1412",
   "theme_color": "#261d18",
   "icons": [
+    {
+      "src": "/icone-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icone.svg",
       "sizes": "any",

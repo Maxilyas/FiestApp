@@ -152,6 +152,9 @@ export const api = {
     }),
   remove: (id: string) => req<{ ok: true }>(`/api/quizzes/${id}`, { method: 'DELETE' }),
   duplicate: (id: string) => req<QuizDef>(`/api/quizzes/${id}/duplicate`, { method: 'POST' }),
+  /** Les quiz livrés avec l'application, et la copie de l'un d'eux dans son espace. */
+  modeles: () => req<{ id: string; title: string; questionCount: number }[]>('/api/modeles'),
+  partirDe: (modele: string) => req<QuizDef>(`/api/modeles/${encodeURIComponent(modele)}`, { method: 'POST' }),
   uploadImage: (dataUrl: string) =>
     req<{ url: string }>('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
   /** L'historique des soirées : le lire est public, le retoucher demande d'être connecté. */
@@ -166,6 +169,16 @@ export const api = {
     login: (login: string, password: string) =>
       req<Me>('/api/auth/login', { method: 'POST', body: JSON.stringify({ login, password }) }),
     logout: () => req<{ ok: true }>('/api/auth/logout', { method: 'POST' }),
+    /** Ce qu'ouvre un lien d'activation, sans le consommer. */
+    lireActivation: (token: string) =>
+      // Le compte ne vient qu'avec un lien encore valide.
+      req<
+        | { login: string; name: string; slug: string; etat: 'valide' }
+        | { login?: undefined; name?: undefined; slug?: undefined; etat: 'servi' | 'perime' }
+      >('/api/auth/activation', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+      }),
     activate: (token: string, password: string) =>
       req<Me>('/api/auth/activate', { method: 'POST', body: JSON.stringify({ token, password }) }),
     changePassword: (current: string, next: string) =>
