@@ -349,6 +349,12 @@ sans `QUIZ_DB_URL`.
   pourquoi les nouveaux tests vont dans `server/test/`, un serveur jetable par
   fichier ; ceux qui vivent encore en fin de smoke (sections 32 à 35) y ont
   chacun le leur.
+- **Un fichier de tests a deux minutes, pas seulement une épreuve** : sous
+  Node 22, `--test-timeout` (120 s) vaut aussi pour le fichier entier, et la
+  CI est plus lente qu'ici. Dix-sept épreuves à serveur jetable dans
+  `cloture.test.ts` l'ont dépassé (« test timed out after 120000ms » sur le
+  fichier) : un fichier qui approche la minute et demie se coupe par thème
+  (`credits.test.ts`), sans rien changer à ses épreuves.
 - **Le serveur envoie l'instantané juste derrière l'accusé** de `host:hello`
   ou de `party:watch`, souvent dans le même paquet : un écouteur posé après
   avoir attendu l'accusé le rate. `banc.ts` retient le dernier pour ça
