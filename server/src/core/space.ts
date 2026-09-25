@@ -709,6 +709,7 @@ export class SpaceRuntime {
         gain: g.gain,
         releve: g.releve,
         xp: g.xp,
+        playerId: g.playerId,
       })
       if (tirage && ProfileStore.tirageEclat()) {
         // Sous un légendaire, c'est lui qui éclate : l'emoji caché dessous
@@ -1474,6 +1475,7 @@ export class SpaceRuntime {
       const eclat = await this.deps.profiles.eclatDeLaSoiree(g.profileId, soireeId).catch(() => null)
       bilans.set(g.playerId, {
         xp: xpSoiree,
+        xpPaliers,
         niveauAvant,
         niveauApres,
         paliers: paliers.map(annonceDe).filter((a): a is HautFaitAnnonce => !!a),

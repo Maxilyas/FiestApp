@@ -530,6 +530,55 @@ export class ArchiveStore {
     return fiches
   }
 
+  /**
+   * Les titres de ces soirées, tels que l'historique les porte aujourd'hui
+   * — clé `espace#soirée`. On ne lit que les titres, jamais les archives :
+   * la page « Mes soirées » les demande à chaque visite.
+   */
+  async titres(refs: { spaceId: string; id: string }[]): Promise<Map<string, string>> {
+    const titres = new Map<string, string>()
+    // Par paquets : une carrière de plusieurs centaines de soirées dépasserait
+    // le nombre de paramètres qu'une requête accepte.
+    for (let i = 0; i < refs.length; i += 200) {
+      const paquet = refs.slice(i, i + 200)
+      const res = await this.client.execute({
+        sql: `SELECT space_id, id, title FROM soirees WHERE ${paquet.map(() => '(space_id = ? AND id = ?)').join(' OR ')}`,
+        args: paquet.flatMap(r => [r.spaceId, r.id]),
+      })
+      for (const r of res.rows) titres.set(`${String(r.space_id)}#${String(r.id)}`, String(r.title))
+    }
+    return titres
+  }
+
+  /**
+   * L'invité qu'un profil était lors d'une soirée rangée, s'il y était
+   * rattaché. Le rattachement survit dans l'archive : c'est là qu'une ligne
+   * d'expérience écrite avant qu'on retienne le joueur le retrouve.
+   *
+   * Null veut dire « lue, et elle ne le nomme pas » — une archive rangée
+   * avant les profils, ou illisible : on peut le retenir pour toujours. Une
+   * base muette, elle, lève : avaler l'erreur ici faisait retenir « personne »
+   * sur une panne d'une seconde, et « Mon bilan » disparaissait pour de bon.
+   *
+   * On ne lit que l'identifiant, jamais l'archive : la première visite d'un
+   * profil ancien en relit une par soirée, et chacune pèse tous les
+   * journaux de la soirée.
+   */
+  async joueurDuProfil(spaceId: string, id: string, profileId: string): Promise<string | null> {
+    if (!ID.test(id)) return null
+    // `json_valid` d'abord : sur un JSON abîmé, `json_each` lève à chaque
+    // lecture, et la ligne serait relue à chaque visite sans jamais aboutir.
+    const res = await this.client.execute({
+      sql: `SELECT json_extract(j.value, '$.id') AS id
+            FROM soirees, json_each(CASE WHEN json_valid(soirees.data) THEN soirees.data ELSE '{}' END, '$.players') j
+            WHERE soirees.space_id = ? AND soirees.id = ? AND json_extract(j.value, '$.profileId') = ?
+            LIMIT 1`,
+      args: [spaceId, id, profileId],
+    })
+    const r = res.rows[0]
+    return r && r.id != null ? String(r.id) : null
+  }
+
   async get(spaceId: string, id: string): Promise<{ summary: ArchiveSummary; archive: PartyArchive } | null> {
     if (!ID.test(id)) return null
     const res = await this.client.execute({
