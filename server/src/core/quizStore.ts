@@ -2,9 +2,13 @@ import { randomUUID } from 'node:crypto'
 import { ajouterColonne, clientDistant, type Client } from './distante'
 import {
   cleanTitle,
+  MAX_SON_OCTETS,
   normalizeQuestions,
+  PIECES_DE_QUESTION,
   rechercherDans,
   resumerQuiz,
+  SON_MIMES,
+  type PieceDeQuestion,
   type QuizDef,
   type QuizQuestionDef,
   type QuizSummary,
@@ -14,6 +18,11 @@ import { normaliserReglages } from '../../../shared/hasard'
 /** Image trop lourde = base qui gonfle pour rien. Le navigateur compresse avant d'envoyer. */
 const MAX_IMAGE_DATAURL = 2_000_000
 const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp']
+/**
+ * Un extrait du blind test, lui, arrive tel quel — le navigateur ne sait pas
+ * le recompresser : sa borne est en octets, en-tête du base64 compris.
+ */
+const MAX_SON_DATAURL = Math.ceil(MAX_SON_OCTETS / 3) * 4 + 40
 /** Délai avant qu'une photo sans quiz soit considérée comme abandonnée. */
 const IMAGE_GRACE_MS = 60 * 60 * 1000
 /**
@@ -257,13 +266,20 @@ export class QuizStore {
 
   // ── Images ──────────────────────────────────────────────────────────────
 
-  /** Enregistre une image envoyée en dataURL (déjà compressée côté navigateur). */
+  /**
+   * Enregistre une image envoyée en dataURL (déjà compressée côté navigateur)
+   * — ou l'extrait d'un blind test : la même table, la même adresse, le même
+   * ménage, qui le lit dans la question comme une photo.
+   */
   async saveImage(spaceId: string, dataUrl: unknown): Promise<string> {
-    if (typeof dataUrl !== 'string' || dataUrl.length > MAX_IMAGE_DATAURL) {
-      throw new Error('Photo trop lourde — choisis-en une plus petite')
+    const son = typeof dataUrl === 'string' && dataUrl.startsWith('data:audio/')
+    if (typeof dataUrl !== 'string' || dataUrl.length > (son ? MAX_SON_DATAURL : MAX_IMAGE_DATAURL)) {
+      throw new Error(son ? 'Extrait trop lourd — coupe-le à une trentaine de secondes' : 'Photo trop lourde — choisis-en une plus petite')
     }
-    const match = /^data:([a-z/+-]+);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl)
-    if (!match || !IMAGE_MIMES.includes(match[1])) throw new Error('Cette photo ne se lit pas — choisis-la en JPEG, PNG ou WebP')
+    const match = /^data:([a-z0-9/+.-]+);base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl)
+    if (!match || !(son ? SON_MIMES : IMAGE_MIMES).includes(match[1])) {
+      throw new Error(son ? 'Cet extrait ne se lit pas — choisis-le en MP3, M4A, OGG ou WAV' : 'Cette photo ne se lit pas — choisis-la en JPEG, PNG ou WebP')
+    }
     const id = randomUUID()
     // `data` reste vide : c'est la colonne historique, gardée pour relire les
     // photos d'avant.
@@ -282,11 +298,11 @@ export class QuizStore {
    * photo qui n'existe plus laisse sa question sans photo ; une photo livrée
    * avec l'application (`/media/quiz/…`) se garde telle quelle.
    */
-  async copierPhotos<Q extends { image?: string | null }>(spaceId: string, questions: readonly Q[]): Promise<Q[]> {
-    const adresse = (q: Q) => /^\/media\/image\/([0-9a-f-]{36})$/.exec(q.image ?? '')?.[1] ?? null
+  async copierPhotos<Q extends { [k in PieceDeQuestion]?: string | null }>(spaceId: string, questions: readonly Q[]): Promise<Q[]> {
+    const idDe = (adresse: string | null | undefined) => /^\/media\/image\/([0-9a-f-]{36})$/.exec(adresse ?? '')?.[1] ?? null
     const copies = new Map<string, string | null>()
-    for (const q of questions) {
-      const id = adresse(q)
+    // Toutes ses pièces : la photo, celle de la révélation, l'extrait.
+    for (const id of questions.flatMap(q => PIECES_DE_QUESTION.map(champ => idDe(q[champ])))) {
       if (!id || copies.has(id)) continue
       const res = await this.client.execute({ sql: 'SELECT mime, data, bytes FROM quiz_images WHERE id = ?', args: [id] })
       const photo = res.rows[0]
@@ -302,8 +318,12 @@ export class QuizStore {
       copies.set(id, `/media/image/${copie}`)
     }
     return questions.map(q => {
-      const id = adresse(q)
-      return id ? { ...q, image: copies.get(id) ?? null } : q
+      const copie = { ...q }
+      for (const champ of PIECES_DE_QUESTION) {
+        const id = idDe(q[champ])
+        if (id) copie[champ] = (copies.get(id) ?? null) as Q[typeof champ]
+      }
+      return copie
     })
   }
 

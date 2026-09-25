@@ -59,7 +59,18 @@ test('l’exemple du format complet se relit tel quel, chaque possibilité compr
   assert.deepEqual(
     questions.map(q => ({
       kind: q.kind,
-      reponse: q.kind === 'number' ? `${q.target} ${q.unit}`.trim() : q.answers[q.correct],
+      // Chaque sorte dit sa réponse : toutes les bonnes, le bon ordre, « ? » pour une mesure en direct.
+      reponse:
+        q.kind === 'number'
+          ? `${q.enDirect ? '?' : q.target} ${q.unit}`.trim()
+          : q.variante === 'plusieurs'
+            ? q.bonnes!.map(i => q.answers[i]).join(', ')
+            : q.variante === 'ordre'
+              ? q.answers.filter(Boolean).join(' → ')
+              : q.variante === 'sondage'
+                ? 'les invités'
+                : q.answers[q.correct],
+      ...(q.variante && { variante: q.variante }),
       choix: q.answers.filter(Boolean).length,
       temps: q.duration,
       categorie: q.category,
@@ -83,7 +94,18 @@ test('l’exemple du format complet se relit tel quel, chaque possibilité compr
         observation: null,
         anecdote: 'Elle grandit encore de quelques millimètres par an.',
       },
-      // Le temps court, comme la catégorie : les deux questions d'histoire gardent les 30 s de l'Everest.
+      // « Type : plusieurs réponses » : une étoile devant chacune des bonnes.
+      {
+        kind: 'choice',
+        reponse: 'Brésil, Kenya, Indonésie',
+        variante: 'plusieurs',
+        choix: 4,
+        temps: 30,
+        categorie: 'Géographie',
+        photo: null,
+        observation: null,
+      },
+      // Le temps court, comme la catégorie : les questions d'histoire gardent les 30 s de l'Everest.
       {
         kind: 'choice',
         reponse: 'Vrai',
@@ -96,6 +118,17 @@ test('l’exemple du format complet se relit tel quel, chaque possibilité compr
         anecdote: "Elle ne devait rester que vingt ans ; la radio l'a sauvée.",
       },
       { kind: 'number', reponse: '1969', choix: 0, temps: 30, categorie: 'Histoire', photo: null, observation: null },
+      // « Type : dans l'ordre » : écrites dans le bon ordre, sans étoile.
+      {
+        kind: 'choice',
+        reponse: "L'imprimerie → La machine à vapeur → Le téléphone → Internet",
+        variante: 'ordre',
+        choix: 4,
+        temps: 30,
+        categorie: 'Histoire',
+        photo: null,
+        observation: null,
+      },
       {
         kind: 'choice',
         reponse: 'Titanic',
@@ -114,6 +147,19 @@ test('l’exemple du format complet se relit tel quel, chaque possibilité compr
         categorie: 'Autour de la fête',
         photo: "le gâteau d'anniversaire, bougies allumées",
         observation: 5,
+      },
+      // « = ? g » : la bonne valeur se mesure pendant la soirée.
+      { kind: 'number', reponse: '? g', choix: 0, temps: 15, categorie: 'Autour de la fête', photo: null, observation: null },
+      // « Type : qui dans la salle » : rien à écrire, les invités sont les réponses.
+      {
+        kind: 'choice',
+        reponse: 'les invités',
+        variante: 'sondage',
+        choix: 0,
+        temps: 15,
+        categorie: 'Autour de la fête',
+        photo: null,
+        observation: null,
       },
     ],
   )

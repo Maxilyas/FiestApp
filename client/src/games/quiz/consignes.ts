@@ -3,6 +3,18 @@
 // estimation sur votre téléphone » — un aperçu qui ne montre pas le vrai texte
 // ne sert à rien.
 
-/** La consigne d'une estimation, au vous de la salle. */
-export const consigneEstimation = (unite: string | undefined) =>
-  `Tapez votre estimation sur votre téléphone${unite?.trim() ? ` (en ${unite.trim()})` : ''} — le plus proche gagne !`
+import type { Variante } from '../../../../shared/library'
+
+/**
+ * La consigne d'une estimation, au vous de la salle. En direct, la bonne
+ * réponse n'existe pas encore : elle se mesure après.
+ */
+export const consigneEstimation = (unite: string | undefined, enDirect?: boolean) =>
+  `Tapez votre estimation sur votre téléphone${unite?.trim() ? ` (en ${unite.trim()})` : ''} — ${enDirect ? 'on mesure après, et ' : ''}le plus proche gagne !`
+
+/** La consigne d'un QCM qui n'en est pas tout à fait un. */
+export const CONSIGNE_DES_VARIANTES: Record<Variante, string> = {
+  plusieurs: 'Plusieurs bonnes réponses : trouvez-les toutes',
+  ordre: 'Remettez-les dans l’ordre sur votre téléphone',
+  sondage: 'Votez sur votre téléphone : qui, dans la salle ?',
+}

@@ -38,10 +38,19 @@ socket.on('session:view', ({ sessionId, view }) => {
     }, delay)
     return
   }
-  const choice = Math.floor(Math.random() * (view.answers?.length ?? 4))
+  const n = view.answers?.length ?? 4
+  const visee = { qIndex: view.qIndex, round: view.round }
+  // Les variantes : des cases cochées au hasard, un ordre au hasard.
+  const hasard = [...Array(n).keys()].sort(() => Math.random() - 0.5)
+  const action =
+    view.variante === 'plusieurs'
+      ? { type: 'answers', choices: hasard.slice(0, 1 + Math.floor(Math.random() * n)).sort((a, b) => a - b), ...visee }
+      : view.variante === 'ordre'
+        ? { type: 'order', order: hasard, ...visee }
+        : { type: 'answer', choice: Math.floor(Math.random() * n), ...visee }
   setTimeout(() => {
-    socket.emit('player:action', { sessionId, action: { type: 'answer', choice } })
-    console.log(`[${name}] Q${view.qIndex + 1} → réponse ${choice + 1}`)
+    socket.emit('player:action', { sessionId, action })
+    console.log(`[${name}] Q${view.qIndex + 1} → ${JSON.stringify(action)}`)
   }, delay)
 })
 

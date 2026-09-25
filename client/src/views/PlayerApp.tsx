@@ -472,7 +472,11 @@ export function PlayerApp() {
             const libelle =
               action.type === 'answer'
                 ? (vue.answers?.[action.choice] ?? '')
-                : `${formatNumber(action.value)}${vue.unit ? ` ${vue.unit}` : ''}`
+                : action.type === 'guess'
+                  ? `${formatNumber(action.value)}${vue.unit ? ` ${vue.unit}` : ''}`
+                  : (action.type === 'answers' ? action.choices : action.order)
+                      .map(i => vue.answers?.[i] ?? '')
+                      .join(action.type === 'order' ? ' → ' : ', ')
             const numero = ++numeroEnvoi.current
             const suivi = (etat: Envoi['etat'], enFile?: boolean) =>
               setEnvoi(e =>
@@ -483,6 +487,7 @@ export function PlayerApp() {
               round: action.round,
               choice: action.type === 'answer' ? action.choice : undefined,
               value: action.type === 'guess' ? action.value : undefined,
+              choix: action.type === 'answers' ? action.choices : action.type === 'order' ? action.order : undefined,
               etat: 'envoi',
               // Lu au même instant que l'envoi : c'est ce qui dit si socket.io
               // la garde pour la reconnexion.

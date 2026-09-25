@@ -16,6 +16,7 @@ import {
   MAX_QUESTIONS,
   MAX_TEXT,
   MAX_TITRE,
+  MAX_SON_OCTETS,
   MAX_UNIT,
   MIN_DURATION,
   MIN_OBSERVE,
@@ -76,7 +77,7 @@ import {
 import { ApiError, ConflitError, UnauthorizedError, api, auReveil, compressImage } from '../api'
 import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon } from '../brouillon'
 import { questionSizeClass } from '../games/quiz/questionSize'
-import { consigneEstimation } from '../games/quiz/consignes'
+import { CONSIGNE_DES_VARIANTES, consigneEstimation } from '../games/quiz/consignes'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { ecrireCode, lireCode, type EntreeDuCatalogue } from '../../../shared/partage'
 import { formatDay } from '../../../shared/archive'
@@ -2157,10 +2158,15 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
                 <Icon name="eye-off" /> La photo a disparu — de mémoire !
               </p>
             )}
+            {question.kind === 'choice' && question.variante && (
+              <p className="consigne-variante">{espacesFines(CONSIGNE_DES_VARIANTES[question.variante])}</p>
+            )}
             {question.kind === 'number' ? (
               <p className="big-waiting">
-                <Icon name="keyboard" /> {espacesFines(consigneEstimation(question.unit))}
+                <Icon name="keyboard" /> {espacesFines(consigneEstimation(question.unit, question.enDirect))}
               </p>
+            ) : question.variante === 'sondage' ? (
+              <p className="serif-note">Les invités de la salle s’afficheront ici.</p>
             ) : (
               answers.length > 0 && (
                 <div className="ans-grid">
@@ -2693,6 +2699,35 @@ function cibleAffichee(target: number | null): string {
   return target === null ? '' : ecrireNombre(target)
 }
 
+/**
+ * « Plusieurs bonnes réponses », allumé ou éteint : la bonne réponse d'avant
+ * devient la première des bonnes, et la première des bonnes redevient la
+ * bonne — rien de coché ne se perd d'un geste.
+ */
+function basculerPlusieurs(q: QuizQuestionDef): QuizQuestionDef {
+  if (q.variante === 'plusieurs') return { ...q, variante: undefined, bonnes: undefined, correct: q.bonnes?.[0] ?? SANS_BONNE_REPONSE }
+  return { ...q, variante: 'plusieurs', bonnes: q.correct >= 0 ? [q.correct] : [] }
+}
+
+/** Une case cochée ou décochée parmi les bonnes réponses ; la première reste la « bonne » d'un QCM. */
+function cocherBonne(q: QuizQuestionDef, i: number, bonne: boolean): QuizQuestionDef {
+  const bonnes = [...new Set([...(q.bonnes ?? []).filter(b => b !== i), ...(bonne ? [i] : [])])].sort((a, b) => a - b)
+  return { ...q, bonnes, correct: bonnes[0] ?? SANS_BONNE_REPONSE }
+}
+
+/** Ce qu'une case d'ordre attend, de la première à la dernière. */
+const PLACES_DE_L_ORDRE = ['Le premier', 'Le deuxième', 'Le troisième', 'Le quatrième (optionnel)']
+
+/** Un fichier en clair (`data:…`), tel que l'envoi d'image le reçoit. */
+function enClair(fichier: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const lecteur = new FileReader()
+    lecteur.onload = () => (typeof lecteur.result === 'string' ? resolve(lecteur.result) : reject(new Error('Ce fichier ne se lit pas')))
+    lecteur.onerror = () => reject(new Error('Ce fichier ne se lit pas'))
+    lecteur.readAsDataURL(fichier)
+  })
+}
+
 function QuestionCard({
   index,
   total,
@@ -2725,6 +2760,11 @@ function QuestionCard({
   const [deuxCases, setDeuxCases] = useState(() => estVraiFaux(question))
   const vraiFaux =
     deuxCases && question.kind === 'choice' && !question.answers[2]?.trim() && !question.answers[3]?.trim()
+  // Les variantes d'un QCM (`shared/library.ts`, `Variante`).
+  const sondage = question.kind === 'choice' && question.variante === 'sondage'
+  const plusieurs = question.kind === 'choice' && question.variante === 'plusieurs' && !vraiFaux
+  const enOrdre = question.kind === 'choice' && question.variante === 'ordre' && !vraiFaux
+  const qcm = question.kind === 'choice' && !vraiFaux && !sondage
 
   const versVraiFaux = async () => {
     if (vraiFaux) return
@@ -2744,8 +2784,9 @@ function QuestionCard({
     }
     setDeuxCases(true)
     // Rien de coché d'office : « Vrai » pris pour bon parce qu'il est en
-    // premier, c'était le quiz faux de la liste collée, en plus petit.
-    onChange(q => ({ ...q, kind: 'choice', answers: [...VRAI_FAUX, '', ''], correct: SANS_BONNE_REPONSE }))
+    // premier, c'était le quiz faux de la liste collée, en plus petit. Un
+    // vrai ou faux n'a qu'une bonne réponse, et rien à remettre dans l'ordre.
+    onChange(q => ({ ...q, kind: 'choice', variante: undefined, bonnes: undefined, answers: [...VRAI_FAUX, '', ''], correct: SANS_BONNE_REPONSE }))
   }
   // La cible telle qu'on la tape. Relu en nombre à chaque touche, le champ
   // mangeait ce qui n'en est pas encore un : la virgule de « 0,8 » (la cible
@@ -2822,6 +2863,28 @@ function QuestionCard({
     }
   }
   const photoDeRevelation = useRef<HTMLInputElement>(null)
+  const sonInput = useRef<HTMLInputElement>(null)
+  /**
+   * L'extrait d'un blind test, envoyé tel quel : le navigateur ne sait pas
+   * recompresser un son comme une photo, alors on le dit avant l'envoi
+   * plutôt que de laisser le serveur le refuser après une longue attente.
+   */
+  const pickSon = async (file: File | undefined) => {
+    if (!file) return
+    setBusy(true)
+    setImageError('')
+    try {
+      if (!file.type.startsWith('audio/')) throw new Error('Cet extrait ne se lit pas — choisis-le en MP3, M4A, OGG ou WAV')
+      if (file.size > MAX_SON_OCTETS) throw new Error('Extrait trop lourd — coupe-le à une trentaine de secondes (1,5 Mo au plus)')
+      const { url } = await api.uploadImage(await enClair(file))
+      onChange(q => ({ ...q, son: url }))
+    } catch (e) {
+      setImageError((e as Error).message)
+    } finally {
+      setBusy(false)
+      if (sonInput.current) sonInput.current.value = ''
+    }
+  }
   /** Ce qui entoure la question : ouvert d'emblée s'il y a déjà quelque chose. */
   const entourage = [question.anecdote, question.note, question.intertitre, question.imageRevelation].filter(Boolean).length
 
@@ -2873,11 +2936,11 @@ function QuestionCard({
           )}
           <div className="kind-toggle" role="group" aria-label={`Type de la question ${index + 1}`}>
             <button
-              className={'pill-btn' + (question.kind === 'choice' && !vraiFaux ? ' active' : '')}
-              aria-pressed={question.kind === 'choice' && !vraiFaux}
+              className={'pill-btn' + (qcm ? ' active' : '')}
+              aria-pressed={qcm}
               onClick={() => {
                 setDeuxCases(false)
-                onChange(q => ({ ...q, kind: 'choice' }))
+                onChange(q => ({ ...q, kind: 'choice', variante: q.variante === 'sondage' ? undefined : q.variante }))
               }}
             >
               <Icon name="list" />
@@ -2896,6 +2959,20 @@ function QuestionCard({
             <button className={'pill-btn' + (vraiFaux ? ' active' : '')} aria-pressed={vraiFaux} onClick={versVraiFaux}>
               <Icon name="check" />
               Vrai/Faux
+            </button>
+            {/* « Qui dans la salle ? » : les invités sont les réponses, et
+                personne n'a raison — un vote, pour rire. */}
+            <button
+              className={'pill-btn' + (sondage ? ' active' : '')}
+              aria-pressed={sondage}
+              title="Chacun désigne un invité de la soirée, et l’écran montre qui la salle a choisi"
+              onClick={() => {
+                setDeuxCases(false)
+                onChange(q => ({ ...q, kind: 'choice', variante: 'sondage', bonnes: undefined }))
+              }}
+            >
+              <Icon name="users" />
+              Qui dans la salle ?
             </button>
           </div>
         </div>
@@ -2978,21 +3055,27 @@ function QuestionCard({
 
       {question.kind === 'number' ? (
         <div className="number-edit">
-          <label className="row">
-            <span className="muted">Bonne réponse</span>
-            <input
-              className="input"
-              type="text"
-              inputMode="decimal"
-              placeholder="Ex. 1994"
-              value={cible}
-              onChange={e => {
-                const target = lireNombre(e.target.value)
-                setCible(e.target.value)
-                onChange(q => ({ ...q, target }))
-              }}
-            />
-          </label>
+          {question.enDirect ? (
+            <p className="muted en-direct-note">
+              {espacesFines('La bonne réponse se tape à la révélation, une fois mesurée : le poids du gâteau, les bonbons du bocal.')}
+            </p>
+          ) : (
+            <label className="row">
+              <span className="muted">Bonne réponse</span>
+              <input
+                className="input"
+                type="text"
+                inputMode="decimal"
+                placeholder="Ex. 1994"
+                value={cible}
+                onChange={e => {
+                  const target = lireNombre(e.target.value)
+                  setCible(e.target.value)
+                  onChange(q => ({ ...q, target }))
+                }}
+              />
+            </label>
+          )}
           <label className="row">
             <span className="muted">Unité</span>
             <input
@@ -3003,30 +3086,71 @@ function QuestionCard({
               onChange={e => onChange(q => ({ ...q, unit: e.target.value }))}
             />
           </label>
+          <div className="row">
+            <button
+              type="button"
+              className={'pill-btn' + (question.enDirect ? ' active' : '')}
+              aria-pressed={!!question.enDirect}
+              title="La bonne réponse se mesure pendant la soirée : tu la taperas à la révélation"
+              onClick={() => onChange(q => ({ ...q, enDirect: !q.enDirect || undefined }))}
+            >
+              <Icon name="target" />
+              En direct
+            </button>
+          </div>
           <p className="muted">
             Personne n'est bloqué : chacun propose un nombre, et plus il tombe près, plus il rapporte — la même
             distance, les mêmes points.
           </p>
         </div>
+      ) : sondage ? (
+        <p className="muted sondage-note">
+          {espacesFines(
+            'Les réponses sont les invités de la soirée : chacun désigne quelqu’un sur son téléphone, et l’écran montre qui la salle a choisi. Pour rire : aucun point.',
+          )}
+        </p>
       ) : (
-      <div className="answers-edit">
+      <div className={'answers-edit' + (enOrdre ? ' en-ordre' : '')}>
+        {enOrdre && (
+          <p className="muted small answers-consigne">{espacesFines('Écris-les dans le bon ordre : elles s’afficheront mélangées.')}</p>
+        )}
         {/* Un vrai ou faux n'a que ses deux cases. */}
         {Array.from({ length: vraiFaux ? 2 : MAX_ANSWERS }, (_, i) => (
-          <label key={i} className={`answer-edit ans-${i}` + (question.correct === i ? ' is-correct' : '')}>
-            <input
-              type="radio"
-              name={`correct-${index}`}
-              checked={question.correct === i}
-              onChange={() => onChange(q => ({ ...q, correct: i }))}
-              title="Bonne réponse"
-              aria-label={`La réponse ${i + 1} est la bonne`}
-            />
-            <Shape index={i} />
+          <label
+            key={i}
+            className={
+              `answer-edit ans-${i}` +
+              ((plusieurs ? !!question.bonnes?.includes(i) : !enOrdre && question.correct === i) ? ' is-correct' : '')
+            }
+          >
+            {enOrdre ? (
+              <span className="rang-ordre" aria-hidden="true">
+                {i + 1}
+              </span>
+            ) : plusieurs ? (
+              <input
+                type="checkbox"
+                checked={!!question.bonnes?.includes(i)}
+                onChange={e => onChange(q => cocherBonne(q, i, e.target.checked))}
+                title="Bonne réponse"
+                aria-label={`La réponse ${i + 1} est bonne`}
+              />
+            ) : (
+              <input
+                type="radio"
+                name={`correct-${index}`}
+                checked={question.correct === i}
+                onChange={() => onChange(q => ({ ...q, correct: i }))}
+                title="Bonne réponse"
+                aria-label={`La réponse ${i + 1} est la bonne`}
+              />
+            )}
+            {!enOrdre && <Shape index={i} />}
             <input
               className="input"
               maxLength={MAX_ANSWER_TEXT}
-              aria-label={`Réponse ${i + 1}`}
-              placeholder={i < 2 ? `Réponse ${i + 1}` : `Réponse ${i + 1} (optionnelle)`}
+              aria-label={enOrdre ? `Élément ${i + 1} de l’ordre` : `Réponse ${i + 1}`}
+              placeholder={enOrdre ? PLACES_DE_L_ORDRE[i] : i < 2 ? `Réponse ${i + 1}` : `Réponse ${i + 1} (optionnelle)`}
               value={question.answers[i] ?? ''}
               onChange={e =>
                 onChange(q => {
@@ -3044,18 +3168,42 @@ function QuestionCard({
       {/* Dans un quiz qui mélange ses réponses, celles qui ont un ordre —
           « Aucune de ces réponses » en dernier — le gardent. Un vrai ou faux
           le garde toujours, et des nombres se rangent d'eux-mêmes. */}
-      {melange && question.kind === 'choice' && !vraiFaux && (
-        <div className="row">
+      {qcm && (
+        <div className="row variantes" role="group" aria-label={`Sorte du QCM ${index + 1}`}>
           <button
             type="button"
-            className={'pill-btn' + (question.ordreFixe ? ' active' : '')}
-            aria-pressed={!!question.ordreFixe}
-            title="Les réponses de cette question restent dans l'ordre écrit"
-            onClick={() => onChange(q => ({ ...q, ordreFixe: !q.ordreFixe || undefined }))}
+            className={'pill-btn' + (plusieurs ? ' active' : '')}
+            aria-pressed={plusieurs}
+            title="Plusieurs réponses sont bonnes : il faut les cocher toutes, et elles seules"
+            onClick={() => onChange(basculerPlusieurs)}
           >
-            <Icon name="lock" />
-            Garder cet ordre
+            <Icon name="check-circle" />
+            Plusieurs bonnes réponses
           </button>
+          <button
+            type="button"
+            className={'pill-btn' + (enOrdre ? ' active' : '')}
+            aria-pressed={enOrdre}
+            title="Les réponses, écrites dans le bon ordre, s’affichent mélangées : chacun les remet dans l’ordre"
+            onClick={() => onChange(q => ({ ...q, variante: q.variante === 'ordre' ? undefined : 'ordre', bonnes: undefined }))}
+          >
+            <Icon name="list" />
+            À remettre dans l’ordre
+          </button>
+          {/* L'ordre à retrouver se mélange toujours : « Garder cet ordre »
+              n'y voudrait rien dire. */}
+          {melange && !enOrdre && (
+            <button
+              type="button"
+              className={'pill-btn' + (question.ordreFixe ? ' active' : '')}
+              aria-pressed={!!question.ordreFixe}
+              title="Les réponses de cette question restent dans l'ordre écrit"
+              onClick={() => onChange(q => ({ ...q, ordreFixe: !q.ordreFixe || undefined }))}
+            >
+              <Icon name="lock" />
+              Garder cet ordre
+            </button>
+          )}
         </div>
       )}
 
@@ -3111,6 +3259,27 @@ function QuestionCard({
           )}
         </label>
 
+        {/* Le blind test : un extrait que l'écran commun joue pendant la
+            question — jamais les téléphones. */}
+        <input ref={sonInput} type="file" accept="audio/*" hidden onChange={e => pickSon(e.target.files?.[0])} />
+        {question.son ? (
+          <div className="row extrait-edit">
+            <audio className="extrait-audio" controls preload="none" src={question.son} aria-label="L’extrait de la question" />
+            <button className="btn btn-ghost btn-small" onClick={() => onChange(q => ({ ...q, son: null }))}>
+              Retirer l’extrait
+            </button>
+          </div>
+        ) : (
+          <button
+            className="btn btn-small"
+            disabled={busy}
+            title="Un extrait que l’écran commun joue pendant la question : un blind test"
+            onClick={() => sonInput.current?.click()}
+          >
+            <Icon name="music" />
+            Ajouter un son
+          </button>
+        )}
         <input
           ref={fileInput}
           type="file"

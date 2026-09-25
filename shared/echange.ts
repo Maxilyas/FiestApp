@@ -13,8 +13,8 @@
 // ses appels réseau en paramètre, pour que le navigateur et les tests passent
 // par le même chemin.
 
-import type { QuizDef, QuizQuestionDef } from './library'
-import { titreLibre } from './library'
+import type { PieceDeQuestion, QuizDef, QuizQuestionDef } from './library'
+import { PIECES_DE_QUESTION, SON_MIMES, titreLibre } from './library'
 import { normaliserReglages, type ReglagesDuQuiz } from './hasard'
 
 /** Ce qui dit, en tête du fichier, que c'est bien un quiz de l'application. */
@@ -31,13 +31,22 @@ export const POIDS_MAX_FICHIER = 200 * 1024 * 1024
 
 /** Une photo telle qu'elle voyage : en clair, dans un format que le serveur accepte. */
 const PHOTO = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/
+/** Un extrait du blind test, de même. */
+const SON = new RegExp(`^data:(${SON_MIMES.map(m => m.replace(/[/+.-]/g, '\\$&')).join('|')});base64,[A-Za-z0-9+/=]+$`)
+/** Ce qu'une pièce doit être pour être reprise. */
+const FORME: Record<PieceDeQuestion, RegExp> = { image: PHOTO, imageRevelation: PHOTO, son: SON }
 
 export interface QuizEmporte {
   format: typeof FORMAT_QUIZ
   version: number
   titre: string
-  /** Les questions, leur photo en clair (`data:image/…`) au lieu de son adresse. */
-  questions: (Omit<QuizQuestionDef, 'id' | 'image'> & { image: string | null })[]
+  /**
+   * Les questions, leurs pièces en clair (`data:image/…`, `data:audio/…`) au
+   * lieu de leur adresse : la photo, celle de la révélation, l'extrait. Une
+   * version d'avant qui lit ce fichier garde la photo et laisse les deux
+   * autres : elles ne passent pas sa relecture des questions.
+   */
+  questions: (Omit<QuizQuestionDef, 'id' | PieceDeQuestion> & { image: string | null } & { [k in Exclude<PieceDeQuestion, 'image'>]?: string | null })[]
   /** Les réglages du quiz — absents d'un fichier d'avant, qui se joue alors tel qu'écrit. */
   reglages?: ReglagesDuQuiz
 }
@@ -65,24 +74,34 @@ export async function emporterQuiz(
   // Une même photo peut servir à plusieurs questions : on ne la lit qu'une fois.
   const enClair = new Map<string, string | null>()
   for (const q of quiz.questions) {
-    if (q.image && !enClair.has(q.image)) enClair.set(q.image, await lirePhoto(q.image).catch(() => null))
+    for (const champ of PIECES_DE_QUESTION) {
+      const adresse = q[champ]
+      if (adresse && !enClair.has(adresse)) enClair.set(adresse, await lirePhoto(adresse).catch(() => null))
+    }
   }
   return {
     format: FORMAT_QUIZ,
     version: VERSION_QUIZ,
     titre: quiz.title,
-    questions: quiz.questions.map(({ id: _id, image, ...q }) => ({ ...q, image: image ? (enClair.get(image) ?? null) : null })),
+    questions: quiz.questions.map(({ id: _id, image, imageRevelation, son, ...q }) => ({
+      ...q,
+      image: image ? (enClair.get(image) ?? null) : null,
+      ...(imageRevelation && { imageRevelation: enClair.get(imageRevelation) ?? null }),
+      ...(son && { son: enClair.get(son) ?? null }),
+    })),
     ...(quiz.reglages && Object.keys(quiz.reglages).length > 0 && { reglages: quiz.reglages }),
   }
 }
 
 export interface QuizDeballe {
   titre: string
-  /** Les questions sans leur photo : elle ne vaut qu'une fois envoyée au serveur. */
+  /** Les questions sans leurs pièces : elles ne valent qu'une fois envoyées au serveur. */
   questions: Record<string, unknown>[]
   /** La photo en clair de chaque question, dans le même ordre, ou null. */
   photos: (string | null)[]
-  /** Les photos qu'on n'a pas su reprendre : ni JPEG, ni PNG, ni WebP. */
+  /** Ses autres pièces en clair, dans le même ordre : la photo de la révélation, l'extrait. */
+  autresPieces: { [k in Exclude<PieceDeQuestion, 'image'>]?: string }[]
+  /** Les pièces qu'on n'a pas su reprendre : ni JPEG, ni PNG, ni WebP — ni un extrait qu'on sache jouer. */
   photosIgnorees: number
   reglages: ReglagesDuQuiz
 }
@@ -101,19 +120,23 @@ export function deballerQuiz(brut: unknown): QuizDeballe | { erreur: string } {
   let photosIgnorees = 0
   const questions: Record<string, unknown>[] = []
   const photos: (string | null)[] = []
+  const autresPieces: QuizDeballe['autresPieces'] = []
   for (const q of f.questions) {
     const question = q && typeof q === 'object' ? { ...(q as Record<string, unknown>) } : {}
-    const image = question.image
-    delete question.image
     delete question.id
-    if (typeof image === 'string' && PHOTO.test(image)) photos.push(image)
-    else {
-      if (image !== null && image !== undefined) photosIgnorees++
-      photos.push(null)
+    const pieces: Partial<Record<PieceDeQuestion, string>> = {}
+    for (const champ of PIECES_DE_QUESTION) {
+      const piece = question[champ]
+      delete question[champ]
+      if (typeof piece === 'string' && FORME[champ].test(piece)) pieces[champ] = piece
+      else if (piece !== null && piece !== undefined) photosIgnorees++
     }
+    const { image, ...autres } = pieces
+    photos.push(image ?? null)
+    autresPieces.push(autres)
     questions.push(question)
   }
-  return { titre, questions, photos, photosIgnorees, reglages: normaliserReglages(f.reglages) }
+  return { titre, questions, photos, autresPieces, photosIgnorees, reglages: normaliserReglages(f.reglages) }
 }
 
 /**
@@ -135,12 +158,19 @@ export async function importerQuiz<T>(
   // Une à une, et une seule fois chacune : cinquante photos envoyées d'un
   // coup satureraient la connexion, et le serveur gratuit avec.
   const adresses = new Map<string, string>()
-  for (const photo of deballe.photos) {
-    if (photo && !adresses.has(photo)) adresses.set(photo, await portes.envoyerPhoto(photo))
+  const aEnvoyer = [...deballe.photos, ...deballe.autresPieces.flatMap(p => Object.values(p))]
+  for (const piece of aEnvoyer) {
+    if (piece && !adresses.has(piece)) adresses.set(piece, await portes.envoyerPhoto(piece))
   }
   const questions = deballe.questions.map((q, i) => {
     const photo = deballe.photos[i]
-    return { ...q, image: photo ? adresses.get(photo)! : null }
+    const { imageRevelation, son } = deballe.autresPieces[i]
+    return {
+      ...q,
+      image: photo ? adresses.get(photo)! : null,
+      ...(imageRevelation && { imageRevelation: adresses.get(imageRevelation)! }),
+      ...(son && { son: adresses.get(son)! }),
+    }
   })
   const quiz = await portes.creer(titreLibre(deballe.titre, portes.titresPris ?? []), questions, deballe.reglages)
   return { quiz, questions: questions.length, photos: adresses.size, photosIgnorees: deballe.photosIgnorees }

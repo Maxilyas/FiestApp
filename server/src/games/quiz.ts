@@ -18,6 +18,7 @@ import type {
   Visee,
   LancementDeQuiz,
   ProgrammeDuSoir,
+  VoteDeSondage,
 } from '../../../shared/games/quiz'
 
 interface QuizPack {
@@ -37,10 +38,19 @@ interface Response {
   value: number | null
   /** Nombre de fois où il s'est ravisé — un prix récompense les hésitants. */
   changes: number
+  /** « Plusieurs » : les cases cochées ; « ordre » : l'ordre choisi. */
+  choix?: number[]
 }
 
 interface QuizState {
-  phase: 'pickPack' | 'getReady' | 'intertitre' | 'observe' | 'question' | 'reveal' | 'finished'
+  phase: 'pickPack' | 'getReady' | 'intertitre' | 'observe' | 'question' | 'cible' | 'reveal' | 'finished'
+  /**
+   * « Qui dans la salle ? » : les invités qu'on peut désigner, figés quand la
+   * question est posée — un arrivant ne déplace pas les votes des autres.
+   */
+  candidats?: string[]
+  /** Estimation en direct : l'animateur a tapé la cible de la question en cours. */
+  cibleSaisie?: boolean
   packs: QuizPackInfo[]
   /** Le programme de ce soir, tel qu'il était au lancement (écrans d'animateur seulement). */
   programme?: ProgrammeDuSoir
@@ -341,6 +351,13 @@ function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: Game
   st.responses = {}
   st.lastAwards = {}
   st.pausedMs = null
+  st.cibleSaisie = false
+  // « Qui dans la salle ? » : ceux qui peuvent jouer cette question, dans
+  // l'ordre d'arrivée — soixante au plus, une liste qui se parcourt encore au doigt.
+  st.candidats =
+    q.kind === 'choice' && q.variante === 'sondage'
+      ? sess.participantIds.filter(id => (st.playFrom[id] ?? 0) <= index).slice(0, MAX_CANDIDATS)
+      : undefined
   // Revenu en ligne, on l'attend de nouveau — à partir de cette question-ci,
   // jamais au milieu de celle où il revient : la salle n'a pas à réattendre
   // pour une question déjà presque jouée. Ne plus l'attendre est un choix de
@@ -406,6 +423,13 @@ function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext, auClic = fals
   ctx.clearTimer('question')
   ctx.clearTimer('observe')
   ctx.clearTimer('settle')
+  // Une estimation en direct se ferme, puis attend que l'animateur tape la
+  // bonne réponse : le poids du gâteau ne se connaît qu'une fois pesé.
+  const posee = st.pack!.questions[st.qIndex]
+  if (posee.kind === 'number' && posee.enDirect && !st.cibleSaisie) {
+    st.phase = 'cible'
+    return
+  }
   st.phase = 'reveal'
   st.lastAwards = {}
   // L'enchaînement s'arme quelle que soit la cause de la révélation : fin du
@@ -431,9 +455,11 @@ function scoreQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   const q = st.pack!.questions[st.qIndex]
 
   if (q.kind === 'choice') {
+    // « Qui dans la salle ? » ne rapporte rien : rien n'y est juste.
+    if (q.variante === 'sondage') return
     const lectureMs = tempsDeLecture(q)
     for (const [playerId, r] of Object.entries(st.responses)) {
-      award(sess, playerId, r.choice === q.correct ? pointsDuChoix(r.ms, q.duration * 1000, lectureMs) : 0, ctx)
+      award(sess, playerId, reponseJuste(q, r) ? pointsDuChoix(r.ms, q.duration * 1000, lectureMs) : 0, ctx)
     }
     return
   }
@@ -447,6 +473,32 @@ function scoreQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   if (guesses.length === 0) return
   const points = pointsDesEstimations(q.target, guesses.map(([, r]) => r.value!))
   guesses.forEach(([playerId], i) => award(sess, playerId, points[i], ctx))
+}
+
+/** Soixante invités au plus à désigner : au-delà, la liste ne se parcourt plus au doigt. */
+const MAX_CANDIDATS = 60
+
+/**
+ * Juste ou non : la bonne case pour un QCM ; toutes les bonnes, et elles
+ * seules, pour « plusieurs » ; le bon ordre entier pour « ordre » — tout ou
+ * rien, payé comme un QCM. Un sondage n'a rien de juste.
+ */
+function reponseJuste(q: PlayableQuestion, r: Response | undefined): boolean {
+  if (!r || q.kind !== 'choice') return false
+  if (q.variante === 'sondage') return false
+  if (q.variante === 'plusieurs' || q.variante === 'ordre') {
+    const attendu = q.variante === 'plusieurs' ? q.bonnes : q.ordre
+    return !!r.choix && !!attendu && r.choix.length === attendu.length && r.choix.every((c, i) => c === attendu[i])
+  }
+  return r.choice === q.correct
+}
+
+/** Des index envoyés par un téléphone : chacun une fois, tous dans les réponses — ou null. */
+function lireIndex(brut: unknown, n: number): number[] | null {
+  if (!Array.isArray(brut) || brut.length === 0 || brut.length > n) return null
+  const lus = brut.map(Number)
+  if (lus.some(i => !Number.isInteger(i) || i < 0 || i >= n) || new Set(lus).size !== lus.length) return null
+  return lus
 }
 
 /**
@@ -610,6 +662,53 @@ function podiumDe(sess: GameSessionRec<QuizState>, vctx: ViewContext, playerId: 
   return i >= 0 ? { yourPodiumIndex: i } : {}
 }
 
+/**
+ * Les réponses telles que la question les montre : les invités d'un
+ * sondage — leur nom affiché, marque d'homonymie comprise (invariant 17) —,
+ * ou celles écrites.
+ */
+function reponsesMontrees(sess: GameSessionRec<QuizState>, q: PlayableQuestion, vctx: ViewContext): string[] | undefined {
+  if (q.kind !== 'choice') return undefined
+  // Soixante noms pour chaque téléphone de la salle : lus une fois par diffusion.
+  if (q.variante === 'sondage') return vctx.memo('quiz:candidats', () => (sess.state.candidats ?? []).map(id => vctx.playerName(id)))
+  return q.answers
+}
+
+/**
+ * Une estimation en direct annulée avant d'être mesurée n'a pas de cible :
+ * la sienne vaut zéro dans la copie jouée, et « 0 kg » à l'écran serait faux.
+ */
+function cibleInconnue(st: QuizState, q: PlayableQuestion): boolean {
+  return q.kind === 'number' && !!q.enDirect && !st.cibleSaisie
+}
+
+/** Combien ont désigné chaque réponse — pour « plusieurs », chaque case cochée compte. */
+function compteParReponse(sess: GameSessionRec<QuizState>, q: PlayableQuestion & { kind: 'choice' }): number[] {
+  const reponses = Object.values(sess.state.responses)
+  const n = q.variante === 'sondage' ? (sess.state.candidats?.length ?? 0) : q.answers.length
+  return Array.from({ length: n }, (_, i) => {
+    if (q.variante === 'plusieurs') return reponses.filter(r => r.choix?.includes(i)).length
+    // « Ordre » : ceux qui ont mis cette réponse à sa bonne place.
+    if (q.variante === 'ordre') return reponses.filter(r => r.choix?.[q.ordre!.indexOf(i)] === i).length
+    return reponses.filter(r => r.choice === i).length
+  })
+}
+
+/** « Qui dans la salle ? » : les invités les plus désignés, puis par nom — le même pour toute la salle. */
+function votesDuSondage(sess: GameSessionRec<QuizState>, vctx: ViewContext, limite: number): VoteDeSondage[] {
+  const candidats = sess.state.candidats ?? []
+  const comptes = compteParReponse(sess, sess.state.pack!.questions[sess.state.qIndex] as PlayableQuestion & { kind: 'choice' })
+  return candidats
+    // Un invité exclu depuis n'est plus à désigner : ses votes reçus partent avec lui.
+    .flatMap((id, i) => {
+      const joueur = vctx.player(id)
+      return joueur ? [{ name: vctx.playerName(id), avatar: joueur.avatar, votes: comptes[i] ?? 0 }] : []
+    })
+    .filter(v => v.votes > 0)
+    .sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name, 'fr'))
+    .slice(0, limite)
+}
+
 /** Les propositions d'une question « estimation », de la plus proche à la plus loin. */
 function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewContext, limit: number): QuizGuessRow[] {
   const st = sess.state
@@ -650,21 +749,27 @@ function logQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   const st = sess.state
   const q = st.pack!.questions[st.qIndex]
   const durationMs = q.duration * 1000
+  // Un sondage n'a ni juste ni faux : écrit au journal, il ferait baisser la
+  // précision de ceux qui ont voté, et monter l'assiduité de rien.
+  if (q.kind === 'choice' && q.variante === 'sondage') return
+  // « Plusieurs » et « ordre » disent juste ou faux ; leurs cases n'ont pas
+  // de place dans la colonne d'une seule réponse, qui compte la répartition.
+  const variante = q.kind === 'choice' && !!q.variante
 
   ctx.logAnswers(
     sess.participantIds
       .filter(playerId => (st.playFrom[playerId] ?? 0) <= st.qIndex)
       .map(playerId => {
         const r = st.responses[playerId]
-        const answered = !!r && (r.choice !== null || r.value !== null)
+        const answered = !!r && (r.choice !== null || r.value !== null || (r.choix?.length ?? 0) > 0)
         return {
           quizTitle: st.pack!.title,
           qIndex: st.qIndex,
           kind: q.kind,
           playerId,
           answered,
-          correct: q.kind === 'choice' && answered ? r!.choice === q.correct : null,
-          choice: r?.choice ?? null,
+          correct: q.kind === 'choice' && answered ? reponseJuste(q, r) : null,
+          choice: variante ? null : (r?.choice ?? null),
           value: r?.value ?? null,
           target: q.kind === 'number' ? q.target : null,
           ms: answered ? r!.ms : null,
@@ -755,15 +860,35 @@ export const quizModule: GameModule<QuizState> = {
     // s'assurer le bonus de rapidité, puis la corriger tranquillement.
     // Se raviser coûte donc du bonus — ce qui est exactement le compromis
     // qu'on veut.
-    if (action?.type === 'answer' && q.kind === 'choice') {
+    if (action?.type === 'answer' && q.kind === 'choice' && (!q.variante || q.variante === 'sondage')) {
       const choice = Number(action.choice)
-      if (!Number.isInteger(choice) || choice < 0 || choice >= q.answers.length) return 'invalid'
+      // Un sondage désigne un invité parmi ceux de la question.
+      const n = q.variante === 'sondage' ? (st.candidats?.length ?? 0) : q.answers.length
+      if (!Number.isInteger(choice) || choice < 0 || choice >= n) return 'invalid'
       const before = st.responses[playerId]
       // Rien à réécrire, mais la réponse est bien celle-là : c'est un succès.
       // Le joueur qui retape la même case parce qu'il doute doit être confirmé.
       if (before?.choice === choice) return
       st.responses[playerId] = {
         choice,
+        value: null,
+        ms: ctx.now() - st.questionStartAt,
+        changes: (before?.changes ?? -1) + 1,
+      }
+    } else if (
+      (action?.type === 'answers' && q.kind === 'choice' && q.variante === 'plusieurs') ||
+      (action?.type === 'order' && q.kind === 'choice' && q.variante === 'ordre')
+    ) {
+      const brut = action.type === 'answers' ? action.choices : action.order
+      const lus = lireIndex(brut, q.answers.length)
+      // Cochées : un ensemble, rangé ; un ordre : une suite complète.
+      const choix = lus && (action.type === 'answers' ? [...lus].sort((a, b) => a - b) : lus.length === q.answers.length ? lus : null)
+      if (!choix) return 'invalid'
+      const before = st.responses[playerId]
+      if (before?.choix && before.choix.length === choix.length && before.choix.every((c, i) => c === choix[i])) return
+      st.responses[playerId] = {
+        choice: null,
+        choix,
         value: null,
         ms: ctx.now() - st.questionStartAt,
         changes: (before?.changes ?? -1) + 1,
@@ -837,16 +962,20 @@ export const quizModule: GameModule<QuizState> = {
       case 'cancel': {
         // Confirmée après que la partie a avancé — la boîte de dialogue était
         // restée ouverte —, elle retirerait les points de la question suivante.
-        if (st.phase !== 'reveal' || perimee(st, command)) return
+        if ((st.phase !== 'reveal' && st.phase !== 'cible') || perimee(st, command)) return
         // L'animateur reprend la main : un enchaînement programmé ne doit pas
         // emporter la question qu'il est en train de corriger.
         ctx.clearTimer('autoNext')
         st.autoNextAt = null
+        // Une estimation en direct qu'on ne mesurera pas — le gâteau est
+        // mangé : elle se révèle annulée, sans cible ni points, au lieu de
+        // bloquer la partie devant un champ vide.
+        if (st.phase === 'cible') st.phase = 'reveal'
         cancelQuestion(sess, ctx)
         break
       }
       case 'replay': {
-        if (st.phase !== 'reveal' || !st.pack || perimee(st, command)) return
+        if ((st.phase !== 'reveal' && st.phase !== 'cible') || !st.pack || perimee(st, command)) return
         ctx.clearTimer('autoNext')
         st.autoNextAt = null
         cancelQuestion(sess, ctx)
@@ -894,6 +1023,17 @@ export const quizModule: GameModule<QuizState> = {
           st.autoNextAt = ctx.now() + st.autoNextSeconds * 1000
           ctx.setTimer('autoNext', st.autoNextSeconds * 1000)
         }
+        break
+      }
+      case 'cible': {
+        if (st.phase !== 'cible' || !st.pack || perimee(st, command)) return
+        const q = st.pack.questions[st.qIndex]
+        const valeur = Number(command.value)
+        if (q.kind !== 'number' || !Number.isFinite(valeur)) throw new Error('Tape la bonne réponse en chiffres')
+        // La copie jouée prend la cible : le journal, le bilan et l'archive la liront.
+        st.pack.questions[st.qIndex] = { ...q, target: valeur }
+        st.cibleSaisie = true
+        reveal(sess, ctx, true)
         break
       }
       case 'nePlusAttendre': {
@@ -951,9 +1091,11 @@ export const quizModule: GameModule<QuizState> = {
   },
 
   // Pendant la question — en pause comprise —, une réponse donnée n'est pas
-  // encore jugée : elle le sera à la révélation, qui la paie.
+  // encore jugée : elle le sera à la révélation, qui la paie. Une estimation
+  // en direct attend encore sa cible : sa réponse n'est pas jugée non plus.
   reponseEnSuspens(sess, playerId) {
-    return sess.state.phase === 'question' && playerId in sess.state.responses
+    const phase = sess.state.phase
+    return (phase === 'question' || phase === 'cible') && playerId in sess.state.responses
   },
 
   playerView(sess, playerId, vctx): QuizPlayerView {
@@ -966,8 +1108,14 @@ export const quizModule: GameModule<QuizState> = {
       qCount: st.pack?.questions.length ?? 0,
       yourChoice: mine?.choice ?? null,
       yourGuess: mine?.value ?? null,
+      ...(mine?.choix && { yourChoices: mine.choix }),
     }
     if (st.phase === 'getReady') return { ...base, deadline: st.deadline }
+    // Une estimation en direct est close : la bonne réponse se mesure encore.
+    if (st.phase === 'cible' && st.pack) {
+      const q = st.pack.questions[st.qIndex]
+      return { ...base, kind: q.kind, text: q.text, unit: q.kind === 'number' ? q.unit : undefined }
+    }
     // L'intertitre ne dit rien de la question : il part à toute la salle.
     if (st.phase === 'intertitre' && st.pack) return { ...base, intertitre: st.pack.questions[st.qIndex].intertitre }
     // Observation : la photo, et rien d'autre. Ni l'intitulé ni les réponses ne
@@ -988,7 +1136,8 @@ export const quizModule: GameModule<QuizState> = {
         ...base,
         kind: q.kind,
         text: q.text,
-        answers: q.kind === 'choice' ? q.answers : undefined,
+        answers: reponsesMontrees(sess, q, vctx),
+        ...(q.kind === 'choice' && q.variante && { variante: q.variante }),
         unit: q.kind === 'number' ? q.unit : undefined,
         category: q.category ?? undefined,
         // Photo « mémoire » : elle a disparu, et son URL avec elle. Elle
@@ -1005,7 +1154,12 @@ export const quizModule: GameModule<QuizState> = {
           ...(q.imageRevelation && { imageRevelation: q.imageRevelation }),
           justArrived: (st.playFrom[playerId] ?? 0) > st.qIndex,
           correct: q.kind === 'choice' ? q.correct : undefined,
-          target: q.kind === 'number' ? q.target : undefined,
+          ...(q.kind === 'choice' && q.variante === 'plusieurs' && { bonnes: q.bonnes }),
+          ...(q.kind === 'choice' && q.variante === 'ordre' && { ordre: q.ordre }),
+          ...(q.kind === 'choice' && (q.variante === 'plusieurs' || q.variante === 'ordre') && { yourCorrect: reponseJuste(q, mine) }),
+          // Le même classement des votes pour toute la salle : calculé une fois par diffusion.
+          ...(q.kind === 'choice' && q.variante === 'sondage' && { votes: vctx.memo('quiz:votes', () => votesDuSondage(sess, vctx, 3)) }),
+          target: q.kind === 'number' && !cibleInconnue(st, q) ? q.target : undefined,
           yourPoints: playerId in st.lastAwards ? st.lastAwards[playerId] : null,
           ...(st.cancelled && { cancelled: true }),
           yourQuizTotal: st.totals[playerId] ?? 0,
@@ -1040,6 +1194,20 @@ export const quizModule: GameModule<QuizState> = {
     }
     if (st.phase === 'pickPack') return { ...base, packs: st.packs, ...(st.programme && { programme: st.programme }) }
     if (st.phase === 'getReady') return { ...base, deadline: st.deadline }
+    // L'estimation en direct attend sa cible : la console la demande.
+    if (st.phase === 'cible' && st.pack) {
+      const q = st.pack.questions[st.qIndex]
+      return {
+        ...base,
+        kind: q.kind,
+        text: q.text,
+        unit: q.kind === 'number' ? q.unit : undefined,
+        enDirect: true,
+        ...(q.note && { note: q.note }),
+        answeredCount: Object.keys(st.responses).length,
+        participantCount: sess.participantIds.length,
+      }
+    }
     if (st.phase === 'intertitre' && st.pack) {
       const q = st.pack.questions[st.qIndex]
       return {
@@ -1072,7 +1240,11 @@ export const quizModule: GameModule<QuizState> = {
         ...base,
         kind: q.kind,
         text: q.text,
-        answers: q.kind === 'choice' ? q.answers : undefined,
+        answers: reponsesMontrees(sess, q, vctx),
+        ...(q.kind === 'choice' && q.variante && { variante: q.variante }),
+        ...(q.kind === 'number' && q.enDirect && { enDirect: true }),
+        // Le blind test : l'écran commun joue l'extrait pendant la question.
+        ...(q.son && st.phase === 'question' && { son: q.son }),
         unit: q.kind === 'number' ? q.unit : undefined,
         category: q.category ?? undefined,
         image: hiddenPhoto(q, st.phase) ? null : q.image,
@@ -1097,17 +1269,18 @@ export const quizModule: GameModule<QuizState> = {
       if (st.phase === 'reveal') {
         if (q.kind === 'choice') {
           view.correct = q.correct
-          view.counts = q.answers.map(
-            (_, i) => Object.values(st.responses).filter(r => r.choice === i).length,
-          )
+          view.counts = compteParReponse(sess, q)
+          if (q.variante === 'plusieurs') view.bonnes = q.bonnes
+          if (q.variante === 'ordre') view.ordre = q.ordre
+          if (q.variante === 'sondage') view.votes = votesDuSondage(sess, vctx, 8)
           let fastest: { name: string; ms: number } | null = null
           for (const [playerId, r] of Object.entries(st.responses)) {
-            if (r.choice === q.correct && (!fastest || r.ms < fastest.ms)) {
+            if (reponseJuste(q, r) && (!fastest || r.ms < fastest.ms)) {
               fastest = { name: vctx.playerName(playerId), ms: r.ms }
             }
           }
           view.fastest = fastest
-        } else {
+        } else if (!cibleInconnue(st, q)) {
           view.target = q.target
           view.guesses = guessRows(sess, q.target, vctx, 8)
         }

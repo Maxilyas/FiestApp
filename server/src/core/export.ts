@@ -12,6 +12,7 @@ import { rang } from '../../../shared/typographie'
 import { classer } from '../../../shared/classement'
 import {
   answerLabel,
+  bonneReponseEnMots,
   formatPercent,
   formatSeconds,
   questionLabel,
@@ -228,7 +229,9 @@ export function exportFiles(review: Review): { name: string; content: string }[]
             const near = a.proximityRank !== null ? ` · ${rang(a.proximityRank)} estimation la plus proche` : ''
             return `${a.value} ${q.unit} (vrai : ${q.target ?? '?'})${near}${when} · ${a.points} pts`
           }
-          return `${answerLabel(q, a.choice)} ${a.correct ? '✔' : '✘'}${when} · ${a.points} pts`
+          // « Plusieurs » et « ordre » : le journal dit juste ou faux, pas les cases.
+          const reponse = q.variante ? (a.correct ? 'Tout juste' : 'Raté') : answerLabel(q, a.choice)
+          return `${reponse} ${a.correct ? '✔' : '✘'}${when} · ${a.points} pts`
         }),
       ]
     }),
@@ -247,7 +250,7 @@ export function exportFiles(review: Review): { name: string; content: string }[]
       return [
         q.order, q.quizTitle, q.text + note,
         q.kind === 'number' ? 'Estimation' : 'QCM',
-        q.kind === 'number' ? `${q.target ?? '?'} ${q.unit}`.trim() : answerLabel(q, q.correct),
+        q.kind === 'number' ? `${q.target ?? '?'} ${q.unit}`.trim() : bonneReponseEnMots(q),
         q.asked, q.answered, q.kind === 'number' ? '' : q.correctCount,
         q.kind === 'number' ? '' : pct(q.answered ? q.correctCount / q.answered : null),
         secs(q.avgMs),

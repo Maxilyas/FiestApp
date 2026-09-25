@@ -6,7 +6,7 @@
 // résument chaque joueur en dix-huit chiffres, le bilan garde le détail
 // question par question — c'est lui qu'on relit le lendemain.
 import type { ArchiveSummary, DerniereSoiree } from './archive'
-import type { QuestionKind } from './library'
+import type { QuestionKind, Variante } from './library'
 import type { PublicSpace } from './space'
 import type { PlayerStat, PublicTeam, TeamBonus } from './types'
 
@@ -43,6 +43,14 @@ export interface ReviewQuestion {
   answers: string[]
   /** QCM : index de la bonne réponse. */
   correct: number | null
+  /**
+   * QCM : sa variante. « plusieurs » et « ordre » se jugent en entier — le
+   * journal dit juste ou faux, pas les cases : `counts` n'y compte rien.
+   */
+  variante?: Variante
+  /** « Plusieurs » : les bonnes réponses ; « ordre » : le bon ordre, en index de `answers`. */
+  bonnes?: number[]
+  ordre?: number[]
   /** Estimation : la bonne valeur. */
   target: number | null
   unit: string
@@ -233,6 +241,13 @@ export const questionLabel = (q: Pick<ReviewQuestion, 'qIndex'>) => `Q${q.qIndex
 export function answerLabel(q: Pick<ReviewQuestion, 'answers'>, choice: number | null): string {
   if (choice === null) return ''
   return q.answers[choice] ?? `Réponse ${choice + 1}`
+}
+
+/** La bonne réponse en mots : « A, B » pour plusieurs, « X → Y → Z » pour un ordre, sinon la seule. */
+export function bonneReponseEnMots(q: Pick<ReviewQuestion, 'answers' | 'correct' | 'variante' | 'bonnes' | 'ordre'>): string {
+  if (q.variante === 'plusieurs' && q.bonnes) return q.bonnes.map(i => answerLabel(q, i)).join(', ')
+  if (q.variante === 'ordre' && q.ordre) return q.ordre.map(i => answerLabel(q, i)).join(' → ')
+  return answerLabel(q, q.correct)
 }
 
 /** « 1,8 s » — un temps de réponse, à la française. */

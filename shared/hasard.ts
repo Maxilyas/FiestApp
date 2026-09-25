@@ -71,16 +71,41 @@ function vraiOuFaux(answers: readonly string[]): boolean {
 export function ordreDesReponses(q: PlayableQuestion, aleatoire: Aleatoire): number[] {
   const n = q.kind === 'choice' ? q.answers.length : 0
   const tel = Array.from({ length: n }, (_, i) => i)
-  if (q.kind !== 'choice' || q.ordreFixe || vraiOuFaux(q.answers)) return tel
+  // « L'ordre à retrouver » a son propre mélange (`melangerLOrdre`), et un sondage ses invités.
+  if (q.kind !== 'choice' || q.ordreFixe || q.variante === 'ordre' || q.variante === 'sondage' || vraiOuFaux(q.answers)) return tel
   const nombres = q.answers.map(a => lireNombreEnTete(a)?.valeur ?? null)
   if (nombres.every(v => v !== null)) return tel.sort((i, j) => nombres[i]! - nombres[j]!)
   return permutation(n, aleatoire)
 }
 
-/** La question avec ses réponses dans cet ordre, sa bonne réponse suivie. */
+/**
+ * La question avec ses réponses dans cet ordre, ses bonnes réponses suivies
+ * — et pour « l'ordre à retrouver », le bon ordre, en index des réponses
+ * telles qu'elles se montrent.
+ */
 function reordonner(q: PlayableQuestion, ordre: readonly number[]): PlayableQuestion {
   if (q.kind !== 'choice' || ordre.every((v, i) => v === i)) return q
-  return { ...q, answers: ordre.map(i => q.answers[i]), correct: ordre.indexOf(q.correct) }
+  return {
+    ...q,
+    answers: ordre.map(i => q.answers[i]),
+    correct: ordre.indexOf(q.correct),
+    ...(q.bonnes && { bonnes: q.bonnes.map(b => ordre.indexOf(b)).sort((a, b) => a - b) }),
+    ...(q.ordre && { ordre: q.ordre.map(i => ordre.indexOf(i)) }),
+  }
+}
+
+/**
+ * « L'ordre à retrouver » se montre toujours mélangé, quel que soit le
+ * réglage du quiz — montré tel qu'écrit, il donnerait la réponse —, et
+ * jamais dans le bon ordre par hasard.
+ */
+function melangerLOrdre(q: PlayableQuestion, aleatoire: Aleatoire): PlayableQuestion {
+  if (q.kind !== 'choice' || q.variante !== 'ordre' || q.answers.length < 2) return q
+  let ordre = permutation(q.answers.length, aleatoire)
+  for (let essai = 0; ordre.every((v, i) => v === i) && essai < 10; essai++) ordre = permutation(q.answers.length, aleatoire)
+  // Dix tirages identiques de suite : on décale d'un cran, ce qui n'est jamais l'ordre.
+  if (ordre.every((v, i) => v === i)) ordre = ordre.map((_, i) => (i + 1) % ordre.length)
+  return reordonner(q, ordre)
 }
 
 /**
@@ -124,7 +149,7 @@ export function preparerPartie(
   let jouees = reglages?.tirage ? tirerQuestions(questions, reglages.tirage, dejaPosees, aleatoire) : [...questions]
   if (reglages?.melangerQuestions) jouees = permutation(jouees.length, aleatoire).map(i => jouees[i])
   if (reglages?.melangerReponses) jouees = jouees.map(q => reordonner(q, ordreDesReponses(q, aleatoire)))
-  return jouees
+  return jouees.map(q => melangerLOrdre(q, aleatoire))
 }
 
 /**

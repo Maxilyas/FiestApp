@@ -33,7 +33,9 @@ import {
   MIN_ANSWERS,
   MIN_DURATION,
   MIN_OBSERVE,
+  MIN_ORDRE,
   SANS_BONNE_REPONSE,
+  ECRITURE_DES_SORTES,
   luCommeReglage,
   parseImportedQuestions,
   photoManquante,
@@ -81,6 +83,13 @@ Quelle est l'altitude du mont Everest ?
 Temps : 30 s
 Anecdote : Elle grandit encore de quelques millimètres par an.
 
+Lesquels de ces pays l'équateur traverse-t-il ?
+Type : plusieurs réponses
+* Brésil
+* Kenya
+Égypte
+* Indonésie
+
 # Histoire
 
 La tour Eiffel a été construite pour l'Exposition universelle de 1889.
@@ -91,6 +100,13 @@ Anecdote : Elle ne devait rester que vingt ans ; la radio l'a sauvée.
 
 En quelle année l'homme a-t-il marché sur la Lune pour la première fois ?
 = 1969
+
+Remettez ces inventions dans l'ordre, de la plus ancienne à la plus récente.
+Type : dans l'ordre
+L'imprimerie
+La machine à vapeur
+Le téléphone
+Internet
 
 # Cinéma & séries
 
@@ -108,7 +124,13 @@ Pearl Harbor
 Combien de bougies y avait-il sur le gâteau ?
 Photo : le gâteau d'anniversaire, bougies allumées
 Observation : 5 s
-= 30 bougies`
+= 30 bougies
+
+Combien pèse le gâteau ?
+= ? g
+
+Qui, dans la salle, s'endormira le premier ce soir ?
+Type : qui dans la salle`
 
 /**
  * Ce que copie « Copier le format complet » : de quoi écrire un quiz sans
@@ -133,6 +155,12 @@ Sous l'intitulé, de ${MIN_ANSWERS} à ${MAX_ANSWERS} réponses, une par ligne (
 
 ESTIMATION
 Sous l'intitulé, une seule ligne : le signe = suivi de la bonne valeur, en chiffres, puis de son unité s'il y en a une (${MAX_UNIT} caractères au plus) : « = 1889 », « = 8 849 m », « = 0,8 % ». Chacun propose un nombre, et plus il tombe près, plus il rapporte : idéal pour une date, une distance, un prix, que personne ne connaît au chiffre près.
+En direct : « = ? » suivi de l'unité (« = ? g ») — la bonne valeur se mesure pendant la soirée (le poids du gâteau, les bonbons du bocal), et l'animateur la tape à la révélation.
+
+AUTRES SORTES DE QUESTIONS — une ligne « Type : » sous l'intitulé
+Type : plusieurs réponses — un QCM dont plusieurs réponses sont bonnes : une étoile * devant chacune. Il faut les trouver toutes, et elles seules.
+Type : dans l'ordre — de ${MIN_ORDRE} à ${MAX_ANSWERS} réponses, écrites dans le bon ordre (la plus ancienne d'abord, la plus petite d'abord…), sans étoile : elles s'affichent mélangées, et chacun les remet dans l'ordre.
+Type : qui dans la salle — aucune réponse à écrire : chacun désigne un invité de la soirée (« Qui arrivera en retard demain ? »), et l'écran montre qui la salle a choisi. Pour rire : elle ne rapporte aucun point.
 
 RÉGLAGES — facultatifs, chacun sur sa ligne sous l'intitulé, dans n'importe quel ordre
 Temps : 30 s — le temps pour répondre, de ${MIN_DURATION} à ${MAX_DURATION} secondes, pour cette question et les suivantes, jusqu'à la prochaine ligne Temps : inutile de la répéter. Écrite seule avant la première question, elle vaut pour tout le quiz. Sans aucune ligne Temps, celui réglé dans FiestApp (${DEFAULT_DURATION} s au départ).
@@ -260,7 +288,9 @@ export function ecrireListe(questions: readonly QuizQuestionDef[], titre?: strin
       lignes.push(`Temps : ${q.duration} s`)
       temps = q.duration
     }
-    if (q.kind === 'choice' && q.ordreFixe) lignes.push('Ordre : fixe')
+    if (q.kind === 'choice' && q.variante) lignes.push(`Type : ${ECRITURE_DES_SORTES[q.variante]}`)
+    // L'ordre à retrouver se mélange toujours : « fixe » n'y voudrait rien dire.
+    if (q.kind === 'choice' && q.ordreFixe && q.variante !== 'ordre') lignes.push('Ordre : fixe')
     if (q.intertitre) lignes.push(`Intertitre : ${q.intertitre}`)
     if (q.anecdote) lignes.push(`Anecdote : ${q.anecdote}`)
     if (q.note) lignes.push(`Note : ${q.note}`)
@@ -272,13 +302,16 @@ export function ecrireListe(questions: readonly QuizQuestionDef[], titre?: strin
     if (q.kind === 'number') {
       // Sans cible, la ligne « = » ne se relit pas, et la question se perd
       // au recollage (compté parmi les blocs ignorés) : on ne devine pas.
-      const cible = q.target === null ? '' : ecrireNombre(q.target)
+      // En direct, la cible se tape à la révélation : « = ? ».
+      const cible = q.enDirect ? '?' : q.target === null ? '' : ecrireNombre(q.target)
       lignes.push(`= ${cible}${q.unit.trim() ? ` ${q.unit.trim()}` : ''}`)
-    } else {
+    } else if (q.variante !== 'sondage') {
       q.answers.forEach((a, i) => {
         const reponse = (a ?? '').trim()
         if (!reponse) return
-        const marquee = i === q.correct && q.correct !== SANS_BONNE_REPONSE ? `* ${reponse}` : reponse
+        const bonne =
+          q.variante === 'plusieurs' ? !!q.bonnes?.includes(i) : q.variante !== 'ordre' && i === q.correct && q.correct !== SANS_BONNE_REPONSE
+        const marquee = bonne ? `* ${reponse}` : reponse
         // « Photo : la plage » est un choix, pas un réglage : la puce le dit.
         lignes.push(luCommeReglage(reponse) ? `- ${marquee}` : marquee)
       })

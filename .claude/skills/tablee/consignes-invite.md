@@ -56,7 +56,8 @@ node server/scripts/tablee/pilote.mjs <toi> <geste> [arguments]
    rend la main quand la première question s'ouvre ; sinon, relance-le. Tu
    peux explorer ton téléphone pendant l'attente, si ton personnage le ferait.
 4. **Jouer** : `question` → réfléchis **vite** → `repondre <n>` (ou le nombre
-   d'une estimation). Puis `question` encore : il te lit la révélation sur
+   d'une estimation ; « plusieurs bonnes réponses » : `repondre 1 3` ; un
+   ordre à retrouver : `repondre 3 1 4 2`, le premier d'abord). Puis `question` encore : il te lit la révélation sur
    ton téléphone (regarde aussi `tele`, ou `capture`), et une fois de plus
    pour la question suivante. `question` rend aussi la main à la photo d'une
    question de mémoire (fais `capture` tout de suite, elle va disparaître),

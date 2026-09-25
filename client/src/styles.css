@@ -2182,6 +2182,61 @@ h3 > .icon {
 }
 .note-animateur > .icon { flex: none; margin-top: 2px; color: var(--accent-text); }
 
+/* ── Les sortes de questions (lot 7) ──────────────── */
+/* La consigne d'une variante, sous l'énoncé : « Plusieurs bonnes réponses ». */
+.consigne-variante {
+  margin: 0;
+  text-align: center;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(1.1rem, 2vw, 1.6rem);
+  color: var(--accent-text);
+}
+.quiz-player .consigne-variante { font-size: 1rem; }
+/* Le rang d'une réponse à remettre dans l'ordre : un chiffre dans un rond,
+   vide tant qu'on ne l'a pas touchée. */
+.rang-ordre {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  color: var(--accent-text);
+  font-family: var(--serif);
+  font-weight: 600;
+  line-height: 1;
+  /* Les chiffres elzéviriens du serif font d'un « 1 » un « ı » : ici, des capitales. */
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.ans-btn.chosen .rang-ordre { background: var(--accent); color: var(--on-accent); }
+.quiz-host .rang-ordre { width: 1.5em; height: 1.5em; font-size: 0.9em; }
+/* L'ordre révélé : chaque carte en pleine encre, son rang en aplat. */
+.ans-btn.ordre-place { border-color: var(--accent); }
+.ans-btn.ordre-place .rang-ordre { background: var(--accent); color: var(--on-accent); }
+.valider-variante { margin-top: 4px; flex: none; }
+.quiz-player .ordre-revele { width: fit-content; margin: 4px auto 0; padding-left: 1.4rem; text-align: left; }
+/* « Qui dans la salle ? » au téléphone : les noms en deux colonnes, la page
+   défile au-delà — la grille des réponses, faite pour tenir en un écran,
+   écrasait soixante noms. */
+.sondage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sondage-grid .ans-btn { min-height: 48px; padding: 6px 12px; gap: 8px; font-size: 1rem; }
+.sondage-grid .ans-btn:only-child { grid-column: 1 / -1; }
+/* La mesure d'une estimation en direct : le champ, l'unité, « Révéler ». */
+.cible-form { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
+.cible-input { width: 9em; }
+/* Le champ et son bouton tiennent la place de l'action principale : la bande garde une ligne. */
+.cible-form .console-principal { min-width: 0; }
+.cible-form .error { flex-basis: 100%; margin: 0; text-align: center; }
+.host.telecommande .cible-form { grid-column: 1 / -1; }
+.host.telecommande .cible-input { flex: 1; min-height: 60px; font-size: 1.25rem; }
+.host.telecommande .cible-form .console-principal { flex-basis: 100%; }
+/* Le blind test : de quoi relancer l'extrait, sous l'énoncé. */
+.extrait { display: flex; justify-content: center; }
+.extrait-edit .extrait-audio { height: 36px; max-width: 260px; }
+
 /* « Partir d'un modèle » : un rayon par sorte de quiz. */
 .rayon { display: grid; gap: 8px; }
 .rayon-titre { margin: 8px 0 0; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-text); font-family: var(--sans); }
@@ -2269,6 +2324,8 @@ h3 > .icon {
 .kind-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
 
 .answers-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+/* La consigne de l'ordre, sur toute la largeur : dans une case, elle décalait les éléments. */
+.answers-edit .answers-consigne { grid-column: 1 / -1; margin: 0; }
 
 /* Sur un téléphone, deux colonnes laissaient 73 px à chaque réponse. */
 @media (max-width: 600px) {
@@ -3270,6 +3327,7 @@ h3 > .icon {
 .bilan-q-img { max-height: 160px; width: auto; max-width: 100%; border-radius: 10px; }
 
 .bilan-answers { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.bilan-ordre { margin: 0; padding-left: 1.6rem; display: grid; gap: 4px; }
 
 .bilan-ans {
   display: flex;

@@ -432,8 +432,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // question : dans l'éditeur de son espace, à l'écran pendant la partie, ou
   // dans le bilan public une fois qu'elle est jouée. Celle d'une question pas
   // encore jouée reste introuvable, même du voisin. Formats bornés à JPEG,
-  // PNG et WebP : jamais de SVG, qui porterait du script. Ce qui ferait
-  // tomber la règle : un identifiant prévisible, ou une route qui les liste.
+  // PNG et WebP — et aux extraits sonores du blind test (`SON_MIMES`) : jamais
+  // de SVG, qui porterait du script. Ce qui ferait tomber la règle : un
+  // identifiant prévisible, ou une route qui les liste. L'extrait, lui, ne
+  // part qu'aux écrans d'animateur : un téléphone ne l'apprend jamais.
   app.get(
     '/media/image/:id',
     wrap(async (req, res) => {
