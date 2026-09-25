@@ -11,7 +11,8 @@ import { PartyBackup, type ReglagesMiroir } from './core/backup'
 import { photosCitees, QuizStore } from './core/quizStore'
 import { seedLibrary } from './core/seed'
 import { INTROUVABLE, ROBOTS_TXT, decrirePage, habillerPage } from './core/apercus'
-import { clearQuizLibrary, setQuizLibrary } from './games/quiz'
+import { clearQuizLibrary, setProgramme, setQuizLibrary } from './games/quiz'
+import { ProgrammeStore } from './core/programmes'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
 import { ReserveDInscriptions } from './core/inscriptions'
@@ -282,6 +283,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
   }
   await refreshLibrary()
 
+  // Les programmes de soirée : celui de ce soir, par espace, est ce que la
+  // console propose au lancement.
+  const programmes = new ProgrammeStore(opts.quizDbUrl, opts.quizDbToken)
+  await programmes.init()
+  const refreshProgramme = async (spaceId?: string) => {
+    if (spaceId) return setProgramme(spaceId, await programmes.actif(spaceId))
+    for (const [id, programme] of await programmes.actifs()) setProgramme(id, programme)
+  }
+  await refreshProgramme()
+
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
@@ -357,6 +368,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     await backup.settle()
     await backup.forSpace(accountId).reset()
     const soirees = await archives.removeSpace(accountId)
+    await programmes.removeSpace(accountId)
     const { quizzes, images } = await store.removeSpace(accountId)
     await auth.remove(accountId)
     // Une page publique lue pendant le ménage a pu réveiller la soirée.
@@ -620,6 +632,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,
+    programmes,
+    onProgrammeChanged: refreshProgramme,
     // Les parties de l'espace encore sur le disque, terminées comprises :
     // c'est leur copie du quiz que l'archivage rangera, photos avec.
     photosEnJeu: spaceId =>
@@ -787,6 +801,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           await backup.close()
           db.close()
           store.close()
+          programmes.close()
           archives.close()
           auth.close()
           // Les profils en dernier : un crédit d'expérience parti avec la fin

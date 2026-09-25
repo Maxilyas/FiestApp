@@ -1,6 +1,7 @@
 // Vues et actions du Quiz (QCM style Kahoot + estimation chiffrée).
 import type { QuestionKind } from '../library'
 import type { Distinctions } from '../profil'
+import type { Multiplicateur } from '../programme'
 
 /**
  * `observe` : la photo est projetée seule, sans la question ni les réponses.
@@ -15,6 +16,30 @@ export interface QuizPackInfo {
   questionCount: number
   /** Déjà joué ce soir : l'animateur ne le relance pas sans le savoir. */
   joueCeSoir?: true
+  /**
+   * Ce qui se dérive de ses questions, pour le reconnaître sans l'ouvrir :
+   * ses catégories (la plus fréquente d'abord), ses estimations, sa durée
+   * estimée en secondes. Absents d'une partie lancée avant qu'ils existent.
+   */
+  categories?: string[]
+  estimations?: number
+  dureeS?: number
+  /** Sa place au programme de ce soir (1 pour le premier), et son multiplicateur réglé d'avance. */
+  auProgramme?: { rang: number; multiplier: Multiplicateur }
+}
+
+/**
+ * Le programme de ce soir, vu de la console au moment de choisir
+ * (`shared/programme.ts`). Écrans d'animateur seulement : il annonce les
+ * titres à venir, et les téléphones n'ont pas à les lire.
+ */
+export interface ProgrammeDuSoir {
+  titre: string
+  /** Les quiz du programme qui se jouent encore. */
+  total: number
+  /** Le premier qu'on n'a pas joué ce soir, et celui d'après ; null quand tout est joué. */
+  prochain: string | null
+  ensuite: string | null
 }
 
 /**
@@ -134,6 +159,7 @@ export interface QuizHostView {
   kind?: QuestionKind
   // pickPack
   packs?: QuizPackInfo[]
+  programme?: ProgrammeDuSoir
   // question + reveal
   text?: string
   answers?: string[]

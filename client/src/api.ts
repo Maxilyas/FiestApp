@@ -2,6 +2,7 @@ import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library
 import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
 import type { ReglagesDuQuiz } from '../../shared/hasard'
+import type { EntreeDeProgramme, Programme } from '../../shared/programme'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
 import type { FinitionChoisie, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
@@ -174,6 +175,19 @@ export const api = {
     req<QuizDef>(`/api/modeles/${encodeURIComponent(modele)}`, { method: 'POST', body: JSON.stringify(pourQui ?? {}) }),
   uploadImage: (dataUrl: string) =>
     req<{ url: string }>('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
+  /** Les programmes de soirée : les quiz de ce soir, dans l'ordre, chacun avec son multiplicateur. */
+  programmes: {
+    list: () => req<Programme[]>('/api/programmes'),
+    /** Commence un programme, qui devient celui de ce soir. */
+    creer: (titre: string, entrees: EntreeDeProgramme[] = []) =>
+      req<Programme>('/api/programmes', { method: 'POST', body: JSON.stringify({ titre, entrees }) }),
+    modifier: (id: string, patch: { titre?: string; entrees?: EntreeDeProgramme[] }) =>
+      req<Programme>(`/api/programmes/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
+    /** En fait le programme de ce soir — ou le range, avec `actif` à faux. */
+    activer: (id: string, actif: boolean) =>
+      req<{ ok: true }>(`/api/programmes/${id}/activer`, { method: 'POST', body: JSON.stringify({ actif }) }),
+    supprimer: (id: string) => req<{ ok: true }>(`/api/programmes/${id}`, { method: 'DELETE' }),
+  },
   /** L'historique des soirées : le lire est public, le retoucher demande d'être connecté. */
   archives: {
     rename: (id: string, title: string) =>

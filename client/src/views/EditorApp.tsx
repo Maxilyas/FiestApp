@@ -75,6 +75,7 @@ import { consigneEstimation } from '../games/quiz/consignes'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { Icon } from '../components/Icon'
 import { LienConsole } from '../components/LienConsole'
+import { PanneauProgramme, useProgrammes } from '../components/Programme'
 import { ChampNombre } from '../components/ChampNombre'
 import { Shape } from '../components/Shape'
 import { TimerBar } from '../components/TimerBar'
@@ -236,6 +237,8 @@ export function EditorApp() {
   const [voirModeles, setVoirModeles] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  /** Le programme de ce soir, et ceux qu'on a rangés. */
+  const prog = useProgrammes(setError)
   /** Le quiz qu'on emballe, ou l'import en cours : un clic à la fois. */
   const [echange, setEchange] = useState<string | null>(null)
   const fichier = useRef<HTMLInputElement>(null)
@@ -300,7 +303,10 @@ export function EditorApp() {
 
   const reload = useCallback(async () => {
     try {
+      // Le programme se lit avec : il nomme des quiz de la liste.
+      const programmes = prog.recharger()
       const quizzes = await api.list()
+      await programmes
       setList(quizzes)
       // Signalés ici : sans quoi on ne les retrouvait qu'en ouvrant le bon quiz.
       setBrouillons(new Set(quizzes.filter(q => retrouverBrouillon(q.id)).map(q => q.id)))
@@ -588,6 +594,8 @@ export function EditorApp() {
           />
         )}
 
+        {list && list.length > 0 && <PanneauProgramme prog={prog} quizzes={list} />}
+
         {list && list.length > 0 && (
           <div className="bibliotheque-outils">
             <label className="champ-recherche">
@@ -664,6 +672,9 @@ export function EditorApp() {
               occupe={echange !== null}
               exportEnCours={echange === q.id}
               onOuvrir={() => setEditingId(q.id)}
+              auProgramme={q.readyCount > 0 && !q.archivedAt ? (prog.actif?.entrees.some(e => e.quizId === q.id) ?? false) : null}
+              occupeProgramme={prog.occupe}
+              onProgramme={() => prog.basculer(q.id)}
               onDupliquer={() => dupliquer(q)}
               onExporter={() => exporter(q)}
               onArchiver={() => archiver(q, !q.archivedAt)}
@@ -861,6 +872,9 @@ function LigneDeQuiz({
   occupe,
   exportEnCours,
   onOuvrir,
+  auProgramme,
+  occupeProgramme,
+  onProgramme,
   onDupliquer,
   onExporter,
   onArchiver,
@@ -871,6 +885,10 @@ function LigneDeQuiz({
   occupe: boolean
   exportEnCours: boolean
   onOuvrir: () => void
+  /** Au programme de ce soir — null quand il ne peut pas y être : rien de prêt, ou archivé. */
+  auProgramme: boolean | null
+  occupeProgramme: boolean
+  onProgramme: () => void
   onDupliquer: () => void
   onExporter: () => void
   onArchiver: () => void
@@ -911,6 +929,21 @@ function LigneDeQuiz({
           </span>
         )}
       </button>
+      {/* Le seul geste de la ligne : la soirée se prépare d'ici. Au
+          téléphone, l'icône seule — le nom reste entier pour qui l'écoute. */}
+      {auProgramme !== null && (
+        <button
+          type="button"
+          className={'pill-btn programme-bascule' + (auProgramme ? ' active' : '')}
+          aria-pressed={auProgramme}
+          aria-label={`Au programme : « ${q.title} »`}
+          disabled={occupeProgramme}
+          onClick={onProgramme}
+        >
+          <Icon name={auProgramme ? 'check' : 'plus'} />
+          <span className="programme-bascule-texte">Au programme</span>
+        </button>
+      )}
       <div className="menu-ancre" ref={ancre}>
         <button
           type="button"

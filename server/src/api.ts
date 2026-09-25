@@ -1,5 +1,7 @@
 import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
+import type { ProgrammeStore } from './core/programmes'
+import type { Programme } from '../../shared/programme'
 import type { ArchiveStore } from './core/archive'
 import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
@@ -25,6 +27,10 @@ interface ApiDeps {
   publicOrigin: string | null
   /** Appelé après chaque modification : recharge le cache lu par le module de jeu. */
   onLibraryChanged: (spaceId: string) => Promise<void>
+  /** Les programmes de soirée, rangés avec la bibliothèque. */
+  programmes: ProgrammeStore
+  /** Recharge le programme de ce soir que la console lit au lancement. */
+  onProgrammeChanged: (spaceId: string) => Promise<void>
   /**
    * Les photos que citent les parties de l'espace encore sur le disque local
    * — celle qui se joue, et celles déjà jouées que la soirée n'a pas encore
@@ -194,6 +200,73 @@ export function mountApi(app: Express, deps: ApiDeps) {
       // Après coup : une photo retirée d'une question n'a plus à occuper la
       // base — sauf si la partie en cours ou une soirée archivée la montre encore.
       deps.store.pruneImages(spaceId, undefined, deps.photosEnJeu(spaceId)).catch(() => {})
+    }),
+  )
+
+  // ── Les programmes de soirée ──
+  //
+  // Un programme range des quiz de l'espace, et seulement les siens : une
+  // entrée qui désigne le quiz d'un autre espace n'entre pas (invariant 3).
+  const garderLesSiens = async (spaceId: string, entrees: unknown) => {
+    if (!Array.isArray(entrees)) return entrees
+    const siens = await deps.store.ids(spaceId)
+    return entrees.filter(e => siens.has((e as { quizId?: unknown } | null)?.quizId as string))
+  }
+  /** Ce que l'éditeur lit d'un programme : ses entrées encore dans la bibliothèque. */
+  const lisible = async (spaceId: string, p: Programme) => ({ ...p, entrees: (await garderLesSiens(spaceId, p.entrees)) as Programme['entrees'] })
+
+  app.get(
+    '/api/programmes',
+    wrap(async (_req, res) => {
+      const spaceId = spaceOf(res)
+      res.json(await Promise.all((await deps.programmes.list(spaceId)).map(p => lisible(spaceId, p))))
+    }),
+  )
+
+  // Commencer un programme en fait celui de ce soir ; l'ancien reste, rangé.
+  app.post(
+    '/api/programmes',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      const cree = await deps.programmes.creer(spaceId, req.body?.titre, await garderLesSiens(spaceId, req.body?.entrees))
+      await deps.onProgrammeChanged(spaceId)
+      res.status(201).json(cree)
+    }),
+  )
+
+  app.put(
+    '/api/programmes/:id',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      const modifie = await deps.programmes.modifier(spaceId, req.params.id, {
+        titre: req.body?.titre,
+        entrees: req.body?.entrees === undefined ? undefined : await garderLesSiens(spaceId, req.body.entrees),
+      })
+      if (!modifie) return res.status(404).json({ error: 'Programme introuvable' })
+      await deps.onProgrammeChanged(spaceId)
+      res.json(await lisible(spaceId, modifie))
+    }),
+  )
+
+  app.post(
+    '/api/programmes/:id/activer',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      if (!(await deps.programmes.activer(spaceId, req.params.id, req.body?.actif !== false))) {
+        return res.status(404).json({ error: 'Programme introuvable' })
+      }
+      await deps.onProgrammeChanged(spaceId)
+      res.json({ ok: true })
+    }),
+  )
+
+  app.delete(
+    '/api/programmes/:id',
+    wrap(async (req, res) => {
+      const spaceId = spaceOf(res)
+      if (!(await deps.programmes.supprimer(spaceId, req.params.id))) return res.status(404).json({ error: 'Programme introuvable' })
+      await deps.onProgrammeChanged(spaceId)
+      res.json({ ok: true })
     }),
   )
 

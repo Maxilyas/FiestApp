@@ -382,7 +382,11 @@ const DEPART_ET_PODIUM_S = 3 + 15
  * préparant — et rien ne le lui disait.
  */
 export function dureeEstimeeS(questions: readonly QuizQuestionDef[]): number {
-  const jouables = questions.map(toPlayable).filter((q): q is PlayableQuestion => q !== null)
+  return dureeDesJouables(questions.map(toPlayable).filter((q): q is PlayableQuestion => q !== null))
+}
+
+/** La même durée, pour des questions déjà jouables — celles que la console propose. */
+export function dureeDesJouables(jouables: readonly PlayableQuestion[]): number {
   if (jouables.length === 0) return 0
   return jouables.reduce((s, q) => s + q.duration + (q.image && q.observeSeconds ? q.observeSeconds : 0) + REVELATION_S, DEPART_ET_PODIUM_S)
 }

@@ -129,6 +129,12 @@ export class QuizStore {
     return resumes
   }
 
+  /** Les identifiants des quiz d'un espace, sans rien lire d'autre : ce qu'un programme a le droit de nommer. */
+  async ids(spaceId: string): Promise<Set<string>> {
+    const res = await this.client.execute({ sql: 'SELECT id FROM quizzes WHERE space_id = ?', args: [spaceId] })
+    return new Set(res.rows.map(r => String(r.id)))
+  }
+
   /** Range un quiz à l'écart, ou l'en ressort. Sa date de modification ne bouge pas : il garde sa place. */
   async archiver(spaceId: string, id: string, archive: boolean): Promise<boolean> {
     const res = await this.client.execute({

@@ -1302,6 +1302,20 @@ h3 > .icon {
 /* Un quiz déjà joué ce soir, au moment d'en choisir un. */
 .joue-ce-soir { font-size: 0.8rem; }
 
+/* Le prochain quiz du programme : son titre en grand, un bouton, la suite
+   en pied. Tout en rem : sur grand écran, /host grandit avec la hauteur. */
+.prochain-surtitre { margin: 0; font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); }
+.prochain-titre { margin: 0; font-size: clamp(2rem, 4vw, 3rem); overflow-wrap: anywhere; }
+.prochain-pied {
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--edge);
+}
+.prochain-pied .pill.multi { margin-left: 0.5rem; }
+.choix-tete { justify-content: space-between; }
+.choix-tete h2 { margin: 0; }
+
 /* ── Mode scène ─────────────────────────────────── */
 /* Dès qu'une question est à l'écran, le reste s'efface : sur un
    vidéoprojecteur, ce qui compte doit occuper toute la place. */
@@ -2085,6 +2099,46 @@ h3 > .icon {
 .select-discret option { background: var(--bg-raised); color: var(--ink); }
 .bibliotheque-vide { text-align: center; }
 .bibliotheque-pied { justify-content: center; }
+
+/* ── Le programme de ce soir ─────────────────────────────────────────────
+   En tête de « Mes quiz » : les quiz dans l'ordre, leur multiplicateur. */
+.programme { display: grid; gap: 10px; }
+.programme-range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 16px; }
+.programme-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -4px 0; }
+.programme-surtitre { font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent-text); }
+.programme-replier .icon { transition: transform 0.15s ease; }
+.programme-replier[aria-expanded='true'] .icon { transform: rotate(180deg); }
+.programme-resume { margin: 0; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; overflow-wrap: anywhere; }
+.programme-resume .muted { font-family: var(--sans); font-weight: 400; }
+.programme-corps { display: grid; gap: 10px; }
+.programme-nommer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.programme-nom { flex: 1; min-width: 12rem; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; padding: 4px 10px; }
+.programme-liste { list-style: none; margin: 0; padding: 0; display: grid; }
+.programme-entree { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-top: 1px solid var(--edge); }
+.programme-rang {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+.programme-quiz { flex: 1; min-width: 10rem; display: flex; flex-direction: column; gap: 2px; }
+.programme-quiz-titre { font-weight: 600; overflow-wrap: anywhere; }
+.programme-gestes { gap: 4px; flex-wrap: nowrap; }
+.programme-points { gap: 4px; margin-right: 6px; flex-wrap: nowrap; }
+.programme-points .pill-btn { min-height: 32px; padding: 0 10px; }
+.programme-pied { justify-content: space-between; gap: 8px 12px; }
+.programme-aide { flex: 1; min-width: 14rem; }
+.programme-bascule { flex: none; }
+@media (max-width: 600px) {
+  .programme-bascule { padding: 0 11px; }
+  .programme-bascule-texte { display: none; }
+  .programme-gestes { width: 100%; justify-content: flex-end; }
+}
 
 /* Les menus d'une ligne et de « Nouveau quiz » : sous leur bouton, à droite. */
 .menu-ancre { position: relative; }

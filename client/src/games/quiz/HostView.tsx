@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import type { QuizCommand, QuizHostView, Visee } from '../../../../shared/games/quiz'
+import type { QuizCommand, QuizHostView, QuizPackInfo, Visee } from '../../../../shared/games/quiz'
+import { ecrireDuree, pourChercher } from '../../../../shared/library'
 import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
 import { FinalPodium, Standings } from '../../components/Podium'
@@ -65,6 +66,180 @@ function useGardeDePhase(cle: string) {
   return { garde, principal }
 }
 
+/** « 12 questions · Cinéma & séries, Musique · 2 estimations · ≈ 8 min » : de quoi reconnaître un quiz sans l'ouvrir. */
+function faitsDuQuiz(p: QuizPackInfo): string {
+  return [
+    `${p.questionCount} question${p.questionCount > 1 ? 's' : ''}`,
+    p.categories?.length ? p.categories.slice(0, 2).join(', ') : '',
+    p.estimations ? `${p.estimations} estimation${p.estimations > 1 ? 's' : ''}` : '',
+    p.dureeS ? ecrireDuree(p.dureeS) : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+/**
+ * Le choix du quiz. Avec un programme, le prochain d'abord, déjà réglé : un
+ * bouton, et c'est parti — chaque manche se cherchait parmi toute la
+ * bibliothèque, à l'écran commun, devant la salle, en se souvenant du ×2 de
+ * la finale. « Un autre quiz… » garde l'improvisation, avec une recherche.
+ */
+function ChoixDuQuiz({
+  v,
+  sendCommand,
+  endSession,
+}: {
+  v: QuizHostView
+  sendCommand: (command: QuizCommand) => void
+  endSession: () => void
+}) {
+  const packs = v.packs ?? []
+  const programme = v.programme
+  const prochain = (programme?.prochain && packs.find(p => p.id === programme.prochain)) || null
+  const ensuite = (programme?.ensuite && packs.find(p => p.id === programme.ensuite)) || null
+  const [autre, setAutre] = useState(false)
+  const [recherche, setRecherche] = useState('')
+  /** Choisi avant de lancer : un quiz qui compte double relance toute la salle. */
+  const [multiplier, setMultiplier] = useState<number>(prochain?.auProgramme?.multiplier ?? 1)
+  const lancer = (p: QuizPackInfo) => sendCommand({ type: 'selectPack', packId: p.id, multiplier })
+
+  // Annoncé à la salle avant de lancer : tant qu'un quiz peut tout
+  // renverser, personne ne décroche du classement.
+  const points = (
+    <div className="row multiplier-picker" role="group" aria-labelledby="multiplier-label">
+      <span className="muted" id="multiplier-label">
+        Ce quiz vaut
+      </span>
+      {[1, 2, 3].map(m => (
+        <button
+          key={m}
+          className={'pill-btn' + (multiplier === m ? ' active' : '')}
+          aria-pressed={multiplier === m}
+          onClick={() => setMultiplier(m)}
+        >
+          {m === 1 ? 'points normaux' : `×${m} points`}
+        </button>
+      ))}
+    </div>
+  )
+  const annuler = (
+    <ConsoleActions>
+      <button className="btn btn-ghost" onClick={endSession}>
+        Annuler
+      </button>
+    </ConsoleActions>
+  )
+
+  if (programme && prochain && !autre) {
+    const rang = prochain.auProgramme?.rang ?? 1
+    return (
+      <div className="quiz-host choix-prochain">
+        <p className="prochain-surtitre">
+          {programme.titre} · prochain quiz, {rang} sur {programme.total}
+        </p>
+        <h2 className="prochain-titre">{prochain.title}</h2>
+        <p className="muted">{faitsDuQuiz(prochain)}</p>
+        {points}
+        <div className="row">
+          <button className="btn btn-primary btn-big" onClick={() => lancer(prochain)}>
+            <Icon name="play" />
+            C'est parti !
+          </button>
+        </div>
+        <div className="row prochain-pied">
+          <span className="muted">
+            {ensuite ? (
+              <>
+                Ensuite : <b>{ensuite.title}</b>
+                {(ensuite.auProgramme?.multiplier ?? 1) > 1 && <span className="pill multi">×{ensuite.auProgramme!.multiplier}</span>}
+              </>
+            ) : (
+              'C’est le dernier du programme'
+            )}
+          </span>
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              setAutre(true)
+              setMultiplier(1)
+            }}
+          >
+            Un autre quiz…
+          </button>
+        </div>
+        {annuler}
+      </div>
+    )
+  }
+
+  // La bibliothèque, programme en tête : cherchable dès qu'elle ne tient
+  // plus d'un coup d'œil — six cartes visibles sur trente-huit, et la télé
+  // qui défilait.
+  const mots = pourChercher(recherche)
+  const visibles = mots ? packs.filter(p => pourChercher(p.title).includes(mots)) : packs
+  return (
+    <div className="quiz-host">
+      <div className="row choix-tete">
+        <h2>
+          <Icon name="sparkles" />
+          Choisis un quiz
+        </h2>
+        {prochain && (
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              setAutre(false)
+              setMultiplier(prochain.auProgramme?.multiplier ?? 1)
+            }}
+          >
+            Revenir au programme
+          </button>
+        )}
+      </div>
+      {programme && !prochain && (
+        <p className="muted">{espacesFines(`Le programme « ${programme.titre} » est joué en entier : à toi de choisir la suite.`)}</p>
+      )}
+      {packs.length > 6 && (
+        <label className="champ-recherche">
+          <Icon name="search" />
+          <input
+            className="input"
+            type="search"
+            value={recherche}
+            placeholder="Chercher un quiz…"
+            aria-label="Chercher un quiz par son titre"
+            onChange={e => setRecherche(e.target.value)}
+          />
+        </label>
+      )}
+      {points}
+      <div className="game-cards">
+        {visibles.map(p => (
+          <div key={p.id} className="game-card">
+            <h3>{p.title}</h3>
+            <p className="muted">{faitsDuQuiz(p)}</p>
+            {(p.joueCeSoir || p.auProgramme) && (
+              <div className="row">
+                {p.auProgramme && <span className="pill">Au programme · {p.auProgramme.rang}</span>}
+                {p.joueCeSoir && (
+                  <span className="pill joue-ce-soir">
+                    <Icon name="check" /> Joué ce soir
+                  </span>
+                )}
+              </div>
+            )}
+            <button className="btn btn-primary" onClick={() => lancer(p)}>
+              C'est parti !
+            </button>
+          </div>
+        ))}
+        {visibles.length === 0 && <p className="serif-note">Aucun quiz ne porte ce titre.</p>}
+      </div>
+      {annuler}
+    </div>
+  )
+}
+
 interface Props {
   view: QuizHostView
   /** Les équipes de la soirée — annoncées entre deux questions. */
@@ -95,9 +270,6 @@ export function QuizHost({
   reprendreCoulisses,
   apresQuiz,
 }: Props) {
-  /** Choisi avant de lancer : un quiz qui compte double relance toute la salle. */
-  const [multiplier, setMultiplier] = useState(1)
-
   /**
    * Ce que l'animateur a sous les yeux au moment du clic. La commande
    * l'emporte, et le serveur l'ignore si la partie a bougé entre-temps : un
@@ -280,54 +452,9 @@ export function QuizHost({
   }
 
   if (v.phase === 'pickPack') {
-    return (
-      <div className="quiz-host">
-        <h2>
-          <Icon name="sparkles" />
-          Choisis un quiz
-        </h2>
-
-        {/* Annoncé à la salle avant de lancer : tant qu'un quiz peut tout
-            renverser, personne ne décroche du classement. */}
-        <div className="row multiplier-picker" role="group" aria-labelledby="multiplier-label">
-          <span className="muted" id="multiplier-label">Ce quiz vaut</span>
-          {[1, 2, 3].map(m => (
-            <button
-              key={m}
-              className={'pill-btn' + (multiplier === m ? ' active' : '')}
-              aria-pressed={multiplier === m}
-              onClick={() => setMultiplier(m)}
-            >
-              {m === 1 ? 'points normaux' : `×${m} points`}
-            </button>
-          ))}
-        </div>
-
-        <div className="game-cards">
-          {v.packs?.map(p => (
-            <div key={p.id} className="game-card">
-              <h3>{p.title}</h3>
-              <p className="muted">
-                {p.questionCount} question{p.questionCount > 1 ? 's' : ''}
-              </p>
-              {p.joueCeSoir && (
-                <span className="pill joue-ce-soir">
-                  <Icon name="check" /> Joué ce soir
-                </span>
-              )}
-              <button className="btn btn-primary" onClick={() => sendCommand({ type: 'selectPack', packId: p.id, multiplier })}>
-                C'est parti !
-              </button>
-            </div>
-          ))}
-        </div>
-        <ConsoleActions>
-          <button className="btn btn-ghost" onClick={endSession}>
-            Annuler
-          </button>
-        </ConsoleActions>
-      </div>
-    )
+    // Le choix repart de zéro quand le prochain change : un autre programme,
+    // ou le quiz d'après.
+    return <ChoixDuQuiz key={v.programme?.prochain ?? ''} v={v} sendCommand={sendCommand} endSession={endSession} />
   }
 
   // À la télécommande, la question se lit à la télé : ici, où on en est et

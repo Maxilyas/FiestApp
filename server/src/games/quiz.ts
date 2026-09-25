@@ -1,5 +1,6 @@
 import type { GameContext, GameModule, GameSessionRec, ViewContext } from '../core/types'
-import { playableQuestions, type PlayableQuestion, type QuizDef } from '../../../shared/library'
+import { dureeDesJouables, playableQuestions, type PlayableQuestion, type QuizDef } from '../../../shared/library'
+import { MAX_ENTREES, avancementDuProgramme, type EntreeDeProgramme } from '../../../shared/programme'
 import { distinctions } from '../../../shared/profil'
 import { nomAffiche } from '../../../shared/homonymes'
 import { classer, decimales, ecartEstimation, rangPartage, type Classe } from '../../../shared/classement'
@@ -16,6 +17,7 @@ import type {
   QuizPodiumRow,
   Visee,
   LancementDeQuiz,
+  ProgrammeDuSoir,
 } from '../../../shared/games/quiz'
 
 interface QuizPack {
@@ -40,6 +42,8 @@ interface Response {
 interface QuizState {
   phase: 'pickPack' | 'getReady' | 'observe' | 'question' | 'reveal' | 'finished'
   packs: QuizPackInfo[]
+  /** Le programme de ce soir, tel qu'il était au lancement (écrans d'animateur seulement). */
+  programme?: ProgrammeDuSoir
   /** Le quiz joué est copié dans l'état : l'éditer pendant la partie ne change rien. */
   pack: QuizPack | null
   qIndex: number
@@ -236,6 +240,61 @@ export function quizLibrary(spaceId: string): QuizPack[] {
 /** Oublie la bibliothèque d'un espace : son compte est supprimé. */
 export function clearQuizLibrary(spaceId: string) {
   libraries.delete(spaceId)
+  programmes.delete(spaceId)
+}
+
+/**
+ * Le programme de ce soir de chaque espace, tel que la console le lit au
+ * lancement — rechargé comme la bibliothèque, à chaque modification.
+ */
+const programmes = new Map<string, { titre: string; entrees: EntreeDeProgramme[] }>()
+
+export function setProgramme(spaceId: string, programme: { titre: string; entrees: EntreeDeProgramme[] } | null) {
+  if (programme) programmes.set(spaceId, { titre: programme.titre, entrees: programme.entrees })
+  else programmes.delete(spaceId)
+}
+
+/**
+ * La liste du choix : le programme d'abord, dans son ordre, chacun avec son
+ * multiplicateur ; le reste comme la bibliothèque le range. Et ce que chaque
+ * quiz contient — catégories, estimations, durée —, pour le reconnaître
+ * sans l'ouvrir.
+ */
+function choixDeLaSoiree(
+  spaceId: string,
+  library: QuizPack[],
+  joues: Set<string>,
+): { packs: QuizPackInfo[]; programme?: ProgrammeDuSoir } {
+  const programme = programmes.get(spaceId)
+  const avancement = programme ? avancementDuProgramme(programme.entrees, new Set(library.map(p => p.id)), joues) : null
+  const rangs = new Map(avancement?.entrees.map((e, i) => [e.quizId, { rang: i + 1, multiplier: e.multiplier }]))
+  const packs = library.map(p => {
+    const parCategorie = new Map<string, number>()
+    for (const q of p.questions) if (q.category) parCategorie.set(q.category, (parCategorie.get(q.category) ?? 0) + 1)
+    const auProgramme = rangs.get(p.id)
+    return {
+      id: p.id,
+      title: p.title,
+      questionCount: p.questions.length,
+      ...(joues.has(p.id) && { joueCeSoir: true as const }),
+      categories: [...parCategorie.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'fr')).map(([c]) => c),
+      estimations: p.questions.filter(q => q.kind === 'number').length,
+      dureeS: dureeDesJouables(p.questions),
+      ...(auProgramme && { auProgramme }),
+    }
+  })
+  // Un tri stable : hors programme, l'ordre de la bibliothèque demeure.
+  packs.sort((a, b) => (a.auProgramme?.rang ?? MAX_ENTREES + 1) - (b.auProgramme?.rang ?? MAX_ENTREES + 1))
+  if (!programme || !avancement || avancement.entrees.length === 0) return { packs }
+  return {
+    packs,
+    programme: {
+      titre: programme.titre,
+      total: avancement.entrees.length,
+      prochain: avancement.prochain?.quizId ?? null,
+      ensuite: avancement.ensuite?.quizId ?? null,
+    },
+  }
 }
 
 /**
@@ -612,14 +671,11 @@ export const quizModule: GameModule<QuizState> = {
     const lancement = (config ?? {}) as LancementDeQuiz
     const joues = new Set(Array.isArray(lancement.joues) ? lancement.joues : [])
     const auto = lancement.autoNextSeconds
+    const { packs, programme } = choixDeLaSoiree(spaceId, library, joues)
     return {
       phase: 'pickPack',
-      packs: library.map(p => ({
-        id: p.id,
-        title: p.title,
-        questionCount: p.questions.length,
-        ...(joues.has(p.id) && { joueCeSoir: true as const }),
-      })),
+      packs,
+      ...(programme && { programme }),
       pack: null,
       qIndex: 0,
       round: 0,
@@ -934,7 +990,7 @@ export const quizModule: GameModule<QuizState> = {
       packTitle: st.pack?.title,
       multiplier: st.multiplier,
     }
-    if (st.phase === 'pickPack') return { ...base, packs: st.packs }
+    if (st.phase === 'pickPack') return { ...base, packs: st.packs, ...(st.programme && { programme: st.programme }) }
     if (st.phase === 'getReady') return { ...base, deadline: st.deadline }
     if (st.phase === 'observe' && st.pack) {
       const q = st.pack.questions[st.qIndex]
