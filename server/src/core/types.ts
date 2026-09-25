@@ -14,6 +14,8 @@ export interface SocketData {
   /** L'animateur connecté derrière cet écran commun, et sa session. */
   accountId?: string
   authSessionId?: string
+  /** Cet écran d'animateur se tient en télécommande (`host:telecommande`). */
+  telecommande?: boolean
 }
 
 export type IoServer = Server<

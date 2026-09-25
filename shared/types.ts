@@ -101,6 +101,30 @@ export interface PartySnapshot {
    * — il ne change qu'aux transitions, jamais à chaque essai.
    */
   sauvegardeEnRetard?: true
+  /**
+   * Ce que les écrans d'animateur montrent hors du jeu — podium de la
+   * soirée, remise des prix, victoire, clôture. Tenue par le serveur : ouverte
+   * à la télécommande, elle passe à la télé. Envoyée aux écrans d'animateur
+   * seulement, et absente en salle d'attente.
+   */
+  scene?: Scene
+  /**
+   * Un écran d'animateur de l'espace se tient en télécommande : la télé peut
+   * garder les coulisses (la grille des prix, la liste des quiz) pour lui.
+   */
+  telecommande?: true
+}
+
+/** Les écrans de fin de soirée, projetés à la place du jeu. */
+export type EcranDeScene = 'podium' | 'prix' | 'victoire' | 'cloture'
+
+/** Le podium de la soirée montre les équipes ou les joueurs. */
+export type OngletDePodium = 'equipes' | 'joueurs'
+
+export interface Scene {
+  ecran: EcranDeScene
+  /** Au podium seulement : ce qu'on y montre. */
+  onglet?: OngletDePodium
 }
 
 /** Page souvenir : ce qu'il reste de la soirée, le lendemain. */

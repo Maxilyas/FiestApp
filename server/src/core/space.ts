@@ -35,8 +35,9 @@ import type { BadgePorte, Rarete } from '../../../shared/badges'
 import { hautFaitDeSoiree, palierDe, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
 import { cibleEclat } from '../../../shared/legendaires'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, PrixAnnonce, SoireeClose } from '../../../shared/fin'
-import type { PartySnapshot, PublicPlayer, Recap } from '../../../shared/types'
+import type { EcranDeScene, OngletDePodium, PartySnapshot, PublicPlayer, Recap, Scene } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
+import type { LancementDeQuiz } from '../../../shared/games/quiz'
 import type { ArchiveList, ArchiveSummary, DerniereSoiree } from '../../../shared/archive'
 import { defaultSettings, type PublicSpace } from '../../../shared/space'
 import { questionsDesEquipes, teamScores } from '../../../shared/teams'
@@ -186,6 +187,16 @@ export class SpaceRuntime {
   private pending: ReturnType<typeof setTimeout> | null = null
   private pendingEcrans: ReturnType<typeof setTimeout> | null = null
   private readonly incarnation = ++incarnations
+
+  /**
+   * La scène des écrans d'animateur : en mémoire seulement. Un redémarrage
+   * la ramène à la salle d'attente — c'est un choix d'affichage, pas une
+   * donnée de la soirée : la base locale est jetable, et la salle d'attente
+   * (le QR, les invités) est l'écran qu'on ne regrette jamais d'afficher.
+   */
+  private scene: Scene | null = null
+  /** L'annonce de la dernière clôture, pour un écran qui se présente pendant qu'on l'affiche. */
+  private derniereCloture: ClotureDeSoiree | null = null
 
   constructor(
     readonly spaceId: string,
@@ -1007,12 +1018,21 @@ export class SpaceRuntime {
 
   /** Ce que l'écran commun reçoit en plus de la salle. */
   private pourLesEcrans(snapshot: PartySnapshot): PartySnapshot {
+    return { ...snapshot, ...this.enPlusPourLesEcrans() }
+  }
+
+  /**
+   * Ces champs changent rarement — une transition du miroir, un écran de fin
+   * ouvert, une télécommande branchée : l'invariant 4 tient.
+   */
+  private enPlusPourLesEcrans(): Partial<PartySnapshot> {
     return {
-      ...snapshot,
       wifi: this.deps.wifi,
       // Absent quand tout va bien : il ne change qu'aux transitions, et
       // l'instantané dédoublonné n'en porte pas le poids le reste du temps.
       ...(this.mirror.enRetard() && { sauvegardeEnRetard: true as const }),
+      ...(this.scene && { scene: this.scene }),
+      ...(this.telecommandeBranchee() && { telecommande: true as const }),
     }
   }
 
@@ -1020,6 +1040,64 @@ export class SpaceRuntime {
     const complet = this.snapshotComplet()
     this.envoyerAuxTelephones(complet, force)
     this.envoyerAuxEcrans(complet, force)
+  }
+
+  // ── La scène des écrans d'animateur ──
+
+  /**
+   * Ouvre un écran de fin de soirée sur tous les écrans d'animateur, ou
+   * revient à la salle d'attente. `depuis`, quand il est donné, est l'écran
+   * que le geste visait : si l'autre console a changé la scène entre-temps,
+   * le geste est périmé et ignoré (invariant 12). La clôture ne s'ouvre pas
+   * d'ici, et ne se quitte que pour la salle d'attente : elle raconte une
+   * soirée qui n'existe plus, ses prix et son podium avec.
+   */
+  poserScene(ecran: EcranDeScene | null, onglet?: OngletDePodium, depuis?: EcranDeScene | null): boolean {
+    const actuel = this.scene?.ecran ?? null
+    if (depuis !== undefined && depuis !== actuel) return false
+    if (ecran === 'cloture') return false
+    if (actuel === 'cloture' && ecran !== null) return false
+    // Un écran de fin ne s'ouvre pas par-dessus une question : une autre
+    // console qui ouvrait le podium pendant qu'on jouait le posait sur la
+    // télé, et les téléphones répondaient à une question que la salle ne
+    // voyait plus. « Remise des prix », au podium du quiz, clôt la partie
+    // d'abord (`host:endSession`, par la même connexion) : elle passe.
+    if (ecran !== null && this.engine.activeSessionId) return false
+    const suivante: Scene | null = ecran ? { ecran, ...(ecran === 'podium' && onglet && { onglet }) } : null
+    if (JSON.stringify(suivante) === JSON.stringify(this.scene)) return false
+    this.scene = suivante
+    if (!suivante) this.derniereCloture = null
+    this.sendSnapshot()
+    return true
+  }
+
+  /**
+   * Une nouvelle soirée commence — un premier invité s'inscrit, ou un quiz se
+   * lance : la clôture d'hier cesse d'être la scène. Restée à l'écran, la
+   * télé montrait le QR du souvenir de la veille à ceux qui arrivaient, au
+   * lieu de celui pour rejoindre.
+   */
+  soireeCommence() {
+    if (this.scene?.ecran !== 'cloture') return
+    // Sans rien envoyer : la diffusion regroupée de l'inscription porte la
+    // scène. Un envoi immédiat partait avant le rattachement au profil, et
+    // les écrans voyaient l'invité sans son légendaire.
+    this.scene = null
+    this.derniereCloture = null
+  }
+
+  /** L'annonce de clôture encore à l'écran, pour un écran d'animateur qui se présente. */
+  clotureAffichee(): ClotureDeSoiree | null {
+    return this.scene?.ecran === 'cloture' ? this.derniereCloture : null
+  }
+
+  /** Un écran d'animateur de l'espace se tient-il en télécommande ? */
+  private telecommandeBranchee(): boolean {
+    const io = this.deps.io
+    for (const id of io.sockets.adapter.rooms.get(`hosts:${this.spaceId}`) ?? []) {
+      if (io.sockets.sockets.get(id)?.data.telecommande) return true
+    }
+    return false
   }
 
   private envoyerAuxTelephones(complet: PartySnapshot, force = false) {
@@ -1098,6 +1176,31 @@ export class SpaceRuntime {
       }
     }
     return packs
+  }
+
+  /**
+   * Ce que le quiz qu'on lance reprend de la soirée : l'enchaînement du
+   * dernier quiz — il repassait « au clic » à chaque quiz, et l'animateur
+   * qui pilotait debout devait le régler de nouveau — et les quiz déjà
+   * joués. Lu dans les parties de la soirée : la clôture les efface, et
+   * l'oubli vient avec.
+   */
+  lancementDeQuiz(): LancementDeQuiz {
+    const rows = this.deps.db
+      .prepare('SELECT state FROM sessions WHERE space_id = ? ORDER BY created_at')
+      .all(this.spaceId) as { state: string }[]
+    const joues = new Set<string>()
+    let autoNextSeconds: number | null = null
+    for (const row of rows) {
+      try {
+        const st = JSON.parse(row.state) as { pack?: { id?: unknown } | null; autoNextSeconds?: unknown }
+        if (typeof st.pack?.id === 'string') joues.add(st.pack.id)
+        autoNextSeconds = typeof st.autoNextSeconds === 'number' ? st.autoNextSeconds : null
+      } catch {
+        // Un état illisible n'apprend rien : le quiz part au clic.
+      }
+    }
+    return { autoNextSeconds, joues: [...joues] }
   }
 
   liveRecap(): Recap {
@@ -1418,6 +1521,11 @@ export class SpaceRuntime {
       }),
     }
     this.deps.io.to(`hosts:${this.spaceId}`).emit('soiree:cloture', cloture)
+    // La clôture prend tous les écrans d'animateur, et y reste jusqu'à « La
+    // soirée suivante » — cliquée n'importe où, elle les libère tous.
+    this.scene = { ecran: 'cloture' }
+    this.derniereCloture = cloture
+    this.sendSnapshot()
   }
 
   /**
@@ -1483,6 +1591,9 @@ export class SpaceRuntime {
       // La seule porte qui ouvre une nouvelle soirée, et donc le seul endroit
       // où l'on oublie son nom.
       this.oublierSoiree()
+      // Les écrans de fin montraient la soirée effacée.
+      this.scene = null
+      this.derniereCloture = null
     })
     this.broadcastSnapshot()
     // Les téléphones de la soirée effacée n'incarnent plus personne. Laissés

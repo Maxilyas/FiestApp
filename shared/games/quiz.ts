@@ -13,6 +13,18 @@ export interface QuizPackInfo {
   id: string
   title: string
   questionCount: number
+  /** Déjà joué ce soir : l'animateur ne le relance pas sans le savoir. */
+  joueCeSoir?: true
+}
+
+/**
+ * Ce que la soirée transmet au quiz qu'on lance : l'enchaînement choisi au
+ * quiz d'avant — il repassait « au clic » à chaque quiz — et les quiz déjà
+ * joués. Oublié à la clôture, avec les parties de la soirée.
+ */
+export interface LancementDeQuiz {
+  autoNextSeconds?: number | null
+  joues?: string[]
 }
 
 export interface QuizPodiumRow extends Distinctions {
