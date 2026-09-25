@@ -2,6 +2,47 @@ import { useState, type FormEvent } from 'react'
 import { api } from '../api'
 import { MotDePasse } from './MotDePasse'
 import type { PublicProfile } from '../../../shared/profil'
+import { Icon } from './Icon'
+
+/**
+ * Le code de secours, à noter — il ne repassera jamais. Le même encart à
+ * l'entrée d'une soirée, dans la salle d'attente et sur `/profil` : la salle
+ * d'attente et le profil n'avaient pas de « Copier », l'entrée si.
+ */
+export function CodeSecours({ code }: { code: string }) {
+  const [copie, setCopie] = useState(false)
+  return (
+    <div className="card notice">
+      <p>
+        <strong>C'est la seule façon de retrouver ton profil</strong> si tu oublies ton mot de
+        passe — il n'y a pas d'adresse e-{/* un gluon : « e- / mail » coupé en bout de ligne */ '\u2060'}mail, donc pas de
+        lien à recevoir.
+      </p>
+      <p className="code-secours">{code}</p>
+      <p className="muted small">Il ne sera plus jamais affiché.</p>
+      {/* Sans presse-papier — hors HTTPS, c'est-à-dire en wifi local, et
+          dans certains navigateurs — le bouton ne faisait rien du tout.
+          Absent, il ne promet rien : le code reste lisible à l'écran. */}
+      {typeof navigator !== 'undefined' && navigator.clipboard && (
+        <button
+          type="button"
+          className="btn btn-small"
+          onClick={() => {
+            // Refusé quand même par certains navigateurs : ce n'est qu'un
+            // confort.
+            navigator.clipboard
+              .writeText(code)
+              .then(() => setCopie(true))
+              .catch(() => {})
+          }}
+        >
+          <Icon name={copie ? 'check' : 'copy'} />
+          {copie ? 'Copié' : 'Copier'}
+        </button>
+      )}
+    </div>
+  )
+}
 
 interface Props {
   /** L'identifiant déjà tapé à l'entrée, s'il y en a un. */

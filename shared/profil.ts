@@ -662,6 +662,14 @@ export interface SoireeJouee {
   chez: string | null
   /** L'adresse de l'espace, pour relire la soirée — null si l'espace n'existe plus. */
   slug: string | null
+  /**
+   * Son titre, tel que l'historique de l'espace le porte aujourd'hui — un
+   * renommage s'y voit. Null si la soirée n'y est plus.
+   */
+  titre: string | null
+  /** L'invité qu'on y était : de quoi ouvrir son bilan sans « Qui es-tu ? ». */
+  joueurId: string | null
+  /** L'expérience de la soirée, hors paliers de carrière (ils ont leur ligne). */
   xp: number
   gain: GainSoiree
   releve: ReleveSoiree
@@ -679,3 +687,14 @@ export interface PublicProfileDetail extends PublicProfile {
   /** Tous les hauts faits du catalogue, gagnés ou non, avec leur progression. */
   hautsFaits: HautFaitVu[]
 }
+
+/**
+ * Ce qu'un profil garde, dit pareil partout où l'on en propose un.
+ *
+ * Jamais « tes points » : les points se gagnent pareil avec ou sans profil
+ * (invariant 8) et ne passent pas d'une soirée à l'autre. Une phrase écrite
+ * pour Jeanne, qui cherchait à « retrouver ses points », les lui promettait
+ * pourtant. Ce qui la suit vraiment, c'est ce qui se voit : son niveau, ses
+ * prix et ses avatars.
+ */
+export const PITCH_PROFIL = 'Un profil garde ton niveau, tes prix et tes avatars d’une soirée à l’autre.'

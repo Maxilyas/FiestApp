@@ -368,6 +368,16 @@ test('T12 · le mot de passe s’affiche, sous un bouton au nom fixe', async () 
   // fermait le clavier du téléphone au milieu de la saisie.
   const oeil = readFileSync(new URL('../../client/src/components/MotDePasse.tsx', import.meta.url), 'utf8')
   assert.match(oeil, /onMouseDown=\{e => e\.preventDefault\(\)\}/)
+  // « e- / mail » : le code de secours, affiché à la création du profil au
+  // téléphone, coupait le mot en bout de ligne ; un gluon le tient entier.
+  // Chaque texte qui l'écrit, hors commentaires, le porte.
+  for (const fichier of ['Secours', 'Entree', 'ProfilForm']) {
+    const texte = readFileSync(new URL(`../../client/src/components/${fichier}.tsx`, import.meta.url), 'utf8')
+    for (const ligne of texte.split('\n')) {
+      if (/^\s*(\/\/|\*|\/\*)/.test(ligne) || !/adresse e-/.test(ligne)) continue
+      assert.match(ligne, /e-\{\/\*[^*]*\*\/ '\\u2060'\}mail/, `${fichier} : ${ligne.trim()}`)
+    }
+  }
 })
 
 test('T6 · un mot trop long pour sa case se coupe à la syllabe, pas n’importe où', () => {
