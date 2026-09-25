@@ -24,6 +24,8 @@ export const SANS_BONNE_REPONSE = -1
  * (`shared/liste.ts`) les annonce — il ne peut pas en promettre d'autres.
  */
 export const MAX_TEXT = 300
+/** Le titre d'un quiz : il s'affiche dans le bandeau de l'écran commun. */
+export const MAX_TITRE = 80
 export const MAX_ANSWER_TEXT = 120
 export const MAX_UNIT = 12
 export const MAX_QUESTIONS = 100
@@ -251,6 +253,83 @@ export function photoManquante(q: Pick<QuizQuestionDef, 'image' | 'photoAttendue
   return note && !q.image ? note : null
 }
 
+// ── Les trous d'un modèle à personnaliser ────────────────────────────────
+//
+// Le modèle « Qui connaît le mieux [Prénom] ? » s'ouvrait « 8/8 prêtes » avec
+// ses vingt-quatre réponses « Ville A ✏️ » : il se jouait tel quel, et une
+// seule réponse oubliée faisait lire « Métier C ✏️ » à toute la salle comme
+// bonne réponse. Un crayon ou un prénom à écrire rend la question « à
+// personnaliser », comme une photo attendue.
+
+/** Le crayon qu'un modèle pose sur ce qu'on doit remplacer (avec ou sans sélecteur de variante). */
+const CRAYON = /✏️?/u
+/** Un prénom à écrire : « [Prénom] », « [Prénom 2] ». Les autres crochets — « Je [...] la vie en rose » — ne sont pas des trous. */
+export const PRENOM_A_ECRIRE = /\[\s*pr[ée]nom(?:\s*(\d))?\s*\]/giu
+
+/** Ce qui reste à personnaliser dans ces textes, dit comme on le corrige, ou null. */
+export function trouDans(...textes: (string | null | undefined)[]): string | null {
+  const presents = textes.filter((t): t is string => typeof t === 'string' && t.length > 0)
+  const prenom = presents.map(t => t.match(PRENOM_A_ECRIRE)?.[0]).find(Boolean)
+  if (prenom) return `Écris le prénom à la place de « ${prenom} »`
+  if (presents.some(t => CRAYON.test(t))) return 'Remplace ce qui est marqué ✏️'
+  return null
+}
+
+/** Le trou d'une question : son intitulé, ses réponses, son unité. */
+function trouDeLaQuestion(q: QuizQuestionDef): string | null {
+  return trouDans(q.text, ...(q.kind === 'number' ? [q.unit] : (q.answers ?? [])))
+}
+
+// ── La durée d'un quiz ───────────────────────────────────────────────────
+
+/**
+ * Ce qu'une révélation prend, en moyenne : lire la bonne réponse, commenter,
+ * passer à la suite — le palier « 10 s » de l'enchaînement, un peu moins
+ * quand on clique.
+ */
+const REVELATION_S = 8
+/** Le compte à rebours du départ, puis le podium. */
+const DEPART_ET_PODIUM_S = 3 + 15
+
+/**
+ * Le temps qu'un quiz prend à jouer, en secondes : ses questions jouables,
+ * leur observation, et une révélation chacune. Combien de manches tiennent
+ * entre le dessert et minuit, c'est ce que l'animateur se demande en
+ * préparant — et rien ne le lui disait.
+ */
+export function dureeEstimeeS(questions: readonly QuizQuestionDef[]): number {
+  const jouables = questions.map(toPlayable).filter((q): q is PlayableQuestion => q !== null)
+  if (jouables.length === 0) return 0
+  return jouables.reduce((s, q) => s + q.duration + (q.image && q.observeSeconds ? q.observeSeconds : 0) + REVELATION_S, DEPART_ET_PODIUM_S)
+}
+
+/** « ≈ 9 min », « ≈ 1 h 05 », pour une durée en secondes. */
+export function ecrireDuree(secondes: number): string {
+  const minutes = Math.max(1, Math.round(secondes / 60))
+  if (minutes < 60) return `≈ ${minutes} min`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  return `≈ ${h} h${m ? ` ${String(m).padStart(2, '0')}` : ''}`
+}
+
+// ── Le quiz qu'on ouvre et qu'on quitte sans rien y écrire ───────────────
+
+/** Le titre d'un quiz qu'on vient de créer, avant qu'on le nomme. */
+export const TITRE_PAR_DEFAUT = 'Nouveau quiz'
+
+/**
+ * Vrai pour un quiz resté tel qu'on l'a créé : aucune question, et le titre
+ * par défaut. « Nouveau quiz » puis retour, ou « Coller une liste » puis
+ * « Annuler », laissaient chaque fois un « Nouveau quiz · 0 question prête »
+ * en tête de la bibliothèque. L'éditeur efface celui qu'il vient de créer,
+ * s'il le quitte ainsi — jamais un quiz plus ancien, qu'on a pu garder vide
+ * exprès.
+ */
+export function quizAbandonne(quiz: Pick<QuizDef, 'title' | 'questions'>): boolean {
+  const titre = quiz.title.trim()
+  return quiz.questions.length === 0 && (titre === '' || titre === TITRE_PAR_DEFAUT)
+}
+
 /** Les deux réponses d'un vrai ou faux : un QCM à deux cases, rien de plus pour la partie. */
 export const VRAI_FAUX = ['Vrai', 'Faux'] as const
 
@@ -302,6 +381,8 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
   const text = (q.text ?? '').trim()
   if (!text) return null
   if (photoManquante(q)) return null
+  // Un modèle pas encore personnalisé : « Ville A ✏️ » ne part pas au mur.
+  if (trouDeLaQuestion(q)) return null
   // Hors bornes, la question attend qu'on la corrige : elle le dit sur sa
   // carte (`questionProblem`), la partie ne la ramène pas en silence.
   if (horsBornes(q)) return null
@@ -340,6 +421,8 @@ export function toPlayable(q: QuizQuestionDef): PlayableQuestion | null {
 /** Ce qui manque à une question pour être jouable — message affiché dans l'éditeur. */
 export function questionProblem(q: QuizQuestionDef): string | null {
   if (!(q.text ?? '').trim()) return 'Il manque l’intitulé de la question'
+  const trou = trouDeLaQuestion(q)
+  if (trou) return trou
   if (q.kind === 'number') {
     if (typeof q.target !== 'number' || !Number.isFinite(q.target)) {
       return 'Il manque la bonne réponse (un nombre)'
@@ -369,7 +452,7 @@ export function playableQuestions(quiz: QuizDef): PlayableQuestion[] {
 const QUESTION_ID = /^[\w-]{1,48}$/
 
 export function cleanTitle(title: unknown): string {
-  const clean = tronquer(String(title ?? '').trim(), 80)
+  const clean = tronquer(String(title ?? '').trim(), MAX_TITRE)
   return clean || 'Quiz sans titre'
 }
 
@@ -385,7 +468,7 @@ export function titreLibre(titre: string, pris: Iterable<string>): string {
   if (!occupes.has(cle(propre))) return propre
   for (let n = 2; ; n++) {
     const suffixe = ` (${n})`
-    const candidat = `${tronquer(propre, 80 - suffixe.length).trim()}${suffixe}`
+    const candidat = `${tronquer(propre, MAX_TITRE - suffixe.length).trim()}${suffixe}`
     if (!occupes.has(cle(candidat))) return candidat
   }
 }
@@ -479,6 +562,15 @@ export interface ImportResult {
   unmarked: number
   /** Blocs ignorés faute de contenu exploitable. */
   ignored: number
+  /**
+   * Le début de chacun de ces blocs : « 1 bloc ignoré » ne disait pas
+   * lequel, et sur trente blocs on cherchait.
+   */
+  ignores: string[]
+  /** Les réponses au-delà de la quatrième, que la question n'a pas gardées — effacées sans un mot jusqu'ici. */
+  enTrop: { question: string; reponse: string }[]
+  /** Le titre annoncé en tête de la liste (« Titre : Soirée années 90 »), s'il y en a un. */
+  titre: string | null
 }
 
 /** Une ligne vide sépare deux questions ; chaque ligne porte un élément. */
@@ -640,6 +732,15 @@ function lireReponse(ligne: string): ReponseLue {
 /** Pour comparer une réponse désignée à un choix : sans casse, sans accent, sans ponctuation finale. */
 const comparable = (s: string) => sansAccents(s).toLowerCase().replace(/[.!]+$/, '').trim()
 
+/** « Titre : Soirée années 90 » : le titre du quiz, en tête de la liste. */
+const TITRE_DE_LISTE = /^titre\s*:\s*(.+)$/i
+
+function titreSeul(ligne: string): string | null {
+  const m = TITRE_DE_LISTE.exec(ligne)
+  const titre = m ? tronquer(m[1].trim(), MAX_TITRE).trim() : ''
+  return titre || null
+}
+
 /** Une ligne « Temps : 45 s » lisible, ou null : elle peut alors précéder un intitulé. */
 function tempsSeul(ligne: string): number | null {
   const lu = lireReglage(ligne)
@@ -683,6 +784,14 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
   const questions: QuizQuestionDef[] = []
   let unmarked = 0
   let ignored = 0
+  const ignores: string[] = []
+  const enTrop: ImportResult['enTrop'] = []
+  let titre: string | null = null
+  /** Un bloc qu'on ne sait pas lire : compté, et nommé par son début. */
+  const ignorer = (debut: string) => {
+    ignored++
+    ignores.push(tronquer(debut.replace(/\s+/g, ' ').trim(), 60))
+  }
 
   // La catégorie en cours : une ligne « # Cinéma » range les questions qui
   // suivent, jusqu'à la prochaine. « # » tout seul les laisse sans catégorie.
@@ -696,11 +805,24 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
   // question valait pour elle seule, et les huit suivantes de Léa sont
   // arrivées à 20 s — l'aide promettait l'inverse. Sans ligne, la voisine.
   let temps = emptyQuestion(modele).duration
+  let premierBloc = true
   for (const block of blocks) {
     const lines = block
       .split(SEPARATEUR_LIGNES)
       .map(l => sansGras(l).trim())
       .filter(l => l.length > 0)
+    if (lines.length === 0) continue
+    // Le titre du quiz, tout en haut : « Titre : Soirée années 90 ». Seulement
+    // seul sur sa ligne en tête de la liste, ou suivi de catégories et de
+    // temps — « Titre : quel film… ? » suivi de ses choix est une question.
+    if (premierBloc) {
+      premierBloc = false
+      const lu = titreSeul(lines[0])
+      if (lu && lines.slice(1).every(l => estCategorie(l) || tempsSeul(l) !== null)) {
+        titre = lu
+        lines.shift()
+      }
+    }
     // En tête de bloc, ou seules : les catégories, et un temps pour la suite.
     while (lines.length > 0 && (estCategorie(lines[0]) || tempsSeul(lines[0]) !== null)) {
       const ligne = lines.shift()!
@@ -712,10 +834,10 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
       const nom = ligne.slice(1).trim()
       categorie = nom ? categorieDe(nom) : null
       // Une catégorie qu'on ne connaît pas se signale, comme un bloc illisible.
-      if (nom && !categorie) ignored++
+      if (nom && !categorie) ignorer(ligne)
     }
     if (lines.length < 2) {
-      if (lines.length === 1) ignored++
+      if (lines.length === 1) ignorer(lines[0])
       continue
     }
 
@@ -761,7 +883,7 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
     if (numberLine) {
       const lue = lireEstimation(numberLine.slice(1).trim())
       if (!lue) {
-        ignored++
+        ignorer(question.text)
         continue
       }
       question.kind = 'number'
@@ -786,12 +908,16 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
       if (r.marquee) marques++
       // Au-delà de quatre, la réponse est coupée — et sa marque avec : la
       // question attend alors qu'on choisisse, plutôt qu'une autre ne gagne.
-      if (answers.length >= MAX_ANSWERS) continue
+      // Elle se dit, au lieu de disparaître en silence.
+      if (answers.length >= MAX_ANSWERS) {
+        enTrop.push({ question: question.text, reponse: tronquer(answer, MAX_ANSWER_TEXT) })
+        continue
+      }
       if (r.marquee && correct < 0) correct = answers.length
       answers.push(tronquer(answer, MAX_ANSWER_TEXT))
     }
     if (answers.length < MIN_ANSWERS) {
-      ignored++
+      ignorer(question.text)
       continue
     }
     // « Réponse : Canberra » ou « Bonne réponse : B », quand aucune n'est marquée.
@@ -817,5 +943,5 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
     questions.push(question)
   }
 
-  return { questions, unmarked, ignored }
+  return { questions, unmarked, ignored, ignores, enTrop, titre }
 }

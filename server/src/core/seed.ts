@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { QuizStore } from './quizStore'
+import type { APersonnaliser } from '../../../shared/modeles'
 
 const CONTENT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../content/quiz')
 
@@ -10,6 +11,10 @@ export interface Modele {
   id: string
   title: string
   questions: unknown[]
+  /** Un modèle à trous : combien de prénoms « Pour qui ? » demande avant de le copier. */
+  personnaliser?: APersonnaliser
+  /** Une phrase qui dit à quoi il sert, sous son titre. */
+  description?: string
 }
 
 /**
@@ -28,7 +33,14 @@ export function lireModeles(): Modele[] {
         // Les photos livrées avec le dépôt restent servies depuis /media/quiz.
         image: typeof q?.image === 'string' && q.image ? `/media/quiz/${encodeURIComponent(q.image)}` : null,
       }))
-      modeles.push({ id: file.replace(/\.json$/, ''), title: raw.title, questions })
+      const prenoms = raw.personnaliser?.prenoms
+      modeles.push({
+        id: file.replace(/\.json$/, ''),
+        title: raw.title,
+        questions,
+        ...((prenoms === 1 || prenoms === 2) && { personnaliser: { prenoms } }),
+        ...(typeof raw.description === 'string' && raw.description.trim() && { description: raw.description.trim() }),
+      })
     } catch (e) {
       console.warn(`[quiz] lecture de ${file} impossible : ${(e as Error).message}`)
     }

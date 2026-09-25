@@ -2153,6 +2153,16 @@ h3 > .icon {
 }
 
 .undo-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
+/* Une photo glissée au-dessus de la carte : l'endroit où la lâcher s'éclaire. */
+.question-card.is-survolee { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+/* « ⚠ 2 à compléter ↓ » : ce qui manque se passe en revue d'un clic chacun. */
+.editor-header .a-completer { color: var(--accent-text); }
+.editor-header .a-completer:hover { color: var(--accent-text-hover); }
+.duree-quiz { white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Ce que la liste collée laisse, nommé par son début. */
+.import-laisses { margin: 0; padding-left: 1.2em; display: grid; gap: 2px; }
+.demande-ia { display: grid; gap: 8px; padding: 10px 12px; border: 1px dashed var(--edge); border-radius: var(--radius-sm); }
+.demande-ia .input { flex: 1; min-width: 0; }
 .regler-tout { display: flex; flex-direction: column; gap: 10px; }
 .regler-tout h3 { display: flex; align-items: center; gap: 8px; }
 
@@ -4816,6 +4826,20 @@ h3 > .icon {
   .premiers-pas-choix .btn { width: 100%; justify-content: flex-start; white-space: normal; text-align: left; }
 }
 .premiers-pas-etapes { margin: 6px 0 0; padding-left: 1.3em; display: grid; gap: 4px; }
+
+/* Les modèles : un par ligne, ce qu'il est à gauche, le geste à droite ;
+   « Pour qui ? » se déplie dessous, sur place. */
+.modeles { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.modele { border: 1px solid var(--edge); border-radius: var(--radius-sm); padding: 10px 12px; display: grid; gap: 10px; }
+.modele-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.modele-tete h3 { margin: 0; font-size: 1.1rem; }
+.modele-tete p { margin: 2px 0 0; }
+.modele-tete .btn { flex-shrink: 0; }
+.pour-qui { display: grid; gap: 10px; }
+.pour-qui-champ { display: grid; gap: 4px; flex: 1 1 160px; }
+@media (max-width: 600px) {
+  .modele-tete { flex-direction: column; align-items: stretch; }
+}
 .center-row { justify-content: center; }
 
 /* ── Ce que la salle doit savoir, lisible du canapé ─────────────────────

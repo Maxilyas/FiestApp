@@ -10,11 +10,16 @@ import {
   MAX_ANSWER_TEXT,
   MAX_DURATION,
   MAX_OBSERVE,
+  MAX_QUESTIONS,
   MAX_TEXT,
+  MAX_TITRE,
   MAX_UNIT,
   MIN_DURATION,
   MIN_OBSERVE,
+  TITRE_PAR_DEFAUT,
   cloneQuestion,
+  dureeEstimeeS,
+  ecrireDuree,
   emptyQuestion,
   insertQuestions,
   moveQuestion,
@@ -22,6 +27,7 @@ import {
   parseImportedQuestions,
   photoManquante,
   questionProblem,
+  quizAbandonne,
   tempsDObservation,
   tempsDansLesBornes,
   toPlayable,
@@ -33,7 +39,20 @@ import {
 import { CATEGORIES } from '../../../shared/categories'
 import { ecrireNombre, lireNombre } from '../../../shared/nombres'
 import { POIDS_MAX_FICHIER, emporterQuiz, importerQuiz, nomDeFichier } from '../../../shared/echange'
-import { APERCU_DU_FORMAT, FORMAT_DE_LISTE, apparierPhotos, cleDePhoto, ecrireListe, joindrePhotos } from '../../../shared/liste'
+import {
+  APERCU_DU_FORMAT,
+  DEMANDE_PAR_DEFAUT,
+  FORMAT_DE_LISTE,
+  apparierPhotos,
+  cleDePhoto,
+  demandePourIA,
+  ecrireListe,
+  joindrePhotos,
+  type DemandeIA,
+} from '../../../shared/liste'
+import { avisEmojis, emojisRecents } from '../../../shared/emojis'
+import { SEUILS } from '../../../shared/profil'
+import { MAX_PRENOM, type Accord, type ModeleResume, type PourQui } from '../../../shared/modeles'
 import {
   brouillonDepasse,
   brouillonUtile,
@@ -278,6 +297,39 @@ export function EditorApp() {
     }
   }, [])
 
+  /**
+   * Les quiz créés dans cette page. Quitté sans une question ni un titre, l'un
+   * d'eux s'efface (`quizAbandonne`) : « Nouveau quiz » puis retour laissait
+   * chaque fois un quiz vide en tête de la bibliothèque. Un quiz plus ancien,
+   * gardé vide exprès, n'est jamais touché.
+   */
+  const creeIci = useRef(new Set<string>())
+  const creer = async (avecListe = false) => {
+    try {
+      const quiz = await api.create(TITRE_PAR_DEFAUT)
+      creeIci.current.add(quiz.id)
+      if (avecListe) setOuvrirListe(true)
+      setEditingId(quiz.id)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+  const abandonner = useCallback(
+    async (id: string) => {
+      creeIci.current.delete(id)
+      oublierBrouillon(id)
+      // Retiré de la liste tout de suite : la liste relue pouvait arriver avant l'effacement.
+      setList(l => l?.filter(q => q.id !== id) ?? l)
+      try {
+        await api.remove(id)
+      } catch {
+        // Resté en place, il se supprime à la main, comme avant.
+      }
+      reload()
+    },
+    [reload],
+  )
+
   useEffect(() => {
     reload()
     // Le lien « Les comptes » n'a de sens que pour l'administrateur.
@@ -320,7 +372,10 @@ export function EditorApp() {
   if (editingId) {
     return (
       <QuizEditor
+        key={editingId}
         id={editingId}
+        neuf={creeIci.current.has(editingId)}
+        onAbandon={abandonner}
         ouvrirListe={ouvrirListe}
         sortie={sortie}
         onClose={() => {
@@ -381,32 +436,11 @@ export function EditorApp() {
           {/* On cherchait « Coller une liste » en arrivant, et l'on ouvrait
               « Importer un quiz », qui attend un fichier : le panneau n'existait
               qu'à l'intérieur d'un quiz. Il crée le quiz, et s'ouvre dedans. */}
-          <button
-            className="btn btn-ghost"
-            onClick={async () => {
-              try {
-                const quiz = await api.create('Nouveau quiz')
-                setOuvrirListe(true)
-                setEditingId(quiz.id)
-              } catch (e) {
-                setError((e as Error).message)
-              }
-            }}
-          >
+          <button className="btn btn-ghost" onClick={() => creer(true)}>
             <Icon name="clipboard" />
             Coller une liste
           </button>
-          <button
-            className="btn btn-primary"
-            onClick={async () => {
-              try {
-                const quiz = await api.create('Nouveau quiz')
-                setEditingId(quiz.id)
-              } catch (e) {
-                setError((e as Error).message)
-              }
-            }}
-          >
+          <button className="btn btn-primary" onClick={() => creer()}>
             <Icon name="plus" />
             Nouveau quiz
           </button>
@@ -426,6 +460,7 @@ export function EditorApp() {
               setEditingId(id)
             }}
             onImporter={() => fichier.current?.click()}
+            onCreer={() => creer()}
             onErreur={setError}
           />
         )}
@@ -521,11 +556,16 @@ export function EditorApp() {
 
 function QuizEditor({
   id,
+  neuf = false,
+  onAbandon,
   ouvrirListe = false,
   sortie,
   onClose,
 }: {
   id: string
+  /** Créé dans cette page : quitté tel quel — sans question ni titre —, il s'efface. */
+  neuf?: boolean
+  onAbandon?: (id: string) => void
   ouvrirListe?: boolean
   /** Où poser la garde de sortie, pour le retour du navigateur (voir `EditorApp`). */
   sortie?: MutableRefObject<(() => Promise<boolean>) | null>
@@ -574,6 +614,8 @@ function QuizEditor({
   /** Le panneau « Régler tout le quiz », ouvert. */
   const [reglerTout, setReglerTout] = useState(false)
   const [spot, setSpot] = useState<Spot | null>(null)
+  /** La dernière question « à compléter » montrée par l'en-tête : le clic suivant passe à la suivante. */
+  const derniereMontree = useRef<string | null>(null)
   /** Ce qui vient de bouger, pour les lecteurs d'écran — l'œil, lui, suit la carte éclairée. */
   const [announce, setAnnounce] = useState('')
 
@@ -615,6 +657,19 @@ function QuizEditor({
       if (sortie) sortie.current = null
     }
   }, [sortie])
+
+  // Refermé tel qu'il a été créé — par « Mes quiz » comme par le retour du
+  // navigateur —, le quiz neuf s'efface : il ne restait qu'un « Nouveau
+  // quiz · 0 question prête » en tête de la liste.
+  const abandon = useRef({ neuf, onAbandon })
+  abandon.current = { neuf, onAbandon }
+  useEffect(
+    () => () => {
+      const { neuf: estNeuf, onAbandon: abandonner } = abandon.current
+      if (estNeuf && courant.current && quizAbandonne(courant.current)) abandonner?.(id)
+    },
+    [id],
+  )
 
   useEffect(() => {
     api
@@ -773,7 +828,7 @@ function QuizEditor({
 
   const copierEnListe = async () => {
     if (!courant.current) return
-    const faite = await copierTexte(ecrireListe(courant.current.questions))
+    const faite = await copierTexte(ecrireListe(courant.current.questions, courant.current.title))
     setListeCopiee(faite ? 'faite' : 'refusee')
     setAnnounce(
       faite
@@ -982,7 +1037,24 @@ function QuizEditor({
   }
 
   const ready = quiz.questions.filter(q => toPlayable(q) !== null).length
+  const aCompleter = quiz.questions.length - ready
   const enPremier = bonneEnPremier(quiz.questions)
+  const duree = dureeEstimeeS(quiz.questions)
+  const emojisDuTitre = avisEmojis(emojisRecents(quiz.title))
+
+  /**
+   * « ⚠ 2 à compléter → » : la question suivante qui n'est pas prête, après
+   * la dernière montrée — on les passe en revue d'un clic chacune. « 14/15
+   * prêtes » ne disait pas laquelle, et elle se cherchait dans vingt écrans.
+   */
+  const suivanteACompleter = () => {
+    const incompletes = quiz.questions.filter(q => toPlayable(q) === null)
+    if (incompletes.length === 0) return
+    const depuis = quiz.questions.findIndex(q => q.id === derniereMontree.current)
+    const suivante = incompletes.find(q => quiz.questions.indexOf(q) > depuis) ?? incompletes[0]
+    derniereMontree.current = suivante.id ?? null
+    spotlight(suivante.id, 'text')
+  }
 
   return (
     <div className="editor">
@@ -993,15 +1065,24 @@ function QuizEditor({
         <input
           className="input title-input"
           value={quiz.title}
-          maxLength={80}
+          maxLength={MAX_TITRE}
           onChange={e => patch(q => ({ ...q, title: e.target.value }))}
           placeholder="Titre du quiz"
           aria-label="Titre du quiz"
         />
         <div className="row">
-          <span className="muted">
-            {ready}/{quiz.questions.length} prête{ready > 1 ? 's' : ''}
-          </span>
+          {aCompleter > 0 ? (
+            <button type="button" className="btn btn-ghost btn-small a-completer" onClick={suivanteACompleter}>
+              <Icon name="alert" />
+              {aCompleter} à compléter
+              <Icon name="arrow-down" />
+            </button>
+          ) : (
+            <span className="muted">
+              {ready}/{quiz.questions.length} prête{ready > 1 ? 's' : ''}
+            </span>
+          )}
+          {duree > 0 && <span className="muted duree-quiz" title="Temps de jeu estimé, révélations comprises">{ecrireDuree(duree)}</span>}
           {/* Il dit où il mène : « Retour » seul laissait chercher l'écran
               commun, qui est sur la liste. */}
           <button className="btn btn-ghost" onClick={close}>
@@ -1085,6 +1166,23 @@ function QuizEditor({
           </p>
         )}
         {savedAt && !dirty && <p className="muted">Enregistré {quand(savedAt)}</p>}
+        {emojisDuTitre && (
+          <p className="warn small">
+            <Icon name="alert" /> {espacesFines(`Titre : ${emojisDuTitre}.`)}
+          </p>
+        )}
+        {/* La règle de l'expérience (invariant 19) se dit là où l'on écrit : un
+            quiz de quatre questions ne donne pas de podium, et personne ne
+            le savait avant la soirée. */}
+        {ready > 0 && ready < SEUILS.questionsQuiz && (
+          <p className="muted small">
+            <Icon name="alert" />{' '}
+            {espacesFines(
+              `${ready} question${ready > 1 ? 's' : ''} prête${ready > 1 ? 's' : ''} : le podium de ce quiz ne rapportera pas ` +
+                `d’expérience aux profils — il en faut ${SEUILS.questionsQuiz} au moins.`,
+            )}
+          </p>
+        )}
         {enPremier && (
           <p className="muted small">
             <Icon name="alert" />{' '}
@@ -1161,7 +1259,7 @@ function QuizEditor({
         {listeCopiee === 'refusee' && (
           <div className="card import-panel">
             <p className="warn small">Ce navigateur ne laisse pas copier d'ici : sélectionne le texte ci-dessous, puis copie-le.</p>
-            <textarea className="input import-area" rows={10} readOnly value={ecrireListe(quiz.questions)} />
+            <textarea className="input import-area" rows={10} readOnly value={ecrireListe(quiz.questions, quiz.title)} />
             <div className="row">
               <button className="btn btn-ghost btn-small" onClick={() => setListeCopiee(null)}>
                 Fermer
@@ -1173,8 +1271,15 @@ function QuizEditor({
         {importing && (
           <BulkImport
             questions={quiz.questions}
-            onImport={(questions, number, alerte) => {
-              patch(q => ({ ...q, questions: insertQuestions(q.questions, number, questions) }))
+            onImport={(questions, number, alerte, titre) => {
+              // Le titre annoncé par la liste nomme un quiz qui n'en a pas encore :
+              // jamais il ne remplace celui qu'on a choisi.
+              const garderTitre = !titre || (quiz.title.trim() !== '' && quiz.title.trim() !== TITRE_PAR_DEFAUT)
+              patch(q => ({
+                ...q,
+                ...(!garderTitre && { title: titre }),
+                questions: insertQuestions(q.questions, number, questions),
+              }))
               if (alerte) setError(alerte)
               setAnnounce(
                 questions.length > 1
@@ -1443,10 +1548,11 @@ function BulkImport({
   /** Questions déjà dans le quiz : la liste collée arrive après, sauf avis contraire. */
   questions: QuizQuestionDef[]
   /**
-   * Les questions reconnues, le numéro que prendra la première, et ce qui
-   * mérite d'être dit une fois le panneau refermé : une photo partie de travers.
+   * Les questions reconnues, le numéro que prendra la première, ce qui
+   * mérite d'être dit une fois le panneau refermé — une photo partie de
+   * travers —, et le titre que la liste annonçait.
    */
-  onImport: (questions: QuizQuestionDef[], number: number, alerte?: string) => void
+  onImport: (questions: QuizQuestionDef[], number: number, alerte?: string, titre?: string | null) => void
   onCancel: () => void
 }) {
   const total = questions.length
@@ -1487,6 +1593,7 @@ function BulkImport({
   // faute de frappe dans la liste, ou le mauvais dossier.
   const clesAnnoncees = new Set(annoncees.map(a => cleDePhoto(a.q.photoAttendue ?? '')))
   const orphelins = fichiers.filter(f => !clesAnnoncees.has(cleDePhoto(f.name)))
+  const emojisColles = avisEmojis(emojisRecents(text))
 
   const copierLeFormat = async () => {
     const faite = await copierTexte(FORMAT_DE_LISTE)
@@ -1496,7 +1603,7 @@ function BulkImport({
   }
 
   const ajouter = async () => {
-    if (!appariees.some(Boolean)) return onImport(result.questions, number)
+    if (!appariees.some(Boolean)) return onImport(result.questions, number, undefined, result.titre)
     setEnvoi({ faites: 0, total: 0 })
     // Le serveur ne s'est pas réveillé pour une photo : les suivantes n'attendent
     // plus, sans quoi un serveur tombé coûtait deux minutes par photo.
@@ -1533,6 +1640,7 @@ function BulkImport({
         : echecs.length === 1
           ? `La photo ${echecs[0]} n’est pas partie : ajoute-la depuis sa question.`
           : `${echecs.length} photos ne sont pas parties (${echecs.join(', ')}) : ajoute-les depuis leur question.`,
+      result.titre,
     )
   }
 
@@ -1544,7 +1652,7 @@ function BulkImport({
       </h3>
       <p className="muted">
         {espacesFines(
-          'Une ligne vide entre deux questions. L’étoile marque la bonne réponse ; le signe égal ' +
+          'Une ligne vide entre deux questions ; « Titre : … », tout en haut, nomme le quiz. L’étoile marque la bonne réponse ; le signe égal ' +
             'transforme la question en estimation chiffrée. Sous l’intitulé, « Photo : … » et « Observation : 5 s » ' +
             'règlent la question ; « Temps : 30 s » règle celle-ci et les suivantes, comme une ligne qui commence ' +
             'par un dièse les range dans une catégorie — « #\u00a0Musique », « #\u00a0Cinéma »… Sans ces lignes, elles ' +
@@ -1576,6 +1684,7 @@ function BulkImport({
           <p className="warn small">Ce navigateur ne laisse pas copier d'ici : sélectionne le texte ci-dessous, puis copie-le.</p>
         )}
         {voirFormat && <pre className="import-example import-format-complet">{FORMAT_DE_LISTE}</pre>}
+        <DemandeIAForm />
         <p className="sr-only" aria-live="polite">
           {copie === 'faite' ? 'Format copié dans le presse-papiers' : ''}
         </p>
@@ -1596,6 +1705,28 @@ function BulkImport({
           ` · ${result.unmarked} sans bonne réponse désignée (une étoile, et une seule) : à choisir sur ${result.unmarked > 1 ? 'leur' : 'sa'} carte`}
         {result.ignored > 0 && ` · ${result.ignored} ${result.ignored > 1 ? 'blocs ignorés' : 'bloc ignoré'}`}
       </p>
+      {result.titre && <p className="muted small">{espacesFines(`Titre annoncé : « ${result.titre} »`)}</p>}
+      {/* Ce que la liste laisse, dit par son début : sur trente blocs, « 1 bloc
+          ignoré » faisait tout relire. */}
+      {result.ignores.length > 0 && (
+        <ul className="import-laisses warn small">
+          {result.ignores.map((debut, i) => (
+            <li key={i}>{espacesFines(`Ignoré : « ${debut} » — une question veut au moins deux réponses, ou « = » suivi d’un nombre`)}</li>
+          ))}
+        </ul>
+      )}
+      {result.enTrop.length > 0 && (
+        <ul className="import-laisses warn small">
+          {result.enTrop.map((t, i) => (
+            <li key={i}>{espacesFines(`Réponse en trop, laissée : « ${t.reponse} » (quatre au plus, pour « ${t.question} »)`)}</li>
+          ))}
+        </ul>
+      )}
+      {emojisColles && (
+        <p className="warn small">
+          <Icon name="alert" /> {espacesFines(`${emojisColles}.`)}
+        </p>
+      )}
       {annoncees.length > 0 && (
         <div className="import-photos">
           <div className="row">
@@ -1703,6 +1834,102 @@ function BulkImport({
           Annuler
         </button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * La demande pour une IA : le thème, le public, le niveau et la part
+ * d'estimations, copiés d'un geste avec le format complet. Il fallait
+ * l'écrire à côté du format — et l'IA à qui l'on ne disait ni le public ni le
+ * niveau rendait vingt questions de culture générale.
+ */
+function DemandeIAForm() {
+  const [ouvert, setOuvert] = useState(false)
+  const [demande, setDemande] = useState<DemandeIA>(DEMANDE_PAR_DEFAUT)
+  const [copie, setCopie] = useState<'faite' | 'refusee' | null>(null)
+  useEffect(() => {
+    if (copie !== 'faite') return
+    const timer = setTimeout(() => setCopie(null), 4000)
+    return () => clearTimeout(timer)
+  }, [copie])
+  const texte = demandePourIA(demande)
+  const regler = <K extends keyof DemandeIA>(cle: K, valeur: DemandeIA[K]) => setDemande(d => ({ ...d, [cle]: valeur }))
+  const choix = <K extends 'public' | 'niveau' | 'estimations'>(cle: K, options: [DemandeIA[K], string][], label: string) => (
+    <div className="row" role="group" aria-label={label}>
+      <span className="muted small">{label}</span>
+      {options.map(([valeur, nom]) => (
+        <button
+          key={valeur}
+          type="button"
+          className={'pill-btn' + (demande[cle] === valeur ? ' active' : '')}
+          aria-pressed={demande[cle] === valeur}
+          onClick={() => regler(cle, valeur)}
+        >
+          {nom}
+        </button>
+      ))}
+    </div>
+  )
+  if (!ouvert) {
+    return (
+      <div className="row">
+        <button type="button" className="btn btn-ghost btn-small" aria-expanded={false} onClick={() => setOuvert(true)}>
+          <Icon name="sparkles" />
+          Préparer la demande pour une IA
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div className="demande-ia">
+      <label className="row">
+        <span className="muted small">Thème</span>
+        <input
+          className="input"
+          value={demande.theme}
+          maxLength={120}
+          placeholder="Les années 90, Harry Potter, l’anniversaire de Julie…"
+          onChange={e => regler('theme', e.target.value)}
+        />
+      </label>
+      <label className="row">
+        <span className="muted small">Questions</span>
+        <ChampNombre
+          className="input duration-input"
+          min={1}
+          max={MAX_QUESTIONS}
+          aria-label="Nombre de questions à demander"
+          valeur={demande.nombre}
+          onValeur={n => regler('nombre', n)}
+        />
+      </label>
+      {choix('public', [['adultes', 'Adultes'], ['famille', 'Famille'], ['enfants', 'Enfants']], 'Pour')}
+      {choix('niveau', [['facile', 'Facile'], ['moyen', 'Moyen'], ['difficile', 'Difficile']], 'Niveau')}
+      {choix('estimations', [['aucune', 'Aucune'], ['quelques', 'Quelques-unes'], ['beaucoup', 'Beaucoup']], 'Estimations')}
+      <div className="row">
+        <button
+          type="button"
+          className="btn btn-small"
+          onClick={async () => setCopie((await copierTexte(texte)) ? 'faite' : 'refusee')}
+        >
+          <Icon name={copie === 'faite' ? 'check' : 'copy'} />
+          {copie === 'faite' ? 'Demande copiée' : 'Copier la demande et le format'}
+        </button>
+        <button type="button" className="btn btn-ghost btn-small" onClick={() => setOuvert(false)}>
+          Fermer
+        </button>
+      </div>
+      <p className="muted small">Colle-la dans l’IA de ton choix, puis colle sa réponse dans le champ ci-dessous.</p>
+      {copie === 'refusee' && (
+        <>
+          <p className="warn small">Ce navigateur ne laisse pas copier d’ici : sélectionne le texte ci-dessous, puis copie-le.</p>
+          <textarea className="input import-area" rows={8} readOnly value={texte} />
+        </>
+      )}
+      <p className="sr-only" aria-live="polite">
+        {copie === 'faite' ? 'Demande copiée dans le presse-papiers' : ''}
+      </p>
     </div>
   )
 }
@@ -1826,6 +2053,16 @@ function QuestionCard({
   const problem = cibleIllisible
     ? `« ${cible.trim()} » ne se lit pas : écris la bonne réponse en chiffres`
     : questionProblem(question)
+  // Un emoji que l'écran commun dessine en carré : la question reste jouable,
+  // mais la salle lirait un carré vide.
+  const emojis = avisEmojis(
+    emojisRecents(question.text, ...(question.kind === 'number' ? [question.unit] : question.answers)),
+  )
+  /** Une photo glissée au-dessus de la carte : elle s'éclaire pour dire où la lâcher. */
+  const [survol, setSurvol] = useState(false)
+  /** La photo d'un glisser-déposer ou d'un collage, s'il y en a une — jamais un texte collé. */
+  const photoDe = (fichiers: FileList | null | undefined): File | undefined =>
+    Array.from(fichiers ?? []).find(f => f.type.startsWith('image/'))
 
   useEffect(() => {
     if (!spot) return
@@ -1875,7 +2112,34 @@ function QuestionCard({
   }
 
   return (
-    <div ref={card} className={'card question-card' + (spot ? ' is-moved' : '')}>
+    <div
+      ref={card}
+      className={'card question-card' + (spot ? ' is-moved' : '') + (survol ? ' is-survolee' : '')}
+      // Une photo copiée (« Copier l'image ») ou glissée depuis le bureau
+      // rejoint sa question sans passer par la boîte de fichiers. Un collage
+      // qui porte du texte reste un collage de texte.
+      onPaste={e => {
+        const photo = photoDe(e.clipboardData?.files)
+        if (!photo || e.clipboardData.getData('text/plain')) return
+        e.preventDefault()
+        pickImage(photo)
+      }}
+      onDragOver={e => {
+        if (!Array.from(e.dataTransfer?.items ?? []).some(i => i.kind === 'file')) return
+        e.preventDefault()
+        setSurvol(true)
+      }}
+      onDragLeave={e => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSurvol(false)
+      }}
+      onDrop={e => {
+        const photo = photoDe(e.dataTransfer?.files)
+        setSurvol(false)
+        if (!photo) return
+        e.preventDefault()
+        pickImage(photo)
+      }}
+    >
       <div className="question-head">
         <div className="row">
           {total > 1 ? (
@@ -2215,6 +2479,11 @@ function QuestionCard({
           <Icon name="alert" /> {problem} — cette question ne sera pas jouée.
         </p>
       )}
+      {emojis && (
+        <p className="warn small">
+          <Icon name="alert" /> {espacesFines(`${emojis}.`)}
+        </p>
+      )}
     </div>
   )
 }
@@ -2230,6 +2499,7 @@ function PremiersPas({
   occupe,
   onOuvrir,
   onImporter,
+  onCreer,
   onErreur,
 }: {
   /** Aucun quiz prêt : les trois départs. Sinon, les modèles seuls, rouverts depuis l'en-tête. */
@@ -2237,10 +2507,13 @@ function PremiersPas({
   occupe: boolean
   onOuvrir: (id: string) => void
   onImporter: () => void
+  onCreer: () => void
   onErreur: (message: string) => void
 }) {
-  const [modeles, setModeles] = useState<{ id: string; title: string; questionCount: number }[]>([])
+  const [modeles, setModeles] = useState<ModeleResume[]>([])
   const [copie, setCopie] = useState<string | null>(null)
+  /** Le modèle à personnaliser dont « Pour qui ? » est ouvert. */
+  const [pourQui, setPourQui] = useState<string | null>(null)
 
   useEffect(() => {
     // Sans modèles (une panne, un serveur sans contenu livré), il reste
@@ -2248,11 +2521,13 @@ function PremiersPas({
     api.modeles().then(setModeles).catch(() => {})
   }, [])
 
-  const creer = async () => {
+  const copier = async (m: ModeleResume, demande?: PourQui) => {
+    setCopie(m.id)
     try {
-      onOuvrir((await api.create('Nouveau quiz')).id)
+      onOuvrir((await api.partirDe(m.id, demande)).id)
     } catch (e) {
       onErreur((e as Error).message)
+      setCopie(null)
     }
   }
 
@@ -2262,41 +2537,149 @@ function PremiersPas({
       <p className="muted small">
         {debut
           ? 'Aucun de tes quiz n’est encore prêt à jouer. Pars d’un quiz tout fait, que tu retoucheras à ton goût, ou du tien.'
-          : 'Chaque clic ajoute une copie du modèle à ta bibliothèque, que tu retoucheras à ton goût.'}
+          : 'Chaque modèle arrive en copie dans ta bibliothèque, que tu retoucheras à ton goût.'}
       </p>
-      <div className="premiers-pas-choix">
+      <ul className="modeles">
         {modeles.map(m => (
-          <button
-            key={m.id}
-            className="btn"
-            disabled={copie !== null || occupe}
-            onClick={async () => {
-              setCopie(m.id)
-              try {
-                onOuvrir((await api.partirDe(m.id)).id)
-              } catch (e) {
-                onErreur((e as Error).message)
-                setCopie(null)
-              }
-            }}
-          >
-            <Icon name="copy" />
-            {copie === m.id ? 'Copie…' : `Partir de « ${m.title} » · ${m.questionCount} questions`}
-          </button>
+          <li key={m.id} className="modele">
+            <div className="modele-tete">
+              <div>
+                <h3>{m.title}</h3>
+                <p className="muted small">
+                  {m.questionCount} questions
+                  {m.personnaliser && ' · à personnaliser'}
+                  {m.description && <> · {espacesFines(m.description)}</>}
+                </p>
+              </div>
+              {m.personnaliser ? (
+                <button
+                  className="btn btn-small"
+                  aria-label={`Pour qui ? « ${m.title} »`}
+                  aria-expanded={pourQui === m.id}
+                  disabled={copie !== null || occupe}
+                  onClick={() => setPourQui(v => (v === m.id ? null : m.id))}
+                >
+                  <Icon name="users" />
+                  Pour qui ?
+                </button>
+              ) : (
+                <button
+                  className="btn btn-small"
+                  aria-label={`Partir de « ${m.title} »`}
+                  disabled={copie !== null || occupe}
+                  onClick={() => copier(m)}
+                >
+                  <Icon name="copy" />
+                  {copie === m.id ? 'Copie…' : 'Partir de ce modèle'}
+                </button>
+              )}
+            </div>
+            {pourQui === m.id && m.personnaliser && (
+              <PourQuiForm
+                prenoms={m.personnaliser.prenoms}
+                occupe={copie !== null}
+                onValider={demande => copier(m, demande)}
+                onSansPersonnaliser={() => copier(m)}
+                onAnnuler={() => setPourQui(null)}
+              />
+            )}
+          </li>
         ))}
-        {debut && (
-          <>
-            <button className="btn" disabled={occupe} onClick={onImporter}>
-              <Icon name="download" />
-              Importer le quiz d'un ami
-            </button>
-            <button className="btn btn-primary" onClick={creer}>
-              <Icon name="plus" />
-              Créer mon quiz
-            </button>
-          </>
-        )}
-      </div>
+      </ul>
+      {debut && (
+        <div className="premiers-pas-choix">
+          <button className="btn" disabled={occupe} onClick={onImporter}>
+            <Icon name="download" />
+            Importer le quiz d'un ami
+          </button>
+          <button className="btn btn-primary" onClick={onCreer}>
+            <Icon name="plus" />
+            Créer mon quiz
+          </button>
+        </div>
+      )}
     </section>
+  )
+}
+
+const ACCORDS_AFFICHES: { accord: Accord; label: string }[] = [
+  { accord: 'elle', label: 'Elle' },
+  { accord: 'il', label: 'Il' },
+  { accord: 'neutre', label: 'Sans accord' },
+]
+
+/**
+ * « Pour qui ? » : le prénom de la personne fêtée — ou les deux prénoms d'un
+ * couple — et l'accord des mots du modèle (« née » ou « né »). Tout est
+ * remplacé à la copie, titre compris ; les réponses, marquées ✏️, restent à
+ * écrire : seul l'animateur les connaît.
+ */
+function PourQuiForm({
+  prenoms,
+  occupe,
+  onValider,
+  onSansPersonnaliser,
+  onAnnuler,
+}: {
+  prenoms: 1 | 2
+  occupe: boolean
+  onValider: (demande: PourQui) => void
+  onSansPersonnaliser: () => void
+  onAnnuler: () => void
+}) {
+  const [noms, setNoms] = useState<string[]>(() => Array.from({ length: prenoms }, () => ''))
+  const [accord, setAccord] = useState<Accord>(prenoms === 2 ? 'neutre' : 'elle')
+  const complet = noms.every(n => n.trim())
+  return (
+    <form
+      className="pour-qui"
+      onSubmit={e => {
+        e.preventDefault()
+        if (complet && !occupe) onValider({ prenoms: noms.map(n => n.trim()), accord })
+      }}
+    >
+      <div className="row">
+        {noms.map((n, i) => (
+          <label key={i} className="pour-qui-champ">
+            <span className="muted small">{prenoms === 2 ? `Prénom ${i + 1}` : 'Son prénom'}</span>
+            <input
+              className="input"
+              value={n}
+              maxLength={MAX_PRENOM}
+              placeholder={prenoms === 2 ? (i === 0 ? 'Léa' : 'Tom') : 'Julie'}
+              onChange={e => setNoms(v => v.map((x, j) => (j === i ? e.target.value : x)))}
+            />
+          </label>
+        ))}
+      </div>
+      {/* Un couple s'écrit sans accord : le modèle à deux prénoms n'en a pas besoin. */}
+      {prenoms === 1 && (
+        <div className="row" role="group" aria-label="Accord des mots du modèle">
+          <span className="muted small">Accorder</span>
+          {ACCORDS_AFFICHES.map(a => (
+            <button
+              key={a.accord}
+              type="button"
+              className={'pill-btn' + (accord === a.accord ? ' active' : '')}
+              aria-pressed={accord === a.accord}
+              onClick={() => setAccord(a.accord)}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="row">
+        <button type="submit" className="btn btn-primary btn-small" disabled={!complet || occupe}>
+          {occupe ? 'Copie…' : 'Créer le quiz'}
+        </button>
+        <button type="button" className="btn btn-ghost btn-small" disabled={occupe} onClick={onSansPersonnaliser}>
+          Copier sans personnaliser
+        </button>
+        <button type="button" className="btn btn-ghost btn-small" onClick={onAnnuler}>
+          Annuler
+        </button>
+      </div>
+    </form>
   )
 }

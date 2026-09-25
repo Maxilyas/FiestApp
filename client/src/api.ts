@@ -1,5 +1,6 @@
 import type { QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
+import type { ModeleResume, PourQui } from '../../shared/modeles'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
 import type { FinitionChoisie, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
@@ -153,8 +154,10 @@ export const api = {
   remove: (id: string) => req<{ ok: true }>(`/api/quizzes/${id}`, { method: 'DELETE' }),
   duplicate: (id: string) => req<QuizDef>(`/api/quizzes/${id}/duplicate`, { method: 'POST' }),
   /** Les quiz livrés avec l'application, et la copie de l'un d'eux dans son espace. */
-  modeles: () => req<{ id: string; title: string; questionCount: number }[]>('/api/modeles'),
-  partirDe: (modele: string) => req<QuizDef>(`/api/modeles/${encodeURIComponent(modele)}`, { method: 'POST' }),
+  modeles: () => req<ModeleResume[]>('/api/modeles'),
+  /** Une copie du modèle — personnalisée, s'il le demande et qu'on a répondu à « Pour qui ? ». */
+  partirDe: (modele: string, pourQui?: PourQui) =>
+    req<QuizDef>(`/api/modeles/${encodeURIComponent(modele)}`, { method: 'POST', body: JSON.stringify(pourQui ?? {}) }),
   uploadImage: (dataUrl: string) =>
     req<{ url: string }>('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
   /** L'historique des soirées : le lire est public, le retoucher demande d'être connecté. */

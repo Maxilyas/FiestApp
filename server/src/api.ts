@@ -11,6 +11,7 @@ import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
 import { mountProfileApi } from './auth/profileRoutes'
 import { lireModeles } from './core/seed'
+import { lirePourQui, personnaliser } from '../../shared/modeles'
 
 interface ApiDeps {
   store: QuizStore
@@ -213,7 +214,15 @@ export function mountApi(app: Express, deps: ApiDeps) {
   app.get(
     '/api/modeles',
     wrap(async (_req, res) => {
-      res.json(lireModeles().map(m => ({ id: m.id, title: m.title, questionCount: m.questions.length })))
+      res.json(
+        lireModeles().map(m => ({
+          id: m.id,
+          title: m.title,
+          questionCount: m.questions.length,
+          ...(m.personnaliser && { personnaliser: m.personnaliser }),
+          ...(m.description && { description: m.description }),
+        })),
+      )
     }),
   )
 
@@ -223,7 +232,22 @@ export function mountApi(app: Express, deps: ApiDeps) {
       const modele = lireModeles().find(m => m.id === req.params.id)
       if (!modele) return res.status(404).json({ error: 'Modèle introuvable' })
       const spaceId = spaceOf(res)
-      const quiz = await deps.store.create(spaceId, modele.title, modele.questions)
+      let { title, questions } = modele
+      // « Pour qui ? » : le prénom — ou les deux — remplace les trous du
+      // modèle, titre compris. Sans prénom, le modèle arrive tel quel, ses
+      // trous signalés sur chaque carte.
+      if (modele.personnaliser && req.body?.prenoms !== undefined) {
+        const pourQui = lirePourQui(req.body, modele.personnaliser.prenoms)
+        if (!pourQui) {
+          return res
+            .status(400)
+            .json({ error: modele.personnaliser.prenoms === 2 ? 'Écris les deux prénoms' : 'Écris le prénom de la personne fêtée' })
+        }
+        const fait = personnaliser(title, questions as Record<string, unknown>[], pourQui)
+        title = fait.titre
+        questions = fait.questions
+      }
+      const quiz = await deps.store.create(spaceId, title, questions)
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)
     }),

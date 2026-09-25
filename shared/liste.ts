@@ -25,6 +25,7 @@ import {
   MAX_OBSERVE,
   MAX_QUESTIONS,
   MAX_TEXT,
+  MAX_TITRE,
   MAX_UNIT,
   MIN_ANSWERS,
   MIN_DURATION,
@@ -55,7 +56,9 @@ Combien de pays composent l'Union européenne ?
 = 27 pays`
 
 /** L'exemple du format complet : chaque possibilité, une fois au moins. */
-export const EXEMPLE_DU_FORMAT = `# Géographie
+export const EXEMPLE_DU_FORMAT = `Titre : Le tour du monde en six questions
+
+# Géographie
 
 Quelle est la capitale de l'Australie ?
 Sydney
@@ -105,9 +108,11 @@ FiestApp est un quiz de soirée : les questions s'affichent en grand sur un écr
 
 LES RÈGLES
 - Une ligne vide entre deux questions.
+- Tout en haut, seule sur sa ligne, « Titre : » suivi du titre du quiz (${MAX_TITRE} caractères au plus). Facultative.
 - La première ligne d'une question est son intitulé : ${MAX_TEXT} caractères au plus, et le plus court possible — il s'affiche en grand.
 - Ni numéros, ni puces, ni gras, ni tableau ; ni introduction, ni conclusion : rien que les questions.
 - ${MAX_QUESTIONS} questions au plus par quiz.
+- Des emojis courants seulement : les plus récents s'affichent en carré vide sur certains écrans.
 
 QCM
 Sous l'intitulé, de ${MIN_ANSWERS} à ${MAX_ANSWERS} réponses, une par ligne (${MAX_ANSWER_TEXT} caractères au plus). Une étoile * devant la bonne réponse, et une seule. Un vrai ou faux est un QCM à deux réponses : « Vrai » et « Faux ».
@@ -205,8 +210,11 @@ export async function joindrePhotos<F extends { name: string }>(
  * elles s'annoncent (« Photo : »), et la question recollée les attendra.
  * Une question sans intitulé ne s'écrit pas : elle n'aurait rien à relire.
  */
-export function ecrireListe(questions: readonly QuizQuestionDef[]): string {
+export function ecrireListe(questions: readonly QuizQuestionDef[], titre?: string | null): string {
   const blocs: string[] = []
+  // Le titre voyage avec la liste : recollée dans un quiz neuf, elle le nomme.
+  const t = (titre ?? '').replace(/\s+/g, ' ').trim()
+  if (t) blocs.push(`Titre : ${t}`)
   // Rien de connu au départ : la première question dit sa catégorie et son
   // temps, sans quoi, recollée, elle prendrait ceux de sa nouvelle voisine.
   // Un quiz sans aucune catégorie n'en dit rien : un « # » seul en tête
@@ -256,4 +264,61 @@ export function ecrireListe(questions: readonly QuizQuestionDef[]): string {
     blocs.push(lignes.join('\n'))
   }
   return blocs.join('\n\n')
+}
+
+// ── La demande pour une IA ───────────────────────────────────────────────
+//
+// « Copier le format complet » donnait les règles ; la demande, il fallait
+// l'écrire à côté — et l'IA à qui l'on ne disait ni le public, ni le niveau,
+// ni la part d'estimations rendait vingt questions de culture générale à
+// quatre réponses. La demande se remplit en quatre choix, et part avec le
+// format, d'un seul geste.
+
+export type PublicDuQuiz = 'adultes' | 'famille' | 'enfants'
+export type NiveauDuQuiz = 'facile' | 'moyen' | 'difficile'
+export type PartDEstimations = 'aucune' | 'quelques' | 'beaucoup'
+
+export interface DemandeIA {
+  theme: string
+  nombre: number
+  public: PublicDuQuiz
+  niveau: NiveauDuQuiz
+  estimations: PartDEstimations
+}
+
+export const DEMANDE_PAR_DEFAUT: DemandeIA = { theme: '', nombre: 15, public: 'adultes', niveau: 'moyen', estimations: 'quelques' }
+
+const PUBLICS: Record<PublicDuQuiz, string> = {
+  adultes: 'des adultes, entre amis, un soir de fête',
+  famille: 'une famille, des grands-parents aux ados : rien qui exclue une génération',
+  enfants: 'des enfants de 8 à 12 ans : des questions simples, sans piège, un vocabulaire qu’ils connaissent',
+}
+
+const NIVEAUX: Record<NiveauDuQuiz, string> = {
+  facile: 'facile — la salle doit trouver la plupart des réponses',
+  moyen: 'moyen — ni évident, ni introuvable : on hésite, on discute, on trouve souvent',
+  difficile: 'difficile — pour des connaisseurs, mais jamais une question que personne ne peut deviner',
+}
+
+/** La demande complète, format compris, à coller telle quelle dans une IA. */
+export function demandePourIA(d: DemandeIA): string {
+  const nombre = Math.min(MAX_QUESTIONS, Math.max(1, Math.round(Number(d.nombre) || DEMANDE_PAR_DEFAUT.nombre)))
+  const theme = d.theme.replace(/\s+/g, ' ').trim() || 'culture générale, des sujets variés'
+  const estimations =
+    d.estimations === 'aucune'
+      ? 'Uniquement des QCM et quelques vrai ou faux : aucune estimation chiffrée.'
+      : d.estimations === 'beaucoup'
+        ? `Environ la moitié en estimations chiffrées (une date, une distance, un prix, un nombre…), le reste en QCM à ${MAX_ANSWERS} réponses et quelques vrai ou faux.`
+        : `Deux ou trois estimations chiffrées (une date, une distance, un prix…), le reste en QCM à ${MAX_ANSWERS} réponses et quelques vrai ou faux.`
+  return [
+    `Écris un quiz de ${nombre} question${nombre > 1 ? 's' : ''} sur ce thème : « ${theme} ».`,
+    `Public : ${PUBLICS[d.public] ?? PUBLICS.adultes}.`,
+    `Niveau : ${NIVEAUX[d.niveau] ?? NIVEAUX.moyen}.`,
+    estimations,
+    'Vérifie chaque fait. Rien qui change avec le temps : pas de record en cours, de champion en titre ni de prix du jour.',
+    'Des réponses fausses plausibles, de la même longueur que la bonne. Des intitulés courts : ils s’affichent en grand sur un écran.',
+    'Donne un titre au quiz. Réponds uniquement dans le format ci-dessous, sans introduction ni conclusion.',
+    '',
+    FORMAT_DE_LISTE,
+  ].join('\n')
 }
