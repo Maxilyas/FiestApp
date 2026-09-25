@@ -24,12 +24,22 @@ const nomDansLaSalle = (players: readonly PublicPlayer[] | undefined, id: string
  * prénoms viennent de l'instantané que le téléphone a déjà. L'œil lit les
  * trois lignes ; l'oreille, une phrase qui dit tout (`oreille`).
  */
-export function LigneDeCourse({ view: v, players }: { view: QuizPlayerView; players: readonly PublicPlayer[] | undefined }) {
+export function LigneDeCourse({
+  view: v,
+  players,
+  sur,
+}: {
+  view: QuizPlayerView
+  players: readonly PublicPlayer[] | undefined
+  /** Combien jouent ce quiz, d'après l'instantané. */
+  sur: number
+}) {
   if (!v.place || v.yourQuizRank === undefined) return null
   const ligne = ligneDeCourse({
     rang: v.yourQuizRank,
     points: v.yourQuizTotal ?? 0,
     place: v.place,
+    sur,
     nomDe: id => nomDansLaSalle(players, id),
     qIndex: v.qIndex,
     qCount: v.qCount,

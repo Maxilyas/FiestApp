@@ -95,12 +95,9 @@ export interface VoisinAuClassement {
  * entier, qui ferait à 500 invités 500 lignes pour chacun des 500 téléphones.
  */
 export interface PlaceAuQuiz {
-  /**
-   * Combien tiennent une place : ceux qui ont pu jouer une question. Le
-   * retardataire qui n'a encore rien joué n'y est pas — compté, chaque arrivée
-   * pendant une révélation renverrait sa vue à toute la salle.
-   */
-  sur: number
+  // « Sur combien » n'y est pas : il dépend de toute la salle, et une
+  // exclusion pendant la révélation renverrait sa vue à chaque téléphone. Le
+  // téléphone le lit dans l'instantané, que l'exclusion renvoie déjà à tous.
   /** Le plus proche strictement devant lui — un ex æquo n'est pas devant. Absent pour qui mène. */
   devant?: VoisinAuClassement
   /** Le plus proche strictement derrière lui. Absent pour le dernier. */

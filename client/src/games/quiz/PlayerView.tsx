@@ -29,6 +29,8 @@ interface QuizPlayerProps extends Props {
   players: readonly PublicPlayer[]
   /** Soi, tel que la salle le voit. */
   moi: PublicPlayer | undefined
+  /** Combien jouent ce quiz, d'après l'instantané : « 5ᵉ place sur 12 ». */
+  participants: number
   /** La dernière réponse envoyée par ce téléphone, et ce qu'elle est devenue. */
   envoi?: Envoi | null
 }
@@ -385,6 +387,7 @@ interface Salle {
   teams: PublicTeam[]
   myTeamId: string | null
   players: readonly PublicPlayer[]
+  participants: number
 }
 
 /**
@@ -397,11 +400,11 @@ interface Salle {
  * L'anecdote vient en dernier : la télé la montre en grand au même instant,
  * et devant les équipes, elle les poussait sous le pouce.
  */
-function BetweenQuestions({ view: v, salle: { teams, myTeamId, players } }: { view: QuizPlayerView; salle: Salle }) {
+function BetweenQuestions({ view: v, salle: { teams, myTeamId, players, participants } }: { view: QuizPlayerView; salle: Salle }) {
   return (
     <>
       {/* Qui vient d'arriver n'en a pas encore : il n'a rien joué. */}
-      <LigneDeCourse view={v} players={players} />
+      <LigneDeCourse view={v} players={players} sur={participants} />
       {teams.length > 0 && (
         <div className="card">
           <h3>
@@ -553,8 +556,8 @@ function PointsAnnules() {
   )
 }
 
-export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, envoi }: QuizPlayerProps) {
-  const salle: Salle = { teams, myTeamId, players }
+export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, participants, envoi }: QuizPlayerProps) {
+  const salle: Salle = { teams, myTeamId, players, participants }
   // Avant tout retour anticipé : un crochet s'appelle à chaque rendu.
   const closes = useEchue(v.phase === 'question' ? v.deadline : undefined, !!v.paused)
   // La reprise se sent dans la main : on ne regarde pas son téléphone pendant
@@ -854,7 +857,6 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, envoi
 
   // finished
   const total = v.yourQuizTotal ?? 0
-  const sur = v.place?.sur
   // La soirée, dès qu'elle ne se confond plus avec ce quiz : lue dans
   // l'instantané, qui porte les points de toute la soirée.
   const soiree = v.soireeEntamee && moi ? ligneDeSoiree(moi.score, players.map(p => p.score)) : null
@@ -869,7 +871,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, envoi
         {total > 0 ? (
           <p>
             Quiz terminé ! Tu finis à la <strong>{place(v.yourQuizRank ?? 0)}</strong>
-            {sur && moitieHaute(v.yourQuizRank ?? 0, sur) ? ` sur ${sur}` : ''} avec {pts(total)}
+            {participants > 0 && moitieHaute(v.yourQuizRank ?? 0, participants) ? ` sur ${participants}` : ''} avec {pts(total)}
           </p>
         ) : (
           <p>Quiz terminé ! Pas de points cette fois.</p>

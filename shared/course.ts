@@ -49,6 +49,11 @@ export interface EntreeDeCourse {
   points: number
   place: PlaceAuQuiz
   /**
+   * Combien jouent ce quiz — lu dans l'instantané, qui le porte déjà : venu du
+   * serveur dans la place, il changerait chez tout le monde à une exclusion.
+   */
+  sur: number
+  /**
    * Le nom affiché d'un invité, marque d'homonymie comprise — l'instantané le
    * donne. Rien pour un arrivant qu'il ne connaît pas encore : la cible se dit
    * alors par son rang.
@@ -81,7 +86,7 @@ export function ligneDeCourse(e: EntreeDeCourse): LigneDeCourse {
   const enTete = aMarque && e.rang === 1
   // Le rang d'avant ne vient que s'il a changé : monter, c'est l'avoir eu plus loin.
   const gagnees = aMarque && !enTete && p.avant !== undefined && p.avant > e.rang ? p.avant - e.rang : 0
-  const haute = moitieHaute(e.rang, p.sur)
+  const haute = moitieHaute(e.rang, e.sur)
   let ligne: Pick<LigneDeCourse, 'rang' | 'place' | 'fete'>
   let placeOreille: string
   if (!aMarque) {
@@ -100,9 +105,9 @@ export function ligneDeCourse(e: EntreeDeCourse): LigneDeCourse {
     ligne = { place: texte, ...(prise && { fete: true }) }
     placeOreille = `${dit}, ${enPoints(e.points)}`
   } else {
-    ligne = { rang: rangEcrit(e.rang), place: `${exAequo > 0 ? 'ex æquo' : 'place'}${haute ? ` sur ${p.sur}` : ''}` }
+    ligne = { rang: rangEcrit(e.rang), place: `${exAequo > 0 ? 'ex æquo' : 'place'}${haute ? ` sur ${e.sur}` : ''}` }
     placeOreille =
-      `rang ${e.rang}${haute ? ` sur ${p.sur}` : ''}${exAequo > 0 ? `, ex æquo avec ${autres(exAequo)}` : ''}, ` +
+      `rang ${e.rang}${haute ? ` sur ${e.sur}` : ''}${exAequo > 0 ? `, ex æquo avec ${autres(exAequo)}` : ''}, ` +
       `${enPoints(e.points)}${gagnees > 0 ? `, ${places(gagnees)}` : ''}`
   }
 

@@ -227,7 +227,7 @@ test('à la révélation, chaque téléphone apprend qui le précède et qui le 
   assert.deepEqual(v.Alice.place!.derriere, { id: p.id('Bruno'), points: v.Bruno.yourQuizTotal, rang: 2 })
   assert.equal(v.Bruno.place!.devant!.id, p.id('Alice'))
   assert.equal(v.Chloé.place!.derriere!.id, p.id('David'), 'le premier des ex æquo, dans l’ordre d’affichage')
-  assert.deepEqual(v.David.place, { sur: 5, devant: { id: p.id('Chloé'), points: v.Chloé.yourQuizTotal, rang: 3 }, exAequo: 1 })
+  assert.deepEqual(v.David.place, { devant: { id: p.id('Chloé'), points: v.Chloé.yourQuizTotal, rang: 3 }, exAequo: 1 })
   assert.deepEqual(v.Emma.place, v.David.place, 'un ex æquo n’est ni devant ni derrière')
   verifierLesPlaces(v, p.id)
   // À zéro, tout le monde était premier ex æquo : personne n'a « perdu » de place.
@@ -326,7 +326,7 @@ test('arrivé pendant qu’on mesure une estimation, on n’y a pas joué : « B
   assert.ok(p.journal.some(l => l.playerId === p.id('Bruno')), 'Bruno, lui, l’a laissée passer')
 })
 
-test('au podium, chacun sait qui l’encadre et sur combien ; qui arrive après la fin, rien', () => {
+test('au podium, chacun sait qui l’encadre ; qui arrive après la fin, rien', () => {
   const p = partie(['Alice', 'Bruno', 'Chloé', 'David', 'Emma'], QUESTIONS.slice(0, 1))
   p.repondre('Alice', 0, 3000)
   p.repondre('Bruno', 0, 6000)
@@ -339,15 +339,14 @@ test('au podium, chacun sait qui l’encadre et sur combien ; qui arrive après 
   const v = p.vues()
   for (const nom of ['Alice', 'Bruno', 'Chloé']) {
     assert.notEqual(v[nom].yourPodiumIndex, undefined, `${nom} monte sur le podium`)
-    assert.equal(v[nom].place?.sur, 5, `${nom} lit « sur 5 »`)
+    assert.ok(v[nom].place, `${nom} a sa place, comme tout le monde`)
     assert.equal(v[nom].place?.avant, undefined, 'au podium, rien d’où l’on vient : la dernière question n’est pas le quiz')
   }
   assert.deepEqual(v.David.place, {
-    sur: 5,
     devant: { id: p.id('Chloé'), points: v.Chloé.yourQuizTotal, rang: 3 },
     derriere: { id: p.id('Emma'), points: 0, rang: 5 },
   })
-  assert.deepEqual(v.Emma.place, { sur: 5, devant: { id: p.id('David'), points: v.David.yourQuizTotal, rang: 4 } })
+  assert.deepEqual(v.Emma.place, { devant: { id: p.id('David'), points: v.David.yourQuizTotal, rang: 4 } })
   assert.equal(v.Zoé.place, undefined, 'arrivée au podium, elle n’a rien joué')
   assert.ok(!v.Emma.place!.derriere, 'et elle n’est derrière personne')
   verifierLesPlaces(v, p.id)
@@ -399,8 +398,12 @@ test('la place se lit dans un classement trié une fois pour toute la salle, et 
 
 afterEach(() => mock.timers.reset())
 
-test('dans le moteur, une arrivée pendant la révélation n’envoie sa vue qu’à elle', () => {
-  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+/**
+ * Le vrai moteur, sur une vraie base et un faux `io` qui garde ce que chaque
+ * salon reçoit, à la révélation de la première question : cinq bonnes
+ * réponses, quinze invités à zéro, ex æquo.
+ */
+function moteurALaRevelation() {
   const spaceId = `classement-moteur-${Math.random().toString(36).slice(2)}`
   setQuizLibrary(spaceId, [{ id: 'quiz', title: 'Le classement', updatedAt: 0, questions: QUESTIONS } as unknown as QuizDef])
   const db = initDb(':memory:')
@@ -433,32 +436,63 @@ test('dans le moteur, une arrivée pendant la révélation n’envoie sa vue qu�
     },
     quizModule,
   )
-  try {
-    const sid = engine.launch()
-    engine.handleHostCommand(sid, { type: 'selectPack', packId: 'quiz' })
-    mock.timers.tick(3000) // le compte à rebours
-    // Cinq bonnes réponses : quinze invités restent à zéro, ex æquo.
-    for (let i = 0; i < 5; i++) assert.equal(engine.handlePlayerAction(sid, ids[i], { type: 'answer', choice: 0 }), null)
-    engine.handleHostCommand(sid, { type: 'next' })
-    const derniere = (id: string) => (recu.get(`player:${id}`)?.at(-1) as any)?.view as QuizPlayerView
-    assert.equal(derniere(ids[10]).phase, 'reveal')
-    assert.equal(derniere(ids[10]).place?.exAequo, 14, 'quinze à zéro')
-    const envoisAvant = ids.map(id => recu.get(`player:${id}`)?.length ?? 0)
+  const sid = engine.launch()
+  engine.handleHostCommand(sid, { type: 'selectPack', packId: 'quiz' })
+  mock.timers.tick(3000) // le compte à rebours
+  for (let i = 0; i < 5; i++) assert.equal(engine.handlePlayerAction(sid, ids[i], { type: 'answer', choice: 0 }), null)
+  engine.handleHostCommand(sid, { type: 'next' })
+  const derniere = (id: string) => (recu.get(`player:${id}`)?.at(-1) as any)?.view as QuizPlayerView
+  return {
+    engine,
+    party,
+    ids,
+    derniere,
+    /** Combien de vues chacun a reçues jusqu'ici. */
+    envois: () => ids.map(id => recu.get(`player:${id}`)?.length ?? 0),
+    fermer() {
+      engine.stop()
+      db.close()
+    },
+  }
+}
 
-    const zoe = party.join('Zoé', '🐼')
+test('dans le moteur, une arrivée pendant la révélation n’envoie sa vue qu’à elle', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+  const m = moteurALaRevelation()
+  try {
+    assert.equal(m.derniere(m.ids[10]).phase, 'reveal')
+    assert.equal(m.derniere(m.ids[10]).place?.exAequo, 14, 'quinze à zéro')
+    const avant = m.envois()
+    const zoe = m.party.join('Zoé', '🐼')
     if ('error' in zoe) throw new Error(zoe.error)
-    party.socketConnected(zoe.id, 'socket-zoe')
-    engine.joinLate(zoe.id)
-    engine.resendViews(zoe.id)
-    assert.equal(derniere(zoe.id).justArrived, true)
-    assert.deepEqual(
-      ids.map(id => recu.get(`player:${id}`)?.length ?? 0),
-      envoisAvant,
-      'aucun des vingt téléphones ne reçoit sa vue une fois de plus',
-    )
+    m.party.socketConnected(zoe.id, 'socket-zoe')
+    m.engine.joinLate(zoe.id)
+    m.engine.resendViews(zoe.id)
+    assert.equal(m.derniere(zoe.id).justArrived, true)
+    assert.deepEqual(m.envois(), avant, 'aucun des vingt téléphones ne reçoit sa vue une fois de plus')
   } finally {
-    engine.stop()
-    db.close()
+    m.fermer()
+  }
+})
+
+test('dans le moteur, une exclusion pendant la révélation ne renvoie sa vue qu’à qui elle change', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'setImmediate', 'Date'], now: 1_000_000 })
+  const m = moteurALaRevelation()
+  try {
+    // « Sur combien » venait du serveur, dans la place : exclure un invité le
+    // changeait chez tout le monde, et chaque téléphone recevait sa vue (la
+    // contre-expertise du 25 septembre : 499 sur 500). Il se lit maintenant
+    // dans l'instantané, que l'exclusion renvoie de toute façon.
+    const avant = m.envois()
+    m.party.remove(m.ids[19])
+    m.engine.dropParticipant(m.ids[19])
+    const renvoyes = m.ids.slice(0, 19).filter((_, k) => m.envois()[k] > avant[k]).length
+    // Ses quatorze ex æquo à zéro — leur nombre d'ex æquo a changé — et
+    // l'invité juste devant eux, dont le premier voisin derrière pouvait être lui.
+    assert.ok(renvoyes <= 15, `${renvoyes} téléphones ont reçu leur vue`)
+    assert.equal(m.envois().slice(0, 4).join(), avant.slice(0, 4).join(), 'les premiers n’ont rien reçu')
+  } finally {
+    m.fermer()
   }
 })
 
@@ -477,12 +511,13 @@ function course(e: Partial<Omit<EntreeDeCourse, 'place'>> & { place?: Partial<Pl
   return ligneDeCourse({
     rang: 5,
     points: 450,
+    sur: 12,
     qIndex: 3,
     qCount: 10,
     multiplier: 1,
     nomDe: id => NOMS[id],
     ...reste,
-    place: { sur: 12, devant: HUGO, derriere: LEA, ...place },
+    place: { devant: HUGO, derriere: LEA, ...place },
   })
 }
 
@@ -568,7 +603,7 @@ test('un voisin que l’instantané ne connaît pas encore se dit par son rang',
 })
 
 test('au podium : l’écart à la troisième marche, et la soirée — jamais de rang à zéro', () => {
-  const place = (devant?: { points: number; rang: number }) => ({ sur: 12, ...(devant && { devant: { id: 'h', ...devant } }) })
+  const place = (devant?: { points: number; rang: number }) => (devant ? { devant: { id: 'h', ...devant } } : {})
   assert.equal(ecartAuPodium(4, 300, place({ points: 320, rang: 3 })), 20)
   assert.equal(ecartAuPodium(4, 300, place({ points: 320, rang: 2 })), 20, 'derrière deux deuxièmes ex æquo, le podium est à portée aussi')
   assert.equal(ecartAuPodium(5, 300, place({ points: 320, rang: 4 })), null, 'plus loin, l’échelle dit le reste')
@@ -610,7 +645,7 @@ test('à la révélation : le résultat, sa place, les équipes, puis l’anecdo
     yourQuizTotal: 450,
     yourQuizRank: 5,
     anecdote: 'Canberra a été choisie en 1908.',
-    place: { sur: 12, devant: HUGO, avant: 7 },
+    place: { devant: HUGO, avant: 7 },
   }
   const html = await rendu('games/quiz/PlayerView', 'QuizPlayer', {
     view,
@@ -619,6 +654,7 @@ test('à la révélation : le résultat, sa place, les équipes, puis l’anecdo
     myTeamId: 't1',
     players: joueurs,
     moi: joueurs[0],
+    participants: 12,
   })
   const ordre = ['result-banner', 'class="card course"', 'Les équipes', 'anecdote'].map(repere => html.indexOf(repere))
   assert.ok(ordre.every(i => i >= 0), html)
@@ -649,8 +685,9 @@ test('au podium, qui n’y monte pas voit son échelle ; à zéro, ni rang ni é
       myTeamId: null,
       players: joueurs,
       moi: joueurs[0],
+      participants: 12,
     })
-  const html = await fin({ place: { sur: 12, devant: { ...HUGO, rang: 4 }, derriere: { id: 'l', points: 0, rang: 6 } } })
+  const html = await fin({ place: { devant: { ...HUGO, rang: 4 }, derriere: { id: 'l', points: 0, rang: 6 } } })
   assert.match(html, /Tu finis à la <strong>5ᵉ place<\/strong> sur 12 avec 450 pts/)
   assert.match(html, /class="card echelle"/)
   assert.equal([...html.matchAll(/class="lb-row me"/g)].length, 1, 'sa ligne, surlignée')
@@ -658,11 +695,11 @@ test('au podium, qui n’y monte pas voit son échelle ; à zéro, ni rang ni é
   assert.ok(!html.includes('Léa'), 'personne n’y lit le zéro d’un autre')
   assert.ok(!html.includes('Soirée'), 'au premier quiz, la soirée et le quiz ne font qu’un')
 
-  const zero = await fin({ yourQuizTotal: 0, yourQuizRank: 6, place: { sur: 12, devant: { ...HUGO, rang: 5 } } })
+  const zero = await fin({ yourQuizTotal: 0, yourQuizRank: 6, place: { devant: { ...HUGO, rang: 5 } } })
   assert.match(zero, /Quiz terminé ! Pas de points cette fois\./)
   assert.ok(!zero.includes('class="card echelle"'))
   assert.ok(!/6ᵉ place/.test(zero))
 
-  const second = await fin({ soireeEntamee: true, place: { sur: 12, devant: { ...HUGO, rang: 4 } } })
+  const second = await fin({ soireeEntamee: true, place: { devant: { ...HUGO, rang: 4 } } })
   assert.match(second, /Soirée : 2ᵉ place/, 'la soirée, lue dans l’instantané')
 })

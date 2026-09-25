@@ -672,8 +672,9 @@ function rangDe(sess: GameSessionRec<QuizState>, vctx: ViewContext, playerId: st
   const i = position.get(playerId)
   if (i !== undefined) return lignes[i].rang
   if (!sess.participantIds.includes(playerId)) return undefined
+  // Les retardataires sont tous à zéro : un seul compte par diffusion.
   const sien = sess.state.totals[playerId] ?? 0
-  return 1 + lignes.reduce((devant, c) => devant + (c.item.points > sien ? 1 : 0), 0)
+  return vctx.memo(`quiz:rang-hors-place:${sien}`, () => 1 + lignes.reduce((devant, c) => devant + (c.item.points > sien ? 1 : 0), 0))
 }
 
 /** Son total avant la question révélée : ce qu'elle lui a rapporté en moins. */
@@ -734,7 +735,6 @@ function placeAuQuiz(
   const exAequo = dernier[i] - premier[i]
   const avant = avecAvant ? rangDAvant(sess, vctx, playerId) : undefined
   return {
-    sur: lignes.length,
     ...(devant && { devant }),
     ...(derriere && { derriere }),
     ...(exAequo > 0 && { exAequo }),
@@ -1292,9 +1292,8 @@ export const quizModule: GameModule<QuizState> = {
         // Le même podium pour toute la salle : construit une fois par diffusion.
         podium: vctx.memo('quiz:podium', () => standings(sess, vctx, 3)),
         ...podiumDe(sess, vctx, playerId),
-        // Sa place, à chacun : « sur 12 » pour la phrase du podium, et ses
-        // voisins pour qui n'y monte pas. Arrivé après la dernière question,
-        // on n'a rien joué : pas de place.
+        // Sa place, à chacun : ses voisins, pour qui n'y monte pas. Arrivé
+        // après la dernière question, on n'a rien joué : pas de place.
         ...((st.playFrom[playerId] ?? 0) <= st.qIndex && { place: placeAuQuiz(sess, vctx, playerId, false) }),
         ...(st.soireeEntamee && { soireeEntamee: true }),
       }

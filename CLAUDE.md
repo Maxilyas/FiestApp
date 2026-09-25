@@ -472,8 +472,11 @@ sans `QUIZ_DB_URL`.
   l'instantané. Rien pendant la question. Le retardataire qui n'a encore
   rien joué n'y tient pas de place : compté, il rejoindrait les ex æquo à
   zéro, et chaque arrivée pendant une révélation renverrait leur vue à
-  tous. Un champ de plus dans la place qui changerait pour toute la salle à
-  une arrivée ferait la même chose (`classement-en-cours.test.ts` y veille).
+  tous. Un champ de la place qui dépendrait de toute la salle ferait de
+  même : « sur combien » y était, et une exclusion renvoyait sa vue à chaque
+  téléphone — il se lit maintenant dans l'instantané, que l'arrivée et
+  l'exclusion renvoient déjà (`classement-en-cours.test.ts` y veille, pour
+  les deux gestes).
 - **Les pages publiques se gardent** (`core/pages.ts`) tant que leur
   empreinte ne bouge pas. Une écriture d'un journal (`Party`, `Teams`,
   `ScoreLedger`, `AnswerLog`) qui change vraiment quelque chose fait monter
