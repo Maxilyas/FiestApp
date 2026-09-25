@@ -98,6 +98,12 @@ export interface QuizPlayerView {
   yourQuizRank?: number
   // finished
   podium?: QuizPodiumRow[]
+  /**
+   * Sa ligne sur le podium (0 à 2), s'il y monte. Le podium est le même pour
+   * toute la salle ; seule cette place dépend du téléphone, pour qu'il s'y
+   * voie surligné comme au classement de la salle d'attente.
+   */
+  yourPodiumIndex?: number
 }
 
 /** Un invité que la question attend encore, tel que la console le montre. */

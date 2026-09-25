@@ -4,6 +4,7 @@ import { api, motifDe, UnauthorizedError } from '../api'
 import { PITCH_PROFIL, type PublicProfile } from '../../../shared/profil'
 import { AVATARS } from '../../../shared/avatars'
 import { Icon } from './Icon'
+import { MotDePasse } from './MotDePasse'
 import { CodeSecours, FormulaireSecours } from './Secours'
 import { identifiantPour, tirage } from './Entree'
 
@@ -260,10 +261,9 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
         <label className="label" htmlFor="pf-pass">
           Ton mot de passe
         </label>
-        <input
+        <MotDePasse
           id="pf-pass"
           className="input input-line"
-          type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
           autoComplete={creation ? 'new-password' : 'current-password'}

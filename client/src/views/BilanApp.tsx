@@ -135,9 +135,9 @@ export function BilanApp() {
 
   if (!ctx) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Chargement…</p>
-      </div>
+      </main>
     )
   }
 
@@ -148,11 +148,13 @@ export function BilanApp() {
       <div className="recap bilan">
         <BilanHead ctx={ctx} />
         <SpaceNav current="bilan" />
-        <section className="card">
-          <p className="muted">
-            Rien à relire pour l'instant : le bilan se remplit dès la première question jouée.
-          </p>
-        </section>
+        <main className="page-corps">
+          <section className="card">
+            <p className="muted">
+              Rien à relire pour l'instant : le bilan se remplit dès la première question jouée.
+            </p>
+          </section>
+        </main>
       </div>
     )
   }
@@ -169,6 +171,7 @@ export function BilanApp() {
       <nav className="row bilan-tabs" aria-label="Sections du bilan">
         <button
           className={'pill-btn' + (mode.kind !== 'room' ? ' active' : '')}
+          aria-current={mode.kind !== 'room' ? 'page' : undefined}
           onClick={() => navigate(lastPlayerId ? { kind: 'me', playerId: lastPlayerId } : { kind: 'pick' })}
         >
           <Icon name="star" />
@@ -176,41 +179,43 @@ export function BilanApp() {
         </button>
         <button
           className={'pill-btn' + (mode.kind === 'room' ? ' active' : '')}
+          aria-current={mode.kind === 'room' ? 'page' : undefined}
           onClick={() => navigate({ kind: 'room' })}
         >
           <Icon name="users" />
           La soirée
         </button>
       </nav>
+      <main className="page-corps">
+        {mode.kind === 'room' ? (
+          <RoomReview ctx={ctx} />
+        ) : selected && selected.stat.asked > 0 ? (
+          <>
+            <div className="row bilan-toolbar">
+              <button className="btn btn-small btn-ghost" onClick={() => navigate({ kind: 'pick' })}>
+                <Icon name="users" />
+                Changer de prénom
+              </button>
+              <button className="btn btn-small btn-ghost" onClick={copyLink}>
+                <Icon name={copied ? 'check' : 'clipboard'} />
+                {copied ? 'Lien copié' : 'Copier le lien de ce bilan'}
+              </button>
+            </div>
+            <PlayerReview ctx={ctx} player={selected} />
+          </>
+        ) : (
+          <Picker ctx={ctx} players={played} onPick={id => navigate({ kind: 'me', playerId: id })} />
+        )}
 
-      {mode.kind === 'room' ? (
-        <RoomReview ctx={ctx} />
-      ) : selected && selected.stat.asked > 0 ? (
-        <>
-          <div className="row bilan-toolbar">
-            <button className="btn btn-small btn-ghost" onClick={() => navigate({ kind: 'pick' })}>
-              <Icon name="users" />
-              Changer de prénom
-            </button>
-            <button className="btn btn-small btn-ghost" onClick={copyLink}>
-              <Icon name={copied ? 'check' : 'clipboard'} />
-              {copied ? 'Lien copié' : 'Copier le lien de ce bilan'}
-            </button>
-          </div>
-          <PlayerReview ctx={ctx} player={selected} />
-        </>
-      ) : (
-        <Picker ctx={ctx} players={played} onPick={id => navigate({ kind: 'me', playerId: id })} />
-      )}
-
-      <p className="recap-foot muted">Merci d'avoir joué.</p>
-      <p className="muted small center">
-        Pour l'animateur :{' '}
-        <a href={spacePath(slug, 'bilan/fiches', archiveId)}>les fiches à imprimer, une par invité</a>
-      </p>
-      {animateur && (archiveId ?? ctx.review.archive?.id) && (
-        <TousLesLiens slug={slug} soireeId={(archiveId ?? ctx.review.archive?.id)!} players={played} />
-      )}
+        <p className="recap-foot muted">Merci d'avoir joué.</p>
+        <p className="muted small center">
+          Pour l'animateur :{' '}
+          <a href={spacePath(slug, 'bilan/fiches', archiveId)}>les fiches à imprimer, une par invité</a>
+        </p>
+        {animateur && (archiveId ?? ctx.review.archive?.id) && (
+          <TousLesLiens slug={slug} soireeId={(archiveId ?? ctx.review.archive?.id)!} players={played} />
+        )}
+      </main>
     </div>
   )
 }
@@ -333,7 +338,7 @@ function Fiches({ ctx, players }: { ctx: BilanCtx; players: ReviewPlayer[] }) {
   const position = (p: ReviewPlayer) => (p.teamId ? (ctx.teamById.get(p.teamId)?.position ?? 99) : 99)
   const sorted = [...players].sort((a, b) => position(a) - position(b) || a.name.localeCompare(b.name, 'fr'))
   return (
-    <div className="recap bilan fiches">
+    <main className="recap bilan fiches">
       <div className="card no-print bilan-print-bar">
         <div>
           <h2>Les fiches</h2>
@@ -362,6 +367,6 @@ function Fiches({ ctx, players }: { ctx: BilanCtx; players: ReviewPlayer[] }) {
           <PlayerReview ctx={ctx} player={p} />
         </section>
       ))}
-    </div>
+    </main>
   )
 }

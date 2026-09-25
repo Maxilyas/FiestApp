@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
@@ -32,6 +32,7 @@ import type { QuizHostView } from '../../../shared/games/quiz'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { distinctions } from '../../../shared/profil'
+import { partsDuNom } from '../../../shared/homonymes'
 import type { ArchiveList } from '../../../shared/archive'
 import { AnnoncesDeNiveau, ClotureEcran } from '../components/Cloture'
 import { BoutonCopier } from '../components/Partage'
@@ -78,6 +79,34 @@ function adresseCoupable(url: string) {
 // Tous antérieurs à Unicode 13 : les emojis récents (boule à facettes,
 // visage pointillé…) s'affichent en carré vide sur Windows 10.
 const TEAM_EMOJIS = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️', '🦩', '🍹', '⭐', '🔥', '🌙', '🎺', '🌺', '🦜']
+
+/**
+ * Le prénom d'une pastille d'invité : il se coupe, sa marque d'homonymie
+ * jamais (invariant 17). « Camil… » et « Camil… » côte à côte, c'était deux
+ * invités qu'on ne distinguait plus là où l'on fait les équipes.
+ */
+function NomDePastille({ joueur }: { joueur: PublicPlayer }) {
+  const { prenom, marque } = partsDuNom(joueur)
+  return (
+    <>
+      <span className="chip-prenom">{prenom}</span>
+      {marque && <span className="chip-marque">{marque.trim()}</span>}
+    </>
+  )
+}
+
+/**
+ * Le plancher du prénom, posé sur le bouton (`--plancher`) : la première
+ * colonne de sa grille ne descend pas plus bas. Quatre caractères — c'est
+ * le sélecteur d'équipe qui cède avec lui, et au pire cas (badge, marque,
+ * lune, équipe, croix) cinq ne tenaient plus dans la colonne de 1366. Un
+ * prénom plus court ne se coupe pas du tout : un plancher en `ch` l'aurait
+ * suivi d'un blanc, la lettre « 0 » étant plus large que la plupart des
+ * autres.
+ */
+function plancherDuPrenom(joueur: PublicPlayer): string {
+  return [...partsDuNom(joueur).prenom].length > 4 ? '4ch' : 'max-content'
+}
 
 /**
  * Une équipe et ses membres, avec de quoi la renommer, la supprimer, et
@@ -164,7 +193,8 @@ function TeamGroup({
                 la soirée suivante le lui rend. */}
             <button
               className="chip-name"
-              title="Donner un surnom pour la soirée"
+              style={{ '--plancher': plancherDuPrenom(p) } as CSSProperties}
+              title={`${p.nomAffiche ?? p.name} — donner un surnom pour la soirée`}
               aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}`}
               onClick={async () => {
                 const name = await promptDialog({
@@ -178,7 +208,7 @@ function TeamGroup({
                 if (name) socket.emit('host:renamePlayer', { playerId: p.id, name })
               }}
             >
-              {p.nomAffiche ?? p.name}
+              <NomDePastille joueur={p} />
             </button>
             {/* Hors ligne : la transparence seule ne se lit pas du fond de la
                 salle, et un lecteur d'écran n'en sait rien. */}
@@ -485,28 +515,47 @@ export function HostApp() {
     }
   }
 
+  // Le focus suit la vue. « Lancer un quiz » disparaît sous le doigt qui
+  // vient de le presser : au clavier, le focus tombait sur la page entière,
+  // et le Tab suivant repartait du haut de l'écran. Quand la vue change et
+  // que le focus s'est perdu — et seulement alors —, il se pose sur le titre
+  // de la nouvelle scène : un lecteur d'écran le lit, le clavier repart de là.
+  const scene = useRef<HTMLElement>(null)
+  const vue = `${screen ?? ''}|${sessionEnCours?.id ?? ''}|${phaseEnCours ?? ''}`
+  const vuePrecedente = useRef(vue)
+  useEffect(() => {
+    if (vuePrecedente.current === vue) return
+    vuePrecedente.current = vue
+    const actif = document.activeElement
+    if (actif && actif !== document.body) return
+    const titre = scene.current?.querySelector<HTMLElement>('h1, h2, h3')
+    if (!titre) return
+    titre.tabIndex = -1
+    titre.focus({ preventScroll: true })
+  }, [vue])
+
   if (needLogin) {
     return (
-      <div className="porte-ecran">
+      <main className="porte-ecran">
         <LoginForm title="Écran commun" error={error} busy={busy} onSubmit={submitLogin} />
         <CodeDeLaTele onBranchee={branchee} />
-      </div>
+      </main>
     )
   }
   if (!me) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Connexion…</p>
-      </div>
+      </main>
     )
   }
 
   const snap = s.snapshot
   if (!snap) {
     return (
-      <div className="center-page">
+      <main className="center-page">
         <p className="serif-note">Connexion…</p>
-      </div>
+      </main>
     )
   }
 
@@ -761,7 +810,7 @@ export function HostApp() {
             </span>
             <div className="qr-stack">
               <div className="qr-box">
-                <QRCodeSVG value={joinUrl} size={46} bgColor="#ffffff" fgColor={QR_INK} />
+                <QRCodeSVG value={joinUrl} size={46} bgColor="#ffffff" fgColor={QR_INK} title="QR code pour rejoindre la soirée" />
               </div>
               <div className="qr-text">
                 <span className="label">Rejoindre</span>
@@ -774,7 +823,9 @@ export function HostApp() {
         {/* Les montées de niveau du dernier podium, proclamées à la salle. */}
         {s.progres && <AnnoncesDeNiveau progres={s.progres} onFin={finirAnnonces} />}
 
-        <div className={'host-grid' + (staging ? ' staging' : '')}>
+        {/* Le repère principal : la scène et ses colonnes, entre le bandeau
+            (banner) et la console (contentinfo). */}
+        <main className={'host-grid' + (staging ? ' staging' : '')}>
           {!staging && (
             <section className="card">
               <h2>Invités ({snap.players.length})</h2>
@@ -853,7 +904,7 @@ export function HostApp() {
             </section>
           )}
 
-          <section className="card main-stage">
+          <section className="card main-stage" ref={scene}>
             {screen === 'cloture' && s.cloture ? (
               <>
                 {telecommande ? (
@@ -921,7 +972,7 @@ export function HostApp() {
                   {ongletsPodium}
                   <div className="qr-stack scene-qr">
                     <div className="qr-box">
-                      <QRCodeSVG value={`${joinUrl}/souvenir`} size={84} bgColor="#ffffff" fgColor={QR_INK} />
+                      <QRCodeSVG value={`${joinUrl}/souvenir`} size={84} bgColor="#ffffff" fgColor={QR_INK} title="QR code du souvenir de la soirée" />
                     </div>
                     <div className="qr-text">
                       <span className="label">Le souvenir de la soirée</span>
@@ -1134,7 +1185,7 @@ export function HostApp() {
                 <div className="stage-foot scene-projetee">
                   <div className="qr-stack">
                     <div className="qr-box">
-                      <QRCodeSVG value={`${joinUrl}/stats`} size={84} bgColor="#ffffff" fgColor={QR_INK} />
+                      <QRCodeSVG value={`${joinUrl}/stats`} size={84} bgColor="#ffffff" fgColor={QR_INK} title="QR code des chiffres de la soirée" />
                     </div>
                     <div className="qr-text">
                       <span className="label">Les chiffres</span>
@@ -1299,14 +1350,14 @@ export function HostApp() {
                     {snap.wifi && (
                       <div className="invite-qr">
                         <div className="qr-box">
-                          <QRCodeSVG value={wifiQrValue(snap.wifi)} size={148} bgColor="#ffffff" fgColor={QR_INK} />
+                          <QRCodeSVG value={wifiQrValue(snap.wifi)} size={148} bgColor="#ffffff" fgColor={QR_INK} title="QR code du wifi" />
                         </div>
                         <span className="label">1 · Wifi {espacesFines(`« ${snap.wifi.ssid} »`)}</span>
                       </div>
                     )}
                     <div className="invite-qr">
                       <div className="qr-box">
-                        <QRCodeSVG value={joinUrl} size={148} bgColor="#ffffff" fgColor={QR_INK} />
+                        <QRCodeSVG value={joinUrl} size={148} bgColor="#ffffff" fgColor={QR_INK} title="QR code pour rejoindre la soirée" />
                       </div>
                       <span className="label">{snap.wifi ? '2 · Le quiz' : 'Scanner pour jouer'}</span>
                     </div>
@@ -1433,7 +1484,7 @@ export function HostApp() {
               </section>
             </div>
           )}
-        </div>
+        </main>
 
         {/* La console animateur : discrète, en bas, toujours au même endroit.
             Chaque écran y pose ses boutons ; le son, l'habillage et le plein
@@ -1455,19 +1506,25 @@ export function HostApp() {
                 recopié sur la télé : c'est l'animateur qui tranche. */}
             <button
               className="btn btn-icon"
-              // Une bascule garde son nom : c'est `aria-pressed` qui dit
-              // son état, sinon on entend l'inverse de ce qui est.
-              title={telecommande ? 'Télécommande : la scène est à la télé' : 'Télécommande : les gestes en grand, la scène à la télé'}
+              // Une bascule garde son nom et son infobulle : c'est
+              // `aria-pressed` qui dit son état, sinon on entend l'inverse de
+              // ce qui est.
+              title="Télécommande : les gestes en grand, la scène à la télé"
               aria-label="Télécommande"
               aria-pressed={telecommande}
               onClick={basculerTelecommande}
             >
               <Icon name={telecommande ? 'monitor' : 'smartphone'} />
             </button>
+            {/* Un bouton bascule garde un nom fixe et dit son état par
+                `aria-pressed` : avec un libellé qui changeait aussi, un lecteur
+                d'écran lisait « Couper les sons, activé », son allumé. Son
+                infobulle aussi est fixe : elle devient sa description, et
+                « Fond clair — Fond sombre (Velours), activé » se contredisait. */}
             <button
               className="btn btn-icon"
-              title={muted ? 'Activer les sons' : 'Couper les sons'}
-              aria-label={muted ? 'Activer les sons' : 'Couper les sons'}
+              title="Sons"
+              aria-label="Sons"
               aria-pressed={!muted}
               onClick={() => {
                 initAudio()
@@ -1480,8 +1537,8 @@ export function HostApp() {
                 sur fond clair, sans toucher aux téléphones des invités. */}
             <button
               className="btn btn-icon"
-              title={theme === 'ivoire' ? 'Fond sombre (Velours)' : 'Fond clair pour le vidéoprojecteur (Ivoire)'}
-              aria-label={theme === 'ivoire' ? 'Revenir au fond sombre' : 'Passer sur fond clair'}
+              title="Fond clair pour le vidéoprojecteur (Ivoire)"
+              aria-label="Fond clair"
               aria-pressed={theme === 'ivoire'}
               onClick={() => setTheme(toggleTheme())}
             >

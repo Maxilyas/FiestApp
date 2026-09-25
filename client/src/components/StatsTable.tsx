@@ -92,7 +92,14 @@ export function StatsTable({ stats }: { stats: PartyStats }) {
           <tr>
             <th className="stats-name">Joueur</th>
             {COLUMNS.map(c => (
-              <th key={c.key} title={c.title} className={c.key === 'points' ? 'stats-fige' : undefined}>
+              // La colonne triée le dit : l'œil la voit soulignée, un lecteur
+              // d'écran l'entendait comme les autres.
+              <th
+                key={c.key}
+                title={c.title}
+                className={c.key === 'points' ? 'stats-fige' : undefined}
+                aria-sort={c.key === sortKey ? (c.asc ? 'ascending' : 'descending') : undefined}
+              >
                 <button
                   className={'stats-sort' + (c.key === sortKey ? ' active' : '')}
                   onClick={() => setSortKey(c.key)}
