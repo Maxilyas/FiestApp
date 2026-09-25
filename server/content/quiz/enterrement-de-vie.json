@@ -1,0 +1,79 @@
+{
+  "title": "🎉 L’enterrement de vie de [Prénom]",
+  "description": "EVJF ou EVG : les souvenirs qu’on ne raconte pas au mariage, entre amis. Tu écris les réponses, la bande les devine.",
+  "rayon": "fete",
+  "ordre": 4,
+  "personnaliser": { "prenoms": 1 },
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "Quelle a été la pire coupe de cheveux de [Prénom] ?",
+      "answers": ["Coupe A ✏️", "Coupe B ✏️", "Coupe C ✏️", "Coupe D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Quel était le premier amour de [Prénom] ?",
+      "answers": ["Prénom A ✏️", "Prénom B ✏️", "Prénom C ✏️", "Prénom D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Vrai ou faux : [Prénom] a déjà dormi dans une gare.",
+      "answers": ["Vrai", "Faux"],
+      "correct": -1,
+      "duration": 15
+    },
+    {
+      "kind": "choice",
+      "text": "Quel est le plat que [Prénom] rate à tous les coups ?",
+      "answers": ["Plat A ✏️", "Plat B ✏️", "Plat C ✏️", "Plat D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle est la phrase préférée de [Prénom] ?",
+      "answers": ["Phrase A ✏️", "Phrase B ✏️", "Phrase C ✏️", "Phrase D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Quel est le pire souvenir de vacances de [Prénom] ?",
+      "answers": ["Souvenir A ✏️", "Souvenir B ✏️", "Souvenir C ✏️", "Souvenir D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Vrai ou faux : [Prénom] a déjà envoyé un message à la mauvaise personne.",
+      "answers": ["Vrai", "Faux"],
+      "correct": -1,
+      "duration": 15
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle série [Prénom] a-t-il/elle regardée trois fois ?",
+      "answers": ["Série A ✏️", "Série B ✏️", "Série C ✏️", "Série D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "number",
+      "text": "À quelle heure [Prénom] s’est-il/elle couché·e après sa pire soirée ?",
+      "target": null,
+      "unit": "h",
+      "duration": 30
+    },
+    {
+      "kind": "choice",
+      "text": "Qui [Prénom] appelle-t-il/elle en premier quand ça va mal ?",
+      "answers": ["Personne A ✏️", "Personne B ✏️", "Personne C ✏️", "Personne D ✏️"],
+      "correct": -1,
+      "duration": 25
+    }
+  ]
+}

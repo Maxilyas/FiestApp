@@ -14,6 +14,7 @@ import { INTROUVABLE, ROBOTS_TXT, decrirePage, habillerPage } from './core/aperc
 import { clearQuizLibrary, setProgramme, setQuestionsPosees, setQuizLibrary } from './games/quiz'
 import { dernieresFois } from './core/memoire'
 import { ProgrammeStore } from './core/programmes'
+import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
 import { ReserveDInscriptions } from './core/inscriptions'
@@ -294,6 +295,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
   }
   await refreshProgramme()
 
+  // Les partages : les codes, et le catalogue du serveur.
+  const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
+  await partages.init()
+
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
@@ -379,6 +384,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     await backup.forSpace(accountId).reset()
     const soirees = await archives.removeSpace(accountId)
     await programmes.removeSpace(accountId)
+    await partages.removeSpace(accountId)
     const { quizzes, images } = await store.removeSpace(accountId)
     await auth.remove(accountId)
     // Une page publique lue pendant le ménage a pu réveiller la soirée.
@@ -644,6 +650,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     onLibraryChanged: refreshLibrary,
     programmes,
     onProgrammeChanged: refreshProgramme,
+    partages,
     // Les parties de l'espace encore sur le disque, terminées comprises :
     // c'est leur copie du quiz que l'archivage rangera, photos avec.
     photosEnJeu: spaceId =>
@@ -812,6 +819,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           db.close()
           store.close()
           programmes.close()
+          partages.close()
           archives.close()
           auth.close()
           // Les profils en dernier : un crédit d'expérience parti avec la fin

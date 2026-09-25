@@ -1,6 +1,9 @@
 {
   "title": "⭐ Qui connaît le mieux [Prénom] ?",
   "description": "La personne fêtée au centre du quiz : ses goûts, son enfance, ses manies. Tu écris les vraies réponses : c’est toi qui les connais.",
+  "rayon": "fete",
+  "ordre": 1,
+  "amorce": true,
   "personnaliser": { "prenoms": 1 },
   "questions": [
     {

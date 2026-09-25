@@ -275,6 +275,39 @@ export class QuizStore {
   }
 
   /**
+   * Recopie dans un espace les photos que citent des questions reçues — un
+   * code de partage, le catalogue (`core/partages.ts`) : chacune y prend une
+   * adresse à elle, comme à l'import d'un fichier, et le quiz d'origine peut
+   * être retouché ou supprimé sans rien emporter chez le destinataire. Une
+   * photo qui n'existe plus laisse sa question sans photo ; une photo livrée
+   * avec l'application (`/media/quiz/…`) se garde telle quelle.
+   */
+  async copierPhotos<Q extends { image?: string | null }>(spaceId: string, questions: readonly Q[]): Promise<Q[]> {
+    const adresse = (q: Q) => /^\/media\/image\/([0-9a-f-]{36})$/.exec(q.image ?? '')?.[1] ?? null
+    const copies = new Map<string, string | null>()
+    for (const q of questions) {
+      const id = adresse(q)
+      if (!id || copies.has(id)) continue
+      const res = await this.client.execute({ sql: 'SELECT mime, data, bytes FROM quiz_images WHERE id = ?', args: [id] })
+      const photo = res.rows[0]
+      if (!photo) {
+        copies.set(id, null)
+        continue
+      }
+      const copie = randomUUID()
+      await this.client.execute({
+        sql: 'INSERT INTO quiz_images (id, mime, data, bytes, created_at, space_id) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [copie, photo.mime, photo.data ?? '', photo.bytes ?? null, Date.now(), spaceId],
+      })
+      copies.set(id, `/media/image/${copie}`)
+    }
+    return questions.map(q => {
+      const id = adresse(q)
+      return id ? { ...q, image: copies.get(id) ?? null } : q
+    })
+  }
+
+  /**
    * Efface la bibliothèque entière d'un espace, photos comprises : son
    * compte est supprimé. Les photos sortent aussi du cache — leur adresse
    * est publique, elles resteraient servies sinon.

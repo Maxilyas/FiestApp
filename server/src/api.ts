@@ -1,6 +1,8 @@
 import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
 import type { ProgrammeStore } from './core/programmes'
+import type { PartageStore } from './core/partages'
+import { mountPartages } from './partages'
 import type { Programme } from '../../shared/programme'
 import type { ArchiveStore } from './core/archive'
 import type { AuthStore } from './auth/store'
@@ -31,6 +33,8 @@ interface ApiDeps {
   programmes: ProgrammeStore
   /** Recharge le programme de ce soir que la console lit au lancement. */
   onProgrammeChanged: (spaceId: string) => Promise<void>
+  /** Les codes de partage et le catalogue du serveur : des copies, jamais un quiz public. */
+  partages: PartageStore
   /**
    * Les photos que citent les parties de l'espace encore sur le disque local
    * — celle qui se joue, et celles déjà jouées que la soirée n'a pas encore
@@ -83,6 +87,22 @@ export function mountApi(app: Express, deps: ApiDeps) {
 
   /** L'espace de l'animateur connecté : celui de sa session, et pas un autre. */
   const spaceOf = (res: express.Response) => accountOf(res).id
+
+  // Partager : un code à quelqu'un, une copie au catalogue (`partages.ts`).
+  mountPartages(app, { store: deps.store, partages: deps.partages, onLibraryChanged: deps.onLibraryChanged })
+
+  /**
+   * Le ménage des photos de l'espace. Celles qu'une partie encore sur le
+   * disque cite, et celles d'un partage vivant — un code valable, une copie
+   * au catalogue —, que le destinataire n'a peut-être pas encore recopiées,
+   * ne partent pas.
+   */
+  const menageDesPhotos = (spaceId: string) => {
+    deps.partages
+      .photosProtegees(spaceId)
+      .then(protegees => deps.store.pruneImages(spaceId, undefined, [...deps.photosEnJeu(spaceId), ...protegees]))
+      .catch(() => {})
+  }
 
   app.get(
     '/api/quizzes',
@@ -220,7 +240,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
       res.json(quiz)
       // Après coup : une photo retirée d'une question n'a plus à occuper la
       // base — sauf si la partie en cours ou une soirée archivée la montre encore.
-      deps.store.pruneImages(spaceId, undefined, deps.photosEnJeu(spaceId)).catch(() => {})
+      menageDesPhotos(spaceId)
     }),
   )
 
@@ -299,7 +319,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
       if (!ok) return res.status(404).json({ error: 'Quiz introuvable' })
       await deps.onLibraryChanged(spaceId)
       res.json({ ok: true })
-      deps.store.pruneImages(spaceId, undefined, deps.photosEnJeu(spaceId)).catch(() => {})
+      menageDesPhotos(spaceId)
     }),
   )
 
@@ -329,6 +349,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
           questionCount: m.questions.length,
           ...(m.personnaliser && { personnaliser: m.personnaliser }),
           ...(m.description && { description: m.description }),
+          rayon: m.rayon,
         })),
       )
     }),

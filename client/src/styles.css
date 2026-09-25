@@ -2137,6 +2137,19 @@ h3 > .icon {
 
 /* Ce que l'historique sait d'une question, au pied de sa carte. */
 .souvenir-question { margin: 0; }
+
+/* « Partir d'un modèle » : un rayon par sorte de quiz. */
+.rayon { display: grid; gap: 8px; }
+.rayon-titre { margin: 8px 0 0; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-text); font-family: var(--sans); }
+
+/* Le catalogue, à relire par l'administrateur. */
+.catalogue-admin { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.catalogue-entree { border-top: 1px solid var(--edge); padding-top: 10px; }
+.catalogue-entree-tete { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; }
+.catalogue-entree-tete p { margin: 4px 0 0; }
+.catalogue-questions { display: grid; gap: 6px; margin: 10px 0 0; padding-left: 1.4rem; }
+.catalogue-photo { width: 64px; height: 40px; object-fit: cover; border-radius: 6px; vertical-align: middle; margin-right: 8px; }
+.catalogue-juste { color: var(--accent-text); font-weight: 600; }
 @media (max-width: 600px) {
   .programme-bascule { padding: 0 11px; }
   .programme-bascule-texte { display: none; }

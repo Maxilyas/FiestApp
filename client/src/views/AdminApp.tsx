@@ -7,13 +7,16 @@ import { confirmDialog, promptDialog } from '../components/Dialog'
 import { showToast, useAppState } from '../state'
 import { formatDay } from '../../../shared/archive'
 import { normalizeSlug, type PublicAccount } from '../../../shared/space'
+import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../../shared/partage'
+import type { QuizQuestionDef } from '../../../shared/library'
 
 /**
  * Les comptes (`/admin`), pour l'administrateur seul : créer le compte d'un
  * ami, lui donner son lien d'activation, en refaire un s'il a perdu son mot
  * de passe, désactiver ou réactiver — et supprimer un compte désactivé, avec
- * tout ce qu'il a laissé. Rien d'autre : les quiz et les soirées des autres
- * ne se voient pas d'ici.
+ * tout ce qu'il a laissé. Les quiz et les soirées des autres ne se voient
+ * pas d'ici — sauf les copies qu'ils proposent au catalogue, à relire avant
+ * de les publier pour tous.
  */
 export function AdminApp() {
   const { toast } = useAppState()
@@ -228,9 +231,130 @@ export function AdminApp() {
           </div>
         </section>
 
+        <Catalogue />
+
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>
     </div>
+  )
+}
+
+/**
+ * Le catalogue du serveur (`core/partages.ts`) : les copies que les
+ * animateurs proposent à tous. Rien n'y paraît sans être relu ici — des
+ * prénoms d'invités, des photos de proches n'ont rien à faire chez tout le
+ * monde. Publiée, une copie arrive dans « Partir d'un modèle » de chaque
+ * espace, avec le nom de son auteur.
+ */
+function Catalogue() {
+  const [entrees, setEntrees] = useState<EntreeDuCatalogue[] | null>(null)
+  const [relue, setRelue] = useState<{ id: string; questions: QuizQuestionDef[] } | null>(null)
+  const [error, setError] = useState('')
+  const charger = () =>
+    api.admin
+      .catalogue()
+      .then(setEntrees)
+      .catch(e => setError((e as Error).message))
+  useEffect(() => {
+    charger()
+  }, [])
+
+  const changer = async (e: EntreeDuCatalogue, statut: StatutAuCatalogue) => {
+    setError('')
+    try {
+      await api.admin.statutAuCatalogue(e.id, statut)
+      await charger()
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
+  const relire = async (e: EntreeDuCatalogue) => {
+    if (relue?.id === e.id) return setRelue(null)
+    try {
+      setRelue({ id: e.id, questions: (await api.admin.entreeDuCatalogue(e.id)).questions })
+    } catch (err) {
+      setError((err as Error).message)
+    }
+  }
+
+  if (!entrees) return null
+  const groupes: [string, EntreeDuCatalogue[]][] = [
+    ['À relire', entrees.filter(e => e.statut === 'propose')],
+    ['Publiées', entrees.filter(e => e.statut === 'publie')],
+  ]
+  return (
+    <section className="card">
+      <h2>Le catalogue</h2>
+      <p className="muted">
+        Des copies que les animateurs proposent à tous. Publiée, une copie apparaît dans « Partir d’un modèle » de chaque espace, avec
+        le nom de son auteur. Relis-la : pas de prénoms d’invités, pas de photos de proches.
+      </p>
+      {error && <p className="error">{error}</p>}
+      {groupes.every(([, liste]) => liste.length === 0) && <p className="muted small">Rien à relire pour l’instant.</p>}
+      {groupes.map(
+        ([titre, liste]) =>
+          liste.length > 0 && (
+            <div key={titre} className="catalogue-groupe">
+              <h3>{titre}</h3>
+              <ul className="catalogue-admin">
+                {liste.map(e => (
+                  <li key={e.id} className="catalogue-entree">
+                    <div className="catalogue-entree-tete">
+                      <div>
+                        <strong>{e.titre}</strong>{' '}
+                        <span className="muted small">
+                          de {e.auteur} · {e.questionCount} questions · {formatDay(e.updatedAt)}
+                        </span>
+                        <p className="muted small">{e.description}</p>
+                      </div>
+                      <div className="row">
+                        <button className="btn btn-small btn-ghost" aria-expanded={relue?.id === e.id} onClick={() => relire(e)}>
+                          Relire
+                        </button>
+                        {e.statut === 'propose' && (
+                          <>
+                            <button className="btn btn-small" onClick={() => changer(e, 'publie')}>
+                              Publier
+                            </button>
+                            <button className="btn btn-small btn-ghost" onClick={() => changer(e, 'refuse')}>
+                              Refuser
+                            </button>
+                          </>
+                        )}
+                        {e.statut === 'publie' && (
+                          <button className="btn btn-small btn-ghost" onClick={() => changer(e, 'retire')}>
+                            Retirer
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {relue?.id === e.id && (
+                      <ol className="catalogue-questions">
+                        {relue.questions.map((q, i) => (
+                          <li key={q.id ?? i}>
+                            {q.image && <img className="catalogue-photo" src={q.image} alt="" loading="lazy" />}
+                            <span>{q.text}</span>{' '}
+                            <span className="muted small">
+                              {q.kind === 'number'
+                                ? `= ${q.target ?? '?'} ${q.unit}`
+                                : q.answers.filter(Boolean).map((a, j) => (
+                                    <span key={j} className={j === q.correct ? 'catalogue-juste' : undefined}>
+                                      {j > 0 && ' · '}
+                                      {a}
+                                    </span>
+                                  ))}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ),
+      )}
+    </section>
   )
 }
 

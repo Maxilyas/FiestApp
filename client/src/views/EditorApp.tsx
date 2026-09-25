@@ -75,6 +75,8 @@ import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon 
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { consigneEstimation } from '../games/quiz/consignes'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
+import { ecrireCode, lireCode, type EntreeDuCatalogue } from '../../../shared/partage'
+import { formatDay } from '../../../shared/archive'
 import { Icon } from '../components/Icon'
 import { LienConsole } from '../components/LienConsole'
 import { PanneauProgramme, useProgrammes } from '../components/Programme'
@@ -265,6 +267,97 @@ export function EditorApp() {
       setEchange(null)
     }
   }
+
+  /**
+   * « Partager par un code » : un code neuf, à dicter ou à envoyer, qu'on
+   * peut annuler d'ici. Le destinataire reçoit une copie — le fichier
+   * exporté restait une épreuve au téléphone, perdu dans les téléchargements.
+   */
+  const partager = async (q: QuizSummary) => {
+    setError('')
+    setNotice('')
+    try {
+      const { code, expiresAt } = await api.partage.creer(q.id)
+      const lisible = ecrireCode(code)
+      const choix = await choixDialog({
+        title: `Partager « ${q.title} »`,
+        message:
+          `Donne ce code à un animateur de ce serveur : dans « Mes quiz », « Nouveau quiz → Recevoir par un code ». ` +
+          `Il reçoit une copie, photos comprises — tes retouches d’après ne le suivent pas. Le code vaut jusqu’au ${formatDay(expiresAt)}.`,
+        input: { value: lisible },
+        confirmLabel: 'Copier le code',
+        alternative: { label: 'Annuler ce code', danger: true },
+      })
+      if (choix?.geste === 'alternative') {
+        await api.partage.revoquer(code)
+        setNotice(`Le code ${lisible} est annulé : il ne mène plus à rien.`)
+      } else {
+        if (choix) await navigator.clipboard?.writeText(lisible).catch(() => {})
+        setNotice(`Le code de « ${q.title} » : ${lisible}, jusqu’au ${formatDay(expiresAt)}.`)
+      }
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  /** « Recevoir par un code » : la copie qu'un autre animateur de ce serveur partage. */
+  const recevoir = async (prerempli = '') => {
+    const saisie = await promptDialog({
+      title: 'Recevoir un quiz',
+      message:
+        'Le code qu’un animateur de ce serveur t’a donné — six caractères, comme K7X-2QF. Une copie arrive dans ta bibliothèque, photos comprises.',
+      input: { value: prerempli, placeholder: 'K7X-2QF', maxLength: 120 },
+      confirmLabel: 'Recevoir',
+    })
+    if (!saisie) return
+    const code = lireCode(saisie)
+    if (!code) return setError('Ce code ne se lit pas : six lettres et chiffres, comme K7X-2QF')
+    setError('')
+    try {
+      const quiz = await api.partage.recevoir(code)
+      setNotice(`« ${quiz.title} » est dans ta bibliothèque.`)
+      reload()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  /**
+   * « Proposer au catalogue » : une copie part à l'administrateur, qui la
+   * publie pour tous les animateurs du serveur — ou pas. Jamais le quiz
+   * lui-même : retouché ensuite, il ne bouge pas chez les autres.
+   */
+  const proposer = async (q: QuizSummary) => {
+    const description = await promptDialog({
+      title: `Proposer « ${q.title} » au catalogue`,
+      message:
+        'Une copie part à l’administrateur de ce serveur. Publiée, elle apparaîtra dans « Partir d’un modèle » pour tous les animateurs, avec ton nom. ' +
+        'Relis-la avant : pas de prénoms d’invités, pas de photos de proches. En une phrase, à quoi sert ce quiz ?',
+      input: { value: '', placeholder: 'Un quiz pour…', maxLength: 200 },
+      confirmLabel: 'Proposer',
+    })
+    if (!description) return
+    setError('')
+    try {
+      await api.partage.proposer(q.id, description)
+      setNotice(`« ${q.title} » est proposé : l’administrateur le relira avant de le publier.`)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  // Un lien de partage (`/edit?recevoir=K7X2QF`) ouvre « Recevoir un quiz »,
+  // le code déjà écrit, une fois la bibliothèque chargée.
+  const lienDeReception = useRef(new URLSearchParams(window.location.search).get('recevoir'))
+  useEffect(() => {
+    const code = lienDeReception.current
+    if (!code || list === null) return
+    lienDeReception.current = null
+    history.replaceState(history.state, '', '/edit')
+    const lu = lireCode(code)
+    recevoir(lu ? ecrireCode(lu) : code)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list])
 
   const importer = async (choisi: File | undefined) => {
     if (!choisi) return
@@ -571,6 +664,7 @@ export function EditorApp() {
           onVide={() => creer()}
           onListe={() => creer(true)}
           onModele={() => setVoirModeles(true)}
+          onCode={() => recevoir()}
           onFichier={() => fichier.current?.click()}
         />
       </header>
@@ -680,6 +774,8 @@ export function EditorApp() {
               onProgramme={() => prog.basculer(q.id)}
               onDupliquer={() => dupliquer(q)}
               onExporter={() => exporter(q)}
+              onPartager={() => partager(q)}
+              onProposer={() => proposer(q)}
               onArchiver={() => archiver(q, !q.archivedAt)}
               onSupprimer={() => supprimer(q)}
             />
@@ -785,12 +881,14 @@ function MenuNouveau({
   onVide,
   onListe,
   onModele,
+  onCode,
   onFichier,
 }: {
   occupe: boolean
   onVide: () => void
   onListe: () => void
   onModele: () => void
+  onCode: () => void
   onFichier: () => void
 }) {
   const { ouvert, setOuvert, ancre } = useFermeture()
@@ -819,9 +917,13 @@ function MenuNouveau({
             <b>Partir d’un modèle</b>
             <span className="muted small">Un quiz tout fait, à retoucher — ou à personnaliser pour quelqu’un</span>
           </button>
+          <button type="button" onClick={choisir(onCode)}>
+            <b>Recevoir par un code</b>
+            <span className="muted small">Le quiz qu’un animateur de ce serveur te partage</span>
+          </button>
           <button type="button" disabled={occupe} onClick={choisir(onFichier)}>
             <b>Importer un fichier</b>
-            <span className="muted small">Le quiz d’un ami, ou toute une bibliothèque (.json)</span>
+            <span className="muted small">Le quiz d’un ami d’un autre serveur, ou toute une bibliothèque (.json)</span>
           </button>
         </div>
       )}
@@ -884,6 +986,8 @@ function LigneDeQuiz({
   onProgramme,
   onDupliquer,
   onExporter,
+  onPartager,
+  onProposer,
   onArchiver,
   onSupprimer,
 }: {
@@ -898,6 +1002,8 @@ function LigneDeQuiz({
   onProgramme: () => void
   onDupliquer: () => void
   onExporter: () => void
+  onPartager: () => void
+  onProposer: () => void
   onArchiver: () => void
   onSupprimer: () => void
 }) {
@@ -971,13 +1077,19 @@ function LigneDeQuiz({
             <button type="button" aria-label={`Dupliquer « ${q.title} »`} onClick={choisir(onDupliquer)}>
               Dupliquer
             </button>
+            <button type="button" disabled={q.questionCount === 0} onClick={choisir(onPartager)}>
+              Partager par un code
+            </button>
             <button
               type="button"
               disabled={occupe}
-              title="Un fichier à envoyer à un autre animateur, qui l’ouvre avec « Importer un fichier » : les questions et leurs photos"
+              title="Un fichier à envoyer à un animateur d’un autre serveur, qui l’ouvre avec « Importer un fichier » : les questions et leurs photos"
               onClick={choisir(onExporter)}
             >
               {exportEnCours ? 'Export…' : 'Exporter en fichier'}
+            </button>
+            <button type="button" disabled={q.readyCount === 0} onClick={choisir(onProposer)}>
+              Proposer au catalogue
             </button>
             <button type="button" onClick={choisir(onArchiver)}>
               {q.archivedAt ? 'Ressortir de l’archive' : 'Archiver'}
@@ -3139,6 +3251,8 @@ function PremiersPas({
   onErreur: (message: string) => void
 }) {
   const [modeles, setModeles] = useState<ModeleResume[]>([])
+  /** Les copies que l'administrateur a publiées au catalogue du serveur. */
+  const [catalogue, setCatalogue] = useState<EntreeDuCatalogue[]>([])
   const [copie, setCopie] = useState<string | null>(null)
   /** Le modèle à personnaliser dont « Pour qui ? » est ouvert. */
   const [pourQui, setPourQui] = useState<string | null>(null)
@@ -3146,8 +3260,31 @@ function PremiersPas({
   useEffect(() => {
     // Sans modèles (une panne, un serveur sans contenu livré), il reste
     // l'import et la création : rien à dire de plus.
-    api.modeles().then(setModeles).catch(() => {})
+    api
+      .modeles()
+      .then(setModeles)
+      .catch(() => {})
+    api.partage
+      .catalogue()
+      .then(setCatalogue)
+      .catch(() => {})
   }, [])
+
+  const depuisLeCatalogue = async (e: EntreeDuCatalogue) => {
+    setCopie(e.id)
+    try {
+      onOuvrir((await api.partage.partirDuCatalogue(e.id)).id)
+    } catch (err) {
+      onErreur((err as Error).message)
+      setCopie(null)
+    }
+  }
+
+  // Deux rayons : les quiz à écrire pour quelqu'un, et ceux qui se jouent tels quels.
+  const rayons: { titre: string; modeles: ModeleResume[] }[] = [
+    { titre: 'Pour une fête — tu écris les réponses', modeles: modeles.filter(m => m.rayon === 'fete') },
+    { titre: 'Pour jouer tout de suite', modeles: modeles.filter(m => m.rayon !== 'fete') },
+  ].filter(r => r.modeles.length > 0)
 
   const copier = async (m: ModeleResume, demande?: PourQui) => {
     setCopie(m.id)
@@ -3167,53 +3304,88 @@ function PremiersPas({
           ? 'Aucun de tes quiz n’est encore prêt à jouer. Pars d’un quiz tout fait, que tu retoucheras à ton goût, ou du tien.'
           : 'Chaque modèle arrive en copie dans ta bibliothèque, que tu retoucheras à ton goût.'}
       </p>
-      <ul className="modeles">
-        {modeles.map(m => (
-          <li key={m.id} className="modele">
-            <div className="modele-tete">
-              <div>
-                <h3>{m.title}</h3>
-                <p className="muted small">
-                  {m.questionCount} questions
-                  {m.personnaliser && ' · à personnaliser'}
-                  {m.description && <> · {espacesFines(m.description)}</>}
-                </p>
-              </div>
-              {m.personnaliser ? (
-                <button
-                  className="btn btn-small"
-                  aria-label={`Pour qui ? « ${m.title} »`}
-                  aria-expanded={pourQui === m.id}
-                  disabled={copie !== null || occupe}
-                  onClick={() => setPourQui(v => (v === m.id ? null : m.id))}
-                >
-                  <Icon name="users" />
-                  Pour qui ?
-                </button>
-              ) : (
-                <button
-                  className="btn btn-small"
-                  aria-label={`Partir de « ${m.title} »`}
-                  disabled={copie !== null || occupe}
-                  onClick={() => copier(m)}
-                >
-                  <Icon name="copy" />
-                  {copie === m.id ? 'Copie…' : 'Partir de ce modèle'}
-                </button>
-              )}
-            </div>
-            {pourQui === m.id && m.personnaliser && (
-              <PourQuiForm
-                prenoms={m.personnaliser.prenoms}
-                occupe={copie !== null}
-                onValider={demande => copier(m, demande)}
-                onSansPersonnaliser={() => copier(m)}
-                onAnnuler={() => setPourQui(null)}
-              />
-            )}
-          </li>
-        ))}
-      </ul>
+      {rayons.map(rayon => (
+        <div key={rayon.titre} className="rayon">
+          <h3 className="rayon-titre">{rayon.titre}</h3>
+          <ul className="modeles">
+            {rayon.modeles.map(m => (
+              <li key={m.id} className="modele">
+                <div className="modele-tete">
+                  <div>
+                    <h3>{m.title}</h3>
+                    <p className="muted small">
+                      {m.questionCount} questions
+                      {m.personnaliser && ' · à personnaliser'}
+                      {m.description && <> · {espacesFines(m.description)}</>}
+                    </p>
+                  </div>
+                  {m.personnaliser ? (
+                    <button
+                      className="btn btn-small"
+                      aria-label={`Pour qui ? « ${m.title} »`}
+                      aria-expanded={pourQui === m.id}
+                      disabled={copie !== null || occupe}
+                      onClick={() => setPourQui(v => (v === m.id ? null : m.id))}
+                    >
+                      <Icon name="users" />
+                      Pour qui ?
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-small"
+                      aria-label={`Partir de « ${m.title} »`}
+                      disabled={copie !== null || occupe}
+                      onClick={() => copier(m)}
+                    >
+                      <Icon name="copy" />
+                      {copie === m.id ? 'Copie…' : 'Partir de ce modèle'}
+                    </button>
+                  )}
+                </div>
+                {pourQui === m.id && m.personnaliser && (
+                  <PourQuiForm
+                    prenoms={m.personnaliser.prenoms}
+                    occupe={copie !== null}
+                    onValider={demande => copier(m, demande)}
+                    onSansPersonnaliser={() => copier(m)}
+                    onAnnuler={() => setPourQui(null)}
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+      {/* Les copies publiées par l'administrateur : le quiz d'un autre
+          animateur de ce serveur, jamais le sien — une copie, figée. */}
+      {catalogue.length > 0 && (
+        <div className="rayon">
+          <h3 className="rayon-titre">Le catalogue de ce serveur</h3>
+          <ul className="modeles">
+            {catalogue.map(e => (
+              <li key={e.id} className="modele">
+                <div className="modele-tete">
+                  <div>
+                    <h3>{e.titre}</h3>
+                    <p className="muted small">
+                      {e.questionCount} questions · de {e.auteur} · {espacesFines(e.description)}
+                    </p>
+                  </div>
+                  <button
+                    className="btn btn-small"
+                    aria-label={`Partir de « ${e.titre} »`}
+                    disabled={copie !== null || occupe}
+                    onClick={() => depuisLeCatalogue(e)}
+                  >
+                    <Icon name="copy" />
+                    {copie === e.id ? 'Copie…' : 'Partir de ce quiz'}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {debut && (
         <div className="premiers-pas-choix">
           <button className="btn" onClick={onListe}>

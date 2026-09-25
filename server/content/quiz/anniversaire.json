@@ -1,0 +1,79 @@
+{
+  "title": "🎂 L’anniversaire de [Prénom]",
+  "description": "Toute une vie en dix questions, de la maternelle à ce soir. Tu écris les vraies réponses ; les invités découvrent ce qu’ils croyaient savoir.",
+  "rayon": "fete",
+  "ordre": 2,
+  "personnaliser": { "prenoms": 1 },
+  "questions": [
+    {
+      "kind": "number",
+      "text": "En quelle année [Prénom] est-il/elle né·e ?",
+      "target": null,
+      "unit": "",
+      "duration": 30
+    },
+    {
+      "kind": "choice",
+      "text": "Quel était le doudou de [Prénom] ?",
+      "answers": ["Doudou A ✏️", "Doudou B ✏️", "Doudou C ✏️", "Doudou D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Quel surnom [Prénom] avait-il/elle à l’école ?",
+      "answers": ["Surnom A ✏️", "Surnom B ✏️", "Surnom C ✏️", "Surnom D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Où [Prénom] a-t-il/elle fêté ses 18 ans ?",
+      "answers": ["Lieu A ✏️", "Lieu B ✏️", "Lieu C ✏️", "Lieu D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Vrai ou faux : [Prénom] a déjà oublié son propre anniversaire.",
+      "answers": ["Vrai", "Faux"],
+      "correct": -1,
+      "duration": 15
+    },
+    {
+      "kind": "choice",
+      "text": "Quel est le plus beau cadeau que [Prénom] ait reçu ?",
+      "answers": ["Cadeau A ✏️", "Cadeau B ✏️", "Cadeau C ✏️", "Cadeau D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle chanson [Prénom] met-il/elle toujours en soirée ?",
+      "answers": ["Chanson A ✏️", "Chanson B ✏️", "Chanson C ✏️", "Chanson D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle a été la première voiture de [Prénom] ?",
+      "answers": ["Voiture A ✏️", "Voiture B ✏️", "Voiture C ✏️", "Voiture D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "number",
+      "text": "Combien de pays [Prénom] a-t-il/elle visités ?",
+      "target": null,
+      "unit": "pays",
+      "duration": 30
+    },
+    {
+      "kind": "choice",
+      "text": "De quoi [Prénom] rêve-t-il/elle pour les dix ans qui viennent ?",
+      "answers": ["Rêve A ✏️", "Rêve B ✏️", "Rêve C ✏️", "Rêve D ✏️"],
+      "correct": -1,
+      "duration": 25
+    }
+  ]
+}

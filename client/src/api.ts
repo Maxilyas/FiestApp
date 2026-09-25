@@ -3,6 +3,7 @@ import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
 import type { ReglagesDuQuiz } from '../../shared/hasard'
 import type { EntreeDeProgramme, Programme } from '../../shared/programme'
+import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
 import type { FinitionChoisie, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
@@ -177,6 +178,19 @@ export const api = {
     req<QuizDef>(`/api/modeles/${encodeURIComponent(modele)}`, { method: 'POST', body: JSON.stringify(pourQui ?? {}) }),
   uploadImage: (dataUrl: string) =>
     req<{ url: string }>('/api/images', { method: 'POST', body: JSON.stringify({ dataUrl }) }),
+  /** Partager : un code à un animateur de ce serveur, une copie au catalogue (`shared/partage.ts`). */
+  partage: {
+    /** Un code neuf, valable sept jours, sur le quiz tel qu'il est maintenant. */
+    creer: (quizId: string) => req<{ code: string; expiresAt: number }>(`/api/quizzes/${quizId}/partage`, { method: 'POST' }),
+    revoquer: (code: string) => req<{ ok: true }>(`/api/partages/${encodeURIComponent(code)}`, { method: 'DELETE' }),
+    /** La copie du quiz qu'un code désigne, rangée dans sa bibliothèque. */
+    recevoir: (code: string) => req<QuizDef>('/api/partages/recevoir', { method: 'POST', body: JSON.stringify({ code }) }),
+    proposer: (quizId: string, description: string) =>
+      req<EntreeDuCatalogue>(`/api/quizzes/${quizId}/catalogue`, { method: 'POST', body: JSON.stringify({ description }) }),
+    /** Les copies publiées au catalogue du serveur. */
+    catalogue: () => req<EntreeDuCatalogue[]>('/api/catalogue'),
+    partirDuCatalogue: (id: string) => req<QuizDef>(`/api/catalogue/${encodeURIComponent(id)}`, { method: 'POST' }),
+  },
   /** Les programmes de soirée : les quiz de ce soir, dans l'ordre, chacun avec son multiplicateur. */
   programmes: {
     list: () => req<Programme[]>('/api/programmes'),
@@ -308,6 +322,13 @@ export const api = {
       req<{ account: PublicAccount }>(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
     /** Un compte désactivé seulement ; tout ce qu'il a laissé part avec lui. */
     remove: (id: string) => req<{ ok: true }>(`/api/admin/accounts/${id}`, { method: 'DELETE' }),
+    /** Le catalogue du serveur, toutes les copies : proposées, publiées, refusées, retirées. */
+    catalogue: () => req<EntreeDuCatalogue[]>('/api/admin/catalogue'),
+    /** Une copie proposée, questions comprises, pour la relire. */
+    entreeDuCatalogue: (id: string) =>
+      req<EntreeDuCatalogue & { questions: QuizQuestionDef[] }>(`/api/admin/catalogue/${encodeURIComponent(id)}`),
+    statutAuCatalogue: (id: string, statut: StatutAuCatalogue) =>
+      req<{ ok: true }>(`/api/admin/catalogue/${encodeURIComponent(id)}`, { method: 'POST', body: JSON.stringify({ statut }) }),
   },
 }
 

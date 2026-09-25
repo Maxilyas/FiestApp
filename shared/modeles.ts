@@ -30,6 +30,13 @@ export interface APersonnaliser {
   prenoms: 1 | 2
 }
 
+/**
+ * Le rayon d'un modèle : « fete », un quiz à écrire pour quelqu'un — ses
+ * réponses, seul l'animateur les connaît — ; « jeu », un quiz qui se joue
+ * tel quel, et montre ce que l'application sait faire.
+ */
+export type Rayon = 'fete' | 'jeu'
+
 /** Un modèle tel que « Partir d'un modèle » le liste. */
 export interface ModeleResume {
   id: string
@@ -38,6 +45,7 @@ export interface ModeleResume {
   /** Une phrase qui dit à quoi il sert. */
   description?: string
   personnaliser?: APersonnaliser
+  rayon: Rayon
 }
 
 /** Lit la demande d'un navigateur : null si un prénom manque ou si rien ne se lit. */

@@ -1,0 +1,79 @@
+{
+  "title": "🥂 Le pot de départ de [Prénom]",
+  "description": "Les années de [Prénom] dans la maison, en questions : ses manies, ses exploits, ses mots. Pour la dernière tournée, entre collègues.",
+  "rayon": "fete",
+  "ordre": 5,
+  "personnaliser": { "prenoms": 1 },
+  "questions": [
+    {
+      "kind": "number",
+      "text": "En quelle année [Prénom] est-il/elle arrivé·e dans l’équipe ?",
+      "target": null,
+      "unit": "",
+      "duration": 30
+    },
+    {
+      "kind": "choice",
+      "text": "Quel était le premier poste de [Prénom] ?",
+      "answers": ["Poste A ✏️", "Poste B ✏️", "Poste C ✏️", "Poste D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle est la boisson de [Prénom] à la machine à café ?",
+      "answers": ["Boisson A ✏️", "Boisson B ✏️", "Boisson C ✏️", "Boisson D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle expression [Prénom] répète-t-il/elle en réunion ?",
+      "answers": ["Expression A ✏️", "Expression B ✏️", "Expression C ✏️", "Expression D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Vrai ou faux : [Prénom] est déjà venu·e travailler en chaussons.",
+      "answers": ["Vrai", "Faux"],
+      "correct": -1,
+      "duration": 15
+    },
+    {
+      "kind": "choice",
+      "text": "Quel a été le plus beau projet de [Prénom] ?",
+      "answers": ["Projet A ✏️", "Projet B ✏️", "Projet C ✏️", "Projet D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Où [Prénom] déjeune-t-il/elle le vendredi ?",
+      "answers": ["Lieu A ✏️", "Lieu B ✏️", "Lieu C ✏️", "Lieu D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "number",
+      "text": "Combien de bureaux [Prénom] a-t-il/elle occupés ?",
+      "target": null,
+      "unit": "bureaux",
+      "duration": 30
+    },
+    {
+      "kind": "choice",
+      "text": "Que va faire [Prénom] après son départ ?",
+      "answers": ["Projet A ✏️", "Projet B ✏️", "Projet C ✏️", "Projet D ✏️"],
+      "correct": -1,
+      "duration": 25
+    },
+    {
+      "kind": "choice",
+      "text": "Quel objet [Prénom] laisse-t-il/elle en souvenir ?",
+      "answers": ["Objet A ✏️", "Objet B ✏️", "Objet C ✏️", "Objet D ✏️"],
+      "correct": -1,
+      "duration": 25
+    }
+  ]
+}
