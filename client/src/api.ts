@@ -183,6 +183,17 @@ export const api = {
       req<Me>('/api/auth/activate', { method: 'POST', body: JSON.stringify({ token, password }) }),
     changePassword: (current: string, next: string) =>
       req<{ ok: true }>('/api/auth/password', { method: 'POST', body: JSON.stringify({ current, next }) }),
+    /** La télé sans session demande un code à afficher, et le jeton qui l'attend. */
+    appairage: () => req<{ code: string; jeton: string; expireA: number }>('/api/auth/appairage', { method: 'POST', body: '{}' }),
+    /**
+     * La télé attend : `attente` tant que personne n'a validé, `ok` quand sa
+     * session est posée, `perime` quand il lui faut un code neuf.
+     */
+    attenteAppairage: (jeton: string) =>
+      req<{ attente?: true; ok?: true; perime?: true }>('/api/auth/appairage/attente', { method: 'POST', body: JSON.stringify({ jeton }) }),
+    /** Le téléphone connecté valide le code affiché par la télé. */
+    validerAppairage: (code: string) =>
+      req<{ ok: true }>('/api/auth/appairage/valider', { method: 'POST', body: JSON.stringify({ code }) }),
   },
   /**
    * Le profil d'un joueur récurrent. Rien ici n'est nécessaire pour jouer :

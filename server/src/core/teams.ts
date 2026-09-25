@@ -135,11 +135,17 @@ export class Teams {
     return true
   }
 
-  /** Les six équipes par défaut — seulement s'il n'y en a aucune. */
-  seedDefaults(): number {
+  /**
+   * Les premières équipes par défaut — seulement s'il n'y en a aucune. Six
+   * équipes pour sept invités faisaient une soirée en solo déguisée : le
+   * nombre se choisit, de deux (une équipe seule ne joue contre personne) à
+   * six. Sans nombre, une page d'avant : les six.
+   */
+  seedDefaults(count: number = DEFAULT_TEAMS.length): number {
     if (this.teams.size > 0) return 0
-    for (const t of DEFAULT_TEAMS) this.create(t.name, t.emoji)
-    return DEFAULT_TEAMS.length
+    const n = Number.isFinite(count) ? Math.min(DEFAULT_TEAMS.length, Math.max(2, Math.round(count))) : DEFAULT_TEAMS.length
+    for (const t of DEFAULT_TEAMS.slice(0, n)) this.create(t.name, t.emoji)
+    return n
   }
 
   clearAll() {

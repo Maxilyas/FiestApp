@@ -43,8 +43,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
 |---|---|
 | `core/engine.ts` | route actions/commandes/timers vers le module de jeu, persiste, rediffuse les vues filtrées |
 | `games/quiz.ts` | **toutes** les règles : phases, chronomètres, barème (le temps de lecture offert au QCM, l'estimation payée à la distance), vues |
-| `core/space.ts` | la soirée d'un espace : ses registres, ses salons socket, ses diffusions, son nom figé, ses crédits |
+| `core/space.ts` | la soirée d'un espace : ses registres, ses salons socket, ses diffusions, son nom figé, ses crédits — et la scène des écrans d'animateur (`poserScene` : podium, prix, victoire, clôture), que la télé suit quand on anime à la télécommande |
 | `core/party.ts` | le registre des invités (identité par jeton, rattachement au profil, marques d'homonymie, connexions par socket) |
+| `core/places.ts` | « Rendre sa place » : les codes à usage unique qui rendent sa fiche à un invité dont le téléphone est mort — en mémoire, vite périmés, cinq essais manqués par minute ; jamais pour une fiche à profil, et la reprise renouvelle le jeton |
 | `core/scores.ts` | journal des gains, en ajout seul |
 | `core/answers.ts` | une ligne par invité et par question posée, y compris sans réponse |
 | `core/backup.ts` | le miroir de la soirée dans Turso : une file par espace, ordonnée, qui insiste ; la resynchronisation après une panne ; sa santé |
@@ -73,6 +74,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `auth/profiles.ts` | profils de joueurs (autre table, autre cookie) |
 | `auth/profileRoutes.ts` | la porte d'entrée : se connecter à son profil ouvre aussi la console de l'espace rattaché |
 | `auth/http.ts` | cookies, adresse du client, et `loginBudgetOf(app)` : la réserve d'essais commune à toutes les portes |
+| `auth/appairage.ts` | brancher la télé : le code court qu'elle affiche, validé depuis une console ouverte, et la session d'une soirée qu'elle en reçoit ; `/attente` dit `perime` dans une réponse, jamais dans une erreur |
 | `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins — et, sans profil, la porte discrète des animateurs (« J'anime une soirée ») |
 | `shared/adresses.ts` · `core/apercus.ts` | une adresse lue une seule fois pour le client et le serveur ; le serveur y pose le statut (404 d'un espace, d'une page ou d'une archive inconnus), les balises d'aperçu (le titre de l'espace, **jamais un prénom**), `noindex` hors de l'accueil, et les seules corrections permises : ce que `normalizeSlug` fait de la saisie (casse, accents, espaces et ponctuation en tirets, 24 caractères au plus), puis la seule forme `chez-‹saisie›` — jamais un nom voisin (invariant 3) |
 | `client/src/onglets.ts` | les onglets nommés de la console, et « Revenir à la console » d'une page qu'elle a ouverte : jamais une seconde console |
@@ -88,6 +90,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/brouillon.ts` · `client/src/brouillon.ts` | le brouillon d'un quiz : ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit (`normalizeQuestions`, `shared/library.ts`) |
 | `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
 | `client/src/components/Liaison.tsx` | ce que voit l'invité quand la liaison tombe |
+| `client/src/components/Absents.tsx` · `Reprendre.tsx` | le téléphone perdu : « Qui manque ? » à la console (ne plus l'attendre, rendre sa place), et le code tapé par l'invité |
 | `client/src/components/Coupe.tsx` | une liste de l'écran commun coupée à ce qui tient, « et 2 autres » dessous : personne ne fait défiler une télé |
 | `server/scripts/rendu-ecran.ts` | le pire cas de l'écran commun, rejoué sur un serveur jetable et photographié à chaque phase en 1366 × 768, 1920 × 1080 et au téléphone (`MESURE=1` : ce qui ne grandit pas en 1920) |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
@@ -107,9 +110,11 @@ server/test/        un fichier par thème, un serveur jetable chacun
    vaut « introuvable », et le voisin n'en sait rien.
 4. **L'instantané est dédoublonné et regroupé** (`space.ts`). N'y mets jamais
    un champ qui change à chaque tick : il partirait à toute la salle. Il en
-   part deux versions, chacune dédoublonnée : celle de l'écran commun, et
-   celle des téléphones, **sans `connected`** (`pourLesTelephones`) — une
-   veille d'écran ne repart qu'à l'écran commun. Le regroupement des
+   part deux versions, chacune dédoublonnée : celle des écrans d'animateur,
+   qui porte en plus le wifi, la scène et la télécommande
+   (`enPlusPourLesEcrans`) — la salle ne reçoit rien quand seule la scène
+   change —, et celle des téléphones, **sans `connected`**
+   (`pourLesTelephones`) — une veille d'écran ne repart qu'à l'écran commun. Le regroupement des
    téléphones grandit avec la salle (120 ms + 2 ms par invité), celui des
    écrans communs reste à 120 ms ; et celui qui fait le geste (`join`,
    `setTeam`) reçoit le sien sur-le-champ — au `join`, une fois compté dans
@@ -136,7 +141,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
    (`unknown-token`), **jamais recréé** : le téléphone repasse par l'entrée,
    pré-remplie. Celui d'une soirée qu'on vient de clore reçoit sa fin de
    soirée (`soiree-close`) ; après un redémarrage qui l'a oubliée, un
-   `unknown-token` qui porte la soirée close à revoir (`derniere`).
+   `unknown-token` qui porte la soirée close à revoir (`derniere`). Un
+   nouveau téléphone ne prend le jeton d'une fiche que par le code que
+   l'animateur fait paraître (`player:reprendre`), jamais sur un prénom
+   retapé.
 10. **L'expérience d'un quiz se crédite dès qu'il rend son verdict** (son
     podium s'affiche), à la fin de la partie si quelque chose a changé depuis
     (`dernierCredit`, l'empreinte des gains arrivés en base), puis une
@@ -161,7 +169,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
     veille, ou le QR testé la veille, datait sinon la soirée suivante de
     l'arrivée d'un invité, pour toujours.
 12. **Un geste dit ce qu'il visait.** Les commandes `next`, `cancel`, `replay`
-    et les réponses portent la phase, la question et le tour : une commande
+    et les réponses portent la phase, la question et le tour (`host:scene`,
+    l'écran qu'il quittait) : une commande
     périmée est ignorée en silence, une réponse périmée reçoit `too-late`, et
     un champ absent (une page d'avant) garde l'ancien comportement. Sans ça,
     un « Révéler » qui croisait la révélation automatique sautait la
@@ -192,7 +201,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
     de passe change, que son code de secours sert ou qu'il perd l'espace —
     détaché, ou remplacé par un autre profil —, sauf la console d'où l'on
     fait ce geste. Celles du mot de passe du compte ne bougent pas : c'est
-    l'écran commun de la soirée. Pour poser
+    l'écran commun de la soirée. Une télé branchée par un code d'appairage
+    hérite de la porte de la console qui l'a validé (`auth/appairage.ts`) :
+    elle tombe avec ce profil, ou tient comme l'écran commun — et jamais
+    plus de 24 heures (`fin_max`, qui plafonne le glissement). Pour poser
     le lien, il faut prouver les deux identités ; après, une seule porte
     suffit. Ne fusionne pas les deux tables : l'identifiant d'un compte est
     la clé de partition de dix tables et de toutes les archives.
