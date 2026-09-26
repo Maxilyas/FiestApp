@@ -430,6 +430,18 @@ Divin se tait — c'est tout son principe.
 - La meilleure finition débloquée se **porte d'office** (`auto`) ; choisir
   une finition l'épingle.
 - Mat 1, Argent 3, Or 6, Holo 10, Prisme 15, **Aurore 20**, **Constellation 25**.
+- Entre deux finitions, un **emoji de collection** : un par niveau qui n'en
+  ouvre pas, du 2 au 17 — 🦚 2, 🐢 4, 🦈 5, 🦔 7, 🐝 8, 🦩 9, puis 🦥 11,
+  🐳 12, 🦜 13, 🦦 14, 🐲 16, 🪐 17 (`COLLECTION`, `shared/avatars.ts`).
+  Chaque niveau jusqu'au 17 ouvre ainsi une chose, et une seule. Réservés aux
+  profils : l'inscription ne les propose pas, un invité anonyme qui en
+  forgerait un repart avec l'avatar par défaut, et un profil ne porte que
+  ceux de son niveau (`peutPorter`). Relus à chaque affichage
+  (`avatarPorte`) : une soirée retirée qui fait redescendre sous le niveau
+  de son emoji le lui reprend, sans rien réécrire. Dans la grille, un anneau
+  vert (niveaux 2 à 9) ou bleu (11 et plus), une silhouette et « niv. 8 »
+  tant qu'il est fermé ; la fin de soirée annonce ceux qui s'ouvrent, avec
+  « Le porter ». Chacun peut éclater, comme tout emoji joué.
 - L'**Éclat** garde sa règle (une chance sur quarante par soirée qui compte,
   sur l'emoji joué ce soir-là) et gagne sa propre signature — des paillettes
   qui scintillent autour de l'emoji — au lieu de l'étoile du Prisme.
@@ -699,10 +711,15 @@ titre et la vitrine se relisent à chaque affichage : une soirée retirée
 de l'historique emporte son haut fait, et ce qu'on en portait avec. La
 carte dit aussi le quiz du jour, en une ligne.
 
+**Lot 7 — en cours** : les emojis de collection (§ 5.5), un par niveau
+sans finition. À suivre : le laurier du vainqueur d'hier, le Sphinx, les
+paliers du quiz du jour, les écussons de savoir, les fonds de carte (nuit
+étoilée, aurore, kintsugi, grand théâtre), les légendaires de saison (11).
+
 **Plus tard**, dans l'ordre où je les prendrais :
 
 1. Réclamer sa soirée (50) — le meilleur moment pour proposer un profil.
 2. Le mur des réponses (45) et l'entrée en scène (10).
 3. Le radar des catégories (37).
-4. Les rivalités (39), les légendaires de saison (11), le cadre de soirée (7).
+4. Les rivalités (39), le cadre de soirée (7).
 5. L'Éclat garanti (6) et le Métronome (22).

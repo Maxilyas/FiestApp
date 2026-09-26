@@ -2,7 +2,7 @@ import { ajouterColonne, clientDistant, type Client } from '../core/distante'
 import type { InStatement } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
-import { cleanAvatar, cleanName, DEFAULT_AVATAR } from '../../../shared/avatars'
+import { cleanAvatar, cleanName, DEFAULT_AVATAR, niveauRequis } from '../../../shared/avatars'
 import {
   CHANCE_ECLAT,
   carriereDe,
@@ -641,6 +641,26 @@ export class ProfileStore {
     return a.includes(p.legendaire) ? p.legendaire : null
   }
 
+  /**
+   * Un avatar se porte s'il n'est pas de collection, ou si le niveau du
+   * profil l'a ouvert. Sans profil, jamais : l'invité anonyme ne montre rien
+   * qui dise ce qui lui manque, ni ce qu'un profil lui aurait donné.
+   */
+  peutPorter(p: ProfileRec | null, avatar: string): boolean {
+    const requis = niveauRequis(avatar)
+    return requis === 0 || (!!p && this.niveauOf(p) >= requis)
+  }
+
+  /**
+   * L'avatar qu'il porte, s'il le peut encore : une soirée retirée de
+   * l'historique qui le fait redescendre sous le niveau de son emoji de
+   * collection laisse la place à l'avatar par défaut, sans rien réécrire —
+   * il le retrouve dès qu'il remonte.
+   */
+  avatarPorte(p: ProfileRec): string {
+    return this.peutPorter(p, p.avatar) ? p.avatar : DEFAULT_AVATAR
+  }
+
   /** Le titre qu'il porte, s'il l'a encore : une soirée retirée emporte son haut fait, et le titre avec. */
   titrePorte(p: ProfileRec): string | null {
     return p.titre && hautsFaitsGagnes(this.recompensesOf(p.id)).includes(p.titre) ? p.titre : null
@@ -670,7 +690,7 @@ export class ProfileStore {
       id: p.id,
       login: p.login,
       name: p.name,
-      avatar: p.avatar,
+      avatar: this.avatarPorte(p),
       // La finition qu'on voit sur lui : celle qu'il a épinglée s'il peut
       // encore la porter, la plus belle qu'il a sinon.
       finition: finitionPortee(p.finition, niveau),
@@ -813,11 +833,14 @@ export class ProfileStore {
     if (!name) throw new Error('Il faut un prénom')
     if (await this.byLogin(login)) throw new Error('Cet identifiant est déjà pris')
     const recovery = newRecoveryCode()
+    // Un profil neuf est au niveau 1 : aucun emoji de collection ne lui va
+    // encore, et l'écran d'inscription n'en propose pas.
+    const avatar = input.avatar ? cleanAvatar(input.avatar) : DEFAULT_AVATAR
     const rec: ProfileRec = {
       id: randomUUID(),
       login,
       name,
-      avatar: input.avatar ? cleanAvatar(input.avatar) : DEFAULT_AVATAR,
+      avatar: niveauRequis(avatar) === 0 ? avatar : DEFAULT_AVATAR,
       finition: 'auto',
       legendaire: null,
       titre: null,
@@ -914,7 +937,10 @@ export class ProfileStore {
       champs.name = name
     }
     if (patch.avatar !== undefined) {
-      champs.avatar = cleanAvatar(patch.avatar)
+      const avatar = cleanAvatar(patch.avatar)
+      const requis = niveauRequis(avatar)
+      if (requis > this.niveauOf(rec)) throw new Error(`Cet avatar s’ouvre au niveau ${requis}`)
+      champs.avatar = avatar
       champs.legendaire = null
     }
     if (patch.finition !== undefined) champs.finition = choixDeFinition(patch.finition, this.niveauOf(rec))
@@ -1617,7 +1643,7 @@ export class ProfileStore {
    * finition, le légendaire qu'il porte, et s'il brille (l'Éclat tombe sur ce
    * qu'il porte : le légendaire, ou l'emoji).
    */
-  apparenceDe(p: ProfileRec, avatar: string = p.avatar): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string } {
+  apparenceDe(p: ProfileRec, avatar: string = this.avatarPorte(p)): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string } {
     const niveau = this.niveauOf(p)
     const legendaire = this.legendairePorte(p)
     return {

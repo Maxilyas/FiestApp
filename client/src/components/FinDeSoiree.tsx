@@ -13,6 +13,7 @@ import { NOM_FINITION, PITCH_PROFIL } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
+import { collectionGagnee } from '../../../shared/avatars'
 import { api } from '../api'
 import { spacePath } from '../routes'
 import { formatNumber, place, pourcent, pts } from '../format'
@@ -45,15 +46,31 @@ export function FinDeSoiree({
   onSuivante: () => void
 }) {
   const [porte, setPorte] = useState<string | null>(profil?.legendaire ?? null)
+  const [emojiPorte, setEmojiPorte] = useState<string | null>(null)
   const eclats = fin.hautsFaits.filter(h => h.ton === 'eclat')
   const ombres = fin.hautsFaits.filter(h => h.ton === 'ombre')
   const gain = fin.profil
+  // Les niveaux gagnés ce soir disent seuls ce qu'ils ouvrent : le serveur
+  // n'a rien à annoncer de plus.
+  const nouveaux = gain ? collectionGagnee(gain.niveauAvant, gain.niveauApres) : []
 
   const porter = async (cle: string) => {
     try {
       const { profile } = await api.joueur.enregistrer({ legendaire: cle })
       setPorte(profile.legendaire)
       showToast({ kind: 'info', message: `Tu portes ${legendaire(cle)?.nom ?? divin(cle)?.nom ?? 'ton avatar'}` })
+    } catch (e) {
+      showToast({ kind: 'error', message: (e as Error).message })
+    }
+  }
+
+  const porterEmoji = async (emoji: string) => {
+    try {
+      const { profile } = await api.joueur.enregistrer({ avatar: emoji })
+      // Porter un emoji ôte le légendaire : c'est l'un ou l'autre.
+      setEmojiPorte(profile.avatar)
+      setPorte(profile.legendaire)
+      showToast({ kind: 'info', message: `Tu portes ${emoji}` })
     } catch (e) {
       showToast({ kind: 'error', message: (e as Error).message })
     }
@@ -141,6 +158,31 @@ export function FinDeSoiree({
             </p>
           )}
           {gain.paliers.length > 0 && <Faits titre="Paliers de carrière" faits={gain.paliers} />}
+        </section>
+      )}
+
+      {/* Un emoji de collection à chaque niveau qui n'ouvre pas de finition :
+          il se porte d'ici, comme un légendaire. */}
+      {nouveaux.length > 0 && (
+        <section className="card fin-collection">
+          <span className="label">{nouveaux.length > 1 ? 'Nouveaux avatars de collection' : 'Nouvel avatar de collection'}</span>
+          <div className="fin-collection-emojis">
+            {nouveaux.map(e => (
+              <div key={e} className="fin-collection-emoji">
+                <Avatar avatar={e} finition={fin.finition} />
+                {emojiPorte !== e && (
+                  <button className="btn btn-small" aria-label={`Porter ${e}`} onClick={() => void porterEmoji(e)}>
+                    Le porter
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="muted small">
+            {emojiPorte && nouveaux.includes(emojiPorte)
+              ? `C’est ${emojiPorte} que la salle verra, dès la prochaine soirée.`
+              : 'Réservés aux profils : un emoji à chaque niveau qui n’ouvre pas de finition, jusqu’au 17.'}
+          </p>
         </section>
       )}
 
@@ -414,6 +456,7 @@ export function Celebration({ gain, onFin }: { gain: GainAnnonce; onFin: () => v
     return () => clearTimeout(t)
   }, [gain, onFin])
   const monte = gain.niveauApres > gain.niveauAvant
+  const nouveaux = collectionGagnee(gain.niveauAvant, gain.niveauApres)
   return (
     <button type="button" className={'celebration' + (monte ? ' celebration-niveau' : '')} onClick={onFin} role="status">
       <span className="celebration-xp">+{formatNumber(gain.xp)} XP</span>
@@ -421,6 +464,11 @@ export function Celebration({ gain, onFin }: { gain: GainAnnonce; onFin: () => v
       {gain.finitions.length > 0 && (
         <span className="celebration-finition">
           Finition {gain.finitions.map(f => NOM_FINITION[f]).join(', ')} débloquée
+        </span>
+      )}
+      {nouveaux.length > 0 && (
+        <span className="celebration-finition">
+          {nouveaux.length > 1 ? 'Nouveaux avatars' : 'Nouvel avatar'} : {nouveaux.join(' ')}
         </span>
       )}
     </button>

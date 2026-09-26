@@ -785,7 +785,7 @@ export class JourStore {
     const comptees = total - tirage.annulees.length
     const categories = [...new Set(tirage.questions.map(q => q.categorie).filter((c): c is string => !!c))]
     const joueurs = await this.joueursDu(jour, profil.id)
-    const nom = nommer(joueurs)
+    const nom = nommer(joueurs, p => this.deps.profiles.avatarPorte(p))
     const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
     const moi = classes.find(c => c.item.profil.id === profil.id)
     const devant = moi && classes.filter(c => c.item.points > moi.item.points).at(-1)
@@ -867,14 +867,14 @@ export class JourStore {
   }
 
   private lignes(joueurs: readonly Joueur[], periode: string, pour: string | null): Omit<ClassementDuJour, 'fige'> {
-    const nom = nommer(joueurs)
+    const nom = nommer(joueurs, p => this.deps.profiles.avatarPorte(p))
     const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
     const ligne = ({ item: j, rang }: { item: Joueur; rang: number }): LigneDuJour => {
       const { niveau, finition, eclat, legendaire } = this.deps.profiles.apparenceDe(j.profil)
       return {
         profileId: j.profil.id,
         nom: nom(j),
-        avatar: j.profil.avatar,
+        avatar: this.deps.profiles.avatarPorte(j.profil),
         niveau,
         finition,
         ...(legendaire && { legendaire }),
@@ -906,10 +906,10 @@ export class JourStore {
     if (res.rows.length === 0) return []
     const premiers = new Set(res.rows.map(r => String(r.profile_id)))
     const joueurs = await this.joueursDu(jour, null)
-    const nom = nommer(joueurs)
+    const nom = nommer(joueurs, p => this.deps.profiles.avatarPorte(p))
     return joueurs
       .filter(j => premiers.has(j.profil.id))
-      .map(j => ({ nom: nom(j), avatar: j.profil.avatar }))
+      .map(j => ({ nom: nom(j), avatar: this.deps.profiles.avatarPorte(j.profil) }))
       .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
   }
 
@@ -1367,9 +1367,12 @@ function possiblesDe(tirage: Tirage): number {
  * que soit son rang. Tout prénom du quiz du jour passe par ici — le
  * classement, « à 70 pts de », le vainqueur d'hier (invariant 17).
  */
-function nommer(joueurs: readonly Joueur[]): (j: Joueur) => string {
+function nommer(joueurs: readonly Joueur[], avatarDe: (p: ProfileRec) => string): (j: Joueur) => string {
   const arrivee = [...joueurs].sort((a, b) => a.commenceeLe - b.commenceeLe || a.profil.id.localeCompare(b.profil.id))
-  const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: j.profil.avatar })))
+  // L'avatar qu'on voit, pas celui qu'il a en base : deux Camille qu'un
+  // emoji de collection redevenu trop haut laisse sous le même 🎉 se
+  // distinguent comme les autres.
+  const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: avatarDe(j.profil) })))
   return j => marques.get(j.profil.id) ?? j.profil.name
 }
 

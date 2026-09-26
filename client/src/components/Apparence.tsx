@@ -5,7 +5,7 @@ import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { DetailDivin, DetailLegendaire } from './Carriere'
-import { AVATARS } from '../../../shared/avatars'
+import { AVATARS, COLLECTION } from '../../../shared/avatars'
 import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
@@ -19,6 +19,13 @@ import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type Pu
 // catalogues à part en faisaient trois sections repliées, et l'on cherchait
 // où changer de tête. Une grille, des cases de la même taille ; un anneau de
 // couleur dit ce qui est rare, et toucher un avatar dessiné dit d'où il vient.
+
+/**
+ * L'anneau des emojis de collection passe du vert au bleu à partir du
+ * niveau 10 : les premiers viennent en quelques soirées, les autres en une
+ * année, et la grille le dit d'un coup d'œil.
+ */
+const COLLECTION_HAUTE = 10
 
 type Patch = { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null; titre?: string | null }
 
@@ -47,8 +54,9 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
 }
 
 /**
- * Tous ses avatars, en une grille : les vingt-quatre emojis, les douze
- * légendaires, les cinq Divins. Un emoji se porte d'un toucher ; un avatar
+ * Tous ses avatars, en une grille : les vingt-quatre emojis, les douze de
+ * collection, les douze légendaires, les cinq Divins. Un emoji se porte d'un
+ * toucher — celui de collection, une fois son niveau atteint ; un avatar
  * dessiné se touche d'abord pour lire sa légende — et, gagné, se porte de là.
  */
 export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
@@ -57,8 +65,9 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
   const divins = profil.divins ?? []
   const descendu = (cle: string) => divins.some(d => d.key === cle)
   const porte = profil.legendaire
-  const possedes = AVATARS.length + profil.legendaires.length + divins.length
-  const total = AVATARS.length + LEGENDAIRES.length + DIVINS.length
+  const ouverts = COLLECTION.filter(c => profil.niveau >= c.niveau).length
+  const possedes = AVATARS.length + ouverts + profil.legendaires.length + divins.length
+  const total = AVATARS.length + COLLECTION.length + LEGENDAIRES.length + DIVINS.length
   const toucher = (cle: string) => setOuvert(o => (o === cle ? null : cle))
   return (
     <section className="card">
@@ -84,6 +93,45 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
               }}
             >
               <Avatar avatar={a} finition={profil.finition} eclat={brille(a)} />
+            </button>
+          )
+        })}
+        {COLLECTION.map(c => {
+          const anneau = c.niveau < COLLECTION_HAUTE ? ' anneau-collection' : ' anneau-collection-haut'
+          if (profil.niveau < c.niveau) {
+            // Sa silhouette et son niveau, rien à toucher : il n'a pas d'autre
+            // histoire que le niveau qui l'ouvre.
+            return (
+              <span
+                key={c.emoji}
+                className={'emoji-btn case-avatar ferme' + anneau}
+                role="img"
+                aria-label={`Emoji de collection, s’ouvre au niveau ${c.niveau}`}
+              >
+                <span className="silhouette" aria-hidden="true">
+                  {c.emoji}
+                </span>
+                <span className="case-niveau" aria-hidden="true">
+                  niv. {c.niveau}
+                </span>
+              </span>
+            )
+          }
+          const choisi = !porte && c.emoji === profil.avatar
+          return (
+            <button
+              key={c.emoji}
+              type="button"
+              className={'emoji-btn case-avatar' + anneau + (choisi ? ' selected' : '')}
+              aria-pressed={choisi}
+              aria-label={`Avatar ${c.emoji}, de collection${brille(c.emoji) ? ', éclaté' : ''}`}
+              disabled={busy}
+              onClick={() => {
+                setOuvert(null)
+                enregistrer({ avatar: c.emoji })
+              }}
+            >
+              <Avatar avatar={c.emoji} finition={profil.finition} eclat={brille(c.emoji)} />
             </button>
           )
         })}
@@ -159,7 +207,15 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
         <span className="puce anneau-texte-divin" aria-hidden="true">
           ●
         </span>{' '}
-        Divin
+        Divin ·{' '}
+        <span className="puce anneau-texte-collection" aria-hidden="true">
+          ●
+        </span>{' '}
+        de collection, niveaux 2 à 9 ·{' '}
+        <span className="puce anneau-texte-collection-haut" aria-hidden="true">
+          ●
+        </span>{' '}
+        niveaux 11 et plus
       </p>
       {profil.eclats.length > 0 && (
         <p className="muted small">
