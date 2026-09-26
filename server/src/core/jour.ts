@@ -936,6 +936,18 @@ export class JourStore {
 
   // ── Sa carrière au quiz du jour ─────────────────────────────────────────
 
+  /** Ce que la carte d'un joueur dit de son quiz du jour : les jours joués, les victoires. */
+  async resumeDe(profileId: string): Promise<{ joues: number; victoires: number }> {
+    const [joues, victoires] = await this.client.batch(
+      [
+        { sql: 'SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT COUNT(*) AS n FROM jour_podiums WHERE profile_id = ? AND rang = 1', args: [profileId] },
+      ],
+      'read',
+    )
+    return { joues: Number(joues.rows[0]?.n ?? 0), victoires: Number(victoires.rows[0]?.n ?? 0) }
+  }
+
   /**
    * Le quiz du jour d'un profil, pour sa page (`CarriereDuJour`) : ses
    * médailles, sa série et son record, ses podiums, et ses trente derniers

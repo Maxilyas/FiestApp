@@ -9,6 +9,7 @@ import { GameEngine } from './engine'
 import { PlacesRendues } from './places'
 import type { PartyBackup, PartyMirror } from './backup'
 import type { ArchiveStore } from './archive'
+import type { JourStore } from './jour'
 import { buildArchive, soireeDesInvites, type Soiree } from './archive'
 import { buildRecap } from './recap'
 import { buildReview, type PlayedPack } from './review'
@@ -33,7 +34,8 @@ import {
 } from '../../../shared/profil'
 import { rangPartage } from '../../../shared/classement'
 import type { CarteDeJoueur } from '../../../shared/carte'
-import { hautFaitDeSoiree, palierDe, plusBeaux, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
+import { VITRINE_MAX, cleRangee, hautFaitDeSoiree, palierDe, plusBeaux, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
+import type { BadgePorte } from '../../../shared/badges'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, PrixAnnonce, SoireeClose } from '../../../shared/fin'
 import type { EcranDeScene, OngletDePodium, PartySnapshot, PublicPlayer, Recap, Scene } from '../../../shared/types'
 import type { PlaceRendue } from '../../../shared/events'
@@ -65,6 +67,8 @@ export interface SpaceDeps {
    * et celui qu'elles atteignaient ensemble ne tombait nulle part.
    */
   cloturesEnCours: Set<string>
+  /** Le quiz du jour, pour la ligne qu'en montre la carte d'un joueur. Absent, la carte s'en passe. */
+  jour?: Pick<JourStore, 'resumeDe'>
 }
 
 /**
@@ -140,6 +144,21 @@ export async function enParallele<T, R>(elements: T[], limite: number, travail: 
   // n'en laissaient voir qu'un.
   for (const e of echecs.slice(1)) console.error('[crédits] un autre échec du même lot :', e)
   throw echecs[0]
+}
+
+/**
+ * La vitrine d'une carte : les hauts faits qu'il a choisis, dans son ordre —
+ * un haut fait de carrière à son plus haut palier, qui monte avec lui —, ou,
+ * s'il n'a rien choisi, ses trois plus beaux (`plusBeaux`).
+ */
+function vitrineDeLaCarte(etagere: BadgePorte[], choisie: string[] | null, recompenses: ReadonlyMap<string, number>): BadgePorte[] {
+  if (!choisie) return plusBeaux(etagere, VITRINE_MAX)
+  const parCle = new Map(etagere.map(b => [b.key, b]))
+  return choisie.flatMap(cle => {
+    const rangee = cleRangee(cle, recompenses)
+    const badge = rangee ? parCle.get(rangee) : undefined
+    return badge ? [badge] : []
+  })
 }
 
 /**
@@ -610,25 +629,29 @@ export class SpaceRuntime {
     if (!rec.profileId) return carte
     const profil = await this.deps.profiles.byId(rec.profileId)
     if (!profil) return carte
-    const [vitrine, carriere] = await Promise.all([
+    const [vitrine, carriere, jour] = await Promise.all([
       this.deps.profiles.badgesOf(profil.id),
       this.deps.profiles.careerOf(profil.id),
+      this.deps.jour?.resumeDe(profil.id).catch(() => null),
     ])
     const fiche = ficheDe(carriere)
     const recompenses = this.deps.profiles.recompensesOf(profil.id)
+    const titre = this.deps.profiles.titrePorte(profil)
     carte.profil = {
       prenom: profil.name,
       niveau: this.deps.profiles.niveauOf(profil),
       legendaires: this.deps.profiles.legendairesOf(profil.id),
       divins: this.deps.profiles.divinsOf(profil.id),
-      // Ses trois plus beaux hauts faits, les plus rares à décrocher. Rangée
-      // à la rareté du serveur, muette sous dix profils, la vitrine tombait
-      // sur les prix les plus souvent gagnés : six fois L'Éclair, que la
-      // salle voit remettre à chaque soirée.
-      vitrine: plusBeaux(vitrine, 3),
+      // Ceux qu'il a choisis, s'il en a choisi ; sinon ses trois plus beaux,
+      // les plus rares à décrocher. Rangée à la rareté du serveur, muette
+      // sous dix profils, la vitrine tombait sur les prix les plus souvent
+      // gagnés : six fois L'Éclair, que la salle voit remettre à chaque soirée.
+      vitrine: vitrineDeLaCarte(vitrine, this.deps.profiles.vitrineChoisie(profil), recompenses),
       // Un palier de carrière compte pour son haut fait, pas pour trois.
       hautsFaits: new Set([...recompenses.keys()].filter(k => k.startsWith('hf:')).map(k => k.replace(/:[123]$/, ''))).size,
       prix: { eus: PRIX_INDIVIDUELS.filter(k => recompenses.has(k)).length, total: PRIX_INDIVIDUELS.length },
+      ...(titre && { titre }),
+      ...(jour && jour.joues > 0 && { jour }),
       fiche: {
         soirees: fiche.soirees,
         precision: fiche.precision,

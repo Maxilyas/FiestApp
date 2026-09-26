@@ -11,9 +11,10 @@ import { cibleEclat } from '../../../shared/legendaires'
 import { coupDOeilMoyen, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { Categories, Courbes, FicheCarriere } from '../components/Carriere'
-import { ApercuSalle, MesAvatars, MesFinitions } from '../components/Apparence'
+import { ApercuSalle, MesAvatars, MesFinitions, MonTitre } from '../components/Apparence'
 import { MaVitrine, MesHautsFaits, MesPrix, MonQuizDuJour } from '../components/Trophees'
-import { formatNumber, place, reponsesParType } from '../format'
+import { espacesFines, formatNumber, place, reponsesParType } from '../format'
+import { hautFait } from '../../../shared/hautsfaits'
 import { route, spacePath } from '../routes'
 import { derniereSoireeGardee } from '../state'
 import { Lendemain } from '../components/Lendemain'
@@ -118,7 +119,13 @@ export function ProfilApp() {
     }
   }
 
-  const enregistrer = async (patch: { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null }) => {
+  const enregistrer = async (patch: {
+    avatar?: string
+    finition?: FinitionChoisie
+    legendaire?: string | null
+    titre?: string | null
+    vitrine?: string[] | null
+  }) => {
     setBusy(true)
     setErreur('')
     try {
@@ -208,6 +215,10 @@ export function ProfilApp() {
             {profil.name}
             <Niveau niveau={profil.niveau} big />
           </h2>
+          {/* Son titre, sous son prénom, comme sa carte le montre. */}
+          {profil.titre && hautFait(profil.titre) && (
+            <p className="titre-porte">{espacesFines(`« ${hautFait(profil.titre)!.title} »`)}</p>
+          )}
           <div
             className="xp-bar"
             role="progressbar"
@@ -248,12 +259,13 @@ export function ProfilApp() {
           <ApercuSalle profil={profil} />
           <MesAvatars profil={profil} busy={busy} enregistrer={enregistrer} />
           <MesFinitions profil={profil} busy={busy} enregistrer={enregistrer} />
+          <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />
         </div>
       )}
 
       {onglet === 'trophees' && (
         <div className="profil-onglet" role="tabpanel" id="profil-trophees" aria-labelledby="onglet-trophees">
-          <MaVitrine profil={profil} />
+          <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
           <MonQuizDuJour jour={profil.jour} />
           <MesHautsFaits profil={profil} />
           <MesPrix prix={profil.prix} />

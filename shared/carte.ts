@@ -57,6 +57,10 @@ export interface CarteDeJoueur extends Distinctions {
     vitrine: BadgePorte[]
     /** Combien de hauts faits différents il a décrochés. */
     hautsFaits: number
+    /** Le titre qu'il porte sous son prénom : la clé d'un haut fait (`hf:oracle`). Absent s'il n'en porte pas. */
+    titre?: string
+    /** Son quiz du jour, en une ligne : les jours joués, les victoires. Absent s'il n'y a jamais joué. */
+    jour?: { joues: number; victoires: number }
     /**
      * Les prix du palmarès : ils tombent à chaque soirée, et six fois
      * L'Éclair ne disait rien à la salle. C'est la collection qui se montre —

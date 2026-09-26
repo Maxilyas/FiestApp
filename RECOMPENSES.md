@@ -75,7 +75,7 @@ Deux règles ne bougent pas :
 | 5 | ★ **Un Éclat qu'on reconnaît** — des paillettes qui scintillent autour de l'emoji, jamais l'étoile du Prisme | la rareté doit se voir | lot 1 |
 | 6 | L'Éclat garanti à la persévérance — une chance sur 40, garantie à la 60ᵉ soirée sans éclat | le hasard sans la frustration infinie | plus tard |
 | 7 | Le cadre de soirée — un cadre commémoratif que portent tous ceux qui y étaient (« l'anniversaire de Léa ») | un souvenir qu'on porte | plus tard |
-| 8 | ★ **Les titres** — un titre sous le prénom, tiré de ses hauts faits (« L'Oracle », « Lanterne Rouge ×3 ») | un mot vaut mieux qu'une icône au mur | plus tard |
+| 8 | ★ **Les titres** — un titre sous le prénom, tiré de ses hauts faits (« L'Oracle », « Lanterne Rouge ×3 ») | un mot vaut mieux qu'une icône au mur | lot 6 |
 | 9 | ★ **La vitrine** — les hauts faits les plus rares montrés sur la carte | se montrer sans se vanter | lot 1 |
 | 10 | L'entrée en scène — une animation d'arrivée sur l'écran commun à la mesure de ce qu'on porte | la présence commence à la porte | plus tard |
 | 11 | Les légendaires de saison — un avatar qui ne se gagne qu'à Noël, à Halloween, au Nouvel An | revenir à date fixe | plus tard |
@@ -683,20 +683,26 @@ la série, le classement, la nuit, la réserve et sa modération, et la
 réserve écrite par une routine Claude Code (§ 5.13). À suivre : les
 estimations à tolérance.
 
-**Lot 6 — en cours** : le profil en trois onglets — Apparence (la grille
+**Lot 6 — fait** : le profil en trois onglets — Apparence (la grille
 unique des avatars : emojis, légendaires et Divins de la même taille, un
-anneau pour ce qui est rare, la légende au toucher ; la finition),
-Trophées (la vitrine de la carte, le quiz du jour et ses médailles, les
-hauts faits les plus proches, la collection de prix), Carrière (la fiche,
-les courbes des soirées et des jours, « Mes jours », « Mes soirées ») —, et
-« Ce soir » resserré sur l'accueil. À suivre : les titres (8) et la
-vitrine qu'on choisit.
+anneau pour ce qui est rare, la légende au toucher ; la finition ; le
+titre), Trophées (la vitrine de la carte, le quiz du jour et ses médailles,
+les hauts faits les plus proches, la collection de prix), Carrière (la
+fiche, les courbes des soirées et des jours, « Mes jours », « Mes
+soirées ») —, et « Ce soir » resserré sur l'accueil. Les titres (8) :
+chaque haut fait gagné, coup du sort compris, ouvre le sien, qu'on porte
+sous son prénom, sur sa page et sur sa carte — pas dans les listes de la
+salle, qui restent un prénom et un visage. La vitrine (9) se choisit
+aussi : un à trois hauts faits gagnés, dans son ordre, un haut fait de
+carrière à son plus haut palier ; sans choix, les plus durs, d'office. Le
+titre et la vitrine se relisent à chaque affichage : une soirée retirée
+de l'historique emporte son haut fait, et ce qu'on en portait avec. La
+carte dit aussi le quiz du jour, en une ligne.
 
 **Plus tard**, dans l'ordre où je les prendrais :
 
 1. Réclamer sa soirée (50) — le meilleur moment pour proposer un profil.
-2. Les titres (8) — les hauts faits sont là, il ne manque qu'un choix.
-3. Le mur des réponses (45) et l'entrée en scène (10).
-4. Le radar des catégories (37).
-5. Les rivalités (39), les légendaires de saison (11), le cadre de soirée (7).
-6. L'Éclat garanti (6) et le Métronome (22).
+2. Le mur des réponses (45) et l'entrée en scène (10).
+3. Le radar des catégories (37).
+4. Les rivalités (39), les légendaires de saison (11), le cadre de soirée (7).
+5. L'Éclat garanti (6) et le Métronome (22).

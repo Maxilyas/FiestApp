@@ -654,6 +654,14 @@ export interface PublicProfile {
   legendaires: string[]
   /** Les Divins descendus sur lui, avec leur récit. Ce qui les fait descendre ne quitte jamais le serveur. */
   divins: DivinDescendu[]
+  /**
+   * Le titre qu'il porte sous son prénom — la clé d'un haut fait gagné, qui
+   * s'écrit de son nom (`hautFait(cle).title`) —, ou rien. Absent d'un
+   * serveur d'avant.
+   */
+  titre?: string | null
+  /** Les hauts faits qu'il a choisi de montrer sur sa carte ; null : les plus durs, d'office. */
+  vitrineChoisie?: string[] | null
 }
 
 /** Une soirée jouée, telle que la page profil la relit. */

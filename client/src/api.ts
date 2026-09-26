@@ -280,7 +280,14 @@ export const api = {
      */
     console: () => req<{ espace: PublicSpace }>('/api/joueur/console', { method: 'POST' }),
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
-    enregistrer: (patch: { name?: string; avatar?: string; finition?: FinitionChoisie; legendaire?: string | null }) =>
+    enregistrer: (patch: {
+      name?: string
+      avatar?: string
+      finition?: FinitionChoisie
+      legendaire?: string | null
+      titre?: string | null
+      vitrine?: string[] | null
+    }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
     /**
      * Changer son mot de passe : il faut l'actuel, ou le code de secours pour

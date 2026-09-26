@@ -367,6 +367,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     },
     maxPlayersCeiling,
     cloturesEnCours: new Set(),
+    jour,
   })
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)

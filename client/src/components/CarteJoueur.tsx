@@ -3,13 +3,14 @@ import type { CarteDeJoueur } from '../../../shared/carte'
 import type { BadgePorte } from '../../../shared/badges'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { ceQuIlAFallu } from '../../../shared/hautsfaits'
+import { ceQuIlAFallu, hautFait } from '../../../shared/hautsfaits'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
 import { chargerDessinsAuPlus, complets, useDessins } from './medaillons'
 import { Chiffres, justesses } from './Chiffres'
 import { Icon } from './Icon'
 import { Niveau } from './Niveau'
+import { Flamme } from './Jour'
 
 /**
  * La carte d'un joueur, ouverte en touchant son nom : ce qu'il fait ce soir,
@@ -90,6 +91,8 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                   {carte.nom}
                   <Niveau niveau={p?.niveau} big />
                 </h3>
+                {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné. */}
+                {p?.titre && hautFait(p.titre) && <p className="titre-porte">{espacesFines(`« ${hautFait(p.titre)!.title} »`)}</p>}
                 {p && p.prenom !== carte.nom && <p className="muted small">{espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil</p>}
                 <p className="carte-soir">
                   {carte.ceSoir.rang > 0 ? (
@@ -168,6 +171,14 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                   <p className="carte-prix muted small">
                     <Icon name="award" />
                     Prix de soirée : {p.prix.eus} sur {p.prix.total}
+                  </p>
+                )}
+                {/* Son quiz du jour, en une ligne : rien s'il n'y a jamais joué. */}
+                {p.jour && (
+                  <p className="carte-prix muted small">
+                    <Flamme />
+                    Quiz du jour : {p.jour.joues} jour{p.jour.joues > 1 ? 's' : ''} joué{p.jour.joues > 1 ? 's' : ''}
+                    {p.jour.victoires > 0 && ` · ${p.jour.victoires} victoire${p.jour.victoires > 1 ? 's' : ''}`}
                   </p>
                 )}
               </>

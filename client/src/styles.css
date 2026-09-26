@@ -5528,3 +5528,50 @@ h3 > .icon {
 .prix-collection .manque .prix-emoji { filter: grayscale(1) brightness(0.45); }
 .prix-collection .manque .prix-titre { color: var(--muted); }
 .prix-collection .hf-fois { position: absolute; top: 3px; right: 4px; font-size: 0.62rem; }
+
+/* Le titre qu'il porte, sous son prénom : sur sa page et sur sa carte. */
+.titre-porte { margin: 2px 0 6px; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.05rem; color: var(--accent-text); }
+.titres { display: flex; flex-wrap: wrap; gap: 8px; }
+.titre-choix {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--edge);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.titre-choix.selected { background: var(--accent-soft); border-color: var(--edge-strong); color: var(--accent-text); }
+.titre-choix.ferme { color: var(--muted); font-style: normal; font-family: var(--sans); font-size: 0.82rem; cursor: default; }
+.titre-choix .icon { width: 13px; height: 13px; }
+
+/* La vitrine qu'il choisit : chaque haut fait gagné, et l'ordre de la carte. */
+.vitrine-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--edge);
+  background: var(--surface-faint);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* Le bouton porte le cadre : la ligne, elle, s'efface. */
+.vitrine-a-choisir li { padding: 0; border: 0; background: none; }
+.vitrine-option .hf-corps { flex: 1; display: flex; flex-direction: column; }
+.vitrine-option.selected { border-color: var(--edge-strong); background: var(--accent-soft); }
+.vitrine-option:disabled { opacity: 0.45; cursor: default; }
+.vitrine-rang { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 0.8rem; font-weight: 600; }
+.vitrine-actions { margin-top: 10px; }
+.carte-prix .flamme { width: 1em; height: 1em; }

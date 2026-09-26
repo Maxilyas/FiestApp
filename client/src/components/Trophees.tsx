@@ -1,12 +1,22 @@
+import { useState } from 'react'
 import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
 import { Chiffres } from './Chiffres'
 import { HautsFaits } from './Carriere'
 import { Flamme, Medaille } from './Jour'
 import { formatNumber } from '../format'
-import { ceQuIlAFallu, hautFait, palierDe, plusBeaux, titreDePalier } from '../../../shared/hautsfaits'
+import {
+  VITRINE_MAX,
+  ceQuIlAFallu,
+  cleRangee,
+  hautFait,
+  hautsFaitsGagnes,
+  palierDe,
+  plusBeaux,
+  titreDePalier,
+} from '../../../shared/hautsfaits'
 import { legendaire } from '../../../shared/legendaires'
-import { lesPlusProches, type Proche } from '../../../shared/proches'
+import { lesPlusProches, recompensesDe, type Proche } from '../../../shared/proches'
 import type { CarriereDuJour } from '../../../shared/jour'
 import type { PrixDeCollection, PublicProfileDetail } from '../../../shared/profil'
 
@@ -14,31 +24,112 @@ import type { PrixDeCollection, PublicProfileDetail } from '../../../shared/prof
 // quiz du jour, ses hauts faits — les plus proches d'abord, le catalogue
 // replié —, et sa collection de prix. Tout ce qu'il a gagné, et ce qui vient.
 
-/** Combien sa carte en montre. */
-const SUR_LA_CARTE = 3
-
 /**
- * Ses plus beaux hauts faits : les trois que sa carte montre à qui touche
- * son nom, les plus durs à obtenir d'abord (`plusBeaux`). Il sait ainsi ce
- * que la salle lit de lui.
+ * Sa vitrine : les hauts faits que sa carte montre à qui touche son nom.
+ * D'office, les trois plus durs à obtenir (`plusBeaux`) ; il peut aussi les
+ * choisir — un coup du sort compris, s'il en est fier —, dans l'ordre où la
+ * carte les montrera. Un haut fait de carrière s'y montre à son plus haut
+ * palier, qui monte avec lui.
  */
-export function MaVitrine({ profil }: { profil: PublicProfileDetail }) {
-  const beaux = plusBeaux(profil.vitrine, SUR_LA_CARTE)
+export function MaVitrine({
+  profil,
+  busy,
+  enregistrer,
+}: {
+  profil: PublicProfileDetail
+  busy: boolean
+  enregistrer: (patch: { vitrine: string[] | null }) => void
+}) {
+  const [choix, setChoix] = useState<string[] | null>(null)
+  const recompenses = recompensesDe(profil.hautsFaits)
+  const parCle = new Map(profil.vitrine.map(b => [b.key, b]))
+  const badgeDe = (cle: string) => {
+    const rangee = cleRangee(cle, recompenses)
+    return rangee ? parCle.get(rangee) : undefined
+  }
+  const gagnes = hautsFaitsGagnes(recompenses).filter(cle => badgeDe(cle))
+  const choisie = profil.vitrineChoisie ?? null
+  const montres = choisie ? choisie.flatMap(cle => badgeDe(cle) ?? []) : plusBeaux(profil.vitrine, VITRINE_MAX)
+
+  if (choix) {
+    const complet = choix.length >= VITRINE_MAX
+    return (
+      <section className="card">
+        <h3>
+          <Icon name="award" />
+          Ma vitrine
+        </h3>
+        <p className="muted small">{`Jusqu’à ${VITRINE_MAX} hauts faits, dans l’ordre où ta carte les montrera.`}</p>
+        <ul className="vitrine-choix vitrine-a-choisir" role="group" aria-label="Les hauts faits de ma carte">
+          {gagnes.map(cle => {
+            const b = badgeDe(cle)!
+            const rang = choix.indexOf(cle)
+            const pris = rang >= 0
+            return (
+              <li key={cle}>
+                <button
+                  type="button"
+                  className={'vitrine-option' + (pris ? ' selected' : '')}
+                  aria-pressed={pris}
+                  disabled={!pris && complet}
+                  onClick={() => setChoix(c => c && (c.includes(cle) ? c.filter(k => k !== cle) : [...c, cle]))}
+                >
+                  <span className="hf-emoji" aria-hidden="true">
+                    {b.emoji}
+                  </span>
+                  <span className="hf-corps">
+                    <span className="hf-titre">{b.title}</span>
+                    <span className="muted small">{ceQuIlAFallu(b.key)}</span>
+                  </span>
+                  {pris && (
+                    <span className="vitrine-rang" aria-hidden="true">
+                      {rang + 1}
+                    </span>
+                  )}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+        <div className="row">
+          <button
+            type="button"
+            className="btn btn-primary btn-small"
+            disabled={busy || choix.length === 0}
+            onClick={() => {
+              enregistrer({ vitrine: choix })
+              setChoix(null)
+            }}
+          >
+            Montrer ceux-là
+          </button>
+          <button type="button" className="btn btn-ghost btn-small" onClick={() => setChoix(null)}>
+            Annuler
+          </button>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="card">
       <h3>
         <Icon name="award" />
         Ma vitrine
       </h3>
-      {beaux.length === 0 ? (
+      {montres.length === 0 ? (
         <p className="muted small">
           Ta carte montrera tes trois plus beaux hauts faits : ils se décernent à la fin de chaque soirée.
         </p>
       ) : (
         <>
-          <p className="muted small">Les hauts faits que ta carte montre à la salle : les plus durs à obtenir.</p>
+          <p className="muted small">
+            {choisie
+              ? 'Les hauts faits que ta carte montre à la salle : ceux que tu as choisis.'
+              : 'Les hauts faits que ta carte montre à la salle : les plus durs à obtenir.'}
+          </p>
           <ul className="vitrine-choix">
-            {beaux.map(b => (
+            {montres.map(b => (
               <li key={b.key}>
                 <span className="hf-emoji" aria-hidden="true">
                   {b.emoji}
@@ -54,6 +145,18 @@ export function MaVitrine({ profil }: { profil: PublicProfileDetail }) {
             ))}
           </ul>
         </>
+      )}
+      {gagnes.length > 0 && (
+        <div className="row vitrine-actions">
+          <button type="button" className="btn btn-small" disabled={busy} onClick={() => setChoix(choisie ?? [])}>
+            {choisie ? 'Changer' : 'Choisir moi-même'}
+          </button>
+          {choisie && (
+            <button type="button" className="btn btn-small btn-ghost" disabled={busy} onClick={() => enregistrer({ vitrine: null })}>
+              Les plus durs, d’office
+            </button>
+          )}
+        </div>
       )}
     </section>
   )

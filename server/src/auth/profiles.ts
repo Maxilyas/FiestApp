@@ -30,7 +30,9 @@ import { rareteDe, type BadgePorte } from '../../../shared/badges'
 import {
   HAUTS_FAITS_DE_CARRIERE,
   HAUTS_FAITS_DE_SOIREE,
+  VITRINE_MAX,
   clePalier,
+  hautsFaitsGagnes,
   palierDe,
   paliersAtteints,
   titreDePalier,
@@ -79,6 +81,17 @@ export interface ProfileRec {
    * porte jamais qu'un avatar à la fois.
    */
   legendaire: string | null
+  /**
+   * Le titre qu'il porte sous son prénom : la clé d'un haut fait gagné
+   * (`hf:oracle`), qui s'écrit de son nom. Relu à chaque affichage : une
+   * soirée retirée de l'historique emporte le haut fait, et le titre avec.
+   */
+  titre: string | null
+  /**
+   * Les hauts faits que sa carte montre, s'il les a choisis : leurs clés, en
+   * JSON. Null : les plus durs à obtenir, d'office (`plusBeaux`).
+   */
+  vitrine: string | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
   recoveryHash: string
@@ -426,6 +439,9 @@ export class ProfileStore {
     // d'avant n'a pas la colonne. Une panne ici arrête le démarrage, plutôt
     // que de laisser tourner un serveur qui écrirait dans une colonne absente.
     await ajouterColonne(this.client, 'profiles', 'legendaire', 'TEXT')
+    // Le titre sous le prénom, et la vitrine qu'on choisit soi-même.
+    await ajouterColonne(this.client, 'profiles', 'titre', 'TEXT')
+    await ajouterColonne(this.client, 'profiles', 'vitrine', 'TEXT')
     // Le joueur qu'on était ce soir-là, pour ouvrir SON bilan depuis « Mes
     // soirées » : sans lui, le bilan redemandait « Qui es-tu ? ». Une ligne
     // d'avant la colonne le retrouve dans l'archive (`retenirJoueur`).
@@ -625,6 +641,29 @@ export class ProfileStore {
     return a.includes(p.legendaire) ? p.legendaire : null
   }
 
+  /** Le titre qu'il porte, s'il l'a encore : une soirée retirée emporte son haut fait, et le titre avec. */
+  titrePorte(p: ProfileRec): string | null {
+    return p.titre && hautsFaitsGagnes(this.recompensesOf(p.id)).includes(p.titre) ? p.titre : null
+  }
+
+  /**
+   * Les hauts faits qu'il a choisi de montrer, réduits à ceux qu'il a
+   * encore ; null s'il laisse la carte montrer les plus durs — ou s'il ne
+   * lui en reste aucun.
+   */
+  vitrineChoisie(p: ProfileRec): string[] | null {
+    let cles: unknown
+    try {
+      cles = p.vitrine ? JSON.parse(p.vitrine) : null
+    } catch {
+      return null
+    }
+    if (!Array.isArray(cles)) return null
+    const gagnes = new Set(hautsFaitsGagnes(this.recompensesOf(p.id)))
+    const encore = cles.map(String).filter(k => gagnes.has(k))
+    return encore.length > 0 ? encore : null
+  }
+
   toPublic(p: ProfileRec): PublicProfile {
     const { niveau, acquis, requis } = progression(p.xp, this.gardesOf(p.id))
     return {
@@ -648,6 +687,8 @@ export class ProfileStore {
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
       divins: raconter(this.divinsOf(p.id)),
+      titre: this.titrePorte(p),
+      vitrineChoisie: this.vitrineChoisie(p),
     }
   }
 
@@ -779,6 +820,8 @@ export class ProfileStore {
       avatar: input.avatar ? cleanAvatar(input.avatar) : DEFAULT_AVATAR,
       finition: 'auto',
       legendaire: null,
+      titre: null,
+      vitrine: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
       xp: 0,
@@ -858,13 +901,13 @@ export class ProfileStore {
    */
   async update(
     id: string,
-    patch: { name?: unknown; avatar?: unknown; finition?: unknown; legendaire?: unknown },
+    patch: { name?: unknown; avatar?: unknown; finition?: unknown; legendaire?: unknown; titre?: unknown; vitrine?: unknown },
   ): Promise<ProfileRec> {
     const rec = await this.require(id)
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
@@ -883,6 +926,24 @@ export class ProfileStore {
         champs.legendaire = String(patch.legendaire)
       } else if (divin(patch.legendaire)) throw new Error('Ce Divin n’est pas encore descendu sur toi')
       else throw new Error('Cet avatar légendaire n’est pas encore à toi')
+    }
+    // Un titre, une vitrine : seulement ce qu'il a gagné. La page ne propose
+    // rien d'autre ; seul un appel forgé l'enverrait.
+    if (patch.titre !== undefined) {
+      if (patch.titre === null || patch.titre === '') champs.titre = null
+      else if (hautsFaitsGagnes(this.recompensesOf(id)).includes(String(patch.titre))) champs.titre = String(patch.titre)
+      else throw new Error('Ce titre se gagne d’abord : c’est le nom d’un de tes hauts faits')
+    }
+    if (patch.vitrine !== undefined) {
+      if (patch.vitrine === null) champs.vitrine = null
+      else {
+        const gagnes = new Set(hautsFaitsGagnes(this.recompensesOf(id)))
+        const cles = Array.isArray(patch.vitrine) ? [...new Set(patch.vitrine.map(String))] : []
+        if (cles.length === 0 || cles.length > VITRINE_MAX || !cles.every(k => gagnes.has(k))) {
+          throw new Error(`Choisis de 1 à ${VITRINE_MAX} hauts faits parmi ceux que tu as gagnés`)
+        }
+        champs.vitrine = JSON.stringify(cles)
+      }
     }
     const colonnes = Object.keys(champs) as (keyof typeof champs)[]
     if (colonnes.length === 0) return rec
@@ -1606,6 +1667,8 @@ export class ProfileStore {
       finition:
         r.finition === 'mat' ? 'auto' : choixDeFinition(r.finition, niveauDuProfil(Number(r.xp ?? 0), this.gardesOf(String(r.id)))),
       legendaire: typeof r.legendaire === 'string' && r.legendaire ? r.legendaire : null,
+      titre: typeof r.titre === 'string' && r.titre ? r.titre : null,
+      vitrine: typeof r.vitrine === 'string' && r.vitrine ? r.vitrine : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),

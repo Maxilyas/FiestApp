@@ -185,3 +185,69 @@ test('la carte montre ses trois plus beaux hauts faits, et le nombre de ses prix
       { key: 'lynx', emoji: '👁️', title: "L'Œil de Lynx", rule: 'La meilleure mémoire sur les questions à photo' },
     )
   }))
+
+test('son titre et sa vitrine : seulement ce qu’il a gagné ; la carte les montre, avec son quiz du jour', () =>
+  avecBanc(async banc => {
+    const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const etagere: [string, string, string, number][] = [
+      ['hf:oracle', '🔮', 'L’Oracle', 2],
+      ['hf:lanterne-rouge', '🏮', 'La Lanterne Rouge', 1],
+      ['hf:grand-chelem', '🎯', 'Grand Chelem', 1],
+      ['hf:bavard:1', '💬', 'Le Bavard · Bronze', 1],
+      ['hf:bavard:2', '💬', 'Le Bavard · Argent', 1],
+    ]
+    const ranger = (lignes: typeof etagere) =>
+      ecrireEnBase(banc, db => {
+        const espace = (db.prepare('SELECT id FROM accounts WHERE slug = ?').get(ADMIN.slug) as { id: string }).id
+        const profil = (db.prepare('SELECT id FROM profiles WHERE login = ?').get('alice') as { id: string }).id
+        const insert = db.prepare(
+          `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        )
+        for (const [badge, emoji, title, fois] of lignes) {
+          for (let i = 0; i < fois; i++) insert.run(profil, badge, `soiree-${i}`, espace, emoji, title, 1000 + i)
+        }
+      })
+    ranger(etagere)
+    await banc.redemarrer()
+    const changer = (corps: object) =>
+      ecrire(banc.url, '/api/joueur/moi', corps, aliceCookie, 'PUT').then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+
+    // Un titre : le nom d'un haut fait qu'il a gagné, et rien d'autre.
+    assert.equal((await changer({ titre: 'hf:oracle' })).corps.profile.titre, 'hf:oracle')
+    const refuse = await changer({ titre: 'hf:phenix' })
+    assert.equal(refuse.status, 400)
+    assert.match(refuse.corps.error, /titre se gagne d’abord/)
+
+    // Une vitrine : un à trois hauts faits gagnés, coups du sort compris — c'est lui qui choisit.
+    assert.deepEqual((await changer({ vitrine: ['hf:lanterne-rouge', 'hf:bavard'] })).corps.profile.vitrineChoisie, [
+      'hf:lanterne-rouge',
+      'hf:bavard',
+    ])
+    for (const vitrine of [['hf:phenix'], [], ['hf:oracle', 'hf:grand-chelem', 'hf:bavard', 'hf:lanterne-rouge'], 'hf:oracle']) {
+      assert.equal((await changer({ vitrine })).status, 400, JSON.stringify(vitrine))
+    }
+
+    // Un quiz du jour commencé : la carte le dit en une ligne.
+    assert.equal((await ecrire(banc.url, '/api/jour/commencer', {}, aliceCookie)).status, 200)
+    const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
+    const p = ((await (await carte(banc, alice.playerId)).json()) as any).profil
+    assert.equal(p.titre, 'hf:oracle')
+    assert.deepEqual(
+      p.vitrine.map((b: any) => b.key),
+      ['hf:lanterne-rouge', 'hf:bavard:2'],
+      'dans son ordre, et Le Bavard à son plus haut palier',
+    )
+    assert.deepEqual(p.jour, { joues: 1, victoires: 0 })
+
+    // Rendue à la carte : les plus durs, d'office — ni l'ombre, ni les prix.
+    await changer({ vitrine: null })
+    const auto = ((await (await carte(banc, alice.playerId)).json()) as any).profil
+    assert.ok(!auto.vitrine.some((b: any) => b.key === 'hf:lanterne-rouge'))
+    alice.socket.close()
+
+    // Une soirée retirée emporte son haut fait : le titre tombe avec, sans rien réécrire.
+    ecrireEnBase(banc, db => db.prepare(`DELETE FROM profile_badges WHERE badge = 'hf:oracle'`).run())
+    await banc.redemarrer()
+    const moi = ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: aliceCookie } })).json()) as any).profile
+    assert.equal(moi.titre, null)
+  }))

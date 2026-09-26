@@ -6,6 +6,8 @@ import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { DetailDivin, DetailLegendaire } from './Carriere'
 import { AVATARS } from '../../../shared/avatars'
+import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
+import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
 import { DIVINS } from '../../../shared/divins'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
@@ -18,7 +20,7 @@ import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type Pu
 // où changer de tête. Une grille, des cases de la même taille ; un anneau de
 // couleur dit ce qui est rare, et toucher un avatar dessiné dit d'où il vient.
 
-type Patch = { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null }
+type Patch = { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null; titre?: string | null }
 
 /**
  * Sa ligne telle que la salle la voit, dans les classements et la salle
@@ -224,6 +226,58 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
         Les finitions se gagnent au niveau, jusqu’à Constellation au niveau 25. L’Éclat, lui, ne se gagne pas : une chance
         sur quarante par soirée jouée à deux ou plus, et c’est l’avatar lui-même qui change de couleurs.
       </p>
+    </section>
+  )
+}
+
+/**
+ * Son titre, sous son prénom : chaque haut fait gagné ouvre le sien — son
+ * nom, « L'Oracle », « La Lanterne Rouge ». Il s'écrit sur sa carte : la
+ * salle le lit en touchant son nom. Ceux qui restent à gagner se comptent,
+ * sans se nommer : trente boutons fermés noyaient les siens.
+ */
+export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
+  const gagnes = hautsFaitsGagnes(recompensesDe(profil.hautsFaits))
+  const aGagner = profil.hautsFaits.length - gagnes.length
+  const porte = profil.titre ?? null
+  return (
+    <section className="card">
+      <h3>
+        <Icon name="star" />
+        Mon titre
+      </h3>
+      <p className="muted small">
+        Chaque haut fait gagné ouvre le sien. Il s’écrit sous ton prénom, sur ta carte : la salle le lit en touchant ton nom.
+      </p>
+      <div className="titres" role="group" aria-label="Mon titre">
+        <button
+          type="button"
+          className={'titre-choix' + (!porte ? ' selected' : '')}
+          aria-pressed={!porte}
+          disabled={busy}
+          onClick={() => enregistrer({ titre: null })}
+        >
+          Aucun
+        </button>
+        {gagnes.map(cle => (
+          <button
+            key={cle}
+            type="button"
+            className={'titre-choix' + (porte === cle ? ' selected' : '')}
+            aria-pressed={porte === cle}
+            disabled={busy}
+            onClick={() => enregistrer({ titre: cle })}
+          >
+            {hautFait(cle)?.title}
+          </button>
+        ))}
+        {aGagner > 0 && (
+          <span className="titre-choix ferme">
+            <Icon name="lock" />
+            {gagnes.length === 0 ? `${aGagner} titres à gagner` : `et ${aGagner} autre${aGagner > 1 ? 's' : ''} à gagner`}
+          </span>
+        )}
+      </div>
     </section>
   )
 }

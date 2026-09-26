@@ -407,6 +407,36 @@ export function ceQuIlAFallu(cle: string): string {
   return p ? regleDuPalier(p.hautFait, p.palier) : ''
 }
 
+/** Trois hauts faits au plus sur une carte : la sienne, qu'il les choisisse ou non. */
+export const VITRINE_MAX = 3
+
+/**
+ * Les hauts faits qu'il a gagnés : chaque haut fait de soirée décroché —
+ * exploit ou coup du sort —, chaque haut fait de carrière dès son premier
+ * palier. Chacun ouvre un titre, son nom (« L'Oracle », « Le Bavard »), et
+ * peut monter dans la vitrine de sa carte.
+ */
+export function hautsFaitsGagnes(recompenses: ReadonlyMap<string, number>): string[] {
+  return [
+    ...HAUTS_FAITS_DE_SOIREE.filter(h => (recompenses.get(h.key) ?? 0) > 0).map(h => h.key),
+    ...HAUTS_FAITS_DE_CARRIERE.filter(h => (recompenses.get(clePalier(h.key, 1)) ?? 0) > 0).map(h => h.key),
+  ]
+}
+
+/**
+ * La clé rangée qui représente un haut fait sur une étagère : la sienne pour
+ * un haut fait de soirée, son plus haut palier atteint pour un haut fait de
+ * carrière — L'Habitué choisi à l'argent se montre en or le jour où il y
+ * monte. Null s'il n'est pas (ou plus) gagné.
+ */
+export function cleRangee(cle: string, recompenses: ReadonlyMap<string, number>): string | null {
+  const h = hautFait(cle)
+  if (!h) return null
+  if (h.famille === 'soiree') return (recompenses.get(cle) ?? 0) > 0 ? cle : null
+  const plusHaut = [3, 2, 1].find(p => (recompenses.get(clePalier(cle, p)) ?? 0) > 0)
+  return plusHaut ? clePalier(cle, plusHaut) : null
+}
+
 /** Les paliers qu'une carrière atteint, clés rangées comprises (`hf:bavard:1`, `hf:bavard:2`…). */
 export function paliersAtteints(c: Carriere): string[] {
   return HAUTS_FAITS_DE_CARRIERE.flatMap(h => {
