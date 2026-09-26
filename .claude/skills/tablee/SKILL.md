@@ -26,6 +26,7 @@ régler le temps de toutes ses questions d'un coup.
 | `modele-retour.md` | le plan du retour que chaque agent écrit |
 | `consignes-expert.md`, `experts/*.md`, `modele-rapport.md` | les experts : une mission chacun (parcours, design, mots, accessibilité, performance…), leur atelier, le plan de leur rapport |
 | `consignes-audit.md` | les experts du code (sécurité, jeu solo, récompenses, moteur, données, courses…) : leur banc, leurs reproductions, leurs constats en JSON — « Les audits de code » plus bas |
+| `consignes-contre-expertise.md` | le contre-expert, qui essaie de réfuter chaque constat avant la synthèse |
 | `server/scripts/tablee/chronologie.mjs` | le journal d'une tablée en une page : gestes ratés, délais de réponse, paroles, retours manquants |
 | `export/tablee/<date-heure>/` | tout ce que la soirée laisse (ignoré par git) : `journal.jsonl`, `regie.log`, `captures/`, `retours/`, `bases/` |
 
@@ -212,9 +213,12 @@ fiche), par vagues de dix au plus — une vague de lecture d'abord, les
 mesures ensuite, quand la machine est calme. Donne à chacun le chemin de
 la dernière vérification complète, s'il y en a une.
 
-Leurs constats passent ensuite par une **contre-expertise** : un agent par
-rapport, chargé de **réfuter** chaque constat P1 et P2 — relancer la
-reproduction, relire le chemin du code, chercher la garde qui l'empêche.
+Leurs constats passent ensuite par une **contre-expertise**
+(`consignes-contre-expertise.md`) : un agent par domaine — deux ou trois
+rapports voisins ensemble, pour qu'il voie les doublons —, chargé de
+**réfuter** chaque constat P1 et P2 : relancer la reproduction, relire le
+chemin du code, chercher la garde qui l'empêche. Lance-la dès qu'un domaine
+a rendu ses rapports, sans attendre les autres.
 Seul ce qui résiste entre dans la synthèse, avec son statut (bug confirmé,
 non reproduit, faux positif, tension avec un parti pris) :
 `retours/<AAAA-MM-JJ>/synthese.md`, les rapports dans `experts/`, les
