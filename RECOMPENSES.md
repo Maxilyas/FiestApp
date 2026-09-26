@@ -350,7 +350,7 @@ changer d'avis, d'hôte, d'avatar —, sont estimés.
 
 ### 5.4 Les avatars légendaires
 
-Douze avatars dessinés en SVG, animés sans excès, lisibles à 20 px et
+Seize avatars dessinés en SVG, animés sans excès, lisibles à 20 px et
 spectaculaires à 200 : un médaillon, une silhouette forte, une lumière qui
 vit. Chacun se débloque par un haut fait, et **ne s'achète ni ne s'accélère**.
 
@@ -368,6 +368,10 @@ vit. Chacun se débloque par un haut fait, et **ne s'achète ni ne s'accélère*
 | Le Kraken | 🏮 La Lanterne Rouge, trois fois | 18 à 22 quiz |
 | Le Fantôme | 😴 Le Somnambule, six fois | ≈ 20 quiz |
 | Le Trou Noir | 🌌 L'Estimation Cosmique, sept fois | ≈ 20 quiz |
+| Le Sphinx | 📆 L'Assidu, palier or (cent jours), ou 💯 Le Sans-Faute, palier or (dix) | non simulé : le quiz du jour |
+| La Citrouille | Halloween : trois jours de quiz du jour du 25 octobre au 1er novembre, ou une soirée ces jours-là | non simulé : sa saison |
+| Le Sapin | Noël : trois jours de quiz du jour du 20 au 26 décembre, ou une soirée ces jours-là | non simulé : sa saison |
+| Le Bouquet final | Le Nouvel An : deux jours de quiz du jour du 30 décembre au 2 janvier, ou une soirée ces jours-là | non simulé : sa saison |
 
 **Une vingtaine de quiz.** Tombés d'un seul haut fait, la plupart se
 gagnaient dès la première soirée : au format de la maison — deux quiz de
@@ -388,6 +392,31 @@ demandaient déjà une vingtaine de quiz ou davantage n'ont pas bougé. Le
 Dragon, lui, demande trois quiz gagnés dans la même soirée : il ne se gagne
 qu'une soirée de trois quiz au moins.
 
+**Le Sphinx** (lot 7), le treizième, se gagne au quiz du jour : l'assiduité
+plutôt que le génie — le podium du jour ira toujours aux deux ou trois
+mêmes. Il a deux voies, cent jours joués ou dix sans-faute, et l'une suffit
+(`aussi`) ; sa jauge suit la plus avancée, et « Les plus proches » le
+montrent une fois, sur celle-là. La fin de la partie qui l'ouvre le fête,
+avec « Le porter » — une seule fois : pas le centième jour de qui l'avait
+déjà par ses sans-faute (`legendairesOuvertsPar`). L'Arbre-Monde ne le
+demande pas : il ne compte que les douze d'origine, et un légendaire de
+plus ne lui reprend rien.
+
+**Les légendaires de saison** (lot 7) — la Citrouille, le Sapin, le
+Bouquet final — ne se gagnent qu'à leur période, à la date de Paris
+(`shared/saisons.ts`) : quelques jours joués au quiz du jour dans la
+période (trois pour Halloween et Noël, deux pour les quatre jours du Nouvel
+An), ou une soirée qui compte ces jours-là, datée à sa première question
+jouée (`laureatsDeSaison`, à la clôture comme au recalcul). La saison
+gagnée se range comme une récompense (`saison:halloween`) : sous le jour
+qui l'a ouverte, ou sous la soirée — qui l'emporte si on la retire de
+l'historique. Elle ne va ni sur l'étagère ni dans le compte des badges :
+elle ne se montre que par son légendaire. Pendant la saison, la page du
+quiz du jour dit ce qui manque (« La Citrouille : 2 jours sur 3 ») ; la fin
+de la partie qui l'ouvre la fête, comme le Sphinx. Chacun a sa version
+rare : la citrouille blanche sur nuit émeraude, le sapin givré, le bouquet
+d'argent sur nuit pourpre.
+
 **Ce qui était gagné reste gagné.** Un légendaire débloqué avant que sa règle
 se durcisse reste à son porteur : au premier démarrage qui apporte la
 nouvelle règle, chaque profil retient celle sous laquelle il l'avait eu
@@ -397,7 +426,7 @@ retirée de l'historique emporte encore ce qu'elle avait fait tomber.
 - On le **porte** depuis `/profil` : il remplace l'emoji partout où l'on se
   voit — classements, podiums, écran commun, carte. L'emoji choisi reste
   dessous, pour les lignes de texte (export, messages).
-- La galerie montre les douze : ceux qu'on a, en couleur ; les autres en
+- La galerie les montre tous : ceux qu'on a, en couleur ; les autres en
   **silhouette dorée**, avec la règle et la jauge.
 - Un anonyme n'en porte jamais, et rien ne le lui fait remarquer.
 
@@ -430,6 +459,18 @@ Divin se tait — c'est tout son principe.
 - La meilleure finition débloquée se **porte d'office** (`auto`) ; choisir
   une finition l'épingle.
 - Mat 1, Argent 3, Or 6, Holo 10, Prisme 15, **Aurore 20**, **Constellation 25**.
+- Entre deux finitions, un **emoji de collection** : un par niveau qui n'en
+  ouvre pas, du 2 au 17 — 🦚 2, 🐢 4, 🦈 5, 🦔 7, 🐝 8, 🦩 9, puis 🦥 11,
+  🐳 12, 🦜 13, 🦦 14, 🐲 16, 🪐 17 (`COLLECTION`, `shared/avatars.ts`).
+  Chaque niveau jusqu'au 17 ouvre ainsi une chose, et une seule. Réservés aux
+  profils : l'inscription ne les propose pas, un invité anonyme qui en
+  forgerait un repart avec l'avatar par défaut, et un profil ne porte que
+  ceux de son niveau (`peutPorter`). Relus à chaque affichage
+  (`avatarPorte`) : une soirée retirée qui fait redescendre sous le niveau
+  de son emoji le lui reprend, sans rien réécrire. Dans la grille, un anneau
+  vert (niveaux 2 à 9) ou bleu (11 et plus), une silhouette et « niv. 8 »
+  tant qu'il est fermé ; la fin de soirée annonce ceux qui s'ouvrent, avec
+  « Le porter ». Chacun peut éclater, comme tout emoji joué.
 - L'**Éclat** garde sa règle (une chance sur quarante par soirée qui compte,
   sur l'emoji joué ce soir-là) et gagne sa propre signature — des paillettes
   qui scintillent autour de l'emoji — au lieu de l'étoile du Prisme.
@@ -466,6 +507,34 @@ une ombre (la carte se montre à la salle ; les coups du sort restent sur
 l'étagère de leur porteur). Les prix, eux, ne s'y comptent plus qu'en
 collection : les vingt qu'une personne peut remporter (`PRIX_INDIVIDUELS`),
 Le Coup de Pouce et La Plus Solidaire allant à une équipe.
+
+**Les écussons de savoir** (lot 7) disent ce qu'on sait, catégorie par
+catégorie : les bonnes réponses d'une catégorie, en soirée comme au quiz du
+jour — aux QCM seulement, une estimation n'étant jamais « juste » —, font
+un blason de bronze à 20, d'argent à 75, d'or à 200 (`SEUILS_ECUSSON`,
+`shared/ecussons.ts`). À une soirée par mois et au quiz du jour 25 jours
+sur 30, une catégorie gagne une quinzaine de bonnes réponses par mois : le
+bronze en un mois et demi, l'argent en cinq, l'or en un an environ ; à la
+soirée seule, bien plus lentement. Ces seuils sont un choix à ajuster. La carte en montre les trois plus hauts
+(`plusBeauxEcussons`) ; la page du profil, les douze, avec ce qui manque au
+suivant — ce qu'on n'a pas, en pointillé. Une dérivation pure de la
+carrière (`categories`) et des réponses du quiz du jour
+(`JourStore.categoriesDe`, les questions annulées écartées) : rien ne
+s'écrit, ils ne rapportent aucune expérience, et une soirée retirée de
+l'historique emporte les bonnes réponses qu'elle avait comptées.
+
+**Les fonds de carte** (lot 7) changent l'allure de la carte qu'on ouvre —
+rien d'autre ne change, ni l'écran commun ni les classements. Quatre,
+dessinés en CSS d'après la maquette validée, qui se gagnent sur la durée :
+la **Nuit étoilée** à trente jours de quiz du jour, l'**Aurore boréale** au
+niveau 20, le **Kintsugi** à dix victoires au quiz du jour, le **Grand
+théâtre** à vingt-cinq soirées (L'Habitué · Or) — des règles à ajuster.
+On le choisit dans Apparence, parmi ceux qu'on a gagnés (`fondsOuverts`,
+`shared/fonds.ts`) ; le serveur refuse les autres, en clair. Il se relit à
+chaque affichage (`fondPorte`), comme un titre : une soirée retirée qui
+fait redescendre sous le niveau 20 rend la carte au velours sans rien
+réécrire, et l'aurore revient avec le niveau. Le décor tient sur le cadre
+de la carte, et c'est son contenu qui défile par-dessus.
 
 ### 5.7 Les métriques
 
@@ -613,8 +682,9 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   et 10, rang partagé, une marche de moins que la salle. Toute l'expérience
   du jour vit dans une ligne à part (`#jour`, comme `#paliers`) : elle
   compte dans le niveau, pas dans la carrière — le quiz du jour ne fait ni
-  une soirée pour L'Habitué, ni une réponse pour Le Bavard. Hauts faits,
-  légendaires, Divins et Éclat restent aux soirées.
+  une soirée pour L'Habitué, ni une réponse pour Le Bavard. Les hauts faits
+  de soirée, les légendaires, les Divins et l'Éclat restent aux soirées ; le
+  quiz du jour a ses propres paliers (plus bas).
 
   | Règle | XP par mois | Part des soirées | Niveau après un an |
   |---|---|---|---|
@@ -626,9 +696,33 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   huit, l'or à dix — sur les questions qui comptent encore. **La série** :
   les jours d'affilée où l'on a joué, au quiz du jour ou en soirée — la fête
   ne casse jamais une série.
+- **Ses paliers** (lot 7), des hauts faits de carrière à trois paliers :
+  **L'Assidu** (7, 30, 100 jours joués — une partie commencée compte, comme
+  pour la série), **Le Champion du jour** (1, 5, 20 victoires, ex æquo
+  compris) et **Le Sans-Faute** (1, 3, 10 jours sans une faute, la médaille
+  d'or). Ils tombent à la fin d'une partie, ou à la nuit qui clôt un jour
+  pour la victoire (`accorderPaliersDuJour`) — jamais à la clôture d'une
+  soirée, qui ne sait rien du quiz du jour (`paliersAtteints` les écarte) —,
+  rangés sous ce jour (`#jour:2026-09-26`) : aucune soirée ne les porte, en
+  retirer une ne les reprend pas. Ils rapportent ce que rapporte tout
+  palier (10, 25, 50), ouvrent leur titre, et la page du quiz du jour les
+  annonce : à la fin de la partie, et le lendemain pour la victoire. Leur
+  rareté est estimée, la bande de `calibrage.ts` ne jouant qu'en soirée.
 - **Le classement** : tout le serveur, avec les règles des soirées — rang
   partagé, « Camille (2) », niveau et finition ; aujourd'hui, hier, le mois.
   Il se fige à minuit ; tous les ex æquo en tête gagnent.
+- **Le laurier** (lot 7) : le lendemain, les vainqueurs — ex æquo compris,
+  jamais seuls dans la salle, puisqu'un joueur seul n'a pas de podium —
+  portent une couronne dorée juste après leur prénom, toute la journée :
+  au classement du jour, sur leur carte (« Vainqueur du quiz du jour
+  d'hier »), sur leur page, et jusque dans les soirées où ils jouent —
+  classements, podiums, salle d'attente. C'est le prénom qui se coupe sur
+  un écran étroit, jamais le laurier. Un profil masqué ne le porte pas ; un
+  anonyme n'en a pas. La liste se lit en mémoire, une fois la nuit close
+  (`laureats`) : elle sert à chaque diffusion. Passé minuit, celle
+  d'avant-hier se tait, et si personne n'est revenu au quiz du jour, la
+  première diffusion d'une soirée clôt la nuit en arrière-plan ; la salle
+  où joue un lauréat se rediffuse d'elle-même.
 - **La nuit.** Rien ne tourne à minuit — l'hébergeur gratuit dort : la
   journée d'hier se clôt à la première demande d'aujourd'hui, une seule
   fois. Le lendemain raconte la veille : sa place, le podium, la correction,
@@ -699,10 +793,15 @@ titre et la vitrine se relisent à chaque affichage : une soirée retirée
 de l'historique emporte son haut fait, et ce qu'on en portait avec. La
 carte dit aussi le quiz du jour, en une ligne.
 
+**Lot 7 — fait** : les emojis de collection (§ 5.5), un par niveau sans
+finition ; les paliers du quiz du jour (§ 5.13) ; le Sphinx et les
+légendaires de saison (§ 5.4, idée 11) ; le laurier du vainqueur d'hier
+(§ 5.13) ; les écussons de savoir et les fonds de carte (§ 5.6).
+
 **Plus tard**, dans l'ordre où je les prendrais :
 
 1. Réclamer sa soirée (50) — le meilleur moment pour proposer un profil.
 2. Le mur des réponses (45) et l'entrée en scène (10).
 3. Le radar des catégories (37).
-4. Les rivalités (39), les légendaires de saison (11), le cadre de soirée (7).
+4. Les rivalités (39), le cadre de soirée (7).
 5. L'Éclat garanti (6) et le Métronome (22).

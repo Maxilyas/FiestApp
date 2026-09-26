@@ -4,6 +4,7 @@ import { ecartAuPodium, ligneDeCourse } from '../../../../shared/course'
 import { Avatar } from '../../components/Avatar'
 import { Icon } from '../../components/Icon'
 import { Niveau } from '../../components/Niveau'
+import { NomLaure } from '../../components/Laurier'
 import { Rank, Score } from '../../components/Rank'
 import { pts } from '../../format'
 
@@ -110,7 +111,7 @@ function Ligne({ rang, p, points, soi }: { rang: number; p: PublicPlayer; points
       <Rank n={rang} />
       <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
       <span className="lb-name">
-        {p.nomAffiche ?? p.name}
+        <NomLaure nom={p.nomAffiche ?? p.name} laurier={p.laurier} />
         {soi && <span className="echelle-toi"> · toi</span>}
       </span>
       <Niveau niveau={p.niveau} />

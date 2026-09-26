@@ -5,11 +5,12 @@ import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { DetailDivin, DetailLegendaire } from './Carriere'
-import { AVATARS } from '../../../shared/avatars'
+import { AVATARS, COLLECTION } from '../../../shared/avatars'
 import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
 import { DIVINS } from '../../../shared/divins'
+import { FONDS } from '../../../shared/fonds'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 
 // L'onglet « Apparence » du profil : ce que la salle voit de lui, son visage
@@ -20,7 +21,14 @@ import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type Pu
 // où changer de tête. Une grille, des cases de la même taille ; un anneau de
 // couleur dit ce qui est rare, et toucher un avatar dessiné dit d'où il vient.
 
-type Patch = { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null; titre?: string | null }
+/**
+ * L'anneau des emojis de collection passe du vert au bleu à partir du
+ * niveau 10 : les premiers viennent en quelques soirées, les autres en une
+ * année, et la grille le dit d'un coup d'œil.
+ */
+const COLLECTION_HAUTE = 10
+
+type Patch = { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null; titre?: string | null; fond?: string | null }
 
 /**
  * Sa ligne telle que la salle la voit, dans les classements et la salle
@@ -47,8 +55,9 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
 }
 
 /**
- * Tous ses avatars, en une grille : les vingt-quatre emojis, les douze
- * légendaires, les cinq Divins. Un emoji se porte d'un toucher ; un avatar
+ * Tous ses avatars, en une grille : les vingt-quatre emojis, les douze de
+ * collection, les légendaires, les cinq Divins. Un emoji se porte d'un
+ * toucher — celui de collection, une fois son niveau atteint ; un avatar
  * dessiné se touche d'abord pour lire sa légende — et, gagné, se porte de là.
  */
 export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
@@ -57,8 +66,9 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
   const divins = profil.divins ?? []
   const descendu = (cle: string) => divins.some(d => d.key === cle)
   const porte = profil.legendaire
-  const possedes = AVATARS.length + profil.legendaires.length + divins.length
-  const total = AVATARS.length + LEGENDAIRES.length + DIVINS.length
+  const ouverts = COLLECTION.filter(c => profil.niveau >= c.niveau).length
+  const possedes = AVATARS.length + ouverts + profil.legendaires.length + divins.length
+  const total = AVATARS.length + COLLECTION.length + LEGENDAIRES.length + DIVINS.length
   const toucher = (cle: string) => setOuvert(o => (o === cle ? null : cle))
   return (
     <section className="card">
@@ -84,6 +94,45 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
               }}
             >
               <Avatar avatar={a} finition={profil.finition} eclat={brille(a)} />
+            </button>
+          )
+        })}
+        {COLLECTION.map(c => {
+          const anneau = c.niveau < COLLECTION_HAUTE ? ' anneau-collection' : ' anneau-collection-haut'
+          if (profil.niveau < c.niveau) {
+            // Sa silhouette et son niveau, rien à toucher : il n'a pas d'autre
+            // histoire que le niveau qui l'ouvre.
+            return (
+              <span
+                key={c.emoji}
+                className={'emoji-btn case-avatar ferme' + anneau}
+                role="img"
+                aria-label={`Emoji de collection, s’ouvre au niveau ${c.niveau}`}
+              >
+                <span className="silhouette" aria-hidden="true">
+                  {c.emoji}
+                </span>
+                <span className="case-niveau" aria-hidden="true">
+                  niv. {c.niveau}
+                </span>
+              </span>
+            )
+          }
+          const choisi = !porte && c.emoji === profil.avatar
+          return (
+            <button
+              key={c.emoji}
+              type="button"
+              className={'emoji-btn case-avatar' + anneau + (choisi ? ' selected' : '')}
+              aria-pressed={choisi}
+              aria-label={`Avatar ${c.emoji}, de collection${brille(c.emoji) ? ', éclaté' : ''}`}
+              disabled={busy}
+              onClick={() => {
+                setOuvert(null)
+                enregistrer({ avatar: c.emoji })
+              }}
+            >
+              <Avatar avatar={c.emoji} finition={profil.finition} eclat={brille(c.emoji)} />
             </button>
           )
         })}
@@ -159,7 +208,15 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
         <span className="puce anneau-texte-divin" aria-hidden="true">
           ●
         </span>{' '}
-        Divin
+        Divin ·{' '}
+        <span className="puce anneau-texte-collection" aria-hidden="true">
+          ●
+        </span>{' '}
+        de collection, niveaux 2 à 9 ·{' '}
+        <span className="puce anneau-texte-collection-haut" aria-hidden="true">
+          ●
+        </span>{' '}
+        niveaux 11 et plus
       </p>
       {profil.eclats.length > 0 && (
         <p className="muted small">
@@ -277,6 +334,63 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
             {gagnes.length === 0 ? `${aGagner} titres à gagner` : `et ${aGagner} autre${aGagner > 1 ? 's' : ''} à gagner`}
           </span>
         )}
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Le fond de sa carte : ce qu'on voit derrière elle quand quelqu'un touche
+ * son nom. Rien d'autre ne change — ni l'écran commun, ni les classements.
+ * Ceux qui restent à gagner se voient, avec ce qu'il faut : savoir ce qui
+ * vient donne envie de revenir.
+ */
+export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
+  if (!profil.fonds) return null
+  const porte = profil.fond ?? null
+  return (
+    <section className="card">
+      <h3>
+        <Icon name="image" />
+        Le fond de ma carte <span className="muted small titre-compte">{`${profil.fonds.length} / ${FONDS.length}`}</span>
+      </h3>
+      <p className="muted small">Il se voit quand quelqu’un touche ton nom : c’est ta carte qui change d’allure, rien d’autre.</p>
+      <div className="finitions fonds-choix">
+        <button
+          type="button"
+          className={'finition-btn' + (!porte ? ' selected' : '')}
+          disabled={busy}
+          aria-pressed={!porte}
+          onClick={() => enregistrer({ fond: null })}
+        >
+          <span className="fond-apercu" aria-hidden="true" />
+          <span className="finition-nom">Velours</span>
+          <span className="muted small" aria-hidden="true">
+            {!porte ? 'porté' : 'd’office'}
+          </span>
+        </button>
+        {FONDS.map(f => {
+          const ouvert = profil.fonds!.includes(f.key)
+          const choisi = porte === f.key
+          return (
+            <button
+              key={f.key}
+              type="button"
+              className={'finition-btn' + (choisi ? ' selected' : '')}
+              disabled={!ouvert || busy}
+              aria-pressed={choisi}
+              onClick={() => enregistrer({ fond: f.key })}
+            >
+              <span className={`fond-apercu carte-fond fond-${f.key}`} aria-hidden="true" />
+              <span className="finition-nom">{f.nom}</span>
+              {/* « porté » redit `aria-pressed` : l'oreille entend « ouvert ». */}
+              <span className="muted small" aria-hidden={choisi || undefined}>
+                {ouvert ? (choisi ? 'porté' : 'ouvert') : f.regle}
+              </span>
+              {choisi && <span className="sr-only">ouvert</span>}
+            </button>
+          )
+        })}
       </div>
     </section>
   )

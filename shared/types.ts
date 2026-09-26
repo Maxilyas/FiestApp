@@ -31,6 +31,8 @@ export interface PublicPlayer {
   eclat?: boolean
   /** L'avatar dessiné qu'il porte — légendaire ou Divin : il remplace l'emoji à l'écran. */
   legendaire?: string
+  /** Il a gagné le quiz du jour d'hier : un laurier suit son prénom (`Distinctions.laurier`). */
+  laurier?: boolean
   /**
    * Le prénom à afficher quand un homonyme porte le même avatar — « Camille
    * (2) ». Absent, et non pas égal au prénom, dans l'immense majorité des

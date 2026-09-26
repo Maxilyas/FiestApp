@@ -14,6 +14,7 @@ import { createRequire } from 'node:module'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
+import Database from 'better-sqlite3'
 import {
   demarrer,
   connexionAnimateur,
@@ -29,6 +30,7 @@ import {
   ADMIN,
   type Invite,
 } from '../test/banc'
+import { jourAvant, jourDe } from '../../shared/jour'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu')
 const ivoire = process.argv.includes('ivoire')
@@ -108,6 +110,24 @@ for (const [i, nom] of prenoms.entries()) {
   invites.push(inv)
   ;(host as any).emit('host:assignPlayer', { playerId: inv.playerId, teamId: equipes[i % 3] })
 }
+// Le prénom le plus long et « Camille (2) » ont gagné hier le quiz du jour,
+// ex æquo : leur laurier suit leur prénom jusque dans la salle d'attente, où
+// la pastille n'a pas un pixel à perdre.
+{
+  const hier = jourAvant(jourDe(Date.now()))
+  const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  const laureats = ['joueur0', 'joueur4'].map(
+    login => (base.prepare('SELECT id FROM profiles WHERE login = ?').get(login) as { id: string }).id,
+  )
+  base.prepare('INSERT OR IGNORE INTO jour_clotures (jour, joueurs, close_le) VALUES (?, 2, ?)').run(hier, Date.now())
+  for (const id of laureats) {
+    base.prepare('INSERT OR IGNORE INTO jour_podiums (jour, profile_id, rang, points, xp) VALUES (?, ?, 1, 2000, 25)').run(hier, id)
+  }
+  base.close()
+  // La liste d'hier est déjà lue : remettre un profil au classement la fait relire.
+  for (const id of laureats) await ecrire(url, '/api/admin/jour/masquer', { profileId: id, masque: false }, cookie)
+}
+
 // Le téléphone de Gaspard, dans un vrai navigateur ; son jeton lui est
 // remis comme s'il s'était déjà inscrit.
 const gaspard = await invite(url, 'Gaspard', '🦊')

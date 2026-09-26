@@ -3,6 +3,7 @@ import { Glossaire } from '../components/Glossaire'
 import { api, currentMe, motifDe } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
+import { Laurier } from '../components/Laurier'
 import { Icon, type IconName } from '../components/Icon'
 import { ProfilForm } from '../components/ProfilForm'
 import { CodeSecours } from '../components/Secours'
@@ -11,8 +12,8 @@ import { cibleEclat } from '../../../shared/legendaires'
 import { coupDOeilMoyen, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { Categories, Courbes, FicheCarriere } from '../components/Carriere'
-import { ApercuSalle, MesAvatars, MesFinitions, MonTitre } from '../components/Apparence'
-import { MaVitrine, MesHautsFaits, MesPrix, MonQuizDuJour } from '../components/Trophees'
+import { ApercuSalle, MesAvatars, MesFinitions, MonFond, MonTitre } from '../components/Apparence'
+import { MaVitrine, MesEcussons, MesHautsFaits, MesPrix, MonQuizDuJour } from '../components/Trophees'
 import { espacesFines, formatNumber, place, reponsesParType } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
 import { route, spacePath } from '../routes'
@@ -125,14 +126,16 @@ export function ProfilApp() {
     legendaire?: string | null
     titre?: string | null
     vitrine?: string[] | null
+    fond?: string | null
   }) => {
     setBusy(true)
     setErreur('')
     try {
       // La route d'écriture rend le profil léger ; l'étagère et l'historique
-      // n'ont pas bougé, on les garde plutôt que de tout redemander.
+      // n'ont pas bougé, on les garde plutôt que de tout redemander. Le fond
+      // de carte n'y est pas : accepté, c'est celui qu'on vient d'envoyer.
       const { profile } = await api.joueur.enregistrer(patch)
-      setProfil(p => (p ? { ...p, ...profile } : p))
+      setProfil(p => (p ? { ...p, ...profile, ...(patch.fond !== undefined && { fond: patch.fond }) } : p))
     } catch (e) {
       setErreur((e as Error).message)
     } finally {
@@ -219,6 +222,12 @@ export function ProfilApp() {
           {profil.titre && hautFait(profil.titre) && (
             <p className="titre-porte">{espacesFines(`« ${hautFait(profil.titre)!.title} »`)}</p>
           )}
+          {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
+          {profil.laurier && (
+            <p className="carte-laurier">
+              <Laurier laurier /> Vainqueur du quiz du jour d’hier
+            </p>
+          )}
           <div
             className="xp-bar"
             role="progressbar"
@@ -260,6 +269,7 @@ export function ProfilApp() {
           <MesAvatars profil={profil} busy={busy} enregistrer={enregistrer} />
           <MesFinitions profil={profil} busy={busy} enregistrer={enregistrer} />
           <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />
+          <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />
         </div>
       )}
 
@@ -268,6 +278,7 @@ export function ProfilApp() {
           <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
           <MonQuizDuJour jour={profil.jour} />
           <MesHautsFaits profil={profil} />
+          <MesEcussons ecussons={profil.ecussons} />
           <MesPrix prix={profil.prix} />
         </div>
       )}
@@ -354,7 +365,7 @@ export function ProfilApp() {
       )}
 
       <Glossaire
-        mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'precision', 'coupDOeil', 'reflexe', 'flair']}
+        mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'ecusson', 'laurier', 'precision', 'coupDOeil', 'reflexe', 'flair']}
       />
 
       {erreur && <p className="error">{erreur}</p>}

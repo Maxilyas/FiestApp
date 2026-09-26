@@ -21,6 +21,7 @@ import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
 import type { DivinDescendu } from './divins'
 import type { CarriereDuJour } from './jour'
+import type { Ecusson } from './ecussons'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -398,6 +399,20 @@ export function releveVide(): ReleveSoiree {
 // ── La carrière ───────────────────────────────────────────────────────────
 
 /** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
+/**
+ * Ce que le quiz du jour compte pour ses paliers : les jours joués (une
+ * partie commencée compte), les victoires, et les jours sans une faute — la
+ * médaille d'or.
+ */
+export interface StatsDuJour {
+  joues: number
+  victoires: number
+  sansFautes: number
+}
+
+/** Aucun quiz du jour : un profil qui n'y a jamais joué, ou une carrière sans lui. */
+export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0 }
+
 export interface Carriere {
   soirees: number
   questions: number
@@ -432,12 +447,14 @@ export interface Carriere {
   eclats: number
   niveau: number
   categories: Record<string, { questions: number; justes: number }>
+  /** Le quiz du jour, pour ses paliers (L'Assidu, Le Champion du jour, Le Sans-Faute). */
+  jour: StatsDuJour
 }
 
 /** Additionne des relevés en une carrière. */
 export function carriereDe(
   soirees: { releve: ReleveSoiree; gain: GainSoiree; spaceId: string }[],
-  extra: { eclats: number; niveau: number },
+  extra: { eclats: number; niveau: number; jour?: StatsDuJour },
 ): Carriere {
   const c: Carriere = {
     soirees: 0,
@@ -468,6 +485,7 @@ export function carriereDe(
     avatars: 0,
     eclats: extra.eclats,
     niveau: extra.niveau,
+    jour: { ...(extra.jour ?? AUCUN_JOUR) },
     categories: {},
   }
   const hotes = new Set<string>()
@@ -603,6 +621,11 @@ export interface Distinctions {
    * légendaire (`lg:…`) ou un Divin (`dv:…`).
    */
   legendaire?: string
+  /**
+   * Il a gagné le quiz du jour d'hier : un laurier suit son prénom toute la
+   * journée, jusque dans les soirées où il joue.
+   */
+  laurier?: boolean
 }
 
 /**
@@ -617,6 +640,7 @@ export function distinctions(source: Distinctions | undefined | null): Distincti
     ...(source.finition && { finition: source.finition }),
     ...(source.eclat && { eclat: true }),
     ...(source.legendaire && { legendaire: source.legendaire }),
+    ...(source.laurier && { laurier: true }),
   }
 }
 
@@ -662,6 +686,8 @@ export interface PublicProfile {
   titre?: string | null
   /** Les hauts faits qu'il a choisi de montrer sur sa carte ; null : les plus durs, d'office. */
   vitrineChoisie?: string[] | null
+  /** Il a gagné le quiz du jour d'hier : sa page le lui dit, comme la salle le voit. */
+  laurier?: boolean
 }
 
 /** Une soirée jouée, telle que la page profil la relit. */
@@ -702,6 +728,16 @@ export interface PublicProfileDetail extends PublicProfile {
    * a (`fois`), et ceux qui manquent encore. Absente d'un serveur d'avant.
    */
   prix?: PrixDeCollection[]
+  /**
+   * Ses écussons de savoir, les douze catégories dans l'ordre de la liste
+   * fixe : ses bonnes réponses, en soirée comme au quiz du jour, et le palier
+   * qu'elles valent. Absents d'un serveur d'avant.
+   */
+  ecussons?: Ecusson[]
+  /** Le fond de sa carte, s'il en porte un (`shared/fonds.ts`). Absent d'un serveur d'avant. */
+  fond?: string | null
+  /** Les fonds de carte qu'il a gagnés, dans l'ordre du catalogue. */
+  fonds?: string[]
 }
 
 /** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */

@@ -242,6 +242,8 @@ export interface LigneDuJour {
   finition?: Finition
   legendaire?: string
   eclat?: true
+  /** Il a gagné le quiz du jour d'hier. */
+  laurier?: true
   points: number
   rang: number
   /** Sa partie n'est pas finie : ses points peuvent encore monter. */
@@ -299,6 +301,13 @@ export interface CarriereDuJour {
 }
 
 /** La partie du jour d'un profil, vue de son téléphone. */
+/** Un palier du quiz du jour qui vient de tomber, tel qu'on l'annonce : « 📆 L'Assidu · Bronze ». */
+export interface PalierTombe {
+  key: string
+  emoji: string
+  title: string
+}
+
 export interface PartieDuJour {
   jour: string
   /**
@@ -334,6 +343,26 @@ export interface PartieDuJour {
    * podium.
    */
   vainqueursDHier: { nom: string; avatar: string }[]
-  /** Hier, pour lui : sa place et ce qu'elle lui a rapporté — le lendemain le raconte. */
-  sonHier?: { rang: number; joueurs: number; points: number; xpPodium: number; medaille: Medaille | null } | null
+  /**
+   * Hier, pour lui : sa place et ce qu'elle lui a rapporté — le lendemain le
+   * raconte —, avec le palier du Champion du jour que la nuit lui a donné.
+   */
+  sonHier?: {
+    rang: number
+    joueurs: number
+    points: number
+    xpPodium: number
+    medaille: Medaille | null
+    paliers?: PalierTombe[]
+  } | null
+  /** La partie finie : les paliers du quiz du jour qu'elle a fait tomber (L'Assidu, Le Sans-Faute). */
+  paliers?: PalierTombe[]
+  /** Et le légendaire que l'un d'eux ouvre : le Sphinx, au centième jour ou au dixième sans-faute — ou celui de la saison. */
+  legendaires?: string[]
+  /**
+   * Pendant une saison (Halloween, Noël, le Nouvel An), tant que son
+   * légendaire n'est pas à lui : ses jours joués dans la période, et combien
+   * il en faut.
+   */
+  saison?: { nom: string; legendaire: string; joues: number; requis: number; periode: string }
 }

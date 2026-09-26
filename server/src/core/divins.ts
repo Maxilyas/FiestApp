@@ -64,7 +64,7 @@ export function raconter(cles: readonly string[]): DivinDescendu[] {
  * tous — ceux-là, nommément : un treizième ajouté un jour ne doit pas lui
  * reprendre l'Arbre qu'il porte.
  */
-const DOUZE_LEGENDAIRES = [
+export const DOUZE_LEGENDAIRES: readonly string[] = [
   'lg:phenix',
   'lg:dragon',
   'lg:oracle',

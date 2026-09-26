@@ -286,6 +286,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const maintenantDuJour = opts.horlogeDuJour ?? Date.now
   const jour = new JourStore(opts.quizDbUrl, opts.quizDbToken, { profiles, maintenant: maintenantDuJour })
   await jour.init()
+  // La carrière d'un profil compte son quiz du jour, pour ses paliers : le
+  // quiz du jour dépend des profils, et se branche donc sur eux après coup.
+  profiles.statsDuJour = id => jour.statsDuJour(id)
+  // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion.
+  profiles.laurierDe = id => jour.laureats().has(id)
 
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
   const store = new QuizStore(opts.quizDbUrl, opts.quizDbToken)
@@ -369,6 +374,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
     cloturesEnCours: new Set(),
     jour,
   })
+  // Un laurier qui change de tête — la nuit close, un profil masqué — se voit
+  // dans la salle où il joue sans attendre la diffusion suivante.
+  jour.laurierChange = profileId => {
+    for (const rt of registry.all()) if (rt.party.findByProfile(profileId)) rt.broadcastSnapshot()
+  }
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
 

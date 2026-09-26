@@ -22,7 +22,7 @@
 // Comme le reste du profil, un haut fait ne donne AUCUN avantage de jeu. Il
 // dit d'où l'on vient, pas ce qu'on vaut ce soir.
 
-import type { Carriere } from './profil'
+import type { Carriere, StatsDuJour } from './profil'
 import type { Rarete } from './badges'
 import { formatNumber } from './typographie'
 
@@ -52,6 +52,12 @@ export interface HautFaitDeCarriere {
   /** Bronze, argent, or. */
   paliers: readonly [number, number, number]
   valeur: (c: Carriere) => number
+  /**
+   * Tiré du quiz du jour, et de ce qu'il compte : il tombe à la fin d'une
+   * partie ou à la nuit qui clôt un jour (`accorderPaliersDuJour`), jamais à
+   * la clôture d'une soirée, qui ne sait rien du quiz du jour.
+   */
+  duJour?: keyof StatsDuJour
 }
 
 export type HautFait = HautFaitDeSoiree | HautFaitDeCarriere
@@ -349,6 +355,41 @@ export const HAUTS_FAITS_DE_CARRIERE: HautFaitDeCarriere[] = [
     paliers: [10, 20, 30],
     valeur: c => c.niveau,
   },
+  // Le quiz du jour a les siens : l'assiduité d'abord — le podium ira
+  // toujours aux deux ou trois mêmes —, puis la victoire et le sans-faute.
+  {
+    key: 'hf:assidu',
+    famille: 'carriere',
+    emoji: '📆',
+    title: 'L’Assidu',
+    mesure: 'jours de quiz du jour',
+    mesureUne: 'jour de quiz du jour',
+    paliers: [7, 30, 100],
+    valeur: c => c.jour.joues,
+    duJour: 'joues',
+  },
+  {
+    key: 'hf:champion-du-jour',
+    famille: 'carriere',
+    emoji: '🌞',
+    title: 'Le Champion du jour',
+    mesure: 'victoires au quiz du jour',
+    mesureUne: 'victoire au quiz du jour',
+    paliers: [1, 5, 20],
+    valeur: c => c.jour.victoires,
+    duJour: 'victoires',
+  },
+  {
+    key: 'hf:sans-faute',
+    famille: 'carriere',
+    emoji: '💯',
+    title: 'Le Sans-Faute',
+    mesure: 'quiz du jour sans une faute',
+    mesureUne: 'quiz du jour sans une faute',
+    paliers: [1, 3, 10],
+    valeur: c => c.jour.sansFautes,
+    duJour: 'sansFautes',
+  },
 ]
 
 const PAR_CLE = new Map<string, HautFait>([...HAUTS_FAITS_DE_SOIREE, ...HAUTS_FAITS_DE_CARRIERE].map(h => [h.key, h]))
@@ -437,10 +478,24 @@ export function cleRangee(cle: string, recompenses: ReadonlyMap<string, number>)
   return plusHaut ? clePalier(cle, plusHaut) : null
 }
 
-/** Les paliers qu'une carrière atteint, clés rangées comprises (`hf:bavard:1`, `hf:bavard:2`…). */
+/**
+ * Les paliers de soirée qu'une carrière atteint, clés rangées comprises
+ * (`hf:bavard:1`, `hf:bavard:2`…) — ceux du quiz du jour à part : ils ont
+ * leur moment (`paliersDuJourAtteints`).
+ */
 export function paliersAtteints(c: Carriere): string[] {
   return HAUTS_FAITS_DE_CARRIERE.flatMap(h => {
+    if (h.duJour) return []
     const v = h.valeur(c)
+    return h.paliers.flatMap((seuil, i) => (v >= seuil ? [clePalier(h.key, i + 1)] : []))
+  })
+}
+
+/** Les paliers du quiz du jour que ce qu'il compte fait atteindre. */
+export function paliersDuJourAtteints(stats: StatsDuJour): string[] {
+  return HAUTS_FAITS_DE_CARRIERE.flatMap(h => {
+    if (!h.duJour) return []
+    const v = stats[h.duJour]
     return h.paliers.flatMap((seuil, i) => (v >= seuil ? [clePalier(h.key, i + 1)] : []))
   })
 }
@@ -496,7 +551,8 @@ export interface HautFaitVu {
  * Quatre ne se simulent pas : les Éclats se calculent (une chance sur
  * quarante par soirée) ; La Girouette, Le Globe-trotteur et Le
  * Collectionneur tiennent à une habitude que la bande n'a pas — changer
- * d'avis, d'hôte, d'avatar — et sont estimés.
+ * d'avis, d'hôte, d'avatar — et sont estimés. Les trois du quiz du jour
+ * aussi : la bande ne joue qu'en soirée.
  */
 export const PART_DES_JOUEURS: Readonly<Record<string, number>> = {
   // Les éclats — 2 × 50 · 2 × 30 · 3 × 12, en pour cent.
@@ -552,6 +608,18 @@ export const PART_DES_JOUEURS: Readonly<Record<string, number>> = {
   'hf:legende:1': 0.53, // 70,9 · 54,1 · 34,0
   'hf:legende:2': 0.009, // 2,6 · 0,1 · 0
   'hf:legende:3': 0, // personne en quarante soirées
+  // Ceux du quiz du jour, estimés : la bande ne joue qu'en soirée. Un joueur
+  // sur trois s'y tient une semaine, un sur dix un mois ; le podium du jour
+  // et le sans-faute vont à peu.
+  'hf:assidu:1': 0.35,
+  'hf:assidu:2': 0.12,
+  'hf:assidu:3': 0.03,
+  'hf:champion-du-jour:1': 0.12,
+  'hf:champion-du-jour:2': 0.03,
+  'hf:champion-du-jour:3': 0.005,
+  'hf:sans-faute:1': 0.2,
+  'hf:sans-faute:2': 0.06,
+  'hf:sans-faute:3': 0.01,
 }
 
 /**

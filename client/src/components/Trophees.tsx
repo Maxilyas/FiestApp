@@ -4,6 +4,7 @@ import { Legendaire } from './Legendaire'
 import { Chiffres } from './Chiffres'
 import { HautsFaits } from './Carriere'
 import { Flamme, Medaille } from './Jour'
+import { Ecusson } from './Ecusson'
 import { formatNumber } from '../format'
 import {
   VITRINE_MAX,
@@ -19,6 +20,7 @@ import { legendaire } from '../../../shared/legendaires'
 import { lesPlusProches, recompensesDe, type Proche } from '../../../shared/proches'
 import type { CarriereDuJour } from '../../../shared/jour'
 import type { PrixDeCollection, PublicProfileDetail } from '../../../shared/profil'
+import { SEUILS_ECUSSON, prochainSeuil, type Ecusson as EcussonDeSavoir } from '../../../shared/ecussons'
 
 // L'onglet « Trophées » du profil : ce que sa carte montre à la salle, son
 // quiz du jour, ses hauts faits — les plus proches d'abord, le catalogue
@@ -243,11 +245,48 @@ export function MesHautsFaits({ profil }: { profil: PublicProfileDetail }) {
   )
 }
 
+/**
+ * Ses écussons de savoir : les douze catégories, ce qu'il a — bronze,
+ * argent, or — et ce qui manque au suivant. Ce qu'il n'a pas se montre en
+ * pointillé : savoir ce qui vient donne envie de revenir.
+ */
+export function MesEcussons({ ecussons }: { ecussons?: EcussonDeSavoir[] }) {
+  if (!ecussons) return null
+  const eus = ecussons.filter(e => e.palier > 0).length
+  const [bronze, argent, or] = SEUILS_ECUSSON
+  return (
+    <section className="card">
+      <h3>
+        <Icon name="shield" />
+        Écussons de savoir <span className="muted small titre-compte">{`${eus} / ${ecussons.length}`}</span>
+      </h3>
+      <p className="muted small">
+        Les bonnes réponses d’une catégorie, en soirée comme au quiz du jour : le bronze à {bronze}, l’argent à {argent}, l’or à{' '}
+        {or}. Ta carte montre les trois plus hauts.
+      </p>
+      <ul className="ecussons ecussons-grille">
+        {ecussons.map(e => {
+          const suivant = prochainSeuil(e.palier)
+          return (
+            <li key={e.categorie}>
+              <Ecusson
+                categorie={e.categorie}
+                palier={e.palier}
+                legende={suivant === null ? formatNumber(e.justes) : `${formatNumber(e.justes)} / ${formatNumber(suivant)}`}
+              />
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
 /** Un objectif commencé : le légendaire en silhouette dorée, ou l'emoji du haut fait — ce qu'on compte, et la jauge. */
 function UnProche({ p }: { p: Proche }) {
   const l = legendaire(p.key)
   const palier = palierDe(p.key)
-  const h = l ? hautFait(l.condition.hautFait) : palier?.hautFait
+  const h = l ? hautFait(p.hautFait ?? l.condition.hautFait) : palier?.hautFait
   if (!h) return null
   const titre = l ? l.nom : titreDePalier(palier!.hautFait, palier!.palier)
   const compte =

@@ -2,8 +2,9 @@ import { ajouterColonne, clientDistant, type Client } from '../core/distante'
 import type { InStatement } from '@libsql/client'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
-import { cleanAvatar, cleanName, DEFAULT_AVATAR } from '../../../shared/avatars'
+import { cleanAvatar, cleanName, DEFAULT_AVATAR, niveauRequis } from '../../../shared/avatars'
 import {
+  AUCUN_JOUR,
   CHANCE_ECLAT,
   carriereDe,
   choixDeFinition,
@@ -25,6 +26,7 @@ import {
   type PublicProfile,
   type PublicProfileDetail,
   type ReleveSoiree,
+  type StatsDuJour,
 } from '../../../shared/profil'
 import { rareteDe, type BadgePorte } from '../../../shared/badges'
 import {
@@ -35,11 +37,21 @@ import {
   hautsFaitsGagnes,
   palierDe,
   paliersAtteints,
+  paliersDuJourAtteints,
   titreDePalier,
   XP_PALIER,
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
-import { cibleEclat, conditionTenue, legendaire, legendairesDebloques, type Condition } from '../../../shared/legendaires'
+import { fond, fondsOuverts, type CleDeFond } from '../../../shared/fonds'
+import { cleDeSaison, type Saison } from '../../../shared/saisons'
+import {
+  cibleEclat,
+  conditionTenue,
+  legendaire,
+  legendairesDebloques,
+  legendairesOuvertsPar,
+  type Condition,
+} from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
@@ -92,6 +104,12 @@ export interface ProfileRec {
    * JSON. Null : les plus durs à obtenir, d'office (`plusBeaux`).
    */
   vitrine: string | null
+  /**
+   * Le fond de sa carte, s'il en a choisi un (`shared/fonds.ts`). Relu à
+   * chaque affichage (`fondPorte`) : celui qu'il ne mérite plus cesse de se
+   * voir, sans que rien ne soit réécrit.
+   */
+  fond: string | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
   recoveryHash: string
@@ -138,6 +156,13 @@ export const LIGNE_JOUR = '#jour'
 
 /** Les lignes qui ne sont pas des soirées. */
 const LIGNES_A_PART = [LIGNE_PALIERS, LIGNE_JOUR]
+
+/**
+ * Le nom sous lequel un jour range les paliers du quiz du jour qu'il a fait
+ * tomber (`#jour:2026-09-26`) : aucune soirée ne le porte, et en retirer une
+ * ne les reprend donc jamais.
+ */
+export const cleDuJour = (jour: string) => `${LIGNE_JOUR}:${jour}`
 
 /**
  * La version du barème qui a écrit une ligne d'expérience : 2 depuis le
@@ -349,8 +374,32 @@ export class ProfileStore {
    */
   private gardes = new Map<string, NiveauGarde[]>()
 
+  /**
+   * Ce que le quiz du jour compte pour ses paliers (`JourStore.statsDuJour`),
+   * branché au démarrage : le quiz du jour dépend des profils, pas l'inverse.
+   * Sans lui, une carrière n'a pas de quiz du jour.
+   */
+  statsDuJour?: (profileId: string) => Promise<StatsDuJour>
+
+  /**
+   * A-t-il gagné le quiz du jour d'hier (`JourStore.laureats`) ? Branché au
+   * démarrage, comme `statsDuJour`, et lu en mémoire : il sert à chaque
+   * diffusion à toute la salle.
+   */
+  laurierDe?: (profileId: string) => boolean
+
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
+  }
+
+  /** Son quiz du jour, pour sa carrière : rien plutôt qu'une page en panne si la base se tait. */
+  private async statsDuJourDe(profileId: string): Promise<StatsDuJour> {
+    try {
+      return (await this.statsDuJour?.(profileId)) ?? AUCUN_JOUR
+    } catch (e) {
+      console.error('[profil] quiz du jour illisible pour la carrière :', e)
+      return AUCUN_JOUR
+    }
   }
 
   async init() {
@@ -442,6 +491,8 @@ export class ProfileStore {
     // Le titre sous le prénom, et la vitrine qu'on choisit soi-même.
     await ajouterColonne(this.client, 'profiles', 'titre', 'TEXT')
     await ajouterColonne(this.client, 'profiles', 'vitrine', 'TEXT')
+    // Le fond de sa carte, qu'on choisit parmi ceux qu'on a gagnés.
+    await ajouterColonne(this.client, 'profiles', 'fond', 'TEXT')
     // Le joueur qu'on était ce soir-là, pour ouvrir SON bilan depuis « Mes
     // soirées » : sans lui, le bilan redemandait « Qui es-tu ? ». Une ligne
     // d'avant la colonne le retrouve dans l'archive (`retenirJoueur`).
@@ -546,6 +597,22 @@ export class ProfileStore {
     return legendairesDebloques(this.recompensesOf(id), this.acquis.get(id))
   }
 
+  /** Ceux que ces paliers, tout juste tombés, lui ont ouverts (voir `legendairesOuvertsPar`). */
+  legendairesOuverts(id: string, tombes: readonly string[]): string[] {
+    return legendairesOuvertsPar(tombes, this.recompensesOf(id), this.acquis.get(id))
+  }
+
+  /** Les fonds de carte qu'il peut porter : son niveau, son quiz du jour, ses paliers (`shared/fonds.ts`). */
+  fondsOuvertsDe(p: ProfileRec, jour: { joues: number; victoires: number }): CleDeFond[] {
+    return fondsOuverts({ niveau: this.niveauOf(p), jour, recompenses: this.recompensesOf(p.id) })
+  }
+
+  /** Le fond qu'on voit derrière sa carte : celui qu'il a choisi, s'il le mérite encore. */
+  fondPorte(p: ProfileRec, jour: { joues: number; victoires: number }): CleDeFond | null {
+    const choisi = fond(p.fond)
+    return choisi && this.fondsOuvertsDe(p, jour).includes(choisi.key) ? choisi.key : null
+  }
+
   /** Les Divins descendus sur ce profil — la liste, jamais ce qui les a fait descendre. */
   divinsOf(id: string): string[] {
     return divinsDebloques(this.recompensesOf(id), this.acquis.get(id))
@@ -641,6 +708,26 @@ export class ProfileStore {
     return a.includes(p.legendaire) ? p.legendaire : null
   }
 
+  /**
+   * Un avatar se porte s'il n'est pas de collection, ou si le niveau du
+   * profil l'a ouvert. Sans profil, jamais : l'invité anonyme ne montre rien
+   * qui dise ce qui lui manque, ni ce qu'un profil lui aurait donné.
+   */
+  peutPorter(p: ProfileRec | null, avatar: string): boolean {
+    const requis = niveauRequis(avatar)
+    return requis === 0 || (!!p && this.niveauOf(p) >= requis)
+  }
+
+  /**
+   * L'avatar qu'il porte, s'il le peut encore : une soirée retirée de
+   * l'historique qui le fait redescendre sous le niveau de son emoji de
+   * collection laisse la place à l'avatar par défaut, sans rien réécrire —
+   * il le retrouve dès qu'il remonte.
+   */
+  avatarPorte(p: ProfileRec): string {
+    return this.peutPorter(p, p.avatar) ? p.avatar : DEFAULT_AVATAR
+  }
+
   /** Le titre qu'il porte, s'il l'a encore : une soirée retirée emporte son haut fait, et le titre avec. */
   titrePorte(p: ProfileRec): string | null {
     return p.titre && hautsFaitsGagnes(this.recompensesOf(p.id)).includes(p.titre) ? p.titre : null
@@ -670,7 +757,7 @@ export class ProfileStore {
       id: p.id,
       login: p.login,
       name: p.name,
-      avatar: p.avatar,
+      avatar: this.avatarPorte(p),
       // La finition qu'on voit sur lui : celle qu'il a épinglée s'il peut
       // encore la porter, la plus belle qu'il a sinon.
       finition: finitionPortee(p.finition, niveau),
@@ -683,12 +770,13 @@ export class ProfileStore {
       eclats: this.eclatsOf(p.id),
       // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
       // de neuf sur l'étagère dirait qu'il s'est passé quelque chose.
-      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:')).length,
+      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:')).length,
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
       divins: raconter(this.divinsOf(p.id)),
       titre: this.titrePorte(p),
       vitrineChoisie: this.vitrineChoisie(p),
+      ...(this.laurierDe?.(p.id) && { laurier: true }),
     }
   }
 
@@ -724,7 +812,12 @@ export class ProfileStore {
         console.error(`[profil] joueur de « ${s.soireeId} » non relu :`, e)
       }
     }
-    const carriere = carriereDe(soirees, { eclats: this.eclatsOf(p.id).length, niveau: this.niveauOf(p) })
+    const jour = await this.statsDuJourDe(p.id)
+    const carriere = carriereDe(soirees, {
+      eclats: this.eclatsOf(p.id).length,
+      niveau: this.niveauOf(p),
+      jour,
+    })
     return {
       ...this.toPublic(p),
       vitrine,
@@ -745,6 +838,8 @@ export class ProfileStore {
       fiche: ficheDe(carriere),
       categories: carriere.categories,
       hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
+      fond: this.fondPorte(p, jour),
+      fonds: this.fondsOuvertsDe(p, jour),
     }
   }
 
@@ -813,15 +908,19 @@ export class ProfileStore {
     if (!name) throw new Error('Il faut un prénom')
     if (await this.byLogin(login)) throw new Error('Cet identifiant est déjà pris')
     const recovery = newRecoveryCode()
+    // Un profil neuf est au niveau 1 : aucun emoji de collection ne lui va
+    // encore, et l'écran d'inscription n'en propose pas.
+    const avatar = input.avatar ? cleanAvatar(input.avatar) : DEFAULT_AVATAR
     const rec: ProfileRec = {
       id: randomUUID(),
       login,
       name,
-      avatar: input.avatar ? cleanAvatar(input.avatar) : DEFAULT_AVATAR,
+      avatar: niveauRequis(avatar) === 0 ? avatar : DEFAULT_AVATAR,
       finition: 'auto',
       legendaire: null,
       titre: null,
       vitrine: null,
+      fond: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
       xp: 0,
@@ -901,20 +1000,23 @@ export class ProfileStore {
    */
   async update(
     id: string,
-    patch: { name?: unknown; avatar?: unknown; finition?: unknown; legendaire?: unknown; titre?: unknown; vitrine?: unknown },
+    patch: { name?: unknown; avatar?: unknown; finition?: unknown; legendaire?: unknown; titre?: unknown; vitrine?: unknown; fond?: unknown },
   ): Promise<ProfileRec> {
     const rec = await this.require(id)
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
       champs.name = name
     }
     if (patch.avatar !== undefined) {
-      champs.avatar = cleanAvatar(patch.avatar)
+      const avatar = cleanAvatar(patch.avatar)
+      const requis = niveauRequis(avatar)
+      if (requis > this.niveauOf(rec)) throw new Error(`Cet avatar s’ouvre au niveau ${requis}`)
+      champs.avatar = avatar
       champs.legendaire = null
     }
     if (patch.finition !== undefined) champs.finition = choixDeFinition(patch.finition, this.niveauOf(rec))
@@ -943,6 +1045,18 @@ export class ProfileStore {
           throw new Error(`Choisis de 1 à ${VITRINE_MAX} hauts faits parmi ceux que tu as gagnés`)
         }
         champs.vitrine = JSON.stringify(cles)
+      }
+    }
+    // Un fond de carte : seulement l'un de ceux qu'il a gagnés.
+    if (patch.fond !== undefined) {
+      if (patch.fond === null || patch.fond === '') champs.fond = null
+      else {
+        const choisi = fond(patch.fond)
+        if (!choisi) throw new Error('Ce fond de carte n’existe pas')
+        if (!this.fondsOuvertsDe(rec, await this.statsDuJourDe(id)).includes(choisi.key)) {
+          throw new Error(`Ce fond se gagne d’abord : ${choisi.regle}`)
+        }
+        champs.fond = choisi.key
       }
     }
     const colonnes = Object.keys(champs) as (keyof typeof champs)[]
@@ -1333,6 +1447,71 @@ export class ProfileStore {
   }
 
   /**
+   * Décerne les paliers du quiz du jour qu'il vient d'atteindre — L'Assidu,
+   * Le Champion du jour, Le Sans-Faute —, rangés sous le jour qui les a fait
+   * tomber (`cleDuJour`), et crédite leur expérience avec celle des autres
+   * paliers. Rend ceux qui sont nouveaux.
+   */
+  async accorderPaliersDuJour(profileId: string, jour: string, stats: StatsDuJour): Promise<string[]> {
+    const deja = this.recompensesOf(profileId)
+    const neufs = paliersDuJourAtteints(stats).filter(cle => !deja.has(cle))
+    if (neufs.length === 0) return []
+    const now = Date.now()
+    await this.client.batch(
+      neufs.map(cle => {
+        const { hautFait, palier } = palierDe(cle)!
+        return {
+          sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+                VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+          args: [profileId, cle, cleDuJour(jour), hautFait.emoji, titreDePalier(hautFait, palier), now],
+        }
+      }),
+      'write',
+    )
+    this.porteurs = null
+    await this.recompterRecompenses([profileId])
+    await this.ecrireXpDesPaliers(profileId)
+    await this.recalculerTotal(profileId)
+    return neufs
+  }
+
+  /**
+   * Ce que ce jour a fait tomber, rangé sous lui : les paliers du quiz du
+   * jour — à la fin de sa partie, ou à la nuit qui l'a clos — et la saison
+   * qu'il a ouverte.
+   */
+  async recompensesDuJour(profileId: string, jour: string): Promise<{ key: string; emoji: string; title: string }[]> {
+    const res = await this.client.execute({
+      sql: `SELECT badge, emoji, title FROM profile_badges WHERE profile_id = ? AND soiree_id = ? ORDER BY created_at, badge`,
+      args: [profileId, cleDuJour(jour)],
+    })
+    return res.rows.map(r => ({ key: String(r.badge), emoji: String(r.emoji), title: String(r.title) }))
+  }
+
+  /** Les paliers du quiz du jour que ce jour a fait tomber, seuls. */
+  async paliersDuJourTombes(profileId: string, jour: string): Promise<{ key: string; emoji: string; title: string }[]> {
+    return (await this.recompensesDuJour(profileId, jour)).filter(r => palierDe(r.key))
+  }
+
+  /**
+   * Une saison gagnée au quiz du jour (`shared/saisons.ts`), rangée sous le
+   * jour qui l'a ouverte, comme ses paliers : aucune soirée ne la porte, et
+   * en retirer une ne la reprend pas. Rend vrai si elle est neuve.
+   */
+  async accorderSaison(profileId: string, s: Saison, jour: string): Promise<boolean> {
+    const cle = cleDeSaison(s)
+    if (this.recompensesOf(profileId).has(cle)) return false
+    await this.client.execute({
+      sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+            VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+      args: [profileId, cle, cleDuJour(jour), s.emoji, `Saison : ${s.nom}`, Date.now()],
+    })
+    this.porteurs = null
+    await this.recompterRecompenses([profileId])
+    return true
+  }
+
+  /**
    * La ligne d'expérience des paliers de carrière, recalculée de ceux qu'il
    * porte (voir `LIGNE_PALIERS`). Effacée quand il n'en porte plus aucun.
    */
@@ -1386,6 +1565,7 @@ export class ProfileStore {
   async badgesOf(profileId: string): Promise<BadgePorte[]> {
     // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
+    // Les saisons non plus : elles ne se montrent que par leur légendaire.
     const rows = await this.client.execute({
       // Par clé seule : un prix renommé porte deux noms en base, l'ancien et
       // le nouveau, et l'étagère le montrait deux fois. L'emoji et le titre
@@ -1396,7 +1576,7 @@ export class ProfileStore {
                      COUNT(*) OVER (PARTITION BY badge) AS fois,
                      MAX(created_at) OVER (PARTITION BY badge) AS dernier,
                      ROW_NUMBER() OVER (PARTITION BY badge ORDER BY created_at DESC, soiree_id DESC) AS n
-              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%'
+              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%'
             ) WHERE n = 1 ORDER BY dernier DESC`,
       args: [profileId],
     })
@@ -1493,8 +1673,9 @@ export class ProfileStore {
     const toutes = await this.historiqueOf(profileId)
     const soirees = toutes.filter(s => !sauf.has(cleDeSoiree(s.spaceId, s.soireeId)))
     const rec = await this.byId(profileId)
+    const jour = await this.statsDuJourDe(profileId)
     if (soirees.length === toutes.length) {
-      return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: rec ? this.niveauOf(rec) : 1 })
+      return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: rec ? this.niveauOf(rec) : 1, jour })
     }
     // Les soirées écartées ont aussi porté l'expérience du profil, et peut-
     // être un Éclat : les laisser dans le niveau ou le compte d'Éclats, c'était
@@ -1509,7 +1690,7 @@ export class ProfileStore {
     const eclats = res.rows.filter(r => !noms.has(String(r.soiree_id))).length
     const xpEcartee = ecartees.reduce((n, s) => n + s.xp, 0)
     const niveau = rec ? niveauDuProfil(Math.max(0, rec.xp - xpEcartee), this.gardesOf(profileId)) : 1
-    return carriereDe(soirees, { eclats, niveau })
+    return carriereDe(soirees, { eclats, niveau, jour })
   }
 
   // ── Le recalcul ─────────────────────────────────────────────────────────
@@ -1617,7 +1798,10 @@ export class ProfileStore {
    * finition, le légendaire qu'il porte, et s'il brille (l'Éclat tombe sur ce
    * qu'il porte : le légendaire, ou l'emoji).
    */
-  apparenceDe(p: ProfileRec, avatar: string = p.avatar): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string } {
+  apparenceDe(
+    p: ProfileRec,
+    avatar: string = this.avatarPorte(p),
+  ): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string; laurier?: boolean } {
     const niveau = this.niveauOf(p)
     const legendaire = this.legendairePorte(p)
     return {
@@ -1625,6 +1809,7 @@ export class ProfileStore {
       finition: finitionPortee(p.finition, niveau),
       eclat: this.eclatsOf(p.id).includes(cibleEclat(legendaire, avatar)),
       ...(legendaire && { legendaire }),
+      ...(this.laurierDe?.(p.id) && { laurier: true }),
     }
   }
 
@@ -1669,6 +1854,7 @@ export class ProfileStore {
       legendaire: typeof r.legendaire === 'string' && r.legendaire ? r.legendaire : null,
       titre: typeof r.titre === 'string' && r.titre ? r.titre : null,
       vitrine: typeof r.vitrine === 'string' && r.vitrine ? r.vitrine : null,
+      fond: typeof r.fond === 'string' && r.fond ? r.fond : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),

@@ -14,6 +14,48 @@ export const AVATARS = [
 export const DEFAULT_AVATAR = '🎉'
 export const MAX_NAME_LENGTH = 24
 
+/**
+ * Les emojis de collection : un par niveau qui n'ouvre pas de finition, du 2
+ * au 17 (`NIVEAU_FINITION`, `shared/profil.ts`, a les autres). On passait
+ * sinon trois niveaux sans rien gagner entre deux finitions. Réservés aux
+ * profils : l'écran d'inscription ne les propose pas, et le serveur ne les
+ * rend qu'au profil qui a le niveau (`ProfileStore.avatarPorte`). Chacun est
+ * un seul point de code, antérieur à Unicode 13 comme les autres.
+ */
+export const COLLECTION: readonly { emoji: string; niveau: number }[] = [
+  { emoji: '🦚', niveau: 2 },
+  { emoji: '🐢', niveau: 4 },
+  { emoji: '🦈', niveau: 5 },
+  { emoji: '🦔', niveau: 7 },
+  { emoji: '🐝', niveau: 8 },
+  { emoji: '🦩', niveau: 9 },
+  { emoji: '🦥', niveau: 11 },
+  { emoji: '🐳', niveau: 12 },
+  { emoji: '🦜', niveau: 13 },
+  { emoji: '🦦', niveau: 14 },
+  { emoji: '🐲', niveau: 16 },
+  { emoji: '🪐', niveau: 17 },
+]
+
+const NIVEAU_DE_COLLECTION = new Map(COLLECTION.map(c => [c.emoji, c.niveau]))
+
+/**
+ * Le niveau qu'il faut pour porter cet avatar : celui de l'emoji de
+ * collection le plus haut qu'il contient, 0 s'il n'en contient aucun. Un
+ * avatar reste quelques caractères libres (`cleanAvatar`) : « 🦔🦔 », ou le
+ * hérisson suivi d'un sélecteur de variante, ne passent pas à côté.
+ */
+export function niveauRequis(avatar: string): number {
+  let requis = 0
+  for (const point of avatar) requis = Math.max(requis, NIVEAU_DE_COLLECTION.get(point) ?? 0)
+  return requis
+}
+
+/** Les emojis de collection qu'une montée de niveau vient d'ouvrir, du plus bas au plus haut. */
+export function collectionGagnee(avant: number, apres: number): string[] {
+  return COLLECTION.filter(c => c.niveau > avant && c.niveau <= apres).map(c => c.emoji)
+}
+
 /** Caractères de contrôle et de mise en forme invisibles : rien à faire sur un mur. */
 const INVISIBLE = /[\p{Cc}\p{Cf}]/gu
 

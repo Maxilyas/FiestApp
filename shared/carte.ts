@@ -62,6 +62,13 @@ export interface CarteDeJoueur extends Distinctions {
     /** Son quiz du jour, en une ligne : les jours joués, les victoires. Absent s'il n'y a jamais joué. */
     jour?: { joues: number; victoires: number }
     /**
+     * Ses écussons de savoir les plus hauts, trois au plus (`plusBeauxEcussons`).
+     * Absents tant qu'il n'en a aucun.
+     */
+    ecussons?: { categorie: string; palier: 1 | 2 | 3 }[]
+    /** Le fond de sa carte, s'il en porte un (`shared/fonds.ts`) : la carte qu'on ouvre change d'allure. */
+    fond?: string
+    /**
      * Les prix du palmarès : ils tombent à chaque soirée, et six fois
      * L'Éclair ne disait rien à la salle. C'est la collection qui se montre —
      * combien de prix différents, sur tous ceux qu'une personne peut

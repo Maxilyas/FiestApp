@@ -55,12 +55,15 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `core/journal.ts` | le journal rangé question par question et quiz par quiz : la seule lecture qu'en font l'expérience et les hauts faits — et le coup d'œil de chaque estimation (`coupDOeil`), que lisent aussi le souvenir, le bilan et la carte |
 | `core/hautsfaits.ts` | les hauts faits d'une soirée, invité par invité — dérivation pure, jouée à la clôture et sur les archives |
 | `core/recalcul.ts` | au démarrage, relit l'historique au barème du jour (`VERSION_BAREME`) : expérience, prix, hauts faits, paliers |
-| `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les douze avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un ; et la rareté mesurée de chaque haut fait (`PART_DES_JOUEURS`), qui choisit les trois plus beaux de la carte (`plusBeaux`) |
+| `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un ; le Sphinx, treizième, au quiz du jour, par l'une de ses deux voies (`aussi`), et trois de saison (`saison`) — l'Arbre-Monde, lui, ne demande que les douze d'origine (`DOUZE_LEGENDAIRES`, `core/divins.ts`) ; et la rareté mesurée de chaque haut fait (`PART_DES_JOUEURS`), qui choisit les trois plus beaux de la carte (`plusBeaux`) |
 | `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) |
 | `shared/liens.ts` · `client/src/components/Lendemain.tsx` | les liens d'une soirée close, à l'adresse de son archive (`/<espace>/souvenir` change de soirée à la suivante) ; et « La dernière soirée », que le téléphone garde (`garderFin`, `client/src/state.ts`) pour l'entrée et l'accueil |
-| `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) : son titre, sa vitrine — celle qu'il a choisie, sinon ses trois plus beaux hauts faits —, sa collection de prix, son quiz du jour en une ligne |
+| `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) : son titre, sa vitrine — celle qu'il a choisie, sinon ses trois plus beaux hauts faits —, ses trois écussons les plus hauts, sa collection de prix, son quiz du jour en une ligne |
+| `shared/saisons.ts` · `core/saisons.ts` | les saisons (Halloween, Noël, le Nouvel An, à la date de Paris — `periodeDu`) et leur légendaire : quelques jours de quiz du jour dans la période (`JourStore.accorderSaison`), ou une soirée qui compte ces jours-là, datée à sa première question (`laureatsDeSaison`, à la clôture comme au recalcul) ; rangées `saison:…`, hors de l'étagère et du compte des badges |
+| `shared/fonds.ts` | les fonds de carte (nuit étoilée, aurore boréale, kintsugi, grand théâtre) : ce qu'on voit derrière sa carte, rien ailleurs ; ceux qu'il a gagnés (`fondsOuverts`), celui qu'il porte relu à chaque affichage (`fondPorte`), comme un titre. Le décor tient au cadre de la carte (`.carte-fond`), son contenu défile par-dessus (`.carte-defile`) |
+| `shared/ecussons.ts` · `client/src/components/Ecusson.tsx` | les écussons de savoir : les bonnes réponses d'une catégorie, soirées (`Carriere.categories`) et quiz du jour (`JourStore.categoriesDe`) ensemble, au bronze, à l'argent, à l'or (`SEUILS_ECUSSON`) — dérivation pure, sans expérience ; les trois plus hauts sur la carte (`plusBeauxEcussons`), les douze sur la page du profil |
 | `core/objectifs.ts` | ce que la fin de soirée raconte en plus de ce qu'elle rapporte : les records battus, « Tu t'en approches » — dérivations pures de l'historique, lues à la clôture après les crédits |
-| `shared/jour.ts` · `core/jour.ts` · `server/src/quizDuJour.ts` · `client/src/views/JourApp.tsx` | le quiz du jour, pour les profils : dix questions tirées à minuit (Paris) et figées, une partie chronométrée au serveur, dans la base permanente ; l'expérience (75 au plus, podium 25/15/10) dans la ligne `#jour` ; la nuit qui clôt la veille à la première demande (`clorePasses`) ; la réserve, ses signalements et les profils masqués, à `/admin` |
+| `shared/jour.ts` · `core/jour.ts` · `server/src/quizDuJour.ts` · `client/src/views/JourApp.tsx` | le quiz du jour, pour les profils : dix questions tirées à minuit (Paris) et figées, une partie chronométrée au serveur, dans la base permanente ; l'expérience (75 au plus, podium 25/15/10) dans la ligne `#jour` ; la nuit qui clôt la veille à la première demande (`clorePasses`) ; ses trois paliers (L'Assidu, Le Champion du jour, Le Sans-Faute), décernés à la fin d'une partie ou à la nuit (`accorderPaliersDuJour`) et rangés sous le jour (`cleDuJour`), jamais sous une soirée ; le laurier des vainqueurs d'hier (`laureats`), qui suit leur prénom jusque dans les soirées (`Distinctions.laurier`, `components/Laurier.tsx`) ; la réserve, ses signalements et les profils masqués, à `/admin` |
 | `core/consigne.ts` | la consigne qu'on donne à une IA pour écrire la réserve du quiz du jour — la routine Claude Code qui la remplit derrière `RESERVE_TOKEN` (`/api/jour/reserve` : la consigne, puis le dépôt ; MISE-EN-LIGNE.md, étape 8), ou « Copier la consigne pour une IA » à `/admin` : une seule pour les deux. Le serveur ne détient aucune clé d'IA |
 | `shared/glossaire.ts` · `client/src/components/Glossaire.tsx` | les mots maison (souvenir, bilan, coup d'œil, finition…), une phrase chacun, dépliée au toucher sous les pages qui les emploient — des Divins, le nom et le mystère seulement |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
@@ -71,7 +74,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/partage.ts` · `core/partages.ts` · `server/src/partages.ts` | partager, par copie seulement : un code court (sept jours, annulable, dix essais manqués par quart d'heure) et le catalogue que l'administrateur relit ; la copie reçue recopie toutes les pièces de ses questions (`copierPhotos`) |
 | `shared/modeles.ts` · `shared/emojis.ts` | les modèles livrés, leurs rayons et « Pour qui ? » ; la règle des emojis d'avant Unicode 13, que l'éditeur dit sur la carte et que `emojis.test.ts` garde |
 | `shared/liste.ts` | « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) ; et l'inverse, `ecrireListe` (« Copier en liste »), que `liste.test.ts` recolle |
-| `client/src/components/Legendaire.tsx` | les douze médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare ; figés dans les listes, animés là où ils sont le sujet |
+| `client/src/components/Legendaire.tsx` | les médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare ; figés dans les listes, animés là où ils sont le sujet |
 | `client/src/components/medaillons.ts` | les dessins des légendaires et des Divins, chargés à la demande : un invité anonyme ne les télécharge que si quelqu'un, dans la salle, en porte un — ne les importe pas statiquement sur son chemin (`Avatar`, `PlayerApp`, la carte ; `medaillons.test.ts` y veille), et un échec vaut pour toute la page |
 | `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
 | `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
@@ -86,7 +89,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `auth/http.ts` | cookies, adresse du client, et `loginBudgetOf(app)` : la réserve d'essais commune à toutes les portes |
 | `auth/appairage.ts` | brancher la télé : le code court qu'elle affiche, validé depuis une console ouverte, et la session d'une soirée qu'elle en reçoit ; `/attente` dit `perime` dans une réponse, jamais dans une erreur |
 | `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins (« Ce soir » : une action principale, les autres en petit) — et, sans profil, la porte discrète des animateurs (« J'anime une soirée ») ; puis trois onglets, retenus dans l'adresse (`#trophees`) |
-| `client/src/components/Apparence.tsx` · `Trophees.tsx` · `shared/proches.ts` | les onglets du profil : ce que la salle voit, la grille unique des avatars (emojis, légendaires, Divins, un anneau pour ce qui est rare, la légende au toucher), la finition, le titre ; la vitrine de la carte, qu'on choisit, le quiz du jour, les hauts faits les plus proches (`lesPlusProches`, dérivation pure), la collection de prix (`CATALOGUE_DES_PRIX`, `core/stats.ts`). Un titre et une vitrine ne sont que des hauts faits gagnés (`hautsFaitsGagnes`), relus à chaque affichage (`titrePorte`, `vitrineChoisie`) : une soirée retirée les emporte |
+| `client/src/components/Apparence.tsx` · `Trophees.tsx` · `shared/proches.ts` | les onglets du profil : ce que la salle voit, la grille unique des avatars (emojis, ceux de collection, légendaires, Divins, un anneau pour ce qui est rare, la légende au toucher), la finition, le titre ; la vitrine de la carte, qu'on choisit, le quiz du jour, les hauts faits les plus proches (`lesPlusProches`, dérivation pure), la collection de prix (`CATALOGUE_DES_PRIX`, `core/stats.ts`). Un titre et une vitrine ne sont que des hauts faits gagnés (`hautsFaitsGagnes`), relus à chaque affichage (`titrePorte`, `vitrineChoisie`) : une soirée retirée les emporte |
+| `shared/avatars.ts` | les avatars de l'inscription et le nettoyage de ce qui arrive du téléphone (`cleanAvatar`, `cleanName`, `tronquer`) ; et les douze emojis de collection (`COLLECTION`), un par niveau sans finition, réservés aux profils — `niveauRequis` lit le niveau qu'un avatar demande, doublé ou suivi d'un sélecteur de variante compris |
 | `shared/adresses.ts` · `core/apercus.ts` | une adresse lue une seule fois pour le client et le serveur ; le serveur y pose le statut (404 d'un espace, d'une page ou d'une archive inconnus), les balises d'aperçu (le titre de l'espace, **jamais un prénom**), `noindex` hors de l'accueil, et les seules corrections permises : ce que `normalizeSlug` fait de la saisie (casse, accents, espaces et ponctuation en tirets, 24 caractères au plus), puis la seule forme `chez-‹saisie›` — jamais un nom voisin (invariant 3) |
 | `client/src/onglets.ts` | les onglets nommés de la console, et « Revenir à la console » d'une page qu'elle a ouverte : jamais une seconde console |
 | `sockets.ts` | tout le protocole temps réel — chaque message passe par `ecouter()` |
@@ -428,6 +432,11 @@ sans `QUIZ_DB_URL`.
   seule oubliée, et la colonne se perd au premier réveil sur disque effacé.
 - **Toute mutation de `Party` qui touche un prénom, un avatar ou la
   composition invalide le cache des marques** d'homonymie.
+- **L'avatar d'un profil se lit par `avatarPorte`**, jamais par
+  `profil.avatar` : un emoji de collection au-dessus de son niveau (une
+  soirée retirée l'a fait redescendre) ne se montre pas. Et un avatar
+  n'entre dans une soirée que par `player:join`, qui demande
+  `peutPorter` : l'invité anonyme n'y porte aucun emoji de collection.
 - **L'éditeur n'envoie rien pendant qu'on écrit** : le serveur s'endort sous
   les doigts de l'animateur. Une écriture de l'éditeur qui se rejoue sans
   dommage passe par `auReveil` ; et une réponse qui arrive après deux minutes
@@ -504,7 +513,13 @@ sans `QUIZ_DB_URL`.
   mais pas dans l'historique : tout ce qui lit `profile_xp` comme des
   soirées écarte les deux lignes à part (`#paliers`, `#jour`) — la série du
   jour les écarte aussi. Rien ne tourne à minuit : une clôture passe par
-  `clorePasses`, à la première demande du jour. Et tout ce qui écrit les
+  `clorePasses`, à la première demande du jour — ou à la première diffusion
+  d'une soirée qui réclame les lauriers (`laureats`) : lus en mémoire, ils
+  se taisent à minuit, la nuit se clôt en arrière-plan, et la salle où
+  joue un lauréat se rediffuse (`laurierChange`). Ses paliers sont des hauts
+  faits de carrière marqués `duJour` : la carrière les compte (`jour`, pour
+  la page du profil), mais `paliersAtteints` — la clôture d'une soirée, le
+  recalcul — les écarte ; seul le quiz du jour les décerne. Et tout ce qui écrit les
   points ou l'expérience d'un profil passe sous son verrou, le tirage relu
   dedans — sa partie, le recompte d'une annulation, le podium de la nuit :
   recomptée d'un coup pour tout le jour, une annulation laissait payée la

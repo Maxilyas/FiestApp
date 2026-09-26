@@ -44,6 +44,9 @@ import {
   type QuestionDuJour,
   type RevelationDuJour,
 } from '../../../shared/jour'
+import type { StatsDuJour } from '../../../shared/profil'
+import { periodeDu } from '../../../shared/saisons'
+import { palierDe } from '../../../shared/hautsfaits'
 
 /** Une question telle que le jour l'a tirée, figée : réponses mélangées, temps de lecture compté. */
 interface QuestionTiree {
@@ -176,6 +179,9 @@ export interface JourDeps {
   maintenant?: () => number
 }
 
+/** Personne n'a de laurier : la liste d'avant-hier, avant que la nuit soit close. */
+const AUCUN_LAURIER: ReadonlySet<string> = new Set()
+
 export class JourStore {
   private client: Client
   private maintenant: () => number
@@ -193,6 +199,20 @@ export class JourStore {
   /** Les classements, gardés tant que rien n'a bougé : chaque téléphone qui finit sa partie le demande. */
   private revision = 0
   private classementsGardes = new Map<string, { revision: number; joueurs: Joueur[] }>()
+  /**
+   * Les vainqueurs d'un jour clos, et ce jour : le laurier de ceux d'hier
+   * (`laureats`). Relus à la nuit, une fois — ils servent à chaque
+   * diffusion à toute la salle.
+   */
+  private lauriers: { jour: string; ids: ReadonlySet<string> } = { jour: '', ids: AUCUN_LAURIER }
+  /** Une relecture des lauriers en route : une rafale de diffusions n'en lance qu'une. */
+  private lauriersEnRoute: Promise<void> | null = null
+  private ferme = false
+  /**
+   * Un laurier est tombé ou s'est posé sur ce profil : la salle des soirées
+   * où il joue se rediffuse. Branché par le serveur, qui connaît les salles.
+   */
+  laurierChange?: (profileId: string) => void
 
   constructor(
     url: string,
@@ -298,6 +318,7 @@ export class JourStore {
   }
 
   close() {
+    this.ferme = true
     this.client.close()
   }
 
@@ -696,7 +717,10 @@ export class JourStore {
     )
     if (res[1].rowsAffected === 0) return
     this.revision++
-    await this.ecrireXp(partie.profileId)
+    // Ses paliers ne bougent qu'avec la partie finie : un jour joué, un
+    // sans-faute. Les chercher à chaque réponse coûtait un aller-retour de
+    // plus sous les doigts du joueur.
+    await this.ecrireXp(partie.profileId, partie.jour, derniere)
   }
 
   /** Ce que la réponse à une question lui apprend. */
@@ -785,7 +809,7 @@ export class JourStore {
     const comptees = total - tirage.annulees.length
     const categories = [...new Set(tirage.questions.map(q => q.categorie).filter((c): c is string => !!c))]
     const joueurs = await this.joueursDu(jour, profil.id)
-    const nom = nommer(joueurs)
+    const nom = nommer(joueurs, p => this.deps.profiles.avatarPorte(p))
     const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
     const moi = classes.find(c => c.item.profil.id === profil.id)
     const devant = moi && classes.filter(c => c.item.points > moi.item.points).at(-1)
@@ -815,6 +839,28 @@ export class JourStore {
       else if (partie.question > 0) vue = { ...vue, revelation: await this.revelationDe(profil.id, tirage, partie.question - 1) }
     }
     if (partie && etat === 'finie' && revelation) vue = { ...vue, revelation }
+    if (etat === 'finie') {
+      const tombees = await this.deps.profiles.recompensesDuJour(profil.id, jour)
+      const paliers = tombees.filter(t => palierDe(t.key))
+      if (paliers.length > 0) vue = { ...vue, paliers }
+      // Le Sphinx, par ses paliers ; un légendaire de saison, par sa saison.
+      const legendaires = this.deps.profiles.legendairesOuverts(profil.id, tombees.map(t => t.key))
+      if (legendaires.length > 0) vue = { ...vue, legendaires }
+    }
+    // Pendant une saison, ce qui manque encore à son légendaire.
+    const periode = periodeDu(jour)
+    if (periode && !this.deps.profiles.legendairesOf(profil.id).includes(periode.saison.legendaire)) {
+      vue = {
+        ...vue,
+        saison: {
+          nom: periode.saison.nom,
+          legendaire: periode.saison.legendaire,
+          joues: await this.joursDeSaison(profil.id, periode),
+          requis: periode.saison.jours,
+          periode: periode.saison.periode,
+        },
+      }
+    }
     return vue
   }
 
@@ -867,18 +913,19 @@ export class JourStore {
   }
 
   private lignes(joueurs: readonly Joueur[], periode: string, pour: string | null): Omit<ClassementDuJour, 'fige'> {
-    const nom = nommer(joueurs)
+    const nom = nommer(joueurs, p => this.deps.profiles.avatarPorte(p))
     const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
     const ligne = ({ item: j, rang }: { item: Joueur; rang: number }): LigneDuJour => {
-      const { niveau, finition, eclat, legendaire } = this.deps.profiles.apparenceDe(j.profil)
+      const { niveau, finition, eclat, legendaire, laurier } = this.deps.profiles.apparenceDe(j.profil)
       return {
         profileId: j.profil.id,
         nom: nom(j),
-        avatar: j.profil.avatar,
+        avatar: this.deps.profiles.avatarPorte(j.profil),
         niveau,
         finition,
         ...(legendaire && { legendaire }),
         ...(eclat && { eclat: true as const }),
+        ...(laurier && { laurier: true as const }),
         points: j.points,
         rang,
         ...(j.enCours && { enCours: true as const }),
@@ -906,10 +953,10 @@ export class JourStore {
     if (res.rows.length === 0) return []
     const premiers = new Set(res.rows.map(r => String(r.profile_id)))
     const joueurs = await this.joueursDu(jour, null)
-    const nom = nommer(joueurs)
+    const nom = nommer(joueurs, p => this.deps.profiles.avatarPorte(p))
     return joueurs
       .filter(j => premiers.has(j.profil.id))
-      .map(j => ({ nom: nom(j), avatar: j.profil.avatar }))
+      .map(j => ({ nom: nom(j), avatar: this.deps.profiles.avatarPorte(j.profil) }))
       .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
   }
 
@@ -925,16 +972,72 @@ export class JourStore {
     const classes = classer(joueurs, j => j.points, j => j.profil.name, j => j.profil.id)
     const rang = classes.find(c => c.item.profil.id === profil.id)?.rang ?? 0
     const comptees = tirage ? tirage.questions.length - tirage.annulees.length : 0
+    // Celui de la victoire seulement : les autres tombaient avec la partie,
+    // et sa fin les a déjà annoncés.
+    const paliers = (await this.deps.profiles.paliersDuJourTombes(profil.id, jour)).filter(p => p.key.startsWith('hf:champion-du-jour:'))
     return {
       rang,
       joueurs: joueurs.length,
       points: partie.points,
       xpPodium: Number(podium.rows[0]?.xp ?? 0),
       medaille: medailleDe(partie.justes, comptees),
+      ...(paliers.length > 0 && { paliers }),
     }
   }
 
   // ── Sa carrière au quiz du jour ─────────────────────────────────────────
+
+  /**
+   * Ce que ses paliers du quiz du jour comptent : ses jours joués — une
+   * partie commencée compte, comme pour la série —, ses victoires, et ses
+   * jours sans une faute (la médaille d'or, sur les questions qui comptent
+   * encore).
+   */
+  async statsDuJour(profileId: string): Promise<StatsDuJour> {
+    const [joues, victoires, sansFautes] = await this.client.batch(
+      [
+        { sql: 'SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT COUNT(*) AS n FROM jour_podiums WHERE profile_id = ? AND rang = 1', args: [profileId] },
+        {
+          sql: `SELECT COUNT(*) AS n FROM jour_parties p JOIN jour_tirages t ON t.jour = p.jour
+                WHERE p.profile_id = ? AND p.finie_le IS NOT NULL
+                  AND json_array_length(t.questions) > json_array_length(t.annulees)
+                  AND p.justes >= json_array_length(t.questions) - json_array_length(t.annulees)`,
+          args: [profileId],
+        },
+      ],
+      'read',
+    )
+    return {
+      joues: Number(joues.rows[0]?.n ?? 0),
+      victoires: Number(victoires.rows[0]?.n ?? 0),
+      sansFautes: Number(sansFautes.rows[0]?.n ?? 0),
+    }
+  }
+
+  /**
+   * Ses questions et ses bonnes réponses du quiz du jour, catégorie par
+   * catégorie : de quoi faire ses écussons de savoir (`shared/ecussons.ts`),
+   * avec celles des soirées. Une question annulée pour tous ne compte pas —
+   * ni pour lui, ni contre lui.
+   */
+  async categoriesDe(profileId: string): Promise<Record<string, { questions: number; justes: number }>> {
+    const res = await this.client.execute({
+      sql: `SELECT json_extract(t.questions, '$[' || r.question || '].categorie') AS categorie,
+                   COUNT(*) AS questions, SUM(r.juste) AS justes
+            FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
+            WHERE r.profile_id = ?
+              AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
+            GROUP BY categorie`,
+      args: [profileId],
+    })
+    const categories: Record<string, { questions: number; justes: number }> = {}
+    for (const r of res.rows) {
+      if (r.categorie == null) continue
+      categories[String(r.categorie)] = { questions: Number(r.questions), justes: Number(r.justes ?? 0) }
+    }
+    return categories
+  }
 
   /** Ce que la carte d'un joueur dit de son quiz du jour : les jours joués, les victoires. */
   async resumeDe(profileId: string): Promise<{ joues: number; victoires: number }> {
@@ -1084,15 +1187,18 @@ export class JourStore {
    */
   async clorePasses(aujourdhui: string): Promise<void> {
     const hier = jourAvant(aujourdhui)
-    if (this.closJusqua >= hier) return
+    if (this.closJusqua >= hier && this.lauriers.jour === hier) return
     await this.avecVerrou('#nuit', async () => {
-      if (this.closJusqua >= hier) return
-      const res = await this.client.execute({
-        sql: `SELECT DISTINCT jour FROM jour_parties WHERE jour < ? AND jour NOT IN (SELECT jour FROM jour_clotures) ORDER BY jour`,
-        args: [aujourdhui],
-      })
-      for (const r of res.rows) await this.clore(String(r.jour))
-      this.closJusqua = hier
+      if (this.closJusqua < hier) {
+        const res = await this.client.execute({
+          sql: `SELECT DISTINCT jour FROM jour_parties WHERE jour < ? AND jour NOT IN (SELECT jour FROM jour_clotures) ORDER BY jour`,
+          args: [aujourdhui],
+        })
+        for (const r of res.rows) await this.clore(String(r.jour))
+        this.closJusqua = hier
+      }
+      // La nuit close, le laurier passe à ceux d'hier.
+      if (this.lauriers.jour !== hier) await this.lireLauriers(hier)
     })
   }
 
@@ -1121,16 +1227,18 @@ export class JourStore {
       'write',
     )
     this.revision++
-    for (const p of podium) await this.avecVerrou(p.profileId, () => this.ecrireXp(p.profileId))
+    for (const p of podium) await this.avecVerrou(p.profileId, () => this.ecrireXp(p.profileId, jour))
     console.log(`[jour] ${jour} clos : ${joueurs.length} joueur${joueurs.length > 1 ? 's' : ''}, ${podium.length} sur le podium`)
   }
 
   /**
    * Toute son expérience du quiz du jour, parties et podiums, recopiée dans
    * sa ligne (`LIGNE_JOUR`) — toujours sous le verrou du profil : lue puis
-   * écrite, elle laisserait sinon une somme périmée par-dessus la bonne.
+   * écrite, elle laisserait sinon une somme périmée par-dessus la bonne. Puis
+   * les paliers du quiz du jour qu'elle lui fait atteindre, rangés sous ce
+   * jour : celui de sa partie, ou celui que la nuit vient de clore.
    */
-  private async ecrireXp(profileId: string) {
+  private async ecrireXp(profileId: string, jour: string, paliers = true) {
     const [parties, podiums] = await this.client.batch(
       [
         { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp, COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
@@ -1140,6 +1248,29 @@ export class JourStore {
     )
     const xp = Number(parties.rows[0]?.xp ?? 0) + Number(podiums.rows[0]?.xp ?? 0)
     await this.deps.profiles.ecrireXpDuJour(profileId, xp, Number(parties.rows[0]?.n ?? 0))
+    if (paliers) {
+      await this.deps.profiles.accorderPaliersDuJour(profileId, jour, await this.statsDuJour(profileId))
+      await this.accorderSaison(profileId, jour)
+    }
+  }
+
+  /** Ses jours joués dans la période d'une saison — une partie commencée compte, comme pour la série. */
+  private async joursDeSaison(profileId: string, periode: { debut: string; fin: string }): Promise<number> {
+    const res = await this.client.execute({
+      sql: 'SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ? AND jour >= ? AND jour <= ?',
+      args: [profileId, periode.debut, periode.fin],
+    })
+    return Number(res.rows[0]?.n ?? 0)
+  }
+
+  /**
+   * Halloween, Noël, le Nouvel An (`shared/saisons.ts`) : assez de jours joués
+   * dans la période ouvrent le légendaire de la saison, rangé sous ce jour.
+   */
+  private async accorderSaison(profileId: string, jour: string) {
+    const periode = periodeDu(jour)
+    if (!periode || (await this.joursDeSaison(profileId, periode)) < periode.saison.jours) return
+    await this.deps.profiles.accorderSaison(profileId, periode.saison, jour)
   }
 
   // ── La correction ───────────────────────────────────────────────────────
@@ -1308,7 +1439,7 @@ export class JourStore {
       sql: 'UPDATE jour_parties SET xp = ? WHERE profile_id = ? AND jour = ?',
       args: [xpDuJour(points, possiblesDe(tirage)), profileId, jour],
     })
-    await this.ecrireXp(profileId)
+    await this.ecrireXp(profileId, jour)
   }
 
   /** Masque un profil du classement — ou l'y remet. Il n'en est pas averti. */
@@ -1321,6 +1452,52 @@ export class JourStore {
     if (masque) this.masques.add(profileId)
     else this.masques.delete(profileId)
     this.revision++
+    // Masqué, il ne s'annonce plus : son laurier tombe avec, et revient s'il
+    // est rendu au classement le jour même.
+    const hier = jourAvant(jourDe(this.maintenant()))
+    if (this.lauriers.jour === hier) await this.lireLauriers(hier)
+  }
+
+  // ── Le laurier ──────────────────────────────────────────────────────────
+
+  /**
+   * Les vainqueurs d'hier — tous les ex æquo en tête, les masqués écartés :
+   * un laurier suit leur prénom toute la journée, jusque dans les soirées où
+   * ils jouent. Lus en mémoire, sans attendre : chaque diffusion à toute la
+   * salle les demande.
+   *
+   * Rien ne tourne à minuit. Passé minuit, la liste d'avant-hier se tait
+   * aussitôt, et la nuit se clôt en arrière-plan si personne n'est encore
+   * revenu au quiz du jour : les lauriers se posent alors sur ceux d'hier,
+   * et les salles où ils jouent se rediffusent (`laurierChange`).
+   */
+  laureats(): ReadonlySet<string> {
+    const aujourdhui = jourDe(this.maintenant())
+    if (this.lauriers.jour === jourAvant(aujourdhui)) return this.lauriers.ids
+    if (!this.lauriersEnRoute && !this.ferme) {
+      this.lauriersEnRoute = this.clorePasses(aujourdhui)
+        .catch(e => {
+          if (!this.ferme) console.error('[jour] les lauriers d’hier n’ont pas pu se lire :', e)
+        })
+        .finally(() => {
+          this.lauriersEnRoute = null
+        })
+    }
+    return AUCUN_LAURIER
+  }
+
+  /**
+   * Relit les vainqueurs d'un jour clos, et rediffuse la salle de ceux dont
+   * le laurier change : ceux qui le gagnent, ceux qui le perdent — et ceux
+   * qui l'avaient déjà, que la salle a pu voir sans lui depuis minuit.
+   */
+  private async lireLauriers(jour: string) {
+    const res = await this.client.execute({ sql: 'SELECT profile_id FROM jour_podiums WHERE jour = ? AND rang = 1', args: [jour] })
+    const ids = new Set(res.rows.map(r => String(r.profile_id)).filter(id => !this.masques.has(id)))
+    const avant = this.lauriers
+    this.lauriers = { jour, ids }
+    const touches = new Set([...ids, ...avant.ids])
+    for (const id of touches) if (avant.jour !== jour || avant.ids.has(id) !== ids.has(id)) this.laurierChange?.(id)
   }
 
   /** Les profils masqués, et ceux qu'une recherche trouve — pour l'administration. */
@@ -1367,9 +1544,12 @@ function possiblesDe(tirage: Tirage): number {
  * que soit son rang. Tout prénom du quiz du jour passe par ici — le
  * classement, « à 70 pts de », le vainqueur d'hier (invariant 17).
  */
-function nommer(joueurs: readonly Joueur[]): (j: Joueur) => string {
+function nommer(joueurs: readonly Joueur[], avatarDe: (p: ProfileRec) => string): (j: Joueur) => string {
   const arrivee = [...joueurs].sort((a, b) => a.commenceeLe - b.commenceeLe || a.profil.id.localeCompare(b.profil.id))
-  const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: j.profil.avatar })))
+  // L'avatar qu'on voit, pas celui qu'il a en base : deux Camille qu'un
+  // emoji de collection redevenu trop haut laisse sous le même 🎉 se
+  // distinguent comme les autres.
+  const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: avatarDe(j.profil) })))
   return j => marques.get(j.profil.id) ?? j.profil.name
 }
 

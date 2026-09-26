@@ -9,13 +9,15 @@
 // serveur, et rien ne s'écrit.
 
 import { HAUTS_FAITS_DE_CARRIERE, clePalier, hautFait, type HautFaitVu } from './hautsfaits'
-import { LEGENDAIRES, progresVers } from './legendaires'
+import { LEGENDAIRES } from './legendaires'
 
 /** Un objectif commencé : un légendaire (`lg:…`) ou un palier de carrière (`hf:…:2`), et où il en est. */
 export interface Proche {
   key: string
   acquis: number
   requis: number
+  /** Le haut fait que la jauge compte, pour un légendaire à deux voies : celle où il en est le plus loin. */
+  hautFait?: string
 }
 
 /**
@@ -54,17 +56,24 @@ export function lesPlusProches(hautsFaits: readonly HautFaitVu[], legendaires: r
   const representes = new Set<string>()
   for (const l of LEGENDAIRES) {
     if (legendaires.includes(l.key)) continue
-    const c = l.condition
-    if ('fois' in c) {
-      const { acquis, requis } = progresVers(l, recompenses)
-      if (acquis > 0 && acquis < requis) candidats.push({ key: l.key, acquis, requis, legendaire: true })
-      continue
+    // Une voie, ou deux (le Sphinx) : la plus avancée le représente, et
+    // chacun de ses paliers ne se montre plus à part.
+    let meilleure: (Proche & { legendaire: boolean }) | null = null
+    for (const c of l.aussi ? [l.condition, l.aussi] : [l.condition]) {
+      let voie: { acquis: number; requis: number } | null = null
+      if ('fois' in c) {
+        voie = { acquis: Math.min(c.fois, recompenses.get(c.hautFait) ?? 0), requis: c.fois }
+      } else {
+        const h = hautFait(c.hautFait)
+        if (h?.famille !== 'carriere') continue
+        representes.add(clePalier(h.key, c.palier))
+        voie = { acquis: valeur.get(h.key) ?? 0, requis: h.paliers[c.palier - 1] }
+      }
+      if (voie.acquis <= 0 || voie.acquis >= voie.requis) continue
+      if (meilleure && voie.acquis / voie.requis <= meilleure.acquis / meilleure.requis) continue
+      meilleure = { key: l.key, ...voie, legendaire: true, ...(l.aussi && { hautFait: c.hautFait }) }
     }
-    const h = hautFait(c.hautFait)
-    if (h?.famille !== 'carriere') continue
-    representes.add(clePalier(h.key, c.palier))
-    const [acquis, requis] = [valeur.get(h.key) ?? 0, h.paliers[c.palier - 1]]
-    if (acquis > 0 && acquis < requis) candidats.push({ key: l.key, acquis, requis, legendaire: true })
+    if (meilleure) candidats.push(meilleure)
   }
   for (const h of HAUTS_FAITS_DE_CARRIERE) {
     if (DEJA_DITS.has(h.key)) continue
@@ -79,5 +88,5 @@ export function lesPlusProches(hautsFaits: readonly HautFaitVu[], legendaires: r
         b.acquis / b.requis - a.acquis / a.requis || Number(b.legendaire) - Number(a.legendaire) || a.key.localeCompare(b.key),
     )
     .slice(0, n)
-    .map(({ key, acquis, requis }) => ({ key, acquis, requis }))
+    .map(({ legendaire: _, ...proche }) => proche)
 }

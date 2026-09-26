@@ -2,6 +2,7 @@ import type { Distinctions } from '../../../shared/profil'
 import { rangPartage } from '../../../shared/classement'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
+import { Laurier, NomLaure } from './Laurier'
 import { Rank, Score } from './Rank'
 
 export interface PodiumRow extends Distinctions {
@@ -34,7 +35,9 @@ export function Standings({ rows, offset = 0 }: { rows: PodiumRow[]; offset?: nu
         <div key={i} className="lb-row" role="listitem" style={{ animationDelay: `${i * 60}ms` }}>
           <Rank n={rank[i]} />
           <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
-          <span className="lb-name">{p.name}</span>
+          <span className="lb-name">
+            <NomLaure nom={p.name} laurier={p.laurier} />
+          </span>
           <Niveau niveau={p.niveau} />
           <Score n={p.points} />
         </div>
@@ -94,8 +97,11 @@ export function FinalPodium({ rows }: { rows: PodiumRow[] }) {
               l'œil, lui, le lit sur la marche, sous le nom. */}
           <span className="sr-only">Rang {rank[i]} : </span>
           <Avatar className="podium-avatar" avatar={row.avatar} finition={row.finition} eclat={row.eclat} legendaire={row.legendaire} />
+          {/* Le laurier et le niveau hors de la coupe du nom : coupés avec
+              lui, ceux du vainqueur au nom long disparaissaient. */}
           <span className="podium-name">
             <span className="podium-nom">{row.name}</span>
+            <Laurier laurier={row.laurier} />
             <Niveau niveau={row.niveau} />
           </span>
           {/* La marche ne rétrécit pas sous un nom long : elle prend sa part de

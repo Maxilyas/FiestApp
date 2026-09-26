@@ -25,6 +25,8 @@ export interface ProfileBadge {
   eclat: boolean
   /** L'avatar dessiné qu'il porte — légendaire ou Divin : il remplace l'emoji à l'écran. */
   legendaire?: string
+  /** Il a gagné le quiz du jour d'hier. */
+  laurier?: boolean
 }
 
 /**
@@ -366,6 +368,7 @@ export class Party {
       ...(badge && { niveau: badge.niveau, finition: badge.finition }),
       ...(badge?.eclat && { eclat: true }),
       ...(badge?.legendaire && { legendaire: badge.legendaire }),
+      ...(badge?.laurier && { laurier: true }),
       // Même raison : absent tant qu'aucun homonyme ne porte le même avatar.
       ...(marques.has(p.id) && { nomAffiche: marques.get(p.id) }),
     }

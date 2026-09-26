@@ -260,9 +260,30 @@ const decrire = (r: Regle) =>
       ? `${r.condition.hautFait} × ${r.condition.fois}`
       : `${r.condition.hautFait} palier ${r.condition.palier}`
 
+/**
+ * Ceux que la bande simulée ne peut pas gagner : elle joue toujours chez le
+ * même hôte, sous le même emoji, sans Éclat, et ne change jamais d'avis ; et
+ * jamais au quiz du jour, que ses paliers comptent (le Sphinx avec). Leur
+ * rareté dépend d'une habitude ou d'un tirage, pas du jeu — le rapport les
+ * signale au lieu de les dire impossibles.
+ */
+const NON_SIMULES = new Set([
+  'hf:globe-trotteur',
+  'hf:collection',
+  'hf:eclats',
+  'hf:girouette',
+  ...HAUTS_FAITS_DE_CARRIERE.filter(h => h.duJour).map(h => h.key),
+])
+/**
+ * Les légendaires que la bande peut gagner : ceux d'une voie simulée. Ni le
+ * Sphinx (le quiz du jour), ni ceux de saison : la bande joue sans date.
+ */
+const LEGENDAIRES_SIMULES = LEGENDAIRES.filter(l => !NON_SIMULES.has(l.condition.hautFait) && !l.saison)
+
+
 /** Ce qu'on essaie, légendaire par légendaire : la règle du catalogue, puis d'autres seuils. */
 const ESSAIS: Record<string, Regle[]> = Object.fromEntries(
-  LEGENDAIRES.map(l => {
+  LEGENDAIRES_SIMULES.map(l => {
     const c = l.condition
     const autres: Regle[] =
       'fois' in c
@@ -283,13 +304,6 @@ const CLES_MESUREES = [
   ...HAUTS_FAITS_DE_SOIREE.map(h => h.key),
   ...HAUTS_FAITS_DE_CARRIERE.flatMap(h => [1, 2, 3].map(p => clePalier(h.key, p))),
 ]
-/**
- * Ceux que la bande simulée ne peut pas gagner : elle joue toujours chez le
- * même hôte, sous le même emoji, sans Éclat, et ne change jamais d'avis. Leur
- * rareté dépend d'une habitude ou d'un tirage, pas du jeu — le rapport les
- * signale au lieu de les dire impossibles.
- */
-const NON_SIMULES = new Set(['hf:globe-trotteur', 'hf:collection', 'hf:eclats', 'hf:girouette'])
 
 // ── La simulation ─────────────────────────────────────────────────────────
 
@@ -386,6 +400,10 @@ console.log(
 )
 console.log('légendaire      règle                    1er de la bande  quart le + doué  médiane  ≤ 20 quiz')
 for (const l of LEGENDAIRES) {
+  if (!ESSAIS[l.key]) {
+    console.log(`${l.nom.padEnd(16).slice(0, 16)}  ${(l.saison ? 'non simulé : sa saison' : 'non simulé : le quiz du jour').padEnd(25)}`)
+    continue
+  }
   for (const [i, r] of ESSAIS[l.key].entries()) {
     const xs = tombes.get(cle(l.key, r))!
     const part = xs.filter(x => x <= 20).length / xs.length

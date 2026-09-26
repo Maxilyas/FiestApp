@@ -401,7 +401,12 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // fait foi.
         const declare = !known || !token
         const name = declare ? texte(charge.name) || profile?.name || '' : ''
-        const avatar = declare ? texte(charge.avatar) || profile?.avatar || '' : ''
+        // Un emoji de collection ne se porte qu'au niveau du profil qui l'a
+        // ouvert. L'écran d'entrée n'en propose pas : seul un appel forgé en
+        // enverrait un, et l'invité anonyme repart avec l'avatar par défaut.
+        const tape = texte(charge.avatar)
+        const choisi = tape && deps.profiles.peutPorter(profile, tape) ? tape : ''
+        const avatar = declare ? choisi || (profile ? deps.profiles.avatarPorte(profile) : '') : ''
         const res = rt.party.join(name, avatar, known?.token, teamId)
         if ('error' in res) return repondre({ ok: false, error: res.error })
         if (!known) {

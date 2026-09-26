@@ -10,7 +10,10 @@ import { chargerDessinsAuPlus, complets, useDessins } from './medaillons'
 import { Chiffres, justesses } from './Chiffres'
 import { Icon } from './Icon'
 import { Niveau } from './Niveau'
+import { Laurier } from './Laurier'
+import { Ecusson } from './Ecusson'
 import { Flamme } from './Jour'
+import { fond as fondDeCarte } from '../../../shared/fonds'
 
 /**
  * La carte d'un joueur, ouverte en touchant son nom : ce qu'il fait ce soir,
@@ -63,132 +66,153 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
   // qui vaut pour toute la page), ce seraient des rangées de cercles vides.
   // Ils peuvent aussi arriver après l'ouverture : la carte les ajoute alors.
   const avecDessins = complets(useDessins(false))
+  // Son fond de carte, s'il en porte un : seulement l'un du catalogue.
+  const fond = fondDeCarte(p?.fond)?.key
   return (
     <div className="dialog-backdrop" onClick={onFermer}>
       <div
         ref={boite}
-        className="card dialog carte-joueur"
+        className={'card dialog carte-joueur' + (fond ? ` carte-fond fond-${fond}` : '')}
         role="dialog"
         aria-modal="true"
         aria-label={carte ? `Carte ${deNom(carte.nom)}` : 'Carte du joueur'}
         tabIndex={-1}
         onClick={e => e.stopPropagation()}
       >
-        {erreur && <p className="muted">{erreur}</p>}
-        {!carte && !erreur && <p className="muted">Chargement…</p>}
-        {carte && (
-          <>
-            <header className="carte-tete">
-              <Avatar
-                className="carte-avatar"
-                avatar={carte.avatar}
-                finition={carte.finition}
-                eclat={carte.eclat}
-                legendaire={carte.legendaire}
-              />
-              <div>
-                <h3>
-                  {carte.nom}
-                  <Niveau niveau={p?.niveau} big />
-                </h3>
-                {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné. */}
-                {p?.titre && hautFait(p.titre) && <p className="titre-porte">{espacesFines(`« ${hautFait(p.titre)!.title} »`)}</p>}
-                {p && p.prenom !== carte.nom && <p className="muted small">{espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil</p>}
-                <p className="carte-soir">
-                  {carte.ceSoir.rang > 0 ? (
-                    <>
-                      <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
-                    </>
-                  ) : (
-                    'Pas encore de points ce soir'
-                  )}
-                </p>
-                {/* Les QCM et les estimations, chacun à sa façon : « 1/64
-                    justes » comptait des estimations qui ne sont jamais justes. */}
-                {carte.ceSoir.reponses > 0 && <p className="muted small">{reponsesParType(carte.ceSoir)}</p>}
-              </div>
-            </header>
-
-            {p && (
-              <>
-                {avecDessins && (p.divins ?? []).length > 0 && (
-                  <div className="carte-legendaires carte-divins" aria-label="Divins">
-                    {p.divins.map(cle => (
-                      <span key={cle} className="carte-legendaire" title={divin(cle)?.nom}>
-                        <Dessin cle={cle} />
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {avecDessins && p.legendaires.length > 0 && (
-                  <div className="carte-legendaires" aria-label="Avatars légendaires">
-                    {p.legendaires.map(cle => (
-                      <span key={cle} className="carte-legendaire" title={legendaire(cle)?.nom}>
-                        <Dessin cle={cle} />
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {/* Ce qui le distingue, avec ce qu'il a fallu faire : un titre
-                    seul (« Le Buzzer d'Or ») ne dit rien à qui ne l'a jamais
-                    chassé. */}
-                {p.vitrine.length > 0 && (
-                  <div>
-                    <span className="label">Ses plus beaux hauts faits</span>
-                    <ul className="carte-beaux">
-                      {p.vitrine.map(b => (
-                        <li key={b.key}>
-                          <span className="hf-emoji" aria-hidden="true">
-                            {b.emoji}
-                          </span>
-                          <span className="hf-corps">
-                            <span className="hf-titre">
-                              {b.title}
-                              {b.fois > 1 && <span className="hf-fois">×{b.fois}</span>}
-                            </span>
-                            <span className="muted small">{ceQuIlAFallu(b.key)}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {/* La justesse aux QCM et aux estimations, côte à côte : la
-                    plus longue série, qui ne compte que les QCM, a cédé sa case. */}
-                <Chiffres
-                  className="carte-chiffres"
-                  cases={[
-                    ['Soirées', formatNumber(p.fiche.soirees)],
-                    ['Quiz gagnés', formatNumber(p.fiche.quizGagnes)],
-                    ['Hauts faits', formatNumber(p.hautsFaits)],
-                    ...justesses(p.fiche),
-                    ['Réflexe moyen', secondes(p.fiche.reflexeMoyenMs)],
-                  ]}
+        {/* Le contenu défile dans son cadre, et le fond de la carte reste en
+            place derrière lui : posé sur un cadre qui défile, il s'arrêtait
+            à la hauteur de l'écran. */}
+        <div className="carte-defile">
+          {erreur && <p className="muted">{erreur}</p>}
+          {!carte && !erreur && <p className="muted">Chargement…</p>}
+          {carte && (
+            <>
+              <header className="carte-tete">
+                <Avatar
+                  className="carte-avatar"
+                  avatar={carte.avatar}
+                  finition={carte.finition}
+                  eclat={carte.eclat}
+                  legendaire={carte.legendaire}
                 />
-                {/* Ses prix : leur nombre, pas leur liste — ils tombent à
-                    chaque soirée. Rien tant qu'il n'en a aucun. */}
-                {p.prix && p.prix.eus > 0 && (
-                  <p className="carte-prix muted small">
-                    <Icon name="award" />
-                    Prix de soirée : {p.prix.eus} sur {p.prix.total}
+                <div>
+                  <h3>
+                    {carte.nom}
+                    <Niveau niveau={p?.niveau} big />
+                  </h3>
+                  {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné. */}
+                  {p?.titre && hautFait(p.titre) && <p className="titre-porte">{espacesFines(`« ${hautFait(p.titre)!.title} »`)}</p>}
+                  {carte.laurier && (
+                    <p className="carte-laurier">
+                      <Laurier laurier /> Vainqueur du quiz du jour d’hier
+                    </p>
+                  )}
+                  {p && p.prenom !== carte.nom && <p className="muted small">{espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil</p>}
+                  <p className="carte-soir">
+                    {carte.ceSoir.rang > 0 ? (
+                      <>
+                        <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
+                      </>
+                    ) : (
+                      'Pas encore de points ce soir'
+                    )}
                   </p>
-                )}
-                {/* Son quiz du jour, en une ligne : rien s'il n'y a jamais joué. */}
-                {p.jour && (
-                  <p className="carte-prix muted small">
-                    <Flamme />
-                    Quiz du jour : {p.jour.joues} jour{p.jour.joues > 1 ? 's' : ''} joué{p.jour.joues > 1 ? 's' : ''}
-                    {p.jour.victoires > 0 && ` · ${p.jour.victoires} victoire${p.jour.victoires > 1 ? 's' : ''}`}
-                  </p>
-                )}
-              </>
-            )}
-          </>
-        )}
-        <div className="row dialog-actions">
-          <button type="button" className="btn btn-ghost" onClick={onFermer}>
-            Fermer
-          </button>
+                  {/* Les QCM et les estimations, chacun à sa façon : « 1/64
+                      justes » comptait des estimations qui ne sont jamais justes. */}
+                  {carte.ceSoir.reponses > 0 && <p className="muted small">{reponsesParType(carte.ceSoir)}</p>}
+                </div>
+              </header>
+
+              {p && (
+                <>
+                  {avecDessins && (p.divins ?? []).length > 0 && (
+                    <div className="carte-legendaires carte-divins" aria-label="Divins">
+                      {p.divins.map(cle => (
+                        <span key={cle} className="carte-legendaire" title={divin(cle)?.nom}>
+                          <Dessin cle={cle} />
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {avecDessins && p.legendaires.length > 0 && (
+                    <div className="carte-legendaires" aria-label="Avatars légendaires">
+                      {p.legendaires.map(cle => (
+                        <span key={cle} className="carte-legendaire" title={legendaire(cle)?.nom}>
+                          <Dessin cle={cle} />
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {/* Ce qui le distingue, avec ce qu'il a fallu faire : un titre
+                      seul (« Le Buzzer d'Or ») ne dit rien à qui ne l'a jamais
+                      chassé. */}
+                  {p.vitrine.length > 0 && (
+                    <div>
+                      <span className="label">Ses plus beaux hauts faits</span>
+                      <ul className="carte-beaux">
+                        {p.vitrine.map(b => (
+                          <li key={b.key}>
+                            <span className="hf-emoji" aria-hidden="true">
+                              {b.emoji}
+                            </span>
+                            <span className="hf-corps">
+                              <span className="hf-titre">
+                                {b.title}
+                                {b.fois > 1 && <span className="hf-fois">×{b.fois}</span>}
+                              </span>
+                              <span className="muted small">{ceQuIlAFallu(b.key)}</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {/* Ce qu'il sait, catégorie par catégorie : ses trois écussons
+                      les plus hauts. Rien tant qu'il n'en a aucun. */}
+                  {p.ecussons && p.ecussons.length > 0 && (
+                    <div className="ecussons" aria-label="Écussons de savoir">
+                      {p.ecussons.map(e => (
+                        <Ecusson key={e.categorie} categorie={e.categorie} palier={e.palier} />
+                      ))}
+                    </div>
+                  )}
+                  {/* La justesse aux QCM et aux estimations, côte à côte : la
+                      plus longue série, qui ne compte que les QCM, a cédé sa case. */}
+                  <Chiffres
+                    className="carte-chiffres"
+                    cases={[
+                      ['Soirées', formatNumber(p.fiche.soirees)],
+                      ['Quiz gagnés', formatNumber(p.fiche.quizGagnes)],
+                      ['Hauts faits', formatNumber(p.hautsFaits)],
+                      ...justesses(p.fiche),
+                      ['Réflexe moyen', secondes(p.fiche.reflexeMoyenMs)],
+                    ]}
+                  />
+                  {/* Ses prix : leur nombre, pas leur liste — ils tombent à
+                      chaque soirée. Rien tant qu'il n'en a aucun. */}
+                  {p.prix && p.prix.eus > 0 && (
+                    <p className="carte-prix muted small">
+                      <Icon name="award" />
+                      Prix de soirée : {p.prix.eus} sur {p.prix.total}
+                    </p>
+                  )}
+                  {/* Son quiz du jour, en une ligne : rien s'il n'y a jamais joué. */}
+                  {p.jour && (
+                    <p className="carte-prix muted small">
+                      <Flamme />
+                      Quiz du jour : {p.jour.joues} jour{p.jour.joues > 1 ? 's' : ''} joué{p.jour.joues > 1 ? 's' : ''}
+                      {p.jour.victoires > 0 && ` · ${p.jour.victoires} victoire${p.jour.victoires > 1 ? 's' : ''}`}
+                    </p>
+                  )}
+                </>
+              )}
+            </>
+          )}
+          <div className="row dialog-actions">
+            <button type="button" className="btn btn-ghost" onClick={onFermer}>
+              Fermer
+            </button>
+          </div>
         </div>
       </div>
     </div>

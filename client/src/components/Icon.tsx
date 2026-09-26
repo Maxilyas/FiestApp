@@ -65,6 +65,15 @@ export type IconName =
   | 'x'
   | 'x-circle'
   | 'zap'
+  // Les emblèmes des catégories, sur les écussons de savoir.
+  | 'bulb'
+  | 'globe'
+  | 'leaf'
+  | 'palette'
+  | 'utensils'
+  | 'dice'
+  | 'glass'
+  | 'shield'
 
 /** Tracées au trait, sauf `filled` : lecture, pause, avance rapide. */
 const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
@@ -392,6 +401,72 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
     ),
   },
   zap: { paths: <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" /> },
+  // Les emblèmes des catégories qui n'en avaient pas : la culture générale,
+  // la géographie, la nature, les arts et lettres, la cuisine, les jeux, la
+  // fête (`components/Ecusson.tsx`).
+  bulb: {
+    paths: (
+      <>
+        <path d="M9.5 18h5M10.5 21h3" />
+        <path d="M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.1v.1h5v-.1c0-.8.4-1.6 1.1-2.1A6 6 0 0 0 12 3Z" />
+      </>
+    ),
+  },
+  globe: {
+    paths: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18M12 3c2.4 2.5 3.6 5.5 3.6 9s-1.2 6.5-3.6 9c-2.4-2.5-3.6-5.5-3.6-9S9.6 5.5 12 3Z" />
+      </>
+    ),
+  },
+  leaf: {
+    paths: (
+      <>
+        <path d="M5 20c0-9 5.5-15 15-15 0 9.5-6 15-15 15Z" />
+        <path d="M5 20l9-9" />
+      </>
+    ),
+  },
+  palette: {
+    paths: (
+      <>
+        <path d="M12 3a9 9 0 0 0 0 18c1.2 0 1.8-.9 1.8-1.8 0-1-.8-1.5-.8-2.4 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3Z" />
+        <circle cx="7.5" cy="11.5" r="1" />
+        <circle cx="10" cy="7" r="1" />
+        <circle cx="15" cy="7.5" r="1" />
+      </>
+    ),
+  },
+  utensils: {
+    paths: (
+      <>
+        <path d="M6 3v6a2 2 0 0 0 4 0V3M8 11v10" />
+        <path d="M18 21V3c-2.2 1.3-3.5 4-3.5 7.5V13H18" />
+      </>
+    ),
+  },
+  dice: {
+    paths: (
+      <>
+        <rect x="4" y="4" width="16" height="16" rx="3" />
+        <circle cx="9" cy="9" r="0.6" />
+        <circle cx="15" cy="9" r="0.6" />
+        <circle cx="12" cy="12" r="0.6" />
+        <circle cx="9" cy="15" r="0.6" />
+        <circle cx="15" cy="15" r="0.6" />
+      </>
+    ),
+  },
+  shield: { paths: <path d="M12 3 20 6v5.5c0 4.8-3.3 8.6-8 10.5-4.7-1.9-8-5.7-8-10.5V6l8-3Z" /> },
+  glass: {
+    paths: (
+      <>
+        <path d="M6 4h12l-1.4 5.2a4.8 4.8 0 0 1-9.2 0L6 4Z" />
+        <path d="M12 14v6M8.5 20h7" />
+      </>
+    ),
+  },
 }
 
 export function Icon({ name, size, className }: { name: IconName; size?: number; className?: string }) {
