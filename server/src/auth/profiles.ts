@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { hashPassword, verifyPassword } from './password'
 import { cleanAvatar, cleanName, DEFAULT_AVATAR, niveauRequis } from '../../../shared/avatars'
 import {
+  AUCUN_JOUR,
   CHANCE_ECLAT,
   carriereDe,
   choixDeFinition,
@@ -25,6 +26,7 @@ import {
   type PublicProfile,
   type PublicProfileDetail,
   type ReleveSoiree,
+  type StatsDuJour,
 } from '../../../shared/profil'
 import { rareteDe, type BadgePorte } from '../../../shared/badges'
 import {
@@ -35,6 +37,7 @@ import {
   hautsFaitsGagnes,
   palierDe,
   paliersAtteints,
+  paliersDuJourAtteints,
   titreDePalier,
   XP_PALIER,
   type HautFaitVu,
@@ -138,6 +141,13 @@ export const LIGNE_JOUR = '#jour'
 
 /** Les lignes qui ne sont pas des soirées. */
 const LIGNES_A_PART = [LIGNE_PALIERS, LIGNE_JOUR]
+
+/**
+ * Le nom sous lequel un jour range les paliers du quiz du jour qu'il a fait
+ * tomber (`#jour:2026-09-26`) : aucune soirée ne le porte, et en retirer une
+ * ne les reprend donc jamais.
+ */
+export const cleDuJour = (jour: string) => `${LIGNE_JOUR}:${jour}`
 
 /**
  * La version du barème qui a écrit une ligne d'expérience : 2 depuis le
@@ -349,8 +359,25 @@ export class ProfileStore {
    */
   private gardes = new Map<string, NiveauGarde[]>()
 
+  /**
+   * Ce que le quiz du jour compte pour ses paliers (`JourStore.statsDuJour`),
+   * branché au démarrage : le quiz du jour dépend des profils, pas l'inverse.
+   * Sans lui, une carrière n'a pas de quiz du jour.
+   */
+  statsDuJour?: (profileId: string) => Promise<StatsDuJour>
+
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
+  }
+
+  /** Son quiz du jour, pour sa carrière : rien plutôt qu'une page en panne si la base se tait. */
+  private async statsDuJourDe(profileId: string): Promise<StatsDuJour> {
+    try {
+      return (await this.statsDuJour?.(profileId)) ?? AUCUN_JOUR
+    } catch (e) {
+      console.error('[profil] quiz du jour illisible pour la carrière :', e)
+      return AUCUN_JOUR
+    }
   }
 
   async init() {
@@ -744,7 +771,11 @@ export class ProfileStore {
         console.error(`[profil] joueur de « ${s.soireeId} » non relu :`, e)
       }
     }
-    const carriere = carriereDe(soirees, { eclats: this.eclatsOf(p.id).length, niveau: this.niveauOf(p) })
+    const carriere = carriereDe(soirees, {
+      eclats: this.eclatsOf(p.id).length,
+      niveau: this.niveauOf(p),
+      jour: await this.statsDuJourDe(p.id),
+    })
     return {
       ...this.toPublic(p),
       vitrine,
@@ -1359,6 +1390,44 @@ export class ProfileStore {
   }
 
   /**
+   * Décerne les paliers du quiz du jour qu'il vient d'atteindre — L'Assidu,
+   * Le Champion du jour, Le Sans-Faute —, rangés sous le jour qui les a fait
+   * tomber (`cleDuJour`), et crédite leur expérience avec celle des autres
+   * paliers. Rend ceux qui sont nouveaux.
+   */
+  async accorderPaliersDuJour(profileId: string, jour: string, stats: StatsDuJour): Promise<string[]> {
+    const deja = this.recompensesOf(profileId)
+    const neufs = paliersDuJourAtteints(stats).filter(cle => !deja.has(cle))
+    if (neufs.length === 0) return []
+    const now = Date.now()
+    await this.client.batch(
+      neufs.map(cle => {
+        const { hautFait, palier } = palierDe(cle)!
+        return {
+          sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+                VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+          args: [profileId, cle, cleDuJour(jour), hautFait.emoji, titreDePalier(hautFait, palier), now],
+        }
+      }),
+      'write',
+    )
+    this.porteurs = null
+    await this.recompterRecompenses([profileId])
+    await this.ecrireXpDesPaliers(profileId)
+    await this.recalculerTotal(profileId)
+    return neufs
+  }
+
+  /** Les paliers du quiz du jour que ce jour a fait tomber : à la fin de sa partie, ou à la nuit qui l'a clos. */
+  async paliersDuJourTombes(profileId: string, jour: string): Promise<{ key: string; emoji: string; title: string }[]> {
+    const res = await this.client.execute({
+      sql: `SELECT badge, emoji, title FROM profile_badges WHERE profile_id = ? AND soiree_id = ? ORDER BY created_at, badge`,
+      args: [profileId, cleDuJour(jour)],
+    })
+    return res.rows.map(r => ({ key: String(r.badge), emoji: String(r.emoji), title: String(r.title) }))
+  }
+
+  /**
    * La ligne d'expérience des paliers de carrière, recalculée de ceux qu'il
    * porte (voir `LIGNE_PALIERS`). Effacée quand il n'en porte plus aucun.
    */
@@ -1519,8 +1588,9 @@ export class ProfileStore {
     const toutes = await this.historiqueOf(profileId)
     const soirees = toutes.filter(s => !sauf.has(cleDeSoiree(s.spaceId, s.soireeId)))
     const rec = await this.byId(profileId)
+    const jour = await this.statsDuJourDe(profileId)
     if (soirees.length === toutes.length) {
-      return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: rec ? this.niveauOf(rec) : 1 })
+      return carriereDe(soirees, { eclats: this.eclatsOf(profileId).length, niveau: rec ? this.niveauOf(rec) : 1, jour })
     }
     // Les soirées écartées ont aussi porté l'expérience du profil, et peut-
     // être un Éclat : les laisser dans le niveau ou le compte d'Éclats, c'était
@@ -1535,7 +1605,7 @@ export class ProfileStore {
     const eclats = res.rows.filter(r => !noms.has(String(r.soiree_id))).length
     const xpEcartee = ecartees.reduce((n, s) => n + s.xp, 0)
     const niveau = rec ? niveauDuProfil(Math.max(0, rec.xp - xpEcartee), this.gardesOf(profileId)) : 1
-    return carriereDe(soirees, { eclats, niveau })
+    return carriereDe(soirees, { eclats, niveau, jour })
   }
 
   // ── Le recalcul ─────────────────────────────────────────────────────────

@@ -26,7 +26,9 @@ import {
   type PartieDuJour,
   type QuestionDuJour,
   type RevelationDuJour,
+  type PalierTombe,
 } from '../../../shared/jour'
+import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 
 /** La marge du serveur après l'échéance (`GRACE_MS`, `games/quiz.ts`), et un souffle : la question se révèle d'elle-même. */
 const APRES_ECHEANCE_MS = 1500 + 600
@@ -488,6 +490,9 @@ function Fin({
             </div>
           </div>
         )}
+        {(partie.paliers ?? []).map(p => (
+          <Palier key={p.key} palier={p} />
+        ))}
       </section>
       <p className="muted small jour-note">
         Le classement se fige à minuit. Le podium gagne {XP_PODIUM_DU_JOUR.join(', ').replace(/, (\d+)$/, ' et $1')} XP.
@@ -504,6 +509,21 @@ function Fin({
         <a className="btn btn-ghost" href="/">
           Retour à l’accueil
         </a>
+      </div>
+    </div>
+  )
+}
+
+/** Un palier du quiz du jour qui vient de tomber, avec ce qu'il a fallu faire. */
+function Palier({ palier }: { palier: PalierTombe }) {
+  return (
+    <div className="jour-ligne">
+      <span className="jour-pastille jour-palier" aria-hidden="true">
+        {palier.emoji}
+      </span>
+      <div>
+        <b>Nouveau palier : {palier.title}</b>
+        <span className="muted small">{ceQuIlAFallu(palier.key)}</span>
       </div>
     </div>
   )
@@ -526,6 +546,9 @@ function Lendemain({ partie, onCorrection }: { partie: PartieDuJour; onCorrectio
           </span>
         </div>
       </div>
+      {(h.paliers ?? []).map(p => (
+        <Palier key={p.key} palier={p} />
+      ))}
       {partie.vainqueursDHier.length > 0 && (
         <p className="muted small">
           {partie.vainqueursDHier.map(v => v.avatar).join(' ')} {ontGagneHier(partie)}.

@@ -44,6 +44,7 @@ import {
   type QuestionDuJour,
   type RevelationDuJour,
 } from '../../../shared/jour'
+import type { StatsDuJour } from '../../../shared/profil'
 
 /** Une question telle que le jour l'a tirée, figée : réponses mélangées, temps de lecture compté. */
 interface QuestionTiree {
@@ -696,7 +697,10 @@ export class JourStore {
     )
     if (res[1].rowsAffected === 0) return
     this.revision++
-    await this.ecrireXp(partie.profileId)
+    // Ses paliers ne bougent qu'avec la partie finie : un jour joué, un
+    // sans-faute. Les chercher à chaque réponse coûtait un aller-retour de
+    // plus sous les doigts du joueur.
+    await this.ecrireXp(partie.profileId, partie.jour, derniere)
   }
 
   /** Ce que la réponse à une question lui apprend. */
@@ -815,6 +819,10 @@ export class JourStore {
       else if (partie.question > 0) vue = { ...vue, revelation: await this.revelationDe(profil.id, tirage, partie.question - 1) }
     }
     if (partie && etat === 'finie' && revelation) vue = { ...vue, revelation }
+    if (etat === 'finie') {
+      const paliers = await this.deps.profiles.paliersDuJourTombes(profil.id, jour)
+      if (paliers.length > 0) vue = { ...vue, paliers }
+    }
     return vue
   }
 
@@ -925,16 +933,48 @@ export class JourStore {
     const classes = classer(joueurs, j => j.points, j => j.profil.name, j => j.profil.id)
     const rang = classes.find(c => c.item.profil.id === profil.id)?.rang ?? 0
     const comptees = tirage ? tirage.questions.length - tirage.annulees.length : 0
+    // Celui de la victoire seulement : les autres tombaient avec la partie,
+    // et sa fin les a déjà annoncés.
+    const paliers = (await this.deps.profiles.paliersDuJourTombes(profil.id, jour)).filter(p => p.key.startsWith('hf:champion-du-jour:'))
     return {
       rang,
       joueurs: joueurs.length,
       points: partie.points,
       xpPodium: Number(podium.rows[0]?.xp ?? 0),
       medaille: medailleDe(partie.justes, comptees),
+      ...(paliers.length > 0 && { paliers }),
     }
   }
 
   // ── Sa carrière au quiz du jour ─────────────────────────────────────────
+
+  /**
+   * Ce que ses paliers du quiz du jour comptent : ses jours joués — une
+   * partie commencée compte, comme pour la série —, ses victoires, et ses
+   * jours sans une faute (la médaille d'or, sur les questions qui comptent
+   * encore).
+   */
+  async statsDuJour(profileId: string): Promise<StatsDuJour> {
+    const [joues, victoires, sansFautes] = await this.client.batch(
+      [
+        { sql: 'SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
+        { sql: 'SELECT COUNT(*) AS n FROM jour_podiums WHERE profile_id = ? AND rang = 1', args: [profileId] },
+        {
+          sql: `SELECT COUNT(*) AS n FROM jour_parties p JOIN jour_tirages t ON t.jour = p.jour
+                WHERE p.profile_id = ? AND p.finie_le IS NOT NULL
+                  AND json_array_length(t.questions) > json_array_length(t.annulees)
+                  AND p.justes >= json_array_length(t.questions) - json_array_length(t.annulees)`,
+          args: [profileId],
+        },
+      ],
+      'read',
+    )
+    return {
+      joues: Number(joues.rows[0]?.n ?? 0),
+      victoires: Number(victoires.rows[0]?.n ?? 0),
+      sansFautes: Number(sansFautes.rows[0]?.n ?? 0),
+    }
+  }
 
   /** Ce que la carte d'un joueur dit de son quiz du jour : les jours joués, les victoires. */
   async resumeDe(profileId: string): Promise<{ joues: number; victoires: number }> {
@@ -1121,16 +1161,18 @@ export class JourStore {
       'write',
     )
     this.revision++
-    for (const p of podium) await this.avecVerrou(p.profileId, () => this.ecrireXp(p.profileId))
+    for (const p of podium) await this.avecVerrou(p.profileId, () => this.ecrireXp(p.profileId, jour))
     console.log(`[jour] ${jour} clos : ${joueurs.length} joueur${joueurs.length > 1 ? 's' : ''}, ${podium.length} sur le podium`)
   }
 
   /**
    * Toute son expérience du quiz du jour, parties et podiums, recopiée dans
    * sa ligne (`LIGNE_JOUR`) — toujours sous le verrou du profil : lue puis
-   * écrite, elle laisserait sinon une somme périmée par-dessus la bonne.
+   * écrite, elle laisserait sinon une somme périmée par-dessus la bonne. Puis
+   * les paliers du quiz du jour qu'elle lui fait atteindre, rangés sous ce
+   * jour : celui de sa partie, ou celui que la nuit vient de clore.
    */
-  private async ecrireXp(profileId: string) {
+  private async ecrireXp(profileId: string, jour: string, paliers = true) {
     const [parties, podiums] = await this.client.batch(
       [
         { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp, COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
@@ -1140,6 +1182,7 @@ export class JourStore {
     )
     const xp = Number(parties.rows[0]?.xp ?? 0) + Number(podiums.rows[0]?.xp ?? 0)
     await this.deps.profiles.ecrireXpDuJour(profileId, xp, Number(parties.rows[0]?.n ?? 0))
+    if (paliers) await this.deps.profiles.accorderPaliersDuJour(profileId, jour, await this.statsDuJour(profileId))
   }
 
   // ── La correction ───────────────────────────────────────────────────────
@@ -1308,7 +1351,7 @@ export class JourStore {
       sql: 'UPDATE jour_parties SET xp = ? WHERE profile_id = ? AND jour = ?',
       args: [xpDuJour(points, possiblesDe(tirage)), profileId, jour],
     })
-    await this.ecrireXp(profileId)
+    await this.ecrireXp(profileId, jour)
   }
 
   /** Masque un profil du classement — ou l'y remet. Il n'en est pas averti. */

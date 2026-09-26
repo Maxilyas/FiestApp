@@ -398,6 +398,20 @@ export function releveVide(): ReleveSoiree {
 // ── La carrière ───────────────────────────────────────────────────────────
 
 /** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
+/**
+ * Ce que le quiz du jour compte pour ses paliers : les jours joués (une
+ * partie commencée compte), les victoires, et les jours sans une faute — la
+ * médaille d'or.
+ */
+export interface StatsDuJour {
+  joues: number
+  victoires: number
+  sansFautes: number
+}
+
+/** Aucun quiz du jour : un profil qui n'y a jamais joué, ou une carrière sans lui. */
+export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0 }
+
 export interface Carriere {
   soirees: number
   questions: number
@@ -432,12 +446,14 @@ export interface Carriere {
   eclats: number
   niveau: number
   categories: Record<string, { questions: number; justes: number }>
+  /** Le quiz du jour, pour ses paliers (L'Assidu, Le Champion du jour, Le Sans-Faute). */
+  jour: StatsDuJour
 }
 
 /** Additionne des relevés en une carrière. */
 export function carriereDe(
   soirees: { releve: ReleveSoiree; gain: GainSoiree; spaceId: string }[],
-  extra: { eclats: number; niveau: number },
+  extra: { eclats: number; niveau: number; jour?: StatsDuJour },
 ): Carriere {
   const c: Carriere = {
     soirees: 0,
@@ -468,6 +484,7 @@ export function carriereDe(
     avatars: 0,
     eclats: extra.eclats,
     niveau: extra.niveau,
+    jour: { ...(extra.jour ?? AUCUN_JOUR) },
     categories: {},
   }
   const hotes = new Set<string>()

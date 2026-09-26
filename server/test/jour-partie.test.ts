@@ -12,6 +12,7 @@ import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
 import { JourStore } from '../src/core/jour'
+import { XP_PALIER } from '../../shared/hautsfaits'
 
 ProfileStore.tirageEclat = () => false
 
@@ -183,9 +184,10 @@ test('une partie parfaite : l’or, 75 XP, la correction — et le classement de
     assert.equal(etat.medaille, 'or')
     assert.equal(etat.xp, 75, 'le barème d’un quiz de soirée de dix questions parfait')
     assert.equal(revelations.at(-1).derniere, true)
-    // Son profil l'a reçue — sans une soirée de plus dans son historique.
+    // Son profil l'a reçue — sans une soirée de plus dans son historique —,
+    // avec le palier que ce sans-faute fait tomber (Le Sans-Faute · Bronze).
     const moi = ((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile
-    assert.equal(moi.xp, 75)
+    assert.equal(moi.xp, 75 + XP_PALIER[0])
     assert.deepEqual(moi.soirees, [], 'le quiz du jour n’est pas une soirée')
 
     // Bob en trouve six, moins vite.
@@ -235,14 +237,15 @@ test('minuit clôt la journée : le podium est payé une fois, le lendemain le r
     assert.equal(matin.sonHier.xpPodium, 25, 'à deux, seul le premier monte sur le podium')
     assert.equal(matin.sonHier.medaille, 'or')
     assert.equal(matin.serie, 1, 'hier compte, aujourd’hui pas encore joué')
+    // Le podium, et le palier de la victoire (Le Champion du jour · Bronze).
     const apres = ((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile.xp
-    assert.equal(apres, xpAvant + 25)
+    assert.equal(apres, xpAvant + 25 + XP_PALIER[0])
     const deBob = (await lire(banc, bob, '/api/jour')).corps
     assert.equal(deBob.sonHier.xpPodium, 0)
 
     // Une seconde demande ne paie pas deux fois.
     await lire(banc, bob, '/api/jour')
-    assert.equal(((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile.xp, xpAvant + 25)
+    assert.equal(((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile.xp, xpAvant + 25 + XP_PALIER[0])
 
     // Le classement d'hier est figé, et sa correction ouverte à tous.
     const hier = (await lire(banc, bob, `/api/jour/classement?jour=${JOUR}`)).corps

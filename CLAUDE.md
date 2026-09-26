@@ -60,7 +60,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/liens.ts` · `client/src/components/Lendemain.tsx` | les liens d'une soirée close, à l'adresse de son archive (`/<espace>/souvenir` change de soirée à la suivante) ; et « La dernière soirée », que le téléphone garde (`garderFin`, `client/src/state.ts`) pour l'entrée et l'accueil |
 | `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) : son titre, sa vitrine — celle qu'il a choisie, sinon ses trois plus beaux hauts faits —, sa collection de prix, son quiz du jour en une ligne |
 | `core/objectifs.ts` | ce que la fin de soirée raconte en plus de ce qu'elle rapporte : les records battus, « Tu t'en approches » — dérivations pures de l'historique, lues à la clôture après les crédits |
-| `shared/jour.ts` · `core/jour.ts` · `server/src/quizDuJour.ts` · `client/src/views/JourApp.tsx` | le quiz du jour, pour les profils : dix questions tirées à minuit (Paris) et figées, une partie chronométrée au serveur, dans la base permanente ; l'expérience (75 au plus, podium 25/15/10) dans la ligne `#jour` ; la nuit qui clôt la veille à la première demande (`clorePasses`) ; la réserve, ses signalements et les profils masqués, à `/admin` |
+| `shared/jour.ts` · `core/jour.ts` · `server/src/quizDuJour.ts` · `client/src/views/JourApp.tsx` | le quiz du jour, pour les profils : dix questions tirées à minuit (Paris) et figées, une partie chronométrée au serveur, dans la base permanente ; l'expérience (75 au plus, podium 25/15/10) dans la ligne `#jour` ; la nuit qui clôt la veille à la première demande (`clorePasses`) ; ses trois paliers (L'Assidu, Le Champion du jour, Le Sans-Faute), décernés à la fin d'une partie ou à la nuit (`accorderPaliersDuJour`) et rangés sous le jour (`cleDuJour`), jamais sous une soirée ; la réserve, ses signalements et les profils masqués, à `/admin` |
 | `core/consigne.ts` | la consigne qu'on donne à une IA pour écrire la réserve du quiz du jour — la routine Claude Code qui la remplit derrière `RESERVE_TOKEN` (`/api/jour/reserve` : la consigne, puis le dépôt ; MISE-EN-LIGNE.md, étape 8), ou « Copier la consigne pour une IA » à `/admin` : une seule pour les deux. Le serveur ne détient aucune clé d'IA |
 | `shared/glossaire.ts` · `client/src/components/Glossaire.tsx` | les mots maison (souvenir, bilan, coup d'œil, finition…), une phrase chacun, dépliée au toucher sous les pages qui les emploient — des Divins, le nom et le mystère seulement |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
@@ -510,7 +510,10 @@ sans `QUIZ_DB_URL`.
   mais pas dans l'historique : tout ce qui lit `profile_xp` comme des
   soirées écarte les deux lignes à part (`#paliers`, `#jour`) — la série du
   jour les écarte aussi. Rien ne tourne à minuit : une clôture passe par
-  `clorePasses`, à la première demande du jour. Et tout ce qui écrit les
+  `clorePasses`, à la première demande du jour. Ses paliers sont des hauts
+  faits de carrière marqués `duJour` : la carrière les compte (`jour`, pour
+  la page du profil), mais `paliersAtteints` — la clôture d'une soirée, le
+  recalcul — les écarte ; seul le quiz du jour les décerne. Et tout ce qui écrit les
   points ou l'expérience d'un profil passe sous son verrou, le tirage relu
   dedans — sa partie, le recompte d'une annulation, le podium de la nuit :
   recomptée d'un coup pour tout le jour, une annulation laissait payée la

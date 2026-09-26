@@ -625,8 +625,9 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   et 10, rang partagé, une marche de moins que la salle. Toute l'expérience
   du jour vit dans une ligne à part (`#jour`, comme `#paliers`) : elle
   compte dans le niveau, pas dans la carrière — le quiz du jour ne fait ni
-  une soirée pour L'Habitué, ni une réponse pour Le Bavard. Hauts faits,
-  légendaires, Divins et Éclat restent aux soirées.
+  une soirée pour L'Habitué, ni une réponse pour Le Bavard. Les hauts faits
+  de soirée, les légendaires, les Divins et l'Éclat restent aux soirées ; le
+  quiz du jour a ses propres paliers (plus bas).
 
   | Règle | XP par mois | Part des soirées | Niveau après un an |
   |---|---|---|---|
@@ -638,6 +639,18 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   huit, l'or à dix — sur les questions qui comptent encore. **La série** :
   les jours d'affilée où l'on a joué, au quiz du jour ou en soirée — la fête
   ne casse jamais une série.
+- **Ses paliers** (lot 7), des hauts faits de carrière à trois paliers :
+  **L'Assidu** (7, 30, 100 jours joués — une partie commencée compte, comme
+  pour la série), **Le Champion du jour** (1, 5, 20 victoires, ex æquo
+  compris) et **Le Sans-Faute** (1, 3, 10 jours sans une faute, la médaille
+  d'or). Ils tombent à la fin d'une partie, ou à la nuit qui clôt un jour
+  pour la victoire (`accorderPaliersDuJour`) — jamais à la clôture d'une
+  soirée, qui ne sait rien du quiz du jour (`paliersAtteints` les écarte) —,
+  rangés sous ce jour (`#jour:2026-09-26`) : aucune soirée ne les porte, en
+  retirer une ne les reprend pas. Ils rapportent ce que rapporte tout
+  palier (10, 25, 50), ouvrent leur titre, et la page du quiz du jour les
+  annonce : à la fin de la partie, et le lendemain pour la victoire. Leur
+  rareté est estimée, la bande de `calibrage.ts` ne jouant qu'en soirée.
 - **Le classement** : tout le serveur, avec les règles des soirées — rang
   partagé, « Camille (2) », niveau et finition ; aujourd'hui, hier, le mois.
   Il se fige à minuit ; tous les ex æquo en tête gagnent.
@@ -712,9 +725,10 @@ de l'historique emporte son haut fait, et ce qu'on en portait avec. La
 carte dit aussi le quiz du jour, en une ligne.
 
 **Lot 7 — en cours** : les emojis de collection (§ 5.5), un par niveau
-sans finition. À suivre : le laurier du vainqueur d'hier, le Sphinx, les
-paliers du quiz du jour, les écussons de savoir, les fonds de carte (nuit
-étoilée, aurore, kintsugi, grand théâtre), les légendaires de saison (11).
+sans finition ; les paliers du quiz du jour (§ 5.13). À suivre : le
+laurier du vainqueur d'hier, le Sphinx, les écussons de savoir, les fonds
+de carte (nuit étoilée, aurore, kintsugi, grand théâtre), les légendaires
+de saison (11).
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

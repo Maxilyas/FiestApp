@@ -299,6 +299,13 @@ export interface CarriereDuJour {
 }
 
 /** La partie du jour d'un profil, vue de son téléphone. */
+/** Un palier du quiz du jour qui vient de tomber, tel qu'on l'annonce : « 📆 L'Assidu · Bronze ». */
+export interface PalierTombe {
+  key: string
+  emoji: string
+  title: string
+}
+
 export interface PartieDuJour {
   jour: string
   /**
@@ -334,6 +341,18 @@ export interface PartieDuJour {
    * podium.
    */
   vainqueursDHier: { nom: string; avatar: string }[]
-  /** Hier, pour lui : sa place et ce qu'elle lui a rapporté — le lendemain le raconte. */
-  sonHier?: { rang: number; joueurs: number; points: number; xpPodium: number; medaille: Medaille | null } | null
+  /**
+   * Hier, pour lui : sa place et ce qu'elle lui a rapporté — le lendemain le
+   * raconte —, avec le palier du Champion du jour que la nuit lui a donné.
+   */
+  sonHier?: {
+    rang: number
+    joueurs: number
+    points: number
+    xpPodium: number
+    medaille: Medaille | null
+    paliers?: PalierTombe[]
+  } | null
+  /** La partie finie : les paliers du quiz du jour qu'elle a fait tomber (L'Assidu, Le Sans-Faute). */
+  paliers?: PalierTombe[]
 }

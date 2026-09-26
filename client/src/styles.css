@@ -4922,6 +4922,8 @@ h3 > .icon {
 .jour-ligne h2 { font-size: 1.8rem; margin: 0; }
 .jour-pastille { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); flex: none; }
 .jour-pastille .flamme, .jour-pastille .icon { width: 20px; height: 20px; }
+/* Un palier du quiz du jour : l'emoji de son haut fait, comme sur l'étagère. */
+.jour-palier { font-size: 1.1rem; line-height: 1; }
 .jour-note { margin: 0; text-align: center; }
 .jour-titre h2 { font-size: 2rem; margin: 4px 0 0; }
 .jour-annonce { display: flex; flex-direction: column; gap: 12px; border-color: var(--edge-strong); }

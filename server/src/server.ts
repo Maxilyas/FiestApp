@@ -286,6 +286,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const maintenantDuJour = opts.horlogeDuJour ?? Date.now
   const jour = new JourStore(opts.quizDbUrl, opts.quizDbToken, { profiles, maintenant: maintenantDuJour })
   await jour.init()
+  // La carrière d'un profil compte son quiz du jour, pour ses paliers : le
+  // quiz du jour dépend des profils, et se branche donc sur eux après coup.
+  profiles.statsDuJour = id => jour.statsDuJour(id)
 
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
   const store = new QuizStore(opts.quizDbUrl, opts.quizDbToken)
