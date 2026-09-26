@@ -2,8 +2,9 @@
 //
 // Les avatars, les finitions et les badges n'avaient qu'un public, leur
 // porteur : personne ne pouvait regarder le profil de quelqu'un d'autre. La
-// carte le montre à la salle — son niveau, ses légendaires, ses prix les plus
-// rares, quelques chiffres —, à côté de ce qu'il fait ce soir.
+// carte le montre à la salle — son niveau, ses légendaires, ses plus beaux
+// hauts faits, sa collection de prix, quelques chiffres —, à côté de ce qu'il
+// fait ce soir.
 //
 // Un invité anonyme a sa carte aussi : sa soirée, et rien qui dise ce qui lui
 // manque. Un surnom donné par l'animateur ne touche pas au profil : la carte
@@ -47,10 +48,22 @@ export interface CarteDeJoueur extends Distinctions {
     legendaires: string[]
     /** Les Divins descendus sur lui — sans un mot de ce qui les a fait descendre. */
     divins: string[]
-    /** Ses prix et hauts faits les plus rares, six au plus. */
+    /**
+     * Ses plus beaux hauts faits, trois au plus : exploits et paliers de
+     * carrière, les plus rares à décrocher d'abord (`plusBeaux`,
+     * `shared/hautsfaits.ts`). Le nom vient d'avant, quand elle rangeait six
+     * prix et hauts faits : une page ouverte avant le lit encore.
+     */
     vitrine: BadgePorte[]
     /** Combien de hauts faits différents il a décrochés. */
     hautsFaits: number
+    /**
+     * Les prix du palmarès : ils tombent à chaque soirée, et six fois
+     * L'Éclair ne disait rien à la salle. C'est la collection qui se montre —
+     * combien de prix différents, sur tous ceux qu'une personne peut
+     * remporter. Absent d'un serveur d'avant.
+     */
+    prix?: { eus: number; total: number }
     /**
      * La précision avec sa base, le coup d'œil avec la sienne. La carte ne
      * montre plus la plus longue série, qui a cédé sa case au coup d'œil —

@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CarteDeJoueur } from '../../../shared/carte'
+import type { BadgePorte } from '../../../shared/badges'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { NOM_RARETE } from '../../../shared/badges'
+import { hautFaitDeSoiree, palierDe, regleDuPalier } from '../../../shared/hautsfaits'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
 import { chargerDessinsAuPlus, complets, useDessins } from './medaillons'
 import { Chiffres, justesses } from './Chiffres'
+import { Icon } from './Icon'
 import { Niveau } from './Niveau'
 
 /**
  * La carte d'un joueur, ouverte en touchant son nom : ce qu'il fait ce soir,
- * et, s'il a un profil, son niveau, ses Divins et ses légendaires, ses
- * récompenses les plus rares et quelques chiffres. C'est ici que les
- * cosmétiques ont enfin un public.
+ * et, s'il a un profil, son niveau, ses Divins et ses légendaires, ses plus
+ * beaux hauts faits, quelques chiffres et sa collection de prix. C'est ici
+ * que les cosmétiques ont enfin un public.
  *
  * Un invité anonyme a la sienne : sa soirée, sans rien qui dise ce qui lui
  * manque. Un surnom donné par l'animateur ne cache pas le prénom du profil.
@@ -124,6 +126,30 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                     ))}
                   </div>
                 )}
+                {/* Ce qui le distingue, avec ce qu'il a fallu faire : un titre
+                    seul (« Le Buzzer d'Or ») ne dit rien à qui ne l'a jamais
+                    chassé. */}
+                {p.vitrine.length > 0 && (
+                  <div>
+                    <span className="label">Ses plus beaux hauts faits</span>
+                    <ul className="carte-beaux">
+                      {p.vitrine.map(b => (
+                        <li key={b.key}>
+                          <span className="hf-emoji" aria-hidden="true">
+                            {b.emoji}
+                          </span>
+                          <span className="hf-corps">
+                            <span className="hf-titre">
+                              {b.title}
+                              {b.fois > 1 && <span className="hf-fois">×{b.fois}</span>}
+                            </span>
+                            <span className="muted small">{ceQuIlAFallu(b)}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {/* La justesse aux QCM et aux estimations, côte à côte : la
                     plus longue série, qui ne compte que les QCM, a cédé sa case. */}
                 <Chiffres
@@ -136,18 +162,13 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                     ['Réflexe moyen', secondes(p.fiche.reflexeMoyenMs)],
                   ]}
                 />
-                {p.vitrine.length > 0 && (
-                  <ul className="carte-vitrine">
-                    {p.vitrine.map(b => (
-                      <li key={b.key} title={b.title}>
-                        <span className="carte-badge-emoji" aria-hidden="true">
-                          {b.emoji}
-                        </span>
-                        <span className="carte-badge-titre">{b.title}</span>
-                        {b.rarete && <span className="muted small">{NOM_RARETE[b.rarete]}</span>}
-                      </li>
-                    ))}
-                  </ul>
+                {/* Ses prix : leur nombre, pas leur liste — ils tombent à
+                    chaque soirée. Rien tant qu'il n'en a aucun. */}
+                {p.prix && p.prix.eus > 0 && (
+                  <p className="carte-prix muted small">
+                    <Icon name="award" />
+                    Prix de soirée : {p.prix.eus} sur {p.prix.total}
+                  </p>
                 )}
               </>
             )}
@@ -161,4 +182,12 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
       </div>
     </div>
   )
+}
+
+/** Sous le titre d'un haut fait, ce qu'il a fallu faire : sa règle, ou pour un palier le seuil franchi. */
+function ceQuIlAFallu(b: BadgePorte): string {
+  const h = hautFaitDeSoiree(b.key)
+  if (h) return h.rule
+  const p = palierDe(b.key)
+  return p ? regleDuPalier(p.hautFait, p.palier) : ''
 }

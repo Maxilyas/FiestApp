@@ -4548,6 +4548,30 @@ h3 > .icon {
 .fait-emoji { font-size: 2rem; line-height: 1; }
 .fait-titre { font-size: 0.9rem; font-weight: 500; }
 
+/* Un record battu, un prix neuf dans la collection : une pastille dorée. */
+.nouveau-bloc { position: relative; display: flex; flex-direction: column; gap: 10px; border-color: var(--edge-strong); }
+.nouveau-bloc h3, .fin-approches h3 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.nouveau-bloc p { margin: 0; }
+.nouveau-pastille {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.nouveau-bloc > .nouveau-pastille { position: absolute; top: -9px; right: 14px; }
+.fin-approches { display: flex; flex-direction: column; gap: 12px; }
+.approche { display: flex; align-items: center; gap: 12px; }
+.approche-medaillon { font-size: 44px; line-height: 0; flex: none; }
+.approche-emoji { font-size: 1.8rem; width: 44px; text-align: center; flex: none; }
+.approche-corps { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.approche-ce-soir { white-space: nowrap; }
+.collection-neuf { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; font-size: 0.9rem; }
+
 .fin-actions { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-top: 4px; }
 .fin-actions .btn { justify-content: center; }
 .fin-invitation { margin: 6px 0 0; text-align: center; }
@@ -4910,10 +4934,10 @@ h3 > .icon {
 .carte-legendaires { display: flex; flex-wrap: wrap; gap: 8px; }
 .carte-legendaire { font-size: 40px; line-height: 0; }
 .carte-chiffres { margin: 0; }
-.carte-vitrine { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.carte-vitrine li { display: flex; align-items: center; gap: 10px; }
-.carte-badge-emoji { font-size: 1.3rem; width: 1.6rem; text-align: center; }
-.carte-badge-titre { flex: 1; font-weight: 500; }
+.carte-beaux { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.carte-beaux li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--edge); background: var(--surface-faint); }
+.carte-prix { display: flex; align-items: center; gap: 6px; margin: 0; }
+.carte-prix .icon { color: var(--accent-text); }
 
 /* La catégorie de la question, au-dessus de son intitulé : une étiquette,
    pas un titre — la question reste ce qu'on lit en premier. */

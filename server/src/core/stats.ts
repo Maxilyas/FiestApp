@@ -446,6 +446,15 @@ const SPECS: Spec[] = [
   },
 ]
 
+/**
+ * Les prix qu'une personne peut remporter : ceux du catalogue, et les quatre
+ * que `buildAwards` décide à part. Le Coup de Pouce et La Plus Solidaire vont
+ * à une équipe, sans lauréat — ils ne se collectionnent pas. C'est la
+ * collection d'un profil : « 14 prix sur 20 », sur sa carte et à sa fin de
+ * soirée. Un prix de plus rejoint cette liste (`fin-de-soiree.test.ts` y veille).
+ */
+export const PRIX_INDIVIDUELS: readonly string[] = [...SPECS.map(s => s.key), 'sauveur', 'remontada', 'chutelibre', 'lynx']
+
 function buildAwards(
   stats: PlayerStat[],
   rows: AnswerRow[],

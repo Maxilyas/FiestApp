@@ -6,6 +6,7 @@
 // seulement dans l'espace où il joue.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import Database from 'better-sqlite3'
 import {
   ADMIN,
   attendre,
@@ -35,6 +36,16 @@ async function avecBanc(scenario: (banc: Banc) => Promise<void>) {
 }
 
 const carte = (banc: Banc, id: string, slug = ADMIN.slug) => fetch(`${banc.url}/s/${slug}/joueurs/${id}.json`)
+
+/** Écrit dans la base permanente (le fichier `file:` qui tient le rôle de Turso). */
+function ecrireEnBase(banc: Banc, fn: (db: Database.Database) => void) {
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    fn(db)
+  } finally {
+    db.close()
+  }
+}
 
 test('la carte d’un invité dit sa soirée ; celle d’un profil, son niveau et ce qu’il a gagné — sous son surnom', () =>
   avecBanc(async banc => {
@@ -108,4 +119,48 @@ test('une carte ne se lit que dans l’espace où l’invité joue', () =>
     assert.equal((await carte(banc, marcel.playerId, 'chez-marc')).status, 200)
     assert.equal((await carte(banc, marcel.playerId)).status, 404, 'l’invité du voisin vaut « introuvable »')
     assert.equal((await carte(banc, 'personne')).status, 404)
+  }))
+
+// La carte montrait « ses récompenses les plus rares », six : sous dix
+// profils, la rareté se tait, et c'étaient les prix les plus souvent gagnés
+// — six fois L'Éclair, que la salle voit remettre à chaque soirée.
+
+test('la carte montre ses trois plus beaux hauts faits, et le nombre de ses prix — pas six fois L’Éclair', () =>
+  avecBanc(async banc => {
+    const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    // Son étagère, écrite en base : une ligne par récompense et par soirée.
+    ecrireEnBase(banc, db => {
+      const espace = (db.prepare('SELECT id FROM accounts WHERE slug = ?').get(ADMIN.slug) as { id: string }).id
+      const profil = (db.prepare('SELECT id FROM profiles WHERE login = ?').get('alice') as { id: string }).id
+      const ranger = db.prepare(
+        `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      const etagere: [string, string, string, number][] = [
+        ['eclair', '⚡', 'L’Éclair', 6],
+        ['sauveur', '🦸', 'Le Sauveur', 1],
+        ['hf:foudre', '⚡', 'La Foudre', 3],
+        ['hf:increvable', '🛡️', 'L’Increvable', 2],
+        ['hf:grand-chelem', '🎯', 'Grand Chelem', 1],
+        ['hf:zero-pointe', '🥚', 'Le Zéro Pointé', 1],
+        ['hf:bavard:1', '💬', 'Le Bavard · Bronze', 1],
+        ['hf:bavard:2', '💬', 'Le Bavard · Argent', 1],
+      ]
+      for (const [badge, emoji, title, fois] of etagere) {
+        for (let i = 0; i < fois; i++) ranger.run(profil, badge, `soiree-${i}`, espace, emoji, title, 1000 + i)
+      }
+    })
+    // Le serveur relit l'étagère d'un profil quand il le charge : au démarrage suivant.
+    await banc.redemarrer()
+    const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
+
+    const p = ((await (await carte(banc, alice.playerId)).json()) as any).profil
+    // Le Grand Chelem, que peu décrochent, avant L'Increvable et La Foudre ;
+    // Le Bavard à son plus haut palier seulement ; ni l'ombre, ni les prix.
+    assert.deepEqual(
+      p.vitrine.map((b: any) => b.key),
+      ['hf:grand-chelem', 'hf:increvable', 'hf:bavard:2'],
+    )
+    assert.equal(p.vitrine[1].fois, 2, 'le nombre de fois part avec lui')
+    assert.deepEqual(p.prix, { eus: 2, total: 20 }, 'deux prix différents sur vingt — L’Éclair compte une fois')
+    assert.equal(p.hautsFaits, 5, 'un palier compte pour son haut fait')
   }))

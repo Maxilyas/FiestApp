@@ -120,7 +120,7 @@ Deux règles ne bougent pas :
 | 35 | ★ **Les catégories de questions** — Cinéma, Musique, Histoire… à chaque question, et la réussite par catégorie | « je suis nul en sport » devient un chiffre | lot 1 |
 | 36 | ★ **Le flair** — la part des bonnes réponses trouvées quand la salle se trompait | l'intuition mesurée | lot 1 |
 | 37 | Le radar des catégories — le profil par catégorie en une figure | lisible en un coup d'œil | plus tard |
-| 38 | Les records personnels — meilleur coup, meilleur quiz, plus longue série, annoncés quand ils tombent | battre son propre record | plus tard |
+| 38 | ★ **Les records personnels** — plus longue série, bonnes réponses d'une soirée, précision, annoncés quand ils tombent | battre son propre record | lot 4 |
 | 39 | Les rivalités — contre qui on a le plus joué, et qui finit devant qui | le sel entre amis | plus tard |
 | 52 | ★ **Le coup d'œil** — la justesse des estimations, à côté de la précision des QCM, chacune avec sa base | « Précision 50 % » sur deux QCM, chez qui avait joué soixante-deux estimations | lot 3 |
 
@@ -323,6 +323,31 @@ les retire, et décerne les paliers que la carrière de chacun atteint.
 **La rareté** reste calculée (part des profils qui le portent), et les prix
 de soirée (L'Éclair, Le Cancre…) restent sur l'étagère, comme avant.
 
+**Les plus beaux.** Ce que la carte d'un joueur montre à la salle (§ 5.6) se
+range à la rareté **mesurée** de chaque haut fait (`PART_DES_JOUEURS`) : la
+part des joueurs qui l'ont, soirée après soirée, en moyenne sur leurs
+quarante premières. `server/scripts/calibrage.ts` la mesure sur le vrai code
+des hauts faits, aux trois formats du § 5.2, et l'on garde la moyenne des
+trois — à un seul format, le Triplé était impossible, et le Grand Chelem
+tombait à 3 joueurs sur 100 quand des quiz de douze questions le donnent à un
+sur deux. L'expérience le disait mal (L'Oracle paie 50, et trois joueurs sur
+quatre l'ont), et la rareté de l'étagère se tait sous dix profils. Les
+Éclats se calculent (une chance sur quarante par soirée) ; La Girouette, Le
+Globe-trotteur et Le Collectionneur, que la simulation ne sait pas jouer —
+changer d'avis, d'hôte, d'avatar —, sont estimés.
+
+| Les plus rares | part des joueurs |
+|---|---|
+| 🎖️ La Légende · Or, ✨ La Pluie d'Éclats · Or | ≈ 0 |
+| ⏰ Le Buzzer d'Or | 0,5 % |
+| 🎖️ La Légende · Argent | 0,9 % |
+| ✨ La Pluie d'Éclats · Argent | 2 % |
+| 🐉 Le Triplé | 4 % |
+| 🥉 L'Habitué du Podium · Or | 9 % |
+| 🎯 Grand Chelem, 🏎️ Le Réflexe · Or, 💬 Le Bavard · Or | 20 % |
+
+À l'autre bout, Le Flair (93 %), L'Oracle (78 %) et La Foudre (79 %).
+
 ### 5.4 Les avatars légendaires
 
 Douze avatars dessinés en SVG, animés sans excès, lisibles à 20 px et
@@ -423,12 +448,24 @@ Divin se tait — c'est tout son principe.
 
 Sur le téléphone, toucher un nom du classement ouvre sa carte : l'avatar en
 grand, avec ce qu'il porte ; le nom du soir et le prénom du profil quand ils
-diffèrent ; le niveau ; ses légendaires ; ses récompenses les plus rares ;
-les chiffres clés (soirées, quiz gagnés, hauts faits, précision et coup
-d'œil, réflexe) ; et ce qu'il a fait ce soir — ses QCM et ses estimations,
-chacun à sa façon (« 1/2 justes · 8 estimations, coup d'œil 100 % »). Pour un anonyme : ce qu'il a fait ce
-soir, et rien d'autre. Servie par `GET /s/<espace>/joueurs/<id>.json`, qui ne
-rend jamais un identifiant de connexion.
+diffèrent ; le niveau ; ses légendaires ; **ses trois plus beaux hauts
+faits**, chacun avec ce qu'il a fallu faire ; les chiffres clés (soirées,
+quiz gagnés, hauts faits, précision et coup d'œil, réflexe) ; **le nombre de
+ses prix de soirée** (« 14 sur 20 ») ; et ce qu'il a fait ce soir — ses QCM
+et ses estimations, chacun à sa façon (« 1/2 justes · 8 estimations, coup
+d'œil 100 % »). Pour un anonyme : ce qu'il a fait ce soir, et rien d'autre.
+Servie par `GET /s/<espace>/joueurs/<id>.json`, qui ne rend jamais un
+identifiant de connexion.
+
+Elle montrait « ses récompenses les plus rares », six : sous dix profils, la
+rareté se tait, et c'étaient les prix les plus souvent gagnés — six fois
+L'Éclair, que la salle voit remettre à chaque soirée. Les hauts faits s'y
+rangent maintenant à leur rareté mesurée (§ 5.3, `plusBeaux`) : exploits et
+paliers de carrière, un seul palier par haut fait — le plus haut —, jamais
+une ombre (la carte se montre à la salle ; les coups du sort restent sur
+l'étagère de leur porteur). Les prix, eux, ne s'y comptent plus qu'en
+collection : les vingt qu'une personne peut remporter (`PRIX_INDIVIDUELS`),
+Le Coup de Pouce et La Plus Solidaire allant à une équipe.
 
 ### 5.7 Les métriques
 
@@ -525,6 +562,35 @@ sur 1994 font 0,15 %, trois sur 54 en font 6 %, et une faute de frappe
   l'historique se relisent, pour que la fiche montre leur coup d'œil et que
   Le Compas dans l'Œil y suive la règle du jour.
 
+### 5.12 Ce que la fin de soirée raconte
+
+Lot 4. Entre la quatrième et la dixième soirée, le joueur médian ne
+décrochait presque rien : les paliers de bronze étaient tombés, l'argent
+était loin, et un légendaire demande une vingtaine de quiz. Sa fin de soirée
+disait l'expérience, et rien qui se voie. Elle dit maintenant qu'il avance,
+même les soirs où rien ne tombe (`server/src/core/objectifs.ts`, dérivations
+pures, lues à la clôture après tous les crédits) :
+
+- **Record battu (38).** Sa plus longue série de bonnes réponses (cinq au
+  moins), ses bonnes réponses d'une soirée (dix au moins), sa précision sur
+  vingt QCM au moins — contre toutes ses soirées d'avant. Jamais à la
+  première, où tout serait un record ; une soirée jouée seul ne bat rien et
+  ne se bat pas ; une précision se compare au pour cent près, comme elle
+  s'affiche.
+- **Tu t'en approches.** Deux objectifs au plus, qui ont avancé ce soir et
+  dont il a passé la moitié : le légendaire le plus proche d'abord, s'il en
+  est un (« La Foudre : 7 fois sur 10 · +1 ce soir », en silhouette dorée),
+  puis le plus proche du reste — légendaire ou prochain palier de carrière
+  (« 284 sur 300 bonnes réponses · +41 ce soir »). Un légendaire qui se
+  gagne par un palier le représente ; La Légende (la barre de niveau est
+  juste au-dessus) et les Éclats (ils ont leur carte) n'y sont pas.
+- **Il rejoint ta collection.** Un prix remporté pour la première fois le
+  dit, avec le compte : « 10 prix sur 20 ».
+
+Rien de tout ça ne se crédite ni ne s'écrit : ce sont des lectures de
+l'historique, comme la fiche. Un anonyme n'a pas le bloc du profil, et rien
+ne le lui fait remarquer.
+
 ---
 
 ## 6. Feuille de route
@@ -535,11 +601,15 @@ sur 1994 font 0,15 %, trois sur 54 en font 6 %, et une faute de frappe
 
 **Lot 3 — fait** : 52 — le coup d'œil (§ 5.11).
 
+**Lot 4 — fait** : 38 — les plus beaux hauts faits sur la carte, la
+collection de prix, les records et « Tu t'en approches » à la fin de soirée
+(§ 5.3, 5.6, 5.12).
+
 **Plus tard**, dans l'ordre où je les prendrais :
 
 1. Réclamer sa soirée (50) — le meilleur moment pour proposer un profil.
 2. Les titres (8) — les hauts faits sont là, il ne manque qu'un choix.
 3. Le mur des réponses (45) et l'entrée en scène (10).
-4. Les records personnels (38) et le radar (37).
+4. Le radar des catégories (37).
 5. Les rivalités (39), les légendaires de saison (11), le cadre de soirée (7).
 6. L'Éclat garanti (6) et le Métronome (22).

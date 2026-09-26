@@ -25,14 +25,21 @@
 // Et les niveaux : l'expérience de chaque soirée, créditée comme à la clôture
 // (hauts faits et paliers compris), puis le niveau qu'elle donne sur la
 // courbe du jour et sur d'autres qu'on voudrait essayer.
+//
+// Et la rareté de chaque haut fait — de soirée, et chaque palier de
+// carrière : la part des joueurs qui l'ont au bout de dix, vingt et quarante
+// soirées, et en moyenne sur toutes. C'est cette moyenne qui range « ses plus
+// beaux hauts faits » sur la carte d'un joueur (`PART_DES_JOUEURS`,
+// `shared/hautsfaits.ts`) : l'expérience qu'un haut fait rapporte le dit mal
+// — L'Oracle paie 50, et trois joueurs sur quatre l'ont en dix soirées.
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from '../src/core/hautsfaits'
 import { buildProgress, relevesDeSoiree } from '../src/core/progress'
 import type { AnswerRow } from '../src/core/answers'
 import type { ScoreEntry } from '../src/core/scores'
 import type { PlayerRec } from '../src/core/party'
 import { pointsDesEstimations, pointsDuChoix, tempsDeLecture } from '../src/games/quiz'
-import { XP_PAR_PALIER, carriereDe, type Carriere, type GainSoiree, type ReleveSoiree } from '../../shared/profil'
-import { XP_PALIER, palierDe, paliersAtteints } from '../../shared/hautsfaits'
+import { XP_PAR_PALIER, carriereDe, niveauPour, type Carriere, type GainSoiree, type ReleveSoiree } from '../../shared/profil'
+import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_DE_SOIREE, XP_PALIER, clePalier, palierDe, paliersAtteints } from '../../shared/hautsfaits'
 import { LEGENDAIRES, conditionTenue, type Condition } from '../../shared/legendaires'
 
 // ── Le format ─────────────────────────────────────────────────────────────
@@ -271,6 +278,19 @@ const ESSAIS: Record<string, Regle[]> = Object.fromEntries(
   }),
 )
 
+/** Les hauts faits dont on mesure la difficulté : ceux de soirée, et chaque palier de carrière. */
+const CLES_MESUREES = [
+  ...HAUTS_FAITS_DE_SOIREE.map(h => h.key),
+  ...HAUTS_FAITS_DE_CARRIERE.flatMap(h => [1, 2, 3].map(p => clePalier(h.key, p))),
+]
+/**
+ * Ceux que la bande simulée ne peut pas gagner : elle joue toujours chez le
+ * même hôte, sous le même emoji, sans Éclat, et ne change jamais d'avis. Leur
+ * rareté dépend d'une habitude ou d'un tirage, pas du jeu — le rapport les
+ * signale au lieu de les dire impossibles.
+ */
+const NON_SIMULES = new Set(['hf:globe-trotteur', 'hf:collection', 'hf:eclats', 'hf:girouette'])
+
 // ── La simulation ─────────────────────────────────────────────────────────
 
 /** Pour chaque essai, le quiz où il tombe, joueur par joueur (Infinity : jamais dans la simulation). */
@@ -279,6 +299,8 @@ const tombes = new Map<string, number[]>()
 const premiers = new Map<string, number[]>()
 /** L'expérience de chaque joueur après chaque soirée, bande par bande. */
 const experiences: number[][][] = []
+/** Pour chaque haut fait et chaque palier, la soirée où il tombe la première fois, joueur par joueur. */
+const premieresFois = new Map<string, number[]>()
 const cle = (key: string, r: Regle) => `${key}|${decrire(r)}`
 
 for (let b = 0; b < BANDES; b++) {
@@ -289,6 +311,7 @@ for (let b = 0; b < BANDES; b++) {
   const quand = new Map<string, Map<string, number>>(bande.map(j => [j.id, new Map()]))
   const xp = new Map<string, number>(bande.map(j => [j.id, 0]))
   const trajectoires = bande.map(() => [] as number[])
+  const decroches = new Map<string, Map<string, number>>(bande.map(j => [j.id, new Map()]))
   for (let s = 1; s <= SOIREES; s++) {
     const { live, faits, releves } = soiree(bande, s)
     const credits = new Map(
@@ -314,6 +337,15 @@ for (let b = 0; b < BANDES; b++) {
       }
       xp.set(j.id, xp.get(j.id)! + gagne)
       trajectoires[i].push(xp.get(j.id)!)
+      // La première soirée de chaque haut fait. La Légende suit le niveau, que
+      // la carrière simulée ne porte pas : il se lit sur la courbe du jour.
+      const siens = decroches.get(j.id)!
+      for (const f of suivi.recompenses.keys()) if (!siens.has(f)) siens.set(f, s)
+      const niveau = niveauPour(xp.get(j.id)!)
+      for (const [palier, seuil] of [[1, 10], [2, 20], [3, 30]]) {
+        const f = clePalier('hf:legende', palier)
+        if (niveau >= seuil && !siens.has(f)) siens.set(f, s)
+      }
       const siennes = quand.get(j.id)!
       for (const [key, essais] of Object.entries(ESSAIS)) {
         for (const r of essais) {
@@ -334,6 +366,13 @@ for (let b = 0; b < BANDES; b++) {
     }
   }
   experiences.push(trajectoires)
+  for (const [, siens] of decroches) {
+    for (const cle of CLES_MESUREES) {
+      const xs = premieresFois.get(cle) ?? []
+      xs.push(siens.get(cle) ?? Infinity)
+      premieresFois.set(cle, xs)
+    }
+  }
 }
 
 // ── Le rapport ────────────────────────────────────────────────────────────
@@ -390,3 +429,32 @@ for (const pas of COURBES) {
   )
 }
 console.log('\n* la courbe du jour (XP_PAR_PALIER)')
+
+// ── La rareté des hauts faits ─────────────────────────────────────────────
+
+const REPERES_RARETE = [10, 20, 40].filter(n => n <= SOIREES)
+const part = (xs: number[], soirees: number) => xs.filter(x => x <= soirees).length / xs.length
+/**
+ * La part des joueurs qui l'ont, soirée après soirée, en moyenne sur toutes :
+ * un palier que tout le monde finit par avoir, mais tard (L'Habitué · Or, à
+ * vingt-cinq soirées), passe ainsi après un exploit que presque personne n'a
+ * — au bout de vingt soirées seulement, il comptait pour introuvable.
+ */
+const partMoyenne = (xs: number[]) => xs.reduce((n, x) => n + Math.max(0, SOIREES - x + 1), 0) / (xs.length * SOIREES)
+console.log(`\nRareté — part des joueurs qui ont chaque haut fait au bout de n soirées, et en moyenne sur les ${SOIREES}`)
+console.log(`${'haut fait'.padEnd(26)}${REPERES_RARETE.map(n => `${n} soirées`.padStart(12)).join('')}${'moyenne'.padStart(12)}`)
+const mesurees: [string, number][] = []
+for (const cle of CLES_MESUREES) {
+  if (NON_SIMULES.has(cle.replace(/:[123]$/, ''))) {
+    console.log(`${cle.padEnd(26)}${'non simulé'.padStart(12)}`)
+    continue
+  }
+  const xs = premieresFois.get(cle) ?? []
+  const pc = (x: number) => `${(x * 100).toFixed(1).replace('.', ',')} %`.padStart(12)
+  console.log(`${cle.padEnd(26)}${REPERES_RARETE.map(n => pc(part(xs, n))).join('')}${pc(partMoyenne(xs))}`)
+  mesurees.push([cle, partMoyenne(xs)])
+}
+// Ce qui se recopie dans `PART_DES_JOUEURS`, moyenné sur les trois formats de
+// RECOMPENSES.md (5.2) : un seul format ferait du Triplé un impossible.
+console.log(`\nPART_DES_JOUEURS (moyenne sur les ${SOIREES} soirées) :`)
+for (const [cle, p] of mesurees) console.log(`  '${cle}': ${p.toFixed(4)},`)
