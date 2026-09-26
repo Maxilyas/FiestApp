@@ -465,3 +465,39 @@ test('une annulation tombée en panne à mi-chemin se rejoue : le second clic re
       assert.equal(etat.xp, 75)
     }
   }))
+
+test('sa page relit son quiz du jour : médailles, série et record, podiums, et chaque jour à sa place du classement', () =>
+  avecBanc(async (banc, horloge) => {
+    const admin = await connexionAnimateur(banc.url)
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    await jouer(banc, horloge, alice, () => true)
+    horloge.t += 60_000
+    await jouer(banc, horloge, bob, i => i < 6)
+    // Le lendemain : la nuit paie le podium d'Alice, qui rejoue — huit sur dix.
+    horloge.t = Date.UTC(2026, 8, 27, 8, 0)
+    await jouer(banc, horloge, alice, i => i < 8)
+
+    const moi = (await lire(banc, alice, '/api/joueur/moi')).corps.profile.jour
+    assert.equal(moi.joues, 2)
+    assert.deepEqual(moi.medailles, { or: 1, argent: 1, bronze: 0 })
+    assert.equal(moi.meilleurScore, 2000)
+    assert.deepEqual([moi.podiums, moi.victoires], [1, 1])
+    assert.deepEqual([moi.serie, moi.record], [2, 2])
+    assert.deepEqual(
+      moi.jours.map((j: any) => [j.jour, j.points, j.rang, j.joueurs, j.xp, j.medaille, j.justes, j.comptees]),
+      [
+        [LENDEMAIN, 1600, 1, 1, 60, 'argent', 8, 10],
+        [JOUR, 2000, 1, 2, 75 + 25, 'or', 10, 10],
+      ],
+    )
+    const deBob = (await lire(banc, bob, '/api/joueur/moi')).corps.profile.jour
+    assert.deepEqual(deBob.jours.map((j: any) => [j.rang, j.joueurs, j.medaille]), [[2, 2, 'bronze']])
+    assert.equal(deBob.serie, 1, 'joué hier : la série court jusqu’à ce soir')
+
+    // Masqué, Bob ne compte plus dans la salle d'Alice ; lui s'y voit toujours.
+    const id = (await lire(banc, admin, '/api/admin/jour/profils?q=bob')).corps.find((p: any) => p.login === 'bob').id
+    await poster(banc, admin, '/api/admin/jour/masquer', { profileId: id, masque: true })
+    assert.deepEqual((await lire(banc, alice, '/api/joueur/moi')).corps.profile.jour.jours[1].joueurs, 1)
+    assert.deepEqual((await lire(banc, bob, '/api/joueur/moi')).corps.profile.jour.jours[0].joueurs, 2)
+  }))

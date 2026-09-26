@@ -11,6 +11,7 @@ import {
   jourValide,
   medailleDe,
   moisEnToutesLettres,
+  plusLongueSerie,
   serieDe,
   xpDuJour,
   xpDuPodium,
@@ -65,4 +66,14 @@ test('la série : les jours d’affilée, soirées comprises — elle court jusq
   // Un jour sauté la casse.
   assert.equal(serieDe(joues, '2026-09-27'), 0)
   assert.equal(serieDe(new Set(), '2026-09-26'), 0)
+})
+
+test('la plus longue série : des jours d’affilée, où qu’ils tombent', () => {
+  assert.equal(plusLongueSerie(new Set()), 0)
+  assert.equal(plusLongueSerie(new Set(['2026-09-01'])), 1)
+  assert.equal(
+    plusLongueSerie(new Set(['2026-03-04', '2026-02-27', '2026-02-28', '2026-03-01', '2026-03-03'])),
+    3,
+    'par-dessus la fin février, dans n’importe quel ordre',
+  )
 })

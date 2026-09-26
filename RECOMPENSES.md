@@ -683,6 +683,15 @@ la série, le classement, la nuit, la réserve et sa modération, et la
 réserve écrite par une routine Claude Code (§ 5.13). À suivre : les
 estimations à tolérance.
 
+**Lot 6 — en cours** : le profil en trois onglets — Apparence (la grille
+unique des avatars : emojis, légendaires et Divins de la même taille, un
+anneau pour ce qui est rare, la légende au toucher ; la finition),
+Trophées (la vitrine de la carte, le quiz du jour et ses médailles, les
+hauts faits les plus proches, la collection de prix), Carrière (la fiche,
+les courbes des soirées et des jours, « Mes jours », « Mes soirées ») —, et
+« Ce soir » resserré sur l'accueil. À suivre : les titres (8) et la
+vitrine qu'on choisit.
+
 **Plus tard**, dans l'ordre où je les prendrais :
 
 1. Réclamer sa soirée (50) — le meilleur moment pour proposer un profil.

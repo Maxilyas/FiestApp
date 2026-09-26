@@ -3,7 +3,7 @@ import type { CarteDeJoueur } from '../../../shared/carte'
 import type { BadgePorte } from '../../../shared/badges'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { hautFaitDeSoiree, palierDe, regleDuPalier } from '../../../shared/hautsfaits'
+import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
 import { chargerDessinsAuPlus, complets, useDessins } from './medaillons'
@@ -143,7 +143,7 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                               {b.title}
                               {b.fois > 1 && <span className="hf-fois">×{b.fois}</span>}
                             </span>
-                            <span className="muted small">{ceQuIlAFallu(b)}</span>
+                            <span className="muted small">{ceQuIlAFallu(b.key)}</span>
                           </span>
                         </li>
                       ))}
@@ -182,12 +182,4 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
       </div>
     </div>
   )
-}
-
-/** Sous le titre d'un haut fait, ce qu'il a fallu faire : sa règle, ou pour un palier le seuil franchi. */
-function ceQuIlAFallu(b: BadgePorte): string {
-  const h = hautFaitDeSoiree(b.key)
-  if (h) return h.rule
-  const p = palierDe(b.key)
-  return p ? regleDuPalier(p.hautFait, p.palier) : ''
 }

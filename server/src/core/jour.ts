@@ -21,7 +21,7 @@ import { lireModeles } from './seed'
 import { aEcrirePour, categoriesAPrivilegier, consigneDuJour } from './consigne'
 import { normalizeQuestions, toPlayable, type PlayableQuestion, type QuizQuestionDef } from '../../../shared/library'
 import { preparerPartie, suiteFixe } from '../../../shared/hasard'
-import { classer } from '../../../shared/classement'
+import { classer, rangDansLesTries } from '../../../shared/classement'
 import { nomsAffiches, sansAccent } from '../../../shared/homonymes'
 import { tronquer } from '../../../shared/avatars'
 import {
@@ -31,11 +31,15 @@ import {
   jourValide,
   medailleDe,
   moisDe,
+  plusLongueSerie,
   serieDe,
   xpDuJour,
   xpDuPodium,
+  type CarriereDuJour,
   type ClassementDuJour,
+  type JourJoue,
   type LigneDuJour,
+  type Medaille as TypeDeMedaille,
   type PartieDuJour,
   type QuestionDuJour,
   type RevelationDuJour,
@@ -73,6 +77,16 @@ interface Partie {
   xp: number
 }
 
+/** Une partie d'un profil, relue pour sa page. */
+interface JourLu {
+  jour: string
+  points: number
+  justes: number
+  xp: number
+  comptees: number
+  annulees: number[]
+}
+
 /** Une ligne de classement avec ce qu'il faut pour la trier et la nommer. */
 interface Joueur {
   profil: ProfileRec
@@ -104,6 +118,8 @@ const PROFILS_EN_VOL = 8
  * l'empreinte écarte encore les copies exactes.
  */
 const DEJA_RAPPELEES = 300
+/** Les jours qu'une page de profil relit : un mois, de quoi tracer ses courbes. */
+const JOURS_RELUS = 30
 
 /** Pas deux fois la même : l'intitulé, sans casse, sans accents, sans ponctuation. */
 export function empreinteDe(texte: string): string {
@@ -916,6 +932,112 @@ export class JourStore {
       xpPodium: Number(podium.rows[0]?.xp ?? 0),
       medaille: medailleDe(partie.justes, comptees),
     }
+  }
+
+  // ── Sa carrière au quiz du jour ─────────────────────────────────────────
+
+  /**
+   * Le quiz du jour d'un profil, pour sa page (`CarriereDuJour`) : ses
+   * médailles, sa série et son record, ses podiums, et ses trente derniers
+   * jours. La nuit d'avant se clôt d'abord : son podium se compte.
+   */
+  async carriereDe(profileId: string): Promise<CarriereDuJour> {
+    const aujourdhui = jourDe(this.maintenant())
+    await this.clorePasses(aujourdhui)
+    const [parties, podiums, soirees] = await this.client.batch(
+      [
+        {
+          sql: `SELECT p.jour, p.points, p.justes, p.xp, t.annulees,
+                       json_array_length(t.questions) - json_array_length(t.annulees) AS comptees
+                FROM jour_parties p LEFT JOIN jour_tirages t ON t.jour = p.jour
+                WHERE p.profile_id = ? ORDER BY p.jour DESC`,
+          args: [profileId],
+        },
+        { sql: 'SELECT jour, rang, xp FROM jour_podiums WHERE profile_id = ?', args: [profileId] },
+        { sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND soiree_id NOT IN ('#paliers', '#jour')`, args: [profileId] },
+      ],
+      'read',
+    )
+    const lues: JourLu[] = parties.rows.map(r => ({
+      jour: String(r.jour),
+      points: Number(r.points),
+      justes: Number(r.justes),
+      xp: Number(r.xp),
+      comptees: Number(r.comptees ?? 0),
+      annulees: lireNombres(r.annulees),
+    }))
+    const medailles: Record<TypeDeMedaille, number> = { or: 0, argent: 0, bronze: 0 }
+    for (const p of lues) {
+      const m = medailleDe(p.justes, p.comptees)
+      if (m) medailles[m]++
+    }
+    const joues = new Set([...lues.map(p => p.jour), ...soirees.rows.map(r => jourDe(Number(r.created_at)))])
+    const podiumDe = new Map(podiums.rows.map(r => [String(r.jour), Number(r.xp)]))
+    return {
+      joues: lues.length,
+      serie: serieDe(joues, aujourdhui),
+      record: plusLongueSerie(joues),
+      medailles,
+      meilleurScore: lues.reduce((m, p) => Math.max(m, p.points), 0),
+      podiums: podiums.rows.length,
+      victoires: podiums.rows.filter(r => Number(r.rang) === 1).length,
+      jours: await this.joursJoues(profileId, lues.slice(0, JOURS_RELUS), podiumDe),
+    }
+  }
+
+  /**
+   * Ses derniers jours, chacun avec sa place telle que le classement de ce
+   * jour-là la donnait : rang partagé (`rangDansLesTries`), sans les profils
+   * fermés ni les masqués — sauf lui, qui se voit toujours.
+   */
+  private async joursJoues(profileId: string, recents: readonly JourLu[], podiumDe: ReadonlyMap<string, number>): Promise<JourJoue[]> {
+    if (recents.length === 0) return []
+    const jours = recents.map(p => p.jour)
+    const marques = jours.map(() => '?').join(', ')
+    const [salle, reponses] = await this.client.batch(
+      [
+        {
+          sql: `SELECT jour, points FROM jour_parties WHERE jour IN (${marques})
+                AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)
+                AND (profile_id = ? OR profile_id NOT IN (SELECT profile_id FROM jour_masques))`,
+          args: [...jours, profileId],
+        },
+        {
+          sql: `SELECT jour, question, ms FROM jour_reponses WHERE profile_id = ? AND juste = 1 AND jour IN (${marques})`,
+          args: [profileId, ...jours],
+        },
+      ],
+      'read',
+    )
+    const pointsDu = new Map<string, number[]>()
+    for (const r of salle.rows) {
+      const jour = String(r.jour)
+      const liste = pointsDu.get(jour) ?? []
+      liste.push(Number(r.points))
+      pointsDu.set(jour, liste)
+    }
+    const annuleesDu = new Map(recents.map(p => [p.jour, p.annulees]))
+    const tempsDu = new Map<string, number>()
+    for (const r of reponses.rows) {
+      const jour = String(r.jour)
+      // Une question annulée ne compte plus : ni sa bonne réponse, ni son temps.
+      if (annuleesDu.get(jour)?.includes(Number(r.question))) continue
+      tempsDu.set(jour, (tempsDu.get(jour) ?? 0) + Number(r.ms ?? 0))
+    }
+    return recents.map(p => {
+      const tries = (pointsDu.get(p.jour) ?? [p.points]).sort((a, b) => b - a)
+      return {
+        jour: p.jour,
+        points: p.points,
+        rang: rangDansLesTries(p.points, tries),
+        joueurs: tries.length,
+        xp: p.xp + (podiumDe.get(p.jour) ?? 0),
+        medaille: medailleDe(p.justes, p.comptees),
+        comptees: p.comptees,
+        justes: p.justes,
+        tempsJustesMs: tempsDu.get(p.jour) ?? 0,
+      }
+    })
   }
 
   // ── La série ────────────────────────────────────────────────────────────

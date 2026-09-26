@@ -24,7 +24,7 @@ Chez soi, sur une base neuve, le compte administrateur est `antoine` / `demo` et
 | Jeu | http://localhost:5173/demo | les invités (sur leur téléphone : `http://<IP-du-PC>:5173/demo`). Le QR de l'écran commun, lui, vise le port du serveur, qui ne sert que le client construit : pour jouer avec de vrais téléphones, voir « Tester avec de vrais téléphones » |
 | Écran commun | http://localhost:5173/host | la TV / le vidéoprojecteur, une fois l'animateur connecté — ou branchée depuis son téléphone, par le code qu'elle affiche ; tenue au téléphone, la même page devient la télécommande |
 | Mes quiz | http://localhost:5173/edit | l'animateur, pour écrire ses quiz |
-| Mon profil | http://localhost:5173/profil | la même page que l'accueil : son niveau, ses finitions, ses avatars légendaires et divins, ses hauts faits et sa fiche |
+| Mon profil | http://localhost:5173/profil | la même page que l'accueil, en trois onglets : Apparence (ses avatars — emojis, légendaires, Divins — et sa finition), Trophées (sa vitrine, son quiz du jour, ses hauts faits, sa collection de prix), Carrière (sa fiche, ses courbes, ses jours et ses soirées) |
 | Mon compte | http://localhost:5173/compte | ses réglages de soirée, son mot de passe, l'adresse de ses invités |
 | Les comptes | http://localhost:5173/admin | l'administrateur seul : créer un compte à un ami |
 | Souvenir | http://localhost:5173/demo/souvenir | la soirée en cours — et, entre deux soirées, la dernière close : podium, palmarès, équipes et tous les chiffres ; la page se rafraîchit seule (`/demo/stats` y mène, droit sur le tableau) |

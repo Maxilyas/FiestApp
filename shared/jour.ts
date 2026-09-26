@@ -169,6 +169,19 @@ export function serieDe(joues: ReadonlySet<string>, aujourdhui: string): number 
   return n
 }
 
+/** La plus longue série de sa vie : les jours d'affilée joués, au quiz du jour ou en soirée. */
+export function plusLongueSerie(joues: ReadonlySet<string>): number {
+  let record = 0
+  for (const jour of joues) {
+    // Seul le premier jour d'une série la compte : les suivants la liraient à moitié.
+    if (joues.has(jourAvant(jour))) continue
+    let n = 1
+    for (let suivant = jourAvant(jour, -1); joues.has(suivant); suivant = jourAvant(suivant, -1)) n++
+    record = Math.max(record, n)
+  }
+  return record
+}
+
 // ── Ce que le téléphone reçoit ────────────────────────────────────────────
 
 /**
@@ -247,6 +260,42 @@ export interface ClassementDuJour {
   sienne?: string
   /** Figé : la nuit l'a clos, et son podium a été payé. */
   fige: boolean
+}
+
+/** Un jour joué, tel que le profil le relit : « Vendredi 26 · 1 240 pts · 7ᵉ sur 23 · +46 XP ». */
+export interface JourJoue {
+  jour: string
+  points: number
+  /** Sa place ce jour-là, rang partagé (invariant 15), et combien avaient joué. */
+  rang: number
+  joueurs: number
+  /** Ce que le jour lui a rapporté : la partie et le podium. */
+  xp: number
+  medaille: Medaille | null
+  /** Pour les courbes : les questions qui comptaient, ses bonnes réponses, et leur temps. */
+  comptees: number
+  justes: number
+  tempsJustesMs: number
+}
+
+/**
+ * Le quiz du jour d'un profil, pour sa page : ce qu'il y a gagné, et ses
+ * derniers jours. Rien qu'il ne puisse déjà lire ailleurs — le classement
+ * de chaque jour est public —, rassemblé.
+ */
+export interface CarriereDuJour {
+  /** Jours joués, en tout. */
+  joues: number
+  /** La série en cours et la plus longue, soirées comprises, comme sur la carte du jour. */
+  serie: number
+  record: number
+  medailles: Record<Medaille, number>
+  meilleurScore: number
+  /** Les marches de podium payées, et les victoires — tous les ex æquo en tête gagnent. */
+  podiums: number
+  victoires: number
+  /** Les trente derniers jours joués, le plus récent d'abord. */
+  jours: JourJoue[]
 }
 
 /** La partie du jour d'un profil, vue de son téléphone. */

@@ -109,6 +109,11 @@
   --bronze-text: #c98b58;
   --argent-text: #b9c3cf;
 
+  /* L'anneau des avatars rares, dans la grille du profil : l'orangé des
+     légendaires, le lilas des Divins — et le même pour le mot qui les nomme. */
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+
   --radius: 16px;
   --radius-sm: 14px;
   --radius-pill: 999px;
@@ -192,6 +197,8 @@
 
   --bronze-text: #8a5a2e;
   --argent-text: #5f6b7a;
+  --anneau-legendaire: #a85a22;
+  --anneau-divin: #6a58a8;
 }
 
 * {
@@ -3820,44 +3827,6 @@ h3 > .icon {
 /* Sur la page profil, la grille d'emojis porte des avatars complets. */
 .emoji-grid .av { font-size: 1.5rem; }
 
-/* ── L'étagère à badges ────────────────────────────────────────────────── */
-
-.vitrine {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: 10px;
-}
-
-.badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 6px 10px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  text-align: center;
-}
-
-.badge-emoji { font-size: 1.8rem; line-height: 1; }
-.badge-titre { font-size: 0.82rem; line-height: 1.2; }
-.badge-pied { font-size: 0.7rem; color: var(--muted); }
-
-/* La rareté se lit à la bordure : plus elle est rare, plus elle se voit. Les
-   quatre teintes sont celles des formes de réponse, déjà dans la palette —
-   pas de nouvelle couleur à faire cohabiter avec le reste. */
-/* Les raretés prennent les teintes des formes, qui s'assombrissent en
-   Ivoire ; `rgba` reste en repli pour un navigateur sans `color-mix`. */
-.badge.rarete-peucommune { border-color: rgba(143, 191, 168, 0.45); border-color: color-mix(in srgb, var(--shape-3) 45%, transparent); }
-.badge.rarete-rare { border-color: rgba(169, 154, 214, 0.55); border-color: color-mix(in srgb, var(--shape-2) 55%, transparent); }
-.badge.rarete-epique { border-color: rgba(217, 138, 154, 0.6); border-color: color-mix(in srgb, var(--shape-0) 60%, transparent); }
-.badge.rarete-legendaire {
-  border-color: rgba(var(--accent-rgb), 0.75);
-  background: var(--accent-soft);
-}
-.badge.rarete-legendaire .badge-pied { color: var(--accent-text); }
-
 /* ── L'historique des soirées ──────────────────────────────────────────── */
 
 .soiree-row {
@@ -4742,7 +4711,6 @@ h3 > .icon {
 .repli > summary:focus-visible { outline-offset: 6px; border-radius: 6px; }
 .repli-compte { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
 /* L'avatar qu'on porte, dans le titre de « Mon avatar » : un aperçu, pas un bouton. */
-.repli-avatar { font-size: 1.5rem; line-height: 1; }
 .repli-chevron { color: var(--accent-text); transition: transform 0.2s ease; }
 .repli[open] .repli-chevron { transform: rotate(180deg); }
 .repli-corps { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
@@ -4765,38 +4733,6 @@ h3 > .icon {
 @media (prefers-reduced-motion: reduce) {
   .repli-chevron { transition: none; }
 }
-
-.galerie {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 10px;
-  margin: 12px 0 8px;
-}
-
-.galerie-case {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  padding: 10px 6px 12px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius);
-  background: var(--surface-faint);
-  color: var(--ink);
-  font: inherit;
-  text-align: center;
-  cursor: pointer;
-}
-
-.galerie-case:disabled { cursor: default; }
-.galerie-case.porte { border-color: var(--accent); background: var(--accent-soft); }
-.galerie-case:not(:disabled):hover { border-color: var(--edge-strong); }
-.galerie-medaillon { font-size: 64px; line-height: 0; }
-.galerie-case.verrouille .galerie-medaillon { font-size: 56px; }
-.galerie-nom { font-family: var(--serif); font-size: 1.02rem; font-weight: 600; line-height: 1.15; }
-.galerie-case.verrouille .galerie-nom { color: var(--muted); }
-.galerie-case.ouverte { border-color: var(--edge-strong); }
-.galerie-case .jauge { margin-top: 3px; }
 
 .galerie-detail {
   display: flex;
@@ -5541,3 +5477,54 @@ h3 > .icon {
 /* L'avatar d'un profil qu'on crée : tiré d'avance, la grille à la demande. */
 .pf-avatar { gap: 8px; }
 .pf-avatar-emoji { font-size: 1.4rem; line-height: 1; }
+
+/* ── Le profil en trois onglets ──────────────────────────────────────────
+   « Ce soir » d'abord, resserré ; le quiz du jour ; puis Apparence,
+   Trophées, Carrière. */
+.ce-soir { display: flex; flex-direction: column; gap: 10px; }
+.ce-soir-autres { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Deux lignes plutôt qu'un bouton qui déborde : « Rejoindre une soirée » ne
+   tient pas en une sur 360 px. */
+.ce-soir-autres .btn { width: 100%; min-width: 0; white-space: normal; line-height: 1.15; padding: 6px 8px; gap: 6px; }
+.ce-soir-autres .btn .icon { width: 15px; height: 15px; flex: none; }
+.ce-soir .lendemain { justify-content: flex-start; text-align: left; }
+.onglets-profil .onglet { min-height: 44px; }
+.onglet .icon { width: 16px; height: 16px; flex: none; }
+.profil-onglet { display: flex; flex-direction: column; gap: 18px; }
+.titre-compte { font-family: var(--sans); font-weight: 400; margin-left: 6px; }
+.apercu { display: flex; flex-direction: column; gap: 10px; }
+.apercu-ligne { animation: none; }
+
+/* La grille unique : les emojis, les légendaires, les Divins, de la même
+   taille ; un anneau de couleur dit ce qui est rare. */
+.grille-unique { gap: 7px; }
+.case-avatar { position: relative; border-width: 1.5px; }
+.case-avatar.anneau-legendaire { border-color: var(--anneau-legendaire); }
+.case-avatar.anneau-divin { border-color: var(--anneau-divin); }
+.case-avatar.ferme { background: rgba(0, 0, 0, 0.25); }
+.case-avatar.selected { border-color: var(--accent); }
+.case-avatar.ouverte { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.3); }
+.case-medaillon { font-size: 30px; line-height: 0; }
+.detail-case { margin: 12px 0 0; }
+.detail-famille { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
+.anneau-texte-legendaire { color: var(--anneau-legendaire); }
+.anneau-texte-divin { color: var(--anneau-divin); }
+.legende-anneaux { margin: 10px 0 0; line-height: 1.6; }
+.puce { font-size: 0.8em; }
+
+/* Trophées : ce que la carte montre, les médailles du jour, les plus
+   proches, la collection de prix — ce qui manque en pointillé. */
+.vitrine-choix { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.vitrine-choix li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--edge); background: var(--surface-faint); }
+.vitrine-choix .hf-corps { display: flex; flex-direction: column; }
+.medailles-compte { display: flex; gap: 18px; align-items: center; margin: 10px 0 12px; }
+.medailles-compte > span { display: inline-flex; align-items: center; gap: 6px; font-size: 1.3rem; }
+.proches { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+.prix-collection { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+.prix-collection li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 12px; border: 1px solid var(--edge); text-align: center; }
+.prix-collection .prix-emoji { font-size: 1.35rem; line-height: 1; }
+.prix-collection .prix-titre { font-size: 0.66rem; line-height: 1.2; }
+.prix-collection .manque { border-style: dashed; }
+.prix-collection .manque .prix-emoji { filter: grayscale(1) brightness(0.45); }
+.prix-collection .manque .prix-titre { color: var(--muted); }
+.prix-collection .hf-fois { position: absolute; top: 3px; right: 4px; font-size: 0.62rem; }

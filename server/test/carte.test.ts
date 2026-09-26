@@ -25,6 +25,7 @@ import {
   type Banc,
   type Invite,
 } from './banc'
+import { CATALOGUE_DES_PRIX, PRIX_INDIVIDUELS } from '../src/core/stats'
 
 async function avecBanc(scenario: (banc: Banc) => Promise<void>) {
   const banc = await demarrer()
@@ -163,4 +164,24 @@ test('la carte montre ses trois plus beaux hauts faits, et le nombre de ses prix
     assert.equal(p.vitrine[1].fois, 2, 'le nombre de fois part avec lui')
     assert.deepEqual(p.prix, { eus: 2, total: 20 }, 'deux prix différents sur vingt — L’Éclair compte une fois')
     assert.equal(p.hautsFaits, 5, 'un palier compte pour son haut fait')
+
+    // Sa propre page montre toute la collection, dans l'ordre du catalogue :
+    // les deux qu'il a, et les dix-huit qui l'attendent.
+    const collection = ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: aliceCookie } })).json()) as any).profile.prix
+    assert.deepEqual(
+      collection.map((x: any) => x.key),
+      [...PRIX_INDIVIDUELS],
+    )
+    assert.deepEqual(
+      collection.filter((x: any) => x.fois > 0).map((x: any) => [x.key, x.fois]),
+      [
+        ['eclair', 6],
+        ['sauveur', 1],
+      ],
+    )
+    for (const x of collection) assert.ok(x.emoji && x.title && x.rule, `${x.key} se montre même avant d’être gagné`)
+    assert.deepEqual(
+      CATALOGUE_DES_PRIX.find(x => x.key === 'lynx'),
+      { key: 'lynx', emoji: '👁️', title: "L'Œil de Lynx", rule: 'La meilleure mémoire sur les questions à photo' },
+    )
   }))

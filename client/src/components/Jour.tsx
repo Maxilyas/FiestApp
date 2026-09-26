@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { formatNumber, place, pts } from '../format'
-import { NOM_MEDAILLE, jourEnToutesLettres, type Medaille as TypeDeMedaille, type PartieDuJour } from '../../../shared/jour'
+import {
+  NOM_MEDAILLE,
+  jourEnToutesLettres,
+  type CarriereDuJour,
+  type JourJoue,
+  type Medaille as TypeDeMedaille,
+  type PartieDuJour,
+} from '../../../shared/jour'
+import type { PointJoue } from './Carriere'
 import { Icon } from './Icon'
 import { enumerer } from '../../../shared/classement'
 
@@ -132,4 +140,54 @@ const capitale = (texte: string) => texte.charAt(0).toUpperCase() + texte.slice(
 export function ontGagneHier(partie: Pick<PartieDuJour, 'vainqueursDHier'>): string {
   const noms = partie.vainqueursDHier.map(v => v.nom)
   return `${enumerer(noms)} ${noms.length > 1 ? 'ont' : 'a'} gagné hier`
+}
+
+/** Combien de jours « Mes jours » montre : une semaine. Le classement du mois dit le reste. */
+const JOURS_MONTRES = 7
+
+/**
+ * Ses derniers jours au quiz du jour, sur sa page : la date, les points, la
+ * place de ce jour-là, ce qu'il lui a rapporté — la partie et le podium.
+ */
+export function MesJours({ jour }: { jour?: CarriereDuJour }) {
+  if (!jour || jour.joues === 0) return null
+  return (
+    <section className="card">
+      <h3>
+        <Flamme />
+        Mes jours <span className="muted small titre-compte">{formatNumber(jour.joues)}</span>
+      </h3>
+      {jour.jours.slice(0, JOURS_MONTRES).map(j => (
+        <div key={j.jour} className="soiree-row">
+          <div className="soiree-texte">
+            <span className="soiree-quand">{capitale(jourEnToutesLettres(j.jour))}</span>
+            <span className="soiree-detail">
+              {pts(j.points)} · {place(j.rang)} sur {j.joueurs}
+              {j.medaille && ` · ${NOM_MEDAILLE[j.medaille].toLowerCase()}`}
+            </span>
+          </div>
+          <span className="soiree-xp">+{formatNumber(j.xp)} XP</span>
+        </div>
+      ))}
+      <a className="link-inline small" href="/jour#classement">
+        Le classement du mois
+      </a>
+    </section>
+  )
+}
+
+/**
+ * Les jours du quiz du jour, tels que les courbes les lisent : la précision
+ * sur les questions qui comptaient, le réflexe sur ses bonnes réponses — et
+ * pas de coup d'œil, le quiz du jour ne pose pas d'estimation.
+ */
+export function pointsDesJours(jours: readonly JourJoue[]): PointJoue[] {
+  return jours.map(j => {
+    const [annee, mois, jourDuMois] = j.jour.split('-').map(Number)
+    return {
+      releve: { qcm: j.comptees, justes: j.justes, estimationsComparees: 0, coupDOeil: 0, tempsJustesMs: j.tempsJustesMs },
+      // À midi en temps universel : le même jour sous tous les fuseaux d'Europe.
+      at: Date.UTC(annee, mois - 1, jourDuMois, 12),
+    }
+  })
 }

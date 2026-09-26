@@ -395,6 +395,18 @@ export function regleDuPalier(h: HautFaitDeCarriere, palier: number): string {
   return `${formatNumber(seuil)} ${seuil < 2 ? h.mesureUne : h.mesure}`
 }
 
+/**
+ * Sous le titre d'un haut fait rangé, ce qu'il a fallu faire : sa règle, ou
+ * pour un palier le seuil franchi. Un titre seul (« Le Buzzer d'Or ») ne dit
+ * rien à qui ne l'a jamais chassé.
+ */
+export function ceQuIlAFallu(cle: string): string {
+  const h = hautFaitDeSoiree(cle)
+  if (h) return h.rule
+  const p = palierDe(cle)
+  return p ? regleDuPalier(p.hautFait, p.palier) : ''
+}
+
 /** Les paliers qu'une carrière atteint, clés rangées comprises (`hf:bavard:1`, `hf:bavard:2`…). */
 export function paliersAtteints(c: Carriere): string[] {
   return HAUTS_FAITS_DE_CARRIERE.flatMap(h => {
