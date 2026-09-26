@@ -16,6 +16,7 @@ import { buildReview, type PlayedPack } from './review'
 import { buildProgress, relevesDeSoiree, type SoireeGain } from './progress'
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
 import { divinsDeSoiree, laureatsDivins, raconter } from './divins'
+import { laureatsDeSaison } from './saisons'
 import { PRIX_INDIVIDUELS, computeStats } from './stats'
 import { approchesDeLaSoiree, recordsBattus } from './objectifs'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
@@ -888,6 +889,8 @@ export class SpaceRuntime {
     // bilan de chacun, qui voit aussi l'Arbre-Monde descendre avec son
     // douzième légendaire.
     laureats.push(...laureatsDivins(divinsDeSoiree(live), profilDuJoueur))
+    // Une soirée d'Halloween, de Noël ou du Nouvel An ouvre son légendaire.
+    laureats.push(...laureatsDeSaison(live.answers, gains))
     const prixDe = new Map<string, PrixAnnonce[]>()
     for (const a of prix) {
       if (!a.player) continue

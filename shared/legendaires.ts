@@ -27,8 +27,14 @@
 // Le Sphinx, treizième, se gagne au quiz du jour : l'assiduité plutôt que le
 // génie — le podium du jour ira toujours aux deux ou trois mêmes. Il a deux
 // voies, cent jours joués ou dix sans-faute, et l'une suffit.
+//
+// Les trois de saison — la Citrouille, le Sapin, le Bouquet final — ne se
+// gagnent qu'à leur période (`shared/saisons.ts`) : des jours joués au quiz
+// du jour, ou une soirée ces jours-là. Leur condition porte sur une
+// récompense de saison (`saison:halloween`), rangée comme les autres.
 
 import { clePalier } from './hautsfaits'
+import type { CleDeSaison } from './saisons'
 
 /**
  * Ce qui débloque un légendaire : un haut fait de soirée décroché `fois`
@@ -47,6 +53,8 @@ export interface Legendaire {
   aussi?: Condition
   /** Le ton du haut fait qui le débloque : les légendaires de l'ombre se gagnent en jouant mal. */
   ton: 'eclat' | 'ombre'
+  /** Un légendaire de saison : il ne se gagne qu'à sa période. */
+  saison?: CleDeSaison
 }
 
 export const LEGENDAIRES: Legendaire[] = [
@@ -141,6 +149,30 @@ export const LEGENDAIRES: Legendaire[] = [
     condition: { hautFait: 'hf:assidu', palier: 3 },
     aussi: { hautFait: 'hf:sans-faute', palier: 3 },
     ton: 'eclat',
+  },
+  {
+    key: 'lg:citrouille',
+    nom: 'La Citrouille',
+    legende: 'Creusée une nuit d’Halloween, elle n’a jamais laissé s’éteindre sa bougie.',
+    condition: { hautFait: 'saison:halloween', fois: 1 },
+    ton: 'eclat',
+    saison: 'halloween',
+  },
+  {
+    key: 'lg:sapin',
+    nom: 'Le Sapin',
+    legende: 'Il a vu passer tous les Noëls, et garde une boule pour chacun.',
+    condition: { hautFait: 'saison:noel', fois: 1 },
+    ton: 'eclat',
+    saison: 'noel',
+  },
+  {
+    key: 'lg:bouquet',
+    nom: 'Le Bouquet final',
+    legende: 'Minuit sonne, la ville lève les yeux : c’est pour lui que le ciel s’allume.',
+    condition: { hautFait: 'saison:nouvel-an', fois: 1 },
+    ton: 'eclat',
+    saison: 'nouvel-an',
   },
 ]
 

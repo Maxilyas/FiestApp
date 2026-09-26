@@ -3960,6 +3960,12 @@ h3 > .icon {
     linear-gradient(180deg, #2a0409 0 10px, #d9b56a 10px 11px, transparent 11px);
 }
 
+/* Une saison, au quiz du jour : son légendaire en silhouette, à côté de ce
+   qui manque pour l'ouvrir. */
+.jour-saison { display: flex; align-items: center; gap: 14px; }
+.jour-saison > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.jour-saison-medaillon { flex: none; font-size: 56px; line-height: 0; }
+
 /* ── Les écussons de savoir ────────────────────────────────────────────── */
 
 .ecussons { display: flex; flex-wrap: wrap; gap: 14px; list-style: none; margin: 0; padding: 0; }
@@ -4355,6 +4361,16 @@ h3 > .icon {
 @keyframes lg-lueur {
   0%, 100% { opacity: 0.2; transform: scale(0.99); }
   50% { opacity: 0.45; transform: scale(1.03); }
+}
+
+/* La bougie de la Citrouille : sa lueur vacille, sans bouger. */
+.lg-bougie { animation: lg-bougie 1.7s ease-in-out infinite; }
+
+@keyframes lg-bougie {
+  0%, 100% { opacity: 1; }
+  35% { opacity: 0.78; }
+  55% { opacity: 0.95; }
+  70% { opacity: 0.84; }
 }
 
 @media (prefers-reduced-motion: reduce) {

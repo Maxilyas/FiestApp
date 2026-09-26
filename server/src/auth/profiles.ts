@@ -43,6 +43,7 @@ import {
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
 import { fond, fondsOuverts, type CleDeFond } from '../../../shared/fonds'
+import { cleDeSaison, type Saison } from '../../../shared/saisons'
 import {
   cibleEclat,
   conditionTenue,
@@ -769,7 +770,7 @@ export class ProfileStore {
       eclats: this.eclatsOf(p.id),
       // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
       // de neuf sur l'étagère dirait qu'il s'est passé quelque chose.
-      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:')).length,
+      badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:')).length,
       legendaire: this.legendairePorte(p),
       legendaires: this.legendairesOf(p.id),
       divins: raconter(this.divinsOf(p.id)),
@@ -1474,13 +1475,40 @@ export class ProfileStore {
     return neufs
   }
 
-  /** Les paliers du quiz du jour que ce jour a fait tomber : à la fin de sa partie, ou à la nuit qui l'a clos. */
-  async paliersDuJourTombes(profileId: string, jour: string): Promise<{ key: string; emoji: string; title: string }[]> {
+  /**
+   * Ce que ce jour a fait tomber, rangé sous lui : les paliers du quiz du
+   * jour — à la fin de sa partie, ou à la nuit qui l'a clos — et la saison
+   * qu'il a ouverte.
+   */
+  async recompensesDuJour(profileId: string, jour: string): Promise<{ key: string; emoji: string; title: string }[]> {
     const res = await this.client.execute({
       sql: `SELECT badge, emoji, title FROM profile_badges WHERE profile_id = ? AND soiree_id = ? ORDER BY created_at, badge`,
       args: [profileId, cleDuJour(jour)],
     })
     return res.rows.map(r => ({ key: String(r.badge), emoji: String(r.emoji), title: String(r.title) }))
+  }
+
+  /** Les paliers du quiz du jour que ce jour a fait tomber, seuls. */
+  async paliersDuJourTombes(profileId: string, jour: string): Promise<{ key: string; emoji: string; title: string }[]> {
+    return (await this.recompensesDuJour(profileId, jour)).filter(r => palierDe(r.key))
+  }
+
+  /**
+   * Une saison gagnée au quiz du jour (`shared/saisons.ts`), rangée sous le
+   * jour qui l'a ouverte, comme ses paliers : aucune soirée ne la porte, et
+   * en retirer une ne la reprend pas. Rend vrai si elle est neuve.
+   */
+  async accorderSaison(profileId: string, s: Saison, jour: string): Promise<boolean> {
+    const cle = cleDeSaison(s)
+    if (this.recompensesOf(profileId).has(cle)) return false
+    await this.client.execute({
+      sql: `INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at)
+            VALUES (?, ?, ?, '', ?, ?, ?) ON CONFLICT(profile_id, badge, soiree_id) DO NOTHING`,
+      args: [profileId, cle, cleDuJour(jour), s.emoji, `Saison : ${s.nom}`, Date.now()],
+    })
+    this.porteurs = null
+    await this.recompterRecompenses([profileId])
+    return true
   }
 
   /**
@@ -1537,6 +1565,7 @@ export class ProfileStore {
   async badgesOf(profileId: string): Promise<BadgePorte[]> {
     // Les Divins n'y sont pas : ils ont leur galerie, et une étagère qui
     // dirait « tombé le 12 mars » raconterait ce qu'on a fait ce soir-là.
+    // Les saisons non plus : elles ne se montrent que par leur légendaire.
     const rows = await this.client.execute({
       // Par clé seule : un prix renommé porte deux noms en base, l'ancien et
       // le nouveau, et l'étagère le montrait deux fois. L'emoji et le titre
@@ -1547,7 +1576,7 @@ export class ProfileStore {
                      COUNT(*) OVER (PARTITION BY badge) AS fois,
                      MAX(created_at) OVER (PARTITION BY badge) AS dernier,
                      ROW_NUMBER() OVER (PARTITION BY badge ORDER BY created_at DESC, soiree_id DESC) AS n
-              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%'
+              FROM profile_badges WHERE profile_id = ? AND badge NOT LIKE 'dv:%' AND badge NOT LIKE 'saison:%'
             ) WHERE n = 1 ORDER BY dernier DESC`,
       args: [profileId],
     })

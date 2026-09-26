@@ -357,6 +357,12 @@ export interface PartieDuJour {
   } | null
   /** La partie finie : les paliers du quiz du jour qu'elle a fait tomber (L'Assidu, Le Sans-Faute). */
   paliers?: PalierTombe[]
-  /** Et le légendaire que l'un d'eux ouvre : le Sphinx, au centième jour ou au dixième sans-faute. */
+  /** Et le légendaire que l'un d'eux ouvre : le Sphinx, au centième jour ou au dixième sans-faute — ou celui de la saison. */
   legendaires?: string[]
+  /**
+   * Pendant une saison (Halloween, Noël, le Nouvel An), tant que son
+   * légendaire n'est pas à lui : ses jours joués dans la période, et combien
+   * il en faut.
+   */
+  saison?: { nom: string; legendaire: string; joues: number; requis: number; periode: string }
 }

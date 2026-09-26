@@ -350,7 +350,7 @@ changer d'avis, d'hôte, d'avatar —, sont estimés.
 
 ### 5.4 Les avatars légendaires
 
-Treize avatars dessinés en SVG, animés sans excès, lisibles à 20 px et
+Seize avatars dessinés en SVG, animés sans excès, lisibles à 20 px et
 spectaculaires à 200 : un médaillon, une silhouette forte, une lumière qui
 vit. Chacun se débloque par un haut fait, et **ne s'achète ni ne s'accélère**.
 
@@ -369,6 +369,9 @@ vit. Chacun se débloque par un haut fait, et **ne s'achète ni ne s'accélère*
 | Le Fantôme | 😴 Le Somnambule, six fois | ≈ 20 quiz |
 | Le Trou Noir | 🌌 L'Estimation Cosmique, sept fois | ≈ 20 quiz |
 | Le Sphinx | 📆 L'Assidu, palier or (cent jours), ou 💯 Le Sans-Faute, palier or (dix) | non simulé : le quiz du jour |
+| La Citrouille | Halloween : trois jours de quiz du jour du 25 octobre au 1er novembre, ou une soirée ces jours-là | non simulé : sa saison |
+| Le Sapin | Noël : trois jours de quiz du jour du 20 au 26 décembre, ou une soirée ces jours-là | non simulé : sa saison |
+| Le Bouquet final | Le Nouvel An : deux jours de quiz du jour du 30 décembre au 2 janvier, ou une soirée ces jours-là | non simulé : sa saison |
 
 **Une vingtaine de quiz.** Tombés d'un seul haut fait, la plupart se
 gagnaient dès la première soirée : au format de la maison — deux quiz de
@@ -398,6 +401,21 @@ avec « Le porter » — une seule fois : pas le centième jour de qui l'avait
 déjà par ses sans-faute (`legendairesOuvertsPar`). L'Arbre-Monde ne le
 demande pas : il ne compte que les douze d'origine, et un légendaire de
 plus ne lui reprend rien.
+
+**Les légendaires de saison** (lot 7) — la Citrouille, le Sapin, le
+Bouquet final — ne se gagnent qu'à leur période, à la date de Paris
+(`shared/saisons.ts`) : quelques jours joués au quiz du jour dans la
+période (trois pour Halloween et Noël, deux pour les quatre jours du Nouvel
+An), ou une soirée qui compte ces jours-là, datée à sa première question
+jouée (`laureatsDeSaison`, à la clôture comme au recalcul). La saison
+gagnée se range comme une récompense (`saison:halloween`) : sous le jour
+qui l'a ouverte, ou sous la soirée — qui l'emporte si on la retire de
+l'historique. Elle ne va ni sur l'étagère ni dans le compte des badges :
+elle ne se montre que par son légendaire. Pendant la saison, la page du
+quiz du jour dit ce qui manque (« La Citrouille : 2 jours sur 3 ») ; la fin
+de la partie qui l'ouvre la fête, comme le Sphinx. Chacun a sa version
+rare : la citrouille blanche sur nuit émeraude, le sapin givré, le bouquet
+d'argent sur nuit pourpre.
 
 **Ce qui était gagné reste gagné.** Un légendaire débloqué avant que sa règle
 se durcisse reste à son porteur : au premier démarrage qui apporte la
@@ -775,10 +793,10 @@ titre et la vitrine se relisent à chaque affichage : une soirée retirée
 de l'historique emporte son haut fait, et ce qu'on en portait avec. La
 carte dit aussi le quiz du jour, en une ligne.
 
-**Lot 7 — en cours** : les emojis de collection (§ 5.5), un par niveau
-sans finition ; les paliers du quiz du jour (§ 5.13) ; le Sphinx (§ 5.4) ;
-le laurier du vainqueur d'hier (§ 5.13) ; les écussons de savoir et les
-fonds de carte (§ 5.6). À suivre : les légendaires de saison (11).
+**Lot 7 — fait** : les emojis de collection (§ 5.5), un par niveau sans
+finition ; les paliers du quiz du jour (§ 5.13) ; le Sphinx et les
+légendaires de saison (§ 5.4, idée 11) ; le laurier du vainqueur d'hier
+(§ 5.13) ; les écussons de savoir et les fonds de carte (§ 5.6).
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

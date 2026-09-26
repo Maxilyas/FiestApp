@@ -32,6 +32,7 @@ import {
   type HautFaitDeCarriere,
 } from '../../shared/hautsfaits'
 import { LEGENDAIRES, legendairesDebloques, progresVers } from '../../shared/legendaires'
+import { saison } from '../../shared/saisons'
 
 // ── De quoi écrire une soirée ─────────────────────────────────────────────
 
@@ -338,9 +339,15 @@ test('un légendaire se débloque sur ses hauts faits, et se voit venir', () => 
 
 test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe', () => {
   const cles = new Set([...HAUTS_FAITS_DE_SOIREE, ...HAUTS_FAITS_DE_CARRIERE].map(h => h.key))
-  assert.equal(LEGENDAIRES.length, 13)
+  assert.equal(LEGENDAIRES.length, 16)
   for (const l of LEGENDAIRES) {
     assert.ok(l.nom && l.legende, `${l.key} a un nom et une légende`)
+    // Un légendaire de saison se gagne par sa saison, et par elle seule.
+    if (l.saison) {
+      assert.equal(l.condition.hautFait, `saison:${l.saison}`, `${l.key} se gagne par sa saison`)
+      assert.equal(saison(l.saison)?.legendaire, l.key, `${l.key} est celui de sa saison`)
+      continue
+    }
     assert.ok(cles.has(l.condition.hautFait), `${l.key} se gagne par ${l.condition.hautFait}, qui existe`)
     if (l.aussi) assert.ok(cles.has(l.aussi.hautFait), `${l.key} se gagne aussi par ${l.aussi.hautFait}, qui existe`)
   }

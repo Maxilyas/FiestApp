@@ -48,7 +48,7 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   palmares: { terme: 'Palmarès', sens: 'Les prix que les chiffres de la soirée désignent tout seuls.' },
   hautsFaits: { terme: 'Hauts faits', sens: 'Ce que tu as réussi — ou raté avec panache — pendant une soirée.' },
   paliers: { terme: 'Paliers', sens: 'Bronze, argent, or : un haut fait cumulé sur toutes tes soirées.' },
-  legendaire: { terme: 'Avatar légendaire', sens: 'Un avatar dessiné, débloqué par des hauts faits — le Sphinx, au quiz du jour.' },
+  legendaire: { terme: 'Avatar légendaire', sens: 'Un avatar dessiné, débloqué par des hauts faits, au quiz du jour ou à sa saison.' },
   divin: { terme: 'Divins', sens: 'Cinq avatars secrets. Personne ne sait ce qui les fait descendre.' },
   finition: { terme: 'Finition', sens: 'Le cadre autour de ton avatar, que toute la salle voit. Il se gagne au niveau.' },
   eclat: { terme: 'Éclat', sens: 'Une chance sur quarante, à chaque soirée jouée à deux ou plus : ton avatar change de couleurs.' },

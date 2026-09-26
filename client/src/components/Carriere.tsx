@@ -3,6 +3,7 @@ import type { HautFaitVu } from '../../../shared/hautsfaits'
 import { NOM_PALIER, hautFait } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, progresVers } from '../../../shared/legendaires'
+import { saison } from '../../../shared/saisons'
 import { DIVINS, type DivinDescendu } from '../../../shared/divins'
 import { NOM_RARETE } from '../../../shared/badges'
 import { estimations, formatNumber, pourcent, secondes, surQcm } from '../format'
@@ -42,6 +43,9 @@ export function DetailLegendaire({
   const hf = hautsFaits.find(h => h.key === choisi.condition.hautFait)
   const hfAussi = choisi.aussi && hautsFaits.find(h => h.key === choisi.aussi!.hautFait)
   const progres = progresVers(choisi, recompensesDe(hautsFaits))
+  // Un légendaire de saison ne se gagne qu'à sa période : sa règle se dit en
+  // dates, et il n'a pas de jauge — on l'a, ou on attend la saison.
+  const saisonDe = choisi.saison && saison(choisi.saison)
   return (
     <div className="galerie-detail detail-case">
       <span className="detail-famille anneau-texte-legendaire">Légendaire</span>
@@ -50,27 +54,34 @@ export function DetailLegendaire({
       {eclats.includes(choisi.key) && (
         <p className="small">Il a éclaté : c’est sa version rare, et personne d’autre ne l’a comme ça.</p>
       )}
-      <p className="small">
-        {/* Gagné avant que sa règle se durcisse : il le garde, mais la
-            règle du jour ne dit pas comment il l'a eu. */}
-        {gagne
-          ? progres.acquis < progres.requis
-            ? 'Gagné avant que sa règle se durcisse. Il se gagne aujourd’hui par '
-            : 'Gagné par '
-          : 'Se gagne par '}
-        <b>{regleDe(choisi.condition, hautsFaits)}</b>
-        {hf && hf.famille === 'soiree' && ` — ${hf.rule.charAt(0).toLowerCase()}${hf.rule.slice(1)}`}
-        {!gagne && avancement(choisi.condition, hf, progres)}
-        {/* Une seconde voie (le Sphinx) : l'une ou l'autre suffit. */}
-        {choisi.aussi && (
-          <>
-            {' '}ou par <b>{regleDe(choisi.aussi, hautsFaits)}</b>
-            {!gagne && avancement(choisi.aussi, hfAussi, progres)}
-          </>
-        )}
-        .
-      </p>
-      {!gagne && (
+      {saisonDe ? (
+        <p className="small">
+          {gagne ? 'Gagné pour ' : 'Seulement pour '}
+          <b>{saisonDe.nom}</b>, {saisonDe.periode} : {saisonDe.jours} jours de quiz du jour, ou une soirée ces jours-là.
+        </p>
+      ) : (
+        <p className="small">
+          {/* Gagné avant que sa règle se durcisse : il le garde, mais la
+              règle du jour ne dit pas comment il l'a eu. */}
+          {gagne
+            ? progres.acquis < progres.requis
+              ? 'Gagné avant que sa règle se durcisse. Il se gagne aujourd’hui par '
+              : 'Gagné par '
+            : 'Se gagne par '}
+          <b>{regleDe(choisi.condition, hautsFaits)}</b>
+          {hf && hf.famille === 'soiree' && ` — ${hf.rule.charAt(0).toLowerCase()}${hf.rule.slice(1)}`}
+          {!gagne && avancement(choisi.condition, hf, progres)}
+          {/* Une seconde voie (le Sphinx) : l'une ou l'autre suffit. */}
+          {choisi.aussi && (
+            <>
+              {' '}ou par <b>{regleDe(choisi.aussi, hautsFaits)}</b>
+              {!gagne && avancement(choisi.aussi, hfAussi, progres)}
+            </>
+          )}
+          .
+        </p>
+      )}
+      {!gagne && !saisonDe && (
         <span className="jauge" aria-label={`${progres.acquis} sur ${progres.requis}`}>
           <span className="jauge-plein" style={{ width: `${(progres.acquis / progres.requis) * 100}%` }} />
         </span>

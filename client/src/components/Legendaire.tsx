@@ -95,6 +95,9 @@ const PALETTES: Record<string, Palette> = {
   'lg:fantome': { fond: ['#5b48a6', '#211848', '#07050f'], embleme: ['#ffffff', '#cfc6ff'] },
   'lg:trou-noir': { fond: ['#2d1450', '#0a0418', '#000000'], embleme: ['#fff3c4', '#ff8a3d'] },
   'lg:sphinx': { fond: ['#f6c26b', '#b3561f', '#2e0f05'], embleme: ['#fff0c7', '#d99a3a'] },
+  'lg:citrouille': { fond: ['#7b4bb8', '#2d1250', '#0b0416'], embleme: ['#ffbe5c', '#e0621a'] },
+  'lg:sapin': { fond: ['#3d63a8', '#142552', '#050b1c'], embleme: ['#6fdc98', '#1a7446'] },
+  'lg:bouquet': { fond: ['#4a3598', '#1a0f47', '#06031a'], embleme: ['#fff4b8', '#ffb300'] },
 }
 
 /**
@@ -118,6 +121,9 @@ const PALETTES_ECLAT: Record<string, Palette> = {
   'lg:fantome': { fond: ['#22845f', '#08301f', '#010a06'], embleme: ['#f0fff8', '#8fffd0'] },
   'lg:trou-noir': { fond: ['#11566b', '#031a24', '#000000'], embleme: ['#f0fdff', '#5fdcff'] },
   'lg:sphinx': { fond: ['#5a8cff', '#1a2f8f', '#060b2e'], embleme: ['#e8f1ff', '#8da9e0'] },
+  'lg:citrouille': { fond: ['#2f9a70', '#0e3d2c', '#03120c'], embleme: ['#f6f8ff', '#b8c6e6'] },
+  'lg:sapin': { fond: ['#9cc4e0', '#34607c', '#0c1c29'], embleme: ['#f4fbff', '#a6cde4'] },
+  'lg:bouquet': { fond: ['#a32a66', '#3a0c27', '#10030b'], embleme: ['#f0fcff', '#6fd6ff'] },
 }
 
 /** Le Sphinx : son œil, fardé ; l'autre en est le miroir. */
@@ -127,7 +133,161 @@ const SOURCIL_SPHINX = 'M40,36.5 Q44.4,34.8 48.6,36.5'
 /** Les rayures de la coiffe, sur le pan gauche : du bord du pan au visage. */
 const RAYURES_SPHINX = [34, 41, 48, 55, 62, 68].map(y => `M${(30 - (y - 27) * 0.23).toFixed(1)},${y} L38.5,${y}`).join(' ')
 
+/** La Citrouille : ses côtes, de part et d'autre. */
+const COTES_CITROUILLE = 'M38,39 C31,46 30,66 38,77 M44,37 C40,48 40,67 44,79'
+
+/** Le Sapin : ses trois étages, du haut vers le bas. */
+const ETAGES_SAPIN = [
+  'M50,17 L64,38 L57,38 L68,52 L32,52 L43,38 L36,38 Z',
+  'M50,35 L70,60 L62,60 L75,74 L25,74 L38,60 L30,60 Z',
+]
+
+/** L'étoile de la cime, à cinq branches. */
+const ETOILE_SAPIN = 'M50.0,7.0 L51.9,12.3 L57.6,12.5 L53.1,16.0 L54.7,21.5 L50.0,18.3 L45.3,21.5 L46.9,16.0 L42.4,12.5 L48.1,12.3 Z'
+
+/** Le Bouquet final : une gerbe de douze rais autour de (x, y). */
+function gerbe(x: number, y: number, r: number, n = 12): string {
+  let d = ''
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 - Math.PI / 2
+    const [ca, sa] = [Math.cos(a), Math.sin(a)]
+    const [bx, by] = [x + ca * r * 0.32, y + sa * r * 0.32]
+    const [px, py] = [x + ca * r, y + sa * r]
+    // Un rai effilé : large au départ, pointu au bout.
+    const [nx, ny] = [-sa * r * 0.07, ca * r * 0.07]
+    d += `M${(bx + nx).toFixed(1)},${(by + ny).toFixed(1)} L${px.toFixed(1)},${py.toFixed(1)} L${(bx - nx).toFixed(1)},${(by - ny).toFixed(1)} Z `
+  }
+  return d
+}
+
 const DESSINS: Record<string, Dessin> = {
+  'lg:citrouille': (id, eclat) => {
+    const lueur = `url(#${id('lueur')})`
+    return (
+      <>
+        <g className="lg-decor">
+          {/* La lune, en croissant, et deux chauves-souris. */}
+          <path d="M80,14 A11,11 0 1 0 88,31 A8.5,8.5 0 1 1 80,14 Z" fill="#fff4d6" opacity="0.85" />
+          <path d="M18,26 q3,-3 5,0 q2,-2 3,1 q1,-2 3,-1 q-2,1 -2,3 q-2,-1 -4,1 q-2,-2 -5,-1 q1,-1 0,-3 Z" fill="#12081f" opacity="0.8" />
+          <path d="M28,15 q2,-2 3.5,0 q1.5,-1.5 2,0.7 q1,-1.4 2,-0.7 q-1.4,0.7 -1.4,2 q-1.4,-0.7 -2.8,0.7 q-1.4,-1.4 -3.5,-0.7 q0.7,-0.7 0,-2 Z" fill="#12081f" opacity="0.7" />
+          {ciel([
+            [16, 50, 0.8],
+            [86, 52, 0.9],
+            [64, 12, 0.7],
+          ])}
+        </g>
+        <g className="lg-forme" fill={`url(#${id('embleme')})`}>
+          {/* Un seul tracé : trois ellipses se chevauchaient dans la silhouette. */}
+          <path d="M50,35 C45.5,35 42.5,36 40,37.5 C32,35.5 21.5,42 19.5,55 C17.5,68 26,80.5 36,80 C39.5,80 42,79.6 44,79.2 C46,80.4 48,81 50,81 C52,81 54,80.4 56,79.2 C58,79.6 60.5,80 64,80 C74,80.5 82.5,68 80.5,55 C78.5,42 68,35.5 60,37.5 C57.5,36 54.5,35 50,35 Z" />
+          <path d="M47,37 C46,31 48,26 53,22 L57,25 C53,28 52,32 53,37 Z" fill={eclat ? '#7d93b3' : '#6e8b2e'} />
+        </g>
+        <g className="lg-details">
+          <g fill="none" stroke={eclat ? '#8fa3c4' : '#b5480f'} strokeWidth="1.3" strokeLinecap="round" opacity="0.55">
+            <path d={COTES_CITROUILLE} />
+            <path d={miroir(COTES_CITROUILLE)} />
+          </g>
+          {/* La vrille de la tige. */}
+          <path d="M55,27 C61,24 64,28 61,31 C59,33 57,31 59,30" fill="none" stroke={eclat ? '#7d93b3' : '#6e8b2e'} strokeWidth="1.2" strokeLinecap="round" />
+          {/* Le visage creusé : la lueur de la bougie derrière, qui vacille. */}
+          <g className="lg-bougie" fill={lueur}>
+            <path d="M31,52 L45,52 L38,41 Z" />
+            <path d="M55,52 L69,52 L62,41 Z" />
+            <path d="M46.5,61 L53.5,61 L50,55 Z" />
+            <path d="M28,65 C35,79 65,79 72,65 L66,67.5 L62,64 L57.5,70 L53.5,65.5 L50,71 L46.5,65.5 L42.5,70 L38,64 L34,67.5 Z" />
+          </g>
+        </g>
+      </>
+    )
+  },
+
+  'lg:sapin': (id, eclat) => {
+    const boules = eclat ? ['#ffd45e', '#ffe9a8', '#ffc43a'] : ['#ff4d5e', '#ffd23f', '#5fb8ff']
+    return (
+      <>
+        <g className="lg-decor">
+          {/* La neige qui tombe. */}
+          {ciel([
+            [14, 30, 1.2],
+            [22, 58, 1],
+            [84, 26, 1.1],
+            [80, 56, 1.3],
+            [30, 16, 0.9],
+            [72, 12, 1],
+            [12, 76, 0.9],
+            [88, 74, 1],
+          ])}
+          <path d="M8,88 C30,80 70,80 92,88 L92,100 L8,100 Z" fill="#ffffff" opacity="0.85" />
+        </g>
+        <g className="lg-forme" fill={`url(#${id('embleme')})`}>
+          <path d={ETAGES_SAPIN[0]} />
+          <path d={ETAGES_SAPIN[1]} />
+          <path d="M50,56 L78,86 L22,86 Z" />
+          <rect x="45" y="85" width="10" height="8" fill={eclat ? '#8fa9c0' : '#7a4a22'} />
+          <path d={ETOILE_SAPIN} />
+        </g>
+        <g className="lg-details">
+          <path className="lg-pouls" d={ETOILE_SAPIN} fill={eclat ? '#ffffff' : '#ffd23f'} />
+          {/* La guirlande, en travers de chaque étage. */}
+          <g fill="none" stroke={eclat ? '#fff3c4' : '#ffe9a8'} strokeWidth="1.2" strokeLinecap="round" opacity="0.85">
+            <path d="M40,45 Q50,50 60,44" />
+            <path d="M33,66 Q50,74 67,64" />
+            <path d="M28,80 Q50,88 72,78" />
+          </g>
+          {[
+            [44, 41, 0],
+            [57, 48, 1],
+            [38, 60, 2],
+            [62, 69, 0],
+            [47, 71, 1],
+            [32, 79, 1],
+            [68, 83, 2],
+            [53, 84, 0],
+          ].map(([x, y, c], i) => (
+            <circle key={i} className={i % 3 === 0 ? 'lg-scintille' : undefined} cx={x} cy={y} r="2.6" fill={boules[c]} />
+          ))}
+        </g>
+      </>
+    )
+  },
+
+  'lg:bouquet': (id, eclat) => {
+    const seconde = eclat ? '#ff9ad5' : '#7df3ff'
+    return (
+      <>
+        <g className="lg-decor">
+          {etoile(18, 24, 2.4, 'a')}
+          {etoile(84, 70, 2, 'b')}
+          {ciel([
+            [26, 80, 0.8],
+            [76, 20, 0.9],
+            [12, 56, 0.7],
+            [88, 44, 0.8],
+          ])}
+          {/* Les toits de la ville, tout en bas. */}
+          <path d="M5,100 L5,88 L14,88 L14,84 L22,84 L22,90 L30,90 L30,82 L36,78 L42,82 L42,90 L52,90 L52,86 L60,86 L60,80 L68,80 L68,88 L76,88 L76,84 L86,84 L86,90 L95,90 L95,100 Z" fill="#05030d" opacity="0.9" />
+        </g>
+        <g className="lg-forme" fill={`url(#${id('embleme')})`}>
+          <path d={gerbe(48, 42, 30)} />
+          <circle cx="48" cy="42" r="5" />
+          {/* La traînée de la fusée, qui monte de la ville. */}
+          <path d="M47,88 C47.5,74 48,60 48,47 L49,47 C49,60 49.5,74 50,88 Z" opacity="0.7" />
+        </g>
+        <g className="lg-details">
+          <g className="lg-pouls" fill={seconde}>
+            <path d={gerbe(74, 30, 12, 10)} />
+          </g>
+          <g fill="#fffbe6">
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(i => {
+              const a = (i / 12) * Math.PI * 2 - Math.PI / 2
+              return <circle key={i} className={i % 2 ? 'lg-scintille' : undefined} cx={48 + Math.cos(a) * 33} cy={42 + Math.sin(a) * 33} r="1.3" />
+            })}
+          </g>
+          <circle cx="48" cy="42" r="2.4" fill="#ffffff" />
+        </g>
+      </>
+    )
+  },
+
   'lg:sphinx': (id, eclat) => {
     const trait = eclat ? '#4a68a8' : '#8a5a1c'
     return (
@@ -636,6 +796,15 @@ function degradesDe(cle: string, id: (nom: string) => string, eclat: boolean): R
             <stop offset="100%" stopColor={c('#ffb36b', '#7fe8ff')} stopOpacity="0" />
           </radialGradient>
         </>
+      )
+    case 'lg:citrouille':
+      // Le visage creusé : clair au cœur, sombre au bord — la bougie derrière.
+      return (
+        <radialGradient id={id('lueur')} cx="50%" cy="60%" r="65%">
+          <stop offset="0%" stopColor={c('#fff6b0', '#f2fff8')} />
+          <stop offset="50%" stopColor={c('#ffb020', '#6dffb8')} />
+          <stop offset="100%" stopColor={c('#6e1f00', '#0c4a31')} />
+        </radialGradient>
       )
     default:
       return null

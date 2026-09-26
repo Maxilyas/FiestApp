@@ -45,6 +45,8 @@ import {
   type RevelationDuJour,
 } from '../../../shared/jour'
 import type { StatsDuJour } from '../../../shared/profil'
+import { periodeDu } from '../../../shared/saisons'
+import { palierDe } from '../../../shared/hautsfaits'
 
 /** Une question telle que le jour l'a tirée, figée : réponses mélangées, temps de lecture compté. */
 interface QuestionTiree {
@@ -838,10 +840,26 @@ export class JourStore {
     }
     if (partie && etat === 'finie' && revelation) vue = { ...vue, revelation }
     if (etat === 'finie') {
-      const paliers = await this.deps.profiles.paliersDuJourTombes(profil.id, jour)
+      const tombees = await this.deps.profiles.recompensesDuJour(profil.id, jour)
+      const paliers = tombees.filter(t => palierDe(t.key))
       if (paliers.length > 0) vue = { ...vue, paliers }
-      const legendaires = this.deps.profiles.legendairesOuverts(profil.id, paliers.map(p => p.key))
+      // Le Sphinx, par ses paliers ; un légendaire de saison, par sa saison.
+      const legendaires = this.deps.profiles.legendairesOuverts(profil.id, tombees.map(t => t.key))
       if (legendaires.length > 0) vue = { ...vue, legendaires }
+    }
+    // Pendant une saison, ce qui manque encore à son légendaire.
+    const periode = periodeDu(jour)
+    if (periode && !this.deps.profiles.legendairesOf(profil.id).includes(periode.saison.legendaire)) {
+      vue = {
+        ...vue,
+        saison: {
+          nom: periode.saison.nom,
+          legendaire: periode.saison.legendaire,
+          joues: await this.joursDeSaison(profil.id, periode),
+          requis: periode.saison.jours,
+          periode: periode.saison.periode,
+        },
+      }
     }
     return vue
   }
@@ -1230,7 +1248,29 @@ export class JourStore {
     )
     const xp = Number(parties.rows[0]?.xp ?? 0) + Number(podiums.rows[0]?.xp ?? 0)
     await this.deps.profiles.ecrireXpDuJour(profileId, xp, Number(parties.rows[0]?.n ?? 0))
-    if (paliers) await this.deps.profiles.accorderPaliersDuJour(profileId, jour, await this.statsDuJour(profileId))
+    if (paliers) {
+      await this.deps.profiles.accorderPaliersDuJour(profileId, jour, await this.statsDuJour(profileId))
+      await this.accorderSaison(profileId, jour)
+    }
+  }
+
+  /** Ses jours joués dans la période d'une saison — une partie commencée compte, comme pour la série. */
+  private async joursDeSaison(profileId: string, periode: { debut: string; fin: string }): Promise<number> {
+    const res = await this.client.execute({
+      sql: 'SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ? AND jour >= ? AND jour <= ?',
+      args: [profileId, periode.debut, periode.fin],
+    })
+    return Number(res.rows[0]?.n ?? 0)
+  }
+
+  /**
+   * Halloween, Noël, le Nouvel An (`shared/saisons.ts`) : assez de jours joués
+   * dans la période ouvrent le légendaire de la saison, rangé sous ce jour.
+   */
+  private async accorderSaison(profileId: string, jour: string) {
+    const periode = periodeDu(jour)
+    if (!periode || (await this.joursDeSaison(profileId, periode)) < periode.saison.jours) return
+    await this.deps.profiles.accorderSaison(profileId, periode.saison, jour)
   }
 
   // ── La correction ───────────────────────────────────────────────────────

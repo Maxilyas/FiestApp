@@ -274,8 +274,11 @@ const NON_SIMULES = new Set([
   'hf:girouette',
   ...HAUTS_FAITS_DE_CARRIERE.filter(h => h.duJour).map(h => h.key),
 ])
-/** Les légendaires que la bande peut gagner : ceux d'une voie simulée. */
-const LEGENDAIRES_SIMULES = LEGENDAIRES.filter(l => !NON_SIMULES.has(l.condition.hautFait))
+/**
+ * Les légendaires que la bande peut gagner : ceux d'une voie simulée. Ni le
+ * Sphinx (le quiz du jour), ni ceux de saison : la bande joue sans date.
+ */
+const LEGENDAIRES_SIMULES = LEGENDAIRES.filter(l => !NON_SIMULES.has(l.condition.hautFait) && !l.saison)
 
 
 /** Ce qu'on essaie, légendaire par légendaire : la règle du catalogue, puis d'autres seuils. */
@@ -398,7 +401,7 @@ console.log(
 console.log('légendaire      règle                    1er de la bande  quart le + doué  médiane  ≤ 20 quiz')
 for (const l of LEGENDAIRES) {
   if (!ESSAIS[l.key]) {
-    console.log(`${l.nom.padEnd(16).slice(0, 16)}  ${'non simulé : le quiz du jour'.padEnd(25)}`)
+    console.log(`${l.nom.padEnd(16).slice(0, 16)}  ${(l.saison ? 'non simulé : sa saison' : 'non simulé : le quiz du jour').padEnd(25)}`)
     continue
   }
   for (const [i, r] of ESSAIS[l.key].entries()) {

@@ -4,7 +4,7 @@ import { serverNow } from '../clock'
 import { espacesFines, formatNumber, place, pourcent, pts } from '../format'
 import { showToast, useAppState } from '../state'
 import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
-import { Avatar } from '../components/Avatar'
+import { Avatar, Dessin } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Niveau } from '../components/Niveau'
 import { NomLaure } from '../components/Laurier'
@@ -322,11 +322,38 @@ export function JourApp() {
           </p>
         )}
       </section>
+      {partie.saison && <Saison saison={partie.saison} />}
       <a className="btn btn-ghost btn-block" href="/">
         Retour à l’accueil
       </a>
       {toastVu}
     </div>
+  )
+}
+
+/**
+ * Pendant une saison — Halloween, Noël, le Nouvel An — son légendaire en
+ * silhouette, et ce qui manque pour l'ouvrir : des jours joués au quiz du
+ * jour, ou une soirée ces jours-là.
+ */
+function Saison({ saison }: { saison: NonNullable<PartieDuJour['saison']> }) {
+  const l = legendaire(saison.legendaire)
+  if (!l) return null
+  return (
+    <section className="card jour-saison">
+      <span className="jour-saison-medaillon" aria-hidden="true">
+        <Dessin cle={saison.legendaire} verrouille />
+      </span>
+      <div>
+        <span className="label">{capitale(saison.nom)}</span>
+        <b>
+          {l.nom} : {saison.joues} jour{saison.joues > 1 ? 's' : ''} sur {saison.requis}
+        </b>
+        <span className="muted small">
+          {capitale(saison.periode)}, {saison.requis} jours de quiz du jour l’ouvrent — ou une soirée ces jours-là.
+        </span>
+      </div>
+    </section>
   )
 }
 
@@ -500,6 +527,7 @@ function Fin({
       {(partie.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={profil.legendaire === cle} />
       ))}
+      {partie.saison && <Saison saison={partie.saison} />}
       <p className="muted small jour-note">
         Le classement se fige à minuit. Le podium gagne {XP_PODIUM_DU_JOUR.join(', ').replace(/, (\d+)$/, ' et $1')} XP.
       </p>
