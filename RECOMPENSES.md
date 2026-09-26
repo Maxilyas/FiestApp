@@ -591,6 +591,68 @@ Rien de tout ça ne se crédite ni ne s'écrit : ce sont des lectures de
 l'historique, comme la fiche. Un anonyme n'a pas le bloc du profil, et rien
 ne le lui fait remarquer.
 
+### 5.13 Le quiz du jour
+
+Lot 5. De quoi jouer seul entre deux soirées, pour apprendre et avancer :
+dix questions par jour, **les mêmes pour tous les profils**, tirées à minuit
+(heure de Paris) et figées. Réservé aux profils ; un anonyme n'y voit rien
+qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
+
+- **La partie.** Un seul essai, qu'on reprend si le téléphone sonne — sur un
+  autre téléphone aussi : tout vit dans la base permanente
+  (`server/src/core/jour.ts`). La question reprend l'écran des soirées, même
+  barème, même temps de lecture offert ; le chrono est celui du serveur, et
+  une question montrée garde son échéance quoi qu'on recharge. Passée sans
+  réponse, elle compte « sans réponse ». La bonne réponse, la part des
+  joueurs du jour qui l'ont trouvée et l'anecdote n'arrivent qu'après la
+  réponse (invariant 1) ; « Signaler une erreur » va à l'administrateur.
+- **L'expérience (option B, choisie le 26 septembre 2026).** Le barème d'un
+  quiz de soirée de dix questions : 75 au plus — dix fois une réponse, une
+  bonne réponse et un réflexe, plus le sans-faute —, à proportion des points
+  (1 240 sur 2 000 font 46). Le podium du jour, figé à minuit, paie 25, 15
+  et 10, rang partagé, une marche de moins que la salle. Toute l'expérience
+  du jour vit dans une ligne à part (`#jour`, comme `#paliers`) : elle
+  compte dans le niveau, pas dans la carrière — le quiz du jour ne fait ni
+  une soirée pour L'Habitué, ni une réponse pour Le Bavard. Hauts faits,
+  légendaires, Divins et Éclat restent aux soirées.
+
+  | Règle | XP par mois | Part des soirées | Niveau après un an |
+  |---|---|---|---|
+  | Soirées seules | 255 | 100 % | 8 |
+  | **B · un quiz du jour = un quiz de soirée** | **1 105** | **23 %** | **15** |
+
+  (Une soirée par mois, le quiz du jour 25 jours sur 30, réussi à 45 %.)
+- **La médaille** au nombre de bonnes réponses : le bronze à six, l'argent à
+  huit, l'or à dix — sur les questions qui comptent encore. **La série** :
+  les jours d'affilée où l'on a joué, au quiz du jour ou en soirée — la fête
+  ne casse jamais une série.
+- **Le classement** : tout le serveur, avec les règles des soirées — rang
+  partagé, « Camille (2) », niveau et finition ; aujourd'hui, hier, le mois.
+  Il se fige à minuit ; tous les ex æquo en tête gagnent.
+- **La nuit.** Rien ne tourne à minuit — l'hébergeur gratuit dort : la
+  journée d'hier se clôt à la première demande d'aujourd'hui, une seule
+  fois. Le lendemain raconte la veille : sa place, le podium, la correction,
+  ouverte alors à tous (avant, seulement à qui a fini : elle donnerait le
+  quiz).
+- **La réserve.** Amorcée au premier démarrage par les quiz livrés qui se
+  jouent seuls — jamais ceux à personnaliser, ni ceux des animateurs : leurs
+  invités y liraient la prochaine soirée. L'administrateur la remplit par
+  « Coller une liste » (`/admin`), le format de l'éditeur ; les jours
+  d'avance s'y lisent, avec une alerte sous sept. Deux par catégorie au plus
+  chaque jour, jamais deux fois la même ; à sec, les plus anciennes
+  reviennent (pas celles du mois) : jamais un jour vide. Pour l'instant,
+  des questions à choix sans photo : les estimations demanderont une
+  tolérance écrite (« = 1994 · à 5 près »), faute de salle pour juger
+  l'écart ; les variantes et les photos suivront.
+- **La modération**, à `/admin` : les signalements, question par question ;
+  annuler ses points pour tous tant que le jour court (l'expérience de
+  chacun suit), la retirer de la réserve, ou la garder ; masquer un profil
+  du classement — il n'en est pas averti, et ne monte plus sur le podium.
+
+Plus tard : la réserve écrite chaque nuit par une IA gratuite (GitHub
+Models, par une tâche GitHub Actions du dépôt), relue par une seconde passe
+puis par l'analyseur de « Coller une liste ».
+
 ---
 
 ## 6. Feuille de route
@@ -604,6 +666,10 @@ ne le lui fait remarquer.
 **Lot 4 — fait** : 38 — les plus beaux hauts faits sur la carte, la
 collection de prix, les records et « Tu t'en approches » à la fin de soirée
 (§ 5.3, 5.6, 5.12).
+
+**Lot 5 — fait** : le quiz du jour — la partie, l'expérience B, la médaille,
+la série, le classement, la nuit, la réserve et sa modération (§ 5.13). À
+suivre : la réserve écrite par une IA, les estimations à tolérance.
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

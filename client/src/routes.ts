@@ -3,6 +3,7 @@
 //   /                         l'accueil : mon profil — et de quoi animer ou rejoindre
 //   /host /edit /compte …     les pages de l'animateur — son espace vient de sa session
 //   /profil                   la même page que l'accueil, à son adresse d'origine
+//   /jour                     le quiz du jour, pour les profils
 //   /<espace>                 le téléphone des invités de cet espace (la valeur du QR)
 //   /<espace>/souvenir        les pages publiques de sa soirée en cours…
 //   /<espace>/soirees/<id>/…  …et de ses soirées archivées, avec les mêmes pages

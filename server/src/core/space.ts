@@ -25,7 +25,6 @@ import {
   coupDOeilMoyen,
   distinctions,
   ficheDe,
-  finitionPortee,
   finitionsOuvertes,
   niveauDuProfil,
   releveVide,
@@ -35,7 +34,6 @@ import {
 import { rangPartage } from '../../../shared/classement'
 import type { CarteDeJoueur } from '../../../shared/carte'
 import { hautFaitDeSoiree, palierDe, plusBeaux, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
-import { cibleEclat } from '../../../shared/legendaires'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, PrixAnnonce, SoireeClose } from '../../../shared/fin'
 import type { EcranDeScene, OngletDePodium, PartySnapshot, PublicPlayer, Recap, Scene } from '../../../shared/types'
 import type { PlaceRendue } from '../../../shared/events'
@@ -220,15 +218,8 @@ export class SpaceRuntime {
     // la salle, et un profil est déjà chargé quand son joueur s'est inscrit.
     this.party = new Party(deps.db, spaceId, this.mirror, (profileId, avatar) => {
       const profile = deps.profiles.cached(profileId)
-      if (!profile) return undefined
-      const niveau = deps.profiles.niveauOf(profile)
-      return {
-        niveau,
-        finition: finitionPortee(profile.finition, niveau),
-        // Ce qui brille, c'est ce qu'il porte : le légendaire éclaté, ou l'emoji.
-        eclat: deps.profiles.eclatsOf(profileId).includes(cibleEclat(deps.profiles.legendairePorte(profile), avatar)),
-        legendaire: deps.profiles.legendairePorte(profile) ?? undefined,
-      }
+      // Ce qui brille, c'est ce qu'il porte ce soir : le légendaire éclaté, ou l'emoji joué.
+      return profile ? deps.profiles.apparenceDe(profile, avatar) : undefined
     })
     this.teams = new Teams(deps.db, spaceId, this.mirror)
     this.ledger = new ScoreLedger(deps.db, spaceId, this.mirror)

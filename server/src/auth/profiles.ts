@@ -18,6 +18,7 @@ import {
   releveVide,
   XP,
   type Carriere,
+  type Finition,
   type FinitionChoisie,
   type GainSoiree,
   type NiveauGarde,
@@ -112,6 +113,18 @@ export interface PrixDeSoiree {
  * recalculée à chaque palier décerné — et l'historique des soirées l'ignore.
  */
 export const LIGNE_PALIERS = '#paliers'
+
+/**
+ * La ligne d'expérience du quiz du jour : toutes ses parties et tous ses
+ * podiums, recalculés par `core/jour.ts` à chaque gain. Comme celle des
+ * paliers, elle compte dans le total et le niveau, mais l'historique des
+ * soirées l'ignore : le quiz du jour ne fait ni une soirée pour L'Habitué, ni
+ * une réponse pour Le Bavard — la carrière reste celle des soirées.
+ */
+export const LIGNE_JOUR = '#jour'
+
+/** Les lignes qui ne sont pas des soirées. */
+const LIGNES_A_PART = [LIGNE_PALIERS, LIGNE_JOUR]
 
 /**
  * La version du barème qui a écrit une ligne d'expérience : 2 depuis le
@@ -1381,8 +1394,8 @@ export class ProfileStore {
   > {
     const rows = await this.client.execute({
       sql: `SELECT soiree_id, space_id, xp, detail, created_at, joueur_id FROM profile_xp
-            WHERE profile_id = ? AND soiree_id <> ? ORDER BY created_at DESC`,
-      args: [profileId, LIGNE_PALIERS],
+            WHERE profile_id = ? AND soiree_id NOT IN (?, ?) ORDER BY created_at DESC`,
+      args: [profileId, ...LIGNES_A_PART],
     })
     return rows.rows.map(r => {
       const { gain, releve } = decodeDetail(String(r.detail))
@@ -1496,6 +1509,15 @@ export class ProfileStore {
       await this.recalculerTotal(profileId)
       return
     }
+    if (soireeId === LIGNE_JOUR) {
+      // Le quiz du jour ne dépend pas du barème des soirées : sa ligne garde
+      // son expérience, et ne prend que la version du jour.
+      await this.client.execute({
+        sql: `UPDATE profile_xp SET detail = json_set(detail, '$.v', ?) WHERE profile_id = ? AND soiree_id = ?`,
+        args: [VERSION_BAREME, profileId, LIGNE_JOUR],
+      })
+      return
+    }
     const rows = await this.client.execute({
       sql: 'SELECT detail FROM profile_xp WHERE profile_id = ? AND soiree_id = ?',
       args: [profileId, soireeId],
@@ -1507,6 +1529,42 @@ export class ProfileStore {
       sql: 'UPDATE profile_xp SET detail = ? WHERE profile_id = ? AND soiree_id = ?',
       args: [JSON.stringify({ v: VERSION_BAREME, gain, releve }), profileId, soireeId],
     })
+  }
+
+  /**
+   * Écrit la ligne du quiz du jour (`LIGNE_JOUR`) : son expérience entière,
+   * parties et podiums, que `core/jour.ts` recalcule de ses tables — et le
+   * total avec, dans la même transaction. Effacée à zéro. Rend le profil à
+   * jour, ou null s'il n'existe plus.
+   */
+  async ecrireXpDuJour(profileId: string, xp: number, jours: number): Promise<ProfileRec | null> {
+    const ecrire: InStatement =
+      xp > 0
+        ? {
+            sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
+                  VALUES (?, ?, '', ?, ?, ?)
+                  ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
+            args: [profileId, LIGNE_JOUR, xp, JSON.stringify({ v: VERSION_BAREME, jours }), Date.now()],
+          }
+        : { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, LIGNE_JOUR] }
+    await this.recalculerTotal(profileId, ecrire)
+    return this.byId(profileId)
+  }
+
+  /**
+   * Ce que la salle voit d'un profil, au-delà de son prénom : son niveau, sa
+   * finition, le légendaire qu'il porte, et s'il brille (l'Éclat tombe sur ce
+   * qu'il porte : le légendaire, ou l'emoji).
+   */
+  apparenceDe(p: ProfileRec, avatar: string = p.avatar): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string } {
+    const niveau = this.niveauOf(p)
+    const legendaire = this.legendairePorte(p)
+    return {
+      niveau,
+      finition: finitionPortee(p.finition, niveau),
+      eclat: this.eclatsOf(p.id).includes(cibleEclat(legendaire, avatar)),
+      ...(legendaire && { legendaire }),
+    }
   }
 
   /** Les profils qui ont au moins une ligne d'expérience, c'est-à-dire qui ont joué. */

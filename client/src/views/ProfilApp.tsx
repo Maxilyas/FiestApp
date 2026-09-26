@@ -24,6 +24,7 @@ import { formatNumber, place, reponsesParType } from '../format'
 import { route, spacePath } from '../routes'
 import { derniereSoireeGardee } from '../state'
 import { Lendemain } from '../components/Lendemain'
+import { CarteDuJour } from '../components/Jour'
 import type { PublicSpace } from '../../../shared/space'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
@@ -263,6 +264,9 @@ export function ProfilApp() {
           </p>
         )}
       </div>
+
+      {/* Le quiz du jour, sous la soirée : l'entre-deux, pas la raison de venir. */}
+      <CarteDuJour />
 
       <Repli
         id="avatar"

@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { activationUrl, api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
 import { LienConsole } from '../components/LienConsole'
+import { AdminDuJour } from '../components/AdminDuJour'
 import { confirmDialog, promptDialog } from '../components/Dialog'
 import { showToast, useAppState } from '../state'
 import { formatDay } from '../../../shared/archive'
@@ -90,6 +91,10 @@ export function AdminApp() {
           Mon compte
         </a>
         <LienConsole className="btn" />
+        <a className="btn" href="#quiz-du-jour">
+          <Icon name="star" />
+          Le quiz du jour
+        </a>
       </nav>
       <main className="page-corps">
         <CreateForm onCreated={(account, token) => load().then(() => showActivation(account, token))} />
@@ -232,6 +237,8 @@ export function AdminApp() {
         </section>
 
         <Catalogue />
+
+        <AdminDuJour />
 
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>
