@@ -42,6 +42,7 @@ import {
   XP_PALIER,
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
+import { fond, fondsOuverts, type CleDeFond } from '../../../shared/fonds'
 import {
   cibleEclat,
   conditionTenue,
@@ -102,6 +103,12 @@ export interface ProfileRec {
    * JSON. Null : les plus durs à obtenir, d'office (`plusBeaux`).
    */
   vitrine: string | null
+  /**
+   * Le fond de sa carte, s'il en a choisi un (`shared/fonds.ts`). Relu à
+   * chaque affichage (`fondPorte`) : celui qu'il ne mérite plus cesse de se
+   * voir, sans que rien ne soit réécrit.
+   */
+  fond: string | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
   recoveryHash: string
@@ -483,6 +490,8 @@ export class ProfileStore {
     // Le titre sous le prénom, et la vitrine qu'on choisit soi-même.
     await ajouterColonne(this.client, 'profiles', 'titre', 'TEXT')
     await ajouterColonne(this.client, 'profiles', 'vitrine', 'TEXT')
+    // Le fond de sa carte, qu'on choisit parmi ceux qu'on a gagnés.
+    await ajouterColonne(this.client, 'profiles', 'fond', 'TEXT')
     // Le joueur qu'on était ce soir-là, pour ouvrir SON bilan depuis « Mes
     // soirées » : sans lui, le bilan redemandait « Qui es-tu ? ». Une ligne
     // d'avant la colonne le retrouve dans l'archive (`retenirJoueur`).
@@ -590,6 +599,17 @@ export class ProfileStore {
   /** Ceux que ces paliers, tout juste tombés, lui ont ouverts (voir `legendairesOuvertsPar`). */
   legendairesOuverts(id: string, tombes: readonly string[]): string[] {
     return legendairesOuvertsPar(tombes, this.recompensesOf(id), this.acquis.get(id))
+  }
+
+  /** Les fonds de carte qu'il peut porter : son niveau, son quiz du jour, ses paliers (`shared/fonds.ts`). */
+  fondsOuvertsDe(p: ProfileRec, jour: { joues: number; victoires: number }): CleDeFond[] {
+    return fondsOuverts({ niveau: this.niveauOf(p), jour, recompenses: this.recompensesOf(p.id) })
+  }
+
+  /** Le fond qu'on voit derrière sa carte : celui qu'il a choisi, s'il le mérite encore. */
+  fondPorte(p: ProfileRec, jour: { joues: number; victoires: number }): CleDeFond | null {
+    const choisi = fond(p.fond)
+    return choisi && this.fondsOuvertsDe(p, jour).includes(choisi.key) ? choisi.key : null
   }
 
   /** Les Divins descendus sur ce profil — la liste, jamais ce qui les a fait descendre. */
@@ -791,10 +811,11 @@ export class ProfileStore {
         console.error(`[profil] joueur de « ${s.soireeId} » non relu :`, e)
       }
     }
+    const jour = await this.statsDuJourDe(p.id)
     const carriere = carriereDe(soirees, {
       eclats: this.eclatsOf(p.id).length,
       niveau: this.niveauOf(p),
-      jour: await this.statsDuJourDe(p.id),
+      jour,
     })
     return {
       ...this.toPublic(p),
@@ -816,6 +837,8 @@ export class ProfileStore {
       fiche: ficheDe(carriere),
       categories: carriere.categories,
       hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
+      fond: this.fondPorte(p, jour),
+      fonds: this.fondsOuvertsDe(p, jour),
     }
   }
 
@@ -896,6 +919,7 @@ export class ProfileStore {
       legendaire: null,
       titre: null,
       vitrine: null,
+      fond: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
       xp: 0,
@@ -975,13 +999,13 @@ export class ProfileStore {
    */
   async update(
     id: string,
-    patch: { name?: unknown; avatar?: unknown; finition?: unknown; legendaire?: unknown; titre?: unknown; vitrine?: unknown },
+    patch: { name?: unknown; avatar?: unknown; finition?: unknown; legendaire?: unknown; titre?: unknown; vitrine?: unknown; fond?: unknown },
   ): Promise<ProfileRec> {
     const rec = await this.require(id)
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
@@ -1020,6 +1044,18 @@ export class ProfileStore {
           throw new Error(`Choisis de 1 à ${VITRINE_MAX} hauts faits parmi ceux que tu as gagnés`)
         }
         champs.vitrine = JSON.stringify(cles)
+      }
+    }
+    // Un fond de carte : seulement l'un de ceux qu'il a gagnés.
+    if (patch.fond !== undefined) {
+      if (patch.fond === null || patch.fond === '') champs.fond = null
+      else {
+        const choisi = fond(patch.fond)
+        if (!choisi) throw new Error('Ce fond de carte n’existe pas')
+        if (!this.fondsOuvertsDe(rec, await this.statsDuJourDe(id)).includes(choisi.key)) {
+          throw new Error(`Ce fond se gagne d’abord : ${choisi.regle}`)
+        }
+        champs.fond = choisi.key
       }
     }
     const colonnes = Object.keys(champs) as (keyof typeof champs)[]
@@ -1789,6 +1825,7 @@ export class ProfileStore {
       legendaire: typeof r.legendaire === 'string' && r.legendaire ? r.legendaire : null,
       titre: typeof r.titre === 'string' && r.titre ? r.titre : null,
       vitrine: typeof r.vitrine === 'string' && r.vitrine ? r.vitrine : null,
+      fond: typeof r.fond === 'string' && r.fond ? r.fond : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),

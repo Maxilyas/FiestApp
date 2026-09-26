@@ -287,6 +287,7 @@ export const api = {
       legendaire?: string | null
       titre?: string | null
       vitrine?: string[] | null
+      fond?: string | null
     }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
     /**

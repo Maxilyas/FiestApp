@@ -734,6 +734,10 @@ export interface PublicProfileDetail extends PublicProfile {
    * qu'elles valent. Absents d'un serveur d'avant.
    */
   ecussons?: Ecusson[]
+  /** Le fond de sa carte, s'il en porte un (`shared/fonds.ts`). Absent d'un serveur d'avant. */
+  fond?: string | null
+  /** Les fonds de carte qu'il a gagnés, dans l'ordre du catalogue. */
+  fonds?: string[]
 }
 
 /** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */

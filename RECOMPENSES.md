@@ -505,6 +505,19 @@ carrière (`categories`) et des réponses du quiz du jour
 s'écrit, ils ne rapportent aucune expérience, et une soirée retirée de
 l'historique emporte les bonnes réponses qu'elle avait comptées.
 
+**Les fonds de carte** (lot 7) changent l'allure de la carte qu'on ouvre —
+rien d'autre ne change, ni l'écran commun ni les classements. Quatre,
+dessinés en CSS d'après la maquette validée, qui se gagnent sur la durée :
+la **Nuit étoilée** à trente jours de quiz du jour, l'**Aurore boréale** au
+niveau 20, le **Kintsugi** à dix victoires au quiz du jour, le **Grand
+théâtre** à vingt-cinq soirées (L'Habitué · Or) — des règles à ajuster.
+On le choisit dans Apparence, parmi ceux qu'on a gagnés (`fondsOuverts`,
+`shared/fonds.ts`) ; le serveur refuse les autres, en clair. Il se relit à
+chaque affichage (`fondPorte`), comme un titre : une soirée retirée qui
+fait redescendre sous le niveau 20 rend la carte au velours sans rien
+réécrire, et l'aurore revient avec le niveau. Le décor tient sur le cadre
+de la carte, et c'est son contenu qui défile par-dessus.
+
 ### 5.7 Les métriques
 
 Chaque soirée garde son **relevé** brut (`ReleveSoiree`, version 2) : questions
@@ -764,9 +777,8 @@ carte dit aussi le quiz du jour, en une ligne.
 
 **Lot 7 — en cours** : les emojis de collection (§ 5.5), un par niveau
 sans finition ; les paliers du quiz du jour (§ 5.13) ; le Sphinx (§ 5.4) ;
-le laurier du vainqueur d'hier (§ 5.13) ; les écussons de savoir (§ 5.6).
-À suivre : les fonds de carte (nuit étoilée, aurore, kintsugi, grand
-théâtre), les légendaires de saison (11).
+le laurier du vainqueur d'hier (§ 5.13) ; les écussons de savoir et les
+fonds de carte (§ 5.6). À suivre : les légendaires de saison (11).
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

@@ -644,6 +644,7 @@ export class SpaceRuntime {
     const fiche = ficheDe(carriere)
     const recompenses = this.deps.profiles.recompensesOf(profil.id)
     const titre = this.deps.profiles.titrePorte(profil)
+    const fond = this.deps.profiles.fondPorte(profil, carriere.jour)
     carte.profil = {
       prenom: profil.name,
       niveau: this.deps.profiles.niveauOf(profil),
@@ -660,6 +661,7 @@ export class SpaceRuntime {
       ...(titre && { titre }),
       ...(jour && jour.joues > 0 && { jour }),
       ...(ecussons.length > 0 && { ecussons }),
+      ...(fond && { fond }),
       fiche: {
         soirees: fiche.soirees,
         precision: fiche.precision,

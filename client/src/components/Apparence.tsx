@@ -10,6 +10,7 @@ import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
 import { DIVINS } from '../../../shared/divins'
+import { FONDS } from '../../../shared/fonds'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 
 // L'onglet « Apparence » du profil : ce que la salle voit de lui, son visage
@@ -27,7 +28,7 @@ import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type Pu
  */
 const COLLECTION_HAUTE = 10
 
-type Patch = { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null; titre?: string | null }
+type Patch = { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null; titre?: string | null; fond?: string | null }
 
 /**
  * Sa ligne telle que la salle la voit, dans les classements et la salle
@@ -333,6 +334,63 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
             {gagnes.length === 0 ? `${aGagner} titres à gagner` : `et ${aGagner} autre${aGagner > 1 ? 's' : ''} à gagner`}
           </span>
         )}
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Le fond de sa carte : ce qu'on voit derrière elle quand quelqu'un touche
+ * son nom. Rien d'autre ne change — ni l'écran commun, ni les classements.
+ * Ceux qui restent à gagner se voient, avec ce qu'il faut : savoir ce qui
+ * vient donne envie de revenir.
+ */
+export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
+  if (!profil.fonds) return null
+  const porte = profil.fond ?? null
+  return (
+    <section className="card">
+      <h3>
+        <Icon name="image" />
+        Le fond de ma carte <span className="muted small titre-compte">{`${profil.fonds.length} / ${FONDS.length}`}</span>
+      </h3>
+      <p className="muted small">Il se voit quand quelqu’un touche ton nom : c’est ta carte qui change d’allure, rien d’autre.</p>
+      <div className="finitions fonds-choix">
+        <button
+          type="button"
+          className={'finition-btn' + (!porte ? ' selected' : '')}
+          disabled={busy}
+          aria-pressed={!porte}
+          onClick={() => enregistrer({ fond: null })}
+        >
+          <span className="fond-apercu" aria-hidden="true" />
+          <span className="finition-nom">Velours</span>
+          <span className="muted small" aria-hidden="true">
+            {!porte ? 'porté' : 'd’office'}
+          </span>
+        </button>
+        {FONDS.map(f => {
+          const ouvert = profil.fonds!.includes(f.key)
+          const choisi = porte === f.key
+          return (
+            <button
+              key={f.key}
+              type="button"
+              className={'finition-btn' + (choisi ? ' selected' : '')}
+              disabled={!ouvert || busy}
+              aria-pressed={choisi}
+              onClick={() => enregistrer({ fond: f.key })}
+            >
+              <span className={`fond-apercu carte-fond fond-${f.key}`} aria-hidden="true" />
+              <span className="finition-nom">{f.nom}</span>
+              {/* « porté » redit `aria-pressed` : l'oreille entend « ouvert ». */}
+              <span className="muted small" aria-hidden={choisi || undefined}>
+                {ouvert ? (choisi ? 'porté' : 'ouvert') : f.regle}
+              </span>
+              {choisi && <span className="sr-only">ouvert</span>}
+            </button>
+          )
+        })}
       </div>
     </section>
   )

@@ -66,6 +66,8 @@ export interface CarteDeJoueur extends Distinctions {
      * Absents tant qu'il n'en a aucun.
      */
     ecussons?: { categorie: string; palier: 1 | 2 | 3 }[]
+    /** Le fond de sa carte, s'il en porte un (`shared/fonds.ts`) : la carte qu'on ouvre change d'allure. */
+    fond?: string
     /**
      * Les prix du palmarès : ils tombent à chaque soirée, et six fois
      * L'Éclair ne disait rien à la salle. C'est la collection qui se montre —
