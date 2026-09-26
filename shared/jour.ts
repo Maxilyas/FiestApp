@@ -242,6 +242,8 @@ export interface LigneDuJour {
   finition?: Finition
   legendaire?: string
   eclat?: true
+  /** Il a gagné le quiz du jour d'hier. */
+  laurier?: true
   points: number
   rang: number
   /** Sa partie n'est pas finie : ses points peuvent encore monter. */

@@ -24,6 +24,7 @@ import { CONSIGNE_DES_VARIANTES, consigneEstimation } from './consignes'
 import { Avatar } from '../../components/Avatar'
 import { Coupe } from '../../components/Coupe'
 import { Niveau } from '../../components/Niveau'
+import { NomLaure } from '../../components/Laurier'
 
 /** Le décompte avant que la question suivante parte toute seule. */
 function AutoNextPill({ deadline }: { deadline: number }) {
@@ -854,7 +855,9 @@ export function QuizHost({
                         <Rank n={g.rank} />
                       )}
                       <Avatar className="lb-avatar" avatar={g.avatar} finition={g.finition} eclat={g.eclat} legendaire={g.legendaire} />
-                      <span className="lb-name">{g.name}</span>
+                      <span className="lb-name">
+                        <NomLaure nom={g.name} laurier={g.laurier} />
+                      </span>
                       <Niveau niveau={g.niveau} />
                       <span className="guess-value">
                         {formatNumber(g.value)} {v.unit}

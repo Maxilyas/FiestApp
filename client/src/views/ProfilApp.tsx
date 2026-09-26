@@ -3,6 +3,7 @@ import { Glossaire } from '../components/Glossaire'
 import { api, currentMe, motifDe } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
+import { Laurier } from '../components/Laurier'
 import { Icon, type IconName } from '../components/Icon'
 import { ProfilForm } from '../components/ProfilForm'
 import { CodeSecours } from '../components/Secours'
@@ -218,6 +219,12 @@ export function ProfilApp() {
           {/* Son titre, sous son prénom, comme sa carte le montre. */}
           {profil.titre && hautFait(profil.titre) && (
             <p className="titre-porte">{espacesFines(`« ${hautFait(profil.titre)!.title} »`)}</p>
+          )}
+          {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
+          {profil.laurier && (
+            <p className="carte-laurier">
+              <Laurier laurier /> Vainqueur du quiz du jour d’hier
+            </p>
           )}
           <div
             className="xp-bar"

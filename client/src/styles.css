@@ -1917,6 +1917,7 @@ h3 > .icon {
   overflow-wrap: break-word;
 }
 .podium-name .niveau { margin-left: 0.4em; vertical-align: 0.15em; }
+.podium-name .laurier { margin-left: 0.3em; vertical-align: -0.15em; }
 
 .podium-step {
   width: 100%;
@@ -3724,6 +3725,17 @@ h3 > .icon {
 }
 
 .niveau.big { font-size: 0.95rem; }
+
+/* ── Le laurier du vainqueur d'hier ────────────────────────────────────── */
+
+/* Doré, à la taille du texte qu'il suit — en `em` : il grandit avec la
+   scène de l'écran commun comme le prénom qu'il accompagne. */
+.laurier { flex: none; width: 1.15em; height: 1.15em; color: var(--accent-text); }
+/* Sur une ligne de classement, c'est le prénom qui se coupe, jamais le
+   laurier : « Marie-Charlotte de La Roch… » le garde au bout. */
+.nom-laure { display: inline-flex; align-items: center; gap: 0.3em; max-width: 100%; vertical-align: bottom; }
+.nom-laure-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.carte-laurier { display: flex; align-items: center; gap: 4px; margin: 0 0 2px; color: var(--accent-text); font-size: 0.85rem; font-weight: 500; }
 
 /* ── La barre d'expérience, sur sa propre page ─────────────────────────── */
 

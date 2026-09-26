@@ -665,6 +665,18 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
 - **Le classement** : tout le serveur, avec les règles des soirées — rang
   partagé, « Camille (2) », niveau et finition ; aujourd'hui, hier, le mois.
   Il se fige à minuit ; tous les ex æquo en tête gagnent.
+- **Le laurier** (lot 7) : le lendemain, les vainqueurs — ex æquo compris,
+  jamais seuls dans la salle, puisqu'un joueur seul n'a pas de podium —
+  portent une couronne dorée juste après leur prénom, toute la journée :
+  au classement du jour, sur leur carte (« Vainqueur du quiz du jour
+  d'hier »), sur leur page, et jusque dans les soirées où ils jouent —
+  classements, podiums, salle d'attente. C'est le prénom qui se coupe sur
+  un écran étroit, jamais le laurier. Un profil masqué ne le porte pas ; un
+  anonyme n'en a pas. La liste se lit en mémoire, une fois la nuit close
+  (`laureats`) : elle sert à chaque diffusion. Passé minuit, celle
+  d'avant-hier se tait, et si personne n'est revenu au quiz du jour, la
+  première diffusion d'une soirée clôt la nuit en arrière-plan ; la salle
+  où joue un lauréat se rediffuse d'elle-même.
 - **La nuit.** Rien ne tourne à minuit — l'hébergeur gratuit dort : la
   journée d'hier se clôt à la première demande d'aujourd'hui, une seule
   fois. Le lendemain raconte la veille : sa place, le podium, la correction,
@@ -736,10 +748,10 @@ de l'historique emporte son haut fait, et ce qu'on en portait avec. La
 carte dit aussi le quiz du jour, en une ligne.
 
 **Lot 7 — en cours** : les emojis de collection (§ 5.5), un par niveau
-sans finition ; les paliers du quiz du jour (§ 5.13) ; le Sphinx (§ 5.4).
-À suivre : le laurier du vainqueur d'hier, les écussons de savoir, les
-fonds de carte (nuit étoilée, aurore, kintsugi, grand théâtre), les
-légendaires de saison (11).
+sans finition ; les paliers du quiz du jour (§ 5.13) ; le Sphinx (§ 5.4) ;
+le laurier du vainqueur d'hier (§ 5.13). À suivre : les écussons de
+savoir, les fonds de carte (nuit étoilée, aurore, kintsugi, grand
+théâtre), les légendaires de saison (11).
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

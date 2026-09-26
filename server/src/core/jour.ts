@@ -177,6 +177,9 @@ export interface JourDeps {
   maintenant?: () => number
 }
 
+/** Personne n'a de laurier : la liste d'avant-hier, avant que la nuit soit close. */
+const AUCUN_LAURIER: ReadonlySet<string> = new Set()
+
 export class JourStore {
   private client: Client
   private maintenant: () => number
@@ -194,6 +197,20 @@ export class JourStore {
   /** Les classements, gardés tant que rien n'a bougé : chaque téléphone qui finit sa partie le demande. */
   private revision = 0
   private classementsGardes = new Map<string, { revision: number; joueurs: Joueur[] }>()
+  /**
+   * Les vainqueurs d'un jour clos, et ce jour : le laurier de ceux d'hier
+   * (`laureats`). Relus à la nuit, une fois — ils servent à chaque
+   * diffusion à toute la salle.
+   */
+  private lauriers: { jour: string; ids: ReadonlySet<string> } = { jour: '', ids: AUCUN_LAURIER }
+  /** Une relecture des lauriers en route : une rafale de diffusions n'en lance qu'une. */
+  private lauriersEnRoute: Promise<void> | null = null
+  private ferme = false
+  /**
+   * Un laurier est tombé ou s'est posé sur ce profil : la salle des soirées
+   * où il joue se rediffuse. Branché par le serveur, qui connaît les salles.
+   */
+  laurierChange?: (profileId: string) => void
 
   constructor(
     url: string,
@@ -299,6 +316,7 @@ export class JourStore {
   }
 
   close() {
+    this.ferme = true
     this.client.close()
   }
 
@@ -880,7 +898,7 @@ export class JourStore {
     const nom = nommer(joueurs, p => this.deps.profiles.avatarPorte(p))
     const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
     const ligne = ({ item: j, rang }: { item: Joueur; rang: number }): LigneDuJour => {
-      const { niveau, finition, eclat, legendaire } = this.deps.profiles.apparenceDe(j.profil)
+      const { niveau, finition, eclat, legendaire, laurier } = this.deps.profiles.apparenceDe(j.profil)
       return {
         profileId: j.profil.id,
         nom: nom(j),
@@ -889,6 +907,7 @@ export class JourStore {
         finition,
         ...(legendaire && { legendaire }),
         ...(eclat && { eclat: true as const }),
+        ...(laurier && { laurier: true as const }),
         points: j.points,
         rang,
         ...(j.enCours && { enCours: true as const }),
@@ -1126,15 +1145,18 @@ export class JourStore {
    */
   async clorePasses(aujourdhui: string): Promise<void> {
     const hier = jourAvant(aujourdhui)
-    if (this.closJusqua >= hier) return
+    if (this.closJusqua >= hier && this.lauriers.jour === hier) return
     await this.avecVerrou('#nuit', async () => {
-      if (this.closJusqua >= hier) return
-      const res = await this.client.execute({
-        sql: `SELECT DISTINCT jour FROM jour_parties WHERE jour < ? AND jour NOT IN (SELECT jour FROM jour_clotures) ORDER BY jour`,
-        args: [aujourdhui],
-      })
-      for (const r of res.rows) await this.clore(String(r.jour))
-      this.closJusqua = hier
+      if (this.closJusqua < hier) {
+        const res = await this.client.execute({
+          sql: `SELECT DISTINCT jour FROM jour_parties WHERE jour < ? AND jour NOT IN (SELECT jour FROM jour_clotures) ORDER BY jour`,
+          args: [aujourdhui],
+        })
+        for (const r of res.rows) await this.clore(String(r.jour))
+        this.closJusqua = hier
+      }
+      // La nuit close, le laurier passe à ceux d'hier.
+      if (this.lauriers.jour !== hier) await this.lireLauriers(hier)
     })
   }
 
@@ -1366,6 +1388,52 @@ export class JourStore {
     if (masque) this.masques.add(profileId)
     else this.masques.delete(profileId)
     this.revision++
+    // Masqué, il ne s'annonce plus : son laurier tombe avec, et revient s'il
+    // est rendu au classement le jour même.
+    const hier = jourAvant(jourDe(this.maintenant()))
+    if (this.lauriers.jour === hier) await this.lireLauriers(hier)
+  }
+
+  // ── Le laurier ──────────────────────────────────────────────────────────
+
+  /**
+   * Les vainqueurs d'hier — tous les ex æquo en tête, les masqués écartés :
+   * un laurier suit leur prénom toute la journée, jusque dans les soirées où
+   * ils jouent. Lus en mémoire, sans attendre : chaque diffusion à toute la
+   * salle les demande.
+   *
+   * Rien ne tourne à minuit. Passé minuit, la liste d'avant-hier se tait
+   * aussitôt, et la nuit se clôt en arrière-plan si personne n'est encore
+   * revenu au quiz du jour : les lauriers se posent alors sur ceux d'hier,
+   * et les salles où ils jouent se rediffusent (`laurierChange`).
+   */
+  laureats(): ReadonlySet<string> {
+    const aujourdhui = jourDe(this.maintenant())
+    if (this.lauriers.jour === jourAvant(aujourdhui)) return this.lauriers.ids
+    if (!this.lauriersEnRoute && !this.ferme) {
+      this.lauriersEnRoute = this.clorePasses(aujourdhui)
+        .catch(e => {
+          if (!this.ferme) console.error('[jour] les lauriers d’hier n’ont pas pu se lire :', e)
+        })
+        .finally(() => {
+          this.lauriersEnRoute = null
+        })
+    }
+    return AUCUN_LAURIER
+  }
+
+  /**
+   * Relit les vainqueurs d'un jour clos, et rediffuse la salle de ceux dont
+   * le laurier change : ceux qui le gagnent, ceux qui le perdent — et ceux
+   * qui l'avaient déjà, que la salle a pu voir sans lui depuis minuit.
+   */
+  private async lireLauriers(jour: string) {
+    const res = await this.client.execute({ sql: 'SELECT profile_id FROM jour_podiums WHERE jour = ? AND rang = 1', args: [jour] })
+    const ids = new Set(res.rows.map(r => String(r.profile_id)).filter(id => !this.masques.has(id)))
+    const avant = this.lauriers
+    this.lauriers = { jour, ids }
+    const touches = new Set([...ids, ...avant.ids])
+    for (const id of touches) if (avant.jour !== jour || avant.ids.has(id) !== ids.has(id)) this.laurierChange?.(id)
   }
 
   /** Les profils masqués, et ceux qu'une recherche trouve — pour l'administration. */

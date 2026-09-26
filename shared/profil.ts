@@ -620,6 +620,11 @@ export interface Distinctions {
    * légendaire (`lg:…`) ou un Divin (`dv:…`).
    */
   legendaire?: string
+  /**
+   * Il a gagné le quiz du jour d'hier : un laurier suit son prénom toute la
+   * journée, jusque dans les soirées où il joue.
+   */
+  laurier?: boolean
 }
 
 /**
@@ -634,6 +639,7 @@ export function distinctions(source: Distinctions | undefined | null): Distincti
     ...(source.finition && { finition: source.finition }),
     ...(source.eclat && { eclat: true }),
     ...(source.legendaire && { legendaire: source.legendaire }),
+    ...(source.laurier && { laurier: true }),
   }
 }
 
@@ -679,6 +685,8 @@ export interface PublicProfile {
   titre?: string | null
   /** Les hauts faits qu'il a choisi de montrer sur sa carte ; null : les plus durs, d'office. */
   vitrineChoisie?: string[] | null
+  /** Il a gagné le quiz du jour d'hier : sa page le lui dit, comme la salle le voit. */
+  laurier?: boolean
 }
 
 /** Une soirée jouée, telle que la page profil la relit. */

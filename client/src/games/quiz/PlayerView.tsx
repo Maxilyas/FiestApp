@@ -12,6 +12,7 @@ import { espacesFines, formatNumber, place, pts } from '../../format'
 import { answersSizeClass, questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
 import { Niveau } from '../../components/Niveau'
+import { NomLaure } from '../../components/Laurier'
 import { serverNow } from '../../clock'
 import { Echelle, LigneDeCourse } from './Course'
 import { ligneDeSoiree, moitieHaute } from '../../../../shared/course'
@@ -893,7 +894,9 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
               <Rank n={1 + v.podium!.filter(o => o.points > p.points).length} />
               {/* Le podium est le sujet : ses médaillons bougent (`av-sujet`). */}
               <Avatar className="lb-avatar av-sujet" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
-              <span className="lb-name">{p.name}</span>
+              <span className="lb-name">
+                <NomLaure nom={p.name} laurier={p.laurier} />
+              </span>
               <Niveau niveau={p.niveau} />
               <Score n={p.points} />
             </div>

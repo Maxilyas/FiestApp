@@ -32,6 +32,7 @@ import { QuizHost } from '../games/quiz/HostView'
 import type { QuizHostView } from '../../../shared/games/quiz'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
+import { Laurier, NomLaure } from '../components/Laurier'
 import { distinctions } from '../../../shared/profil'
 import { partsDuNom } from '../../../shared/homonymes'
 import type { ArchiveList } from '../../../shared/archive'
@@ -201,6 +202,7 @@ const PuceJoueur = memo(
       <div className={'player-chip' + (p.connected ? '' : ' offline')}>
         <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
         <Niveau niveau={p.niveau} />
+        <Laurier laurier={p.laurier} />
         {/* Les libellés de la puce prennent le nom affiché, marque comprise :
             c'est une porte de plus par où sort un prénom (invariant 17).
             Avec `p.name`, deux « Camille » avaient les mêmes boutons pour
@@ -1294,7 +1296,9 @@ export function HostApp() {
                             <div key={i} className="lb-row">
                               <Rank n={p.rank} />
                               <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
-                              <span className="lb-name">{p.name}</span>
+                              <span className="lb-name">
+                                <NomLaure nom={p.name} laurier={p.laurier} />
+                              </span>
                               <Niveau niveau={p.niveau} />
                               <Score n={p.points} />
                             </div>

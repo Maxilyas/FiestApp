@@ -7,6 +7,7 @@ import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
 import { Avatar } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Niveau } from '../components/Niveau'
+import { NomLaure } from '../components/Laurier'
 import { Rank, Score } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
@@ -680,7 +681,7 @@ function LigneDuClassement({ ligne: l, moi }: { ligne: LigneDuJour; moi: boolean
       <Rank n={l.rang} />
       <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
       <span className="lb-name">
-        {l.nom}
+        <NomLaure nom={l.nom} laurier={l.laurier} />
         {l.enCours && <span className="muted small"> · en cours</span>}
       </span>
       <Niveau niveau={l.niveau} />

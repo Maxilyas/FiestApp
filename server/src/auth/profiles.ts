@@ -373,6 +373,13 @@ export class ProfileStore {
    */
   statsDuJour?: (profileId: string) => Promise<StatsDuJour>
 
+  /**
+   * A-t-il gagné le quiz du jour d'hier (`JourStore.laureats`) ? Branché au
+   * démarrage, comme `statsDuJour`, et lu en mémoire : il sert à chaque
+   * diffusion à toute la salle.
+   */
+  laurierDe?: (profileId: string) => boolean
+
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
   }
@@ -748,6 +755,7 @@ export class ProfileStore {
       divins: raconter(this.divinsOf(p.id)),
       titre: this.titrePorte(p),
       vitrineChoisie: this.vitrineChoisie(p),
+      ...(this.laurierDe?.(p.id) && { laurier: true }),
     }
   }
 
@@ -1725,7 +1733,10 @@ export class ProfileStore {
    * finition, le légendaire qu'il porte, et s'il brille (l'Éclat tombe sur ce
    * qu'il porte : le légendaire, ou l'emoji).
    */
-  apparenceDe(p: ProfileRec, avatar: string = this.avatarPorte(p)): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string } {
+  apparenceDe(
+    p: ProfileRec,
+    avatar: string = this.avatarPorte(p),
+  ): { niveau: number; finition: Finition; eclat: boolean; legendaire?: string; laurier?: boolean } {
     const niveau = this.niveauOf(p)
     const legendaire = this.legendairePorte(p)
     return {
@@ -1733,6 +1744,7 @@ export class ProfileStore {
       finition: finitionPortee(p.finition, niveau),
       eclat: this.eclatsOf(p.id).includes(cibleEclat(legendaire, avatar)),
       ...(legendaire && { legendaire }),
+      ...(this.laurierDe?.(p.id) && { laurier: true }),
     }
   }
 

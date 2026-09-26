@@ -10,6 +10,7 @@ import { chargerDessinsAuPlus, complets, useDessins } from './medaillons'
 import { Chiffres, justesses } from './Chiffres'
 import { Icon } from './Icon'
 import { Niveau } from './Niveau'
+import { Laurier } from './Laurier'
 import { Flamme } from './Jour'
 
 /**
@@ -93,6 +94,11 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                 </h3>
                 {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné. */}
                 {p?.titre && hautFait(p.titre) && <p className="titre-porte">{espacesFines(`« ${hautFait(p.titre)!.title} »`)}</p>}
+                {carte.laurier && (
+                  <p className="carte-laurier">
+                    <Laurier laurier /> Vainqueur du quiz du jour d’hier
+                  </p>
+                )}
                 {p && p.prenom !== carte.nom && <p className="muted small">{espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil</p>}
                 <p className="carte-soir">
                   {carte.ceSoir.rang > 0 ? (
