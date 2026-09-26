@@ -55,7 +55,7 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
 
 /**
  * Tous ses avatars, en une grille : les vingt-quatre emojis, les douze de
- * collection, les douze légendaires, les cinq Divins. Un emoji se porte d'un
+ * collection, les légendaires, les cinq Divins. Un emoji se porte d'un
  * toucher — celui de collection, une fois son niveau atteint ; un avatar
  * dessiné se touche d'abord pour lire sa légende — et, gagné, se porte de là.
  */

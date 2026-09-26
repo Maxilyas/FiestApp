@@ -18,7 +18,7 @@ import Database from 'better-sqlite3'
 import type { AnswerRow } from '../src/core/answers'
 import type { ScoreEntry } from '../src/core/scores'
 import type { PlayerRec } from '../src/core/party'
-import { divinsDebloques, divinsDeSoiree, raconter } from '../src/core/divins'
+import { DOUZE_LEGENDAIRES, divinsDebloques, divinsDeSoiree, raconter } from '../src/core/divins'
 import { ProfileStore } from '../src/auth/profiles'
 import { DIVINS } from '../../shared/divins'
 import { LEGENDAIRES } from '../../shared/legendaires'
@@ -264,9 +264,15 @@ function recompensesPour(cles: string[]): Map<string, number> {
 test('l’Arbre-Monde descend avec le douzième légendaire, et repart avec lui', () => {
   const tous = LEGENDAIRES.map(l => l.key)
   assert.deepEqual(divinsDebloques(recompensesPour(tous)), ['dv:arbre'])
-  for (const manquant of tous) {
+  assert.equal(DOUZE_LEGENDAIRES.length, 12)
+  for (const manquant of DOUZE_LEGENDAIRES) {
     assert.deepEqual(divinsDebloques(recompensesPour(tous.filter(k => k !== manquant))), [], `sans ${manquant}, pas d’Arbre`)
   }
+  // Ceux venus après les douze — le Sphinx — ne lui sont pas demandés : l'Arbre
+  // qu'on porte ne repart pas parce que le catalogue a grandi.
+  const venusApres = tous.filter(k => !DOUZE_LEGENDAIRES.includes(k))
+  assert.ok(venusApres.includes('lg:sphinx'))
+  assert.deepEqual(divinsDebloques(recompensesPour([...DOUZE_LEGENDAIRES])), ['dv:arbre'], 'sans le Sphinx, l’Arbre reste')
   // Ceux d'une soirée se lisent dans l'étagère, comme les hauts faits.
   const rangees = new Map([['dv:seraphin', 1], ['dv:dechu', 2]])
   assert.deepEqual(divinsDebloques(rangees), ['dv:seraphin', 'dv:dechu'])

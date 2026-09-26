@@ -23,6 +23,10 @@
 // Chouette, la Licorne et le Kraken demandaient déjà davantage, et le Dragon
 // ne se gagne qu'une soirée de trois quiz au moins. Ceux-là n'ont pas bougé.
 // Ce qui était gagné avant reste gagné : voir `legendairesDebloques`.
+//
+// Le Sphinx, treizième, se gagne au quiz du jour : l'assiduité plutôt que le
+// génie — le podium du jour ira toujours aux deux ou trois mêmes. Il a deux
+// voies, cent jours joués ou dix sans-faute, et l'une suffit.
 
 import { clePalier } from './hautsfaits'
 
@@ -39,6 +43,8 @@ export interface Legendaire {
   /** Une ligne, pour la galerie : ce qu'il raconte. */
   legende: string
   condition: Condition
+  /** Une seconde voie : l'une ou l'autre le débloque. */
+  aussi?: Condition
   /** Le ton du haut fait qui le débloque : les légendaires de l'ombre se gagnent en jouant mal. */
   ton: 'eclat' | 'ombre'
 }
@@ -128,6 +134,14 @@ export const LEGENDAIRES: Legendaire[] = [
     condition: { hautFait: 'hf:cosmique', fois: 7 },
     ton: 'ombre',
   },
+  {
+    key: 'lg:sphinx',
+    nom: 'Le Sphinx',
+    legende: 'Cent jours de questions, ou dix sans une faute : il a tout vu.',
+    condition: { hautFait: 'hf:assidu', palier: 3 },
+    aussi: { hautFait: 'hf:sans-faute', palier: 3 },
+    ton: 'eclat',
+  },
 ]
 
 const PAR_CLE = new Map(LEGENDAIRES.map(l => [l.key, l]))
@@ -148,15 +162,39 @@ function progresSur(c: Condition, recompenses: ReadonlyMap<string, number>): { a
   return { acquis: Math.min(c.palier, atteint), requis: c.palier }
 }
 
-/** Où en est un profil sur un légendaire, avec la règle du jour. */
+/**
+ * Où en est un profil sur un légendaire, avec la règle du jour — sur la
+ * plus avancée de ses voies, s'il en a deux.
+ */
 export function progresVers(l: Legendaire, recompenses: ReadonlyMap<string, number>): { acquis: number; requis: number } {
-  return progresSur(l.condition, recompenses)
+  const principale = progresSur(l.condition, recompenses)
+  if (!l.aussi) return principale
+  const seconde = progresSur(l.aussi, recompenses)
+  return seconde.acquis / seconde.requis > principale.acquis / principale.requis ? seconde : principale
 }
 
 /** Cette condition est-elle remplie ? */
 export function conditionTenue(c: Condition, recompenses: ReadonlyMap<string, number>): boolean {
   const { acquis, requis } = progresSur(c, recompenses)
   return acquis >= requis
+}
+
+/**
+ * Les légendaires que ces paliers, tout juste tombés, viennent d'ouvrir :
+ * ceux qu'il a, et qu'il n'aurait pas sans eux. Le Sphinx, au centième jour
+ * ou au dixième sans-faute — mais pas une seconde fois quand l'autre voie
+ * l'avait déjà ouvert. La page du quiz du jour le fête, comme la fin de
+ * soirée les siens.
+ */
+export function legendairesOuvertsPar(
+  tombes: readonly string[],
+  recompenses: ReadonlyMap<string, number>,
+  acquis?: ReadonlyMap<string, Condition>,
+): string[] {
+  if (tombes.length === 0) return []
+  const avant = new Map([...recompenses].filter(([cle]) => !tombes.includes(cle)))
+  const deja = new Set(legendairesDebloques(avant, acquis))
+  return legendairesDebloques(recompenses, acquis).filter(cle => !deja.has(cle))
 }
 
 /**
@@ -185,6 +223,7 @@ export function legendairesDebloques(
 ): string[] {
   return LEGENDAIRES.filter(l => {
     if (conditionTenue(l.condition, recompenses)) return true
+    if (l.aussi && conditionTenue(l.aussi, recompenses)) return true
     const avant = acquis?.get(l.key)
     return !!avant && conditionTenue(avant, recompenses)
   }).map(l => l.key)

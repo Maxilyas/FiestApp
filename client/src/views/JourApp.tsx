@@ -11,6 +11,7 @@ import { Rank, Score } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
 import { Flamme, Medaille, Serie, ontGagneHier } from '../components/Jour'
+import { Medaillon } from '../components/FinDeSoiree'
 import type { PublicProfileDetail } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {
@@ -29,6 +30,7 @@ import {
   type PalierTombe,
 } from '../../../shared/jour'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
+import { legendaire } from '../../../shared/legendaires'
 
 /** La marge du serveur après l'échéance (`GRACE_MS`, `games/quiz.ts`), et un souffle : la question se révèle d'elle-même. */
 const APRES_ECHEANCE_MS = 1500 + 600
@@ -494,6 +496,9 @@ function Fin({
           <Palier key={p.key} palier={p} />
         ))}
       </section>
+      {(partie.legendaires ?? []).map(cle => (
+        <LegendaireOuvert key={cle} cle={cle} dejaPorte={profil.legendaire === cle} />
+      ))}
       <p className="muted small jour-note">
         Le classement se fige à minuit. Le podium gagne {XP_PODIUM_DU_JOUR.join(', ').replace(/, (\d+)$/, ' et $1')} XP.
       </p>
@@ -511,6 +516,40 @@ function Fin({
         </a>
       </div>
     </div>
+  )
+}
+
+/**
+ * Le légendaire qu'un palier du jour vient d'ouvrir — le Sphinx —, fêté
+ * comme en fin de soirée, et qu'on porte d'un toucher.
+ */
+function LegendaireOuvert({ cle, dejaPorte }: { cle: string; dejaPorte: boolean }) {
+  const [porte, setPorte] = useState(dejaPorte)
+  const l = legendaire(cle)
+  if (!l) return null
+  const porter = async () => {
+    try {
+      const { profile } = await api.joueur.enregistrer({ legendaire: cle })
+      setPorte(profile.legendaire === cle)
+      showToast({ kind: 'info', message: `Tu portes ${l.nom}` })
+    } catch (e) {
+      showToast({ kind: 'error', message: (e as Error).message })
+    }
+  }
+  return (
+    <section className="card fin-legendaire">
+      <span className="label">Avatar légendaire débloqué</span>
+      <Medaillon cle={cle} className="fin-medaillon" />
+      <h2>{l.nom}</h2>
+      <p className="serif-note">{l.legende}</p>
+      {porte ? (
+        <p className="muted small">C’est lui que la salle verra, dès la prochaine soirée.</p>
+      ) : (
+        <button className="btn btn-primary" onClick={() => void porter()}>
+          Le porter
+        </button>
+      )}
+    </section>
   )
 }
 

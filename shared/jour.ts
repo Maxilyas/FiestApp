@@ -355,4 +355,6 @@ export interface PartieDuJour {
   } | null
   /** La partie finie : les paliers du quiz du jour qu'elle a fait tomber (L'Assidu, Le Sans-Faute). */
   paliers?: PalierTombe[]
+  /** Et le légendaire que l'un d'eux ouvre : le Sphinx, au centième jour ou au dixième sans-faute. */
+  legendaires?: string[]
 }

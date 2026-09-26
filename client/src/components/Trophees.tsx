@@ -247,7 +247,7 @@ export function MesHautsFaits({ profil }: { profil: PublicProfileDetail }) {
 function UnProche({ p }: { p: Proche }) {
   const l = legendaire(p.key)
   const palier = palierDe(p.key)
-  const h = l ? hautFait(l.condition.hautFait) : palier?.hautFait
+  const h = l ? hautFait(p.hautFait ?? l.condition.hautFait) : palier?.hautFait
   if (!h) return null
   const titre = l ? l.nom : titreDePalier(palier!.hautFait, palier!.palier)
   const compte =

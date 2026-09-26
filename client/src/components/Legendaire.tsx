@@ -4,7 +4,7 @@ import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { inscrireDessin } from './medaillons'
 
 /**
- * Les avatars légendaires : douze médaillons dessinés, qui ne se gagnent que
+ * Les avatars légendaires : des médaillons dessinés, qui ne se gagnent que
  * par un haut fait (`shared/legendaires.ts`).
  *
  * Un emoji est à tout le monde ; un légendaire, non — et il doit se voir de
@@ -94,6 +94,7 @@ const PALETTES: Record<string, Palette> = {
   'lg:kraken': { fond: ['#168091', '#073944', '#020c10'], embleme: ['#c98af0', '#6a2a93'] },
   'lg:fantome': { fond: ['#5b48a6', '#211848', '#07050f'], embleme: ['#ffffff', '#cfc6ff'] },
   'lg:trou-noir': { fond: ['#2d1450', '#0a0418', '#000000'], embleme: ['#fff3c4', '#ff8a3d'] },
+  'lg:sphinx': { fond: ['#f6c26b', '#b3561f', '#2e0f05'], embleme: ['#fff0c7', '#d99a3a'] },
 }
 
 /**
@@ -116,9 +117,65 @@ const PALETTES_ECLAT: Record<string, Palette> = {
   'lg:kraken': { fond: ['#6a34a8', '#240f40', '#0a0414'], embleme: ['#a8ffd6', '#1f9a68'] },
   'lg:fantome': { fond: ['#22845f', '#08301f', '#010a06'], embleme: ['#f0fff8', '#8fffd0'] },
   'lg:trou-noir': { fond: ['#11566b', '#031a24', '#000000'], embleme: ['#f0fdff', '#5fdcff'] },
+  'lg:sphinx': { fond: ['#5a8cff', '#1a2f8f', '#060b2e'], embleme: ['#e8f1ff', '#8da9e0'] },
 }
 
+/** Le Sphinx : son œil, fardé ; l'autre en est le miroir. */
+const OEIL_SPHINX = 'M40.5,40.5 C42.5,37.6 46.5,37.6 48.2,40.5 C46.5,42.8 42.5,42.8 40.5,40.5 Z'
+const FARD_SPHINX = 'M40.5,40.5 L37.6,41.8'
+const SOURCIL_SPHINX = 'M40,36.5 Q44.4,34.8 48.6,36.5'
+/** Les rayures de la coiffe, sur le pan gauche : du bord du pan au visage. */
+const RAYURES_SPHINX = [34, 41, 48, 55, 62, 68].map(y => `M${(30 - (y - 27) * 0.23).toFixed(1)},${y} L38.5,${y}`).join(' ')
+
 const DESSINS: Record<string, Dessin> = {
+  'lg:sphinx': (id, eclat) => {
+    const trait = eclat ? '#4a68a8' : '#8a5a1c'
+    return (
+      <>
+        <g className="lg-decor">
+          <path d="M2,92 L22,63 L42,92 Z" fill="#000000" opacity="0.2" />
+          <path d="M58,92 L79,60 L100,92 Z" fill="#000000" opacity="0.2" />
+          {etoile(17, 30, 3.2, 'a')}
+          {etoile(83, 25, 2.6, 'b')}
+          {ciel([
+            [26, 16, 0.8],
+            [74, 13, 0.9],
+            [12, 46, 0.7],
+            [89, 44, 0.8],
+          ])}
+        </g>
+        <g className="lg-forme" fill={`url(#${id('embleme')})`}>
+          {/* La coiffe rayée qui tombe en deux pans, le visage, la barbe tressée. */}
+          <path d="M50,13 C39,13 32,18 30,27 L21,66 C20,72 25,76 31,75 L38,74 L38,60 C41,68 45,72 50,72 C55,72 59,68 62,60 L62,74 L69,75 C75,76 80,72 79,66 L70,27 C68,18 61,13 50,13 Z" />
+          <path d="M46.5,71 L53.5,71 L52.6,85 C52.2,88 47.8,88 47.4,85 Z" />
+        </g>
+        <g className="lg-details">
+          <path d="M38.5,30 C38.5,24 61.5,24 61.5,30 L61.5,49 C61.5,61 56,67 50,67 C44,67 38.5,61 38.5,49 Z" fill="#ffffff" opacity="0.16" />
+          <g fill="none" stroke={trait} strokeWidth="1.4" strokeLinecap="round" opacity="0.6">
+            <path d={RAYURES_SPHINX} />
+            <path d={miroir(RAYURES_SPHINX)} />
+            <path d="M34,21.5 Q50,14.5 66,21.5" />
+            <path d="M47.2,75 L52.8,75 M47.4,79 L52.6,79 M47.6,83 L52.4,83" />
+          </g>
+          <path d="M36,29 Q50,24.5 64,29" fill="none" stroke={trait} strokeWidth="2" strokeLinecap="round" />
+          <path d="M50,17.5 C48.4,19.5 48.6,22.5 50,25 C51.4,22.5 51.6,19.5 50,17.5 Z" fill={eclat ? '#bfe0ff' : '#e0a100'} />
+          <path d={OEIL_SPHINX} fill="#fffaf0" />
+          <path d={miroir(OEIL_SPHINX)} fill="#fffaf0" />
+          <circle cx="44.4" cy="40.4" r="1.7" fill="#2a160a" />
+          <circle cx="55.6" cy="40.4" r="1.7" fill="#2a160a" />
+          <g fill="none" stroke="#2a160a" strokeWidth="1.1" strokeLinecap="round">
+            <path d={FARD_SPHINX} />
+            <path d={miroir(FARD_SPHINX)} />
+            <path d={SOURCIL_SPHINX} />
+            <path d={miroir(SOURCIL_SPHINX)} />
+            <path d="M50,42.5 L47.8,52.5 Q50,54 52.2,52.5" />
+            <path d="M46,58 Q50,60.2 54,58" strokeWidth="1.3" />
+          </g>
+        </g>
+      </>
+    )
+  },
+
   'lg:phenix': id => {
     const aile = 'M53,40 C62,33 72,24 85,11 C83,19 81,24 77,28 C83,27 87,25 91,22 C87,30 81,35 74,38 C79,38 83,38 87,37 C81,43 70,47 58,48 Z'
     return (

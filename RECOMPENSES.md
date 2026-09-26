@@ -350,7 +350,7 @@ changer d'avis, d'hôte, d'avatar —, sont estimés.
 
 ### 5.4 Les avatars légendaires
 
-Douze avatars dessinés en SVG, animés sans excès, lisibles à 20 px et
+Treize avatars dessinés en SVG, animés sans excès, lisibles à 20 px et
 spectaculaires à 200 : un médaillon, une silhouette forte, une lumière qui
 vit. Chacun se débloque par un haut fait, et **ne s'achète ni ne s'accélère**.
 
@@ -368,6 +368,7 @@ vit. Chacun se débloque par un haut fait, et **ne s'achète ni ne s'accélère*
 | Le Kraken | 🏮 La Lanterne Rouge, trois fois | 18 à 22 quiz |
 | Le Fantôme | 😴 Le Somnambule, six fois | ≈ 20 quiz |
 | Le Trou Noir | 🌌 L'Estimation Cosmique, sept fois | ≈ 20 quiz |
+| Le Sphinx | 📆 L'Assidu, palier or (cent jours), ou 💯 Le Sans-Faute, palier or (dix) | non simulé : le quiz du jour |
 
 **Une vingtaine de quiz.** Tombés d'un seul haut fait, la plupart se
 gagnaient dès la première soirée : au format de la maison — deux quiz de
@@ -388,6 +389,16 @@ demandaient déjà une vingtaine de quiz ou davantage n'ont pas bougé. Le
 Dragon, lui, demande trois quiz gagnés dans la même soirée : il ne se gagne
 qu'une soirée de trois quiz au moins.
 
+**Le Sphinx** (lot 7), le treizième, se gagne au quiz du jour : l'assiduité
+plutôt que le génie — le podium du jour ira toujours aux deux ou trois
+mêmes. Il a deux voies, cent jours joués ou dix sans-faute, et l'une suffit
+(`aussi`) ; sa jauge suit la plus avancée, et « Les plus proches » le
+montrent une fois, sur celle-là. La fin de la partie qui l'ouvre le fête,
+avec « Le porter » — une seule fois : pas le centième jour de qui l'avait
+déjà par ses sans-faute (`legendairesOuvertsPar`). L'Arbre-Monde ne le
+demande pas : il ne compte que les douze d'origine, et un légendaire de
+plus ne lui reprend rien.
+
 **Ce qui était gagné reste gagné.** Un légendaire débloqué avant que sa règle
 se durcisse reste à son porteur : au premier démarrage qui apporte la
 nouvelle règle, chaque profil retient celle sous laquelle il l'avait eu
@@ -397,7 +408,7 @@ retirée de l'historique emporte encore ce qu'elle avait fait tomber.
 - On le **porte** depuis `/profil` : il remplace l'emoji partout où l'on se
   voit — classements, podiums, écran commun, carte. L'emoji choisi reste
   dessous, pour les lignes de texte (export, messages).
-- La galerie montre les douze : ceux qu'on a, en couleur ; les autres en
+- La galerie les montre tous : ceux qu'on a, en couleur ; les autres en
   **silhouette dorée**, avec la règle et la jauge.
 - Un anonyme n'en porte jamais, et rien ne le lui fait remarquer.
 
@@ -725,10 +736,10 @@ de l'historique emporte son haut fait, et ce qu'on en portait avec. La
 carte dit aussi le quiz du jour, en une ligne.
 
 **Lot 7 — en cours** : les emojis de collection (§ 5.5), un par niveau
-sans finition ; les paliers du quiz du jour (§ 5.13). À suivre : le
-laurier du vainqueur d'hier, le Sphinx, les écussons de savoir, les fonds
-de carte (nuit étoilée, aurore, kintsugi, grand théâtre), les légendaires
-de saison (11).
+sans finition ; les paliers du quiz du jour (§ 5.13) ; le Sphinx (§ 5.4).
+À suivre : le laurier du vainqueur d'hier, les écussons de savoir, les
+fonds de carte (nuit étoilée, aurore, kintsugi, grand théâtre), les
+légendaires de saison (11).
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

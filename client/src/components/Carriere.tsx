@@ -40,6 +40,7 @@ export function DetailLegendaire({
   if (!choisi) return null
   const gagne = debloques.includes(choisi.key)
   const hf = hautsFaits.find(h => h.key === choisi.condition.hautFait)
+  const hfAussi = choisi.aussi && hautsFaits.find(h => h.key === choisi.aussi!.hautFait)
   const progres = progresVers(choisi, recompensesDe(hautsFaits))
   return (
     <div className="galerie-detail detail-case">
@@ -59,7 +60,15 @@ export function DetailLegendaire({
           : 'Se gagne par '}
         <b>{regleDe(choisi.condition, hautsFaits)}</b>
         {hf && hf.famille === 'soiree' && ` — ${hf.rule.charAt(0).toLowerCase()}${hf.rule.slice(1)}`}
-        {!gagne && avancement(choisi.condition, hf, progres)}.
+        {!gagne && avancement(choisi.condition, hf, progres)}
+        {/* Une seconde voie (le Sphinx) : l'une ou l'autre suffit. */}
+        {choisi.aussi && (
+          <>
+            {' '}ou par <b>{regleDe(choisi.aussi, hautsFaits)}</b>
+            {!gagne && avancement(choisi.aussi, hfAussi, progres)}
+          </>
+        )}
+        .
       </p>
       {!gagne && (
         <span className="jauge" aria-label={`${progres.acquis} sur ${progres.requis}`}>

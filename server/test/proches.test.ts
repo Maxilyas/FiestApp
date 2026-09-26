@@ -60,3 +60,21 @@ test('rien de commencé, rien de proche ; à égalité, le légendaire d’abord
     ['lg:tigre', 'hf:bavard:1'],
   )
 })
+
+test('un légendaire à deux voies se montre une fois, sur la plus avancée — et ses deux paliers d’Or ne se montrent plus à part', () => {
+  // Quarante-cinq jours joués (L'Assidu · Argent, l'Or à cent) et deux
+  // sans-faute (Bronze, l'Argent à trois) : le Sphinx compte ses jours.
+  const jours = vu({}, { 'hf:assidu': 45, 'hf:sans-faute': 2 })
+  assert.deepEqual(lesPlusProches(jours, [], 5), [
+    { key: 'hf:sans-faute:2', acquis: 2, requis: 3 },
+    { key: 'lg:sphinx', acquis: 45, requis: 100, hautFait: 'hf:assidu' },
+  ])
+  // Huit sans-faute : la seconde voie est plus avancée, c'est elle qu'il compte.
+  const sansFautes = vu({}, { 'hf:assidu': 45, 'hf:sans-faute': 8 })
+  assert.deepEqual(lesPlusProches(sansFautes, [], 5), [{ key: 'lg:sphinx', acquis: 8, requis: 10, hautFait: 'hf:sans-faute' }])
+  // Le Sphinx gagné, leurs Ors redeviennent des objectifs comme les autres.
+  assert.deepEqual(
+    lesPlusProches(sansFautes, ['lg:sphinx'], 5).map(p => p.key),
+    ['hf:sans-faute:3', 'hf:assidu:3'],
+  )
+})

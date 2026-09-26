@@ -513,7 +513,7 @@ function LigneRang({ fin }: { fin: Fin }) {
  * lui, le montre : un lien prend la place du cadre, dont la taille est celle
  * d'un dessin, pas d'un texte.
  */
-function Medaillon({ cle, className }: { cle: string; className: string }) {
+export function Medaillon({ cle, className }: { cle: string; className: string }) {
   const dessins = useDessins(true)
   if (dessins.echec && !complets(dessins)) {
     return (

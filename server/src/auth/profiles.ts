@@ -42,7 +42,14 @@ import {
   XP_PALIER,
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
-import { cibleEclat, conditionTenue, legendaire, legendairesDebloques, type Condition } from '../../../shared/legendaires'
+import {
+  cibleEclat,
+  conditionTenue,
+  legendaire,
+  legendairesDebloques,
+  legendairesOuvertsPar,
+  type Condition,
+} from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
@@ -571,6 +578,11 @@ export class ProfileStore {
   /** Les avatars légendaires que ce profil a débloqués — ceux d'avant leur durcissement compris. */
   legendairesOf(id: string): string[] {
     return legendairesDebloques(this.recompensesOf(id), this.acquis.get(id))
+  }
+
+  /** Ceux que ces paliers, tout juste tombés, lui ont ouverts (voir `legendairesOuvertsPar`). */
+  legendairesOuverts(id: string, tombes: readonly string[]): string[] {
+    return legendairesOuvertsPar(tombes, this.recompensesOf(id), this.acquis.get(id))
   }
 
   /** Les Divins descendus sur ce profil — la liste, jamais ce qui les a fait descendre. */

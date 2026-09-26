@@ -822,6 +822,8 @@ export class JourStore {
     if (etat === 'finie') {
       const paliers = await this.deps.profiles.paliersDuJourTombes(profil.id, jour)
       if (paliers.length > 0) vue = { ...vue, paliers }
+      const legendaires = this.deps.profiles.legendairesOuverts(profil.id, paliers.map(p => p.key))
+      if (legendaires.length > 0) vue = { ...vue, legendaires }
     }
     return vue
   }
