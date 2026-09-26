@@ -97,6 +97,13 @@ services:
         sync: false
       - key: QUIZ_DB_TOKEN
         sync: false
+      # Le jeton de la routine Claude Code qui remplit la réserve du quiz du
+      # jour (MISE-EN-LIGNE.md, étape 8). Il ne sait qu'ajouter des
+      # questions. Tiré par le bouton « Generate » : sous trente-deux
+      # caractères, la porte reste fermée. Absent, la réserve se remplit à
+      # la main, depuis /admin.
+      - key: RESERVE_TOKEN
+        sync: false
 
   # ── PRÉPRODUCTION ──────────────────────────────────────────────────────
   #
@@ -141,4 +148,8 @@ services:
       - key: QUIZ_DB_URL
         sync: false
       - key: QUIZ_DB_TOKEN
+        sync: false
+      # Pour essayer la routine de la réserve avant la production : un jeton
+      # à elle, jamais celui de la prod (MISE-EN-LIGNE.md, étape 8).
+      - key: RESERVE_TOKEN
         sync: false

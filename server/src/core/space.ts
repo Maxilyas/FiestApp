@@ -9,21 +9,23 @@ import { GameEngine } from './engine'
 import { PlacesRendues } from './places'
 import type { PartyBackup, PartyMirror } from './backup'
 import type { ArchiveStore } from './archive'
+import type { JourStore } from './jour'
 import { buildArchive, soireeDesInvites, type Soiree } from './archive'
 import { buildRecap } from './recap'
 import { buildReview, type PlayedPack } from './review'
 import { buildProgress, relevesDeSoiree, type SoireeGain } from './progress'
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
 import { divinsDeSoiree, laureatsDivins, raconter } from './divins'
-import { computeStats } from './stats'
+import { PRIX_INDIVIDUELS, computeStats } from './stats'
+import { approchesDeLaSoiree, recordsBattus } from './objectifs'
 import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
 import { ProfileStore, cleDeSoiree, type PrixDeSoiree } from '../auth/profiles'
 import {
+  carriereDe,
   coupDOeilMoyen,
   distinctions,
   ficheDe,
-  finitionPortee,
   finitionsOuvertes,
   niveauDuProfil,
   releveVide,
@@ -32,9 +34,8 @@ import {
 } from '../../../shared/profil'
 import { rangPartage } from '../../../shared/classement'
 import type { CarteDeJoueur } from '../../../shared/carte'
-import type { BadgePorte, Rarete } from '../../../shared/badges'
-import { hautFaitDeSoiree, palierDe, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
-import { cibleEclat } from '../../../shared/legendaires'
+import { VITRINE_MAX, cleRangee, hautFaitDeSoiree, palierDe, plusBeaux, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
+import type { BadgePorte } from '../../../shared/badges'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, PrixAnnonce, SoireeClose } from '../../../shared/fin'
 import type { EcranDeScene, OngletDePodium, PartySnapshot, PublicPlayer, Recap, Scene } from '../../../shared/types'
 import type { PlaceRendue } from '../../../shared/events'
@@ -66,6 +67,8 @@ export interface SpaceDeps {
    * et celui qu'elles atteignaient ensemble ne tombait nulle part.
    */
   cloturesEnCours: Set<string>
+  /** Le quiz du jour, pour la ligne qu'en montre la carte d'un joueur. Absent, la carte s'en passe. */
+  jour?: Pick<JourStore, 'resumeDe'>
 }
 
 /**
@@ -144,6 +147,21 @@ export async function enParallele<T, R>(elements: T[], limite: number, travail: 
 }
 
 /**
+ * La vitrine d'une carte : les hauts faits qu'il a choisis, dans son ordre —
+ * un haut fait de carrière à son plus haut palier, qui monte avec lui —, ou,
+ * s'il n'a rien choisi, ses trois plus beaux (`plusBeaux`).
+ */
+function vitrineDeLaCarte(etagere: BadgePorte[], choisie: string[] | null, recompenses: ReadonlyMap<string, number>): BadgePorte[] {
+  if (!choisie) return plusBeaux(etagere, VITRINE_MAX)
+  const parCle = new Map(etagere.map(b => [b.key, b]))
+  return choisie.flatMap(cle => {
+    const rangee = cleRangee(cle, recompenses)
+    const badge = rangee ? parCle.get(rangee) : undefined
+    return badge ? [badge] : []
+  })
+}
+
+/**
  * Ce qu'un crédit d'expérience écrirait : le nom de la soirée, et chaque
  * gain tel quel — profil, invité, emoji, relevé. Deux crédits de même
  * empreinte écrivent exactement les mêmes lignes.
@@ -219,15 +237,8 @@ export class SpaceRuntime {
     // la salle, et un profil est déjà chargé quand son joueur s'est inscrit.
     this.party = new Party(deps.db, spaceId, this.mirror, (profileId, avatar) => {
       const profile = deps.profiles.cached(profileId)
-      if (!profile) return undefined
-      const niveau = deps.profiles.niveauOf(profile)
-      return {
-        niveau,
-        finition: finitionPortee(profile.finition, niveau),
-        // Ce qui brille, c'est ce qu'il porte : le légendaire éclaté, ou l'emoji.
-        eclat: deps.profiles.eclatsOf(profileId).includes(cibleEclat(deps.profiles.legendairePorte(profile), avatar)),
-        legendaire: deps.profiles.legendairePorte(profile) ?? undefined,
-      }
+      // Ce qui brille, c'est ce qu'il porte ce soir : le légendaire éclaté, ou l'emoji joué.
+      return profile ? deps.profiles.apparenceDe(profile, avatar) : undefined
     })
     this.teams = new Teams(deps.db, spaceId, this.mirror)
     this.ledger = new ScoreLedger(deps.db, spaceId, this.mirror)
@@ -618,20 +629,29 @@ export class SpaceRuntime {
     if (!rec.profileId) return carte
     const profil = await this.deps.profiles.byId(rec.profileId)
     if (!profil) return carte
-    const [vitrine, carriere] = await Promise.all([
+    const [vitrine, carriere, jour] = await Promise.all([
       this.deps.profiles.badgesOf(profil.id),
       this.deps.profiles.careerOf(profil.id),
+      this.deps.jour?.resumeDe(profil.id).catch(() => null),
     ])
     const fiche = ficheDe(carriere)
-    const recompenses = [...this.deps.profiles.recompensesOf(profil.id).keys()]
+    const recompenses = this.deps.profiles.recompensesOf(profil.id)
+    const titre = this.deps.profiles.titrePorte(profil)
     carte.profil = {
       prenom: profil.name,
       niveau: this.deps.profiles.niveauOf(profil),
       legendaires: this.deps.profiles.legendairesOf(profil.id),
       divins: this.deps.profiles.divinsOf(profil.id),
-      vitrine: plusRares(vitrine, 6),
+      // Ceux qu'il a choisis, s'il en a choisi ; sinon ses trois plus beaux,
+      // les plus rares à décrocher. Rangée à la rareté du serveur, muette
+      // sous dix profils, la vitrine tombait sur les prix les plus souvent
+      // gagnés : six fois L'Éclair, que la salle voit remettre à chaque soirée.
+      vitrine: vitrineDeLaCarte(vitrine, this.deps.profiles.vitrineChoisie(profil), recompenses),
       // Un palier de carrière compte pour son haut fait, pas pour trois.
-      hautsFaits: new Set(recompenses.filter(k => k.startsWith('hf:')).map(k => k.replace(/:[123]$/, ''))).size,
+      hautsFaits: new Set([...recompenses.keys()].filter(k => k.startsWith('hf:')).map(k => k.replace(/:[123]$/, ''))).size,
+      prix: { eus: PRIX_INDIVIDUELS.filter(k => recompenses.has(k)).length, total: PRIX_INDIVIDUELS.length },
+      ...(titre && { titre }),
+      ...(jour && jour.joues > 0 && { jour }),
       fiche: {
         soirees: fiche.soirees,
         precision: fiche.precision,
@@ -1473,23 +1493,73 @@ export class SpaceRuntime {
       // L'Éclat a pu tomber à n'importe quel podium de la soirée : c'est ici
       // qu'on le dit, une fois tout joué.
       const eclat = await this.deps.profiles.eclatDeLaSoiree(g.profileId, soireeId).catch(() => null)
+      const legendaires = this.deps.profiles.legendairesOf(g.profileId)
       bilans.set(g.playerId, {
         xp: xpSoiree,
         xpPaliers,
         niveauAvant,
         niveauApres,
         paliers: paliers.map(annonceDe).filter((a): a is HautFaitAnnonce => !!a),
-        legendaires: this.deps.profiles.legendairesOf(g.profileId).filter(l => !deja.includes(l)),
+        legendaires: legendaires.filter(l => !deja.includes(l)),
         // Le douzième légendaire fait descendre l'Arbre-Monde : il se compare
         // comme les autres, avant et après.
         divins: raconter(this.deps.profiles.divinsOf(g.profileId).filter(d => !dejaDivins.includes(d))),
         finitions: finitionsOuvertes(niveauApres).filter(f => !finitionsOuvertes(niveauAvant).includes(f)) as Finition[],
         ...(eclat && { eclat }),
+        ...(await this.objectifsDe(g, soireeId, credit, ailleurs, legendaires)),
       })
       // Le profil à jour, pour les pages qui l'affichent encore.
       this.deps.io.to(`player:${g.playerId}`).emit('player:profil', this.deps.profiles.toPublic(profil))
     })
     return bilans
+  }
+
+  /**
+   * Ce que sa fin de soirée lui dit en plus de ce qu'elle rapporte : ses
+   * records battus, ce dont il s'approche, les prix qui entrent dans sa
+   * collection. Lu après tous les crédits : ses récompenses sont celles de
+   * ce soir comprises. Un échec de lecture ne coûte que ces lignes-là — la
+   * fin de soirée part quand même.
+   */
+  private async objectifsDe(
+    g: SoireeGain,
+    soireeId: string,
+    credit: CreditDeCloture,
+    ailleurs: ReadonlySet<string>,
+    legendaires: string[],
+  ): Promise<Pick<NonNullable<FinDeSoiree['profil']>, 'records' | 'approches' | 'collection'>> {
+    const recompenses = this.deps.profiles.recompensesOf(g.profileId)
+    const prix = (credit.prix.get(g.playerId) ?? []).filter(p => PRIX_INDIVIDUELS.includes(p.key))
+    // Un prix n'entre qu'une fois dans la collection : la soirée où il est
+    // tombé la première fois — la seule ligne d'étagère qui le porte.
+    const collection = prix.length > 0 && {
+      collection: {
+        nouveaux: prix.filter(p => recompenses.get(p.key) === 1).map(p => p.key),
+        eus: PRIX_INDIVIDUELS.filter(k => recompenses.has(k)).length,
+        total: PRIX_INDIVIDUELS.length,
+      },
+    }
+    const historique = await this.deps.profiles.historiqueOf(g.profileId).catch(() => null)
+    if (!historique) return { ...collection }
+    // Les soirées qui se jouent ailleurs n'y comptent pas, comme pour les
+    // paliers : la jauge dirait « 10 sur 10 » d'un palier qui n'est pas tombé.
+    const ceSoir = cleDeSoiree(this.spaceId, soireeId)
+    const gardees = historique.filter(s => !ailleurs.has(cleDeSoiree(s.spaceId, s.soireeId)))
+    const avant = gardees.filter(s => cleDeSoiree(s.spaceId, s.soireeId) !== ceSoir)
+    const sansExtra = { eclats: 0, niveau: 1 }
+    const records = recordsBattus(avant, { releve: g.releve, gain: g.gain })
+    const approches = approchesDeLaSoiree({
+      recompenses,
+      ceSoir: new Set(credit.faits.get(g.playerId) ?? []),
+      avant: carriereDe(avant, sansExtra),
+      apres: carriereDe(gardees, sansExtra),
+      legendaires,
+    })
+    return {
+      ...(records.length > 0 && { records }),
+      ...(approches.length > 0 && { approches }),
+      ...collection,
+    }
   }
 
   /**
@@ -1696,14 +1766,6 @@ export class SpaceRuntime {
     this.pendingEcrans = null
     this.engine.stop()
   }
-}
-
-const ORDRE_RARETE: Record<Rarete, number> = { legendaire: 5, epique: 4, rare: 3, peucommune: 2, commune: 1 }
-
-/** Les récompenses les plus rares d'abord, puis les plus souvent regagnées, puis les plus récentes. */
-function plusRares(vitrine: BadgePorte[], n: number): BadgePorte[] {
-  const rang = (b: BadgePorte) => (b.rarete ? ORDRE_RARETE[b.rarete] : 0)
-  return [...vitrine].sort((a, b) => rang(b) - rang(a) || b.fois - a.fois || b.dernier - a.dernier).slice(0, n)
 }
 
 /**

@@ -15,6 +15,7 @@ import './styles.css'
 //   /edit             sa bibliothèque de quiz
 //   /connexion, /activer, /compte, /admin : son compte
 //   /profil           le profil d'un joueur récurrent (pas un compte d'animateur)
+//   /jour             le quiz du jour, pour les profils
 //   /<espace>/souvenir, /bilan, /soirees : les pages publiques de la soirée
 //   (/<espace>/stats ouvre le souvenir sur ses chiffres)
 //   /<espace>/soirees/<id>/… : les mêmes pages, tournées vers une soirée archivée
@@ -34,6 +35,7 @@ const AccountApp = lazy(() => import('./views/AccountApp').then(m => ({ default:
 const AdminApp = lazy(() => import('./views/AdminApp').then(m => ({ default: m.AdminApp })))
 const LandingApp = lazy(() => import('./views/LandingApp').then(m => ({ default: m.LandingApp })))
 const ProfilApp = lazy(() => import('./views/ProfilApp').then(m => ({ default: m.ProfilApp })))
+const JourApp = lazy(() => import('./views/JourApp').then(m => ({ default: m.JourApp })))
 
 const ACCOUNT: Record<AccountPage, typeof HostApp> = {
   host: HostApp,
@@ -43,6 +45,7 @@ const ACCOUNT: Record<AccountPage, typeof HostApp> = {
   compte: AccountApp,
   admin: AdminApp,
   profil: ProfilApp,
+  jour: JourApp,
 }
 const PUBLIC: Record<PublicPage, typeof RecapApp> = {
   souvenir: RecapApp,

@@ -6,24 +6,19 @@ import { Niveau } from '../components/Niveau'
 import { Icon, type IconName } from '../components/Icon'
 import { ProfilForm } from '../components/ProfilForm'
 import { CodeSecours } from '../components/Secours'
-import { AVATARS, tronquer } from '../../../shared/avatars'
-import { DIVINS } from '../../../shared/divins'
+import { tronquer } from '../../../shared/avatars'
 import { cibleEclat } from '../../../shared/legendaires'
-import {
-  FINITIONS,
-  NIVEAU_FINITION,
-  NOM_FINITION,
-  coupDOeilMoyen,
-  type FinitionChoisie,
-  type PublicProfileDetail,
-} from '../../../shared/profil'
-import { Vitrine } from '../components/Vitrine'
+import { coupDOeilMoyen, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
-import { Categories, Courbes, FicheCarriere, GalerieDivins, GalerieLegendaires, HautsFaits } from '../components/Carriere'
-import { formatNumber, place, reponsesParType } from '../format'
+import { Categories, Courbes, FicheCarriere } from '../components/Carriere'
+import { ApercuSalle, MesAvatars, MesFinitions, MonTitre } from '../components/Apparence'
+import { MaVitrine, MesHautsFaits, MesPrix, MonQuizDuJour } from '../components/Trophees'
+import { espacesFines, formatNumber, place, reponsesParType } from '../format'
+import { hautFait } from '../../../shared/hautsfaits'
 import { route, spacePath } from '../routes'
 import { derniereSoireeGardee } from '../state'
 import { Lendemain } from '../components/Lendemain'
+import { CarteDuJour, MesJours, pointsDesJours } from '../components/Jour'
 import type { PublicSpace } from '../../../shared/space'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
@@ -75,6 +70,17 @@ export function ProfilApp() {
   /** « Créer mon profil » depuis une fin de soirée : la création, préremplie. */
   const [creation] = useState(lireCreation)
   const [gardee] = useState(derniereSoireeGardee)
+  const [onglet, setOnglet] = useState<Onglet>(lireOnglet)
+  /** L'onglet choisi s'écrit dans l'adresse — on la partage, on y revient — et sur ce téléphone. */
+  const choisirOnglet = (o: Onglet) => {
+    setOnglet(o)
+    history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#${o}`)
+    try {
+      localStorage.setItem(CLE_ONGLET, o)
+    } catch {
+      // Stockage refusé : l'adresse le garde encore.
+    }
+  }
 
   const relire = () =>
     api.joueur.moi().then(r => {
@@ -113,7 +119,13 @@ export function ProfilApp() {
     }
   }
 
-  const enregistrer = async (patch: { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null }) => {
+  const enregistrer = async (patch: {
+    avatar?: string
+    finition?: FinitionChoisie
+    legendaire?: string | null
+    titre?: string | null
+    vitrine?: string[] | null
+  }) => {
     setBusy(true)
     setErreur('')
     try {
@@ -182,9 +194,6 @@ export function ProfilApp() {
     )
   }
 
-  const brille = (emoji: string) => profil.eclats.includes(emoji)
-  // Les prix du palmarès : les hauts faits et les paliers ont leur section.
-  const prix = profil.vitrine.filter(b => !b.key.startsWith('hf:'))
   const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
 
   return (
@@ -196,7 +205,7 @@ export function ProfilApp() {
           className="player-avatar big"
           avatar={profil.avatar}
           finition={profil.finition}
-          eclat={brille(cibleEclat(profil.legendaire, profil.avatar))}
+          eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))}
           legendaire={profil.legendaire ?? undefined}
         />
         {/* Le niveau et sa barre, sous le nom : une carte « Niveau » redisait
@@ -206,6 +215,10 @@ export function ProfilApp() {
             {profil.name}
             <Niveau niveau={profil.niveau} big />
           </h2>
+          {/* Son titre, sous son prénom, comme sa carte le montre. */}
+          {profil.titre && hautFait(profil.titre) && (
+            <p className="titre-porte">{espacesFines(`« ${hautFait(profil.titre)!.title} »`)}</p>
+          )}
           <div
             className="xp-bar"
             role="progressbar"
@@ -224,245 +237,121 @@ export function ProfilApp() {
         </div>
       </header>
 
-      {/* D'abord ce qu'on est venu faire : animer, ou rejoindre. Le niveau et
-          l'étagère viennent après — on les regarde, on n'en part pas. */}
-      <div className="card">
-        <h3>
-          <Icon name="zap" />
-          Ce soir
-        </h3>
-        <div className="join-actions">
-          {/* La soirée où l'on joue déjà d'abord : « Rejoindre une soirée »
-              redemandait son nom à qui y était inscrit, et faisait douter
-              d'avoir quitté la partie (Sofia, le 23 et le 24). */}
-          {enCours.map(e => (
-            <a key={e.slug} className="btn btn-primary btn-big btn-block" href={spacePath(e.slug)}>
-              Revenir chez {e.nom}
-            </a>
-          ))}
-          {espace && (
-            <button className="btn btn-primary btn-big btn-block" disabled={busy} onClick={animer}>
-              Animer ma soirée
-            </button>
-          )}
-          {!espace && console_ && (
-            <a className="btn btn-primary btn-big btn-block" href="/host">
-              Animer « {console_.title} »
-            </a>
-          )}
-          <button className="btn btn-accent btn-big btn-block" onClick={() => setRejoindre(true)}>
-            Rejoindre une soirée
-          </button>
-          {lendemain}
+      {/* D'abord ce qu'on est venu faire : animer, ou rejoindre. Le reste
+          vient après — on le regarde, on n'en part pas. */}
+      <CeSoir
+        enCours={enCours}
+        espace={espace}
+        console_={console_}
+        busy={busy}
+        onAnimer={animer}
+        onRejoindre={() => setRejoindre(true)}
+        lendemain={lendemain}
+      />
+
+      {/* Le quiz du jour, sous la soirée : l'entre-deux, pas la raison de venir. */}
+      <CarteDuJour />
+
+      <Onglets actif={onglet} onChoisir={choisirOnglet} />
+
+      {onglet === 'apparence' && (
+        <div className="profil-onglet" role="tabpanel" id="profil-apparence" aria-labelledby="onglet-apparence">
+          <ApercuSalle profil={profil} />
+          <MesAvatars profil={profil} busy={busy} enregistrer={enregistrer} />
+          <MesFinitions profil={profil} busy={busy} enregistrer={enregistrer} />
+          <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />
         </div>
-        {!espace && !console_ && (
-          <p className="join-foot">
-            <a className="link-inline" href="/connexion?next=/host">
-              J’anime une soirée
-            </a>
-          </p>
-        )}
-      </div>
+      )}
 
-      <Repli
-        id="avatar"
-        icone="users"
-        titre="Mon avatar"
-        apercu={
-          <Avatar
-            className="repli-avatar"
-            avatar={profil.avatar}
-            finition={profil.finition}
-            eclat={brille(cibleEclat(profil.legendaire, profil.avatar))}
-            legendaire={profil.legendaire ?? undefined}
-          />
-        }
-      >
-        <div className="emoji-grid" role="group" aria-label="Choisir mon avatar">
-          {AVATARS.map(a => (
-            <button
-              key={a}
-              className={'emoji-btn' + (a === profil.avatar ? ' selected' : '')}
-              aria-pressed={a === profil.avatar}
-              aria-label={`Avatar ${a}${brille(a) ? ', éclaté' : ''}`}
-              disabled={busy}
-              onClick={() => enregistrer({ avatar: a })}
-            >
-              <Avatar avatar={a} finition={profil.finition} eclat={brille(a)} />
-            </button>
-          ))}
+      {onglet === 'trophees' && (
+        <div className="profil-onglet" role="tabpanel" id="profil-trophees" aria-labelledby="onglet-trophees">
+          <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
+          <MonQuizDuJour jour={profil.jour} />
+          <MesHautsFaits profil={profil} />
+          <MesPrix prix={profil.prix} />
         </div>
-        {profil.eclats.length > 0 && (
-          <p className="muted small">
-            {profil.eclats.length === 1 ? 'Un de tes avatars a éclaté' : `${profil.eclats.length} de tes avatars ont éclaté`} :
-            il change de couleurs, et toi seul l'as comme ça.
-          </p>
-        )}
-        {profil.legendaire && (
-          <p className="muted small">Choisir un emoji ôte ton avatar dessiné : on porte l'un ou l'autre.</p>
-        )}
-      </Repli>
+      )}
 
-      {/* Les catalogues repliés : douze médaillons, cinq Divins, huit
-          finitions et trente hauts faits allongeaient la page avant même sa
-          fiche. On les déplie d'un toucher sur le titre, qui dit déjà où l'on
-          en est. */}
-      <Repli id="legendaires" icone="crown" titre="Avatars légendaires" compte={`${profil.legendaires.length} / 12`}>
-        <p className="muted small">
-          Douze médaillons, qui ne se gagnent que par un haut fait. Celui que tu portes remplace ton
-          emoji sur tous les écrans.
-        </p>
-        <GalerieLegendaires
-          debloques={profil.legendaires}
-          eclats={profil.eclats}
-          porte={profil.legendaire}
-          hautsFaits={profil.hautsFaits}
-          busy={busy}
-          onPorter={cle => enregistrer({ legendaire: cle })}
-        />
-      </Repli>
+      {onglet === 'carriere' && (
+        <div className="profil-onglet" role="tabpanel" id="profil-carriere" aria-labelledby="onglet-carriere">
+          <div className="card">
+            <h3>
+              <Icon name="bar-chart" />
+              Ma fiche
+            </h3>
+            <FicheCarriere fiche={profil.fiche} partie="essentiel" />
+            {/* Les courbes à la vue : on aimait les voir monter. Les huit
+                autres chiffres et les catégories, d'un toucher. */}
+            <h4 className="hf-groupe">Soirée après soirée</h4>
+            <Courbes soirees={profil.soirees} />
+            {profil.jour && profil.jour.jours.length > 0 && (
+              <>
+                <h4 className="hf-groupe">Jour après jour, au quiz du jour</h4>
+                <Courbes unite="jour" soirees={pointsDesJours(profil.jour.jours)} />
+              </>
+            )}
+            <Deplier id="fiche" titre="Tous mes chiffres">
+              <FicheCarriere fiche={profil.fiche} partie="reste" />
+            </Deplier>
+            {Object.keys(profil.categories).length > 0 && (
+              <>
+                <h4 className="hf-groupe">Par catégorie</h4>
+                <Categories categories={profil.categories} />
+              </>
+            )}
+          </div>
 
-      <Repli id="divins" icone="sparkles" titre="Divins" compte={`${(profil.divins ?? []).length} / ${DIVINS.length}`}>
-        <p className="muted small">
-          Cinq avatars au-dessus des légendaires. Personne ne sait ce qui les fait descendre — pas même
-          cette page.
-        </p>
-        <GalerieDivins
-          descendus={profil.divins ?? []}
-          porte={profil.legendaire}
-          busy={busy}
-          onPorter={cle => enregistrer({ legendaire: cle })}
-        />
-      </Repli>
+          <MesJours jour={profil.jour} />
 
-      <Repli id="finitions" icone="trophy" titre="Finitions" compte={`${profil.ouvertes.length} / ${FINITIONS.length}`}>
-        <div className="finitions">
-          {/* Par défaut, la plus belle qu'on a : chaque niveau qui en ouvre
-              une nouvelle la fait porter d'office. On en épingle une autre si
-              on préfère. */}
-          <button
-            className={'finition-btn' + (profil.finitionChoisie === 'auto' ? ' selected' : '')}
-            disabled={busy}
-            aria-pressed={profil.finitionChoisie === 'auto'}
-            onClick={() => enregistrer({ finition: 'auto' })}
-          >
-            <Avatar avatar={profil.avatar} finition={profil.finition} eclat={brille(profil.avatar)} />
-            <span className="finition-nom">La plus belle</span>
-            {/* L'état se dit par `aria-pressed` : lu aussi, il se disait deux fois. */}
-            <span className="muted small" aria-hidden="true">
-              {profil.finitionChoisie === 'auto' ? 'portée' : 'automatique'}
-            </span>
-          </button>
-          {FINITIONS.map(f => {
-            const ouverte = profil.ouvertes.includes(f)
-            const choisie = profil.finitionChoisie === f
-            return (
-              <button
-                key={f}
-                className={'finition-btn' + (choisie ? ' selected' : '')}
-                disabled={!ouverte || busy}
-                aria-pressed={choisie}
-                onClick={() => enregistrer({ finition: f })}
-              >
-                <Avatar avatar={profil.avatar} finition={f} eclat={brille(profil.avatar)} />
-                <span className="finition-nom">{NOM_FINITION[f]}</span>
-                {/* « épinglée » redit `aria-pressed` : l'oreille entend « ouverte ». */}
-                <span className="muted small" aria-hidden={choisie || undefined}>
-                  {ouverte ? (choisie ? 'épinglée' : 'ouverte') : `niveau ${NIVEAU_FINITION[f]}`}
-                </span>
-                {choisie && <span className="sr-only">ouverte</span>}
-              </button>
-            )
-          })}
+          <Repli id="soirees" icone="list" titre="Mes soirées" compte={String(profil.soirees.length)} vide={profil.soirees.length === 0}>
+            {profil.soirees.map(s => {
+              const date = new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+              // Le titre que l'animateur lui a donné, la date sinon : une liste de
+              // dates ne disait pas laquelle était la fête de Marc.
+              const nom = s.titre ?? date
+              return (
+                <div key={s.soireeId} className="soiree-row">
+                  <div className="soiree-texte">
+                    <span className="soiree-quand">
+                      {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
+                      {s.slug ? (
+                        <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
+                          {nom}
+                        </a>
+                      ) : (
+                        nom
+                      )}
+                    </span>
+                    <span className="soiree-detail">
+                      {s.titre && `${date} · `}
+                      {s.chez && `chez ${s.chez} · `}
+                      {/* Par type de question : « 64 réponses, 1 juste » ne disait pas
+                          que soixante-deux étaient des estimations. */}
+                      {reponsesParType({ ...s.releve, coupDOeil: coupDOeilMoyen(s.releve) }, { compte: false }) || 'aucune réponse'}
+                      {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${place(s.releve.rang)}`}
+                    </span>
+                    {/* Son bilan à soi, d'un toucher : il redemandait « Qui es-tu ? ». */}
+                    {s.slug && s.joueurId && (
+                      <a className="link-inline small" href={`${spacePath(s.slug, 'bilan', s.soireeId)}#p=${encodeURIComponent(s.joueurId)}`}>
+                        Mon bilan
+                      </a>
+                    )}
+                  </div>
+                  <span className="soiree-xp">+{formatNumber(s.xp)} XP</span>
+                </div>
+              )
+            })}
+            {/* Les paliers et le quiz du jour ont leur ligne à part : sans ce
+                mot, la somme des soirées ne faisait pas le total, et rien ne
+                disait pourquoi. */}
+            <p className="muted small">Les paliers de carrière et le quiz du jour s’ajoutent à part.</p>
+          </Repli>
+
+          <Repli id="acces" icone="users" titre="Identifiant et mot de passe">
+            <MotDePasse login={profil.login} />
+          </Repli>
         </div>
-        <p className="muted small">
-          Les finitions se gagnent au niveau, jusqu'à Constellation au niveau 25. L'Éclat, lui, ne se
-          gagne pas : une chance sur quarante par soirée jouée à deux ou plus, et c'est l'emoji lui-même qui
-          change de couleurs.
-        </p>
-      </Repli>
-
-      <Repli
-        id="hauts-faits"
-        icone="star"
-        titre="Hauts faits"
-        compte={`${profil.hautsFaits.filter(h => h.fois > 0).length} / ${profil.hautsFaits.length}`}
-      >
-        {/* Montrer ce qui manque donne envie de revenir ; le cacher ne donne
-            rien. Tout le catalogue se montre, et ce qu'on n'a pas s'estompe. */}
-        <HautsFaits hautsFaits={profil.hautsFaits} />
-      </Repli>
-
-      <div className="card">
-        <h3>
-          <Icon name="bar-chart" />
-          Ma fiche
-        </h3>
-        <FicheCarriere fiche={profil.fiche} partie="essentiel" />
-        {/* Quatre chiffres d'abord ; les huit autres, les courbes et les
-            catégories d'un toucher. */}
-        <Deplier id="fiche" titre="Tous mes chiffres">
-          <FicheCarriere fiche={profil.fiche} partie="reste" />
-          <Courbes soirees={profil.soirees} />
-          {Object.keys(profil.categories).length > 0 && (
-            <>
-              <h4 className="hf-groupe">Par catégorie</h4>
-              <Categories categories={profil.categories} />
-            </>
-          )}
-        </Deplier>
-      </div>
-
-      <Repli id="prix" icone="award" titre="Mes prix" compte={String(prix.length)} vide={prix.length === 0}>
-        <Vitrine badges={prix} />
-      </Repli>
-
-      <Repli id="soirees" icone="list" titre="Mes soirées" compte={String(profil.soirees.length)} vide={profil.soirees.length === 0}>
-        {profil.soirees.map(s => {
-          const date = new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-          // Le titre que l'animateur lui a donné, la date sinon : une liste de
-          // dates ne disait pas laquelle était la fête de Marc.
-          const nom = s.titre ?? date
-          return (
-            <div key={s.soireeId} className="soiree-row">
-              <div className="soiree-texte">
-                <span className="soiree-quand">
-                  {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
-                  {s.slug ? (
-                    <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
-                      {nom}
-                    </a>
-                  ) : (
-                    nom
-                  )}
-                </span>
-                <span className="soiree-detail">
-                  {s.titre && `${date} · `}
-                  {s.chez && `chez ${s.chez} · `}
-                  {/* Par type de question : « 64 réponses, 1 juste » ne disait pas
-                      que soixante-deux étaient des estimations. */}
-                  {reponsesParType({ ...s.releve, coupDOeil: coupDOeilMoyen(s.releve) }, { compte: false }) || 'aucune réponse'}
-                  {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${place(s.releve.rang)}`}
-                </span>
-                {/* Son bilan à soi, d'un toucher : il redemandait « Qui es-tu ? ». */}
-                {s.slug && s.joueurId && (
-                  <a className="link-inline small" href={`${spacePath(s.slug, 'bilan', s.soireeId)}#p=${encodeURIComponent(s.joueurId)}`}>
-                    Mon bilan
-                  </a>
-                )}
-              </div>
-              <span className="soiree-xp">+{formatNumber(s.xp)} XP</span>
-            </div>
-          )
-        })}
-        {/* Les paliers ont leur ligne à part : sans ce mot, la somme des
-            soirées ne faisait pas le total, et rien ne disait pourquoi. */}
-        <p className="muted small">Les paliers de carrière s'ajoutent à part, dans « Hauts faits ».</p>
-      </Repli>
-
-      <Repli id="acces" icone="users" titre="Identifiant et mot de passe">
-        <MotDePasse login={profil.login} />
-      </Repli>
+      )}
 
       <Glossaire
         mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'precision', 'coupDOeil', 'reflexe', 'flair']}
@@ -481,6 +370,129 @@ export function ProfilApp() {
           Me déconnecter
         </button>
       </div>
+    </div>
+  )
+}
+
+type Onglet = 'apparence' | 'trophees' | 'carriere'
+
+/**
+ * Les trois onglets du profil. Tout tenait sur une page — avatar,
+ * légendaires, Divins, finitions, hauts faits, fiche, prix, soirées —, en
+ * sections repliées qu'on ne savait plus où chercher : ce qu'on porte, ce
+ * qu'on a gagné, ce qu'on a joué.
+ */
+const ONGLETS: { id: Onglet; nom: string; icone: IconName }[] = [
+  { id: 'apparence', nom: 'Apparence', icone: 'sparkles' },
+  { id: 'trophees', nom: 'Trophées', icone: 'trophy' },
+  { id: 'carriere', nom: 'Carrière', icone: 'bar-chart' },
+]
+
+/** L'onglet que ce téléphone avait laissé ouvert. */
+const CLE_ONGLET = 'quizz.profil.onglet'
+
+const estOnglet = (x: unknown): x is Onglet => ONGLETS.some(o => o.id === x)
+
+/**
+ * L'onglet ouvert : celui de l'adresse (`/profil#trophees`), sinon celui
+ * qu'on avait laissé, sinon « Apparence ».
+ */
+function lireOnglet(): Onglet {
+  const dansLAdresse = window.location.hash.slice(1)
+  if (estOnglet(dansLAdresse)) return dansLAdresse
+  // Sous try/catch : des cookies bloqués donnaient une page noire.
+  try {
+    const garde = localStorage.getItem(CLE_ONGLET)
+    if (estOnglet(garde)) return garde
+  } catch {
+    // Stockage refusé : on part de l'apparence, comme la première fois.
+  }
+  return 'apparence'
+}
+
+function Onglets({ actif, onChoisir }: { actif: Onglet; onChoisir: (o: Onglet) => void }) {
+  return (
+    <div className="onglets onglets-profil" role="tablist" aria-label="Mon profil">
+      {ONGLETS.map(o => (
+        <button
+          key={o.id}
+          id={`onglet-${o.id}`}
+          type="button"
+          role="tab"
+          aria-selected={actif === o.id}
+          aria-controls={`profil-${o.id}`}
+          className={'onglet' + (actif === o.id ? ' actif' : '')}
+          onClick={() => onChoisir(o.id)}
+        >
+          <Icon name={o.icone} />
+          {o.nom}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * « Ce soir » : une seule action principale, selon sa soirée — revenir là
+ * où l'on joue, sinon animer la sienne, sinon rejoindre —, et les autres en
+ * petit, côte à côte. Trois gros boutons l'un sous l'autre prenaient la
+ * moitié de l'écran et poussaient le quiz du jour sous le pli.
+ */
+function CeSoir({
+  enCours,
+  espace,
+  console_,
+  busy,
+  onAnimer,
+  onRejoindre,
+  lendemain,
+}: {
+  enCours: { nom: string; slug: string }[]
+  espace: PublicSpace | null
+  console_: PublicSpace | null
+  busy: boolean
+  onAnimer: () => void
+  onRejoindre: () => void
+  lendemain: ReactNode
+}) {
+  const actions: { cle: string; nom: string; icone: IconName; href?: string; onClick?: () => void }[] = [
+    // La soirée où l'on joue déjà d'abord : « Rejoindre une soirée »
+    // redemandait son nom à qui y était inscrit, et faisait douter d'avoir
+    // quitté la partie (Sofia, le 23 et le 24).
+    ...enCours.map(e => ({ cle: `revenir-${e.slug}`, nom: `Revenir chez ${e.nom}`, icone: 'play' as const, href: spacePath(e.slug) })),
+    ...(espace ? [{ cle: 'animer', nom: 'Animer ma soirée', icone: 'monitor' as const, onClick: onAnimer }] : []),
+    ...(!espace && console_ ? [{ cle: 'console', nom: `Animer « ${console_.title} »`, icone: 'monitor' as const, href: '/host' }] : []),
+    { cle: 'rejoindre', nom: 'Rejoindre une soirée', icone: 'users', onClick: onRejoindre },
+  ]
+  const [principale, ...autres] = actions
+  const bouton = (a: (typeof actions)[number], classe: string) =>
+    a.href ? (
+      <a key={a.cle} className={classe} href={a.href}>
+        <Icon name={a.icone} />
+        {a.nom}
+      </a>
+    ) : (
+      <button key={a.cle} type="button" className={classe} disabled={busy} onClick={a.onClick}>
+        <Icon name={a.icone} />
+        {a.nom}
+      </button>
+    )
+  return (
+    <div className="card ce-soir">
+      <h3>
+        <Icon name="zap" />
+        Ce soir
+      </h3>
+      {bouton(principale, 'btn btn-primary btn-block')}
+      {autres.length > 0 && <div className="ce-soir-autres">{autres.map(a => bouton(a, 'btn btn-small'))}</div>}
+      {lendemain}
+      {!espace && !console_ && (
+        <p className="join-foot">
+          <a className="link-inline" href="/connexion?next=/host">
+            J’anime une soirée
+          </a>
+        </p>
+      )}
     </div>
   )
 }

@@ -1,12 +1,21 @@
 import { useEffect, useState } from 'react'
-import { ligneDeRang, nJoueurs, type FinDeSoiree as Fin, type GainAnnonce, type HautFaitAnnonce } from '../../../shared/fin'
+import {
+  ligneDeRang,
+  nJoueurs,
+  type Approche,
+  type FinDeSoiree as Fin,
+  type GainAnnonce,
+  type HautFaitAnnonce,
+  type RecordBattu,
+} from '../../../shared/fin'
 import type { PublicProfile } from '../../../shared/profil'
 import { NOM_FINITION, PITCH_PROFIL } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
+import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { api } from '../api'
 import { spacePath } from '../routes'
-import { formatNumber, place, pts } from '../format'
+import { formatNumber, place, pourcent, pts } from '../format'
 import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
 import { complets, useDessins } from './medaillons'
@@ -155,6 +164,32 @@ export function FinDeSoiree({
         )
       })}
 
+      {/* Ce qui se voit même les soirs où rien ne tombe : un record battu,
+          une jauge qui avance. Une fin d'avant n'a pas ces champs. */}
+      {(gain?.records ?? []).length > 0 && (
+        <section className="card nouveau-bloc">
+          <span className="nouveau-pastille">Nouveau</span>
+          <h3>
+            <Icon name="trophy" />
+            {gain!.records!.length > 1 ? 'Records battus' : 'Record battu'}
+          </h3>
+          {gain!.records!.map(r => (
+            <Record key={r.key} r={r} />
+          ))}
+        </section>
+      )}
+      {(gain?.approches ?? []).length > 0 && (
+        <section className="card fin-approches">
+          <h3>
+            <Icon name="target" />
+            Tu t’en approches
+          </h3>
+          {gain!.approches!.map(a => (
+            <UneApproche key={a.key} a={a} />
+          ))}
+        </section>
+      )}
+
       {/* Ses prix du palmarès : Jeanne cherchait son Éclair, remis à l'écran,
           et sa fin de soirée n'en disait rien. Une page d'avant n'a pas le champ. */}
       {(fin.prix ?? []).length > 0 && (
@@ -173,6 +208,15 @@ export function FinDeSoiree({
               </li>
             ))}
           </ul>
+          {/* Un prix se regagne à chaque soirée ; c'est la première fois qui
+              compte, celle où il entre dans la collection. */}
+          {(gain?.collection?.nouveaux.length ?? 0) > 0 && (
+            <p className="collection-neuf">
+              <span className="nouveau-pastille">Nouveau</span>
+              {gain!.collection!.nouveaux.length > 1 ? 'Ils rejoignent' : 'Il rejoint'} ta collection :{' '}
+              {gain!.collection!.eus} prix sur {gain!.collection!.total}
+            </p>
+          )}
         </section>
       )}
 
@@ -258,6 +302,73 @@ function Faits({ titre, faits }: { titre: string; faits: HautFaitAnnonce[] }) {
         ))}
       </ul>
     </>
+  )
+}
+
+/** Un record battu : ce soir en gras, l'ancien en retrait. */
+function Record({ r }: { r: RecordBattu }) {
+  const [ceSoir, avant] =
+    r.key === 'precision'
+      ? [`${pourcent(r.valeur)} de bonnes réponses`, pourcent(r.avant)]
+      : [`${formatNumber(r.valeur)} bonnes réponses ${r.key === 'serie' ? 'd’affilée' : 'dans la soirée'}`, formatNumber(r.avant)]
+  return (
+    <p>
+      <b>{ceSoir}</b>
+      {r.key === 'precision' && r.sur !== undefined && `, sur ${formatNumber(r.sur)} QCM`}.{' '}
+      <span className="muted">Ton record était de {avant}.</span>
+    </p>
+  )
+}
+
+/**
+ * Un objectif qui a avancé ce soir : un légendaire, en silhouette dorée, ou
+ * le prochain palier d'un haut fait de carrière — ce qu'on compte, où l'on
+ * en est, ce que la soirée y a ajouté, et la jauge.
+ */
+function UneApproche({ a }: { a: Approche }) {
+  const l = legendaire(a.key)
+  const p = palierDe(a.key)
+  const h = l ? hautFait(l.condition.hautFait) : p?.hautFait
+  if (!h || (!l && !p)) return null
+  const titre = l ? l.nom : titreDePalier(p!.hautFait, p!.palier)
+  const compte =
+    h.famille === 'carriere'
+      ? `${formatNumber(a.acquis)} sur ${formatNumber(a.requis)} ${a.requis < 2 ? h.mesureUne : h.mesure}`
+      : `${h.title} : ${a.acquis} fois sur ${a.requis}`
+  return (
+    <div className="approche">
+      {l ? <MedaillonAVenir cle={a.key} emoji={h.emoji} /> : <span className="approche-emoji" aria-hidden="true">{h.emoji}</span>}
+      <div className="approche-corps">
+        <b>{titre}</b>
+        <span className="muted small">
+          {compte} · <span className="approche-ce-soir">+{formatNumber(a.ceSoir)} ce soir</span>
+        </span>
+        <span className="jauge" aria-label={`${a.acquis} sur ${a.requis}`}>
+          <span className="jauge-plein" style={{ width: `${Math.min(100, (a.acquis / a.requis) * 100)}%` }} />
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Le légendaire qu'on approche, en silhouette dorée. Si ses dessins ne
+ * viendront plus, l'emoji du haut fait qui le fait tomber : une place vide
+ * ne dirait rien.
+ */
+function MedaillonAVenir({ cle, emoji }: { cle: string; emoji: string }) {
+  const dessins = useDessins(true)
+  if (dessins.echec && !complets(dessins)) {
+    return (
+      <span className="approche-emoji" aria-hidden="true">
+        {emoji}
+      </span>
+    )
+  }
+  return (
+    <span className="approche-medaillon">
+      <Dessin cle={cle} verrouille />
+    </span>
   )
 }
 

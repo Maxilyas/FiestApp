@@ -26,6 +26,34 @@ export interface PrixAnnonce {
   detail: string
 }
 
+/**
+ * Un record personnel battu ce soir : sa plus longue série de bonnes
+ * réponses, ses bonnes réponses d'une soirée, sa précision sur une soirée de
+ * vingt QCM au moins (`server/src/core/objectifs.ts`).
+ */
+export interface RecordBattu {
+  key: 'serie' | 'justes' | 'precision'
+  /** Ce soir, et le record d'avant — une précision en part : 0,82. */
+  valeur: number
+  avant: number
+  /** Une précision : sur combien de QCM, ce soir. */
+  sur?: number
+}
+
+/**
+ * Un objectif qui a avancé ce soir, et dont il approche : un avatar
+ * légendaire (`lg:…`) ou le prochain palier d'un haut fait de carrière
+ * (`hf:bavard:2`). Ce qu'on compte se lit dans le catalogue : des fois pour
+ * un haut fait de soirée, la mesure du haut fait pour un palier.
+ */
+export interface Approche {
+  key: string
+  acquis: number
+  requis: number
+  /** Ce que la soirée y a ajouté. */
+  ceSoir: number
+}
+
 /** Où relire la soirée close : son historique, dans l'espace. */
 export interface SoireeClose {
   id: string
@@ -93,6 +121,19 @@ export interface FinDeSoiree extends Distinctions {
     eclat?: string
     /** Les finitions débloquées ce soir. */
     finitions: Finition[]
+    /**
+     * Ce qui se voit même quand rien ne tombe : ses records battus ce soir,
+     * et deux objectifs au plus qui ont avancé et dont il approche. Entre la
+     * quatrième et la dixième soirée, la fin ne disait presque rien d'autre
+     * que l'expérience. Absents d'une fin d'avant.
+     */
+    records?: RecordBattu[]
+    approches?: Approche[]
+    /**
+     * Sa collection de prix, s'il en a remporté un ce soir : ceux qui y
+     * entrent pour la première fois, et combien il en a sur combien.
+     */
+    collection?: { nouveaux: string[]; eus: number; total: number }
   }
 }
 
@@ -208,6 +249,10 @@ export function finLisible(x: unknown): x is FinDeSoiree {
     listeDe(p.legendaires, e => typeof e === 'string') &&
     listeDe(p.divins, e => estObjet(e) && textes(e, 'key', 'ton')) &&
     listeDe(p.finitions, e => typeof e === 'string') &&
-    optionnel(p.eclat, 'string')
+    optionnel(p.eclat, 'string') &&
+    (p.records === undefined || listeDe(p.records, e => estObjet(e) && textes(e, 'key') && nombres(e, 'valeur', 'avant'))) &&
+    (p.approches === undefined || listeDe(p.approches, e => estObjet(e) && textes(e, 'key') && nombres(e, 'acquis', 'requis', 'ceSoir'))) &&
+    (p.collection === undefined ||
+      (estObjet(p.collection) && nombres(p.collection, 'eus', 'total') && listeDe(p.collection.nouveaux, e => typeof e === 'string')))
   )
 }

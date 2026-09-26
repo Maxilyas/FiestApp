@@ -25,6 +25,7 @@ import { Charge, pouls } from './core/pouls'
 import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
+import { JourStore } from './core/jour'
 import { erreurDeRequete, repondreErreur } from './core/http'
 import { espaceDeLEntree, pageDEntree } from './core/page'
 import { wireSockets } from './sockets'
@@ -71,6 +72,14 @@ export interface QuizServerOptions {
   miroir?: Omit<ReglagesMiroir, 'base'>
   /** Le client compilé. Les tests en donnent un de trois lignes : `client/dist` n'existe qu'après le build. */
   clientDist?: string
+  /** L'heure du quiz du jour. Les tests la font passer minuit ; en ligne, celle du serveur. */
+  horlogeDuJour?: () => number
+  /**
+   * Le jeton de la routine qui remplit la réserve du quiz du jour
+   * (`RESERVE_TOKEN`, `quizDuJour.ts`). Absent : la porte n'existe pas, et
+   * la réserve se remplit à la main.
+   */
+  jetonDeLaReserve?: string
 }
 
 /**
@@ -273,6 +282,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const profiles = new ProfileStore(opts.quizDbUrl, opts.quizDbToken)
   await profiles.init()
 
+  // Le quiz du jour, pour les profils : sa réserve, ses parties, ses nuits.
+  const maintenantDuJour = opts.horlogeDuJour ?? Date.now
+  const jour = new JourStore(opts.quizDbUrl, opts.quizDbToken, { profiles, maintenant: maintenantDuJour })
+  await jour.init()
+
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
   const store = new QuizStore(opts.quizDbUrl, opts.quizDbToken)
   await store.init(defaultSpace)
@@ -353,6 +367,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     },
     maxPlayersCeiling,
     cloturesEnCours: new Set(),
+    jour,
   })
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
@@ -645,6 +660,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
     archives,
     auth,
     profiles,
+    jour,
+    maintenant: maintenantDuJour,
+    jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,
@@ -822,6 +840,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           partages.close()
           archives.close()
           auth.close()
+          jour.close()
           // Les profils en dernier : un crédit d'expérience parti avec la fin
           // du dernier quiz garde ainsi le plus long sursis pour aboutir. On ne
           // les refermait jamais.

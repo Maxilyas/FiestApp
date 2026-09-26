@@ -1,13 +1,11 @@
-import { useState } from 'react'
-import { coupDOeilMoyen, type Fiche, type SoireeJouee } from '../../../shared/profil'
+import { coupDOeilMoyen, type Fiche, type ReleveSoiree } from '../../../shared/profil'
 import type { HautFaitVu } from '../../../shared/hautsfaits'
-import { NOM_PALIER, clePalier, hautFait } from '../../../shared/hautsfaits'
+import { NOM_PALIER, hautFait } from '../../../shared/hautsfaits'
+import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, progresVers } from '../../../shared/legendaires'
 import { DIVINS, type DivinDescendu } from '../../../shared/divins'
 import { NOM_RARETE } from '../../../shared/badges'
 import { estimations, formatNumber, pourcent, secondes, surQcm } from '../format'
-import { Legendaire } from './Legendaire'
-import { Divin } from './Divin'
 import { Chiffres, justesses, type Chiffre } from './Chiffres'
 
 /**
@@ -15,26 +13,13 @@ import { Chiffres, justesses, type Chiffre } from './Chiffres'
  * et surtout ce qui vient. Rien ici ne change quoi que ce soit au jeu.
  */
 
-/** Les récompenses rangées, reconstituées depuis le catalogue vu par le profil. */
-function recompensesDe(hautsFaits: HautFaitVu[]): Map<string, number> {
-  const m = new Map<string, number>()
-  for (const h of hautsFaits) {
-    if (h.famille === 'soiree') {
-      if (h.fois > 0) m.set(h.key, h.fois)
-    } else {
-      for (let p = 1; p <= h.fois; p++) m.set(clePalier(h.key, p), 1)
-    }
-  }
-  return m
-}
-
 /**
- * La galerie des douze légendaires. Ceux qu'on a brillent et se portent d'un
- * geste ; les autres attendent en silhouette dorée, avec la jauge de ce qui
- * manque. Toucher un médaillon dit son histoire et comment le gagner : on
- * veut celui-là parce qu'on le voit.
+ * Ce qu'on lit d'un légendaire en le touchant dans la grille : son nom, sa
+ * légende, et comment il se gagne — avec, s'il manque encore, où l'on en
+ * est. On veut celui-là parce qu'on le voit. Gagné, il se porte d'ici.
  */
-export function GalerieLegendaires({
+export function DetailLegendaire({
+  cle,
   debloques,
   eclats,
   porte,
@@ -42,6 +27,7 @@ export function GalerieLegendaires({
   busy,
   onPorter,
 }: {
+  cle: string
   debloques: string[]
   /** Ce qui a éclaté pour lui : un légendaire éclaté se montre dans sa version rare. */
   eclats: string[]
@@ -50,151 +36,95 @@ export function GalerieLegendaires({
   busy: boolean
   onPorter: (cle: string | null) => void
 }) {
-  const recompenses = recompensesDe(hautsFaits)
-  const [detail, setDetail] = useState<string | null>(null)
-  const choisi = LEGENDAIRES.find(l => l.key === detail) ?? null
-  const hf = choisi ? hautsFaits.find(h => h.key === choisi.condition.hautFait) : undefined
-  const progres = choisi ? progresVers(choisi, recompenses) : null
+  const choisi = LEGENDAIRES.find(l => l.key === cle)
+  if (!choisi) return null
+  const gagne = debloques.includes(choisi.key)
+  const hf = hautsFaits.find(h => h.key === choisi.condition.hautFait)
+  const progres = progresVers(choisi, recompensesDe(hautsFaits))
   return (
-    <>
-      <div className="galerie">
-        {LEGENDAIRES.map(l => {
-          const gagne = debloques.includes(l.key)
-          const { acquis, requis } = progresVers(l, recompenses)
-          return (
-            <button
-              key={l.key}
-              type="button"
-              className={
-                'galerie-case' +
-                (gagne ? '' : ' verrouille') +
-                (porte === l.key ? ' porte' : '') +
-                (detail === l.key ? ' ouverte' : '') +
-                ` galerie-${l.ton}`
-              }
-              disabled={busy}
-              aria-pressed={detail === l.key}
-              onClick={() => setDetail(detail === l.key ? null : l.key)}
-            >
-              <span className="galerie-medaillon">
-                <Legendaire cle={l.key} verrouille={!gagne} eclat={eclats.includes(l.key)} />
-              </span>
-              <span className="galerie-nom">{l.nom}</span>
-              {gagne ? (
-                <span className="muted small">{porte === l.key ? 'porté' : 'gagné'}</span>
-              ) : (
-                <span className="jauge" aria-label={`${acquis} sur ${requis}`}>
-                  <span className="jauge-plein" style={{ width: `${(acquis / requis) * 100}%` }} />
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
-      {choisi && progres && (
-        <div className="galerie-detail">
-          <b className="galerie-detail-nom">{choisi.nom}</b>
-          <p className="serif-note">{choisi.legende}</p>
-          {eclats.includes(choisi.key) && (
-            <p className="small">Il a éclaté : c’est sa version rare, et personne d’autre ne l’a comme ça.</p>
-          )}
-          <p className="small">
-            {/* Gagné avant que sa règle se durcisse : il le garde, mais la
-                règle du jour ne dit pas comment il l'a eu. */}
-            {debloques.includes(choisi.key)
-              ? progres.acquis < progres.requis
-                ? 'Gagné avant que sa règle se durcisse. Il se gagne aujourd’hui par '
-                : 'Gagné par '
-              : 'Se gagne par '}
-            <b>{regleDe(choisi.condition, hautsFaits)}</b>
-            {hf && hf.famille === 'soiree' && ` — ${hf.rule.charAt(0).toLowerCase()}${hf.rule.slice(1)}`}
-            {!debloques.includes(choisi.key) && avancement(choisi.condition, hf, progres)}
-            .
-          </p>
-          {debloques.includes(choisi.key) && (
-            <button
-              type="button"
-              className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
-              disabled={busy}
-              onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
-            >
-              {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
-            </button>
-          )}
-        </div>
+    <div className="galerie-detail detail-case">
+      <span className="detail-famille anneau-texte-legendaire">Légendaire</span>
+      <b className="galerie-detail-nom">{choisi.nom}</b>
+      <p className="serif-note">{choisi.legende}</p>
+      {eclats.includes(choisi.key) && (
+        <p className="small">Il a éclaté : c’est sa version rare, et personne d’autre ne l’a comme ça.</p>
       )}
-    </>
+      <p className="small">
+        {/* Gagné avant que sa règle se durcisse : il le garde, mais la
+            règle du jour ne dit pas comment il l'a eu. */}
+        {gagne
+          ? progres.acquis < progres.requis
+            ? 'Gagné avant que sa règle se durcisse. Il se gagne aujourd’hui par '
+            : 'Gagné par '
+          : 'Se gagne par '}
+        <b>{regleDe(choisi.condition, hautsFaits)}</b>
+        {hf && hf.famille === 'soiree' && ` — ${hf.rule.charAt(0).toLowerCase()}${hf.rule.slice(1)}`}
+        {!gagne && avancement(choisi.condition, hf, progres)}.
+      </p>
+      {!gagne && (
+        <span className="jauge" aria-label={`${progres.acquis} sur ${progres.requis}`}>
+          <span className="jauge-plein" style={{ width: `${(progres.acquis / progres.requis) * 100}%` }} />
+        </span>
+      )}
+      {gagne && (
+        <button
+          type="button"
+          className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
+          disabled={busy}
+          onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
+        >
+          {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
+        </button>
+      )}
+    </div>
   )
 }
 
 /**
- * La galerie des cinq Divins. Ceux qui sont descendus se portent comme un
- * légendaire, et racontent ce qu'il a fallu faire ; les autres restent
- * voilés — ni nom, ni silhouette, ni jauge : la page n'en sait pas plus que
- * le joueur, et c'est voulu. Ce qui les fait descendre ne quitte jamais le
- * serveur.
+ * Ce qu'on lit d'un Divin en le touchant : descendu, son nom et son récit,
+ * et de quoi le porter ; sinon, rien — ni nom, ni jauge : la page n'en sait
+ * pas plus que le joueur, et c'est voulu. Ce qui les fait descendre ne
+ * quitte jamais le serveur (invariant 21).
  */
-export function GalerieDivins({
+export function DetailDivin({
+  cle,
   descendus,
   porte,
   busy,
   onPorter,
 }: {
+  cle: string
   descendus: DivinDescendu[]
   porte: string | null
   busy: boolean
   onPorter: (cle: string | null) => void
 }) {
-  const [detail, setDetail] = useState<string | null>(null)
-  const choisi = DIVINS.find(d => d.key === detail) ?? null
-  const recit = (cle: string) => descendus.find(d => d.key === cle)
-  const la = (cle: string) => !!recit(cle)
+  const choisi = DIVINS.find(d => d.key === cle)
+  if (!choisi) return null
+  const recit = descendus.find(d => d.key === choisi.key)
   return (
-    <>
-      <div className="galerie galerie-divine">
-        {DIVINS.map(d => (
+    <div className="galerie-detail detail-case">
+      <span className="detail-famille anneau-texte-divin">Divin</span>
+      {recit ? (
+        <>
+          <b className="galerie-detail-nom">{choisi.nom}</b>
+          <p className="serif-note">{recit.legende}</p>
           <button
-            key={d.key}
             type="button"
-            className={
-              'galerie-case' +
-              (la(d.key) ? '' : ' verrouille') +
-              (porte === d.key ? ' porte' : '') +
-              (detail === d.key ? ' ouverte' : '')
-            }
+            className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
             disabled={busy}
-            aria-pressed={detail === d.key}
-            onClick={() => setDetail(detail === d.key ? null : d.key)}
+            onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
           >
-            <span className="galerie-medaillon">
-              <Divin cle={d.key} verrouille={!la(d.key)} />
-            </span>
-            <span className="galerie-nom">{la(d.key) ? d.nom : '?'}</span>
-            <span className="muted small">{la(d.key) ? (porte === d.key ? 'porté' : 'descendu') : 'inconnu'}</span>
+            {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
           </button>
-        ))}
-      </div>
-      {choisi && (
-        <div className="galerie-detail">
-          {la(choisi.key) ? (
-            <>
-              <b className="galerie-detail-nom">{choisi.nom}</b>
-              <p className="serif-note">{recit(choisi.key)?.legende}</p>
-              <button
-                type="button"
-                className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
-                disabled={busy}
-                onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
-              >
-                {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
-              </button>
-            </>
-          ) : (
-            <p className="serif-note">Personne ne sait ce qui le fait descendre. Ceux qui l’ont vu ne le cherchaient pas.</p>
-          )}
-        </div>
+        </>
+      ) : (
+        <>
+          <b className="galerie-detail-nom">?</b>
+          <p className="serif-note">Personne ne sait ce qui le fait descendre. Ceux qui l’ont vu ne le cherchaient pas.</p>
+        </>
       )}
-    </>
+    </div>
   )
 }
 
@@ -376,17 +306,24 @@ export function Categories({ categories }: { categories: Record<string, { questi
  */
 const MIN_PAR_POINT = 5
 
+/** Ce qu'un point de courbe lit : une soirée jouée, ou un jour du quiz du jour. */
+export interface PointJoue {
+  releve: Pick<ReleveSoiree, 'qcm' | 'justes' | 'estimationsComparees' | 'coupDOeil' | 'tempsJustesMs'>
+  at: number
+}
+
 /**
  * Les courbes : la précision, le coup d'œil et le réflexe, soirée après
- * soirée. Trois lignes sur les douze dernières soirées, la plus ancienne à
- * gauche — assez pour voir qu'on progresse, pas assez pour se perdre dans
- * les chiffres. Une soirée ne donne un point qu'à ce qu'elle a assez joué :
- * cinq QCM pour la précision et le réflexe, cinq estimations pour le coup
- * d'œil. Les deux justesses partagent l'échelle, de 0 à 100 % ; chacune a
- * sa marque — rond, carré —, le réflexe ses tirets : aucune ne se reconnaît
- * à la seule couleur.
+ * soirée — ou jour après jour, au quiz du jour. Trois lignes sur les douze
+ * dernières, la plus ancienne à gauche : assez pour voir qu'on progresse,
+ * pas assez pour se perdre dans les chiffres. Un point ne vient qu'à ce qui
+ * a assez joué : cinq QCM pour la précision et le réflexe, cinq estimations
+ * pour le coup d'œil. Les deux justesses partagent l'échelle, de 0 à 100 % ;
+ * chacune a sa marque — rond, carré —, le réflexe ses tirets : aucune ne se
+ * reconnaît à la seule couleur. Sans estimation — le quiz du jour n'en pose
+ * pas —, le coup d'œil ne se légende pas.
  */
-export function Courbes({ soirees }: { soirees: SoireeJouee[] }) {
+export function Courbes({ soirees, unite = 'soiree' }: { soirees: readonly PointJoue[]; unite?: 'soiree' | 'jour' }) {
   const points = soirees
     .map(({ releve: r, at }) => {
       const assezDeQcm = r.qcm >= MIN_PAR_POINT
@@ -404,8 +341,15 @@ export function Courbes({ soirees }: { soirees: SoireeJouee[] }) {
     .slice(0, 12)
     .reverse()
   if (points.length < 2) {
-    return <p className="muted small">Les courbes apparaissent dès deux soirées d’au moins cinq QCM ou cinq estimations.</p>
+    return (
+      <p className="muted small">
+        {unite === 'jour'
+          ? 'Les courbes apparaissent dès deux jours joués.'
+          : 'Les courbes apparaissent dès deux soirées d’au moins cinq QCM ou cinq estimations.'}
+      </p>
+    )
   }
+  const avecOeil = points.some(p => p.coupDOeil !== null)
   const l = 300
   const h = 90
   const x = (i: number) => 10 + (i * (l - 20)) / (points.length - 1)
@@ -422,7 +366,11 @@ export function Courbes({ soirees }: { soirees: SoireeJouee[] }) {
       .join(' ')
   return (
     <figure className="courbes">
-      <svg viewBox={`0 0 ${l} ${h}`} role="img" aria-label="Précision, coup d’œil et réflexe, soirée après soirée">
+      <svg
+        viewBox={`0 0 ${l} ${h}`}
+        role="img"
+        aria-label={`${avecOeil ? 'Précision, coup d’œil et réflexe' : 'Précision et réflexe'}, ${unite === 'jour' ? 'jour après jour' : 'soirée après soirée'}`}
+      >
         <line x1="10" x2={l - 10} y1={h - 10} y2={h - 10} className="courbe-axe" />
         <polyline className="courbe courbe-reflexe" points={trace(points.map(p => (p.reflexe === null ? null : yReflexe(p.reflexe))))} />
         <polyline className="courbe courbe-oeil" points={trace(points.map(p => (p.coupDOeil === null ? null : yPart(p.coupDOeil))))} />
@@ -444,7 +392,7 @@ export function Courbes({ soirees }: { soirees: SoireeJouee[] }) {
       </svg>
       <figcaption className="row courbes-legende">
         <span className="legende-precision">Précision</span>
-        <span className="legende-oeil">Coup d’œil</span>
+        {avecOeil && <span className="legende-oeil">Coup d’œil</span>}
         <span className="legende-reflexe">Réflexe</span>
       </figcaption>
     </figure>

@@ -7,12 +7,13 @@ import { RESERVED_SLUGS, SLUG, normalizeSlug } from './space'
 
 export type PublicPage = 'souvenir' | 'stats' | 'bilan' | 'bilan/fiches' | 'soirees'
 /**
- * Les pages qui ne portent pas d'espace dans leur adresse. « profil » est la
- * seule qui ne soit pas réservée aux animateurs : c'est celle des joueurs, et
- * c'est aussi l'accueil — demander « quelle soirée ? » avant même de savoir
- * qui est là n'avait aucun sens pour celui qui revient.
+ * Les pages qui ne portent pas d'espace dans leur adresse. « profil » et
+ * « jour » ne sont pas réservées aux animateurs : ce sont celles des
+ * joueurs. « profil » est aussi l'accueil — demander « quelle soirée ? »
+ * avant même de savoir qui est là n'avait aucun sens pour celui qui revient
+ * —, « jour » le quiz du jour, qui se joue seul, avec son profil.
  */
-export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin' | 'profil'
+export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin' | 'profil' | 'jour'
 
 export type Route =
   | { kind: 'landing' }
@@ -21,7 +22,7 @@ export type Route =
   | { kind: 'public'; slug: string; page: PublicPage; archiveId: string | null }
   | { kind: 'unknown' }
 
-export const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil']
+export const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil', 'jour']
 const PUBLIC_PAGES: PublicPage[] = ['souvenir', 'stats', 'bilan', 'bilan/fiches', 'soirees']
 const ARCHIVE_ID = /^[\w-]{1,64}$/
 

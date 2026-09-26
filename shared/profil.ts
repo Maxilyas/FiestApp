@@ -20,6 +20,7 @@
 import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
 import type { DivinDescendu } from './divins'
+import type { CarriereDuJour } from './jour'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -653,6 +654,14 @@ export interface PublicProfile {
   legendaires: string[]
   /** Les Divins descendus sur lui, avec leur récit. Ce qui les fait descendre ne quitte jamais le serveur. */
   divins: DivinDescendu[]
+  /**
+   * Le titre qu'il porte sous son prénom — la clé d'un haut fait gagné, qui
+   * s'écrit de son nom (`hautFait(cle).title`) —, ou rien. Absent d'un
+   * serveur d'avant.
+   */
+  titre?: string | null
+  /** Les hauts faits qu'il a choisi de montrer sur sa carte ; null : les plus durs, d'office. */
+  vitrineChoisie?: string[] | null
 }
 
 /** Une soirée jouée, telle que la page profil la relit. */
@@ -686,6 +695,22 @@ export interface PublicProfileDetail extends PublicProfile {
   categories: Record<string, { questions: number; justes: number }>
   /** Tous les hauts faits du catalogue, gagnés ou non, avec leur progression. */
   hautsFaits: HautFaitVu[]
+  /** Son quiz du jour : médailles, série, podiums, derniers jours. Absent d'un serveur d'avant. */
+  jour?: CarriereDuJour
+  /**
+   * Sa collection de prix de soirée, dans l'ordre du catalogue : ceux qu'il
+   * a (`fois`), et ceux qui manquent encore. Absente d'un serveur d'avant.
+   */
+  prix?: PrixDeCollection[]
+}
+
+/** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */
+export interface PrixDeCollection {
+  key: string
+  emoji: string
+  title: string
+  rule: string
+  fois: number
 }
 
 /**

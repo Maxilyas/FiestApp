@@ -446,6 +446,50 @@ const SPECS: Spec[] = [
   },
 ]
 
+/**
+ * Les prix qu'une personne peut remporter : ceux du catalogue, et les quatre
+ * que `buildAwards` décide à part. Le Coup de Pouce et La Plus Solidaire vont
+ * à une équipe, sans lauréat — ils ne se collectionnent pas. C'est la
+ * collection d'un profil : « 14 prix sur 20 », sur sa carte et à sa fin de
+ * soirée. Un prix de plus rejoint cette liste (`fin-de-soiree.test.ts` y veille).
+ */
+export const PRIX_INDIVIDUELS: readonly string[] = [...SPECS.map(s => s.key), 'sauveur', 'remontada', 'chutelibre', 'lynx']
+
+/** Ce qu'un prix montre de lui dans une collection : son emoji, son nom, sa règle. */
+export interface FicheDePrix {
+  key: string
+  emoji: string
+  title: string
+  rule: string
+}
+
+// Les quatre prix que `buildAwards` décide à part, décrits une seule fois :
+// la soirée qui les remet et la collection qui les attend lisent la même fiche.
+const SAUVEUR: FicheDePrix = { key: 'sauveur', emoji: '🦸', title: 'Le Sauveur', rule: 'Le seul de son équipe à avoir trouvé, le plus souvent' }
+const REMONTADA: FicheDePrix = {
+  key: 'remontada',
+  emoji: '📈',
+  title: 'La Remontada',
+  rule: 'A le plus progressé entre le premier quiz et le dernier',
+}
+const CHUTE_LIBRE: FicheDePrix = {
+  key: 'chutelibre',
+  emoji: '📉',
+  title: 'La Chute Libre',
+  rule: 'A le plus reculé entre le premier quiz et le dernier',
+}
+const LYNX: FicheDePrix = { key: 'lynx', emoji: '👁️', title: "L'Œil de Lynx", rule: 'La meilleure mémoire sur les questions à photo' }
+
+/**
+ * La collection des prix, dans l'ordre de `PRIX_INDIVIDUELS` : ceux qu'on a,
+ * et ceux qu'on attend encore — « Prix de soirée : 9 sur 20 », à la page du
+ * profil, montre aussi les onze qui manquent.
+ */
+export const CATALOGUE_DES_PRIX: readonly FicheDePrix[] = PRIX_INDIVIDUELS.map(key => {
+  const fiche = [...SPECS, SAUVEUR, REMONTADA, CHUTE_LIBRE, LYNX].find(p => p.key === key)!
+  return { key, emoji: fiche.emoji, title: fiche.title, rule: fiche.rule }
+})
+
 function buildAwards(
   stats: PlayerStat[],
   rows: AnswerRow[],
@@ -501,10 +545,7 @@ function buildAwards(
     }
   }
   pushBest(awards, played, {
-    key: 'sauveur',
-    emoji: '🦸',
-    title: 'Le Sauveur',
-    rule: 'Le seul de son équipe à avoir trouvé, le plus souvent',
+    ...SAUVEUR,
     value: s => rescues.get(s.playerId) ?? 0,
     min: 2,
     detail: s => `${times(rescues.get(s.playerId) ?? 0)} le sauveur de son équipe`,
@@ -522,19 +563,13 @@ function buildAwards(
       return a === undefined || b === undefined ? 0 : a - b
     }
     pushBest(awards, played, {
-      key: 'remontada',
-      emoji: '📈',
-      title: 'La Remontada',
-      rule: 'A le plus progressé entre le premier quiz et le dernier',
+      ...REMONTADA,
       value: move,
       min: 2,
       detail: s => `${plural(move(s), 'place')} gagnée${move(s) > 1 ? 's' : ''} en cours de soirée`,
     })
     pushBest(awards, played, {
-      key: 'chutelibre',
-      emoji: '📉',
-      title: 'La Chute Libre',
-      rule: 'A le plus reculé entre le premier quiz et le dernier',
+      ...CHUTE_LIBRE,
       value: s => -move(s),
       min: 2,
       detail: s => `${plural(-move(s), 'place')} perdue${-move(s) > 1 ? 's' : ''}, et alors ?`,
@@ -551,10 +586,7 @@ function buildAwards(
     observed.set(r.playerId, cur)
   }
   pushBest(awards, played, {
-    key: 'lynx',
-    emoji: '👁️',
-    title: "L'Œil de Lynx",
-    rule: 'La meilleure mémoire sur les questions à photo',
+    ...LYNX,
     value: s => {
       const o = observed.get(s.playerId)
       return o && o.total >= 2 ? o.good / o.total : 0

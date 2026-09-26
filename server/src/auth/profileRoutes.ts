@@ -16,6 +16,8 @@ import {
 } from './http'
 import { Budget } from '../core/budget'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
+import type { JourStore } from '../core/jour'
+import { CATALOGUE_DES_PRIX } from '../core/stats'
 
 interface ProfileApiDeps {
   profiles: ProfileStore
@@ -32,6 +34,8 @@ interface ProfileApiDeps {
   online: boolean
   /** Un profil a changé ce que la salle voit de lui (finition, légendaire) : les soirées où il joue le rediffusent. */
   profilChange: (profileId: string) => void
+  /** Son quiz du jour, pour sa page : médailles, série, podiums, derniers jours. */
+  jour: JourStore
 }
 
 /**
@@ -61,6 +65,20 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   const espaceDe = (spaceId: string) => {
     const account = deps.auth.byId(spaceId)
     return account ? { nom: account.name, slug: account.slug } : null
+  }
+
+  /**
+   * Sa propre page : le détail du profil, son quiz du jour, et sa collection
+   * de prix — ceux qu'il a, et ceux qui l'attendent.
+   */
+  const detailDe = async (me: ProfileRec) => {
+    const detail = await profiles.toDetail(me, espaceDe, deps.archives)
+    const fois = new Map(detail.vitrine.map(b => [b.key, b.fois]))
+    return {
+      ...detail,
+      jour: await deps.jour.carriereDe(me.id),
+      prix: CATALOGUE_DES_PRIX.map(p => ({ ...p, fois: fois.get(p.key) ?? 0 })),
+    }
   }
 
   /** Le profil connecté derrière le cookie, ou null. */
@@ -239,7 +257,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       // ma soirée » sur l'accueil.
       const espace = me ? deps.auth.byProfile(me.id) : undefined
       res.json({
-        profile: me ? await profiles.toDetail(me, espaceDe, deps.archives) : null,
+        profile: me ? await detailDe(me) : null,
         espace: espace && !espace.disabledAt ? deps.auth.publicSpace(espace) : null,
         // La soirée où il joue déjà, en tête de « Ce soir » : un nom, une
         // adresse, rien de plus — et seulement les siennes.
@@ -287,6 +305,8 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         avatar: req.body?.avatar,
         finition: req.body?.finition,
         legendaire: req.body?.legendaire,
+        titre: req.body?.titre,
+        vitrine: req.body?.vitrine,
       })
       // Sa finition et son légendaire se lisent en mémoire à chaque
       // instantané, mais rien ne le renvoyait : c'était la veille suivante

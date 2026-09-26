@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CarteDeJoueur } from '../../../shared/carte'
+import type { BadgePorte } from '../../../shared/badges'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
-import { NOM_RARETE } from '../../../shared/badges'
+import { ceQuIlAFallu, hautFait } from '../../../shared/hautsfaits'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
 import { chargerDessinsAuPlus, complets, useDessins } from './medaillons'
 import { Chiffres, justesses } from './Chiffres'
+import { Icon } from './Icon'
 import { Niveau } from './Niveau'
+import { Flamme } from './Jour'
 
 /**
  * La carte d'un joueur, ouverte en touchant son nom : ce qu'il fait ce soir,
- * et, s'il a un profil, son niveau, ses Divins et ses légendaires, ses
- * récompenses les plus rares et quelques chiffres. C'est ici que les
- * cosmétiques ont enfin un public.
+ * et, s'il a un profil, son niveau, ses Divins et ses légendaires, ses plus
+ * beaux hauts faits, quelques chiffres et sa collection de prix. C'est ici
+ * que les cosmétiques ont enfin un public.
  *
  * Un invité anonyme a la sienne : sa soirée, sans rien qui dise ce qui lui
  * manque. Un surnom donné par l'animateur ne cache pas le prénom du profil.
@@ -88,6 +91,8 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                   {carte.nom}
                   <Niveau niveau={p?.niveau} big />
                 </h3>
+                {/* Son titre, sous son prénom : le nom d'un haut fait qu'il a gagné. */}
+                {p?.titre && hautFait(p.titre) && <p className="titre-porte">{espacesFines(`« ${hautFait(p.titre)!.title} »`)}</p>}
                 {p && p.prenom !== carte.nom && <p className="muted small">{espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil</p>}
                 <p className="carte-soir">
                   {carte.ceSoir.rang > 0 ? (
@@ -124,6 +129,30 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                     ))}
                   </div>
                 )}
+                {/* Ce qui le distingue, avec ce qu'il a fallu faire : un titre
+                    seul (« Le Buzzer d'Or ») ne dit rien à qui ne l'a jamais
+                    chassé. */}
+                {p.vitrine.length > 0 && (
+                  <div>
+                    <span className="label">Ses plus beaux hauts faits</span>
+                    <ul className="carte-beaux">
+                      {p.vitrine.map(b => (
+                        <li key={b.key}>
+                          <span className="hf-emoji" aria-hidden="true">
+                            {b.emoji}
+                          </span>
+                          <span className="hf-corps">
+                            <span className="hf-titre">
+                              {b.title}
+                              {b.fois > 1 && <span className="hf-fois">×{b.fois}</span>}
+                            </span>
+                            <span className="muted small">{ceQuIlAFallu(b.key)}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {/* La justesse aux QCM et aux estimations, côte à côte : la
                     plus longue série, qui ne compte que les QCM, a cédé sa case. */}
                 <Chiffres
@@ -136,18 +165,21 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                     ['Réflexe moyen', secondes(p.fiche.reflexeMoyenMs)],
                   ]}
                 />
-                {p.vitrine.length > 0 && (
-                  <ul className="carte-vitrine">
-                    {p.vitrine.map(b => (
-                      <li key={b.key} title={b.title}>
-                        <span className="carte-badge-emoji" aria-hidden="true">
-                          {b.emoji}
-                        </span>
-                        <span className="carte-badge-titre">{b.title}</span>
-                        {b.rarete && <span className="muted small">{NOM_RARETE[b.rarete]}</span>}
-                      </li>
-                    ))}
-                  </ul>
+                {/* Ses prix : leur nombre, pas leur liste — ils tombent à
+                    chaque soirée. Rien tant qu'il n'en a aucun. */}
+                {p.prix && p.prix.eus > 0 && (
+                  <p className="carte-prix muted small">
+                    <Icon name="award" />
+                    Prix de soirée : {p.prix.eus} sur {p.prix.total}
+                  </p>
+                )}
+                {/* Son quiz du jour, en une ligne : rien s'il n'y a jamais joué. */}
+                {p.jour && (
+                  <p className="carte-prix muted small">
+                    <Flamme />
+                    Quiz du jour : {p.jour.joues} jour{p.jour.joues > 1 ? 's' : ''} joué{p.jour.joues > 1 ? 's' : ''}
+                    {p.jour.victoires > 0 && ` · ${p.jour.victoires} victoire${p.jour.victoires > 1 ? 's' : ''}`}
+                  </p>
                 )}
               </>
             )}

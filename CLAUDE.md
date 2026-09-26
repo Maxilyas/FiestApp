@@ -55,10 +55,13 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `core/journal.ts` | le journal rangé question par question et quiz par quiz : la seule lecture qu'en font l'expérience et les hauts faits — et le coup d'œil de chaque estimation (`coupDOeil`), que lisent aussi le souvenir, le bilan et la carte |
 | `core/hautsfaits.ts` | les hauts faits d'une soirée, invité par invité — dérivation pure, jouée à la clôture et sur les archives |
 | `core/recalcul.ts` | au démarrage, relit l'historique au barème du jour (`VERSION_BAREME`) : expérience, prix, hauts faits, paliers |
-| `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les douze avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un |
+| `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les douze avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un ; et la rareté mesurée de chaque haut fait (`PART_DES_JOUEURS`), qui choisit les trois plus beaux de la carte (`plusBeaux`) |
 | `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) |
 | `shared/liens.ts` · `client/src/components/Lendemain.tsx` | les liens d'une soirée close, à l'adresse de son archive (`/<espace>/souvenir` change de soirée à la suivante) ; et « La dernière soirée », que le téléphone garde (`garderFin`, `client/src/state.ts`) pour l'entrée et l'accueil |
-| `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) |
+| `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) : son titre, sa vitrine — celle qu'il a choisie, sinon ses trois plus beaux hauts faits —, sa collection de prix, son quiz du jour en une ligne |
+| `core/objectifs.ts` | ce que la fin de soirée raconte en plus de ce qu'elle rapporte : les records battus, « Tu t'en approches » — dérivations pures de l'historique, lues à la clôture après les crédits |
+| `shared/jour.ts` · `core/jour.ts` · `server/src/quizDuJour.ts` · `client/src/views/JourApp.tsx` | le quiz du jour, pour les profils : dix questions tirées à minuit (Paris) et figées, une partie chronométrée au serveur, dans la base permanente ; l'expérience (75 au plus, podium 25/15/10) dans la ligne `#jour` ; la nuit qui clôt la veille à la première demande (`clorePasses`) ; la réserve, ses signalements et les profils masqués, à `/admin` |
+| `core/consigne.ts` | la consigne qu'on donne à une IA pour écrire la réserve du quiz du jour — la routine Claude Code qui la remplit derrière `RESERVE_TOKEN` (`/api/jour/reserve` : la consigne, puis le dépôt ; MISE-EN-LIGNE.md, étape 8), ou « Copier la consigne pour une IA » à `/admin` : une seule pour les deux. Le serveur ne détient aucune clé d'IA |
 | `shared/glossaire.ts` · `client/src/components/Glossaire.tsx` | les mots maison (souvenir, bilan, coup d'œil, finition…), une phrase chacun, dépliée au toucher sous les pages qui les emploient — des Divins, le nom et le mystère seulement |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
 | `shared/echange.ts` | un quiz qu'on emporte : le fichier d'export (questions, et toutes leurs pièces en clair — photos, extraits), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin |
@@ -82,7 +85,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `auth/profileRoutes.ts` | la porte d'entrée : se connecter à son profil ouvre aussi la console de l'espace rattaché |
 | `auth/http.ts` | cookies, adresse du client, et `loginBudgetOf(app)` : la réserve d'essais commune à toutes les portes |
 | `auth/appairage.ts` | brancher la télé : le code court qu'elle affiche, validé depuis une console ouverte, et la session d'une soirée qu'elle en reçoit ; `/attente` dit `perime` dans une réponse, jamais dans une erreur |
-| `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins — et, sans profil, la porte discrète des animateurs (« J'anime une soirée ») |
+| `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins (« Ce soir » : une action principale, les autres en petit) — et, sans profil, la porte discrète des animateurs (« J'anime une soirée ») ; puis trois onglets, retenus dans l'adresse (`#trophees`) |
+| `client/src/components/Apparence.tsx` · `Trophees.tsx` · `shared/proches.ts` | les onglets du profil : ce que la salle voit, la grille unique des avatars (emojis, légendaires, Divins, un anneau pour ce qui est rare, la légende au toucher), la finition, le titre ; la vitrine de la carte, qu'on choisit, le quiz du jour, les hauts faits les plus proches (`lesPlusProches`, dérivation pure), la collection de prix (`CATALOGUE_DES_PRIX`, `core/stats.ts`). Un titre et une vitrine ne sont que des hauts faits gagnés (`hautsFaitsGagnes`), relus à chaque affichage (`titrePorte`, `vitrineChoisie`) : une soirée retirée les emporte |
 | `shared/adresses.ts` · `core/apercus.ts` | une adresse lue une seule fois pour le client et le serveur ; le serveur y pose le statut (404 d'un espace, d'une page ou d'une archive inconnus), les balises d'aperçu (le titre de l'espace, **jamais un prénom**), `noindex` hors de l'accueil, et les seules corrections permises : ce que `normalizeSlug` fait de la saisie (casse, accents, espaces et ponctuation en tirets, 24 caractères au plus), puis la seule forme `chez-‹saisie›` — jamais un nom voisin (invariant 3) |
 | `client/src/onglets.ts` | les onglets nommés de la console, et « Revenir à la console » d'une page qu'elle a ouverte : jamais une seconde console |
 | `sockets.ts` | tout le protocole temps réel — chaque message passe par `ecouter()` |
@@ -102,7 +106,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `client/src/components/Coupe.tsx` | une liste de l'écran commun coupée à ce qui tient, « et 2 autres » dessous : personne ne fait défiler une télé |
 | `server/scripts/rendu-ecran.ts` | le pire cas de l'écran commun, rejoué sur un serveur jetable et photographié à chaque phase en 1366 × 768, 1920 × 1080 et au téléphone (`MESURE=1` : ce qui ne grandit pas en 1920) |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
-| `server/scripts/calibrage.ts` | combien de quiz demande chaque légendaire, et combien de soirées chaque niveau : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits et de l'expérience (`npx tsx scripts/calibrage.ts`, format réglable) |
+| `server/scripts/calibrage.ts` | combien de quiz demande chaque légendaire, combien de soirées chaque niveau, et la rareté de chaque haut fait (que `PART_DES_JOUEURS` recopie) : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits et de l'expérience (`npx tsx scripts/calibrage.ts`, format réglable) |
 | `server/scripts/tablee/regie.ts` · `pilote.mjs` | la tablée : un serveur jetable, un Chromium, et les gestes des agents qui y jouent une soirée — ou plusieurs à la fois, un salon par animateur (`chez <animateur>`) — la marche à suivre, les personnages, les experts et leurs consignes dans `.claude/skills/tablee/` (`/tablee`) |
 | `retours/<date>/synthese.md` | ce qu'une tablée a trouvé : les axes d'amélioration, vérifiés un à un, et les retours bruts des agents — à lire avant de retoucher un écran qu'ils citent |
 
@@ -494,6 +498,32 @@ sans `QUIZ_DB_URL`.
   qui tient lieu de Turso (`miroir.test.ts`) ; un vrai démarrage, un SIGTERM
   ou un SIGKILL, en lançant `src/index.ts` dans un processus enfant
   (`exploitation.test.ts`).
+- **Le quiz du jour a son horloge** (`horlogeDuJour`, `JourStore.maintenant`) :
+  les tests la font passer minuit (`jour-partie.test.ts`). Sa ligne
+  d'expérience (`LIGNE_JOUR`, `#jour`) compte dans le total et le niveau
+  mais pas dans l'historique : tout ce qui lit `profile_xp` comme des
+  soirées écarte les deux lignes à part (`#paliers`, `#jour`) — la série du
+  jour les écarte aussi. Rien ne tourne à minuit : une clôture passe par
+  `clorePasses`, à la première demande du jour. Et tout ce qui écrit les
+  points ou l'expérience d'un profil passe sous son verrou, le tirage relu
+  dedans — sa partie, le recompte d'une annulation, le podium de la nuit :
+  recomptée d'un coup pour tout le jour, une annulation laissait payée la
+  question qu'une réponse en route écrivait derrière elle.
+- **La consigne du quiz du jour ne promet rien que la réserve refuse.**
+  Elle décrit le format de « Coller une liste » réduit à ce que
+  `raisonDEcarter` accepte, et son exemple se relit dans
+  `jour-reserve.test.ts`. Quand la réserve apprendra une nouvelle sorte de
+  question (les estimations à tolérance), la consigne la décrit dans le
+  même commit — sinon la routine écrit pour rien, ou jamais ce qu'on veut.
+  Et le jeton de la réserve ne sait qu'ajouter : une route de plus derrière
+  lui ne lit ni n'efface rien.
+- **Un haut fait ou un prix de plus a sa place ailleurs.** Un haut fait
+  prend sa rareté dans `PART_DES_JOUEURS` (mesurée par `calibrage.ts`) :
+  sans elle, il passerait pour le plus courant de tous et ne paraîtrait
+  jamais sur une carte (`hautsfaits.test.ts` la réclame). Un prix qu'une
+  personne peut remporter rejoint `PRIX_INDIVIDUELS` (`core/stats.ts`) :
+  sans lui, la collection mentirait (« 14 sur 20 ») — `fin-de-soiree.test.ts`
+  relit les clés du calcul.
 - **Une nouvelle commande `host:*`** s'ajoute à la liste de
   `garde-fous.test.ts`, qui vérifie qu'un téléphone ne peut pas la jouer — le
   typecheck le rappelle.

@@ -22,6 +22,7 @@ export const RESERVED_SLUGS = new Set([
   'activer',
   'joueur',
   'profil',
+  'jour',
   'deconnexion',
   'stats',
   'souvenir',

@@ -176,6 +176,41 @@ Une soirée est un coup unique — on ne débogue pas devant la salle. D'où un 
 
 **Et le dormir ?** Les deux services s'endorment après quinze minutes sans trafic. C'est assumé : les 750 heures mensuelles de l'offre gratuite ne suffiraient pas à en garder deux éveillés. On réveille celui dont on a besoin en ouvrant son adresse, cinq minutes avant (voir l'étape 5).
 
+### Étape 8 — La réserve du quiz du jour, remplie par une routine
+
+Le quiz du jour pose dix questions par jour : sa réserve se vide. Une **routine Claude Code** la remplit deux fois par semaine, sur ton abonnement Claude. Le serveur ne détient aucune clé d'IA : il donne la consigne et reçoit les questions, derrière un jeton qui ne sait faire que ça — ajouter des questions. S'il fuitait, il ne coûterait que des questions en trop, que tu retires à `/admin`, et tu le changes en deux minutes.
+
+1. **Le jeton, dans Render.** Sur la préproduction d'abord, pour essayer, puis sur la production — chacune le sien : *Environment → Add Environment Variable*, la clé `RESERVE_TOKEN`, et le bouton **Generate** pour la valeur. Enregistre : le service redémarre, et `/admin`, rubrique « Le quiz du jour », dit **Remplissage automatique ouvert**. Sous trente-deux caractères, la porte reste fermée, et le journal du démarrage le dit.
+2. **Le même jeton, dans l'environnement Claude Code.** Sur claude.ai/code, le menu de l'environnement (en haut d'une session), puis **Edit** : ajoute les variables `RESERVE_TOKEN` (la valeur recopiée depuis Render) et `FIESTAPP_URL` (l'adresse du service qu'elle remplit, `https://….onrender.com`, sans `/` à la fin). Dans **Network access**, ajoute ce domaine aux domaines permis. Le jeton ne s'écrit jamais dans le dépôt, ni dans une conversation. Une fois la préproduction essayée, remplace les deux variables par celles de la production.
+3. **La routine.** Demande-la à Claude dans une nouvelle session de cet environnement (« crée la routine de la réserve du quiz du jour, lundi et jeudi à 5 h »), ou crée-la toi-même : une nouvelle session à chaque passage, avec cette consigne.
+
+   ```
+   Tu remplis la réserve du quiz du jour de FiestApp, avec les variables de
+   l'environnement FIESTAPP_URL et RESERVE_TOKEN. N'écris rien dans le dépôt,
+   n'ouvre aucune PR.
+
+   1. Lis ce qu'il faut écrire. Le serveur dort peut-être : il met jusqu'à
+      deux minutes à se réveiller.
+      curl -sS --retry 6 --retry-delay 20 --retry-all-errors --max-time 90 \
+        "$FIESTAPP_URL/api/jour/reserve" -H "Authorization: Bearer $RESERVE_TOKEN"
+      La réponse donne aEcrire, parEnvoi et consigne. Si aEcrire vaut 0,
+      dis-le en une ligne et arrête-toi.
+   2. Écris aEcrire questions en suivant la consigne à la lettre, puis
+      relis-les une à une comme elle le demande. Au moindre doute sur un
+      fait, remplace la question.
+   3. Envoie-les par lots de parEnvoi questions au plus : chaque lot dans
+      lot.txt, au format de la consigne, puis
+      jq -Rs '{liste: .}' lot.txt > lot.json
+      curl -sS --max-time 90 -X POST "$FIESTAPP_URL/api/jour/reserve" \
+        -H "Authorization: Bearer $RESERVE_TOKEN" -H "X-Requested-With: quizz" \
+        -H "Content-Type: application/json" --data @lot.json
+   4. Termine par une ligne : combien de questions ajoutées, combien
+      écartées, et pourquoi.
+   ```
+4. **Vérifier.** Lance-la une fois à la main, depuis la liste des routines, puis regarde `/admin` : le journal des apports dit « Écrite par l'IA », avec ce qu'elle a ajouté et écarté, et **Voir les prochains jours** montre ses questions. Relis-en quelques-unes : c'est la première fois qu'un humain les lit.
+
+La routine vise trois semaines d'avance, et cent questions au plus par passage. Si elle s'arrête — abonnement, jeton changé d'un seul côté, domaine plus permis —, `/admin` le montre : plus de dépôt, puis l'alerte sous sept jours d'avance. En attendant, **Copier la consigne pour une IA** : la même consigne, pour trente questions, à coller dans le chatbot de ton choix ; sa réponse se recolle dans **Coller une liste**.
+
 ---
 
 ## 4. Créer un compte à un ami

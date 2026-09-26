@@ -117,7 +117,7 @@ const READY_MS = 3000
  * couvre un aller-retour de trois secondes, et ne se voit pas : la barre est
  * déjà vide, ce temps-là se lit comme du suspense.
  */
-const GRACE_MS = 1500
+export const GRACE_MS = 1500
 
 /**
  * Le souffle avant une révélation déclenchée par la dernière réponse.
@@ -141,6 +141,8 @@ const SETTLE_MS = 700
 // et de Mentimeter.
 const CHOICE_POINTS = 100
 const SPEED_BONUS = 100
+/** Ce qu'une question rapporte au plus, QCM ou estimation : le quiz du jour y compte ses points possibles. */
+export const POINTS_MAX_PAR_QUESTION = CHOICE_POINTS + SPEED_BONUS
 
 /**
  * Le temps de lecture offert. Le bonus de rapidité fondait dès l'affichage,

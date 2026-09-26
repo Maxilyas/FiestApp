@@ -8,6 +8,8 @@ import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/spa
 import type { FinitionChoisie, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
+import type { ClassementDuJour, PartieDuJour, RevelationDuJour } from '../../shared/jour'
+import { applySample } from './clock'
 
 /**
  * Une erreur d'API qui porte ce que le serveur a joint au message.
@@ -278,7 +280,14 @@ export const api = {
      */
     console: () => req<{ espace: PublicSpace }>('/api/joueur/console', { method: 'POST' }),
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
-    enregistrer: (patch: { name?: string; avatar?: string; finition?: FinitionChoisie; legendaire?: string | null }) =>
+    enregistrer: (patch: {
+      name?: string
+      avatar?: string
+      finition?: FinitionChoisie
+      legendaire?: string | null
+      titre?: string | null
+      vitrine?: string[] | null
+    }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
     /**
      * Changer son mot de passe : il faut l'actuel, ou le code de secours pour
@@ -294,6 +303,26 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ login, code, password }),
       }),
+  },
+  /**
+   * Le quiz du jour, pour les profils : une partie par jour, chronométrée
+   * par le serveur. Chaque réponse du serveur remesure l'heure : le chrono
+   * d'une question se lit à l'heure du serveur (invariant 6), et ce
+   * téléphone-là n'a pas de liaison temps réel pour la mesurer.
+   */
+  jour: {
+    etat: () => avecLHeure(() => req<PartieDuJour>('/api/jour')),
+    commencer: () => avecLHeure(() => req<PartieDuJour>('/api/jour/commencer', { method: 'POST' })),
+    suivante: () => avecLHeure(() => req<PartieDuJour>('/api/jour/suivante', { method: 'POST' })),
+    repondre: (jour: string, index: number, choix: number) =>
+      req<RevelationDuJour>('/api/jour/repondre', { method: 'POST', body: JSON.stringify({ jour, index, choix }) }),
+    classement: (periode: { jour?: string; mois?: string } = {}) =>
+      req<ClassementDuJour>(
+        `/api/jour/classement${periode.mois ? `?mois=${periode.mois}` : periode.jour ? `?jour=${periode.jour}` : ''}`,
+      ),
+    correction: (jour: string) => req<CorrectionDuJour>(`/api/jour/correction/${jour}`),
+    signaler: (jour: string, index: number, texte: string) =>
+      req<{ ok: true }>('/api/jour/signaler', { method: 'POST', body: JSON.stringify({ jour, index, texte }) }),
   },
   space: {
     saveSettings: (settings: Partial<SpaceSettings>) =>
@@ -329,7 +358,91 @@ export const api = {
       req<EntreeDuCatalogue & { questions: QuizQuestionDef[] }>(`/api/admin/catalogue/${encodeURIComponent(id)}`),
     statutAuCatalogue: (id: string, statut: StatutAuCatalogue) =>
       req<{ ok: true }>(`/api/admin/catalogue/${encodeURIComponent(id)}`, { method: 'POST', body: JSON.stringify({ statut }) }),
+    /** Le quiz du jour : la réserve, les signalements, les profils masqués. */
+    jour: () => req<AdminDuJour>('/api/admin/jour'),
+    prochainesDuJour: () => req<{ id: string; question: QuizQuestionDef; source: string }[]>('/api/admin/jour/prochaines'),
+    /** La consigne à coller dans une IA, celle que suit la routine : trente questions. */
+    consigneDuJour: () => req<{ consigne: string; joursDAvance: number; aEcrire: number }>('/api/admin/jour/consigne'),
+    listeDuJour: (texte: string) =>
+      req<{ ajoutees: number; ecartees: { texte: string; raison: string }[]; ignores: string[] }>('/api/admin/jour/liste', {
+        method: 'POST',
+        body: JSON.stringify({ texte }),
+      }),
+    garderDuJour: (jour: string, index: number) =>
+      req<{ ok: true }>('/api/admin/jour/garder', { method: 'POST', body: JSON.stringify({ jour, index }) }),
+    annulerDuJour: (jour: string, index: number) =>
+      req<{ ok: true }>('/api/admin/jour/annuler', { method: 'POST', body: JSON.stringify({ jour, index }) }),
+    retirerDuJour: (reserveId: string, jour?: string, index?: number) =>
+      req<{ ok: true }>('/api/admin/jour/retirer', { method: 'POST', body: JSON.stringify({ reserveId, jour, index }) }),
+    profilsDuJour: (q: string) => req<ProfilMasquable[]>(`/api/admin/jour/profils?q=${encodeURIComponent(q)}`),
+    masquerDuJour: (profileId: string, masque: boolean) =>
+      req<{ ok: true }>('/api/admin/jour/masquer', { method: 'POST', body: JSON.stringify({ profileId, masque }) }),
   },
+}
+
+/** Un profil tel que l'administration du quiz du jour le trouve. */
+export interface ProfilMasquable {
+  id: string
+  login: string
+  nom: string
+  avatar: string
+  masque: boolean
+}
+
+/** Ce que l'administration du quiz du jour montre. */
+export interface AdminDuJour {
+  reserve: {
+    pretes: number
+    joursDAvance: number
+    posees: number
+    retirees: number
+    apports: { quand: number; source: string; ajoutees: number; ecartees: { texte: string; raison: string }[] }[]
+  }
+  signalements: {
+    jour: string
+    index: number
+    reserveId: string
+    texte: string
+    bonne: string
+    joueurs: number
+    textes: string[]
+    annulee: boolean
+    annulable: boolean
+  }[]
+  masques: ProfilMasquable[]
+  /** Une routine remplit la réserve : `RESERVE_TOKEN` est posé sur le serveur. */
+  remplissage: { automatique: boolean }
+  aujourdhui: string
+}
+
+/** Les questions d'un jour, relues : ses réponses, ses anecdotes, et ce qu'on y a fait. */
+export interface CorrectionDuJour {
+  jour: string
+  questions: {
+    texte: string
+    reponses: string[]
+    bonne: number
+    categorie: string | null
+    anecdote: string | null
+    trouveePar: number | null
+    choix: number | null
+    juste: boolean
+    points: number
+    repondue: boolean
+    annulee?: boolean
+  }[]
+}
+
+/**
+ * Une requête qui remesure l'heure du serveur : l'envoi, l'heure qu'il a
+ * écrite en répondant (l'en-tête `Date` n'a que la seconde), et le retour —
+ * la mesure la plus rapide l'emporte (`shared/clock.ts`).
+ */
+async function avecLHeure(appel: () => Promise<PartieDuJour>): Promise<PartieDuJour> {
+  const sentAt = Date.now()
+  const reponse = await appel()
+  if (typeof reponse.maintenant === 'number') applySample({ serverTime: reponse.maintenant, sentAt, receivedAt: Date.now() })
+  return reponse
 }
 
 /**

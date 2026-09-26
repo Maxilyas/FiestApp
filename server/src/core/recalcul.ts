@@ -4,7 +4,7 @@ import type { PlayerRec } from './party'
 import { buildProgress } from './progress'
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
 import { divinsDeSoiree, laureatsDivins } from './divins'
-import { LIGNE_PALIERS, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
+import { LIGNE_JOUR, LIGNE_PALIERS, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
 import { hautFaitDeSoiree } from '../../../shared/hautsfaits'
 import type { PartyArchive } from '../../../shared/archive'
 
@@ -135,6 +135,12 @@ export async function recalculerHistorique(deps: {
   for (const l of lignes) {
     if (l.soireeId === LIGNE_PALIERS) {
       paliers.add(l.profileId)
+      continue
+    }
+    // Le quiz du jour a son propre barème, que celui des soirées ne touche
+    // pas : sa ligne prend la version du jour, sans rien relire.
+    if (l.soireeId === LIGNE_JOUR) {
+      await profiles.remettreAuBareme(l.profileId, LIGNE_JOUR)
       continue
     }
     // Réécrite par la relecture de sa soirée.

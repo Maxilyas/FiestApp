@@ -17,7 +17,20 @@ import type { PlayerRec } from '../src/core/party'
 import { estCosmique, hautsFaitsDeSoiree, xpDesHautsFaits } from '../src/core/hautsfaits'
 import { carriereDe, gainVide, releveVide, type ReleveSoiree } from '../../shared/profil'
 import { buildProgress } from '../src/core/progress'
-import { HAUTS_FAITS_DE_SOIREE, clePalier, palierDe, paliersAtteints, xpDe, XP_PALIER } from '../../shared/hautsfaits'
+import {
+  HAUTS_FAITS_DE_CARRIERE,
+  HAUTS_FAITS_DE_SOIREE,
+  PART_DES_JOUEURS,
+  clePalier,
+  hautFait,
+  palierDe,
+  paliersAtteints,
+  plusBeaux,
+  regleDuPalier,
+  xpDe,
+  XP_PALIER,
+  type HautFaitDeCarriere,
+} from '../../shared/hautsfaits'
 import { LEGENDAIRES, legendairesDebloques, progresVers } from '../../shared/legendaires'
 
 // ── De quoi écrire une soirée ─────────────────────────────────────────────
@@ -332,4 +345,52 @@ test('chaque légendaire a sa légende, et se gagne par un haut fait qui existe'
   }
   // Les ombres ont leurs légendaires aussi : la malchance assumée a son trophée.
   assert.ok(LEGENDAIRES.some(l => l.ton === 'ombre'))
+})
+
+// ── 7. Les plus beaux ─────────────────────────────────────────────────────
+
+test('chaque haut fait a sa rareté mesurée, et un palier plus haut n’est jamais plus courant', () => {
+  const cles = [
+    ...HAUTS_FAITS_DE_SOIREE.map(h => h.key),
+    ...HAUTS_FAITS_DE_CARRIERE.flatMap(h => [1, 2, 3].map(p => clePalier(h.key, p))),
+  ]
+  // Un haut fait de plus sans sa part passerait pour le plus courant de tous :
+  // jamais sur la carte, même décroché une fois dans une vie.
+  assert.deepEqual(Object.keys(PART_DES_JOUEURS).sort(), [...cles].sort())
+  for (const cle of cles) assert.ok(PART_DES_JOUEURS[cle] >= 0 && PART_DES_JOUEURS[cle] <= 1, cle)
+  for (const h of HAUTS_FAITS_DE_CARRIERE) {
+    const [bronze, argent, or] = [1, 2, 3].map(p => PART_DES_JOUEURS[clePalier(h.key, p)])
+    assert.ok(bronze >= argent && argent >= or, `${h.key} : l’or est plus rare que l’argent, l’argent que le bronze`)
+  }
+})
+
+test('ses plus beaux hauts faits : les plus rares à décrocher, un palier par haut fait, sans les coups du sort ni les prix', () => {
+  const b = (key: string, fois = 1, dernier = 0) => ({ key, fois, dernier })
+  const etagere = [
+    b('eclair', 6), // un prix du palmarès, six fois : il tombe à chaque soirée
+    b('hf:foudre', 11),
+    b('hf:oracle', 2),
+    b('hf:zero-pointe'), // une ombre, et la plus rare de toutes
+    b('hf:bavard:1'),
+    b('hf:bavard:2'),
+    b('hf:increvable', 2),
+    b('hf:grand-chelem'),
+  ]
+  assert.deepEqual(
+    plusBeaux(etagere, 3).map(x => x.key),
+    ['hf:grand-chelem', 'hf:increvable', 'hf:bavard:2'],
+    'le Grand Chelem d’abord, que peu décrochent ; Le Bavard une fois, à son plus haut palier',
+  )
+  assert.deepEqual(plusBeaux(etagere, 10).map(x => x.key), ['hf:grand-chelem', 'hf:increvable', 'hf:bavard:2', 'hf:oracle', 'hf:foudre'])
+  assert.deepEqual(plusBeaux([b('eclair', 6), b('hf:lanterne-rouge', 3)], 3), [], 'rien de beau à montrer : rien')
+  // L'expérience le disait mal : L'Oracle paie 50, le Grand Chelem 40.
+  assert.ok(xpDe('hf:oracle') > xpDe('hf:grand-chelem'))
+  assert.ok(PART_DES_JOUEURS['hf:oracle'] > PART_DES_JOUEURS['hf:grand-chelem'])
+})
+
+test('un palier se dit par ce qu’il demande — et La Légende par son niveau', () => {
+  const carriere = (key: string) => hautFait(key) as HautFaitDeCarriere
+  assert.equal(regleDuPalier(carriere('hf:bavard'), 3), '2000 réponses envoyées')
+  assert.equal(regleDuPalier(carriere('hf:eclats'), 1), '1 avatar éclaté')
+  assert.equal(regleDuPalier(carriere('hf:legende'), 2), 'Niveau 20')
 })

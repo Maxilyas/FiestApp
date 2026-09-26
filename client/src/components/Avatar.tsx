@@ -83,10 +83,10 @@ export function Avatar({ avatar, finition, eclat, legendaire, className }: Props
  * la page de dire autre chose : la carte cache ses galeries, la fin de
  * soirée mène au profil.
  */
-export function Dessin({ cle }: { cle: string }) {
+export function Dessin({ cle, verrouille }: { cle: string; verrouille?: boolean }) {
   const divin = !!divinDe(cle)
   const { Legendaire, Divin } = useDessins(true)
-  if (divin && Divin) return <Divin cle={cle} />
-  if (!divin && Legendaire) return <Legendaire cle={cle} />
+  if (divin && Divin) return <Divin cle={cle} verrouille={verrouille} />
+  if (!divin && Legendaire) return <Legendaire cle={cle} verrouille={verrouille} />
   return <span className={divin ? 'dv' : 'lg'} aria-hidden="true" />
 }

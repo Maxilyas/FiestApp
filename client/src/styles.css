@@ -109,6 +109,11 @@
   --bronze-text: #c98b58;
   --argent-text: #b9c3cf;
 
+  /* L'anneau des avatars rares, dans la grille du profil : l'orangé des
+     légendaires, le lilas des Divins — et le même pour le mot qui les nomme. */
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+
   --radius: 16px;
   --radius-sm: 14px;
   --radius-pill: 999px;
@@ -192,6 +197,8 @@
 
   --bronze-text: #8a5a2e;
   --argent-text: #5f6b7a;
+  --anneau-legendaire: #a85a22;
+  --anneau-divin: #6a58a8;
 }
 
 * {
@@ -3820,44 +3827,6 @@ h3 > .icon {
 /* Sur la page profil, la grille d'emojis porte des avatars complets. */
 .emoji-grid .av { font-size: 1.5rem; }
 
-/* ── L'étagère à badges ────────────────────────────────────────────────── */
-
-.vitrine {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: 10px;
-}
-
-.badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 6px 10px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  text-align: center;
-}
-
-.badge-emoji { font-size: 1.8rem; line-height: 1; }
-.badge-titre { font-size: 0.82rem; line-height: 1.2; }
-.badge-pied { font-size: 0.7rem; color: var(--muted); }
-
-/* La rareté se lit à la bordure : plus elle est rare, plus elle se voit. Les
-   quatre teintes sont celles des formes de réponse, déjà dans la palette —
-   pas de nouvelle couleur à faire cohabiter avec le reste. */
-/* Les raretés prennent les teintes des formes, qui s'assombrissent en
-   Ivoire ; `rgba` reste en repli pour un navigateur sans `color-mix`. */
-.badge.rarete-peucommune { border-color: rgba(143, 191, 168, 0.45); border-color: color-mix(in srgb, var(--shape-3) 45%, transparent); }
-.badge.rarete-rare { border-color: rgba(169, 154, 214, 0.55); border-color: color-mix(in srgb, var(--shape-2) 55%, transparent); }
-.badge.rarete-epique { border-color: rgba(217, 138, 154, 0.6); border-color: color-mix(in srgb, var(--shape-0) 60%, transparent); }
-.badge.rarete-legendaire {
-  border-color: rgba(var(--accent-rgb), 0.75);
-  background: var(--accent-soft);
-}
-.badge.rarete-legendaire .badge-pied { color: var(--accent-text); }
-
 /* ── L'historique des soirées ──────────────────────────────────────────── */
 
 .soiree-row {
@@ -4548,6 +4517,30 @@ h3 > .icon {
 .fait-emoji { font-size: 2rem; line-height: 1; }
 .fait-titre { font-size: 0.9rem; font-weight: 500; }
 
+/* Un record battu, un prix neuf dans la collection : une pastille dorée. */
+.nouveau-bloc { position: relative; display: flex; flex-direction: column; gap: 10px; border-color: var(--edge-strong); }
+.nouveau-bloc h3, .fin-approches h3 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.nouveau-bloc p { margin: 0; }
+.nouveau-pastille {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.nouveau-bloc > .nouveau-pastille { position: absolute; top: -9px; right: 14px; }
+.fin-approches { display: flex; flex-direction: column; gap: 12px; }
+.approche { display: flex; align-items: center; gap: 12px; }
+.approche-medaillon { font-size: 44px; line-height: 0; flex: none; }
+.approche-emoji { font-size: 1.8rem; width: 44px; text-align: center; flex: none; }
+.approche-corps { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.approche-ce-soir { white-space: nowrap; }
+.collection-neuf { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; font-size: 0.9rem; }
+
 .fin-actions { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-top: 4px; }
 .fin-actions .btn { justify-content: center; }
 .fin-invitation { margin: 6px 0 0; text-align: center; }
@@ -4718,7 +4711,6 @@ h3 > .icon {
 .repli > summary:focus-visible { outline-offset: 6px; border-radius: 6px; }
 .repli-compte { display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0; }
 /* L'avatar qu'on porte, dans le titre de « Mon avatar » : un aperçu, pas un bouton. */
-.repli-avatar { font-size: 1.5rem; line-height: 1; }
 .repli-chevron { color: var(--accent-text); transition: transform 0.2s ease; }
 .repli[open] .repli-chevron { transform: rotate(180deg); }
 .repli-corps { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
@@ -4741,38 +4733,6 @@ h3 > .icon {
 @media (prefers-reduced-motion: reduce) {
   .repli-chevron { transition: none; }
 }
-
-.galerie {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: 10px;
-  margin: 12px 0 8px;
-}
-
-.galerie-case {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  padding: 10px 6px 12px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius);
-  background: var(--surface-faint);
-  color: var(--ink);
-  font: inherit;
-  text-align: center;
-  cursor: pointer;
-}
-
-.galerie-case:disabled { cursor: default; }
-.galerie-case.porte { border-color: var(--accent); background: var(--accent-soft); }
-.galerie-case:not(:disabled):hover { border-color: var(--edge-strong); }
-.galerie-medaillon { font-size: 64px; line-height: 0; }
-.galerie-case.verrouille .galerie-medaillon { font-size: 56px; }
-.galerie-nom { font-family: var(--serif); font-size: 1.02rem; font-weight: 600; line-height: 1.15; }
-.galerie-case.verrouille .galerie-nom { color: var(--muted); }
-.galerie-case.ouverte { border-color: var(--edge-strong); }
-.galerie-case .jauge { margin-top: 3px; }
 
 .galerie-detail {
   display: flex;
@@ -4910,14 +4870,116 @@ h3 > .icon {
 .carte-legendaires { display: flex; flex-wrap: wrap; gap: 8px; }
 .carte-legendaire { font-size: 40px; line-height: 0; }
 .carte-chiffres { margin: 0; }
-.carte-vitrine { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.carte-vitrine li { display: flex; align-items: center; gap: 10px; }
-.carte-badge-emoji { font-size: 1.3rem; width: 1.6rem; text-align: center; }
-.carte-badge-titre { flex: 1; font-weight: 500; }
+.carte-beaux { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.carte-beaux li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--edge); background: var(--surface-faint); }
+.carte-prix { display: flex; align-items: center; gap: 6px; margin: 0; }
+.carte-prix .icon { color: var(--accent-text); }
 
 /* La catégorie de la question, au-dessus de son intitulé : une étiquette,
    pas un titre — la question reste ce qu'on lit en premier. */
 .quiz-categorie { display: block; color: var(--accent-text); margin-bottom: -8px; }
+
+/* ── Le quiz du jour ───────────────────────────────────────────────────
+   Sa carte sur l'accueil, et sa page (`/jour`). La question reprend l'écran
+   des soirées tel quel ; le reste — la médaille, la série, le classement —
+   parle la langue des cartes du profil. */
+.jour-carte { display: flex; flex-direction: column; gap: 10px; border-color: var(--edge-strong); }
+.jour-carte h1, .jour-carte p { margin: 0; }
+.jour-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.jour-date { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 1.6rem; line-height: 1.1; }
+.jour-meta { margin: 0; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.jour-pied { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.jour-score { margin: 0; font-size: 1.05rem; }
+.jour-score .num { font-family: var(--serif); font-size: 1.9rem; color: var(--accent-text); }
+.serie { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+.flamme { width: 1.1em; height: 1.1em; }
+.medaille { width: 1.2em; height: 1.2em; flex: none; vertical-align: -0.25em; }
+.medaille-texte { width: 1.25em; height: 1.25em; }
+.medaille-grande { width: 34px; height: 34px; }
+.medaille-geante { width: 54px; height: 54px; }
+.jour-bandeau { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 -6px; }
+.jour-trouvee { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 6px; }
+.jour-rappel { margin: 0; font-family: var(--serif); font-size: 1.25rem; line-height: 1.25; text-wrap: balance; }
+.lien-signaler { align-self: center; background: none; border: 0; color: var(--muted); font-family: var(--sans); cursor: pointer; }
+.jour-recompenses { display: flex; flex-direction: column; gap: 14px; }
+.jour-ligne { display: flex; align-items: center; gap: 12px; }
+.jour-ligne > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.jour-ligne h2 { font-size: 1.8rem; margin: 0; }
+.jour-pastille { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-text); flex: none; }
+.jour-pastille .flamme, .jour-pastille .icon { width: 20px; height: 20px; }
+.jour-note { margin: 0; text-align: center; }
+.jour-titre h2 { font-size: 2rem; margin: 4px 0 0; }
+.jour-annonce { display: flex; flex-direction: column; gap: 12px; border-color: var(--edge-strong); }
+.jour-annonce p { margin: 0; }
+.correction { list-style: none; margin: 10px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.correction li { display: flex; gap: 10px; align-items: flex-start; }
+.correction-marque { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; align-items: center; justify-content: center; flex: none; margin-top: 1px; background: var(--surface); color: var(--muted); }
+.correction-marque .icon { width: 14px; height: 14px; }
+.correction .ok .correction-marque { background: var(--accent-soft); color: var(--accent-text); }
+.correction .ko .correction-marque { background: rgba(var(--alert-rgb), 0.14); color: var(--alert); }
+.correction-corps { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.correction-corps b { color: var(--ink); font-weight: 600; }
+
+/* Des onglets en pilule : le classement du jour, d'hier, du mois. */
+.onglets {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--edge);
+  background: var(--surface);
+}
+.onglet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.onglet.actif { background: var(--accent-soft); color: var(--accent-text); box-shadow: inset 0 0 0 1px var(--edge-strong); }
+.onglets-petits .onglet { min-height: 34px; font-size: 0.82rem; }
+
+/* L'administration du quiz du jour : la réserve et ses jours d'avance. */
+.reserve-tete { display: flex; align-items: center; gap: 14px; margin: 10px 0; }
+.reserve-jours { font-family: var(--serif); font-size: 3.2rem; color: var(--accent-text); line-height: 1; }
+.reserve-tete > div { display: flex; flex-direction: column; }
+.reserve-jauge { height: 8px; margin-bottom: 12px; }
+.reserve-remplissage { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; }
+.reserve-remplissage .icon { color: var(--accent-text); margin-top: 2px; flex: none; }
+.consigne-a-copier { margin-top: 12px; }
+.journal-reserve { list-style: none; padding: 0; margin: 12px 0; display: flex; flex-direction: column; gap: 8px; }
+.journal-reserve li { display: flex; gap: 8px; align-items: flex-start; }
+.journal-reserve .icon { color: var(--accent-text); margin-top: 2px; flex: none; }
+.signalement { border-top: 1px solid var(--edge); padding-top: 12px; margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.signalement p { margin: 0; }
+.prochaines-du-jour { margin: 10px 0 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 4px; }
+.liste-a-coller { display: flex; flex-direction: column; gap: 10px; }
+.liste-a-coller textarea { width: 100%; font-family: var(--sans); resize: vertical; }
+.compte-rond {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6em;
+  height: 1.6em;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    L'ÉCRAN COMMUN EN 1366 × 768
@@ -5415,3 +5477,101 @@ h3 > .icon {
 /* L'avatar d'un profil qu'on crée : tiré d'avance, la grille à la demande. */
 .pf-avatar { gap: 8px; }
 .pf-avatar-emoji { font-size: 1.4rem; line-height: 1; }
+
+/* ── Le profil en trois onglets ──────────────────────────────────────────
+   « Ce soir » d'abord, resserré ; le quiz du jour ; puis Apparence,
+   Trophées, Carrière. */
+.ce-soir { display: flex; flex-direction: column; gap: 10px; }
+.ce-soir-autres { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Deux lignes plutôt qu'un bouton qui déborde : « Rejoindre une soirée » ne
+   tient pas en une sur 360 px. */
+.ce-soir-autres .btn { width: 100%; min-width: 0; white-space: normal; line-height: 1.15; padding: 6px 8px; gap: 6px; }
+.ce-soir-autres .btn .icon { width: 15px; height: 15px; flex: none; }
+.ce-soir .lendemain { justify-content: flex-start; text-align: left; }
+.onglets-profil .onglet { min-height: 44px; }
+.onglet .icon { width: 16px; height: 16px; flex: none; }
+.profil-onglet { display: flex; flex-direction: column; gap: 18px; }
+.titre-compte { font-family: var(--sans); font-weight: 400; margin-left: 6px; }
+.apercu { display: flex; flex-direction: column; gap: 10px; }
+.apercu-ligne { animation: none; }
+
+/* La grille unique : les emojis, les légendaires, les Divins, de la même
+   taille ; un anneau de couleur dit ce qui est rare. */
+.grille-unique { gap: 7px; }
+.case-avatar { position: relative; border-width: 1.5px; }
+.case-avatar.anneau-legendaire { border-color: var(--anneau-legendaire); }
+.case-avatar.anneau-divin { border-color: var(--anneau-divin); }
+.case-avatar.ferme { background: rgba(0, 0, 0, 0.25); }
+.case-avatar.selected { border-color: var(--accent); }
+.case-avatar.ouverte { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.3); }
+.case-medaillon { font-size: 30px; line-height: 0; }
+.detail-case { margin: 12px 0 0; }
+.detail-famille { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
+.anneau-texte-legendaire { color: var(--anneau-legendaire); }
+.anneau-texte-divin { color: var(--anneau-divin); }
+.legende-anneaux { margin: 10px 0 0; line-height: 1.6; }
+.puce { font-size: 0.8em; }
+
+/* Trophées : ce que la carte montre, les médailles du jour, les plus
+   proches, la collection de prix — ce qui manque en pointillé. */
+.vitrine-choix { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.vitrine-choix li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--edge); background: var(--surface-faint); }
+.vitrine-choix .hf-corps { display: flex; flex-direction: column; }
+.medailles-compte { display: flex; gap: 18px; align-items: center; margin: 10px 0 12px; }
+.medailles-compte > span { display: inline-flex; align-items: center; gap: 6px; font-size: 1.3rem; }
+.proches { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+.prix-collection { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+.prix-collection li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 12px; border: 1px solid var(--edge); text-align: center; }
+.prix-collection .prix-emoji { font-size: 1.35rem; line-height: 1; }
+.prix-collection .prix-titre { font-size: 0.66rem; line-height: 1.2; }
+.prix-collection .manque { border-style: dashed; }
+.prix-collection .manque .prix-emoji { filter: grayscale(1) brightness(0.45); }
+.prix-collection .manque .prix-titre { color: var(--muted); }
+.prix-collection .hf-fois { position: absolute; top: 3px; right: 4px; font-size: 0.62rem; }
+
+/* Le titre qu'il porte, sous son prénom : sur sa page et sur sa carte. */
+.titre-porte { margin: 2px 0 6px; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.05rem; color: var(--accent-text); }
+.titres { display: flex; flex-wrap: wrap; gap: 8px; }
+.titre-choix {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--edge);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.titre-choix.selected { background: var(--accent-soft); border-color: var(--edge-strong); color: var(--accent-text); }
+.titre-choix.ferme { color: var(--muted); font-style: normal; font-family: var(--sans); font-size: 0.82rem; cursor: default; }
+.titre-choix .icon { width: 13px; height: 13px; }
+
+/* La vitrine qu'il choisit : chaque haut fait gagné, et l'ordre de la carte. */
+.vitrine-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--edge);
+  background: var(--surface-faint);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* Le bouton porte le cadre : la ligne, elle, s'efface. */
+.vitrine-a-choisir li { padding: 0; border: 0; background: none; }
+.vitrine-option .hf-corps { flex: 1; display: flex; flex-direction: column; }
+.vitrine-option.selected { border-color: var(--edge-strong); background: var(--accent-soft); }
+.vitrine-option:disabled { opacity: 0.45; cursor: default; }
+.vitrine-rang { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 0.8rem; font-weight: 600; }
+.vitrine-actions { margin-top: 10px; }
+.carte-prix .flamme { width: 1em; height: 1em; }
