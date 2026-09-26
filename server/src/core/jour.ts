@@ -90,6 +90,13 @@ const JOURS_AVANT_DE_REPOSER = 30
 const PROCHAINES_MONTREES = 70
 /** Un signalement tient en une phrase. */
 const SIGNALEMENT_MAX = 280
+/**
+ * Combien de profils se lisent, ou se recomptent, en même temps. Au réveil
+ * de l'hébergeur, chaque profil d'un classement coûte trois allers-retours
+ * vers la base permanente : en série, cinquante joueurs faisaient attendre
+ * plusieurs secondes le premier qui ouvrait la page.
+ */
+const PROFILS_EN_VOL = 8
 
 /** Pas deux fois la même : l'intitulé, sans casse, sans accents, sans ponctuation. */
 export function empreinteDe(texte: string): string {
@@ -149,7 +156,12 @@ export interface JourDeps {
 export class JourStore {
   private client: Client
   private maintenant: () => number
-  /** Un profil à la fois : deux touches sur la même réponse ne la paient pas deux fois. */
+  /**
+   * Un profil à la fois : deux touches sur la même réponse ne la paient pas
+   * deux fois. Tout ce qui écrit ses points ou son expérience passe sous son
+   * verrou — sa partie, le recompte d'une annulation, le podium de la nuit —,
+   * et le tirage s'y relit : une annulation arrivée entre-temps y est.
+   */
   private verrous = new Map<string, Promise<unknown>>()
   /** Les profils masqués du classement, en mémoire : chaque classement les écarte. */
   private masques = new Set<string>()
@@ -487,8 +499,8 @@ export class JourStore {
   async etat(profil: ProfileRec): Promise<PartieDuJour> {
     const jour = jourDe(this.maintenant())
     await this.clorePasses(jour)
-    const tirage = await this.tirage(jour, true)
     return this.avecVerrou(profil.id, async () => {
+      const tirage = await this.tirage(jour, true)
       const [partie, revelation] = tirage ? await this.aJour(profil.id, tirage) : [null, undefined]
       return this.vueDe(profil, jour, tirage, partie, revelation)
     })
@@ -508,9 +520,9 @@ export class JourStore {
   async commencer(profil: ProfileRec): Promise<PartieDuJour> {
     const jour = jourDe(this.maintenant())
     await this.clorePasses(jour)
-    const tirage = await this.tirage(jour, true)
-    if (!tirage) throw new Error('Pas de quiz aujourd’hui : la réserve de questions est vide')
     return this.avecVerrou(profil.id, async () => {
+      const tirage = await this.tirage(jour, true)
+      if (!tirage) throw new Error('Pas de quiz aujourd’hui : la réserve de questions est vide')
       const maintenant = this.maintenant()
       const res = await this.client.execute({
         sql: `INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, servie_le) VALUES (?, ?, ?, 0, ?)`,
@@ -530,8 +542,8 @@ export class JourStore {
    */
   async suivante(profil: ProfileRec): Promise<PartieDuJour> {
     const jour = jourDe(this.maintenant())
-    const tirage = await this.tirage(jour)
     return this.avecVerrou(profil.id, async () => {
+      const tirage = await this.tirage(jour)
       if (!tirage) return this.vueDe(profil, jour, null, null)
       const [avant, revelation] = await this.aJour(profil.id, tirage)
       // Une question vient d'expirer : on la révèle d'abord, la suivante attend son geste.
@@ -551,9 +563,9 @@ export class JourStore {
    * payer de plus.
    */
   async repondre(profil: ProfileRec, jour: string, index: number, choix: unknown): Promise<RevelationDuJour> {
-    const tirage = jourValide(jour) ? await this.tirage(jour) : null
-    if (!tirage) throw new Error('Ce quiz du jour n’existe plus : recharge la page')
     return this.avecVerrou(profil.id, async () => {
+      const tirage = jourValide(jour) ? await this.tirage(jour) : null
+      if (!tirage) throw new Error('Ce quiz du jour n’existe plus : recharge la page')
       const partie = await this.partieDe(profil.id, jour)
       if (!partie) throw new Error('Commence d’abord le quiz du jour')
       if (!Number.isInteger(index) || index < 0 || index >= tirage.questions.length) throw new Error('Question introuvable')
@@ -713,7 +725,8 @@ export class JourStore {
     const comptees = total - tirage.annulees.length
     const categories = [...new Set(tirage.questions.map(q => q.categorie).filter((c): c is string => !!c))]
     const joueurs = await this.joueursDu(jour, profil.id)
-    const classes = classer(joueurs, j => j.points, j => j.profil.name, j => j.profil.id)
+    const nom = nommer(joueurs)
+    const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
     const moi = classes.find(c => c.item.profil.id === profil.id)
     const devant = moi && classes.filter(c => c.item.points > moi.item.points).at(-1)
     const etat = !partie ? 'a-jouer' : partie.finieLe !== null ? 'finie' : 'en-cours'
@@ -729,7 +742,7 @@ export class JourStore {
       medaille: partie?.finieLe ? medailleDe(partie.justes, comptees) : null,
       rang: moi && partie ? moi.rang : 0,
       joueurs: joueurs.length,
-      ...(devant && moi && { devant: { nom: devant.item.profil.name, ecart: devant.item.points - moi.item.points } }),
+      ...(devant && moi && { devant: { nom: nom(devant.item), ecart: devant.item.points - moi.item.points } }),
       pointsPossibles: possiblesDe(tirage),
       comptees,
       serie,
@@ -756,11 +769,12 @@ export class JourStore {
     let tous = garde && garde.revision === this.revision ? garde.joueurs : null
     if (!tous) {
       const res = await this.client.execute({ sql: 'SELECT profile_id, points, finie_le, commencee_le FROM jour_parties WHERE jour = ?', args: [jour] })
+      const profils = await parLots(res.rows, PROFILS_EN_VOL, r => this.deps.profiles.byId(String(r.profile_id)))
       const lus: Joueur[] = []
-      for (const r of res.rows) {
-        const profil = await this.deps.profiles.byId(String(r.profile_id))
+      res.rows.forEach((r, i) => {
+        const profil = profils[i]
         if (profil) lus.push({ profil, points: Number(r.points), enCours: r.finie_le == null, commenceeLe: Number(r.commencee_le) })
-      }
+      })
       tous = lus
       this.classementsGardes.set(jour, { revision: this.revision, joueurs: tous })
       if (this.classementsGardes.size > 8) this.classementsGardes.delete(this.classementsGardes.keys().next().value!)
@@ -782,22 +796,18 @@ export class JourStore {
             WHERE jour >= ? AND jour <= ? GROUP BY profile_id`,
       args: [`${mois}-01`, `${mois}-31`],
     })
+    const profils = await parLots(res.rows, PROFILS_EN_VOL, r => this.deps.profiles.byId(String(r.profile_id)))
     const joueurs: Joueur[] = []
-    for (const r of res.rows) {
-      const profil = await this.deps.profiles.byId(String(r.profile_id))
-      if (!profil) continue
-      if (this.masques.has(profil.id) && profil.id !== pour) continue
+    res.rows.forEach((r, i) => {
+      const profil = profils[i]
+      if (!profil || (this.masques.has(profil.id) && profil.id !== pour)) return
       joueurs.push({ profil, points: Number(r.points), enCours: false, commenceeLe: Number(r.commencee_le) })
-    }
+    })
     return { ...this.lignes(joueurs, mois, pour), fige: moisDe(jourDe(this.maintenant())) > mois }
   }
 
   private lignes(joueurs: readonly Joueur[], periode: string, pour: string | null): Omit<ClassementDuJour, 'fige'> {
-    // « Camille (2) » : dans l'ordre d'arrivée, comme en soirée — la marque
-    // reste au second, quel que soit son rang.
-    const arrivee = [...joueurs].sort((a, b) => a.commenceeLe - b.commenceeLe || a.profil.id.localeCompare(b.profil.id))
-    const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: j.profil.avatar })))
-    const nom = (j: Joueur) => marques.get(j.profil.id) ?? j.profil.name
+    const nom = nommer(joueurs)
     const classes = classer(joueurs, j => j.points, nom, j => j.profil.id)
     const ligne = ({ item: j, rang }: { item: Joueur; rang: number }): LigneDuJour => {
       const { niveau, finition, eclat, legendaire } = this.deps.profiles.apparenceDe(j.profil)
@@ -825,11 +835,22 @@ export class JourStore {
     }
   }
 
-  /** Les premiers d'un jour clos : tous les ex æquo en tête gagnent, dans l'ordre d'affichage. */
+  /**
+   * Les premiers d'un jour clos : tous les ex æquo en tête gagnent, dans
+   * l'ordre d'affichage. Lus parmi les joueurs de ce jour-là : un profil
+   * masqué depuis la nuit — le prénom qui n'allait pas — ne s'annonce plus
+   * sur tous les accueils, et un homonyme y garde sa marque.
+   */
   private async vainqueursDe(jour: string): Promise<{ nom: string; avatar: string }[]> {
     const res = await this.client.execute({ sql: 'SELECT profile_id FROM jour_podiums WHERE jour = ? AND rang = 1', args: [jour] })
-    const profils = (await Promise.all(res.rows.map(r => this.deps.profiles.byId(String(r.profile_id))))).filter((p): p is ProfileRec => !!p)
-    return profils.sort((a, b) => a.name.localeCompare(b.name, 'fr')).map(p => ({ nom: p.name, avatar: p.avatar }))
+    if (res.rows.length === 0) return []
+    const premiers = new Set(res.rows.map(r => String(r.profile_id)))
+    const joueurs = await this.joueursDu(jour, null)
+    const nom = nommer(joueurs)
+    return joueurs
+      .filter(j => premiers.has(j.profil.id))
+      .map(j => ({ nom: nom(j), avatar: j.profil.avatar }))
+      .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
   }
 
   /** Son jour d'hier, pour le lendemain : sa place, ses points, ce que le podium lui a payé. */
@@ -922,11 +943,15 @@ export class JourStore {
       'write',
     )
     this.revision++
-    for (const p of podium) await this.ecrireXp(p.profileId)
+    for (const p of podium) await this.avecVerrou(p.profileId, () => this.ecrireXp(p.profileId))
     console.log(`[jour] ${jour} clos : ${joueurs.length} joueur${joueurs.length > 1 ? 's' : ''}, ${podium.length} sur le podium`)
   }
 
-  /** Toute son expérience du quiz du jour, parties et podiums, recopiée dans sa ligne (`LIGNE_JOUR`). */
+  /**
+   * Toute son expérience du quiz du jour, parties et podiums, recopiée dans
+   * sa ligne (`LIGNE_JOUR`) — toujours sous le verrou du profil : lue puis
+   * écrite, elle laisserait sinon une somme périmée par-dessus la bonne.
+   */
   private async ecrireXp(profileId: string) {
     const [parties, podiums] = await this.client.batch(
       [
@@ -1053,40 +1078,59 @@ export class JourStore {
     }
     await this.avecVerrou('#tirage', async () => {
       const tirage = await this.tirageLu(jour)
-      if (!tirage || index < 0 || index >= tirage.questions.length) throw new Error('Question introuvable')
+      if (!tirage || !Number.isInteger(index) || index < 0 || index >= tirage.questions.length) throw new Error('Question introuvable')
       if (tirage.annulees.includes(index)) return
       const annulees = [...tirage.annulees, index].sort((a, b) => a - b)
-      const possibles = POINTS_MAX_PAR_QUESTION * (tirage.questions.length - annulees.length)
       await this.client.batch(
         [
           { sql: 'UPDATE jour_tirages SET annulees = ? WHERE jour = ?', args: [JSON.stringify(annulees), jour] },
-          // Les points de chacun, recomptés sans elle — ses bonnes réponses aussi.
-          {
-            sql: `UPDATE jour_parties SET
-                    points = (SELECT COALESCE(SUM(points), 0) FROM jour_reponses r
-                              WHERE r.profile_id = jour_parties.profile_id AND r.jour = jour_parties.jour
-                              AND r.question NOT IN (SELECT value FROM json_each(?))),
-                    justes = (SELECT COALESCE(SUM(juste), 0) FROM jour_reponses r
-                              WHERE r.profile_id = jour_parties.profile_id AND r.jour = jour_parties.jour
-                              AND r.question NOT IN (SELECT value FROM json_each(?)))
-                  WHERE jour = ?`,
-            args: [JSON.stringify(annulees), JSON.stringify(annulees), jour],
-          },
           { sql: 'UPDATE jour_signalements SET traite_le = ? WHERE jour = ? AND question = ? AND traite_le IS NULL', args: [this.maintenant(), jour, index] },
         ],
         'write',
       )
-      const parties = await this.client.execute({ sql: 'SELECT profile_id, points FROM jour_parties WHERE jour = ?', args: [jour] })
-      await this.client.batch(
-        parties.rows.map(r => ({
-          sql: 'UPDATE jour_parties SET xp = ? WHERE profile_id = ? AND jour = ?',
-          args: [xpDuJour(Number(r.points), possibles), String(r.profile_id), jour],
-        })),
-        'write',
-      )
-      this.revision++
-      for (const r of parties.rows) await this.ecrireXp(String(r.profile_id))
     })
+    // Chacun se recompte sous son propre verrou. Recompté d'un seul coup pour
+    // tout le jour, une réponse partie avant l'annulation et écrite après
+    // réécrivait ses points par-dessus : la question annulée restait payée.
+    // Sous le verrou, elle passe d'abord, et le recompte la corrige. Déjà
+    // annulée — un double clic, un essai après une panne à mi-chemin —, le
+    // recompte se rejoue quand même : il ne change rien à qui l'a eu.
+    const parties = await this.client.execute({ sql: 'SELECT profile_id FROM jour_parties WHERE jour = ?', args: [jour] })
+    await parLots(parties.rows, PROFILS_EN_VOL, r => {
+      const profileId = String(r.profile_id)
+      return this.avecVerrou(profileId, () => this.recompter(profileId, jour))
+    })
+    this.revision++
+  }
+
+  /** Ses points et ses bonnes réponses d'un jour, recomptés sans les questions annulées — son expérience suit. */
+  private async recompter(profileId: string, jour: string) {
+    const tirage = await this.tirageLu(jour)
+    if (!tirage) return
+    const annulees = JSON.stringify(tirage.annulees)
+    const [, partie] = await this.client.batch(
+      [
+        {
+          sql: `UPDATE jour_parties SET
+                  points = (SELECT COALESCE(SUM(points), 0) FROM jour_reponses r
+                            WHERE r.profile_id = jour_parties.profile_id AND r.jour = jour_parties.jour
+                            AND r.question NOT IN (SELECT value FROM json_each(?))),
+                  justes = (SELECT COALESCE(SUM(juste), 0) FROM jour_reponses r
+                            WHERE r.profile_id = jour_parties.profile_id AND r.jour = jour_parties.jour
+                            AND r.question NOT IN (SELECT value FROM json_each(?)))
+                WHERE profile_id = ? AND jour = ?`,
+          args: [annulees, annulees, profileId, jour],
+        },
+        { sql: 'SELECT points FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profileId, jour] },
+      ],
+      'write',
+    )
+    const points = Number(partie.rows[0]?.points ?? 0)
+    await this.client.execute({
+      sql: 'UPDATE jour_parties SET xp = ? WHERE profile_id = ? AND jour = ?',
+      args: [xpDuJour(points, possiblesDe(tirage)), profileId, jour],
+    })
+    await this.ecrireXp(profileId)
   }
 
   /** Masque un profil du classement — ou l'y remet. Il n'en est pas averti. */
@@ -1137,6 +1181,25 @@ export class JourStore {
 /** Les points possibles d'un jour : deux cents par question qui compte encore. */
 function possiblesDe(tirage: Tirage): number {
   return POINTS_MAX_PAR_QUESTION * (tirage.questions.length - tirage.annulees.length)
+}
+
+/**
+ * Le prénom de chaque joueur, marque d'homonymie comprise (« Camille (2) ») :
+ * posée dans l'ordre d'arrivée, comme en soirée, elle reste au second quel
+ * que soit son rang. Tout prénom du quiz du jour passe par ici — le
+ * classement, « à 70 pts de », le vainqueur d'hier (invariant 17).
+ */
+function nommer(joueurs: readonly Joueur[]): (j: Joueur) => string {
+  const arrivee = [...joueurs].sort((a, b) => a.commenceeLe - b.commenceeLe || a.profil.id.localeCompare(b.profil.id))
+  const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: j.profil.avatar })))
+  return j => marques.get(j.profil.id) ?? j.profil.name
+}
+
+/** `travail` sur chaque élément, `n` à la fois ; les résultats dans l'ordre des éléments. */
+async function parLots<T, R>(elements: readonly T[], n: number, travail: (e: T) => Promise<R>): Promise<R[]> {
+  const resultats: R[] = []
+  for (let i = 0; i < elements.length; i += n) resultats.push(...(await Promise.all(elements.slice(i, i + n).map(travail))))
+  return resultats
 }
 
 /** La question telle que le téléphone la reçoit : ni sa bonne réponse, ni son anecdote. */

@@ -9,8 +9,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import { connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { connexionAnimateur, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
+import { JourStore } from '../src/core/jour'
 
 ProfileStore.tirageEclat = () => false
 
@@ -47,6 +48,26 @@ function tirage(banc: Banc, jour = JOUR): { bonne: number; reponses: string[]; a
   } finally {
     db.close()
   }
+}
+
+/** Les questions annulées d'un jour, lues en base. */
+function annuleesDe(banc: Banc, jour = JOUR): number[] {
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true, fileMustExist: true })
+  try {
+    const r = db.prepare('SELECT annulees FROM jour_tirages WHERE jour = ?').get(jour) as { annulees: string } | undefined
+    return r ? JSON.parse(r.annulees) : []
+  } finally {
+    db.close()
+  }
+}
+
+/** Attend que `condition` soit vraie — cinq secondes au plus. */
+async function jusqua(condition: () => boolean, quoi: string) {
+  for (let essai = 0; essai < 500; essai++) {
+    if (condition()) return
+    await patienter(10)
+  }
+  throw new Error(`jamais arrivé : ${quoi}`)
 }
 
 /** Joue toute la partie : `juste(i)` dit s'il trouve la question i, chaque réponse `delai` ms après l'affichage. */
@@ -339,4 +360,105 @@ test('deux ex æquo en tête gagnent tous les deux : le podium les paie, le lend
     assert.equal(matin.sonHier.rang, 1)
     assert.equal(matin.sonHier.xpPodium, 25)
     assert.equal((await lire(banc, alice, '/api/jour')).corps.sonHier.xpPodium, 25)
+  }))
+
+test('une annulation qui croise une réponse en route : la question annulée ne reste payée à personne', () =>
+  avecBanc(async banc => {
+    const admin = await connexionAnimateur(banc.url)
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    await poster(banc, alice, '/api/jour/commencer')
+    const questions = tirage(banc)
+    await poster(banc, alice, '/api/jour/repondre', { jour: JOUR, index: 0, choix: questions[0].bonne })
+    await poster(banc, alice, '/api/jour/suivante')
+
+    // Sa réponse à la deuxième question s'arrête entre sa lecture et son
+    // écriture — le temps d'un aller-retour vers Turso —, et l'annulation de
+    // cette même question passe pendant ce temps-là.
+    const proto = JourStore.prototype as any
+    const enregistrer = proto.enregistrer
+    let entrer!: () => void
+    const entree = new Promise<void>(r => (entrer = r))
+    let relacher!: () => void
+    const porte = new Promise<void>(r => (relacher = r))
+    proto.enregistrer = async function (this: JourStore, partie: { question: number }, ...reste: unknown[]) {
+      if (partie.question === 1) {
+        entrer()
+        await porte
+      }
+      return enregistrer.call(this, partie, ...reste)
+    }
+    try {
+      const reponse = poster(banc, alice, '/api/jour/repondre', { jour: JOUR, index: 1, choix: questions[1].bonne })
+      await entree
+      const annulation = poster(banc, admin, '/api/admin/jour/annuler', { jour: JOUR, index: 1 })
+      await jusqua(() => annuleesDe(banc).includes(1), 'l’annulation en base')
+      relacher()
+      assert.equal((await reponse).status, 200)
+      assert.equal((await annulation).status, 200)
+    } finally {
+      proto.enregistrer = enregistrer
+    }
+
+    const apres = (await lire(banc, alice, '/api/jour')).corps
+    assert.equal(apres.points, 200, 'seule la première compte')
+    assert.equal(apres.justes, 1)
+    assert.equal(apres.pointsPossibles, 1800)
+    assert.equal(apres.xp, 8, 'deux cents points sur mille huit cents : 8 XP')
+    assert.equal(((await lire(banc, alice, '/api/joueur/moi')).corps as any).profile.xp, 8, 'et son niveau les compte, pas plus')
+  }))
+
+test('deux Camille : « à 1 000 pts de Camille (2) », le lendemain la nomme ainsi — et un profil masqué depuis la nuit ne s’annonce plus', () =>
+  avecBanc(async (banc, horloge) => {
+    const admin = await connexionAnimateur(banc.url)
+    const premiere = await inscrireProfil(banc.url, 'camille', 'Camille', '🦊')
+    const seconde = await inscrireProfil(banc.url, 'camille2', 'Camille', '🦊')
+    await jouer(banc, horloge, premiere, i => i < 5)
+    await jouer(banc, horloge, seconde, () => true)
+    const fin = (await lire(banc, premiere, '/api/jour')).corps
+    assert.deepEqual(fin.devant, { nom: 'Camille (2)', ecart: 1000 }, 'la seconde arrivée garde sa marque, même devant')
+    assert.deepEqual(
+      (await lire(banc, premiere, '/api/jour/classement')).corps.lignes.map((l: any) => l.nom),
+      ['Camille (2)', 'Camille'],
+    )
+
+    horloge.t = Date.UTC(2026, 8, 27, 6, 0)
+    assert.deepEqual((await lire(banc, premiere, '/api/jour')).corps.vainqueursDHier, [{ nom: 'Camille (2)', avatar: '🦊' }])
+
+    // Son prénom n'allait pas : masquée après la nuit, elle garde son podium
+    // mais ne s'annonce plus sur l'accueil de tous.
+    const id = (await lire(banc, admin, '/api/admin/jour/profils?q=camille2')).corps.find((p: any) => p.login === 'camille2').id
+    assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: id, masque: true })).status, 200)
+    assert.deepEqual((await lire(banc, premiere, '/api/jour')).corps.vainqueursDHier, [])
+    assert.equal((await lire(banc, seconde, '/api/jour')).corps.sonHier.xpPodium, 25)
+  }))
+
+test('une annulation tombée en panne à mi-chemin se rejoue : le second clic recompte ceux que le premier n’a pas eus', () =>
+  avecBanc(async (banc, horloge) => {
+    const admin = await connexionAnimateur(banc.url)
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    await jouer(banc, horloge, alice, () => true)
+    await jouer(banc, horloge, bob, () => true)
+
+    // La base permanente lâche au premier recompte : la question est annulée, un seul des deux recompté.
+    const proto = JourStore.prototype as any
+    const recompter = proto.recompter
+    let appels = 0
+    proto.recompter = async function (this: JourStore, ...args: unknown[]) {
+      if (appels++ === 0) throw new TypeError('fetch failed')
+      return recompter.apply(this, args)
+    }
+    try {
+      assert.equal((await poster(banc, admin, '/api/admin/jour/annuler', { jour: JOUR, index: 0 })).status, 500)
+    } finally {
+      proto.recompter = recompter
+    }
+    assert.deepEqual(annuleesDe(banc), [0])
+
+    assert.equal((await poster(banc, admin, '/api/admin/jour/annuler', { jour: JOUR, index: 0 })).status, 200)
+    for (const joueur of [alice, bob]) {
+      const etat = (await lire(banc, joueur, '/api/jour')).corps
+      assert.equal(etat.points, 1800)
+      assert.equal(etat.xp, 75)
+    }
   }))

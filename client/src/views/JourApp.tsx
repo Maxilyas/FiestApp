@@ -96,10 +96,14 @@ export function JourApp() {
     }
   }
 
-  /** Sa réponse : envoyée une fois, révélée aussitôt. */
+  /**
+   * Sa réponse : envoyée une fois, révélée aussitôt. Perdue en route, elle se
+   * retouche — l'écran le lui demande, et un doublon arrivé quand même rend
+   * la même révélation sans rien payer de plus.
+   */
   const repondre = (action: QuizAction) => {
     const q = partie?.question
-    if (!q || action.type !== 'answer' || envoi) return
+    if (!q || action.type !== 'answer' || envoi?.etat === 'envoi') return
     setEnvoi({ qIndex: q.index, choice: action.choice, etat: 'envoi' })
     api.jour
       .repondre(q.jour, q.index, action.choice)
@@ -115,10 +119,13 @@ export function JourApp() {
   }
 
   // L'échéance passée sans réponse : le serveur la compte « sans réponse »,
-  // et la page va chercher ce qu'elle révèle.
+  // et la page va chercher ce qu'elle révèle. Seule une réponse en route
+  // suspend ce rendez-vous — une réponse perdue, non : il laissait sinon la
+  // page sur la question, réponses closes, jusqu'à ce qu'on la recharge.
   const question = partie?.question
+  const enRoute = envoi?.etat === 'envoi'
   useEffect(() => {
-    if (!question || envoi) return
+    if (!question || enRoute) return
     const t = setTimeout(
       () => {
         api.jour.etat().then(recevoir).catch(() => {})
@@ -126,7 +133,7 @@ export function JourApp() {
       Math.max(0, question.echeance - serverNow()) + APRES_ECHEANCE_MS,
     )
     return () => clearTimeout(t)
-  }, [question, envoi, recevoir])
+  }, [question, enRoute, recevoir])
 
   // La fin rafraîchit le profil : sa barre d'expérience a bougé.
   const finie = partie?.etat === 'finie'

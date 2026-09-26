@@ -502,7 +502,11 @@ sans `QUIZ_DB_URL`.
   mais pas dans l'historique : tout ce qui lit `profile_xp` comme des
   soirées écarte les deux lignes à part (`#paliers`, `#jour`) — la série du
   jour les écarte aussi. Rien ne tourne à minuit : une clôture passe par
-  `clorePasses`, à la première demande du jour.
+  `clorePasses`, à la première demande du jour. Et tout ce qui écrit les
+  points ou l'expérience d'un profil passe sous son verrou, le tirage relu
+  dedans — sa partie, le recompte d'une annulation, le podium de la nuit :
+  recomptée d'un coup pour tout le jour, une annulation laissait payée la
+  question qu'une réponse en route écrivait derrière elle.
 - **Un haut fait ou un prix de plus a sa place ailleurs.** Un haut fait
   prend sa rareté dans `PART_DES_JOUEURS` (mesurée par `calibrage.ts`) :
   sans elle, il passerait pour le plus courant de tous et ne paraîtrait
