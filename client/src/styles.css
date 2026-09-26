@@ -3737,6 +3737,30 @@ h3 > .icon {
 .nom-laure-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .carte-laurier { display: flex; align-items: center; gap: 4px; margin: 0 0 2px; color: var(--accent-text); font-size: 0.85rem; font-weight: 500; }
 
+/* ── Les écussons de savoir ────────────────────────────────────────────── */
+
+.ecussons { display: flex; flex-wrap: wrap; gap: 14px; list-style: none; margin: 0; padding: 0; }
+/* Sur sa page, les douze en grille : quatre par ligne en 360, trois rangs. */
+.ecussons-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 14px 6px; }
+.ecusson { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; width: 64px; text-align: center; }
+.ecussons-grille .ecusson { width: auto; }
+.ecusson-blason { display: grid; place-items: center; width: 38px; height: 43px; }
+.ecusson-blason > * { grid-area: 1 / 1; }
+/* Le contour seul : l'emblème, dedans, garde son trait d'icône. */
+.ecusson-forme { width: 38px; height: 43px; }
+.ecusson-forme path { fill: currentColor; fill-opacity: 0.16; stroke: currentColor; stroke-width: 1.6; }
+/* L'emblème un peu haut : le blason s'effile vers le bas. */
+.ecusson-blason .ecusson-embleme { width: 16px; height: 16px; margin-top: -3px; }
+.ecusson-nom { font-size: 0.68rem; line-height: 1.15; color: var(--ink); overflow-wrap: anywhere; }
+.ecusson-legende { font-size: 0.68rem; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ecusson.palier-1 .ecusson-blason { color: var(--bronze-text); }
+.ecusson.palier-2 .ecusson-blason { color: var(--argent-text); }
+.ecusson.palier-3 .ecusson-blason { color: var(--accent); }
+/* Pas encore : sa silhouette en pointillé, sans couleur. */
+.ecusson.palier-0 .ecusson-blason { color: var(--muted); opacity: 0.6; }
+.ecusson.palier-0 .ecusson-forme path { fill-opacity: 0; stroke-dasharray: 3 3; }
+.ecusson.palier-0 .ecusson-nom { color: var(--muted); }
+
 /* ── La barre d'expérience, sur sa propre page ─────────────────────────── */
 
 .xp-bar {

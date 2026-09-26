@@ -34,6 +34,7 @@ import {
 } from '../../../shared/profil'
 import { rangPartage } from '../../../shared/classement'
 import type { CarteDeJoueur } from '../../../shared/carte'
+import { ecussonsDe, plusBeauxEcussons } from '../../../shared/ecussons'
 import { VITRINE_MAX, cleRangee, hautFaitDeSoiree, palierDe, plusBeaux, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
 import type { BadgePorte } from '../../../shared/badges'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, PrixAnnonce, SoireeClose } from '../../../shared/fin'
@@ -67,8 +68,8 @@ export interface SpaceDeps {
    * et celui qu'elles atteignaient ensemble ne tombait nulle part.
    */
   cloturesEnCours: Set<string>
-  /** Le quiz du jour, pour la ligne qu'en montre la carte d'un joueur. Absent, la carte s'en passe. */
-  jour?: Pick<JourStore, 'resumeDe'>
+  /** Le quiz du jour, pour ce qu'en montre la carte d'un joueur : sa ligne, ses écussons. Absent, la carte s'en passe. */
+  jour?: Pick<JourStore, 'resumeDe' | 'categoriesDe'>
 }
 
 /**
@@ -629,11 +630,17 @@ export class SpaceRuntime {
     if (!rec.profileId) return carte
     const profil = await this.deps.profiles.byId(rec.profileId)
     if (!profil) return carte
-    const [vitrine, carriere, jour] = await Promise.all([
+    const [vitrine, carriere, jour, categoriesDuJour] = await Promise.all([
       this.deps.profiles.badgesOf(profil.id),
       this.deps.profiles.careerOf(profil.id),
       this.deps.jour?.resumeDe(profil.id).catch(() => null),
+      // Une base qui se tait ôte ses écussons du quiz du jour à la carte, pas la carte.
+      this.deps.jour?.categoriesDe(profil.id).catch(() => ({})) ?? {},
     ])
+    const ecussons = plusBeauxEcussons(ecussonsDe(carriere.categories, categoriesDuJour)).map(e => ({
+      categorie: e.categorie,
+      palier: e.palier as 1 | 2 | 3,
+    }))
     const fiche = ficheDe(carriere)
     const recompenses = this.deps.profiles.recompensesOf(profil.id)
     const titre = this.deps.profiles.titrePorte(profil)
@@ -652,6 +659,7 @@ export class SpaceRuntime {
       prix: { eus: PRIX_INDIVIDUELS.filter(k => recompenses.has(k)).length, total: PRIX_INDIVIDUELS.length },
       ...(titre && { titre }),
       ...(jour && jour.joues > 0 && { jour }),
+      ...(ecussons.length > 0 && { ecussons }),
       fiche: {
         soirees: fiche.soirees,
         precision: fiche.precision,

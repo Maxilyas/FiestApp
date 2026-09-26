@@ -997,6 +997,30 @@ export class JourStore {
     }
   }
 
+  /**
+   * Ses questions et ses bonnes réponses du quiz du jour, catégorie par
+   * catégorie : de quoi faire ses écussons de savoir (`shared/ecussons.ts`),
+   * avec celles des soirées. Une question annulée pour tous ne compte pas —
+   * ni pour lui, ni contre lui.
+   */
+  async categoriesDe(profileId: string): Promise<Record<string, { questions: number; justes: number }>> {
+    const res = await this.client.execute({
+      sql: `SELECT json_extract(t.questions, '$[' || r.question || '].categorie') AS categorie,
+                   COUNT(*) AS questions, SUM(r.juste) AS justes
+            FROM jour_reponses r JOIN jour_tirages t ON t.jour = r.jour
+            WHERE r.profile_id = ?
+              AND NOT EXISTS (SELECT 1 FROM json_each(t.annulees) a WHERE a.value = r.question)
+            GROUP BY categorie`,
+      args: [profileId],
+    })
+    const categories: Record<string, { questions: number; justes: number }> = {}
+    for (const r of res.rows) {
+      if (r.categorie == null) continue
+      categories[String(r.categorie)] = { questions: Number(r.questions), justes: Number(r.justes ?? 0) }
+    }
+    return categories
+  }
+
   /** Ce que la carte d'un joueur dit de son quiz du jour : les jours joués, les victoires. */
   async resumeDe(profileId: string): Promise<{ joues: number; victoires: number }> {
     const [joues, victoires] = await this.client.batch(

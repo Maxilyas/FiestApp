@@ -21,6 +21,7 @@ import type { BadgePorte } from './badges'
 import type { HautFaitVu } from './hautsfaits'
 import type { DivinDescendu } from './divins'
 import type { CarriereDuJour } from './jour'
+import type { Ecusson } from './ecussons'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -727,6 +728,12 @@ export interface PublicProfileDetail extends PublicProfile {
    * a (`fois`), et ceux qui manquent encore. Absente d'un serveur d'avant.
    */
   prix?: PrixDeCollection[]
+  /**
+   * Ses écussons de savoir, les douze catégories dans l'ordre de la liste
+   * fixe : ses bonnes réponses, en soirée comme au quiz du jour, et le palier
+   * qu'elles valent. Absents d'un serveur d'avant.
+   */
+  ecussons?: Ecusson[]
 }
 
 /** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */

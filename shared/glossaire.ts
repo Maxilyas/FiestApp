@@ -29,6 +29,8 @@ export type Mot =
   | 'coupDOeil'
   | 'reflexe'
   | 'flair'
+  | 'ecusson'
+  | 'laurier'
 
 export interface Definition {
   /** Le mot tel qu'il s'affiche. */
@@ -46,7 +48,7 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   palmares: { terme: 'Palmarès', sens: 'Les prix que les chiffres de la soirée désignent tout seuls.' },
   hautsFaits: { terme: 'Hauts faits', sens: 'Ce que tu as réussi — ou raté avec panache — pendant une soirée.' },
   paliers: { terme: 'Paliers', sens: 'Bronze, argent, or : un haut fait cumulé sur toutes tes soirées.' },
-  legendaire: { terme: 'Avatar légendaire', sens: 'Un des douze avatars dessinés, débloqué par des hauts faits.' },
+  legendaire: { terme: 'Avatar légendaire', sens: 'Un avatar dessiné, débloqué par des hauts faits — le Sphinx, au quiz du jour.' },
   divin: { terme: 'Divins', sens: 'Cinq avatars secrets. Personne ne sait ce qui les fait descendre.' },
   finition: { terme: 'Finition', sens: 'Le cadre autour de ton avatar, que toute la salle voit. Il se gagne au niveau.' },
   eclat: { terme: 'Éclat', sens: 'Une chance sur quarante, à chaque soirée jouée à deux ou plus : ton avatar change de couleurs.' },
@@ -56,4 +58,6 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   coupDOeil: { terme: 'Coup d’œil', sens: 'Aux estimations : la part de la salle que les tiennes battent ou égalent.' },
   reflexe: { terme: 'Réflexe', sens: 'Ton temps moyen sur tes bonnes réponses.' },
   flair: { terme: 'Flair', sens: 'La part de tes bonnes réponses données quand la majorité se trompait.' },
+  ecusson: { terme: 'Écussons de savoir', sens: 'Tes bonnes réponses dans une catégorie, en soirée comme au quiz du jour : bronze, argent, or.' },
+  laurier: { terme: 'Laurier', sens: 'Le vainqueur du quiz du jour d’hier le porte toute la journée, après son prénom.' },
 }

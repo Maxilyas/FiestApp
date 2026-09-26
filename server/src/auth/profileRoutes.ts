@@ -18,6 +18,7 @@ import { Budget } from '../core/budget'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import type { JourStore } from '../core/jour'
 import { CATALOGUE_DES_PRIX } from '../core/stats'
+import { ecussonsDe } from '../../../shared/ecussons'
 
 interface ProfileApiDeps {
   profiles: ProfileStore
@@ -68,16 +69,19 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   }
 
   /**
-   * Sa propre page : le détail du profil, son quiz du jour, et sa collection
-   * de prix — ceux qu'il a, et ceux qui l'attendent.
+   * Sa propre page : le détail du profil, son quiz du jour, sa collection de
+   * prix — ceux qu'il a, et ceux qui l'attendent — et ses écussons de savoir,
+   * soirées et quiz du jour ensemble.
    */
   const detailDe = async (me: ProfileRec) => {
     const detail = await profiles.toDetail(me, espaceDe, deps.archives)
     const fois = new Map(detail.vitrine.map(b => [b.key, b.fois]))
+    const [jour, categoriesDuJour] = await Promise.all([deps.jour.carriereDe(me.id), deps.jour.categoriesDe(me.id)])
     return {
       ...detail,
-      jour: await deps.jour.carriereDe(me.id),
+      jour,
       prix: CATALOGUE_DES_PRIX.map(p => ({ ...p, fois: fois.get(p.key) ?? 0 })),
+      ecussons: ecussonsDe(detail.categories, categoriesDuJour),
     }
   }
 

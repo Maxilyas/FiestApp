@@ -11,6 +11,7 @@ import { Chiffres, justesses } from './Chiffres'
 import { Icon } from './Icon'
 import { Niveau } from './Niveau'
 import { Laurier } from './Laurier'
+import { Ecusson } from './Ecusson'
 import { Flamme } from './Jour'
 
 /**
@@ -157,6 +158,15 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+                {/* Ce qu'il sait, catégorie par catégorie : ses trois écussons
+                    les plus hauts. Rien tant qu'il n'en a aucun. */}
+                {p.ecussons && p.ecussons.length > 0 && (
+                  <div className="ecussons" aria-label="Écussons de savoir">
+                    {p.ecussons.map(e => (
+                      <Ecusson key={e.categorie} categorie={e.categorie} palier={e.palier} />
+                    ))}
                   </div>
                 )}
                 {/* La justesse aux QCM et aux estimations, côte à côte : la

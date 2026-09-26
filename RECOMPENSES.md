@@ -490,6 +490,21 @@ l'étagère de leur porteur). Les prix, eux, ne s'y comptent plus qu'en
 collection : les vingt qu'une personne peut remporter (`PRIX_INDIVIDUELS`),
 Le Coup de Pouce et La Plus Solidaire allant à une équipe.
 
+**Les écussons de savoir** (lot 7) disent ce qu'on sait, catégorie par
+catégorie : les bonnes réponses d'une catégorie, en soirée comme au quiz du
+jour — aux QCM seulement, une estimation n'étant jamais « juste » —, font
+un blason de bronze à 20, d'argent à 75, d'or à 200 (`SEUILS_ECUSSON`,
+`shared/ecussons.ts`). À une soirée par mois et au quiz du jour 25 jours
+sur 30, une catégorie gagne une quinzaine de bonnes réponses par mois : le
+bronze en un mois et demi, l'argent en cinq, l'or en un an environ ; à la
+soirée seule, bien plus lentement. Ces seuils sont un choix à ajuster. La carte en montre les trois plus hauts
+(`plusBeauxEcussons`) ; la page du profil, les douze, avec ce qui manque au
+suivant — ce qu'on n'a pas, en pointillé. Une dérivation pure de la
+carrière (`categories`) et des réponses du quiz du jour
+(`JourStore.categoriesDe`, les questions annulées écartées) : rien ne
+s'écrit, ils ne rapportent aucune expérience, et une soirée retirée de
+l'historique emporte les bonnes réponses qu'elle avait comptées.
+
 ### 5.7 Les métriques
 
 Chaque soirée garde son **relevé** brut (`ReleveSoiree`, version 2) : questions
@@ -749,8 +764,8 @@ carte dit aussi le quiz du jour, en une ligne.
 
 **Lot 7 — en cours** : les emojis de collection (§ 5.5), un par niveau
 sans finition ; les paliers du quiz du jour (§ 5.13) ; le Sphinx (§ 5.4) ;
-le laurier du vainqueur d'hier (§ 5.13). À suivre : les écussons de
-savoir, les fonds de carte (nuit étoilée, aurore, kintsugi, grand
+le laurier du vainqueur d'hier (§ 5.13) ; les écussons de savoir (§ 5.6).
+À suivre : les fonds de carte (nuit étoilée, aurore, kintsugi, grand
 théâtre), les légendaires de saison (11).
 
 **Plus tard**, dans l'ordre où je les prendrais :

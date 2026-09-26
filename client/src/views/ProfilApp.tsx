@@ -13,7 +13,7 @@ import { coupDOeilMoyen, type FinitionChoisie, type PublicProfileDetail } from '
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { Categories, Courbes, FicheCarriere } from '../components/Carriere'
 import { ApercuSalle, MesAvatars, MesFinitions, MonTitre } from '../components/Apparence'
-import { MaVitrine, MesHautsFaits, MesPrix, MonQuizDuJour } from '../components/Trophees'
+import { MaVitrine, MesEcussons, MesHautsFaits, MesPrix, MonQuizDuJour } from '../components/Trophees'
 import { espacesFines, formatNumber, place, reponsesParType } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
 import { route, spacePath } from '../routes'
@@ -275,6 +275,7 @@ export function ProfilApp() {
           <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
           <MonQuizDuJour jour={profil.jour} />
           <MesHautsFaits profil={profil} />
+          <MesEcussons ecussons={profil.ecussons} />
           <MesPrix prix={profil.prix} />
         </div>
       )}
@@ -361,7 +362,7 @@ export function ProfilApp() {
       )}
 
       <Glossaire
-        mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'precision', 'coupDOeil', 'reflexe', 'flair']}
+        mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'ecusson', 'laurier', 'precision', 'coupDOeil', 'reflexe', 'flair']}
       />
 
       {erreur && <p className="error">{erreur}</p>}
