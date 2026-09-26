@@ -74,6 +74,12 @@ export interface QuizServerOptions {
   clientDist?: string
   /** L'heure du quiz du jour. Les tests la font passer minuit ; en ligne, celle du serveur. */
   horlogeDuJour?: () => number
+  /**
+   * Le jeton de la routine qui remplit la réserve du quiz du jour
+   * (`RESERVE_TOKEN`, `quizDuJour.ts`). Absent : la porte n'existe pas, et
+   * la réserve se remplit à la main.
+   */
+  jetonDeLaReserve?: string
 }
 
 /**
@@ -655,6 +661,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     profiles,
     jour,
     maintenant: maintenantDuJour,
+    jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
     online: !!opts.online,
     publicOrigin: allowedOrigin,
     onLibraryChanged: refreshLibrary,

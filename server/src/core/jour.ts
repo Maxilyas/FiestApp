@@ -18,6 +18,7 @@ import { clientDistant, type Client } from './distante'
 import type { ProfileRec, ProfileStore } from '../auth/profiles'
 import { GRACE_MS, POINTS_MAX_PAR_QUESTION, pointsDuChoix, tempsDeLecture } from '../games/quiz'
 import { lireModeles } from './seed'
+import { aEcrirePour, categoriesAPrivilegier, consigneDuJour } from './consigne'
 import { normalizeQuestions, toPlayable, type PlayableQuestion, type QuizQuestionDef } from '../../../shared/library'
 import { preparerPartie, suiteFixe } from '../../../shared/hasard'
 import { classer } from '../../../shared/classement'
@@ -97,6 +98,12 @@ const SIGNALEMENT_MAX = 280
  * plusieurs secondes le premier qui ouvrait la page.
  */
 const PROFILS_EN_VOL = 8
+/**
+ * Combien d'intitulés la consigne rappelle à l'IA : de quoi éviter les
+ * redites de ces dernières semaines sans noyer la consigne. Plus anciennes,
+ * l'empreinte écarte encore les copies exactes.
+ */
+const DEJA_RAPPELEES = 300
 
 /** Pas deux fois la même : l'intitulé, sans casse, sans accents, sans ponctuation. */
 export function empreinteDe(texte: string): string {
@@ -391,6 +398,43 @@ export class JourStore {
         ajoutees: Number(r.ajoutees),
         ecartees: lireListe(r.ecartees),
       })),
+    }
+  }
+
+  /**
+   * La consigne à donner à une IA (`core/consigne.ts`), et combien il reste à
+   * écrire pour tenir trois semaines d'avance. Elle rappelle les intitulés
+   * déjà là — les prêts d'abord, puis les derniers posés — et les catégories
+   * les moins fournies. `n` : combien en demander, sinon ce qu'il manque.
+   */
+  async consigne(n?: number): Promise<{ joursDAvance: number; aEcrire: number; consigne: string }> {
+    const [compte, textes] = await this.client.batch(
+      [
+        'SELECT categorie, COUNT(*) AS n FROM jour_reserve WHERE retiree_le IS NULL AND posee_le IS NULL GROUP BY categorie',
+        {
+          sql: `SELECT json_extract(question, '$.text') AS texte FROM jour_reserve WHERE retiree_le IS NULL
+                ORDER BY posee_le IS NOT NULL, posee_le DESC, ajoutee_le DESC LIMIT ?`,
+          args: [DEJA_RAPPELEES],
+        },
+      ],
+      'read',
+    )
+    const parCategorie: Record<string, number> = {}
+    let pretes = 0
+    for (const r of compte.rows) {
+      parCategorie[r.categorie == null ? '' : String(r.categorie)] = Number(r.n)
+      pretes += Number(r.n)
+    }
+    const joursDAvance = Math.floor(pretes / QUESTIONS_PAR_JOUR)
+    const aEcrire = aEcrirePour(joursDAvance)
+    return {
+      joursDAvance,
+      aEcrire,
+      consigne: consigneDuJour({
+        n: n ?? aEcrire,
+        aPrivilegier: categoriesAPrivilegier(parCategorie),
+        deja: textes.rows.map(r => String(r.texte ?? '')).filter(Boolean),
+      }),
     }
   }
 

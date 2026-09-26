@@ -413,6 +413,9 @@ test('deux Camille : « à 1 000 pts de Camille (2) », le lendemain la nomme ai
     const premiere = await inscrireProfil(banc.url, 'camille', 'Camille', '🦊')
     const seconde = await inscrireProfil(banc.url, 'camille2', 'Camille', '🦊')
     await jouer(banc, horloge, premiere, i => i < 5)
+    // Une minute plus tard : arrivées au même instant, l'ordre d'arrivée se
+    // départagerait par l'identifiant, tiré au hasard.
+    horloge.t += 60_000
     await jouer(banc, horloge, seconde, () => true)
     const fin = (await lire(banc, premiere, '/api/jour')).corps
     assert.deepEqual(fin.devant, { nom: 'Camille (2)', ecart: 1000 }, 'la seconde arrivée garde sa marque, même devant')

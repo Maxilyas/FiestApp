@@ -3,6 +3,7 @@ import { api, motifDe, type AdminDuJour as Etat, type ProfilMasquable } from '..
 import { confirmDialog } from './Dialog'
 import { Icon } from './Icon'
 import { Flamme } from './Jour'
+import { copierTexte } from '../copier'
 import { quand } from '../format'
 import { showToast } from '../state'
 import { jourEnToutesLettres } from '../../../shared/jour'
@@ -27,6 +28,8 @@ export function AdminDuJour() {
   const [cherche, setCherche] = useState('')
   const [trouves, setTrouves] = useState<ProfilMasquable[]>([])
   const [occupe, setOccupe] = useState(false)
+  /** La consigne que le presse-papiers a refusée : dépliée, prête à sélectionner à la main. */
+  const [consigne, setConsigne] = useState<string | null>(null)
 
   const charger = () =>
     api.admin
@@ -66,6 +69,28 @@ export function AdminDuJour() {
     }
   }
 
+  /**
+   * « Copier la consigne pour une IA » : la même que celle de la routine, à
+   * coller dans le chatbot de son choix — sa réponse se recolle ensuite
+   * dans « Coller une liste ». Le secours quand la routine s'arrête.
+   */
+  const copierLaConsigne = async () => {
+    setOccupe(true)
+    try {
+      const { consigne } = await api.admin.consigneDuJour()
+      if (await copierTexte(consigne)) {
+        setConsigne(null)
+        showToast({ kind: 'info', message: 'Consigne copiée : colle-la dans ton IA, puis sa réponse dans « Coller une liste »' })
+      } else {
+        setConsigne(consigne)
+      }
+    } catch (e) {
+      showToast({ kind: 'error', message: motifDe(e) })
+    } finally {
+      setOccupe(false)
+    }
+  }
+
   useEffect(() => {
     if (cherche.trim().length < 2) return setTrouves([])
     const t = setTimeout(() => {
@@ -83,6 +108,7 @@ export function AdminDuJour() {
   if (erreur) return <p className="error">{erreur}</p>
   if (!etat) return null
   const { reserve } = etat
+  const dernierDepot = reserve.apports.find(a => a.source === 'ia')
   return (
     <>
       <section className="card" id="quiz-du-jour">
@@ -105,9 +131,24 @@ export function AdminDuJour() {
         </div>
         {reserve.joursDAvance < ALERTE_JOURS && (
           <p className="error">
-            Moins d’une semaine d’avance. Colle une liste : sans question neuve, la réserve rejouera les plus anciennes.
+            Moins d’une semaine d’avance. Colle une liste, ou copie la consigne dans ton IA : sans question neuve, la
+            réserve rejouera les plus anciennes.
           </p>
         )}
+        <p className="reserve-remplissage small">
+          <Icon name={etat.remplissage.automatique ? 'check-circle' : 'lock'} />
+          {etat.remplissage.automatique ? (
+            <span>
+              <b>Remplissage automatique ouvert</b> : une routine Claude Code y dépose les questions.
+              {dernierDepot ? ` Dernier dépôt : ${quand(dernierDepot.quand)}.` : ' Aucun dépôt pour l’instant.'}
+            </span>
+          ) : (
+            <span>
+              <b>Pas de remplissage automatique</b> : pose <code>RESERVE_TOKEN</code> sur le serveur (MISE-EN-LIGNE.md),
+              ou copie la consigne dans ton IA.
+            </span>
+          )}
+        </p>
         <p className="muted small">
           Dix questions par jour, catégories mêlées, pas deux fois la même. Le quiz du jour joue les questions à choix, sans
           photo : les estimations, les variantes et les photos sont écartées, et le disent.
@@ -151,6 +192,10 @@ export function AdminDuJour() {
               <Icon name="clipboard" />
               Coller une liste
             </button>
+            <button className="btn" disabled={occupe} onClick={() => void copierLaConsigne()}>
+              <Icon name="copy" />
+              Copier la consigne pour une IA
+            </button>
             <button
               className="btn"
               onClick={() =>
@@ -165,6 +210,12 @@ export function AdminDuJour() {
               <Icon name="eye" />
               {prochaines ? 'Masquer les prochains jours' : 'Voir les prochains jours'}
             </button>
+          </div>
+        )}
+        {consigne && (
+          <div className="consigne-a-copier">
+            <p className="muted small">Le navigateur a refusé la copie : sélectionne la consigne à la main.</p>
+            <pre className="import-example import-format-complet">{consigne}</pre>
           </div>
         )}
         {prochaines && (

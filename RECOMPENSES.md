@@ -649,9 +649,20 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   chacun suit), la retirer de la réserve, ou la garder ; masquer un profil
   du classement — il n'en est pas averti, et ne monte plus sur le podium.
 
-Plus tard : la réserve écrite chaque nuit par une IA gratuite (GitHub
-Models, par une tâche GitHub Actions du dépôt), relue par une seconde passe
-puis par l'analyseur de « Coller une liste ».
+- **La réserve écrite par une IA.** GitHub Models, prévu d'abord, a fermé
+  le 30 juillet 2026. C'est une routine Claude Code, sur l'abonnement de
+  l'administrateur, qui la remplit deux fois par semaine
+  (MISE-EN-LIGNE.md, étape 8) : elle lit la consigne (`/api/jour/reserve`,
+  derrière `RESERVE_TOKEN`), écrit ce qui manque pour trois semaines
+  d'avance — cent questions au plus —, se relit, puis dépose. La consigne
+  (`core/consigne.ts`) dit ce qui fait une bonne question — un fait sûr qui
+  ne change pas, une seule bonne réponse, une anecdote qui apprend autre
+  chose —, le format de « Coller une liste » réduit aux QCM, les catégories
+  les moins fournies et les trois cents derniers intitulés à ne pas
+  reprendre. L'analyseur de « Coller une liste » et la réserve vérifient
+  ensuite chaque question. Le serveur ne détient aucune clé d'IA, et le
+  jeton ne sait qu'ajouter des questions. En secours, « Copier la consigne
+  pour une IA », à `/admin` : la même, pour le chatbot de son choix.
 
 ---
 
@@ -668,8 +679,9 @@ collection de prix, les records et « Tu t'en approches » à la fin de soirée
 (§ 5.3, 5.6, 5.12).
 
 **Lot 5 — fait** : le quiz du jour — la partie, l'expérience B, la médaille,
-la série, le classement, la nuit, la réserve et sa modération (§ 5.13). À
-suivre : la réserve écrite par une IA, les estimations à tolérance.
+la série, le classement, la nuit, la réserve et sa modération, et la
+réserve écrite par une routine Claude Code (§ 5.13). À suivre : les
+estimations à tolérance.
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

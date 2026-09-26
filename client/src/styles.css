@@ -5019,6 +5019,9 @@ h3 > .icon {
 .reserve-jours { font-family: var(--serif); font-size: 3.2rem; color: var(--accent-text); line-height: 1; }
 .reserve-tete > div { display: flex; flex-direction: column; }
 .reserve-jauge { height: 8px; margin-bottom: 12px; }
+.reserve-remplissage { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 12px; }
+.reserve-remplissage .icon { color: var(--accent-text); margin-top: 2px; flex: none; }
+.consigne-a-copier { margin-top: 12px; }
 .journal-reserve { list-style: none; padding: 0; margin: 12px 0; display: flex; flex-direction: column; gap: 8px; }
 .journal-reserve li { display: flex; gap: 8px; align-items: flex-start; }
 .journal-reserve .icon { color: var(--accent-text); margin-top: 2px; flex: none; }

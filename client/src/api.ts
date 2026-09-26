@@ -354,6 +354,8 @@ export const api = {
     /** Le quiz du jour : la réserve, les signalements, les profils masqués. */
     jour: () => req<AdminDuJour>('/api/admin/jour'),
     prochainesDuJour: () => req<{ id: string; question: QuizQuestionDef; source: string }[]>('/api/admin/jour/prochaines'),
+    /** La consigne à coller dans une IA, celle que suit la routine : trente questions. */
+    consigneDuJour: () => req<{ consigne: string; joursDAvance: number; aEcrire: number }>('/api/admin/jour/consigne'),
     listeDuJour: (texte: string) =>
       req<{ ajoutees: number; ecartees: { texte: string; raison: string }[]; ignores: string[] }>('/api/admin/jour/liste', {
         method: 'POST',
@@ -401,6 +403,8 @@ export interface AdminDuJour {
     annulable: boolean
   }[]
   masques: ProfilMasquable[]
+  /** Une routine remplit la réserve : `RESERVE_TOKEN` est posé sur le serveur. */
+  remplissage: { automatique: boolean }
   aujourdhui: string
 }
 

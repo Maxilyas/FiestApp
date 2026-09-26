@@ -14,7 +14,7 @@ import { accountOf, csrfGuard, requireAccount } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
 import { mountProfileApi } from './auth/profileRoutes'
-import { mountJour, mountJourAdmin } from './quizDuJour'
+import { mountJour, mountJourAdmin, mountReserve } from './quizDuJour'
 import type { JourStore } from './core/jour'
 import { lireModeles } from './core/seed'
 import { lirePourQui, personnaliser } from '../../shared/modeles'
@@ -57,6 +57,8 @@ interface ApiDeps {
   jour: JourStore
   /** L'heure du quiz du jour — celle du serveur, que les tests font passer minuit. */
   maintenant: () => number
+  /** Le jeton de la routine qui remplit la réserve du quiz du jour ; null, la porte n'existe pas. */
+  jetonDeLaReserve: string | null
 }
 
 /**
@@ -88,6 +90,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   })
   // Le quiz du jour se joue avec son profil, lui aussi, sans compte d'animateur.
   mountJour(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant })
+  // Sa réserve se remplit par une routine, avec son jeton — pas un animateur non plus.
+  mountReserve(app, { jour: deps.jour, jeton: deps.jetonDeLaReserve })
   app.use('/api', requireAccount(deps.auth))
 
   // Les photos arrivent en dataURL dans le corps JSON.
@@ -99,7 +103,12 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // Partager : un code à quelqu'un, une copie au catalogue (`partages.ts`).
   mountPartages(app, { store: deps.store, partages: deps.partages, onLibraryChanged: deps.onLibraryChanged })
   // La réserve du quiz du jour, ses signalements, ses profils masqués : l'administrateur seul.
-  mountJourAdmin(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant })
+  mountJourAdmin(app, {
+    jour: deps.jour,
+    profiles: deps.profiles,
+    maintenant: deps.maintenant,
+    reserveAutomatique: deps.jetonDeLaReserve !== null,
+  })
 
   /**
    * Le ménage des photos de l'espace. Celles qu'une partie encore sur le

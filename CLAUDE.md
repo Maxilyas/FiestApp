@@ -61,6 +61,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) : ses trois plus beaux hauts faits, sa collection de prix |
 | `core/objectifs.ts` | ce que la fin de soirée raconte en plus de ce qu'elle rapporte : les records battus, « Tu t'en approches » — dérivations pures de l'historique, lues à la clôture après les crédits |
 | `shared/jour.ts` · `core/jour.ts` · `server/src/quizDuJour.ts` · `client/src/views/JourApp.tsx` | le quiz du jour, pour les profils : dix questions tirées à minuit (Paris) et figées, une partie chronométrée au serveur, dans la base permanente ; l'expérience (75 au plus, podium 25/15/10) dans la ligne `#jour` ; la nuit qui clôt la veille à la première demande (`clorePasses`) ; la réserve, ses signalements et les profils masqués, à `/admin` |
+| `core/consigne.ts` | la consigne qu'on donne à une IA pour écrire la réserve du quiz du jour — la routine Claude Code qui la remplit derrière `RESERVE_TOKEN` (`/api/jour/reserve` : la consigne, puis le dépôt ; MISE-EN-LIGNE.md, étape 8), ou « Copier la consigne pour une IA » à `/admin` : une seule pour les deux. Le serveur ne détient aucune clé d'IA |
 | `shared/glossaire.ts` · `client/src/components/Glossaire.tsx` | les mots maison (souvenir, bilan, coup d'œil, finition…), une phrase chacun, dépliée au toucher sous les pages qui les emploient — des Divins, le nom et le mystère seulement |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
 | `shared/echange.ts` | un quiz qu'on emporte : le fichier d'export (questions, et toutes leurs pièces en clair — photos, extraits), sa lecture, et l'import, qui repasse par l'envoi d'image et la création de quiz — le navigateur et les tests par le même chemin |
@@ -507,6 +508,14 @@ sans `QUIZ_DB_URL`.
   dedans — sa partie, le recompte d'une annulation, le podium de la nuit :
   recomptée d'un coup pour tout le jour, une annulation laissait payée la
   question qu'une réponse en route écrivait derrière elle.
+- **La consigne du quiz du jour ne promet rien que la réserve refuse.**
+  Elle décrit le format de « Coller une liste » réduit à ce que
+  `raisonDEcarter` accepte, et son exemple se relit dans
+  `jour-reserve.test.ts`. Quand la réserve apprendra une nouvelle sorte de
+  question (les estimations à tolérance), la consigne la décrit dans le
+  même commit — sinon la routine écrit pour rien, ou jamais ce qu'on veut.
+  Et le jeton de la réserve ne sait qu'ajouter : une route de plus derrière
+  lui ne lit ni n'efface rien.
 - **Un haut fait ou un prix de plus a sa place ailleurs.** Un haut fait
   prend sa rareté dans `PART_DES_JOUEURS` (mesurée par `calibrage.ts`) :
   sans elle, il passerait pour le plus courant de tous et ne paraîtrait

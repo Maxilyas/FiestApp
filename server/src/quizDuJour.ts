@@ -1,8 +1,10 @@
-import express, { type Express, type Request, type Response } from 'express'
+import { createHash, timingSafeEqual } from 'node:crypto'
+import express, { type Express, type NextFunction, type Request, type Response } from 'express'
 import type { JourStore } from './core/jour'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { readPlayerToken, requireAdmin } from './auth/http'
+import { A_ECRIRE_A_LA_MAIN, A_ECRIRE_MAX } from './core/consigne'
 import { parseImportedQuestions } from '../../shared/library'
 import { jourDe, jourValide, moisDe } from '../../shared/jour'
 
@@ -11,6 +13,8 @@ interface JourDeps {
   profiles: ProfileStore
   /** L'heure du serveur, celle du magasin : un classement « d'aujourd'hui » se lit au même jour. */
   maintenant: () => number
+  /** Une routine peut remplir la réserve : `RESERVE_TOKEN` est posé. L'administration le dit. */
+  reserveAutomatique?: boolean
 }
 
 const MOIS = /^\d{4}-\d{2}$/
@@ -106,6 +110,65 @@ export function mountJour(app: Express, deps: JourDeps) {
   )
 }
 
+const empreinte = (jeton: string) => createHash('sha256').update(jeton).digest()
+
+/**
+ * La réserve, pour la routine qui la remplit (`RESERVE_TOKEN`) : ce qu'il
+ * faut écrire — la consigne —, puis le dépôt. Un jeton qui ne sait faire
+ * que ça : ni lire un profil, ni retirer une question. S'il fuitait, il ne
+ * coûterait que des questions en trop, que l'administration retire. Sans
+ * jeton posé, la porte n'existe pas.
+ *
+ * La routine tourne sur l'abonnement Claude de l'administrateur : aucune
+ * clé d'IA n'est confiée au serveur. Elle passe AVANT la porte des
+ * animateurs — elle n'en est pas un —, mais derrière la protection contre
+ * les requêtes forgées : son dépôt porte `X-Requested-With: quizz`, comme
+ * toute écriture.
+ */
+export function mountReserve(app: Express, deps: { jour: JourStore; jeton: string | null }) {
+  const attendu = deps.jeton ? empreinte(deps.jeton) : null
+  const depot = express.json({ limit: '256kb' })
+
+  /**
+   * La porte, AVANT de lire le corps : sans elle, n'importe qui faisait
+   * analyser un quart de mégaoctet de JSON au serveur. Les jetons se
+   * comparent par leur empreinte, en temps constant : ni le jeton ni sa
+   * longueur ne se devinent à la montre.
+   */
+  const porte = (req: Request, res: Response, next: NextFunction) => {
+    res.set('Cache-Control', 'no-store')
+    if (!attendu) return res.status(404).json({ error: 'Le dépôt automatique n’est pas ouvert sur ce serveur' })
+    const recu = /^Bearer\s+(\S+)$/i.exec(req.header('authorization') ?? '')?.[1] ?? ''
+    if (!timingSafeEqual(empreinte(recu), attendu)) return res.status(401).json({ error: 'Jeton de la réserve refusé' })
+    next()
+  }
+
+  app.get(
+    '/api/jour/reserve',
+    porte,
+    wrap(async (_req, res) => {
+      res.json({ ...(await deps.jour.consigne()), parEnvoi: A_ECRIRE_MAX })
+    }),
+  )
+
+  app.post(
+    '/api/jour/reserve',
+    porte,
+    depot,
+    wrap(async (req, res) => {
+      const liste = typeof req.body?.liste === 'string' ? req.body.liste : ''
+      if (!liste.trim()) return res.status(400).json({ error: 'Envoie les questions dans « liste », au format de la consigne' })
+      const lu = parseImportedQuestions(liste)
+      if (lu.questions.length > A_ECRIRE_MAX) {
+        return res.status(400).json({ error: `${A_ECRIRE_MAX} questions au plus par envoi : coupe la liste en plusieurs` })
+      }
+      const { ajoutees, ecartees } = await deps.jour.ajouter(lu.questions, 'ia')
+      console.log(`[jour] dépôt de la routine : ${ajoutees} ajoutée${ajoutees > 1 ? 's' : ''}, ${ecartees.length} écartée${ecartees.length > 1 ? 's' : ''}`)
+      res.json({ ajoutees, ecartees, ignores: lu.ignores })
+    }),
+  )
+}
+
 /**
  * La réserve, les signalements et les profils masqués, pour l'administrateur
  * seul (`/admin`). Passe derrière la porte des animateurs.
@@ -120,7 +183,24 @@ export function mountJourAdmin(app: Express, deps: JourDeps) {
         deps.jour.signalements(),
         deps.jour.profilsPourLAdministration(''),
       ])
-      res.json({ reserve, signalements, masques, aujourdhui: jourDe(deps.maintenant()), mois: moisDe(jourDe(deps.maintenant())) })
+      res.json({
+        reserve,
+        signalements,
+        masques,
+        remplissage: { automatique: !!deps.reserveAutomatique },
+        aujourdhui: jourDe(deps.maintenant()),
+        mois: moisDe(jourDe(deps.maintenant())),
+      })
+    }),
+  )
+
+  // « Copier la consigne pour une IA » : la même que celle de la routine,
+  // pour un chatbot où l'on colle à la main — trente questions d'un coup.
+  app.get(
+    '/api/admin/jour/consigne',
+    requireAdmin,
+    wrap(async (_req, res) => {
+      res.json(await deps.jour.consigne(A_ECRIRE_A_LA_MAIN))
     }),
   )
 

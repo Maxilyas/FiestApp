@@ -56,6 +56,19 @@ const maxPlayers = Number(process.env.MAX_PLAYERS) || undefined
 // Il devient un bandeau sur toutes les pages — on ne projette pas la mauvaise
 // instance un soir de fête, et on n'écrit pas ses quiz dans la mauvaise base.
 const appEnv = process.env.APP_ENV?.trim() || undefined
+// Le jeton de la routine qui remplit la réserve du quiz du jour. Il ne sait
+// qu'ajouter des questions, mais un jeton court se devine : en dessous de
+// trente-deux caractères, la porte reste fermée — le bouton « Generate » de
+// l'hébergeur en tire un bien plus long.
+const RESERVE_TOKEN_MIN = 32
+const jetonDonne = process.env.RESERVE_TOKEN?.trim() || undefined
+const jetonDeLaReserve = jetonDonne && jetonDonne.length >= RESERVE_TOKEN_MIN ? jetonDonne : undefined
+if (jetonDonne && !jetonDeLaReserve) {
+  console.warn(
+    `[jour] RESERVE_TOKEN fait moins de ${RESERVE_TOKEN_MIN} caractères : le dépôt automatique reste fermé. ` +
+      'Tire-en un plus long (le bouton « Generate » de Render).',
+  )
+}
 
 /**
  * La base, telle qu'on peut l'écrire dans un journal : son hôte, jamais ce
@@ -109,7 +122,7 @@ function poserLeFilet() {
   })
 }
 
-createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv }).then(
+createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv, jetonDeLaReserve }).then(
   server => {
     poserLeFilet()
     console.log(`🎉 FiestApp — serveur prêt sur http://localhost:${server.port}${appEnv ? `  [${appEnv}]` : ''}`)
