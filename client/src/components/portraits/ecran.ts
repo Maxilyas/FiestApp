@@ -43,7 +43,7 @@ function insigne(x: number, y: number, R: number): string {
     const a = -Math.PI / 2 + (i * Math.PI) / 3
     boules += `M${(x + R * Math.cos(a)).toFixed(1)},${(y + R * Math.sin(a)).toFixed(1)}h0`
   }
-  return `<path d="${etoileA(6, x, y, R, R * 0.5)}" fill="#f7d060" stroke="#b8862a" stroke-width=".4"/><path d="${boules}" stroke="#f7d060" stroke-width="1.9" stroke-linecap="round"/><circle cx="${x}" cy="${y}" r="${(R * 0.28).toFixed(1)}" fill="#c8922a"/>`
+  return `<path d="${etoileA(6, x, y, R, R * 0.62)}" fill="#f7d060" stroke="#b8862a" stroke-width=".4"/><path d="${boules}" stroke="#f7d060" stroke-width="1.9" stroke-linecap="round"/><circle cx="${x}" cy="${y}" r="${(R * 0.3).toFixed(1)}" fill="#fff3c0" stroke="#c8922a" stroke-width=".5"/>`
 }
 
 export const DESSINS: Record<string, DessinDePortrait> = {
@@ -92,7 +92,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'h', '#383244', '#0c0a10'),
     decor: () =>
       RIDEAUX +
-      `<circle cx="79" cy="20" r="7" fill="#fbead0" opacity=".85"/><circle cx="76.5" cy="18" r="1.4" fill="#e6d0b0" opacity=".7"/><circle cx="81.5" cy="23" r="1" fill="#e6d0b0" opacity=".6"/>` +
+      `<circle cx="76" cy="22" r="7" fill="#fbead0" opacity=".85"/><circle cx="73.5" cy="20" r="1.4" fill="#e6d0b0" opacity=".7"/><circle cx="78.5" cy="25" r="1" fill="#e6d0b0" opacity=".6"/>` +
       points([[20, 22, 0.6], [30, 10, 0.5], [88, 40, 0.5]], '#ffe9c8'),
     corps: u => `
       <path d="M17,37 C25,45 33,51 38,57 L62,57 C67,51 75,45 83,37 C82,56 76,70 64,81 L36,81 C24,70 18,56 17,37 Z" fill="url(#${u}n)"/>
@@ -160,9 +160,9 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M63.4,58 L72.5,68.5" stroke="#4a2a18" stroke-width="3.4" stroke-linecap="round"/>
       <path d="M62.9,57.4 L65.2,60.2" stroke="#d9a441" stroke-width="3.8"/>
       <circle cx="57.8" cy="52.2" r="7.6" fill="none" stroke="#d9a441" stroke-width="2.1"/>
-      <path d="M69.5,72 C72.5,75.5 77.5,75.5 80,72 C83.5,79 86.5,88 88,97 L73.5,100 C73,91 71.5,81 69.5,72 Z" fill="url(#${u}m)" stroke="#8a6a3a" stroke-width=".6"/>
-      <path d="M68.8,68.8 C67.6,65.6 69.4,62.4 72.6,61.8 C75.8,61.2 78.8,63 79.2,66.2 C79.6,69.4 77.2,72 74,72.3 C71.4,72.6 69.6,71 68.8,68.8 Z" fill="url(#${u}p)"/>
-      <path d="M70.4,63.8 C72.8,64.2 75,65.4 76.6,67.2 M69.4,66.8 C71.8,67.2 74,68.4 75.4,70.2" stroke="#4a2818" stroke-width=".6" fill="none" opacity=".7"/>`,
+      <path d="M70,71 C73,74.5 78,74.5 80.5,71 C84,78 86.5,88 88,97 L73.5,100 C73,91 72,81 70,71 Z" fill="#c29d63" stroke="#8a6a3a" stroke-width=".6"/>
+      <ellipse cx="74.4" cy="67.4" rx="5.2" ry="4.3" transform="rotate(51 74.4 67.4)" fill="url(#${u}p)"/>
+      <path d="M70.6,66.6 C71.8,65.2 73,64.2 74.4,63.5 M72.5,69 C73.7,67.6 74.9,66.6 76.3,65.9 M74.4,71.3 C75.6,69.9 76.8,68.9 78.2,68.2" stroke="#4a2818" stroke-width=".6" fill="none" opacity=".7"/>`,
   },
 
   'br:pirate': {
@@ -211,7 +211,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M14,60 C20,66 27,74 34,80 C27,79 20,77 16,74 C15,70 15,64 14,60 Z M6,76 C12,79 18,81 24,82 C18,84 12,86 10,84 C8,81 7,79 6,76 Z" fill="#0e6a64"/>
       <path d="M65,60 C68,53 67,45 66,40 C67,31 60,24 52,24 C45,20 36,22 32,27 C25,26 19,31 20,37 C14,40 14,47 18,50 C14,55 18,61 24,60 C24,66 31,69 35,65 C37,68 40,68 41,65 Z" fill="url(#${u}h)"/>
       <path d="M23,39 C21,42 22,45 25,46 M19,52 C18,55 19.5,57.5 22.5,57.6 M33,29 C31,30 30,32 31,34 M44,24 C42,25 41,27 42,29 M62,30 C64,32 64.6,35 63.6,37 M29,62 C28,60 29,58 31,57.6" stroke="#7a5048" stroke-width=".9" fill="none" stroke-linecap="round" opacity=".6"/>
-      <path d="M40.5,80 C38.5,75 38.6,70.5 40.4,66.5 C42.4,70.4 44.6,74 47.5,77 Z M59.5,80 C61.5,75 61.4,70.5 59.6,66.5 C57.6,70.4 55.4,74 52.5,77 Z" fill="url(#${u}cape)"/>
+      <path d="M33,82 C35,76 37,71 39.5,67.5 C41.5,71.5 43.5,75.5 46.5,79 Z M67,82 C65,76 63,71 60.5,67.5 C58.5,71.5 56.5,75.5 53.5,79 Z" fill="url(#${u}cape)"/>
       <path d="M24,100 C26,87 37,79.5 50,79.5 C63,79.5 74,87 76,100 Z" fill="url(#${u}s)"/>
       <path d="M45,67 L45,80 L55,80 L55,67 Z" fill="#8f5a38"/>
       <path d="M42.5,79.5 C45,83.5 55,83.5 57.5,79.5 L60,80.8 C57,86 43,86 40,80.8 Z" fill="#12877d"/>
@@ -238,9 +238,9 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'b', '#ffc6e2', '#ff6fae'),
     // Les flashes des photographes, chacun dans son halo.
     decor: () =>
-      `<g fill="#fff" opacity=".16"><circle cx="17" cy="30" r="6"/><circle cx="85" cy="24" r="7"/><circle cx="13" cy="66" r="4.5"/><circle cx="88" cy="64" r="5"/></g>` +
+      `<g fill="#fff" opacity=".16"><circle cx="17" cy="30" r="6"/><circle cx="80" cy="25" r="7"/><circle cx="13" cy="66" r="4.5"/><circle cx="88" cy="64" r="5"/></g>` +
       etoile(17, 30, 5.5, '#fff', 0.9) +
-      etoile(85, 24, 6.5, '#fff', 0.9) +
+      etoile(80, 25, 6.5, '#fff', 0.9) +
       etoile(13, 66, 3.8, '#fff', 0.8) +
       etoile(88, 64, 4.4, '#fff', 0.8) +
       points([[28, 12, 0.6], [70, 9, 0.5], [22, 84, 0.5], [80, 86, 0.5]], '#fff', 0.7),
@@ -252,7 +252,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M45,66 L45,80 C45,84.5 55,84.5 55,80 L55,66 Z" fill="#e6b095"/>
       <g fill="none" stroke-linecap="round"><path d="M40,79 C32,80 26,85 23,100 M60,79 C68,80 74,85 77,100 M40,79 C45,77.6 55,77.6 60,79" stroke="url(#${u}b)" stroke-width="8.4"/>
       <path d="M40,79 C32,80 26,85 23,100 M60,79 C68,80 74,85 77,100" stroke="#ff9ccc" stroke-width="11" stroke-dasharray="0 3.1"/>
-      <path d="M40,79 C32,80 26,85 23,100 M60,79 C68,80 74,85 77,100" stroke="#ffe2f1" stroke-width="3.6" stroke-dasharray="0 3.1" stroke-dashoffset="1.5" transform="translate(-.9 -1)"/></g>
+      <path d="M40,79 C32,80 26,85 23,100 M60,79 C68,80 74,85 77,100" stroke="#ffe2f1" stroke-width="3" stroke-dasharray="0 3.1" stroke-dashoffset="1.5" opacity=".6" transform="translate(-.9 -1)"/></g>
       <path d="M37,46 C37,39 42.5,35.5 50,35.5 C57.5,35.5 63,39 63,46 C63,57.5 57.5,67.5 50,70 C42.5,67.5 37,57.5 37,46 Z" fill="url(#${u}p)"/>
       <path d="M36.5,48 C34.5,37 41,29 50,29 C59,29 65.5,36 63.5,46 C62,41 59,38.5 55,38 C52,40 49,41 45.5,40.5 C41,40.5 38,43.5 36.5,48 Z" fill="url(#${u}h)"/>
       <path d="M40,37 C43,33.5 47,32.5 51,33.5" stroke="#fff4c8" stroke-width="1.1" fill="none" opacity=".7" stroke-linecap="round"/>

@@ -49,27 +49,29 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     fond: ['#3aa2cf', '#0d4b72', '#03172c'],
     defs: u => rad(u + 'k', '#b67a3c', '#5a3514') + lin(u + 'c', '#e2b36a', '#b07434') + lin(u + 'p', '#b9dd6c', '#5e9336'),
     decor: () => RAIS + bulles([[16, 34, 1.8], [22, 24, 1.2], [84, 36, 1.5], [79, 26, 1], [86, 86, 1.2]]),
-    // Vue de dessus, la tête levée vers nous : de face, la tortue n'était plus qu'un buste aux bras levés.
+    // Vue de dessus, la tête levée vers nous : de face, la tortue n’était qu’un buste aux bras levés.
+    // Les joints entre les écailles sont à demi transparents : verrouillée, sa carapace se lit encore.
     corps: u => `
-      ${miroir(`<path d="M32,57 C22,55 11,60 7,72 C13,69.5 22,70 31,73 Z" fill="url(#${u}p)"/>`)}
       <path d="M32,57 C22,55 11,60 7,72 C13,69.5 22,70 31,73 Z" fill="url(#${u}p)"/>
+      ${miroir(`<path d="M32,57 C22,55 11,60 7,72 C13,69.5 22,70 31,73 Z" fill="url(#${u}p)"/>`)}
       <path d="M13,65.5 L16.5,65 M19,61 L22.5,61 M87,65.5 L83.5,65 M81,61 L77.5,61" stroke="#4f7d2c" stroke-width="1.6" stroke-linecap="round" opacity=".5"/>
-      <ellipse cx="50" cy="76" rx="27" ry="24" fill="url(#${u}k)"/>
-      <g fill="url(#${u}c)" stroke="#f6d78e" stroke-width="1" stroke-linejoin="round">
-        <path d="M43,64 L50,60 L57,64 L57,72 L50,76 L43,72 Z"/><path d="M43,80 L50,76 L57,80 L57,88 L50,92 L43,88 Z"/>
-        <path d="M30,70 L36,62 L43,64 L43,72 L37,78 L29,77 Z"/><path d="M70,70 L64,62 L57,64 L57,72 L63,78 L71,77 Z"/>
-        <path d="M29,77 L37,78 L43,80 L43,88 L36,94 L28,88 Z"/><path d="M71,77 L63,78 L57,80 L57,88 L64,94 L72,88 Z"/>
+      <ellipse cx="50" cy="76" rx="25" ry="22" fill="#4a2508" opacity=".6"/>
+      <ellipse cx="50" cy="76" rx="25.8" ry="22.8" fill="none" stroke="url(#${u}k)" stroke-width="2.6"/>
+      <g fill="url(#${u}c)" stroke="#f6d78e" stroke-width=".9" stroke-linejoin="round">
+        <path d="M43.8,64.5 L50,61 L56.2,64.5 L56.2,71.5 L50,75 L43.8,71.5 Z"/><path d="M43.8,80.5 L50,77 L56.2,80.5 L56.2,87.5 L50,91 L43.8,87.5 Z"/>
+        <path d="M30.9,70.1 L36,62.9 L42.3,64.7 L42.1,71.8 L36.9,77.1 L29.7,76.4 Z"/><path d="M69.1,70.1 L64,62.9 L57.7,64.7 L57.9,71.8 L63.1,77.1 L70.3,76.4 Z"/>
+        <path d="M29.7,77.7 L36.8,78.9 L42.2,80.5 L42.2,87.5 L36,93 L28.9,87.6 Z"/><path d="M70.3,77.7 L63.2,78.9 L57.8,80.5 L57.8,87.5 L64,93 L71.1,87.6 Z"/>
       </g>
-      <ellipse cx="50" cy="76" rx="24.5" ry="21.5" fill="none" stroke="#f6d78e" stroke-width="1"/>
+      <ellipse cx="50" cy="76" rx="24.4" ry="21.4" fill="none" stroke="#f6d78e" stroke-width=".9"/>
       <path d="M50,24.5 C60.5,24.5 67,31.5 67,40 C67,47.5 63,53 57.5,56.5 C55,58 52.2,59.3 50,59.8 C47.8,59.3 45,58 42.5,56.5 C37,53 33,47.5 33,40 C33,31.5 39.5,24.5 50,24.5 Z" fill="url(#${u}p)"/>
       <path d="M45.2,28.5 L50,26.6 L54.8,28.5 L55.2,33.5 L50,35.4 L44.8,33.5 Z M44.8,33.5 L39.6,32 M55.2,33.5 L60.4,32" stroke="#e3eea6" stroke-width=".8" fill="#86ad48" stroke-linejoin="round"/>
       <ellipse cx="42.2" cy="42.2" rx="4.4" ry="4.2" fill="#f4f7d0"/><ellipse cx="57.8" cy="42.2" rx="4.4" ry="4.2" fill="#f4f7d0"/>
       <circle cx="42.4" cy="42.5" r="3.3" fill="#1a1208"/><circle cx="57.6" cy="42.5" r="3.3" fill="#1a1208"/>
       ${reflet(41.3, 41.3, 1.1)}${reflet(56.5, 41.3, 1.1)}
       <ellipse cx="37.5" cy="49.5" rx="2.8" ry="1.7" fill="#ff8a7a" opacity=".35"/><ellipse cx="62.5" cy="49.5" rx="2.8" ry="1.7" fill="#ff8a7a" opacity=".35"/>
-      <path d="M44,50 C45.5,47.8 54.5,47.8 56,50 C56,52.3 52.8,54 50,55.3 C47.2,54 44,52.3 44,50 Z" fill="#f0e3a0"/>
-      <circle cx="48.4" cy="49.4" r=".55" fill="#4a5a2a"/><circle cx="51.6" cy="49.4" r=".55" fill="#4a5a2a"/>
-      <path d="M45,52.8 C46.8,54.8 48.6,56 50,56.2 C51.4,56 53.2,54.8 55,52.8" stroke="#3e5a22" stroke-width=".9" fill="none" stroke-linecap="round"/>`,
+      <path d="M44.5,49.5 C46,47.6 54,47.6 55.5,49.5 C55.5,52 52.6,54 50,55 C47.4,54 44.5,52 44.5,49.5 Z" fill="#d6e694"/>
+      <circle cx="48.5" cy="49.3" r=".55" fill="#4a5a2a"/><circle cx="51.5" cy="49.3" r=".55" fill="#4a5a2a"/>
+      <path d="M44.8,52 C47,54.4 48.8,55.4 50,54.6 C51.2,55.4 53,54.4 55.2,52" stroke="#3e5a22" stroke-width=".9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
   },
 
   'br:meduse': {

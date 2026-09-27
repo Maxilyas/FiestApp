@@ -186,6 +186,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       ${reflet(42, 45.8, 0.55)}${reflet(56.8, 45.8, 0.55)}
       <path d="M37,42.4 C39.8,40 43.8,40 46.8,41.8 M63,42.4 C60.2,40 56.2,40 53.2,41.8" stroke="#f4f8fb" stroke-width="2.2" fill="none" stroke-linecap="round"/>
       <path d="M50.4,47.5 C49.4,51.5 49,53 50.9,54" stroke="#4a2a18" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+      <g fill="#ff8a6a" opacity=".3"><ellipse cx="40" cy="53" rx="2.8" ry="1.6"/><ellipse cx="60" cy="53" rx="2.8" ry="1.6"/></g>
       <path d="M36,33.5 L36.5,23 L41,28 L45,19 L50,26 L55,19 L59,28 L63.5,23 L64,33.5 Z" fill="url(#${u}o)"/>
       <g fill="#fff"><circle cx="36.5" cy="23" r=".9"/><circle cx="45" cy="19" r=".9"/><circle cx="55" cy="19" r=".9"/><circle cx="63.5" cy="23" r=".9"/></g>
       <g fill="#35c3bd"><circle cx="45" cy="30" r="1"/><circle cx="55" cy="30" r="1"/></g><circle cx="50" cy="30.2" r="1.2" fill="#e8475a"/>`,
