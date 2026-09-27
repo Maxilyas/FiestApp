@@ -15,6 +15,19 @@ import { Chiffres, justesses, type Chiffre } from './Chiffres'
  */
 
 /**
+ * Ce que « Le porter » ôterait, dit avant le bouton : on porte un avatar à
+ * la fois, et le légendaire ou le Divin qu'on quitte reste à soi. C'est lui
+ * qu'un toucher de trop faisait perdre de vue — le plus rare de tout ce
+ * qu'on porte. Rien à dire quand on ne quitte qu'un emoji.
+ */
+export function CeQuIlRemplace({ porte, cle }: { porte: string | null; cle: string }) {
+  if (!porte || porte === cle) return null
+  const nom = LEGENDAIRES.find(l => l.key === porte)?.nom ?? DIVINS.find(d => d.key === porte)?.nom
+  if (!nom) return null
+  return <p className="small">{`Il remplacera ${nom}, que tu gardes.`}</p>
+}
+
+/**
  * Ce qu'on lit d'un légendaire en le touchant dans la grille : son nom, sa
  * légende, et comment il se gagne — avec, s'il manque encore, où l'on en
  * est. On veut celui-là parce qu'on le voit. Gagné, il se porte d'ici.
@@ -88,14 +101,17 @@ export function DetailLegendaire({
         </span>
       )}
       {gagne && (
-        <button
-          type="button"
-          className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
-          aria-disabled={busy || undefined}
-          onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
-        >
-          {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
-        </button>
+        <>
+          <CeQuIlRemplace porte={porte} cle={choisi.key} />
+          <button
+            type="button"
+            className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
+            aria-disabled={busy || undefined}
+            onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
+          >
+            {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
+          </button>
+        </>
       )}
     </div>
   )
@@ -130,6 +146,7 @@ export function DetailDivin({
         <>
           <b className="galerie-detail-nom">{choisi.nom}</b>
           <p className="serif-note">{recit.legende}</p>
+          <CeQuIlRemplace porte={porte} cle={choisi.key} />
           <button
             type="button"
             className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}

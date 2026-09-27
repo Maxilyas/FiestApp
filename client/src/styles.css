@@ -5971,8 +5971,13 @@ h3 > .icon {
 .apercu-ligne { animation: none; }
 
 /* La grille unique : les emojis, ceux de collection, les légendaires, les
-   Divins, de la même taille ; un anneau de couleur dit ce qui est rare. */
-.grille-unique { gap: 7px; }
+   Divins, de la même taille ; un anneau de couleur dit ce qui est rare.
+   La fiche d'une case la suit dans la page, de toute la largeur : `dense`
+   finit la rangée avec les cases d'après et pose la fiche juste dessous.
+   Sous toute la grille, plus haute qu'un téléphone, elle s'ouvrait hors de
+   l'écran, et le toucher semblait ne rien faire. */
+.grille-unique { gap: 7px; grid-auto-flow: row dense; }
+.fiche-case { grid-column: 1 / -1; }
 .case-avatar { position: relative; border-width: 1.5px; }
 .case-avatar.anneau-legendaire { border-color: var(--anneau-legendaire); }
 .case-avatar.anneau-divin { border-color: var(--anneau-divin); }
@@ -6015,7 +6020,9 @@ span.case-avatar { cursor: default; }
 .grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .av::after {
   animation: none;
 }
-.detail-case { margin: 12px 0 0; }
+/* Collée à la rangée qu'elle déplie, un peu d'air avant la suivante. */
+.detail-case { margin: 0 0 5px; }
+.galerie-detail-nom.detail-emoji { font-size: 1.9rem; line-height: 1.15; }
 .detail-famille { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
 .anneau-texte-legendaire { color: var(--anneau-legendaire); }
 .anneau-texte-divin { color: var(--anneau-divin); }
