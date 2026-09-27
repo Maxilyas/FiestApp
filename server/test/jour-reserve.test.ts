@@ -4,7 +4,8 @@
 // Le jeton ne sait faire que ça ; sans lui, la porte n'existe pas.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { connexionAnimateur, demarrer, inscrireProfil, type Banc } from './banc'
+import Database from 'better-sqlite3'
+import { connexionAnimateur, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { raisonDEcarter } from '../src/core/jour'
 import {
   A_ECRIRE_MAX,
@@ -34,6 +35,18 @@ function reserve(banc: Banc, { methode = 'GET', corps, jeton = JETON, csrf = tru
 
 const lire = (banc: Banc, cookie: string, chemin: string) =>
   fetch(`${banc.url}${chemin}`, { headers: { Cookie: cookie } }).then(async r => ({ status: r.status, corps: (await r.json()) as any }))
+
+/** D'où viennent les questions tirées aujourd'hui : `livre` pour celles des quiz livrés. */
+function sourcesDuTirage(banc: Banc): string[] {
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''), { readonly: true })
+  try {
+    const t = db.prepare('SELECT questions FROM jour_tirages').get() as { questions: string } | undefined
+    const ids = (JSON.parse(t?.questions ?? '[]') as { reserveId: string }[]).map(q => q.reserveId)
+    return ids.map(id => (db.prepare('SELECT source FROM jour_reserve WHERE id = ?').get(id) as { source: string }).source)
+  } finally {
+    db.close()
+  }
+}
 
 async function avecBanc(opts: { jetonDeLaReserve?: string }, scenario: (banc: Banc) => Promise<void>) {
   const banc = await demarrer(opts)
@@ -173,3 +186,33 @@ test('« Copier la consigne pour une IA » : la même, trente questions, pour l�
     assert.match(corps.consigne, /^LE QUIZ DU JOUR DE FIESTAPP — 30 QUESTIONS À ÉCRIRE$/m)
     assert.ok(corps.consigne.includes(EXEMPLE_DU_JOUR))
   }))
+
+test('les questions des quiz livrés ne sortent qu’en dernier recours', async () => {
+  // Une soirée peut jouer les quiz livrés : le profil qui en aurait lu la
+  // correction au quiz du jour y connaîtrait les réponses, pas l'invité
+  // anonyme (invariant 8). L'arbitrage du 27 septembre 2026 : elles ne
+  // servent qu'un jour où la réserve n'a rien d'autre [invariants-1].
+  await avecBanc({ jetonDeLaReserve: JETON }, async banc => {
+    // Douze questions de la routine, déposées après l'amorce, en trois catégories.
+    const liste = ['Histoire', 'Nature', 'Sport']
+      .map(categorie =>
+        [`# ${categorie}`, '', ...[1, 2, 3, 4].map(i => `${categorie} : la question numéro ${i} ?\n* Oui\nNon\nPeut-être`)].join('\n\n'),
+      )
+      .join('\n\n')
+    assert.equal((await reserve(banc, { methode: 'POST', corps: { liste } })).corps.ajoutees, 12)
+    const admin = await connexionAnimateur(banc.url)
+    const prochaines = (await lire(banc, admin, '/api/admin/jour/prochaines')).corps as { source: string }[]
+    assert.deepEqual(prochaines.slice(0, 12).map(p => p.source), Array(12).fill('ia'), 'l’administrateur les voit venir d’abord')
+    assert.ok(prochaines.slice(12).every(p => p.source === 'livre'))
+
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    assert.equal((await ecrire(banc.url, '/api/jour/commencer', {}, alice)).status, 200)
+    assert.deepEqual(sourcesDuTirage(banc), Array(10).fill('ia'), 'arrivées après, elles passent devant les livrées')
+  })
+  // Une réserve neuve n'a qu'elles : le premier jour se joue quand même.
+  await avecBanc({}, async banc => {
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    assert.equal((await ecrire(banc.url, '/api/jour/commencer', {}, alice)).status, 200)
+    assert.deepEqual(sourcesDuTirage(banc), Array(10).fill('livre'))
+  })
+})

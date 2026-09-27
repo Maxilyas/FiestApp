@@ -284,3 +284,19 @@ test('sans réseau au chargement, la page du jour propose de réessayer', async 
   assert.ok(html.indexOf('Réessayer') < html.indexOf('Retour à l’accueil'))
   assert.match(SOURCE, /if \(erreur\) return <EchecDuChargement erreur=\{erreur\} onReessayer=\{charger\} \/>/)
 })
+
+test('« Plus que 5 secondes » se dit une fois au lecteur d’écran, à chaque question', async () => {
+  // Il lui faut onze à quatorze secondes d'écoute avant de pouvoir toucher
+  // une réponse ; le chronomètre ne s'annonce pas — il parlerait chaque
+  // seconde. L'arbitrage du 27 septembre 2026 garde le délai, pas le
+  // silence [accessibilite-4].
+  // À l'heure du serveur, comme la page : une épreuve d'avant a pu recaler l'horloge du client.
+  const { serverNow } = await duClient('clock.ts')
+  const dans = (ms: number) => rendu('AnnonceDeLaFin', { echeance: serverNow() + ms })
+  assert.equal(await dans(15_000), '<p class="sr-only" role="status"></p>', 'rien tant qu’il reste du temps')
+  assert.equal(await dans(4_200), '<p class="sr-only" role="status">Plus que 5 secondes</p>')
+  assert.equal(await dans(800), '<p class="sr-only" role="status">Plus que 5 secondes</p>', 'le même texte jusqu’au bout : dit une fois')
+  assert.equal(await dans(-500), '<p class="sr-only" role="status"></p>')
+  // Une région par question : la suivante repart muette.
+  assert.match(SOURCE, /<AnnonceDeLaFin key=\{partie\.question\.index\} echeance=\{partie\.question\.echeance\} \/>/)
+})

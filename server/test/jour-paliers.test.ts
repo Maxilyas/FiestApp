@@ -11,7 +11,7 @@ import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 import { ProfileStore, cleDuJour } from '../src/auth/profiles'
 import { AUCUN_JOUR, carriereDe } from '../../shared/profil'
-import { XP_PALIER, paliersAtteints, paliersDuJourAtteints } from '../../shared/hautsfaits'
+import { XP_PALIER, paliersAtteints, paliersDuJourAtteints, paliersDuNiveau } from '../../shared/hautsfaits'
 
 ProfileStore.tirageEclat = () => false
 
@@ -181,4 +181,36 @@ test('L’Assidu tombe à la fin de la septième partie', () =>
       ['hf:assidu:1'],
     )
     assert.deepEqual(paliersDe(banc, 'alice'), [{ badge: 'hf:assidu:1', soiree_id: cleDuJour(JOUR) }])
+  }))
+
+test('La Légende se juge aussi au quiz du jour : le niveau 10 par lui seul la fait tomber, rangée sous le jour', () =>
+  avecBanc(async banc => {
+    // Le niveau compte le quiz du jour : qui n'y jouait que passait le niveau
+    // 10 sans le palier, sa page montrait la jauge pleine, et sa première
+    // soirée le lui annonçait — l'arbitrage du 27 septembre 2026
+    // [recompenses-comptes-6].
+    assert.deepEqual(paliersDuNiveau(9), [])
+    assert.deepEqual(paliersDuNiveau(10), ['hf:legende:1'])
+    assert.deepEqual(paliersDuNiveau(25), ['hf:legende:1', 'hf:legende:2'])
+
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    // Soixante-cinq jours déjà joués, au plein de l'expérience (75) — sans une soirée.
+    base(banc, db => {
+      const partie = db.prepare(
+        `INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, ?, 1, 10, NULL, 2000, 10, 1, 75)`,
+      )
+      for (let j = 0; j < 65; j++) partie.run(idDe(banc, 'alice'), new Date(Date.UTC(2026, 6, 1) + j * 86_400_000).toISOString().slice(0, 10))
+    })
+    // Le soixante-sixième, joué pour de vrai : sa fin écrit la ligne du jour, puis les paliers.
+    const fin = await jouer(banc, alice, () => true)
+    assert.equal(fin.etat, 'finie')
+    const profil = (await lire(banc, alice, '/api/joueur/moi')).corps.profile
+    assert.ok(profil.niveau >= 10, `le quiz du jour l’a menée au niveau ${profil.niveau}`)
+    assert.equal(profil.hautsFaits.find((h: any) => h.key === 'hf:legende').fois, 1, 'La Légende · Bronze')
+    assert.deepEqual(
+      paliersDe(banc, 'alice').filter(p => p.badge.startsWith('hf:legende')),
+      [{ badge: 'hf:legende:1', soiree_id: cleDuJour(JOUR) }],
+      'rangée sous le jour, jamais sous une soirée',
+    )
+    assert.ok(fin.paliers.some((p: any) => p.key === 'hf:legende:1'), 'la fin de la partie l’annonce')
   }))

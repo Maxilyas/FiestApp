@@ -205,3 +205,48 @@ test('« Voir ma carte » : sa carte telle que la salle la verra, sans « ce soi
     await banc.close()
   }
 })
+
+test('toucher un nom du classement du jour ouvre sa carte — jamais celle d’un profil masqué', async () => {
+  // Le classement du jour range tout le serveur ; l'arbitrage du 27
+  // septembre 2026 le garde, et y ouvre la carte de chacun, comme en
+  // soirée [parcours-profil-9].
+  const banc = await demarrer()
+  try {
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    const carol = await inscrireProfil(banc.url, 'carol', 'Carol', '🐼')
+    const dan = await inscrireProfil(banc.url, 'dan', 'Dan', '🐸')
+    for (const joueur of [alice, bob, dan]) await poster(banc, joueur, '/api/jour/commencer')
+    const lignes = (await lire(banc, alice, '/api/jour/classement')).corps.lignes as { profileId: string; nom: string }[]
+    const id = (nom: string) => lignes.find(l => l.nom === nom)!.profileId
+    const idDeCarol = (await lire(banc, carol, '/api/joueur/moi')).corps.profile.id as string
+
+    assert.equal((await fetch(`${banc.url}/api/joueur/carte/${id('Bob')}`)).status, 401, 'qui regarde a un profil')
+    const deBob = await lire(banc, alice, `/api/joueur/carte/${id('Bob')}`)
+    assert.equal(deBob.status, 200)
+    assert.equal(deBob.corps.nom, 'Bob')
+    assert.equal(deBob.corps.avatar, '🐻')
+    assert.equal(deBob.corps.profil.prenom, 'Bob')
+    assert.deepEqual(deBob.corps.profil.jour, { joues: 1, victoires: 0 })
+    assert.equal('ceSoir' in deBob.corps, false, 'il n’est dans aucune soirée ici')
+    const permis = new Set(['nom', 'avatar', 'profil', 'niveau', 'finition', 'eclat', 'legendaire', 'laurier'])
+    assert.deepEqual(Object.keys(deBob.corps).filter(k => !permis.has(k)), [], 'rien de plus que la carte de la salle : ni identifiant, ni rien du compte')
+
+    // Carol n'a jamais joué au quiz du jour : son identifiant ne mène à rien.
+    assert.equal((await lire(banc, alice, `/api/joueur/carte/${idDeCarol}`)).status, 404)
+    assert.equal((await lire(banc, alice, '/api/joueur/carte/inconnu')).status, 404)
+    // Masqué par l'administrateur, Dan disparaît du classement des autres, et sa carte avec — pas la sienne.
+    const admin = await connexionAnimateur(banc.url)
+    assert.equal((await poster(banc, admin, '/api/admin/jour/masquer', { profileId: id('Dan'), masque: true })).status, 200)
+    assert.equal((await lire(banc, alice, `/api/joueur/carte/${id('Dan')}`)).status, 404)
+    assert.equal((await lire(banc, dan, `/api/joueur/carte/${id('Dan')}`)).status, 200)
+
+    // Chaque ligne du classement est un bouton qui l'ouvre, et la carte d'ailleurs ne dit pas « a quitté la soirée ».
+    const page = source('views/JourApp.tsx')
+    assert.match(page, /<laCarte\.CarteJoueur adresse=\{`\/api\/joueur\/carte\/\$\{encodeURIComponent\(carte\)\}`\}/)
+    assert.match(page, /onClick=\{\(\) => onOuvrir\(l\.profileId\)\}/)
+    assert.match(source('components/CarteJoueur.tsx'), /r\.status === 404 && !adresse \? 'Ce joueur a quitté la soirée'/)
+  } finally {
+    await banc.close()
+  }
+})

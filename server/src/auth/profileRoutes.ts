@@ -317,6 +317,31 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     }),
   )
 
+  // La carte d'un autre joueur du quiz du jour, en touchant son nom au
+  // classement du jour — tout le serveur, comme le classement : l'arbitrage
+  // du 27 septembre 2026. Seulement qui y a joué, et jamais un profil masqué,
+  // que le classement ne montre plus aux autres ; qui regarde a un profil,
+  // comme pour lire le classement. La même carte qu'en soirée, sans « ce soir ».
+  app.get(
+    '/api/joueur/carte/:id',
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const autre = await profiles.byId(String(req.params.id))
+      const visible =
+        autre && (autre.id === me.id || (!deps.jour.estMasque(autre.id) && (await deps.jour.resumeDe(autre.id)).joues > 0))
+      if (!autre || !visible) return res.status(404).json({ error: 'Carte introuvable' })
+      const carte: CarteDeJoueur = {
+        nom: autre.name,
+        avatar: profiles.avatarPorte(autre),
+        ...distinctions(profiles.apparenceDe(autre)),
+        profil: await profilDeCarte(profiles, deps.jour, autre),
+      }
+      res.json(carte)
+    }),
+  )
+
   /**
    * Ouvre la console de l'espace rattaché, depuis une session de joueur.
    *

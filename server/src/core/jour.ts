@@ -361,9 +361,11 @@ export class JourStore {
   /**
    * Au tout premier démarrage, la réserve prend les questions des quiz livrés
    * qui se jouent seuls — culture générale, vrai ou faux… —, jamais ceux à
-   * personnaliser (« L'anniversaire de [Prénom] »), ni ceux des animateurs :
-   * leurs invités y liraient la prochaine soirée. Une fois : une question
-   * retirée ne revient pas au démarrage suivant.
+   * personnaliser (« L'anniversaire de [Prénom] »), ni ceux des animateurs.
+   * Tout animateur peut pourtant partir des livrés : leurs questions ne
+   * sortent qu'en dernier recours (`tirer`) — les premiers jours d'une
+   * réserve neuve, ou quand elle n'a plus rien d'autre à poser. Une fois :
+   * une question retirée ne revient pas au démarrage suivant.
    */
   private async amorcer() {
     const deja = await this.client.execute({ sql: 'SELECT valeur FROM jour_meta WHERE cle = ?', args: ['amorcee'] })
@@ -521,7 +523,7 @@ export class JourStore {
   async prochaines(): Promise<{ id: string; question: QuizQuestionDef; source: string }[]> {
     const res = await this.client.execute({
       sql: `SELECT id, question, source FROM jour_reserve WHERE retiree_le IS NULL AND posee_le IS NULL
-            ORDER BY ajoutee_le, id LIMIT ?`,
+            ORDER BY source = 'livre', ajoutee_le, id LIMIT ?`,
       args: [PROCHAINES_MONTREES],
     })
     return res.rows.map(r => ({ id: String(r.id), question: JSON.parse(String(r.question)), source: String(r.source) }))
@@ -573,25 +575,37 @@ export class JourStore {
   }
 
   private async tirer(jour: string): Promise<Tirage | null> {
+    const lire = (r: Record<string, unknown>) => ({
+      id: String(r.id),
+      question: String(r.question),
+      categorie: r.categorie == null ? null : String(r.categorie),
+      livree: r.source === 'livre',
+    })
     const neuves = await this.client.execute({
-      sql: `SELECT id, question, categorie FROM jour_reserve WHERE retiree_le IS NULL AND posee_le IS NULL
-            ORDER BY ajoutee_le, id LIMIT 300`,
+      sql: `SELECT id, question, categorie, source FROM jour_reserve WHERE retiree_le IS NULL AND posee_le IS NULL
+            ORDER BY source = 'livre', ajoutee_le, id LIMIT 300`,
       args: [],
     })
-    const lignes = neuves.rows.map(r => ({ id: String(r.id), question: String(r.question), categorie: r.categorie == null ? null : String(r.categorie) }))
-    let choisies = choisir(lignes, QUESTIONS_PAR_JOUR)
+    const lignes = neuves.rows.map(lire)
+    // Les questions des quiz livrés en dernier recours : ces quiz, une soirée
+    // peut les jouer, et le profil qui en aurait lu la correction ici y
+    // connaîtrait les réponses, pas l'invité anonyme (invariant 8) —
+    // l'arbitrage du 27 septembre 2026. Elles ne servent qu'un jour où la
+    // réserve n'a plus rien d'autre à poser, pas même ses anciennes.
+    let choisies = choisir(lignes.filter(l => !l.livree), QUESTIONS_PAR_JOUR)
     if (choisies.length < QUESTIONS_PAR_JOUR) {
       // À sec : les plus anciennes reviennent, jamais un jour vide — mais pas
       // celles du mois.
-      const anciennes = await this.client.execute({
-        sql: `SELECT id, question, categorie FROM jour_reserve WHERE retiree_le IS NULL AND posee_le IS NOT NULL AND posee_le < ?
-              ORDER BY posee_le, ajoutee_le, id LIMIT ?`,
-        args: [jourAvant(jour, JOURS_AVANT_DE_REPOSER), QUESTIONS_PAR_JOUR - choisies.length],
-      })
-      choisies = [
-        ...choisies,
-        ...anciennes.rows.map(r => ({ id: String(r.id), question: String(r.question), categorie: r.categorie == null ? null : String(r.categorie) })),
-      ]
+      const anciennes = (
+        await this.client.execute({
+          sql: `SELECT id, question, categorie, source FROM jour_reserve WHERE retiree_le IS NULL AND posee_le IS NOT NULL AND posee_le < ?
+                ORDER BY source = 'livre', posee_le, ajoutee_le, id LIMIT ?`,
+          args: [jourAvant(jour, JOURS_AVANT_DE_REPOSER), QUESTIONS_PAR_JOUR - choisies.length],
+        })
+      ).rows.map(lire)
+      choisies = [...choisies, ...anciennes.filter(l => !l.livree)]
+      choisies = [...choisies, ...choisir(lignes.filter(l => l.livree), QUESTIONS_PAR_JOUR - choisies.length)]
+      choisies = [...choisies, ...anciennes.filter(l => l.livree)].slice(0, QUESTIONS_PAR_JOUR)
       // Personne ne regarde la réserve : le journal le dit. Sans la routine
       // qui la remplit (MISE-EN-LIGNE.md, étape 8), l'amorce tient quatre
       // jours, puis plus rien avant que ses questions redeviennent tirables.
@@ -1198,6 +1212,11 @@ export class JourStore {
       categories[String(r.categorie)] = { questions: Number(r.questions), justes: Number(r.justes ?? 0) }
     }
     return categories
+  }
+
+  /** Masqué du classement par l'administrateur : les autres ne le voient plus, ni sa carte. */
+  estMasque(profileId: string): boolean {
+    return this.masques.has(profileId)
   }
 
   /** Ce que la carte d'un joueur dit de son quiz du jour : les jours joués, les victoires. */

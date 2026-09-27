@@ -46,7 +46,11 @@ export function CarteJoueur({
   useEffect(() => {
     let vivant = true
     fetch(adresse ?? `/s/${slug}/joueurs/${encodeURIComponent(playerId ?? '')}.json`)
-      .then(r => (r.ok ? r.json() : Promise.reject(new Error(r.status === 404 ? 'Ce joueur a quitté la soirée' : 'Carte indisponible'))))
+      .then(r =>
+        r.ok
+          ? r.json()
+          : Promise.reject(new Error(r.status === 404 && !adresse ? 'Ce joueur a quitté la soirée' : 'Carte indisponible')),
+      )
       // Une carte à médaillons attend leurs dessins sous son « Chargement… » :
       // ouverte avant, elle montrerait des cercles vides qui se remplissent.
       // Deux secondes et demie au plus : une requête muette ne garde pas la

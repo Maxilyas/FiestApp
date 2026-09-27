@@ -38,6 +38,7 @@ import {
   palierDe,
   paliersAtteints,
   paliersDuJourAtteints,
+  paliersDuNiveau,
   titreDePalier,
   XP_PALIER,
   type HautFaitVu,
@@ -1612,13 +1613,18 @@ export class ProfileStore {
 
   /**
    * Décerne les paliers du quiz du jour qu'il vient d'atteindre — L'Assidu,
-   * Le Champion du jour, Le Sans-Faute —, rangés sous le jour qui les a fait
-   * tomber (`cleDuJour`), et crédite leur expérience avec celle des autres
-   * paliers. Rend ceux qui sont nouveaux.
+   * Le Champion du jour, Le Sans-Faute —, et ceux de La Légende que son
+   * niveau atteint (`paliersDuNiveau`) : l'expérience du jour vient d'y
+   * entrer. Rangés sous le jour qui les a fait tomber (`cleDuJour`), leur
+   * expérience créditée avec celle des autres paliers. Rend ceux qui sont
+   * nouveaux.
    */
   async accorderPaliersDuJour(profileId: string, jour: string, stats: StatsDuJour): Promise<string[]> {
     const deja = this.recompensesOf(profileId)
-    const neufs = paliersDuJourAtteints(stats).filter(cle => !deja.has(cle))
+    const profil = await this.byId(profileId)
+    const neufs = [...paliersDuJourAtteints(stats), ...(profil ? paliersDuNiveau(this.niveauOf(profil)) : [])].filter(
+      cle => !deja.has(cle),
+    )
     if (neufs.length === 0) return []
     const now = Date.now()
     await this.client.batch(

@@ -3,16 +3,18 @@ import { api, motifDe, refusDuServeur, UnauthorizedError, type CorrectionDuJour 
 import { resetClock, serverNow } from '../clock'
 import { rendreLeFocus } from '../focus'
 import { insister, REESSAI_MS } from '../insister'
-import { espacesFines, formatNumber, pourcent, pts } from '../format'
+import { deNom, espacesFines, formatNumber, pourcent, pts } from '../format'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
+import { useSecondesRestantes } from '../decompte'
 import { placeDuJour } from '../../../shared/course'
 import { showToast, useAppState } from '../state'
 import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
 import { Avatar, Dessin } from '../components/Avatar'
 import { Flamme, Icon } from '../components/Icon'
 import { Niveau } from '../components/Niveau'
-import { Laurier, NomLaure } from '../components/Laurier'
+import { LAURIER_TEXTE, Laurier, NomLaure } from '../components/Laurier'
 import { Onglets, type Onglet } from '../components/Onglets'
-import { Rank, Score } from '../components/Rank'
+import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
 import { Medaille, Serie, ontGagneHier } from '../components/Jour'
@@ -361,6 +363,7 @@ export function JourApp() {
           participants={0}
           envoi={envoi}
         />
+        <AnnonceDeLaFin key={partie.question.index} echeance={partie.question.echeance} />
         {toastVu}
       </div>
     )
@@ -478,6 +481,29 @@ function Saison({ saison }: { saison: NonNullable<PartieDuJour['saison']> }) {
         </span>
       </div>
     </section>
+  )
+}
+
+/** La carte d'un joueur, au toucher de son nom dans le classement : rien ne la télécharge avant. */
+const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
+
+/** À combien de secondes de la fin on la dit au lecteur d'écran. */
+const ANNONCE_DE_LA_FIN = 5
+
+/**
+ * « Plus que 5 secondes », dit une fois au lecteur d'écran : il lui faut
+ * onze à quatorze secondes d'écoute avant de pouvoir toucher une réponse, et
+ * le chronomètre ne s'annonce pas lui-même — il parlerait chaque seconde.
+ * Le délai, lui, reste celui de la question : l'arbitrage du 27 septembre
+ * 2026 garde le quiz du jour classé et payé à la vitesse [accessibilite-4].
+ */
+export function AnnonceDeLaFin({ echeance }: { echeance: number }) {
+  const secondes = useSecondesRestantes(echeance)
+  // Le même texte de 5 à 1 : la région ne parle qu'une fois par question.
+  return (
+    <p className="sr-only" role="status">
+      {secondes > 0 && secondes <= ANNONCE_DE_LA_FIN ? `Plus que ${ANNONCE_DE_LA_FIN} secondes` : ''}
+    </p>
   )
 }
 
@@ -793,6 +819,18 @@ function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetour: () =
   const [classement, setClassement] = useState<ClassementDuJour | null>(null)
   const [erreur, setErreur] = useState('')
   const demande = useRef(0)
+  /**
+   * La carte ouverte : toucher un nom du classement la montre, comme en
+   * soirée — tout le serveur, comme le classement lui-même (l'arbitrage du
+   * 27 septembre 2026).
+   */
+  const [carte, setCarte] = useState<string | null>(null)
+  const laCarte = useALaDemande(carteJoueur, !!carte)
+  useEffect(() => {
+    if (!carte || laCarte !== 'perdu') return
+    showToast({ kind: 'error', message: 'La carte ne s’ouvre pas : vérifie ta connexion.' })
+    setCarte(null)
+  }, [carte, laCarte])
   useEffect(() => {
     const n = ++demande.current
     setClassement(null)
@@ -837,12 +875,12 @@ function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetour: () =
             </p>
             <div className="leaderboard">
               {classement.lignes.map(l => (
-                <LigneDuClassement key={l.profileId} ligne={l} moi={l.profileId === classement.sienne} />
+                <LigneDuClassement key={l.profileId} ligne={l} moi={l.profileId === classement.sienne} onOuvrir={setCarte} />
               ))}
               {classement.moi && (
                 <>
                   <p className="muted center small">…</p>
-                  <LigneDuClassement ligne={classement.moi} moi />
+                  <LigneDuClassement ligne={classement.moi} moi onOuvrir={setCarte} />
                 </>
               )}
             </div>
@@ -852,13 +890,23 @@ function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetour: () =
       <button className="btn btn-ghost btn-block" onClick={onRetour}>
         Retour
       </button>
+      {carte && laCarte && laCarte !== 'perdu' && (
+        <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} onFermer={() => setCarte(null)} />
+      )}
     </div>
   )
 }
 
-function LigneDuClassement({ ligne: l, moi }: { ligne: LigneDuJour; moi: boolean }) {
+function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDuJour; moi: boolean; onOuvrir: (profileId: string) => void }) {
   return (
-    <div className={'lb-row' + (moi ? ' me' : '')}>
+    <button
+      type="button"
+      className={'lb-row lb-ouvrable' + (moi ? ' me' : '')}
+      // Le nom du bouton remplace tout son contenu : le rang et les points
+      // doivent y être, comme au classement d'une soirée.
+      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${LAURIER_TEXTE}` : ''} — rang ${l.rang}, ${l.points} ${motPoints(l.points)}${l.enCours ? ', en cours' : ''}`}
+      onClick={() => onOuvrir(l.profileId)}
+    >
       <Rank n={l.rang} />
       <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
       <span className="lb-name">
@@ -867,7 +915,7 @@ function LigneDuClassement({ ligne: l, moi }: { ligne: LigneDuJour; moi: boolean
       </span>
       <Niveau niveau={l.niveau} />
       <Score n={l.points} texte={formatNumber(l.points)} />
-    </div>
+    </button>
   )
 }
 

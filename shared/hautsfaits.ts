@@ -506,6 +506,18 @@ export function paliersDuJourAtteints(stats: StatsDuJour): string[] {
 }
 
 /**
+ * Les paliers de La Légende qu'un niveau fait atteindre. Elle se juge aussi
+ * au quiz du jour, qui compte dans le niveau : qui n'y jouait que passait le
+ * niveau 10 sans son palier, sa page montrait la jauge pleine, et sa première
+ * soirée le lui annonçait — l'arbitrage du 27 septembre 2026. Le niveau se lit
+ * par `niveauDuProfil` (invariant 22) ; ce qui tombe se range sous le jour.
+ */
+export function paliersDuNiveau(niveau: number): string[] {
+  const legende = HAUTS_FAITS_DE_CARRIERE.find(h => h.key === 'hf:legende')!
+  return legende.paliers.flatMap((seuil, i) => (niveau >= seuil ? [clePalier(legende.key, i + 1)] : []))
+}
+
+/**
  * Un haut fait tel qu'une page le montre : gagné ou non, avec sa progression.
  * La page profil montre tout le catalogue — savoir ce qui vient donne envie
  * de revenir.

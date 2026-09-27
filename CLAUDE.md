@@ -180,7 +180,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
     hoquet de la base aurait laissé à l'exclu (`retirerAbsents`). Ce qui ne se juge qu'une fois tout
     joué — le podium de la soirée, l'assiduité, les **prix** du palmarès, les
     **hauts faits**, les **paliers** de carrière — ne se décide **qu'à la
-    clôture**, en un seul lot (`remplacerRecompensesDeSoiree`) : un
+    clôture** (La Légende, qui ne lit que le niveau, se juge aussi au quiz
+    du jour), en un seul lot (`remplacerRecompensesDeSoiree`) : un
     rangement à mi-soirée ne fige rien. Un palier ne se reprend que si la
     soirée qui l'a fait tomber est retirée (essai effacé, soirée supprimée de
     l'historique) — et tout ce qu'elle avait rapporté part avec elle.
@@ -592,7 +593,8 @@ sans `QUIZ_DB_URL`.
   joue un lauréat se rediffuse (`laurierChange`). Ses paliers sont des hauts
   faits de carrière marqués `duJour` : la carrière les compte (`jour`, pour
   la page du profil), mais `paliersAtteints` — la clôture d'une soirée, le
-  recalcul — les écarte ; seul le quiz du jour les décerne. Et tout ce qui écrit les
+  recalcul — les écarte ; seul le quiz du jour les décerne — et La Légende
+  avec eux (`paliersDuNiveau`) : son expérience entre dans le niveau. Et tout ce qui écrit les
   points ou l'expérience d'un profil passe sous son verrou, le tirage relu
   dedans — sa partie, le recompte d'une annulation, le podium de la nuit :
   recomptée d'un coup pour tout le jour, une annulation laissait payée la
@@ -610,8 +612,10 @@ sans `QUIZ_DB_URL`.
   `jour-reserve.test.ts`. Quand la réserve apprendra une nouvelle sorte de
   question (les estimations à tolérance), la consigne la décrit dans le
   même commit — sinon la routine écrit pour rien, ou jamais ce qu'on veut.
-  Et le jeton de la réserve ne sait qu'ajouter : une route de plus derrière
-  lui ne lit ni n'efface rien.
+  Et le jeton de la réserve ne sait que lire la consigne et ajouter : une
+  route de plus derrière lui ne lit ni n'efface rien. La consigne rappelle
+  pourtant les intitulés des prochains jours (l'IA ne les réécrit pas) : le
+  jeton les vaut, et se change des deux côtés s'il fuit.
 - **Un haut fait ou un prix de plus a sa place ailleurs.** Un haut fait
   prend sa rareté dans `PART_DES_JOUEURS` (mesurée par `calibrage.ts`) :
   sans elle, il passerait pour le plus courant de tous et ne paraîtrait

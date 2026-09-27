@@ -316,7 +316,11 @@ qu'une fois chacun et se jugent sur la carrière entière.
 | ✨ La Pluie d'Éclats — avatars éclatés | 1 | 3 | 6 |
 | 🎖️ La Légende — niveau | 10 | 20 | 30 |
 
-Rapportent 10, 25 et 50 points d'expérience. Les anciens badges de carrière
+Rapportent 10, 25 et 50 points d'expérience. La Légende se juge aussi à
+la fin d'une partie du quiz du jour, et à la nuit qui en paie le podium :
+le niveau compte son expérience, et qui n'y jouait que passait le niveau 10
+sans le palier (arbitrage du 27 septembre 2026) — elle se range alors sous
+ce jour, comme les paliers du quiz du jour. Les anciens badges de carrière
 (« Le Fidèle », « Le Pilier »…) laissent place à ce catalogue : le recalcul
 les retire, et décerne les paliers que la carrière de chacun atteint.
 
@@ -715,7 +719,9 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   rareté est estimée, la bande de `calibrage.ts` ne jouant qu'en soirée.
 - **Le classement** : tout le serveur, avec les règles des soirées — rang
   partagé, « Camille (2) », niveau et finition ; aujourd'hui, hier, le mois.
-  Il se fige à minuit ; tous les ex æquo en tête gagnent.
+  Il se fige à minuit ; tous les ex æquo en tête gagnent. Toucher un nom
+  ouvre sa carte, celle de la soirée sans « ce soir » — jamais celle d'un
+  profil masqué (arbitrage du 27 septembre 2026).
 - **Le laurier** (lot 7) : le lendemain, les vainqueurs — ex æquo compris,
   jamais seuls dans la salle, puisqu'un joueur seul n'a pas de podium —
   portent une couronne dorée juste après leur prénom, toute la journée :
@@ -734,8 +740,12 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   ouverte alors à tous (avant, seulement à qui a fini : elle donnerait le
   quiz).
 - **La réserve.** Amorcée au premier démarrage par les quiz livrés qui se
-  jouent seuls — jamais ceux à personnaliser, ni ceux des animateurs : leurs
-  invités y liraient la prochaine soirée. L'administrateur la remplit par
+  jouent seuls — jamais ceux à personnaliser, ni ceux des animateurs. Tout
+  animateur peut pourtant partir des livrés, et le profil qui en aurait lu
+  la correction ici connaîtrait les réponses d'une soirée : leurs questions
+  ne sortent qu'en dernier recours, les premiers jours d'une réserve neuve
+  ou quand elle n'a plus rien d'autre à poser (arbitrage du 27 septembre
+  2026). L'administrateur la remplit par
   « Coller une liste » (`/admin`), le format de l'éditeur ; les jours
   d'avance s'y lisent, avec une alerte sous sept. Deux par catégorie chaque
   jour tant que la réserve le permet — elle complète sinon avec ce qu'elle
@@ -760,10 +770,13 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   (`core/consigne.ts`) dit ce qui fait une bonne question — un fait sûr qui
   ne change pas, une seule bonne réponse, une anecdote qui apprend autre
   chose —, le format de « Coller une liste » réduit aux QCM, les catégories
-  les moins fournies et les trois cents derniers intitulés à ne pas
-  reprendre. L'analyseur de « Coller une liste » et la réserve vérifient
-  ensuite chaque question. Le serveur ne détient aucune clé d'IA, et le
-  jeton ne sait qu'ajouter des questions. En secours, « Copier la consigne
+  les moins fournies et les trois cents intitulés déjà là à ne pas
+  reprendre — ceux des prochains jours d'abord. L'analyseur de « Coller une
+  liste » et la réserve vérifient ensuite chaque question. Le serveur ne
+  détient aucune clé d'IA, et le jeton ne sait que lire la consigne et
+  ajouter des questions — mais comme la consigne rappelle les prochains
+  jours, il les vaut : s'il fuit, on le change (MISE-EN-LIGNE.md, étape 8).
+  En secours, « Copier la consigne
   pour une IA », à `/admin` : la même, pour le chatbot de son choix.
 
 ---
