@@ -5266,6 +5266,10 @@ h3 > .icon {
 .jour-carte-attente { min-height: 13.5rem; }
 .jour-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .jour-date { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 1.6rem; line-height: 1.1; }
+/* Ce que le laurier vaut, dit là où il se gagne et le lendemain. */
+.jour-enjeu { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--accent-text); font-size: 0.92rem; }
+.jour-enjeu .laurier { width: 1.4em; height: 1.4em; }
+.jour-hier { margin: 0; color: var(--muted); font-size: 0.9rem; }
 .jour-meta { margin: 0; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .jour-pied { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .jour-score { margin: 0; font-size: 1.05rem; }
@@ -5888,6 +5892,7 @@ h3 > .icon {
 .profil-onglet { display: flex; flex-direction: column; gap: 18px; }
 .titre-compte { font-family: var(--sans); font-weight: 400; margin-left: 6px; }
 .apercu { display: flex; flex-direction: column; gap: 10px; }
+.apercu-carte { align-self: flex-start; }
 .apercu-ligne { animation: none; }
 
 /* La grille unique : les emojis, ceux de collection, les légendaires, les

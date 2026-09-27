@@ -9,6 +9,7 @@ import { Onglets, type Onglet as OngletDef } from '../components/Onglets'
 import { ProfilForm } from '../components/ProfilForm'
 import { CodeSecours } from '../components/Secours'
 import { tronquer } from '../../../shared/avatars'
+import { pageDeRetour } from '../../../shared/securite'
 import { cibleEclat } from '../../../shared/legendaires'
 import { coupDOeilMoyen, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
@@ -74,6 +75,8 @@ export function ProfilApp() {
   const [enCours, setEnCours] = useState<{ nom: string; slug: string }[]>([])
   /** « Créer mon profil » depuis une fin de soirée : la création, préremplie. */
   const [creation] = useState(lireCreation)
+  /** Où aller une fois connecté : le quiz du jour qu'un ami a envoyé (`?next=/jour`). */
+  const [suite] = useState(lireSuite)
   const [gardee] = useState(derniereSoireeGardee)
   const [onglet, setOnglet] = useState<Onglet>(lireOnglet)
   /** L'onglet choisi s'écrit dans l'adresse — on la partage, on y revient — et sur ce téléphone. */
@@ -186,6 +189,8 @@ export function ProfilApp() {
         creer={!!creation}
         prefill={creation ?? undefined}
         onDone={() => {
+          // Venu d'un lien vers le quiz du jour : on y va, sans repasser par l'accueil.
+          if (suite) return window.location.assign(suite)
           // Le profil est là : un rafraîchissement ne doit pas rouvrir la création.
           if (creation) history.replaceState(null, '', window.location.pathname)
           void relire()
@@ -383,7 +388,7 @@ export function ProfilApp() {
       )}
 
       <Glossaire
-        mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'ecusson', 'laurier', 'precision', 'coupDOeil', 'reflexe', 'flair']}
+        mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'ecusson', 'laurier', 'serie', 'fond', 'precision', 'coupDOeil', 'reflexe', 'flair']}
       />
 
       {erreur && <p className="error">{erreur}</p>}
@@ -532,6 +537,12 @@ function PorteAnimateur({ console_ }: { console_: PublicSpace | null }) {
  * soirée (`/profil?creer=1&prenom=…&avatar=…`) : elle ouvrait la connexion,
  * vide, et il fallait tout retaper.
  */
+function lireSuite(): string {
+  const next = new URLSearchParams(window.location.search).get('next')
+  // Jamais ailleurs que chez soi (`shared/securite.ts`) ; sinon, l'accueil.
+  return next ? pageDeRetour(next, window.location.origin, '') : ''
+}
+
 function lireCreation(): { name: string; avatar: string } | null {
   const q = new URLSearchParams(window.location.search)
   if (!q.has('creer')) return null

@@ -134,6 +134,12 @@ export interface FinDeSoiree extends Distinctions {
      * entrent pour la première fois, et combien il en a sur combien.
      */
     collection?: { nouveaux: string[]; eus: number; total: number }
+    /**
+     * Le quiz du jour, qu'elle ne mentionnait jamais : sa série, que la
+     * soirée vient d'allonger, et s'il a déjà joué celui d'aujourd'hui.
+     * Absent d'une fin d'avant, ou si la base du jour s'est tue.
+     */
+    jour?: { serie: number; aJoue: boolean }
   }
 }
 
@@ -253,6 +259,7 @@ export function finLisible(x: unknown): x is FinDeSoiree {
     (p.records === undefined || listeDe(p.records, e => estObjet(e) && textes(e, 'key') && nombres(e, 'valeur', 'avant'))) &&
     (p.approches === undefined || listeDe(p.approches, e => estObjet(e) && textes(e, 'key') && nombres(e, 'acquis', 'requis', 'ceSoir'))) &&
     (p.collection === undefined ||
-      (estObjet(p.collection) && nombres(p.collection, 'eus', 'total') && listeDe(p.collection.nouveaux, e => typeof e === 'string')))
+      (estObjet(p.collection) && nombres(p.collection, 'eus', 'total') && listeDe(p.collection.nouveaux, e => typeof e === 'string'))) &&
+    (p.jour === undefined || (estObjet(p.jour) && nombres(p.jour, 'serie') && typeof p.jour.aJoue === 'boolean'))
   )
 }

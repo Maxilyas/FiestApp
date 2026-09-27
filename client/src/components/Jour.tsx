@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { formatNumber, place, pts } from '../format'
+import { formatNumber, pts } from '../format'
+import { placeDuJour } from '../../../shared/course'
 import {
   NOM_MEDAILLE,
   jourDe,
@@ -104,14 +105,25 @@ export function CarteDuJour() {
         <Serie jours={partie.serie} />
       </div>
       <p className="jour-date">{capitale(jourEnToutesLettres(partie.jour))}</p>
+      {/* La récompense d'hier, là où l'on arrive : son détail attendait sur /jour. */}
+      {partie.sonHier && partie.sonHier.xpPodium > 0 && (
+        <p className="jour-hier">
+          Hier : {placeDuJour(partie.sonHier.rang, partie.sonHier.joueurs, partie.sonHier.points)} · +{partie.sonHier.xpPodium} XP
+        </p>
+      )}
+      {/* Ce qui fait revenir, dit une fois, sur la page qu'on ouvre de soi-même :
+          rien ne disait qu'une série se perd à minuit. */}
+      {partie.etat === 'a-jouer' && !partie.serieTenue && partie.serie >= 2 && (
+        <p className="jour-hier">Ta série de {partie.serie} jours tient jusqu’à minuit.</p>
+      )}
       {partie.etat === 'finie' ? (
         <>
           <p className="jour-score">
             <span className="num">{formatNumber(partie.points)}</span> pts
-            {partie.rang > 0 && (
+            {placeDuJour(partie.rang, partie.joueurs, partie.points) && (
               <span className="muted">
                 {' '}
-                · {place(partie.rang)} sur {partie.joueurs} pour l’instant
+                · {placeDuJour(partie.rang, partie.joueurs, partie.points)} pour l’instant
               </span>
             )}
           </p>
@@ -176,7 +188,7 @@ export function MesJours({ jour }: { jour?: CarriereDuJour }) {
           <div className="soiree-texte">
             <span className="soiree-quand">{capitale(jourEnToutesLettres(j.jour))}</span>
             <span className="soiree-detail">
-              {pts(j.points)} · {place(j.rang)} sur {j.joueurs}
+              {[pts(j.points), placeDuJour(j.rang, j.joueurs, j.points)].filter(Boolean).join(' · ')}
               {j.medaille && ` · ${NOM_MEDAILLE[j.medaille].toLowerCase()}`}
             </span>
           </div>

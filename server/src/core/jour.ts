@@ -44,7 +44,7 @@ import {
   type QuestionDuJour,
   type RevelationDuJour,
 } from '../../../shared/jour'
-import type { StatsDuJour } from '../../../shared/profil'
+import { niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
 import { periodeDu } from '../../../shared/saisons'
 import { palierDe } from '../../../shared/hautsfaits'
 
@@ -813,7 +813,7 @@ export class JourStore {
     partie: Partie | null,
     revelation?: RevelationDuJour,
   ): Promise<PartieDuJour> {
-    const [serie, vainqueursDHier, sonHier] = await Promise.all([
+    const [{ serie, tenue: serieTenue }, vainqueursDHier, sonHier] = await Promise.all([
       this.serieDe(profil.id, jour),
       this.vainqueursDe(jourAvant(jour)),
       this.sonJour(profil, jourAvant(jour)),
@@ -835,6 +835,7 @@ export class JourStore {
         pointsPossibles: 0,
         comptees: 0,
         serie,
+        serieTenue,
         vainqueursDHier,
         sonHier,
       }
@@ -864,6 +865,7 @@ export class JourStore {
       pointsPossibles: possiblesDe(tirage),
       comptees,
       serie,
+      serieTenue,
       vainqueursDHier,
       sonHier,
     }
@@ -880,6 +882,16 @@ export class JourStore {
       // Le Sphinx, par ses paliers ; un légendaire de saison, par sa saison.
       const legendaires = this.deps.profiles.legendairesOuverts(profil.id, tombees.map(t => t.key))
       if (legendaires.length > 0) vue = { ...vue, legendaires }
+      // La montée de niveau qu'elle a faite, dite comme en fin de soirée : le
+      // quiz du jour rapporte l'essentiel de l'expérience d'un assidu, et
+      // ouvrait niveaux, finitions et emojis de collection sans un mot.
+      if (partie) {
+        const frais = await this.deps.profiles.byId(profil.id).catch(() => null)
+        if (frais) {
+          const gardes = this.deps.profiles.gardesOf(profil.id)
+          vue = { ...vue, niveauAvant: niveauDuProfil(frais.xp - partie.xp, gardes), niveauApres: niveauDuProfil(frais.xp, gardes) }
+        }
+      }
     }
     // Pendant une saison, ce qui manque encore à son légendaire.
     const periode = periodeDu(jour)
@@ -1147,6 +1159,21 @@ export class JourStore {
   }
 
   /**
+   * Ce que la fin d'une soirée lui dit du quiz du jour : sa série — que la
+   * soirée vient d'allonger — et s'il a déjà joué celui d'aujourd'hui. La
+   * soirée n'y renvoyait jamais : un profil créé ce soir-là ne découvrait le
+   * quiz qu'en touchant « Mon profil ».
+   */
+  async pontDuJour(profileId: string): Promise<{ serie: number; aJoue: boolean }> {
+    const jour = jourDe(this.maintenant())
+    const [{ serie }, partie] = await Promise.all([
+      this.serieDe(profileId, jour),
+      this.client.execute({ sql: 'SELECT 1 FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profileId, jour] }),
+    ])
+    return { serie, aJoue: partie.rows.length > 0 }
+  }
+
+  /**
    * Le quiz du jour d'un profil, pour sa page (`CarriereDuJour`) : ses
    * médailles, sa série et son record, ses podiums, et ses trente derniers
    * jours. La nuit d'avant se clôt d'abord : son podium se compte.
@@ -1253,7 +1280,8 @@ export class JourStore {
   // ── La série ────────────────────────────────────────────────────────────
 
   /** Les jours d'affilée où il a joué — au quiz du jour, ou en soirée. */
-  private async serieDe(profileId: string, aujourdhui: string): Promise<number> {
+  /** Sa série, et si aujourd'hui y compte déjà — au quiz du jour ou en soirée. */
+  private async serieDe(profileId: string, aujourdhui: string): Promise<{ serie: number; tenue: boolean }> {
     const depuis = jourAvant(aujourdhui, 400)
     const [jours, soirees] = await this.client.batch(
       [
@@ -1266,7 +1294,7 @@ export class JourStore {
       'read',
     )
     const joues = new Set<string>([...jours.rows.map(r => String(r.jour)), ...soirees.rows.map(r => jourDe(Number(r.created_at)))])
-    return serieDe(joues, aujourdhui)
+    return { serie: serieDe(joues, aujourdhui), tenue: joues.has(aujourdhui) }
   }
 
   // ── La nuit ─────────────────────────────────────────────────────────────

@@ -67,6 +67,20 @@ export interface EntreeDeCourse {
 /** La moitié haute, arrondie au-dessus : là seulement se dit « sur 12 » — « 11ᵉ sur 12 » ne dirait qu'« avant-dernier ». */
 export const moitieHaute = (rang: number, sur: number) => rang <= Math.ceil(sur / 2)
 
+/**
+ * La même règle, au quiz du jour, qui se joue devant tout le serveur : le rang
+ * au podium ou dans la moitié haute, « sur 23 » à la moitié haute seulement,
+ * et jamais de rang à zéro point. Null quand il n'y a rien de bon à dire :
+ * la page écrit alors les points. Le lendemain s'ouvrait sur « 3ᵉ place
+ * sur 3 · 0 pt » ; à cent joueurs, « 87ᵉ place sur 100 » en titre.
+ */
+export function placeDuJour(rang: number, joueurs: number, points: number): string | null {
+  if (rang <= 0 || points <= 0) return null
+  const haute = moitieHaute(rang, joueurs)
+  if (rang > 3 && !haute) return null
+  return haute ? `${placeEcrite(rang)} sur ${joueurs}` : placeEcrite(rang)
+}
+
 const autres = (n: number) => `${n} autre${n > 1 ? 's' : ''}`
 const places = (n: number) => `${n} place${n > 1 ? 's' : ''} gagnée${n > 1 ? 's' : ''}`
 

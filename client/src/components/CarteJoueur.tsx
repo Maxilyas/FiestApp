@@ -15,6 +15,8 @@ import { useModale } from '../modale'
 import { partsDuNomAffiche } from '../../../shared/homonymes'
 import { Ecusson } from './Ecusson'
 import { Flamme } from './Jour'
+import { Glossaire } from './Glossaire'
+import type { Mot } from '../../../shared/glossaire'
 import { fond as fondDeCarte } from '../../../shared/fonds'
 
 /**
@@ -26,14 +28,25 @@ import { fond as fondDeCarte } from '../../../shared/fonds'
  * Un invité anonyme a la sienne : sa soirée, sans rien qui dise ce qui lui
  * manque. Un surnom donné par l'animateur ne cache pas le prénom du profil.
  */
-export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; playerId: string; onFermer: () => void }) {
+export function CarteJoueur({
+  slug,
+  playerId,
+  adresse,
+  onFermer,
+}: {
+  slug?: string
+  playerId?: string
+  /** D'où la lire, si ce n'est pas un invité de la soirée : sa propre carte, depuis sa page. */
+  adresse?: string
+  onFermer: () => void
+}) {
   const [carte, setCarte] = useState<CarteDeJoueur | null>(null)
   const [erreur, setErreur] = useState('')
   const boite = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let vivant = true
-    fetch(`/s/${slug}/joueurs/${encodeURIComponent(playerId)}.json`)
+    fetch(adresse ?? `/s/${slug}/joueurs/${encodeURIComponent(playerId ?? '')}.json`)
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(r.status === 404 ? 'Ce joueur a quitté la soirée' : 'Carte indisponible'))))
       // Une carte à médaillons attend leurs dessins sous son « Chargement… » :
       // ouverte avant, elle montrerait des cercles vides qui se remplissent.
@@ -48,7 +61,7 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
     return () => {
       vivant = false
     }
-  }, [slug, playerId])
+  }, [slug, playerId, adresse])
 
   // Le clavier arrive dans la carte et y reste ; Échap la ferme, et le focus
   // revient à la ligne touchée.
@@ -106,18 +119,21 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                       {espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil
                     </p>
                   )}
-                  <p className="carte-soir">
-                    {carte.ceSoir.rang > 0 ? (
-                      <>
-                        <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
-                      </>
-                    ) : (
-                      'Pas encore de points ce soir'
-                    )}
-                  </p>
+                  {/* Sa soirée — absente de sa propre carte, lue depuis sa page. */}
+                  {carte.ceSoir && (
+                    <p className="carte-soir">
+                      {carte.ceSoir.rang > 0 ? (
+                        <>
+                          <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
+                        </>
+                      ) : (
+                        'Pas encore de points ce soir'
+                      )}
+                    </p>
+                  )}
                   {/* Les QCM et les estimations, chacun à sa façon : « 1/64
                       justes » comptait des estimations qui ne sont jamais justes. */}
-                  {carte.ceSoir.reponses > 0 && <p className="muted small">{reponsesParType(carte.ceSoir)}</p>}
+                  {carte.ceSoir && carte.ceSoir.reponses > 0 && <p className="muted small">{reponsesParType(carte.ceSoir)}</p>}
                 </div>
               </header>
 
@@ -206,6 +222,12 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
               )}
             </>
           )}
+          {/* Ses mots, dépliés au toucher : la carte, l'écran qu'on touche le
+              plus en salle d'attente, n'en expliquait aucun. Seulement ceux
+              qu'elle montre. */}
+          {carte && motsDeLaCarte(carte, avecDessins, !!fond).length > 0 && (
+            <Glossaire mots={motsDeLaCarte(carte, avecDessins, !!fond)} />
+          )}
           <div className="row dialog-actions">
             <button type="button" className="btn btn-ghost" onClick={onFermer}>
               Fermer
@@ -215,4 +237,21 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
       </div>
     </div>
   )
+}
+
+/** Les mots maison qu'une carte affiche vraiment, dans l'ordre où elle les montre. */
+function motsDeLaCarte(carte: CarteDeJoueur, avecDessins: boolean, fond: boolean): Mot[] {
+  const p = carte.profil
+  const mots: Mot[] = []
+  if (carte.laurier) mots.push('laurier')
+  if (!p) return carte.ceSoir && carte.ceSoir.reponses > 0 ? [...mots, 'precision'] : mots
+  mots.push('niveau')
+  if (avecDessins && (p.divins ?? []).length > 0) mots.push('divin')
+  if (avecDessins && p.legendaires.length > 0) mots.push('legendaire')
+  mots.push('hautsFaits')
+  if (p.ecussons && p.ecussons.length > 0) mots.push('ecusson')
+  mots.push('precision', 'coupDOeil', 'reflexe')
+  if (p.prix && p.prix.eus > 0) mots.push('prix')
+  if (fond) mots.push('fond')
+  return mots
 }

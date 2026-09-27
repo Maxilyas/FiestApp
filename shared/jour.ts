@@ -341,6 +341,11 @@ export interface PartieDuJour {
   comptees: number
   serie: number
   /**
+   * Aujourd'hui compte déjà dans la série — une partie, ou une soirée : minuit
+   * ne la cassera pas. Sinon, elle tient jusqu'à minuit, et la page le dit.
+   */
+  serieTenue?: boolean
+  /**
    * Qui a gagné hier — tous les ex æquo en tête (invariant 15) —, vide sans
    * podium.
    */
@@ -361,6 +366,13 @@ export interface PartieDuJour {
   paliers?: PalierTombe[]
   /** Et le légendaire que l'un d'eux ouvre : le Sphinx, au centième jour ou au dixième sans-faute — ou celui de la saison. */
   legendaires?: string[]
+  /**
+   * La partie finie : son niveau avant elle, et après — ce qu'elle a ouvert
+   * se dit comme en fin de soirée (« Niveau 2 ! », la finition, l'emoji de
+   * collection à porter).
+   */
+  niveauAvant?: number
+  niveauApres?: number
   /**
    * Pendant une saison (Halloween, Noël, le Nouvel An), tant que son
    * légendaire n'est pas à lui : ses jours joués dans la période, et combien

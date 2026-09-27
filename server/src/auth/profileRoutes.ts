@@ -19,6 +19,9 @@ import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import type { JourStore } from '../core/jour'
 import { CATALOGUE_DES_PRIX } from '../core/stats'
 import { ecussonsDe } from '../../../shared/ecussons'
+import { distinctions } from '../../../shared/profil'
+import type { CarteDeJoueur } from '../../../shared/carte'
+import { profilDeCarte } from '../core/carte'
 
 interface ProfileApiDeps {
   profiles: ProfileStore
@@ -291,6 +294,26 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
             })
           : [],
       })
+    }),
+  )
+
+  // Sa propre carte, depuis sa page : la seule vitrine de ses cosmétiques
+  // (titre, vitrine, écussons, fond) ne s'ouvrait qu'en soirée, sur son nom —
+  // il composait sa carte sans jamais la voir. La même que la salle verra,
+  // sans « ce soir » : il n'est dans aucune soirée ici.
+  app.get(
+    '/api/joueur/carte',
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const carte: CarteDeJoueur = {
+        nom: me.name,
+        avatar: profiles.avatarPorte(me),
+        ...distinctions(profiles.apparenceDe(me)),
+        profil: await profilDeCarte(profiles, deps.jour, me),
+      }
+      res.json(carte)
     }),
   )
 

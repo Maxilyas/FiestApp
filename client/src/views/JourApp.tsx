@@ -3,20 +3,21 @@ import { api, motifDe, refusDuServeur, UnauthorizedError, type CorrectionDuJour 
 import { resetClock, serverNow } from '../clock'
 import { rendreLeFocus } from '../focus'
 import { insister, REESSAI_MS } from '../insister'
-import { espacesFines, formatNumber, place, pourcent, pts } from '../format'
+import { espacesFines, formatNumber, pourcent, pts } from '../format'
+import { placeDuJour } from '../../../shared/course'
 import { showToast, useAppState } from '../state'
 import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
 import { Avatar, Dessin } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Niveau } from '../components/Niveau'
-import { NomLaure } from '../components/Laurier'
+import { Laurier, NomLaure } from '../components/Laurier'
 import { Onglets, type Onglet } from '../components/Onglets'
 import { Rank, Score } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
 import { Flamme, Medaille, Serie, ontGagneHier } from '../components/Jour'
-import { Medaillon } from '../components/FinDeSoiree'
-import type { PublicProfileDetail } from '../../../shared/profil'
+import { CollectionOuverte, Medaillon } from '../components/FinDeSoiree'
+import { NOM_FINITION, finitionsOuvertes, type PublicProfileDetail } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {
   NOM_MEDAILLE,
@@ -275,8 +276,14 @@ export function JourApp() {
             Les mêmes pour tous les profils, tirées à minuit. On y joue seul, une fois, et l’on apprend : la bonne
             réponse et son anecdote arrivent après chaque question.
           </p>
-          <a className="btn btn-primary btn-big btn-block" href="/">
-            Me connecter à mon profil
+          {/* Le lien qu'un ami envoie : la plupart n'ont pas de profil. « Me
+              connecter à mon profil », seul, mentait à qui n'en a pas, et la
+              création finissait sur l'accueil, deux « Jouer » plus loin. */}
+          <a className="btn btn-primary btn-big btn-block" href="/?creer=1&next=/jour">
+            Créer mon profil et jouer
+          </a>
+          <a className="btn btn-block" href="/?next=/jour">
+            J’ai déjà un profil
           </a>
         </section>
       </div>
@@ -372,7 +379,7 @@ export function JourApp() {
   const enCours = partie.etat === 'en-cours'
   return (
     <div className="player-shell">
-      {partie.sonHier && <Lendemain partie={partie} onCorrection={() => aller('correction')} />}
+      {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier} onCorrection={() => aller('correction')} />}
       <section className="card jour-carte">
         <div className="jour-tete">
           <span className="label">Le quiz du jour</span>
@@ -381,8 +388,9 @@ export function JourApp() {
         <h1 className="jour-date">{capitale(jourEnToutesLettres(partie.jour))}</h1>
         {partie.etat === 'aucun' ? (
           <p className="muted">
-            Pas de quiz aujourd’hui : la réserve de questions est vide.{' '}
-            {partie.revientDemain === false ? 'Il revient dès qu’elle se remplit.' : 'Il revient demain.'}
+            {/* « La réserve » est un mot d'administration : le joueur n'en a que faire. */}
+            Pas de quiz aujourd’hui : il n’y a plus de questions à tirer.{' '}
+            {partie.revientDemain === false ? 'Il revient dès qu’il y en aura de nouvelles.' : 'Il revient demain.'}
           </p>
         ) : (
           <>
@@ -573,6 +581,10 @@ function Fin({
 }) {
   const comptees = partie.comptees
   const seuils = seuilsDesMedailles(comptees)
+  const monte = partie.niveauAvant !== undefined && partie.niveauApres !== undefined && partie.niveauApres > partie.niveauAvant
+  const finitionsNeuves = monte
+    ? finitionsOuvertes(partie.niveauApres!).filter(f => !finitionsOuvertes(partie.niveauAvant!).includes(f))
+    : []
   const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
   return (
     <div className="player-shell fin-soiree">
@@ -585,9 +597,9 @@ function Fin({
         <p>
           {partie.justes} bonne{partie.justes > 1 ? 's' : ''} réponse{partie.justes > 1 ? 's' : ''} sur {comptees}
         </p>
-        {partie.rang > 0 && (
+        {placeDuJour(partie.rang, partie.joueurs, partie.points) && (
           <p className="muted">
-            Pour l’instant : {place(partie.rang)} sur {partie.joueurs}
+            Pour l’instant : {placeDuJour(partie.rang, partie.joueurs, partie.points)}
             {partie.devant && ` · à ${pts(partie.devant.ecart)} de ${partie.devant.nom}`}
           </p>
         )}
@@ -606,7 +618,17 @@ function Fin({
             ? `Niveau ${profil.niveau} · ${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} XP vers le niveau ${profil.niveau + 1}`
             : `Niveau ${profil.niveau} · au sommet`}
         </p>
+        {/* La montée de niveau de cette partie, dite comme en fin de soirée. */}
+        {monte && <p className="fin-monte">Niveau {partie.niveauApres} !</p>}
+        {finitionsNeuves.length > 0 && (
+          <p className="fin-finition">
+            Nouvelle finition : <b>{finitionsNeuves.map(f => NOM_FINITION[f]).join(', ')}</b>
+          </p>
+        )}
       </section>
+      {partie.niveauAvant !== undefined && partie.niveauApres !== undefined && (
+        <CollectionOuverte avant={partie.niveauAvant} apres={partie.niveauApres} finition={profil.finition} />
+      )}
       <section className="card jour-recompenses">
         <div className="jour-ligne">
           {partie.medaille ? (
@@ -644,8 +666,17 @@ function Fin({
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={profil.legendaire === cle} />
       ))}
       {partie.saison && <Saison saison={partie.saison} />}
+      {/* L'enjeu que la page taisait : le laurier est la seule récompense du
+          jour que les autres voient. Et le rendez-vous, pour tous. */}
+      {partie.rang === 1 && partie.points > 0 && (
+        <p className="jour-enjeu">
+          <Laurier laurier decoratif /> Reste en tête jusqu’à minuit, et tu porteras le laurier demain — au classement du
+          jour et dans tes soirées.
+        </p>
+      )}
       <p className="muted small jour-note">
         Le classement se fige à minuit. Le podium gagne {XP_PODIUM_DU_JOUR.join(', ').replace(/, (\d+)$/, ' et $1')} XP.
+        Demain, dix nouvelles questions dès minuit.
       </p>
       <div className="fin-actions">
         <button className="btn btn-primary" onClick={onClassement}>
@@ -714,17 +745,19 @@ function Palier({ palier }: { palier: PalierTombe }) {
 }
 
 /** Hier, au quiz du jour : sa place, ce que le podium lui a payé, le vainqueur. */
-function Lendemain({ partie, onCorrection }: { partie: PartieDuJour; onCorrection: () => void }) {
+function Lendemain({ partie, laurier, onCorrection }: { partie: PartieDuJour; laurier?: boolean; onCorrection: () => void }) {
   const h = partie.sonHier!
+  // Le rang s'il est bon à dire, sinon les points en titre (`placeDuJour`).
+  const sa = placeDuJour(h.rang, h.joueurs, h.points)
   return (
     <section className="card jour-annonce">
       <span className="label">Hier, au quiz du jour</span>
       <div className="jour-ligne">
         {h.medaille && <Medaille medaille={h.medaille} className="medaille-geante" />}
         <div>
-          <h2>{h.rang > 0 ? `${place(h.rang)} sur ${h.joueurs}` : pts(h.points)}</h2>
+          <h2>{sa ?? pts(h.points)}</h2>
           <span className="muted">
-            {[h.rang > 0 && pts(h.points), h.xpPodium > 0 && `+${h.xpPodium} XP de podium`, h.medaille && NOM_MEDAILLE[h.medaille].toLowerCase()]
+            {[sa && pts(h.points), h.xpPodium > 0 && `+${h.xpPodium} XP de podium`, h.medaille && NOM_MEDAILLE[h.medaille].toLowerCase()]
               .filter(Boolean)
               .join(' · ')}
           </span>
@@ -733,6 +766,12 @@ function Lendemain({ partie, onCorrection }: { partie: PartieDuJour; onCorrectio
       {(h.paliers ?? []).map(p => (
         <Palier key={p.key} palier={p} />
       ))}
+      {/* Le vainqueur d'hier le lisait sous son prénom, jamais ce qu'il vaut. */}
+      {laurier && (
+        <p className="jour-enjeu">
+          <Laurier laurier decoratif /> Tu portes le laurier aujourd’hui : la salle le verra à côté de ton prénom.
+        </p>
+      )}
       {partie.vainqueursDHier.length > 0 && (
         <p className="muted small">
           {partie.vainqueursDHier.map(v => v.avatar).join(' ')} {ontGagneHier(partie)}.

@@ -278,7 +278,8 @@ function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onCha
       <p className="muted small">
         Rattache le profil avec lequel tu joues : il ouvrira cette console depuis l'accueil, et tu
         n'auras plus qu'un mot de passe à retenir. Si tu n'en as pas encore,{' '}
-        <a className="link-inline" href="/">
+        {/* La création, pas la connexion : « crée-le » ouvrait « Me connecter ». Et l'accueil y ramène ici. */}
+        <a className="link-inline" href="/?creer=1&next=/compte">
           crée-le depuis l'accueil
         </a>
         .

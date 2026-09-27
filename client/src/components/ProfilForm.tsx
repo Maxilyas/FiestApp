@@ -345,9 +345,12 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
               {creation ? 'J’ai déjà un profil' : 'Créer un profil'}
             </button>
           </div>
+          {/* Sous les boutons, où rien n'est poussé : le quiz du jour est la
+              seule chose qu'un profil ouvre entre deux soirées, et l'accueil
+              le taisait. */}
           <p className="muted small center join-foot">
-            {PITCH_PROFIL} Il ne change rien aux points d'un quiz — et rejoindre une soirée n'en
-            demande aucun.
+            {PITCH_PROFIL} Il t’ouvre aussi le quiz du jour, dix questions chaque jour. Il ne change rien aux
+            points d'un quiz — et rejoindre une soirée n'en demande aucun.
           </p>
         </>
       )}

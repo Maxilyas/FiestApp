@@ -17,7 +17,8 @@ export interface CarteDeJoueur extends Distinctions {
   /** Le nom qu'il porte ce soir, marque d'homonymie comprise. */
   nom: string
   avatar: string
-  ceSoir: {
+  /** Sa soirée — absente de la carte qu'on regarde depuis sa page, hors soirée. */
+  ceSoir?: {
     points: number
     /** Rang partagé dans la soirée, 0 tant qu'il n'a rien marqué. */
     rang: number

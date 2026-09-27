@@ -6,6 +6,7 @@ import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { DetailDivin, DetailLegendaire } from './Carriere'
+import { CarteJoueur } from './CarteJoueur'
 import { AVATARS, COLLECTION } from '../../../shared/avatars'
 import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
@@ -69,6 +70,9 @@ export function annonceDuChoix(choix: ChoixDuProfil): string {
  * plus bas, et l'on se voit changer ici.
  */
 export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
+  // Sa carte, telle que la salle l'ouvre en touchant son nom : il composait
+  // titre, vitrine et fond sans jamais la voir.
+  const [carte, setCarte] = useState(false)
   return (
     <section className="card apercu" aria-label="Ce que la salle voit">
       <span className="label">Ce que la salle voit</span>
@@ -86,6 +90,11 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
         </span>
         <Niveau niveau={profil.niveau} />
       </div>
+      <button type="button" className="btn btn-small apercu-carte" onClick={() => setCarte(true)}>
+        <Icon name="eye" />
+        Voir ma carte
+      </button>
+      {carte && <CarteJoueur adresse="/api/joueur/carte" onFermer={() => setCarte(false)} />}
     </section>
   )
 }
