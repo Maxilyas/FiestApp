@@ -12,6 +12,7 @@ import type { Finition, PublicProfile } from '../../../shared/profil'
 import { NOM_FINITION, PITCH_PROFIL } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
+import { brancheDe, nomDansLaPhrase, portrait as portraitDe, type Portrait } from '../../../shared/branches'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { collectionGagnee } from '../../../shared/avatars'
 import { api } from '../api'
@@ -30,8 +31,9 @@ import { lienBilan } from './Lendemain'
  * « En attente du prochain quiz… » jusqu'à ce qu'on le range. Il raconte
  * maintenant la soirée de son porteur — son rang, ses hauts faits, éclats
  * et ombres —, et à qui a un profil ce qu'elle lui a rapporté : les niveaux,
- * les finitions, les paliers, et surtout les avatars légendaires, qu'on peut
- * porter tout de suite — et, une fois dans une vie peut-être, un Divin.
+ * les finitions, les paliers, les portraits de ses branches, et surtout les
+ * avatars légendaires, qu'on peut porter tout de suite — et, une fois dans
+ * une vie peut-être, un Divin.
  *
  * Un invité anonyme a sa soirée aussi, entière. Le bloc du profil lui manque,
  * sans rien qui le lui reproche.
@@ -112,13 +114,19 @@ export function FinDeSoiree({
         <section className="card fin-eclat">
           <span className="label">Une chance sur quarante</span>
           <span className="fin-apparition">
-            {legendaire(gain.eclat) ? (
+            {legendaire(gain.eclat) || portraitDe(gain.eclat) ? (
               <Avatar avatar={fin.avatar} legendaire={gain.eclat} finition={fin.finition} eclat />
             ) : (
               <Avatar avatar={gain.eclat} finition={fin.finition} eclat />
             )}
           </span>
-          <h2>{legendaire(gain.eclat) ? `${legendaire(gain.eclat)?.nom} a éclaté !` : `Ton ${gain.eclat} a éclaté !`}</h2>
+          <h2>
+            {legendaire(gain.eclat)
+              ? `${legendaire(gain.eclat)?.nom} a éclaté !`
+              : portraitDe(gain.eclat)
+                ? `${portraitDe(gain.eclat)?.nom} a éclaté !`
+                : `Ton ${gain.eclat} a éclaté !`}
+          </h2>
           <p className="serif-note">Il a changé de couleurs, pour toujours — et personne d’autre ne l’a comme ça.</p>
         </section>
       )}
@@ -178,6 +186,10 @@ export function FinDeSoiree({
           </section>
         )
       })}
+
+      {/* Les portraits de ses branches : presque chaque soirée en ouvre un.
+          Une fin d'avant n'a pas le champ. */}
+      <PortraitsOuverts cles={gain?.portraits ?? []} porte={porte} onPorte={p => setPorte(p.legendaire)} />
 
       {/* Ce qui se voit même les soirs où rien ne tombe : un record battu,
           une jauge qui avance. Une fin d'avant n'a pas ces champs. */}
@@ -406,6 +418,71 @@ function MedaillonAVenir({ cle, emoji }: { cle: string; emoji: string }) {
     <span className="approche-medaillon">
       <Dessin cle={cle} verrouille />
     </span>
+  )
+}
+
+/**
+ * Les portraits des branches que la soirée — ou la partie du quiz du jour —
+ * vient d'ouvrir, qu'on porte d'ici. Presque chaque soirée en ouvre un, et
+ * la première en ouvre souvent plusieurs : ils tiennent dans une rangée, pas
+ * dans une carte chacun comme un légendaire, qui reste l'événement.
+ */
+export function PortraitsOuverts({
+  cles,
+  porte,
+  onPorte,
+}: {
+  cles: readonly string[]
+  /** L'avatar dessiné qu'il porte déjà. */
+  porte: string | null
+  onPorte?: (profil: PublicProfile) => void
+}) {
+  const [porteIci, setPorteIci] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const portraits = cles.map(c => portraitDe(c)).filter((p): p is Portrait => !!p)
+  if (portraits.length === 0) return null
+  const actuel = porteIci ?? porte
+  const porter = async (p: Portrait) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const { profile } = await api.joueur.enregistrer({ legendaire: p.key })
+      setPorteIci(profile.legendaire)
+      onPorte?.(profile)
+      showToast({ kind: 'info', message: `Tu portes ${nomDansLaPhrase(p.nom)}` })
+    } catch (e) {
+      showToast({ kind: 'error', message: (e as Error).message })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <section className="card fin-portraits">
+      <span className="label">{portraits.length > 1 ? 'Nouveaux avatars du savoir' : 'Nouvel avatar du savoir'}</span>
+      <div className="fin-portraits-liste">
+        {portraits.map(p => (
+          <div key={p.key} className="fin-portrait">
+            <Medaillon cle={p.key} className="fin-portrait-dessin" />
+            <b>{p.nom}</b>
+            <span className="muted small">{`${p.seuil} bonnes réponses en ${brancheDe(p).categorie}`}</span>
+            {actuel === p.key ? (
+              <span className="muted small">C’est lui que la salle verra.</span>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-small"
+                aria-label={`Porter ${nomDansLaPhrase(p.nom)}`}
+                aria-disabled={busy || undefined}
+                onClick={() => void porter(p)}
+              >
+                Le porter
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="muted small">Chaque bonne réponse fait avancer la branche de sa catégorie, en soirée comme au quiz du jour.</p>
+    </section>
   )
 }
 

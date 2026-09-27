@@ -340,17 +340,24 @@ test('dans la grille des avatars, seuls bougent le porté, l’ouvert et celui q
   // 219 animations chez un habitué, pour un seul avatar regardé
   // (design-recompenses-4) : les halos de finition sous chaque emoji, les
   // formes de chaque médaillon.
-  const html = await rendu('components/Apparence', 'MesAvatars', { profil: HABITUE, busy: false, enregistrer: () => {} })
-  assert.match(html, /class="emoji-grid grille-unique"/)
-  const cases = [...html.matchAll(/<button[^>]*class="([^"]*)"[^>]*aria-label="([^"]*)"/g)].map(m => ({ classes: m[1].split(' '), nom: m[2] }))
-  assert.ok(cases.length > 40, 'la grille est rendue')
+  // Une famille à la fois (`familleInitiale`) : chacune a sa grille.
+  const cases: { classes: string[]; nom: string }[] = []
+  for (const familleInitiale of ['branches', 'emojis', 'legendaires']) {
+    const html = await rendu('components/Apparence', 'MesAvatars', { profil: HABITUE, busy: false, enregistrer: () => {}, familleInitiale })
+    assert.match(html, /class="emoji-grid grille-unique/)
+    // Les cases des grilles : pas les lignes des branches, qui déplient sans rien animer.
+    for (const m of html.matchAll(/<button[^>]*class="([^"]*)"[^>]*aria-label="([^"]*)"/g)) {
+      if (m[1] !== 'ligne-branche') cases.push({ classes: m[1].split(' '), nom: m[2] })
+    }
+  }
+  assert.ok(cases.length > 40, 'les grilles sont rendues')
   for (const c of cases) assert.ok(c.classes.includes('case-avatar'), c.nom)
   // Le porté, et lui seul, est `selected` : c'est lui que la feuille laisse bouger.
   assert.deepEqual(
     cases.filter(c => c.classes.includes('selected')).map(c => c.nom),
     ['Le Phénix, légendaire, porté'],
   )
-  for (const dedans of ['.lg *', '.dv *', '.av::before', '.av::after']) {
+  for (const dedans of ['.lg *', '.dv *', '.pt *', '.av::before', '.av::after']) {
     const selecteur = `.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) ${dedans}`
     assert.ok(fige(selecteur), selecteur)
   }

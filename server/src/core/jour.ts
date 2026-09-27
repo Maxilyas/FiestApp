@@ -20,6 +20,7 @@ import type { ProfileRec, ProfileStore } from '../auth/profiles'
 import { GRACE_MS, POINTS_MAX_PAR_QUESTION, pointsDuChoix, tempsDeLecture } from '../games/quiz'
 import { lireModeles } from './seed'
 import { aEcrirePour, categoriesAPrivilegier, consigneDuJour } from './consigne'
+import { portraitsOuvertsPar } from '../../../shared/branches'
 import { normalizeQuestions, toPlayable, type PlayableQuestion, type QuizQuestionDef } from '../../../shared/library'
 import { preparerPartie, suiteFixe } from '../../../shared/hasard'
 import { classer, rangDansLesTries } from '../../../shared/classement'
@@ -950,6 +951,13 @@ export class JourStore {
       // Le Sphinx, par ses paliers ; un légendaire de saison, par sa saison.
       const legendaires = this.deps.profiles.legendairesOuverts(profil.id, tombees.map(t => t.key))
       if (legendaires.length > 0) vue = { ...vue, legendaires }
+      // Les portraits que ses bonnes réponses du jour ont ouverts. Une base
+      // qui se tait ôte cette ligne, pas la page.
+      const portraits = await this.portraitsDuJour(profil.id, jour, tirage).catch(e => {
+        console.error('[jour] portraits non relus :', e)
+        return []
+      })
+      if (portraits.length > 0) vue = { ...vue, portraits }
       // La montée de niveau qu'elle a faite, dite comme en fin de soirée : le
       // quiz du jour rapporte l'essentiel de l'expérience d'un assidu, et
       // ouvrait niveaux, finitions et emojis de collection sans un mot.
@@ -976,6 +984,31 @@ export class JourStore {
       }
     }
     return vue
+  }
+
+  /**
+   * Les portraits des branches que sa partie de ce jour a ouverts : ceux
+   * qu'il a, relus en base, et qu'il n'aurait pas sans ses bonnes réponses du
+   * jour — les questions annulées écartées, comme pour ses écussons
+   * (`categoriesDe`). Sans une bonne réponse classée, rien à relire.
+   */
+  private async portraitsDuJour(profileId: string, jour: string, tirage: Tirage): Promise<string[]> {
+    const res = await this.client.execute({
+      sql: 'SELECT question FROM jour_reponses WHERE profile_id = ? AND jour = ? AND juste = 1',
+      args: [profileId, jour],
+    })
+    const annulees = new Set(tirage.annulees)
+    const duJour: Record<string, number> = {}
+    for (const r of res.rows) {
+      const q = Number(r.question)
+      const categorie = annulees.has(q) ? null : tirage.questions[q]?.categorie
+      if (categorie) duJour[categorie] = (duJour[categorie] ?? 0) + 1
+    }
+    if (Object.keys(duJour).length === 0) return []
+    const apres = await this.deps.profiles.savoirDe(profileId)
+    const avant = { ...apres }
+    for (const [categorie, n] of Object.entries(duJour)) if (categorie in avant) avant[categorie] = Math.max(0, avant[categorie] - n)
+    return portraitsOuvertsPar(avant, apres)
   }
 
   /**

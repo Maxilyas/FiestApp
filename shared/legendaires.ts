@@ -34,6 +34,7 @@
 // récompense de saison (`saison:halloween`), rangée comme les autres.
 
 import { clePalier } from './hautsfaits'
+import { portrait } from './branches'
 import type { CleDeSaison } from './saisons'
 
 /**
@@ -230,14 +231,14 @@ export function legendairesOuvertsPar(
 }
 
 /**
- * Ce qui éclate quand l'Éclat tombe sur un profil : le légendaire qu'il
- * porte, s'il en porte un — il prend sa version rare —, son emoji sinon.
- * Un Divin n'éclate jamais : sous un Divin, c'est l'emoji qui éclate. Le
- * serveur tire l'Éclat sur cette cible, et chaque écran demande si c'est
- * elle qui brille.
+ * Ce qui éclate quand l'Éclat tombe sur un profil : le légendaire ou le
+ * portrait d'une branche qu'il porte, s'il en porte un — il prend sa version
+ * rare —, son emoji sinon. Un Divin n'éclate jamais : sous un Divin, c'est
+ * l'emoji qui éclate. Le serveur tire l'Éclat sur cette cible, et chaque
+ * écran demande si c'est elle qui brille.
  */
 export function cibleEclat(porte: string | null | undefined, emoji: string): string {
-  return porte && legendaire(porte) ? porte : emoji
+  return porte && (legendaire(porte) || portrait(porte)) ? porte : emoji
 }
 
 /**

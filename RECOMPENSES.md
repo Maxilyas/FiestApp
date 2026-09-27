@@ -466,6 +466,80 @@ Divin se tait — c'est tout son principe.
   relisent sur l'historique (`VERSION_BAREME` 4, à leur arrivée), partent avec une soirée
   retirée, et ne rapportent aucune expérience.
 
+### 5.4 ter Les avatars du savoir
+
+Soixante-douze avatars dessinés, rangés en **douze branches, une par
+catégorie de questions** (`shared/branches.ts`) : le tour du monde (Culture
+générale), les mythologies (Histoire), les océans (Géographie), l'espace
+(Sciences), la forêt (Nature), le grand écran (Cinéma & séries), la scène
+(Musique), les contes (Arts & lettres), le stade (Sport, la danse comprise),
+la brigade (Cuisine), l'arcade (Jeux & pop culture, en pixels), le carnaval
+(Autour de la fête). Six portraits par branche, de l'écureuil au cerf, du
+Minotaure à Athéna. La maquette validée le 27 septembre 2026 fixe leur
+style : un portrait de face, un disque teinté de sa branche, la lumière en
+haut à gauche, pas d'anneau d'or — il reste aux légendaires.
+
+- **Ils se gagnent en sachant.** Chaque bonne réponse d'une catégorie, en
+  soirée comme au quiz du jour — celles qui font déjà les écussons, comptées
+  au même endroit (`justesParCategorie`) —, fait avancer sa branche. Pas de
+  coffre, pas de hasard : la collection finit par dire ce qu'on sait.
+- **Six paliers** : 3, 20, 40, 75, 130 et 200 bonnes réponses dans la
+  catégorie (`SEUILS_BRANCHE`). Le deuxième, le quatrième et le sixième
+  tombent avec les écussons de bronze, d'argent et d'or. Une question sans
+  catégorie ne fait avancer aucune branche ; une soirée jouée seul non plus.
+- **Rien ne s'écrit.** Les portraits ouverts se lisent dans la carrière, à
+  chaque lecture : une soirée retirée de l'historique reprend ce que ses
+  réponses avaient ouvert. Le serveur vérifie en base qu'on porte un
+  portrait qu'on a, et relit l'instantané de la salle dans un savoir gardé
+  une minute (`ProfileStore.savoirDe`). Relever un seuil reprendrait un
+  portrait à qui l'a déjà : la courbe ne se durcit pas sans retenir d'abord
+  ce que chacun avait, comme les légendaires.
+- **Ils se portent comme un légendaire** : la finition devient leur cercle
+  (sauf en Mat, qui n'a pas de halo non plus sous un emoji), et l'Éclat qui
+  tombe sous un portrait le fait passer sous le **ciel rare de sa branche**
+  — la forêt sous une nuit violette, les océans dans les abysses — avec les
+  paillettes : le personnage garde ses couleurs, qu'une rotation de teintes
+  aurait rendues vertes.
+- **Dans le profil**, « Mes avatars » se range en trois familles, sur une
+  seule rangée d'onglets : Branches, Emojis (ceux de collection dessous),
+  Légendaires (les Divins dessous) ; chaque partie a son titre et son compte.
+  Cinq onglets à compteur faisaient trois rangées au téléphone, un tiers de
+  l'écran avant le premier avatar. Une branche se déplie en tête (celle du
+  portrait porté, sinon celle où l'on sait le plus), les autres tiennent sur
+  une ligne : leur dernier portrait, ou la silhouette du premier, leur
+  catégorie et ce qui manque (« Histoire · encore 3 ») ; dépliée, la phrase
+  entière nomme le prochain (« Encore 3 bonnes réponses en Histoire pour le
+  Minotaure »). Ce qui reste à gagner se voit en silhouette dorée, avec son
+  palier. Le geste ne change pas : on touche, la fiche s'ouvre, « Le
+  porter ».
+- **La fin de soirée et celle du quiz du jour** annoncent les portraits
+  ouverts (`portraits`), avec « Le porter ». L'écran commun ne les annonce
+  pas : presque chaque soirée en ouvre, la clôture garde ses nouvelles pour
+  les légendaires et les Divins.
+- **Chargés à la demande, branche par branche** (`medaillons.ts`) : un
+  invité anonyme ne télécharge une branche que si quelqu'un, dans la salle,
+  en porte un portrait.
+
+**Mesuré.** `server/scripts/calibrage.ts` donne aux questions une catégorie
+(30 % de quiz à thème, la moitié des questions classée dans les autres,
+comme les quiz livrés), fait jouer le quiz du jour à trois joueurs sur dix
+(six parties entre deux soirées), et compte les portraits ouverts — médiane
+des joueurs :
+
+| Soirées de… | après 1 | après 5 | après 10 | après 20 | après 40 | soirées qui en ouvrent un | un dès le 1er soir | un sixième après 40 |
+|---|---|---|---|---|---|---|---|---|
+| 2 quiz × 50 questions, 12 joueurs | 3 | 15 | 21 | 34 | 49 | 80 % | 99 % | 45 % |
+| … et le quiz du jour | 3 | 22 | 36 | 50 | 68 | 90 % | 99 % | 94 % |
+| 2 quiz × 30 questions, 10 joueurs | 1 | 12 | 16 | 25 | 38 | 70 % | 89 % | 0 % |
+| … et le quiz du jour | 1 | 18 | 32 | 45 | 63 | 85 % | 89 % | 75 % |
+| 3 quiz × 12 questions, 8 joueurs | 1 | 8 | 12 | 18 | 29 | 60 % | 79 % | 0 % |
+| … et le quiz du jour | 1 | 15 | 29 | 43 | 57 | 80 % | 77 % | 51 % |
+
+Le premier palier était à 5 sur la maquette : un joueur sur cinq repartait
+de sa première soirée sans rien, plus d'un sur trois d'une petite soirée. À
+3, presque chaque soirée en ouvre un — c'est ce qu'on voulait sentir —, et le
+sixième reste un sommet.
+
 ### 5.5 Finitions et Éclat
 
 - La meilleure finition débloquée se **porte d'office** (`auto`) ; choisir
@@ -490,7 +564,9 @@ Divin se tait — c'est tout son principe.
   bronze, argent, or, irisé, prisme, aurore, nuit étoilée — au lieu d'un halo
   qui s'empilait sur son cercle d'or ; un légendaire de l'ombre garde un
   filet violet. Et l'Éclat qui tombe sous un légendaire le fait éclater, lui :
-  chacun a sa **version rare**, dessinée. Un Divin n'a ni l'un ni l'autre.
+  chacun a sa **version rare**, dessinée. Un portrait des branches aussi
+  (§ 5.4 ter) : le cercle de sa finition, le ciel rare de sa branche. Un
+  Divin n'a ni l'un ni l'autre.
 - L'Éclat **s'annonce** à la fin de la soirée, au téléphone et à la salle :
   il tombait en silence, et sous un légendaire personne ne le voyait.
 - Une soirée jouée seul ne compte pas : ni pour l'Éclat, ni pour L'Habitué —
@@ -828,6 +904,10 @@ carte dit aussi le quiz du jour, en une ligne.
 finition ; les paliers du quiz du jour (§ 5.13) ; le Sphinx et les
 légendaires de saison (§ 5.4, idée 11) ; le laurier du vainqueur d'hier
 (§ 5.13) ; les écussons de savoir et les fonds de carte (§ 5.6).
+
+**Lot 8 — fait** : les avatars du savoir (§ 5.4 ter) — douze branches, une
+par catégorie, six portraits dessinés chacune, gagnés aux bonnes réponses ;
+« Mes avatars » rangé en trois familles.
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

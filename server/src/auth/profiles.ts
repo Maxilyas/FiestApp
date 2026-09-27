@@ -54,6 +54,8 @@ import {
   type Condition,
 } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
+import { brancheDe, portrait, portraitsOuverts, type Savoir } from '../../../shared/branches'
+import { justesParCategorie } from '../../../shared/ecussons'
 import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import { divinsDebloques, raconter } from '../core/divins'
 import { titreDuPrix } from '../core/stats'
@@ -356,6 +358,12 @@ export function revaloriser(releve: ReleveSoiree): { gain: GainSoiree; xp: numbe
  */
 export const cleDeSoiree = (spaceId: string, soireeId: string): string => `${spaceId}#${soireeId}`
 
+/**
+ * L'âge au-delà duquel le savoir gardé en mémoire se relit : une soirée
+ * retirée de l'historique reprend ses portraits en une minute au plus.
+ */
+const SAVOIR_FRAIS_MS = 60_000
+
 export class ProfileStore {
   private client: Client
   private profiles = new Map<string, ProfileRec>()
@@ -398,6 +406,25 @@ export class ProfileStore {
    * diffusion à toute la salle.
    */
   laurierDe?: (profileId: string) => boolean
+
+  /**
+   * Ses bonnes réponses du quiz du jour, par catégorie (`JourStore.categoriesDe`),
+   * branchées au démarrage comme `statsDuJour` : elles comptent pour les
+   * portraits des branches, avec celles des soirées.
+   */
+  categoriesDuJour?: (profileId: string) => Promise<Record<string, { justes: number }>>
+
+  /**
+   * Son savoir — ses bonnes réponses par catégorie —, tel que le dernier
+   * relu : le portrait qu'il porte se vérifie à chaque instantané de la
+   * salle, sans aller-retour. Il ne sert qu'à ça : porter un portrait,
+   * l'annoncer, se relisent toujours en base (`savoirDe`).
+   */
+  private savoirs = new Map<string, { savoir: Savoir; lu: number }>()
+  /** Les relectures en cours, une par profil : vingt instantanés d'affilée n'en lancent qu'une. */
+  private savoirsEnRoute = new Set<string>()
+  /** Refermé : plus de relecture en arrière-plan, elle tomberait sur une base close. */
+  private ferme = false
 
   constructor(url: string, authToken?: string) {
     this.client = clientDistant(url, authToken)
@@ -794,13 +821,53 @@ export class ProfileStore {
   }
 
   /**
-   * L'avatar dessiné qu'il porte, s'il l'a vraiment : un légendaire ou un
-   * Divin rendu avec sa soirée (exclusion, essai effacé) ne se porte plus.
+   * L'avatar dessiné qu'il porte, s'il l'a vraiment : un légendaire, un
+   * Divin ou un portrait rendu avec sa soirée (exclusion, essai effacé) ne
+   * se porte plus.
    */
   legendairePorte(p: ProfileRec): string | null {
     if (!p.legendaire) return null
+    if (portrait(p.legendaire)) return this.portraitEncoreASoi(p.id, p.legendaire) ? p.legendaire : null
     const a = divin(p.legendaire) ? this.divinsOf(p.id) : this.legendairesOf(p.id)
     return a.includes(p.legendaire) ? p.legendaire : null
+  }
+
+  /**
+   * Ce portrait lui revient-il encore ? Lu dans le savoir gardé en mémoire,
+   * que la lecture relance en arrière-plan quand il a plus d'une minute :
+   * l'instantané part sans attendre la base. Tant qu'il n'a jamais été lu, le
+   * portrait se montre — il a été vérifié quand on l'a pris (`update`), et
+   * seule une soirée retirée de l'historique peut le reprendre : la salle le
+   * voit alors une minute de trop, pas une soirée entière.
+   */
+  private portraitEncoreASoi(profileId: string, cle: string): boolean {
+    const garde = this.savoirs.get(profileId)
+    if (!garde || Date.now() - garde.lu > SAVOIR_FRAIS_MS) this.relireSavoir(profileId)
+    return !garde || portraitsOuverts(garde.savoir).includes(cle)
+  }
+
+  /** Relit son savoir en arrière-plan, une fois à la fois ; une base muette garde l'ancien. */
+  private relireSavoir(profileId: string): void {
+    if (this.ferme || this.savoirsEnRoute.has(profileId)) return
+    this.savoirsEnRoute.add(profileId)
+    this.savoirDe(profileId)
+      .catch(e => {
+        if (!this.ferme) console.error('[profil] savoir non relu :', e)
+      })
+      .finally(() => this.savoirsEnRoute.delete(profileId))
+  }
+
+  /**
+   * Son savoir, relu en base : ses bonnes réponses par catégorie, soirées
+   * qui comptent et quiz du jour ensemble — ce qui fait ses écussons, et
+   * ouvre ses portraits (`shared/branches.ts`). Toujours frais : c'est lui
+   * qui décide de ce qu'on peut porter, et de ce qu'une soirée annonce.
+   */
+  async savoirDe(profileId: string): Promise<Savoir> {
+    const [soirees, jour] = await Promise.all([this.historiqueOf(profileId), this.categoriesDuJour?.(profileId) ?? {}])
+    const savoir = justesParCategorie(carriereDe(soirees, { eclats: 0, niveau: 1 }).categories, jour)
+    this.savoirs.set(profileId, { savoir, lu: Date.now() })
+    return savoir
   }
 
   /**
@@ -1141,7 +1208,13 @@ export class ProfileStore {
       } else if (divin(patch.legendaire) && this.divinsOf(id).includes(String(patch.legendaire))) {
         champs.legendaire = String(patch.legendaire)
       } else if (divin(patch.legendaire)) throw new Error('Ce Divin n’est pas encore descendu sur toi')
-      else throw new Error('Cet avatar légendaire n’est pas encore à toi')
+      else if (portrait(patch.legendaire)) {
+        const p = portrait(patch.legendaire)!
+        if (!portraitsOuverts(await this.savoirDe(id)).includes(p.key)) {
+          throw new Error(`Ce portrait se gagne à ${p.seuil} bonnes réponses en ${brancheDe(p).categorie}`)
+        }
+        champs.legendaire = p.key
+      } else throw new Error('Cet avatar légendaire n’est pas encore à toi')
     }
     // Un titre, une vitrine : seulement ce qu'il a gagné. La page ne propose
     // rien d'autre ; seul un appel forgé l'enverrait.
@@ -1738,6 +1811,9 @@ export class ProfileStore {
    */
   private async recompterRecompenses(profileIds: string[]): Promise<void> {
     if (profileIds.length === 0) return
+    // Une soirée retirée, une exclusion : le savoir gardé se relit tout de
+    // suite, plutôt qu'au bout de sa minute.
+    for (const id of profileIds) if (this.savoirs.has(id)) this.relireSavoir(id)
     const res = await this.client.execute({
       sql: `SELECT profile_id, badge, COUNT(*) AS n FROM profile_badges
             WHERE profile_id IN (${profileIds.map(() => '?').join(', ')}) GROUP BY profile_id, badge`,
@@ -2019,6 +2095,7 @@ export class ProfileStore {
    * laissait une de plus derrière lui.
    */
   close() {
+    this.ferme = true
     this.client.close()
   }
 
@@ -2042,6 +2119,13 @@ export class ProfileStore {
       const eclats = await this.client.execute({ sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ?', args: [rec.id] })
       this.eclats.set(rec.id, new Set(eclats.rows.map(e => String(e.avatar))))
       await this.recompterRecompenses([rec.id])
+      // Un portrait porté se vérifie sur son savoir : lu tout de suite, la
+      // première salle où il entre le voit juste, sans attendre une
+      // relecture. Une base qui se tait n'empêche pas le profil de venir : le
+      // portrait se montre, et la relecture suivante tranchera.
+      if (portrait(rec.legendaire) && this.categoriesDuJour) {
+        await this.savoirDe(rec.id).catch(e => console.error('[profil] savoir non relu :', e))
+      }
     }
     return rec.disabledAt ? null : rec
   }

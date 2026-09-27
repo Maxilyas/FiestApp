@@ -37,15 +37,24 @@ export function prochainSeuil(palier: 0 | 1 | 2 | 3): number | null {
 }
 
 /**
+ * Ses bonnes réponses par catégorie, sources additionnées — la carrière des
+ * soirées, le quiz du jour. Les écussons et les avatars des branches
+ * (`shared/branches.ts`) comptent ici, et nulle part ailleurs : l'écusson
+ * d'argent et l'avatar de 75 bonnes réponses tombent ensemble, ou la page
+ * du profil se contredirait.
+ */
+export function justesParCategorie(...sources: Readonly<Record<string, { justes: number }>>[]): Record<string, number> {
+  return Object.fromEntries(CATEGORIES.map(c => [c, sources.reduce((n, s) => n + (s[c]?.justes ?? 0), 0)]))
+}
+
+/**
  * Ses écussons, catégorie par catégorie, dans l'ordre de la liste fixe : les
  * bonnes réponses de chaque source s'additionnent — la carrière des soirées,
  * le quiz du jour.
  */
 export function ecussonsDe(...sources: Readonly<Record<string, { justes: number }>>[]): Ecusson[] {
-  return CATEGORIES.map(categorie => {
-    const justes = sources.reduce((n, s) => n + (s[categorie]?.justes ?? 0), 0)
-    return { categorie, justes, palier: palierEcusson(justes) }
-  })
+  const justes = justesParCategorie(...sources)
+  return CATEGORIES.map(categorie => ({ categorie, justes: justes[categorie], palier: palierEcusson(justes[categorie]) }))
 }
 
 /**

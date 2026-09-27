@@ -1,6 +1,7 @@
 import { NOM_FINITION, type FinitionChoisie } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
+import { nomDansLaPhrase, portrait } from '../../../shared/branches'
 import { hautFait } from '../../../shared/hautsfaits'
 import { fond } from '../../../shared/fonds'
 
@@ -26,7 +27,8 @@ export type ChoixDuProfil = {
 export function annonceDuChoix(choix: ChoixDuProfil): string {
   if (choix.avatar) return `Tu portes ${choix.avatar}.`
   if (choix.legendaire !== undefined) {
-    const nom = legendaire(choix.legendaire)?.nom ?? divin(choix.legendaire)?.nom
+    const tete = portrait(choix.legendaire)
+    const nom = legendaire(choix.legendaire)?.nom ?? divin(choix.legendaire)?.nom ?? (tete && nomDansLaPhrase(tete.nom))
     return nom ? `Tu portes ${nom}.` : 'Tu reviens à ton emoji.'
   }
   if (choix.finition) return choix.finition === 'auto' ? 'Ta plus belle finition, d’office.' : `Finition ${NOM_FINITION[choix.finition]}.`

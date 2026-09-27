@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import type { ClotureDeSoiree, ProgresDeQuiz } from '../../../shared/fin'
 import { distinctions } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
+import { portrait } from '../../../shared/branches'
 import { divin } from '../../../shared/divins'
 import { enumerer } from '../../../shared/classement'
 import { Avatar } from './Avatar'
@@ -128,7 +129,7 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
               <div className="cloture-montees">
                 {c.eclats.map((e, i) => (
                   <span key={`${e.nom}-${i}`} className="cloture-montee">
-                    {legendaire(e.eclate) ? (
+                    {legendaire(e.eclate) || portrait(e.eclate) ? (
                       <Avatar className="lb-avatar av-sujet" avatar={e.avatar} legendaire={e.eclate} finition={e.finition} eclat />
                     ) : (
                       <Avatar className="lb-avatar" avatar={e.eclate} finition={e.finition} eclat />

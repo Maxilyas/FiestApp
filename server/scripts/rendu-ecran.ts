@@ -31,6 +31,9 @@ import {
   type Invite,
 } from '../test/banc'
 import { jourAvant, jourDe } from '../../shared/jour'
+import { brancheDe, portrait } from '../../shared/branches'
+import { gainVide, releveVide, totalGain } from '../../shared/profil'
+import { VERSION_BAREME } from '../src/auth/profiles'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu')
 const ivoire = process.argv.includes('ivoire')
@@ -99,6 +102,31 @@ for (const [name, emoji] of [
 const avecEquipes = await instantane(host, s => s.teams?.length === 3, 'trois équipes')
 const equipes = avecEquipes.teams.map((t: any) => t.id)
 
+/**
+ * Les portraits des branches que portent quatre des invités à profil — un
+ * de chaque sorte : un masque, un humain, une danseuse, des pixels. Deux
+ * cents bonnes réponses dans leur catégorie, rangées d'avance, les ouvrent.
+ */
+const PORTRAITS_PORTES: Record<number, string> = { 0: 'br:venise', 1: 'br:astronaute', 2: 'br:danseuse', 5: 'br:chevalier' }
+
+async function porterUnPortrait(login: string, profil: string, cle: string) {
+  const categorie = brancheDe(portrait(cle)!).categorie
+  const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  try {
+    const id = (base.prepare('SELECT id FROM profiles WHERE login = ?').get(login) as { id: string }).id
+    const espace = (base.prepare('SELECT id FROM accounts WHERE slug = ?').get(ADMIN.slug) as { id: string }).id
+    const gain = { ...gainVide(), reponses: 1 }
+    const releve = { ...releveVide(), categories: { [categorie]: { questions: 200, justes: 200 } } }
+    base
+      .prepare(`INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, 'une-soiree-d-avant', ?, ?, ?, 1)`)
+      .run(id, espace, totalGain(gain), JSON.stringify({ v: VERSION_BAREME, gain, releve }))
+  } finally {
+    base.close()
+  }
+  const r = await ecrire(url, '/api/joueur/moi', { legendaire: cle }, profil, 'PUT')
+  if (!r.ok) throw new Error(`${login} ne porte pas ${cle} (${r.status})`)
+}
+
 const prenoms = ['Marie-Charlotte de La Rochefoucauld', 'Léo', 'Zoé', 'Camille', 'Camille', 'Jean-Baptiste', 'Ophélie', 'Bo', 'François-Xavier', 'Kévin']
 const invites: Invite[] = []
 for (const [i, nom] of prenoms.entries()) {
@@ -109,6 +137,7 @@ for (const [i, nom] of prenoms.entries()) {
   // Les six premiers ont un profil : c'est à eux que la clôture remet ses
   // hauts faits et ses niveaux.
   const profil = i < 6 ? await inscrireProfil(url, `joueur${i}`, nom, avatar) : undefined
+  if (profil && PORTRAITS_PORTES[i]) await porterUnPortrait(`joueur${i}`, profil, PORTRAITS_PORTES[i])
   const inv = await invite(url, nom, avatar, { cookie: profil })
   invites.push(inv)
   ;(host as any).emit('host:assignPlayer', { playerId: inv.playerId, teamId: equipes[i % 3] })

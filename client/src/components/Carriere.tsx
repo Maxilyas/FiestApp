@@ -5,6 +5,7 @@ import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, progresVers } from '../../../shared/legendaires'
 import { saison } from '../../../shared/saisons'
 import { DIVINS, type DivinDescendu } from '../../../shared/divins'
+import { portrait } from '../../../shared/branches'
 import { NOM_RARETE } from '../../../shared/badges'
 import { estimations, formatNumber, pourcent, secondes, surQcm } from '../format'
 import { Chiffres, justesses, type Chiffre } from './Chiffres'
@@ -16,13 +17,13 @@ import { Chiffres, justesses, type Chiffre } from './Chiffres'
 
 /**
  * Ce que « Le porter » ôterait, dit avant le bouton : on porte un avatar à
- * la fois, et le légendaire ou le Divin qu'on quitte reste à soi. C'est lui
+ * la fois, et le légendaire, le Divin ou le portrait qu'on quitte reste à soi. C'est lui
  * qu'un toucher de trop faisait perdre de vue — le plus rare de tout ce
  * qu'on porte. Rien à dire quand on ne quitte qu'un emoji.
  */
 export function CeQuIlRemplace({ porte, cle }: { porte: string | null; cle: string }) {
   if (!porte || porte === cle) return null
-  const nom = LEGENDAIRES.find(l => l.key === porte)?.nom ?? DIVINS.find(d => d.key === porte)?.nom
+  const nom = LEGENDAIRES.find(l => l.key === porte)?.nom ?? DIVINS.find(d => d.key === porte)?.nom ?? portrait(porte)?.nom
   if (!nom) return null
   return <p className="small">{`Il remplacera ${nom}, que tu gardes.`}</p>
 }

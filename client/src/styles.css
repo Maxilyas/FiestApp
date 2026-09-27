@@ -1946,6 +1946,9 @@ h3 > .icon {
    le Phénix du premier paraissait le plus petit des trois. */
 .podium-avatar .av-emoji > .lg,
 .carte-avatar .av-emoji > .lg { font-size: 1.3em; }
+/* Un portrait des branches aussi : rond comme un médaillon. */
+.podium-avatar .av-emoji > .pt,
+.carte-avatar .av-emoji > .pt { font-size: 1.3em; }
 .podium-name {
   font-family: var(--serif);
   font-weight: 600;
@@ -4184,7 +4187,8 @@ h3 > .icon {
    cercle, sans fin. Figé, il garde sa matière et ses couleurs. */
 .finitions .finition-btn:not(.selected):not(:hover) .av::before,
 .finitions .finition-btn:not(.selected):not(:hover) .av::after,
-.finitions .finition-btn:not(.selected):not(:hover) .lg * {
+.finitions .finition-btn:not(.selected):not(:hover) .lg *,
+.finitions .finition-btn:not(.selected):not(:hover) .pt * {
   animation: none;
 }
 
@@ -4497,6 +4501,24 @@ h3 > .icon {
   .lg * { animation: none !important; }
 }
 
+/* ── Les portraits des branches ────────────────────────────────────────────
+   Soixante-douze avatars dessinés (components/Portrait.tsx), à la taille du
+   texte, comme un légendaire. Eux ne bougent pas : seul le cercle de la
+   finition tourne, quand on en porte un. */
+
+.pt {
+  display: block;
+  width: 1em;
+  height: 1em;
+  overflow: visible;
+}
+
+.pt * { transform-box: view-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pt * { animation: none !important; }
+}
+
 /* ── Les avatars divins ────────────────────────────────────────────────────
 
    Cinq dessins (components/Divin.tsx), à la taille du texte comme les
@@ -4752,6 +4774,13 @@ h3 > .icon {
 .av-legendaire .av-emoji { display: inline-flex; }
 .av-legendaire .lg { width: 1.12em; height: 1.12em; }
 
+/* Un portrait des branches, comme un légendaire : à sa place, rond, et
+   éclaté sous son ciel rare, avec les paillettes — les visages ne changent
+   pas de teinte. */
+.av-portrait .av-emoji { display: inline-flex; }
+.av-portrait .pt { width: 1.12em; height: 1.12em; }
+.av-portrait.av-eclat .av-emoji { filter: none; }
+
 /* Un légendaire éclaté porte sa version rare, dessinée : on garde les
    paillettes de l'Éclat autour, pas la rotation de teintes de l'emoji. */
 .av-legendaire.av-eclat .av-emoji { filter: none; }
@@ -4776,14 +4805,17 @@ h3 > .icon {
    [perf-client-7]. */
 .av.lb-avatar:not(.av-sujet) .lg *,
 .av.lb-avatar:not(.av-sujet) .dv *,
+.av.lb-avatar:not(.av-sujet) .pt *,
 .av.lb-avatar:not(.av-sujet)::before,
 .av.lb-avatar:not(.av-sujet)::after,
 .player-chip .lg *,
 .player-chip .dv *,
+.player-chip .pt *,
 .player-chip .av::before,
 .player-chip .av::after,
 .stats-table tbody tr:nth-child(n + 6) .lg *,
-.stats-table tbody tr:nth-child(n + 6) .dv * {
+.stats-table tbody tr:nth-child(n + 6) .dv *,
+.stats-table tbody tr:nth-child(n + 6) .pt * {
   animation: none;
 }
 
@@ -4845,6 +4877,15 @@ h3 > .icon {
 /* Le halo d'une finition déborde de l'emoji d'un quart de sa taille (1,45 em
    pour 1) : sans cette marge, il mordait sur le titre et sur le bouton. */
 .fin-collection-emoji .av { margin-block: 0.25em; }
+
+/* Les portraits de ses branches, ouverts ce soir : une rangée, chacun son
+   nom et ce qui l'a ouvert. En 360 px, deux par ligne. */
+.fin-portraits { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.fin-portraits p { margin: 0; }
+.fin-portraits-liste { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 14px; }
+.fin-portrait { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 132px; }
+.fin-portrait-dessin { font-size: 76px; line-height: 0; margin-bottom: 4px; }
+.fin-portrait .btn { margin-top: 4px; }
 
 .fin-legendaire {
   display: flex;
@@ -5303,7 +5344,8 @@ h3 > .icon {
    médaillons prenaient le tiers du fil principal d'un téléphone moyen, et
    les galeries d'un habitué le saturaient. */
 .carte-legendaire:not(:hover) .lg *,
-.carte-legendaire:not(:hover) .dv * {
+.carte-legendaire:not(:hover) .dv *,
+.carte-legendaire:not(:hover) .pt * {
   animation: none;
 }
 .carte-chiffres { margin: 0; }
@@ -6016,6 +6058,7 @@ span.case-avatar { cursor: default; }
    principal d'un téléphone moyen, pour un seul avatar regardé. */
 .grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .lg *,
 .grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .dv *,
+.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .pt *,
 .grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .av::before,
 .grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .av::after {
   animation: none;
@@ -6028,7 +6071,63 @@ span.case-avatar { cursor: default; }
 .anneau-texte-divin { color: var(--anneau-divin); }
 .anneau-texte-collection { color: var(--anneau-collection); }
 .anneau-texte-collection-haut { color: var(--anneau-collection-haut); }
-.legende-anneaux { margin: 10px 0 0; line-height: 1.6; }
+.legende-anneaux { line-height: 1.6; }
+
+/* ── Mes avatars, par famille ──────────────────────────────────────────────
+   Cent vingt-neuf avatars : trois onglets sur une seule rangée, et le
+   compte de chaque partie à côté de son titre, pas dans l'onglet. */
+.onglets-familles { margin: 10px 0 4px; }
+/* Chaque partie d'une famille : son titre et son compte, puis ses cases. */
+.famille-titre {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 16px 0 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.famille-compte { color: var(--muted); font-size: var(--t-label); font-weight: 600; font-variant-numeric: tabular-nums; }
+.famille-note { margin: -4px 0 10px; }
+
+/* Les branches : une dépliée, les autres sur une ligne chacune. */
+.branches { display: flex; flex-direction: column; gap: 4px; }
+.rayon {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 2px 0 6px;
+  padding: 12px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  background: var(--surface-faint);
+}
+.rayon p { margin: 0; }
+.rayon-tete { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.rayon-tete b { font-family: var(--serif); font-size: 1.15rem; }
+.rayon-tete .ligne-branche-compte { margin-left: auto; }
+/* Six portraits : trois par rangée au téléphone, six dès qu'ils tiennent. */
+.grille-branche { grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); margin-top: 2px; }
+.grille-branche .case-medaillon { font-size: 64px; }
+.grille-branche .case-niveau { bottom: -4px; font-variant-numeric: tabular-nums; }
+.ligne-branche {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ligne-branche:hover { border-color: var(--edge); background: var(--surface); }
+.ligne-branche-dessin { flex: none; font-size: 42px; line-height: 0; }
+.ligne-branche-texte { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ligne-branche-compte { flex: none; color: var(--muted); font-size: 0.86rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .puce { font-size: 0.8em; }
 
 /* Trophées : ce que la carte montre, les médailles du jour, les plus
