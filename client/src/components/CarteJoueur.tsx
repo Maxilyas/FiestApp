@@ -12,6 +12,7 @@ import { Icon } from './Icon'
 import { Niveau } from './Niveau'
 import { Laurier } from './Laurier'
 import { useModale } from '../modale'
+import { partsDuNomAffiche } from '../../../shared/homonymes'
 import { Ecusson } from './Ecusson'
 import { Flamme } from './Jour'
 import { fond as fondDeCarte } from '../../../shared/fonds'
@@ -99,7 +100,12 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                       <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
                     </p>
                   )}
-                  {p && p.prenom !== carte.nom && <p className="muted small">{espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil</p>}
+                  {/* Un surnom donné ce soir, pas la marque « (2) » d'un homonyme : « « Camille (2) » ce soir — Camille sur son profil » se lisait comme un surnom. */}
+                  {p && p.prenom !== partsDuNomAffiche(carte.nom).prenom && (
+                    <p className="muted small">
+                      {espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil
+                    </p>
+                  )}
                   <p className="carte-soir">
                     {carte.ceSoir.rang > 0 ? (
                       <>

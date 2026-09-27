@@ -8,6 +8,7 @@ import { showToast, useAppState } from '../state'
 import type { SpaceSettings } from '../../../shared/space'
 import type { ProfilDeLEspace } from '../../../shared/profil'
 import { Avatar } from '../components/Avatar'
+import { cibleEclat } from '../../../shared/legendaires'
 import { Niveau } from '../components/Niveau'
 
 /**
@@ -203,7 +204,7 @@ function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onCha
       <section className="card">
         <h2>Mon profil joueur</h2>
         <div className="row profil-lie">
-          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={profil.eclats.includes(profil.avatar)} legendaire={profil.legendaire ?? undefined} />
+          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))} legendaire={profil.legendaire ?? undefined} />
           <div>
             <strong>{profil.name}</strong>
             <Niveau niveau={profil.niveau} />

@@ -348,10 +348,10 @@ function VotesDuSondage({ v }: { v: QuizHostView }) {
           {votes.map((x, i) => (
             <div key={i} className="lb-row vote-row" style={{ animationDelay: `${i * 60}ms` }}>
               <Rank n={1 + votes.filter(o => o.votes > x.votes).length} />
-              <Avatar className="lb-avatar" avatar={x.avatar} />
+              <Avatar className="lb-avatar" avatar={x.avatar} finition={x.finition} eclat={x.eclat} legendaire={x.legendaire} />
               <span className="lb-name">
                 {/* Les candidats portent la marque « (2) » : elle ne se coupe pas non plus. */}
-                <NomLaure nom={x.name} />
+                <NomLaure nom={x.name} laurier={x.laurier} />
               </span>
               <Score n={x.votes} texte={`${x.votes} vote${x.votes > 1 ? 's' : ''}`} />
             </div>

@@ -9,7 +9,7 @@ import { readPlayerToken, readSessionToken } from './auth/http'
 import type { ReserveDInscriptions } from './core/inscriptions'
 import { messagePourEcran } from './core/http'
 import { sansAccent } from '../../shared/homonymes'
-import { cleanName, tronquer } from '../../shared/avatars'
+import { cleanAvatar, cleanName, tronquer } from '../../shared/avatars'
 import { pouls } from './core/pouls'
 
 interface SocketDeps {
@@ -406,7 +406,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // Un emoji de collection ne se porte qu'au niveau du profil qui l'a
         // ouvert. L'écran d'entrée n'en propose pas : seul un appel forgé en
         // enverrait un, et l'invité anonyme repart avec l'avatar par défaut.
-        const tape = texte(charge.avatar)
+        // Jugé une fois nettoyé, tel qu'il s'affichera : jugé brut, un
+        // invisible glissé dans une paire passait le contrôle, et le
+        // nettoyage recollait l'emoji de collection derrière lui.
+        const brut = texte(charge.avatar)
+        const tape = brut ? cleanAvatar(brut) : ''
         const choisi = tape && deps.profiles.peutPorter(profile, tape) ? tape : ''
         const avatar = declare ? choisi || (profile ? deps.profiles.avatarPorte(profile) : '') : ''
         const res = rt.party.join(name, avatar, known?.token, teamId)

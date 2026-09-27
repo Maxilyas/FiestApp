@@ -849,7 +849,9 @@ function votesDuSondage(sess: GameSessionRec<QuizState>, vctx: ViewContext, limi
     // Un invité exclu depuis n'est plus à désigner : ses votes reçus partent avec lui.
     .flatMap((id, i) => {
       const joueur = vctx.player(id)
-      return joueur ? [{ name: vctx.playerName(id), avatar: joueur.avatar, votes: comptes[i] ?? 0 }] : []
+      // Tel que la salle le voit partout ailleurs : sous un légendaire porté,
+      // l'emoji caché paraissait ici, sans finition ni laurier.
+      return joueur ? [{ name: vctx.playerName(id), avatar: joueur.avatar, votes: comptes[i] ?? 0, ...distinctions(joueur) }] : []
     })
     .filter(v => v.votes > 0)
     .sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name, 'fr'))

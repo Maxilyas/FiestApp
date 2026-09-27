@@ -3,7 +3,7 @@ import type { DB } from './db'
 import type { PartyMirror } from './backup'
 import type { PublicPlayer } from '../../../shared/types'
 import type { Finition } from '../../../shared/profil'
-import { DEFAULT_AVATAR, cleanAvatar, cleanName } from '../../../shared/avatars'
+import { DEFAULT_AVATAR, cleanAvatar, cleanName, niveauRequis } from '../../../shared/avatars'
 import { nomsAffiches } from '../../../shared/homonymes'
 
 export interface PlayerRec {
@@ -27,6 +27,11 @@ export interface ProfileBadge {
   legendaire?: string
   /** Il a gagné le quiz du jour d'hier. */
   laurier?: boolean
+  /**
+   * L'avatar qu'il porte à la place de celui de sa fiche, quand il ne l'ouvre
+   * plus : un emoji de collection au-dessus du niveau qu'il vient de perdre.
+   */
+  avatar?: string
 }
 
 /**
@@ -344,12 +349,37 @@ export class Party {
     return this.marques().get(playerId) ?? rec.name
   }
 
+  /**
+   * Les emojis de collection des fiches, relus au niveau du jour. Jugé une
+   * fois, au `player:join`, l'emoji restait à l'écran quand le niveau
+   * redescendait en pleine soirée (une soirée retirée ailleurs, une question
+   * du jour annulée) : le paon à côté de « Niv. 1 », que le relevé et l'Éclat
+   * prenaient pour cible. La fiche prend l'avatar qu'il porte à la place — et
+   * les marques d'homonymie se refont, qui comparent les avatars des fiches.
+   * Seuls les emojis de collection se relisent : le reste ne se perd pas.
+   */
+  relireAvatars(): void {
+    if (!this.badgeOf) return
+    for (const p of this.players.values()) {
+      if (!p.profileId || niveauRequis(p.avatar) === 0) continue
+      const aLaPlace = this.badgeOf(p.profileId, p.avatar)?.avatar
+      if (!aLaPlace || aLaPlace === p.avatar) continue
+      p.avatar = aLaPlace
+      this.marquesCache = null
+      this.revision++
+      this.db.prepare('UPDATE players SET avatar = ? WHERE id = ?').run(p.avatar, p.id)
+      this.backup?.savePlayer(p, p.createdAt)
+    }
+  }
+
   publicPlayers(totals: Map<string, number>): PublicPlayer[] {
+    this.relireAvatars()
     const marques = this.marques()
     return [...this.players.values()].map(p => this.toPublic(p, totals.get(p.id) ?? 0, marques))
   }
 
   publicOne(playerId: string, score: number): PublicPlayer | undefined {
+    this.relireAvatars()
     const p = this.players.get(playerId)
     return p ? this.toPublic(p, score, this.marques()) : undefined
   }

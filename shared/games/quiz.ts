@@ -15,7 +15,8 @@ import type { Multiplicateur } from '../programme'
 export type QuizPhase = 'pickPack' | 'getReady' | 'intertitre' | 'observe' | 'question' | 'cible' | 'reveal' | 'finished'
 
 /** « Qui dans la salle ? » : un invité, et les votes qu'il a reçus. */
-export interface VoteDeSondage {
+/** Un invité désigné, tel que la salle le voit : son légendaire, sa finition. */
+export interface VoteDeSondage extends Distinctions {
   name: string
   avatar: string
   votes: number

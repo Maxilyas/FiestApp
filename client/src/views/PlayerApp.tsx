@@ -32,6 +32,7 @@ import { regleDesEquipes } from '../../../shared/teams'
 import { espacesFines, formatNumber, scoreEtRang } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
+import { Laurier } from '../components/Laurier'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
 import { CarteJoueur } from '../components/CarteJoueur'
@@ -558,6 +559,8 @@ export function PlayerApp() {
                 d'homonymie, son porteur doit la lire sur son propre téléphone
                 plutôt que la découvrir sur le mur. */}
             <span className="me-nom">{me?.nomAffiche ?? me?.name}</span>
+            {/* Son laurier, comme la salle le voit à côté de son prénom. */}
+            <Laurier laurier={me?.laurier} />
             <Niveau niveau={me?.niveau} big />
           </h2>
           <p className="muted">

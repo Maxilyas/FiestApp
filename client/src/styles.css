@@ -745,6 +745,7 @@ h3 > .icon {
 .me-header h2 { font-size: 1.8rem; display: flex; align-items: center; min-width: 0; }
 .me-header h2 .me-nom { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .me-header h2 .niveau { flex: none; margin-left: 0.4em; }
+.me-header h2 .laurier { margin-left: 0.3em; }
 .player-avatar { font-size: 1.6rem; line-height: 1; }
 .player-avatar.big { font-size: 2.6rem; }
 
@@ -1925,6 +1926,12 @@ h3 > .icon {
 }
 
 .podium-avatar { font-size: 2.6rem; line-height: 1; animation: pop 0.5s ease-out both; }
+/* Sous un légendaire, la finition devient le cercle du médaillon, à 1 em ;
+   un emoji à finition, lui, prend un halo de 1,45 em. Là où il est le sujet
+   — le podium, la carte —, le médaillon rejoint la place d'un emoji auréolé :
+   le Phénix du premier paraissait le plus petit des trois. */
+.podium-avatar .av-emoji > .lg,
+.carte-avatar .av-emoji > .lg { font-size: 1.3em; }
 .podium-name {
   font-family: var(--serif);
   font-weight: 600;

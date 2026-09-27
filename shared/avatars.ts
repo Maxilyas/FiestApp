@@ -1,3 +1,5 @@
+import { emojisRecents } from './emojis'
+
 // Les avatars proposés à l'inscription, et le nettoyage de ce qui arrive du
 // téléphone. Partagé : le serveur ne fait confiance à rien de ce qu'il reçoit,
 // mais il doit proposer exactement la même liste que l'écran d'inscription.
@@ -56,8 +58,14 @@ export function collectionGagnee(avant: number, apres: number): string[] {
   return COLLECTION.filter(c => c.niveau > avant && c.niveau <= apres).map(c => c.emoji)
 }
 
-/** Caractères de contrôle et de mise en forme invisibles : rien à faire sur un mur. */
-const INVISIBLE = /[\p{Cc}\p{Cf}]/gu
+/**
+ * Caractères de contrôle et de mise en forme invisibles : rien à faire sur un
+ * mur. Et les demi-paires de substitution, qu'aucun caractère ne complète :
+ * un invisible glissé au milieu d'une paire (« \uD83D\u200B\uDC32 ») se
+ * retirait, et la paire recollée faisait 🐲 — un emoji de collection que le
+ * contrôle, qui n'avait vu que deux moitiés, avait laissé passer.
+ */
+const INVISIBLE = /[\p{Cc}\p{Cf}\p{Cs}]/gu
 
 /**
  * Un avatar est un emoji de la liste, ou à défaut quelques caractères : un
@@ -69,6 +77,9 @@ export function cleanAvatar(raw: unknown): string {
   if (typeof raw !== 'string') return DEFAULT_AVATAR
   if (AVATARS.includes(raw)) return raw
   const short = Array.from(raw.replace(INVISIBLE, '').trim()).slice(0, 4).join('')
+  // Un emoji d'Unicode 13 ou plus s'affiche en carré vide sur l'écran commun
+  // (Windows 10) : la grille n'en propose pas, un appel forgé n'en pose pas.
+  if (emojisRecents(short).length > 0) return DEFAULT_AVATAR
   return short || DEFAULT_AVATAR
 }
 

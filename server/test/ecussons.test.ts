@@ -12,6 +12,13 @@ import { SEUILS_ECUSSON, ecussonsDe, palierEcusson, plusBeauxEcussons, prochainS
 import { releveVide } from '../../shared/profil'
 import { VERSION_BAREME } from '../src/auth/profiles'
 
+test('les seuils des écussons sont un choix de produit : 20, 75, 200 bonnes réponses', () => {
+  // RECOMPENSES.md les annonce ; les épreuves suivantes se construisent sur
+  // `SEUILS_ECUSSON` et passaient avec l'or à 150. Les changer se dit, ici
+  // comme là-bas — comme le podium du jour (`jour.test.ts`).
+  assert.deepEqual([...SEUILS_ECUSSON], [20, 75, 200])
+})
+
 test('un écusson par catégorie : les bonnes réponses des soirées et du quiz du jour s’additionnent', () => {
   const [bronze, argent, or] = SEUILS_ECUSSON
   assert.deepEqual([palierEcusson(0), palierEcusson(bronze - 1), palierEcusson(bronze), palierEcusson(argent), palierEcusson(or)], [0, 0, 1, 2, 3])

@@ -453,14 +453,19 @@ export const VITRINE_MAX = 3
 
 /**
  * Les hauts faits qu'il a gagnés : chaque haut fait de soirée décroché —
- * exploit ou coup du sort —, chaque haut fait de carrière dès son premier
- * palier. Chacun ouvre un titre, son nom (« L'Oracle », « Le Bavard »), et
+ * exploit ou coup du sort —, chaque haut fait de carrière à l'un de ses
+ * paliers. Chacun ouvre un titre, son nom (« L'Oracle », « Le Bavard »), et
  * peut monter dans la vitrine de sa carte.
+ *
+ * N'importe quel palier, pas seulement le bronze : la soirée qui l'avait
+ * fait tomber, retirée, emporte le bronze et laisse l'argent — le titre et la
+ * vitrine tombaient avec lui, et le serveur refusait ce que la page proposait
+ * (`cleRangee`, elle, lisait déjà l'argent).
  */
 export function hautsFaitsGagnes(recompenses: ReadonlyMap<string, number>): string[] {
   return [
     ...HAUTS_FAITS_DE_SOIREE.filter(h => (recompenses.get(h.key) ?? 0) > 0).map(h => h.key),
-    ...HAUTS_FAITS_DE_CARRIERE.filter(h => (recompenses.get(clePalier(h.key, 1)) ?? 0) > 0).map(h => h.key),
+    ...HAUTS_FAITS_DE_CARRIERE.filter(h => cleRangee(h.key, recompenses) !== null).map(h => h.key),
   ]
 }
 

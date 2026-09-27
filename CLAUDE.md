@@ -479,7 +479,11 @@ sans `QUIZ_DB_URL`.
   `profil.avatar` : un emoji de collection au-dessus de son niveau (une
   soirée retirée l'a fait redescendre) ne se montre pas. Et un avatar
   n'entre dans une soirée que par `player:join`, qui demande
-  `peutPorter` : l'invité anonyme n'y porte aucun emoji de collection.
+  `peutPorter` sur l'avatar **nettoyé** (`cleanAvatar` : ni demi-paire, ni
+  emoji d'Unicode 13) : l'invité anonyme n'y porte aucun emoji de
+  collection. La fiche de la soirée se relit ensuite à chaque diffusion
+  (`Party.relireAvatars`) : un niveau qui redescend en pleine soirée lui
+  rend l'avatar du profil, marques d'homonymie refaites.
 - **L'éditeur n'envoie rien pendant qu'on écrit** : le serveur s'endort sous
   les doigts de l'animateur. Une écriture de l'éditeur qui se rejoue sans
   dommage passe par `auReveil` ; et une réponse qui arrive après deux minutes

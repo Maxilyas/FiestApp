@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
+import { NomLaure } from './Laurier'
 import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
@@ -79,7 +80,10 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
           eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))}
           legendaire={profil.legendaire ?? undefined}
         />
-        <span className="lb-name">{profil.name}</span>
+        {/* Sa ligne telle que la salle la voit : son laurier compris. */}
+        <span className="lb-name">
+          <NomLaure nom={profil.name} laurier={profil.laurier} />
+        </span>
         <Niveau niveau={profil.niveau} />
       </div>
     </section>
@@ -277,13 +281,21 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
  * préfère.
  */
 export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
-  const eclat = profil.eclats.includes(profil.avatar)
+  // Les aperçus montrent ce que la salle verra : sous un légendaire porté,
+  // le médaillon cerclé de la finition — pas l'emoji caché dessous, qu'on
+  // choisissait auréolé d'« Aurore » sans voir le Phénix que la salle verrait.
+  const divinPorte = divin(profil.legendaire)
+  // Sous un Divin, qui n'en prend pas, c'est sous l'emoji que la finition se verra.
+  const legendairePorte = divinPorte ? undefined : (profil.legendaire ?? undefined)
+  const eclat = profil.eclats.includes(cibleEclat(legendairePorte, profil.avatar))
   return (
     <section className="card">
       <h3>
         <Icon name="trophy" />
         Ma finition <span className="muted small titre-compte">{`${profil.ouvertes.length} / ${FINITIONS.length}`}</span>
       </h3>
+      {/* Un Divin ne prend ni finition ni Éclat : la sienne se choisira sous un autre avatar. */}
+      {divinPorte && <p className="muted small">{`${divinPorte.nom} a sa propre lumière : ta finition se voit sous tes autres avatars.`}</p>}
       <div className="finitions">
         <button
           type="button"
@@ -292,7 +304,7 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
           aria-pressed={profil.finitionChoisie === 'auto'}
           onClick={() => enregistrer({ finition: 'auto' })}
         >
-          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={eclat} />
+          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={eclat} legendaire={legendairePorte} />
           <span className="finition-nom">La plus belle</span>
           {/* L'état se dit par `aria-pressed` : lu aussi, il se disait deux fois. */}
           <span className="muted small" aria-hidden="true">
@@ -312,7 +324,7 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
               aria-pressed={choisie}
               onClick={() => enregistrer({ finition: f })}
             >
-              <Avatar avatar={profil.avatar} finition={f} eclat={eclat} />
+              <Avatar avatar={profil.avatar} finition={f} eclat={eclat} legendaire={legendairePorte} />
               <span className="finition-nom">{NOM_FINITION[f]}</span>
               {/* « épinglée » redit `aria-pressed` : l'oreille entend « ouverte ». */}
               <span className="muted small" aria-hidden={choisie || undefined}>
