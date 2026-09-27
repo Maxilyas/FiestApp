@@ -1,20 +1,23 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { Award, PublicTeam } from '../../../shared/types'
 import { enumerer } from '../../../shared/classement'
 import { effetDUnPrix } from '../../../shared/teams'
 import { ChampNombre } from './ChampNombre'
+import { remiseDuClic, type RemiseEnRoute } from '../remise'
 
 interface Props {
   awards: Award[]
   teams: PublicTeam[]
   /** Absent sur la page souvenir : les invités lisent, ils n'attribuent rien. */
-  onAward?: (teamId: string, points: number, reason: string) => void
+  onAward?: (teamId: string, points: number, reason: string, remise: string) => void
   /**
    * Les intitulés des prix déjà remis. On compare sur le titre et non sur la
    * clé : c'est le titre qui part en motif dans le journal des prix, et c'est
    * lui que l'animateur relit dans la liste.
    */
   givenTitles?: Set<string>
+  /** Les prix remis tels que l'instantané les montre : une remise vue libère son prix pour « Redonner ». */
+  remisesVues?: string
 }
 
 /** Ce qu'un prix vaut par défaut. L'animateur reste libre de changer. */
@@ -36,8 +39,10 @@ const parDefaut = (a: Award) => (POUR_L_HONNEUR.has(a.key) ? 0 : DEFAULT_POINTS)
  * mérite, les prix se donnent — et devant cinquante personnes, c'est
  * l'animateur qui sait lequel fera rire.
  */
-export function AwardsBoard({ awards, teams, onAward, givenTitles }: Props) {
+export function AwardsBoard({ awards, teams, onAward, givenTitles, remisesVues = '' }: Props) {
   const [points, setPoints] = useState<Record<string, number>>({})
+  /** La dernière remise de chaque prix, pour reconnaître un double clic (`remiseDuClic`). */
+  const remises = useRef(new Map<string, RemiseEnRoute>())
   const teamOf = (id: string | null) => teams.find(t => t.id === id) ?? null
 
   if (awards.length === 0) {
@@ -121,7 +126,16 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles }: Props) {
                 <button
                   className={'btn btn-small' + (given ? '' : ' btn-primary')}
                   // La valeur que l'effet annonce : arrondie, comme le serveur la lira.
-                  onClick={() => onAward(team.id, Math.round(points[a.key] ?? parDefaut(a)), a.title)}
+                  onClick={() => {
+                    const pts = Math.round(points[a.key] ?? parDefaut(a))
+                    const remise = remiseDuClic(remises.current.get(a.key), {
+                      quoi: `${team.id}:${pts}`,
+                      vus: remisesVues,
+                      maintenant: Date.now(),
+                    })
+                    remises.current.set(a.key, remise)
+                    onAward(team.id, pts, a.title, remise.id)
+                  }}
                 >
                   {given ? 'Redonner' : 'Attribuer'}
                 </button>

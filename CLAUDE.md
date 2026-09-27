@@ -93,7 +93,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/avatars.ts` | les avatars de l'inscription et le nettoyage de ce qui arrive du téléphone (`cleanAvatar`, `cleanName`, `tronquer`) ; et les douze emojis de collection (`COLLECTION`), un par niveau sans finition, réservés aux profils — `niveauRequis` lit le niveau qu'un avatar demande, doublé ou suivi d'un sélecteur de variante compris |
 | `shared/adresses.ts` · `core/apercus.ts` | une adresse lue une seule fois pour le client et le serveur ; le serveur y pose le statut (404 d'un espace, d'une page ou d'une archive inconnus), les balises d'aperçu (le titre de l'espace, **jamais un prénom**), `noindex` hors de l'accueil, et les seules corrections permises : ce que `normalizeSlug` fait de la saisie (casse, accents, espaces et ponctuation en tirets, 24 caractères au plus), puis la seule forme `chez-‹saisie›` — jamais un nom voisin (invariant 3) |
 | `client/src/onglets.ts` | les onglets nommés de la console, et « Revenir à la console » d'une page qu'elle a ouverte : jamais une seconde console |
-| `sockets.ts` | tout le protocole temps réel — chaque message passe par `ecouter()` |
+| `sockets.ts` | tout le protocole temps réel — chaque message passe par `ecouter()`, et chaque geste d'animateur relit la session de sa poignée de main (`requireHost`) |
 | `shared/events.ts` | le contrat socket, typé des deux côtés |
 | `shared/homonymes.ts` | « Camille (2) » : la dérivation pure qui distingue deux invités identiques |
 | `shared/classement.ts` | la seule règle des ex æquo : rang partagé, vainqueurs, ordre d'affichage — et l'écart d'une estimation (`ecartEstimation`), les groupes d'ex æquo d'où se lisent les voisins (`groupesDExAequo`), le rang lu par dichotomie (`rangDansLesTries`) |
@@ -224,7 +224,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
     l'écran commun de la soirée. Une télé branchée par un code d'appairage
     hérite de la porte de la console qui l'a validé (`auth/appairage.ts`) :
     elle tombe avec ce profil, ou tient comme l'écran commun — et jamais
-    plus de 24 heures (`fin_max`, qui plafonne le glissement). Pour poser
+    plus de 24 heures (`fin_max`, qui plafonne le glissement), même sans
+    avoir décroché : chaque geste relit la session. Pour poser
     le lien, il faut prouver les deux identités ; après, une seule porte
     suffit. Ne fusionne pas les deux tables : l'identifiant d'un compte est
     la clé de partition de dix tables et de toutes les archives.
@@ -239,9 +240,15 @@ server/test/        un fichier par thème, un serveur jetable chacun
     Elle se range après chaque quiz (`apresQuiz`) ; `host:closeParty` la clôt
     — dernier rangement, crédits de clôture, fin de soirée à chaque téléphone
     et à la salle, puis la page blanche ; `host:discardParty` efface un essai
-    avec tout ce qu'il avait crédité. La fin de soirée ne part **qu'une fois
-    la soirée effacée** : un miroir qui refuse d'effacer ne doit pas faire
-    lire « c'est fini » à une soirée qui continue. `host:resetParty` et
+    avec tout ce qu'il avait crédité. **Une seule fin à la fois**
+    (`finEnRoute`) : un second « Clore » attend le premier et en reçoit
+    l'issue, le geste contraire est refusé — deux clôtures croisées
+    recréditaient, réannonçaient au podium vide et effaçaient l'invité entré
+    entre les deux. Ce que la clôture raconte se relit en base
+    (`rangesSousLaSoiree`) : reprise après un refus du miroir, elle se taisait
+    sur ce que la tentative d'avant avait rangé. La fin de soirée ne part
+    **qu'une fois la soirée effacée** : un miroir qui refuse d'effacer ne doit
+    pas faire lire « c'est fini » à une soirée qui continue. `host:resetParty` et
     `host:archiveParty` restent compris des pages d'avant. Entre deux
     soirées, `recap.json` et `bilan.json` désignent la dernière soirée close
     (`derniere`), que le souvenir et le bilan de l'espace montrent à sa place
@@ -386,7 +393,12 @@ sans `QUIZ_DB_URL`.
 - **Pas de `socket.on` direct pour un message client** : `ecouter()` le fait
   pour toi, charge normalisée et accusé optionnel compris. Côté client,
   `watchParty` et `helloHost` rejettent sur délai (`demander`), alors que
-  `joinAsPlayer` et `setMyTeam` résolvent un refus.
+  `joinAsPlayer` et `setMyTeam` résolvent un refus. Un geste de la partie
+  part par `envoyerCommande` (accusé, sonde, un renvoi — il porte sa
+  visée), une réponse sonde la liaison avant son renvoi (`verifierLiaison`
+  rend la sonde en cours), et un prix se remet avec l'identifiant de son
+  geste (`remise`, `client/src/remise.ts`) : un double clic ne le remet
+  qu'une fois.
 - **`loginBudgetOf(app)`, jamais `new LoginBudget()`** : toutes les portes qui
   ouvrent une console partagent la même réserve d'essais. Celle des
   inscriptions d'invités, elle, se compte **par espace**
@@ -511,7 +523,9 @@ sans `QUIZ_DB_URL`.
 - **Simuler une panne** : un déclencheur `RAISE(ABORT)` sur le fichier `file:`
   qui tient lieu de Turso (`miroir.test.ts`) ; un vrai démarrage, un SIGTERM
   ou un SIGKILL, en lançant `src/index.ts` dans un processus enfant
-  (`exploitation.test.ts`).
+  (`exploitation.test.ts`) ; une liaison morte que socket.io croit vivante
+  — le wifi sans internet —, par le relais de `relais.ts`, devant le vrai
+  module du client chargé dans Node (`liaison-morte.test.ts`).
 - **Le quiz du jour a son horloge** (`horlogeDuJour`, `JourStore.maintenant`) :
   les tests la font passer minuit (`jour-partie.test.ts`). Sa ligne
   d'expérience (`LIGNE_JOUR`, `#jour`) compte dans le total et le niveau

@@ -619,6 +619,45 @@ export class ProfileStore {
   }
 
   /**
+   * Ce qu'une soirée a rangé sur l'étagère de chacun — prix, hauts faits,
+   * paliers, Divins —, par profil, dans l'ordre où c'est tombé.
+   *
+   * La clôture raconte à partir d'ici, pas de ce que son propre passage
+   * vient d'écrire : reprise après un refus du miroir, elle trouvait tout
+   * déjà rangé par la tentative d'avant, et la fin de chaque téléphone se
+   * taisait sur la Chouette, le Divin ou le palier que la soirée avait fait
+   * tomber.
+   */
+  async rangesSousLaSoiree(soireeId: string, spaceId: string): Promise<Map<string, string[]>> {
+    const res = await this.client.execute({
+      sql: 'SELECT profile_id, badge FROM profile_badges WHERE space_id = ? AND soiree_id = ? ORDER BY created_at, rowid',
+      args: [spaceId, soireeId],
+    })
+    const ranges = new Map<string, string[]>()
+    for (const r of res.rows) {
+      const id = String(r.profile_id)
+      ranges.set(id, [...(ranges.get(id) ?? []), String(r.badge)])
+    }
+    return ranges
+  }
+
+  /**
+   * Les légendaires et les Divins qu'il avait avant une soirée : son
+   * étagère, moins une soirée pour chaque ligne que celle-ci y a rangée — un
+   * haut fait tombé trois soirs en compte encore deux.
+   */
+  avantLaSoiree(id: string, deLaSoiree: readonly string[]): { legendaires: string[]; divins: string[] } {
+    const avant = new Map(this.recompensesOf(id))
+    for (const cle of deLaSoiree) {
+      const n = (avant.get(cle) ?? 0) - 1
+      if (n > 0) avant.set(cle, n)
+      else avant.delete(cle)
+    }
+    const acquis = this.acquis.get(id)
+    return { legendaires: legendairesDebloques(avant, acquis), divins: divinsDebloques(avant, acquis) }
+  }
+
+  /**
    * La courbe des niveaux s'est durcie : un profil garde le niveau qu'il avait
    * atteint. Au premier démarrage qui apporte la nouvelle courbe, chacun
    * retient le niveau que lui donnait l'ancienne, s'il est plus haut — et le

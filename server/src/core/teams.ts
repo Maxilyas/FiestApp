@@ -46,6 +46,14 @@ export class Teams {
   private teams = new Map<string, TeamRec>()
   private bonuses = new Map<string, TeamBonus>()
   /**
+   * Les remises déjà faites, par l'identifiant que la console a tiré au clic.
+   * Rien ne rendait « Attribuer » inerte avant
+   * l'instantané : un double clic remettait le prix deux fois — deux points
+   * d'équipe au lieu d'un, de quoi retourner la victoire. En mémoire, et
+   * bornées : un doublon arrive dans la seconde, pas le lendemain.
+   */
+  private remises = new Set<string>()
+  /**
    * Monte à chaque écriture — équipe ou prix remis : les pages publiques
    * (`core/pages.ts`) s'en servent pour savoir si leur calcul tient encore,
    * sans relire le journal.
@@ -153,6 +161,7 @@ export class Teams {
     this.db.prepare('DELETE FROM team_bonus WHERE space_id = ?').run(this.spaceId)
     this.teams.clear()
     this.bonuses.clear()
+    this.remises.clear()
     this.revision++
   }
 
@@ -168,7 +177,10 @@ export class Teams {
    * soir-là » sans toucher au classement — Nadia voulait saluer Jeanne sans
    * renverser la victoire qu'elle venait d'annoncer.
    */
-  awardBonus(teamId: string, points: number, reason: string): TeamBonus | { error: string } {
+  awardBonus(teamId: string, points: number, reason: string, remise?: string): TeamBonus | { error: string } | null {
+    // Ce geste-là a déjà remis son prix : rien de plus — pas même s'il a été
+    // retiré depuis, qu'un doublon en retard ne doit pas faire revenir.
+    if (remise && this.remises.has(remise)) return null
     if (!this.teams.has(teamId)) return { error: 'Équipe introuvable' }
     const value = Math.round(Number(points))
     if (!Number.isFinite(value)) return { error: 'Il faut un nombre de points' }
@@ -178,6 +190,10 @@ export class Teams {
       points: Math.max(-50, Math.min(50, value)),
       reason: tronquer((reason ?? '').trim(), 60) || 'Prix spécial',
       createdAt: Date.now(),
+    }
+    if (remise) {
+      this.remises.add(remise)
+      if (this.remises.size > 500) this.remises.delete(this.remises.values().next().value!)
     }
     this.bonuses.set(rec.id, rec)
     this.db

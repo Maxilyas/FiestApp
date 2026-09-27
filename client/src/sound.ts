@@ -24,17 +24,59 @@ function lireMuet(): boolean {
 
 let muted = lireMuet()
 
+/** La page a-t-elle déjà reçu un geste ? Inconnu d'un navigateur ancien : on ne présume rien. */
+function hasBeenActive(): boolean {
+  return (navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive === true
+}
+
+/** Ceux qui veulent savoir quand le son devient possible : la pastille « Activer le son ». */
+const abonnes = new Set<() => void>()
+const prevenir = () => abonnes.forEach(f => f())
+
 /**
  * Les navigateurs interdisent de jouer un son avant une interaction. On crée
- * donc le contexte audio au premier clic de l'animateur (lancer un quiz…).
+ * donc le contexte audio au premier geste sur la page (`ouvrirAuPremierGeste`).
  */
 export function initAudio() {
   if (ctx) {
-    if (ctx.state === 'suspended') ctx.resume()
+    if (ctx.state === 'suspended') void ctx.resume()
     return
   }
   const Ctor = window.AudioContext ?? (window as any).webkitAudioContext
-  if (Ctor) ctx = new Ctor()
+  if (!Ctor) return
+  ctx = new Ctor()
+  ctx.onstatechange = prevenir
+  prevenir()
+}
+
+/**
+ * Le premier geste sur la page ouvre le son, où qu'il tombe.
+ *
+ * Le contexte ne naissait que de trois clics précis — « Lancer un quiz », un
+ * écran de fin, le bouton des sons. Quand on anime à la télécommande, la télé
+ * — celle qui doit sonner — ne voit jamais ces clics : ni 3-2-1, ni tic-tac,
+ * ni fanfare, toute la soirée, sous l'icône « son allumé ». Écouté en
+ * capture : un bouton qui arrête la propagation ne l'empêche pas.
+ */
+export function ouvrirAuPremierGeste(cible: Pick<EventTarget, 'addEventListener' | 'removeEventListener'> = window): () => void {
+  const ouvrir = () => initAudio()
+  cible.addEventListener('pointerdown', ouvrir, true)
+  cible.addEventListener('keydown', ouvrir, true)
+  return () => {
+    cible.removeEventListener('pointerdown', ouvrir, true)
+    cible.removeEventListener('keydown', ouvrir, true)
+  }
+}
+
+/** Le son peut-il sortir ? Faux tant que personne n'a touché la page : le navigateur ne joue rien avant. */
+export function sonPret(): boolean {
+  return ctx?.state === 'running'
+}
+
+/** Prévient quand le son devient possible (ou cesse de l'être). Rend de quoi se désabonner. */
+export function surLeSon(abonne: () => void): () => void {
+  abonnes.add(abonne)
+  return () => abonnes.delete(abonne)
 }
 
 export function isMuted(): boolean {
@@ -65,7 +107,12 @@ interface ToneOptions {
 }
 
 function tone({ freq, duration = 0.16, type = 'sine', gain = 0.2, delay = 0, slideTo }: ToneOptions) {
-  if (!ctx || muted) return
+  if (muted) return
+  // La page a déjà reçu un geste — le clic qui a connecté la télé, par
+  // exemple — sans qu'aucun ne crée le contexte : le navigateur le laisse
+  // maintenant sonner.
+  if (!ctx && hasBeenActive()) initAudio()
+  if (!ctx) return
   const start = ctx.currentTime + delay
   const osc = ctx.createOscillator()
   const amp = ctx.createGain()

@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { helloHost, socket } from '../socket'
+import { envoyerCommande, helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
 import { memesPuces } from '../egalite'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
@@ -11,7 +11,7 @@ import { ONGLETS } from '../onglets'
 import { formatDay } from '../../../shared/archive'
 import { titreDeCloture } from '../../../shared/space'
 import { deNom, espacesFines } from '../format'
-import { initAudio, isMuted, toggleMuted } from '../sound'
+import { initAudio, isMuted, ouvrirAuPremierGeste, sonPret, surLeSon, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
 import { Coupe } from '../components/Coupe'
@@ -321,6 +321,12 @@ export function HostApp() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [muted, setMuted] = useState(isMuted)
+  /** Le navigateur laisse-t-il sonner cette page ? Pas avant qu'on l'ait touchée. */
+  const [sonOuvert, setSonOuvert] = useState(sonPret)
+  useEffect(() => surLeSon(() => setSonOuvert(sonPret())), [])
+  // Le premier geste sur cette page ouvre le son, où qu'il tombe : la télé
+  // qu'on pilote à la télécommande ne voyait jamais les clics qui l'ouvraient.
+  useEffect(() => ouvrirAuPremierGeste(), [])
   /** Velours (noir chaud) ou Ivoire (fond clair, pour un vidéoprojecteur qui délave les noirs). */
   const [theme, setTheme] = useState(currentTheme)
   /** Cet écran se tient en télécommande : les gestes en grand, sans la scène projetée. */
@@ -775,8 +781,10 @@ export function HostApp() {
     })
     if (ok) socket.emit('host:discardParty')
   }
+  // Inerte pendant qu'une fin est en route, sur toutes les consoles : le
+  // serveur n'en joue qu'une, mais un second toucher n'aurait rien à dire.
   const cloreButton = snap.players.length > 0 && (
-    <button className="btn" onClick={() => void clore()}>
+    <button className="btn" onClick={() => void clore()} disabled={!!snap.finEnRoute}>
       <Icon name="flag" />
       Clore la soirée
     </button>
@@ -806,6 +814,21 @@ export function HostApp() {
             {snap.sauvegardeEnRetard && (
               <span className="pill sauvegarde-pill" role="status">
                 Sauvegarde en retard — la soirée continue
+              </span>
+            )}
+            {/* Branchée par un code, la télé n'a vu aucun geste : le
+                navigateur la garde muette, et l'icône disait « son allumé ».
+                Un toucher suffit — ici ou n'importe où sur la page. */}
+            {!telecommande && !muted && !sonOuvert && (
+              <button className="pill son-bloque" onClick={initAudio}>
+                <Icon name="volume-off" /> Activer le son
+              </button>
+            )}
+            {/* Une clôture attend la base distante des secondes durant : sans
+                un mot, l'animateur retouchait « Clore » sur l'autre console. */}
+            {snap.finEnRoute && (
+              <span className="pill" role="status">
+                {snap.finEnRoute === 'close' ? 'Clôture en cours…' : 'Effacement de l’essai…'}
               </span>
             )}
           </div>
@@ -1093,11 +1116,12 @@ export function HostApp() {
                   awards={recap?.stats.awards ?? []}
                   teams={teams}
                   givenTitles={givenTitles}
-                  onAward={(teamId, points, reason) => {
+                  remisesVues={bonuses.map(b => b.id).join(',')}
+                  onAward={(teamId, points, reason, remise) => {
                     // La télé sonne le prix remis (RemiseEnScene) : la
                     // télécommande, dans la main, ne la double pas.
                     if (!telecommande) sound.reveal()
-                    socket.emit('host:awardTeam', { teamId, points, reason })
+                    socket.emit('host:awardTeam', { teamId, points, reason, remise })
                   }}
                 />
 
@@ -1349,7 +1373,7 @@ export function HostApp() {
                         }
                       : undefined,
                 }}
-                sendCommand={command => socket.emit('host:command', { sessionId: activeView.sessionId, command })}
+                sendCommand={command => envoyerCommande(activeView.sessionId, command)}
                 endSession={() => socket.emit('host:endSession', { sessionId: activeView.sessionId })}
               />
             ) : (
@@ -1523,7 +1547,7 @@ export function HostApp() {
               players={snap.players}
               quiz={quizView}
               sendCommand={
-                activeView ? command => socket.emit('host:command', { sessionId: activeView.sessionId, command }) : undefined
+                activeView ? command => envoyerCommande(activeView.sessionId, command) : undefined
               }
             />
             {/* Un téléphone tenu droit est une télécommande, sauf s'il est

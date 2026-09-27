@@ -4191,6 +4191,19 @@ h3 > .icon {
 /* Sur la carte, la photo qu'une liste annonçait et qu'il reste à joindre. */
 .photo-attendue { color: var(--accent-text); overflow-wrap: anywhere; }
 
+/* ── Le son qui attend un geste ──────────────────────────────────────────
+
+   La télé branchée par un code n'a vu aucun geste : le navigateur la garde
+   muette. Un bouton habillé en pastille, pas une bascule — `pill-btn` dit
+   un état, celui-ci est un geste unique, qui s'efface dès qu'il a servi. */
+.son-bloque {
+  background: transparent;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.son-bloque:hover { color: var(--ink); border-color: var(--edge-strong); }
+
 /* ── La sauvegarde en retard ─────────────────────────────────────────────
 
    La base en ligne refuse les écritures de la soirée depuis un moment. La

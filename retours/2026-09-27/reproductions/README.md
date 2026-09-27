@@ -29,6 +29,7 @@ et Playwright parmi les modules globaux.
 Le constat que chaque épreuve prouve est dans `../constats.json` (champ
 `reproduction`), avec le verdict de sa contre-expertise.
 
-Quand une correction reprend une épreuve, elle la **déplace** dans
+Quand une correction reprend une épreuve, elle la **recopie** dans
 `server/test/` en l'adaptant au banc (chemins, noms) — pas l'inverse : ce
-dossier est une archive, il ne tourne pas en intégration continue.
+dossier est une archive, l'original y reste avec son constat, et il ne
+tourne pas en intégration continue.

@@ -178,7 +178,12 @@ export interface ClientToServerEvents {
   ) => void
   /** Démarre une partie de quiz (l'animateur choisit ensuite le quiz à jouer). */
   'host:launch': () => void
-  'host:command': (payload: { sessionId: string; command: unknown }) => void
+  /**
+   * Un geste de la partie. L'accusé dit seulement qu'il est arrivé : sans
+   * lui, la console sonde sa liaison et le renvoie une fois — il porte ce
+   * qu'il visait, et arrivé deux fois il ne joue qu'une (invariant 12).
+   */
+  'host:command': (payload: { sessionId: string; command: unknown }, ack: (res: { ok: boolean }) => void) => void
   'host:endSession': (payload: { sessionId: string }) => void
   /**
    * Clôt la soirée : elle se range une dernière fois dans l'historique, sous
@@ -231,8 +236,13 @@ export interface ClientToServerEvents {
   /** Déplace un invité vers une autre équipe (ou l'en sort avec null). */
   'host:assignPlayer': (payload: { playerId: string; teamId: string | null }) => void
 
-  /** Remet un prix à une équipe : des points, et le motif annoncé à la salle. */
-  'host:awardTeam': (payload: { teamId: string; points: number; reason: string }) => void
+  /**
+   * Remet un prix à une équipe : des points, et le motif annoncé à la salle.
+   * `remise` : l'identifiant que la console a tiré pour ce geste — le même
+   * geste arrivé deux fois (un double clic, un clic rejoué) ne remet le prix
+   * qu'une fois ; « Redonner » en tire un neuf. Absent d'une page d'avant.
+   */
+  'host:awardTeam': (payload: { teamId: string; points: number; reason: string; remise?: string }) => void
   /** Retire un prix mal attribué. */
   'host:removeBonus': (payload: { bonusId: string }) => void
 

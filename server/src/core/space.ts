@@ -453,12 +453,46 @@ export class SpaceRuntime {
   private derniereArchive: string | null = null
 
   /**
-   * Une clôture — ou un essai qu'on efface — est en route. Le quiz qu'elle
-   * termine ne se range pas de son côté : c'est elle qui range la soirée
-   * entière, une seule fois, et ce qu'un rangement parti en même temps
-   * écrirait arriverait après elle, sur une soirée qui n'existe plus.
+   * La fin en route — une clôture, ou un essai qu'on efface — et sa promesse.
+   * Le quiz qu'elle termine ne se range pas de son côté : c'est elle qui range
+   * la soirée entière, une seule fois, et ce qu'un rangement parti en même
+   * temps écrirait arriverait après elle, sur une soirée qui n'existe plus.
+   *
+   * Une seule à la fois. Deux « Clore » croisés — la télécommande et la
+   * console, ou un second toucher pendant les secondes que dure une clôture
+   * sur Turso — relisaient chacun la soirée entière : le second, passé
+   * derrière le premier dans la file, recréditait, annonçait une seconde
+   * clôture au podium vide et effaçait l'invité entré entre les deux. Et
+   * « Clore » touché pendant qu'un essai s'effaçait réarchivait l'essai que
+   * la console venait de dire perdu. Le même geste attend donc le premier et
+   * en reçoit l'issue ; le geste contraire est refusé.
    */
-  private fermeture = false
+  private finEnCours: { genre: 'close' | 'discard'; promesse: Promise<unknown> } | null = null
+
+  /** La fin en route, s'il y en a une : les écrans d'animateur le disent, la console aussi. */
+  finEnRoute(): 'close' | 'discard' | null {
+    return this.finEnCours?.genre ?? null
+  }
+
+  /**
+   * Pose la fin avant d'en lancer le travail : sa partie synchrone termine le
+   * quiz en cours, et le rangement de ce quiz doit déjà la voir.
+   */
+  private finir<T>(genre: 'close' | 'discard', travail: () => Promise<T>): Promise<T> {
+    let suivre!: (p: Promise<T>) => void
+    const promesse = new Promise<T>(r => (suivre = r))
+    this.finEnCours = { genre, promesse }
+    // Les écrans d'animateur la montrent — « Clôture en cours… » —, et
+    // « Clore » y devient inerte.
+    this.sendSnapshot()
+    suivre(
+      travail().finally(() => {
+        this.finEnCours = null
+        this.sendSnapshot()
+      }),
+    )
+    return promesse
+  }
 
   /**
    * La fin de soirée de chaque invité de la dernière soirée close, par jeton.
@@ -807,7 +841,7 @@ export class SpaceRuntime {
    * faits — attend la clôture.
    */
   private async apresQuiz() {
-    if (this.fermeture) return
+    if (this.finEnCours) return
     // Les journaux se lisent AVANT le premier `await` : ce qui suit attend la
     // base distante, et un serveur qu'on ferme entre-temps n'aurait plus de
     // base locale à interroger. Le nom de la soirée aussi : une clôture
@@ -1129,6 +1163,7 @@ export class SpaceRuntime {
       ...(this.mirror.enRetard() && { sauvegardeEnRetard: true as const }),
       ...(this.scene && { scene: this.scene }),
       ...(this.telecommandeBranchee() && { telecommande: true as const }),
+      ...(this.finEnCours && { finEnRoute: this.finEnCours.genre }),
     }
   }
 
@@ -1357,6 +1392,10 @@ export class SpaceRuntime {
    * d'avant, et à donner un titre avant la clôture.
    */
   async archiveParty(title?: string): Promise<ArchiveSummary | null> {
+    // Une clôture range la soirée elle-même ; un essai qu'on efface ne doit
+    // pas revenir dans l'historique par ce chemin-ci.
+    if (this.finEnCours?.genre === 'close') throw new Error('La soirée est en train de se clore : elle se range d’elle-même.')
+    if (this.finEnCours) throw new Error('L’essai est en train de s’effacer : rien à ranger.')
     // Tout se lit ici, d'un seul tenant, avant la première attente : une
     // clôture cliquée pendant qu'on écrit au loin viderait les journaux sous
     // nos pieds, et l'archive et les crédits ne décriraient plus la même
@@ -1404,8 +1443,15 @@ export class SpaceRuntime {
    * distante ne répond pas, la soirée reste là, entière, et l'animateur le
    * lit.
    */
-  async closeParty(title?: string): Promise<ArchiveSummary | null> {
-    this.fermeture = true
+  closeParty(title?: string): Promise<ArchiveSummary | null> {
+    // Le second « Clore » attend le premier, et en reçoit l'issue — son titre
+    // ne compte pas : la soirée est déjà en train de se ranger sous l'autre.
+    if (this.finEnCours?.genre === 'close') return this.finEnCours.promesse as Promise<ArchiveSummary | null>
+    if (this.finEnCours) return Promise.reject(new Error('L’essai est en train de s’effacer : attends qu’il ait fini.'))
+    return this.finir('close', () => this.cloreLaSoiree(title))
+  }
+
+  private async cloreLaSoiree(title?: string): Promise<ArchiveSummary | null> {
     try {
       // La partie en cours se termine d'abord : ses questions déjà révélées
       // comptent, celle qui était ouverte non.
@@ -1452,7 +1498,10 @@ export class SpaceRuntime {
       // n'ont pas à lire « c'est fini » pour une soirée qui continue. Une
       // soirée où rien ne s'est joué n'a pas de fin à raconter : ses
       // téléphones repassent par l'entrée, comme après un essai effacé.
-      await this.viderSoiree(summary ? 'close' : 'discard', annonce)
+      await this.viderSoiree(
+        summary ? 'close' : 'discard',
+        annonce && { raconter: annonce, a: new Set(players.map(p => p.id)) },
+      )
       // Une soirée sans rien de joué s'efface comme un essai : ses jetons non plus
       // n'ont pas de soirée close à revoir.
       if (!summary) this.effacerJetons(players.map(p => p.token))
@@ -1461,7 +1510,6 @@ export class SpaceRuntime {
       // Close pour de bon, sa ligne est partie ; refusée par le miroir, elle
       // se joue encore et redevient une soirée en cours pour les autres.
       this.deps.cloturesEnCours.delete(this.spaceId)
-      this.fermeture = false
     }
   }
 
@@ -1474,35 +1522,39 @@ export class SpaceRuntime {
     soireeId: string,
     credit: CreditDeCloture,
   ): Promise<Map<string, NonNullable<FinDeSoiree['profil']>>> {
-    const avant = new Map<string, { legendaires: string[]; divins: string[] }>()
-    await enParallele(credit.gains, PROFILS_EN_VOL, async g => {
-      await this.deps.profiles.byId(g.profileId).catch(() => null)
-      avant.set(g.profileId, {
-        legendaires: this.deps.profiles.legendairesOf(g.profileId),
-        divins: this.deps.profiles.divinsOf(g.profileId),
-      })
-    })
+    // Chargés d'abord : leurs récompenses arrivent avec eux, et les paliers
+    // comme le récit se lisent dessus.
+    await enParallele(credit.gains, PROFILS_EN_VOL, g => this.deps.profiles.byId(g.profileId).catch(() => null))
     await this.crediterExperience(soireeId, credit.gains)
     // Les récompenses se remplacent, comme l'expérience — et même sans aucun
     // profil ce soir : celles qu'un passage précédent avait rangées doivent
     // pouvoir repartir.
     await this.deps.profiles.remplacerRecompensesDeSoiree(soireeId, this.spaceId, credit.laureats)
-    const bilans = new Map<string, NonNullable<FinDeSoiree['profil']>>()
     const ailleurs = this.soireesEnCoursAilleurs()
+    // Les paliers de carrière viennent en dernier : ils se décident sur les
+    // totaux, expérience et hauts faits de ce soir compris — mais pas sur les
+    // soirées qui se jouent encore dans d'autres espaces.
+    await enParallele(credit.gains, PROFILS_EN_VOL, g =>
+      this.deps.profiles.accorderPaliers(g.profileId, soireeId, this.spaceId, ailleurs),
+    )
+    // Ce qu'on raconte se relit en base, une fois tout rangé : ce que la
+    // soirée a fait tomber, pas ce que ce passage-ci vient d'écrire. Une
+    // clôture reprise après un refus du miroir trouvait sinon tout déjà rangé
+    // par la tentative d'avant, et se taisait sur la Chouette, le Divin, le
+    // palier — et sur le niveau qu'ils avaient fait gagner.
+    const ranges = await this.deps.profiles.rangesSousLaSoiree(soireeId, this.spaceId)
+    const bilans = new Map<string, NonNullable<FinDeSoiree['profil']>>()
     await enParallele(credit.gains, PROFILS_EN_VOL, async g => {
-      // Les paliers de carrière viennent en dernier : ils se décident sur les
-      // totaux, expérience et hauts faits de ce soir compris — mais pas sur
-      // les soirées qui se jouent encore dans d'autres espaces.
-      const paliers = await this.deps.profiles.accorderPaliers(g.profileId, soireeId, this.spaceId, ailleurs)
       const profil = await this.deps.profiles.byId(g.profileId).catch(() => null)
       if (!profil) return
-      const xpPaliers = paliers.reduce((n, cle) => n + (palierDe(cle) ? XP_PALIER[palierDe(cle)!.palier - 1] : 0), 0)
+      const deCeSoir = ranges.get(g.profileId) ?? []
+      const paliers = deCeSoir.filter(cle => palierDe(cle))
+      const xpPaliers = paliers.reduce((n, cle) => n + XP_PALIER[palierDe(cle)!.palier - 1], 0)
       const xpSoiree = g.xp + xpPaliers
       const gardes = this.deps.profiles.gardesOf(g.profileId)
       const niveauAvant = niveauDuProfil(profil.xp - xpSoiree, gardes)
       const niveauApres = niveauDuProfil(profil.xp, gardes)
-      const deja = avant.get(g.profileId)?.legendaires ?? []
-      const dejaDivins = avant.get(g.profileId)?.divins ?? []
+      const avant = this.deps.profiles.avantLaSoiree(g.profileId, deCeSoir)
       // L'Éclat a pu tomber à n'importe quel podium de la soirée : c'est ici
       // qu'on le dit, une fois tout joué.
       const eclat = await this.deps.profiles.eclatDeLaSoiree(g.profileId, soireeId).catch(() => null)
@@ -1513,10 +1565,10 @@ export class SpaceRuntime {
         niveauAvant,
         niveauApres,
         paliers: paliers.map(annonceDe).filter((a): a is HautFaitAnnonce => !!a),
-        legendaires: legendaires.filter(l => !deja.includes(l)),
+        legendaires: legendaires.filter(l => !avant.legendaires.includes(l)),
         // Le douzième légendaire fait descendre l'Arbre-Monde : il se compare
         // comme les autres, avant et après.
-        divins: raconter(this.deps.profiles.divinsOf(g.profileId).filter(d => !dejaDivins.includes(d))),
+        divins: raconter(this.deps.profiles.divinsOf(g.profileId).filter(d => !avant.divins.includes(d))),
         finitions: finitionsOuvertes(niveauApres).filter(f => !finitionsOuvertes(niveauAvant).includes(f)) as Finition[],
         ...(eclat && { eclat }),
         ...(await this.objectifsDe(g, soireeId, credit, ailleurs, legendaires)),
@@ -1682,25 +1734,26 @@ export class SpaceRuntime {
    * hauts faits. Les téléphones repassent par l'entrée.
    */
   async discardParty(): Promise<void> {
-    this.fermeture = true
-    try {
-      const running = this.engine.activeSessionId
-      if (running) this.engine.endSession(running)
-      // Le nom tel qu'il est, sans en tirer un : une soirée qui n'a rien
-      // écrit au loin n'a rien à reprendre.
-      const soiree = this.soiree
-      await this.enFile(async () => {
-        if (!soiree) return
-        await this.deps.archives.remove(this.spaceId, soiree.id)
-        await this.deps.profiles.retirerSoireeEntiere(soiree.id, this.spaceId)
-      })
-      this.dernieresFins = new Map()
-      const jetons = this.party.all().map(p => p.token)
-      await this.viderSoiree('discard')
-      this.effacerJetons(jetons)
-    } finally {
-      this.fermeture = false
-    }
+    if (this.finEnCours?.genre === 'discard') return void (await this.finEnCours.promesse)
+    if (this.finEnCours) throw new Error('La soirée est en train de se clore : attends la fin.')
+    await this.finir('discard', () => this.effacerLEssai())
+  }
+
+  private async effacerLEssai(): Promise<void> {
+    const running = this.engine.activeSessionId
+    if (running) this.engine.endSession(running)
+    // Le nom tel qu'il est, sans en tirer un : une soirée qui n'a rien
+    // écrit au loin n'a rien à reprendre.
+    const soiree = this.soiree
+    await this.enFile(async () => {
+      if (!soiree) return
+      await this.deps.archives.remove(this.spaceId, soiree.id)
+      await this.deps.profiles.retirerSoireeEntiere(soiree.id, this.spaceId)
+    })
+    this.dernieresFins = new Map()
+    const jetons = this.party.all().map(p => p.token)
+    await this.viderSoiree('discard')
+    this.effacerJetons(jetons)
   }
 
   /** Ancien « Nouvelle soirée » : c'est désormais la clôture. */
@@ -1717,7 +1770,7 @@ export class SpaceRuntime {
    * effacé » devant une salle vide, et l'ancienne soirée, restée au miroir,
    * ressuscitait au premier réveil.
    */
-  private async viderSoiree(raison: 'close' | 'discard', annoncer?: () => void) {
+  private async viderSoiree(raison: 'close' | 'discard', annonce?: { raconter: () => void; a: ReadonlySet<string> }) {
     // Le miroir suspend ses envois, laisse finir ce qui est en vol, s'efface,
     // puis vide sa file — c'était la soirée effacée. Ce qui suit ne tourne
     // que s'il y est arrivé, et pendant que ses envois sont encore suspendus.
@@ -1760,7 +1813,7 @@ export class SpaceRuntime {
     // La fin de soirée part derrière la salle vide, et avant qu'on ne
     // détache les téléphones : elle passe par le salon de chaque invité,
     // qu'ils vont quitter.
-    annoncer?.()
+    annonce?.raconter()
     const io = this.deps.io
     const effaces = new Set<string>()
     for (const id of io.sockets.adapter.rooms.get(`space:${this.spaceId}`) ?? []) {
@@ -1768,7 +1821,12 @@ export class SpaceRuntime {
       if (playerId && !this.party.get(playerId)) effaces.add(playerId)
     }
     for (const playerId of effaces) {
-      for (const socket of this.detacher(playerId)) if (raison === 'discard') socket.emit('party:reset')
+      // La clôture a lu sa salle avant d'attendre la base : qui a scanné le
+      // QR pendant ce temps n'a pas de fin à lire, et restait sur une salle
+      // d'attente dont il ne faisait plus partie. Il repasse par l'entrée,
+      // pré-remplie, comme après un essai.
+      const sansFin = raison === 'discard' || !annonce?.a.has(playerId)
+      for (const socket of this.detacher(playerId)) if (sansFin) socket.emit('party:reset')
     }
   }
 

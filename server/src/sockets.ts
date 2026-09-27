@@ -658,27 +658,39 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       { ok: false, error: SERVER_ERROR },
     )
 
+    /**
+     * Présente la connexion comme écran de l'animateur, par la session que
+     * porte le cookie de sa poignée de main : c'est la session qui dit
+     * l'espace — jamais la page. Null sans session ouverte, ou si la
+     * connexion suit déjà la soirée d'un autre espace.
+     */
+    const presenter = () => {
+      const token = readSessionToken(socket.handshake.headers.cookie)
+      const found = token ? deps.auth.resolveSession(token) : null
+      if (!found) return null
+      const rt = bindSpace(found.account.id)
+      if (!rt) return null
+      socket.data.isHost = true
+      socket.data.accountId = found.account.id
+      socket.data.authSessionId = found.session.id
+      socket.join(`hosts:${found.account.id}`)
+      return { rt, found }
+    }
+
     // L'écran commun se présente avec sa session : le cookie posé à la
     // connexion voyage dans la poignée de main, rien ne transite par la page.
-    // C'est la session qui dit l'espace — jamais la page.
     ecouter(
       'host:hello',
       (_charge, repondre) => {
-        const token = readSessionToken(socket.handshake.headers.cookie)
-        const found = token ? deps.auth.resolveSession(token) : null
-        if (!found) {
+        const presente = presenter()
+        if (!presente) {
           // Cinq essais, pas cinq mille : au-delà, la connexion est coupée et
           // il faut en rouvrir une — ce qui ramène la force brute à la vitesse
           // d'une poignée de main réseau.
           if (++helloFailures >= HELLO_MAX_FAILURES) socket.disconnect(true)
           return repondre({ ok: false })
         }
-        const rt = bindSpace(found.account.id)
-        if (!rt) return repondre({ ok: false })
-        socket.data.isHost = true
-        socket.data.accountId = found.account.id
-        socket.data.authSessionId = found.session.id
-        socket.join(`hosts:${found.account.id}`)
+        const { rt, found } = presente
         repondre({
           ok: true,
           slug: found.account.slug,
@@ -696,8 +708,29 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       { ok: false },
     )
 
-    /** La soirée de l'animateur — s'il s'est présenté. */
-    const requireHost = (): SpaceRuntime | null => (socket.data.isHost ? runtime() : null)
+    /**
+     * La soirée de l'animateur, relue à chaque geste dans la session de la
+     * poignée de main — comme `host:hello` la lit.
+     *
+     * socket.io rejoue ce qu'on a émis hors connexion AVANT l'évènement
+     * `connect`, donc avant que la page se re-présente : « Clore »,
+     * « Révéler » ou « Suivant » touchés pendant un hoquet du wifi arrivaient
+     * sur une connexion qui n'était encore l'écran de personne, et se
+     * perdaient sans un mot — la soirée restait ouverte. Et une session
+     * éteinte sans révocation — la télé branchée par un code, plafonnée à
+     * vingt-quatre heures (invariant 16) — gardait la main tant que sa
+     * connexion tenait : la connexion tombe désormais au premier geste, et la
+     * page repasse par la connexion.
+     */
+    const requireHost = (): SpaceRuntime | null => {
+      const presente = presenter()
+      if (presente) return presente.rt
+      if (socket.data.isHost) {
+        socket.data.isHost = false
+        socket.disconnect(true)
+      }
+      return null
+    }
 
     ecouter('host:launch', () => {
       const rt = requireHost()
@@ -712,16 +745,23 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       }
     })
 
-    ecouter('host:command', charge => {
-      const rt = requireHost()
-      const sessionId = texte(charge.sessionId)
-      if (!rt || !sessionId) return
-      try {
-        rt.engine.handleHostCommand(sessionId, charge.command)
-      } catch (e) {
-        socket.emit('toast', { kind: 'error', message: messagePourEcran(e, 'host:command') })
-      }
-    })
+    // L'accusé dit que le geste est arrivé, pas qu'il a joué : périmé, il est
+    // ignoré en silence (invariant 12), et la console n'a pas à le renvoyer.
+    ecouter(
+      'host:command',
+      (charge, repondre) => {
+        const rt = requireHost()
+        const sessionId = texte(charge.sessionId)
+        if (!rt || !sessionId) return repondre({ ok: false })
+        try {
+          rt.engine.handleHostCommand(sessionId, charge.command)
+        } catch (e) {
+          socket.emit('toast', { kind: 'error', message: messagePourEcran(e, 'host:command') })
+        }
+        repondre({ ok: true })
+      },
+      { ok: false },
+    )
 
     ecouter('host:endSession', charge => {
       const rt = requireHost()
@@ -823,7 +863,15 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       const rt = requireHost()
       const teamId = texte(charge.teamId)
       if (!rt || !teamId) return
-      const res = rt.teams.awardBonus(teamId, Number(charge.points), texte(charge.reason) ?? '')
+      const remise = texte(charge.remise)
+      const res = rt.teams.awardBonus(
+        teamId,
+        Number(charge.points),
+        texte(charge.reason) ?? '',
+        remise && remise.length <= 64 ? remise : undefined,
+      )
+      // Le même geste, arrivé deux fois : le prix est déjà remis.
+      if (!res) return
       if ('error' in res) return socket.emit('toast', { kind: 'error', message: res.error })
       rt.broadcastSnapshot()
     })
@@ -864,6 +912,15 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     const clore = (title?: string) => {
       const rt = requireHost()
       if (!rt) return
+      // Clore par-dessus un essai qui s'efface le réarchivait : la console
+      // venait de lire « rien n'a été gardé ».
+      if (rt.finEnRoute() === 'discard') {
+        return void socket.emit('toast', { kind: 'error', message: 'L’essai est en train de s’effacer — attends qu’il ait fini' })
+      }
+      // Un second « Clore » attend le premier et en dit l'issue à sa console,
+      // sans la compter une seconde fois — ni au journal, ni dans la mesure
+      // des inscriptions.
+      const premier = rt.finEnRoute() === null
       const invites = rt.party.count()
       // De quoi dire au journal ce que la clôture a coûté — lu avant : elle efface tout.
       const soiree = rt.currentSummary()
@@ -871,17 +928,19 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       return rt
         .closeParty(title)
         .then(archived => {
-          inscriptions.clore(rt.spaceId, invites, deps.auth.byId(rt.spaceId)?.slug)
-          // Remises à zéro même quand rien n'a été joué : sinon les adresses
-          // d'une soirée vierge s'ajoutaient à celles de la suivante.
-          const adresses = pouls.adressesVues(rt.spaceId)
-          if (soiree) {
-            console.log(
-              `[soirée] close en ${Date.now() - debut} ms : ${soiree.players} invités, ${soiree.quizzes} quiz, ` +
-                `${soiree.questions} questions` +
-                (soiree.since ? `, ${Math.round((debut - soiree.since) / 60_000)} min de soirée` : '') +
-                ` ; la réserve d’inscriptions a vu ${adresses} adresse${adresses > 1 ? 's' : ''}`,
-            )
+          if (premier) {
+            inscriptions.clore(rt.spaceId, invites, deps.auth.byId(rt.spaceId)?.slug)
+            // Remises à zéro même quand rien n'a été joué : sinon les adresses
+            // d'une soirée vierge s'ajoutaient à celles de la suivante.
+            const adresses = pouls.adressesVues(rt.spaceId)
+            if (soiree) {
+              console.log(
+                `[soirée] close en ${Date.now() - debut} ms : ${soiree.players} invités, ${soiree.quizzes} quiz, ` +
+                  `${soiree.questions} questions` +
+                  (soiree.since ? `, ${Math.round((debut - soiree.since) / 60_000)} min de soirée` : '') +
+                  ` ; la réserve d’inscriptions a vu ${adresses} adresse${adresses > 1 ? 's' : ''}`,
+              )
+            }
           }
           socket.emit(
             'toast',
@@ -901,15 +960,21 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
     ecouter('host:discardParty', () => {
       const rt = requireHost()
       if (!rt) return
+      if (rt.finEnRoute() === 'close') {
+        return void socket.emit('toast', { kind: 'error', message: 'La soirée est en train de se clore — attends la fin' })
+      }
+      const premier = rt.finEnRoute() === null
       const invites = rt.party.count()
       return rt
         .discardParty()
         .then(() => {
-          // Un essai compte aussi pour la mesure : ses invités sont venus
-          // par les mêmes proxys que ceux d'une vraie soirée.
-          inscriptions.clore(rt.spaceId, invites, deps.auth.byId(rt.spaceId)?.slug)
-          // Les adresses de l'essai ne compteront pas dans la clôture de la vraie soirée.
-          pouls.adressesVues(rt.spaceId)
+          if (premier) {
+            // Un essai compte aussi pour la mesure : ses invités sont venus
+            // par les mêmes proxys que ceux d'une vraie soirée.
+            inscriptions.clore(rt.spaceId, invites, deps.auth.byId(rt.spaceId)?.slug)
+            // Les adresses de l'essai ne compteront pas dans la clôture de la vraie soirée.
+            pouls.adressesVues(rt.spaceId)
+          }
           socket.emit('toast', { kind: 'info', message: 'Essai effacé — rien n’a été gardé' })
         })
         .catch(e => {
