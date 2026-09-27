@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { chargerDessinsAuPlus } from '../components/medaillons'
+import { chargerDessinsAuPlus, sortesDe } from '../components/medaillons'
 import { api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
 import { LienConsole } from '../components/LienConsole'
@@ -35,7 +35,7 @@ export function AccountApp() {
       // « Chargement… » : son emoji ne précède pas son dessin — deux secondes
       // et demie au plus, une requête muette n'y garde personne.
       .then(async m => {
-        if (m.profil?.legendaire) await chargerDessinsAuPlus()
+        await chargerDessinsAuPlus(sortesDe([m.profil?.legendaire]))
         setMe(m)
       })
       .catch(e => {

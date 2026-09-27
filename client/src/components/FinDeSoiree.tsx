@@ -19,7 +19,7 @@ import { spacePath } from '../routes'
 import { formatNumber, place, pourcent, pts } from '../format'
 import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
-import { complets, useDessins } from './medaillons'
+import { perdus, sortesDe, useDessins } from './medaillons'
 import { Icon } from './Icon'
 import { lienBilan } from './Lendemain'
 import { Flamme } from './Jour'
@@ -395,8 +395,8 @@ function UneApproche({ a }: { a: Approche }) {
  * ne dirait rien.
  */
 function MedaillonAVenir({ cle, emoji }: { cle: string; emoji: string }) {
-  const dessins = useDessins(true)
-  if (dessins.echec && !complets(dessins)) {
+  const sortes = sortesDe([cle])
+  if (perdus(useDessins(...sortes), sortes)) {
     return (
       <span className="approche-emoji" aria-hidden="true">
         {emoji}
@@ -564,8 +564,8 @@ function LigneRang({ fin }: { fin: Fin }) {
  * d'un dessin, pas d'un texte.
  */
 export function Medaillon({ cle, className }: { cle: string; className: string }) {
-  const dessins = useDessins(true)
-  if (dessins.echec && !complets(dessins)) {
+  const sortes = sortesDe([cle])
+  if (perdus(useDessins(...sortes), sortes)) {
     return (
       <p className="small">
         <a className="link-inline" href="/profil">

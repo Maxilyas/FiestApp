@@ -4145,6 +4145,14 @@ h3 > .icon {
 .finition-nom { font-size: 0.85rem; }
 .finition-btn:hover:not(:disabled) { border-color: var(--edge-strong); }
 .finition-btn.selected { border-color: var(--edge-strong); background: var(--accent-soft); }
+/* Un aperçu bouge quand on le porte ou qu'on le survole, pas avant : sous
+   un légendaire porté, les huit redessinaient chacun son médaillon et son
+   cercle, sans fin. Figé, il garde sa matière et ses couleurs. */
+.finitions .finition-btn:not(.selected):not(:hover) .av::before,
+.finitions .finition-btn:not(.selected):not(:hover) .av::after,
+.finitions .finition-btn:not(.selected):not(:hover) .lg * {
+  animation: none;
+}
 
 /* Une finition qu'on n'a pas encore : on la voit, on sait à quel niveau elle
    s'ouvre, et elle ne se laisse pas prendre. Montrer ce qui vient donne envie
@@ -4619,9 +4627,13 @@ h3 > .icon {
   to { transform: translate(1.2px, 2px) rotate(6deg); }
 }
 
-/* Pas encore descendu : une nébuleuse qui tourne, un scellé qui respire. */
-.dv-brume { transform-origin: 50px 50px; animation: dv-respire 6s ease-in-out infinite; }
-.dv-nebuleuse { transform-origin: 50px 50px; animation: dv-tourne 40s linear infinite; }
+/* Pas encore descendu : une nébuleuse, des étoiles, un scellé de lumière —
+   immobiles, comme la silhouette d'un légendaire à gagner (`.lg-verrou *`).
+   Ils tournaient et respiraient : dix formes par Divin, que le navigateur
+   ne compose pas, et les cinq de la grille d'Apparence — l'onglet par
+   défaut de tout profil, même neuf — tenaient un téléphone moyen à 45 % de
+   son processeur, grille hors de vue comprise. */
+.dv-voile * { animation: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .dv * { animation: none !important; }
@@ -5245,6 +5257,14 @@ h3 > .icon {
 .carte-soir b { font-family: var(--serif); font-size: 1.2rem; color: var(--accent-text); }
 .carte-legendaires { display: flex; flex-wrap: wrap; gap: 8px; }
 .carte-legendaire { font-size: 40px; line-height: 0; }
+/* Dans ses galeries, un médaillon ne bouge que sous le doigt ou la souris :
+   la carte a déjà son sujet, l'avatar qu'il porte. Tous animés, trois
+   médaillons prenaient le tiers du fil principal d'un téléphone moyen, et
+   les galeries d'un habitué le saturaient. */
+.carte-legendaire:not(:hover) .lg *,
+.carte-legendaire:not(:hover) .dv * {
+  animation: none;
+}
 .carte-chiffres { margin: 0; }
 .carte-beaux { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .carte-beaux li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--edge); background: var(--surface-faint); }
@@ -5929,6 +5949,17 @@ span.case-avatar { cursor: default; }
 .case-avatar.selected { border-color: var(--accent); }
 .case-avatar.ouverte { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.3); }
 .case-medaillon { font-size: 30px; line-height: 0; }
+/* Dans la grille, seuls bougent l'avatar qu'il porte, celui qu'il a ouvert
+   et celui qu'il survole : la page a un sujet, pas soixante. Tout tournait
+   à la fois — le halo de la finition sous chaque emoji, les formes de
+   chaque médaillon —, 219 animations chez un habitué et la moitié du fil
+   principal d'un téléphone moyen, pour un seul avatar regardé. */
+.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .lg *,
+.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .dv *,
+.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .av::before,
+.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .av::after {
+  animation: none;
+}
 .detail-case { margin: 12px 0 0; }
 .detail-famille { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
 .anneau-texte-legendaire { color: var(--anneau-legendaire); }

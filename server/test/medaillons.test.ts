@@ -25,12 +25,14 @@ async function medaillons(instance = ''): Promise<Medaillons> {
  * ne compile pas le JSX du client, qu'un `typeof import` lui ferait suivre.
  */
 interface Medaillons {
-  chargeur: { importer: () => Promise<unknown> }
-  chargerDessins(): Promise<void>
-  chargerDessinsAuPlus(ms?: number): Promise<void>
-  complets(): boolean
+  chargeur: { importer: (sorte: Sorte) => Promise<unknown> }
+  chargerDessins(sortes?: readonly Sorte[]): Promise<void>
+  chargerDessinsAuPlus(sortes: readonly Sorte[], ms?: number): Promise<void>
+  complets(d?: unknown, sortes?: readonly Sorte[]): boolean
+  sortesDe(cles: readonly (string | null | undefined)[]): Sorte[]
   ATTENTE_MAX_DESSINS: number
 }
+type Sorte = 'legendaire' | 'divin'
 
 /** Un composant du client, rendu en HTML — la même recette que `eclat.test.ts`. */
 async function rendu(fichier: string, composant: string, props: object): Promise<string> {
@@ -96,26 +98,49 @@ test('sans ses dessins, un légendaire porté rend l’emoji, sans exception', a
 
 test('un chargement qui échoue ne se relance plus, et ne rejette jamais', async () => {
   const m = await medaillons('echec')
-  let appels = 0
-  m.chargeur.importer = () => {
-    appels++
+  const appels: Sorte[] = []
+  m.chargeur.importer = sorte => {
+    appels.push(sorte)
     return Promise.reject(new TypeError('Failed to fetch dynamically imported module'))
   }
   await m.chargerDessins()
-  assert.equal(appels, 1)
+  // Deux fichiers, un essai chacun.
+  assert.deepEqual([...appels].sort(), ['divin', 'legendaire'])
   // Chaque nouvel avatar le redemande : le navigateur garde l'échec d'un
   // `import()`, redemander ne ferait que redessiner la page à chaque fois.
   for (let i = 0; i < 5; i++) await m.chargerDessins()
-  await m.chargerDessinsAuPlus(10)
-  assert.equal(appels, 1, 'un seul essai pour toute la page')
+  await m.chargerDessinsAuPlus(['legendaire', 'divin'], 10)
+  assert.equal(appels.length, 2, 'un seul essai par fichier pour toute la page')
   assert.equal(m.complets(), false)
+})
+
+test('un légendaire ne fait pas venir les Divins', async () => {
+  const m = await medaillons('sortes')
+  const appels: Sorte[] = []
+  m.chargeur.importer = sorte => {
+    appels.push(sorte)
+    return Promise.resolve()
+  }
+  // Ce qu'une salle porte : un légendaire, un emoji, un anonyme, une clé
+  // inconnue — les Divins, plus rares que tout, n'y sont pour rien.
+  const salle = ['lg:phenix', '🦊', null, undefined, 'lg:inconnu']
+  assert.deepEqual(m.sortesDe(salle), ['legendaire'])
+  assert.deepEqual(m.sortesDe(['dv:seraphin']), ['divin'])
+  assert.deepEqual(m.sortesDe(['🦊', null]), [], 'une salle d’anonymes ne demande rien')
+  assert.deepEqual(m.sortesDe(['dv:lotus', 'lg:phenix']), ['legendaire', 'divin'])
+  await m.chargerDessins(m.sortesDe(salle))
+  await m.chargerDessinsAuPlus(m.sortesDe(salle), 10)
+  assert.deepEqual(appels, ['legendaire'], 'les Divins ne sont pas venus')
+  // Rien à attendre, rien à charger.
+  await m.chargerDessinsAuPlus([], 10)
+  assert.deepEqual(appels, ['legendaire'])
 })
 
 test('une requête de dessins muette ne retient personne plus que la borne', async () => {
   const m = await medaillons('muet')
   m.chargeur.importer = () => new Promise(() => {})
   const t0 = Date.now()
-  await m.chargerDessinsAuPlus(50)
+  await m.chargerDessinsAuPlus(['legendaire'], 50)
   assert.ok(Date.now() - t0 < 1000, `rendu la main après ${Date.now() - t0} ms`)
   assert.ok(m.ATTENTE_MAX_DESSINS <= 3000, 'la borne des pages reste de l’ordre de deux secondes')
 })
@@ -178,4 +203,111 @@ test('au podium du quiz, le téléphone anime ses trois médaillons', async () =
   const avatars = [...html.matchAll(/class="(av [^"]*)"/g)].map(m => m[1])
   assert.equal(avatars.length, 3, html)
   for (const classes of avatars) assert.ok(classes.split(' ').includes('av-sujet'), classes)
+})
+
+/**
+ * Les règles de la feuille commune, une par sélecteur, avec l'`@media` qui
+ * les enferme (vide au premier niveau) : les commentaires ôtés, les
+ * sélecteurs sur une ligne.
+ */
+function regles(): { contexte: string; selecteurs: string[]; corps: string }[] {
+  const css = readFileSync(path.join(client, 'styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+  const trouvees: { contexte: string; selecteurs: string[]; corps: string }[] = []
+  const contextes: string[] = []
+  let debut = 0
+  for (let i = 0; i < css.length; i++) {
+    if (css[i] === '}') {
+      contextes.pop()
+      debut = i + 1
+    } else if (css[i] === '{') {
+      const tete = css.slice(debut, i).trim()
+      if (tete.startsWith('@')) {
+        contextes.push(tete)
+        debut = i + 1
+        continue
+      }
+      const fin = css.indexOf('}', i)
+      trouvees.push({ contexte: contextes.join(' '), selecteurs: tete.split(',').map(s => s.trim().replace(/\s+/g, ' ')), corps: css.slice(i + 1, fin) })
+      i = fin
+      debut = fin + 1
+    }
+  }
+  return trouvees
+}
+
+/** Une règle du premier niveau — pas seulement « réduire les animations » — fige-t-elle ce sélecteur ? */
+function fige(selecteur: string, important = false): boolean {
+  return regles().some(
+    r => r.contexte === '' && r.selecteurs.includes(selecteur) && (important ? /animation:\s*none\s*!important/ : /animation:\s*none/).test(r.corps),
+  )
+}
+
+/** Un profil d'habitué : le Phénix porté, un second légendaire, un Divin descendu, Holo. */
+const HABITUE = {
+  id: 'p1',
+  login: 'jeanne',
+  name: 'Jeanne',
+  avatar: '🦊',
+  finition: 'holo',
+  finitionChoisie: 'holo',
+  niveau: 14,
+  ouvertes: ['mat', 'argent', 'or', 'holo'],
+  eclats: [],
+  legendaire: 'lg:phenix',
+  legendaires: ['lg:phenix', 'lg:triple'],
+  divins: [{ key: 'dv:seraphin', legende: '', ton: 'eclat' }],
+  hautsFaits: [],
+}
+
+test('un Divin verrouillé se tient tranquille, comme un légendaire verrouillé', async () => {
+  // Dix formes animées par nébuleuse, que le navigateur ne compose pas : les
+  // cinq de la grille d'Apparence — l'onglet par défaut de tout profil, même
+  // neuf — tenaient le téléphone à 45 % de son processeur (perf-client-1).
+  assert.ok(fige('.lg-verrou *', true), 'témoin : la règle des légendaires verrouillés')
+  assert.ok(fige('.dv-voile *', true), 'une règle fige les formes d’un Divin verrouillé')
+  const html = await rendu('components/Divin', 'Divin', { cle: 'dv:seraphin', verrouille: true })
+  assert.match(html, /<svg class="dv dv-seraphin dv-voile"/)
+})
+
+test('dans la grille des avatars, seuls bougent le porté, l’ouvert et celui qu’on survole', async () => {
+  // 219 animations chez un habitué, pour un seul avatar regardé
+  // (design-recompenses-4) : les halos de finition sous chaque emoji, les
+  // formes de chaque médaillon.
+  const html = await rendu('components/Apparence', 'MesAvatars', { profil: HABITUE, busy: false, enregistrer: () => {} })
+  assert.match(html, /class="emoji-grid grille-unique"/)
+  const cases = [...html.matchAll(/<button[^>]*class="([^"]*)"[^>]*aria-label="([^"]*)"/g)].map(m => ({ classes: m[1].split(' '), nom: m[2] }))
+  assert.ok(cases.length > 40, 'la grille est rendue')
+  for (const c of cases) assert.ok(c.classes.includes('case-avatar'), c.nom)
+  // Le porté, et lui seul, est `selected` : c'est lui que la feuille laisse bouger.
+  assert.deepEqual(
+    cases.filter(c => c.classes.includes('selected')).map(c => c.nom),
+    ['Le Phénix, légendaire, porté'],
+  )
+  for (const dedans of ['.lg *', '.dv *', '.av::before', '.av::after']) {
+    const selecteur = `.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) ${dedans}`
+    assert.ok(fige(selecteur), selecteur)
+  }
+})
+
+test('les aperçus des finitions bougent portés ou survolés, pas avant', async () => {
+  // Sous un légendaire porté, chaque aperçu redessinait son médaillon et son
+  // cercle, sans fin (perf-client-1).
+  const html = await rendu('components/Apparence', 'MesFinitions', { profil: HABITUE, busy: false, enregistrer: () => {} })
+  assert.match(html, /<div class="finitions">/)
+  const boutons = [...html.matchAll(/<button[^>]*class="(finition-btn[^"]*)"/g)].map(m => m[1].split(' '))
+  assert.equal(boutons.length, 8, 'la plus belle, et les sept')
+  assert.equal(boutons.filter(b => b.includes('selected')).length, 1, 'une seule portée')
+  for (const dedans of ['.av::before', '.av::after', '.lg *']) {
+    const selecteur = `.finitions .finition-btn:not(.selected):not(:hover) ${dedans}`
+    assert.ok(fige(selecteur), selecteur)
+  }
+})
+
+test('dans les galeries d’une carte, seul le médaillon qu’on regarde bouge', () => {
+  // Trois médaillons animés prenaient le tiers du fil principal d'un
+  // téléphone moyen, et les galeries d'un habitué le saturaient
+  // (perf-client-4) : la carte a déjà son sujet, l'avatar qu'il porte.
+  const carte = readFileSync(path.join(client, 'components/CarteJoueur.tsx'), 'utf8')
+  assert.equal(carte.split('className="carte-legendaire"').length - 1, 2, 'les deux galeries, Divins et légendaires')
+  for (const dedans of ['.lg *', '.dv *']) assert.ok(fige(`.carte-legendaire:not(:hover) ${dedans}`), dedans)
 })

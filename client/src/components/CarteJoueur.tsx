@@ -6,7 +6,7 @@ import { divin } from '../../../shared/divins'
 import { ceQuIlAFallu, hautFait } from '../../../shared/hautsfaits'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
-import { chargerDessinsAuPlus, complets, useDessins } from './medaillons'
+import { chargerDessinsAuPlus, complets, sortesDe, useDessins } from './medaillons'
 import { Chiffres, justesses } from './Chiffres'
 import { Icon } from './Icon'
 import { Niveau } from './Niveau'
@@ -53,7 +53,7 @@ export function CarteJoueur({
       // Deux secondes et demie au plus : une requête muette ne garde pas la
       // carte fermée, elle s'ouvre sans ses galeries.
       .then(async (c: CarteDeJoueur) => {
-        if (c.legendaire || c.profil?.legendaires.length || c.profil?.divins?.length) await chargerDessinsAuPlus()
+        await chargerDessinsAuPlus(sortesDe([c.legendaire, ...(c.profil?.legendaires ?? []), ...(c.profil?.divins ?? [])]))
         return c
       })
       .then(c => vivant && setCarte(c))
@@ -68,10 +68,11 @@ export function CarteJoueur({
   useModale(boite, onFermer)
 
   const p = carte?.profil
-  // Les galeries ne se montrent qu'avec leurs dessins : sans eux (un échec,
-  // qui vaut pour toute la page), ce seraient des rangées de cercles vides.
-  // Ils peuvent aussi arriver après l'ouverture : la carte les ajoute alors.
-  const avecDessins = complets(useDessins(false))
+  // Chaque galerie ne se montre qu'avec ses dessins : sans eux (un échec,
+  // qui vaut pour toute la page), ce serait une rangée de cercles vides.
+  // Ils peuvent aussi arriver après l'ouverture : la carte l'ajoute alors.
+  const dessins = useDessins()
+  const avecDessins = { legendaires: complets(dessins, ['legendaire']), divins: complets(dessins, ['divin']) }
   // Son fond de carte, s'il en porte un : seulement l'un du catalogue.
   const fond = fondDeCarte(p?.fond)?.key
   return (
@@ -139,7 +140,7 @@ export function CarteJoueur({
 
               {p && (
                 <>
-                  {avecDessins && (p.divins ?? []).length > 0 && (
+                  {avecDessins.divins && (p.divins ?? []).length > 0 && (
                     <div className="carte-legendaires carte-divins" aria-label="Divins">
                       {p.divins.map(cle => (
                         <span key={cle} className="carte-legendaire" title={divin(cle)?.nom}>
@@ -148,7 +149,7 @@ export function CarteJoueur({
                       ))}
                     </div>
                   )}
-                  {avecDessins && p.legendaires.length > 0 && (
+                  {avecDessins.legendaires && p.legendaires.length > 0 && (
                     <div className="carte-legendaires" aria-label="Avatars légendaires">
                       {p.legendaires.map(cle => (
                         <span key={cle} className="carte-legendaire" title={legendaire(cle)?.nom}>
@@ -240,14 +241,14 @@ export function CarteJoueur({
 }
 
 /** Les mots maison qu'une carte affiche vraiment, dans l'ordre où elle les montre. */
-function motsDeLaCarte(carte: CarteDeJoueur, avecDessins: boolean, fond: boolean): Mot[] {
+function motsDeLaCarte(carte: CarteDeJoueur, avecDessins: { legendaires: boolean; divins: boolean }, fond: boolean): Mot[] {
   const p = carte.profil
   const mots: Mot[] = []
   if (carte.laurier) mots.push('laurier')
   if (!p) return carte.ceSoir && carte.ceSoir.reponses > 0 ? [...mots, 'precision'] : mots
   mots.push('niveau')
-  if (avecDessins && (p.divins ?? []).length > 0) mots.push('divin')
-  if (avecDessins && p.legendaires.length > 0) mots.push('legendaire')
+  if (avecDessins.divins && (p.divins ?? []).length > 0) mots.push('divin')
+  if (avecDessins.legendaires && p.legendaires.length > 0) mots.push('legendaire')
   mots.push('hautsFaits')
   if (p.ecussons && p.ecussons.length > 0) mots.push('ecusson')
   mots.push('precision', 'coupDOeil', 'reflexe')

@@ -36,7 +36,7 @@ import { Laurier } from '../components/Laurier'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
 import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
 import { CarteJoueur } from '../components/CarteJoueur'
-import { ATTENTE_MAX_DESSINS, chargerDessins, chargerDessinsAuPlus, complets, porteUnDessin, useDessins } from '../components/medaillons'
+import { ATTENTE_MAX_DESSINS, attendus, chargerDessins, chargerDessinsAuPlus, sortesDe, useDessins } from '../components/medaillons'
 import { Lendemain } from '../components/Lendemain'
 import { useEcranAllume } from '../veille'
 import { useGardeRetour } from '../retour'
@@ -110,7 +110,8 @@ export function PlayerApp() {
       // demie au plus — une requête muette le gardait sous « On arrive… »
       // sans limite —, et la reprise par jeton, juste en dessous, n'attend
       // pas : elle part pendant que les dessins arrivent.
-      if (watched.profile?.legendaire) void chargerDessinsAuPlus().then(() => setPresente(true))
+      const sesDessins = sortesDe([watched.profile?.legendaire])
+      if (sesDessins.length > 0) void chargerDessinsAuPlus(sesDessins).then(() => setPresente(true))
       else setPresente(true)
       // Sans jeton, rien à reprendre : c'est l'entrée qui fait entrer —
       // pré-remplie avec le prénom et l'avatar retenus ici, écran d'équipe
@@ -185,18 +186,19 @@ export function PlayerApp() {
   }, [avecProfil])
 
   // Quelqu'un dans la salle porte un médaillon : ses dessins viennent dès
-  // l'instantané, avant la salle d'attente où l'on verra son nom. Une salle
-  // d'anonymes ne les télécharge jamais — et quand un premier porteur y
-  // arrive, son emoji précède son médaillon, une fois (`Avatar`).
-  const salleDecoree = porteUnDessin(s.snapshot?.players)
-  const dessins = useDessins(salleDecoree)
+  // l'instantané, avant la salle d'attente où l'on verra son nom — ceux de
+  // sa sorte seulement, un légendaire ne fait pas venir les Divins. Une
+  // salle d'anonymes ne les télécharge jamais — et quand un premier porteur
+  // y arrive, son emoji précède son médaillon, une fois (`Avatar`).
+  const sortesDeLaSalle = sortesDe(s.snapshot?.players.map(p => p.legendaire) ?? [])
+  const dessins = useDessins(...sortesDeLaSalle)
   // Un téléphone qui revient en pleine soirée (rechargé, réveillé) tombe
   // droit sur la salle ou la question : il attend ses dessins sous
   // « Connexion… », une fois, plutôt que montrer des emojis qui se changent
   // en médaillons. L'entrée, elle, n'en montre aucun et n'attend pas ; et
   // après le premier écran, une arrivée ne fait plus rien attendre à personne.
   const [dejaVu, setDejaVu] = useState(false)
-  const attendreDessins = !dejaVu && !!s.me && salleDecoree && !complets(dessins) && !dessins.echec
+  const attendreDessins = !dejaVu && !!s.me && attendus(dessins, sortesDeLaSalle)
   const affiche = !!s.snapshot && presente && !attendreDessins
   useEffect(() => {
     if (affiche) setDejaVu(true)

@@ -1,7 +1,7 @@
 import type { Finition } from '../../../shared/profil'
 import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { divin as divinDe } from '../../../shared/divins'
-import { useDessins } from './medaillons'
+import { sortesDe, useDessins } from './medaillons'
 
 interface Props {
   /** L'emoji — il ne change jamais : Alice reste le renard. */
@@ -47,7 +47,7 @@ interface Props {
 export function Avatar({ avatar, finition, eclat, legendaire, className }: Props) {
   const divin = legendaire && divinDe(legendaire) ? legendaire : null
   const porte = !divin && legendaire && legendaireDe(legendaire) ? legendaire : null
-  const { Legendaire, Divin } = useDessins(!!(divin || porte))
+  const { Legendaire, Divin } = useDessins(...sortesDe([divin ?? porte]))
   const classes = ['av']
   if (className) classes.push(className)
   if (divin) {
@@ -79,13 +79,13 @@ export function Avatar({ avatar, finition, eclat, legendaire, className }: Props
  * Un médaillon seul, légendaire ou Divin, hors d'un avatar : la fin de
  * soirée, la carte d'un joueur. En attendant son dessin, sa place est
  * gardée, vide — il n'y a pas d'emoji à montrer à la place d'un médaillon
- * qu'on vient de gagner. Si les dessins n'arriveront plus (`echec`), c'est à
- * la page de dire autre chose : la carte cache ses galeries, la fin de
- * soirée mène au profil.
+ * qu'on vient de gagner. Si son dessin n'arrivera plus (`perdus`), c'est à
+ * la page de dire autre chose : la carte cache sa galerie, la fin de soirée
+ * mène au profil.
  */
 export function Dessin({ cle, verrouille }: { cle: string; verrouille?: boolean }) {
   const divin = !!divinDe(cle)
-  const { Legendaire, Divin } = useDessins(true)
+  const { Legendaire, Divin } = useDessins(...sortesDe([cle]))
   if (divin && Divin) return <Divin cle={cle} verrouille={verrouille} />
   if (!divin && Legendaire) return <Legendaire cle={cle} verrouille={verrouille} />
   return <span className={divin ? 'dv' : 'lg'} aria-hidden="true" />
