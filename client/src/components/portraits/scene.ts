@@ -57,15 +57,13 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     decor: () =>
       '<path d="M22,0 L34,0 L62,100 L46,100 Z" fill="#8ff5e6" opacity=".1"/><path d="M78,0 L66,0 L38,100 L54,100 Z" fill="#ffd36e" opacity=".1"/>' +
       etoile(16, 34, 3, '#fff', 0.7) +
-      etoile(85, 30, 2.4, '#fff', 0.6) +
-      points([[12, 60, 0.6], [26, 14, 0.6], [80, 12, 0.5], [90, 52, 0.5]], '#fff', 0.7),
+      points([[85, 30, 0.8], [12, 60, 0.6], [80, 12, 0.5]], '#fff', 0.7),
     corps: u => `
       <path d="M37,50 C34,38 40,29 51,28.5 C62,28.5 68,36 67,48 C68,58 71,66 69,76 C65,77 62,72 61,66 L39,56 Z" fill="url(#${u}h)"/>
       <path d="M20,100 C22,86 34,78 50,78 C66,78 78,86 80,100 Z" fill="url(#${u}v)"/>
       <path d="M43.5,78.5 L50,91 L56.5,78.5 Z" fill="#f2eef4"/>
       <path d="M43.5,78.5 L50,91 L45,100 L36,81 Z M56.5,78.5 L50,91 L55,100 L64,81 Z" fill="#2a2530"/>
-      <path d="M36.5,81.5 L45,99 M63.5,81.5 L55,99" stroke="#6a6474" stroke-width=".6"/>
-      <g fill="#e0e0ea"><circle cx="29" cy="88" r=".8"/><circle cx="32" cy="85.4" r=".8"/><circle cx="71" cy="88" r=".8"/><circle cx="68" cy="85.4" r=".8"/></g>
+      <path d="M29,88h0M32,85.4h0M71,88h0M68,85.4h0" stroke="#e0e0ea" stroke-width="1.7" stroke-linecap="round"/>
       <path d="M45,66 L45,79 L55,79 L55,66 Z" fill="#e0a88c"/>
       <ellipse cx="36.4" cy="52" rx="2.3" ry="3.5" fill="#eab89e"/>
       <circle cx="36.4" cy="57.2" r="1.8" fill="none" stroke="#e8e8f0" stroke-width=".8"/>
@@ -78,7 +76,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M46.8,50.6 C45.4,48.2 40.8,48.2 39.4,50.6 L37.6,49.2 M53.2,50.6 C54.6,48.2 59.2,48.2 60.6,50.6 L62.4,49.2" stroke="#140e18" stroke-width="1.1" fill="none" stroke-linecap="round"/>
       <path d="M39,46.2 C41.4,44.4 45,44.2 47.4,45.4 M53,45.2 C55.4,44 58.6,44.4 61,46" stroke="#1a1018" stroke-width="1.4" fill="none" stroke-linecap="round"/>
       <path d="M50.3,52.6 C49.6,55.8 49.4,57.2 50.7,57.8" stroke="#b07a60" stroke-width="1" fill="none" stroke-linecap="round"/>
-      <ellipse cx="41" cy="57.4" rx="3" ry="1.6" fill="#ff8aa0" opacity=".35"/><ellipse cx="59" cy="57.4" rx="3" ry="1.6" fill="#ff8aa0" opacity=".35"/>
+      <g fill="#ff8aa0" opacity=".35"><ellipse cx="41" cy="57.4" rx="3" ry="1.6"/><ellipse cx="59" cy="57.4" rx="3" ry="1.6"/></g>
       <path d="M45,61 C47.4,65.2 53,65.2 55.4,60.6 C52,61.8 48.4,61.8 45,61 Z" fill="#fff" stroke="#8a2848" stroke-width=".9"/>
       <g transform="translate(36 85) rotate(-32)">
         <path d="M-12,-3 C-12,-8 -8,-10 -3,-9 C0,-8.5 2,-8 4,-9.5 C6,-11 9,-10.5 9.5,-8 C8,-6 7.5,-4.5 8.5,-3 L8.5,3 C7.5,4.5 8,6 9.5,8 C9,10.5 6,11 4,9.5 C2,8 0,8.5 -3,9 C-8,10 -12,8 -12,3 Z" fill="url(#${u}g)"/>
@@ -86,12 +84,11 @@ export const DESSINS: Record<string, DessinDePortrait> = {
         <path d="M-8.5,-1 C-8.5,-4.5 -5.5,-5.5 -2,-5 L5.5,-4 L5.5,4 C3,5.6 -2,7.5 -5.5,6.8 C-7.6,6.2 -8.5,3 -8.5,-1 Z" fill="#1c1418"/>
         <g fill="#f2e6c8"><rect x="-3.6" y="-3.4" width="2.2" height="6.8" rx=".5"/><rect x="1.2" y="-3.4" width="2.2" height="6.8" rx=".5"/></g>
         <rect x="-7.4" y="-3" width="1.3" height="6" fill="#d4d4de"/>
-        <g fill="#f1c653"><circle cx="-6.6" cy="7.2" r="1.1"/><circle cx="-3.4" cy="7.8" r="1.1"/></g>
+        <path d="M-6.6,7.2h0M-3.4,7.8h0" stroke="#f1c653" stroke-width="2.2" stroke-linecap="round"/>
         <rect x="8" y="-1.6" width="36" height="3.2" fill="url(#${u}m)"/>
         <path d="M14,0 h0 M22,0 h0 M30,0 h0 M38,0 h0" stroke="#f6ead0" stroke-width="1" stroke-linecap="round"/>
         <path d="M44,-2 L51,-3.4 C52.5,-3.4 53,-2.5 53,-1.5 L53,1.5 C53,2.5 52.5,3.4 51,3.4 L44,2 Z" fill="#1c1418"/>
         <path d="M45.5,-3.9 L52,-3.9 M45.5,3.9 L52,3.9" stroke="#d4d4de" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="0 2.6"/>
-        <path d="M-7,-1 L51,-1 M-7,1 L51,1" stroke="#fff" stroke-width=".3" opacity=".6"/>
       </g>`,
   },
 
@@ -106,8 +103,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       '<path d="M40,0 L60,0 L80,100 L20,100 Z" fill="#ffe6b0" opacity=".06"/>' +
       croche(18, 38, 1.1) +
       doubleCroche(76, 28, 1) +
-      croche(84, 64, 0.8, '#fff', 0.35) +
-      points([[14, 60, 0.6], [28, 14, 0.5], [70, 10, 0.5]], '#fff', 0.6),
+      croche(84, 64, 0.8, '#fff', 0.35),
     corps: u => `
       <path d="M22,100 C24,86 36,78.5 50,78.5 C64,78.5 76,86 78,100 Z" fill="url(#${u}s)"/>
       <path d="M44,79 L50,90 L56,79 Z" fill="#f2eee8"/>
@@ -128,7 +124,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M40.8,50.2 C42.3,52.4 45.7,52.4 47.2,50.2 M52.8,50.2 C54.3,52.4 57.7,52.4 59.2,50.2" stroke="#2a160c" stroke-width="1.4" fill="none" stroke-linecap="round"/>
       <path d="M40.6,45.8 C42.6,44.2 45.4,44.2 47.2,45.4 M52.8,45.4 C54.6,44.2 57.4,44.2 59.4,45.8" stroke="#1a1008" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       <path d="M50.3,52.4 C49.4,55.6 49.2,57 50.6,57.8" stroke="#6a3e22" stroke-width="1" fill="none" stroke-linecap="round"/>
-      <ellipse cx="40.6" cy="57.6" rx="3.2" ry="1.8" fill="#e07a6a" opacity=".35"/><ellipse cx="59.4" cy="57.6" rx="3.2" ry="1.8" fill="#e07a6a" opacity=".35"/>
+      <g fill="#e07a6a" opacity=".35"><ellipse cx="40.6" cy="57.6" rx="3.2" ry="1.8"/><ellipse cx="59.4" cy="57.6" rx="3.2" ry="1.8"/></g>
       <path d="M45.5,59.8 C47.5,58.6 49,58.8 50,59.5 C51,58.8 52.5,58.6 54.5,59.8 C52.6,60.8 51,60.6 50,60.2 C49,60.6 47.4,60.8 45.5,59.8 Z" fill="#1a1008"/>
       <path d="M47.6,66.4 C48.2,69.6 51.8,69.6 52.4,66.4 C51.2,67.2 48.8,67.2 47.6,66.4 Z" fill="#1a1008"/>
       <path d="M44,67.2 C44.8,64.8 46.6,62.8 49.6,62.4" stroke="url(#${u}o)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
@@ -139,7 +135,6 @@ export const DESSINS: Record<string, DessinDePortrait> = {
         <path d="M-15,11.4 C-12,12.6 -7,12.6 -4.2,11.4" stroke="#fff4c0" stroke-width=".6" fill="none" opacity=".7"/>
         <path d="M0,4.5 h0 M.3,8.5 h0 M.6,12.5 h0 M.9,16.5 h0" stroke="#fff6d8" stroke-width="2" stroke-linecap="round"/>
         <circle cx="3" cy="14.5" r="1.3" fill="#e8b440" stroke="#8a5a14" stroke-width=".4"/>
-        <path d="M-.6,1 L-2.2,19" stroke="#fff6c8" stroke-width=".6" opacity=".6"/>
       </g>`,
   },
 
@@ -157,31 +152,35 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       doubleCroche(20, 70, 0.8, '#fff', 0.35) +
       points([[28, 14, 0.6], [74, 12, 0.5], [88, 56, 0.5]], '#fff', 0.6),
     corps: u => `
-      <circle cx="36" cy="62" r="6" fill="url(#${u}h)"/>
-      <path d="M35.5,52 C33,39 39,29 50,29 C61,29 67,39 64.5,52 C62,46 59,42 50,41.5 C41,42 38,46 35.5,52 Z" fill="url(#${u}h)"/>
+      <path d="M35,54 C32,40 39,29 50,29 C61,29 68,40 65,54 C63,48 60,43 50,42 C40,43 37,48 35,54 Z" fill="url(#${u}h)"/>
       <path d="M22,100 C24,87 36,79.5 50,79.5 C64,79.5 76,87 78,100 Z" fill="url(#${u}r)"/>
       <path d="M45,66 L45,80 L55,80 L55,66 Z" fill="#e0a88a"/>
       <path d="M42,79.8 C44,84.5 56,84.5 58,79.8 Z" fill="#e8b294"/>
-      <ellipse cx="36.4" cy="52" rx="2.2" ry="3.4" fill="#eab496"/><circle cx="36.4" cy="56.4" r="1" fill="#fff"/>
+      <path d="M37,44 C33,52 31,62 32,70 C32.6,77 30,83 26.5,88 C32,88 36.5,83 38.5,77 C40.5,70 40.5,58 40.5,50 Z" fill="url(#${u}h)"/>
+      <path d="M34.4,56 C33.6,64 34.6,72 32.6,80" stroke="#a8742a" stroke-width=".8" fill="none" opacity=".6"/>
+      <ellipse cx="63.6" cy="52" rx="2.2" ry="3.4" fill="#eab496"/><circle cx="63.6" cy="56.4" r="1" fill="#fff"/>
       <path d="M36.5,46 C36.5,38.5 42,34.5 50,34.5 C58,34.5 63.5,38.5 63.5,46 C63.5,58 58,68 50,70.5 C42,68 36.5,58 36.5,46 Z" fill="url(#${u}p)"/>
-      <path d="M36.2,47 C35.5,38 41,32.5 49,32.5 C57,32 63.5,36.5 64,45 C60,40 55,38 50,38.5 C44,38.5 39,42 36.2,47 Z" fill="url(#${u}h)"/>
+      <path d="M63.8,47 C64.5,38 58.5,32.5 50,32.5 C42,32.5 36.5,37.5 36,46 C39,40.5 45,38.5 51,39.5 C56,40.3 60,43 63.8,47 Z" fill="url(#${u}h)"/>
+      <path d="M41,36.6 C44,34.6 48,34 51.6,34.6" stroke="#fff2c0" stroke-width="1" fill="none" opacity=".6" stroke-linecap="round"/>
       <path d="M40.8,50.2 C42.3,52.4 45.7,52.4 47.2,50.2 M52.8,50.2 C54.3,52.4 57.7,52.4 59.2,50.2" stroke="#3a2016" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       <path d="M41,50.6 L40,51.6 M59,50.6 L60,51.6" stroke="#3a2016" stroke-width=".8" stroke-linecap="round"/>
       <path d="M41,46 C42.8,45 45.2,45 47,45.8 M53,45.8 C54.8,45 57.2,45 59,46" stroke="#8a5a2a" stroke-width="1.1" fill="none" stroke-linecap="round"/>
       <path d="M50.3,52.4 C49.6,55.4 49.4,56.8 50.6,57.4" stroke="#c08a70" stroke-width=".9" fill="none" stroke-linecap="round"/>
-      <ellipse cx="41.5" cy="57" rx="3.2" ry="1.8" fill="#ff8fa3" opacity=".45"/><ellipse cx="58.5" cy="57" rx="3.2" ry="1.8" fill="#ff8fa3" opacity=".45"/>
+      <g fill="#ff8fa3" opacity=".45"><ellipse cx="41.5" cy="57" rx="3.2" ry="1.8"/><ellipse cx="58.5" cy="57" rx="3.2" ry="1.8"/></g>
       <path d="M47,61.2 C48.8,62.8 51.2,62.8 53,61.2" stroke="#c0485a" stroke-width="1.1" fill="none" stroke-linecap="round"/>
-      <g transform="translate(53 75) rotate(75)">
+      <g transform="translate(49.5 80.5) rotate(64.5) scale(1.3)">
         <path d="M0,0 C4,0 6.5,-2 6.5,-5 C6.5,-8 4,-9 4,-11 C4,-13 5.5,-14 5.5,-17 C5.5,-20 3,-22 0,-22 C-3,-22 -5.5,-20 -5.5,-17 C-5.5,-14 -4,-13 -4,-11 C-4,-9 -6.5,-8 -6.5,-5 C-6.5,-2 -4,0 0,0 Z" fill="url(#${u}v)"/>
+        <path d="M-4,-19 C-3,-20.6 -1,-21.2 1,-21" stroke="#ffd9a8" stroke-width=".6" fill="none" opacity=".7"/>
+        <ellipse cx="-3.4" cy="-2.6" rx="2.6" ry="1.8" fill="#2a1410"/>
         <path d="M-2.6,-9 C-3.2,-10.5 -2,-11.5 -2.6,-13 M2.6,-9 C3.2,-10.5 2,-11.5 2.6,-13" stroke="#3a1606" stroke-width=".6" fill="none"/>
-        <path d="M-1.2,-12 L1.2,-12 L.8,-33 L-.8,-33 Z" fill="#1a1010"/>
-        <path d="M-1.8,-1 L1.8,-1 L1,-6.5 L-1,-6.5 Z" fill="#1a1010"/>
+        <path d="M-1.2,-12 L1.2,-12 L.8,-33 L-.8,-33 Z M-1.8,-1 L1.8,-1 L1,-6.5 L-1,-6.5 Z" fill="#1a1010"/>
+        <path d="M-.5,-6.5 L-.4,-33 M.5,-6.5 L.4,-33" stroke="#f4e8d0" stroke-width=".25"/>
         <path d="M-2.2,-8.6 L2.2,-8.6" stroke="#f4e2c0" stroke-width=".9"/>
         <path d="M-.9,-33 L.9,-33 L1.2,-36 L-1.2,-36 Z" fill="#7a3410"/>
-        <circle cx="0" cy="-37.4" r="1.7" fill="#9a4a18"/><circle cx="0" cy="-37.4" r=".7" fill="#5a2208"/>
+        <circle cy="-37.4" r="1.7" fill="#9a4a18"/><circle cy="-37.4" r=".7" fill="#5a2208"/>
       </g>
-      <path d="M47,97 L79,50" stroke="#4a200c" stroke-width="1.1" stroke-linecap="round"/>
-      <path d="M48.3,97.4 L80,51.2" stroke="#f6ecd8" stroke-width=".6"/>`,
+      <path d="M46,99 L80,48" stroke="#4a200c" stroke-width="1.1" stroke-linecap="round"/>
+      <path d="M47.3,99.4 L81.2,49.2" stroke="#f6ecd8" stroke-width=".6"/>`,
   },
 
   'br:cantatrice': {
@@ -237,8 +236,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       croche(14, 68, 0.8, '#fff', 0.3) +
       points([[16, 20, 0.5], [88, 50, 0.5]], '#fff', 0.6),
     corps: u => `
-      <path d="M31,60 C26,58 24,54 26,51 C21,49 20,44 24,41 C20,37 22,31 28,31 C27,25 32,21 37,23 C38,17 45,15 49,19 C53,14 60,15 62,21 C67,19 72,23 71,29 C77,29 80,35 76,39 C80,42 80,48 75,50 C77,54 75,58 69,60 Z" fill="url(#${u}h)"/>
-      <g fill="none" stroke="#a8a0b8" stroke-width=".9" stroke-linecap="round" opacity=".7"><path d="M27,46 C29,44 31,44 33,45 M29,35 C31,33 34,33 36,34.5 M41,23 C43,21.5 46,21.5 48,23 M56,22 C58,21 61,22 62,24 M68,34 C70,33 72,34 73,36 M72,46 C70,44.5 68,44.5 66.5,45.5"/></g>
+      <path d="M33,58 Q24,60 20,56 Q21,52 26,50 Q22,48 17,44 Q19,41 25,41 Q21,36 19,30 Q23,31 29,32 Q27,26 27,20 Q31,21 36,25 Q37,18 40,12 Q43,16 46,22 Q50,16 54,11 Q56,16 57,22 Q62,18 68,15 Q67,20 66,26 Q73,24 80,25 Q76,29 72,34 Q79,36 85,40 Q80,43 74,44 Q78,48 82,54 Q76,53 70,52 Q72,57 70,60 Z" fill="url(#${u}h)" stroke="url(#${u}h)" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M30,50 Q25,47 22,48 M28,38 Q24,35 22,33 M34,28 Q31,23 30,22 M45,24 Q44,19 42,15 M55,23 Q56,18 58,14 M65,28 Q68,24 71,22 M70,38 Q75,37 79,38 M70,48 Q74,49 77,51" stroke="#a8a0b8" stroke-width=".9" fill="none" stroke-linecap="round" opacity=".7"/>
       <path d="M21,100 C23,86 35,78.5 50,78.5 C65,78.5 77,86 79,100 Z" fill="url(#${u}n)"/>
       <path d="M42,78.5 L50,96 L58,78.5 Z" fill="#f6f4f8"/>
       <path d="M42,78.5 L50,96 L47,100 L35,81 Z M58,78.5 L50,96 L53,100 L65,81 Z" fill="#1a1622"/>
@@ -257,11 +256,11 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M45.8,61.4 C48.4,62.2 51.6,62.2 54.2,61.4 L53.8,62.6 C51.4,63.2 48.6,63.2 46.2,62.6 Z" fill="#fff"/>
       <path d="M17,100 C16,86 16,74 18,62 L26.5,61 C26,72 27,84 30,96 Z" fill="url(#${u}n)"/>
       <path d="M17.6,62.6 L26.8,61.4 L26.5,58 L17.4,59.2 Z" fill="#fff"/>
-      <ellipse cx="22" cy="54.6" rx="4.2" ry="3.8" fill="#eab496"/>
-      <path d="M20.2,52.6 C21.6,51.6 23.4,51.6 24.6,52.6" stroke="#c08a70" stroke-width=".7" fill="none"/>
-      <path d="M22.6,52 L33.6,18" stroke="#2a1a1e" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M22.6,52 L33.6,18" stroke="#fdfbf5" stroke-width="1.1" stroke-linecap="round"/>
-      <path d="M22.4,52.6 L23.6,48.8" stroke="#b07a4a" stroke-width="2" stroke-linecap="round"/>`,
+      <path d="M22.6,52 L35,12" stroke="#2a1a1e" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M22.6,52 L35,12" stroke="#fdfbf5" stroke-width="1.1" stroke-linecap="round"/>
+      <path d="M22.2,53 L23.8,47.8" stroke="#b07a4a" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M18.4,56.2 C17.4,53 19.2,50.2 22.2,49.8 C25.2,49.4 27.2,51.6 26.9,54.6 C26.6,57.4 24.2,59.2 21.6,58.9 C19.9,58.7 18.8,57.6 18.4,56.2 Z" fill="#eab496"/>
+      <path d="M19.2,52.8 C21.4,53.6 24,53.8 26.4,53.2 M18.8,55.6 C21.2,56.4 23.8,56.4 26.2,55.8" stroke="#c08a70" stroke-width=".6" fill="none"/>`,
   },
 }
 

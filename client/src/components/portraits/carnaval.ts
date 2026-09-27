@@ -1,7 +1,7 @@
 // Le carnaval · Autour de la fête — de la piñata au masque de Venise.
 import { inscrireDessin } from '../medaillons'
 import { Portrait } from '../Portrait'
-import { etoile, lin, miroir, points, reflet, rad, type DessinDePortrait } from './outils'
+import { etoile, lin, miroir, reflet, rad, type DessinDePortrait } from './outils'
 
 /** Les confettis du masque de Venise (la maquette), toujours aux mêmes places. */
 const CONFETTIS: [number, number, string, number][] = [
@@ -17,9 +17,9 @@ const CONFETTIS: [number, number, string, number][] = [
  * Les mêmes confettis en trois chemins, un par couleur, plutôt qu'en sept
  * rectangles tournés : le même dessin pour moitié moins de chaîne.
  */
-const confettis = () => {
+const confettis = (liste = CONFETTIS) => {
   const parCouleur: Record<string, string> = {}
-  for (const [x, y, c, r] of CONFETTIS) {
+  for (const [x, y, c, r] of liste) {
     const a = (r * Math.PI) / 180
     const pt = (dx: number, dy: number) =>
       `${(x + dx * Math.cos(a) - dy * Math.sin(a)).toFixed(1)},${(y + dx * Math.sin(a) + dy * Math.cos(a)).toFixed(1)}`
@@ -183,26 +183,22 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 's', '#ffffff', '#dde2ea') +
       rad(u + 'l', '#ffffff', '#d5d9e3'),
     // La magie qui part de la baguette : des étoiles, au bout, derrière elle.
-    decor: () => confettis() + etoile(87, 58, 3.4, '#ffe36b', 0.9) + etoile(79, 53, 2, '#fff', 0.85) + etoile(90, 70, 1.6, '#fff', 0.7),
+    decor: () => confettis(CONFETTIS.slice(0, 4)) + etoile(87, 58, 3.4, '#ffe36b', 0.9) + etoile(79, 53, 2, '#fff', 0.85),
     corps: u => `
       <path d="M18,100 C20,85 34,78 50,78 C66,78 80,85 82,100 Z" fill="url(#${u}c)"/>
       <path d="M42.5,78.5 L50,95 L57.5,78.5 Z" fill="url(#${u}s)"/>
       <path d="M45.5,66 L45.5,79 C47.5,80.5 52.5,80.5 54.5,79 L54.5,66 Z" fill="#7a4628"/>
-      <path d="M50,81 L45.5,78.6 L45.5,83.4 Z M50,81 L54.5,78.6 L54.5,83.4 Z" fill="#141018"/><circle cx="50" cy="81" r="1.3" fill="#2a2433"/>
-      ${miroir(`<path d="M45.5,79.5 L30,60.5 C33,68 35,76 36,84.5 Z" fill="url(#${u}r)" stroke="#0e0b12" stroke-width="1"/>`)}
-      <path d="M45.5,79.5 L30,60.5 C33,68 35,76 36,84.5 Z" fill="url(#${u}r)" stroke="#0e0b12" stroke-width="1"/>
+      <path d="M50,81 L45.5,78.6 L45.5,83.4 Z M50,81 L54.5,78.6 L54.5,83.4 Z" fill="#141018"/>
+      <g fill="url(#${u}r)" stroke="#0e0b12">${['<path d="M45.5,79.5 L30,60.5 C33,68 35,76 36,84.5 Z"/>'].map(l => l + miroir(l)).join('')}</g>
       <ellipse cx="35.6" cy="52" rx="2.4" ry="3.6" fill="#94603f"/><ellipse cx="64.4" cy="52" rx="2.4" ry="3.6" fill="#94603f"/>
       <path d="M36,50 C36,41 42,37 50,37 C58,37 64,41 64,50 C64,61 58,69.5 50,71.5 C42,69.5 36,61 36,50 Z" fill="url(#${u}p)"/>
-      <path d="M35.8,48.5 C35.4,45 36,42.5 37.5,41 L40,41.5 C38.8,43.2 38,45.5 37.6,49 Z" fill="#141018"/>
-      ${miroir('<path d="M35.8,48.5 C35.4,45 36,42.5 37.5,41 L40,41.5 C38.8,43.2 38,45.5 37.6,49 Z" fill="#141018"/>')}
+      <path d="M35.8,48.5 C35.4,45 36,42.5 37.5,41 L40,41.5 C38.8,43.2 38,45.5 37.6,49 Z M64.2,48.5 C64.6,45 64,42.5 62.5,41 L60,41.5 C61.2,43.2 62,45.5 62.4,49 Z" fill="#141018"/>
       <path d="M40,45.2 C41.8,43.4 44.5,43.2 46.2,44.4 M53.8,44 C55.4,42.2 58.2,41.6 60.2,43" stroke="#141018" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       <ellipse cx="43" cy="50" rx="2" ry="2.4" fill="#1a0e08"/><ellipse cx="57" cy="50" rx="2" ry="2.4" fill="#1a0e08"/>
       ${reflet(42.3, 49.2, 0.8)}${reflet(56.3, 49.2, 0.8)}
       <path d="M50.3,51.5 C49.4,55 49.2,56.4 50.6,57.2" stroke="#5a2e18" stroke-width="1" fill="none" stroke-linecap="round"/>
-      <path d="M50,58.6 C47.5,57 43.5,57 41,59.2 C39.8,60.3 38.4,59.6 38.6,58.2 C37.6,60.6 40,62.2 42.4,61 C45,59.8 47.8,59.8 50,60.4 Z" fill="#141018"/>
-      ${miroir('<path d="M50,58.6 C47.5,57 43.5,57 41,59.2 C39.8,60.3 38.4,59.6 38.6,58.2 C37.6,60.6 40,62.2 42.4,61 C45,59.8 47.8,59.8 50,60.4 Z" fill="#141018"/>')}
       <path d="M46.4,63.4 C48.3,64.8 51.7,64.8 53.6,63.4" stroke="#5a2a18" stroke-width="1.1" fill="none" stroke-linecap="round"/>
-      <path d="M47.8,66.8 C48.4,70 49.2,72.2 50,73.2 C50.8,72.2 51.6,70 52.2,66.8 C51,67.4 49,67.4 47.8,66.8 Z" fill="#141018"/>
+      <path d="M50,58.6 C47.5,57 43.5,57 41,59.2 C39.8,60.3 38.4,59.6 38.6,58.2 C37.6,60.6 40,62.2 42.4,61 C45,59.8 47.8,59.8 50,60.4 C52.2,59.8 55,59.8 57.6,61 C60,62.2 62.4,60.6 61.4,58.2 C61.6,59.6 60.2,60.3 59,59.2 C56.5,57 52.5,57 50,58.6 Z M47.8,66.8 C48.4,70 49.2,72.2 50,73.2 C50.8,72.2 51.6,70 52.2,66.8 C51,67.4 49,67.4 47.8,66.8 Z" fill="#141018"/>
       <ellipse cx="50" cy="23.5" rx="12.5" ry="2.5" fill="#050408"/>
       <g fill="url(#${u}l)"><ellipse cx="45.6" cy="13.5" rx="2.5" ry="6.2" transform="rotate(-18 45.6 13.5)"/><ellipse cx="54.4" cy="13.5" rx="2.5" ry="6.2" transform="rotate(18 54.4 13.5)"/><circle cx="50" cy="20.5" r="5"/></g>
       <g fill="#ffb3c6"><ellipse cx="45.7" cy="14" rx="1.1" ry="4.4" transform="rotate(-18 45.7 14)"/><ellipse cx="54.3" cy="14" rx="1.1" ry="4.4" transform="rotate(18 54.3 14)"/></g>
@@ -214,8 +210,11 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <ellipse cx="45.5" cy="24.6" rx="1.9" ry="1.3" fill="#fff"/><ellipse cx="54.5" cy="24.6" rx="1.9" ry="1.3" fill="#fff"/>
       <path d="M66,90 L83,65.5" stroke="#141018" stroke-width="2.4" stroke-linecap="round"/>
       <path d="M83,65.5 L85.2,62.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
-      <ellipse cx="70.5" cy="84" rx="4.6" ry="4" fill="url(#${u}s)" transform="rotate(-35 70.5 84)"/>
-      <path d="M67.5,82.2 C69.5,81 72,81 73.8,82.3" stroke="#b8c0cc" stroke-width=".7" fill="none"/>`,
+      <g transform="translate(70.5 84) rotate(35)">
+        <rect x="-4.2" y="-4.4" width="8.4" height="8.8" rx="3.4" fill="url(#${u}s)"/>
+        <path d="M-.4,-1.8 H3.8 M-.4,.6 H4 M-.4,3 H3.6" stroke="#aeb6c4" stroke-width=".6"/>
+        <rect x="-4" y="4.2" width="8" height="2.6" rx="1" fill="#fff" stroke="#c9ced8" stroke-width=".5"/>
+      </g>`,
   },
 
   'br:disco': {

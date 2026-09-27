@@ -200,7 +200,26 @@ export const DESSINS: Record<string, DessinDePortrait> = {
 
   'br:mage': {
     fond: ['#52b6d6', '#1a5580', '#08172e'],
-    decor: () => GRILLE + ETOILES(CIEL),
+    // La lueur de la gemme, en carrés, sur la grille du bâton (une colonne
+    // de plus à gauche : même pas, même alignement). Dans le décor : dans le
+    // corps, elle ferait une bosse à la silhouette.
+    decor: () =>
+      GRILLE +
+      ETOILES(CIEL) +
+      pixels(
+        [
+          '................ooo..',
+          '...............o...o.',
+          '..............o.....o',
+          '..............o.....o',
+          '..............o.....o',
+          '...............o...o.',
+          '................ooo..',
+        ],
+        { o: '#ffe36b' },
+        3.5,
+        13.5,
+      ).replace('<g ', '<g opacity=".3" '),
     corps: () =>
       pixels(
         [
