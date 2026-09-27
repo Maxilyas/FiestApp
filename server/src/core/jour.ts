@@ -14,6 +14,7 @@
 // sont dans `shared/jour.ts`.
 
 import { randomUUID } from 'node:crypto'
+import type { InStatement, ResultSet } from '@libsql/client'
 import { clientDistant, type Client } from './distante'
 import type { ProfileRec, ProfileStore } from '../auth/profiles'
 import { GRACE_MS, POINTS_MAX_PAR_QUESTION, pointsDuChoix, tempsDeLecture } from '../games/quiz'
@@ -109,10 +110,9 @@ const PROCHAINES_MONTREES = 70
 /** Un signalement tient en une phrase. */
 const SIGNALEMENT_MAX = 280
 /**
- * Combien de profils se lisent, ou se recomptent, en même temps. Au réveil
- * de l'hébergeur, chaque profil d'un classement coûte trois allers-retours
- * vers la base permanente : en série, cinquante joueurs faisaient attendre
- * plusieurs secondes le premier qui ouvrait la page.
+ * Combien de profils se recomptent en même temps, chacun sous son verrou
+ * (`annuler`). Les classements, eux, chargent leurs joueurs d'un coup
+ * (`ProfileStore.byIds`).
  */
 const PROFILS_EN_VOL = 8
 /**
@@ -123,6 +123,14 @@ const PROFILS_EN_VOL = 8
 const DEJA_RAPPELEES = 300
 /** Les jours qu'une page de profil relit : un mois, de quoi tracer ses courbes. */
 const JOURS_RELUS = 30
+/**
+ * Combien de jours gardent leurs points en mémoire (`pointsGardes`) : les
+ * trente derniers de chacun, et de la marge pour ceux qui ont joué plus tôt.
+ */
+const JOURS_GARDES = 120
+/** Combien de tirages restent en mémoire : aujourd'hui, et de quoi revoir la semaine. */
+const TIRAGES_GARDES = 8
+const HEURE_MS = 3600_000
 
 /** Pas deux fois la même : l'intitulé, sans casse, sans accents, sans ponctuation. */
 export function empreinteDe(texte: string): string {
@@ -207,6 +215,24 @@ export class JourStore {
   private classementsGardes = new Map<string, { revision: number; joueurs: Joueur[] }>()
   /** La lecture d'un classement en route : deux demandes de la même vue n'en lancent qu'une. */
   private classementsEnRoute = new Map<string, { revision: number; promesse: Promise<Joueur[]> }>()
+  /**
+   * Les points de chaque joueur d'un jour, pour y lire des places — gardés
+   * sous la révision du jour lue avant la lecture, comme les classements.
+   * L'accueil de chaque profil relisait sinon les points de tous les joueurs
+   * de ses trente derniers jours : 6 000 lignes par visite à deux cents
+   * joueurs par jour.
+   */
+  private pointsGardes = new Map<string, { revision: number; points: { id: string; points: number }[] }>()
+  /**
+   * Les tirages lus : figés à la première demande, ils ne changent plus que
+   * par une annulation, qui remet le sien à jour sous son verrou
+   * (`annuler`). Relu à chaque geste, le tirage du jour — cinq kilo-octets —
+   * repartait de Turso à chaque réponse, à chaque question suivante, et une
+   * fois par joueur pour une annulation.
+   */
+  private tiragesGardes = new Map<string, Tirage>()
+  /** Le jour de Paris de l'heure en cours (`joursDeLHeure`). */
+  private joursGardes: { heure: number; aujourdhui: string; hier: string } | null = null
   /**
    * Les vainqueurs d'un jour clos, et ce jour : le laurier de ceux d'hier
    * (`laureats`). Relus à la nuit, une fois — ils servent à chaque
@@ -518,10 +544,24 @@ export class JourStore {
   }
 
   private async tirageLu(jour: string): Promise<Tirage | null> {
+    const garde = this.tiragesGardes.get(jour)
+    if (garde) return garde
     const res = await this.client.execute({ sql: 'SELECT questions, annulees FROM jour_tirages WHERE jour = ?', args: [jour] })
     const r = res.rows[0]
     if (!r) return null
-    return { jour, questions: JSON.parse(String(r.questions)), annulees: lireNombres(r.annulees) }
+    // Une annulation rangée pendant la lecture a le dernier mot : cette
+    // lecture-ci est partie avant elle.
+    const deja = this.tiragesGardes.get(jour)
+    if (deja) return deja
+    const tirage = { jour, questions: JSON.parse(String(r.questions)), annulees: lireNombres(r.annulees) }
+    this.garderTirage(tirage)
+    return tirage
+  }
+
+  private garderTirage(tirage: Tirage) {
+    this.tiragesGardes.delete(tirage.jour)
+    this.tiragesGardes.set(tirage.jour, tirage)
+    if (this.tiragesGardes.size > TIRAGES_GARDES) this.tiragesGardes.delete(this.tiragesGardes.keys().next().value!)
   }
 
   private async tirer(jour: string): Promise<Tirage | null> {
@@ -693,8 +733,7 @@ export class JourStore {
       const ms = maintenant - partie.servieLe
       const aTemps = ms <= q.duree * 1000 + GRACE_MS
       const retenu = typeof choix === 'number' && Number.isInteger(choix) && choix >= 0 && choix < q.reponses.length ? choix : null
-      await this.enregistrer(partie, tirage, aTemps ? retenu : null, ms)
-      const revelation = await this.revelationDe(profil.id, tirage, index)
+      const { revelation } = await this.enregistrer(partie, tirage, aTemps ? retenu : null, ms)
       return !aTemps && retenu !== null ? { ...revelation, tropTard: true } : revelation
     })
   }
@@ -709,13 +748,22 @@ export class JourStore {
     const q = tirage.questions[partie.question]
     const ms = this.maintenant() - partie.servieLe
     if (ms <= q.duree * 1000 + GRACE_MS) return null
-    await this.enregistrer(partie, tirage, null, null)
-    const suite = await this.partieDe(partie.profileId, partie.jour)
-    return suite ? [suite, await this.revelationDe(partie.profileId, tirage, partie.question)] : null
+    const { revelation, suite } = await this.enregistrer(partie, tirage, null, null)
+    return suite ? [suite, revelation] : null
   }
 
-  /** Écrit une réponse — ou son absence — et fait avancer la partie, points et expérience compris. */
-  private async enregistrer(partie: Partie, tirage: Tirage, choix: number | null, ms: number | null) {
+  /**
+   * Écrit une réponse — ou son absence — et fait avancer la partie, points et
+   * expérience compris. Rend ce que la réponse révèle et la partie d'après,
+   * lues dans le même lot que l'écriture : chaque lecture attendait la
+   * précédente, six allers-retours en série sous les doigts du joueur.
+   */
+  private async enregistrer(
+    partie: Partie,
+    tirage: Tirage,
+    choix: number | null,
+    ms: number | null,
+  ): Promise<{ revelation: RevelationDuJour; suite: Partie | null }> {
     const index = partie.question
     const q = tirage.questions[index]
     const annulee = tirage.annulees.includes(index)
@@ -745,28 +793,38 @@ export class JourStore {
             index,
           ],
         },
+        ...this.lecturesDeLExperience(partie.profileId),
+        ...this.lecturesDeRevelation(partie.profileId, partie.jour, index),
       ],
       'write',
     )
-    if (res[1].rowsAffected === 0) return
+    const [, avance, parties, podiums, ...revelation] = res
+    const lu = { revelation: this.revelation(tirage, index, revelation), suite: lirePartie(partie.profileId, partie.jour, revelation[2].rows[0]) }
+    if (avance.rowsAffected === 0) return lu
     this.reviser(partie.jour)
     // Ses paliers ne bougent qu'au début de la partie (un jour joué, voir
     // `commencer`) et à sa fin (un sans-faute) : les chercher à chaque
     // réponse coûtait un aller-retour de plus sous les doigts du joueur.
-    await this.ecrireXp(partie.profileId, partie.jour, derniere)
+    await this.ecrireXp(partie.profileId, partie.jour, derniere, [parties, podiums])
+    return lu
   }
 
   /** Ce que la réponse à une question lui apprend. */
   private async revelationDe(profileId: string, tirage: Tirage, index: number): Promise<RevelationDuJour> {
+    return this.revelation(tirage, index, await this.client.batch(this.lecturesDeRevelation(profileId, tirage.jour, index), 'read'))
+  }
+
+  /** Les lectures d'une révélation : seules, ou au bout du lot qui écrit la réponse. */
+  private lecturesDeRevelation(profileId: string, jour: string, index: number): InStatement[] {
+    return [
+      { sql: 'SELECT choix, juste, points FROM jour_reponses WHERE profile_id = ? AND jour = ? AND question = ?', args: [profileId, jour, index] },
+      { sql: 'SELECT COUNT(*) AS n, COALESCE(SUM(juste), 0) AS justes FROM jour_reponses WHERE jour = ? AND question = ?', args: [jour, index] },
+      { sql: 'SELECT * FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profileId, jour] },
+    ]
+  }
+
+  private revelation(tirage: Tirage, index: number, [sienne, salle, partie]: ResultSet[]): RevelationDuJour {
     const q = tirage.questions[index]
-    const [sienne, salle, partie] = await this.client.batch(
-      [
-        { sql: 'SELECT choix, juste, points FROM jour_reponses WHERE profile_id = ? AND jour = ? AND question = ?', args: [profileId, tirage.jour, index] },
-        { sql: 'SELECT COUNT(*) AS n, COALESCE(SUM(juste), 0) AS justes FROM jour_reponses WHERE jour = ? AND question = ?', args: [tirage.jour, index] },
-        { sql: 'SELECT points FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profileId, tirage.jour] },
-      ],
-      'read',
-    )
     const r = sienne.rows[0]
     const n = Number(salle.rows[0]?.n ?? 0)
     const annulee = tirage.annulees.includes(index)
@@ -790,19 +848,7 @@ export class JourStore {
 
   private async partieDe(profileId: string, jour: string): Promise<Partie | null> {
     const res = await this.client.execute({ sql: 'SELECT * FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profileId, jour] })
-    const r = res.rows[0]
-    if (!r) return null
-    return {
-      profileId,
-      jour,
-      commenceeLe: Number(r.commencee_le),
-      question: Number(r.question),
-      servieLe: r.servie_le == null ? null : Number(r.servie_le),
-      points: Number(r.points),
-      justes: Number(r.justes),
-      finieLe: r.finie_le == null ? null : Number(r.finie_le),
-      xp: Number(r.xp),
-    }
+    return lirePartie(profileId, jour, res.rows[0])
   }
 
   /** La partie telle que le téléphone la reçoit : jamais une bonne réponse avant qu'il ait répondu. */
@@ -974,7 +1020,7 @@ export class JourStore {
 
   private async lireClassement(jour: string): Promise<Joueur[]> {
     const res = await this.client.execute({ sql: 'SELECT profile_id, points, finie_le, commencee_le FROM jour_parties WHERE jour = ?', args: [jour] })
-    const profils = await parLots(res.rows, PROFILS_EN_VOL, r => this.deps.profiles.byId(String(r.profile_id)))
+    const profils = await this.deps.profiles.byIds(res.rows.map(r => String(r.profile_id)))
     const lus: Joueur[] = []
     res.rows.forEach((r, i) => {
       const profil = profils[i]
@@ -1009,7 +1055,7 @@ export class JourStore {
             WHERE jour >= ? AND jour <= ? GROUP BY profile_id`,
       args: [`${mois}-01`, `${mois}-31`],
     })
-    const profils = await parLots(res.rows, PROFILS_EN_VOL, r => this.deps.profiles.byId(String(r.profile_id)))
+    const profils = await this.deps.profiles.byIds(res.rows.map(r => String(r.profile_id)))
     const joueurs: Joueur[] = []
     res.rows.forEach((r, i) => {
       const profil = profils[i]
@@ -1231,27 +1277,46 @@ export class JourStore {
     if (recents.length === 0) return []
     const jours = recents.map(p => p.jour)
     const marques = jours.map(() => '?').join(', ')
-    const [salle, reponses] = await this.client.batch(
+    // La révision de chaque jour, lue avant la lecture : une réponse écrite
+    // pendant l'aller-retour ne passe pas pour vue.
+    const revisions = new Map(jours.map(j => [j, this.revisionDu(j)]))
+    const manquants = jours.filter(j => this.pointsGardes.get(j)?.revision !== revisions.get(j))
+    const lectures = await this.client.batch(
       [
-        {
-          sql: `SELECT jour, points FROM jour_parties WHERE jour IN (${marques})
-                AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)
-                AND (profile_id = ? OR profile_id NOT IN (SELECT profile_id FROM jour_masques))`,
-          args: [...jours, profileId],
-        },
         {
           sql: `SELECT jour, question, ms FROM jour_reponses WHERE profile_id = ? AND juste = 1 AND jour IN (${marques})`,
           args: [profileId, ...jours],
         },
+        ...(manquants.length > 0
+          ? [
+              {
+                sql: `SELECT jour, profile_id, points FROM jour_parties WHERE jour IN (${manquants.map(() => '?').join(', ')})
+                      AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)`,
+                args: manquants,
+              },
+            ]
+          : []),
       ],
       'read',
     )
+    const [reponses, salle] = lectures
+    if (salle) {
+      const lus = new Map<string, { id: string; points: number }[]>(manquants.map(j => [j, []]))
+      for (const r of salle.rows) lus.get(String(r.jour))?.push({ id: String(r.profile_id), points: Number(r.points) })
+      for (const [jour, points] of lus) {
+        const garde = this.pointsGardes.get(jour)
+        if (garde && garde.revision > revisions.get(jour)!) continue
+        this.pointsGardes.delete(jour)
+        this.pointsGardes.set(jour, { revision: revisions.get(jour)!, points })
+      }
+      while (this.pointsGardes.size > JOURS_GARDES) this.pointsGardes.delete(this.pointsGardes.keys().next().value!)
+    }
+    // Les masqués s'écartent à la lecture — sauf lui, qui se voit toujours :
+    // un masque posé ou levé vaut tout de suite, sans relire la base.
     const pointsDu = new Map<string, number[]>()
-    for (const r of salle.rows) {
-      const jour = String(r.jour)
-      const liste = pointsDu.get(jour) ?? []
-      liste.push(Number(r.points))
-      pointsDu.set(jour, liste)
+    for (const jour of jours) {
+      const garde = this.pointsGardes.get(jour)
+      if (garde) pointsDu.set(jour, garde.points.filter(e => e.id === profileId || !this.masques.has(e.id)).map(e => e.points))
     }
     const annuleesDu = new Map(recents.map(p => [p.jour, p.annulees]))
     const tempsDu = new Map<string, number>()
@@ -1361,20 +1426,22 @@ export class JourStore {
    * les paliers du quiz du jour qu'elle lui fait atteindre, rangés sous ce
    * jour : celui de sa partie, ou celui que la nuit vient de clore.
    */
-  private async ecrireXp(profileId: string, jour: string, paliers = true) {
-    const [parties, podiums] = await this.client.batch(
-      [
-        { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp, COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
-        { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp FROM jour_podiums WHERE profile_id = ?', args: [profileId] },
-      ],
-      'read',
-    )
+  private async ecrireXp(profileId: string, jour: string, paliers = true, lues?: ResultSet[]) {
+    const [parties, podiums] = lues ?? (await this.client.batch(this.lecturesDeLExperience(profileId), 'read'))
     const xp = Number(parties.rows[0]?.xp ?? 0) + Number(podiums.rows[0]?.xp ?? 0)
     await this.deps.profiles.ecrireXpDuJour(profileId, xp, Number(parties.rows[0]?.n ?? 0))
     if (paliers) {
       await this.deps.profiles.accorderPaliersDuJour(profileId, jour, await this.statsDuJour(profileId))
       await this.accorderSaison(profileId, jour)
     }
+  }
+
+  /** Ce que son expérience du jour additionne : ses parties, ses podiums. */
+  private lecturesDeLExperience(profileId: string): InStatement[] {
+    return [
+      { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp, COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
+      { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp FROM jour_podiums WHERE profile_id = ?', args: [profileId] },
+    ]
   }
 
   /** Ses jours joués dans la période d'une saison — une partie commencée compte, comme pour la série. */
@@ -1520,6 +1587,11 @@ export class JourStore {
         ],
         'write',
       )
+      // Toujours sous le verrou du tirage : chaque recompte, sous celui de
+      // son profil, lit l'annulation la plus récente — comme il la lisait
+      // en base. Lui passer le tirage de cette annulation-ci laissait payée
+      // la question d'une autre, annulée juste après.
+      this.garderTirage({ ...tirage, annulees })
     })
     // Chacun se recompte sous son propre verrou. Recompté d'un seul coup pour
     // tout le jour, une réponse partie avant l'annulation et écrite après
@@ -1596,8 +1668,8 @@ export class JourStore {
    * et les salles où ils jouent se rediffusent (`laurierChange`).
    */
   laureats(): ReadonlySet<string> {
-    const aujourdhui = jourDe(this.maintenant())
-    if (this.lauriers.jour === jourAvant(aujourdhui)) return this.lauriers.ids
+    const { aujourdhui, hier } = this.joursDeLHeure()
+    if (this.lauriers.jour === hier) return this.lauriers.ids
     if (!this.lauriersEnRoute && !this.ferme) {
       this.lauriersEnRoute = this.clorePasses(aujourdhui)
         .catch(e => {
@@ -1608,6 +1680,23 @@ export class JourStore {
         })
     }
     return AUCUN_LAURIER
+  }
+
+  /**
+   * Aujourd'hui et hier à Paris, gardés pour l'heure en cours : minuit à
+   * Paris tombe toujours sur une heure pleine du temps universel (UTC+1 ou
+   * UTC+2, changements d'heure compris), alors le jour ne change jamais au
+   * milieu d'une heure. `laureats` le demande pour chaque profil de chaque
+   * instantané, et `Intl` le recalculait à chaque fois — deux
+   * millisecondes par instantané de cinq cents profils.
+   */
+  private joursDeLHeure(): { aujourdhui: string; hier: string } {
+    const heure = Math.floor(this.maintenant() / HEURE_MS)
+    if (this.joursGardes?.heure !== heure) {
+      const aujourdhui = jourDe(heure * HEURE_MS)
+      this.joursGardes = { heure, aujourdhui, hier: jourAvant(aujourdhui) }
+    }
+    return this.joursGardes
   }
 
   /**
@@ -1678,6 +1767,22 @@ function nommer(joueurs: readonly Joueur[], avatarDe: (p: ProfileRec) => string)
 }
 
 /** `travail` sur chaque élément, `n` à la fois ; les résultats dans l'ordre des éléments. */
+/** Une ligne de `jour_parties`, telle que la partie se lit — null s'il n'y en a pas. */
+function lirePartie(profileId: string, jour: string, r: Record<string, unknown> | undefined): Partie | null {
+  if (!r) return null
+  return {
+    profileId,
+    jour,
+    commenceeLe: Number(r.commencee_le),
+    question: Number(r.question),
+    servieLe: r.servie_le == null ? null : Number(r.servie_le),
+    points: Number(r.points),
+    justes: Number(r.justes),
+    finieLe: r.finie_le == null ? null : Number(r.finie_le),
+    xp: Number(r.xp),
+  }
+}
+
 async function parLots<T, R>(elements: readonly T[], n: number, travail: (e: T) => Promise<R>): Promise<R[]> {
   const resultats: R[] = []
   for (let i = 0; i < elements.length; i += n) resultats.push(...(await Promise.all(elements.slice(i, i + n).map(travail))))

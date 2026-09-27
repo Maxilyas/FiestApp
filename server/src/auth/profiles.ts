@@ -234,6 +234,13 @@ function lireCondition(brut: unknown): Condition | null {
 }
 
 /** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
+/**
+ * Combien de profils `byIds` demande par aller-retour : assez pour les
+ * joueurs d'un jour chargés d'un coup, assez peu pour qu'une liste
+ * d'identifiants reste loin de la borne des paramètres de SQLite.
+ */
+const PROFILS_PAR_PAQUET = 200
+
 const SESSION_MS = 365 * 24 * 3600 * 1000
 const SLIDE_EVERY_MS = 7 * 24 * 3600 * 1000
 
@@ -544,6 +551,51 @@ export class ProfileStore {
     if (known) return known.disabledAt ? null : known
     const rows = await this.client.execute({ sql: 'SELECT * FROM profiles WHERE id = ?', args: [id] })
     return this.remember(rows.rows[0])
+  }
+
+  /**
+   * Des profils d'un coup, dans l'ordre demandé : ceux qui manquent en
+   * mémoire arrivent en un aller-retour par paquet, avec leurs Éclats et
+   * leurs récompenses. Chargés un par un — trois allers-retours chacun,
+   * huit à la fois —, les deux cents joueurs d'hier faisaient attendre au
+   * réveil toute visite du quiz du jour et de l'accueil, sous le verrou de
+   * la nuit (12 s à cinq cents joueurs et 50 ms par aller-retour). Null
+   * pour un profil inconnu ou fermé.
+   */
+  async byIds(ids: readonly string[]): Promise<(ProfileRec | null)[]> {
+    const manquants = [...new Set(ids)].filter(id => !this.profiles.has(id))
+    for (let i = 0; i < manquants.length; i += PROFILS_PAR_PAQUET) {
+      const paquet = manquants.slice(i, i + PROFILS_PAR_PAQUET)
+      const marques = paquet.map(() => '?').join(', ')
+      const [lignes, eclats, badges] = await this.client.batch(
+        [
+          { sql: `SELECT * FROM profiles WHERE id IN (${marques})`, args: paquet },
+          { sql: `SELECT profile_id, avatar FROM profile_eclats WHERE profile_id IN (${marques})`, args: paquet },
+          {
+            sql: `SELECT profile_id, badge, COUNT(*) AS n FROM profile_badges WHERE profile_id IN (${marques}) GROUP BY profile_id, badge`,
+            args: paquet,
+          },
+        ],
+        'read',
+      )
+      const eclatsDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
+      for (const r of eclats.rows) eclatsDe.get(String(r.profile_id))?.add(String(r.avatar))
+      const recompensesDe = new Map<string, Map<string, number>>(paquet.map(id => [id, new Map()]))
+      for (const r of badges.rows) recompensesDe.get(String(r.profile_id))?.set(String(r.badge), Number(r.n))
+      for (const r of lignes.rows) {
+        const id = String(r.id)
+        // Arrivé en mémoire pendant l'aller-retour — un geste, un renommage —,
+        // il garde sa version : la ligne lue avant écraserait l'objet à jour.
+        if (this.profiles.has(id)) continue
+        this.profiles.set(id, this.lireLigne(r))
+        if (!this.eclats.has(id)) this.eclats.set(id, eclatsDe.get(id)!)
+        if (!this.recompenses.has(id)) this.recompenses.set(id, recompensesDe.get(id)!)
+      }
+    }
+    return ids.map(id => {
+      const p = this.profiles.get(id)
+      return p && !p.disabledAt ? p : null
+    })
   }
 
   async byLogin(login: unknown): Promise<ProfileRec | null> {
@@ -1957,8 +2009,23 @@ export class ProfileStore {
   /** Range une ligne de base en mémoire, avec ses éclats. */
   private async remember(row: unknown): Promise<ProfileRec | null> {
     if (!row) return null
+    const rec = this.lireLigne(row)
+    this.profiles.set(rec.id, rec)
+    // Les éclats et les récompenses arrivent avec le profil : ils partent
+    // dans l'accusé d'inscription à une soirée, qui est synchrone, et dans
+    // l'instantané de toute la salle.
+    if (!this.eclats.has(rec.id)) {
+      const eclats = await this.client.execute({ sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ?', args: [rec.id] })
+      this.eclats.set(rec.id, new Set(eclats.rows.map(e => String(e.avatar))))
+      await this.recompterRecompenses([rec.id])
+    }
+    return rec.disabledAt ? null : rec
+  }
+
+  /** Une ligne de `profiles`, telle que la mémoire la garde. */
+  private lireLigne(row: unknown): ProfileRec {
     const r = row as Record<string, unknown>
-    const rec: ProfileRec = {
+    return {
       id: String(r.id),
       login: String(r.login),
       name: String(r.name),
@@ -1979,15 +2046,5 @@ export class ProfileStore {
       lastSeenAt: r.last_seen_at === null || r.last_seen_at === undefined ? null : Number(r.last_seen_at),
       disabledAt: r.disabled_at === null || r.disabled_at === undefined ? null : Number(r.disabled_at),
     }
-    this.profiles.set(rec.id, rec)
-    // Les éclats et les récompenses arrivent avec le profil : ils partent
-    // dans l'accusé d'inscription à une soirée, qui est synchrone, et dans
-    // l'instantané de toute la salle.
-    if (!this.eclats.has(rec.id)) {
-      const eclats = await this.client.execute({ sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ?', args: [rec.id] })
-      this.eclats.set(rec.id, new Set(eclats.rows.map(e => String(e.avatar))))
-      await this.recompterRecompenses([rec.id])
-    }
-    return rec.disabledAt ? null : rec
   }
 }

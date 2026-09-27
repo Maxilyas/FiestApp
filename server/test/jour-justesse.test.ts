@@ -116,23 +116,24 @@ test('la nuit paie le podium sur les vrais points, même quand une réponse croi
     }
     assert.equal(etat.points, 1400)
 
-    // Carole ouvre sa partie ; sa lecture du classement va chercher le profil
-    // de Bob chez Turso — retenu le temps qu'Alice réponde à la dernière.
+    // Carole ouvre sa partie ; sa lecture du classement va chercher les
+    // profils de ses joueurs chez Turso, d'un coup (`byIds`) — retenue le
+    // temps qu'Alice réponde à la dernière.
     const idBob = idDe(banc, 'bob')
     const proto = ProfileStore.prototype as any
-    const byId = proto.byId
+    const byIds = proto.byIds
     let entrer!: () => void
     const entree = new Promise<void>(r => (entrer = r))
     let relacher!: () => void
     const porte = new Promise<void>(r => (relacher = r))
     let pris = false
-    proto.byId = async function (this: ProfileStore, id: string) {
-      if (id === idBob && !pris) {
+    proto.byIds = async function (this: ProfileStore, ids: string[]) {
+      if (ids.includes(idBob) && !pris) {
         pris = true
         entrer()
         await porte
       }
-      return byId.call(this, id)
+      return byIds.call(this, ids)
     }
     try {
       const deCarole = poster(banc, carole, '/api/jour/commencer')
@@ -142,7 +143,7 @@ test('la nuit paie le podium sur les vrais points, même quand une réponse croi
       relacher()
       assert.equal((await deCarole).status, 200)
     } finally {
-      proto.byId = byId
+      proto.byIds = byIds
     }
 
     // La lecture de Carole, commencée avant la réponse, ne passe pas pour fraîche.

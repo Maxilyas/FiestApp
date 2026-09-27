@@ -587,7 +587,14 @@ sans `QUIZ_DB_URL`.
   points ou l'expérience d'un profil passe sous son verrou, le tirage relu
   dedans — sa partie, le recompte d'une annulation, le podium de la nuit :
   recomptée d'un coup pour tout le jour, une annulation laissait payée la
-  question qu'une réponse en route écrivait derrière elle.
+  question qu'une réponse en route écrivait derrière elle. Le tirage se relit
+  en mémoire (`tiragesGardes`) : seule une annulation le change, et elle
+  remet le sien à jour sous le verrou `#tirage` — une nouvelle écriture de
+  `jour_tirages` en ferait autant. Les joueurs d'un classement se chargent
+  d'un coup (`ProfileStore.byIds`), et les points des jours se gardent sous
+  la révision de leur jour (`pointsGardes`, comme les classements) : une
+  écriture de `jour_parties` qui contournerait `reviser` laisserait les
+  places en retard.
 - **La consigne du quiz du jour ne promet rien que la réserve refuse.**
   Elle décrit le format de « Coller une liste » réduit à ce que
   `raisonDEcarter` accepte, et son exemple se relit dans
