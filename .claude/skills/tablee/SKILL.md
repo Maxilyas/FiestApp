@@ -209,9 +209,15 @@ reproduction qui est déjà un test, le rapport et ses constats en JSON).
 
 Ils n'ont pas besoin de la régie : lance-les comme les autres experts (un
 agent par fiche, en arrière-plan, qui lit `consignes-audit.md` puis sa
-fiche), par vagues de dix au plus — une vague de lecture d'abord, les
-mesures ensuite, quand la machine est calme. Donne à chacun le chemin de
-la dernière vérification complète, s'il y en a une.
+fiche), **sept au plus à la fois** — un nouveau dès qu'un autre rend son
+rapport : la lecture d'abord, les mesures ensuite, quand la machine est
+calme. Quinze en parallèle ont épuisé la réserve d'usage de cinq heures en
+moins d'une heure, le 26 septembre ; un agent coupé se reprend par
+`SendMessage`, son dossier est sur disque (`retours/2026-09-27/synthese.md`).
+Donne à chacun le chemin de la dernière vérification complète, s'il y en a
+une, et la liste des rapports déjà rendus, pour qu'il ne les refasse pas.
+Les experts de l'atelier (accessibilité, mots, parcours) qui ont besoin
+d'un profil de joueur le créent eux-mêmes depuis l'accueil.
 
 Leurs constats passent ensuite par une **contre-expertise**
 (`consignes-contre-expertise.md`) : un agent par domaine — deux ou trois
@@ -222,7 +228,9 @@ a rendu ses rapports, sans attendre les autres.
 Seul ce qui résiste entre dans la synthèse, avec son statut (bug confirmé,
 non reproduit, faux positif, tension avec un parti pris) :
 `retours/<AAAA-MM-JJ>/synthese.md`, les rapports dans `experts/`, les
-contre-expertises dans `verification/`.
+contre-expertises dans `verification/`, tous les constats et leur verdict
+dans un seul `constats.json`, et les épreuves qui les prouvent dans
+`reproductions/` — la première ébauche de l'épreuve de chaque correction.
 
 ## Adapter la tablée
 
