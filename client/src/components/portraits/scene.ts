@@ -1,7 +1,7 @@
 // La scène · Musique — du DJ au chef d’orchestre.
 import { inscrireDessin } from '../medaillons'
 import { Portrait } from '../Portrait'
-import { etoile, lin, miroir, points, reflet, type DessinDePortrait } from './outils'
+import { etoile, lin, points, reflet, type DessinDePortrait } from './outils'
 
 /** Les deux faisceaux du DJ, turquoise et rose, qui tombent en biais : la maquette. */
 const FAISCEAUX =
@@ -112,8 +112,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M45,66 L45,79 L55,79 L55,66 Z" fill="#8a5a36"/>
       <ellipse cx="36.2" cy="51.5" rx="2.3" ry="3.5" fill="#a87048"/><ellipse cx="63.8" cy="51.5" rx="2.3" ry="3.5" fill="#a87048"/>
       <path d="M36,46 C36,39 42,35.5 50,35.5 C58,35.5 64,39 64,46 C64,58 58,68 50,70.5 C42,68 36,58 36,46 Z" fill="url(#${u}p)"/>
-      <path d="M36.3,42 L39.8,42 L39.2,51 C37.8,49.5 36.8,47 36.3,44.5 Z" fill="#1a1210"/>
-      ${miroir('<path d="M36.3,42 L39.8,42 L39.2,51 C37.8,49.5 36.8,47 36.3,44.5 Z" fill="#1a1210"/>')}
+      <path d="M36.4,40 L39.6,40 L39.2,47.6 C37.8,46.4 36.8,44.4 36.4,42.4 Z M63.6,40 L60.4,40 L60.8,47.6 C62.2,46.4 63.2,44.4 63.6,42.4 Z" fill="#1a1210"/>
       <g transform="rotate(-7 50 33)">
         <path d="M36,35 C35.5,27 38.5,23 50,23 C61.5,23 64.5,27 64,35 Z" fill="url(#${u}h)"/>
         <path d="M39,25.6 C45,24.2 55,24.2 61,25.6" stroke="#5a5868" stroke-width=".9" fill="none"/>
@@ -208,7 +207,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <ellipse cx="36.4" cy="52" rx="2.3" ry="3.5" fill="#7a4a2c"/><ellipse cx="63.6" cy="52" rx="2.3" ry="3.5" fill="#7a4a2c"/>
       <circle cx="36.4" cy="57" r="1.1" fill="#fdf6ea"/><circle cx="63.6" cy="57" r="1.1" fill="#fdf6ea"/>
       <path d="M36.5,46 C36.5,39 42,35.5 50,35.5 C58,35.5 63.5,39 63.5,46 C63.5,58 58,68 50,70.5 C42,68 36.5,58 36.5,46 Z" fill="url(#${u}p)"/>
-      <path d="M37,44 C38,39 43,36.4 50,36.4 C57,36.4 62,39 63,44 C60,40 55,38.4 50,38.4 C45,38.4 40,40 37,44 Z" fill="url(#${u}h)"/>
+      <path d="M40.5,32.6 C44,30 49,29.4 54,30.2" stroke="#6a5450" stroke-width="1.1" fill="none" stroke-linecap="round" opacity=".8"/>
       <circle cx="61" cy="28.5" r="3.6" fill="#d8203e"/><path d="M59.4,27.4 C60.6,26.2 62.4,26.6 62.6,28.2 C62.8,29.6 61,30.2 60.2,29.2" stroke="#8a0c22" stroke-width=".7" fill="none"/>
       <path d="M63.6,31 C66,31.4 67.4,30 67.8,28.4 C65.8,28.2 64.4,29 63.6,31 Z" fill="#2a8a4a"/>
       <path d="M39.6,50.4 C41,48 45.6,48 47,50.4 C45.6,52.2 41,52.2 39.6,50.4 Z M53,50.4 C54.4,48 59,48 60.4,50.4 C59,52.2 54.4,52.2 53,50.4 Z" fill="#fff"/>
@@ -242,7 +241,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M42,78.5 L50,96 L47,100 L35,81 Z M58,78.5 L50,96 L53,100 L65,81 Z" fill="#1a1622"/>
       <path d="M36,81.6 L47.4,99 M64,81.6 L52.6,99" stroke="#6a6480" stroke-width=".7"/>
       <path d="M45,66 L45,79 L55,79 L55,66 Z" fill="#e0a88a"/>
-      <path d="M50,80.5 L44.5,77.8 L44.5,83.2 Z M50,80.5 L55.5,77.8 L55.5,83.2 Z" fill="#fff"/><circle cx="50" cy="80.5" r="1.2" fill="#e8e6ee"/>
+      <path d="M50,80.5 L44.5,77.8 L44.5,83.2 Z M50,80.5 L55.5,77.8 L55.5,83.2 Z" fill="#fff" stroke="#9a94ac" stroke-width=".6" stroke-linejoin="round"/><circle cx="50" cy="80.5" r="1.3" fill="#e8e6ee" stroke="#9a94ac" stroke-width=".5"/>
       <ellipse cx="36.2" cy="52" rx="2.3" ry="3.5" fill="#eab496"/><ellipse cx="63.8" cy="52" rx="2.3" ry="3.5" fill="#eab496"/>
       <path d="M36,46 C36,38.5 42,34.5 50,34.5 C58,34.5 64,38.5 64,46 C64,58 58,68 50,70.5 C42,68 36,58 36,46 Z" fill="url(#${u}p)"/>
       <path d="M38.6,45.6 C40.6,43 44.6,42.6 47.6,44.2 M61.4,45.6 C59.4,43 55.4,42.6 52.4,44.2" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>

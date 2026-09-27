@@ -6,22 +6,26 @@ import { pixels, type DessinDePortrait } from './outils'
 /** La grille fine de l'écran, en filigrane : une ligne tous les cinq. */
 const GRILLE = (() => {
   let d = ''
-  for (let k = 5; k < 100; k += 5) d += `M${k},0 V100 M0,${k} H100 `
+  for (let k = 5; k < 100; k += 5) d += `M${k},0v100M0,${k}h100`
   return `<path d="${d}" stroke="#fff" stroke-opacity=".06" stroke-width=".5"/>`
 })()
 
-/** Des étoiles carrées, comme tout le reste. */
-const ETOILES = (liste: [number, number][], couleur = '#ffe36b') =>
-  liste.map(([x, y]) => `<rect x="${x}" y="${y}" width="2.5" height="2.5" fill="${couleur}" opacity=".85"/>`).join('')
+/** Des étoiles carrées, comme tout le reste — d'un seul chemin. */
+const ETOILES = (liste: [number, number][]) =>
+  `<path d="${liste.map(([x, y]) => `M${x},${y}h2.5v2.5h-2.5z`).join('')}" fill="#ffe36b" opacity=".85"/>`
 
-/** Celles du chevalier de la maquette, que les autres reprennent. */
+/**
+ * Cinq des étoiles du chevalier de la maquette, que tous reprennent. La
+ * sixième se pose où chaque dessin la laisse voir : sous sa ceinture, là où
+ * la maquette la mettait, le buste qui descend jusqu'au bas du disque la
+ * cachait — il n'en dépassait qu'un liseré.
+ */
 const CIEL: [number, number][] = [
   [14, 28],
   [84, 24],
   [12, 62],
   [88, 60],
   [26, 12],
-  [76, 86],
 ]
 
 /** Le contour d'un pixel, le même pour tous : c'est lui qui les détache du disque à 26 px. */
@@ -30,7 +34,7 @@ const A = '#141b28'
 export const DESSINS: Record<string, DessinDePortrait> = {
   'br:slime': {
     fond: ['#4cc2c8', '#16607a', '#07192b'],
-    decor: () => GRILLE + ETOILES(CIEL),
+    decor: () => GRILLE + ETOILES([...CIEL, [72, 14]]),
     corps: () =>
       pixels(
         [
@@ -65,7 +69,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
 
   'br:squelette': {
     fond: ['#4ab0cf', '#155277', '#061729'],
-    decor: () => GRILLE + ETOILES(CIEL),
+    decor: () => GRILLE + ETOILES([...CIEL, [16, 78]]),
     corps: () =>
       pixels(
         [
@@ -99,7 +103,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
 
   'br:coffre': {
     fond: ['#3fbac4', '#135a73', '#061a28'],
-    decor: () => GRILLE + ETOILES(CIEL),
+    decor: () => GRILLE + ETOILES([...CIEL, [72, 14]]),
     corps: () =>
       pixels(
         [
@@ -146,7 +150,17 @@ export const DESSINS: Record<string, DessinDePortrait> = {
 
   'br:archere': {
     fond: ['#48bccf', '#175c7e', '#07192d'],
-    decor: () => GRILLE + ETOILES(CIEL),
+    // L'arc et les flèches touchaient deux étoiles du ciel commun : elles s'écartent.
+    decor: () =>
+      GRILLE +
+      ETOILES([
+        [14, 28],
+        [88, 38],
+        [9, 46],
+        [88, 60],
+        [26, 12],
+        [72, 14],
+      ]),
     corps: () =>
       pixels(
         [
@@ -275,7 +289,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
 
   'br:chevalier': {
     fond: ['#45b9cc', '#16597a', '#07192b'],
-    decor: () => GRILLE + ETOILES(CIEL),
+    decor: () => GRILLE + ETOILES([...CIEL, [72, 14]]),
     corps: () =>
       pixels(
         [

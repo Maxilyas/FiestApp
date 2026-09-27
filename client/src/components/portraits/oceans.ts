@@ -55,14 +55,15 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M32,57 C22,55 11,60 7,72 C13,69.5 22,70 31,73 Z" fill="url(#${u}p)"/>
       ${miroir(`<path d="M32,57 C22,55 11,60 7,72 C13,69.5 22,70 31,73 Z" fill="url(#${u}p)"/>`)}
       <path d="M13,65.5 L16.5,65 M19,61 L22.5,61 M87,65.5 L83.5,65 M81,61 L77.5,61" stroke="#4f7d2c" stroke-width="1.6" stroke-linecap="round" opacity=".5"/>
-      <ellipse cx="50" cy="76" rx="25" ry="22" fill="#4a2508" opacity=".6"/>
-      <ellipse cx="50" cy="76" rx="25.8" ry="22.8" fill="none" stroke="url(#${u}k)" stroke-width="2.6"/>
+      <ellipse cx="50" cy="76" rx="25" ry="22" fill="#6a3812" opacity=".7"/>
       <g fill="url(#${u}c)" stroke="#f6d78e" stroke-width=".9" stroke-linejoin="round">
-        <path d="M43.8,64.5 L50,61 L56.2,64.5 L56.2,71.5 L50,75 L43.8,71.5 Z"/><path d="M43.8,80.5 L50,77 L56.2,80.5 L56.2,87.5 L50,91 L43.8,87.5 Z"/>
-        <path d="M30.9,70.1 L36,62.9 L42.3,64.7 L42.1,71.8 L36.9,77.1 L29.7,76.4 Z"/><path d="M69.1,70.1 L64,62.9 L57.7,64.7 L57.9,71.8 L63.1,77.1 L70.3,76.4 Z"/>
-        <path d="M29.7,77.7 L36.8,78.9 L42.2,80.5 L42.2,87.5 L36,93 L28.9,87.6 Z"/><path d="M70.3,77.7 L63.2,78.9 L57.8,80.5 L57.8,87.5 L64,93 L71.1,87.6 Z"/>
+        <path d="M43.2,63.5 L50,59.7 L56.8,63.5 L56.8,71.2 L50,75.1 L43.2,71.2 Z"/><path d="M43.2,80.6 L50,76.8 L56.8,80.6 L56.8,88.4 L50,92.2 L43.2,88.4 Z"/>
+        <path d="M29.2,69.6 L34.9,61.8 L41.8,63.7 L41.6,71.5 L35.9,77.2 L28,76.4 Z"/><path d="M70.8,69.6 L65.1,61.8 L58.2,63.7 L58.4,71.5 L64.1,77.2 L72,76.4 Z"/>
+        <path d="M27.9,77.6 L35.8,78.9 L41.7,80.6 L41.7,88.4 L34.9,94.3 L27,88.4 Z"/><path d="M72.1,77.6 L64.2,78.9 L58.3,80.6 L58.3,88.4 L65.1,94.3 L73,88.4 Z"/>
       </g>
-      <ellipse cx="50" cy="76" rx="24.4" ry="21.4" fill="none" stroke="#f6d78e" stroke-width=".9"/>
+      <ellipse cx="50" cy="76" rx="25.4" ry="22.4" fill="none" stroke="url(#${u}k)" stroke-width="3.4"/>
+      <path d="M29.5,86.3 L26.5,88 M26.7,79.6 L23.3,80.2 M26.7,72.4 L23.3,71.8 M29.5,65.7 L26.5,63.9 M34.8,60.1 L32.6,57.5 M65.2,60.1 L67.4,57.5 M70.5,65.6 L73.5,63.9 M73.3,72.4 L76.7,71.8 M73.3,79.6 L76.7,80.2 M70.5,86.3 L73.5,88" stroke="#4a2508" stroke-width=".8"/>
+      <ellipse cx="50" cy="76" rx="23.6" ry="20.6" fill="none" stroke="#f6d78e" stroke-width=".9"/>
       <path d="M50,24.5 C60.5,24.5 67,31.5 67,40 C67,47.5 63,53 57.5,56.5 C55,58 52.2,59.3 50,59.8 C47.8,59.3 45,58 42.5,56.5 C37,53 33,47.5 33,40 C33,31.5 39.5,24.5 50,24.5 Z" fill="url(#${u}p)"/>
       <path d="M45.2,28.5 L50,26.6 L54.8,28.5 L55.2,33.5 L50,35.4 L44.8,33.5 Z M44.8,33.5 L39.6,32 M55.2,33.5 L60.4,32" stroke="#e3eea6" stroke-width=".8" fill="#86ad48" stroke-linejoin="round"/>
       <ellipse cx="42.2" cy="42.2" rx="4.4" ry="4.2" fill="#f4f7d0"/><ellipse cx="57.8" cy="42.2" rx="4.4" ry="4.2" fill="#f4f7d0"/>
