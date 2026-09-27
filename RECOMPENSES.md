@@ -432,7 +432,12 @@ retirée de l'historique emporte encore ce qu'elle avait fait tomber.
 
 - On le **porte** depuis `/profil` : il remplace l'emoji partout où l'on se
   voit — classements, podiums, écran commun, carte. L'emoji choisi reste
-  dessous, pour les lignes de texte (export, messages).
+  dessous, pour les lignes de texte (export, messages). Dans la grille,
+  tout avatar se porte du même geste : sa case ouvre sa fiche, juste sous
+  sa rangée, et « Le porter » la conclut — un emoji comme un légendaire. Un
+  emoji se portait d'un toucher, et le doigt qui voulait le voir ôtait le
+  légendaire ; la fiche dit maintenant ce qu'il remplacerait (« Il
+  remplacera Le Phénix, que tu gardes »).
 - La galerie les montre tous : ceux qu'on a, en couleur ; les autres en
   **silhouette dorée**, avec la règle et la jauge.
 - Un anonyme n'en porte jamais, et rien ne le lui fait remarquer.

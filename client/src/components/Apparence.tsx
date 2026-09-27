@@ -1,12 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { NomLaure } from './Laurier'
 import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
-import { DetailDivin, DetailLegendaire } from './Carriere'
+import { CeQuIlRemplace, DetailDivin, DetailLegendaire } from './Carriere'
 import { CarteJoueur } from './CarteJoueur'
+import { espacesFines } from '../format'
+import { rendreLeFocus } from '../focus'
 import { AVATARS, COLLECTION } from '../../../shared/avatars'
 import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
@@ -22,7 +24,8 @@ import type { ChoixDuProfil } from './choix'
 // Emojis, légendaires ou Divins, c'est l'avatar qu'on porte : trois
 // catalogues à part en faisaient trois sections repliées, et l'on cherchait
 // où changer de tête. Une grille, des cases de la même taille ; un anneau de
-// couleur dit ce qui est rare, et toucher un avatar dessiné dit d'où il vient.
+// couleur dit ce qui est rare, et chaque case se touche de la même façon :
+// sa fiche s'ouvre, et l'on porte l'avatar de là.
 
 /**
  * L'anneau des emojis de collection passe du vert au bleu à partir du
@@ -70,9 +73,14 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
 
 /**
  * Tous ses avatars, en une grille : les vingt-quatre emojis, les douze de
- * collection, les légendaires, les cinq Divins. Un emoji se porte d'un
- * toucher — celui de collection, une fois son niveau atteint ; un avatar
- * dessiné se touche d'abord pour lire sa légende — et, gagné, se porte de là.
+ * collection, les légendaires, les cinq Divins. Chacun se touche de la même
+ * façon : sa fiche s'ouvre sous sa rangée, et l'on porte l'avatar de là
+ * (« Le porter ») — un emoji comme un légendaire.
+ *
+ * Un emoji se portait d'un toucher, quand un avatar dessiné ouvrait sa
+ * légende : la même grille répondait de deux façons. Le doigt qui voulait
+ * voir la grenouille la portait déjà — enregistrée, montrée à la salle — et
+ * ôtait le Phénix, qu'il fallait retrouver dix rangées plus bas.
  */
 export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
   const [ouvert, setOuvert] = useState<string | null>(null)
@@ -84,9 +92,11 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
   const possedes = AVATARS.length + ouverts + profil.legendaires.length + divins.length
   const total = AVATARS.length + COLLECTION.length + LEGENDAIRES.length + DIVINS.length
   const toucher = (cle: string) => setOuvert(o => (o === cle ? null : cle))
-  // La légende se déplie sous toute la grille, une vingtaine de Tab plus
-  // loin : le focus y va, sur son nom, et le lecteur d'écran la lit. Sans
-  // défiler — le doigt qui parcourt la grille n'est pas emporté.
+  // La fiche s'ouvre juste sous la case, et reçoit le focus sur son nom :
+  // le lecteur d'écran la lit. La page ne défile que ce qu'il faut pour la
+  // montrer entière, « Le porter » compris : la case touchée reste à
+  // l'écran, juste au-dessus — le doigt qui parcourt la grille n'est pas
+  // emporté.
   const detail = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!ouvert) return
@@ -94,32 +104,74 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
     if (!nom) return
     nom.tabIndex = -1
     nom.focus({ preventScroll: true })
+    const calme = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    detail.current?.scrollIntoView({ block: 'nearest', behavior: calme ? 'auto' : 'smooth' })
   }, [ouvert])
+  // Porté, un emoji n'a plus de bouton : le focus qui y était tombait sur la
+  // page. Il revient au nom de la fiche.
+  useEffect(() => {
+    rendreLeFocus(detail.current, ['.galerie-detail-nom'])
+  }, [porte, profil.avatar])
+  // La fiche se glisse juste derrière la case touchée ; la grille, en
+  // `dense`, finit la rangée et la pose dessous, de toute sa largeur
+  // (`styles.css`). Sous toute la grille — 687 px en 360 × 640, plus haute
+  // que l'écran —, elle s'ouvrait hors de la vue : toucher le Dragon
+  // semblait ne rien faire.
+  const fiche = (cle: string) =>
+    ouvert === cle && (
+      <div id="detail-avatar" className="fiche-case" ref={detail}>
+        {legendaire(cle) ? (
+          <DetailLegendaire
+            cle={cle}
+            debloques={profil.legendaires}
+            eclats={profil.eclats}
+            porte={porte}
+            hautsFaits={profil.hautsFaits}
+            busy={busy}
+            onPorter={l => enregistrer({ legendaire: l })}
+          />
+        ) : divin(cle) ? (
+          <DetailDivin cle={cle} descendus={divins} porte={porte} busy={busy} onPorter={d => enregistrer({ legendaire: d })} />
+        ) : (
+          <DetailEmoji
+            emoji={cle}
+            avatar={profil.avatar}
+            porte={porte}
+            eclat={brille(cle)}
+            busy={busy}
+            onPorter={a => enregistrer({ avatar: a })}
+          />
+        )}
+      </div>
+    )
   return (
     <section className="card">
       <h3>
         <Icon name="users" />
         Mes avatars <span className="muted small titre-compte">{`${possedes} / ${total}`}</span>
       </h3>
-      <p className="muted small">Un seul à la fois. Touche un avatar dessiné pour savoir d’où il vient.</p>
+      <p className="muted small">
+        {espacesFines('Un seul à la fois : touche un avatar, puis « Le porter ». Un avatar dessiné dit aussi d’où il vient.')}
+      </p>
       <div className="emoji-grid grille-unique" role="group" aria-label="Mes avatars">
         {AVATARS.map(a => {
           const choisi = !porte && a === profil.avatar
           return (
-            <button
-              key={a}
-              type="button"
-              className={'emoji-btn case-avatar' + (choisi ? ' selected' : '')}
-              aria-pressed={choisi}
-              aria-label={`Avatar ${a}${brille(a) ? ', éclaté' : ''}`}
-              aria-disabled={busy || undefined}
-              onClick={() => {
-                setOuvert(null)
-                enregistrer({ avatar: a })
-              }}
-            >
-              <Avatar avatar={a} finition={profil.finition} eclat={brille(a)} />
-            </button>
+            <Fragment key={a}>
+              <button
+                type="button"
+                className={'emoji-btn case-avatar' + (choisi ? ' selected' : '') + (ouvert === a ? ' ouverte' : '')}
+                // Il ouvre sa fiche, dessous, comme un avatar dessiné : un
+                // bouton qui déplie, plus un interrupteur.
+                aria-expanded={ouvert === a}
+                aria-controls={ouvert === a ? 'detail-avatar' : undefined}
+                aria-label={`Avatar ${a}${brille(a) ? ', éclaté' : ''}${choisi ? ', porté' : ''}`}
+                onClick={() => toucher(a)}
+              >
+                <Avatar avatar={a} finition={profil.finition} eclat={brille(a)} />
+              </button>
+              {fiche(a)}
+            </Fragment>
           )
         })}
         {COLLECTION.map(c => {
@@ -145,85 +197,72 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
           }
           const choisi = !porte && c.emoji === profil.avatar
           return (
-            <button
-              key={c.emoji}
-              type="button"
-              className={'emoji-btn case-avatar' + anneau + (choisi ? ' selected' : '')}
-              aria-pressed={choisi}
-              aria-label={`Avatar ${c.emoji}, de collection${brille(c.emoji) ? ', éclaté' : ''}`}
-              aria-disabled={busy || undefined}
-              onClick={() => {
-                setOuvert(null)
-                enregistrer({ avatar: c.emoji })
-              }}
-            >
-              <Avatar avatar={c.emoji} finition={profil.finition} eclat={brille(c.emoji)} />
-            </button>
+            <Fragment key={c.emoji}>
+              <button
+                type="button"
+                className={'emoji-btn case-avatar' + anneau + (choisi ? ' selected' : '') + (ouvert === c.emoji ? ' ouverte' : '')}
+                aria-expanded={ouvert === c.emoji}
+                aria-controls={ouvert === c.emoji ? 'detail-avatar' : undefined}
+                aria-label={`Avatar ${c.emoji}, de collection${brille(c.emoji) ? ', éclaté' : ''}${choisi ? ', porté' : ''}`}
+                onClick={() => toucher(c.emoji)}
+              >
+                <Avatar avatar={c.emoji} finition={profil.finition} eclat={brille(c.emoji)} />
+              </button>
+              {fiche(c.emoji)}
+            </Fragment>
           )
         })}
         {LEGENDAIRES.map(l => {
           const gagne = profil.legendaires.includes(l.key)
           return (
-            <button
-              key={l.key}
-              type="button"
-              className={
-                'emoji-btn case-avatar anneau-legendaire' +
-                (gagne ? '' : ' ferme') +
-                (porte === l.key ? ' selected' : '') +
-                (ouvert === l.key ? ' ouverte' : '')
-              }
-              // Il ouvre sa légende, dessous : un bouton qui déplie, pas un interrupteur.
-              aria-expanded={ouvert === l.key}
-              aria-controls="detail-avatar"
-              aria-label={`${l.nom}, légendaire${gagne ? (porte === l.key ? ', porté' : ', gagné') : ', à gagner'}`}
-              onClick={() => toucher(l.key)}
-            >
-              <span className="case-medaillon">
-                <Legendaire cle={l.key} verrouille={!gagne} eclat={brille(l.key)} />
-              </span>
-            </button>
+            <Fragment key={l.key}>
+              <button
+                type="button"
+                className={
+                  'emoji-btn case-avatar anneau-legendaire' +
+                  (gagne ? '' : ' ferme') +
+                  (porte === l.key ? ' selected' : '') +
+                  (ouvert === l.key ? ' ouverte' : '')
+                }
+                // Il ouvre sa légende, dessous : un bouton qui déplie, pas un interrupteur.
+                aria-expanded={ouvert === l.key}
+                aria-controls={ouvert === l.key ? 'detail-avatar' : undefined}
+                aria-label={`${l.nom}, légendaire${gagne ? (porte === l.key ? ', porté' : ', gagné') : ', à gagner'}`}
+                onClick={() => toucher(l.key)}
+              >
+                <span className="case-medaillon">
+                  <Legendaire cle={l.key} verrouille={!gagne} eclat={brille(l.key)} />
+                </span>
+              </button>
+              {fiche(l.key)}
+            </Fragment>
           )
         })}
         {DIVINS.map(d => {
           const la = descendu(d.key)
           return (
-            <button
-              key={d.key}
-              type="button"
-              className={
-                'emoji-btn case-avatar anneau-divin' +
-                (la ? '' : ' ferme') +
-                (porte === d.key ? ' selected' : '') +
-                (ouvert === d.key ? ' ouverte' : '')
-              }
-              aria-expanded={ouvert === d.key}
-              aria-controls="detail-avatar"
-              aria-label={la ? `${d.nom}, Divin${porte === d.key ? ', porté' : ''}` : 'Un Divin, inconnu'}
-              onClick={() => toucher(d.key)}
-            >
-              <span className="case-medaillon">
-                <Divin cle={d.key} verrouille={!la} />
-              </span>
-            </button>
+            <Fragment key={d.key}>
+              <button
+                type="button"
+                className={
+                  'emoji-btn case-avatar anneau-divin' +
+                  (la ? '' : ' ferme') +
+                  (porte === d.key ? ' selected' : '') +
+                  (ouvert === d.key ? ' ouverte' : '')
+                }
+                aria-expanded={ouvert === d.key}
+                aria-controls={ouvert === d.key ? 'detail-avatar' : undefined}
+                aria-label={la ? `${d.nom}, Divin${porte === d.key ? ', porté' : ''}` : 'Un Divin, inconnu'}
+                onClick={() => toucher(d.key)}
+              >
+                <span className="case-medaillon">
+                  <Divin cle={d.key} verrouille={!la} />
+                </span>
+              </button>
+              {fiche(d.key)}
+            </Fragment>
           )
         })}
-      </div>
-      <div id="detail-avatar" ref={detail}>
-        {ouvert &&
-          (legendaire(ouvert) ? (
-            <DetailLegendaire
-              cle={ouvert}
-              debloques={profil.legendaires}
-              eclats={profil.eclats}
-              porte={porte}
-              hautsFaits={profil.hautsFaits}
-              busy={busy}
-              onPorter={cle => enregistrer({ legendaire: cle })}
-            />
-          ) : (
-            <DetailDivin cle={ouvert} descendus={divins} porte={porte} busy={busy} onPorter={cle => enregistrer({ legendaire: cle })} />
-          ))}
       </div>
       <p className="legende-anneaux small muted">
         <span className="puce anneau-texte-legendaire" aria-hidden="true">
@@ -250,6 +289,56 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
         </p>
       )}
     </section>
+  )
+}
+
+/**
+ * Ce qu'on lit d'un emoji en le touchant dans la grille, comme d'un avatar
+ * dessiné : d'où il vient — le niveau, pour un emoji de collection —, s'il a
+ * éclaté (seul le lecteur d'écran le disait), et ce que « Le porter »
+ * ôterait. Porté, rien à toucher : c'est lui que la salle voit.
+ */
+export function DetailEmoji({
+  emoji,
+  avatar,
+  porte,
+  eclat,
+  busy,
+  onPorter,
+}: {
+  emoji: string
+  /** L'emoji du profil : celui qu'il porte, s'il ne porte rien de dessiné. */
+  avatar: string
+  /** Le légendaire ou le Divin qu'il porte, s'il en porte un. */
+  porte: string | null
+  eclat: boolean
+  busy: boolean
+  onPorter: (emoji: string) => void
+}) {
+  const collection = COLLECTION.find(c => c.emoji === emoji)
+  const choisi = !porte && emoji === avatar
+  return (
+    <div className="galerie-detail detail-case">
+      {collection ? (
+        <span className={'detail-famille ' + (collection.niveau < COLLECTION_HAUTE ? 'anneau-texte-collection' : 'anneau-texte-collection-haut')}>
+          {`De collection · niveau ${collection.niveau}`}
+        </span>
+      ) : (
+        <span className="detail-famille muted">Emoji</span>
+      )}
+      <b className="galerie-detail-nom detail-emoji">{emoji}</b>
+      {eclat && <p className="small">Il a éclaté : c’est sa version rare, et personne d’autre ne l’a comme ça.</p>}
+      {choisi ? (
+        <p className="muted small">C’est lui que la salle voit.</p>
+      ) : (
+        <>
+          <CeQuIlRemplace porte={porte} cle={emoji} />
+          <button type="button" className="btn btn-small btn-primary" aria-disabled={busy || undefined} onClick={() => onPorter(emoji)}>
+            Le porter
+          </button>
+        </>
+      )}
+    </div>
   )
 }
 
