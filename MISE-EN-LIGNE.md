@@ -70,10 +70,12 @@ Sur [render.com](https://render.com) : crée un compte, puis **New → Web Servi
 | Region | Frankfurt |
 | Instance Type | Free |
 | Build Command | `npm ci && npm run build` |
-| Start Command | `cd server && exec node --import tsx src/index.ts` |
+| Start Command | `cd server && exec node dist/index.mjs` |
 | Health Check Path (*Settings*) | `/healthz` |
 
 Surtout pas `npm start` : npm garde pour lui le signal d'arrêt de Render, et l'arrêt propre — celui qui recopie les dernières réponses dans Turso avant de s'éteindre — ne s'exécute jamais.
+
+`npm run build` construit le client **et** le serveur, en un seul fichier : `server/dist/index.mjs`. Chaque réveil de l'offre gratuite est un démarrage, et le serveur n'a plus à y traduire son TypeScript — une seconde de processeur et 35 Mo de mémoire en moins, quelques secondes de page blanche en moins pour le premier invité qui scanne le QR. L'ancienne commande, `cd server && exec node --import tsx src/index.ts`, marche toujours : c'est le repli si le paquet refusait de démarrer.
 
 Puis ses variables (*Environment*) :
 
@@ -163,7 +165,7 @@ Une soirée est un coup unique — on ne débogue pas devant la salle. D'où un 
 > - **Ce qui décide du service à garder, c'est l'adresse déjà partagée — et elle ne tient pas au nom.** L'adresse `onrender.com` d'un service se fixe à sa création : le renommer ne la change pas, mais une copie suffixée, ou un service recréé, en reçoit une autre. Les QR imprimés et les liens déjà partagés portent cette adresse : tant qu'il en circule, garde le service qui y répond — renomme-le si tu veux, ne le recrée pas.
 > - **Le service, lui, est jetable.** Tout le précieux vit dans Turso ; en supprimer un et le recréer ne perd rien tant que `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` repointent sur la même base. La seule chose à ne jamais supprimer, c'est la base Turso.
 > - **Regarde `QUIZ_DB_URL` des copies avant de les supprimer.** Si l'une pointe vers la base Turso de production, elle a pu y écrire : c'est la seule chose vraiment fâcheuse ici. Si le formulaire du blueprint a été passé sans rien remplir, elles n'ont même pas démarré — le serveur refuse de se lancer en ligne sans `QUIZ_DB_URL`, et leur journal dit « ❌ QUIZ_DB_URL manquant ». Rien n'a alors été touché.
-> - **Sans blueprint, `render.yaml` est de la documentation.** Les deux services se règlent alors chacun sur son tableau de bord : déploiement automatique **activé** en préproduction, **désactivé** en production (*Settings → Auto-Deploy*), les variables saisies à la main, et les deux commandes recopiées dans *Settings* — `npm ci && npm run build` dans **Build Command** (rubrique *Build*), `cd server && exec node --import tsx src/index.ts` dans **Start Command** (rubrique *Deploy*). Change-les d'abord sur la préproduction : un déploiement, un réveil, une partie ; la production ensuite. Le fichier reste la référence de ce qu'ils doivent contenir.
+> - **Sans blueprint, `render.yaml` est de la documentation.** Les deux services se règlent alors chacun sur son tableau de bord : déploiement automatique **activé** en préproduction, **désactivé** en production (*Settings → Auto-Deploy*), les variables saisies à la main, et les deux commandes recopiées dans *Settings* — `npm ci && npm run build` dans **Build Command** (rubrique *Build*), `cd server && exec node dist/index.mjs` dans **Start Command** (rubrique *Deploy*). Change-les d'abord sur la préproduction : un déploiement, un réveil, une partie ; la production ensuite. Le fichier reste la référence de ce qu'ils doivent contenir.
 
 > 🚨 **La règle absolue : jamais la même base Turso pour les deux.** Un « C'était un essai », une soirée retirée de l'historique ou une suppression de compte en préproduction effacerait de vraies soirées archivées — ce sont les seuls gestes sans retour de l'application. Pour qu'on ne s'y trompe jamais, la préproduction affiche un **bandeau rouge « PREPROD »** en bas à gauche de toutes ses pages, et le préfixe dans l'onglet du navigateur.
 
@@ -175,6 +177,36 @@ Une soirée est un coup unique — on ne débogue pas devant la salle. D'où un 
 - **`[inscriptions] réserve de la soirée vide chez « … » pour l'adresse 3fa9c1d2e0 (x-forwarded-for : 2 entrées)`**, au plus une ligne par minute pour chaque couple (adresse, espace). L'adresse n'y paraît jamais, seulement une empreinte salée, qui change à chaque démarrage. Elle ne paraît qu'au refus : une soirée ordinaire n'en écrit aucune.
 
 **Promouvoir en production.** La production ne se déploie pas toute seule : sur son tableau de bord Render, **Manual Deploy → Deploy latest commit**. On regarde la préproduction tourner, puis on promeut — la veille d'une soirée, pas le soir même.
+
+**Passer au serveur empaqueté (une fois par service).** Un service créé avant le paquet démarre encore par `cd server && exec node --import tsx src/index.ts`, qui marche toujours. Pour gagner le réveil : une fois déployé un commit qui construit le paquet (la construction passe alors par `npm run build -w server`), change **Start Command** en `cd server && exec node dist/index.mjs`. La préproduction d'abord — un redémarrage, `[serveur] prêt en … ms` au journal, une partie —, la production ensuite. Si le service ne démarre plus et que le journal dit `Cannot find module '…/server/dist/index.mjs'`, le commit déployé ne construisait pas encore le paquet : remets l'ancienne commande le temps de le déployer.
+
+**Les minutes de construction.** L'offre gratuite donne 500 minutes de construction par mois, pour tout l'espace de travail, et chaque fusion sur `main` construit la préproduction : 54 fusions en cinq jours fin septembre 2026, soit 650 à 970 minutes par mois à ce rythme. Épuisées sans moyen de paiement enregistré, plus aucune construction jusqu'au mois suivant — **production comprise**, veille de soirée comprise. Deux réglages :
+
+- **Build Filters**, sur les deux services (*Settings*, rubrique *Build*) : dans **Ignored Paths**, `retours/**`, `**/*.md` et `.claude/**`. Une fusion qui ne touche que la documentation, les retours d'une tablée ou les consignes des agents ne construit plus rien — ni le serveur ni le client n'en lisent une ligne.
+- **Auto-Deploy** de la préproduction, coupé les semaines chargées (*Settings → Auto-Deploy*) : quand les fusions se rapprochent, on la déploie à la main — **Manual Deploy → Deploy latest commit** — au moment de la regarder, comme la production. On le rallume ensuite : c'est lui qui fait qu'elle est toujours à jour.
+
+Ce qui reste se lit en trente secondes : *Workspace → Billing*, les minutes de construction du mois. Les heures d'instance, elles, sont 750 par mois pour les deux services ensemble, et c'est pour elles qu'ils dorment (ci-dessous).
+
+**Observer un déploiement pendant une partie (dix minutes, une fois).** Render peut faire tourner l'ancienne et la nouvelle instance ensemble pendant une bascule. Si c'est le cas, les deux écrivent au même miroir pendant ce temps-là, et au réveil suivant une question peut se retrouver payée deux fois — rejoué en local, jamais vu chez Render. Ne pas déployer pendant une soirée suffit à s'en garder (section 6) ; mais pour savoir s'il faut aller plus loin, il faut le voir une fois, en **préproduction** :
+
+1. Ouvre son écran commun et deux téléphones (un téléphone et une fenêtre privée font l'affaire), lance un quiz aux questions longues, et fais répondre les téléphones.
+2. Relève `/healthz` toutes les deux secondes, dans un terminal :
+
+   ```bash
+   while true; do echo "$(date +%T) $(curl -s https://TA-PREPROD.onrender.com/healthz | grep -oE '"(version|uptime)":[^,}]*' | tr '\n' ' ')"; sleep 2; done
+   ```
+
+   ou, dans PowerShell :
+
+   ```powershell
+   while ($true) { $h = Invoke-RestMethod https://TA-PREPROD.onrender.com/healthz; "{0}  version {1}  uptime {2}" -f (Get-Date -Format HH:mm:ss), $h.version, $h.uptime; Start-Sleep 2 }
+   ```
+3. Sur le tableau de bord de la préproduction, **Manual Deploy → Deploy latest commit**, et laisse les téléphones répondre pendant toute la bascule.
+4. Regarde trois choses :
+   - **le relevé** : si les lignes **alternent**, pendant la bascule, entre l'ancienne instance (un `uptime` qui continue de monter) et la nouvelle (un `uptime` de quelques secondes), les deux répondaient ensemble. Un `uptime` qui retombe une fois pour de bon, c'est une bascule nette ;
+   - **le journal** (*Logs*) : l'heure de `[serveur] prêt en … ms` et de `[soirée] … rechargés après redémarrage` (la nouvelle), face à celle de `[serveur] extinction demandée` (l'ancienne). La nouvelle qui recharge la soirée **avant** que l'ancienne ne s'éteigne, c'est le chevauchement : l'ancienne écrivait encore au miroir que la nouvelle avait déjà relu ;
+   - **les points** : le classement de l'écran commun avant et après — une question payée deux fois s'y voit.
+5. Garde le relevé et ces lignes du journal. Avec un chevauchement, on pose un bail : la nouvelle instance prend la main, l'ancienne cesse d'écrire et renvoie les téléphones vers elle. Sans, on s'arrête là.
 
 **Et le dormir ?** Les deux services s'endorment après quinze minutes sans trafic. C'est assumé : les 750 heures mensuelles de l'offre gratuite ne suffiraient pas à en garder deux éveillés. On réveille celui dont on a besoin en ouvrant son adresse, cinq minutes avant (voir l'étape 5).
 

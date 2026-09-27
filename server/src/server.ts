@@ -5,7 +5,6 @@ import { Server } from 'socket.io'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { initDb, stampLegacySpace, wipeSpace } from './core/db'
 import { PartyBackup, type ReglagesMiroir } from './core/backup'
 import { photosCitees, QuizStore } from './core/quizStore'
@@ -29,6 +28,7 @@ import { JourStore } from './core/jour'
 import { erreurDeRequete, repondreErreur } from './core/http'
 import { espaceDeLEntree, pageDEntree } from './core/page'
 import { wireSockets } from './sockets'
+import { SERVEUR } from './racine'
 import type { IoServer } from './core/types'
 import type { ArchiveList, DerniereSoiree, PartyArchive } from '../../shared/archive'
 import { MAX_PLAYERS_CEILING } from '../../shared/space'
@@ -807,11 +807,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
     },
   })
 
-  const here = path.dirname(fileURLToPath(import.meta.url))
-
   // Photos livrées avec le dépôt (les photos ajoutées depuis l'éditeur, elles,
   // vivent en base et sont servies par /media/image/:id).
-  const quizMedia = path.resolve(here, '../content/quiz/images')
+  const quizMedia = path.resolve(SERVEUR, 'content/quiz/images')
   if (fs.existsSync(quizMedia)) app.use('/media/quiz', express.static(quizMedia))
 
   // Une adresse d'API, de photo ou de données inconnue est une erreur, pas la
@@ -822,7 +820,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   app.get('/robots.txt', (_req, res) => res.type('text').send(ROBOTS_TXT))
 
   // En prod, le serveur sert aussi le client compilé (un seul process à héberger).
-  const clientDist = opts.clientDist ?? path.resolve(here, '../../client/dist')
+  const clientDist = opts.clientDist ?? path.resolve(SERVEUR, '../client/dist')
   if (fs.existsSync(clientDist)) {
     // Les fichiers compilés portent une empreinte dans leur nom : un an de
     // cache, sans jamais revalider. La page d'accueil, elle, doit toujours

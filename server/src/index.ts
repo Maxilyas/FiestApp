@@ -1,12 +1,10 @@
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { createQuizServer, DemarrageRefuse, MOT_DE_PASSE_PAR_DEFAUT } from './server'
 import { DELAI_DISTANT_MS, pourquoiInjoignable } from './core/distante'
-
-const here = path.dirname(fileURLToPath(import.meta.url))
+import { SERVEUR } from './racine'
 
 const port = Number(process.env.PORT ?? 3001)
-const dbPath = process.env.DB_PATH ?? path.resolve(here, '../data/quizz.db')
+const dbPath = process.env.DB_PATH ?? path.resolve(SERVEUR, 'data/quizz.db')
 // En ligne, c'est cette adresse que le QR code doit montrer. Render la fournit
 // toute seule ; ailleurs, on la donne via PUBLIC_URL.
 const publicUrl = process.env.PUBLIC_URL ?? process.env.RENDER_EXTERNAL_URL

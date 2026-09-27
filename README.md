@@ -361,7 +361,7 @@ Deux comptes gratuits à créer (je ne peux pas le faire à ta place) :
 | `QUIZ_DB_URL` | l'URL `libsql://…` de Turso — sans elle, le serveur refuse de démarrer : le disque de Render s'efface à chaque réveil |
 | `QUIZ_DB_TOKEN` | le jeton Turso |
 
-Les deux commandes de `render.yaml` : `npm ci && npm run build` pour construire, `cd server && exec node --import tsx src/index.ts` pour démarrer. Pas `npm start` : npm garde pour lui le signal d'arrêt, et l'arrêt propre, qui recopie les dernières réponses dans Turso, ne s'exécute jamais.
+Les deux commandes de `render.yaml` : `npm ci && npm run build` pour construire — le client, et le serveur en un seul fichier, `server/dist/index.mjs` —, `cd server && exec node dist/index.mjs` pour démarrer. Pas `npm start` : npm garde pour lui le signal d'arrêt, et l'arrêt propre, qui recopie les dernières réponses dans Turso, ne s'exécute jamais. L'ancienne commande de démarrage, `cd server && exec node --import tsx src/index.ts`, marche toujours ; elle traduit le TypeScript à chaque réveil, une seconde de processeur de plus sur l'offre gratuite.
 
 L'adresse publique du QR code se règle toute seule : Render fournit `RENDER_EXTERNAL_URL`, le serveur s'en sert et y ajoute le nom de l'espace.
 

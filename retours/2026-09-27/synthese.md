@@ -749,11 +749,11 @@ Les tensions ci-dessus, et ce qui avait été reporté en route, présentées un
 | D13 | Supprimer un compte laisse les crédits [recompenses-comptes-8] | Le demander à chaque suppression | `retirerEspace`, `/admin`, `retrait.test.ts` |
 | D14 | Le verrou par identifiant [securite-portes-3] | Garder | — |
 | D15 | Rattacher son profil [parcours-profil-7] | Le profil ouvert ici, et son seul mot de passe | `/api/space/profil`, « Mon compte », `emprunts.test.ts` |
-| D16 | Le serveur transpilé à chaque réveil [exploitation-6] | L'empaqueter à la construction | à venir (11d) |
-| D17 | Les 500 minutes de Render [exploitation-3] | Des filtres de construction, et la préproduction à la main les semaines chargées | à venir (11d) — réglages Render par le propriétaire |
+| D16 | Le serveur transpilé à chaque réveil [exploitation-6] | L'empaqueter à la construction | `scripts/empaqueter.ts`, `SERVEUR` (`src/racine.ts`), `exploitation.test.ts` — Start Command des deux services à changer par le propriétaire (MISE-EN-LIGNE, étape 7) |
+| D17 | Les 500 minutes de Render [exploitation-3] | Des filtres de construction, et la préproduction à la main les semaines chargées | MISE-EN-LIGNE, étape 7 (« Les minutes de construction ») — réglages Render par le propriétaire |
 | D18 | Le quiz du jour à froid [exploitation-5] | Rien | — |
 | D19 | Le retour à la version d'avant #58 [persistance-9] | Plus tard | — |
-| D20 | Un déploiement pendant une soirée [persistance-1] | Observer d'abord, en préproduction | à venir (11d) — l'essai par le propriétaire |
+| D20 | Un déploiement pendant une soirée [persistance-1] | Observer d'abord, en préproduction | MISE-EN-LIGNE, étape 7 (« Observer un déploiement ») — l'essai par le propriétaire |
 | D21 | Les 321 lignes de CSS de #59 [design-recompenses-10] | Les passer aux jetons, dans une PR à part | après la fusion de celle-ci |
 | D22 | Les halos dans les listes [perf-client-7] | Les figer | `styles.css` (le gel des listes), `medaillons.test.ts` |
 

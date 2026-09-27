@@ -112,6 +112,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `client/src/components/Coupe.tsx` | une liste de l'écran commun coupée à ce qui tient, « et 2 autres » dessous : personne ne fait défiler une télé |
 | `server/scripts/rendu-ecran.ts` | le pire cas de l'écran commun, rejoué sur un serveur jetable et photographié à chaque phase en 1366 × 768, 1920 × 1080 et au téléphone (`MESURE=1` : ce qui ne grandit pas en 1920) |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
+| `server/scripts/empaqueter.ts` · `server/src/racine.ts` | le serveur en un seul fichier (`server/dist/index.mjs`), que `npm run build` construit avec le client et que la commande de démarrage lance sans tsx — un réveil de l'offre gratuite ne traduit plus le TypeScript ; et `SERVEUR`, d'où se compte tout chemin du serveur |
 | `server/scripts/calibrage.ts` | combien de quiz demande chaque légendaire, combien de soirées chaque niveau, et la rareté de chaque haut fait (que `PART_DES_JOUEURS` recopie) : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits et de l'expérience (`npx tsx scripts/calibrage.ts`, format réglable) |
 | `server/scripts/tablee/regie.ts` · `pilote.mjs` | la tablée : un serveur jetable, un Chromium, et les gestes des agents qui y jouent une soirée — ou plusieurs à la fois, un salon par animateur (`chez <animateur>`) — la marche à suivre, les personnages, les experts et leurs consignes dans `.claude/skills/tablee/` (`/tablee`) |
 | `retours/<date>/synthese.md` | ce qu'une tablée a trouvé : les axes d'amélioration, vérifiés un à un, et les retours bruts des agents — à lire avant de retoucher un écran qu'ils citent. Un audit de code y range aussi tous ses constats et leur verdict (`constats.json`) et les épreuves qui les prouvent (`reproductions/`) : `retours/2026-09-27/` pour #58 et #59 |
@@ -374,7 +375,10 @@ préproduction (déployée à chaque fusion sur `main`). Ils ne diffèrent que p
 `QUIZ_DB_URL` — tout le précieux est dans Turso, la base locale est jetable.
 Les services ont été créés à la main : c'est leur tableau de bord qui fait
 foi, commandes de build et de démarrage comprises, et `render.yaml` n'en est
-que la référence.
+que la référence. Leur commande de démarrage lance le paquet (`cd server
+&& exec node dist/index.mjs`) ; l'ancienne, `node --import tsx
+src/index.ts`, marche toujours — un service qui n'est pas encore passé au
+paquet, ou le repli.
 
 **Les noms** : `fiestapp-quizz` (production) et `fiestapp-quizz-preprod`,
 les mêmes que dans `render.yaml` — les services ont été renommés. L'adresse
@@ -414,6 +418,11 @@ sans `QUIZ_DB_URL`.
   dans la même branche ; ce qui les relie (`profiles.statsDuJour`, le
   laurier) se branche après. Un échec ne remonte qu'une fois toutes les
   branches arrivées au bout (`demarrage.test.ts`).
+- **Un chemin du serveur se compte depuis `SERVEUR`** (`src/racine.ts`),
+  jamais depuis l'`import.meta.url` d'un module : le serveur empaqueté n'est
+  qu'un fichier, `dist/index.mjs`, et `seed.ts` y cherchait les quiz livrés
+  hors du dépôt — ni amorce, ni modèles, ni réserve du jour, et pas une
+  erreur. `exploitation.test.ts` démarre le paquet.
 - **Un serveur qu'on ferme doit éteindre ses chronomètres** et vider son
   miroir avant de fermer la base locale, que la resynchronisation relit.
   Un chrono de question qui sonne après `close()` révèle sur une base fermée —
