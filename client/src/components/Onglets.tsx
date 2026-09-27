@@ -5,6 +5,8 @@ export interface Onglet<T extends string> {
   id: T
   nom: string
   icone?: IconName
+  /** Un compte après le nom, plus discret : « 9 / 72 ». */
+  compte?: string
 }
 
 /** Les touches du motif d'onglets, et l'onglet où chacune mène. */
@@ -66,6 +68,7 @@ export function Onglets<T extends string>({
         >
           {o.icone && <Icon name={o.icone} />}
           {o.nom}
+          {o.compte && <span className="onglet-compte">{o.compte}</span>}
         </button>
       ))}
     </div>

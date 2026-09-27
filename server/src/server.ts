@@ -377,6 +377,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.statsDuJour = id => jour.statsDuJour(id)
   // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion.
   profiles.laurierDe = id => jour.laureats().has(id)
+  // Ses bonnes réponses du quiz du jour ouvrent ses portraits, avec celles des soirées.
+  profiles.categoriesDuJour = id => jour.categoriesDe(id)
   const relireLaMemoire = derniereRelecture()
   archives.surEcriture(spaceId => {
     relireLaMemoire(spaceId, () => archives.memoire(spaceId), memoire => setQuestionsPosees(spaceId, dernieresFois(memoire))).catch(e =>

@@ -1,8 +1,11 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import { divin as divinDe } from '../../../shared/divins'
 import { legendaire as legendaireDe } from '../../../shared/legendaires'
+import { BRANCHES, portrait as portraitDe, type CleDeBranche } from '../../../shared/branches'
 import type { Legendaire } from './Legendaire'
 import type { Divin } from './Divin'
+import type { Portrait } from './Portrait'
+import type { DessinDePortrait } from './portraits/outils'
 
 /**
  * Les dessins des légendaires et des Divins, chargés à la demande.
@@ -22,23 +25,47 @@ import type { Divin } from './Divin'
  * et le premier légendaire d'une salle les faisait venir avec lui — six
  * kilo-octets chez chaque téléphone de la salle, et chez chaque profil qui
  * voit la silhouette de saison du quiz du jour, pour ne rien afficher.
+ *
+ * Les portraits des branches (`shared/branches.ts`) viennent branche par
+ * branche : soixante-douze dessins, et une salle n'en porte que quelques-uns.
+ * Qui porte le cerf fait venir la forêt, pas l'océan.
  */
 
-/** Les deux sortes de dessins, chacune dans son fichier. */
-export type Sorte = 'legendaire' | 'divin'
-const SORTES: readonly Sorte[] = ['legendaire', 'divin']
+/** Les sortes de dessins, chacune dans son fichier : les légendaires, les Divins, et chaque branche. */
+export type Sorte = 'legendaire' | 'divin' | `branche:${CleDeBranche}`
+/**
+ * Les médaillons : ce qu'un profil peut gagner d'un coup à la fin d'une
+ * soirée, que sa page fait venir d'office. Pas les branches : la fin de
+ * soirée fait venir celle du portrait qu'elle annonce.
+ */
+const MEDAILLONS: readonly Sorte[] = ['legendaire', 'divin']
+const SORTES: readonly Sorte[] = [...MEDAILLONS, ...BRANCHES.map(b => `branche:${b.key}` as const)]
+
+/** La sorte d'un avatar dessiné ; null pour un emoji, une clé inconnue. */
+function sorteDe(cle: string | null | undefined): Sorte | null {
+  if (!cle) return null
+  if (divinDe(cle)) return 'divin'
+  if (legendaireDe(cle)) return 'legendaire'
+  const p = portraitDe(cle)
+  return p ? `branche:${p.branche}` : null
+}
 
 /**
- * Les sortes de dessins que demandent ces médaillons — légendaires ou Divins,
- * une clé inconnue ne demande rien.
+ * Les sortes de dessins que demandent ces avatars — légendaires, Divins,
+ * branches ; un emoji ou une clé inconnue ne demande rien.
  */
 export function sortesDe(cles: readonly (string | null | undefined)[]): Sorte[] {
-  return SORTES.filter(sorte => cles.some(c => !!c && !!(sorte === 'divin' ? divinDe(c) : legendaireDe(c))))
+  const voulues = new Set(cles.map(sorteDe))
+  return SORTES.filter(sorte => voulues.has(sorte))
 }
 
 interface Dessins {
   Legendaire?: typeof Legendaire
   Divin?: typeof Divin
+  /** Le cadre des portraits — le disque, la silhouette, le cercle de la finition —, venu avec la première branche. */
+  Portrait?: typeof Portrait
+  /** Les dessins des branches arrivées, par branche. */
+  branches?: Partial<Record<CleDeBranche, Readonly<Record<string, DessinDePortrait>>>>
   /**
    * Les sortes dont le chargement a échoué : c'est pour toute la page. Le
    * navigateur garde l'échec d'un `import()` — le même fichier redemandé
@@ -60,18 +87,45 @@ const abonnes = new Set<() => void>()
  * simule une coupure sans navigateur.
  */
 export const chargeur = {
-  importer: (sorte: Sorte): Promise<unknown> => (sorte === 'divin' ? import('./Divin') : import('./Legendaire')),
+  importer: (sorte: Sorte): Promise<unknown> =>
+    sorte === 'divin' ? import('./Divin') : sorte === 'legendaire' ? import('./Legendaire') : BRANCHES_A_IMPORTER[brancheDeSorte(sorte)](),
 }
 
-/** Appelé par `Legendaire.tsx` et `Divin.tsx` à leur évaluation. */
+/** Chaque branche dans son fichier — des chemins écrits en entier : c'est à eux que le paquet découpe. */
+const BRANCHES_A_IMPORTER: Record<CleDeBranche, () => Promise<unknown>> = {
+  monde: () => import('./portraits/monde'),
+  mythes: () => import('./portraits/mythes'),
+  oceans: () => import('./portraits/oceans'),
+  espace: () => import('./portraits/espace'),
+  foret: () => import('./portraits/foret'),
+  ecran: () => import('./portraits/ecran'),
+  scene: () => import('./portraits/scene'),
+  contes: () => import('./portraits/contes'),
+  stade: () => import('./portraits/stade'),
+  brigade: () => import('./portraits/brigade'),
+  arcade: () => import('./portraits/arcade'),
+  carnaval: () => import('./portraits/carnaval'),
+}
+
+const brancheDeSorte = (sorte: `branche:${CleDeBranche}`) => sorte.slice('branche:'.length) as CleDeBranche
+
+/** Appelé par `Legendaire.tsx`, `Divin.tsx` et chaque branche des portraits à leur évaluation. */
 export function inscrireDessin(d: Dessins) {
-  dessins = { ...dessins, ...d }
+  dessins = { ...dessins, ...d, branches: { ...dessins.branches, ...d.branches } }
   for (const f of abonnes) f()
 }
 
 /** Le dessin de cette sorte est-il là ? */
 function present(d: Dessins, sorte: Sorte): boolean {
-  return !!(sorte === 'divin' ? d.Divin : d.Legendaire)
+  if (sorte === 'divin') return !!d.Divin
+  if (sorte === 'legendaire') return !!d.Legendaire
+  return !!d.Portrait && !!d.branches?.[brancheDeSorte(sorte)]
+}
+
+/** Le dessin d'un portrait des branches, s'il est arrivé. */
+export function dessinDuPortrait(d: Dessins, cle: string): DessinDePortrait | undefined {
+  const p = portraitDe(cle)
+  return p && d.Portrait ? d.branches?.[p.branche]?.[cle] : undefined
 }
 
 /** Le dessin de cette sorte ne viendra plus : son chargement a échoué. */
@@ -79,8 +133,8 @@ function perdu(d: Dessins, sorte: Sorte): boolean {
   return !present(d, sorte) && !!d.echecs?.includes(sorte)
 }
 
-/** Ces dessins — les deux sortes, par défaut — sont-ils tous là ? */
-export function complets(d: Dessins = dessins, sortes: readonly Sorte[] = SORTES): boolean {
+/** Ces dessins — les médaillons, par défaut — sont-ils tous là ? */
+export function complets(d: Dessins = dessins, sortes: readonly Sorte[] = MEDAILLONS): boolean {
   return sortes.every(s => present(d, s))
 }
 
@@ -95,11 +149,11 @@ export function attendus(d: Dessins, sortes: readonly Sorte[]): boolean {
 }
 
 /**
- * Lance le chargement de ces sortes — les deux, par défaut —, une fois par
- * sorte pour toute la page, un échec compris. La promesse ne rejette jamais :
- * qui l'attend repart, avec ou sans dessins.
+ * Lance le chargement de ces sortes — les médaillons, par défaut —, une fois
+ * par sorte pour toute la page, un échec compris. La promesse ne rejette
+ * jamais : qui l'attend repart, avec ou sans dessins.
  */
-export function chargerDessins(sortes: readonly Sorte[] = SORTES): Promise<void> {
+export function chargerDessins(sortes: readonly Sorte[] = MEDAILLONS): Promise<void> {
   return Promise.all(sortes.map(charger)).then(() => {})
 }
 

@@ -32,6 +32,15 @@
 // beaux hauts faits » sur la carte d'un joueur (`PART_DES_JOUEURS`,
 // `shared/hautsfaits.ts`) : l'expérience qu'un haut fait rapporte le dit mal
 // — L'Oracle paie 50, et trois joueurs sur quatre l'ont en dix soirées.
+//
+// Et les avatars du savoir (`shared/branches.ts`) : les questions prennent
+// une catégorie — quiz à thème, quiz mélangés dont une partie seulement est
+// classée —, une part des joueurs joue au quiz du jour entre deux soirées, et
+// l'on compte les portraits que chaque jeu de seuils ouvre, soirée après
+// soirée. Les catégories se tirent sur un hasard à part : les mesures d'avant
+// se rejouent à l'identique.
+//
+//   npx tsx scripts/calibrage.ts --themes 0.4 --classees 0.6 --jour 0.3 --jours 6
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from '../src/core/hautsfaits'
 import { buildProgress, relevesDeSoiree } from '../src/core/progress'
 import type { AnswerRow } from '../src/core/answers'
@@ -41,6 +50,10 @@ import { pointsDesEstimations, pointsDuChoix, tempsDeLecture } from '../src/game
 import { XP_PAR_PALIER, carriereDe, niveauPour, type Carriere, type GainSoiree, type ReleveSoiree } from '../../shared/profil'
 import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_DE_SOIREE, XP_PALIER, clePalier, palierDe, paliersAtteints } from '../../shared/hautsfaits'
 import { LEGENDAIRES, conditionTenue, type Condition } from '../../shared/legendaires'
+import { CATEGORIES, type Categorie } from '../../shared/categories'
+import { SEUILS_BRANCHE } from '../../shared/branches'
+import { justesParCategorie } from '../../shared/ecussons'
+import { CATEGORIES_DU_JOUR } from '../src/core/consigne'
 
 // ── Le format ─────────────────────────────────────────────────────────────
 
@@ -57,6 +70,17 @@ const JOUEURS = option('joueurs', 12)
 const BANDES = option('bandes', 120)
 const SOIREES = option('soirees', 40)
 const GRAINE = option('graine', 1)
+/** Les quiz à thème : toutes leurs questions dans une seule catégorie. */
+const PART_THEMES = option('themes', 0.3)
+/**
+ * Dans un quiz mélangé, les questions que l'animateur a classées : la moitié
+ * — c'est la part des quiz livrés avec le dépôt, et rien n'oblige à classer.
+ */
+const PART_CLASSEES = option('classees', 0.5)
+/** Les joueurs qui jouent au quiz du jour entre deux soirées. */
+const PART_DU_JOUR = option('jour', 0.3)
+/** Leurs parties du jour entre deux soirées. */
+const PARTIES_ENTRE_DEUX = option('jours', 6)
 const DUREE_S = 20
 /**
  * Le temps de lecture d'une question type : cinquante-cinq caractères et
@@ -74,15 +98,24 @@ const LECTURE_MS = tempsDeLecture({
 
 // ── Le hasard, rejouable ──────────────────────────────────────────────────
 
-let etat = GRAINE >>> 0
-function hasard(): number {
-  // mulberry32
-  etat = (etat + 0x6d2b79f5) >>> 0
-  let t = etat
-  t = Math.imul(t ^ (t >>> 15), t | 1)
-  t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
-  return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+/** mulberry32 : la même graine rejoue la même suite. */
+function generateur(graine: number): () => number {
+  let etat = graine >>> 0
+  return () => {
+    etat = (etat + 0x6d2b79f5) >>> 0
+    let t = etat
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
 }
+const hasard = generateur(GRAINE)
+/**
+ * Le hasard des catégories et du quiz du jour, à part : tirées sur le même,
+ * elles décalaient toute la suite, et les légendaires, les niveaux et la
+ * rareté ne se rejouaient plus à l'identique.
+ */
+const hasardDuSavoir = generateur(GRAINE * 7919 + 104729)
 const entre = (a: number, b: number) => a + (b - a) * hasard()
 function normale(): number {
   const u = Math.max(1e-12, hasard())
@@ -149,6 +182,32 @@ function question(): Question {
   return { kind: 'choice', difficulte: normale() * 1.1, choix: hasard() < 0.2 ? 2 : 4, cible: 0, durete: 0, connue: false }
 }
 
+/**
+ * Ce que pèse chaque catégorie dans les quiz des animateurs : la culture
+ * générale et le cinéma reviennent plus souvent que la cuisine, et la fête
+ * n'a qu'un quiz de temps en temps.
+ */
+const POIDS: Record<Categorie, number> = {
+  'Culture générale': 1.4,
+  Histoire: 1.1,
+  Géographie: 1.1,
+  Sciences: 1,
+  Nature: 1,
+  'Cinéma & séries': 1.3,
+  Musique: 1.2,
+  'Arts & lettres': 0.8,
+  Sport: 0.9,
+  Cuisine: 0.8,
+  'Jeux & pop culture': 1,
+  'Autour de la fête': 0.6,
+}
+const POIDS_TOTAL = CATEGORIES.reduce((n, c) => n + POIDS[c], 0)
+function tirerCategorie(): Categorie {
+  let x = hasardDuSavoir() * POIDS_TOTAL
+  for (const c of CATEGORIES) if ((x -= POIDS[c]) < 0) return c
+  return CATEGORIES[CATEGORIES.length - 1]
+}
+
 function soiree(bande: Joueur[], numero: number) {
   const players: PlayerRec[] = bande.map(j => ({
     id: j.id,
@@ -163,6 +222,7 @@ function soiree(bande: Joueur[], numero: number) {
   const scores: ScoreEntry[] = []
   for (let k = 0; k < QUIZ_PAR_SOIREE; k++) {
     const sessionId = `s${numero}-${k}`
+    const theme = hasardDuSavoir() < PART_THEMES ? tirerCategorie() : null
     // Les absences du quiz : une fenêtre de quelques questions, pour qui s'en va.
     const absents = new Map<string, [number, number]>()
     for (const j of bande) {
@@ -173,6 +233,7 @@ function soiree(bande: Joueur[], numero: number) {
     }
     for (let q = 0; q < QUESTIONS_PAR_QUIZ; q++) {
       const qu = question()
+      const categorie = theme ?? (hasardDuSavoir() < PART_CLASSEES ? tirerCategorie() : null)
       const lignes: AnswerRow[] = []
       for (const j of bande) {
         const fenetre = absents.get(j.id)
@@ -196,7 +257,7 @@ function soiree(bande: Joueur[], numero: number) {
           points: 0,
           durationMs: DUREE_S * 1000,
           observed: false,
-          category: null,
+          category: categorie,
           createdAt: 0,
         }
         if (repond && qu.kind === 'choice') {
@@ -305,6 +366,40 @@ const CLES_MESUREES = [
   ...HAUTS_FAITS_DE_CARRIERE.flatMap(h => [1, 2, 3].map(p => clePalier(h.key, p))),
 ]
 
+/**
+ * Les seuils qu'on essaie pour les avatars du savoir : ceux du catalogue,
+ * puis d'autres. Le deuxième, le quatrième et le sixième de ceux qui gardent
+ * 20, 75 et 200 tombent avec les écussons.
+ */
+const ESSAIS_BRANCHES: number[][] = [
+  [...SEUILS_BRANCHE],
+  [5, 20, 40, 75, 130, 200],
+  [3, 10, 20, 40, 75, 200],
+  [3, 12, 30, 60, 110, 200],
+  [3, 15, 35, 75, 130, 200],
+].filter((e, i, tous) => tous.findIndex(x => x.join() === e.join()) === i)
+
+/** Un joueur et ses portraits, soirée après soirée, pour chaque jeu de seuils. */
+interface TrajetDuSavoir {
+  duJour: boolean
+  /** Par jeu de seuils : les portraits ouverts après chaque soirée. */
+  ouverts: Map<string, number[]>
+  /** Par jeu de seuils : les sixièmes portraits — ceux de l'or — après chaque soirée. */
+  derniers: Map<string, number[]>
+}
+const trajets: TrajetDuSavoir[] = []
+
+/** Une partie du quiz du jour : dix QCM, sur les catégories du jour (pas la fête). */
+function partieDuJour(j: Joueur, justes: Record<string, { justes: number }>) {
+  for (let q = 0; q < 10; q++) {
+    const categorie = CATEGORIES_DU_JOUR[Math.floor(hasardDuSavoir() * CATEGORIES_DU_JOUR.length)]
+    const u = Math.max(1e-12, hasardDuSavoir())
+    const difficulte = Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * hasardDuSavoir()) * 1.1
+    const p = 0.25 + 0.75 * sigmoide(1.7 * (j.niveau - difficulte))
+    if (hasardDuSavoir() < p) (justes[categorie] ??= { justes: 0 }).justes++
+  }
+}
+
 // ── La simulation ─────────────────────────────────────────────────────────
 
 /** Pour chaque essai, le quiz où il tombe, joueur par joueur (Infinity : jamais dans la simulation). */
@@ -326,7 +421,14 @@ for (let b = 0; b < BANDES; b++) {
   const xp = new Map<string, number>(bande.map(j => [j.id, 0]))
   const trajectoires = bande.map(() => [] as number[])
   const decroches = new Map<string, Map<string, number>>(bande.map(j => [j.id, new Map()]))
+  const duJour = new Map(bande.map(j => [j.id, hasardDuSavoir() < PART_DU_JOUR]))
+  const justesDuJour = new Map<string, Record<string, { justes: number }>>(bande.map(j => [j.id, {}]))
+  const sesTrajets = new Map<string, TrajetDuSavoir>(
+    bande.map(j => [j.id, { duJour: duJour.get(j.id)!, ouverts: new Map(), derniers: new Map() }]),
+  )
   for (let s = 1; s <= SOIREES; s++) {
+    // Entre deux soirées, ceux qui y jouent font leurs parties du jour.
+    if (s > 1) for (const j of bande) if (duJour.get(j.id)) for (let d = 0; d < PARTIES_ENTRE_DEUX; d++) partieDuJour(j, justesDuJour.get(j.id)!)
     const { live, faits, releves } = soiree(bande, s)
     const credits = new Map(
       buildProgress(live, { cloture: true, hautsFaits: new Map([...faits].map(([id, c]) => [id, xpDesHautsFaits(c)])) }).map(g => [
@@ -344,6 +446,17 @@ for (let b = 0; b < BANDES; b++) {
       const x = releves.get(j.id)
       if (x) suivi.soirees.push({ releve: x.releve, gain: x.gain, spaceId: 'bande' })
       suivi.carriere = carriereDe(suivi.soirees, { eclats: 0, niveau: 1 })
+      // Ses bonnes réponses par catégorie, comme les compte le profil : les
+      // soirées qui comptent, et le quiz du jour.
+      const savoir = justesParCategorie(suivi.carriere.categories, justesDuJour.get(j.id)!)
+      const trajet = sesTrajets.get(j.id)!
+      for (const seuils of ESSAIS_BRANCHES) {
+        const k = seuils.join(' ')
+        const n = CATEGORIES.reduce((t, c) => t + seuils.filter(x => savoir[c] >= x).length, 0)
+        const d = CATEGORIES.filter(c => savoir[c] >= seuils[seuils.length - 1]).length
+        trajet.ouverts.set(k, [...(trajet.ouverts.get(k) ?? []), n])
+        trajet.derniers.set(k, [...(trajet.derniers.get(k) ?? []), d])
+      }
       let gagne = credits.get(j.id) ?? 0
       for (const palier of paliersAtteints(suivi.carriere)) {
         if (!suivi.recompenses.has(palier)) gagne += XP_PALIER[palierDe(palier)!.palier - 1]
@@ -380,6 +493,7 @@ for (let b = 0; b < BANDES; b++) {
     }
   }
   experiences.push(trajectoires)
+  trajets.push(...sesTrajets.values())
   for (const [, siens] of decroches) {
     for (const cle of CLES_MESUREES) {
       const xs = premieresFois.get(cle) ?? []
@@ -476,3 +590,45 @@ for (const cle of CLES_MESUREES) {
 // RECOMPENSES.md (5.2) : un seul format ferait du Triplé un impossible.
 console.log(`\nPART_DES_JOUEURS (moyenne sur les ${SOIREES} soirées) :`)
 for (const [cle, p] of mesurees) console.log(`  '${cle}': ${p.toFixed(4)},`)
+
+// ── Les avatars du savoir ─────────────────────────────────────────────────
+
+const REPERES_SAVOIR = [1, 3, 5, 10, 20, 40].filter(n => n <= SOIREES)
+/** Les soirées dont on regarde si elles ouvrent un portrait : les vingt premières. */
+const PREMIERES = Math.min(20, SOIREES)
+console.log(
+  `\nAvatars du savoir — ${Math.round(PART_THEMES * 100)} % de quiz à thème, ${Math.round(PART_CLASSEES * 100)} % des questions ` +
+    `classées dans les autres ; ${Math.round(PART_DU_JOUR * 100)} % des joueurs font ${PARTIES_ENTRE_DEUX} parties du jour entre deux soirées`,
+)
+console.log(
+  `Portraits ouverts (sur ${CATEGORIES.length * 6}) : médiane · 9e décile, après n soirées ; « ouvrent » : part médiane des ` +
+    `${PREMIERES} premières soirées qui en ouvrent un ; « 1er soir » : qui en a un après la première ; « un or » : qui a un sixième portrait après ${SOIREES}`,
+)
+for (const [nom, groupe] of [
+  ['soirées seules', trajets.filter(t => !t.duJour)],
+  ['avec le quiz du jour', trajets.filter(t => t.duJour)],
+] as const) {
+  console.log(`\n${nom} (${groupe.length} joueurs)`)
+  console.log(
+    `${'seuils'.padEnd(26)}${REPERES_SAVOIR.map(n => `après ${n}`.padStart(11)).join('')}${'ouvrent'.padStart(10)}${'1er soir'.padStart(10)}${'un or'.padStart(8)}`,
+  )
+  for (const seuils of ESSAIS_BRANCHES) {
+    const k = seuils.join(' ')
+    const cellules = REPERES_SAVOIR.map(n => {
+      const xs = groupe.map(t => t.ouverts.get(k)![n - 1])
+      return `${quantile(xs, 0.5)} · ${quantile(xs, 0.9)}`.padStart(11)
+    })
+    const ouvrent = groupe.map(t => {
+      const o = t.ouverts.get(k)!
+      return o.slice(0, PREMIERES).filter((x, i) => x > (i === 0 ? 0 : o[i - 1])).length / PREMIERES
+    })
+    const premierSoir = groupe.filter(t => t.ouverts.get(k)![0] > 0).length / groupe.length
+    const unOr = groupe.filter(t => t.derniers.get(k)![SOIREES - 1] > 0).length / groupe.length
+    const pc = (x: number) => `${Math.round(x * 100)} %`
+    console.log(
+      `${`${seuils === ESSAIS_BRANCHES[0] ? '* ' : '  '}${k}`.padEnd(26)}${cellules.join('')}` +
+        `${pc(quantile(ouvrent, 0.5)).padStart(10)}${pc(premierSoir).padStart(10)}${pc(unOr).padStart(8)}`,
+    )
+  }
+}
+console.log('\n* les seuils du catalogue (SEUILS_BRANCHE)')

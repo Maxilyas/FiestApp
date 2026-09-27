@@ -34,6 +34,7 @@ import {
   type Finition,
 } from '../../../shared/profil'
 import { rangPartage } from '../../../shared/classement'
+import { portraitsOuvertsPar } from '../../../shared/branches'
 import type { CarteDeJoueur } from '../../../shared/carte'
 import { hautFaitDeSoiree, palierDe, titreDePalier, XP_PALIER } from '../../../shared/hautsfaits'
 import type { ClotureDeSoiree, Figure, FinDeSoiree, HautFaitAnnonce, PrixAnnonce, SoireeClose } from '../../../shared/fin'
@@ -1510,6 +1511,11 @@ export class SpaceRuntime {
       // Une base du jour qui se tait ôte la ligne du quiz du jour, pas la fin.
       const jour = await this.deps.jour?.pontDuJour(g.profileId).catch(() => null)
       const legendaires = this.deps.profiles.legendairesOf(g.profileId)
+      const portraits = await this.portraitsDeLaSoiree(g).catch(e => {
+        // Une base qui se tait ôte les portraits de la fin, pas la fin.
+        console.error('[cloture] portraits non relus :', e)
+        return []
+      })
       bilans.set(g.playerId, {
         xp: xpSoiree,
         xpPaliers,
@@ -1520,6 +1526,7 @@ export class SpaceRuntime {
         // Le douzième légendaire fait descendre l'Arbre-Monde : il se compare
         // comme les autres, avant et après.
         divins: raconter(this.deps.profiles.divinsOf(g.profileId).filter(d => !avant.divins.includes(d))),
+        ...(portraits.length > 0 && { portraits }),
         finitions: finitionsOuvertes(niveauApres).filter(f => !finitionsOuvertes(niveauAvant).includes(f)) as Finition[],
         ...(eclat && { eclat }),
         ...(jour && { jour }),
@@ -1529,6 +1536,22 @@ export class SpaceRuntime {
       this.deps.io.to(`player:${g.playerId}`).emit('player:profil', this.deps.profiles.toPublic(profil))
     })
     return bilans
+  }
+
+  /**
+   * Les portraits des branches que ses bonnes réponses de ce soir ont
+   * ouverts : ceux qu'il a, relus en base une fois tout crédité, et qu'il
+   * n'aurait pas sans ce soir. Une soirée qui ne compte pas — jouée seul —
+   * n'entre pas dans son savoir (`carriereDe`) : elle n'a rien ouvert.
+   */
+  private async portraitsDeLaSoiree(g: SoireeGain): Promise<string[]> {
+    if (!soireeQuiCompte(g.gain)) return []
+    const apres = await this.deps.profiles.savoirDe(g.profileId)
+    const avant = { ...apres }
+    for (const [categorie, v] of Object.entries(g.releve.categories ?? {})) {
+      if (categorie in avant) avant[categorie] = Math.max(0, avant[categorie] - v.justes)
+    }
+    return portraitsOuvertsPar(avant, apres)
   }
 
   /**

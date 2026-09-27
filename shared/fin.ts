@@ -114,9 +114,15 @@ export interface FinDeSoiree extends Distinctions {
     /** Les Divins descendus ce soir — presque toujours aucun —, avec leur récit. */
     divins: DivinDescendu[]
     /**
+     * Les portraits des branches que ses bonnes réponses de ce soir ont
+     * ouverts (`shared/branches.ts`) — presque chaque soirée en ouvre un.
+     * Absent d'une fin d'avant, ou si aucun ne s'est ouvert.
+     */
+    portraits?: string[]
+    /**
      * Ce qui a éclaté pour lui ce soir, s'il y en a un : un emoji, ou un
-     * légendaire (`lg:…`) qui prend sa version rare. Une chance sur quarante —
-     * tombé en silence, il passait inaperçu.
+     * avatar dessiné (`lg:…`, `br:…`) qui prend sa version rare. Une chance
+     * sur quarante — tombé en silence, il passait inaperçu.
      */
     eclat?: string
     /** Les finitions débloquées ce soir. */
@@ -254,6 +260,7 @@ export function finLisible(x: unknown): x is FinDeSoiree {
     listeDe(p.paliers, e => annonce(e) && textes(e as Record<string, unknown>, 'ton')) &&
     listeDe(p.legendaires, e => typeof e === 'string') &&
     listeDe(p.divins, e => estObjet(e) && textes(e, 'key', 'ton')) &&
+    (p.portraits === undefined || listeDe(p.portraits, e => typeof e === 'string')) &&
     listeDe(p.finitions, e => typeof e === 'string') &&
     optionnel(p.eclat, 'string') &&
     (p.records === undefined || listeDe(p.records, e => estObjet(e) && textes(e, 'key') && nombres(e, 'valeur', 'avant'))) &&
