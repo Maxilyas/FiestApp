@@ -108,6 +108,10 @@
      des fiches imprimées du bilan. */
   --bronze-text: #c98b58;
   --argent-text: #b9c3cf;
+  /* Le troisième métal, qui écrit comme les deux autres : l'écusson d'or
+     lisait l'aplat (`--accent`), plus pâle que le texte sur Ivoire. C'est
+     l'or de l'application — il suit son thème. */
+  --or-text: var(--accent-text);
 
   /* L'anneau des avatars rares, dans la grille du profil : l'orangé des
      légendaires, le lilas des Divins, le vert puis le bleu des emojis de
@@ -119,7 +123,17 @@
 
   --radius: 16px;
   --radius-sm: 14px;
+  /* Le cran des petites boîtes : les lignes de la vitrine, de la collection
+     de prix, des plus beaux hauts faits, les vignettes des fonds. #58 et #59
+     l'écrivaient en dur, à 10 ou 12 px (les 12 s'y rangent, comme le
+     proposait l'audit du design du 24 septembre). */
+  --radius-xs: 10px;
   --radius-pill: 999px;
+  /* Le plus petit texte : celui de `.label`, 11 px à la taille ordinaire.
+     En `rem`, il suit le texte agrandi. Le niveau d'une case d'avatar, la
+     famille d'un avatar, le titre et le compte d'un prix, le nom et la
+     légende d'un écusson descendaient jusqu'à 9,9 px. */
+  --t-label: 0.6875rem;
 
   /* Les contrôles natifs (listes déroulantes, cases, ascenseurs) suivent le
      thème : sans ça, les listes d'équipe s'ouvraient en blanc sur le Velours,
@@ -3815,6 +3829,12 @@ h3 > .icon {
   --accent-text: #e6c47c;
   --edge: rgba(255, 255, 255, 0.16);
   --surface-faint: rgba(8, 6, 10, 0.5);
+  /* L'or du décor — le cadre du kintsugi, le lambrequin du théâtre —, celui
+     du Velours quel que soit le thème, puisque le décor reste nocturne.
+     Recopié huit fois, il s'écrit ici. Les fêlures du kintsugi, dans leur
+     image, l'écrivent encore en dur : une image ne lit pas un jeton. */
+  --fond-or: #d9b56a;
+  --fond-or-rgb: 217, 181, 106;
   color: var(--ink);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
@@ -3968,8 +3988,8 @@ h3 > .icon {
     radial-gradient(90% 60% at 30% 0%, #3a302a 0%, transparent 70%),
     radial-gradient(80% 60% at 100% 100%, #2a221d 0%, transparent 70%),
     #16120f;
-  border-color: #d9b56a;
-  box-shadow: inset 0 0 0 1px rgba(217, 181, 106, 0.35), var(--shadow-dialog);
+  border-color: var(--fond-or);
+  box-shadow: inset 0 0 0 1px rgba(var(--fond-or-rgb), 0.35), var(--shadow-dialog);
 }
 
 .carte-fond.fond-kintsugi::before {
@@ -3988,13 +4008,15 @@ h3 > .icon {
     radial-gradient(90% 60% at 50% 30%, rgba(255, 214, 150, 0.2), transparent 70%),
     repeating-linear-gradient(90deg, #4b0810 0 10px, #7a1422 10px 19px, #5d0c16 19px 26px, #3f060d 26px 34px),
     #4a0a10;
-  border-color: #d9b56a;
+  border-color: var(--fond-or);
+  /* Le haut du lambrequin, sur la scène comme dans sa vignette. */
+  --lambrequin: #2a0409;
 }
 
 .carte-fond.fond-theatre::before {
   background:
-    radial-gradient(circle at 50% 0, #d9b56a 0 7px, transparent 8px) 0 34px / 22px 16px repeat-x,
-    linear-gradient(180deg, #2a0409 0 30px, #d9b56a 30px 33px, transparent 33px);
+    radial-gradient(circle at 50% 0, var(--fond-or) 0 7px, transparent 8px) 0 34px / 22px 16px repeat-x,
+    linear-gradient(180deg, var(--lambrequin) 0 30px, var(--fond-or) 30px 33px, transparent 33px);
   opacity: 0.95;
 }
 
@@ -4015,17 +4037,17 @@ h3 > .icon {
   width: 100%;
   height: 56px;
   margin-bottom: 4px;
-  border-radius: 10px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--edge);
   background: var(--bg-raised);
 }
 .fond-apercu.carte-fond.fond-nuit::after { background-position: right 4px top 4px; background-size: 44px auto; }
 /* L'ombre de la boîte, sous une vignette, assombrissait son nom. */
-.fond-apercu.carte-fond.fond-kintsugi { box-shadow: inset 0 0 0 1px rgba(217, 181, 106, 0.35); }
+.fond-apercu.carte-fond.fond-kintsugi { box-shadow: inset 0 0 0 1px rgba(var(--fond-or-rgb), 0.35); }
 .fond-apercu.carte-fond.fond-theatre::before {
   background:
-    radial-gradient(circle at 50% 0, #d9b56a 0 3px, transparent 3.5px) 0 12px / 9px 7px repeat-x,
-    linear-gradient(180deg, #2a0409 0 10px, #d9b56a 10px 11px, transparent 11px);
+    radial-gradient(circle at 50% 0, var(--fond-or) 0 3px, transparent 3.5px) 0 12px / 9px 7px repeat-x,
+    linear-gradient(180deg, var(--lambrequin) 0 10px, var(--fond-or) 10px 11px, transparent 11px);
 }
 
 /* Une saison, au quiz du jour : son légendaire en silhouette, à côté de ce
@@ -4049,11 +4071,11 @@ h3 > .icon {
 .ecusson-forme .ecusson-cran { fill: currentColor; }
 /* L'emblème un peu haut : le blason s'effile vers le bas. */
 .ecusson-blason .ecusson-embleme { width: 16px; height: 16px; margin-top: -3px; }
-.ecusson-nom { font-size: 0.68rem; line-height: 1.15; color: var(--ink); overflow-wrap: anywhere; }
-.ecusson-legende { font-size: 0.68rem; line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ecusson-nom { font-size: var(--t-label); line-height: 1.15; color: var(--ink); overflow-wrap: anywhere; }
+.ecusson-legende { font-size: var(--t-label); line-height: 1; color: var(--muted); font-variant-numeric: tabular-nums; }
 .ecusson.palier-1 .ecusson-blason { color: var(--bronze-text); }
 .ecusson.palier-2 .ecusson-blason { color: var(--argent-text); }
-.ecusson.palier-3 .ecusson-blason { color: var(--accent); }
+.ecusson.palier-3 .ecusson-blason { color: var(--or-text); }
 /* Pas encore : sa silhouette en pointillé, sans couleur. */
 .ecusson.palier-0 .ecusson-blason { color: var(--muted); opacity: 0.6; }
 .ecusson.palier-0 .ecusson-forme path { fill-opacity: 0; stroke-dasharray: 3 3; }
@@ -4930,7 +4952,7 @@ h3 > .icon {
   border-radius: var(--radius-pill);
   background: var(--accent);
   color: var(--on-accent);
-  font-size: 0.65rem;
+  font-size: var(--t-label);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -5186,7 +5208,7 @@ h3 > .icon {
 
 .palier-1 { color: var(--bronze-text); }
 .palier-2 { color: var(--argent-text); }
-.palier-3 { color: var(--accent-text); }
+.palier-3 { color: var(--or-text); }
 
 /* Pas `.fiche` : c'est déjà la feuille d'un invité dans le bilan imprimé. */
 .chiffres {
@@ -5286,7 +5308,7 @@ h3 > .icon {
 }
 .carte-chiffres { margin: 0; }
 .carte-beaux { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.carte-beaux li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--edge); background: var(--surface-faint); }
+.carte-beaux li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-xs); border: 1px solid var(--edge); background: var(--surface-faint); }
 .carte-prix { display: flex; align-items: center; gap: 6px; margin: 0; }
 .carte-prix .icon { color: var(--accent-text); }
 
@@ -5972,7 +5994,7 @@ span.case-avatar { cursor: default; }
   right: 0;
   bottom: -2px;
   text-align: center;
-  font-size: 10.5px;
+  font-size: var(--t-label);
   font-weight: 600;
   line-height: 1.2;
   color: var(--ink);
@@ -5994,7 +6016,7 @@ span.case-avatar { cursor: default; }
   animation: none;
 }
 .detail-case { margin: 12px 0 0; }
-.detail-famille { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
+.detail-famille { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
 .anneau-texte-legendaire { color: var(--anneau-legendaire); }
 .anneau-texte-divin { color: var(--anneau-divin); }
 .anneau-texte-collection { color: var(--anneau-collection); }
@@ -6005,19 +6027,19 @@ span.case-avatar { cursor: default; }
 /* Trophées : ce que la carte montre, les médailles du jour, les plus
    proches, la collection de prix — ce qui manque en pointillé. */
 .vitrine-choix { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.vitrine-choix li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--edge); background: var(--surface-faint); }
+.vitrine-choix li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-xs); border: 1px solid var(--edge); background: var(--surface-faint); }
 .vitrine-choix .hf-corps { display: flex; flex-direction: column; }
 .medailles-compte { display: flex; gap: 18px; align-items: center; margin: 10px 0 12px; }
 .medailles-compte > span { display: inline-flex; align-items: center; gap: 6px; font-size: 1.3rem; }
 .proches { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
 .prix-collection { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
-.prix-collection li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 12px; border: 1px solid var(--edge); text-align: center; }
+.prix-collection li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: var(--radius-xs); border: 1px solid var(--edge); text-align: center; }
 .prix-collection .prix-emoji { font-size: 1.35rem; line-height: 1; }
-.prix-collection .prix-titre { font-size: 0.66rem; line-height: 1.2; }
+.prix-collection .prix-titre { font-size: var(--t-label); line-height: 1.2; }
 .prix-collection .manque { border-style: dashed; }
 .prix-collection .manque .prix-emoji { filter: grayscale(1) brightness(0.45); }
 .prix-collection .manque .prix-titre { color: var(--muted); }
-.prix-collection .hf-fois { position: absolute; top: 3px; right: 4px; font-size: 0.62rem; }
+.prix-collection .hf-fois { position: absolute; top: 3px; right: 4px; font-size: var(--t-label); }
 
 /* Le titre qu'il porte, sous son prénom : sur sa page et sur sa carte. */
 .titre-porte { margin: 2px 0 6px; font-family: var(--serif); font-style: italic; font-weight: 500; font-size: 1.05rem; color: var(--accent-text); }
@@ -6049,7 +6071,7 @@ span.case-avatar { cursor: default; }
   gap: 10px;
   width: 100%;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--edge);
   background: var(--surface-faint);
   color: var(--ink);
