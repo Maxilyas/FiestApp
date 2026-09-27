@@ -14,8 +14,8 @@ import { cibleEclat } from '../../../shared/legendaires'
 import { coupDOeilMoyen, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { Categories, Courbes, FicheCarriere } from '../components/Carriere'
-import { ApercuSalle, MesAvatars, MesFinitions, MonFond, MonTitre, annonceDuChoix, type ChoixDuProfil } from '../components/Apparence'
-import { MaVitrine, MesEcussons, MesHautsFaits, MesPrix, MonQuizDuJour } from '../components/Trophees'
+import { annonceDuChoix, type ChoixDuProfil } from '../components/choix'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { espacesFines, formatNumber, place, reponsesParType } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
 import { route, spacePath } from '../routes'
@@ -25,6 +25,40 @@ import { CarteDuJour, MesJours, pointsDesJours } from '../components/Jour'
 import type { PublicSpace } from '../../../shared/space'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
+
+/**
+ * Les onglets « Apparence » et « Trophées », à la demande : ils portent les
+ * dessins de tous les médaillons, et l'accueil anonyme — « Me connecter »,
+ * « Rejoindre une soirée » — les téléchargeait avec lui, 21 Ko et 179 ms de
+ * plus en 4G. Ils partent dès qu'un profil répond, et tout de suite sur le
+ * téléphone qui en a déjà montré un (`profilConnuIci`).
+ */
+const panneaux = aLaDemande(() => import('../components/PanneauxDuProfil'))
+
+/** Ce téléphone a montré un profil la dernière fois. */
+const CLE_PROFIL_CONNU = 'quizz.profil.connu'
+
+function profilConnuIci(): boolean {
+  // Sous try/catch : des cookies bloqués donnaient une page noire.
+  try {
+    return localStorage.getItem(CLE_PROFIL_CONNU) === '1'
+  } catch {
+    return false
+  }
+}
+
+function retenirProfil(connu: boolean) {
+  try {
+    if (connu) localStorage.setItem(CLE_PROFIL_CONNU, '1')
+    else localStorage.removeItem(CLE_PROFIL_CONNU)
+  } catch {
+    // Stockage refusé : les onglets attendront la réponse du profil.
+  }
+}
+
+// Sans attendre la réponse du profil : sur un téléphone qui en a déjà montré
+// un, les onglets arrivent avec elle, pas un aller-retour après.
+if (profilConnuIci()) void panneaux.charger().catch(() => {})
 
 /**
  * L'accueil (`/`) et la page de profil (`/profil`) : c'est le même écran.
@@ -79,6 +113,8 @@ export function ProfilApp() {
   const [suite] = useState(lireSuite)
   const [gardee] = useState(derniereSoireeGardee)
   const [onglet, setOnglet] = useState<Onglet>(lireOnglet)
+  /** Le contenu des onglets « Apparence » et « Trophées », dès que le profil est connu. */
+  const lesPanneaux = useALaDemande(panneaux, !!profil)
   /** L'onglet choisi s'écrit dans l'adresse — on la partage, on y revient — et sur ce téléphone. */
   const choisirOnglet = (o: Onglet) => {
     setOnglet(o)
@@ -92,6 +128,8 @@ export function ProfilApp() {
 
   const relire = () =>
     api.joueur.moi().then(r => {
+      retenirProfil(!!r.profile)
+      if (r.profile) void panneaux.charger().catch(() => {})
       setProfil(r.profile)
       setEspace(r.espace)
       setEnCours(r.enCours ?? [])
@@ -188,6 +226,7 @@ export function ProfilApp() {
         pied={<PorteAnimateur console_={console_} />}
         creer={!!creation}
         prefill={creation ?? undefined}
+        onEnvoi={() => void panneaux.charger().catch(() => {})}
         onDone={() => {
           // Venu d'un lien vers le quiz du jour : on y va, sans repasser par l'accueil.
           if (suite) return window.location.assign(suite)
@@ -288,21 +327,21 @@ export function ProfilApp() {
 
       {onglet === 'apparence' && (
         <div className="profil-onglet" role="tabpanel" id="profil-apparence" aria-labelledby="onglet-apparence">
-          <ApercuSalle profil={profil} />
-          <MesAvatars profil={profil} busy={busy} enregistrer={enregistrer} />
-          <MesFinitions profil={profil} busy={busy} enregistrer={enregistrer} />
-          <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />
-          <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />
+          {lesPanneaux && lesPanneaux !== 'perdu' ? (
+            <lesPanneaux.PanneauApparence profil={profil} busy={busy} enregistrer={enregistrer} />
+          ) : (
+            <OngletEnChemin perdu={lesPanneaux === 'perdu'} />
+          )}
         </div>
       )}
 
       {onglet === 'trophees' && (
         <div className="profil-onglet" role="tabpanel" id="profil-trophees" aria-labelledby="onglet-trophees">
-          <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
-          <MonQuizDuJour jour={profil.jour} />
-          <MesHautsFaits profil={profil} />
-          <MesEcussons ecussons={profil.ecussons} />
-          <MesPrix prix={profil.prix} />
+          {lesPanneaux && lesPanneaux !== 'perdu' ? (
+            <lesPanneaux.PanneauTrophees profil={profil} busy={busy} enregistrer={enregistrer} />
+          ) : (
+            <OngletEnChemin perdu={lesPanneaux === 'perdu'} />
+          )}
         </div>
       )}
 
@@ -398,6 +437,7 @@ export function ProfilApp() {
           className="btn btn-ghost"
           onClick={async () => {
             await api.joueur.deconnexion().catch(() => {})
+            retenirProfil(false)
             setProfil(null)
           }}
         >
@@ -409,6 +449,29 @@ export function ProfilApp() {
 }
 
 type Onglet = 'apparence' | 'trophees' | 'carriere'
+
+/**
+ * Un onglet qui arrive : sa place, d'une hauteur d'écran — le glossaire et
+ * « Me déconnecter », dessous, ne sautent pas quand il arrive. S'il ne
+ * viendra plus (le réseau, un redéploiement), la page le dit.
+ */
+function OngletEnChemin({ perdu }: { perdu: boolean }) {
+  if (perdu) {
+    return (
+      <div className="onglet-en-chemin">
+        <p className="error">Cet onglet n’a pas pu se charger : vérifie ta connexion.</p>
+        <button type="button" className="btn btn-small" onClick={() => window.location.reload()}>
+          Recharger la page
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div className="onglet-en-chemin" aria-busy="true">
+      <p className="serif-note">Chargement…</p>
+    </div>
+  )
+}
 
 /**
  * Les trois onglets du profil. Tout tenait sur une page — avatar,

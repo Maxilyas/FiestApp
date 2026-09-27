@@ -90,7 +90,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `auth/profileRoutes.ts` | la porte d'entrée : se connecter à son profil ouvre aussi la console de l'espace rattaché |
 | `auth/http.ts` | cookies, adresse du client, et `loginBudgetOf(app)` : la réserve d'essais commune à toutes les portes, où un essai compte comme un échec jusqu'à son jugement ; `refuserLesTeles`, ce qu'une télé branchée ne fait pas |
 | `auth/appairage.ts` | brancher la télé : le code court qu'elle affiche, validé depuis une console ouverte, et la session d'une soirée qu'elle en reçoit ; `/attente` dit `perime` dans une réponse, jamais dans une erreur |
-| `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins (« Ce soir » : une action principale, les autres en petit) — et, sans profil, la porte discrète des animateurs (« J'anime une soirée ») ; puis trois onglets, retenus dans l'adresse (`#trophees`) |
+| `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins (« Ce soir » : une action principale, les autres en petit) — et, sans profil, la porte discrète des animateurs (« J'anime une soirée ») ; puis trois onglets, retenus dans l'adresse (`#trophees`), « Apparence » et « Trophées » à la demande (`PanneauxDuProfil`) |
 | `client/src/components/Apparence.tsx` · `Trophees.tsx` · `shared/proches.ts` | les onglets du profil : ce que la salle voit, la grille unique des avatars (emojis, ceux de collection, légendaires, Divins, un anneau pour ce qui est rare, la légende au toucher), la finition, le titre ; la vitrine de la carte, qu'on choisit, le quiz du jour, les hauts faits les plus proches (`lesPlusProches`, dérivation pure), la collection de prix (`CATALOGUE_DES_PRIX`, `core/stats.ts`). Un titre et une vitrine ne sont que des hauts faits gagnés (`hautsFaitsGagnes`), relus à chaque affichage (`titrePorte`, `vitrineChoisie`) : une soirée retirée les emporte |
 | `shared/avatars.ts` | les avatars de l'inscription et le nettoyage de ce qui arrive du téléphone (`cleanAvatar`, `cleanName`, `tronquer`) ; et les douze emojis de collection (`COLLECTION`), un par niveau sans finition, réservés aux profils — `niveauRequis` lit le niveau qu'un avatar demande, doublé ou suivi d'un sélecteur de variante compris |
 | `shared/adresses.ts` · `core/apercus.ts` | une adresse lue une seule fois pour le client et le serveur ; le serveur y pose le statut (404 d'un espace, d'une page ou d'une archive inconnus), les balises d'aperçu (le titre de l'espace, **jamais un prénom**), `noindex` hors de l'accueil, et les seules corrections permises : ce que `normalizeSlug` fait de la saisie (casse, accents, espaces et ponctuation en tirets, 24 caractères au plus), puis la seule forme `chez-‹saisie›` — jamais un nom voisin (invariant 3) |
@@ -613,6 +613,15 @@ sans `QUIZ_DB_URL`.
 - **En CSS, `transform` se compose APRÈS `rotate`**, et une animation qui pose
   `transform` écrase celui de l'élément : le toast, centré par
   `translateX(-50%)`, partait sur la droite. Centre par marges.
+- **Ce qui ne sert qu'après l'entrée vient à la demande, par `aLaDemande`**
+  (`client/src/aLaDemande.ts`), jamais par `lazy` : un composant paresseux
+  suspend au moins une fois, même son fichier déjà téléchargé, et React
+  retient alors 300 ms ce qui sort de l'attente — la grille du profil, la fin
+  de soirée, la carte d'un joueur. L'écran d'entrée ne télécharge ni la
+  carte, ni la fin de soirée, ni le quiz du jour (elles viennent une fois
+  entré), et l'accueil anonyme ni les dessins ni les onglets du profil :
+  `medaillons.test.ts` y veille, et un import statique de plus sur ces
+  chemins les y remettrait.
 - **Regarde le rendu.** Plusieurs bugs de cette base n'étaient visibles qu'à
   l'écran, pas au typecheck. Chromium et Playwright sont disponibles. Le
   téléphone se regarde en 360 × 640 ; l'écran commun en **1366 × 768** — le

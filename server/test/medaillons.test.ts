@@ -83,6 +83,62 @@ test('le téléphone de l’invité n’importe les dessins qu’à la demande',
   }
 })
 
+test('l’accueil anonyme n’importe ni les dessins ni les onglets du profil', () => {
+  // Il ne montre que « Me connecter » et « Rejoindre une soirée », et
+  // téléchargeait pourtant les dessins et les onglets du profil : 21 Ko et
+  // 179 ms en 4G (recompenses-vitrine-9, mesuré par perf-client-5).
+  const chemin = importsStatiques(path.join(client, 'views/ProfilApp.tsx'))
+  assert.ok(chemin.has(path.join(client, 'components/Avatar.tsx')), 'Avatar est sur le chemin')
+  assert.ok(chemin.has(path.join(client, 'components/choix.ts')), 'ce que le profil annonce reste là')
+  for (const f of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Apparence.tsx', 'components/Trophees.tsx']) {
+    assert.ok(!chemin.has(path.join(client, f)), `${f} ne part pas avec l’accueil anonyme`)
+  }
+})
+
+test('le téléphone de l’invité ne télécharge pas avant l’entrée ce qui ne sert qu’après', () => {
+  // La carte d'un joueur (au toucher d'un nom), la fin de soirée (à la
+  // clôture) et le quiz du jour (pour une seule icône, la flamme) passaient
+  // devant l'écran d'entrée : 69 à 259 ms de plus depuis #58 (perf-client-2).
+  const chemin = importsStatiques(path.join(client, 'views/PlayerApp.tsx'))
+  assert.ok(chemin.has(path.join(client, 'components/Entree.tsx')), 'Entree est sur le chemin')
+  for (const f of ['components/CarteJoueur.tsx', 'components/FinDeSoiree.tsx', 'components/Jour.tsx']) {
+    assert.ok(!chemin.has(path.join(client, f)), `${f} ne part pas avec l’écran d’entrée`)
+  }
+})
+
+test('ce qui vient à la demande vient une fois, et sans faire attendre React', async () => {
+  const { aLaDemande } = await import(url('aLaDemande.ts'))
+  let appels = 0
+  const module = { Composant: () => null }
+  const source = aLaDemande(() => {
+    appels++
+    return Promise.resolve(module)
+  })
+  assert.equal(source.charge(), null)
+  await Promise.all([source.charger(), source.charger()])
+  await source.charger()
+  assert.equal(appels, 1, 'un seul import pour toute la page')
+  // Déjà là, il se rend au premier rendu : pas de `Suspense`, qui retient
+  // trois dixièmes de seconde ce qui sort d'une attente.
+  assert.equal(source.charge(), module)
+  const perdu = aLaDemande(() => {
+    appels++
+    return Promise.reject(new TypeError('Failed to fetch dynamically imported module'))
+  })
+  await assert.rejects(perdu.charger())
+  await assert.rejects(perdu.charger())
+  assert.equal(appels, 2, 'un échec vaut pour la page')
+  assert.equal(perdu.charge(), null)
+  // Les pages qui en dépendent ne passent pas par `lazy` : la grille du
+  // profil paraissait 350 ms plus tard, préchargée ou non, et la fin de
+  // soirée passait par « Connexion… ».
+  for (const f of ['views/ProfilApp.tsx', 'views/PlayerApp.tsx']) {
+    const texte = readFileSync(path.join(client, f), 'utf8')
+    assert.doesNotMatch(texte, /\blazy\(|<Suspense/, f)
+    assert.match(texte, /aLaDemande\(\(\) => import\(/, f)
+  }
+})
+
 // ── 2. Sans les dessins, l'emoji ──────────────────────────────────────────
 
 test('sans ses dessins, un légendaire porté rend l’emoji, sans exception', async () => {

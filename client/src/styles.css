@@ -5910,6 +5910,9 @@ h3 > .icon {
   .onglets-profil .onglet .icon { display: none; }
 }
 .profil-onglet { display: flex; flex-direction: column; gap: 18px; }
+/* L'onglet qui arrive tient une hauteur d'écran : ce qui le suit reste sous
+   le pli, et ne saute pas quand il arrive. */
+.onglet-en-chemin { min-height: 100vh; padding-top: 12px; text-align: center; }
 .titre-compte { font-family: var(--sans); font-weight: 400; margin-left: 6px; }
 .apercu { display: flex; flex-direction: column; gap: 10px; }
 .apercu-carte { align-self: flex-start; }

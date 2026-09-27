@@ -12,8 +12,9 @@ import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
 import { DIVINS, divin } from '../../../shared/divins'
-import { FONDS, fond } from '../../../shared/fonds'
-import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
+import { FONDS } from '../../../shared/fonds'
+import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type PublicProfileDetail } from '../../../shared/profil'
+import type { ChoixDuProfil } from './choix'
 
 // L'onglet « Apparence » du profil : ce que la salle voit de lui, son visage
 // — une seule grille, emojis, légendaires et Divins —, et sa finition.
@@ -30,39 +31,7 @@ import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type Pu
  */
 const COLLECTION_HAUTE = 10
 
-/** Ce qu'un toucher du profil change : un champ à la fois. */
-export type ChoixDuProfil = {
-  avatar?: string
-  finition?: FinitionChoisie
-  legendaire?: string | null
-  titre?: string | null
-  fond?: string | null
-  vitrine?: string[] | null
-}
 type Patch = Omit<ChoixDuProfil, 'vitrine'>
-
-/**
- * Ce qu'un choix enregistré a changé, en une phrase pour le lecteur
- * d'écran : l'état « pressé » d'une case changeait sans rien dire.
- */
-export function annonceDuChoix(choix: ChoixDuProfil): string {
-  if (choix.avatar) return `Tu portes ${choix.avatar}.`
-  if (choix.legendaire !== undefined) {
-    const nom = legendaire(choix.legendaire)?.nom ?? divin(choix.legendaire)?.nom
-    return nom ? `Tu portes ${nom}.` : 'Tu reviens à ton emoji.'
-  }
-  if (choix.finition) return choix.finition === 'auto' ? 'Ta plus belle finition, d’office.' : `Finition ${NOM_FINITION[choix.finition]}.`
-  if (choix.titre !== undefined) {
-    const titre = choix.titre ? hautFait(choix.titre)?.title : undefined
-    return titre ? `Ton titre : ${titre}.` : 'Sans titre.'
-  }
-  if (choix.fond !== undefined) {
-    const nom = fond(choix.fond)?.nom
-    return nom ? `Ton fond de carte : ${nom}.` : 'Sans fond de carte.'
-  }
-  if (choix.vitrine !== undefined) return choix.vitrine ? 'Ta vitrine est enregistrée.' : 'Ta vitrine montre tes plus beaux hauts faits.'
-  return 'C’est enregistré.'
-}
 
 /**
  * Sa ligne telle que la salle la voit, dans les classements et la salle

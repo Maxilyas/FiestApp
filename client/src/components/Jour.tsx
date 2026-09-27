@@ -12,7 +12,7 @@ import {
   type PartieDuJour,
 } from '../../../shared/jour'
 import type { PointJoue } from './Carriere'
-import { Icon } from './Icon'
+import { Flamme, Icon } from './Icon'
 import { enumerer } from '../../../shared/classement'
 
 // Les petites pièces du quiz du jour : la médaille, la flamme de la série, et
@@ -34,21 +34,6 @@ export function Medaille({ medaille, className }: { medaille: TypeDeMedaille; cl
       <text x="12" y="18.4" textAnchor="middle" fontFamily="Cormorant Garamond, Georgia, serif" fontWeight="600" fontSize="9.5" fill="#1a1412">
         {RANG[medaille]}
       </text>
-    </svg>
-  )
-}
-
-/** La série de jours joués : une flamme au trait. */
-export function Flamme({ className }: { className?: string }) {
-  return (
-    <svg className={'icon flamme' + (className ? ` ${className}` : '')} viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d="M12 21.5c3.9 0 6.4-2.5 6.4-6 0-3.2-2.1-5.2-3.3-6.9-.4 1.5-1.2 2.5-2.2 2.9.3-3-1.2-5.8-3.7-7.5.3 2.7-1 4.4-2.4 6.1-1.3 1.6-1.2 3.4-1.2 5.3 0 3.6 2.5 6.1 6.4 6.1z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
     </svg>
   )
 }

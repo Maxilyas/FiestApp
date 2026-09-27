@@ -34,12 +34,27 @@ import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Laurier } from '../components/Laurier'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
-import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
-import { CarteJoueur } from '../components/CarteJoueur'
 import { ATTENTE_MAX_DESSINS, attendus, chargerDessins, chargerDessinsAuPlus, sortesDe, useDessins } from '../components/medaillons'
 import { Lendemain } from '../components/Lendemain'
 import { useEcranAllume } from '../veille'
 import { useGardeRetour } from '../retour'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
+
+/**
+ * La fin de soirée, sa fête et la carte d'un joueur, à la demande : elles ne
+ * servent qu'une fois dans la salle, et partaient pourtant avec l'écran
+ * d'entrée — celui qu'on attend, QR scanné, en 4G. Elles viennent pendant la
+ * soirée, une fois entré (`precharger`).
+ */
+const finDeSoiree = aLaDemande(() => import('../components/FinDeSoiree'))
+const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
+
+/** Ce qui vient une fois dans la salle, sans rien retarder de ce qu'on y voit. */
+const DELAI_PRECHARGEMENT_MS = 1500
+function precharger() {
+  void finDeSoiree.charger().catch(() => {})
+  void carteJoueur.charger().catch(() => {})
+}
 
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
@@ -83,6 +98,13 @@ export function PlayerApp() {
   const [reprise, setReprise] = useState(false)
   /** La carte ouverte, celle du joueur dont on a touché le nom. */
   const [carte, setCarte] = useState<string | null>(null)
+  const laCarte = useALaDemande(carteJoueur, !!carte)
+  // Une carte qui ne viendra plus le dit, plutôt qu'un toucher sans effet.
+  useEffect(() => {
+    if (!carte || laCarte !== 'perdu') return
+    showToast({ kind: 'error', message: 'La carte ne s’ouvre pas : vérifie ta connexion.' })
+    setCarte(null)
+  }, [carte, laCarte])
   /**
    * La dernière réponse envoyée, et ce qu'elle est devenue. Le serveur ne
    * montre une réponse qu'une fois reçue : sans ce suivi, un toucher hors
@@ -177,6 +199,15 @@ export function PlayerApp() {
       socket.off('player:profil', maj)
     }
   }, [])
+
+  // Entré dans la salle, le téléphone fait venir la fin de soirée et la
+  // carte d'un joueur, qu'il n'a pas téléchargées avant l'entrée.
+  const entre = !!s.me
+  useEffect(() => {
+    if (!entre) return
+    const minuteur = setTimeout(precharger, DELAI_PRECHARGEMENT_MS)
+    return () => clearTimeout(minuteur)
+  }, [entre])
 
   // Un profil peut en gagner un ce soir, et sa fin de soirée le montrera :
   // ses dessins viennent dès qu'on le connaît (`medaillons.ts`).
@@ -360,7 +391,9 @@ export function PlayerApp() {
 
   // Ce que le dernier podium vient de rapporter, fêté par-dessus l'écran.
   const finirCelebration = useCallback(() => setState({ gain: null }), [])
-  const celebration = s.gain && <Celebration gain={s.gain} onFin={finirCelebration} />
+  const fin = useALaDemande(finDeSoiree, !!s.fin || !!s.gain)
+  // Une fête qui ne viendra plus n'empêche rien : l'écran d'en dessous dit l'essentiel.
+  const celebration = s.gain && fin && fin !== 'perdu' && <fin.Celebration gain={s.gain} onFin={finirCelebration} />
 
   // L'adresse ne mène à rien : on redemande le nom de la soirée sur place.
   // Renvoyer à l'accueil enverrait maintenant sur la page du profil, qui ne
@@ -375,14 +408,18 @@ export function PlayerApp() {
   if (s.fin) {
     return (
       <>
-        <FinDeSoiree
-          fin={s.fin}
-          profil={profil}
-          onSuivante={() => {
-            quitterFin(slug)
-            setGardee(soireeGardee(slug))
-          }}
-        />
+        {fin && fin !== 'perdu' ? (
+          <fin.FinDeSoiree
+            fin={s.fin}
+            profil={profil}
+            onSuivante={() => {
+              quitterFin(slug)
+              setGardee(soireeGardee(slug))
+            }}
+          />
+        ) : (
+          <FinEnChemin perdue={fin === 'perdu'} />
+        )}
         {toast}
       </>
     )
@@ -642,7 +679,7 @@ export function PlayerApp() {
         <Leaderboard players={snap.players} compact highlightId={s.me.playerId} onOuvrir={setCarte} />
         <p className="muted small">Touche un nom pour voir sa carte.</p>
       </div>
-      {carte && <CarteJoueur slug={slug} playerId={carte} onFermer={() => setCarte(null)} />}
+      {carte && laCarte && laCarte !== 'perdu' && <laCarte.CarteJoueur slug={slug} playerId={carte} onFermer={() => setCarte(null)} />}
 
       <p className="waiting">En attente du prochain quiz…</p>
       {/* Entre deux quiz, relire ses réponses : rien ne menait du téléphone au
@@ -683,6 +720,24 @@ export function PlayerApp() {
       </p>
       {celebration}
       {toast}
+    </div>
+  )
+}
+
+/**
+ * La fin de soirée qui arrive : « Connexion… », comme en attendant la salle.
+ * Si elle ne viendra plus — le réseau, un redéploiement —, la page le dit :
+ * sa place et ses points sont au serveur, et recharger la montre.
+ */
+function FinEnChemin({ perdue }: { perdue: boolean }) {
+  if (!perdue) return <AttenteConnexion />
+  return (
+    <div className="center-page">
+      <p className="serif-note">La fin de soirée n’a pas pu se charger.</p>
+      <p className="muted small">Rien n’est perdu : vérifie ta connexion, puis recharge la page.</p>
+      <button type="button" className="btn btn-primary btn-big" onClick={() => window.location.reload()}>
+        Recharger la page
+      </button>
     </div>
   )
 }

@@ -488,3 +488,23 @@ export function Icon({ name, size, className }: { name: IconName; size?: number;
     </svg>
   )
 }
+
+/**
+ * La série de jours joués : une flamme au trait. Ici plutôt qu'avec le quiz
+ * du jour (`Jour.tsx`) : la carte d'un joueur et la fin de soirée la
+ * montrent aussi, et la tirer de là faisait venir tout le quiz du jour avec
+ * elles.
+ */
+export function Flamme({ className }: { className?: string }) {
+  return (
+    <svg className={'icon flamme' + (className ? ` ${className}` : '')} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M12 21.5c3.9 0 6.4-2.5 6.4-6 0-3.2-2.1-5.2-3.3-6.9-.4 1.5-1.2 2.5-2.2 2.9.3-3-1.2-5.8-3.7-7.5.3 2.7-1 4.4-2.4 6.1-1.3 1.6-1.2 3.4-1.2 5.3 0 3.6 2.5 6.1 6.4 6.1z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}

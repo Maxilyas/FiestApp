@@ -260,7 +260,7 @@ test('choisir un avatar, une finition, un fond ou sa vitrine ne fait plus tomber
   assert.match(profil, /<p className="sr-only" role="status">\s*\{annonce\}\s*<\/p>/)
 
   Object.assign(globalThis, { window: { location: { pathname: '/profil', search: '', hash: '' } } })
-  const { annonceDuChoix } = await import(new URL('../../client/src/components/Apparence.tsx', import.meta.url).href)
+  const { annonceDuChoix } = await import(new URL('../../client/src/components/choix.ts', import.meta.url).href)
   assert.equal(annonceDuChoix({ avatar: '🐸' }), 'Tu portes 🐸.')
   assert.equal(annonceDuChoix({ legendaire: 'lg:phenix' }), 'Tu portes Le Phénix.')
   assert.equal(annonceDuChoix({ legendaire: null }), 'Tu reviens à ton emoji.')

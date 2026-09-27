@@ -46,6 +46,11 @@ interface Props {
    * remplissait son profil ratait les premières questions sans le savoir.
    */
   bandeau?: ReactNode
+  /**
+   * Au départ d'une connexion ou d'une création : l'accueil fait venir les
+   * onglets du profil pendant qu'on attend la réponse, pas après.
+   */
+  onEnvoi?: () => void
 }
 
 /**
@@ -56,7 +61,7 @@ interface Props {
  * obligé d'en passer par là — l'invité anonyme joue exactement comme avant,
  * et c'est le chemin par défaut.
  */
-export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, pied, bandeau }: Props) {
+export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, pied, bandeau, onEnvoi }: Props) {
   const [mode, setMode] = useState<'connexion' | 'inscription' | 'secours'>(creer ? 'inscription' : 'connexion')
   // Deviné du prénom à la création seulement : en connexion, ses échecs se
   // compteraient sur le profil d'un autre, qui fermerait un quart d'heure.
@@ -124,6 +129,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
+    onEnvoi?.()
     setBusy(true)
     setError('')
     setInfo('')

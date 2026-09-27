@@ -20,9 +20,8 @@ import { formatNumber, place, pourcent, pts } from '../format'
 import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
-import { Icon } from './Icon'
+import { Flamme, Icon } from './Icon'
 import { lienBilan } from './Lendemain'
-import { Flamme } from './Jour'
 
 /**
  * La fin de soirée, sur le téléphone.
