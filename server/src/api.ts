@@ -442,9 +442,15 @@ export function mountApi(app: Express, deps: ApiDeps) {
       if (deps.soireeEnCours(spaceId) === req.params.id) {
         return res.status(409).json({ error: 'La soirée en cours s’efface depuis l’écran commun — « C’était un essai »' })
       }
-      const ok = await deps.archives.remove(spaceId, req.params.id)
-      if (!ok) return res.status(404).json({ error: 'Soirée introuvable' })
+      // Les profils d'abord, l'archive en dernier : effacée en premier, une
+      // panne pendant qu'on reprenait aux profils laissait la soirée hors de
+      // la liste — un second essai répondait « Soirée introuvable », et ce
+      // qu'elle avait crédité restait pour toujours. L'existence se lit
+      // avant : un identifiant d'un autre espace vaut « introuvable », et ne
+      // touche à rien (invariant 3).
+      if (!(await deps.archives.existe(spaceId, req.params.id))) return res.status(404).json({ error: 'Soirée introuvable' })
       await deps.profiles.retirerSoireeEntiere(req.params.id, spaceId)
+      await deps.archives.remove(spaceId, req.params.id)
       res.json({ ok: true })
     }),
   )

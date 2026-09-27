@@ -172,7 +172,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
     l'idempotence qui le permet : la ligne `(profil, soirée)` est remplacée,
     jamais ajoutée. Un invité **exclu** rend la sienne, et l'Éclat tiré ce
     soir-là (`exclure()`, à la file des crédits) : le crédit suivant ne
-    réécrit que les profils encore là. Ce qui ne se juge qu'une fois tout
+    réécrit que les profils encore là — et la clôture reprend ce qu'un
+    hoquet de la base aurait laissé à l'exclu (`retirerAbsents`). Ce qui ne se juge qu'une fois tout
     joué — le podium de la soirée, l'assiduité, les **prix** du palmarès, les
     **hauts faits**, les **paliers** de carrière — ne se décide **qu'à la
     clôture**, en un seul lot (`remplacerRecompensesDeSoiree`) : un
@@ -278,7 +279,13 @@ server/test/        un fichier par thème, un serveur jetable chacun
     soirées de l'historique avec les règles du jour, et remet à la version
     du jour les lignes qu'il ne sait pas relire (la soirée en cours, les
     paliers) : sinon il relirait tout à chaque démarrage. `decodeDetail`
-    reconnaît le format à `v ≥ 2`, jamais à la version du jour.
+    reconnaît le format à `v ≥ 2`, jamais à la version du jour. Une version
+    s'écrit en entier (`CAST(? AS INTEGER)` dans un `json_set`) : liée en
+    flottant, `{"v":6.0,…}` n'était jamais « du jour », et tout l'historique
+    se relisait à chaque réveil. Et une base qui hoquette pendant la
+    relecture fait échouer le démarrage — l'hébergeur le relance — au lieu
+    de passer une archive pour illisible et d'en remettre les lignes au
+    barème sans les avoir relues.
 21. **Les règles des Divins ne quittent jamais le serveur.** Elles vivent
     dans `core/divins.ts`, avec leurs légendes — qui en disent presque
     autant —, et ni `shared/` ni `client/` ne l'importent ni n'en recopient
@@ -422,6 +429,11 @@ sans `QUIZ_DB_URL`.
   qui se jouent encore ailleurs — leurs lignes, leur expérience dans le
   niveau et leurs Éclats (`careerOf`) —, mais compte celles dont la clôture
   est en cours (`cloturesEnCours`).
+- **Reprendre une soirée aux profils** — un essai effacé, une soirée retirée
+  de l'historique — se fait en un seul lot (`retirerSoireeEntiere` : les
+  lignes, la ligne des paliers et les totaux ensemble), l'archive en
+  dernier : effacée d'abord, une panne au milieu laissait ce que la soirée
+  avait crédité sans plus aucun geste pour le reprendre.
 - **Les crédits lisent les journaux avant le premier `await`** et passent par
   `enFile` : une clôture cliquée pendant un rangement viderait sinon ce
   qu'ils lisent. Les profils s'y créditent huit à la fois (`enParallele`),

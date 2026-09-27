@@ -10,7 +10,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { connexionAnimateur, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
-import { ProfileStore } from '../src/auth/profiles'
+import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 import { JourStore } from '../src/core/jour'
 import { XP_PALIER } from '../../shared/hautsfaits'
 
@@ -349,6 +349,10 @@ test('un redémarrage ne perd rien : la partie reprend où elle était, et son e
     lu.close()
     assert.equal(ligne.xp, 7)
     assert.notEqual(JSON.parse(ligne.detail).v, 1, 'remise à la version du jour')
+    // Telle qu'`aRecalculer` la cherche : écrite en flottant, `{"v":6.0,…}`
+    // n'était jamais « du jour », et tout l'historique se relisait à chaque
+    // démarrage (`recalcul.test.ts`).
+    assert.ok(ligne.detail.startsWith(`{"v":${VERSION_BAREME},`), ligne.detail)
   }))
 
 test('deux ex æquo en tête gagnent tous les deux : le podium les paie, le lendemain les nomme', () =>

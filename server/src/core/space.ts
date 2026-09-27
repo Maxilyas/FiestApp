@@ -1526,6 +1526,11 @@ export class SpaceRuntime {
     // comme le récit se lisent dessus.
     await enParallele(credit.gains, PROFILS_EN_VOL, g => this.deps.profiles.byId(g.profileId).catch(() => null))
     await this.crediterExperience(soireeId, credit.gains)
+    // L'exclu rend ce que la soirée lui avait crédité : repris à son
+    // exclusion, sauf si la base hoquetait à cet instant — rien ne le
+    // rejouait, et il gardait pour toujours l'expérience d'une soirée dont il
+    // avait été retiré (invariant 10).
+    await this.deps.profiles.retirerAbsents(soireeId, this.spaceId, credit.gains.map(g => g.profileId))
     // Les récompenses se remplacent, comme l'expérience — et même sans aucun
     // profil ce soir : celles qu'un passage précédent avait rangées doivent
     // pouvoir repartir.
@@ -1747,8 +1752,10 @@ export class SpaceRuntime {
     const soiree = this.soiree
     await this.enFile(async () => {
       if (!soiree) return
-      await this.deps.archives.remove(this.spaceId, soiree.id)
+      // Les profils d'abord, en un seul lot, l'archive ensuite : une panne
+      // au milieu ne laisse rien à moitié, et le second clic reprend tout.
       await this.deps.profiles.retirerSoireeEntiere(soiree.id, this.spaceId)
+      await this.deps.archives.remove(this.spaceId, soiree.id)
     })
     this.dernieresFins = new Map()
     const jetons = this.party.all().map(p => p.token)

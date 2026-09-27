@@ -5,6 +5,7 @@ import { buildProgress } from './progress'
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
 import { divinsDeSoiree, laureatsDivins } from './divins'
 import { laureatsDeSaison } from './saisons'
+import { pourquoiInjoignable } from './distante'
 import { LIGNE_JOUR, LIGNE_PALIERS, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
 import { hautFaitDeSoiree } from '../../../shared/hautsfaits'
 import type { PartyArchive } from '../../../shared/archive'
@@ -117,6 +118,12 @@ export async function recalculerHistorique(deps: {
   const soirees = (await archives.toutes()).filter(({ spaceId, id }) => !enCours.has(cleDeSoiree(spaceId, id)))
   await enParallele(soirees, EN_PARALLELE, async ({ spaceId, id }) => {
     const trouvee = await archives.get(spaceId, id).catch(e => {
+      // Une base qui hoquette n'est pas une archive illisible. Prise pour
+      // telle, la soirée voyait ses lignes remises au barème du jour sans
+      // avoir été relues, et le démarrage suivant n'avait plus rien à
+      // relire : ses profils gardaient l'ancien barème pour toujours. Le
+      // démarrage échoue plutôt — l'hébergeur le relance, et tout se relit.
+      if (pourquoiInjoignable(e)) throw e
       console.error(`[recalcul] soirée « ${id} » illisible :`, e)
       return null
     })

@@ -1339,11 +1339,34 @@ export class ProfileStore {
    * touchés.
    */
   async retirerSoireeEntiere(soireeId: string, spaceId: string): Promise<string[]> {
+    // Tout se lit d'abord, sans rien changer : les profils touchés, et les
+    // paliers qu'ils garderont une fois la soirée partie.
     const [xp, badges, eclats] = await this.client.batch(
       [
         { sql: 'SELECT DISTINCT profile_id FROM profile_xp WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
         { sql: 'SELECT DISTINCT profile_id FROM profile_badges WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
         { sql: 'SELECT profile_id, avatar FROM profile_eclats WHERE soiree_id = ?', args: [soireeId] },
+      ],
+      'read',
+    )
+    const touches = [...new Set([...xp.rows, ...badges.rows, ...eclats.rows].map(r => String(r.profile_id)))]
+    const paliers = new Map<string, string[]>(touches.map(id => [id, []]))
+    if (touches.length > 0) {
+      const restants = await this.client.execute({
+        sql: `SELECT profile_id, badge FROM profile_badges
+              WHERE profile_id IN (${touches.map(() => '?').join(', ')}) AND badge GLOB 'hf:*:[123]'
+                AND NOT (soiree_id = ? AND space_id = ?)`,
+        args: [...touches, soireeId, spaceId],
+      })
+      for (const r of restants.rows) paliers.get(String(r.profile_id))?.push(String(r.badge))
+    }
+    // Puis un seul lot, qui passe entier ou pas du tout : les lignes de la
+    // soirée, et avec elles la ligne des paliers et le total de chaque
+    // profil. Effacée à moitié — les lignes parties, les totaux pas encore
+    // réécrits —, la soirée laissait des profils faux qu'un second essai ne
+    // retrouvait plus : il ne voyait plus rien à reprendre.
+    await this.client.batch(
+      [
         { sql: 'DELETE FROM profile_xp WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
         { sql: 'DELETE FROM profile_badges WHERE soiree_id = ? AND space_id = ?', args: [soireeId, spaceId] },
         // Les Éclats ne portent pas l'espace : l'identifiant d'une soirée
@@ -1351,16 +1374,46 @@ export class ProfileStore {
         // désigner. Celles d'avant l'empreinte de l'espace n'en ont pas : deux
         // d'entre elles nées à la même milliseconde se confondraient ici.
         { sql: 'DELETE FROM profile_eclats WHERE soiree_id = ?', args: [soireeId] },
+        ...touches.flatMap(id => [
+          this.ligneDesPaliers(id, paliers.get(id)!),
+          { sql: 'UPDATE profiles SET xp = (SELECT COALESCE(SUM(xp), 0) FROM profile_xp WHERE profile_id = ?) WHERE id = ?', args: [id, id] },
+        ]),
       ],
       'write',
     )
-    const touches = new Set([...xp.rows, ...badges.rows, ...eclats.rows].map(r => String(r.profile_id)))
     for (const r of eclats.rows) this.eclats.get(String(r.profile_id))?.delete(String(r.avatar))
     this.porteurs = null
-    for (const id of touches) await this.ecrireXpDesPaliers(id)
-    await this.recompterRecompenses([...touches])
-    for (const id of touches) await this.recalculerTotal(id)
-    return [...touches]
+    await this.recompterRecompenses(touches)
+    if (touches.length > 0) {
+      const totaux = await this.client.execute({
+        sql: `SELECT id, xp FROM profiles WHERE id IN (${touches.map(() => '?').join(', ')})`,
+        args: touches,
+      })
+      for (const r of totaux.rows) {
+        const rec = this.profiles.get(String(r.id))
+        if (rec) rec.xp = Number(r.xp ?? 0)
+      }
+    }
+    return touches
+  }
+
+  /**
+   * Ceux qui ne sont plus dans la soirée rendent ce qu'elle leur avait
+   * crédité : l'invité exclu (invariant 10). Son exclusion le reprend sur le
+   * moment (`rendreCredit`), mais un hoquet de la base à cet instant, et
+   * personne ne le rejouait — les crédits suivants et la clôture ne
+   * réécrivent que les profils encore là. La clôture reprend donc, pour la
+   * soirée entière, les lignes de ceux qu'elle ne crédite plus. Rend les
+   * profils touchés.
+   */
+  async retirerAbsents(soireeId: string, spaceId: string, presents: readonly string[]): Promise<string[]> {
+    const res = await this.client.execute({
+      sql: 'SELECT DISTINCT profile_id FROM profile_xp WHERE soiree_id = ? AND space_id = ?',
+      args: [soireeId, spaceId],
+    })
+    const absents = res.rows.map(r => String(r.profile_id)).filter(id => !presents.includes(id))
+    for (const id of absents) await this.retirerSoiree(id, soireeId)
+    return absents
   }
 
   /** Cette soirée a-t-elle déjà été créditée à ce profil ? */
@@ -1577,21 +1630,22 @@ export class ProfileStore {
       sql: `SELECT badge FROM profile_badges WHERE profile_id = ? AND badge GLOB 'hf:*:[123]'`,
       args: [profileId],
     })
-    const cles = [...new Set(res.rows.map(r => String(r.badge)))]
+    await this.client.execute(this.ligneDesPaliers(profileId, res.rows.map(r => String(r.badge))))
+  }
+
+  /** La ligne d'expérience des paliers d'un profil, telle que ces paliers la font — effacée s'il n'en a plus. */
+  private ligneDesPaliers(profileId: string, badges: readonly string[]): InStatement {
+    const cles = [...new Set(badges)]
     const xp = cles.reduce((n, cle) => n + (palierDe(cle) ? XP_PALIER[palierDe(cle)!.palier - 1] : 0), 0)
     if (xp === 0) {
-      await this.client.execute({
-        sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?',
-        args: [profileId, LIGNE_PALIERS],
-      })
-      return
+      return { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, LIGNE_PALIERS] }
     }
-    await this.client.execute({
+    return {
       sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
             VALUES (?, ?, '', ?, ?, ?)
             ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
       args: [profileId, LIGNE_PALIERS, xp, JSON.stringify({ v: VERSION_BAREME, paliers: cles }), Date.now()],
-    })
+    }
   }
 
   /**
@@ -1810,9 +1864,12 @@ export class ProfileStore {
     }
     if (soireeId === LIGNE_JOUR) {
       // Le quiz du jour ne dépend pas du barème des soirées : sa ligne garde
-      // son expérience, et ne prend que la version du jour.
+      // son expérience, et ne prend que la version du jour. En entier : le
+      // nombre lié part en flottant, et `{"v":7.0,…}` n'était jamais « du
+      // jour » pour `aRecalculer` — tout l'historique se relisait à chaque
+      // démarrage.
       await this.client.execute({
-        sql: `UPDATE profile_xp SET detail = json_set(detail, '$.v', ?) WHERE profile_id = ? AND soiree_id = ?`,
+        sql: `UPDATE profile_xp SET detail = json_set(detail, '$.v', CAST(? AS INTEGER)) WHERE profile_id = ? AND soiree_id = ?`,
         args: [VERSION_BAREME, profileId, LIGNE_JOUR],
       })
       return
