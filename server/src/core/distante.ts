@@ -49,6 +49,28 @@ async function colonnesDe(client: Client, table: string): Promise<string[]> {
 }
 
 /**
+ * Le schéma de chaque table, lu une fois par client : un magasin ajoute
+ * jusqu'à six colonnes à la même table, et chaque ajout relisait son schéma
+ * — vingt-quatre allers-retours en série à chaque réveil, près d'une seconde
+ * à 40 ms. Ce que ce processus ajoute s'y inscrit ; ce qu'un autre ajouterait
+ * pendant ce temps, l'ALTER refusé le fait relire (plus bas).
+ */
+const schemas = new WeakMap<Client, Map<string, Promise<string[]>>>()
+
+function schemaDe(client: Client, table: string): Promise<string[]> {
+  let tables = schemas.get(client)
+  if (!tables) schemas.set(client, (tables = new Map()))
+  let lu = tables.get(table)
+  if (!lu) {
+    lu = colonnesDe(client, table)
+    tables.set(table, lu)
+    // Une lecture qui échoue ne reste pas : la suivante relit la base.
+    lu.catch(() => tables!.delete(table))
+  }
+  return lu
+}
+
+/**
  * Ajoute une colonne à une table de la base permanente — si elle lui manque.
  * Rend vrai si elle a été ajoutée.
  *
@@ -67,7 +89,7 @@ async function colonnesDe(client: Client, table: string): Promise<string[]> {
  * base, ou un ALTER abouti dont la réponse s'est perdue en route.
  */
 export async function ajouterColonne(client: Client, table: string, colonne: string, type: string): Promise<boolean> {
-  const avant = await colonnesDe(client, table)
+  const avant = await schemaDe(client, table)
   if (avant.includes(colonne)) return false
   // Une table qu'on vient de créer et dont le schéma revient vide : la base
   // dit n'importe quoi, et migrer sur cette foi serait tout miser sur elle.
@@ -77,8 +99,10 @@ export async function ajouterColonne(client: Client, table: string, colonne: str
   } catch (e) {
     const apres = await colonnesDe(client, table).catch((): string[] => [])
     if (!apres.includes(colonne)) throw e
+    avant.push(colonne)
     return false
   }
+  avant.push(colonne)
   return true
 }
 

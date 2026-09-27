@@ -179,6 +179,17 @@ const SOIREE_ACTIVE_MS = 12 * 3600_000
 /** Les pages publiques d'un espace, telles que le client les route. */
 const PUBLIC_PAGES = ['souvenir', 'stats', 'bilan', 'bilan/fiches']
 
+/**
+ * Des démarrages qui ne dépendent pas l'un de l'autre, menés de front. Tous
+ * finissent avant qu'un échec remonte : rien n'écrit plus dans la base quand
+ * le démarrage a échoué, et c'est la première panne qui se dit.
+ */
+async function deFront(...travaux: Promise<unknown>[]): Promise<void> {
+  const issues = await Promise.allSettled(travaux)
+  const panne = issues.find((i): i is PromiseRejectedResult => i.status === 'rejected')
+  if (panne) throw panne.reason
+}
+
 export async function createQuizServer(opts: QuizServerOptions) {
   const debutDuDemarrage = Date.now()
   const maxPlayersCeiling = opts.maxPlayers ?? MAX_PLAYERS_CEILING
@@ -263,40 +274,39 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // distante, et rechargées ici si la base locale est repartie vide. La base
   // locale fait foi : c'est d'elle qu'une resynchronisation relit un espace.
   const backup = new PartyBackup(opts.quizDbUrl, opts.quizDbToken, { ...opts.miroir, base: db })
-  await backup.init(defaultSpace)
-  const restored = await backup.restoreInto(db)
-  if (restored.players > 0 || restored.teams > 0) {
-    console.log(
-      `[soirée] ${restored.players} invités, ${restored.teams} équipes, ${restored.scores} gains, ${restored.answers} réponses` +
-        (restored.sessions > 0 ? ` et ${restored.sessions > 1 ? `${restored.sessions} parties` : 'la partie'} en cours` : '') +
-        (restored.spaces > 1 ? ` (${restored.spaces} espaces)` : '') +
-        ' rechargés après redémarrage',
-    )
+  const restaurer = async () => {
+    await backup.init(defaultSpace)
+    const restored = await backup.restoreInto(db)
+    if (restored.players > 0 || restored.teams > 0) {
+      console.log(
+        `[soirée] ${restored.players} invités, ${restored.teams} équipes, ${restored.scores} gains, ${restored.answers} réponses` +
+          (restored.sessions > 0 ? ` et ${restored.sessions > 1 ? `${restored.sessions} parties` : 'la partie'} en cours` : '') +
+          (restored.spaces > 1 ? ` (${restored.spaces} espaces)` : '') +
+          ' rechargés après redémarrage',
+      )
+    }
+    const stamped = stampLegacySpace(db, defaultSpace)
+    if (stamped > 0) console.log(`[espaces] ${stamped} lignes d'avant les comptes rattachées à « ${opts.admin.slug} »`)
   }
-  const stamped = stampLegacySpace(db, defaultSpace)
-  if (stamped > 0) console.log(`[espaces] ${stamped} lignes d'avant les comptes rattachées à « ${opts.admin.slug} »`)
 
   // Les profils des joueurs récurrents. Ils vivent dans la base permanente,
   // avec les comptes : un profil traverse les soirées et les animateurs, et la
   // base locale, elle, est vidée à chaque « Nouvelle soirée ».
   const profiles = new ProfileStore(opts.quizDbUrl, opts.quizDbToken)
-  await profiles.init()
-
   // Le quiz du jour, pour les profils : sa réserve, ses parties, ses nuits.
   const maintenantDuJour = opts.horlogeDuJour ?? Date.now
   const jour = new JourStore(opts.quizDbUrl, opts.quizDbToken, { profiles, maintenant: maintenantDuJour })
-  await jour.init()
-  // La carrière d'un profil compte son quiz du jour, pour ses paliers : le
-  // quiz du jour dépend des profils, et se branche donc sur eux après coup.
-  profiles.statsDuJour = id => jour.statsDuJour(id)
-  // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion.
-  profiles.laurierDe = id => jour.laureats().has(id)
-
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
   const store = new QuizStore(opts.quizDbUrl, opts.quizDbToken)
-  await store.init(defaultSpace)
-  const imported = await seedLibrary(store, defaultSpace)
-  if (imported > 0) console.log(`[quiz] ${imported} quiz importés depuis server/content/quiz/`)
+  // Les programmes de soirée : celui de ce soir, par espace, est ce que la
+  // console propose au lancement.
+  const programmes = new ProgrammeStore(opts.quizDbUrl, opts.quizDbToken)
+  // Les partages : les codes, et le catalogue du serveur.
+  const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
+  // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
+  // qui doit survivre à tout.
+  const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
+
   /**
    * Deux écritures du même espace lancent deux relectures, qui reviennent
    * de Turso à leur rythme : la plus ancienne, arrivée la dernière, remettait
@@ -319,30 +329,45 @@ export async function createQuizServer(opts: QuizServerOptions) {
     if (spaceId) return relireLaBibliotheque(spaceId, () => store.all(spaceId), quizzes => setQuizLibrary(spaceId, quizzes))
     for (const [id, quizzes] of await store.allBySpace()) setQuizLibrary(id, quizzes)
   }
-  await refreshLibrary()
-
-  // Les programmes de soirée : celui de ce soir, par espace, est ce que la
-  // console propose au lancement.
-  const programmes = new ProgrammeStore(opts.quizDbUrl, opts.quizDbToken)
-  await programmes.init()
   const relireLeProgramme = derniereRelecture()
   const refreshProgramme = async (spaceId?: string) => {
     if (spaceId) return relireLeProgramme(spaceId, () => programmes.actif(spaceId), programme => setProgramme(spaceId, programme))
     for (const [id, programme] of await programmes.actifs()) setProgramme(id, programme)
   }
-  await refreshProgramme()
 
-  // Les partages : les codes, et le catalogue du serveur.
-  const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
-  await partages.init()
-
-  // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
-  // qui doit survivre à tout.
-  const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
-  await archives.init(defaultSpace)
-  // Le tirage d'un quiz choisit d'abord les questions jamais posées : il lit
-  // ce que l'historique en sait, relu après chaque rangement.
-  for (const [spaceId, memoire] of await archives.memoiresDeTous()) setQuestionsPosees(spaceId, dernieresFois(memoire))
+  // Le miroir et ces magasins ne dépendent que des comptes, pas l'un de
+  // l'autre : ils s'ouvrent de front. L'un après l'autre, chaque réveil de
+  // l'hébergeur attendait soixante allers-retours en série avant d'ouvrir
+  // le port — trois secondes à 50 ms, pendant lesquelles le premier invité
+  // qui scannait le QR regardait une page blanche.
+  let imported = 0
+  await deFront(
+    restaurer(),
+    profiles.init(),
+    jour.init(),
+    (async () => {
+      await store.init(defaultSpace)
+      imported = await seedLibrary(store, defaultSpace)
+      await refreshLibrary()
+    })(),
+    (async () => {
+      await programmes.init()
+      await refreshProgramme()
+    })(),
+    partages.init(),
+    (async () => {
+      await archives.init(defaultSpace)
+      // Le tirage d'un quiz choisit d'abord les questions jamais posées : il
+      // lit ce que l'historique en sait, relu après chaque rangement.
+      for (const [spaceId, memoire] of await archives.memoiresDeTous()) setQuestionsPosees(spaceId, dernieresFois(memoire))
+    })(),
+  )
+  if (imported > 0) console.log(`[quiz] ${imported} quiz importés depuis server/content/quiz/`)
+  // La carrière d'un profil compte son quiz du jour, pour ses paliers : le
+  // quiz du jour dépend des profils, et se branche donc sur eux après coup.
+  profiles.statsDuJour = id => jour.statsDuJour(id)
+  // Le laurier du vainqueur d'hier, lu en mémoire à chaque diffusion.
+  profiles.laurierDe = id => jour.laureats().has(id)
   const relireLaMemoire = derniereRelecture()
   archives.surEcriture(spaceId => {
     relireLaMemoire(spaceId, () => archives.memoire(spaceId), memoire => setQuestionsPosees(spaceId, dernieresFois(memoire))).catch(e =>
