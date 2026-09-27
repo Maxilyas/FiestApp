@@ -364,7 +364,12 @@ server/test/        un fichier par thème, un serveur jetable chacun
   d'un autre en pleine question doit retirer cette promesse.
 - **Côté client** : `--accent-text` pour ce qui s'écrit, `--accent-text-hover`
   pour son survol, `--accent` pour les aplats (le contraste d'Ivoire en
-  dépend) ; le focus n'a qu'un anneau, `--focus`, posé une fois pour tout
+  dépend) ; les trois métaux d'un palier écrivent en `--bronze-text`,
+  `--argent-text` et `--or-text` ; aucun texte ne descend sous `--t-label`
+  (11 px, celui de `.label`, en `rem` pour suivre le texte agrandi), les
+  petites boîtes prennent `--radius-xs`, et l'or du décor des fonds se lit
+  dans `--fond-or`, posé sur `.carte-fond` (`design.test.ts` y veille) ; le
+  focus n'a qu'un anneau, `--focus`, posé une fois pour tout
   élément (`:where(…):focus-visible`) — un composant n'en règle que
   l'`outline-offset` ; tout accès au stockage du
   navigateur sous try/catch — des cookies bloqués donnaient une page noire.
