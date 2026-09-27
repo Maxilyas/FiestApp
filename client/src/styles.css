@@ -2142,9 +2142,16 @@ h3 > .icon {
 
 .bibliotheque-tete { align-items: center; }
 .bibliotheque-tete h1 { flex: 1; margin: 0; white-space: nowrap; }
-.bibliotheque-nav { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.88rem; }
+/* Les pages de l'animateur, en une ligne fine, la même partout (lot 12) :
+   en tête de « Mes quiz », au-dessus de « Mon compte » et des comptes. */
+.nav-animateur { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.88rem; }
+.recap .nav-animateur { justify-content: center; margin-bottom: 4px; }
 .lien-discret { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; min-height: 32px; }
 .lien-discret:hover { color: var(--accent-text-hover); }
+.lien-discret.ici { color: var(--accent-text); }
+.nav-ancre { text-align: center; font-size: 0.88rem; margin: 0 0 12px; }
+/* Une page qui ne peut rien montrer dit pourquoi, et où aller. */
+.impasse { display: grid; gap: 14px; justify-items: center; text-align: center; }
 .bibliotheque-outils { display: grid; gap: 10px; min-width: 0; }
 .champ-recherche { position: relative; display: flex; align-items: center; }
 .champ-recherche > .icon { position: absolute; left: 12px; color: var(--muted); pointer-events: none; }
@@ -2401,7 +2408,7 @@ h3 > .icon {
 .menu-nouveau { min-width: 300px; }
 .bouton-plus { width: 40px; padding: 0; }
 @media (max-width: 600px) {
-  .bibliotheque-nav { gap: 2px 14px; }
+  .nav-animateur { gap: 2px 14px; }
   .bibliotheque-tete h1 { font-size: 1.8rem; }
   .menu-nouveau { min-width: 260px; }
   .quiz-ligne-ouvrir { padding: 10px 12px; }
@@ -2749,6 +2756,7 @@ h3 > .icon {
 }
 .space-nav-account:hover { color: var(--ink); }
 .space-nav-account .icon { width: 16px; height: 16px; }
+.space-nav-hote { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 18px; }
 .join .space-nav { margin-top: 0; }
 /* L'ancienne adresse des chiffres atterrit sur le tableau, sans le coller au bord. */
 #stats { scroll-margin-top: 12px; }
@@ -5912,6 +5920,17 @@ h3 > .icon {
 .ce-soir-autres .btn { width: 100%; min-width: 0; white-space: normal; line-height: 1.15; padding: 6px 8px; gap: 6px; }
 .ce-soir-autres .btn .icon { width: 15px; height: 15px; flex: none; }
 .ce-soir .lendemain { justify-content: flex-start; text-align: left; }
+/* L'accueil de qui anime et joue : « J'anime », le titre de sa soirée à côté,
+   puis « Je joue » (lot 12). Trois raccourcis sur une rangée : ses quiz, son
+   compte, l'historique. */
+.accueil-espace { display: block; margin-top: 2px; font-family: var(--sans); font-size: 0.85rem; font-weight: 400; color: var(--muted); }
+.accueil-raccourcis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Au téléphone, l'icône passe au-dessus du nom : côte à côte, « Mes quiz »
+   et « Mon compte » se coupaient sur deux lignes en 360. */
+@media (max-width: 480px) {
+  .accueil-raccourcis .btn { flex-direction: column; gap: 3px; padding: 8px 4px; white-space: nowrap; }
+  .accueil-raccourcis .btn .icon { width: 18px; height: 18px; }
+}
 .onglets-profil .onglet { min-height: 44px; }
 .onglet .icon { width: 16px; height: 16px; flex: none; }
 /* Sur un petit téléphone, ou un 360 au texte à 130 %, les trois libellés

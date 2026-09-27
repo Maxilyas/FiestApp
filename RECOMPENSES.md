@@ -675,7 +675,8 @@ ne le lui fait remarquer.
 Lot 5. De quoi jouer seul entre deux soirées, pour apprendre et avancer :
 dix questions par jour, **les mêmes pour tous les profils**, tirées à minuit
 (heure de Paris) et figées. Réservé aux profils ; un anonyme n'y voit rien
-qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
+qui lui manque. `/jour`, et une carte sur l'accueil, sous « Ce soir » (ou
+« Je joue », pour qui anime aussi).
 
 - **La partie.** Un seul essai, qu'on reprend si le téléphone sonne — sur un
   autre téléphone aussi : tout vit dans la base permanente

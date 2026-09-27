@@ -22,6 +22,7 @@ import { route, spacePath } from '../routes'
 import { derniereSoireeGardee } from '../state'
 import { Lendemain } from '../components/Lendemain'
 import { CarteDuJour, MesJours, pointsDesJours } from '../components/Jour'
+import { JAnime, JeJoue } from '../components/AccueilDesRoles'
 import type { PublicSpace } from '../../../shared/space'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
@@ -145,26 +146,6 @@ export function ProfilApp() {
       .finally(() => setChargement(false))
   }, [])
 
-  /**
-   * Ouvrir sa console depuis son profil.
-   *
-   * La session d'animateur dure trente jours, celle du joueur un an : celui
-   * qui revient six mois plus tard est encore reconnu ici et ne l'est plus
-   * là-bas. On la rouvre avant de partir, sinon `/host` le renverrait à une
-   * page de connexion qu'il vient justement de passer.
-   */
-  const animer = async () => {
-    setBusy(true)
-    setErreur('')
-    try {
-      await api.joueur.console()
-      window.location.assign('/host')
-    } catch (e) {
-      setBusy(false)
-      setErreur((e as Error).message)
-    }
-  }
-
   const enregistrer = async (patch: ChoixDuProfil) => {
     // Un second toucher pendant l'enregistrement est ignoré ici, plutôt que
     // de désactiver chaque case : désactivée, la case touchée perdait le
@@ -214,7 +195,15 @@ export function ProfilApp() {
     // ne doit jamais le laisser croire.
     return (
       <ProfilForm
-        marque={<p className="accueil-marque">FiestApp · le quiz de soirée</p>}
+        marque={
+          <>
+            <p className="accueil-marque">FiestApp · le quiz de soirée</p>
+            {/* Une console ouverte ici sans profil : c'est l'accueil d'un
+                animateur, et ce qu'il y cherche vient d'abord. L'invité, lui,
+                n'en a pas — rien ne bouge au-dessus de « Me connecter ». */}
+            {console_ && <JAnime espace={console_} rouvrir={false} />}
+          </>
+        }
         aideErreur={
           // La même phrase pour tout refus : dire « c'est un identifiant
           // d'animateur » apprendrait à n'importe qui quels comptes existent.
@@ -223,7 +212,7 @@ export function ProfilApp() {
             <p className="muted small">Tu animes une soirée ? Ta porte est tout en bas : « J’anime une soirée ».</p>
           )
         }
-        pied={<PorteAnimateur console_={console_} />}
+        pied={!console_ && <PorteAnimateur />}
         creer={!!creation}
         prefill={creation ?? undefined}
         onEnvoi={() => void panneaux.charger().catch(() => {})}
@@ -247,6 +236,7 @@ export function ProfilApp() {
   }
 
   const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
+  const animateur = espace ?? console_
 
   return (
     // `player-shell` : la même mise en page que le téléphone d'un invité —
@@ -295,14 +285,13 @@ export function ProfilApp() {
         </div>
       </header>
 
-      {/* D'abord ce qu'on est venu faire : animer, ou rejoindre. Le reste
-          vient après — on le regarde, on n'en part pas. */}
-      <CeSoir
+      {/* D'abord ce qu'on est venu faire : animer, puis jouer. Le reste
+          vient après — on le regarde, on n'en part pas. Le profil rattaché
+          à un espace l'anime ; sinon, la console ouverte ici. */}
+      {animateur && <JAnime espace={animateur} rouvrir={!!espace} />}
+      <JeJoue
         enCours={enCours}
-        espace={espace}
-        console_={console_}
-        busy={busy}
-        onAnimer={animer}
+        chezMoi={animateur?.slug ?? null}
         onRejoindre={() => setRejoindre(true)}
         lendemain={lendemain}
       />
@@ -518,84 +507,13 @@ function lireOnglet(): Onglet {
 }
 
 /**
- * « Ce soir » : une seule action principale, selon sa soirée — revenir là
- * où l'on joue, sinon animer la sienne, sinon rejoindre —, et les autres en
- * petit, côte à côte. Trois gros boutons l'un sous l'autre prenaient la
- * moitié de l'écran et poussaient le quiz du jour sous le pli.
+ * La porte des animateurs, sur l'accueil d'un visiteur sans profil ni
+ * console ouverte ici : un lien discret vers la connexion au compte.
+ * Discret, parce que l'accueil est d'abord celui des invités — « Rejoindre
+ * une soirée » ne doit jamais descendre sous le bord. Une console ouverte
+ * ici met sa carte en tête (`JAnime`).
  */
-function CeSoir({
-  enCours,
-  espace,
-  console_,
-  busy,
-  onAnimer,
-  onRejoindre,
-  lendemain,
-}: {
-  enCours: { nom: string; slug: string }[]
-  espace: PublicSpace | null
-  console_: PublicSpace | null
-  busy: boolean
-  onAnimer: () => void
-  onRejoindre: () => void
-  lendemain: ReactNode
-}) {
-  const actions: { cle: string; nom: string; icone: IconName; href?: string; onClick?: () => void }[] = [
-    // La soirée où l'on joue déjà d'abord : « Rejoindre une soirée »
-    // redemandait son nom à qui y était inscrit, et faisait douter d'avoir
-    // quitté la partie (Sofia, le 23 et le 24).
-    ...enCours.map(e => ({ cle: `revenir-${e.slug}`, nom: `Revenir chez ${e.nom}`, icone: 'play' as const, href: spacePath(e.slug) })),
-    ...(espace ? [{ cle: 'animer', nom: 'Animer ma soirée', icone: 'monitor' as const, onClick: onAnimer }] : []),
-    ...(!espace && console_ ? [{ cle: 'console', nom: `Animer « ${console_.title} »`, icone: 'monitor' as const, href: '/host' }] : []),
-    { cle: 'rejoindre', nom: 'Rejoindre une soirée', icone: 'users', onClick: onRejoindre },
-  ]
-  const [principale, ...autres] = actions
-  const bouton = (a: (typeof actions)[number], classe: string) =>
-    a.href ? (
-      <a key={a.cle} className={classe} href={a.href}>
-        <Icon name={a.icone} />
-        {a.nom}
-      </a>
-    ) : (
-      <button key={a.cle} type="button" className={classe} disabled={busy} onClick={a.onClick}>
-        <Icon name={a.icone} />
-        {a.nom}
-      </button>
-    )
-  return (
-    <div className="card ce-soir">
-      <h3>
-        <Icon name="zap" />
-        Ce soir
-      </h3>
-      {bouton(principale, 'btn btn-primary btn-block')}
-      {autres.length > 0 && <div className="ce-soir-autres">{autres.map(a => bouton(a, 'btn btn-small'))}</div>}
-      {lendemain}
-      {!espace && !console_ && (
-        <p className="join-foot">
-          <a className="link-inline" href="/connexion?next=/host">
-            J’anime une soirée
-          </a>
-        </p>
-      )}
-    </div>
-  )
-}
-
-/**
- * La porte des animateurs, sur l'accueil d'un visiteur sans profil : sa
- * console s'il en a une ouverte ici, sinon un lien discret vers la connexion
- * au compte. Discret, parce que l'accueil est d'abord celui des invités —
- * « Rejoindre une soirée » ne doit jamais descendre sous le bord.
- */
-function PorteAnimateur({ console_ }: { console_: PublicSpace | null }) {
-  if (console_) {
-    return (
-      <a className="btn btn-block" href="/host">
-        Animer « {console_.title} »
-      </a>
-    )
-  }
+function PorteAnimateur() {
   return (
     <p className="join-foot">
       <a className="link-inline" href="/connexion?next=/host">

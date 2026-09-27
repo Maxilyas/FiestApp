@@ -20,7 +20,7 @@ Chez soi, sur une base neuve, le compte administrateur est `antoine` / `demo` et
 
 | Page | Adresse | Pour qui |
 |---|---|---|
-| Accueil | http://localhost:5173/ | tout le monde : on s'y connecte avec son profil, on anime sa soirée ou on en rejoint une — et « Rejoindre une soirée » y reste à un geste, sans compte |
+| Accueil | http://localhost:5173/ | tout le monde : on s'y connecte avec son profil, on anime sa soirée ou on en rejoint une — et « Rejoindre une soirée » y reste à un geste, sans compte. Qui anime y trouve « J'anime » (l'écran commun, ses quiz, son compte, l'historique) au-dessus de « Je joue » ; « Mes quiz », « Mon compte » et l'écran commun y ramènent |
 | Jeu | http://localhost:5173/demo | les invités (sur leur téléphone : `http://<IP-du-PC>:5173/demo`). Le QR de l'écran commun, lui, vise le port du serveur, qui ne sert que le client construit : pour jouer avec de vrais téléphones, voir « Tester avec de vrais téléphones » |
 | Écran commun | http://localhost:5173/host | la TV / le vidéoprojecteur, une fois l'animateur connecté — ou branchée depuis son téléphone, par le code qu'elle affiche ; tenue au téléphone, la même page devient la télécommande |
 | Mes quiz | http://localhost:5173/edit | l'animateur, pour écrire ses quiz |
@@ -36,7 +36,8 @@ npm run verify
 ```
 
 `verify` enchaîne les quatre : `check` (typecheck serveur + client), `test`
-(les tests ciblés), `build` (le client) et `smoke`. C'est la commande à lancer
+(les tests ciblés), `build` (le client, et le serveur en un seul fichier) et
+`smoke`. C'est la commande à lancer
 avant de committer, et c'est exactement ce que fait l'intégration continue sur
 chaque proposition de modification (`.github/workflows/ci.yml`).
 
@@ -88,7 +89,11 @@ Un profil (`/profil`) garde ce qu'on a fait **d'une soirée à l'autre et d'un a
 joueur à son espace depuis « Mon compte » — une fois, en prouvant les deux
 identités — et n'a plus qu'un mot de passe à retenir : celui de son profil
 ouvre la console depuis l'accueil, et son niveau le suit quand il joue à sa
-propre soirée comme chez les autres. Les deux tables restent séparées, et
+propre soirée comme chez les autres. L'accueil lui met alors ses deux rôles
+l'un sous l'autre, toujours dans le même ordre : « J'anime » — l'écran
+commun, ses quiz, son compte, l'historique — puis « Je joue » — la soirée où
+il est inscrit, rejoindre celle d'un autre, jouer chez lui ; et « Mes
+quiz », « Mon compte » et les comptes ont la même barre, qui y ramène. Les deux tables restent séparées, et
 c'est voulu : `accounts.id` **est** le `space_id` qui cloisonne toute
 l'application, il ne peut pas bouger. Un compte est donc un *espace* qu'une
 personne tient, pas une seconde identité. Se déconnecter de son profil referme

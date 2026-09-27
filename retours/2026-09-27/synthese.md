@@ -760,6 +760,21 @@ Les tensions ci-dessus, et ce qui avait été reporté en route, présentées un
 Et une remarque, pour la suite : le lien entre les pages, de joueur à
 animateur — on s'y perd quand on a les deux rôles (lot 12).
 
+**Lot 12, fait** — après une carte de toutes les adresses et de leurs
+sorties, rejouée dans Chromium : l'accueil de qui anime met « J'anime »
+(l'écran commun, ses quiz, son compte, l'historique — la session rouverte si
+elle a expiré) au-dessus de « Je joue » (revenir, rejoindre, jouer chez soi),
+toujours dans cet ordre, et l'animateur sans profil y retrouve sa carte ;
+« Mes quiz », « Mon compte » et les comptes ont la même barre, qui ramène à
+l'accueil (`NavAnimateur`) ; l'écran commun y mène aussi, dans son onglet,
+et l'accueil qu'il ouvre y ramène ; l'historique le donne à l'animateur ; les
+trois pages sans sortie (« Mon compte » en erreur, les comptes pour qui n'est
+pas administrateur, un lien d'activation périmé ou incomplet) proposent
+l'accueil. Épreuve : `navigation.test.ts`. Reste ouvert, s'il le faut : les
+mots (« soirée » pour l'espace et pour l'événement, six noms pour la
+console), une adresse courte pour la télé, et la page de jeu qui ne ramène
+pas à la console.
+
 ## Écarté et incertain
 
 - **Réfuté** : « une panne du serveur à l'entrée se lit “cette adresse ne

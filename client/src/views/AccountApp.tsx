@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { chargerDessinsAuPlus, sortesDe } from '../components/medaillons'
 import { api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
-import { LienConsole } from '../components/LienConsole'
+import { NavAnimateur } from '../components/NavAnimateur'
 import { ChampNombre } from '../components/ChampNombre'
 import { showToast, useAppState } from '../state'
 import type { SpaceSettings } from '../../../shared/space'
@@ -45,9 +45,16 @@ export function AccountApp() {
   }, [])
 
   if (error) {
+    // Une phrase seule était une impasse : l'accueil, au moins (lot 12).
     return (
       <main className="center-page">
-        <p className="error">{error}</p>
+        <div className="impasse">
+          <p className="error">{error}</p>
+          <a className="btn btn-ghost" href="/">
+            <Icon name="home" />
+            L’accueil
+          </a>
+        </div>
       </main>
     )
   }
@@ -73,23 +80,7 @@ export function AccountApp() {
         <hr className="hairline" />
       </header>
 
-      <nav className="row bilan-tabs">
-        <LienConsole className="btn" />
-        <a className="btn" href="/edit">
-          <Icon name="edit" />
-          Mes quiz
-        </a>
-        <a className="btn" href={`/${me.space.slug}/soirees`}>
-          <Icon name="book" />
-          Historique
-        </a>
-        {me.account.role === 'admin' && (
-          <a className="btn btn-accent" href="/admin">
-            <Icon name="users" />
-            Les comptes
-          </a>
-        )}
-      </nav>
+      <NavAnimateur ici="compte" slug={me.space.slug} admin={me.account.role === 'admin'} />
       <main className="page-corps">
       {debut && (
         <section className="card premiers-pas">

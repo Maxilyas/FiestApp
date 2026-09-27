@@ -85,7 +85,7 @@ import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { ecrireCode, lireCode, type EntreeDuCatalogue } from '../../../shared/partage'
 import { formatDay } from '../../../shared/archive'
 import { Icon } from '../components/Icon'
-import { LienConsole } from '../components/LienConsole'
+import { NavAnimateur } from '../components/NavAnimateur'
 import { PanneauProgramme, useProgrammes } from '../components/Programme'
 import { ChampNombre } from '../components/ChampNombre'
 import { Shape } from '../components/Shape'
@@ -607,25 +607,7 @@ export function EditorApp() {
       <header className="editor-header bibliotheque-tete">
         {/* Les pages de l'animateur, en une ligne fine : sept boutons de même
             poids prenaient six lignes au téléphone, le premier quiz à 364 px. */}
-        <nav className="bibliotheque-nav" aria-label="Pages de l’animateur">
-          <LienConsole className="lien-discret" />
-          {slug && (
-            <a className="lien-discret" href={`/${slug}/soirees`}>
-              <Icon name="book" />
-              Historique
-            </a>
-          )}
-          <a className="lien-discret" href="/compte">
-            <Icon name="users" />
-            Mon compte
-          </a>
-          {isAdmin && (
-            <a className="lien-discret" href="/admin">
-              <Icon name="sparkles" />
-              Les comptes
-            </a>
-          )}
-        </nav>
+        <NavAnimateur ici="quiz" slug={slug} admin={isAdmin} />
         <h1>
           <Icon name="edit" />
           Mes quiz

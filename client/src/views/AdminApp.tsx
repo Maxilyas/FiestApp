@@ -2,7 +2,7 @@ import { deNom } from '../format'
 import { useEffect, useState, type FormEvent } from 'react'
 import { activationUrl, api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
-import { LienConsole } from '../components/LienConsole'
+import { NavAnimateur } from '../components/NavAnimateur'
 import { AdminDuJour } from '../components/AdminDuJour'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { showToast, useAppState } from '../state'
@@ -71,9 +71,25 @@ export function AdminApp() {
   }
 
   if (error) {
+    // « Réservée à l'administrateur », et rien d'autre : l'animateur venu
+    // d'un vieux lien restait devant une phrase (lot 12).
     return (
       <main className="center-page">
-        <p className="error">{error}</p>
+        <div className="impasse">
+          <p className="error">{error}</p>
+          <div className="row">
+            <a className="btn btn-ghost" href="/">
+              <Icon name="home" />
+              L’accueil
+            </a>
+            {me && (
+              <a className="btn btn-ghost" href="/compte">
+                <Icon name="users" />
+                Mon compte
+              </a>
+            )}
+          </div>
+        </div>
       </main>
     )
   }
@@ -94,17 +110,14 @@ export function AdminApp() {
         <hr className="hairline" />
       </header>
 
-      <nav className="row bilan-tabs">
-        <a className="btn" href="/compte">
-          <Icon name="users" />
-          Mon compte
-        </a>
-        <LienConsole className="btn" />
-        <a className="btn" href="#quiz-du-jour">
-          <Icon name="star" />
+      <NavAnimateur ici="admin" slug={me.space.slug} admin />
+      {/* Plus bas dans la même page : un lien vers la gestion de la réserve,
+          pas vers le jeu. */}
+      <p className="nav-ancre">
+        <a className="link-inline" href="#quiz-du-jour">
           Le quiz du jour
         </a>
-      </nav>
+      </p>
       <main className="page-corps">
         <CreateForm onCreated={(account, token) => load().then(() => showActivation(account, token))} />
 

@@ -32,6 +32,7 @@ export type IconName =
   | 'eye-off'
   | 'flag'
   | 'hash'
+  | 'home'
   | 'keyboard'
   | 'list'
   | 'lock'
@@ -269,6 +270,8 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
     ),
   },
   maximize: { paths: <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" /> },
+  // L'accueil, sur les pages de l'animateur.
+  home: { paths: <path d="M3 10.5 12 3l9 7.5M5.5 8.5V21h13V8.5M10 21v-6h4v6" /> },
   monitor: {
     paths: (
       <>

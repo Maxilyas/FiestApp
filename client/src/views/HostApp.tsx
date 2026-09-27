@@ -1519,6 +1519,16 @@ export function HostApp() {
                     <Icon name="book" />
                     Historique
                   </a>
+                  {/* L'accueil, où l'on anime et où l'on joue (lot 12) : dans
+                      son onglet, comme le reste — l'écran commun ne quitte pas
+                      la télé, et l'accueil qu'il ouvre y ramène. Au pire cas
+                      (équipes et classement), « Clore la soirée » passait déjà
+                      sur une seconde ligne ; « Accueil » tient sur la première,
+                      en 1366 × 768 comme en 1920 × 1080 (`rendu-ecran.ts`). */}
+                  <a className="btn btn-ghost" href="/" target={ONGLETS.accueil}>
+                    <Icon name="home" />
+                    Accueil
+                  </a>
                   {cloreButton}
                 </ConsoleActions>
               </>
