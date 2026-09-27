@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { api, motifDe, UnauthorizedError, type CorrectionDuJour } from '../api'
-import { serverNow } from '../clock'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { api, motifDe, refusDuServeur, UnauthorizedError, type CorrectionDuJour } from '../api'
+import { resetClock, serverNow } from '../clock'
+import { rendreLeFocus } from '../focus'
+import { insister, REESSAI_MS } from '../insister'
 import { espacesFines, formatNumber, place, pourcent, pts } from '../format'
 import { showToast, useAppState } from '../state'
 import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
@@ -32,6 +34,7 @@ import {
 } from '../../../shared/jour'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { legendaire } from '../../../shared/legendaires'
+import { gesteAccepte } from '../../../shared/console'
 
 /** La marge du serveur après l'échéance (`GRACE_MS`, `games/quiz.ts`), et un souffle : la question se révèle d'elle-même. */
 const APRES_ECHEANCE_MS = 1500 + 600
@@ -39,6 +42,9 @@ const APRES_ECHEANCE_MS = 1500 + 600
 type Ecran = 'partie' | 'classement' | 'correction'
 
 const ecranDe = (hash: string): Ecran => (hash === '#classement' ? 'classement' : hash === '#correction' ? 'correction' : 'partie')
+
+/** Ce que l'écran dit d'abord, pour le focus qui s'est perdu : le résultat, sinon le titre. */
+const CE_QUE_L_ECRAN_DIT = ['.result-banner', 'h1', 'h2'] as const
 
 /**
  * Le quiz du jour (`/jour`) : dix questions, les mêmes pour tous les profils,
@@ -71,7 +77,8 @@ export function JourApp() {
     setEnvoi(null)
   }, [])
 
-  useEffect(() => {
+  const charger = useCallback(() => {
+    setErreur('')
     api.joueur
       .moi()
       .then(async ({ profile }) => {
@@ -83,19 +90,64 @@ export function JourApp() {
         else setErreur(motifDe(e))
       })
   }, [recevoir])
+  useEffect(charger, [charger])
+
+  // Au retour au premier plan, l'heure du téléphone a pu être recalée
+  // pendant qu'il dormait : la prochaine mesure fait autorité, quel que soit
+  // son aller-retour — comme à chaque connexion d'une soirée.
+  useEffect(() => {
+    const auRetour = () => {
+      if (document.visibilityState === 'visible') resetClock()
+    }
+    document.addEventListener('visibilitychange', auRetour)
+    return () => document.removeEventListener('visibilitychange', auRetour)
+  }, [])
+
+  /**
+   * Chaque geste — commencer, la suivante, une réponse — en tire un numéro :
+   * une relecture partie avant lui ne défait pas ce qu'il a changé.
+   */
+  const gestes = useRef(0)
+  /** La relance d'un geste perdu en route : le geste suivant la remplace. */
+  const relance = useRef<(() => void) | null>(null)
+  useEffect(() => () => relance.current?.(), [])
+  /** L'instant où l'écran affiché a paru (`performance.now()`). */
+  const changement = useRef<number | null>(null)
 
   const aller = (vers: Ecran) => {
     window.location.hash = vers === 'partie' ? '' : vers
     setEcran(vers)
   }
 
+  /** Relit la partie, telle que le serveur la voit. */
+  const relire = () => {
+    const n = gestes.current
+    api.jour
+      .etat()
+      .then(p => n === gestes.current && recevoir(p))
+      .catch(() => {})
+  }
+
   /** Un geste qui rend la partie : commencer, la suivante, relire. */
   const geste = async (appel: () => Promise<PartieDuJour>) => {
+    const n = ++gestes.current
+    relance.current?.()
     setOccupe(true)
     try {
       recevoir(await appel())
     } catch (e) {
       showToast({ kind: 'error', message: motifDe(e) })
+      // Refusé, le geste dit que la page ne voyait plus la partie comme le
+      // serveur : elle la relit. Perdue en route, la réponse du serveur a pu
+      // servir la question — et lancer son chrono : on la redemande jusqu'à
+      // l'avoir, sans rien changer d'autre à l'écran. Retouchée trente
+      // secondes plus tard, elle révélait « Temps écoulé » sur une question
+      // que le téléphone n'avait jamais montrée.
+      if (refusDuServeur(e)) relire()
+      else
+        relance.current = insister(() => api.jour.etat().then(p => p.question && n === gestes.current && recevoir(p)), {
+          premier: REESSAI_MS,
+        })
     } finally {
       setOccupe(false)
     }
@@ -109,6 +161,14 @@ export function JourApp() {
   const repondre = (action: QuizAction) => {
     const q = partie?.question
     if (!q || action.type !== 'answer' || envoi?.etat === 'envoi') return
+    // Pas dans la demi-seconde qui suit l'affichage : ce toucher-là ne vient
+    // pas d'une lecture. C'était le second d'un double toucher sur « Question
+    // suivante », qui tombait sur la grille de la question d'après — et au
+    // quiz du jour, la première réponse est définitive. Le temps de lecture
+    // offert paie le maximum : attendre ne coûte rien.
+    if (!gesteAccepte(changement.current, performance.now())) return
+    ++gestes.current
+    relance.current?.()
     setEnvoi({ qIndex: q.index, choice: action.choice, etat: 'envoi' })
     api.jour
       .repondre(q.jour, q.index, action.choice)
@@ -118,8 +178,14 @@ export function JourApp() {
         setPartie(p => p && { ...p, points: r.cumul, question: undefined })
       })
       .catch(e => {
-        setEnvoi({ qIndex: q.index, choice: action.choice, etat: 'perdue' })
         showToast({ kind: 'error', message: motifDe(e) })
+        // Refusée — minuit est passé, la question n'est plus celle du
+        // serveur —, la retoucher recevrait le même refus : la page le dit,
+        // et relit la partie. Perdue en route, elle se retouche.
+        if (refusDuServeur(e)) {
+          setEnvoi({ qIndex: q.index, choice: action.choice, etat: 'refusee' })
+          relire()
+        } else setEnvoi({ qIndex: q.index, choice: action.choice, etat: 'perdue' })
       })
   }
 
@@ -127,18 +193,47 @@ export function JourApp() {
   // et la page va chercher ce qu'elle révèle. Seule une réponse en route
   // suspend ce rendez-vous — une réponse perdue, non : il laissait sinon la
   // page sur la question, réponses closes, jusqu'à ce qu'on la recharge.
+  // Hors ligne à ce moment-là, la page redemande toutes les trois secondes,
+  // et dès que le réseau revient.
   const question = partie?.question
   const enRoute = envoi?.etat === 'envoi'
   useEffect(() => {
     if (!question || enRoute) return
-    const t = setTimeout(
-      () => {
-        api.jour.etat().then(recevoir).catch(() => {})
-      },
-      Math.max(0, question.echeance - serverNow()) + APRES_ECHEANCE_MS,
-    )
-    return () => clearTimeout(t)
+    const n = gestes.current
+    return insister(() => api.jour.etat().then(p => n === gestes.current && recevoir(p)), {
+      premier: Math.max(0, question.echeance - serverNow()) + APRES_ECHEANCE_MS,
+    })
   }, [question, enRoute, recevoir])
+
+  // L'écran affiché, en un mot. Chacun commence en haut, comme ceux d'une
+  // soirée : au texte agrandi, la question suivante s'ouvrait là où l'on
+  // avait fait défiler la révélation, chrono et numéro hors de l'écran. Le
+  // focus qui s'est perdu avec le bouton touché se pose sur ce que l'écran
+  // dit d'abord — un lecteur d'écran n'entendait ni la question ni le
+  // résultat —, et la demi-seconde qui suit n'accepte aucun toucher.
+  const cleDEcran = erreur
+    ? 'erreur'
+    : profil === null
+      ? 'sans-profil'
+      : profil === undefined || !partie
+        ? null
+        : ecran !== 'partie'
+          ? ecran
+          : revelation
+            ? `revelation:${revelation.jour}:${revelation.index}`
+            : partie.etat === 'en-cours' && partie.question
+              ? `question:${partie.question.jour}:${partie.question.index}`
+              : `partie:${partie.jour}:${partie.etat}`
+  const precedent = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    const avant = precedent.current
+    precedent.current = cleDEcran
+    if (cleDEcran === null || cleDEcran === avant) return
+    changement.current = performance.now()
+    window.scrollTo(0, 0)
+    // Le premier écran se lit depuis le haut, comme toute page qui s'ouvre.
+    if (avant !== null) rendreLeFocus(document.querySelector('.player-shell'), CE_QUE_L_ECRAN_DIT)
+  }, [cleDEcran])
 
   // La fin rafraîchit le profil : sa barre d'expérience a bougé.
   const finie = partie?.etat === 'finie'
@@ -168,16 +263,7 @@ export function JourApp() {
     </div>
   )
 
-  if (erreur) {
-    return (
-      <div className="center-page">
-        <p className="error">{erreur}</p>
-        <a className="btn" href="/">
-          Retour à l’accueil
-        </a>
-      </div>
-    )
-  }
+  if (erreur) return <EchecDuChargement erreur={erreur} onReessayer={charger} />
   if (profil === null) {
     return (
       <div className="player-shell">
@@ -237,7 +323,11 @@ export function JourApp() {
         <button
           className="btn btn-primary btn-big btn-block"
           disabled={occupe}
-          onClick={() => void geste(revelation.derniere ? api.jour.etat : api.jour.suivante)}
+          // Pas plus qu'une réponse dans la demi-seconde : un double toucher
+          // sur la réponse sautait sinon la révélation et son anecdote.
+          onClick={() => {
+            if (gesteAccepte(changement.current, performance.now())) void geste(revelation.derniere ? api.jour.etat : api.jour.suivante)
+          }}
         >
           {revelation.derniere ? 'Voir mon résultat' : 'Question suivante'}
         </button>
@@ -330,6 +420,28 @@ export function JourApp() {
         Retour à l’accueil
       </a>
       {toastVu}
+    </div>
+  )
+}
+
+/**
+ * La page qui n'a pas pu se charger. Sans réseau, « Retour à l'accueil »
+ * échouait aussi : il n'y avait rien pour réessayer.
+ */
+export function EchecDuChargement({ erreur, onReessayer }: { erreur: string; onReessayer: () => void }) {
+  return (
+    <div className="player-shell">
+      <section className="card jour-carte">
+        <span className="label">Le quiz du jour</span>
+        <p className="error">{erreur}</p>
+        <button className="btn btn-primary btn-big btn-block" onClick={onReessayer}>
+          <Icon name="rotate" />
+          Réessayer
+        </button>
+        <a className="btn btn-ghost btn-block" href="/">
+          Retour à l’accueil
+        </a>
+      </section>
     </div>
   )
 }
@@ -739,34 +851,65 @@ function Correction({ jour, onRetour }: { jour: string; onRetour: () => void }) 
       </header>
       {erreur && <p className="muted">{erreur}</p>}
       {!correction && !erreur && <p className="muted">Chargement…</p>}
-      {correction && (
-        <ol className="correction">
-          {correction.questions.map((q, i) => (
-            <li key={i} className={q.annulee ? '' : q.juste ? 'ok' : 'ko'}>
-              <span className="correction-marque">
-                <Icon name={q.juste ? 'check' : 'x'} />
-              </span>
-              <span className="correction-corps">
-                <span>{espacesFines(q.texte)}</span>
-                <span className="muted small">
-                  <b>{espacesFines(q.reponses[q.bonne])}</b>
-                  {q.trouveePar !== null && ` · trouvée par ${pourcent(q.trouveePar)}`}
-                  {q.annulee && ' · annulée'}
-                </span>
-                {q.repondue && !q.juste && q.choix !== null && (
-                  <span className="muted small">Tu avais dit : {espacesFines(q.reponses[q.choix])}</span>
-                )}
-                {q.anecdote && <span className="small">{espacesFines(q.anecdote)}</span>}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
+      {correction && <QuestionsCorrigees questions={correction.questions} />}
       <button className="btn btn-ghost btn-block" onClick={onRetour}>
         Retour
       </button>
     </div>
   )
+}
+
+/** Ce qu'est devenue une question de la correction, en un mot. */
+export function verdictDeCorrection(q: CorrectionDuJour['questions'][number]): 'Juste' | 'Faux' | 'Sans réponse' | 'Annulée' {
+  if (q.annulee) return 'Annulée'
+  if (q.juste) return 'Juste'
+  // Une ligne sans choix : la question laissée au temps, ou la réponse
+  // arrivée après la fin ; pas de ligne : la partie s'est arrêtée avant.
+  return q.choix !== null ? 'Faux' : 'Sans réponse'
+}
+
+/**
+ * Chaque question de la correction : sa marque, sa bonne réponse, la part de
+ * la salle, ce qu'on avait dit. La coche et la croix n'étaient que des
+ * dessins : au lecteur d'écran, une réponse juste et une question laissée au
+ * temps se lisaient pareil, et une question annulée gardait une croix.
+ */
+export function QuestionsCorrigees({ questions }: { questions: CorrectionDuJour['questions'] }) {
+  return (
+    <ol className="correction">
+      {questions.map((q, i) => {
+        const verdict = verdictDeCorrection(q)
+        return (
+          <li key={i} className={MARQUES[verdict].classe}>
+            <span className="correction-marque" role="img" aria-label={verdict}>
+              {MARQUES[verdict].icone ? <Icon name={MARQUES[verdict].icone} /> : '–'}
+            </span>
+            <span className="correction-corps">
+              <span>{espacesFines(q.texte)}</span>
+              <span className="muted small">
+                <b>{espacesFines(q.reponses[q.bonne])}</b>
+                {q.trouveePar !== null && ` · trouvée par ${pourcent(q.trouveePar)}`}
+                {q.annulee && ' · annulée'}
+              </span>
+              {verdict === 'Faux' && q.choix !== null && (
+                <span className="muted small">Tu avais dit : {espacesFines(q.reponses[q.choix])}</span>
+              )}
+              {verdict === 'Sans réponse' && <span className="muted small">Sans réponse</span>}
+              {q.anecdote && <span className="small">{espacesFines(q.anecdote)}</span>}
+            </span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+/** La marque de chaque verdict : sa couleur, son dessin — un tiret pour ce qui ne compte pas. */
+const MARQUES: Record<ReturnType<typeof verdictDeCorrection>, { classe: string; icone: 'check' | 'x' | 'clock' | null }> = {
+  Juste: { classe: 'ok', icone: 'check' },
+  Faux: { classe: 'ko', icone: 'x' },
+  'Sans réponse': { classe: 'sans', icone: 'clock' },
+  Annulée: { classe: 'annulee', icone: null },
 }
 
 const capitale = (texte: string) => texte.charAt(0).toUpperCase() + texte.slice(1)

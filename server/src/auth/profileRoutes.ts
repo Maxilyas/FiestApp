@@ -74,9 +74,13 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
    * soirées et quiz du jour ensemble.
    */
   const detailDe = async (me: ProfileRec) => {
-    const detail = await profiles.toDetail(me, espaceDe, deps.archives)
-    const fois = new Map(detail.vitrine.map(b => [b.key, b.fois]))
+    // La nuit d'abord : `carriereDe` clôt la veille — le podium se crédite,
+    // le laurier passe au vainqueur. Lu avant elle, le profil du vainqueur
+    // n'avait, à sa première visite du jour, ni « Vainqueur du quiz du jour
+    // d'hier » ni l'expérience du podium ; rechargée, la page les avait.
     const [jour, categoriesDuJour] = await Promise.all([deps.jour.carriereDe(me.id), deps.jour.categoriesDe(me.id)])
+    const detail = await profiles.toDetail((await profiles.byId(me.id)) ?? me, espaceDe, deps.archives)
+    const fois = new Map(detail.vitrine.map(b => [b.key, b.fois]))
     return {
       ...detail,
       jour,
