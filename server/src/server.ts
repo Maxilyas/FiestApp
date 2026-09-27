@@ -297,9 +297,26 @@ export async function createQuizServer(opts: QuizServerOptions) {
   await store.init(defaultSpace)
   const imported = await seedLibrary(store, defaultSpace)
   if (imported > 0) console.log(`[quiz] ${imported} quiz importés depuis server/content/quiz/`)
+  /**
+   * Deux écritures du même espace lancent deux relectures, qui reviennent
+   * de Turso à leur rythme : la plus ancienne, arrivée la dernière, remettait
+   * en mémoire la version d'avant la correction — et « Lancer » la jouait
+   * jusqu'à l'écriture suivante. Chaque relecture prend un numéro, et seule
+   * la dernière partie pose ce qu'elle a lu.
+   */
+  const derniereRelecture = () => {
+    const tours = new Map<string, number>()
+    return async <T>(spaceId: string, lire: () => Promise<T>, poser: (lu: T) => void) => {
+      const tour = (tours.get(spaceId) ?? 0) + 1
+      tours.set(spaceId, tour)
+      const lu = await lire()
+      if (tours.get(spaceId) === tour) poser(lu)
+    }
+  }
+  const relireLaBibliotheque = derniereRelecture()
   /** Recharge la bibliothèque d'un espace — ou toutes, au démarrage. */
   const refreshLibrary = async (spaceId?: string) => {
-    if (spaceId) return setQuizLibrary(spaceId, await store.all(spaceId))
+    if (spaceId) return relireLaBibliotheque(spaceId, () => store.all(spaceId), quizzes => setQuizLibrary(spaceId, quizzes))
     for (const [id, quizzes] of await store.allBySpace()) setQuizLibrary(id, quizzes)
   }
   await refreshLibrary()
@@ -308,8 +325,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // console propose au lancement.
   const programmes = new ProgrammeStore(opts.quizDbUrl, opts.quizDbToken)
   await programmes.init()
+  const relireLeProgramme = derniereRelecture()
   const refreshProgramme = async (spaceId?: string) => {
-    if (spaceId) return setProgramme(spaceId, await programmes.actif(spaceId))
+    if (spaceId) return relireLeProgramme(spaceId, () => programmes.actif(spaceId), programme => setProgramme(spaceId, programme))
     for (const [id, programme] of await programmes.actifs()) setProgramme(id, programme)
   }
   await refreshProgramme()
@@ -325,11 +343,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Le tirage d'un quiz choisit d'abord les questions jamais posées : il lit
   // ce que l'historique en sait, relu après chaque rangement.
   for (const [spaceId, memoire] of await archives.memoiresDeTous()) setQuestionsPosees(spaceId, dernieresFois(memoire))
+  const relireLaMemoire = derniereRelecture()
   archives.surEcriture(spaceId => {
-    archives
-      .memoire(spaceId)
-      .then(memoire => setQuestionsPosees(spaceId, dernieresFois(memoire)))
-      .catch(e => console.error('[historique] mémoire des quiz :', e))
+    relireLaMemoire(spaceId, () => archives.memoire(spaceId), memoire => setQuestionsPosees(spaceId, dernieresFois(memoire))).catch(e =>
+      console.error('[historique] mémoire des quiz :', e),
+    )
   })
 
   // L'expérience se relit avec le barème du jour : une fois, au premier

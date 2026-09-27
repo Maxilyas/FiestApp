@@ -925,7 +925,7 @@ function lireEstimation(texte: string): { target: number; unit: string } | null 
  * reconnus à leur mot, sans accent ni majuscule. Jamais en tête du bloc : la
  * première ligne reste l'intitulé, fût-ce « Photo : qui est-ce ? ».
  */
-type Reglage = 'temps' | 'photo' | 'observation' | 'ordre' | 'anecdote' | 'note' | 'intertitre' | 'type'
+type Reglage = 'temps' | 'photo' | 'observation' | 'ordre' | 'anecdote' | 'note' | 'intertitre' | 'type' | 'deCote'
 const REGLAGES = new Map<string, Reglage>([
   // La sorte de question : « Type : plusieurs réponses », « Type : dans
   // l'ordre », « Type : qui dans la salle », « Type : en direct ».
@@ -945,6 +945,9 @@ const REGLAGES = new Map<string, Reglage>([
   ['le saviez vous', 'anecdote'],
   ['note', 'note'],
   ['intertitre', 'intertitre'],
+  // « De côté : oui » : la question reste dans le quiz sans se jouer. Copiée
+  // en liste puis recollée, une question mise de côté revenait en jeu.
+  ['de cote', 'deCote'],
 ])
 
 /**
@@ -1232,6 +1235,9 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
         const valeur = sansAccents(lu.valeur).toLowerCase().trim()
         if (/^(fixe|tel quel|telle quelle|garde|garder|ecrit)$/.test(valeur)) question.ordreFixe = true
         else if (/^a (retrouver|remettre|reconstituer)\b/.test(valeur)) sorte = 'ordre'
+      } else if (lu.reglage === 'deCote') {
+        // Seul « oui » la range : « De côté : non » la laisse en jeu.
+        if (/^(oui|o|yes)$/.test(sansAccents(lu.valeur).toLowerCase().trim())) question.deCote = true
       } else if (lu.reglage === 'photo') {
         const photo = tronquer(lu.valeur, MAX_PHOTO_ATTENDUE).trim()
         question.photoAttendue = photo && !SANS_PHOTO.test(sansAccents(photo).toLowerCase()) ? photo : null

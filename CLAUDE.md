@@ -496,7 +496,16 @@ sans `QUIZ_DB_URL`.
 - **Un réglage de plus à la liste collée** se lit dans
   `parseImportedQuestions`, s'annonce dans `FORMAT_DE_LISTE` et paraît dans
   son exemple, que `liste.test.ts` relit : le format copié pour une IA ne
-  doit rien promettre que la liste ne sache lire.
+  doit rien promettre que la liste ne sache lire. Et « Copier en liste »
+  (`ecrireListe`) écrit ce qu'elle relira à l'identique : une ligne que la
+  relecture lirait autrement prend une puce qu'elle retire
+  (`ligneDeReponse`) — « - de 5 » perdait son signe.
+- **La bibliothèque en mémoire se relit après chaque écriture** d'un espace
+  (`refreshLibrary`, `server.ts`), et c'est elle que « Lancer » joue. Deux
+  écritures lancent deux relectures, qui reviennent de Turso à leur rythme :
+  seule la dernière partie pose ce qu'elle a lu (`derniereRelecture`) —
+  sinon la plus ancienne, revenue la dernière, remettait la version d'avant
+  la correction. Le programme et la mémoire des quiz passent par la même.
 - **Une question a trois pièces à part** — sa photo, celle de la
   révélation, l'extrait d'un blind test (`PIECES_DE_QUESTION`,
   `shared/library.ts`) —, chacune sous une adresse `/media/image/…`. Ce qui

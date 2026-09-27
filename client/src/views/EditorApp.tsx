@@ -56,6 +56,7 @@ import {
 import {
   APERCU_DU_FORMAT,
   DEMANDE_PAR_DEFAUT,
+  CE_QUI_NE_VOYAGE_PAS,
   FORMAT_DE_LISTE,
   apparierPhotos,
   cleDePhoto,
@@ -76,7 +77,7 @@ import {
   sansPhotosDisparues,
   type Brouillon,
 } from '../../../shared/brouillon'
-import { ApiError, ConflitError, UnauthorizedError, api, auReveil, compressImage } from '../api'
+import { ApiError, ConflitError, UnauthorizedError, api, auReveil, compressImage, refusDuServeur } from '../api'
 import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon } from '../brouillon'
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { CONSIGNE_DES_VARIANTES, consigneEstimation } from '../games/quiz/consignes'
@@ -448,13 +449,19 @@ export function EditorApp() {
     const mots = recherche.trim()
     if (!mots) return setTrouves(null)
     // Le temps de finir le mot : une requête par frappe ne sert à personne.
+    // Et une recherche courte, plus lente, qui revenait après une longue
+    // remplaçait sa liste : sous « france », les quiz de « fr ».
+    let perimee = false
     const timer = setTimeout(() => {
       api
         .chercher(mots)
-        .then(setTrouves)
-        .catch(() => setTrouves(null))
+        .then(trouves => !perimee && setTrouves(trouves))
+        .catch(() => !perimee && setTrouves(null))
     }, 250)
-    return () => clearTimeout(timer)
+    return () => {
+      perimee = true
+      clearTimeout(timer)
+    }
   }, [recherche, list])
   const changerTri = (t: TriDeLaBibliotheque) => {
     setTri(t)
@@ -1166,6 +1173,8 @@ function QuizEditor({
   const modifications = useRef(0)
   /** Faux une fois l'éditeur refermé : l'enregistrement cesse d'attendre le réveil. */
   const ouvert = useRef(true)
+  /** Le jeton et le dernier essai d'un « Enregistrer » resté sans réponse : le suivant les reprend. */
+  const enSuspens = useRef<{ jeton: string; essai: number } | null>(null)
 
   const dernieresActions = useRef<ActionsDesCartes | null>(null)
   const actions = useMemo<ActionsDesCartes>(
@@ -1416,11 +1425,7 @@ function QuizEditor({
     if (!courant.current) return
     const faite = await copierTexte(ecrireListe(courant.current.questions, courant.current.title))
     setListeCopiee(faite ? 'faite' : 'refusee')
-    setAnnounce(
-      faite
-        ? 'Liste copiée dans le presse-papiers. Les photos ne voyagent pas en texte : recollée, chaque question attendra la sienne.'
-        : '',
-    )
+    setAnnounce(faite ? `Liste copiée dans le presse-papiers. ${CE_QUI_NE_VOYAGE_PAS}` : '')
   }
 
   useEffect(() => {
@@ -1437,18 +1442,23 @@ function QuizEditor({
     setConflit(null)
     let envoi = { quiz: courant.current, modifications: modifications.current }
     // Un jeton par clic, repris par chaque essai au réveil, et un numéro par
-    // essai (voir `api.save`).
-    const jeton = newQuestionId()
-    let essai = 0
+    // essai (voir `api.save`). Le clic d'avant, resté sans réponse, a pu
+    // écrire quand même : on reprend son jeton et la suite de ses essais —
+    // avec un jeton neuf, le serveur prenait son propre enregistrement pour
+    // celui d'un autre appareil (409).
+    const jeton = enSuspens.current?.jeton ?? newQuestionId()
+    let essai = enSuspens.current?.essai ?? 0
     try {
       const saved = await auReveil(
         () => {
           envoi = { quiz: courant.current ?? envoi.quiz, modifications: modifications.current }
           essai++
+          enSuspens.current = { jeton, essai }
           return api.save(envoi.quiz.id, envoi.quiz.title, envoi.quiz.questions, depuis, jeton, essai, envoi.quiz.reglages ?? {})
         },
         { surAttente: () => setReveil(true), continuer: () => ouvert.current },
       )
+      enSuspens.current = null
       setBase(saved.updatedAt)
       setSavedAt(Date.now())
       if (modifications.current === envoi.modifications) {
@@ -1464,6 +1474,8 @@ function QuizEditor({
         setDirty(true)
       }
     } catch (e) {
+      // Le serveur a répondu — un refus, un conflit — : ce clic est jugé, le suivant repart d'un jeton neuf.
+      if (refusDuServeur(e)) enSuspens.current = null
       if (e instanceof ConflitError) setConflit(e.updatedAt)
       else setError((e as Error).message)
     } finally {

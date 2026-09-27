@@ -3,6 +3,7 @@ import { ajouterColonne, clientDistant, type Client } from './distante'
 import {
   cleanTitle,
   MAX_SON_OCTETS,
+  MAX_TITRE,
   normalizeQuestions,
   PIECES_DE_QUESTION,
   rechercherDans,
@@ -14,6 +15,8 @@ import {
   type QuizSummary,
 } from '../../../shared/library'
 import { normaliserReglages } from '../../../shared/hasard'
+import { tronquer } from '../../../shared/avatars'
+import { piecesPerduesEnRoute } from '../../../shared/echange'
 
 /** Image trop lourde = base qui gonfle pour rien. Le navigateur compresse avant d'envoyer. */
 const MAX_IMAGE_DATAURL = 2_000_000
@@ -293,7 +296,10 @@ export class QuizStore {
   async duplicate(spaceId: string, id: string): Promise<QuizDef | null> {
     const source = await this.get(spaceId, id)
     if (!source) return null
-    return this.create(spaceId, `${source.title} (copie)`, source.questions, undefined, source.reglages)
+    // Coupé à la longueur d'un titre, « (copie) » tombait d'un titre long :
+    // deux lignes de « Mes quiz » portaient le même nom. On coupe l'original.
+    const copie = ' (copie)'
+    return this.create(spaceId, `${tronquer(source.title, MAX_TITRE - copie.length).trim()}${copie}`, source.questions, undefined, source.reglages)
   }
 
   async count(spaceId: string): Promise<number> {
@@ -360,7 +366,10 @@ export class QuizStore {
         const id = idDe(q[champ])
         if (id) copie[champ] = (copies.get(id) ?? null) as Q[typeof champ]
       }
-      return copie
+      // Une pièce qui n'existe plus : la question arrive sans elle, sans se
+      // dire prête pour autant — comme à l'export (`piecesPerduesEnRoute`).
+      const perdue = (champ: PieceDeQuestion) => !!q[champ] && !copie[champ]
+      return { ...copie, ...piecesPerduesEnRoute(q as { photoAttendue?: unknown }, { image: perdue('image'), son: perdue('son') }) }
     })
   }
 

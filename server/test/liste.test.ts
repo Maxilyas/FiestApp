@@ -79,6 +79,7 @@ test('l’exemple du format complet se relit tel quel, chaque possibilité compr
       ...(q.anecdote && { anecdote: q.anecdote }),
       ...(q.note && { note: q.note }),
       ...(q.intertitre && { intertitre: q.intertitre }),
+      ...(q.deCote && { deCote: true }),
     })),
     [
       { kind: 'choice', reponse: 'Canberra', choix: 4, temps: 20, categorie: 'Géographie', photo: null, observation: null },
@@ -161,6 +162,8 @@ test('l’exemple du format complet se relit tel quel, chaque possibilité compr
         photo: null,
         observation: null,
       },
+      // « De côté : oui » : elle reste dans le quiz, sans se jouer.
+      { kind: 'choice', reponse: 'La raclette', choix: 3, temps: 15, categorie: 'Autour de la fête', photo: null, observation: null, deCote: true },
     ],
   )
 })

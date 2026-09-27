@@ -130,7 +130,13 @@ Combien pèse le gâteau ?
 = ? g
 
 Qui, dans la salle, s'endormira le premier ce soir ?
-Type : qui dans la salle`
+Type : qui dans la salle
+
+Quel est le plat préféré de la maîtresse de maison ?
+De côté : oui
+* La raclette
+Les lasagnes
+Le couscous`
 
 /**
  * Ce que copie « Copier le format complet » : de quoi écrire un quiz sans
@@ -170,6 +176,7 @@ Ordre : fixe — les réponses restent dans l'ordre écrit, même si le quiz les
 Anecdote : … — une phrase racontée à la révélation, « Le saviez-vous ? » (${MAX_ANECDOTE} caractères au plus) : ce qu'on a envie d'ajouter une fois la réponse connue.
 Note : … — pour l'animateur seul, à sa télécommande, jamais à l'écran (${MAX_NOTE} caractères au plus) : ce qu'il racontera, à qui poser la question.
 Intertitre : … — une diapo avant la question, sans réponse ni points (${MAX_INTERTITRE} caractères au plus) : « Manche 2 : le cinéma », « Pause buvette ».
+De côté : oui — la question reste dans le quiz sans se jouer : à finir plus tard, ou gardée pour une autre soirée.
 
 CATÉGORIES — facultatives
 Une ligne # suivie d'une catégorie, placée avant une question, range cette question et les suivantes dans la catégorie, jusqu'à la prochaine ligne #. Un # seul : les suivantes n'en ont plus. Seulement l'une de celles-ci, écrite telle quelle : ${CATEGORIES.join(', ')}.
@@ -247,6 +254,33 @@ export async function joindrePhotos<F extends { name: string }>(
   }
 }
 
+const surUneLigne = (texte: string) => texte.replace(/\s*\n\s*/g, ' ').trim()
+
+/**
+ * Ce que « Copier en liste » dit en copiant : les pièces ne voyagent pas en
+ * texte. L'annonce promettait que « chaque question attendra la sienne » :
+ * seule la photo de la question s'attend ; celle de la révélation disparaît,
+ * et un blind test revient de côté, sans son extrait.
+ */
+export const CE_QUI_NE_VOYAGE_PAS =
+  'Les photos et les extraits ne voyagent pas en texte : recollée, une question à photo attendra la sienne, un blind test reviendra de côté, et les photos de la révélation seront à rajouter.'
+
+/**
+ * La ligne d'une réponse, telle que la liste la relira : marquée d'une
+ * étoile si elle est bonne, et, si la relecture la lirait autrement, précédée
+ * d'une puce qu'elle retire — comme l'intitulé prend un numéro. « Photo : la
+ * plage » est un choix, pas un réglage ; « - de 5 » et « + de 10 »
+ * perdaient leur signe, lu comme une puce.
+ */
+function ligneDeReponse(reponse: string, bonne: boolean): string {
+  const marquee = bonne ? `* ${reponse}` : reponse
+  for (const ligne of [marquee, `- ${marquee}`]) {
+    const relue = parseImportedQuestions(`Question ?\n${ligne}\n${bonne ? 'Autre' : '* Autre'}`).questions[0]
+    if (relue?.kind === 'choice' && relue.answers[0] === reponse && (relue.correct === 0) === bonne) return ligne
+  }
+  return luCommeReglage(reponse) ? `- ${marquee}` : marquee
+}
+
 /**
  * Le quiz écrit dans le format que « Coller une liste » relit — l'inverse de
  * `parseImportedQuestions`. On ne pouvait pas se passer un quiz en texte :
@@ -291,9 +325,15 @@ export function ecrireListe(questions: readonly QuizQuestionDef[], titre?: strin
     if (q.kind === 'choice' && q.variante) lignes.push(`Type : ${ECRITURE_DES_SORTES[q.variante]}`)
     // L'ordre à retrouver se mélange toujours : « fixe » n'y voudrait rien dire.
     if (q.kind === 'choice' && q.ordreFixe && q.variante !== 'ordre') lignes.push('Ordre : fixe')
-    if (q.intertitre) lignes.push(`Intertitre : ${q.intertitre}`)
-    if (q.anecdote) lignes.push(`Anecdote : ${q.anecdote}`)
-    if (q.note) lignes.push(`Note : ${q.note}`)
+    // Sur une seule ligne aussi : tapées dans une zone de texte, l'anecdote
+    // et la note gardent leurs retours à la ligne, et recollée, la seconde
+    // ligne devenait une réponse — une ligne vide coupait la question en deux.
+    if (q.intertitre) lignes.push(`Intertitre : ${surUneLigne(q.intertitre)}`)
+    if (q.anecdote) lignes.push(`Anecdote : ${surUneLigne(q.anecdote)}`)
+    if (q.note) lignes.push(`Note : ${surUneLigne(q.note)}`)
+    // Mise de côté, elle le reste ; un blind test aussi, dont l'extrait ne
+    // voyage pas en texte : recollé, il ne se jouerait que muet.
+    if (q.deCote || q.son) lignes.push('De côté : oui')
     const photo = q.image ? `photo de la question ${n}` : photoManquante(q)
     if (photo) {
       lignes.push(`Photo : ${photo}`)
@@ -311,9 +351,7 @@ export function ecrireListe(questions: readonly QuizQuestionDef[], titre?: strin
         if (!reponse) return
         const bonne =
           q.variante === 'plusieurs' ? !!q.bonnes?.includes(i) : q.variante !== 'ordre' && i === q.correct && q.correct !== SANS_BONNE_REPONSE
-        const marquee = bonne ? `* ${reponse}` : reponse
-        // « Photo : la plage » est un choix, pas un réglage : la puce le dit.
-        lignes.push(luCommeReglage(reponse) ? `- ${marquee}` : marquee)
+        lignes.push(ligneDeReponse(reponse, bonne))
       })
     }
     blocs.push(lignes.join('\n'))
