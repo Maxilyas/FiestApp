@@ -174,11 +174,14 @@ export const cleDuJour = (jour: string) => `${LIGNE_JOUR}:${jour}`
  * plus proche allait à un seul des deux ; 6 depuis le coup d'œil — le relevé
  * compte la part de la salle que chaque estimation bat ou égale, et le prix
  * du coup d'œil (clé `devin`) se juge dessus. L'expérience n'a pas bougé, mais les soirées d'avant
- * doivent se relire pour que la fiche le montre.
+ * doivent se relire pour que la fiche le montre ; 7 depuis les saisons — une
+ * soirée d'Halloween, de Noël ou du Nouvel An ouvre leur légendaire, et
+ * celles rangées avant #59 ne l'auraient ouvert qu'au barème suivant, d'un
+ * coup et sans que personne sache pourquoi.
  * Une ligne d'une version d'avant se relit au démarrage (`recalcul.ts`) —
  * son format, lui, n'a pas changé depuis la 2.
  */
-export const VERSION_BAREME = 6
+export const VERSION_BAREME = 7
 
 /** La première version dont les lignes portent le relevé complet. */
 const VERSION_RELEVE_COMPLET = 2

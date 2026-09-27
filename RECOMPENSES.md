@@ -407,7 +407,9 @@ Bouquet final — ne se gagnent qu'à leur période, à la date de Paris
 (`shared/saisons.ts`) : quelques jours joués au quiz du jour dans la
 période (trois pour Halloween et Noël, deux pour les quatre jours du Nouvel
 An), ou une soirée qui compte ces jours-là, datée à sa première question
-jouée (`laureatsDeSaison`, à la clôture comme au recalcul). La saison
+jouée (`laureatsDeSaison`, à la clôture comme au recalcul —
+`VERSION_BAREME` 7 : les soirées rangées avant elles se relisent une fois,
+au démarrage qui les apporte). La saison
 gagnée se range comme une récompense (`saison:halloween`) : sous le jour
 qui l'a ouverte, ou sous la soirée — qui l'emporte si on la retire de
 l'historique. Elle ne va ni sur l'étagère ni dans le compte des badges :
