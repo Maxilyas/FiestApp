@@ -25,8 +25,10 @@ soirée entière : c'est la référence du chemin normal. `npm test` lance
 `server/test/*.test.ts` avec `node:test` : ce qu'une soirée rejouée d'un bout
 à l'autre ne provoque jamais — pannes, courses, messages malformés,
 redémarrages. Chaque fichier qui a besoin d'un serveur démarre le sien,
-jetable, avec `server/test/banc.ts` ; les dérivations pures se testent
-directement. **Un nouveau comportement arrive avec son test dans
+jetable, avec `server/test/banc.ts` ; le moteur seul, horloge à la main,
+se joue avec `server/test/salle.ts` — pour viser un instant qu'un vrai
+serveur ne laisse pas choisir (le souffle, une pause, un intertitre) ; les
+dérivations pures se testent directement. **Un nouveau comportement arrive avec son test dans
 `server/test/`**, qui échoue avant la correction : on n'allonge plus le smoke.
 
 ## La carte du code
@@ -193,7 +195,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
     l'arrivée d'un invité, pour toujours.
 12. **Un geste dit ce qu'il visait.** Les commandes `next`, `cancel`, `replay`
     et les réponses portent la phase, la question et le tour (`host:scene`,
-    l'écran qu'il quittait) : une commande
+    l'écran qu'il quittait ; `host:launch`, la partie qu'il remplace) : une commande
     périmée est ignorée en silence, une réponse périmée reçoit `too-late`, et
     un champ absent (une page d'avant) garde l'ancien comportement. Sans ça,
     un « Révéler » qui croisait la révélation automatique sautait la

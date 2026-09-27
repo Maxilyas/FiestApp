@@ -585,8 +585,13 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
           // gardent : il n'est alors pas « laissé », et on n'y touche pas.
           rt.laisserPlace(ancien.id)
         }
+        // Comme à l'arrivée (`player:join`) : l'instantané qui compte la place
+        // reprise part à ce téléphone avant sa première vue. Regroupé, il
+        // arrivait après elle — 120 ms plus 2 ms par invité —, et la page d'une
+        // fiche qui n'était pas de la partie (téléphone mort avant le
+        // lancement) lisait « tu entres à la prochaine question » en pleine question.
+        rt.engine.joinLate(res.id, () => socket.emit('party:snapshot', rt.buildSnapshot(false)))
         rt.broadcastSnapshot()
-        rt.engine.joinLate(res.id)
         rt.engine.resendViews(res.id)
         // Le téléphone de l'animateur le dit à la salle mieux qu'un toast :
         // ici, c'est la console qui doit savoir que la place est reprise.
@@ -742,9 +747,15 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       return null
     }
 
-    ecouter('host:launch', () => {
+    ecouter('host:launch', charge => {
       const rt = requireHost()
       if (!rt) return
+      // Le lancement dit la partie qu'il remplace (invariant 12). Parti d'un
+      // écran qui ne voyait pas celle qui se joue — la télécommande dont le
+      // clic voyageait pendant que la console lançait —, il coupait en pleine
+      // question le quiz de toute la salle : il est ignoré en silence. Absent
+      // (une page d'avant), il garde l'ancien comportement.
+      if (charge.depuis !== undefined && (typeof charge.depuis === 'string' ? charge.depuis : null) !== rt.engine.activeSessionId) return
       try {
         rt.engine.launch(rt.lancementDeQuiz())
         // Le quiz prend la scène : un podium ou une clôture restés sur la

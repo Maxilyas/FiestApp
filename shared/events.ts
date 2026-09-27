@@ -176,8 +176,13 @@ export interface ClientToServerEvents {
      */
     ack: (res: { ok: boolean; slug?: string; name?: string; branchee?: true }) => void,
   ) => void
-  /** Démarre une partie de quiz (l'animateur choisit ensuite le quiz à jouer). */
-  'host:launch': () => void
+  /**
+   * Démarre une partie de quiz (l'animateur choisit ensuite le quiz à jouer).
+   * `depuis` : la partie que l'écran voyait — celle que le lancement
+   * remplace —, null s'il n'en voyait aucune. Un lancement qui ne vise pas
+   * la partie en cours est ignoré (invariant 12) ; absent, il la remplace.
+   */
+  'host:launch': (charge?: { depuis?: string | null }) => void
   /**
    * Un geste de la partie. L'accusé dit seulement qu'il est arrivé : sans
    * lui, la console sonde sa liaison et le renvoie une fois — il porte ce

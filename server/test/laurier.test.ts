@@ -10,7 +10,22 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import { ADMIN, connexionAnimateur, demarrer, ecrire, inscrireProfil, instantane, invite, type Banc } from './banc'
+import {
+  ADMIN,
+  attendre,
+  connexionAnimateur,
+  creerQuiz,
+  demarrer,
+  ecranCommun,
+  ecrire,
+  emitAck,
+  inscrireProfil,
+  instantane,
+  invite,
+  lancerQuiz,
+  qcm,
+  type Banc,
+} from './banc'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -125,4 +140,37 @@ test('le vainqueur d’hier porte le laurier toute la journée, ex æquo compris
     const fin = await instantane(zoe.socket, s => s.players.length === 6, 'Wanda arrivée')
     assert.deepEqual(laures(fin.players), [], 'un jour sans partie : plus de laurier')
     assert.ok(!('laurier' in (await lire(banc, alice, '/api/joueur/moi')).corps.profile))
+  }))
+
+test('le laurier de minuit rejoint le podium resté à l’écran', () =>
+  avecBanc(async (banc, horloge) => {
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
+    await jouer(banc, alice, () => true)
+    await jouer(banc, bob, i => i > 3)
+
+    // Le soir, une soirée : Alice et Bob jouent un quiz, dont le podium reste à l'écran.
+    const cookie = await connexionAnimateur(banc.url)
+    const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
+    const host = await ecranCommun(banc.url, cookie)
+    const salle = [await invite(banc.url, 'Alice', '', { cookie: alice }), await invite(banc.url, 'Bob', '', { cookie: bob })]
+    const sessionId = await lancerQuiz(host, quiz)
+    const vue = (pred: (v: any) => boolean, label: string) =>
+      attendre<any>(host, 'session:view', p => p.sessionId === sessionId && pred(p.view), label, 15_000).then(p => p.view)
+    await vue(v => v.phase === 'question', 'la question')
+    const revelee = vue(v => v.phase === 'reveal', 'la révélation')
+    for (const qui of salle) await emitAck(qui.socket, 'player:action', { sessionId, action: { type: 'answer', choice: 0 } })
+    await revelee
+    const podium = vue(v => v.phase === 'finished', 'le podium')
+    ;(host as any).emit('host:command', { sessionId, command: { type: 'next' } })
+    assert.deepEqual(laures((await podium).standings), [], 'la journée n’est pas close : pas encore de laurier')
+
+    // Minuit passe, le podium à l'écran, et rien ne bouge dans la salle. Bob
+    // ouvre le quiz du jour : la nuit se clôt, le laurier passe à Alice — et
+    // le podium gardait ceux de la veille jusqu'à la diffusion suivante de
+    // la partie : l'instantané seul repartait.
+    horloge.t += UN_JOUR
+    const laure = vue(v => v.phase === 'finished' && laures(v.standings ?? []).includes('Alice'), 'le laurier d’Alice sur le podium')
+    assert.equal((await lire(banc, bob, '/api/jour')).status, 200)
+    assert.deepEqual(laures((await laure).standings), ['Alice'])
   }))

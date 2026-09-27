@@ -111,7 +111,7 @@ async function soiree(questions: Partial<QuizQuestionDef>[], prenoms: string[]) 
   const invites: Invite[] = []
   for (const [i, prenom] of prenoms.entries()) invites.push(await arrivee(banc.url, prenom, ['🦊', '🐼', '🐸', '🦁'][i % 4]))
   const sessionId = await lancerQuiz(host, quiz)
-  return { banc, host, invites, sessionId }
+  return { banc, cookie, host, invites, sessionId }
 }
 
 // ── Les gestes portent la question qu'ils visaient ────────────────────────
@@ -134,6 +134,29 @@ describe('la question visée', { concurrency: true }, () => {
     assert.equal(apres.phase, 'reveal', 'la révélation doit rester à l’écran')
     assert.equal(apres.qIndex, 0)
     assert.equal(vues.get(alice.socket).phase, 'reveal', 'le téléphone aussi doit rester sur la révélation')
+  })
+
+  test('« Lancer un quiz » parti d’un écran qui ne voyait pas la partie ne l’interrompt pas', async () => {
+    // Deux écrans d'animateur : la console lance, la télécommande — qui
+    // n'avait pas encore vu la partie, ou dont le clic voyageait — lance à
+    // son tour. Le quiz s'arrêtait net en pleine question pour toute la salle.
+    const { banc, cookie, host, sessionId } = await soiree([qcm('Un ?'), qcm('Deux ?')], ['Alice'])
+    await vue(host, v => v.phase === 'question', 'la question')
+    const telecommande = await ecranCommun(banc.url, cookie)
+    let interrompue = false
+    host.on('session:ended', (p: any) => {
+      if (p.sessionId === sessionId) interrompue = true
+    })
+    ;(telecommande as any).emit('host:launch', { depuis: null })
+    // Les messages d'une connexion se traitent dans l'ordre : sa barrière vue, le lancement est passé.
+    const reglage = 12
+    commande(telecommande, sessionId, { type: 'autoNext', seconds: reglage })
+    await vue(host, v => v.autoNextSeconds === reglage, 'la barrière de la télécommande')
+    assert.equal(interrompue, false, 'le quiz en pleine question continue pour la salle')
+    // Le lancement qui vise la partie en cours — « Quiz suivant » au podium —, lui, la remplace.
+    const finie = attendre<any>(host, 'session:ended', p => p.sessionId === sessionId, 'la partie remplacée')
+    ;(telecommande as any).emit('host:launch', { depuis: sessionId })
+    await finie
   })
 
   test('double clic : deux « Question suivante » identiques n’avancent qu’une fois', async () => {

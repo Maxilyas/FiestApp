@@ -698,7 +698,8 @@ export function HostApp() {
   /** Premier geste de l'animateur : c'est aussi le moment où le navigateur autorise enfin le son. */
   const lancerQuiz = () => {
     initAudio()
-    socket.emit('host:launch')
+    // Il dit ce qu'il remplace : l'autre écran a peut-être lancé entre-temps.
+    socket.emit('host:launch', { depuis: sessionEnCours?.id ?? null })
   }
 
   const createTeam = (e: FormEvent) => {

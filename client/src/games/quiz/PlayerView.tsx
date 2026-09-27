@@ -256,25 +256,31 @@ function QuiDansLaSalle({ view: v, send, closes, enAttente, perdue }: PropsDeVar
   return (
     <>
       <div className="sondage-grid">
-        {v.answers!.map((nom, i) => (
-          <button
-            key={i}
-            disabled={v.paused || closes}
-            aria-pressed={v.yourChoice === i || enAttente?.choice === i}
-            onClick={() => {
-              navigator.vibrate?.(35)
-              send({ type: 'answer', choice: i, ...visee(v) })
-            }}
-            className={
-              'ans-btn sondage-btn' +
-              (enAttente?.choice === i ? ' pending' : v.yourChoice === i ? ' chosen' : closes ? ' dim' : '') +
-              (v.paused ? ' en-pause' : '')
-            }
-          >
-            <span className="ans-text">{nom}</span>
-            {v.yourChoice === i && enAttente?.choice !== i && <Icon name="check" className="ans-check" />}
-          </button>
-        ))}
+        {v.answers!.map((nom, i) =>
+          // Un invité exclu depuis garde sa place — les votes se comptent
+          // par position —, sans nom : il ne se désigne plus.
+          nom ? (
+            <button
+              key={i}
+              disabled={v.paused || closes}
+              aria-pressed={v.yourChoice === i || enAttente?.choice === i}
+              onClick={() => {
+                navigator.vibrate?.(35)
+                send({ type: 'answer', choice: i, ...visee(v) })
+              }}
+              className={
+                'ans-btn sondage-btn' +
+                (enAttente?.choice === i ? ' pending' : v.yourChoice === i ? ' chosen' : closes ? ' dim' : '') +
+                (v.paused ? ' en-pause' : '')
+              }
+            >
+              {/* L'avatar distingue deux Camille : le prénom seul faisait deux boutons pareils. */}
+              {v.avatars?.[i] && <span className="sondage-avatar">{v.avatars[i]}</span>}
+              <span className="ans-text">{nom}</span>
+              {v.yourChoice === i && enAttente?.choice !== i && <Icon name="check" className="ans-check" />}
+            </button>
+          ) : null,
+        )}
       </div>
       <PiedDeVariante
         enAttente={enAttente}

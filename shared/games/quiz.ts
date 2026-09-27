@@ -140,6 +140,8 @@ export interface QuizPlayerView {
   // question + reveal
   text?: string
   answers?: string[]
+  /** « Qui dans la salle ? » : l'avatar de chaque candidat, qui distingue deux Camille. */
+  avatars?: string[]
   unit?: string
   /** La catégorie de la question, si elle en porte une : l'écran l'affiche au-dessus. */
   category?: string
@@ -260,6 +262,8 @@ export interface QuizHostView {
   // question + reveal
   text?: string
   answers?: string[]
+  /** « Qui dans la salle ? » : l'avatar de chaque candidat, qui distingue deux Camille. */
+  avatars?: string[]
   unit?: string
   /** La catégorie de la question, si elle en porte une : l'écran l'affiche au-dessus. */
   category?: string

@@ -377,7 +377,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Un laurier qui change de tête — la nuit close, un profil masqué — se voit
   // dans la salle où il joue sans attendre la diffusion suivante.
   jour.laurierChange = profileId => {
-    for (const rt of registry.all()) if (rt.party.findByProfile(profileId)) rt.broadcastSnapshot()
+    for (const rt of registry.all()) {
+      if (!rt.party.findByProfile(profileId)) continue
+      rt.broadcastSnapshot()
+      // Les lignes d'un podium, d'une estimation portent aussi le laurier
+      // (`distinctions`) : un podium laissé à l'écran gardait ceux de la
+      // veille jusqu'à la diffusion suivante de la partie.
+      rt.engine.rafraichirVues()
+    }
   }
   const woken = registry.wakeRunning()
   if (woken > 0) console.log(`[espaces] ${woken} partie${woken > 1 ? 's' : ''} en cours reprise${woken > 1 ? 's' : ''}`)
