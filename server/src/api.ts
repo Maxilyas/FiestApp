@@ -9,7 +9,7 @@ import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
-import { horsBornesALEnvoi, type MemoireDuQuiz } from '../../shared/library'
+import { horsBornesALEnvoi, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
 import { accountOf, csrfGuard, refuserLesTeles, requireAccount, requireAdmin } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
@@ -157,6 +157,10 @@ export function mountApi(app: Express, deps: ApiDeps) {
     '/api/quizzes',
     wrap(async (req, res) => {
       const spaceId = spaceOf(res)
+      // Un fichier importé de cent vingt questions perdait les vingt
+      // dernières en silence : l'avis comptait 120, le quiz en gardait 100.
+      const trop = tropDeQuestions(req.body?.questions)
+      if (trop) return res.status(400).json({ error: trop })
       const quiz = await deps.store.create(spaceId, req.body?.title ?? 'Nouveau quiz', req.body?.questions ?? [], undefined, req.body?.reglages)
       await deps.onLibraryChanged(spaceId)
       res.status(201).json(quiz)

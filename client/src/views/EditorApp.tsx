@@ -34,8 +34,10 @@ import {
   tempsDObservation,
   tempsDansLesBornes,
   toPlayable,
+  tropDeQuestions,
   voisineDe,
   type MemoireDuQuiz,
+  type PieceDeQuestion,
   type QuizDef,
   type QuizQuestionDef,
   type QuizSummary,
@@ -70,6 +72,7 @@ import {
   brouillonDepasse,
   brouillonUtile,
   photosAVerifier,
+  piecesPerdues,
   sansPhotosDisparues,
   type Brouillon,
 } from '../../../shared/brouillon'
@@ -1119,7 +1122,8 @@ function QuizEditor({
   const [retrouve, setRetrouve] = useState<Brouillon | null>(null)
   const [reprise, setReprise] = useState<'en-cours' | 'faite' | null>(null)
   /** Les questions dont la photo n'existait plus sur le serveur quand on a repris le brouillon. */
-  const [sansPhoto, setSansPhoto] = useState<ReadonlySet<string>>(new Set())
+  /** Les questions dont une pièce n'existait plus à la reprise du brouillon, et lesquelles. */
+  const [sansPhoto, setSansPhoto] = useState<ReadonlyMap<string, readonly PieceDeQuestion[]>>(new Map())
   /** `updatedAt` de la version du serveur d'où partent les modifications en cours. */
   const [base, setBase] = useState(0)
   /**
@@ -1167,6 +1171,7 @@ function QuizEditor({
   const actions = useMemo<ActionsDesCartes>(
     () => ({
       changer: (i, fn) => dernieresActions.current?.changer(i, fn),
+      changerParId: (id, fn) => dernieresActions.current?.changerParId(id, fn),
       deplacer: (i, n, f) => dernieresActions.current?.deplacer(i, n, f),
       insererApres: i => dernieresActions.current?.insererApres(i),
       dupliquer: i => dernieresActions.current?.dupliquer(i),
@@ -1258,6 +1263,21 @@ function QuizEditor({
 
   const patchQuestion = (index: number, fn: (q: QuizQuestionDef) => QuizQuestionDef) =>
     patch(q => ({ ...q, questions: q.questions.map((item, i) => (i === index ? fn(item) : item)) }))
+
+  /**
+   * Par son identifiant, pour ce qui arrive après coup : une photo, un
+   * extrait, envoyés pendant qu'on déplaçait les cartes. Par sa place, la
+   * pièce rejoignait la question qui l'occupait désormais — et la question
+   * visée restait sans. Supprimée entre-temps, la question ne reçoit rien, et
+   * l'éditeur le dit.
+   */
+  const patchQuestionParId = (id: string | undefined, fn: (q: QuizQuestionDef) => QuizQuestionDef) => {
+    if (!id || !courant.current?.questions.some(q => q.id === id)) {
+      setError('La question a été supprimée pendant l’envoi : sa pièce n’a rejoint aucune question.')
+      return
+    }
+    patch(q => ({ ...q, questions: q.questions.map(item => (item.id === id ? fn(item) : item)) }))
+  }
 
   const spotlight = (id: string | undefined, focus: Spot['focus']) => {
     if (id) setSpot({ id, focus, at: Date.now() })
@@ -1513,11 +1533,11 @@ function QuizEditor({
     // Une photo envoyée mais jamais enregistrée a pu être effacée depuis
     // (voir `photosAVerifier`) : repartie telle quelle, elle manquait en soirée.
     const disparues = await photosDisparues(photosAVerifier(retrouve, serveur))
-    const { questions, privees } = sansPhotosDisparues(retrouve.questions, disparues)
+    const { questions, pieces } = sansPhotosDisparues(retrouve.questions, disparues)
     modifications.current++
     poser({ ...serveur, title: retrouve.title, questions, ...(retrouve.reglages && { reglages: retrouve.reglages }) })
     setDirty(true)
-    setSansPhoto(new Set(privees))
+    setSansPhoto(new Map(Object.entries(pieces)))
     setRetrouve(null)
     setReprise('faite')
   }
@@ -1541,6 +1561,7 @@ function QuizEditor({
   // question, son numéro ou le total changent.
   dernieresActions.current = {
     changer: patchQuestion,
+    changerParId: patchQuestionParId,
     deplacer: moveTo,
     insererApres: insertAfter,
     dupliquer: duplicate,
@@ -1675,6 +1696,13 @@ function QuizEditor({
             )}
           </button>
         </div>
+        {/* Au-delà de cent, le serveur refuse : on le dit avant, avec ce qu'il y a à retirer — une
+            fois : son refus, s'il est déjà là, dit la même chose. */}
+        {tropDeQuestions(quiz.questions) && error !== tropDeQuestions(quiz.questions) && (
+          <p className="warn editor-alerte" role="status">
+            <Icon name="alert" /> {espacesFines(tropDeQuestions(quiz.questions)!)}
+          </p>
+        )}
         {undo && (
           <p className="muted undo-line">
             {undo.label} ·{' '}
@@ -1731,10 +1759,8 @@ function QuizEditor({
           <p className="info" role="status">
             {espacesFines(
               'Tes modifications sont reprises : enregistre-les pour les garder.' +
-                (sansPhoto.size === 1 ? ' Une photo n’existait plus sur le serveur : sa question le signale.' : '') +
-                (sansPhoto.size > 1
-                  ? ` ${sansPhoto.size} photos n’existaient plus sur le serveur : leurs questions le signalent.`
-                  : ''),
+                (sansPhoto.size === 1 ? ' Une question a perdu une pièce sur le serveur : elle le signale.' : '') +
+                (sansPhoto.size > 1 ? ` ${sansPhoto.size} questions ont perdu une pièce sur le serveur : elles le signalent.` : ''),
             )}
           </p>
         )}
@@ -1806,7 +1832,7 @@ function QuizEditor({
             total={quiz.questions.length}
             question={question}
             melange={!!reglages.melangerReponses}
-            photoDisparue={!!question.id && sansPhoto.has(question.id)}
+            piecesDisparues={(question.id && sansPhoto.get(question.id)) || AUCUNE_PIECE}
             souvenir={(question.id && memoire?.questions[question.id]) || null}
             spot={spot && spot.id === question.id ? spot : null}
             actions={actions}
@@ -1816,6 +1842,8 @@ function QuizEditor({
         <div className="row">
           <button
             className="btn btn-big"
+            disabled={quiz.questions.length >= MAX_QUESTIONS}
+            title={quiz.questions.length >= MAX_QUESTIONS ? `Un quiz tient ${MAX_QUESTIONS} questions au plus` : undefined}
             onClick={() => {
               // La dernière prête ses réglages : un quiz se règle d'un bloc.
               const question = emptyQuestion(quiz.questions[quiz.questions.length - 1])
@@ -2388,6 +2416,13 @@ function BulkImport({
           ` · ${result.unmarked} sans bonne réponse désignée (une étoile, et une seule) : à choisir sur ${result.unmarked > 1 ? 'leur' : 'sa'} carte`}
         {result.ignored > 0 && ` · ${result.ignored} ${result.ignored > 1 ? 'blocs ignorés' : 'bloc ignoré'}`}
       </p>
+      {total + count > MAX_QUESTIONS && count > 0 && (
+        <p className="warn small">
+          {espacesFines(
+            `Le quiz en aurait ${total + count} : il en tient ${MAX_QUESTIONS} au plus. Tu pourras en retirer avant d’enregistrer, ou en faire deux quiz.`,
+          )}
+        </p>
+      )}
       {result.titre && <p className="muted small">{espacesFines(`Titre annoncé : « ${result.titre} »`)}</p>}
       {/* Ce que la liste laisse, dit par son début : sur trente blocs, « 1 bloc
           ignoré » faisait tout relire. */}
@@ -2617,9 +2652,14 @@ function DemandeIAForm() {
   )
 }
 
+/** Rien de disparu : la même liste à chaque rendu, pour que la carte ne se redessine pas. */
+const AUCUNE_PIECE: readonly PieceDeQuestion[] = []
+
 /** Ce qu'une carte peut faire à sa question, désignée par sa place. */
 interface ActionsDesCartes {
   changer: (index: number, fn: (q: QuizQuestionDef) => QuizQuestionDef) => void
+  /** Pour ce qui arrive après un envoi : la carte a pu changer de place entre-temps. */
+  changerParId: (id: string | undefined, fn: (q: QuizQuestionDef) => QuizQuestionDef) => void
   deplacer: (index: number, number: number, focus: Spot['focus']) => void
   insererApres: (index: number) => void
   dupliquer: (index: number) => void
@@ -2631,7 +2671,7 @@ const CarteDeQuestion = memo(function CarteDeQuestion({
   actions,
   index,
   ...reste
-}: Omit<QuestionCardProps, 'onChange' | 'onMoveTo' | 'onInsertAfter' | 'onDuplicate' | 'onDelete'> & {
+}: Omit<QuestionCardProps, 'onChange' | 'onChangePiece' | 'onMoveTo' | 'onInsertAfter' | 'onDuplicate' | 'onDelete'> & {
   actions: ActionsDesCartes
 }) {
   return (
@@ -2639,6 +2679,7 @@ const CarteDeQuestion = memo(function CarteDeQuestion({
       {...reste}
       index={index}
       onChange={fn => actions.changer(index, fn)}
+      onChangePiece={fn => actions.changerParId(reste.question.id, fn)}
       onMoveTo={(number, focus) => actions.deplacer(index, number, focus)}
       onInsertAfter={() => actions.insererApres(index)}
       onDuplicate={() => actions.dupliquer(index)}
@@ -2653,13 +2694,15 @@ interface QuestionCardProps {
   question: QuizQuestionDef
   /** Le quiz mélange ses réponses à chaque partie : la carte propose de garder son ordre. */
   melange: boolean
-  /** Sa photo n'existait plus sur le serveur à la reprise du brouillon : elle le dit, jusqu'à la suivante. */
-  photoDisparue: boolean
+  /** Les pièces qui n'existaient plus sur le serveur à la reprise du brouillon : elle le dit, jusqu'à ce qu'on les rajoute. */
+  piecesDisparues: readonly PieceDeQuestion[]
   /** Sa dernière soirée, et qui y a trouvé — null si l'historique ne l'a jamais vue passer. */
   souvenir: SouvenirDeQuestion | null
   /** Non nul quand la carte vient d'arriver ici : on la montre, on l'éclaire. */
   spot: Spot | null
   onChange: (fn: (q: QuizQuestionDef) => QuizQuestionDef) => void
+  /** Une pièce arrivée du serveur : elle rejoint cette question, où qu'elle soit désormais. */
+  onChangePiece: (fn: (q: QuizQuestionDef) => QuizQuestionDef) => void
   /** La question prend ce numéro ; `focus` dit quel bouton a servi, pour le lui rendre. */
   onMoveTo: (number: number, focus: Spot['focus']) => void
   onInsertAfter: () => void
@@ -2706,10 +2749,11 @@ function QuestionCard({
   total,
   question,
   melange,
-  photoDisparue,
+  piecesDisparues,
   souvenir,
   spot,
   onChange,
+  onChangePiece,
   onMoveTo,
   onInsertAfter,
   onDuplicate,
@@ -2799,7 +2843,7 @@ function QuestionCard({
       const dataUrl = await compressImage(file)
       const { url } = await api.uploadImage(dataUrl)
       // La photo que la liste annonçait est arrivée : la note n'a plus rien à dire.
-      onChange(q => (pour === 'revelation' ? { ...q, imageRevelation: url } : { ...q, image: url, photoAttendue: null }))
+      onChangePiece(q => (pour === 'revelation' ? { ...q, imageRevelation: url } : { ...q, image: url, photoAttendue: null }))
     } catch (e) {
       setImageError((e as Error).message)
     } finally {
@@ -2823,7 +2867,7 @@ function QuestionCard({
       if (!file.type.startsWith('audio/')) throw new Error('Cet extrait ne se lit pas — choisis-le en MP3, M4A, OGG ou WAV')
       if (file.size > MAX_SON_OCTETS) throw new Error('Extrait trop lourd — coupe-le à une trentaine de secondes (1,5 Mo au plus)')
       const { url } = await api.uploadImage(await enClair(file))
-      onChange(q => ({ ...q, son: url }))
+      onChangePiece(q => ({ ...q, son: url }))
     } catch (e) {
       setImageError((e as Error).message)
     } finally {
@@ -2934,7 +2978,8 @@ function QuestionCard({
           <button
             className="btn btn-ghost btn-small"
             aria-label={`Insérer une question après la question ${index + 1}`}
-            title="Insérer une question après"
+            title={total >= MAX_QUESTIONS ? `Un quiz tient ${MAX_QUESTIONS} questions au plus` : 'Insérer une question après'}
+            disabled={total >= MAX_QUESTIONS}
             onClick={onInsertAfter}
           >
             <Icon name="plus" />
@@ -2942,7 +2987,8 @@ function QuestionCard({
           <button
             className="btn btn-ghost btn-small"
             aria-label={`Dupliquer la question ${index + 1}`}
-            title="Dupliquer"
+            title={total >= MAX_QUESTIONS ? `Un quiz tient ${MAX_QUESTIONS} questions au plus` : 'Dupliquer'}
+            disabled={total >= MAX_QUESTIONS}
             onClick={onDuplicate}
           >
             <Icon name="copy" />
@@ -3379,10 +3425,9 @@ function QuestionCard({
       {preview && <QuestionPreview question={question} onClose={() => setPreview(false)} />}
       {loupe && question.image && <PhotoLoupe src={question.image} onClose={() => setLoupe(false)} />}
       {imageError && <p className="error">{imageError}</p>}
-      {photoDisparue && !question.image && (
+      {piecesDisparues.some(p => !question[p]) && (
         <p className="warn">
-          <Icon name="alert" />{' '}
-          {espacesFines('La photo de cette question n’existe plus sur le serveur : ajoute-la de nouveau.')}
+          <Icon name="alert" /> {espacesFines(piecesPerdues(piecesDisparues.filter(p => !question[p])))}
         </p>
       )}
       {question.deCote ? (

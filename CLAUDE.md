@@ -484,8 +484,9 @@ sans `QUIZ_DB_URL`.
   les doigts de l'animateur. Une écriture de l'éditeur qui se rejoue sans
   dommage passe par `auReveil` ; et une réponse qui arrive après deux minutes
   d'attente ne remplace l'éditeur que si rien n'a bougé depuis
-  (`modifications`). L'envoi d'une photo n'y passe pas : il s'attache à la
-  question par sa position, qu'on a pu déplacer entre-temps. « Enregistrer » envoie
+  (`modifications`). L'envoi d'une photo n'y passe pas, et elle rejoint sa
+  question par son identifiant (`changerParId`) : par sa position, elle
+  tombait sur la voisine qu'on avait déplacée entre-temps. « Enregistrer » envoie
   la version d'où il part (`base`), un `jeton` que ses essais au réveil
   reprennent et le numéro de l'essai (`essai`) : le serveur répond 409 si le
   quiz a été enregistré ailleurs depuis — l'autre appareil —, jamais à un
@@ -500,9 +501,14 @@ sans `QUIZ_DB_URL`.
   révélation, l'extrait d'un blind test (`PIECES_DE_QUESTION`,
   `shared/library.ts`) —, chacune sous une adresse `/media/image/…`. Ce qui
   emporte une question — l'export, un code de partage, le catalogue — les
-  emporte toutes : la photo de la révélation oubliée restait l'adresse de
+  emporte toutes, et ce qui les vérifie — la reprise d'un brouillon — les
+  vérifie toutes : la photo de la révélation oubliée restait l'adresse de
   l'autre espace, et partait au premier ménage du sien. Une quatrième pièce
-  rejoint cette liste.
+  rejoint cette liste. Le ménage n'efface une pièce qu'une heure après
+  qu'aucun quiz ne la cite plus (`orpheline_depuis`, posé par
+  l'enregistrement qui la retire) : comptée depuis son envoi, la grâce
+  laissait « Garder la mienne », sur l'autre appareil, citer une photo
+  effacée.
 - **Une variante se juge par `reponseJuste`**, jamais par
   `r.choice === q.correct` : « plusieurs » et « ordre » envoient leurs cases
   (`choix`), et le journal n'en garde que le verdict (`choice` à null) — le
