@@ -320,6 +320,8 @@ export interface PartieDuJour {
   categories: string[]
   /** Où il en est. */
   etat: 'a-jouer' | 'en-cours' | 'finie' | 'aucun'
+  /** Pas de quiz aujourd'hui (`aucun`) : la réserve en a-t-elle de quoi demain ? */
+  revientDemain?: boolean
   /** En cours : la question à laquelle répondre, si elle est montrée. */
   question?: QuestionDuJour
   /** En cours, entre deux questions : ce qu'il vient d'apprendre. */

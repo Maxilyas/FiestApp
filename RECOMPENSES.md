@@ -412,8 +412,10 @@ gagnée se range comme une récompense (`saison:halloween`) : sous le jour
 qui l'a ouverte, ou sous la soirée — qui l'emporte si on la retire de
 l'historique. Elle ne va ni sur l'étagère ni dans le compte des badges :
 elle ne se montre que par son légendaire. Pendant la saison, la page du
-quiz du jour dit ce qui manque (« La Citrouille : 2 jours sur 3 ») ; la fin
-de la partie qui l'ouvre la fête, comme le Sphinx. Chacun a sa version
+quiz du jour dit ce qui manque (« La Citrouille : 2 jours sur 3 ») ; elle
+tombe dès que la partie qui la fait atteindre commence — une partie
+commencée compte, pour la jauge comme pour la récompense —, et la fin de
+cette partie la fête, comme le Sphinx. Chacun a sa version
 rare : la citrouille blanche sur nuit émeraude, le sapin givré, le bouquet
 d'argent sur nuit pourpre.
 
@@ -700,8 +702,10 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   **L'Assidu** (7, 30, 100 jours joués — une partie commencée compte, comme
   pour la série), **Le Champion du jour** (1, 5, 20 victoires, ex æquo
   compris) et **Le Sans-Faute** (1, 3, 10 jours sans une faute, la médaille
-  d'or). Ils tombent à la fin d'une partie, ou à la nuit qui clôt un jour
-  pour la victoire (`accorderPaliersDuJour`) — jamais à la clôture d'une
+  d'or). Ils tombent dès qu'une partie commence pour L'Assidu (une partie
+  commencée compte : laissée en route, elle le fait tomber quand même), à la
+  fin d'une partie pour Le Sans-Faute, à la nuit qui clôt un jour pour la
+  victoire (`accorderPaliersDuJour`) — jamais à la clôture d'une
   soirée, qui ne sait rien du quiz du jour (`paliersAtteints` les écarte) —,
   rangés sous ce jour (`#jour:2026-09-26`) : aucune soirée ne les porte, en
   retirer une ne les reprend pas. Ils rapportent ce que rapporte tout

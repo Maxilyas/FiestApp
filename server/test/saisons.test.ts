@@ -22,12 +22,15 @@ import {
   type Socket,
 } from './banc'
 import { ProfileStore } from '../src/auth/profiles'
-import { laureatsDeSaison } from '../src/core/saisons'
+import { calendrierDesSoirees, laureatsDeSaison } from '../src/core/saisons'
 import { periodeDu, saison } from '../../shared/saisons'
 import { gainVide } from '../../shared/profil'
 import { legendairesDebloques } from '../../shared/legendaires'
 
 ProfileStore.tirageEclat = () => false
+// Le banc ferme le calendrier des soirées, pour que la suite ne dépende pas
+// du jour où elle tourne ; ce fichier date ses soirées lui-même, et le rouvre.
+calendrierDesSoirees.periodeDu = periodeDu
 
 test('les périodes, à la date de Paris — le Nouvel An enjambe l’année', () => {
   const de = (jour: string) => periodeDu(jour)?.saison.key ?? null
@@ -63,6 +66,17 @@ test('une soirée qui compte, jouée pendant la saison, l’ouvre à ses profils
   assert.deepEqual(laureatsDeSaison(joue(Date.UTC(2026, 10, 2, 9, 0)), gains), [])
   assert.deepEqual(laureatsDeSaison([{ answered: false, createdAt: soir }], gains), [], 'rien de joué, rien de daté')
   assert.ok(legendairesDebloques(new Map([['saison:halloween', 1]])).includes('lg:citrouille'))
+})
+
+test('une soirée commencée le soir du 1er novembre et finie après minuit est d’Halloween', () => {
+  const gains = [{ profileId: 'alice', gain: { ...gainVide(), reponses: 12 } }]
+  // 23 h 50 puis 0 h 20, heure de Paris (UTC+1 en novembre) : datée à sa
+  // première question, comme son nom — pas à sa dernière.
+  const journal = [
+    { answered: true, createdAt: Date.UTC(2026, 10, 1, 23, 20) },
+    { answered: true, createdAt: Date.UTC(2026, 10, 1, 22, 50) },
+  ]
+  assert.deepEqual(laureatsDeSaison(journal, gains).map(l => l.badge), ['saison:halloween'])
 })
 
 // ── Au quiz du jour ─────────────────────────────────────────────────────
@@ -131,6 +145,26 @@ test('trois jours de quiz du jour pendant Halloween ouvrent la Citrouille ; la p
     horloge.t = Date.UTC(2026, 10, 3, 9, 0)
     const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
     assert.equal((await lire(banc, bob, '/api/jour')).corps.saison, undefined)
+  } finally {
+    await banc.close()
+  }
+})
+
+test('deux jours de quiz du jour pendant Halloween ne suffisent pas : il en faut trois', async () => {
+  // Jeudi 29 octobre 2026, 10 h à Paris ; un jour déjà joué le 26.
+  const banc = await demarrer({ horlogeDuJour: () => Date.UTC(2026, 9, 29, 9, 0) })
+  try {
+    const alice = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const id = base(banc, db => (db.prepare('SELECT id FROM profiles WHERE login = ?').get('alice') as { id: string }).id)
+    base(banc, db =>
+      db
+        .prepare(`INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, '2026-10-26', 1, 10, NULL, 0, 0, 1, 0)`)
+        .run(id),
+    )
+    const fin = await jouer(banc, alice)
+    assert.equal(fin.legendaires, undefined, 'deux jours sur trois : pas encore la Citrouille')
+    assert.equal((await lire(banc, alice, '/api/jour')).corps.saison?.joues, 2)
+    assert.ok(!(await lire(banc, alice, '/api/joueur/moi')).corps.profile.legendaires.includes('lg:citrouille'))
   } finally {
     await banc.close()
   }

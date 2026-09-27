@@ -289,7 +289,10 @@ export function JourApp() {
         </div>
         <h1 className="jour-date">{capitale(jourEnToutesLettres(partie.jour))}</h1>
         {partie.etat === 'aucun' ? (
-          <p className="muted">Pas de quiz aujourd’hui : la réserve de questions est vide. Il revient demain.</p>
+          <p className="muted">
+            Pas de quiz aujourd’hui : la réserve de questions est vide.{' '}
+            {partie.revientDemain === false ? 'Il revient dès qu’elle se remplit.' : 'Il revient demain.'}
+          </p>
         ) : (
           <>
             <p className="jour-meta">

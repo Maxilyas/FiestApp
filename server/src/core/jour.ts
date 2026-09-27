@@ -196,9 +196,17 @@ export class JourStore {
   private masques = new Set<string>()
   /** Le dernier jour dont on sait qu'il n'y a plus rien à clore avant lui. */
   private closJusqua = ''
-  /** Les classements, gardés tant que rien n'a bougé : chaque téléphone qui finit sa partie le demande. */
-  private revision = 0
+  /**
+   * Les classements, gardés tant que leur jour n'a pas bougé : chaque
+   * téléphone qui finit sa partie le demande. Une révision par jour : une
+   * seule pour tous faisait relire hier — clos, immobile — à chaque réponse
+   * d'aujourd'hui, deux fois par « Question suivante » (les vainqueurs
+   * d'hier, et son hier) : 60 % des lignes lues à l'heure de pointe.
+   */
+  private revisions = new Map<string, number>()
   private classementsGardes = new Map<string, { revision: number; joueurs: Joueur[] }>()
+  /** La lecture d'un classement en route : deux demandes de la même vue n'en lancent qu'une. */
+  private classementsEnRoute = new Map<string, { revision: number; promesse: Promise<Joueur[]> }>()
   /**
    * Les vainqueurs d'un jour clos, et ce jour : le laurier de ceux d'hier
    * (`laureats`). Relus à la nuit, une fois — ils servent à chaque
@@ -536,6 +544,14 @@ export class JourStore {
         ...choisies,
         ...anciennes.rows.map(r => ({ id: String(r.id), question: String(r.question), categorie: r.categorie == null ? null : String(r.categorie) })),
       ]
+      // Personne ne regarde la réserve : le journal le dit. Sans la routine
+      // qui la remplit (MISE-EN-LIGNE.md, étape 8), l'amorce tient quatre
+      // jours, puis plus rien avant que ses questions redeviennent tirables.
+      if (choisies.length < QUESTIONS_PAR_JOUR) {
+        console.warn(
+          `[jour] réserve à sec : ${choisies.length} question${choisies.length > 1 ? 's' : ''} pour le ${jour} — la routine qui la remplit tourne-t-elle ? (MISE-EN-LIGNE.md, étape 8)`,
+        )
+      }
     }
     const jouables = choisies
       .map(c => toPlayable({ ...(JSON.parse(c.question) as QuizQuestionDef), id: c.id }))
@@ -609,7 +625,19 @@ export class JourStore {
         sql: `INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, servie_le) VALUES (?, ?, ?, 0, ?)`,
         args: [profil.id, jour, maintenant, maintenant],
       })
-      if (res.rowsAffected > 0) this.revision++
+      if (res.rowsAffected > 0) {
+        this.reviser(jour)
+        // Une partie commencée compte — pour la jauge de L'Assidu comme pour
+        // celle de la saison : ce qu'elle fait atteindre tombe maintenant.
+        // Décerné seulement à la fin de la partie, le troisième jour
+        // d'Halloween commencé puis laissé (le téléphone qui sonne, minuit
+        // qui passe) affichait « 3 jours sur 3 » sans jamais ouvrir la
+        // Citrouille : le lendemain, la saison était finie, pour un an. La
+        // fin de la partie les fête toujours : elle lit ce que ce jour a fait
+        // tomber (`recompensesDuJour`).
+        await this.deps.profiles.accorderPaliersDuJour(profil.id, jour, await this.statsDuJour(profil.id))
+        await this.accorderSaison(profil.id, jour)
+      }
       // Déjà commencée — l'autre téléphone, un double toucher : la partie
       // reprend où elle en était, sans rien rejouer.
       const [partie, revelation] = await this.aJour(profil.id, tirage)
@@ -623,8 +651,13 @@ export class JourStore {
    */
   async suivante(profil: ProfileRec): Promise<PartieDuJour> {
     const jour = jourDe(this.maintenant())
+    // Minuit a pu passer entre deux questions : le jour neuf se tire, et la
+    // veille se clôt d'abord, comme au chargement de la page. Sans ça, la
+    // partie commencée à 23 h 58 recevait « Pas de quiz aujourd'hui : la
+    // réserve est vide », et son « hier » se lisait avant son podium.
+    await this.clorePasses(jour)
     return this.avecVerrou(profil.id, async () => {
-      const tirage = await this.tirage(jour)
+      const tirage = await this.tirage(jour, true)
       if (!tirage) return this.vueDe(profil, jour, null, null)
       const [avant, revelation] = await this.aJour(profil.id, tirage)
       // Une question vient d'expirer : on la révèle d'abord, la suivante attend son geste.
@@ -716,10 +749,10 @@ export class JourStore {
       'write',
     )
     if (res[1].rowsAffected === 0) return
-    this.revision++
-    // Ses paliers ne bougent qu'avec la partie finie : un jour joué, un
-    // sans-faute. Les chercher à chaque réponse coûtait un aller-retour de
-    // plus sous les doigts du joueur.
+    this.reviser(partie.jour)
+    // Ses paliers ne bougent qu'au début de la partie (un jour joué, voir
+    // `commencer`) et à sa fin (un sans-faute) : les chercher à chaque
+    // réponse coûtait un aller-retour de plus sous les doigts du joueur.
     await this.ecrireXp(partie.profileId, partie.jour, derniere)
   }
 
@@ -789,6 +822,7 @@ export class JourStore {
       return {
         jour,
         maintenant: this.maintenant(),
+        revientDemain: await this.reserveTientDemain(jour),
         total: 0,
         categories: [],
         etat: 'aucun',
@@ -864,35 +898,96 @@ export class JourStore {
     return vue
   }
 
+  /**
+   * Pas de quiz aujourd'hui : la réserve en aura-t-elle un demain ? « Il
+   * revient demain » ne se promet que si c'est vrai — à sec, le téléphone
+   * le répétait chaque jour pendant un mois.
+   */
+  private async reserveTientDemain(jour: string): Promise<boolean> {
+    const res = await this.client.execute({
+      sql: 'SELECT COUNT(*) AS n FROM jour_reserve WHERE retiree_le IS NULL AND (posee_le IS NULL OR posee_le < ?)',
+      args: [jourAvant(jourAvant(jour, -1), JOURS_AVANT_DE_REPOSER)],
+    })
+    return Number(res.rows[0]?.n ?? 0) > 0
+  }
+
   // ── Le classement ───────────────────────────────────────────────────────
 
   /**
    * Ceux qui ont joué ce jour-là, profils fermés et masqués écartés — sauf
    * `pour`, qui se voit toujours : un profil masqué n'en est pas averti.
    */
-  private async joueursDu(jour: string, pour: string | null): Promise<Joueur[]> {
-    const garde = this.classementsGardes.get(jour)
-    let tous = garde && garde.revision === this.revision ? garde.joueurs : null
-    if (!tous) {
-      const res = await this.client.execute({ sql: 'SELECT profile_id, points, finie_le, commencee_le FROM jour_parties WHERE jour = ?', args: [jour] })
-      const profils = await parLots(res.rows, PROFILS_EN_VOL, r => this.deps.profiles.byId(String(r.profile_id)))
-      const lus: Joueur[] = []
-      res.rows.forEach((r, i) => {
-        const profil = profils[i]
-        if (profil) lus.push({ profil, points: Number(r.points), enCours: r.finie_le == null, commenceeLe: Number(r.commencee_le) })
-      })
-      tous = lus
-      this.classementsGardes.set(jour, { revision: this.revision, joueurs: tous })
-      if (this.classementsGardes.size > 8) this.classementsGardes.delete(this.classementsGardes.keys().next().value!)
-    }
+  private async joueursDu(jour: string, pour: string | null, frais = false): Promise<Joueur[]> {
+    const tous = await this.classementDe(jour, frais)
     return tous.filter(j => !this.masques.has(j.profil.id) || j.profil.id === pour)
+  }
+
+  /**
+   * Tous ceux qui ont joué ce jour-là, gardés sous la révision du jour lue
+   * AVANT la lecture. Lue après, une réponse écrite pendant qu'on allait
+   * chercher un profil chez Turso passait pour vue : la lecture d'avant se
+   * rangeait comme fraîche, et la nuit payait le podium — le laurier, le
+   * Champion du jour — sur ces points-là, pour de bon. `frais` relit la base
+   * quoi qu'il y ait en mémoire : la nuit ne se fie qu'à elle.
+   */
+  private classementDe(jour: string, frais: boolean): Promise<Joueur[]> {
+    const revision = this.revisionDu(jour)
+    if (!frais) {
+      const garde = this.classementsGardes.get(jour)
+      if (garde && garde.revision === revision) return Promise.resolve(garde.joueurs)
+      const enRoute = this.classementsEnRoute.get(jour)
+      if (enRoute && enRoute.revision === revision) return enRoute.promesse
+    }
+    const promesse = this.lireClassement(jour).then(joueurs => {
+      const garde = this.classementsGardes.get(jour)
+      // Une lecture plus récente déjà rangée reste : celle-ci, partie avant
+      // elle, a pu croiser une réponse.
+      if (!garde || garde.revision <= revision) {
+        this.classementsGardes.delete(jour)
+        this.classementsGardes.set(jour, { revision, joueurs })
+        if (this.classementsGardes.size > 8) this.classementsGardes.delete(this.classementsGardes.keys().next().value!)
+      }
+      return joueurs
+    })
+    const enRoute = { revision, promesse }
+    this.classementsEnRoute.set(jour, enRoute)
+    // Un échec ne reste pas en route : la demande suivante relit la base.
+    void promesse
+      .finally(() => {
+        if (this.classementsEnRoute.get(jour) === enRoute) this.classementsEnRoute.delete(jour)
+      })
+      .catch(() => {})
+    return promesse
+  }
+
+  private async lireClassement(jour: string): Promise<Joueur[]> {
+    const res = await this.client.execute({ sql: 'SELECT profile_id, points, finie_le, commencee_le FROM jour_parties WHERE jour = ?', args: [jour] })
+    const profils = await parLots(res.rows, PROFILS_EN_VOL, r => this.deps.profiles.byId(String(r.profile_id)))
+    const lus: Joueur[] = []
+    res.rows.forEach((r, i) => {
+      const profil = profils[i]
+      if (profil) lus.push({ profil, points: Number(r.points), enCours: r.finie_le == null, commenceeLe: Number(r.commencee_le) })
+    })
+    return lus
+  }
+
+  /** Ce jour a bougé : une partie commencée, une réponse, une annulation — son classement gardé ne vaut plus. */
+  private reviser(jour: string) {
+    this.revisions.set(jour, this.revisionDu(jour) + 1)
+  }
+
+  private revisionDu(jour: string): number {
+    return this.revisions.get(jour) ?? 0
   }
 
   /** Le classement d'un jour : tout le serveur, les règles des soirées — rang partagé, « Camille (2) ». */
   async classementDuJour(jour: string, pour: string | null): Promise<ClassementDuJour> {
     await this.clorePasses(jourDe(this.maintenant()))
     const joueurs = await this.joueursDu(jour, pour)
-    return { ...this.lignes(joueurs, jour, pour), fige: await this.estClos(jour) }
+    const fige = await this.estClos(jour)
+    // Un jour clos n'a plus de partie dont les points peuvent monter : celle
+    // qu'on a laissée à minuit s'arrête là, comme son podium.
+    return { ...this.lignes(fige ? joueurs.map(j => ({ ...j, enCours: false })) : joueurs, jour, pour), fige }
   }
 
   /** Le classement d'un mois : les points de tous ses jours, additionnés. */
@@ -1209,7 +1304,8 @@ export class JourStore {
    */
   private async clore(jour: string) {
     if (await this.estClos(jour)) return
-    const joueurs = await this.joueursDu(jour, null)
+    // La base, pas le classement gardé : le podium se paie une fois, pour de bon.
+    const joueurs = await this.joueursDu(jour, null, true)
     const classes = classer(joueurs, j => j.points, j => j.profil.name, j => j.profil.id)
     const podium = classes
       .filter(c => c.item.points > 0)
@@ -1226,7 +1322,6 @@ export class JourStore {
       ],
       'write',
     )
-    this.revision++
     for (const p of podium) await this.avecVerrou(p.profileId, () => this.ecrireXp(p.profileId, jour))
     console.log(`[jour] ${jour} clos : ${joueurs.length} joueur${joueurs.length > 1 ? 's' : ''}, ${podium.length} sur le podium`)
   }
@@ -1409,7 +1504,7 @@ export class JourStore {
       const profileId = String(r.profile_id)
       return this.avecVerrou(profileId, () => this.recompter(profileId, jour))
     })
-    this.revision++
+    this.reviser(jour)
   }
 
   /** Ses points et ses bonnes réponses d'un jour, recomptés sans les questions annulées — son expérience suit. */
@@ -1449,9 +1544,10 @@ export class JourStore {
         ? { sql: 'INSERT OR IGNORE INTO jour_masques (profile_id, masque_le) VALUES (?, ?)', args: [profileId, this.maintenant()] }
         : { sql: 'DELETE FROM jour_masques WHERE profile_id = ?', args: [profileId] },
     )
+    // Les classements gardés n'ont pas à se relire : les masqués s'écartent
+    // à chaque lecture (`joueursDu`), après la mémoire.
     if (masque) this.masques.add(profileId)
     else this.masques.delete(profileId)
-    this.revision++
     // Masqué, il ne s'annonce plus : son laurier tombe avec, et revient s'il
     // est rendu au classement le jour même.
     const hier = jourAvant(jourDe(this.maintenant()))

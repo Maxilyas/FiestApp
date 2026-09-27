@@ -63,7 +63,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/fonds.ts` | les fonds de carte (nuit étoilée, aurore boréale, kintsugi, grand théâtre) : ce qu'on voit derrière sa carte, rien ailleurs ; ceux qu'il a gagnés (`fondsOuverts`), celui qu'il porte relu à chaque affichage (`fondPorte`), comme un titre. Le décor tient au cadre de la carte (`.carte-fond`), son contenu défile par-dessus (`.carte-defile`) |
 | `shared/ecussons.ts` · `client/src/components/Ecusson.tsx` | les écussons de savoir : les bonnes réponses d'une catégorie, soirées (`Carriere.categories`) et quiz du jour (`JourStore.categoriesDe`) ensemble, au bronze, à l'argent, à l'or (`SEUILS_ECUSSON`) — dérivation pure, sans expérience ; les trois plus hauts sur la carte (`plusBeauxEcussons`), les douze sur la page du profil |
 | `core/objectifs.ts` | ce que la fin de soirée raconte en plus de ce qu'elle rapporte : les records battus, « Tu t'en approches » — dérivations pures de l'historique, lues à la clôture après les crédits |
-| `shared/jour.ts` · `core/jour.ts` · `server/src/quizDuJour.ts` · `client/src/views/JourApp.tsx` | le quiz du jour, pour les profils : dix questions tirées à minuit (Paris) et figées, une partie chronométrée au serveur, dans la base permanente ; l'expérience (75 au plus, podium 25/15/10) dans la ligne `#jour` ; la nuit qui clôt la veille à la première demande (`clorePasses`) ; ses trois paliers (L'Assidu, Le Champion du jour, Le Sans-Faute), décernés à la fin d'une partie ou à la nuit (`accorderPaliersDuJour`) et rangés sous le jour (`cleDuJour`), jamais sous une soirée ; le laurier des vainqueurs d'hier (`laureats`), qui suit leur prénom jusque dans les soirées (`Distinctions.laurier`, `components/Laurier.tsx`) ; la réserve, ses signalements et les profils masqués, à `/admin` |
+| `shared/jour.ts` · `core/jour.ts` · `server/src/quizDuJour.ts` · `client/src/views/JourApp.tsx` | le quiz du jour, pour les profils : dix questions tirées à minuit (Paris) et figées, une partie chronométrée au serveur, dans la base permanente ; l'expérience (75 au plus, podium 25/15/10) dans la ligne `#jour` ; la nuit qui clôt la veille à la première demande (`clorePasses`) ; ses trois paliers (L'Assidu, Le Champion du jour, Le Sans-Faute), décernés dès la partie commencée (L'Assidu, la saison : une partie commencée compte), à sa fin (Le Sans-Faute) ou à la nuit (la victoire) (`accorderPaliersDuJour`) et rangés sous le jour (`cleDuJour`), jamais sous une soirée ; le laurier des vainqueurs d'hier (`laureats`), qui suit leur prénom jusque dans les soirées (`Distinctions.laurier`, `components/Laurier.tsx`) ; la réserve, ses signalements et les profils masqués, à `/admin` |
 | `core/consigne.ts` | la consigne qu'on donne à une IA pour écrire la réserve du quiz du jour — la routine Claude Code qui la remplit derrière `RESERVE_TOKEN` (`/api/jour/reserve` : la consigne, puis le dépôt ; MISE-EN-LIGNE.md, étape 8), ou « Copier la consigne pour une IA » à `/admin` : une seule pour les deux. Le serveur ne détient aucune clé d'IA |
 | `shared/glossaire.ts` · `client/src/components/Glossaire.tsx` | les mots maison (souvenir, bilan, coup d'œil, finition…), une phrase chacun, dépliée au toucher sous les pages qui les emploient — des Divins, le nom et le mystère seulement |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
@@ -418,7 +418,12 @@ sans `QUIZ_DB_URL`.
 - **L'Éclat est un tirage** (une chance sur quarante) et le premier fait
   tomber un palier de carrière : un test qui compte l'expérience au point
   près après une clôture neutralise `ProfileStore.tirageEclat`, sinon il
-  échoue une fois sur quarante.
+  échoue une fois sur quarante. **Le calendrier aussi** : une soirée se date
+  à l'horloge de la machine, et close pendant Halloween, Noël ou le Nouvel
+  An, elle ouvrait son légendaire de saison — la CI rougissait dix-neuf
+  jours par an. `banc.ts` et `smoke.ts` ferment donc le calendrier des
+  soirées (`calendrierDesSoirees`, `core/saisons.ts`) ; un test qui date ses
+  soirées lui-même le rouvre (`saisons.test.ts`).
 - **Un joueur seul ne rapporte rien.** Un test qui veut de l'expérience
   invite un figurant au moins (`figurants()`, `faux()` dans
   `soiree.test.ts`) ; un test de hauts faits, quatre joueurs au moins. Et
