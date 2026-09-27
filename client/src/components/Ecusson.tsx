@@ -21,8 +21,10 @@ const EMBLEME: Record<string, IconName> = {
  * Un écusson de savoir : un blason au trait, l'emblème de sa catégorie
  * dedans, teinté de son palier — bronze, argent, or. Sans palier, sa
  * silhouette en pointillé : ce qui reste à gagner, sur sa propre page
- * seulement. La couleur ne parle jamais seule : le palier se dit aussi en
- * toutes lettres à qui ne la voit pas.
+ * seulement. La couleur ne parle jamais seule : le palier se compte aussi en
+ * crans au pied du blason — un, deux, trois —, et se dit en toutes lettres à
+ * qui ne le voit pas. En niveaux de gris, l'argent et l'or étaient à 1,09:1
+ * l'un de l'autre ; en protanopie, le bronze et l'or, le même jaune.
  */
 export function Ecusson({ categorie, palier, legende }: { categorie: string; palier: 0 | 1 | 2 | 3; legende?: string }) {
   return (
@@ -30,6 +32,9 @@ export function Ecusson({ categorie, palier, legende }: { categorie: string; pal
       <span className="ecusson-blason" aria-hidden="true">
         <svg className="ecusson-forme" viewBox="0 0 32 36">
           <path d="M16 1.5 29.5 6v10.5c0 8-5.5 14.6-13.5 17.9C8 31.1 2.5 24.5 2.5 16.5V6z" />
+          {Array.from({ length: palier }, (_, i) => (
+            <circle key={i} className="ecusson-cran" cx={16 + (i - (palier - 1) / 2) * 5} cy={27.5} r={1.5} />
+          ))}
         </svg>
         <Icon name={EMBLEME[categorie] ?? 'star'} className="ecusson-embleme" />
       </span>

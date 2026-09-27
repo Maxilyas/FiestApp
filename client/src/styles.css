@@ -2644,6 +2644,9 @@ h3 > .icon {
 .player-chip .chip-name {
   display: inline-grid;
   grid-template-columns: minmax(var(--plancher, 4ch), max-content) auto;
+  /* Le laurier, derrière la marque : une colonne de plus, à la demande. */
+  grid-auto-flow: column;
+  grid-auto-columns: auto;
   column-gap: 0.3ch;
   align-items: baseline;
   max-width: none;
@@ -2661,6 +2664,8 @@ h3 > .icon {
   white-space: nowrap;
 }
 .chip-marque { flex: none; white-space: nowrap; }
+/* Un dessin n'a pas de ligne de base : aligné comme le texte, il montait. */
+.chip-name > .laurier { align-self: center; }
 .player-chip .player-avatar,
 .player-chip .chip-remove { flex: none; }
 .player-chip .chip-team { flex: 0 10 auto; min-width: 2.2em; }
@@ -3888,9 +3893,11 @@ h3 > .icon {
   border-color: rgba(120, 255, 200, 0.45);
 }
 
+/* La lueur verte tombe sur l'en-tête : à 0,42, le titre doré n'y tenait
+   4,5:1 que sur neuf pixels sur dix. Plus douce, elle garde son vert. */
 .carte-fond.fond-aurore::before {
   background:
-    radial-gradient(70% 38% at 28% 16%, rgba(70, 255, 170, 0.42), transparent 70%),
+    radial-gradient(70% 38% at 28% 16%, rgba(70, 255, 170, 0.28), transparent 70%),
     radial-gradient(55% 34% at 74% 26%, rgba(150, 110, 255, 0.38), transparent 72%),
     radial-gradient(60% 30% at 50% 44%, rgba(40, 210, 190, 0.22), transparent 75%),
     repeating-linear-gradient(96deg, rgba(140, 255, 210, 0.09) 0 2px, transparent 2px 11px);
@@ -3976,8 +3983,12 @@ h3 > .icon {
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.55) 0%, transparent 18%, transparent 82%, rgba(0, 0, 0, 0.55) 100%);
 }
 
-/* Le lambrequin du rideau occupe le haut : la tête de la carte passe dessous. */
+/* Le lambrequin du rideau occupe le haut : la tête de la carte passe
+   dessous, et ce qui défile passe derrière lui, comme sur une scène. Dessiné
+   sous le contenu, il voyait le prénom puis les hauts faits glisser sur ses
+   franges d'or. */
 .carte-fond.fond-theatre .carte-tete { margin-top: 30px; }
+.carte-fond.fond-theatre:not(.fond-apercu)::before { z-index: 1; }
 
 /* L'aperçu, sur sa page : le même décor, en vignette. */
 .fond-apercu {
@@ -4016,6 +4027,7 @@ h3 > .icon {
 /* Le contour seul : l'emblème, dedans, garde son trait d'icône. */
 .ecusson-forme { width: 38px; height: 43px; }
 .ecusson-forme path { fill: currentColor; fill-opacity: 0.16; stroke: currentColor; stroke-width: 1.6; }
+.ecusson-forme .ecusson-cran { fill: currentColor; }
 /* L'emblème un peu haut : le blason s'effile vers le bas. */
 .ecusson-blason .ecusson-embleme { width: 16px; height: 16px; margin-top: -3px; }
 .ecusson-nom { font-size: 0.68rem; line-height: 1.15; color: var(--ink); overflow-wrap: anywhere; }
@@ -4095,7 +4107,10 @@ h3 > .icon {
 .profil-lie p { margin: 2px 0 0; }
 /* Le nom, puis le niveau en marche : la barre prend toute la largeur. */
 .profil-identite { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.profil-identite h2 { display: flex; align-items: center; gap: 8px; }
+/* Le prénom se coupe où il faut plutôt que de pousser le niveau hors de
+   l'écran : au texte agrandi à 200 %, « Marie-Charlotte » ne cédait pas, et
+   la pastille élargissait la page de 47 px. */
+.profil-identite h2 { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
 /* Le titre est déjà en ligne, avec son écart : pas de marge en plus. */
 .profil-identite h2 .niveau { margin-left: 0; }
 
@@ -4128,9 +4143,14 @@ h3 > .icon {
    s'ouvre, et elle ne se laisse pas prendre. Montrer ce qui vient donne envie
    de revenir ; le cacher ne donnerait rien. */
 .finition-btn:disabled {
-  opacity: 0.45;
+  border-style: dashed;
   cursor: not-allowed;
 }
+/* L'objet s'atténue, pas ce qu'il faut pour l'ouvrir : voilée avec lui, la
+   règle d'un fond fermé (« 10 victoires au quiz du jour ») tombait à 2,3:1
+   — c'est pourtant ce qu'on vient lire. Le pointillé dit « pas encore »,
+   comme aux écussons et aux prix. */
+.finition-btn:disabled > :not(.muted) { opacity: 0.45; }
 
 /* Sur la page profil, la grille d'emojis porte des avatars complets. */
 .emoji-grid .av { font-size: 1.5rem; }
@@ -4720,6 +4740,10 @@ h3 > .icon {
 
 .host .niveau::before {
   content: 'Niv.\00a0';
+  /* Pour l'œil seulement : la pastille dit déjà « niveau 5 » à l'oreille,
+     qui entendait « Niv. niveau 5 ». Un navigateur qui ne connaît pas le
+     texte de remplacement garde la ligne d'au-dessus. */
+  content: 'Niv.\00a0' / '';
   font-weight: 500;
   opacity: 0.85;
 }
@@ -5230,6 +5254,9 @@ h3 > .icon {
    parle la langue des cartes du profil. */
 .jour-carte { display: flex; flex-direction: column; gap: 10px; border-color: var(--edge-strong); }
 .jour-carte h1, .jour-carte p { margin: 0; }
+/* Sa place, gardée le temps qu'elle arrive : la hauteur d'une carte « à
+   jouer », en `rem` pour suivre le texte agrandi. */
+.jour-carte-attente { min-height: 13.5rem; }
 .jour-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .jour-date { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 1.6rem; line-height: 1.1; }
 .jour-meta { margin: 0; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -5267,18 +5294,24 @@ h3 > .icon {
 .correction-corps { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .correction-corps b { color: var(--ink); font-weight: 600; }
 
-/* Des onglets en pilule : le classement du jour, d'hier, du mois. */
+/* Des onglets en pilule : le classement du jour, d'hier, du mois ; le
+   profil. Ils passent à la ligne plutôt que de sortir de l'écran : sur une
+   grille d'une seule rangée, « Apparence » refusait de céder, et au texte
+   agrandi « Carrière » partait hors de l'écran — avec le mot de passe. D'une
+   même largeur tant qu'ils tiennent (`flex: 1 1 0`, jamais sous leur texte),
+   le dernier d'une seconde rangée prend toute la largeur. L'arrondi reste
+   celui d'une pilule sur une rangée, et s'adoucit sur deux. */
 .onglets {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 4px;
-  border-radius: var(--radius-pill);
+  border-radius: 26px;
   border: 1px solid var(--edge);
   background: var(--surface);
 }
 .onglet {
+  flex: 1 1 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5296,6 +5329,8 @@ h3 > .icon {
 }
 .onglet.actif { background: var(--accent-soft); color: var(--accent-text); box-shadow: inset 0 0 0 1px var(--edge-strong); }
 .onglets-petits .onglet { min-height: 34px; font-size: 0.82rem; }
+/* Le panneau des onglets du classement du jour : l'espacement de la page. */
+.classement-periode { display: flex; flex-direction: column; gap: 18px; }
 
 /* L'administration du quiz du jour : la réserve et ses jours d'avance. */
 .reserve-tete { display: flex; align-items: center; gap: 14px; margin: 10px 0; }
@@ -5837,6 +5872,12 @@ h3 > .icon {
 .ce-soir .lendemain { justify-content: flex-start; text-align: left; }
 .onglets-profil .onglet { min-height: 44px; }
 .onglet .icon { width: 16px; height: 16px; flex: none; }
+/* Sur un petit téléphone, ou un 360 au texte à 130 %, les trois libellés
+   tiennent sur une rangée sans leurs icônes : ils gardent la place. */
+@media (max-width: 340px) {
+  .onglets-profil .onglet { padding: 0 4px; }
+  .onglets-profil .onglet .icon { display: none; }
+}
 .profil-onglet { display: flex; flex-direction: column; gap: 18px; }
 .titre-compte { font-family: var(--sans); font-weight: 400; margin-left: 6px; }
 .apercu { display: flex; flex-direction: column; gap: 10px; }
@@ -5853,7 +5894,12 @@ h3 > .icon {
 /* Un emoji de collection encore fermé : sa silhouette, et le niveau qui
    l'ouvre à cheval sur l'anneau. Centré par les bords, pas par un
    `transform` qu'une animation écraserait. */
-.silhouette { filter: brightness(0); opacity: 0.55; }
+/* Claire, comme la silhouette dorée des légendaires : noire sur une case
+   assombrie, elle ne s'en détachait qu'à 1,1:1, et les douze emojis que
+   gagne un profil neuf se lisaient comme douze cercles vides. Sombre sur
+   Ivoire, où la case est claire. */
+.silhouette { filter: brightness(0) invert(1); opacity: 0.36; }
+:root[data-theme='ivoire'] .silhouette { filter: brightness(0); opacity: 0.55; }
 span.case-avatar { cursor: default; }
 .case-niveau {
   position: absolute;
@@ -5861,7 +5907,7 @@ span.case-avatar { cursor: default; }
   right: 0;
   bottom: -2px;
   text-align: center;
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 600;
   line-height: 1.2;
   color: var(--ink);

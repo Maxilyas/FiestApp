@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
 import { Icon } from './Icon'
@@ -9,8 +9,8 @@ import { AVATARS, COLLECTION } from '../../../shared/avatars'
 import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
-import { DIVINS } from '../../../shared/divins'
-import { FONDS } from '../../../shared/fonds'
+import { DIVINS, divin } from '../../../shared/divins'
+import { FONDS, fond } from '../../../shared/fonds'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
 
 // L'onglet « Apparence » du profil : ce que la salle voit de lui, son visage
@@ -28,7 +28,39 @@ import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type Pu
  */
 const COLLECTION_HAUTE = 10
 
-type Patch = { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null; titre?: string | null; fond?: string | null }
+/** Ce qu'un toucher du profil change : un champ à la fois. */
+export type ChoixDuProfil = {
+  avatar?: string
+  finition?: FinitionChoisie
+  legendaire?: string | null
+  titre?: string | null
+  fond?: string | null
+  vitrine?: string[] | null
+}
+type Patch = Omit<ChoixDuProfil, 'vitrine'>
+
+/**
+ * Ce qu'un choix enregistré a changé, en une phrase pour le lecteur
+ * d'écran : l'état « pressé » d'une case changeait sans rien dire.
+ */
+export function annonceDuChoix(choix: ChoixDuProfil): string {
+  if (choix.avatar) return `Tu portes ${choix.avatar}.`
+  if (choix.legendaire !== undefined) {
+    const nom = legendaire(choix.legendaire)?.nom ?? divin(choix.legendaire)?.nom
+    return nom ? `Tu portes ${nom}.` : 'Tu reviens à ton emoji.'
+  }
+  if (choix.finition) return choix.finition === 'auto' ? 'Ta plus belle finition, d’office.' : `Finition ${NOM_FINITION[choix.finition]}.`
+  if (choix.titre !== undefined) {
+    const titre = choix.titre ? hautFait(choix.titre)?.title : undefined
+    return titre ? `Ton titre : ${titre}.` : 'Sans titre.'
+  }
+  if (choix.fond !== undefined) {
+    const nom = fond(choix.fond)?.nom
+    return nom ? `Ton fond de carte : ${nom}.` : 'Sans fond de carte.'
+  }
+  if (choix.vitrine !== undefined) return choix.vitrine ? 'Ta vitrine est enregistrée.' : 'Ta vitrine montre tes plus beaux hauts faits.'
+  return 'C’est enregistré.'
+}
 
 /**
  * Sa ligne telle que la salle la voit, dans les classements et la salle
@@ -70,6 +102,17 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
   const possedes = AVATARS.length + ouverts + profil.legendaires.length + divins.length
   const total = AVATARS.length + COLLECTION.length + LEGENDAIRES.length + DIVINS.length
   const toucher = (cle: string) => setOuvert(o => (o === cle ? null : cle))
+  // La légende se déplie sous toute la grille, une vingtaine de Tab plus
+  // loin : le focus y va, sur son nom, et le lecteur d'écran la lit. Sans
+  // défiler — le doigt qui parcourt la grille n'est pas emporté.
+  const detail = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!ouvert) return
+    const nom = detail.current?.querySelector<HTMLElement>('.galerie-detail-nom')
+    if (!nom) return
+    nom.tabIndex = -1
+    nom.focus({ preventScroll: true })
+  }, [ouvert])
   return (
     <section className="card">
       <h3>
@@ -87,7 +130,7 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
               className={'emoji-btn case-avatar' + (choisi ? ' selected' : '')}
               aria-pressed={choisi}
               aria-label={`Avatar ${a}${brille(a) ? ', éclaté' : ''}`}
-              disabled={busy}
+              aria-disabled={busy || undefined}
               onClick={() => {
                 setOuvert(null)
                 enregistrer({ avatar: a })
@@ -126,7 +169,7 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
               className={'emoji-btn case-avatar' + anneau + (choisi ? ' selected' : '')}
               aria-pressed={choisi}
               aria-label={`Avatar ${c.emoji}, de collection${brille(c.emoji) ? ', éclaté' : ''}`}
-              disabled={busy}
+              aria-disabled={busy || undefined}
               onClick={() => {
                 setOuvert(null)
                 enregistrer({ avatar: c.emoji })
@@ -184,7 +227,7 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
           )
         })}
       </div>
-      <div id="detail-avatar">
+      <div id="detail-avatar" ref={detail}>
         {ouvert &&
           (legendaire(ouvert) ? (
             <DetailLegendaire
@@ -245,7 +288,7 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
         <button
           type="button"
           className={'finition-btn' + (profil.finitionChoisie === 'auto' ? ' selected' : '')}
-          disabled={busy}
+          aria-disabled={busy || undefined}
           aria-pressed={profil.finitionChoisie === 'auto'}
           onClick={() => enregistrer({ finition: 'auto' })}
         >
@@ -264,7 +307,8 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
               key={f}
               type="button"
               className={'finition-btn' + (choisie ? ' selected' : '')}
-              disabled={!ouverte || busy}
+              disabled={!ouverte}
+              aria-disabled={busy || undefined}
               aria-pressed={choisie}
               onClick={() => enregistrer({ finition: f })}
             >
@@ -311,7 +355,7 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
           type="button"
           className={'titre-choix' + (!porte ? ' selected' : '')}
           aria-pressed={!porte}
-          disabled={busy}
+          aria-disabled={busy || undefined}
           onClick={() => enregistrer({ titre: null })}
         >
           Aucun
@@ -322,7 +366,7 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
             type="button"
             className={'titre-choix' + (porte === cle ? ' selected' : '')}
             aria-pressed={porte === cle}
-            disabled={busy}
+            aria-disabled={busy || undefined}
             onClick={() => enregistrer({ titre: cle })}
           >
             {hautFait(cle)?.title}
@@ -359,7 +403,7 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
         <button
           type="button"
           className={'finition-btn' + (!porte ? ' selected' : '')}
-          disabled={busy}
+          aria-disabled={busy || undefined}
           aria-pressed={!porte}
           onClick={() => enregistrer({ fond: null })}
         >
@@ -377,7 +421,8 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
               key={f.key}
               type="button"
               className={'finition-btn' + (choisi ? ' selected' : '')}
-              disabled={!ouvert || busy}
+              disabled={!ouvert}
+              aria-disabled={busy || undefined}
               aria-pressed={choisi}
               onClick={() => enregistrer({ fond: f.key })}
             >

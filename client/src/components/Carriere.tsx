@@ -90,7 +90,7 @@ export function DetailLegendaire({
         <button
           type="button"
           className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
-          disabled={busy}
+          aria-disabled={busy || undefined}
           onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
         >
           {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
@@ -132,7 +132,7 @@ export function DetailDivin({
           <button
             type="button"
             className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
-            disabled={busy}
+            aria-disabled={busy || undefined}
             onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
           >
             {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}

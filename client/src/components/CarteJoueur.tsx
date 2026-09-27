@@ -11,6 +11,7 @@ import { Chiffres, justesses } from './Chiffres'
 import { Icon } from './Icon'
 import { Niveau } from './Niveau'
 import { Laurier } from './Laurier'
+import { useModale } from '../modale'
 import { Ecusson } from './Ecusson'
 import { Flamme } from './Jour'
 import { fond as fondDeCarte } from '../../../shared/fonds'
@@ -48,18 +49,9 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
     }
   }, [slug, playerId])
 
-  // Le clavier arrive dans la carte — une fois : la page se redessine à chaque
-  // instantané, et `onFermer` avec elle.
-  useEffect(() => {
-    boite.current?.focus()
-  }, [])
-
-  // Échap ferme.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onFermer()
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onFermer])
+  // Le clavier arrive dans la carte et y reste ; Échap la ferme, et le focus
+  // revient à la ligne touchée.
+  useModale(boite, onFermer)
 
   const p = carte?.profil
   // Les galeries ne se montrent qu'avec leurs dessins : sans eux (un échec,
@@ -104,7 +96,7 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                   {p?.titre && hautFait(p.titre) && <p className="titre-porte">{espacesFines(`« ${hautFait(p.titre)!.title} »`)}</p>}
                   {carte.laurier && (
                     <p className="carte-laurier">
-                      <Laurier laurier /> Vainqueur du quiz du jour d’hier
+                      <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
                     </p>
                   )}
                   {p && p.prenom !== carte.nom && <p className="muted small">{espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil</p>}

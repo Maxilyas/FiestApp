@@ -10,6 +10,7 @@ import { Avatar, Dessin } from '../components/Avatar'
 import { Icon } from '../components/Icon'
 import { Niveau } from '../components/Niveau'
 import { NomLaure } from '../components/Laurier'
+import { Onglets, type Onglet } from '../components/Onglets'
 import { Rank, Score } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
@@ -762,10 +763,10 @@ function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetour: () =
       .then(c => n === demande.current && setClassement(c))
       .catch(e => n === demande.current && setErreur(motifDe(e)))
   }, [periode, partie.jour])
-  const onglets: [Periode, string][] = [
-    ['jour', 'Aujourd’hui'],
-    ['hier', 'Hier'],
-    ['mois', capitale(moisEnToutesLettres(moisDe(partie.jour)).split(' ')[0])],
+  const onglets: Onglet<Periode>[] = [
+    { id: 'jour', nom: 'Aujourd’hui' },
+    { id: 'hier', nom: 'Hier' },
+    { id: 'mois', nom: capitale(moisEnToutesLettres(moisDe(partie.jour)).split(' ')[0]) },
   ]
   return (
     <div className="player-shell">
@@ -773,44 +774,42 @@ function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetour: () =
         <span className="label">Le quiz du jour · {jourEnToutesLettres(partie.jour, true)}</span>
         <h2>Le classement</h2>
       </header>
-      <div className="onglets onglets-petits" role="tablist" aria-label="Période">
-        {onglets.map(([id, nom]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={periode === id}
-            className={'onglet' + (periode === id ? ' actif' : '')}
-            onClick={() => setPeriode(id)}
-          >
-            {nom}
-          </button>
-        ))}
+      <Onglets
+        onglets={onglets}
+        actif={periode}
+        onChoisir={setPeriode}
+        label="Période"
+        idOnglet={id => `periode-${id}`}
+        idPanneau={() => 'classement-periode'}
+        className="onglets-petits"
+      />
+      {/* Le panneau des onglets : le classement de la période choisie. */}
+      <div className="classement-periode" role="tabpanel" id="classement-periode" aria-labelledby={`periode-${periode}`}>
+        {erreur && <p className="error">{erreur}</p>}
+        {!classement && !erreur && <p className="muted">Chargement…</p>}
+        {classement && (
+          <>
+            <p className="muted small">
+              {classement.joueurs === 0
+                ? 'Personne n’a encore joué.'
+                : `${classement.joueurs} joueur${classement.joueurs > 1 ? 's' : ''} · ${
+                    classement.fige ? 'figé' : periode === 'mois' ? 'le total du mois' : 'se fige à minuit'
+                  }`}
+            </p>
+            <div className="leaderboard">
+              {classement.lignes.map(l => (
+                <LigneDuClassement key={l.profileId} ligne={l} moi={l.profileId === classement.sienne} />
+              ))}
+              {classement.moi && (
+                <>
+                  <p className="muted center small">…</p>
+                  <LigneDuClassement ligne={classement.moi} moi />
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
-      {erreur && <p className="error">{erreur}</p>}
-      {!classement && !erreur && <p className="muted">Chargement…</p>}
-      {classement && (
-        <>
-          <p className="muted small">
-            {classement.joueurs === 0
-              ? 'Personne n’a encore joué.'
-              : `${classement.joueurs} joueur${classement.joueurs > 1 ? 's' : ''} · ${
-                  classement.fige ? 'figé' : periode === 'mois' ? 'le total du mois' : 'se fige à minuit'
-                }`}
-          </p>
-          <div className="leaderboard">
-            {classement.lignes.map(l => (
-              <LigneDuClassement key={l.profileId} ligne={l} moi={l.profileId === classement.sienne} />
-            ))}
-            {classement.moi && (
-              <>
-                <p className="muted center small">…</p>
-                <LigneDuClassement ligne={classement.moi} moi />
-              </>
-            )}
-          </div>
-        </>
-      )}
       <button className="btn btn-ghost btn-block" onClick={onRetour}>
         Retour
       </button>

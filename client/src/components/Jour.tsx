@@ -3,6 +3,7 @@ import { api } from '../api'
 import { formatNumber, place, pts } from '../format'
 import {
   NOM_MEDAILLE,
+  jourDe,
   jourEnToutesLettres,
   type CarriereDuJour,
   type JourJoue,
@@ -69,18 +70,31 @@ export function Serie({ jours }: { jours: number }) {
  * soirée reste au-dessus.
  */
 export function CarteDuJour() {
-  const [partie, setPartie] = useState<PartieDuJour | null>(null)
+  // `undefined` tant qu'elle arrive, `null` si elle ne viendra pas.
+  const [partie, setPartie] = useState<PartieDuJour | null | undefined>(undefined)
   useEffect(() => {
     let vivant = true
     // Une panne ici ne coûte que la carte : l'accueil reste là.
     api.jour
       .etat()
       .then(p => vivant && setPartie(p))
-      .catch(() => {})
+      .catch(() => vivant && setPartie(null))
     return () => {
       vivant = false
     }
   }, [])
+  // Sa place est gardée pendant qu'elle arrive : posée quatre cents
+  // millisecondes après la page, elle poussait les onglets de 233 px — et le
+  // pouce qui visait « Trophées » touchait la carte. Le jour se sait déjà ici.
+  if (partie === undefined)
+    return (
+      <section className="card jour-carte jour-carte-attente" aria-busy="true" aria-label="Le quiz du jour">
+        <div className="jour-tete">
+          <span className="label">Le quiz du jour</span>
+        </div>
+        <p className="jour-date">{capitale(jourEnToutesLettres(jourDe(Date.now())))}</p>
+      </section>
+    )
   if (!partie || partie.etat === 'aucun') return null
   const categories = partie.categories.slice(0, 3).join(', ') + (partie.categories.length > 3 ? '…' : '')
   return (

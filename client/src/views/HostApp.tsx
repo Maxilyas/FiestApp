@@ -32,7 +32,7 @@ import { QuizHost } from '../games/quiz/HostView'
 import type { QuizHostView } from '../../../shared/games/quiz'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
-import { Laurier, NomLaure } from '../components/Laurier'
+import { LAURIER_TEXTE, Laurier, NomLaure } from '../components/Laurier'
 import { distinctions } from '../../../shared/profil'
 import { partsDuNom } from '../../../shared/homonymes'
 import type { ArchiveList } from '../../../shared/archive'
@@ -93,6 +93,10 @@ function NomDePastille({ joueur }: { joueur: PublicPlayer }) {
     <>
       <span className="chip-prenom">{prenom}</span>
       {marque && <span className="chip-marque">{marque.trim()}</span>}
+      {/* Le laurier suit le prénom, comme partout : posé avant, entre le
+          niveau et le bouton, il lui prenait sa place à gauche et le coupait
+          à deux lettres. Le nom du bouton le dit. */}
+      <Laurier laurier={joueur.laurier} decoratif />
     </>
   )
 }
@@ -202,7 +206,6 @@ const PuceJoueur = memo(
       <div className={'player-chip' + (p.connected ? '' : ' offline')}>
         <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
         <Niveau niveau={p.niveau} />
-        <Laurier laurier={p.laurier} />
         {/* Les libellés de la puce prennent le nom affiché, marque comprise :
             c'est une porte de plus par où sort un prénom (invariant 17).
             Avec `p.name`, deux « Camille » avaient les mêmes boutons pour
@@ -214,7 +217,7 @@ const PuceJoueur = memo(
           className="chip-name"
               style={{ '--plancher': plancherDuPrenom(p) } as CSSProperties}
               title={`${p.nomAffiche ?? p.name} — donner un surnom pour la soirée`}
-          aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}`}
+          aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}${p.laurier ? `, ${LAURIER_TEXTE}` : ''}`}
           onClick={async () => {
             const name = await promptDialog({
               title: `Un surnom pour « ${p.nomAffiche ?? p.name} » ce soir`,

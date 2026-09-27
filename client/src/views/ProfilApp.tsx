@@ -1,18 +1,19 @@
-import { useEffect, useState, type FormEvent, type ReactNode, type SyntheticEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type SyntheticEvent } from 'react'
 import { Glossaire } from '../components/Glossaire'
 import { api, currentMe, motifDe } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Laurier } from '../components/Laurier'
 import { Icon, type IconName } from '../components/Icon'
+import { Onglets, type Onglet as OngletDef } from '../components/Onglets'
 import { ProfilForm } from '../components/ProfilForm'
 import { CodeSecours } from '../components/Secours'
 import { tronquer } from '../../../shared/avatars'
 import { cibleEclat } from '../../../shared/legendaires'
-import { coupDOeilMoyen, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
+import { coupDOeilMoyen, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { Categories, Courbes, FicheCarriere } from '../components/Carriere'
-import { ApercuSalle, MesAvatars, MesFinitions, MonFond, MonTitre } from '../components/Apparence'
+import { ApercuSalle, MesAvatars, MesFinitions, MonFond, MonTitre, annonceDuChoix, type ChoixDuProfil } from '../components/Apparence'
 import { MaVitrine, MesEcussons, MesHautsFaits, MesPrix, MonQuizDuJour } from '../components/Trophees'
 import { espacesFines, formatNumber, place, reponsesParType } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
@@ -44,6 +45,9 @@ export function ProfilApp() {
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
+  const enregistrement = useRef(false)
+  /** Ce que le dernier choix a changé, dit au lecteur d'écran. */
+  const [annonce, setAnnonce] = useState('')
   /** L'échappée : « quelle soirée ? », à un geste d'ici. */
   // Une étape de l'accueil, avec son entrée d'historique : le retour du
   // navigateur y ramène à l'accueil au lieu de quitter l'application.
@@ -120,25 +124,26 @@ export function ProfilApp() {
     }
   }
 
-  const enregistrer = async (patch: {
-    avatar?: string
-    finition?: FinitionChoisie
-    legendaire?: string | null
-    titre?: string | null
-    vitrine?: string[] | null
-    fond?: string | null
-  }) => {
+  const enregistrer = async (patch: ChoixDuProfil) => {
+    // Un second toucher pendant l'enregistrement est ignoré ici, plutôt que
+    // de désactiver chaque case : désactivée, la case touchée perdait le
+    // focus, qui tombait sur la page — et le lecteur d'écran n'entendait rien.
+    if (enregistrement.current) return
+    enregistrement.current = true
     setBusy(true)
     setErreur('')
+    setAnnonce('')
     try {
       // La route d'écriture rend le profil léger ; l'étagère et l'historique
       // n'ont pas bougé, on les garde plutôt que de tout redemander. Le fond
       // de carte n'y est pas : accepté, c'est celui qu'on vient d'envoyer.
       const { profile } = await api.joueur.enregistrer(patch)
       setProfil(p => (p ? { ...p, ...profile, ...(patch.fond !== undefined && { fond: patch.fond }) } : p))
+      setAnnonce(annonceDuChoix(patch))
     } catch (e) {
       setErreur((e as Error).message)
     } finally {
+      enregistrement.current = false
       setBusy(false)
     }
   }
@@ -225,7 +230,7 @@ export function ProfilApp() {
           {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
           {profil.laurier && (
             <p className="carte-laurier">
-              <Laurier laurier /> Vainqueur du quiz du jour d’hier
+              <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
             </p>
           )}
           <div
@@ -261,7 +266,20 @@ export function ProfilApp() {
       {/* Le quiz du jour, sous la soirée : l'entre-deux, pas la raison de venir. */}
       <CarteDuJour />
 
-      <Onglets actif={onglet} onChoisir={choisirOnglet} />
+      <Onglets
+        onglets={ONGLETS}
+        actif={onglet}
+        onChoisir={choisirOnglet}
+        label="Mon profil"
+        idOnglet={id => `onglet-${id}`}
+        idPanneau={id => `profil-${id}`}
+        className="onglets-profil"
+      />
+      {/* Toujours là, vide d'abord : une région qui apparaît avec son texte
+          n'est pas toujours lue. */}
+      <p className="sr-only" role="status">
+        {annonce}
+      </p>
 
       {onglet === 'apparence' && (
         <div className="profil-onglet" role="tabpanel" id="profil-apparence" aria-labelledby="onglet-apparence">
@@ -393,7 +411,7 @@ type Onglet = 'apparence' | 'trophees' | 'carriere'
  * sections repliées qu'on ne savait plus où chercher : ce qu'on porte, ce
  * qu'on a gagné, ce qu'on a joué.
  */
-const ONGLETS: { id: Onglet; nom: string; icone: IconName }[] = [
+const ONGLETS: OngletDef<Onglet>[] = [
   { id: 'apparence', nom: 'Apparence', icone: 'sparkles' },
   { id: 'trophees', nom: 'Trophées', icone: 'trophy' },
   { id: 'carriere', nom: 'Carrière', icone: 'bar-chart' },
@@ -419,28 +437,6 @@ function lireOnglet(): Onglet {
     // Stockage refusé : on part de l'apparence, comme la première fois.
   }
   return 'apparence'
-}
-
-function Onglets({ actif, onChoisir }: { actif: Onglet; onChoisir: (o: Onglet) => void }) {
-  return (
-    <div className="onglets onglets-profil" role="tablist" aria-label="Mon profil">
-      {ONGLETS.map(o => (
-        <button
-          key={o.id}
-          id={`onglet-${o.id}`}
-          type="button"
-          role="tab"
-          aria-selected={actif === o.id}
-          aria-controls={`profil-${o.id}`}
-          className={'onglet' + (actif === o.id ? ' actif' : '')}
-          onClick={() => onChoisir(o.id)}
-        >
-          <Icon name={o.icone} />
-          {o.nom}
-        </button>
-      ))}
-    </div>
-  )
 }
 
 /**

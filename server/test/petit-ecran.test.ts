@@ -140,3 +140,171 @@ test('une ligne de classement étroite passe sur deux étages : le prénom seul 
   }
   assert.match(regle('.lb-row > .guess-value', bloc.corps), /grid-area:\s*val\b/)
 })
+
+// ── Les onglets : à la ligne plutôt que hors de l'écran, et au clavier ────
+
+/** Une source du client, telle qu'on l'écrit. */
+const source = (fichier: string) => readFileSync(new URL(`../../client/src/${fichier}`, import.meta.url), 'utf8')
+
+test('les onglets passent à la ligne plutôt que de sortir de l’écran', () => {
+  // Sur une grille d'une seule rangée, « Apparence » refusait de céder : à
+  // 320 px « Carrière » sortait de l'écran — et le mot de passe avec lui.
+  const onglets = regle('.onglets')
+  assert.match(onglets, /display:\s*flex/)
+  assert.match(onglets, /flex-wrap:\s*wrap/)
+  assert.doesNotMatch(onglets, /grid-auto-flow:\s*column/)
+  // D'une même largeur tant qu'ils tiennent, jamais sous leur texte.
+  assert.match(regle('.onglet'), /flex:\s*1 1 0/)
+  // Sous 340 px (un 360 au texte à 130 % en fait 277), sans leurs icônes.
+  assert.match(CSS, /@media \(max-width: 340px\) \{\s*\.onglets-profil \.onglet \{[^}]*\}\s*\.onglets-profil \.onglet \.icon \{ display: none; \}/)
+  // Au texte agrandi, la pastille de niveau du profil poussait la page : le prénom se coupe.
+  assert.match(regle('.profil-identite h2'), /overflow-wrap:\s*anywhere/)
+})
+
+test('les onglets se prennent aux flèches, un seul arrêt de Tab, le panneau affiché seulement', async () => {
+  const { ongletVise } = await import(new URL('../../client/src/components/Onglets.tsx', import.meta.url).href)
+  assert.equal(ongletVise('ArrowRight', 2, 3), 0)
+  assert.equal(ongletVise('ArrowLeft', 0, 3), 2)
+  assert.equal(ongletVise('Home', 2, 3), 0)
+  assert.equal(ongletVise('End', 0, 3), 2)
+  assert.equal(ongletVise('Enter', 1, 3), null)
+
+  const html = await rendu('components/Onglets', 'Onglets', {
+    onglets: [
+      { id: 'a', nom: 'Apparence' },
+      { id: 't', nom: 'Trophées' },
+    ],
+    actif: 't',
+    onChoisir: () => {},
+    label: 'Mon profil',
+    idOnglet: (id: string) => `onglet-${id}`,
+    idPanneau: (id: string) => `profil-${id}`,
+  })
+  const boutons = [...html.matchAll(/<button [^>]*>/g)].map(m => m[0])
+  assert.equal(boutons.length, 2)
+  assert.match(boutons[0], /tabindex="-1"/)
+  assert.doesNotMatch(boutons[0], /aria-controls/, 'le panneau d’un onglet inactif n’est pas dans la page')
+  assert.match(boutons[1], /tabindex="0"/)
+  assert.match(boutons[1], /aria-controls="profil-t"/)
+
+  // Le profil et le classement du jour passent par elle ; le classement a son panneau.
+  assert.match(source('views/ProfilApp.tsx'), /<Onglets\s/)
+  const jour = source('views/JourApp.tsx')
+  assert.match(jour, /<Onglets\s/)
+  assert.match(jour, /role="tabpanel" id="classement-periode" aria-labelledby=\{`periode-\$\{periode\}`\}/)
+})
+
+// ── Le laurier : derrière le prénom, et dit une fois ──────────────────────
+
+test('à l’écran commun, le laurier suit le prénom de la pastille, et se dit une fois', async () => {
+  // Posé avant le bouton du prénom, il lui prenait sa place à gauche : « Op… ».
+  const hote = source('views/HostApp.tsx')
+  assert.doesNotMatch(hote, /<Laurier laurier=\{p\.laurier\} \/>\s*(?:\{\/\*[\s\S]*?\*\/\}\s*)*<button\s+className="chip-name"/)
+  assert.match(hote, /<span className="chip-prenom">\{prenom\}<\/span>[\s\S]{0,400}<Laurier laurier=\{joueur\.laurier\} decoratif \/>/)
+  // Muet dans le bouton, qui le dit dans son nom.
+  assert.match(hote, /aria-label=\{`Donner un surnom à \$\{p\.nomAffiche \?\? p\.name\}\$\{p\.laurier \? `, \$\{LAURIER_TEXTE\}` : ''\}`\}/)
+  assert.match(regle('.player-chip .chip-name'), /grid-auto-flow:\s*column/)
+
+  // Décoratif, il se tait ; seul, il se nomme.
+  const muet = await rendu('components/Laurier', 'Laurier', { laurier: true, decoratif: true })
+  assert.match(muet, /^<svg class="laurier"[^>]* aria-hidden="true"/)
+  assert.doesNotMatch(muet, /role="img"|aria-label/)
+  assert.match(await rendu('components/Laurier', 'Laurier', { laurier: true }), /role="img" aria-label="vainqueur du quiz du jour d’hier"/)
+  // Sur la carte et le profil, le texte le dit juste à côté : il se taisait deux fois moins.
+  for (const f of ['components/CarteJoueur.tsx', 'views/ProfilApp.tsx'])
+    assert.match(source(f), /<Laurier laurier decoratif \/> Vainqueur du quiz du jour d’hier/, f)
+
+  // « Niv. niveau 5 » : le préfixe du mur se tait pour l'oreille, avec un repli.
+  assert.match(regle('.host .niveau::before'), /content: 'Niv\.\\00a0';\s*(?:\/\*[\s\S]*?\*\/\s*)?content: 'Niv\.\\00a0' \/ '';/)
+})
+
+// ── La carte d'un joueur : une vraie fenêtre modale ───────────────────────
+
+test('la carte d’un joueur rend le reste de la page inerte, et le focus à qui l’a ouverte', async () => {
+  // Le deuxième Tab sortait vers un bouton caché derrière elle, et Échap
+  // rendait le focus à la page entière.
+  const { horsDeLaBoite } = await import(new URL('../../client/src/modale.ts', import.meta.url).href)
+  type N = { nom: string; parentElement: N | null; children: N[] }
+  const noeud = (nom: string, enfants: N[] = []): N => {
+    const n: N = { nom, parentElement: null, children: enfants }
+    for (const e of enfants) e.parentElement = n
+    return n
+  }
+  const carte = noeud('carte')
+  const voile = noeud('voile', [carte])
+  const page = noeud('page', [noeud('entête'), noeud('classement'), voile])
+  const corps = noeud('body', [noeud('bandeau'), page, noeud('toasts')])
+  assert.deepEqual(
+    horsDeLaBoite(carte, corps).map((n: N) => n.nom),
+    ['entête', 'classement', 'bandeau', 'toasts'],
+  )
+  const carteJoueur = source('components/CarteJoueur.tsx')
+  assert.match(carteJoueur, /useModale\(boite, onFermer\)/)
+  const modale = source('modale.ts')
+  assert.match(modale, /setAttribute\('inert', ''\)/)
+  assert.match(modale, /avant\?\.focus\(/)
+})
+
+// ── Les choix du profil : le focus reste, et l'on entend ce qui change ────
+
+test('choisir un avatar, une finition, un fond ou sa vitrine ne fait plus tomber le focus', async () => {
+  // Désactivée le temps de l'enregistrement, la case touchée perdait le
+  // focus, qui tombait sur la page ; l'état changeait sans rien dire.
+  for (const f of ['components/Apparence.tsx', 'components/Trophees.tsx', 'components/Carriere.tsx']) {
+    const s = source(f)
+    assert.doesNotMatch(s, /(?<!aria-)disabled=\{[^}]*busy[^}]*\}/, `${f} désactive encore pendant l’enregistrement`)
+    assert.match(s, /aria-disabled=\{busy \|\| undefined\}/, `${f} dit encore qu’il enregistre`)
+  }
+  const profil = source('views/ProfilApp.tsx')
+  assert.match(profil, /if \(enregistrement\.current\) return/, 'un second toucher est ignoré')
+  assert.match(profil, /<p className="sr-only" role="status">\s*\{annonce\}\s*<\/p>/)
+
+  Object.assign(globalThis, { window: { location: { pathname: '/profil', search: '', hash: '' } } })
+  const { annonceDuChoix } = await import(new URL('../../client/src/components/Apparence.tsx', import.meta.url).href)
+  assert.equal(annonceDuChoix({ avatar: '🐸' }), 'Tu portes 🐸.')
+  assert.equal(annonceDuChoix({ legendaire: 'lg:phenix' }), 'Tu portes Le Phénix.')
+  assert.equal(annonceDuChoix({ legendaire: null }), 'Tu reviens à ton emoji.')
+  assert.equal(annonceDuChoix({ fond: 'aurore' }), 'Ton fond de carte : Aurore boréale.')
+  assert.equal(annonceDuChoix({ titre: null }), 'Sans titre.')
+
+  // La vitrine est une liste, et son ordre se dit à l'oreille.
+  const trophees = source('components/Trophees.tsx')
+  assert.doesNotMatch(trophees, /<ul className="vitrine-choix[^"]*" role="group"/)
+  assert.doesNotMatch(trophees, /<span className="vitrine-rang" aria-hidden="true">/)
+  assert.match(trophees, /rendreLeFocus\(section\.current, \['h3'\]\)/)
+  // La légende d'un avatar dessiné reçoit le focus à l'ouverture.
+  assert.match(source('components/Apparence.tsx'), /querySelector<HTMLElement>\('\.galerie-detail-nom'\)/)
+})
+
+// ── Ce qui se lit sans la couleur, et sur son fond ────────────────────────
+
+test('le palier d’un écusson se compte en crans, pas seulement en couleur', async () => {
+  for (const palier of [0, 1, 2, 3] as const) {
+    const html = await rendu('components/Ecusson', 'Ecusson', { categorie: 'Histoire', palier })
+    assert.equal([...html.matchAll(/class="ecusson-cran"/g)].length, palier, `palier ${palier}`)
+  }
+  assert.match(regle('.ecusson-forme .ecusson-cran'), /fill:\s*currentColor/)
+})
+
+test('silhouettes, fonds fermés, rideau et aurore : ce qui se lit sur son fond', () => {
+  // La silhouette d'un emoji de collection, claire sur sa case sombre (1,1:1 en noir).
+  assert.match(regle('.silhouette'), /filter:\s*brightness\(0\) invert\(1\)/)
+  assert.match(regle(":root[data-theme='ivoire'] .silhouette"), /filter:\s*brightness\(0\);/)
+  // Un fond fermé atténue son dessin, pas la règle qui l'ouvre (2,3:1).
+  assert.doesNotMatch(regle('.finition-btn:disabled'), /opacity/)
+  assert.match(regle('.finition-btn:disabled > :not(.muted)'), /opacity/)
+  // Au théâtre, ce qui défile passe derrière le rideau.
+  assert.match(regle('.carte-fond.fond-theatre:not(.fond-apercu)::before'), /z-index:\s*1/)
+  // À l'aurore, la lueur verte derrière l'en-tête s'adoucit.
+  const aurore = regle('.carte-fond.fond-aurore::before')
+  const vert = /radial-gradient\(70% 38% at 28% 16%, rgba\(70, 255, 170, ([\d.]+)\)/.exec(aurore)
+  assert.ok(vert && Number(vert[1]) <= 0.3, `la lueur de l’en-tête à ${vert?.[1]}`)
+})
+
+test('l’accueil d’un profil garde la place de la carte du jour pendant qu’elle arrive', async () => {
+  // Posée 400 ms après la page, elle poussait les onglets de 233 px (CLS 0,175).
+  Object.assign(globalThis, { window: { location: { pathname: '/', search: '', hash: '' } } })
+  const html = await rendu('components/Jour', 'CarteDuJour', {})
+  assert.match(html, /<section class="card jour-carte jour-carte-attente" aria-busy="true"/)
+  assert.match(regle('.jour-carte-attente'), /min-height:\s*[\d.]+rem/)
+})

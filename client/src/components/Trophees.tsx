@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
 import { Chiffres } from './Chiffres'
@@ -6,6 +6,7 @@ import { HautsFaits } from './Carriere'
 import { Flamme, Medaille } from './Jour'
 import { Ecusson } from './Ecusson'
 import { formatNumber } from '../format'
+import { rendreLeFocus } from '../focus'
 import {
   VITRINE_MAX,
   ceQuIlAFallu,
@@ -43,6 +44,16 @@ export function MaVitrine({
   enregistrer: (patch: { vitrine: string[] | null }) => void
 }) {
   const [choix, setChoix] = useState<string[] | null>(null)
+  // Le bouton touché — « Choisir moi-même », « Montrer ceux-là » — part avec
+  // la vue qu'il quitte : le focus tombait sur la page. Il se pose sur le
+  // titre de la vue suivante, sauf à l'ouverture de l'onglet.
+  const section = useRef<HTMLElement>(null)
+  const ouverte = useRef(false)
+  const enChoix = choix !== null
+  useEffect(() => {
+    if (ouverte.current) rendreLeFocus(section.current, ['h3'])
+    ouverte.current = true
+  }, [enChoix])
   const recompenses = recompensesDe(profil.hautsFaits)
   const parCle = new Map(profil.vitrine.map(b => [b.key, b]))
   const badgeDe = (cle: string) => {
@@ -56,13 +67,14 @@ export function MaVitrine({
   if (choix) {
     const complet = choix.length >= VITRINE_MAX
     return (
-      <section className="card">
+      <section className="card" ref={section}>
         <h3>
           <Icon name="award" />
           Ma vitrine
         </h3>
         <p className="muted small">{`Jusqu’à ${VITRINE_MAX} hauts faits, dans l’ordre où ta carte les montrera.`}</p>
-        <ul className="vitrine-choix vitrine-a-choisir" role="group" aria-label="Les hauts faits de ma carte">
+        {/* Une liste, pas un groupe : `role="group"` lui retirait ses éléments. */}
+        <ul className="vitrine-choix vitrine-a-choisir" aria-label="Les hauts faits de ma carte">
           {gagnes.map(cle => {
             const b = badgeDe(cle)!
             const rang = choix.indexOf(cle)
@@ -83,9 +95,12 @@ export function MaVitrine({
                     <span className="hf-titre">{b.title}</span>
                     <span className="muted small">{ceQuIlAFallu(b.key)}</span>
                   </span>
+                  {/* Son rang sur la carte, dit aussi à l'oreille : il n'était qu'à l'œil. */}
                   {pris && (
-                    <span className="vitrine-rang" aria-hidden="true">
+                    <span className="vitrine-rang">
+                      <span className="sr-only">, montré </span>
                       {rang + 1}
+                      <span className="sr-only">{rang === 0 ? 'ᵉʳ' : 'ᵉ'}</span>
                     </span>
                   )}
                 </button>
@@ -97,7 +112,8 @@ export function MaVitrine({
           <button
             type="button"
             className="btn btn-primary btn-small"
-            disabled={busy || choix.length === 0}
+            disabled={choix.length === 0}
+            aria-disabled={busy || undefined}
             onClick={() => {
               enregistrer({ vitrine: choix })
               setChoix(null)
@@ -114,7 +130,7 @@ export function MaVitrine({
   }
 
   return (
-    <section className="card">
+    <section className="card" ref={section}>
       <h3>
         <Icon name="award" />
         Ma vitrine
@@ -150,11 +166,11 @@ export function MaVitrine({
       )}
       {gagnes.length > 0 && (
         <div className="row vitrine-actions">
-          <button type="button" className="btn btn-small" disabled={busy} onClick={() => setChoix(choisie ?? [])}>
+          <button type="button" className="btn btn-small" aria-disabled={busy || undefined} onClick={() => setChoix(choisie ?? [])}>
             {choisie ? 'Changer' : 'Choisir moi-même'}
           </button>
           {choisie && (
-            <button type="button" className="btn btn-small btn-ghost" disabled={busy} onClick={() => enregistrer({ vitrine: null })}>
+            <button type="button" className="btn btn-small btn-ghost" aria-disabled={busy || undefined} onClick={() => enregistrer({ vitrine: null })}>
               Les plus durs, d’office
             </button>
           )}
