@@ -13,10 +13,24 @@ const CONFETTIS: [number, number, string, number][] = [
   [74, 86, '#ff7aa8', 25],
   [20, 84, '#f1c653', -35],
 ]
-const confettis = (liste = CONFETTIS) =>
-  liste
-    .map(([x, y, c, r]) => `<rect x="${x}" y="${y}" width="3.2" height="1.6" rx=".4" fill="${c}" opacity=".85" transform="rotate(${r} ${x} ${y})"/>`)
-    .join('')
+/**
+ * Les mêmes confettis en trois chemins, un par couleur, plutôt qu'en sept
+ * rectangles tournés : le même dessin pour moitié moins de chaîne.
+ */
+const confettis = () => {
+  const parCouleur: Record<string, string> = {}
+  for (const [x, y, c, r] of CONFETTIS) {
+    const a = (r * Math.PI) / 180
+    const pt = (dx: number, dy: number) =>
+      `${(x + dx * Math.cos(a) - dy * Math.sin(a)).toFixed(1)},${(y + dx * Math.sin(a) + dy * Math.cos(a)).toFixed(1)}`
+    parCouleur[c] = (parCouleur[c] ?? '') + `M${pt(0, 0)} ${pt(3.2, 0)} ${pt(3.2, 1.6)} ${pt(0, 1.6)}Z`
+  }
+  return `<g opacity=".85">${Object.entries(parCouleur).map(([c, d]) => `<path d="${d}" fill="${c}"/>`).join('')}</g>`
+}
+
+/** Des points ronds en un seul chemin — des traits presque nuls aux bouts arrondis : paillettes, taches de rousseur. */
+const grains = (liste: [number, number][], couleur: string, taille: number, op = 1) =>
+  `<path d="${liste.map(([x, y]) => `M${x},${y}h.01`).join('')}" stroke="${couleur}" stroke-width="${taille}" stroke-linecap="round" opacity="${op}"/>`
 
 /** Deux serpentins qui ondulent au bord du disque. */
 const SERPENTINS =
@@ -63,8 +77,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
   'br:pinata': {
     fond: ['#3aa0a4', '#155056', '#061a1d'],
     defs: u =>
-      bandes(u + 'r', [['#ff5fa2', 0.174], ['#ffd23f', 0.313], ['#a66ef0', 0.452], ['#ff8c42', 0.591], ['#8fd14f', 1]]) +
-      bandes(u + 'o', [['#ff8c42', 0.33], ['#ff5fa2', 0.66], ['#ffd23f', 1]]) +
+      bandes(u + 'r', [['#ff5fa2', 0.174], ['#ffd23f', 0.313], ['#a66ef0', 0.452], ['#ff8c42', 1]]) +
+      bandes(u + 'o', [['#a66ef0', 0.33], ['#ff5fa2', 0.66], ['#8fd14f', 1]]) +
       bandes(u + 'b', [['#a66ef0', 0.33], ['#ff5fa2', 0.66], ['#ffd23f', 1]]) +
       lin(u + 'm', '#fff4de', '#f0cf9c') +
       `<radialGradient id="${u}v" cx="38%" cy="32%" r="75%"><stop offset=".5" stop-color="#3a0a4a" stop-opacity="0"/><stop offset="1" stop-color="#3a0a4a" stop-opacity=".35"/></radialGradient>`,
@@ -76,26 +90,23 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <g fill="none" stroke-width="2.4" stroke-dasharray="1 .8">
         <path d="M27.8,87.2 H72.2" stroke="#a66ef0"/><path d="M24.5,94.2 H75.5" stroke="#ff5fa2"/>
       </g>
-      ${miroir(`<path d="M40.5,31.5 C35.5,26 32,18 33,10 C39,12.5 44,20 46,28.5 Z" fill="url(#${u}o)"/><path d="M40,27.5 C37.5,23.5 36,18.5 36.5,14 C39.5,16.5 42,21 43,26 Z" fill="#8a4fd8" opacity=".75"/>`)}
-      <path d="M40.5,31.5 C35.5,26 32,18 33,10 C39,12.5 44,20 46,28.5 Z" fill="url(#${u}o)"/>
-      <path d="M40,27.5 C37.5,23.5 36,18.5 36.5,14 C39.5,16.5 42,21 43,26 Z" fill="#8a4fd8" opacity=".75"/>
+      ${[`<path d="M40.5,31.5 C35.5,26 32,18 33,10 C39,12.5 44,20 46,28.5 Z" fill="url(#${u}o)"/><path d="M40,27.5 C37.5,23.5 36,18.5 36.5,14 C39.5,16.5 42,21 43,26 Z" fill="#fff1d6" opacity=".6"/>`].map(l => l + miroir(l)).join('')}
       <path d="M50,27 C59.5,27 66,32.5 66.5,41 C67,48 64.5,54 63,59 C66.5,63 68.5,68.5 67,74 C65,80.5 58,84.5 50,84.5 C42,84.5 35,80.5 33,74 C31.5,68.5 33.5,63 37,59 C35.5,54 33,48 33.5,41 C34,32.5 40.5,27 50,27 Z" fill="url(#${u}r)"/>
       <g fill="none" stroke-width="2.4" stroke-dasharray="1 .8">
-        <path d="M35.2,38.2 H64.8" stroke="#ff5fa2"/><path d="M34.8,46.2 H65.2" stroke="#ffd23f"/><path d="M36.2,54.2 H63.8" stroke="#a66ef0"/><path d="M37,62.2 H63" stroke="#ff8c42"/>
+        <path d="M35.2,38.2 H64.8" stroke="#ff5fa2"/><path d="M34.8,46.2 H65.2" stroke="#ffd23f"/><path d="M36.2,54.2 H63.8" stroke="#a66ef0"/>
       </g>
       <path d="M50,27 C59.5,27 66,32.5 66.5,41 C67,48 64.5,54 63,59 C66.5,63 68.5,68.5 67,74 C65,80.5 58,84.5 50,84.5 C42,84.5 35,80.5 33,74 C31.5,68.5 33.5,63 37,59 C35.5,54 33,48 33.5,41 C34,32.5 40.5,27 50,27 Z" fill="url(#${u}v)"/>
-      <path d="M43,30.5 L44.5,21 L47,28 L49.5,17.5 L52,27.5 L54.5,20.5 L57,30.5 Z" fill="#ffd23f"/>
-      <path d="M50,60 C58,60 64,63 66,68 C66.5,76 60,83 50,83.5 C40,83 33.5,76 34,68 C36,63 42,60 50,60 Z" fill="url(#${u}m)"/>
-      <path d="M37.5,65.5 C42,62 58,62 62.5,65.5" stroke="#e8c088" stroke-width="2" stroke-dasharray=".9 .8" fill="none"/>
+      <path d="M43,30.5 L44.5,21 L47,28 L49.5,17.5 L52,27.5 L54.5,20.5 L57,30.5 Z" fill="#a66ef0"/>
+      <path d="M36.5,59.5 C42,57.3 58,57.3 63.5,59.5 C66.8,63.3 68.5,68.5 67,74 C65,80.5 58,84.5 50,84.5 C42,84.5 35,80.5 33,74 C31.5,68.5 33.2,63.3 36.5,59.5 Z" fill="url(#${u}m)"/>
+      <path d="M37.5,60.2 C42,58.4 58,58.4 62.5,60.2" stroke="#ff8c42" stroke-width="2.2" stroke-dasharray="1 .8" fill="none"/>
+      <path d="M36,64.5 C42,62.6 58,62.6 64,64.5" stroke="#e8c088" stroke-width="1.8" stroke-dasharray=".9 .8" fill="none"/>
       <g fill="#fff" stroke="#2a1030" stroke-width=".6"><circle cx="42.5" cy="46.5" r="4.4"/><circle cx="57.5" cy="46.5" r="4.4"/></g>
       <circle cx="43.2" cy="47.3" r="2.3" fill="#1e0f24"/><circle cx="58.2" cy="47.3" r="2.3" fill="#1e0f24"/>
       ${reflet(42.4, 46.4, 0.8)}${reflet(57.4, 46.4, 0.8)}
-      ${miroir('<path d="M38.6,43.2 L37.2,41.8 M40.6,42.2 L39.9,40.4 M42.9,41.8 L42.9,39.9" stroke="#2a1030" stroke-width=".9" stroke-linecap="round"/>')}
-      <path d="M38.6,43.2 L37.2,41.8 M40.6,42.2 L39.9,40.4 M42.9,41.8 L42.9,39.9" stroke="#2a1030" stroke-width=".9" stroke-linecap="round"/>
-      <ellipse cx="45" cy="71" rx="1.5" ry="2.2" fill="#7a4a2a" transform="rotate(-18 45 71)"/>
-      <ellipse cx="55" cy="71" rx="1.5" ry="2.2" fill="#7a4a2a" transform="rotate(18 55 71)"/>
-      <circle cx="38.5" cy="74" r="2.4" fill="#ff7aa8" opacity=".5"/><circle cx="61.5" cy="74" r="2.4" fill="#ff7aa8" opacity=".5"/>
-      <path d="M44,76.2 C46.5,79.4 53.5,79.4 56,76.2" stroke="#7a4a2a" stroke-width="1.2" fill="none" stroke-linecap="round"/>`,
+      ${['<path d="M38.6,43.2 L37.2,41.8 M40.6,42.2 L39.9,40.4 M42.9,41.8 L42.9,39.9" stroke="#2a1030" stroke-width=".9" stroke-linecap="round"/>'].map(l => l + miroir(l)).join('')}
+      <ellipse cx="44.2" cy="73.5" rx="1.9" ry="2.7" fill="#6a3a22" transform="rotate(-15 44.2 73.5)"/>
+      <ellipse cx="55.8" cy="73.5" rx="1.9" ry="2.7" fill="#6a3a22" transform="rotate(15 55.8 73.5)"/>
+      <path d="M45,80.2 C47.5,81.8 52.5,81.8 55,80.2" stroke="#6a3a22" stroke-width="1.1" fill="none" stroke-linecap="round"/>`,
   },
 
   'br:fetard': {
@@ -104,7 +115,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'p', '#f9d6bd', '#eab093') +
       lin(u + 'h', '#ee7b3c', '#b34a1a') +
       lin(u + 's', '#8a5ce0', '#55309e') +
-      bandes(u + 'c', [['#ffd23f', 0.2], ['#ff4f9a', 0.4], ['#ffd23f', 0.6], ['#ff4f9a', 0.8], ['#ffd23f', 1]], 0.8, 1) +
+      bandes(u + 'c', [['#ff3d8b', 0.2], ['#fff4f8', 0.4], ['#ff3d8b', 0.6], ['#fff4f8', 0.8], ['#ff3d8b', 1]], 0.8, 1) +
       bandes(u + 'l', [['#ff4f9a', 0.25], ['#ffd23f', 0.5], ['#ff4f9a', 0.75], ['#ffd23f', 1]], 1, 0),
     decor: () => confettis() + SERPENTINS,
     corps: u => `
@@ -112,7 +123,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M45.5,68 L45.5,79.5 C47.5,81 52.5,81 54.5,79.5 L54.5,68 Z" fill="#dca283"/>
       <path d="M43.5,77.5 L50,84 L47,86.5 L41,80 Z" fill="#fff"/>${miroir('<path d="M43.5,77.5 L50,84 L47,86.5 L41,80 Z" fill="#fff"/>')}
       <path d="M24,93 C30,87 34,96 40,91 C46,86 50,95 56,90 C62,85 66,94 72,89" stroke="#ffd23f" stroke-width="2" fill="none" stroke-linecap="round"/>
-      ${points([[31, 86, 0.8], [67, 84, 0.8], [60, 95, 0.8], [38, 97, 0.7], [72, 94, 0.7]], '#8fe3d8', 0.95)}
+      ${grains([[31, 86], [67, 84], [60, 95], [38, 97], [72, 94]], '#8fe3d8', 1.6)}
       <ellipse cx="35.6" cy="52" rx="2.4" ry="3.6" fill="#eeb89a"/><ellipse cx="64.4" cy="52" rx="2.4" ry="3.6" fill="#eeb89a"/>
       <path d="M36,50 C36,41 42,37 50,37 C58,37 64,41 64,50 C64,61 58,69.5 50,71.5 C42,69.5 36,61 36,50 Z" fill="url(#${u}p)"/>
       <g fill="url(#${u}h)"><circle cx="35.4" cy="44.5" r="3"/><circle cx="34.8" cy="49" r="2.5"/><circle cx="37.4" cy="40.5" r="2.8"/><circle cx="64.6" cy="43.5" r="3"/><circle cx="65.2" cy="48" r="2.5"/><circle cx="62.4" cy="39.5" r="2.8"/></g>
@@ -120,15 +131,15 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <ellipse cx="43" cy="50" rx="2" ry="2.5" fill="#2a160c"/>${reflet(42.3, 49.2, 0.8)}
       <path d="M54.4,50.6 C55.7,48.6 58.3,48.6 59.6,50.6" stroke="#2a160c" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       <ellipse cx="39.5" cy="58.5" rx="3.6" ry="2.8" fill="#ff8a7a" opacity=".45"/><ellipse cx="60.5" cy="58.5" rx="3.6" ry="2.8" fill="#ff8a7a" opacity=".45"/>
-      ${points([[39.5, 55.5, 0.45], [41.6, 57, 0.45], [40, 58.6, 0.4], [60.5, 55.5, 0.45], [58.4, 57, 0.45], [60, 58.6, 0.4], [48.6, 54.6, 0.35], [51.4, 54.6, 0.35]], '#c56a3a', 0.8)}
+      ${grains([[39.5, 55.5], [41.6, 57], [40, 58.6], [60.5, 55.5], [58.4, 57], [60, 58.6], [48.6, 54.6], [51.4, 54.6]], '#c56a3a', 0.85, 0.8)}
       <path d="M50.3,51.5 C49.4,55 49.2,56.4 50.6,57.2" stroke="#c07a5a" stroke-width="1" fill="none" stroke-linecap="round"/>
       <ellipse cx="50" cy="63.2" rx="2.3" ry="2" fill="#b8404a"/>
       <path d="M53.5,61.4 L78,57.6 L78.8,62.2 L53.8,65 Z" fill="url(#${u}l)"/>
       <path d="M78.3,59.9 C84.5,59.3 87,53.8 84.5,50.5 C82,47.5 77.6,49.2 78.2,52.6 C78.7,55.2 82,55.4 82.8,53.2" stroke="#ff4f9a" stroke-width="3.2" fill="none" stroke-linecap="round"/>
       <rect x="50.4" y="61.6" width="4.2" height="3.2" rx="1" fill="#fff"/>
       <path d="M34,36 L42,10 L61,31.5 C55,36 41,38.5 34,36 Z" fill="url(#${u}c)"/>
-      <path d="M34,36 C41,38.5 55,36 61,31.5" stroke="#fff" stroke-width="2.6" stroke-dasharray="1.3 .9" fill="none"/>
-      <circle cx="42" cy="10" r="3.8" fill="#fff"/><circle cx="40.8" cy="8.8" r="1.2" fill="#e6f7f4"/>`,
+      <path d="M34,36 C41,38.5 55,36 61,31.5" stroke="#ffd23f" stroke-width="2.6" stroke-dasharray="1.3 .9" fill="none"/>
+      <circle cx="42" cy="10" r="3.8" fill="#ffd23f"/><circle cx="40.8" cy="8.8" r="1.2" fill="#fff" opacity=".7"/>`,
   },
 
   'br:arlequin': {
@@ -200,12 +211,11 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M37.5,23.5 C37.5,26.8 62.5,26.8 62.5,23.5 L61.5,37.5 C55,39 45,39 38.5,37.5 Z" fill="url(#${u}k)"/>
       <path d="M38.3,33.5 C45,35 55,35 61.7,33.5 L61.5,37.5 C55,39 45,39 38.5,37.5 Z" fill="url(#${u}r)"/>
       <path d="M27.5,39.5 C27.5,36 72.5,36 72.5,39.5 C72.5,42.8 27.5,42.8 27.5,39.5 Z" fill="url(#${u}k)"/>
-      <path d="M31,38.3 C40,36.8 60,36.8 69,38.3" stroke="#5a5468" stroke-width=".8" fill="none"/>
       <ellipse cx="45.5" cy="24.6" rx="1.9" ry="1.3" fill="#fff"/><ellipse cx="54.5" cy="24.6" rx="1.9" ry="1.3" fill="#fff"/>
       <path d="M66,90 L83,65.5" stroke="#141018" stroke-width="2.4" stroke-linecap="round"/>
       <path d="M83,65.5 L85.2,62.3" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
       <ellipse cx="70.5" cy="84" rx="4.6" ry="4" fill="url(#${u}s)" transform="rotate(-35 70.5 84)"/>
-      <path d="M67.5,82.2 C69.5,81 72,81 73.8,82.3 M67.4,84.6 C69.4,83.5 71.9,83.6 73.6,84.8" stroke="#b8c0cc" stroke-width=".7" fill="none" stroke-linecap="round"/>`,
+      <path d="M67.5,82.2 C69.5,81 72,81 73.8,82.3" stroke="#b8c0cc" stroke-width=".7" fill="none"/>`,
   },
 
   'br:disco': {
@@ -221,9 +231,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       '<path d="M50,14 L6,46 L10,58 Z M50,14 L94,46 L90,58 Z" fill="#fff" opacity=".07"/>' +
       confettis() +
       etoile(14, 40, 2.2, '#fff', 0.8) +
-      etoile(87, 34, 1.8, '#ffc2e6', 0.8) +
       etoile(84, 62, 2.2, '#fff', 0.7) +
-      etoile(18, 70, 1.6, '#ffc2e6', 0.8),
+      grains([[87, 34], [18, 70], [10, 52], [90, 48]], '#ffc2e6', 1.4, 0.8),
     corps: u => `
       <path d="M50,0 L50,7.5" stroke="#c9ced8" stroke-width=".7"/>
       <path d="${nuage(50, 46, 30, 26, 16, 4)}" fill="url(#${u}h)"/>
@@ -232,8 +241,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       </g>
       <path d="M44,68 L44,86 L50,92 L56,86 L56,68 Z" fill="#5c3522"/>
       <path d="M22,100 C24,86 36,78 43,78.2 L50,90 L57,78.2 C64,78 76,86 78,100 Z" fill="url(#${u}t)"/>
-      ${points([[30, 90, 0.7], [36, 86, 0.7], [34, 95, 0.7], [64, 86, 0.7], [70, 90, 0.7], [66, 95, 0.7], [43, 94, 0.6], [57, 94, 0.6], [27, 96, 0.6], [73, 96, 0.6]], '#ffe07a', 0.95)}
-      ${etoile(32.5, 89, 1.8, '#fff', 0.95)}${etoile(67.5, 92, 1.5, '#fff', 0.95)}
+      ${grains([[30, 90], [36, 86], [34, 95], [64, 86], [70, 90], [66, 95], [43, 94], [57, 94], [27, 96], [73, 96], [40, 89], [60, 89]], '#ffe07a', 1.3, 0.95)}
+      ${grains([[32.5, 89], [67.5, 92], [48, 97]], '#fff', 1.1)}
       <path d="M36.5,50 C36.5,41 42.5,36.5 50,36.5 C57.5,36.5 63.5,41 63.5,50 C63.5,61 57.5,69.5 50,71.5 C42.5,69.5 36.5,61 36.5,50 Z" fill="url(#${u}p)"/>
       <path d="M36.6,48 C36,40 42,35 50,35 C58,35 64,40 63.4,48 C61,42.5 56,40 50,40.5 C44,40 39,42.5 36.6,48 Z" fill="#2e1b12"/>
       <path d="M35.5,44.5 C39,37.5 61,37.5 64.5,44.5" stroke="url(#${u}k)" stroke-width="3" fill="none" stroke-linecap="round"/>
@@ -259,7 +268,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       `<linearGradient id="${u}o" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3bf"/><stop offset=".5" stop-color="#e0ad48"/><stop offset="1" stop-color="#8f5e16"/></linearGradient>` +
       lin(u + 'p', '#f8ebe2', '#e5c7b5') +
       lin(u + 'h', '#3d2533', '#1f121a'),
-    decor: () => confettis(),
+    decor: () =>
+      CONFETTIS.map(([x, y, c, r]) => `<rect x="${x}" y="${y}" width="3.2" height="1.6" rx=".4" fill="${c}" opacity=".85" transform="rotate(${r} ${x} ${y})"/>`).join(''),
     corps: u => `
       <path d="M28,53 C24,37 32,22 50,22 C68,22 76,37 72,53 C74,63 70,73 64,75 L36,75 C30,73 26,63 28,53 Z" fill="url(#${u}h)"/>
       <path d="M22,100 C24,86 36,78 50,78 C64,78 76,86 78,100 Z" fill="#6a1f3f"/>

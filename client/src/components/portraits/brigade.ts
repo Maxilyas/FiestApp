@@ -30,7 +30,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
   'br:croissant': {
     fond: ['#d9784a', '#8a3517', '#2e0e04'],
     defs: u =>
-      rad(u + 'd', '#ffe9a8', '#d98a30') + lin(u + 'b', '#fcd583', '#b8601a') + lin(u + 'e', '#eea24a', '#94440f'),
+      rad(u + 'd', '#ffe9a8', '#d98a30') + lin(u + 'b', '#fcd583', '#b8601a') + lin(u + 'e', '#f4b05a', '#9c4a14'),
     // Il sort du four : sa vapeur monte au-dessus de lui.
     decor: () =>
       '<g fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="1.4" stroke-linecap="round"><path d="M43,19.5 C40,15.5 45,12.5 42,8"/><path d="M50,18 C47,13.5 53,10.5 50,6"/><path d="M57,19.5 C60,15.5 55,12.5 58,8"/></g>' +
@@ -43,8 +43,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
         ${[`<path d="M19.5,80 C14.5,72 12.5,57 21.5,43 C25.5,53 28.5,64 31,74 C27,75.5 22.5,77.5 19.5,80 Z" fill="url(#${u}e)"/><path d="M21.5,43 C24,35.5 29,30.5 36,28.5 C39,44 41,61 41.5,75.5 C38,76.5 34,76 30.5,73.5 C26.5,63 23,52 21.5,43 Z" fill="url(#${u}b)"/>`].map(l => l + miroir(l)).join('')}
         <path d="M35,29 C40,26.5 45,25.5 50,25.5 C55,25.5 60,26.5 65,29 C67.5,45 64,63 58.6,76 C55,79.5 45,79.5 41.4,76 C36,63 32.5,45 35,29 Z" fill="url(#${u}d)"/>
       </g>
-      <g fill="none" stroke="#ffe8b0" stroke-width="1.1" stroke-linecap="round" opacity=".55">
-        ${[`<path d="M26,37 C29.5,48 32.5,60 35,72"/><path d="M17,58 C19,63 21.5,69 24.5,75"/>`].map(l => l + miroir(l)).join('')}
+      <g fill="none" stroke-linecap="round">
+        ${[`<path d="M23.8,47.5 C25.8,41.5 29.5,36.5 34,33.5 M15.6,63 C15.8,57.5 17.8,52.5 21,49" stroke="#fff3c8" stroke-width="1.4" opacity=".6"/><path d="M24.5,66.5 C28,69 33,70.4 38.6,70.8 M17,72.5 C19.5,72.8 22.5,72 25.5,70.5" stroke="#8a3c10" stroke-width=".9" opacity=".45"/>`].map(l => l + miroir(l)).join('')}
       </g>
       <ellipse cx="43" cy="31" rx="6" ry="2.4" fill="#fff" opacity=".45" transform="rotate(-12 43 31)"/>
       <ellipse cx="43.5" cy="50" rx="2.6" ry="3.1" fill="#3a1a0a"/><ellipse cx="56.5" cy="50" rx="2.6" ry="3.1" fill="#3a1a0a"/>
@@ -137,7 +137,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 's', '#ffffff', '#dde2ea') +
       lin(u + 'm', '#f4f6fa', '#9aa3b3', 1, 0) +
       rad(u + 'r', '#ff6a6a', '#b3121f'),
-    decor: () => VAPEUR + etoile(80, 22, 2.6, '#fff', 0.7) + etoile(86, 70, 2, '#ffe2a8', 0.7) + points(ETINCELLES.slice(0, 3), '#ffe2a8'),
+    decor: () => VAPEUR + etoile(80, 22, 2.6, '#fff', 0.7) + points(ETINCELLES.slice(0, 3), '#ffe2a8'),
     corps: u => `
       <path d="M22,100 C24,86 36,78 50,78 C64,78 76,86 78,100 Z" fill="url(#${u}s)"/>
       <path d="M36,84 C42,82.5 58,82.5 64,84 L67,100 L33,100 Z" fill="url(#${u}a)"/>

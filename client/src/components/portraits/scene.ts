@@ -80,15 +80,18 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M50.3,52.6 C49.6,55.8 49.4,57.2 50.7,57.8" stroke="#b07a60" stroke-width="1" fill="none" stroke-linecap="round"/>
       <ellipse cx="41" cy="57.4" rx="3" ry="1.6" fill="#ff8aa0" opacity=".35"/><ellipse cx="59" cy="57.4" rx="3" ry="1.6" fill="#ff8aa0" opacity=".35"/>
       <path d="M45,61 C47.4,65.2 53,65.2 55.4,60.6 C52,61.8 48.4,61.8 45,61 Z" fill="#fff" stroke="#8a2848" stroke-width=".9"/>
-      <g transform="translate(35 87) rotate(-32)">
+      <g transform="translate(36 85) rotate(-32)">
         <path d="M-12,-3 C-12,-8 -8,-10 -3,-9 C0,-8.5 2,-8 4,-9.5 C6,-11 9,-10.5 9.5,-8 C8,-6 7.5,-4.5 8.5,-3 L8.5,3 C7.5,4.5 8,6 9.5,8 C9,10.5 6,11 4,9.5 C2,8 0,8.5 -3,9 C-8,10 -12,8 -12,3 Z" fill="url(#${u}g)"/>
-        <path d="M-8,-4 C-6,-7 -2,-6 2,-5 L6,-3 L6,3 L2,5 C-2,6 -6,7 -8,4 Z" fill="#f6f0ee"/>
-        <rect x="-3" y="-4" width="2.2" height="8" rx=".4" fill="#1a1418"/><rect x="1.5" y="-4" width="2.2" height="8" rx=".4" fill="#1a1418"/>
-        <rect x="-7" y="-3.5" width="1.4" height="7" fill="#c8c8d4"/>
-        <circle cx="-8.5" cy="6.5" r="1.1" fill="#f1c653"/><circle cx="-5.5" cy="7.6" r="1.1" fill="#f1c653"/>
-        <rect x="8" y="-1.6" width="34" height="3.2" fill="url(#${u}m)"/>
-        <path d="M42,-2 L49,-3.4 C50.5,-3.4 51,-2.5 51,-1.5 L51,1.5 C51,2.5 50.5,3.4 49,3.4 L42,2 Z" fill="#1a1418"/>
-        <path d="M-7,-1 L49,-1 M-7,1 L49,1" stroke="#fff" stroke-width=".3" opacity=".6"/>
+        <path d="M-10,-4 C-9,-7 -6,-8 -3,-7.4" stroke="#fff" stroke-width=".9" fill="none" opacity=".55" stroke-linecap="round"/>
+        <path d="M-8.5,-1 C-8.5,-4.5 -5.5,-5.5 -2,-5 L5.5,-4 L5.5,4 C3,5.6 -2,7.5 -5.5,6.8 C-7.6,6.2 -8.5,3 -8.5,-1 Z" fill="#1c1418"/>
+        <g fill="#f2e6c8"><rect x="-3.6" y="-3.4" width="2.2" height="6.8" rx=".5"/><rect x="1.2" y="-3.4" width="2.2" height="6.8" rx=".5"/></g>
+        <rect x="-7.4" y="-3" width="1.3" height="6" fill="#d4d4de"/>
+        <g fill="#f1c653"><circle cx="-6.6" cy="7.2" r="1.1"/><circle cx="-3.4" cy="7.8" r="1.1"/></g>
+        <rect x="8" y="-1.6" width="36" height="3.2" fill="url(#${u}m)"/>
+        <path d="M14,0 h0 M22,0 h0 M30,0 h0 M38,0 h0" stroke="#f6ead0" stroke-width="1" stroke-linecap="round"/>
+        <path d="M44,-2 L51,-3.4 C52.5,-3.4 53,-2.5 53,-1.5 L53,1.5 C53,2.5 52.5,3.4 51,3.4 L44,2 Z" fill="#1c1418"/>
+        <path d="M45.5,-3.9 L52,-3.9 M45.5,3.9 L52,3.9" stroke="#d4d4de" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="0 2.6"/>
+        <path d="M-7,-1 L51,-1 M-7,1 L51,1" stroke="#fff" stroke-width=".3" opacity=".6"/>
       </g>`,
   },
 
@@ -127,15 +130,16 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M50.3,52.4 C49.4,55.6 49.2,57 50.6,57.8" stroke="#6a3e22" stroke-width="1" fill="none" stroke-linecap="round"/>
       <ellipse cx="40.6" cy="57.6" rx="3.2" ry="1.8" fill="#e07a6a" opacity=".35"/><ellipse cx="59.4" cy="57.6" rx="3.2" ry="1.8" fill="#e07a6a" opacity=".35"/>
       <path d="M45.5,59.8 C47.5,58.6 49,58.8 50,59.5 C51,58.8 52.5,58.6 54.5,59.8 C52.6,60.8 51,60.6 50,60.2 C49,60.6 47.4,60.8 45.5,59.8 Z" fill="#1a1008"/>
-      <ellipse cx="50" cy="62" rx="2.8" ry="1.3" fill="#7a4230"/>
       <path d="M47.6,66.4 C48.2,69.6 51.8,69.6 52.4,66.4 C51.2,67.2 48.8,67.2 47.6,66.4 Z" fill="#1a1008"/>
       <path d="M44,67.2 C44.8,64.8 46.6,62.8 49.6,62.4" stroke="url(#${u}o)" stroke-width="2.2" fill="none" stroke-linecap="round"/>
       <path d="M48.8,61.2 L51.4,61.6 L51,63.4 L48.6,63 Z" fill="#141018"/>
-      <g transform="translate(44 67) rotate(25)">
-        <path d="M1.6,0 L3.4,20 C3.4,24.6 -.1,28.2 -4.8,28.2 C-9.4,28.2 -12.9,24.6 -12.9,20 C-12.9,16 -13.8,13 -15,11 L-4,11 C-5,13 -6.1,16.5 -6.1,20 C-6.1,20.8 -5.5,21.4 -4.8,21.4 C-4,21.4 -3.4,20.8 -3.4,20 L-1.6,0 Z" fill="url(#${u}o)"/>
-        <ellipse cx="-9.5" cy="11" rx="5.5" ry="1.6" fill="#8a5a14"/>
-        <g fill="#fff6d8"><circle cx="0" cy="5" r=".9"/><circle cx=".3" cy="9" r=".9"/><circle cx=".6" cy="13" r=".9"/></g>
-        <circle cx="2.9" cy="16" r="1.3" fill="#e8b440" stroke="#8a5a14" stroke-width=".4"/>
+      <g transform="translate(44.6 66) rotate(25) scale(1.08)">
+        <path d="M1.6,0 L3.4,20 C3.4,24.6 -.1,28.2 -4.8,28.2 C-9.4,28.2 -12.9,24.6 -12.9,20 C-12.9,16 -14.4,12.6 -16.4,10.4 L-3,10.4 C-4.7,12.8 -6.1,16.4 -6.1,20 C-6.1,20.8 -5.5,21.4 -4.8,21.4 C-4,21.4 -3.4,20.8 -3.4,20 L-1.6,0 Z" fill="url(#${u}o)"/>
+        <ellipse cx="-9.7" cy="10.4" rx="6.7" ry="1.7" fill="#8a5a14"/>
+        <path d="M-15,11.4 C-12,12.6 -7,12.6 -4.2,11.4" stroke="#fff4c0" stroke-width=".6" fill="none" opacity=".7"/>
+        <path d="M0,4.5 h0 M.3,8.5 h0 M.6,12.5 h0 M.9,16.5 h0" stroke="#fff6d8" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="3" cy="14.5" r="1.3" fill="#e8b440" stroke="#8a5a14" stroke-width=".4"/>
+        <path d="M-.6,1 L-2.2,19" stroke="#fff6c8" stroke-width=".6" opacity=".6"/>
       </g>`,
   },
 

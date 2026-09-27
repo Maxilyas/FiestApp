@@ -9,19 +9,19 @@ const RIDEAUX =
 
 /**
  * Une pellicule le long d'un tracé : la bande, ses perforations en pointillés
- * que la bande recouvre au milieu, et ses images. Quatre traits en tout, là où
- * trente rectangles feraient la même chose.
+ * que la bande recouvre au milieu, et ses images. Quatre traits, là où trente
+ * rectangles feraient la même chose.
  */
-const pellicule = (d: string, op = 0.3) =>
+const pellicule = (d: string, op: number) =>
   `<g fill="none" opacity="${op}"><path d="${d}" stroke="#1c0306" stroke-width="9"/><path d="${d}" stroke="#ffe3c2" stroke-width="7" stroke-dasharray="1.4 1.8"/><path d="${d}" stroke="#1c0306" stroke-width="4.2"/><path d="${d}" stroke="#5a1420" stroke-width="3.4" stroke-dasharray="6 1.6"/></g>`
 
-/** Un pan du gilet de cuir du cow-boy. */
+/** Un faisceau de projecteur, à peine teinté. */
+const faisceau = (d: string, op: number) => `<path d="${d}" fill="#fff4d8" opacity="${op}"/>`
+
+/** Un pan du gilet de cuir du cow-boy : l'autre est son miroir. */
 const GILET = (u: string) => `<path d="M21,100 C23,87 33,80.5 41,79.6 C43,86 44,93 44.5,100 Z" fill="url(#${u}v)"/>`
 
-/** Un faisceau de projecteur, du haut vers le bas, à peine teinté. */
-const faisceau = (d: string, couleur: string, op: number) => `<path d="${d}" fill="${couleur}" opacity="${op}"/>`
-
-/** Une étoile à `n` branches, pointe en haut : l'insigne du shérif. */
+/** Une étoile à `n` branches, pointe en haut. */
 function etoileA(n: number, x: number, y: number, R: number, r: number): string {
   let d = ''
   for (let i = 0; i < 2 * n; i++) {
@@ -32,9 +32,19 @@ function etoileA(n: number, x: number, y: number, R: number, r: number): string 
   return d + 'Z'
 }
 
-/** L'insigne du shérif : une étoile à six branches, ses pointes arrondies par le trait. */
-const insigne = (x: number, y: number, R: number) =>
-  `<path d="${etoileA(6, x, y, R, R * 0.55)}" fill="#f7d060" stroke="#f7d060" stroke-width="1.5" stroke-linejoin="round"/><path d="${etoileA(6, x, y, R * 0.55, R * 0.3)}" fill="#c8922a" opacity=".45"/><circle cx="${x}" cy="${y}" r="${(R * 0.22).toFixed(1)}" fill="#fff3c0"/>`
+/**
+ * L'insigne du shérif : six branches et une boule au bout de chacune — sans
+ * elles, c'est une fleur. Les boules sont des tracés de longueur nulle, qu'un
+ * bout rond dessine en points : un élément pour six cercles.
+ */
+function insigne(x: number, y: number, R: number): string {
+  let boules = ''
+  for (let i = 0; i < 6; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 3
+    boules += `M${(x + R * Math.cos(a)).toFixed(1)},${(y + R * Math.sin(a)).toFixed(1)}h0`
+  }
+  return `<path d="${etoileA(6, x, y, R, R * 0.5)}" fill="#f7d060" stroke="#b8862a" stroke-width=".4"/><path d="${boules}" stroke="#f7d060" stroke-width="1.9" stroke-linecap="round"/><circle cx="${x}" cy="${y}" r="${(R * 0.28).toFixed(1)}" fill="#c8922a"/>`
+}
 
 export const DESSINS: Record<string, DessinDePortrait> = {
   'br:cow-boy': {
@@ -47,8 +57,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     decor: () =>
       pellicule('M-6,78 C14,66 24,40 44,24 C60,11 80,8 106,12', 0.28) +
       etoile(18, 58, 2.4, '#ffe2a8', 0.7) +
-      etoile(84, 66, 2, '#ffe2a8', 0.6) +
-      points([[24, 16, 0.6], [80, 84, 0.6], [12, 44, 0.5]], '#ffe2a8'),
+      points([[84, 66, 0.7], [24, 16, 0.6], [80, 84, 0.6], [12, 44, 0.5]], '#ffe2a8'),
     corps: u => `
       <path d="M21,100 C23,87 35,79 50,79 C65,79 77,87 79,100 Z" fill="#efe2c8"/>
       ${GILET(u)}${miroir(GILET(u))}
@@ -56,24 +65,21 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M42.5,75 C46,77.5 54,77.5 57.5,75 L58.8,79.4 C55,82 45,82 41.2,79.4 Z M42,79 C46,81.6 54,81.6 58,79 L50,91 Z" fill="url(#${u}f)"/>
       <path d="M44.2,78.3 C47.5,80.6 52.5,80.6 55.8,78.3 M45.6,82.6 C48,84.4 52,84.4 54.4,82.6 M48.6,87.4 L51.4,87.4" stroke="#fff" stroke-width="1.1" stroke-linecap="round" stroke-dasharray="0 3.2" fill="none" opacity=".85"/>
       ${insigne(63.5, 90, 4.6)}
-      <ellipse cx="36.2" cy="51.5" rx="2.3" ry="3.5" fill="#d0946a"/><ellipse cx="63.8" cy="51.5" rx="2.3" ry="3.5" fill="#d0946a"/>
+      <g fill="#d0946a"><ellipse cx="36.2" cy="51.5" rx="2.3" ry="3.5"/><ellipse cx="63.8" cy="51.5" rx="2.3" ry="3.5"/></g>
       <path d="M36,46 C36,40 42,37 50,37 C58,37 64,40 64,46 C64,58 58,68 50,70.5 C42,68 36,58 36,46 Z" fill="url(#${u}p)"/>
-      <path d="M36.3,43 L40,43 L39.2,52.5 C37.8,51 36.8,48.5 36.3,45.5 Z" fill="#5c3418"/>
-      ${miroir('<path d="M36.3,43 L40,43 L39.2,52.5 C37.8,51 36.8,48.5 36.3,45.5 Z" fill="#5c3418"/>')}
+      <path d="M36.3,43 L40,43 L39.2,52.5 C37.8,51 36.8,48.5 36.3,45.5 Z M63.7,43 L60,43 L60.8,52.5 C62.2,51 63.2,48.5 63.7,45.5 Z" fill="#5c3418"/>
       <path d="M36.5,44 C44,46.2 56,46.2 63.5,44 L63.8,47.4 C56,49.6 44,49.6 36.2,47.4 Z" fill="#6a3418" opacity=".22"/>
       <path d="M39.6,48.2 C41.6,47 45,47 47,48 M53,48 C55,47 58.4,47 60.4,48.2" stroke="#4a2812" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       <path d="M39.8,51.8 C41.2,49.4 45.6,49.4 47,51.8 C45.6,53.8 41.2,53.8 39.8,51.8 Z M53,51.8 C54.4,49.4 58.8,49.4 60.2,51.8 C58.8,53.8 54.4,53.8 53,51.8 Z" fill="#fff"/>
-      <circle cx="43.5" cy="51.7" r="1.9" fill="#4a2c16"/><circle cx="56.5" cy="51.7" r="1.9" fill="#4a2c16"/>
+      <g fill="#4a2c16"><circle cx="43.5" cy="51.7" r="1.9"/><circle cx="56.5" cy="51.7" r="1.9"/></g>
       ${reflet(42.8, 51, 0.65)}${reflet(55.8, 51, 0.65)}
       <path d="M50.5,53 C49.6,56.2 49.4,57.8 50.8,58.4" stroke="#9a5e3a" stroke-width="1" fill="none" stroke-linecap="round"/>
-      <ellipse cx="40.5" cy="57.8" rx="3" ry="1.7" fill="#ff8a70" opacity=".35"/><ellipse cx="59.5" cy="57.8" rx="3" ry="1.7" fill="#ff8a70" opacity=".35"/>
+      <g fill="#ff8a70" opacity=".35"><ellipse cx="40.5" cy="57.8" rx="3" ry="1.7"/><ellipse cx="59.5" cy="57.8" rx="3" ry="1.7"/></g>
       <path d="M45,61.6 C47.5,64.6 52.5,64.6 55.5,60.9" stroke="#7a3a22" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       <path d="M54.6,62.3 L64.2,58.8 M63.6,59 L66.6,57.2 M64.6,58.6 L67,59" stroke="#f0cf6a" stroke-width=".8" stroke-linecap="round"/>
       <path d="M34.5,37.5 C33.5,28 34.5,19.5 38,14.8 C40.5,11.8 45,12.3 50,15.2 C55,12.3 59.5,11.8 62,14.8 C65.5,19.5 66.5,28 65.5,37.5 Z" fill="url(#${u}h)"/>
-      <path d="M50,15.6 C49.4,21 49.4,27 50,31.5" stroke="#6a3a18" stroke-width=".9" fill="none" opacity=".5"/>
-      <path d="M37.6,29.5 C37.1,24 38,19.2 40.5,16.2" stroke="#f4c890" stroke-width="1.2" fill="none" opacity=".5" stroke-linecap="round"/>
+      <path d="M50,15.6 C49.4,21 49.4,27 50,31.5 M37.6,29.5 C37.1,24 38,19.2 40.5,16.2" stroke="#f4c890" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/>
       <path d="M34.3,31.5 C44,33.5 56,33.5 65.7,31.5 L65.6,36 C56,38 44,38 34.4,36 Z" fill="#4a2810"/>
-      <circle cx="39.5" cy="34" r="1.1" fill="#e8e0d0"/>
       <path d="M10,29 C13,35 20,38.5 30,39 C38,39.4 43,37.5 50,37.5 C57,37.5 62,39.4 70,39 C80,38.5 87,35 90,29 C89,36.5 84,42 74,44 C64,46 57,44.5 50,44.5 C43,44.5 36,46 26,44 C16,42 11,36.5 10,29 Z" fill="url(#${u}h)"/>
       <path d="M12,31.5 C16,36 22,38.8 30,39.4 C38,39.9 43,38 50,38 C57,38 62,39.9 70,39.4 C78,38.8 84,36 88,31.5" stroke="#f4c890" stroke-width=".8" fill="none" opacity=".55"/>`,
   },
@@ -99,18 +105,17 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M45,66 L45,79 L55,79 L55,66 Z" fill="#cdb8cc"/>
       <path d="M43.5,78.8 L46,75.2 L50,78.6 L54,75.2 L56.5,78.8 L50,82.2 Z" fill="#fff"/>
       <circle cx="50" cy="83" r="2.3" fill="#c8102e" stroke="#f1c653" stroke-width=".8"/><circle cx="49.3" cy="82.3" r=".6" fill="#fff" opacity=".7"/>
-      <path d="M37.8,53.5 C35.2,53 33.8,49.5 34,46.2 C34.2,43.6 34.4,41.4 33.7,39 C36.4,40.8 38.3,43.8 38.9,47.4 Z" fill="#e4d6e2"/>
-      ${miroir('<path d="M37.8,53.5 C35.2,53 33.8,49.5 34,46.2 C34.2,43.6 34.4,41.4 33.7,39 C36.4,40.8 38.3,43.8 38.9,47.4 Z" fill="#e4d6e2"/>')}
+      <path d="M37.8,53.5 C35.2,53 33.8,49.5 34,46.2 C34.2,43.6 34.4,41.4 33.7,39 C36.4,40.8 38.3,43.8 38.9,47.4 Z M62.2,53.5 C64.8,53 66.2,49.5 66,46.2 C65.8,43.6 65.6,41.4 66.3,39 C63.6,40.8 61.7,43.8 61.1,47.4 Z" fill="#e4d6e2"/>
       <path d="M36.5,45 C36.5,38.5 42,35 50,35 C58,35 63.5,38.5 63.5,45 C63.5,57 58.5,66.5 50,71 C41.5,66.5 36.5,57 36.5,45 Z" fill="url(#${u}p)"/>
       <path d="M35.8,47 C34,36.5 40.5,28 50,28 C59.5,28 66,36.5 64.2,47 C63.2,42.5 61,39.5 57.5,38.8 C54.5,39.2 52,41 50,44.2 C48,41 45.5,39.2 42.5,38.8 C39,39.5 36.8,42.5 35.8,47 Z" fill="url(#${u}h)"/>
       <path d="M40,34.5 C43,31 47.5,30 51,30.4 M53.5,31 C57,31.6 60,33.4 61.8,36" stroke="#9a90aa" stroke-width="1" fill="none" opacity=".7" stroke-linecap="round"/>
       <path d="M39,47.4 C41,45 45.2,44.8 47.4,46.6 M61,47.4 C59,45 54.8,44.8 52.6,46.6" stroke="#1a141e" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       <path d="M39.6,50.8 C41,48.4 45.6,48.4 47,50.8 C45.6,52.6 41,52.6 39.6,50.8 Z M53,50.8 C54.4,48.4 59,48.4 60.4,50.8 C59,52.6 54.4,52.6 53,50.8 Z" fill="#fff"/>
-      <circle cx="43.3" cy="50.6" r="1.8" fill="#a01830"/><circle cx="56.7" cy="50.6" r="1.8" fill="#a01830"/>
-      <circle cx="43.3" cy="50.6" r=".8" fill="#1a0508"/><circle cx="56.7" cy="50.6" r=".8" fill="#1a0508"/>
+      <g fill="#a01830"><circle cx="43.3" cy="50.6" r="1.8"/><circle cx="56.7" cy="50.6" r="1.8"/></g>
+      <g fill="#1a0508"><circle cx="43.3" cy="50.6" r=".8"/><circle cx="56.7" cy="50.6" r=".8"/></g>
       ${reflet(42.6, 50, 0.6)}${reflet(56, 50, 0.6)}
       <path d="M50.4,52 C49.6,55.2 49.4,56.8 50.8,57.4" stroke="#a890a8" stroke-width="1" fill="none" stroke-linecap="round"/>
-      <ellipse cx="41" cy="57.5" rx="3" ry="1.6" fill="#e890ae" opacity=".3"/><ellipse cx="59" cy="57.5" rx="3" ry="1.6" fill="#e890ae" opacity=".3"/>
+      <g fill="#e890ae" opacity=".3"><ellipse cx="41" cy="57.5" rx="3" ry="1.6"/><ellipse cx="59" cy="57.5" rx="3" ry="1.6"/></g>
       <path d="M45.2,61 C47.6,62.6 52.4,62.6 54.8,61 C53,63.8 47,63.8 45.2,61 Z" fill="#7a1024"/>
       <path d="M46.8,61.8 L47.6,64.4 L48.5,62.1 Z M53.2,61.8 L52.4,64.4 L51.5,62.1 Z" fill="#fff"/>`,
   },
@@ -122,6 +127,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'k', '#cfa96e', '#8c6a3c') +
       lin(u + 'm', '#dcbc84', '#a4814c') +
       rad(u + 'l', '#ffffff', '#a8d4f0'),
+    // Les lames d'un store, que traverse le projecteur : le film noir.
     decor: () =>
       `<g fill="#ffe6c8" opacity=".07"><path d="M0,24 L100,4 L100,12 L0,32 Z"/><path d="M0,42 L100,22 L100,30 L0,50 Z"/><path d="M0,60 L100,40 L100,48 L0,68 Z"/><path d="M0,78 L100,58 L100,66 L0,86 Z"/></g>` +
       points([[16, 30, 0.6], [86, 76, 0.5], [22, 88, 0.5]], '#ffe6c8', 0.6),
@@ -129,25 +135,19 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M20,100 C22,86 34,78.5 50,78.5 C66,78.5 78,86 80,100 Z" fill="url(#${u}m)"/>
       <path d="M43,79 L50,93 L57,79 Z" fill="#f2ece0"/>
       <path d="M48.2,79 L51.8,79 L51.2,81.6 L48.8,81.6 Z M48.8,81.6 L51.2,81.6 L52.4,90 L50,93.4 L47.6,90 Z" fill="#6a1f2a"/>
-      <path d="M31,84 C33,77 36,71 39,66 C41.5,71 44,76 47.5,80.5 L43.5,88 Z" fill="#c29d63"/>
-      ${miroir('<path d="M31,84 C33,77 36,71 39,66 C41.5,71 44,76 47.5,80.5 L43.5,88 Z" fill="#c29d63"/>')}
-      <path d="M31,84 L43.5,88 L47.5,80.5 M69,84 L56.5,88 L52.5,80.5" stroke="#8a6a3a" stroke-width=".7" fill="none"/>
-      <circle cx="38" cy="94" r="1.3" fill="#6a4a26"/><circle cx="62" cy="94" r="1.3" fill="#6a4a26"/>
+      <path d="M31,84 C33,77 36,71 39,66 C41.5,71 44,76 47.5,80.5 L43.5,88 Z M69,84 C67,77 64,71 61,66 C58.5,71 56,76 52.5,80.5 L56.5,88 Z" fill="#c29d63" stroke="#8a6a3a" stroke-width=".6"/>
       <path d="M45,66 L45,79 L55,79 L55,66 Z" fill="#6e4229"/>
-      <ellipse cx="36.2" cy="52" rx="2.3" ry="3.5" fill="#855236"/><ellipse cx="63.8" cy="52" rx="2.3" ry="3.5" fill="#855236"/>
+      <g fill="#855236"><ellipse cx="36.2" cy="52" rx="2.3" ry="3.5"/><ellipse cx="63.8" cy="52" rx="2.3" ry="3.5"/></g>
       <path d="M36,47 C36,40 42,36.5 50,36.5 C58,36.5 64,40 64,47 C64,59 58,68.5 50,71 C42,68.5 36,59 36,47 Z" fill="url(#${u}p)"/>
-      <path d="M36.2,44 L39.5,44 L39,51.5 C37.6,50 36.6,48 36.2,46 Z" fill="#1a1210"/>
-      ${miroir('<path d="M36.2,44 L39.5,44 L39,51.5 C37.6,50 36.6,48 36.2,46 Z" fill="#1a1210"/>')}
+      <path d="M36.2,44 L39.5,44 L39,51.5 C37.6,50 36.6,48 36.2,46 Z M63.8,44 L60.5,44 L61,51.5 C62.4,50 63.4,48 63.8,46 Z" fill="#1a1210"/>
       <path d="M33.5,44 C32.5,31 40,22 50,22 C60,22 67.5,31 66.5,44 Z" fill="url(#${u}k)"/>
-      <g stroke="#6a4a22" stroke-width=".8" fill="none" opacity=".45"><path d="M41.5,23.8 C39.6,30 39,37 39.3,44 M50,22 L50,44 M58.5,23.8 C60.4,30 61,37 60.7,44 M35,31 C44,29.2 56,29.2 65,31 M33.6,37.5 C44,36 56,36 66.4,37.5"/></g>
-      <path d="M33.2,43 C31.6,37 32.3,31 35.5,27 C37.5,32 38.3,37.5 38,43 Z" fill="#a8844e"/>
-      ${miroir('<path d="M33.2,43 C31.6,37 32.3,31 35.5,27 C37.5,32 38.3,37.5 38,43 Z" fill="#a8844e"/>')}
+      <path d="M41.5,23.8 C39.6,30 39,37 39.3,44 M50,22 L50,44 M58.5,23.8 C60.4,30 61,37 60.7,44 M35,31 C44,29.2 56,29.2 65,31 M33.6,37.5 C44,36 56,36 66.4,37.5" stroke="#6a4a22" stroke-width=".8" fill="none" opacity=".45"/>
+      <path d="M33.2,43 C31.6,37 32.3,31 35.5,27 C37.5,32 38.3,37.5 38,43 Z M66.8,43 C68.4,37 67.7,31 64.5,27 C62.5,32 61.7,37.5 62,43 Z" fill="#a8844e"/>
       <path d="M35.5,27.5 C40,23 45,21 49.5,21 M64.5,27.5 C60,23 55,21 50.5,21" stroke="#7a5a2c" stroke-width=".7" fill="none"/>
       <path d="M50,21.6 C48.2,19 45.6,19 45.8,21 C46.1,22.6 48.4,22.4 50,21.6 C51.6,22.4 53.9,22.6 54.2,21 C54.4,19 51.8,19 50,21.6 Z" fill="#7a5a2c"/>
       <path d="M36,46.6 C42,49.4 58,49.4 64,46.6 L63.6,49.4 C57,51.6 43,51.6 36.4,49.4 Z" fill="#3a2010" opacity=".3"/>
       <path d="M34,42.2 C40,40.6 60,40.6 66,42.2 C64.5,46.8 58,49 50,49 C42,49 35.5,46.8 34,42.2 Z" fill="#5e4020"/>
       <path d="M34,42.2 C40,40.6 60,40.6 66,42.2 C64.8,45 58,46.8 50,46.8 C42,46.8 35.2,45 34,42.2 Z" fill="#b48c58"/>
-      <path d="M35.6,43 C41,44.8 59,44.8 64.4,43" stroke="#ecd09a" stroke-width=".6" fill="none" opacity=".7"/>
       <path d="M39.6,50 C41.6,49 45,48.9 47,49.6" stroke="#1a1210" stroke-width="1.1" fill="none" stroke-linecap="round"/>
       <path d="M39.8,52.4 C41.2,50 45.6,50 47,52.4 C45.6,54.4 41.2,54.4 39.8,52.4 Z" fill="#fff"/>
       <circle cx="43.4" cy="52.3" r="1.8" fill="#2a1810"/>${reflet(42.7, 51.6, 0.6)}
@@ -156,13 +156,12 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M46,62.6 C48.5,64.4 52,64.2 54.5,62" stroke="#3a1a10" stroke-width="1.2" fill="none" stroke-linecap="round"/>
       <circle cx="57.8" cy="52.2" r="7.6" fill="url(#${u}l)" opacity=".3"/>
       <path d="M52.6,52.4 C54.4,48.6 61.2,48.6 63,52.4 C61.2,55.8 54.4,55.8 52.6,52.4 Z" fill="#fff"/>
-      <circle cx="57.8" cy="52.3" r="2.9" fill="#2a1810"/>${reflet(56.8, 51.2, 1.1)}<circle cx="59" cy="53.6" r=".5" fill="#fff" opacity=".7"/>
+      <circle cx="57.8" cy="52.3" r="2.9" fill="#2a1810"/>${reflet(56.8, 51.2, 1.1)}
       <path d="M52.4,48.6 C53.8,46.4 55.8,45.4 58,45.3" stroke="#fff" stroke-width="1" fill="none" opacity=".8" stroke-linecap="round"/>
       <path d="M63.4,58 L72.5,68.5" stroke="#4a2a18" stroke-width="3.4" stroke-linecap="round"/>
       <path d="M62.9,57.4 L65.2,60.2" stroke="#d9a441" stroke-width="3.8"/>
       <circle cx="57.8" cy="52.2" r="7.6" fill="none" stroke="#d9a441" stroke-width="2.1"/>
       <path d="M69.5,72 C72.5,75.5 77.5,75.5 80,72 C83.5,79 86.5,88 88,97 L73.5,100 C73,91 71.5,81 69.5,72 Z" fill="url(#${u}m)" stroke="#8a6a3a" stroke-width=".6"/>
-      <path d="M69.2,71.4 C72.4,75 77.6,75.2 80.4,71.6" stroke="#9a7844" stroke-width="2.2" fill="none"/>
       <path d="M68.8,68.8 C67.6,65.6 69.4,62.4 72.6,61.8 C75.8,61.2 78.8,63 79.2,66.2 C79.6,69.4 77.2,72 74,72.3 C71.4,72.6 69.6,71 68.8,68.8 Z" fill="url(#${u}p)"/>
       <path d="M70.4,63.8 C72.8,64.2 75,65.4 76.6,67.2 M69.4,66.8 C71.8,67.2 74,68.4 75.4,70.2" stroke="#4a2818" stroke-width=".6" fill="none" opacity=".7"/>`,
   },
@@ -201,31 +200,33 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'cape', '#44dccb', '#12877d') +
       lin(u + 'o', '#fff4b8', '#e8a82a'),
     decor: () =>
-      faisceau('M-4,100 L6,100 L46,0 L34,0 Z', '#fff4d8', 0.1) +
-      faisceau('M104,100 L94,100 L54,0 L66,0 Z', '#fff4d8', 0.1) +
-      etoile(18, 30, 2.6, '#fff', 0.75) +
-      etoile(84, 26, 2.2, '#fff', 0.7) +
-      points([[12, 56, 0.6], [88, 54, 0.6], [26, 12, 0.5], [74, 10, 0.5]], '#fff'),
+      faisceau('M-4,100 L6,100 L46,0 L34,0 Z', 0.1) +
+      faisceau('M104,100 L94,100 L54,0 L66,0 Z', 0.1) +
+      etoile(84, 26, 2.4, '#fff', 0.75) +
+      etoile(30, 12, 1.8, '#fff', 0.6) +
+      points([[88, 54, 0.6], [74, 10, 0.5], [90, 70, 0.5]], '#fff'),
+    // Le vent emporte ses boucles et sa cape du même côté : c'est ce qui la
+    // fait voler, et ce qui se lit dans sa silhouette.
     corps: u => `
-      <path d="M64,78 C72,80 78,88 82,100 L18,100 C15,96 11,94 6,93 C10,89 11,85 9,80.5 C13,78.5 14,75 12,70 C19,72.5 26,74.5 31,76.5 C33.5,77.5 35,78 36,78 Z" fill="url(#${u}cape)"/>
-      <path d="M12,70 C19,72.5 26,74.5 31,76.5 C24,77.5 18,78.5 13.6,77.2 C14.4,75 13.8,72.6 12,70 Z M9,80.5 C14,82 20,82.5 26,81 C20,85 14,88 6,93 C10,89 11,85 9,80.5 Z" fill="#0e6a64"/>
-      <path d="M65,60 C68,53 67,45 66,40 C67,31 60,24 52,24 C45,20 36,22 32,27 C25,25 18,30 19,36 C12,38 10,46 15,50 C9,55 11,63 18,63 C17,69 24,72 29,68 C33,72 39,71 40,66 Z" fill="url(#${u}h)"/>
-      <g fill="none" stroke="#7a5048" stroke-width=".9" stroke-linecap="round" opacity=".6"><path d="M22,38 C20,41 21,44 24,45 M16,52 C15,55 16,58 19,58 M24,64 C23,62 24,60 26,59.5 M33,29 C31,30 30,32 31,34 M44,24 C42,25 41,27 42,29 M62,30 C64,32 64.6,35 63.6,37"/></g>
+      <path d="M66,80 C74,82 80,90 83,100 L12,100 C10,96 7,93 4,90 C8,88 10,86 10,84 C8,81 7,79 6,76 C10,75 12,73 12,70 C11,66 12,63 14,60 C20,66 27,74 34,80 Z" fill="url(#${u}cape)"/>
+      <path d="M14,60 C20,66 27,74 34,80 C27,79 20,77 16,74 C15,70 15,64 14,60 Z M6,76 C12,79 18,81 24,82 C18,84 12,86 10,84 C8,81 7,79 6,76 Z" fill="#0e6a64"/>
+      <path d="M65,60 C68,53 67,45 66,40 C67,31 60,24 52,24 C45,20 36,22 32,27 C25,26 19,31 20,37 C14,40 14,47 18,50 C14,55 18,61 24,60 C24,66 31,69 35,65 C37,68 40,68 41,65 Z" fill="url(#${u}h)"/>
+      <path d="M23,39 C21,42 22,45 25,46 M19,52 C18,55 19.5,57.5 22.5,57.6 M33,29 C31,30 30,32 31,34 M44,24 C42,25 41,27 42,29 M62,30 C64,32 64.6,35 63.6,37 M29,62 C28,60 29,58 31,57.6" stroke="#7a5048" stroke-width=".9" fill="none" stroke-linecap="round" opacity=".6"/>
+      <path d="M40.5,80 C38.5,75 38.6,70.5 40.4,66.5 C42.4,70.4 44.6,74 47.5,77 Z M59.5,80 C61.5,75 61.4,70.5 59.6,66.5 C57.6,70.4 55.4,74 52.5,77 Z" fill="url(#${u}cape)"/>
       <path d="M24,100 C26,87 37,79.5 50,79.5 C63,79.5 74,87 76,100 Z" fill="url(#${u}s)"/>
       <path d="M45,67 L45,80 L55,80 L55,67 Z" fill="#8f5a38"/>
-      <path d="M42.5,79.5 C45,83.5 55,83.5 57.5,79.5 L60,80.8 C57,86 43,86 40,80.8 Z" fill="url(#${u}cape)"/>
-      <circle cx="33.5" cy="83.5" r="2.4" fill="url(#${u}o)"/><circle cx="66.5" cy="83.5" r="2.4" fill="url(#${u}o)"/>
-      ${etoile(50, 92, 6.5, `url(#${u}o)`, 1)}
-      ${etoile(50, 92, 2.4, '#fff', 0.9)}
+      <path d="M42.5,79.5 C45,83.5 55,83.5 57.5,79.5 L60,80.8 C57,86 43,86 40,80.8 Z" fill="#12877d"/>
+      <g fill="url(#${u}o)"><circle cx="33.5" cy="83.5" r="2.4"/><circle cx="66.5" cy="83.5" r="2.4"/></g>
+      ${etoile(50, 92, 6.5, `url(#${u}o)`, 1)}${etoile(50, 92, 2.4, '#fff', 0.9)}
       <path d="M37,46 C37,39 42.5,35 50,35 C57.5,35 63,39 63,46 C63,57.5 57.5,67.5 50,70 C42.5,67.5 37,57.5 37,46 Z" fill="url(#${u}p)"/>
       <path d="M64,46 C65,37 59,31 50,31 C43,31 37,35 35.5,42 C35,44 35.5,46 36.2,47 C38,42 42,39 47,38.6 C53,38.2 59,40.5 64,46 Z" fill="url(#${u}h)"/>
       <path d="M33,45.5 C36,44.8 38.5,44.6 41,45 C44.5,45.4 47.5,46.4 50,47.6 C52.5,46.4 55.5,45.4 59,45 C61.5,44.6 64,44.8 67,45.5 C66.8,50 64.5,54.4 60,54.8 C56.5,55 53,53.4 50,51.6 C47,53.4 43.5,55 40,54.8 C35.5,54.4 33.2,50 33,45.5 Z" fill="url(#${u}cape)"/>
       <path d="M39.6,50.2 C41,47.8 45.6,47.8 47,50.2 C45.6,52 41,52 39.6,50.2 Z M53,50.2 C54.4,47.8 59,47.8 60.4,50.2 C59,52 54.4,52 53,50.2 Z" fill="#fff"/>
-      <circle cx="43.3" cy="50" r="1.8" fill="#2a1408"/><circle cx="56.7" cy="50" r="1.8" fill="#2a1408"/>
+      <g fill="#2a1408"><circle cx="43.3" cy="50" r="1.8"/><circle cx="56.7" cy="50" r="1.8"/></g>
       ${reflet(42.6, 49.4, 0.6)}${reflet(56, 49.4, 0.6)}
       <path d="M38.6,43.4 C41,41.8 45,41.6 47.6,43 M61.4,43.4 C59,41.8 55,41.6 52.4,43" stroke="#1a0c08" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       <path d="M50.4,54 C49.6,56.6 49.4,58 50.8,58.6" stroke="#6a3a22" stroke-width="1" fill="none" stroke-linecap="round"/>
-      <ellipse cx="41" cy="58.6" rx="3" ry="1.6" fill="#e0705a" opacity=".35"/><ellipse cx="59" cy="58.6" rx="3" ry="1.6" fill="#e0705a" opacity=".35"/>
+      <g fill="#e0705a" opacity=".35"><ellipse cx="41" cy="58.6" rx="3" ry="1.6"/><ellipse cx="59" cy="58.6" rx="3" ry="1.6"/></g>
       <path d="M45,61.2 C47.2,65.4 52.8,65.4 55,61.2 C52,62.3 48,62.3 45,61.2 Z" fill="#fff" stroke="#8a3a3a" stroke-width=".7"/>`,
   },
 
@@ -236,6 +237,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'h', '#ffe49a', '#cf9432') +
       lin(u + 'g', '#433a4c', '#0c0a12', 1, 1) +
       lin(u + 'b', '#ffc6e2', '#ff6fae'),
+    // Les flashes des photographes, chacun dans son halo.
     decor: () =>
       `<g fill="#fff" opacity=".16"><circle cx="17" cy="30" r="6"/><circle cx="85" cy="24" r="7"/><circle cx="13" cy="66" r="4.5"/><circle cx="88" cy="64" r="5"/></g>` +
       etoile(17, 30, 5.5, '#fff', 0.9) +
@@ -249,20 +251,19 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M24,100 C26,88 36,81 50,81 C64,81 74,88 76,100 Z" fill="#2a1a2e"/>
       <g fill="#fff" opacity=".7"><circle cx="44" cy="92" r=".5"/><circle cx="57" cy="95" r=".5"/><circle cx="50" cy="97.5" r=".4"/></g>
       <path d="M45,66 L45,80 C45,84.5 55,84.5 55,80 L55,66 Z" fill="#e6b095"/>
-      <g fill="none" stroke-linecap="round"><path d="M40,79 C32,80 26,85 23,100 M60,79 C68,80 74,85 77,100 M40,79 C45,77.6 55,77.6 60,79" stroke="url(#${u}b)" stroke-width="8"/>
-      <path d="M40,79 C32,80 26,85 23,100 M60,79 C68,80 74,85 77,100" stroke="#ff9ccc" stroke-width="10.5" stroke-dasharray="0 3.1"/>
+      <g fill="none" stroke-linecap="round"><path d="M40,79 C32,80 26,85 23,100 M60,79 C68,80 74,85 77,100 M40,79 C45,77.6 55,77.6 60,79" stroke="url(#${u}b)" stroke-width="8.4"/>
+      <path d="M40,79 C32,80 26,85 23,100 M60,79 C68,80 74,85 77,100" stroke="#ff9ccc" stroke-width="11" stroke-dasharray="0 3.1"/>
       <path d="M40,79 C32,80 26,85 23,100 M60,79 C68,80 74,85 77,100" stroke="#ffe2f1" stroke-width="3.6" stroke-dasharray="0 3.1" stroke-dashoffset="1.5" transform="translate(-.9 -1)"/></g>
       <path d="M37,46 C37,39 42.5,35.5 50,35.5 C57.5,35.5 63,39 63,46 C63,57.5 57.5,67.5 50,70 C42.5,67.5 37,57.5 37,46 Z" fill="url(#${u}p)"/>
       <path d="M36.5,48 C34.5,37 41,29 50,29 C59,29 65.5,36 63.5,46 C62,41 59,38.5 55,38 C52,40 49,41 45.5,40.5 C41,40.5 38,43.5 36.5,48 Z" fill="url(#${u}h)"/>
       <path d="M40,37 C43,33.5 47,32.5 51,33.5" stroke="#fff4c8" stroke-width="1.1" fill="none" opacity=".7" stroke-linecap="round"/>
       <path d="M38.6,44 C41,42.4 44.6,42.2 47,43.4 M61.4,44 C59,42.4 55.4,42.2 53,43.4" stroke="#9a6a2a" stroke-width="1.1" fill="none" stroke-linecap="round"/>
-      <path d="M33.6,44.6 L39,46.3 C42,45.9 45.6,46.2 48.2,47.6 C48.8,52 46.8,55.6 43,55.6 C39.4,55.6 37.2,52.4 36,48 Z" fill="url(#${u}g)" stroke="#f1c653" stroke-width=".6"/>
-      ${miroir(`<path d="M33.6,44.6 L39,46.3 C42,45.9 45.6,46.2 48.2,47.6 C48.8,52 46.8,55.6 43,55.6 C39.4,55.6 37.2,52.4 36,48 Z" fill="url(#${u}g)" stroke="#f1c653" stroke-width=".6"/>`)}
+      <path d="M33.6,44.6 L39,46.3 C42,45.9 45.6,46.2 48.2,47.6 C48.8,52 46.8,55.6 43,55.6 C39.4,55.6 37.2,52.4 36,48 Z M66.4,44.6 L61,46.3 C58,45.9 54.4,46.2 51.8,47.6 C51.2,52 53.2,55.6 57,55.6 C60.6,55.6 62.8,52.4 64,48 Z" fill="url(#${u}g)" stroke="#f1c653" stroke-width=".6"/>
       <path d="M48.2,48.4 C49.4,47.6 50.6,47.6 51.8,48.4" stroke="#f1c653" stroke-width=".9" fill="none"/>
       <path d="M39.5,49 L42,47.6 M55.5,49 L58,47.6" stroke="#fff" stroke-width=".9" opacity=".75" stroke-linecap="round"/>
       ${reflet(40.4, 51.2, 0.7)}${reflet(56.4, 51.2, 0.7)}
       <path d="M50.4,56 C49.8,57.6 49.8,58.4 50.8,58.8" stroke="#c98a70" stroke-width=".9" fill="none" stroke-linecap="round"/>
-      <ellipse cx="40.5" cy="59" rx="3" ry="1.6" fill="#ff7a90" opacity=".35"/><ellipse cx="59.5" cy="59" rx="3" ry="1.6" fill="#ff7a90" opacity=".35"/>
+      <g fill="#ff7a90" opacity=".35"><ellipse cx="40.5" cy="59" rx="3" ry="1.6"/><ellipse cx="59.5" cy="59" rx="3" ry="1.6"/></g>
       <path d="M45.5,61.4 C47.5,60.4 49,60.6 50,61.2 C51,60.6 52.5,60.4 54.5,61.4 C53,64.6 47,64.6 45.5,61.4 Z" fill="#d42a50"/>
       <path d="M46.8,61.9 C48.6,62.6 51.4,62.6 53.2,61.9" stroke="#fff" stroke-width=".7" fill="none" opacity=".6"/>`,
   },
