@@ -13,6 +13,7 @@ const CONFETTIS: [number, number, string, number][] = [
   [74, 86, '#ff7aa8', 25],
   [20, 84, '#f1c653', -35],
 ]
+
 /**
  * Les mêmes confettis en trois chemins, un par couleur, plutôt qu'en sept
  * rectangles tournés : le même dessin pour moitié moins de chaîne.
@@ -73,6 +74,10 @@ const LOSANGES = [
   'M32.2,82.6 L33.5,84 L28,90 L25.8,87.6 L26.4,86.9 L30.1,83.7 Z M44.5,84 L40.2,79.3 L44.5,78.4 L50,78 Z M28,90 L33.5,96 L29.8,100 L26.2,100 L22.5,96 Z M44.5,84 L50,90 L44.5,96 L39,90 Z M63.2,80.4 L66.5,84 L61,90 L55.5,84 L59.8,79.3 L60.7,79.5 Z M44.5,96 L48.2,100 L40.8,100 Z M61,90 L66.5,96 L62.8,100 L59.2,100 L55.5,96 Z M78.6,94.8 L77.5,96 L72,90 L74.2,87.6 L76.6,90.7 Z',
 ]
 
+/** La tête de l'âne de la piñata : ses bandes de papier, puis l'ombre qui lui donne du volume. */
+const TETE_ANE =
+  'M50,27 C59.5,27 66,32.5 66.5,41 C67,48 64.5,54 63,59 C66.5,63 68.5,68.5 67,74 C65,80.5 58,84.5 50,84.5 C42,84.5 35,80.5 33,74 C31.5,68.5 33.5,63 37,59 C35.5,54 33,48 33.5,41 C34,32.5 40.5,27 50,27 Z'
+
 export const DESSINS: Record<string, DessinDePortrait> = {
   'br:pinata': {
     fond: ['#3aa0a4', '#155056', '#061a1d'],
@@ -91,11 +96,11 @@ export const DESSINS: Record<string, DessinDePortrait> = {
         <path d="M27.8,87.2 H72.2" stroke="#a66ef0"/><path d="M24.5,94.2 H75.5" stroke="#ff5fa2"/>
       </g>
       ${[`<path d="M40.5,31.5 C35.5,26 32,18 33,10 C39,12.5 44,20 46,28.5 Z" fill="url(#${u}o)"/><path d="M40,27.5 C37.5,23.5 36,18.5 36.5,14 C39.5,16.5 42,21 43,26 Z" fill="#fff1d6" opacity=".6"/>`].map(l => l + miroir(l)).join('')}
-      <path d="M50,27 C59.5,27 66,32.5 66.5,41 C67,48 64.5,54 63,59 C66.5,63 68.5,68.5 67,74 C65,80.5 58,84.5 50,84.5 C42,84.5 35,80.5 33,74 C31.5,68.5 33.5,63 37,59 C35.5,54 33,48 33.5,41 C34,32.5 40.5,27 50,27 Z" fill="url(#${u}r)"/>
+      <path d="${TETE_ANE}" fill="url(#${u}r)"/>
       <g fill="none" stroke-width="2.4" stroke-dasharray="1 .8">
         <path d="M35.2,38.2 H64.8" stroke="#ff5fa2"/><path d="M34.8,46.2 H65.2" stroke="#ffd23f"/><path d="M36.2,54.2 H63.8" stroke="#a66ef0"/>
       </g>
-      <path d="M50,27 C59.5,27 66,32.5 66.5,41 C67,48 64.5,54 63,59 C66.5,63 68.5,68.5 67,74 C65,80.5 58,84.5 50,84.5 C42,84.5 35,80.5 33,74 C31.5,68.5 33.5,63 37,59 C35.5,54 33,48 33.5,41 C34,32.5 40.5,27 50,27 Z" fill="url(#${u}v)"/>
+      <path d="${TETE_ANE}" fill="url(#${u}v)"/>
       <path d="M43,30.5 L44.5,21 L47,28 L49.5,17.5 L52,27.5 L54.5,20.5 L57,30.5 Z" fill="#a66ef0"/>
       <path d="M36.5,59.5 C42,57.3 58,57.3 63.5,59.5 C66.8,63.3 68.5,68.5 67,74 C65,80.5 58,84.5 50,84.5 C42,84.5 35,80.5 33,74 C31.5,68.5 33.2,63.3 36.5,59.5 Z" fill="url(#${u}m)"/>
       <path d="M37.5,60.2 C42,58.4 58,58.4 62.5,60.2" stroke="#ff8c42" stroke-width="2.2" stroke-dasharray="1 .8" fill="none"/>
@@ -118,6 +123,9 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       bandes(u + 'c', [['#ff3d8b', 0.2], ['#fff4f8', 0.4], ['#ff3d8b', 0.6], ['#fff4f8', 0.8], ['#ff3d8b', 1]], 0.8, 1) +
       bandes(u + 'l', [['#ff4f9a', 0.25], ['#ffd23f', 0.5], ['#ff4f9a', 0.75], ['#ffd23f', 1]], 1, 0),
     decor: () => confettis() + SERPENTINS,
+    // Le chapeau penché et la langue de belle-mère : ce qui dépasse de sa
+    // tête, c'est ce qu'on reconnaît de lui en silhouette. Le chapeau est
+    // magenta et blanc, pas jaune : sous le ciel d'or de l'Éclat, il s'y perdait.
     corps: u => `
       <path d="M22,100 C24,86 36,78 50,78 C64,78 76,86 78,100 Z" fill="url(#${u}s)"/>
       <path d="M45.5,68 L45.5,79.5 C47.5,81 52.5,81 54.5,79.5 L54.5,68 Z" fill="#dca283"/>
@@ -184,6 +192,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       rad(u + 'l', '#ffffff', '#d5d9e3'),
     // La magie qui part de la baguette : des étoiles, au bout, derrière elle.
     decor: () => confettis(CONFETTIS.slice(0, 4)) + etoile(87, 58, 3.4, '#ffe36b', 0.9) + etoile(79, 53, 2, '#fff', 0.85),
+    // Le lapin sort par le haut du chapeau : ses oreilles font la silhouette.
     corps: u => `
       <path d="M18,100 C20,85 34,78 50,78 C66,78 80,85 82,100 Z" fill="url(#${u}c)"/>
       <path d="M42.5,78.5 L50,95 L57.5,78.5 Z" fill="url(#${u}s)"/>
@@ -232,6 +241,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       etoile(14, 40, 2.2, '#fff', 0.8) +
       etoile(84, 62, 2.2, '#fff', 0.7) +
       grains([[87, 34], [18, 70], [10, 52], [90, 48]], '#ffc2e6', 1.4, 0.8),
+    // La boule pend dans le corps, pas dans le décor : au-dessus de l'afro,
+    // c'est elle qui dit « disco » quand il ne reste que la silhouette.
     corps: u => `
       <path d="M50,0 L50,7.5" stroke="#c9ced8" stroke-width=".7"/>
       <path d="${nuage(50, 46, 30, 26, 16, 4)}" fill="url(#${u}h)"/>

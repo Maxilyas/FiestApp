@@ -28,6 +28,7 @@ const bosses = (largeur: number, n: number, h: number) => {
 
 export const DESSINS: Record<string, DessinDePortrait> = {
   'br:croissant': {
+    // Un cuivre plus sombre que ses voisins : doré sur le disque du chef, il s'y fondait.
     fond: ['#d9784a', '#8a3517', '#2e0e04'],
     defs: u =>
       rad(u + 'd', '#ffe9a8', '#d98a30') + lin(u + 'b', '#fcd583', '#b8601a') + lin(u + 'e', '#f4b05a', '#9c4a14'),
@@ -40,11 +41,11 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     // classement — c'est lui qui fait le croissant, pas la couleur.
     corps: u => `
       <g stroke="#6a2c08" stroke-width="1.1" stroke-opacity=".7">
-        ${[`<path d="M19.5,80 C14.5,72 12.5,57 21.5,43 C25.5,53 28.5,64 31,74 C27,75.5 22.5,77.5 19.5,80 Z" fill="url(#${u}e)"/><path d="M21.5,43 C24,35.5 29,30.5 36,28.5 C39,44 41,61 41.5,75.5 C38,76.5 34,76 30.5,73.5 C26.5,63 23,52 21.5,43 Z" fill="url(#${u}b)"/>`].map(l => l + miroir(l)).join('')}
-        <path d="M35,29 C40,26.5 45,25.5 50,25.5 C55,25.5 60,26.5 65,29 C67.5,45 64,63 58.6,76 C55,79.5 45,79.5 41.4,76 C36,63 32.5,45 35,29 Z" fill="url(#${u}d)"/>
+        ${[`<path d="M15.5,79 C12.5,70 13,58 19,48.5 C22.5,45.5 26.5,47.5 27.5,51.5 C29,59 30,66 31,73.5 C25.5,74.5 19.5,76 15.5,79 Z" fill="url(#${u}e)"/><path d="M23,51 C22.5,40 28,32 34.5,31 C37.5,30.8 39,33 39.5,35.5 C40.5,48 41.5,62 41.5,75.5 C37.5,76.5 33.5,76 30,73.5 C27,66 24.5,58 23,51 Z" fill="url(#${u}b)"/>`].map(l => l + miroir(l)).join('')}
+        <path d="M36.5,31.5 C38.5,27.5 44,25.5 50,25.5 C56,25.5 61.5,27.5 63.5,31.5 C67,45 64.5,63 58.6,76 C55,79.5 45,79.5 41.4,76 C35.5,63 33,45 36.5,31.5 Z" fill="url(#${u}d)"/>
       </g>
       <g fill="none" stroke-linecap="round">
-        ${[`<path d="M23.8,47.5 C25.8,41.5 29.5,36.5 34,33.5 M15.6,63 C15.8,57.5 17.8,52.5 21,49" stroke="#fff3c8" stroke-width="1.4" opacity=".6"/><path d="M24.5,66.5 C28,69 33,70.4 38.6,70.8 M17,72.5 C19.5,72.8 22.5,72 25.5,70.5" stroke="#8a3c10" stroke-width=".9" opacity=".45"/>`].map(l => l + miroir(l)).join('')}
+        ${[`<path d="M25.3,46 C26.5,40 29.8,35.5 34,34 M15.8,64 C16,58.5 17.5,54 20.5,50.5" stroke="#fff3c8" stroke-width="1.4" opacity=".6"/><path d="M25.5,66.5 C29,69 33.5,70.4 38.6,70.8 M16.5,73.5 C19.5,73.4 23,72.4 26.5,71" stroke="#8a3c10" stroke-width=".9" opacity=".45"/>`].map(l => l + miroir(l)).join('')}
       </g>
       <ellipse cx="43" cy="31" rx="6" ry="2.4" fill="#fff" opacity=".45" transform="rotate(-12 43 31)"/>
       <ellipse cx="43.5" cy="50" rx="2.6" ry="3.1" fill="#3a1a0a"/><ellipse cx="56.5" cy="50" rx="2.6" ry="3.1" fill="#3a1a0a"/>
@@ -94,6 +95,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'b', '#f6c872', '#b86a22'),
     // La farine qui vole, et la vapeur du four.
     decor: () => VAPEUR + points(ETINCELLES, '#fff', 0.7),
+    // Le bras qui serre les baguettes : sans lui, elles flottaient devant sa poitrine.
     corps: u => `
       <path d="M22,100 C24,86 36,78 50,78 C64,78 76,86 78,100 Z" fill="url(#${u}k)"/>
       <path d="M37,86 C42,84 58,84 63,86 L65,100 L35,100 Z" fill="url(#${u}t)"/>
@@ -124,8 +126,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M82,79.5 C73,80.5 62,81.5 51,82.3 L51,90.8 C61,91.3 71,92.3 81,93.5 Z" fill="url(#${u}p)"/>
       <path d="M81,79.6 C74,80.3 69,80.8 64,81.3" stroke="#fff" stroke-width="1" opacity=".35" fill="none" stroke-linecap="round"/>
       <ellipse cx="48.5" cy="86.5" rx="4.8" ry="4.6" fill="url(#${u}p)"/>
-      <path d="M44.6,84.6 C46.8,84 49,84 51.2,84.8 M44.2,87 C46.4,86.4 48.8,86.4 51.2,87.2 M44.8,89.4 C46.8,88.9 49,88.9 50.8,89.6" stroke="#8a5234" stroke-width=".8" fill="none" stroke-linecap="round"/>
-`,
+      <path d="M44.6,84.6 C46.8,84 49,84 51.2,84.8 M44.2,87 C46.4,86.4 48.8,86.4 51.2,87.2 M44.8,89.4 C46.8,88.9 49,88.9 50.8,89.6" stroke="#8a5234" stroke-width=".8" fill="none" stroke-linecap="round"/>`,
   },
 
   'br:patissiere': {
@@ -138,6 +139,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'm', '#f4f6fa', '#9aa3b3', 1, 0) +
       rad(u + 'r', '#ff6a6a', '#b3121f'),
     decor: () => VAPEUR + etoile(80, 22, 2.6, '#fff', 0.7) + points(ETINCELLES.slice(0, 3), '#ffe2a8'),
+    // La poche brandie douille en l'air : pointée vers le bas, elle se perdait
+    // dans l'épaule, et c'est elle qui dépasse de la silhouette.
     corps: u => `
       <path d="M22,100 C24,86 36,78 50,78 C64,78 76,86 78,100 Z" fill="url(#${u}s)"/>
       <path d="M36,84 C42,82.5 58,82.5 64,84 L67,100 L33,100 Z" fill="url(#${u}a)"/>
@@ -183,6 +186,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'v', '#b3163a', '#5c0718') +
       rad(u + 'a', '#ffffff', '#8c95a6'),
     decor: () => VAPEUR + etoile(82, 36, 2.4, '#ffe2a8', 0.7) + points(ETINCELLES, '#ffe2a8'),
+    // Le verre levé à l'épaule, tenu par le pied : plus bas, la main sortait du disque.
     corps: u => `
       <path d="M22,100 C24,86 36,78 50,78 C64,78 76,86 78,100 Z" fill="url(#${u}k)"/>
       <path d="M38,85 C44,84 56,84 62,85 L64,100 L36,100 Z" fill="url(#${u}n)"/>

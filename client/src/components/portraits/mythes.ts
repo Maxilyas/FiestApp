@@ -116,11 +116,10 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M16,100 C18,85 32,77 50,77 C68,77 82,85 84,100 Z" fill="url(#${u}k)"/>
       <path d="M22,90 C22,85 25,82.5 28.5,82.5 C29,79.5 32.5,78 35,79 C36.5,76.5 40,76 42.5,77.5 C44.5,76 47.5,76 50,77 C52.5,76 55.5,76 57.5,77.5 C60,76 63.5,76.5 65,79 C67.5,78 71,79.5 71.5,82.5 C75,82.5 78,85 78,90 C73,87.5 68,86.5 63,86.5 C58,84.5 42,84.5 37,86.5 C32,86.5 27,87.5 22,90 Z" fill="#c7b59c"/>
       <g fill="url(#${u}o)" stroke="#9a7428" stroke-width=".7"><circle cx="33" cy="88.5" r="2.8"/><circle cx="67" cy="88.5" r="2.8"/></g>
-      <path d="M35.5,89.6 C42,92.6 58,92.6 64.5,89.6" stroke="#e8c46a" stroke-width="1" stroke-dasharray="1.4 .8" fill="none"/>
       ${aile}${miroir(aile)}${meche}${miroir(meche)}
       <path d="M50,33 C59.5,33 64.5,39.5 64.5,48 C64.5,57 60,64 50,66.5 C40,64 35.5,57 35.5,48 C35.5,39.5 40.5,33 50,33 Z" fill="url(#${u}p)"/>
       <path d="M35.5,50 C34.5,60 37,68 42,72.5 C44.5,75 47,76 50,76 C53,76 55.5,75 58,72.5 C63,68 65.5,60 64.5,50 C62,57 57,60.5 50,60.5 C43,60.5 38,57 35.5,50 Z" fill="url(#${u}b)"/>
-      <g fill="#c4561f"><ellipse cx="45" cy="78.5" rx="2.6" ry="2.4"/><ellipse cx="45" cy="82.8" rx="2.6" ry="2.4"/><ellipse cx="45" cy="87.1" rx="2.6" ry="2.4"/><ellipse cx="55" cy="78.5" rx="2.6" ry="2.4"/><ellipse cx="55" cy="82.8" rx="2.6" ry="2.4"/><ellipse cx="55" cy="87.1" rx="2.6" ry="2.4"/><path d="M43.4,91 L45,95 L46.6,91 Z M53.4,91 L55,95 L56.6,91 Z"/></g>
+      <path d="M43.2,76.3 q-1.6,2.15 0,4.3 q-1.6,2.15 0,4.3 q-1.6,2.15 0,4.3 h3.6 q1.6-2.15 0-4.3 q1.6-2.15 0-4.3 q1.6-2.15 0-4.3 Z M53.2,76.3 q-1.6,2.15 0,4.3 q-1.6,2.15 0,4.3 q-1.6,2.15 0,4.3 h3.6 q1.6-2.15 0-4.3 q1.6-2.15 0-4.3 q1.6-2.15 0-4.3 Z M43.4,91 L45,95 L46.6,91 Z M53.4,91 L55,95 L56.6,91 Z" fill="#c4561f"/>
       <g fill="#e8c46a"><rect x="42.6" y="89" width="4.8" height="2" rx=".6"/><rect x="52.6" y="89" width="4.8" height="2" rx=".6"/></g>
       <path d="M50,58 C46,56 41,56.8 38.6,60.2 C42,59.6 45.8,60 50,60.8 C54.2,60 58,59.6 61.4,60.2 C59,56.8 54,56 50,58 Z" fill="#c9521f"/>
       <path d="M46.6,63.2 C48.6,64.8 51.4,64.8 53.4,63.2 M50.4,49.5 C49.4,53 49.2,54.6 50.9,55.3" stroke="#a04a2a" stroke-width="1" fill="none" stroke-linecap="round"/>
@@ -135,7 +134,6 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <rect x="32" y="38" width="36" height="5" rx="1.6" fill="url(#${u}o)"/>
       <path d="M36,40.5 H64.1" stroke="#fff6d8" stroke-width="1.4" stroke-dasharray=".1 6.9" stroke-linecap="round"/>
       <path d="M77,98 L74.5,70" stroke="#6b4a2a" stroke-width="3" stroke-linecap="round"/>
-      <path d="M77.4,92 L74.6,92.3 M77.1,88.6 L74.3,88.9 M76.8,85.2 L74,85.5" stroke="#3a2614" stroke-width=".8"/>
       <g transform="rotate(-6 75 63)"><rect x="67" y="58" width="16" height="10" rx="1.6" fill="#b4bdca"/><path d="M68,66.6 H82" stroke="#5a6272" stroke-width=".9"/></g>`
     },
   },
@@ -203,13 +201,12 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     decor: () => LUEUR + etoiles(ETOILES.slice(0, 2).concat([ETOILES[3]])),
     corps: u => {
       const cheveux = `<path d="M33,42 C29,55 30,70 25,82 C31,85 37,81 38.5,72 C39.5,62 38.5,52 38,45 Z" fill="#2c1b12"/>`
-      const garde = `<path d="M32,42 C31.5,48 32.5,54 35.5,58 C37,53 37.5,47 37.5,41 Z" fill="url(#${u}o)" stroke="#a8741f" stroke-width=".7"/>`
+      const garde = `<path d="M32,42 C31.5,48 32.5,54 35.5,58 C37,53 37.5,47 37.5,41 Z" fill="url(#${u}o)"/>`
       return `
       ${cheveux}${miroir(cheveux)}
       <path d="M22,100 C24,86 36,79 50,79 C64,79 76,86 78,100 Z" fill="url(#${u}r)"/>
       <path d="M45,64 V80 H55 V64 Z" fill="#c4895f"/>
       <path d="M40,80.5 C44,85 56,85 60,80.5" stroke="#e8c46a" stroke-width="1.4" fill="none"/>
-      <path d="M33,90 C35,94 36,97 36,100" stroke="#b9c0cf" stroke-width="1" fill="none"/>
       <path d="M50,34 C59,34 64,40.5 64,49 C64,59 58,67 50,69.5 C42,67 36,59 36,49 C36,40.5 41,34 50,34 Z" fill="url(#${u}p)"/>
       <path d="M39.2,50.2 C40.6,47.8 44.8,47.4 46.6,49.8 C45.2,52.2 41,52.5 39.2,50.2 Z M60.8,50.2 C59.4,47.8 55.2,47.4 53.4,49.8 C54.8,52.2 59,52.5 60.8,50.2 Z" fill="#fff"/>
       <g fill="#3d6456"><circle cx="43" cy="49.9" r="1.8"/><circle cx="57" cy="49.9" r="1.8"/></g>
@@ -231,11 +228,11 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <g fill="#f4c53a"><circle cx="72.4" cy="75.4" r="1.8"/><circle cx="76.6" cy="75.4" r="1.8"/></g>
       <g fill="#1a1208"><circle cx="72.4" cy="75.4" r=".9"/><circle cx="76.6" cy="75.4" r=".9"/></g>
       <path d="M73.8,77.2 H75.2 L74.5,78.8 Z" fill="#d9953a"/>
-      <path d="M73.4,82.4 l1.1,1 1.1,-1 M68.6,79.5 C68.6,83.5 70,86 72,87.5 M80.4,79.5 C80.4,83.5 79,86 77,87.5" stroke="#6a4e34" stroke-width=".7" fill="none"/>
+      <path d="M68.6,79.5 C68.6,83.5 70,86 72,87.5 M80.4,79.5 C80.4,83.5 79,86 77,87.5" stroke="#6a4e34" stroke-width=".7" fill="none"/>
       <path d="M19,94 C23,86 27,78 30,70" stroke="#6b5a2a" stroke-width="1.1" fill="none" stroke-linecap="round"/>
       <g fill="#8fb85a"><ellipse cx="21.5" cy="83.9" rx="3.4" ry="1.3" transform="rotate(-105 21.5 83.9)"/><ellipse cx="25.9" cy="74.3" rx="3.4" ry="1.3" transform="rotate(-105 25.9 74.3)"/></g>
       <g fill="#b5d17a"><ellipse cx="27.2" cy="80.7" rx="3.4" ry="1.3" transform="rotate(-25 27.2 80.7)"/><ellipse cx="31.6" cy="71.1" rx="3.4" ry="1.3" transform="rotate(-25 31.6 71.1)"/><ellipse cx="31.3" cy="67.3" rx="3.2" ry="1.2" transform="rotate(-65 31.3 67.3)"/></g>
-      <g fill="#4a5a22"><circle cx="23.8" cy="88.5" r="1.3"/><circle cx="27.5" cy="84.6" r="1.2"/></g>`
+      <circle cx="23.8" cy="88.5" r="1.4" fill="#4a5a22"/>`
     },
   },
 }

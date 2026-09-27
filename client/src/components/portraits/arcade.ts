@@ -216,10 +216,10 @@ export const DESSINS: Record<string, DessinDePortrait> = {
           '...............o...o.',
           '................ooo..',
         ],
-        { o: '#ffe36b' },
+        { o: '#fff4c8' },
         3.5,
         13.5,
-      ).replace('<g ', '<g opacity=".3" '),
+      ).replace('<g ', '<g opacity=".35" '),
     corps: () =>
       pixels(
         [

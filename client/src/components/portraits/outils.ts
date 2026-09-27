@@ -51,18 +51,33 @@ export const etoile = (x: number, y: number, r: number, couleur = '#fff', op = 0
   return `<path d="M${x},${y - r} L${x + t},${y - t} L${x + r},${y} L${x + t},${y + t} L${x},${y + r} L${x - t},${y + t} L${x - r},${y} L${x - t},${y - t} Z" fill="${couleur}" opacity="${op}"/>`
 }
 
+/** Un nombre de coordonnées, au centième, sans zéro inutile. */
+const n2 = (n: number) => String(+n.toFixed(2))
+
 /**
  * Un dessin en pixels, pour l'arcade : une grille de lettres, une couleur
  * par lettre, le point pour le vide. Centré, en haut à `y0`.
+ *
+ * Un chemin par couleur, les pixels voisins d'une même ligne fondus en une
+ * bande : un rectangle par pixel faisait trois cents éléments et vingt-quatre
+ * mille caractères par portrait — vingt porteurs dans une salle, six mille
+ * formes à redessiner à chaque instantané. Chaque bande déborde d'un
+ * vingtième : sans ça, l'anticrénelage laissait un fil entre deux rangées.
  */
 export function pixels(grille: string[], teintes: Record<string, string>, taille = 3.5, y0 = 17): string {
   const x0 = 50 - (grille[0].length * taille) / 2
-  let rects = ''
-  grille.forEach((ligne, j) =>
-    [...ligne].forEach((c, i) => {
-      if (c === '.') return
-      rects += `<rect x="${(x0 + i * taille).toFixed(2)}" y="${(y0 + j * taille).toFixed(2)}" width="${taille + 0.05}" height="${taille + 0.05}" fill="${teintes[c]}"/>`
-    }),
-  )
-  return `<g shape-rendering="crispEdges">${rects}</g>`
+  const chemins = new Map<string, string>()
+  grille.forEach((ligne, j) => {
+    for (let i = 0; i < ligne.length; ) {
+      const c = ligne[i]
+      let n = 1
+      while (ligne[i + n] === c) n++
+      if (c !== '.') {
+        const d = `M${n2(x0 + i * taille)},${n2(y0 + j * taille)}h${n2(n * taille + 0.05)}v${n2(taille + 0.05)}h-${n2(n * taille + 0.05)}z`
+        chemins.set(c, (chemins.get(c) ?? '') + d)
+      }
+      i += n
+    }
+  })
+  return `<g shape-rendering="crispEdges">${[...chemins].map(([c, d]) => `<path d="${d}" fill="${teintes[c]}"/>`).join('')}</g>`
 }

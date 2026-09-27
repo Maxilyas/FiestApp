@@ -135,8 +135,13 @@ test('chaque portrait a son dessin, dans le fichier de sa branche, et s’y tien
       const u = 'pt-essai-n-r1-'
       const svg = (d.defs?.(u) ?? '') + (d.decor?.(u) ?? '') + d.corps(u)
       assert.equal(d.fond.length, 3, `${cle} : un disque de trois teintes`)
-      // Soixante-douze dessins dans le paquet d'une branche, vingt dans une salle.
-      assert.ok(svg.length < 7000, `${cle} pèse ${svg.length} caractères`)
+      // Six dessins dans le paquet d'une branche, vingt porteurs dans une
+      // salle : chacun reste léger. Un sprite de l'arcade, fondu en bandes
+      // (`pixels`), fait ses sept mille caractères ; un rectangle par pixel en
+      // faisait vingt-quatre mille, pour trois cents formes.
+      assert.ok(svg.length < 8000, `${cle} pèse ${svg.length} caractères`)
+      const formes = svg.match(/<(path|circle|ellipse|rect|polygon|polyline|line|g)\b/g) ?? []
+      assert.ok(formes.length <= 80, `${cle} : ${formes.length} formes`)
       assert.doesNotMatch(svg, /<(text|image|filter|animate|script|foreignObject)\b/, `${cle} : que des formes`)
       // Ses identifiants : le préfixe, puis des lettres — le tiret bas est au
       // cadre (`Portrait.tsx`). Chaque dégradé qu'il cite est à lui.
