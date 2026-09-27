@@ -1128,7 +1128,6 @@ function QuizEditor({
    */
   const [retrouve, setRetrouve] = useState<Brouillon | null>(null)
   const [reprise, setReprise] = useState<'en-cours' | 'faite' | null>(null)
-  /** Les questions dont la photo n'existait plus sur le serveur quand on a repris le brouillon. */
   /** Les questions dont une pièce n'existait plus à la reprise du brouillon, et lesquelles. */
   const [sansPhoto, setSansPhoto] = useState<ReadonlyMap<string, readonly PieceDeQuestion[]>>(new Map())
   /** `updatedAt` de la version du serveur d'où partent les modifications en cours. */

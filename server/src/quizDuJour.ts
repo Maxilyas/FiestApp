@@ -7,6 +7,7 @@ import { readPlayerToken, requireAdmin } from './auth/http'
 import { A_ECRIRE_A_LA_MAIN, A_ECRIRE_MAX } from './core/consigne'
 import { parseImportedQuestions } from '../../shared/library'
 import { jourDe, jourValide, moisDe } from '../../shared/jour'
+import { tronquer } from '../../shared/avatars'
 
 interface JourDeps {
   jour: JourStore
@@ -259,7 +260,7 @@ export function mountJourAdmin(app: Express, deps: JourDeps) {
     '/api/admin/jour/profils',
     requireAdmin,
     wrap(async (req, res) => {
-      res.json(await deps.jour.profilsPourLAdministration(typeof req.query.q === 'string' ? req.query.q.slice(0, 40) : ''))
+      res.json(await deps.jour.profilsPourLAdministration(typeof req.query.q === 'string' ? tronquer(req.query.q, 40) : ''))
     }),
   )
 

@@ -398,7 +398,6 @@ export function releveVide(): ReleveSoiree {
 
 // ── La carrière ───────────────────────────────────────────────────────────
 
-/** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
 /**
  * Ce que le quiz du jour compte pour ses paliers : les jours joués (une
  * partie commencée compte), les victoires, et les jours sans une faute — la
@@ -413,6 +412,7 @@ export interface StatsDuJour {
 /** Aucun quiz du jour : un profil qui n'y a jamais joué, ou une carrière sans lui. */
 export const AUCUN_JOUR: StatsDuJour = { joues: 0, victoires: 0, sansFautes: 0 }
 
+/** Ce qu'un profil a accumulé sur toutes ses soirées : la fiche, et la base des hauts faits de carrière. */
 export interface Carriere {
   soirees: number
   questions: number

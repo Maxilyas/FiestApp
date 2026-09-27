@@ -27,6 +27,15 @@ interface Ligne {
 const lisible = (code: string) => `${code.slice(0, 3)} ${code.slice(3)}`
 
 /**
+ * Les codes encore valables — les mêmes, s'il n'y a rien à retirer : un
+ * objet neuf redessinerait le panneau pour rien.
+ */
+export function sansPerimes<C extends { expiresAt: number }>(codes: Record<string, C>, maintenant: number): Record<string, C> {
+  const valables = Object.entries(codes).filter(([, code]) => code.expiresAt > maintenant)
+  return valables.length === Object.keys(codes).length ? codes : Object.fromEntries(valables)
+}
+
+/**
  * « Qui manque ? », dans la console : ceux que la question attend encore,
  * les hors-ligne marqués — c'est ce qui aurait montré le fantôme de Rachid,
  * attendu à chaque question alors que son téléphone était mort. Et, pour un
@@ -36,15 +45,6 @@ const lisible = (code: string) => `${code.slice(0, 3)} ${code.slice(3)}`
  * Fermé par défaut, sous un bouton : la console est projetée, et la salle
  * n'a pas à lire qui traîne tant que l'animateur ne l'a pas demandé.
  */
-/**
- * Les codes encore valables — les mêmes, s'il n'y a rien à retirer : un
- * objet neuf redessinerait le panneau pour rien.
- */
-export function sansPerimes<C extends { expiresAt: number }>(codes: Record<string, C>, maintenant: number): Record<string, C> {
-  const valables = Object.entries(codes).filter(([, code]) => code.expiresAt > maintenant)
-  return valables.length === Object.keys(codes).length ? codes : Object.fromEntries(valables)
-}
-
 export function Absents({ players, quiz, sendCommand }: Props) {
   const [ouvert, setOuvert] = useState(false)
   /**

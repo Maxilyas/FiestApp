@@ -311,7 +311,7 @@ qu'une fois chacun et se jugent sur la carrière entière.
 | 🏎️ Le Réflexe — réponses réflexe | 20 | 100 | 400 |
 | 🔮 Le Devin — estimations au chiffre près | 3 | 10 | 25 |
 | 🧳 Le Globe-trotteur — hôtes différents | 2 | 4 | 8 |
-| 🥉 Le Podium — podiums de quiz | 3 | 15 | 50 |
+| 🥉 L'Habitué du Podium — podiums de quiz | 3 | 15 | 50 |
 | 🎨 Le Collectionneur — avatars différents joués | 5 | 12 | 24 |
 | ✨ La Pluie d'Éclats — avatars éclatés | 1 | 3 | 6 |
 | 🎖️ La Légende — niveau | 10 | 20 | 30 |
@@ -398,9 +398,8 @@ mêmes. Il a deux voies, cent jours joués ou dix sans-faute, et l'une suffit
 (`aussi`) ; sa jauge suit la plus avancée, et « Les plus proches » le
 montrent une fois, sur celle-là. La fin de la partie qui l'ouvre le fête,
 avec « Le porter » — une seule fois : pas le centième jour de qui l'avait
-déjà par ses sans-faute (`legendairesOuvertsPar`). L'Arbre-Monde ne le
-demande pas : il ne compte que les douze d'origine, et un légendaire de
-plus ne lui reprend rien.
+déjà par ses sans-faute (`legendairesOuvertsPar`). Un légendaire de plus
+ne reprend rien à personne.
 
 **Les légendaires de saison** (lot 7) — la Citrouille, le Sapin, le
 Bouquet final — ne se gagnent qu'à leur période, à la date de Paris
@@ -687,8 +686,8 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   du jour vit dans une ligne à part (`#jour`, comme `#paliers`) : elle
   compte dans le niveau, pas dans la carrière — le quiz du jour ne fait ni
   une soirée pour L'Habitué, ni une réponse pour Le Bavard. Les hauts faits
-  de soirée, les légendaires, les Divins et l'Éclat restent aux soirées ; le
-  quiz du jour a ses propres paliers (plus bas).
+  de soirée et l'Éclat restent aux soirées ; le quiz du jour a ses propres
+  paliers (plus bas), et ouvre le Sphinx et les légendaires de saison.
 
   | Règle | XP par mois | Part des soirées | Niveau après un an |
   |---|---|---|---|
@@ -738,9 +737,12 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   jouent seuls — jamais ceux à personnaliser, ni ceux des animateurs : leurs
   invités y liraient la prochaine soirée. L'administrateur la remplit par
   « Coller une liste » (`/admin`), le format de l'éditeur ; les jours
-  d'avance s'y lisent, avec une alerte sous sept. Deux par catégorie au plus
-  chaque jour, jamais deux fois la même ; à sec, les plus anciennes
-  reviennent (pas celles du mois) : jamais un jour vide. Pour l'instant,
+  d'avance s'y lisent, avec une alerte sous sept. Deux par catégorie chaque
+  jour tant que la réserve le permet — elle complète sinon avec ce qu'elle
+  a —, jamais deux fois la même ; à sec, les plus anciennes reviennent (pas
+  celles du mois). Un jour peut donc rester vide tant que la réserve n'a pas
+  un mois de questions : le journal et `/admin` le disent, et le téléphone
+  ne promet « demain » que si la réserve le tient. Pour l'instant,
   des questions à choix sans photo : les estimations demanderont une
   tolérance écrite (« = 1994 · à 5 près »), faute de salle pour juger
   l'écart ; les variantes et les photos suivront.

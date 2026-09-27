@@ -13,7 +13,7 @@ Le `README.md` explique le produit à un humain. Ce fichier-ci explique le code
 ```bash
 npm run verify     # typecheck + tests + build + test de bout en bout — À LANCER AVANT DE COMMITTER
 npm run dev        # serveur + client, http://localhost:5173
-npm test           # les tests ciblés de server/test/ (node:test, environ une minute)
+npm test           # les tests ciblés de server/test/ (node:test, quatre à cinq minutes)
 npm run smoke      # le test de bout en bout seul (~90 s)
 npm run sauvegarde # la base permanente en SQL daté, dans export/sauvegardes/
 npm run tablee     # une soirée jouée par des agents (régie + /tablee) : voir .claude/skills/tablee/
@@ -57,7 +57,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `core/journal.ts` | le journal rangé question par question et quiz par quiz : la seule lecture qu'en font l'expérience et les hauts faits — et le coup d'œil de chaque estimation (`coupDOeil`), que lisent aussi le souvenir, le bilan et la carte |
 | `core/hautsfaits.ts` | les hauts faits d'une soirée, invité par invité — dérivation pure, jouée à la clôture et sur les archives |
 | `core/recalcul.ts` | au démarrage, relit l'historique au barème du jour (`VERSION_BAREME`) : expérience, prix, hauts faits, paliers |
-| `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un ; le Sphinx, treizième, au quiz du jour, par l'une de ses deux voies (`aussi`), et trois de saison (`saison`) — l'Arbre-Monde, lui, ne demande que les douze d'origine (`DOUZE_LEGENDAIRES`, `core/divins.ts`) ; et la rareté mesurée de chaque haut fait (`PART_DES_JOUEURS`), qui choisit les trois plus beaux de la carte (`plusBeaux`) |
+| `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un ; le Sphinx, treizième, au quiz du jour, par l'une de ses deux voies (`aussi`), et trois de saison (`saison`) — un légendaire de plus ne reprend rien à personne : ce qu'il change aux Divins se lit dans `core/divins.ts`, et nulle part ailleurs (invariant 21) ; et la rareté mesurée de chaque haut fait (`PART_DES_JOUEURS`), qui choisit les trois plus beaux de la carte (`plusBeaux`) |
 | `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) |
 | `shared/liens.ts` · `client/src/components/Lendemain.tsx` | les liens d'une soirée close, à l'adresse de son archive (`/<espace>/souvenir` change de soirée à la suivante) ; et « La dernière soirée », que le téléphone garde (`garderFin`, `client/src/state.ts`) pour l'entrée et l'accueil |
 | `shared/carte.ts` · `core/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) — et la sienne, depuis sa page (« Voir ma carte », `/api/joueur/carte`, sans « ce soir ») : son titre, sa vitrine — celle qu'il a choisie, sinon ses trois plus beaux hauts faits —, ses trois écussons les plus hauts, sa collection de prix, son quiz du jour en une ligne. La moitié profil se calcule une fois pour les deux (`profilDeCarte`) |
@@ -264,11 +264,12 @@ server/test/        un fichier par thème, un serveur jetable chacun
     (`lecteurDePage`) — sans redirection : la page revient d'elle-même à la
     suivante dès sa première question jouée.
 19. **L'expérience se mérite, et ne redescend jamais en cours de soirée.**
-    Rien pour la présence, rien seul : tout se gagne dès deux joueurs, un
-    podium de quiz à cinq questions, celui de la soirée à quinze (`SEUILS`),
-    et un podium a toujours une marche de moins que la salle. L'animateur qui
-    joue chez lui gagne comme tout le monde. Les hauts faits gardent leur
-    salle de quatre (`salleHautsFaits`). Les gains d'un quiz sont
+    En soirée, rien pour la présence, rien seul : tout se gagne dès deux
+    joueurs, un podium de quiz à cinq questions, celui de la soirée à quinze
+    (`SEUILS`), et un podium a toujours une marche de moins que la salle — le
+    quiz du jour, lui, se joue seul, et son expérience s'arrête à 75.
+    L'animateur qui joue chez lui gagne comme tout le monde. Les hauts faits
+    gardent leur salle de quatre (`salleHautsFaits`). Les gains d'un quiz sont
     définitifs : ce qui peut se renverser d'un quiz à l'autre attend la
     clôture. Une soirée jouée seul reste dans l'historique mais ne compte
     pas (`soireeQuiCompte`) : ni tirage de l'Éclat, ni soirée pour L'Habitué
@@ -300,8 +301,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
     Éclat.
 22. **Durcir un légendaire ou la courbe des niveaux ne reprend rien à
     personne.** Les légendaires et les niveaux se dérivent à chaque lecture :
-    relever un seuil suffisait à reprendre le légendaire qu'on portait,
-    l'Arbre-Monde avec, et durcir la courbe à faire redescendre de niveau,
+    relever un seuil suffisait à reprendre le légendaire qu'on portait, et
+    ce qui en dépendait, et durcir la courbe à faire redescendre de niveau,
     finitions comprises. Une règle qui se durcit ajoute donc une entrée —
     à `DURCISSEMENTS` pour un légendaire, à `COURBES_D_AVANT` pour la courbe
     (`auth/profiles.ts`), avec un drapeau neuf dans `meta` — et n'en modifie

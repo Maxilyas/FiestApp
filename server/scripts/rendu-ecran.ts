@@ -102,7 +102,10 @@ const equipes = avecEquipes.teams.map((t: any) => t.id)
 const prenoms = ['Marie-Charlotte de La Rochefoucauld', 'Léo', 'Zoé', 'Camille', 'Camille', 'Jean-Baptiste', 'Ophélie', 'Bo', 'François-Xavier', 'Kévin']
 const invites: Invite[] = []
 for (const [i, nom] of prenoms.entries()) {
-  const avatar = ['🦊', '🐼', '🐸', '🐙', '🐙', '🦁', '🐝', '🐢', '🦉', '🐧'][i]
+  // Ophélie et Bo sont anonymes : 🐝 et 🐢, emojis de collection réservés
+  // aux profils, leur étaient refusés, et chaque capture du pire cas les
+  // montrait en 🎉. Ils prennent ceux de l'inscription.
+  const avatar = ['🦊', '🐼', '🐸', '🐙', '🐙', '🦁', '🦄', '🐨', '🦉', '🐧'][i]
   // Les six premiers ont un profil : c'est à eux que la clôture remet ses
   // hauts faits et ses niveaux.
   const profil = i < 6 ? await inscrireProfil(url, `joueur${i}`, nom, avatar) : undefined

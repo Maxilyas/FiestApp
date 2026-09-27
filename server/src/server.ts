@@ -80,7 +80,16 @@ export interface QuizServerOptions {
    * la réserve se remplit à la main.
    */
   jetonDeLaReserve?: string
+  /**
+   * Le commit qui tourne, sept caractères (`RENDER_GIT_COMMIT` sur
+   * l'hébergeur) : la production se promeut à la main, et rien ne disait
+   * laquelle tournait.
+   */
+  version?: string
 }
+
+/** L'avance de la réserve du quiz du jour ne se relit pas plus souvent : `/healthz` se sonde toutes les quelques secondes. */
+const RESERVE_RELUE_MS = 10 * 60_000
 
 /**
  * Le mot de passe d'amorçage quand `ADMIN_PASSWORD` n'est pas donné. Il est
@@ -494,6 +503,35 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // démarrage, `quizzes` les parties ouvertes, podium compris : gardés tels
   // quels pour qui les lit déjà ; `espacesActifs` et `quizEnCours` disent ce
   // qui vit vraiment — « puis-je déployer ? ».
+  /**
+   * L'avance de la réserve du quiz du jour et son dernier apport, pour un
+   * coup d'œil avant une soirée : la réserve qui s'épuise, la routine qui ne
+   * dépose plus. Relue en arrière-plan, au plus toutes les dix minutes —
+   * `/healthz` répond avec ce qu'il a, sans attendre la base ni rien dire
+   * d'une question.
+   */
+  const reserve: { lueLe: number; enRoute: boolean; etat: { joursDAvance: number; dernierApport: number | null } | null } = {
+    lueLe: 0,
+    enRoute: false,
+    etat: null,
+  }
+  const reserveDuJour = () => {
+    if (!reserve.enRoute && Date.now() - reserve.lueLe > RESERVE_RELUE_MS) {
+      reserve.enRoute = true
+      jour
+        .etatDeLaReserve()
+        .then(e => {
+          reserve.etat = { joursDAvance: e.joursDAvance, dernierApport: e.apports[0]?.quand ?? null }
+          reserve.lueLe = Date.now()
+        })
+        .catch(e => console.error('[healthz] la réserve du quiz du jour ne se lit pas :', e))
+        .finally(() => {
+          reserve.enRoute = false
+        })
+    }
+    return reserve.etat
+  }
+
   app.get('/healthz', (_req, res) => {
     // Ce qui répond toujours ; chaque mesure, ensuite, sous son propre
     // filet. Sous `ulimit -n 64`, `process.memoryUsage()` lève EMFILE : une
@@ -501,6 +539,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     const corps: Record<string, unknown> = {
       ok: true,
       env: opts.appEnv ?? 'production',
+      version: opts.version ?? null,
       uptime: Math.round(process.uptime()),
     }
     const mesurer = (nom: string, mesure: () => Record<string, unknown>) => {
@@ -565,6 +604,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const miroir = pouls.miroir.lire()
       return { miroir: { ...backup.sante(), latenceP95Ms: miroir.p95, latenceMaxMs: miroir.max, envoisParMin: miroir.n } }
     })
+    mesurer('jour', () => ({ jour: reserveDuJour() }))
     res.json(corps)
   })
 
@@ -877,7 +917,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // `MAX_PLAYERS` : c'est son tableau de bord qui fait foi, pas render.yaml.
   console.log(
     `[serveur] prêt en ${Date.now() - debutDuDemarrage} ms — au plus ${maxPlayersCeiling} invités par soirée` +
-      (opts.maxPlayers ? '' : ' (MAX_PLAYERS non défini : le plafond du code)'),
+      (opts.maxPlayers ? '' : ' (MAX_PLAYERS non défini : le plafond du code)') +
+      (opts.version ? ` — version ${opts.version}` : ''),
   )
 
   return {

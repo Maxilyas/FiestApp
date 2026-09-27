@@ -12,6 +12,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
 import { createQuizServer } from '../src/server'
 import { ADMIN } from './banc'
@@ -96,6 +97,77 @@ test('un magasin qui ne s’ouvre pas fait échouer le démarrage, une fois les 
   } finally {
     PartageStore.prototype.init = partages
     ArchiveStore.prototype.init = archives
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('l’amorce de la réserve interrompue ne se refait pas de travers', async () => {
+  // Le lot des questions livrées et le drapeau « amorcee » partaient en deux
+  // requêtes : une panne entre les deux faisait refaire l'amorce au
+  // démarrage suivant, qui consignait un second apport, « 0 ajoutée, 38
+  // écartées », au journal de `/admin` [exploitation-9].
+  const { dir, opts } = dossier()
+  const fichier = opts.quizDbUrl.replace(/^file:/, '')
+  try {
+    // La base qui tient lieu de Turso refuse le drapeau, une fois.
+    const db = new Database(fichier)
+    db.exec(`CREATE TABLE jour_meta (cle TEXT PRIMARY KEY, valeur TEXT NOT NULL);
+             CREATE TRIGGER panne BEFORE INSERT ON jour_meta WHEN NEW.cle = 'amorcee'
+             BEGIN SELECT RAISE(ABORT, 'panne simulée'); END;`)
+    db.close()
+    await assert.rejects(createQuizServer(opts), /panne simulée/)
+    const repare = new Database(fichier)
+    repare.exec('DROP TRIGGER panne')
+    repare.close()
+    await (await createQuizServer(opts)).close()
+    const lu = new Database(fichier, { readonly: true })
+    try {
+      const apports = lu.prepare("SELECT ajoutees FROM jour_apports WHERE source = 'livre'").all() as { ajoutees: number }[]
+      const reserve = (lu.prepare('SELECT COUNT(*) AS n FROM jour_reserve').get() as { n: number }).n
+      assert.equal(apports.length, 1, `les apports des quiz livrés : ${JSON.stringify(apports)}`)
+      assert.equal(apports[0].ajoutees, reserve)
+      assert.ok(reserve > 0)
+      assert.deepEqual(lu.prepare("SELECT valeur FROM jour_meta WHERE cle = 'amorcee'").get(), { valeur: String(reserve) })
+    } finally {
+      lu.close()
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('/healthz et le journal disent la version qui tourne, et l’avance de la réserve du quiz du jour', async () => {
+  // La production se promeut à la main, et rien ne disait quel commit
+  // tournait ; rien ne disait non plus que la réserve s'épuisait [exploitation-10].
+  const { dir, opts } = dossier()
+  const lignes: string[] = []
+  const log = console.log
+  console.log = (...args: unknown[]) => {
+    lignes.push(args.map(String).join(' '))
+    log(...args)
+  }
+  let serveur: Awaited<ReturnType<typeof createQuizServer>> | undefined
+  try {
+    serveur = await createQuizServer({ ...opts, version: 'abc1234' })
+    console.log = log
+    assert.ok(lignes.some(l => /\[serveur\] prêt en .* — version abc1234$/.test(l)), lignes.join('\n'))
+    const lire = () => fetch(`http://127.0.0.1:${serveur!.port}/healthz`).then(r => r.json() as Promise<any>)
+    const premier = await lire()
+    assert.equal(premier.version, 'abc1234')
+    // La réserve se relit en arrière-plan : une réponse suivante la porte.
+    let jour = premier.jour
+    for (let i = 0; i < 100 && !jour; i++) {
+      await new Promise(r => setTimeout(r, 20))
+      jour = (await lire()).jour
+    }
+    assert.ok(jour, 'l’avance de la réserve arrive')
+    assert.ok(jour.joursDAvance >= 3, 'les quiz livrés amorcent la réserve')
+    assert.equal(typeof jour.dernierApport, 'number')
+    // Rien d'autre : pas un intitulé de question, la route est publique.
+    assert.deepEqual(Object.keys(jour).sort(), ['dernierApport', 'joursDAvance'])
+  } finally {
+    console.log = log
+    await serveur?.close()
     rmSync(dir, { recursive: true, force: true })
   }
 })

@@ -135,7 +135,10 @@ test('les réglages voyagent : dans le fichier d’un quiz, et dans le brouillon
   // Un fichier d'avant n'a pas de réglages : il se joue tel qu'écrit.
   const { reglages: _r, ...ancien } = fichier
   const vieux = deballerQuiz(JSON.parse(JSON.stringify(ancien)))
-  if (!('erreur' in vieux)) assert.deepEqual(vieux.reglages, {})
+  // Refusé, il ne passait plus du tout — et l'assertion d'en dessous, sous
+  // condition, ne le voyait pas.
+  assert.ok(!('erreur' in vieux), 'un fichier d’avant les réglages s’importe encore')
+  assert.deepEqual(vieux.reglages, {})
 
   // Le brouillon garde les réglages ; changer seulement l'ordre est une modification.
   const brouillon = lireBrouillon(emballerBrouillon(quiz, 1, 2), 'q1')!

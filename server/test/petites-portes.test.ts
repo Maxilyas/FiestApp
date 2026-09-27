@@ -69,3 +69,16 @@ test('« Clore la soirée » n’attend pas le titre déjà rangé plus de trois
   assert.match(s, /fetch\(dataUrl\(slug, 'soirees\.json'\), \{ signal: AbortSignal\.timeout\(ATTENTE_DU_TITRE_MS\) \}\)/)
   assert.match(s, /const ATTENTE_DU_TITRE_MS = 3000/)
 })
+
+test('le pire cas de l’écran commun ne donne aux anonymes aucun emoji de collection', async () => {
+  // 🐝 et 🐢 sont réservés aux profils depuis #59 : Ophélie et Bo, anonymes
+  // de `rendu-ecran.ts`, entraient en 🎉 dans chaque capture [design-recompenses-13].
+  const { COLLECTION } = await import('../../shared/avatars')
+  const script = readFileSync(new URL('../scripts/rendu-ecran.ts', import.meta.url), 'utf8')
+  const avatars = /const avatar = \[([^\]]*)\]\[i\]/.exec(script)?.[1].match(/'([^']+)'/g)?.map(a => a.slice(1, -1)) ?? []
+  const avecProfil = Number(/const profil = i < (\d+) \?/.exec(script)?.[1])
+  assert.equal(avatars.length, 10, 'la liste des avatars du script est lue')
+  assert.ok(avecProfil > 0 && avecProfil < avatars.length, 'le script dit qui a un profil')
+  const deCollection = new Set(COLLECTION.map(c => c.emoji))
+  assert.deepEqual(avatars.slice(avecProfil).filter(a => deCollection.has(a)), [])
+})

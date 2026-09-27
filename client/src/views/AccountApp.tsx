@@ -156,7 +156,6 @@ export function AccountApp() {
   )
 }
 
-/** Les réglages de la soirée : ce que voient les invités à l'inscription et sur les pages. */
 /**
  * Rattacher son profil joueur à son espace.
  *
@@ -319,6 +318,7 @@ function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onCha
   )
 }
 
+/** Les réglages de la soirée : ce que voient les invités à l'inscription et sur les pages. */
 function SettingsForm({ me, onSaved }: { me: Me; onSaved: (space: Me['space']) => void }) {
   const [form, setForm] = useState<SpaceSettings>({
     title: me.space.title,

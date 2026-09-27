@@ -143,12 +143,10 @@ type Reponses = [Invite, number][][]
  * Joue un quiz depuis l'écran commun jusqu'à son podium — sans le refermer :
  * le podium crédite l'expérience, et « Terminer » se vérifie à part. Tous
  * les participants répondent : la salle révèle d'elle-même après le souffle.
- */
-/**
- * Joue un quiz jusqu'à son podium. `ecartMs` espace les réponses d'une même
- * question : deux réponses reçues à la même milliseconde sont aussi rapides
- * l'une que l'autre, et un réflexe s'y partage — un test qui compte
- * l'expérience au point près veut savoir qui a répondu le premier.
+ * `ecartMs` espace les réponses d'une même question : deux réponses reçues à
+ * la même milliseconde sont aussi rapides l'une que l'autre, et un réflexe
+ * s'y partage — un test qui compte l'expérience au point près veut savoir
+ * qui a répondu le premier.
  */
 async function jusquAuPodium(host: Socket, quizId: string, questions: Reponses, ecartMs = 0): Promise<string> {
   const vue = (sessionId: string, pred: (v: any) => boolean, label: string) =>

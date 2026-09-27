@@ -7,15 +7,13 @@ import type { Multiplicateur } from '../programme'
  * `observe` : la photo est projetée seule, sans la question ni les réponses.
  * C'est ce qui rend le jeu de mémoire possible — sans cette phase, il suffirait
  * de répondre pendant que la photo est encore à l'écran.
- */
-/**
+ *
  * `cible` : une estimation en direct (`enDirect`) est close, et l'animateur
  * tape la bonne réponse — le poids du gâteau — avant la révélation.
  */
 export type QuizPhase = 'pickPack' | 'getReady' | 'intertitre' | 'observe' | 'question' | 'cible' | 'reveal' | 'finished'
 
-/** « Qui dans la salle ? » : un invité, et les votes qu'il a reçus. */
-/** Un invité désigné, tel que la salle le voit : son légendaire, sa finition. */
+/** « Qui dans la salle ? » : un invité désigné, tel que la salle le voit (son légendaire, sa finition), et les votes qu'il a reçus. */
 export interface VoteDeSondage extends Distinctions {
   name: string
   avatar: string

@@ -233,7 +233,6 @@ function lireCondition(brut: unknown): Condition | null {
   }
 }
 
-/** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
 /**
  * Combien de profils `byIds` demande par aller-retour : assez pour les
  * joueurs d'un jour chargés d'un coup, assez peu pour qu'une liste
@@ -241,6 +240,7 @@ function lireCondition(brut: unknown): Condition | null {
  */
 const PROFILS_PAR_PAQUET = 200
 
+/** Un an : un invité ne doit pas avoir à se reconnecter d'une fête à l'autre. */
 const SESSION_MS = 365 * 24 * 3600 * 1000
 const SLIDE_EVERY_MS = 7 * 24 * 3600 * 1000
 
@@ -1471,7 +1471,6 @@ export class ProfileStore {
     return absents
   }
 
-  /** Cette soirée a-t-elle déjà été créditée à ce profil ? */
   /**
    * Ce que cette soirée avait déjà crédité à ce profil, s'il y a une ligne —
    * de quoi savoir si l'Éclat s'y est déjà tiré.

@@ -7,8 +7,11 @@
 // apprendre et pour avancer. Il rapporte de l'expérience — le barème d'un
 // quiz de soirée de dix questions, 75 au plus, à proportion des points
 // (l'option B, choisie le 26 septembre 2026) —, et son podium, figé à minuit,
-// 25, 15 et 10, comme celui d'un quiz. Tout ce qui ne se gagne qu'en soirée y
-// reste : hauts faits, paliers de carrière, légendaires, Divins, Éclat.
+// 25, 15 et 10, comme celui d'un quiz. Il a ses récompenses à lui : trois
+// paliers (L'Assidu, Le Champion du jour, Le Sans-Faute), le Sphinx, et les
+// jours de saison qui ouvrent la Citrouille, le Sapin, le Bouquet final. Les
+// hauts faits de soirée, les paliers de carrière et l'Éclat restent aux
+// soirées.
 //
 // Réservé aux profils. Un invité anonyme n'y voit rien qui lui manque
 // (invariant 8) : la porte d'entrée reste celle des soirées.
@@ -300,7 +303,6 @@ export interface CarriereDuJour {
   jours: JourJoue[]
 }
 
-/** La partie du jour d'un profil, vue de son téléphone. */
 /** Un palier du quiz du jour qui vient de tomber, tel qu'on l'annonce : « 📆 L'Assidu · Bronze ». */
 export interface PalierTombe {
   key: string
@@ -308,6 +310,7 @@ export interface PalierTombe {
   title: string
 }
 
+/** La partie du jour d'un profil, vue de son téléphone. */
 export interface PartieDuJour {
   jour: string
   /**

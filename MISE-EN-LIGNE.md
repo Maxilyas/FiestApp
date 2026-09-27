@@ -87,6 +87,8 @@ Puis ses variables (*Environment*) :
 | `NODE_VERSION` | `22` |
 | `MAX_PLAYERS` | `150` — le plafond d'invités d'une soirée, que le réglage d'un espace ne dépasse pas. Sans elle, le code laisse monter jusqu'à 500, et une salle de 300 fait céder le dixième de processeur de l'offre gratuite (mesuré). Il borne **chaque** espace, pas leur somme |
 
+Deux variables que Render pose seul, et qu'ailleurs il faudrait poser : `NODE_ENV=production` met le serveur **en ligne** (il refuse alors de démarrer sans `QUIZ_DB_URL`, et exige un vrai `ADMIN_PASSWORD` sur une base vide) — sur Render, `RENDER=true` en tient lieu ; et `PUBLIC_URL`, l'adresse publique que portent les QR codes — sur Render, `RENDER_EXTERNAL_URL` en tient lieu.
+
 Enfin, dans *Settings*, coupe **Auto-Deploy** : la production ne se déploie qu'à la main, une fois la préproduction vue tourner (étape 7).
 
 > Pourquoi pas **New → Blueprint** ? Il lirait `render.yaml` et réglerait tout d'un coup — mais pour les **deux** services que le fichier décrit, production et préproduction, chacun avec sa base Turso. Et le choix est sans retour : Render n'adopte jamais un service qu'un blueprint n'a pas créé, il en fabrique des copies (étape 7).
@@ -429,6 +431,8 @@ Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours
 | `reponses.tropTardParMin` | des réponses refusées pour « trop tard » | en hausse avec la charge : le serveur prend du retard |
 | `miroir` | la santé de la sauvegarde dans Turso, et la durée de ses envois | voir « Sauvegarde en retard » ci-dessus |
 | `memoire`, `rssMo` | le tas, la mémoire du processus, les connexions ouvertes | 512 Mo sur l'offre gratuite |
+| `version` | le commit qui tourne, sept caractères (`RENDER_GIT_COMMIT`) — la ligne `[serveur] prêt …` du journal le dit aussi | après un « Manual Deploy », que c'est bien le bon |
+| `jour.joursDAvance`, `jour.dernierApport` | l'avance de la réserve du quiz du jour, et l'heure du dernier apport (en millisecondes) — relues au plus toutes les dix minutes, absentes juste après un réveil | sous sept jours, la routine ne dépose plus (étape 8) |
 
 Chaque réveil de l'offre gratuite remet ces compteurs à zéro : ce qui compte part aussi au journal. À chaque clôture, `[soirée] close en … ms : N invités, … ; la réserve d'inscriptions a vu K adresses`. Une salle de téléphones en 4G sous une ou deux adresses veut dire que le serveur lit celle du proxy de Render, pas celle du téléphone — et que toute la salle partage une seule réserve d'inscriptions. Au premier refus d'une adresse dans la minute, `[inscriptions] réserve épuisée pour l'adresse …` donne une empreinte (jamais l'adresse) et le nombre d'entrées de `x-forwarded-for`.
 

@@ -374,8 +374,13 @@ export class JourStore {
       .filter(m => !m.personnaliser)
       .flatMap(m => normalizeQuestions(m.questions))
       .filter(q => !raisonDEcarter(q))
-    const { ajoutees } = await this.ajouter(questions, 'livre')
-    await this.client.execute({ sql: 'INSERT OR IGNORE INTO jour_meta (cle, valeur) VALUES (?, ?)', args: ['amorcee', String(ajoutees)] })
+    // Le drapeau part dans le lot de l'apport : écrit à part, une panne entre
+    // les deux refaisait l'amorce au démarrage suivant, qui consignait un
+    // second apport — « 0 ajoutée, 38 écartées » au journal de `/admin`.
+    const { ajoutees } = await this.ajouter(questions, 'livre', n => ({
+      sql: 'INSERT OR IGNORE INTO jour_meta (cle, valeur) VALUES (?, ?)',
+      args: ['amorcee', String(n)],
+    }))
     if (ajoutees > 0) console.log(`[jour] réserve amorcée : ${ajoutees} questions des quiz livrés`)
   }
 
@@ -386,6 +391,8 @@ export class JourStore {
   async ajouter(
     questions: readonly QuizQuestionDef[],
     source: 'livre' | 'liste' | 'ia',
+    /** Ce qui s'écrit avec l'apport, dans le même lot : le drapeau de l'amorce. */
+    avecLui?: (ajoutees: number) => InStatement,
   ): Promise<{ ajoutees: number; ecartees: { texte: string; raison: string }[] }> {
     const ecartees: { texte: string; raison: string }[] = []
     const vues = new Set<string>()
@@ -432,6 +439,7 @@ export class JourStore {
           sql: 'INSERT INTO jour_apports (id, quand, source, ajoutees, ecartees) VALUES (?, ?, ?, ?, ?)',
           args: [randomUUID(), quand, source, neuves.length, JSON.stringify(ecartees.slice(0, 50))],
         },
+        ...(avecLui ? [avecLui(neuves.length)] : []),
       ],
       'write',
     )
@@ -1344,8 +1352,7 @@ export class JourStore {
 
   // ── La série ────────────────────────────────────────────────────────────
 
-  /** Les jours d'affilée où il a joué — au quiz du jour, ou en soirée. */
-  /** Sa série, et si aujourd'hui y compte déjà — au quiz du jour ou en soirée. */
+  /** Ses jours d'affilée joués — au quiz du jour ou en soirée —, et si aujourd'hui y compte déjà. */
   private async serieDe(profileId: string, aujourdhui: string): Promise<{ serie: number; tenue: boolean }> {
     const depuis = jourAvant(aujourdhui, 400)
     const [jours, soirees] = await this.client.batch(
@@ -1726,6 +1733,9 @@ export class JourStore {
       id: String(r.id),
       login: String(r.login),
       nom: String(r.name),
+      // L'avatar enregistré, tel quel : l'administrateur cherche un profil,
+      // il ne regarde pas la salle — un emoji de collection redescendu y
+      // reste lisible, là où `avatarPorte` montrerait l'avatar par défaut.
       avatar: String(r.avatar),
       masque: this.masques.has(String(r.id)),
     }))
@@ -1766,7 +1776,6 @@ function nommer(joueurs: readonly Joueur[], avatarDe: (p: ProfileRec) => string)
   return j => marques.get(j.profil.id) ?? j.profil.name
 }
 
-/** `travail` sur chaque élément, `n` à la fois ; les résultats dans l'ordre des éléments. */
 /** Une ligne de `jour_parties`, telle que la partie se lit — null s'il n'y en a pas. */
 function lirePartie(profileId: string, jour: string, r: Record<string, unknown> | undefined): Partie | null {
   if (!r) return null
@@ -1783,6 +1792,7 @@ function lirePartie(profileId: string, jour: string, r: Record<string, unknown> 
   }
 }
 
+/** `travail` sur chaque élément, `n` à la fois ; les résultats dans l'ordre des éléments. */
 async function parLots<T, R>(elements: readonly T[], n: number, travail: (e: T) => Promise<R>): Promise<R[]> {
   const resultats: R[] = []
   for (let i = 0; i < elements.length; i += n) resultats.push(...(await Promise.all(elements.slice(i, i + n).map(travail))))

@@ -122,7 +122,10 @@ function poserLeFilet() {
   })
 }
 
-createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv, jetonDeLaReserve }).then(
+// Le commit qui tourne : l'hébergeur le pose dans l'environnement de chaque déploiement.
+const version = process.env.RENDER_GIT_COMMIT?.trim().slice(0, 7) || undefined
+
+createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv, jetonDeLaReserve, version }).then(
   server => {
     poserLeFilet()
     console.log(`🎉 FiestApp — serveur prêt sur http://localhost:${server.port}${appEnv ? `  [${appEnv}]` : ''}`)
