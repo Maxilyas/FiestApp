@@ -307,14 +307,63 @@ test('S7 · chaque classe de la feuille de style est nommée quelque part', () =
 
 test('S6 · les métaux des paliers se lisent sur les deux thèmes', () => {
   // Écrits en dur, bronze et argent ne suivaient pas le thème : l'argent
-  // tombait à 1,64:1 sur la crème des fiches imprimées du bilan.
+  // tombait à 1,64:1 sur la crème des fiches imprimées du bilan. L'or a son
+  // jeton lui aussi : l'écusson d'or lisait l'aplat (`--accent`).
   assert.match(regle('.palier-1'), /var\(--bronze-text\)/)
   assert.match(regle('.palier-2'), /var\(--argent-text\)/)
+  assert.match(regle('.palier-3'), /var\(--or-text\)/)
+  assert.match(regle('.ecusson.palier-1 .ecusson-blason'), /var\(--bronze-text\)/)
+  assert.match(regle('.ecusson.palier-2 .ecusson-blason'), /var\(--argent-text\)/)
+  assert.match(regle('.ecusson.palier-3 .ecusson-blason'), /var\(--or-text\)/)
   for (const [nom, theme] of [['Velours', VELOURS], ['Ivoire', IVOIRE]] as const) {
-    for (const metal of ['--bronze-text', '--argent-text']) {
+    for (const metal of ['--bronze-text', '--argent-text', '--or-text']) {
       const c = contraste(teinte(theme, metal), teinte(theme, '--bg'))
       assert.ok(c >= 4.5, `${nom} : ${metal} tient ${c.toFixed(2)}:1`)
     }
+  }
+})
+
+// ── D21 · Le CSS de #59 lit ses jetons ────────────────────────────────────
+
+test('D21 · l’or du décor, les petites boîtes et le plus petit texte ont leur jeton', () => {
+  // #59 écrivait l'or du Velours huit fois en dur dans les fonds de carte,
+  // les rayons des petites boîtes à 10 ou 12 px, et six textes du profil
+  // sous le plancher de `.label` (jusqu'à 9,9 px) : un thème qui change ne
+  // les suivait pas, et le plancher ne tenait plus [design-recompenses-10].
+  const sansCommentaires = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
+  // L'or du décor s'écrit une fois, sur le cadre ; ses règles le lisent.
+  // Une image (`data:`) ne lit pas de jeton : le trait des fêlures y reste.
+  const regles = [...sansCommentaires.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(([, sel]) => /carte-fond|fond-apercu/.test(sel))
+  assert.ok(regles.length > 10, `les règles des fonds sont lues (${regles.length})`)
+  for (const [, sel, corps] of regles) {
+    const lu = corps
+      .replace(/url\("data:[^"]*"\)/g, '')
+      .split(';')
+      .filter(d => !/^\s*--[\w-]+\s*:/.test(d))
+      .join(';')
+    assert.doesNotMatch(lu, /#d9b56a|217,\s*181,\s*106/i, `${sel.trim()} écrit l'or en dur`)
+  }
+  assert.match(regle('.carte-fond'), /--fond-or:\s*#d9b56a;/)
+  assert.match(regle('.carte-fond.fond-kintsugi'), /border-color:\s*var\(--fond-or\)/)
+  assert.match(regle('.carte-fond.fond-theatre'), /border-color:\s*var\(--fond-or\)/)
+  // Les petites boîtes de #58 et #59.
+  assert.equal(VELOURS.get('--radius-xs'), '10px')
+  for (const sel of ['.fond-apercu', '.carte-beaux li', '.vitrine-choix li', '.prix-collection li', '.vitrine-option']) {
+    assert.match(regle(sel), /border-radius:\s*var\(--radius-xs\)/, `${sel} garde son rayon en dur`)
+  }
+  // Le plancher du texte : 11 px à la taille ordinaire, comme `.label`.
+  assert.equal(VELOURS.get('--t-label'), '0.6875rem')
+  assert.match(regle('.label'), /font-size:\s*11px/)
+  for (const sel of [
+    '.case-niveau',
+    '.detail-famille',
+    '.prix-collection .prix-titre',
+    '.prix-collection .hf-fois',
+    '.ecusson-nom',
+    '.ecusson-legende',
+    '.nouveau-pastille',
+  ]) {
+    assert.match(regle(sel), /font-size:\s*var\(--t-label\)/, `${sel} descend sous le plancher`)
   }
 })
 

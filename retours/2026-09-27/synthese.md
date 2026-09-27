@@ -754,7 +754,7 @@ Les tensions ci-dessus, et ce qui avait été reporté en route, présentées un
 | D18 | Le quiz du jour à froid [exploitation-5] | Rien | — |
 | D19 | Le retour à la version d'avant #58 [persistance-9] | Plus tard | — |
 | D20 | Un déploiement pendant une soirée [persistance-1] | Observer d'abord, en préproduction | MISE-EN-LIGNE, étape 7 (« Observer un déploiement ») — l'essai par le propriétaire |
-| D21 | Les 321 lignes de CSS de #59 [design-recompenses-10] | Les passer aux jetons, dans une PR à part | après la fusion de celle-ci |
+| D21 | Les 321 lignes de CSS de #59 [design-recompenses-10] | Les passer aux jetons, dans une PR à part | branche `claude/css-59-jetons` : `--fond-or`, `--or-text`, `--radius-xs`, `--t-label`, `design.test.ts` |
 | D22 | Les halos dans les listes [perf-client-7] | Les figer | `styles.css` (le gel des listes), `medaillons.test.ts` |
 
 Et une remarque, pour la suite : le lien entre les pages, de joueur à
