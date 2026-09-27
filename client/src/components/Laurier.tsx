@@ -1,3 +1,5 @@
+import { partsDuNomAffiche } from '../../../shared/homonymes'
+
 /**
  * Le laurier du vainqueur d'hier au quiz du jour : une couronne dorée juste
  * après son prénom, toute la journée — au classement du jour, sur sa carte,
@@ -55,15 +57,20 @@ export function Laurier({ laurier }: { laurier?: boolean }) {
 }
 
 /**
- * Un prénom sur une ligne de classement, et son laurier s'il le porte :
- * c'est le prénom qui se coupe sur un écran étroit, jamais le laurier.
+ * Un prénom sur une ligne de classement, sa marque d'homonymie et son
+ * laurier : c'est le prénom qui se coupe sur un écran étroit, jamais la
+ * marque ni le laurier. « Camille (2) » devenait « Camil… » dès 320 px — la
+ * seule chose qui distinguait deux invités identiques (invariant 17).
  */
 export function NomLaure({ nom, laurier }: { nom: string; laurier?: boolean }) {
-  if (!laurier) return <>{nom}</>
+  const { prenom, marque } = partsDuNomAffiche(nom)
+  if (!laurier && !marque) return <>{nom}</>
   return (
     <span className="nom-laure">
-      <span className="nom-laure-texte">{nom}</span>
-      <Laurier laurier />
+      <span className="nom-laure-texte">{prenom}</span>
+      {/* L'espace reste dans le texte : la ligne se lit et se copie « Camille (2) ». */}
+      {marque && <span className="nom-marque">{marque}</span>}
+      <Laurier laurier={laurier} />
     </span>
   )
 }

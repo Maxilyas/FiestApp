@@ -860,6 +860,38 @@ h3 > .icon {
   font-variant-numeric: lining-nums tabular-nums;
 }
 
+/* Étroite — un petit téléphone, ou le texte agrandi —, une ligne passe sur
+   deux étages : le prénom en haut, avec sa marque et son laurier ; le niveau
+   et les points dessous, là où ils étaient, à droite. Sur un seul, seul le
+   prénom cédait : à 277 px (un 360 au texte à 130 %), un profil à
+   12 450 points n'en gardait plus une lettre. En `rem`, comme les équipes :
+   le seuil grandit avec le texte. */
+.leaderboard, .podium { container-type: inline-size; }
+@container (max-width: 17rem) {
+  .lb-row:not(.team-row) {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'rang av nom nom'
+      'rang av niv pts';
+    column-gap: 8px;
+    row-gap: 2px;
+  }
+  .lb-row:not(.team-row) > .lb-rank { grid-area: rang; }
+  .lb-row:not(.team-row) > .lb-avatar { grid-area: av; }
+  .lb-row:not(.team-row) > .lb-name { grid-area: nom; }
+  .lb-row:not(.team-row) > .niveau { grid-area: niv; justify-self: end; }
+  .lb-row:not(.team-row) > .lb-score { grid-area: pts; }
+  /* Une estimation, à la télécommande : sa valeur rejoint le second étage. */
+  .lb-row:has(> .guess-value) {
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'rang av nom nom nom'
+      'rang av niv val pts';
+  }
+  .lb-row > .guess-value { grid-area: val; }
+}
+
 /* ── Écran commun ───────────────────────────────── */
 /* L'écran commun se lit à la hauteur de l'écran : 16 px en 768, 22,5 en
    1080. Les tailles plafonnaient vers 1 300 px de large, et la même télé
@@ -3733,9 +3765,14 @@ h3 > .icon {
    scène de l'écran commun comme le prénom qu'il accompagne. */
 .laurier { flex: none; width: 1.15em; height: 1.15em; color: var(--accent-text); }
 /* Sur une ligne de classement, c'est le prénom qui se coupe, jamais le
-   laurier : « Marie-Charlotte de La Roch… » le garde au bout. */
-.nom-laure { display: inline-flex; align-items: center; gap: 0.3em; max-width: 100%; vertical-align: bottom; }
+   laurier : « Marie-Charlotte de La Roch… » le garde au bout. Ni la marque
+   d'homonymie : « Cami… (2) », pas « Camil… » (invariant 17). Son espace
+   est dans le texte (`pre`), et le laurier prend sa marge à lui : un `gap`
+   l'aurait doublé. */
+.nom-laure { display: inline-flex; align-items: center; max-width: 100%; vertical-align: bottom; }
 .nom-laure-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nom-marque { flex: none; white-space: pre; }
+.nom-laure > .laurier { margin-left: 0.3em; }
 .carte-laurier { display: flex; align-items: center; gap: 4px; margin: 0 0 2px; color: var(--accent-text); font-size: 0.85rem; font-weight: 500; }
 
 /* ── Les fonds de carte ────────────────────────────────────────────────── */

@@ -78,3 +78,15 @@ export function partsDuNom(joueur: { name: string; nomAffiche?: string }): { pre
   }
   return { prenom: affiche, marque: '' }
 }
+
+/**
+ * La même coupe, pour un prénom déjà marqué : les lignes d'un podium ou d'un
+ * classement le reçoivent d'un bloc (`ViewContext.playerName`), sans le
+ * prénom nu à côté. La marque se reconnaît à sa forme — celle que
+ * `nomsAffiches` écrit, « (2) » et au-delà. Un prénom qui s'écrit vraiment
+ * « Jo (2) » se coupe de même : sa fin reste visible, rien de plus.
+ */
+export function partsDuNomAffiche(affiche: string): { prenom: string; marque: string } {
+  const m = /^(.*\S)( \((?:[2-9]|[1-9]\d+)\))$/su.exec(affiche)
+  return m ? { prenom: m[1], marque: m[2] } : { prenom: affiche, marque: '' }
+}
