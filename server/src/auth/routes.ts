@@ -13,6 +13,7 @@ import {
   requireAdmin,
   sessionOf,
   setSessionCookie,
+  readPlayerToken,
 } from './http'
 import type { AccountRec } from './store'
 import { normalizeLogin } from '../../../shared/space'
@@ -25,7 +26,7 @@ interface AuthApiDeps {
   /** En ligne, le cookie ne voyage qu'en HTTPS. */
   online: boolean
   /** Supprime un compte et tout ce qu'il a laissé (voir `createQuizServer`). */
-  removeAccount: (accountId: string) => Promise<void>
+  removeAccount: (accountId: string, opts?: { reprendre?: boolean }) => Promise<void>
   /** Les réglages d'un espace ont changé : sa salle doit les recevoir. */
   espaceChange: (accountId: string) => void
 }
@@ -263,7 +264,11 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
    * Il faut prouver les deux identités pour les lier : la session
    * d'animateur d'un côté, l'identifiant et le mot de passe du profil de
    * l'autre. Après quoi une seule des deux portes suffit — c'est tout
-   * l'intérêt — mais cette première fois-là, non.
+   * l'intérêt — mais cette première fois-là, non. Le profil déjà ouvert sur
+   * ce navigateur ne redit pas son identifiant : sa session le dit, et son
+   * mot de passe le confirme — l'arbitrage du 27 septembre 2026. Sans ce mot
+   * de passe, un ami connecté à son profil sur l'ordinateur de l'animateur
+   * serait rattaché d'un clic, et garderait la console.
    */
   app.post(
     '/api/space/profil',
@@ -273,7 +278,9 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       noStore(res)
       const me = accountOf(res)
-      const login = normalizeLogin(req.body?.login)
+      const jeton = req.body?.login ? null : readPlayerToken(req.header('cookie'))
+      const ouvert = jeton ? await deps.profiles.bySession(jeton) : null
+      const login = normalizeLogin(req.body?.login) || ouvert?.login || ''
       // Remplacer le profil qui tient l'espace demande sa preuve, avant tout :
       // les identifiants de l'autre profil ne disent rien de celui-ci.
       const lie = me.profileId ? await deps.profiles.byId(me.profileId).catch(() => null) : null
@@ -418,7 +425,11 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
 
   // Supprimer un compte : seulement désactivé (c'est le pas de recul), jamais
   // le sien, jamais l'espace par défaut — c'est chez lui que mènent les
-  // anciennes adresses. Tout ce qu'il a laissé part avec lui.
+  // anciennes adresses. Tout ce qu'il a laissé part avec lui. Ce que ses
+  // soirées ont crédité aux joueurs, l'administrateur le garde ou le reprend
+  // (`?credits=reprendre`), à chaque suppression — un compte qui fabriquait
+  // des soirées, ou un ami qui s'en va (l'arbitrage du 27 septembre 2026).
+  // Sans rien dire, une page d'avant garde les crédits, comme avant.
   app.delete(
     '/api/admin/accounts/:id',
     account,
@@ -431,7 +442,7 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
         return res.status(400).json({ error: 'L’espace par défaut ne se supprime pas : les anciennes adresses mènent chez lui' })
       }
       if (!target.disabledAt) return res.status(400).json({ error: 'Désactive d’abord le compte' })
-      await deps.removeAccount(target.id)
+      await deps.removeAccount(target.id, { reprendre: req.query.credits === 'reprendre' })
       res.json({ ok: true })
     }),
   )

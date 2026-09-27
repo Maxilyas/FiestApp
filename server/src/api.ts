@@ -44,7 +44,7 @@ interface ApiDeps {
    */
   photosEnJeu: (spaceId: string) => Iterable<string>
   /** Supprime un compte et tout ce qu'il a laissé — composé dans `createQuizServer`, où tout est à portée. */
-  removeAccount: (accountId: string) => Promise<void>
+  removeAccount: (accountId: string, opts?: { reprendre?: boolean }) => Promise<void>
   /** L'identifiant de la soirée en cours d'un espace, s'il est tiré : elle ne se retire pas de l'historique. */
   soireeEnCours: (spaceId: string) => string | null
   /** Les espaces dont la soirée en cours compte ce profil parmi ses invités. */

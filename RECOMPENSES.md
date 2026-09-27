@@ -489,7 +489,10 @@ Divin se tait — c'est tout son principe.
 - L'Éclat **s'annonce** à la fin de la soirée, au téléphone et à la salle :
   il tombait en silence, et sous un légendaire personne ne le voyait.
 - Une soirée jouée seul ne compte pas : ni pour l'Éclat, ni pour L'Habitué —
-  sans quoi dix soirées d'une question faisaient le Renard Lunaire.
+  sans quoi dix soirées d'une question faisaient le Renard Lunaire —, ni
+  pour rien de la carrière, écussons, fiche et paliers compris : seul devant
+  son propre quiz, on se faisait l'écusson d'or que la carte montrait à la
+  salle (arbitrage du 27 septembre 2026). Ce qui en était tombé reste acquis.
 - Au mur, le niveau s'écrit **« Niv. 15 »**, à la taille du prénom.
 
 ### 5.6 La carte de joueur
@@ -727,7 +730,8 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   portent une couronne dorée juste après leur prénom, toute la journée :
   au classement du jour, sur leur carte (« Vainqueur du quiz du jour
   d'hier »), sur leur page, et jusque dans les soirées où ils jouent —
-  classements, podiums, salle d'attente. C'est le prénom qui se coupe sur
+  classements, podiums, salle d'attente. À la souris, une infobulle dit ce
+  qu'il est (arbitrage du 27 septembre 2026). C'est le prénom qui se coupe sur
   un écran étroit, jamais le laurier. Un profil masqué ne le porte pas ; un
   anonyme n'en a pas. La liste se lit en mémoire, une fois la nuit close
   (`laureats`) : elle sert à chaque diffusion. Passé minuit, celle

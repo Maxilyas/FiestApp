@@ -2672,7 +2672,7 @@ h3 > .icon {
 }
 .chip-marque { flex: none; white-space: nowrap; }
 /* Un dessin n'a pas de ligne de base : aligné comme le texte, il montait. */
-.chip-name > .laurier { align-self: center; }
+.chip-name > .laurier-bulle > .laurier { align-self: center; }
 .player-chip .player-avatar,
 .player-chip .chip-remove { flex: none; }
 .player-chip .chip-team { flex: 0 10 auto; min-width: 2.2em; }
@@ -3725,8 +3725,9 @@ h3 > .icon {
   50% { opacity: 1; scale: 1.06; }
 }
 
-/* `rotate` plutôt que `transform: rotate()` : le halo est déjà centré par un
-   `translate`, qu'une transformation animée effacerait. */
+/* `rotate` plutôt que `transform: rotate()` : le halo, centré par des
+   marges, n'a pas de `transform` à lui — mais une animation qui en poserait
+   un écraserait celui d'un élément qui en porte. */
 @keyframes av-tourne {
   from { rotate: 0deg; }
   to { rotate: 360deg; }
@@ -3776,6 +3777,9 @@ h3 > .icon {
 /* Doré, à la taille du texte qu'il suit — en `em` : il grandit avec la
    scène de l'écran commun comme le prénom qu'il accompagne. */
 .laurier { flex: none; width: 1.15em; height: 1.15em; color: var(--accent-text); }
+/* L'enveloppe de son infobulle ne fait pas de boîte : le dessin reste
+   l'enfant de la ligne, qui l'aligne et le garde hors de la coupe. */
+.laurier-bulle { display: contents; }
 /* Sur une ligne de classement, c'est le prénom qui se coupe, jamais le
    laurier : « Marie-Charlotte de La Roch… » le garde au bout. Ni la marque
    d'homonymie : « Cami… (2) », pas « Camil… » (invariant 17). Son espace
@@ -3784,7 +3788,7 @@ h3 > .icon {
 .nom-laure { display: inline-flex; align-items: center; max-width: 100%; vertical-align: bottom; }
 .nom-laure-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nom-marque { flex: none; white-space: pre; }
-.nom-laure > .laurier { margin-left: 0.3em; }
+.nom-laure > .laurier-bulle > .laurier { margin-left: 0.3em; }
 .carte-laurier { display: flex; align-items: center; gap: 4px; margin: 0 0 2px; color: var(--accent-text); font-size: 0.85rem; font-weight: 500; }
 
 /* ── Les fonds de carte ────────────────────────────────────────────────── */
@@ -4736,11 +4740,18 @@ h3 > .icon {
    podium, les médaillons qu'on vient de gagner et les éclats (`av-sujet`) de
    la clôture, la carte, le profil, la fin de soirée, l'en-tête de son propre
    téléphone. Figé, il garde la pose que lui laisse « réduire les
-   animations ». */
+   animations ». Les halos des finitions et les paillettes de l'Éclat aussi :
+   un seul Éclat dans la salle d'attente recalculait le style soixante fois
+   par seconde, toute la soirée — l'arbitrage du 27 septembre 2026
+   [perf-client-7]. */
 .av.lb-avatar:not(.av-sujet) .lg *,
 .av.lb-avatar:not(.av-sujet) .dv *,
+.av.lb-avatar:not(.av-sujet)::before,
+.av.lb-avatar:not(.av-sujet)::after,
 .player-chip .lg *,
 .player-chip .dv *,
+.player-chip .av::before,
+.player-chip .av::after,
 .stats-table tbody tr:nth-child(n + 6) .lg *,
 .stats-table tbody tr:nth-child(n + 6) .dv * {
   animation: none;

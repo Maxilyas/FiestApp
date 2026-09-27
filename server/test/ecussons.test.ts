@@ -9,7 +9,7 @@ import Database from 'better-sqlite3'
 import { ADMIN, demarrer, inscrireProfil, invite, type Banc } from './banc'
 import { CATEGORIES } from '../../shared/categories'
 import { SEUILS_ECUSSON, ecussonsDe, palierEcusson, plusBeauxEcussons, prochainSeuil } from '../../shared/ecussons'
-import { releveVide } from '../../shared/profil'
+import { gainVide, releveVide, totalGain } from '../../shared/profil'
 import { VERSION_BAREME } from '../src/auth/profiles'
 
 test('les seuils des écussons sont un choix de produit : 20, 75, 200 bonnes réponses', () => {
@@ -66,15 +66,19 @@ test('sa page montre les douze, sa carte les trois plus hauts — les annulées 
     base(banc, db => {
       const id = (db.prepare('SELECT id FROM profiles WHERE login = ?').get('alice') as { id: string }).id
       const espace = (db.prepare('SELECT id FROM accounts WHERE slug = ?').get(ADMIN.slug) as { id: string }).id
-      // Deux soirées rangées : soixante bonnes réponses en Histoire, deux
-      // cents en Sciences, douze en Musique.
+      // Deux soirées rangées, jouées dans une salle — seul, elles ne
+      // compteraient pas : soixante bonnes réponses en Histoire, deux cents
+      // en Sciences, douze en Musique.
       const soiree = db.prepare(
-        `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, 0, ?, ?)`,
+        `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
       )
-      const releve = (categories: Record<string, { questions: number; justes: number }>) =>
-        JSON.stringify({ v: VERSION_BAREME, gain: {}, releve: { ...releveVide(), categories } })
-      soiree.run(id, 'soiree-1', espace, releve({ Histoire: { questions: 50, justes: 40 }, Sciences: { questions: 150, justes: 120 } }), 1000)
-      soiree.run(id, 'soiree-2', espace, releve({ Histoire: { questions: 30, justes: 20 }, Sciences: { questions: 100, justes: 80 }, Musique: { questions: 20, justes: 12 } }), 2000)
+      const rangee = (soireeId: string, categories: Record<string, { questions: number; justes: number }>, le: number) => {
+        const gain = { ...gainVide(), reponses: Object.values(categories).reduce((n, c) => n + c.questions, 0) }
+        const detail = JSON.stringify({ v: VERSION_BAREME, gain, releve: { ...releveVide(), categories } })
+        soiree.run(id, soireeId, espace, totalGain(gain), detail, le)
+      }
+      rangee('soiree-1', { Histoire: { questions: 50, justes: 40 }, Sciences: { questions: 150, justes: 120 } }, 1000)
+      rangee('soiree-2', { Histoire: { questions: 30, justes: 20 }, Sciences: { questions: 100, justes: 80 }, Musique: { questions: 20, justes: 12 } }, 2000)
       // Trois jours de quiz du jour : quinze bonnes réponses en Histoire, et
       // une Histoire de plus dont l'administrateur a annulé les points.
       const tirage = db.prepare(`INSERT INTO jour_tirages (jour, questions, annulees, tire_le) VALUES (?, ?, ?, 1)`)

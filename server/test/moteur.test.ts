@@ -133,6 +133,33 @@ test('arrivé dans le souffle, quand toute la salle a répondu : la question n�
   s.fermer()
 })
 
+test('arrivé quand il reste moins de temps qu’il n’en faut pour la lire : la question n’est pas la sienne', () => {
+  // Le temps de lire « Un ? » et ses trois réponses : un peu plus de deux
+  // secondes (`tempsDeLecture`). L'arbitrage du 27 septembre 2026 étend la
+  // règle du souffle à ce qui reste de la question [moteur-3].
+  const s = partie([qcm('Un ?'), qcm('Deux ?')], { noms: ['Alice', 'Bruno'] })
+  s.repondre('Alice', { type: 'answer', choice: 0 })
+  h!.avancer(17_000)
+  // Témoin : avec trois secondes, Zoé la joue.
+  s.rejoindre('Zoé')
+  assert.equal(s.repondre('Zoé', { type: 'answer', choice: 0 }), null, 'trois secondes : de quoi lire et répondre')
+  h!.avancer(1_500)
+  // Yann entre avec une seconde et demie : il lisait « Pas de réponse », et
+  // son zéro entrait au journal comme dans la moyenne de son équipe.
+  s.rejoindre('Yann')
+  h!.avancer(3_000)
+  assert.equal(s.st.phase, 'reveal')
+  assert.equal(s.vueDe('Yann')!.justArrived, true, '« Bienvenue » : il entre à la question suivante')
+  assert.equal(
+    s.answers.all().some(r => r.playerId === s.idDe('Yann')),
+    false,
+    'rien au journal pour une question qu’il n’a pas pu lire',
+  )
+  s.commande({ type: 'next', ...s.visee() })
+  assert.equal(s.repondre('Yann', { type: 'answer', choice: 0 }), null, 'la suivante est la sienne')
+  s.fermer()
+})
+
 test('arrivé en pleine question, quand la salle n’a pas fini : il joue la question', () => {
   const s = partie([qcm('Un ?')], { noms: ['Alice', 'Bruno'] })
   s.repondre('Alice', { type: 'answer', choice: 0 })

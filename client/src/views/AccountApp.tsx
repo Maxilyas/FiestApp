@@ -166,13 +166,31 @@ export function AccountApp() {
  *
  * Il faut prouver les deux identités pour les lier : cette session-ci d'un
  * côté, l'identifiant et le mot de passe du profil de l'autre. Après quoi
- * une seule des deux portes suffit ; cette première fois-là, non.
+ * une seule des deux portes suffit ; cette première fois-là, non. Le profil
+ * déjà ouvert sur ce navigateur ne redemande que son mot de passe — il
+ * fallait retaper l'identifiant qu'on venait de choisir (l'arbitrage du 27
+ * septembre 2026) ; un autre profil garde les deux champs.
  */
 function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onChange: (p: ProfilDeLEspace | null) => void }) {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  /** Le profil ouvert sur ce navigateur, s'il y en a un : on ne lui redemande pas son identifiant. */
+  const [ouvert, setOuvert] = useState<{ name: string; login: string } | null>(null)
+  const [unAutre, setUnAutre] = useState(false)
+  useEffect(() => {
+    if (profil) return
+    let vivant = true
+    api.joueur
+      .moi()
+      .then(r => vivant && setOuvert(r.profile ? { name: r.profile.name, login: r.profile.login } : null))
+      .catch(() => {})
+    return () => {
+      vivant = false
+    }
+  }, [profil])
+  const parLeProfilOuvert = !!ouvert && !unAutre
   /**
    * Détacher demande une preuve fraîche : le mot de passe du profil, ou celui
    * du compte. Une session ne suffisait pas — le téléphone prêté, console
@@ -186,7 +204,8 @@ function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onCha
     setBusy(true)
     setError('')
     try {
-      const { profil: lie } = await api.space.lierProfil(login.trim(), password)
+      // Sans identifiant, le serveur prend celui du profil ouvert ici.
+      const { profil: lie } = await api.space.lierProfil(parLeProfilOuvert ? '' : login.trim(), password)
       setLogin('')
       setPassword('')
       onChange(lie)
@@ -283,23 +302,32 @@ function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onCha
         </a>
         .
       </p>
-      <div className="field">
-        <label className="label" htmlFor="lien-login">
-          Identifiant du profil
-        </label>
-        <input
-          id="lien-login"
-          className="input input-line"
-          value={login}
-          onChange={e => setLogin(e.target.value)}
-          autoComplete="username"
-          autoCapitalize="none"
-          maxLength={32}
-        />
-      </div>
+      {parLeProfilOuvert ? (
+        <p className="profil-ouvert">
+          Le profil ouvert ici : <strong>{ouvert!.name}</strong> ({ouvert!.login}).{' '}
+          <button type="button" className="link-inline" onClick={() => setUnAutre(true)}>
+            Un autre profil ?
+          </button>
+        </p>
+      ) : (
+        <div className="field">
+          <label className="label" htmlFor="lien-login">
+            Identifiant du profil
+          </label>
+          <input
+            id="lien-login"
+            className="input input-line"
+            value={login}
+            onChange={e => setLogin(e.target.value)}
+            autoComplete="username"
+            autoCapitalize="none"
+            maxLength={32}
+          />
+        </div>
+      )}
       <div className="field">
         <label className="label" htmlFor="lien-pass">
-          Son mot de passe
+          {parLeProfilOuvert ? 'Son mot de passe, pour confirmer' : 'Son mot de passe'}
         </label>
         <input
           id="lien-pass"
@@ -311,8 +339,8 @@ function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onCha
         />
       </div>
       {error && <p className="error">{error}</p>}
-      <button className="btn btn-primary" disabled={busy || !login.trim() || !password}>
-        Rattacher
+      <button className="btn btn-primary" disabled={busy || (!parLeProfilOuvert && !login.trim()) || !password}>
+        {parLeProfilOuvert ? `Rattacher ${ouvert!.name}` : 'Rattacher'}
       </button>
     </form>
   )

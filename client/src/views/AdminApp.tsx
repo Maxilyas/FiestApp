@@ -4,7 +4,7 @@ import { activationUrl, api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
 import { LienConsole } from '../components/LienConsole'
 import { AdminDuJour } from '../components/AdminDuJour'
-import { confirmDialog, promptDialog } from '../components/Dialog'
+import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { showToast, useAppState } from '../state'
 import { formatDay } from '../../../shared/archive'
 import { normalizeSlug, type PublicAccount } from '../../../shared/space'
@@ -201,16 +201,20 @@ export function AdminApp() {
                                 className="btn btn-small btn-ghost"
                                 title="Supprimer le compte et tout ce qu'il a laissé"
                                 onClick={async () => {
-                                  const ok = await confirmDialog({
+                                  // Ce que ses soirées ont rapporté aux joueurs : un ami qui
+                                  // s'en va le leur laisse, un compte qui fabriquait des
+                                  // soirées le rend — l'administrateur choisit, à chaque fois.
+                                  const choix = await choixDialog({
                                     title: `Supprimer le compte ${deNom(a.name)} ?`,
                                     message:
-                                      'Ses quiz, ses photos, ses soirées archivées et sa soirée en cours seront effacés, sans retour. Son identifiant et son adresse redeviennent libres.\n\nPour en garder une trace, exporte ses soirées avant (npm run export).',
-                                    confirmLabel: 'Supprimer le compte',
+                                      'Ses quiz, ses photos, ses soirées archivées et sa soirée en cours seront effacés, sans retour. Son identifiant et son adresse redeviennent libres.\n\nCe que ses soirées ont rapporté aux joueurs — expérience, prix, hauts faits, paliers — peut leur rester, ou leur être repris : pour un compte qui fabriquait des soirées.\n\nPour en garder une trace, exporte ses soirées avant (npm run export).',
+                                    confirmLabel: 'Supprimer, les joueurs gardent leurs gains',
                                     danger: true,
+                                    alternative: { label: 'Supprimer, et reprendre leurs gains', danger: true },
                                   })
-                                  if (!ok) return
+                                  if (!choix) return
                                   try {
-                                    await api.admin.remove(a.id)
+                                    await api.admin.remove(a.id, choix.geste === 'alternative' ? 'reprendre' : 'garder')
                                     await load()
                                     showToast({ kind: 'info', message: `Le compte ${deNom(a.name)} est supprimé` })
                                   } catch (e) {

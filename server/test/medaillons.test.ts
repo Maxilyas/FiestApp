@@ -201,6 +201,17 @@ test('une requête de dessins muette ne retient personne plus que la borne', asy
   assert.ok(m.ATTENTE_MAX_DESSINS <= 3000, 'la borne des pages reste de l’ordre de deux secondes')
 })
 
+test('rechargé en pleine question, le téléphone n’attend pas les dessins d’un autre', () => {
+  // Le chrono du serveur tourne : « Connexion… » coûtait jusqu'à 2,5 s de
+  // question pour le médaillon de quelqu'un d'autre — l'arbitrage du 27
+  // septembre 2026 [recompenses-vitrine-10]. La salle d'attente, elle,
+  // attend toujours, une fois.
+  const page = readFileSync(path.join(client, 'views/PlayerApp.tsx'), 'utf8')
+  assert.match(page, /const enPleineQuestion = !!enCours && PHASES_PLEINES\.has\(enCours\.phase\)/)
+  assert.match(page, /const attendreDessins = !dejaVu && !!s\.me && !enPleineQuestion && attendus\(dessins, sortesDeLaSalle\)/)
+  assert.match(page, /const PHASES_PLEINES = new Set<QuizPlayerView\['phase'\]>\(\['getReady', 'observe', 'question'\]\)/)
+})
+
 // ── 4. Ce qui n'a pas d'emoji le dit ──────────────────────────────────────
 
 test('à la fin de soirée, un médaillon qui ne viendra plus mène au profil', async () => {
@@ -366,4 +377,18 @@ test('dans les galeries d’une carte, seul le médaillon qu’on regarde bouge'
   const carte = readFileSync(path.join(client, 'components/CarteJoueur.tsx'), 'utf8')
   assert.equal(carte.split('className="carte-legendaire"').length - 1, 2, 'les deux galeries, Divins et légendaires')
   for (const dedans of ['.lg *', '.dv *']) assert.ok(fige(`.carte-legendaire:not(:hover) ${dedans}`), dedans)
+})
+
+test('dans une liste, les halos des finitions et les paillettes de l’Éclat se tiennent tranquilles aussi', () => {
+  // Un seul Éclat dans la salle d'attente recalculait le style soixante fois
+  // par seconde, toute la soirée ; les halos d'une salle d'habitués tournaient
+  // tous au mur — l'arbitrage du 27 septembre 2026 [perf-client-7]. Ils
+  // bougent là où ils sont le sujet (`av-sujet`).
+  for (const selecteur of [
+    '.av.lb-avatar:not(.av-sujet)::before',
+    '.av.lb-avatar:not(.av-sujet)::after',
+    '.player-chip .av::before',
+    '.player-chip .av::after',
+  ])
+    assert.ok(fige(selecteur), selecteur)
 })

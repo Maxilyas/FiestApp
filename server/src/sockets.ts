@@ -394,15 +394,19 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         const teamId = charge.teamId === undefined ? undefined : validTeam(rt, texte(charge.teamId))
         // Qui se déclare, et qui se re-présente ? Sans jeton, c'est l'écran
         // d'entrée qui parle : un nouvel invité, ou le profil qui arrive sur
-        // un second appareil — son prénom et son avatar sont ceux qu'il vient
-        // de confirmer, ou ceux de son profil s'il n'a rien retapé. Avec un
-        // jeton, c'est un téléphone qui se re-présente tout seul, au réveil
-        // ou après une coupure : ce qu'il renvoie n'est qu'un souvenir,
-        // peut-être d'avant que l'animateur ne renomme « GrosLourd » en
-        // « Marc », ou que le profil ne change d'avatar. La fiche du serveur
-        // fait foi.
+        // un second appareil — son avatar est celui qu'il vient de confirmer,
+        // ou celui de son profil. Avec un jeton, c'est un téléphone qui se
+        // re-présente tout seul, au réveil ou après une coupure : ce qu'il
+        // renvoie n'est qu'un souvenir, peut-être d'avant que l'animateur ne
+        // renomme « GrosLourd » en « Marc », ou que le profil ne change
+        // d'avatar. La fiche du serveur fait foi.
         const declare = !known || !token
-        const name = declare ? texte(charge.name) || profile?.name || '' : ''
+        // Le prénom d'une fiche qui existe ne se redéclare jamais, pas même
+        // depuis le second appareil d'un profil : le renommage de
+        // l'animateur y tombait, et « GrosBill » revenait sur le mur —
+        // l'arbitrage du 27 septembre 2026 [moteur-10]. L'avatar, que
+        // l'animateur ne change pas, suit toujours le profil.
+        const name = !known ? texte(charge.name) || profile?.name || '' : ''
         // Un emoji de collection ne se porte qu'au niveau du profil qui l'a
         // ouvert. L'écran d'entrée n'en propose pas : seul un appel forgé en
         // enverrait un, et l'invité anonyme repart avec l'avatar par défaut.

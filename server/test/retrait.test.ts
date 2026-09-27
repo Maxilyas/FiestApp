@@ -19,6 +19,7 @@ import Database from 'better-sqlite3'
 import {
   attendre,
   connexionAnimateur,
+  cookieDe,
   creerQuiz,
   demarrer,
   ecranCommun,
@@ -213,6 +214,71 @@ test('un invité à profil exclu pendant un hoquet rend l’expérience de la so
     await patienter(300)
     assert.deepEqual(deMalik(), [], 'Malik, exclu, ne garde rien de la soirée')
     assert.equal(lire<{ xp: number }>(banc, "SELECT xp FROM profiles WHERE login = 'malik'")[0].xp, 0)
+  } finally {
+    await banc.close()
+  }
+})
+
+test('supprimer un compte : l’administrateur garde aux joueurs ce qu’ils ont gagné, ou le leur reprend', async () => {
+  // Il effaçait les soirées et laissait tout ce qu'elles avaient crédité, et
+  // « Mes soirées » gardait des lignes sans lieu ni titre. L'arbitrage du 27
+  // septembre 2026 : le demander à chaque suppression [recompenses-comptes-8].
+  const banc = await demarrer()
+  try {
+    const admin = await connexionAnimateur(banc.url)
+    const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const brunoCookie = await inscrireProfil(banc.url, 'bruno', 'Bruno', '🐼')
+
+    /** Un compte d'animateur, sa soirée jouée par Alice et Bruno, close ; le compte désactivé. */
+    async function compteJoue(login: string, slug: string): Promise<string> {
+      const cree = await ecrire(banc.url, '/api/admin/accounts', { login, name: login, slug }, admin)
+      const { account, activation } = (await cree.json()) as { account: { id: string }; activation: { token: string } }
+      const cookie = cookieDe(await ecrire(banc.url, '/api/auth/activate', { token: activation.token, password: `${login}-pass-1` }))
+      const quiz = await creerQuiz(banc.url, cookie, [qcm('Un ?'), qcm('Deux ?')], `Chez ${login}`)
+      const host = await ecranCommun(banc.url, cookie)
+      const alice = await invite(banc.url, 'Alice', '', { slug, cookie: aliceCookie })
+      const bruno = await invite(banc.url, 'Bruno', '', { slug, cookie: brunoCookie })
+      await jouerQuiz(host, quiz, [
+        [
+          [alice, 0],
+          [bruno, 1],
+        ],
+        [
+          [alice, 0],
+          [bruno, 0],
+        ],
+      ])
+      await patienter(500)
+      const toast = attendre<any>(host, 'toast', () => true, 'la clôture', 15_000)
+      ;(host as any).emit('host:closeParty', { title: `La soirée de ${login}` })
+      assert.equal((await toast).kind, 'info')
+      for (const s of [host, alice.socket, bruno.socket]) s.close()
+      assert.equal((await ecrire(banc.url, `/api/admin/accounts/${account.id}/disable`, {}, admin)).status, 200)
+      return account.id
+    }
+    const credite = (spaceId: string) => lire(banc, 'SELECT profile_id FROM profile_xp WHERE space_id = ?', spaceId).length
+    const xpDAlice = () => lire<{ xp: number }>(banc, `SELECT xp FROM profiles WHERE login = 'alice'`)[0].xp
+
+    const carla = await compteJoue('carla', 'chez-carla')
+    const dora = await compteJoue('dora', 'chez-dora')
+    assert.ok(credite(carla) > 0 && credite(dora) > 0, 'les deux soirées ont crédité leurs joueurs')
+    const avant = xpDAlice()
+
+    // Carla fabriquait des soirées : tout ce qu'elles avaient crédité part avec elle.
+    assert.equal((await ecrire(banc.url, `/api/admin/accounts/${carla}?credits=reprendre`, {}, admin, 'DELETE')).status, 200)
+    assert.equal(credite(carla), 0)
+    assert.ok(xpDAlice() < avant, 'l’expérience d’Alice redescend')
+    assert.equal(lire(banc, 'SELECT 1 FROM profile_badges WHERE space_id = ?', carla).length, 0)
+
+    // Dora s'en va : ses joueurs gardent ce qu'ils ont gagné, et « Mes soirées » dit pourquoi la ligne n'a plus de lieu.
+    const xpAvantDora = xpDAlice()
+    assert.equal((await ecrire(banc.url, `/api/admin/accounts/${dora}?credits=garder`, {}, admin, 'DELETE')).status, 200)
+    assert.ok(credite(dora) > 0)
+    assert.equal(xpDAlice(), xpAvantDora)
+    const moi = (await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: aliceCookie } })).json()) as any
+    const ligne = moi.profile.soirees.find((s: any) => s.xp > 0)
+    assert.equal(ligne.espaceFerme, true)
+    assert.equal(ligne.slug, null)
   } finally {
     await banc.close()
   }

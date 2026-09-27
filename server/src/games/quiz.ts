@@ -548,6 +548,18 @@ function salleAFini(sess: GameSessionRec<QuizState>, sauf: string): boolean {
 }
 
 /**
+ * Il reste moins de temps qu'il n'en faut pour lire la question : celui que
+ * le barème offre avant de faire fondre le bonus (`tempsDeLecture`). En
+ * pause, le temps qui restera à la reprise.
+ */
+function tropTardPourLire(sess: GameSessionRec<QuizState>, ctx: GameContext): boolean {
+  const st = sess.state
+  if (st.phase !== 'question' || !st.pack) return false
+  const reste = st.pausedMs ?? st.deadline - ctx.now()
+  return reste < tempsDeLecture(st.pack.questions[st.qIndex])
+}
+
+/**
  * Ceux que la console montre comme attendus : les hors-ligne qu'on attend
  * encore d'abord — c'est pour les trouver qu'on regarde —, puis ceux qu'on
  * n'attend plus, puis les connectés, chaque groupe dans l'ordre d'arrivée.
@@ -1222,7 +1234,7 @@ export const quizModule: GameModule<QuizState> = {
     }
   },
 
-  onPlayerJoin(sess, playerId) {
+  onPlayerJoin(sess, playerId, ctx) {
     const st = sess.state
     // Arrivé pendant une question : il peut encore répondre (avec moins de
     // temps). Arrivé quand elle est close — révélée, attendant sa cible, ou
@@ -1231,8 +1243,16 @@ export const quizModule: GameModule<QuizState> = {
     // jamais vue, et sa révélation lui disait « Pas de réponse » au lieu de
     // « Bienvenue » ; arrivé au podium, il y tenait une place de dernier.
     // Arrivé quand toute la salle a répondu, pareil : le souffle révèle dans
-    // 700 ms, et lui laissait 600 ms pour lire avant « Pas de réponse ».
-    const close = st.phase === 'reveal' || st.phase === 'cible' || st.phase === 'finished' || salleAFini(sess, playerId)
+    // 700 ms, et lui laissait 600 ms pour lire avant « Pas de réponse ». Et
+    // arrivé avec moins de temps qu'il n'en faut pour la lire : son zéro
+    // entrait au journal et dans la moyenne de son équipe — l'arbitrage du
+    // 27 septembre 2026 [moteur-3].
+    const close =
+      st.phase === 'reveal' ||
+      st.phase === 'cible' ||
+      st.phase === 'finished' ||
+      salleAFini(sess, playerId) ||
+      tropTardPourLire(sess, ctx)
     st.playFrom[playerId] = close ? st.qIndex + 1 : st.qIndex
   },
 

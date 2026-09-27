@@ -30,7 +30,7 @@ import {
   type Socket,
 } from './banc'
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
-import { gainVide, niveauPour, releveVide } from '../../shared/profil'
+import { gainVide, niveauPour, releveVide, totalGain } from '../../shared/profil'
 
 ProfileStore.tirageEclat = () => false
 
@@ -86,6 +86,13 @@ async function jouerQuiz(host: Socket, quizId: string, questions: [Invite, numbe
 }
 
 /**
+ * Ce qu'Alice a gagné chez l'autre hôte : huit réponses, dans une salle —
+ * jouée seul, cette soirée ne compterait pas pour la carrière, ni donc pour
+ * Le Globe-trotteur.
+ */
+const AILLEURS = { ...gainVide(), reponses: 8 }
+
+/**
  * Alice a déjà joué chez un autre hôte — « Le Globe-trotteur » tombera ce
  * soir, un palier — et fait un Grand Chelem dans une salle de quatre : la
  * Chouette d'Argent tombe aussi.
@@ -97,8 +104,8 @@ async function soireeDuGrandChelem(banc: Banc) {
   avecLaBase(banc, db => {
     const id = (db.prepare('SELECT id FROM profiles WHERE login = ?').get('alice') as { id: string }).id
     db.prepare(
-      `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, 'une-soiree-ailleurs', 'un-autre-hote', 0, ?, ?)`,
-    ).run(id, JSON.stringify({ v: VERSION_BAREME, gain: gainVide(), releve: releveVide() }), Date.now() - 86_400_000)
+      `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, 'une-soiree-ailleurs', 'un-autre-hote', ?, ?, ?)`,
+    ).run(id, totalGain(AILLEURS), JSON.stringify({ v: VERSION_BAREME, gain: AILLEURS, releve: releveVide() }), Date.now() - 86_400_000)
   })
   const host = await ecranCommun(banc.url, cookie)
   const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
@@ -179,7 +186,7 @@ test('refusée par le miroir puis reprise : la clôture raconte encore la Chouet
     assert.ok(desPaliers > 0)
     assert.equal(fin.profil.xpPaliers, desPaliers)
     assert.equal(fin.profil.xp, ceSoir + desPaliers)
-    assert.equal(fin.profil.niveauAvant, niveauPour(0))
+    assert.equal(fin.profil.niveauAvant, niveauPour(totalGain(AILLEURS)))
   } finally {
     await banc.close()
   }

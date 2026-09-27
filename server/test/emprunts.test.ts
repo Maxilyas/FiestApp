@@ -16,6 +16,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
+import { readFileSync } from 'node:fs'
 import { ADMIN, connexionAnimateur, cookieDe, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
 
 async function avecBanc(scenario: (banc: Banc) => Promise<void>) {
@@ -106,6 +107,29 @@ test('changer ou détacher le profil de l’espace, avec la preuve : le mot de p
     assert.equal((await ecrire(banc.url, '/api/space/profil', { preuve: ADMIN.password }, compte, 'DELETE')).status, 200)
     const { profil } = (await (await moi(banc, compte)).json()) as { profil: unknown }
     assert.equal(profil, null)
+  }))
+
+test('le profil ouvert sur ce navigateur se rattache par son seul mot de passe — jamais d’un clic', () =>
+  avecBanc(async banc => {
+    // Il fallait retaper l'identifiant qu'on venait de choisir : environ sept
+    // touchers et cinq saisies. L'arbitrage du 27 septembre 2026 garde les
+    // deux preuves de l'invariant 16 — la console, et le profil ouvert
+    // confirmé par son mot de passe [parcours-profil-7].
+    const compte = await connexionAnimateur(banc.url)
+    const camille = await inscrireProfil(banc.url, 'camille-joue', 'Camille', '🦊', 'camille-secret')
+    const lesDeux = `${compte}; ${camille}`
+    // Un ami connecté à son profil sur l'ordinateur de l'animateur ne se rattache pas d'un clic.
+    assert.equal((await ecrire(banc.url, '/api/space/profil', {}, lesDeux)).status, 401)
+    assert.equal((await ecrire(banc.url, '/api/space/profil', { password: 'pas-le-sien' }, lesDeux)).status, 401)
+    // Sans profil ouvert, l'identifiant reste demandé.
+    assert.equal((await ecrire(banc.url, '/api/space/profil', { password: 'camille-secret' }, compte)).status, 401)
+    const lie = await ecrire(banc.url, '/api/space/profil', { password: 'camille-secret' }, lesDeux)
+    assert.equal(lie.status, 200)
+    assert.equal(((await lie.json()) as { profil: { login: string } }).profil.login, 'camille-joue')
+    // La console le propose : « Rattacher Camille », le mot de passe pour confirmer.
+    const page = readFileSync(new URL('../../client/src/views/AccountApp.tsx', import.meta.url), 'utf8')
+    assert.match(page, /api\.space\.lierProfil\(parLeProfilOuvert \? '' : login\.trim\(\), password\)/)
+    assert.match(page, /\{parLeProfilOuvert \? `Rattacher \$\{ouvert!\.name\}` : 'Rattacher'\}/)
   }))
 
 test('le lien d’activation ne sert pas à changer son propre mot de passe sans l’ancien', () =>

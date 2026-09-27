@@ -922,6 +922,7 @@ export class ProfileStore {
           soireeId: s.soireeId,
           chez: chez?.nom ?? null,
           slug: chez?.slug ?? null,
+          ...(espace && s.spaceId && !chez && { espaceFerme: true as const }),
           titre: titres.get(`${s.spaceId}#${s.soireeId}`) ?? null,
           joueurId: s.joueurId || null,
           xp: s.xp,
@@ -1385,6 +1386,24 @@ export class ProfileStore {
     await this.ecrireXpDesPaliers(profileId)
     await this.recompterRecompenses([profileId])
     return this.recalculerTotal(profileId)
+  }
+
+  /**
+   * Reprend tout ce que les soirées d'un espace avaient crédité — archivées
+   * ou en cours : son compte est supprimé, et l'administrateur a choisi de
+   * reprendre (un compte qui fabriquait des soirées). Soirée par soirée,
+   * comme on la retire de l'historique ; interrompu, un second essai reprend
+   * où il en était. Rend le nombre de soirées reprises.
+   */
+  async retirerEspace(spaceId: string): Promise<number> {
+    if (!spaceId) return 0
+    const res = await this.client.execute({
+      sql: 'SELECT soiree_id FROM profile_xp WHERE space_id = ? UNION SELECT soiree_id FROM profile_badges WHERE space_id = ?',
+      args: [spaceId, spaceId],
+    })
+    const soirees = res.rows.map(r => String(r.soiree_id))
+    for (const soireeId of soirees) await this.retirerSoireeEntiere(soireeId, spaceId)
+    return soirees.length
   }
 
   /**

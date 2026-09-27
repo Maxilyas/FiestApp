@@ -492,8 +492,14 @@ export function carriereDe(
   const avatars = new Set<string>()
   for (const { releve: r, gain, spaceId } of soirees) {
     // Une soirée jouée seul reste dans l'historique, mais ce n'est pas une
-    // soirée : ni pour la fiche, ni pour L'Habitué.
-    if (soireeQuiCompte(gain)) c.soirees++
+    // soirée : ni pour la fiche, ni pour L'Habitué, ni pour rien de la
+    // carrière. Ses bonnes réponses faisaient un écusson que la carte
+    // montrait à la salle, et ses réponses des paliers — l'animateur seul
+    // devant son propre quiz, dont il avait écrit les réponses : l'arbitrage
+    // du 27 septembre 2026 [recompenses-vitrine-3]. Lue à chaque lecture, la
+    // carrière n'a rien à relire en base ; un palier déjà tombé reste acquis.
+    if (!soireeQuiCompte(gain)) continue
+    c.soirees++
     c.questions += r.questions
     c.reponses += r.reponses
     c.qcm += r.qcm
@@ -705,6 +711,11 @@ export interface SoireeJouee {
   chez: string | null
   /** L'adresse de l'espace, pour relire la soirée — null si l'espace n'existe plus. */
   slug: string | null
+  /**
+   * Son espace a été supprimé, ses crédits gardés aux joueurs : la ligne le
+   * dit, au lieu d'une date sans lieu ni lien.
+   */
+  espaceFerme?: true
   /**
    * Son titre, tel que l'historique de l'espace le porte aujourd'hui — un
    * renommage s'y voit. Null si la soirée n'y est plus.

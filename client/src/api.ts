@@ -364,7 +364,9 @@ export const api = {
     update: (id: string, patch: { name?: string; slug?: string }) =>
       req<{ account: PublicAccount }>(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
     /** Un compte désactivé seulement ; tout ce qu'il a laissé part avec lui. */
-    remove: (id: string) => req<{ ok: true }>(`/api/admin/accounts/${id}`, { method: 'DELETE' }),
+    /** `reprendre` : ce que ses soirées ont crédité aux joueurs part avec lui. */
+    remove: (id: string, credits: 'garder' | 'reprendre') =>
+      req<{ ok: true }>(`/api/admin/accounts/${id}?credits=${credits}`, { method: 'DELETE' }),
     /** Le catalogue du serveur, toutes les copies : proposées, publiées, refusées, retirées. */
     catalogue: () => req<EntreeDuCatalogue[]>('/api/admin/catalogue'),
     /** Une copie proposée, questions comprises, pour la relire. */

@@ -76,7 +76,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/partage.ts` · `core/partages.ts` · `server/src/partages.ts` | partager, par copie seulement : un code court (sept jours, annulable, dix essais manqués par quart d'heure) et le catalogue que l'administrateur relit ; la copie reçue recopie toutes les pièces de ses questions (`copierPhotos`) |
 | `shared/modeles.ts` · `shared/emojis.ts` | les modèles livrés, leurs rayons et « Pour qui ? » ; la règle des emojis d'avant Unicode 13, que l'éditeur dit sur la carte et que `emojis.test.ts` garde |
 | `shared/liste.ts` | « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) ; et l'inverse, `ecrireListe` (« Copier en liste »), que `liste.test.ts` recolle |
-| `client/src/components/Legendaire.tsx` | les médaillons, en SVG ; verrouillés, une silhouette dorée, immobile — un Divin verrouillé aussi (`.dv-voile *`) ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare ; figés dans les listes, animés là où ils sont le sujet — dans la grille du profil, les aperçus des finitions et les galeries de la carte, seuls le porté, l'ouvert et le survolé bougent : leurs formes ne se composent pas, et chacune refait la page à chaque image |
+| `client/src/components/Legendaire.tsx` | les médaillons, en SVG ; verrouillés, une silhouette dorée, immobile — un Divin verrouillé aussi (`.dv-voile *`) ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare ; figés dans les listes — halos des finitions et paillettes de l'Éclat compris —, animés là où ils sont le sujet — dans la grille du profil, les aperçus des finitions et les galeries de la carte, seuls le porté, l'ouvert et le survolé bougent : leurs formes ne se composent pas, et chacune refait la page à chaque image |
 | `client/src/components/medaillons.ts` | les dessins des légendaires et des Divins, chargés à la demande : un invité anonyme ne les télécharge que si quelqu'un, dans la salle, en porte un — ne les importe pas statiquement sur son chemin (`Avatar`, `PlayerApp`, la carte ; `medaillons.test.ts` y veille), et un échec vaut pour toute la page ; chaque sorte à part (`sortesDe`) : un légendaire ne fait pas venir les Divins |
 | `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
 | `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
@@ -160,7 +160,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
    dans le profil.
 9. **La fiche du serveur fait foi.** Un `player:join` qui porte un jeton est
    une re-présentation : prénom et avatar envoyés sont ignorés — sinon le
-   renommage d'un pseudo par l'animateur tombait au réveil du téléphone. Un
+   renommage d'un pseudo par l'animateur tombait au réveil du téléphone. Le
+   second appareil d'un profil déjà là, sans jeton, ne redéclare pas non
+   plus le prénom de sa fiche — seulement son avatar, que l'animateur ne
+   change pas. Un
    jeton qui ne désigne plus personne (exclu, essai effacé) est refusé
    (`unknown-token`), **jamais recréé** : le téléphone repasse par l'entrée,
    pré-remplie. Celui d'une soirée qu'on vient de clore reçoit sa fin de
@@ -232,8 +235,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
     elle tombe avec ce profil, ou tient comme l'écran commun — et jamais
     plus de 24 heures (`fin_max`, qui plafonne le glissement), même sans
     avoir décroché : chaque geste relit la session. Pour poser
-    le lien, il faut prouver les deux identités ; après, une seule porte
-    suffit. Pour le changer ou le détacher, une preuve fraîche — le mot de
+    le lien, il faut prouver les deux identités — le profil ouvert sur ce
+    navigateur n'y redit pas son identifiant, son mot de passe le confirme ;
+    après, une seule porte suffit. Pour le changer ou le détacher, une preuve fraîche — le mot de
     passe du profil rattaché, ou celui du compte (`prouver`) —, et jamais
     depuis une télé branchée (`refuserLesTeles`) : le téléphone prêté y
     rattachait l'emprunteur, qui gardait la console. Ne fusionne pas les
@@ -273,7 +277,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
     gardent leur salle de quatre (`salleHautsFaits`). Les gains d'un quiz sont
     définitifs : ce qui peut se renverser d'un quiz à l'autre attend la
     clôture. Une soirée jouée seul reste dans l'historique mais ne compte
-    pas (`soireeQuiCompte`) : ni tirage de l'Éclat, ni soirée pour L'Habitué
+    pas (`soireeQuiCompte`) : ni tirage de l'Éclat, ni rien de la carrière
+    — écussons, fiche, paliers (`carriereDe`) —, ni soirée pour L'Habitué
     — dix « soirées » d'une question faisaient le Renard Lunaire. **Un prix
     ne rapporte jamais d'expérience** : ni ceux du palmarès (une ligne
     d'étagère, rien de plus), ni ceux remis à l'écran, prix libres compris

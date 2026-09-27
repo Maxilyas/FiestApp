@@ -398,6 +398,7 @@ export function ProfilApp() {
                     <span className="soiree-detail">
                       {s.titre && `${date} · `}
                       {s.chez && `chez ${s.chez} · `}
+                      {s.espaceFerme && 'un espace fermé · '}
                       {/* Par type de question : « 64 réponses, 1 juste » ne disait pas
                           que soixante-deux étaient des estimations. */}
                       {reponsesParType({ ...s.releve, coupDOeil: coupDOeilMoyen(s.releve) }, { compte: false }) || 'aucune réponse'}

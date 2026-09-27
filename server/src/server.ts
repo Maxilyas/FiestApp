@@ -453,7 +453,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
    * en tout dernier — si une écriture distante échoue en route, il reste un
    * compte désactivé sur lequel réessayer, pas des données sans maître.
    */
-  const removeAccount = async (accountId: string) => {
+  const removeAccount = async (accountId: string, { reprendre = false }: { reprendre?: boolean } = {}) => {
     const login = auth.byId(accountId)?.login ?? accountId
     // Les écrans communs tombent avec les sessions ; les téléphones oublient
     // leur invité, puis sont coupés — ils se reconnectent et apprennent que
@@ -466,6 +466,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
     wipeSpace(db, accountId)
     await backup.settle()
     await backup.forSpace(accountId).reset()
+    // Avant l'historique : une panne en route laisse le compte, et un second
+    // essai retrouve ce qu'il reste à reprendre dans les lignes des profils.
+    const reprises = reprendre ? await profiles.retirerEspace(accountId) : 0
     const soirees = await archives.removeSpace(accountId)
     await programmes.removeSpace(accountId)
     await partages.removeSpace(accountId)
@@ -474,7 +477,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     // Une page publique lue pendant le ménage a pu réveiller la soirée.
     registry.drop(accountId)
     console.log(
-      `[comptes] compte « ${login} » supprimé : ${quizzes} quiz, ${images} photos, ${soirees} soirées archivées`,
+      `[comptes] compte « ${login} » supprimé : ${quizzes} quiz, ${images} photos, ${soirees} soirées archivées` +
+        (reprendre ? ` — ce que ${reprises} soirée${reprises > 1 ? 's' : ''} avai${reprises > 1 ? 'ent' : 't'} crédité, repris aux joueurs` : ''),
     )
   }
 

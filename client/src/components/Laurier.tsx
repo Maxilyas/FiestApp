@@ -1,3 +1,4 @@
+import type { SVGProps } from 'react'
 import { partsDuNomAffiche } from '../../../shared/homonymes'
 
 /**
@@ -37,10 +38,22 @@ export const LAURIER_TEXTE = 'vainqueur du quiz du jour d’hier'
  */
 export function Laurier({ laurier, decoratif }: { laurier?: boolean; decoratif?: boolean }) {
   if (!laurier) return null
-  const nom = decoratif ? { 'aria-hidden': true } : { role: 'img', 'aria-label': LAURIER_TEXTE }
+  const nom: SVGProps<SVGSVGElement> = decoratif ? { 'aria-hidden': true } : { role: 'img', 'aria-label': LAURIER_TEXTE }
   return (
-    // Pas de <title> : il entrerait dans le texte du prénom (`textContent`),
-    // que la tablée et les tests lisent.
+    // L'infobulle, pour la souris — l'animateur à la console, qui voyait une
+    // couronne sans savoir ce qu'elle dit (l'arbitrage du 27 septembre
+    // 2026) : sur l'enveloppe, et pas en <title>, qui entrerait dans le
+    // texte du prénom (`textContent`) que la tablée et les tests lisent.
+    // L'enveloppe ne compte pas pour le lecteur d'écran (`presentation`) :
+    // le laurier s'y dit une fois, par son dessin, ou pas du tout.
+    <span className="laurier-bulle" role="presentation" title={LAURIER_TEXTE}>
+      <Couronne {...nom} />
+    </span>
+  )
+}
+
+function Couronne(nom: SVGProps<SVGSVGElement>) {
+  return (
     <svg className="laurier" viewBox="0 0 24 24" {...nom}>
       <g fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round">
         <path d="M10.68 19.88A7.6 7.6 0 0 1 8.79 5.51" />

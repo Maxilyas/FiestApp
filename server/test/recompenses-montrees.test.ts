@@ -31,7 +31,9 @@ import {
 import { ProfileStore } from '../src/auth/profiles'
 import { COLLECTION, DEFAULT_AVATAR, cleanAvatar, niveauRequis } from '../../shared/avatars'
 import { estRecent } from '../../shared/emojis'
-import { hautsFaitsGagnes } from '../../shared/hautsfaits'
+import { hautsFaitsGagnes, paliersAtteints } from '../../shared/hautsfaits'
+import { carriereDe, gainVide, releveVide } from '../../shared/profil'
+import { ecussonsDe } from '../../shared/ecussons'
 import { recompensesDe } from '../../shared/proches'
 
 // L'Éclat est un tirage : il ferait tomber un palier une fois sur quarante.
@@ -294,4 +296,32 @@ test('ce que la salle voit, la page le montre : laurier, légendaire, surnom et 
   // Au podium et sur la carte, le médaillon prend la place d'un emoji auréolé.
   const css = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
   assert.match(css, /\.podium-avatar \.av-emoji > \.lg,\s*\.carte-avatar \.av-emoji > \.lg \{ font-size: 1\.3em; \}/)
+})
+
+test('une soirée jouée seul ne nourrit rien de la carrière : ni écusson, ni fiche, ni palier', () => {
+  // Vingt bonnes réponses de sport et trois estimations au chiffre près,
+  // seul devant son propre quiz : l'écusson de bronze sur la carte, Le Devin
+  // en prime. L'arbitrage du 27 septembre 2026 les écarte, comme L'Habitué
+  // l'écartait déjà [recompenses-vitrine-3].
+  const releve = {
+    ...releveVide(),
+    questions: 23,
+    reponses: 23,
+    qcm: 20,
+    justes: 20,
+    estimations: 3,
+    estimationsExactes: 3,
+    avatar: '🦊',
+    categories: { Sport: { questions: 20, justes: 20 } },
+  }
+  const seul = carriereDe([{ releve, gain: gainVide(), spaceId: 'banc' }], { eclats: 0, niveau: 1 })
+  assert.deepEqual(seul.categories, {})
+  assert.deepEqual([seul.soirees, seul.justes, seul.estimationsExactes, seul.avatars, seul.hotes], [0, 0, 0, 0, 0])
+  assert.deepEqual(ecussonsDe(seul.categories).filter(e => e.palier > 0), [], 'pas d’écusson fait seul')
+  assert.deepEqual(paliersAtteints(seul), [], 'aucun palier ne tombe seul')
+  // Témoin : la même soirée, jouée à deux, compte.
+  const aDeux = carriereDe([{ releve, gain: { ...gainVide(), reponses: 23 }, spaceId: 'banc' }], { eclats: 0, niveau: 1 })
+  assert.equal(aDeux.categories.Sport.justes, 20)
+  assert.equal(ecussonsDe(aDeux.categories).find(e => e.categorie === 'Sport')!.palier, 1)
+  assert.ok(paliersAtteints(aDeux).includes('hf:devin:1'))
 })

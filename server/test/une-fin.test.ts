@@ -39,7 +39,7 @@ import {
 } from './banc'
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 import { ArchiveStore } from '../src/core/archive'
-import { gainVide, releveVide } from '../../shared/profil'
+import { gainVide, releveVide, totalGain } from '../../shared/profil'
 
 ProfileStore.tirageEclat = () => false
 
@@ -102,15 +102,17 @@ test('deux « Clore la soirée » croisés : une seule clôture, la fin gardée 
     const cookie = await connexionAnimateur(banc.url)
     const quiz = await creerQuiz(banc.url, cookie, [qcm('Q1 ?'), qcm('Q2 ?'), qcm('Q3 ?')], 'Trois')
     const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
-    // Alice a déjà joué chez un autre hôte : ce soir, « Le Globe-trotteur »
-    // tombe à la clôture — un palier, que sa fin gardée doit encore dire.
+    // Alice a déjà joué chez un autre hôte, dans une salle — seule, la
+    // soirée ne compterait pas : ce soir, « Le Globe-trotteur » tombe à la
+    // clôture — un palier, que sa fin gardée doit encore dire.
     {
       const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
       try {
         const id = (db.prepare('SELECT id FROM profiles WHERE login = ?').get('alice') as { id: string }).id
+        const ailleurs = { ...gainVide(), reponses: 8 }
         db.prepare(
-          `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, 'une-soiree-ailleurs', 'un-autre-hote', 0, ?, ?)`,
-        ).run(id, JSON.stringify({ v: VERSION_BAREME, gain: gainVide(), releve: releveVide() }), Date.now() - 86_400_000)
+          `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, 'une-soiree-ailleurs', 'un-autre-hote', ?, ?, ?)`,
+        ).run(id, totalGain(ailleurs), JSON.stringify({ v: VERSION_BAREME, gain: ailleurs, releve: releveVide() }), Date.now() - 86_400_000)
       } finally {
         db.close()
       }

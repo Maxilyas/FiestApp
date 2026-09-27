@@ -240,12 +240,17 @@ export function PlayerApp() {
   const sortesDeLaSalle = sortesDe(s.snapshot?.players.map(p => p.legendaire) ?? [])
   const dessins = useDessins(...sortesDeLaSalle)
   // Un téléphone qui revient en pleine soirée (rechargé, réveillé) tombe
-  // droit sur la salle ou la question : il attend ses dessins sous
-  // « Connexion… », une fois, plutôt que montrer des emojis qui se changent
-  // en médaillons. L'entrée, elle, n'en montre aucun et n'attend pas ; et
-  // après le premier écran, une arrivée ne fait plus rien attendre à personne.
+  // droit sur la salle : il attend ses dessins sous « Connexion… », une
+  // fois, plutôt que montrer des emojis qui se changent en médaillons.
+  // Jamais pendant une question : le chrono du serveur tourne, et le
+  // cosmétique d'un autre lui coûtait jusqu'à 2,5 s de jeu — la question
+  // d'abord, les médaillons dès qu'ils sont là (l'arbitrage du 27 septembre
+  // 2026). L'entrée, elle, n'en montre aucun et n'attend pas ; et après le
+  // premier écran, une arrivée ne fait plus rien attendre à personne.
   const [dejaVu, setDejaVu] = useState(false)
-  const attendreDessins = !dejaVu && !!s.me && attendus(dessins, sortesDeLaSalle)
+  const enCours = s.snapshot?.session ? (s.views[s.snapshot.session.id]?.view as QuizPlayerView | undefined) : undefined
+  const enPleineQuestion = !!enCours && PHASES_PLEINES.has(enCours.phase)
+  const attendreDessins = !dejaVu && !!s.me && !enPleineQuestion && attendus(dessins, sortesDeLaSalle)
   // Seul le premier écran attend la reprise du jeton : un téléphone qui se
   // reconnecte en pleine question garde sa question, sans « Connexion… ».
   const attendreReprise = !dejaVu && jetonEnVol
