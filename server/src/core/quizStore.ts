@@ -409,8 +409,10 @@ export class QuizStore {
     // entre les deux l'effacerait sous les doigts de l'animateur. Une photo
     // qu'un quiz vient de cesser de citer a le même délai, compté depuis ce
     // moment (`orpheline_depuis`) : l'autre appareil peut encore la citer.
+    // « Au plus », pas « avant » : un délai nul vaut tout de suite, même dans
+    // la milliseconde du retrait — le smoke l'a pris en défaut en CI.
     const stored = await this.client.execute({
-      sql: 'SELECT id FROM quiz_images WHERE space_id = ? AND COALESCE(orpheline_depuis, created_at) < ?',
+      sql: 'SELECT id FROM quiz_images WHERE space_id = ? AND COALESCE(orpheline_depuis, created_at) <= ?',
       args: [spaceId, Date.now() - graceMs],
     })
     if (stored.rows.length === 0) return 0

@@ -14,6 +14,7 @@ import { createClient } from '@libsql/client'
 import { connexionAnimateur, creerQuiz, demarrer, ecrire, patienter, qcm } from './banc'
 import { brouillonUtile, emballerBrouillon, lireBrouillon, photosAVerifier, piecesPerdues, sansPhotosDisparues } from '../../shared/brouillon'
 import { MAX_QUESTIONS, emptyQuestion, type QuizDef, type QuizQuestionDef } from '../../shared/library'
+import { QuizStore } from '../src/core/quizStore'
 
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 /** Quelques octets suffisent : le serveur vérifie le type annoncé, pas le son. */
@@ -118,6 +119,28 @@ test('une photo retirée depuis plus d’une heure part toujours au ménage', as
   assert.equal((await enregistrer(id, { title: 'Vacances d’été', questions: suivant.questions, base: suivant.updatedAt })).status, 200)
   for (let i = 0; i < 20 && (await servie(photo)) === 200; i++) await patienter(100)
   assert.equal(await servie(photo), 404)
+})
+
+test('un ménage sans délai emporte la photo d’un quiz supprimé, fût-ce dans la même milliseconde', async () => {
+  // `remove` date l'orpheline à l'instant ; le ménage qui suivait dans la
+  // même milliseconde la comparait « avant maintenant » et la gardait. Le
+  // smoke l'a vu une fois en CI (« la photo doit partir avec son dernier
+  // quiz ») : l'horloge figée le rend certain.
+  const store = new QuizStore(banc.quizDbUrl)
+  const espace = 'menage-a-l-instant'
+  const photo = await store.saveImage(espace, PNG)
+  const quiz = await store.create(espace, 'Photo unique', [{ ...qcm('Où ?'), image: `/media/image/${photo}` }])
+  const horloge = Date.now
+  const instant = horloge() + 60_000
+  Date.now = () => instant
+  try {
+    assert.equal(await store.remove(espace, quiz.id), true)
+    assert.equal(await store.pruneImages(espace, 0), 1)
+  } finally {
+    Date.now = horloge
+  }
+  assert.equal(await store.getImage(photo), null)
+  store.close()
 })
 
 // ── 3. Le brouillon repris : ses trois pièces ─────────────────────────────
