@@ -32,6 +32,11 @@ const TETES =
   '<g fill="#4f9f48"><ellipse cx="26.2" cy="15.3" rx="3.5" ry="2.6" transform="rotate(-8 26.2 15.3)"/><ellipse cx="16" cy="37.2" rx="3.5" ry="2.6" transform="rotate(65 16 37.2)"/><ellipse cx="16.8" cy="56" rx="3.5" ry="2.6" transform="rotate(15 16.8 56)"/></g>' +
   '<g fill="#f5d547"><circle cx="26" cy="14.3" r=".85"/><circle cx="15" cy="36.6" r=".85"/><circle cx="16.5" cy="55" r=".85"/></g>'
 
+/** Le serpent du milieu, à part : passé au miroir, il en ferait deux enlacés. */
+const MILIEU =
+  anneles('M50,29c-2.5-6,2.5-10,0-16') +
+  '<ellipse cx="50" cy="11.4" rx="2.6" ry="3.4" fill="#4f9f48"/><g fill="#f5d547"><circle cx="48.9" cy="10.8" r=".75"/><circle cx="51.1" cy="10.8" r=".75"/></g>'
+
 /** Une vague qui s'enroule, au bas du disque : Poséidon sort de la mer. */
 const VAGUE =
   '<path d="M2,86 C4,74 11,67 19,67 C25,67 28.5,71.5 26.5,75 C25,77.5 21.5,77 21,74.5 C20.6,72.6 22.6,71.8 23.6,73 C23,70 19,69.6 16,71.6 C12,74.4 10,80 9.5,86 Z" fill="#8fe0ee" opacity=".4"/>' +
@@ -76,14 +81,13 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     fond: ['#4f6acb', '#1c2d7c', '#0a1233'],
     defs: u =>
       rad(u + 'p', '#d9f0c6', '#9ccb8c') + lin(u + 'r', '#f4d27a', '#b98530') + lin(u + 'h', '#3f8a45', '#1d4f26'),
+    // La cinquième étoile se cognerait à la tête d'un serpent.
     decor: () => LUEUR + etoiles(ETOILES.slice(0, 4)),
     corps: u => `
       <path d="M22,100 C24,86 36,78.5 50,78.5 C64,78.5 76,86 78,100 Z" fill="url(#${u}r)"/>
       <path d="M45.5,63 C45.5,70 45,75 44,78.6 C46,82 48,85 50,87 C52,85 54,82 56,78.6 C55,75 54.5,70 54.5,63 Z" fill="#a4cd94"/>
       ${anneles(SERPENTS)}${TETES}${miroir(anneles(SERPENTS) + TETES)}
-      ${anneles('M50,29c-2.5-6,2.5-10,0-16')}
-      <ellipse cx="50" cy="11.4" rx="2.6" ry="3.4" fill="#4f9f48"/>
-      <g fill="#f5d547"><circle cx="48.9" cy="10.8" r=".75"/><circle cx="51.1" cy="10.8" r=".75"/></g>
+      ${MILIEU}
       <path d="M50,33 C59,33 64.5,39.5 64.5,48 C64.5,58.5 58,67 50,69.5 C42,67 35.5,58.5 35.5,48 C35.5,39.5 41,33 50,33 Z" fill="url(#${u}p)"/>
       <path d="M34.5,47 C32.5,34 40,26.5 50,26.5 C60,26.5 67.5,34 65.5,47 C63,40 57.5,36 50,36 C42.5,36 37,40 34.5,47 Z" fill="url(#${u}h)"/>
       <path d="M38.8,48.2 C40.2,45.4 44.6,45 46.6,47.6 C45.2,50.4 40.8,50.8 38.8,48.2 Z M61.2,48.2 C59.8,45.4 55.4,45 53.4,47.6 C54.8,50.4 59.2,50.8 61.2,48.2 Z" fill="#f5d547" stroke="#23401f" stroke-width=".9"/>
@@ -103,13 +107,14 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'b', '#ef7f3e', '#ad431b') +
       lin(u + 'h', '#f2f5f9', '#8f9aad', 1, 1) +
       lin(u + 'k', '#8f7a64', '#4a3c2e'),
+    // Deux étoiles : les ailes cachent les autres. L'éclair, à gauche, répond au marteau.
     decor: () =>
       LUEUR +
       etoiles([ETOILES[3], ETOILES[4]]) +
-      // L'éclair à gauche répond au marteau, à droite.
       '<path d="M21,40 L12.5,56 L18.5,56 L11,73 L25,52 L18.8,52 L24.5,40 Z" fill="#ffe27a" opacity=".85"/>',
+    // Un manteau de fourrure, pas une cape rouge : le dieu des sagas, pas celui
+    // des films — et une cape rouge se perdait dans le ciel rare, cramoisi.
     corps: u => {
-      // Un manteau de fourrure, pas une cape rouge : le dieu des sagas, pas celui des films.
       const aile = `<path d="M35,33 C30,27 26,21.5 23,14.5 C28.5,16.5 33,21.5 36.5,29 Z M34,35.5 C28,32.5 22,28.5 17.5,23.5 C24,24 29.5,27 35,31.5 Z M33.5,38.5 C27.5,37.5 21,35.5 15.5,32.5 C21.5,31 28,31.5 34,34.5 Z" fill="#f3f6fa" stroke="#9fb0c8" stroke-width=".6"/>`
       const meche = `<path d="M33.5,40 C31,48 31.5,57 34.5,63 L38.5,59 C37.5,53 37.5,47 38.5,41 Z" fill="url(#${u}b)"/>`
       return `
@@ -166,8 +171,9 @@ export const DESSINS: Record<string, DessinDePortrait> = {
   'br:poseidon': {
     fond: ['#4379cf', '#163a82', '#061536'],
     defs: u => OR(u) + lin(u + 'p', '#9a6446', '#6e4129') + lin(u + 'b', '#ffffff', '#c3dbe8') + lin(u + 'v', '#3fb3a6', '#15625c'),
+    // Le trident tient la gauche, à la place des étoiles ; il passe derrière
+    // l'épaule, tenu hors du cadre : une main dessinée flottait.
     decor: () => LUEUR + etoiles(ETOILES.filter(([x]) => x > 20)) + VAGUE + miroir(VAGUE),
-    // Le trident passe derrière l'épaule : tenu hors du cadre, sans une main qui flotte.
     corps: u => `
       <rect x="22.8" y="30" width="2.4" height="70" fill="url(#${u}o)"/>
       <path d="M22.9,31 L22.9,19.5 L21.3,20.5 L24,14 L26.7,20.5 L25.1,19.5 L25.1,31 Z M15.3,25.2 L17,20 L18.7,25.2 Z M29.3,25.2 L31,20 L32.7,25.2 Z" fill="url(#${u}o)"/>
@@ -199,6 +205,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'p', '#e0ae84', '#c4895f') +
       lin(u + 'cr', '#ec4b40', '#9c1c24') +
       lin(u + 'r', '#ffffff', '#d6dbe6'),
+    // Trois étoiles : le cimier, la chouette et le rameau chargent déjà le disque.
     decor: () => LUEUR + etoiles(ETOILES.slice(0, 2).concat([ETOILES[3]])),
     corps: u => {
       const cheveux = `<path d="M33,42 C29,55 30,70 25,82 C31,85 37,81 38.5,72 C39.5,62 38.5,52 38,45 Z" fill="#2c1b12"/>`

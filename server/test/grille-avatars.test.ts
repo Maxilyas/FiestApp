@@ -67,8 +67,8 @@ const HABITUE = {
   hautsFaits: [],
 }
 
-/** Les cinq familles de « Mes avatars », dans l'ordre des onglets. */
-const FAMILLES = ['branches', 'emojis', 'collection', 'legendaires', 'divins']
+/** Les trois familles de « Mes avatars », dans l'ordre des onglets. */
+const FAMILLES = ['branches', 'emojis', 'legendaires']
 
 /** « Mes avatars » ouvert sur une famille. */
 const mesAvatars = (profil: object, familleInitiale?: string) =>
@@ -123,25 +123,41 @@ test('dans chaque famille, chaque case ouvre sa fiche : aucune ne se porte d’u
   )
 })
 
-test('« Mes avatars » s’ouvre sur la famille de ce qu’il porte, et chaque onglet dit son compte', async () => {
-  const onglet = (html: string) => /<button[^>]*role="tab" aria-selected="true"[^>]*>([^<]*)/.exec(html)?.[1]
-  // Sous le Phénix, les légendaires ; sous un emoji de collection, la
-  // collection ; sous un emoji de l'inscription, les branches — c'est là que
-  // ses bonnes réponses le mènent.
-  assert.equal(onglet(await mesAvatars(HABITUE)), 'Légendaires')
-  assert.equal(onglet(await mesAvatars({ ...HABITUE, legendaire: null, avatar: '🐝' })), 'Collection')
-  assert.equal(onglet(await mesAvatars({ ...HABITUE, legendaire: null })), 'Branches')
-  assert.equal(onglet(await mesAvatars({ ...HABITUE, legendaire: 'dv:seraphin' })), 'Divins')
-  const html = await mesAvatars({
+test('« Mes avatars » : trois onglets sur une rangée, ouverts sur la famille de ce qu’il porte ; chaque partie dit son compte', async () => {
+  const onglets = (html: string) => [...html.matchAll(/<button[^>]*role="tab"[^>]*>([^<]*)<\/button>/g)].map(m => m[1])
+  const actif = (html: string) => /<button[^>]*role="tab" aria-selected="true"[^>]*>([^<]*)/.exec(html)?.[1]
+  // Trois noms courts, sans compteur : cinq onglets à compte faisaient trois
+  // rangées au téléphone, un tiers de l'écran avant le premier avatar.
+  assert.deepEqual(onglets(await mesAvatars(HABITUE)), ['Branches', 'Emojis', 'Légendaires'])
+  // Sous le Phénix — ou un Divin —, les légendaires ; sous un emoji de
+  // collection, les emojis ; sous un emoji de l'inscription, les branches :
+  // c'est là que ses bonnes réponses le mènent.
+  assert.equal(actif(await mesAvatars(HABITUE)), 'Légendaires')
+  assert.equal(actif(await mesAvatars({ ...HABITUE, legendaire: 'dv:seraphin' })), 'Légendaires')
+  assert.equal(actif(await mesAvatars({ ...HABITUE, legendaire: null, avatar: '🐝' })), 'Emojis')
+  assert.equal(actif(await mesAvatars({ ...HABITUE, legendaire: null })), 'Branches')
+  // Chaque partie a son titre et son compte.
+  const savant = {
     ...HABITUE,
     ecussons: [
       { categorie: 'Nature', justes: 25, palier: 1 },
       { categorie: 'Histoire', justes: 3, palier: 0 },
     ],
-  })
-  assert.match(html, />Branches<span class="onglet-compte">3 \/ 72<\/span>/)
-  assert.match(html, />Collection<span class="onglet-compte">10 \/ 12<\/span>/)
-  assert.match(html, />Légendaires<span class="onglet-compte">2 \/ 16<\/span>/)
+  }
+  const titres = async (famille: string) =>
+    [...(await mesAvatars(savant, famille)).matchAll(/<h4 class="famille-titre">([^<]*)<span class="famille-compte">([^<]*)<\/span><\/h4>/g)].map(m => [
+      m[1].trim(),
+      m[2],
+    ])
+  assert.deepEqual(await titres('branches'), [['Les portraits des branches', '3 / 72']])
+  assert.deepEqual(await titres('emojis'), [
+    ['Les emojis', '24'],
+    ['De collection', '10 / 12'],
+  ])
+  assert.deepEqual(await titres('legendaires'), [
+    ['Les légendaires', '2 / 16'],
+    ['Les Divins', '1 / 5'],
+  ])
 })
 
 test('l’onglet des branches : une dépliée — celle du portrait porté —, les autres sur une ligne qui dit ce qui vient', async () => {
@@ -158,9 +174,12 @@ test('l’onglet des branches : une dépliée — celle du portrait porté —, 
   assert.equal([...html.matchAll(/class="rayon"/g)].length, 1)
   assert.equal([...html.matchAll(/class="ligne-branche"/g)].length, 11)
   assert.match(html, /<b>La forêt<\/b><span class="detail-famille muted">Nature<\/span><span class="ligne-branche-compte">2 \/ 6<\/span>/)
-  assert.match(html, /Encore 15 bonnes réponses en Nature pour le lynx\./)
-  assert.match(html, /Encore 17 bonnes réponses en Histoire pour la Gorgone\./)
-  assert.match(html, /Encore 3 bonnes réponses en Culture générale pour le kangourou\./)
+  assert.match(html, /<p class="muted small">Encore 15 bonnes réponses en Nature pour le lynx\.<\/p>/)
+  // Une ligne tient sur deux : sa catégorie, et ce qui manque. Le lecteur
+  // d'écran entend la phrase entière, le prochain portrait nommé.
+  assert.match(html, /aria-label="Les mythologies, 1 \/ 6\. Encore 17 bonnes réponses en Histoire pour la Gorgone\."/)
+  assert.match(html, /<span class="muted small">Histoire · encore 17<\/span>/)
+  assert.match(html, /<span class="muted small">Culture générale · encore 3<\/span>/)
   // Ses six cases : deux gagnées, dont celle qu'il porte ; quatre à gagner, avec leur palier.
   const cases = [...html.matchAll(/<button[^>]*class="(emoji-btn case-avatar case-portrait[^"]*)"[^>]*aria-label="([^"]*)"/g)].map(m => [m[1], m[2]])
   assert.deepEqual(
@@ -209,9 +228,8 @@ test('la fiche d’une case s’ouvre sous sa rangée, de toute la largeur de la
   const corps = composant.slice(composant.indexOf('export function MesAvatars'), composant.indexOf('export function DetailPortrait'))
   // Chaque case suivie de sa fiche, dans sa grille — les portraits compris.
   assert.equal([...corps.matchAll(/<\/button>\s*\{fiche\((a|c\.emoji|l\.key|d\.key|p\.key)\)\}/g)].length, 5)
-  // Et plus rien sous les grilles de « Mes avatars ».
-  const seul = corps.slice(0, corps.indexOf('const SORTES_DES_BRANCHES'))
-  assert.doesNotMatch(seul.slice(seul.indexOf('<p className="legende-anneaux')), /detail-avatar/)
+  // Une seule fiche, celle qui suit sa case : plus rien sous les grilles.
+  assert.equal(corps.split('id="detail-avatar"').length - 1, 1)
   // La page défile juste ce qu'il faut pour la montrer entière, et le focus va à son nom.
   assert.match(corps, /scrollIntoView\(\{ block: 'nearest'/)
   assert.match(corps, /rendreLeFocus\(detail\.current, \['\.galerie-detail-nom'\]\)/)

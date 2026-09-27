@@ -57,10 +57,12 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <circle cx="28" cy="12.5" r="3.6" fill="#ffe36b"/><circle cx="72" cy="12.5" r="3.6" fill="#ffe36b"/>
       <circle cx="27" cy="11.4" r="1.1" fill="#fff" opacity=".8"/><circle cx="71" cy="11.4" r="1.1" fill="#fff" opacity=".8"/>
       <path d="M22,100 C24,86 36,79 50,79 C64,79 76,86 78,100 Z" fill="url(#${u}s)"/>
+      <path d="M30,94 C33,89.5 37,86.5 41.5,85 M70,94 C67,89.5 63,86.5 58.5,85" stroke="#aaa4dc" stroke-width="1.1" fill="none" stroke-linecap="round"/>
       <path d="M45,66 L45,80 L55,80 L55,66 Z" fill="#58ad4b"/>
       <path d="M37,80.5 C41,76.5 59,76.5 63,80.5 C59,84.5 41,84.5 37,80.5 Z" fill="#f2c14e"/>
       <circle cx="50" cy="91.5" r="2.8" fill="#ff7ac8"/><ellipse cx="50" cy="91.5" rx="5.4" ry="1.4" fill="none" stroke="#fff" stroke-width=".8" transform="rotate(-20 50 91.5)"/>
       <path d="M50,21 C66,21 76.5,31 76.5,44 C76.5,56 65,68.5 50,70.5 C35,68.5 23.5,56 23.5,44 C23.5,31 34,21 50,21 Z" fill="url(#${u}v)"/>
+      <ellipse cx="42" cy="30" rx="10" ry="4.6" fill="#e6ffcc" opacity=".35" transform="rotate(-14 42 30)"/>
       <g fill="#a8e886" opacity=".7"><circle cx="40" cy="28" r="1.6"/><circle cx="46" cy="25.5" r="1"/><circle cx="62" cy="29" r="1.3"/></g>
       <ellipse cx="38.5" cy="46" rx="6.6" ry="8.4" transform="rotate(-20 38.5 46)" fill="url(#${u}o)"/>
       <ellipse cx="61.5" cy="46" rx="6.6" ry="8.4" transform="rotate(20 61.5 46)" fill="url(#${u}o)"/>
@@ -75,6 +77,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     fond: ['#5864d2', '#1b2269', '#070a26'],
     defs: u => rad(u + 'o', '#ffc27a', '#dd7a2c') + lin(u + 'b', '#d4a266', '#96642f') + lin(u + 'r', '#fff6ea', '#f1d7b5'),
     decor: () => points(ETOILES, '#fff', 0.8) + planete(16, 28, '#7fd6c4', '#c8f2e8'),
+    // Un œil ouvert, l’autre fermé : vivant et pas vivant à la fois. Le ψ de la boîte est la fonction d’onde, pas un trident.
     corps: u => `
       <path d="M24,74 L28,67 L72,67 L76,74 Z" fill="#5a3a1c"/>
       <path d="M31,44 L29,17 L47,31 Z" fill="#e8893a"/><path d="M33,39 L32,23 L43,31.5 Z" fill="#ffb3a0"/>
@@ -104,6 +107,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     defs: u =>
       lin(u + 'p', '#8f5a36', '#63391d') + lin(u + 'b', '#f4c95c', '#c98b24') + lin(u + 'c', '#2f9a95', '#134a50') + lin(u + 'l', '#fff0b5', '#a8761f') + lin(u + 'w', '#f4f1ea', '#c4bdb1'),
     decor: () => points(ETOILES, '#fff', 0.8) + planete(82, 22),
+    // La lunette se dessine couchée, puis se lève de 50° : chacune de ses pièces reste un simple rectangle.
     corps: u => `
       <path d="M18,100 C20,86 33,78 50,78 C67,78 80,86 82,100 Z" fill="url(#${u}c)"/>
       ${etoile(29, 90, 2.4, '#f7d77a', 0.95)}${etoile(38, 96, 1.6, '#f7d77a', 0.9)}${etoile(72, 90, 2, '#f7d77a', 0.95)}
@@ -125,7 +129,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <rect x="32" y="36.5" width="36" height="7" rx="3.2" fill="#e0a83a"/>
       <path d="M33.5,40 L66.5,40" stroke="#b97d1e" stroke-width="5" stroke-dasharray="1 1.6" opacity=".35"/>
       <circle cx="50" cy="18.5" r="4.8" fill="#fbe3a0"/>
-      <g transform="translate(38 100) rotate(-50)">
+      <g transform="translate(38 98.5) rotate(-50)">
         <rect x="0" y="-1.7" width="8" height="3.4" rx=".8" fill="#5a3d16"/>
         <rect x="7" y="-2.4" width="20" height="4.8" fill="url(#${u}l)"/>
         <rect x="26" y="-3.1" width="2.2" height="6.2" fill="#8a5a1a"/>
@@ -133,8 +137,10 @@ export const DESSINS: Record<string, DessinDePortrait> = {
         <rect x="57" y="-4.4" width="12" height="8.8" rx=".8" fill="url(#${u}l)"/>
         <rect x="57" y="-4.4" width="1.6" height="8.8" fill="#8a5a1a"/>
         <ellipse cx="69" cy="0" rx="1.1" ry="3.7" fill="#aee3ff"/>
-      </g>
-      <ellipse cx="52.2" cy="83" rx="4.4" ry="3.4" fill="url(#${u}p)" transform="rotate(-50 52.2 83)"/>`,
+        <rect x="17.5" y="-3.8" width="9" height="7.8" rx="3.2" fill="url(#${u}p)"/>
+        <path d="M20.3,-3.3 L20.3,2.4 M23.2,-3.3 L23.2,2.4" stroke="#4a2814" stroke-width=".6" stroke-linecap="round"/>
+        <ellipse cx="23.5" cy="-4.1" rx="3.2" ry="1.5" fill="#7e4c2c"/>
+      </g>`,
   },
 
   'br:savante': {
@@ -168,7 +174,9 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <path d="M76.5,56 L80.5,56 L80.5,64 L86,77 C87,79.5 85.5,81.5 83,81.5 L74,81.5 C71.5,81.5 70,79.5 71,77 L76.5,64 Z" fill="#e9f5ff" opacity=".92"/>
       <path d="M73,72 L84,72 L86,77 C87,79.5 85.5,81.5 83,81.5 L74,81.5 C71.5,81.5 70,79.5 71,77 Z" fill="url(#${u}f)"/>
       <rect x="75.8" y="54.8" width="5.4" height="2" rx=".8" fill="#c9d6e6"/>
-      <ellipse cx="78" cy="83.5" rx="5.2" ry="3.4" fill="url(#${u}p)"/>
+      <path d="M71,81 L86,81 C87.5,81 88,83 86.8,84.8 C85.5,86.8 83,87.8 80,87.8 L76,87.8 C73,87.8 71,85.5 71,81 Z" fill="url(#${u}p)"/>
+      <ellipse cx="71.6" cy="78.5" rx="1.6" ry="3" fill="#dca07a" transform="rotate(-18 71.6 78.5)"/>
+      <path d="M75.5,81.8 L75.5,85.4 M79.2,81.8 L79.2,86 M82.8,81.8 L82.8,85.6" stroke="#b0704c" stroke-width=".6" stroke-linecap="round"/>
       <g fill="#e6ffe9" opacity=".85"><circle cx="79" cy="50.5" r="2.5"/><circle cx="82.5" cy="45.5" r="3.2"/><circle cx="78.5" cy="39.5" r="3.4"/><circle cx="83" cy="33" r="2.8"/></g>`,
   },
 

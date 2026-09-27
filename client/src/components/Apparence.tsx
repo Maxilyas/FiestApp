@@ -88,35 +88,38 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
   )
 }
 
-/** Les familles de « Mes avatars », dans l'ordre des onglets. */
-export type Famille = 'branches' | 'emojis' | 'collection' | 'legendaires' | 'divins'
+/**
+ * Les familles de « Mes avatars », dans l'ordre des onglets. Trois, pas
+ * cinq : cinq onglets à compteur faisaient trois rangées au téléphone, un
+ * tiers de l'écran avant le premier avatar. Les emojis de collection vivent
+ * avec les emojis, les Divins avec les légendaires, chacun sous son titre.
+ */
+export type Famille = 'branches' | 'emojis' | 'legendaires'
 const FAMILLES: { id: Famille; nom: string }[] = [
   { id: 'branches', nom: 'Branches' },
   { id: 'emojis', nom: 'Emojis' },
-  { id: 'collection', nom: 'Collection' },
   { id: 'legendaires', nom: 'Légendaires' },
-  { id: 'divins', nom: 'Divins' },
 ]
 
 /**
- * La famille où « Mes avatars » s'ouvre : celle de l'avatar qu'il porte —
- * on vient souvent pour en changer, et « Le porter » est alors à côté de ce
- * qu'on quitte. Sous un emoji de l'inscription, les branches : c'est là que
- * ses bonnes réponses le mènent.
+ * La famille où « Mes avatars » s'ouvre : celle de l'avatar dessiné qu'il
+ * porte — on vient souvent pour en changer, et « Le porter » est alors à
+ * côté de ce qu'on quitte —, celle de son emoji de collection. Sous un emoji
+ * de l'inscription, les branches : c'est là que ses bonnes réponses le
+ * mènent.
  */
 export function familleDe(profil: Pick<PublicProfileDetail, 'legendaire' | 'avatar'>): Famille {
   if (portraitDe(profil.legendaire)) return 'branches'
-  if (legendaire(profil.legendaire)) return 'legendaires'
-  if (divin(profil.legendaire)) return 'divins'
-  if (COLLECTION.some(c => c.emoji === profil.avatar)) return 'collection'
+  if (legendaire(profil.legendaire) || divin(profil.legendaire)) return 'legendaires'
+  if (COLLECTION.some(c => c.emoji === profil.avatar)) return 'emojis'
   return 'branches'
 }
 
 /**
- * Tous ses avatars, rangés par famille : les portraits des branches, les
- * vingt-quatre emojis, les douze de collection, les légendaires, les cinq
- * Divins. Cent vingt-neuf avatars ne se parcourent plus en une grille :
- * chaque famille a son onglet, et son compte.
+ * Tous ses avatars, rangés par famille : les portraits des branches ; les
+ * vingt-quatre emojis et les douze de collection ; les légendaires et les
+ * cinq Divins. Cent vingt-neuf avatars ne se parcourent plus en une grille :
+ * chaque famille a son onglet, et chaque partie son titre et son compte.
  *
  * Chacun se touche de la même façon : sa fiche s'ouvre sous sa rangée, et
  * l'on porte l'avatar de là (« Le porter ») — un emoji comme un portrait ou
@@ -149,13 +152,6 @@ export function MesAvatars({
   const ouverts = COLLECTION.filter(c => profil.niveau >= c.niveau).length
   const possedes = portraits.length + AVATARS.length + ouverts + profil.legendaires.length + divins.length
   const total = PORTRAITS.length + AVATARS.length + COLLECTION.length + LEGENDAIRES.length + DIVINS.length
-  const comptes: Record<Famille, string> = {
-    branches: `${portraits.length} / ${PORTRAITS.length}`,
-    emojis: String(AVATARS.length),
-    collection: `${ouverts} / ${COLLECTION.length}`,
-    legendaires: `${profil.legendaires.length} / ${LEGENDAIRES.length}`,
-    divins: `${divins.length} / ${DIVINS.length}`,
-  }
   const toucher = (cle: string) => setOuvert(o => (o === cle ? null : cle))
   // Changer de famille referme la fiche : elle parlait d'un avatar qu'on ne voit plus.
   const choisir = (f: Famille) => {
@@ -233,7 +229,7 @@ export function MesAvatars({
         {espacesFines('Un seul à la fois : touche un avatar, puis « Le porter ». Un avatar dessiné dit aussi d’où il vient.')}
       </p>
       <Onglets
-        onglets={FAMILLES.map(f => ({ ...f, compte: comptes[f.id] }))}
+        onglets={FAMILLES}
         actif={famille}
         onChoisir={choisir}
         label="Familles d’avatars"
@@ -242,20 +238,32 @@ export function MesAvatars({
         className="onglets-petits onglets-familles"
       />
       <div className="famille-avatars" role="tabpanel" id="famille-avatars" aria-labelledby={`famille-${famille}`}>
-        {famille === 'branches' ? (
-          <MesBranches
-            savoir={savoir}
-            porte={porte}
-            eclats={profil.eclats}
-            ouvert={ouvert}
-            toucher={toucher}
-            fiche={fiche}
-            onDeplier={() => setOuvert(null)}
-          />
-        ) : (
-          <div className="emoji-grid grille-unique" role="group" aria-label={FAMILLES.find(f => f.id === famille)!.nom}>
-            {famille === 'emojis' &&
-              AVATARS.map(a => {
+        {famille === 'branches' && (
+          <>
+            <h4 className="famille-titre">
+              Les portraits des branches <span className="famille-compte">{`${portraits.length} / ${PORTRAITS.length}`}</span>
+            </h4>
+            <p className="muted small famille-note">
+              Chaque bonne réponse fait avancer la branche de sa catégorie, en soirée comme au quiz du jour.
+            </p>
+            <MesBranches
+              savoir={savoir}
+              porte={porte}
+              eclats={profil.eclats}
+              ouvert={ouvert}
+              toucher={toucher}
+              fiche={fiche}
+              onDeplier={() => setOuvert(null)}
+            />
+          </>
+        )}
+        {famille === 'emojis' && (
+          <>
+            <h4 className="famille-titre">
+              Les emojis <span className="famille-compte">{AVATARS.length}</span>
+            </h4>
+            <div className="emoji-grid grille-unique" role="group" aria-label="Les emojis">
+              {AVATARS.map(a => {
                 const choisi = !porte && a === profil.avatar
                 return (
                   <Fragment key={a}>
@@ -275,8 +283,23 @@ export function MesAvatars({
                   </Fragment>
                 )
               })}
-            {famille === 'collection' &&
-              COLLECTION.map(c => {
+            </div>
+            <h4 className="famille-titre">
+              De collection <span className="famille-compte">{`${ouverts} / ${COLLECTION.length}`}</span>
+            </h4>
+            <p className="legende-anneaux small muted famille-note">
+              Un à chaque niveau qui n’ouvre pas de finition, réservés aux profils ·{' '}
+              <span className="puce anneau-texte-collection" aria-hidden="true">
+                ●
+              </span>{' '}
+              niveaux 2 à 9 ·{' '}
+              <span className="puce anneau-texte-collection-haut" aria-hidden="true">
+                ●
+              </span>{' '}
+              11 et plus
+            </p>
+            <div className="emoji-grid grille-unique" role="group" aria-label="De collection">
+              {COLLECTION.map(c => {
                 const anneau = c.niveau < COLLECTION_HAUTE ? ' anneau-collection' : ' anneau-collection-haut'
                 if (profil.niveau < c.niveau) {
                   // Sa silhouette et son niveau, rien à toucher : il n'a pas d'autre
@@ -314,8 +337,16 @@ export function MesAvatars({
                   </Fragment>
                 )
               })}
-            {famille === 'legendaires' &&
-              LEGENDAIRES.map(l => {
+            </div>
+          </>
+        )}
+        {famille === 'legendaires' && (
+          <>
+            <h4 className="famille-titre">
+              Les légendaires <span className="famille-compte">{`${profil.legendaires.length} / ${LEGENDAIRES.length}`}</span>
+            </h4>
+            <div className="emoji-grid grille-unique" role="group" aria-label="Les légendaires">
+              {LEGENDAIRES.map(l => {
                 const gagne = profil.legendaires.includes(l.key)
                 return (
                   <Fragment key={l.key}>
@@ -341,8 +372,12 @@ export function MesAvatars({
                   </Fragment>
                 )
               })}
-            {famille === 'divins' &&
-              DIVINS.map(d => {
+            </div>
+            <h4 className="famille-titre">
+              Les Divins <span className="famille-compte">{`${divins.length} / ${DIVINS.length}`}</span>
+            </h4>
+            <div className="emoji-grid grille-unique" role="group" aria-label="Les Divins">
+              {DIVINS.map(d => {
                 const la = descendu(d.key)
                 return (
                   <Fragment key={d.key}>
@@ -367,20 +402,8 @@ export function MesAvatars({
                   </Fragment>
                 )
               })}
-          </div>
-        )}
-        {famille === 'collection' && (
-          <p className="legende-anneaux small muted">
-            Un emoji à chaque niveau qui n’ouvre pas de finition, réservé aux profils ·{' '}
-            <span className="puce anneau-texte-collection" aria-hidden="true">
-              ●
-            </span>{' '}
-            niveaux 2 à 9 ·{' '}
-            <span className="puce anneau-texte-collection-haut" aria-hidden="true">
-              ●
-            </span>{' '}
-            niveaux 11 et plus
-          </p>
+            </div>
+          </>
         )}
       </div>
       {profil.eclats.length > 0 && (
@@ -422,9 +445,9 @@ function ceQuiVient(b: Branche, savoir: Savoir): string {
  * branche se déplie — son compte, sa jauge vers le prochain portrait, ses
  * six cases —, juste sous les onglets ; les autres tiennent sur une ligne,
  * avec leur dernier portrait gagné, ou la silhouette du premier à gagner, et
- * ce qui vient en toutes lettres. Toucher une ligne la déplie à la place de
- * l'autre. Dépliée à sa place dans la liste, la forêt tombait sous quatre
- * lignes, hors de l'écran d'un téléphone.
+ * ce qui manque au prochain (« Histoire · encore 17 »). Toucher une ligne la
+ * déplie à la place de l'autre. Dépliée à sa place dans la liste, la forêt
+ * tombait sous quatre lignes, hors de l'écran d'un téléphone.
  */
 function MesBranches({
   savoir,
@@ -486,14 +509,25 @@ function MesBranches({
         const n = ouvertsDansLaBranche(b, savoir)
         const compte = `${n} / ${b.portraits.length}`
         if (b.key !== depliee) {
-          // Sur sa ligne, le dernier portrait gagné — ou le premier, en silhouette.
+          // Sur sa ligne, le dernier portrait gagné — ou le premier, en
+          // silhouette —, sa catégorie et ce qui manque : deux lignes, pas
+          // trois. La phrase entière, portrait nommé, se lit dépliée — et
+          // l'oreille l'entend d'ici.
           const vitrine = b.portraits[Math.max(0, n - 1)]
+          const manque = prochainDansLaBranche(b, savoir)?.manque
           return (
-            <button key={b.key} type="button" className="ligne-branche" aria-expanded={false} onClick={() => deplier(b.key)}>
+            <button
+              key={b.key}
+              type="button"
+              className="ligne-branche"
+              aria-expanded={false}
+              aria-label={`${b.nom}, ${compte}. ${ceQuiVient(b, savoir)}`}
+              onClick={() => deplier(b.key)}
+            >
               <span className="ligne-branche-dessin">{dessin(vitrine.key, n === 0)}</span>
               <span className="ligne-branche-texte">
                 <b>{b.nom}</b>
-                <span className="muted small">{ceQuiVient(b, savoir)}</span>
+                <span className="muted small">{`${b.categorie} · ${manque ? `encore ${manque}` : 'complète'}`}</span>
               </span>
               <span className="ligne-branche-compte">{compte}</span>
             </button>

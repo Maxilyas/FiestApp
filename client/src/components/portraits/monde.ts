@@ -40,6 +40,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     fond: ['#6cbfc4', '#236a7a', '#0a2830'],
     defs: u => rad(u + 't', '#dea06a', '#a8622f') + lin(u + 'n', '#bf7a44', '#7c4520') + lin(u + 'v', '#fbeedd', '#e6caa6'),
     decor: DECOR,
+    // Le petit dans sa poche : de face, sans lui, un kangourou passe pour une biche.
     corps: u => `
       <path d="M24,100 C26,87 37,80 50,80 C63,80 74,87 76,100 Z" fill="url(#${u}n)"/>
       <path d="M38.5,100 C39.5,90 44,85 50,85 C56,85 60.5,90 61.5,100 Z" fill="url(#${u}v)"/>
@@ -57,8 +58,6 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       ${miroir('<path d="M37,37 C31.5,29 28,19.5 29,11 C29.3,8.6 31.8,8.2 33.4,10 C38.6,16 42.4,22.6 44.8,30 Z" fill="#b8733f"/><path d="M37.8,32.6 C34,26.4 31.8,19.8 32,14 C35.4,17.8 38.8,23.2 40.9,29.2 Z" fill="#f2bfa4"/><path d="M29.2,12.5 C29.2,9.4 31.4,8.2 33.4,10 C34.6,11.4 35.6,12.8 36.5,14.2 C34,13.2 31.4,12.6 29.2,12.5 Z" fill="#5a3218"/>')}
       <path d="M50,28 C61.5,28 67.5,35.5 67,45 C66.5,52.5 62,57.5 59.5,63 C58,69 55.5,76.5 50,77.5 C44.5,76.5 42,69 40.5,63 C38,57.5 33.5,52.5 33,45 C32.5,35.5 38.5,28 50,28 Z" fill="url(#${u}t)"/>
       <ellipse cx="50" cy="37" rx="7.5" ry="4.5" fill="#eab47e" opacity=".5"/>
-      <ellipse cx="40.6" cy="54" rx="3.6" ry="2" fill="#f6dcbc" opacity=".35" transform="rotate(20 40.6 54)"/>
-      <ellipse cx="59.4" cy="54" rx="3.6" ry="2" fill="#f6dcbc" opacity=".35" transform="rotate(-20 59.4 54)"/>
       <path d="M43.6,63 C44,58.4 56,58.4 56.4,63 C56.4,70.5 53.4,76.6 50,77.5 C46.6,76.6 43.6,70.5 43.6,63 Z" fill="url(#${u}v)"/>
       <ellipse cx="41.6" cy="47.6" rx="3" ry="3.3" fill="#1d100a"/><ellipse cx="58.4" cy="47.6" rx="3" ry="3.3" fill="#1d100a"/>
       ${reflet(40.5, 46.4, 1.1)}${reflet(57.3, 46.4, 1.1)}
@@ -74,6 +73,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     fond: ['#5fb3cf', '#1f5e80', '#0a2434'],
     defs: u => lin(u + 'l', '#fffaf1', '#e6d6bd') + lin(u + 'm', '#f4e9d7', '#cdb795') + lin(u + 'r', '#dc3f58', '#a01f3e'),
     decor: DECOR,
+    // Les pompons des Andes et la couverture tissée : en petit, c'est leur couleur qui dit « lama ».
     corps: u => `
       <path d="M39,62 C36.5,65 38.5,68.5 37,71.5 C35.5,74.5 37.5,78 36.5,81 C36,83 36.5,85 37,86 L63,86 C63.5,85 64,83 63.5,81 C62.5,78 64.5,74.5 63,71.5 C61.5,68.5 63.5,65 61,62 Z" fill="url(#${u}m)"/>
       <path d="M41.5,77.5 C43,76.3 44.8,76.7 45.4,78.3 M54.6,80 C56.1,78.8 57.9,79.2 58.5,80.8 M57.5,72.5 C58.6,71.6 59.8,71.8 60.3,72.9" stroke="#d6c3a2" stroke-width=".8" fill="none" stroke-linecap="round"/>
@@ -134,6 +134,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     defs: u =>
       rad(u + 't', '#ffd0dc', '#ee8dab') + lin(u + 'n', '#f7a8bf', '#d86f90') + lin(u + 'v', '#fff1f5', '#fbd2de'),
     decor: DECOR,
+    // Les branchies en plumeau : un trait épais en tirets fait les barbes, la tige passe par-dessus.
     corps: u => `
       <path d="M24,100 C25,86 31,74 36,64 L64,64 C69,74 75,86 76,100 Z" fill="url(#${u}n)"/>
       <path d="M40,100 C41,90 45,85.5 50,85.5 C55,85.5 59,90 60,100 Z" fill="url(#${u}v)"/>
@@ -159,20 +160,21 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     fond: ['#68bcc0', '#22656f', '#0a262c'],
     defs: u => lin(u + 'e', '#e0ae6c', '#8a5a2c') + lin(u + 'p', '#e8c6b6', '#ad8070') + lin(u + 'n', '#6b4526', '#3e2410'),
     decor: DECOR,
+    // Un dôme d'écailles d'où sort un museau pointu : le capuchon rejoint le corps, sans marche.
     corps: u => `
       <path d="M18,100 C15,85 16,68 24,58 C28,52 31,47 36,45 L64,45 C69,47 72,52 76,58 C84,68 85,85 82,100 Z" fill="url(#${u}n)"/>
       <g fill="url(#${u}e)" stroke="#5a3a1c" stroke-width=".7">
-        ${rangee(91, [25, 35, 45, 55, 65, 75], 11, 9.5)}${rangee(82, [20, 30, 40, 50, 60, 70, 80], 11, 9.5)}${rangee(73, [22, 31, 40, 60, 69, 78], 10, 9)}${rangee(64, [24, 33, 67, 76], 10, 9)}${rangee(56, [28, 72], 10, 8.5)}${rangee(47.5, [32, 68], 9, 8.5)}
+        ${rangee(91, [25, 35, 45, 55, 65, 75], 11, 9.5)}${rangee(82, [20, 30, 40, 50, 60, 70, 80], 11, 9.5)}${rangee(73, [22, 31, 40, 60, 69, 78], 10, 9)}${rangee(64, [24, 33, 67, 76], 10, 9)}${rangee(56, [28, 72], 10, 8.5)}${rangee(46.5, [30.5, 69.5], 9, 8.5)}
       </g>
-      <path d="M50,32 C59,32 64,38.5 64,46 C64,53 60,58.5 56.5,64 C54.5,68.5 52.5,75 50,75 C47.5,75 45.5,68.5 43.5,64 C40,58.5 36,53 36,46 C36,38.5 41,32 50,32 Z" fill="url(#${u}p)"/>
+      <path d="M50,32 C58,32 62.5,38.5 62.5,46 C62.5,53 59,58.5 56,64 C54.2,68.5 52.3,75 50,75 C47.7,75 45.8,68.5 44,64 C41,58.5 37.5,53 37.5,46 C37.5,38.5 42,32 50,32 Z" fill="url(#${u}p)"/>
       <ellipse cx="48.6" cy="62" rx="1.3" ry="4.5" fill="#fff" opacity=".25"/>
       <g fill="url(#${u}e)" stroke="#5a3a1c" stroke-width=".7">
-        ${rangee(36.5, [38, 46, 54, 62], 9, 8)}${rangee(30.5, [42, 50, 58], 9, 7.5)}${rangee(25.5, [46, 54], 8.5, 6.5)}
+        ${rangee(37, [33, 41.5, 50, 58.5, 67], 9, 8)}${rangee(31, [37.2, 45.7, 54.3, 62.8], 9, 7.5)}${rangee(25.5, [41.5, 50, 58.5], 9, 7)}${rangee(21, [46, 54], 8.5, 6)}
       </g>
-      <path d="M40.6,49.8 C41.9,48.3 44.5,48.3 45.8,49.8 M59.4,49.8 C58.1,48.3 55.5,48.3 54.2,49.8" stroke="#8a5a3a" stroke-width=".9" fill="none" stroke-linecap="round"/>
-      <circle cx="43.2" cy="52.4" r="2.4" fill="#20140c"/><circle cx="56.8" cy="52.4" r="2.4" fill="#20140c"/>
-      ${reflet(42.4, 51.6, 0.85)}${reflet(56, 51.6, 0.85)}
-      <ellipse cx="40.6" cy="58.6" rx="2.5" ry="1.5" fill="#ff9a7a" opacity=".4"/><ellipse cx="59.4" cy="58.6" rx="2.5" ry="1.5" fill="#ff9a7a" opacity=".4"/>
+      <path d="M41.2,49.8 C42.4,48.4 44.8,48.4 46,49.8 M58.8,49.8 C57.6,48.4 55.2,48.4 54,49.8" stroke="#8a5a3a" stroke-width=".9" fill="none" stroke-linecap="round"/>
+      <circle cx="43.6" cy="52.3" r="2.3" fill="#20140c"/><circle cx="56.4" cy="52.3" r="2.3" fill="#20140c"/>
+      ${reflet(42.8, 51.5, 0.8)}${reflet(55.6, 51.5, 0.8)}
+      <ellipse cx="41.4" cy="58.4" rx="2.3" ry="1.4" fill="#ff9a7a" opacity=".4"/><ellipse cx="58.6" cy="58.4" rx="2.3" ry="1.4" fill="#ff9a7a" opacity=".4"/>
       <ellipse cx="50" cy="71.6" rx="2.2" ry="1.5" fill="#3a2418"/>
       <ellipse cx="49.2" cy="71.1" rx=".8" ry=".4" fill="#fff" opacity=".5"/>`,
   },

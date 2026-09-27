@@ -342,10 +342,13 @@ test('dans la grille des avatars, seuls bougent le porté, l’ouvert et celui q
   // formes de chaque médaillon.
   // Une famille à la fois (`familleInitiale`) : chacune a sa grille.
   const cases: { classes: string[]; nom: string }[] = []
-  for (const familleInitiale of ['branches', 'emojis', 'collection', 'legendaires', 'divins']) {
+  for (const familleInitiale of ['branches', 'emojis', 'legendaires']) {
     const html = await rendu('components/Apparence', 'MesAvatars', { profil: HABITUE, busy: false, enregistrer: () => {}, familleInitiale })
     assert.match(html, /class="emoji-grid grille-unique/)
-    for (const m of html.matchAll(/<button[^>]*class="([^"]*)"[^>]*aria-label="([^"]*)"/g)) cases.push({ classes: m[1].split(' '), nom: m[2] })
+    // Les cases des grilles : pas les lignes des branches, qui déplient sans rien animer.
+    for (const m of html.matchAll(/<button[^>]*class="([^"]*)"[^>]*aria-label="([^"]*)"/g)) {
+      if (m[1] !== 'ligne-branche') cases.push({ classes: m[1].split(' '), nom: m[2] })
+    }
   }
   assert.ok(cases.length > 40, 'les grilles sont rendues')
   for (const c of cases) assert.ok(c.classes.includes('case-avatar'), c.nom)

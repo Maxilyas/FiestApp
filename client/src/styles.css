@@ -6071,16 +6071,23 @@ span.case-avatar { cursor: default; }
 .anneau-texte-divin { color: var(--anneau-divin); }
 .anneau-texte-collection { color: var(--anneau-collection); }
 .anneau-texte-collection-haut { color: var(--anneau-collection-haut); }
-.legende-anneaux { margin: 10px 0 0; line-height: 1.6; }
+.legende-anneaux { line-height: 1.6; }
 
 /* ── Mes avatars, par famille ──────────────────────────────────────────────
-   Cent vingt-neuf avatars : un onglet par famille, et son compte, plus
-   discret que son nom. */
-.onglets-familles { margin: 10px 0 12px; }
-/* Chaque onglet à la largeur de son nom et de son compte, qui ne se coupe
-   jamais : à parts égales, « 31 / 72 » tombait sur trois lignes. */
-.onglets-familles .onglet { flex: 1 1 auto; white-space: nowrap; }
-.onglet-compte { font-size: var(--t-label); font-weight: 600; opacity: 0.8; font-variant-numeric: tabular-nums; }
+   Cent vingt-neuf avatars : trois onglets sur une seule rangée, et le
+   compte de chaque partie à côté de son titre, pas dans l'onglet. */
+.onglets-familles { margin: 10px 0 4px; }
+/* Chaque partie d'une famille : son titre et son compte, puis ses cases. */
+.famille-titre {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 16px 0 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.famille-compte { color: var(--muted); font-size: var(--t-label); font-weight: 600; font-variant-numeric: tabular-nums; }
+.famille-note { margin: -4px 0 10px; }
 
 /* Les branches : une dépliée, les autres sur une ligne chacune. */
 .branches { display: flex; flex-direction: column; gap: 4px; }

@@ -13,11 +13,11 @@ const ONDES =
 
 /** Une croche dessinée — tête penchée, hampe, crochet —, jamais un caractère : sa police manquerait. */
 const croche = (x: number, y: number, s: number, couleur = '#fff', op = 0.45) =>
-  `<g transform="translate(${x} ${y}) scale(${s})" fill="${couleur}" opacity="${op}"><ellipse rx="2" ry="1.45" transform="rotate(-20)"/><path d="M1.4,-.4 L1.4,-8.6 L2.1,-8.6 C2.4,-6.8 4.6,-6.4 4.4,-3.6 C4,-5 3.2,-5.6 2.1,-5.8 L2.1,-.4 Z"/></g>`
+  `<g transform="translate(${x} ${y}) scale(${s})" fill="${couleur}" opacity="${op}"><ellipse rx="2" ry="1.5" transform="rotate(-20)"/><path d="M1.4,-.4 L1.4,-8.6 L2.1,-8.6 C2.4,-6.8 4.6,-6.4 4.4,-3.6 C4,-5 3.2,-5.6 2.1,-5.8 L2.1,-.4 Z"/></g>`
 
 /** Deux croches liées par leur barre. */
 const doubleCroche = (x: number, y: number, s: number, couleur = '#fff', op = 0.45) =>
-  `<g transform="translate(${x} ${y}) scale(${s})" fill="${couleur}" opacity="${op}"><ellipse rx="2" ry="1.45" transform="rotate(-20)"/><ellipse cx="6.5" cy="-1.5" rx="2" ry="1.45" transform="rotate(-20 6.5 -1.5)"/><path d="M1.4,-.4 L1.4,-8.6 L8.6,-10.4 L8.6,-1.9 L7.9,-1.9 L7.9,-8.2 L2.1,-6.8 L2.1,-.4 Z"/></g>`
+  `<g transform="translate(${x} ${y}) scale(${s})" fill="${couleur}" opacity="${op}"><ellipse rx="2" ry="1.5" transform="rotate(-20)"/><ellipse cx="6.5" cy="-1.5" rx="2" ry="1.5" transform="rotate(-20 6.5 -1.5)"/><path d="M1.4,-.4 L1.4,-8.6 L8.6,-10.4 L8.6,-1.9 L7.9,-1.9 L7.9,-8.2 L2.1,-6.8 L2.1,-.4 Z"/></g>`
 
 export const DESSINS: Record<string, DessinDePortrait> = {
   'br:dj': {
@@ -58,12 +58,14 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       '<path d="M22,0 L34,0 L62,100 L46,100 Z" fill="#8ff5e6" opacity=".1"/><path d="M78,0 L66,0 L38,100 L54,100 Z" fill="#ffd36e" opacity=".1"/>' +
       etoile(16, 34, 3, '#fff', 0.7) +
       points([[85, 30, 0.8], [12, 60, 0.6], [80, 12, 0.5]], '#fff', 0.7),
+    // Plaque noire et micros crème : deux micros noirs sur une plaque blanche
+    // faisaient un clavier de piano.
     corps: u => `
       <path d="M37,50 C34,38 40,29 51,28.5 C62,28.5 68,36 67,48 C68,58 71,66 69,76 C65,77 62,72 61,66 L39,56 Z" fill="url(#${u}h)"/>
       <path d="M20,100 C22,86 34,78 50,78 C66,78 78,86 80,100 Z" fill="url(#${u}v)"/>
       <path d="M43.5,78.5 L50,91 L56.5,78.5 Z" fill="#f2eef4"/>
       <path d="M43.5,78.5 L50,91 L45,100 L36,81 Z M56.5,78.5 L50,91 L55,100 L64,81 Z" fill="#2a2530"/>
-      <path d="M29,88h0M32,85.4h0M71,88h0M68,85.4h0" stroke="#e0e0ea" stroke-width="1.7" stroke-linecap="round"/>
+      <path d="M29,88h.01M32,85.4h.01M71,88h.01M68,85.4h.01" stroke="#e0e0ea" stroke-width="1.7" stroke-linecap="round"/>
       <path d="M45,66 L45,79 L55,79 L55,66 Z" fill="#e0a88c"/>
       <ellipse cx="36.4" cy="52" rx="2.3" ry="3.5" fill="#eab89e"/>
       <circle cx="36.4" cy="57.2" r="1.8" fill="none" stroke="#e8e8f0" stroke-width=".8"/>
@@ -84,9 +86,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
         <path d="M-8.5,-1 C-8.5,-4.5 -5.5,-5.5 -2,-5 L5.5,-4 L5.5,4 C3,5.6 -2,7.5 -5.5,6.8 C-7.6,6.2 -8.5,3 -8.5,-1 Z" fill="#1c1418"/>
         <g fill="#f2e6c8"><rect x="-3.6" y="-3.4" width="2.2" height="6.8" rx=".5"/><rect x="1.2" y="-3.4" width="2.2" height="6.8" rx=".5"/></g>
         <rect x="-7.4" y="-3" width="1.3" height="6" fill="#d4d4de"/>
-        <path d="M-6.6,7.2h0M-3.4,7.8h0" stroke="#f1c653" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M-6.6,7.2h.01M-3.4,7.8h.01" stroke="#f1c653" stroke-width="2.2" stroke-linecap="round"/>
         <rect x="8" y="-1.6" width="36" height="3.2" fill="url(#${u}m)"/>
-        <path d="M14,0 h0 M22,0 h0 M30,0 h0 M38,0 h0" stroke="#f6ead0" stroke-width="1" stroke-linecap="round"/>
         <path d="M44,-2 L51,-3.4 C52.5,-3.4 53,-2.5 53,-1.5 L53,1.5 C53,2.5 52.5,3.4 51,3.4 L44,2 Z" fill="#1c1418"/>
         <path d="M45.5,-3.9 L52,-3.9 M45.5,3.9 L52,3.9" stroke="#d4d4de" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="0 2.6"/>
       </g>`,
@@ -132,7 +133,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
         <path d="M1.6,0 L3.4,20 C3.4,24.6 -.1,28.2 -4.8,28.2 C-9.4,28.2 -12.9,24.6 -12.9,20 C-12.9,16 -14.4,12.6 -16.4,10.4 L-3,10.4 C-4.7,12.8 -6.1,16.4 -6.1,20 C-6.1,20.8 -5.5,21.4 -4.8,21.4 C-4,21.4 -3.4,20.8 -3.4,20 L-1.6,0 Z" fill="url(#${u}o)"/>
         <ellipse cx="-9.7" cy="10.4" rx="6.7" ry="1.7" fill="#8a5a14"/>
         <path d="M-15,11.4 C-12,12.6 -7,12.6 -4.2,11.4" stroke="#fff4c0" stroke-width=".6" fill="none" opacity=".7"/>
-        <path d="M0,4.5 h0 M.3,8.5 h0 M.6,12.5 h0 M.9,16.5 h0" stroke="#fff6d8" stroke-width="2" stroke-linecap="round"/>
+        <path d="M0,4.5 h.01 M.3,8.5 h.01 M.6,12.5 h.01 M.9,16.5 h.01" stroke="#fff6d8" stroke-width="2" stroke-linecap="round"/>
         <circle cx="3" cy="14.5" r="1.3" fill="#e8b440" stroke="#8a5a14" stroke-width=".4"/>
       </g>`,
   },
@@ -140,7 +141,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
   'br:violoniste': {
     fond: ['#df6ab4', '#652082', '#1c0a2c'],
     defs: u =>
-      lin(u + 'p', '#f7d6bf', '#e3ab8e') +
+      lin(u + 'p', '#eec29c', '#cf9068') +
       lin(u + 'h', '#f2cf78', '#b9852e') +
       lin(u + 'r', '#2e2436', '#110d16') +
       lin(u + 'v', '#f0913e', '#94400f', 1, 1),
@@ -150,24 +151,26 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       croche(82, 30, 1.1) +
       doubleCroche(20, 70, 0.8, '#fff', 0.35) +
       points([[28, 14, 0.6], [74, 12, 0.5], [88, 56, 0.5]], '#fff', 0.6),
+    // Le violon à l'échelle de la tête — plus petit, il passait pour un
+    // ukulélé —, sa volute sous le cercle d'une finition.
     corps: u => `
       <path d="M35,54 C32,40 39,29 50,29 C61,29 68,40 65,54 C63,48 60,43 50,42 C40,43 37,48 35,54 Z" fill="url(#${u}h)"/>
       <path d="M22,100 C24,87 36,79.5 50,79.5 C64,79.5 76,87 78,100 Z" fill="url(#${u}r)"/>
-      <path d="M45,66 L45,80 L55,80 L55,66 Z" fill="#e0a88a"/>
-      <path d="M42,79.8 C44,84.5 56,84.5 58,79.8 Z" fill="#e8b294"/>
+      <path d="M45,66 L45,80 L55,80 L55,66 Z" fill="#c4865e"/>
+      <path d="M42,79.8 C44,84.5 56,84.5 58,79.8 Z" fill="#d49a72"/>
       <path d="M37,44 C33,52 31,62 32,70 C32.6,77 30,83 26.5,88 C32,88 36.5,83 38.5,77 C40.5,70 40.5,58 40.5,50 Z" fill="url(#${u}h)"/>
       <path d="M34.4,56 C33.6,64 34.6,72 32.6,80" stroke="#a8742a" stroke-width=".8" fill="none" opacity=".6"/>
-      <ellipse cx="63.6" cy="52" rx="2.2" ry="3.4" fill="#eab496"/><circle cx="63.6" cy="56.4" r="1" fill="#fff"/>
+      <ellipse cx="63.6" cy="52" rx="2.2" ry="3.4" fill="#d9a07a"/><circle cx="63.6" cy="56.4" r="1" fill="#fff"/>
       <path d="M36.5,46 C36.5,38.5 42,34.5 50,34.5 C58,34.5 63.5,38.5 63.5,46 C63.5,58 58,68 50,70.5 C42,68 36.5,58 36.5,46 Z" fill="url(#${u}p)"/>
       <path d="M63.8,47 C64.5,38 58.5,32.5 50,32.5 C42,32.5 36.5,37.5 36,46 C39,40.5 45,38.5 51,39.5 C56,40.3 60,43 63.8,47 Z" fill="url(#${u}h)"/>
       <path d="M41,36.6 C44,34.6 48,34 51.6,34.6" stroke="#fff2c0" stroke-width="1" fill="none" opacity=".6" stroke-linecap="round"/>
       <path d="M40.8,50.2 C42.3,52.4 45.7,52.4 47.2,50.2 M52.8,50.2 C54.3,52.4 57.7,52.4 59.2,50.2" stroke="#3a2016" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       <path d="M41,50.6 L40,51.6 M59,50.6 L60,51.6" stroke="#3a2016" stroke-width=".8" stroke-linecap="round"/>
       <path d="M41,46 C42.8,45 45.2,45 47,45.8 M53,45.8 C54.8,45 57.2,45 59,46" stroke="#8a5a2a" stroke-width="1.1" fill="none" stroke-linecap="round"/>
-      <path d="M50.3,52.4 C49.6,55.4 49.4,56.8 50.6,57.4" stroke="#c08a70" stroke-width=".9" fill="none" stroke-linecap="round"/>
+      <path d="M50.3,52.4 C49.6,55.4 49.4,56.8 50.6,57.4" stroke="#a0643e" stroke-width=".9" fill="none" stroke-linecap="round"/>
       <g fill="#ff8fa3" opacity=".45"><ellipse cx="41.5" cy="57" rx="3.2" ry="1.8"/><ellipse cx="58.5" cy="57" rx="3.2" ry="1.8"/></g>
       <path d="M47,61.2 C48.8,62.8 51.2,62.8 53,61.2" stroke="#c0485a" stroke-width="1.1" fill="none" stroke-linecap="round"/>
-      <g transform="translate(49.5 80.5) rotate(64.5) scale(1.3)">
+      <g transform="translate(48.5 80.5) rotate(64.5) scale(1.27)">
         <path d="M0,0 C4,0 6.5,-2 6.5,-5 C6.5,-8 4,-9 4,-11 C4,-13 5.5,-14 5.5,-17 C5.5,-20 3,-22 0,-22 C-3,-22 -5.5,-20 -5.5,-17 C-5.5,-14 -4,-13 -4,-11 C-4,-9 -6.5,-8 -6.5,-5 C-6.5,-2 -4,0 0,0 Z" fill="url(#${u}v)"/>
         <path d="M-4,-19 C-3,-20.6 -1,-21.2 1,-21" stroke="#ffd9a8" stroke-width=".6" fill="none" opacity=".7"/>
         <ellipse cx="-3.4" cy="-2.6" rx="2.6" ry="1.8" fill="#2a1410"/>
@@ -229,17 +232,19 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'h', '#ffffff', '#c8c2d6') +
       lin(u + 'n', '#2e2a3a', '#0e0c14'),
     decor: () =>
-      '<g fill="none" stroke="#fff" stroke-width=".5" opacity=".18"><path d="M-2,34 C30,22 70,22 102,34"/><path d="M-2,37 C30,25 70,25 102,37"/><path d="M-2,40 C30,28 70,28 102,40"/><path d="M-2,43 C30,31 70,31 102,43"/><path d="M-2,46 C30,34 70,34 102,46"/></g>' +
+      '<path d="M0,33 C30,22 70,22 100,33 M0,36 C30,25 70,25 100,36 M0,39 C30,28 70,28 100,39 M0,42 C30,31 70,31 100,42 M0,45 C30,34 70,34 100,45" fill="none" stroke="#fff" stroke-width=".5" opacity=".18"/>' +
       croche(84, 30, 1.1) +
       doubleCroche(74, 64, 0.9, '#fff', 0.35) +
       croche(14, 68, 0.8, '#fff', 0.3),
+    // Les mèches bordées de leur propre dégradé : le trait arrondit leurs
+    // pointes, sinon des épines. La baguette blanche, cernée de sombre, ne se
+    // perd pas dans les cheveux blancs.
     corps: u => `
       <path d="M33,60 C28,62 22,61 20,58 C23,56 24,54 26,52 C22,52 16,51 14,47 C18,46 21,44 24,43 C19,42 15,38 16,33 C19,35 24,34 27,33 C24,30 21,25 24,20 C26,24 31,25 35,25 C34,20 36,14 40,11 C40,15 43,18 46,21 C47,15 51,11 56,10 C55,14 56,18 58,21 C62,15 67,14 72,15 C69,18 67,22 67,26 C73,24 80,25 84,30 C80,31 76,34 73,36 C79,38 85,41 87,46 C83,46 78,47 74,47 C80,50 82,54 81,58 C77,58 72,58 69,58 Z" fill="url(#${u}h)" stroke="url(#${u}h)" stroke-width="1.4" stroke-linejoin="round"/>
       <path d="M31,55 C27,55 24,54 22,57 M29,45 C24,46 20,46 17,45 M29,38 C25,38 21,37 19,35 M33,29 C29,27 27,24 26,22 M44,24 C43,20 42,16 41,13 M55,23 C54,19 55,15 56,12 M65,28 C66,24 68,20 71,17 M71,38 C75,36 79,35 82,33 M72,49 C76,50 78,53 79,56" stroke="#a8a0b8" stroke-width=".9" fill="none" stroke-linecap="round" opacity=".7"/>
       <path d="M21,100 C23,86 35,78.5 50,78.5 C65,78.5 77,86 79,100 Z" fill="url(#${u}n)"/>
       <path d="M42,78.5 L50,96 L58,78.5 Z" fill="#f6f4f8"/>
       <path d="M42,78.5 L50,96 L47,100 L35,81 Z M58,78.5 L50,96 L53,100 L65,81 Z" fill="#1a1622"/>
-      <path d="M36,81.6 L47.4,99 M64,81.6 L52.6,99" stroke="#6a6480" stroke-width=".7"/>
       <path d="M45,66 L45,79 L55,79 L55,66 Z" fill="#e0a88a"/>
       <path d="M50,80.5 L44.5,77.8 L44.5,83.2 Z M50,80.5 L55.5,77.8 L55.5,83.2 Z" fill="#fff" stroke="#9a94ac" stroke-width=".6" stroke-linejoin="round"/><circle cx="50" cy="80.5" r="1.3" fill="#e8e6ee" stroke="#9a94ac" stroke-width=".5"/>
       <ellipse cx="36.2" cy="52" rx="2.3" ry="3.5" fill="#eab496"/><ellipse cx="63.8" cy="52" rx="2.3" ry="3.5" fill="#eab496"/>

@@ -500,14 +500,18 @@ haut à gauche, pas d'anneau d'or — il reste aux légendaires.
   — la forêt sous une nuit violette, les océans dans les abysses — avec les
   paillettes : le personnage garde ses couleurs, qu'une rotation de teintes
   aurait rendues vertes.
-- **Dans le profil**, « Mes avatars » se range par famille — Branches,
-  Emojis, Collection, Légendaires, Divins —, un onglet chacune avec son
-  compte. Une branche se déplie (celle du portrait porté, sinon celle où l'on
-  sait le plus), les autres tiennent sur une ligne : leur dernier portrait,
-  ou la silhouette du premier, et ce qui vient en toutes lettres (« Encore 3
-  bonnes réponses en Histoire pour le Minotaure »). Ce qui reste à gagner se
-  voit en silhouette dorée, avec son palier. Le geste ne change pas : on
-  touche, la fiche s'ouvre, « Le porter ».
+- **Dans le profil**, « Mes avatars » se range en trois familles, sur une
+  seule rangée d'onglets : Branches, Emojis (ceux de collection dessous),
+  Légendaires (les Divins dessous) ; chaque partie a son titre et son compte.
+  Cinq onglets à compteur faisaient trois rangées au téléphone, un tiers de
+  l'écran avant le premier avatar. Une branche se déplie en tête (celle du
+  portrait porté, sinon celle où l'on sait le plus), les autres tiennent sur
+  une ligne : leur dernier portrait, ou la silhouette du premier, leur
+  catégorie et ce qui manque (« Histoire · encore 3 ») ; dépliée, la phrase
+  entière nomme le prochain (« Encore 3 bonnes réponses en Histoire pour le
+  Minotaure »). Ce qui reste à gagner se voit en silhouette dorée, avec son
+  palier. Le geste ne change pas : on touche, la fiche s'ouvre, « Le
+  porter ».
 - **La fin de soirée et celle du quiz du jour** annoncent les portraits
   ouverts (`portraits`), avec « Le porter ». L'écran commun ne les annonce
   pas : presque chaque soirée en ouvre, la clôture garde ses nouvelles pour
@@ -903,7 +907,7 @@ légendaires de saison (§ 5.4, idée 11) ; le laurier du vainqueur d'hier
 
 **Lot 8 — fait** : les avatars du savoir (§ 5.4 ter) — douze branches, une
 par catégorie, six portraits dessinés chacune, gagnés aux bonnes réponses ;
-« Mes avatars » rangé par famille.
+« Mes avatars » rangé en trois familles.
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

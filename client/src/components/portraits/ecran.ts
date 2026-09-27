@@ -34,14 +34,15 @@ function etoileA(n: number, x: number, y: number, R: number, r: number): string 
 
 /**
  * L'insigne du shérif : six branches et une boule au bout de chacune — sans
- * elles, c'est une fleur. Les boules sont des tracés de longueur nulle, qu'un
- * bout rond dessine en points : un élément pour six cercles.
+ * elles, c'est une fleur. Les boules sont des traits d'un centième qu'un bout
+ * rond fait ronds : un élément pour six cercles (de longueur nulle, certains
+ * navigateurs ne les dessineraient pas).
  */
 function insigne(x: number, y: number, R: number): string {
   let boules = ''
   for (let i = 0; i < 6; i++) {
     const a = -Math.PI / 2 + (i * Math.PI) / 3
-    boules += `M${(x + R * Math.cos(a)).toFixed(1)},${(y + R * Math.sin(a)).toFixed(1)}h0`
+    boules += `M${(x + R * Math.cos(a)).toFixed(1)},${(y + R * Math.sin(a)).toFixed(1)}h.01`
   }
   return `<path d="${etoileA(6, x, y, R, R * 0.62)}" fill="#f7d060" stroke="#b8862a" stroke-width=".4"/><path d="${boules}" stroke="#f7d060" stroke-width="1.9" stroke-linecap="round"/><circle cx="${x}" cy="${y}" r="${(R * 0.3).toFixed(1)}" fill="#fff3c0" stroke="#c8922a" stroke-width=".5"/>`
 }
@@ -55,7 +56,7 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'v', '#8e5a32', '#553018') +
       lin(u + 'f', '#4a90e0', '#1f4f99'),
     decor: () =>
-      pellicule('M-6,78 C14,66 24,40 44,24 C60,11 80,8 106,12', 0.28) +
+      pellicule('M0,74 C16,62 26,38 45,23 C60,11 80,8 100,11', 0.28) +
       points([[18, 58, 0.8], [84, 66, 0.7], [24, 16, 0.6], [80, 84, 0.6], [12, 44, 0.5]], '#ffe2a8'),
     corps: u => `
       <path d="M21,100 C23,87 35,79 50,79 C65,79 77,87 79,100 Z" fill="#efe2c8"/>
@@ -67,15 +68,14 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       <g fill="#d0946a"><ellipse cx="36.2" cy="51.5" rx="2.3" ry="3.5"/><ellipse cx="63.8" cy="51.5" rx="2.3" ry="3.5"/></g>
       <path d="M36,46 C36,40 42,37 50,37 C58,37 64,40 64,46 C64,58 58,68 50,70.5 C42,68 36,58 36,46 Z" fill="url(#${u}p)"/>
       <path d="M36.3,43 L40,43 L39.2,52.5 C37.8,51 36.8,48.5 36.3,45.5 Z M63.7,43 L60,43 L60.8,52.5 C62.2,51 63.2,48.5 63.7,45.5 Z" fill="#5c3418"/>
-      <path d="M36.5,44 C44,46.2 56,46.2 63.5,44 L63.8,47.4 C56,49.6 44,49.6 36.2,47.4 Z" fill="#6a3418" opacity=".22"/>
       <path d="M39.6,48.2 C41.6,47 45,47 47,48 M53,48 C55,47 58.4,47 60.4,48.2" stroke="#4a2812" stroke-width="1.3" fill="none" stroke-linecap="round"/>
       <path d="M39.8,51.8 C41.2,49.4 45.6,49.4 47,51.8 C45.6,53.8 41.2,53.8 39.8,51.8 Z M53,51.8 C54.4,49.4 58.8,49.4 60.2,51.8 C58.8,53.8 54.4,53.8 53,51.8 Z" fill="#fff"/>
       <g fill="#4a2c16"><circle cx="43.5" cy="51.7" r="1.9"/><circle cx="56.5" cy="51.7" r="1.9"/></g>
-      ${reflet(42.8, 51, 0.65)}${reflet(55.8, 51, 0.65)}
+      ${reflet(42.8, 51, 0.7)}${reflet(55.8, 51, 0.7)}
       <path d="M50.5,53 C49.6,56.2 49.4,57.8 50.8,58.4" stroke="#9a5e3a" stroke-width="1" fill="none" stroke-linecap="round"/>
       <g fill="#ff8a70" opacity=".35"><ellipse cx="40.5" cy="57.8" rx="3" ry="1.7"/><ellipse cx="59.5" cy="57.8" rx="3" ry="1.7"/></g>
       <path d="M45,61.6 C47.5,64.6 52.5,64.6 55.5,60.9" stroke="#7a3a22" stroke-width="1.3" fill="none" stroke-linecap="round"/>
-      <path d="M54.6,62.3 L64.2,58.8 M63.6,59 L66.6,57.2 M64.6,58.6 L67,59" stroke="#f0cf6a" stroke-width=".8" stroke-linecap="round"/>
+      <path d="M54.6,62.3 L64.2,58.8 M63.4,59.1 L66.8,57.4" stroke="#f0cf6a" stroke-width=".8" stroke-linecap="round"/>
       <path d="M34.5,37.5 C33.5,28 34.5,19.5 38,14.8 C40.5,11.8 45,12.3 50,15.2 C55,12.3 59.5,11.8 62,14.8 C65.5,19.5 66.5,28 65.5,37.5 Z" fill="url(#${u}h)"/>
       <path d="M50,15.6 C49.4,21 49.4,27 50,31.5 M37.6,29.5 C37.1,24 38,19.2 40.5,16.2" stroke="#f4c890" stroke-width="1" fill="none" opacity=".45" stroke-linecap="round"/>
       <path d="M34.3,31.5 C44,33.5 56,33.5 65.7,31.5 L65.6,36 C56,38 44,38 34.4,36 Z" fill="#4a2810"/>
@@ -199,8 +199,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
       lin(u + 'cape', '#44dccb', '#12877d') +
       lin(u + 'o', '#fff4b8', '#e8a82a'),
     decor: () =>
-      faisceau('M-4,100 L6,100 L46,0 L34,0 Z', 0.1) +
-      faisceau('M104,100 L94,100 L54,0 L66,0 Z', 0.1) +
+      faisceau('M0,100 L8,100 L46,0 L34,0 Z', 0.1) +
+      faisceau('M100,100 L92,100 L54,0 L66,0 Z', 0.1) +
       etoile(84, 26, 2.4, '#fff', 0.75) +
       etoile(30, 12, 1.8, '#fff', 0.6) +
       points([[88, 54, 0.6], [74, 10, 0.5], [90, 70, 0.5]], '#fff'),

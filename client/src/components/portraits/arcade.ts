@@ -34,6 +34,8 @@ const A = '#141b28'
 export const DESSINS: Record<string, DessinDePortrait> = {
   'br:slime': {
     fond: ['#4cc2c8', '#16607a', '#07192b'],
+    // Une goutte qui penche et s'étale en flaque : droite et pointue, elle
+    // avait, verrouillée, la silhouette du chevalier.
     decor: () => GRILLE + ETOILES([...CIEL, [72, 14]]),
     corps: () =>
       pixels(
@@ -73,29 +75,29 @@ export const DESSINS: Record<string, DessinDePortrait> = {
     corps: () =>
       pixels(
         [
-          '..............A..',
-          '.............ASA.',
-          '.............ASA.',
-          '.....AAAAAA..ASA.',
-          '...AABBBBBCAAASA.',
-          '..ABBBBBBBBCCASA.',
-          '..ABBBBBBBBBCASA.',
-          '..ABEEEBBEEECASA.',
-          '..ABEREBBERECASA.',
-          '..ABEEEBBEEEDASA.',
-          '..ABBBBEEBBBCASA.',
-          '...ABBBBBBBCAASA.',
-          '...ABABABABCAASA.',
-          '....ABBBBBCA.ASA.',
-          '.....AAAAAA.AASAA',
-          '......ABCA..AGGGA',
-          '..AAAAABCAAAABBCA',
-          '.ABBBBBBBBBBACCDA',
-          '.AEEEEEBCEEEEAGA.',
-          '.ABBBBBBCBBBBCA..',
-          '.ABEEEEBCEEEEBA..',
-          '.ABBBBBBCBBBBCA..',
-          '.ABEEEEBCEEEEBA..',
+          '...............A..',
+          '..............ASA.',
+          '..............ASA.',
+          '......AAAAAA..ASA.',
+          '....AABBBBBCAAASA.',
+          '...ABBBBBBBBCCASA.',
+          '...ABBBBBBBBBCASA.',
+          '...ABEEEBBEEECASA.',
+          '...ABEREBBERECASA.',
+          '...ABEEEBBEEEDASA.',
+          '...ABBBBEEBBBCASA.',
+          '....ABBBBBBBCAASA.',
+          '....ABABABABCAASA.',
+          '.....ABBBBBCA.ASA.',
+          '......AAAAAA.AASAA',
+          '.......ABCA..AGGGA',
+          '...AAAAABCAAAABBCA',
+          '..ABBBBBBBBBBACCDA',
+          '..AEEEEEBCEEEEAGA.',
+          '..ABBBBBBCBBBBCA..',
+          '..ABEEEEBCEEEEBA..',
+          '..ABBBBBBCBBBBCA..',
+          '..ABEEEEBCEEEEBA..',
         ],
         { A, B: '#f3eee0', C: '#cfc5aa', D: '#9a8f76', E: '#1d1826', R: '#ff5a3c', S: '#dfe6f0', G: '#c99a3e' },
       ),
@@ -103,6 +105,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
 
   'br:coffre': {
     fond: ['#3fbac4', '#135a73', '#061a28'],
+    // Le vide aux coins de la bouche, c'est le couvercle soulevé : sans lui,
+    // la silhouette n'était qu'une pierre tombale.
     decor: () => GRILLE + ETOILES([...CIEL, [72, 14]]),
     corps: () =>
       pixels(
@@ -214,53 +218,53 @@ export const DESSINS: Record<string, DessinDePortrait> = {
 
   'br:mage': {
     fond: ['#52b6d6', '#1a5580', '#08172e'],
-    // La lueur de la gemme, en carrés, sur la grille du bâton (une colonne
-    // de plus à gauche : même pas, même alignement). Dans le décor : dans le
-    // corps, elle ferait une bosse à la silhouette.
+    // La lueur de la gemme, en carrés : la grille du bâton élargie d'une
+    // colonne de chaque côté, pour tomber sur les mêmes cases. Dans le décor :
+    // dans le corps, elle ferait une bosse à la silhouette.
     decor: () =>
       GRILLE +
       ETOILES(CIEL) +
-      pixels(
+      `<g opacity=".35">${pixels(
         [
-          '................ooo..',
-          '...............o...o.',
-          '..............o.....o',
-          '..............o.....o',
-          '..............o.....o',
-          '...............o...o.',
-          '................ooo..',
+          '.................ooo..',
+          '................o...o.',
+          '...............o.....o',
+          '...............o.....o',
+          '...............o.....o',
+          '................o...o.',
+          '.................ooo..',
         ],
         { o: '#fff4c8' },
         3.5,
         13.5,
-      ).replace('<g ', '<g opacity=".35" '),
+      )}</g>`,
     corps: () =>
       pixels(
         [
-          '.......AA..........',
-          '......ALDA.....AAA.',
-          '......ALHDA...AOCCA',
-          '.....ALHHYDA..ACCCA',
-          '.....ALHHHHDA.ACCQA',
-          '....ALYHHHHHDA.AAA.',
-          '...ABBBBBBBBBBAAFA.',
-          '.AALHHHHHHHHHHDAFA.',
-          'ALHHHHHHHHHHHHDAFA.',
-          '.AAWWWWWWWWWVVVAFA.',
-          '..AWWSOKSSOKSVVAFA.',
-          '..AWWSKKSSKKSVVAFA.',
-          '..AWWPSSSSSSPVVAFA.',
-          '..AWWSSSMMSSSVVAFA.',
-          '..AWWVTSSSSTVVVAFA.',
-          '.AWWWVHBBBBHVVUAFA.',
-          'AWWWVLHYYHHHVVASSTA',
-          'AWWVLHHHHHHHVUATTTA',
-          'AWVLHHHHHHHHHVUAFA.',
-          'AVLHHHHHHHHHHHDAFAD',
-          'ALHHHHHHHHHHHHDAFAD',
-          'ALHHHHHHHHHHHHDAFAD',
-          'ALHHHHHHHHHHHDDAFAD',
-          'ALHHHHHHHHHHHDDAFAD',
+          '........AA..........',
+          '.......ALDA.....AAA.',
+          '.......ALHDA...AOCCA',
+          '......ALHHYDA..ACCCA',
+          '......ALHHHHDA.ACCQA',
+          '.....ALYHHHHHDA.AAA.',
+          '....ABBBBBBBBBBAAFA.',
+          '..AALHHHHHHHHHHDAFA.',
+          '.ALHHHHHHHHHHHHDAFA.',
+          '..AAWWWWWWWWWVVVAFA.',
+          '...AWWSOKSSOKSVVAFA.',
+          '...AWWSKKSSKKSVVAFA.',
+          '...AWWPSSSSSSPVVAFA.',
+          '...AWWSSSMMSSSVVAFA.',
+          '...AWWVTSSSSTVVVAFA.',
+          '..AWWWVHBBBBHVVUAFA.',
+          '.AWWWVLHYYHHHVVASSTA',
+          '.AWWVLHHHHHHHVUATTTA',
+          '.AWVLHHHHHHHHHVUAFA.',
+          '.AVLHHHHHHHHHHHDAFAD',
+          '.ALHHHHHHHHHHHHDAFAD',
+          '.ALHHHHHHHHHHHHDAFAD',
+          '.ALHHHHHHHHHHHDDAFAD',
+          '.ALHHHHHHHHHHHDDAFAD',
         ],
         {
           A,
@@ -289,6 +293,8 @@ export const DESSINS: Record<string, DessinDePortrait> = {
 
   'br:chevalier': {
     fond: ['#45b9cc', '#16597a', '#07192b'],
+    // Celui de la maquette, rang pour rang ; elle s'arrêtait à la ceinture,
+    // trois rangs de tabard le mènent au bas du disque, comme les autres.
     decor: () => GRILLE + ETOILES([...CIEL, [72, 14]]),
     corps: () =>
       pixels(
