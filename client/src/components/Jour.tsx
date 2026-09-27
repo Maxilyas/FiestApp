@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { formatNumber, place, pts } from '../format'
+import { formatNumber, pts } from '../format'
+import { placeDuJour } from '../../../shared/course'
 import {
   NOM_MEDAILLE,
+  jourDe,
   jourEnToutesLettres,
   type CarriereDuJour,
   type JourJoue,
@@ -10,7 +12,7 @@ import {
   type PartieDuJour,
 } from '../../../shared/jour'
 import type { PointJoue } from './Carriere'
-import { Icon } from './Icon'
+import { Flamme, Icon } from './Icon'
 import { enumerer } from '../../../shared/classement'
 
 // Les petites pièces du quiz du jour : la médaille, la flamme de la série, et
@@ -36,21 +38,6 @@ export function Medaille({ medaille, className }: { medaille: TypeDeMedaille; cl
   )
 }
 
-/** La série de jours joués : une flamme au trait. */
-export function Flamme({ className }: { className?: string }) {
-  return (
-    <svg className={'icon flamme' + (className ? ` ${className}` : '')} viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d="M12 21.5c3.9 0 6.4-2.5 6.4-6 0-3.2-2.1-5.2-3.3-6.9-.4 1.5-1.2 2.5-2.2 2.9.3-3-1.2-5.8-3.7-7.5.3 2.7-1 4.4-2.4 6.1-1.3 1.6-1.2 3.4-1.2 5.3 0 3.6 2.5 6.1 6.4 6.1z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 /** « 6 jours » : la série, avec sa flamme — rien tant qu'elle ne compte pas. */
 export function Serie({ jours }: { jours: number }) {
   if (jours < 1) return null
@@ -69,18 +56,31 @@ export function Serie({ jours }: { jours: number }) {
  * soirée reste au-dessus.
  */
 export function CarteDuJour() {
-  const [partie, setPartie] = useState<PartieDuJour | null>(null)
+  // `undefined` tant qu'elle arrive, `null` si elle ne viendra pas.
+  const [partie, setPartie] = useState<PartieDuJour | null | undefined>(undefined)
   useEffect(() => {
     let vivant = true
     // Une panne ici ne coûte que la carte : l'accueil reste là.
     api.jour
       .etat()
       .then(p => vivant && setPartie(p))
-      .catch(() => {})
+      .catch(() => vivant && setPartie(null))
     return () => {
       vivant = false
     }
   }, [])
+  // Sa place est gardée pendant qu'elle arrive : posée quatre cents
+  // millisecondes après la page, elle poussait les onglets de 233 px — et le
+  // pouce qui visait « Trophées » touchait la carte. Le jour se sait déjà ici.
+  if (partie === undefined)
+    return (
+      <section className="card jour-carte jour-carte-attente" aria-busy="true" aria-label="Le quiz du jour">
+        <div className="jour-tete">
+          <span className="label">Le quiz du jour</span>
+        </div>
+        <p className="jour-date">{capitale(jourEnToutesLettres(jourDe(Date.now())))}</p>
+      </section>
+    )
   if (!partie || partie.etat === 'aucun') return null
   const categories = partie.categories.slice(0, 3).join(', ') + (partie.categories.length > 3 ? '…' : '')
   return (
@@ -90,14 +90,25 @@ export function CarteDuJour() {
         <Serie jours={partie.serie} />
       </div>
       <p className="jour-date">{capitale(jourEnToutesLettres(partie.jour))}</p>
+      {/* La récompense d'hier, là où l'on arrive : son détail attendait sur /jour. */}
+      {partie.sonHier && partie.sonHier.xpPodium > 0 && (
+        <p className="jour-hier">
+          Hier : {placeDuJour(partie.sonHier.rang, partie.sonHier.joueurs, partie.sonHier.points)} · +{partie.sonHier.xpPodium} XP
+        </p>
+      )}
+      {/* Ce qui fait revenir, dit une fois, sur la page qu'on ouvre de soi-même :
+          rien ne disait qu'une série se perd à minuit. */}
+      {partie.etat === 'a-jouer' && !partie.serieTenue && partie.serie >= 2 && (
+        <p className="jour-hier">Ta série de {partie.serie} jours tient jusqu’à minuit.</p>
+      )}
       {partie.etat === 'finie' ? (
         <>
           <p className="jour-score">
             <span className="num">{formatNumber(partie.points)}</span> pts
-            {partie.rang > 0 && (
+            {placeDuJour(partie.rang, partie.joueurs, partie.points) && (
               <span className="muted">
                 {' '}
-                · {place(partie.rang)} sur {partie.joueurs} pour l’instant
+                · {placeDuJour(partie.rang, partie.joueurs, partie.points)} pour l’instant
               </span>
             )}
           </p>
@@ -162,7 +173,7 @@ export function MesJours({ jour }: { jour?: CarriereDuJour }) {
           <div className="soiree-texte">
             <span className="soiree-quand">{capitale(jourEnToutesLettres(j.jour))}</span>
             <span className="soiree-detail">
-              {pts(j.points)} · {place(j.rang)} sur {j.joueurs}
+              {[pts(j.points), placeDuJour(j.rang, j.joueurs, j.points)].filter(Boolean).join(' · ')}
               {j.medaille && ` · ${NOM_MEDAILLE[j.medaille].toLowerCase()}`}
             </span>
           </div>

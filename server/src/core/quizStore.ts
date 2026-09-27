@@ -3,6 +3,7 @@ import { ajouterColonne, clientDistant, type Client } from './distante'
 import {
   cleanTitle,
   MAX_SON_OCTETS,
+  MAX_TITRE,
   normalizeQuestions,
   PIECES_DE_QUESTION,
   rechercherDans,
@@ -14,6 +15,8 @@ import {
   type QuizSummary,
 } from '../../../shared/library'
 import { normaliserReglages } from '../../../shared/hasard'
+import { tronquer } from '../../../shared/avatars'
+import { piecesPerduesEnRoute } from '../../../shared/echange'
 
 /** Image trop lourde = base qui gonfle pour rien. Le navigateur compresse avant d'envoyer. */
 const MAX_IMAGE_DATAURL = 2_000_000
@@ -101,6 +104,9 @@ export class QuizStore {
     await ajouterColonne(this.client, 'quizzes', 'reglages', 'TEXT')
     // Un quiz archivé sort de la liste et du choix de la soirée, sans disparaître.
     await ajouterColonne(this.client, 'quizzes', 'archived_at', 'INTEGER')
+    // Depuis quand une photo n'est plus citée par le quiz qui la portait : le
+    // délai de grâce du ménage en part (`pruneImages`).
+    await ajouterColonne(this.client, 'quiz_images', 'orpheline_depuis', 'INTEGER')
     await this.client.batch(
       [
         'CREATE INDEX IF NOT EXISTS idx_quizzes_space ON quizzes(space_id)',
@@ -229,16 +235,37 @@ export class QuizStore {
     }
     // Sans réglages (une page d'avant), ceux du quiz restent : `COALESCE`.
     const regles = reglages === undefined ? null : JSON.stringify(normaliserReglages(reglages))
-    const res = await this.client.execute(
-      attendu === undefined
-        ? {
-            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ?, reglages = COALESCE(?, reglages) WHERE id = ? AND space_id = ?',
-            args: [quiz.title, JSON.stringify(quiz.questions), now, regles, id, spaceId],
-          }
-        : {
-            sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ?, reglages = COALESCE(?, reglages) WHERE id = ? AND space_id = ? AND updated_at = ?',
-            args: [quiz.title, JSON.stringify(quiz.questions), now, regles, id, spaceId, attendu],
-          },
+    const texte = JSON.stringify(quiz.questions)
+    // Les photos que cette version cesse de citer deviennent orphelines
+    // maintenant — pas à leur envoi, qui peut dater d'un an : le ménage qui
+    // suit l'enregistrement les effaçait aussitôt, et « Garder la mienne »,
+    // sur l'autre appareil, réenregistrait une question qui citait une photo
+    // disparue. Seulement si la version passe (`updated_at` est la sienne).
+    const avant = await this.client.execute({ sql: 'SELECT questions FROM quizzes WHERE id = ? AND space_id = ?', args: [id, spaceId] })
+    const gardees = new Set(photosCitees(texte))
+    const retirees = [...new Set(photosCitees(String(avant.rows[0]?.questions ?? '')))].filter(photo => !gardees.has(photo))
+    const [res] = await this.client.batch(
+      [
+        attendu === undefined
+          ? {
+              sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ?, reglages = COALESCE(?, reglages) WHERE id = ? AND space_id = ?',
+              args: [quiz.title, texte, now, regles, id, spaceId],
+            }
+          : {
+              sql: 'UPDATE quizzes SET title = ?, questions = ?, updated_at = ?, reglages = COALESCE(?, reglages) WHERE id = ? AND space_id = ? AND updated_at = ?',
+              args: [quiz.title, texte, now, regles, id, spaceId, attendu],
+            },
+        ...(retirees.length > 0
+          ? [
+              {
+                sql: `UPDATE quiz_images SET orpheline_depuis = ? WHERE space_id = ? AND id IN (${retirees.map(() => '?').join(', ')})
+                        AND EXISTS (SELECT 1 FROM quizzes WHERE id = ? AND space_id = ? AND updated_at = ?)`,
+                args: [now, spaceId, ...retirees, id, spaceId, now],
+              },
+            ]
+          : []),
+      ],
+      'write',
     )
     if (res.rowsAffected > 0) return (await this.get(spaceId, id)) ?? quiz
     if (attendu === undefined) return null
@@ -246,17 +273,33 @@ export class QuizStore {
   }
 
   async remove(spaceId: string, id: string): Promise<boolean> {
-    const res = await this.client.execute({
-      sql: 'DELETE FROM quizzes WHERE id = ? AND space_id = ?',
-      args: [id, spaceId],
-    })
+    // Ses photos deviennent orphelines maintenant (voir `save`).
+    const avant = await this.client.execute({ sql: 'SELECT questions FROM quizzes WHERE id = ? AND space_id = ?', args: [id, spaceId] })
+    const photos = [...new Set(photosCitees(String(avant.rows[0]?.questions ?? '')))]
+    const [res] = await this.client.batch(
+      [
+        { sql: 'DELETE FROM quizzes WHERE id = ? AND space_id = ?', args: [id, spaceId] },
+        ...(photos.length > 0
+          ? [
+              {
+                sql: `UPDATE quiz_images SET orpheline_depuis = ? WHERE space_id = ? AND id IN (${photos.map(() => '?').join(', ')})`,
+                args: [Date.now(), spaceId, ...photos],
+              },
+            ]
+          : []),
+      ],
+      'write',
+    )
     return res.rowsAffected > 0
   }
 
   async duplicate(spaceId: string, id: string): Promise<QuizDef | null> {
     const source = await this.get(spaceId, id)
     if (!source) return null
-    return this.create(spaceId, `${source.title} (copie)`, source.questions, undefined, source.reglages)
+    // Coupé à la longueur d'un titre, « (copie) » tombait d'un titre long :
+    // deux lignes de « Mes quiz » portaient le même nom. On coupe l'original.
+    const copie = ' (copie)'
+    return this.create(spaceId, `${tronquer(source.title, MAX_TITRE - copie.length).trim()}${copie}`, source.questions, undefined, source.reglages)
   }
 
   async count(spaceId: string): Promise<number> {
@@ -323,7 +366,10 @@ export class QuizStore {
         const id = idDe(q[champ])
         if (id) copie[champ] = (copies.get(id) ?? null) as Q[typeof champ]
       }
-      return copie
+      // Une pièce qui n'existe plus : la question arrive sans elle, sans se
+      // dire prête pour autant — comme à l'export (`piecesPerduesEnRoute`).
+      const perdue = (champ: PieceDeQuestion) => !!q[champ] && !copie[champ]
+      return { ...copie, ...piecesPerduesEnRoute(q as { photoAttendue?: unknown }, { image: perdue('image'), son: perdue('son') }) }
     })
   }
 
@@ -360,9 +406,13 @@ export class QuizStore {
   async pruneImages(spaceId: string, graceMs = IMAGE_GRACE_MS, enJeu: Iterable<string> = []): Promise<number> {
     // Une photo tout juste envoyée n'est référencée qu'au moment où l'on
     // enregistre la question. Sans ce délai de grâce, un ménage déclenché
-    // entre les deux l'effacerait sous les doigts de l'animateur.
+    // entre les deux l'effacerait sous les doigts de l'animateur. Une photo
+    // qu'un quiz vient de cesser de citer a le même délai, compté depuis ce
+    // moment (`orpheline_depuis`) : l'autre appareil peut encore la citer.
+    // « Au plus », pas « avant » : un délai nul vaut tout de suite, même dans
+    // la milliseconde du retrait — le smoke l'a pris en défaut en CI.
     const stored = await this.client.execute({
-      sql: 'SELECT id FROM quiz_images WHERE space_id = ? AND created_at < ?',
+      sql: 'SELECT id FROM quiz_images WHERE space_id = ? AND COALESCE(orpheline_depuis, created_at) <= ?',
       args: [spaceId, Date.now() - graceMs],
     })
     if (stored.rows.length === 0) return 0

@@ -11,9 +11,16 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createQuizServer, type QuizServerOptions } from '../src/server'
+import { calendrierDesSoirees } from '../src/core/saisons'
 import type { QuizQuestionDef } from '../../shared/library'
 
 export type { Socket }
+
+// Une soirée se date à l'horloge de la machine : jouée pendant Halloween,
+// Noël ou le Nouvel An, elle ouvrirait son légendaire de saison, et chaque
+// épreuve qui compte ce qui tombe à la clôture échouerait dix-neuf jours par
+// an. Le banc ferme le calendrier des soirées ; `saisons.test.ts` le rouvre.
+calendrierDesSoirees.periodeDu = () => null
 
 /** L'administrateur du banc : créé au premier démarrage, retrouvé aux suivants. */
 export const ADMIN = { login: 'antoine', password: 'banc-pass-1', slug: 'banc', name: 'Antoine' }

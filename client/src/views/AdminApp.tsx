@@ -2,14 +2,15 @@ import { deNom } from '../format'
 import { useEffect, useState, type FormEvent } from 'react'
 import { activationUrl, api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
-import { LienConsole } from '../components/LienConsole'
+import { NavAnimateur } from '../components/NavAnimateur'
 import { AdminDuJour } from '../components/AdminDuJour'
-import { confirmDialog, promptDialog } from '../components/Dialog'
+import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { showToast, useAppState } from '../state'
 import { formatDay } from '../../../shared/archive'
 import { normalizeSlug, type PublicAccount } from '../../../shared/space'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../../shared/partage'
 import type { QuizQuestionDef } from '../../../shared/library'
+import { copierTexte } from '../copier'
 
 /**
  * Les comptes (`/admin`), pour l'administrateur seul : créer le compte d'un
@@ -55,16 +56,40 @@ export function AdminApp() {
       input: { value: link },
       confirmLabel: 'Copier le lien',
     })
-    if (value) {
-      await navigator.clipboard.writeText(link).catch(() => {})
-      showToast({ kind: 'info', message: 'Lien copié' })
-    }
+    if (!value) return
+    // Hors https — le repli local —, le presse-papiers moderne n'existe pas :
+    // l'appel levait avant son `.catch`, et la boîte se fermait sans copie ni
+    // un mot. `copierTexte` passe par l'ancienne commande ; si le navigateur
+    // refuse encore, le lien revient à l'écran, à copier à la main.
+    if (await copierTexte(link)) return showToast({ kind: 'info', message: 'Lien copié' })
+    await promptDialog({
+      title: `Le lien d'activation ${deNom(account.name)}`,
+      message: 'Le navigateur n’a pas voulu le copier : sélectionne-le, puis copie-le à la main.',
+      input: { value: link },
+      confirmLabel: 'Fermer',
+    })
   }
 
   if (error) {
+    // « Réservée à l'administrateur », et rien d'autre : l'animateur venu
+    // d'un vieux lien restait devant une phrase (lot 12).
     return (
       <main className="center-page">
-        <p className="error">{error}</p>
+        <div className="impasse">
+          <p className="error">{error}</p>
+          <div className="row">
+            <a className="btn btn-ghost" href="/">
+              <Icon name="home" />
+              L’accueil
+            </a>
+            {me && (
+              <a className="btn btn-ghost" href="/compte">
+                <Icon name="users" />
+                Mon compte
+              </a>
+            )}
+          </div>
+        </div>
       </main>
     )
   }
@@ -85,17 +110,14 @@ export function AdminApp() {
         <hr className="hairline" />
       </header>
 
-      <nav className="row bilan-tabs">
-        <a className="btn" href="/compte">
-          <Icon name="users" />
-          Mon compte
-        </a>
-        <LienConsole className="btn" />
-        <a className="btn" href="#quiz-du-jour">
-          <Icon name="star" />
+      <NavAnimateur ici="admin" slug={me.space.slug} admin />
+      {/* Plus bas dans la même page : un lien vers la gestion de la réserve,
+          pas vers le jeu. */}
+      <p className="nav-ancre">
+        <a className="link-inline" href="#quiz-du-jour">
           Le quiz du jour
         </a>
-      </nav>
+      </p>
       <main className="page-corps">
         <CreateForm onCreated={(account, token) => load().then(() => showActivation(account, token))} />
 
@@ -132,8 +154,10 @@ export function AdminApp() {
                       <div className="row account-actions">
                         {/* Un compte en pause ne reçoit pas de lien : le serveur
                             le refuse, et le proposer laissait croire qu'il
-                            rouvrirait la porte. */}
-                        {a.status !== 'disabled' && (
+                            rouvrirait la porte. Le sien non plus : son mot de
+                            passe se change dans « Mon compte », en donnant
+                            l'actuel. */}
+                        {a.status !== 'disabled' && a.id !== me.account.id && (
                           <button
                             className="btn btn-small"
                             title="Un nouveau lien d'activation — pour un mot de passe oublié"
@@ -190,16 +214,20 @@ export function AdminApp() {
                                 className="btn btn-small btn-ghost"
                                 title="Supprimer le compte et tout ce qu'il a laissé"
                                 onClick={async () => {
-                                  const ok = await confirmDialog({
+                                  // Ce que ses soirées ont rapporté aux joueurs : un ami qui
+                                  // s'en va le leur laisse, un compte qui fabriquait des
+                                  // soirées le rend — l'administrateur choisit, à chaque fois.
+                                  const choix = await choixDialog({
                                     title: `Supprimer le compte ${deNom(a.name)} ?`,
                                     message:
-                                      'Ses quiz, ses photos, ses soirées archivées et sa soirée en cours seront effacés, sans retour. Son identifiant et son adresse redeviennent libres.\n\nPour en garder une trace, exporte ses soirées avant (npm run export).',
-                                    confirmLabel: 'Supprimer le compte',
+                                      'Ses quiz, ses photos, ses soirées archivées et sa soirée en cours seront effacés, sans retour. Son identifiant et son adresse redeviennent libres.\n\nCe que ses soirées ont rapporté aux joueurs — expérience, prix, hauts faits, paliers — peut leur rester, ou leur être repris : pour un compte qui fabriquait des soirées.\n\nPour en garder une trace, exporte ses soirées avant (npm run export).',
+                                    confirmLabel: 'Supprimer, les joueurs gardent leurs gains',
                                     danger: true,
+                                    alternative: { label: 'Supprimer, et reprendre leurs gains', danger: true },
                                   })
-                                  if (!ok) return
+                                  if (!choix) return
                                   try {
-                                    await api.admin.remove(a.id)
+                                    await api.admin.remove(a.id, choix.geste === 'alternative' ? 'reprendre' : 'garder')
                                     await load()
                                     showToast({ kind: 'info', message: `Le compte ${deNom(a.name)} est supprimé` })
                                   } catch (e) {

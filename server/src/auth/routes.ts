@@ -8,12 +8,16 @@ import {
   clearSessionCookie,
   clientIp,
   loginBudgetOf,
+  refuserLesTeles,
   requireAccount,
   requireAdmin,
   sessionOf,
   setSessionCookie,
+  readPlayerToken,
 } from './http'
+import type { AccountRec } from './store'
 import { normalizeLogin } from '../../../shared/space'
+import type { ProfilDeLEspace } from '../../../shared/profil'
 
 interface AuthApiDeps {
   auth: AuthStore
@@ -22,7 +26,7 @@ interface AuthApiDeps {
   /** En ligne, le cookie ne voyage qu'en HTTPS. */
   online: boolean
   /** Supprime un compte et tout ce qu'il a laissé (voir `createQuizServer`). */
-  removeAccount: (accountId: string) => Promise<void>
+  removeAccount: (accountId: string, opts?: { reprendre?: boolean }) => Promise<void>
   /** Les réglages d'un espace ont changé : sa salle doit les recevoir. */
   espaceChange: (accountId: string) => void
 }
@@ -42,11 +46,61 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
   const budget = loginBudgetOf(app)
   const account = requireAccount(auth)
   const noStore = (res: express.Response) => res.set('Cache-Control', 'no-store')
+  const pasDeTele = refuserLesTeles(auth)
+
+  /**
+   * Le profil qui tient l'espace, tel que « Mon compte » le montre — rien de
+   * plus. Toute session du compte lit cette page, la télé branchée chez un
+   * tiers comprise : le profil au complet y portait le récit de ses Divins,
+   * que l'invariant 21 réserve à leur seul porteur.
+   */
+  const profilDeLEspace = (p: Parameters<ProfileStore['toPublic']>[0]): ProfilDeLEspace => {
+    const { login, name, avatar, finition, eclats, legendaire, niveau } = deps.profiles.toPublic(p)
+    return { login, name, avatar, finition, eclats, legendaire, niveau }
+  }
+
+  /**
+   * Changer le profil qui tient l'espace — le remplacer, le détacher —
+   * demande une preuve fraîche : le mot de passe de ce profil, ou celui du
+   * compte. Une session ne suffit plus : le téléphone prêté, dont le cookie
+   * du profil ouvre la console sans rien redemander, y rattachait le profil
+   * de l'emprunteur, qui gardait ensuite la console pour lui. L'essai compte
+   * contre les deux secrets, sous les clés de leurs connexions : changer de
+   * porte ne double pas les essais contre eux.
+   */
+  const prouver = async (
+    req: express.Request,
+    me: AccountRec,
+  ): Promise<{ ok: true } | { ok: false; statut: number; error: string }> => {
+    const preuve = typeof req.body?.preuve === 'string' ? req.body.preuve : ''
+    // Rien à vérifier n'est pas un essai, comme au changement de mot de passe.
+    if (!preuve) return { ok: false, statut: 400, error: 'Tape le mot de passe du profil rattaché — ou celui du compte' }
+    const lie = me.profileId ? await deps.profiles.byId(me.profileId).catch(() => null) : null
+    const cles = [`compte:${me.login}`, ...(lie ? [`joueur:${lie.login}`] : [])]
+    const ip = clientIp(req)
+    for (const [i, cle] of cles.entries()) {
+      if (budget.allow(ip, cle)) continue
+      for (const prise of cles.slice(0, i)) budget.abandon(prise)
+      return { ok: false, statut: 429, error: 'Trop d’essais — réessaie dans un quart d’heure' }
+    }
+    const parLeCompte = !!me.passwordHash && (await verifyPassword(preuve, me.passwordHash))
+    const parLeProfil = !parLeCompte && !!lie && (await verifyPassword(preuve, lie.passwordHash))
+    if (!parLeCompte && !parLeProfil) {
+      for (const cle of cles) budget.failed(cle)
+      return { ok: false, statut: 400, error: 'Ce n’est ni le mot de passe du profil rattaché, ni celui du compte' }
+    }
+    for (const [i, cle] of cles.entries()) {
+      if ((i === 0) === parLeCompte) budget.succeeded(cle)
+      else budget.abandon(cle)
+    }
+    return { ok: true }
+  }
 
   /** Ouvre une session pour ce compte et pose le cookie. */
   const openSession = async (req: express.Request, res: express.Response, accountId: string) => {
     const token = await auth.createSession(accountId, req.header('user-agent') ?? '')
     setSessionCookie(res, token, deps.online)
+    return token
   }
 
   app.post(
@@ -64,9 +118,10 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
         return res.status(429).json({ error: 'Trop d’essais — réessaie dans un quart d’heure' })
       }
       const found = auth.byLogin(login)
+      const verifie = found?.passwordHash
       // Un identifiant inconnu coûte le même temps qu'un mot de passe faux :
       // rien, pas même la durée, ne dit si le compte existe.
-      const ok = await verifyPassword(password, found?.passwordHash ?? (await dummyHash()))
+      const ok = await verifyPassword(password, verifie ?? (await dummyHash()))
       if (!found || !found.passwordHash || !ok) {
         budget.failed(cle)
         return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' })
@@ -76,10 +131,20 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
       // pour un lien qui n'y changeait rien. Ne l'apprend que qui connaît
       // déjà le mot de passe.
       if (found.disabledAt) {
+        budget.abandon(cle)
         return res.status(403).json({ error: 'Ton compte est en pause : demande à l’administrateur de le réactiver' })
       }
       budget.succeeded(cle)
-      await openSession(req, res, found.id)
+      const jeton = await openSession(req, res, found.id)
+      // Un changement de mot de passe parti pendant qu'on vérifiait ferme les
+      // sessions qu'il connaît, pas celle qu'on vient d'ouvrir : le haché a
+      // bougé, l'ancien mot de passe ne vaut plus rien.
+      if (auth.byId(found.id)?.passwordHash !== verifie) {
+        const ouverte = auth.resolveSession(jeton)
+        if (ouverte) await auth.revokeSession(ouverte.session.id)
+        clearSessionCookie(res)
+        return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' })
+      }
       await auth.touchLogin(found.id)
       res.json({ account: auth.toPublic(found), space: auth.publicSpace(found) })
     }),
@@ -104,7 +169,7 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
       res.json({
         account: auth.toPublic(me),
         space: auth.publicSpace(me),
-        profil: profil ? deps.profiles.toPublic(profil) : null,
+        profil: profil ? profilDeLEspace(profil) : null,
       })
     }),
   )
@@ -199,16 +264,30 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
    * Il faut prouver les deux identités pour les lier : la session
    * d'animateur d'un côté, l'identifiant et le mot de passe du profil de
    * l'autre. Après quoi une seule des deux portes suffit — c'est tout
-   * l'intérêt — mais cette première fois-là, non.
+   * l'intérêt — mais cette première fois-là, non. Le profil déjà ouvert sur
+   * ce navigateur ne redit pas son identifiant : sa session le dit, et son
+   * mot de passe le confirme — l'arbitrage du 27 septembre 2026. Sans ce mot
+   * de passe, un ami connecté à son profil sur l'ordinateur de l'animateur
+   * serait rattaché d'un clic, et garderait la console.
    */
   app.post(
     '/api/space/profil',
     account,
+    pasDeTele,
     small,
     wrap(async (req, res) => {
       noStore(res)
       const me = accountOf(res)
-      const login = normalizeLogin(req.body?.login)
+      const jeton = req.body?.login ? null : readPlayerToken(req.header('cookie'))
+      const ouvert = jeton ? await deps.profiles.bySession(jeton) : null
+      const login = normalizeLogin(req.body?.login) || ouvert?.login || ''
+      // Remplacer le profil qui tient l'espace demande sa preuve, avant tout :
+      // les identifiants de l'autre profil ne disent rien de celui-ci.
+      const lie = me.profileId ? await deps.profiles.byId(me.profileId).catch(() => null) : null
+      if (me.profileId && lie?.login !== login) {
+        const preuve = await prouver(req, me)
+        if (!preuve.ok) return res.status(preuve.statut).json({ error: preuve.error })
+      }
       const ip = clientIp(req)
       // Le même verrou que `/api/joueur/connexion` : c'est le même mot de
       // passe qu'on vérifie, et deux clés doublaient les essais contre lui.
@@ -229,16 +308,23 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
       }
       // Rattacher un autre profil ferme les consoles de l'ancien — sauf celle-ci.
       await auth.linkProfile(me.id, found.id, sessionOf(res))
-      res.json({ profil: deps.profiles.toPublic(found) })
+      res.json({ profil: profilDeLEspace(found) })
     }),
   )
 
   app.delete(
     '/api/space/profil',
     account,
-    wrap(async (_req, res) => {
+    pasDeTele,
+    small,
+    wrap(async (req, res) => {
       noStore(res)
-      await auth.linkProfile(accountOf(res).id, null, sessionOf(res))
+      const me = accountOf(res)
+      if (me.profileId) {
+        const preuve = await prouver(req, me)
+        if (!preuve.ok) return res.status(preuve.statut).json({ error: preuve.error })
+      }
+      await auth.linkProfile(me.id, null, sessionOf(res))
       res.json({ profil: null })
     }),
   )
@@ -287,6 +373,13 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
     wrap(async (req, res) => {
       const target = auth.byId(req.params.id)
       if (!target) return res.status(404).json({ error: 'Compte introuvable' })
+      // Pas pour soi : « Mon compte » change son mot de passe en donnant
+      // l'actuel. Un lien pour soi le changeait sans — n'importe quelle
+      // session d'administrateur suffisait, le téléphone prêté compris, et il
+      // en sortait une console de trente jours, le vrai propriétaire dehors.
+      if (target.id === accountOf(res).id) {
+        return res.status(400).json({ error: 'Pas pour ton propre compte : change ton mot de passe dans « Mon compte »' })
+      }
       // Un lien pour un compte en pause ouvrait une session sur un espace
       // que l'administrateur venait de fermer.
       if (target.disabledAt) return res.status(400).json({ error: 'Réactive d’abord le compte' })
@@ -332,7 +425,11 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
 
   // Supprimer un compte : seulement désactivé (c'est le pas de recul), jamais
   // le sien, jamais l'espace par défaut — c'est chez lui que mènent les
-  // anciennes adresses. Tout ce qu'il a laissé part avec lui.
+  // anciennes adresses. Tout ce qu'il a laissé part avec lui. Ce que ses
+  // soirées ont crédité aux joueurs, l'administrateur le garde ou le reprend
+  // (`?credits=reprendre`), à chaque suppression — un compte qui fabriquait
+  // des soirées, ou un ami qui s'en va (l'arbitrage du 27 septembre 2026).
+  // Sans rien dire, une page d'avant garde les crédits, comme avant.
   app.delete(
     '/api/admin/accounts/:id',
     account,
@@ -345,7 +442,7 @@ export function mountAuthApi(app: Express, deps: AuthApiDeps) {
         return res.status(400).json({ error: 'L’espace par défaut ne se supprime pas : les anciennes adresses mènent chez lui' })
       }
       if (!target.disabledAt) return res.status(400).json({ error: 'Désactive d’abord le compte' })
-      await deps.removeAccount(target.id)
+      await deps.removeAccount(target.id, { reprendre: req.query.credits === 'reprendre' })
       res.json({ ok: true })
     }),
   )

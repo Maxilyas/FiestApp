@@ -311,12 +311,16 @@ qu'une fois chacun et se jugent sur la carrière entière.
 | 🏎️ Le Réflexe — réponses réflexe | 20 | 100 | 400 |
 | 🔮 Le Devin — estimations au chiffre près | 3 | 10 | 25 |
 | 🧳 Le Globe-trotteur — hôtes différents | 2 | 4 | 8 |
-| 🥉 Le Podium — podiums de quiz | 3 | 15 | 50 |
+| 🥉 L'Habitué du Podium — podiums de quiz | 3 | 15 | 50 |
 | 🎨 Le Collectionneur — avatars différents joués | 5 | 12 | 24 |
 | ✨ La Pluie d'Éclats — avatars éclatés | 1 | 3 | 6 |
 | 🎖️ La Légende — niveau | 10 | 20 | 30 |
 
-Rapportent 10, 25 et 50 points d'expérience. Les anciens badges de carrière
+Rapportent 10, 25 et 50 points d'expérience. La Légende se juge aussi à
+la fin d'une partie du quiz du jour, et à la nuit qui en paie le podium :
+le niveau compte son expérience, et qui n'y jouait que passait le niveau 10
+sans le palier (arbitrage du 27 septembre 2026) — elle se range alors sous
+ce jour, comme les paliers du quiz du jour. Les anciens badges de carrière
 (« Le Fidèle », « Le Pilier »…) laissent place à ce catalogue : le recalcul
 les retire, et décerne les paliers que la carrière de chacun atteint.
 
@@ -398,22 +402,25 @@ mêmes. Il a deux voies, cent jours joués ou dix sans-faute, et l'une suffit
 (`aussi`) ; sa jauge suit la plus avancée, et « Les plus proches » le
 montrent une fois, sur celle-là. La fin de la partie qui l'ouvre le fête,
 avec « Le porter » — une seule fois : pas le centième jour de qui l'avait
-déjà par ses sans-faute (`legendairesOuvertsPar`). L'Arbre-Monde ne le
-demande pas : il ne compte que les douze d'origine, et un légendaire de
-plus ne lui reprend rien.
+déjà par ses sans-faute (`legendairesOuvertsPar`). Un légendaire de plus
+ne reprend rien à personne.
 
 **Les légendaires de saison** (lot 7) — la Citrouille, le Sapin, le
 Bouquet final — ne se gagnent qu'à leur période, à la date de Paris
 (`shared/saisons.ts`) : quelques jours joués au quiz du jour dans la
 période (trois pour Halloween et Noël, deux pour les quatre jours du Nouvel
 An), ou une soirée qui compte ces jours-là, datée à sa première question
-jouée (`laureatsDeSaison`, à la clôture comme au recalcul). La saison
+jouée (`laureatsDeSaison`, à la clôture comme au recalcul —
+`VERSION_BAREME` 7 : les soirées rangées avant elles se relisent une fois,
+au démarrage qui les apporte). La saison
 gagnée se range comme une récompense (`saison:halloween`) : sous le jour
 qui l'a ouverte, ou sous la soirée — qui l'emporte si on la retire de
 l'historique. Elle ne va ni sur l'étagère ni dans le compte des badges :
 elle ne se montre que par son légendaire. Pendant la saison, la page du
-quiz du jour dit ce qui manque (« La Citrouille : 2 jours sur 3 ») ; la fin
-de la partie qui l'ouvre la fête, comme le Sphinx. Chacun a sa version
+quiz du jour dit ce qui manque (« La Citrouille : 2 jours sur 3 ») ; elle
+tombe dès que la partie qui la fait atteindre commence — une partie
+commencée compte, pour la jauge comme pour la récompense —, et la fin de
+cette partie la fête, comme le Sphinx. Chacun a sa version
 rare : la citrouille blanche sur nuit émeraude, le sapin givré, le bouquet
 d'argent sur nuit pourpre.
 
@@ -482,7 +489,10 @@ Divin se tait — c'est tout son principe.
 - L'Éclat **s'annonce** à la fin de la soirée, au téléphone et à la salle :
   il tombait en silence, et sous un légendaire personne ne le voyait.
 - Une soirée jouée seul ne compte pas : ni pour l'Éclat, ni pour L'Habitué —
-  sans quoi dix soirées d'une question faisaient le Renard Lunaire.
+  sans quoi dix soirées d'une question faisaient le Renard Lunaire —, ni
+  pour rien de la carrière, écussons, fiche et paliers compris : seul devant
+  son propre quiz, on se faisait l'écusson d'or que la carte montrait à la
+  salle (arbitrage du 27 septembre 2026). Ce qui en était tombé reste acquis.
 - Au mur, le niveau s'écrit **« Niv. 15 »**, à la taille du prénom.
 
 ### 5.6 La carte de joueur
@@ -665,7 +675,8 @@ ne le lui fait remarquer.
 Lot 5. De quoi jouer seul entre deux soirées, pour apprendre et avancer :
 dix questions par jour, **les mêmes pour tous les profils**, tirées à minuit
 (heure de Paris) et figées. Réservé aux profils ; un anonyme n'y voit rien
-qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
+qui lui manque. `/jour`, et une carte sur l'accueil, sous « Ce soir » (ou
+« Je joue », pour qui anime aussi).
 
 - **La partie.** Un seul essai, qu'on reprend si le téléphone sonne — sur un
   autre téléphone aussi : tout vit dans la base permanente
@@ -683,8 +694,8 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   du jour vit dans une ligne à part (`#jour`, comme `#paliers`) : elle
   compte dans le niveau, pas dans la carrière — le quiz du jour ne fait ni
   une soirée pour L'Habitué, ni une réponse pour Le Bavard. Les hauts faits
-  de soirée, les légendaires, les Divins et l'Éclat restent aux soirées ; le
-  quiz du jour a ses propres paliers (plus bas).
+  de soirée et l'Éclat restent aux soirées ; le quiz du jour a ses propres
+  paliers (plus bas), et ouvre le Sphinx et les légendaires de saison.
 
   | Règle | XP par mois | Part des soirées | Niveau après un an |
   |---|---|---|---|
@@ -700,8 +711,10 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   **L'Assidu** (7, 30, 100 jours joués — une partie commencée compte, comme
   pour la série), **Le Champion du jour** (1, 5, 20 victoires, ex æquo
   compris) et **Le Sans-Faute** (1, 3, 10 jours sans une faute, la médaille
-  d'or). Ils tombent à la fin d'une partie, ou à la nuit qui clôt un jour
-  pour la victoire (`accorderPaliersDuJour`) — jamais à la clôture d'une
+  d'or). Ils tombent dès qu'une partie commence pour L'Assidu (une partie
+  commencée compte : laissée en route, elle le fait tomber quand même), à la
+  fin d'une partie pour Le Sans-Faute, à la nuit qui clôt un jour pour la
+  victoire (`accorderPaliersDuJour`) — jamais à la clôture d'une
   soirée, qui ne sait rien du quiz du jour (`paliersAtteints` les écarte) —,
   rangés sous ce jour (`#jour:2026-09-26`) : aucune soirée ne les porte, en
   retirer une ne les reprend pas. Ils rapportent ce que rapporte tout
@@ -710,13 +723,16 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   rareté est estimée, la bande de `calibrage.ts` ne jouant qu'en soirée.
 - **Le classement** : tout le serveur, avec les règles des soirées — rang
   partagé, « Camille (2) », niveau et finition ; aujourd'hui, hier, le mois.
-  Il se fige à minuit ; tous les ex æquo en tête gagnent.
+  Il se fige à minuit ; tous les ex æquo en tête gagnent. Toucher un nom
+  ouvre sa carte, celle de la soirée sans « ce soir » — jamais celle d'un
+  profil masqué (arbitrage du 27 septembre 2026).
 - **Le laurier** (lot 7) : le lendemain, les vainqueurs — ex æquo compris,
   jamais seuls dans la salle, puisqu'un joueur seul n'a pas de podium —
   portent une couronne dorée juste après leur prénom, toute la journée :
   au classement du jour, sur leur carte (« Vainqueur du quiz du jour
   d'hier »), sur leur page, et jusque dans les soirées où ils jouent —
-  classements, podiums, salle d'attente. C'est le prénom qui se coupe sur
+  classements, podiums, salle d'attente. À la souris, une infobulle dit ce
+  qu'il est (arbitrage du 27 septembre 2026). C'est le prénom qui se coupe sur
   un écran étroit, jamais le laurier. Un profil masqué ne le porte pas ; un
   anonyme n'en a pas. La liste se lit en mémoire, une fois la nuit close
   (`laureats`) : elle sert à chaque diffusion. Passé minuit, celle
@@ -729,12 +745,19 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   ouverte alors à tous (avant, seulement à qui a fini : elle donnerait le
   quiz).
 - **La réserve.** Amorcée au premier démarrage par les quiz livrés qui se
-  jouent seuls — jamais ceux à personnaliser, ni ceux des animateurs : leurs
-  invités y liraient la prochaine soirée. L'administrateur la remplit par
+  jouent seuls — jamais ceux à personnaliser, ni ceux des animateurs. Tout
+  animateur peut pourtant partir des livrés, et le profil qui en aurait lu
+  la correction ici connaîtrait les réponses d'une soirée : leurs questions
+  ne sortent qu'en dernier recours, les premiers jours d'une réserve neuve
+  ou quand elle n'a plus rien d'autre à poser (arbitrage du 27 septembre
+  2026). L'administrateur la remplit par
   « Coller une liste » (`/admin`), le format de l'éditeur ; les jours
-  d'avance s'y lisent, avec une alerte sous sept. Deux par catégorie au plus
-  chaque jour, jamais deux fois la même ; à sec, les plus anciennes
-  reviennent (pas celles du mois) : jamais un jour vide. Pour l'instant,
+  d'avance s'y lisent, avec une alerte sous sept. Deux par catégorie chaque
+  jour tant que la réserve le permet — elle complète sinon avec ce qu'elle
+  a —, jamais deux fois la même ; à sec, les plus anciennes reviennent (pas
+  celles du mois). Un jour peut donc rester vide tant que la réserve n'a pas
+  un mois de questions : le journal et `/admin` le disent, et le téléphone
+  ne promet « demain » que si la réserve le tient. Pour l'instant,
   des questions à choix sans photo : les estimations demanderont une
   tolérance écrite (« = 1994 · à 5 près »), faute de salle pour juger
   l'écart ; les variantes et les photos suivront.
@@ -752,10 +775,13 @@ qui lui manque. `/jour`, et une carte sous « Ce soir » sur l'accueil.
   (`core/consigne.ts`) dit ce qui fait une bonne question — un fait sûr qui
   ne change pas, une seule bonne réponse, une anecdote qui apprend autre
   chose —, le format de « Coller une liste » réduit aux QCM, les catégories
-  les moins fournies et les trois cents derniers intitulés à ne pas
-  reprendre. L'analyseur de « Coller une liste » et la réserve vérifient
-  ensuite chaque question. Le serveur ne détient aucune clé d'IA, et le
-  jeton ne sait qu'ajouter des questions. En secours, « Copier la consigne
+  les moins fournies et les trois cents intitulés déjà là à ne pas
+  reprendre — ceux des prochains jours d'abord. L'analyseur de « Coller une
+  liste » et la réserve vérifient ensuite chaque question. Le serveur ne
+  détient aucune clé d'IA, et le jeton ne sait que lire la consigne et
+  ajouter des questions — mais comme la consigne rappelle les prochains
+  jours, il les vaut : s'il fuit, on le change (MISE-EN-LIGNE.md, étape 8).
+  En secours, « Copier la consigne
   pour une IA », à `/admin` : la même, pour le chatbot de son choix.
 
 ---

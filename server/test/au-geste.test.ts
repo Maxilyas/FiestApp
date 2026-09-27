@@ -117,6 +117,39 @@ test('un retardataire arrivé en pleine question se voit dans la partie dès sa 
   await terminer(sessionId)
 })
 
+test('une place rendue en pleine question se voit dans la partie dès sa première vue', async () => {
+  const rachid = await invite(banc.url, 'Rachid', '🦁')
+  // Son téléphone meurt avant le lancement : sa fiche ne sera pas de la partie.
+  rachid.socket.close()
+  await instantane<any>(host, s => s.players.find((p: any) => p.id === rachid.playerId)?.connected === false, 'Rachid hors ligne')
+  // Le téléphone emprunté : un second Rachid, qui suit la soirée.
+  const tel = await telephone()
+  const second = await tel.rejoindre({ name: 'Rachid', avatar: '⚽' })
+  assert.equal(second.ok, true)
+  const sessionId = await enPleineQuestion('Reprise')
+  await calme()
+
+  // « Rendre sa place » : la reprise fait entrer la fiche dans la partie.
+  // L'instantané qui la compte était regroupé, et partait après sa vue.
+  const { code } = await emitAck<any>(host, 'host:rendrePlace', { playerId: rachid.playerId })
+  let accuse = false
+  const aLaVue = new Promise<any>(resolve =>
+    tel.socket.on('session:view', (p: any) => {
+      if (accuse && p.view.phase === 'question') resolve(tel.dernier())
+    }),
+  )
+  const reprise = await new Promise<any>(resolve =>
+    (tel.socket as any).emit('player:reprendre', { slug: ADMIN.slug, code, token: second.token }, (res: any) => {
+      accuse = true
+      resolve(res)
+    }),
+  )
+  assert.equal(reprise.ok, true, reprise.error)
+  assert.equal(reprise.playerId, rachid.playerId)
+  assert.ok(dans(await aLaVue, rachid.playerId), 'à sa première vue, le téléphone se sait dans la partie')
+  await terminer(sessionId)
+})
+
 test('un téléphone endormi au lancement qui se réveille se voit dans la partie dès sa première vue', async () => {
   const dormeur = await invite(banc.url, 'Dormeur', '🐨')
   dormeur.socket.close()

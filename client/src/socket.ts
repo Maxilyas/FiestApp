@@ -113,7 +113,7 @@ socket.on('toast', showToast)
 
 /** Le temps accordé à la sonde : une heure du serveur ne met pas deux secondes à revenir. */
 const SONDE_MS = 2000
-let sondeEnCours = false
+let sondeEnCours: Promise<void> | null = null
 
 /**
  * La liaison vit-elle encore ? Sinon, on la rouvre sans attendre.
@@ -123,10 +123,21 @@ let sondeEnCours = false
  * une question entière plus tard. Pendant ce temps, rien ne part et rien
  * n'arrive, sans un mot. On demande donc l'heure au serveur — la question la
  * plus légère qui soit — et le silence suffit à trancher.
+ *
+ * Une sonde déjà en route est rendue telle quelle : qui veut renvoyer
+ * derrière elle attend son verdict, au lieu de repartir aussitôt dans la
+ * liaison qu'elle est en train de condamner.
  */
-async function verifierLiaison() {
-  if (!socket.connected || sondeEnCours) return
-  sondeEnCours = true
+function verifierLiaison(): Promise<void> {
+  if (sondeEnCours) return sondeEnCours
+  if (!socket.connected) return Promise.resolve()
+  sondeEnCours = sonder().finally(() => {
+    sondeEnCours = null
+  })
+  return sondeEnCours
+}
+
+async function sonder() {
   const sondee = socket.id
   const vivante = await new Promise<boolean>(resolve => {
     const minuteur = setTimeout(() => resolve(false), SONDE_MS)
@@ -135,7 +146,6 @@ async function verifierLiaison() {
       resolve(true)
     })
   })
-  sondeEnCours = false
   // Une reconnexion a pu se faire entre-temps : c'est l'ancienne liaison qui
   // s'est tue, pas celle-ci.
   if (vivante || !socket.connected || socket.id !== sondee) return
@@ -405,8 +415,16 @@ export function sendPlayerAction(
   }
 
   return envoyer()
-    .then(res => {
+    .then(async res => {
       if (res.ok || res.reason !== 'timeout') return res
+      if (numero !== derniereReponse || !encoreOuverte()) return res
+      // Renvoyée aussitôt, elle repartait dans la liaison morte qui venait de
+      // l'avaler — un wifi sans internet, le fond du jardin —, et se perdait
+      // de même. On sonde d'abord : morte, la liaison est rouverte, et le
+      // renvoi attend la nouvelle dans la réserve de socket.io.
+      await verifierLiaison()
+      // L'accusé du premier envoi a pu arriver pendant la sonde.
+      if (dejaRecu) return dejaRecu
       if (numero !== derniereReponse || !encoreOuverte()) return res
       return envoyer().then(r => (!r.ok && r.reason === 'timeout' && dejaRecu ? dejaRecu : r))
     })
@@ -414,6 +432,37 @@ export function sendPlayerAction(
       issue = res
       return res
     })
+}
+
+/** Au-delà, l'accusé d'un geste de la console ne viendra plus : le serveur y répond sur-le-champ. */
+const COMMANDE_TIMEOUT_MS = 3000
+
+/**
+ * Un geste de la partie depuis la console : « Révéler », « Suivant », la
+ * pause, le quiz choisi.
+ *
+ * Il partait sans accusé, par la liaison que socket.io croit vivante : morte
+ * — la télécommande au fond du jardin, un wifi sans internet —, il s'y
+ * perdait sans un mot, et la salle attendait devant une question que
+ * personne ne révélait, jusqu'au battement de cœur manqué quatorze secondes
+ * plus tard. Sans accusé à temps, on sonde la liaison et on le renvoie une
+ * fois : il porte ce qu'il visait (invariant 12), et arrivé deux fois il ne
+ * joue qu'une — le second vise un moment passé, ou retrouve la pause déjà
+ * posée.
+ */
+export function envoyerCommande(sessionId: string, command: unknown): void {
+  let recu = false
+  const envoyer = () =>
+    socket.emit('host:command', { sessionId, command }, () => {
+      recu = true
+    })
+  envoyer()
+  setTimeout(() => {
+    if (recu) return
+    void verifierLiaison().then(() => {
+      if (!recu) envoyer()
+    })
+  }, COMMANDE_TIMEOUT_MS)
 }
 
 /**

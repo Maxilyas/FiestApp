@@ -115,6 +115,12 @@ export interface PartySnapshot {
    * garder les coulisses (la grille des prix, la liste des quiz) pour lui.
    */
   telecommande?: true
+  /**
+   * La soirée se clôt, ou l'essai s'efface : des secondes sur la base
+   * distante, pendant lesquelles chaque console le dit et garde « Clore »
+   * inerte. Aux écrans d'animateur seulement, absent le reste du temps.
+   */
+  finEnRoute?: 'close' | 'discard'
 }
 
 /** Les écrans de fin de soirée, projetés à la place du jeu. */

@@ -1,28 +1,65 @@
-import { useEffect, useState, type FormEvent, type ReactNode, type SyntheticEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type SyntheticEvent } from 'react'
 import { Glossaire } from '../components/Glossaire'
 import { api, currentMe, motifDe } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Laurier } from '../components/Laurier'
 import { Icon, type IconName } from '../components/Icon'
+import { Onglets, type Onglet as OngletDef } from '../components/Onglets'
 import { ProfilForm } from '../components/ProfilForm'
 import { CodeSecours } from '../components/Secours'
 import { tronquer } from '../../../shared/avatars'
+import { pageDeRetour } from '../../../shared/securite'
 import { cibleEclat } from '../../../shared/legendaires'
-import { coupDOeilMoyen, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
+import { coupDOeilMoyen, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { Categories, Courbes, FicheCarriere } from '../components/Carriere'
-import { ApercuSalle, MesAvatars, MesFinitions, MonFond, MonTitre } from '../components/Apparence'
-import { MaVitrine, MesEcussons, MesHautsFaits, MesPrix, MonQuizDuJour } from '../components/Trophees'
+import { annonceDuChoix, type ChoixDuProfil } from '../components/choix'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { espacesFines, formatNumber, place, reponsesParType } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
 import { route, spacePath } from '../routes'
 import { derniereSoireeGardee } from '../state'
 import { Lendemain } from '../components/Lendemain'
 import { CarteDuJour, MesJours, pointsDesJours } from '../components/Jour'
+import { JAnime, JeJoue } from '../components/AccueilDesRoles'
 import type { PublicSpace } from '../../../shared/space'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
+
+/**
+ * Les onglets « Apparence » et « Trophées », à la demande : ils portent les
+ * dessins de tous les médaillons, et l'accueil anonyme — « Me connecter »,
+ * « Rejoindre une soirée » — les téléchargeait avec lui, 21 Ko et 179 ms de
+ * plus en 4G. Ils partent dès qu'un profil répond, et tout de suite sur le
+ * téléphone qui en a déjà montré un (`profilConnuIci`).
+ */
+const panneaux = aLaDemande(() => import('../components/PanneauxDuProfil'))
+
+/** Ce téléphone a montré un profil la dernière fois. */
+const CLE_PROFIL_CONNU = 'quizz.profil.connu'
+
+function profilConnuIci(): boolean {
+  // Sous try/catch : des cookies bloqués donnaient une page noire.
+  try {
+    return localStorage.getItem(CLE_PROFIL_CONNU) === '1'
+  } catch {
+    return false
+  }
+}
+
+function retenirProfil(connu: boolean) {
+  try {
+    if (connu) localStorage.setItem(CLE_PROFIL_CONNU, '1')
+    else localStorage.removeItem(CLE_PROFIL_CONNU)
+  } catch {
+    // Stockage refusé : les onglets attendront la réponse du profil.
+  }
+}
+
+// Sans attendre la réponse du profil : sur un téléphone qui en a déjà montré
+// un, les onglets arrivent avec elle, pas un aller-retour après.
+if (profilConnuIci()) void panneaux.charger().catch(() => {})
 
 /**
  * L'accueil (`/`) et la page de profil (`/profil`) : c'est le même écran.
@@ -44,6 +81,9 @@ export function ProfilApp() {
   const [chargement, setChargement] = useState(true)
   const [erreur, setErreur] = useState('')
   const [busy, setBusy] = useState(false)
+  const enregistrement = useRef(false)
+  /** Ce que le dernier choix a changé, dit au lecteur d'écran. */
+  const [annonce, setAnnonce] = useState('')
   /** L'échappée : « quelle soirée ? », à un geste d'ici. */
   // Une étape de l'accueil, avec son entrée d'historique : le retour du
   // navigateur y ramène à l'accueil au lieu de quitter l'application.
@@ -70,8 +110,12 @@ export function ProfilApp() {
   const [enCours, setEnCours] = useState<{ nom: string; slug: string }[]>([])
   /** « Créer mon profil » depuis une fin de soirée : la création, préremplie. */
   const [creation] = useState(lireCreation)
+  /** Où aller une fois connecté : le quiz du jour qu'un ami a envoyé (`?next=/jour`). */
+  const [suite] = useState(lireSuite)
   const [gardee] = useState(derniereSoireeGardee)
   const [onglet, setOnglet] = useState<Onglet>(lireOnglet)
+  /** Le contenu des onglets « Apparence » et « Trophées », dès que le profil est connu. */
+  const lesPanneaux = useALaDemande(panneaux, !!profil)
   /** L'onglet choisi s'écrit dans l'adresse — on la partage, on y revient — et sur ce téléphone. */
   const choisirOnglet = (o: Onglet) => {
     setOnglet(o)
@@ -85,6 +129,8 @@ export function ProfilApp() {
 
   const relire = () =>
     api.joueur.moi().then(r => {
+      retenirProfil(!!r.profile)
+      if (r.profile) void panneaux.charger().catch(() => {})
       setProfil(r.profile)
       setEspace(r.espace)
       setEnCours(r.enCours ?? [])
@@ -100,45 +146,26 @@ export function ProfilApp() {
       .finally(() => setChargement(false))
   }, [])
 
-  /**
-   * Ouvrir sa console depuis son profil.
-   *
-   * La session d'animateur dure trente jours, celle du joueur un an : celui
-   * qui revient six mois plus tard est encore reconnu ici et ne l'est plus
-   * là-bas. On la rouvre avant de partir, sinon `/host` le renverrait à une
-   * page de connexion qu'il vient justement de passer.
-   */
-  const animer = async () => {
+  const enregistrer = async (patch: ChoixDuProfil) => {
+    // Un second toucher pendant l'enregistrement est ignoré ici, plutôt que
+    // de désactiver chaque case : désactivée, la case touchée perdait le
+    // focus, qui tombait sur la page — et le lecteur d'écran n'entendait rien.
+    if (enregistrement.current) return
+    enregistrement.current = true
     setBusy(true)
     setErreur('')
-    try {
-      await api.joueur.console()
-      window.location.assign('/host')
-    } catch (e) {
-      setBusy(false)
-      setErreur((e as Error).message)
-    }
-  }
-
-  const enregistrer = async (patch: {
-    avatar?: string
-    finition?: FinitionChoisie
-    legendaire?: string | null
-    titre?: string | null
-    vitrine?: string[] | null
-    fond?: string | null
-  }) => {
-    setBusy(true)
-    setErreur('')
+    setAnnonce('')
     try {
       // La route d'écriture rend le profil léger ; l'étagère et l'historique
       // n'ont pas bougé, on les garde plutôt que de tout redemander. Le fond
       // de carte n'y est pas : accepté, c'est celui qu'on vient d'envoyer.
       const { profile } = await api.joueur.enregistrer(patch)
       setProfil(p => (p ? { ...p, ...profile, ...(patch.fond !== undefined && { fond: patch.fond }) } : p))
+      setAnnonce(annonceDuChoix(patch))
     } catch (e) {
       setErreur((e as Error).message)
     } finally {
+      enregistrement.current = false
       setBusy(false)
     }
   }
@@ -168,7 +195,15 @@ export function ProfilApp() {
     // ne doit jamais le laisser croire.
     return (
       <ProfilForm
-        marque={<p className="accueil-marque">FiestApp · le quiz de soirée</p>}
+        marque={
+          <>
+            <p className="accueil-marque">FiestApp · le quiz de soirée</p>
+            {/* Une console ouverte ici sans profil : c'est l'accueil d'un
+                animateur, et ce qu'il y cherche vient d'abord. L'invité, lui,
+                n'en a pas — rien ne bouge au-dessus de « Me connecter ». */}
+            {console_ && <JAnime espace={console_} rouvrir={false} />}
+          </>
+        }
         aideErreur={
           // La même phrase pour tout refus : dire « c'est un identifiant
           // d'animateur » apprendrait à n'importe qui quels comptes existent.
@@ -177,10 +212,13 @@ export function ProfilApp() {
             <p className="muted small">Tu animes une soirée ? Ta porte est tout en bas : « J’anime une soirée ».</p>
           )
         }
-        pied={<PorteAnimateur console_={console_} />}
+        pied={!console_ && <PorteAnimateur />}
         creer={!!creation}
         prefill={creation ?? undefined}
+        onEnvoi={() => void panneaux.charger().catch(() => {})}
         onDone={() => {
+          // Venu d'un lien vers le quiz du jour : on y va, sans repasser par l'accueil.
+          if (suite) return window.location.assign(suite)
           // Le profil est là : un rafraîchissement ne doit pas rouvrir la création.
           if (creation) history.replaceState(null, '', window.location.pathname)
           void relire()
@@ -198,6 +236,7 @@ export function ProfilApp() {
   }
 
   const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
+  const animateur = espace ?? console_
 
   return (
     // `player-shell` : la même mise en page que le téléphone d'un invité —
@@ -225,7 +264,7 @@ export function ProfilApp() {
           {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
           {profil.laurier && (
             <p className="carte-laurier">
-              <Laurier laurier /> Vainqueur du quiz du jour d’hier
+              <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
             </p>
           )}
           <div
@@ -246,14 +285,13 @@ export function ProfilApp() {
         </div>
       </header>
 
-      {/* D'abord ce qu'on est venu faire : animer, ou rejoindre. Le reste
-          vient après — on le regarde, on n'en part pas. */}
-      <CeSoir
+      {/* D'abord ce qu'on est venu faire : animer, puis jouer. Le reste
+          vient après — on le regarde, on n'en part pas. Le profil rattaché
+          à un espace l'anime ; sinon, la console ouverte ici. */}
+      {animateur && <JAnime espace={animateur} rouvrir={!!espace} />}
+      <JeJoue
         enCours={enCours}
-        espace={espace}
-        console_={console_}
-        busy={busy}
-        onAnimer={animer}
+        chezMoi={animateur?.slug ?? null}
         onRejoindre={() => setRejoindre(true)}
         lendemain={lendemain}
       />
@@ -261,25 +299,38 @@ export function ProfilApp() {
       {/* Le quiz du jour, sous la soirée : l'entre-deux, pas la raison de venir. */}
       <CarteDuJour />
 
-      <Onglets actif={onglet} onChoisir={choisirOnglet} />
+      <Onglets
+        onglets={ONGLETS}
+        actif={onglet}
+        onChoisir={choisirOnglet}
+        label="Mon profil"
+        idOnglet={id => `onglet-${id}`}
+        idPanneau={id => `profil-${id}`}
+        className="onglets-profil"
+      />
+      {/* Toujours là, vide d'abord : une région qui apparaît avec son texte
+          n'est pas toujours lue. */}
+      <p className="sr-only" role="status">
+        {annonce}
+      </p>
 
       {onglet === 'apparence' && (
         <div className="profil-onglet" role="tabpanel" id="profil-apparence" aria-labelledby="onglet-apparence">
-          <ApercuSalle profil={profil} />
-          <MesAvatars profil={profil} busy={busy} enregistrer={enregistrer} />
-          <MesFinitions profil={profil} busy={busy} enregistrer={enregistrer} />
-          <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />
-          <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />
+          {lesPanneaux && lesPanneaux !== 'perdu' ? (
+            <lesPanneaux.PanneauApparence profil={profil} busy={busy} enregistrer={enregistrer} />
+          ) : (
+            <OngletEnChemin perdu={lesPanneaux === 'perdu'} />
+          )}
         </div>
       )}
 
       {onglet === 'trophees' && (
         <div className="profil-onglet" role="tabpanel" id="profil-trophees" aria-labelledby="onglet-trophees">
-          <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
-          <MonQuizDuJour jour={profil.jour} />
-          <MesHautsFaits profil={profil} />
-          <MesEcussons ecussons={profil.ecussons} />
-          <MesPrix prix={profil.prix} />
+          {lesPanneaux && lesPanneaux !== 'perdu' ? (
+            <lesPanneaux.PanneauTrophees profil={profil} busy={busy} enregistrer={enregistrer} />
+          ) : (
+            <OngletEnChemin perdu={lesPanneaux === 'perdu'} />
+          )}
         </div>
       )}
 
@@ -336,6 +387,7 @@ export function ProfilApp() {
                     <span className="soiree-detail">
                       {s.titre && `${date} · `}
                       {s.chez && `chez ${s.chez} · `}
+                      {s.espaceFerme && 'un espace fermé · '}
                       {/* Par type de question : « 64 réponses, 1 juste » ne disait pas
                           que soixante-deux étaient des estimations. */}
                       {reponsesParType({ ...s.releve, coupDOeil: coupDOeilMoyen(s.releve) }, { compte: false }) || 'aucune réponse'}
@@ -365,7 +417,7 @@ export function ProfilApp() {
       )}
 
       <Glossaire
-        mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'ecusson', 'laurier', 'precision', 'coupDOeil', 'reflexe', 'flair']}
+        mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'ecusson', 'laurier', 'serie', 'fond', 'precision', 'coupDOeil', 'reflexe', 'flair']}
       />
 
       {erreur && <p className="error">{erreur}</p>}
@@ -374,7 +426,17 @@ export function ProfilApp() {
         <button
           className="btn btn-ghost"
           onClick={async () => {
-            await api.joueur.deconnexion().catch(() => {})
+            setErreur('')
+            // Tant que le serveur n'a pas fermé la session, le profil reste
+            // ouvert et la page le dit : la requête perdue montrait le
+            // formulaire de connexion, sans un mot, et le téléphone prêté
+            // rouvrait le profil de son propriétaire au rechargement.
+            try {
+              await api.joueur.deconnexion()
+            } catch (e) {
+              return setErreur(motifDe(e))
+            }
+            retenirProfil(false)
             setProfil(null)
           }}
         >
@@ -388,12 +450,35 @@ export function ProfilApp() {
 type Onglet = 'apparence' | 'trophees' | 'carriere'
 
 /**
+ * Un onglet qui arrive : sa place, d'une hauteur d'écran — le glossaire et
+ * « Me déconnecter », dessous, ne sautent pas quand il arrive. S'il ne
+ * viendra plus (le réseau, un redéploiement), la page le dit.
+ */
+function OngletEnChemin({ perdu }: { perdu: boolean }) {
+  if (perdu) {
+    return (
+      <div className="onglet-en-chemin">
+        <p className="error">Cet onglet n’a pas pu se charger : vérifie ta connexion.</p>
+        <button type="button" className="btn btn-small" onClick={() => window.location.reload()}>
+          Recharger la page
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div className="onglet-en-chemin" aria-busy="true">
+      <p className="serif-note">Chargement…</p>
+    </div>
+  )
+}
+
+/**
  * Les trois onglets du profil. Tout tenait sur une page — avatar,
  * légendaires, Divins, finitions, hauts faits, fiche, prix, soirées —, en
  * sections repliées qu'on ne savait plus où chercher : ce qu'on porte, ce
  * qu'on a gagné, ce qu'on a joué.
  */
-const ONGLETS: { id: Onglet; nom: string; icone: IconName }[] = [
+const ONGLETS: OngletDef<Onglet>[] = [
   { id: 'apparence', nom: 'Apparence', icone: 'sparkles' },
   { id: 'trophees', nom: 'Trophées', icone: 'trophy' },
   { id: 'carriere', nom: 'Carrière', icone: 'bar-chart' },
@@ -421,107 +506,14 @@ function lireOnglet(): Onglet {
   return 'apparence'
 }
 
-function Onglets({ actif, onChoisir }: { actif: Onglet; onChoisir: (o: Onglet) => void }) {
-  return (
-    <div className="onglets onglets-profil" role="tablist" aria-label="Mon profil">
-      {ONGLETS.map(o => (
-        <button
-          key={o.id}
-          id={`onglet-${o.id}`}
-          type="button"
-          role="tab"
-          aria-selected={actif === o.id}
-          aria-controls={`profil-${o.id}`}
-          className={'onglet' + (actif === o.id ? ' actif' : '')}
-          onClick={() => onChoisir(o.id)}
-        >
-          <Icon name={o.icone} />
-          {o.nom}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 /**
- * « Ce soir » : une seule action principale, selon sa soirée — revenir là
- * où l'on joue, sinon animer la sienne, sinon rejoindre —, et les autres en
- * petit, côte à côte. Trois gros boutons l'un sous l'autre prenaient la
- * moitié de l'écran et poussaient le quiz du jour sous le pli.
+ * La porte des animateurs, sur l'accueil d'un visiteur sans profil ni
+ * console ouverte ici : un lien discret vers la connexion au compte.
+ * Discret, parce que l'accueil est d'abord celui des invités — « Rejoindre
+ * une soirée » ne doit jamais descendre sous le bord. Une console ouverte
+ * ici met sa carte en tête (`JAnime`).
  */
-function CeSoir({
-  enCours,
-  espace,
-  console_,
-  busy,
-  onAnimer,
-  onRejoindre,
-  lendemain,
-}: {
-  enCours: { nom: string; slug: string }[]
-  espace: PublicSpace | null
-  console_: PublicSpace | null
-  busy: boolean
-  onAnimer: () => void
-  onRejoindre: () => void
-  lendemain: ReactNode
-}) {
-  const actions: { cle: string; nom: string; icone: IconName; href?: string; onClick?: () => void }[] = [
-    // La soirée où l'on joue déjà d'abord : « Rejoindre une soirée »
-    // redemandait son nom à qui y était inscrit, et faisait douter d'avoir
-    // quitté la partie (Sofia, le 23 et le 24).
-    ...enCours.map(e => ({ cle: `revenir-${e.slug}`, nom: `Revenir chez ${e.nom}`, icone: 'play' as const, href: spacePath(e.slug) })),
-    ...(espace ? [{ cle: 'animer', nom: 'Animer ma soirée', icone: 'monitor' as const, onClick: onAnimer }] : []),
-    ...(!espace && console_ ? [{ cle: 'console', nom: `Animer « ${console_.title} »`, icone: 'monitor' as const, href: '/host' }] : []),
-    { cle: 'rejoindre', nom: 'Rejoindre une soirée', icone: 'users', onClick: onRejoindre },
-  ]
-  const [principale, ...autres] = actions
-  const bouton = (a: (typeof actions)[number], classe: string) =>
-    a.href ? (
-      <a key={a.cle} className={classe} href={a.href}>
-        <Icon name={a.icone} />
-        {a.nom}
-      </a>
-    ) : (
-      <button key={a.cle} type="button" className={classe} disabled={busy} onClick={a.onClick}>
-        <Icon name={a.icone} />
-        {a.nom}
-      </button>
-    )
-  return (
-    <div className="card ce-soir">
-      <h3>
-        <Icon name="zap" />
-        Ce soir
-      </h3>
-      {bouton(principale, 'btn btn-primary btn-block')}
-      {autres.length > 0 && <div className="ce-soir-autres">{autres.map(a => bouton(a, 'btn btn-small'))}</div>}
-      {lendemain}
-      {!espace && !console_ && (
-        <p className="join-foot">
-          <a className="link-inline" href="/connexion?next=/host">
-            J’anime une soirée
-          </a>
-        </p>
-      )}
-    </div>
-  )
-}
-
-/**
- * La porte des animateurs, sur l'accueil d'un visiteur sans profil : sa
- * console s'il en a une ouverte ici, sinon un lien discret vers la connexion
- * au compte. Discret, parce que l'accueil est d'abord celui des invités —
- * « Rejoindre une soirée » ne doit jamais descendre sous le bord.
- */
-function PorteAnimateur({ console_ }: { console_: PublicSpace | null }) {
-  if (console_) {
-    return (
-      <a className="btn btn-block" href="/host">
-        Animer « {console_.title} »
-      </a>
-    )
-  }
+function PorteAnimateur() {
   return (
     <p className="join-foot">
       <a className="link-inline" href="/connexion?next=/host">
@@ -536,6 +528,12 @@ function PorteAnimateur({ console_ }: { console_: PublicSpace | null }) {
  * soirée (`/profil?creer=1&prenom=…&avatar=…`) : elle ouvrait la connexion,
  * vide, et il fallait tout retaper.
  */
+function lireSuite(): string {
+  const next = new URLSearchParams(window.location.search).get('next')
+  // Jamais ailleurs que chez soi (`shared/securite.ts`) ; sinon, l'accueil.
+  return next ? pageDeRetour(next, window.location.origin, '') : ''
+}
+
 function lireCreation(): { name: string; avatar: string } | null {
   const q = new URLSearchParams(window.location.search)
   if (!q.has('creer')) return null

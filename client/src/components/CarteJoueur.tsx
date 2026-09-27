@@ -6,13 +6,16 @@ import { divin } from '../../../shared/divins'
 import { ceQuIlAFallu, hautFait } from '../../../shared/hautsfaits'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
-import { chargerDessinsAuPlus, complets, useDessins } from './medaillons'
+import { chargerDessinsAuPlus, complets, sortesDe, useDessins } from './medaillons'
 import { Chiffres, justesses } from './Chiffres'
-import { Icon } from './Icon'
+import { Flamme, Icon } from './Icon'
 import { Niveau } from './Niveau'
 import { Laurier } from './Laurier'
+import { useModale } from '../modale'
+import { partsDuNomAffiche } from '../../../shared/homonymes'
 import { Ecusson } from './Ecusson'
-import { Flamme } from './Jour'
+import { Glossaire } from './Glossaire'
+import type { Mot } from '../../../shared/glossaire'
 import { fond as fondDeCarte } from '../../../shared/fonds'
 
 /**
@@ -24,21 +27,36 @@ import { fond as fondDeCarte } from '../../../shared/fonds'
  * Un invité anonyme a la sienne : sa soirée, sans rien qui dise ce qui lui
  * manque. Un surnom donné par l'animateur ne cache pas le prénom du profil.
  */
-export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; playerId: string; onFermer: () => void }) {
+export function CarteJoueur({
+  slug,
+  playerId,
+  adresse,
+  onFermer,
+}: {
+  slug?: string
+  playerId?: string
+  /** D'où la lire, si ce n'est pas un invité de la soirée : sa propre carte, depuis sa page. */
+  adresse?: string
+  onFermer: () => void
+}) {
   const [carte, setCarte] = useState<CarteDeJoueur | null>(null)
   const [erreur, setErreur] = useState('')
   const boite = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let vivant = true
-    fetch(`/s/${slug}/joueurs/${encodeURIComponent(playerId)}.json`)
-      .then(r => (r.ok ? r.json() : Promise.reject(new Error(r.status === 404 ? 'Ce joueur a quitté la soirée' : 'Carte indisponible'))))
+    fetch(adresse ?? `/s/${slug}/joueurs/${encodeURIComponent(playerId ?? '')}.json`)
+      .then(r =>
+        r.ok
+          ? r.json()
+          : Promise.reject(new Error(r.status === 404 && !adresse ? 'Ce joueur a quitté la soirée' : 'Carte indisponible')),
+      )
       // Une carte à médaillons attend leurs dessins sous son « Chargement… » :
       // ouverte avant, elle montrerait des cercles vides qui se remplissent.
       // Deux secondes et demie au plus : une requête muette ne garde pas la
       // carte fermée, elle s'ouvre sans ses galeries.
       .then(async (c: CarteDeJoueur) => {
-        if (c.legendaire || c.profil?.legendaires.length || c.profil?.divins?.length) await chargerDessinsAuPlus()
+        await chargerDessinsAuPlus(sortesDe([c.legendaire, ...(c.profil?.legendaires ?? []), ...(c.profil?.divins ?? [])]))
         return c
       })
       .then(c => vivant && setCarte(c))
@@ -46,26 +64,18 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
     return () => {
       vivant = false
     }
-  }, [slug, playerId])
+  }, [slug, playerId, adresse])
 
-  // Le clavier arrive dans la carte — une fois : la page se redessine à chaque
-  // instantané, et `onFermer` avec elle.
-  useEffect(() => {
-    boite.current?.focus()
-  }, [])
-
-  // Échap ferme.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onFermer()
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [onFermer])
+  // Le clavier arrive dans la carte et y reste ; Échap la ferme, et le focus
+  // revient à la ligne touchée.
+  useModale(boite, onFermer)
 
   const p = carte?.profil
-  // Les galeries ne se montrent qu'avec leurs dessins : sans eux (un échec,
-  // qui vaut pour toute la page), ce seraient des rangées de cercles vides.
-  // Ils peuvent aussi arriver après l'ouverture : la carte les ajoute alors.
-  const avecDessins = complets(useDessins(false))
+  // Chaque galerie ne se montre qu'avec ses dessins : sans eux (un échec,
+  // qui vaut pour toute la page), ce serait une rangée de cercles vides.
+  // Ils peuvent aussi arriver après l'ouverture : la carte l'ajoute alors.
+  const dessins = useDessins()
+  const avecDessins = { legendaires: complets(dessins, ['legendaire']), divins: complets(dessins, ['divin']) }
   // Son fond de carte, s'il en porte un : seulement l'un du catalogue.
   const fond = fondDeCarte(p?.fond)?.key
   return (
@@ -104,28 +114,36 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                   {p?.titre && hautFait(p.titre) && <p className="titre-porte">{espacesFines(`« ${hautFait(p.titre)!.title} »`)}</p>}
                   {carte.laurier && (
                     <p className="carte-laurier">
-                      <Laurier laurier /> Vainqueur du quiz du jour d’hier
+                      <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
                     </p>
                   )}
-                  {p && p.prenom !== carte.nom && <p className="muted small">{espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil</p>}
-                  <p className="carte-soir">
-                    {carte.ceSoir.rang > 0 ? (
-                      <>
-                        <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
-                      </>
-                    ) : (
-                      'Pas encore de points ce soir'
-                    )}
-                  </p>
+                  {/* Un surnom donné ce soir, pas la marque « (2) » d'un homonyme : « « Camille (2) » ce soir — Camille sur son profil » se lisait comme un surnom. */}
+                  {p && p.prenom !== partsDuNomAffiche(carte.nom).prenom && (
+                    <p className="muted small">
+                      {espacesFines(`« ${carte.nom} »`)} ce soir — {p.prenom} sur son profil
+                    </p>
+                  )}
+                  {/* Sa soirée — absente de sa propre carte, lue depuis sa page. */}
+                  {carte.ceSoir && (
+                    <p className="carte-soir">
+                      {carte.ceSoir.rang > 0 ? (
+                        <>
+                          <b>{place(carte.ceSoir.rang)}</b> sur {carte.ceSoir.joueurs} · {pts(carte.ceSoir.points)}
+                        </>
+                      ) : (
+                        'Pas encore de points ce soir'
+                      )}
+                    </p>
+                  )}
                   {/* Les QCM et les estimations, chacun à sa façon : « 1/64
                       justes » comptait des estimations qui ne sont jamais justes. */}
-                  {carte.ceSoir.reponses > 0 && <p className="muted small">{reponsesParType(carte.ceSoir)}</p>}
+                  {carte.ceSoir && carte.ceSoir.reponses > 0 && <p className="muted small">{reponsesParType(carte.ceSoir)}</p>}
                 </div>
               </header>
 
               {p && (
                 <>
-                  {avecDessins && (p.divins ?? []).length > 0 && (
+                  {avecDessins.divins && (p.divins ?? []).length > 0 && (
                     <div className="carte-legendaires carte-divins" aria-label="Divins">
                       {p.divins.map(cle => (
                         <span key={cle} className="carte-legendaire" title={divin(cle)?.nom}>
@@ -134,7 +152,7 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
                       ))}
                     </div>
                   )}
-                  {avecDessins && p.legendaires.length > 0 && (
+                  {avecDessins.legendaires && p.legendaires.length > 0 && (
                     <div className="carte-legendaires" aria-label="Avatars légendaires">
                       {p.legendaires.map(cle => (
                         <span key={cle} className="carte-legendaire" title={legendaire(cle)?.nom}>
@@ -208,6 +226,12 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
               )}
             </>
           )}
+          {/* Ses mots, dépliés au toucher : la carte, l'écran qu'on touche le
+              plus en salle d'attente, n'en expliquait aucun. Seulement ceux
+              qu'elle montre. */}
+          {carte && motsDeLaCarte(carte, avecDessins, !!fond).length > 0 && (
+            <Glossaire mots={motsDeLaCarte(carte, avecDessins, !!fond)} />
+          )}
           <div className="row dialog-actions">
             <button type="button" className="btn btn-ghost" onClick={onFermer}>
               Fermer
@@ -217,4 +241,21 @@ export function CarteJoueur({ slug, playerId, onFermer }: { slug: string; player
       </div>
     </div>
   )
+}
+
+/** Les mots maison qu'une carte affiche vraiment, dans l'ordre où elle les montre. */
+function motsDeLaCarte(carte: CarteDeJoueur, avecDessins: { legendaires: boolean; divins: boolean }, fond: boolean): Mot[] {
+  const p = carte.profil
+  const mots: Mot[] = []
+  if (carte.laurier) mots.push('laurier')
+  if (!p) return carte.ceSoir && carte.ceSoir.reponses > 0 ? [...mots, 'precision'] : mots
+  mots.push('niveau')
+  if (avecDessins.divins && (p.divins ?? []).length > 0) mots.push('divin')
+  if (avecDessins.legendaires && p.legendaires.length > 0) mots.push('legendaire')
+  mots.push('hautsFaits')
+  if (p.ecussons && p.ecussons.length > 0) mots.push('ecusson')
+  mots.push('precision', 'coupDOeil', 'reflexe')
+  if (p.prix && p.prix.eus > 0) mots.push('prix')
+  if (fond) mots.push('fond')
+  return mots
 }

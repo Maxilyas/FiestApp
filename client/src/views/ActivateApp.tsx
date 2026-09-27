@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api } from '../api'
 import { JoinHead } from '../components/Invitation'
+import { Icon } from '../components/Icon'
 
 /**
  * L'activation d'un compte (`/activer#t=…`) : l'ami suit le lien envoyé par
@@ -42,9 +43,16 @@ export function ActivateApp() {
             : 'Ce lien a expiré : demande-en un nouveau à l’administrateur.'}
         </p>
         <div className="join-grow" />
-        {compte.etat === 'servi' && (
+        {compte.etat === 'servi' ? (
           <a className="btn btn-primary btn-big btn-block" href="/connexion?next=/compte">
             Me connecter
+          </a>
+        ) : (
+          // Périmé, le lien ne proposait rien : il faut en demander un
+          // autre, et d'ici, on peut au moins rentrer (lot 12).
+          <a className="btn btn-block" href="/">
+            <Icon name="home" />
+            L’accueil
           </a>
         )}
       </div>
@@ -109,6 +117,13 @@ export function ActivateApp() {
       <button className="btn btn-primary btn-big btn-block" disabled={busy || !token}>
         Activer mon compte
       </button>
+      {/* Incomplet, le lien laissait un bouton éteint et rien d'autre. */}
+      {!token && (
+        <a className="btn btn-block" href="/">
+          <Icon name="home" />
+          L’accueil
+        </a>
+      )}
     </form>
   )
 }

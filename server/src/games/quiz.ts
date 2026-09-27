@@ -430,6 +430,10 @@ function award(sess: GameSessionRec<QuizState>, playerId: string, points: number
 /** `auClic` : l'animateur a forcé la révélation — il est là, lui. */
 function reveal(sess: GameSessionRec<QuizState>, ctx: GameContext, auClic = false) {
   const st = sess.state
+  // « Révéler » pendant une pause : la question se ferme, la pause avec.
+  // Gardée, toute la révélation se disait « En pause » à la télécommande,
+  // et le bouton de la console restait « Reprendre ».
+  st.pausedMs = null
   ctx.clearTimer('question')
   ctx.clearTimer('observe')
   ctx.clearTimer('settle')
@@ -528,6 +532,31 @@ function awaited(sess: GameSessionRec<QuizState>): string[] {
   return sess.participantIds.filter(
     id => (st.playFrom[id] ?? 0) <= st.qIndex && !(id in st.responses) && !st.dispenses?.includes(id),
   )
+}
+
+/**
+ * La salle a fini la question ouverte — chacun y a répondu, ou on ne
+ * l'attend plus : le souffle court, la révélation part. `sauf` : celui qui
+ * arrive, et qui n'y compte pas encore. Une salle vide n'a rien fini : la
+ * question attend celui qui entre.
+ */
+function salleAFini(sess: GameSessionRec<QuizState>, sauf: string): boolean {
+  const st = sess.state
+  if (st.phase !== 'question') return false
+  const autres = sess.participantIds.filter(id => id !== sauf && (st.playFrom[id] ?? 0) <= st.qIndex)
+  return autres.length > 0 && awaited(sess).every(id => id === sauf)
+}
+
+/**
+ * Il reste moins de temps qu'il n'en faut pour lire la question : celui que
+ * le barème offre avant de faire fondre le bonus (`tempsDeLecture`). En
+ * pause, le temps qui restera à la reprise.
+ */
+function tropTardPourLire(sess: GameSessionRec<QuizState>, ctx: GameContext): boolean {
+  const st = sess.state
+  if (st.phase !== 'question' || !st.pack) return false
+  const reste = st.pausedMs ?? st.deadline - ctx.now()
+  return reste < tempsDeLecture(st.pack.questions[st.qIndex])
 }
 
 /**
@@ -631,9 +660,15 @@ interface LigneDuClassement {
  * dans les marques d'homonymie déjà gardées en mémoire (`vctx.playerName`).
  */
 function classement(sess: GameSessionRec<QuizState>, vctx: ViewContext): Classe<LigneDuClassement>[] {
+  const st = sess.state
   return vctx.memo('quiz:classement', () =>
     classer(
-      sess.participantIds.map(id => ({ playerId: id, points: sess.state.totals[id] ?? 0, nom: vctx.playerName(id) })),
+      // Seuls ceux qui ont pu jouer une question : arrivé au podium, un
+      // invité à zéro se rangeait parmi les ex æquo par ordre alphabétique,
+      // et dans une petite salle chassait du podium un joueur qui avait joué.
+      sess.participantIds
+        .filter(id => (st.playFrom[id] ?? 0) <= st.qIndex)
+        .map(id => ({ playerId: id, points: st.totals[id] ?? 0, nom: vctx.playerName(id) })),
       l => l.points,
       l => l.nom,
       l => l.playerId,
@@ -655,9 +690,9 @@ function classement(sess: GameSessionRec<QuizState>, vctx: ViewContext): Classe<
  * change de l'écarter.
  */
 function indexDesPlaces(sess: GameSessionRec<QuizState>, vctx: ViewContext) {
-  const st = sess.state
   return vctx.memo('quiz:places', () => {
-    const lignes = classement(sess, vctx).filter(c => (st.playFrom[c.item.playerId] ?? 0) <= st.qIndex)
+    // Le classement n'en tient déjà que ceux qui ont pu jouer (`classement`).
+    const lignes = classement(sess, vctx)
     return { lignes, position: new Map(lignes.map((c, i) => [c.item.playerId, i])), ...groupesDExAequo(lignes) }
   })
 }
@@ -774,12 +809,28 @@ function podiumDe(sess: GameSessionRec<QuizState>, vctx: ViewContext, playerId: 
  * Les réponses telles que la question les montre : les invités d'un
  * sondage — leur nom affiché, marque d'homonymie comprise (invariant 17) —,
  * ou celles écrites.
+ *
+ * Un candidat exclu depuis garde sa place — les votes se comptent par
+ * position —, sans nom : il devenait « ??? » sur chaque téléphone, et l'on
+ * pouvait voter pour lui. Le téléphone ne montre pas une place vide.
  */
 function reponsesMontrees(sess: GameSessionRec<QuizState>, q: PlayableQuestion, vctx: ViewContext): string[] | undefined {
   if (q.kind !== 'choice') return undefined
   // Soixante noms pour chaque téléphone de la salle : lus une fois par diffusion.
-  if (q.variante === 'sondage') return vctx.memo('quiz:candidats', () => (sess.state.candidats ?? []).map(id => vctx.playerName(id)))
+  if (q.variante === 'sondage') {
+    return vctx.memo('quiz:candidats', () => (sess.state.candidats ?? []).map(id => (vctx.player(id) ? vctx.playerName(id) : '')))
+  }
   return q.answers
+}
+
+/**
+ * L'avatar de chaque candidat d'un sondage : deux Camille sur deux avatars
+ * ne sont pas marquées « (2) » (invariant 17) — c'est l'avatar qui les
+ * distingue, et la liste n'envoyait que des prénoms.
+ */
+function avatarsDesCandidats(sess: GameSessionRec<QuizState>, q: PlayableQuestion, vctx: ViewContext): string[] | undefined {
+  if (q.kind !== 'choice' || q.variante !== 'sondage') return undefined
+  return vctx.memo('quiz:avatars-candidats', () => (sess.state.candidats ?? []).map(id => vctx.player(id)?.avatar ?? ''))
 }
 
 /**
@@ -810,7 +861,9 @@ function votesDuSondage(sess: GameSessionRec<QuizState>, vctx: ViewContext, limi
     // Un invité exclu depuis n'est plus à désigner : ses votes reçus partent avec lui.
     .flatMap((id, i) => {
       const joueur = vctx.player(id)
-      return joueur ? [{ name: vctx.playerName(id), avatar: joueur.avatar, votes: comptes[i] ?? 0 }] : []
+      // Tel que la salle le voit partout ailleurs : sous un légendaire porté,
+      // l'emoji caché paraissait ici, sans finition ni laurier.
+      return joueur ? [{ name: vctx.playerName(id), avatar: joueur.avatar, votes: comptes[i] ?? 0, ...distinctions(joueur) }] : []
     })
     .filter(v => v.votes > 0)
     .sort((a, b) => b.votes - a.votes || a.name.localeCompare(b.name, 'fr'))
@@ -851,7 +904,13 @@ function guessRows(sess: GameSessionRec<QuizState>, target: number, vctx: ViewCo
  * que les gains positifs.
  *
  * Les retardataires sont exclus des questions posées avant leur arrivée :
- * on ne peut pas leur reprocher une question qu'ils n'ont jamais vue.
+ * on ne peut pas leur reprocher une question qu'ils n'ont jamais vue. Pas
+ * plus que le téléphone mort qu'on n'attend plus (`dispenses`) — ni le
+ * second « Rachid » laissé après une reprise, dont le porteur joue sous
+ * l'autre fiche : écrits « présents, sans réponse, 0 point », ils comptaient
+ * parmi les présents de leur équipe, dont la moyenne tombait à chaque
+ * question (la règle : « les membres qui l'ont eue sous les yeux »). Revenu
+ * en ligne, ou sa réponse donnée avant la panne, il compte.
  */
 function logQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   const st = sess.state
@@ -867,6 +926,7 @@ function logQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   ctx.logAnswers(
     sess.participantIds
       .filter(playerId => (st.playFrom[playerId] ?? 0) <= st.qIndex)
+      .filter(playerId => playerId in st.responses || !st.dispenses?.includes(playerId) || ctx.connected(playerId))
       .map(playerId => {
         const r = st.responses[playerId]
         const answered = !!r && (r.choice !== null || r.value !== null || (r.choix?.length ?? 0) > 0)
@@ -974,6 +1034,8 @@ export const quizModule: GameModule<QuizState> = {
       // Un sondage désigne un invité parmi ceux de la question.
       const n = q.variante === 'sondage' ? (st.candidats?.length ?? 0) : q.answers.length
       if (!Number.isInteger(choice) || choice < 0 || choice >= n) return 'invalid'
+      // Un candidat exclu depuis ne se désigne plus : sa place reste, sans nom.
+      if (q.variante === 'sondage' && !sess.participantIds.includes(st.candidats![choice])) return 'invalid'
       const before = st.responses[playerId]
       // Rien à réécrire, mais la réponse est bien celle-là : c'est un succès.
       // Le joueur qui retape la même case parce qu'il doute doit être confirmé.
@@ -1119,14 +1181,24 @@ export const quizModule: GameModule<QuizState> = {
         break
       case 'autoNext': {
         const seconds = command.seconds
-        st.autoNextSeconds = seconds === null ? null : Math.min(ENCHAINEMENT_MAX_S, Math.max(2, Math.round(seconds)))
+        // Un palier illisible — absent, un texte, NaN — reprend la main :
+        // `Math.round(undefined)` valait NaN, l'enchaînement s'armait à une
+        // milliseconde, et chaque révélation sautait aussitôt à la suivante.
+        st.autoNextSeconds =
+          typeof seconds === 'number' && Number.isFinite(seconds) ? Math.min(ENCHAINEMENT_MAX_S, Math.max(2, Math.round(seconds))) : null
         // Un palier choisi à la main relance, même devant une salle vide :
         // c'est l'animateur qui le demande.
         st.autoNextSuspendu = false
         if (st.autoNextSeconds === null) {
-          // Reprendre la main : l'enchaînement en attente est annulé.
+          // Reprendre la main : l'enchaînement en attente est annulé — et
+          // l'intertitre qu'il avait posé attend le clic, comme la
+          // révélation : son compte à rebours partait seul, « au clic » affiché.
           ctx.clearTimer('autoNext')
           st.autoNextAt = null
+          if (st.phase === 'intertitre') {
+            ctx.clearTimer('intertitre')
+            st.deadline = 0
+          }
         } else if (st.phase === 'reveal') {
           // Activé pendant une révélation : elle enchaîne sans attendre la suivante.
           st.autoNextAt = ctx.now() + st.autoNextSeconds * 1000
@@ -1162,7 +1234,7 @@ export const quizModule: GameModule<QuizState> = {
     }
   },
 
-  onPlayerJoin(sess, playerId) {
+  onPlayerJoin(sess, playerId, ctx) {
     const st = sess.state
     // Arrivé pendant une question : il peut encore répondre (avec moins de
     // temps). Arrivé quand elle est close — révélée, attendant sa cible, ou
@@ -1170,7 +1242,18 @@ export const quizModule: GameModule<QuizState> = {
     // qu'on mesurait, il entrait au journal d'une question qu'il n'avait
     // jamais vue, et sa révélation lui disait « Pas de réponse » au lieu de
     // « Bienvenue » ; arrivé au podium, il y tenait une place de dernier.
-    st.playFrom[playerId] = st.phase === 'reveal' || st.phase === 'cible' || st.phase === 'finished' ? st.qIndex + 1 : st.qIndex
+    // Arrivé quand toute la salle a répondu, pareil : le souffle révèle dans
+    // 700 ms, et lui laissait 600 ms pour lire avant « Pas de réponse ». Et
+    // arrivé avec moins de temps qu'il n'en faut pour la lire : son zéro
+    // entrait au journal et dans la moyenne de son équipe — l'arbitrage du
+    // 27 septembre 2026 [moteur-3].
+    const close =
+      st.phase === 'reveal' ||
+      st.phase === 'cible' ||
+      st.phase === 'finished' ||
+      salleAFini(sess, playerId) ||
+      tropTardPourLire(sess, ctx)
+    st.playFrom[playerId] = close ? st.qIndex + 1 : st.qIndex
   },
 
   onPlayerLeave(sess, playerId, ctx) {
@@ -1251,6 +1334,7 @@ export const quizModule: GameModule<QuizState> = {
         kind: q.kind,
         text: q.text,
         answers: reponsesMontrees(sess, q, vctx),
+        ...(q.kind === 'choice' && q.variante === 'sondage' && { avatars: avatarsDesCandidats(sess, q, vctx) }),
         ...(q.kind === 'choice' && q.variante && { variante: q.variante }),
         unit: q.kind === 'number' ? q.unit : undefined,
         category: q.category ?? undefined,
@@ -1362,6 +1446,7 @@ export const quizModule: GameModule<QuizState> = {
         kind: q.kind,
         text: q.text,
         answers: reponsesMontrees(sess, q, vctx),
+        ...(q.kind === 'choice' && q.variante === 'sondage' && { avatars: avatarsDesCandidats(sess, q, vctx) }),
         ...(q.kind === 'choice' && q.variante && { variante: q.variante }),
         ...(q.kind === 'number' && q.enDirect && { enDirect: true }),
         // Le blind test : l'écran commun joue l'extrait pendant la question.

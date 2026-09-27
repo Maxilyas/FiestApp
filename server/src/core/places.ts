@@ -30,8 +30,11 @@ interface CodeEnCours {
 /** Ce que donne un code tapé. */
 export type Saisie =
   | { ok: true; playerId: string; code: string }
-  /** `trop` : l'espace a manqué trop d'essais cette minute — on n'a pas même regardé le code. */
-  | { ok: false; motif: 'mauvais' | 'trop' }
+  /**
+   * `trop` : l'espace a manqué trop d'essais cette minute — on n'a pas même
+   * regardé le code. `plein` : cet essai manqué vient de fermer la minute.
+   */
+  | { ok: false; motif: 'mauvais' | 'trop'; plein?: true }
 
 /**
  * Les places que l'animateur a promis de rendre, dans un espace.
@@ -89,7 +92,7 @@ export class PlacesRendues {
     const c = code.length === CHIFFRES ? this.codes.get(code) : undefined
     if (!c) {
       this.manques.push(now)
-      return { ok: false, motif: 'mauvais' }
+      return { ok: false, motif: 'mauvais', ...(this.manques.length >= ESSAIS_MANQUES_MAX && { plein: true as const }) }
     }
     return { ok: true, playerId: c.playerId, code }
   }

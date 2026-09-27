@@ -51,7 +51,8 @@ export function DetailLegendaire({
       <span className="detail-famille anneau-texte-legendaire">Légendaire</span>
       <b className="galerie-detail-nom">{choisi.nom}</b>
       <p className="serif-note">{choisi.legende}</p>
-      {eclats.includes(choisi.key) && (
+      {/* Gagné seulement : un légendaire verrouillé n'a rien qui éclate. */}
+      {gagne && eclats.includes(choisi.key) && (
         <p className="small">Il a éclaté : c’est sa version rare, et personne d’autre ne l’a comme ça.</p>
       )}
       {saisonDe ? (
@@ -90,7 +91,7 @@ export function DetailLegendaire({
         <button
           type="button"
           className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
-          disabled={busy}
+          aria-disabled={busy || undefined}
           onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
         >
           {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}
@@ -132,7 +133,7 @@ export function DetailDivin({
           <button
             type="button"
             className={'btn btn-small ' + (porte === choisi.key ? 'btn-ghost' : 'btn-primary')}
-            disabled={busy}
+            aria-disabled={busy || undefined}
             onClick={() => onPorter(porte === choisi.key ? null : choisi.key)}
           >
             {porte === choisi.key ? 'Revenir à mon emoji' : 'Le porter'}

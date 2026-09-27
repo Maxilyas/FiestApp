@@ -2,7 +2,7 @@ import express, { type Express } from 'express'
 import { randomBytes, randomInt } from 'node:crypto'
 import { wrap } from '../core/http'
 import type { AuthStore } from './store'
-import { accountOf, clientIp, loginBudgetOf, requireAccount, sessionOf, setSessionCookie } from './http'
+import { accountOf, clientIp, loginBudgetOf, refuserLesTeles, requireAccount, sessionOf, setSessionCookie } from './http'
 
 /**
  * Brancher la télé sans rien y taper.
@@ -149,6 +149,9 @@ export function mountAppairage(app: Express, deps: { auth: AuthStore; online: bo
   app.post(
     '/api/auth/appairage/valider',
     requireAccount(auth),
+    // Une télé n'en branche pas une autre : la seconde repartait pour
+    // vingt-quatre heures, et la chaîne ne finissait jamais.
+    refuserLesTeles(auth),
     small,
     wrap(async (req, res) => {
       const account = accountOf(res)

@@ -7,8 +7,11 @@
 // apprendre et pour avancer. Il rapporte de l'expérience — le barème d'un
 // quiz de soirée de dix questions, 75 au plus, à proportion des points
 // (l'option B, choisie le 26 septembre 2026) —, et son podium, figé à minuit,
-// 25, 15 et 10, comme celui d'un quiz. Tout ce qui ne se gagne qu'en soirée y
-// reste : hauts faits, paliers de carrière, légendaires, Divins, Éclat.
+// 25, 15 et 10, comme celui d'un quiz. Il a ses récompenses à lui : trois
+// paliers (L'Assidu, Le Champion du jour, Le Sans-Faute), le Sphinx, et les
+// jours de saison qui ouvrent la Citrouille, le Sapin, le Bouquet final. Les
+// hauts faits de soirée, les paliers de carrière et l'Éclat restent aux
+// soirées.
 //
 // Réservé aux profils. Un invité anonyme n'y voit rien qui lui manque
 // (invariant 8) : la porte d'entrée reste celle des soirées.
@@ -300,7 +303,6 @@ export interface CarriereDuJour {
   jours: JourJoue[]
 }
 
-/** La partie du jour d'un profil, vue de son téléphone. */
 /** Un palier du quiz du jour qui vient de tomber, tel qu'on l'annonce : « 📆 L'Assidu · Bronze ». */
 export interface PalierTombe {
   key: string
@@ -308,6 +310,7 @@ export interface PalierTombe {
   title: string
 }
 
+/** La partie du jour d'un profil, vue de son téléphone. */
 export interface PartieDuJour {
   jour: string
   /**
@@ -320,6 +323,8 @@ export interface PartieDuJour {
   categories: string[]
   /** Où il en est. */
   etat: 'a-jouer' | 'en-cours' | 'finie' | 'aucun'
+  /** Pas de quiz aujourd'hui (`aucun`) : la réserve en a-t-elle de quoi demain ? */
+  revientDemain?: boolean
   /** En cours : la question à laquelle répondre, si elle est montrée. */
   question?: QuestionDuJour
   /** En cours, entre deux questions : ce qu'il vient d'apprendre. */
@@ -338,6 +343,11 @@ export interface PartieDuJour {
   pointsPossibles: number
   comptees: number
   serie: number
+  /**
+   * Aujourd'hui compte déjà dans la série — une partie, ou une soirée : minuit
+   * ne la cassera pas. Sinon, elle tient jusqu'à minuit, et la page le dit.
+   */
+  serieTenue?: boolean
   /**
    * Qui a gagné hier — tous les ex æquo en tête (invariant 15) —, vide sans
    * podium.
@@ -359,6 +369,13 @@ export interface PartieDuJour {
   paliers?: PalierTombe[]
   /** Et le légendaire que l'un d'eux ouvre : le Sphinx, au centième jour ou au dixième sans-faute — ou celui de la saison. */
   legendaires?: string[]
+  /**
+   * La partie finie : son niveau avant elle, et après — ce qu'elle a ouvert
+   * se dit comme en fin de soirée (« Niveau 2 ! », la finition, l'emoji de
+   * collection à porter).
+   */
+  niveauAvant?: number
+  niveauApres?: number
   /**
    * Pendant une saison (Halloween, Noël, le Nouvel An), tant que son
    * légendaire n'est pas à lui : ses jours joués dans la période, et combien

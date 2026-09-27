@@ -7,6 +7,7 @@ import { buildReview, type PlayedPack } from './review'
 import { playedPackOf } from '../games/quiz'
 import { ArchiveStore, reviewOfArchive } from './archive'
 import { playableQuestions } from '../../../shared/library'
+import { tronquer } from '../../../shared/avatars'
 import { nomsAffiches } from '../../../shared/homonymes'
 import { rang } from '../../../shared/typographie'
 import { classer } from '../../../shared/classement'
@@ -192,7 +193,9 @@ export function toCsv(rows: unknown[][]): string {
 
 const pct = (r: number | null) => (r === null ? '' : formatPercent(r))
 const secs = (ms: number | null) => (ms === null ? '' : formatSeconds(ms))
-const short = (s: string, max = 70) => (s.length > max ? s.slice(0, max - 1) + '…' : s)
+// Par `tronquer`, jamais par `slice` : un emoji à la frontière laissait sa
+// moitié, écrite « � » dans les CSV.
+const short = (s: string, max = 70) => (Array.from(s).length > max ? tronquer(s, max - 1) + '…' : s)
 
 /** Les quatre fichiers, prêts à écrire : leur nom et leur contenu. */
 export function exportFiles(review: Review): { name: string; content: string }[] {

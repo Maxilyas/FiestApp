@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, motifDe, type AdminDuJour as Etat, type ProfilMasquable } from '../api'
 import { confirmDialog } from './Dialog'
-import { Icon } from './Icon'
-import { Flamme } from './Jour'
+import { Flamme, Icon } from './Icon'
 import { copierTexte } from '../copier'
 import { quand } from '../format'
 import { showToast } from '../state'
@@ -93,10 +92,19 @@ export function AdminDuJour() {
 
   useEffect(() => {
     if (cherche.trim().length < 2) return setTrouves([])
+    // Une recherche courte, plus lente, qui revenait après une longue
+    // remplaçait sa liste : sous « camille », les profils de « ca ».
+    let perimee = false
     const t = setTimeout(() => {
-      api.admin.profilsDuJour(cherche).then(setTrouves).catch(() => {})
+      api.admin
+        .profilsDuJour(cherche)
+        .then(trouves => !perimee && setTrouves(trouves))
+        .catch(() => {})
     }, 250)
-    return () => clearTimeout(t)
+    return () => {
+      perimee = true
+      clearTimeout(t)
+    }
   }, [cherche])
 
   const masquer = async (p: ProfilMasquable, masque: boolean) => {

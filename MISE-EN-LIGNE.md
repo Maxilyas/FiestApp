@@ -70,10 +70,12 @@ Sur [render.com](https://render.com) : crée un compte, puis **New → Web Servi
 | Region | Frankfurt |
 | Instance Type | Free |
 | Build Command | `npm ci && npm run build` |
-| Start Command | `cd server && exec node --import tsx src/index.ts` |
+| Start Command | `cd server && exec node dist/index.mjs` |
 | Health Check Path (*Settings*) | `/healthz` |
 
 Surtout pas `npm start` : npm garde pour lui le signal d'arrêt de Render, et l'arrêt propre — celui qui recopie les dernières réponses dans Turso avant de s'éteindre — ne s'exécute jamais.
+
+`npm run build` construit le client **et** le serveur, en un seul fichier : `server/dist/index.mjs`. Chaque réveil de l'offre gratuite est un démarrage, et le serveur n'a plus à y traduire son TypeScript — une seconde de processeur et 35 Mo de mémoire en moins, quelques secondes de page blanche en moins pour le premier invité qui scanne le QR. L'ancienne commande, `cd server && exec node --import tsx src/index.ts`, marche toujours : c'est le repli si le paquet refusait de démarrer.
 
 Puis ses variables (*Environment*) :
 
@@ -86,6 +88,8 @@ Puis ses variables (*Environment*) :
 | `QUIZ_DB_TOKEN` | le jeton de l'étape 2 |
 | `NODE_VERSION` | `22` |
 | `MAX_PLAYERS` | `150` — le plafond d'invités d'une soirée, que le réglage d'un espace ne dépasse pas. Sans elle, le code laisse monter jusqu'à 500, et une salle de 300 fait céder le dixième de processeur de l'offre gratuite (mesuré). Il borne **chaque** espace, pas leur somme |
+
+Deux variables que Render pose seul, et qu'ailleurs il faudrait poser : `NODE_ENV=production` met le serveur **en ligne** (il refuse alors de démarrer sans `QUIZ_DB_URL`, et exige un vrai `ADMIN_PASSWORD` sur une base vide) — sur Render, `RENDER=true` en tient lieu ; et `PUBLIC_URL`, l'adresse publique que portent les QR codes — sur Render, `RENDER_EXTERNAL_URL` en tient lieu.
 
 Enfin, dans *Settings*, coupe **Auto-Deploy** : la production ne se déploie qu'à la main, une fois la préproduction vue tourner (étape 7).
 
@@ -161,7 +165,7 @@ Une soirée est un coup unique — on ne débogue pas devant la salle. D'où un 
 > - **Ce qui décide du service à garder, c'est l'adresse déjà partagée — et elle ne tient pas au nom.** L'adresse `onrender.com` d'un service se fixe à sa création : le renommer ne la change pas, mais une copie suffixée, ou un service recréé, en reçoit une autre. Les QR imprimés et les liens déjà partagés portent cette adresse : tant qu'il en circule, garde le service qui y répond — renomme-le si tu veux, ne le recrée pas.
 > - **Le service, lui, est jetable.** Tout le précieux vit dans Turso ; en supprimer un et le recréer ne perd rien tant que `QUIZ_DB_URL` et `QUIZ_DB_TOKEN` repointent sur la même base. La seule chose à ne jamais supprimer, c'est la base Turso.
 > - **Regarde `QUIZ_DB_URL` des copies avant de les supprimer.** Si l'une pointe vers la base Turso de production, elle a pu y écrire : c'est la seule chose vraiment fâcheuse ici. Si le formulaire du blueprint a été passé sans rien remplir, elles n'ont même pas démarré — le serveur refuse de se lancer en ligne sans `QUIZ_DB_URL`, et leur journal dit « ❌ QUIZ_DB_URL manquant ». Rien n'a alors été touché.
-> - **Sans blueprint, `render.yaml` est de la documentation.** Les deux services se règlent alors chacun sur son tableau de bord : déploiement automatique **activé** en préproduction, **désactivé** en production (*Settings → Auto-Deploy*), les variables saisies à la main, et les deux commandes recopiées dans *Settings* — `npm ci && npm run build` dans **Build Command** (rubrique *Build*), `cd server && exec node --import tsx src/index.ts` dans **Start Command** (rubrique *Deploy*). Change-les d'abord sur la préproduction : un déploiement, un réveil, une partie ; la production ensuite. Le fichier reste la référence de ce qu'ils doivent contenir.
+> - **Sans blueprint, `render.yaml` est de la documentation.** Les deux services se règlent alors chacun sur son tableau de bord : déploiement automatique **activé** en préproduction, **désactivé** en production (*Settings → Auto-Deploy*), les variables saisies à la main, et les deux commandes recopiées dans *Settings* — `npm ci && npm run build` dans **Build Command** (rubrique *Build*), `cd server && exec node dist/index.mjs` dans **Start Command** (rubrique *Deploy*). Change-les d'abord sur la préproduction : un déploiement, un réveil, une partie ; la production ensuite. Le fichier reste la référence de ce qu'ils doivent contenir.
 
 > 🚨 **La règle absolue : jamais la même base Turso pour les deux.** Un « C'était un essai », une soirée retirée de l'historique ou une suppression de compte en préproduction effacerait de vraies soirées archivées — ce sont les seuls gestes sans retour de l'application. Pour qu'on ne s'y trompe jamais, la préproduction affiche un **bandeau rouge « PREPROD »** en bas à gauche de toutes ses pages, et le préfixe dans l'onglet du navigateur.
 
@@ -174,11 +178,43 @@ Une soirée est un coup unique — on ne débogue pas devant la salle. D'où un 
 
 **Promouvoir en production.** La production ne se déploie pas toute seule : sur son tableau de bord Render, **Manual Deploy → Deploy latest commit**. On regarde la préproduction tourner, puis on promeut — la veille d'une soirée, pas le soir même.
 
+**Passer au serveur empaqueté (une fois par service).** Un service créé avant le paquet démarre encore par `cd server && exec node --import tsx src/index.ts`, qui marche toujours. Pour gagner le réveil : une fois déployé un commit qui construit le paquet (la construction passe alors par `npm run build -w server`), change **Start Command** en `cd server && exec node dist/index.mjs`. La préproduction d'abord — un redémarrage, `[serveur] prêt en … ms` au journal, une partie —, la production ensuite. Si le service ne démarre plus et que le journal dit `Cannot find module '…/server/dist/index.mjs'`, le commit déployé ne construisait pas encore le paquet : remets l'ancienne commande le temps de le déployer.
+
+**Les minutes de construction.** L'offre gratuite donne 500 minutes de construction par mois, pour tout l'espace de travail, et chaque fusion sur `main` construit la préproduction : 54 fusions en cinq jours fin septembre 2026, soit 650 à 970 minutes par mois à ce rythme. Épuisées sans moyen de paiement enregistré, plus aucune construction jusqu'au mois suivant — **production comprise**, veille de soirée comprise. Deux réglages :
+
+- **Build Filters**, sur les deux services (*Settings*, rubrique *Build*) : dans **Ignored Paths**, `retours/**`, `**/*.md` et `.claude/**`. Une fusion qui ne touche que la documentation, les retours d'une tablée ou les consignes des agents ne construit plus rien — ni le serveur ni le client n'en lisent une ligne.
+- **Auto-Deploy** de la préproduction, coupé les semaines chargées (*Settings → Auto-Deploy*) : quand les fusions se rapprochent, on la déploie à la main — **Manual Deploy → Deploy latest commit** — au moment de la regarder, comme la production. On le rallume ensuite : c'est lui qui fait qu'elle est toujours à jour.
+
+Ce qui reste se lit en trente secondes : *Workspace → Billing*, les minutes de construction du mois. Les heures d'instance, elles, sont 750 par mois pour les deux services ensemble, et c'est pour elles qu'ils dorment (ci-dessous).
+
+**Observer un déploiement pendant une partie (dix minutes, une fois).** Render peut faire tourner l'ancienne et la nouvelle instance ensemble pendant une bascule. Si c'est le cas, les deux écrivent au même miroir pendant ce temps-là, et au réveil suivant une question peut se retrouver payée deux fois — rejoué en local, jamais vu chez Render. Ne pas déployer pendant une soirée suffit à s'en garder (section 6) ; mais pour savoir s'il faut aller plus loin, il faut le voir une fois, en **préproduction** :
+
+1. Ouvre son écran commun et deux téléphones (un téléphone et une fenêtre privée font l'affaire), lance un quiz aux questions longues, et fais répondre les téléphones.
+2. Relève `/healthz` toutes les deux secondes, dans un terminal :
+
+   ```bash
+   while true; do echo "$(date +%T) $(curl -s https://TA-PREPROD.onrender.com/healthz | grep -oE '"(version|uptime)":[^,}]*' | tr '\n' ' ')"; sleep 2; done
+   ```
+
+   ou, dans PowerShell :
+
+   ```powershell
+   while ($true) { $h = Invoke-RestMethod https://TA-PREPROD.onrender.com/healthz; "{0}  version {1}  uptime {2}" -f (Get-Date -Format HH:mm:ss), $h.version, $h.uptime; Start-Sleep 2 }
+   ```
+3. Sur le tableau de bord de la préproduction, **Manual Deploy → Deploy latest commit**, et laisse les téléphones répondre pendant toute la bascule.
+4. Regarde trois choses :
+   - **le relevé** : si les lignes **alternent**, pendant la bascule, entre l'ancienne instance (un `uptime` qui continue de monter) et la nouvelle (un `uptime` de quelques secondes), les deux répondaient ensemble. Un `uptime` qui retombe une fois pour de bon, c'est une bascule nette ;
+   - **le journal** (*Logs*) : l'heure de `[serveur] prêt en … ms` et de `[soirée] … rechargés après redémarrage` (la nouvelle), face à celle de `[serveur] extinction demandée` (l'ancienne). La nouvelle qui recharge la soirée **avant** que l'ancienne ne s'éteigne, c'est le chevauchement : l'ancienne écrivait encore au miroir que la nouvelle avait déjà relu ;
+   - **les points** : le classement de l'écran commun avant et après — une question payée deux fois s'y voit.
+5. Garde le relevé et ces lignes du journal. Avec un chevauchement, on pose un bail : la nouvelle instance prend la main, l'ancienne cesse d'écrire et renvoie les téléphones vers elle. Sans, on s'arrête là.
+
 **Et le dormir ?** Les deux services s'endorment après quinze minutes sans trafic. C'est assumé : les 750 heures mensuelles de l'offre gratuite ne suffiraient pas à en garder deux éveillés. On réveille celui dont on a besoin en ouvrant son adresse, cinq minutes avant (voir l'étape 5).
 
 ### Étape 8 — La réserve du quiz du jour, remplie par une routine
 
-Le quiz du jour pose dix questions par jour : sa réserve se vide. Une **routine Claude Code** la remplit deux fois par semaine, sur ton abonnement Claude. Le serveur ne détient aucune clé d'IA : il donne la consigne et reçoit les questions, derrière un jeton qui ne sait faire que ça — ajouter des questions. S'il fuitait, il ne coûterait que des questions en trop, que tu retires à `/admin`, et tu le changes en deux minutes.
+Le quiz du jour pose dix questions par jour : sa réserve se vide. Une **routine Claude Code** la remplit deux fois par semaine, sur ton abonnement Claude.
+
+**À faire le jour même où le quiz du jour arrive en ligne, pas plus tard.** Au premier démarrage, la réserve prend les questions des quiz livrés : trente-huit, de quoi tenir quatre jours — ensuite, elles ne sortent plus qu'en dernier recours, puisqu'une soirée peut jouer ces quiz. Sans la routine, plus de quiz du jour du cinquième au trente et unième jour, le temps que ces questions redeviennent tirables — et Halloween (du 25 octobre au 1er novembre) en demande trois pour sa Citrouille. Le journal du service le dit dès qu'un jour manque de questions (`[jour] réserve à sec`). Le serveur ne détient aucune clé d'IA : il donne la consigne et reçoit les questions, derrière un jeton qui ne sait faire que ça. Mais la consigne rappelle les intitulés déjà en réserve — ceux des trois semaines à venir d'abord, pour que l'IA ne les réécrive pas : **qui tient le jeton peut lire les questions des prochains jours**, et chercher leurs réponses la veille. Garde-le donc comme un mot de passe ; s'il a fuité, change-le aussitôt des deux côtés (points 1 et 2) — deux minutes —, et retire à `/admin` ce qu'il aurait déposé.
 
 1. **Le jeton, dans Render.** Sur la préproduction d'abord, pour essayer, puis sur la production — chacune le sien : *Environment → Add Environment Variable*, la clé `RESERVE_TOKEN`, et le bouton **Generate** pour la valeur. Enregistre : le service redémarre, et `/admin`, rubrique « Le quiz du jour », dit **Remplissage automatique ouvert**. Sous trente-deux caractères, la porte reste fermée, et le journal du démarrage le dit.
 2. **Le même jeton, dans l'environnement Claude Code.** Sur claude.ai/code, le menu de l'environnement (en haut d'une session), puis **Edit** : ajoute les variables `RESERVE_TOKEN` (la valeur recopiée depuis Render) et `FIESTAPP_URL` (l'adresse du service qu'elle remplit, `https://….onrender.com`, sans `/` à la fin). Dans **Network access**, ajoute ce domaine aux domaines permis. Le jeton ne s'écrit jamais dans le dépôt, ni dans une conversation. Une fois la préproduction essayée, remplace les deux variables par celles de la production.
@@ -222,6 +258,8 @@ L'application sert plusieurs soirées : chaque ami a son compte, son espace et s
 3. Il ouvre le lien, choisit son mot de passe, et arrive sur **Mon compte** : le titre de sa soirée, l'adresse de ses invités à copier, ses réglages. Il écrit ses quiz dans **Mes quiz**, anime depuis **Écran commun**, retrouve ses soirées passées sur `/chez-bob/soirees`.
 
 **Mot de passe oublié :** il n'y a pas d'e-mail. Sur `/admin`, le bouton **Lien** de son compte refait un lien d'activation ; il choisit un nouveau mot de passe en l'ouvrant. Ses anciens liens ne valent plus rien.
+
+**Et le tien ?** Le bouton **Lien** n'existe pas pour ton propre compte : il changeait ton mot de passe sans demander l'actuel, et n'importe quelle session de ton compte — la télé branchée chez des amis, ton téléphone prêté en soirée — s'en serait servie pour te mettre dehors. Ton mot de passe se change dans **Mon compte**, en donnant l'actuel. Pour ne jamais rester à la porte, **rattache ton profil de joueur à ton espace** (Mon compte → Mon profil joueur) : se connecter à ton profil ouvre ta console, et son **code de secours** — affiché à son inscription — te rend l'accès si tu oublies tout.
 
 **Désactiver un compte** ferme ses sessions et ses écrans communs sur-le-champ ; ses quiz et ses soirées restent, et ses pages publiques restent lisibles. **Réactiver** rouvre la porte ; il se reconnecte avec son mot de passe.
 
@@ -391,6 +429,9 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 | L'écran commun demande de se connecter | pas de session sur ce navigateur, ou session fermée (déconnexion, mot de passe changé, compte désactivé ou supprimé) | se reconnecter |
 | « Cette adresse ne mène à aucune soirée » | le nom d'espace de l'adresse n'existe pas (faute de frappe, compte désactivé ou supprimé) | vérifier l'adresse dans « Mon compte » ; scanner le QR de l'écran |
 | « Aucun quiz prêt à jouer — créez-en un dans l'espace animateur (/edit) » au lancement | la bibliothèque de cet espace est vide, ou ses quiz n'ont que des questions incomplètes | écrire un quiz dans `/edit` — ou en importer un —, compléter ce qui porte un ⚠️, ou relancer la migration (étape 4) pour le tien |
+| « Pas de quiz aujourd'hui : la réserve de questions est vide » au quiz du jour | la routine qui remplit la réserve ne tourne pas, ou n'a jamais été créée (étape 8) : abonnement, jeton changé d'un seul côté, domaine plus permis. Le journal du service dit `[jour] réserve à sec` | pour aujourd'hui : `/admin`, « Copier la consigne pour une IA », puis sa réponse dans « Coller une liste » ; ensuite, réparer la routine (étape 8) |
+| La routine lit « Le dépôt automatique n'est pas ouvert sur ce serveur » | `RESERVE_TOKEN` absent de ce service, ou plus court que trente-deux caractères | le poser sur Render, avec **Generate** (étape 8, point 1) |
+| La routine lit « Jeton de la réserve refusé » | le jeton de Render et celui de l'environnement Claude Code ne sont plus les mêmes | recopier la valeur de Render dans l'environnement (étape 8, point 2) |
 | Un invité ne voit rien après avoir répondu | c'est normal | la question est sur l'écran commun ; son téléphone attend la révélation |
 | Un téléphone affiche « Connexion perdue — reconnexion… » (en salle d'attente : « reconnexion… ») | réseau du téléphone : wifi coupé, 4G perdue, mode avion | il se reconnecte tout seul — au retour du réseau ou au rallumage de l'écran, en deux secondes —, son score est conservé |
 | Un téléphone affiche « On ne te retrouve plus dans cette soirée — rejoins-la » | son invité n'existe plus : exclu pendant que le téléphone dormait, ou essai effacé (**C'était un essai**) | rien : l'entrée s'ouvre, pré-remplie de son prénom |
@@ -422,6 +463,8 @@ Un redémarrage du serveur en pleine partie n'est pas grave : la partie en cours
 | `reponses.tropTardParMin` | des réponses refusées pour « trop tard » | en hausse avec la charge : le serveur prend du retard |
 | `miroir` | la santé de la sauvegarde dans Turso, et la durée de ses envois | voir « Sauvegarde en retard » ci-dessus |
 | `memoire`, `rssMo` | le tas, la mémoire du processus, les connexions ouvertes | 512 Mo sur l'offre gratuite |
+| `version` | le commit qui tourne, sept caractères (`RENDER_GIT_COMMIT`) — la ligne `[serveur] prêt …` du journal le dit aussi | après un « Manual Deploy », que c'est bien le bon |
+| `jour.joursDAvance`, `jour.dernierApport` | l'avance de la réserve du quiz du jour, et l'heure du dernier apport (en millisecondes) — relues au plus toutes les dix minutes, absentes juste après un réveil | sous sept jours, la routine ne dépose plus (étape 8) |
 
 Chaque réveil de l'offre gratuite remet ces compteurs à zéro : ce qui compte part aussi au journal. À chaque clôture, `[soirée] close en … ms : N invités, … ; la réserve d'inscriptions a vu K adresses`. Une salle de téléphones en 4G sous une ou deux adresses veut dire que le serveur lit celle du proxy de Render, pas celle du téléphone — et que toute la salle partage une seule réserve d'inscriptions. Au premier refus d'une adresse dans la minute, `[inscriptions] réserve épuisée pour l'adresse …` donne une empreinte (jamais l'adresse) et le nombre d'entrées de `x-forwarded-for`.
 

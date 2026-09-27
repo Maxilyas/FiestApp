@@ -1,10 +1,10 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import type { QuizStore } from './quizStore'
 import type { APersonnaliser, Rayon } from '../../../shared/modeles'
+import { SERVEUR } from '../racine'
 
-const CONTENT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../content/quiz')
+const CONTENT_DIR = path.join(SERVEUR, 'content/quiz')
 
 /** Un quiz livré avec l'application (`server/content/quiz/*.json`). */
 export interface Modele {

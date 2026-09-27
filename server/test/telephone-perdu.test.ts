@@ -374,6 +374,77 @@ describe('le téléphone perdu', () => {
     await ranger(host, sessionId, [host, alice.socket, emprunte.socket])
   })
 
+  test('ni la fiche qu’on n’attend plus, ni le second Rachid laissé ne pèsent sur la moyenne de leur équipe', async () => {
+    // La moyenne d'équipe compte les membres qui ont eu la question sous les
+    // yeux. Le téléphone mort qu'on n'attend plus — et après « Rendre sa
+    // place », le second Rachid gardé, dont le porteur joue sous l'autre
+    // fiche — étaient écrits « présents, sans réponse, 0 point » à chaque
+    // question : à jeu égal, la salle lisait « Rouges 600 · Bleus 800 ».
+    // Des questions longues : chacun répond pendant le temps de lecture
+    // offert, et marque le maximum.
+    const quiz = await creerQuiz(banc.url, cookie, ['Un ?', 'Deux ?', 'Trois ?', 'Quatre ?'].map(t => qcm(t, ['Oui', 'Non'], 0, 60)), 'Le fantôme')
+    const host = await ecranCommun(banc.url, cookie)
+    await viderLaSalle(host)
+    envoyer(host, 'host:createTeam', { name: 'Rouges', emoji: '🍒' })
+    envoyer(host, 'host:createTeam', { name: 'Bleus', emoji: '🐳' })
+    const avecEquipes = await instantane<any>(host, s => s.teams.some((t: any) => t.name === 'Rouges') && s.teams.some((t: any) => t.name === 'Bleus'), 'deux équipes')
+    const rouges = avecEquipes.teams.find((t: any) => t.name === 'Rouges').id
+    const bleus = avecEquipes.teams.find((t: any) => t.name === 'Bleus').id
+    const alice = await invite(banc.url, 'Alice', '🦊')
+    const rachid = await invite(banc.url, 'Rachid', '🦁')
+    const bruno = await invite(banc.url, 'Bruno', '🐻')
+    const chloe = await invite(banc.url, 'Chloé', '🐼')
+    for (const [i, t] of [[alice, rouges], [rachid, rouges], [bruno, bleus], [chloe, bleus]] as const) {
+      envoyer(host, 'host:assignPlayer', { playerId: i.playerId, teamId: t })
+    }
+    await instantane<any>(host, s => s.players.filter((p: any) => p.teamId).length === 4, 'les équipes faites')
+    const sessionId = await lancerQuiz(host, quiz)
+    const jouer = async (v: any, salle: Invite[]) => {
+      const revele = vue(host, w => w.phase === 'reveal' && w.qIndex === v.qIndex, `la révélation ${v.qIndex + 1}`)
+      for (const i of salle) assert.equal((await repondre(i, sessionId, v, 0)).ok, true)
+      return revele
+    }
+
+    let v = await vue(host, v => v.phase === 'question' && v.qIndex === 0, 'la question 1')
+    v = await jouer(v, [alice, rachid, bruno, chloe])
+    // Le téléphone de Rachid meurt ; il revient sur un téléphone emprunté,
+    // dans son équipe, et joue la question 2. On n'attend plus la fiche d'origine.
+    rachid.socket.close()
+    await instantane<any>(host, s => s.players.find((p: any) => p.id === rachid.playerId)?.connected === false, 'Rachid hors ligne')
+    suivante(host, sessionId, v)
+    v = await vue(host, v => v.phase === 'question' && v.qIndex === 1, 'la question 2')
+    const socket = connecter(banc.url)
+    assert.equal((await emitAck<any>(socket, 'party:watch', { slug: SLUG })).ok, true)
+    const second = await emitAck<any>(socket, 'player:join', { slug: SLUG, name: 'Rachid', avatar: '⚽', teamId: rouges })
+    assert.equal(second.ok, true)
+    const emprunte: Invite = { socket, playerId: second.playerId, token: second.token }
+    commande(host, sessionId, { type: 'nePlusAttendre', playerId: rachid.playerId })
+    v = await jouer(v, [alice, emprunte, bruno, chloe])
+    const moyennes = async () => {
+      const snap = await instantane<any>(host)
+      return [rouges, bleus].map(id => snap.teams.find((t: any) => t.id === id).average)
+    }
+    const [r2, b2] = await moyennes()
+    assert.equal(r2, b2, 'la fiche qu’on n’attend plus ne compte pas parmi les présents de la question')
+
+    // Il reprend sa place : le second Rachid, qui a joué, est gardé — sans qu'on l'attende.
+    const { code } = await emitAck<any>(host, 'host:rendrePlace', { playerId: rachid.playerId })
+    const reprise = await emitAck<any>(socket, 'player:reprendre', { slug: SLUG, code, token: second.token })
+    assert.equal(reprise.ok, true, reprise.error)
+    const revenu: Invite = { socket, playerId: reprise.playerId, token: reprise.token }
+    for (const q of [2, 3]) {
+      suivante(host, sessionId, v)
+      v = await vue(host, v => v.phase === 'question' && v.qIndex === q, `la question ${q + 1}`)
+      v = await jouer(v, [alice, revenu, bruno, chloe])
+    }
+    await patienter(300)
+    const [r4, b4] = await moyennes()
+    assert.equal(r4, b4, 'deux équipes qui ont tout juste, au même rythme, ont la même moyenne')
+    envoyer(host, 'host:removeTeam', { teamId: rouges })
+    envoyer(host, 'host:removeTeam', { teamId: bleus })
+    await ranger(host, sessionId, [host, alice.socket, bruno.socket, chloe.socket, socket])
+  })
+
   test('trop de codes faux : refusé avec un accusé, sans couper la connexion ; un code neuf rend les essais', async () => {
     const host = await ecranCommun(banc.url, cookie)
     await viderLaSalle(host)

@@ -13,7 +13,7 @@ Le `README.md` explique le produit à un humain. Ce fichier-ci explique le code
 ```bash
 npm run verify     # typecheck + tests + build + test de bout en bout — À LANCER AVANT DE COMMITTER
 npm run dev        # serveur + client, http://localhost:5173
-npm test           # les tests ciblés de server/test/ (node:test, environ une minute)
+npm test           # les tests ciblés de server/test/ (node:test, quatre à cinq minutes)
 npm run smoke      # le test de bout en bout seul (~90 s)
 npm run sauvegarde # la base permanente en SQL daté, dans export/sauvegardes/
 npm run tablee     # une soirée jouée par des agents (régie + /tablee) : voir .claude/skills/tablee/
@@ -25,8 +25,10 @@ soirée entière : c'est la référence du chemin normal. `npm test` lance
 `server/test/*.test.ts` avec `node:test` : ce qu'une soirée rejouée d'un bout
 à l'autre ne provoque jamais — pannes, courses, messages malformés,
 redémarrages. Chaque fichier qui a besoin d'un serveur démarre le sien,
-jetable, avec `server/test/banc.ts` ; les dérivations pures se testent
-directement. **Un nouveau comportement arrive avec son test dans
+jetable, avec `server/test/banc.ts` ; le moteur seul, horloge à la main,
+se joue avec `server/test/salle.ts` — pour viser un instant qu'un vrai
+serveur ne laisse pas choisir (le souffle, une pause, un intertitre) ; les
+dérivations pures se testent directement. **Un nouveau comportement arrive avec son test dans
 `server/test/`**, qui échoue avant la correction : on n'allonge plus le smoke.
 
 ## La carte du code
@@ -45,25 +47,25 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `games/quiz.ts` | **toutes** les règles : phases (l'intertitre, `cible` — la mesure d'une estimation en direct), chronomètres, barème (le temps de lecture offert au QCM, l'estimation payée à la distance, `reponseJuste` pour « plusieurs » et « ordre », tout ou rien), vues — et la place de chacun entre deux questions (`placeAuQuiz`) |
 | `core/space.ts` | la soirée d'un espace : ses registres, ses salons socket, ses diffusions, son nom figé, ses crédits — et la scène des écrans d'animateur (`poserScene` : podium, prix, victoire, clôture), que la télé suit quand on anime à la télécommande |
 | `core/party.ts` | le registre des invités (identité par jeton, rattachement au profil, marques d'homonymie, connexions par socket) |
-| `core/places.ts` | « Rendre sa place » : les codes à usage unique qui rendent sa fiche à un invité dont le téléphone est mort — en mémoire, vite périmés, cinq essais manqués par minute ; jamais pour une fiche à profil, et la reprise renouvelle le jeton |
+| `core/places.ts` | « Rendre sa place » : les codes à usage unique qui rendent sa fiche à un invité dont le téléphone est mort — en mémoire, vite périmés, cinq essais manqués par minute (la console est prévenue quand des codes faux la ferment) ; jamais pour une fiche à profil, et la reprise renouvelle le jeton |
 | `core/scores.ts` | journal des gains, en ajout seul |
 | `core/answers.ts` | une ligne par invité et par question posée, y compris sans réponse |
 | `core/backup.ts` | le miroir de la soirée dans Turso : une file par espace, ordonnée, qui insiste ; la resynchronisation après une panne ; sa santé |
-| `core/distante.ts` | le client libsql, avec un délai : une base muette se dit en dix secondes, pas en cinq minutes ; et `ajouterColonne()`, qui lit le schéma avant de migrer et laisse toute panne arrêter le démarrage |
+| `core/distante.ts` | le client libsql, avec un délai : une base muette se dit en dix secondes, pas en cinq minutes ; et `ajouterColonne()`, qui lit le schéma avant de migrer — une fois par table — et laisse toute panne arrêter le démarrage |
 | `core/archive.ts` | l'historique : une fiche par soirée, relue avec les règles du jour ; `Soiree`, le nom figé |
 | `core/recap.ts` `review.ts` `stats.ts` `progress.ts` | **dérivations pures** des journaux |
 | `core/journal.ts` | le journal rangé question par question et quiz par quiz : la seule lecture qu'en font l'expérience et les hauts faits — et le coup d'œil de chaque estimation (`coupDOeil`), que lisent aussi le souvenir, le bilan et la carte |
 | `core/hautsfaits.ts` | les hauts faits d'une soirée, invité par invité — dérivation pure, jouée à la clôture et sur les archives |
 | `core/recalcul.ts` | au démarrage, relit l'historique au barème du jour (`VERSION_BAREME`) : expérience, prix, hauts faits, paliers |
-| `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un ; le Sphinx, treizième, au quiz du jour, par l'une de ses deux voies (`aussi`), et trois de saison (`saison`) — l'Arbre-Monde, lui, ne demande que les douze d'origine (`DOUZE_LEGENDAIRES`, `core/divins.ts`) ; et la rareté mesurée de chaque haut fait (`PART_DES_JOUEURS`), qui choisit les trois plus beaux de la carte (`plusBeaux`) |
+| `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un ; le Sphinx, treizième, au quiz du jour, par l'une de ses deux voies (`aussi`), et trois de saison (`saison`) — un légendaire de plus ne reprend rien à personne : ce qu'il change aux Divins se lit dans `core/divins.ts`, et nulle part ailleurs (invariant 21) ; et la rareté mesurée de chaque haut fait (`PART_DES_JOUEURS`), qui choisit les trois plus beaux de la carte (`plusBeaux`) |
 | `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) |
 | `shared/liens.ts` · `client/src/components/Lendemain.tsx` | les liens d'une soirée close, à l'adresse de son archive (`/<espace>/souvenir` change de soirée à la suivante) ; et « La dernière soirée », que le téléphone garde (`garderFin`, `client/src/state.ts`) pour l'entrée et l'accueil |
-| `shared/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) : son titre, sa vitrine — celle qu'il a choisie, sinon ses trois plus beaux hauts faits —, ses trois écussons les plus hauts, sa collection de prix, son quiz du jour en une ligne |
+| `shared/carte.ts` · `core/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) — et la sienne, depuis sa page (« Voir ma carte », `/api/joueur/carte`, sans « ce soir ») : son titre, sa vitrine — celle qu'il a choisie, sinon ses trois plus beaux hauts faits —, ses trois écussons les plus hauts, sa collection de prix, son quiz du jour en une ligne. La moitié profil se calcule une fois pour les deux (`profilDeCarte`) |
 | `shared/saisons.ts` · `core/saisons.ts` | les saisons (Halloween, Noël, le Nouvel An, à la date de Paris — `periodeDu`) et leur légendaire : quelques jours de quiz du jour dans la période (`JourStore.accorderSaison`), ou une soirée qui compte ces jours-là, datée à sa première question (`laureatsDeSaison`, à la clôture comme au recalcul) ; rangées `saison:…`, hors de l'étagère et du compte des badges |
 | `shared/fonds.ts` | les fonds de carte (nuit étoilée, aurore boréale, kintsugi, grand théâtre) : ce qu'on voit derrière sa carte, rien ailleurs ; ceux qu'il a gagnés (`fondsOuverts`), celui qu'il porte relu à chaque affichage (`fondPorte`), comme un titre. Le décor tient au cadre de la carte (`.carte-fond`), son contenu défile par-dessus (`.carte-defile`) |
 | `shared/ecussons.ts` · `client/src/components/Ecusson.tsx` | les écussons de savoir : les bonnes réponses d'une catégorie, soirées (`Carriere.categories`) et quiz du jour (`JourStore.categoriesDe`) ensemble, au bronze, à l'argent, à l'or (`SEUILS_ECUSSON`) — dérivation pure, sans expérience ; les trois plus hauts sur la carte (`plusBeauxEcussons`), les douze sur la page du profil |
 | `core/objectifs.ts` | ce que la fin de soirée raconte en plus de ce qu'elle rapporte : les records battus, « Tu t'en approches » — dérivations pures de l'historique, lues à la clôture après les crédits |
-| `shared/jour.ts` · `core/jour.ts` · `server/src/quizDuJour.ts` · `client/src/views/JourApp.tsx` | le quiz du jour, pour les profils : dix questions tirées à minuit (Paris) et figées, une partie chronométrée au serveur, dans la base permanente ; l'expérience (75 au plus, podium 25/15/10) dans la ligne `#jour` ; la nuit qui clôt la veille à la première demande (`clorePasses`) ; ses trois paliers (L'Assidu, Le Champion du jour, Le Sans-Faute), décernés à la fin d'une partie ou à la nuit (`accorderPaliersDuJour`) et rangés sous le jour (`cleDuJour`), jamais sous une soirée ; le laurier des vainqueurs d'hier (`laureats`), qui suit leur prénom jusque dans les soirées (`Distinctions.laurier`, `components/Laurier.tsx`) ; la réserve, ses signalements et les profils masqués, à `/admin` |
+| `shared/jour.ts` · `core/jour.ts` · `server/src/quizDuJour.ts` · `client/src/views/JourApp.tsx` | le quiz du jour, pour les profils : dix questions tirées à minuit (Paris) et figées, une partie chronométrée au serveur, dans la base permanente ; l'expérience (75 au plus, podium 25/15/10) dans la ligne `#jour` ; la nuit qui clôt la veille à la première demande (`clorePasses`) ; ses trois paliers (L'Assidu, Le Champion du jour, Le Sans-Faute), décernés dès la partie commencée (L'Assidu, la saison : une partie commencée compte), à sa fin (Le Sans-Faute) ou à la nuit (la victoire) (`accorderPaliersDuJour`) et rangés sous le jour (`cleDuJour`), jamais sous une soirée ; le laurier des vainqueurs d'hier (`laureats`), qui suit leur prénom jusque dans les soirées (`Distinctions.laurier`, `components/Laurier.tsx`) ; la réserve, ses signalements et les profils masqués, à `/admin`. Au téléphone, sans liaison temps réel, la page redemande ce que le serveur décide seul jusqu'à l'avoir (`client/src/insister.ts`), et chaque écran commence en haut, rend le focus perdu (`client/src/focus.ts`) et n'accepte aucun toucher dans sa première demi-seconde (`gesteAccepte`) |
 | `core/consigne.ts` | la consigne qu'on donne à une IA pour écrire la réserve du quiz du jour — la routine Claude Code qui la remplit derrière `RESERVE_TOKEN` (`/api/jour/reserve` : la consigne, puis le dépôt ; MISE-EN-LIGNE.md, étape 8), ou « Copier la consigne pour une IA » à `/admin` : une seule pour les deux. Le serveur ne détient aucune clé d'IA |
 | `shared/glossaire.ts` · `client/src/components/Glossaire.tsx` | les mots maison (souvenir, bilan, coup d'œil, finition…), une phrase chacun, dépliée au toucher sous les pages qui les emploient — des Divins, le nom et le mystère seulement |
 | `shared/categories.ts` | la liste fixe des catégories de questions, la même chez tous les animateurs |
@@ -74,8 +76,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/partage.ts` · `core/partages.ts` · `server/src/partages.ts` | partager, par copie seulement : un code court (sept jours, annulable, dix essais manqués par quart d'heure) et le catalogue que l'administrateur relit ; la copie reçue recopie toutes les pièces de ses questions (`copierPhotos`) |
 | `shared/modeles.ts` · `shared/emojis.ts` | les modèles livrés, leurs rayons et « Pour qui ? » ; la règle des emojis d'avant Unicode 13, que l'éditeur dit sur la carte et que `emojis.test.ts` garde |
 | `shared/liste.ts` | « Coller une liste » vue d'ailleurs : le format complet qu'on copie pour un ami ou une IA, écrit à partir des bornes et des catégories, et les photos jointes qui rejoignent leur question par leur nom de fichier (`photoAttendue` en attendant) ; et l'inverse, `ecrireListe` (« Copier en liste »), que `liste.test.ts` recolle |
-| `client/src/components/Legendaire.tsx` | les médaillons, en SVG ; verrouillés, une silhouette dorée ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare ; figés dans les listes, animés là où ils sont le sujet |
-| `client/src/components/medaillons.ts` | les dessins des légendaires et des Divins, chargés à la demande : un invité anonyme ne les télécharge que si quelqu'un, dans la salle, en porte un — ne les importe pas statiquement sur son chemin (`Avatar`, `PlayerApp`, la carte ; `medaillons.test.ts` y veille), et un échec vaut pour toute la page |
+| `client/src/components/Legendaire.tsx` | les médaillons, en SVG ; verrouillés, une silhouette dorée, immobile — un Divin verrouillé aussi (`.dv-voile *`) ; portés, la finition devient leur cercle, et l'Éclat leur donne leur version rare ; figés dans les listes — halos des finitions et paillettes de l'Éclat compris —, animés là où ils sont le sujet — dans la grille du profil, les aperçus des finitions et les galeries de la carte, seuls le porté, l'ouvert et le survolé bougent : leurs formes ne se composent pas, et chacune refait la page à chaque image |
+| `client/src/components/medaillons.ts` | les dessins des légendaires et des Divins, chargés à la demande : un invité anonyme ne les télécharge que si quelqu'un, dans la salle, en porte un — ne les importe pas statiquement sur son chemin (`Avatar`, `PlayerApp`, la carte ; `medaillons.test.ts` y veille), et un échec vaut pour toute la page ; chaque sorte à part (`sortesDe`) : un légendaire ne fait pas venir les Divins |
 | `shared/divins.ts` · `core/divins.ts` | les cinq Divins : le nom, public ; les règles et les légendes, **secrètes**, côté serveur seulement |
 | `client/src/components/Divin.tsx` | les cinq dessins, qui débordent de leur cadre ; verrouillés, une nébuleuse sans nom |
 | `core/inscriptions.ts` | la réserve d'inscriptions des invités, par adresse **et par espace**, plus une large par adresse ; et sa mesure (au refus, à la clôture) qui dira en ligne si l'adresse lue est celle d'un proxy |
@@ -86,22 +88,23 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `auth/store.ts` | comptes d'animateurs — c'est-à-dire **des espaces** : `accounts.id` EST le `space_id` |
 | `auth/profiles.ts` | profils de joueurs (autre table, autre cookie) |
 | `auth/profileRoutes.ts` | la porte d'entrée : se connecter à son profil ouvre aussi la console de l'espace rattaché |
-| `auth/http.ts` | cookies, adresse du client, et `loginBudgetOf(app)` : la réserve d'essais commune à toutes les portes |
+| `auth/http.ts` | cookies, adresse du client, et `loginBudgetOf(app)` : la réserve d'essais commune à toutes les portes, où un essai compte comme un échec jusqu'à son jugement ; `refuserLesTeles`, ce qu'une télé branchée ne fait pas |
 | `auth/appairage.ts` | brancher la télé : le code court qu'elle affiche, validé depuis une console ouverte, et la session d'une soirée qu'elle en reçoit ; `/attente` dit `perime` dans une réponse, jamais dans une erreur |
-| `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins (« Ce soir » : une action principale, les autres en petit) — et, sans profil, la porte discrète des animateurs (« J'anime une soirée ») ; puis trois onglets, retenus dans l'adresse (`#trophees`) |
+| `client/src/views/ProfilApp.tsx` · `components/AccueilDesRoles.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, puis, pour qui anime — profil rattaché, ou console ouverte ici —, « J'anime » (l'écran commun, ses quiz, son compte, l'historique, la session rouverte si elle a expiré) au-dessus de « Je joue » (revenir, rejoindre, jouer chez soi), toujours dans cet ordre ; pour qui ne fait que jouer, « Ce soir » (une action principale, les autres en petit) — et, sans profil ni console, la porte discrète des animateurs (« J'anime une soirée ») ; puis trois onglets, retenus dans l'adresse (`#trophees`), « Apparence » et « Trophées » à la demande (`PanneauxDuProfil`) |
+| `client/src/components/NavAnimateur.tsx` | la barre des pages de l'animateur — Accueil · Écran commun · Mes quiz · Mon compte · Historique · Les comptes —, la même en tête de « Mes quiz », de « Mon compte » et des comptes, la page courante à sa place, sans lien ; l'écran commun a « Accueil » dans la bande de sa salle d'attente, et les pages publiques le donnent à l'animateur de l'espace |
 | `client/src/components/Apparence.tsx` · `Trophees.tsx` · `shared/proches.ts` | les onglets du profil : ce que la salle voit, la grille unique des avatars (emojis, ceux de collection, légendaires, Divins, un anneau pour ce qui est rare, la légende au toucher), la finition, le titre ; la vitrine de la carte, qu'on choisit, le quiz du jour, les hauts faits les plus proches (`lesPlusProches`, dérivation pure), la collection de prix (`CATALOGUE_DES_PRIX`, `core/stats.ts`). Un titre et une vitrine ne sont que des hauts faits gagnés (`hautsFaitsGagnes`), relus à chaque affichage (`titrePorte`, `vitrineChoisie`) : une soirée retirée les emporte |
 | `shared/avatars.ts` | les avatars de l'inscription et le nettoyage de ce qui arrive du téléphone (`cleanAvatar`, `cleanName`, `tronquer`) ; et les douze emojis de collection (`COLLECTION`), un par niveau sans finition, réservés aux profils — `niveauRequis` lit le niveau qu'un avatar demande, doublé ou suivi d'un sélecteur de variante compris |
 | `shared/adresses.ts` · `core/apercus.ts` | une adresse lue une seule fois pour le client et le serveur ; le serveur y pose le statut (404 d'un espace, d'une page ou d'une archive inconnus), les balises d'aperçu (le titre de l'espace, **jamais un prénom**), `noindex` hors de l'accueil, et les seules corrections permises : ce que `normalizeSlug` fait de la saisie (casse, accents, espaces et ponctuation en tirets, 24 caractères au plus), puis la seule forme `chez-‹saisie›` — jamais un nom voisin (invariant 3) |
-| `client/src/onglets.ts` | les onglets nommés de la console, et « Revenir à la console » d'une page qu'elle a ouverte : jamais une seconde console |
-| `sockets.ts` | tout le protocole temps réel — chaque message passe par `ecouter()` |
+| `client/src/onglets.ts` | les onglets nommés de la console, et « Revenir à la console » d'une page qu'elle a ouverte — l'accueil compris : jamais une seconde console |
+| `sockets.ts` | tout le protocole temps réel — chaque message passe par `ecouter()`, et chaque geste d'animateur relit la session de sa poignée de main (`requireHost`) |
 | `shared/events.ts` | le contrat socket, typé des deux côtés |
 | `shared/homonymes.ts` | « Camille (2) » : la dérivation pure qui distingue deux invités identiques |
 | `shared/classement.ts` | la seule règle des ex æquo : rang partagé, vainqueurs, ordre d'affichage — et l'écart d'une estimation (`ecartEstimation`), les groupes d'ex æquo d'où se lisent les voisins (`groupesDExAequo`), le rang lu par dichotomie (`rangDansLesTries`) |
-| `shared/course.ts` · `client/src/games/quiz/Course.tsx` | sa place dans la course, à chaque révélation : « Ce quiz · encore 6 questions », « 5ᵉ place sur 12 · 450 pts ↑ 2 », « À 40 pts d'Hugo » — les bonnes nouvelles seulement, pas de rang à zéro, une phrase pour le lecteur d'écran ; au podium, l'échelle de ses voisins et sa place à la soirée |
+| `shared/course.ts` · `client/src/games/quiz/Course.tsx` | sa place dans la course, à chaque révélation : « Ce quiz · encore 6 questions », « 5ᵉ place sur 12 · 450 pts ↑ 2 », « À 40 pts d'Hugo » — les bonnes nouvelles seulement, pas de rang à zéro, une phrase pour le lecteur d'écran ; au podium, l'échelle de ses voisins et sa place à la soirée. La même règle au quiz du jour (`placeDuJour`) |
 | `shared/teams.ts` | la seule règle des équipes : la moyenne question par question des lignes jouées pour l'équipe — chaque ligne du journal fige la sienne (`team_id`) — (`questionsDesEquipes`, `moyenneAuProrata`), les points d'équipe, prix compris, la phrase qui l'explique (`regleDesEquipes`) et l'effet d'un prix avant le clic |
 | `shared/nombres.ts` | un nombre tapé par un humain, lu comme on l'écrit en France (« 35 000 », « 0,8 », « −40 ») : l'estimation au téléphone, la cible de l'éditeur, l'import d'une liste — une seule lecture |
 | `shared/securite.ts` | la page de retour après connexion : jamais ailleurs que chez soi |
-| `shared/erreurs.ts` | les motifs que le client montre quand ça coince (réseau, serveur qui redémarre…), et ce qui passe tout seul (`statutPassager`, `echecPassager`) |
+| `shared/erreurs.ts` | les motifs que le client montre quand ça coince (réseau, serveur qui redémarre…), et ce qui passe tout seul (`statutPassager`, `echecPassager`) — à l'inverse, un refus du serveur, qu'on ne retouche pas (`refusDuServeur`, `client/src/api.ts`) |
 | `shared/reveil.ts` | une écriture qui attend le réveil de l'hébergeur au lieu d'échouer à vingt secondes (`auReveil`, dans `client/src/api.ts`) |
 | `shared/brouillon.ts` · `client/src/brouillon.ts` | le brouillon d'un quiz : ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit (`normalizeQuestions`, `shared/library.ts`) |
 | `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
@@ -110,9 +113,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `client/src/components/Coupe.tsx` | une liste de l'écran commun coupée à ce qui tient, « et 2 autres » dessous : personne ne fait défiler une télé |
 | `server/scripts/rendu-ecran.ts` | le pire cas de l'écran commun, rejoué sur un serveur jetable et photographié à chaque phase en 1366 × 768, 1920 × 1080 et au téléphone (`MESURE=1` : ce qui ne grandit pas en 1920) |
 | `server/scripts/sauvegarde.ts` | la sauvegarde SQL de la base permanente, restaurable par `turso db shell` |
+| `server/scripts/empaqueter.ts` · `server/src/racine.ts` | le serveur en un seul fichier (`server/dist/index.mjs`), que `npm run build` construit avec le client et que la commande de démarrage lance sans tsx — un réveil de l'offre gratuite ne traduit plus le TypeScript ; et `SERVEUR`, d'où se compte tout chemin du serveur |
 | `server/scripts/calibrage.ts` | combien de quiz demande chaque légendaire, combien de soirées chaque niveau, et la rareté de chaque haut fait (que `PART_DES_JOUEURS` recopie) : des bandes d'amis inventées jouent des soirées entières sur le vrai code des hauts faits et de l'expérience (`npx tsx scripts/calibrage.ts`, format réglable) |
 | `server/scripts/tablee/regie.ts` · `pilote.mjs` | la tablée : un serveur jetable, un Chromium, et les gestes des agents qui y jouent une soirée — ou plusieurs à la fois, un salon par animateur (`chez <animateur>`) — la marche à suivre, les personnages, les experts et leurs consignes dans `.claude/skills/tablee/` (`/tablee`) |
-| `retours/<date>/synthese.md` | ce qu'une tablée a trouvé : les axes d'amélioration, vérifiés un à un, et les retours bruts des agents — à lire avant de retoucher un écran qu'ils citent |
+| `retours/<date>/synthese.md` | ce qu'une tablée a trouvé : les axes d'amélioration, vérifiés un à un, et les retours bruts des agents — à lire avant de retoucher un écran qu'ils citent. Un audit de code y range aussi tous ses constats et leur verdict (`constats.json`) et les épreuves qui les prouvent (`reproductions/`) : `retours/2026-09-27/` pour #58 et #59 |
 
 ## Les invariants — à ne jamais casser
 
@@ -143,7 +147,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
    ne le porte plus.
 5. **Les chronomètres sont persistés** et réarmés au redémarrage.
 6. **Une échéance se lit à `serverNow()`**, jamais à `Date.now()` : l'horloge
-   d'un téléphone dérive, et on a déjà perdu des réponses pour ça.
+   d'un téléphone dérive, et on a déjà perdu des réponses pour ça. Elle
+   saute aussi : deux mesures qui ne peuvent pas être vraies ensemble font
+   gagner la plus récente, même plus lente (`bestSample`, `shared/clock.ts`).
 7. **Toute réponse d'invité reçoit un accusé**, et **tout message d'un client
    passe par `ecouter()`** (`sockets.ts`) : la charge devient un objet,
    l'accusé une fonction, l'exception un journal. Un seul `player:action` sans
@@ -156,7 +162,10 @@ server/test/        un fichier par thème, un serveur jetable chacun
    dans le profil.
 9. **La fiche du serveur fait foi.** Un `player:join` qui porte un jeton est
    une re-présentation : prénom et avatar envoyés sont ignorés — sinon le
-   renommage d'un pseudo par l'animateur tombait au réveil du téléphone. Un
+   renommage d'un pseudo par l'animateur tombait au réveil du téléphone. Le
+   second appareil d'un profil déjà là, sans jeton, ne redéclare pas non
+   plus le prénom de sa fiche — seulement son avatar, que l'animateur ne
+   change pas. Un
    jeton qui ne désigne plus personne (exclu, essai effacé) est refusé
    (`unknown-token`), **jamais recréé** : le téléphone repasse par l'entrée,
    pré-remplie. Celui d'une soirée qu'on vient de clore reçoit sa fin de
@@ -172,10 +181,12 @@ server/test/        un fichier par thème, un serveur jetable chacun
     l'idempotence qui le permet : la ligne `(profil, soirée)` est remplacée,
     jamais ajoutée. Un invité **exclu** rend la sienne, et l'Éclat tiré ce
     soir-là (`exclure()`, à la file des crédits) : le crédit suivant ne
-    réécrit que les profils encore là. Ce qui ne se juge qu'une fois tout
+    réécrit que les profils encore là — et la clôture reprend ce qu'un
+    hoquet de la base aurait laissé à l'exclu (`retirerAbsents`). Ce qui ne se juge qu'une fois tout
     joué — le podium de la soirée, l'assiduité, les **prix** du palmarès, les
     **hauts faits**, les **paliers** de carrière — ne se décide **qu'à la
-    clôture**, en un seul lot (`remplacerRecompensesDeSoiree`) : un
+    clôture** (La Légende, qui ne lit que le niveau, se juge aussi au quiz
+    du jour), en un seul lot (`remplacerRecompensesDeSoiree`) : un
     rangement à mi-soirée ne fige rien. Un palier ne se reprend que si la
     soirée qui l'a fait tomber est retirée (essai effacé, soirée supprimée de
     l'historique) — et tout ce qu'elle avait rapporté part avec elle.
@@ -190,7 +201,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
     l'arrivée d'un invité, pour toujours.
 12. **Un geste dit ce qu'il visait.** Les commandes `next`, `cancel`, `replay`
     et les réponses portent la phase, la question et le tour (`host:scene`,
-    l'écran qu'il quittait) : une commande
+    l'écran qu'il quittait ; `host:launch`, la partie qu'il remplace) : une commande
     périmée est ignorée en silence, une réponse périmée reçoit `too-late`, et
     un champ absent (une page d'avant) garde l'ancien comportement. Sans ça,
     un « Révéler » qui croisait la révélation automatique sautait la
@@ -224,10 +235,16 @@ server/test/        un fichier par thème, un serveur jetable chacun
     l'écran commun de la soirée. Une télé branchée par un code d'appairage
     hérite de la porte de la console qui l'a validé (`auth/appairage.ts`) :
     elle tombe avec ce profil, ou tient comme l'écran commun — et jamais
-    plus de 24 heures (`fin_max`, qui plafonne le glissement). Pour poser
-    le lien, il faut prouver les deux identités ; après, une seule porte
-    suffit. Ne fusionne pas les deux tables : l'identifiant d'un compte est
-    la clé de partition de dix tables et de toutes les archives.
+    plus de 24 heures (`fin_max`, qui plafonne le glissement), même sans
+    avoir décroché : chaque geste relit la session. Pour poser
+    le lien, il faut prouver les deux identités — le profil ouvert sur ce
+    navigateur n'y redit pas son identifiant, son mot de passe le confirme ;
+    après, une seule porte suffit. Pour le changer ou le détacher, une preuve fraîche — le mot de
+    passe du profil rattaché, ou celui du compte (`prouver`) —, et jamais
+    depuis une télé branchée (`refuserLesTeles`) : le téléphone prêté y
+    rattachait l'emprunteur, qui gardait la console. Ne fusionne pas les
+    deux tables : l'identifiant d'un compte est la clé de partition de dix
+    tables et de toutes les archives.
 17. **Les homonymes se règlent à l'affichage, jamais à la saisie.** On ne
     refuse personne et on ne renomme personne : `nomsAffiches()` marque
     « Camille (2) » quand le prénom **et** l'avatar sont partagés, et cette
@@ -239,23 +256,31 @@ server/test/        un fichier par thème, un serveur jetable chacun
     Elle se range après chaque quiz (`apresQuiz`) ; `host:closeParty` la clôt
     — dernier rangement, crédits de clôture, fin de soirée à chaque téléphone
     et à la salle, puis la page blanche ; `host:discardParty` efface un essai
-    avec tout ce qu'il avait crédité. La fin de soirée ne part **qu'une fois
-    la soirée effacée** : un miroir qui refuse d'effacer ne doit pas faire
-    lire « c'est fini » à une soirée qui continue. `host:resetParty` et
+    avec tout ce qu'il avait crédité. **Une seule fin à la fois**
+    (`finEnRoute`) : un second « Clore » attend le premier et en reçoit
+    l'issue, le geste contraire est refusé — deux clôtures croisées
+    recréditaient, réannonçaient au podium vide et effaçaient l'invité entré
+    entre les deux. Ce que la clôture raconte se relit en base
+    (`rangesSousLaSoiree`) : reprise après un refus du miroir, elle se taisait
+    sur ce que la tentative d'avant avait rangé. La fin de soirée ne part
+    **qu'une fois la soirée effacée** : un miroir qui refuse d'effacer ne doit
+    pas faire lire « c'est fini » à une soirée qui continue. `host:resetParty` et
     `host:archiveParty` restent compris des pages d'avant. Entre deux
     soirées, `recap.json` et `bilan.json` désignent la dernière soirée close
     (`derniere`), que le souvenir et le bilan de l'espace montrent à sa place
     (`lecteurDePage`) — sans redirection : la page revient d'elle-même à la
     suivante dès sa première question jouée.
 19. **L'expérience se mérite, et ne redescend jamais en cours de soirée.**
-    Rien pour la présence, rien seul : tout se gagne dès deux joueurs, un
-    podium de quiz à cinq questions, celui de la soirée à quinze (`SEUILS`),
-    et un podium a toujours une marche de moins que la salle. L'animateur qui
-    joue chez lui gagne comme tout le monde. Les hauts faits gardent leur
-    salle de quatre (`salleHautsFaits`). Les gains d'un quiz sont
+    En soirée, rien pour la présence, rien seul : tout se gagne dès deux
+    joueurs, un podium de quiz à cinq questions, celui de la soirée à quinze
+    (`SEUILS`), et un podium a toujours une marche de moins que la salle — le
+    quiz du jour, lui, se joue seul, et son expérience s'arrête à 75.
+    L'animateur qui joue chez lui gagne comme tout le monde. Les hauts faits
+    gardent leur salle de quatre (`salleHautsFaits`). Les gains d'un quiz sont
     définitifs : ce qui peut se renverser d'un quiz à l'autre attend la
     clôture. Une soirée jouée seul reste dans l'historique mais ne compte
-    pas (`soireeQuiCompte`) : ni tirage de l'Éclat, ni soirée pour L'Habitué
+    pas (`soireeQuiCompte`) : ni tirage de l'Éclat, ni rien de la carrière
+    — écussons, fiche, paliers (`carriereDe`) —, ni soirée pour L'Habitué
     — dix « soirées » d'une question faisaient le Renard Lunaire. **Un prix
     ne rapporte jamais d'expérience** : ni ceux du palmarès (une ligne
     d'étagère, rien de plus), ni ceux remis à l'écran, prix libres compris
@@ -267,7 +292,13 @@ server/test/        un fichier par thème, un serveur jetable chacun
     soirées de l'historique avec les règles du jour, et remet à la version
     du jour les lignes qu'il ne sait pas relire (la soirée en cours, les
     paliers) : sinon il relirait tout à chaque démarrage. `decodeDetail`
-    reconnaît le format à `v ≥ 2`, jamais à la version du jour.
+    reconnaît le format à `v ≥ 2`, jamais à la version du jour. Une version
+    s'écrit en entier (`CAST(? AS INTEGER)` dans un `json_set`) : liée en
+    flottant, `{"v":6.0,…}` n'était jamais « du jour », et tout l'historique
+    se relisait à chaque réveil. Et une base qui hoquette pendant la
+    relecture fait échouer le démarrage — l'hébergeur le relance — au lieu
+    de passer une archive pour illisible et d'en remettre les lignes au
+    barème sans les avoir relues.
 21. **Les règles des Divins ne quittent jamais le serveur.** Elles vivent
     dans `core/divins.ts`, avec leurs légendes — qui en disent presque
     autant —, et ni `shared/` ni `client/` ne l'importent ni n'en recopient
@@ -278,8 +309,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
     Éclat.
 22. **Durcir un légendaire ou la courbe des niveaux ne reprend rien à
     personne.** Les légendaires et les niveaux se dérivent à chaque lecture :
-    relever un seuil suffisait à reprendre le légendaire qu'on portait,
-    l'Arbre-Monde avec, et durcir la courbe à faire redescendre de niveau,
+    relever un seuil suffisait à reprendre le légendaire qu'on portait, et
+    ce qui en dépendait, et durcir la courbe à faire redescendre de niveau,
     finitions comprises. Une règle qui se durcit ajoute donc une entrée —
     à `DURCISSEMENTS` pour un légendaire, à `COURBES_D_AVANT` pour la courbe
     (`auth/profiles.ts`), avec un drapeau neuf dans `meta` — et n'en modifie
@@ -345,7 +376,10 @@ préproduction (déployée à chaque fusion sur `main`). Ils ne diffèrent que p
 `QUIZ_DB_URL` — tout le précieux est dans Turso, la base locale est jetable.
 Les services ont été créés à la main : c'est leur tableau de bord qui fait
 foi, commandes de build et de démarrage comprises, et `render.yaml` n'en est
-que la référence.
+que la référence. Leur commande de démarrage lance le paquet (`cd server
+&& exec node dist/index.mjs`) ; l'ancienne, `node --import tsx
+src/index.ts`, marche toujours — un service qui n'est pas encore passé au
+paquet, ou le repli.
 
 **Les noms** : `fiestapp-quizz` (production) et `fiestapp-quizz-preprod`,
 les mêmes que dans `render.yaml` — les services ont été renommés. L'adresse
@@ -377,6 +411,19 @@ sans `QUIZ_DB_URL`.
   ou de `party:watch`, souvent dans le même paquet : un écouteur posé après
   avoir attendu l'accusé le rate. `banc.ts` retient le dernier pour ça
   (`instantane()`).
+- **Le démarrage ouvre ses magasins de front** (`deFront`, `server.ts`) :
+  après les comptes, le miroir, les profils, le quiz du jour, la
+  bibliothèque, les programmes, les partages et l'historique partent
+  ensemble — soixante allers-retours en série faisaient trois secondes à
+  chaque réveil. Un magasin qui aurait besoin d'un autre s'ouvre après lui,
+  dans la même branche ; ce qui les relie (`profiles.statsDuJour`, le
+  laurier) se branche après. Un échec ne remonte qu'une fois toutes les
+  branches arrivées au bout (`demarrage.test.ts`).
+- **Un chemin du serveur se compte depuis `SERVEUR`** (`src/racine.ts`),
+  jamais depuis l'`import.meta.url` d'un module : le serveur empaqueté n'est
+  qu'un fichier, `dist/index.mjs`, et `seed.ts` y cherchait les quiz livrés
+  hors du dépôt — ni amorce, ni modèles, ni réserve du jour, et pas une
+  erreur. `exploitation.test.ts` démarre le paquet.
 - **Un serveur qu'on ferme doit éteindre ses chronomètres** et vider son
   miroir avant de fermer la base locale, que la resynchronisation relit.
   Un chrono de question qui sonne après `close()` révèle sur une base fermée —
@@ -386,9 +433,20 @@ sans `QUIZ_DB_URL`.
 - **Pas de `socket.on` direct pour un message client** : `ecouter()` le fait
   pour toi, charge normalisée et accusé optionnel compris. Côté client,
   `watchParty` et `helloHost` rejettent sur délai (`demander`), alors que
-  `joinAsPlayer` et `setMyTeam` résolvent un refus.
+  `joinAsPlayer` et `setMyTeam` résolvent un refus. Un geste de la partie
+  part par `envoyerCommande` (accusé, sonde, un renvoi — il porte sa
+  visée), une réponse sonde la liaison avant son renvoi (`verifierLiaison`
+  rend la sonde en cours), et un prix se remet avec l'identifiant de son
+  geste (`remise`, `client/src/remise.ts`) : un double clic ne le remet
+  qu'une fois.
 - **`loginBudgetOf(app)`, jamais `new LoginBudget()`** : toutes les portes qui
-  ouvrent une console partagent la même réserve d'essais. Celle des
+  ouvrent une console partagent la même réserve d'essais. Et tout essai
+  qu'`allow(ip, clé)` accepte se juge — `failed`, `succeeded`, ou `abandon`
+  pour une saisie refusée avant le hachage, sorties anticipées comprises :
+  jusque-là il vole, compté comme un échec — lu avant scrypt et compté
+  après, le verrou laissait passer vingt essais partis ensemble. Une
+  session s'ouvre sur le haché qu'on a vérifié (`verifier`) : un
+  changement de mot de passe parti entre-temps la referme. Celle des
   inscriptions d'invités, elle, se compte **par espace**
   (`core/inscriptions.ts`) : commune à tout le serveur, la vague d'une salle
   fermait la porte à la salle voisine derrière la même box.
@@ -400,6 +458,11 @@ sans `QUIZ_DB_URL`.
   qui se jouent encore ailleurs — leurs lignes, leur expérience dans le
   niveau et leurs Éclats (`careerOf`) —, mais compte celles dont la clôture
   est en cours (`cloturesEnCours`).
+- **Reprendre une soirée aux profils** — un essai effacé, une soirée retirée
+  de l'historique — se fait en un seul lot (`retirerSoireeEntiere` : les
+  lignes, la ligne des paliers et les totaux ensemble), l'archive en
+  dernier : effacée d'abord, une panne au milieu laissait ce que la soirée
+  avait crédité sans plus aucun geste pour le reprendre.
 - **Les crédits lisent les journaux avant le premier `await`** et passent par
   `enFile` : une clôture cliquée pendant un rangement viderait sinon ce
   qu'ils lisent. Les profils s'y créditent huit à la fois (`enParallele`),
@@ -418,7 +481,12 @@ sans `QUIZ_DB_URL`.
 - **L'Éclat est un tirage** (une chance sur quarante) et le premier fait
   tomber un palier de carrière : un test qui compte l'expérience au point
   près après une clôture neutralise `ProfileStore.tirageEclat`, sinon il
-  échoue une fois sur quarante.
+  échoue une fois sur quarante. **Le calendrier aussi** : une soirée se date
+  à l'horloge de la machine, et close pendant Halloween, Noël ou le Nouvel
+  An, elle ouvrait son légendaire de saison — la CI rougissait dix-neuf
+  jours par an. `banc.ts` et `smoke.ts` ferment donc le calendrier des
+  soirées (`calendrierDesSoirees`, `core/saisons.ts`) ; un test qui date ses
+  soirées lui-même le rouvre (`saisons.test.ts`).
 - **Un joueur seul ne rapporte rien.** Un test qui veut de l'expérience
   invite un figurant au moins (`figurants()`, `faux()` dans
   `soiree.test.ts`) ; un test de hauts faits, quatre joueurs au moins. Et
@@ -436,13 +504,18 @@ sans `QUIZ_DB_URL`.
   `profil.avatar` : un emoji de collection au-dessus de son niveau (une
   soirée retirée l'a fait redescendre) ne se montre pas. Et un avatar
   n'entre dans une soirée que par `player:join`, qui demande
-  `peutPorter` : l'invité anonyme n'y porte aucun emoji de collection.
+  `peutPorter` sur l'avatar **nettoyé** (`cleanAvatar` : ni demi-paire, ni
+  emoji d'Unicode 13) : l'invité anonyme n'y porte aucun emoji de
+  collection. La fiche de la soirée se relit ensuite à chaque diffusion
+  (`Party.relireAvatars`) : un niveau qui redescend en pleine soirée lui
+  rend l'avatar du profil, marques d'homonymie refaites.
 - **L'éditeur n'envoie rien pendant qu'on écrit** : le serveur s'endort sous
   les doigts de l'animateur. Une écriture de l'éditeur qui se rejoue sans
   dommage passe par `auReveil` ; et une réponse qui arrive après deux minutes
   d'attente ne remplace l'éditeur que si rien n'a bougé depuis
-  (`modifications`). L'envoi d'une photo n'y passe pas : il s'attache à la
-  question par sa position, qu'on a pu déplacer entre-temps. « Enregistrer » envoie
+  (`modifications`). L'envoi d'une photo n'y passe pas, et elle rejoint sa
+  question par son identifiant (`changerParId`) : par sa position, elle
+  tombait sur la voisine qu'on avait déplacée entre-temps. « Enregistrer » envoie
   la version d'où il part (`base`), un `jeton` que ses essais au réveil
   reprennent et le numéro de l'essai (`essai`) : le serveur répond 409 si le
   quiz a été enregistré ailleurs depuis — l'autre appareil —, jamais à un
@@ -452,14 +525,28 @@ sans `QUIZ_DB_URL`.
 - **Un réglage de plus à la liste collée** se lit dans
   `parseImportedQuestions`, s'annonce dans `FORMAT_DE_LISTE` et paraît dans
   son exemple, que `liste.test.ts` relit : le format copié pour une IA ne
-  doit rien promettre que la liste ne sache lire.
+  doit rien promettre que la liste ne sache lire. Et « Copier en liste »
+  (`ecrireListe`) écrit ce qu'elle relira à l'identique : une ligne que la
+  relecture lirait autrement prend une puce qu'elle retire
+  (`ligneDeReponse`) — « - de 5 » perdait son signe.
+- **La bibliothèque en mémoire se relit après chaque écriture** d'un espace
+  (`refreshLibrary`, `server.ts`), et c'est elle que « Lancer » joue. Deux
+  écritures lancent deux relectures, qui reviennent de Turso à leur rythme :
+  seule la dernière partie pose ce qu'elle a lu (`derniereRelecture`) —
+  sinon la plus ancienne, revenue la dernière, remettait la version d'avant
+  la correction. Le programme et la mémoire des quiz passent par la même.
 - **Une question a trois pièces à part** — sa photo, celle de la
   révélation, l'extrait d'un blind test (`PIECES_DE_QUESTION`,
   `shared/library.ts`) —, chacune sous une adresse `/media/image/…`. Ce qui
   emporte une question — l'export, un code de partage, le catalogue — les
-  emporte toutes : la photo de la révélation oubliée restait l'adresse de
+  emporte toutes, et ce qui les vérifie — la reprise d'un brouillon — les
+  vérifie toutes : la photo de la révélation oubliée restait l'adresse de
   l'autre espace, et partait au premier ménage du sien. Une quatrième pièce
-  rejoint cette liste.
+  rejoint cette liste. Le ménage n'efface une pièce qu'une heure après
+  qu'aucun quiz ne la cite plus (`orpheline_depuis`, posé par
+  l'enregistrement qui la retire) : comptée depuis son envoi, la grâce
+  laissait « Garder la mienne », sur l'autre appareil, citer une photo
+  effacée.
 - **Une variante se juge par `reponseJuste`**, jamais par
   `r.choice === q.correct` : « plusieurs » et « ordre » envoient leurs cases
   (`choix`), et le journal n'en garde que le verdict (`choice` à null) — le
@@ -506,7 +593,9 @@ sans `QUIZ_DB_URL`.
 - **Simuler une panne** : un déclencheur `RAISE(ABORT)` sur le fichier `file:`
   qui tient lieu de Turso (`miroir.test.ts`) ; un vrai démarrage, un SIGTERM
   ou un SIGKILL, en lançant `src/index.ts` dans un processus enfant
-  (`exploitation.test.ts`).
+  (`exploitation.test.ts`) ; une liaison morte que socket.io croit vivante
+  — le wifi sans internet —, par le relais de `relais.ts`, devant le vrai
+  module du client chargé dans Node (`liaison-morte.test.ts`).
 - **Le quiz du jour a son horloge** (`horlogeDuJour`, `JourStore.maintenant`) :
   les tests la font passer minuit (`jour-partie.test.ts`). Sa ligne
   d'expérience (`LIGNE_JOUR`, `#jour`) compte dans le total et le niveau
@@ -519,19 +608,29 @@ sans `QUIZ_DB_URL`.
   joue un lauréat se rediffuse (`laurierChange`). Ses paliers sont des hauts
   faits de carrière marqués `duJour` : la carrière les compte (`jour`, pour
   la page du profil), mais `paliersAtteints` — la clôture d'une soirée, le
-  recalcul — les écarte ; seul le quiz du jour les décerne. Et tout ce qui écrit les
+  recalcul — les écarte ; seul le quiz du jour les décerne — et La Légende
+  avec eux (`paliersDuNiveau`) : son expérience entre dans le niveau. Et tout ce qui écrit les
   points ou l'expérience d'un profil passe sous son verrou, le tirage relu
   dedans — sa partie, le recompte d'une annulation, le podium de la nuit :
   recomptée d'un coup pour tout le jour, une annulation laissait payée la
-  question qu'une réponse en route écrivait derrière elle.
+  question qu'une réponse en route écrivait derrière elle. Le tirage se relit
+  en mémoire (`tiragesGardes`) : seule une annulation le change, et elle
+  remet le sien à jour sous le verrou `#tirage` — une nouvelle écriture de
+  `jour_tirages` en ferait autant. Les joueurs d'un classement se chargent
+  d'un coup (`ProfileStore.byIds`), et les points des jours se gardent sous
+  la révision de leur jour (`pointsGardes`, comme les classements) : une
+  écriture de `jour_parties` qui contournerait `reviser` laisserait les
+  places en retard.
 - **La consigne du quiz du jour ne promet rien que la réserve refuse.**
   Elle décrit le format de « Coller une liste » réduit à ce que
   `raisonDEcarter` accepte, et son exemple se relit dans
   `jour-reserve.test.ts`. Quand la réserve apprendra une nouvelle sorte de
   question (les estimations à tolérance), la consigne la décrit dans le
   même commit — sinon la routine écrit pour rien, ou jamais ce qu'on veut.
-  Et le jeton de la réserve ne sait qu'ajouter : une route de plus derrière
-  lui ne lit ni n'efface rien.
+  Et le jeton de la réserve ne sait que lire la consigne et ajouter : une
+  route de plus derrière lui ne lit ni n'efface rien. La consigne rappelle
+  pourtant les intitulés des prochains jours (l'IA ne les réécrit pas) : le
+  jeton les vaut, et se change des deux côtés s'il fuit.
 - **Un haut fait ou un prix de plus a sa place ailleurs.** Un haut fait
   prend sa rareté dans `PART_DES_JOUEURS` (mesurée par `calibrage.ts`) :
   sans elle, il passerait pour le plus courant de tous et ne paraîtrait
@@ -541,12 +640,23 @@ sans `QUIZ_DB_URL`.
   relit les clés du calcul.
 - **Une nouvelle commande `host:*`** s'ajoute à la liste de
   `garde-fous.test.ts`, qui vérifie qu'un téléphone ne peut pas la jouer — le
-  typecheck le rappelle.
+  typecheck le rappelle. **Une route d'administration vit sous
+  `/api/admin`** : gardée d'un bloc (`api.ts`, administrateur seul, jamais
+  une télé branchée), elle entre d'elle-même dans `admin-seulement.test.ts`.
 - **`package-lock.json` bouge tout seul** selon la version de npm. Ne le
   committe pas si ce n'est pas le sujet (le hook installe en `--no-save`).
 - **En CSS, `transform` se compose APRÈS `rotate`**, et une animation qui pose
   `transform` écrase celui de l'élément : le toast, centré par
   `translateX(-50%)`, partait sur la droite. Centre par marges.
+- **Ce qui ne sert qu'après l'entrée vient à la demande, par `aLaDemande`**
+  (`client/src/aLaDemande.ts`), jamais par `lazy` : un composant paresseux
+  suspend au moins une fois, même son fichier déjà téléchargé, et React
+  retient alors 300 ms ce qui sort de l'attente — la grille du profil, la fin
+  de soirée, la carte d'un joueur. L'écran d'entrée ne télécharge ni la
+  carte, ni la fin de soirée, ni le quiz du jour (elles viennent une fois
+  entré), et l'accueil anonyme ni les dessins ni les onglets du profil :
+  `medaillons.test.ts` y veille, et un import statique de plus sur ces
+  chemins les y remettrait.
 - **Regarde le rendu.** Plusieurs bugs de cette base n'étaient visibles qu'à
   l'écran, pas au typecheck. Chromium et Playwright sont disponibles. Le
   téléphone se regarde en 360 × 640 ; l'écran commun en **1366 × 768** — le

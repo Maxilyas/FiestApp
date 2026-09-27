@@ -25,6 +25,8 @@ régler le temps de toutes ses questions d'un coup.
 | `personas/*.md` | une fiche par personnage : qui, quel appareil, quel scénario, quoi regarder |
 | `modele-retour.md` | le plan du retour que chaque agent écrit |
 | `consignes-expert.md`, `experts/*.md`, `modele-rapport.md` | les experts : une mission chacun (parcours, design, mots, accessibilité, performance…), leur atelier, le plan de leur rapport |
+| `consignes-audit.md` | les experts du code (sécurité, jeu solo, récompenses, moteur, données, courses…) : leur banc, leurs reproductions, leurs constats en JSON — « Les audits de code » plus bas |
+| `consignes-contre-expertise.md` | le contre-expert, qui essaie de réfuter chaque constat avant la synthèse |
 | `server/scripts/tablee/chronologie.mjs` | le journal d'une tablée en une page : gestes ratés, délais de réponse, paroles, retours manquants |
 | `export/tablee/<date-heure>/` | tout ce que la soirée laisse (ignoré par git) : `journal.jsonl`, `regie.log`, `captures/`, `retours/`, `bases/` |
 
@@ -179,6 +181,56 @@ chargent la machine (`perf-chargement`, `perf-temps-reel`, `perf-rendu`)
 attendent la fin des soirées en direct : quatre cœurs partagés par une
 trentaine d'agents faussent un chronomètre, et un test de charge ferait
 rater des questions aux invités.
+
+## Les audits de code
+
+D'autres experts ne regardent pas la soirée : ils lisent **le code**, et
+cherchent ce qui casse — failles, tricheries, courses, pertes de données,
+règles du `CLAUDE.md` qui ne tiennent plus. Leurs fiches sont dans
+`experts/` avec les autres ; leurs consignes communes, dans
+`consignes-audit.md` (un serveur jetable par le banc des tests, une
+reproduction qui est déjà un test, le rapport et ses constats en JSON).
+
+| Fiche | L'angle |
+|---|---|
+| `securite-portes` | les routes HTTP : authentification, droits, requêtes forgées, fichiers, en-têtes |
+| `securite-temps-reel` | les sockets : commander ailleurs, lire avant la révélation, suivre quelqu'un, tuer le processus |
+| `jour-regles` · `jour-ecran` | le jeu solo : les règles du quiz du jour (triche, minuit, comptes), puis son écran au téléphone |
+| `recompenses-comptes` · `recompenses-vitrine` | la progression : ce qui se crédite et se reprend, puis ce qui s'affiche et à qui |
+| `design-recompenses` | les récompenses à l'écran, du téléphone à la télé |
+| `moteur` | les phases, les chronos, les points d'une soirée |
+| `persistance` | les deux bases, le miroir, les migrations, la sauvegarde |
+| `concurrence` | les courses entre deux `await`, les promesses orphelines |
+| `invariants` | les règles du `CLAUDE.md`, relues une à une dans le code |
+| `client` | les effets, la liaison, les pages blanches du navigateur |
+| `bibliotheque` | les quiz qu'on écrit, colle, importe, partage |
+| `exploitation` | la mise en ligne, l'heure, la durée, `/healthz` |
+| `tests` | ce que le filet prouve vraiment (mutants, épreuves fragiles, trous) |
+
+Ils n'ont pas besoin de la régie : lance-les comme les autres experts (un
+agent par fiche, en arrière-plan, qui lit `consignes-audit.md` puis sa
+fiche), **sept au plus à la fois** — un nouveau dès qu'un autre rend son
+rapport : la lecture d'abord, les mesures ensuite, quand la machine est
+calme. Quinze en parallèle ont épuisé la réserve d'usage de cinq heures en
+moins d'une heure, le 26 septembre ; un agent coupé se reprend par
+`SendMessage`, son dossier est sur disque (`retours/2026-09-27/synthese.md`).
+Donne à chacun le chemin de la dernière vérification complète, s'il y en a
+une, et la liste des rapports déjà rendus, pour qu'il ne les refasse pas.
+Les experts de l'atelier (accessibilité, mots, parcours) qui ont besoin
+d'un profil de joueur le créent eux-mêmes depuis l'accueil.
+
+Leurs constats passent ensuite par une **contre-expertise**
+(`consignes-contre-expertise.md`) : un agent par domaine — deux ou trois
+rapports voisins ensemble, pour qu'il voie les doublons —, chargé de
+**réfuter** chaque constat P1 et P2 : relancer la reproduction, relire le
+chemin du code, chercher la garde qui l'empêche. Lance-la dès qu'un domaine
+a rendu ses rapports, sans attendre les autres.
+Seul ce qui résiste entre dans la synthèse, avec son statut (bug confirmé,
+non reproduit, faux positif, tension avec un parti pris) :
+`retours/<AAAA-MM-JJ>/synthese.md`, les rapports dans `experts/`, les
+contre-expertises dans `verification/`, tous les constats et leur verdict
+dans un seul `constats.json`, et les épreuves qui les prouvent dans
+`reproductions/` — la première ébauche de l'épreuve de chaque correction.
 
 ## Adapter la tablée
 

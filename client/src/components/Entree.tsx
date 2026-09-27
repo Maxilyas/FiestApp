@@ -91,7 +91,10 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
   const [choix] = useState(() => loadChoix(space.slug))
   const [etape, setEtape] = useState<Etape>(() => (profil ? 'retour' : choix ? 'moi' : 'entree'))
   const [name, setName] = useState(() => profil?.name ?? choix?.name ?? '')
-  const [avatar, setAvatar] = useState(() => profil?.avatar ?? choix?.avatar ?? tirage())
+  // Le dernier avatar choisi ici, s'il est de la grille : un profil qui a
+  // joué sur ce téléphone y laissait son emoji de collection, qu'un invité
+  // anonyme ne porte pas — le serveur le remplaçait par 🎉.
+  const [avatar, setAvatar] = useState(() => profil?.avatar ?? (choix && AVATARS.includes(choix.avatar) ? choix.avatar : tirage()))
   /** L'écran « moi » sert aussi de première étape à la création d'un profil. */
   const [creation, setCreation] = useState(false)
   const [identite, setIdentite] = useState<Identite>({})

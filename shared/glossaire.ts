@@ -31,6 +31,8 @@ export type Mot =
   | 'flair'
   | 'ecusson'
   | 'laurier'
+  | 'serie'
+  | 'fond'
 
 export interface Definition {
   /** Le mot tel qu'il s'affiche. */
@@ -60,4 +62,6 @@ export const GLOSSAIRE: Record<Mot, Definition> = {
   flair: { terme: 'Flair', sens: 'La part de tes bonnes réponses données quand la majorité se trompait.' },
   ecusson: { terme: 'Écussons de savoir', sens: 'Tes bonnes réponses dans une catégorie, en soirée comme au quiz du jour : bronze, argent, or.' },
   laurier: { terme: 'Laurier', sens: 'Le vainqueur du quiz du jour d’hier le porte toute la journée, après son prénom.' },
+  serie: { terme: 'Série', sens: 'Les jours d’affilée où tu as joué, au quiz du jour ou en soirée. Minuit la casse.' },
+  fond: { terme: 'Fond de carte', sens: 'Le décor derrière ta carte, quand on touche ton prénom. Il se gagne, comme un titre.' },
 }

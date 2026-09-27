@@ -1,13 +1,14 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { chargerDessinsAuPlus } from '../components/medaillons'
+import { chargerDessinsAuPlus, sortesDe } from '../components/medaillons'
 import { api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
-import { LienConsole } from '../components/LienConsole'
+import { NavAnimateur } from '../components/NavAnimateur'
 import { ChampNombre } from '../components/ChampNombre'
 import { showToast, useAppState } from '../state'
 import type { SpaceSettings } from '../../../shared/space'
-import type { PublicProfile } from '../../../shared/profil'
+import type { ProfilDeLEspace } from '../../../shared/profil'
 import { Avatar } from '../components/Avatar'
+import { cibleEclat } from '../../../shared/legendaires'
 import { Niveau } from '../components/Niveau'
 
 /**
@@ -34,7 +35,7 @@ export function AccountApp() {
       // « Chargement… » : son emoji ne précède pas son dessin — deux secondes
       // et demie au plus, une requête muette n'y garde personne.
       .then(async m => {
-        if (m.profil?.legendaire) await chargerDessinsAuPlus()
+        await chargerDessinsAuPlus(sortesDe([m.profil?.legendaire]))
         setMe(m)
       })
       .catch(e => {
@@ -44,9 +45,16 @@ export function AccountApp() {
   }, [])
 
   if (error) {
+    // Une phrase seule était une impasse : l'accueil, au moins (lot 12).
     return (
       <main className="center-page">
-        <p className="error">{error}</p>
+        <div className="impasse">
+          <p className="error">{error}</p>
+          <a className="btn btn-ghost" href="/">
+            <Icon name="home" />
+            L’accueil
+          </a>
+        </div>
       </main>
     )
   }
@@ -72,23 +80,7 @@ export function AccountApp() {
         <hr className="hairline" />
       </header>
 
-      <nav className="row bilan-tabs">
-        <LienConsole className="btn" />
-        <a className="btn" href="/edit">
-          <Icon name="edit" />
-          Mes quiz
-        </a>
-        <a className="btn" href={`/${me.space.slug}/soirees`}>
-          <Icon name="book" />
-          Historique
-        </a>
-        {me.account.role === 'admin' && (
-          <a className="btn btn-accent" href="/admin">
-            <Icon name="users" />
-            Les comptes
-          </a>
-        )}
-      </nav>
+      <NavAnimateur ici="compte" slug={me.space.slug} admin={me.account.role === 'admin'} />
       <main className="page-corps">
       {debut && (
         <section className="card premiers-pas">
@@ -155,7 +147,6 @@ export function AccountApp() {
   )
 }
 
-/** Les réglages de la soirée : ce que voient les invités à l'inscription et sur les pages. */
 /**
  * Rattacher son profil joueur à son espace.
  *
@@ -166,20 +157,46 @@ export function AccountApp() {
  *
  * Il faut prouver les deux identités pour les lier : cette session-ci d'un
  * côté, l'identifiant et le mot de passe du profil de l'autre. Après quoi
- * une seule des deux portes suffit ; cette première fois-là, non.
+ * une seule des deux portes suffit ; cette première fois-là, non. Le profil
+ * déjà ouvert sur ce navigateur ne redemande que son mot de passe — il
+ * fallait retaper l'identifiant qu'on venait de choisir (l'arbitrage du 27
+ * septembre 2026) ; un autre profil garde les deux champs.
  */
-function ProfilLie({ profil, onChange }: { profil: PublicProfile | null; onChange: (p: PublicProfile | null) => void }) {
+function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onChange: (p: ProfilDeLEspace | null) => void }) {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  /** Le profil ouvert sur ce navigateur, s'il y en a un : on ne lui redemande pas son identifiant. */
+  const [ouvert, setOuvert] = useState<{ name: string; login: string } | null>(null)
+  const [unAutre, setUnAutre] = useState(false)
+  useEffect(() => {
+    if (profil) return
+    let vivant = true
+    api.joueur
+      .moi()
+      .then(r => vivant && setOuvert(r.profile ? { name: r.profile.name, login: r.profile.login } : null))
+      .catch(() => {})
+    return () => {
+      vivant = false
+    }
+  }, [profil])
+  const parLeProfilOuvert = !!ouvert && !unAutre
+  /**
+   * Détacher demande une preuve fraîche : le mot de passe du profil, ou celui
+   * du compte. Une session ne suffisait pas — le téléphone prêté, console
+   * ouverte par le profil, détachait l'animateur et rattachait l'emprunteur.
+   */
+  const [detacher, setDetacher] = useState(false)
+  const [preuve, setPreuve] = useState('')
 
   const lier = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError('')
     try {
-      const { profil: lie } = await api.space.lierProfil(login.trim(), password)
+      // Sans identifiant, le serveur prend celui du profil ouvert ici.
+      const { profil: lie } = await api.space.lierProfil(parLeProfilOuvert ? '' : login.trim(), password)
       setLogin('')
       setPassword('')
       onChange(lie)
@@ -196,7 +213,7 @@ function ProfilLie({ profil, onChange }: { profil: PublicProfile | null; onChang
       <section className="card">
         <h2>Mon profil joueur</h2>
         <div className="row profil-lie">
-          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={profil.eclats.includes(profil.avatar)} legendaire={profil.legendaire ?? undefined} />
+          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))} legendaire={profil.legendaire ?? undefined} />
           <div>
             <strong>{profil.name}</strong>
             <Niveau niveau={profil.niveau} />
@@ -205,23 +222,60 @@ function ProfilLie({ profil, onChange }: { profil: PublicProfile | null; onChang
             </p>
           </div>
         </div>
-        <button
-          className="btn btn-ghost btn-small"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true)
-            try {
-              await api.space.detacherProfil()
-              onChange(null)
-            } catch (err) {
-              setError((err as Error).message)
-            } finally {
-              setBusy(false)
-            }
-          }}
-        >
-          Détacher ce profil
-        </button>
+        {detacher ? (
+          <form
+            className="detacher-profil"
+            onSubmit={async e => {
+              e.preventDefault()
+              setBusy(true)
+              setError('')
+              try {
+                await api.space.detacherProfil(preuve)
+                setPreuve('')
+                setDetacher(false)
+                onChange(null)
+              } catch (err) {
+                setError((err as Error).message)
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            <div className="field">
+              <label className="label" htmlFor="detacher-preuve">
+                Le mot de passe de ce profil — ou celui du compte
+              </label>
+              <input
+                id="detacher-preuve"
+                className="input input-line"
+                type="password"
+                value={preuve}
+                onChange={e => setPreuve(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="row">
+              <button className="btn btn-small" disabled={busy || !preuve}>
+                Détacher
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-small"
+                onClick={() => {
+                  setDetacher(false)
+                  setPreuve('')
+                  setError('')
+                }}
+              >
+                Annuler
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button className="btn btn-ghost btn-small" disabled={busy} onClick={() => setDetacher(true)}>
+            Détacher ce profil
+          </button>
+        )}
         {error && <p className="error">{error}</p>}
       </section>
     )
@@ -233,28 +287,38 @@ function ProfilLie({ profil, onChange }: { profil: PublicProfile | null; onChang
       <p className="muted small">
         Rattache le profil avec lequel tu joues : il ouvrira cette console depuis l'accueil, et tu
         n'auras plus qu'un mot de passe à retenir. Si tu n'en as pas encore,{' '}
-        <a className="link-inline" href="/">
+        {/* La création, pas la connexion : « crée-le » ouvrait « Me connecter ». Et l'accueil y ramène ici. */}
+        <a className="link-inline" href="/?creer=1&next=/compte">
           crée-le depuis l'accueil
         </a>
         .
       </p>
-      <div className="field">
-        <label className="label" htmlFor="lien-login">
-          Identifiant du profil
-        </label>
-        <input
-          id="lien-login"
-          className="input input-line"
-          value={login}
-          onChange={e => setLogin(e.target.value)}
-          autoComplete="username"
-          autoCapitalize="none"
-          maxLength={32}
-        />
-      </div>
+      {parLeProfilOuvert ? (
+        <p className="profil-ouvert">
+          Le profil ouvert ici : <strong>{ouvert!.name}</strong> ({ouvert!.login}).{' '}
+          <button type="button" className="link-inline" onClick={() => setUnAutre(true)}>
+            Un autre profil ?
+          </button>
+        </p>
+      ) : (
+        <div className="field">
+          <label className="label" htmlFor="lien-login">
+            Identifiant du profil
+          </label>
+          <input
+            id="lien-login"
+            className="input input-line"
+            value={login}
+            onChange={e => setLogin(e.target.value)}
+            autoComplete="username"
+            autoCapitalize="none"
+            maxLength={32}
+          />
+        </div>
+      )}
       <div className="field">
         <label className="label" htmlFor="lien-pass">
-          Son mot de passe
+          {parLeProfilOuvert ? 'Son mot de passe, pour confirmer' : 'Son mot de passe'}
         </label>
         <input
           id="lien-pass"
@@ -266,13 +330,14 @@ function ProfilLie({ profil, onChange }: { profil: PublicProfile | null; onChang
         />
       </div>
       {error && <p className="error">{error}</p>}
-      <button className="btn btn-primary" disabled={busy || !login.trim() || !password}>
-        Rattacher
+      <button className="btn btn-primary" disabled={busy || (!parLeProfilOuvert && !login.trim()) || !password}>
+        {parLeProfilOuvert ? `Rattacher ${ouvert!.name}` : 'Rattacher'}
       </button>
     </form>
   )
 }
 
+/** Les réglages de la soirée : ce que voient les invités à l'inscription et sur les pages. */
 function SettingsForm({ me, onSaved }: { me: Me; onSaved: (space: Me['space']) => void }) {
   const [form, setForm] = useState<SpaceSettings>({
     title: me.space.title,

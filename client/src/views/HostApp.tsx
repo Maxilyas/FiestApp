@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { helloHost, socket } from '../socket'
+import { envoyerCommande, helloHost, socket } from '../socket'
 import { setState, showToast, useAppState } from '../state'
 import { memesPuces } from '../egalite'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
@@ -11,7 +11,7 @@ import { ONGLETS } from '../onglets'
 import { formatDay } from '../../../shared/archive'
 import { titreDeCloture } from '../../../shared/space'
 import { deNom, espacesFines } from '../format'
-import { initAudio, isMuted, toggleMuted } from '../sound'
+import { initAudio, isMuted, ouvrirAuPremierGeste, sonPret, surLeSon, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
 import { Coupe } from '../components/Coupe'
@@ -32,7 +32,7 @@ import { QuizHost } from '../games/quiz/HostView'
 import type { QuizHostView } from '../../../shared/games/quiz'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
-import { Laurier, NomLaure } from '../components/Laurier'
+import { LAURIER_TEXTE, Laurier, NomLaure } from '../components/Laurier'
 import { distinctions } from '../../../shared/profil'
 import { partsDuNom } from '../../../shared/homonymes'
 import type { ArchiveList } from '../../../shared/archive'
@@ -77,6 +77,9 @@ function adresseCoupable(url: string) {
   )
 }
 
+/** Ce que « Clore la soirée » attend du titre déjà rangé avant d'ouvrir sa boîte. */
+const ATTENTE_DU_TITRE_MS = 3000
+
 /** De quoi baptiser six équipes sans réfléchir, dans l'ambiance de la soirée. */
 // Tous antérieurs à Unicode 13 : les emojis récents (boule à facettes,
 // visage pointillé…) s'affichent en carré vide sur Windows 10.
@@ -93,6 +96,10 @@ function NomDePastille({ joueur }: { joueur: PublicPlayer }) {
     <>
       <span className="chip-prenom">{prenom}</span>
       {marque && <span className="chip-marque">{marque.trim()}</span>}
+      {/* Le laurier suit le prénom, comme partout : posé avant, entre le
+          niveau et le bouton, il lui prenait sa place à gauche et le coupait
+          à deux lettres. Le nom du bouton le dit. */}
+      <Laurier laurier={joueur.laurier} decoratif />
     </>
   )
 }
@@ -202,7 +209,6 @@ const PuceJoueur = memo(
       <div className={'player-chip' + (p.connected ? '' : ' offline')}>
         <Avatar className="player-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
         <Niveau niveau={p.niveau} />
-        <Laurier laurier={p.laurier} />
         {/* Les libellés de la puce prennent le nom affiché, marque comprise :
             c'est une porte de plus par où sort un prénom (invariant 17).
             Avec `p.name`, deux « Camille » avaient les mêmes boutons pour
@@ -214,7 +220,7 @@ const PuceJoueur = memo(
           className="chip-name"
               style={{ '--plancher': plancherDuPrenom(p) } as CSSProperties}
               title={`${p.nomAffiche ?? p.name} — donner un surnom pour la soirée`}
-          aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}`}
+          aria-label={`Donner un surnom à ${p.nomAffiche ?? p.name}${p.laurier ? `, ${LAURIER_TEXTE}` : ''}`}
           onClick={async () => {
             const name = await promptDialog({
               title: `Un surnom pour « ${p.nomAffiche ?? p.name} » ce soir`,
@@ -321,6 +327,12 @@ export function HostApp() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [muted, setMuted] = useState(isMuted)
+  /** Le navigateur laisse-t-il sonner cette page ? Pas avant qu'on l'ait touchée. */
+  const [sonOuvert, setSonOuvert] = useState(sonPret)
+  useEffect(() => surLeSon(() => setSonOuvert(sonPret())), [])
+  // Le premier geste sur cette page ouvre le son, où qu'il tombe : la télé
+  // qu'on pilote à la télécommande ne voyait jamais les clics qui l'ouvraient.
+  useEffect(() => ouvrirAuPremierGeste(), [])
   /** Velours (noir chaud) ou Ivoire (fond clair, pour un vidéoprojecteur qui délave les noirs). */
   const [theme, setTheme] = useState(currentTheme)
   /** Cet écran se tient en télécommande : les gestes en grand, sans la scène projetée. */
@@ -692,7 +704,8 @@ export function HostApp() {
   /** Premier geste de l'animateur : c'est aussi le moment où le navigateur autorise enfin le son. */
   const lancerQuiz = () => {
     initAudio()
-    socket.emit('host:launch')
+    // Il dit ce qu'il remplace : l'autre écran a peut-être lancé entre-temps.
+    socket.emit('host:launch', { depuis: sessionEnCours?.id ?? null })
   }
 
   const createTeam = (e: FormEvent) => {
@@ -749,8 +762,10 @@ export function HostApp() {
    * sauvegardé d'abord. Une soirée d'essai, elle, s'efface sans rien garder.
    */
   const clore = async () => {
-    // Le titre sous lequel la soirée est déjà rangée, s'il y en a un.
-    const rangee = await fetch(dataUrl(slug, 'soirees.json'))
+    // Le titre sous lequel la soirée est déjà rangée, s'il y en a un — trois
+    // secondes au plus : une liaison gelée retenait la boîte sans fin, et
+    // l'animateur retouchait « Clore ». Sans réponse, le titre du jour.
+    const rangee = await fetch(dataUrl(slug, 'soirees.json'), { signal: AbortSignal.timeout(ATTENTE_DU_TITRE_MS) })
       .then(r => (r.ok ? (r.json() as Promise<ArchiveList>) : null))
       .then(l => l?.current?.title)
       .catch(() => undefined)
@@ -775,8 +790,10 @@ export function HostApp() {
     })
     if (ok) socket.emit('host:discardParty')
   }
+  // Inerte pendant qu'une fin est en route, sur toutes les consoles : le
+  // serveur n'en joue qu'une, mais un second toucher n'aurait rien à dire.
   const cloreButton = snap.players.length > 0 && (
-    <button className="btn" onClick={() => void clore()}>
+    <button className="btn" onClick={() => void clore()} disabled={!!snap.finEnRoute}>
       <Icon name="flag" />
       Clore la soirée
     </button>
@@ -806,6 +823,21 @@ export function HostApp() {
             {snap.sauvegardeEnRetard && (
               <span className="pill sauvegarde-pill" role="status">
                 Sauvegarde en retard — la soirée continue
+              </span>
+            )}
+            {/* Branchée par un code, la télé n'a vu aucun geste : le
+                navigateur la garde muette, et l'icône disait « son allumé ».
+                Un toucher suffit — ici ou n'importe où sur la page. */}
+            {!telecommande && !muted && !sonOuvert && (
+              <button className="pill son-bloque" onClick={initAudio}>
+                <Icon name="volume-off" /> Activer le son
+              </button>
+            )}
+            {/* Une clôture attend la base distante des secondes durant : sans
+                un mot, l'animateur retouchait « Clore » sur l'autre console. */}
+            {snap.finEnRoute && (
+              <span className="pill" role="status">
+                {snap.finEnRoute === 'close' ? 'Clôture en cours…' : 'Effacement de l’essai…'}
               </span>
             )}
           </div>
@@ -1093,11 +1125,12 @@ export function HostApp() {
                   awards={recap?.stats.awards ?? []}
                   teams={teams}
                   givenTitles={givenTitles}
-                  onAward={(teamId, points, reason) => {
+                  remisesVues={bonuses.map(b => b.id).join(',')}
+                  onAward={(teamId, points, reason, remise) => {
                     // La télé sonne le prix remis (RemiseEnScene) : la
                     // télécommande, dans la main, ne la double pas.
                     if (!telecommande) sound.reveal()
-                    socket.emit('host:awardTeam', { teamId, points, reason })
+                    socket.emit('host:awardTeam', { teamId, points, reason, remise })
                   }}
                 />
 
@@ -1349,7 +1382,7 @@ export function HostApp() {
                         }
                       : undefined,
                 }}
-                sendCommand={command => socket.emit('host:command', { sessionId: activeView.sessionId, command })}
+                sendCommand={command => envoyerCommande(activeView.sessionId, command)}
                 endSession={() => socket.emit('host:endSession', { sessionId: activeView.sessionId })}
               />
             ) : (
@@ -1486,6 +1519,16 @@ export function HostApp() {
                     <Icon name="book" />
                     Historique
                   </a>
+                  {/* L'accueil, où l'on anime et où l'on joue (lot 12) : dans
+                      son onglet, comme le reste — l'écran commun ne quitte pas
+                      la télé, et l'accueil qu'il ouvre y ramène. Au pire cas
+                      (équipes et classement), « Clore la soirée » passait déjà
+                      sur une seconde ligne ; « Accueil » tient sur la première,
+                      en 1366 × 768 comme en 1920 × 1080 (`rendu-ecran.ts`). */}
+                  <a className="btn btn-ghost" href="/" target={ONGLETS.accueil}>
+                    <Icon name="home" />
+                    Accueil
+                  </a>
                   {cloreButton}
                 </ConsoleActions>
               </>
@@ -1523,7 +1566,7 @@ export function HostApp() {
               players={snap.players}
               quiz={quizView}
               sendCommand={
-                activeView ? command => socket.emit('host:command', { sessionId: activeView.sessionId, command }) : undefined
+                activeView ? command => envoyerCommande(activeView.sessionId, command) : undefined
               }
             />
             {/* Un téléphone tenu droit est une télécommande, sauf s'il est

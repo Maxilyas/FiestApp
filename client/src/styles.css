@@ -745,6 +745,7 @@ h3 > .icon {
 .me-header h2 { font-size: 1.8rem; display: flex; align-items: center; min-width: 0; }
 .me-header h2 .me-nom { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .me-header h2 .niveau { flex: none; margin-left: 0.4em; }
+.me-header h2 .laurier { margin-left: 0.3em; }
 .player-avatar { font-size: 1.6rem; line-height: 1; }
 .player-avatar.big { font-size: 2.6rem; }
 
@@ -858,6 +859,38 @@ h3 > .icon {
   line-height: 1;
   color: var(--accent-text);
   font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* Étroite — un petit téléphone, ou le texte agrandi —, une ligne passe sur
+   deux étages : le prénom en haut, avec sa marque et son laurier ; le niveau
+   et les points dessous, là où ils étaient, à droite. Sur un seul, seul le
+   prénom cédait : à 277 px (un 360 au texte à 130 %), un profil à
+   12 450 points n'en gardait plus une lettre. En `rem`, comme les équipes :
+   le seuil grandit avec le texte. */
+.leaderboard, .podium { container-type: inline-size; }
+@container (max-width: 17rem) {
+  .lb-row:not(.team-row) {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'rang av nom nom'
+      'rang av niv pts';
+    column-gap: 8px;
+    row-gap: 2px;
+  }
+  .lb-row:not(.team-row) > .lb-rank { grid-area: rang; }
+  .lb-row:not(.team-row) > .lb-avatar { grid-area: av; }
+  .lb-row:not(.team-row) > .lb-name { grid-area: nom; }
+  .lb-row:not(.team-row) > .niveau { grid-area: niv; justify-self: end; }
+  .lb-row:not(.team-row) > .lb-score { grid-area: pts; }
+  /* Une estimation, à la télécommande : sa valeur rejoint le second étage. */
+  .lb-row:has(> .guess-value) {
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'rang av nom nom nom'
+      'rang av niv val pts';
+  }
+  .lb-row > .guess-value { grid-area: val; }
 }
 
 /* ── Écran commun ───────────────────────────────── */
@@ -1893,6 +1926,12 @@ h3 > .icon {
 }
 
 .podium-avatar { font-size: 2.6rem; line-height: 1; animation: pop 0.5s ease-out both; }
+/* Sous un légendaire, la finition devient le cercle du médaillon, à 1 em ;
+   un emoji à finition, lui, prend un halo de 1,45 em. Là où il est le sujet
+   — le podium, la carte —, le médaillon rejoint la place d'un emoji auréolé :
+   le Phénix du premier paraissait le plus petit des trois. */
+.podium-avatar .av-emoji > .lg,
+.carte-avatar .av-emoji > .lg { font-size: 1.3em; }
 .podium-name {
   font-family: var(--serif);
   font-weight: 600;
@@ -2103,9 +2142,16 @@ h3 > .icon {
 
 .bibliotheque-tete { align-items: center; }
 .bibliotheque-tete h1 { flex: 1; margin: 0; white-space: nowrap; }
-.bibliotheque-nav { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.88rem; }
+/* Les pages de l'animateur, en une ligne fine, la même partout (lot 12) :
+   en tête de « Mes quiz », au-dessus de « Mon compte » et des comptes. */
+.nav-animateur { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.88rem; }
+.recap .nav-animateur { justify-content: center; margin-bottom: 4px; }
 .lien-discret { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); text-decoration: none; min-height: 32px; }
 .lien-discret:hover { color: var(--accent-text-hover); }
+.lien-discret.ici { color: var(--accent-text); }
+.nav-ancre { text-align: center; font-size: 0.88rem; margin: 0 0 12px; }
+/* Une page qui ne peut rien montrer dit pourquoi, et où aller. */
+.impasse { display: grid; gap: 14px; justify-items: center; text-align: center; }
 .bibliotheque-outils { display: grid; gap: 10px; min-width: 0; }
 .champ-recherche { position: relative; display: flex; align-items: center; }
 .champ-recherche > .icon { position: absolute; left: 12px; color: var(--muted); pointer-events: none; }
@@ -2291,6 +2337,7 @@ h3 > .icon {
 .sondage-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .sondage-grid .ans-btn { min-height: 48px; padding: 6px 12px; gap: 8px; font-size: 1rem; }
 .sondage-grid .ans-btn:only-child { grid-column: 1 / -1; }
+.sondage-avatar { flex: none; font-size: 1.15rem; line-height: 1; }
 /* La mesure d'une estimation en direct : le champ, l'unité, « Révéler ». */
 .cible-form { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.5rem; }
 .cible-input { width: 9em; }
@@ -2361,7 +2408,7 @@ h3 > .icon {
 .menu-nouveau { min-width: 300px; }
 .bouton-plus { width: 40px; padding: 0; }
 @media (max-width: 600px) {
-  .bibliotheque-nav { gap: 2px 14px; }
+  .nav-animateur { gap: 2px 14px; }
   .bibliotheque-tete h1 { font-size: 1.8rem; }
   .menu-nouveau { min-width: 260px; }
   .quiz-ligne-ouvrir { padding: 10px 12px; }
@@ -2611,6 +2658,9 @@ h3 > .icon {
 .player-chip .chip-name {
   display: inline-grid;
   grid-template-columns: minmax(var(--plancher, 4ch), max-content) auto;
+  /* Le laurier, derrière la marque : une colonne de plus, à la demande. */
+  grid-auto-flow: column;
+  grid-auto-columns: auto;
   column-gap: 0.3ch;
   align-items: baseline;
   max-width: none;
@@ -2628,6 +2678,8 @@ h3 > .icon {
   white-space: nowrap;
 }
 .chip-marque { flex: none; white-space: nowrap; }
+/* Un dessin n'a pas de ligne de base : aligné comme le texte, il montait. */
+.chip-name > .laurier-bulle > .laurier { align-self: center; }
 .player-chip .player-avatar,
 .player-chip .chip-remove { flex: none; }
 .player-chip .chip-team { flex: 0 10 auto; min-width: 2.2em; }
@@ -2704,6 +2756,7 @@ h3 > .icon {
 }
 .space-nav-account:hover { color: var(--ink); }
 .space-nav-account .icon { width: 16px; height: 16px; }
+.space-nav-hote { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 18px; }
 .join .space-nav { margin-top: 0; }
 /* L'ancienne adresse des chiffres atterrit sur le tableau, sans le coller au bord. */
 #stats { scroll-margin-top: 12px; }
@@ -3680,8 +3733,9 @@ h3 > .icon {
   50% { opacity: 1; scale: 1.06; }
 }
 
-/* `rotate` plutôt que `transform: rotate()` : le halo est déjà centré par un
-   `translate`, qu'une transformation animée effacerait. */
+/* `rotate` plutôt que `transform: rotate()` : le halo, centré par des
+   marges, n'a pas de `transform` à lui — mais une animation qui en poserait
+   un écraserait celui d'un élément qui en porte. */
 @keyframes av-tourne {
   from { rotate: 0deg; }
   to { rotate: 360deg; }
@@ -3731,10 +3785,18 @@ h3 > .icon {
 /* Doré, à la taille du texte qu'il suit — en `em` : il grandit avec la
    scène de l'écran commun comme le prénom qu'il accompagne. */
 .laurier { flex: none; width: 1.15em; height: 1.15em; color: var(--accent-text); }
+/* L'enveloppe de son infobulle ne fait pas de boîte : le dessin reste
+   l'enfant de la ligne, qui l'aligne et le garde hors de la coupe. */
+.laurier-bulle { display: contents; }
 /* Sur une ligne de classement, c'est le prénom qui se coupe, jamais le
-   laurier : « Marie-Charlotte de La Roch… » le garde au bout. */
-.nom-laure { display: inline-flex; align-items: center; gap: 0.3em; max-width: 100%; vertical-align: bottom; }
+   laurier : « Marie-Charlotte de La Roch… » le garde au bout. Ni la marque
+   d'homonymie : « Cami… (2) », pas « Camil… » (invariant 17). Son espace
+   est dans le texte (`pre`), et le laurier prend sa marge à lui : un `gap`
+   l'aurait doublé. */
+.nom-laure { display: inline-flex; align-items: center; max-width: 100%; vertical-align: bottom; }
 .nom-laure-texte { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nom-marque { flex: none; white-space: pre; }
+.nom-laure > .laurier-bulle > .laurier { margin-left: 0.3em; }
 .carte-laurier { display: flex; align-items: center; gap: 4px; margin: 0 0 2px; color: var(--accent-text); font-size: 0.85rem; font-weight: 500; }
 
 /* ── Les fonds de carte ────────────────────────────────────────────────── */
@@ -3850,9 +3912,11 @@ h3 > .icon {
   border-color: rgba(120, 255, 200, 0.45);
 }
 
+/* La lueur verte tombe sur l'en-tête : à 0,42, le titre doré n'y tenait
+   4,5:1 que sur neuf pixels sur dix. Plus douce, elle garde son vert. */
 .carte-fond.fond-aurore::before {
   background:
-    radial-gradient(70% 38% at 28% 16%, rgba(70, 255, 170, 0.42), transparent 70%),
+    radial-gradient(70% 38% at 28% 16%, rgba(70, 255, 170, 0.28), transparent 70%),
     radial-gradient(55% 34% at 74% 26%, rgba(150, 110, 255, 0.38), transparent 72%),
     radial-gradient(60% 30% at 50% 44%, rgba(40, 210, 190, 0.22), transparent 75%),
     repeating-linear-gradient(96deg, rgba(140, 255, 210, 0.09) 0 2px, transparent 2px 11px);
@@ -3938,8 +4002,12 @@ h3 > .icon {
   background: linear-gradient(90deg, rgba(0, 0, 0, 0.55) 0%, transparent 18%, transparent 82%, rgba(0, 0, 0, 0.55) 100%);
 }
 
-/* Le lambrequin du rideau occupe le haut : la tête de la carte passe dessous. */
+/* Le lambrequin du rideau occupe le haut : la tête de la carte passe
+   dessous, et ce qui défile passe derrière lui, comme sur une scène. Dessiné
+   sous le contenu, il voyait le prénom puis les hauts faits glisser sur ses
+   franges d'or. */
 .carte-fond.fond-theatre .carte-tete { margin-top: 30px; }
+.carte-fond.fond-theatre:not(.fond-apercu)::before { z-index: 1; }
 
 /* L'aperçu, sur sa page : le même décor, en vignette. */
 .fond-apercu {
@@ -3978,6 +4046,7 @@ h3 > .icon {
 /* Le contour seul : l'emblème, dedans, garde son trait d'icône. */
 .ecusson-forme { width: 38px; height: 43px; }
 .ecusson-forme path { fill: currentColor; fill-opacity: 0.16; stroke: currentColor; stroke-width: 1.6; }
+.ecusson-forme .ecusson-cran { fill: currentColor; }
 /* L'emblème un peu haut : le blason s'effile vers le bas. */
 .ecusson-blason .ecusson-embleme { width: 16px; height: 16px; margin-top: -3px; }
 .ecusson-nom { font-size: 0.68rem; line-height: 1.15; color: var(--ink); overflow-wrap: anywhere; }
@@ -4057,7 +4126,10 @@ h3 > .icon {
 .profil-lie p { margin: 2px 0 0; }
 /* Le nom, puis le niveau en marche : la barre prend toute la largeur. */
 .profil-identite { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.profil-identite h2 { display: flex; align-items: center; gap: 8px; }
+/* Le prénom se coupe où il faut plutôt que de pousser le niveau hors de
+   l'écran : au texte agrandi à 200 %, « Marie-Charlotte » ne cédait pas, et
+   la pastille élargissait la page de 47 px. */
+.profil-identite h2 { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
 /* Le titre est déjà en ligne, avec son écart : pas de marge en plus. */
 .profil-identite h2 .niveau { margin-left: 0; }
 
@@ -4085,14 +4157,27 @@ h3 > .icon {
 .finition-nom { font-size: 0.85rem; }
 .finition-btn:hover:not(:disabled) { border-color: var(--edge-strong); }
 .finition-btn.selected { border-color: var(--edge-strong); background: var(--accent-soft); }
+/* Un aperçu bouge quand on le porte ou qu'on le survole, pas avant : sous
+   un légendaire porté, les huit redessinaient chacun son médaillon et son
+   cercle, sans fin. Figé, il garde sa matière et ses couleurs. */
+.finitions .finition-btn:not(.selected):not(:hover) .av::before,
+.finitions .finition-btn:not(.selected):not(:hover) .av::after,
+.finitions .finition-btn:not(.selected):not(:hover) .lg * {
+  animation: none;
+}
 
 /* Une finition qu'on n'a pas encore : on la voit, on sait à quel niveau elle
    s'ouvre, et elle ne se laisse pas prendre. Montrer ce qui vient donne envie
    de revenir ; le cacher ne donnerait rien. */
 .finition-btn:disabled {
-  opacity: 0.45;
+  border-style: dashed;
   cursor: not-allowed;
 }
+/* L'objet s'atténue, pas ce qu'il faut pour l'ouvrir : voilée avec lui, la
+   règle d'un fond fermé (« 10 victoires au quiz du jour ») tombait à 2,3:1
+   — c'est pourtant ce qu'on vient lire. Le pointillé dit « pas encore »,
+   comme aux écussons et aux prix. */
+.finition-btn:disabled > :not(.muted) { opacity: 0.45; }
 
 /* Sur la page profil, la grille d'emojis porte des avatars complets. */
 .emoji-grid .av { font-size: 1.5rem; }
@@ -4190,6 +4275,19 @@ h3 > .icon {
 
 /* Sur la carte, la photo qu'une liste annonçait et qu'il reste à joindre. */
 .photo-attendue { color: var(--accent-text); overflow-wrap: anywhere; }
+
+/* ── Le son qui attend un geste ──────────────────────────────────────────
+
+   La télé branchée par un code n'a vu aucun geste : le navigateur la garde
+   muette. Un bouton habillé en pastille, pas une bascule — `pill-btn` dit
+   un état, celui-ci est un geste unique, qui s'efface dès qu'il a servi. */
+.son-bloque {
+  background: transparent;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.son-bloque:hover { color: var(--ink); border-color: var(--edge-strong); }
 
 /* ── La sauvegarde en retard ─────────────────────────────────────────────
 
@@ -4541,9 +4639,13 @@ h3 > .icon {
   to { transform: translate(1.2px, 2px) rotate(6deg); }
 }
 
-/* Pas encore descendu : une nébuleuse qui tourne, un scellé qui respire. */
-.dv-brume { transform-origin: 50px 50px; animation: dv-respire 6s ease-in-out infinite; }
-.dv-nebuleuse { transform-origin: 50px 50px; animation: dv-tourne 40s linear infinite; }
+/* Pas encore descendu : une nébuleuse, des étoiles, un scellé de lumière —
+   immobiles, comme la silhouette d'un légendaire à gagner (`.lg-verrou *`).
+   Ils tournaient et respiraient : dix formes par Divin, que le navigateur
+   ne compose pas, et les cinq de la grille d'Apparence — l'onglet par
+   défaut de tout profil, même neuf — tenaient un téléphone moyen à 45 % de
+   son processeur, grille hors de vue comprise. */
+.dv-voile * { animation: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .dv * { animation: none !important; }
@@ -4646,11 +4748,18 @@ h3 > .icon {
    podium, les médaillons qu'on vient de gagner et les éclats (`av-sujet`) de
    la clôture, la carte, le profil, la fin de soirée, l'en-tête de son propre
    téléphone. Figé, il garde la pose que lui laisse « réduire les
-   animations ». */
+   animations ». Les halos des finitions et les paillettes de l'Éclat aussi :
+   un seul Éclat dans la salle d'attente recalculait le style soixante fois
+   par seconde, toute la soirée — l'arbitrage du 27 septembre 2026
+   [perf-client-7]. */
 .av.lb-avatar:not(.av-sujet) .lg *,
 .av.lb-avatar:not(.av-sujet) .dv *,
+.av.lb-avatar:not(.av-sujet)::before,
+.av.lb-avatar:not(.av-sujet)::after,
 .player-chip .lg *,
 .player-chip .dv *,
+.player-chip .av::before,
+.player-chip .av::after,
 .stats-table tbody tr:nth-child(n + 6) .lg *,
 .stats-table tbody tr:nth-child(n + 6) .dv * {
   animation: none;
@@ -4669,6 +4778,10 @@ h3 > .icon {
 
 .host .niveau::before {
   content: 'Niv.\00a0';
+  /* Pour l'œil seulement : la pastille dit déjà « niveau 5 » à l'oreille,
+     qui entendait « Niv. niveau 5 ». Un navigateur qui ne connaît pas le
+     texte de remplacement garde la ligne d'au-dessus. */
+  content: 'Niv.\00a0' / '';
   font-weight: 500;
   opacity: 0.85;
 }
@@ -5163,6 +5276,14 @@ h3 > .icon {
 .carte-soir b { font-family: var(--serif); font-size: 1.2rem; color: var(--accent-text); }
 .carte-legendaires { display: flex; flex-wrap: wrap; gap: 8px; }
 .carte-legendaire { font-size: 40px; line-height: 0; }
+/* Dans ses galeries, un médaillon ne bouge que sous le doigt ou la souris :
+   la carte a déjà son sujet, l'avatar qu'il porte. Tous animés, trois
+   médaillons prenaient le tiers du fil principal d'un téléphone moyen, et
+   les galeries d'un habitué le saturaient. */
+.carte-legendaire:not(:hover) .lg *,
+.carte-legendaire:not(:hover) .dv * {
+  animation: none;
+}
 .carte-chiffres { margin: 0; }
 .carte-beaux { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .carte-beaux li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--edge); background: var(--surface-faint); }
@@ -5179,8 +5300,15 @@ h3 > .icon {
    parle la langue des cartes du profil. */
 .jour-carte { display: flex; flex-direction: column; gap: 10px; border-color: var(--edge-strong); }
 .jour-carte h1, .jour-carte p { margin: 0; }
+/* Sa place, gardée le temps qu'elle arrive : la hauteur d'une carte « à
+   jouer », en `rem` pour suivre le texte agrandi. */
+.jour-carte-attente { min-height: 13.5rem; }
 .jour-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .jour-date { margin: 0; font-family: var(--serif); font-weight: 600; font-size: 1.6rem; line-height: 1.1; }
+/* Ce que le laurier vaut, dit là où il se gagne et le lendemain. */
+.jour-enjeu { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--accent-text); font-size: 0.92rem; }
+.jour-enjeu .laurier { width: 1.4em; height: 1.4em; }
+.jour-hier { margin: 0; color: var(--muted); font-size: 0.9rem; }
 .jour-meta { margin: 0; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .jour-pied { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .jour-score { margin: 0; font-size: 1.05rem; }
@@ -5216,18 +5344,24 @@ h3 > .icon {
 .correction-corps { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .correction-corps b { color: var(--ink); font-weight: 600; }
 
-/* Des onglets en pilule : le classement du jour, d'hier, du mois. */
+/* Des onglets en pilule : le classement du jour, d'hier, du mois ; le
+   profil. Ils passent à la ligne plutôt que de sortir de l'écran : sur une
+   grille d'une seule rangée, « Apparence » refusait de céder, et au texte
+   agrandi « Carrière » partait hors de l'écran — avec le mot de passe. D'une
+   même largeur tant qu'ils tiennent (`flex: 1 1 0`, jamais sous leur texte),
+   le dernier d'une seconde rangée prend toute la largeur. L'arrondi reste
+   celui d'une pilule sur une rangée, et s'adoucit sur deux. */
 .onglets {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   padding: 4px;
-  border-radius: var(--radius-pill);
+  border-radius: 26px;
   border: 1px solid var(--edge);
   background: var(--surface);
 }
 .onglet {
+  flex: 1 1 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5245,6 +5379,8 @@ h3 > .icon {
 }
 .onglet.actif { background: var(--accent-soft); color: var(--accent-text); box-shadow: inset 0 0 0 1px var(--edge-strong); }
 .onglets-petits .onglet { min-height: 34px; font-size: 0.82rem; }
+/* Le panneau des onglets du classement du jour : l'espacement de la page. */
+.classement-periode { display: flex; flex-direction: column; gap: 18px; }
 
 /* L'administration du quiz du jour : la réserve et ses jours d'avance. */
 .reserve-tete { display: flex; align-items: center; gap: 14px; margin: 10px 0; }
@@ -5784,11 +5920,32 @@ h3 > .icon {
 .ce-soir-autres .btn { width: 100%; min-width: 0; white-space: normal; line-height: 1.15; padding: 6px 8px; gap: 6px; }
 .ce-soir-autres .btn .icon { width: 15px; height: 15px; flex: none; }
 .ce-soir .lendemain { justify-content: flex-start; text-align: left; }
+/* L'accueil de qui anime et joue : « J'anime », le titre de sa soirée à côté,
+   puis « Je joue » (lot 12). Trois raccourcis sur une rangée : ses quiz, son
+   compte, l'historique. */
+.accueil-espace { display: block; margin-top: 2px; font-family: var(--sans); font-size: 0.85rem; font-weight: 400; color: var(--muted); }
+.accueil-raccourcis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* Au téléphone, l'icône passe au-dessus du nom : côte à côte, « Mes quiz »
+   et « Mon compte » se coupaient sur deux lignes en 360. */
+@media (max-width: 480px) {
+  .accueil-raccourcis .btn { flex-direction: column; gap: 3px; padding: 8px 4px; white-space: nowrap; }
+  .accueil-raccourcis .btn .icon { width: 18px; height: 18px; }
+}
 .onglets-profil .onglet { min-height: 44px; }
 .onglet .icon { width: 16px; height: 16px; flex: none; }
+/* Sur un petit téléphone, ou un 360 au texte à 130 %, les trois libellés
+   tiennent sur une rangée sans leurs icônes : ils gardent la place. */
+@media (max-width: 340px) {
+  .onglets-profil .onglet { padding: 0 4px; }
+  .onglets-profil .onglet .icon { display: none; }
+}
 .profil-onglet { display: flex; flex-direction: column; gap: 18px; }
+/* L'onglet qui arrive tient une hauteur d'écran : ce qui le suit reste sous
+   le pli, et ne saute pas quand il arrive. */
+.onglet-en-chemin { min-height: 100vh; padding-top: 12px; text-align: center; }
 .titre-compte { font-family: var(--sans); font-weight: 400; margin-left: 6px; }
 .apercu { display: flex; flex-direction: column; gap: 10px; }
+.apercu-carte { align-self: flex-start; }
 .apercu-ligne { animation: none; }
 
 /* La grille unique : les emojis, ceux de collection, les légendaires, les
@@ -5802,7 +5959,12 @@ h3 > .icon {
 /* Un emoji de collection encore fermé : sa silhouette, et le niveau qui
    l'ouvre à cheval sur l'anneau. Centré par les bords, pas par un
    `transform` qu'une animation écraserait. */
-.silhouette { filter: brightness(0); opacity: 0.55; }
+/* Claire, comme la silhouette dorée des légendaires : noire sur une case
+   assombrie, elle ne s'en détachait qu'à 1,1:1, et les douze emojis que
+   gagne un profil neuf se lisaient comme douze cercles vides. Sombre sur
+   Ivoire, où la case est claire. */
+.silhouette { filter: brightness(0) invert(1); opacity: 0.36; }
+:root[data-theme='ivoire'] .silhouette { filter: brightness(0); opacity: 0.55; }
 span.case-avatar { cursor: default; }
 .case-niveau {
   position: absolute;
@@ -5810,7 +5972,7 @@ span.case-avatar { cursor: default; }
   right: 0;
   bottom: -2px;
   text-align: center;
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 600;
   line-height: 1.2;
   color: var(--ink);
@@ -5820,6 +5982,17 @@ span.case-avatar { cursor: default; }
 .case-avatar.selected { border-color: var(--accent); }
 .case-avatar.ouverte { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.3); }
 .case-medaillon { font-size: 30px; line-height: 0; }
+/* Dans la grille, seuls bougent l'avatar qu'il porte, celui qu'il a ouvert
+   et celui qu'il survole : la page a un sujet, pas soixante. Tout tournait
+   à la fois — le halo de la finition sous chaque emoji, les formes de
+   chaque médaillon —, 219 animations chez un habitué et la moitié du fil
+   principal d'un téléphone moyen, pour un seul avatar regardé. */
+.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .lg *,
+.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .dv *,
+.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .av::before,
+.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .av::after {
+  animation: none;
+}
 .detail-case { margin: 12px 0 0; }
 .detail-famille { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
 .anneau-texte-legendaire { color: var(--anneau-legendaire); }

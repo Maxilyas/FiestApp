@@ -64,6 +64,26 @@ export function nomDeFichier(titre: string): string {
 }
 
 /**
+ * Ce qu'une question garde des pièces perdues en route — à l'export, à la
+ * copie d'un partage : sa photo s'attend, comme celle qu'une liste annonce
+ * (« photo perdue en route ») ; un blind test sans son extrait se range de
+ * côté, il ne se jouerait que muet. La photo de la révélation, elle, ne
+ * manque à rien : la question se joue sans.
+ */
+export function piecesPerduesEnRoute(
+  q: { photoAttendue?: unknown },
+  perdues: { image: boolean; son: boolean },
+): { photoAttendue?: string; deCote?: true } {
+  return {
+    ...(perdues.image && { photoAttendue: typeof q.photoAttendue === 'string' && q.photoAttendue.trim() ? q.photoAttendue : PHOTO_PERDUE }),
+    ...(perdues.son && { deCote: true as const }),
+  }
+}
+
+/** Ce que la carte attend à la place d'une photo perdue en route. */
+export const PHOTO_PERDUE = 'photo perdue en route'
+
+/**
  * Emballe un quiz. `lirePhoto` rend une photo en clair, ou null si elle ne se
  * lit plus : le quiz part alors sans elle plutôt que de ne pas partir.
  */
@@ -83,12 +103,20 @@ export async function emporterQuiz(
     format: FORMAT_QUIZ,
     version: VERSION_QUIZ,
     titre: quiz.title,
-    questions: quiz.questions.map(({ id: _id, image, imageRevelation, son, ...q }) => ({
-      ...q,
-      image: image ? (enClair.get(image) ?? null) : null,
-      ...(imageRevelation && { imageRevelation: enClair.get(imageRevelation) ?? null }),
-      ...(son && { son: enClair.get(son) ?? null }),
-    })),
+    questions: quiz.questions.map(({ id: _id, image, imageRevelation, son, ...q }) => {
+      const photo = image ? (enClair.get(image) ?? null) : null
+      const extrait = son ? (enClair.get(son) ?? null) : null
+      return {
+        ...q,
+        image: photo,
+        ...(imageRevelation && { imageRevelation: enClair.get(imageRevelation) ?? null }),
+        ...(son && { son: extrait }),
+        // Partie sans une pièce qui ne se lit plus, la question ne se dit
+        // pas prête pour autant : « Qui est ce bébé ? » arrivait jouable, sans
+        // bébé (`piecesPerduesEnRoute`).
+        ...piecesPerduesEnRoute(q, { image: !!image && !photo, son: !!son && !extrait }),
+      }
+    }),
     ...(quiz.reglages && Object.keys(quiz.reglages).length > 0 && { reglages: quiz.reglages }),
   }
 }

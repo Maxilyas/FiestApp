@@ -14,6 +14,7 @@
 // sont dans `shared/jour.ts`.
 
 import { randomUUID } from 'node:crypto'
+import type { InStatement, ResultSet } from '@libsql/client'
 import { clientDistant, type Client } from './distante'
 import type { ProfileRec, ProfileStore } from '../auth/profiles'
 import { GRACE_MS, POINTS_MAX_PAR_QUESTION, pointsDuChoix, tempsDeLecture } from '../games/quiz'
@@ -44,7 +45,7 @@ import {
   type QuestionDuJour,
   type RevelationDuJour,
 } from '../../../shared/jour'
-import type { StatsDuJour } from '../../../shared/profil'
+import { niveauDuProfil, type StatsDuJour } from '../../../shared/profil'
 import { periodeDu } from '../../../shared/saisons'
 import { palierDe } from '../../../shared/hautsfaits'
 
@@ -109,10 +110,9 @@ const PROCHAINES_MONTREES = 70
 /** Un signalement tient en une phrase. */
 const SIGNALEMENT_MAX = 280
 /**
- * Combien de profils se lisent, ou se recomptent, en même temps. Au réveil
- * de l'hébergeur, chaque profil d'un classement coûte trois allers-retours
- * vers la base permanente : en série, cinquante joueurs faisaient attendre
- * plusieurs secondes le premier qui ouvrait la page.
+ * Combien de profils se recomptent en même temps, chacun sous son verrou
+ * (`annuler`). Les classements, eux, chargent leurs joueurs d'un coup
+ * (`ProfileStore.byIds`).
  */
 const PROFILS_EN_VOL = 8
 /**
@@ -123,6 +123,14 @@ const PROFILS_EN_VOL = 8
 const DEJA_RAPPELEES = 300
 /** Les jours qu'une page de profil relit : un mois, de quoi tracer ses courbes. */
 const JOURS_RELUS = 30
+/**
+ * Combien de jours gardent leurs points en mémoire (`pointsGardes`) : les
+ * trente derniers de chacun, et de la marge pour ceux qui ont joué plus tôt.
+ */
+const JOURS_GARDES = 120
+/** Combien de tirages restent en mémoire : aujourd'hui, et de quoi revoir la semaine. */
+const TIRAGES_GARDES = 8
+const HEURE_MS = 3600_000
 
 /** Pas deux fois la même : l'intitulé, sans casse, sans accents, sans ponctuation. */
 export function empreinteDe(texte: string): string {
@@ -196,9 +204,35 @@ export class JourStore {
   private masques = new Set<string>()
   /** Le dernier jour dont on sait qu'il n'y a plus rien à clore avant lui. */
   private closJusqua = ''
-  /** Les classements, gardés tant que rien n'a bougé : chaque téléphone qui finit sa partie le demande. */
-  private revision = 0
+  /**
+   * Les classements, gardés tant que leur jour n'a pas bougé : chaque
+   * téléphone qui finit sa partie le demande. Une révision par jour : une
+   * seule pour tous faisait relire hier — clos, immobile — à chaque réponse
+   * d'aujourd'hui, deux fois par « Question suivante » (les vainqueurs
+   * d'hier, et son hier) : 60 % des lignes lues à l'heure de pointe.
+   */
+  private revisions = new Map<string, number>()
   private classementsGardes = new Map<string, { revision: number; joueurs: Joueur[] }>()
+  /** La lecture d'un classement en route : deux demandes de la même vue n'en lancent qu'une. */
+  private classementsEnRoute = new Map<string, { revision: number; promesse: Promise<Joueur[]> }>()
+  /**
+   * Les points de chaque joueur d'un jour, pour y lire des places — gardés
+   * sous la révision du jour lue avant la lecture, comme les classements.
+   * L'accueil de chaque profil relisait sinon les points de tous les joueurs
+   * de ses trente derniers jours : 6 000 lignes par visite à deux cents
+   * joueurs par jour.
+   */
+  private pointsGardes = new Map<string, { revision: number; points: { id: string; points: number }[] }>()
+  /**
+   * Les tirages lus : figés à la première demande, ils ne changent plus que
+   * par une annulation, qui remet le sien à jour sous son verrou
+   * (`annuler`). Relu à chaque geste, le tirage du jour — cinq kilo-octets —
+   * repartait de Turso à chaque réponse, à chaque question suivante, et une
+   * fois par joueur pour une annulation.
+   */
+  private tiragesGardes = new Map<string, Tirage>()
+  /** Le jour de Paris de l'heure en cours (`joursDeLHeure`). */
+  private joursGardes: { heure: number; aujourdhui: string; hier: string } | null = null
   /**
    * Les vainqueurs d'un jour clos, et ce jour : le laurier de ceux d'hier
    * (`laureats`). Relus à la nuit, une fois — ils servent à chaque
@@ -327,9 +361,11 @@ export class JourStore {
   /**
    * Au tout premier démarrage, la réserve prend les questions des quiz livrés
    * qui se jouent seuls — culture générale, vrai ou faux… —, jamais ceux à
-   * personnaliser (« L'anniversaire de [Prénom] »), ni ceux des animateurs :
-   * leurs invités y liraient la prochaine soirée. Une fois : une question
-   * retirée ne revient pas au démarrage suivant.
+   * personnaliser (« L'anniversaire de [Prénom] »), ni ceux des animateurs.
+   * Tout animateur peut pourtant partir des livrés : leurs questions ne
+   * sortent qu'en dernier recours (`tirer`) — les premiers jours d'une
+   * réserve neuve, ou quand elle n'a plus rien d'autre à poser. Une fois :
+   * une question retirée ne revient pas au démarrage suivant.
    */
   private async amorcer() {
     const deja = await this.client.execute({ sql: 'SELECT valeur FROM jour_meta WHERE cle = ?', args: ['amorcee'] })
@@ -340,8 +376,13 @@ export class JourStore {
       .filter(m => !m.personnaliser)
       .flatMap(m => normalizeQuestions(m.questions))
       .filter(q => !raisonDEcarter(q))
-    const { ajoutees } = await this.ajouter(questions, 'livre')
-    await this.client.execute({ sql: 'INSERT OR IGNORE INTO jour_meta (cle, valeur) VALUES (?, ?)', args: ['amorcee', String(ajoutees)] })
+    // Le drapeau part dans le lot de l'apport : écrit à part, une panne entre
+    // les deux refaisait l'amorce au démarrage suivant, qui consignait un
+    // second apport — « 0 ajoutée, 38 écartées » au journal de `/admin`.
+    const { ajoutees } = await this.ajouter(questions, 'livre', n => ({
+      sql: 'INSERT OR IGNORE INTO jour_meta (cle, valeur) VALUES (?, ?)',
+      args: ['amorcee', String(n)],
+    }))
     if (ajoutees > 0) console.log(`[jour] réserve amorcée : ${ajoutees} questions des quiz livrés`)
   }
 
@@ -352,6 +393,8 @@ export class JourStore {
   async ajouter(
     questions: readonly QuizQuestionDef[],
     source: 'livre' | 'liste' | 'ia',
+    /** Ce qui s'écrit avec l'apport, dans le même lot : le drapeau de l'amorce. */
+    avecLui?: (ajoutees: number) => InStatement,
   ): Promise<{ ajoutees: number; ecartees: { texte: string; raison: string }[] }> {
     const ecartees: { texte: string; raison: string }[] = []
     const vues = new Set<string>()
@@ -398,6 +441,7 @@ export class JourStore {
           sql: 'INSERT INTO jour_apports (id, quand, source, ajoutees, ecartees) VALUES (?, ?, ?, ?, ?)',
           args: [randomUUID(), quand, source, neuves.length, JSON.stringify(ecartees.slice(0, 50))],
         },
+        ...(avecLui ? [avecLui(neuves.length)] : []),
       ],
       'write',
     )
@@ -479,7 +523,7 @@ export class JourStore {
   async prochaines(): Promise<{ id: string; question: QuizQuestionDef; source: string }[]> {
     const res = await this.client.execute({
       sql: `SELECT id, question, source FROM jour_reserve WHERE retiree_le IS NULL AND posee_le IS NULL
-            ORDER BY ajoutee_le, id LIMIT ?`,
+            ORDER BY source = 'livre', ajoutee_le, id LIMIT ?`,
       args: [PROCHAINES_MONTREES],
     })
     return res.rows.map(r => ({ id: String(r.id), question: JSON.parse(String(r.question)), source: String(r.source) }))
@@ -510,32 +554,66 @@ export class JourStore {
   }
 
   private async tirageLu(jour: string): Promise<Tirage | null> {
+    const garde = this.tiragesGardes.get(jour)
+    if (garde) return garde
     const res = await this.client.execute({ sql: 'SELECT questions, annulees FROM jour_tirages WHERE jour = ?', args: [jour] })
     const r = res.rows[0]
     if (!r) return null
-    return { jour, questions: JSON.parse(String(r.questions)), annulees: lireNombres(r.annulees) }
+    // Une annulation rangée pendant la lecture a le dernier mot : cette
+    // lecture-ci est partie avant elle.
+    const deja = this.tiragesGardes.get(jour)
+    if (deja) return deja
+    const tirage = { jour, questions: JSON.parse(String(r.questions)), annulees: lireNombres(r.annulees) }
+    this.garderTirage(tirage)
+    return tirage
+  }
+
+  private garderTirage(tirage: Tirage) {
+    this.tiragesGardes.delete(tirage.jour)
+    this.tiragesGardes.set(tirage.jour, tirage)
+    if (this.tiragesGardes.size > TIRAGES_GARDES) this.tiragesGardes.delete(this.tiragesGardes.keys().next().value!)
   }
 
   private async tirer(jour: string): Promise<Tirage | null> {
+    const lire = (r: Record<string, unknown>) => ({
+      id: String(r.id),
+      question: String(r.question),
+      categorie: r.categorie == null ? null : String(r.categorie),
+      livree: r.source === 'livre',
+    })
     const neuves = await this.client.execute({
-      sql: `SELECT id, question, categorie FROM jour_reserve WHERE retiree_le IS NULL AND posee_le IS NULL
-            ORDER BY ajoutee_le, id LIMIT 300`,
+      sql: `SELECT id, question, categorie, source FROM jour_reserve WHERE retiree_le IS NULL AND posee_le IS NULL
+            ORDER BY source = 'livre', ajoutee_le, id LIMIT 300`,
       args: [],
     })
-    const lignes = neuves.rows.map(r => ({ id: String(r.id), question: String(r.question), categorie: r.categorie == null ? null : String(r.categorie) }))
-    let choisies = choisir(lignes, QUESTIONS_PAR_JOUR)
+    const lignes = neuves.rows.map(lire)
+    // Les questions des quiz livrés en dernier recours : ces quiz, une soirée
+    // peut les jouer, et le profil qui en aurait lu la correction ici y
+    // connaîtrait les réponses, pas l'invité anonyme (invariant 8) —
+    // l'arbitrage du 27 septembre 2026. Elles ne servent qu'un jour où la
+    // réserve n'a plus rien d'autre à poser, pas même ses anciennes.
+    let choisies = choisir(lignes.filter(l => !l.livree), QUESTIONS_PAR_JOUR)
     if (choisies.length < QUESTIONS_PAR_JOUR) {
       // À sec : les plus anciennes reviennent, jamais un jour vide — mais pas
       // celles du mois.
-      const anciennes = await this.client.execute({
-        sql: `SELECT id, question, categorie FROM jour_reserve WHERE retiree_le IS NULL AND posee_le IS NOT NULL AND posee_le < ?
-              ORDER BY posee_le, ajoutee_le, id LIMIT ?`,
-        args: [jourAvant(jour, JOURS_AVANT_DE_REPOSER), QUESTIONS_PAR_JOUR - choisies.length],
-      })
-      choisies = [
-        ...choisies,
-        ...anciennes.rows.map(r => ({ id: String(r.id), question: String(r.question), categorie: r.categorie == null ? null : String(r.categorie) })),
-      ]
+      const anciennes = (
+        await this.client.execute({
+          sql: `SELECT id, question, categorie, source FROM jour_reserve WHERE retiree_le IS NULL AND posee_le IS NOT NULL AND posee_le < ?
+                ORDER BY source = 'livre', posee_le, ajoutee_le, id LIMIT ?`,
+          args: [jourAvant(jour, JOURS_AVANT_DE_REPOSER), QUESTIONS_PAR_JOUR - choisies.length],
+        })
+      ).rows.map(lire)
+      choisies = [...choisies, ...anciennes.filter(l => !l.livree)]
+      choisies = [...choisies, ...choisir(lignes.filter(l => l.livree), QUESTIONS_PAR_JOUR - choisies.length)]
+      choisies = [...choisies, ...anciennes.filter(l => l.livree)].slice(0, QUESTIONS_PAR_JOUR)
+      // Personne ne regarde la réserve : le journal le dit. Sans la routine
+      // qui la remplit (MISE-EN-LIGNE.md, étape 8), l'amorce tient quatre
+      // jours, puis plus rien avant que ses questions redeviennent tirables.
+      if (choisies.length < QUESTIONS_PAR_JOUR) {
+        console.warn(
+          `[jour] réserve à sec : ${choisies.length} question${choisies.length > 1 ? 's' : ''} pour le ${jour} — la routine qui la remplit tourne-t-elle ? (MISE-EN-LIGNE.md, étape 8)`,
+        )
+      }
     }
     const jouables = choisies
       .map(c => toPlayable({ ...(JSON.parse(c.question) as QuizQuestionDef), id: c.id }))
@@ -609,7 +687,19 @@ export class JourStore {
         sql: `INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, servie_le) VALUES (?, ?, ?, 0, ?)`,
         args: [profil.id, jour, maintenant, maintenant],
       })
-      if (res.rowsAffected > 0) this.revision++
+      if (res.rowsAffected > 0) {
+        this.reviser(jour)
+        // Une partie commencée compte — pour la jauge de L'Assidu comme pour
+        // celle de la saison : ce qu'elle fait atteindre tombe maintenant.
+        // Décerné seulement à la fin de la partie, le troisième jour
+        // d'Halloween commencé puis laissé (le téléphone qui sonne, minuit
+        // qui passe) affichait « 3 jours sur 3 » sans jamais ouvrir la
+        // Citrouille : le lendemain, la saison était finie, pour un an. La
+        // fin de la partie les fête toujours : elle lit ce que ce jour a fait
+        // tomber (`recompensesDuJour`).
+        await this.deps.profiles.accorderPaliersDuJour(profil.id, jour, await this.statsDuJour(profil.id))
+        await this.accorderSaison(profil.id, jour)
+      }
       // Déjà commencée — l'autre téléphone, un double toucher : la partie
       // reprend où elle en était, sans rien rejouer.
       const [partie, revelation] = await this.aJour(profil.id, tirage)
@@ -623,8 +713,13 @@ export class JourStore {
    */
   async suivante(profil: ProfileRec): Promise<PartieDuJour> {
     const jour = jourDe(this.maintenant())
+    // Minuit a pu passer entre deux questions : le jour neuf se tire, et la
+    // veille se clôt d'abord, comme au chargement de la page. Sans ça, la
+    // partie commencée à 23 h 58 recevait « Pas de quiz aujourd'hui : la
+    // réserve est vide », et son « hier » se lisait avant son podium.
+    await this.clorePasses(jour)
     return this.avecVerrou(profil.id, async () => {
-      const tirage = await this.tirage(jour)
+      const tirage = await this.tirage(jour, true)
       if (!tirage) return this.vueDe(profil, jour, null, null)
       const [avant, revelation] = await this.aJour(profil.id, tirage)
       // Une question vient d'expirer : on la révèle d'abord, la suivante attend son geste.
@@ -660,8 +755,7 @@ export class JourStore {
       const ms = maintenant - partie.servieLe
       const aTemps = ms <= q.duree * 1000 + GRACE_MS
       const retenu = typeof choix === 'number' && Number.isInteger(choix) && choix >= 0 && choix < q.reponses.length ? choix : null
-      await this.enregistrer(partie, tirage, aTemps ? retenu : null, ms)
-      const revelation = await this.revelationDe(profil.id, tirage, index)
+      const { revelation } = await this.enregistrer(partie, tirage, aTemps ? retenu : null, ms)
       return !aTemps && retenu !== null ? { ...revelation, tropTard: true } : revelation
     })
   }
@@ -676,13 +770,22 @@ export class JourStore {
     const q = tirage.questions[partie.question]
     const ms = this.maintenant() - partie.servieLe
     if (ms <= q.duree * 1000 + GRACE_MS) return null
-    await this.enregistrer(partie, tirage, null, null)
-    const suite = await this.partieDe(partie.profileId, partie.jour)
-    return suite ? [suite, await this.revelationDe(partie.profileId, tirage, partie.question)] : null
+    const { revelation, suite } = await this.enregistrer(partie, tirage, null, null)
+    return suite ? [suite, revelation] : null
   }
 
-  /** Écrit une réponse — ou son absence — et fait avancer la partie, points et expérience compris. */
-  private async enregistrer(partie: Partie, tirage: Tirage, choix: number | null, ms: number | null) {
+  /**
+   * Écrit une réponse — ou son absence — et fait avancer la partie, points et
+   * expérience compris. Rend ce que la réponse révèle et la partie d'après,
+   * lues dans le même lot que l'écriture : chaque lecture attendait la
+   * précédente, six allers-retours en série sous les doigts du joueur.
+   */
+  private async enregistrer(
+    partie: Partie,
+    tirage: Tirage,
+    choix: number | null,
+    ms: number | null,
+  ): Promise<{ revelation: RevelationDuJour; suite: Partie | null }> {
     const index = partie.question
     const q = tirage.questions[index]
     const annulee = tirage.annulees.includes(index)
@@ -712,28 +815,38 @@ export class JourStore {
             index,
           ],
         },
+        ...this.lecturesDeLExperience(partie.profileId),
+        ...this.lecturesDeRevelation(partie.profileId, partie.jour, index),
       ],
       'write',
     )
-    if (res[1].rowsAffected === 0) return
-    this.revision++
-    // Ses paliers ne bougent qu'avec la partie finie : un jour joué, un
-    // sans-faute. Les chercher à chaque réponse coûtait un aller-retour de
-    // plus sous les doigts du joueur.
-    await this.ecrireXp(partie.profileId, partie.jour, derniere)
+    const [, avance, parties, podiums, ...revelation] = res
+    const lu = { revelation: this.revelation(tirage, index, revelation), suite: lirePartie(partie.profileId, partie.jour, revelation[2].rows[0]) }
+    if (avance.rowsAffected === 0) return lu
+    this.reviser(partie.jour)
+    // Ses paliers ne bougent qu'au début de la partie (un jour joué, voir
+    // `commencer`) et à sa fin (un sans-faute) : les chercher à chaque
+    // réponse coûtait un aller-retour de plus sous les doigts du joueur.
+    await this.ecrireXp(partie.profileId, partie.jour, derniere, [parties, podiums])
+    return lu
   }
 
   /** Ce que la réponse à une question lui apprend. */
   private async revelationDe(profileId: string, tirage: Tirage, index: number): Promise<RevelationDuJour> {
+    return this.revelation(tirage, index, await this.client.batch(this.lecturesDeRevelation(profileId, tirage.jour, index), 'read'))
+  }
+
+  /** Les lectures d'une révélation : seules, ou au bout du lot qui écrit la réponse. */
+  private lecturesDeRevelation(profileId: string, jour: string, index: number): InStatement[] {
+    return [
+      { sql: 'SELECT choix, juste, points FROM jour_reponses WHERE profile_id = ? AND jour = ? AND question = ?', args: [profileId, jour, index] },
+      { sql: 'SELECT COUNT(*) AS n, COALESCE(SUM(juste), 0) AS justes FROM jour_reponses WHERE jour = ? AND question = ?', args: [jour, index] },
+      { sql: 'SELECT * FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profileId, jour] },
+    ]
+  }
+
+  private revelation(tirage: Tirage, index: number, [sienne, salle, partie]: ResultSet[]): RevelationDuJour {
     const q = tirage.questions[index]
-    const [sienne, salle, partie] = await this.client.batch(
-      [
-        { sql: 'SELECT choix, juste, points FROM jour_reponses WHERE profile_id = ? AND jour = ? AND question = ?', args: [profileId, tirage.jour, index] },
-        { sql: 'SELECT COUNT(*) AS n, COALESCE(SUM(juste), 0) AS justes FROM jour_reponses WHERE jour = ? AND question = ?', args: [tirage.jour, index] },
-        { sql: 'SELECT points FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profileId, tirage.jour] },
-      ],
-      'read',
-    )
     const r = sienne.rows[0]
     const n = Number(salle.rows[0]?.n ?? 0)
     const annulee = tirage.annulees.includes(index)
@@ -757,19 +870,7 @@ export class JourStore {
 
   private async partieDe(profileId: string, jour: string): Promise<Partie | null> {
     const res = await this.client.execute({ sql: 'SELECT * FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profileId, jour] })
-    const r = res.rows[0]
-    if (!r) return null
-    return {
-      profileId,
-      jour,
-      commenceeLe: Number(r.commencee_le),
-      question: Number(r.question),
-      servieLe: r.servie_le == null ? null : Number(r.servie_le),
-      points: Number(r.points),
-      justes: Number(r.justes),
-      finieLe: r.finie_le == null ? null : Number(r.finie_le),
-      xp: Number(r.xp),
-    }
+    return lirePartie(profileId, jour, res.rows[0])
   }
 
   /** La partie telle que le téléphone la reçoit : jamais une bonne réponse avant qu'il ait répondu. */
@@ -780,7 +881,7 @@ export class JourStore {
     partie: Partie | null,
     revelation?: RevelationDuJour,
   ): Promise<PartieDuJour> {
-    const [serie, vainqueursDHier, sonHier] = await Promise.all([
+    const [{ serie, tenue: serieTenue }, vainqueursDHier, sonHier] = await Promise.all([
       this.serieDe(profil.id, jour),
       this.vainqueursDe(jourAvant(jour)),
       this.sonJour(profil, jourAvant(jour)),
@@ -789,6 +890,7 @@ export class JourStore {
       return {
         jour,
         maintenant: this.maintenant(),
+        revientDemain: await this.reserveTientDemain(jour),
         total: 0,
         categories: [],
         etat: 'aucun',
@@ -801,6 +903,7 @@ export class JourStore {
         pointsPossibles: 0,
         comptees: 0,
         serie,
+        serieTenue,
         vainqueursDHier,
         sonHier,
       }
@@ -830,6 +933,7 @@ export class JourStore {
       pointsPossibles: possiblesDe(tirage),
       comptees,
       serie,
+      serieTenue,
       vainqueursDHier,
       sonHier,
     }
@@ -846,6 +950,16 @@ export class JourStore {
       // Le Sphinx, par ses paliers ; un légendaire de saison, par sa saison.
       const legendaires = this.deps.profiles.legendairesOuverts(profil.id, tombees.map(t => t.key))
       if (legendaires.length > 0) vue = { ...vue, legendaires }
+      // La montée de niveau qu'elle a faite, dite comme en fin de soirée : le
+      // quiz du jour rapporte l'essentiel de l'expérience d'un assidu, et
+      // ouvrait niveaux, finitions et emojis de collection sans un mot.
+      if (partie) {
+        const frais = await this.deps.profiles.byId(profil.id).catch(() => null)
+        if (frais) {
+          const gardes = this.deps.profiles.gardesOf(profil.id)
+          vue = { ...vue, niveauAvant: niveauDuProfil(frais.xp - partie.xp, gardes), niveauApres: niveauDuProfil(frais.xp, gardes) }
+        }
+      }
     }
     // Pendant une saison, ce qui manque encore à son légendaire.
     const periode = periodeDu(jour)
@@ -864,35 +978,96 @@ export class JourStore {
     return vue
   }
 
+  /**
+   * Pas de quiz aujourd'hui : la réserve en aura-t-elle un demain ? « Il
+   * revient demain » ne se promet que si c'est vrai — à sec, le téléphone
+   * le répétait chaque jour pendant un mois.
+   */
+  private async reserveTientDemain(jour: string): Promise<boolean> {
+    const res = await this.client.execute({
+      sql: 'SELECT COUNT(*) AS n FROM jour_reserve WHERE retiree_le IS NULL AND (posee_le IS NULL OR posee_le < ?)',
+      args: [jourAvant(jourAvant(jour, -1), JOURS_AVANT_DE_REPOSER)],
+    })
+    return Number(res.rows[0]?.n ?? 0) > 0
+  }
+
   // ── Le classement ───────────────────────────────────────────────────────
 
   /**
    * Ceux qui ont joué ce jour-là, profils fermés et masqués écartés — sauf
    * `pour`, qui se voit toujours : un profil masqué n'en est pas averti.
    */
-  private async joueursDu(jour: string, pour: string | null): Promise<Joueur[]> {
-    const garde = this.classementsGardes.get(jour)
-    let tous = garde && garde.revision === this.revision ? garde.joueurs : null
-    if (!tous) {
-      const res = await this.client.execute({ sql: 'SELECT profile_id, points, finie_le, commencee_le FROM jour_parties WHERE jour = ?', args: [jour] })
-      const profils = await parLots(res.rows, PROFILS_EN_VOL, r => this.deps.profiles.byId(String(r.profile_id)))
-      const lus: Joueur[] = []
-      res.rows.forEach((r, i) => {
-        const profil = profils[i]
-        if (profil) lus.push({ profil, points: Number(r.points), enCours: r.finie_le == null, commenceeLe: Number(r.commencee_le) })
-      })
-      tous = lus
-      this.classementsGardes.set(jour, { revision: this.revision, joueurs: tous })
-      if (this.classementsGardes.size > 8) this.classementsGardes.delete(this.classementsGardes.keys().next().value!)
-    }
+  private async joueursDu(jour: string, pour: string | null, frais = false): Promise<Joueur[]> {
+    const tous = await this.classementDe(jour, frais)
     return tous.filter(j => !this.masques.has(j.profil.id) || j.profil.id === pour)
+  }
+
+  /**
+   * Tous ceux qui ont joué ce jour-là, gardés sous la révision du jour lue
+   * AVANT la lecture. Lue après, une réponse écrite pendant qu'on allait
+   * chercher un profil chez Turso passait pour vue : la lecture d'avant se
+   * rangeait comme fraîche, et la nuit payait le podium — le laurier, le
+   * Champion du jour — sur ces points-là, pour de bon. `frais` relit la base
+   * quoi qu'il y ait en mémoire : la nuit ne se fie qu'à elle.
+   */
+  private classementDe(jour: string, frais: boolean): Promise<Joueur[]> {
+    const revision = this.revisionDu(jour)
+    if (!frais) {
+      const garde = this.classementsGardes.get(jour)
+      if (garde && garde.revision === revision) return Promise.resolve(garde.joueurs)
+      const enRoute = this.classementsEnRoute.get(jour)
+      if (enRoute && enRoute.revision === revision) return enRoute.promesse
+    }
+    const promesse = this.lireClassement(jour).then(joueurs => {
+      const garde = this.classementsGardes.get(jour)
+      // Une lecture plus récente déjà rangée reste : celle-ci, partie avant
+      // elle, a pu croiser une réponse.
+      if (!garde || garde.revision <= revision) {
+        this.classementsGardes.delete(jour)
+        this.classementsGardes.set(jour, { revision, joueurs })
+        if (this.classementsGardes.size > 8) this.classementsGardes.delete(this.classementsGardes.keys().next().value!)
+      }
+      return joueurs
+    })
+    const enRoute = { revision, promesse }
+    this.classementsEnRoute.set(jour, enRoute)
+    // Un échec ne reste pas en route : la demande suivante relit la base.
+    void promesse
+      .finally(() => {
+        if (this.classementsEnRoute.get(jour) === enRoute) this.classementsEnRoute.delete(jour)
+      })
+      .catch(() => {})
+    return promesse
+  }
+
+  private async lireClassement(jour: string): Promise<Joueur[]> {
+    const res = await this.client.execute({ sql: 'SELECT profile_id, points, finie_le, commencee_le FROM jour_parties WHERE jour = ?', args: [jour] })
+    const profils = await this.deps.profiles.byIds(res.rows.map(r => String(r.profile_id)))
+    const lus: Joueur[] = []
+    res.rows.forEach((r, i) => {
+      const profil = profils[i]
+      if (profil) lus.push({ profil, points: Number(r.points), enCours: r.finie_le == null, commenceeLe: Number(r.commencee_le) })
+    })
+    return lus
+  }
+
+  /** Ce jour a bougé : une partie commencée, une réponse, une annulation — son classement gardé ne vaut plus. */
+  private reviser(jour: string) {
+    this.revisions.set(jour, this.revisionDu(jour) + 1)
+  }
+
+  private revisionDu(jour: string): number {
+    return this.revisions.get(jour) ?? 0
   }
 
   /** Le classement d'un jour : tout le serveur, les règles des soirées — rang partagé, « Camille (2) ». */
   async classementDuJour(jour: string, pour: string | null): Promise<ClassementDuJour> {
     await this.clorePasses(jourDe(this.maintenant()))
     const joueurs = await this.joueursDu(jour, pour)
-    return { ...this.lignes(joueurs, jour, pour), fige: await this.estClos(jour) }
+    const fige = await this.estClos(jour)
+    // Un jour clos n'a plus de partie dont les points peuvent monter : celle
+    // qu'on a laissée à minuit s'arrête là, comme son podium.
+    return { ...this.lignes(fige ? joueurs.map(j => ({ ...j, enCours: false })) : joueurs, jour, pour), fige }
   }
 
   /** Le classement d'un mois : les points de tous ses jours, additionnés. */
@@ -902,7 +1077,7 @@ export class JourStore {
             WHERE jour >= ? AND jour <= ? GROUP BY profile_id`,
       args: [`${mois}-01`, `${mois}-31`],
     })
-    const profils = await parLots(res.rows, PROFILS_EN_VOL, r => this.deps.profiles.byId(String(r.profile_id)))
+    const profils = await this.deps.profiles.byIds(res.rows.map(r => String(r.profile_id)))
     const joueurs: Joueur[] = []
     res.rows.forEach((r, i) => {
       const profil = profils[i]
@@ -1039,6 +1214,11 @@ export class JourStore {
     return categories
   }
 
+  /** Masqué du classement par l'administrateur : les autres ne le voient plus, ni sa carte. */
+  estMasque(profileId: string): boolean {
+    return this.masques.has(profileId)
+  }
+
   /** Ce que la carte d'un joueur dit de son quiz du jour : les jours joués, les victoires. */
   async resumeDe(profileId: string): Promise<{ joues: number; victoires: number }> {
     const [joues, victoires] = await this.client.batch(
@@ -1049,6 +1229,21 @@ export class JourStore {
       'read',
     )
     return { joues: Number(joues.rows[0]?.n ?? 0), victoires: Number(victoires.rows[0]?.n ?? 0) }
+  }
+
+  /**
+   * Ce que la fin d'une soirée lui dit du quiz du jour : sa série — que la
+   * soirée vient d'allonger — et s'il a déjà joué celui d'aujourd'hui. La
+   * soirée n'y renvoyait jamais : un profil créé ce soir-là ne découvrait le
+   * quiz qu'en touchant « Mon profil ».
+   */
+  async pontDuJour(profileId: string): Promise<{ serie: number; aJoue: boolean }> {
+    const jour = jourDe(this.maintenant())
+    const [{ serie }, partie] = await Promise.all([
+      this.serieDe(profileId, jour),
+      this.client.execute({ sql: 'SELECT 1 FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profileId, jour] }),
+    ])
+    return { serie, aJoue: partie.rows.length > 0 }
   }
 
   /**
@@ -1109,27 +1304,46 @@ export class JourStore {
     if (recents.length === 0) return []
     const jours = recents.map(p => p.jour)
     const marques = jours.map(() => '?').join(', ')
-    const [salle, reponses] = await this.client.batch(
+    // La révision de chaque jour, lue avant la lecture : une réponse écrite
+    // pendant l'aller-retour ne passe pas pour vue.
+    const revisions = new Map(jours.map(j => [j, this.revisionDu(j)]))
+    const manquants = jours.filter(j => this.pointsGardes.get(j)?.revision !== revisions.get(j))
+    const lectures = await this.client.batch(
       [
-        {
-          sql: `SELECT jour, points FROM jour_parties WHERE jour IN (${marques})
-                AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)
-                AND (profile_id = ? OR profile_id NOT IN (SELECT profile_id FROM jour_masques))`,
-          args: [...jours, profileId],
-        },
         {
           sql: `SELECT jour, question, ms FROM jour_reponses WHERE profile_id = ? AND juste = 1 AND jour IN (${marques})`,
           args: [profileId, ...jours],
         },
+        ...(manquants.length > 0
+          ? [
+              {
+                sql: `SELECT jour, profile_id, points FROM jour_parties WHERE jour IN (${manquants.map(() => '?').join(', ')})
+                      AND profile_id IN (SELECT id FROM profiles WHERE disabled_at IS NULL)`,
+                args: manquants,
+              },
+            ]
+          : []),
       ],
       'read',
     )
+    const [reponses, salle] = lectures
+    if (salle) {
+      const lus = new Map<string, { id: string; points: number }[]>(manquants.map(j => [j, []]))
+      for (const r of salle.rows) lus.get(String(r.jour))?.push({ id: String(r.profile_id), points: Number(r.points) })
+      for (const [jour, points] of lus) {
+        const garde = this.pointsGardes.get(jour)
+        if (garde && garde.revision > revisions.get(jour)!) continue
+        this.pointsGardes.delete(jour)
+        this.pointsGardes.set(jour, { revision: revisions.get(jour)!, points })
+      }
+      while (this.pointsGardes.size > JOURS_GARDES) this.pointsGardes.delete(this.pointsGardes.keys().next().value!)
+    }
+    // Les masqués s'écartent à la lecture — sauf lui, qui se voit toujours :
+    // un masque posé ou levé vaut tout de suite, sans relire la base.
     const pointsDu = new Map<string, number[]>()
-    for (const r of salle.rows) {
-      const jour = String(r.jour)
-      const liste = pointsDu.get(jour) ?? []
-      liste.push(Number(r.points))
-      pointsDu.set(jour, liste)
+    for (const jour of jours) {
+      const garde = this.pointsGardes.get(jour)
+      if (garde) pointsDu.set(jour, garde.points.filter(e => e.id === profileId || !this.masques.has(e.id)).map(e => e.points))
     }
     const annuleesDu = new Map(recents.map(p => [p.jour, p.annulees]))
     const tempsDu = new Map<string, number>()
@@ -1157,8 +1371,8 @@ export class JourStore {
 
   // ── La série ────────────────────────────────────────────────────────────
 
-  /** Les jours d'affilée où il a joué — au quiz du jour, ou en soirée. */
-  private async serieDe(profileId: string, aujourdhui: string): Promise<number> {
+  /** Ses jours d'affilée joués — au quiz du jour ou en soirée —, et si aujourd'hui y compte déjà. */
+  private async serieDe(profileId: string, aujourdhui: string): Promise<{ serie: number; tenue: boolean }> {
     const depuis = jourAvant(aujourdhui, 400)
     const [jours, soirees] = await this.client.batch(
       [
@@ -1171,7 +1385,7 @@ export class JourStore {
       'read',
     )
     const joues = new Set<string>([...jours.rows.map(r => String(r.jour)), ...soirees.rows.map(r => jourDe(Number(r.created_at)))])
-    return serieDe(joues, aujourdhui)
+    return { serie: serieDe(joues, aujourdhui), tenue: joues.has(aujourdhui) }
   }
 
   // ── La nuit ─────────────────────────────────────────────────────────────
@@ -1209,7 +1423,8 @@ export class JourStore {
    */
   private async clore(jour: string) {
     if (await this.estClos(jour)) return
-    const joueurs = await this.joueursDu(jour, null)
+    // La base, pas le classement gardé : le podium se paie une fois, pour de bon.
+    const joueurs = await this.joueursDu(jour, null, true)
     const classes = classer(joueurs, j => j.points, j => j.profil.name, j => j.profil.id)
     const podium = classes
       .filter(c => c.item.points > 0)
@@ -1226,7 +1441,6 @@ export class JourStore {
       ],
       'write',
     )
-    this.revision++
     for (const p of podium) await this.avecVerrou(p.profileId, () => this.ecrireXp(p.profileId, jour))
     console.log(`[jour] ${jour} clos : ${joueurs.length} joueur${joueurs.length > 1 ? 's' : ''}, ${podium.length} sur le podium`)
   }
@@ -1238,20 +1452,22 @@ export class JourStore {
    * les paliers du quiz du jour qu'elle lui fait atteindre, rangés sous ce
    * jour : celui de sa partie, ou celui que la nuit vient de clore.
    */
-  private async ecrireXp(profileId: string, jour: string, paliers = true) {
-    const [parties, podiums] = await this.client.batch(
-      [
-        { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp, COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
-        { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp FROM jour_podiums WHERE profile_id = ?', args: [profileId] },
-      ],
-      'read',
-    )
+  private async ecrireXp(profileId: string, jour: string, paliers = true, lues?: ResultSet[]) {
+    const [parties, podiums] = lues ?? (await this.client.batch(this.lecturesDeLExperience(profileId), 'read'))
     const xp = Number(parties.rows[0]?.xp ?? 0) + Number(podiums.rows[0]?.xp ?? 0)
     await this.deps.profiles.ecrireXpDuJour(profileId, xp, Number(parties.rows[0]?.n ?? 0))
     if (paliers) {
       await this.deps.profiles.accorderPaliersDuJour(profileId, jour, await this.statsDuJour(profileId))
       await this.accorderSaison(profileId, jour)
     }
+  }
+
+  /** Ce que son expérience du jour additionne : ses parties, ses podiums. */
+  private lecturesDeLExperience(profileId: string): InStatement[] {
+    return [
+      { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp, COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
+      { sql: 'SELECT COALESCE(SUM(xp), 0) AS xp FROM jour_podiums WHERE profile_id = ?', args: [profileId] },
+    ]
   }
 
   /** Ses jours joués dans la période d'une saison — une partie commencée compte, comme pour la série. */
@@ -1397,6 +1613,11 @@ export class JourStore {
         ],
         'write',
       )
+      // Toujours sous le verrou du tirage : chaque recompte, sous celui de
+      // son profil, lit l'annulation la plus récente — comme il la lisait
+      // en base. Lui passer le tirage de cette annulation-ci laissait payée
+      // la question d'une autre, annulée juste après.
+      this.garderTirage({ ...tirage, annulees })
     })
     // Chacun se recompte sous son propre verrou. Recompté d'un seul coup pour
     // tout le jour, une réponse partie avant l'annulation et écrite après
@@ -1409,7 +1630,7 @@ export class JourStore {
       const profileId = String(r.profile_id)
       return this.avecVerrou(profileId, () => this.recompter(profileId, jour))
     })
-    this.revision++
+    this.reviser(jour)
   }
 
   /** Ses points et ses bonnes réponses d'un jour, recomptés sans les questions annulées — son expérience suit. */
@@ -1449,9 +1670,10 @@ export class JourStore {
         ? { sql: 'INSERT OR IGNORE INTO jour_masques (profile_id, masque_le) VALUES (?, ?)', args: [profileId, this.maintenant()] }
         : { sql: 'DELETE FROM jour_masques WHERE profile_id = ?', args: [profileId] },
     )
+    // Les classements gardés n'ont pas à se relire : les masqués s'écartent
+    // à chaque lecture (`joueursDu`), après la mémoire.
     if (masque) this.masques.add(profileId)
     else this.masques.delete(profileId)
-    this.revision++
     // Masqué, il ne s'annonce plus : son laurier tombe avec, et revient s'il
     // est rendu au classement le jour même.
     const hier = jourAvant(jourDe(this.maintenant()))
@@ -1472,8 +1694,8 @@ export class JourStore {
    * et les salles où ils jouent se rediffusent (`laurierChange`).
    */
   laureats(): ReadonlySet<string> {
-    const aujourdhui = jourDe(this.maintenant())
-    if (this.lauriers.jour === jourAvant(aujourdhui)) return this.lauriers.ids
+    const { aujourdhui, hier } = this.joursDeLHeure()
+    if (this.lauriers.jour === hier) return this.lauriers.ids
     if (!this.lauriersEnRoute && !this.ferme) {
       this.lauriersEnRoute = this.clorePasses(aujourdhui)
         .catch(e => {
@@ -1484,6 +1706,23 @@ export class JourStore {
         })
     }
     return AUCUN_LAURIER
+  }
+
+  /**
+   * Aujourd'hui et hier à Paris, gardés pour l'heure en cours : minuit à
+   * Paris tombe toujours sur une heure pleine du temps universel (UTC+1 ou
+   * UTC+2, changements d'heure compris), alors le jour ne change jamais au
+   * milieu d'une heure. `laureats` le demande pour chaque profil de chaque
+   * instantané, et `Intl` le recalculait à chaque fois — deux
+   * millisecondes par instantané de cinq cents profils.
+   */
+  private joursDeLHeure(): { aujourdhui: string; hier: string } {
+    const heure = Math.floor(this.maintenant() / HEURE_MS)
+    if (this.joursGardes?.heure !== heure) {
+      const aujourdhui = jourDe(heure * HEURE_MS)
+      this.joursGardes = { heure, aujourdhui, hier: jourAvant(aujourdhui) }
+    }
+    return this.joursGardes
   }
 
   /**
@@ -1513,6 +1752,9 @@ export class JourStore {
       id: String(r.id),
       login: String(r.login),
       nom: String(r.name),
+      // L'avatar enregistré, tel quel : l'administrateur cherche un profil,
+      // il ne regarde pas la salle — un emoji de collection redescendu y
+      // reste lisible, là où `avatarPorte` montrerait l'avatar par défaut.
       avatar: String(r.avatar),
       masque: this.masques.has(String(r.id)),
     }))
@@ -1551,6 +1793,22 @@ function nommer(joueurs: readonly Joueur[], avatarDe: (p: ProfileRec) => string)
   // distinguent comme les autres.
   const marques = nomsAffiches(arrivee.map(j => ({ id: j.profil.id, name: j.profil.name, avatar: avatarDe(j.profil) })))
   return j => marques.get(j.profil.id) ?? j.profil.name
+}
+
+/** Une ligne de `jour_parties`, telle que la partie se lit — null s'il n'y en a pas. */
+function lirePartie(profileId: string, jour: string, r: Record<string, unknown> | undefined): Partie | null {
+  if (!r) return null
+  return {
+    profileId,
+    jour,
+    commenceeLe: Number(r.commencee_le),
+    question: Number(r.question),
+    servieLe: r.servie_le == null ? null : Number(r.servie_le),
+    points: Number(r.points),
+    justes: Number(r.justes),
+    finieLe: r.finie_le == null ? null : Number(r.finie_le),
+    xp: Number(r.xp),
+  }
 }
 
 /** `travail` sur chaque élément, `n` à la fois ; les résultats dans l'ordre des éléments. */

@@ -17,11 +17,15 @@ import { bestSample, clockOffset } from '../../shared/clock'
 import { XP, finitionsOuvertes, niveauPour, progression, xpDuNiveau } from '../../shared/profil'
 import { reviewFromDatabase, reviewFromServer, writeExport } from '../src/core/export'
 import { ProfileStore } from '../src/auth/profiles'
+import { calendrierDesSoirees } from '../src/core/saisons'
 
 // L'Éclat se tire une chance sur quarante par soirée, et le premier fait
 // tomber un palier de carrière — dix points de plus à la clôture. Le smoke
 // compte l'expérience au point près : le hasard n'y décide de rien.
 ProfileStore.tirageEclat = () => false
+// Le calendrier non plus : une soirée jouée pendant une saison ouvrirait son
+// légendaire, et le smoke ne dépend pas du jour où il tourne.
+calendrierDesSoirees.periodeDu = () => null
 
 function fail(msg: string): never {
   console.error(`❌ ${msg}`)
@@ -2471,9 +2475,10 @@ try {
     'se déconnecter de son profil doit aussi refermer la console qu’il avait ouverte',
   )
 
-  // Détacher rend les deux identités étrangères l'une à l'autre.
+  // Détacher rend les deux identités étrangères l'une à l'autre — avec le
+  // mot de passe du profil en preuve : une session seule ne suffit plus.
   const lRetour = await write(lUrl, '/api/joueur/connexion', { login: 'anim', password: 'motdepasse1' })
-  await write(lUrl, '/api/space/profil', {}, `${jCookie(lRetour)}; ${cookieOf(lRetour)}`, 'DELETE')
+  await write(lUrl, '/api/space/profil', { preuve: 'motdepasse1' }, `${jCookie(lRetour)}; ${cookieOf(lRetour)}`, 'DELETE')
   assert(
     (await write(lUrl, '/api/joueur/console', {}, jCookie(lRetour))).status === 403,
     'un profil détaché n’ouvre plus rien',

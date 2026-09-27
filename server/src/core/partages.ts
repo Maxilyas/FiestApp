@@ -199,11 +199,30 @@ export class PartageStore {
     return r && instantane ? { entree: versEntree(r), instantane } : null
   }
 
+  /**
+   * Publiée, une version remplace celles du même quiz déjà en ligne : elles
+   * restaient publiées, et « Partir d'un modèle » montrait le même quiz deux
+   * fois — l'ancienne version d'abord trouvée. Dans le même lot : jamais
+   * zéro, jamais deux.
+   */
   async changerStatut(id: string, statut: StatutAuCatalogue): Promise<boolean> {
-    const res = await this.client.execute({
-      sql: 'UPDATE catalogue SET statut = ?, updated_at = ? WHERE id = ?',
-      args: [statut, Date.now(), id],
-    })
+    const now = Date.now()
+    const [res] = await this.client.batch(
+      [
+        { sql: 'UPDATE catalogue SET statut = ?, updated_at = ? WHERE id = ?', args: [statut, now, id] },
+        ...(statut === 'publie'
+          ? [
+              {
+                sql: `UPDATE catalogue SET statut = 'retire', updated_at = ?
+                      WHERE statut = 'publie' AND id <> ?
+                        AND (space_id, quiz_id) = (SELECT space_id, quiz_id FROM catalogue WHERE id = ?)`,
+                args: [now, id, id],
+              },
+            ]
+          : []),
+      ],
+      'write',
+    )
     return res.rowsAffected > 0
   }
 

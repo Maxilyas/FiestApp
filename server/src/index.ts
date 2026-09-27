@@ -1,12 +1,10 @@
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { createQuizServer, DemarrageRefuse, MOT_DE_PASSE_PAR_DEFAUT } from './server'
 import { DELAI_DISTANT_MS, pourquoiInjoignable } from './core/distante'
-
-const here = path.dirname(fileURLToPath(import.meta.url))
+import { SERVEUR } from './racine'
 
 const port = Number(process.env.PORT ?? 3001)
-const dbPath = process.env.DB_PATH ?? path.resolve(here, '../data/quizz.db')
+const dbPath = process.env.DB_PATH ?? path.resolve(SERVEUR, 'data/quizz.db')
 // En ligne, c'est cette adresse que le QR code doit montrer. Render la fournit
 // toute seule ; ailleurs, on la donne via PUBLIC_URL.
 const publicUrl = process.env.PUBLIC_URL ?? process.env.RENDER_EXTERNAL_URL
@@ -122,7 +120,10 @@ function poserLeFilet() {
   })
 }
 
-createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv, jetonDeLaReserve }).then(
+// Le commit qui tourne : l'hébergeur le pose dans l'environnement de chaque déploiement.
+const version = process.env.RENDER_GIT_COMMIT?.trim().slice(0, 7) || undefined
+
+createQuizServer({ port, dbPath, admin, quizDbUrl, quizDbToken, publicUrl, online, maxPlayers, appEnv, jetonDeLaReserve, version }).then(
   server => {
     poserLeFilet()
     console.log(`🎉 FiestApp — serveur prêt sur http://localhost:${server.port}${appEnv ? `  [${appEnv}]` : ''}`)

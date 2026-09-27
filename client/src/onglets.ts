@@ -16,6 +16,7 @@ export const ONGLETS = {
   compte: 'fiestapp-compte',
   soiree: 'fiestapp-soiree',
   jouer: 'fiestapp-jouer',
+  accueil: 'fiestapp-accueil',
 } as const
 
 /** La console qui a ouvert cet onglet, si c'en est une et qu'elle est encore là. */

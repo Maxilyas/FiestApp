@@ -19,6 +19,7 @@ import type { PublicTeam } from '../../../../shared/types'
 import { isMuted, sound } from '../../sound'
 import { formatNumber, secondes } from '../../format'
 import { lireNombre } from '../../../../shared/nombres'
+import { rangPartage } from '../../../../shared/classement'
 import { answersSizeClass, questionSizeClass } from './questionSize'
 import { CONSIGNE_DES_VARIANTES, consigneEstimation } from './consignes'
 import { Avatar } from '../../components/Avatar'
@@ -347,9 +348,12 @@ function VotesDuSondage({ v }: { v: QuizHostView }) {
         <div className="podium">
           {votes.map((x, i) => (
             <div key={i} className="lb-row vote-row" style={{ animationDelay: `${i * 60}ms` }}>
-              <Rank n={1 + votes.filter(o => o.votes > x.votes).length} />
-              <Avatar className="lb-avatar" avatar={x.avatar} />
-              <span className="lb-name">{x.name}</span>
+              <Rank n={rangPartage(x.votes, votes.map(o => o.votes))} />
+              <Avatar className="lb-avatar" avatar={x.avatar} finition={x.finition} eclat={x.eclat} legendaire={x.legendaire} />
+              <span className="lb-name">
+                {/* Les candidats portent la marque « (2) » : elle ne se coupe pas non plus. */}
+                <NomLaure nom={x.name} laurier={x.laurier} />
+              </span>
               <Score n={x.votes} texte={`${x.votes} vote${x.votes > 1 ? 's' : ''}`} />
             </div>
           ))}

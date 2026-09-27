@@ -8,7 +8,7 @@ import {
   type HautFaitAnnonce,
   type RecordBattu,
 } from '../../../shared/fin'
-import type { PublicProfile } from '../../../shared/profil'
+import type { Finition, PublicProfile } from '../../../shared/profil'
 import { NOM_FINITION, PITCH_PROFIL } from '../../../shared/profil'
 import { legendaire } from '../../../shared/legendaires'
 import { divin } from '../../../shared/divins'
@@ -19,8 +19,8 @@ import { spacePath } from '../routes'
 import { formatNumber, place, pourcent, pts } from '../format'
 import { showToast } from '../state'
 import { Avatar, Dessin } from './Avatar'
-import { complets, useDessins } from './medaillons'
-import { Icon } from './Icon'
+import { perdus, sortesDe, useDessins } from './medaillons'
+import { Flamme, Icon } from './Icon'
 import { lienBilan } from './Lendemain'
 
 /**
@@ -46,31 +46,17 @@ export function FinDeSoiree({
   onSuivante: () => void
 }) {
   const [porte, setPorte] = useState<string | null>(profil?.legendaire ?? null)
-  const [emojiPorte, setEmojiPorte] = useState<string | null>(null)
   const eclats = fin.hautsFaits.filter(h => h.ton === 'eclat')
   const ombres = fin.hautsFaits.filter(h => h.ton === 'ombre')
   const gain = fin.profil
   // Les niveaux gagnés ce soir disent seuls ce qu'ils ouvrent : le serveur
   // n'a rien à annoncer de plus.
-  const nouveaux = gain ? collectionGagnee(gain.niveauAvant, gain.niveauApres) : []
 
   const porter = async (cle: string) => {
     try {
       const { profile } = await api.joueur.enregistrer({ legendaire: cle })
       setPorte(profile.legendaire)
       showToast({ kind: 'info', message: `Tu portes ${legendaire(cle)?.nom ?? divin(cle)?.nom ?? 'ton avatar'}` })
-    } catch (e) {
-      showToast({ kind: 'error', message: (e as Error).message })
-    }
-  }
-
-  const porterEmoji = async (emoji: string) => {
-    try {
-      const { profile } = await api.joueur.enregistrer({ avatar: emoji })
-      // Porter un emoji ôte le légendaire : c'est l'un ou l'autre.
-      setEmojiPorte(profile.avatar)
-      setPorte(profile.legendaire)
-      showToast({ kind: 'info', message: `Tu portes ${emoji}` })
     } catch (e) {
       showToast({ kind: 'error', message: (e as Error).message })
     }
@@ -162,28 +148,15 @@ export function FinDeSoiree({
       )}
 
       {/* Un emoji de collection à chaque niveau qui n'ouvre pas de finition :
-          il se porte d'ici, comme un légendaire. */}
-      {nouveaux.length > 0 && (
-        <section className="card fin-collection">
-          <span className="label">{nouveaux.length > 1 ? 'Nouveaux avatars de collection' : 'Nouvel avatar de collection'}</span>
-          <div className="fin-collection-emojis">
-            {nouveaux.map(e => (
-              <div key={e} className="fin-collection-emoji">
-                <Avatar avatar={e} finition={fin.finition} />
-                {emojiPorte !== e && (
-                  <button className="btn btn-small" aria-label={`Porter ${e}`} onClick={() => void porterEmoji(e)}>
-                    Le porter
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          <p className="muted small">
-            {emojiPorte && nouveaux.includes(emojiPorte)
-              ? `C’est ${emojiPorte} que la salle verra, dès la prochaine soirée.`
-              : 'Réservés aux profils : un emoji à chaque niveau qui n’ouvre pas de finition, jusqu’au 17.'}
-          </p>
-        </section>
+          il se porte d'ici, comme un légendaire. Porter un emoji ôte le
+          légendaire : c'est l'un ou l'autre. */}
+      {gain && (
+        <CollectionOuverte
+          avant={gain.niveauAvant}
+          apres={gain.niveauApres}
+          finition={fin.finition}
+          onPorte={p => setPorte(p.legendaire)}
+        />
       )}
 
       {gain?.legendaires.map(cle => {
@@ -229,6 +202,28 @@ export function FinDeSoiree({
           {gain!.approches!.map(a => (
             <UneApproche key={a.key} a={a} />
           ))}
+        </section>
+      )}
+
+      {/* Le quiz du jour, que la soirée ne mentionnait jamais — sur le
+          téléphone d'un profil seulement : à l'écran commun, l'anonyme y
+          verrait un jeu qui lui est fermé. La série, la soirée vient de
+          l'allonger. */}
+      {gain?.jour && (
+        <section className="card fin-demain">
+          <h3>
+            <Flamme />
+            {gain.jour.aJoue ? 'Demain, le quiz du jour' : 'Le quiz du jour'}
+          </h3>
+          <p className="muted small">
+            Dix questions chaque jour, les mêmes pour tous les profils
+            {gain.jour.serie > 0 && ` · ta série : ${gain.jour.serie} jour${gain.jour.serie > 1 ? 's' : ''}`}.
+          </p>
+          {!gain.jour.aJoue && (
+            <a className="link-inline" href="/jour">
+              Jouer celui d’aujourd’hui
+            </a>
+          )}
         </section>
       )}
 
@@ -399,8 +394,8 @@ function UneApproche({ a }: { a: Approche }) {
  * ne dirait rien.
  */
 function MedaillonAVenir({ cle, emoji }: { cle: string; emoji: string }) {
-  const dessins = useDessins(true)
-  if (dessins.echec && !complets(dessins)) {
+  const sortes = sortesDe([cle])
+  if (perdus(useDessins(...sortes), sortes)) {
     return (
       <span className="approche-emoji" aria-hidden="true">
         {emoji}
@@ -413,6 +408,60 @@ function MedaillonAVenir({ cle, emoji }: { cle: string; emoji: string }) {
     </span>
   )
 }
+
+/**
+ * Les emojis de collection qu'une montée de niveau vient d'ouvrir, qu'on
+ * porte d'ici : en fin de soirée comme à la fin du quiz du jour, qui les
+ * ouvrait sans un mot.
+ */
+export function CollectionOuverte({
+  avant,
+  apres,
+  finition,
+  onPorte,
+}: {
+  avant: number
+  apres: number
+  finition?: Finition
+  onPorte?: (profil: PublicProfile) => void
+}) {
+  const [emojiPorte, setEmojiPorte] = useState<string | null>(null)
+  const nouveaux = collectionGagnee(avant, apres)
+  if (nouveaux.length === 0) return null
+  const porterEmoji = async (emoji: string) => {
+    try {
+      const { profile } = await api.joueur.enregistrer({ avatar: emoji })
+      setEmojiPorte(profile.avatar)
+      onPorte?.(profile)
+      showToast({ kind: 'info', message: `Tu portes ${emoji}` })
+    } catch (e) {
+      showToast({ kind: 'error', message: (e as Error).message })
+    }
+  }
+  return (
+    <section className="card fin-collection">
+      <span className="label">{nouveaux.length > 1 ? 'Nouveaux avatars de collection' : 'Nouvel avatar de collection'}</span>
+      <div className="fin-collection-emojis">
+        {nouveaux.map(e => (
+          <div key={e} className="fin-collection-emoji">
+            <Avatar avatar={e} finition={finition} />
+            {emojiPorte !== e && (
+              <button className="btn btn-small" aria-label={`Porter ${e}`} onClick={() => void porterEmoji(e)}>
+                Le porter
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="muted small">
+        {emojiPorte && nouveaux.includes(emojiPorte)
+          ? `C’est ${emojiPorte} que la salle verra, dès la prochaine soirée.`
+          : 'Réservés aux profils : un emoji à chaque niveau qui n’ouvre pas de finition, jusqu’au 17.'}
+      </p>
+    </section>
+  )
+}
+
 
 /**
  * La barre du niveau : elle part de là où elle était, et se remplit. Une
@@ -514,8 +563,8 @@ function LigneRang({ fin }: { fin: Fin }) {
  * d'un dessin, pas d'un texte.
  */
 export function Medaillon({ cle, className }: { cle: string; className: string }) {
-  const dessins = useDessins(true)
-  if (dessins.echec && !complets(dessins)) {
+  const sortes = sortesDe([cle])
+  if (perdus(useDessins(...sortes), sortes)) {
     return (
       <p className="small">
         <a className="link-inline" href="/profil">

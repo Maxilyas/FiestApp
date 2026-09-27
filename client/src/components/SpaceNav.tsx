@@ -56,11 +56,20 @@ export function SpaceNav({ current }: { current: SpaceTab }) {
           </a>
         ))}
       </div>
+      {/* L'animateur de l'espace y retrouve aussi le chemin de chez lui :
+          venu de sa console ou de son accueil, l'historique ne ramenait
+          qu'à « Mon compte » (lot 12). */}
       {host && (
-        <a className="space-nav-account" href="/compte">
-          <Icon name="users" />
-          Mon compte
-        </a>
+        <div className="space-nav-hote">
+          <a className="space-nav-account" href="/">
+            <Icon name="home" />
+            Accueil
+          </a>
+          <a className="space-nav-account" href="/compte">
+            <Icon name="users" />
+            Mon compte
+          </a>
+        </div>
       )}
     </nav>
   )

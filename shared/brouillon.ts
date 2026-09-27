@@ -9,7 +9,7 @@
 //
 // Pur et sans navigateur : le client range et relit (`client/src/brouillon.ts`),
 // `server/test/brouillon.test.ts` vérifie.
-import { cleanTitle, normalizeQuestions, type QuizDef, type QuizQuestionDef } from './library'
+import { PIECES_DE_QUESTION, cleanTitle, normalizeQuestions, type PieceDeQuestion, type QuizDef, type QuizQuestionDef } from './library'
 import { normaliserReglages, type ReglagesDuQuiz } from './hasard'
 
 /** Un brouillon d'un autre format est ignoré, jamais mal lu. */
@@ -60,7 +60,9 @@ export function lireBrouillon(brut: string | null, id: string): Brouillon | null
   return {
     id,
     title: cleanTitle(b.title),
-    questions: normalizeQuestions(b.questions),
+    // Toutes, même au-delà de cent : l'enregistrement refusera le trop-plein
+    // en le disant, et l'animateur choisira quoi retirer.
+    questions: normalizeQuestions(b.questions, Infinity),
     ...(b.reglages !== undefined && { reglages: normaliserReglages(b.reglages) }),
     base,
     at,
@@ -68,7 +70,7 @@ export function lireBrouillon(brut: string | null, id: string): Brouillon | null
 }
 
 const contenu = (quiz: Pick<QuizDef, 'title' | 'questions' | 'reglages'>) =>
-  JSON.stringify([cleanTitle(quiz.title), normalizeQuestions(quiz.questions), normaliserReglages(quiz.reglages)])
+  JSON.stringify([cleanTitle(quiz.title), normalizeQuestions(quiz.questions, Infinity), normaliserReglages(quiz.reglages)])
 
 /**
  * Le brouillon apporte-t-il quelque chose à la version du serveur ? Un
@@ -88,33 +90,67 @@ export const brouillonDepasse = (brouillon: Brouillon, serveur: Pick<QuizDef, 'u
   serveur.updatedAt > brouillon.base
 
 /**
- * Les photos du brouillon que la version enregistrée ne cite pas : envoyées,
+ * Les pièces du brouillon que la version enregistrée ne cite pas : envoyées,
  * jamais enregistrées. Le serveur n'en garde une qu'aucun quiz ne cite
  * qu'une heure (`IMAGE_GRACE_MS`) : un brouillon repris le lendemain peut en
- * citer une que le ménage a effacée entre-temps, et une photo morte ne se
+ * citer une que le ménage a effacée entre-temps, et une pièce morte ne se
  * voyait qu'en pleine soirée. Celles que la version enregistrée cite, le
  * ménage ne les touche pas.
+ *
+ * Les trois pièces d'une question (`PIECES_DE_QUESTION`) : seule la photo
+ * se vérifiait, et le ménage efface aussi celle de la révélation et
+ * l'extrait — une révélation cassée, un blind test muet, sur une question
+ * « prête ».
  */
 export function photosAVerifier(brouillon: Brouillon, serveur: Pick<QuizDef, 'questions'>): string[] {
-  const enregistrees = new Set(serveur.questions.map(q => q.image))
-  const aVerifier = brouillon.questions.map(q => q.image).filter((i): i is string => !!i && !enregistrees.has(i))
+  const pieces = (qs: QuizQuestionDef[]) => qs.flatMap(q => PIECES_DE_QUESTION.map(champ => q[champ]))
+  const enregistrees = new Set(pieces(serveur.questions))
+  const aVerifier = pieces(brouillon.questions).filter((i): i is string => !!i && !enregistrees.has(i))
   return [...new Set(aVerifier)]
 }
 
 /**
- * Les questions sans les photos disparues du serveur, et les identifiants de
+ * Les questions sans les pièces disparues du serveur, et les identifiants de
  * celles qui en ont perdu une — elles le diront, jusqu'à la suivante.
  */
 export function sansPhotosDisparues(
   questions: QuizQuestionDef[],
   disparues: ReadonlySet<string>,
-): { questions: QuizQuestionDef[]; privees: string[] } {
+): { questions: QuizQuestionDef[]; privees: string[]; pieces: Record<string, PieceDeQuestion[]> } {
   const privees: string[] = []
+  const pieces: Record<string, PieceDeQuestion[]> = {}
   const gardees = questions.map(q => {
-    if (!q.image || !disparues.has(q.image)) return q
-    if (q.id) privees.push(q.id)
+    const perdues = PIECES_DE_QUESTION.filter(champ => {
+      const piece = q[champ]
+      return !!piece && disparues.has(piece)
+    })
+    if (perdues.length === 0) return q
+    if (q.id) {
+      privees.push(q.id)
+      pieces[q.id] = perdues
+    }
+    const sans: QuizQuestionDef = { ...q }
+    for (const champ of perdues) sans[champ] = null
     // Comme « Retirer la photo » : sans photo, la photo « mémoire » n'a plus rien à montrer.
-    return { ...q, image: null, observeSeconds: null }
+    if (perdues.includes('image')) sans.observeSeconds = null
+    return sans
   })
-  return { questions: gardees, privees }
+  return { questions: gardees, privees, pieces }
+}
+
+const NOM_DE_LA_PIECE: Record<PieceDeQuestion, string> = {
+  image: 'la photo',
+  imageRevelation: 'la photo de la révélation',
+  son: 'l’extrait',
+}
+
+/** Ce qu'une question dit des pièces qu'elle a perdues : « La photo de la révélation de cette question n'existe plus… ». */
+export function piecesPerdues(pieces: readonly PieceDeQuestion[]): string {
+  const noms = pieces.map(p => NOM_DE_LA_PIECE[p])
+  const liste = noms.length > 1 ? `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}` : noms[0]
+  const phrase =
+    noms.length > 1
+      ? `${liste} de cette question n’existent plus sur le serveur : ajoute-les de nouveau.`
+      : `${liste} de cette question n’existe plus sur le serveur : ajoute-la de nouveau.`
+  return phrase.charAt(0).toUpperCase() + phrase.slice(1)
 }

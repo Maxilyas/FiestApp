@@ -751,14 +751,30 @@ export function titreLibre(titre: string, pris: Iterable<string>): string {
 }
 
 /**
+ * Plus de questions qu'un quiz n'en tient, dit comme on le corrige, ou null.
+ * `normalizeQuestions` garde les cent premières : l'éditeur, qui laissait
+ * écrire, coller et dupliquer au-delà, prenait la réponse pour lui et
+ * oubliait le brouillon — la cent-unième et les suivantes disparaissaient
+ * pour de bon, sans un mot.
+ */
+export function tropDeQuestions(raw: unknown): string | null {
+  if (!Array.isArray(raw) || raw.length <= MAX_QUESTIONS) return null
+  const enTrop = raw.length - MAX_QUESTIONS
+  return `Un quiz tient ${MAX_QUESTIONS} questions au plus, et celui-ci en a ${raw.length} : retires-en ${enTrop}, ou fais-en deux quiz.`
+}
+
+/**
  * Le premier temps ou la première cible qu'`normalizeQuestions` changerait en
- * silence, dit comme on le corrige, ou null. Le serveur le refuse à l'éditeur
- * d'aujourd'hui (la requête porte `base`) : son champ borne en le quittant,
- * et un « 4 » qui arrivait quand même partait en base à 5 s sans que
- * personne le lise. Une page d'avant, elle, garde le bornage silencieux.
+ * silence, dit comme on le corrige, ou null — et, avant eux, les questions en
+ * trop (`tropDeQuestions`). Le serveur le refuse à l'éditeur d'aujourd'hui
+ * (la requête porte `base`) : son champ borne en le quittant, et un « 4 »
+ * qui arrivait quand même partait en base à 5 s sans que personne le lise.
+ * Une page d'avant, elle, garde le bornage silencieux.
  */
 export function horsBornesALEnvoi(raw: unknown): string | null {
   if (!Array.isArray(raw)) return null
+  const trop = tropDeQuestions(raw)
+  if (trop) return trop
   const dans = (v: number, min: number, max: number) => Number.isFinite(v) && Math.round(v) >= min && Math.round(v) <= max
   for (const [i, q] of raw.slice(0, MAX_QUESTIONS).entries()) {
     const ou = `Question ${i + 1} : `
@@ -779,10 +795,14 @@ export function horsBornesALEnvoi(raw: unknown): string | null {
  * Borne ce qui arrive du navigateur sans rien jeter : un brouillon incomplet
  * reste enregistré tel quel (on ne perd jamais une saisie), c'est `toPlayable`
  * qui décidera au lancement du quiz s'il est jouable.
+ *
+ * `max` : combien en garder. Le brouillon, qui n'est que dans le navigateur,
+ * les garde toutes (`Infinity`) : c'est l'enregistrement qui refuse le
+ * trop-plein, en le disant (`tropDeQuestions`).
  */
-export function normalizeQuestions(raw: unknown): QuizQuestionDef[] {
+export function normalizeQuestions(raw: unknown, max = MAX_QUESTIONS): QuizQuestionDef[] {
   if (!Array.isArray(raw)) return []
-  return raw.slice(0, MAX_QUESTIONS).map((q: any): QuizQuestionDef => {
+  return raw.slice(0, max).map((q: any): QuizQuestionDef => {
     const answers: string[] = []
     for (let i = 0; i < MAX_ANSWERS; i++) {
       const a = Array.isArray(q?.answers) ? q.answers[i] : ''
@@ -905,7 +925,7 @@ function lireEstimation(texte: string): { target: number; unit: string } | null 
  * reconnus à leur mot, sans accent ni majuscule. Jamais en tête du bloc : la
  * première ligne reste l'intitulé, fût-ce « Photo : qui est-ce ? ».
  */
-type Reglage = 'temps' | 'photo' | 'observation' | 'ordre' | 'anecdote' | 'note' | 'intertitre' | 'type'
+type Reglage = 'temps' | 'photo' | 'observation' | 'ordre' | 'anecdote' | 'note' | 'intertitre' | 'type' | 'deCote'
 const REGLAGES = new Map<string, Reglage>([
   // La sorte de question : « Type : plusieurs réponses », « Type : dans
   // l'ordre », « Type : qui dans la salle », « Type : en direct ».
@@ -925,6 +945,9 @@ const REGLAGES = new Map<string, Reglage>([
   ['le saviez vous', 'anecdote'],
   ['note', 'note'],
   ['intertitre', 'intertitre'],
+  // « De côté : oui » : la question reste dans le quiz sans se jouer. Copiée
+  // en liste puis recollée, une question mise de côté revenait en jeu.
+  ['de cote', 'deCote'],
 ])
 
 /**
@@ -1212,6 +1235,9 @@ export function parseImportedQuestions(text: string, modele?: QuizQuestionDef | 
         const valeur = sansAccents(lu.valeur).toLowerCase().trim()
         if (/^(fixe|tel quel|telle quelle|garde|garder|ecrit)$/.test(valeur)) question.ordreFixe = true
         else if (/^a (retrouver|remettre|reconstituer)\b/.test(valeur)) sorte = 'ordre'
+      } else if (lu.reglage === 'deCote') {
+        // Seul « oui » la range : « De côté : non » la laisse en jeu.
+        if (/^(oui|o|yes)$/.test(sansAccents(lu.valeur).toLowerCase().trim())) question.deCote = true
       } else if (lu.reglage === 'photo') {
         const photo = tronquer(lu.valeur, MAX_PHOTO_ATTENDUE).trim()
         question.photoAttendue = photo && !SANS_PHOTO.test(sansAccents(photo).toLowerCase()) ? photo : null

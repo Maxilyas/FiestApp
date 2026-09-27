@@ -755,3 +755,21 @@ test('une salle derrière la même box entre, un robot non', async () => {
     await enLigne.close()
   }
 })
+
+test('un profil renommé par l’animateur garde ce nom quand il arrive sur un second appareil', async () => {
+  // Le profil prend son prénom dans son profil (invariant 8), mais la fiche
+  // du serveur fait foi (invariant 9) : l'arbitrage du 27 septembre 2026 fait
+  // tenir le renommage de l'animateur, sur tous ses appareils [moteur-10].
+  const host = await ecran()
+  const bill = await inscrireProfil(banc.url, 'grosbill', 'GrosBill', '🐯')
+  const telephone = await reveil({}, bill)
+  envoyer(host, 'host:renamePlayer', { playerId: telephone.ack.playerId, name: 'Bill' })
+  await instantane(host, s => joueur(s, telephone.ack.playerId)?.name === 'Bill', 'le renommage')
+
+  // Le même profil, sur la tablette du salon : pas de jeton, le cookie du profil.
+  const tablette = await reveil({}, bill)
+  assert.equal(tablette.ack.playerId, telephone.ack.playerId, 'un profil, un invité')
+  assert.equal(tablette.ack.name, 'Bill')
+  await patienter(300)
+  assert.equal(joueur(await instantane(host), telephone.ack.playerId).name, 'Bill', 'le mur dit toujours Bill')
+})

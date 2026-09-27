@@ -1,0 +1,31 @@
+/* Les pistes des constats design-recompenses-1 à 3, telles qu'essayées dans le
+   navigateur (PISTES=1 les injecte dans design-recompenses.test.ts). */
+
+/* 1. Les onglets cèdent de la place au lieu de déborder : `1fr` vaut
+   `minmax(auto, 1fr)`, et « auto » refusait de descendre sous « Apparence ». */
+.onglets { grid-auto-columns: minmax(0, 1fr); }
+.onglet { min-width: 0; padding-inline: 4px; }
+@media (max-width: 340px) { .onglets-profil .onglet .icon { display: none; } }
+
+/* 2. Une ligne de classement étroite passe sur deux rangs : le prénom (et son
+   laurier) seuls en haut, le niveau et les points dessous. */
+.leaderboard, .podium { container-type: inline-size; }
+@container (max-width: 250px) {
+  .lb-row {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: 'rang av nom nom' 'rang av niv score';
+    column-gap: 8px;
+    row-gap: 2px;
+    align-items: center;
+  }
+  .lb-row > .lb-rank { grid-area: rang; width: 1.2em; }
+  .lb-row > .av { grid-area: av; }
+  .lb-row > .lb-name { grid-area: nom; }
+  .lb-row > .niveau { grid-area: niv; justify-self: end; }
+  .lb-row > .lb-score { grid-area: score; }
+}
+
+/* 3. La silhouette d'un emoji de collection, claire comme celles des
+   légendaires : noire sur une case sombre, elle ne se voyait pas. */
+.silhouette { filter: brightness(0) invert(1); opacity: 0.36; }

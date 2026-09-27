@@ -35,14 +35,31 @@ export function clockOffset({ serverTime, sentAt, receivedAt }: ClockSample): nu
 }
 
 /**
+ * Ce que deux mesures justes peuvent laisser d'écart en plus de leurs
+ * aller-retours : les millisecondes arrondies, et la dérive d'un quartz sur
+ * les heures qu'une page reste ouverte.
+ */
+export const JEU_D_HORLOGE_MS = 500
+
+/**
  * La mesure à garder entre celle qu'on a et une nouvelle. La plus rapide gagne :
  * un aller-retour court laisse moins de place à l'asymétrie, donc moins d'erreur.
  * Sans mesure précédente (`null`), la nouvelle s'impose — c'est ce qui permet à
  * une reconnexion de repartir d'une horloge propre si le téléphone s'est
  * resynchronisé entre-temps.
+ *
+ * Deux mesures qui ne peuvent pas être vraies ensemble — chacune situe l'écart
+ * à la moitié de son aller-retour près — disent que l'horloge du téléphone a
+ * sauté entre elles : un recalage par le réseau, une heure réglée à la main.
+ * La plus récente s'impose alors, même plus lente. Gardée pour sa vitesse,
+ * l'ancienne décalait tous les chronomètres du saut : au quiz du jour, qui ne
+ * remesure qu'à ses requêtes, un recalage de trente secondes fermait chaque
+ * question dès son affichage.
  */
 export function bestSample(current: ClockSample | null, candidate: ClockSample): ClockSample {
   if (!current) return candidate
   const rtt = (s: ClockSample) => s.receivedAt - s.sentAt
+  const saut = Math.abs(clockOffset(candidate) - clockOffset(current)) > (rtt(candidate) + rtt(current)) / 2 + JEU_D_HORLOGE_MS
+  if (saut) return candidate
   return rtt(candidate) < rtt(current) ? candidate : current
 }

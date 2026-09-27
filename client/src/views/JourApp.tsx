@@ -1,19 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { api, motifDe, UnauthorizedError, type CorrectionDuJour } from '../api'
-import { serverNow } from '../clock'
-import { espacesFines, formatNumber, place, pourcent, pts } from '../format'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { api, motifDe, refusDuServeur, UnauthorizedError, type CorrectionDuJour } from '../api'
+import { resetClock, serverNow } from '../clock'
+import { rendreLeFocus } from '../focus'
+import { insister, REESSAI_MS } from '../insister'
+import { deNom, espacesFines, formatNumber, pourcent, pts } from '../format'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
+import { useSecondesRestantes } from '../decompte'
+import { placeDuJour } from '../../../shared/course'
 import { showToast, useAppState } from '../state'
 import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
 import { Avatar, Dessin } from '../components/Avatar'
-import { Icon } from '../components/Icon'
+import { Flamme, Icon } from '../components/Icon'
 import { Niveau } from '../components/Niveau'
-import { NomLaure } from '../components/Laurier'
-import { Rank, Score } from '../components/Rank'
+import { LAURIER_TEXTE, Laurier, NomLaure } from '../components/Laurier'
+import { Onglets, type Onglet } from '../components/Onglets'
+import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
-import { Flamme, Medaille, Serie, ontGagneHier } from '../components/Jour'
-import { Medaillon } from '../components/FinDeSoiree'
-import type { PublicProfileDetail } from '../../../shared/profil'
+import { Medaille, Serie, ontGagneHier } from '../components/Jour'
+import { CollectionOuverte, Medaillon } from '../components/FinDeSoiree'
+import { NOM_FINITION, finitionsOuvertes, type PublicProfileDetail } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {
   NOM_MEDAILLE,
@@ -32,6 +38,7 @@ import {
 } from '../../../shared/jour'
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { legendaire } from '../../../shared/legendaires'
+import { gesteAccepte } from '../../../shared/console'
 
 /** La marge du serveur après l'échéance (`GRACE_MS`, `games/quiz.ts`), et un souffle : la question se révèle d'elle-même. */
 const APRES_ECHEANCE_MS = 1500 + 600
@@ -39,6 +46,9 @@ const APRES_ECHEANCE_MS = 1500 + 600
 type Ecran = 'partie' | 'classement' | 'correction'
 
 const ecranDe = (hash: string): Ecran => (hash === '#classement' ? 'classement' : hash === '#correction' ? 'correction' : 'partie')
+
+/** Ce que l'écran dit d'abord, pour le focus qui s'est perdu : le résultat, sinon le titre. */
+const CE_QUE_L_ECRAN_DIT = ['.result-banner', 'h1', 'h2'] as const
 
 /**
  * Le quiz du jour (`/jour`) : dix questions, les mêmes pour tous les profils,
@@ -71,7 +81,8 @@ export function JourApp() {
     setEnvoi(null)
   }, [])
 
-  useEffect(() => {
+  const charger = useCallback(() => {
+    setErreur('')
     api.joueur
       .moi()
       .then(async ({ profile }) => {
@@ -83,19 +94,64 @@ export function JourApp() {
         else setErreur(motifDe(e))
       })
   }, [recevoir])
+  useEffect(charger, [charger])
+
+  // Au retour au premier plan, l'heure du téléphone a pu être recalée
+  // pendant qu'il dormait : la prochaine mesure fait autorité, quel que soit
+  // son aller-retour — comme à chaque connexion d'une soirée.
+  useEffect(() => {
+    const auRetour = () => {
+      if (document.visibilityState === 'visible') resetClock()
+    }
+    document.addEventListener('visibilitychange', auRetour)
+    return () => document.removeEventListener('visibilitychange', auRetour)
+  }, [])
+
+  /**
+   * Chaque geste — commencer, la suivante, une réponse — en tire un numéro :
+   * une relecture partie avant lui ne défait pas ce qu'il a changé.
+   */
+  const gestes = useRef(0)
+  /** La relance d'un geste perdu en route : le geste suivant la remplace. */
+  const relance = useRef<(() => void) | null>(null)
+  useEffect(() => () => relance.current?.(), [])
+  /** L'instant où l'écran affiché a paru (`performance.now()`). */
+  const changement = useRef<number | null>(null)
 
   const aller = (vers: Ecran) => {
     window.location.hash = vers === 'partie' ? '' : vers
     setEcran(vers)
   }
 
+  /** Relit la partie, telle que le serveur la voit. */
+  const relire = () => {
+    const n = gestes.current
+    api.jour
+      .etat()
+      .then(p => n === gestes.current && recevoir(p))
+      .catch(() => {})
+  }
+
   /** Un geste qui rend la partie : commencer, la suivante, relire. */
   const geste = async (appel: () => Promise<PartieDuJour>) => {
+    const n = ++gestes.current
+    relance.current?.()
     setOccupe(true)
     try {
       recevoir(await appel())
     } catch (e) {
       showToast({ kind: 'error', message: motifDe(e) })
+      // Refusé, le geste dit que la page ne voyait plus la partie comme le
+      // serveur : elle la relit. Perdue en route, la réponse du serveur a pu
+      // servir la question — et lancer son chrono : on la redemande jusqu'à
+      // l'avoir, sans rien changer d'autre à l'écran. Retouchée trente
+      // secondes plus tard, elle révélait « Temps écoulé » sur une question
+      // que le téléphone n'avait jamais montrée.
+      if (refusDuServeur(e)) relire()
+      else
+        relance.current = insister(() => api.jour.etat().then(p => p.question && n === gestes.current && recevoir(p)), {
+          premier: REESSAI_MS,
+        })
     } finally {
       setOccupe(false)
     }
@@ -109,6 +165,14 @@ export function JourApp() {
   const repondre = (action: QuizAction) => {
     const q = partie?.question
     if (!q || action.type !== 'answer' || envoi?.etat === 'envoi') return
+    // Pas dans la demi-seconde qui suit l'affichage : ce toucher-là ne vient
+    // pas d'une lecture. C'était le second d'un double toucher sur « Question
+    // suivante », qui tombait sur la grille de la question d'après — et au
+    // quiz du jour, la première réponse est définitive. Le temps de lecture
+    // offert paie le maximum : attendre ne coûte rien.
+    if (!gesteAccepte(changement.current, performance.now())) return
+    ++gestes.current
+    relance.current?.()
     setEnvoi({ qIndex: q.index, choice: action.choice, etat: 'envoi' })
     api.jour
       .repondre(q.jour, q.index, action.choice)
@@ -118,8 +182,14 @@ export function JourApp() {
         setPartie(p => p && { ...p, points: r.cumul, question: undefined })
       })
       .catch(e => {
-        setEnvoi({ qIndex: q.index, choice: action.choice, etat: 'perdue' })
         showToast({ kind: 'error', message: motifDe(e) })
+        // Refusée — minuit est passé, la question n'est plus celle du
+        // serveur —, la retoucher recevrait le même refus : la page le dit,
+        // et relit la partie. Perdue en route, elle se retouche.
+        if (refusDuServeur(e)) {
+          setEnvoi({ qIndex: q.index, choice: action.choice, etat: 'refusee' })
+          relire()
+        } else setEnvoi({ qIndex: q.index, choice: action.choice, etat: 'perdue' })
       })
   }
 
@@ -127,18 +197,47 @@ export function JourApp() {
   // et la page va chercher ce qu'elle révèle. Seule une réponse en route
   // suspend ce rendez-vous — une réponse perdue, non : il laissait sinon la
   // page sur la question, réponses closes, jusqu'à ce qu'on la recharge.
+  // Hors ligne à ce moment-là, la page redemande toutes les trois secondes,
+  // et dès que le réseau revient.
   const question = partie?.question
   const enRoute = envoi?.etat === 'envoi'
   useEffect(() => {
     if (!question || enRoute) return
-    const t = setTimeout(
-      () => {
-        api.jour.etat().then(recevoir).catch(() => {})
-      },
-      Math.max(0, question.echeance - serverNow()) + APRES_ECHEANCE_MS,
-    )
-    return () => clearTimeout(t)
+    const n = gestes.current
+    return insister(() => api.jour.etat().then(p => n === gestes.current && recevoir(p)), {
+      premier: Math.max(0, question.echeance - serverNow()) + APRES_ECHEANCE_MS,
+    })
   }, [question, enRoute, recevoir])
+
+  // L'écran affiché, en un mot. Chacun commence en haut, comme ceux d'une
+  // soirée : au texte agrandi, la question suivante s'ouvrait là où l'on
+  // avait fait défiler la révélation, chrono et numéro hors de l'écran. Le
+  // focus qui s'est perdu avec le bouton touché se pose sur ce que l'écran
+  // dit d'abord — un lecteur d'écran n'entendait ni la question ni le
+  // résultat —, et la demi-seconde qui suit n'accepte aucun toucher.
+  const cleDEcran = erreur
+    ? 'erreur'
+    : profil === null
+      ? 'sans-profil'
+      : profil === undefined || !partie
+        ? null
+        : ecran !== 'partie'
+          ? ecran
+          : revelation
+            ? `revelation:${revelation.jour}:${revelation.index}`
+            : partie.etat === 'en-cours' && partie.question
+              ? `question:${partie.question.jour}:${partie.question.index}`
+              : `partie:${partie.jour}:${partie.etat}`
+  const precedent = useRef<string | null>(null)
+  useLayoutEffect(() => {
+    const avant = precedent.current
+    precedent.current = cleDEcran
+    if (cleDEcran === null || cleDEcran === avant) return
+    changement.current = performance.now()
+    window.scrollTo(0, 0)
+    // Le premier écran se lit depuis le haut, comme toute page qui s'ouvre.
+    if (avant !== null) rendreLeFocus(document.querySelector('.player-shell'), CE_QUE_L_ECRAN_DIT)
+  }, [cleDEcran])
 
   // La fin rafraîchit le profil : sa barre d'expérience a bougé.
   const finie = partie?.etat === 'finie'
@@ -168,16 +267,7 @@ export function JourApp() {
     </div>
   )
 
-  if (erreur) {
-    return (
-      <div className="center-page">
-        <p className="error">{erreur}</p>
-        <a className="btn" href="/">
-          Retour à l’accueil
-        </a>
-      </div>
-    )
-  }
+  if (erreur) return <EchecDuChargement erreur={erreur} onReessayer={charger} />
   if (profil === null) {
     return (
       <div className="player-shell">
@@ -188,8 +278,14 @@ export function JourApp() {
             Les mêmes pour tous les profils, tirées à minuit. On y joue seul, une fois, et l’on apprend : la bonne
             réponse et son anecdote arrivent après chaque question.
           </p>
-          <a className="btn btn-primary btn-big btn-block" href="/">
-            Me connecter à mon profil
+          {/* Le lien qu'un ami envoie : la plupart n'ont pas de profil. « Me
+              connecter à mon profil », seul, mentait à qui n'en a pas, et la
+              création finissait sur l'accueil, deux « Jouer » plus loin. */}
+          <a className="btn btn-primary btn-big btn-block" href="/?creer=1&next=/jour">
+            Créer mon profil et jouer
+          </a>
+          <a className="btn btn-block" href="/?next=/jour">
+            J’ai déjà un profil
           </a>
         </section>
       </div>
@@ -237,7 +333,11 @@ export function JourApp() {
         <button
           className="btn btn-primary btn-big btn-block"
           disabled={occupe}
-          onClick={() => void geste(revelation.derniere ? api.jour.etat : api.jour.suivante)}
+          // Pas plus qu'une réponse dans la demi-seconde : un double toucher
+          // sur la réponse sautait sinon la révélation et son anecdote.
+          onClick={() => {
+            if (gesteAccepte(changement.current, performance.now())) void geste(revelation.derniere ? api.jour.etat : api.jour.suivante)
+          }}
         >
           {revelation.derniere ? 'Voir mon résultat' : 'Question suivante'}
         </button>
@@ -263,6 +363,7 @@ export function JourApp() {
           participants={0}
           envoi={envoi}
         />
+        <AnnonceDeLaFin key={partie.question.index} echeance={partie.question.echeance} />
         {toastVu}
       </div>
     )
@@ -281,7 +382,7 @@ export function JourApp() {
   const enCours = partie.etat === 'en-cours'
   return (
     <div className="player-shell">
-      {partie.sonHier && <Lendemain partie={partie} onCorrection={() => aller('correction')} />}
+      {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier} onCorrection={() => aller('correction')} />}
       <section className="card jour-carte">
         <div className="jour-tete">
           <span className="label">Le quiz du jour</span>
@@ -289,7 +390,11 @@ export function JourApp() {
         </div>
         <h1 className="jour-date">{capitale(jourEnToutesLettres(partie.jour))}</h1>
         {partie.etat === 'aucun' ? (
-          <p className="muted">Pas de quiz aujourd’hui : la réserve de questions est vide. Il revient demain.</p>
+          <p className="muted">
+            {/* « La réserve » est un mot d'administration : le joueur n'en a que faire. */}
+            Pas de quiz aujourd’hui : il n’y a plus de questions à tirer.{' '}
+            {partie.revientDemain === false ? 'Il revient dès qu’il y en aura de nouvelles.' : 'Il revient demain.'}
+          </p>
         ) : (
           <>
             <p className="jour-meta">
@@ -332,6 +437,28 @@ export function JourApp() {
 }
 
 /**
+ * La page qui n'a pas pu se charger. Sans réseau, « Retour à l'accueil »
+ * échouait aussi : il n'y avait rien pour réessayer.
+ */
+export function EchecDuChargement({ erreur, onReessayer }: { erreur: string; onReessayer: () => void }) {
+  return (
+    <div className="player-shell">
+      <section className="card jour-carte">
+        <span className="label">Le quiz du jour</span>
+        <p className="error">{erreur}</p>
+        <button className="btn btn-primary btn-big btn-block" onClick={onReessayer}>
+          <Icon name="rotate" />
+          Réessayer
+        </button>
+        <a className="btn btn-ghost btn-block" href="/">
+          Retour à l’accueil
+        </a>
+      </section>
+    </div>
+  )
+}
+
+/**
  * Pendant une saison — Halloween, Noël, le Nouvel An — son légendaire en
  * silhouette, et ce qui manque pour l'ouvrir : des jours joués au quiz du
  * jour, ou une soirée ces jours-là.
@@ -354,6 +481,29 @@ function Saison({ saison }: { saison: NonNullable<PartieDuJour['saison']> }) {
         </span>
       </div>
     </section>
+  )
+}
+
+/** La carte d'un joueur, au toucher de son nom dans le classement : rien ne la télécharge avant. */
+const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
+
+/** À combien de secondes de la fin on la dit au lecteur d'écran. */
+const ANNONCE_DE_LA_FIN = 5
+
+/**
+ * « Plus que 5 secondes », dit une fois au lecteur d'écran : il lui faut
+ * onze à quatorze secondes d'écoute avant de pouvoir toucher une réponse, et
+ * le chronomètre ne s'annonce pas lui-même — il parlerait chaque seconde.
+ * Le délai, lui, reste celui de la question : l'arbitrage du 27 septembre
+ * 2026 garde le quiz du jour classé et payé à la vitesse [accessibilite-4].
+ */
+export function AnnonceDeLaFin({ echeance }: { echeance: number }) {
+  const secondes = useSecondesRestantes(echeance)
+  // Le même texte de 5 à 1 : la région ne parle qu'une fois par question.
+  return (
+    <p className="sr-only" role="status">
+      {secondes > 0 && secondes <= ANNONCE_DE_LA_FIN ? `Plus que ${ANNONCE_DE_LA_FIN} secondes` : ''}
+    </p>
   )
 }
 
@@ -457,6 +607,10 @@ function Fin({
 }) {
   const comptees = partie.comptees
   const seuils = seuilsDesMedailles(comptees)
+  const monte = partie.niveauAvant !== undefined && partie.niveauApres !== undefined && partie.niveauApres > partie.niveauAvant
+  const finitionsNeuves = monte
+    ? finitionsOuvertes(partie.niveauApres!).filter(f => !finitionsOuvertes(partie.niveauAvant!).includes(f))
+    : []
   const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
   return (
     <div className="player-shell fin-soiree">
@@ -469,9 +623,9 @@ function Fin({
         <p>
           {partie.justes} bonne{partie.justes > 1 ? 's' : ''} réponse{partie.justes > 1 ? 's' : ''} sur {comptees}
         </p>
-        {partie.rang > 0 && (
+        {placeDuJour(partie.rang, partie.joueurs, partie.points) && (
           <p className="muted">
-            Pour l’instant : {place(partie.rang)} sur {partie.joueurs}
+            Pour l’instant : {placeDuJour(partie.rang, partie.joueurs, partie.points)}
             {partie.devant && ` · à ${pts(partie.devant.ecart)} de ${partie.devant.nom}`}
           </p>
         )}
@@ -490,7 +644,17 @@ function Fin({
             ? `Niveau ${profil.niveau} · ${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} XP vers le niveau ${profil.niveau + 1}`
             : `Niveau ${profil.niveau} · au sommet`}
         </p>
+        {/* La montée de niveau de cette partie, dite comme en fin de soirée. */}
+        {monte && <p className="fin-monte">Niveau {partie.niveauApres} !</p>}
+        {finitionsNeuves.length > 0 && (
+          <p className="fin-finition">
+            Nouvelle finition : <b>{finitionsNeuves.map(f => NOM_FINITION[f]).join(', ')}</b>
+          </p>
+        )}
       </section>
+      {partie.niveauAvant !== undefined && partie.niveauApres !== undefined && (
+        <CollectionOuverte avant={partie.niveauAvant} apres={partie.niveauApres} finition={profil.finition} />
+      )}
       <section className="card jour-recompenses">
         <div className="jour-ligne">
           {partie.medaille ? (
@@ -528,8 +692,17 @@ function Fin({
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={profil.legendaire === cle} />
       ))}
       {partie.saison && <Saison saison={partie.saison} />}
+      {/* L'enjeu que la page taisait : le laurier est la seule récompense du
+          jour que les autres voient. Et le rendez-vous, pour tous. */}
+      {partie.rang === 1 && partie.points > 0 && (
+        <p className="jour-enjeu">
+          <Laurier laurier decoratif /> Reste en tête jusqu’à minuit, et tu porteras le laurier demain — au classement du
+          jour et dans tes soirées.
+        </p>
+      )}
       <p className="muted small jour-note">
         Le classement se fige à minuit. Le podium gagne {XP_PODIUM_DU_JOUR.join(', ').replace(/, (\d+)$/, ' et $1')} XP.
+        Demain, dix nouvelles questions dès minuit.
       </p>
       <div className="fin-actions">
         <button className="btn btn-primary" onClick={onClassement}>
@@ -598,17 +771,19 @@ function Palier({ palier }: { palier: PalierTombe }) {
 }
 
 /** Hier, au quiz du jour : sa place, ce que le podium lui a payé, le vainqueur. */
-function Lendemain({ partie, onCorrection }: { partie: PartieDuJour; onCorrection: () => void }) {
+function Lendemain({ partie, laurier, onCorrection }: { partie: PartieDuJour; laurier?: boolean; onCorrection: () => void }) {
   const h = partie.sonHier!
+  // Le rang s'il est bon à dire, sinon les points en titre (`placeDuJour`).
+  const sa = placeDuJour(h.rang, h.joueurs, h.points)
   return (
     <section className="card jour-annonce">
       <span className="label">Hier, au quiz du jour</span>
       <div className="jour-ligne">
         {h.medaille && <Medaille medaille={h.medaille} className="medaille-geante" />}
         <div>
-          <h2>{h.rang > 0 ? `${place(h.rang)} sur ${h.joueurs}` : pts(h.points)}</h2>
+          <h2>{sa ?? pts(h.points)}</h2>
           <span className="muted">
-            {[h.rang > 0 && pts(h.points), h.xpPodium > 0 && `+${h.xpPodium} XP de podium`, h.medaille && NOM_MEDAILLE[h.medaille].toLowerCase()]
+            {[sa && pts(h.points), h.xpPodium > 0 && `+${h.xpPodium} XP de podium`, h.medaille && NOM_MEDAILLE[h.medaille].toLowerCase()]
               .filter(Boolean)
               .join(' · ')}
           </span>
@@ -617,6 +792,12 @@ function Lendemain({ partie, onCorrection }: { partie: PartieDuJour; onCorrectio
       {(h.paliers ?? []).map(p => (
         <Palier key={p.key} palier={p} />
       ))}
+      {/* Le vainqueur d'hier le lisait sous son prénom, jamais ce qu'il vaut. */}
+      {laurier && (
+        <p className="jour-enjeu">
+          <Laurier laurier decoratif /> Tu portes le laurier aujourd’hui : la salle le verra à côté de ton prénom.
+        </p>
+      )}
       {partie.vainqueursDHier.length > 0 && (
         <p className="muted small">
           {partie.vainqueursDHier.map(v => v.avatar).join(' ')} {ontGagneHier(partie)}.
@@ -638,6 +819,18 @@ function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetour: () =
   const [classement, setClassement] = useState<ClassementDuJour | null>(null)
   const [erreur, setErreur] = useState('')
   const demande = useRef(0)
+  /**
+   * La carte ouverte : toucher un nom du classement la montre, comme en
+   * soirée — tout le serveur, comme le classement lui-même (l'arbitrage du
+   * 27 septembre 2026).
+   */
+  const [carte, setCarte] = useState<string | null>(null)
+  const laCarte = useALaDemande(carteJoueur, !!carte)
+  useEffect(() => {
+    if (!carte || laCarte !== 'perdu') return
+    showToast({ kind: 'error', message: 'La carte ne s’ouvre pas : vérifie ta connexion.' })
+    setCarte(null)
+  }, [carte, laCarte])
   useEffect(() => {
     const n = ++demande.current
     setClassement(null)
@@ -647,10 +840,10 @@ function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetour: () =
       .then(c => n === demande.current && setClassement(c))
       .catch(e => n === demande.current && setErreur(motifDe(e)))
   }, [periode, partie.jour])
-  const onglets: [Periode, string][] = [
-    ['jour', 'Aujourd’hui'],
-    ['hier', 'Hier'],
-    ['mois', capitale(moisEnToutesLettres(moisDe(partie.jour)).split(' ')[0])],
+  const onglets: Onglet<Periode>[] = [
+    { id: 'jour', nom: 'Aujourd’hui' },
+    { id: 'hier', nom: 'Hier' },
+    { id: 'mois', nom: capitale(moisEnToutesLettres(moisDe(partie.jour)).split(' ')[0]) },
   ]
   return (
     <div className="player-shell">
@@ -658,54 +851,62 @@ function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetour: () =
         <span className="label">Le quiz du jour · {jourEnToutesLettres(partie.jour, true)}</span>
         <h2>Le classement</h2>
       </header>
-      <div className="onglets onglets-petits" role="tablist" aria-label="Période">
-        {onglets.map(([id, nom]) => (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={periode === id}
-            className={'onglet' + (periode === id ? ' actif' : '')}
-            onClick={() => setPeriode(id)}
-          >
-            {nom}
-          </button>
-        ))}
+      <Onglets
+        onglets={onglets}
+        actif={periode}
+        onChoisir={setPeriode}
+        label="Période"
+        idOnglet={id => `periode-${id}`}
+        idPanneau={() => 'classement-periode'}
+        className="onglets-petits"
+      />
+      {/* Le panneau des onglets : le classement de la période choisie. */}
+      <div className="classement-periode" role="tabpanel" id="classement-periode" aria-labelledby={`periode-${periode}`}>
+        {erreur && <p className="error">{erreur}</p>}
+        {!classement && !erreur && <p className="muted">Chargement…</p>}
+        {classement && (
+          <>
+            <p className="muted small">
+              {classement.joueurs === 0
+                ? 'Personne n’a encore joué.'
+                : `${classement.joueurs} joueur${classement.joueurs > 1 ? 's' : ''} · ${
+                    classement.fige ? 'figé' : periode === 'mois' ? 'le total du mois' : 'se fige à minuit'
+                  }`}
+            </p>
+            <div className="leaderboard">
+              {classement.lignes.map(l => (
+                <LigneDuClassement key={l.profileId} ligne={l} moi={l.profileId === classement.sienne} onOuvrir={setCarte} />
+              ))}
+              {classement.moi && (
+                <>
+                  <p className="muted center small">…</p>
+                  <LigneDuClassement ligne={classement.moi} moi onOuvrir={setCarte} />
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
-      {erreur && <p className="error">{erreur}</p>}
-      {!classement && !erreur && <p className="muted">Chargement…</p>}
-      {classement && (
-        <>
-          <p className="muted small">
-            {classement.joueurs === 0
-              ? 'Personne n’a encore joué.'
-              : `${classement.joueurs} joueur${classement.joueurs > 1 ? 's' : ''} · ${
-                  classement.fige ? 'figé' : periode === 'mois' ? 'le total du mois' : 'se fige à minuit'
-                }`}
-          </p>
-          <div className="leaderboard">
-            {classement.lignes.map(l => (
-              <LigneDuClassement key={l.profileId} ligne={l} moi={l.profileId === classement.sienne} />
-            ))}
-            {classement.moi && (
-              <>
-                <p className="muted center small">…</p>
-                <LigneDuClassement ligne={classement.moi} moi />
-              </>
-            )}
-          </div>
-        </>
-      )}
       <button className="btn btn-ghost btn-block" onClick={onRetour}>
         Retour
       </button>
+      {carte && laCarte && laCarte !== 'perdu' && (
+        <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} onFermer={() => setCarte(null)} />
+      )}
     </div>
   )
 }
 
-function LigneDuClassement({ ligne: l, moi }: { ligne: LigneDuJour; moi: boolean }) {
+function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDuJour; moi: boolean; onOuvrir: (profileId: string) => void }) {
   return (
-    <div className={'lb-row' + (moi ? ' me' : '')}>
+    <button
+      type="button"
+      className={'lb-row lb-ouvrable' + (moi ? ' me' : '')}
+      // Le nom du bouton remplace tout son contenu : le rang et les points
+      // doivent y être, comme au classement d'une soirée.
+      aria-label={`La carte ${deNom(l.nom)}${l.laurier ? `, ${LAURIER_TEXTE}` : ''} — rang ${l.rang}, ${l.points} ${motPoints(l.points)}${l.enCours ? ', en cours' : ''}`}
+      onClick={() => onOuvrir(l.profileId)}
+    >
       <Rank n={l.rang} />
       <Avatar className="lb-avatar" avatar={l.avatar} finition={l.finition} legendaire={l.legendaire} eclat={l.eclat} />
       <span className="lb-name">
@@ -714,7 +915,7 @@ function LigneDuClassement({ ligne: l, moi }: { ligne: LigneDuJour; moi: boolean
       </span>
       <Niveau niveau={l.niveau} />
       <Score n={l.points} texte={formatNumber(l.points)} />
-    </div>
+    </button>
   )
 }
 
@@ -736,34 +937,65 @@ function Correction({ jour, onRetour }: { jour: string; onRetour: () => void }) 
       </header>
       {erreur && <p className="muted">{erreur}</p>}
       {!correction && !erreur && <p className="muted">Chargement…</p>}
-      {correction && (
-        <ol className="correction">
-          {correction.questions.map((q, i) => (
-            <li key={i} className={q.annulee ? '' : q.juste ? 'ok' : 'ko'}>
-              <span className="correction-marque">
-                <Icon name={q.juste ? 'check' : 'x'} />
-              </span>
-              <span className="correction-corps">
-                <span>{espacesFines(q.texte)}</span>
-                <span className="muted small">
-                  <b>{espacesFines(q.reponses[q.bonne])}</b>
-                  {q.trouveePar !== null && ` · trouvée par ${pourcent(q.trouveePar)}`}
-                  {q.annulee && ' · annulée'}
-                </span>
-                {q.repondue && !q.juste && q.choix !== null && (
-                  <span className="muted small">Tu avais dit : {espacesFines(q.reponses[q.choix])}</span>
-                )}
-                {q.anecdote && <span className="small">{espacesFines(q.anecdote)}</span>}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
+      {correction && <QuestionsCorrigees questions={correction.questions} />}
       <button className="btn btn-ghost btn-block" onClick={onRetour}>
         Retour
       </button>
     </div>
   )
+}
+
+/** Ce qu'est devenue une question de la correction, en un mot. */
+export function verdictDeCorrection(q: CorrectionDuJour['questions'][number]): 'Juste' | 'Faux' | 'Sans réponse' | 'Annulée' {
+  if (q.annulee) return 'Annulée'
+  if (q.juste) return 'Juste'
+  // Une ligne sans choix : la question laissée au temps, ou la réponse
+  // arrivée après la fin ; pas de ligne : la partie s'est arrêtée avant.
+  return q.choix !== null ? 'Faux' : 'Sans réponse'
+}
+
+/**
+ * Chaque question de la correction : sa marque, sa bonne réponse, la part de
+ * la salle, ce qu'on avait dit. La coche et la croix n'étaient que des
+ * dessins : au lecteur d'écran, une réponse juste et une question laissée au
+ * temps se lisaient pareil, et une question annulée gardait une croix.
+ */
+export function QuestionsCorrigees({ questions }: { questions: CorrectionDuJour['questions'] }) {
+  return (
+    <ol className="correction">
+      {questions.map((q, i) => {
+        const verdict = verdictDeCorrection(q)
+        return (
+          <li key={i} className={MARQUES[verdict].classe}>
+            <span className="correction-marque" role="img" aria-label={verdict}>
+              {MARQUES[verdict].icone ? <Icon name={MARQUES[verdict].icone} /> : '–'}
+            </span>
+            <span className="correction-corps">
+              <span>{espacesFines(q.texte)}</span>
+              <span className="muted small">
+                <b>{espacesFines(q.reponses[q.bonne])}</b>
+                {q.trouveePar !== null && ` · trouvée par ${pourcent(q.trouveePar)}`}
+                {q.annulee && ' · annulée'}
+              </span>
+              {verdict === 'Faux' && q.choix !== null && (
+                <span className="muted small">Tu avais dit : {espacesFines(q.reponses[q.choix])}</span>
+              )}
+              {verdict === 'Sans réponse' && <span className="muted small">Sans réponse</span>}
+              {q.anecdote && <span className="small">{espacesFines(q.anecdote)}</span>}
+            </span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
+/** La marque de chaque verdict : sa couleur, son dessin — un tiret pour ce qui ne compte pas. */
+const MARQUES: Record<ReturnType<typeof verdictDeCorrection>, { classe: string; icone: 'check' | 'x' | 'clock' | null }> = {
+  Juste: { classe: 'ok', icone: 'check' },
+  Faux: { classe: 'ko', icone: 'x' },
+  'Sans réponse': { classe: 'sans', icone: 'clock' },
+  Annulée: { classe: 'annulee', icone: null },
 }
 
 const capitale = (texte: string) => texte.charAt(0).toUpperCase() + texte.slice(1)

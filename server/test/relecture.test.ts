@@ -143,12 +143,10 @@ type Reponses = [Invite, number][][]
  * Joue un quiz depuis l'écran commun jusqu'à son podium — sans le refermer :
  * le podium crédite l'expérience, et « Terminer » se vérifie à part. Tous
  * les participants répondent : la salle révèle d'elle-même après le souffle.
- */
-/**
- * Joue un quiz jusqu'à son podium. `ecartMs` espace les réponses d'une même
- * question : deux réponses reçues à la même milliseconde sont aussi rapides
- * l'une que l'autre, et un réflexe s'y partage — un test qui compte
- * l'expérience au point près veut savoir qui a répondu le premier.
+ * `ecartMs` espace les réponses d'une même question : deux réponses reçues à
+ * la même milliseconde sont aussi rapides l'une que l'autre, et un réflexe
+ * s'y partage — un test qui compte l'expérience au point près veut savoir
+ * qui a répondu le premier.
  */
 async function jusquAuPodium(host: Socket, quizId: string, questions: Reponses, ecartMs = 0): Promise<string> {
   const vue = (sessionId: string, pred: (v: any) => boolean, label: string) =>
@@ -384,9 +382,10 @@ test('un compte ne change pas en mémoire quand la base permanente refuse de l�
     })
     assert.equal((await lier()).status, 200)
     assert.equal((await consoleDeLea())?.slug, ADMIN.slug)
-    // Ni un détachement refusé ne la ferme.
+    // Ni un détachement refusé ne la ferme (détacher demande le mot de passe
+    // du compte, ou celui du profil : `emprunts.test.ts`).
     await enPanne(banc, ['UPDATE OF profile_id ON accounts'], async () => {
-      assert.equal((await ecrire(banc.url, '/api/space/profil', {}, admin, 'DELETE')).status, 500)
+      assert.equal((await ecrire(banc.url, '/api/space/profil', { preuve: ADMIN.password }, admin, 'DELETE')).status, 500)
       assert.equal((await consoleDeLea())?.slug, ADMIN.slug, 'un détachement refusé ne détache rien')
     })
 
@@ -1022,8 +1021,13 @@ test('détacher un profil, ou en rattacher un autre, referme les consoles qu’i
     const tv = await ecranCommun(banc.url, tele)
     await inscrireProfil(banc.url, 'anim', 'Antoine')
     await inscrireProfil(banc.url, 'relais', 'Léa', '🐙')
+    // Remplacer le profil qui tient l'espace demande une preuve fraîche
+    // (`emprunts.test.ts`) : la télé de la fête a le mot de passe du compte.
     const lier = async (login: string) =>
-      assert.equal((await ecrire(banc.url, '/api/space/profil', { login, password: 'motdepasse1' }, tele)).status, 200)
+      assert.equal(
+        (await ecrire(banc.url, '/api/space/profil', { login, password: 'motdepasse1', preuve: ADMIN.password }, tele)).status,
+        200,
+      )
     await lier('anim')
 
     /** Un appareil qui se connecte au profil : la console s'ouvre avec lui, s'il anime l'espace. */
@@ -1042,8 +1046,8 @@ test('détacher un profil, ou en rattacher un autre, referme les consoles qu’i
     // Le propriétaire, dans la console que son profil lui a ouverte.
     const tel = cookieDe(await appareil('anim'))
 
-    // Il détache son profil : l'intrus est dehors.
-    assert.equal((await ecrire(banc.url, '/api/space/profil', {}, tel, 'DELETE')).status, 200)
+    // Il détache son profil — le mot de passe du profil en preuve : l'intrus est dehors.
+    assert.equal((await ecrire(banc.url, '/api/space/profil', { preuve: 'motdepasse1' }, tel, 'DELETE')).status, 200)
     assert.equal(await ouverte(intrus), false, 'la console de l’intrus se ferme')
     await coupe
     // Celui qui vient de détacher garde la sienne : le mettre à la porte de

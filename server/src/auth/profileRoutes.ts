@@ -19,6 +19,9 @@ import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import type { JourStore } from '../core/jour'
 import { CATALOGUE_DES_PRIX } from '../core/stats'
 import { ecussonsDe } from '../../../shared/ecussons'
+import { distinctions } from '../../../shared/profil'
+import type { CarteDeJoueur } from '../../../shared/carte'
+import { profilDeCarte } from '../core/carte'
 
 interface ProfileApiDeps {
   profiles: ProfileStore
@@ -74,9 +77,13 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
    * soirées et quiz du jour ensemble.
    */
   const detailDe = async (me: ProfileRec) => {
-    const detail = await profiles.toDetail(me, espaceDe, deps.archives)
-    const fois = new Map(detail.vitrine.map(b => [b.key, b.fois]))
+    // La nuit d'abord : `carriereDe` clôt la veille — le podium se crédite,
+    // le laurier passe au vainqueur. Lu avant elle, le profil du vainqueur
+    // n'avait, à sa première visite du jour, ni « Vainqueur du quiz du jour
+    // d'hier » ni l'expérience du podium ; rechargée, la page les avait.
     const [jour, categoriesDuJour] = await Promise.all([deps.jour.carriereDe(me.id), deps.jour.categoriesDe(me.id)])
+    const detail = await profiles.toDetail((await profiles.byId(me.id)) ?? me, espaceDe, deps.archives)
+    const fois = new Map(detail.vitrine.map(b => [b.key, b.fois]))
     return {
       ...detail,
       jour,
@@ -94,6 +101,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   const openSession = async (req: express.Request, res: express.Response, profileId: string) => {
     const token = await profiles.createSession(profileId, req.header('user-agent') ?? '')
     setPlayerCookie(res, token, deps.online)
+    return token
   }
 
   /**
@@ -114,10 +122,10 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     if (!espace || espace.disabledAt) return null
     // La session retient le profil qui l'a ouverte : c'est lui, et lui seul,
     // qui pourra la refermer (voir `refermerConsoles` et la déconnexion).
-    const token = await deps.auth.createSession(espace.id, req.header('user-agent') ?? '', profileId)
-    setSessionCookie(res, token, deps.online)
+    const jeton = await deps.auth.createSession(espace.id, req.header('user-agent') ?? '', profileId)
+    setSessionCookie(res, jeton, deps.online)
     await deps.auth.touchLogin(espace.id)
-    return deps.auth.publicSpace(espace)
+    return { espace: deps.auth.publicSpace(espace), jeton }
   }
 
   /** La console ouverte dans ce navigateur-ci, s'il en porte une. */
@@ -148,7 +156,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   /** Ce que rend une connexion de joueur : son profil, et son espace s'il en anime un. */
   const identite = async (req: express.Request, res: express.Response, profile: ProfileRec) => ({
     profile: profiles.toPublic(profile),
-    espace: await ouvrirConsole(req, res, profile.id),
+    espace: (await ouvrirConsole(req, res, profile.id))?.espace ?? null,
   })
 
   app.post(
@@ -204,15 +212,29 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       if (!budget.allow(ip, `joueur:${login}`)) {
         return res.status(429).json({ error: 'Trop d’essais — réessaie dans un quart d’heure' })
       }
-      const found = await profiles.verify(login, password, await dummyHash())
-      if (!found) {
+      const verifie = await profiles.verifier(login, password, await dummyHash())
+      if (!verifie) {
         budget.failed(`joueur:${login}`)
         return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' })
       }
       budget.succeeded(`joueur:${login}`)
-      await openSession(req, res, found.id)
+      const found = verifie.profil
+      const jeton = await openSession(req, res, found.id)
       await profiles.touchSeen(found.id)
-      res.json(await identite(req, res, found))
+      const console_ = await ouvrirConsole(req, res, found.id)
+      // Un changement de mot de passe parti pendant qu'on vérifiait ferme les
+      // sessions qu'il connaît — pas celles qu'on ouvre ici, juste après : qui
+      // entrait avec l'ancien mot de passe gardait la sienne, console
+      // comprise (invariant 16). Le haché a bougé : on les referme.
+      if (profiles.cached(found.id)?.passwordHash !== verifie.hachage) {
+        await profiles.revokeSession(jeton)
+        const ouverte = console_ ? deps.auth.resolveSession(console_.jeton) : null
+        if (ouverte) await deps.auth.revokeSession(ouverte.session.id)
+        clearPlayerCookie(res)
+        if (console_) clearSessionCookie(res)
+        return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' })
+      }
+      res.json({ profile: profiles.toPublic(found), espace: console_?.espace ?? null })
     }),
   )
 
@@ -275,6 +297,51 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     }),
   )
 
+  // Sa propre carte, depuis sa page : la seule vitrine de ses cosmétiques
+  // (titre, vitrine, écussons, fond) ne s'ouvrait qu'en soirée, sur son nom —
+  // il composait sa carte sans jamais la voir. La même que la salle verra,
+  // sans « ce soir » : il n'est dans aucune soirée ici.
+  app.get(
+    '/api/joueur/carte',
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const carte: CarteDeJoueur = {
+        nom: me.name,
+        avatar: profiles.avatarPorte(me),
+        ...distinctions(profiles.apparenceDe(me)),
+        profil: await profilDeCarte(profiles, deps.jour, me),
+      }
+      res.json(carte)
+    }),
+  )
+
+  // La carte d'un autre joueur du quiz du jour, en touchant son nom au
+  // classement du jour — tout le serveur, comme le classement : l'arbitrage
+  // du 27 septembre 2026. Seulement qui y a joué, et jamais un profil masqué,
+  // que le classement ne montre plus aux autres ; qui regarde a un profil,
+  // comme pour lire le classement. La même carte qu'en soirée, sans « ce soir ».
+  app.get(
+    '/api/joueur/carte/:id',
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const autre = await profiles.byId(String(req.params.id))
+      const visible =
+        autre && (autre.id === me.id || (!deps.jour.estMasque(autre.id) && (await deps.jour.resumeDe(autre.id)).joues > 0))
+      if (!autre || !visible) return res.status(404).json({ error: 'Carte introuvable' })
+      const carte: CarteDeJoueur = {
+        nom: autre.name,
+        avatar: profiles.avatarPorte(autre),
+        ...distinctions(profiles.apparenceDe(autre)),
+        profil: await profilDeCarte(profiles, deps.jour, autre),
+      }
+      res.json(carte)
+    }),
+  )
+
   /**
    * Ouvre la console de l'espace rattaché, depuis une session de joueur.
    *
@@ -289,9 +356,9 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       noStore(res)
       const me = await current(req)
       if (!me) return res.status(401).json({ error: 'Connexion requise' })
-      const espace = await ouvrirConsole(req, res, me.id)
-      if (!espace) return res.status(403).json({ error: 'Aucune soirée à animer avec ce profil' })
-      res.json({ espace })
+      const ouverte = await ouvrirConsole(req, res, me.id)
+      if (!ouverte) return res.status(403).json({ error: 'Aucune soirée à animer avec ce profil' })
+      res.json({ espace: ouverte.espace })
     }),
   )
 
@@ -350,11 +417,15 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         return res.status(429).json({ error: 'Trop d’essais — réessaie dans un quart d’heure' })
       }
       const problem = passwordProblem(req.body?.next)
-      if (problem) return res.status(400).json({ error: problem })
+      if (problem) {
+        budget.abandon(cle)
+        return res.status(400).json({ error: problem })
+      }
       // Rien à vérifier n'est pas un essai : une page qui n'envoie pas encore
       // le mot de passe actuel ne doit pas fermer le profil à son porteur.
       // 400 et jamais 401 : la page lirait un 401 comme une session perdue.
       if (!actuel && !code) {
+        budget.abandon(cle)
         return res.status(400).json({ error: 'Tape ton mot de passe actuel — ou ton code de secours' })
       }
       // Un seul secret vérifié par essai, comparé comme à la connexion : un
@@ -400,7 +471,10 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         return res.status(429).json({ error: 'Trop d’essais — réessaie dans un quart d’heure' })
       }
       const problem = passwordProblem(req.body?.password)
-      if (problem) return res.status(400).json({ error: problem })
+      if (problem) {
+        budget.abandon(`secours:${login}`)
+        return res.status(400).json({ error: problem })
+      }
       const recovery = await profiles.useRecovery(login, req.body?.code, req.body.password, await dummyHash())
       if (!recovery) {
         budget.failed(`secours:${login}`)

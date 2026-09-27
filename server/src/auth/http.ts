@@ -122,6 +122,24 @@ export function requireAdmin(_req: Request, res: Response, next: NextFunction) {
   next()
 }
 
+/**
+ * La télé branchée par un code (une session à `fin_max`) anime une soirée ;
+ * elle ne prend pas l'espace. Refusée là où l'on change qui le tient —
+ * rattacher ou détacher un profil —, dans l'administration, et pour brancher
+ * une autre télé : « souvent celle de quelqu'un d'autre », elle rattachait
+ * le profil de qui s'en servait, qui rouvrait ensuite la console quand il
+ * voulait, bien après la soirée ; et une télé en branchait une autre,
+ * repartie pour vingt-quatre heures. Derrière `requireAccount`.
+ */
+export function refuserLesTeles(auth: AuthStore) {
+  return (_req: Request, res: Response, next: NextFunction) => {
+    if (auth.sessionById(sessionOf(res))?.finMax != null) {
+      return res.status(403).json({ error: 'Pas depuis une télé branchée : fais-le depuis ta console' })
+    }
+    next()
+  }
+}
+
 export const accountOf = (res: Response): AccountRec => (res.locals as AuthedLocals).account
 export const sessionOf = (res: Response): string => (res.locals as AuthedLocals).sessionId
 
@@ -137,24 +155,44 @@ export const sessionOf = (res: Response): string => (res.locals as AuthedLocals)
 export class LoginBudget {
   private byIp = new Budget(20, 20)
   private locks = new Map<string, { failures: number; until: number }>()
+  /**
+   * Les essais partis et pas encore jugés, par secret : l'heure de chacun.
+   *
+   * Le verrou se lisait avant l'attente de scrypt et ne se comptait
+   * qu'après : vingt essais partis ensemble étaient tous vérifiés — dix-neuf
+   * faux, puis le bon, accepté —, et « cinq échecs » ne bornait plus un
+   * attaquant à plusieurs adresses. Un essai en vol compte donc comme un
+   * échec jusqu'à son jugement (`failed`, `succeeded`, `abandon`) ; perdu en
+   * route — une exception —, il s'oublie au bout de `EN_VOL_MS`.
+   */
+  private enVol = new Map<string, number[]>()
 
   /**
    * Un essai depuis cette adresse, contre ce secret-là s'il est nommé. Sans
    * clé, seule la réserve de l'adresse compte : c'est le cas d'un jeton trop
    * long pour être deviné, qu'aucun verrou ne protégerait mieux — et qu'un
-   * verrou rendrait inutilisable à qui s'est trompé de lien cinq fois.
+   * verrou rendrait inutilisable à qui s'est trompé de lien cinq fois. Avec
+   * une clé, l'essai accepté vole jusqu'à son jugement : l'appelant le juge
+   * toujours, `abandon` compris.
    */
   allow(ip: string, key?: string): boolean {
     if (!this.byIp.take(ip)) return false
     if (key === undefined) return true
+    const now = Date.now()
     const lock = this.locks.get(key)
-    return !lock || lock.until <= Date.now()
+    if (lock && lock.until > now) return false
+    const vol = (this.enVol.get(key) ?? []).filter(t => now - t < EN_VOL_MS)
+    if ((lock?.failures ?? 0) + vol.length >= ECHECS_AVANT_VERROU) return false
+    vol.push(now)
+    this.enVol.set(key, vol)
+    return true
   }
 
   failed(login: string) {
+    this.juger(login)
     const lock = this.locks.get(login) ?? { failures: 0, until: 0 }
     lock.failures++
-    if (lock.failures >= 5) {
+    if (lock.failures >= ECHECS_AVANT_VERROU) {
       lock.until = Date.now() + 15 * 60_000
       lock.failures = 0
     }
@@ -166,9 +204,31 @@ export class LoginBudget {
   }
 
   succeeded(login: string) {
+    this.juger(login)
     this.locks.delete(login)
   }
+
+  /** Un essai qui n'a rien vérifié — une saisie refusée avant le hachage : il ne compte ni pour ni contre. */
+  abandon(key: string) {
+    this.juger(key)
+  }
+
+  private juger(key: string) {
+    const vol = this.enVol.get(key)
+    vol?.shift()
+    if (vol && vol.length > 0) return
+    this.enVol.delete(key)
+    if (this.enVol.size > 2000) {
+      const now = Date.now()
+      for (const [cle, v] of this.enVol) if (v.every(t => now - t >= EN_VOL_MS)) this.enVol.delete(cle)
+    }
+  }
 }
+
+/** Cinq échecs contre un même secret, et il se ferme un quart d'heure. */
+const ECHECS_AVANT_VERROU = 5
+/** Un essai n'attend jamais son jugement plus longtemps : scrypt et la base répondent en une seconde. */
+const EN_VOL_MS = 30_000
 
 const budgets = new WeakMap<Express, LoginBudget>()
 

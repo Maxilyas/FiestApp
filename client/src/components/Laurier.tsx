@@ -1,3 +1,6 @@
+import type { SVGProps } from 'react'
+import { partsDuNomAffiche } from '../../../shared/homonymes'
+
 /**
  * Le laurier du vainqueur d'hier au quiz du jour : une couronne dorée juste
  * après son prénom, toute la journée — au classement du jour, sur sa carte,
@@ -28,12 +31,30 @@ const FEUILLES = [115, 145, 175, 205, 235].flatMap(deg => {
 /** Ce que le laurier dit à qui ne le voit pas. */
 export const LAURIER_TEXTE = 'vainqueur du quiz du jour d’hier'
 
-export function Laurier({ laurier }: { laurier?: boolean }) {
+/**
+ * `decoratif` : là où le texte le dit juste à côté (« Vainqueur du quiz du
+ * jour d'hier » sur la carte et le profil), ou dans un bouton qui porte déjà
+ * son nom, le laurier se tait — il était dit deux fois.
+ */
+export function Laurier({ laurier, decoratif }: { laurier?: boolean; decoratif?: boolean }) {
   if (!laurier) return null
+  const nom: SVGProps<SVGSVGElement> = decoratif ? { 'aria-hidden': true } : { role: 'img', 'aria-label': LAURIER_TEXTE }
   return (
-    // Pas de <title> : il entrerait dans le texte du prénom (`textContent`),
-    // que la tablée et les tests lisent.
-    <svg className="laurier" viewBox="0 0 24 24" role="img" aria-label={LAURIER_TEXTE}>
+    // L'infobulle, pour la souris — l'animateur à la console, qui voyait une
+    // couronne sans savoir ce qu'elle dit (l'arbitrage du 27 septembre
+    // 2026) : sur l'enveloppe, et pas en <title>, qui entrerait dans le
+    // texte du prénom (`textContent`) que la tablée et les tests lisent.
+    // L'enveloppe ne compte pas pour le lecteur d'écran (`presentation`) :
+    // le laurier s'y dit une fois, par son dessin, ou pas du tout.
+    <span className="laurier-bulle" role="presentation" title={LAURIER_TEXTE}>
+      <Couronne {...nom} />
+    </span>
+  )
+}
+
+function Couronne(nom: SVGProps<SVGSVGElement>) {
+  return (
+    <svg className="laurier" viewBox="0 0 24 24" {...nom}>
       <g fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round">
         <path d="M10.68 19.88A7.6 7.6 0 0 1 8.79 5.51" />
         <path d="M13.32 19.88A7.6 7.6 0 0 0 15.21 5.51" />
@@ -55,15 +76,20 @@ export function Laurier({ laurier }: { laurier?: boolean }) {
 }
 
 /**
- * Un prénom sur une ligne de classement, et son laurier s'il le porte :
- * c'est le prénom qui se coupe sur un écran étroit, jamais le laurier.
+ * Un prénom sur une ligne de classement, sa marque d'homonymie et son
+ * laurier : c'est le prénom qui se coupe sur un écran étroit, jamais la
+ * marque ni le laurier. « Camille (2) » devenait « Camil… » dès 320 px — la
+ * seule chose qui distinguait deux invités identiques (invariant 17).
  */
 export function NomLaure({ nom, laurier }: { nom: string; laurier?: boolean }) {
-  if (!laurier) return <>{nom}</>
+  const { prenom, marque } = partsDuNomAffiche(nom)
+  if (!laurier && !marque) return <>{nom}</>
   return (
     <span className="nom-laure">
-      <span className="nom-laure-texte">{nom}</span>
-      <Laurier laurier />
+      <span className="nom-laure-texte">{prenom}</span>
+      {/* L'espace reste dans le texte : la ligne se lit et se copie « Camille (2) ». */}
+      {marque && <span className="nom-marque">{marque}</span>}
+      <Laurier laurier={laurier} />
     </span>
   )
 }

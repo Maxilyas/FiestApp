@@ -37,8 +37,15 @@
 # d'arrêt. Le SIGTERM de l'hébergeur se perdait en route, et l'arrêt propre —
 # celui qui vide le miroir de la partie en cours dans Turso — ne s'exécutait
 # jamais. `exec` remplace le shell par Node, qui reçoit le signal lui-même ;
-# sans npm ni tsx en surplomb, c'est aussi 45 Mo de mémoire en moins sur les
-# 512 de l'offre gratuite.
+# sans npm en surplomb, c'est aussi 45 Mo de mémoire en moins sur les 512 de
+# l'offre gratuite.
+#
+# `dist/index.mjs` plutôt que `--import tsx src/index.ts` : `npm run build`
+# construit aussi le serveur, en un seul fichier (`server/scripts/
+# empaqueter.ts`). Chaque réveil de l'offre gratuite est un démarrage, et tsx
+# y traduisait tout le TypeScript : 0,8 à 1 s de processeur et 35 à 40 Mo de
+# plus, sur un dixième de cœur. L'ancienne commande marche toujours — c'est le
+# repli si le paquet refusait de démarrer.
 #
 # ⚠️ Si les services ont été créés à la main (voir MISE-EN-LIGNE.md, étape 7),
 # ce fichier ne les pilote pas : ces deux commandes se recopient dans le
@@ -61,7 +68,7 @@ services:
     # préprod tourner. C'est un clic contre une soirée ratée.
     autoDeploy: false
     buildCommand: npm ci && npm run build
-    startCommand: cd server && exec node --import tsx src/index.ts
+    startCommand: cd server && exec node dist/index.mjs
     # Render s'en sert pour savoir si le service répond. L'offre gratuite
     # endort l'application après 15 minutes sans trafic, et on l'assume : on
     # ouvre l'écran commun cinq minutes avant l'arrivée des invités, et le
@@ -124,7 +131,7 @@ services:
     # Elle, oui : chaque fusion sur `main` part en préprod.
     autoDeploy: true
     buildCommand: npm ci && npm run build
-    startCommand: cd server && exec node --import tsx src/index.ts
+    startCommand: cd server && exec node dist/index.mjs
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION

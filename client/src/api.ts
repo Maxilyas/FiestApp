@@ -5,7 +5,7 @@ import type { ReglagesDuQuiz } from '../../shared/hasard'
 import type { EntreeDeProgramme, Programme } from '../../shared/programme'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
-import type { FinitionChoisie, PublicProfile, PublicProfileDetail } from '../../shared/profil'
+import type { FinitionChoisie, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, RevelationDuJour } from '../../shared/jour'
@@ -24,10 +24,19 @@ export class ApiError extends Error {
     readonly suggestion?: string,
     /** Un échec qui passe tout seul — l'hébergeur qui se réveille : une écriture peut l'attendre (`auReveil`). */
     readonly passager = false,
+    /** Le statut HTTP, quand le serveur a répondu ; rien quand la requête n'est pas revenue. */
+    readonly statut?: number,
   ) {
     super(message)
   }
 }
+
+/**
+ * Le serveur a lu la demande et la refuse (un 4xx) : la refaire telle quelle
+ * recevrait le même refus. Le contraire d'un réseau coupé ou d'un serveur qui
+ * redémarre, où retoucher finit par passer.
+ */
+export const refusDuServeur = (e: unknown): boolean => e instanceof ApiError && e.statut !== undefined && e.statut < 500
 
 /**
  * Session absente ou périmée — ou identifiants refusés : l'appelant renvoie
@@ -46,7 +55,7 @@ export class ConflitError extends ApiError {
     message: string,
     readonly updatedAt: number,
   ) {
-    super(message)
+    super(message, undefined, false, 409)
   }
 }
 
@@ -105,7 +114,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const corps = lireJson(texte)
   // Le motif du serveur d'abord : un mot de passe faux n'est pas une session
   // expirée, et le dire « Connexion requise » faisait chercher ailleurs.
-  if (res.status === 401) throw new UnauthorizedError(motifHttp(401, corps))
+  if (res.status === 401) throw new UnauthorizedError(motifHttp(401, corps), undefined, false, 401)
   const conflit = (corps as { conflit?: { updatedAt?: unknown } } | undefined)?.conflit
   if (res.status === 409 && typeof conflit?.updatedAt === 'number') {
     throw new ConflitError(motifHttp(409, corps), conflit.updatedAt)
@@ -116,6 +125,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
       motifHttp(res.status, corps),
       typeof suggestion === 'string' ? suggestion : undefined,
       statutPassager(res.status),
+      res.status,
     )
   }
   if (corps === undefined) throw new ApiError(MOTIFS.illisible)
@@ -126,7 +136,8 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export interface Me {
   account: PublicAccount
   space: PublicSpace
-  profil?: PublicProfile | null
+  /** Le profil qui tient l'espace, tel que « Mon compte » le montre. */
+  profil?: ProfilDeLEspace | null
 }
 
 /** Un lien d'activation : le jeton et sa date limite. */
@@ -330,11 +341,13 @@ export const api = {
       req<{ space: PublicSpace }>('/api/space/settings', { method: 'PUT', body: JSON.stringify(settings) }),
     /** Rattache son profil joueur à son espace : il faut prouver les deux. */
     lierProfil: (login: string, password: string) =>
-      req<{ profil: PublicProfile }>('/api/space/profil', {
+      req<{ profil: ProfilDeLEspace }>('/api/space/profil', {
         method: 'POST',
         body: JSON.stringify({ login, password }),
       }),
-    detacherProfil: () => req<{ profil: null }>('/api/space/profil', { method: 'DELETE' }),
+    /** `preuve` : le mot de passe du profil rattaché, ou celui du compte. */
+    detacherProfil: (preuve: string) =>
+      req<{ profil: null }>('/api/space/profil', { method: 'DELETE', body: JSON.stringify({ preuve }) }),
   },
   /** Réservé à l'administrateur : les comptes des autres animateurs. */
   admin: {
@@ -351,7 +364,9 @@ export const api = {
     update: (id: string, patch: { name?: string; slug?: string }) =>
       req<{ account: PublicAccount }>(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(patch) }),
     /** Un compte désactivé seulement ; tout ce qu'il a laissé part avec lui. */
-    remove: (id: string) => req<{ ok: true }>(`/api/admin/accounts/${id}`, { method: 'DELETE' }),
+    /** `reprendre` : ce que ses soirées ont crédité aux joueurs part avec lui. */
+    remove: (id: string, credits: 'garder' | 'reprendre') =>
+      req<{ ok: true }>(`/api/admin/accounts/${id}?credits=${credits}`, { method: 'DELETE' }),
     /** Le catalogue du serveur, toutes les copies : proposées, publiées, refusées, retirées. */
     catalogue: () => req<EntreeDuCatalogue[]>('/api/admin/catalogue'),
     /** Une copie proposée, questions comprises, pour la relire. */

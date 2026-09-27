@@ -1,17 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Avatar } from './Avatar'
 import { Niveau } from './Niveau'
+import { NomLaure } from './Laurier'
 import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
 import { DetailDivin, DetailLegendaire } from './Carriere'
+import { CarteJoueur } from './CarteJoueur'
 import { AVATARS, COLLECTION } from '../../../shared/avatars'
 import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
-import { DIVINS } from '../../../shared/divins'
+import { DIVINS, divin } from '../../../shared/divins'
 import { FONDS } from '../../../shared/fonds'
-import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type PublicProfileDetail } from '../../../shared/profil'
+import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type PublicProfileDetail } from '../../../shared/profil'
+import type { ChoixDuProfil } from './choix'
 
 // L'onglet « Apparence » du profil : ce que la salle voit de lui, son visage
 // — une seule grille, emojis, légendaires et Divins —, et sa finition.
@@ -28,7 +31,7 @@ import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type FinitionChoisie, type Pu
  */
 const COLLECTION_HAUTE = 10
 
-type Patch = { avatar?: string; finition?: FinitionChoisie; legendaire?: string | null; titre?: string | null; fond?: string | null }
+type Patch = Omit<ChoixDuProfil, 'vitrine'>
 
 /**
  * Sa ligne telle que la salle la voit, dans les classements et la salle
@@ -36,6 +39,9 @@ type Patch = { avatar?: string; finition?: FinitionChoisie; legendaire?: string 
  * plus bas, et l'on se voit changer ici.
  */
 export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
+  // Sa carte, telle que la salle l'ouvre en touchant son nom : il composait
+  // titre, vitrine et fond sans jamais la voir.
+  const [carte, setCarte] = useState(false)
   return (
     <section className="card apercu" aria-label="Ce que la salle voit">
       <span className="label">Ce que la salle voit</span>
@@ -47,9 +53,17 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
           eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))}
           legendaire={profil.legendaire ?? undefined}
         />
-        <span className="lb-name">{profil.name}</span>
+        {/* Sa ligne telle que la salle la voit : son laurier compris. */}
+        <span className="lb-name">
+          <NomLaure nom={profil.name} laurier={profil.laurier} />
+        </span>
         <Niveau niveau={profil.niveau} />
       </div>
+      <button type="button" className="btn btn-small apercu-carte" onClick={() => setCarte(true)}>
+        <Icon name="eye" />
+        Voir ma carte
+      </button>
+      {carte && <CarteJoueur adresse="/api/joueur/carte" onFermer={() => setCarte(false)} />}
     </section>
   )
 }
@@ -70,6 +84,17 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
   const possedes = AVATARS.length + ouverts + profil.legendaires.length + divins.length
   const total = AVATARS.length + COLLECTION.length + LEGENDAIRES.length + DIVINS.length
   const toucher = (cle: string) => setOuvert(o => (o === cle ? null : cle))
+  // La légende se déplie sous toute la grille, une vingtaine de Tab plus
+  // loin : le focus y va, sur son nom, et le lecteur d'écran la lit. Sans
+  // défiler — le doigt qui parcourt la grille n'est pas emporté.
+  const detail = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!ouvert) return
+    const nom = detail.current?.querySelector<HTMLElement>('.galerie-detail-nom')
+    if (!nom) return
+    nom.tabIndex = -1
+    nom.focus({ preventScroll: true })
+  }, [ouvert])
   return (
     <section className="card">
       <h3>
@@ -87,7 +112,7 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
               className={'emoji-btn case-avatar' + (choisi ? ' selected' : '')}
               aria-pressed={choisi}
               aria-label={`Avatar ${a}${brille(a) ? ', éclaté' : ''}`}
-              disabled={busy}
+              aria-disabled={busy || undefined}
               onClick={() => {
                 setOuvert(null)
                 enregistrer({ avatar: a })
@@ -126,7 +151,7 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
               className={'emoji-btn case-avatar' + anneau + (choisi ? ' selected' : '')}
               aria-pressed={choisi}
               aria-label={`Avatar ${c.emoji}, de collection${brille(c.emoji) ? ', éclaté' : ''}`}
-              disabled={busy}
+              aria-disabled={busy || undefined}
               onClick={() => {
                 setOuvert(null)
                 enregistrer({ avatar: c.emoji })
@@ -184,7 +209,7 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
           )
         })}
       </div>
-      <div id="detail-avatar">
+      <div id="detail-avatar" ref={detail}>
         {ouvert &&
           (legendaire(ouvert) ? (
             <DetailLegendaire
@@ -234,22 +259,30 @@ export function MesAvatars({ profil, busy, enregistrer }: { profil: PublicProfil
  * préfère.
  */
 export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
-  const eclat = profil.eclats.includes(profil.avatar)
+  // Les aperçus montrent ce que la salle verra : sous un légendaire porté,
+  // le médaillon cerclé de la finition — pas l'emoji caché dessous, qu'on
+  // choisissait auréolé d'« Aurore » sans voir le Phénix que la salle verrait.
+  const divinPorte = divin(profil.legendaire)
+  // Sous un Divin, qui n'en prend pas, c'est sous l'emoji que la finition se verra.
+  const legendairePorte = divinPorte ? undefined : (profil.legendaire ?? undefined)
+  const eclat = profil.eclats.includes(cibleEclat(legendairePorte, profil.avatar))
   return (
     <section className="card">
       <h3>
         <Icon name="trophy" />
         Ma finition <span className="muted small titre-compte">{`${profil.ouvertes.length} / ${FINITIONS.length}`}</span>
       </h3>
+      {/* Un Divin ne prend ni finition ni Éclat : la sienne se choisira sous un autre avatar. */}
+      {divinPorte && <p className="muted small">{`${divinPorte.nom} a sa propre lumière : ta finition se voit sous tes autres avatars.`}</p>}
       <div className="finitions">
         <button
           type="button"
           className={'finition-btn' + (profil.finitionChoisie === 'auto' ? ' selected' : '')}
-          disabled={busy}
+          aria-disabled={busy || undefined}
           aria-pressed={profil.finitionChoisie === 'auto'}
           onClick={() => enregistrer({ finition: 'auto' })}
         >
-          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={eclat} />
+          <Avatar avatar={profil.avatar} finition={profil.finition} eclat={eclat} legendaire={legendairePorte} />
           <span className="finition-nom">La plus belle</span>
           {/* L'état se dit par `aria-pressed` : lu aussi, il se disait deux fois. */}
           <span className="muted small" aria-hidden="true">
@@ -264,11 +297,12 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
               key={f}
               type="button"
               className={'finition-btn' + (choisie ? ' selected' : '')}
-              disabled={!ouverte || busy}
+              disabled={!ouverte}
+              aria-disabled={busy || undefined}
               aria-pressed={choisie}
               onClick={() => enregistrer({ finition: f })}
             >
-              <Avatar avatar={profil.avatar} finition={f} eclat={eclat} />
+              <Avatar avatar={profil.avatar} finition={f} eclat={eclat} legendaire={legendairePorte} />
               <span className="finition-nom">{NOM_FINITION[f]}</span>
               {/* « épinglée » redit `aria-pressed` : l'oreille entend « ouverte ». */}
               <span className="muted small" aria-hidden={choisie || undefined}>
@@ -311,7 +345,7 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
           type="button"
           className={'titre-choix' + (!porte ? ' selected' : '')}
           aria-pressed={!porte}
-          disabled={busy}
+          aria-disabled={busy || undefined}
           onClick={() => enregistrer({ titre: null })}
         >
           Aucun
@@ -322,7 +356,7 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
             type="button"
             className={'titre-choix' + (porte === cle ? ' selected' : '')}
             aria-pressed={porte === cle}
-            disabled={busy}
+            aria-disabled={busy || undefined}
             onClick={() => enregistrer({ titre: cle })}
           >
             {hautFait(cle)?.title}
@@ -359,7 +393,7 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
         <button
           type="button"
           className={'finition-btn' + (!porte ? ' selected' : '')}
-          disabled={busy}
+          aria-disabled={busy || undefined}
           aria-pressed={!porte}
           onClick={() => enregistrer({ fond: null })}
         >
@@ -377,7 +411,8 @@ export function MonFond({ profil, busy, enregistrer }: { profil: PublicProfileDe
               key={f.key}
               type="button"
               className={'finition-btn' + (choisi ? ' selected' : '')}
-              disabled={!ouvert || busy}
+              disabled={!ouvert}
+              aria-disabled={busy || undefined}
               aria-pressed={choisi}
               onClick={() => enregistrer({ fond: f.key })}
             >

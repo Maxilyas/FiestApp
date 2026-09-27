@@ -362,10 +362,10 @@ export function summarize(meta: MetaSoiree, a: PartyArchive): ArchiveSummary {
   return resumer(meta, ficheDe(a))
 }
 
-/** Une archive que l'on ne sait plus lire se résume comme une soirée vide. */
 /** Combien d'archives une requête relit pour refaire leurs fiches (`ArchiveStore.refaireFiches`). */
 const LOT_DE_FICHES = 10
 
+/** Une archive que l'on ne sait plus lire se résume comme une soirée vide. */
 const ARCHIVE_VIDE: PartyArchive = { version: 1, players: [], teams: [], bonuses: [], scores: [], answers: [], packs: {} }
 
 // ── Le rangement ─────────────────────────────────────────────────────────

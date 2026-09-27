@@ -32,13 +32,29 @@ import { regleDesEquipes } from '../../../shared/teams'
 import { espacesFines, formatNumber, scoreEtRang } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
+import { Laurier } from '../components/Laurier'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
-import { Celebration, FinDeSoiree } from '../components/FinDeSoiree'
-import { CarteJoueur } from '../components/CarteJoueur'
-import { ATTENTE_MAX_DESSINS, chargerDessins, chargerDessinsAuPlus, complets, porteUnDessin, useDessins } from '../components/medaillons'
+import { ATTENTE_MAX_DESSINS, attendus, chargerDessins, chargerDessinsAuPlus, sortesDe, useDessins } from '../components/medaillons'
 import { Lendemain } from '../components/Lendemain'
 import { useEcranAllume } from '../veille'
 import { useGardeRetour } from '../retour'
+import { aLaDemande, useALaDemande } from '../aLaDemande'
+
+/**
+ * La fin de soirée, sa fête et la carte d'un joueur, à la demande : elles ne
+ * servent qu'une fois dans la salle, et partaient pourtant avec l'écran
+ * d'entrée — celui qu'on attend, QR scanné, en 4G. Elles viennent pendant la
+ * soirée, une fois entré (`precharger`).
+ */
+const finDeSoiree = aLaDemande(() => import('../components/FinDeSoiree'))
+const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
+
+/** Ce qui vient une fois dans la salle, sans rien retarder de ce qu'on y voit. */
+const DELAI_PRECHARGEMENT_MS = 1500
+function precharger() {
+  void finDeSoiree.charger().catch(() => {})
+  void carteJoueur.charger().catch(() => {})
+}
 
 /** Au-delà, on considère la reconnexion perdue plutôt que d'attendre sans fin. */
 const RECONNEXION_TIMEOUT_MS = 5000
@@ -60,6 +76,14 @@ export function PlayerApp() {
    * dans cette réponse-là.
    */
   const [presente, setPresente] = useState(false)
+  /**
+   * Le jeton retenu sur ce téléphone attend la réponse du serveur. Le
+   * premier écran l'attend aussi : un jeton d'une soirée passée — le
+   * téléphone éteint à la clôture, exclu pendant son sommeil — montrait
+   * sinon la salle d'attente d'un invité sans prénom, « 0 pt », avant
+   * l'entrée.
+   */
+  const [jetonEnVol, setJetonEnVol] = useState(false)
   /** Salle d'attente : le panneau « changer d'équipe » est-il ouvert ? */
   const [switching, setSwitching] = useState(false)
   /** Salle d'attente : la parenthèse « créer un profil », entre deux quiz. */
@@ -82,6 +106,13 @@ export function PlayerApp() {
   const [reprise, setReprise] = useState(false)
   /** La carte ouverte, celle du joueur dont on a touché le nom. */
   const [carte, setCarte] = useState<string | null>(null)
+  const laCarte = useALaDemande(carteJoueur, !!carte)
+  // Une carte qui ne viendra plus le dit, plutôt qu'un toucher sans effet.
+  useEffect(() => {
+    if (!carte || laCarte !== 'perdu') return
+    showToast({ kind: 'error', message: 'La carte ne s’ouvre pas : vérifie ta connexion.' })
+    setCarte(null)
+  }, [carte, laCarte])
   /**
    * La dernière réponse envoyée, et ce qu'elle est devenue. Le serveur ne
    * montre une réponse qu'une fois reçue : sans ce suivi, un toucher hors
@@ -109,7 +140,8 @@ export function PlayerApp() {
       // demie au plus — une requête muette le gardait sous « On arrive… »
       // sans limite —, et la reprise par jeton, juste en dessous, n'attend
       // pas : elle part pendant que les dessins arrivent.
-      if (watched.profile?.legendaire) void chargerDessinsAuPlus().then(() => setPresente(true))
+      const sesDessins = sortesDe([watched.profile?.legendaire])
+      if (sesDessins.length > 0) void chargerDessinsAuPlus(sesDessins).then(() => setPresente(true))
       else setPresente(true)
       // Sans jeton, rien à reprendre : c'est l'entrée qui fait entrer —
       // pré-remplie avec le prénom et l'avatar retenus ici, écran d'équipe
@@ -117,6 +149,14 @@ export function PlayerApp() {
       // l'habitué « sans équipe », sans jamais lui montrer cet écran.
       const token = getState().me?.token
       if (!token) return
+      setJetonEnVol(true)
+      try {
+        await representer(token)
+      } finally {
+        setJetonEnVol(false)
+      }
+    }
+    const representer = async (token: string) => {
       // Le jeton seul : la fiche du serveur fait foi. Renvoyer le prénom
       // retenu ici défaisait, à chaque réveil du téléphone, le renommage de
       // l'animateur. Sans équipe transmise, le serveur garde la sienne.
@@ -176,6 +216,15 @@ export function PlayerApp() {
     }
   }, [])
 
+  // Entré dans la salle, le téléphone fait venir la fin de soirée et la
+  // carte d'un joueur, qu'il n'a pas téléchargées avant l'entrée.
+  const entre = !!s.me
+  useEffect(() => {
+    if (!entre) return
+    const minuteur = setTimeout(precharger, DELAI_PRECHARGEMENT_MS)
+    return () => clearTimeout(minuteur)
+  }, [entre])
+
   // Un profil peut en gagner un ce soir, et sa fin de soirée le montrera :
   // ses dessins viennent dès qu'on le connaît (`medaillons.ts`).
   const avecProfil = !!profil
@@ -184,19 +233,28 @@ export function PlayerApp() {
   }, [avecProfil])
 
   // Quelqu'un dans la salle porte un médaillon : ses dessins viennent dès
-  // l'instantané, avant la salle d'attente où l'on verra son nom. Une salle
-  // d'anonymes ne les télécharge jamais — et quand un premier porteur y
-  // arrive, son emoji précède son médaillon, une fois (`Avatar`).
-  const salleDecoree = porteUnDessin(s.snapshot?.players)
-  const dessins = useDessins(salleDecoree)
+  // l'instantané, avant la salle d'attente où l'on verra son nom — ceux de
+  // sa sorte seulement, un légendaire ne fait pas venir les Divins. Une
+  // salle d'anonymes ne les télécharge jamais — et quand un premier porteur
+  // y arrive, son emoji précède son médaillon, une fois (`Avatar`).
+  const sortesDeLaSalle = sortesDe(s.snapshot?.players.map(p => p.legendaire) ?? [])
+  const dessins = useDessins(...sortesDeLaSalle)
   // Un téléphone qui revient en pleine soirée (rechargé, réveillé) tombe
-  // droit sur la salle ou la question : il attend ses dessins sous
-  // « Connexion… », une fois, plutôt que montrer des emojis qui se changent
-  // en médaillons. L'entrée, elle, n'en montre aucun et n'attend pas ; et
-  // après le premier écran, une arrivée ne fait plus rien attendre à personne.
+  // droit sur la salle : il attend ses dessins sous « Connexion… », une
+  // fois, plutôt que montrer des emojis qui se changent en médaillons.
+  // Jamais pendant une question : le chrono du serveur tourne, et le
+  // cosmétique d'un autre lui coûtait jusqu'à 2,5 s de jeu — la question
+  // d'abord, les médaillons dès qu'ils sont là (l'arbitrage du 27 septembre
+  // 2026). L'entrée, elle, n'en montre aucun et n'attend pas ; et après le
+  // premier écran, une arrivée ne fait plus rien attendre à personne.
   const [dejaVu, setDejaVu] = useState(false)
-  const attendreDessins = !dejaVu && !!s.me && salleDecoree && !complets(dessins) && !dessins.echec
-  const affiche = !!s.snapshot && presente && !attendreDessins
+  const enCours = s.snapshot?.session ? (s.views[s.snapshot.session.id]?.view as QuizPlayerView | undefined) : undefined
+  const enPleineQuestion = !!enCours && PHASES_PLEINES.has(enCours.phase)
+  const attendreDessins = !dejaVu && !!s.me && !enPleineQuestion && attendus(dessins, sortesDeLaSalle)
+  // Seul le premier écran attend la reprise du jeton : un téléphone qui se
+  // reconnecte en pleine question garde sa question, sans « Connexion… ».
+  const attendreReprise = !dejaVu && jetonEnVol
+  const affiche = !!s.snapshot && presente && !attendreDessins && !attendreReprise
   useEffect(() => {
     if (affiche) setDejaVu(true)
   }, [affiche])
@@ -301,6 +359,9 @@ export function PlayerApp() {
   const sessionId = session?.id
   useEffect(() => {
     setEnvoi(null)
+    // La carte ouverte en salle d'attente se ferme avec l'arrivée du quiz :
+    // elle se rouvrait toute seule à sa fin, redemandée au serveur.
+    setCarte(null)
   }, [sessionId])
   const iAmIn = !!(s.me && session?.participantIds.includes(s.me.playerId))
   const playing = !!sessionView && iAmIn
@@ -357,7 +418,9 @@ export function PlayerApp() {
 
   // Ce que le dernier podium vient de rapporter, fêté par-dessus l'écran.
   const finirCelebration = useCallback(() => setState({ gain: null }), [])
-  const celebration = s.gain && <Celebration gain={s.gain} onFin={finirCelebration} />
+  const fin = useALaDemande(finDeSoiree, !!s.fin || !!s.gain)
+  // Une fête qui ne viendra plus n'empêche rien : l'écran d'en dessous dit l'essentiel.
+  const celebration = s.gain && fin && fin !== 'perdu' && <fin.Celebration gain={s.gain} onFin={finirCelebration} />
 
   // L'adresse ne mène à rien : on redemande le nom de la soirée sur place.
   // Renvoyer à l'accueil enverrait maintenant sur la page du profil, qui ne
@@ -372,14 +435,18 @@ export function PlayerApp() {
   if (s.fin) {
     return (
       <>
-        <FinDeSoiree
-          fin={s.fin}
-          profil={profil}
-          onSuivante={() => {
-            quitterFin(slug)
-            setGardee(soireeGardee(slug))
-          }}
-        />
+        {fin && fin !== 'perdu' ? (
+          <fin.FinDeSoiree
+            fin={s.fin}
+            profil={profil}
+            onSuivante={() => {
+              quitterFin(slug)
+              setGardee(soireeGardee(slug))
+            }}
+          />
+        ) : (
+          <FinEnChemin perdue={fin === 'perdu'} />
+        )}
         {toast}
       </>
     )
@@ -388,7 +455,7 @@ export function PlayerApp() {
   // Le premier instantané dit comment la soirée s'appelle, et la réponse de la
   // soirée dit si ce téléphone porte un profil : on ne montre pas un écran
   // d'entrée avant de savoir lequel des deux il faut.
-  if (!snap || !presente || attendreDessins) return <AttenteConnexion />
+  if (!snap || !presente || attendreDessins || attendreReprise) return <AttenteConnexion />
 
   // ── L'entrée ─────────────────────────────────────
   if (!s.me) {
@@ -558,6 +625,8 @@ export function PlayerApp() {
                 d'homonymie, son porteur doit la lire sur son propre téléphone
                 plutôt que la découvrir sur le mur. */}
             <span className="me-nom">{me?.nomAffiche ?? me?.name}</span>
+            {/* Son laurier, comme la salle le voit à côté de son prénom. */}
+            <Laurier laurier={me?.laurier} />
             <Niveau niveau={me?.niveau} big />
           </h2>
           <p className="muted">
@@ -637,7 +706,7 @@ export function PlayerApp() {
         <Leaderboard players={snap.players} compact highlightId={s.me.playerId} onOuvrir={setCarte} />
         <p className="muted small">Touche un nom pour voir sa carte.</p>
       </div>
-      {carte && <CarteJoueur slug={slug} playerId={carte} onFermer={() => setCarte(null)} />}
+      {carte && laCarte && laCarte !== 'perdu' && <laCarte.CarteJoueur slug={slug} playerId={carte} onFermer={() => setCarte(null)} />}
 
       <p className="waiting">En attente du prochain quiz…</p>
       {/* Entre deux quiz, relire ses réponses : rien ne menait du téléphone au
@@ -678,6 +747,24 @@ export function PlayerApp() {
       </p>
       {celebration}
       {toast}
+    </div>
+  )
+}
+
+/**
+ * La fin de soirée qui arrive : « Connexion… », comme en attendant la salle.
+ * Si elle ne viendra plus — le réseau, un redéploiement —, la page le dit :
+ * sa place et ses points sont au serveur, et recharger la montre.
+ */
+function FinEnChemin({ perdue }: { perdue: boolean }) {
+  if (!perdue) return <AttenteConnexion />
+  return (
+    <div className="center-page">
+      <p className="serif-note">La fin de soirée n’a pas pu se charger.</p>
+      <p className="muted small">Rien n’est perdu : vérifie ta connexion, puis recharge la page.</p>
+      <button type="button" className="btn btn-primary btn-big" onClick={() => window.location.reload()}>
+        Recharger la page
+      </button>
     </div>
   )
 }
