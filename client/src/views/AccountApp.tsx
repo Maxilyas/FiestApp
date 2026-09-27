@@ -6,7 +6,7 @@ import { LienConsole } from '../components/LienConsole'
 import { ChampNombre } from '../components/ChampNombre'
 import { showToast, useAppState } from '../state'
 import type { SpaceSettings } from '../../../shared/space'
-import type { PublicProfile } from '../../../shared/profil'
+import type { ProfilDeLEspace } from '../../../shared/profil'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 
@@ -168,11 +168,18 @@ export function AccountApp() {
  * côté, l'identifiant et le mot de passe du profil de l'autre. Après quoi
  * une seule des deux portes suffit ; cette première fois-là, non.
  */
-function ProfilLie({ profil, onChange }: { profil: PublicProfile | null; onChange: (p: PublicProfile | null) => void }) {
+function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onChange: (p: ProfilDeLEspace | null) => void }) {
   const [login, setLogin] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  /**
+   * Détacher demande une preuve fraîche : le mot de passe du profil, ou celui
+   * du compte. Une session ne suffisait pas — le téléphone prêté, console
+   * ouverte par le profil, détachait l'animateur et rattachait l'emprunteur.
+   */
+  const [detacher, setDetacher] = useState(false)
+  const [preuve, setPreuve] = useState('')
 
   const lier = async (e: FormEvent) => {
     e.preventDefault()
@@ -205,23 +212,60 @@ function ProfilLie({ profil, onChange }: { profil: PublicProfile | null; onChang
             </p>
           </div>
         </div>
-        <button
-          className="btn btn-ghost btn-small"
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true)
-            try {
-              await api.space.detacherProfil()
-              onChange(null)
-            } catch (err) {
-              setError((err as Error).message)
-            } finally {
-              setBusy(false)
-            }
-          }}
-        >
-          Détacher ce profil
-        </button>
+        {detacher ? (
+          <form
+            className="detacher-profil"
+            onSubmit={async e => {
+              e.preventDefault()
+              setBusy(true)
+              setError('')
+              try {
+                await api.space.detacherProfil(preuve)
+                setPreuve('')
+                setDetacher(false)
+                onChange(null)
+              } catch (err) {
+                setError((err as Error).message)
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            <div className="field">
+              <label className="label" htmlFor="detacher-preuve">
+                Le mot de passe de ce profil — ou celui du compte
+              </label>
+              <input
+                id="detacher-preuve"
+                className="input input-line"
+                type="password"
+                value={preuve}
+                onChange={e => setPreuve(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="row">
+              <button className="btn btn-small" disabled={busy || !preuve}>
+                Détacher
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-small"
+                onClick={() => {
+                  setDetacher(false)
+                  setPreuve('')
+                  setError('')
+                }}
+              >
+                Annuler
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button className="btn btn-ghost btn-small" disabled={busy} onClick={() => setDetacher(true)}>
+            Détacher ce profil
+          </button>
+        )}
         {error && <p className="error">{error}</p>}
       </section>
     )

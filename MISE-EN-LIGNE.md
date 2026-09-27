@@ -225,6 +225,8 @@ L'application sert plusieurs soirées : chaque ami a son compte, son espace et s
 
 **Mot de passe oublié :** il n'y a pas d'e-mail. Sur `/admin`, le bouton **Lien** de son compte refait un lien d'activation ; il choisit un nouveau mot de passe en l'ouvrant. Ses anciens liens ne valent plus rien.
 
+**Et le tien ?** Le bouton **Lien** n'existe pas pour ton propre compte : il changeait ton mot de passe sans demander l'actuel, et n'importe quelle session de ton compte — la télé branchée chez des amis, ton téléphone prêté en soirée — s'en serait servie pour te mettre dehors. Ton mot de passe se change dans **Mon compte**, en donnant l'actuel. Pour ne jamais rester à la porte, **rattache ton profil de joueur à ton espace** (Mon compte → Mon profil joueur) : se connecter à ton profil ouvre ta console, et son **code de secours** — affiché à son inscription — te rend l'accès si tu oublies tout.
+
 **Désactiver un compte** ferme ses sessions et ses écrans communs sur-le-champ ; ses quiz et ses soirées restent, et ses pages publiques restent lisibles. **Réactiver** rouvre la porte ; il se reconnecte avec son mot de passe.
 
 **Supprimer un compte** — le bouton n'apparaît qu'une fois le compte désactivé — efface tout ce qu'il a laissé : quiz, photos, soirées archivées, soirée en cours, sauvegarde distante comprise, et libère son identifiant et son adresse. Sans retour : exporte d'abord ce que tu veux garder de ses soirées, une à une (`npm run export -- https://TON-ADRESSE.onrender.com --slug chez-bob --soiree <id>`, voir « Exporter une soirée », plus bas). Ton propre compte ne se supprime pas.

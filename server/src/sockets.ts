@@ -59,6 +59,8 @@ const MAUVAIS_CODE = 'Ce code ne marche pas — demande-en un nouveau à l’ani
 const TROP_D_ESSAIS = 'Trop d’essais — demande un nouveau code à l’animateur'
 /** L'espace entier a trop manqué cette minute : les codes restent bons, on patiente. */
 const TROP_D_ESSAIS_ICI = 'Trop d’essais ici — réessaie dans une minute'
+/** Ce que la console lit quand les codes faux ferment la minute de l'espace. */
+const CODES_AU_HASARD = 'Des codes faux arrivent en rafale : « Rendre sa place » attend une minute — un code neuf rouvre la porte'
 /** Le jeton d'une soirée qu'on vient de clore : le téléphone montre sa fin de soirée. */
 const SOIREE_CLOSE = 'Cette soirée est close — voici la tienne'
 /**
@@ -525,6 +527,14 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         if (!saisie.ok || !fiche) {
           if (!saisie.ok && saisie.motif === 'trop') return repondre({ ok: false, error: TROP_D_ESSAIS_ICI })
           placeFailures++
+          // La minute de l'espace vient de se fermer. Des codes faux en
+          // rafale — un plaisantin qui connaît l'adresse de la soirée — la
+          // fermaient à toute la salle, et l'animateur ne le savait pas :
+          // l'invité au téléphone mort lisait « Trop d'essais ici » devant
+          // lui. La console le dit, avec ce qu'il y peut.
+          if (!saisie.ok && saisie.plein) {
+            io.to(`hosts:${rt.spaceId}`).emit('toast', { kind: 'error', message: CODES_AU_HASARD })
+          }
           return repondre({ ok: false, error: MAUVAIS_CODE })
         }
         // Revenu entre-temps sur son propre téléphone : deux téléphones pour

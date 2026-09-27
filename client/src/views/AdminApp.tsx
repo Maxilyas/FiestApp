@@ -132,8 +132,10 @@ export function AdminApp() {
                       <div className="row account-actions">
                         {/* Un compte en pause ne reçoit pas de lien : le serveur
                             le refuse, et le proposer laissait croire qu'il
-                            rouvrirait la porte. */}
-                        {a.status !== 'disabled' && (
+                            rouvrirait la porte. Le sien non plus : son mot de
+                            passe se change dans « Mon compte », en donnant
+                            l'actuel. */}
+                        {a.status !== 'disabled' && a.id !== me.account.id && (
                           <button
                             className="btn btn-small"
                             title="Un nouveau lien d'activation — pour un mot de passe oublié"

@@ -86,14 +86,21 @@ export function mountPartages(app: Express, deps: PartagesDeps) {
       if (manquesRecents(spaceId).length >= ESSAIS_PAR_FENETRE) {
         return res.status(429).json({ error: 'Trop de codes essayés : réessaie dans un quart d’heure' })
       }
+      // L'essai compte comme manqué dès qu'il part, et se rend s'il aboutit :
+      // compté après l'attente de la base, il laissait passer d'un coup tous
+      // les essais partis ensemble — quarante codes au lieu de dix.
+      const essai = Date.now()
+      manquesRecents(spaceId).push(essai)
       const code = lireCode(typeof req.body?.code === 'string' ? req.body.code : '')
       const recu = code ? await deps.partages.recevoir(code) : null
       if (recu === null || recu === 'perime') {
-        manquesRecents(spaceId).push(Date.now())
         return recu === 'perime'
           ? res.status(410).json({ error: 'Ce code a expiré ou a été annulé : demande-en un nouveau' })
           : res.status(404).json({ error: 'Ce code ne mène à aucun quiz : vérifie-le, lettre par lettre' })
       }
+      const manques = manquesRecents(spaceId)
+      const i = manques.indexOf(essai)
+      if (i >= 0) manques.splice(i, 1)
       res.status(201).json(await recevoirDans(spaceId, recu))
     }),
   )

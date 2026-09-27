@@ -10,7 +10,7 @@ import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
 import { horsBornesALEnvoi, type MemoireDuQuiz } from '../../shared/library'
-import { accountOf, csrfGuard, requireAccount } from './auth/http'
+import { accountOf, csrfGuard, refuserLesTeles, requireAccount, requireAdmin } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
 import { mountProfileApi } from './auth/profileRoutes'
@@ -75,6 +75,11 @@ export function mountApi(app: Express, deps: ApiDeps) {
   // AVANT de lire le corps : sinon n'importe qui pouvait faire analyser
   // quatre mégaoctets de JSON au serveur sans être connecté.
   app.use('/api', csrfGuard({ online: deps.online, publicOrigin: deps.publicOrigin }))
+  // L'administration, gardée d'un bloc avant toute route : chaque route y
+  // posait son `requireAdmin`, et en retirer un ne faisait rougir aucune
+  // épreuve — n'importe quel animateur aurait masqué un joueur ou lu les
+  // questions à venir du quiz du jour. Jamais depuis une télé branchée.
+  app.use('/api/admin', requireAccount(deps.auth), requireAdmin, refuserLesTeles(deps.auth))
   mountAuthApi(app, { auth: deps.auth, profiles: deps.profiles, online: deps.online, removeAccount: deps.removeAccount, espaceChange: deps.espaceChange })
   // La télé qu'on branche depuis son téléphone, sans rien taper à la télécommande.
   mountAppairage(app, { auth: deps.auth, online: deps.online })

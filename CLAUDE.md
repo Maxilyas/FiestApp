@@ -45,7 +45,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `games/quiz.ts` | **toutes** les règles : phases (l'intertitre, `cible` — la mesure d'une estimation en direct), chronomètres, barème (le temps de lecture offert au QCM, l'estimation payée à la distance, `reponseJuste` pour « plusieurs » et « ordre », tout ou rien), vues — et la place de chacun entre deux questions (`placeAuQuiz`) |
 | `core/space.ts` | la soirée d'un espace : ses registres, ses salons socket, ses diffusions, son nom figé, ses crédits — et la scène des écrans d'animateur (`poserScene` : podium, prix, victoire, clôture), que la télé suit quand on anime à la télécommande |
 | `core/party.ts` | le registre des invités (identité par jeton, rattachement au profil, marques d'homonymie, connexions par socket) |
-| `core/places.ts` | « Rendre sa place » : les codes à usage unique qui rendent sa fiche à un invité dont le téléphone est mort — en mémoire, vite périmés, cinq essais manqués par minute ; jamais pour une fiche à profil, et la reprise renouvelle le jeton |
+| `core/places.ts` | « Rendre sa place » : les codes à usage unique qui rendent sa fiche à un invité dont le téléphone est mort — en mémoire, vite périmés, cinq essais manqués par minute (la console est prévenue quand des codes faux la ferment) ; jamais pour une fiche à profil, et la reprise renouvelle le jeton |
 | `core/scores.ts` | journal des gains, en ajout seul |
 | `core/answers.ts` | une ligne par invité et par question posée, y compris sans réponse |
 | `core/backup.ts` | le miroir de la soirée dans Turso : une file par espace, ordonnée, qui insiste ; la resynchronisation après une panne ; sa santé |
@@ -86,7 +86,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `auth/store.ts` | comptes d'animateurs — c'est-à-dire **des espaces** : `accounts.id` EST le `space_id` |
 | `auth/profiles.ts` | profils de joueurs (autre table, autre cookie) |
 | `auth/profileRoutes.ts` | la porte d'entrée : se connecter à son profil ouvre aussi la console de l'espace rattaché |
-| `auth/http.ts` | cookies, adresse du client, et `loginBudgetOf(app)` : la réserve d'essais commune à toutes les portes |
+| `auth/http.ts` | cookies, adresse du client, et `loginBudgetOf(app)` : la réserve d'essais commune à toutes les portes, où un essai compte comme un échec jusqu'à son jugement ; `refuserLesTeles`, ce qu'une télé branchée ne fait pas |
 | `auth/appairage.ts` | brancher la télé : le code court qu'elle affiche, validé depuis une console ouverte, et la session d'une soirée qu'elle en reçoit ; `/attente` dit `perime` dans une réponse, jamais dans une erreur |
 | `client/src/views/ProfilApp.tsx` | l'accueil (`/`) autant que `/profil` : qui je suis, ce que j'anime, ce que je rejoins (« Ce soir » : une action principale, les autres en petit) — et, sans profil, la porte discrète des animateurs (« J'anime une soirée ») ; puis trois onglets, retenus dans l'adresse (`#trophees`) |
 | `client/src/components/Apparence.tsx` · `Trophees.tsx` · `shared/proches.ts` | les onglets du profil : ce que la salle voit, la grille unique des avatars (emojis, ceux de collection, légendaires, Divins, un anneau pour ce qui est rare, la légende au toucher), la finition, le titre ; la vitrine de la carte, qu'on choisit, le quiz du jour, les hauts faits les plus proches (`lesPlusProches`, dérivation pure), la collection de prix (`CATALOGUE_DES_PRIX`, `core/stats.ts`). Un titre et une vitrine ne sont que des hauts faits gagnés (`hautsFaitsGagnes`), relus à chaque affichage (`titrePorte`, `vitrineChoisie`) : une soirée retirée les emporte |
@@ -227,8 +227,12 @@ server/test/        un fichier par thème, un serveur jetable chacun
     plus de 24 heures (`fin_max`, qui plafonne le glissement), même sans
     avoir décroché : chaque geste relit la session. Pour poser
     le lien, il faut prouver les deux identités ; après, une seule porte
-    suffit. Ne fusionne pas les deux tables : l'identifiant d'un compte est
-    la clé de partition de dix tables et de toutes les archives.
+    suffit. Pour le changer ou le détacher, une preuve fraîche — le mot de
+    passe du profil rattaché, ou celui du compte (`prouver`) —, et jamais
+    depuis une télé branchée (`refuserLesTeles`) : le téléphone prêté y
+    rattachait l'emprunteur, qui gardait la console. Ne fusionne pas les
+    deux tables : l'identifiant d'un compte est la clé de partition de dix
+    tables et de toutes les archives.
 17. **Les homonymes se règlent à l'affichage, jamais à la saisie.** On ne
     refuse personne et on ne renomme personne : `nomsAffiches()` marque
     « Camille (2) » quand le prénom **et** l'avatar sont partagés, et cette
@@ -400,7 +404,13 @@ sans `QUIZ_DB_URL`.
   geste (`remise`, `client/src/remise.ts`) : un double clic ne le remet
   qu'une fois.
 - **`loginBudgetOf(app)`, jamais `new LoginBudget()`** : toutes les portes qui
-  ouvrent une console partagent la même réserve d'essais. Celle des
+  ouvrent une console partagent la même réserve d'essais. Et tout essai
+  qu'`allow(ip, clé)` accepte se juge — `failed`, `succeeded`, ou `abandon`
+  pour une saisie refusée avant le hachage, sorties anticipées comprises :
+  jusque-là il vole, compté comme un échec — lu avant scrypt et compté
+  après, le verrou laissait passer vingt essais partis ensemble. Une
+  session s'ouvre sur le haché qu'on a vérifié (`verifier`) : un
+  changement de mot de passe parti entre-temps la referme. Celle des
   inscriptions d'invités, elle, se compte **par espace**
   (`core/inscriptions.ts`) : commune à tout le serveur, la vague d'une salle
   fermait la porte à la salle voisine derrière la même box.
@@ -560,7 +570,9 @@ sans `QUIZ_DB_URL`.
   relit les clés du calcul.
 - **Une nouvelle commande `host:*`** s'ajoute à la liste de
   `garde-fous.test.ts`, qui vérifie qu'un téléphone ne peut pas la jouer — le
-  typecheck le rappelle.
+  typecheck le rappelle. **Une route d'administration vit sous
+  `/api/admin`** : gardée d'un bloc (`api.ts`, administrateur seul, jamais
+  une télé branchée), elle entre d'elle-même dans `admin-seulement.test.ts`.
 - **`package-lock.json` bouge tout seul** selon la version de npm. Ne le
   committe pas si ce n'est pas le sujet (le hook installe en `--no-save`).
 - **En CSS, `transform` se compose APRÈS `rotate`**, et une animation qui pose

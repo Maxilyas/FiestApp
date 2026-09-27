@@ -2475,9 +2475,10 @@ try {
     'se déconnecter de son profil doit aussi refermer la console qu’il avait ouverte',
   )
 
-  // Détacher rend les deux identités étrangères l'une à l'autre.
+  // Détacher rend les deux identités étrangères l'une à l'autre — avec le
+  // mot de passe du profil en preuve : une session seule ne suffit plus.
   const lRetour = await write(lUrl, '/api/joueur/connexion', { login: 'anim', password: 'motdepasse1' })
-  await write(lUrl, '/api/space/profil', {}, `${jCookie(lRetour)}; ${cookieOf(lRetour)}`, 'DELETE')
+  await write(lUrl, '/api/space/profil', { preuve: 'motdepasse1' }, `${jCookie(lRetour)}; ${cookieOf(lRetour)}`, 'DELETE')
   assert(
     (await write(lUrl, '/api/joueur/console', {}, jCookie(lRetour))).status === 403,
     'un profil détaché n’ouvre plus rien',

@@ -995,9 +995,21 @@ export class ProfileStore {
    * pas même la durée, ne dit si le profil existe.
    */
   async verify(login: unknown, password: string, fallbackHash: string): Promise<ProfileRec | null> {
+    return (await this.verifier(login, password, fallbackHash))?.profil ?? null
+  }
+
+  /**
+   * Comme `verify`, avec le haché qu'on a vérifié : ce qui s'ouvre ensuite
+   * se compare à lui (`profileRoutes.ts`, la connexion). Relu sur le profil
+   * après coup, il était déjà celui d'un changement de mot de passe parti
+   * entre-temps.
+   */
+  async verifier(login: unknown, password: string, fallbackHash: string): Promise<{ profil: ProfileRec; hachage: string } | null> {
     const found = await this.byLogin(login)
-    const ok = await verifyPassword(password, found?.passwordHash ?? fallbackHash)
-    return found && ok ? found : null
+    const hachage = found?.passwordHash
+    const ok = await verifyPassword(password, hachage ?? fallbackHash)
+    // Changé pendant que scrypt tournait : l'ancien mot de passe ne vaut plus rien.
+    return found && hachage && ok && found.passwordHash === hachage ? { profil: found, hachage } : null
   }
 
   async setPassword(id: string, password: string): Promise<void> {
@@ -1013,15 +1025,21 @@ export class ProfileStore {
   /** Réinitialise par le code de secours. Le code est consommé : on en rend un neuf. */
   async useRecovery(login: unknown, code: unknown, password: string, fallbackHash: string): Promise<string | null> {
     const found = await this.byLogin(login)
-    const ok = await verifyPassword(normalizeRecovery(code), found?.recoveryHash ?? fallbackHash)
+    const verifie = found?.recoveryHash
+    const ok = await verifyPassword(normalizeRecovery(code), verifie ?? fallbackHash)
     if (!found || !ok) return null
     const recovery = newRecoveryCode()
     const passwordHash = await hashPassword(password)
     const recoveryHash = await hashPassword(normalizeRecovery(recovery))
-    await this.client.execute({
-      sql: 'UPDATE profiles SET password_hash = ?, recovery_hash = ? WHERE id = ?',
-      args: [passwordHash, recoveryHash, found.id],
+    // Seulement si le code vérifié est encore celui de la base : deux
+    // demandes parties ensemble — deux onglets, un envoi rejoué — passaient
+    // toutes deux la vérification, et chacune montrait un code neuf ; seul le
+    // dernier écrit valait, et l'autre écran faisait noter un code mort.
+    const ecrit = await this.client.execute({
+      sql: 'UPDATE profiles SET password_hash = ?, recovery_hash = ? WHERE id = ? AND recovery_hash = ?',
+      args: [passwordHash, recoveryHash, found.id, verifie ?? null],
     })
+    if (ecrit.rowsAffected === 0) return null
     found.passwordHash = passwordHash
     found.recoveryHash = recoveryHash
     // Un mot de passe changé ferme les sessions ouvertes ailleurs.

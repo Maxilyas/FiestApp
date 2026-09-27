@@ -690,6 +690,14 @@ export interface PublicProfile {
   laurier?: boolean
 }
 
+/**
+ * Le profil qui tient un espace, tel que « Mon compte » le montre — et rien
+ * de plus : toute session du compte lit cette page, la télé branchée chez un
+ * tiers comprise, et le profil au complet y portait le récit de ses Divins
+ * (invariant 21).
+ */
+export type ProfilDeLEspace = Pick<PublicProfile, 'login' | 'name' | 'avatar' | 'finition' | 'eclats' | 'legendaire' | 'niveau'>
+
 /** Une soirée jouée, telle que la page profil la relit. */
 export interface SoireeJouee {
   soireeId: string

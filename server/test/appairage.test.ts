@@ -132,8 +132,9 @@ test('la télé hérite de la porte qui l’a validée : ouverte au profil, elle
     const coupe = new Promise(r => ecran.once('disconnect', r))
 
     // Le profil détache l'espace : ce qu'il avait ouvert se ferme, la télé
-    // qu'il avait branchée comprise ; celle du compte tient.
-    assert.equal((await ecrire(banc.url, '/api/space/profil', {}, compte, 'DELETE')).status, 200)
+    // qu'il avait branchée comprise ; celle du compte tient. Détacher demande
+    // une preuve fraîche (`emprunts.test.ts`) : le mot de passe du compte.
+    assert.equal((await ecrire(banc.url, '/api/space/profil', { preuve: ADMIN.password }, compte, 'DELETE')).status, 200)
     assert.equal(await ouverte(banc, teleDuProfil), false, 'la télé branchée par le profil se ferme')
     await coupe
     assert.equal(await ouverte(banc, teleDuCompte), true, 'celle branchée par le compte tient')

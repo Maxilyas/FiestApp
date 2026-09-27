@@ -5,7 +5,7 @@ import type { ReglagesDuQuiz } from '../../shared/hasard'
 import type { EntreeDeProgramme, Programme } from '../../shared/programme'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
-import type { FinitionChoisie, PublicProfile, PublicProfileDetail } from '../../shared/profil'
+import type { FinitionChoisie, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, RevelationDuJour } from '../../shared/jour'
@@ -126,7 +126,8 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 export interface Me {
   account: PublicAccount
   space: PublicSpace
-  profil?: PublicProfile | null
+  /** Le profil qui tient l'espace, tel que « Mon compte » le montre. */
+  profil?: ProfilDeLEspace | null
 }
 
 /** Un lien d'activation : le jeton et sa date limite. */
@@ -330,11 +331,13 @@ export const api = {
       req<{ space: PublicSpace }>('/api/space/settings', { method: 'PUT', body: JSON.stringify(settings) }),
     /** Rattache son profil joueur à son espace : il faut prouver les deux. */
     lierProfil: (login: string, password: string) =>
-      req<{ profil: PublicProfile }>('/api/space/profil', {
+      req<{ profil: ProfilDeLEspace }>('/api/space/profil', {
         method: 'POST',
         body: JSON.stringify({ login, password }),
       }),
-    detacherProfil: () => req<{ profil: null }>('/api/space/profil', { method: 'DELETE' }),
+    /** `preuve` : le mot de passe du profil rattaché, ou celui du compte. */
+    detacherProfil: (preuve: string) =>
+      req<{ profil: null }>('/api/space/profil', { method: 'DELETE', body: JSON.stringify({ preuve }) }),
   },
   /** Réservé à l'administrateur : les comptes des autres animateurs. */
   admin: {
