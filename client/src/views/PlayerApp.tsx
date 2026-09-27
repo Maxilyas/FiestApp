@@ -76,6 +76,14 @@ export function PlayerApp() {
    * dans cette réponse-là.
    */
   const [presente, setPresente] = useState(false)
+  /**
+   * Le jeton retenu sur ce téléphone attend la réponse du serveur. Le
+   * premier écran l'attend aussi : un jeton d'une soirée passée — le
+   * téléphone éteint à la clôture, exclu pendant son sommeil — montrait
+   * sinon la salle d'attente d'un invité sans prénom, « 0 pt », avant
+   * l'entrée.
+   */
+  const [jetonEnVol, setJetonEnVol] = useState(false)
   /** Salle d'attente : le panneau « changer d'équipe » est-il ouvert ? */
   const [switching, setSwitching] = useState(false)
   /** Salle d'attente : la parenthèse « créer un profil », entre deux quiz. */
@@ -141,6 +149,14 @@ export function PlayerApp() {
       // l'habitué « sans équipe », sans jamais lui montrer cet écran.
       const token = getState().me?.token
       if (!token) return
+      setJetonEnVol(true)
+      try {
+        await representer(token)
+      } finally {
+        setJetonEnVol(false)
+      }
+    }
+    const representer = async (token: string) => {
       // Le jeton seul : la fiche du serveur fait foi. Renvoyer le prénom
       // retenu ici défaisait, à chaque réveil du téléphone, le renommage de
       // l'animateur. Sans équipe transmise, le serveur garde la sienne.
@@ -230,7 +246,10 @@ export function PlayerApp() {
   // après le premier écran, une arrivée ne fait plus rien attendre à personne.
   const [dejaVu, setDejaVu] = useState(false)
   const attendreDessins = !dejaVu && !!s.me && attendus(dessins, sortesDeLaSalle)
-  const affiche = !!s.snapshot && presente && !attendreDessins
+  // Seul le premier écran attend la reprise du jeton : un téléphone qui se
+  // reconnecte en pleine question garde sa question, sans « Connexion… ».
+  const attendreReprise = !dejaVu && jetonEnVol
+  const affiche = !!s.snapshot && presente && !attendreDessins && !attendreReprise
   useEffect(() => {
     if (affiche) setDejaVu(true)
   }, [affiche])
@@ -335,6 +354,9 @@ export function PlayerApp() {
   const sessionId = session?.id
   useEffect(() => {
     setEnvoi(null)
+    // La carte ouverte en salle d'attente se ferme avec l'arrivée du quiz :
+    // elle se rouvrait toute seule à sa fin, redemandée au serveur.
+    setCarte(null)
   }, [sessionId])
   const iAmIn = !!(s.me && session?.participantIds.includes(s.me.playerId))
   const playing = !!sessionView && iAmIn
@@ -428,7 +450,7 @@ export function PlayerApp() {
   // Le premier instantané dit comment la soirée s'appelle, et la réponse de la
   // soirée dit si ce téléphone porte un profil : on ne montre pas un écran
   // d'entrée avant de savoir lequel des deux il faut.
-  if (!snap || !presente || attendreDessins) return <AttenteConnexion />
+  if (!snap || !presente || attendreDessins || attendreReprise) return <AttenteConnexion />
 
   // ── L'entrée ─────────────────────────────────────
   if (!s.me) {

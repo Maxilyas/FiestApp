@@ -77,6 +77,9 @@ function adresseCoupable(url: string) {
   )
 }
 
+/** Ce que « Clore la soirée » attend du titre déjà rangé avant d'ouvrir sa boîte. */
+const ATTENTE_DU_TITRE_MS = 3000
+
 /** De quoi baptiser six équipes sans réfléchir, dans l'ambiance de la soirée. */
 // Tous antérieurs à Unicode 13 : les emojis récents (boule à facettes,
 // visage pointillé…) s'affichent en carré vide sur Windows 10.
@@ -759,8 +762,10 @@ export function HostApp() {
    * sauvegardé d'abord. Une soirée d'essai, elle, s'efface sans rien garder.
    */
   const clore = async () => {
-    // Le titre sous lequel la soirée est déjà rangée, s'il y en a un.
-    const rangee = await fetch(dataUrl(slug, 'soirees.json'))
+    // Le titre sous lequel la soirée est déjà rangée, s'il y en a un — trois
+    // secondes au plus : une liaison gelée retenait la boîte sans fin, et
+    // l'animateur retouchait « Clore ». Sans réponse, le titre du jour.
+    const rangee = await fetch(dataUrl(slug, 'soirees.json'), { signal: AbortSignal.timeout(ATTENTE_DU_TITRE_MS) })
       .then(r => (r.ok ? (r.json() as Promise<ArchiveList>) : null))
       .then(l => l?.current?.title)
       .catch(() => undefined)

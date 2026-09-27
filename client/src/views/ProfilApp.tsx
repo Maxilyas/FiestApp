@@ -436,7 +436,16 @@ export function ProfilApp() {
         <button
           className="btn btn-ghost"
           onClick={async () => {
-            await api.joueur.deconnexion().catch(() => {})
+            setErreur('')
+            // Tant que le serveur n'a pas fermé la session, le profil reste
+            // ouvert et la page le dit : la requête perdue montrait le
+            // formulaire de connexion, sans un mot, et le téléphone prêté
+            // rouvrait le profil de son propriétaire au rechargement.
+            try {
+              await api.joueur.deconnexion()
+            } catch (e) {
+              return setErreur(motifDe(e))
+            }
             retenirProfil(false)
             setProfil(null)
           }}

@@ -10,6 +10,7 @@ import { formatDay } from '../../../shared/archive'
 import { normalizeSlug, type PublicAccount } from '../../../shared/space'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../../shared/partage'
 import type { QuizQuestionDef } from '../../../shared/library'
+import { copierTexte } from '../copier'
 
 /**
  * Les comptes (`/admin`), pour l'administrateur seul : créer le compte d'un
@@ -55,10 +56,18 @@ export function AdminApp() {
       input: { value: link },
       confirmLabel: 'Copier le lien',
     })
-    if (value) {
-      await navigator.clipboard.writeText(link).catch(() => {})
-      showToast({ kind: 'info', message: 'Lien copié' })
-    }
+    if (!value) return
+    // Hors https — le repli local —, le presse-papiers moderne n'existe pas :
+    // l'appel levait avant son `.catch`, et la boîte se fermait sans copie ni
+    // un mot. `copierTexte` passe par l'ancienne commande ; si le navigateur
+    // refuse encore, le lien revient à l'écran, à copier à la main.
+    if (await copierTexte(link)) return showToast({ kind: 'info', message: 'Lien copié' })
+    await promptDialog({
+      title: `Le lien d'activation ${deNom(account.name)}`,
+      message: 'Le navigateur n’a pas voulu le copier : sélectionne-le, puis copie-le à la main.',
+      input: { value: link },
+      confirmLabel: 'Fermer',
+    })
   }
 
   if (error) {

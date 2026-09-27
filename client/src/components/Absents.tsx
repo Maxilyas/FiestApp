@@ -36,6 +36,15 @@ const lisible = (code: string) => `${code.slice(0, 3)} ${code.slice(3)}`
  * Fermé par défaut, sous un bouton : la console est projetée, et la salle
  * n'a pas à lire qui traîne tant que l'animateur ne l'a pas demandé.
  */
+/**
+ * Les codes encore valables — les mêmes, s'il n'y a rien à retirer : un
+ * objet neuf redessinerait le panneau pour rien.
+ */
+export function sansPerimes<C extends { expiresAt: number }>(codes: Record<string, C>, maintenant: number): Record<string, C> {
+  const valables = Object.entries(codes).filter(([, code]) => code.expiresAt > maintenant)
+  return valables.length === Object.keys(codes).length ? codes : Object.fromEntries(valables)
+}
+
 export function Absents({ players, quiz, sendCommand }: Props) {
   const [ouvert, setOuvert] = useState(false)
   /**
@@ -48,10 +57,15 @@ export function Absents({ players, quiz, sendCommand }: Props) {
   const [, setTic] = useState(0)
 
   // Un code périmé s'efface de lui-même : affiché, il ferait taper en vain.
+  // Il quitte aussi la liste — gardé, il laissait le minuteur redessiner le
+  // panneau toutes les cinq secondes jusqu'à la fin de la soirée.
   const enCours = Object.values(codes).length > 0
   useEffect(() => {
     if (!enCours) return
-    const t = setInterval(() => setTic(n => n + 1), 5000)
+    const t = setInterval(() => {
+      setTic(n => n + 1)
+      setCodes(c => sansPerimes(c, serverNow()))
+    }, 5000)
     return () => clearInterval(t)
   }, [enCours])
 
