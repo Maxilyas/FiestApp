@@ -2,7 +2,7 @@ import type { Finition } from '../../../shared/profil'
 import { legendaire as legendaireDe } from '../../../shared/legendaires'
 import { divin as divinDe } from '../../../shared/divins'
 import { portrait as portraitDe } from '../../../shared/branches'
-import { dessinDuPortrait, sortesDe, useDessins } from './medaillons'
+import { dessinDuPortrait, lumineuse, sortesDe, sortesDesAvatars, useDessins } from './medaillons'
 
 interface Props {
   /** L'emoji — il ne change jamais : Alice reste le renard. */
@@ -37,6 +37,11 @@ interface Props {
  * Un portrait des branches (`Portrait.tsx`) se porte comme un légendaire :
  * la finition devient son cercle, l'Éclat son ciel rare.
  *
+ * Les trois dernières finitions — Prisme, Aurore, Constellation — ont en
+ * plus leur lumière (`Lumiere.tsx`), autour de l'emoji comme du médaillon :
+ * le Diamant, les Voiles, l'Astrolabe. Elle arrive à la demande, comme les
+ * dessins ; en l'attendant, l'emoji garde son halo d'avant.
+ *
  * Un invité anonyme n'a ni finition ni éclat : il rend exactement ce que la
  * page rendait avant, un emoji et rien d'autre.
  *
@@ -52,10 +57,12 @@ export function Avatar({ avatar, finition, eclat, legendaire, className }: Props
   const divin = legendaire && divinDe(legendaire) ? legendaire : null
   const porte = !divin && legendaire && legendaireDe(legendaire) ? legendaire : null
   const tete = legendaire && portraitDe(legendaire) ? legendaire : null
-  const dessins = useDessins(...sortesDe([divin ?? porte ?? tete]))
-  const { Legendaire, Divin, Portrait } = dessins
+  const dessins = useDessins(...sortesDesAvatars([{ legendaire, finition }]))
+  const { Legendaire, Divin, Portrait, Lumiere } = dessins
   // Son portrait, s'il est arrivé : l'emoji tient la place en attendant.
   const portrait = tete && Portrait && dessinDuPortrait(dessins, tete) ? tete : null
+  // La lumière de sa finition, si elle est arrivée — jamais sous un Divin, qui a la sienne.
+  const lumiere = !divin && Lumiere ? lumineuse(finition) : null
   const classes = ['av']
   if (className) classes.push(className)
   if (divin) {
@@ -71,19 +78,29 @@ export function Avatar({ avatar, finition, eclat, legendaire, className }: Props
     if (finition && finition !== 'mat') classes.push(`av-${finition}`)
     if (eclat) classes.push('av-eclat')
   }
+  if (lumiere) classes.push('av-lumiere')
+  const dedans = (
+    <span className="av-emoji">
+      {divin && Divin ? (
+        <Divin cle={divin} />
+      ) : porte && Legendaire ? (
+        <Legendaire cle={porte} finition={finition} eclat={eclat} />
+      ) : portrait && Portrait ? (
+        <Portrait cle={portrait} finition={finition} eclat={eclat} />
+      ) : (
+        avatar
+      )}
+    </span>
+  )
   return (
     <span className={classes.join(' ')}>
-      <span className="av-emoji">
-        {divin && Divin ? (
-          <Divin cle={divin} />
-        ) : porte && Legendaire ? (
-          <Legendaire cle={porte} finition={finition} eclat={eclat} />
-        ) : portrait && Portrait ? (
-          <Portrait cle={portrait} finition={finition} eclat={eclat} />
-        ) : (
-          avatar
-        )}
-      </span>
+      {lumiere && Lumiere ? (
+        <Lumiere finition={lumiere} medaillon={!!((porte && Legendaire) || portrait)}>
+          {dedans}
+        </Lumiere>
+      ) : (
+        dedans
+      )}
     </span>
   )
 }

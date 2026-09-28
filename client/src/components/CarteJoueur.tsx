@@ -6,7 +6,7 @@ import { divin } from '../../../shared/divins'
 import { ceQuIlAFallu, hautFait } from '../../../shared/hautsfaits'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
-import { chargerDessinsAuPlus, complets, sortesDe, useDessins } from './medaillons'
+import { chargerDessinsAuPlus, complets, sortesDesAvatars, useDessins } from './medaillons'
 import { Chiffres, justesses } from './Chiffres'
 import { Flamme, Icon } from './Icon'
 import { Niveau } from './Niveau'
@@ -53,10 +53,12 @@ export function CarteJoueur({
       )
       // Une carte à médaillons attend leurs dessins sous son « Chargement… » :
       // ouverte avant, elle montrerait des cercles vides qui se remplissent.
+      // La lumière de sa finition aussi : elle s'allumerait après coup.
       // Deux secondes et demie au plus : une requête muette ne garde pas la
       // carte fermée, elle s'ouvre sans ses galeries.
       .then(async (c: CarteDeJoueur) => {
-        await chargerDessinsAuPlus(sortesDe([c.legendaire, ...(c.profil?.legendaires ?? []), ...(c.profil?.divins ?? [])]))
+        const galeries = [...(c.profil?.legendaires ?? []), ...(c.profil?.divins ?? [])].map(legendaire => ({ legendaire }))
+        await chargerDessinsAuPlus(sortesDesAvatars([c, ...galeries]))
         return c
       })
       .then(c => vivant && setCarte(c))

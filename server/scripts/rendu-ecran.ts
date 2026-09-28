@@ -32,7 +32,7 @@ import {
 } from '../test/banc'
 import { jourAvant, jourDe } from '../../shared/jour'
 import { brancheDe, portrait } from '../../shared/branches'
-import { gainVide, releveVide, totalGain } from '../../shared/profil'
+import { gainVide, releveVide, totalGain, xpDuNiveau } from '../../shared/profil'
 import { VERSION_BAREME } from '../src/auth/profiles'
 
 const sortie = path.resolve(process.argv[2] ?? 'rendu')
@@ -91,6 +91,43 @@ const packId = await creerQuiz(
   'Le pire cas',
 )
 
+const prenoms = ['Marie-Charlotte de La Rochefoucauld', 'Léo', 'Zoé', 'Camille', 'Camille', 'Jean-Baptiste', 'Ophélie', 'Bo', 'François-Xavier', 'Kévin']
+// Les invités, inscrits avant que la salle n'ouvre : le serveur redémarre
+// ci-dessous pour lire leurs niveaux.
+const convives: { nom: string; avatar: string; profil?: string }[] = []
+for (const [i, nom] of prenoms.entries()) {
+  // Ophélie et Bo sont anonymes : 🐝 et 🐢, emojis de collection réservés
+  // aux profils, leur étaient refusés, et chaque capture du pire cas les
+  // montrait en 🎉. Ils prennent ceux de l'inscription.
+  const avatar = ['🦊', '🐼', '🐸', '🐙', '🐙', '🦁', '🦄', '🐨', '🦉', '🐧'][i]
+  // Les six premiers ont un profil : c'est à eux que la clôture remet ses
+  // hauts faits et ses niveaux.
+  const profil = i < 6 ? await inscrireProfil(url, `joueur${i}`, nom, avatar) : undefined
+  convives.push({ nom, avatar, profil })
+}
+
+/**
+ * Les finitions qui débordent le plus — la lumière des niveaux 15, 20 et
+ * 25 (`Lumiere.tsx`) —, autour d'un portrait comme d'un emoji : le
+ * vainqueur en Astrolabe, puis les Voiles et le Diamant, et Holo pour
+ * comparer. Le niveau s'écrit sur la ligne du quiz du jour, que le
+ * démarrage ne relit pas ; le serveur, redémarré, le lit avant que
+ * personne n'arrive.
+ */
+const NIVEAUX: Record<number, number> = { 0: 25, 1: 20, 2: 15, 3: 25, 4: 15, 5: 10 }
+{
+  const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  for (const [i, niveau] of Object.entries(NIVEAUX)) {
+    const id = (base.prepare('SELECT id FROM profiles WHERE login = ?').get(`joueur${i}`) as { id: string }).id
+    base
+      .prepare(`INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, '#jour', '', ?, ?, 1)`)
+      .run(id, xpDuNiveau(niveau), JSON.stringify({ v: VERSION_BAREME, jours: 1 }))
+    base.prepare('UPDATE profiles SET xp = ? WHERE id = ?').run(xpDuNiveau(niveau), id)
+  }
+  base.close()
+  await banc.redemarrer()
+}
+
 const host = await ecranCommun(url, cookie)
 for (const [name, emoji] of [
   ['Les Flamants', '🦩'],
@@ -127,16 +164,8 @@ async function porterUnPortrait(login: string, profil: string, cle: string) {
   if (!r.ok) throw new Error(`${login} ne porte pas ${cle} (${r.status})`)
 }
 
-const prenoms = ['Marie-Charlotte de La Rochefoucauld', 'Léo', 'Zoé', 'Camille', 'Camille', 'Jean-Baptiste', 'Ophélie', 'Bo', 'François-Xavier', 'Kévin']
 const invites: Invite[] = []
-for (const [i, nom] of prenoms.entries()) {
-  // Ophélie et Bo sont anonymes : 🐝 et 🐢, emojis de collection réservés
-  // aux profils, leur étaient refusés, et chaque capture du pire cas les
-  // montrait en 🎉. Ils prennent ceux de l'inscription.
-  const avatar = ['🦊', '🐼', '🐸', '🐙', '🐙', '🦁', '🦄', '🐨', '🦉', '🐧'][i]
-  // Les six premiers ont un profil : c'est à eux que la clôture remet ses
-  // hauts faits et ses niveaux.
-  const profil = i < 6 ? await inscrireProfil(url, `joueur${i}`, nom, avatar) : undefined
+for (const [i, { nom, avatar, profil }] of convives.entries()) {
   if (profil && PORTRAITS_PORTES[i]) await porterUnPortrait(`joueur${i}`, profil, PORTRAITS_PORTES[i])
   const inv = await invite(url, nom, avatar, { cookie: profil })
   invites.push(inv)
