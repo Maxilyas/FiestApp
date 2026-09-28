@@ -41,10 +41,13 @@ import { lienBilan } from './Lendemain'
 export function FinDeSoiree({
   fin,
   profil,
+  suivante = false,
   onSuivante,
 }: {
   fin: Fin
   profil: PublicProfile | null
+  /** La soirée suivante a commencé dans l'espace (`suivanteCommencee`) : de quoi la rejoindre. */
+  suivante?: boolean
   onSuivante: () => void
 }) {
   const [porte, setPorte] = useState<string | null>(profil?.legendaire ?? null)
@@ -70,6 +73,22 @@ export function FinDeSoiree({
         <span className="label">Fin de la soirée</span>
         <h1>{fin.soiree.titre}</h1>
       </header>
+
+      {/* La soirée suivante ne se propose qu'une fois commencée — un invité
+          inscrit, un quiz lancé —, et en haut, sans défiler. « Rejoindre la
+          soirée suivante », toujours au pied de la fin, menait à une soirée
+          qui n'existait pas encore, et c'était le seul geste pour quitter la
+          fin (le propriétaire du dépôt, le 28 septembre 2026). */}
+      {suivante && (
+        <div className="card notice fin-suivante" role="status">
+          <span id="fin-suivante">La soirée suivante commence</span>
+          {/* Son nom reste celui qu'on lit — la commande vocale le trouve —,
+              et sa phrase le décrit, hors d'elle aussi. */}
+          <button type="button" className="btn btn-primary btn-small" aria-describedby="fin-suivante" onClick={onSuivante}>
+            La rejoindre
+          </button>
+        </div>
+      )}
 
       <section className="card fin-moi">
         <Avatar
@@ -281,11 +300,11 @@ export function FinDeSoiree({
         </section>
       )}
 
-      {/* Relire sa soirée d'abord : le bouton doré menait à la soirée
-          suivante, qui n'existe pas encore — et celui qui revenait « voir les
-          résultats » y entrait. « Mon bilan » s'ouvre sur lui, sans « Qui
-          es-tu ? ». La suivante reste là, en retrait (README, « Entre deux
-          soirées »). Les liens s'ouvrent dans cet onglet : la fin est gardée
+      {/* Relire sa soirée d'abord : « Mon bilan » s'ouvre sur lui, sans « Qui
+          es-tu ? ». La soirée suivante n'a plus de bouton ici : il menait à
+          une soirée qui n'existait pas encore, et celui qui revenait « voir
+          les résultats » y entrait — elle se propose en haut, une fois
+          commencée. Les liens s'ouvrent dans cet onglet : la fin est gardée
           sur le téléphone, le retour du navigateur la retrouve. */}
       <div className="fin-actions">
         {fin.joueurId && (
@@ -301,9 +320,6 @@ export function FinDeSoiree({
           <Icon name="book" />
           Revoir la soirée
         </a>
-        <button className="btn btn-ghost" onClick={onSuivante}>
-          Rejoindre la soirée suivante
-        </button>
         {profil ? (
           <a className="btn btn-ghost" href="/profil">
             Mon profil

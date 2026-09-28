@@ -3,11 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { joinAsPlayer, reprendrePlace, sendPlayerAction, setMyTeam, socket, watchParty } from '../socket'
 import {
   finRouverte,
-  garderFin,
   garderSoireeClose,
   getState,
   oublierIdentite,
+  premierEcranMontre,
   quitterFin,
+  recevoirFinRendue,
   saveChoix,
   saveMe,
   setState,
@@ -15,6 +16,7 @@ import {
   soireeGardee,
   useAppState,
 } from '../state'
+import { suivanteCommencee } from '../../../shared/fin'
 import { currentSlug, spacePath } from '../routes'
 import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
@@ -176,14 +178,14 @@ export function PlayerApp() {
             setGardee(soireeGardee(slug))
           }
         }
-        // La soirée s'est close pendant que le téléphone dormait : il reçoit
-        // sa fin de soirée, comme s'il avait été là.
+        // La soirée s'est close pendant que le téléphone dormait : réveillé
+        // ici, il reçoit sa fin de soirée, comme s'il avait été là ; arrivé
+        // pour jouer la suivante, l'entrée, et sa soirée en une ligne.
         if (ack.reason === 'soiree-close') {
-          oublierIdentite(slug)
           if (ack.fin) {
-            garderFin(slug, ack.fin)
-            setState({ fin: ack.fin })
-          }
+            recevoirFinRendue(slug, ack.fin)
+            setGardee(soireeGardee(slug))
+          } else oublierIdentite(slug)
         }
         return
       }
@@ -256,7 +258,11 @@ export function PlayerApp() {
   const attendreReprise = !dejaVu && jetonEnVol
   const affiche = !!s.snapshot && presente && !attendreDessins && !attendreReprise
   useEffect(() => {
-    if (affiche) setDejaVu(true)
+    if (!affiche) return
+    setDejaVu(true)
+    // Le téléphone est dans la soirée : un jeton refusé désormais est celui
+    // d'un téléphone qui dormait ici pendant la clôture (`recevoirFinRendue`).
+    premierEcranMontre()
   }, [affiche])
   // Une requête de dessins qui ne répond pas n'y garde personne : passé deux
   // secondes et demie, la page s'affiche avec les emojis.
@@ -427,10 +433,10 @@ export function PlayerApp() {
   // répond pas à la question que se pose celui qui s'est trompé d'adresse.
   if (spaceError) return <FormulaireSoiree perdu={slug} onCancel={() => window.location.assign('/')} />
 
-  // La soirée est close : sa fin, jusqu'à ce qu'on passe à la suivante. Une
-  // fin rouverte depuis le téléphone attend de savoir où en est l'espace :
-  // l'invité qui rescanne le QR pour une deuxième soirée le même soir
-  // retombait sur l'ancienne fin.
+  // La soirée est close : sa fin, jusqu'à ce qu'on passe à la suivante — que
+  // la fin ne propose qu'une fois commencée. Une fin rouverte depuis le
+  // téléphone attend de savoir où en est l'espace : l'invité qui recharge la
+  // page pendant la deuxième soirée du soir retombait sur l'ancienne fin.
   if (s.fin && finRouverte() && !snap) return <AttenteConnexion />
   if (s.fin) {
     return (
@@ -439,6 +445,7 @@ export function PlayerApp() {
           <fin.FinDeSoiree
             fin={s.fin}
             profil={profil}
+            suivante={suivanteCommencee(snap)}
             onSuivante={() => {
               quitterFin(slug)
               setGardee(soireeGardee(slug))

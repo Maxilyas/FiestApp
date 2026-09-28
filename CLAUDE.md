@@ -58,8 +58,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `core/hautsfaits.ts` | les hauts faits d'une soirée, invité par invité — dérivation pure, jouée à la clôture et sur les archives |
 | `core/recalcul.ts` | au démarrage, relit l'historique au barème du jour (`VERSION_BAREME`) : expérience, prix, hauts faits, paliers |
 | `shared/hautsfaits.ts` `shared/legendaires.ts` | le catalogue des hauts faits (soirée, carrière en trois paliers) et les avatars légendaires qui s'en débloquent — sur la durée : une vingtaine de quiz au premier qui en décroche un ; le Sphinx, treizième, au quiz du jour, par l'une de ses deux voies (`aussi`), et trois de saison (`saison`) — un légendaire de plus ne reprend rien à personne : ce qu'il change aux Divins se lit dans `core/divins.ts`, et nulle part ailleurs (invariant 21) ; et la rareté mesurée de chaque haut fait (`PART_DES_JOUEURS`), qui choisit les trois plus beaux de la carte (`plusBeaux`) |
-| `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) |
-| `shared/liens.ts` · `client/src/components/Lendemain.tsx` | les liens d'une soirée close, à l'adresse de son archive (`/<espace>/souvenir` change de soirée à la suivante) ; et « La dernière soirée », que le téléphone garde (`garderFin`, `client/src/state.ts`) pour l'entrée et l'accueil |
+| `shared/fin.ts` | ce que la soirée annonce : au podium d'un quiz, à la clôture — au téléphone (`soiree:fin`) et à la salle (`soiree:cloture`) ; la soirée suivante, que la fin ne propose qu'une fois commencée — un invité inscrit, un quiz lancé (`suivanteCommencee`) |
+| `shared/liens.ts` · `client/src/components/Lendemain.tsx` | les liens d'une soirée close, à l'adresse de son archive (`/<espace>/souvenir` change de soirée à la suivante) ; et « La dernière soirée », que le téléphone garde (`garderFin`, `client/src/state.ts`) pour l'entrée et l'accueil — sa fin ne se rouvre qu'au retour sur la page, rechargement ou retour du navigateur, jamais à une arrivée (`estUnRetour`) : un lien, le QR, « Jouer depuis cet appareil » ouvrent l'entrée (`entre-deux-soirees.test.ts`) |
 | `shared/carte.ts` · `core/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) — et la sienne, depuis sa page (« Voir ma carte », `/api/joueur/carte`, sans « ce soir ») : son titre, sa vitrine — celle qu'il a choisie, sinon ses trois plus beaux hauts faits —, ses trois écussons les plus hauts, sa collection de prix, son quiz du jour en une ligne. La moitié profil se calcule une fois pour les deux (`profilDeCarte`) |
 | `shared/saisons.ts` · `core/saisons.ts` | les saisons (Halloween, Noël, le Nouvel An, à la date de Paris — `periodeDu`) et leur légendaire : quelques jours de quiz du jour dans la période (`JourStore.accorderSaison`), ou une soirée qui compte ces jours-là, datée à sa première question (`laureatsDeSaison`, à la clôture comme au recalcul) ; rangées `saison:…`, hors de l'étagère et du compte des badges |
 | `shared/fonds.ts` | les fonds de carte (nuit étoilée, aurore boréale, kintsugi, grand théâtre) : ce qu'on voit derrière sa carte, rien ailleurs ; ceux qu'il a gagnés (`fondsOuverts`), celui qu'il porte relu à chaque affichage (`fondPorte`), comme un titre. Le décor tient au cadre de la carte (`.carte-fond`), son contenu défile par-dessus (`.carte-defile`) |
@@ -170,7 +170,9 @@ server/test/        un fichier par thème, un serveur jetable chacun
    jeton qui ne désigne plus personne (exclu, essai effacé) est refusé
    (`unknown-token`), **jamais recréé** : le téléphone repasse par l'entrée,
    pré-remplie. Celui d'une soirée qu'on vient de clore reçoit sa fin de
-   soirée (`soiree-close`) ; après un redémarrage qui l'a oubliée, un
+   soirée (`soiree-close`) — que le téléphone n'affiche que réveillé sur la
+   page où il jouait : arrivé pour jouer, il la garde pour l'entrée
+   (`recevoirFinRendue`) ; après un redémarrage qui l'a oubliée, un
    `unknown-token` qui porte la soirée close à revoir (`derniere`). Un
    nouveau téléphone ne prend le jeton d'une fiche que par le code que
    l'animateur fait paraître (`player:reprendre`), jamais sur un prénom
