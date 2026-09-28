@@ -69,10 +69,14 @@ services:
     autoDeploy: false
     buildCommand: npm ci && npm run build
     startCommand: cd server && exec node dist/index.mjs
-    # Render s'en sert pour savoir si le service répond. L'offre gratuite
-    # endort l'application après 15 minutes sans trafic, et on l'assume : on
-    # ouvre l'écran commun cinq minutes avant l'arrivée des invités, et le
-    # trafic des websockets la tient éveillée tout le reste de la soirée.
+    # Render s'en sert pour savoir si le service répond, mais ses sondes ne
+    # tiennent pas l'application éveillée : l'offre gratuite l'endort après
+    # 15 minutes sans trafic. Une tâche de cron-job.org appelle donc cette
+    # route toutes les dix minutes, de 7 h à minuit (heure de Paris), et
+    # jamais 24 h/24 : les 750 heures mensuelles se partagent avec la
+    # préprod (MISE-EN-LIGNE.md, étape 5). La nuit, ou si la tâche s'arrête,
+    # l'écran commun ouvert cinq minutes avant l'arrivée des invités la
+    # réveille, et le trafic des websockets la tient éveillée toute la soirée.
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION
@@ -119,9 +123,9 @@ services:
   # les cookies `Secure`, l'adresse du client derrière le proxy, la politique
   # de sécurité du contenu en conditions réelles.
   #
-  # Elle dort quand personne ne s'en sert, comme la production : les 750 heures
-  # mensuelles de l'offre gratuite ne suffiraient pas à garder deux services
-  # éveillés en permanence. On la réveille en ouvrant son adresse.
+  # Elle dort quand personne ne s'en sert, et aucun ping ne la réveille : les
+  # 750 heures mensuelles de l'offre gratuite tiennent la production éveillée
+  # de 7 h à minuit, pas deux services. On la réveille en ouvrant son adresse.
   - type: web
     name: fiestapp-quizz-preprod
     runtime: node
