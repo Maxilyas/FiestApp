@@ -45,7 +45,20 @@ const APRES_ECHEANCE_MS = 1500 + 600
 
 type Ecran = 'partie' | 'classement' | 'correction'
 
-const ecranDe = (hash: string): Ecran => (hash === '#classement' ? 'classement' : hash === '#correction' ? 'correction' : 'partie')
+type Periode = 'jour' | 'hier' | 'mois'
+
+/**
+ * L'adresse de chaque période du classement. `#classement` reste celle
+ * d'aujourd'hui, comme les liens d'avant ; « Le classement du mois », sur la
+ * page du profil, ouvrait sinon celui du jour, et il fallait trouver l'onglet.
+ */
+const ADRESSE_DE_PERIODE: Record<Periode, string> = { jour: '#classement', hier: '#classement-hier', mois: '#classement-mois' }
+
+/** La période que désigne l'adresse, si c'est celle du classement. */
+export const periodeDe = (hash: string): Periode | null =>
+  (Object.keys(ADRESSE_DE_PERIODE) as Periode[]).find(p => ADRESSE_DE_PERIODE[p] === hash) ?? null
+
+export const ecranDe = (hash: string): Ecran => (periodeDe(hash) ? 'classement' : hash === '#correction' ? 'correction' : 'partie')
 
 /** L'entrée d'historique d'un écran ouvert d'ici — la fin, « Déjà 12 joueurs », la correction d'hier. */
 const OUVERT_ICI = 'fiestappJourOuvert'
@@ -851,11 +864,18 @@ function Lendemain({ partie, laurier, onCorrection }: { partie: PartieDuJour; la
   )
 }
 
-type Periode = 'jour' | 'hier' | 'mois'
-
 /** Le classement : aujourd'hui, hier, le mois — tous les profils du serveur. */
-function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetour: () => void }) {
-  const [periode, setPeriode] = useState<Periode>('jour')
+export function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetour: () => void }) {
+  const [periode, setPeriode] = useState<Periode>(() => periodeDe(window.location.hash) ?? 'jour')
+  /**
+   * La période choisie s'écrit dans l'adresse, comme l'onglet du profil : un
+   * rechargement la garde. Sur la même entrée, marque comprise — « Retour »
+   * sait toujours d'où l'on vient, et ne repasse pas par chaque onglet.
+   */
+  const choisir = (p: Periode) => {
+    setPeriode(p)
+    history.replaceState(history.state, '', ADRESSE_DE_PERIODE[p])
+  }
   const [classement, setClassement] = useState<ClassementDuJour | null>(null)
   const [erreur, setErreur] = useState('')
   const demande = useRef(0)
@@ -894,7 +914,7 @@ function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetour: () =
       <Onglets
         onglets={onglets}
         actif={periode}
-        onChoisir={setPeriode}
+        onChoisir={choisir}
         label="Période"
         idOnglet={id => `periode-${id}`}
         idPanneau={() => 'classement-periode'}
