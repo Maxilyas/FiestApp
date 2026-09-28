@@ -5396,6 +5396,11 @@ h3 > .icon {
 /* Un palier du quiz du jour : l'emoji de son haut fait, comme sur l'étagère. */
 .jour-palier { font-size: 1.1rem; line-height: 1; }
 .jour-note { margin: 0; text-align: center; }
+/* La sortie de la fin, en tête : la ligne fine des pages de l'animateur, à
+   la taille d'un pouce. Rentrée dans l'espacement de la page, elle ne
+   descend l'en-tête que d'une ligne ; la marge du haut reste entière — sous
+   `viewport-fit=cover`, c'est elle qui garde l'encoche. */
+.jour-sortie { align-self: flex-start; min-height: 44px; margin: 0 0 -12px -6px; padding: 0 6px; font-size: 0.9rem; }
 .jour-titre h2 { font-size: 2rem; margin: 4px 0 0; }
 .jour-annonce { display: flex; flex-direction: column; gap: 12px; border-color: var(--edge-strong); }
 .jour-annonce p { margin: 0; }

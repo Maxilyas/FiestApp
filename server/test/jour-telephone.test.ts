@@ -10,6 +10,11 @@
 // horloge recalée qui fermait chaque question dès son affichage — et, côté
 // serveur, le vainqueur d'hier sans son laurier à sa première visite.
 //
+// Le propriétaire du dépôt, le 28 septembre 2026 : « Voir le classement »,
+// depuis l'accueil, puis « Retour », menait à la fin de la partie au lieu de
+// l'accueil ; et sur cette fin, « Retour à l'accueil » ne se voyait qu'en
+// faisant défiler. Les parcours ont été rejoués dans Chromium en 360 × 640.
+//
 // Pas de navigateur en intégration continue : ce que la page décide se
 // rejoue ici sans lui — les modules qu'elle appelle, ses écrans rendus en
 // HTML, et, pour leur câblage, sa source, comme la console
@@ -30,17 +35,21 @@ Object.assign(globalThis, { React })
 
 const SOURCE = readFileSync(new URL('../../client/src/views/JourApp.tsx', import.meta.url), 'utf8')
 
-/** Un écran de la page du jour, rendu en HTML. Elle lit son adresse à l'évaluation (`routes.ts`) : on lui en donne une. */
-async function rendu(composant: string, props: object): Promise<string> {
+/** Sous l'adresse de la page du jour : elle la lit à l'évaluation (`routes.ts`). */
+async function aLAdresseDuJour<T>(faire: (page: any) => T): Promise<Awaited<T>> {
   const avant = (globalThis as { window?: unknown }).window
   Object.assign(globalThis, { window: { location: { pathname: '/jour', search: '', hash: '' } } })
   try {
-    const module = await import(new URL('../../client/src/views/JourApp.tsx', import.meta.url).href)
-    const { renderToStaticMarkup } = await import('react-dom/server')
-    return renderToStaticMarkup(React.createElement(module[composant], props))
+    return await faire(await import(new URL('../../client/src/views/JourApp.tsx', import.meta.url).href))
   } finally {
     Object.assign(globalThis, { window: avant })
   }
+}
+
+/** Un écran de la page du jour, rendu en HTML. */
+async function rendu(composant: string, props: object): Promise<string> {
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  return aLAdresseDuJour(page => renderToStaticMarkup(React.createElement(page[composant], props)))
 }
 
 /** Un module du client, chargé sans que le typecheck du serveur le suive : il n'a pas le DOM. */
@@ -299,4 +308,84 @@ test('« Plus que 5 secondes » se dit une fois au lecteur d’écran, à chaque
   assert.equal(await dans(-500), '<p class="sr-only" role="status"></p>')
   // Une région par question : la suivante repart muette.
   assert.match(SOURCE, /<AnnonceDeLaFin key=\{partie\.question\.index\} echeance=\{partie\.question\.echeance\} \/>/)
+})
+
+// ── 9. « Retour » mène là d'où l'on vient ─────────────────────────────────
+
+test('« Retour » du classement ramène là d’où l’on vient : l’écran d’ici, la page de l’accueil, sinon l’accueil', async () => {
+  const retour = await aLAdresseDuJour(page => page.retourDuJour as (etat: unknown, provenance: string, origine: string, entrees: number) => string)
+  const ICI = 'http://banc'
+  // Ouvert d'ici — la fin, « Déjà 12 joueurs », la correction d'hier — : un
+  // cran en arrière, jusqu'à l'écran qu'on quittait.
+  assert.equal(retour({ fiestappJourOuvert: true }, 'http://banc/', ICI, 3), 'reculer')
+  assert.equal(retour({ fiestappJourOuvert: true }, '', ICI, 2), 'reculer', 'rechargée, l’entrée garde sa marque')
+  // Ouvert par la carte de l'accueil, ou par « Mes jours » : on y retourne,
+  // telle qu'on l'a laissée. Il affichait la fin de la partie, qu'on n'avait
+  // pas vue en venant.
+  assert.equal(retour(null, 'http://banc/', ICI, 2), 'reculer')
+  assert.equal(retour(null, 'http://banc/profil', ICI, 6), 'reculer')
+  // Un onglet neuf n'a rien derrière lui : reculer ne ferait rien.
+  assert.equal(retour(null, 'http://banc/', ICI, 1), 'accueil')
+  // Un lien reçu, une adresse tapée : reculer quitterait l'application.
+  assert.equal(retour(null, 'https://web.whatsapp.com/', ICI, 4), 'accueil')
+  assert.equal(retour(null, '', ICI, 4), 'accueil')
+  assert.equal(retour(null, 'pas une adresse', ICI, 4), 'accueil')
+  // La marque d'une autre page ne vaut pas celle-ci.
+  assert.equal(retour({ fiestappGarde: true }, '', ICI, 4), 'accueil')
+
+  // Le câblage : chaque écran s'ouvre avec sa marque, et « Retour » suit la
+  // décision — l'accueil remplace l'entrée : le retour du téléphone ne
+  // rouvre pas le classement qu'on vient de quitter.
+  assert.match(SOURCE, /const ouvrir = \(vers: 'classement' \| 'correction'\) => \{\s*history\.pushState\(\{ \[OUVERT_ICI\]: true \}, '', `#\$\{vers\}`\)\s*setEcran\(vers\)/)
+  assert.match(
+    SOURCE,
+    /if \(retourDuJour\(history\.state, document\.referrer, window\.location\.origin, history\.length\) === 'reculer'\) history\.back\(\)\s*else window\.location\.replace\('\/'\)/,
+  )
+  assert.match(SOURCE, /<Classement partie=\{partie\} onRetour=\{revenir\} \/>/)
+  assert.match(SOURCE, /<Correction jour=\{jour\} onRetour=\{revenir\} \/>/)
+  // Une entrée posée par `location.hash`, sans marque, passerait pour venue d'ailleurs.
+  assert.doesNotMatch(SOURCE, /location\.hash\s*=(?!=)/)
+})
+
+// ── 10. La sortie de la fin, dès l'arrivée ────────────────────────────────
+
+test('la fin du jour montre sa sortie en tête : « Retour à l’accueil » attendait deux écrans plus bas', async () => {
+  // Une partie qui monte d'un niveau et ouvre son emoji : 1 200 px en
+  // 360 × 640, et le bas de page à 1 131 px.
+  const partie = {
+    jour: '2026-09-28',
+    maintenant: 0,
+    total: 10,
+    categories: [],
+    etat: 'finie',
+    points: 1800,
+    justes: 9,
+    xp: 67,
+    medaille: 'argent',
+    rang: 2,
+    joueurs: 3,
+    devant: { nom: 'Hugo', ecart: 200 },
+    pointsPossibles: 2000,
+    comptees: 10,
+    serie: 1,
+    vainqueursDHier: [],
+    paliers: [],
+    legendaires: [],
+    portraits: [],
+    niveauAvant: 1,
+    niveauApres: 2,
+  }
+  const profil = { niveau: 2, acquis: 7, requis: 180, legendaire: null }
+  const html = await rendu('Fin', { partie, profil, onClassement: () => {}, onCorrection: () => {} })
+  // Son premier geste mène à l'accueil — avant le titre, le score et la fête.
+  const premier = /<(a|button)\b[^>]*>(.*?)<\/\1>/.exec(html)!
+  assert.match(premier[0], /^<a class="lien-discret jour-sortie" href="\/">/)
+  assert.equal(premier[2].replace(/<[^>]+>/g, ''), 'Accueil')
+  assert.ok(html.indexOf('jour-sortie') < html.indexOf('fin-tete'), 'avant l’en-tête')
+  // À la taille d'un pouce : la ligne fine de l'animateur n'a que 32 px.
+  const CSS = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8')
+  assert.match(/\.jour-sortie\s*\{([^}]*)\}/.exec(CSS)?.[1] ?? '', /min-height:\s*44px/)
+  // Le bas de page garde ses trois gestes, pour qui a tout lu.
+  const bas = html.slice(html.indexOf('fin-actions'))
+  for (const geste of ['Voir le classement', 'Revoir mes réponses', 'Retour à l’accueil']) assert.ok(bas.includes(geste), geste)
 })
