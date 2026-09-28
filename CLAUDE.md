@@ -398,6 +398,15 @@ change pas, le recréer si, et c'est elle que portent les QR imprimés. Ne
 synchronise aucun blueprint : Render n'adopte pas un service créé à la main,
 il en créerait des copies à de nouvelles adresses (MISE-EN-LIGNE.md, étape 7).
 
+**La veille** : l'offre gratuite endort un service après 15 minutes sans
+trafic entrant — les sondes de Render n'en sont pas. Une tâche de
+cron-job.org, hors du dépôt, appelle `/healthz` en production toutes les dix
+minutes, de 7 h à minuit (Paris) : la production ne dort plus que la nuit, la
+préproduction dès qu'on la laisse, et chaque réveil reste un démarrage.
+Jamais 24 h/24 ni en préproduction : les 750 heures gratuites du mois sont
+communes aux deux services, et le quota épuisé les suspend tous jusqu'au 1er
+(MISE-EN-LIGNE.md, étape 5).
+
 **Jamais la même base Turso pour les deux** : un « C'était un essai » en
 préproduction effacerait de vraies soirées archivées. Hors production,
 `APP_ENV` pose un bandeau sur toutes les pages (injecté dans `index.html` par

@@ -380,9 +380,9 @@ npm run migrate -- --to libsql://ta-base.turso.io --token ton-jeton
 
 **4. La mise en veille.** C'est la vraie limite de l'offre gratuite de Render : sans trafic entrant pendant 15 minutes, le service s'endort, et le réveil prend environ une minute — le premier invité qui scanne attendrait devant une page blanche.
 
-La parade tient en un geste : **ouvrir l'écran commun cinq minutes avant** l'arrivée des invités. Tant qu'un écran ou un téléphone est connecté, le trafic des websockets empêche la veille — la seule fenêtre de risque est le tout premier scan, et c'est celle-là qu'on couvre.
+La production ne dort donc pas le jour : une tâche gratuite de [cron-job.org](https://cron-job.org) appelle `/healthz` toutes les dix minutes, de 7 h à minuit, heure de Paris ([MISE-EN-LIGNE.md](MISE-EN-LIGNE.md), étape 5). Pas plus : les 750 heures mensuelles de l'offre gratuite sont partagées par la production et la préproduction, et la production allumée 24 h/24 en prendrait 744 à elle seule — le quota épuisé suspend tous les services gratuits jusqu'au mois suivant. La préproduction, elle, dort dès que personne ne s'en sert.
 
-Un service de ping extérieur (cron-job.org, UptimeRobot…) ferait le même travail sans y penser, mais ce dépôt s'en passe : avec **deux services gratuits** — production et préproduction —, les 750 heures mensuelles ne suffisent pas à en garder deux allumés en permanence. Laisser dormir les deux est le choix cohérent.
+La nuit, ou si la tâche s'arrête, la parade tient en un geste : **ouvrir l'écran commun cinq minutes avant** l'arrivée des invités. Tant qu'un écran ou un téléphone est connecté, le trafic des websockets empêche la veille — la seule fenêtre de risque est le tout premier scan, et c'est celle-là qu'on couvre.
 
 Si tu préfères un hébergeur qui ne dort jamais, Northflank propose deux services toujours actifs sur son offre gratuite — mais il demande une carte pour vérifier le compte, ce que Render ne fait pas.
 
