@@ -144,7 +144,7 @@ Trois mémoires indépendantes, à ne pas confondre :
 
 | Le téléphone porte | Ce qu'on affiche |
 |---|---|
-| un jeton de joueur de cette soirée | **rien** : la salle d'attente, directement. Il se re-présente avec son seul jeton, et la fiche du serveur fait foi. Un jeton que la soirée ne connaît plus — exclu pendant que le téléphone dormait, essai effacé — est refusé (`unknown-token`), jamais recréé : le téléphone oublie son invité, garde son prénom, et repasse par l'entrée — l'écran B′ s'il porte un profil, l'écran B pré-rempli sinon. Celui d'une soirée qu'on vient de clore reçoit d'abord sa fin de soirée (`soiree-close`) |
+| un jeton de joueur de cette soirée | **rien** : la salle d'attente, directement. Il se re-présente avec son seul jeton, et la fiche du serveur fait foi. Un jeton que la soirée ne connaît plus — exclu pendant que le téléphone dormait, essai effacé — est refusé (`unknown-token`), jamais recréé : le téléphone oublie son invité, garde son prénom, et repasse par l'entrée — l'écran B′ s'il porte un profil, l'écran B pré-rempli sinon. Celui d'une soirée qu'on vient de clore reçoit d'abord sa fin de soirée (`soiree-close`) s'il se réveille sur la page où il jouait ; arrivé par un lien, le QR ou « Jouer depuis cet appareil », il trouve l'entrée, la soirée close en une ligne au-dessus |
 | un cookie de profil | **Écran B′** « Te revoilà » — un bouton |
 | un choix local pour cet espace | **Écran B**, pré-rempli du prénom et de l'avatar retenus — puis l'écran d'équipe, s'il y en a |
 | rien du tout | **Écran A** — l'entrée, c'est-à-dire la connexion |

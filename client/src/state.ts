@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import type { PartySnapshot } from '../../shared/types'
 import {
+  estUnRetour,
   finAGarder,
   finLisible,
   soireeCloseLisible,
@@ -10,7 +11,7 @@ import {
   type ProgresDeQuiz,
   type SoireeClose,
 } from '../../shared/fin'
-import { currentSlug } from './routes'
+import { currentSlug, route } from './routes'
 
 export interface SessionView {
   sessionId: string
@@ -101,6 +102,8 @@ export function readMe(slug: string): Me | null {
 // depuis le souvenir qu'elle venait d'ouvrir, un redémarrage du serveur — et
 // l'invité retombait sur « Entrer dans la soirée », sans rien de la veille.
 // Elle se range maintenant sur le téléphone, par espace ; rien n'en part.
+// Elle se rouvre quand on revient sur la page, jamais quand on y arrive :
+// qui arrive vient jouer, et l'entrée la propose en une ligne.
 
 const finKey = (slug: string) => `quizz.fin.${slug}`
 const FIN_PREFIXE = 'quizz.fin.'
@@ -132,7 +135,10 @@ export interface SoireeGardee {
    */
   fin?: FinDeSoiree
   recueLe: number
-  /** Faux dès qu'on passe à la soirée suivante : la fin ne se rouvre plus d'elle-même. */
+  /**
+   * Faux dès qu'on passe à la soirée suivante, ou qu'on arrive sur la page
+   * pour jouer : la fin ne se rouvre plus d'elle-même.
+   */
   ouverte: boolean
 }
 
@@ -169,16 +175,60 @@ export function finRouverte(): boolean {
   return finDuTelephone
 }
 
-export function garderFin(slug: string, fin: FinDeSoiree) {
+/** Comment la page s'est chargée, tel que le navigateur le dit (`estUnRetour`) ; muet, c'est une arrivée. */
+function chargementDeLaPage(): string | number | undefined {
+  try {
+    const entree = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+    return entree?.type ?? performance.navigation?.type
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Vrai tant qu'on arrive sur la page — un lien, le QR, « Jouer depuis cet
+ * appareil » — et qu'elle n'a encore montré aucun écran de la soirée
+ * (`premierEcranMontre`). Qui arrive vient jouer : une fin de la soirée
+ * d'avant ne l'arrête plus (`finARouvrir`, `recevoirFinRendue`).
+ */
+let arrivee = !estUnRetour(chargementDeLaPage())
+
+/** Le premier écran de la soirée est montré : le téléphone n'arrive plus, il y est. */
+export function premierEcranMontre() {
+  arrivee = false
+}
+
+/**
+ * Garde la fin reçue du serveur. Montrée, elle se rouvre au retour sur la
+ * page ; sinon le téléphone n'en garde que la soirée, que l'entrée propose en
+ * une ligne — « mon bilan » compris.
+ */
+export function garderFin(slug: string, fin: FinDeSoiree, montree = true) {
   finDuTelephone = false
   ecrireGardee(slug, {
     v: VERSION_GARDEE,
     soiree: fin.soiree,
     ...(fin.joueurId && { joueurId: fin.joueurId }),
-    fin: finAGarder(fin),
+    ...(montree && { fin: finAGarder(fin) }),
     recueLe: Date.now(),
-    ouverte: true,
+    ouverte: montree,
   })
+}
+
+/**
+ * La fin que le serveur rend au jeton d'une soirée close (`soiree-close`) :
+ * le téléphone n'était pas là à la clôture. Réveillé sur la page où il
+ * jouait, ou revenu dessus, il la reçoit comme s'il avait été là. Arrivé pour
+ * jouer — l'animateur qui rouvre la soirée sur son téléphone depuis sa
+ * console, l'invité qui rescanne le QR —, il n'en garde que la soirée, et
+ * l'entrée s'ouvre : l'onglet laissé en arrière-plan pendant la clôture
+ * montrait sinon la fin d'avant, qui ne partait que par « Rejoindre la
+ * soirée suivante ».
+ */
+export function recevoirFinRendue(slug: string, fin: FinDeSoiree) {
+  oublierIdentite(slug)
+  garderFin(slug, fin, !arrivee)
+  if (!arrivee) setState({ fin })
 }
 
 /** Une soirée close sans sa fin (le serveur l'avait oubliée) : de quoi la revoir, au moins. */
@@ -189,13 +239,16 @@ export function garderSoireeClose(slug: string, soiree: SoireeClose) {
   ecrireGardee(slug, { v: VERSION_GARDEE, soiree, recueLe: Date.now(), ouverte: false })
 }
 
-/** On passe à la soirée suivante : la soirée reste gardée pour le lendemain, sa fin s'efface. */
+/** La fin gardée ne se rouvrira plus : sa soirée reste gardée pour le lendemain, sa fin s'efface. */
+function fermerGardee(slug: string, g: SoireeGardee) {
+  const { fin: _, ...sansFin } = g
+  ecrireGardee(slug, { ...sansFin, ouverte: false })
+}
+
+/** On passe à la soirée suivante : la fin quitte l'écran, et ne se rouvrira plus. */
 export function quitterFin(slug: string) {
   const g = lireGardee(slug)
-  if (g) {
-    const { fin: _, ...sansFin } = g
-    ecrireGardee(slug, { ...sansFin, ouverte: false })
-  }
+  if (g) fermerGardee(slug, g)
   finDuTelephone = false
   setState({ fin: null })
 }
@@ -226,15 +279,22 @@ export function derniereSoireeGardee(): SoireeGardee | null {
 
 /**
  * La fin à rouvrir au chargement : reçue il y a peu, lisible, jamais
- * quittée, et le téléphone n'incarne personne. La page la retire si la
- * soirée suivante a déjà lancé une partie (`PlayerApp`).
+ * quittée, le téléphone n'incarne personne — et l'on revient sur la page :
+ * un rechargement, le retour du navigateur depuis le bilan qu'elle venait
+ * d'ouvrir. Qui y arrive vient jouer : elle ne se rouvre pas, ni plus tard
+ * au rechargement de l'entrée. La page la retire aussi si la soirée suivante
+ * a déjà lancé une partie (`PlayerApp`).
  */
 function finARouvrir(slug: string): FinDeSoiree | null {
   if (readMe(slug)) return null
   const g = lireGardee(slug)
-  const fin = g?.ouverte ? (g.fin ?? null) : null
-  finDuTelephone = !!fin
-  return fin
+  if (!g?.ouverte || !g.fin) return null
+  if (arrivee) {
+    fermerGardee(slug, g)
+    return null
+  }
+  finDuTelephone = true
+  return g.fin
 }
 
 const slugAtLoad = currentSlug()
@@ -245,7 +305,10 @@ let state: AppState = {
   me: slugAtLoad ? readMe(slugAtLoad) : null,
   views: {},
   toast: null,
-  fin: slugAtLoad ? finARouvrir(slugAtLoad) : null,
+  // Sur la page du jeu seulement : le bilan qu'elle ouvre dans cet onglet lit
+  // aussi ce module, et, arrivé là par son lien, il fermait la fin — le
+  // retour du navigateur ne la retrouvait plus.
+  fin: route.kind === 'join' ? finARouvrir(route.slug) : null,
   gain: null,
   cloture: null,
   progres: null,

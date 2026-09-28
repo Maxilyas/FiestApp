@@ -8,6 +8,7 @@
 import type { Distinctions, Finition } from './profil'
 import type { Ton } from './hautsfaits'
 import type { DivinDescendu } from './divins'
+import type { PartySnapshot } from './types'
 
 /** Un haut fait tel qu'on l'annonce. */
 export interface HautFaitAnnonce {
@@ -212,6 +213,17 @@ export function ligneDeRang(fin: Pick<FinDeSoiree, 'rang' | 'points' | 'joueurs'
 /** « 3 joueurs », « 1 joueur ». */
 export const nJoueurs = (n: number) => `${n} joueur${n > 1 ? 's' : ''}`
 
+/**
+ * La soirée suivante a-t-elle commencé dans l'espace ? Un invité s'y est
+ * inscrit, ou un quiz s'y joue — ce qui, au serveur, rend la salle d'attente
+ * aux écrans restés sur la clôture (`soireeCommence`). La fin de soirée ne
+ * propose de la rejoindre qu'alors : son bouton, toujours là, menait à une
+ * soirée qui n'existait pas encore, et c'était le seul geste pour la quitter.
+ */
+export function suivanteCommencee(salle: Pick<PartySnapshot, 'players' | 'session'> | null): boolean {
+  return !!salle && (salle.players.length > 0 || !!salle.session)
+}
+
 // ── La fin gardée sur le téléphone ──────────────────────────────────────
 
 /**
@@ -223,6 +235,24 @@ export const nJoueurs = (n: number) => `${n} joueur${n > 1 ? 's' : ''}`
 export function finAGarder(fin: FinDeSoiree): FinDeSoiree {
   if (!fin.profil) return fin
   return { ...fin, profil: { ...fin.profil, divins: fin.profil.divins.map(d => ({ key: d.key, ton: d.ton, legende: '' })) } }
+}
+
+/**
+ * Le chargement de la page de l'espace est-il un retour — un rechargement,
+ * le retour du navigateur depuis le bilan que la fin venait d'ouvrir — ou
+ * une arrivée — un lien, le QR, une adresse tapée, « Jouer depuis cet
+ * appareil » à la console ? Ce que le navigateur en dit (Navigation Timing :
+ * `reload`, `back_forward`, `navigate`…), ou, d'un navigateur d'avant, son
+ * ancien chiffre (1 : recharger, 2 : revenir). Muet, c'est une arrivée.
+ *
+ * Qui revient retrouve sa fin de soirée ; qui arrive vient jouer : elle ne
+ * l'arrête plus, l'entrée la propose en une ligne. Rouverte à chaque
+ * chargement, elle attendait l'animateur qui rouvrait la soirée sur son
+ * téléphone depuis sa console, et ne partait que par « Rejoindre la soirée
+ * suivante ».
+ */
+export function estUnRetour(chargement: string | number | undefined): boolean {
+  return chargement === 'reload' || chargement === 'back_forward' || chargement === 1 || chargement === 2
 }
 
 const estObjet = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
