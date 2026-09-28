@@ -9,6 +9,10 @@ import type { Finition } from '../../../shared/profil'
 //
 // Un fichier à part, chargé avec le premier dessin qui en a besoin : les
 // portraits ne font pas venir les légendaires pour leur cercle.
+//
+// Les trois dernières finitions ont en plus leur lumière autour du médaillon
+// (`Lumiere.tsx`) ; ce qui y fait anneau autour d'un emoji — la bague de
+// cristal intérieure, le limbe de l'astrolabe — est ici le cercle lui-même.
 
 /** L'or d'origine des légendaires, du clair au sombre — et le cercle de la finition Or. */
 export const OR: [string, string, string] = ['#fff2c4', '#d9b56a', '#7a5618']
@@ -34,9 +38,9 @@ function pol(r: number, deg: number): string {
 
 /**
  * Le cercle découpé en segments, chacun de sa couleur : c'est le dégradé
- * conique d'Holo, de Prisme et d'Aurore, que le SVG n'a pas. Chaque segment
- * mord un peu sur ses voisins — sans ça, l'anticrénelage laissait un fil
- * sombre entre deux.
+ * conique d'Holo, d'Aurore et des feux du Diamant, que le SVG n'a pas.
+ * Chaque segment mord un peu sur ses voisins — sans ça, l'anticrénelage
+ * laissait un fil sombre entre deux.
  */
 const SEGMENTS = 36
 const SEGMENTS_D = Array.from({ length: SEGMENTS }, (_, i) => {
@@ -64,26 +68,29 @@ const METAUX: Partial<Record<Finition, [string, string, string]>> = {
   or: OR,
 }
 
-/** Les cercles qui tournent : les couleurs d'Holo, de Prisme et d'Aurore, là où elles faisaient un halo. */
+/** Les cercles qui tournent : les couleurs d'Holo et d'Aurore, là où elles faisaient un halo. */
 const IRISES: Partial<Record<Finition, string[]>> = {
   holo: cyclique(['#ffb8c8', '#ffe39e', '#b8f0d2', '#b9c9ff', '#e4bbff']),
-  prisme: cyclique(['#ff4d6d', '#ffa53d', '#fff05a', '#4dff9a', '#4dc3ff', '#9a6bff']),
   aurore: cyclique(['#58e6b4', '#3fc9ff', '#7d8cff', '#c078ff', '#3fc9ff']),
 }
 
-/** Les étoiles du cercle de Constellation, toujours aux mêmes places. */
-const ETOILES_CONSTELLATION: [number, number][] = [
-  [8, 0.85],
-  [46, 0.6],
-  [80, 0.75],
-  [119, 0.55],
-  [152, 0.85],
-  [197, 0.6],
-  [232, 0.8],
-  [265, 0.55],
-  [301, 0.85],
-  [336, 0.6],
-]
+/**
+ * Les feux du Diamant : le spectre en deux éclats, qui tournent sur un
+ * anneau de glace — ce que la bague de cristal fait autour d'un emoji.
+ */
+const FEUX = cyclique(['#ff4f7b', '#ffae3d', '#fff35c', '#54ff9b', '#45d0ff', '#8b6cff'])
+const FEUX_OPACITE = Array.from({ length: SEGMENTS }, (_, i) => Math.max(0, Math.sin((i / SEGMENTS) * 4 * Math.PI)) ** 1.5)
+
+/**
+ * Le limbe de l'Astrolabe : un trait tous les cinq degrés, un plus long
+ * tous les trente — les pointillés d'un cercle, centrés sur leur angle.
+ */
+function graduations(r: number, n: number, largeur: number) {
+  const pas = (2 * Math.PI * r) / n
+  return { r, strokeDasharray: `${largeur} ${(pas - largeur).toFixed(2)}`, strokeDashoffset: largeur / 2 }
+}
+const PETITES = graduations(47.9, 72, 0.5)
+const GRANDES = graduations(47, 12, 1.1)
 
 /** Le cercle d'un avatar dessiné porté, dans la matière de la finition de son porteur. */
 export function Cercle({ finition, id }: { finition: Finition; id: (nom: string) => string }) {
@@ -116,6 +123,25 @@ export function Cercle({ finition, id }: { finition: Finition; id: (nom: string)
           <circle cx="50" cy="50" r="48.7" fill="none" stroke="#ffffff" strokeOpacity="0.5" strokeWidth="0.5" />
         </>
       )}
+      {finition === 'prisme' && (
+        <>
+          <defs>
+            <linearGradient id={id('glace')} x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="45%" stopColor="#cfd9ff" />
+              <stop offset="100%" stopColor="#8f9bd0" />
+            </linearGradient>
+          </defs>
+          <circle cx="50" cy="50" r="47" fill="none" stroke={`url(#${id('glace')})`} strokeWidth="4" />
+          <g className="lg-cercle-tourne">
+            {SEGMENTS_D.map((d, i) =>
+              FEUX_OPACITE[i] > 0.02 ? <path key={i} d={d} fill={FEUX[i]} fillOpacity={(0.8 * FEUX_OPACITE[i]).toFixed(2)} /> : null,
+            )}
+          </g>
+          <circle cx="50" cy="50" r="48.7" fill="none" stroke="#ffffff" strokeWidth="0.6" />
+          <circle cx="50" cy="50" r="45.3" fill="none" stroke="#ffffff" strokeOpacity="0.8" strokeWidth="0.5" />
+        </>
+      )}
       {finition === 'constellation' && (
         <>
           <defs>
@@ -125,17 +151,14 @@ export function Cercle({ finition, id }: { finition: Finition; id: (nom: string)
             </linearGradient>
           </defs>
           <circle cx="50" cy="50" r="47" fill="none" stroke={`url(#${id('nuit')})`} strokeWidth="4.2" />
-          <g className="lg-cercle-tourne">
-            {ETOILES_CONSTELLATION.map(([a, r], i) => {
-              const [x, y] = pol(47, a).split(',').map(Number)
-              return <circle key={i} className={i % 2 ? 'lg-scintille' : undefined} cx={x} cy={y} r={r} fill="#fff6d8" />
-            })}
+          <g className="lg-cercle-tourne" fill="none" stroke="#f3d68f">
+            <circle cx="50" cy="50" {...PETITES} strokeWidth="2.2" strokeOpacity="0.8" />
+            <circle cx="50" cy="50" {...GRANDES} strokeWidth="4" />
           </g>
-          <circle cx="50" cy="50" r="49" fill="none" stroke="#d9b56a" strokeWidth="0.7" />
-          <circle cx="50" cy="50" r="45.1" fill="none" stroke="#d9b56a" strokeWidth="0.5" />
+          <circle cx="50" cy="50" r="49" fill="none" stroke="#d9b56a" strokeWidth="0.8" />
+          <circle cx="50" cy="50" r="45.1" fill="none" stroke="#d9b56a" strokeWidth="0.6" />
         </>
       )}
-      {finition === 'prisme' && etoile(89, 10, 10, 'prisme')}
     </g>
   )
 }

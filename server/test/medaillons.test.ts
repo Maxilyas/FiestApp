@@ -78,7 +78,7 @@ test('le téléphone de l’invité n’importe les dessins qu’à la demande',
   // Le parcours voit bien le chemin : sinon ce test ne garderait rien.
   assert.ok(chemin.has(path.join(client, 'components/Avatar.tsx')), 'Avatar est sur le chemin')
   assert.ok(chemin.has(path.join(client, 'components/medaillons.ts')), 'medaillons est sur le chemin')
-  for (const dessin of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Carriere.tsx']) {
+  for (const dessin of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Lumiere.tsx', 'components/Carriere.tsx']) {
     assert.ok(!chemin.has(path.join(client, dessin)), `${dessin} ne part pas avec la page de l’invité`)
   }
 })
@@ -90,7 +90,7 @@ test('l’accueil anonyme n’importe ni les dessins ni les onglets du profil', 
   const chemin = importsStatiques(path.join(client, 'views/ProfilApp.tsx'))
   assert.ok(chemin.has(path.join(client, 'components/Avatar.tsx')), 'Avatar est sur le chemin')
   assert.ok(chemin.has(path.join(client, 'components/choix.ts')), 'ce que le profil annonce reste là')
-  for (const f of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Apparence.tsx', 'components/Trophees.tsx']) {
+  for (const f of ['components/Legendaire.tsx', 'components/Divin.tsx', 'components/Lumiere.tsx', 'components/Apparence.tsx', 'components/Trophees.tsx']) {
     assert.ok(!chemin.has(path.join(client, f)), `${f} ne part pas avec l’accueil anonyme`)
   }
 })

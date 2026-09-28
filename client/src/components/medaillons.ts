@@ -5,6 +5,7 @@ import { BRANCHES, portrait as portraitDe, type CleDeBranche } from '../../../sh
 import type { Legendaire } from './Legendaire'
 import type { Divin } from './Divin'
 import type { Portrait } from './Portrait'
+import type { Lumiere } from './Lumiere'
 import type { DessinDePortrait } from './portraits/outils'
 
 /**
@@ -29,17 +30,30 @@ import type { DessinDePortrait } from './portraits/outils'
  * Les portraits des branches (`shared/branches.ts`) viennent branche par
  * branche : soixante-douze dessins, et une salle n'en porte que quelques-uns.
  * Qui porte le cerf fait venir la forêt, pas l'océan.
+ *
+ * La lumière des finitions 15, 20 et 25 (`Lumiere.tsx`) vient de même : il
+ * faut des dizaines de soirées pour la porter, et une salle d'anonymes ne la
+ * verra jamais.
  */
 
-/** Les sortes de dessins, chacune dans son fichier : les légendaires, les Divins, et chaque branche. */
-export type Sorte = 'legendaire' | 'divin' | `branche:${CleDeBranche}`
+/** Les sortes de dessins, chacune dans son fichier : les légendaires, les Divins, la lumière des finitions, et chaque branche. */
+export type Sorte = 'legendaire' | 'divin' | 'lumiere' | `branche:${CleDeBranche}`
 /**
  * Les médaillons : ce qu'un profil peut gagner d'un coup à la fin d'une
  * soirée, que sa page fait venir d'office. Pas les branches : la fin de
  * soirée fait venir celle du portrait qu'elle annonce.
  */
 const MEDAILLONS: readonly Sorte[] = ['legendaire', 'divin']
-const SORTES: readonly Sorte[] = [...MEDAILLONS, ...BRANCHES.map(b => `branche:${b.key}` as const)]
+const SORTES: readonly Sorte[] = [...MEDAILLONS, 'lumiere', ...BRANCHES.map(b => `branche:${b.key}` as const)]
+
+/** Les finitions qui ont leur lumière : le Diamant, les Voiles, l'Astrolabe. */
+export const FINITIONS_LUMINEUSES = ['prisme', 'aurore', 'constellation'] as const
+export type FinitionLumineuse = (typeof FINITIONS_LUMINEUSES)[number]
+
+/** Cette finition a-t-elle sa lumière ? Laquelle, ou null. */
+export function lumineuse(finition: string | null | undefined): FinitionLumineuse | null {
+  return FINITIONS_LUMINEUSES.find(f => f === finition) ?? null
+}
 
 /** La sorte d'un avatar dessiné ; null pour un emoji, une clé inconnue. */
 function sorteDe(cle: string | null | undefined): Sorte | null {
@@ -59,11 +73,23 @@ export function sortesDe(cles: readonly (string | null | undefined)[]): Sorte[] 
   return SORTES.filter(sorte => voulues.has(sorte))
 }
 
+/**
+ * Ce que demandent ces avatars portés : leurs médaillons, et la lumière de
+ * leur finition — sauf sous un Divin, qui n'en prend pas.
+ */
+export function sortesDesAvatars(avatars: readonly { legendaire?: string | null; finition?: string | null }[]): Sorte[] {
+  const voulues = new Set<Sorte>(sortesDe(avatars.map(a => a.legendaire)))
+  if (avatars.some(a => !divinDe(a.legendaire) && lumineuse(a.finition))) voulues.add('lumiere')
+  return SORTES.filter(sorte => voulues.has(sorte))
+}
+
 interface Dessins {
   Legendaire?: typeof Legendaire
   Divin?: typeof Divin
   /** Le cadre des portraits — le disque, la silhouette, le cercle de la finition —, venu avec la première branche. */
   Portrait?: typeof Portrait
+  /** La lumière des finitions 15, 20 et 25. */
+  Lumiere?: typeof Lumiere
   /** Les dessins des branches arrivées, par branche. */
   branches?: Partial<Record<CleDeBranche, Readonly<Record<string, DessinDePortrait>>>>
   /**
@@ -88,7 +114,13 @@ const abonnes = new Set<() => void>()
  */
 export const chargeur = {
   importer: (sorte: Sorte): Promise<unknown> =>
-    sorte === 'divin' ? import('./Divin') : sorte === 'legendaire' ? import('./Legendaire') : BRANCHES_A_IMPORTER[brancheDeSorte(sorte)](),
+    sorte === 'divin'
+      ? import('./Divin')
+      : sorte === 'legendaire'
+        ? import('./Legendaire')
+        : sorte === 'lumiere'
+          ? import('./Lumiere')
+          : BRANCHES_A_IMPORTER[brancheDeSorte(sorte)](),
 }
 
 /** Chaque branche dans son fichier — des chemins écrits en entier : c'est à eux que le paquet découpe. */
@@ -109,7 +141,7 @@ const BRANCHES_A_IMPORTER: Record<CleDeBranche, () => Promise<unknown>> = {
 
 const brancheDeSorte = (sorte: `branche:${CleDeBranche}`) => sorte.slice('branche:'.length) as CleDeBranche
 
-/** Appelé par `Legendaire.tsx`, `Divin.tsx` et chaque branche des portraits à leur évaluation. */
+/** Appelé par `Legendaire.tsx`, `Divin.tsx`, `Lumiere.tsx` et chaque branche des portraits à leur évaluation. */
 export function inscrireDessin(d: Dessins) {
   dessins = { ...dessins, ...d, branches: { ...dessins.branches, ...d.branches } }
   for (const f of abonnes) f()
@@ -119,6 +151,7 @@ export function inscrireDessin(d: Dessins) {
 function present(d: Dessins, sorte: Sorte): boolean {
   if (sorte === 'divin') return !!d.Divin
   if (sorte === 'legendaire') return !!d.Legendaire
+  if (sorte === 'lumiere') return !!d.Lumiere
   return !!d.Portrait && !!d.branches?.[brancheDeSorte(sorte)]
 }
 

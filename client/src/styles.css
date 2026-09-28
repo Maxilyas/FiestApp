@@ -3639,10 +3639,11 @@ h3 > .icon {
    rien à télécharger, et l'animal auquel la salle associe quelqu'un reste
    reconnaissable du fond de la pièce.
 
-   Les finitions se gagnent au niveau (3, 6, 10, 15). L'Éclat, lui, ne se
-   gagne pas : une chance sur quarante par soirée jouée, et il change la
-   palette de l'emoji — comme un shiny. On ne peut ni l'acheter ni
-   l'accélérer, seulement venir jouer. */
+   Les finitions se gagnent au niveau (3, 6, 10, 15, 20, 25) ; les trois
+   dernières ont en plus leur lumière (`Lumiere.tsx`, plus bas). L'Éclat,
+   lui, ne se gagne pas : une chance sur quarante par soirée jouée, et il
+   change la palette de l'emoji — comme un shiny. On ne peut ni l'acheter
+   ni l'accélérer, seulement venir jouer. */
 
 .av {
   position: relative;
@@ -3689,10 +3690,12 @@ h3 > .icon {
   box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.4);
 }
 
-/* Holo et Prisme tournent lentement : assez pour qu'on le remarque en
-   passant, pas assez pour qu'on ne puisse plus lire le classement. */
+/* Holo tourne lentement : assez pour qu'on le remarque en passant, pas
+   assez pour qu'on ne puisse plus lire le classement. Prisme, Aurore et
+   Constellation gardent leur halo d'avant pour le temps où leur lumière
+   arrive (`av-lumiere`) — ou si elle n'arrive pas. */
 .av-holo::before,
-.av-prisme::before {
+.av-prisme:not(.av-lumiere)::before {
   background: conic-gradient(
     from 0deg,
     rgba(217, 138, 154, 0.55),
@@ -3705,7 +3708,7 @@ h3 > .icon {
   animation: av-tourne 6s linear infinite;
 }
 
-.av-prisme::after {
+.av-prisme:not(.av-lumiere)::after {
   content: '✦';
   position: absolute;
   top: -28%;
@@ -3768,8 +3771,10 @@ h3 > .icon {
    reste — elle se voit — mais elle cesse de bouger. */
 .leaderboard .lb-row:nth-child(n + 6) .av::before,
 .leaderboard .lb-row:nth-child(n + 6) .av::after,
+.leaderboard .lb-row:nth-child(n + 6) .lu *,
 .stats-table tbody tr:nth-child(n + 6) .av::before,
-.stats-table tbody tr:nth-child(n + 6) .av::after {
+.stats-table tbody tr:nth-child(n + 6) .av::after,
+.stats-table tbody tr:nth-child(n + 6) .lu * {
   animation: none;
 }
 
@@ -4188,7 +4193,8 @@ h3 > .icon {
 .finitions .finition-btn:not(.selected):not(:hover) .av::before,
 .finitions .finition-btn:not(.selected):not(:hover) .av::after,
 .finitions .finition-btn:not(.selected):not(:hover) .lg *,
-.finitions .finition-btn:not(.selected):not(:hover) .pt * {
+.finitions .finition-btn:not(.selected):not(:hover) .pt *,
+.finitions .finition-btn:not(.selected):not(:hover) .lu * {
   animation: none;
 }
 
@@ -4695,12 +4701,13 @@ h3 > .icon {
   .dv * { animation: none !important; }
 }
 
-/* ── Aurore et Constellation, les finitions des niveaux 20 et 25 ──────────
+/* ── Aurore et Constellation, en attendant leur lumière ───────────────────
 
-   Elles se méritent : il faut des dizaines de soirées pour les voir. Aurore
-   ondule, verte et violette, comme un ciel du Nord ; Constellation pose
-   l'emoji sur un disque de nuit semé d'étoiles, cerclé d'or. */
-.av-aurore::before {
+   Leurs halos d'avant, le temps que `Lumiere.tsx` arrive — une fois par
+   page — ou pour toujours si son chargement échoue : Aurore ondule, verte
+   et violette ; Constellation pose l'emoji sur un disque de nuit semé
+   d'étoiles, cerclé d'or. */
+.av-aurore:not(.av-lumiere)::before {
   background: conic-gradient(
     from 0deg,
     rgba(88, 230, 180, 0.62),
@@ -4712,7 +4719,7 @@ h3 > .icon {
   animation: av-tourne 9s linear infinite, av-respire 3.2s ease-in-out infinite;
 }
 
-.av-aurore::after {
+.av-aurore:not(.av-lumiere)::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -4727,7 +4734,7 @@ h3 > .icon {
   animation: av-respire 4s ease-in-out infinite reverse;
 }
 
-.av-constellation::before {
+.av-constellation:not(.av-lumiere)::before {
   background:
     radial-gradient(circle at 30% 26%, #ffffff 0 0.035em, rgba(255, 255, 255, 0) 0.06em),
     radial-gradient(circle at 76% 34%, #fff6d0 0 0.03em, rgba(255, 246, 208, 0) 0.055em),
@@ -4738,7 +4745,7 @@ h3 > .icon {
   animation: av-tourne 30s linear infinite;
 }
 
-.av-constellation::after {
+.av-constellation:not(.av-lumiere)::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -4756,6 +4763,264 @@ h3 > .icon {
 @keyframes av-respire {
   0%, 100% { scale: 1; }
   50% { scale: 1.08; }
+}
+
+/* ── La lumière des finitions 15, 20 et 25 ────────────────────────────────
+
+   Le Diamant, les Voiles, l'Astrolabe (`Lumiere.tsx`) : des calques posés
+   derrière l'emoji (`.lu-arriere`) et devant lui (`.lu-avant`), chacun
+   centré sur l'avatar et dimensionné en `em` — ils grandissent avec lui,
+   sur la scène comme au téléphone. Ils ne bougent que par `rotate`,
+   `scale`, `translate` et `opacity` : le PC du vidéoprojecteur les compose
+   sans redessiner la page. Au repos — dans une liste, ou quand le système
+   demande moins de mouvement —, chacun garde une pose à lui, la plus belle.
+
+   L'avatar s'isole : ce qui passe devant lui passe devant lui seul, pas
+   devant la console ou la pastille voisine. */
+.av-lumiere { isolation: isolate; }
+
+.lu {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.lu-arriere { z-index: 0; }
+.lu-avant { z-index: 2; }
+.lu > * {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: var(--d);
+  height: var(--d);
+  max-width: none;
+  /* Centré par des marges, comme le halo : un `transform` se composerait
+     avec les rotations des calques. */
+  margin: calc(var(--y, 0em) - var(--d) / 2) 0 0 calc(var(--x, 0em) - var(--d) / 2);
+}
+
+/* Le Diamant : une bague de cristal taillé où passent les feux du spectre,
+   un reflet qui en fait le tour, de petits arcs-en-ciel autour. */
+.lu-dispersion {
+  --d: 2.3em;
+  border-radius: 50%;
+  background: conic-gradient(
+    rgba(255, 79, 123, 0.85),
+    rgba(255, 174, 61, 0.85),
+    rgba(255, 243, 92, 0.85),
+    rgba(84, 255, 155, 0.85),
+    rgba(69, 208, 255, 0.85),
+    rgba(139, 108, 255, 0.85),
+    rgba(255, 95, 217, 0.85),
+    rgba(255, 79, 123, 0.85)
+  );
+  -webkit-mask: radial-gradient(closest-side, transparent 50%, #000 66%, rgba(0, 0, 0, 0.3) 82%, transparent);
+  mask: radial-gradient(closest-side, transparent 50%, #000 66%, rgba(0, 0, 0, 0.3) 82%, transparent);
+  animation: av-tourne 9s linear infinite;
+}
+.lu-spectres { --d: 2.8em; animation: lu-scintille 2.8s ease-in-out infinite; }
+.lu-spectres-2 { animation-delay: -1.4s; }
+/* Les feux, sous les facettes : le spectre en deux éclats. */
+.lu-feux {
+  --d: 2.05em;
+  border-radius: 50%;
+  background: conic-gradient(
+    #ff4f7b,
+    #ffae3d 40deg,
+    #fff35c 75deg,
+    rgba(255, 243, 92, 0) 100deg,
+    rgba(84, 255, 155, 0) 165deg,
+    #54ff9b 190deg,
+    #45d0ff 225deg,
+    #8b6cff 260deg,
+    rgba(139, 108, 255, 0) 290deg,
+    rgba(255, 79, 123, 0) 335deg,
+    #ff4f7b
+  );
+  -webkit-mask: radial-gradient(closest-side, transparent 61%, #000 63%, #000 86%, transparent 88%);
+  mask: radial-gradient(closest-side, transparent 61%, #000 63%, #000 86%, transparent 88%);
+  animation: av-tourne 6s linear infinite;
+}
+/* Dans la bague, une lumière de couleur plutôt qu'un trou noir. */
+.lu-glace {
+  --d: 1.4em;
+  border-radius: 50%;
+  background: conic-gradient(
+    rgba(255, 79, 123, 0.5),
+    rgba(255, 243, 92, 0.5),
+    rgba(84, 255, 155, 0.5),
+    rgba(69, 208, 255, 0.5),
+    rgba(139, 108, 255, 0.5),
+    rgba(255, 79, 123, 0.5)
+  );
+  -webkit-mask: radial-gradient(closest-side, #000 20%, transparent);
+  mask: radial-gradient(closest-side, #000 20%, transparent);
+  animation: av-tourne 6s linear infinite reverse;
+}
+.lu-cristal { --d: 2.05em; }
+.lu-balayage {
+  --d: 2.05em;
+  border-radius: 50%;
+  background: conic-gradient(rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.95) 16deg, rgba(255, 255, 255, 0) 38deg);
+  -webkit-mask: radial-gradient(closest-side, transparent 60%, #000 62%, #000 85%, transparent 87%);
+  mask: radial-gradient(closest-side, transparent 60%, #000 62%, #000 85%, transparent 87%);
+  rotate: 20deg;
+  opacity: 0.8;
+  animation: lu-balaye 3.2s cubic-bezier(0.5, 0, 0.3, 1) infinite;
+}
+.lu-etincelle {
+  --d: 0.62em;
+  --x: 0.6em;
+  --y: -0.6em;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 60%);
+  scale: 0.6;
+  rotate: 45deg;
+  animation: lu-eclair 3.2s ease-in-out -0.4s infinite;
+}
+
+/* Les Voiles : une aurore se lève derrière la tête, et des étincelles
+   vertes montent le long des joues. */
+.lu-lueur {
+  --d: 1.8em;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(90, 255, 190, 0.55), rgba(60, 200, 255, 0.25) 45%, rgba(60, 200, 255, 0) 70%);
+  animation: lu-souffle 3.4s ease-in-out infinite;
+}
+.lu-voile {
+  --d: 2.6em;
+  --y: -0.3em;
+  transform-origin: 50% 72%;
+  /* L'arche : le voile s'éteint sur les côtés et vers le haut. */
+  -webkit-mask: radial-gradient(ellipse 46% 62% at 50% 66%, #000 58%, transparent);
+  mask: radial-gradient(ellipse 46% 62% at 50% 66%, #000 58%, transparent);
+  animation: lu-ondule 5s ease-in-out infinite;
+}
+.lu-voile-2 { --y: -0.42em; opacity: 0.8; animation: lu-ondule 7s ease-in-out -2s infinite reverse; }
+.lu-ion {
+  --d: 0.16em;
+  border-radius: 50%;
+  background: radial-gradient(circle, #effff8 0 28%, rgba(90, 255, 190, 0.9) 42%, rgba(90, 255, 190, 0) 72%);
+  opacity: 0;
+  animation: lu-monte 3.2s ease-out infinite;
+}
+.lu-ion-1 { --x: -0.62em; --y: 0.4em; }
+.lu-ion-2 { --x: 0.6em; --y: 0.46em; animation-duration: 2.7s; animation-delay: -0.8s; }
+.lu-ion-3 { --x: -0.28em; --y: 0.62em; --d: 0.12em; animation-duration: 3.6s; animation-delay: -1.9s; }
+.lu-ion-4 { --x: 0.34em; --y: 0.6em; --d: 0.11em; animation-duration: 3s; animation-delay: -2.4s; }
+.lu-ion-5 { --x: 0.8em; --y: 0.1em; --d: 0.12em; animation-duration: 3.4s; animation-delay: -1.2s; }
+
+/* L'Astrolabe : un limbe d'or gradué, un anneau serti qui tourne à
+   contresens, une nébuleuse, et une étoile en orbite qui passe derrière
+   l'avatar puis devant. */
+.lu-nebuleuse {
+  --d: 2.3em;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(70, 90, 230, 0.8), rgba(60, 50, 170, 0.5) 38%, rgba(40, 30, 110, 0.25) 55%, rgba(30, 20, 90, 0) 72%);
+  animation: lu-souffle 4s ease-in-out infinite;
+}
+.lu-poussiere { --d: 2.7em; animation: av-tourne 90s linear infinite; }
+.lu-astrolabe { --d: 2.05em; animation: av-tourne 60s linear infinite; }
+.lu-gemmes { --d: 2.05em; animation: av-tourne 30s linear infinite reverse; }
+/* L'orbite, en deux moitiés : celle du fond derrière l'avatar, celle du
+   devant par-dessus. Chacune est coupée dans son propre repère, penché
+   comme l'orbite. */
+.lu-orbite { --d: 2.55em; rotate: -16deg; }
+.lu-orbite-arriere { clip-path: inset(-1em -1em 50% -1em); }
+.lu-orbite-avant { clip-path: inset(50% -1em -1em -1em); }
+/* Le plan écrase le cercle en ellipse ; le bras tourne dedans ; l'astre
+   tourne à l'envers et se redresse d'autant qu'il est écrasé : il reste
+   rond, où qu'il soit sur l'orbite. */
+.lu-plan,
+.lu-trace,
+.lu-bras { position: absolute; inset: 0; }
+.lu-plan { scale: 1 0.32; }
+.lu-trace {
+  border-radius: 50%;
+  border: solid rgba(246, 216, 140, 0.55);
+  /* Écrasée, une bordure égale s'amincissait en haut et en bas. */
+  border-width: 0.075em 0.026em;
+}
+.lu-orbite-avant .lu-trace { border-color: rgba(246, 216, 140, 0.3); }
+.lu-bras { animation: av-tourne 6s linear infinite; }
+.lu-astre {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: block;
+  width: 0.36em;
+  height: 0.36em;
+  margin: -0.18em 0 0 -0.18em;
+  background: radial-gradient(circle, rgba(255, 236, 170, 0.95), rgba(255, 236, 170, 0) 62%);
+  scale: 1 3.125;
+  animation: av-tourne 6s linear infinite reverse;
+}
+.lu-scintille {
+  --d: 0.36em;
+  background: radial-gradient(circle, rgba(255, 220, 140, 0.6), rgba(255, 220, 140, 0) 60%);
+  animation: lu-scintille 2.6s ease-in-out infinite;
+}
+.lu-scintille-1 { --x: -0.95em; --y: -0.74em; }
+.lu-scintille-2 {
+  --x: 0.98em;
+  --y: -0.52em;
+  --d: 0.28em;
+  background: radial-gradient(circle, rgba(160, 190, 255, 0.6), rgba(160, 190, 255, 0) 60%);
+  animation-delay: -0.9s;
+}
+.lu-scintille-3 { --x: 0.8em; --y: 0.86em; --d: 0.24em; animation-delay: -1.7s; }
+
+/* Autour d'un médaillon (1,12 em), la bague de cristal le sertit : son
+   bord intérieur passe sous celui du médaillon. */
+.av-legendaire .lu-cristal,
+.av-legendaire .lu-feux,
+.av-legendaire .lu-balayage,
+.av-portrait .lu-cristal,
+.av-portrait .lu-feux,
+.av-portrait .lu-balayage { --d: 1.84em; }
+.av-legendaire .lu-etincelle,
+.av-portrait .lu-etincelle { --x: 0.56em; --y: -0.56em; }
+
+/* À l'écran commun en Ivoire, la nuit de l'Astrolabe reste une nuit : sur la
+   crème, la nébuleuse devenait un lavis gris et ses étoiles s'effaçaient. */
+:root[data-theme='ivoire'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, 0.85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+:root[data-theme='ivoire'] .lu-scintille { filter: brightness(0.6) sepia(1) saturate(2.5); }
+
+@keyframes lu-souffle {
+  0%, 100% { scale: 0.9; opacity: 0.7; }
+  50% { scale: 1.06; opacity: 1; }
+}
+@keyframes lu-scintille {
+  0%, 100% { scale: 0.45; opacity: 0.45; }
+  50% { scale: 1; opacity: 1; }
+}
+@keyframes lu-eclair {
+  0%, 55%, 100% { scale: 0; rotate: 0deg; opacity: 0; }
+  68% { scale: 1; rotate: 45deg; opacity: 1; }
+  84% { scale: 0; rotate: 90deg; opacity: 0; }
+}
+@keyframes lu-balaye {
+  0% { rotate: -40deg; opacity: 0; }
+  12% { opacity: 1; }
+  55% { rotate: 320deg; opacity: 1; }
+  65%, 100% { rotate: 320deg; opacity: 0; }
+}
+@keyframes lu-ondule {
+  0%, 100% { transform: skewX(-6deg) scaleY(0.94); }
+  50% { transform: skewX(6deg) scaleY(1.05); }
+}
+@keyframes lu-monte {
+  0% { translate: 0 0; opacity: 0; scale: 0.5; }
+  15% { opacity: 1; }
+  100% { translate: 0 -1.15em; opacity: 0; scale: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lu * { animation: none !important; }
 }
 
 /* Les halos débordent l'emoji : dans le choix des finitions, ils ont la
@@ -4806,11 +5071,13 @@ h3 > .icon {
 .av.lb-avatar:not(.av-sujet) .lg *,
 .av.lb-avatar:not(.av-sujet) .dv *,
 .av.lb-avatar:not(.av-sujet) .pt *,
+.av.lb-avatar:not(.av-sujet) .lu *,
 .av.lb-avatar:not(.av-sujet)::before,
 .av.lb-avatar:not(.av-sujet)::after,
 .player-chip .lg *,
 .player-chip .dv *,
 .player-chip .pt *,
+.player-chip .lu *,
 .player-chip .av::before,
 .player-chip .av::after,
 .stats-table tbody tr:nth-child(n + 6) .lg *,
@@ -4818,6 +5085,36 @@ h3 > .icon {
 .stats-table tbody tr:nth-child(n + 6) .pt * {
   animation: none;
 }
+
+/* La lumière des trois dernières finitions se resserre partout où l'avatar
+   n'est pas le sujet : à 2,8 em, elle mordait sur la ligne voisine d'un
+   classement, sur le prénom d'une pastille ou de l'en-tête du téléphone —
+   même dans les lignes où elle bouge (`av-sujet`, le podium du téléphone).
+   Dans la grille des avatars du profil, où quarante emojis la portent côte
+   à côte, plus encore. */
+.av-lumiere .lu { scale: 0.72; }
+.emoji-grid .lu { scale: 0.55; }
+/* Là où il l'est — le podium, sa carte, l'entrée, sa page, la fin de
+   soirée, le choix des finitions —, elle prend toute sa place, et la page
+   la lui réserve : sans marge, elle recouvrait « Te revoilà », le nom d'une
+   finition, et le bord de la carte d'un joueur la coupait net. */
+.podium-avatar .lu,
+.carte-avatar .lu,
+.retour-avatar .lu,
+.profil-tete .player-avatar .lu,
+.fin-avatar .lu,
+.fin-apercu .lu,
+.fin-collection-emoji .lu,
+.finition-btn .lu { scale: 1; }
+.retour-avatar.av-lumiere { margin-block: 0.55em; }
+.carte-avatar.av-lumiere { margin: 0.6em 0.3em 0.3em 0.5em; }
+.profil-tete .player-avatar.av-lumiere,
+.fin-avatar.av-lumiere { margin: 0.4em 0.4em 0.4em 0.35em; }
+.fin-apercu.av-lumiere { margin: 0.55em; }
+.fin-collection-emoji .av-lumiere { margin-block: 0.55em; }
+.finition-btn .av-lumiere { margin: 0.6em 0; }
+/* Resserrée, elle déborde encore un peu : le prénom de l'en-tête s'écarte. */
+.me-header .player-avatar.av-lumiere { margin-inline-end: 0.2em; }
 
 /* ── Le niveau, lisible au mur ─────────────────────────────────────────────
 
@@ -6066,6 +6363,7 @@ span.case-avatar { cursor: default; }
 .grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .lg *,
 .grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .dv *,
 .grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .pt *,
+.grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .lu *,
 .grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .av::before,
 .grille-unique .case-avatar:not(.selected):not(.ouverte):not(:hover) .av::after {
   animation: none;

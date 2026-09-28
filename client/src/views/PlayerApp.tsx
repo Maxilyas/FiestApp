@@ -36,7 +36,7 @@ import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Laurier } from '../components/Laurier'
 import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/Liaison'
-import { ATTENTE_MAX_DESSINS, attendus, chargerDessins, chargerDessinsAuPlus, sortesDe, useDessins } from '../components/medaillons'
+import { ATTENTE_MAX_DESSINS, attendus, chargerDessins, chargerDessinsAuPlus, sortesDesAvatars, useDessins } from '../components/medaillons'
 import { Lendemain } from '../components/Lendemain'
 import { useEcranAllume } from '../veille'
 import { useGardeRetour } from '../retour'
@@ -138,11 +138,12 @@ export function PlayerApp() {
       // l'entrée peut saluer avant même qu'on rejoigne.
       setProfil(watched.profile ?? null)
       // Qui porte un médaillon attend ses dessins avant d'être salué : sinon
-      // l'entrée montrerait son emoji, puis le médaillon. Deux secondes et
-      // demie au plus — une requête muette le gardait sous « On arrive… »
-      // sans limite —, et la reprise par jeton, juste en dessous, n'attend
-      // pas : elle part pendant que les dessins arrivent.
-      const sesDessins = sortesDe([watched.profile?.legendaire])
+      // l'entrée montrerait son emoji, puis le médaillon — et la lumière de
+      // sa finition, qui s'allumerait après coup. Deux secondes et demie au
+      // plus — une requête muette le gardait sous « On arrive… » sans
+      // limite —, et la reprise par jeton, juste en dessous, n'attend pas :
+      // elle part pendant que les dessins arrivent.
+      const sesDessins = sortesDesAvatars(watched.profile ? [watched.profile] : [])
       if (sesDessins.length > 0) void chargerDessinsAuPlus(sesDessins).then(() => setPresente(true))
       else setPresente(true)
       // Sans jeton, rien à reprendre : c'est l'entrée qui fait entrer —
@@ -236,10 +237,11 @@ export function PlayerApp() {
 
   // Quelqu'un dans la salle porte un médaillon : ses dessins viennent dès
   // l'instantané, avant la salle d'attente où l'on verra son nom — ceux de
-  // sa sorte seulement, un légendaire ne fait pas venir les Divins. Une
-  // salle d'anonymes ne les télécharge jamais — et quand un premier porteur
-  // y arrive, son emoji précède son médaillon, une fois (`Avatar`).
-  const sortesDeLaSalle = sortesDe(s.snapshot?.players.map(p => p.legendaire) ?? [])
+  // sa sorte seulement, un légendaire ne fait pas venir les Divins, ni la
+  // lumière des finitions tant que personne n'est niveau 15. Une salle
+  // d'anonymes ne les télécharge jamais — et quand un premier porteur y
+  // arrive, son emoji précède son médaillon, une fois (`Avatar`).
+  const sortesDeLaSalle = sortesDesAvatars(s.snapshot?.players ?? [])
   const dessins = useDessins(...sortesDeLaSalle)
   // Un téléphone qui revient en pleine soirée (rechargé, réveillé) tombe
   // droit sur la salle : il attend ses dessins sous « Connexion… », une
