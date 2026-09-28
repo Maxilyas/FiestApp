@@ -47,6 +47,31 @@ type Ecran = 'partie' | 'classement' | 'correction'
 
 const ecranDe = (hash: string): Ecran => (hash === '#classement' ? 'classement' : hash === '#correction' ? 'correction' : 'partie')
 
+/** L'entrée d'historique d'un écran ouvert d'ici — la fin, « Déjà 12 joueurs », la correction d'hier. */
+const OUVERT_ICI = 'fiestappJourOuvert'
+
+/**
+ * Où mène « Retour », du classement ou de la correction : là d'où l'on
+ * vient. Un cran en arrière quand l'écran d'avant est à nous — un écran de
+ * cette page, qui a marqué son entrée ; ou la page de l'application qui a
+ * ouvert celle-ci, dans le même onglet : la carte de l'accueil, « Mes
+ * jours ». L'accueil sinon — un lien reçu, un nouvel onglet : reculer y
+ * quitterait l'application, ou ne ferait rien.
+ *
+ * Il affichait la fin de la partie, qu'on n'avait pas vue en venant de
+ * l'accueil, et le retour du téléphone rouvrait ensuite le classement.
+ */
+export function retourDuJour(etat: unknown, provenance: string, origine: string, entrees: number): 'reculer' | 'accueil' {
+  if ((etat as Record<string, unknown> | null)?.[OUVERT_ICI] === true) return 'reculer'
+  let deChezNous = false
+  try {
+    deChezNous = provenance !== '' && new URL(provenance).origin === origine
+  } catch {
+    // Une provenance illisible ne vient pas de chez nous.
+  }
+  return deChezNous && entrees > 1 ? 'reculer' : 'accueil'
+}
+
 /** Ce que l'écran dit d'abord, pour le focus qui s'est perdu : le résultat, sinon le titre. */
 const CE_QUE_L_ECRAN_DIT = ['.result-banner', 'h1', 'h2'] as const
 
@@ -118,9 +143,15 @@ export function JourApp() {
   /** L'instant où l'écran affiché a paru (`performance.now()`). */
   const changement = useRef<number | null>(null)
 
-  const aller = (vers: Ecran) => {
-    window.location.hash = vers === 'partie' ? '' : vers
+  /** Le classement ou la correction, avec leur entrée d'historique : le retour du téléphone ramène ici. */
+  const ouvrir = (vers: 'classement' | 'correction') => {
+    history.pushState({ [OUVERT_ICI]: true }, '', `#${vers}`)
     setEcran(vers)
+  }
+  /** « Retour » : d'un cran — l'écran d'ici se remet au `hashchange` —, sinon l'accueil, sans entrée en double. */
+  const revenir = () => {
+    if (retourDuJour(history.state, document.referrer, window.location.origin, history.length) === 'reculer') history.back()
+    else window.location.replace('/')
   }
 
   /** Relit la partie, telle que le serveur la voit. */
@@ -302,7 +333,7 @@ export function JourApp() {
   if (ecran === 'classement') {
     return (
       <>
-        <Classement partie={partie} onRetour={() => aller('partie')} />
+        <Classement partie={partie} onRetour={revenir} />
         {toastVu}
       </>
     )
@@ -312,7 +343,7 @@ export function JourApp() {
     const jour = partie.etat === 'finie' ? partie.jour : jourAvant(partie.jour)
     return (
       <>
-        <Correction jour={jour} onRetour={() => aller('partie')} />
+        <Correction jour={jour} onRetour={revenir} />
         {toastVu}
       </>
     )
@@ -372,7 +403,7 @@ export function JourApp() {
   if (partie.etat === 'finie') {
     return (
       <>
-        <Fin partie={partie} profil={profil} onClassement={() => aller('classement')} onCorrection={() => aller('correction')} />
+        <Fin partie={partie} profil={profil} onClassement={() => ouvrir('classement')} onCorrection={() => ouvrir('correction')} />
         {toastVu}
       </>
     )
@@ -382,7 +413,7 @@ export function JourApp() {
   const enCours = partie.etat === 'en-cours'
   return (
     <div className="player-shell">
-      {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier} onCorrection={() => aller('correction')} />}
+      {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier} onCorrection={() => ouvrir('correction')} />}
       <section className="card jour-carte">
         <div className="jour-tete">
           <span className="label">Le quiz du jour</span>
@@ -419,7 +450,7 @@ export function JourApp() {
         {(partie.joueurs > 0 || (partie.vainqueursDHier.length > 0 && !partie.sonHier)) && (
           <p className="jour-pied muted small">
             {partie.joueurs > 0 && (
-              <button type="button" className="link-inline" onClick={() => aller('classement')}>
+              <button type="button" className="link-inline" onClick={() => ouvrir('classement')}>
                 Déjà {partie.joueurs} joueur{partie.joueurs > 1 ? 's' : ''} aujourd’hui
               </button>
             )}
@@ -594,7 +625,7 @@ function Revelation({ r }: { r: RevelationDuJour }) {
 }
 
 /** La fin de la partie : le score, l'expérience, la médaille, la série, la place pour l'instant. */
-function Fin({
+export function Fin({
   partie,
   profil,
   onClassement,
@@ -614,6 +645,14 @@ function Fin({
   const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
   return (
     <div className="player-shell fin-soiree">
+      {/* La sortie, dès l'arrivée : la fin dépasse l'écran d'un téléphone —
+          1 200 px en 360 × 640 pour une partie qui monte d'un niveau et
+          ouvre son emoji —, et « Retour à l'accueil » attendait tout en bas,
+          deux écrans plus loin. En tête, la fête n'en descend pas. */}
+      <a className="lien-discret jour-sortie" href="/">
+        <Icon name="home" />
+        Accueil
+      </a>
       <header className="fin-tete">
         <span className="label">Le quiz du jour</span>
         <h1>{capitale(jourEnToutesLettres(partie.jour))}</h1>
