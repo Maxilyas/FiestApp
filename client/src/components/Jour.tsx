@@ -180,7 +180,7 @@ export function MesJours({ jour }: { jour?: CarriereDuJour }) {
           <span className="soiree-xp">+{formatNumber(j.xp)} XP</span>
         </div>
       ))}
-      <a className="link-inline small" href="/jour#classement">
+      <a className="link-inline small" href="/jour#classement-mois">
         Le classement du mois
       </a>
     </section>

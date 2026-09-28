@@ -35,10 +35,10 @@ Object.assign(globalThis, { React })
 
 const SOURCE = readFileSync(new URL('../../client/src/views/JourApp.tsx', import.meta.url), 'utf8')
 
-/** Sous l'adresse de la page du jour : elle la lit à l'évaluation (`routes.ts`). */
-async function aLAdresseDuJour<T>(faire: (page: any) => T): Promise<Awaited<T>> {
+/** Sous l'adresse de la page du jour : elle la lit à l'évaluation (`routes.ts`), et le classement y lit sa période. */
+async function aLAdresseDuJour<T>(faire: (page: any) => T, hash = ''): Promise<Awaited<T>> {
   const avant = (globalThis as { window?: unknown }).window
-  Object.assign(globalThis, { window: { location: { pathname: '/jour', search: '', hash: '' } } })
+  Object.assign(globalThis, { window: { location: { pathname: '/jour', search: '', hash } } })
   try {
     return await faire(await import(new URL('../../client/src/views/JourApp.tsx', import.meta.url).href))
   } finally {
@@ -47,9 +47,9 @@ async function aLAdresseDuJour<T>(faire: (page: any) => T): Promise<Awaited<T>> 
 }
 
 /** Un écran de la page du jour, rendu en HTML. */
-async function rendu(composant: string, props: object): Promise<string> {
+async function rendu(composant: string, props: object, hash = ''): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server')
-  return aLAdresseDuJour(page => renderToStaticMarkup(React.createElement(page[composant], props)))
+  return aLAdresseDuJour(page => renderToStaticMarkup(React.createElement(page[composant], props)), hash)
 }
 
 /** Un module du client, chargé sans que le typecheck du serveur le suive : il n'a pas le DOM. */
@@ -388,4 +388,49 @@ test('la fin du jour montre sa sortie en tête : « Retour à l’accueil » att
   // Le bas de page garde ses trois gestes, pour qui a tout lu.
   const bas = html.slice(html.indexOf('fin-actions'))
   for (const geste of ['Voir le classement', 'Revoir mes réponses', 'Retour à l’accueil']) assert.ok(bas.includes(geste), geste)
+})
+
+// ── 11. « Le classement du mois » s'ouvre sur le mois ─────────────────────
+
+test('« Le classement du mois » s’ouvre sur le mois, et la période choisie reste dans l’adresse', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  // Le lien de « Mes jours », sur la page du profil : il ouvrait le
+  // classement du jour, et il fallait trouver l'onglet du mois.
+  const jour = {
+    joues: 1,
+    serie: 1,
+    record: 1,
+    medailles: { or: 0, argent: 1, bronze: 0 },
+    meilleurScore: 1800,
+    podiums: 0,
+    victoires: 0,
+    jours: [{ jour: '2026-09-28', points: 1800, rang: 2, joueurs: 3, xp: 67, medaille: 'argent', comptees: 10, justes: 9, tempsJustesMs: 40_000 }],
+  }
+  const mesJours = await aLAdresseDuJour(async () => {
+    const { MesJours } = await import(new URL('../../client/src/components/Jour.tsx', import.meta.url).href)
+    return renderToStaticMarkup(React.createElement(MesJours, { jour }))
+  })
+  assert.match(mesJours, /<a class="link-inline small" href="\/jour#classement-mois">Le classement du mois<\/a>/)
+
+  // Chaque période a son adresse ; `#classement`, celle des liens d'avant,
+  // reste aujourd'hui.
+  const page = await aLAdresseDuJour(p => p)
+  for (const hash of ['#classement', '#classement-hier', '#classement-mois']) assert.equal(page.ecranDe(hash), 'classement', hash)
+  assert.equal(page.ecranDe('#correction'), 'correction')
+  assert.equal(page.ecranDe(''), 'partie')
+  assert.equal(page.periodeDe('#classement-mois'), 'mois')
+  assert.equal(page.periodeDe('#correction'), null)
+
+  // Le classement s'ouvre sur la période de son adresse.
+  const partie = { jour: '2026-09-28' }
+  const ouvert = async (hash: string) =>
+    /<button[^>]*aria-selected="true"[^>]*>([^<]*)<\/button>/.exec(await rendu('Classement', { partie, onRetour: () => {} }, hash))?.[1]
+  assert.equal(await ouvert('#classement-mois'), 'Septembre')
+  assert.equal(await ouvert('#classement-hier'), 'Hier')
+  assert.equal(await ouvert('#classement'), 'Aujourd’hui')
+
+  // Changer de période réécrit l'adresse — sur la même entrée, marque
+  // comprise : « Retour » ne repasse pas par chaque onglet.
+  assert.match(SOURCE, /onChoisir=\{choisir\}/)
+  assert.match(SOURCE, /const choisir = \(p: Periode\) => \{\s*setPeriode\(p\)\s*history\.replaceState\(history\.state, '', ADRESSE_DE_PERIODE\[p\]\)/)
 })
