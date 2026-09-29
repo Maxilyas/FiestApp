@@ -4521,6 +4521,17 @@ h3 > .icon {
 
 .pt * { transform-box: view-box; }
 
+/* La forme ultime d'une branche peinte, elle, bouge (« Elle bouge quand on
+   la porte, et la salle la voit arriver ») : son aura respire, ses étoiles
+   scintillent — par `transform` et `opacity` seulement, et figées dans les
+   listes comme les médaillons. */
+.pt .pt-aura { transform-origin: 50px 52px; animation: pt-respire 3.2s ease-in-out infinite; }
+.pt .pt-etoile { transform-box: fill-box; transform-origin: center; animation: pt-scintille 2.4s ease-in-out infinite; }
+.pt .pt-etoile:nth-of-type(2n) { animation-delay: -1.2s; }
+.pt .pt-etoile:nth-of-type(3n) { animation-delay: -0.6s; animation-duration: 3.1s; }
+@keyframes pt-respire { 0%, 100% { opacity: 0.7; transform: scale(0.97); } 50% { opacity: 1; transform: scale(1.03); } }
+@keyframes pt-scintille { 0%, 100% { opacity: 0.35; transform: scale(0.7); } 50% { opacity: 1; transform: scale(1.15); } }
+
 @media (prefers-reduced-motion: reduce) {
   .pt * { animation: none !important; }
 }
@@ -5084,6 +5095,23 @@ h3 > .icon {
 .stats-table tbody tr:nth-child(n + 6) .dv *,
 .stats-table tbody tr:nth-child(n + 6) .pt * {
   animation: none;
+}
+
+/* Dans une liste, un portrait peint tient dans son disque : ce qui en sort
+   — la lance et les ailes d'Athéna, le trident de Poséidon —, son aura et
+   ses étoiles faisaient à 26 px une tache d'or plus large que lui, qui
+   mordait sur la ligne voisine et sur le prénom. Son anneau suffit à dire
+   son palier ; il se montre en entier là où il est le sujet. */
+.av.lb-avatar:not(.av-sujet) .pt-debord,
+.av.lb-avatar:not(.av-sujet) .pt-aura,
+.av.lb-avatar:not(.av-sujet) .pt-etoile,
+.player-chip .pt-debord,
+.player-chip .pt-aura,
+.player-chip .pt-etoile,
+.stats-table .pt-debord,
+.stats-table .pt-aura,
+.stats-table .pt-etoile {
+  display: none;
 }
 
 /* La lumière des trois dernières finitions se resserre partout où l'avatar

@@ -39,17 +39,23 @@ function chargerPlaywright(): any {
 }
 const { chromium } = chargerPlaywright()
 
-/** Un portrait rendu, dans une boîte de cette taille. */
+/**
+ * Les fichiers des portraits peints, là où le build les copiera
+ * (`client/public/portraits`) : la planche est une page locale, sans serveur.
+ */
+const PUBLICS = new URL('../../client/public/portraits/', import.meta.url).href
+
+/** Un portrait rendu, dans une boîte de cette taille — en grand au-delà de 100 px, comme la page choisirait. */
 const case_ = (props: Record<string, unknown>, taille: number, legende = '') =>
   `<figure style="width:${Math.max(taille, 64)}px"><span class="boite" style="width:${taille}px;height:${taille}px">${renderToStaticMarkup(
-    React.createElement(Portrait, props as any),
-  )}</span>${legende ? `<figcaption>${legende}</figcaption>` : ''}</figure>`
+    React.createElement(Portrait, { grand: taille > 100, ...props } as any),
+  ).replaceAll('href="/portraits/', `href="${PUBLICS}`)}</span>${legende ? `<figcaption>${legende}</figcaption>` : ''}</figure>`
 
 const STYLE = `
   body { margin: 0; padding: 24px; background: #17131c; color: #eee7f5; font: 14px system-ui, sans-serif; }
   h1 { font-size: 20px; margin: 0 0 4px; }
   p.sous { margin: 0 0 18px; color: #a99fb8; }
-  .ligne { display: flex; align-items: flex-end; gap: 14px; padding: 12px 0; border-top: 1px solid #2c2535; }
+  .ligne { display: flex; align-items: flex-end; gap: 14px; padding: 44px 0 12px; border-top: 1px solid #2c2535; }
   .nom { width: 150px; flex: none; align-self: center; font-weight: 600; }
   .nom small { display: block; font-weight: 400; color: #a99fb8; }
   figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
@@ -90,10 +96,37 @@ try {
     const erreurs: string[] = []
     page.on('pageerror', (e: Error) => erreurs.push(e.message))
     await page.goto('file://' + fichier)
+    // Les portraits peints sont des images : on attend qu'elles soient là.
+    await page.waitForLoadState('networkidle')
     await page.screenshot({ path: path.join(sortie, `planche-${b.key}.png`), fullPage: true })
     await page.close()
     if (erreurs.length) console.error(`[${b.key}]`, erreurs)
     console.log(path.join(sortie, `planche-${b.key}.png`))
+  }
+  // Toutes les branches : le catalogue, les soixante-douze d'un coup d'œil,
+  // gagnés puis à gagner — la montée en puissance se lit de gauche à droite.
+  if (branches.length === BRANCHES.length) {
+    const rangs = branches
+      .map(
+        b => `<div class="rang"><div class="nom">${b.nom}<small>${b.categorie}</small></div>
+          ${b.portraits.map(p => case_({ cle: p.key }, 116, `${p.nom} · ${p.seuil}`)).join('')}
+          <div class="verrous">${b.portraits.map(p => case_({ cle: p.key, verrouille: true }, 34)).join('')}</div></div>`,
+      )
+      .join('')
+    const html = `<!doctype html><meta charset="utf-8"><style>${STYLE}
+      .rang { display: flex; align-items: center; gap: 22px; padding: 30px 0 10px; border-top: 1px solid #2c2535; }
+      .rang figure { width: 124px !important; }
+      .verrous { display: grid; grid-template-columns: repeat(3, 34px); gap: 8px 6px; margin-left: 8px; }
+      .verrous figure { width: 34px !important; }
+    </style><h1>Les portraits des branches</h1><p class="sous">Soixante-douze portraits peints, un style par branche · gagnés, puis à gagner</p>${rangs}`
+    const fichier = path.join(sortie, 'catalogue.html')
+    writeFileSync(fichier, html)
+    const page = await navigateur.newPage({ viewport: { width: 1160, height: 900 }, deviceScaleFactor: 1 })
+    await page.goto('file://' + fichier)
+    await page.waitForLoadState('networkidle')
+    await page.screenshot({ path: path.join(sortie, 'catalogue.png'), fullPage: true })
+    await page.close()
+    console.log(path.join(sortie, 'catalogue.png'))
   }
 } finally {
   await navigateur.close()

@@ -5,6 +5,7 @@
 // légendaire. Rien ne s'écrit : les portraits se lisent dans la carrière.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import Database from 'better-sqlite3'
 import React from 'react'
 import {
@@ -127,57 +128,122 @@ test('sans le dessin de sa branche, un portrait porté rend l’emoji — et ne 
   assert.deepEqual(m.sortesDe(['br:inconnu']), [], 'une clé inconnue ne demande rien')
 })
 
+/** Là où le build prend les fichiers des portraits peints, qu'il sert sous `/portraits/`. */
+const PUBLICS = new URL('../../client/public/portraits/', import.meta.url)
+
+/**
+ * Ce qu'un fichier peint pèse au plus, par taille : vingt porteurs dans une
+ * salle, et chacun télécharge le sien — la petite taille, 18 Ko en moyenne.
+ * Les plus chargés (la sirène à l'aquarelle, les runes du mage, les points
+ * du pop art) montent à 115 Ko en grand ; au-delà, c'est un fichier qui
+ * n'est pas passé par la chaîne (un PNG, une image en 2K).
+ */
+const POIDS_MAX: Record<string, number> = { '512': 130_000, '256': 45_000 }
+
 test('chaque portrait a son dessin, dans le fichier de sa branche, et s’y tient', async () => {
   for (const b of BRANCHES) {
     const { DESSINS } = await import(url(`components/portraits/${b.key}.ts`))
     assert.deepEqual(Object.keys(DESSINS).sort(), b.portraits.map(p => p.key).sort(), `les six de ${b.nom}`)
     for (const [cle, d] of Object.entries<any>(DESSINS)) {
-      const u = 'pt-essai-n-r1-'
-      const svg = (d.defs?.(u) ?? '') + (d.decor?.(u) ?? '') + d.corps(u)
       assert.equal(d.fond.length, 3, `${cle} : un disque de trois teintes`)
-      // Six dessins dans le paquet d'une branche, vingt porteurs dans une
-      // salle : chacun reste léger. Un sprite de l'arcade, fondu en bandes
-      // (`pixels`), fait ses sept mille caractères ; un rectangle par pixel en
-      // faisait vingt-quatre mille, pour trois cents formes.
-      assert.ok(svg.length < 8000, `${cle} pèse ${svg.length} caractères`)
-      const formes = svg.match(/<(path|circle|ellipse|rect|polygon|polyline|line|g)\b/g) ?? []
-      assert.ok(formes.length <= 80, `${cle} : ${formes.length} formes`)
-      assert.doesNotMatch(svg, /<(text|image|filter|animate|script|foreignObject)\b/, `${cle} : que des formes`)
-      // Ses identifiants : le préfixe, puis des lettres — le tiret bas est au
-      // cadre (`Portrait.tsx`). Chaque dégradé qu'il cite est à lui.
-      const ids = [...svg.matchAll(/\bid="([^"]*)"/g)].map(x => x[1])
-      for (const id of ids) assert.match(id, /^pt-essai-n-r1-[a-zA-Z]+$/, `${cle} : ${id}`)
-      for (const [, ref] of svg.matchAll(/url\(#([^)]*)\)/g)) assert.ok(ids.includes(ref), `${cle} : url(#${ref}) sans dégradé`)
-      // Verrouillé, seul le corps se voit : il doit avoir de quoi faire une silhouette.
-      assert.ok(d.corps(u).length > 300, `${cle} : un corps`)
+      // Peint : ses fichiers, sous leur empreinte, grand puis petit. Le
+      // visage n'a pas de décor — le disque teinté de sa branche le reçoit.
+      const palier = b.portraits.findIndex(p => p.key === cle)
+      assert.equal(!!d.image.disque, palier > 0, `${cle} : un décor peint à partir du deuxième palier`)
+      for (const variante of ['disque', 'perso'] as const) {
+        const paire: string[] | undefined = d.image[variante]
+        if (!paire) continue
+        assert.equal(paire.length, 2, `${cle} : ${variante}, deux tailles`)
+        paire.forEach((f, k) => {
+          const taille = ['512', '256'][k]
+          assert.match(f, new RegExp(`^/portraits/${cle.slice(3)}-${variante}-${taille}\\.[0-9a-f]{10}\\.webp$`), `${cle} : ${f}`)
+          const poids = statSync(new URL(f.slice('/portraits/'.length), PUBLICS)).size
+          assert.ok(poids <= POIDS_MAX[taille], `${f} pèse ${poids} octets`)
+        })
+      }
     }
   }
 })
 
-test('porté, un portrait prend le cercle de sa finition ; éclaté, le ciel rare de sa branche ; à gagner, sa silhouette', async () => {
-  await import(url('components/portraits/foret.ts'))
-  const simple = await rendu('components/Portrait', 'Portrait', { cle: 'br:cerf' })
-  assert.match(simple, /aria-label="Le cerf"/)
-  assert.match(simple, /<circle cx="50" cy="50" r="48"\/>/, 'découpé au bord du disque')
-  assert.doesNotMatch(simple, /lg-cercle/)
-  // En Mat, pas de cercle : l'emoji n'a pas de halo non plus.
-  assert.doesNotMatch(await rendu('components/Portrait', 'Portrait', { cle: 'br:cerf', finition: 'mat' }), /lg-cercle/)
-  const or = await rendu('components/Portrait', 'Portrait', { cle: 'br:cerf', finition: 'or' })
-  assert.match(or, /class="lg-cercle lg-cercle-or"/)
-  assert.match(or, /<circle cx="50" cy="50" r="45"\/>/, 'le cercle prend le bord')
-  // Éclaté : la nuit violette de la forêt, pas l'automne qui noyait les roux.
-  const eclate = await rendu('components/Portrait', 'Portrait', { cle: 'br:cerf', eclat: true })
-  assert.match(eclate, /aria-label="Le cerf, éclaté"/)
-  assert.match(eclate, /stop-color="#b8a6ff"/)
-  // À gagner : le corps en masque d'or, sans décor ni cercle, et pas d'Éclat.
-  const verrou = await rendu('components/Portrait', 'Portrait', { cle: 'br:cerf', verrouille: true, eclat: true, finition: 'or' })
-  assert.match(verrou, /aria-label="Le cerf — pas encore gagné"/)
-  assert.match(verrou, /<mask /)
-  assert.doesNotMatch(verrou, /lg-cercle|#ffe9a8|#b8a6ff/)
-  // Deux états du même portrait sur une page ne partagent jamais un dégradé.
-  const ids = (html: string) => new Set([...html.matchAll(/\bid="([^"]*)"/g)].map(x => x[1]))
-  for (const id of ids(simple)) assert.ok(!ids(eclate).has(id), id)
+test('les fichiers des portraits peints sont tous cités par leur branche : un portrait repeint emporte l’ancien', async () => {
+  const cites = new Set<string>()
+  for (const b of BRANCHES) {
+    const { DESSINS } = await import(url(`components/portraits/${b.key}.ts`))
+    for (const d of Object.values<any>(DESSINS)) {
+      for (const f of [...(d.image?.disque ?? []), ...(d.image?.perso ?? [])]) cites.add(f.slice('/portraits/'.length))
+    }
+  }
+  const presents = existsSync(PUBLICS) ? readdirSync(PUBLICS) : []
+  assert.deepEqual(presents.filter(f => !cites.has(f)), [], 'des fichiers que plus personne ne cite')
+  for (const f of cites) assert.ok(presents.includes(f), `${f} est cité mais absent`)
+})
 
+test('peint, un portrait monte en puissance : le visage, l’anneau d’argent, le débord, l’anneau d’or et son aura', async () => {
+  await import(url('components/portraits/mythes.ts'))
+  const r = (props: object) => rendu('components/Portrait', 'Portrait', props)
+  const ids = (html: string) => new Set([...html.matchAll(/\bid="([^"]*)"/g)].map(x => x[1]))
+
+  // Le visage : le personnage détouré sur le disque teinté de sa branche, un
+  // filet blanc. Petit par défaut — une liste en montre vingt —, grand pour
+  // ce qu'on regarde.
+  const visage = await r({ cle: 'br:minotaure' })
+  assert.match(visage, /class="pt pt-mythes pt-palier-1"/)
+  assert.match(visage, /<circle cx="50" cy="50" r="48"\/>/)
+  assert.match(visage, /stop-color="#5577d6"/)
+  assert.match(visage, /href="\/portraits\/minotaure-perso-256\.[0-9a-f]{10}\.webp"/)
+  assert.doesNotMatch(visage, /-disque-|_anneau|pt-aura|pt-debord/)
+  assert.match(await r({ cle: 'br:minotaure', grand: true }), /minotaure-perso-512\./)
+
+  // La lumière : son décor peint, sous l'anneau d'argent, qui prend le bord.
+  const lumiere = await r({ cle: 'br:anubis' })
+  assert.match(lumiere, /anubis-disque-256\./)
+  assert.match(lumiere, /stop-color="#c3ccd8"/)
+  assert.match(lumiere, /r="46.4"/)
+  assert.doesNotMatch(lumiere, /pt-debord|pt-aura/)
+
+  // Le débord : le trident sort du disque, par-dessus l'anneau.
+  const debord = await r({ cle: 'br:poseidon' })
+  assert.match(debord, /<g class="pt-debord" mask="url\(#[^)]*_dehors\)"><image href="\/portraits\/poseidon-perso-256\./)
+  assert.match(debord, /stop-color="#c3ccd8"/)
+
+  // La forme ultime : l'or, l'aura qui respire, cinq étoiles, ce qui déborde.
+  const ultime = await r({ cle: 'br:athena' })
+  assert.match(ultime, /class="pt pt-mythes pt-palier-6"/)
+  assert.match(ultime, /stop-color="#e3b04b"/)
+  assert.match(ultime, /class="pt-aura"/)
+  assert.equal((ultime.match(/class="pt-etoile"/g) ?? []).length, 5)
+  assert.match(ultime, /pt-debord/)
+
+  // Portée, la finition prend la place de l'anneau ; ce qui sort passe par-dessus son cercle.
+  const portee = await r({ cle: 'br:athena', finition: 'or' })
+  assert.match(portee, /lg-cercle lg-cercle-or/)
+  assert.match(portee, /<circle cx="50" cy="50" r="45"\/>/)
+  assert.doesNotMatch(portee, /_anneau/)
+  assert.match(portee, /pt-debord/)
+  // En Mat, pas de cercle : l'anneau du palier reste.
+  assert.match(await r({ cle: 'br:athena', finition: 'mat' }), /_anneau/)
+
+  // Éclatée : le décor passe sous le ciel rare des mythologies — sa lumière
+  // devient ses couleurs —, le personnage par-dessus garde les siennes.
+  const eclatee = await r({ cle: 'br:gorgone', eclat: true })
+  assert.match(eclatee, /aria-label="La Gorgone, éclaté"/)
+  assert.match(eclatee, /<image href="\/portraits\/gorgone-disque-256\.[0-9a-f]{10}\.webp"[^>]*filter="url\(#[^)]*_rare\)"\/><image href="\/portraits\/gorgone-perso-256\./)
+  assert.match(eclatee, /feFuncR type="table" tableValues="0.200 0.659 1.000"/)
+
+  // À gagner : la silhouette d'or, qui déborde déjà — ni décor, ni aura, ni
+  // étoiles, ni cercle, ni Éclat ; l'anneau à peine.
+  const verrou = await r({ cle: 'br:athena', verrouille: true, finition: 'or', eclat: true })
+  assert.match(verrou, /aria-label="Athéna — pas encore gagné"/)
+  assert.match(verrou, /<mask id="[^"]*_forme"[^>]*><g filter="url\(#[^)]*_blanc\)"><image href="\/portraits\/athena-perso-256\./)
+  assert.match(verrou, /pt-debord/)
+  assert.doesNotMatch(verrou, /pt-aura|pt-etoile|lg-cercle|athena-disque|_rare/)
+
+  // Deux états du même portrait sur une page ne partagent jamais un identifiant.
+  for (const id of ids(ultime)) assert.ok(!ids(verrou).has(id), id)
+})
+
+test('porté, un portrait se dit comme un légendaire, et prend la place de l’emoji, éclaté avec ses paillettes', async () => {
+  await import(url('components/portraits/foret.ts'))
   // Pris, il se dit au lecteur d'écran comme un légendaire — pas « Tu reviens à ton emoji ».
   const { annonceDuChoix } = await import(url('components/choix.ts'))
   assert.equal(annonceDuChoix({ legendaire: 'br:ours' }), 'Tu portes l’ours.')
@@ -186,8 +252,10 @@ test('porté, un portrait prend le cercle de sa finition ; éclaté, le ciel rar
   // Dans un avatar : le portrait prend la place de l'emoji, éclaté avec ses paillettes.
   const avatar = await rendu('components/Avatar', 'Avatar', { avatar: '🦊', legendaire: 'br:cerf', finition: 'prisme', eclat: true })
   assert.match(avatar, /class="av av-portrait av-eclat"/)
-  assert.match(avatar, /class="pt pt-foret pt-eclate"/)
+  assert.match(avatar, /class="pt pt-foret pt-eclate pt-palier-6"/)
   assert.doesNotMatch(avatar, /🦊/)
+  // La nuit violette de la forêt, pas l'automne qui noyait les roux.
+  assert.match(avatar, /stop-color="#b8a6ff"/)
 })
 
 // ── 3. Sur le serveur ─────────────────────────────────────────────────────
