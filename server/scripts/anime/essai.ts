@@ -47,6 +47,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import React from 'react'
 import type { Finition } from '../../../shared/profil'
+import { enPartie, formatDe, generer, type Partie } from './gemini'
 
 // Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
 Object.assign(globalThis, { React })
@@ -208,16 +209,6 @@ const n2 = (n: number) => String(+n.toFixed(2))
 const fichier = (nom: string) => path.join(sortie, nom)
 const deDataUrl = (d: string) => Buffer.from(d.slice(d.indexOf(',') + 1), 'base64')
 
-/**
- * Le format d'une image, à ses premiers octets : selon le modèle, Nano Banana
- * rend du PNG ou du JPEG, et une image renvoyée comme étalon doit dire ce
- * qu'elle est.
- */
-function formatDe(b: Buffer): { mime: string; ext: string } {
-  if (b[0] === 0xff && b[1] === 0xd8) return { mime: 'image/jpeg', ext: 'jpg' }
-  if (b.subarray(0, 4).toString('latin1') === 'RIFF' && b.subarray(8, 12).toString('latin1') === 'WEBP') return { mime: 'image/webp', ext: 'webp' }
-  return { mime: 'image/png', ext: 'png' }
-}
 const enDataUrl = (f: string) => {
   const b = readFileSync(f)
   return `data:${formatDe(b).mime};base64,${b.toString('base64')}`
@@ -448,64 +439,6 @@ async function references(page: any) {
 
 // ── 2. La génération ──────────────────────────────────────────────────────
 
-interface Partie {
-  text?: string
-  inlineData?: { mimeType: string; data: string }
-}
-
-const pause = (ms: number) => new Promise(ok => setTimeout(ok, ms))
-
-/** Un appel à Nano Banana : des images et une consigne, une image en retour. */
-async function generer(parties: Partie[]): Promise<{ image: Buffer; mime: string; jetons: unknown; secondes: number }> {
-  const cle = process.env.GEMINI_API_KEY
-  if (!cle) throw new Error('GEMINI_API_KEY manque : la clé de l’API Gemini.')
-  const corps = JSON.stringify({
-    contents: [{ role: 'user', parts: parties }],
-    // Le premier Nano Banana (2.5) ne connaît pas de taille : TAILLE= la retire.
-    generationConfig: { responseModalities: ['TEXT', 'IMAGE'], imageConfig: { aspectRatio: '1:1', ...(TAILLE ? { imageSize: TAILLE } : {}) } },
-  })
-  // Une surcharge passagère (503) se réessaie ; un quota (429) jamais :
-  // à l'offre gratuite, les modèles d'image ont un quota de zéro, et
-  // insister n'y change rien.
-  for (let essai = 1; ; essai++) {
-    const t0 = Date.now()
-    let rep: Response
-    try {
-      rep = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODELE}:generateContent`, {
-        method: 'POST',
-        headers: { 'x-goog-api-key': cle, 'content-type': 'application/json' },
-        body: corps,
-      })
-    } catch (e) {
-      const proxy = process.env.HTTPS_PROXY && process.env.NODE_USE_ENV_PROXY !== '1'
-      throw new Error(proxy ? 'Appel impossible : derrière un proxy, relance avec NODE_USE_ENV_PROXY=1.' : `Appel impossible : ${(e as Error).message}`)
-    }
-    const texte = await rep.text()
-    if (rep.status === 429 && texte.includes('free_tier')) {
-      throw new Error(`${MODELE} refuse : la clé est sur l’offre gratuite, où les modèles d’image ont un quota de zéro. Active la facturation de son projet, puis relance.`)
-    }
-    if ((rep.status === 503 || rep.status === 500) && essai < 4) {
-      console.log(`  ${MODELE} surchargé (${rep.status}), nouvel essai dans ${10 * essai} s`)
-      await pause(10_000 * essai)
-      continue
-    }
-    if (!rep.ok) throw new Error(`${MODELE} : HTTP ${rep.status} — ${texte.slice(0, 600)}`)
-    const d = JSON.parse(texte)
-    // Nano Banana Pro pense en images : ses brouillons (`thought`) précèdent la bonne, la dernière.
-    const images: Partie[] = (d.candidates ?? [])
-      .flatMap((c: any) => c.content?.parts ?? [])
-      .filter((p: any) => p.inlineData && !p.thought)
-    const derniere = images.at(-1)?.inlineData
-    if (!derniere) throw new Error(`${MODELE} n’a rendu aucune image : ${texte.slice(0, 600)}`)
-    return { image: Buffer.from(derniere.data, 'base64'), mime: derniere.mimeType, jetons: d.usageMetadata, secondes: (Date.now() - t0) / 1000 }
-  }
-}
-
-const enPartie = (f: string): Partie => {
-  const b = readFileSync(f)
-  return { inlineData: { mimeType: formatDe(b).mime, data: b.toString('base64') } }
-}
-
 /** L'image brute d'un calque : générée une fois, gardée ensuite — elle se paie. */
 async function brut(nom: string, parties: () => Partie[], consigne: string, doublure: string, journal: Record<string, unknown>) {
   writeFileSync(fichier(`consigne-${nom}.txt`), consigne + '\n')
@@ -520,7 +453,7 @@ async function brut(nom: string, parties: () => Partie[], consigne: string, doub
     return deja
   }
   console.log(`  ${nom} : ${MODELE}, ${TAILLE}…`)
-  const r = await generer([...parties(), { text: consigne }])
+  const r = await generer([...parties(), { text: consigne }], { modele: MODELE, taille: TAILLE })
   const cible = fichier(`brut-${nom}.${formatDe(r.image).ext}`)
   writeFileSync(cible, r.image)
   journal[nom] = { modele: MODELE, taille: TAILLE, mime: r.mime, secondes: r.secondes, jetons: r.jetons }
