@@ -72,7 +72,7 @@
       "duration": 15,
       "category": "Nature",
       "source": "Wikipédia, « Crocodilia »",
-      "anecdote": "Sa langue est fixée au palais par une membrane : il ne peut ni la tirer, ni la sortir de sa gueule."
+      "anecdote": "Sa langue est fixée au palais par une membrane : il ne peut pas la sortir de sa gueule."
     },
     {
       "kind": "number",
@@ -81,7 +81,7 @@
       "unit": "pattes",
       "duration": 30,
       "category": "Nature",
-      "source": "Wikipédia, « Eumillipes persephone »",
+      "source": "Scientific Reports, « The first true millipede—1306 legs long » (2021)",
       "anecdote": "Découvert en 2020 en Australie-Occidentale, Eumillipes persephone est le premier « mille-pattes » à en avoir vraiment plus de mille."
     },
     {
@@ -92,7 +92,7 @@
       "variante": "ordre",
       "duration": 40,
       "category": "Nature",
-      "source": "Wikipédia, « Gestation »",
+      "source": "Wikipedia, « List of mammalian gestation durations »",
       "anecdote": "Environ 20 jours pour la souris, 2 mois pour le chien, 11 mois pour le cheval… et près de 22 mois pour l’éléphant."
     },
     {
