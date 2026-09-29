@@ -402,11 +402,14 @@ il en créerait des copies à de nouvelles adresses (MISE-EN-LIGNE.md, étape 7)
 **La veille** : l'offre gratuite endort un service après 15 minutes sans
 trafic entrant — les sondes de Render n'en sont pas. Une tâche de
 cron-job.org, hors du dépôt, appelle `/healthz` en production toutes les dix
-minutes, de 7 h à minuit (Paris) : la production ne dort plus que la nuit, la
+minutes, de 7 h à minuit (Paris), après le réveil de 6 h 50
+(`.github/workflows/reveil.yml`, patient : un appel coupé à trente secondes
+ne réveille rien) : la production ne dort plus que la nuit, la
 préproduction dès qu'on la laisse, et chaque réveil reste un démarrage.
 Jamais 24 h/24 ni en préproduction : les 750 heures gratuites du mois sont
 communes aux deux services, et le quota épuisé les suspend tous jusqu'au 1er
-(MISE-EN-LIGNE.md, étape 5).
+(MISE-EN-LIGNE.md, étape 5). La routine de la réserve du quiz du jour
+passe donc à 8 h, serveur levé.
 
 **Jamais la même base Turso pour les deux** : un « C'était un essai » en
 préproduction effacerait de vraies soirées archivées. Hors production,
