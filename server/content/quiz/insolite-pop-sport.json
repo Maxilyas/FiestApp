@@ -12,7 +12,7 @@
       "duration": 20,
       "category": "Cinéma & séries",
       "source": "Wikipédia, « Mickey Mouse »",
-      "anecdote": "Sa femme Lillian a trouvé Mortimer trop pompeux et a proposé Mickey. Mortimer est devenu, plus tard, un rival de Mickey auprès de Minnie."
+      "anecdote": "Selon Walt Disney, sa femme Lillian a trouvé Mortimer trop pompeux et a proposé Mickey. Mortimer est devenu, plus tard, un rival de Mickey auprès de Minnie."
     },
     {
       "kind": "choice",
@@ -46,13 +46,13 @@
     },
     {
       "kind": "choice",
-      "text": "Des médailles olympiques ont déjà été décernées pour des poèmes et des tableaux.",
+      "text": "Aux Jeux olympiques, des médailles ont déjà été décernées pour des poèmes et des tableaux.",
       "answers": ["Vrai", "Faux"],
       "correct": 0,
       "duration": 20,
       "category": "Sport",
-      "source": "Wikipédia, « Concours d’art aux Jeux olympiques »",
-      "anecdote": "De 1912 à 1948, les Jeux couronnaient aussi peintres, sculpteurs, architectes, écrivains… En 1912, Pierre de Coubertin y a décroché l’or, sous pseudonyme."
+      "source": "Wikipédia, « Compétitions artistiques aux Jeux olympiques »",
+      "anecdote": "De 1912 à 1948, les Jeux couronnaient aussi peintres, sculpteurs, architectes, écrivains et musiciens (le CIO ne compte plus ces médailles). En 1912, Pierre de Coubertin y a décroché l’or de littérature, sous pseudonyme."
     },
     {
       "kind": "choice",
@@ -62,7 +62,7 @@
       "duration": 15,
       "category": "Arts & lettres",
       "source": "Wikipédia, « Le Petit Prince »",
-      "anecdote": "Saint-Exupéry l’a écrit à New York, en 1942, en exil aux États-Unis. Le livre y est paru en 1943, trois ans avant la France."
+      "anecdote": "Saint-Exupéry l’a écrit en 1942, en exil aux États-Unis, à New York et sur Long Island. Le livre y est paru en avril 1943, trois ans avant la France (1946)."
     },
     {
       "kind": "choice",
@@ -71,8 +71,8 @@
       "correct": 0,
       "duration": 20,
       "category": "Arts & lettres",
-      "source": "Wikipédia, « La Joconde »",
-      "anecdote": "En 1911, un ancien vitrier du musée, Vincenzo Peruggia, l’emporte sous sa blouse. Il la garde plus de deux ans avant de la proposer à un antiquaire de Florence."
+      "source": "Wikipédia, « Vol de La Joconde »",
+      "anecdote": "En 1911, un vitrier italien qui avait travaillé au Louvre, Vincenzo Peruggia, l’emporte sous sa blouse. Il la garde plus de deux ans avant de la proposer à un antiquaire de Florence."
     },
     {
       "kind": "number",
@@ -81,7 +81,7 @@
       "unit": "h",
       "duration": 30,
       "category": "Sport",
-      "source": "Wikipédia, « Match Isner-Mahut de Wimbledon 2010 »",
+      "source": "Wikipédia, « Match Isner - Mahut lors du tournoi de Wimbledon 2010 »",
       "anecdote": "Isner–Mahut, à Wimbledon en 2010 : 11 h 05 sur trois jours, dont plus de 8 h pour le seul 5e set, terminé sur le score de 70 jeux à 68."
     },
     {
@@ -91,7 +91,7 @@
       "unit": "buts",
       "duration": 30,
       "category": "Sport",
-      "source": "Wikipédia, « Australie – Samoa américaines (2001) »",
+      "source": "Wikipédia, « Match de football Australie – Samoa américaines »",
       "anecdote": "31 à 0 : la plus large victoire du football international. Archie Thompson, à lui seul, en a marqué 13."
     },
     {

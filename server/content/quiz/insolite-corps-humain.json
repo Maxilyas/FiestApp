@@ -12,7 +12,7 @@
       "duration": 15,
       "category": "Sciences",
       "source": "Wikipédia, « Squelette humain »",
-      "anecdote": "Il en compte environ 300, contre 206 à l’âge adulte : beaucoup se soudent en grandissant (crâne, bassin, bas de la colonne)."
+      "anecdote": "Il en compte entre 270 et 300 selon les décomptes, contre 206 à l’âge adulte : beaucoup se soudent en grandissant (crâne, bassin, bas de la colonne)."
     },
     {
       "kind": "choice",
@@ -26,13 +26,13 @@
     },
     {
       "kind": "number",
-      "text": "Combien de jours de suite Randy Gardner est-il resté éveillé en 1964 ?",
+      "text": "Combien de jours de suite Randy Gardner est-il resté éveillé lors de son record, en 1963-1964 ?",
       "target": 11,
       "unit": "jours",
       "duration": 30,
       "category": "Sciences",
-      "source": "Wikipédia, « Randy Gardner »",
-      "anecdote": "Ce lycéen américain a tenu 264 heures pour un exposé scientifique, puis dormi près de 15 heures d’affilée."
+      "source": "Wikipédia, « Expérience de privation de sommeil de Randy Gardner »",
+      "anecdote": "Ce lycéen américain de 17 ans a tenu 264 heures pour un projet d’expo-sciences, sous surveillance médicale, puis dormi près de 15 heures d’affilée."
     },
     {
       "kind": "choice",
@@ -61,7 +61,7 @@
       "correct": 0,
       "duration": 15,
       "category": "Sciences",
-      "source": "Wikipédia, « Disque intervertébral »",
+      "source": "Annals of Human Biology, études sur la variation de la taille au cours de la journée",
       "anecdote": "Debout, les disques entre nos vertèbres se tassent : on perd environ un centimètre entre le lever et le coucher."
     },
     {
@@ -83,7 +83,7 @@
       "duration": 25,
       "category": "Sciences",
       "source": "Wikipédia, « Foie »",
-      "anecdote": "Le foie retrouve sa taille en quelques semaines, à partir d’un simple quart : c’est ce qui permet la greffe entre vivants."
+      "anecdote": "Le foie retrouve l’essentiel de son volume en quelques semaines à quelques mois, à partir d’un simple quart : c’est ce qui permet la greffe entre vivants."
     },
     {
       "kind": "choice",
@@ -103,7 +103,7 @@
       "duration": 30,
       "category": "Sciences",
       "source": "Wikipédia, « Cœur humain »",
-      "anecdote": "Environ 70 battements par minute font près de 100 000 par jour, et plus de 2,5 milliards dans une vie."
+      "anecdote": "Environ 70 battements par minute font environ 100 000 par jour, et plus de 2,5 milliards dans une vie."
     }
   ]
 }
