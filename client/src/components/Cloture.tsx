@@ -92,7 +92,7 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
                     style={{ animationDelay: `${400 + i * 700}ms` }}
                   >
                     <span className="cloture-apparition">
-                      <Divin cle={d.gagne} />
+                      <Divin cle={d.gagne} grand />
                     </span>
                     <b>{d.nom}</b>
                     <span className="muted">{divin(d.gagne)?.nom}</span>
@@ -113,7 +113,7 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
                     style={{ animationDelay: `${300 + i * 400}ms` }}
                   >
                     <span className="cloture-medaillon">
-                      <Legendaire cle={l.gagne} />
+                      <Legendaire cle={l.gagne} grand />
                     </span>
                     <b>{l.nom}</b>
                     <span className="muted">{legendaire(l.gagne)?.nom}</span>

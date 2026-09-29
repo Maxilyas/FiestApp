@@ -108,13 +108,25 @@ for (const [i, nom] of prenoms.entries()) {
 
 /**
  * Les finitions qui débordent le plus — la lumière des niveaux 15, 20 et
- * 25 (`Lumiere.tsx`) —, autour d'un portrait comme d'un emoji : le
- * vainqueur en Astrolabe, puis les Voiles et le Diamant, et Holo pour
- * comparer. Le niveau s'écrit sur la ligne du quiz du jour, que le
- * démarrage ne relit pas ; le serveur, redémarré, le lit avant que
- * personne n'arrive.
+ * 25 (`Lumiere.tsx`) —, autour d'un portrait, d'un légendaire comme d'un
+ * emoji : le vainqueur en Astrolabe, puis les Voiles et le Diamant ; le
+ * niveau 10 porte un Divin, que rien n'entoure. Le niveau s'écrit sur la
+ * ligne du quiz du jour, que le démarrage ne relit pas ; le serveur,
+ * redémarré, le lit avant que personne n'arrive.
  */
 const NIVEAUX: Record<number, number> = { 0: 25, 1: 20, 2: 15, 3: 25, 4: 15, 5: 10 }
+
+/**
+ * Les médaillons peints, les plus lourds à l'écran : Léo porte le Phénix
+ * éclaté — sa version rare sous le prisme, sa gerbe, ce qui sort du cadre —
+ * dans les Voiles de son niveau 20, et Jean-Baptiste Hélios, ses rayons et
+ * ses étincelles. Chacun par la ligne d'étagère qui l'ouvre : un haut fait
+ * pour l'un, sa descente pour l'autre.
+ */
+const MEDAILLONS_PORTES: Record<number, { cle: string; ligne: string; eclat?: boolean }> = {
+  1: { cle: 'lg:phenix', ligne: 'hf:phenix', eclat: true },
+  5: { cle: 'dv:helios', ligne: 'dv:helios' },
+}
 {
   const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
   for (const [i, niveau] of Object.entries(NIVEAUX)) {
@@ -123,6 +135,16 @@ const NIVEAUX: Record<number, number> = { 0: 25, 1: 20, 2: 15, 3: 25, 4: 15, 5: 
       .prepare(`INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, '#jour', '', ?, ?, 1)`)
       .run(id, xpDuNiveau(niveau), JSON.stringify({ v: VERSION_BAREME, jours: 1 }))
     base.prepare('UPDATE profiles SET xp = ? WHERE id = ?').run(xpDuNiveau(niveau), id)
+  }
+  // Leurs lignes d'étagère ouvrent les médaillons peints, que le serveur
+  // redémarré lit avec le reste (`MEDAILLONS_PORTES`, ci-dessus).
+  const espace = (base.prepare('SELECT id FROM accounts WHERE slug = ?').get(ADMIN.slug) as { id: string }).id
+  for (const [i, m] of Object.entries(MEDAILLONS_PORTES)) {
+    const id = (base.prepare('SELECT id FROM profiles WHERE login = ?').get(`joueur${i}`) as { id: string }).id
+    base
+      .prepare(`INSERT INTO profile_badges (profile_id, badge, soiree_id, space_id, emoji, title, created_at) VALUES (?, ?, 'une-soiree-d-avant', ?, '', '', 1)`)
+      .run(id, m.ligne, espace)
+    if (m.eclat) base.prepare(`INSERT INTO profile_eclats (profile_id, avatar, soiree_id, created_at) VALUES (?, ?, 'une-soiree-d-avant', 1)`).run(id, m.cle)
   }
   base.close()
   await banc.redemarrer()
@@ -140,11 +162,11 @@ const avecEquipes = await instantane(host, s => s.teams?.length === 3, 'trois é
 const equipes = avecEquipes.teams.map((t: any) => t.id)
 
 /**
- * Les portraits des branches que portent quatre des invités à profil — un
- * de chaque sorte : un masque, un humain, une danseuse, des pixels. Deux
- * cents bonnes réponses dans leur catégorie, rangées d'avance, les ouvrent.
+ * Les portraits des branches que portent deux des invités à profil — un
+ * masque et une danseuse, sous l'Astrolabe et le Diamant. Deux cents bonnes
+ * réponses dans leur catégorie, rangées d'avance, les ouvrent.
  */
-const PORTRAITS_PORTES: Record<number, string> = { 0: 'br:venise', 1: 'br:astronaute', 2: 'br:danseuse', 5: 'br:chevalier' }
+const PORTRAITS_PORTES: Record<number, string> = { 0: 'br:venise', 2: 'br:danseuse' }
 
 async function porterUnPortrait(login: string, profil: string, cle: string) {
   const categorie = brancheDe(portrait(cle)!).categorie
@@ -167,6 +189,10 @@ async function porterUnPortrait(login: string, profil: string, cle: string) {
 const invites: Invite[] = []
 for (const [i, { nom, avatar, profil }] of convives.entries()) {
   if (profil && PORTRAITS_PORTES[i]) await porterUnPortrait(`joueur${i}`, profil, PORTRAITS_PORTES[i])
+  if (profil && MEDAILLONS_PORTES[i]) {
+    const r = await ecrire(url, '/api/joueur/moi', { legendaire: MEDAILLONS_PORTES[i].cle }, profil, 'PUT')
+    if (!r.ok) throw new Error(`joueur${i} ne porte pas ${MEDAILLONS_PORTES[i].cle} (${r.status})`)
+  }
   const inv = await invite(url, nom, avatar, { cookie: profil })
   invites.push(inv)
   ;(host as any).emit('host:assignPlayer', { playerId: inv.playerId, teamId: equipes[i % 3] })
