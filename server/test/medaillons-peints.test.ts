@@ -2,7 +2,8 @@
 // leurs fichiers, servis sous leur empreinte, et ce que chaque état montre —
 // la carte sous sa pellicule holo, sa version rare qui sort du cadre, la
 // silhouette à gagner, le bijou d'un Divin qui vit, le voile de celui qui
-// n'est pas descendu. Pas de serveur : des modules du client, rendus en HTML.
+// n'est pas descendu. Des modules du client, rendus en HTML ; un serveur
+// jetable pour la route seulement.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
@@ -31,10 +32,10 @@ const PUBLICS = new URL('../../client/public/medaillons/', import.meta.url)
 /**
  * Ce qu'un fichier peint pèse au plus, par taille : une salle d'habitués en
  * porte plusieurs, et chaque téléphone télécharge ceux qu'il voit — la petite
- * taille, 20 Ko en moyenne. Les plus chargés (les gerbes du bouquet, les
- * feuilles et les douze pierres de l'Arbre-Monde) montent à 140 Ko en
- * grand ; au-delà, c'est un fichier qui n'est pas passé par la chaîne (un
- * PNG, une image en 2K).
+ * taille, 22 Ko en moyenne. Le plus chargé, le Bouquet final éclaté, dont la
+ * découpe garde les gerbes et la fumée des feux d'artifice, monte à 139 Ko
+ * en grand et 52 en petit ; au-delà, c'est un fichier qui n'est pas passé
+ * par la chaîne (un PNG, une image en 2K).
  */
 const POIDS_MAX: Record<string, number> = { '512': 150_000, '256': 55_000 }
 
