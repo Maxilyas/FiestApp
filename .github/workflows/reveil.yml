@@ -31,11 +31,15 @@ jobs:
         env:
           # Une variable du dépôt plutôt qu'une adresse écrite ici : l'adresse
           # `onrender.com` se fixe à la création du service, elle ne se
-          # déduit pas de son nom.
+          # déduit pas de son nom. Du dépôt, pas d'un environnement : le job
+          # n'en déclare aucun, et `vars` n'y lit pas les siennes — que la
+          # page des variables montre pourtant avec celles du dépôt. Posée
+          # là, l'adresse avait l'air configurée, et le réveil la trouvait
+          # vide.
           FIESTAPP_URL: ${{ vars.FIESTAPP_URL }}
         run: |
           if [ -z "$FIESTAPP_URL" ]; then
-            echo "::error::La variable FIESTAPP_URL manque : Settings → Secrets and variables → Actions → Variables, l'adresse de la production (https://….onrender.com, sans / à la fin)."
+            echo "::error::La variable FIESTAPP_URL manque : Settings → Secrets and variables → Actions → Variables, rubrique « Repository variables » — celle d'un environnement ne se lit pas ici. La valeur : l'adresse de la production (https://….onrender.com, sans / à la fin)."
             exit 1
           fi
           # Pendant le réveil, c'est Render qui répond à la place de
