@@ -103,6 +103,31 @@ try {
     if (erreurs.length) console.error(`[${b.key}]`, erreurs)
     console.log(path.join(sortie, `planche-${b.key}.png`))
   }
+  // Toutes les branches : le catalogue, les soixante-douze d'un coup d'œil,
+  // gagnés puis à gagner — la montée en puissance se lit de gauche à droite.
+  if (branches.length === BRANCHES.length) {
+    const rangs = branches
+      .map(
+        b => `<div class="rang"><div class="nom">${b.nom}<small>${b.categorie}</small></div>
+          ${b.portraits.map(p => case_({ cle: p.key }, 116, `${p.nom} · ${p.seuil}`)).join('')}
+          <div class="verrous">${b.portraits.map(p => case_({ cle: p.key, verrouille: true }, 34)).join('')}</div></div>`,
+      )
+      .join('')
+    const html = `<!doctype html><meta charset="utf-8"><style>${STYLE}
+      .rang { display: flex; align-items: center; gap: 22px; padding: 30px 0 10px; border-top: 1px solid #2c2535; }
+      .rang figure { width: 124px !important; }
+      .verrous { display: grid; grid-template-columns: repeat(3, 34px); gap: 8px 6px; margin-left: 8px; }
+      .verrous figure { width: 34px !important; }
+    </style><h1>Les portraits des branches</h1><p class="sous">Soixante-douze portraits peints, un style par branche · gagnés, puis à gagner</p>${rangs}`
+    const fichier = path.join(sortie, 'catalogue.html')
+    writeFileSync(fichier, html)
+    const page = await navigateur.newPage({ viewport: { width: 1160, height: 900 }, deviceScaleFactor: 1 })
+    await page.goto('file://' + fichier)
+    await page.waitForLoadState('networkidle')
+    await page.screenshot({ path: path.join(sortie, 'catalogue.png'), fullPage: true })
+    await page.close()
+    console.log(path.join(sortie, 'catalogue.png'))
+  }
 } finally {
   await navigateur.close()
 }

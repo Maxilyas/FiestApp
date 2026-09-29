@@ -24,7 +24,7 @@
 // Deux passes, donc : les images, puis les découpes, qui partent d'elles.
 // En lot (`--lot`), chaque passe coûte la moitié et revient en quelques
 // minutes ; un lot qui tarde se reprend par son nom au lancement suivant
-// (`lots-en-cours.json`). Une image payée n'est jamais redemandée sans
+// (`lots-en-cours-<branches>.json`). Une image payée n'est jamais redemandée sans
 // --regenerer, et l'ancienne est gardée à côté. Le journal
 // (`journal-portraits.json`) garde les jetons et le coût estimé de chacune.
 //
@@ -39,7 +39,7 @@ import path from 'node:path'
 import React from 'react'
 import { CHROMAS, PALIERS, STYLES, SUJETS, type Chroma } from './consignes'
 import { coutEstime, enPartie, formatDe, generer, lancerLot, lireLot, type Demande, type Partie, type Rendu } from './gemini'
-import { dansLaPage, deDataUrl, pagePixels } from './pixels'
+import { dansLaPage, deDataUrl, pagePixels, photographierSvg } from './pixels'
 
 Object.assign(globalThis, { React })
 const { renderToStaticMarkup } = await import('react-dom/server')
@@ -97,6 +97,8 @@ const COMMUN =
 const PREMIER =
   'Square avatar for a party quiz game — the first and simplest of a themed series of six. ' +
   'The subject alone, head and shoulders, centered, facing the viewer: its head in the upper middle of the canvas, its shoulders reaching the bottom edge. ' +
+  // Le kangourou est revenu sur une affiche crème, soleil compris, l'écureuil dans des anneaux de papier.
+  'Draw nothing behind the subject — no card, poster, paper sheet, frame, ring, sun, rays or scenery: only the flat background color. ' +
   'It must read instantly even as a tiny round icon: a strong silhouette, big clear shapes, the face well lit. ' +
   'No text, no letters, no numbers, no signature, no watermark. Output one square image (1:1 aspect ratio).'
 
@@ -125,12 +127,15 @@ const fondUni = (c: Chroma) => {
   )
 }
 
-const decoupe = (garde: string, c: Chroma) => {
+const decoupe = (garde: string, c: Chroma, retirer?: string) => {
   const { hex, nom } = CHROMAS[c]
   return (
     `Edit the attached image. Keep ${garde} exactly as it is — same pose, same position, same size, same outline, same colors and details, untouched. ` +
-    'Replace everything else — the whole setting, sky, ground, background objects, and the effects that are not attached to the subject — ' +
-    `with a single perfectly flat, uniform ${nom} (${hex}) filling the canvas edge to edge: no gradient, no shadow, no glow, no texture, no paper grain on it. ` +
+    `Replace everything else with a single perfectly flat, uniform ${nom} (${hex}) filling the canvas edge to edge: no gradient, no shadow, no glow, no texture, no paper grain on it. ` +
+    'Everything else means the whole setting, sky, ground and background objects, the effects that are not attached to the subject, ' +
+    // Le papier découpé gardait son cadre, ses fougères et sa lune ; le low poly, ses montagnes.
+    'and also the frame, the border, the paper layers, the scenery and any decorative or geometric background: none of them is part of the subject. ' +
+    (retirer ? `In particular, replace ${retirer} with the flat color. ` : '') +
     'Do not move, resize, crop, redraw or restyle the subject. Output one square image (1:1 aspect ratio).'
   )
 }
@@ -161,6 +166,12 @@ function consigneImage(f: Fiche): string {
   return [COMMUN, PALIERS[f.i], s.style, s.echelle[f.i], `Subject: ${sujet.sujet}`, cadrage, REFERENCE].join('\n\n')
 }
 
+/** Le fond uni qu'on a demandé à cette image : celui du visage, ou celui de la découpe. */
+function chromaDe(f: Fiche): Chroma {
+  return f.i === 5 ? STYLES[f.branche].ultimeChroma : (SUJETS[f.cle].chroma ?? 'vert')
+}
+const RGB: Record<Chroma, [number, number, number]> = { vert: [0, 255, 0], magenta: [255, 0, 255] }
+
 function consigneDecoupe(f: Fiche): string {
   if (f.i === 5) {
     const s = STYLES[f.branche]
@@ -168,7 +179,7 @@ function consigneDecoupe(f: Fiche): string {
   }
   const sujet = SUJETS[f.cle]
   const garde = sujet.garde ?? `${nomDuSujet(f.cle)} with everything it wears and holds`
-  return decoupe(sujet.deborde ? `${garde}, and ${sujet.deborde}` : garde, sujet.chroma ?? 'vert')
+  return decoupe(sujet.deborde && !sujet.garde ? `${garde}, and ${sujet.deborde}` : garde, sujet.chroma ?? 'vert', sujet.retirer)
 }
 
 // ── Les fichiers ──────────────────────────────────────────────────────────
@@ -190,8 +201,9 @@ function mettreDeCote(fichier: string | undefined) {
 
 const cheminJournal = path.join(racine, 'journal-portraits.json')
 mkdirSync(racine, { recursive: true })
-const journal: any[] = existsSync(cheminJournal) ? JSON.parse(readFileSync(cheminJournal, 'utf8')) : []
-const total = () => journal.reduce((n, e) => n + (e.cout ?? 0), 0)
+/** Le journal, relu à chaque écriture : deux lancements en parallèle (deux groupes de branches) y écrivent tous les deux. */
+const lireJournal = (): any[] => (existsSync(cheminJournal) ? JSON.parse(readFileSync(cheminJournal, 'utf8')) : [])
+const total = () => lireJournal().reduce((n, e) => n + (e.cout ?? 0), 0)
 
 /** Range une image payée, et son coût au journal — écrit à chaque image : une panne au milieu ne perd pas le compte. */
 function ranger(cle: string, quoi: 'image' | 'decoupe', r: Rendu, lot: boolean) {
@@ -199,6 +211,7 @@ function ranger(cle: string, quoi: 'image' | 'decoupe', r: Rendu, lot: boolean) 
   if (!f) return console.log(`${cle} : réponse d'une autre branche, ignorée`)
   writeFileSync(path.join(f.dossier, `${quoi}-${f.id}.${formatDe(r.image).ext}`), r.image)
   const cout = coutEstime(r.jetons, { lot })
+  const journal = lireJournal()
   journal.push({ cle, quoi, date: new Date().toISOString(), modele: MODELE, taille: TAILLE, lot, secondes: r.secondes, jetons: r.jetons, cout })
   writeFileSync(cheminJournal, JSON.stringify(journal, null, 2) + '\n')
   console.log(`  ${cle} · ${quoi} : environ ${cout.toFixed(3)} $ (total ${total().toFixed(2)} $)`)
@@ -213,13 +226,11 @@ function chargerPlaywright(): any {
 const { chromium } = chargerPlaywright()
 const nav = await chromium.launch({ headless: true })
 
-/** La référence d'un portrait : son dessin d'aujourd'hui, par le vrai composant, en 512. */
+/** La référence d'un portrait : son portrait d'aujourd'hui, par le vrai composant, en 512. */
 async function reference(page: any, f: Fiche) {
   const cible = path.join(f.dossier, `ref-${f.id}.png`)
   if (existsSync(cible)) return cible
-  const svg = renderToStaticMarkup(React.createElement(Portrait, { cle: f.cle }))
-  await page.setContent(`<!doctype html><body style="margin:0"><div style="width:512px;height:512px">${svg.replace('<svg ', '<svg width="100%" height="100%" ')}</div></body>`)
-  await page.screenshot({ path: cible, omitBackground: true, clip: { x: 0, y: 0, width: 512, height: 512 } })
+  await photographierSvg(page, renderToStaticMarkup(React.createElement(Portrait, { cle: f.cle, grand: true })), cible, 512)
   return cible
 }
 
@@ -228,7 +239,8 @@ interface Appel extends Demande {
   quoi: Quoi
 }
 
-const cheminLots = path.join(racine, 'lots-en-cours.json')
+/** Les lots en route, par groupe de branches : un groupe ne reprend que les siens. */
+const cheminLots = path.join(racine, `lots-en-cours-${voulues.length ? voulues.join('-') : 'toutes'}.json`)
 
 /** Attend les lots en cours ; rend vrai s'ils sont tous revenus. */
 async function attendre(lots: { nom: string; quoi: Quoi }[]): Promise<boolean> {
@@ -293,6 +305,8 @@ async function envoyer(appels: Appel[]) {
 
 try {
   const page = await pagePixels(nav, 512)
+  // Les références se photographient à part : la page des pixels garde ses outils.
+  const pageRef = await nav.newPage({ viewport: { width: 512, height: 512 }, deviceScaleFactor: 1 })
   for (const f of fiches) mkdirSync(path.join(f.dossier, 'app'), { recursive: true })
   for (const cle of REGENERER) {
     const f = fiches.find(x => x.cle === cle)
@@ -330,7 +344,7 @@ try {
       if (!image && f.i < 5) {
         const consigne = consigneImage(f)
         writeFileSync(path.join(f.dossier, `consigne-${f.id}.txt`), consigne + '\n')
-        appels.push({ cle: f.cle, quoi: 'image', parties: [enPartie(await reference(page, f)), { text: consigne }] })
+        appels.push({ cle: f.cle, quoi: 'image', parties: [enPartie(await reference(pageRef, f)), { text: consigne }] })
       } else if (image && f.i > 0 && !decoupeDe(f)) {
         const consigne = consigneDecoupe(f)
         writeFileSync(path.join(f.dossier, `consigne-decoupe-${f.id}.txt`), consigne + '\n')
@@ -361,18 +375,19 @@ try {
     const app = path.join(f.dossier, 'app')
     let sortie: { disque: Record<number, string>; perso: Record<number, string> }
     if (f.i === 0) {
-      const d = await dansLaPage<any>(page, 'detourer', enDataUrl(image))
+      const d = await dansLaPage<any>(page, 'detourer', enDataUrl(image), null, RGB[chromaDe(f)])
       writeFileSync(path.join(f.dossier, `detoure-${f.id}.png`), deDataUrl(d.plein))
       sortie = await dansLaPage(page, 'assembler', { image: d.plein, disque: DISQUE[0], cadre: CADRE_PERSO[0], tailles: TAILLES, qualite: QUALITE })
-      bilan[f.cle] = { fond: d.fond, transparents: +d.transparents.toFixed(3) }
-      console.log(`  ${f.cle} : fond ${d.fond}, ${(d.transparents * 100).toFixed(0)} % transparent`)
+      bilan[f.cle] = { fond: d.fond, bordFaux: d.bordFaux, transparents: +d.transparents.toFixed(3) }
+      const doute = d.bordFaux || d.transparents < 0.25
+      console.log(`  ${doute ? '⚠ ' : ''}${f.cle} : fond ${d.fond}, ${(d.transparents * 100).toFixed(0)} % transparent`)
     } else {
       const dec = decoupeDe(f)
       if (!dec) {
         console.log(`  ${f.cle} : pas encore de découpe`)
         continue
       }
-      const d = await dansLaPage<any>(page, 'detourer', enDataUrl(dec))
+      const d = await dansLaPage<any>(page, 'detourer', enDataUrl(dec), null, RGB[chromaDe(f)])
       writeFileSync(path.join(f.dossier, `detoure-${f.id}.png`), deDataUrl(d.plein))
       const a = await dansLaPage<any>(page, 'aligner', enDataUrl(image), d.plein)
       sortie = await dansLaPage(page, 'assembler', {
@@ -386,9 +401,12 @@ try {
         tailles: TAILLES,
         qualite: QUALITE,
       })
-      bilan[f.cle] = { fond: d.fond, transparents: +d.transparents.toFixed(3), alignement: a }
+      bilan[f.cle] = { fond: d.fond, bordFaux: d.bordFaux, transparents: +d.transparents.toFixed(3), alignement: a }
+      // Ce qui mérite un œil : un bord qui n'était pas le fond demandé, une
+      // découpe qui ne retombe pas sur son illustration (le modèle l'a redessinée).
+      const doute = d.bordFaux || d.transparents < 0.2 || !(a.ecart < 35)
       console.log(
-        `  ${f.cle} : fond ${d.fond}, ${(d.transparents * 100).toFixed(0)} % transparent ; ` +
+        `  ${doute ? '⚠ ' : ''}${f.cle} : fond ${d.fond}, ${(d.transparents * 100).toFixed(0)} % transparent ; ` +
           `aligné ×${a.s.toFixed(3)} (${(a.dx * 100).toFixed(1)} %, ${(a.dy * 100).toFixed(1)} %), écart ${a.sansAlignement.toFixed(0)} → ${a.ecart.toFixed(0)}`,
       )
     }

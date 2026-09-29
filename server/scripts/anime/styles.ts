@@ -25,6 +25,7 @@ import path from 'node:path'
 import React from 'react'
 import { STYLES } from './consignes'
 import { coutEstime, enPartie, formatDe, generer, lancerLot, lireLot, type Demande, type Rendu } from './gemini'
+import { photographierSvg } from './pixels'
 
 Object.assign(globalThis, { React })
 const { renderToStaticMarkup } = await import('react-dom/server')
@@ -93,9 +94,8 @@ async function reference(page: any, cle: string, cible: string) {
   const svg =
     cle === 'br:athena'
       ? readFileSync(new URL('./athena-croquis.svg', import.meta.url), 'utf8').replace(/<!--[\s\S]*?-->/, '')
-      : renderToStaticMarkup(React.createElement(Portrait, { cle }))
-  await page.setContent(`<!doctype html><body style="margin:0"><div style="width:1024px;height:1024px">${svg.replace('<svg ', '<svg width="100%" height="100%" ')}</div></body>`)
-  await page.screenshot({ path: cible, omitBackground: true, clip: { x: 0, y: 0, width: 1024, height: 1024 } })
+      : renderToStaticMarkup(React.createElement(Portrait, { cle, grand: true }))
+  await photographierSvg(page, svg, cible, 1024)
 }
 
 // ── Le cadre du sixième palier ────────────────────────────────────────────
@@ -123,7 +123,9 @@ function planche(journal: any[]) {
     const p = b.portraits[5]
     const image = existant(`style-${b.key}`)
     const style = STYLES[b.key]?.nom
-    const ref = `<span class="boite" style="width:44px;height:44px">${renderToStaticMarkup(React.createElement(Portrait, { cle: p.key }))}</span>`
+    // Le portrait d'aujourd'hui, peint : ses fichiers sont lus là où le build les prend.
+    const publics = new URL('../../../client/public/portraits/', import.meta.url).href
+    const ref = `<span class="boite" style="width:44px;height:44px">${renderToStaticMarkup(React.createElement(Portrait, { cle: p.key })).replaceAll('href="/portraits/', `href="${publics}`)}</span>`
     const corps = image
       ? `<div class="grand"><span class="boite" style="width:250px;height:250px">${cadre(path.basename(image))}</span></div>
          <div class="petits">

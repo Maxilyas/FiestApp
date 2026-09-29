@@ -118,7 +118,8 @@ export const STYLES: Record<string, StyleDeBranche> = {
       'Style: a layered paper-cut diorama — built from cut paper sheets stacked in depth, each layer a flat color with clean cut edges ' +
       'and soft drop shadows between layers, a subtle paper fiber texture, warm light glowing through the gaps, forest greens, moss, amber and cream.',
     echelle: [
-      'A single layer of cut paper: flat, one color and a few cut details.',
+      // L'écureuil revenait deux fois dans des anneaux de papier : un visage n'a pas de cadre.
+      'A single layer of cut paper: flat, one color and a few cut details — the subject alone, with no circles, rings or frames of paper around it.',
       'Two or three paper layers, simple trees behind.',
       'Four layers with soft shadows between them.',
       'Many layers, warm light glowing through the gaps.',
@@ -241,7 +242,9 @@ export const STYLES: Record<string, StyleDeBranche> = {
       'Style: Art Deco — elegant geometric design in black, ivory and metallic gold with jewel-tone accents (emerald, ruby), sunburst rays, ' +
       'stepped patterns and fan shapes, sleek stylized figures, the glamour of a 1920s party.',
     echelle: [
-      'A simple Art Deco portrait in black and ivory only, with geometric shapes.',
+      // Le noir et l'ivoire seuls faisaient de la piñata un zèbre, et « un
+      // portrait art déco » l'encadrait comme une affiche : ni l'un ni l'autre.
+      'Simple Art Deco styling: bold geometric shapes, black, ivory, gold and a few jewel tones — no frame, border, panel or rays around the subject.',
       'Black, ivory and a touch of gold, a geometric pattern behind.',
       'Gold lines, fan shapes, a first sunburst.',
       'Metallic gold light, jewel-tone accents, a glamorous shine.',
@@ -278,6 +281,12 @@ export interface SujetDePortrait {
    * l'arlequin en l'air.
    */
   garde?: string
+  /**
+   * Ce que sa découpe doit retirer, nommé : dit dans ce qu'elle garde
+   * (« le blaireau seul, sans son terrier »), le modèle gardait le terrier ;
+   * dit comme un fond à repeindre, il l'enlève.
+   */
+  retirer?: string
 }
 
 /** Les cinq premiers portraits de chaque branche : la forme ultime a son essai (`STYLES`). */
@@ -302,11 +311,17 @@ export const SUJETS: Record<string, SujetDePortrait> = {
     sujet: 'the Gorgon: green skin, golden reptile eyes, a crown of living green snakes as hair, a golden armor collar; behind her, a ruined Greek temple at dusk.',
     chroma: 'magenta',
   },
-  // « Thor » tout court est refusé (PROHIBITED_CONTENT) : le nom appelle un
-  // personnage de bande dessinée protégé. Le dieu du tonnerre, lui, passe.
+  // « Thor » est refusé (PROHIBITED_CONTENT) : le nom appelle un personnage
+  // de bande dessinée protégé. « Le dieu nordique du tonnerre » au casque
+  // ailé est passé une fois sur trois, mais sa découpe, jamais : l'image
+  // elle-même ressemblait trop au personnage protégé. Le dieu des mythes n'a
+  // pas d'ailes à son casque — elles viennent de l'opéra du XIXᵉ siècle — et
+  // son marteau est gravé de runes : c'est lui qu'on peint.
   'br:thor': {
+    garde: 'the red-bearded warrior with his helmet, fur cloak, armor and hammer',
     sujet:
-      'the Norse god of thunder: a red braided beard, a winged silver helmet, raising his short-handled war hammer as the first lightning sparks leap from it, a stormy sky behind.',
+      'the Viking storm god: a burly warrior with a braided red beard and braided hair, a plain iron helmet and a fur cloak, raising a short rune-carved stone hammer ' +
+      'as the first lightning sparks leap from it, storm clouds behind.',
   },
   'br:anubis': {
     sujet: 'Anubis: a black jackal-headed god with tall gold-lined ears, a rainbow-striped Egyptian collar and gold jewelry, eyes glowing gold, backlit by a huge setting sun above the pyramids.',
@@ -325,9 +340,13 @@ export const SUJETS: Record<string, SujetDePortrait> = {
     sujet: 'the glowing jellyfish: a translucent pink bell and long trailing tentacles, pulsing upward through dark water.',
   },
   'br:raie': {
+    garde: 'the manta ray alone — not the water, the waves, the light rays or the plankton',
     sujet: 'the manta ray: a dark back, a white belly, wide wings, gliding through deep blue water under shafts of moonlight, glowing plankton around it.',
   },
   'br:baleine': {
+    garde: 'the humpback whale’s body and the column of water spouting from its blowhole',
+    retirer:
+      'the whole sea — all the water, every wave, the foam and the splashes around and below its body, down to the bottom edge — so that the whale floats alone in the flat color',
     sujet: 'the humpback whale: blue-grey with long white flippers, breaching up out of the waves.',
     deborde: 'its spout of water and the spray of its leap',
   },
@@ -355,12 +374,23 @@ export const SUJETS: Record<string, SujetDePortrait> = {
     chroma: 'magenta',
   },
   'br:blaireau': {
+    garde: 'the badger — its striped head, its body and its paws',
+    retirer: 'its burrow, the roots, the ground, the trees, the moon and the sky',
     sujet: 'the badger: a black-and-white striped face and a grey body; behind it, the entrance of its burrow under tree roots.',
     chroma: 'magenta',
   },
-  'br:lynx': { sujet: 'the lynx: tawny spotted fur and black-tufted ears, pouncing forward through the ferns.', chroma: 'magenta' },
-  'br:loup': { sujet: 'the grey wolf: howling at a full moon, backlit by moonlight, its eyes glowing.', chroma: 'magenta' },
+  'br:lynx': {
+    sujet: 'the lynx: tawny spotted fur and black-tufted ears, pouncing forward through the ferns.',
+    garde: 'the lynx alone — not the ferns, the trees, the ground or the paper frame',
+    chroma: 'magenta',
+  },
+  'br:loup': {
+    sujet: 'the grey wolf: howling at a full moon, backlit by moonlight, its eyes glowing.',
+    garde: 'the wolf alone — not the moon, the trees, the rocks or the paper frame',
+    chroma: 'magenta',
+  },
   'br:ours': {
+    garde: 'the bear with its raised paws and the few leaves flying right around its paws — not the trees, the branches behind it, the ground or the paper frame',
     sujet: 'the brown bear: standing up on its hind legs with a roar, huge and powerful, among branches and falling leaves.',
     deborde: 'its raised paws and a flurry of leaves',
     chroma: 'magenta',
@@ -410,10 +440,13 @@ export const SUJETS: Record<string, SujetDePortrait> = {
   },
 
   'br:nageuse': { sujet: 'the swimmer: a woman with a blue swim cap and goggles pushed up on her forehead, a confident smile.' },
-  'br:cycliste': { sujet: 'the cyclist: a teal aero helmet, sporty sunglasses and a yellow jersey; behind him, a mountain road.' },
-  'br:surfeur': { sujet: 'the surfer: blond and tanned, riding a turquoise wave on his surfboard.', garde: 'the surfer and his surfboard' },
+  'br:cycliste': {
+    sujet: 'the cyclist: a teal aero helmet, sporty sunglasses and a yellow jersey; behind him, a mountain road.',
+    garde: 'the cyclist alone — his head, helmet, sunglasses, shoulders and jersey — not the mountains, the road or the flying facets behind him',
+  },
+  'br:surfeur': { sujet: 'the surfer: blond and tanned, riding a turquoise wave on his surfboard.', garde: 'the surfer and his surfboard', retirer: 'the wave, the water, the spray and the sky' },
   'br:skieuse': {
-    garde: 'the skier with her skis and poles',
+    garde: 'the skier with her skis and poles — not the mountains, the sky or the slope',
     sujet: 'the skier: a striped beanie and orange goggles, carving through powder snow on a sunlit mountain, backlit, the snow spray glowing.',
   },
   'br:boxeur': {
@@ -444,16 +477,29 @@ export const SUJETS: Record<string, SujetDePortrait> = {
     sujet: 'the living chest: a wooden treasure chest with golden trim, sharp teeth and a long red tongue, lunging forward to bite, gold coins flying.',
   },
   'br:archere': {
+    garde: 'the archer with her bow, her glowing arrow and her cloak — not the trees or the forest',
     sujet: 'the archer: a green hooded cloak and an auburn braid, drawing her bow with a glowing arrow, backlit in a moonlit forest.',
     chroma: 'magenta',
   },
+  // Une sorcière : ses longs cheveux blancs, sous le chapeau, avaient été lus
+  // comme une barbe, et la mage était revenue en vieux magicien.
   'br:mage': {
-    sujet: 'the mage: a tall purple pointed hat with stars and a long white beard, raising a glowing staff.',
+    garde: 'the sorceress with her hat, her long white hair, her robe and her glowing staff, and the swirl of magic runes and sparks above the staff',
+    retirer: 'the library, the shelves, the books and the floor',
+    sujet:
+      'the mage: a young dark-skinned sorceress with long white hair, a tall purple pointed hat with stars and a purple robe, ' +
+      'raising a staff topped with a glowing golden gem.',
     deborde: 'a swirl of magic runes and sparks from the staff',
   },
 
-  'br:pinata': { sujet: 'the piñata: a donkey piñata with fringes of pink, orange, yellow and purple paper and a sweet face.' },
+  'br:pinata': {
+    // Sans ses franges, l'âne géométrique de l'art déco passait pour un zèbre.
+    sujet:
+      'the piñata: a colorful party piñata toy shaped like a little donkey — a paper-mâché head with a sweet face and big eyes, its neck and body ' +
+      'covered in layers of ruffled tissue-paper fringe in pink, orange, yellow and purple — clearly a paper toy, not a real animal.',
+  },
   'br:fetard': {
+    garde: 'the party-goer with his party hat and party horn — not the balloons, the streamers or the geometric background',
     sujet: 'the party-goer: a striped party hat, blowing a party horn among confetti; behind him, a room full of balloons and streamers.',
   },
   'br:arlequin': {
@@ -464,6 +510,8 @@ export const SUJETS: Record<string, SujetDePortrait> = {
     sujet: 'the magician: a top hat with a white rabbit peeking out, a black cape and a wand throwing sparkles, backlit by a stage spotlight.',
   },
   'br:disco': {
+    garde: 'the disco queen, the mirror ball above her and its beams of light',
+    retirer: 'the geometric Art Deco panels, the fans, the frame and the patterned background',
     sujet: 'the disco queen: a woman with a big afro and a gold sequin outfit, striking a pose under a mirror ball.',
     deborde: 'the mirror ball and its beams of light',
   },

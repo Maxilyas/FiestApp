@@ -77,8 +77,8 @@ for (const b of BRANCHES.filter(x => voulues.length === 0 || voulues.includes(x.
   })
   const module = `${entete}
 //
-// Peints en images, ${STYLES[b.key].nom.replace(/^L[’']/, 'l’').replace(/^Le /, 'le ').replace(/^La /, 'la ')} : un style par branche, un
-// ingrédient de plus par palier (\`server/scripts/anime/portraits.ts\`).
+// Peints en images par \`server/scripts/anime/portraits.ts\`, un ingrédient
+// de plus à chaque palier. Le style de la branche : ${STYLES[b.key].nom.replace(/^L[’']/, 'l’').replace(/^Le /, 'le ').replace(/^La /, 'la ')}.
 //
 // Écrit par \`server/scripts/anime/livrer.ts\` : on ne le retouche pas à la
 // main, on relance la chaîne. Les fichiers sont dans \`client/public/portraits\`,

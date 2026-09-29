@@ -1,17 +1,17 @@
-// Ce qui lit et écrit des pixels, pour les scripts des portraits en images
-// (`essai.ts`, `portraits.ts`) : Node ne sait pas décoder une image sans
-// dépendance, Chromium si. Du JavaScript en chaîne, posé dans une page
-// (`pagePixels`) — le serveur se vérifie sans les types du navigateur.
+// Ce qui lit et écrit des pixels, pour la chaîne des portraits en images
+// (`portraits.ts`) : Node ne sait pas décoder une image sans dépendance,
+// Chromium si. Du JavaScript en chaîne, posé dans une page (`pagePixels`) —
+// le serveur se vérifie sans les types du navigateur.
 //
 // - `detourer` : le fond uni (vert ou magenta) devient transparent, les bords
 //   se démêlent ;
-// - `recaler` : une forme détourée retombe sur une autre, par recouvrement —
-//   l'essai recale l'image générée sur son croquis ;
 // - `aligner` : la découpe d'une illustration (le personnage seul, que Nano
 //   Banana a repeint sur un fond uni) retombe sur l'illustration, par la
 //   couleur — le modèle déplace parfois d'un cheveu ce qu'il devait garder ;
 // - `assembler` : les fichiers de l'application, le disque et le personnage,
 //   à leurs tailles.
+import { rmSync, writeFileSync } from 'node:fs'
+
 export const NAVIGATEUR = String.raw`
 function charger(src) {
   return new Promise((ok, ko) => {
@@ -52,13 +52,18 @@ function couleurDuFond(d, l, h) {
 // canaux, partout (« partout »). Sur le magenta — le fond des sujets qui
 // portent du vert —, le rose d'une fleur ou d'une joue est à eux : le reflet
 // ne se retire qu'aux bords, là où le fond s'est mêlé (« bords »).
-async function detourer(src, reflet) {
+async function detourer(src, reflet, attendu) {
   const img = await charger(src)
   const l = img.naturalWidth, h = img.naturalHeight
   const c = toile(l, h), x = c.getContext('2d', { willReadFrequently: true })
   x.drawImage(img, 0, 0)
   const donnees = x.getImageData(0, 0, l, h), d = donnees.data
-  const K = couleurDuFond(d, l, h)
+  let K = couleurDuFond(d, l, h)
+  // Un bord qui ment — une découpe qui a gardé son décor jusqu'au bord (les
+  // vagues de la raie) — donne un fond qui n'est pas celui qu'on a demandé :
+  // on détoure alors la couleur demandée, et le décor gardé se voit.
+  const bordFaux = !!attendu && Math.hypot(K[0] - attendu[0], K[1] - attendu[1], K[2] - attendu[2]) > 90
+  if (bordFaux) K = attendu
   const magenta = K[0] > K[1] + 60 && K[2] > K[1] + 60
   const partout = reflet ? reflet === 'partout' : !magenta
   const kb = cb(K[0], K[1], K[2]), kr = cr(K[0], K[1], K[2])
@@ -93,7 +98,7 @@ async function detourer(src, reflet) {
   // déformait le personnage.
   const m = Math.max(l, h), carre = toile(m, m)
   carre.getContext('2d').drawImage(c, (m - l) / 2, (m - h) / 2)
-  return { plein: carre.toDataURL('image/png'), fond: K, magenta, transparents: transparents / (l * h), taille: [l, h] }
+  return { plein: carre.toDataURL('image/png'), fond: K, bordFaux, magenta, transparents: transparents / (l * h), taille: [l, h] }
 }
 
 // Une image réduite par moitiés successives : d'un coup, de 1024 à 128,
@@ -110,61 +115,6 @@ function reduire(source, cote) {
   x.imageSmoothingQuality = 'high'
   x.drawImage(c, 0, 0, cote, cote)
   return fin
-}
-
-async function masque(src, n) {
-  const img = await charger(src)
-  const c = toile(n, n), x = c.getContext('2d', { willReadFrequently: true })
-  x.imageSmoothingQuality = 'high'
-  x.drawImage(img, 0, 0, n, n)
-  const d = x.getImageData(0, 0, n, n).data
-  const m = new Float32Array(n * n)
-  for (let i = 0; i < n * n; i++) m[i] = d[i * 4 + 3] / 255
-  return m
-}
-
-// Le recouvrement des deux formes (intersection sur union, en opacités),
-// l'image générée mise à l'échelle s autour du centre puis décalée de
-// (dx, dy) pixels. Sous la ligne « bas », le buste que le modèle prolonge
-// jusqu'au bord du canevas ne compte pas : le disque le coupe avant.
-function recouvrement(ref, gen, n, s, dx, dy, bas) {
-  const c = n / 2
-  let inter = 0, union = 0
-  for (let Y = 0; Y < bas; Y++) {
-    const v = Math.round(c + (Y - c - dy) / s)
-    const dedans = v >= 0 && v < n
-    for (let X = 0; X < n; X++) {
-      const u = Math.round(c + (X - c - dx) / s)
-      const g = dedans && u >= 0 && u < n ? gen[v * n + u] : 0
-      const r = ref[Y * n + X]
-      inter += r < g ? r : g
-      union += r > g ? r : g
-    }
-  }
-  return union ? inter / union : 0
-}
-
-async function recaler(srcRef, srcGen, n, bas) {
-  const ref = await masque(srcRef, n), gen = await masque(srcGen, n)
-  const identite = recouvrement(ref, gen, n, 1, 0, 0, bas)
-  let mieux = { s: 1, dx: 0, dy: 0, score: identite }
-  // De 0,4 à 1,8 : l'app Gemini remplit le canevas (le Minotaure y revient
-  // une fois et demie plus grand que son croquis), et une image rendue en
-  // 4:3, complétée en carré, arrive aux trois quarts de sa taille.
-  for (let s = 0.4; s <= 1.8001; s += 0.05)
-    for (let dx = -32; dx <= 32; dx += 4)
-      for (let dy = -32; dy <= 32; dy += 4) {
-        const q = recouvrement(ref, gen, n, s, dx, dy, bas)
-        if (q > mieux.score) mieux = { s, dx, dy, score: q }
-      }
-  const b = { ...mieux }
-  for (let s = b.s - 0.04; s <= b.s + 0.0401; s += 0.01)
-    for (let dx = b.dx - 4; dx <= b.dx + 4; dx += 1)
-      for (let dy = b.dy - 4; dy <= b.dy + 4; dy += 1) {
-        const q = recouvrement(ref, gen, n, s, dx, dy, bas)
-        if (q > mieux.score) mieux = { s, dx, dy, score: q }
-      }
-  return { ...mieux, identite }
 }
 
 async function pixelsDe(src, n) {
@@ -284,6 +234,26 @@ async function jpegReduit(src, cote, qualite) {
   return reduire(c, cote).toDataURL('image/jpeg', qualite)
 }
 `
+
+/**
+ * Photographie un portrait rendu par le vrai composant, plein cadre, sur un
+ * fond transparent. Un portrait peint cite ses fichiers sous `/portraits/` :
+ * ils sont lus là où le build les prend, et une page vide ne charge pas un
+ * fichier local — la page passe par un fichier à côté de la photo.
+ */
+export async function photographierSvg(page: any, svg: string, cible: string, cote: number) {
+  const publics = new URL('../../../client/public/portraits/', import.meta.url).href
+  const html =
+    `<!doctype html><body style="margin:0"><div style="width:${cote}px;height:${cote}px">` +
+    svg.replace('<svg ', '<svg width="100%" height="100%" ').replaceAll('href="/portraits/', `href="${publics}`) +
+    '</div></body>'
+  const page_ = cible.replace(/\.png$/, '.html')
+  writeFileSync(page_, html)
+  await page.goto('file://' + page_)
+  await page.waitForLoadState('networkidle')
+  await page.screenshot({ path: cible, omitBackground: true, clip: { x: 0, y: 0, width: cote, height: cote } })
+  rmSync(page_)
+}
 
 /** Une page de Chromium, avec les outils de pixels chargés. */
 export async function pagePixels(nav: any, cote = 1024) {
