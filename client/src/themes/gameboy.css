@@ -1,0 +1,240 @@
+/* ── Game Boy · Peu commune ──
+   La console de poche : quatre verts, des pixels, rien d’autre.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/press-start-2p.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'VT323';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/vt323.woff2') format('woff2');
+}
+
+:root[data-theme='gameboy'] {
+  --bg: #9bbc0f;
+  --bg-halo: #a7c82a;
+  --bg-raised: #8bac0f;
+  --ink: #0f380f;
+  --muted: #1e4a1e;
+  --accent: #0f380f;
+  --accent-rgb: 15, 56, 15;
+  --accent-hover: #1e4a1e;
+  --accent-text: #0f380f;
+  --accent-text-hover: #0f380f;
+  --focus: #0f380f;
+  --on-accent: #9bbc0f;
+  --alert: #0f380f;
+  --alert-rgb: 15, 56, 15;
+  --alert-hover: #1e4a1e;
+  --on-alert: #9bbc0f;
+  --surface: #8bac0f;
+  --surface-faint: rgba(139, 172, 15, 0.6);
+  --surface-strong: rgba(15, 56, 15, 0.1);
+  --track: rgba(15, 56, 15, 0.2);
+  --edge: #306230;
+  --edge-strong: #0f380f;
+  --accent-soft: rgba(15, 56, 15, 0.14);
+  --scroll-thumb: #306230;
+  --dim: 0.45;
+  --backdrop: rgba(15, 56, 15, 0.5);
+  --shadow-toast: 3px 3px 0 #306230;
+  --shadow-dialog: 4px 4px 0 #306230;
+  --shape-0: #0f380f;
+  --shape-1: #0f380f;
+  --shape-2: #0f380f;
+  --shape-3: #0f380f;
+  --bronze-text: #0f380f;
+  --argent-text: #0f380f;
+  --anneau-legendaire: #0f380f;
+  --anneau-divin: #0f380f;
+  --anneau-collection: #306230;
+  --anneau-collection-haut: #306230;
+  color-scheme: light;
+}
+
+:root[data-theme='gameboy'] .silhouette {
+  filter: brightness(0);
+  opacity: .45;
+}
+
+:root[data-theme='gameboy'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
+}
+
+:root[data-theme='gameboy'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+
+:root[data-theme='gameboy'] .lu-scintille {
+  filter: brightness(.6) sepia(1) saturate(2.5);
+}
+
+:root[data-theme='gameboy'] .fait-puce.fait-ombre {
+  color: #5b3f99;
+}
+
+:root[data-theme='gameboy'] {
+  --serif: 'Press Start 2P', 'Courier New', monospace;
+  --sans: VT323, 'Courier New', monospace;
+  --radius: 0px;
+  --radius-sm: 0px;
+  --radius-xs: 0px;
+  --radius-pill: 0px;
+  font-synthesis: none;
+}
+
+:root[data-theme='gameboy'] body {
+  background: #9bbc0f;
+  font-size: 20px;
+}
+
+:root[data-theme='gameboy'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  box-shadow: inset 0 0 60px rgba(15, 56, 15, .28);
+}
+
+:root[data-theme='gameboy'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background-image: linear-gradient(rgba(15, 56, 15, .06) 1px, transparent 1px), linear-gradient(90deg, rgba(15, 56, 15, .06) 1px, transparent 1px);
+  background-size: 3px 3px;
+}
+
+:root[data-theme='gameboy'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='gameboy'] .card,
+:root[data-theme='gameboy'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='gameboy'] .onglets {
+  background: #8bac0f;
+  border: 3px solid #0f380f;
+  box-shadow: 3px 3px 0 #306230;
+}
+
+:root[data-theme='gameboy'] .ans-btn {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+:root[data-theme='gameboy'] .ans-btn.chosen {
+  background: #306230;
+  color: #9bbc0f;
+  border: 3px solid #0f380f;
+}
+
+:root[data-theme='gameboy'] .ans-btn.chosen .ans-shape {
+  color: #9bbc0f;
+}
+
+:root[data-theme='gameboy'] .quiz-question {
+  font-family: var(--sans);
+  font-weight: 400;
+  font-size: 31px;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+:root[data-theme='gameboy'] .timer-track {
+  height: 12px;
+  border: 2px solid #0f380f;
+  background: transparent;
+}
+
+:root[data-theme='gameboy'] .timer-fill {
+  background: repeating-linear-gradient(90deg, #0f380f 0 6px, transparent 6px 8px);
+}
+
+:root[data-theme='gameboy'] .timer-seconds {
+  font-size: 22px;
+  font-weight: 400;
+  color: #0f380f;
+  min-width: 56px;
+}
+
+:root[data-theme='gameboy'] .label {
+  font-family: var(--sans);
+  font-size: 18px;
+  letter-spacing: .08em;
+  color: #0f380f;
+}
+
+:root[data-theme='gameboy'] .result-banner .big,
+:root[data-theme='gameboy'] .fin-xp {
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.4;
+  color: #0f380f;
+}
+
+:root[data-theme='gameboy'] h1,
+:root[data-theme='gameboy'] h2,
+:root[data-theme='gameboy'] h3 {
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+:root[data-theme='gameboy'] h1 {
+  font-size: 1.3rem;
+}
+
+:root[data-theme='gameboy'] h2,
+:root[data-theme='gameboy'] .me-header h2 {
+  font-size: 1.05rem;
+}
+
+:root[data-theme='gameboy'] h3 {
+  font-size: .8rem;
+}
+
+:root[data-theme='gameboy'] .niveau {
+  background: #0f380f;
+  color: #9bbc0f;
+  border: 0;
+  font-family: var(--sans);
+  font-size: 1.1rem;
+}
+
+:root[data-theme='gameboy'] .lb-row {
+  background: #8bac0f;
+  border: 2px solid #306230;
+}
+
+:root[data-theme='gameboy'] .xp-bar {
+  border: 2px solid #0f380f;
+  background: transparent;
+  height: 12px;
+}
+
+:root[data-theme='gameboy'] .xp-fill {
+  background: #0f380f;
+}
+
+:root[data-theme='gameboy'] .btn-primary {
+  font-family: var(--serif);
+  font-size: .7rem;
+}

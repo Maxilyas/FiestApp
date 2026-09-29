@@ -2,6 +2,7 @@ import React, { Component, Suspense, lazy, type ReactNode } from 'react'
 import ReactDOM from 'react-dom/client'
 import { DialogHost } from './components/Dialog'
 import { applyTheme } from './theme'
+import { poserThemeRetenu } from './themeJoueur'
 import { installerClavier } from './clavier'
 import { Patience } from './annonce'
 import { route, type AccountPage, type PublicPage } from './routes'
@@ -96,8 +97,11 @@ else if (route.kind === 'unknown') document.title = 'Adresse introuvable · Fies
 
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au
-// chargement. Les autres pages — les téléphones surtout — restent en Velours.
+// chargement. Les pages d'un joueur — la soirée, l'accueil, le quiz du jour —
+// portent le thème de son profil, celui qu'il portait la dernière fois dès
+// le démarrage (`themeJoueur.ts`) ; les autres restent en Velours.
 if (App === HostApp) applyTheme()
+else if (App === PlayerApp || App === ProfilApp || App === JourApp) poserThemeRetenu()
 
 // Les écrans d'entrée ancrent leur bouton en bas de page : le clavier d'un
 // téléphone le cachait. L'écran commun n'a pas de clavier qui monte.

@@ -1,0 +1,181 @@
+/* ── Cahier d’écolier · Commune ──
+   Le Seyès, la marge rouge, le stylo quatre couleurs : la question s’écrit à la main.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Caveat';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/themes/caveat.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Patrick Hand';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/patrick-hand.woff2') format('woff2');
+}
+
+:root[data-theme='cahier'] {
+  --bg: #fdfdf8;
+  --bg-halo: #ffffff;
+  --bg-raised: #ffffff;
+  --ink: #1d2b6b;
+  --muted: #56608a;
+  --accent: #2f5bd3;
+  --accent-rgb: 47, 91, 211;
+  --accent-hover: #4c72d9;
+  --accent-text: #2342a8;
+  --accent-text-hover: #1c3586;
+  --focus: #2342a8;
+  --on-accent: #ffffff;
+  --alert: #c62828;
+  --alert-rgb: 198, 40, 40;
+  --alert-hover: #cd4242;
+  --on-alert: #ffffff;
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-faint: rgba(255, 255, 255, 0.4);
+  --surface-strong: rgba(29, 43, 107, 0.06);
+  --track: rgba(29, 43, 107, 0.14);
+  --edge: rgba(47, 91, 211, 0.38);
+  --edge-strong: rgba(47, 91, 211, 0.72);
+  --accent-soft: rgba(47, 91, 211, 0.14);
+  --scroll-thumb: rgba(47, 91, 211, 0.45);
+  --dim: 0.5;
+  --backdrop: rgba(29, 43, 107, 0.4);
+  --shadow-toast: 0 10px 30px rgba(29, 43, 107, 0.18);
+  --shadow-dialog: 0 24px 60px rgba(29, 43, 107, 0.25);
+  --shape-0: #c62828;
+  --shape-1: #222222;
+  --shape-2: #2f5bd3;
+  --shape-3: #1f7a45;
+  --bronze-text: #8a4b1a;
+  --argent-text: #4d5866;
+  --anneau-legendaire: #a85a22;
+  --anneau-divin: #6a58a8;
+  --anneau-collection: #3f7e5c;
+  --anneau-collection-haut: #3b67a3;
+  color-scheme: light;
+}
+
+:root[data-theme='cahier'] .silhouette {
+  filter: brightness(0);
+  opacity: .45;
+}
+
+:root[data-theme='cahier'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
+}
+
+:root[data-theme='cahier'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+
+:root[data-theme='cahier'] .lu-scintille {
+  filter: brightness(.6) sepia(1) saturate(2.5);
+}
+
+:root[data-theme='cahier'] .fait-puce.fait-ombre {
+  color: #5b3f99;
+}
+
+:root[data-theme='cahier'] {
+  --serif: Caveat, 'Segoe Print', cursive;
+  --sans: 'Patrick Hand', 'Segoe Print', cursive;
+  --radius: 6px;
+  --radius-sm: 6px;
+  font-synthesis: none;
+}
+
+:root[data-theme='cahier'] body {
+  background-color: #fdfdf8;
+  background-image: linear-gradient(90deg, transparent 31px, rgba(214, 45, 45, .5) 31px 33px, transparent 33px), repeating-linear-gradient(180deg, transparent 0 7px, rgba(90, 130, 210, .16) 7px 8px), repeating-linear-gradient(180deg, transparent 0 31px, rgba(90, 130, 210, .34) 31px 32px), repeating-linear-gradient(90deg, transparent 0 31px, rgba(90, 130, 210, .14) 31px 32px);
+  background-size: auto;
+  background-repeat: repeat;
+}
+
+:root[data-theme='cahier'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='cahier'] .card,
+:root[data-theme='cahier'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='cahier'] .onglets {
+  background: rgba(255, 255, 255, .9);
+  border: 2px solid rgba(29, 43, 107, .5);
+  border-radius: 18px 6px 16px 5px / 6px 16px 5px 18px;
+  box-shadow: none;
+}
+
+:root[data-theme='cahier'] .ans-btn {
+  font-size: 1.3rem;
+}
+
+:root[data-theme='cahier'] .ans-btn.chosen {
+  background: rgba(47, 91, 211, .1);
+  border: 2px solid #2f5bd3;
+}
+
+:root[data-theme='cahier'] .quiz-question {
+  font-weight: 700;
+  font-size: 36px;
+  line-height: 1.05;
+}
+
+:root[data-theme='cahier'] .timer-track {
+  height: 4px;
+  background: rgba(29, 43, 107, .12);
+}
+
+:root[data-theme='cahier'] .timer-fill {
+  background: #2f5bd3;
+}
+
+:root[data-theme='cahier'] .timer-seconds {
+  font-weight: 700;
+  color: #c62828;
+}
+
+:root[data-theme='cahier'] .label {
+  color: #c62828;
+  font-family: var(--sans);
+  font-size: 13px;
+  letter-spacing: .12em;
+}
+
+:root[data-theme='cahier'] .result-banner .big,
+:root[data-theme='cahier'] .fin-xp {
+  color: #c62828;
+  font-weight: 700;
+  text-decoration: underline double rgba(198, 40, 40, .6);
+  text-underline-offset: 6px;
+}
+
+:root[data-theme='cahier'] h1,
+:root[data-theme='cahier'] h2,
+:root[data-theme='cahier'] h3 {
+  font-weight: 700;
+}
+
+:root[data-theme='cahier'] .niveau {
+  border-radius: 50%;
+  border: 2px solid #c62828;
+  color: #c62828;
+  background: transparent;
+}
+
+:root[data-theme='cahier'] .lb-row {
+  background: rgba(255, 255, 255, .75);
+  border: 1.5px solid rgba(29, 43, 107, .22);
+}

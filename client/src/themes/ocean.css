@@ -1,0 +1,190 @@
+/* ── Océan · Peu commune ──
+   Les abysses : les rayons de la surface, les bulles qui montent, le turquoise qui luit.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Comfortaa';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/themes/comfortaa.woff2') format('woff2');
+}
+
+:root[data-theme='ocean'] {
+  --bg: #03202b;
+  --bg-halo: #0b4a5e;
+  --bg-raised: #072a36;
+  --ink: #e8fbff;
+  --muted: #8fc3cf;
+  --accent: #3ff0d0;
+  --accent-rgb: 63, 240, 208;
+  --accent-hover: #69f3da;
+  --accent-text: #5ff2da;
+  --accent-text-hover: #8ff6e5;
+  --focus: #5ff2da;
+  --on-accent: #03202b;
+  --alert: #ff8a7a;
+  --alert-rgb: 255, 138, 122;
+  --alert-hover: #ffa195;
+  --on-alert: #03202b;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-faint: rgba(255, 255, 255, 0.03);
+  --surface-strong: rgba(255, 255, 255, 0.09);
+  --track: rgba(255, 255, 255, 0.14);
+  --edge: rgba(63, 240, 208, 0.26);
+  --edge-strong: rgba(63, 240, 208, 0.6);
+  --accent-soft: rgba(63, 240, 208, 0.13);
+  --scroll-thumb: rgba(63, 240, 208, 0.32);
+  --backdrop: rgba(0, 0, 0, 0.72);
+  --shape-0: #ff8fa3;
+  --shape-1: #ffd166;
+  --shape-2: #7aa8ff;
+  --shape-3: #3ff0d0;
+  --bronze-text: #e0a878;
+  --argent-text: #c6dde3;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+:root[data-theme='ocean'] {
+  --serif: Comfortaa, 'Segoe UI', sans-serif;
+  --radius: 20px;
+  --radius-sm: 18px;
+}
+
+:root[data-theme='ocean'] body {
+  background-color: #03202b;
+  background-image: linear-gradient(180deg, #0b4a5e 0%, #06303e 35%, #03202b 70%, #021720 100%);
+  background-size: 100% 100%;
+}
+
+:root[data-theme='ocean'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: -20%;
+  right: -20%;
+  top: 0;
+  height: 75%;
+  background: repeating-conic-gradient(from 168deg at 50% -30%, rgba(180, 255, 245, .07) 0deg 3deg, transparent 3deg 9deg);
+  -webkit-mask-image: linear-gradient(#000, transparent 90%);
+  mask-image: linear-gradient(#000, transparent 90%);
+  transform-origin: 50% 0;
+  animation: ocean-balance 7s ease-in-out infinite alternate;
+}
+
+:root[data-theme='ocean'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: calc(100% + 260px);
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='260' viewBox='0 0 160 260'><circle cx='41' cy='141' r='4' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='39.8' cy='139.6' r='0.9' fill='%23ffffff' opacity='.5'/><circle cx='142' cy='124' r='7' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='139.1' cy='121.1' r='1.5' fill='%23ffffff' opacity='.5'/><circle cx='16' cy='9' r='5' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='13.9' cy='7.5' r='1.1' fill='%23ffffff' opacity='.5'/><circle cx='44' cy='64' r='5' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='42.6' cy='62.4' r='1.1' fill='%23ffffff' opacity='.5'/><circle cx='86' cy='142' r='5' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='84.3' cy='140.6' r='1.1' fill='%23ffffff' opacity='.5'/><circle cx='101' cy='43' r='3' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='99.5' cy='42.3' r='0.8' fill='%23ffffff' opacity='.5'/><circle cx='134' cy='136' r='2' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='133.8' cy='135.0' r='0.8' fill='%23ffffff' opacity='.5'/><circle cx='105' cy='22' r='7' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='102.9' cy='19.4' r='1.5' fill='%23ffffff' opacity='.5'/><circle cx='12' cy='199' r='4' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='10.9' cy='198.1' r='0.9' fill='%23ffffff' opacity='.5'/><circle cx='76' cy='184' r='5' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='74.2' cy='182.5' r='1.1' fill='%23ffffff' opacity='.5'/><circle cx='112' cy='234' r='5' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='109.9' cy='232.7' r='1.1' fill='%23ffffff' opacity='.5'/><circle cx='114' cy='149' r='3' fill='%23c8fff6' fill-opacity='.07' stroke='%23c8fff6' stroke-opacity='.45' stroke-width='1'/><circle cx='112.7' cy='148.0' r='0.8' fill='%23ffffff' opacity='.5'/></svg>");
+  background-size: 160px 260px;
+  background-repeat: repeat;
+  opacity: 0.9;
+  --pas: -260px;
+  animation: ocean-defile 12s linear infinite;
+}
+
+:root[data-theme='ocean'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='ocean'] .card,
+:root[data-theme='ocean'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='ocean'] .onglets {
+  background: rgba(4, 40, 52, .86);
+  border-color: rgba(63, 240, 208, .28);
+  box-shadow: 0 0 18px rgba(63, 240, 208, .08);
+}
+
+:root[data-theme='ocean'] .ans-btn {
+  font-weight: 600;
+}
+
+:root[data-theme='ocean'] .ans-btn.chosen {
+  background: rgba(63, 240, 208, .14);
+  border: 1.5px solid #3ff0d0;
+  box-shadow: 0 0 14px rgba(63, 240, 208, .35);
+}
+
+:root[data-theme='ocean'] .timer-track {
+  height: 6px;
+  border-radius: 99px;
+}
+
+:root[data-theme='ocean'] .timer-fill,
+:root[data-theme='ocean'] .xp-fill {
+  background: linear-gradient(90deg, #3ff0d0, #7aa8ff);
+}
+
+:root[data-theme='ocean'] .timer-seconds {
+  color: #5ff2da;
+  font-weight: 700;
+  text-shadow: 0 0 12px rgba(63, 240, 208, .5);
+}
+
+:root[data-theme='ocean'] .quiz-question {
+  font-weight: 700;
+  font-size: 28px;
+  line-height: 1.2;
+}
+
+:root[data-theme='ocean'] .quiz-categorie::before {
+  content: '🐚 ';
+}
+
+:root[data-theme='ocean'] .result-banner .big,
+:root[data-theme='ocean'] .fin-xp {
+  color: #5ff2da;
+  text-shadow: 0 0 20px rgba(63, 240, 208, .5);
+  font-weight: 700;
+}
+
+:root[data-theme='ocean'] h1,
+:root[data-theme='ocean'] h2,
+:root[data-theme='ocean'] h3 {
+  font-weight: 700;
+}
+
+@keyframes ocean-balance {
+  from {
+    transform: rotate(-2deg);
+  }
+  to {
+    transform: rotate(2deg);
+  }
+}
+
+@keyframes ocean-defile {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(var(--pas));
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='ocean'] body::before,
+  :root[data-theme='ocean'] body::after {
+    animation: none !important;
+  }
+}

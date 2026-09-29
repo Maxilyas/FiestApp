@@ -15,6 +15,7 @@ import { divin } from '../../../shared/divins'
 import { brancheDe, nomDansLaPhrase, portrait as portraitDe, type Portrait } from '../../../shared/branches'
 import { hautFait, palierDe, titreDePalier } from '../../../shared/hautsfaits'
 import { collectionGagnee } from '../../../shared/avatars'
+import { nConfettis, phraseDesConfettis } from '../../../shared/themes'
 import { api } from '../api'
 import { spacePath } from '../routes'
 import { formatNumber, place, pourcent, pts } from '../format'
@@ -158,6 +159,17 @@ export function FinDeSoiree({
           <p className="fin-xp">+{formatNumber(gain.xp - (gain.xpPaliers ?? 0))} points d’expérience</p>
           {(gain.xpPaliers ?? 0) > 0 && (
             <p className="muted small">+{formatNumber(gain.xpPaliers ?? 0)} de paliers de carrière</p>
+          )}
+          {/* Les confettis de ce soir, et ce qu'ils lui ouvrent : le chiffre
+              seul ne disait pas à quoi il sert. */}
+          {gain.confettis && (
+            <>
+              <p className="fin-confettis">🎊 +{nConfettis(gain.confettis.gagnes)}</p>
+              <p className="muted small">
+                {phraseDesConfettis(gain.confettis)}{' '}
+                <a href="/profil#mes-themes">La boutique des thèmes</a>
+              </p>
+            </>
           )}
           <BarreDeNiveau avant={gain.niveauAvant} apres={gain.niveauApres} profil={profil} />
           {gain.finitions.length > 0 && (

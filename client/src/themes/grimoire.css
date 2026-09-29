@@ -1,0 +1,217 @@
+/* ── Grimoire · Rare ──
+   Parchemin, lettrine rouge, volutes et sceau de cire.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'MedievalSharp';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/medievalsharp.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'EB Garamond';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/eb-garamond.woff2') format('woff2');
+}
+
+:root[data-theme='grimoire'] {
+  --bg: #efe2c2;
+  --bg-halo: #f7eed6;
+  --bg-raised: #fbf5e4;
+  --ink: #2e1f10;
+  --muted: #5a4629;
+  --accent: #8b1e1e;
+  --accent-rgb: 139, 30, 30;
+  --accent-hover: #9b3e3e;
+  --accent-text: #8b1e1e;
+  --accent-text-hover: #6f1818;
+  --focus: #1f4e8a;
+  --on-accent: #fbf5e4;
+  --alert: #5e2a8a;
+  --alert-rgb: 94, 42, 138;
+  --alert-hover: #714498;
+  --on-alert: #ffffff;
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-faint: rgba(255, 255, 255, 0.4);
+  --surface-strong: rgba(46, 31, 16, 0.06);
+  --track: rgba(46, 31, 16, 0.14);
+  --edge: rgba(139, 30, 30, 0.38);
+  --edge-strong: rgba(139, 30, 30, 0.72);
+  --accent-soft: rgba(139, 30, 30, 0.14);
+  --scroll-thumb: rgba(139, 30, 30, 0.45);
+  --dim: 0.5;
+  --backdrop: rgba(46, 31, 16, 0.4);
+  --shadow-toast: 0 10px 30px rgba(46, 31, 16, 0.18);
+  --shadow-dialog: 0 24px 60px rgba(46, 31, 16, 0.25);
+  --shape-0: #8b1e1e;
+  --shape-1: #94680c;
+  --shape-2: #1f4e8a;
+  --shape-3: #2f6b3a;
+  --bronze-text: #7a4a1a;
+  --argent-text: #4d5866;
+  --anneau-legendaire: #a85a22;
+  --anneau-divin: #6a58a8;
+  --anneau-collection: #3f7e5c;
+  --anneau-collection-haut: #3b67a3;
+  color-scheme: light;
+}
+
+:root[data-theme='grimoire'] .silhouette {
+  filter: brightness(0);
+  opacity: .45;
+}
+
+:root[data-theme='grimoire'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
+}
+
+:root[data-theme='grimoire'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+
+:root[data-theme='grimoire'] .lu-scintille {
+  filter: brightness(.6) sepia(1) saturate(2.5);
+}
+
+:root[data-theme='grimoire'] .fait-puce.fait-ombre {
+  color: #5b3f99;
+}
+
+:root[data-theme='grimoire'] {
+  --serif: MedievalSharp, 'Palatino Linotype', serif;
+  --sans: 'EB Garamond', Garamond, Georgia, serif;
+  --radius: 6px;
+  --radius-sm: 6px;
+  font-synthesis: none;
+}
+
+:root[data-theme='grimoire'] body {
+  background-color: #efe2c2;
+  background-image: radial-gradient(circle at 18% 22%, rgba(140, 100, 40, .12) 0 30px, transparent 70px), radial-gradient(circle at 82% 64%, rgba(140, 100, 40, .1) 0 40px, transparent 90px), radial-gradient(120% 90% at 50% 50%, rgba(255, 250, 235, .6), rgba(160, 120, 60, .18));
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='grimoire'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  box-shadow: inset 0 0 70px rgba(94, 64, 20, .35);
+}
+
+:root[data-theme='grimoire'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 90px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='90' viewBox='0 0 360 90'><g fill='none' stroke='%236b4a1f' stroke-width='1.6' stroke-linecap='round' opacity='.55'><path d='M8 70C8 30 30 8 70 8'/><path d='M16 64C18 36 36 18 64 16'/><path d='M70 8c10 0 14 8 8 13s-12 -2 -6 -6'/><path d='M8 70c0 10 8 14 13 8s-2 -12 -6 -6'/><circle cx='26' cy='26' r='3' fill='%238b1e1e' stroke='none'/></g><g transform='translate(360 0) scale(-1 1)'><g fill='none' stroke='%236b4a1f' stroke-width='1.6' stroke-linecap='round' opacity='.55'><path d='M8 70C8 30 30 8 70 8'/><path d='M16 64C18 36 36 18 64 16'/><path d='M70 8c10 0 14 8 8 13s-12 -2 -6 -6'/><path d='M8 70c0 10 8 14 13 8s-2 -12 -6 -6'/><circle cx='26' cy='26' r='3' fill='%238b1e1e' stroke='none'/></g></g></svg>") center top / 100% 90px no-repeat;
+}
+
+:root[data-theme='grimoire'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='grimoire'] .card,
+:root[data-theme='grimoire'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='grimoire'] .onglets {
+  background: rgba(251, 245, 228, .88);
+  border: 1px solid rgba(94, 64, 20, .4);
+  box-shadow: inset 0 0 0 3px rgba(251, 245, 228, .9), inset 0 0 0 4px rgba(94, 64, 20, .18);
+}
+
+:root[data-theme='grimoire'] .ans-btn {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+:root[data-theme='grimoire'] .ans-btn.chosen {
+  background: #f3dcc8;
+  border: 1.5px solid #8b1e1e;
+}
+
+:root[data-theme='grimoire'] .quiz-question {
+  font-weight: 400;
+  font-size: 29px;
+  line-height: 1.12;
+}
+
+:root[data-theme='grimoire'] .quiz-question::first-letter {
+  float: left;
+  font-size: 2.3em;
+  line-height: .82;
+  margin: 4px 6px 0 0;
+  color: #8b1e1e;
+}
+
+:root[data-theme='grimoire'] .timer-track {
+  height: 2px;
+  background: rgba(46, 31, 16, .2);
+}
+
+:root[data-theme='grimoire'] .timer-fill {
+  background: #2e1f10;
+}
+
+:root[data-theme='grimoire'] .timer-seconds {
+  font-weight: 400;
+  color: #8b1e1e;
+}
+
+:root[data-theme='grimoire'] .label {
+  color: #8b1e1e;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .2em;
+}
+
+:root[data-theme='grimoire'] .result-banner {
+  position: relative;
+}
+
+:root[data-theme='grimoire'] .result-banner.result-ok::after {
+  content: '';
+  position: absolute;
+  right: -10px;
+  top: -12px;
+  width: 54px;
+  height: 54px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='54' height='54' viewBox='0 0 54 54'><circle cx='51.0' cy='27.0' r='3.4' fill='%238b1e1e'/><circle cx='49.6' cy='35.2' r='3.6' fill='%238b1e1e'/><circle cx='45.4' cy='42.4' r='3.7' fill='%238b1e1e'/><circle cx='39.0' cy='47.8' r='3.9' fill='%238b1e1e'/><circle cx='31.2' cy='50.6' r='3.6' fill='%238b1e1e'/><circle cx='22.8' cy='50.6' r='3.9' fill='%238b1e1e'/><circle cx='15.0' cy='47.8' r='2.5' fill='%238b1e1e'/><circle cx='8.6' cy='42.4' r='3.2' fill='%238b1e1e'/><circle cx='4.4' cy='35.2' r='3.9' fill='%238b1e1e'/><circle cx='3.0' cy='27.0' r='3.5' fill='%238b1e1e'/><circle cx='4.4' cy='18.8' r='3.9' fill='%238b1e1e'/><circle cx='8.6' cy='11.6' r='2.7' fill='%238b1e1e'/><circle cx='15.0' cy='6.2' r='3.2' fill='%238b1e1e'/><circle cx='22.8' cy='3.4' r='2.9' fill='%238b1e1e'/><circle cx='31.2' cy='3.4' r='3.3' fill='%238b1e1e'/><circle cx='39.0' cy='6.2' r='3.4' fill='%238b1e1e'/><circle cx='45.4' cy='11.6' r='2.5' fill='%238b1e1e'/><circle cx='49.6' cy='18.8' r='2.8' fill='%238b1e1e'/><circle cx='27' cy='27' r='22' fill='%239b2424'/><circle cx='27' cy='27' r='16' fill='none' stroke='%236e1414' stroke-width='1.5'/><polygon points='27.0,18.0 29.4,23.8 35.6,24.2 30.8,28.2 32.3,34.3 27.0,31.0 21.7,34.3 23.2,28.2 18.4,24.2 24.6,23.8' fill='%236e1414'/><circle cx='20' cy='19' r='4' fill='%23ffffff' opacity='.18'/></svg>") center / contain no-repeat;
+  rotate: 12deg;
+}
+
+:root[data-theme='grimoire'] .result-banner .big,
+:root[data-theme='grimoire'] .fin-xp {
+  font-weight: 400;
+  color: #8b1e1e;
+}
+
+:root[data-theme='grimoire'] h1,
+:root[data-theme='grimoire'] h2,
+:root[data-theme='grimoire'] h3 {
+  font-weight: 400;
+}
+
+:root[data-theme='grimoire'] .niveau {
+  background: transparent;
+  border-color: rgba(139, 30, 30, .6);
+  color: #8b1e1e;
+}

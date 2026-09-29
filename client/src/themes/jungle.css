@@ -1,0 +1,194 @@
+/* ── Jungle · Peu commune ──
+   Le feuillage aux quatre coins, des traces de pattes, la mangue et le toucan.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Lilita One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/lilita-one.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/nunito.woff2') format('woff2');
+}
+
+:root[data-theme='jungle'] {
+  --bg: #0e2419;
+  --bg-halo: #1f4d33;
+  --bg-raised: #15301f;
+  --ink: #f4f8e9;
+  --muted: #a9c29f;
+  --accent: #f4b63a;
+  --accent-rgb: 244, 182, 58;
+  --accent-hover: #ffc95e;
+  --accent-text: #f6c052;
+  --accent-text-hover: #ffd78a;
+  --focus: #f6c052;
+  --on-accent: #10261a;
+  --alert: #ff8466;
+  --alert-rgb: 255, 132, 102;
+  --alert-hover: #ff9c84;
+  --on-alert: #10261a;
+  --surface: rgba(220, 255, 200, 0.05);
+  --surface-faint: rgba(220, 255, 200, 0.03);
+  --surface-strong: rgba(220, 255, 200, 0.09);
+  --track: rgba(220, 255, 200, 0.14);
+  --edge: rgba(244, 182, 58, 0.24);
+  --edge-strong: rgba(244, 182, 58, 0.6);
+  --accent-soft: rgba(244, 182, 58, 0.13);
+  --scroll-thumb: rgba(244, 182, 58, 0.3);
+  --backdrop: rgba(5, 15, 10, 0.72);
+  --shape-0: #ff8f6b;
+  --shape-1: #f4b63a;
+  --shape-2: #74cdf5;
+  --shape-3: #a9e06b;
+  --bronze-text: #e0a46e;
+  --argent-text: #c7d6c4;
+  --anneau-legendaire: #f0975a;
+  --anneau-divin: #b6a3ff;
+  --anneau-collection: #8fdc7a;
+  --anneau-collection-haut: #7fb8e8;
+  color-scheme: dark;
+}
+
+:root[data-theme='jungle'] {
+  --serif: 'Lilita One', 'Arial Rounded MT Bold', sans-serif;
+  --sans: Nunito, 'Segoe UI', system-ui, sans-serif;
+  --radius: 20px;
+  --radius-sm: 18px;
+  font-synthesis: none;
+}
+
+:root[data-theme='jungle'] body {
+  background-color: #0e2419;
+  background-image: radial-gradient(90% 50% at 50% -5%, #2a6040 0%, rgba(14, 36, 25, 0) 70%);
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='jungle'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='150' viewBox='0 0 150 150'><g fill='%23ffffff' opacity='.055'><g transform='translate(40 46) rotate(-18)'><ellipse cx='0' cy='5' rx='6.5' ry='5.5'/><ellipse cx='-7' cy='-3' rx='2.6' ry='3.4'/><ellipse cx='-2.5' cy='-7.5' rx='2.6' ry='3.4'/><ellipse cx='2.5' cy='-7.5' rx='2.6' ry='3.4'/><ellipse cx='7' cy='-3' rx='2.6' ry='3.4'/></g><g transform='translate(108 112) rotate(14)'><ellipse cx='0' cy='5' rx='6.5' ry='5.5'/><ellipse cx='-7' cy='-3' rx='2.6' ry='3.4'/><ellipse cx='-2.5' cy='-7.5' rx='2.6' ry='3.4'/><ellipse cx='2.5' cy='-7.5' rx='2.6' ry='3.4'/><ellipse cx='7' cy='-3' rx='2.6' ry='3.4'/></g></g></svg>");
+  background-size: 150px 150px;
+}
+
+:root[data-theme='jungle'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: -8px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><g transform='translate(0 0) rotate(18)'><path d='M0 0C38 -30 105 -33 150 0C105 33 38 30 0 0Z' fill='%231c4d33'/><path d='M4 0H144' stroke='%233d8a5c' stroke-width='1.4' opacity='.55'/></g><g transform='translate(0 0) rotate(44)'><path d='M0 0C44 -35 123 -39 176 0C123 39 44 35 0 0Z' fill='%23174128'/><path d='M4 0H170' stroke='%233d8a5c' stroke-width='1.4' opacity='.55'/></g><g transform='translate(0 0) rotate(72)'><path d='M0 0C32 -26 90 -28 128 0C90 28 32 26 0 0Z' fill='%23215a3b'/><path d='M4 0H122' stroke='%233d8a5c' stroke-width='1.4' opacity='.55'/></g><g transform='translate(360 0) rotate(162)'><path d='M0 0C35 -28 98 -31 140 0C98 31 35 28 0 0Z' fill='%231c4d33'/><path d='M4 0H134' stroke='%233d8a5c' stroke-width='1.4' opacity='.55'/></g><g transform='translate(360 0) rotate(134)'><path d='M0 0C42 -34 119 -37 170 0C119 37 42 34 0 0Z' fill='%23174128'/><path d='M4 0H164' stroke='%233d8a5c' stroke-width='1.4' opacity='.55'/></g><g transform='translate(360 0) rotate(108)'><path d='M0 0C30 -24 84 -26 120 0C84 26 30 24 0 0Z' fill='%23215a3b'/><path d='M4 0H114' stroke='%233d8a5c' stroke-width='1.4' opacity='.55'/></g><g transform='translate(0 640) rotate(-24)'><path d='M0 0C30 -24 84 -26 120 0C84 26 30 24 0 0Z' fill='%23174128'/><path d='M4 0H114' stroke='%233d8a5c' stroke-width='1.4' opacity='.55'/></g><g transform='translate(0 640) rotate(-54)'><path d='M0 0C24 -19 67 -21 96 0C67 21 24 19 0 0Z' fill='%231c4d33'/><path d='M4 0H90' stroke='%233d8a5c' stroke-width='1.4' opacity='.55'/></g><g transform='translate(360 640) rotate(-150)'><path d='M0 0C31 -25 87 -27 124 0C87 27 31 25 0 0Z' fill='%23174128'/><path d='M4 0H118' stroke='%233d8a5c' stroke-width='1.4' opacity='.55'/></g><g transform='translate(360 640) rotate(-122)'><path d='M0 0C23 -18 64 -20 92 0C64 20 23 18 0 0Z' fill='%231c4d33'/><path d='M4 0H86' stroke='%233d8a5c' stroke-width='1.4' opacity='.55'/></g></svg>") center / 100% 100% no-repeat;
+  transform-origin: 50% 0;
+  animation: jungle-feuilles 6s ease-in-out infinite alternate;
+}
+
+:root[data-theme='jungle'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='jungle'] .card,
+:root[data-theme='jungle'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='jungle'] .onglets {
+  background: rgba(16, 44, 29, .88);
+  border-color: rgba(169, 224, 107, .3);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .35);
+}
+
+:root[data-theme='jungle'] .ans-btn {
+  font-weight: 700;
+}
+
+:root[data-theme='jungle'] .ans-btn.chosen {
+  background: rgba(244, 182, 58, .18);
+  border: 2px solid #f4b63a;
+}
+
+:root[data-theme='jungle'] .btn-primary {
+  font-weight: 800;
+}
+
+:root[data-theme='jungle'] .timer-track {
+  height: 7px;
+  border-radius: 99px;
+  background: rgba(169, 224, 107, .15);
+}
+
+:root[data-theme='jungle'] .timer-fill,
+:root[data-theme='jungle'] .xp-fill {
+  background: linear-gradient(90deg, #a9e06b, #f4b63a);
+}
+
+:root[data-theme='jungle'] .timer-seconds {
+  color: #f4b63a;
+}
+
+:root[data-theme='jungle'] .quiz-question {
+  font-size: 31px;
+  line-height: 1.12;
+  letter-spacing: .005em;
+}
+
+:root[data-theme='jungle'] .result-banner.result-ok {
+  background-color: rgba(16, 44, 29, .92);
+  background-image: radial-gradient(circle at 20% 30%, rgba(244, 182, 58, .16) 0 5px, transparent 6px), radial-gradient(circle at 70% 65%, rgba(244, 182, 58, .12) 0 7px, transparent 8px), radial-gradient(circle at 85% 20%, rgba(244, 182, 58, .1) 0 4px, transparent 5px);
+  background-size: 46px 46px, 58px 58px, 38px 38px;
+}
+
+:root[data-theme='jungle'] .result-banner .big,
+:root[data-theme='jungle'] .fin-xp {
+  color: #f4b63a;
+}
+
+:root[data-theme='jungle'] .quiz-categorie::before {
+  content: '🐾 ';
+}
+
+:root[data-theme='jungle'] .niveau {
+  background: rgba(169, 224, 107, .14);
+  border-color: rgba(169, 224, 107, .55);
+  color: #c9f08f;
+}
+
+:root[data-theme='jungle'] .lb-row {
+  background: rgba(16, 44, 29, .7);
+}
+
+:root[data-theme='jungle'] .lb-row.me {
+  background: rgba(244, 182, 58, .16);
+  border-color: rgba(244, 182, 58, .6);
+}
+
+@keyframes jungle-feuilles {
+  from {
+    transform: rotate(-.6deg);
+  }
+  to {
+    transform: rotate(.6deg);
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='jungle'] body::after {
+    animation: none !important;
+  }
+}

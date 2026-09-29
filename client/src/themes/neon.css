@@ -1,0 +1,281 @@
+/* ── Néon · Épique ──
+   Une borne d’arcade : magenta et cyan, le sol quadrillé, le score en pixels.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 500 900;
+  font-display: swap;
+  src: url('/fonts/themes/orbitron.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/chakra-petch-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/themes/chakra-petch-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/themes/chakra-petch-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Chakra Petch';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/themes/chakra-petch-700.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Press Start 2P';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/press-start-2p.woff2') format('woff2');
+}
+
+:root[data-theme='neon'] {
+  --bg: #0b0616;
+  --bg-halo: #2b0b45;
+  --bg-raised: #150a26;
+  --ink: #f7f2ff;
+  --muted: #b0a3d4;
+  --accent: #ff3fd8;
+  --accent-rgb: 255, 63, 216;
+  --accent-hover: #ff7ae4;
+  --accent-text: #ff7ce8;
+  --accent-text-hover: #ffaaf0;
+  --focus: #2ee6ff;
+  --on-accent: #12051f;
+  --alert: #ff5c7a;
+  --alert-rgb: 255, 92, 122;
+  --alert-hover: #ff7d95;
+  --on-alert: #12051f;
+  --surface: rgba(150, 100, 255, 0.08);
+  --surface-faint: rgba(150, 100, 255, 0.04);
+  --surface-strong: rgba(150, 100, 255, 0.14);
+  --track: rgba(46, 230, 255, 0.16);
+  --edge: rgba(46, 230, 255, 0.32);
+  --edge-strong: rgba(46, 230, 255, 0.8);
+  --accent-soft: rgba(255, 63, 216, 0.14);
+  --scroll-thumb: rgba(46, 230, 255, 0.35);
+  --backdrop: rgba(5, 2, 12, 0.75);
+  --shape-0: #ff5c9d;
+  --shape-1: #ffe74d;
+  --shape-2: #a58bff;
+  --shape-3: #2ee6ff;
+  --bronze-text: #eaa672;
+  --argent-text: #d2d9ff;
+  --anneau-legendaire: #ff9f5a;
+  --anneau-divin: #a58bff;
+  --anneau-collection: #6dffb0;
+  --anneau-collection-haut: #6fb6ff;
+  color-scheme: dark;
+}
+
+:root[data-theme='neon'] {
+  --serif: Orbitron, 'Segoe UI', sans-serif;
+  --sans: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+  --pixel: 'Press Start 2P', 'Courier New', monospace;
+  --radius: 10px;
+  --radius-sm: 8px;
+}
+
+:root[data-theme='neon'] body {
+  background-color: #0b0616;
+  background-image: linear-gradient(180deg, #0b0616 0%, #1b0930 55%, #3a0a4f 100%);
+  background-size: 100% 100%;
+}
+
+:root[data-theme='neon'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 50%;
+  bottom: 17%;
+  width: 250px;
+  height: 250px;
+  margin-left: -125px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'><defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%23ffe74d'/><stop offset='.55' stop-color='%23ff5fa8'/><stop offset='1' stop-color='%23b12bff'/></linearGradient><mask id='m'><rect width='200' height='200' fill='white'/><rect x='0' y='112' width='200' height='4' fill='black'/><rect x='0' y='126' width='200' height='6' fill='black'/><rect x='0' y='141' width='200' height='8' fill='black'/><rect x='0' y='157' width='200' height='10' fill='black'/><rect x='0' y='174' width='200' height='12' fill='black'/></mask></defs><circle cx='100' cy='100' r='96' fill='url(%23g)' mask='url(%23m)'/></svg>") center / contain no-repeat;
+  opacity: .5;
+  animation: neon-halo 3s ease-in-out infinite alternate;
+}
+
+:root[data-theme='neon'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: -60%;
+  right: -60%;
+  bottom: 0;
+  height: 34%;
+  background-image: linear-gradient(rgba(46, 230, 255, .55) 2px, transparent 2px), linear-gradient(90deg, rgba(255, 63, 216, .5) 2px, transparent 2px);
+  background-size: 46px 34px;
+  background-position: center top;
+  transform: perspective(260px) rotateX(58deg);
+  transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(to top, #000 25%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 25%, transparent 100%);
+}
+
+:root[data-theme='neon'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='neon'] #root::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  inset: 0;
+  z-index: 3;
+  background: repeating-linear-gradient(180deg, rgba(255, 255, 255, .035) 0 1px, transparent 1px 3px);
+}
+
+:root[data-theme='neon'] .card,
+:root[data-theme='neon'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='neon'] .onglets {
+  background: rgba(18, 8, 34, .9);
+  border-color: rgba(46, 230, 255, .45);
+  box-shadow: 0 0 0 1px rgba(46, 230, 255, .12), 0 0 16px rgba(46, 230, 255, .16), inset 0 0 14px rgba(46, 230, 255, .07);
+}
+
+:root[data-theme='neon'] .ans-btn {
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+:root[data-theme='neon'] .ans-btn.chosen {
+  background: rgba(255, 63, 216, .16);
+  border: 1.5px solid #ff3fd8;
+  box-shadow: 0 0 18px rgba(255, 63, 216, .55), inset 0 0 12px rgba(255, 63, 216, .2);
+}
+
+:root[data-theme='neon'] .ans-shape {
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+:root[data-theme='neon'] .quiz-question {
+  font-weight: 700;
+  font-size: 25px;
+  line-height: 1.22;
+  letter-spacing: .015em;
+  text-shadow: 0 0 14px rgba(255, 63, 216, .6);
+}
+
+:root[data-theme='neon'] .timer-track {
+  height: 6px;
+  border-radius: 0;
+}
+
+:root[data-theme='neon'] .timer-fill,
+:root[data-theme='neon'] .xp-fill {
+  background: linear-gradient(90deg, #2ee6ff, #ff3fd8);
+}
+
+:root[data-theme='neon'] .timer-seconds {
+  font-family: var(--pixel);
+  font-weight: 400;
+  font-size: 24px;
+  min-width: 60px;
+  color: #2ee6ff;
+  text-shadow: 0 0 10px rgba(46, 230, 255, .85);
+}
+
+:root[data-theme='neon'] .label {
+  color: #2ee6ff;
+  letter-spacing: .3em;
+}
+
+:root[data-theme='neon'] .result-banner .big {
+  font-family: var(--pixel);
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1.25;
+  color: #ffe74d;
+  text-shadow: 0 0 12px rgba(255, 231, 77, .75), 3px 3px 0 #ff3fd8;
+}
+
+:root[data-theme='neon'] .fin-xp {
+  color: #ffe74d;
+  text-shadow: 0 0 12px rgba(255, 231, 77, .6);
+}
+
+:root[data-theme='neon'] .btn-primary {
+  border-color: #ff7ae4;
+  box-shadow: 0 0 18px rgba(255, 63, 216, .6);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+:root[data-theme='neon'] .niveau {
+  background: rgba(46, 230, 255, .1);
+  border-color: rgba(46, 230, 255, .7);
+  color: #9ff4ff;
+  box-shadow: 0 0 8px rgba(46, 230, 255, .35);
+}
+
+:root[data-theme='neon'] .lb-row {
+  background: rgba(18, 8, 34, .8);
+}
+
+:root[data-theme='neon'] .lb-row.me {
+  background: rgba(255, 63, 216, .14);
+  border-color: #ff3fd8;
+  box-shadow: 0 0 12px rgba(255, 63, 216, .35);
+}
+
+:root[data-theme='neon'] h1,
+:root[data-theme='neon'] h2,
+:root[data-theme='neon'] h3 {
+  letter-spacing: .02em;
+}
+
+:root[data-theme='neon'] .fin-tete h1 {
+  font-size: 1.7rem;
+}
+
+:root[data-theme='neon'] .me-header h2 {
+  font-size: 1.45rem;
+}
+
+@keyframes neon-halo {
+  from {
+    opacity: .38;
+  }
+  to {
+    opacity: .62;
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='neon'] body::before {
+    animation: none !important;
+  }
+}

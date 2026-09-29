@@ -1,0 +1,219 @@
+/* ── Carnaval · Peu commune · en boutique en février ──
+   Fanions, serpentins, et une pluie de confettis.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Rye';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/rye.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/nunito.woff2') format('woff2');
+}
+
+:root[data-theme='carnaval'] {
+  --bg: #fff6e9;
+  --bg-halo: #ffffff;
+  --bg-raised: #ffffff;
+  --ink: #2d1b3d;
+  --muted: #5e4a70;
+  --accent: #7a2fb5;
+  --accent-rgb: 122, 47, 181;
+  --accent-hover: #8d4cbf;
+  --accent-text: #6a24a0;
+  --accent-text-hover: #551d80;
+  --focus: #6a24a0;
+  --on-accent: #ffffff;
+  --alert: #c0263f;
+  --alert-rgb: 192, 38, 63;
+  --alert-hover: #c84056;
+  --on-alert: #ffffff;
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-faint: rgba(255, 255, 255, 0.4);
+  --surface-strong: rgba(45, 27, 61, 0.06);
+  --track: rgba(45, 27, 61, 0.14);
+  --edge: rgba(122, 47, 181, 0.38);
+  --edge-strong: rgba(122, 47, 181, 0.72);
+  --accent-soft: rgba(122, 47, 181, 0.14);
+  --scroll-thumb: rgba(122, 47, 181, 0.45);
+  --dim: 0.5;
+  --backdrop: rgba(45, 27, 61, 0.4);
+  --shadow-toast: 0 10px 30px rgba(45, 27, 61, 0.18);
+  --shadow-dialog: 0 24px 60px rgba(45, 27, 61, 0.25);
+  --shape-0: #d6336c;
+  --shape-1: #b07800;
+  --shape-2: #1f6fd0;
+  --shape-3: #1e8a52;
+  --bronze-text: #8a4b1a;
+  --argent-text: #4d5866;
+  --anneau-legendaire: #a85a22;
+  --anneau-divin: #6a58a8;
+  --anneau-collection: #3f7e5c;
+  --anneau-collection-haut: #3b67a3;
+  color-scheme: light;
+}
+
+:root[data-theme='carnaval'] .silhouette {
+  filter: brightness(0);
+  opacity: .45;
+}
+
+:root[data-theme='carnaval'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
+}
+
+:root[data-theme='carnaval'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+
+:root[data-theme='carnaval'] .lu-scintille {
+  filter: brightness(.6) sepia(1) saturate(2.5);
+}
+
+:root[data-theme='carnaval'] .fait-puce.fait-ombre {
+  color: #5b3f99;
+}
+
+:root[data-theme='carnaval'] {
+  --serif: Rye, 'Bookman Old Style', serif;
+  --sans: Nunito, 'Segoe UI', sans-serif;
+  --radius: 18px;
+  font-synthesis: none;
+}
+
+:root[data-theme='carnaval'] body {
+  background: #fff6e9;
+}
+
+:root[data-theme='carnaval'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 16px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='16' viewBox='0 0 48 16'><path d='M0 0H16L8 14Z' fill='%237a2fb5'/><path d='M16 0H32L24 14Z' fill='%23f2b705'/><path d='M32 0H48L40 14Z' fill='%231e9e5a'/></svg>") 0 0 / 48px 16px repeat-x;
+}
+
+:root[data-theme='carnaval'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: -220px;
+  height: calc(100% + 220px);
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='220' viewBox='0 0 160 220'><rect x='87' y='77' width='4' height='8' rx='1' fill='%231f7ae0' transform='rotate(152 87 77)'/><rect x='145' y='87' width='4' height='8' rx='1' fill='%23d6336c' transform='rotate(3 145 87)'/><rect x='72' y='52' width='4' height='8' rx='1' fill='%231e9e5a' transform='rotate(63 72 52)'/><circle cx='96' cy='93' r='2.6' fill='%231e9e5a'/><rect x='37' y='170' width='4' height='8' rx='1' fill='%23ff7a45' transform='rotate(121 37 170)'/><circle cx='34' cy='147' r='2.6' fill='%237a2fb5'/><circle cx='128' cy='207' r='2.6' fill='%23f2b705'/><circle cx='119' cy='128' r='2.6' fill='%231e9e5a'/><circle cx='133' cy='194' r='2.6' fill='%231f7ae0'/><rect x='44' y='150' width='4' height='8' rx='1' fill='%237a2fb5' transform='rotate(144 44 150)'/><rect x='67' y='143' width='4' height='8' rx='1' fill='%237a2fb5' transform='rotate(84 67 143)'/><circle cx='53' cy='189' r='2.6' fill='%23ff7a45'/><rect x='151' y='48' width='4' height='8' rx='1' fill='%23d6336c' transform='rotate(50 151 48)'/><circle cx='67' cy='120' r='2.6' fill='%231f7ae0'/><rect x='150' y='188' width='4' height='8' rx='1' fill='%23ff7a45' transform='rotate(130 150 188)'/><rect x='5' y='137' width='4' height='8' rx='1' fill='%23d6336c' transform='rotate(159 5 137)'/><rect x='5' y='41' width='4' height='8' rx='1' fill='%23f2b705' transform='rotate(81 5 41)'/><rect x='115' y='59' width='4' height='8' rx='1' fill='%23f2b705' transform='rotate(4 115 59)'/><rect x='29' y='11' width='4' height='8' rx='1' fill='%23f2b705' transform='rotate(141 29 11)'/><rect x='100' y='190' width='4' height='8' rx='1' fill='%231f7ae0' transform='rotate(44 100 190)'/><rect x='129' y='4' width='4' height='8' rx='1' fill='%23ff7a45' transform='rotate(21 129 4)'/><circle cx='52' cy='149' r='2.6' fill='%23d6336c'/></svg>");
+  background-size: 160px 220px;
+  background-repeat: repeat;
+  opacity: 0.9;
+  --pas: 220px;
+  animation: carnaval-defile 9s linear infinite;
+}
+
+:root[data-theme='carnaval'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='carnaval'] #root::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: -1;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><path d='M0 30L5.6 40.9L10.7 40.6L15.0 39.4L18.1 37.5L20.0 35.5L20.7 33.7L20.2 32.7L19.1 32.7L17.6 33.9L16.2 36.4L15.3 40.0L15.4 44.5L16.7 49.5L19.2 54.6L22.9 59.3L27.7 63.2L33.1 66.0L38.7 67.5L44.1 67.8L48.8 67.0L52.6 65.4L55.1 63.4L56.4 61.5L56.5 60.0L55.6 59.5L54.2 60.0L52.7 61.9L51.6 65.0L51.2 69.1L51.8 73.9L53.7 79.0L56.8 84.0L61.1 88.3L66.2 91.7L71.8 93.8L77.3 94.8L82.5 94.5L86.7 93.2L89.9 91.4' fill='none' stroke='%23f2b705' stroke-width='2.4' stroke-linecap='round'/><path d='M360 70L354.4 80.9L349.3 80.6L345.0 79.4L341.9 77.5L340.0 75.5L339.3 73.7L339.8 72.7L340.9 72.7L342.4 73.9L343.8 76.4L344.7 80.0L344.6 84.5L343.3 89.5L340.8 94.6L337.1 99.3L332.3 103.2L326.9 106.0L321.3 107.5L315.9 107.8L311.2 107.0L307.4 105.4L304.9 103.4L303.6 101.5L303.5 100.0L304.4 99.5L305.8 100.0L307.3 101.9L308.4 105.0L308.8 109.1L308.2 113.9L306.3 119.0L303.2 124.0L298.9 128.3L293.8 131.7L288.2 133.8L282.7 134.8L277.5 134.5L273.3 133.2L270.1 131.4' fill='none' stroke='%23d6336c' stroke-width='2.4' stroke-linecap='round'/><path d='M0 520L5.6 530.9L10.7 530.6L15.0 529.4L18.1 527.5L20.0 525.5L20.7 523.7L20.2 522.7L19.1 522.7L17.6 523.9L16.2 526.4L15.3 530.0L15.4 534.5L16.7 539.5L19.2 544.6L22.9 549.3L27.7 553.2L33.1 556.0L38.7 557.5L44.1 557.8L48.8 557.0L52.6 555.4L55.1 553.4L56.4 551.5L56.5 550.0L55.6 549.5L54.2 550.0L52.7 551.9L51.6 555.0L51.2 559.1L51.8 563.9L53.7 569.0L56.8 574.0L61.1 578.3L66.2 581.7L71.8 583.8L77.3 584.8L82.5 584.5L86.7 583.2L89.9 581.4' fill='none' stroke='%231f7ae0' stroke-width='2.4' stroke-linecap='round'/></svg>") center / 100% 100% no-repeat;
+  opacity: .8;
+}
+
+:root[data-theme='carnaval'] .card,
+:root[data-theme='carnaval'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='carnaval'] .onglets {
+  background: #ffffff;
+  border: 2px solid rgba(122, 47, 181, .28);
+  box-shadow: 0 8px 18px rgba(122, 47, 181, .1);
+}
+
+:root[data-theme='carnaval'] .ans-btn {
+  font-weight: 700;
+}
+
+:root[data-theme='carnaval'] .ans-btn.chosen {
+  background: #f3e8fb;
+  border: 2px solid #7a2fb5;
+}
+
+:root[data-theme='carnaval'] .quiz-question {
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.2;
+}
+
+:root[data-theme='carnaval'] .timer-track {
+  height: 8px;
+  border-radius: 99px;
+  background: #f1e6d4;
+}
+
+:root[data-theme='carnaval'] .timer-fill,
+:root[data-theme='carnaval'] .xp-fill {
+  background: repeating-linear-gradient(90deg, #d6336c 0 10px, #f2b705 10px 20px, #1f7ae0 20px 30px, #1e9e5a 30px 40px);
+}
+
+:root[data-theme='carnaval'] .timer-seconds {
+  font-weight: 400;
+  color: #6a24a0;
+}
+
+:root[data-theme='carnaval'] .result-banner .big,
+:root[data-theme='carnaval'] .fin-xp {
+  font-weight: 400;
+  background: linear-gradient(100deg, #7a2fb5, #d6336c 60%, #e2661f);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+:root[data-theme='carnaval'] h1,
+:root[data-theme='carnaval'] h2,
+:root[data-theme='carnaval'] h3 {
+  font-weight: 400;
+}
+
+:root[data-theme='carnaval'] .quiz-categorie::before {
+  content: '🎭 ';
+}
+
+@keyframes carnaval-defile {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(var(--pas));
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='carnaval'] body::after {
+    animation: none !important;
+  }
+}

@@ -1,0 +1,211 @@
+/* ── Carnet de voyage · Commune ──
+   Papier kraft, tampons, timbre et machine à écrire.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Special Elite';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/special-elite.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/courier-prime-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Courier Prime';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/themes/courier-prime-700.woff2') format('woff2');
+}
+
+:root[data-theme='carnet'] {
+  --bg: #e8d9ba;
+  --bg-halo: #f1e5cb;
+  --bg-raised: #f7efdd;
+  --ink: #2b2118;
+  --muted: #5a4a36;
+  --accent: #b5452f;
+  --accent-rgb: 181, 69, 47;
+  --accent-hover: #bf5f4c;
+  --accent-text: #9a3522;
+  --accent-text-hover: #7b2a1b;
+  --focus: #9a3522;
+  --on-accent: #fff8ec;
+  --alert: #8a2a1c;
+  --alert-rgb: 138, 42, 28;
+  --alert-hover: #984437;
+  --on-alert: #fff8ec;
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-faint: rgba(255, 255, 255, 0.4);
+  --surface-strong: rgba(43, 33, 24, 0.06);
+  --track: rgba(43, 33, 24, 0.14);
+  --edge: rgba(181, 69, 47, 0.38);
+  --edge-strong: rgba(181, 69, 47, 0.72);
+  --accent-soft: rgba(181, 69, 47, 0.14);
+  --scroll-thumb: rgba(181, 69, 47, 0.45);
+  --dim: 0.5;
+  --backdrop: rgba(43, 33, 24, 0.4);
+  --shadow-toast: 0 10px 30px rgba(43, 33, 24, 0.18);
+  --shadow-dialog: 0 24px 60px rgba(43, 33, 24, 0.25);
+  --shape-0: #b5452f;
+  --shape-1: #9a6a12;
+  --shape-2: #2f5f8a;
+  --shape-3: #4f7a3a;
+  --bronze-text: #7a4a1a;
+  --argent-text: #4d5866;
+  --anneau-legendaire: #a85a22;
+  --anneau-divin: #6a58a8;
+  --anneau-collection: #3f7e5c;
+  --anneau-collection-haut: #3b67a3;
+  color-scheme: light;
+}
+
+:root[data-theme='carnet'] .silhouette {
+  filter: brightness(0);
+  opacity: .45;
+}
+
+:root[data-theme='carnet'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
+}
+
+:root[data-theme='carnet'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+
+:root[data-theme='carnet'] .lu-scintille {
+  filter: brightness(.6) sepia(1) saturate(2.5);
+}
+
+:root[data-theme='carnet'] .fait-puce.fait-ombre {
+  color: #5b3f99;
+}
+
+:root[data-theme='carnet'] {
+  --serif: 'Special Elite', 'Courier New', monospace;
+  --sans: 'Courier Prime', 'Courier New', monospace;
+  --radius: 4px;
+  --radius-sm: 4px;
+  font-synthesis: none;
+}
+
+:root[data-theme='carnet'] body {
+  background-color: #e8d9ba;
+  background-image: radial-gradient(circle at 20% 30%, rgba(120, 90, 50, .1) 0 40px, transparent 70px), radial-gradient(circle at 80% 70%, rgba(120, 90, 50, .08) 0 50px, transparent 90px), radial-gradient(rgba(90, 70, 40, .08) 1px, transparent 1.5px);
+  background-size: 100% 100vh, 100% 100vh, 5px 5px;
+  background-repeat: no-repeat, no-repeat, repeat;
+}
+
+:root[data-theme='carnet'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><path d='M-10 610C60 540 120 640 190 560S300 470 380 500' fill='none' stroke='%239a3522' stroke-width='2' stroke-dasharray='6 6' opacity='.45'/><g transform='translate(296 470) rotate(8)'><rect width='52' height='62' fill='%23f6ecd6' stroke='%23b5452f' stroke-width='2' stroke-dasharray='3 2'/><rect x='6' y='6' width='40' height='38' fill='%239fbfd1'/><path d='M6 44L19 27L28 36L36 28L46 44Z' fill='%234f7a3a'/><circle cx='37' cy='15' r='5' fill='%23f2c14e'/><text x='26' y='56' font-size='7' text-anchor='middle' fill='%232b2118' font-family='Courier New,monospace'>0,20 F</text></g><g transform='translate(68 574) rotate(-14)' stroke='%239a3522' fill='none' opacity='.55'><circle r='24' stroke-width='2'/><circle r='18' stroke-width='1'/><text y='4' font-size='9' text-anchor='middle' fill='%239a3522' stroke='none' font-family='Courier New,monospace'>ROUEN</text><path d='M28 -6q8 -6 16 0t16 0t16 0M28 0q8 -6 16 0t16 0t16 0M28 6q8 -6 16 0t16 0t16 0' stroke-width='1.4'/></g></svg>") center / 100% 100% no-repeat;
+}
+
+:root[data-theme='carnet'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='carnet'] .card,
+:root[data-theme='carnet'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='carnet'] .onglets {
+  background: #f7efdd;
+  border: 1px solid rgba(43, 33, 24, .35);
+  box-shadow: 2px 3px 0 rgba(43, 33, 24, .15);
+}
+
+:root[data-theme='carnet'] .ans-btn {
+  font-weight: 700;
+}
+
+:root[data-theme='carnet'] .ans-btn.chosen {
+  background: #fbe9d9;
+  border: 2px solid #b5452f;
+}
+
+:root[data-theme='carnet'] .quiz-question {
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1.12;
+  letter-spacing: -.01em;
+}
+
+:root[data-theme='carnet'] .quiz-categorie {
+  align-self: flex-start;
+  border: 2px solid #b5452f;
+  color: #9a3522;
+  padding: 3px 8px 2px;
+  rotate: -3deg;
+  letter-spacing: .14em;
+}
+
+:root[data-theme='carnet'] .timer-track {
+  height: 3px;
+  background: repeating-linear-gradient(90deg, rgba(43, 33, 24, .3) 0 6px, transparent 6px 10px);
+}
+
+:root[data-theme='carnet'] .timer-fill {
+  background: #b5452f;
+}
+
+:root[data-theme='carnet'] .timer-seconds {
+  font-weight: 400;
+  color: #9a3522;
+}
+
+:root[data-theme='carnet'] .result-banner {
+  position: relative;
+}
+
+:root[data-theme='carnet'] .result-banner.result-ok::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  top: 10px;
+  width: 64px;
+  height: 64px;
+  border: 3px double rgba(154, 53, 34, .55);
+  border-radius: 50%;
+  rotate: -14deg;
+}
+
+:root[data-theme='carnet'] .result-banner .big,
+:root[data-theme='carnet'] .fin-xp {
+  font-weight: 400;
+  color: #9a3522;
+}
+
+:root[data-theme='carnet'] h1,
+:root[data-theme='carnet'] h2,
+:root[data-theme='carnet'] h3 {
+  font-weight: 400;
+}
+
+:root[data-theme='carnet'] .btn-primary {
+  font-family: var(--serif);
+  letter-spacing: .06em;
+}
+
+:root[data-theme='carnet'] .lb-row {
+  background: rgba(247, 239, 221, .85);
+}

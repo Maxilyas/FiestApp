@@ -1,0 +1,217 @@
+/* ── Olympe · Épique ──
+   Marbre veiné, frise grecque, et le laurier d’or pour la bonne réponse.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/cinzel.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Marcellus';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/marcellus.woff2') format('woff2');
+}
+
+:root[data-theme='olympe'] {
+  --bg: #f4f2ee;
+  --bg-halo: #ffffff;
+  --bg-raised: #ffffff;
+  --ink: #1f2a36;
+  --muted: #56606b;
+  --accent: #c9a23a;
+  --accent-rgb: 201, 162, 58;
+  --accent-hover: #d1af56;
+  --accent-text: #7d5f0c;
+  --accent-text-hover: #644c0a;
+  --focus: #7d5f0c;
+  --on-accent: #1f2a36;
+  --alert: #a32a24;
+  --alert-rgb: 163, 42, 36;
+  --alert-hover: #ae443e;
+  --on-alert: #ffffff;
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-faint: rgba(255, 255, 255, 0.4);
+  --surface-strong: rgba(31, 42, 54, 0.06);
+  --track: rgba(31, 42, 54, 0.14);
+  --edge: rgba(201, 162, 58, 0.38);
+  --edge-strong: rgba(201, 162, 58, 0.72);
+  --accent-soft: rgba(201, 162, 58, 0.14);
+  --scroll-thumb: rgba(201, 162, 58, 0.45);
+  --dim: 0.5;
+  --backdrop: rgba(31, 42, 54, 0.4);
+  --shadow-toast: 0 10px 30px rgba(31, 42, 54, 0.18);
+  --shadow-dialog: 0 24px 60px rgba(31, 42, 54, 0.25);
+  --shape-0: #a32a24;
+  --shape-1: #a07810;
+  --shape-2: #2f5f9a;
+  --shape-3: #3f7a5a;
+  --bronze-text: #7a4a1a;
+  --argent-text: #4d5866;
+  --anneau-legendaire: #a85a22;
+  --anneau-divin: #6a58a8;
+  --anneau-collection: #3f7e5c;
+  --anneau-collection-haut: #3b67a3;
+  color-scheme: light;
+}
+
+:root[data-theme='olympe'] .silhouette {
+  filter: brightness(0);
+  opacity: .45;
+}
+
+:root[data-theme='olympe'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
+}
+
+:root[data-theme='olympe'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+
+:root[data-theme='olympe'] .lu-scintille {
+  filter: brightness(.6) sepia(1) saturate(2.5);
+}
+
+:root[data-theme='olympe'] .fait-puce.fait-ombre {
+  color: #5b3f99;
+}
+
+:root[data-theme='olympe'] {
+  --serif: Cinzel, 'Trajan Pro', Georgia, serif;
+  --sans: Marcellus, Georgia, serif;
+  --radius: 4px;
+  --radius-sm: 4px;
+  font-synthesis: none;
+}
+
+:root[data-theme='olympe'] body {
+  background-color: #f4f2ee;
+  background-image: radial-gradient(90% 50% at 50% -10%, #ffffff 0%, rgba(244, 242, 238, 0) 70%);
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='olympe'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><path d='M26 429Q94 470 110 446Q182 447 207 468Q220 435 247 470Q326 416 343 452' fill='none' stroke='%23c9a23a' stroke-opacity='0.26' stroke-width='1.1'/><path d='M137 611Q185 693 215 658Q244 736 256 711Q266 676 298 684Q324 753 348 727' fill='none' stroke='%239a9a9a' stroke-opacity='0.26' stroke-width='0.9'/><path d='M348 568Q413 643 440 625Q454 617 489 641Q571 705 594 716Q625 711 665 720' fill='none' stroke='%239a9a9a' stroke-opacity='0.27' stroke-width='0.8'/><path d='M246 628Q259 590 287 588Q327 551 367 582Q418 607 453 620Q529 674 547 700' fill='none' stroke='%239a9a9a' stroke-opacity='0.26' stroke-width='1.0'/><path d='M233 420Q314 543 336 504Q407 536 444 536Q474 494 510 521Q521 582 555 584' fill='none' stroke='%23b0aaa0' stroke-opacity='0.13' stroke-width='0.9'/><path d='M76 245Q108 237 128 205Q212 240 237 259Q312 245 344 283Q365 381 399 350' fill='none' stroke='%23c9a23a' stroke-opacity='0.26' stroke-width='1.2'/><path d='M321 284Q357 334 371 317Q406 265 438 284Q462 263 500 269Q554 296 588 324' fill='none' stroke='%239a9a9a' stroke-opacity='0.14' stroke-width='0.7'/></svg>") center / 100% 100% no-repeat;
+}
+
+:root[data-theme='olympe'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 14px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='14' viewBox='0 0 28 14'><path d='M0 12H4V3H14V9H9V6H7V12H18V3H28' fill='none' stroke='%23b8912c' stroke-width='1.6'/></svg>") 0 0 / 28px 14px repeat-x;
+}
+
+:root[data-theme='olympe'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='olympe'] #root::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: -1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 14px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='28' height='14' viewBox='0 0 28 14'><path d='M0 12H4V3H14V9H9V6H7V12H18V3H28' fill='none' stroke='%23b8912c' stroke-width='1.6'/></svg>") 0 0 / 28px 14px repeat-x;
+}
+
+:root[data-theme='olympe'] .card,
+:root[data-theme='olympe'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='olympe'] .onglets {
+  background: #ffffff;
+  border: 1px solid rgba(201, 162, 58, .6);
+  box-shadow: 0 8px 20px rgba(31, 42, 54, .08);
+}
+
+:root[data-theme='olympe'] .ans-btn {
+  font-size: 1.2rem;
+}
+
+:root[data-theme='olympe'] .ans-btn.chosen {
+  background: #f7efd9;
+  border: 1.5px solid #c9a23a;
+}
+
+:root[data-theme='olympe'] .quiz-question {
+  font-weight: 600;
+  font-size: 25px;
+  line-height: 1.22;
+  letter-spacing: .02em;
+}
+
+:root[data-theme='olympe'] .timer-track {
+  height: 3px;
+}
+
+:root[data-theme='olympe'] .timer-fill,
+:root[data-theme='olympe'] .xp-fill {
+  background: linear-gradient(90deg, #b8912c, #e8c55a, #b8912c);
+}
+
+:root[data-theme='olympe'] .timer-seconds {
+  font-weight: 600;
+  color: #7d5f0c;
+}
+
+:root[data-theme='olympe'] .label {
+  color: #7d5f0c;
+}
+
+:root[data-theme='olympe'] .result-banner {
+  position: relative;
+}
+
+:root[data-theme='olympe'] .result-banner.result-ok::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 180px;
+  height: 140px;
+  margin-left: -90px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='140' viewBox='0 0 180 140'><ellipse cx='24.2' cy='52.2' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(110 24.2 52.2)'/><ellipse cx='20.0' cy='68.2' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(92 20.0 68.2)'/><ellipse cx='22.7' cy='84.3' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(74 22.7 84.3)'/><ellipse cx='32.0' cy='99.1' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(56 32.0 99.1)'/><ellipse cx='46.9' cy='111.0' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(38 46.9 111.0)'/><ellipse cx='66.1' cy='118.9' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(20 66.1 118.9)'/><ellipse cx='87.6' cy='122.0' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(2 87.6 122.0)'/><ellipse cx='109.3' cy='120.0' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(-16 109.3 120.0)'/><ellipse cx='155.8' cy='52.2' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(70 155.8 52.2)'/><ellipse cx='160.0' cy='68.2' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(88 160.0 68.2)'/><ellipse cx='157.3' cy='84.3' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(106 157.3 84.3)'/><ellipse cx='148.0' cy='99.1' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(124 148.0 99.1)'/><ellipse cx='133.1' cy='111.0' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(142 133.1 111.0)'/><ellipse cx='113.9' cy='118.9' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(160 113.9 118.9)'/><ellipse cx='92.4' cy='122.0' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(178 92.4 122.0)'/><ellipse cx='70.7' cy='120.0' rx='9' ry='3.6' fill='%23c9a23a' opacity='.8' transform='rotate(196 70.7 120.0)'/></svg>") center / contain no-repeat;
+}
+
+:root[data-theme='olympe'] .result-banner > * {
+  position: relative;
+}
+
+:root[data-theme='olympe'] .result-banner .big,
+:root[data-theme='olympe'] .fin-xp {
+  font-weight: 700;
+  color: #7d5f0c;
+}
+
+:root[data-theme='olympe'] h1,
+:root[data-theme='olympe'] h2,
+:root[data-theme='olympe'] h3 {
+  font-weight: 600;
+  letter-spacing: .03em;
+}

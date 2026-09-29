@@ -5,6 +5,7 @@
 // téléphone de son profil (`shared/themes.ts`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readdirSync, readFileSync } from 'node:fs'
 import Database from 'better-sqlite3'
 import {
   attendre,
@@ -129,6 +130,33 @@ test('ce que donnent les confettis : les thèmes à sa portée, et le prochain q
   assert.equal(phraseDesConfettis({ solde: 5000, abordables: 26, vise: null }), 'Tu en as 5000 : toute la boutique est à ta portée.')
   assert.equal(phraseDesConfettis({ solde: 40, abordables: 0, vise: null }), 'Une bonne réponse, un confetti. Tu en as 40.')
   assert.deepEqual([0, 1, 2, -1, -3].map(nConfettis), ['0 confetti', '1 confetti', '2 confettis', '-1 confetti', '-3 confettis'])
+})
+
+test('chaque thème a son aperçu dans la boutique, et aucun aperçu n’est orphelin', () => {
+  // Photographiés dans l'application par `scripts/apercus-themes.ts` : un
+  // thème ajouté sans le sien laisserait une case vide dans la boutique.
+  const dossier = new URL('../../client/src/themes/apercus/', import.meta.url)
+  const apercus = readdirSync(dossier).filter(f => f.endsWith('.webp'))
+  assert.deepEqual(apercus.map(f => f.replace(/\.webp$/, '')).sort(), THEMES.map(t => t.key).sort())
+  for (const f of apercus) {
+    const octets = readFileSync(new URL(f, dossier))
+    assert.equal(octets.subarray(8, 12).toString('ascii'), 'WEBP', `${f} est une image WebP`)
+    assert.ok(octets.length < 30_000, `${f} reste une vignette (${octets.length} octets)`)
+  }
+})
+
+test('le thème suit la page, pas la personne : seules les pages d’un joueur le portent', () => {
+  // L'animateur qui a acheté la Licorne anime en Velours ou en Ivoire :
+  // l'écran commun, l'éditeur, son compte et les pages publiques de la
+  // soirée n'en savent rien — la salle ne verrait sinon que ses goûts.
+  const client = new URL('../../client/src/', import.meta.url)
+  const lire = (fichier: string) => readFileSync(new URL(fichier, client), 'utf8')
+  for (const vue of readdirSync(new URL('views/', client)).filter(f => f.endsWith('.tsx'))) {
+    const porte = /themeJoueur/.test(lire(`views/${vue}`))
+    assert.equal(porte, ['PlayerApp.tsx', 'ProfilApp.tsx', 'JourApp.tsx'].includes(vue), `${vue} et le thème d’un profil`)
+  }
+  // Au démarrage, le thème retenu ne se pose que sur ces trois pages-là.
+  assert.match(lire('main.tsx'), /else if \(App === PlayerApp \|\| App === ProfilApp \|\| App === JourApp\) poserThemeRetenu\(\)/)
 })
 
 // ── Sur un serveur jetable ────────────────────────────────────────────────

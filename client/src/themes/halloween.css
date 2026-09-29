@@ -1,0 +1,213 @@
+/* ── Halloween · Rare · en boutique du 25 octobre au 1er novembre ──
+   Un manoir hanté : la citrouille, la lune, la toile d’araignée, les chauves-souris.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Creepster';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/creepster.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Crimson Pro';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/themes/crimson-pro.woff2') format('woff2');
+}
+
+:root[data-theme='halloween'] {
+  --bg: #120a18;
+  --bg-halo: #35173d;
+  --bg-raised: #1d1026;
+  --ink: #fbefe1;
+  --muted: #bba5b8;
+  --accent: #ff8c1a;
+  --accent-rgb: 255, 140, 26;
+  --accent-hover: #ffa54d;
+  --accent-text: #ffa347;
+  --accent-text-hover: #ffc285;
+  --focus: #ffa347;
+  --on-accent: #1a0d12;
+  --alert: #ff6464;
+  --alert-rgb: 255, 100, 100;
+  --alert-hover: #ff8282;
+  --on-alert: #1a0d12;
+  --surface: rgba(255, 140, 26, 0.05);
+  --surface-faint: rgba(255, 140, 26, 0.03);
+  --surface-strong: rgba(255, 140, 26, 0.09);
+  --track: rgba(255, 220, 190, 0.12);
+  --edge: rgba(255, 140, 26, 0.26);
+  --edge-strong: rgba(255, 140, 26, 0.62);
+  --accent-soft: rgba(255, 140, 26, 0.13);
+  --scroll-thumb: rgba(255, 140, 26, 0.32);
+  --backdrop: rgba(8, 3, 10, 0.75);
+  --shape-0: #ff8c1a;
+  --shape-1: #a7e063;
+  --shape-2: #b58cff;
+  --shape-3: #efe6d2;
+  --bronze-text: #dfa06c;
+  --argent-text: #d0c8da;
+  --anneau-legendaire: #ff9f4d;
+  --anneau-divin: #b58cff;
+  --anneau-collection: #a7e063;
+  --anneau-collection-haut: #8fb4ff;
+  color-scheme: dark;
+}
+
+:root[data-theme='halloween'] {
+  --serif: Creepster, 'Chiller', 'Papyrus', fantasy;
+  --sans: 'Crimson Pro', Georgia, 'Times New Roman', serif;
+  --radius: 12px;
+  --radius-sm: 12px;
+  font-synthesis: none;
+}
+
+:root[data-theme='halloween'] body {
+  background-color: #120a18;
+  background-image: radial-gradient(circle at 86% 26px, #fff4d6 0 18px, rgba(255, 214, 150, .4) 20px, rgba(255, 170, 90, .1) 44px, rgba(255, 170, 90, 0) 90px), radial-gradient(120% 45% at 50% 110%, rgba(110, 40, 120, .55), rgba(18, 10, 24, 0) 70%);
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='halloween'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  top: 0;
+  width: 170px;
+  height: 170px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='170' height='170' viewBox='0 0 170 170'><g fill='none' stroke='%23efe4ff' stroke-opacity='.24' stroke-width='.9'><path d='M0 0L170.0 0.0'/><path d='M0 0L164.2 44.0'/><path d='M0 0L147.2 85.0'/><path d='M0 0L120.2 120.2'/><path d='M0 0L85.0 147.2'/><path d='M0 0L44.0 164.2'/><path d='M0 0L0.0 170.0'/><path d='M30.0 0.0Q26.5 3.5 29.0 7.8Q24.7 10.2 26.0 15.0Q21.2 16.3 21.2 21.2Q16.3 21.2 15.0 26.0Q10.2 24.7 7.8 29.0Q3.5 26.5 0.0 30.0'/><path d='M62.0 0.0Q54.8 7.2 59.9 16.0Q51.1 21.2 53.7 31.0Q43.9 33.7 43.8 43.8Q33.7 43.9 31.0 53.7Q21.2 51.1 16.0 59.9Q7.2 54.8 0.0 62.0'/><path d='M98.0 0.0Q86.7 11.4 94.7 25.4Q80.8 33.5 84.9 49.0Q69.4 53.2 69.3 69.3Q53.2 69.4 49.0 84.9Q33.5 80.8 25.4 94.7Q11.4 86.7 0.0 98.0'/><path d='M138.0 0.0Q122.1 16.1 133.3 35.7Q113.8 47.1 119.5 69.0Q97.7 75.0 97.6 97.6Q75.0 97.7 69.0 119.5Q47.1 113.8 35.7 133.3Q16.1 122.1 0.0 138.0'/><path d='M112 0V84' stroke-width='.8'/><g transform='translate(112 90)' fill='%230b0610' stroke='%230b0610' stroke-width='1.2'><ellipse cx='0' cy='0' rx='4' ry='5'/><path d='M-3 -2L-9 -6M-3 0L-10 0M-3 2L-9 6M-2 4L-7 10M3 -2L9 -6M3 0L10 0M3 2L9 6M2 4L7 10' fill='none'/></g></g></svg>") no-repeat;
+}
+
+:root[data-theme='halloween'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><path transform='translate(294 34) scale(1.3) rotate(-8)' d='M0 -1C-2 -4 -5 -5 -8 -4C-9 -6 -12 -7 -15 -6C-13 -4 -13 -2 -14 0C-11 -1 -9 0 -8 2C-6 0 -3 0 -2 2C-1 1 -.5 1 0 2C.5 1 1 1 2 2C3 0 6 0 8 2C9 0 11 -1 14 0C13 -2 13 -4 15 -6C12 -7 9 -6 8 -4C5 -5 2 -4 0 -1ZM-1.6 -2.2L-1.9 -4.6L-.6 -3ZM1.6 -2.2L1.9 -4.6L.6 -3Z' fill='%2307030b'/><path transform='translate(258 70) scale(0.9) rotate(10)' d='M0 -1C-2 -4 -5 -5 -8 -4C-9 -6 -12 -7 -15 -6C-13 -4 -13 -2 -14 0C-11 -1 -9 0 -8 2C-6 0 -3 0 -2 2C-1 1 -.5 1 0 2C.5 1 1 1 2 2C3 0 6 0 8 2C9 0 11 -1 14 0C13 -2 13 -4 15 -6C12 -7 9 -6 8 -4C5 -5 2 -4 0 -1ZM-1.6 -2.2L-1.9 -4.6L-.6 -3ZM1.6 -2.2L1.9 -4.6L.6 -3Z' fill='%2307030b'/><path transform='translate(334 74) scale(0.7) rotate(-14)' d='M0 -1C-2 -4 -5 -5 -8 -4C-9 -6 -12 -7 -15 -6C-13 -4 -13 -2 -14 0C-11 -1 -9 0 -8 2C-6 0 -3 0 -2 2C-1 1 -.5 1 0 2C.5 1 1 1 2 2C3 0 6 0 8 2C9 0 11 -1 14 0C13 -2 13 -4 15 -6C12 -7 9 -6 8 -4C5 -5 2 -4 0 -1ZM-1.6 -2.2L-1.9 -4.6L-.6 -3ZM1.6 -2.2L1.9 -4.6L.6 -3Z' fill='%2307030b'/><path transform='translate(58 262) scale(0.7) rotate(6)' d='M0 -1C-2 -4 -5 -5 -8 -4C-9 -6 -12 -7 -15 -6C-13 -4 -13 -2 -14 0C-11 -1 -9 0 -8 2C-6 0 -3 0 -2 2C-1 1 -.5 1 0 2C.5 1 1 1 2 2C3 0 6 0 8 2C9 0 11 -1 14 0C13 -2 13 -4 15 -6C12 -7 9 -6 8 -4C5 -5 2 -4 0 -1ZM-1.6 -2.2L-1.9 -4.6L-.6 -3ZM1.6 -2.2L1.9 -4.6L.6 -3Z' fill='%2307030b'/></svg>") center / 100% 100% no-repeat;
+  animation: halloween-vol 5s ease-in-out infinite alternate;
+}
+
+:root[data-theme='halloween'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='halloween'] .card,
+:root[data-theme='halloween'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='halloween'] .onglets {
+  background: linear-gradient(180deg, rgba(44, 20, 52, .92), rgba(26, 12, 32, .92));
+  border-color: rgba(255, 140, 26, .34);
+  box-shadow: 0 0 24px rgba(255, 120, 20, .07), 0 10px 26px rgba(0, 0, 0, .45);
+}
+
+:root[data-theme='halloween'] .ans-btn {
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+:root[data-theme='halloween'] .ans-btn.chosen {
+  background: rgba(255, 140, 26, .18);
+  border: 1.5px solid #ff8c1a;
+  box-shadow: 0 0 16px rgba(255, 140, 26, .35);
+}
+
+:root[data-theme='halloween'] .quiz-question {
+  font-weight: 400;
+  font-size: 34px;
+  line-height: 1.08;
+  letter-spacing: .03em;
+  text-shadow: 0 2px 0 #3d0f3f;
+}
+
+:root[data-theme='halloween'] .timer-track {
+  height: 4px;
+}
+
+:root[data-theme='halloween'] .timer-fill,
+:root[data-theme='halloween'] .xp-fill {
+  background: linear-gradient(90deg, #ff6a00, #ffd08a);
+}
+
+:root[data-theme='halloween'] .timer-seconds {
+  font-weight: 400;
+  font-size: 46px;
+  color: #ff8c1a;
+  text-shadow: 0 0 14px rgba(255, 140, 26, .55);
+}
+
+:root[data-theme='halloween'] .result-banner .big,
+:root[data-theme='halloween'] .fin-xp {
+  font-weight: 400;
+  color: #ff8c1a;
+  letter-spacing: .03em;
+  text-shadow: 0 0 20px rgba(255, 140, 26, .5);
+}
+
+:root[data-theme='halloween'] .result-banner .big {
+  font-size: 60px;
+}
+
+:root[data-theme='halloween'] h1,
+:root[data-theme='halloween'] h2,
+:root[data-theme='halloween'] h3 {
+  letter-spacing: .03em;
+}
+
+:root[data-theme='halloween'] .label {
+  letter-spacing: .24em;
+  font-weight: 600;
+}
+
+:root[data-theme='halloween'] .btn-primary {
+  border-color: #ffa54d;
+  font-weight: 700;
+}
+
+:root[data-theme='halloween'] .quiz-categorie::before {
+  content: '☾ ';
+}
+
+:root[data-theme='halloween'] .niveau {
+  background: rgba(255, 140, 26, .12);
+  border-color: rgba(255, 140, 26, .55);
+  color: #ffb366;
+}
+
+:root[data-theme='halloween'] .lb-row {
+  background: rgba(44, 20, 52, .75);
+}
+
+:root[data-theme='halloween'] .lb-row.me {
+  background: rgba(255, 140, 26, .14);
+  border-color: rgba(255, 140, 26, .6);
+}
+
+@keyframes halloween-vol {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(-6px, 5px);
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='halloween'] body::after {
+    animation: none !important;
+  }
+}

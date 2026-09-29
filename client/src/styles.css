@@ -154,8 +154,10 @@
    bilan. Seules les variables changent ; la mise en page, les tailles et les
    polices sont les mêmes.
 
-   Ne concerne que l'écran commun (client/src/theme.ts) : les téléphones des
-   invités restent en Velours, le noir y ménage les yeux dans le noir. */
+   Un choix de l'écran commun (client/src/theme.ts), et l'un des deux thèmes
+   offerts aux profils pour leur téléphone (client/src/themeJoueur.ts) ; les
+   autres ont leur feuille dans client/src/themes. L'invité sans profil reste
+   en Velours, le noir y ménage les yeux dans le noir. */
 :root[data-theme='ivoire'] {
   --bg: #f9f5ec;
   --bg-halo: #fffdf8;
@@ -4217,6 +4219,56 @@ h3 > .icon {
 
 /* Sur la page profil, la grille d'emojis porte des avatars complets. */
 .emoji-grid .av { font-size: 1.5rem; }
+
+/* ── « Mes thèmes » : la boutique des confettis ─────────────────────────────
+   Juste après le fond de la carte : ce qui change l'allure, pas le jeu. Les
+   vignettes sont l'écran d'une question, photographié sous chaque thème
+   (server/scripts/apercus-themes.ts) ; la case suit le thème porté, comme
+   toute la page. */
+.solde-ligne { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 2px 0 4px; }
+.solde { font-family: var(--serif); font-weight: 600; font-size: 1.7rem; line-height: 1.1; color: var(--accent-text); }
+.solde-emoji { font-size: 0.7em; vertical-align: 0.1em; }
+.themes-choix { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px; margin: 10px 0; }
+.theme-btn { justify-content: flex-start; padding: 8px 6px 10px; text-align: center; }
+/* Le haut de l'écran seulement : la question et ses réponses, là où le thème se voit. */
+.theme-apercu {
+  display: block;
+  width: 100%;
+  aspect-ratio: 9 / 13;
+  margin-bottom: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--edge);
+  background: var(--bg-raised);
+}
+.theme-apercu img { display: block; width: 100%; height: auto; }
+/* La rareté, un point et un mot : la case est étroite, le prix passe dessous. */
+.theme-rarete { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: var(--t-label); letter-spacing: 0.04em; }
+.theme-prix { color: var(--accent-text); font-weight: 600; }
+.theme-prix.muted { color: var(--muted); font-weight: 400; }
+/* La rareté se dit en toutes lettres ; le point la redit en couleur, celle des anneaux de la grille. */
+.rarete-point { flex: none; display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.r-commune { background: var(--muted); }
+.r-peucommune { background: var(--anneau-collection); }
+.r-rare { background: var(--anneau-collection-haut); }
+.r-epique { background: var(--anneau-divin); }
+.r-legendaire { background: var(--anneau-legendaire); }
+.themes-rarete .label { margin-top: 14px; }
+/* Le solde, dans l'en-tête du profil : un lien vers la boutique, qui n'en a pas l'air d'un bouton. */
+.profil-solde {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.profil-solde:hover { color: var(--accent-text-hover); }
+.fin-confettis { margin: 12px 0 0; font-family: var(--serif); font-weight: 600; font-size: 1.5rem; line-height: 1.1; color: var(--accent-text); }
 
 /* ── L'historique des soirées ──────────────────────────────────────────── */
 

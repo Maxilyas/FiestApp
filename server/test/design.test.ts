@@ -7,7 +7,7 @@
 // l'écran avant d'être corrigé ; ici, on garde la cause.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import React from 'react'
 import { partsDuNom } from '../../shared/homonymes'
 
@@ -248,6 +248,60 @@ test('S2 · les contrôles natifs suivent le thème', () => {
   // Sans `color-scheme`, les listes d'équipe s'ouvraient en blanc sur le Velours.
   assert.equal(VELOURS.get('color-scheme'), 'dark')
   assert.equal(IVOIRE.get('color-scheme'), 'light')
+})
+
+// ── Les thèmes des profils : chacun sa feuille, les mêmes seuils ───────────
+
+/** Une couleur `rgba(…)` posée sur un fond opaque : la carte telle qu'on la voit. */
+function surFond(couleur: string, fond: string): string {
+  const m = /^rgba?\(([^)]+)\)$/.exec(couleur)
+  if (!m) return couleur
+  const [r, g, b, a = 1] = m[1].split(',').map(Number)
+  const f = [1, 3, 5].map(i => parseInt(fond.slice(i, i + 2), 16))
+  return '#' + [r, g, b].map((c, i) => Math.round(a * c + (1 - a) * f[i]).toString(16).padStart(2, '0')).join('')
+}
+
+test('chaque thème d’un profil se lit comme Velours et Ivoire : texte, accent, focus, alertes, métaux, formes', async () => {
+  // Trente habillages que personne ne relit tous à l'écran : les seuils
+  // d'Ivoire valent pour chacun — 4,5:1 pour ce qui s'écrit, 3:1 pour
+  // l'anneau du focus et les formes ▲ ◆ ● ■ sur leur carte. La Forêt rousse
+  // de la maquette écrivait ses boutons à 4,42:1.
+  const { THEMES } = await import('../../shared/themes')
+  const dossier = new URL('../../client/src/themes/', import.meta.url)
+  const feuilles = readdirSync(dossier).filter(f => f.endsWith('.css'))
+  assert.deepEqual(
+    feuilles.map(f => f.replace(/\.css$/, '')).sort(),
+    THEMES.filter(t => t.rarete !== 'offert').map(t => t.key).sort(),
+    'une feuille par thème à vendre, et aucune de trop',
+  )
+  for (const t of THEMES.filter(t => t.rarete !== 'offert')) {
+    const css = readFileSync(new URL(`${t.key}.css`, dossier), 'utf8')
+    const ouverture = `:root[data-theme='${t.key}'] {`
+    const debut = css.indexOf(ouverture)
+    assert.ok(debut >= 0, `${t.key} : le bloc de ses jetons existe`)
+    const corps = css.slice(debut, css.indexOf('\n}', debut))
+    const theme = new Map([...VELOURS, ...[...corps.matchAll(/^\s*(--[\w-]+|color-scheme):\s*([^;]+);/gm)].map(m => [m[1], m[2].trim()] as [string, string])])
+    const fond = teinte(theme, '--bg')
+    const carte = surFond(theme.get('--surface')!, fond)
+    const lit = (quoi: string, c: number, seuil: number) => assert.ok(c >= seuil, `${t.nom} : ${quoi} tient ${c.toFixed(2)}:1`)
+    for (const jeton of ['--ink', '--muted', '--accent-text', '--accent-text-hover', '--alert', '--bronze-text', '--argent-text', '--or-text']) {
+      lit(jeton, contraste(teinte(theme, jeton), fond), 4.5)
+    }
+    lit('le texte d’un bouton plein', contraste(teinte(theme, '--on-accent'), teinte(theme, '--accent')), 4.5)
+    for (const f of ['--bg', '--bg-raised']) lit(`le focus sur ${f}`, contraste(teinte(theme, '--focus'), teinte(theme, f)), 3)
+    for (const forme of ['--shape-0', '--shape-1', '--shape-2', '--shape-3']) lit(`${forme} sur sa carte`, contraste(teinte(theme, forme), carte), 3)
+    // Les contrôles natifs suivent : un fond clair l'annonce au navigateur.
+    assert.equal(theme.get('color-scheme'), t.clair ? 'light' : 'dark', `${t.nom} : color-scheme`)
+    // Ses animations portent son nom : deux feuilles chargées ne se disputent rien.
+    for (const [, nom] of css.matchAll(/@keyframes ([\w-]+)/g)) assert.ok(nom.startsWith(`${t.key}-`), `${t.nom} : @keyframes ${nom}`)
+    // Son décor s'arrête si le système demande moins de mouvement.
+    if (/animation:/.test(css)) assert.match(css, /@media \(prefers-reduced-motion: reduce\)[^@]*animation: none !important/, `${t.nom} : le décor s'arrête`)
+    // Rien n'est demandé ailleurs : ses polices sont les nôtres (`client/public/fonts/themes`).
+    for (const [, adresse] of css.replace(/url\("data:[^"]*"\)/g, '').matchAll(/url\(["']?([^"')]+)/g)) {
+      assert.match(adresse, /^\/fonts\/themes\/[\w-]+\.woff2$/, `${t.nom} : ${adresse}`)
+      assert.ok(existsSync(new URL(`../../client/public${adresse}`, import.meta.url)), `${t.nom} : ${adresse} est livrée`)
+    }
+  }
 })
 
 // ── Au texte agrandi ──────────────────────────────────────────────────────

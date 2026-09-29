@@ -1,0 +1,324 @@
+/* ── Héros · Rare ──
+   Une planche de BD : rayons, trame, cases cernées de noir, la question en bulle.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Bangers';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/bangers.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Comic Neue';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/comic-neue-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Comic Neue';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/themes/comic-neue-700.woff2') format('woff2');
+}
+
+:root[data-theme='heros'] {
+  --bg: #fff4c7;
+  --bg-halo: #fffbea;
+  --bg-raised: #ffffff;
+  --ink: #141414;
+  --muted: #4a4334;
+  --accent: #d61f26;
+  --accent-rgb: 214, 31, 38;
+  --accent-hover: #e8353c;
+  --accent-text: #b3151b;
+  --accent-text-hover: #8c1015;
+  --focus: #1f5fe0;
+  --on-accent: #ffffff;
+  --alert: #7b2cbf;
+  --alert-rgb: 123, 44, 191;
+  --alert-hover: #8f3fd6;
+  --on-alert: #ffffff;
+  --surface: #ffffff;
+  --surface-faint: rgba(255, 255, 255, 0.7);
+  --surface-strong: rgba(20, 20, 20, 0.06);
+  --track: rgba(20, 20, 20, 0.15);
+  --edge: rgba(20, 20, 20, 0.55);
+  --edge-strong: #141414;
+  --accent-soft: rgba(214, 31, 38, 0.1);
+  --scroll-thumb: rgba(20, 20, 20, 0.4);
+  --dim: 0.45;
+  --backdrop: rgba(20, 20, 20, 0.45);
+  --shadow-toast: 4px 4px 0 #141414;
+  --shadow-dialog: 6px 6px 0 #141414;
+  --shape-0: #d61f26;
+  --shape-1: #c25e00;
+  --shape-2: #1f5fe0;
+  --shape-3: #13874a;
+  --bronze-text: #8a4b1a;
+  --argent-text: #4d5866;
+  --anneau-legendaire: #b3541e;
+  --anneau-divin: #5b3fa8;
+  --anneau-collection: #1d7a45;
+  --anneau-collection-haut: #1f55b8;
+  color-scheme: light;
+}
+
+:root[data-theme='heros'] .silhouette {
+  filter: brightness(0);
+  opacity: .45;
+}
+
+:root[data-theme='heros'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
+}
+
+:root[data-theme='heros'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+
+:root[data-theme='heros'] .lu-scintille {
+  filter: brightness(.6) sepia(1) saturate(2.5);
+}
+
+:root[data-theme='heros'] .fait-puce.fait-ombre {
+  color: #5b3f99;
+}
+
+:root[data-theme='heros'] {
+  --serif: Bangers, Impact, 'Arial Black', sans-serif;
+  --sans: 'Comic Neue', 'Comic Sans MS', 'Segoe UI', sans-serif;
+  --radius: 14px;
+  --radius-sm: 12px;
+  font-synthesis: none;
+}
+
+:root[data-theme='heros'] body {
+  background: #ffe14f;
+}
+
+:root[data-theme='heros'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: repeating-conic-gradient(from -3deg at 50% 14%, #ffe45c 0deg 6deg, #ffd21f 6deg 12deg);
+}
+
+:root[data-theme='heros'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(20, 20, 20, .22) 0 1.4px, transparent 1.9px);
+  background-size: 9px 9px;
+  -webkit-mask-image: radial-gradient(95% 55% at 100% 100%, #000 10%, transparent 70%);
+  mask-image: radial-gradient(95% 55% at 100% 100%, #000 10%, transparent 70%);
+}
+
+:root[data-theme='heros'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='heros'] .card,
+:root[data-theme='heros'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='heros'] .onglets {
+  background: #fff;
+  border: 3px solid #141414;
+  box-shadow: 4px 4px 0 #141414;
+}
+
+:root[data-theme='heros'] .ans-btn {
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+
+:root[data-theme='heros'] .ans-btn.chosen {
+  background: #ffe45c;
+  border: 3px solid #141414;
+  box-shadow: 4px 4px 0 #141414;
+}
+
+:root[data-theme='heros'] .ans-btn.correct {
+  border: 3px solid #141414;
+}
+
+:root[data-theme='heros'] .ans-shape {
+  stroke: #141414;
+  stroke-width: 2.2px;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+:root[data-theme='heros'] .quiz-question {
+  position: relative;
+  background: #fff;
+  border: 3px solid #141414;
+  border-radius: 26px;
+  padding: 12px 16px 14px;
+  margin-bottom: 12px;
+  box-shadow: 4px 4px 0 #141414;
+  font-weight: 400;
+  font-size: 29px;
+  line-height: 1.04;
+  letter-spacing: .025em;
+  color: #141414;
+}
+
+:root[data-theme='heros'] .quiz-question::before {
+  content: '';
+  position: absolute;
+  left: 30px;
+  bottom: -23px;
+  width: 32px;
+  height: 23px;
+  background: #141414;
+  clip-path: polygon(0 0, 100% 0, 8% 100%);
+}
+
+:root[data-theme='heros'] .quiz-question::after {
+  content: '';
+  position: absolute;
+  left: 35px;
+  bottom: -14px;
+  width: 21px;
+  height: 15px;
+  background: #fff;
+  clip-path: polygon(0 0, 100% 0, 10% 100%);
+}
+
+:root[data-theme='heros'] .timer-track {
+  height: 16px;
+  border: 3px solid #141414;
+  border-radius: 99px;
+  background: #fff;
+}
+
+:root[data-theme='heros'] .timer-fill {
+  background: #d61f26;
+}
+
+:root[data-theme='heros'] .timer-seconds {
+  font-weight: 400;
+  font-size: 50px;
+  color: #d61f26;
+  -webkit-text-stroke: 1.6px #141414;
+  paint-order: stroke fill;
+  text-shadow: 3px 3px 0 #141414;
+}
+
+:root[data-theme='heros'] .label {
+  color: #141414;
+  font-weight: 700;
+}
+
+:root[data-theme='heros'] .quiz-categorie {
+  align-self: flex-start;
+  background: #1f5fe0;
+  color: #fff;
+  padding: 4px 10px 3px;
+  border: 2px solid #141414;
+  border-radius: 4px;
+  rotate: -2deg;
+  letter-spacing: .18em;
+}
+
+:root[data-theme='heros'] .result-banner {
+  position: relative;
+  overflow: hidden;
+  rotate: -1.5deg;
+}
+
+:root[data-theme='heros'] .result-banner.result-ok::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 330px;
+  height: 330px;
+  margin: -205px 0 0 -165px;
+  background: #ffe14f;
+  z-index: 0;
+  clip-path: polygon(50% 0%, 57% 17%, 72% 5%, 70% 23%, 88% 16%, 80% 32%, 98% 33%, 84% 45%, 100% 55%, 82% 60%, 92% 76%, 74% 72%, 76% 92%, 61% 80%, 52% 100%, 44% 82%, 30% 95%, 30% 76%, 12% 84%, 20% 67%, 1% 63%, 17% 52%, 2% 38%, 21% 36%, 12% 18%, 30% 22%, 30% 4%, 44% 17%);
+}
+
+:root[data-theme='heros'] .result-banner > * {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='heros'] .result-banner .big {
+  font-weight: 400;
+  font-size: 68px;
+  color: #d61f26;
+  -webkit-text-stroke: 2px #141414;
+  paint-order: stroke fill;
+  text-shadow: 4px 4px 0 #141414;
+  letter-spacing: .03em;
+}
+
+:root[data-theme='heros'] .btn-primary {
+  background: #d61f26;
+  color: #fff;
+  border: 3px solid #141414;
+  box-shadow: 3px 3px 0 #141414;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 1.15rem;
+  letter-spacing: .06em;
+}
+
+:root[data-theme='heros'] .niveau {
+  background: #1f5fe0;
+  color: #fff;
+  border: 2px solid #141414;
+  font-weight: 700;
+}
+
+:root[data-theme='heros'] .lb-row {
+  background: #fff;
+  border: 2px solid #141414;
+}
+
+:root[data-theme='heros'] .lb-row.me {
+  background: #ffe45c;
+  border: 2px solid #141414;
+}
+
+:root[data-theme='heros'] .onglet.actif {
+  background: #ffe45c;
+  color: #141414;
+  box-shadow: inset 0 0 0 2px #141414;
+}
+
+:root[data-theme='heros'] .xp-bar {
+  height: 12px;
+  border: 2px solid #141414;
+  background: #fff;
+}
+
+:root[data-theme='heros'] .xp-fill {
+  background: #1f5fe0;
+}
+
+:root[data-theme='heros'] h1,
+:root[data-theme='heros'] h2,
+:root[data-theme='heros'] h3,
+:root[data-theme='heros'] .fin-xp {
+  letter-spacing: .02em;
+}

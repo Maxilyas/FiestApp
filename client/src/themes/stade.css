@@ -1,0 +1,188 @@
+/* ── Stade · Commune ──
+   Match en nocturne : la pelouse rayée, les projecteurs, le tableau d’affichage.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Bebas Neue';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/bebas-neue.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/themes/barlow-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/themes/barlow-600.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Barlow';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/themes/barlow-700.woff2') format('woff2');
+}
+
+:root[data-theme='stade'] {
+  --bg: #0e2616;
+  --bg-halo: #2c5c38;
+  --bg-raised: #133020;
+  --ink: #f5fff5;
+  --muted: #a8c7ae;
+  --accent: #e8ff47;
+  --accent-rgb: 232, 255, 71;
+  --accent-hover: #edff6f;
+  --accent-text: #e8ff6a;
+  --accent-text-hover: #efff97;
+  --focus: #e8ff6a;
+  --on-accent: #0e2616;
+  --alert: #ff5a4f;
+  --alert-rgb: 255, 90, 79;
+  --alert-hover: #ff7b72;
+  --on-alert: #0e2616;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-faint: rgba(255, 255, 255, 0.03);
+  --surface-strong: rgba(255, 255, 255, 0.09);
+  --track: rgba(255, 255, 255, 0.14);
+  --edge: rgba(232, 255, 71, 0.26);
+  --edge-strong: rgba(232, 255, 71, 0.6);
+  --accent-soft: rgba(232, 255, 71, 0.13);
+  --scroll-thumb: rgba(232, 255, 71, 0.32);
+  --backdrop: rgba(0, 0, 0, 0.72);
+  --shape-0: #ff6a5c;
+  --shape-1: #e8ff47;
+  --shape-2: #5ec8ff;
+  --shape-3: #ffffff;
+  --bronze-text: #e2b07a;
+  --argent-text: #d0dcd2;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+:root[data-theme='stade'] {
+  --serif: 'Bebas Neue', Impact, 'Arial Narrow', sans-serif;
+  --sans: Barlow, 'Segoe UI', sans-serif;
+  --radius: 8px;
+  --radius-sm: 8px;
+  font-synthesis: none;
+}
+
+:root[data-theme='stade'] body {
+  background-color: #0e2616;
+  background-image: repeating-linear-gradient(90deg, #103019 0 45px, #0d2715 45px 90px);
+  background-size: auto;
+  background-repeat: repeat;
+}
+
+:root[data-theme='stade'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><g fill='none' stroke='%23ffffff' stroke-opacity='.16' stroke-width='3'><path d='M0 330H360'/><circle cx='180' cy='330' r='62'/><path d='M60 640V560H300V640'/><path d='M120 640V606H240V640'/></g><circle cx='180' cy='330' r='4' fill='%23ffffff' fill-opacity='.2'/></svg>") center / 100% 100% no-repeat;
+}
+
+:root[data-theme='stade'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: radial-gradient(55% 28% at 0% 0%, rgba(255, 255, 225, .24), transparent 70%), radial-gradient(55% 28% at 100% 0%, rgba(255, 255, 225, .24), transparent 70%), conic-gradient(from 120deg at 0% 0%, rgba(255, 255, 225, .07) 0deg 18deg, transparent 18deg), conic-gradient(from 222deg at 100% 0%, rgba(255, 255, 225, .07) 0deg 18deg, transparent 18deg);
+}
+
+:root[data-theme='stade'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='stade'] .card,
+:root[data-theme='stade'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='stade'] .onglets {
+  background: rgba(6, 22, 12, .88);
+  border-color: rgba(255, 255, 255, .26);
+}
+
+:root[data-theme='stade'] .ans-btn {
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+
+:root[data-theme='stade'] .ans-btn.chosen {
+  background: rgba(232, 255, 71, .12);
+  border: 2px solid #e8ff47;
+}
+
+:root[data-theme='stade'] .quiz-question {
+  font-weight: 400;
+  font-size: 42px;
+  line-height: .98;
+  letter-spacing: .01em;
+}
+
+:root[data-theme='stade'] .timer-seconds {
+  font-weight: 400;
+  font-size: 40px;
+  color: #e8ff47;
+  background: #041008;
+  padding: 4px 8px 0;
+  border-radius: 6px;
+  border: 1px solid rgba(232, 255, 71, .35);
+  text-shadow: 0 0 8px rgba(232, 255, 71, .6);
+}
+
+:root[data-theme='stade'] .timer-track {
+  height: 4px;
+}
+
+:root[data-theme='stade'] .timer-fill {
+  background: #e8ff47;
+}
+
+:root[data-theme='stade'] .label {
+  font-weight: 600;
+}
+
+:root[data-theme='stade'] .result-banner .big,
+:root[data-theme='stade'] .fin-xp {
+  font-weight: 400;
+  color: #e8ff47;
+  letter-spacing: .02em;
+}
+
+:root[data-theme='stade'] .result-banner .big {
+  font-size: 4rem;
+}
+
+:root[data-theme='stade'] h1,
+:root[data-theme='stade'] h2,
+:root[data-theme='stade'] h3 {
+  font-weight: 400;
+  letter-spacing: .03em;
+}
+
+:root[data-theme='stade'] .lb-row {
+  background: rgba(6, 22, 12, .7);
+}
