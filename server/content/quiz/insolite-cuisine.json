@@ -1,15 +1,15 @@
 {
   "title": "🍳 Cuisine & bonnes surprises",
-  "description": "Du ketchup vendu comme médicament, une colle ratée devenue Post-it, un fruit qui n’en est pas un : dix faits d’assiette et de hasard.",
+  "description": "Du ketchup sans tomate, une colle ratée devenue Post-it, un fruit qui n’en est pas un : dix faits d’assiette et de hasard.",
   "rayon": "jeu",
   "ordre": 10,
   "questions": [
     {
       "kind": "choice",
-      "text": "Quelle invention est née d’une colle pas assez collante ?",
+      "text": "Quelle invention est née, en 1968, d’une colle ratée qui tenait à peine ?",
       "answers": ["Le Velcro", "Le Scotch", "Le Post-it", "Le stylo-bille"],
       "correct": 2,
-      "duration": 20,
+      "duration": 25,
       "category": "Culture générale",
       "source": "Wikipédia, « Post-it »",
       "anecdote": "En 1968, le chimiste Spencer Silver met au point chez 3M une colle qui tient à peine. Il faudra des années pour lui trouver un usage : des petits papiers qui se décollent sans rien abîmer."
@@ -22,17 +22,17 @@
       "duration": 20,
       "category": "Nature",
       "source": "Wikipédia, « Baie (botanique) »",
-      "anecdote": "Une baie est un fruit charnu, sans noyau, dont toute la chair est comestible : la banane en est une. La fraise, la framboise et la mûre, non."
+      "anecdote": "Chez une baie, toute la paroi du fruit est charnue, sans noyau dur : la banane, mais aussi la tomate, le raisin ou le kiwi en sont. La fraise est un faux-fruit ; la framboise et la mûre sont des assemblages de petites drupes."
     },
     {
       "kind": "choice",
-      "text": "Le ketchup a d’abord été vendu comme un médicament.",
+      "text": "Les premiers ketchups ne contenaient pas de tomate.",
       "answers": ["Vrai", "Faux"],
       "correct": 0,
       "duration": 15,
       "category": "Cuisine",
       "source": "Wikipédia, « Ketchup »",
-      "anecdote": "Dans les années 1830, un médecin américain le commercialise en pilules censées soigner l’indigestion, avant qu’il finisse dans nos assiettes."
+      "anecdote": "Le « ké-tsiap » d’Asie, rapporté par des marins anglais au XVIIe siècle, était une sauce de poisson fermenté. Viennent ensuite les ketchups aux champignons ou aux noix : la tomate n’arrive qu’au début du XIXe siècle."
     },
     {
       "kind": "choice",
@@ -46,7 +46,7 @@
     },
     {
       "kind": "choice",
-      "text": "La cacahuète est une noix.",
+      "text": "Pour un botaniste, la cacahuète est une noix.",
       "answers": ["Vrai", "Faux"],
       "correct": 1,
       "duration": 15,
@@ -62,7 +62,7 @@
       "duration": 20,
       "category": "Nature",
       "source": "Wikipédia, « Vanille »",
-      "anecdote": "La gousse vient d’une orchidée grimpante du Mexique. Sa fleur ne dure qu’un jour : à La Réunion, on la féconde à la main depuis 1841."
+      "anecdote": "La gousse vient d’une orchidée grimpante du Mexique. Sa fleur ne dure que quelques heures : à La Réunion, on la féconde à la main depuis 1841."
     },
     {
       "kind": "number",
@@ -71,8 +71,8 @@
       "unit": "bars",
       "duration": 30,
       "category": "Cuisine",
-      "source": "Wikipédia, « Champagne (vin) »",
-      "anecdote": "Environ 6 bars, soit le triple d’un pneu de voiture. C’est pour ça que le bouchon peut partir à près de 50 km/h."
+      "source": "Wikipédia, « Bouteille de champagne »",
+      "anecdote": "Environ 6 bars, soit le triple d’un pneu de voiture. C’est pour ça que le bouchon peut partir jusqu’à 50 km/h."
     },
     {
       "kind": "number",
@@ -97,13 +97,13 @@
     {
       "kind": "choice",
       "text": "Remets ces inventions de la plus ancienne à la plus récente.",
-      "answers": ["La cocotte-minute", "La boîte de conserve", "Le lave-vaisselle", "Le four à micro-ondes"],
+      "answers": ["Le digesteur de Denis Papin", "La boîte de conserve", "Le lave-vaisselle", "Le four à micro-ondes"],
       "correct": 0,
       "variante": "ordre",
       "duration": 40,
       "category": "Culture générale",
       "source": "Wikipédia, « Autocuiseur »",
-      "anecdote": "Denis Papin, 1679 ; la conserve, vers 1810 ; Josephine Cochrane, 1886 ; Percy Spencer, 1945."
+      "anecdote": "Le digesteur de Denis Papin, ancêtre de l’autocuiseur, date de 1679 ; la boîte de conserve, de vers 1810 ; le lave-vaisselle de Josephine Cochrane, de 1886 ; le micro-ondes de Percy Spencer, de 1945."
     }
   ]
 }

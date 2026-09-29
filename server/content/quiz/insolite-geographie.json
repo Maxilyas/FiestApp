@@ -11,7 +11,7 @@
       "correct": 2,
       "duration": 25,
       "category": "Géographie",
-      "source": "Wikipédia, « Pays enclavé »",
+      "source": "Wikipédia, « Pays sans littoral »",
       "anecdote": "Le Liechtenstein n’est bordé que par la Suisse et l’Autriche, elles-mêmes sans mer. Il n’en existe qu’un autre au monde : l’Ouzbékistan."
     },
     {
@@ -21,7 +21,7 @@
       "correct": 0,
       "duration": 20,
       "category": "Géographie",
-      "source": "Wikipédia, « Fuseau horaire »",
+      "source": "Wikipédia, « Heure en France »",
       "anecdote": "Grâce à ses territoires d’outre-mer, la France en compte douze (treize avec la terre Adélie), devant la Russie et les États-Unis."
     },
     {
@@ -32,17 +32,17 @@
       "duration": 25,
       "category": "Géographie",
       "source": "Wikipédia, « Drapeau du Népal »",
-      "anecdote": "Le drapeau népalais superpose deux triangles, en forme de fanion : ce sont les deux sommets de l’Himalaya, et les deux grandes religions du pays."
+      "anecdote": "Le drapeau népalais superpose deux fanions triangulaires : on y voit l’Himalaya et les deux grandes religions du pays, l’hindouisme et le bouddhisme. Il est aussi plus haut que large."
     },
     {
       "kind": "choice",
-      "text": "Quelle est la plus haute montagne du monde, mesurée de sa base à son sommet ?",
+      "text": "Mesurée depuis le fond de l’océan, quelle est la plus haute montagne du monde ?",
       "answers": ["Le Teide", "Le Mauna Loa", "L’Etna", "Le Mauna Kea"],
       "correct": 3,
       "duration": 25,
       "category": "Géographie",
       "source": "Wikipédia, « Mauna Kea »",
-      "anecdote": "Ce volcan d’Hawaï culmine à 4 207 m au-dessus de la mer, mais plonge de plus de 6 000 m sous l’eau : plus de 10 000 m en tout, contre 8 849 m pour l’Everest."
+      "anecdote": "Ce volcan d’Hawaï culmine à 4 207 m au-dessus de la mer, mais plonge d’environ 6 000 m sous l’eau : plus de 10 000 m en tout, contre 8 849 m pour l’Everest."
     },
     {
       "kind": "choice",
@@ -52,7 +52,7 @@
       "duration": 15,
       "category": "Géographie",
       "source": "Wikipédia, « Désert »",
-      "anecdote": "L’Antarctique, avec près de 14 millions de km², est aussi un désert : il y tombe très peu de précipitations. Le Sahara n’en fait que 9 millions."
+      "anecdote": "L’Antarctique, avec plus de 14 millions de km², est aussi un désert : il y tombe très peu de précipitations. Le Sahara, plus grand désert chaud, n’en fait qu’environ 9 millions."
     },
     {
       "kind": "choice",
@@ -82,7 +82,7 @@
       "duration": 30,
       "category": "Géographie",
       "source": "Wikipédia, « Papouasie-Nouvelle-Guinée »",
-      "anecdote": "Environ 840 pour à peine 10 millions d’habitants : près d’un huitième de toutes les langues du monde."
+      "anecdote": "Environ 840 pour à peine plus de 10 millions d’habitants : plus d’un dixième de toutes les langues du monde."
     },
     {
       "kind": "number",
@@ -92,7 +92,7 @@
       "duration": 30,
       "category": "Géographie",
       "source": "Wikipédia, « Fosse des Mariannes »",
-      "anecdote": "Environ 11 000 m au point le plus bas, l’abîme Challenger : l’Everest y tiendrait avec plus de 2 000 m d’eau au-dessus."
+      "anecdote": "Environ 11 000 m au point le plus bas, l’abîme Challenger (10 935 m selon les plongées de 2020, entre 10 900 et 11 000 m selon les mesures) : l’Everest y tiendrait avec plus de 2 000 m d’eau au-dessus."
     },
     {
       "kind": "choice",
@@ -102,7 +102,7 @@
       "variante": "ordre",
       "duration": 40,
       "category": "Géographie",
-      "source": "Wikipédia, « Liste des pays par superficie »",
+      "source": "Wikipédia, « Liste des pays et territoires par superficie »",
       "anecdote": "Vatican : 0,44 km². Monaco : 2 km². Nauru : 21 km². Saint-Marin : 61 km²."
     }
   ]
