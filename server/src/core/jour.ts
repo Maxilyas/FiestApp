@@ -1247,6 +1247,24 @@ export class JourStore {
     return categories
   }
 
+  /**
+   * Toutes ses bonnes réponses au quiz du jour, parties en cours comprises :
+   * ses confettis du quiz du jour (`shared/themes.ts`). Une question annulée
+   * pour tous est déjà retirée de chaque partie (`recompter`).
+   */
+  async justesDe(profileId: string): Promise<number> {
+    const res = await this.client.execute({
+      sql: 'SELECT COALESCE(SUM(justes), 0) AS n FROM jour_parties WHERE profile_id = ?',
+      args: [profileId],
+    })
+    return Number(res.rows[0]?.n ?? 0)
+  }
+
+  /** Le jour qu'il est à Paris, à l'horloge du quiz du jour — que les tests font passer minuit. */
+  aujourdhui(): string {
+    return jourDe(this.maintenant())
+  }
+
   /** Masqué du classement par l'administrateur : les autres ne le voient plus, ni sa carte. */
   estMasque(profileId: string): boolean {
     return this.masques.has(profileId)

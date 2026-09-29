@@ -24,6 +24,8 @@ import { Lendemain } from '../components/Lendemain'
 import { CarteDuJour, MesJours, pointsDesJours } from '../components/Jour'
 import { JAnime, JeJoue } from '../components/AccueilDesRoles'
 import type { PublicSpace } from '../../../shared/space'
+import { porterTheme } from '../themeJoueur'
+import { nConfettis } from '../../../shared/themes'
 
 const ETAPE_REJOINDRE = 'fiestappRejoindre'
 
@@ -146,6 +148,12 @@ export function ProfilApp() {
       .finally(() => setChargement(false))
   }, [])
 
+  // Le thème de son profil habille sa page, une fois le profil lu : celui
+  // retenu au démarrage attend le verdict. Sans profil, Velours.
+  useEffect(() => {
+    if (!chargement) void porterTheme(profil?.theme)
+  }, [chargement, profil?.theme])
+
   const enregistrer = async (patch: ChoixDuProfil) => {
     // Un second toucher pendant l'enregistrement est ignoré ici, plutôt que
     // de désactiver chaque case : désactivée, la case touchée perdait le
@@ -164,6 +172,45 @@ export function ProfilApp() {
       setAnnonce(annonceDuChoix(patch))
     } catch (e) {
       setErreur((e as Error).message)
+    } finally {
+      enregistrement.current = false
+      setBusy(false)
+    }
+  }
+
+  /** Le solde de l'en-tête mène à la boutique, dans l'onglet « Apparence ». */
+  const versLaBoutique = () => {
+    choisirOnglet('apparence')
+    // Le panneau se rend au clic ; la boutique s'y trouve à l'image suivante.
+    requestAnimationFrame(() => document.getElementById(BOUTIQUE)?.scrollIntoView({ block: 'start' }))
+  }
+  // Arrivé par l'adresse de la boutique (une fin de soirée) : la page s'ouvre
+  // dessus, une fois l'onglet chargé — elle n'existe pas au chargement, et le
+  // navigateur ne sait pas y descendre seul.
+  const [parLaBoutique] = useState(() => window.location.hash === `#${BOUTIQUE}`)
+  const panneauxPrets = !!profil && !!lesPanneaux && lesPanneaux !== 'perdu'
+  useEffect(() => {
+    if (parLaBoutique && panneauxPrets) requestAnimationFrame(() => document.getElementById(BOUTIQUE)?.scrollIntoView({ block: 'start' }))
+  }, [parLaBoutique, panneauxPrets])
+
+  /**
+   * Acheter un thème : le serveur compte, achète et le fait porter. Le solde
+   * affiché est celui qu'il rend — jamais une soustraction faite ici, qu'un
+   * autre onglet aurait pu fausser. Rend le motif d'un refus, que la
+   * boutique montre là où l'on a touché.
+   */
+  const acheter = async (cle: string): Promise<string | null> => {
+    if (enregistrement.current) return null
+    enregistrement.current = true
+    setBusy(true)
+    setAnnonce('')
+    try {
+      const { profile, boutique } = await api.joueur.acheterTheme(cle)
+      setProfil(p => (p ? { ...p, ...profile, boutique } : p))
+      setAnnonce(annonceDuChoix({ theme: cle }))
+      return null
+    } catch (e) {
+      return motifDe(e)
     } finally {
       enregistrement.current = false
       setBusy(false)
@@ -282,6 +329,12 @@ export function ProfilApp() {
               ? `${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} XP vers le niveau ${profil.niveau + 1}`
               : 'Au sommet'}
           </p>
+          {/* Ses confettis, sous son expérience : un toucher mène à la boutique. */}
+          {profil.boutique && (
+            <button type="button" className="profil-solde" onClick={versLaBoutique}>
+              🎊 {nConfettis(profil.boutique.confettis.solde)}
+            </button>
+          )}
         </div>
       </header>
 
@@ -317,7 +370,7 @@ export function ProfilApp() {
       {onglet === 'apparence' && (
         <div className="profil-onglet" role="tabpanel" id="profil-apparence" aria-labelledby="onglet-apparence">
           {lesPanneaux && lesPanneaux !== 'perdu' ? (
-            <lesPanneaux.PanneauApparence profil={profil} busy={busy} enregistrer={enregistrer} />
+            <lesPanneaux.PanneauApparence profil={profil} busy={busy} enregistrer={enregistrer} acheter={acheter} />
           ) : (
             <OngletEnChemin perdu={lesPanneaux === 'perdu'} />
           )}
@@ -487,6 +540,9 @@ const ONGLETS: OngletDef<Onglet>[] = [
 /** L'onglet que ce téléphone avait laissé ouvert. */
 const CLE_ONGLET = 'quizz.profil.onglet'
 
+/** L'adresse de la boutique des thèmes, que la fin de soirée donne : `/profil#mes-themes`. */
+const BOUTIQUE = 'mes-themes'
+
 const estOnglet = (x: unknown): x is Onglet => ONGLETS.some(o => o.id === x)
 
 /**
@@ -496,6 +552,8 @@ const estOnglet = (x: unknown): x is Onglet => ONGLETS.some(o => o.id === x)
 function lireOnglet(): Onglet {
   const dansLAdresse = window.location.hash.slice(1)
   if (estOnglet(dansLAdresse)) return dansLAdresse
+  // La boutique des thèmes vit dans l'apparence (`/profil#mes-themes`).
+  if (dansLAdresse === BOUTIQUE) return 'apparence'
   // Sous try/catch : des cookies bloqués donnaient une page noire.
   try {
     const garde = localStorage.getItem(CLE_ONGLET)

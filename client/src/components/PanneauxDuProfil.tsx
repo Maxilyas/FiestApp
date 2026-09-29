@@ -2,6 +2,7 @@ import type { PublicProfileDetail } from '../../../shared/profil'
 import type { ChoixDuProfil } from './choix'
 import { ApercuSalle, MesAvatars, MesFinitions, MonFond, MonTitre } from './Apparence'
 import { MaVitrine, MesEcussons, MesHautsFaits, MesPrix, MonQuizDuJour } from './Trophees'
+import { MesThemes } from './Boutique'
 
 // Le contenu des onglets « Apparence » et « Trophées » du profil, que la page
 // charge à la demande (`ProfilApp`) : ils portent les dessins de tous les
@@ -14,7 +15,7 @@ interface Props {
   enregistrer: (patch: ChoixDuProfil) => void
 }
 
-export function PanneauApparence({ profil, busy, enregistrer }: Props) {
+export function PanneauApparence({ profil, busy, enregistrer, acheter }: Props & { acheter: (cle: string) => Promise<string | null> }) {
   return (
     <>
       <ApercuSalle profil={profil} />
@@ -22,6 +23,8 @@ export function PanneauApparence({ profil, busy, enregistrer }: Props) {
       <MesFinitions profil={profil} busy={busy} enregistrer={enregistrer} />
       <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />
       <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />
+      {/* Les thèmes, avec les cartes : ce qui change l'allure, pas le jeu. */}
+      <MesThemes profil={profil} busy={busy} enregistrer={enregistrer} acheter={acheter} />
     </>
   )
 }

@@ -1,0 +1,197 @@
+/* ── Forêt rousse · Peu commune ──
+   Un après-midi d’automne : les feuilles tombent en tournoyant.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Merienda';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/merienda.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/nunito.woff2') format('woff2');
+}
+
+:root[data-theme='foret'] {
+  --bg: #f7ead8;
+  --bg-halo: #fdf5ea;
+  --bg-raised: #fffaf2;
+  --ink: #3a2014;
+  --muted: #6e4a35;
+  --accent: #b8481a;
+  --accent-rgb: 184, 72, 26;
+  --accent-hover: #c2623a;
+  --accent-text: #a8420f;
+  --accent-text-hover: #86350c;
+  --focus: #a8420f;
+  --on-accent: #fff8f0;
+  --alert: #9b1c1c;
+  --alert-rgb: 155, 28, 28;
+  --alert-hover: #a73737;
+  --on-alert: #ffffff;
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-faint: rgba(255, 255, 255, 0.4);
+  --surface-strong: rgba(58, 32, 20, 0.06);
+  --track: rgba(58, 32, 20, 0.14);
+  --edge: rgba(184, 72, 26, 0.38);
+  --edge-strong: rgba(184, 72, 26, 0.72);
+  --accent-soft: rgba(184, 72, 26, 0.14);
+  --scroll-thumb: rgba(184, 72, 26, 0.45);
+  --dim: 0.5;
+  --backdrop: rgba(58, 32, 20, 0.4);
+  --shadow-toast: 0 10px 30px rgba(58, 32, 20, 0.18);
+  --shadow-dialog: 0 24px 60px rgba(58, 32, 20, 0.25);
+  --shape-0: #c4501b;
+  --shape-1: #a8780a;
+  --shape-2: #7b4fa0;
+  --shape-3: #4f7a2a;
+  --bronze-text: #8a4b1a;
+  --argent-text: #5f6b7a;
+  --anneau-legendaire: #a85a22;
+  --anneau-divin: #6a58a8;
+  --anneau-collection: #3f7e5c;
+  --anneau-collection-haut: #3b67a3;
+  color-scheme: light;
+}
+
+:root[data-theme='foret'] .silhouette {
+  filter: brightness(0);
+  opacity: .45;
+}
+
+:root[data-theme='foret'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
+}
+
+:root[data-theme='foret'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+
+:root[data-theme='foret'] .lu-scintille {
+  filter: brightness(.6) sepia(1) saturate(2.5);
+}
+
+:root[data-theme='foret'] .fait-puce.fait-ombre {
+  color: #5b3f99;
+}
+
+:root[data-theme='foret'] {
+  --serif: Merienda, 'Segoe Print', cursive;
+  --sans: Nunito, 'Segoe UI', sans-serif;
+  --radius: 18px;
+  --radius-sm: 16px;
+}
+
+:root[data-theme='foret'] body {
+  background-color: #f7ead8;
+  background-image: radial-gradient(90% 50% at 50% -10%, #fdf5ea 0%, rgba(247, 234, 216, 0) 70%), radial-gradient(120% 60% at 50% 115%, rgba(196, 80, 27, .16), rgba(247, 234, 216, 0) 70%);
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='foret'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: -260px;
+  height: calc(100% + 260px);
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='260' viewBox='0 0 200 260'><g transform='translate(91 144) rotate(333) scale(1.03)'><path d='M0 -9C7 -6 8 4 0 9C-8 4 -7 -6 0 -9Z' fill='%23d9a42b'/><path d='M0 -8V12' stroke='%236e3a18' stroke-width='1'/></g><g transform='translate(164 56) rotate(289) scale(1.11)'><path d='M0 -9C7 -6 8 4 0 9C-8 4 -7 -6 0 -9Z' fill='%23d9a42b'/><path d='M0 -8V12' stroke='%236e3a18' stroke-width='1'/></g><g transform='translate(153 33) rotate(109) scale(1.07)'><path d='M0 -9C7 -6 8 4 0 9C-8 4 -7 -6 0 -9Z' fill='%23c4501b'/><path d='M0 -8V12' stroke='%236e3a18' stroke-width='1'/></g><g transform='translate(170 162) rotate(214) scale(1.28)'><path d='M0 -9C7 -6 8 4 0 9C-8 4 -7 -6 0 -9Z' fill='%23d9a42b'/><path d='M0 -8V12' stroke='%236e3a18' stroke-width='1'/></g><g transform='translate(128 158) rotate(57) scale(1.22)'><path d='M0 -9C7 -6 8 4 0 9C-8 4 -7 -6 0 -9Z' fill='%23c4501b'/><path d='M0 -8V12' stroke='%236e3a18' stroke-width='1'/></g><g transform='translate(21 19) rotate(317) scale(1.19)'><path d='M0 -9C7 -6 8 4 0 9C-8 4 -7 -6 0 -9Z' fill='%23c4501b'/><path d='M0 -8V12' stroke='%236e3a18' stroke-width='1'/></g><g transform='translate(69 152) rotate(70) scale(1.12)'><path d='M0 -9C7 -6 8 4 0 9C-8 4 -7 -6 0 -9Z' fill='%23e08a1e'/><path d='M0 -8V12' stroke='%236e3a18' stroke-width='1'/></g><g transform='translate(100 169) rotate(165) scale(1.00)'><path d='M0 -9C7 -6 8 4 0 9C-8 4 -7 -6 0 -9Z' fill='%23b33a2b'/><path d='M0 -8V12' stroke='%236e3a18' stroke-width='1'/></g><g transform='translate(109 234) rotate(30) scale(0.96)'><path d='M0 -9C7 -6 8 4 0 9C-8 4 -7 -6 0 -9Z' fill='%23b33a2b'/><path d='M0 -8V12' stroke='%236e3a18' stroke-width='1'/></g></svg>");
+  background-size: 200px 260px;
+  background-repeat: repeat;
+  opacity: 0.85;
+  --pas: 260px;
+  animation: foret-defile 16s linear infinite;
+}
+
+:root[data-theme='foret'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='foret'] .card,
+:root[data-theme='foret'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='foret'] .onglets {
+  background: rgba(255, 250, 242, .93);
+  border-color: rgba(196, 80, 27, .3);
+  box-shadow: 0 8px 20px rgba(110, 58, 24, .1);
+}
+
+:root[data-theme='foret'] .ans-btn {
+  font-weight: 700;
+}
+
+:root[data-theme='foret'] .ans-btn.chosen {
+  background: #fbe3d2;
+  border: 2px solid #c4501b;
+}
+
+:root[data-theme='foret'] .timer-track {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(110, 58, 24, .12);
+}
+
+:root[data-theme='foret'] .timer-fill,
+:root[data-theme='foret'] .xp-fill {
+  background: linear-gradient(90deg, #d9a42b, #c4501b, #b33a2b);
+}
+
+:root[data-theme='foret'] .timer-seconds {
+  color: #a8420f;
+  font-weight: 700;
+}
+
+:root[data-theme='foret'] .quiz-question {
+  font-weight: 700;
+  font-size: 27px;
+  line-height: 1.22;
+}
+
+:root[data-theme='foret'] .quiz-categorie::before {
+  content: '🍁 ';
+}
+
+:root[data-theme='foret'] .result-banner .big,
+:root[data-theme='foret'] .fin-xp {
+  color: #a8420f;
+  font-weight: 700;
+}
+
+:root[data-theme='foret'] h1,
+:root[data-theme='foret'] h2,
+:root[data-theme='foret'] h3 {
+  font-weight: 700;
+}
+
+@keyframes foret-defile {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(var(--pas));
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='foret'] body::before {
+    animation: none !important;
+  }
+}

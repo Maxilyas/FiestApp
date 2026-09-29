@@ -1,0 +1,194 @@
+/* ── Disco · Rare ──
+   La boule à facettes, les faisceaux qui tournent, l’or et le rose.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Righteous';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/righteous.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/nunito.woff2') format('woff2');
+}
+
+:root[data-theme='disco'] {
+  --bg: #1a0b2e;
+  --bg-halo: #3d1466;
+  --bg-raised: #22103b;
+  --ink: #fff4ff;
+  --muted: #cdb6e6;
+  --accent: #ffcf3f;
+  --accent-rgb: 255, 207, 63;
+  --accent-hover: #ffda69;
+  --accent-text: #ffd866;
+  --accent-text-hover: #ffe494;
+  --focus: #ffd866;
+  --on-accent: #1a0b2e;
+  --alert: #ff6b8b;
+  --alert-rgb: 255, 107, 139;
+  --alert-hover: #ff89a2;
+  --on-alert: #1a0b2e;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-faint: rgba(255, 255, 255, 0.03);
+  --surface-strong: rgba(255, 255, 255, 0.09);
+  --track: rgba(255, 255, 255, 0.14);
+  --edge: rgba(255, 207, 63, 0.26);
+  --edge-strong: rgba(255, 207, 63, 0.6);
+  --accent-soft: rgba(255, 207, 63, 0.13);
+  --scroll-thumb: rgba(255, 207, 63, 0.32);
+  --backdrop: rgba(0, 0, 0, 0.72);
+  --shape-0: #ff5ec4;
+  --shape-1: #ffd23f;
+  --shape-2: #5ee6ff;
+  --shape-3: #9dff6b;
+  --bronze-text: #eeb07c;
+  --argent-text: #e0d6f0;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+:root[data-theme='disco'] {
+  --serif: Righteous, 'Segoe UI', sans-serif;
+  --sans: Nunito, 'Segoe UI', sans-serif;
+  --radius: 16px;
+  font-synthesis: none;
+}
+
+:root[data-theme='disco'] body {
+  background-color: #1a0b2e;
+  background-image: radial-gradient(70% 40% at 50% 0%, #5a1c7a 0%, rgba(26, 11, 46, 0) 70%), linear-gradient(180deg, #1a0b2e, #12071f);
+  background-size: 100% 100vh, 100% 100%;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='disco'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: -60%;
+  right: -60%;
+  top: -60%;
+  bottom: -60%;
+  background: repeating-conic-gradient(from 0deg at 50% calc(27.27% + 36px), rgba(255, 94, 196, .13) 0deg 5deg, transparent 5deg 30deg, rgba(94, 230, 255, .12) 30deg 35deg, transparent 35deg 60deg, rgba(255, 207, 63, .12) 60deg 65deg, transparent 65deg 90deg);
+  transform-origin: 50% calc(27.27% + 36px);
+  animation: disco-tourne 24s linear infinite;
+}
+
+:root[data-theme='disco'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><path d='M180 0V13' stroke='%23cdbfe6' stroke-width='1.2'/><defs><clipPath id='c'><circle cx='180' cy='36' r='22'/></clipPath></defs><g clip-path='url(%23c)'><rect x='156.8' y='28.4' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='156.8' y='33.6' width='4.8' height='4.8' fill='%238b82a8'/><rect x='156.8' y='38.8' width='4.8' height='4.8' fill='%23e9e4f5'/><rect x='162.0' y='18.0' width='4.8' height='4.8' fill='%23fff7d6'/><rect x='162.0' y='23.2' width='4.8' height='4.8' fill='%23fff7d6'/><rect x='162.0' y='28.4' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='162.0' y='33.6' width='4.8' height='4.8' fill='%23e9e4f5'/><rect x='162.0' y='38.8' width='4.8' height='4.8' fill='%23e9e4f5'/><rect x='162.0' y='44.0' width='4.8' height='4.8' fill='%23e9e4f5'/><rect x='162.0' y='49.2' width='4.8' height='4.8' fill='%23fff7d6'/><rect x='167.2' y='18.0' width='4.8' height='4.8' fill='%23f7c6ff'/><rect x='167.2' y='23.2' width='4.8' height='4.8' fill='%238b82a8'/><rect x='167.2' y='28.4' width='4.8' height='4.8' fill='%23e9e4f5'/><rect x='167.2' y='33.6' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='167.2' y='38.8' width='4.8' height='4.8' fill='%23f7c6ff'/><rect x='167.2' y='44.0' width='4.8' height='4.8' fill='%23f7c6ff'/><rect x='167.2' y='49.2' width='4.8' height='4.8' fill='%238b82a8'/><rect x='172.4' y='12.8' width='4.8' height='4.8' fill='%238b82a8'/><rect x='172.4' y='18.0' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='172.4' y='23.2' width='4.8' height='4.8' fill='%23e9e4f5'/><rect x='172.4' y='28.4' width='4.8' height='4.8' fill='%238b82a8'/><rect x='172.4' y='33.6' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='172.4' y='38.8' width='4.8' height='4.8' fill='%23e9e4f5'/><rect x='172.4' y='44.0' width='4.8' height='4.8' fill='%238b82a8'/><rect x='172.4' y='49.2' width='4.8' height='4.8' fill='%238b82a8'/><rect x='172.4' y='54.4' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='177.6' y='12.8' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='177.6' y='18.0' width='4.8' height='4.8' fill='%238b82a8'/><rect x='177.6' y='23.2' width='4.8' height='4.8' fill='%238b82a8'/><rect x='177.6' y='28.4' width='4.8' height='4.8' fill='%238b82a8'/><rect x='177.6' y='33.6' width='4.8' height='4.8' fill='%23e9e4f5'/><rect x='177.6' y='38.8' width='4.8' height='4.8' fill='%23f7c6ff'/><rect x='177.6' y='44.0' width='4.8' height='4.8' fill='%238b82a8'/><rect x='177.6' y='49.2' width='4.8' height='4.8' fill='%23fff7d6'/><rect x='177.6' y='54.4' width='4.8' height='4.8' fill='%23f7c6ff'/><rect x='182.8' y='12.8' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='182.8' y='18.0' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='182.8' y='23.2' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='182.8' y='28.4' width='4.8' height='4.8' fill='%23fff7d6'/><rect x='182.8' y='33.6' width='4.8' height='4.8' fill='%238b82a8'/><rect x='182.8' y='38.8' width='4.8' height='4.8' fill='%23e9e4f5'/><rect x='182.8' y='44.0' width='4.8' height='4.8' fill='%23f7c6ff'/><rect x='182.8' y='49.2' width='4.8' height='4.8' fill='%238b82a8'/><rect x='182.8' y='54.4' width='4.8' height='4.8' fill='%23e9e4f5'/><rect x='188.0' y='18.0' width='4.8' height='4.8' fill='%238b82a8'/><rect x='188.0' y='23.2' width='4.8' height='4.8' fill='%23f7c6ff'/><rect x='188.0' y='28.4' width='4.8' height='4.8' fill='%238b82a8'/><rect x='188.0' y='33.6' width='4.8' height='4.8' fill='%23f7c6ff'/><rect x='188.0' y='38.8' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='188.0' y='44.0' width='4.8' height='4.8' fill='%23fff7d6'/><rect x='188.0' y='49.2' width='4.8' height='4.8' fill='%23fff7d6'/><rect x='193.2' y='18.0' width='4.8' height='4.8' fill='%23f7c6ff'/><rect x='193.2' y='23.2' width='4.8' height='4.8' fill='%238b82a8'/><rect x='193.2' y='28.4' width='4.8' height='4.8' fill='%23fff7d6'/><rect x='193.2' y='33.6' width='4.8' height='4.8' fill='%23fff7d6'/><rect x='193.2' y='38.8' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='193.2' y='44.0' width='4.8' height='4.8' fill='%23b9b1cf'/><rect x='193.2' y='49.2' width='4.8' height='4.8' fill='%238b82a8'/><rect x='198.4' y='28.4' width='4.8' height='4.8' fill='%238b82a8'/><rect x='198.4' y='33.6' width='4.8' height='4.8' fill='%23e9e4f5'/><rect x='198.4' y='38.8' width='4.8' height='4.8' fill='%23e9e4f5'/></g><circle cx='180' cy='36' r='22' fill='none' stroke='%23ffffff' stroke-opacity='.35'/><circle cx='172' cy='28' r='5' fill='%23ffffff' opacity='.55'/></svg>") center / 100% 100% no-repeat;
+}
+
+:root[data-theme='disco'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='disco'] #root::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: -1;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><path transform='translate(30 120) scale(6)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ffe38a'/><path transform='translate(330 150) scale(5)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ffffff'/><path transform='translate(60 300) scale(4)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ff9ad8'/><path transform='translate(310 330) scale(7)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ffe38a'/><path transform='translate(24 470) scale(5)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ffffff'/><path transform='translate(338 520) scale(4)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%235ee6ff'/><path transform='translate(180 96) scale(3)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ffffff'/></svg>") center / 100% 100% no-repeat;
+  animation: disco-scintille 1.8s ease-in-out infinite alternate;
+}
+
+:root[data-theme='disco'] .card,
+:root[data-theme='disco'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='disco'] .onglets {
+  background: rgba(34, 16, 59, .9);
+  border-color: rgba(255, 207, 63, .35);
+  box-shadow: 0 0 22px rgba(255, 94, 196, .12);
+}
+
+:root[data-theme='disco'] .ans-btn {
+  font-weight: 700;
+}
+
+:root[data-theme='disco'] .ans-btn.chosen {
+  background: rgba(255, 207, 63, .14);
+  border: 1.5px solid #ffcf3f;
+  box-shadow: 0 0 16px rgba(255, 207, 63, .35);
+}
+
+:root[data-theme='disco'] .quiz-question {
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1.12;
+}
+
+:root[data-theme='disco'] .timer-track {
+  height: 6px;
+  border-radius: 99px;
+}
+
+:root[data-theme='disco'] .timer-fill,
+:root[data-theme='disco'] .xp-fill {
+  background: linear-gradient(90deg, #ff5ec4, #ffcf3f, #5ee6ff);
+}
+
+:root[data-theme='disco'] .timer-seconds {
+  font-weight: 400;
+  color: #ffd866;
+}
+
+:root[data-theme='disco'] .result-banner .big,
+:root[data-theme='disco'] .fin-xp {
+  font-weight: 400;
+  background: linear-gradient(100deg, #ffe38a, #ffcf3f 40%, #ff9ad8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+:root[data-theme='disco'] h1,
+:root[data-theme='disco'] h2,
+:root[data-theme='disco'] h3 {
+  font-weight: 400;
+}
+
+@keyframes disco-scintille {
+  from {
+    opacity: .3;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes disco-tourne {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='disco'] body::before,
+  :root[data-theme='disco'] #root::before {
+    animation: none !important;
+  }
+}

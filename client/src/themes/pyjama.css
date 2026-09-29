@@ -1,0 +1,186 @@
+/* ── Pyjama · Commune ──
+   Nuit douce : la lune, les étoiles, un mouton qui saute la barrière.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Baloo 2';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/baloo-2.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/nunito.woff2') format('woff2');
+}
+
+:root[data-theme='pyjama'] {
+  --bg: #1f1b3a;
+  --bg-halo: #3a3570;
+  --bg-raised: #28234a;
+  --ink: #f4f0ff;
+  --muted: #bdb4e0;
+  --accent: #ffd9a0;
+  --accent-rgb: 255, 217, 160;
+  --accent-hover: #ffe1b5;
+  --accent-text: #ffdcaa;
+  --accent-text-hover: #ffe6c4;
+  --focus: #ffdcaa;
+  --on-accent: #1f1b3a;
+  --alert: #ff9aa2;
+  --alert-rgb: 255, 154, 162;
+  --alert-hover: #ffaeb5;
+  --on-alert: #1f1b3a;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-faint: rgba(255, 255, 255, 0.03);
+  --surface-strong: rgba(255, 255, 255, 0.09);
+  --track: rgba(255, 255, 255, 0.14);
+  --edge: rgba(255, 217, 160, 0.26);
+  --edge-strong: rgba(255, 217, 160, 0.6);
+  --accent-soft: rgba(255, 217, 160, 0.13);
+  --scroll-thumb: rgba(255, 217, 160, 0.32);
+  --backdrop: rgba(0, 0, 0, 0.72);
+  --shape-0: #ffb3c1;
+  --shape-1: #ffe29a;
+  --shape-2: #b9c8ff;
+  --shape-3: #b8f0d0;
+  --bronze-text: #e8b08a;
+  --argent-text: #d0d6f0;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+:root[data-theme='pyjama'] {
+  --serif: 'Baloo 2', Nunito, sans-serif;
+  --sans: Nunito, 'Segoe UI', sans-serif;
+  --radius: 22px;
+  --radius-sm: 20px;
+}
+
+:root[data-theme='pyjama'] body {
+  background-color: #1f1b3a;
+  background-image: radial-gradient(80% 45% at 50% -8%, #433d80 0%, rgba(31, 27, 58, 0) 70%);
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='pyjama'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><defs><mask id='m'><rect width='360' height='640' fill='white'/><circle cx='326' cy='26' r='15' fill='black'/></mask></defs><circle cx='318' cy='32' r='16' fill='%23fff1c9' mask='url(%23m)'/><circle cx='119' cy='102' r='1.4' fill='%23fff6d8' opacity='0.42'/><circle cx='291' cy='67' r='1.4' fill='%23fff6d8' opacity='0.43'/><circle cx='183' cy='31' r='1.1' fill='%23fff6d8' opacity='0.61'/><circle cx='91' cy='352' r='0.8' fill='%23fff6d8' opacity='0.81'/><circle cx='51' cy='147' r='1.4' fill='%23fff6d8' opacity='0.69'/><circle cx='29' cy='373' r='0.8' fill='%23fff6d8' opacity='0.89'/><circle cx='24' cy='544' r='1.1' fill='%23fff6d8' opacity='0.61'/><circle cx='194' cy='364' r='1.4' fill='%23fff6d8' opacity='0.81'/><circle cx='70' cy='371' r='1.4' fill='%23fff6d8' opacity='0.49'/><circle cx='42' cy='452' r='1.4' fill='%23fff6d8' opacity='0.43'/><circle cx='79' cy='433' r='1.1' fill='%23fff6d8' opacity='0.79'/><circle cx='168' cy='584' r='1.1' fill='%23fff6d8' opacity='0.55'/><circle cx='281' cy='444' r='0.8' fill='%23fff6d8' opacity='0.44'/><circle cx='111' cy='317' r='1.1' fill='%23fff6d8' opacity='0.76'/><circle cx='107' cy='620' r='0.8' fill='%23fff6d8' opacity='0.66'/><circle cx='65' cy='221' r='1.1' fill='%23fff6d8' opacity='0.61'/><circle cx='339' cy='56' r='1.4' fill='%23fff6d8' opacity='0.69'/><circle cx='309' cy='204' r='1.4' fill='%23fff6d8' opacity='0.58'/><circle cx='179' cy='505' r='0.8' fill='%23fff6d8' opacity='0.82'/><circle cx='333' cy='304' r='1.4' fill='%23fff6d8' opacity='0.43'/><circle cx='260' cy='201' r='1.4' fill='%23fff6d8' opacity='0.90'/><circle cx='291' cy='186' r='1.1' fill='%23fff6d8' opacity='0.84'/><circle cx='127' cy='595' r='1.1' fill='%23fff6d8' opacity='0.48'/><circle cx='48' cy='45' r='1.1' fill='%23fff6d8' opacity='0.46'/><circle cx='93' cy='252' r='1.1' fill='%23fff6d8' opacity='0.44'/><circle cx='163' cy='351' r='0.8' fill='%23fff6d8' opacity='0.81'/><circle cx='305' cy='182' r='1.1' fill='%23fff6d8' opacity='0.89'/><circle cx='243' cy='245' r='0.8' fill='%23fff6d8' opacity='0.48'/><circle cx='69' cy='153' r='0.8' fill='%23fff6d8' opacity='0.41'/><circle cx='294' cy='122' r='1.1' fill='%23fff6d8' opacity='0.40'/><circle cx='152' cy='238' r='1.4' fill='%23fff6d8' opacity='0.56'/><circle cx='51' cy='544' r='1.4' fill='%23fff6d8' opacity='0.73'/><circle cx='262' cy='293' r='1.4' fill='%23fff6d8' opacity='0.80'/><circle cx='143' cy='257' r='0.8' fill='%23fff6d8' opacity='0.64'/><circle cx='146' cy='127' r='0.8' fill='%23fff6d8' opacity='0.62'/><circle cx='46' cy='383' r='0.8' fill='%23fff6d8' opacity='0.40'/><circle cx='60' cy='71' r='1.1' fill='%23fff6d8' opacity='0.71'/><circle cx='32' cy='138' r='1.1' fill='%23fff6d8' opacity='0.47'/><circle cx='95' cy='225' r='1.1' fill='%23fff6d8' opacity='0.64'/><circle cx='48' cy='313' r='1.1' fill='%23fff6d8' opacity='0.64'/><circle cx='115' cy='98' r='1.4' fill='%23fff6d8' opacity='0.57'/><circle cx='99' cy='525' r='0.8' fill='%23fff6d8' opacity='0.66'/><circle cx='79' cy='602' r='1.1' fill='%23fff6d8' opacity='0.47'/><circle cx='195' cy='25' r='1.4' fill='%23fff6d8' opacity='0.55'/><circle cx='229' cy='65' r='1.1' fill='%23fff6d8' opacity='0.66'/><circle cx='320' cy='230' r='0.8' fill='%23fff6d8' opacity='0.67'/><ellipse cx='40' cy='150' rx='60' ry='16' fill='%23ffffff' opacity='.06'/><ellipse cx='80' cy='140' rx='40' ry='14' fill='%23ffffff' opacity='.06'/><ellipse cx='300' cy='250' rx='70' ry='18' fill='%23ffffff' opacity='.06'/><ellipse cx='250' cy='244' rx='40' ry='14' fill='%23ffffff' opacity='.06'/><path d='M78 636V612M100 636V612M72 618H106M72 628H106' stroke='%236d5f9e' stroke-width='2.4' stroke-linecap='round'/></svg>") center / 100% 100% no-repeat;
+  animation: pyjama-scintille 3.4s ease-in-out infinite alternate;
+}
+
+:root[data-theme='pyjama'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><g transform='translate(34 618)'><path d='M2 8v8M7 9v8M13 9v8M17 8v8' stroke='%232a2550' stroke-width='2' stroke-linecap='round'/><circle cx='0' cy='0' r='7' fill='%23f4f0ff'/><circle cx='8' cy='-2' r='7' fill='%23f4f0ff'/><circle cx='15' cy='1' r='6.5' fill='%23f4f0ff'/><circle cx='5' cy='5' r='6.5' fill='%23f4f0ff'/><circle cx='12' cy='6' r='6' fill='%23f4f0ff'/><ellipse cx='22' cy='-1' rx='5' ry='4' fill='%232a2550'/><circle cx='23.5' cy='-2' r='.9' fill='%23fff'/></g></svg>") center / 100% 100% no-repeat;
+  animation: pyjama-saute 1.8s ease-in-out infinite;
+}
+
+:root[data-theme='pyjama'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='pyjama'] .card,
+:root[data-theme='pyjama'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='pyjama'] .onglets {
+  background: rgba(40, 35, 74, .88);
+  border-color: rgba(185, 200, 255, .26);
+}
+
+:root[data-theme='pyjama'] .ans-btn {
+  font-weight: 700;
+}
+
+:root[data-theme='pyjama'] .ans-btn.chosen {
+  background: rgba(255, 217, 160, .14);
+  border: 2px solid #ffd9a0;
+}
+
+:root[data-theme='pyjama'] .timer-track {
+  height: 8px;
+  border-radius: 99px;
+}
+
+:root[data-theme='pyjama'] .timer-fill,
+:root[data-theme='pyjama'] .xp-fill {
+  background: linear-gradient(90deg, #b9c8ff, #ffb3c1);
+}
+
+:root[data-theme='pyjama'] .timer-seconds {
+  color: #ffdcaa;
+  font-weight: 700;
+}
+
+:root[data-theme='pyjama'] .quiz-question {
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1.12;
+}
+
+:root[data-theme='pyjama'] .quiz-categorie::before {
+  content: '💤 ';
+}
+
+:root[data-theme='pyjama'] .result-banner .big,
+:root[data-theme='pyjama'] .fin-xp {
+  color: #ffdcaa;
+  font-weight: 700;
+}
+
+:root[data-theme='pyjama'] h1,
+:root[data-theme='pyjama'] h2,
+:root[data-theme='pyjama'] h3 {
+  font-weight: 700;
+}
+
+@keyframes pyjama-saute {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-16px);
+  }
+  55% {
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes pyjama-scintille {
+  from {
+    opacity: .3;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='pyjama'] body::before,
+  :root[data-theme='pyjama'] body::after {
+    animation: none !important;
+  }
+}

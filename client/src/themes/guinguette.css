@@ -1,0 +1,167 @@
+/* ── Guinguette · Commune ──
+   Bal du 14 Juillet : la guirlande d’ampoules et le bleu d’une nuit d’été.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Yeseva One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/yeseva-one.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/nunito.woff2') format('woff2');
+}
+
+:root[data-theme='guinguette'] {
+  --bg: #14213d;
+  --bg-halo: #2a3f6b;
+  --bg-raised: #1b2a4a;
+  --ink: #fdf6e3;
+  --muted: #b8c0d4;
+  --accent: #ffcb47;
+  --accent-rgb: 255, 203, 71;
+  --accent-hover: #ffd66f;
+  --accent-text: #ffd166;
+  --accent-text-hover: #ffdf94;
+  --focus: #ffd166;
+  --on-accent: #14213d;
+  --alert: #ff7b72;
+  --alert-rgb: 255, 123, 114;
+  --alert-hover: #ff958e;
+  --on-alert: #14213d;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-faint: rgba(255, 255, 255, 0.03);
+  --surface-strong: rgba(255, 255, 255, 0.09);
+  --track: rgba(255, 255, 255, 0.14);
+  --edge: rgba(255, 203, 71, 0.26);
+  --edge-strong: rgba(255, 203, 71, 0.6);
+  --accent-soft: rgba(255, 203, 71, 0.13);
+  --scroll-thumb: rgba(255, 203, 71, 0.32);
+  --backdrop: rgba(0, 0, 0, 0.72);
+  --shape-0: #ff6b6b;
+  --shape-1: #ffd166;
+  --shape-2: #6ec6ff;
+  --shape-3: #f4f1de;
+  --bronze-text: #e2a878;
+  --argent-text: #c9d2e3;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+:root[data-theme='guinguette'] {
+  --serif: 'Yeseva One', Georgia, serif;
+  --sans: Nunito, 'Segoe UI', sans-serif;
+  font-synthesis: none;
+}
+
+:root[data-theme='guinguette'] body {
+  background-color: #14213d;
+  background-image: radial-gradient(90% 40% at 50% -6%, rgba(255, 203, 71, .28) 0%, rgba(20, 33, 61, 0) 70%), linear-gradient(180deg, #14213d, #101a31);
+  background-size: 100% 100vh, 100% 100%;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='guinguette'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 80px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='80' viewBox='0 0 360 80'><path d='M0 6Q180 58 360 6' fill='none' stroke='%230b1326' stroke-width='1.6'/><circle cx='21.6' cy='20.9' r='11' fill='%23ffd166' opacity='.18'/><rect x='20.0' y='11.9' width='3.2' height='4' fill='%230b1326'/><ellipse cx='21.6' cy='20.4' rx='3.6' ry='4.8' fill='%23ffd166'/><circle cx='48.0' cy='27.0' r='11' fill='%23ff9f6b' opacity='.18'/><rect x='46.4' y='18.0' width='3.2' height='4' fill='%230b1326'/><ellipse cx='48.0' cy='26.5' rx='3.6' ry='4.8' fill='%23ff9f6b'/><circle cx='74.4' cy='32.0' r='11' fill='%23fff1b8' opacity='.18'/><rect x='72.8' y='23.0' width='3.2' height='4' fill='%230b1326'/><ellipse cx='74.4' cy='31.5' rx='3.6' ry='4.8' fill='%23fff1b8'/><circle cx='100.8' cy='36.0' r='11' fill='%239fe3ff' opacity='.18'/><rect x='99.2' y='27.0' width='3.2' height='4' fill='%230b1326'/><ellipse cx='100.8' cy='35.5' rx='3.6' ry='4.8' fill='%239fe3ff'/><circle cx='127.2' cy='38.8' r='11' fill='%23ffd166' opacity='.18'/><rect x='125.6' y='29.8' width='3.2' height='4' fill='%230b1326'/><ellipse cx='127.2' cy='38.3' rx='3.6' ry='4.8' fill='%23ffd166'/><circle cx='153.5' cy='40.4' r='11' fill='%23ff9f6b' opacity='.18'/><rect x='151.9' y='31.4' width='3.2' height='4' fill='%230b1326'/><ellipse cx='153.5' cy='39.9' rx='3.6' ry='4.8' fill='%23ff9f6b'/><circle cx='179.9' cy='41.0' r='11' fill='%23fff1b8' opacity='.18'/><rect x='178.3' y='32.0' width='3.2' height='4' fill='%230b1326'/><ellipse cx='179.9' cy='40.5' rx='3.6' ry='4.8' fill='%23fff1b8'/><circle cx='206.3' cy='40.4' r='11' fill='%239fe3ff' opacity='.18'/><rect x='204.7' y='31.4' width='3.2' height='4' fill='%230b1326'/><ellipse cx='206.3' cy='39.9' rx='3.6' ry='4.8' fill='%239fe3ff'/><circle cx='232.7' cy='38.8' r='11' fill='%23ffd166' opacity='.18'/><rect x='231.1' y='29.8' width='3.2' height='4' fill='%230b1326'/><ellipse cx='232.7' cy='38.3' rx='3.6' ry='4.8' fill='%23ffd166'/><circle cx='259.1' cy='36.0' r='11' fill='%23ff9f6b' opacity='.18'/><rect x='257.5' y='27.0' width='3.2' height='4' fill='%230b1326'/><ellipse cx='259.1' cy='35.5' rx='3.6' ry='4.8' fill='%23ff9f6b'/><circle cx='285.5' cy='32.1' r='11' fill='%23fff1b8' opacity='.18'/><rect x='283.9' y='23.1' width='3.2' height='4' fill='%230b1326'/><ellipse cx='285.5' cy='31.6' rx='3.6' ry='4.8' fill='%23fff1b8'/><circle cx='311.9' cy='27.0' r='11' fill='%239fe3ff' opacity='.18'/><rect x='310.3' y='18.0' width='3.2' height='4' fill='%230b1326'/><ellipse cx='311.9' cy='26.5' rx='3.6' ry='4.8' fill='%239fe3ff'/><circle cx='338.3' cy='20.9' r='11' fill='%23ffd166' opacity='.18'/><rect x='336.7' y='11.9' width='3.2' height='4' fill='%230b1326'/><ellipse cx='338.3' cy='20.4' rx='3.6' ry='4.8' fill='%23ffd166'/></svg>") center top / 100% 80px no-repeat;
+  animation: guinguette-vacille 2.4s ease-in-out infinite alternate;
+}
+
+:root[data-theme='guinguette'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='guinguette'] .card,
+:root[data-theme='guinguette'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='guinguette'] .onglets {
+  background: rgba(27, 42, 74, .9);
+  border-color: rgba(255, 209, 102, .3);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, .3);
+}
+
+:root[data-theme='guinguette'] .ans-btn {
+  font-weight: 700;
+}
+
+:root[data-theme='guinguette'] .ans-btn.chosen {
+  background: rgba(255, 203, 71, .16);
+  border: 1.5px solid #ffcb47;
+}
+
+:root[data-theme='guinguette'] .timer-track {
+  height: 6px;
+  border-radius: 99px;
+}
+
+:root[data-theme='guinguette'] .timer-fill,
+:root[data-theme='guinguette'] .xp-fill {
+  background: repeating-linear-gradient(90deg, #ff6b6b 0 12px, #f4f1de 12px 24px, #6ec6ff 24px 36px);
+}
+
+:root[data-theme='guinguette'] .timer-seconds {
+  color: #ffd166;
+  font-weight: 400;
+}
+
+:root[data-theme='guinguette'] .quiz-question {
+  font-weight: 400;
+  font-size: 30px;
+  line-height: 1.14;
+}
+
+:root[data-theme='guinguette'] .result-banner .big,
+:root[data-theme='guinguette'] .fin-xp {
+  font-weight: 400;
+  color: #ffd166;
+  text-shadow: 0 0 18px rgba(255, 203, 71, .45);
+}
+
+:root[data-theme='guinguette'] h1,
+:root[data-theme='guinguette'] h2,
+:root[data-theme='guinguette'] h3 {
+  font-weight: 400;
+}
+
+:root[data-theme='guinguette'] .lb-row {
+  background: rgba(27, 42, 74, .7);
+}
+
+@keyframes guinguette-vacille {
+  from {
+    opacity: .72;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='guinguette'] body::before {
+    animation: none !important;
+  }
+}

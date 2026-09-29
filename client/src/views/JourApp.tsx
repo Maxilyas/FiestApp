@@ -39,6 +39,8 @@ import {
 import { ceQuIlAFallu } from '../../../shared/hautsfaits'
 import { legendaire } from '../../../shared/legendaires'
 import { gesteAccepte } from '../../../shared/console'
+import { porterTheme } from '../themeJoueur'
+import { nConfettis } from '../../../shared/themes'
 
 /** La marge du serveur après l'échéance (`GRACE_MS`, `games/quiz.ts`), et un souffle : la question se révèle d'elle-même. */
 const APRES_ECHEANCE_MS = 1500 + 600
@@ -133,6 +135,11 @@ export function JourApp() {
       })
   }, [recevoir])
   useEffect(charger, [charger])
+  // Le thème de son profil habille le quiz du jour, une fois le profil lu.
+  const themePorte = profil === undefined ? undefined : (profil?.theme ?? null)
+  useEffect(() => {
+    if (themePorte !== undefined) void porterTheme(themePorte)
+  }, [themePorte])
 
   // Au retour au premier plan, l'heure du téléphone a pu être recalée
   // pendant qu'il dormait : la prochaine mesure fait autorité, quel que soit
@@ -684,6 +691,8 @@ export function Fin({
       </section>
       <section className="card fin-gain">
         <p className="fin-xp">+{formatNumber(partie.xp)} points d’expérience</p>
+        {/* Une bonne réponse, un confetti : au quiz du jour comme en soirée. */}
+        {partie.justes > 0 && <p className="fin-confettis">🎊 +{nConfettis(partie.justes)}</p>}
         <p className="muted small">
           {pourcent(partie.pointsPossibles > 0 ? partie.points / partie.pointsPossibles : 0)} des points possibles :{' '}
           {formatNumber(partie.points)} sur {formatNumber(partie.pointsPossibles)}

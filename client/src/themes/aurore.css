@@ -1,0 +1,173 @@
+/* ── Aurore boréale · Légendaire ──
+   Les voiles verts et violets ondulent au-dessus des sapins.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Raleway';
+  font-style: normal;
+  font-weight: 300 800;
+  font-display: swap;
+  src: url('/fonts/themes/raleway.woff2') format('woff2');
+}
+
+:root[data-theme='aurore'] {
+  --bg: #06141f;
+  --bg-halo: #0f2f3a;
+  --bg-raised: #0a1e2a;
+  --ink: #eafff7;
+  --muted: #9cc4b8;
+  --accent: #4dffb5;
+  --accent-rgb: 77, 255, 181;
+  --accent-hover: #74ffc5;
+  --accent-text: #6bffc2;
+  --accent-text-hover: #97ffd4;
+  --focus: #6bffc2;
+  --on-accent: #06141f;
+  --alert: #ff8fb3;
+  --alert-rgb: 255, 143, 179;
+  --alert-hover: #ffa5c2;
+  --on-alert: #06141f;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-faint: rgba(255, 255, 255, 0.03);
+  --surface-strong: rgba(255, 255, 255, 0.09);
+  --track: rgba(255, 255, 255, 0.14);
+  --edge: rgba(77, 255, 181, 0.26);
+  --edge-strong: rgba(77, 255, 181, 0.6);
+  --accent-soft: rgba(77, 255, 181, 0.13);
+  --scroll-thumb: rgba(77, 255, 181, 0.32);
+  --backdrop: rgba(0, 0, 0, 0.72);
+  --shape-0: #ff8fb3;
+  --shape-1: #ffe08a;
+  --shape-2: #a998ff;
+  --shape-3: #4dffb5;
+  --bronze-text: #e6ab7e;
+  --argent-text: #cfe0dc;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+:root[data-theme='aurore'] {
+  --serif: Raleway, 'Segoe UI', sans-serif;
+  --radius: 16px;
+}
+
+:root[data-theme='aurore'] body {
+  background-color: #06141f;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'><circle cx='119' cy='134' r='1.1' fill='%23ffffff' opacity='0.54'/><circle cx='193' cy='7' r='1.1' fill='%23ffffff' opacity='0.58'/><circle cx='97' cy='79' r='0.8' fill='%23ffffff' opacity='0.57'/><circle cx='2' cy='121' r='0.6' fill='%23ffffff' opacity='0.76'/><circle cx='81' cy='104' r='0.8' fill='%23ffffff' opacity='0.43'/><circle cx='97' cy='217' r='1.1' fill='%23ffffff' opacity='0.64'/><circle cx='76' cy='89' r='0.8' fill='%23ffffff' opacity='0.86'/><circle cx='148' cy='101' r='0.8' fill='%23ffffff' opacity='0.43'/><circle cx='14' cy='88' r='0.6' fill='%23ffffff' opacity='0.70'/><circle cx='21' cy='74' r='0.6' fill='%23ffffff' opacity='0.62'/><circle cx='26' cy='83' r='0.6' fill='%23ffffff' opacity='0.61'/><circle cx='28' cy='85' r='1.1' fill='%23ffffff' opacity='0.37'/><circle cx='117' cy='101' r='1.5' fill='%23ffffff' opacity='0.48'/><circle cx='17' cy='119' r='1.1' fill='%23ffffff' opacity='0.77'/><circle cx='151' cy='98' r='1.1' fill='%23ffffff' opacity='0.83'/><circle cx='173' cy='198' r='0.8' fill='%23ffffff' opacity='0.89'/><circle cx='231' cy='233' r='1.5' fill='%23ffffff' opacity='0.96'/><circle cx='18' cy='26' r='0.8' fill='%23ffffff' opacity='0.87'/><circle cx='43' cy='146' r='1.5' fill='%23ffffff' opacity='0.50'/><circle cx='50' cy='202' r='1.5' fill='%23ffffff' opacity='0.62'/><circle cx='117' cy='62' r='0.8' fill='%23ffffff' opacity='0.47'/><circle cx='40' cy='110' r='1.1' fill='%23ffffff' opacity='0.93'/><circle cx='229' cy='142' r='0.6' fill='%23ffffff' opacity='0.90'/><circle cx='155' cy='34' r='0.6' fill='%23ffffff' opacity='0.43'/><circle cx='119' cy='18' r='1.1' fill='%23ffffff' opacity='0.63'/><circle cx='105' cy='154' r='1.5' fill='%23ffffff' opacity='0.86'/></svg>"), linear-gradient(180deg, #06141f 0%, #0a2230 60%, #0c2a33 100%);
+  background-size: 240px 240px, 100% 100%;
+  background-repeat: repeat, no-repeat;
+}
+
+:root[data-theme='aurore'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: -10%;
+  right: -10%;
+  top: 0;
+  height: 420px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='420' viewBox='0 0 360 420'><defs><linearGradient id='a' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%234dffb5' stop-opacity='0'/><stop offset='.7' stop-color='%234dffb5' stop-opacity='.55'/><stop offset='1' stop-color='%234dffb5' stop-opacity='.08'/></linearGradient><linearGradient id='b' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%239f8bff' stop-opacity='0'/><stop offset='.7' stop-color='%239f8bff' stop-opacity='.55'/><stop offset='1' stop-color='%239f8bff' stop-opacity='.08'/></linearGradient><linearGradient id='c' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='%234dd8ff' stop-opacity='0'/><stop offset='.7' stop-color='%234dd8ff' stop-opacity='.55'/><stop offset='1' stop-color='%234dd8ff' stop-opacity='.08'/></linearGradient></defs><path d='M-20 31 L0 40 L20 49 L40 57 L60 63 L80 66 L100 65 L120 61 L140 55 L160 46 L180 37 L200 28 L220 20 L240 16 L260 14 L280 16 L300 21 L320 28 L340 37 L360 47 L380 55 L380 177 L360 176 L340 175 L320 172 L300 167 L280 160 L260 152 L240 146 L220 143 L200 144 L180 151 L160 162 L140 176 L120 191 L100 203 L80 210 L60 209 L40 201 L20 187 L0 170 L-20 153Z' fill='url(%23a)'/><path d='M-20 109 L0 110 L20 108 L40 103 L60 97 L80 90 L100 83 L120 77 L140 72 L160 70 L180 71 L200 74 L220 79 L240 86 L260 93 L280 100 L300 105 L320 109 L340 110 L360 108 L380 105 L380 226 L360 223 L340 217 L320 208 L300 200 L280 194 L260 191 L240 191 L220 193 L200 195 L180 196 L160 196 L140 194 L120 191 L100 189 L80 189 L60 191 L40 198 L20 206 L0 216 L-20 224Z' fill='url(%23b)'/><path d='M-20 26 L0 21 L20 15 L40 10 L60 6 L80 4 L100 4 L120 7 L140 10 L160 16 L180 21 L200 27 L220 32 L240 35 L260 36 L280 35 L300 32 L320 28 L340 22 L360 16 L380 11 L380 84 L360 97 L340 111 L320 122 L300 128 L280 129 L260 123 L240 114 L220 103 L200 93 L180 85 L160 82 L140 83 L120 88 L100 93 L80 99 L60 102 L40 103 L20 102 L0 99 L-20 97Z' fill='url(%23c)'/></svg>") center top / 100% 420px no-repeat;
+  transform-origin: 50% 0;
+  animation: aurore-ondule 9s ease-in-out infinite alternate;
+}
+
+:root[data-theme='aurore'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 120px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='120' viewBox='0 0 360 120'><rect y='112' width='360' height='8' fill='%2303101a'/><path d='M-6 120L5 66L17 120Z' fill='%2303101a'/><path d='M17 120L32 50L47 120Z' fill='%2303101a'/><path d='M33 120L47 57L60 120Z' fill='%2303101a'/><path d='M55 120L68 61L80 120Z' fill='%2303101a'/><path d='M69 120L76 85L83 120Z' fill='%2303101a'/><path d='M86 120L99 58L112 120Z' fill='%2303101a'/><path d='M102 120L113 67L124 120Z' fill='%2303101a'/><path d='M118 120L132 54L146 120Z' fill='%2303101a'/><path d='M143 120L154 71L164 120Z' fill='%2303101a'/><path d='M169 120L177 84L185 120Z' fill='%2303101a'/><path d='M193 120L207 53L221 120Z' fill='%2303101a'/><path d='M207 120L220 59L232 120Z' fill='%2303101a'/><path d='M227 120L241 50L256 120Z' fill='%2303101a'/><path d='M242 120L253 65L264 120Z' fill='%2303101a'/><path d='M266 120L278 62L290 120Z' fill='%2303101a'/><path d='M282 120L290 83L298 120Z' fill='%2303101a'/><path d='M307 120L318 68L329 120Z' fill='%2303101a'/><path d='M333 120L342 81L350 120Z' fill='%2303101a'/><path d='M357 120L370 55L384 120Z' fill='%2303101a'/></svg>") center bottom / 100% 120px no-repeat;
+}
+
+:root[data-theme='aurore'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='aurore'] .card,
+:root[data-theme='aurore'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='aurore'] .onglets {
+  background: rgba(8, 26, 36, .86);
+  border-color: rgba(77, 255, 181, .3);
+  box-shadow: 0 0 22px rgba(77, 255, 181, .07);
+}
+
+:root[data-theme='aurore'] .ans-btn {
+  font-weight: 600;
+}
+
+:root[data-theme='aurore'] .ans-btn.chosen {
+  background: rgba(77, 255, 181, .12);
+  border: 1.5px solid #4dffb5;
+  box-shadow: 0 0 16px rgba(77, 255, 181, .35);
+}
+
+:root[data-theme='aurore'] .quiz-question {
+  font-weight: 700;
+  font-size: 29px;
+  line-height: 1.16;
+  letter-spacing: .005em;
+}
+
+:root[data-theme='aurore'] .timer-track {
+  height: 4px;
+  border-radius: 99px;
+}
+
+:root[data-theme='aurore'] .timer-fill,
+:root[data-theme='aurore'] .xp-fill {
+  background: linear-gradient(90deg, #4dd8ff, #4dffb5, #a998ff);
+}
+
+:root[data-theme='aurore'] .timer-seconds {
+  font-weight: 300;
+  color: #eafff7;
+}
+
+:root[data-theme='aurore'] .result-banner .big,
+:root[data-theme='aurore'] .fin-xp {
+  font-weight: 700;
+  background: linear-gradient(100deg, #4dffb5, #4dd8ff 50%, #a998ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+:root[data-theme='aurore'] h1,
+:root[data-theme='aurore'] h2,
+:root[data-theme='aurore'] h3 {
+  font-weight: 700;
+}
+
+@keyframes aurore-ondule {
+  from {
+    transform: translateX(-12px) scaleY(.94);
+    opacity: .8;
+  }
+  to {
+    transform: translateX(12px) scaleY(1.06);
+    opacity: 1;
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='aurore'] body::before {
+    animation: none !important;
+  }
+}

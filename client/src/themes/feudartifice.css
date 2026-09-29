@@ -1,0 +1,191 @@
+/* ── Feu d’artifice · Épique · en boutique du 30 décembre au 2 janvier ──
+   Minuit : les bouquets éclatent au-dessus de la ville.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Bungee';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/bungee.woff2') format('woff2');
+}
+
+:root[data-theme='feudartifice'] {
+  --bg: #0a0f2c;
+  --bg-halo: #1c2660;
+  --bg-raised: #10173a;
+  --ink: #f5f7ff;
+  --muted: #aab2d9;
+  --accent: #ffcf5a;
+  --accent-rgb: 255, 207, 90;
+  --accent-hover: #ffda7e;
+  --accent-text: #ffd873;
+  --accent-text-hover: #ffe49d;
+  --focus: #ffd873;
+  --on-accent: #0a0f2c;
+  --alert: #ff7a8a;
+  --alert-rgb: 255, 122, 138;
+  --alert-hover: #ff95a1;
+  --on-alert: #0a0f2c;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-faint: rgba(255, 255, 255, 0.03);
+  --surface-strong: rgba(255, 255, 255, 0.09);
+  --track: rgba(255, 255, 255, 0.14);
+  --edge: rgba(255, 207, 90, 0.26);
+  --edge-strong: rgba(255, 207, 90, 0.6);
+  --accent-soft: rgba(255, 207, 90, 0.13);
+  --scroll-thumb: rgba(255, 207, 90, 0.32);
+  --backdrop: rgba(0, 0, 0, 0.72);
+  --shape-0: #ff6f91;
+  --shape-1: #ffd873;
+  --shape-2: #6fc7ff;
+  --shape-3: #8dffa8;
+  --bronze-text: #e6ab7e;
+  --argent-text: #d4d9ee;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+:root[data-theme='feudartifice'] {
+  --serif: Bungee, Impact, sans-serif;
+  --radius: 14px;
+  font-synthesis: none;
+}
+
+:root[data-theme='feudartifice'] body {
+  background-color: #0a0f2c;
+  background-image: radial-gradient(80% 45% at 50% -8%, #26307a 0%, rgba(10, 15, 44, 0) 70%);
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='feudartifice'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><g stroke='%23ff6f91' stroke-width='1.6' stroke-linecap='round'><path d='M86 119L116 118'/><circle cx='116' cy='118' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M82 125L105 134'/><circle cx='105' cy='134' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M81 129L101 146'/><circle cx='101' cy='146' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M78 134L92 159'/><circle cx='92' cy='159' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M73 132L77 153'/><circle cx='77' cy='153' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M67 134L62 159'/><circle cx='62' cy='159' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M64 130L52 149'/><circle cx='52' cy='149' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M58 130L36 148'/><circle cx='36' cy='148' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M55 126L26 137'/><circle cx='26' cy='137' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M58 120L36 119'/><circle cx='36' cy='119' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M56 116L30 108'/><circle cx='30' cy='108' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M60 111L41 94'/><circle cx='41' cy='94' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M63 108L49 86'/><circle cx='49' cy='86' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M67 107L62 84'/><circle cx='62' cy='84' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M72 106L77 80'/><circle cx='77' cy='80' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M76 109L88 88'/><circle cx='88' cy='88' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M81 111L100 93'/><circle cx='100' cy='93' r='1.8' fill='%23ff6f91' stroke='none'/><path d='M81 116L102 108'/><circle cx='102' cy='108' r='1.8' fill='%23ff6f91' stroke='none'/></g><g stroke='%236fc7ff' stroke-width='1.6' stroke-linecap='round'><path d='M314 211L339 212'/><circle cx='339' cy='212' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M310 213L328 219'/><circle cx='328' cy='219' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M310 219L327 235'/><circle cx='327' cy='235' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M305 220L315 238'/><circle cx='315' cy='238' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M302 222L306 245'/><circle cx='306' cy='245' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M298 220L295 239'/><circle cx='295' cy='239' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M294 220L284 238'/><circle cx='284' cy='238' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M289 219L269 235'/><circle cx='269' cy='235' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M288 214L267 220'/><circle cx='267' cy='220' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M289 210L269 210'/><circle cx='269' cy='210' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M291 207L273 202'/><circle cx='273' cy='202' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M291 203L276 190'/><circle cx='276' cy='190' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M293 198L280 177'/><circle cx='280' cy='177' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M298 198L294 176'/><circle cx='294' cy='176' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M301 200L304 182'/><circle cx='304' cy='182' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M305 201L314 184'/><circle cx='314' cy='184' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M311 201L331 184'/><circle cx='331' cy='184' r='1.8' fill='%236fc7ff' stroke='none'/><path d='M310 207L329 200'/><circle cx='329' cy='200' r='1.8' fill='%236fc7ff' stroke='none'/></g></svg>") center / 100% 100% no-repeat;
+  transform-origin: 50% 30%;
+  animation: feudartifice-eclot 3.2s ease-out infinite;
+}
+
+:root[data-theme='feudartifice'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><g stroke='%23ffd873' stroke-width='1.6' stroke-linecap='round'><path d='M286 90L315 89'/><circle cx='315' cy='89' r='1.8' fill='%23ffd873' stroke='none'/><path d='M285 95L313 105'/><circle cx='313' cy='105' r='1.8' fill='%23ffd873' stroke='none'/><path d='M280 99L298 114'/><circle cx='298' cy='114' r='1.8' fill='%23ffd873' stroke='none'/><path d='M279 105L297 132'/><circle cx='297' cy='132' r='1.8' fill='%23ffd873' stroke='none'/><path d='M273 104L278 129'/><circle cx='278' cy='129' r='1.8' fill='%23ffd873' stroke='none'/><path d='M267 105L260 133'/><circle cx='260' cy='133' r='1.8' fill='%23ffd873' stroke='none'/><path d='M262 103L247 127'/><circle cx='247' cy='127' r='1.8' fill='%23ffd873' stroke='none'/><path d='M259 99L240 114'/><circle cx='240' cy='114' r='1.8' fill='%23ffd873' stroke='none'/><path d='M253 96L223 106'/><circle cx='223' cy='106' r='1.8' fill='%23ffd873' stroke='none'/><path d='M253 90L222 90'/><circle cx='222' cy='90' r='1.8' fill='%23ffd873' stroke='none'/><path d='M258 85L235 77'/><circle cx='235' cy='77' r='1.8' fill='%23ffd873' stroke='none'/><path d='M258 79L236 60'/><circle cx='236' cy='60' r='1.8' fill='%23ffd873' stroke='none'/><path d='M263 79L251 58'/><circle cx='251' cy='58' r='1.8' fill='%23ffd873' stroke='none'/><path d='M268 75L264 47'/><circle cx='264' cy='47' r='1.8' fill='%23ffd873' stroke='none'/><path d='M273 73L280 41'/><circle cx='280' cy='41' r='1.8' fill='%23ffd873' stroke='none'/><path d='M279 75L296 47'/><circle cx='296' cy='47' r='1.8' fill='%23ffd873' stroke='none'/><path d='M283 79L307 58'/><circle cx='307' cy='58' r='1.8' fill='%23ffd873' stroke='none'/><path d='M287 84L318 72'/><circle cx='318' cy='72' r='1.8' fill='%23ffd873' stroke='none'/></g><g stroke='%238dffa8' stroke-width='1.6' stroke-linecap='round'><path d='M69 260L86 259'/><circle cx='86' cy='259' r='1.8' fill='%238dffa8' stroke='none'/><path d='M69 263L85 269'/><circle cx='85' cy='269' r='1.8' fill='%238dffa8' stroke='none'/><path d='M68 266L83 278'/><circle cx='83' cy='278' r='1.8' fill='%238dffa8' stroke='none'/><path d='M65 270L76 290'/><circle cx='76' cy='290' r='1.8' fill='%238dffa8' stroke='none'/><path d='M61 270L64 287'/><circle cx='64' cy='287' r='1.8' fill='%238dffa8' stroke='none'/><path d='M58 270L55 288'/><circle cx='55' cy='288' r='1.8' fill='%238dffa8' stroke='none'/><path d='M56 268L48 283'/><circle cx='48' cy='283' r='1.8' fill='%238dffa8' stroke='none'/><path d='M51 268L34 283'/><circle cx='34' cy='283' r='1.8' fill='%238dffa8' stroke='none'/><path d='M49 264L28 271'/><circle cx='28' cy='271' r='1.8' fill='%238dffa8' stroke='none'/><path d='M50 260L33 259'/><circle cx='33' cy='259' r='1.8' fill='%238dffa8' stroke='none'/><path d='M49 256L30 250'/><circle cx='30' cy='250' r='1.8' fill='%238dffa8' stroke='none'/><path d='M51 252L34 237'/><circle cx='34' cy='237' r='1.8' fill='%238dffa8' stroke='none'/><path d='M56 252L48 237'/><circle cx='48' cy='237' r='1.8' fill='%238dffa8' stroke='none'/><path d='M58 249L55 228'/><circle cx='55' cy='228' r='1.8' fill='%238dffa8' stroke='none'/><path d='M62 251L65 233'/><circle cx='65' cy='233' r='1.8' fill='%238dffa8' stroke='none'/><path d='M65 252L73 237'/><circle cx='73' cy='237' r='1.8' fill='%238dffa8' stroke='none'/><path d='M70 253L87 239'/><circle cx='87' cy='239' r='1.8' fill='%238dffa8' stroke='none'/><path d='M69 257L87 250'/><circle cx='87' cy='250' r='1.8' fill='%238dffa8' stroke='none'/></g></svg>") center / 100% 100% no-repeat;
+  transform-origin: 50% 30%;
+  animation: feudartifice-eclot 3.2s ease-out -1.6s infinite;
+}
+
+:root[data-theme='feudartifice'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='feudartifice'] #root::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: -1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 140px;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='140' viewBox='0 0 360 140'><rect x='0' y='34' width='44' height='106' fill='%23060a1f'/><rect x='47' y='55' width='33' height='85' fill='%23060a1f'/><rect x='80' y='50' width='41' height='90' fill='%23060a1f'/><rect x='121' y='63' width='24' height='77' fill='%23060a1f'/><rect x='148' y='42' width='39' height='98' fill='%23060a1f'/><rect x='187' y='88' width='38' height='52' fill='%23060a1f'/><rect x='228' y='80' width='37' height='60' fill='%23060a1f'/><rect x='265' y='82' width='27' height='58' fill='%23060a1f'/><rect x='293' y='83' width='42' height='57' fill='%23060a1f'/><rect x='336' y='36' width='45' height='104' fill='%23060a1f'/><rect x='14' y='41' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='14' y='53' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='23' y='53' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='5' y='65' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='23' y='65' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='32' y='65' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='14' y='89' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='5' y='125' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='14' y='125' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='51' y='63' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='60' y='63' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='69' y='63' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='60' y='75' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='69' y='75' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='51' y='87' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='60' y='87' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='69' y='87' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='69' y='99' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='60' y='111' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='69' y='111' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='69' y='123' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='93' y='58' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='102' y='70' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='84' y='82' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='102' y='82' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='111' y='106' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='102' y='118' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='111' y='118' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='93' y='130' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='126' y='70' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='135' y='82' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='135' y='106' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='161' y='49' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='170' y='49' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='152' y='73' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='170' y='73' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='161' y='85' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='179' y='85' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='170' y='97' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='179' y='109' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='170' y='121' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='209' y='95' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='200' y='119' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='218' y='119' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='233' y='87' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='242' y='87' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='251' y='87' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='242' y='99' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='242' y='123' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='251' y='123' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='269' y='101' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='269' y='113' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='316' y='90' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='298' y='102' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='316' y='102' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='298' y='114' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='298' y='126' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='307' y='126' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='341' y='44' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='350' y='44' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='368' y='44' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='341' y='80' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='350' y='80' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='359' y='80' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='341' y='92' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='359' y='92' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='368' y='116' width='3' height='5' fill='%23ffd873' opacity='.7'/><rect x='368' y='128' width='3' height='5' fill='%23ffd873' opacity='.7'/></svg>") center bottom / 100% 140px no-repeat;
+}
+
+:root[data-theme='feudartifice'] .card,
+:root[data-theme='feudartifice'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='feudartifice'] .onglets {
+  background: rgba(16, 23, 58, .88);
+  border-color: rgba(255, 207, 90, .35);
+}
+
+:root[data-theme='feudartifice'] .ans-btn {
+  font-weight: 700;
+}
+
+:root[data-theme='feudartifice'] .ans-btn.chosen {
+  background: rgba(255, 207, 90, .14);
+  border: 1.5px solid #ffcf5a;
+  box-shadow: 0 0 16px rgba(255, 207, 90, .35);
+}
+
+:root[data-theme='feudartifice'] .quiz-question {
+  font-weight: 400;
+  font-size: 24px;
+  line-height: 1.18;
+}
+
+:root[data-theme='feudartifice'] .timer-track {
+  height: 5px;
+  border-radius: 99px;
+}
+
+:root[data-theme='feudartifice'] .timer-fill,
+:root[data-theme='feudartifice'] .xp-fill {
+  background: linear-gradient(90deg, #ff6f91, #ffd873, #6fc7ff);
+}
+
+:root[data-theme='feudartifice'] .timer-seconds {
+  font-weight: 400;
+  font-size: 36px;
+  color: #ffd873;
+}
+
+:root[data-theme='feudartifice'] .result-banner .big,
+:root[data-theme='feudartifice'] .fin-xp {
+  font-weight: 400;
+  color: #ffd873;
+  text-shadow: 0 0 18px rgba(255, 207, 90, .5);
+}
+
+:root[data-theme='feudartifice'] h1,
+:root[data-theme='feudartifice'] h2,
+:root[data-theme='feudartifice'] h3 {
+  font-weight: 400;
+}
+
+:root[data-theme='feudartifice'] .quiz-categorie::before {
+  content: '🎆 ';
+}
+
+@keyframes feudartifice-eclot {
+  0% {
+    transform: scale(.55);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  65% {
+    transform: scale(1.04);
+    opacity: .75;
+  }
+  100% {
+    transform: scale(1.1);
+    opacity: 0;
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='feudartifice'] body::before,
+  :root[data-theme='feudartifice'] body::after {
+    animation: none !important;
+  }
+}

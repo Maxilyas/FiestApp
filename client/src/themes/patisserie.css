@@ -1,0 +1,186 @@
+/* ── Pâtisserie · Peu commune ──
+   Salon de thé : crème, framboise, pistache, et des macarons en semis.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Pacifico';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/themes/pacifico.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Quicksand';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/themes/quicksand.woff2') format('woff2');
+}
+
+:root[data-theme='patisserie'] {
+  --bg: #fff7f0;
+  --bg-halo: #ffffff;
+  --bg-raised: #ffffff;
+  --ink: #4a2c2a;
+  --muted: #7a5a52;
+  --accent: #f7a8b8;
+  --accent-rgb: 247, 168, 184;
+  --accent-hover: #f8b4c2;
+  --accent-text: #b0305a;
+  --accent-text-hover: #8d2648;
+  --focus: #b0305a;
+  --on-accent: #4a2c2a;
+  --alert: #b0243f;
+  --alert-rgb: 176, 36, 63;
+  --alert-hover: #b93e56;
+  --on-alert: #ffffff;
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-faint: rgba(255, 255, 255, 0.4);
+  --surface-strong: rgba(74, 44, 42, 0.06);
+  --track: rgba(74, 44, 42, 0.14);
+  --edge: rgba(247, 168, 184, 0.38);
+  --edge-strong: rgba(247, 168, 184, 0.72);
+  --accent-soft: rgba(247, 168, 184, 0.14);
+  --scroll-thumb: rgba(247, 168, 184, 0.45);
+  --dim: 0.5;
+  --backdrop: rgba(74, 44, 42, 0.4);
+  --shadow-toast: 0 10px 30px rgba(74, 44, 42, 0.18);
+  --shadow-dialog: 0 24px 60px rgba(74, 44, 42, 0.25);
+  --shape-0: #d6456f;
+  --shape-1: #a8700a;
+  --shape-2: #5e8f34;
+  --shape-3: #8e5bb5;
+  --bronze-text: #8a4b1a;
+  --argent-text: #5f6b7a;
+  --anneau-legendaire: #a85a22;
+  --anneau-divin: #6a58a8;
+  --anneau-collection: #3f7e5c;
+  --anneau-collection-haut: #3b67a3;
+  color-scheme: light;
+}
+
+:root[data-theme='patisserie'] .silhouette {
+  filter: brightness(0);
+  opacity: .45;
+}
+
+:root[data-theme='patisserie'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
+}
+
+:root[data-theme='patisserie'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+
+:root[data-theme='patisserie'] .lu-scintille {
+  filter: brightness(.6) sepia(1) saturate(2.5);
+}
+
+:root[data-theme='patisserie'] .fait-puce.fait-ombre {
+  color: #5b3f99;
+}
+
+:root[data-theme='patisserie'] {
+  --serif: Pacifico, 'Brush Script MT', cursive;
+  --sans: Quicksand, 'Segoe UI', sans-serif;
+  --radius: 22px;
+  --radius-sm: 20px;
+  font-synthesis: none;
+}
+
+:root[data-theme='patisserie'] body {
+  background-color: #fff7f0;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='124' height='140' viewBox='0 0 124 140'><g opacity='.3'><g transform='translate(30 34)'><ellipse cx='0' cy='-4' rx='12' ry='6' fill='%23f7a8b8'/><rect x='-11' y='-2' width='22' height='4' rx='2' fill='%23fff7f0'/><ellipse cx='0' cy='4' rx='12' ry='6' fill='%23f7a8b8'/></g><g transform='translate(92 96)'><ellipse cx='0' cy='-4' rx='12' ry='6' fill='%23b8e0c2'/><rect x='-11' y='-2' width='22' height='4' rx='2' fill='%23fff7f0'/><ellipse cx='0' cy='4' rx='12' ry='6' fill='%23b8e0c2'/></g><g transform='translate(28 118)'><ellipse cx='0' cy='-4' rx='12' ry='6' fill='%23f9d98b'/><rect x='-11' y='-2' width='22' height='4' rx='2' fill='%23fff7f0'/><ellipse cx='0' cy='4' rx='12' ry='6' fill='%23f9d98b'/></g><g transform='translate(96 22)'><ellipse cx='0' cy='-4' rx='12' ry='6' fill='%23cdb8ff'/><rect x='-11' y='-2' width='22' height='4' rx='2' fill='%23fff7f0'/><ellipse cx='0' cy='4' rx='12' ry='6' fill='%23cdb8ff'/></g></g></svg>");
+  background-size: 124px 140px;
+  background-repeat: repeat;
+}
+
+:root[data-theme='patisserie'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 18px;
+  background: radial-gradient(circle at 12px 0, #f7a8b8 11px, transparent 12px) 0 0 / 24px 18px repeat-x;
+}
+
+:root[data-theme='patisserie'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='patisserie'] .card,
+:root[data-theme='patisserie'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='patisserie'] .onglets {
+  background: #ffffff;
+  border: 2px solid #f7c6d0;
+  box-shadow: 0 6px 16px rgba(214, 69, 111, .1);
+}
+
+:root[data-theme='patisserie'] .ans-btn {
+  font-weight: 700;
+}
+
+:root[data-theme='patisserie'] .ans-btn.chosen {
+  background: #ffe8ee;
+  border: 2px solid #d6456f;
+}
+
+:root[data-theme='patisserie'] .timer-track {
+  height: 10px;
+  border-radius: 99px;
+  background: #ffe3ea;
+}
+
+:root[data-theme='patisserie'] .timer-fill {
+  background: repeating-linear-gradient(45deg, #f7a8b8 0 8px, #ffd6e0 8px 16px);
+}
+
+:root[data-theme='patisserie'] .timer-seconds {
+  color: #b0305a;
+  font-weight: 400;
+}
+
+:root[data-theme='patisserie'] .quiz-question {
+  font-weight: 400;
+  font-size: 28px;
+  line-height: 1.28;
+}
+
+:root[data-theme='patisserie'] .result-banner .big,
+:root[data-theme='patisserie'] .fin-xp {
+  font-weight: 400;
+  color: #b0305a;
+}
+
+:root[data-theme='patisserie'] .label {
+  color: #9a5a6a;
+}
+
+:root[data-theme='patisserie'] h1,
+:root[data-theme='patisserie'] h2,
+:root[data-theme='patisserie'] h3 {
+  font-weight: 400;
+}
+
+:root[data-theme='patisserie'] .niveau {
+  background: #ffe3ea;
+  border-color: #f7a8b8;
+  color: #b0305a;
+}
+
+:root[data-theme='patisserie'] .lb-row {
+  background: rgba(255, 255, 255, .85);
+}

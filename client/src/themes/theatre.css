@@ -1,0 +1,149 @@
+/* ── Grand théâtre · Légendaire ──
+   Rideaux de velours, dorures, et le projecteur sur la question.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Bodoni Moda';
+  font-style: italic;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/themes/bodoni-moda-italic.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Bodoni Moda';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: swap;
+  src: url('/fonts/themes/bodoni-moda.woff2') format('woff2');
+}
+
+:root[data-theme='theatre'] {
+  --bg: #1c0508;
+  --bg-halo: #4a0d14;
+  --bg-raised: #260a0e;
+  --ink: #fff4e6;
+  --muted: #d9b3a6;
+  --accent: #e0b34a;
+  --accent-rgb: 224, 179, 74;
+  --accent-hover: #e7c472;
+  --accent-text: #efc35c;
+  --accent-text-hover: #f4d58d;
+  --focus: #efc35c;
+  --on-accent: #1c0508;
+  --alert: #ff8a8a;
+  --alert-rgb: 255, 138, 138;
+  --alert-hover: #ffa1a1;
+  --on-alert: #1c0508;
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-faint: rgba(255, 255, 255, 0.03);
+  --surface-strong: rgba(255, 255, 255, 0.09);
+  --track: rgba(255, 255, 255, 0.14);
+  --edge: rgba(224, 179, 74, 0.26);
+  --edge-strong: rgba(224, 179, 74, 0.6);
+  --accent-soft: rgba(224, 179, 74, 0.13);
+  --scroll-thumb: rgba(224, 179, 74, 0.32);
+  --backdrop: rgba(0, 0, 0, 0.72);
+  --shape-0: #ff6b6b;
+  --shape-1: #efc35c;
+  --shape-2: #a9b8ff;
+  --shape-3: #9fe0b8;
+  --bronze-text: #e2a878;
+  --argent-text: #e0d0cc;
+  --anneau-legendaire: #e0935a;
+  --anneau-divin: #a99ad6;
+  --anneau-collection: #7fbf95;
+  --anneau-collection-haut: #7fa6dd;
+  color-scheme: dark;
+}
+
+:root[data-theme='theatre'] {
+  --serif: 'Bodoni Moda', Didot, Georgia, serif;
+  --radius: 10px;
+}
+
+:root[data-theme='theatre'] body {
+  background-color: #1c0508;
+  background-image: radial-gradient(60% 45% at 50% 22%, rgba(255, 236, 190, .16), rgba(28, 5, 8, 0) 70%), conic-gradient(from 160deg at 50% -8%, transparent 0deg, rgba(255, 240, 200, .07) 10deg 30deg, transparent 40deg), linear-gradient(180deg, #2a070c, #1c0508 60%, #140305);
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='theatre'] body::before {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><defs><linearGradient id='v' x1='0' x2='1'><stop offset='0.000' stop-color='%234a060d'/><stop offset='0.125' stop-color='%238e0f1c'/><stop offset='0.250' stop-color='%234a060d'/><stop offset='0.375' stop-color='%238e0f1c'/><stop offset='0.500' stop-color='%234a060d'/><stop offset='0.625' stop-color='%238e0f1c'/><stop offset='0.750' stop-color='%234a060d'/><stop offset='0.875' stop-color='%238e0f1c'/><stop offset='1.000' stop-color='%234a060d'/></linearGradient></defs><path d='M0 0H26C20 180 24 420 16 640H0Z' fill='url(%23v)'/><path d='M360 0H334C340 180 336 420 344 640H360Z' fill='url(%23v)'/><path d='M0 0H360V6H0Z' fill='%235a0810'/><path d='M0 0Q30 34 60 0Z' fill='%237a0c17'/><path d='M4 3Q30 30 56 3' fill='none' stroke='%23e0b34a' stroke-width='1.6'/><path d='M60 0Q90 34 120 0Z' fill='%237a0c17'/><path d='M64 3Q90 30 116 3' fill='none' stroke='%23e0b34a' stroke-width='1.6'/><path d='M120 0Q150 34 180 0Z' fill='%237a0c17'/><path d='M124 3Q150 30 176 3' fill='none' stroke='%23e0b34a' stroke-width='1.6'/><path d='M180 0Q210 34 240 0Z' fill='%237a0c17'/><path d='M184 3Q210 30 236 3' fill='none' stroke='%23e0b34a' stroke-width='1.6'/><path d='M240 0Q270 34 300 0Z' fill='%237a0c17'/><path d='M244 3Q270 30 296 3' fill='none' stroke='%23e0b34a' stroke-width='1.6'/><path d='M300 0Q330 34 360 0Z' fill='%237a0c17'/><path d='M304 3Q330 30 356 3' fill='none' stroke='%23e0b34a' stroke-width='1.6'/></svg>") center / 100% 100% no-repeat;
+}
+
+:root[data-theme='theatre'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='theatre'] .card,
+:root[data-theme='theatre'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='theatre'] .onglets {
+  background: rgba(38, 10, 14, .92);
+  border: 1px solid rgba(224, 179, 74, .5);
+  box-shadow: inset 0 0 0 3px rgba(38, 10, 14, .9), inset 0 0 0 4px rgba(224, 179, 74, .25), 0 12px 26px rgba(0, 0, 0, .5);
+}
+
+:root[data-theme='theatre'] .player-shell {
+  padding-left: 28px;
+  padding-right: 28px;
+}
+
+:root[data-theme='theatre'] .ans-btn {
+  font-weight: 600;
+}
+
+:root[data-theme='theatre'] .ans-btn.chosen {
+  background: rgba(224, 179, 74, .14);
+  border: 1.5px solid #e0b34a;
+}
+
+:root[data-theme='theatre'] .quiz-question {
+  font-weight: 700;
+  font-style: italic;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+:root[data-theme='theatre'] .timer-track {
+  height: 3px;
+}
+
+:root[data-theme='theatre'] .timer-fill,
+:root[data-theme='theatre'] .xp-fill {
+  background: linear-gradient(90deg, #b8912c, #f5d77a, #b8912c);
+}
+
+:root[data-theme='theatre'] .timer-seconds {
+  font-style: italic;
+  color: #efc35c;
+}
+
+:root[data-theme='theatre'] .result-banner .big,
+:root[data-theme='theatre'] .fin-xp {
+  font-style: italic;
+  background: linear-gradient(100deg, #b8912c, #f5d77a 50%, #b8912c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+:root[data-theme='theatre'] h1,
+:root[data-theme='theatre'] h2,
+:root[data-theme='theatre'] h3 {
+  font-style: italic;
+}

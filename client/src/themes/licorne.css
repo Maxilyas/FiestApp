@@ -1,0 +1,235 @@
+/* ── Licorne · Rare ──
+   Pastels irisés, bords holographiques, paillettes qui scintillent.
+
+   Chargée à la demande (`client/src/themeJoueur.ts`), sur le seul
+   téléphone du profil qui porte ce thème. Les jetons de couleur
+   remplacent ceux de Velours (`styles.css`) ; le décor vit dans les
+   couches fixes (`body::before`, `body::after`, `#root::before`,
+   `#root::after`), qui ne captent jamais un doigt et ne bougent que
+   par `transform` et `opacity`. `design.test.ts` en mesure les
+   contrastes. */
+
+@font-face {
+  font-family: 'Fredoka';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/themes/fredoka.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/themes/nunito.woff2') format('woff2');
+}
+
+:root[data-theme='licorne'] {
+  --bg: #fbf6ff;
+  --bg-halo: #fff0fa;
+  --bg-raised: #ffffff;
+  --ink: #3a2150;
+  --muted: #76608a;
+  --accent: #d7a8ff;
+  --accent-rgb: 215, 168, 255;
+  --accent-hover: #e2bfff;
+  --accent-text: #9b2fc0;
+  --accent-text-hover: #7c1f9e;
+  --focus: #9b2fc0;
+  --on-accent: #3a2150;
+  --alert: #d12f6a;
+  --alert-rgb: 209, 47, 106;
+  --alert-hover: #e0457e;
+  --on-alert: #ffffff;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-faint: rgba(255, 255, 255, 0.5);
+  --surface-strong: rgba(58, 33, 80, 0.06);
+  --track: rgba(58, 33, 80, 0.12);
+  --edge: rgba(155, 47, 192, 0.22);
+  --edge-strong: rgba(155, 47, 192, 0.55);
+  --accent-soft: rgba(215, 168, 255, 0.28);
+  --scroll-thumb: rgba(155, 47, 192, 0.35);
+  --dim: 0.5;
+  --backdrop: rgba(58, 33, 80, 0.35);
+  --shadow-toast: 0 10px 30px rgba(58, 33, 80, 0.18);
+  --shadow-dialog: 0 24px 60px rgba(58, 33, 80, 0.25);
+  --shape-0: #e0337a;
+  --shape-1: #c96a00;
+  --shape-2: #8b5cf6;
+  --shape-3: #0d9488;
+  --bronze-text: #9a5a24;
+  --argent-text: #5f6b7a;
+  --anneau-legendaire: #b5561f;
+  --anneau-divin: #7250c7;
+  --anneau-collection: #2f8a5b;
+  --anneau-collection-haut: #3b67a3;
+  color-scheme: light;
+}
+
+:root[data-theme='licorne'] .silhouette {
+  filter: brightness(0);
+  opacity: .45;
+}
+
+:root[data-theme='licorne'] .av-argent::before {
+  background: radial-gradient(circle, rgba(104, 118, 140, .42) 0%, rgba(104, 118, 140, 0) 68%);
+  box-shadow: 0 0 0 1px rgba(104, 118, 140, .5);
+}
+
+:root[data-theme='licorne'] .lu-nebuleuse {
+  background: radial-gradient(circle, #28318a, #1c2268 42%, rgba(28, 34, 104, .85) 56%, rgba(28, 34, 104, 0) 71%);
+}
+
+:root[data-theme='licorne'] .lu-scintille {
+  filter: brightness(.6) sepia(1) saturate(2.5);
+}
+
+:root[data-theme='licorne'] .fait-puce.fait-ombre {
+  color: #5b3f99;
+}
+
+:root[data-theme='licorne'] {
+  --serif: Fredoka, 'Nunito', 'Arial Rounded MT Bold', sans-serif;
+  --sans: Nunito, 'Segoe UI', system-ui, sans-serif;
+  --radius: 22px;
+  --radius-sm: 20px;
+}
+
+:root[data-theme='licorne'] body {
+  background-color: #fbf6ff;
+  background-image: radial-gradient(70% 38% at 0% 0%, rgba(255, 170, 220, .55), rgba(255, 170, 220, 0) 70%), radial-gradient(60% 36% at 100% 6%, rgba(196, 170, 255, .6), rgba(196, 170, 255, 0) 70%), radial-gradient(80% 40% at 50% 104%, rgba(150, 236, 214, .55), rgba(150, 236, 214, 0) 70%);
+  background-size: 100% 100vh;
+  background-repeat: no-repeat;
+}
+
+:root[data-theme='licorne'] body::before,
+:root[data-theme='licorne'] body::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  animation: licorne-scintille 2.8s ease-in-out infinite alternate;
+}
+
+:root[data-theme='licorne'] body::before {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><path transform='translate(24 44) scale(8)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ff8fcf'/><path transform='translate(334 76) scale(6)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23b89cff'/><path transform='translate(22 214) scale(5)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ffc46b'/><path transform='translate(342 300) scale(7)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ff8fcf'/><path transform='translate(28 520) scale(7)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%236fdcc6'/><path transform='translate(322 596) scale(9)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ffc46b'/><path transform='translate(182 20) scale(4)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23b89cff'/><path transform='translate(92 612) scale(5)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%236fdcc6'/></svg>");
+}
+
+:root[data-theme='licorne'] body::after {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='640' viewBox='0 0 360 640'><path transform='translate(300 150) scale(9)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%236fdcc6'/><path transform='translate(14 364) scale(8)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23b89cff'/><path transform='translate(338 452) scale(5)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%236fdcc6'/><path transform='translate(252 626) scale(4)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ff8fcf'/><path transform='translate(62 118) scale(3)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23b89cff'/><path transform='translate(288 252) scale(3)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ffc46b'/><path transform='translate(70 420) scale(4)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23ff8fcf'/><path transform='translate(304 526) scale(3)' d='M0 -1C.14 -.14 .14 -.14 1 0C.14 .14 .14 .14 0 1C-.14 .14 -.14 .14 -1 0C-.14 -.14 -.14 -.14 0 -1Z' fill='%23b89cff'/></svg>");
+  animation-delay: -1.4s;
+}
+
+:root[data-theme='licorne'] #root {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme='licorne'] .card,
+:root[data-theme='licorne'] .ans-btn:not(.correct):not(.chosen),
+:root[data-theme='licorne'] .onglets {
+  background: linear-gradient(rgba(255, 255, 255, .86), rgba(255, 255, 255, .86)) padding-box, linear-gradient(125deg, #ff9ed2, #c3a6ff 50%, #8ee8d6) border-box;
+  border: 1.5px solid transparent;
+  box-shadow: 0 8px 22px rgba(155, 47, 192, .1);
+}
+
+:root[data-theme='licorne'] .ans-btn {
+  font-weight: 700;
+}
+
+:root[data-theme='licorne'] .ans-btn.chosen {
+  border: 2px solid #b57be8;
+  background: #f3e6ff;
+}
+
+:root[data-theme='licorne'] .ans-btn.correct,
+:root[data-theme='licorne'] .btn-primary {
+  background: linear-gradient(120deg, #ffb3de, #cdb8ff 55%, #a8f0e0);
+  border-color: transparent;
+  color: #3a2150;
+}
+
+:root[data-theme='licorne'] .btn-primary {
+  box-shadow: 0 6px 16px rgba(155, 47, 192, .22);
+  font-weight: 800;
+}
+
+:root[data-theme='licorne'] .timer-track {
+  height: 8px;
+  border-radius: 99px;
+  background: rgba(155, 47, 192, .12);
+}
+
+:root[data-theme='licorne'] .timer-fill,
+:root[data-theme='licorne'] .xp-fill {
+  background: linear-gradient(90deg, #ff9ed2, #c3a6ff 50%, #8ee8d6);
+}
+
+:root[data-theme='licorne'] .timer-seconds {
+  color: #9b2fc0;
+}
+
+:root[data-theme='licorne'] .quiz-question {
+  font-size: 31px;
+  letter-spacing: -.01em;
+  line-height: 1.12;
+}
+
+:root[data-theme='licorne'] .result-banner .big,
+:root[data-theme='licorne'] .fin-xp {
+  background: linear-gradient(100deg, #e0409c, #9b5cf0 55%, #1fa89a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+:root[data-theme='licorne'] .label {
+  color: #8a5ba8;
+}
+
+:root[data-theme='licorne'] .quiz-categorie::before {
+  content: '✦ ';
+  color: #e0409c;
+}
+
+:root[data-theme='licorne'] .lb-row {
+  background: rgba(255, 255, 255, .72);
+}
+
+:root[data-theme='licorne'] .lb-row.me {
+  background: #f3e6ff;
+  border-color: #c89af0;
+}
+
+:root[data-theme='licorne'] .niveau {
+  background: linear-gradient(120deg, #ffd6ee, #e3d6ff);
+  border-color: #c89af0;
+  color: #7c1f9e;
+}
+
+:root[data-theme='licorne'] .onglet.actif {
+  background: #f3e6ff;
+  color: #7c1f9e;
+  box-shadow: inset 0 0 0 1px #c89af0;
+}
+
+@keyframes licorne-scintille {
+  from {
+    opacity: .3;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Moins de mouvement, demandé par le système : le décor reste, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme='licorne'] body::before,
+  :root[data-theme='licorne'] body::after {
+    animation: none !important;
+  }
+}

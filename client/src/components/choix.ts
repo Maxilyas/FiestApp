@@ -4,6 +4,7 @@ import { divin } from '../../../shared/divins'
 import { nomDansLaPhrase, portrait } from '../../../shared/branches'
 import { hautFait } from '../../../shared/hautsfaits'
 import { fond } from '../../../shared/fonds'
+import { theme } from '../../../shared/themes'
 
 // Ce qu'un toucher du profil change, et ce que le lecteur d'écran en entend.
 // À part des onglets qui l'emploient : la page du profil l'annonce, et
@@ -17,6 +18,8 @@ export type ChoixDuProfil = {
   legendaire?: string | null
   titre?: string | null
   fond?: string | null
+  /** Le thème de son téléphone, parmi ceux qu'il a ; null : Velours. */
+  theme?: string | null
   vitrine?: string[] | null
   /** Porter la version rare d'un avatar qui a éclaté, ou sa version d'origine. */
   eclat?: { cle: string; brille: boolean }
@@ -42,6 +45,10 @@ export function annonceDuChoix(choix: ChoixDuProfil): string {
   if (choix.fond !== undefined) {
     const nom = fond(choix.fond)?.nom
     return nom ? `Ton fond de carte : ${nom}.` : 'Sans fond de carte.'
+  }
+  if (choix.theme !== undefined) {
+    const nom = choix.theme ? theme(choix.theme)?.nom : undefined
+    return `Ton thème : ${nom ?? 'Velours'}.`
   }
   if (choix.vitrine !== undefined) return choix.vitrine ? 'Ta vitrine est enregistrée.' : 'Ta vitrine montre tes plus beaux hauts faits.'
   return 'C’est enregistré.'

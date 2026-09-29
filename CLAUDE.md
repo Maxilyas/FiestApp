@@ -63,6 +63,8 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/carte.ts` · `core/carte.ts` | la carte d'un joueur, ouverte en touchant son nom (`/s/<espace>/joueurs/<id>.json`) — et la sienne, depuis sa page (« Voir ma carte », `/api/joueur/carte`, sans « ce soir ») : son titre, sa vitrine — celle qu'il a choisie, sinon ses trois plus beaux hauts faits —, ses trois écussons les plus hauts, sa collection de prix, son quiz du jour en une ligne. La moitié profil se calcule une fois pour les deux (`profilDeCarte`) |
 | `shared/saisons.ts` · `core/saisons.ts` | les saisons (Halloween, Noël, le Nouvel An, à la date de Paris — `periodeDu`) et leur légendaire : quelques jours de quiz du jour dans la période (`JourStore.accorderSaison`), ou une soirée qui compte ces jours-là, datée à sa première question (`laureatsDeSaison`, à la clôture comme au recalcul) ; rangées `saison:…`, hors de l'étagère et du compte des badges |
 | `shared/fonds.ts` | les fonds de carte (nuit étoilée, aurore boréale, kintsugi, grand théâtre) : ce qu'on voit derrière sa carte, rien ailleurs ; ceux qu'il a gagnés (`fondsOuverts`), celui qu'il porte relu à chaque affichage (`fondPorte`), comme un titre. Le décor tient au cadre de la carte (`.carte-fond`), son contenu défile par-dessus (`.carte-defile`) |
+| `shared/themes.ts` · `client/src/themeJoueur.ts` · `client/src/themes/` · `components/Boutique.tsx` | les thèmes et leurs confettis : une bonne réponse, un confetti — les soirées qui comptent (`confettisDeSoiree`, sur les relevés) et le quiz du jour (`JourStore.justesDe`) —, moins les achats (`profile_achats`), relus à chaque lecture (`ProfileStore.boutiqueDe`) : rétroactifs, un solde qui peut passer sous zéro, un achat jamais repris ; trente thèmes à l'échelle de rareté (`PRIX_DES_THEMES`), six de saison (`enBoutique`), achetés et portés d'un geste (`POST /api/joueur/themes`). Le thème suit la page, pas la personne : le téléphone du profil — la soirée, sa page, le quiz du jour — le porte (`porterTheme`, retenu pour le démarrage suivant), jamais l'écran commun ni les pages de l'animateur, et l'anonyme joue en Velours. Chaque thème a sa feuille, chargée à la demande (`import.meta.glob`) — ses jetons sous `:root[data-theme='<clé>']`, son décor dans les couches fixes (`body::before`…, `#root::after`), ses animations à son nom, arrêtées si le système demande moins de mouvement —, et ses polices (`client/public/fonts/themes`, licences jointes) ; `design.test.ts` en mesure les contrastes. La boutique vit dans Apparence, après le fond de la carte (`/profil#mes-themes`), le solde en tête du profil, les confettis de ce soir à la fin de soirée (`FinDeSoiree.profil.confettis`) |
+| `server/scripts/apercus-themes.ts` | les aperçus de la boutique : l'écran d'une question photographié dans l'application sous chaque thème (client construit d'abord), rogné à la question et réduit en WebP dans `client/src/themes/apercus/` ; `themes.test.ts` refuse un thème sans le sien |
 | `shared/ecussons.ts` · `client/src/components/Ecusson.tsx` | les écussons de savoir : les bonnes réponses d'une catégorie, soirées (`Carriere.categories`) et quiz du jour (`JourStore.categoriesDe`) ensemble, au bronze, à l'argent, à l'or (`SEUILS_ECUSSON`) — dérivation pure, sans expérience ; les trois plus hauts sur la carte (`plusBeauxEcussons`), les douze sur la page du profil |
 | `core/objectifs.ts` | ce que la fin de soirée raconte en plus de ce qu'elle rapporte : les records battus, « Tu t'en approches » — dérivations pures de l'historique, lues à la clôture après les crédits |
 | `shared/jour.ts` · `core/jour.ts` · `server/src/quizDuJour.ts` · `client/src/views/JourApp.tsx` | le quiz du jour, pour les profils : dix questions tirées à minuit (Paris) et figées, une partie chronométrée au serveur, dans la base permanente ; l'expérience (75 au plus, podium 25/15/10) dans la ligne `#jour` ; la nuit qui clôt la veille à la première demande (`clorePasses`) ; ses trois paliers (L'Assidu, Le Champion du jour, Le Sans-Faute), décernés dès la partie commencée (L'Assidu, la saison : une partie commencée compte), à sa fin (Le Sans-Faute) ou à la nuit (la victoire) (`accorderPaliersDuJour`) et rangés sous le jour (`cleDuJour`), jamais sous une soirée ; le laurier des vainqueurs d'hier (`laureats`), qui suit leur prénom jusque dans les soirées (`Distinctions.laurier`, `components/Laurier.tsx`) ; la réserve, ses signalements et les profils masqués, à `/admin`. Au téléphone, sans liaison temps réel, la page redemande ce que le serveur décide seul jusqu'à l'avoir (`client/src/insister.ts`), et chaque écran commence en haut, rend le focus perdu (`client/src/focus.ts`) et n'accepte aucun toucher dans sa première demi-seconde (`gesteAccepte`) ; « Retour », du classement ou de la correction, ramène d'où l'on vient (`retourDuJour`) — l'écran qui les a ouverts, marqué dans l'historique (jamais par `location.hash =`), ou la page qui a ouvert `/jour` ; chaque période du classement a son adresse (`#classement-mois`), réécrite sur la même entrée |
@@ -657,6 +659,14 @@ sans `QUIZ_DB_URL`.
   route de plus derrière lui ne lit ni n'efface rien. La consigne rappelle
   pourtant les intitulés des prochains jours (l'IA ne les réécrit pas) : le
   jeton les vaut, et se change des deux côtés s'il fuit.
+- **Un thème de plus** entre au catalogue (`shared/themes.ts`) avec sa
+  feuille (`client/src/themes/<clé>.css` : ses jetons sous
+  `:root[data-theme='<clé>']`, ses `@keyframes` préfixées de sa clé, un bloc
+  `prefers-reduced-motion`), ses polices dans `client/public/fonts/themes`
+  et leur ligne dans `LICENCES.txt`, et son aperçu
+  (`scripts/apercus-themes.ts <clé>`) : `design.test.ts` mesure ses
+  contrastes aux seuils d'Ivoire et `themes.test.ts` réclame son aperçu.
+  Ivoire, lui, vit dans `styles.css` : l'écran commun le porte aussi.
 - **Un haut fait ou un prix de plus a sa place ailleurs.** Un haut fait
   prend sa rareté dans `PART_DES_JOUEURS` (mesurée par `calibrage.ts`) :
   sans elle, il passerait pour le plus courant de tous et ne paraîtrait
@@ -690,7 +700,9 @@ sans `QUIZ_DB_URL`.
   avec une question à photo et des réponses longues, des équipes, sept
   invités et plus (une estimation à six réponses, l'écran de victoire), et
   une clôture à hauts faits. `server/scripts/rendu-ecran.ts` rejoue tout ça
-  en une commande (client construit d'abord).
+  en une commande (client construit d'abord). Dans un script Playwright,
+  `waitForFunction` prend une fonction, jamais un texte : la politique de
+  sécurité des pages refuse `eval`.
 - **Sur grand écran, `/host` compte en `rem`.** Sa taille racine suit la
   hauteur de l'écran (16 px en 768, 22,5 en 1080) : une taille de scène
   écrite en pixels ne grandit pas en 1920 × 1080, et la même télé la montre
@@ -736,6 +748,11 @@ sans `QUIZ_DB_URL`.
   seulement ce qui s'en dérive. `calibrage.ts` joue avec les vraies
   formules (`pointsDuChoix`, `pointsDesEstimations`) : il mesure ce qu'un
   nouveau barème fait aux niveaux et aux légendaires.
+- Changer les prix des thèmes (`PRIX_DES_THEMES`) ou la règle des
+  confettis (`confettisDeSoiree`) sans le dire : des choix de produit. Les
+  confettis se relisent à chaque lecture — une règle changée change d'un
+  coup, rétroactivement, le solde de tout le monde —, et un achat garde le
+  prix qu'il a payé.
 - Bouger le seuil d'un légendaire ou la courbe des niveaux
   (`XP_PAR_PALIER`) sans le mesurer ni le dire. Ce sont aussi des choix de
   produit, mesurés par `calibrage.ts` ; ils se relisent à chaque lecture,

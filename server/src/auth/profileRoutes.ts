@@ -22,6 +22,7 @@ import { ecussonsDe } from '../../../shared/ecussons'
 import { distinctions } from '../../../shared/profil'
 import type { CarteDeJoueur } from '../../../shared/carte'
 import { profilDeCarte } from '../core/carte'
+import { jourDe } from '../../../shared/jour'
 
 interface ProfileApiDeps {
   profiles: ProfileStore
@@ -40,6 +41,8 @@ interface ProfileApiDeps {
   profilChange: (profileId: string) => void
   /** Son quiz du jour, pour sa page : médailles, série, podiums, derniers jours. */
   jour: JourStore
+  /** L'horloge du quiz du jour, que les tests avancent : la boutique y lit ses saisons. */
+  maintenant: () => number
 }
 
 /**
@@ -82,13 +85,21 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     // n'avait, à sa première visite du jour, ni « Vainqueur du quiz du jour
     // d'hier » ni l'expérience du podium ; rechargée, la page les avait.
     const [jour, categoriesDuJour] = await Promise.all([deps.jour.carriereDe(me.id), deps.jour.categoriesDe(me.id)])
-    const detail = await profiles.toDetail((await profiles.byId(me.id)) ?? me, espaceDe, deps.archives)
+    const rec = (await profiles.byId(me.id)) ?? me
+    const detail = await profiles.toDetail(rec, espaceDe, deps.archives)
     const fois = new Map(detail.vitrine.map(b => [b.key, b.fois]))
+    // Ses soirées viennent d'être relues : la boutique compte ses confettis
+    // dessus. Une base qui se tait ôte la boutique, pas la page.
+    const boutique = await profiles.boutiqueDe(rec, jourDe(deps.maintenant()), detail.soirees).catch(e => {
+      console.error('[profil] boutique illisible :', e)
+      return undefined
+    })
     return {
       ...detail,
       jour,
       prix: CATALOGUE_DES_PRIX.map(p => ({ ...p, fois: fois.get(p.key) ?? 0 })),
       ecussons: ecussonsDe(detail.categories, categoriesDuJour),
+      ...(boutique && { boutique }),
     }
   }
 
@@ -379,6 +390,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         titre: req.body?.titre,
         vitrine: req.body?.vitrine,
         fond: req.body?.fond,
+        theme: req.body?.theme,
         eclat: req.body?.eclat,
       })
       // Sa finition et son légendaire se lisent en mémoire à chaque
@@ -386,6 +398,24 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       // de n'importe qui, et une veille ne repart plus aux téléphones.
       deps.profilChange(updated.id)
       res.json({ profile: profiles.toPublic(updated) })
+    }),
+  )
+
+  /**
+   * Acheter un thème, en confettis, et le porter aussitôt. La réponse rend la
+   * boutique à jour : le solde qu'elle montre est celui que le serveur a
+   * compté, pas une soustraction faite dans la page.
+   */
+  app.post(
+    '/api/joueur/themes',
+    small,
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connexion requise' })
+      const jour = jourDe(deps.maintenant())
+      const achete = await profiles.acheterTheme(me.id, req.body?.theme, jour)
+      res.json({ profile: profiles.toPublic(achete), boutique: await profiles.boutiqueDe(achete, jour) })
     }),
   )
 

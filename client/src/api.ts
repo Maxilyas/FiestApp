@@ -9,6 +9,7 @@ import type { FinitionChoisie, ProfilDeLEspace, PublicProfile, PublicProfileDeta
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, RevelationDuJour } from '../../shared/jour'
+import type { BoutiqueDuProfil } from '../../shared/themes'
 import { applySample } from './clock'
 
 /**
@@ -299,9 +300,20 @@ export const api = {
       titre?: string | null
       vitrine?: string[] | null
       fond?: string | null
+      theme?: string | null
       eclat?: { cle: string; brille: boolean }
     }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
+    /**
+     * Acheter un thème en confettis, et le porter aussitôt. Pas de reprise
+     * au réveil du serveur : rejoué, un achat passé répondrait « déjà à toi ».
+     * La boutique revient telle que le serveur l'a comptée.
+     */
+    acheterTheme: (theme: string) =>
+      req<{ profile: PublicProfile; boutique: BoutiqueDuProfil }>('/api/joueur/themes', {
+        method: 'POST',
+        body: JSON.stringify({ theme }),
+      }),
     /**
      * Changer son mot de passe : il faut l'actuel, ou le code de secours pour
      * qui l'a oublié. La session seule ne suffit pas — un téléphone se prête

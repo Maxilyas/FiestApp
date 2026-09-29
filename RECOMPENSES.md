@@ -865,6 +865,57 @@ qui lui manque. `/jour`, et une carte sur l'accueil, sous « Ce soir » (ou
   En secours, « Copier la consigne
   pour une IA », à `/admin` : la même, pour le chatbot de son choix.
 
+### 5.14 Les confettis et les thèmes
+
+Une monnaie, pour habiller son téléphone. Trente thèmes — Velours et
+Ivoire offerts, vingt-huit à acheter —, chacun ses couleurs, ses polices et
+son décor : le Cahier d'écolier et son Seyès, la Licorne irisée, la Neige
+qui tombe, le Grand théâtre et ses rideaux. Ils ne changent rien au jeu
+(invariant 8).
+
+- **Une bonne réponse, un confetti.** Les QCM justes — « plusieurs » et
+  « ordre » en tout ou rien — et les estimations parmi les plus proches de
+  la salle, puisqu'une estimation n'est jamais « juste »
+  (`confettisDeSoiree`, `shared/themes.ts`) ; au quiz du jour, ses bonnes
+  réponses. « Qui dans la salle ? » n'entre pas au journal : il ne rapporte
+  rien. Pas les points : un multiplicateur × 3 payait trois fois plus ceux
+  qui étaient là ce soir-là, un téléphone lent perdait son bonus de
+  rapidité, et un barème retouché aurait changé la monnaie de tout le
+  monde. Pas l'expérience non plus : elle se relit au barème du jour.
+- **Seulement une soirée qui compte** (`soireeQuiCompte`) : seul devant son
+  quiz, on connaît les réponses, et deux cents questions lancées pour soi
+  auraient rempli la tirelire. La campagne en solo, plus tard, aura sa
+  règle.
+- **Dérivés, rétroactifs.** Rien ne s'écrit : le solde se relit à chaque
+  lecture — les relevés des soirées, les parties du quiz du jour, moins les
+  achats (`ProfileStore.boutiqueDe`). Tout ce qui a été joué avant la
+  boutique compte donc, et une soirée retirée de l'historique emporte ses
+  confettis. **Le solde peut passer sous zéro ; un achat ne se reprend
+  jamais** (`profile_achats`, le prix payé écrit avec).
+- **Les prix, à l'échelle de rareté de l'étagère** : Commune 150, Peu
+  commune 250, Rare 400, Épique 650, Légendaire 1 000 (`PRIX_DES_THEMES`).
+  Un habitué — une soirée par mois, le quiz du jour presque chaque jour —
+  en gagne quelque 200 par mois : son premier thème en trois semaines, un
+  Légendaire en cinq mois. À mesurer sur les vraies données, comme les
+  seuils des légendaires.
+- **Six thèmes de saison** ne sont en boutique que pendant leur période —
+  le Carnaval en février, la Plage l'été, les Cerisiers en avril, Halloween,
+  la Neige et le Feu d'artifice aux dates des légendaires de saison — et
+  se gardent toute l'année une fois achetés.
+- **Le thème suit la page, pas la personne.** Il habille le téléphone du
+  profil : la soirée, sa page, le quiz du jour. L'écran commun, l'éditeur et
+  les pages de l'animateur restent en Velours ou en Ivoire, même quand
+  l'animateur a acheté la Licorne ; l'invité sans profil joue en Velours.
+  Chaque thème est une feuille à part (`client/src/themes/<clé>.css`), ses
+  polices livrées avec l'application, chargée à la demande
+  (`client/src/themeJoueur.ts`) : un anonyme n'en télécharge aucune.
+- **Où on les voit.** Le solde sous l'expérience, en tête de la page du
+  profil ; « Mes thèmes », dans Apparence, juste après le fond de la
+  carte — la boutique repliée montre ce qu'on a, ce qu'une saison ne laisse
+  que quelques jours, puis un thème de chaque rareté ; dépliée, les trente,
+  par rareté. La fin de soirée dit ceux de ce soir, le solde et le prochain
+  thème visé ; la fin du quiz du jour, ceux de la partie.
+
 ---
 
 ## 6. Feuille de route
@@ -908,6 +959,8 @@ légendaires de saison (§ 5.4, idée 11) ; le laurier du vainqueur d'hier
 **Lot 8 — fait** : les avatars du savoir (§ 5.4 ter) — douze branches, une
 par catégorie, six portraits dessinés chacune, gagnés aux bonnes réponses ;
 « Mes avatars » rangé en trois familles.
+
+**Lot 9 — fait** : les confettis et les trente thèmes (§ 5.14).
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

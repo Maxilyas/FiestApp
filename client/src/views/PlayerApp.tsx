@@ -39,6 +39,7 @@ import { AttenteConnexion, BandeauCoupure, ConseilVeille } from '../components/L
 import { ATTENTE_MAX_DESSINS, attendus, chargerDessins, chargerDessinsAuPlus, sortesDesAvatars, useDessins } from '../components/medaillons'
 import { Lendemain } from '../components/Lendemain'
 import { useEcranAllume } from '../veille'
+import { porterTheme } from '../themeJoueur'
 import { useGardeRetour } from '../retour'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 
@@ -207,6 +208,13 @@ export function PlayerApp() {
       socket.off('connect', present)
     }
   }, [slug])
+
+  // Le thème de son profil habille le téléphone, une fois la soirée
+  // présentée : avant, on ne sait pas encore qui le tient, et le thème
+  // retenu au démarrage attend le verdict. Sans profil, Velours.
+  useEffect(() => {
+    if (presente) void porterTheme(profil?.theme)
+  }, [presente, profil?.theme])
 
   // L'expérience créditée en fin de quiz : le serveur renvoie le profil à
   // jour, et le niveau affiché sur ce téléphone monte pendant la fête — pas
