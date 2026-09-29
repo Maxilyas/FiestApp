@@ -12,7 +12,7 @@
       "duration": 20,
       "category": "Histoire",
       "source": "Wikipédia, « Guerre des émeus »",
-      "anecdote": "Des soldats armés de mitrailleuses n’ont pas réussi à abattre ces oiseaux rapides et dispersés : l’armée s’est retirée au bout de quelques semaines."
+      "anecdote": "Malgré leurs mitrailleuses, les soldats n’ont abattu qu’une fraction de ces oiseaux rapides et dispersés : après un premier repli le 8 novembre puis une seconde tentative, l’armée s’est retirée le 10 décembre 1932."
     },
     {
       "kind": "number",
@@ -32,7 +32,7 @@
       "duration": 30,
       "category": "Histoire",
       "source": "Wikipédia, « Guerre anglo-zanzibarite »",
-      "anecdote": "Le 27 août 1896, la Royal Navy bombarde le palais du sultan de Zanzibar. Il s’enfuit : tout est réglé en 38 minutes environ."
+      "anecdote": "Le 27 août 1896, la Royal Navy bombarde le palais du sultan Khalid, monté sur le trône sans l’accord des Britanniques. Il s’enfuit : tout est réglé en 38 à 45 minutes selon les sources."
     },
     {
       "kind": "choice",
@@ -42,7 +42,7 @@
       "duration": 25,
       "category": "Histoire",
       "source": "Wikipédia, « Victor Lustig »",
-      "anecdote": "Se faisant passer pour un haut fonctionnaire, il la présente comme un monument à démolir pour la ferraille. Le premier acheteur, trop honteux, n’a pas porté plainte : il a récidivé."
+      "anecdote": "Selon le récit le plus répandu, il se fait passer pour un haut fonctionnaire et la présente comme un monument à démolir pour la ferraille. Le premier acheteur, trop honteux, n’a pas porté plainte : il a récidivé."
     },
     {
       "kind": "choice",
@@ -52,7 +52,7 @@
       "duration": 20,
       "category": "Histoire",
       "source": "Wikipédia, « Mammouth laineux »",
-      "anecdote": "Sur l’île Wrangel, en Sibérie, une dernière population a survécu jusque vers 2000 av. J.-C. : la pyramide de Khéops existait déjà depuis plusieurs siècles."
+      "anecdote": "Sur l’île Wrangel, dans l’Arctique russe, une dernière population a survécu jusque vers 2000 av. J.-C. : la pyramide de Khéops (vers 2560 av. J.-C.) existait déjà depuis environ cinq siècles."
     },
     {
       "kind": "choice",
@@ -66,12 +66,12 @@
     },
     {
       "kind": "choice",
-      "text": "Combien de jours ont été rayés du calendrier lors du passage au calendrier grégorien ?",
+      "text": "Combien de jours ont été rayés du calendrier lors de l’adoption du calendrier grégorien en 1582 ?",
       "answers": ["5 jours", "10 jours", "15 jours", "20 jours"],
       "correct": 1,
       "duration": 25,
       "category": "Histoire",
-      "source": "Wikipédia, « Calendrier grégorien »",
+      "source": "Wikipédia, « Passage du calendrier julien au calendrier grégorien »",
       "anecdote": "En France, on s’est couché le 9 décembre 1582 et réveillé le 20 : dix jours ont disparu pour recaler le calendrier sur les saisons."
     },
     {
@@ -81,8 +81,8 @@
       "correct": 3,
       "duration": 20,
       "category": "Histoire",
-      "source": "Wikipédia, « Épidémie de danse de 1518 »",
-      "anecdote": "Une femme se met à danser en pleine rue en juillet 1518 ; en un mois, des dizaines d’habitants l’imitent, certains jusqu’à l’épuisement."
+      "source": "Wikipédia, « Épidémie dansante de 1518 »",
+      "anecdote": "Une femme se met à danser en pleine rue vers la mi-juillet 1518 ; en un mois, plusieurs centaines d’habitants l’imitent, certains jusqu’à l’épuisement."
     },
     {
       "kind": "choice",
@@ -93,7 +93,7 @@
       "duration": 40,
       "category": "Histoire",
       "source": "Wikipédia, « Université d’Oxford »",
-      "anecdote": "Vers 2560 av. J.-C., 69 av. J.-C., 1096 et 1325 : Oxford enseignait déjà depuis plus de deux siècles quand les Aztèques ont fondé leur capitale."
+      "anecdote": "Vers 2560 av. J.-C., vers 69 av. J.-C., 1096 et 1325 : Oxford enseignait déjà depuis plus de deux siècles quand les Aztèques ont fondé leur capitale."
     },
     {
       "kind": "number",
@@ -102,8 +102,8 @@
       "unit": "cm",
       "duration": 30,
       "category": "Histoire",
-      "source": "Wikipédia, « Napoléon Ier »",
-      "anecdote": "Environ 1,69 m à l’autopsie, la taille moyenne d’un Français de son temps. Le « petit caporal » est un mythe."
+      "source": "Fondation Napoléon, « La taille de Napoléon »",
+      "anecdote": "Environ 1,69 m à l’autopsie, un peu plus que la moyenne des Français de son temps (autour de 1,65 m). Sa réputation de petit homme est un mythe : « petit caporal » était un surnom affectueux de ses soldats."
     }
   ]
 }
