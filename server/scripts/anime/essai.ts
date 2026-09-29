@@ -169,14 +169,14 @@ const SUJETS: Sujet[] = [
       'distant crackling golden lightning in the upper right; a few tiny four-pointed golden stars. ' +
       'The attached anime illustration of the goddess is the character who will stand in front of it: match her lighting and the anime rendering, but do not draw her or any part of her. ' +
       'Painted anime background: soft gradients, luminous glow, crisp small details. The square canvas is filled edge to edge; no circle, frame, border, text or watermark.',
-    // Les zones du prototype (clipPath h13corps) — tout le haut, le flanc droit
-    // où volent la cape et le cimier — et le bouclier, que le prototype pose
-    // par-dessus l'anneau. Le buste, en bas à gauche du bouclier, reste coupé.
-    debord: [
-      [-40, -40, 180, 100],
-      [78, -40, 60, 126],
-      [66, 60, 44, 50],
-    ],
+    // Tout le haut du canevas, jusqu'aux épaules. Les zones du prototype
+    // (clipPath h13corps) laissaient aussi sortir le flanc droit et le
+    // bouclier : l'app Gemini y a peint une cape qui descend jusqu'au bas du
+    // canevas, et elle pendait sous l'anneau, coupée net au bord des
+    // rectangles. Le buste, le bouclier et la cape restent donc dans le
+    // disque ; ce qui sort — lance, foudre, ailes, cimier — s'estompe au
+    // bord de la zone au lieu d'y être tranché.
+    debord: [[-26, -26, 152, 90]],
     serre: [26, 16, 44],
   },
   {
@@ -347,8 +347,10 @@ async function recaler(srcRef, srcGen, n, bas) {
   const ref = await masque(srcRef, n), gen = await masque(srcGen, n)
   const identite = recouvrement(ref, gen, n, 1, 0, 0, bas)
   let mieux = { s: 1, dx: 0, dy: 0, score: identite }
-  // De 0,6 à 1,8 : une image rendue en 4:3, complétée en carré, arrive aux trois quarts de sa taille.
-  for (let s = 0.6; s <= 1.8001; s += 0.05)
+  // De 0,4 à 1,8 : l'app Gemini remplit le canevas (le Minotaure y revient
+  // une fois et demie plus grand que son croquis), et une image rendue en
+  // 4:3, complétée en carré, arrive aux trois quarts de sa taille.
+  for (let s = 0.4; s <= 1.8001; s += 0.05)
     for (let dx = -32; dx <= 32; dx += 4)
       for (let dy = -32; dy <= 32; dy += 4) {
         const q = recouvrement(ref, gen, n, s, dx, dy, bas)
@@ -664,13 +666,16 @@ function portraitAnime(r: Rendu): string {
     apres += `<circle cx="50" cy="50" r="47.5" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="0.9"/>`
   }
   if (ultime && sujet.debord) {
-    // Les zones de débord, moins le disque : un demi-point de recouvrement
-    // avec la découpe, sinon l'anticrénelage des deux laissait un fil au ras
-    // de l'anneau.
+    // Les zones de débord, floues : une image générée ne s'arrête pas où
+    // s'arrêtait le croquis, et un bord de zone net la tranchait en ligne
+    // droite. Moins le disque, net lui, avec un demi-point de recouvrement :
+    // sinon l'anticrénelage des deux découpes laissait un fil au ras de
+    // l'anneau.
     defs +=
-      `<mask id="${u}_dehors" ${grand} maskUnits="userSpaceOnUse">` +
+      `<filter id="${u}_fondu" ${grand} filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="4"/></filter>` +
+      `<mask id="${u}_dehors" ${grand} maskUnits="userSpaceOnUse"><g filter="url(#${u}_fondu)">` +
       sujet.debord.map(([x, y, l, h]) => `<rect x="${x}" y="${y}" width="${l}" height="${h}" fill="#fff"/>`).join('') +
-      `<circle cx="50" cy="50" r="${rayon - 0.5}" fill="#000"/></mask>`
+      `</g><circle cx="50" cy="50" r="${rayon - 0.5}" fill="#000"/></mask>`
     apres += `<g mask="url(#${u}_dehors)">${r.verrouille ? silhouette : perso}</g>`
   }
   const titre = r.verrouille ? `${sujet.nom} — pas encore gagné` : sujet.nom
