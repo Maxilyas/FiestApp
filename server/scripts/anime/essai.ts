@@ -10,6 +10,13 @@
 //   NODE_USE_ENV_PROXY=1 npx tsx scripts/anime/essai.ts [dossier]
 //   npx tsx scripts/anime/essai.ts [dossier] --doublure      # sans un appel
 //   … --regenerer                                            # repayer les images
+//   … --source="app Gemini, Nano Banana Pro"                 # des images faites ailleurs
+//
+// Des images générées hors du script — dans l'app Gemini, dont l'offre
+// gratuite en donne quelques-unes par jour quand l'API n'en donne aucune —
+// se posent dans le dossier sous brut-athena, brut-decor-athena et
+// brut-minotaure (.png ou .jpg) : le script les garde comme les siennes, et
+// les consignes à leur donner sont les fichiers consigne-*.txt qu'il écrit.
 //
 // Dossier par défaut : ../export/essai-anime (hors du dépôt). La clé est lue
 // dans GEMINI_API_KEY ; le modèle dans MODELE (Nano Banana Pro par défaut,
@@ -57,6 +64,8 @@ const DOUBLURE = args.includes('--doublure')
 const REGENERER = args.includes('--regenerer')
 const sortie = path.resolve(args.find(a => !a.startsWith('--')) ?? '../export/essai-anime')
 const MODELE = process.env.MODELE ?? 'gemini-3-pro-image'
+/** D'où viennent les images, quand ce n'est pas le script qui les a demandées. */
+const SOURCE = args.find(a => a.startsWith('--source='))?.slice('--source='.length)
 const TAILLE = process.env.TAILLE ?? '2K'
 mkdirSync(sortie, { recursive: true })
 
@@ -80,8 +89,10 @@ const FOND_VERT =
   'no floor, no cast shadow, no glow or light spilling onto it, no vignette. Draw no circle, ring, disc, frame, border, text, signature or watermark. ' +
   'Do not use any green on the character, clothing or effects.'
 
+// Les images jointes se désignent par ce qu'elles montrent, jamais par leur
+// rang : dans l'app Gemini, on les joint à la main, dans l'ordre qu'on veut.
 const COMPOSITION =
-  'The first attached image is a flat vector sketch of this exact avatar on the same green background. Keep its composition exactly: ' +
+  'The attached image with a flat green background is a flat vector sketch of this exact avatar. Keep its composition exactly: ' +
   'same pose, same position and size on the canvas, same framing and crop, same elements, same main colors. ' +
   'Redraw it with far more detail as an anime illustration — do not add or remove major elements, do not zoom in or out, do not move the character.'
 
@@ -91,7 +102,11 @@ const DEBORD =
   '(spearhead, lightning, wings, helmet crest, cape) are meant to burst out of that frame: keep them exactly where they are, at full size.'
 
 const ETALON =
-  'The second attached image is the approved art style of the series: match its line work, shading, rendering and level of finish — not its character, pose or colors.'
+  'The other attached image — an anime illustration of another character of the same series — is the approved art style: ' +
+  'match its line work, shading, rendering and level of finish, not its character, pose or colors.'
+
+/** L'API reçoit le format dans sa requête ; l'app Gemini ne le lit que dans la consigne. */
+const SORTIE = 'Output one square image (1:1 aspect ratio).'
 
 /** Ce que chaque palier ajoute, de l'échelle de l'artifact : ici, le premier et le dernier. */
 const PALIERS = {
@@ -149,10 +164,10 @@ const SUJETS: Sujet[] = [
     fond: ['#5468d8', '#1d2680', '#070b2c'],
     decorPeint:
       'Paint only the background plate of this avatar — no character, no person, no weapon, no animal, nothing in the foreground. ' +
-      'The first attached image is its flat vector sketch: keep the same colors and layout. A stormy night sky in deep royal blue fading to navy at the edges; ' +
+      'The attached blue sketch is its flat vector version: keep the same colors and layout. A stormy night sky in deep royal blue fading to navy at the edges; ' +
       'a warm golden glory of light where the goddess’s head will be (upper center, slightly left); fine golden light rays radiating from it; ' +
       'distant crackling golden lightning in the upper right; a few tiny four-pointed golden stars. ' +
-      'The second attached image is the character who will stand in front of it: match her lighting and the anime rendering, but do not draw her or any part of her. ' +
+      'The attached anime illustration of the goddess is the character who will stand in front of it: match her lighting and the anime rendering, but do not draw her or any part of her. ' +
       'Painted anime background: soft gradients, luminous glow, crisp small details. The square canvas is filled edge to edge; no circle, frame, border, text or watermark.',
     // Les zones du prototype (clipPath h13corps) — tout le haut, le flanc droit
     // où volent la cape et le cimier — et le bouclier, que le prototype pose
@@ -285,10 +300,15 @@ async function detourer(src, cote) {
     d[k] = borne(R); d[k + 1] = borne(G); d[k + 2] = borne(B); d[k + 3] = borne(a * 255)
   }
   x.putImageData(donnees, 0, 0)
+  // Une image qui n'est pas carrée (l'app Gemini choisit parfois son
+  // format) se complète en carré, centrée sur du transparent : étirée, elle
+  // déformait le personnage, et le recalage retrouve l'échelle de toute façon.
+  const m = Math.max(l, h), carre = toile(m, m)
+  carre.getContext('2d').drawImage(c, (m - l) / 2, (m - h) / 2)
   const petit = toile(cote, cote), px = petit.getContext('2d')
   px.imageSmoothingQuality = 'high'
-  px.drawImage(c, 0, 0, cote, cote)
-  return { plein: c.toDataURL('image/png'), reduit: petit.toDataURL('image/png'), fond: K, transparents: transparents / (l * h), taille: [l, h] }
+  px.drawImage(carre, 0, 0, cote, cote)
+  return { plein: carre.toDataURL('image/png'), reduit: petit.toDataURL('image/png'), fond: K, transparents: transparents / (l * h), taille: [l, h] }
 }
 
 async function masque(src, n) {
@@ -327,7 +347,8 @@ async function recaler(srcRef, srcGen, n, bas) {
   const ref = await masque(srcRef, n), gen = await masque(srcGen, n)
   const identite = recouvrement(ref, gen, n, 1, 0, 0, bas)
   let mieux = { s: 1, dx: 0, dy: 0, score: identite }
-  for (let s = 0.8; s <= 1.2501; s += 0.05)
+  // De 0,6 à 1,8 : une image rendue en 4:3, complétée en carré, arrive aux trois quarts de sa taille.
+  for (let s = 0.6; s <= 1.8001; s += 0.05)
     for (let dx = -32; dx <= 32; dx += 4)
       for (let dy = -32; dy <= 32; dy += 4) {
         const q = recouvrement(ref, gen, n, s, dx, dy, bas)
@@ -508,14 +529,14 @@ async function brut(nom: string, parties: () => Partie[], consigne: string, doub
 /** Génère ce qui manque ; rend le fichier du décor peint d'Athéna, que le cadre pose dans son disque. */
 async function generation(journal: Record<string, unknown>): Promise<string> {
   const consigne = (s: Sujet, etalon: boolean) =>
-    [STYLE, PALIERS[s.palier], s.sujet, COMPOSITION, s.debord ? DEBORD : '', etalon ? ETALON : '', FOND_VERT].filter(Boolean).join('\n\n')
+    [STYLE, PALIERS[s.palier], s.sujet, COMPOSITION, s.debord ? DEBORD : '', etalon ? ETALON : '', FOND_VERT, SORTIE].filter(Boolean).join('\n\n')
   // Athéna d'abord : la forme ultime fixe le style, le Minotaure le reçoit comme étalon.
   const athena = SUJETS[0]
   const perso = await brut('athena', () => [enPartie(fichier('reference-athena.png'))], consigne(athena, false), fichier('reference-athena.png'), journal)
   const decor = await brut(
     'decor-athena',
     () => [enPartie(fichier('reference-decor-athena.png')), enPartie(perso)],
-    [STYLE, athena.decorPeint].join('\n\n'),
+    [STYLE, athena.decorPeint, SORTIE].join('\n\n'),
     fichier('reference-decor-athena.png'),
     journal,
   )
@@ -602,7 +623,8 @@ function portraitAnime(r: Rendu): string {
   const p = r.perso
   const t = CANEVAS.cote * p.s
   let perso = `<image href="${p.href}" x="${n2(50 - (CANEVAS.cote / 2) * p.s + p.dx)}" y="${n2(50 - (CANEVAS.cote / 2) * p.s + p.dy)}" width="${n2(t)}" height="${n2(t)}" preserveAspectRatio="none"/>`
-  let decor = r.decor ? `<image href="${r.decor}" x="0" y="0" width="100" height="100" preserveAspectRatio="none"/>` : (sujet.decorSvg ?? '')
+  // Le décor couvre le carré du disque : pas carré, il se recadre au centre — seul le disque se voit.
+  let decor = r.decor ? `<image href="${r.decor}" x="0" y="0" width="100" height="100" preserveAspectRatio="xMidYMid slice"/>` : (sujet.decorSvg ?? '')
   if (r.serre) {
     // La fenêtre du visage remplit le disque, comme la viewBox du prototype.
     const [x, y, cote] = sujet.serre
@@ -731,7 +753,7 @@ function banc(calques: Record<string, Calque>, decorAthena: string, journal: Rec
   </style>
   <h1>Essai de style anime · les portraits des branches</h1>
   <p class="sous">Option A : les mêmes sujets, les mêmes seuils. Les deux bouts de l’échelle, dans le cadre de l’application : disque, cercle de finition, débord, silhouette à gagner, 320, 44 et 26 px.
-  ${DOUBLURE ? '' : ` Modèle : ${MODELE}, ${TAILLE}.`}</p>${doublure}
+  ${DOUBLURE ? '' : ` Images : ${SOURCE ?? `${MODELE}, ${TAILLE}`}.`}</p>${doublure}
   ${sections}</html>`
   writeFileSync(fichier('banc.html'), html)
   writeFileSync(fichier('journal.json'), JSON.stringify(journal, null, 2) + '\n')
