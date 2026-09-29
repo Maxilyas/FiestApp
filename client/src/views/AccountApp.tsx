@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { chargerDessinsAuPlus, sortesDe } from '../components/medaillons'
+import { chargerDessinsAuPlus, sortesDesAvatars } from '../components/medaillons'
 import { api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
 import { NavAnimateur } from '../components/NavAnimateur'
@@ -32,10 +32,11 @@ export function AccountApp() {
     api.auth
       .me()
       // Un profil rattaché qui porte un médaillon l'attend sous le
-      // « Chargement… » : son emoji ne précède pas son dessin — deux secondes
-      // et demie au plus, une requête muette n'y garde personne.
+      // « Chargement… » : son emoji ne précède pas son dessin, ni sa finition
+      // sa lumière — deux secondes et demie au plus, une requête muette n'y
+      // garde personne.
       .then(async m => {
-        await chargerDessinsAuPlus(sortesDe([m.profil?.legendaire]))
+        await chargerDessinsAuPlus(sortesDesAvatars(m.profil ? [m.profil] : []))
         setMe(m)
       })
       .catch(e => {
