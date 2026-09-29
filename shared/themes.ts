@@ -218,7 +218,12 @@ export interface BoutiqueDuProfil {
   confettis: SoldeDeConfettis
   /** Les thèmes qu'il a — les offerts compris —, dans l'ordre du catalogue. */
   possedes: string[]
-  /** Le thème qu'il porte ; null : Velours. */
+  /**
+   * Le thème qu'il portait quand la boutique a été lue ; null : Velours. La
+   * page, elle, suit `PublicProfile.theme`, que chaque enregistrement rend à
+   * jour : lue ici, la boutique croyait encore Velours porté après Ivoire, et
+   * toucher Velours ne faisait plus rien jusqu'au rechargement.
+   */
   porte: string | null
   /** Le jour de la boutique (Paris) : les thèmes de saison se lisent dessus. */
   jour: string
