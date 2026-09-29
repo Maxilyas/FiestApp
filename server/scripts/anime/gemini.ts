@@ -84,15 +84,94 @@ export async function generer(parties: Partie[], { modele, taille }: { modele: s
   }
 }
 
+// ── Les lots ──────────────────────────────────────────────────────────────
+// Un lot part d'un coup et revient quand Google l'a traité — des minutes,
+// parfois des heures —, pour la moitié du prix : ce qui compte quand les
+// soixante-douze portraits tiennent dans vingt euros.
+
+export interface Demande {
+  /** Ce qui retrouve la réponse : les lots ne gardent pas l'ordre. */
+  cle: string
+  parties: Partie[]
+}
+
+const API = 'https://generativelanguage.googleapis.com/v1beta'
+
+async function appel(url: string, init: RequestInit = {}): Promise<any> {
+  const cle = process.env.GEMINI_API_KEY
+  if (!cle) throw new Error('GEMINI_API_KEY manque : la clé de l’API Gemini.')
+  let rep: Response
+  try {
+    rep = await fetch(url, { ...init, headers: { 'x-goog-api-key': cle, 'content-type': 'application/json', ...(init.headers ?? {}) } })
+  } catch (e) {
+    const proxy = process.env.HTTPS_PROXY && process.env.NODE_USE_ENV_PROXY !== '1'
+    throw new Error(proxy ? 'Appel impossible : derrière un proxy, relance avec NODE_USE_ENV_PROXY=1.' : `Appel impossible : ${(e as Error).message}`)
+  }
+  const texte = await rep.text()
+  if (!rep.ok) throw new Error(`HTTP ${rep.status} — ${texte.slice(0, 600)}`)
+  return JSON.parse(texte)
+}
+
+/** Envoie un lot ; rend son nom (`batches/…`), qu'on relit ensuite. */
+export async function lancerLot(demandes: Demande[], { modele, taille, nom }: { modele: string; taille: string; nom: string }): Promise<string> {
+  const requests = demandes.map(d => ({
+    request: {
+      contents: [{ role: 'user', parts: d.parties }],
+      generationConfig: { responseModalities: ['TEXT', 'IMAGE'], imageConfig: { aspectRatio: '1:1', ...(taille ? { imageSize: taille } : {}) } },
+    },
+    metadata: { key: d.cle },
+  }))
+  const r = await appel(`${API}/models/${modele}:batchGenerateContent`, {
+    method: 'POST',
+    body: JSON.stringify({ batch: { displayName: nom, inputConfig: { requests: { requests } } } }),
+  })
+  if (!r.name) throw new Error(`Lot refusé : ${JSON.stringify(r).slice(0, 600)}`)
+  return r.name
+}
+
+export interface EtatDuLot {
+  etat: string
+  fini: boolean
+  /** Par clé : l'image rendue, ou la raison de son absence. */
+  resultats: Map<string, Rendu | string>
+}
+
+/** Relit un lot : son état, et ses images une fois fini. */
+export async function lireLot(nom: string): Promise<EtatDuLot> {
+  const r = await appel(`${API}/${nom}`)
+  const etat: string = r.metadata?.state ?? r.state ?? 'inconnu'
+  const resultats = new Map<string, Rendu | string>()
+  // La réponse range ses résultats selon la version de l'API : on les cherche aux deux places connues.
+  const lignes: any[] =
+    r.response?.inlinedResponses?.inlinedResponses ?? r.metadata?.output?.inlinedResponses?.inlinedResponses ?? r.response?.inlinedResponses ?? []
+  for (const l of lignes) {
+    const cle = l.metadata?.key ?? '?'
+    if (l.error) {
+      resultats.set(cle, `erreur ${l.error.code ?? ''} ${l.error.message ?? ''}`.trim())
+      continue
+    }
+    const parties: any[] = (l.response?.candidates ?? []).flatMap((c: any) => c.content?.parts ?? [])
+    const image = parties.filter(p => p.inlineData && !p.thought).at(-1)?.inlineData
+    if (!image) {
+      const raison = l.response?.candidates?.[0]?.finishReason ?? l.response?.promptFeedback?.blockReason ?? 'aucune image'
+      resultats.set(cle, String(raison))
+      continue
+    }
+    resultats.set(cle, { image: Buffer.from(image.data, 'base64'), mime: image.mimeType, jetons: l.response?.usageMetadata, secondes: 0 })
+  }
+  return { etat, fini: r.done === true || /SUCCEEDED|FAILED|CANCELLED|EXPIRED/.test(etat), resultats }
+}
+
 /**
  * Ce qu'un appel a coûté, en dollars, à partir de ses jetons. Les tarifs sont
  * ceux qu'on connaissait de Nano Banana Pro (entrée 2 $, texte et pensée
  * 12 $, image 120 $ le million de jetons) : une estimation pour tenir un
- * budget, pas une facture — la page des prix de Google fait foi.
+ * budget, pas une facture — la page des prix de Google fait foi. Un lot
+ * coûte la moitié.
  */
-export function coutEstime(jetons: any): number {
+export function coutEstime(jetons: any, { lot = false }: { lot?: boolean } = {}): number {
   if (!jetons) return 0
   const images = (jetons.candidatesTokensDetails ?? []).filter((d: any) => d.modality === 'IMAGE').reduce((n: number, d: any) => n + (d.tokenCount ?? 0), 0)
   const sortie = (jetons.candidatesTokenCount ?? 0) - images + (jetons.thoughtsTokenCount ?? 0)
-  return ((jetons.promptTokenCount ?? 0) * 2 + sortie * 12 + images * 120) / 1e6
+  return (((jetons.promptTokenCount ?? 0) * 2 + sortie * 12 + images * 120) / 1e6) * (lot ? 0.5 : 1)
 }

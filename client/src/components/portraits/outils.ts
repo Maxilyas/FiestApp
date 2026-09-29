@@ -14,7 +14,11 @@
  * la découpe, la silhouette, le cercle de la finition).
  */
 export interface DessinDePortrait {
-  /** Le disque, du centre (en haut) vers le bord : clair, moyen, sombre. */
+  /**
+   * Le disque, du centre (en haut) vers le bord : clair, moyen, sombre.
+   * Sous une image, il la remplace le temps qu'elle arrive, et c'est le
+   * disque du premier palier, qui n'a pas de décor.
+   */
   fond: [string, string, string]
   /** Ses dégradés, en éléments `<linearGradient>`, `<radialGradient>`… sans `<defs>`. */
   defs?: (u: string) => string
@@ -24,7 +28,29 @@ export interface DessinDePortrait {
    */
   decor?: (u: string) => string
   /** Le personnage, épaules comprises : verrouillé, c'est sa forme qui se voit, en or. */
-  corps: (u: string) => string
+  corps?: (u: string) => string
+  /** Le portrait peint : il remplace le dessin (`decor`, `corps`). */
+  image?: ImageDePortrait
+}
+
+/**
+ * Un portrait peint (`server/scripts/anime/portraits.ts`) : des fichiers
+ * WebP servis sous `/portraits/`, chacun en deux tailles — `[grande,
+ * petite]`, 512 et 256 pixels pour les 100 unités du disque —, la petite
+ * pour les listes, la grande pour ce qu'on regarde.
+ */
+export interface ImageDePortrait {
+  /**
+   * L'illustration, le personnage dans son décor, sur le carré 0 → 100 que
+   * le disque découpe. Absente au premier palier : le visage n'a pas de
+   * décor, le disque teinté de la branche le reçoit.
+   */
+  disque?: [string, string]
+  /**
+   * Le personnage seul, détouré — sa forme fait la silhouette, et c'est lui
+   * qui sort du disque aux deux derniers paliers —, dans son cadre.
+   */
+  perso: [string, string]
 }
 
 /** Un dégradé linéaire, du haut vers le bas par défaut. */

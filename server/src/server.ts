@@ -836,6 +836,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
     // ainsi dire jamais : un mois de cache, et cinquante téléphones ne les
     // redemandent pas à chaque ouverture.
     app.use('/fonts', express.static(path.join(clientDist, 'fonts'), { maxAge: '30d', fallthrough: false }))
+    // Les portraits peints des branches portent leur empreinte dans leur nom
+    // (`server/scripts/anime/livrer.ts`) : un an, comme le paquet. Une salle
+    // où vingt invités portent le même en fait une seule requête chacun, une
+    // fois pour toutes.
+    app.use('/portraits', express.static(path.join(clientDist, 'portraits'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // La page d'accueil est lue une fois et gardée en mémoire — elle ne change
     // pas d'un déploiement à l'autre. Hors production, on y glisse le nom de
     // l'environnement : c'est le seul endroit qui atteint TOUTES les pages,

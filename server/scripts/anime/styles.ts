@@ -7,11 +7,12 @@
 //   NODE_USE_ENV_PROXY=1 npx tsx scripts/anime/styles.ts [branche…]
 //   … --references        # les références et la planche, sans un appel
 //   … --regenerer         # repayer les images des branches nommées
+//   … --lot               # à moitié prix, rendu quand Google l'a fait
 //
 // Sans branche nommée, toutes celles qui n'ont pas encore leur image. Une
-// image payée n'est jamais redemandée sans --regenerer. Les mythologies ne
-// se génèrent pas : leur style est validé par essai.ts, et la planche
-// reprend son Athéna, décor et personnage recomposés.
+// image payée n'est jamais redemandée sans --regenerer. Les consignes vivent
+// dans consignes.ts ; Athéna prend pour référence le prototype de l'artifact
+// (athena-croquis.svg), qui a déjà la pose de la forme ultime.
 //
 // Le test ne sépare pas le personnage de son fond (un appel par branche au
 // lieu de deux) : ni débord ni silhouette ici, c'est le style qu'on juge.
@@ -22,7 +23,8 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import React from 'react'
-import { coutEstime, enPartie, formatDe, generer } from './gemini'
+import { STYLES } from './consignes'
+import { coutEstime, enPartie, formatDe, generer, lancerLot, lireLot, type Demande, type Rendu } from './gemini'
 
 Object.assign(globalThis, { React })
 const { renderToStaticMarkup } = await import('react-dom/server')
@@ -34,9 +36,11 @@ for (const b of BRANCHES) await duClient(`components/portraits/${b.key}.ts`)
 const args = process.argv.slice(2)
 const REFERENCES = args.includes('--references')
 const REGENERER = args.includes('--regenerer')
+/** À moitié prix, mais Google rend le lot quand il l'a fait : on l'attend au plus ATTENTE secondes. */
+const LOT = args.includes('--lot')
+const ATTENTE = Number(process.env.ATTENTE ?? 900)
 const voulues = args.filter(a => !a.startsWith('--'))
 const sortie = path.resolve('../export/styles')
-const ESSAI = path.resolve('../export/essai-anime')
 const MODELE = process.env.MODELE ?? 'gemini-3-pro-image'
 // 1K : le disque de 320 px, à trois pixels par point, en demande 960.
 const TAILLE = process.env.TAILLE ?? '1K'
@@ -66,114 +70,6 @@ const REFERENCE =
   'The attached image is the current flat vector avatar of this subject: use it only to know who the subject is, its colors and its props. ' +
   'Change the pose, the framing and the rendering freely.'
 
-interface Style {
-  /** Le style, tel qu'on le dit à l'utilisateur. */
-  nom: string
-  style: string
-  sujet: string
-}
-
-const STYLES: Record<string, Style> = {
-  monde: {
-    nom: 'L’affiche de voyage des années 30',
-    style:
-      'Style: a 1930s travel poster printed in lithography — flat color planes, a limited palette of six inks plus a metallic gold ink, visible paper grain ' +
-      'and slight ink misregistration, bold simplified shapes, a radiating sun and a stylized landscape.',
-    sujet:
-      'Subject: the red panda, as the mascot of the Himalayas: standing proudly on a mossy branch above misty mountains and a valley of pagoda roofs at sunrise, ' +
-      'its bushy ringed tail curling around it, its round face with white markings, one paw raised to greet the traveler; golden sun rays burst behind it.',
-  },
-  oceans: {
-    nom: 'L’estampe japonaise',
-    style:
-      'Style: a Japanese ukiyo-e woodblock print — bold confident outlines, flat colors with soft bokashi gradients, Prussian blue and indigo, ' +
-      'stylized curling waves with claw-like foam, visible washi paper texture and wood grain, a hint of sparkling mica powder.',
-    sujet:
-      'Subject: the narwhal, bursting out of a towering curling wave, its long spiral tusk glowing and pointing to the sky, water spiraling around it, ' +
-      'bioluminescent plankton sparkling like stars in the spray, a full moon behind.',
-  },
-  espace: {
-    nom: 'La SF pulp des années 50',
-    style:
-      'Style: a 1950s pulp science-fiction paperback cover painted in gouache — bold saturated colors (cobalt, teal, tangerine, lemon yellow), glossy chrome highlights, ' +
-      'dramatic rim lighting, a subtle halftone print texture and aged paper grain, retro-futurist design.',
-    sujet:
-      'Subject: the astronaut, in a rounded retro spacesuit with a big glass bubble helmet reflecting the Earth, launched through space with one arm outstretched, ' +
-      'a jetpack at full thrust leaving a glowing plasma trail, ringed planets and stars behind.',
-  },
-  foret: {
-    nom: 'Le papier découpé',
-    style:
-      'Style: a layered paper-cut diorama — the whole image is built from cut paper sheets stacked in depth, each layer a flat color with clean cut edges ' +
-      'and soft drop shadows between layers, a subtle paper fiber texture, warm light glowing through the gaps, forest greens, moss, amber and cream.',
-    sujet:
-      'Subject: the stag, standing tall in a deep forest clearing, its huge antlers sprouting glowing leaves and blossoms, head raised in a mighty bellow, ' +
-      'a storm of paper leaves swirling around it, sunbeams piercing the layered trees.',
-  },
-  ecran: {
-    nom: 'L’affiche de cinéma en Technicolor',
-    style:
-      'Style: a hand-painted classic Hollywood movie poster in saturated three-strip color film hues (deep red, gold, teal) — glamorous and cinematic, ' +
-      'dramatic spotlight lighting, soft painterly brushwork, film grain.',
-    sujet:
-      'Subject: the movie star, caught mid-leap in slow motion under a blazing spotlight, film reel ribbons unfurling around her, a lens flare, ' +
-      'sequins sparkling, camera flashes blurred in the dark behind.',
-  },
-  scene: {
-    nom: 'Le pop art',
-    style:
-      'Style: 1960s pop art — bold black outlines, flat primary colors (red, yellow, cyan, magenta), Ben-Day halftone dots, graphic comic-book shading, high contrast.',
-    sujet:
-      'Subject: the orchestra conductor, both arms raised high, the baton at the end of a sweeping gesture, tailcoat flaring, hair flying, ' +
-      'a storm of musical notes and sound waves bursting from the baton, stage lights behind.',
-  },
-  contes: {
-    nom: 'Le livre de contes, plume et aquarelle',
-    style:
-      'Style: a golden-age children’s storybook illustration — delicate pen-and-ink linework with warm watercolor washes, soft paper texture, ' +
-      'whimsical and magical, with firm ink outlines on the main shapes so it stays readable.',
-    sujet:
-      'Subject: the griffin — eagle head and wings, lion body — diving from the sky with its wings spread wide, feathers turning into flying book pages, ' +
-      'ink splashing like stars, a fairytale castle and rolling hills far below.',
-  },
-  stade: {
-    nom: 'Le low poly',
-    style:
-      'Style: low-poly 3D art — the subject and the scene are made of crisp geometric facets, each facet a flat color with a subtle gradient, clean sharp edges, ' +
-      'a vivid palette, dynamic motion trails made of triangles, soft studio lighting.',
-    sujet:
-      'Subject: the prima ballerina, suspended mid grand jeté with her legs in a full split, arms elegantly extended, tutu flaring, ' +
-      'ribbons of stars trailing behind her movement, under a stage spotlight.',
-  },
-  brigade: {
-    nom: 'La pâte à modeler',
-    style:
-      'Style: claymation — everything is sculpted from modeling clay with visible fingerprints and tool marks, soft rounded shapes, slightly glossy surfaces, ' +
-      'warm studio lighting with soft shadows, the feel of a miniature stop-motion set.',
-    sujet:
-      'Subject: the chef, a jolly cook in a tall white toque flipping a pan high, a dragon made of clay flames rising from the pan, ' +
-      'knives and vegetables flying in the air, a cozy kitchen set behind.',
-  },
-  arcade: {
-    nom: 'Le pixel art',
-    style:
-      'Style: high-definition pixel art — a crisp pixel grid with no anti-aliasing, a limited but rich palette, dynamic lighting and glowing effects rendered ' +
-      'with pixel shading and dithering, like the hero portrait of a modern pixel-art game.',
-    sujet:
-      'Subject: the knight, leaning forward with his hand on the hilt, the instant before drawing his sword, crackling lightning around him, eyes glowing ' +
-      'under the helmet visor, a cape billowing, scattered pixel sparks.',
-  },
-  carnaval: {
-    nom: 'L’art déco',
-    style:
-      'Style: Art Deco — elegant geometric design in black, ivory and metallic gold with jewel-tone accents (emerald, ruby), sunburst rays, ' +
-      'stepped patterns and fan shapes, sleek stylized figures, the glamour of a 1920s party.',
-    sujet:
-      'Subject: the Venetian mask, worn by a masked dancer in a mid-spin volte, rapier extended, cape spread wide, the ornate feathered Venetian mask ' +
-      'shining in gold, confetti and fireworks bursting behind.',
-  },
-}
-
 // ── Les outils ────────────────────────────────────────────────────────────
 
 function chargerPlaywright(): any {
@@ -188,41 +84,18 @@ const enDataUrl = (f: string) => {
   return `data:${formatDe(b).mime};base64,${b.toString('base64')}`
 }
 
-/** La référence d'une branche : sa forme ultime d'aujourd'hui, par le vrai composant. */
+/**
+ * La référence d'une branche : sa forme ultime d'aujourd'hui, par le vrai
+ * composant — sauf Athéna, dont le prototype de l'artifact a déjà la pose
+ * de la forme ultime.
+ */
 async function reference(page: any, cle: string, cible: string) {
-  const svg = renderToStaticMarkup(React.createElement(Portrait, { cle }))
+  const svg =
+    cle === 'br:athena'
+      ? readFileSync(new URL('./athena-croquis.svg', import.meta.url), 'utf8').replace(/<!--[\s\S]*?-->/, '')
+      : renderToStaticMarkup(React.createElement(Portrait, { cle }))
   await page.setContent(`<!doctype html><body style="margin:0"><div style="width:1024px;height:1024px">${svg.replace('<svg ', '<svg width="100%" height="100%" ')}</div></body>`)
   await page.screenshot({ path: cible, omitBackground: true, clip: { x: 0, y: 0, width: 1024, height: 1024 } })
-}
-
-/**
- * Athéna, recomposée en une image carrée : son décor peint, puis son
- * personnage détouré et recalé (essai.ts), le carré du disque seulement.
- */
-async function athena(page: any, cible: string): Promise<boolean> {
-  const decor = ['jpg', 'png'].map(e => path.join(ESSAI, `brut-decor-athena.${e}`)).find(f => existsSync(f))
-  const perso = path.join(ESSAI, 'detoure-athena-1024.png')
-  const journal = path.join(ESSAI, 'journal.json')
-  if (!decor || !existsSync(perso) || !existsSync(journal)) return false
-  const r = JSON.parse(readFileSync(journal, 'utf8'))['recalage-athena'] ?? { s: 1, dx: 0, dy: 0 }
-  // En chaîne : tsx nomme les fonctions déclarées dans un `evaluate`, et
-  // Chromium ne connaît pas l'aide qu'il y glisse (`__name`).
-  const code = `(async ([d, p, s, dx, dy]) => {
-    const [decor, perso] = await Promise.all([d, p].map(src => new Promise((ok, ko) => {
-      const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = src
-    })))
-    const c = document.createElement('canvas')
-    c.width = c.height = 1024
-    const x = c.getContext('2d')
-    x.drawImage(decor, 0, 0, 1024, 1024)
-    // Le canevas du personnage couvre −30 → 130 ; le carré rendu, 0 → 100.
-    const k = 1024 / 100
-    x.drawImage(perso, (50 - 80 * s + dx) * k, (50 - 80 * s + dy) * k, 160 * s * k, 160 * s * k)
-    return c.toDataURL('image/png')
-  })`
-  const png: string = await page.evaluate(`${code}(${JSON.stringify([enDataUrl(decor), enDataUrl(perso), r.s, r.dx, r.dy])})`)
-  writeFileSync(cible, Buffer.from(png.slice(png.indexOf(',') + 1), 'base64'))
-  return true
 }
 
 // ── Le cadre du sixième palier ────────────────────────────────────────────
@@ -249,7 +122,7 @@ function planche(journal: any[]) {
   const cartes = BRANCHES.map((b: any) => {
     const p = b.portraits[5]
     const image = existant(`style-${b.key}`)
-    const style = b.key === 'mythes' ? 'L’anime (validé)' : STYLES[b.key]?.nom
+    const style = STYLES[b.key]?.nom
     const ref = `<span class="boite" style="width:44px;height:44px">${renderToStaticMarkup(React.createElement(Portrait, { cle: p.key }))}</span>`
     const corps = image
       ? `<div class="grand"><span class="boite" style="width:250px;height:250px">${cadre(path.basename(image))}</span></div>
@@ -287,18 +160,28 @@ function planche(journal: any[]) {
 
 const cheminJournal = fichier('journal-styles.json')
 const journal: any[] = existsSync(cheminJournal) ? JSON.parse(readFileSync(cheminJournal, 'utf8')) : []
+
+/** Range une image payée, et son coût au journal — écrit à chaque image : une panne au milieu ne perd pas le compte. */
+function ranger(branche: string, r: Rendu, lot: boolean) {
+  writeFileSync(fichier(`style-${branche}.${formatDe(r.image).ext}`), r.image)
+  const cout = coutEstime(r.jetons, { lot })
+  journal.push({ branche, date: new Date().toISOString(), modele: MODELE, taille: TAILLE, lot, secondes: r.secondes, jetons: r.jetons, cout })
+  writeFileSync(cheminJournal, JSON.stringify(journal, null, 2) + '\n')
+  const total = journal.reduce((n, e) => n + (e.cout ?? 0), 0)
+  console.log(`${branche} : environ ${cout.toFixed(3)} $${lot ? ' (lot)' : ''} (total ${total.toFixed(2)} $)`)
+}
 const nav = await chromium.launch({ headless: true })
 try {
   const page = await nav.newPage({ viewport: { width: 1024, height: 1024 }, deviceScaleFactor: 1 })
   await page.setContent('<!doctype html><body style="margin:0"></body>')
-  if (await athena(page, fichier('style-mythes.png'))) console.log('mythes : Athéna recomposée')
-  const branches = BRANCHES.filter((b: any) => b.key !== 'mythes' && (voulues.length === 0 || voulues.includes(b.key)))
+  const branches = BRANCHES.filter((b: any) => voulues.length === 0 || voulues.includes(b.key))
+  const aFaire: Demande[] = []
   for (const b of branches) {
     const p = b.portraits[5]
     const ref = fichier(`reference-${b.key}.png`)
     await reference(page, p.key, ref)
     const s = STYLES[b.key]
-    const consigne = [COMMUN, ULTIME, REFERENCE, s.style, s.sujet].join('\n\n')
+    const consigne = [COMMUN, ULTIME, REFERENCE, s.style, s.ultime].join('\n\n')
     writeFileSync(fichier(`consigne-${b.key}.txt`), consigne + '\n')
     if (REFERENCES) continue
     const deja = existant(`style-${b.key}`)
@@ -306,15 +189,37 @@ try {
       console.log(`${b.key} : déjà généré, gardé (--regenerer pour le repayer)`)
       continue
     }
+    if (LOT) {
+      aFaire.push({ cle: b.key, parties: [enPartie(ref), { text: consigne }] })
+      continue
+    }
     console.log(`${b.key} : ${s.nom}, ${MODELE} ${TAILLE}…`)
-    const r = await generer([enPartie(ref), { text: consigne }], { modele: MODELE, taille: TAILLE })
-    writeFileSync(fichier(`style-${b.key}.${formatDe(r.image).ext}`), r.image)
-    const cout = coutEstime(r.jetons)
-    journal.push({ branche: b.key, date: new Date().toISOString(), modele: MODELE, taille: TAILLE, secondes: r.secondes, jetons: r.jetons, cout })
-    // Écrit à chaque image : une panne au milieu ne perd pas le compte de ce qui a été payé.
-    writeFileSync(cheminJournal, JSON.stringify(journal, null, 2) + '\n')
-    const total = journal.reduce((n, e) => n + (e.cout ?? 0), 0)
-    console.log(`${b.key} : ${r.secondes.toFixed(0)} s, environ ${cout.toFixed(3)} $ (total ${total.toFixed(2)} $)`)
+    ranger(b.key, await generer([enPartie(ref), { text: consigne }], { modele: MODELE, taille: TAILLE }), false)
+  }
+  if (aFaire.length) {
+    // Un lot à moitié prix : on l'attend ici, et un lot qui tarde se reprend
+    // par son nom au lancement suivant (lots-en-cours.json).
+    const cheminLots = fichier('lots-en-cours.json')
+    const enCours = existsSync(cheminLots) ? readFileSync(cheminLots, 'utf8').trim() : ''
+    const nom = enCours ? JSON.parse(enCours).nom : await lancerLot(aFaire, { modele: MODELE, taille: TAILLE, nom: 'fiestapp-styles' })
+    writeFileSync(cheminLots, JSON.stringify({ nom, cles: aFaire.map(d => d.cle) }) + '\n')
+    console.log(`lot ${nom} : ${aFaire.length} image(s), en attente…`)
+    const t0 = Date.now()
+    for (;;) {
+      const l = await lireLot(nom)
+      if (l.fini) {
+        console.log(`lot ${nom} : ${l.etat} en ${((Date.now() - t0) / 1000).toFixed(0)} s`)
+        for (const [cle, r] of l.resultats) typeof r === 'string' ? console.log(`${cle} : ${r}`) : ranger(cle, r, true)
+        writeFileSync(cheminLots + '.fini', readFileSync(cheminLots))
+        writeFileSync(cheminLots, '')
+        break
+      }
+      if (Date.now() - t0 > ATTENTE * 1000) {
+        console.log(`lot ${nom} : ${l.etat} après ${ATTENTE} s ; relance plus tard pour le reprendre.`)
+        break
+      }
+      await new Promise(ok => setTimeout(ok, 15_000))
+    }
   }
   await page.close()
   planche(journal)

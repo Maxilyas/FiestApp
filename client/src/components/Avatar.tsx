@@ -119,7 +119,8 @@ export function Dessin({ cle, verrouille }: { cle: string; verrouille?: boolean 
   const dessins = useDessins(...sortesDe([cle]))
   const { Legendaire, Divin, Portrait } = dessins
   if (divin && Divin) return <Divin cle={cle} verrouille={verrouille} />
-  if (portrait && Portrait && dessinDuPortrait(dessins, cle)) return <Portrait cle={cle} verrouille={verrouille} />
+  // Seul, un médaillon se regarde : un portrait peint y prend ses grands fichiers.
+  if (portrait && Portrait && dessinDuPortrait(dessins, cle)) return <Portrait cle={cle} verrouille={verrouille} grand />
   if (!divin && !portrait && Legendaire) return <Legendaire cle={cle} verrouille={verrouille} />
   return <span className={divin ? 'dv' : portrait ? 'pt' : 'lg'} aria-hidden="true" />
 }
