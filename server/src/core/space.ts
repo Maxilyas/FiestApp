@@ -45,6 +45,8 @@ import type { LancementDeQuiz } from '../../../shared/games/quiz'
 import type { ArchiveList, ArchiveSummary, DerniereSoiree } from '../../../shared/archive'
 import { defaultSettings, type PublicSpace } from '../../../shared/space'
 import { questionsDesEquipes, teamScores } from '../../../shared/teams'
+import { confettisDeSoiree } from '../../../shared/themes'
+import { jourDe } from '../../../shared/jour'
 
 export interface SpaceDeps {
   db: DB
@@ -69,7 +71,7 @@ export interface SpaceDeps {
    */
   cloturesEnCours: Set<string>
   /** Le quiz du jour, pour ce qu'en montrent la carte d'un joueur (sa ligne, ses écussons) et sa fin de soirée (sa série). Absent, elles s'en passent. */
-  jour?: Pick<JourStore, 'resumeDe' | 'categoriesDe' | 'pontDuJour'>
+  jour?: Pick<JourStore, 'resumeDe' | 'categoriesDe' | 'pontDuJour' | 'aujourdhui'>
 }
 
 /**
@@ -1516,6 +1518,19 @@ export class SpaceRuntime {
         console.error('[cloture] portraits non relus :', e)
         return []
       })
+      // Ses confettis de ce soir, son solde et le thème qu'il vise. Une
+      // soirée qui n'en rapporte aucun — jouée seul — n'en dit rien, et une
+      // base qui se tait ôte la ligne, pas la fin.
+      const gagnes = confettisDeSoiree(g.gain, g.releve)
+      const confettis =
+        gagnes > 0
+          ? await this.deps.profiles
+              .confettisDeLaFin(profil, gagnes, this.deps.jour?.aujourdhui() ?? jourDe(Date.now()))
+              .catch(e => {
+                console.error('[cloture] confettis non relus :', e)
+                return null
+              })
+          : null
       bilans.set(g.playerId, {
         xp: xpSoiree,
         xpPaliers,
@@ -1530,6 +1545,7 @@ export class SpaceRuntime {
         finitions: finitionsOuvertes(niveauApres).filter(f => !finitionsOuvertes(niveauAvant).includes(f)) as Finition[],
         ...(eclat && { eclat }),
         ...(jour && { jour }),
+        ...(confettis && { confettis }),
         ...(await this.objectifsDe(g, soireeId, credit, ailleurs, legendaires)),
       })
       // Le profil à jour, pour les pages qui l'affichent encore.

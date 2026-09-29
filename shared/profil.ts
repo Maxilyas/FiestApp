@@ -22,6 +22,7 @@ import type { HautFaitVu } from './hautsfaits'
 import type { DivinDescendu } from './divins'
 import type { CarriereDuJour } from './jour'
 import type { Ecusson } from './ecussons'
+import type { BoutiqueDuProfil } from './themes'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -699,6 +700,11 @@ export interface PublicProfile {
   vitrineChoisie?: string[] | null
   /** Il a gagné le quiz du jour d'hier : sa page le lui dit, comme la salle le voit. */
   laurier?: boolean
+  /**
+   * Le thème qui habille son téléphone (`shared/themes.ts`) ; null : Velours.
+   * Pour lui seul — la salle n'en voit rien —, et absent d'un serveur d'avant.
+   */
+  theme?: string | null
 }
 
 /**
@@ -772,6 +778,8 @@ export interface PublicProfileDetail extends PublicProfile {
   fond?: string | null
   /** Les fonds de carte qu'il a gagnés, dans l'ordre du catalogue. */
   fonds?: string[]
+  /** Ses confettis et ses thèmes : la boutique de sa page. Absente d'un serveur d'avant. */
+  boutique?: BoutiqueDuProfil
 }
 
 /** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */

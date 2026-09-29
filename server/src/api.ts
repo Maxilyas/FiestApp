@@ -93,6 +93,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
     online: deps.online,
     profilChange: deps.profilChange,
     jour: deps.jour,
+    maintenant: deps.maintenant,
   })
   // Le quiz du jour se joue avec son profil, lui aussi, sans compte d'animateur.
   mountJour(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant })

@@ -379,6 +379,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.laurierDe = id => jour.laureats().has(id)
   // Ses bonnes réponses du quiz du jour ouvrent ses portraits, avec celles des soirées.
   profiles.categoriesDuJour = id => jour.categoriesDe(id)
+  // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
+  profiles.justesDuJour = id => jour.justesDe(id)
   const relireLaMemoire = derniereRelecture()
   archives.surEcriture(spaceId => {
     relireLaMemoire(spaceId, () => archives.memoire(spaceId), memoire => setQuestionsPosees(spaceId, dernieresFois(memoire))).catch(e =>

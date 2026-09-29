@@ -44,6 +44,17 @@ import {
   type HautFaitVu,
 } from '../../../shared/hautsfaits'
 import { fond, fondsOuverts, type CleDeFond } from '../../../shared/fonds'
+import {
+  ceQueDonnentLesConfettis,
+  confettisDeSoiree,
+  enBoutique,
+  nConfettis,
+  prixDe,
+  theme as themeDuCatalogue,
+  THEMES,
+  type BoutiqueDuProfil,
+  type ConfettisDeLaFin,
+} from '../../../shared/themes'
 import { cleDeSaison, type Saison } from '../../../shared/saisons'
 import {
   cibleEclat,
@@ -113,6 +124,13 @@ export interface ProfileRec {
    * voir, sans que rien ne soit réécrit.
    */
   fond: string | null
+  /**
+   * Le thème qui habille son téléphone (`shared/themes.ts`), s'il en porte
+   * un autre que Velours : un offert, ou un thème acheté. Un achat ne se
+   * reprend jamais — rien à relire à l'affichage, sinon que le thème existe
+   * encore.
+   */
+  theme: string | null
   passwordHash: string
   /** Le code de secours, haché lui aussi : la base qui fuit ne rend personne. */
   recoveryHash: string
@@ -422,6 +440,20 @@ export class ProfileStore {
   categoriesDuJour?: (profileId: string) => Promise<Record<string, { justes: number }>>
 
   /**
+   * Ses bonnes réponses au quiz du jour, toutes parties comprises
+   * (`JourStore.justesDe`) : ses confettis du quiz du jour. Branchées au
+   * démarrage comme `statsDuJour`.
+   */
+  justesDuJour?: (profileId: string) => Promise<number>
+
+  /**
+   * Les achats en cours, un par profil : deux achats partis ensemble — deux
+   * onglets, un double toucher — liraient le même solde, et dépenseraient
+   * deux fois les mêmes confettis.
+   */
+  private achatsEnCours = new Map<string, Promise<unknown>>()
+
+  /**
    * Son savoir — ses bonnes réponses par catégorie —, tel que le dernier
    * relu : le portrait qu'il porte se vérifie à chaque instantané de la
    * salle, sans aller-retour. Il ne sert qu'à ça : porter un portrait,
@@ -526,6 +558,17 @@ export class ProfileStore {
            key   TEXT PRIMARY KEY,
            value TEXT NOT NULL
          )`,
+        // Les thèmes achetés en confettis, une ligne par thème, jamais
+        // effacée : un solde qui passe sous zéro — une soirée retirée — ne
+        // reprend rien. Le prix payé s'écrit avec : un thème qui changerait
+        // de rareté ne rembourserait ni ne referait payer personne.
+        `CREATE TABLE IF NOT EXISTS profile_achats (
+           profile_id TEXT NOT NULL,
+           theme      TEXT NOT NULL,
+           prix       INTEGER NOT NULL,
+           created_at INTEGER NOT NULL,
+           PRIMARY KEY (profile_id, theme)
+         )`,
       ],
       'write',
     )
@@ -538,6 +581,8 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'vitrine', 'TEXT')
     // Le fond de sa carte, qu'on choisit parmi ceux qu'on a gagnés.
     await ajouterColonne(this.client, 'profiles', 'fond', 'TEXT')
+    // Le thème de son téléphone, qu'il porte parmi ceux qu'il a.
+    await ajouterColonne(this.client, 'profiles', 'theme', 'TEXT')
     // L'Éclat qu'il a éteint, pour porter la version d'origine de son avatar.
     await ajouterColonne(this.client, 'profile_eclats', 'eteint', 'INTEGER')
     // Le joueur qu'on était ce soir-là, pour ouvrir SON bilan depuis « Mes
@@ -721,6 +766,97 @@ export class ProfileStore {
   fondPorte(p: ProfileRec, jour: { joues: number; victoires: number }): CleDeFond | null {
     const choisi = fond(p.fond)
     return choisi && this.fondsOuvertsDe(p, jour).includes(choisi.key) ? choisi.key : null
+  }
+
+  /** Le thème qui habille son téléphone : celui qu'il porte, s'il existe encore ; null, Velours. */
+  themePorte(p: ProfileRec): string | null {
+    return themeDuCatalogue(p.theme)?.key ?? null
+  }
+
+  /** Les thèmes qu'il a achetés, et ce qu'il les a payés. */
+  private async achatsDe(profileId: string): Promise<Map<string, number>> {
+    const res = await this.client.execute({ sql: 'SELECT theme, prix FROM profile_achats WHERE profile_id = ?', args: [profileId] })
+    return new Map(res.rows.map(r => [String(r.theme), Number(r.prix)]))
+  }
+
+  /**
+   * Sa boutique : ses confettis, les thèmes qu'il a — les offerts, ceux
+   * qu'il a achetés —, celui qu'il porte.
+   *
+   * Une bonne réponse, un confetti : ses soirées qui comptent
+   * (`confettisDeSoiree`) et son quiz du jour, moins ce qu'il a dépensé.
+   * Dérivés à chaque lecture, comme l'expérience : rétroactifs, et une
+   * soirée retirée de l'historique emporte les siens. Le solde peut alors
+   * passer sous zéro ; un achat, lui, ne se reprend jamais.
+   *
+   * `soirees`, quand on vient de relire son historique : sa page le lit déjà.
+   */
+  async boutiqueDe(
+    p: ProfileRec,
+    jour: string,
+    soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
+  ): Promise<BoutiqueDuProfil> {
+    const [lues, achats, duJour] = await Promise.all([
+      soirees ?? this.historiqueOf(p.id),
+      this.achatsDe(p.id),
+      this.justesDuJour?.(p.id) ?? 0,
+    ])
+    const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour
+    const depenses = [...achats.values()].reduce((n, prix) => n + prix, 0)
+    return {
+      confettis: { gagnes, depenses, solde: gagnes - depenses },
+      possedes: THEMES.filter(t => t.rarete === 'offert' || achats.has(t.key)).map(t => t.key),
+      porte: this.themePorte(p),
+      jour,
+    }
+  }
+
+  /** Ce que sa fin de soirée dit de ses confettis : ceux de ce soir, son solde, le thème qu'il vise. */
+  async confettisDeLaFin(p: ProfileRec, gagnes: number, jour: string): Promise<ConfettisDeLaFin> {
+    const boutique = await this.boutiqueDe(p, jour)
+    const solde = boutique.confettis.solde
+    return { gagnes, solde, ...ceQueDonnentLesConfettis(boutique.possedes, solde, jour) }
+  }
+
+  /**
+   * Achète un thème, et le porte : on n'achète pas un habillage pour le
+   * laisser au placard. Refusé en clair — pas assez de confettis, hors de
+   * sa saison, déjà à lui : la page ne le propose pas, mais un autre onglet
+   * a pu dépenser entre-temps.
+   */
+  acheterTheme(id: string, cle: unknown, jour: string): Promise<ProfileRec> {
+    const avant = this.achatsEnCours.get(id) ?? Promise.resolve()
+    const achat = avant.then(async () => {
+      const rec = await this.require(id)
+      const t = themeDuCatalogue(cle)
+      if (!t) throw new Error('Ce thème n’existe pas')
+      const boutique = await this.boutiqueDe(rec, jour)
+      if (boutique.possedes.includes(t.key)) throw new Error('Ce thème est déjà à toi')
+      if (t.saison && !enBoutique(t, jour)) throw new Error(`Le thème ${t.nom} revient en boutique ${t.saison.periode}`)
+      const prix = prixDe(t)
+      const manque = prix - boutique.confettis.solde
+      if (manque > 0) throw new Error(`Il te manque ${nConfettis(manque)} pour le thème ${t.nom}`)
+      await this.client.batch(
+        [
+          {
+            sql: 'INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, ?, ?)',
+            args: [id, t.key, prix, Date.now()],
+          },
+          { sql: 'UPDATE profiles SET theme = ? WHERE id = ?', args: [t.key, id] },
+        ],
+        'write',
+      )
+      rec.theme = t.key
+      return rec
+    })
+    // Le suivant attend celui-ci, qu'il réussisse ou non ; le dernier parti
+    // libère la place.
+    const fin = achat.catch(() => {})
+    this.achatsEnCours.set(id, fin)
+    void fin.then(() => {
+      if (this.achatsEnCours.get(id) === fin) this.achatsEnCours.delete(id)
+    })
+    return achat
   }
 
   /** Les Divins descendus sur ce profil — la liste, jamais ce qui les a fait descendre. */
@@ -967,6 +1103,7 @@ export class ProfileStore {
       titre: this.titrePorte(p),
       vitrineChoisie: this.vitrineChoisie(p),
       ...(this.laurierDe?.(p.id) && { laurier: true }),
+      theme: this.themePorte(p),
     }
   }
 
@@ -1112,6 +1249,7 @@ export class ProfileStore {
       titre: null,
       vitrine: null,
       fond: null,
+      theme: null,
       passwordHash: await hashPassword(input.password),
       recoveryHash: await hashPassword(normalizeRecovery(recovery)),
       xp: 0,
@@ -1218,6 +1356,7 @@ export class ProfileStore {
       titre?: unknown
       vitrine?: unknown
       fond?: unknown
+      theme?: unknown
       eclat?: unknown
     },
   ): Promise<ProfileRec> {
@@ -1225,7 +1364,7 @@ export class ProfileStore {
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
     // coup, et un prénom changé sur le téléphone pendant que la tablette
     // change l'emoji ne doit pas revenir en arrière.
-    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond'>> = {}
+    const champs: Partial<Pick<ProfileRec, 'name' | 'avatar' | 'finition' | 'legendaire' | 'titre' | 'vitrine' | 'fond' | 'theme'>> = {}
     if (patch.name !== undefined) {
       const name = cleanName(patch.name)
       if (!name) throw new Error('Il faut un prénom')
@@ -1282,6 +1421,20 @@ export class ProfileStore {
           throw new Error(`Ce fond se gagne d’abord : ${choisi.regle}`)
         }
         champs.fond = choisi.key
+      }
+    }
+    // Un thème : l'un de ceux qu'il a, offerts ou achetés. Velours, celui de
+    // toutes les soirées, s'écrit null.
+    if (patch.theme !== undefined) {
+      const vide = patch.theme === null || patch.theme === ''
+      const choisi = vide ? null : themeDuCatalogue(patch.theme)
+      if (!vide && !choisi) throw new Error('Ce thème n’existe pas')
+      if (!choisi || choisi.key === 'velours') champs.theme = null
+      else {
+        if (choisi.rarete !== 'offert' && !(await this.achatsDe(id)).has(choisi.key)) {
+          throw new Error(`Le thème ${choisi.nom} s’achète d’abord, en confettis`)
+        }
+        champs.theme = choisi.key
       }
     }
     // Un Éclat se garde, qu'on le porte ou non : on peut préférer la version
@@ -2215,6 +2368,7 @@ export class ProfileStore {
       titre: typeof r.titre === 'string' && r.titre ? r.titre : null,
       vitrine: typeof r.vitrine === 'string' && r.vitrine ? r.vitrine : null,
       fond: typeof r.fond === 'string' && r.fond ? r.fond : null,
+      theme: typeof r.theme === 'string' && r.theme ? r.theme : null,
       passwordHash: String(r.password_hash),
       recoveryHash: String(r.recovery_hash),
       xp: Number(r.xp ?? 0),

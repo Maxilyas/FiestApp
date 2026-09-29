@@ -9,6 +9,7 @@ import type { Distinctions, Finition } from './profil'
 import type { Ton } from './hautsfaits'
 import type { DivinDescendu } from './divins'
 import type { PartySnapshot } from './types'
+import type { ConfettisDeLaFin } from './themes'
 
 /** Un haut fait tel qu'on l'annonce. */
 export interface HautFaitAnnonce {
@@ -147,6 +148,12 @@ export interface FinDeSoiree extends Distinctions {
      * Absent d'une fin d'avant, ou si la base du jour s'est tue.
      */
     jour?: { serie: number; aJoue: boolean }
+    /**
+     * Les confettis de ce soir — une bonne réponse, un confetti —, son solde
+     * et le thème qu'il vise (`shared/themes.ts`). Absents d'une fin d'avant,
+     * ou d'une soirée qui n'en a rapporté aucun.
+     */
+    confettis?: ConfettisDeLaFin
   }
 }
 
