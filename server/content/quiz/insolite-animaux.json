@@ -1,0 +1,109 @@
+{
+  "title": "🐾 Les bêtes bizarres",
+  "description": "Des crottes cubiques, du lait de pigeon, un koala qui dort vingt heures : dix faits du règne animal que l’école a oublié de vous apprendre.",
+  "rayon": "jeu",
+  "ordre": 6,
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "Quel animal fait des crottes en forme de cubes ?",
+      "answers": ["Le koala", "Le tatou", "Le wombat", "Le blaireau"],
+      "correct": 2,
+      "duration": 20,
+      "category": "Nature",
+      "source": "Wikipédia, « Wombat »",
+      "anecdote": "Ses intestins moulent les crottes en cubes : empilées, elles ne roulent pas et marquent son territoire."
+    },
+    {
+      "kind": "choice",
+      "text": "Un bébé flamant rose naît déjà rose.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Nature",
+      "source": "Wikipédia, « Flamant rose »",
+      "anecdote": "Il naît au duvet gris. Son rose vient des pigments (caroténoïdes) de ce qu’il mange : crevettes et micro-algues."
+    },
+    {
+      "kind": "choice",
+      "text": "De quelle couleur est la peau d’un ours polaire ?",
+      "answers": ["Rose", "Grise", "Blanche", "Noire"],
+      "correct": 3,
+      "duration": 20,
+      "category": "Nature",
+      "source": "Wikipédia, « Ours polaire »",
+      "anecdote": "Ses poils sont translucides et diffusent la lumière : le pelage paraît blanc, mais la peau dessous est noire et capte la chaleur."
+    },
+    {
+      "kind": "number",
+      "text": "Combien d’heures par jour un koala dort-il ?",
+      "target": 20,
+      "unit": "h",
+      "duration": 30,
+      "category": "Nature",
+      "source": "Wikipédia, « Koala »",
+      "anecdote": "Les feuilles d’eucalyptus sont si pauvres en énergie qu’il dort de 18 à 22 heures par jour."
+    },
+    {
+      "kind": "choice",
+      "text": "Combien de vertèbres cervicales une girafe possède-t-elle ?",
+      "answers": ["5", "7", "14", "21"],
+      "correct": 1,
+      "duration": 20,
+      "category": "Nature",
+      "source": "Wikipédia, « Girafe »",
+      "anecdote": "Sept, comme l’humain et presque tous les mammifères. Simplement, les siennes sont géantes."
+    },
+    {
+      "kind": "choice",
+      "text": "Le pigeon peut produire du lait pour nourrir ses petits.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15,
+      "category": "Nature",
+      "source": "Wikipédia, « Lait de jabot »",
+      "anecdote": "Ce « lait de jabot » est sécrété par les deux parents. Flamants roses et manchots empereurs en fabriquent aussi."
+    },
+    {
+      "kind": "choice",
+      "text": "Un crocodile est capable de tirer la langue.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Nature",
+      "source": "Wikipédia, « Crocodilia »",
+      "anecdote": "Sa langue est fixée au palais par une membrane : il ne peut ni la tirer, ni la sortir de sa gueule."
+    },
+    {
+      "kind": "number",
+      "text": "Combien de pattes a le mille-pattes qui en possède le plus ?",
+      "target": 1306,
+      "unit": "pattes",
+      "duration": 30,
+      "category": "Nature",
+      "source": "Wikipédia, « Eumillipes persephone »",
+      "anecdote": "Découvert en 2020 en Australie-Occidentale, Eumillipes persephone est le premier « mille-pattes » à en avoir vraiment plus de mille."
+    },
+    {
+      "kind": "choice",
+      "text": "Remets ces animaux de la gestation la plus courte à la plus longue.",
+      "answers": ["La souris", "Le chien", "Le cheval", "L’éléphant d’Afrique"],
+      "correct": 0,
+      "variante": "ordre",
+      "duration": 40,
+      "category": "Nature",
+      "source": "Wikipédia, « Gestation »",
+      "anecdote": "Environ 20 jours pour la souris, 2 mois pour le chien, 11 mois pour le cheval… et près de 22 mois pour l’éléphant."
+    },
+    {
+      "kind": "choice",
+      "text": "Quel animal actuel a les plus gros yeux ?",
+      "answers": ["Le calmar colossal", "La baleine bleue", "Le requin-baleine", "L’autruche d’Afrique"],
+      "correct": 0,
+      "duration": 20,
+      "category": "Nature",
+      "source": "Wikipédia, « Calmar colossal »",
+      "anecdote": "Ses yeux mesurent jusqu’à 27 cm de diamètre : de quoi repérer un cachalot dans le noir des abysses."
+    }
+  ]
+}

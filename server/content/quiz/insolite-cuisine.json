@@ -1,0 +1,109 @@
+{
+  "title": "🍳 Cuisine & bonnes surprises",
+  "description": "Du ketchup vendu comme médicament, une colle ratée devenue Post-it, un fruit qui n’en est pas un : dix faits d’assiette et de hasard.",
+  "rayon": "jeu",
+  "ordre": 10,
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "Quelle invention est née d’une colle pas assez collante ?",
+      "answers": ["Le Velcro", "Le Scotch", "Le Post-it", "Le stylo-bille"],
+      "correct": 2,
+      "duration": 20,
+      "category": "Culture générale",
+      "source": "Wikipédia, « Post-it »",
+      "anecdote": "En 1968, le chimiste Spencer Silver met au point chez 3M une colle qui tient à peine. Il faudra des années pour lui trouver un usage : des petits papiers qui se décollent sans rien abîmer."
+    },
+    {
+      "kind": "choice",
+      "text": "Lequel de ces fruits est une baie pour un botaniste ?",
+      "answers": ["La banane", "La fraise", "La framboise", "La mûre"],
+      "correct": 0,
+      "duration": 20,
+      "category": "Nature",
+      "source": "Wikipédia, « Baie (botanique) »",
+      "anecdote": "Une baie est un fruit charnu, sans noyau, dont toute la chair est comestible : la banane en est une. La fraise, la framboise et la mûre, non."
+    },
+    {
+      "kind": "choice",
+      "text": "Le ketchup a d’abord été vendu comme un médicament.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15,
+      "category": "Cuisine",
+      "source": "Wikipédia, « Ketchup »",
+      "anecdote": "Dans les années 1830, un médecin américain le commercialise en pilules censées soigner l’indigestion, avant qu’il finisse dans nos assiettes."
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle épice peut provoquer des hallucinations à forte dose ?",
+      "answers": ["La cannelle", "La muscade", "Le safran", "Le paprika"],
+      "correct": 1,
+      "duration": 20,
+      "category": "Cuisine",
+      "source": "Wikipédia, « Noix de muscade »",
+      "anecdote": "Elle contient de la myristicine : à haute dose, elle donne nausées, vertiges et hallucinations, et peut être toxique. Une pincée dans la béchamel ne risque rien."
+    },
+    {
+      "kind": "choice",
+      "text": "La cacahuète est une noix.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Nature",
+      "source": "Wikipédia, « Arachide »",
+      "anecdote": "C’est une légumineuse, cousine du pois et du haricot : ses gousses mûrissent sous terre."
+    },
+    {
+      "kind": "choice",
+      "text": "La vanille est le fruit d’une plante de quelle famille ?",
+      "answers": ["Les palmiers", "Les légumineuses", "Les fougères", "Les orchidées"],
+      "correct": 3,
+      "duration": 20,
+      "category": "Nature",
+      "source": "Wikipédia, « Vanille »",
+      "anecdote": "La gousse vient d’une orchidée grimpante du Mexique. Sa fleur ne dure qu’un jour : à La Réunion, on la féconde à la main depuis 1841."
+    },
+    {
+      "kind": "number",
+      "text": "Quelle pression règne dans une bouteille de champagne, en bars ?",
+      "target": 6,
+      "unit": "bars",
+      "duration": 30,
+      "category": "Cuisine",
+      "source": "Wikipédia, « Champagne (vin) »",
+      "anecdote": "Environ 6 bars, soit le triple d’un pneu de voiture. C’est pour ça que le bouchon peut partir à près de 50 km/h."
+    },
+    {
+      "kind": "number",
+      "text": "En quelle année le pharmacien John Pemberton a-t-il inventé le Coca-Cola ?",
+      "target": 1886,
+      "unit": "",
+      "duration": 30,
+      "category": "Culture générale",
+      "source": "Wikipédia, « Coca-Cola »",
+      "anecdote": "Vendu d’abord en pharmacie, à Atlanta, comme un tonique. À l’origine, il contenait des extraits de feuille de coca et de noix de kola."
+    },
+    {
+      "kind": "number",
+      "text": "Combien de fleurs de crocus faut-il pour obtenir un gramme de safran ?",
+      "target": 150,
+      "unit": "fleurs",
+      "duration": 30,
+      "category": "Nature",
+      "source": "Wikipédia, « Safran (épice) »",
+      "anecdote": "Chaque fleur ne donne que trois filaments rouges, cueillis et séchés à la main : le safran figure parmi les épices les plus chères du monde."
+    },
+    {
+      "kind": "choice",
+      "text": "Remets ces inventions de la plus ancienne à la plus récente.",
+      "answers": ["La cocotte-minute", "La boîte de conserve", "Le lave-vaisselle", "Le four à micro-ondes"],
+      "correct": 0,
+      "variante": "ordre",
+      "duration": 40,
+      "category": "Culture générale",
+      "source": "Wikipédia, « Autocuiseur »",
+      "anecdote": "Denis Papin, 1679 ; la conserve, vers 1810 ; Josephine Cochrane, 1886 ; Percy Spencer, 1945."
+    }
+  ]
+}

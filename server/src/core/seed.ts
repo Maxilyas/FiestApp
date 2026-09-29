@@ -27,7 +27,7 @@ export interface Modele {
 }
 
 /**
- * Les quiz livrés, relus du disque à chaque demande : ils sont une douzaine,
+ * Les quiz livrés, relus du disque à chaque demande : ils sont une vingtaine,
  * petits, et un déploiement qui en ajoute un le propose aussitôt. Rangés par
  * rayon — la fête d'abord —, puis dans l'ordre que chacun déclare.
  */

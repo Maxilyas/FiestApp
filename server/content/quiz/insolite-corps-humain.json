@@ -1,0 +1,109 @@
+{
+  "title": "🧬 Le corps humain, cet inconnu",
+  "description": "Plus d’os à la naissance qu’à l’âge adulte, onze jours sans dormir, un deuxième cerveau dans le ventre : le corps humain en dix étrangetés.",
+  "rayon": "jeu",
+  "ordre": 7,
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "Un nouveau-né a plus d’os qu’un adulte.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15,
+      "category": "Sciences",
+      "source": "Wikipédia, « Squelette humain »",
+      "anecdote": "Il en compte environ 300, contre 206 à l’âge adulte : beaucoup se soudent en grandissant (crâne, bassin, bas de la colonne)."
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle est la matière la plus dure du corps humain ?",
+      "answers": ["L’os du crâne", "L’émail des dents", "Le cartilage du nez", "L’ongle du pouce"],
+      "correct": 1,
+      "duration": 20,
+      "category": "Sciences",
+      "source": "Wikipédia, « Émail dentaire »",
+      "anecdote": "L’émail est minéral à plus de 95 % : plus dur que l’os. Mais il ne se répare pas tout seul."
+    },
+    {
+      "kind": "number",
+      "text": "Combien de jours de suite Randy Gardner est-il resté éveillé en 1964 ?",
+      "target": 11,
+      "unit": "jours",
+      "duration": 30,
+      "category": "Sciences",
+      "source": "Wikipédia, « Randy Gardner »",
+      "anecdote": "Ce lycéen américain a tenu 264 heures pour un exposé scientifique, puis dormi près de 15 heures d’affilée."
+    },
+    {
+      "kind": "choice",
+      "text": "Deux vrais jumeaux ont exactement les mêmes empreintes digitales.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 20,
+      "category": "Sciences",
+      "source": "Wikipédia, « Empreinte digitale »",
+      "anecdote": "Leur ADN est identique, mais les empreintes se dessinent dans le ventre de la mère, sous l’effet de mille petits hasards : elles diffèrent."
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle part de l’énergie du corps le cerveau consomme-t-il ?",
+      "answers": ["2 %", "10 %", "20 %", "50 %"],
+      "correct": 2,
+      "duration": 20,
+      "category": "Sciences",
+      "source": "Wikipédia, « Cerveau humain »",
+      "anecdote": "Il ne pèse que 2 % du corps, mais réclame environ un cinquième de son énergie, même au repos."
+    },
+    {
+      "kind": "choice",
+      "text": "On est un peu plus grand le matin que le soir.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 15,
+      "category": "Sciences",
+      "source": "Wikipédia, « Disque intervertébral »",
+      "anecdote": "Debout, les disques entre nos vertèbres se tassent : on perd environ un centimètre entre le lever et le coucher."
+    },
+    {
+      "kind": "choice",
+      "text": "Remets ces os du plus long au plus court.",
+      "answers": ["Le fémur", "Le tibia", "L’humérus", "L’étrier"],
+      "correct": 0,
+      "variante": "ordre",
+      "duration": 40,
+      "category": "Sciences",
+      "source": "Wikipédia, « Squelette humain »",
+      "anecdote": "L’étrier, dans l’oreille moyenne, mesure environ 3 mm : c’est le plus petit os du corps humain."
+    },
+    {
+      "kind": "choice",
+      "text": "Quel organe peut repousser après avoir perdu les trois quarts de sa masse ?",
+      "answers": ["Le foie", "Le rein", "La rate", "Le poumon"],
+      "correct": 0,
+      "duration": 25,
+      "category": "Sciences",
+      "source": "Wikipédia, « Foie »",
+      "anecdote": "Le foie retrouve sa taille en quelques semaines, à partir d’un simple quart : c’est ce qui permet la greffe entre vivants."
+    },
+    {
+      "kind": "choice",
+      "text": "Quel organe est surnommé notre « deuxième cerveau » ?",
+      "answers": ["Le pancréas", "Les reins", "Les poumons", "L’intestin"],
+      "correct": 3,
+      "duration": 20,
+      "category": "Sciences",
+      "source": "Wikipédia, « Système nerveux entérique »",
+      "anecdote": "Des centaines de millions de neurones tapissent l’intestin : il gère la digestion presque sans consulter le cerveau."
+    },
+    {
+      "kind": "number",
+      "text": "Combien de fois le cœur bat-il en une journée ?",
+      "target": 100000,
+      "unit": "fois",
+      "duration": 30,
+      "category": "Sciences",
+      "source": "Wikipédia, « Cœur humain »",
+      "anecdote": "Environ 70 battements par minute font près de 100 000 par jour, et plus de 2,5 milliards dans une vie."
+    }
+  ]
+}

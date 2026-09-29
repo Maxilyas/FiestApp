@@ -1,0 +1,109 @@
+{
+  "title": "🌋 Le monde à l’envers",
+  "description": "Un drapeau qui n’est pas rectangulaire, une montagne plus haute que l’Everest, un pays aux douze fuseaux horaires : la planète a de quoi surprendre.",
+  "rayon": "jeu",
+  "ordre": 9,
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "Quel pays est doublement enclavé, sans mer ni pour lui ni pour ses voisins ?",
+      "answers": ["Le Turkménistan", "La République tchèque", "Le Liechtenstein", "Le Luxembourg"],
+      "correct": 2,
+      "duration": 25,
+      "category": "Géographie",
+      "source": "Wikipédia, « Pays enclavé »",
+      "anecdote": "Le Liechtenstein n’est bordé que par la Suisse et l’Autriche, elles-mêmes sans mer. Il n’en existe qu’un autre au monde : l’Ouzbékistan."
+    },
+    {
+      "kind": "choice",
+      "text": "Quel pays compte le plus de fuseaux horaires, outre-mer compris ?",
+      "answers": ["La France", "La Russie", "Les États-Unis", "Le Royaume-Uni"],
+      "correct": 0,
+      "duration": 20,
+      "category": "Géographie",
+      "source": "Wikipédia, « Fuseau horaire »",
+      "anecdote": "Grâce à ses territoires d’outre-mer, la France en compte douze (treize avec la terre Adélie), devant la Russie et les États-Unis."
+    },
+    {
+      "kind": "choice",
+      "text": "Quel pays est le seul à avoir un drapeau ni carré ni rectangulaire ?",
+      "answers": ["Le Bhoutan", "Le Népal", "Le Sri Lanka", "Le Cambodge"],
+      "correct": 1,
+      "duration": 25,
+      "category": "Géographie",
+      "source": "Wikipédia, « Drapeau du Népal »",
+      "anecdote": "Le drapeau népalais superpose deux triangles, en forme de fanion : ce sont les deux sommets de l’Himalaya, et les deux grandes religions du pays."
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle est la plus haute montagne du monde, mesurée de sa base à son sommet ?",
+      "answers": ["Le Teide", "Le Mauna Loa", "L’Etna", "Le Mauna Kea"],
+      "correct": 3,
+      "duration": 25,
+      "category": "Géographie",
+      "source": "Wikipédia, « Mauna Kea »",
+      "anecdote": "Ce volcan d’Hawaï culmine à 4 207 m au-dessus de la mer, mais plonge de plus de 6 000 m sous l’eau : plus de 10 000 m en tout, contre 8 849 m pour l’Everest."
+    },
+    {
+      "kind": "choice",
+      "text": "Le Sahara est le plus grand désert du monde.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Géographie",
+      "source": "Wikipédia, « Désert »",
+      "anecdote": "L’Antarctique, avec près de 14 millions de km², est aussi un désert : il y tombe très peu de précipitations. Le Sahara n’en fait que 9 millions."
+    },
+    {
+      "kind": "choice",
+      "text": "Nauru, le plus petit État insulaire du monde, n’a pas de capitale officielle.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 20,
+      "category": "Géographie",
+      "source": "Wikipédia, « Nauru »",
+      "anecdote": "Le gouvernement siège à Yaren, la capitale de fait : aucun texte n’en désigne officiellement."
+    },
+    {
+      "kind": "choice",
+      "text": "La surface de la Russie dépasse celle de Pluton.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Géographie",
+      "source": "Wikipédia, « Pluton (planète naine) »",
+      "anecdote": "Pluton fait 17,7 millions de km² de surface, soit un poil de plus que la Russie (17,1 millions)."
+    },
+    {
+      "kind": "number",
+      "text": "Combien de langues parle-t-on en Papouasie-Nouvelle-Guinée ?",
+      "target": 840,
+      "unit": "langues",
+      "duration": 30,
+      "category": "Géographie",
+      "source": "Wikipédia, « Papouasie-Nouvelle-Guinée »",
+      "anecdote": "Environ 840 pour à peine 10 millions d’habitants : près d’un huitième de toutes les langues du monde."
+    },
+    {
+      "kind": "number",
+      "text": "Quelle est la profondeur de la fosse des Mariannes, le point le plus profond des océans ?",
+      "target": 10935,
+      "unit": "m",
+      "duration": 30,
+      "category": "Géographie",
+      "source": "Wikipédia, « Fosse des Mariannes »",
+      "anecdote": "Environ 11 000 m au point le plus bas, l’abîme Challenger : l’Everest y tiendrait avec plus de 2 000 m d’eau au-dessus."
+    },
+    {
+      "kind": "choice",
+      "text": "Remets ces pays du plus petit au plus grand.",
+      "answers": ["Le Vatican", "Monaco", "Nauru", "Saint-Marin"],
+      "correct": 0,
+      "variante": "ordre",
+      "duration": 40,
+      "category": "Géographie",
+      "source": "Wikipédia, « Liste des pays par superficie »",
+      "anecdote": "Vatican : 0,44 km². Monaco : 2 km². Nauru : 21 km². Saint-Marin : 61 km²."
+    }
+  ]
+}

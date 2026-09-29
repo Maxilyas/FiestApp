@@ -1,0 +1,109 @@
+{
+  "title": "🏰 L’Histoire déraille",
+  "description": "Une guerre perdue contre des oiseaux, une tour Eiffel vendue deux fois, dix jours rayés du calendrier : l’Histoire quand elle déraille.",
+  "rayon": "jeu",
+  "ordre": 8,
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "Quel animal a « battu » l’armée australienne en 1932 ?",
+      "answers": ["Les kangourous", "Les dingos", "Les émeus", "Les lapins"],
+      "correct": 2,
+      "duration": 20,
+      "category": "Histoire",
+      "source": "Wikipédia, « Guerre des émeus »",
+      "anecdote": "Des soldats armés de mitrailleuses n’ont pas réussi à abattre ces oiseaux rapides et dispersés : l’armée s’est retirée au bout de quelques semaines."
+    },
+    {
+      "kind": "number",
+      "text": "Combien d’années la guerre de Cent Ans a-t-elle duré ?",
+      "target": 116,
+      "unit": "ans",
+      "duration": 30,
+      "category": "Histoire",
+      "source": "Wikipédia, « Guerre de Cent Ans »",
+      "anecdote": "De 1337 à 1453, avec plusieurs trêves. Son nom, lui, date du XIXe siècle."
+    },
+    {
+      "kind": "number",
+      "text": "Combien de minutes a duré la guerre anglo-zanzibarite de 1896, la plus courte de l’Histoire ?",
+      "target": 38,
+      "unit": "min",
+      "duration": 30,
+      "category": "Histoire",
+      "source": "Wikipédia, « Guerre anglo-zanzibarite »",
+      "anecdote": "Le 27 août 1896, la Royal Navy bombarde le palais du sultan de Zanzibar. Il s’enfuit : tout est réglé en 38 minutes environ."
+    },
+    {
+      "kind": "choice",
+      "text": "Quel escroc a « vendu » la tour Eiffel, à deux reprises, en 1925 ?",
+      "answers": ["Victor Lustig", "Frank Abagnale", "Charles Ponzi", "Serge Stavisky"],
+      "correct": 0,
+      "duration": 25,
+      "category": "Histoire",
+      "source": "Wikipédia, « Victor Lustig »",
+      "anecdote": "Se faisant passer pour un haut fonctionnaire, il la présente comme un monument à démolir pour la ferraille. Le premier acheteur, trop honteux, n’a pas porté plainte : il a récidivé."
+    },
+    {
+      "kind": "choice",
+      "text": "Des mammouths vivaient encore à l’époque de la construction de la Grande Pyramide.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 20,
+      "category": "Histoire",
+      "source": "Wikipédia, « Mammouth laineux »",
+      "anecdote": "Sur l’île Wrangel, en Sibérie, une dernière population a survécu jusque vers 2000 av. J.-C. : la pyramide de Khéops existait déjà depuis plusieurs siècles."
+    },
+    {
+      "kind": "choice",
+      "text": "Marie-Antoinette a réellement dit : « Qu’ils mangent de la brioche ! »",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 20,
+      "category": "Histoire",
+      "source": "Wikipédia, « Qu’ils mangent de la brioche »",
+      "anecdote": "Aucune trace de cette phrase chez elle. Rousseau la prête à « une grande princesse » dans ses Confessions, quand Marie-Antoinette était encore une enfant, à Vienne."
+    },
+    {
+      "kind": "choice",
+      "text": "Combien de jours ont été rayés du calendrier lors du passage au calendrier grégorien ?",
+      "answers": ["5 jours", "10 jours", "15 jours", "20 jours"],
+      "correct": 1,
+      "duration": 25,
+      "category": "Histoire",
+      "source": "Wikipédia, « Calendrier grégorien »",
+      "anecdote": "En France, on s’est couché le 9 décembre 1582 et réveillé le 20 : dix jours ont disparu pour recaler le calendrier sur les saisons."
+    },
+    {
+      "kind": "choice",
+      "text": "Quel étrange mal a frappé Strasbourg en 1518 ?",
+      "answers": ["Rire sans pouvoir s’arrêter", "Chanter sans pouvoir s’arrêter", "Pleurer sans pouvoir s’arrêter", "Danser sans pouvoir s’arrêter"],
+      "correct": 3,
+      "duration": 20,
+      "category": "Histoire",
+      "source": "Wikipédia, « Épidémie de danse de 1518 »",
+      "anecdote": "Une femme se met à danser en pleine rue en juillet 1518 ; en un mois, des dizaines d’habitants l’imitent, certains jusqu’à l’épuisement."
+    },
+    {
+      "kind": "choice",
+      "text": "Remets ces événements du plus ancien au plus récent.",
+      "answers": ["La Grande Pyramide de Khéops", "La naissance de Cléopâtre", "Les premiers cours à Oxford", "La fondation de Tenochtitlan"],
+      "correct": 0,
+      "variante": "ordre",
+      "duration": 40,
+      "category": "Histoire",
+      "source": "Wikipédia, « Université d’Oxford »",
+      "anecdote": "Vers 2560 av. J.-C., 69 av. J.-C., 1096 et 1325 : Oxford enseignait déjà depuis plus de deux siècles quand les Aztèques ont fondé leur capitale."
+    },
+    {
+      "kind": "number",
+      "text": "Combien mesurait Napoléon Ier ?",
+      "target": 169,
+      "unit": "cm",
+      "duration": 30,
+      "category": "Histoire",
+      "source": "Wikipédia, « Napoléon Ier »",
+      "anecdote": "Environ 1,69 m à l’autopsie, la taille moyenne d’un Français de son temps. Le « petit caporal » est un mythe."
+    }
+  ]
+}

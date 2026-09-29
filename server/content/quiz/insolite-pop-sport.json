@@ -1,0 +1,109 @@
+{
+  "title": "🎭 Pop, sport & culture : l’envers du décor",
+  "description": "Un Mickey qui s’appelait Mortimer, un match de tennis de onze heures, des médailles olympiques pour des poèmes : l’envers du décor.",
+  "rayon": "jeu",
+  "ordre": 11,
+  "questions": [
+    {
+      "kind": "choice",
+      "text": "Quel prénom Walt Disney avait-il d’abord choisi pour Mickey ?",
+      "answers": ["Maximilien", "Mortimer", "Marcel", "Maurice"],
+      "correct": 1,
+      "duration": 20,
+      "category": "Cinéma & séries",
+      "source": "Wikipédia, « Mickey Mouse »",
+      "anecdote": "Sa femme Lillian a trouvé Mortimer trop pompeux et a proposé Mickey. Mortimer est devenu, plus tard, un rival de Mickey auprès de Minnie."
+    },
+    {
+      "kind": "choice",
+      "text": "Que fabriquait Nintendo à sa création, en 1889 ?",
+      "answers": ["Des jouets en bois", "Des éventails en papier", "Des cerfs-volants", "Des cartes à jouer"],
+      "correct": 3,
+      "duration": 20,
+      "category": "Jeux & pop culture",
+      "source": "Wikipédia, « Nintendo »",
+      "anecdote": "Des cartes hanafuda, un jeu traditionnel japonais, à Kyoto. Les premières consoles n’arriveront que dans les années 1970."
+    },
+    {
+      "kind": "choice",
+      "text": "Quelle lettre manque dans « La Disparition », le roman de Georges Perec ?",
+      "answers": ["E", "A", "I", "O"],
+      "correct": 0,
+      "duration": 25,
+      "category": "Arts & lettres",
+      "source": "Wikipédia, « La Disparition (roman) »",
+      "anecdote": "Perec a écrit plus de 300 pages sans jamais employer la lettre la plus courante du français. Le roman a même été traduit en anglais sans « e » (A Void)."
+    },
+    {
+      "kind": "choice",
+      "text": "Quel compositeur a écrit 4′33″, une pièce où l’on n’entend aucune note ?",
+      "answers": ["Erik Satie", "Igor Stravinsky", "John Cage", "Claude Debussy"],
+      "correct": 2,
+      "duration": 25,
+      "category": "Musique",
+      "source": "Wikipédia, « 4′33″ »",
+      "anecdote": "Créée en 1952, elle dure 4 minutes 33 secondes pendant lesquelles l’interprète ne joue pas : la « musique », ce sont les bruits de la salle."
+    },
+    {
+      "kind": "choice",
+      "text": "Des médailles olympiques ont déjà été décernées pour des poèmes et des tableaux.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 20,
+      "category": "Sport",
+      "source": "Wikipédia, « Concours d’art aux Jeux olympiques »",
+      "anecdote": "De 1912 à 1948, les Jeux couronnaient aussi peintres, sculpteurs, architectes, écrivains… En 1912, Pierre de Coubertin y a décroché l’or, sous pseudonyme."
+    },
+    {
+      "kind": "choice",
+      "text": "Le Petit Prince a été écrit à Paris.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 1,
+      "duration": 15,
+      "category": "Arts & lettres",
+      "source": "Wikipédia, « Le Petit Prince »",
+      "anecdote": "Saint-Exupéry l’a écrit à New York, en 1942, en exil aux États-Unis. Le livre y est paru en 1943, trois ans avant la France."
+    },
+    {
+      "kind": "choice",
+      "text": "La Joconde a déjà été volée au Louvre, puis retrouvée en Italie.",
+      "answers": ["Vrai", "Faux"],
+      "correct": 0,
+      "duration": 20,
+      "category": "Arts & lettres",
+      "source": "Wikipédia, « La Joconde »",
+      "anecdote": "En 1911, un ancien vitrier du musée, Vincenzo Peruggia, l’emporte sous sa blouse. Il la garde plus de deux ans avant de la proposer à un antiquaire de Florence."
+    },
+    {
+      "kind": "number",
+      "text": "Combien d’heures le plus long match de tennis de l’Histoire a-t-il duré ?",
+      "target": 11,
+      "unit": "h",
+      "duration": 30,
+      "category": "Sport",
+      "source": "Wikipédia, « Match Isner-Mahut de Wimbledon 2010 »",
+      "anecdote": "Isner–Mahut, à Wimbledon en 2010 : 11 h 05 sur trois jours, dont plus de 8 h pour le seul 5e set, terminé sur le score de 70 jeux à 68."
+    },
+    {
+      "kind": "number",
+      "text": "Combien de buts l’Australie a-t-elle marqués contre les Samoa américaines en 2001 ?",
+      "target": 31,
+      "unit": "buts",
+      "duration": 30,
+      "category": "Sport",
+      "source": "Wikipédia, « Australie – Samoa américaines (2001) »",
+      "anecdote": "31 à 0 : la plus large victoire du football international. Archie Thompson, à lui seul, en a marqué 13."
+    },
+    {
+      "kind": "choice",
+      "text": "Remets ces jeux vidéo dans l’ordre de leur sortie.",
+      "answers": ["Pong", "Space Invaders", "Pac-Man", "Super Mario Bros."],
+      "correct": 0,
+      "variante": "ordre",
+      "duration": 40,
+      "category": "Jeux & pop culture",
+      "source": "Wikipédia, « Histoire du jeu vidéo »",
+      "anecdote": "Pong en 1972, Space Invaders en 1978, Pac-Man en 1980, Super Mario Bros. en 1985."
+    }
+  ]
+}
