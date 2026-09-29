@@ -219,6 +219,110 @@ test('la fiche d’un portrait dit ce qui l’ouvre, et combien il manque ; gagn
   assert.deepEqual(portes, ['br:blaireau'])
 })
 
+test('touché, un légendaire ou un Divin se montre en grand en tête de sa fiche, le reflet sous le doigt', async () => {
+  // À 30 px dans sa case, on ne voyait ni la peinture ni la pellicule, quand
+  // l'emoji s'écrit en grand dans sa fiche et que le portrait l'est déjà
+  // dans sa branche.
+  const composant = source('components/Apparence.tsx')
+  const debut = composant.indexOf('const fiche = ')
+  const corps = composant.slice(debut, composant.indexOf('return (', debut))
+  // Gagné ou non, éclaté ou non, en grand : ses grands fichiers, et le reflet qui suit le doigt.
+  assert.match(corps, /dessin=\{<Legendaire cle=\{cle\} verrouille=\{!profil\.legendaires\.includes\(cle\)\} eclat=\{brille\(cle\)\} grand \/>\}/)
+  assert.match(corps, /dessin=\{<Divin cle=\{cle\} verrouille=\{!descendu\(cle\)\} grand \/>\}/)
+
+  // La fiche le pose en tête, muet : son nom et son état se lisent juste dessous.
+  const { Legendaire } = await import(url('components/Legendaire.tsx'))
+  const { Divin } = await import(url('components/Divin.tsx'))
+  const communs = { eclats: [], porte: null, hautsFaits: [], busy: false, onPorter: () => {} }
+  const dragon = await rendu('components/Carriere', 'DetailLegendaire', {
+    ...communs,
+    cle: 'lg:dragon',
+    debloques: ['lg:dragon'],
+    dessin: React.createElement(Legendaire, { cle: 'lg:dragon', grand: true }),
+  })
+  assert.match(dragon, /<div class="galerie-detail detail-case"><span class="detail-dessin" aria-hidden="true"><span class="lg lg-eclat lg-dragon lg-touche-libre"/)
+  assert.match(dragon, /dragon-art-512\./, 'ses grands fichiers')
+  assert.ok(dragon.indexOf('detail-dessin') < dragon.indexOf('galerie-detail-nom'), 'le médaillon, puis son nom')
+  // Sans dessin — une page qui n'a pas les médaillons —, la fiche reste du texte.
+  assert.doesNotMatch(await rendu('components/Carriere', 'DetailLegendaire', { ...communs, cle: 'lg:dragon', debloques: [] }), /detail-dessin/)
+
+  const seraphin = await rendu('components/Carriere', 'DetailDivin', {
+    ...communs,
+    cle: 'dv:seraphin',
+    descendus: HABITUE.divins,
+    dessin: React.createElement(Divin, { cle: 'dv:seraphin', grand: true }),
+  })
+  assert.match(seraphin, /<span class="detail-dessin" aria-hidden="true"><span class="dv dv-seraphin dv-peint"/)
+  assert.match(seraphin, /seraphin-badge-512\./)
+  // Pas encore descendu : son voile en grand, et toujours rien de lui.
+  const inconnu = await rendu('components/Carriere', 'DetailDivin', {
+    ...communs,
+    cle: 'dv:lotus',
+    descendus: HABITUE.divins,
+    dessin: React.createElement(Divin, { cle: 'dv:lotus', verrouille: true, grand: true }),
+  })
+  assert.match(inconnu, /<span class="detail-dessin" aria-hidden="true"><svg class="dv dv-lotus dv-voile"/)
+  assert.doesNotMatch(inconnu, /Lotus|badge|medaillons/)
+
+  // Centré, grand, et de l'air autour pour ce qui déborde.
+  const cadre = regle('.detail-dessin')
+  assert.match(cadre, /align-self:\s*center/)
+  const taille = /font-size:\s*([\d.]+)rem/.exec(cadre)
+  assert.ok(taille && Number(taille[1]) >= 8, `en grand : ${taille?.[0]}`)
+})
+
+test('un avatar éclaté se porte dans sa version rare ou d’origine, d’un toucher dans sa fiche', async () => {
+  // Il peut ne pas vouloir de la version rare : il la garde, et porte l'autre.
+  const choix: boolean[] = []
+  const html = (brille: boolean) =>
+    rendu('components/Carriere', 'ChoixDeLEclat', { brille, busy: false, onChoisir: (b: boolean) => choix.push(b) })
+  const rare = await html(true)
+  assert.match(rare, /Il a éclaté : tu portes sa version rare/)
+  assert.match(rare, /<div class="choix-eclat" role="group" aria-label="Sa version"><button[^>]*aria-pressed="true"[^>]*>Version rare<\/button><button[^>]*aria-pressed="false"[^>]*>Version d’origine</)
+  assert.match(await html(false), /Il a éclaté : sa version rare est à toi, et tu portes pour l’instant sa version d’origine\./)
+
+  // Le bouton de la version portée ne refait rien ; l'autre la change.
+  const arbreDuChoix = await arbre('components/Carriere', 'ChoixDeLEclat', { brille: true, busy: false, onChoisir: (b: boolean) => choix.push(b) })
+  const [versionRare, versionDOrigine] = elements(arbreDuChoix).filter(e => e.type === 'button')
+  versionRare.props.onClick()
+  assert.deepEqual(choix, [], 'déjà portée')
+  versionDOrigine.props.onClick()
+  assert.deepEqual(choix, [false])
+  // Sans enregistrement possible, la phrase seule.
+  assert.doesNotMatch(await rendu('components/Carriere', 'ChoixDeLEclat', { brille: true, busy: false }), /<button/)
+
+  // Les trois fiches qui peuvent éclater le proposent — jamais un Divin, qui n'éclate pas.
+  const composant = source('components/Apparence.tsx')
+  const debut = composant.indexOf('const fiche = ')
+  const corps = composant.slice(debut, composant.indexOf('return (', debut))
+  assert.equal(corps.split('onEclat={choisirEclat(cle)}').length - 1, 3)
+  assert.match(composant, /const choisirEclat = \(cle: string\) => \(b: boolean\) => enregistrer\(\{ eclat: \{ cle, brille: b \} \}\)/)
+  // La grille et les fiches montrent la version qu'il porte.
+  assert.match(composant, /const brille = \(cle: string\) => brilleChez\(profil, cle\)/)
+  const legendaire = await rendu('components/Carriere', 'DetailLegendaire', {
+    cle: 'lg:phenix',
+    debloques: ['lg:phenix'],
+    eclats: ['lg:phenix'],
+    eteints: ['lg:phenix'],
+    porte: null,
+    hautsFaits: [],
+    busy: false,
+    onPorter: () => {},
+    onEclat: () => {},
+  })
+  assert.match(legendaire, /tu portes pour l’instant sa version d’origine/)
+
+  // Ce qui brille : éclaté, et pas éteint — un serveur d'avant n'en dit rien, et tout brille.
+  const { brilleChez } = await import('../../shared/profil')
+  assert.equal(brilleChez({ eclats: ['🦊'] }, '🦊'), true)
+  assert.equal(brilleChez({ eclats: ['🦊'], eclatsEteints: ['🦊'] }, '🦊'), false)
+  assert.equal(brilleChez({ eclats: [], eclatsEteints: ['🦊'] }, '🦊'), false)
+  // Et le lecteur d'écran entend ce qui a changé.
+  const { annonceDuChoix } = await import(url('components/choix.ts'))
+  assert.equal(annonceDuChoix({ eclat: { cle: '🦊', brille: false } }), 'Tu portes sa version d’origine.')
+  assert.equal(annonceDuChoix({ eclat: { cle: '🦊', brille: true } }), 'Tu portes sa version rare.')
+})
+
 test('la fiche d’une case s’ouvre sous sa rangée, de toute la largeur de la grille', () => {
   // Juste derrière sa case dans la page ; `dense` finit la rangée avec les
   // cases d'après et pose la fiche dessous.
@@ -232,6 +336,11 @@ test('la fiche d’une case s’ouvre sous sa rangée, de toute la largeur de la
   assert.equal(corps.split('id="detail-avatar"').length - 1, 1)
   // La page défile juste ce qu'il faut pour la montrer entière, et le focus va à son nom.
   assert.match(corps, /scrollIntoView\(\{ block: 'nearest'/)
+  // Et la case touchée reste au-dessus quand les deux tiennent à l'écran : la
+  // fiche refermée plus haut faisait remonter la case hors de la vue, et
+  // celle d'un légendaire, qui le montre en grand, est haute.
+  assert.match(corps, /const laCase = fiche\.previousElementSibling/)
+  assert.match(corps, /if \(laCase && haut < 0 && bas - haut <= window\.innerHeight\)/)
   assert.match(corps, /rendreLeFocus\(detail\.current, \['\.galerie-detail-nom'\]\)/)
 })
 

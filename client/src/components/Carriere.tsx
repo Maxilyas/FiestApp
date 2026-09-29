@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { coupDOeilMoyen, type Fiche, type ReleveSoiree } from '../../../shared/profil'
 import type { HautFaitVu } from '../../../shared/hautsfaits'
 import { NOM_PALIER, hautFait } from '../../../shared/hautsfaits'
@@ -29,6 +30,50 @@ export function CeQuIlRemplace({ porte, cle }: { porte: string | null; cle: stri
 }
 
 /**
+ * Ce qui a éclaté pour lui se garde ; il peut porter sa version rare ou sa
+ * version d'origine, et changer d'avis. D'un toucher, comme une finition :
+ * l'avatar, juste au-dessus dans sa case et dans sa fiche, change sous ses
+ * yeux. Sans `onChoisir` — une page qui ne sait pas enregistrer —, la phrase
+ * seule.
+ */
+export function ChoixDeLEclat({ brille, busy, onChoisir }: { brille: boolean; busy: boolean; onChoisir?: (brille: boolean) => void }) {
+  return (
+    <>
+      <p className="small">
+        {brille
+          ? 'Il a éclaté : tu portes sa version rare, et personne d’autre ne l’a comme ça.'
+          : 'Il a éclaté : sa version rare est à toi, et tu portes pour l’instant sa version d’origine.'}
+      </p>
+      {onChoisir && (
+        <div className="choix-eclat" role="group" aria-label="Sa version">
+          <button type="button" className="btn btn-small" aria-pressed={brille} aria-disabled={busy || undefined} onClick={() => !brille && onChoisir(true)}>
+            Version rare
+          </button>
+          <button type="button" className="btn btn-small" aria-pressed={!brille} aria-disabled={busy || undefined} onClick={() => brille && onChoisir(false)}>
+            Version d’origine
+          </button>
+        </div>
+      )}
+    </>
+  )
+}
+
+/**
+ * Le médaillon en grand, en tête de sa fiche : à 30 pixels dans sa case, on
+ * ne voyait ni la peinture ni la pellicule, quand l'emoji s'écrit en grand
+ * dans la sienne et que le portrait l'est déjà dans sa branche. Muet : son
+ * nom et son état, la fiche les dit juste dessous.
+ */
+function Dessin({ children }: { children?: ReactNode }) {
+  if (!children) return null
+  return (
+    <span className="detail-dessin" aria-hidden="true">
+      {children}
+    </span>
+  )
+}
+
+/**
  * Ce qu'on lit d'un légendaire en le touchant dans la grille : son nom, sa
  * légende, et comment il se gagne — avec, s'il manque encore, où l'on en
  * est. On veut celui-là parce qu'on le voit. Gagné, il se porte d'ici.
@@ -37,19 +82,32 @@ export function DetailLegendaire({
   cle,
   debloques,
   eclats,
+  eteints = [],
   porte,
   hautsFaits,
   busy,
   onPorter,
+  onEclat,
+  dessin,
 }: {
   cle: string
   debloques: string[]
   /** Ce qui a éclaté pour lui : un légendaire éclaté se montre dans sa version rare. */
   eclats: string[]
+  /** Ceux qu'il a éteints : il en porte la version d'origine. */
+  eteints?: string[]
+  /** Porter sa version rare, ou sa version d'origine. */
+  onEclat?: (brille: boolean) => void
   porte: string | null
   hautsFaits: HautFaitVu[]
   busy: boolean
   onPorter: (cle: string | null) => void
+  /**
+   * Le médaillon en grand, au-dessus de la fiche. C'est la page qui a les
+   * dessins qui le pose (`Apparence`) : ce fichier-ci est sur le chemin de
+   * l'accueil anonyme, qui ne les télécharge pas (`medaillons.test.ts`).
+   */
+  dessin?: ReactNode
 }) {
   const choisi = LEGENDAIRES.find(l => l.key === cle)
   if (!choisi) return null
@@ -62,13 +120,12 @@ export function DetailLegendaire({
   const saisonDe = choisi.saison && saison(choisi.saison)
   return (
     <div className="galerie-detail detail-case">
+      <Dessin>{dessin}</Dessin>
       <span className="detail-famille anneau-texte-legendaire">Légendaire</span>
       <b className="galerie-detail-nom">{choisi.nom}</b>
       <p className="serif-note">{choisi.legende}</p>
       {/* Gagné seulement : un légendaire verrouillé n'a rien qui éclate. */}
-      {gagne && eclats.includes(choisi.key) && (
-        <p className="small">Il a éclaté : c’est sa version rare, et personne d’autre ne l’a comme ça.</p>
-      )}
+      {gagne && eclats.includes(choisi.key) && <ChoixDeLEclat brille={!eteints.includes(choisi.key)} busy={busy} onChoisir={onEclat} />}
       {saisonDe ? (
         <p className="small">
           {gagne ? 'Gagné pour ' : 'Seulement pour '}
@@ -130,18 +187,22 @@ export function DetailDivin({
   porte,
   busy,
   onPorter,
+  dessin,
 }: {
   cle: string
   descendus: DivinDescendu[]
   porte: string | null
   busy: boolean
   onPorter: (cle: string | null) => void
+  /** Son bijou en grand — ou, pas encore descendu, son voile —, posé par `Apparence`, comme celui d'un légendaire. */
+  dessin?: ReactNode
 }) {
   const choisi = DIVINS.find(d => d.key === cle)
   if (!choisi) return null
   const recit = descendus.find(d => d.key === choisi.key)
   return (
     <div className="galerie-detail detail-case">
+      <Dessin>{dessin}</Dessin>
       <span className="detail-famille anneau-texte-divin">Divin</span>
       {recit ? (
         <>

@@ -371,6 +371,13 @@ export class ProfileStore {
   /** Les emojis éclatés, par profil — chargés avec le profil. */
   private eclats = new Map<string, Set<string>>()
   /**
+   * Ceux qu'il a éteints : l'avatar a éclaté pour lui, il le garde, mais porte
+   * sa version d'origine. Chargés avec les éclats ; seule l'apparence les
+   * lit — la collection, la carrière et ses paliers comptent tout ce qui a
+   * éclaté.
+   */
+  private eteints = new Map<string, Set<string>>()
+  /**
    * Ses récompenses rangées, par profil : chaque clé d'étagère et le nombre de
    * soirées où elle est tombée. Chargées avec le profil, tenues à jour à
    * chaque écriture : les avatars légendaires qu'il a débloqués s'en
@@ -531,6 +538,8 @@ export class ProfileStore {
     await ajouterColonne(this.client, 'profiles', 'vitrine', 'TEXT')
     // Le fond de sa carte, qu'on choisit parmi ceux qu'on a gagnés.
     await ajouterColonne(this.client, 'profiles', 'fond', 'TEXT')
+    // L'Éclat qu'il a éteint, pour porter la version d'origine de son avatar.
+    await ajouterColonne(this.client, 'profile_eclats', 'eteint', 'INTEGER')
     // Le joueur qu'on était ce soir-là, pour ouvrir SON bilan depuis « Mes
     // soirées » : sans lui, le bilan redemandait « Qui es-tu ? ». Une ligne
     // d'avant la colonne le retrouve dans l'archive (`retenirJoueur`).
@@ -598,7 +607,7 @@ export class ProfileStore {
       const [lignes, eclats, badges] = await this.client.batch(
         [
           { sql: `SELECT * FROM profiles WHERE id IN (${marques})`, args: paquet },
-          { sql: `SELECT profile_id, avatar FROM profile_eclats WHERE profile_id IN (${marques})`, args: paquet },
+          { sql: `SELECT profile_id, avatar, eteint FROM profile_eclats WHERE profile_id IN (${marques})`, args: paquet },
           {
             sql: `SELECT profile_id, badge, COUNT(*) AS n FROM profile_badges WHERE profile_id IN (${marques}) GROUP BY profile_id, badge`,
             args: paquet,
@@ -607,7 +616,11 @@ export class ProfileStore {
         'read',
       )
       const eclatsDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
-      for (const r of eclats.rows) eclatsDe.get(String(r.profile_id))?.add(String(r.avatar))
+      const eteintsDe = new Map<string, Set<string>>(paquet.map(id => [id, new Set()]))
+      for (const r of eclats.rows) {
+        eclatsDe.get(String(r.profile_id))?.add(String(r.avatar))
+        if (Number(r.eteint) === 1) eteintsDe.get(String(r.profile_id))?.add(String(r.avatar))
+      }
       const recompensesDe = new Map<string, Map<string, number>>(paquet.map(id => [id, new Map()]))
       for (const r of badges.rows) recompensesDe.get(String(r.profile_id))?.set(String(r.badge), Number(r.n))
       for (const r of lignes.rows) {
@@ -616,7 +629,10 @@ export class ProfileStore {
         // il garde sa version : la ligne lue avant écraserait l'objet à jour.
         if (this.profiles.has(id)) continue
         this.profiles.set(id, this.lireLigne(r))
-        if (!this.eclats.has(id)) this.eclats.set(id, eclatsDe.get(id)!)
+        if (!this.eclats.has(id)) {
+          this.eclats.set(id, eclatsDe.get(id)!)
+          this.eteints.set(id, eteintsDe.get(id)!)
+        }
         if (!this.recompenses.has(id)) this.recompenses.set(id, recompensesDe.get(id)!)
       }
     }
@@ -658,6 +674,17 @@ export class ProfileStore {
   /** Les emojis qui ont éclaté pour ce profil. */
   eclatsOf(id: string): string[] {
     return [...(this.eclats.get(id) ?? [])]
+  }
+
+  /** Ceux qu'il a éteints pour porter leur version d'origine — toujours parmi les siens. */
+  eteintsOf(id: string): string[] {
+    const siens = this.eclats.get(id)
+    return [...(this.eteints.get(id) ?? [])].filter(k => siens?.has(k))
+  }
+
+  /** Cet avatar brille-t-il sur lui ? Éclaté pour lui, et pas éteint. */
+  brilleChez(id: string, cle: string): boolean {
+    return !!this.eclats.get(id)?.has(cle) && !this.eteints.get(id)?.has(cle)
   }
 
   /** Ses récompenses rangées : chaque clé d'étagère, et le nombre de soirées où elle est tombée. */
@@ -930,6 +957,7 @@ export class ProfileStore {
       requis,
       ouvertes: finitionsOuvertes(niveau),
       eclats: this.eclatsOf(p.id),
+      eclatsEteints: this.eteintsOf(p.id),
       // Un Divin ne se compte pas : un « 4 badges » devenu « 5 » sans rien
       // de neuf sur l'étagère dirait qu'il s'est passé quelque chose.
       badges: [...(this.recompenses.get(p.id)?.keys() ?? [])].filter(k => !k.startsWith('dv:') && !k.startsWith('saison:')).length,
@@ -1109,6 +1137,7 @@ export class ProfileStore {
       })
     this.profiles.set(rec.id, rec)
     this.eclats.set(rec.id, new Set())
+    this.eteints.set(rec.id, new Set())
     this.recompenses.set(rec.id, new Map())
     return { profile: rec, recovery }
   }
@@ -1181,7 +1210,16 @@ export class ProfileStore {
    */
   async update(
     id: string,
-    patch: { name?: unknown; avatar?: unknown; finition?: unknown; legendaire?: unknown; titre?: unknown; vitrine?: unknown; fond?: unknown },
+    patch: {
+      name?: unknown
+      avatar?: unknown
+      finition?: unknown
+      legendaire?: unknown
+      titre?: unknown
+      vitrine?: unknown
+      fond?: unknown
+      eclat?: unknown
+    },
   ): Promise<ProfileRec> {
     const rec = await this.require(id)
     // Seules les colonnes demandées s'écrivent : la mémoire ne suit qu'après
@@ -1246,13 +1284,35 @@ export class ProfileStore {
         champs.fond = choisi.key
       }
     }
+    // Un Éclat se garde, qu'on le porte ou non : on peut préférer la version
+    // d'origine de l'avatar qui a éclaté, et y revenir. Seulement sur ce qui a
+    // éclaté pour lui ; le reste de la carrière n'en sait rien.
+    let eclat: { cle: string; eteint: boolean } | null = null
+    if (patch.eclat !== undefined) {
+      const e = patch.eclat as { cle?: unknown; brille?: unknown } | null
+      const cle = typeof e?.cle === 'string' ? e.cle : ''
+      if (!cle || !this.eclats.get(id)?.has(cle)) throw new Error('Cet avatar n’a pas éclaté pour toi')
+      if (typeof e?.brille !== 'boolean') throw new Error('Choisis sa version rare ou sa version d’origine')
+      eclat = { cle, eteint: !e.brille }
+    }
     const colonnes = Object.keys(champs) as (keyof typeof champs)[]
-    if (colonnes.length === 0) return rec
-    await this.client.execute({
-      sql: `UPDATE profiles SET ${colonnes.map(c => `${c} = ?`).join(', ')} WHERE id = ?`,
-      args: [...colonnes.map(c => champs[c]!), id],
-    })
-    Object.assign(rec, champs)
+    if (colonnes.length > 0) {
+      await this.client.execute({
+        sql: `UPDATE profiles SET ${colonnes.map(c => `${c} = ?`).join(', ')} WHERE id = ?`,
+        args: [...colonnes.map(c => champs[c]!), id],
+      })
+      Object.assign(rec, champs)
+    }
+    if (eclat) {
+      await this.client.execute({
+        sql: 'UPDATE profile_eclats SET eteint = ? WHERE profile_id = ? AND avatar = ?',
+        args: [eclat.eteint ? 1 : null, id, eclat.cle],
+      })
+      let eteints = this.eteints.get(id)
+      if (!eteints) this.eteints.set(id, (eteints = new Set()))
+      if (eclat.eteint) eteints.add(eclat.cle)
+      else eteints.delete(eclat.cle)
+    }
     return rec
   }
 
@@ -1454,7 +1514,10 @@ export class ProfileStore {
       ],
       'write',
     )
-    for (const r of eclats.rows) this.eclats.get(profileId)?.delete(String(r.avatar))
+    for (const r of eclats.rows) {
+      this.eclats.get(profileId)?.delete(String(r.avatar))
+      this.eteints.get(profileId)?.delete(String(r.avatar))
+    }
     this.porteurs = null
     await this.ecrireXpDesPaliers(profileId)
     await this.recompterRecompenses([profileId])
@@ -1529,7 +1592,10 @@ export class ProfileStore {
       ],
       'write',
     )
-    for (const r of eclats.rows) this.eclats.get(String(r.profile_id))?.delete(String(r.avatar))
+    for (const r of eclats.rows) {
+      this.eclats.get(String(r.profile_id))?.delete(String(r.avatar))
+      this.eteints.get(String(r.profile_id))?.delete(String(r.avatar))
+    }
     this.porteurs = null
     await this.recompterRecompenses(touches)
     if (touches.length > 0) {
@@ -2076,7 +2142,8 @@ export class ProfileStore {
     return {
       niveau,
       finition: finitionPortee(p.finition, niveau),
-      eclat: this.eclatsOf(p.id).includes(cibleEclat(legendaire, avatar)),
+      // Éteint, un Éclat ne se voit plus : il porte la version d'origine.
+      eclat: this.brilleChez(p.id, cibleEclat(legendaire, avatar)),
       ...(legendaire && { legendaire }),
       ...(this.laurierDe?.(p.id) && { laurier: true }),
     }
@@ -2116,8 +2183,9 @@ export class ProfileStore {
     // dans l'accusé d'inscription à une soirée, qui est synchrone, et dans
     // l'instantané de toute la salle.
     if (!this.eclats.has(rec.id)) {
-      const eclats = await this.client.execute({ sql: 'SELECT avatar FROM profile_eclats WHERE profile_id = ?', args: [rec.id] })
+      const eclats = await this.client.execute({ sql: 'SELECT avatar, eteint FROM profile_eclats WHERE profile_id = ?', args: [rec.id] })
       this.eclats.set(rec.id, new Set(eclats.rows.map(e => String(e.avatar))))
+      this.eteints.set(rec.id, new Set(eclats.rows.filter(e => Number(e.eteint) === 1).map(e => String(e.avatar))))
       await this.recompterRecompenses([rec.id])
       // Un portrait porté se vérifie sur son savoir : lu tout de suite, la
       // première salle où il entre le voit juste, sans attendre une

@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Limite } from './Limite'
 import type { PublicPlayer, PublicTeam } from '../../../shared/types'
 import type { PublicSpace } from '../../../shared/space'
-import type { PublicProfile } from '../../../shared/profil'
+import { brilleChez, type PublicProfile } from '../../../shared/profil'
 import { AVATARS, MAX_NAME_LENGTH } from '../../../shared/avatars'
 import { cibleEclat } from '../../../shared/legendaires'
 import { sansAccent } from '../../../shared/homonymes'
@@ -345,7 +345,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
             className="retour-avatar"
             avatar={profil.avatar}
             finition={profil.finition}
-            eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))}
+            eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
             legendaire={profil.legendaire ?? undefined}
           />
           {/* « Content de te revoir » parlait au masculin, et dès la première
@@ -612,7 +612,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           <Avatar
             avatar={profil.avatar}
             finition={profil.finition}
-            eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))}
+            eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
             legendaire={profil.legendaire ?? undefined}
           />
           Ton profil reste <strong>{profil.name}</strong>

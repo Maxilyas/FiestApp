@@ -18,6 +18,8 @@ export type ChoixDuProfil = {
   titre?: string | null
   fond?: string | null
   vitrine?: string[] | null
+  /** Porter la version rare d'un avatar qui a éclaté, ou sa version d'origine. */
+  eclat?: { cle: string; brille: boolean }
 }
 
 /**
@@ -26,6 +28,7 @@ export type ChoixDuProfil = {
  */
 export function annonceDuChoix(choix: ChoixDuProfil): string {
   if (choix.avatar) return `Tu portes ${choix.avatar}.`
+  if (choix.eclat) return choix.eclat.brille ? 'Tu portes sa version rare.' : 'Tu portes sa version d’origine.'
   if (choix.legendaire !== undefined) {
     const tete = portrait(choix.legendaire)
     const nom = legendaire(choix.legendaire)?.nom ?? divin(choix.legendaire)?.nom ?? (tete && nomDansLaPhrase(tete.nom))

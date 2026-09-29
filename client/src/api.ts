@@ -299,6 +299,7 @@ export const api = {
       titre?: string | null
       vitrine?: string[] | null
       fond?: string | null
+      eclat?: { cle: string; brille: boolean }
     }) =>
       req<{ profile: PublicProfile }>('/api/joueur/moi', { method: 'PUT', body: JSON.stringify(patch) }),
     /**

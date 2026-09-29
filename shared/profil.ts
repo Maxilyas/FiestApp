@@ -676,6 +676,11 @@ export interface PublicProfile {
   ouvertes: Finition[]
   /** Les emojis qui ont éclaté pour lui. */
   eclats: string[]
+  /**
+   * Ceux qu'il a éteints : il garde l'avatar éclaté, mais porte sa version
+   * d'origine. Absent d'un serveur d'avant, où tout ce qui a éclaté brille.
+   */
+  eclatsEteints?: string[]
   /** Combien de badges il porte — le détail se demande à part. */
   badges: number
   /** L'avatar dessiné qu'il porte, s'il en porte un : un légendaire ou un Divin. */
@@ -702,7 +707,17 @@ export interface PublicProfile {
  * tiers comprise, et le profil au complet y portait le récit de ses Divins
  * (invariant 21).
  */
-export type ProfilDeLEspace = Pick<PublicProfile, 'login' | 'name' | 'avatar' | 'finition' | 'eclats' | 'legendaire' | 'niveau'>
+export type ProfilDeLEspace = Pick<PublicProfile, 'login' | 'name' | 'avatar' | 'finition' | 'eclats' | 'eclatsEteints' | 'legendaire' | 'niveau'>
+
+/**
+ * Cet avatar brille-t-il sur lui ? Éclaté pour lui, et pas éteint : il peut
+ * garder la version d'origine d'un avatar qui a éclaté. La même règle que le
+ * serveur (`ProfileStore.brilleChez`), pour tout ce que sa page montre de
+ * lui.
+ */
+export function brilleChez(profil: Pick<PublicProfile, 'eclats' | 'eclatsEteints'>, cle: string): boolean {
+  return profil.eclats.includes(cle) && !(profil.eclatsEteints ?? []).includes(cle)
+}
 
 /** Une soirée jouée, telle que la page profil la relit. */
 export interface SoireeJouee {
