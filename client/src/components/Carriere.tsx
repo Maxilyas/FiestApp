@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { coupDOeilMoyen, type Fiche, type ReleveSoiree } from '../../../shared/profil'
 import type { HautFaitVu } from '../../../shared/hautsfaits'
 import { NOM_PALIER, hautFait } from '../../../shared/hautsfaits'
@@ -29,6 +30,21 @@ export function CeQuIlRemplace({ porte, cle }: { porte: string | null; cle: stri
 }
 
 /**
+ * Le médaillon en grand, en tête de sa fiche : à 30 pixels dans sa case, on
+ * ne voyait ni la peinture ni la pellicule, quand l'emoji s'écrit en grand
+ * dans la sienne et que le portrait l'est déjà dans sa branche. Muet : son
+ * nom et son état, la fiche les dit juste dessous.
+ */
+function Dessin({ children }: { children?: ReactNode }) {
+  if (!children) return null
+  return (
+    <span className="detail-dessin" aria-hidden="true">
+      {children}
+    </span>
+  )
+}
+
+/**
  * Ce qu'on lit d'un légendaire en le touchant dans la grille : son nom, sa
  * légende, et comment il se gagne — avec, s'il manque encore, où l'on en
  * est. On veut celui-là parce qu'on le voit. Gagné, il se porte d'ici.
@@ -41,6 +57,7 @@ export function DetailLegendaire({
   hautsFaits,
   busy,
   onPorter,
+  dessin,
 }: {
   cle: string
   debloques: string[]
@@ -50,6 +67,12 @@ export function DetailLegendaire({
   hautsFaits: HautFaitVu[]
   busy: boolean
   onPorter: (cle: string | null) => void
+  /**
+   * Le médaillon en grand, au-dessus de la fiche. C'est la page qui a les
+   * dessins qui le pose (`Apparence`) : ce fichier-ci est sur le chemin de
+   * l'accueil anonyme, qui ne les télécharge pas (`medaillons.test.ts`).
+   */
+  dessin?: ReactNode
 }) {
   const choisi = LEGENDAIRES.find(l => l.key === cle)
   if (!choisi) return null
@@ -62,6 +85,7 @@ export function DetailLegendaire({
   const saisonDe = choisi.saison && saison(choisi.saison)
   return (
     <div className="galerie-detail detail-case">
+      <Dessin>{dessin}</Dessin>
       <span className="detail-famille anneau-texte-legendaire">Légendaire</span>
       <b className="galerie-detail-nom">{choisi.nom}</b>
       <p className="serif-note">{choisi.legende}</p>
@@ -130,18 +154,22 @@ export function DetailDivin({
   porte,
   busy,
   onPorter,
+  dessin,
 }: {
   cle: string
   descendus: DivinDescendu[]
   porte: string | null
   busy: boolean
   onPorter: (cle: string | null) => void
+  /** Son bijou en grand — ou, pas encore descendu, son voile —, posé par `Apparence`, comme celui d'un légendaire. */
+  dessin?: ReactNode
 }) {
   const choisi = DIVINS.find(d => d.key === cle)
   if (!choisi) return null
   const recit = descendus.find(d => d.key === choisi.key)
   return (
     <div className="galerie-detail detail-case">
+      <Dessin>{dessin}</Dessin>
       <span className="detail-famille anneau-texte-divin">Divin</span>
       {recit ? (
         <>

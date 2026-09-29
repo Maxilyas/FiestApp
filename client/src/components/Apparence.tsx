@@ -165,13 +165,26 @@ export function MesAvatars({
   // emporté.
   const detail = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (!ouvert) return
-    const nom = detail.current?.querySelector<HTMLElement>('.galerie-detail-nom')
+    const fiche = detail.current
+    if (!ouvert || !fiche) return
+    const nom = fiche.querySelector<HTMLElement>('.galerie-detail-nom')
     if (!nom) return
     nom.tabIndex = -1
     nom.focus({ preventScroll: true })
     const calme = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    detail.current?.scrollIntoView({ block: 'nearest', behavior: calme ? 'auto' : 'smooth' })
+    const comportement = calme ? 'auto' : 'smooth'
+    // La case et sa fiche ensemble, quand elles tiennent à l'écran : la
+    // fiche refermée plus haut dans la grille fait remonter tout ce qui la
+    // suit, et la fiche d'un légendaire, qui le montre en grand, est haute —
+    // on touchait le Kraken, et la page le laissait au-dessus de l'écran.
+    const laCase = fiche.previousElementSibling
+    const haut = (laCase ?? fiche).getBoundingClientRect().top
+    const bas = fiche.getBoundingClientRect().bottom
+    if (laCase && haut < 0 && bas - haut <= window.innerHeight) {
+      window.scrollBy({ top: haut - Math.min(8, window.innerHeight - (bas - haut)), behavior: comportement })
+    } else {
+      fiche.scrollIntoView({ block: 'nearest', behavior: comportement })
+    }
   }, [ouvert])
   // Porté, un emoji n'a plus de bouton : le focus qui y était tombait sur la
   // page. Il revient au nom de la fiche.
@@ -204,9 +217,17 @@ export function MesAvatars({
             hautsFaits={profil.hautsFaits}
             busy={busy}
             onPorter={l => enregistrer({ legendaire: l })}
+            dessin={<Legendaire cle={cle} verrouille={!profil.legendaires.includes(cle)} eclat={brille(cle)} grand />}
           />
         ) : divin(cle) ? (
-          <DetailDivin cle={cle} descendus={divins} porte={porte} busy={busy} onPorter={d => enregistrer({ legendaire: d })} />
+          <DetailDivin
+            cle={cle}
+            descendus={divins}
+            porte={porte}
+            busy={busy}
+            onPorter={d => enregistrer({ legendaire: d })}
+            dessin={<Divin cle={cle} verrouille={!descendu(cle)} grand />}
+          />
         ) : (
           <DetailEmoji
             emoji={cle}

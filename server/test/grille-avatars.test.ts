@@ -219,6 +219,58 @@ test('la fiche d’un portrait dit ce qui l’ouvre, et combien il manque ; gagn
   assert.deepEqual(portes, ['br:blaireau'])
 })
 
+test('touché, un légendaire ou un Divin se montre en grand en tête de sa fiche, le reflet sous le doigt', async () => {
+  // À 30 px dans sa case, on ne voyait ni la peinture ni la pellicule, quand
+  // l'emoji s'écrit en grand dans sa fiche et que le portrait l'est déjà
+  // dans sa branche.
+  const composant = source('components/Apparence.tsx')
+  const debut = composant.indexOf('const fiche = ')
+  const corps = composant.slice(debut, composant.indexOf('return (', debut))
+  // Gagné ou non, éclaté ou non, en grand : ses grands fichiers, et le reflet qui suit le doigt.
+  assert.match(corps, /dessin=\{<Legendaire cle=\{cle\} verrouille=\{!profil\.legendaires\.includes\(cle\)\} eclat=\{brille\(cle\)\} grand \/>\}/)
+  assert.match(corps, /dessin=\{<Divin cle=\{cle\} verrouille=\{!descendu\(cle\)\} grand \/>\}/)
+
+  // La fiche le pose en tête, muet : son nom et son état se lisent juste dessous.
+  const { Legendaire } = await import(url('components/Legendaire.tsx'))
+  const { Divin } = await import(url('components/Divin.tsx'))
+  const communs = { eclats: [], porte: null, hautsFaits: [], busy: false, onPorter: () => {} }
+  const dragon = await rendu('components/Carriere', 'DetailLegendaire', {
+    ...communs,
+    cle: 'lg:dragon',
+    debloques: ['lg:dragon'],
+    dessin: React.createElement(Legendaire, { cle: 'lg:dragon', grand: true }),
+  })
+  assert.match(dragon, /<div class="galerie-detail detail-case"><span class="detail-dessin" aria-hidden="true"><span class="lg lg-eclat lg-dragon lg-touche-libre"/)
+  assert.match(dragon, /dragon-art-512\./, 'ses grands fichiers')
+  assert.ok(dragon.indexOf('detail-dessin') < dragon.indexOf('galerie-detail-nom'), 'le médaillon, puis son nom')
+  // Sans dessin — une page qui n'a pas les médaillons —, la fiche reste du texte.
+  assert.doesNotMatch(await rendu('components/Carriere', 'DetailLegendaire', { ...communs, cle: 'lg:dragon', debloques: [] }), /detail-dessin/)
+
+  const seraphin = await rendu('components/Carriere', 'DetailDivin', {
+    ...communs,
+    cle: 'dv:seraphin',
+    descendus: HABITUE.divins,
+    dessin: React.createElement(Divin, { cle: 'dv:seraphin', grand: true }),
+  })
+  assert.match(seraphin, /<span class="detail-dessin" aria-hidden="true"><span class="dv dv-seraphin dv-peint"/)
+  assert.match(seraphin, /seraphin-badge-512\./)
+  // Pas encore descendu : son voile en grand, et toujours rien de lui.
+  const inconnu = await rendu('components/Carriere', 'DetailDivin', {
+    ...communs,
+    cle: 'dv:lotus',
+    descendus: HABITUE.divins,
+    dessin: React.createElement(Divin, { cle: 'dv:lotus', verrouille: true, grand: true }),
+  })
+  assert.match(inconnu, /<span class="detail-dessin" aria-hidden="true"><svg class="dv dv-lotus dv-voile"/)
+  assert.doesNotMatch(inconnu, /Lotus|badge|medaillons/)
+
+  // Centré, grand, et de l'air autour pour ce qui déborde.
+  const cadre = regle('.detail-dessin')
+  assert.match(cadre, /align-self:\s*center/)
+  const taille = /font-size:\s*([\d.]+)rem/.exec(cadre)
+  assert.ok(taille && Number(taille[1]) >= 8, `en grand : ${taille?.[0]}`)
+})
+
 test('la fiche d’une case s’ouvre sous sa rangée, de toute la largeur de la grille', () => {
   // Juste derrière sa case dans la page ; `dense` finit la rangée avec les
   // cases d'après et pose la fiche dessous.
@@ -232,6 +284,11 @@ test('la fiche d’une case s’ouvre sous sa rangée, de toute la largeur de la
   assert.equal(corps.split('id="detail-avatar"').length - 1, 1)
   // La page défile juste ce qu'il faut pour la montrer entière, et le focus va à son nom.
   assert.match(corps, /scrollIntoView\(\{ block: 'nearest'/)
+  // Et la case touchée reste au-dessus quand les deux tiennent à l'écran : la
+  // fiche refermée plus haut faisait remonter la case hors de la vue, et
+  // celle d'un légendaire, qui le montre en grand, est haute.
+  assert.match(corps, /const laCase = fiche\.previousElementSibling/)
+  assert.match(corps, /if \(laCase && haut < 0 && bas - haut <= window\.innerHeight\)/)
   assert.match(corps, /rendreLeFocus\(detail\.current, \['\.galerie-detail-nom'\]\)/)
 })
 

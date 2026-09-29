@@ -6429,6 +6429,10 @@ span.case-avatar { cursor: default; }
 }
 /* Collée à la rangée qu'elle déplie, un peu d'air avant la suivante. */
 .detail-case { margin: 0 0 5px; }
+/* Un légendaire ou un Divin touché se montre en grand en tête de sa fiche,
+   centré, le reflet sous le doigt. De l'air autour : ce qui sort du cadre
+   d'un éclaté, sa gerbe, les rayons d'un Divin débordent du médaillon. */
+.detail-dessin { align-self: center; font-size: 9.5rem; line-height: 0; margin: 1.5rem 0 1.1rem; }
 .galerie-detail-nom.detail-emoji { font-size: 1.9rem; line-height: 1.15; }
 .detail-famille { font-size: var(--t-label); font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; }
 .anneau-texte-legendaire { color: var(--anneau-legendaire); }
