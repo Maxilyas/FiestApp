@@ -6429,6 +6429,11 @@ span.case-avatar { cursor: default; }
 }
 /* Collée à la rangée qu'elle déplie, un peu d'air avant la suivante. */
 .detail-case { margin: 0 0 5px; }
+/* Sa version rare ou sa version d'origine : deux pastilles côte à côte, la
+   portée soulignée d'or — pas un second bouton plein, qui disputerait sa
+   place à « Le porter ». */
+.choix-eclat { display: flex; flex-wrap: wrap; gap: 6px; }
+.choix-eclat .btn[aria-pressed='true'] { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.14); color: var(--accent-text); }
 /* Un légendaire ou un Divin touché se montre en grand en tête de sa fiche,
    centré, le reflet sous le doigt. De l'air autour : ce qui sort du cadre
    d'un éclaté, sa gerbe, les rayons d'un Divin débordent du médaillon. */

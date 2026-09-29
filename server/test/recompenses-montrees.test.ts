@@ -260,8 +260,10 @@ test('« Qui dans la salle ? » montre le légendaire qu’on porte, comme le re
 /** Une source du client, telle qu'on l'écrit. */
 const source = (fichier: string) => readFileSync(new URL(`../../client/src/${fichier}`, import.meta.url), 'utf8')
 
-test('l’éclat d’un avatar porté se calcule partout par cibleEclat', () => {
+test('l’éclat d’un avatar porté se calcule partout par cibleEclat, et s’éteint partout où il l’a éteint', () => {
   // La page du compte calculait l'Éclat sur l'emoji caché sous un légendaire.
+  // Et un Éclat qu'il a éteint doit s'éteindre sur chaque page qui le montre :
+  // un `eclats.includes` direct l'y rallumerait (`brilleChez`).
   const racine = new URL('../../client/src/', import.meta.url)
   const fautifs: string[] = []
   let vus = 0
@@ -270,9 +272,9 @@ test('l’éclat d’un avatar porté se calcule partout par cibleEclat', () => 
     const texte = readFileSync(new URL(f.replace(/\\/g, '/'), racine), 'utf8')
     for (const m of texte.matchAll(/<Avatar\b[^>]*?\/>/gs)) {
       const el = m[0]
-      if (!/legendaire=/.test(el) || !/eclats\.includes\(/.test(el)) continue
+      if (!/legendaire=/.test(el) || !/eclats\.includes\(|brilleChez\(/.test(el)) continue
       vus++
-      if (!/cibleEclat\(/.test(el)) fautifs.push(`client/src/${f}:${texte.slice(0, m.index).split('\n').length}`)
+      if (!/cibleEclat\(/.test(el) || !/brilleChez\(/.test(el)) fautifs.push(`client/src/${f}:${texte.slice(0, m.index).split('\n').length}`)
     }
   }
   assert.ok(vus >= 3, `la garde trouve les avatars portés (${vus})`)
@@ -289,8 +291,8 @@ test('ce que la salle voit, la page le montre : laurier, légendaire, surnom et 
   assert.match(apparence, /a sa propre lumière/)
   // La marque « (2) » n'est pas un surnom.
   assert.match(source('components/CarteJoueur.tsx'), /p\.prenom !== partsDuNomAffiche\(carte\.nom\)\.prenom/)
-  // Un légendaire verrouillé n'a rien qui éclate.
-  assert.match(source('components/Carriere.tsx'), /\{gagne && eclats\.includes\(choisi\.key\) && \(/)
+  // Un légendaire verrouillé n'a rien qui éclate, ni version à choisir.
+  assert.match(source('components/Carriere.tsx'), /\{gagne && eclats\.includes\(choisi\.key\) && <ChoixDeLEclat /)
   // L'entrée d'un anonyme ne reprend pas l'emoji de collection d'un profil.
   assert.match(source('components/Entree.tsx'), /choix && AVATARS\.includes\(choix\.avatar\) \? choix\.avatar : tirage\(\)/)
   // Au podium et sur la carte, le médaillon prend la place d'un emoji auréolé.

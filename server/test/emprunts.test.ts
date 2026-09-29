@@ -161,7 +161,8 @@ test('« Mon compte » ne montre du profil rattaché que ce qu’il affiche : la
     assert.equal((await ecrire(banc.url, '/api/space/profil', { login: 'alice', password: 'motdepasse1' }, console_)).status, 200)
     const tele = await brancherTele(banc, console_)
     const me = (await (await moi(banc, tele)).json()) as { profil: Record<string, unknown> }
-    assert.deepEqual(Object.keys(me.profil).sort(), ['avatar', 'eclats', 'finition', 'legendaire', 'login', 'name', 'niveau'])
+    // Les Éclats éteints en sont : la page montre son avatar tel qu'il le porte, rare ou d'origine.
+    assert.deepEqual(Object.keys(me.profil).sort(), ['avatar', 'eclats', 'eclatsEteints', 'finition', 'legendaire', 'login', 'name', 'niveau'])
     // Le profil au complet reste à son porteur.
     const alice = cookieDe(await ecrire(banc.url, '/api/joueur/connexion', { login: 'alice', password: 'motdepasse1' }), 'qz_joueur')
     const sienne = (await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: alice } })).json()) as {

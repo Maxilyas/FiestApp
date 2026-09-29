@@ -5,7 +5,7 @@ import { NomLaure } from './Laurier'
 import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
-import { CeQuIlRemplace, DetailDivin, DetailLegendaire } from './Carriere'
+import { CeQuIlRemplace, ChoixDeLEclat, DetailDivin, DetailLegendaire } from './Carriere'
 import { CarteJoueur } from './CarteJoueur'
 import { Onglets } from './Onglets'
 import { dessinDuPortrait, useDessins } from './medaillons'
@@ -32,7 +32,7 @@ import {
   type Savoir,
 } from '../../../shared/branches'
 import { FONDS } from '../../../shared/fonds'
-import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, type PublicProfileDetail } from '../../../shared/profil'
+import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 import type { ChoixDuProfil } from './choix'
 
 // L'onglet « Apparence » du profil : ce que la salle voit de lui, son visage
@@ -70,7 +70,7 @@ export function ApercuSalle({ profil }: { profil: PublicProfileDetail }) {
           className="lb-avatar"
           avatar={profil.avatar}
           finition={profil.finition}
-          eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))}
+          eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
           legendaire={profil.legendaire ?? undefined}
         />
         {/* Sa ligne telle que la salle la voit : son laurier compris. */}
@@ -142,7 +142,10 @@ export function MesAvatars({
 }) {
   const [famille, setFamille] = useState<Famille>(() => familleInitiale ?? familleDe(profil))
   const [ouvert, setOuvert] = useState<string | null>(null)
-  const brille = (cle: string) => profil.eclats.includes(cle)
+  // Ce qui a éclaté brille, sauf ce qu'il a éteint : la grille et les fiches
+  // montrent la version qu'il porte.
+  const brille = (cle: string) => brilleChez(profil, cle)
+  const choisirEclat = (cle: string) => (b: boolean) => enregistrer({ eclat: { cle, brille: b } })
   const divins = profil.divins ?? []
   const descendu = (cle: string) => divins.some(d => d.key === cle)
   const porte = profil.legendaire
@@ -204,19 +207,23 @@ export function MesAvatars({
             cle={cle}
             savoir={savoir}
             porte={porte}
-            eclat={brille(cle)}
+            eclat={profil.eclats.includes(cle)}
+            brille={brille(cle)}
             busy={busy}
             onPorter={k => enregistrer({ legendaire: k })}
+            onEclat={choisirEclat(cle)}
           />
         ) : legendaire(cle) ? (
           <DetailLegendaire
             cle={cle}
             debloques={profil.legendaires}
             eclats={profil.eclats}
+            eteints={profil.eclatsEteints ?? []}
             porte={porte}
             hautsFaits={profil.hautsFaits}
             busy={busy}
             onPorter={l => enregistrer({ legendaire: l })}
+            onEclat={choisirEclat(cle)}
             dessin={<Legendaire cle={cle} verrouille={!profil.legendaires.includes(cle)} eclat={brille(cle)} grand />}
           />
         ) : divin(cle) ? (
@@ -233,9 +240,11 @@ export function MesAvatars({
             emoji={cle}
             avatar={profil.avatar}
             porte={porte}
-            eclat={brille(cle)}
+            eclat={profil.eclats.includes(cle)}
+            brille={brille(cle)}
             busy={busy}
             onPorter={a => enregistrer({ avatar: a })}
+            onEclat={choisirEclat(cle)}
           />
         )}
       </div>
@@ -270,7 +279,7 @@ export function MesAvatars({
             <MesBranches
               savoir={savoir}
               porte={porte}
-              eclats={profil.eclats}
+              eclats={profil.eclats.filter(brille)}
               ouvert={ouvert}
               toucher={toucher}
               fiche={fiche}
@@ -620,16 +629,23 @@ export function DetailPortrait({
   savoir,
   porte,
   eclat,
+  brille = eclat,
   busy,
   onPorter,
+  onEclat,
 }: {
   cle: string
   savoir: Savoir
   /** L'avatar dessiné qu'il porte, s'il en porte un. */
   porte: string | null
+  /** Il a éclaté pour lui. */
   eclat: boolean
+  /** Il en porte la version rare — sinon, il l'a éteint. */
+  brille?: boolean
   busy: boolean
   onPorter: (cle: string | null) => void
+  /** Porter sa version rare, ou sa version d'origine. */
+  onEclat?: (brille: boolean) => void
 }) {
   const p = portraitDe(cle)
   if (!p) return null
@@ -651,7 +667,7 @@ export function DetailPortrait({
         </p>
       )}
       {/* Gagné seulement : un portrait verrouillé n'a rien qui éclate. */}
-      {gagne && eclat && <p className="small">Il a éclaté : c’est sa version rare, et personne d’autre ne l’a comme ça.</p>}
+      {gagne && eclat && <ChoixDeLEclat brille={brille} busy={busy} onChoisir={onEclat} />}
       {gagne && (
         <>
           <CeQuIlRemplace porte={porte} cle={p.key} />
@@ -680,17 +696,24 @@ export function DetailEmoji({
   avatar,
   porte,
   eclat,
+  brille = eclat,
   busy,
   onPorter,
+  onEclat,
 }: {
   emoji: string
   /** L'emoji du profil : celui qu'il porte, s'il ne porte rien de dessiné. */
   avatar: string
   /** Le légendaire ou le Divin qu'il porte, s'il en porte un. */
   porte: string | null
+  /** Il a éclaté pour lui. */
   eclat: boolean
+  /** Il en porte la version rare — sinon, il l'a éteint. */
+  brille?: boolean
   busy: boolean
   onPorter: (emoji: string) => void
+  /** Porter sa version rare, ou sa version d'origine. */
+  onEclat?: (brille: boolean) => void
 }) {
   const collection = COLLECTION.find(c => c.emoji === emoji)
   const choisi = !porte && emoji === avatar
@@ -704,7 +727,7 @@ export function DetailEmoji({
         <span className="detail-famille muted">Emoji</span>
       )}
       <b className="galerie-detail-nom detail-emoji">{emoji}</b>
-      {eclat && <p className="small">Il a éclaté : c’est sa version rare, et personne d’autre ne l’a comme ça.</p>}
+      {eclat && <ChoixDeLEclat brille={brille} busy={busy} onChoisir={onEclat} />}
       {choisi ? (
         <p className="muted small">C’est lui que la salle voit.</p>
       ) : (
@@ -731,7 +754,7 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
   const divinPorte = divin(profil.legendaire)
   // Sous un Divin, qui n'en prend pas, c'est sous l'emoji que la finition se verra.
   const legendairePorte = divinPorte ? undefined : (profil.legendaire ?? undefined)
-  const eclat = profil.eclats.includes(cibleEclat(legendairePorte, profil.avatar))
+  const eclat = brilleChez(profil, cibleEclat(legendairePorte, profil.avatar))
   return (
     <section className="card">
       <h3>

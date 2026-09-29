@@ -224,3 +224,54 @@ test('sous un légendaire, c’est le légendaire qui éclate — sa version rar
     assert.equal(vue?.legendaire, 'lg:chouette')
     assert.equal(vue?.eclat, true)
   }))
+
+// ── 4. Sa version rare, ou celle d'origine ────────────────────────────────
+
+test('un avatar éclaté se porte dans sa version rare ou d’origine, au choix — l’Éclat reste à lui', () =>
+  avecBanc(async banc => {
+    const cookie = await connexionAnimateur(banc.url)
+    const quiz = await creerQuiz(banc.url, cookie, [qcm('On y est ?')])
+    const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    const host = await ecranCommun(banc.url, cookie)
+    const alice = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
+    const bob = await invite(banc.url, 'Bob', '🐻')
+    ProfileStore.tirageEclat = () => true
+    await jouerQuiz(host, quiz, [[[alice, 0], [bob, 1]]])
+    await rangee(banc)
+    await clore(host)
+    assert.deepEqual((await moi(banc, aliceCookie)).eclats, ['🦊'])
+
+    // Seulement ce qui a éclaté pour lui, et un choix clair.
+    const autre = await ecrire(banc.url, '/api/joueur/moi', { eclat: { cle: '🐻', brille: false } }, aliceCookie, 'PUT')
+    assert.equal(autre.status, 400)
+    assert.match(((await autre.json()) as any).error, /n’a pas éclaté pour toi/)
+    const flou = await ecrire(banc.url, '/api/joueur/moi', { eclat: { cle: '🦊', brille: 'non' } }, aliceCookie, 'PUT')
+    assert.equal(flou.status, 400)
+
+    // Éteint : il garde l'Éclat — sa collection, sa carrière le comptent —, et porte la version d'origine.
+    const eteint = await ecrire(banc.url, '/api/joueur/moi', { eclat: { cle: '🦊', brille: false } }, aliceCookie, 'PUT')
+    assert.equal(eteint.status, 200)
+    const { profile } = (await eteint.json()) as any
+    assert.deepEqual(profile.eclats, ['🦊'], 'l’Éclat reste à lui')
+    assert.deepEqual(profile.eclatsEteints, ['🦊'])
+
+    // La salle voit la version d'origine…
+    const revenue = await invite(banc.url, 'Alice', '🦊', { cookie: aliceCookie })
+    const vue = async (eclat: boolean, label: string) => {
+      const snap = await instantane<any>(host, s => s.players.some((p: any) => p.id === revenue.playerId && !!p.eclat === eclat), label)
+      return snap.players.find((p: any) => p.id === revenue.playerId)
+    }
+    assert.ok(!(await vue(false, 'Alice sans son Éclat')).eclat)
+    // … et la revoit briller dès qu'il le rallume, sans attendre la veille de quelqu'un.
+    const rallume = await ecrire(banc.url, '/api/joueur/moi', { eclat: { cle: '🦊', brille: true } }, aliceCookie, 'PUT')
+    assert.equal(rallume.status, 200)
+    assert.deepEqual(((await rallume.json()) as any).profile.eclatsEteints, [])
+    assert.equal((await vue(true, 'Alice et son Éclat')).eclat, true)
+
+    // Le choix est en base, pas seulement en mémoire : il tient au redémarrage.
+    assert.equal((await ecrire(banc.url, '/api/joueur/moi', { eclat: { cle: '🦊', brille: false } }, aliceCookie, 'PUT')).status, 200)
+    await banc.redemarrer()
+    const apres = await moi(banc, aliceCookie)
+    assert.deepEqual(apres.eclats, ['🦊'])
+    assert.deepEqual(apres.eclatsEteints, ['🦊'])
+  }))

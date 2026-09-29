@@ -11,7 +11,7 @@ import { CodeSecours } from '../components/Secours'
 import { tronquer } from '../../../shared/avatars'
 import { pageDeRetour } from '../../../shared/securite'
 import { cibleEclat } from '../../../shared/legendaires'
-import { coupDOeilMoyen, type PublicProfileDetail } from '../../../shared/profil'
+import { brilleChez, coupDOeilMoyen, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { Categories, Courbes, FicheCarriere } from '../components/Carriere'
 import { annonceDuChoix, type ChoixDuProfil } from '../components/choix'
@@ -247,7 +247,7 @@ export function ProfilApp() {
           className="player-avatar big"
           avatar={profil.avatar}
           finition={profil.finition}
-          eclat={profil.eclats.includes(cibleEclat(profil.legendaire, profil.avatar))}
+          eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
           legendaire={profil.legendaire ?? undefined}
         />
         {/* Le niveau et sa barre, sous le nom : une carte « Niveau » redisait
