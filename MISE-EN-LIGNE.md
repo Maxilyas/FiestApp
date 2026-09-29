@@ -119,7 +119,14 @@ Ensuite, la veille ne menace plus la soirée : tant qu'un écran commun ou un t�
 
 Mets-le dans ta routine d'avant soirée (section 6) — c'est la seule chose à ne pas oublier.
 
-> Un service de ping extérieur (cron-job.org, UptimeRobot…) appelant `/healthz` toutes les dix minutes ferait le même travail sans y penser. Ce dépôt ne s'en sert pas : avec **deux services gratuits** (production et préproduction), les 750 heures mensuelles de l'offre ne suffisent de toute façon pas à en garder deux allumés en permanence. Laisser dormir les deux est le choix cohérent.
+**La production, elle, est tenue éveillée de 7 h à minuit**, en deux étages :
+
+1. **Le réveil**, à 6 h 50 (heure de Paris) : `.github/workflows/reveil.yml` appelle `/healthz` depuis GitHub, attend jusqu'à deux minutes et insiste. Il lit l'adresse de la production dans une variable du dépôt : *Settings → Secrets and variables → Actions → Variables → New repository variable*, `FIESTAPP_URL`, `https://….onrender.com` sans `/` à la fin. Essaie-le une fois depuis l'onglet *Actions* (« Réveil du serveur », *Run workflow*) : `/healthz : 200 en 50 s`, c'était un réveil ; en quelques centièmes de seconde, le serveur était déjà debout.
+2. **Le ping**, sur cron-job.org : `GET https://….onrender.com/healthz` toutes les dix minutes de 7 h à minuit (`*/10 7-23 * * *`), **fuseau horaire Europe/Paris** — en UTC, les pings commenceraient une ou deux heures après le réveil, et le serveur se serait rendormi entre-temps. Coupe l'option qui désactive la tâche après plusieurs échecs.
+
+Pourquoi deux : cron-job.org abandonne une requête à trente secondes, et un réveil en prend près d'une minute. Sa requête coupée ne réveille pas le serveur — tous les pings de la journée échouaient derrière le premier. Le ping ne sait que tenir debout un serveur déjà levé ; c'est le réveil, patient, qui le lève. Pas avant 6 h 45 : quinze minutes sans trafic avant le premier ping, et il se rendort. Le réveil repasse à 7 h 50, en filet — une tâche planifiée de GitHub arrive parfois très en retard, parfois pas du tout —, avant la routine de la réserve du quiz du jour (étape 8). Le dépôt est public : GitHub y suspend les tâches planifiées après soixante jours sans commit ; l'onglet *Actions* le dit, et un bouton les relance.
+
+**La préproduction, elle, dort.** De 7 h à minuit, c'est environ 530 heures par mois sur les 750 de l'offre gratuite — communes à tous les services du compte : pinguer aussi la préproduction les épuiserait vers le 22, et Render suspendrait alors les deux services jusqu'au mois suivant. Ne pingue que la production. Après minuit, elle se rendort comme avant : une soirée qui dure la tient éveillée par ses websockets, et le geste des cinq minutes avant (section 6) reste le bon.
 
 La veille ne menace pas davantage les quiz qu'on prépare : l'éditeur n'envoie rien pendant qu'on écrit, et le serveur peut s'endormir entre deux enregistrements — mais « Enregistrer » attend son réveil (« Réveil du serveur… », une minute), et le navigateur garde ce qui n'est pas encore enregistré, même si l'on recharge la page.
 
@@ -208,7 +215,7 @@ Ce qui reste se lit en trente secondes : *Workspace → Billing*, les minutes de
    - **les points** : le classement de l'écran commun avant et après — une question payée deux fois s'y voit.
 5. Garde le relevé et ces lignes du journal. Avec un chevauchement, on pose un bail : la nouvelle instance prend la main, l'ancienne cesse d'écrire et renvoie les téléphones vers elle. Sans, on s'arrête là.
 
-**Et le dormir ?** Les deux services s'endorment après quinze minutes sans trafic. C'est assumé : les 750 heures mensuelles de l'offre gratuite ne suffiraient pas à en garder deux éveillés. On réveille celui dont on a besoin en ouvrant son adresse, cinq minutes avant (voir l'étape 5).
+**Et le dormir ?** La préproduction s'endort après quinze minutes sans trafic, et la production aussi, de minuit à 7 h. C'est assumé : les 750 heures mensuelles de l'offre gratuite ne suffiraient pas à en garder deux éveillés. On réveille la préproduction en ouvrant son adresse, cinq minutes avant (voir l'étape 5).
 
 ### Étape 8 — La réserve du quiz du jour, remplie par une routine
 
@@ -218,7 +225,7 @@ Le quiz du jour pose dix questions par jour : sa réserve se vide. Une **routine
 
 1. **Le jeton, dans Render.** Sur la préproduction d'abord, pour essayer, puis sur la production — chacune le sien : *Environment → Add Environment Variable*, la clé `RESERVE_TOKEN`, et le bouton **Generate** pour la valeur. Enregistre : le service redémarre, et `/admin`, rubrique « Le quiz du jour », dit **Remplissage automatique ouvert**. Sous trente-deux caractères, la porte reste fermée, et le journal du démarrage le dit.
 2. **Le même jeton, dans l'environnement Claude Code.** Sur claude.ai/code, le menu de l'environnement (en haut d'une session), puis **Edit** : ajoute les variables `RESERVE_TOKEN` (la valeur recopiée depuis Render) et `FIESTAPP_URL` (l'adresse du service qu'elle remplit, `https://….onrender.com`, sans `/` à la fin). Dans **Network access**, ajoute ce domaine aux domaines permis. Le jeton ne s'écrit jamais dans le dépôt, ni dans une conversation. Une fois la préproduction essayée, remplace les deux variables par celles de la production.
-3. **La routine.** Demande-la à Claude dans une nouvelle session de cet environnement (« crée la routine de la réserve du quiz du jour, lundi et jeudi à 5 h »), ou crée-la toi-même : une nouvelle session à chaque passage, avec cette consigne.
+3. **La routine.** Demande-la à Claude dans une nouvelle session de cet environnement (« crée la routine de la réserve du quiz du jour, lundi et jeudi à 8 h »), ou crée-la toi-même : une nouvelle session à chaque passage, avec cette consigne. À 8 h, la production est déjà debout (étape 5) : la routine lit, écrit pendant plusieurs minutes, puis dépose, sans que le serveur s'endorme entre les deux. À 5 h, il dormait, et tout reposait sur la patience de la première requête — qui reste dans la consigne, pour le jour où le réveil aurait manqué.
 
    ```
    Tu remplis la réserve du quiz du jour de FiestApp, avec les variables de
@@ -397,8 +404,8 @@ En HTTP, les téléphones ne savent pas garder leur écran allumé tout seuls �
 
 ## 6. Le jour de la soirée
 
-1. **La veille** : ouvre l'adresse publique pour confirmer que tout répond (elle mettra une minute : le serveur dormait). Dans **Mon compte**, vérifie le titre de la soirée et la date : ce sont eux que voient les invités.
-2. **5 minutes avant — le geste à ne pas oublier** : connecte-toi et ouvre l'écran commun sur le vidéoprojecteur. C'est lui qui réveille le serveur, et tant qu'un écran est connecté il ne se rendort pas. Sans ça, le premier invité qui scanne attend une minute devant une page blanche.
+1. **La veille** : ouvre l'adresse publique pour confirmer que tout répond (entre minuit et 7 h, elle mettra une minute : le serveur dormait). Dans **Mon compte**, vérifie le titre de la soirée et la date : ce sont eux que voient les invités.
+2. **5 minutes avant — le geste à ne pas oublier** : connecte-toi et ouvre l'écran commun sur le vidéoprojecteur. De 7 h à minuit, le serveur est déjà debout (étape 5) ; si le réveil du matin a manqué, c'est cet écran qui le réveille — sans lui, le premier invité qui scanne attendrait une minute devant une page blanche. Et tant qu'un écran est connecté, le serveur ne se rendort pas, même passé minuit, quand les pings s'arrêtent.
 3. Vérifie le son : le haut-parleur, à droite de la console, en bas de l'écran commun (les sons ne sortent que de là, jamais des téléphones).
 4. Les invités scannent le QR de l'écran commun — il mène à l'adresse de ton espace — : « Me connecter » pour qui a un profil, « Jouer sans compte » pour les autres, puis un prénom et un avatar. Qui ouvre l'accueil de l'application (l'adresse publique seule) y touche « Rejoindre une soirée », puis tape le nom de ton espace.
 5. **Lancer un quiz** → choisis **points normaux, ×2 ou ×3**, puis le quiz → le 3-2-1 démarre. Annonce le multiplicateur à la salle : c'est ce qui garde tout le monde dans la course.
@@ -419,7 +426,7 @@ Les retardataires rejoignent en cours de partie : ils jouent les questions suiva
 
 | Symptôme | Cause probable | Quoi faire |
 |---|---|---|
-| Page blanche ~1 min au premier scan | serveur endormi (offre gratuite, 15 min sans trafic) | attendre le réveil ; la prochaine fois, ouvrir l'écran commun cinq minutes avant |
+| Page blanche ~1 min au premier scan | serveur endormi (offre gratuite, 15 min sans trafic) : après minuit, ou le réveil du matin a manqué | attendre le réveil ; la prochaine fois, ouvrir l'écran commun cinq minutes avant. En journée, regarder l'onglet *Actions* du dépôt (« Réveil du serveur ») et l'historique de cron-job.org (étape 5) |
 | « Le serveur redémarre — patiente une minute, puis réessaie » | c'est l'hébergeur qui répond à la place de l'application (502, 503, 504) : un déploiement ou un réveil en cours | patienter une minute ; ne pas déployer pendant une soirée — la production ne se déploie qu'à la main (étape 7) |
 | « Identifiant ou mot de passe incorrect » | faute de frappe, ou le mot de passe d'amorçage a été changé depuis « Mon compte » | réessayer ; pour un ami, refaire un lien d'activation depuis `/admin` |
 | « Trop d'essais — réessaie dans un quart d'heure » | cinq échecs de suite sur un même identifiant — les portes qui vérifient le même mot de passe (connexion, rattachement d'un profil, changement de mot de passe) se ferment ensemble —, ou vingt essais depuis une même adresse, toutes portes confondues (puis vingt par minute) : le wifi de la salle n'est qu'une adresse | attendre : un quart d'heure pour un mot de passe verrouillé, une minute suffit à l'adresse ; c'est le garde-fou contre la force brute |

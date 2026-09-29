@@ -382,7 +382,7 @@ npm run migrate -- --to libsql://ta-base.turso.io --token ton-jeton
 
 La parade tient en un geste : **ouvrir l'écran commun cinq minutes avant** l'arrivée des invités. Tant qu'un écran ou un téléphone est connecté, le trafic des websockets empêche la veille — la seule fenêtre de risque est le tout premier scan, et c'est celle-là qu'on couvre.
 
-Un service de ping extérieur (cron-job.org, UptimeRobot…) ferait le même travail sans y penser, mais ce dépôt s'en passe : avec **deux services gratuits** — production et préproduction —, les 750 heures mensuelles ne suffisent pas à en garder deux allumés en permanence. Laisser dormir les deux est le choix cohérent.
+La production, elle, ne dort plus de 7 h à minuit : un workflow GitHub la réveille à 6 h 50 (`.github/workflows/reveil.yml`) — patient, il attend la minute du réveil —, puis un ping de cron-job.org, toutes les dix minutes, la garde debout (MISE-EN-LIGNE.md, étape 5). Le ping seul ne suffit pas : il abandonne à trente secondes, et sa requête coupée ne réveille rien. La préproduction, elle, dort : les 750 heures mensuelles de l'offre gratuite ne suffisent pas à garder deux services éveillés.
 
 Si tu préfères un hébergeur qui ne dort jamais, Northflank propose deux services toujours actifs sur son offre gratuite — mais il demande une carte pour vérifier le compte, ce que Render ne fait pas.
 

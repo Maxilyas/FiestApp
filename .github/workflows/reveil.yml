@@ -1,0 +1,46 @@
+# Le réveil du matin de la production.
+#
+# L'offre gratuite de Render endort le serveur après quinze minutes sans
+# trafic, et il met près d'une minute à se relever. Le ping de cron-job.org
+# qui le tient éveillé de 7 h à minuit abandonne à trente secondes : sur un
+# serveur endormi, sa requête coupée ne le relève pas, et tous les pings de
+# la journée échouaient derrière la première. Ce réveil-ci attend deux
+# minutes et insiste ; le ping n'a plus qu'à tenir debout un serveur déjà
+# levé (MISE-EN-LIGNE.md, étape 5).
+name: Réveil du serveur
+
+on:
+  schedule:
+    # GitHub ne compte qu'en UTC : 4 h 50, 5 h 50 et 6 h 50 UTC donnent
+    # 6 h 50 et 7 h 50 à Paris, à l'heure d'été comme à l'heure d'hiver — la
+    # troisième ne sert à rien, et ne coûte rien sur un dépôt public.
+    # Pas avant 6 h 45 : réveillé plus tôt, le serveur se rendormirait avant
+    # le premier ping, à 7 h. Puis 7 h 50, en filet — une tâche planifiée
+    # arrive parfois très en retard, parfois pas du tout —, juste avant la
+    # routine qui remplit la réserve du quiz du jour.
+    - cron: '50 4,5,6 * * *'
+  # Pour l'essayer depuis l'onglet Actions.
+  workflow_dispatch:
+
+jobs:
+  reveiller:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Réveiller la production
+        env:
+          # Une variable du dépôt plutôt qu'une adresse écrite ici : l'adresse
+          # `onrender.com` se fixe à la création du service, elle ne se
+          # déduit pas de son nom.
+          FIESTAPP_URL: ${{ vars.FIESTAPP_URL }}
+        run: |
+          if [ -z "$FIESTAPP_URL" ]; then
+            echo "::error::La variable FIESTAPP_URL manque : Settings → Secrets and variables → Actions → Variables, l'adresse de la production (https://….onrender.com, sans / à la fin)."
+            exit 1
+          fi
+          # Pendant le réveil, c'est Render qui répond à la place de
+          # l'application (502, 503) : on réessaie sur toute erreur, deux
+          # minutes par essai, et plus aucun essai ne part passé cinq minutes.
+          curl -fsS -o /dev/null -w '/healthz : %{http_code} en %{time_total} s\n' \
+            --max-time 120 --retry 10 --retry-delay 15 --retry-max-time 300 --retry-all-errors \
+            "$FIESTAPP_URL/healthz"

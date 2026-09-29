@@ -404,6 +404,15 @@ préproduction effacerait de vraies soirées archivées. Hors production,
 `server.ts`, affiché par `main.tsx`). En ligne, le serveur refuse de démarrer
 sans `QUIZ_DB_URL`.
 
+**La veille** : l'offre gratuite endort un service après quinze minutes sans
+trafic. La production est tenue éveillée de 7 h à minuit :
+`.github/workflows/reveil.yml` la réveille à 6 h 50 (Paris), patient — un
+ping qui abandonne à trente secondes ne réveille rien —, puis un ping
+extérieur toutes les dix minutes (cron-job.org, hors du dépôt) la garde
+debout. La préproduction dort : les 750 heures mensuelles, communes aux deux
+services, n'en tiennent pas deux (MISE-EN-LIGNE.md, étape 5). La routine de
+la réserve du quiz du jour passe donc à 8 h, serveur levé.
+
 ## Les pièges de ce dépôt
 
 - **`smoke.ts` est stateful de bout en bout.** Une soirée jouée insérée au

@@ -70,9 +70,11 @@ services:
     buildCommand: npm ci && npm run build
     startCommand: cd server && exec node dist/index.mjs
     # Render s'en sert pour savoir si le service répond. L'offre gratuite
-    # endort l'application après 15 minutes sans trafic, et on l'assume : on
-    # ouvre l'écran commun cinq minutes avant l'arrivée des invités, et le
-    # trafic des websockets la tient éveillée tout le reste de la soirée.
+    # endort l'application après 15 minutes sans trafic : de 7 h à minuit, un
+    # réveil (`.github/workflows/reveil.yml`) et un ping extérieur la tiennent
+    # debout (MISE-EN-LIGNE.md, étape 5) ; après, on ouvre l'écran commun
+    # cinq minutes avant l'arrivée des invités, et le trafic des websockets la
+    # tient éveillée tout le reste de la soirée.
     healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION
@@ -119,9 +121,10 @@ services:
   # les cookies `Secure`, l'adresse du client derrière le proxy, la politique
   # de sécurité du contenu en conditions réelles.
   #
-  # Elle dort quand personne ne s'en sert, comme la production : les 750 heures
-  # mensuelles de l'offre gratuite ne suffiraient pas à garder deux services
-  # éveillés en permanence. On la réveille en ouvrant son adresse.
+  # Elle dort quand personne ne s'en sert — la production, elle, est tenue
+  # éveillée de 7 h à minuit : les 750 heures mensuelles de l'offre gratuite
+  # ne suffiraient pas à garder deux services éveillés. On la réveille en
+  # ouvrant son adresse, et on ne la pingue pas.
   - type: web
     name: fiestapp-quizz-preprod
     runtime: node
