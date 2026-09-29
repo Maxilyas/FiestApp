@@ -841,6 +841,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
     // où vingt invités portent le même en fait une seule requête chacun, une
     // fois pour toutes.
     app.use('/portraits', express.static(path.join(clientDist, 'portraits'), { maxAge: '1y', immutable: true, fallthrough: false }))
+    // Les légendaires et les Divins peints de même (`server/scripts/anime/legendaires.ts`).
+    app.use('/medaillons', express.static(path.join(clientDist, 'medaillons'), { maxAge: '1y', immutable: true, fallthrough: false }))
     // La page d'accueil est lue une fois et gardée en mémoire — elle ne change
     // pas d'un déploiement à l'autre. Hors production, on y glisse le nom de
     // l'environnement : c'est le seul endroit qui atteint TOUTES les pages,

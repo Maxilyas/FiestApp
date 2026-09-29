@@ -112,15 +112,18 @@ export function Avatar({ avatar, finition, eclat, legendaire, className }: Props
  * qu'on vient de gagner. Si son dessin n'arrivera plus (`perdus`), c'est à
  * la page de dire autre chose : la carte cache sa galerie, la fin de soirée
  * mène au profil.
+ *
+ * `grand` : il se regarde (la fin de soirée, sa descente) — ses images
+ * peintes y prennent leurs grands fichiers ; la galerie d'une carte, à 40
+ * pixels, garde les petits.
  */
-export function Dessin({ cle, verrouille }: { cle: string; verrouille?: boolean }) {
+export function Dessin({ cle, verrouille, grand }: { cle: string; verrouille?: boolean; grand?: boolean }) {
   const divin = !!divinDe(cle)
   const portrait = !!portraitDe(cle)
   const dessins = useDessins(...sortesDe([cle]))
   const { Legendaire, Divin, Portrait } = dessins
-  if (divin && Divin) return <Divin cle={cle} verrouille={verrouille} />
-  // Seul, un médaillon se regarde : un portrait peint y prend ses grands fichiers.
-  if (portrait && Portrait && dessinDuPortrait(dessins, cle)) return <Portrait cle={cle} verrouille={verrouille} grand />
-  if (!divin && !portrait && Legendaire) return <Legendaire cle={cle} verrouille={verrouille} />
+  if (divin && Divin) return <Divin cle={cle} verrouille={verrouille} grand={grand} />
+  if (portrait && Portrait && dessinDuPortrait(dessins, cle)) return <Portrait cle={cle} verrouille={verrouille} grand={grand} />
+  if (!divin && !portrait && Legendaire) return <Legendaire cle={cle} verrouille={verrouille} grand={grand} />
   return <span className={divin ? 'dv' : portrait ? 'pt' : 'lg'} aria-hidden="true" />
 }

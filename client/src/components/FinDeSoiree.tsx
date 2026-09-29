@@ -668,7 +668,7 @@ export function Medaillon({ cle, className }: { cle: string; className: string }
   }
   return (
     <span className={className}>
-      <Dessin cle={cle} />
+      <Dessin cle={cle} grand />
     </span>
   )
 }

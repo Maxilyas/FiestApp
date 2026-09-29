@@ -17,19 +17,6 @@ import type { Finition } from '../../../shared/profil'
 /** L'or d'origine des légendaires, du clair au sombre — et le cercle de la finition Or. */
 export const OR: [string, string, string] = ['#fff2c4', '#d9b56a', '#7a5618']
 
-/** Une étoile à quatre branches, centrée en (x, y). */
-export function etoile(x: number, y: number, r: number, key?: string | number, className = 'lg-scintille') {
-  const t = r * 0.28
-  return (
-    <path
-      key={key}
-      className={className}
-      d={`M${x},${y - r} L${x + t},${y - t} L${x + r},${y} L${x + t},${y + t} L${x},${y + r} L${x - t},${y + t} L${x - r},${y} L${x - t},${y - t} Z`}
-      fill="#fffbe6"
-    />
-  )
-}
-
 /** Un point à `r` du centre, à `deg` degrés du haut, dans le sens des aiguilles d'une montre. */
 function pol(r: number, deg: number): string {
   const a = (deg * Math.PI) / 180

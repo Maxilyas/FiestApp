@@ -1946,9 +1946,13 @@ h3 > .icon {
    le Phénix du premier paraissait le plus petit des trois. */
 .podium-avatar .av-emoji > .lg,
 .carte-avatar .av-emoji > .lg { font-size: 1.3em; }
-/* Un portrait des branches aussi : rond comme un médaillon. */
+/* Un portrait des branches aussi : rond comme un médaillon. Et un Divin,
+   bijou peint jusqu'à ses bords : sans elle, le plus rare des avatars
+   montait sur le podium plus petit que les légendaires à côté de lui. */
 .podium-avatar .av-emoji > .pt,
-.carte-avatar .av-emoji > .pt { font-size: 1.3em; }
+.carte-avatar .av-emoji > .pt,
+.podium-avatar .av-emoji > .dv,
+.carte-avatar .av-emoji > .dv { font-size: 1.3em; }
 .podium-name {
   font-family: var(--serif);
   font-weight: 600;
@@ -4347,133 +4351,196 @@ h3 > .icon {
 
 /* ── Les avatars légendaires ───────────────────────────────────────────────
 
-   Douze médaillons dessinés (components/Legendaire.tsx), à la taille du
-   texte : 1 em, comme l'emoji qu'ils remplacent. Un reflet les traverse de
-   temps en temps ; chacun a en plus son mouvement à lui. Tout s'anime en
-   coordonnées du dessin (`transform-box: view-box`), et rien ne bouge si le
-   système demande moins de mouvement. */
+   Seize cartes peintes (components/Legendaire.tsx), à la taille du texte :
+   1 em, comme l'emoji qu'elles remplacent. Des calques que le navigateur
+   compose — l'image, la pellicule holo, le reflet —, qui ne bougent que par
+   `transform` et `opacity`. Rien ne bouge si le système demande moins de
+   mouvement, ni dans une liste (« Dans une liste, un médaillon se tient
+   tranquille », plus bas). */
 
 .lg {
+  --px: 0.5;
+  --py: 0.5;
+  position: relative;
   display: block;
   width: 1em;
   height: 1em;
-  overflow: visible;
+  flex: none;
 }
 
 .lg * { transform-box: view-box; }
 
-.lg-reflet { animation: lg-balaye 7s ease-in-out infinite; }
+/* La carte penche sous le doigt, et se redresse en le quittant. */
+.lg-carte {
+  position: absolute;
+  inset: 0;
+  transform: perspective(4em) rotateX(calc((var(--py) - 0.5) * -14deg)) rotateY(calc((var(--px) - 0.5) * 14deg));
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.lg-touche .lg-carte { transition: none; }
+.lg-touche-libre { touch-action: none; cursor: grab; }
+.lg-touche { cursor: grabbing; }
 
+.lg-cadre { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+
+/* Le disque se découpe par un vrai cercle : sous une inclinaison qui se
+   redresse, un simple `overflow` oubliait son arrondi, et la pellicule — un
+   grand carré qui glisse — apparaissait un instant en entier. */
+.lg-disque {
+  position: absolute;
+  inset: 5%;
+  border-radius: 50%;
+  overflow: hidden;
+  clip-path: circle(50% at 50% 50%);
+  isolation: isolate;
+}
+.lg-disque::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 max(1px, 0.01em) rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+.lg-art { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+.lg-feuille,
+.lg-diffraction,
+.lg-reflet,
+.lg-paillettes,
+.lg-gerbe,
+.lg-debord,
+.lg-silhouette { position: absolute; pointer-events: none; }
+
+/* La pellicule : un arc-en-ciel en `color-dodge`, qui n'allume que ce qui est
+   déjà clair — la feuille d'or, le feu, les étoiles —, comme une vraie carte
+   holographique ; une diffraction fine ; un reflet qui passe. */
+.lg-feuille {
+  inset: -60%;
+  background: repeating-linear-gradient(115deg, #ff6b9a 0%, #ffd66b 6%, #6bffc1 12%, #6bc4ff 18%, #b98bff 24%, #ff6b9a 30%);
+  mix-blend-mode: color-dodge;
+  opacity: 0.26;
+  transform: translate(calc((var(--px) - 0.5) * -38%), calc((var(--py) - 0.5) * -38%));
+  animation: lg-glisse 7s ease-in-out infinite;
+}
+.lg-diffraction {
+  inset: 0;
+  background:
+    repeating-linear-gradient(58deg, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(-32deg, rgba(255, 255, 255, 0.09) 0 1px, transparent 1px 4px);
+  mix-blend-mode: overlay;
+  opacity: 0.45;
+}
+.lg-reflet {
+  inset: -50%;
+  background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.22) 16%, transparent 36%);
+  mix-blend-mode: soft-light;
+  transform: translate(calc((var(--px) - 0.5) * 60%), calc((var(--py) - 0.5) * 60%));
+  animation: lg-balaye 7s ease-in-out infinite;
+}
+/* Sous le doigt, la lumière le suit : plus d'animation, les variables. */
+.lg-touche .lg-feuille,
+.lg-touche .lg-reflet { animation: none; }
+
+@keyframes lg-glisse {
+  0%, 100% { transform: translate(14%, 12%); }
+  50% { transform: translate(-14%, -12%); }
+}
 @keyframes lg-balaye {
-  0%, 60% { transform: translateX(0); }
-  85%, 100% { transform: translateX(170px); }
+  0%, 100% { transform: translate(-26%, -24%); }
+  50% { transform: translate(26%, 22%); }
 }
 
-.lg-scintille { transform-box: fill-box; transform-origin: center; animation: lg-scintille 2.4s ease-in-out infinite; }
-.lg-scintille:nth-of-type(2n) { animation-delay: -1.1s; }
-.lg-scintille:nth-of-type(3n) { animation-delay: -0.6s; }
+/* Les légendes de l'ombre : une pellicule noire, aux reflets violets et verts. */
+.lg-ombre .lg-feuille {
+  background: repeating-linear-gradient(115deg, #3a1b66 0%, #1f7a74 8%, #6b2fb3 16%, #155a8a 24%, #3a1b66 32%);
+  opacity: 0.5;
+}
+.lg-ombre .lg-reflet { background: radial-gradient(circle at 50% 50%, rgba(200, 170, 255, 0.8), rgba(150, 120, 255, 0.2) 16%, transparent 36%); }
 
-@keyframes lg-scintille {
-  0%, 100% { opacity: 0.35; transform: scale(0.7); }
-  50% { opacity: 1; transform: scale(1.1); }
+/* Éclaté : la version rare, sous un prisme — deux arcs-en-ciel croisés —,
+   des paillettes, une gerbe de lumière derrière, et ce qui sort du cadre. */
+.lg-eclate .lg-feuille {
+  opacity: 0.4;
+  background: repeating-linear-gradient(115deg, #ff4f8a 0%, #ffe14f 5%, #4fffa8 10%, #4fb8ff 15%, #a66bff 20%, #ff4f8a 25%);
+}
+.lg-eclate .lg-feuille-2 {
+  background: repeating-linear-gradient(25deg, rgba(255, 120, 220, 0.9) 0%, rgba(120, 220, 255, 0.9) 8%, rgba(255, 255, 160, 0.9) 16%, rgba(255, 120, 220, 0.9) 24%);
+  opacity: 0.15;
+  transform: translate(calc((var(--px) - 0.5) * 30%), calc((var(--py) - 0.5) * -30%));
+  animation: lg-glisse-2 5.3s ease-in-out infinite;
+}
+.lg-paillettes {
+  inset: 0;
+  background-image:
+    radial-gradient(circle, #fff 0 0.007em, transparent 0.011em),
+    radial-gradient(circle, #fff6c8 0 0.008em, transparent 0.013em);
+  background-size: 0.11em 0.13em, 0.19em 0.15em;
+  background-position: 0.02em 0.03em, 0.07em 0.01em;
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: lg-paillettes 1.9s ease-in-out infinite;
+}
+.lg-paillettes-2 {
+  background-size: 0.15em 0.11em, 0.09em 0.2em;
+  background-position: 0.06em 0.05em, 0.01em 0.09em;
+  animation-duration: 2.6s;
+  animation-delay: -1.1s;
+}
+.lg-touche .lg-feuille-2 { animation: none; }
+.lg-touche .lg-paillettes { animation: none; opacity: 0.8; }
+.lg-gerbe {
+  inset: -22%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 236, 170, 0) 0deg 7deg, rgba(255, 236, 170, 0.34) 8.5deg, rgba(255, 236, 170, 0) 10deg 15deg);
+  -webkit-mask: radial-gradient(circle, #000 34%, transparent 70%);
+  mask: radial-gradient(circle, #000 34%, transparent 70%);
+  animation: lg-tourne 60s linear infinite;
+}
+.lg-gerbe-2 {
+  inset: -12%;
+  background: repeating-conic-gradient(from 4deg, rgba(160, 230, 255, 0) 0deg 10deg, rgba(160, 230, 255, 0.28) 11.5deg, rgba(160, 230, 255, 0) 13deg 20deg);
+  animation-duration: 42s;
+  animation-direction: reverse;
+}
+/* Ce qui sort du cadre : la créature rare détourée (cadre −20 → 120 du
+   disque, qui fait 90 % du médaillon), hors du disque et par-dessus
+   l'anneau, par le haut, estompée avant le bord de l'image peinte. */
+.lg-debord {
+  left: -13%;
+  top: -13%;
+  width: 126%;
+  height: 126%;
+  max-width: none;
+  -webkit-mask:
+    radial-gradient(circle closest-side at 50% 50%, transparent 0 71%, #000 72%),
+    linear-gradient(transparent 8%, #000 16%, #000 48%, transparent 62%),
+    linear-gradient(90deg, transparent 8%, #000 16%, #000 84%, transparent 92%);
+  -webkit-mask-composite: source-in, source-in;
+  mask:
+    radial-gradient(circle closest-side at 50% 50%, transparent 0 71%, #000 72%) intersect,
+    linear-gradient(transparent 8%, #000 16%, #000 48%, transparent 62%) intersect,
+    linear-gradient(90deg, transparent 8%, #000 16%, #000 84%, transparent 92%);
 }
 
-.lg-pouls { transform-box: fill-box; transform-origin: center; animation: lg-pouls 2.8s ease-in-out infinite; }
-
-@keyframes lg-pouls {
-  0%, 100% { transform: scale(0.92); opacity: 0.75; }
-  50% { transform: scale(1.08); opacity: 1; }
+@keyframes lg-glisse-2 {
+  0%, 100% { transform: translate(-12%, 10%); }
+  50% { transform: translate(12%, -10%); }
 }
-
-.lg-flamme { transform-origin: 50px 62px; animation: lg-flamme 1.8s ease-in-out infinite alternate; }
-
-@keyframes lg-flamme {
-  from { transform: scale(1, 1); }
-  to { transform: scale(1.03, 1.06); }
-}
-
-.lg-braise { transform-box: fill-box; animation: lg-braise 3.2s ease-in infinite; }
-.lg-braise:nth-child(2n) { animation-delay: -1.3s; }
-.lg-braise:nth-child(3n) { animation-delay: -2.1s; }
-
-@keyframes lg-braise {
-  0% { transform: translateY(6px); opacity: 0; }
-  30% { opacity: 1; }
-  100% { transform: translateY(-16px); opacity: 0; }
-}
-
-.lg-pupille { transform-origin: 50px 52px; animation: lg-pupille 5s ease-in-out infinite; }
-
-@keyframes lg-pupille {
-  0%, 70%, 100% { transform: scaleX(1); }
-  80%, 88% { transform: scaleX(0.45); }
-}
-
-.lg-yeux { transform-origin: 50px 47px; animation: lg-cligne 6s ease-in-out infinite; }
-
-@keyframes lg-cligne {
-  0%, 92%, 100% { transform: scaleY(1); }
-  95% { transform: scaleY(0.08); }
-}
-
-.lg-eclair { animation: lg-eclair 3.6s steps(1) infinite; }
-
-@keyframes lg-eclair {
-  0%, 100% { opacity: 1; }
-  90% { opacity: 0.35; }
-  93% { opacity: 1; }
-  96% { opacity: 0.5; }
-}
-
-.lg-joyau { animation: lg-pouls 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
-
-.lg-ondule { transform-origin: 50px 40px; animation: lg-ondule 4s ease-in-out infinite alternate; }
-
-@keyframes lg-ondule {
-  from { transform: rotate(-2.5deg); }
-  to { transform: rotate(2.5deg); }
-}
-
-.lg-bulle { transform-box: fill-box; animation: lg-bulle 4s ease-in infinite; }
-.lg-bulle:nth-child(2n) { animation-delay: -2s; }
-
-@keyframes lg-bulle {
-  0% { transform: translateY(8px); opacity: 0; }
-  30% { opacity: 0.8; }
-  100% { transform: translateY(-14px); opacity: 0; }
-}
-
-.lg-flotte { animation: lg-flotte 3.4s ease-in-out infinite alternate; }
-
-@keyframes lg-flotte {
-  from { transform: translateY(2px); }
-  to { transform: translateY(-3px); }
-}
-
-.lg-brume { animation: lg-brume 6s ease-in-out infinite alternate; }
-.lg-brume-2 { animation-delay: -3s; }
-
-@keyframes lg-brume {
-  from { transform: translateX(-4px); }
-  to { transform: translateX(4px); }
-}
-
-.lg-anneau { animation: lg-anneau 3s ease-in-out infinite alternate; }
-
-@keyframes lg-anneau {
-  from { opacity: 0.85; }
-  to { opacity: 1; }
+@keyframes lg-paillettes {
+  0%, 100% { opacity: 0.05; }
+  50% { opacity: 0.85; }
 }
 
 /* Pas encore gagné : la forme seule, en silhouette dorée sur un disque
    sombre. On sait ce qu'on veut avant de l'avoir. */
 .lg-verrou .lg-fond { fill: #211915; }
 .lg-verrou .lg-bord { fill: rgba(var(--accent-rgb), 0.3); }
-.lg-verrou .lg-forme,
-.lg-verrou .lg-forme * { fill: rgba(var(--accent-rgb), 0.42); stroke: none; }
-.lg-verrou .lg-forme [fill='none'] { fill: none; stroke: rgba(var(--accent-rgb), 0.42); }
-.lg-verrou .lg-details,
-.lg-verrou .lg-decor { display: none; }
+.lg-silhouette {
+  inset: 0;
+  background: rgba(var(--accent-rgb), 0.42);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
 .lg-verrou * { animation: none !important; }
 
 /* Le cercle d'un légendaire porté, dans la matière de sa finition : l'irisé
@@ -4491,16 +4558,6 @@ h3 > .icon {
 @keyframes lg-lueur {
   0%, 100% { opacity: 0.2; transform: scale(0.99); }
   50% { opacity: 0.45; transform: scale(1.03); }
-}
-
-/* La bougie de la Citrouille : sa lueur vacille, sans bouger. */
-.lg-bougie { animation: lg-bougie 1.7s ease-in-out infinite; }
-
-@keyframes lg-bougie {
-  0%, 100% { opacity: 1; }
-  35% { opacity: 0.78; }
-  55% { opacity: 0.95; }
-  70% { opacity: 0.84; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4538,12 +4595,14 @@ h3 > .icon {
 
 /* ── Les avatars divins ────────────────────────────────────────────────────
 
-   Cinq dessins (components/Divin.tsx), à la taille du texte comme les
-   légendaires, mais qui débordent de leur cadre : rayons, ailes, lueur. Tout
+   Cinq bijoux peints (components/Divin.tsx), à la taille du texte comme les
+   légendaires, et habités de lumière : des rayons qui tournent, une lueur qui
+   respire, un éclat qui glisse sur l'or, des étincelles qui gravitent. Tout
    bouge par `transform` et `opacity`, jamais par un filtre — le PC du
-   vidéoprojecteur en fait tourner des dizaines. */
+   vidéoprojecteur en fait tourner plusieurs. */
 
 .dv {
+  position: relative;
   display: block;
   width: 1em;
   height: 1em;
@@ -4552,152 +4611,65 @@ h3 > .icon {
 
 .dv * { transform-box: view-box; }
 
-.dv-aura { transform-origin: 50px 50px; animation: dv-respire 5s ease-in-out infinite; }
-.dv-balayage { animation: dv-balaye 6.5s ease-in-out infinite; }
-.dv-orbite { transform-origin: 50px 50px; animation: dv-tourne 7s linear infinite; }
-.dv-tourne-lent { transform-origin: 50px 50px; animation: dv-tourne 90s linear infinite; }
-.dv-tourne-inverse { transform-origin: 50px 50px; animation: dv-tourne 60s linear infinite reverse; }
-.dv-pouls { transform-box: fill-box; transform-origin: center; animation: dv-pouls 3.2s ease-in-out infinite; }
-.dv-scintille { transform-box: fill-box; transform-origin: center; animation: dv-scintille 2.6s ease-in-out infinite; }
-
-@keyframes dv-respire {
-  0%, 100% { opacity: 0.75; transform: scale(0.97); }
-  50% { opacity: 1; transform: scale(1.03); }
+.dv-peint > * { position: absolute; pointer-events: none; }
+.dv-rayons {
+  inset: -24%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(var(--dv-rvb), 0) 0deg 9deg, rgba(var(--dv-rvb), 0.42) 11deg, rgba(var(--dv-rvb), 0) 13deg 18deg);
+  -webkit-mask: radial-gradient(circle, #000 30%, transparent 68%);
+  mask: radial-gradient(circle, #000 30%, transparent 68%);
+  animation: dv-tourne 48s linear infinite;
 }
-
-@keyframes dv-balaye {
-  0%, 55% { transform: translateX(0); }
-  85%, 100% { transform: translateX(170px); }
+.dv-rayons-2 {
+  inset: -14%;
+  background: repeating-conic-gradient(from 5deg, rgba(255, 245, 210, 0) 0deg 14deg, rgba(255, 245, 210, 0.5) 15.5deg, rgba(255, 245, 210, 0) 17deg 24deg);
+  animation-duration: 34s;
+  animation-direction: reverse;
 }
+.dv-lueur {
+  inset: 6%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--dv-rvb), 0.55), rgba(var(--dv-rvb), 0.18) 45%, transparent 70%);
+  animation: dv-respire 4.2s ease-in-out infinite;
+}
+.dv-bijou { inset: 0; width: 100%; height: 100%; max-width: none; animation: dv-souffle 6s ease-in-out infinite; }
+/* L'éclat qui glisse sur l'or : le bijou lui-même lui sert de masque. */
+.dv-or {
+  inset: 0;
+  overflow: hidden;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  mix-blend-mode: screen;
+}
+.dv-or-bande {
+  position: absolute;
+  inset: -30% -60%;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 250, 225, 0.9) 48%, transparent 58%);
+  transform: translateX(-80%);
+  animation: dv-eclat 5.5s ease-in-out infinite;
+}
+.dv-etincelles { inset: -6%; width: 112%; height: 112%; overflow: visible; animation: dv-tourne 16s linear infinite; }
+.dv-etincelles .dv-scintille { transform-box: fill-box; transform-origin: center; animation: dv-scintille 2.4s ease-in-out infinite; }
+.dv-etincelles .dv-scintille:nth-child(2n) { animation-delay: -1.2s; }
 
 @keyframes dv-tourne {
   to { transform: rotate(360deg); }
 }
-
-@keyframes dv-pouls {
-  0%, 100% { transform: scale(0.94); opacity: 0.8; }
-  50% { transform: scale(1.06); opacity: 1; }
+@keyframes dv-respire {
+  0%, 100% { opacity: 0.65; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
 }
-
+@keyframes dv-souffle {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+@keyframes dv-eclat {
+  0%, 55% { transform: translateX(-80%); }
+  85%, 100% { transform: translateX(80%); }
+}
 @keyframes dv-scintille {
-  0%, 100% { opacity: 0.3; transform: scale(0.7); }
-  50% { opacity: 1; transform: scale(1.12); }
-}
-
-/* Hélios : ses flammèches dansent autour du disque. */
-.dv-flammes { transform-origin: 50px 50px; animation: dv-flammes 2.6s ease-in-out infinite alternate; }
-
-@keyframes dv-flammes {
-  from { transform: rotate(-3deg) scale(0.98); }
-  to { transform: rotate(3deg) scale(1.04); }
-}
-
-/* Le Séraphin : ses trois paires d'ailes battent l'une après l'autre. */
-.dv-paire { transform-origin: 50px 50px; animation: dv-battement 3.4s ease-in-out infinite; }
-.dv-paire-2 { animation-delay: -0.35s; }
-.dv-paire-3 { animation-delay: -0.7s; }
-
-/* Son œil se ferme, de loin en loin : on n'est jamais sûr de l'avoir vu. */
-.dv-oeil { transform-origin: 50px 50px; animation: dv-cligne 7s ease-in-out infinite; }
-
-@keyframes dv-battement {
-  0%, 100% { transform: scale(0.96); }
-  50% { transform: scale(1.03); }
-}
-
-@keyframes dv-cligne {
-  0%, 93%, 100% { transform: scaleY(1); }
-  96% { transform: scaleY(0.08); }
-}
-
-/* Le Lotus : il s'ouvre, l'eau frémit, la lumière monte. */
-.dv-fleur { transform-origin: 50px 64px; animation: dv-eclot 5s ease-in-out infinite alternate; }
-.dv-ride { transform-origin: 50px 68px; animation: dv-ride 4.5s ease-out infinite; }
-.dv-ride-2 { animation-delay: -1.5s; }
-.dv-ride-3 { animation-delay: -3s; }
-.dv-grain { transform-box: fill-box; animation: dv-monte 4.2s ease-in infinite; }
-.dv-miroitement { animation: dv-miroite 2.8s ease-in-out infinite alternate; }
-.dv-grain:nth-child(2n) { animation-delay: -1.4s; }
-.dv-grain:nth-child(3n) { animation-delay: -2.6s; }
-
-@keyframes dv-eclot {
-  from { transform: scale(0.96, 0.94); }
-  to { transform: scale(1.02, 1.03); }
-}
-
-@keyframes dv-ride {
-  from { transform: scale(0.5); opacity: 0.9; }
-  to { transform: scale(2.3); opacity: 0; }
-}
-
-@keyframes dv-miroite {
-  from { opacity: 0.35; }
-  to { opacity: 1; }
-}
-
-@keyframes dv-monte {
-  0% { transform: translateY(6px); opacity: 0; }
-  30% { opacity: 1; }
-  100% { transform: translateY(-16px); opacity: 0; }
-}
-
-/* L'Arbre-Monde : ses douze lumières s'allument tour à tour. */
-.dv-lumiere { animation: dv-lumiere 3.6s ease-in-out infinite; }
-.dv-lumiere:nth-child(2) { animation-delay: -0.3s; }
-.dv-lumiere:nth-child(3) { animation-delay: -0.6s; }
-.dv-lumiere:nth-child(4) { animation-delay: -0.9s; }
-.dv-lumiere:nth-child(5) { animation-delay: -1.2s; }
-.dv-lumiere:nth-child(6) { animation-delay: -1.5s; }
-.dv-lumiere:nth-child(7) { animation-delay: -1.8s; }
-.dv-lumiere:nth-child(8) { animation-delay: -2.1s; }
-.dv-lumiere:nth-child(9) { animation-delay: -2.4s; }
-.dv-lumiere:nth-child(10) { animation-delay: -2.7s; }
-.dv-lumiere:nth-child(11) { animation-delay: -3s; }
-.dv-lumiere:nth-child(12) { animation-delay: -3.3s; }
-.dv-feuillage { transform-origin: 50px 60px; animation: dv-bruisse 6s ease-in-out infinite alternate; }
-
-@keyframes dv-lumiere {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
-}
-
-@keyframes dv-bruisse {
-  from { transform: rotate(-1deg); }
-  to { transform: rotate(1deg); }
-}
-
-/* L'Ange Déchu : ses plumes tombent, l'abîme fume, l'aile brisée pend. */
-.dv-plume { transform-box: fill-box; transform-origin: center; animation: dv-tombe 5.5s ease-in infinite; }
-.dv-plume:nth-child(2) { animation-delay: -1.4s; }
-.dv-plume:nth-child(3) { animation-delay: -2.8s; }
-.dv-plume:nth-child(4) { animation-delay: -4.2s; }
-.dv-braise { transform-box: fill-box; animation: dv-braise 3.4s ease-in infinite; }
-.dv-braise:nth-child(2n) { animation-delay: -1.2s; }
-.dv-braise:nth-child(3n) { animation-delay: -2.2s; }
-.dv-aile-droite { transform-origin: 53px 62px; animation: dv-pend 4s ease-in-out infinite alternate; }
-.dv-aile-gauche { transform-origin: 47px 62px; animation: dv-pend 5s ease-in-out infinite alternate-reverse; }
-.dv-eclat-tombe { transform-origin: 64px 23px; animation: dv-derive 3.2s ease-in-out infinite alternate; }
-
-@keyframes dv-tombe {
-  0% { transform: translateY(-8px) rotate(-20deg); opacity: 0; }
-  20% { opacity: 1; }
-  100% { transform: translateY(14px) rotate(40deg); opacity: 0; }
-}
-
-@keyframes dv-braise {
-  0% { transform: translateY(0); opacity: 0; }
-  25% { opacity: 1; }
-  100% { transform: translateY(-22px); opacity: 0; }
-}
-
-@keyframes dv-pend {
-  from { transform: rotate(-2deg); }
-  to { transform: rotate(3deg); }
-}
-
-@keyframes dv-derive {
-  from { transform: translate(0, 0) rotate(0deg); }
-  to { transform: translate(1.2px, 2px) rotate(6deg); }
+  0%, 100% { opacity: 0.35; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.15); }
 }
 
 /* Pas encore descendu : une nébuleuse, des étoiles, un scellé de lumière —
@@ -5066,9 +5038,11 @@ h3 > .icon {
 .av-divin .av-emoji { display: inline-flex; }
 .av-divin .dv { width: 1.12em; height: 1.12em; }
 
-/* Dans une liste, un médaillon se tient tranquille. Ses animations portent
+/* Dans une liste, un médaillon se tient tranquille. Ses animations portaient
    sur les formes internes du SVG, que le navigateur ne compose pas : chacune
    refaisait le style et la mise en page de tout l'écran, à chaque image.
+   Peint, il bouge par calques, mais des calques mêlés à ce qui est dessous
+   (`mix-blend-mode`) : vingt dans une liste coûteraient encore.
    Une salle d'habitués (un sur trois en légendaire) tombait à 40 images par
    seconde à la clôture de l'écran commun, et la salle d'attente occupait le
    téléphone de chacun. Il bouge là où il est le sujet : les trois marches du
@@ -5095,6 +5069,21 @@ h3 > .icon {
 .stats-table tbody tr:nth-child(n + 6) .dv *,
 .stats-table tbody tr:nth-child(n + 6) .pt * {
   animation: none;
+}
+
+/* Dans une liste, un légendaire éclaté et un Divin tiennent dans leur cadre,
+   comme un portrait peint : ni gerbe, ni débord, ni rayons, ni étincelles —
+   à 26 px, c'était une tache de lumière sur la ligne voisine. Le prisme de
+   l'un et la forme de bijou de l'autre suffisent à les dire. */
+.av.lb-avatar:not(.av-sujet) .lg-gerbe,
+.av.lb-avatar:not(.av-sujet) .lg-debord,
+.av.lb-avatar:not(.av-sujet) .dv-rayons,
+.av.lb-avatar:not(.av-sujet) .dv-etincelles,
+.player-chip .lg-gerbe,
+.player-chip .lg-debord,
+.player-chip .dv-rayons,
+.player-chip .dv-etincelles {
+  display: none;
 }
 
 /* Dans une liste, un portrait peint tient dans son disque : ce qui en sort
