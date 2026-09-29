@@ -140,8 +140,14 @@ try {
     onglet.on('pageerror', (e: Error) => erreurs.push(e.message))
     onglet.on('requestfailed', (r: any) => erreurs.push(`${r.url()} : ${r.failure()?.errorText}`))
     await onglet.goto('file://' + fichier)
-    // Les médaillons peints sont des images : on attend qu'elles soient là.
+    // Les médaillons peints sont des images : on attend qu'elles soient là,
+    // et décodées — hors de la fenêtre, le navigateur remettait leur
+    // décodage à plus tard, et la capture pleine page montrait des disques
+    // vides. La fenêtre prend donc toute la hauteur de la planche.
     await onglet.waitForLoadState('networkidle')
+    // Du code pour la page, en texte : le serveur se compile sans le DOM.
+    await onglet.setViewportSize({ width: 1280, height: await onglet.evaluate('document.body.scrollHeight') })
+    await onglet.evaluate('Promise.all([...document.images].map(i => i.decode().catch(() => {})))')
     await onglet.waitForTimeout(600)
     await onglet.screenshot({ path: path.join(sortie, `planche-${nom}.png`), fullPage: true })
     await onglet.close()
