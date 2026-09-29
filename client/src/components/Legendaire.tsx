@@ -25,7 +25,8 @@ import { IMAGES } from './legendaires-peints'
  * Éclaté, il porte sa version rare — la même pose repeinte dans ses couleurs
  * rares, le Phénix de glace, le Dragon d'argent — sous un prisme de deux
  * arcs-en-ciel croisés, avec des paillettes, une gerbe de lumière derrière,
- * et la créature qui sort de son cadre, par-dessus l'anneau.
+ * et la créature qui sort de son cadre, par-dessus l'anneau — holo jusqu'au
+ * bout des ailes : la pellicule la suit hors du disque.
  *
  * Pas encore gagné, il n'en reste que la forme, en silhouette dorée sur un
  * disque sombre : on sait ce qu'on veut avant de l'avoir.
@@ -101,6 +102,30 @@ interface Props {
   /** Regardé en grand — sa révélation, la clôture — : ses grands fichiers, et le reflet qui suit le doigt. */
   grand?: boolean
   className?: string
+}
+
+/**
+ * La pellicule : l'arc-en-ciel, la diffraction, le reflet — et, éclaté, le
+ * second arc-en-ciel et les paillettes. La même sur le disque et sur ce qui
+ * en sort : ses calques se placent dans le repère du médaillon, pas dans
+ * celui de leur cadre (`styles.css`), et l'aile qui passe le bord du cercle
+ * reste holo sans raccord.
+ */
+function Pellicule({ eclate }: { eclate: boolean }) {
+  return (
+    <>
+      <span className="lg-feuille" />
+      {eclate && <span className="lg-feuille lg-feuille-2" />}
+      <span className="lg-diffraction" />
+      {eclate && (
+        <>
+          <span className="lg-paillettes" />
+          <span className="lg-paillettes lg-paillettes-2" />
+        </>
+      )}
+      <span className="lg-reflet" />
+    </>
+  )
 }
 
 /** Le médaillon d'un avatar légendaire, à la taille du texte qui l'entoure (1 em). */
@@ -180,7 +205,10 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
           <span className="lg-gerbe lg-gerbe-2" />
         </>
       )}
-      <span className="lg-carte">
+      {/* Éclaté ou non, la carte se refait d'un bloc : les calques du disque
+          et ceux de ce qui en sort partent ensemble, et leurs animations
+          restent en phase — sinon l'arc-en-ciel se décalait au bord du cercle. */}
+      <span className="lg-carte" key={eclate ? 'rare' : 'art'}>
         <svg className="lg-cadre" viewBox="0 0 100 100" aria-hidden="true">
           <defs>
             <radialGradient id={id('fond')} cx="50%" cy="38%" r="68%">
@@ -213,20 +241,18 @@ export function Legendaire({ cle, verrouille, finition, eclat, grand, className 
           ) : (
             <>
               <img className="lg-art" src={art} alt="" decoding="async" draggable={false} />
-              <span className="lg-feuille" />
-              {eclate && <span className="lg-feuille lg-feuille-2" />}
-              <span className="lg-diffraction" />
-              {eclate && (
-                <>
-                  <span className="lg-paillettes" />
-                  <span className="lg-paillettes lg-paillettes-2" />
-                </>
-              )}
-              <span className="lg-reflet" />
+              <Pellicule eclate={eclate} />
             </>
           )}
         </span>
-        {eclate && <img className="lg-debord" src={images.rarePerso[taille]} alt="" decoding="async" draggable={false} />}
+        {eclate && (
+          // La créature détourée donne sa forme au cadre (`--lg-forme`) : la
+          // pellicule, posée par-dessus, ne se voit que sur elle.
+          <span className="lg-debord" style={{ '--lg-forme': `url(${images.rarePerso[taille]})` } as CSSProperties}>
+            <img src={images.rarePerso[taille]} alt="" decoding="async" draggable={false} />
+            <Pellicule eclate />
+          </span>
+        )}
       </span>
     </span>
   )

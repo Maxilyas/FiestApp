@@ -4387,6 +4387,7 @@ h3 > .icon {
    redresse, un simple `overflow` oubliait son arrondi, et la pellicule — un
    grand carré qui glisse — apparaissait un instant en entier. */
 .lg-disque {
+  --f: 90;
   position: absolute;
   inset: 5%;
   border-radius: 50%;
@@ -4413,17 +4414,37 @@ h3 > .icon {
 
 /* La pellicule : un arc-en-ciel en `color-dodge`, qui n'allume que ce qui est
    déjà clair — la feuille d'or, le feu, les étoiles —, comme une vraie carte
-   holographique ; une diffraction fine ; un reflet qui passe. */
+   holographique ; une diffraction fine ; un reflet qui passe.
+
+   Ses couleurs sont des tons moyens, aucun canal plein : en `color-dodge`,
+   un canal à 255 pousse au maximum tout pixel qui n'est pas noir pur, et la
+   pellicule noyait l'image au lieu de l'éclairer — la Licorne noire éclatée
+   devenait verte, la Chouette d'Argent un arc-en-ciel. Un canal à 0,55
+   double la lumière de ce qui en a, et laisse l'ombre dans l'ombre ; plus
+   de 0,6, ou une pellicule plus opaque, et le noir recommence à virer.
+
+   Ses calques se placent dans le repère du médaillon, pas dans celui de
+   leur cadre : le disque (90 % du médaillon) et ce qui en sort, éclaté
+   (126 %), portent la même pellicule au même endroit, et l'aile qui passe le
+   bord du cercle reste holo, sans raccord. `--f` : la taille du cadre,
+   `--s` : celle du calque, en pour cent du médaillon ; centré, un calque se
+   pose à (f − s) / 2f de chaque bord. */
+.lg-feuille,
+.lg-diffraction,
+.lg-paillettes { --s: 198; }
+.lg-reflet { --s: 180; }
+.lg-feuille,
+.lg-diffraction,
+.lg-reflet,
+.lg-paillettes { inset: calc((var(--f) - var(--s)) / (2 * var(--f)) * 100%); }
 .lg-feuille {
-  inset: -60%;
-  background: repeating-linear-gradient(115deg, #ff6b9a 0%, #ffd66b 6%, #6bffc1 12%, #6bc4ff 18%, #b98bff 24%, #ff6b9a 30%);
+  background: repeating-linear-gradient(115deg, #8c2656 0%, #8c6a1c 6%, #1f7a58 12%, #2a6496 18%, #5e3a96 24%, #8c2656 30%);
   mix-blend-mode: color-dodge;
-  opacity: 0.26;
+  opacity: 0.62;
   transform: translate(calc((var(--px) - 0.5) * -38%), calc((var(--py) - 0.5) * -38%));
   animation: lg-glisse 7s ease-in-out infinite;
 }
 .lg-diffraction {
-  inset: 0;
   background:
     repeating-linear-gradient(58deg, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 3px),
     repeating-linear-gradient(-32deg, rgba(255, 255, 255, 0.09) 0 1px, transparent 1px 4px);
@@ -4431,7 +4452,6 @@ h3 > .icon {
   opacity: 0.45;
 }
 .lg-reflet {
-  inset: -50%;
   background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.22) 16%, transparent 36%);
   mix-blend-mode: soft-light;
   transform: translate(calc((var(--px) - 0.5) * 60%), calc((var(--py) - 0.5) * 60%));
@@ -4452,37 +4472,49 @@ h3 > .icon {
 
 /* Les légendes de l'ombre : une pellicule noire, aux reflets violets et verts. */
 .lg-ombre .lg-feuille {
-  background: repeating-linear-gradient(115deg, #3a1b66 0%, #1f7a74 8%, #6b2fb3 16%, #155a8a 24%, #3a1b66 32%);
-  opacity: 0.5;
+  background: repeating-linear-gradient(115deg, #3a1b66 0%, #1f7a74 8%, #5a2a96 16%, #155a8a 24%, #3a1b66 32%);
+  opacity: 0.55;
 }
 .lg-ombre .lg-reflet { background: radial-gradient(circle at 50% 50%, rgba(200, 170, 255, 0.8), rgba(150, 120, 255, 0.2) 16%, transparent 36%); }
 
 /* Éclaté : la version rare, sous un prisme — deux arcs-en-ciel croisés —,
    des paillettes, une gerbe de lumière derrière, et ce qui sort du cadre. */
 .lg-eclate .lg-feuille {
-  opacity: 0.4;
-  background: repeating-linear-gradient(115deg, #ff4f8a 0%, #ffe14f 5%, #4fffa8 10%, #4fb8ff 15%, #a66bff 20%, #ff4f8a 25%);
+  opacity: 0.65;
+  background: repeating-linear-gradient(115deg, #9a1f5a 0%, #967a14 5%, #16885c 10%, #1f6a9a 15%, #662e9a 20%, #9a1f5a 25%);
 }
 .lg-eclate .lg-feuille-2 {
-  background: repeating-linear-gradient(25deg, rgba(255, 120, 220, 0.9) 0%, rgba(120, 220, 255, 0.9) 8%, rgba(255, 255, 160, 0.9) 16%, rgba(255, 120, 220, 0.9) 24%);
-  opacity: 0.15;
+  background: repeating-linear-gradient(25deg, #7a3a70 0%, #2f6f80 8%, #807a3a 16%, #7a3a70 24%);
+  opacity: 0.45;
   transform: translate(calc((var(--px) - 0.5) * 30%), calc((var(--py) - 0.5) * -30%));
   animation: lg-glisse-2 5.3s ease-in-out infinite;
 }
+/* Une légende de l'ombre éclatée garde sa nuit : un prisme sombre. La règle
+   de l'éclaté, venue après celle de l'ombre, lui posait l'arc-en-ciel vif, et
+   le Kraken rare disparaissait dessous. */
+.lg-ombre.lg-eclate .lg-feuille {
+  background: repeating-linear-gradient(115deg, #4a1a80 0%, #127a6a 5%, #7a2a8a 10%, #1a5a9a 15%, #6a1a5a 20%, #4a1a80 25%);
+  opacity: 0.6;
+}
+.lg-ombre.lg-eclate .lg-feuille-2 {
+  background: repeating-linear-gradient(25deg, #4a2a70 0%, #1f5f60 8%, #603a70 16%, #4a2a70 24%);
+}
+/* Des paillettes fines, en trois trames aux pas qui ne se répondent pas :
+   deux trames régulières dessinaient une grille de pois. */
 .lg-paillettes {
-  inset: 0;
   background-image:
-    radial-gradient(circle, #fff 0 0.007em, transparent 0.011em),
-    radial-gradient(circle, #fff6c8 0 0.008em, transparent 0.013em);
-  background-size: 0.11em 0.13em, 0.19em 0.15em;
-  background-position: 0.02em 0.03em, 0.07em 0.01em;
+    radial-gradient(circle, #fff 0 0.004em, transparent 0.008em),
+    radial-gradient(circle, #fff6c8 0 0.005em, transparent 0.009em),
+    radial-gradient(circle, #d8f4ff 0 0.004em, transparent 0.008em);
+  background-size: 0.113em 0.127em, 0.173em 0.149em, 0.241em 0.197em;
+  background-position: 0.021em 0.037em, 0.083em 0.011em, 0.157em 0.093em;
   mix-blend-mode: screen;
   opacity: 0;
   animation: lg-paillettes 1.9s ease-in-out infinite;
 }
 .lg-paillettes-2 {
-  background-size: 0.15em 0.11em, 0.09em 0.2em;
-  background-position: 0.06em 0.05em, 0.01em 0.09em;
+  background-size: 0.139em 0.107em, 0.089em 0.191em, 0.211em 0.163em;
+  background-position: 0.061em 0.053em, 0.013em 0.089em, 0.119em 0.031em;
   animation-duration: 2.6s;
   animation-delay: -1.1s;
 }
@@ -4504,23 +4536,33 @@ h3 > .icon {
 }
 /* Ce qui sort du cadre : la créature rare détourée (cadre −20 → 120 du
    disque, qui fait 90 % du médaillon), hors du disque et par-dessus
-   l'anneau, par le haut, estompée avant le bord de l'image peinte. */
+   l'anneau, par le haut, estompée avant le bord de l'image peinte — et sa
+   pellicule avec elle. La créature donne sa forme au cadre (`--lg-forme`,
+   posée par `Legendaire.tsx`) : sans elle, la pellicule couvrirait tout le
+   carré ; absente, le cadre ne montre rien plutôt qu'un carré d'arc-en-ciel.
+   Il commence un peu avant le bord du disque (69 % du rayon de son cadre,
+   quand le disque en fait 71) : c'est la même image au même endroit, et il
+   recouvre ainsi le filet du disque, qui barrait l'aile d'un arc clair. */
 .lg-debord {
+  --f: 126;
   left: -13%;
   top: -13%;
   width: 126%;
   height: 126%;
-  max-width: none;
+  isolation: isolate;
   -webkit-mask:
-    radial-gradient(circle closest-side at 50% 50%, transparent 0 71%, #000 72%),
+    var(--lg-forme, none) 0 0 / 100% 100% no-repeat,
+    radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, #000 69.5%),
     linear-gradient(transparent 8%, #000 16%, #000 48%, transparent 62%),
     linear-gradient(90deg, transparent 8%, #000 16%, #000 84%, transparent 92%);
-  -webkit-mask-composite: source-in, source-in;
+  -webkit-mask-composite: source-in, source-in, source-in;
   mask:
-    radial-gradient(circle closest-side at 50% 50%, transparent 0 71%, #000 72%) intersect,
+    var(--lg-forme, none) 0 0 / 100% 100% no-repeat intersect,
+    radial-gradient(circle closest-side at 50% 50%, transparent 0 68%, #000 69.5%) intersect,
     linear-gradient(transparent 8%, #000 16%, #000 48%, transparent 62%) intersect,
     linear-gradient(90deg, transparent 8%, #000 16%, #000 84%, transparent 92%);
 }
+.lg-debord img { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; }
 
 @keyframes lg-glisse-2 {
   0%, 100% { transform: translate(-12%, 10%); }

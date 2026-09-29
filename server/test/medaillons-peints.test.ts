@@ -26,6 +26,9 @@ async function rendu(fichier: string, composant: string, props: object): Promise
   return renderToStaticMarkup(React.createElement(module[composant], props))
 }
 
+/** La feuille du client, sans ses commentaires. */
+const CSS = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+
 /** Là où le build prend les fichiers peints, qu'il sert sous `/medaillons/`. */
 const PUBLICS = new URL('../../client/public/medaillons/', import.meta.url)
 
@@ -152,12 +155,60 @@ test('éclaté : sa version rare sous le prisme, ses paillettes, sa gerbe — et
   assert.match(html, /<img class="lg-art" src="\/medaillons\/renard-rare-256\./)
   assert.doesNotMatch(html, /renard-art-/)
   assert.equal((html.match(/class="lg-gerbe( lg-gerbe-2)?"/g) ?? []).length, 2, 'deux gerbes croisées, derrière')
-  assert.equal((html.match(/class="lg-paillettes( lg-paillettes-2)?"/g) ?? []).length, 2)
   assert.match(html, /class="lg-feuille lg-feuille-2"/)
   // Ce qui sort du cadre vient après le disque et son anneau : il passe par-dessus.
-  assert.match(html, /<img class="lg-debord" src="\/medaillons\/renard-rare-perso-256\.[0-9a-f]{10}\.webp" alt=""/)
+  assert.match(
+    html,
+    /<span class="lg-debord" style="--lg-forme:url\(\/medaillons\/renard-rare-perso-256\.[0-9a-f]{10}\.webp\)"><img src="\/medaillons\/renard-rare-perso-256\.[0-9a-f]{10}\.webp" alt=""/,
+  )
   assert.ok(html.indexOf('lg-debord') > html.indexOf('lg-disque'))
   assert.ok(html.indexOf('lg-gerbe') < html.indexOf('lg-carte'), 'la gerbe est derrière la carte')
+})
+
+/** Les calques de la pellicule, dans l'ordre, entre deux repères du rendu. */
+const pellicule = (html: string, debut: string, fin?: string) =>
+  [...html.slice(html.indexOf(debut), fin ? html.indexOf(fin) : undefined).matchAll(/class="(lg-(?:feuille|diffraction|paillettes|reflet)[^"]*)"/g)].map(m => m[1])
+
+test('éclaté, ce qui sort du cercle porte la même pellicule que le disque : les ailes restent holo', async () => {
+  // Une aile qui passait le bord du cercle y perdait son arc-en-ciel, ses
+  // paillettes et son reflet : la peinture nue, collée à une carte holo.
+  const html = await legendaire({ cle: 'lg:phenix', eclat: true, grand: true })
+  const disque = pellicule(html, 'class="lg-disque"', 'class="lg-debord"')
+  const debord = pellicule(html, 'class="lg-debord"')
+  assert.deepEqual(disque, ['lg-feuille', 'lg-feuille lg-feuille-2', 'lg-diffraction', 'lg-paillettes', 'lg-paillettes lg-paillettes-2', 'lg-reflet'])
+  assert.deepEqual(debord, disque)
+  // Au même endroit : chaque calque se pose dans le repère du médaillon, que
+  // le disque (90 %) et ce qui en sort (126 %) convertissent chacun pour soi —
+  // sinon l'arc-en-ciel changeait de pas au bord du cercle.
+  // Toutes les règles qui nomment ce sélecteur, mises bout à bout.
+  const regle = (selecteur: string) =>
+    [...CSS.matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+      .filter(m => m[1].split(',').map(x => x.trim()).includes(selecteur))
+      .map(m => m[2])
+      .join('\n')
+  assert.match(regle('.lg-disque'), /--f:\s*90;/)
+  assert.match(regle('.lg-debord'), /--f:\s*126;/)
+  for (const calque of ['.lg-feuille', '.lg-diffraction', '.lg-reflet', '.lg-paillettes']) {
+    assert.match(regle(calque), /inset:\s*calc\(\(var\(--f\) - var\(--s\)\) \/ \(2 \* var\(--f\)\) \* 100%\)/, calque)
+  }
+  // Et la forme de la créature borne la pellicule : sans elle, tout le carré.
+  assert.match(regle('.lg-debord'), /mask:\s*var\(--lg-forme, none\)/)
+})
+
+test('la pellicule n’a aucun canal plein : elle éclaire ce qui est clair sans noyer le reste', () => {
+  // En `color-dodge`, un canal à 255 pousse au maximum tout pixel qui n'est
+  // pas noir pur : la Licorne noire éclatée devenait verte, la Chouette
+  // d'Argent un arc-en-ciel où l'on ne voyait plus la chouette.
+  const couleurs: string[] = []
+  for (const m of CSS.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    if (!/\.lg-feuille/.test(m[1])) continue
+    for (const c of m[2].matchAll(/#([0-9a-f]{6})\b/gi)) couleurs.push(c[1])
+  }
+  assert.ok(couleurs.length >= 20, `les arcs-en-ciel sont lus (${couleurs.length})`)
+  for (const c of couleurs) {
+    const canaux = [0, 2, 4].map(k => parseInt(c.slice(k, k + 2), 16))
+    assert.ok(Math.max(...canaux) <= 160, `#${c} : un canal à ${Math.max(...canaux)}`)
+  }
 })
 
 test('une légende de l’ombre garde sa pellicule noire et son anneau d’ombre', async () => {
@@ -213,7 +264,6 @@ test('pas encore descendu, un Divin ne montre rien de lui : ni son bijou, ni son
 
 // ── 3. Ce que la salle paie ───────────────────────────────────────────────
 
-const CSS = readFileSync(new URL('../../client/src/styles.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
 
 /** Le corps d'un bloc `@keyframes`, accolades imbriquées comprises. */
 function keyframes(nom: string): string {
