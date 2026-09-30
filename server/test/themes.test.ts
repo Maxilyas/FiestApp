@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import Database from 'better-sqlite3'
+import React from 'react'
 import {
   attendre,
   connecter,
@@ -44,6 +45,9 @@ import { gainVide, releveVide } from '../../shared/profil'
 // L'Éclat se tire une chance sur quarante, et le premier fait tomber un
 // palier : ici, le hasard ne décide de rien.
 ProfileStore.tirageEclat = () => false
+
+// Le client compile son JSX pour un `React` global : posé avant tout import d'un composant.
+Object.assign(globalThis, { React })
 
 // ── Le catalogue, pur ─────────────────────────────────────────────────────
 
@@ -157,6 +161,140 @@ test('le thème suit la page, pas la personne : seules les pages d’un joueur l
   }
   // Au démarrage, le thème retenu ne se pose que sur ces trois pages-là.
   assert.match(lire('main.tsx'), /else if \(App === PlayerApp \|\| App === ProfilApp \|\| App === JourApp\) poserThemeRetenu\(\)/)
+})
+
+// ── La boutique, au téléphone ─────────────────────────────────────────────
+// Des composants du client, rendus en HTML — la recette de
+// `grille-avatars.test.ts` : le rendu se regarde dans un navigateur, ici ce
+// qui le décide.
+
+const duClient = (fichier: string) => new URL(`../../client/src/${fichier}`, import.meta.url).href
+
+async function rendu(fichier: string, composant: string, props: object): Promise<string> {
+  const module = await import(duClient(`${fichier}.tsx`))
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  return renderToStaticMarkup(React.createElement(module[composant], props))
+}
+
+/** Un composant sans état, appelé tel quel : l'arbre qu'il rend, ses gestes compris. */
+async function arbre(fichier: string, composant: string, props: object): Promise<any> {
+  const module = await import(duClient(`${fichier}.tsx`))
+  return module[composant](props)
+}
+
+/** Les éléments de l'arbre, en profondeur, dans l'ordre de la page. */
+function elements(noeud: any): any[] {
+  if (Array.isArray(noeud)) return noeud.flatMap(elements)
+  if (!noeud || typeof noeud !== 'object') return []
+  return [noeud, ...elements(noeud.props?.children)]
+}
+
+/**
+ * Jeanne vient de porter Ivoire : le serveur lui a rendu son profil
+ * (`theme`), et sa boutique est encore celle qu'elle a lue en ouvrant la
+ * page, où Velours était porté.
+ */
+const JEANNE = {
+  theme: 'ivoire' as string | null,
+  boutique: {
+    confettis: { gagnes: 820, depenses: 400, solde: 420 },
+    possedes: ['velours', 'ivoire', 'neige'],
+    porte: null,
+    jour: '2026-09-29',
+  },
+}
+
+const laBoutique = (profil = JEANNE) =>
+  rendu('components/Boutique', 'MesThemes', { profil, busy: false, enregistrer: () => {}, acheter: async () => null })
+
+/** Les cases de la boutique, et ce que chacune dit d'elle à l'oreille. */
+const casesDe = (html: string) =>
+  [...html.matchAll(/<button\b[^>]*class="finition-btn theme-btn[^"]*"[^>]*>/g)].map(m => ({
+    balise: m[0],
+    nom: /aria-label="([^"]*)"/.exec(m[0])?.[1],
+  }))
+
+test('dans la boutique, toucher un thème ouvre sa fiche : aucun ne se porte ni ne s’achète d’un toucher', async () => {
+  // Un thème se portait d'un toucher : le doigt qui voulait le regarder
+  // habillait déjà toute la page. Le geste est celui de « Mes avatars ».
+  const html = await laBoutique()
+  const cases = casesDe(html)
+  assert.equal(cases.length, 9, 'la vitrine repliée')
+  for (const { balise } of cases) {
+    // Un bouton qui déplie, pas un interrupteur ; et un thème pas encore à
+    // lui se touche aussi : sa fiche dit ce qui manque.
+    assert.match(balise, /aria-expanded="false"/, balise)
+    assert.doesNotMatch(balise, /aria-pressed|disabled/, balise)
+  }
+  assert.doesNotMatch(html, /id="detail-theme"/, 'aucune fiche avant le premier toucher')
+  // Les espaces fines de `espacesFines`, autour du bouton cité.
+  assert.match(html, /Touche un thème, puis « Le porter »/)
+  // Le geste lui-même : dans la grille, un toucher ouvre la fiche, et le
+  // dernier bouton déplie la boutique ; rien d'autre n'enregistre.
+  const source = readFileSync(new URL('../../client/src/components/Boutique.tsx', import.meta.url), 'utf8')
+  const corps = source.slice(source.indexOf('export function MesThemes'), source.indexOf('export function DetailTheme'))
+  assert.deepEqual(
+    [...corps.matchAll(/onClick=\{([^}]*)\}/g)].map(m => m[1].trim()),
+    ['() => toucher(t.key)', 'deplier'],
+  )
+})
+
+test('le thème porté se lit dans le profil que chaque enregistrement rend, pas dans la boutique lue avec la page', async () => {
+  // Après Ivoire, la boutique croyait encore Velours porté : toucher Velours
+  // ne faisait plus rien, jusqu'au rechargement de la page.
+  const noms = async (profil = JEANNE) => casesDe(await laBoutique(profil)).map(c => c.nom)
+  assert.deepEqual((await noms()).slice(0, 3), ['Ivoire, porté', 'Velours, à toi', 'Neige, à toi'])
+  assert.deepEqual((await noms({ ...JEANNE, theme: null })).slice(0, 3), ['Velours, porté', 'Ivoire, à toi', 'Neige, à toi'])
+  // Et ce qui n'est pas encore à elle se dit avec ce qui manque.
+  assert.deepEqual((await noms()).slice(3, 8), [
+    'Cahier d’écolier, Commune, 150 confettis',
+    'Jungle, Peu commune, 250 confettis',
+    'Licorne, Rare, 400 confettis',
+    'Néon, Épique, 650 confettis, encore 230',
+    'Aurore boréale, Légendaire, 1000 confettis, encore 580',
+  ])
+})
+
+test('la fiche d’un thème : « Le porter », « L’acheter », ou ce qui manque encore', async () => {
+  const { etatDuTheme } = await import(duClient('components/Boutique.tsx'))
+  const possedes = new Set(JEANNE.boutique.possedes)
+  const etat = (cle: string) => etatDuTheme(theme(cle), 'ivoire', possedes, 420, '2026-09-29')
+  assert.deepEqual(['ivoire', 'velours', 'ocean', 'aurore', 'halloween'].map(etat), ['porte', 'a-toi', 'a-vendre', 'trop-cher', 'hors-saison'])
+
+  const portes: (string | null)[] = []
+  const achetes: string[] = []
+  const props = (cle: string) => ({
+    theme: theme(cle),
+    etat: etat(cle),
+    solde: 420,
+    busy: false,
+    onPorter: (k: string | null) => portes.push(k),
+    onAcheter: (t: { key: string }) => achetes.push(t.key),
+  })
+  const bouton = async (cle: string) => elements(await arbre('components/Boutique', 'DetailTheme', props(cle))).find(e => e.type === 'button')
+  const fiche = (cle: string) => rendu('components/Boutique', 'DetailTheme', props(cle))
+
+  // À elle : « Le porter » — Velours s'écrit null, comme le serveur le range.
+  assert.equal(portes.length, 0, 'rien avant le bouton')
+  ;(await bouton('velours')).props.onClick()
+  assert.deepEqual(portes, [null])
+  assert.match(await fiche('velours'), /<button[^>]*>Le porter<\/button>/)
+  // Porté : rien à toucher.
+  assert.equal(await bouton('ivoire'), undefined)
+  assert.match(await fiche('ivoire'), /C’est lui qui habille ton téléphone\./)
+  // À vendre : son prix, ce qui lui restera, et le bouton qui l'achète.
+  const ocean = await fiche('ocean')
+  assert.match(ocean, /Il coûte 250 confettis : il t’en restera 170\./)
+  assert.match(ocean, /<button[^>]*>L’acheter · 🎊 250<\/button>/)
+  ;(await bouton('ocean')).props.onClick()
+  assert.deepEqual(achetes, ['ocean'])
+  // Trop cher, hors de sa saison : ce qui manque, et rien à toucher.
+  const aurore = await fiche('aurore')
+  assert.match(aurore, /encore 580<\/b>/)
+  assert.doesNotMatch(aurore, /<button/)
+  const halloween = await fiche('halloween')
+  assert.match(halloween, /En boutique du 25 octobre au 1er novembre seulement/)
+  assert.doesNotMatch(halloween, /<button/)
 })
 
 // ── Sur un serveur jetable ────────────────────────────────────────────────

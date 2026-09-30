@@ -913,7 +913,9 @@ qui tombe, le Grand théâtre et ses rideaux. Ils ne changent rien au jeu
   profil ; « Mes thèmes », dans Apparence, juste après le fond de la
   carte — la boutique repliée montre ce qu'on a, ce qu'une saison ne laisse
   que quelques jours, puis un thème de chaque rareté ; dépliée, les trente,
-  par rareté. La fin de soirée dit ceux de ce soir, le solde et le prochain
+  par rareté. Toucher un thème ouvre sa fiche, comme dans « Mes avatars » :
+  son aperçu en grand, et « Le porter » ou « L'acheter » — un thème ne se
+  porte jamais d'un toucher. La fin de soirée dit ceux de ce soir, le solde et le prochain
   thème visé ; la fin du quiz du jour, ceux de la partie.
 
 ---
