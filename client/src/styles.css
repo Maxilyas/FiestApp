@@ -2315,54 +2315,9 @@ h3 > .icon {
 .champ-recherche > .icon { position: absolute; left: 12px; color: var(--muted); pointer-events: none; }
 .champ-recherche .input { width: 100%; padding-left: 38px; }
 .filtres { display: flex; flex-wrap: wrap; gap: 6px; }
-/* Un choix discret, au poids du texte qui l'entoure : le natif s'ouvre au
-   clavier et au doigt, rien de plus à inventer. */
-.select-discret {
-  background: transparent;
-  color: var(--accent-text);
-  border: 0;
-  border-bottom: 1px dashed var(--edge-strong);
-  font: inherit;
-  padding: 2px 0;
-  cursor: pointer;
-}
-.select-discret option { background: var(--bg-raised); color: var(--ink); }
 .bibliotheque-vide { text-align: center; }
 .bibliotheque-pied { justify-content: center; }
 
-/* ── Le programme de ce soir ─────────────────────────────────────────────
-   En tête de « Mes quiz » : les quiz dans l'ordre, leur multiplicateur. */
-.programme { display: grid; gap: 10px; }
-.programme-range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 12px 16px; }
-.programme-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: -4px 0; }
-.programme-surtitre { font-size: 0.75rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent-text); }
-.programme-replier .icon { transition: transform 0.15s ease; }
-.programme-replier[aria-expanded='true'] .icon { transform: rotate(180deg); }
-.programme-resume { margin: 0; font-family: var(--serif); font-size: 1.25rem; font-weight: 600; overflow-wrap: anywhere; }
-.programme-resume .muted { font-family: var(--sans); font-weight: 400; }
-.programme-corps { display: grid; gap: 10px; }
-.programme-nommer { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
-.programme-nom { flex: 1; min-width: 12rem; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; padding: 4px 10px; }
-.programme-liste { list-style: none; margin: 0; padding: 0; display: grid; }
-.programme-entree { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 8px 0; border-top: 1px solid var(--edge); }
-.programme-rang {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: 1.8rem;
-  height: 1.8rem;
-  border-radius: var(--radius-pill);
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  font-weight: 600;
-}
-.programme-quiz { flex: 1; min-width: 10rem; display: flex; flex-direction: column; gap: 2px; }
-.programme-quiz-titre { font-weight: 600; overflow-wrap: anywhere; }
-.programme-gestes { gap: 4px; flex-wrap: nowrap; }
-.programme-points { gap: 4px; margin-right: 6px; flex-wrap: nowrap; }
-.programme-points .pill-btn { min-height: 32px; padding: 0 10px; }
-.programme-pied { justify-content: space-between; gap: 8px 12px; }
-.programme-aide { flex: 1; min-width: 14rem; }
 
 /* Ce que l'historique sait d'une question, au pied de sa carte. */
 .souvenir-question { margin: 0; }
@@ -2523,9 +2478,6 @@ h3 > .icon {
 .catalogue-questions { display: grid; gap: 6px; margin: 10px 0 0; padding-left: 1.4rem; }
 .catalogue-photo { width: 64px; height: 40px; object-fit: cover; border-radius: 6px; vertical-align: middle; margin-right: 8px; }
 .catalogue-juste { color: var(--accent-text); font-weight: 600; }
-@media (max-width: 600px) {
-  .programme-gestes { width: 100%; justify-content: flex-end; }
-}
 
 @media (max-width: 600px) {
   .nav-animateur { gap: 2px 14px; }
@@ -3690,24 +3642,6 @@ h3 > .icon {
 .account .card h2 { margin-bottom: 4px; }
 .account .card > .muted.small { margin-bottom: 12px; }
 .account .field { gap: 6px; }
-
-.link-box {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: var(--radius);
-  border: 1px solid var(--edge);
-  background: var(--surface);
-}
-
-.link-box code {
-  overflow-wrap: anywhere;
-  font-size: 0.95rem;
-  color: var(--accent-text);
-}
 
 .settings-form { display: flex; flex-direction: column; gap: 14px; }
 .settings-form .row { margin-top: 4px; }
@@ -7580,7 +7514,6 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 }
 .salon-hud-label { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); }
 .salon-hud-texte { margin: 0; font-size: 0.9rem; color: var(--muted); }
-.salon-hud .link-box { margin: 0; }
 .salon-geste { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--ink); font: inherit; font-size: 0.9rem; font-weight: 600; text-decoration: none; cursor: pointer; }
 .salon-geste .icon { width: 14px; height: 14px; color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); }
 .compte .style-valeur { color: var(--muted); }

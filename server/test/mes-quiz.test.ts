@@ -45,7 +45,6 @@ const rien = () => {}
 const gestes = {
   onFermer: rien,
   onModifier: rien,
-  onProgramme: rien,
   onDupliquer: rien,
   onPartager: rien,
   onExporter: rien,
@@ -81,10 +80,9 @@ test('une carte : la pastille, le nom, une ligne de faits, et ▶ qui ouvre un s
 })
 
 test('la fiche : Lancer et Modifier en grand, les gestes rares dessous, Supprimer seul tout en bas', async () => {
-  const fiche = (q: QuizSummary, auProgramme: boolean | null = false) =>
-    rendu('FicheDeQuiz', { quiz: q, brouillon: false, occupe: false, exportEnCours: false, auProgramme, occupeProgramme: false, ...gestes })
+  const fiche = (q: QuizSummary) => rendu('FicheDeQuiz', { quiz: q, brouillon: false, occupe: false, exportEnCours: false, ...gestes })
   const html = await fiche(CINE)
-  const ordre = ['Mes quiz', '>Lancer<', 'Modifier les questions', 'Mettre au programme', 'Dupliquer', 'Partager par un code', 'Exporter en fichier', 'Proposer au catalogue', 'Archiver', 'Supprimer ce quiz']
+  const ordre = ['Mes quiz', '>Lancer<', 'Modifier les questions', 'Dupliquer', 'Partager par un code', 'Exporter en fichier', 'Proposer au catalogue', 'Archiver', 'Supprimer ce quiz']
   const places = ordre.map(t => html.indexOf(t))
   assert.ok(places.every(i => i > 0), `tout y est : ${ordre.filter((_, i) => places[i] < 0)}`)
   assert.deepEqual([...places].sort((a, b) => a - b), places, 'dans cet ordre')
@@ -92,12 +90,12 @@ test('la fiche : Lancer et Modifier en grand, les gestes rares dessous, Supprime
   assert.match(html, /<a class="lien-discret jour-sortie" href="\/edit">/, '« ← Mes quiz », un lien qui s’ouvre aussi dans un onglet')
   assert.match(html, /<li>Cinéma &amp; séries<\/li><li>Musique<\/li>/)
   assert.match(html, /10 questions prêtes · ≈ 10 min · 3 photos/)
-  // Archivé : il ressort, il ne se lance pas, il n'entre pas au programme.
-  const archive = await fiche({ ...CINE, archivedAt: Date.now() }, null)
+  // Archivé : il ressort, il ne se lance pas.
+  const archive = await fiche({ ...CINE, archivedAt: Date.now() })
   assert.match(archive, /Ressortir de l’archive/)
-  assert.doesNotMatch(archive, />Lancer<|programme/)
+  assert.doesNotMatch(archive, />Lancer</)
   // Vide : on l'écrit, on ne le partage ni ne le propose.
-  const vide = await fiche({ ...CINE, questionCount: 0, readyCount: 0, categories: [] }, null)
+  const vide = await fiche({ ...CINE, questionCount: 0, readyCount: 0, categories: [] })
   assert.match(vide, /Écrire les questions/)
   assert.match(vide, /<button type="button" class="fiche-geste" disabled="">.*?<b>Partager par un code<\/b>/)
   assert.match(vide, /<button type="button" class="fiche-geste" disabled="">.*?<b>Proposer au catalogue<\/b>/)
@@ -118,6 +116,17 @@ test('« Mes quiz » : deux feuilles, une fiche à son adresse, plus un seul men
   assert.match(editeur, /aria-label=\{`Retirer le filtre « \$\{filtreActif\.label\} »`\}/)
   const css = source('styles.css')
   assert.doesNotMatch(css, /\.menu-deroulant|\.quiz-ligne\b|\.bouton-plus/, 'leur feuille de style est partie avec eux')
+
+})
+
+test('« Mes quiz » ne prépare plus le programme du soir : il se choisit en créant le salon', () => {
+  // « Lancer » ouvre déjà un salon sur ce quiz, et le salon a son programme ;
+  // le panneau en tête de « Mes quiz » et « Mettre au programme » ne
+  // faisaient que le doubler (la remarque du propriétaire du 3 octobre 2026).
+  assert.doesNotMatch(source('views/EditorApp.tsx'), /Programme|prog\./)
+  assert.doesNotMatch(source('components/MesQuiz.tsx'), /programme/i)
+  assert.doesNotMatch(source('styles.css'), /\.programme\b|\.programme-/)
+  assert.match(source('views/SalonApp.tsx'), /export function quizDuSalon\(/)
 })
 
 test('« Lancer » ouvre un salon sur ce quiz seul ; sinon, le programme d’hier reprend sa place', async () => {

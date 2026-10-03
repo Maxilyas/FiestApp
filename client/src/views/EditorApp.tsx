@@ -86,8 +86,7 @@ import { ecrireCode, lireCode, type EntreeDuCatalogue } from '../../../shared/pa
 import { formatDay } from '../../../shared/archive'
 import { Icon } from '../components/Icon'
 import { Choix, Feuille, MenuBarre } from '../components/Pieces'
-import { CarteDeQuiz, FicheDeQuiz, seLance } from '../components/MesQuiz'
-import { PanneauProgramme, useProgrammes } from '../components/Programme'
+import { CarteDeQuiz, FicheDeQuiz } from '../components/MesQuiz'
 import { ChampNombre } from '../components/ChampNombre'
 import { Shape } from '../components/Shape'
 import { TimerBar } from '../components/TimerBar'
@@ -247,8 +246,6 @@ export function EditorApp() {
   const [voirModeles, setVoirModeles] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
-  /** Le programme de ce soir, et ceux qu'on a rangés. */
-  const prog = useProgrammes(setError)
   /** Le quiz qu'on emballe, ou l'import en cours : un clic à la fois. */
   const [echange, setEchange] = useState<string | null>(null)
   const fichier = useRef<HTMLInputElement>(null)
@@ -404,10 +401,7 @@ export function EditorApp() {
 
   const reload = useCallback(async () => {
     try {
-      // Le programme se lit avec : il nomme des quiz de la liste.
-      const programmes = prog.recharger()
       const quizzes = await api.list()
-      await programmes
       setList(quizzes)
       // Signalés ici : sans quoi on ne les retrouvait qu'en ouvrant le bon quiz.
       setBrouillons(new Set(quizzes.filter(q => retrouverBrouillon(q.id)).map(q => q.id)))
@@ -685,11 +679,8 @@ export function EditorApp() {
             brouillon={brouillons.has(ficheOuverte.id)}
             occupe={echange !== null}
             exportEnCours={echange === ficheOuverte.id}
-            auProgramme={seLance(ficheOuverte) ? (prog.actif?.entrees.some(e => e.quizId === ficheOuverte.id) ?? false) : null}
-            occupeProgramme={prog.occupe}
             onFermer={fermerFiche}
             onModifier={() => setEditingId(ficheOuverte.id)}
-            onProgramme={() => prog.basculer(ficheOuverte.id)}
             onDupliquer={() => dupliquer(ficheOuverte)}
             onPartager={() => partager(ficheOuverte)}
             onExporter={() => exporter(ficheOuverte)}
@@ -723,8 +714,6 @@ export function EditorApp() {
                 onErreur={setError}
               />
             )}
-
-            {list && list.length > 0 && <PanneauProgramme prog={prog} quizzes={list} />}
 
             {list && list.length > 0 && (
               <div className="bibliotheque-outils">

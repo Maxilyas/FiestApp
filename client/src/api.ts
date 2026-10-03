@@ -286,12 +286,6 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(input),
       }),
-    /**
-     * Rouvre la console de l'espace rattaché. La session d'animateur dure
-     * trente jours, celle du joueur un an : il faut pouvoir la rouvrir sans
-     * retaper quoi que ce soit.
-     */
-    console: () => req<{ espace: PublicSpace }>('/api/joueur/console', { method: 'POST' }),
     /** L'espace du profil (créé la première fois) et sa console ouverte ici, sans ouvrir le salon. */
     espace: () => req<{ espace: PublicSpace; nouveau: boolean }>('/api/joueur/espace', { method: 'POST' }),
     /** « Ouvrir le salon » : l'espace du profil, sa console ouverte ici, et le code du salon. */
