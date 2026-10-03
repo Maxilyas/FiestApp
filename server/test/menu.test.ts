@@ -82,3 +82,45 @@ test('les pages publiques gardent leur fil — souvenir, bilan, historique — e
   // « ← Accueil » en tête, le même partout : le quiz du jour, la campagne, le salon.
   for (const f of ['views/JourApp.tsx', 'views/CampagneApp.tsx', 'views/SalonApp.tsx']) assert.match(source(f), /<Sortie \/>/, f)
 })
+
+test('chaque pièce a sa couleur, que la barre du menu pose sur la page', () => {
+  const pieces = source('components/Pieces.tsx')
+  assert.match(pieces, /const ZONE: Record<Piece, string> = \{ accueil: 'zone-jouer', quiz: 'zone-quiz', profil: 'zone-profil', boutique: 'zone-boutique', compte: 'zone-compte' \}/)
+  assert.match(pieces, /if \(zone\) document\.body\.classList\.add\(zone\)/)
+  const css = source('styles.css')
+  for (const [zone, jeton] of [['jouer', 'accent-text'], ['quiz', 'shape-3'], ['profil', 'anneau-divin'], ['boutique', 'shape-0'], ['compte', 'argent-text']]) {
+    assert.match(css, new RegExp(`--zone-${zone}: var\\(--${jeton}\\);`), zone)
+    assert.match(css, new RegExp(`\\.zone-${zone} \\{ --zone: var\\(--zone-${zone}\\); \\}`), zone)
+  }
+  // Le titre de la page, ses icônes et la pièce courante de la barre la lisent.
+  assert.match(css, /\.piece-tete \.label \{ color: var\(--zone, var\(--muted\)\); \}/)
+  assert.match(css, /\.menu-barre a\[aria-current='page'\] \{ color: var\(--zone, var\(--accent-text\)\); font-weight: 600; \}/)
+})
+
+test('soi-même en tête : la carte au profil, une ligne à l’accueil — l’expérience qui manque, les confettis au bout', async () => {
+  const profil = {
+    id: 'p',
+    login: 'lea',
+    name: 'Léa',
+    avatar: '🦊',
+    finition: 'mat',
+    niveau: 3,
+    acquis: 40,
+    requis: 100,
+    titre: null,
+    fond: null,
+    laurier: false,
+    legendaire: null,
+    eclats: [],
+    boutique: { confettis: { solde: 291 } },
+  }
+  const carte = await rendu('components/Identite', 'Identite', { profil })
+  assert.match(carte, /<button type="button" class="identite" aria-label="Ma carte : la voir comme la salle la voit">/)
+  assert.match(carte, /60 XP → niv\. 4/)
+  assert.match(carte, /🎊<\/span> 291<span class="sr-only"> confettis<\/span>/)
+  assert.match(carte, /Ma carte/)
+  const ligne = await rendu('components/Identite', 'IdentiteLigne', { profil })
+  assert.match(ligne, /<a class="identite-ligne" href="\/profil"/)
+  assert.doesNotMatch(ligne, /Ma carte/, 'la ligne de l’accueil mène au profil, sans carte')
+  assert.match(source('views/ProfilApp.tsx'), /<IdentiteLigne profil=\{profil\} \/>/)
+})

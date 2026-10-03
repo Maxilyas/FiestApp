@@ -5,6 +5,7 @@ import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Laurier } from '../components/Laurier'
 import { Icon, type IconName } from '../components/Icon'
+import { Identite, IdentiteLigne } from '../components/Identite'
 import { MenuBarre, PieceTete, Tuile, type Piece } from '../components/Pieces'
 import { ProfilForm } from '../components/ProfilForm'
 import { tronquer } from '../../../shared/avatars'
@@ -314,19 +315,9 @@ export function ProfilApp() {
       // `player-shell` : la même mise en page que le téléphone d'un invité —
       // c'est le même écran, tenu dans la même main.
       <div className="player-shell accueil">
-        <a className="ligne-identite" href="/profil">
-          {avatar('player-avatar')}
-          <span className="ligne-identite-texte">
-            <b>
-              {profil.name}
-              <Niveau niveau={profil.niveau} />
-            </b>
-            {barreXp}
-          </span>
-          {/* Ses confettis au bout de la ligne : discrets, ils se dépensent à la boutique. */}
-          {profil.boutique && <span className="ligne-solde">🎊 {nConfettis(profil.boutique.confettis.solde)}</span>}
-        </a>
-        <AccueilJouer enCours={enCours} onRejoindre={() => setRejoindre(true)} lendemain={lendemain} />
+        {/* Soi-même en une ligne : un toucher mène au profil. */}
+        <IdentiteLigne profil={profil} />
+        <AccueilJouer enCours={enCours} onRejoindre={() => setRejoindre(true)} lendemain={lendemain} jour={profil.jour} />
         {/* L'écran commun et ses pages, pour qui anime : le profil rattaché à
             un espace, sinon la console ouverte ici. */}
         {animateur && <JAnime espace={animateur} rouvrir={!!espace} />}
@@ -457,55 +448,33 @@ export function ProfilApp() {
   }
 
   // ── Le profil : qui je suis, puis ses tuiles ──
+  const nHautsFaits = profil.hautsFaits.filter(h => h.fois > 0).length
+  const nPrix = (profil.prix ?? []).filter(x => x.fois > 0).length
+  const precision = profil.fiche.precision !== null ? Math.round(profil.fiche.precision * 100) : null
   const detailDeTuile: Record<EcranDuProfil, string> = {
-    avatars: profil.legendaire ? 'Un légendaire porté' : `${profil.avatar} porté`,
-    style: [profil.finition && profil.finition !== 'mat' ? 'Une finition' : null, profil.titre ? 'un titre' : null].filter(Boolean).join(', ') || 'Finition, titre, fond',
-    trophees: `${profil.vitrine.length} en vitrine`,
-    carriere: `Niveau ${profil.niveau}`,
-    soirees: profil.soirees.length === 0 ? 'Aucune encore' : `${profil.soirees.length} soirée${profil.soirees.length > 1 ? 's' : ''}`,
+    avatars: profil.legendaires.length > 0 ? `${profil.legendaires.length} légendaire${profil.legendaires.length > 1 ? 's' : ''}, des branches, des emojis` : 'Des branches, des emojis, des légendaires',
+    style: 'Finition, titre, fond',
+    trophees: `${nHautsFaits} haut${nHautsFaits > 1 ? 's' : ''} fait${nHautsFaits > 1 ? 's' : ''} · ${nPrix} prix`,
+    carriere: precision !== null ? `Précision ${precision} % · tes courbes` : 'Tes chiffres, tes courbes',
+    soirees: profil.soirees.length === 0 ? 'Aucune encore' : `${profil.soirees.length} soirée${profil.soirees.length > 1 ? 's' : ''}, jouées ou animées`,
   }
   const iconeDeTuile: Record<EcranDuProfil, IconName> = {
     avatars: 'sparkles',
-    style: 'star',
+    style: 'palette',
     trophees: 'trophy',
     carriere: 'bar-chart',
-    soirees: 'list',
+    soirees: 'book',
   }
   return (
     <div className="player-shell">
-      <header className="me-header profil-tete">
-        {avatar('player-avatar big')}
-        {/* Le niveau et sa barre, sous le nom : une carte « Niveau » redisait
-            ce que l'en-tête disait déjà, la pastille et l'expérience. */}
-        <div className="profil-identite">
-          <h2>
-            {profil.name}
-            <Niveau niveau={profil.niveau} big />
-          </h2>
-          {/* Son titre, sous son prénom, comme sa carte le montre. */}
-          {profil.titre && hautFait(profil.titre) && (
-            <p className="titre-porte">{espacesFines(`« ${hautFait(profil.titre)!.title} »`)}</p>
-          )}
-          {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
-          {profil.laurier && (
-            <p className="carte-laurier">
-              <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
-            </p>
-          )}
-          {barreXp}
-          <p className="muted small">
-            {profil.requis > 0
-              ? `${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} XP vers le niveau ${profil.niveau + 1}`
-              : 'Au sommet'}
-          </p>
-          {/* Ses confettis, sous son expérience : un toucher mène à la boutique. */}
-          {profil.boutique && (
-            <a className="profil-solde" href="/boutique">
-              🎊 {nConfettis(profil.boutique.confettis.solde)}
-            </a>
-          )}
-        </div>
-      </header>
+      {/* Soi-même, en tête : son titre, sa barre d'expérience, ses confettis ; un toucher ouvre sa carte. */}
+      <Identite profil={profil} />
+      {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
+      {profil.laurier && (
+        <p className="carte-laurier">
+          <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
+        </p>
+      )}
       {regionDAnnonce}
 
       <div className="tuiles">

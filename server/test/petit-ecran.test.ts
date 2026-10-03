@@ -159,7 +159,7 @@ test('les onglets passent à la ligne plutôt que de sortir de l’écran', () =
   // toute rangée d'onglets, depuis que le profil a ses tuiles.
   assert.match(CSS, /@media \(max-width: 340px\) \{\s*\.onglets \.onglet \{[^}]*\}\s*\.onglets \.onglet \.icon \{ display: none; \}/)
   // Au texte agrandi, la pastille de niveau du profil poussait la page : le prénom se coupe.
-  assert.match(regle('.profil-identite h2'), /overflow-wrap:\s*anywhere/)
+  assert.match(regle('.identite-nom'), /overflow-wrap:\s*anywhere/)
 })
 
 test('les onglets se prennent aux flèches, un seul arrêt de Tab, le panneau affiché seulement', async () => {

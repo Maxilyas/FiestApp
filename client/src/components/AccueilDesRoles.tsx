@@ -6,6 +6,7 @@ import { consoleOuvreuse, revenirALaConsole } from '../onglets'
 import { spacePath } from '../routes'
 import { showToast } from '../state'
 import type { PublicSpace } from '../../../shared/space'
+import { jourDe, type CarriereDuJour } from '../../../shared/jour'
 
 // L'accueil de qui anime et joue : deux cartes, l'une sous l'autre, dans le
 // même ordre quel que soit le soir — « J'anime », puis « Je joue ».
@@ -117,21 +118,46 @@ export function AccueilJouer({
   enCours,
   onRejoindre,
   lendemain,
+  jour,
 }: {
   enCours: { nom: string; slug: string }[]
   onRejoindre: () => void
   lendemain: ReactNode
+  /** Sa carrière au quiz du jour : sa série, et s'il a déjà joué aujourd'hui. */
+  jour?: CarriereDuJour
 }) {
+  // Joué aujourd'hui (à l'heure de Paris) : le bouton le dit, sans pastille.
+  const joueAujourdhui = jour?.jours[0]?.jour === jourDe(Date.now())
+  const serie = jour && jour.serie > 1 ? ` · série de ${jour.serie} jours` : ''
   return (
-    <section className="accueil-gestes" aria-label="Jouer">
+    <div className="accueil-gestes">
+      {/* Il joue déjà quelque part : on y revient d'un toucher, avant tout. */}
       {enCours.map(e => (
-        <GrosBouton key={e.slug} principal icone={<Icon name="play" />} titre={`Revenir chez ${e.nom}`} detail="La soirée continue sans toi" href={spacePath(e.slug)} />
+        <GrosBouton key={e.slug} principal icone={<Icon name="rotate" />} titre={`Revenir chez ${e.nom}`} detail="Ta soirée continue" href={spacePath(e.slug)} />
       ))}
-      <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail="Trois vies, sans chrono, de plus en plus dur" href="/campagne" />
-      <GrosBouton icone={<Icon name="sun" />} titre="Le quiz du jour" detail="Dix questions, les mêmes pour tous" href="/jour" />
-      <GrosBouton icone={<Icon name="plus" />} titre="Créer un salon" detail="Tes quiz, tes amis, un code à dicter" href="/salon" />
-      <GrosBouton icone={<Icon name="users" />} titre="Rejoindre une soirée" detail="Le code à six chiffres de ton hôte" onClick={onRejoindre} />
+      {/* Deux sections, nommées : seul, et à plusieurs — quatre boutons de même
+          poids ne disaient pas lesquels se jouent sans personne. */}
+      <section className="jouer-section" aria-labelledby="jouer-seul">
+        <span className="label" id="jouer-seul">
+          Seul
+        </span>
+        <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail="Jusqu’où iras-tu ? Trois vies, sans chrono" href="/campagne" />
+        <GrosBouton
+          icone={<Icon name="sun" />}
+          titre="Le quiz du jour"
+          detail={joueAujourdhui ? `Joué aujourd’hui${serie}` : `Dix questions, les mêmes pour tous${serie}`}
+          pastille={jour && !joueAujourdhui ? 'À jouer' : undefined}
+          href="/jour"
+        />
+      </section>
+      <section className="jouer-section" aria-labelledby="jouer-amis">
+        <span className="label" id="jouer-amis">
+          Entre amis
+        </span>
+        <GrosBouton icone={<Icon name="plus" />} titre="Créer un salon" detail="Tu lances les quiz : tu joues, ou tu animes" href="/salon" />
+        <GrosBouton icone={<Icon name="users" />} titre="Rejoindre une soirée" detail="Avec son code, ou le QR de l’hôte" onClick={onRejoindre} />
+      </section>
       {lendemain}
-    </section>
+    </div>
   )
 }

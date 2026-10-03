@@ -188,12 +188,22 @@ const PIECES: { piece: Piece; nom: string; href: string; icone: ReactNode }[] = 
  * courante se dit en gras, pas par sa seule couleur. Elle se retire pendant
  * une partie : on ne quitte pas une question d'un toucher perdu.
  */
+/** La couleur de chaque pièce (`--zone`, `styles.css`) : l'accueil garde le champagne. */
+const ZONE: Record<Piece, string> = { accueil: 'zone-jouer', quiz: 'zone-quiz', profil: 'zone-profil', boutique: 'zone-boutique', compte: 'zone-compte' }
+
 export function MenuBarre({ ici }: { ici: Piece | null }) {
   useEffect(() => {
-    // La page ne passe jamais sous la barre.
+    // La page ne passe jamais sous la barre ; et elle prend la couleur de sa
+    // pièce — son titre, ses icônes, le filet de la barre —, sans que chaque
+    // page la pose elle-même.
+    const zone = ici ? ZONE[ici] : null
     document.body.classList.add('avec-menu')
-    return () => document.body.classList.remove('avec-menu')
-  }, [])
+    if (zone) document.body.classList.add(zone)
+    return () => {
+      document.body.classList.remove('avec-menu')
+      if (zone) document.body.classList.remove(zone)
+    }
+  }, [ici])
   return (
     <nav className="menu-barre" aria-label="Menu">
       {PIECES.map(p => (

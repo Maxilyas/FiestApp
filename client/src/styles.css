@@ -4238,18 +4238,9 @@ h3 > .icon {
 
 /* ── La page profil ────────────────────────────────────────────────────── */
 
-.profil-tete { margin-bottom: 4px; }
 /* Le profil rattaché, dans « Mon compte » : l'avatar et son niveau côte à côte. */
 .profil-lie { align-items: center; gap: 12px; margin-bottom: 10px; }
 .profil-lie p { margin: 2px 0 0; }
-/* Le nom, puis le niveau en marche : la barre prend toute la largeur. */
-.profil-identite { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-/* Le prénom se coupe où il faut plutôt que de pousser le niveau hors de
-   l'écran : au texte agrandi à 200 %, « Marie-Charlotte » ne cédait pas, et
-   la pastille élargissait la page de 47 px. */
-.profil-identite h2 { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
-/* Le titre est déjà en ligne, avec son écart : pas de marge en plus. */
-.profil-identite h2 .niveau { margin-left: 0; }
 
 .finitions {
   display: grid;
@@ -4357,21 +4348,6 @@ h3 > .icon {
 .r-epique { background: var(--anneau-divin); }
 .r-legendaire { background: var(--anneau-legendaire); }
 .themes-rarete .label { margin-top: 14px; }
-/* Le solde, dans l'en-tête du profil : un lien vers la boutique, qui n'en a pas l'air d'un bouton. */
-.profil-solde {
-  text-decoration: none;
-  align-self: flex-start;
-  margin-top: 2px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent-text);
-  font: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-.profil-solde:hover { color: var(--accent-text-hover); }
 .fin-confettis { margin: 12px 0 0; font-family: var(--serif); font-weight: 600; font-size: 1.5rem; line-height: 1.1; color: var(--accent-text); }
 
 /* ── L'historique des soirées ──────────────────────────────────────────── */
@@ -5316,14 +5292,14 @@ h3 > .icon {
 .podium-avatar .lu,
 .carte-avatar .lu,
 .retour-avatar .lu,
-.profil-tete .player-avatar .lu,
+.identite .player-avatar .lu,
 .fin-avatar .lu,
 .fin-apercu .lu,
 .fin-collection-emoji .lu,
 .finition-btn .lu { scale: 1; }
 .retour-avatar.av-lumiere { margin-block: 0.55em; }
 .carte-avatar.av-lumiere { margin: 0.6em 0.3em 0.3em 0.5em; }
-.profil-tete .player-avatar.av-lumiere,
+.identite .player-avatar.av-lumiere,
 .fin-avatar.av-lumiere { margin: 0.4em 0.4em 0.4em 0.35em; }
 .fin-apercu.av-lumiere { margin: 0.55em; }
 .fin-collection-emoji .av-lumiere { margin-block: 0.55em; }
@@ -6892,9 +6868,9 @@ span.case-avatar { cursor: default; }
    Les pièces de `components/Pieces.tsx`. Une feuille monte du bas, « Fermer »
    toujours en vue ; ses lignes ont la taille d'un pouce. */
 .piece-tete { display: flex; flex-direction: column; gap: 4px; }
-.piece-tete .label { color: var(--muted); }
+.piece-tete .label { color: var(--zone, var(--muted)); }
 .piece-tete h1 { font-size: 2rem; margin: 0; }
-.piece-tete h1 > .icon { color: var(--accent-text); }
+.piece-tete h1 > .icon { color: var(--zone, var(--accent-text)); }
 .piece-tete p { margin: 0; }
 .carte-voile {
   position: fixed;
@@ -6953,12 +6929,12 @@ span.case-avatar { cursor: default; }
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent-text);
+  background: color-mix(in srgb, var(--zone, var(--accent)) 16%, transparent);
+  color: var(--zone, var(--accent-text));
 }
 .gros-icone .icon { width: 24px; height: 24px; }
 .gros-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.gros-texte b { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.15; }
+.gros-texte b { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; line-height: 1.15; }
 .gros-detail { color: var(--muted); font-size: 0.88rem; line-height: 1.35; }
 /* Une recherche sobre : un trait, une loupe. Le champ garde l'anneau du focus. */
 .recherche-sobre { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--edge-strong); color: var(--muted); }
@@ -7092,7 +7068,7 @@ body.avec-chef .toast { bottom: calc(84px + env(safe-area-inset-bottom)); }
   white-space: nowrap;
 }
 .menu-barre a .icon { width: 22px; height: 22px; }
-.menu-barre a[aria-current='page'] { color: var(--accent-text); font-weight: 600; }
+.menu-barre a[aria-current='page'] { color: var(--zone, var(--accent-text)); font-weight: 600; }
 .menu-barre a[aria-current='page']::before {
   content: '';
   position: absolute;
@@ -7102,29 +7078,77 @@ body.avec-chef .toast { bottom: calc(84px + env(safe-area-inset-bottom)); }
   margin-left: -16px;
   height: 2px;
   border-radius: 0 0 2px 2px;
-  background: var(--accent);
+  background: var(--zone, var(--accent));
 }
 /* La page ne passe jamais sous la barre. */
 body.avec-menu { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
 body.avec-menu .player-shell { padding-bottom: 24px; }
 body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 
-/* ── L'accueil : qui l'on est en une ligne, puis des gros boutons ──────── */
-.ligne-identite {
+/* ── Les pièces de l'application ─────────────────────────────────────────
+   Chaque pièce a sa couleur, prise dans la palette du thème porté : on sait
+   où l'on est sans lire. L'accueil garde le champagne ; Mes quiz, le vert de
+   la quatrième forme ; le profil, le lilas des Divins ; la boutique, le rose
+   de la première ; le compte, l'argent. La barre du menu la pose sur la page
+   (`MenuBarre`), et tout ce qui la lit en hérite. */
+:root {
+  --zone-jouer: var(--accent-text);
+  --zone-quiz: var(--shape-3);
+  --zone-profil: var(--anneau-divin);
+  --zone-boutique: var(--shape-0);
+  --zone-compte: var(--argent-text);
+}
+.zone-jouer { --zone: var(--zone-jouer); }
+.zone-quiz { --zone: var(--zone-quiz); }
+.zone-profil { --zone: var(--zone-profil); }
+.zone-boutique { --zone: var(--zone-boutique); }
+.zone-compte { --zone: var(--zone-compte); }
+
+/* ── Soi, sur une ligne : l'identité et sa barre d'expérience ───────────
+   En tête de l'accueil et du profil, une carte qu'on touche pour voir sa
+   carte de joueur : le liseré d'or dit qu'elle s'ouvre. */
+.identite {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 4px 0;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: var(--radius);
+  background: radial-gradient(90% 140% at 0% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%), var(--surface);
   color: inherit;
-  text-decoration: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
 }
-.ligne-identite .player-avatar { flex: none; width: 52px; height: 52px; font-size: 2rem; }
-.ligne-identite-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.ligne-identite-texte b { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
-.ligne-identite-texte .xp-bar { height: 4px; }
-/* Les confettis au bout de la ligne : discrets, ils ne crient pas. */
-.ligne-solde { flex: none; color: var(--accent-text); font-size: 0.875rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.accueil-gestes { display: flex; flex-direction: column; gap: 10px; }
+.identite .player-avatar.big { flex: none; font-size: 2.9rem; }
+/* L'accueil : la même identité, sans cadre — un lien vers le profil. */
+.identite-ligne { display: flex; align-items: center; gap: 14px; padding: 2px 0; color: inherit; text-decoration: none; }
+.identite-ligne .player-avatar.big { flex: none; font-size: 2.4rem; }
+.identite-ligne .identite-nom { padding-right: 0; }
+.identite-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+/* Le prénom se coupe où il faut plutôt que de pousser le niveau hors de
+   l'écran : au texte agrandi à 200 %, « Marie-Charlotte » ne cédait pas, et
+   la pastille élargissait la page de 47 px. */
+.identite-nom { display: flex; align-items: center; gap: 6px; padding-right: 64px; font-family: var(--serif); font-size: 1.45rem; font-weight: 600; line-height: 1.1; overflow-wrap: anywhere; }
+.identite-titre { font-family: var(--serif); font-style: italic; font-size: 0.95rem; color: var(--accent-text); }
+.identite-carte { position: absolute; top: 10px; right: 12px; display: inline-flex; align-items: center; gap: 2px; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.04em; color: var(--muted); }
+.identite-carte .icon { width: 12px; height: 12px; transform: rotate(-90deg); }
+.identite:hover .identite-carte { color: var(--accent-text-hover); }
+.xp-mince { display: flex; flex-direction: column; gap: 3px; width: 100%; max-width: 260px; margin-top: 3px; }
+.xp-mince-barre { display: block; height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; }
+.xp-mince-barre span { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 60%, transparent), var(--accent)); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 50%, transparent); }
+/* Les confettis au bout de la ligne d'expérience : là où l'œil passe déjà, sans un bloc de plus. */
+.xp-mince-texte { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: var(--t-label); color: var(--muted); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+.xp-confettis { flex: none; color: var(--accent-text); font-weight: 600; white-space: nowrap; }
+
+/* ── L'accueil : qui l'on est, puis des gros boutons en deux sections ──── */
+.accueil-gestes { display: flex; flex-direction: column; gap: 22px; }
+.jouer-section { display: flex; flex-direction: column; gap: 10px; }
+.jouer-section > .label { color: var(--muted); padding-left: 2px; }
 .gros-bouton {
   display: flex;
   align-items: center;
