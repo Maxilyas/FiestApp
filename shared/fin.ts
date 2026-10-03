@@ -90,6 +90,13 @@ export interface FinDeSoiree extends Distinctions {
    */
   aJoue?: boolean
   /**
+   * Il animait, hors classement (« J'anime seulement ») : rien de lui ne
+   * comptait, et sa fin lui disait « Tu n'as pas joué ce soir », comme à un
+   * retardataire (la remarque du propriétaire du 3 octobre 2026). Absent d'un
+   * serveur d'avant, et de qui jouait.
+   */
+  anime?: true
+  /**
    * Les prix du palmarès qu'il remporte (« L'Éclair ») : Jeanne cherchait le
    * sien sur sa fin de soirée. Absent d'un serveur d'avant.
    */
@@ -209,8 +216,10 @@ export type LigneDeRang =
   | { cas: 'zero'; joueurs: number }
   | { cas: 'absent'; joueurs: number }
   | { cas: 'neutre'; joueurs: number }
+  | { cas: 'anime'; joueurs: number }
 
-export function ligneDeRang(fin: Pick<FinDeSoiree, 'rang' | 'points' | 'joueurs' | 'aJoue'>): LigneDeRang {
+export function ligneDeRang(fin: Pick<FinDeSoiree, 'rang' | 'points' | 'joueurs' | 'aJoue' | 'anime'>): LigneDeRang {
+  if (fin.anime) return { cas: 'anime', joueurs: fin.joueurs }
   if (fin.rang > 0) return { cas: 'rang', rang: fin.rang, joueurs: fin.joueurs, points: fin.points }
   if (fin.aJoue === true) return { cas: 'zero', joueurs: fin.joueurs }
   if (fin.aJoue === false) return { cas: 'absent', joueurs: fin.joueurs }
@@ -283,7 +292,7 @@ export function soireeCloseLisible(x: unknown): x is SoireeClose {
 export function finLisible(x: unknown): x is FinDeSoiree {
   if (!estObjet(x) || !soireeCloseLisible(x.soiree)) return false
   if (!textes(x, 'nom', 'avatar') || !nombres(x, 'rang', 'points', 'joueurs')) return false
-  if (!optionnel(x.joueurId, 'string') || !optionnel(x.aJoue, 'boolean')) return false
+  if (!optionnel(x.joueurId, 'string') || !optionnel(x.aJoue, 'boolean') || !(x.anime === undefined || x.anime === true)) return false
   const annonce = (e: unknown) => estObjet(e) && textes(e, 'key', 'emoji', 'title')
   if (!listeDe(x.hautsFaits, e => annonce(e) && textes(e as Record<string, unknown>, 'ton'))) return false
   if (x.prix !== undefined && !listeDe(x.prix, e => annonce(e) && textes(e as Record<string, unknown>, 'detail'))) {

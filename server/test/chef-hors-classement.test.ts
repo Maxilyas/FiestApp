@@ -72,6 +72,52 @@ test('le chef qui anime seulement répond sans compter : ni points, ni attente, 
   assert.equal(apres.players.find(p => p.id === lui.playerId)?.score, 0, 'rien au journal des gains')
 })
 
+test('à la clôture, sa fin dit qu’il animait — ni « Tu n’as pas joué », ni place, ni hauts faits — et la salle ne le compte pas', async () => {
+  const chef = await inscrireProfil(banc.url, 'chef2', 'Chef', '🦁')
+  const espaceRes = await ecrire(banc.url, '/api/joueur/espace', {}, chef)
+  const console_ = cookieDe(espaceRes)
+  const { espace } = (await espaceRes.json()) as { espace: { slug: string } }
+  const quiz = await creerQuiz(banc.url, console_, [1, 2, 3, 4, 5].map(n => qcm(`Question ${n} ?`)), 'Le quiz du soir')
+  await ecrire(banc.url, '/api/joueur/salon', {}, chef)
+  const ecran = await ecranCommun(banc.url, console_)
+  const lui = await invite(banc.url, 'Chef', '🦁', { slug: espace.slug, cookie: chef, horsClassement: true })
+  // Quatre joueurs : la salle des hauts faits. Le chef, lui, ne répond à rien —
+  // un joueur qui en ferait autant serait L'Abstentionniste.
+  const joueurs = await Promise.all(['Alice', 'Bruno', 'Chloé', 'Dan'].map((n, i) => invite(banc.url, n, ['🦊', '🐼', '🐙', '🦄'][i], { slug: espace.slug })))
+  const choix = attendre<any>(ecran, 'session:view', p => p.view.phase === 'pickPack', 'le choix')
+  ;(ecran as any).emit('host:launch', { depuis: null })
+  const { sessionId, view } = await choix
+  ;(ecran as any).emit('host:command', { sessionId, command: { type: 'selectPack', packId: quiz, phase: 'pickPack', qIndex: 0, round: view.round } }, () => {})
+  for (let q = 0; q < 5; q++) {
+    const v = (await attendre<any>(joueurs[0].socket, 'session:view', p => p.view.phase === 'question' && p.view.qIndex === q, `la question ${q}`)).view
+    const revelee = attendre<any>(ecran, 'session:view', p => p.view.phase === 'reveal' && p.view.qIndex === q, `la révélation ${q}`)
+    joueurs.forEach((j, i) => (j.socket as any).emit('player:action', { sessionId, action: { type: 'answer', choice: i % 2, qIndex: q, round: v.round } }, () => {}))
+    const r = (await revelee).view
+    ;(ecran as any).emit('host:command', { sessionId, command: { type: 'next', phase: 'reveal', qIndex: q, round: r.round } }, () => {})
+  }
+  const finChef = attendre<any>(lui.socket, 'soiree:fin', () => true, 'sa fin', 15000)
+  const finAlice = attendre<any>(joueurs[0].socket, 'soiree:fin', () => true, 'celle d’Alice', 15000)
+  ;(ecran as any).emit('host:closeParty', {}, () => {})
+  const fin = await finChef
+  assert.equal(fin.anime, true, 'il animait')
+  assert.equal(fin.aJoue, false)
+  assert.equal(fin.joueurId, undefined, 'pas dans l’archive : « Mon bilan » ne le chercherait pas')
+  assert.deepEqual(fin.hautsFaits, [], 'ni L’Abstentionniste, ni rien')
+  assert.equal(fin.prix, undefined)
+  assert.equal(fin.joueurs, 4, 'la salle, sans lui')
+  assert.equal((await finAlice).joueurs, 4)
+  assert.equal((await finAlice).anime, undefined)
+  const liste = (await (await fetch(`${banc.url}/s/${espace.slug}/soirees.json`)).json()) as { archives: { players: number }[] }
+  assert.equal(liste.archives[0].players, 4, 'l’historique ne le compte pas')
+
+  // Au téléphone, la phrase le dit ; un joueur qui n'a pas répondu garde la sienne.
+  const { ligneDeRang } = await import('../../shared/fin')
+  assert.deepEqual(ligneDeRang(fin), { cas: 'anime', joueurs: 4 })
+  assert.deepEqual(ligneDeRang({ ...fin, anime: undefined }), { cas: 'absent', joueurs: 4 })
+  const { readFileSync } = await import('node:fs')
+  assert.match(readFileSync(new URL('../../client/src/components/FinDeSoiree.tsx', import.meta.url), 'utf8'), /case 'anime':\s*return \(\s*<p className="muted">\s*Tu animais la soirée/)
+})
+
 test('au téléphone : le salon ouvre la soirée pour les deux choix, et les classements écartent le chef', async () => {
   const { readFileSync } = await import('node:fs')
   const source = (f: string) => readFileSync(new URL(`../../client/src/${f}`, import.meta.url), 'utf8')

@@ -788,6 +788,13 @@ function LigneRang({ fin }: { fin: Fin }) {
       )
     case 'neutre':
       return <p className="muted">{nJoueurs(l.joueurs)} ce soir</p>
+    case 'anime':
+      return (
+        <p className="muted">
+          Tu animais la soirée
+          {l.joueurs > 0 && ` · ${nJoueurs(l.joueurs)}`}
+        </p>
+      )
   }
 }
 
