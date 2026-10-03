@@ -84,39 +84,39 @@ test('l’écran commun mène à l’accueil, dans son onglet, et l’accueil ou
   assert.doesNotMatch(host, /\{telecommande && \(\s*<a className="btn btn-ghost" href="\/"/, 'au PC comme à la télécommande')
   assert.match(source('onglets.ts'), /accueil: 'fiestapp-accueil'/)
   // Ouvert par la console, l'accueil n'en ouvre pas une seconde : il y ramène.
-  const anime = source('components/AccueilDesRoles.tsx')
-  assert.match(anime, /const \[ouvreuse\] = useState\(\(\) => consoleOuvreuse\(\) !== null\)/)
-  assert.match(anime, /ouvreuse &&\s*revenirALaConsole\(/)
-  assert.match(anime, /\{ouvreuse \? 'Revenir à la console' : 'Ouvrir l’écran commun'\}/)
+  assert.match(source('components/AccueilDesRoles.tsx'), /<LienConsole className="btn btn-primary btn-block" \/>/)
+  assert.match(source('components/LienConsole.tsx'), /\{ouvreuse \? 'Revenir à la console' : 'Écran commun'\}/)
 })
 
-test('l’accueil de qui anime : l’écran commun, un salon, ses quiz, son compte, l’historique', async () => {
-  const html = await rendu('components/AccueilDesRoles', 'JAnime', { espace: ESPACE, rouvrir: true })
+test('la console ouverte ici sans profil : l’écran commun, ses quiz, son compte, l’historique', async () => {
+  const html = await rendu('components/AccueilDesRoles', 'JAnime', { espace: ESPACE })
   assert.match(html, /J’anime/)
   assert.match(html, /La soirée de Bob/)
-  assert.deepEqual(gestes(html), [
-    'Ouvrir l’écran commun [bouton]',
-    'Nouveau salon → /salon',
-    'Mes quiz → /edit',
-    'Mon compte → /compte',
-    'Historique → /chez-bob/soirees',
-  ])
-  // Un salon s'ouvre avec son profil : la console ouverte ici sans lui n'en propose pas.
-  const sansProfil = await rendu('components/AccueilDesRoles', 'JAnime', { espace: ESPACE, rouvrir: false })
-  assert.ok(!gestes(sansProfil).some(g => g.includes('/salon')))
-  // Venu de son profil, la session d'animateur a pu expirer : elle se
-  // rouvre avant de partir, sinon « Mes quiz » renverrait à une connexion.
-  const anime = source('components/AccueilDesRoles.tsx')
-  assert.match(anime, /if \(rouvrir\) await api\.joueur\.console\(\)\s*window\.location\.assign\(dest\)/)
-  assert.match(anime, /href="\/edit" onClick=\{parLaSession\('\/edit'\)\}/)
-  assert.match(anime, /href="\/compte" onClick=\{parLaSession\('\/compte'\)\}/)
-  // Le profil rattaché l'anime, sinon la console ouverte ici ; l'animateur
-  // sans profil retrouve sa carte au-dessus de « Me connecter ».
+  assert.deepEqual(gestes(html), ['Écran commun → /host', 'Mes quiz → /edit', 'Mon compte → /compte', 'Historique → /chez-bob/soirees'])
+  // Elle garde sa carte au-dessus de « Me connecter » : sans profil, ni menu ni salon.
   const profil = source('views/ProfilApp.tsx')
-  assert.match(profil, /const animateur = espace \?\? console_/)
-  assert.match(profil, /\{animateur && <JAnime espace=\{animateur\} rouvrir=\{!!espace\} \/>\}/)
-  assert.match(profil, /\{console_ && <JAnime espace=\{console_\} rouvrir=\{false\} \/>\}/)
+  assert.match(profil, /\{console_ && <JAnime espace=\{console_\} \/>\}/)
   assert.match(profil, /pied=\{!console_ && <PorteAnimateur \/>\}/)
+})
+
+test('l’accueil d’un profil n’a pas de carte « J’anime » : chacune de ses portes est ailleurs', () => {
+  // Elle doublait « Créer un salon », le menu et le Compte (la remarque du
+  // propriétaire du 3 octobre 2026).
+  const profil = source('views/ProfilApp.tsx')
+  const accueil = profil.slice(profil.indexOf("if (VUE === 'accueil') {"), profil.indexOf("if (VUE === 'boutique') {"))
+  assert.ok(accueil.length > 0)
+  assert.doesNotMatch(accueil, /<JAnime/)
+  // Ses portes : un salon au-dessus, « Mes quiz » et « Compte » au menu…
+  assert.match(source('components/AccueilDesRoles.tsx'), /titre="Créer un salon"[^>]*href="\/salon"/)
+  const pieces = source('components/Pieces.tsx')
+  assert.match(pieces, /href: '\/edit'/)
+  assert.match(pieces, /href: '\/compte'/)
+  // … l'écran commun et l'historique d'un compte à mot de passe dans le Compte,
+  // et les soirées de son salon dans son profil (« Chez moi »).
+  const compte = source('views/AccountApp.tsx')
+  assert.match(compte, /\{me\.profil && !parLeProfil && ligne\('monitor', 'L’écran commun', '', '\/host'\)\}/)
+  assert.match(compte, /\{me\.profil && !parLeProfil && ligne\('book', 'L’historique', '', `\/\$\{me\.space\.slug\}\/soirees`\)\}/)
+  assert.match(profil, /<pret\.PanneauSoirees profil=\{profil\} monEspace=\{espace\?\.slug\} \/>/)
 })
 
 test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz du jour, un salon, rejoindre — en gros boutons, à la même place', async () => {

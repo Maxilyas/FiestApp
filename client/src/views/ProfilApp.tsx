@@ -250,7 +250,7 @@ export function ProfilApp() {
             {/* Une console ouverte ici sans profil : c'est l'accueil d'un
                 animateur, et ce qu'il y cherche vient d'abord. L'invité, lui,
                 n'en a pas — rien ne bouge au-dessus de « Me connecter ». */}
-            {console_ && <JAnime espace={console_} rouvrir={false} />}
+            {console_ && <JAnime espace={console_} />}
           </>
         }
         aideErreur={
@@ -285,7 +285,6 @@ export function ProfilApp() {
   }
 
   const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
-  const animateur = espace ?? console_
   const pret = lesPanneaux && lesPanneaux !== 'perdu' ? lesPanneaux : null
   const enChemin = <OngletEnChemin perdu={lesPanneaux === 'perdu'} />
   const barreXp = (
@@ -327,9 +326,10 @@ export function ProfilApp() {
         {/* Soi-même en une ligne : un toucher mène au profil. */}
         <IdentiteLigne profil={profil} />
         <AccueilJouer enCours={enCours} onRejoindre={() => setRejoindre(true)} lendemain={lendemain} jour={profil.jour} />
-        {/* L'écran commun et ses pages, pour qui anime : le profil rattaché à
-            un espace, sinon la console ouverte ici. */}
-        {animateur && <JAnime espace={animateur} rouvrir={!!espace} />}
+        {/* Pas de carte « J'anime » ici : qui anime avec son profil a déjà
+            chaque porte — « Créer un salon » au-dessus, « Mes quiz » et
+            « Compte » dans le menu, l'écran commun et l'historique dans son
+            Compte (`AccueilDesRoles`). */}
         {erreur && <p className="error">{erreur}</p>}
         {menu('accueil')}
       </div>
