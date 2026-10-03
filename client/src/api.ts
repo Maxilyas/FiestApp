@@ -291,7 +291,9 @@ export const api = {
      * retaper quoi que ce soit.
      */
     console: () => req<{ espace: PublicSpace }>('/api/joueur/console', { method: 'POST' }),
-    /** « Créer un salon » : l'espace du profil (créé la première fois), sa console ouverte ici, et le code du salon. */
+    /** L'espace du profil (créé la première fois) et sa console ouverte ici, sans ouvrir le salon. */
+    espace: () => req<{ espace: PublicSpace; nouveau: boolean }>('/api/joueur/espace', { method: 'POST' }),
+    /** « Ouvrir le salon » : l'espace du profil, sa console ouverte ici, et le code du salon. */
     salon: () => req<{ espace: PublicSpace; code: string | null; nouveau: boolean }>('/api/joueur/salon', { method: 'POST' }),
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
     enregistrer: (patch: {

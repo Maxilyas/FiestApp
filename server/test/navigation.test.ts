@@ -87,16 +87,20 @@ test('l’écran commun mène à l’accueil, dans son onglet, et l’accueil ou
   assert.match(anime, /\{ouvreuse \? 'Revenir à la console' : 'Ouvrir l’écran commun'\}/)
 })
 
-test('l’accueil de qui anime : l’écran commun, ses quiz, son compte, l’historique', async () => {
+test('l’accueil de qui anime : l’écran commun, un salon, ses quiz, son compte, l’historique', async () => {
   const html = await rendu('components/AccueilDesRoles', 'JAnime', { espace: ESPACE, rouvrir: true })
   assert.match(html, /J’anime/)
   assert.match(html, /La soirée de Bob/)
   assert.deepEqual(gestes(html), [
     'Ouvrir l’écran commun [bouton]',
+    'Nouveau salon → /salon',
     'Mes quiz → /edit',
     'Mon compte → /compte',
     'Historique → /chez-bob/soirees',
   ])
+  // Un salon s'ouvre avec son profil : la console ouverte ici sans lui n'en propose pas.
+  const sansProfil = await rendu('components/AccueilDesRoles', 'JAnime', { espace: ESPACE, rouvrir: false })
+  assert.ok(!gestes(sansProfil).some(g => g.includes('/salon')))
   // Venu de son profil, la session d'animateur a pu expirer : elle se
   // rouvre avant de partir, sinon « Mes quiz » renverrait à une connexion.
   const anime = source('components/AccueilDesRoles.tsx')
@@ -132,10 +136,11 @@ test('« Je joue » : revenir, rejoindre une soirée, jouer chez soi — sans vo
   assert.deepEqual(gestes(chezLui), ['Revenir chez Bob → /chez-bob', 'Rejoindre une soirée [bouton]'])
 
   // Qui ne fait que jouer : « Ce soir », comme avant — rejoindre en grand, et
-  // la porte discrète des animateurs.
+  // son propre salon, en petit : tout le monde peut animer, plus de compte
+  // d'animateur à demander.
   const joueur = await joue({})
   assert.match(joueur, /Ce soir/)
-  assert.deepEqual(gestes(joueur), ['Rejoindre une soirée [bouton]', 'J’anime une soirée → /connexion?next=/host'])
+  assert.deepEqual(gestes(joueur), ['Rejoindre une soirée [bouton]', 'Créer un salon → /salon'])
   assert.match(joueur, /class="btn btn-primary btn-block"/)
 })
 

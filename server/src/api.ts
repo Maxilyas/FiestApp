@@ -9,7 +9,7 @@ import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
-import { horsBornesALEnvoi, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
+import { horsBornesALEnvoi, normalizeQuestions, playableQuestions, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
 import { accountOf, csrfGuard, refuserLesTeles, requireAccount, requireAdmin } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
@@ -380,6 +380,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
           id: m.id,
           title: m.title,
           questionCount: m.questions.length,
+          // Ce qui se joue tel quel : un modèle à compléter (✏️) se prépare
+          // dans « Mes quiz », il ne se lance pas d'un toucher depuis un salon.
+          pretes: playableQuestions({ id: m.id, title: m.title, updatedAt: 0, questions: normalizeQuestions(m.questions) }).length,
           ...(m.personnaliser && { personnaliser: m.personnaliser }),
           ...(m.description && { description: m.description }),
           rayon: m.rayon,

@@ -382,28 +382,55 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
   )
 
   /**
-   * « Créer un salon » : l'espace du profil — créé à la première fois, sans
-   * rien demander de plus —, sa console ouverte sur ce navigateur, et le
-   * code du salon. Plus de compte d'animateur à obtenir : qui a un profil
-   * peut animer. L'espace garde son identifiant pour toujours (invariant
-   * 16) ; seul le code change, d'une soirée à l'autre.
+   * L'espace du profil — créé la première fois, sans rien demander de plus
+   * — et sa console ouverte sur ce navigateur. Plus de compte d'animateur à
+   * obtenir : qui a un profil peut animer, et ses quiz vivent dans son
+   * espace. Il garde son identifiant pour toujours (invariant 16). Rend
+   * null après avoir répondu, sur un refus.
    */
+  const espaceDuProfil = async (req: express.Request, res: express.Response) => {
+    const me = await current(req)
+    if (!me) {
+      res.status(401).json({ error: 'Connecte-toi à ton profil pour animer' })
+      return null
+    }
+    const deja = deps.auth.byProfile(me.id)
+    if (deja?.disabledAt) {
+      res.status(403).json({ error: 'Ton salon est en pause — demande à l’administrateur' })
+      return null
+    }
+    if (!deja && !espacesCrees.take(clientIp(req))) {
+      res.status(429).json({ error: 'Trop de salons ouverts depuis ce réseau — réessaie dans un moment' })
+      return null
+    }
+    const espace = deja ?? (await deps.auth.creerEspaceDuProfil(me))
+    const ouverte = await ouvrirConsole(req, res, me.id)
+    if (!ouverte) {
+      res.status(403).json({ error: 'Ton salon est en pause — demande à l’administrateur' })
+      return null
+    }
+    return { id: espace.id, espace: ouverte.espace, nouveau: !deja }
+  }
+
+  /** Préparer sa soirée — ses quiz, son programme — sans encore ouvrir le salon ni tirer son code. */
+  app.post(
+    '/api/joueur/espace',
+    wrap(async (req, res) => {
+      noStore(res)
+      const pret = await espaceDuProfil(req, res)
+      if (pret) res.json({ espace: pret.espace, nouveau: pret.nouveau })
+    }),
+  )
+
+  /** « Ouvrir le salon » : l'espace, sa console, et le code du salon — le même tant qu'il vaut. */
   app.post(
     '/api/joueur/salon',
     wrap(async (req, res) => {
       noStore(res)
-      const me = await current(req)
-      if (!me) return res.status(401).json({ error: 'Connecte-toi à ton profil pour ouvrir un salon' })
-      const deja = deps.auth.byProfile(me.id)
-      if (deja?.disabledAt) return res.status(403).json({ error: 'Ton salon est en pause — demande à l’administrateur' })
-      if (!deja && !espacesCrees.take(clientIp(req))) {
-        return res.status(429).json({ error: 'Trop de salons ouverts depuis ce réseau — réessaie dans un moment' })
-      }
-      const espace = deja ?? (await deps.auth.creerEspaceDuProfil(me))
-      const ouverte = await ouvrirConsole(req, res, me.id)
-      if (!ouverte) return res.status(403).json({ error: 'Ton salon est en pause — demande à l’administrateur' })
-      const code = await deps.ouvrirSalon(espace.id)
-      res.json({ espace: ouverte.espace, code, nouveau: !deja })
+      const pret = await espaceDuProfil(req, res)
+      if (!pret) return
+      const code = await deps.ouvrirSalon(pret.id)
+      res.json({ espace: pret.espace, code, nouveau: pret.nouveau })
     }),
   )
 

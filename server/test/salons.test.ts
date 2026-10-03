@@ -15,7 +15,9 @@ import path from 'node:path'
 import {
   connecter,
   connexionAnimateur,
+  attendre,
   cookieDe,
+  creerQuiz,
   ecranCommun,
   ecrire,
   emitAck,
@@ -23,6 +25,7 @@ import {
   inscrireProfil,
   instantane,
   invite,
+  qcm,
   type Banc,
 } from './banc'
 import { SalonStore, SURSIS_APRES_CLOTURE_MS } from '../src/core/salons'
@@ -124,8 +127,25 @@ describe('« Créer un salon », depuis son profil', () => {
   const lire = (chemin: string) => fetch(banc.url + chemin, { redirect: 'manual' })
 
   test('sans profil, pas de salon', async () => {
-    const res = await ecrire(banc.url, '/api/joueur/salon', {})
-    assert.equal(res.status, 401)
+    assert.equal((await ecrire(banc.url, '/api/joueur/salon', {})).status, 401)
+    assert.equal((await ecrire(banc.url, '/api/joueur/espace', {})).status, 401)
+  })
+
+  test('préparer sa soirée ouvre l’espace et sa console, sans tirer de code', async () => {
+    const hugo = await inscrireProfil(banc.url, 'hugo', 'Hugo')
+    const res = await ecrire(banc.url, '/api/joueur/espace', {}, hugo)
+    assert.equal(res.status, 200)
+    const { espace, nouveau } = (await res.json()) as { espace: PublicSpace; nouveau: boolean }
+    assert.equal(nouveau, true)
+    const console_ = cookieDe(res)
+    // Ses quiz vivent dans son espace : la console ouverte les crée.
+    const quiz = await ecrire(banc.url, '/api/quizzes', { title: 'Le quiz d’Hugo' }, console_)
+    assert.ok(quiz.ok)
+    // Le salon s'ouvre ensuite, et tire son code.
+    const salon = await ecrire(banc.url, '/api/joueur/salon', {}, hugo)
+    const { code, espace: meme } = (await salon.json()) as { code: string; espace: PublicSpace }
+    assert.equal(meme.slug, espace.slug)
+    assert.match(code, /^\d{6}$/)
   })
 
   test('le premier salon crée l’espace du profil, sans prénom dans l’adresse ; le second le retrouve', async () => {
@@ -155,6 +175,38 @@ describe('« Créer un salon », depuis son profil', () => {
     assert.equal((await instantane(ecran)).code, salon.code)
     const sofia = await invite(banc.url, 'Sofia', '🐼', { slug: salon.espace.slug })
     assert.equal((await instantane(sofia.socket)).code, salon.code)
+  })
+
+  test('« Ouvrir le salon » : les quiz choisis font le programme de ce soir, que la console propose dans l’ordre', async () => {
+    const nadia = await inscrireProfil(banc.url, 'nadia', 'Nadia')
+    const espace = await ecrire(banc.url, '/api/joueur/espace', {}, nadia)
+    const console_ = cookieDe(espace)
+    const un = await creerQuiz(banc.url, console_, [qcm('Un ?')], 'Le premier')
+    const deux = await creerQuiz(banc.url, console_, [qcm('Deux ?')], 'Le second')
+    // Ce que fait la page : le programme, puis le salon.
+    const prog = await ecrire(banc.url, '/api/programmes', { titre: 'Ce soir', entrees: [{ quizId: deux, multiplier: 2 }, { quizId: un, multiplier: 1 }] }, console_)
+    assert.ok(prog.ok, `le programme (${prog.status})`)
+    const salon = (await (await ecrire(banc.url, '/api/joueur/salon', {}, nadia)).json()) as { code: string }
+    assert.match(salon.code, /^\d{6}$/)
+    const ecran = await ecranCommun(banc.url, console_)
+    const choix = attendre<any>(ecran, 'session:view', p => p.view.phase === 'pickPack', 'le choix du quiz')
+    ;(ecran as any).emit('host:launch')
+    const { view } = await choix
+    assert.equal(view.programme?.prochain, deux, 'le premier du programme, celui qu’on a mis en tête')
+    assert.equal(view.programme?.ensuite, un)
+  })
+
+  test('la feuille du salon ne propose que les modèles qui se jouent tels quels', async () => {
+    const zoe = await inscrireProfil(banc.url, 'zoe', 'Zoé')
+    const console_ = cookieDe(await ecrire(banc.url, '/api/joueur/espace', {}, zoe))
+    const modeles = (await (await fetch(`${banc.url}/api/modeles`, { headers: { Cookie: console_ } })).json()) as {
+      id: string
+      questionCount: number
+      pretes: number
+    }[]
+    const parId = new Map(modeles.map(m => [m.id, m]))
+    assert.equal(parId.get('culture-generale')?.pretes, parId.get('culture-generale')?.questionCount, 'la culture générale se joue d’un toucher')
+    assert.equal(parId.get('noel-en-famille')?.pretes, 0, 'Noël en famille attend ses ✏️ : copié tel quel, le salon n’aurait rien eu à lancer')
   })
 
   test('l’espace d’un animateur d’avant reçoit son code au premier écran qui se présente', async () => {

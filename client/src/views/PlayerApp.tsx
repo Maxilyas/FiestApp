@@ -42,6 +42,7 @@ import { useEcranAllume } from '../veille'
 import { porterTheme } from '../themeJoueur'
 import { useGardeRetour } from '../retour'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
+import { chefIci } from '../chef'
 
 /**
  * La fin de soirée, sa fête et la carte d'un joueur, à la demande : elles ne
@@ -51,6 +52,12 @@ import { aLaDemande, useALaDemande } from '../aLaDemande'
  */
 const finDeSoiree = aLaDemande(() => import('../components/FinDeSoiree'))
 const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
+/**
+ * La barre du chef — sa liaison d'animateur et le QR du salon avec elle —,
+ * à la demande : seul le téléphone qui a ouvert le salon la télécharge
+ * (`chef.ts`) ; un invité n'en charge pas un octet.
+ */
+const barreDuChef = aLaDemande(() => import('../components/BarreDuChef'))
 
 /** Ce qui vient une fois dans la salle, sans rien retarder de ce qu'on y voit. */
 const DELAI_PRECHARGEMENT_MS = 1500
@@ -67,7 +74,25 @@ const SANS_JOUEURS: never[] = []
 /** Les phases où l'écran du téléphone est plein : l'avis du téléphone perdu attend la suivante. */
 const PHASES_PLEINES = new Set<QuizPlayerView['phase']>(['getReady', 'observe', 'question'])
 
+/**
+ * La page d'un invité — et celle du chef qui joue, sa barre en bas : il
+ * répond comme les autres, et garde la main sur la partie.
+ */
 export function PlayerApp() {
+  const [chef] = useState(() => chefIci(currentSlug() ?? ''))
+  const laBarre = useALaDemande(barreDuChef, !!chef)
+  // Une fois entré seulement : sur l'écran d'entrée, la barre couvrait
+  // « Jouer sous un autre prénom ce soir », et rien n'y est encore à lancer.
+  const entre = !!useAppState().me
+  return (
+    <>
+      <SalleDuJoueur />
+      {chef && entre && laBarre && laBarre !== 'perdu' && <laBarre.BarreDuChef reglages={chef} />}
+    </>
+  )
+}
+
+function SalleDuJoueur() {
   const s = useAppState()
   /** L'espace de la soirée : le nom dans l'adresse, celui que le QR a donné. */
   const slug = currentSlug() ?? ''

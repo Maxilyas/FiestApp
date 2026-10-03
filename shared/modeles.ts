@@ -42,6 +42,8 @@ export interface ModeleResume {
   id: string
   title: string
   questionCount: number
+  /** Les questions qui se jouent telles quelles — sans ✏️ à remplacer. */
+  pretes?: number
   /** Une phrase qui dit à quoi il sert. */
   description?: string
   personnaliser?: APersonnaliser

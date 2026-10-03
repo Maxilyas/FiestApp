@@ -71,6 +71,14 @@ export function JAnime({ espace, rouvrir }: { espace: PublicSpace; rouvrir: bool
         {ouvreuse ? 'Revenir à la console' : 'Ouvrir l’écran commun'}
       </button>
       <div className="ce-soir-autres accueil-raccourcis">
+        {/* Un salon s'ouvre avec son profil (`/api/joueur/salon`) : la console
+            ouverte ici sans profil garde l'écran commun pour seule porte. */}
+        {rouvrir && (
+          <a className="btn btn-small" href="/salon">
+            <Icon name="plus" />
+            Nouveau salon
+          </a>
+        )}
         <a className="btn btn-small" href="/edit" onClick={parLaSession('/edit')}>
           <Icon name="edit" />
           Mes quiz
@@ -156,10 +164,12 @@ export function JeJoue({
       {principale && bouton(principale, 'btn btn-primary btn-block')}
       {autres.length > 0 && <div className="ce-soir-autres">{autres.map(a => bouton(a, 'btn btn-small'))}</div>}
       {lendemain}
+      {/* Tout le monde a son salon : plus de compte d'animateur à demander,
+          le profil l'ouvre (`/salon`). */}
       {!deuxRoles && (
         <p className="join-foot">
-          <a className="link-inline" href="/connexion?next=/host">
-            J’anime une soirée
+          <a className="link-inline" href="/salon">
+            Créer un salon
           </a>
         </p>
       )}

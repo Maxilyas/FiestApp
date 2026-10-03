@@ -37,6 +37,7 @@ const AdminApp = lazy(() => import('./views/AdminApp').then(m => ({ default: m.A
 const LandingApp = lazy(() => import('./views/LandingApp').then(m => ({ default: m.LandingApp })))
 const ProfilApp = lazy(() => import('./views/ProfilApp').then(m => ({ default: m.ProfilApp })))
 const JourApp = lazy(() => import('./views/JourApp').then(m => ({ default: m.JourApp })))
+const SalonApp = lazy(() => import('./views/SalonApp').then(m => ({ default: m.SalonApp })))
 
 const ACCOUNT: Record<AccountPage, typeof HostApp> = {
   host: HostApp,
@@ -47,6 +48,9 @@ const ACCOUNT: Record<AccountPage, typeof HostApp> = {
   admin: AdminApp,
   profil: ProfilApp,
   jour: JourApp,
+  salon: SalonApp,
+  // La télé ouvre l'écran commun : sans session, il affiche le code qui la branche.
+  tele: HostApp,
 }
 const PUBLIC: Record<PublicPage, typeof RecapApp> = {
   souvenir: RecapApp,
