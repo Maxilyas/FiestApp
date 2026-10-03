@@ -402,7 +402,7 @@ test('D21 · l’or du décor, les petites boîtes et le plus petit texte ont le
   assert.match(regle('.carte-fond.fond-theatre'), /border-color:\s*var\(--fond-or\)/)
   // Les petites boîtes de #58 et #59.
   assert.equal(VELOURS.get('--radius-xs'), '10px')
-  for (const sel of ['.fond-apercu', '.carte-beaux li', '.vitrine-choix li', '.prix-collection li', '.vitrine-option']) {
+  for (const sel of ['.fond-apercu', '.carte-beaux li', '.vitrine-choix li', '.soiree-date', '.vitrine-option']) {
     assert.match(regle(sel), /border-radius:\s*var\(--radius-xs\)/, `${sel} garde son rayon en dur`)
   }
   // Le plancher du texte : 11 px à la taille ordinaire, comme `.label`.
@@ -411,8 +411,11 @@ test('D21 · l’or du décor, les petites boîtes et le plus petit texte ont le
   for (const sel of [
     '.case-niveau',
     '.detail-famille',
-    '.prix-collection .prix-titre',
-    '.prix-collection .hf-fois',
+    '.hud-marque',
+    '.atlas-orbe-nom',
+    '.soiree-gain small',
+    '.gemme',
+    '.theme-saison',
     '.ecusson-nom',
     '.ecusson-legende',
     '.nouveau-pastille',

@@ -94,9 +94,10 @@ test('chaque prénom d’un classement passe par NomLaure', () => {
   const fichiers = readdirSync(racine, { recursive: true, encoding: 'utf8' }).filter(f => f.endsWith('.tsx'))
   const vus: string[] = []
   for (const f of fichiers) {
-    // Les commentaires JSX ne sont pas du contenu.
+    // Les commentaires JSX ne sont pas du contenu. Les marches du podium
+    // d'un quiz (`marche-nom`) sont un classement aussi.
     const source = readFileSync(new URL(f, racine), 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    for (const m of source.matchAll(/<span className="lb-name">\s*([^\s<][^<]*|<\w+)/g)) {
+    for (const m of source.matchAll(/<span className="(?:lb-name|marche-nom)">\s*([^\s<][^<]*|<\w+)/g)) {
       const contenu = m[1].trim()
       vus.push(f)
       if (exceptions.has(contenu)) continue
@@ -159,7 +160,7 @@ test('les onglets passent à la ligne plutôt que de sortir de l’écran', () =
   // toute rangée d'onglets, depuis que le profil a ses tuiles.
   assert.match(CSS, /@media \(max-width: 340px\) \{\s*\.onglets \.onglet \{[^}]*\}\s*\.onglets \.onglet \.icon \{ display: none; \}/)
   // Au texte agrandi, la pastille de niveau du profil poussait la page : le prénom se coupe.
-  assert.match(regle('.profil-identite h2'), /overflow-wrap:\s*anywhere/)
+  assert.match(regle('.identite-nom'), /overflow-wrap:\s*anywhere/)
 })
 
 test('les onglets se prennent aux flèches, un seul arrêt de Tab, le panneau affiché seulement', async () => {

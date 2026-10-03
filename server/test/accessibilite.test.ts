@@ -235,9 +235,13 @@ test('au podium du quiz, le téléphone de chacun surligne sa propre ligne', asy
 
   // Et le téléphone de Bob le montre.
   const html = await rendu('games/quiz/PlayerView', 'QuizPlayer', { view: vb, send: () => {}, teams: [], myTeamId: null })
-  assert.equal([...html.matchAll(/class="lb-row me"/g)].length, 1)
-  const ligne = html.slice(html.indexOf('class="lb-row me"'), html.indexOf('class="lb-row"', html.indexOf('class="lb-row me"')))
-  assert.match(ligne, /Bob/)
+  assert.equal([...html.matchAll(/class="marche marche-moi"/g)].length, 1)
+  const debut = html.indexOf('class="marche marche-moi"')
+  const marche = html.slice(debut, html.indexOf('class="marche"', debut + 1))
+  assert.match(marche, /Bob/)
+  // Et la marche dit son rang à l'oreille, pas seulement un chiffre sur le
+  // socle — partagé : Alice et Bob ont trouvé tous les deux, premiers ensemble.
+  assert.match(marche, /<b aria-hidden="true">1<\/b><span class="sr-only">1ʳᵉ place<\/span>/)
 })
 
 // ── 9. Le focus suit la vue de la console ─────────────────────────────────

@@ -447,8 +447,9 @@ export function JourApp() {
   const enCours = partie.etat === 'en-cours'
   return (
     <div className="player-shell">
-      {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier} onCorrection={() => ouvrir('correction')} />}
-      <section className="card jour-carte">
+      {/* La sortie en tête, la même partout ; puis aujourd'hui d'abord — c'est pour lui qu'on vient —, hier dessous. */}
+      <Sortie />
+      <section className="card jour-carte jour-heros">
         <div className="jour-tete">
           <span className="label">Le quiz du jour</span>
           <Serie jours={partie.serie} />
@@ -492,10 +493,8 @@ export function JourApp() {
           </p>
         )}
       </section>
+      {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier} onCorrection={() => ouvrir('correction')} />}
       {partie.saison && <Saison saison={partie.saison} />}
-      <a className="btn btn-ghost btn-block" href="/">
-        Retour à l’accueil
-      </a>
       {toastVu}
     </div>
   )

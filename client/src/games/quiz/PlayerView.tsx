@@ -7,12 +7,10 @@ import { TimerBar } from '../../components/TimerBar'
 import { TeamBoard } from '../../components/TeamBoard'
 import { Icon } from '../../components/Icon'
 import { Shape } from '../../components/Shape'
-import { Rank, Score } from '../../components/Rank'
 import type { PublicPlayer, PublicTeam } from '../../../../shared/types'
 import { espacesFines, formatNumber, place, pts, rang, secondes } from '../../format'
 import { answersSizeClass, questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
-import { Niveau } from '../../components/Niveau'
 import { NomLaure } from '../../components/Laurier'
 import { serverNow } from '../../clock'
 import { Echelle, LigneDeCourse } from './Course'
@@ -436,6 +434,48 @@ function BetweenQuestions({ view: v, salle: { teams, myTeamId, players, particip
       {/* La question vue par toute la salle : sous la sienne, jamais avant (invariant 1). */}
       {v.laQuestion && <CetteQuestion detail={v.laQuestion} players={players} moi={v.justArrived ? undefined : moi?.id} />}
     </>
+  )
+}
+
+/** Le métal de chaque marche, en jetons de texte : ils gardent leur contraste sous chaque thème. */
+const METAL = ['var(--or-text)', 'var(--argent-text)', 'var(--bronze-text)']
+/** La hauteur de chaque marche, la première la plus haute. */
+const HAUTEUR = ['92px', '66px', '48px']
+
+/**
+ * Le podium d'un quiz en marches : la deuxième à gauche, la première au
+ * milieu, la troisième à droite. Le rang partagé s'écrit sur le socle — deux
+ * ex æquo montent sur la même hauteur — et sa propre marche se surligne.
+ */
+function Marches({ rows, moi }: { rows: NonNullable<QuizPlayerView['podium']>; moi?: number }) {
+  const ordre = [1, 0, 2].filter(i => rows[i])
+  return (
+    <div className="marches" role="list" aria-label="Le podium du quiz">
+      {ordre.map(i => {
+        const r = rows[i]
+        const n = rangPartage(r.points, rows.map(o => o.points))
+        return (
+          <div
+            key={i}
+            role="listitem"
+            className={'marche' + (i === moi ? ' marche-moi' : '')}
+            style={{ '--metal': METAL[Math.min(2, n - 1)], '--haut': HAUTEUR[Math.min(2, n - 1)] } as CSSProperties}
+          >
+            {/* Le podium est le sujet : ses médaillons bougent (`av-sujet`). */}
+            <Avatar className="marche-avatar av-sujet" avatar={r.avatar} finition={r.finition} eclat={r.eclat} legendaire={r.legendaire} />
+            <span className="marche-nom">
+              <NomLaure nom={r.name} laurier={r.laurier} />
+            </span>
+            <span className="marche-points">{formatNumber(r.points)}</span>
+            <span className="marche-socle">
+              {/* Le chiffre pour l'œil, la place en toutes lettres pour l'oreille. */}
+              <b aria-hidden="true">{n}</b>
+              <span className="sr-only">{place(n)}</span>
+            </span>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -972,47 +1012,26 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
   // l'instantané, qui porte les points de toute la soirée.
   const soiree = v.soireeEntamee && moi ? ligneDeSoiree(moi.score, players.map(p => p.score)) : null
   return (
-    <div className="quiz-player">
-      <div className="card result-banner result-ok">
-        <span className="result-icon">
+    <div className="quiz-player fin-quiz">
+      {/* Sa place, en une ligne : le quiz est fini, on regarde le podium. */}
+      <div className="fin-quiz-ligne" role="status">
+        <span className="fin-quiz-drapeau" aria-hidden="true">
           <Icon name="flag" />
         </span>
+        <span className="fin-quiz-quoi">Quiz terminé</span>
         {/* Pas de rang à zéro point : « 1ʳᵉ place avec 0 pt », quand toute la
             salle avait séché, c'était premier de rien. */}
         {total > 0 ? (
-          <p>
-            Quiz terminé ! Tu finis à la <strong>{place(v.yourQuizRank ?? 0)}</strong>
-            {participants > 0 && moitieHaute(v.yourQuizRank ?? 0, participants) ? ` sur ${participants}` : ''} avec {pts(total)}
-          </p>
+          <span className="fin-quiz-place">
+            <b>{place(v.yourQuizRank ?? 0)}</b>
+            {participants > 0 && moitieHaute(v.yourQuizRank ?? 0, participants) ? ` sur ${participants}` : ''} · {pts(total)}
+          </span>
         ) : (
-          <p>Quiz terminé ! Pas de points cette fois.</p>
+          <span className="fin-quiz-place">Pas de points cette fois</span>
         )}
-        {soiree && <p className="muted">{soiree}</p>}
       </div>
-      <div className="card">
-        <h3>
-          <Icon name="trophy" />
-          Podium
-        </h3>
-        <div className="podium">
-          {v.podium?.map((p, i) => (
-            // Sa propre ligne surlignée, comme au classement de la salle
-            // d'attente : sur le podium, elle ne se distinguait pas.
-            <div key={i} className={'lb-row' + (i === v.yourPodiumIndex ? ' me' : '')} style={{ animationDelay: `${i * 120}ms` }}>
-              {/* Rang partagé, comme celui de la phrase au-dessus : deux ex
-                  æquo portent le même chiffre. */}
-              <Rank n={rangPartage(p.points, v.podium!.map(o => o.points))} />
-              {/* Le podium est le sujet : ses médaillons bougent (`av-sujet`). */}
-              <Avatar className="lb-avatar av-sujet" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
-              <span className="lb-name">
-                <NomLaure nom={p.name} laurier={p.laurier} />
-              </span>
-              <Niveau niveau={p.niveau} />
-              <Score n={p.points} />
-            </div>
-          ))}
-        </div>
-      </div>
+      {soiree && <p className="muted small center">{soiree}</p>}
+      {v.podium && v.podium.length > 0 && <Marches rows={v.podium} moi={v.yourPodiumIndex} />}
       {/* Hors du podium, on veut savoir qui l'on a talonné jusqu'au bout. */}
       <Echelle view={v} players={players} moi={moi} />
     </div>

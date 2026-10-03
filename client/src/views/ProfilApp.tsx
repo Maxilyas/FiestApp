@@ -5,22 +5,21 @@ import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Laurier } from '../components/Laurier'
 import { Icon, type IconName } from '../components/Icon'
+import { Identite, IdentiteLigne } from '../components/Identite'
 import { MenuBarre, PieceTete, Tuile, type Piece } from '../components/Pieces'
 import { ProfilForm } from '../components/ProfilForm'
 import { tronquer } from '../../../shared/avatars'
 import { pageDeRetour } from '../../../shared/securite'
 import { cibleEclat } from '../../../shared/legendaires'
-import { brilleChez, coupDOeilMoyen, type PublicProfileDetail } from '../../../shared/profil'
+import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
-import { Categories, Courbes, FicheCarriere } from '../components/Carriere'
 import { annonceDuChoix, type ChoixDuProfil } from '../components/choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { espacesFines, formatNumber, place, reponsesParType } from '../format'
+import { espacesFines, formatNumber } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
-import { route, spacePath } from '../routes'
+import { route } from '../routes'
 import { derniereSoireeGardee } from '../state'
 import { Lendemain } from '../components/Lendemain'
-import { MesJours, pointsDesJours } from '../components/Jour'
 import { AccueilJouer, JAnime } from '../components/AccueilDesRoles'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
@@ -125,9 +124,20 @@ export function ProfilApp() {
    * commence en haut, comme une page qu'on ouvre.
    */
   const ouvrir = (e: EcranDuProfil | null) => {
-    if (e) history.pushState(history.state, '', `${window.location.pathname}${window.location.search}#${e}`)
+    if (e) history.pushState({ ...history.state, [DEPUIS]: lireEcran() }, '', `${window.location.pathname}${window.location.search}#${e}`)
     else if (window.location.hash) history.back()
     setEcranOuvert(e)
+    window.scrollTo(0, 0)
+  }
+  /**
+   * Revenir à « Mon style » d'un de ses réglages : d'un cran si c'est de là
+   * qu'on l'a ouvert, sans quoi on remplace l'adresse — jamais d'entrée en
+   * double, et l'adresse d'un réglage ouverte d'un lien ne sort pas du profil.
+   */
+  const revenirAuStyle = () => {
+    if (history.state?.[DEPUIS] === 'style') history.back()
+    else history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#style`)
+    setEcranOuvert('style')
     window.scrollTo(0, 0)
   }
   useEffect(() => {
@@ -314,19 +324,9 @@ export function ProfilApp() {
       // `player-shell` : la même mise en page que le téléphone d'un invité —
       // c'est le même écran, tenu dans la même main.
       <div className="player-shell accueil">
-        <a className="ligne-identite" href="/profil">
-          {avatar('player-avatar')}
-          <span className="ligne-identite-texte">
-            <b>
-              {profil.name}
-              <Niveau niveau={profil.niveau} />
-            </b>
-            {barreXp}
-          </span>
-          {/* Ses confettis au bout de la ligne : discrets, ils se dépensent à la boutique. */}
-          {profil.boutique && <span className="ligne-solde">🎊 {nConfettis(profil.boutique.confettis.solde)}</span>}
-        </a>
-        <AccueilJouer enCours={enCours} onRejoindre={() => setRejoindre(true)} lendemain={lendemain} />
+        {/* Soi-même en une ligne : un toucher mène au profil. */}
+        <IdentiteLigne profil={profil} />
+        <AccueilJouer enCours={enCours} onRejoindre={() => setRejoindre(true)} lendemain={lendemain} jour={profil.jour} />
         {/* L'écran commun et ses pages, pour qui anime : le profil rattaché à
             un espace, sinon la console ouverte ici. */}
         {animateur && <JAnime espace={animateur} rouvrir={!!espace} />}
@@ -340,8 +340,16 @@ export function ProfilApp() {
   if (VUE === 'boutique') {
     return (
       <div className="player-shell">
-        {/* Le solde, la boutique le dit en tête de ses thèmes. */}
-        <PieceTete piece="Les thèmes" titre="La boutique" />
+        {/* Le titre et le solde sur une ligne : la place va aux thèmes. */}
+        <header className="boutique-tete">
+          <h1>Boutique</h1>
+          {profil.boutique && (
+            <span className="solde-puce" title="Une bonne réponse, un confetti">
+              <span aria-hidden="true">🎊</span> {formatNumber(profil.boutique.confettis.solde)}
+              <span className="sr-only"> confettis</span>
+            </span>
+          )}
+        </header>
         {regionDAnnonce}
         {pret ? <pret.PanneauBoutique profil={profil} busy={busy} enregistrer={enregistrer} acheter={acheter} /> : enChemin}
         {erreur && <p className="error">{erreur}</p>}
@@ -352,104 +360,37 @@ export function ProfilApp() {
 
   // ── Le profil : un écran ouvert depuis sa tuile ──
   if (ecran) {
-    const nom = ECRANS.find(e => e.id === ecran)?.nom ?? ''
+    const reglage = REGLAGES.find(e => e.id === ecran)
+    const nom = reglage?.nom ?? ECRANS.find(e => e.id === ecran)?.nom ?? ''
     return (
       <div className="player-shell">
         <a
           className="lien-discret jour-sortie"
-          href="/profil"
+          href={reglage ? '/profil#style' : '/profil'}
           onClick={e => {
             if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
             e.preventDefault()
-            ouvrir(null)
+            if (reglage) revenirAuStyle()
+            else ouvrir(null)
           }}
         >
           <Icon name="arrow-left" />
-          Mon profil
+          {reglage ? 'Mon style' : 'Mon profil'}
         </a>
-        <PieceTete piece="Mon profil" titre={nom} />
+        <PieceTete piece={reglage ? 'Mon style' : 'Mon profil'} titre={nom} />
         {regionDAnnonce}
         {ecran === 'avatars' && (pret ? <pret.PanneauAvatars profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
-        {ecran === 'style' && (pret ? <pret.PanneauStyle profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'style' &&
+          (pret ? <pret.PanneauStyle profil={profil} busy={busy} enregistrer={enregistrer} onReglage={r => ouvrir(`style-${r}`)} /> : enChemin)}
+        {reglage &&
+          (pret ? (
+            <pret.PanneauReglage reglage={reglage.id.slice('style-'.length) as 'finition' | 'titre' | 'fond' | 'theme'} profil={profil} busy={busy} enregistrer={enregistrer} />
+          ) : (
+            enChemin
+          ))}
         {ecran === 'trophees' && (pret ? <pret.PanneauTrophees profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
-        {ecran === 'carriere' && (
-          <>
-            <div className="card">
-              <h3>
-                <Icon name="bar-chart" />
-                Ma fiche
-              </h3>
-              <FicheCarriere fiche={profil.fiche} partie="essentiel" />
-              {/* Les courbes à la vue : on aimait les voir monter. Les huit
-                  autres chiffres et les catégories, d'un toucher. */}
-              <h4 className="hf-groupe">Soirée après soirée</h4>
-              <Courbes soirees={profil.soirees} />
-              {profil.jour && profil.jour.jours.length > 0 && (
-                <>
-                  <h4 className="hf-groupe">Jour après jour, au quiz du jour</h4>
-                  <Courbes unite="jour" soirees={pointsDesJours(profil.jour.jours)} />
-                </>
-              )}
-              <Deplier id="fiche" titre="Tous mes chiffres">
-                <FicheCarriere fiche={profil.fiche} partie="reste" />
-              </Deplier>
-              {Object.keys(profil.categories).length > 0 && (
-                <>
-                  <h4 className="hf-groupe">Par catégorie</h4>
-                  <Categories categories={profil.categories} />
-                </>
-              )}
-            </div>
-            <MesJours jour={profil.jour} />
-          </>
-        )}
-        {ecran === 'soirees' && (
-          <div className="card">
-            {profil.soirees.length === 0 && <p className="muted">Pas encore de soirée : la première s’ajoutera ici.</p>}
-            {profil.soirees.map(s => {
-              const date = new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-              // Le titre que l'animateur lui a donné, la date sinon : une liste de
-              // dates ne disait pas laquelle était la fête de Marc.
-              const nomDeSoiree = s.titre ?? date
-              return (
-                <div key={s.soireeId} className="soiree-row">
-                  <div className="soiree-texte">
-                    <span className="soiree-quand">
-                      {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
-                      {s.slug ? (
-                        <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
-                          {nomDeSoiree}
-                        </a>
-                      ) : (
-                        nomDeSoiree
-                      )}
-                    </span>
-                    <span className="soiree-detail">
-                      {s.titre && `${date} · `}
-                      {s.chez && `chez ${s.chez} · `}
-                      {s.espaceFerme && 'un espace fermé · '}
-                      {/* Par type de question : « 64 réponses, 1 juste » ne disait pas
-                          que soixante-deux étaient des estimations. */}
-                      {reponsesParType({ ...s.releve, coupDOeil: coupDOeilMoyen(s.releve) }, { compte: false }) || 'aucune réponse'}
-                      {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${place(s.releve.rang)}`}
-                    </span>
-                    {/* Son bilan à soi, d'un toucher : il redemandait « Qui es-tu ? ». */}
-                    {s.slug && s.joueurId && (
-                      <a className="link-inline small" href={`${spacePath(s.slug, 'bilan', s.soireeId)}#p=${encodeURIComponent(s.joueurId)}`}>
-                        Mon bilan
-                      </a>
-                    )}
-                  </div>
-                  <span className="soiree-xp">+{formatNumber(s.xp)} XP</span>
-                </div>
-              )
-            })}
-            {/* Les paliers et le quiz du jour ont leur ligne à part : sans ce
-                mot, la somme des soirées ne faisait pas le total, et rien ne
-                disait pourquoi. */}
-            <p className="muted small">Les paliers de carrière et le quiz du jour s’ajoutent à part.</p>
-          </div>
-        )}
+        {ecran === 'carriere' && (pret ? <pret.PanneauCarriere profil={profil} /> : enChemin)}
+        {ecran === 'soirees' && (pret ? <pret.PanneauSoirees profil={profil} monEspace={espace?.slug} /> : enChemin)}
         {erreur && <p className="error">{erreur}</p>}
         {menu('profil')}
       </div>
@@ -457,55 +398,33 @@ export function ProfilApp() {
   }
 
   // ── Le profil : qui je suis, puis ses tuiles ──
-  const detailDeTuile: Record<EcranDuProfil, string> = {
-    avatars: profil.legendaire ? 'Un légendaire porté' : `${profil.avatar} porté`,
-    style: [profil.finition && profil.finition !== 'mat' ? 'Une finition' : null, profil.titre ? 'un titre' : null].filter(Boolean).join(', ') || 'Finition, titre, fond',
-    trophees: `${profil.vitrine.length} en vitrine`,
-    carriere: `Niveau ${profil.niveau}`,
-    soirees: profil.soirees.length === 0 ? 'Aucune encore' : `${profil.soirees.length} soirée${profil.soirees.length > 1 ? 's' : ''}`,
+  const nHautsFaits = profil.hautsFaits.filter(h => h.fois > 0).length
+  const nPrix = (profil.prix ?? []).filter(x => x.fois > 0).length
+  const precision = profil.fiche.precision !== null ? Math.round(profil.fiche.precision * 100) : null
+  const detailDeTuile: Record<TuileDuProfil, string> = {
+    avatars: profil.legendaires.length > 0 ? `${profil.legendaires.length} légendaire${profil.legendaires.length > 1 ? 's' : ''}, des branches, des emojis` : 'Des branches, des emojis, des légendaires',
+    style: 'Finition, titre, fond',
+    trophees: `${nHautsFaits} haut${nHautsFaits > 1 ? 's' : ''} fait${nHautsFaits > 1 ? 's' : ''} · ${nPrix} prix`,
+    carriere: precision !== null ? `Précision ${precision} % · tes courbes` : 'Tes chiffres, tes courbes',
+    soirees: profil.soirees.length === 0 ? 'Aucune encore' : `${profil.soirees.length} soirée${profil.soirees.length > 1 ? 's' : ''}, jouées ou animées`,
   }
-  const iconeDeTuile: Record<EcranDuProfil, IconName> = {
+  const iconeDeTuile: Record<TuileDuProfil, IconName> = {
     avatars: 'sparkles',
-    style: 'star',
+    style: 'palette',
     trophees: 'trophy',
     carriere: 'bar-chart',
-    soirees: 'list',
+    soirees: 'book',
   }
   return (
     <div className="player-shell">
-      <header className="me-header profil-tete">
-        {avatar('player-avatar big')}
-        {/* Le niveau et sa barre, sous le nom : une carte « Niveau » redisait
-            ce que l'en-tête disait déjà, la pastille et l'expérience. */}
-        <div className="profil-identite">
-          <h2>
-            {profil.name}
-            <Niveau niveau={profil.niveau} big />
-          </h2>
-          {/* Son titre, sous son prénom, comme sa carte le montre. */}
-          {profil.titre && hautFait(profil.titre) && (
-            <p className="titre-porte">{espacesFines(`« ${hautFait(profil.titre)!.title} »`)}</p>
-          )}
-          {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
-          {profil.laurier && (
-            <p className="carte-laurier">
-              <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
-            </p>
-          )}
-          {barreXp}
-          <p className="muted small">
-            {profil.requis > 0
-              ? `${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} XP vers le niveau ${profil.niveau + 1}`
-              : 'Au sommet'}
-          </p>
-          {/* Ses confettis, sous son expérience : un toucher mène à la boutique. */}
-          {profil.boutique && (
-            <a className="profil-solde" href="/boutique">
-              🎊 {nConfettis(profil.boutique.confettis.solde)}
-            </a>
-          )}
-        </div>
-      </header>
+      {/* Soi-même, en tête : son titre, sa barre d'expérience, ses confettis ; un toucher ouvre sa carte. */}
+      <Identite profil={profil} />
+      {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
+      {profil.laurier && (
+        <p className="carte-laurier">
+          <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
+        </p>
+      )}
       {regionDAnnonce}
 
       <div className="tuiles">
@@ -576,9 +495,12 @@ function OngletEnChemin({ perdu }: { perdu: boolean }) {
  * thèmes, hauts faits, prix, fiche, soirées — : cinq tuiles disent ce qu'il
  * y a, et chacune ouvre le sien. La boutique a sa page, dans le menu.
  */
-type EcranDuProfil = 'avatars' | 'style' | 'trophees' | 'carriere' | 'soirees'
+type TuileDuProfil = 'avatars' | 'style' | 'trophees' | 'carriere' | 'soirees'
+/** Un réglage du style a son écran, sous « Mon style ». */
+type ReglageDuStyle = 'style-finition' | 'style-titre' | 'style-fond' | 'style-theme'
+type EcranDuProfil = TuileDuProfil | ReglageDuStyle
 
-const ECRANS: { id: EcranDuProfil; nom: string }[] = [
+const ECRANS: { id: TuileDuProfil; nom: string }[] = [
   { id: 'avatars', nom: 'Mes avatars' },
   { id: 'style', nom: 'Mon style' },
   { id: 'trophees', nom: 'Mes trophées' },
@@ -586,9 +508,19 @@ const ECRANS: { id: EcranDuProfil; nom: string }[] = [
   { id: 'soirees', nom: 'Mes soirées' },
 ]
 
+const REGLAGES: { id: ReglageDuStyle; nom: string }[] = [
+  { id: 'style-finition', nom: 'Finition' },
+  { id: 'style-titre', nom: 'Titre' },
+  { id: 'style-fond', nom: 'Fond de carte' },
+  { id: 'style-theme', nom: 'Thème' },
+]
+
 /** La page que sert la vue : l'accueil (`/`), le profil (`/profil`), la boutique (`/boutique`). */
 const VUE: 'accueil' | 'profil' | 'boutique' =
   route.kind === 'account' && route.page === 'boutique' ? 'boutique' : route.kind === 'account' && route.page === 'profil' ? 'profil' : 'accueil'
+
+/** L'écran d'où l'on a ouvert celui-ci, gardé dans l'historique : « ← Mon style » y revient d'un cran. */
+const DEPUIS = 'fiestappProfilDepuis'
 
 /** Les adresses d'avant — un onglet, la boutique dans l'apparence — mènent encore quelque part. */
 const ANCIENNES: Record<string, EcranDuProfil> = { apparence: 'avatars' }
@@ -597,7 +529,7 @@ const ANCIENNES: Record<string, EcranDuProfil> = { apparence: 'avatars' }
 function lireEcran(): EcranDuProfil | null {
   if (VUE !== 'profil') return null
   const h = window.location.hash.slice(1)
-  return ECRANS.find(e => e.id === h)?.id ?? ANCIENNES[h] ?? null
+  return ECRANS.find(e => e.id === h)?.id ?? REGLAGES.find(e => e.id === h)?.id ?? ANCIENNES[h] ?? null
 }
 
 // La boutique des thèmes vivait dans l'apparence (`/profil#mes-themes`) : la
@@ -725,16 +657,3 @@ function Repli({
   )
 }
 
-/** Un repli dans une carte — « Tous mes chiffres » : un lien plutôt qu'un titre. */
-function Deplier({ id, titre, children }: { id: string; titre: string; children: ReactNode }) {
-  const souvenir = useSouvenir(id)
-  return (
-    <details className="repli-interne" {...souvenir}>
-      <summary>
-        {titre}
-        <Icon name="chevron-down" className="repli-chevron" />
-      </summary>
-      {children}
-    </details>
-  )
-}

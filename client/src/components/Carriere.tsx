@@ -7,7 +7,6 @@ import { LEGENDAIRES, progresVers } from '../../../shared/legendaires'
 import { saison } from '../../../shared/saisons'
 import { DIVINS, type DivinDescendu } from '../../../shared/divins'
 import { portrait } from '../../../shared/branches'
-import { NOM_RARETE } from '../../../shared/badges'
 import { estimations, formatNumber, pourcent, secondes, surQcm } from '../format'
 import { Chiffres, justesses, type Chiffre } from './Chiffres'
 
@@ -256,83 +255,6 @@ function regleDe(
   const titre = h ? `${h.emoji} ${h.title}` : condition.hautFait
   if ('palier' in condition) return `${titre} · ${NOM_PALIER[condition.palier - 1]}`
   return condition.fois > 1 ? `${titre}, ${condition.fois} fois` : titre
-}
-
-/**
- * Le catalogue des hauts faits, tel que ce profil le voit : ceux de soirée
- * avec le nombre de fois, ceux de carrière avec leur palier et la jauge vers
- * le suivant. Ce qu'on n'a pas encore se montre aussi, estompé.
- */
-export function HautsFaits({ hautsFaits }: { hautsFaits: HautFaitVu[] }) {
-  const eclats = hautsFaits.filter(h => h.famille === 'soiree' && h.ton === 'eclat')
-  const ombres = hautsFaits.filter(h => h.famille === 'soiree' && h.ton === 'ombre')
-  const carriere = hautsFaits.filter(h => h.famille === 'carriere')
-  // Combien on en a : le titre de la section le dit déjà.
-  return (
-    <>
-      <p className="muted small">
-        Ils se décernent à la fin de chaque soirée, et certains débloquent un avatar légendaire.
-      </p>
-      <h4 className="hf-groupe">Exploits</h4>
-      <ul className="hf-liste">{eclats.map(h => <LigneSoiree key={h.key} h={h} />)}</ul>
-      <h4 className="hf-groupe">Coups du sort</h4>
-      <ul className="hf-liste">{ombres.map(h => <LigneSoiree key={h.key} h={h} />)}</ul>
-      <h4 className="hf-groupe">Carrière</h4>
-      <ul className="hf-liste">
-        {carriere.map(h => {
-          const valeur = h.valeur ?? 0
-          const prochain = h.prochain ?? null
-          return (
-            <li key={h.key} className={'hf' + (h.fois > 0 ? ' gagne' : '')}>
-              <span className="hf-emoji" aria-hidden="true">
-                {h.emoji}
-              </span>
-              <span className="hf-corps">
-                <span className="hf-titre">
-                  {h.title}
-                  {h.fois > 0 && <span className={`palier palier-${h.fois}`}>{NOM_PALIER[h.fois - 1]}</span>}
-                </span>
-                <span className="muted small">
-                  {/* Le niveau s'écrit devant son chiffre ; le reste, derrière — au
-                      singulier sous deux, comme on le dit. */}
-                  {h.key === 'hf:legende'
-                    ? `Niveau ${valeur}${prochain !== null ? ` · prochain palier au niveau ${prochain}` : ' · au sommet'}`
-                    : `${formatNumber(valeur)} ${valeur < 2 ? (h.ruleUne ?? h.rule) : h.rule}${
-                        prochain !== null ? ` · prochain palier à ${formatNumber(prochain)}` : ' · au sommet'
-                      }`}
-                </span>
-                {prochain !== null && (
-                  <span className="jauge">
-                    <span className="jauge-plein" style={{ width: `${Math.min(100, (valeur / prochain) * 100)}%` }} />
-                  </span>
-                )}
-              </span>
-            </li>
-          )
-        })}
-      </ul>
-    </>
-  )
-}
-
-function LigneSoiree({ h }: { h: HautFaitVu }) {
-  return (
-    <li className={'hf' + (h.fois > 0 ? ' gagne' : '') + ` hf-${h.ton}`}>
-      <span className="hf-emoji" aria-hidden="true">
-        {h.emoji}
-      </span>
-      <span className="hf-corps">
-        <span className="hf-titre">
-          {h.title}
-          {h.fois > 1 && <span className="hf-fois">×{h.fois}</span>}
-        </span>
-        <span className="muted small">
-          {h.rule}
-          {h.rarete && ` · ${NOM_RARETE[h.rarete]}`}
-        </span>
-      </span>
-    </li>
-  )
 }
 
 /**

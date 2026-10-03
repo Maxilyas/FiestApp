@@ -110,3 +110,17 @@ test('un même navigateur tient les deux rôles : il joue par une liaison, anime
   const { view: chezAmi } = await revele
   assert.equal(chezAmi.laQuestion.trouvees, 1, 'la salle voit que le chef a trouvé')
 })
+
+test('l’invitation en tête de la salle d’attente du chef : le code en grand et le QR, sur son seul téléphone', () => {
+  const barre = source('components/BarreDuChef.tsx')
+  // La barre pose l'invitation dans la place que la salle d'attente garde ;
+  // chargée chez le chef seulement, elle n'apparaît nulle part ailleurs.
+  assert.match(barre, /\{place && !enJeu && createPortal\(<InvitationDuSalon code=\{code\} lien=\{lienDuCode\} \/>, place\)\}/)
+  assert.match(barre, /document\.getElementById\('place-invitation'\)/)
+  // Le code se dit d'une traite à l'oreille, les six cases ne sont que pour l'œil.
+  assert.match(barre, /<span className="code-cases" role="img" aria-label=\{`Le code du salon : \$\{ecrireCode\(code\)\}`\}>/)
+  assert.match(barre, /title="QR code pour rejoindre le salon"/)
+  // La place n'existe qu'en salle d'attente, hors d'un quiz ; vide, elle ne prend aucun espace.
+  assert.match(source('views/PlayerApp.tsx'), /\{!session && <div id="place-invitation" className="place-invitation" \/>\}/)
+  assert.match(source('styles.css'), /\.place-invitation:empty \{ display: none; \}/)
+})

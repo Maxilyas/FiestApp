@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { chargerDessinsAuPlus, sortesDesAvatars } from '../components/medaillons'
 import { api, ouvrirParLeProfil, UnauthorizedError, type Me } from '../api'
-import { Icon } from '../components/Icon'
-import { MenuBarre } from '../components/Pieces'
+import { Icon, type IconName } from '../components/Icon'
+import { Feuille, MenuBarre } from '../components/Pieces'
 import { ChangerMotDePasse } from '../components/ChangerMotDePasse'
 import { NavAnimateur } from '../components/NavAnimateur'
 import { ChampNombre } from '../components/ChampNombre'
@@ -13,9 +13,13 @@ import { Avatar } from '../components/Avatar'
 import { cibleEclat } from '../../../shared/legendaires'
 import { Niveau } from '../components/Niveau'
 
+type FeuilleDuCompte = 'affiche' | 'mdp' | 'profil'
+
 /**
- * « Mon compte » (`/compte`) : qui je suis, l'adresse que scannent mes
- * invités, les réglages de ma soirée, mon mot de passe, et la sortie.
+ * « Compte » (`/compte`) : ce qui me concerne sans être du jeu, en peu de
+ * mots. Mon salon en tête, puis des lignes qui disent leur état — l'affiche,
+ * le mot de passe, le profil rattaché —, chacune ouvrant sa feuille ;
+ * l'administration à part, pour l'administrateur seul ; la sortie en bas.
  */
 export function AccountApp() {
   const { toast } = useAppState()
@@ -23,6 +27,8 @@ export function AccountApp() {
   const [error, setError] = useState('')
   /** Tant que la bibliothèque est vide, la page dit par où commencer. */
   const [debut, setDebut] = useState(false)
+  /** La feuille ouverte : chaque ligne règle une chose, dans la sienne. */
+  const [feuille, setFeuille] = useState<FeuilleDuCompte | null>(null)
 
   useEffect(() => {
     api
@@ -84,19 +90,46 @@ export function AccountApp() {
    */
   const parLeProfil = me.account.status === 'pending' && !!me.profil
 
+  /** Une ligne de la liste : ce qu'elle règle, son état en clair ; elle ouvre sa feuille, ou mène à sa page. */
+  const ligne = (icone: IconName, nom: string, valeur: string, quoi: FeuilleDuCompte | string) => {
+    const corps = (
+      <>
+        <span className="style-icone">
+          <Icon name={icone} />
+        </span>
+        <span className="style-nom">{nom}</span>
+        <span className="style-valeur">{valeur}</span>
+        <Icon name="chevron-down" className="style-chevron" />
+      </>
+    )
+    return (
+      <li key={nom}>
+        {quoi.startsWith('/') ? (
+          <a href={quoi}>{corps}</a>
+        ) : (
+          <button type="button" onClick={() => setFeuille(quoi as FeuilleDuCompte)}>
+            {corps}
+          </button>
+        )}
+      </li>
+    )
+  }
+  const fermer = () => setFeuille(null)
+
   return (
-    <div className="recap account">
-      <header className="recap-header">
-        <span className="label">{parLeProfil ? 'Compte' : 'Espace animateur'}</span>
-        <h1>{parLeProfil ? me.profil!.name : me.account.name}</h1>
-        <p className="muted">
-          Identifiant <strong>{parLeProfil ? me.profil!.login : me.account.login}</strong>
-          {me.account.role === 'admin' && ' · administrateur'}
-        </p>
-        <hr className="hairline" />
+    <div className="player-shell compte">
+      {/* « Compte » et l'identifiant sur une ligne : le reste se lit en lignes qui disent leur état. */}
+      <header className="compte-tete">
+        <h1>Compte</h1>
+        <span className="compte-id">
+          <Icon name="lock" />
+          <span className="sr-only">Identifiant </span>
+          <strong>{parLeProfil ? me.profil!.login : me.account.login}</strong>
+        </span>
       </header>
 
-      <NavAnimateur ici="compte" slug={me.space.slug} admin={me.account.role === 'admin'} />
+      {/* Un animateur sans profil n'a pas d'accueil à lui : sa barre garde l'écran commun et l'historique. */}
+      {!me.profil && <NavAnimateur ici="compte" slug={me.space.slug} admin={me.account.role === 'admin'} />}
       <main className="page-corps">
       {debut && (
         <section className="card premiers-pas">
@@ -114,69 +147,86 @@ export function AccountApp() {
         </section>
       )}
 
-      {parLeProfil ? (
-        // Plus d'adresse à copier : chaque salon reçoit son code à l'ouverture.
-        <section className="card">
-          <h2>Mon salon</h2>
-          <p className="muted small">Chaque salon reçoit son code à six chiffres en s’ouvrant : on le dicte à la table, le QR le porte.</p>
-          <a className="btn btn-primary" href="/salon">
-            <Icon name="plus" />
-            Créer un salon
-          </a>
-        </section>
-      ) : (
-      <section className="card">
-        <h2>L'adresse de mes invités</h2>
-        <p className="muted small">
-          C'est elle que montre le QR de l'écran commun, et qu'on peut aussi dicter ou écrire sur une affiche.
-        </p>
-        <div className="link-box">
-          <code>{guestUrl}</code>
-          <button
-            className="btn btn-small"
-            onClick={() =>
-              navigator.clipboard
-                .writeText(guestUrl)
-                .then(() => showToast({ kind: 'info', message: 'Adresse copiée' }))
-                .catch(() => showToast({ kind: 'error', message: 'Copie impossible ici : sélectionne l’adresse' }))
-            }
-          >
-            <Icon name="clipboard" />
-            Copier
-          </button>
-        </div>
+      <section className="salon-hud">
+        <span className="salon-hud-label">Mon salon</span>
+        {parLeProfil ? (
+          // Plus d'adresse à copier : chaque salon reçoit son code à l'ouverture.
+          <>
+            <p className="salon-hud-texte">Rien à retenir : chaque salon reçoit un code de six chiffres en s’ouvrant, que tes invités tapent ou scannent.</p>
+            <a className="salon-geste" href="/salon">
+              <Icon name="plus" />
+              Créer un salon
+            </a>
+          </>
+        ) : (
+          <>
+            <p className="salon-hud-texte">L’adresse de tes invités : c’est elle que montre le QR de l’écran commun, et qu’on peut dicter ou écrire sur une affiche.</p>
+            <div className="link-box">
+              <code>{guestUrl}</code>
+              <button
+                className="btn btn-small"
+                onClick={() =>
+                  navigator.clipboard
+                    .writeText(guestUrl)
+                    .then(() => showToast({ kind: 'info', message: 'Adresse copiée' }))
+                    .catch(() => showToast({ kind: 'error', message: 'Copie impossible ici : sélectionne l’adresse' }))
+                }
+              >
+                <Icon name="clipboard" />
+                Copier
+              </button>
+            </div>
+          </>
+        )}
       </section>
-      )}
 
-      <SettingsForm me={me} onSaved={space => setMe({ ...me, space })} />
-      {parLeProfil ? (
-        <section className="card">
-          <h2>Mot de passe</h2>
-          <ChangerMotDePasse login={me.profil!.login} />
-        </section>
-      ) : (
+      <ul className="style-liste">
+        {ligne('edit', 'L’affiche', me.space.title, 'affiche')}
+        {ligne('lock', 'Mot de passe', '••••••••', 'mdp')}
+        {!parLeProfil && ligne('users', 'Mon profil joueur', me.profil?.name ?? 'À rattacher', 'profil')}
+        {me.profil && !parLeProfil && ligne('monitor', 'L’écran commun', '', '/host')}
+        {me.profil && !parLeProfil && ligne('book', 'L’historique', '', `/${me.space.slug}/soirees`)}
+      </ul>
+
+      {me.account.role === 'admin' && (
         <>
-          <ProfilLie profil={me.profil ?? null} onChange={profil => setMe({ ...me, profil })} />
-          <PasswordForm />
+          <h2 className="compte-groupe">
+            Administration <span className="etiquette">Toi seul</span>
+          </h2>
+          <ul className="style-liste">{ligne('sparkles', 'Les comptes et les profils', '', '/admin')}</ul>
         </>
       )}
 
-      <section className="card">
-        <h2>Se déconnecter</h2>
-        <p className="muted small">Sur cet appareil seulement. L'écran commun ouvert avec cette session se fermera.</p>
-        <button
-          className="btn"
-          onClick={() =>
-            // Un profil se déconnecte de son profil : sa console se referme avec lui (invariant 16).
-            (parLeProfil ? api.joueur.deconnexion() : api.auth.logout())
-              .catch(() => {})
-              .then(() => window.location.assign(parLeProfil ? '/' : '/connexion'))
-          }
-        >
-          <Icon name="x" />
-          Me déconnecter
-        </button>
-      </section>
+      <button
+        type="button"
+        className="compte-sortie"
+        onClick={() =>
+          // Un profil se déconnecte de son profil : sa console se referme avec lui (invariant 16).
+          (parLeProfil ? api.joueur.deconnexion() : api.auth.logout())
+            .catch(() => {})
+            .then(() => window.location.assign(parLeProfil ? '/' : '/connexion'))
+        }
+      >
+        <Icon name="arrow-left" />
+        Me déconnecter
+      </button>
+      <p className="muted small center">Sur cet appareil seulement. L’écran commun ouvert avec cette session se fermera.</p>
+
+      {feuille === 'affiche' && (
+        <Feuille titre="L’affiche de ma soirée" onFermer={fermer}>
+          <SettingsForm me={me} onSaved={space => setMe({ ...me, space })} />
+        </Feuille>
+      )}
+      {feuille === 'mdp' && (
+        <Feuille titre={parLeProfil ? 'Mot de passe' : 'Le mot de passe du compte'} onFermer={fermer}>
+          {parLeProfil ? <ChangerMotDePasse login={me.profil!.login} /> : <PasswordForm />}
+        </Feuille>
+      )}
+      {feuille === 'profil' && (
+        <Feuille titre="Mon profil joueur" onFermer={fermer}>
+          <ProfilLie profil={me.profil ?? null} onChange={profil => setMe({ ...me, profil })} />
+        </Feuille>
+      )}
 
       {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>
@@ -248,8 +298,7 @@ function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onCha
 
   if (profil) {
     return (
-      <section className="card">
-        <h2>Mon profil joueur</h2>
+      <section className="feuille-section">
         <div className="row profil-lie">
           <Avatar avatar={profil.avatar} finition={profil.finition} eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))} legendaire={profil.legendaire ?? undefined} />
           <div>
@@ -320,8 +369,7 @@ function ProfilLie({ profil, onChange }: { profil: ProfilDeLEspace | null; onCha
   }
 
   return (
-    <form className="card" onSubmit={lier}>
-      <h2>Mon profil joueur</h2>
+    <form className="feuille-section" onSubmit={lier}>
       <p className="muted small">
         Rattache le profil avec lequel tu joues : il ouvrira cette console depuis l'accueil, et tu
         n'auras plus qu'un mot de passe à retenir. Si tu n'en as pas encore,{' '}
@@ -404,8 +452,7 @@ function SettingsForm({ me, onSaved }: { me: Me; onSaved: (space: Me['space']) =
   }
 
   return (
-    <form className="card settings-form" onSubmit={submit}>
-      <h2>Ma soirée</h2>
+    <form className="settings-form" onSubmit={submit}>
       <p className="muted small">
         Le titre s'affiche sur l'écran commun, le souvenir et le bilan ; le surtitre et le grand titre, à
         l'inscription des invités.
@@ -493,10 +540,10 @@ function PasswordForm() {
   }
 
   return (
-    <form className="card settings-form" onSubmit={submit}>
-      {/* « du compte » : l'animateur qui joue aussi avec un profil a deux
-          mots de passe, et changeait celui-ci en croyant changer l'autre. */}
-      <h2>Changer le mot de passe du compte</h2>
+    <form className="settings-form" onSubmit={submit}>
+      {/* « du compte », au titre de la feuille : l'animateur qui joue aussi
+          avec un profil a deux mots de passe, et changeait celui-ci en
+          croyant changer l'autre. */}
       <p className="muted small">Celui de ton espace d'animateur — pas celui de ton profil joueur.</p>
       <div className="field">
         <label className="label" htmlFor="current">

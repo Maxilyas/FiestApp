@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { Icon } from './Icon'
 import { Feuille } from './Pieces'
+import { showToast } from '../state'
 import { confirmDialog } from './Dialog'
 import { brancherLeChef, clore, commande, equipesParDefaut, lancer, terminer, useChef } from '../socketDuChef'
 import { useSecondesRestantes } from '../decompte'
@@ -45,6 +47,17 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
   const v = c.vue
   const [plus, setPlus] = useState(false)
   const [qr, setQr] = useState(false)
+  /**
+   * La place que la salle d'attente garde en tête pour l'invitation : le
+   * code en grand et le QR, sur le téléphone du chef seulement. La barre
+   * n'est chargée que chez lui — elle y pose l'invitation, et les autres
+   * téléphones n'en téléchargent rien.
+   */
+  const [place, setPlace] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    const ici = document.getElementById('place-invitation')
+    if (ici !== place) setPlace(ici)
+  })
   const [cible, setCible] = useState('')
   /** Les gestes posés une fois par partie : le quiz du programme, le rythme du salon. */
   const choisiPour = useRef<string | null>(null)
@@ -207,6 +220,8 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
         </p>
       )}
 
+      {place && !enJeu && createPortal(<InvitationDuSalon code={code} lien={lienDuCode} />, place)}
+
       {qr && (
         <Feuille titre="Inviter dans le salon" onFermer={() => setQr(false)}>
           {code && <p className="code-du-salon">{ecrireCode(code)}</p>}
@@ -277,5 +292,46 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
         </Feuille>
       )}
     </>
+  )
+}
+
+/**
+ * L'invitation, en tête de la salle d'attente du chef : le code d'abord, en
+ * grand — c'est lui qu'on dicte à la table —, puis le QR qui le porte, pour
+ * qui préfère scanner, et le lien à copier dans un message.
+ */
+function InvitationDuSalon({ code, lien }: { code: string | null | undefined; lien: string }) {
+  return (
+    <section className="card invitation-salon" aria-label="Pour rejoindre">
+      <span className="label">Le code du salon</span>
+      {code ? (
+        <span className="code-cases" role="img" aria-label={`Le code du salon : ${ecrireCode(code)}`}>
+          {code.split('').map((chiffre, i) => (
+            <span key={i} className={'code-case' + (i === 3 ? ' code-coupe' : '')} aria-hidden="true">
+              {chiffre}
+            </span>
+          ))}
+        </span>
+      ) : (
+        <p className="muted small">Le code se tire à l’ouverture du salon.</p>
+      )}
+      <p className="muted small">Dans « Rejoindre une soirée » — ou ils scannent :</p>
+      <div className="qr-box">
+        <QRCodeSVG value={lien} size={168} bgColor="#ffffff" fgColor={QR_INK} title="QR code pour rejoindre le salon" />
+      </div>
+      <button
+        type="button"
+        className="btn btn-small"
+        onClick={() =>
+          navigator.clipboard
+            .writeText(lien)
+            .then(() => showToast({ kind: 'info', message: 'Lien copié' }))
+            .catch(() => showToast({ kind: 'error', message: 'Copie impossible ici : montre le QR' }))
+        }
+      >
+        <Icon name="copy" />
+        Copier le lien
+      </button>
+    </section>
   )
 }

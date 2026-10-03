@@ -6,7 +6,7 @@ import { memesPuces } from '../egalite'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { ChampNombre } from '../components/ChampNombre'
 import { api, motifDe } from '../api'
-import { dataUrl, spacePath } from '../routes'
+import { dataUrl, route, spacePath } from '../routes'
 import { ONGLETS } from '../onglets'
 import { formatDay } from '../../../shared/archive'
 import { ecrireCode, titreDeCloture } from '../../../shared/space'
@@ -41,6 +41,7 @@ import { BoutonCopier } from '../components/Partage'
 import { useEcranAllume } from '../veille'
 import { RemiseEnScene } from '../components/RemiseEnScene'
 import { CodeDeLaTele } from '../components/Appairage'
+import { EcranDeBranchement, SalleDeLaTele } from '../components/Tele'
 import { retenirTelecommande, telecommandeParDefaut } from '../telecommande'
 
 /** QR wifi standard : le téléphone rejoint le réseau en le scannant. */
@@ -324,6 +325,8 @@ export function HostApp() {
   }, [me])
   /** Le serveur a refusé la poignée de main : pas de session, ou une session périmée. */
   const [needLogin, setNeedLogin] = useState(false)
+  /** À `/tele`, la porte par identifiant ne s'ouvre que si on la demande : la télé se branche d'abord par son code. */
+  const [porteParIdentifiant, setPorteParIdentifiant] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [muted, setMuted] = useState(isMuted)
@@ -557,12 +560,22 @@ export function HostApp() {
     vuePrecedente.current = vue
     const actif = document.activeElement
     if (actif && actif !== document.body) return
+    // Une télé pilotée par une télécommande ne se parcourt pas au clavier :
+    // l'anneau se posait sur la question, au milieu de l'écran de la salle.
+    if (scene.current?.closest('.ecran-de-salle')) return
     const titre = scene.current?.querySelector<HTMLElement>('h1, h2, h3')
     if (!titre) return
     titre.tabIndex = -1
     titre.focus({ preventScroll: true })
   }, [vue])
 
+  if (needLogin && route.kind === 'account' && route.page === 'tele' && !porteParIdentifiant) {
+    return (
+      <main>
+        <EcranDeBranchement onBranchee={branchee} onConnexion={() => setPorteParIdentifiant(true)} />
+      </main>
+    )
+  }
   if (needLogin) {
     return (
       <main className="porte-ecran">
@@ -610,6 +623,13 @@ export function HostApp() {
   // La télécommande garde la salle d'attente sous la main — les invités, les
   // équipes — pendant que la télé projette la scène.
   const staging = !telecommande && ((!!quizView && quizView.phase !== 'pickPack') || screen !== null)
+  /**
+   * La télé branchée par un code, pendant qu'une télécommande anime : un pur
+   * écran de salle. Rien à y toucher — la télécommande d'une télé ne clique
+   * pas —, donc ni console ni panneau des équipes ; en salle d'attente, la
+   * salle vue de loin (`SalleDeLaTele`).
+   */
+  const ecranDeSalle = me.branchee && !telecommande && !!snap.telecommande
   /**
    * Une télécommande est branchée ailleurs : cet écran est celui de la
    * salle, et les coulisses — la grille des prix, la liste des quiz, la
@@ -805,7 +825,7 @@ export function HostApp() {
 
   return (
     <ConsoleSlot.Provider value={consoleSlot}>
-      <div className={'host' + (staging ? ' staging' : '') + (telecommande ? ' telecommande' : '')}>
+      <div className={'host' + (staging ? ' staging' : '') + (telecommande ? ' telecommande' : '') + (ecranDeSalle ? ' ecran-de-salle' : '')}>
         {/* La bande d'état : le titre, où on en est, comment rejoindre. */}
         <header className="host-band">
           <div className="band-left">
@@ -878,6 +898,11 @@ export function HostApp() {
 
         {/* Le repère principal : la scène et ses colonnes, entre le bandeau
             (banner) et la console (contentinfo). */}
+        {ecranDeSalle && !staging && !quizView ? (
+          <main>
+            <SalleDeLaTele titre={snap.space.title} code={snap.code} entreeUrl={entreeUrl} players={snap.players} chef={me.name} />
+          </main>
+        ) : (
         <main className={'host-grid' + (staging ? ' staging' : '')}>
           {!staging && (
             <section className="card">
@@ -1561,6 +1586,7 @@ export function HostApp() {
             </div>
           )}
         </main>
+        )}
 
         {/* La console animateur : discrète, en bas, toujours au même endroit.
             Chaque écran y pose ses boutons ; le son, l'habillage et le plein

@@ -688,7 +688,8 @@ test('au podium, qui n’y monte pas voit son échelle ; à zéro, ni rang ni é
       participants: 12,
     })
   const html = await fin({ place: { devant: { ...HUGO, rang: 4 }, derriere: { id: 'l', points: 0, rang: 6 } } })
-  assert.match(html, /Tu finis à la <strong>5ᵉ place<\/strong> sur 12 avec 450 pts/)
+  // Sa place en une ligne, au-dessus des marches : « sur 12 » dans la moitié haute seulement.
+  assert.match(html, /<span class="fin-quiz-place"><b>5ᵉ place<\/b> sur 12 · 450 pts<\/span>/)
   assert.match(html, /class="card echelle"/)
   assert.equal([...html.matchAll(/class="lb-row me"/g)].length, 1, 'sa ligne, surlignée')
   assert.ok(html.includes('Hugo'), 'celui qu’on talonnait')
@@ -696,7 +697,7 @@ test('au podium, qui n’y monte pas voit son échelle ; à zéro, ni rang ni é
   assert.ok(!html.includes('Soirée'), 'au premier quiz, la soirée et le quiz ne font qu’un')
 
   const zero = await fin({ yourQuizTotal: 0, yourQuizRank: 6, place: { devant: { ...HUGO, rang: 5 } } })
-  assert.match(zero, /Quiz terminé ! Pas de points cette fois\./)
+  assert.match(zero, /<span class="fin-quiz-quoi">Quiz terminé<\/span><span class="fin-quiz-place">Pas de points cette fois<\/span>/)
   assert.ok(!zero.includes('class="card echelle"'))
   assert.ok(!/6ᵉ place/.test(zero))
 

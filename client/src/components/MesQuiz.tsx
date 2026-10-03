@@ -3,33 +3,14 @@ import { Icon, type IconName } from './Icon'
 import { Sortie } from './Pieces'
 import { espacesFines, jour, quand } from '../format'
 import { ecrireDuree, type QuizSummary } from '../../../shared/library'
-import { BRANCHES, type CleDeBranche } from '../../../shared/branches'
+import { BRANCHES } from '../../../shared/branches'
+import { LUEUR } from './Atlas'
 
 // « Mes quiz » au pouce : la liste ne montre que des cartes — l'emoji du
 // quiz, son nom, une ligne de faits, et ▶ pour le lancer. Chaque quiz a sa
 // fiche, où vivent les gestes rares. Ils attendaient sous un « ⋯ » par
 // ligne : un menu flottant qui s'ouvrait sous le pli au téléphone, et
 // « Supprimer » à un toucher de « Modifier ».
-
-/**
- * La lueur de chaque branche : la couleur d'un quiz est celle de la branche
- * de sa catégorie la plus fréquente. Une teinte de fond, jamais un texte :
- * aucun contraste n'en dépend, sous aucun thème.
- */
-const LUEUR: Record<CleDeBranche, string> = {
-  monde: '#5fb8ff',
-  mythes: '#e8b04a',
-  oceans: '#3fd0d4',
-  espace: '#a08bff',
-  foret: '#7ccf6a',
-  ecran: '#ff6b8a',
-  scene: '#ff9f5a',
-  contes: '#c48bff',
-  stade: '#4fd18b',
-  brigade: '#f2c14e',
-  arcade: '#ff5fd2',
-  carnaval: '#ffb347',
-}
 
 const lueurDe = (q: QuizSummary): CSSProperties => {
   const b = BRANCHES.find(x => x.categorie === q.categories?.[0])

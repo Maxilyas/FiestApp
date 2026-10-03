@@ -122,17 +122,33 @@ test('l’accueil de qui anime : l’écran commun, un salon, ses quiz, son comp
 test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz du jour, un salon, rejoindre — en gros boutons, à la même place', async () => {
   const accueil = (props: object) =>
     rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: () => {}, lendemain: null, ...props })
-  const toujours = ['La campagneTrois vies, sans chrono, de plus en plus dur → /campagne', 'Le quiz du jourDix questions, les mêmes pour tous → /jour', 'Créer un salonTes quiz, tes amis, un code à dicter → /salon', 'Rejoindre une soiréeLe code à six chiffres de ton hôte [bouton]']
+  const toujours = [
+    'La campagneJusqu’où iras-tu ? Trois vies, sans chrono → /campagne',
+    'Le quiz du jourDix questions, les mêmes pour tous → /jour',
+    'Créer un salonTu lances les quiz : tu joues, ou tu animes → /salon',
+    'Rejoindre une soiréeAvec son code, ou le QR de l’hôte [bouton]',
+  ]
 
   // Rien en cours : les quatre gestes, aucun principal — l'ordre ne dépend ni
   // de l'heure ni des rôles, contrairement à « Je joue » et « Ce soir ».
   const libre = await accueil({})
   assert.deepEqual(gestes(libre), toujours)
   assert.doesNotMatch(libre, /gros-principal/)
+  // En deux sections nommées : seul, puis à plusieurs.
+  assert.match(libre, /<span class="label" id="jouer-seul">Seul<\/span>.*La campagne.*Le quiz du jour.*<span class="label" id="jouer-amis">Entre amis<\/span>.*Créer un salon/)
+
+  // Le quiz du jour dit sa série, et « À jouer » tant qu'on ne l'a pas joué aujourd'hui.
+  const { jourDe } = await import('../../shared/jour')
+  const carriere = (jours: string[]) => ({ joues: jours.length, serie: 4, record: 4, medailles: { or: 0, argent: 0, bronze: 0 }, meilleurScore: 0, podiums: 0, victoires: 0, jours: jours.map(jour => ({ jour })) })
+  const aJouer = await accueil({ jour: carriere(['2026-01-01']) })
+  assert.match(aJouer, /Dix questions, les mêmes pour tous · série de 4 jours.*<span class="pastille-attente">À jouer<\/span>/)
+  const joue = await accueil({ jour: carriere([jourDe(Date.now())]) })
+  assert.match(joue, /Joué aujourd’hui · série de 4 jours/)
+  assert.doesNotMatch(joue, /À jouer/)
 
   // Inscrit chez Alice : y revenir passe devant tout, et seul en principal.
   const chezAlice = await accueil({ enCours: [{ nom: 'Alice', slug: 'chez-alice' }] })
-  assert.deepEqual(gestes(chezAlice), ['Revenir chez AliceLa soirée continue sans toi → /chez-alice', ...toujours])
+  assert.deepEqual(gestes(chezAlice), ['Revenir chez AliceTa soirée continue → /chez-alice', ...toujours])
   assert.match(chezAlice, /class="gros-bouton gros-principal" href="\/chez-alice"/)
   assert.equal([...chezAlice.matchAll(/gros-principal/g)].length, 1)
 })
