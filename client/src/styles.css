@@ -7487,6 +7487,15 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .compte-sortie + p { margin: -12px 0 0; }
 .feuille-section { display: flex; flex-direction: column; gap: 12px; }
 
+/* ── L'historique, dans « Mon compte » (`/compte#historique`) ────────────
+   Les cartes de « Mes soirées », et sous chacune ses deux pages. */
+.historique-groupe { display: flex; flex-direction: column; gap: 10px; }
+.historique-carte { align-items: flex-start; }
+.historique-pages { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.historique-pages .salon-geste { min-height: 34px; padding: 0 10px; font-size: 0.85rem; }
+.historique-plus { flex: none; display: grid; place-items: center; width: 36px; height: 36px; margin: -4px -4px 0 0; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; }
+.historique-plus:hover { color: var(--ink); }
+
 /* ── L'administration (`/admin`) ──────────────────────────────────────────
    La structure de « Mon compte » — un en-tête, des lignes qui ouvrent leur
    écran ou leur feuille, la barre du menu —, et un tableau de bord en écran

@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { chargerDessinsAuPlus, sortesDesAvatars } from '../components/medaillons'
 import { api, ouvrirParLeProfil, UnauthorizedError, type Me } from '../api'
 import { Icon, type IconName } from '../components/Icon'
-import { Feuille, MenuBarre } from '../components/Pieces'
+import { Feuille, MenuBarre, Sortie } from '../components/Pieces'
+import { HistoriqueDuCompte } from '../components/HistoriqueDuCompte'
 import { ChangerMotDePasse } from '../components/ChangerMotDePasse'
 import { NavAnimateur } from '../components/NavAnimateur'
 import { ChampNombre } from '../components/ChampNombre'
@@ -29,6 +30,28 @@ export function AccountApp() {
   const [debut, setDebut] = useState(false)
   /** La feuille ouverte : chaque ligne règle une chose, dans la sienne. */
   const [feuille, setFeuille] = useState<FeuilleDuCompte | null>(null)
+  /**
+   * L'historique, ouvert dans la page à son adresse (`/compte#historique`) :
+   * la barre du menu reste, la flèche ramène au compte, et le retour du
+   * navigateur aussi.
+   */
+  const [historique, setHistorique] = useState(() => window.location.hash === '#historique')
+  useEffect(() => {
+    const auRetour = () => setHistorique(window.location.hash === '#historique')
+    window.addEventListener('popstate', auRetour)
+    return () => window.removeEventListener('popstate', auRetour)
+  }, [])
+  const ouvrirHistorique = () => {
+    history.pushState({ ...history.state, depuisLeCompte: true }, '', '/compte#historique')
+    setHistorique(true)
+    window.scrollTo(0, 0)
+  }
+  const revenirAuCompte = () => {
+    if (history.state?.depuisLeCompte) history.back()
+    else history.replaceState(history.state, '', '/compte')
+    setHistorique(false)
+    window.scrollTo(0, 0)
+  }
 
   useEffect(() => {
     api
@@ -78,6 +101,22 @@ export function AccountApp() {
       <main className="center-page">
         <p className="serif-note">Chargement…</p>
       </main>
+    )
+  }
+
+  if (historique) {
+    return (
+      <div className="player-shell compte">
+        <header className="admin-ecran-tete">
+          <Sortie vers="Mon compte" href="/compte" onClick={revenirAuCompte} />
+          <h1>Historique</h1>
+        </header>
+        <main className="page-corps">
+          <HistoriqueDuCompte slug={me.space.slug} />
+          {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
+        </main>
+        <MenuBarre ici="compte" />
+      </div>
     )
   }
 
@@ -167,7 +206,17 @@ export function AccountApp() {
         {ligne('lock', 'Mot de passe', '••••••••', 'mdp')}
         {!parLeProfil && ligne('users', 'Mon profil joueur', me.profil?.name ?? 'À rattacher', 'profil')}
         {me.profil && !parLeProfil && ligne('monitor', 'L’écran commun', '', '/host')}
-        {me.profil && !parLeProfil && ligne('book', 'L’historique', '', `/${me.space.slug}/soirees`)}
+        {/* Ses soirées, une ligne chacune, dans la page : pour tout espace, salon compris. */}
+        <li key="historique">
+          <button type="button" onClick={ouvrirHistorique}>
+            <span className="style-icone">
+              <Icon name="book" />
+            </span>
+            <span className="style-nom">L’historique</span>
+            <span className="style-valeur" />
+            <Icon name="chevron-down" className="style-chevron" />
+          </button>
+        </li>
       </ul>
 
       {me.account.role === 'admin' && (

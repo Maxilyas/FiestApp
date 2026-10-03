@@ -111,11 +111,11 @@ test('l’accueil d’un profil n’a pas de carte « J’anime » : chacune de 
   const pieces = source('components/Pieces.tsx')
   assert.match(pieces, /href: '\/edit'/)
   assert.match(pieces, /href: '\/compte'/)
-  // … l'écran commun et l'historique d'un compte à mot de passe dans le Compte,
+  // … l'écran commun d'un compte à mot de passe et l'historique de tout espace dans le Compte,
   // et les soirées de son salon dans son profil (« Chez moi »).
   const compte = source('views/AccountApp.tsx')
   assert.match(compte, /\{me\.profil && !parLeProfil && ligne\('monitor', 'L’écran commun', '', '\/host'\)\}/)
-  assert.match(compte, /\{me\.profil && !parLeProfil && ligne\('book', 'L’historique', '', `\/\$\{me\.space\.slug\}\/soirees`\)\}/)
+  assert.match(compte, /<span className="style-nom">L’historique<\/span>/)
   assert.match(profil, /<pret\.PanneauSoirees profil=\{profil\} monEspace=\{espace\?\.slug\} \/>/)
 })
 
