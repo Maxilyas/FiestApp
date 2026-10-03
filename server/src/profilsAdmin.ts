@@ -15,7 +15,7 @@ interface ProfilsAdminDeps {
   /** Les espaces dont une soirée pas encore close compte ce profil parmi ses invités — actives ou laissées en plan. */
   soireesPasCloses: (profileId: string) => string[]
   /** Supprime le profil et ce qui n'était qu'à lui — composé dans `createQuizServer`, où tout est à portée. */
-  supprimerProfil: (profileId: string) => Promise<{ salon: 'supprime' | 'detache' | null }>
+  supprimerProfil: (profileId: string) => Promise<{ salon: 'detache' | null }>
 }
 
 /**
@@ -49,11 +49,11 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
   )
 
   // Supprimer un profil : jamais le sien — l'administrateur s'enfermerait
-  // dehors —, et jamais pendant qu'il joue une soirée pas encore close : sa
-  // clôture le créditerait, lui, ses prix, ses hauts faits et ses paliers,
-  // sous un identifiant qui n'existe plus. Son salon à lui part avec lui, la
-  // soirée qui s'y joue comprise ; ce que ses soirées ont rapporté aux autres
-  // joueurs leur reste (`removeAccount`, crédits gardés).
+  // dehors —, et jamais pendant qu'il joue une soirée pas encore close, son
+  // salon compris : sa clôture le créditerait, lui, ses prix, ses hauts faits
+  // et ses paliers, sous un identifiant qui n'existe plus. L'espace qu'il
+  // tenait reste, détaché — les souvenirs des soirées qu'on y a jouées
+  // s'ouvrent toujours (l'arbitrage du 3 octobre 2026).
   app.delete(
     '/api/admin/profils/:id',
     wrap(async (req, res) => {
@@ -61,7 +61,7 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
       if (!profil) return res.status(404).json({ error: 'Ce profil est introuvable' })
       const salon = deps.auth.byProfile(profil.id)
       if (salon?.id === accountOf(res).id) return res.status(400).json({ error: 'C’est ton propre profil : il ne se supprime pas d’ici' })
-      const ailleurs = deps.soireesPasCloses(profil.id).filter(spaceId => !(salon && estSalonDuProfil(salon) && salon.id === spaceId))
+      const ailleurs = deps.soireesPasCloses(profil.id)
       if (ailleurs.length > 0) {
         const chez = deps.auth.byId(ailleurs[0])?.name ?? 'un autre animateur'
         return res.status(409).json({ error: `${profil.name} joue une soirée pas encore close chez ${chez} : elle doit être close d’abord` })

@@ -769,8 +769,8 @@ export interface ProfilDAdministration {
   vuLe: number | null
   /**
    * L'espace qu'il tient, s'il en tient un : `propre`, son salon, ouvert par
-   * lui sans mot de passe (« Créer un salon »), qui part avec lui ; sinon un
-   * compte d'animateur au mot de passe à lui, qui reste et se détache.
+   * lui sans mot de passe (« Créer un salon ») ; sinon un compte d'animateur
+   * au mot de passe à lui. Supprimer le profil les détache, et ils restent.
    */
   salon: { slug: string; quiz: number; propre: boolean } | null
   /** Le profil de l'administrateur qui regarde : il ne se supprime pas d'ici. */

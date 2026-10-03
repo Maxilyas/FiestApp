@@ -55,7 +55,7 @@ interface ApiDeps {
   /** Les espaces dont une soirée pas encore close le compte — active ou laissée en plan. */
   soireesPasCloses: (profileId: string) => string[]
   /** Supprime un profil et ce qui n'était qu'à lui — composé dans `createQuizServer`. */
-  supprimerProfil: (profileId: string) => Promise<{ salon: 'supprime' | 'detache' | null }>
+  supprimerProfil: (profileId: string) => Promise<{ salon: 'detache' | null }>
   /** Ouvre le salon d'un espace et rend son code (`SpaceRuntime.ouvrirSalon`). */
   ouvrirSalon: (spaceId: string, opts?: { auto?: boolean }) => Promise<string | null>
   /** Rediffuse la salle d'un espace dont les réglages ont changé. */

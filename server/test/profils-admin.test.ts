@@ -2,18 +2,21 @@
 //
 // Supprimer un profil emporte tout ce qui n'était qu'à lui — sa fiche, ses
 // sessions, son expérience, son étagère, ses éclats, ses parties du quiz du
-// jour et de la campagne — et son salon à lui (`creerEspaceDuProfil`), quand
-// il en a ouvert un. Ce que ses soirées ont rapporté aux autres joueurs leur
-// reste, et les archives où il a joué restent : elles le nomment pour
-// toujours, alors le recalcul au démarrage ne le recrédite pas. Jamais le
-// profil de l'administrateur, et jamais pendant qu'il joue une soirée pas
-// encore close : sa clôture le créditerait sous un identifiant disparu.
+// jour et de la campagne. L'espace qu'il tenait reste, détaché — son salon
+// (`creerEspaceDuProfil`) comme un compte d'animateur : les souvenirs des
+// soirées qu'on y a jouées s'ouvrent toujours. Ce que ses soirées ont
+// rapporté aux autres joueurs leur reste, et les archives où il a joué
+// restent : elles le nomment pour toujours, alors le recalcul au démarrage ne
+// le recrédite pas. Jamais le profil de l'administrateur, et jamais pendant
+// qu'il joue une soirée pas encore close, son salon compris : sa clôture le
+// créditerait sous un identifiant disparu.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import {
   attendre,
   connexionAnimateur,
+  cookieDe,
   creerQuiz,
   demarrer,
   ecranCommun,
@@ -38,12 +41,12 @@ const lire = (banc: Banc, cookie: string, chemin: string) =>
 const supprimer = (banc: Banc, admin: string, id: string) =>
   ecrire(banc.url, `/api/admin/profils/${id}`, undefined, admin, 'DELETE').then(async r => ({ status: r.status, corps: (await r.json()) as any }))
 
-/** Une soirée d'un quiz d'une question chez l'administrateur, que ces invités jouent — close, ou laissée ouverte. */
-async function soiree(banc: Banc, admin: string, invites: { nom: string; avatar: string; cookie?: string }[], clore: boolean) {
+/** Une soirée d'un quiz d'une question, que ces invités jouent — close, ou laissée ouverte. Chez l'administrateur, sauf un autre espace. */
+async function soiree(banc: Banc, admin: string, invites: { nom: string; avatar: string; cookie?: string }[], clore: boolean, slug?: string) {
   const quiz = await creerQuiz(banc.url, admin, [qcm('On y est ?')])
   const host = await ecranCommun(banc.url, admin)
   const joueurs = []
-  for (const i of invites) joueurs.push(await invite(banc.url, i.nom, i.avatar, i.cookie ? { cookie: i.cookie } : undefined))
+  for (const i of invites) joueurs.push(await invite(banc.url, i.nom, i.avatar, { slug, ...(i.cookie && { cookie: i.cookie }) }))
   const vue = (sessionId: string, pred: (v: any) => boolean, label: string) =>
     attendre<any>(host, 'session:view', p => p.sessionId === sessionId && pred(p.view), label, 15_000)
   const sessionId = await lancerQuiz(host, quiz)
@@ -115,7 +118,7 @@ test('l’administrateur cherche les profils : son niveau, ses soirées, son sal
   }
 })
 
-test('supprimer un profil emporte tout ce qui n’était qu’à lui, son salon compris — et rien de ce qu’il a fait gagner aux autres', async () => {
+test('supprimer un profil emporte tout ce qui n’était qu’à lui — son salon reste, détaché, et ses souvenirs s’ouvrent toujours', async () => {
   const horloge = { t: DEBUT }
   const banc = await demarrer({ horlogeDuJour: () => horloge.t })
   try {
@@ -124,8 +127,9 @@ test('supprimer un profil emporte tout ce qui n’était qu’à lui, son salon 
     const bob = await inscrireProfil(banc.url, 'bob', 'Bob', '🐻')
     const leaId = (await lire(banc, lea, '/api/joueur/moi')).corps.profile.id as string
 
-    // Son salon, avec un quiz.
+    // Son salon, et sa console, ouverte par son profil.
     const salon = (await (await ecrire(banc.url, '/api/joueur/espace', {}, lea)).json()) as { espace: { slug: string } }
+    const saConsole = cookieDe(await ecrire(banc.url, '/api/joueur/console', {}, lea))
     // Le quiz du jour, puis une série de campagne le lendemain.
     const jour = (await (await ecrire(banc.url, '/api/jour/commencer', {}, lea)).json()) as { jour: string }
     await ecrire(banc.url, '/api/jour/repondre', { jour: jour.jour, index: 0, choix: 0 }, lea)
@@ -136,22 +140,39 @@ test('supprimer un profil emporte tout ce qui n’était qu’à lui, son salon 
     await ecrire(banc.url, `/api/campagne/serie/${serie.id}/reponse`, { index: 0, choix: 0 }, lea)
     // Une soirée close chez l'administrateur, avec Bob.
     await soiree(banc, admin, [{ nom: 'Léa', avatar: '', cookie: lea }, { nom: 'Bob', avatar: '', cookie: bob }], true)
+    // Et une dans son salon, qu'elle joue elle aussi : tant qu'elle n'est pas
+    // close, le salon qui reste la créditerait à sa clôture.
+    await soiree(banc, saConsole, [{ nom: 'Léa', avatar: '', cookie: lea }, { nom: 'Bob', avatar: '', cookie: bob }], false, salon.espace.slug)
+    const enJeu = await supprimer(banc, admin, leaId)
+    assert.equal(enJeu.status, 409)
+    assert.match(enJeu.corps.error, /Léa joue une soirée pas encore close chez Léa/)
+    const salonHost = await ecranCommun(banc.url, saConsole)
+    const close = attendre<any>(salonHost, 'toast', () => true, 'la soirée du salon close', 15_000)
+    ;(salonHost as any).emit('host:closeParty', {})
+    await close
+    salonHost.close()
+    const souvenirs = async () => (await (await fetch(`${banc.url}/s/${salon.espace.slug}/soirees.json`)).json()) as { archives: { id: string }[] }
+    const [souvenir] = (await souvenirs()).archives
+    assert.ok(souvenir, 'la soirée du salon est rangée')
     const bobAvant = (await lire(banc, bob, '/api/joueur/moi')).corps.profile
     assert.ok(Object.keys(lignesDu(banc, leaId)).length >= 5, 'Léa a laissé des traces un peu partout')
 
     const fait = await supprimer(banc, admin, leaId)
     assert.equal(fait.status, 200, JSON.stringify(fait.corps))
-    assert.equal(fait.corps.salon, 'supprime')
+    assert.equal(fait.corps.salon, 'detache')
 
     // Plus une ligne à son nom, dans aucune table — une table de plus serait relue ici.
     assert.deepEqual(lignesDu(banc, leaId), {})
     const db = new Database(permanente(banc), { readonly: true })
     assert.equal((db.prepare('SELECT COUNT(*) AS n FROM campagne_reponses WHERE serie_id = ?').get(serie.id) as { n: number }).n, 0, 'ses réponses de campagne')
-    assert.equal((db.prepare('SELECT COUNT(*) AS n FROM accounts WHERE slug = ?').get(salon.espace.slug) as { n: number }).n, 0, 'son salon')
+    const resteDuSalon = db.prepare('SELECT profile_id FROM accounts WHERE slug = ?').get(salon.espace.slug) as { profile_id: string | null } | undefined
     const archives = (db.prepare(`SELECT COUNT(*) AS n FROM soirees`).get() as { n: number }).n
     db.close()
-    assert.equal(archives, 1, 'la soirée où elle a joué reste dans l’historique')
-    assert.equal((await fetch(`${banc.url}/${salon.espace.slug}`)).status, 404, 'l’adresse de son salon ne mène plus nulle part')
+    assert.deepEqual(resteDuSalon, { profile_id: null }, 'son salon reste, sans titulaire')
+    assert.equal(archives, 2, 'les soirées où elle a joué restent dans l’historique')
+    // Les souvenirs de son salon s'ouvrent toujours.
+    assert.deepEqual((await souvenirs()).archives.map(a => a.id), [souvenir.id])
+    assert.equal((await fetch(`${banc.url}/s/${salon.espace.slug}/soirees/${souvenir.id}/recap.json`)).status, 200)
 
     // Ses téléphones ne la connaissent plus, et son identifiant se reprend.
     assert.equal((await lire(banc, lea, '/api/joueur/moi')).corps.profile, null)

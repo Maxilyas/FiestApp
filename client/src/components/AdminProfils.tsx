@@ -10,8 +10,8 @@ import type { ProfilDAdministration } from '../../../shared/profil'
  * « Les profils », à `/admin` : l'administrateur ne gère plus seulement des
  * comptes d'animateur, mais les personnes — les chercher, en supprimer une.
  * Sans recherche, les derniers vus. La suppression dit avant le clic ce
- * qu'elle emporte : le salon de ce profil part avec lui, un compte
- * d'animateur qu'il tenait reste ; les soirées jouées restent aux autres.
+ * qu'elle emporte, et ce qui reste : l'espace qu'il tenait — son salon, un
+ * compte d'animateur —, détaché, et les soirées jouées, aux autres.
  */
 export function AdminProfils() {
   const [cherche, setCherche] = useState('')
@@ -39,11 +39,11 @@ export function AdminProfils() {
   }, [cherche, relire])
 
   const supprimer = async (p: ProfilDAdministration) => {
-    // Sans genre : un prénom ne dit pas qui l'on est.
-    const quiz = p.salon && p.salon.quiz > 0 ? ` et ${p.salon.quiz > 1 ? `ses ${p.salon.quiz} quiz` : 'son quiz'}` : ''
+    // Sans genre : un prénom ne dit pas qui l'on est. L'espace reste : les
+    // souvenirs des soirées qu'on y a jouées s'ouvrent toujours.
     const salon = p.salon
       ? p.salon.propre
-        ? ` Son salon${quiz} aussi, avec la soirée qui s’y joue.`
+        ? ` Son salon reste, sans titulaire, avec ${p.salon.quiz === 0 ? '' : p.salon.quiz === 1 ? 'son quiz et ' : `ses ${p.salon.quiz} quiz et `}les souvenirs de ses soirées : il se supprime à part, dans « Tous les comptes ».`
         : ` Le compte d’animateur « ${p.salon.slug} » reste, sans ce profil.`
       : ''
     const ok = await confirmDialog({
@@ -58,7 +58,7 @@ export function AdminProfils() {
     setOccupe(true)
     try {
       const fait = await api.admin.supprimerProfil(p.id)
-      showToast({ kind: 'info', message: `Le profil de ${p.nom} est supprimé${fait.salon === 'supprime' ? ', son salon aussi' : ''}` })
+      showToast({ kind: 'info', message: `Le profil de ${p.nom} est supprimé${fait.salon ? ' — son espace reste, sans titulaire' : ''}` })
       setRelire(n => n + 1)
     } catch (e) {
       showToast({ kind: 'error', message: (e as Error).message })

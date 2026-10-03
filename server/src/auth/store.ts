@@ -59,9 +59,9 @@ export interface AccountRec {
 
 /**
  * Le salon d'un profil : l'espace que « Créer un salon » lui a ouvert
- * (`creerEspaceDuProfil`) — un identifiant `p-…`, jamais de mot de passe. Il
- * n'est qu'à lui, et part avec lui. Un compte d'animateur rattaché après
- * coup, avec son mot de passe, n'en est pas un : il reste, et se détache.
+ * (`creerEspaceDuProfil`) — un identifiant `p-…`, jamais de mot de passe —,
+ * qu'on distingue, à l'administration, d'un compte d'animateur rattaché après
+ * coup avec son mot de passe. Supprimer le profil les détache tous deux.
  */
 export function estSalonDuProfil(a: AccountRec): boolean {
   return a.profileId !== null && !a.passwordHash && a.login.startsWith('p-')
