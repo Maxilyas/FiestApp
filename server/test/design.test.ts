@@ -477,9 +477,9 @@ test('A4 · le repère principal entoure le contenu, sans effacer l’en-tête n
     const nav = texte.indexOf('<SpaceNav')
     if (nav > 0) assert.ok(nav < repere, `${vue} : la navigation précède le repère`)
   }
-  // Le message d'erreur d'une page publique : la navigation, puis le repère.
+  // Le message d'erreur d'une page publique : la flèche dans l'en-tête, puis le repère.
   const nav = readFileSync(new URL('../../client/src/components/SpaceNav.tsx', import.meta.url), 'utf8')
-  assert.match(nav, /<SpaceNav current=\{current\} \/>\s*<main className="page-corps">\s*<p className="error center">/)
+  assert.match(nav, /<RetourDeLaSoiree \/>\s*<\/header>\s*<main className="page-corps">\s*<p className=/)
 })
 
 test('A4 · dans l’éditeur, un bouton répété dit ce qu’il vise', () => {
