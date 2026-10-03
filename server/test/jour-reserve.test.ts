@@ -15,6 +15,7 @@ import {
   aEcrirePour,
   categoriesAPrivilegier,
   consigneDuJour,
+  repartitionDesDifficultes,
 } from '../src/core/consigne'
 import { parseImportedQuestions } from '../../shared/library'
 
@@ -82,6 +83,21 @@ test('la consigne dit combien, quoi privilégier, ce qui est déjà là — et j
   assert.ok(consigne.includes(EXEMPLE_DU_JOUR))
   // Sans rien à rappeler, pas de rubrique vide.
   assert.doesNotMatch(consigneDuJour({ n: 10, aPrivilegier: [], deja: [] }), /DÉJÀ DANS LA RÉSERVE/)
+})
+
+test('la consigne chiffre la difficulté et la part des autres catégories : une proportion se perdait en route', () => {
+  for (const n of [1, 2, 3, 10, 30, 42, 50, 100]) {
+    const r = repartitionDesDifficultes(n)
+    assert.equal(r.faciles + r.moyennes + r.difficiles, n, `${n} questions`)
+    assert.ok(r.moyennes >= 0 && r.faciles === r.difficiles, `${n} questions`)
+  }
+  assert.deepEqual(repartitionDesDifficultes(50), { faciles: 13, moyennes: 24, difficiles: 13 })
+  const consigne = consigneDuJour({ n: 50, aPrivilegier: ['Sport', 'Cuisine', 'Musique', 'Nature'], deja: [] })
+  assert.match(consigne, /13 faciles,.* 24 moyennes,.* 13 difficiles,/)
+  assert.match(consigne, /\(25 sur 50\) dans celles-ci ; les 25 autres réparties entre au moins 4 autres catégories/)
+  assert.doesNotMatch(consigne, /Les autres restent permises/)
+  // Sans catégorie à privilégier, pas de rubrique vide.
+  assert.doesNotMatch(consigneDuJour({ n: 10, aPrivilegier: [], deja: [] }), /CATÉGORIES À PRIVILÉGIER/)
 })
 
 test('trois semaines d’avance, cent questions au plus par passage ; les catégories les moins fournies d’abord', () => {

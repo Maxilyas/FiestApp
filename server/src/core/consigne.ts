@@ -52,6 +52,28 @@ export function categoriesAPrivilegier(parCategorie: Readonly<Record<string, num
 }
 
 /**
+ * La difficulté, en nombres. « Un quart de faciles, un quart de
+ * difficiles » ne tenait pas : cinquante questions écrites par cette
+ * consigne puis étiquetées (le 3 octobre 2026) comptaient trente-deux
+ * faciles pour quatre difficiles. Les nombres, à l'essai suivant, n'ont
+ * guère fait mieux (trente-sept faciles, quatre difficiles) : une IA qui
+ * écrit sans retour juge facile ce qu'elle sait. La cible reste dite en
+ * nombres, parce qu'elle se teste ; ce qui la fera tenir, c'est la
+ * difficulté mesurée sur les réponses des joueurs, rendue à la consigne.
+ */
+export function repartitionDesDifficultes(n: number): { faciles: number; moyennes: number; difficiles: number } {
+  const quart = Math.round(n / 4)
+  return { faciles: quart, moyennes: n - 2 * quart, difficiles: quart }
+}
+
+/**
+ * Combien de catégories, au moins, en dehors de celles à privilégier : le
+ * même essai les avait toutes écrites dans les quatre à privilégier, « les
+ * autres restent permises » lu comme une politesse.
+ */
+const AUTRES_CATEGORIES_AU_MOINS = 4
+
+/**
  * L'exemple de la consigne. Une IA suit un exemple mieux qu'une règle : il
  * montre tout ce que la consigne demande — la catégorie, l'étoile, quatre
  * réponses de même nature, une anecdote qui apprend autre chose que la
@@ -89,6 +111,9 @@ export function consigneDuJour({
   aPrivilegier: readonly string[]
   deja: readonly string[]
 }): string {
+  const difficulte = repartitionDesDifficultes(n)
+  const privilegiees = Math.ceil(n / 2)
+  const autres = Math.min(AUTRES_CATEGORIES_AU_MOINS, CATEGORIES_DU_JOUR.length - aPrivilegier.length)
   const lignes = [
     `LE QUIZ DU JOUR DE FIESTAPP — ${n} QUESTIONS À ÉCRIRE`,
     '',
@@ -99,7 +124,7 @@ export function consigneDuJour({
     '- Une seule bonne réponse, sans discussion possible. Au moindre doute sur un fait, change de question.',
     "- Quatre réponses courtes, de même nature et toutes plausibles. Jamais la réponse dans l'intitulé, jamais de négation (« Lequel n'est pas… »), ni « Aucune de ces réponses ».",
     '- Une anecdote vraie, en une phrase, qui apprend autre chose que la réponse.',
-    '- Une difficulté variée : un quart de faciles, la moitié de moyennes, un quart de difficiles.',
+    `- La difficulté, en nombres : ${difficulte.faciles} faciles, que presque tout le monde trouve (« Quel fleuve traverse Paris ? ») ; ${difficulte.moyennes} moyennes, qu'une personne sur deux trouve (« Quel peintre a peint La Nuit étoilée ? ») ; ${difficulte.difficiles} difficiles, qu'une sur quatre au plus trouve, sans être obscures : en lisant la réponse, on se dit « j'aurais pu le savoir » (« Dans quel pays se trouve le désert d'Atacama ? »). Les faciles viennent toutes seules : écris d'abord les difficiles.`,
     '- Des sujets variés, de France et du monde : jamais deux questions sur le même sujet.',
     "- Pas d'emoji.",
     '',
@@ -111,8 +136,12 @@ export function consigneDuJour({
     `- Une ligne « # » suivie d'une catégorie, avant une question, la range avec les suivantes dans cette catégorie, jusqu'à la prochaine ligne « # ». Seulement l'une de celles-ci, écrite telle quelle : ${CATEGORIES_DU_JOUR.join(', ')}.`,
     '- Ni numéros, ni puces, ni gras ; ni introduction, ni conclusion : rien que les questions.',
     '',
-    `CATÉGORIES À PRIVILÉGIER — les moins fournies de la réserve : ${aPrivilegier.join(', ')}. Les autres restent permises.`,
-    '',
+    ...(aPrivilegier.length > 0
+      ? [
+          `CATÉGORIES À PRIVILÉGIER — les moins fournies de la réserve : ${aPrivilegier.join(', ')}. Environ la moitié des questions (${privilegiees} sur ${n}) dans celles-ci ; les ${n - privilegiees} autres réparties entre au moins ${autres} autres catégories de la liste : « à privilégier » ne veut pas dire « seulement ».`,
+          '',
+        ]
+      : []),
     'AVANT DE RENDRE LA LISTE',
     "Relis chaque question comme un correcteur exigeant : la bonne réponse est-elle certaine et la seule possible ? L'anecdote est-elle exacte ? Au moindre doute, remplace la question. Mieux vaut une question simple et sûre qu'une question brillante et fausse.",
   ]
