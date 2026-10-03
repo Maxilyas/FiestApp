@@ -12,7 +12,6 @@ import {
   NIVEAUX,
   NOM_NIVEAU,
   VIES,
-  XP_MAX_PAR_JOUR,
   XP_PAR_JUSTE,
   type CorrectionDeCampagne,
   type EtatDeCampagne,
@@ -47,7 +46,7 @@ type Ecran =
  *
  * Après chaque réponse, la bonne et son anecdote, comme au quiz du jour.
  * Une bonne réponse vaut un confetti, et l'expérience d'une bonne réponse
- * en soirée — plafonnée par jour : la campagne se rejoue sans fin.
+ * en soirée, sans plafond : chacun monte à son rythme.
  */
 export function CampagneApp() {
   const [ecran, setEcranBrut] = useState<Ecran>({ e: 'chargement' })
@@ -188,17 +187,12 @@ export function CampagneApp() {
             </li>
             <li>🎊 un confetti par bonne réponse</li>
             <li>
-              <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, {XP_MAX_PAR_JOUR} par jour
+              <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, sans limite
             </li>
           </ul>
         </section>
-        {/* Où l'on en est du plafond : sans le dire, la quinzième bonne réponse semblait ne plus rien valoir. */}
-        {etat.xpAujourdhui > 0 && (
-          <p className="muted small campagne-xp-du-jour">
-            Aujourd’hui : {etat.xpAujourdhui} / {XP_MAX_PAR_JOUR} XP
-            {etat.xpAujourdhui >= XP_MAX_PAR_JOUR ? ' — le plein est fait, les confettis continuent' : ''}
-          </p>
-        )}
+        {/* Ce que la journée a déjà rapporté : sans plafond, il n'y a plus de « plein » à annoncer. */}
+        {etat.xpAujourdhui > 0 && <p className="muted small campagne-xp-du-jour">Aujourd’hui : +{etat.xpAujourdhui} XP</p>}
         {pret ? (
           <>
             {etat.categories.length > 1 && (
