@@ -13,7 +13,7 @@
 // aurait trouvée en tapant les cinq lettres de plus.
 
 import { parseRoute, slugTape, type PublicPage } from '../../../shared/adresses'
-import type { PublicSpace } from '../../../shared/space'
+import { CODE_DU_SALON, type PublicSpace } from '../../../shared/space'
 
 export const NOM_APPLI = 'FiestApp'
 export const PROMESSE = 'Le quiz de soirée : les invités jouent depuis leur téléphone, un écran commun anime la salle.'
@@ -21,7 +21,7 @@ export const PROMESSE = 'Le quiz de soirée : les invités jouent depuis leur t�
 export type DecisionPage =
   | { redirection: string }
   | {
-      statut: 200 | 404
+      statut: 200 | 404 | 429
       titre: string
       description: string
       /** Seul l'accueil se laisse ranger par un moteur : le reste est une soirée privée. */
@@ -52,11 +52,25 @@ export const INTROUVABLE = {
   indexable: false,
 }
 
+/** Trop de codes essayés depuis la même adresse : un million de codes ne s'énumèrent pas à la main. */
+export const TROP_D_ESSAIS = {
+  statut: 429 as const,
+  titre: `Trop d’essais · ${NOM_APPLI}`,
+  description: 'Trop de codes essayés : attends une minute, puis vérifie le code avec ton hôte.',
+  indexable: false,
+}
+
 /**
  * Lit une adresse. `trouver` rend l'espace d'un nom exact, ou rien — il ne
- * sert qu'à dire oui ou non, jamais à chercher un voisin.
+ * sert qu'à dire oui ou non, jamais à chercher un voisin. `parCode` rend
+ * l'espace d'un code de salon, rien pour un code qui ne mène nulle part, et
+ * `null` quand l'adresse a trop essayé : il ne se demande même plus.
  */
-export function decrirePage(chemin: string, trouver: (slug: string) => PublicSpace | undefined): DecisionPage {
+export function decrirePage(
+  chemin: string,
+  trouver: (slug: string) => PublicSpace | undefined,
+  parCode: (code: string) => PublicSpace | undefined | null = () => undefined,
+): DecisionPage {
   const route = parseRoute(chemin)
   if (route.kind === 'landing') return { statut: 200, titre: `${NOM_APPLI} · le quiz de soirée`, description: PROMESSE, indexable: true }
   if (route.kind === 'account') return { statut: 200, titre: NOM_APPLI, description: PROMESSE, indexable: false }
@@ -65,6 +79,15 @@ export function decrirePage(chemin: string, trouver: (slug: string) => PublicSpa
   const segments = chemin.split('/').filter(Boolean)
   const reste = segments.slice(1).join('/')
   const vers = (slug: string) => `/${slug}${reste ? `/${reste}` : ''}`
+
+  // Six chiffres : le code d'un salon, jamais le nom d'un espace
+  // (`isValidSlug`). Il mène chez lui, à son adresse — celle de ses
+  // souvenirs ; le code, lui, tombe après la soirée.
+  if (CODE_DU_SALON.test(route.slug)) {
+    const salon = parCode(route.slug)
+    if (salon === null) return TROP_D_ESSAIS
+    return salon ? { redirection: vers(salon.slug) } : INTROUVABLE
+  }
 
   const espace = trouver(route.slug)
   if (!espace) {

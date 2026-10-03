@@ -26,6 +26,7 @@ import { Avatar } from '../../components/Avatar'
 import { Coupe } from '../../components/Coupe'
 import { Niveau } from '../../components/Niveau'
 import { NomLaure } from '../../components/Laurier'
+import { Regie } from './Regie'
 
 /** Le décompte avant que la question suivante parte toute seule. */
 function AutoNextPill({ deadline }: { deadline: number }) {
@@ -623,7 +624,8 @@ export function QuizHost({
           Question {v.qIndex + 1} / {v.qCount}
           {v.phase === 'observe' ? ' · la photo' : revealing ? ' · révélée' : ''}
         </span>
-        {v.text && v.phase !== 'observe' && <p className="telecommande-question">{espacesFines(v.text)}</p>}
+        {/* La régie : le temps, qui l'on attend, puis le partage de la salle — jamais la réponse avant elle. */}
+        {v.phase !== 'observe' && <Regie view={v} />}
         {/* Sa note : ici seulement — la télé, c'est la salle qui la lit. */}
         {v.note && <NoteDeLAnimateur note={v.note} />}
         <div className="quiz-status">

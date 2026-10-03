@@ -15,8 +15,10 @@
 
 import { randomUUID } from 'node:crypto'
 import type { InStatement, ResultSet } from '@libsql/client'
-import { clientDistant, type Client } from './distante'
-import type { ProfileRec, ProfileStore } from '../auth/profiles'
+import { ajouterColonne, clientDistant, type Client } from './distante'
+import { lireEtiquetage } from '../../../shared/etiquettes'
+import { niveauMesure, type Niveau } from '../../../shared/campagne'
+import { HORS_LIGNES_A_PART, type ProfileRec, type ProfileStore } from '../auth/profiles'
 import { GRACE_MS, POINTS_MAX_PAR_QUESTION, pointsDuChoix, tempsDeLecture } from '../games/quiz'
 import { lireModeles } from './seed'
 import { aEcrirePour, categoriesAPrivilegier, consigneDuJour } from './consigne'
@@ -191,6 +193,12 @@ export interface JourDeps {
 /** Personne n'a de laurier : la liste d'avant-hier, avant que la nuit soit close. */
 const AUCUN_LAURIER: ReadonlySet<string> = new Set()
 
+/** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge avec les jours, pas avec les clics. */
+const MESURES_GARDEES_MS = 10 * 60_000
+
+/** Les dernières questions posées dont la consigne dit la difficulté mesurée. */
+const MESUREES_POUR_LA_CONSIGNE = 60
+
 export class JourStore {
   private client: Client
   private maintenant: () => number
@@ -348,8 +356,126 @@ export class JourStore {
       ],
       'write',
     )
+    // Les métadonnées d'une question — sous-thème, étiquettes, difficulté
+    // estimée, public… (`shared/etiquettes.ts`) — sont venues après la
+    // réserve : une base d'avant ne les a pas.
+    await ajouterColonne(this.client, 'jour_reserve', 'metadonnees', 'TEXT')
+    await ajouterColonne(this.client, 'jour_reserve', 'etiquetee_le', 'INTEGER')
     for (const r of (await this.client.execute('SELECT profile_id FROM jour_masques')).rows) this.masques.add(String(r.profile_id))
     await this.amorcer()
+  }
+
+  // ── Les métadonnées et la difficulté mesurée ────────────────────────────
+
+  /**
+   * Les questions de la réserve qui n'ont pas encore leurs métadonnées, pour
+   * la routine qui les décrit (`/api/jour/reserve/etiquetage`) : celles qui
+   * sortiront bientôt d'abord, puis les déjà posées.
+   */
+  async aEtiqueter(n: number): Promise<{ id: string; texte: string; reponses: string[]; bonne: number; anecdote: string | null; categorie: string | null }[]> {
+    const res = await this.client.execute({
+      sql: `SELECT id, question, categorie FROM jour_reserve WHERE retiree_le IS NULL AND etiquetee_le IS NULL
+            ORDER BY posee_le IS NOT NULL, ajoutee_le, id LIMIT ?`,
+      args: [n],
+    })
+    return res.rows.flatMap(r => {
+      const q = JSON.parse(String(r.question)) as QuizQuestionDef
+      const p = toPlayable({ ...q, id: String(r.id) })
+      if (!p || p.kind !== 'choice') return []
+      return [{ id: String(r.id), texte: p.text, reponses: p.answers, bonne: p.correct, anecdote: p.anecdote ?? null, categorie: r.categorie == null ? null : String(r.categorie) }]
+    })
+  }
+
+  /**
+   * Range ce que la routine rend : chaque entrée relue par le catalogue
+   * (`lireEtiquetage`), refusée en entier sur une clé inconnue, et la
+   * question marquée étiquetée — hors de la base comprise (une photo à
+   * regarder, des prénoms à remplacer) : on ne la redemande pas.
+   */
+  async etiqueter(entrees: readonly unknown[]): Promise<{ etiquetees: number; horsBase: number; refusees: { id: string; motif: string }[] }> {
+    const ids = entrees.map(e => (e && typeof e === 'object' ? String((e as { id?: unknown }).id ?? '') : ''))
+    const connues = new Set(
+      ids.length === 0
+        ? []
+        : (
+            await this.client.execute({
+              sql: `SELECT id FROM jour_reserve WHERE id IN (${ids.map(() => '?').join(', ')})`,
+              args: ids,
+            })
+          ).rows.map(r => String(r.id)),
+    )
+    const maintenant = this.maintenant()
+    const ecritures: InStatement[] = []
+    const refusees: { id: string; motif: string }[] = []
+    let etiquetees = 0
+    let horsBase = 0
+    entrees.forEach((e, i) => {
+      const id = ids[i]
+      if (!connues.has(id)) return refusees.push({ id, motif: 'question inconnue' })
+      const lu = lireEtiquetage(e)
+      if ('refus' in lu) return refusees.push({ id, motif: lu.refus })
+      const meta = 'horsBase' in lu ? { horsBase: lu.horsBase } : lu.meta
+      if ('horsBase' in lu) horsBase++
+      else etiquetees++
+      ecritures.push({ sql: 'UPDATE jour_reserve SET metadonnees = ?, etiquetee_le = ? WHERE id = ?', args: [JSON.stringify(meta), maintenant, id] })
+    })
+    if (ecritures.length > 0) await this.client.batch(ecritures, 'write')
+    return { etiquetees, horsBase, refusees }
+  }
+
+  private mesuresGardees: { a: number; parQuestion: Map<string, { justes: number; total: number }> } | null = null
+
+  /**
+   * La part de joueurs qui ont trouvé chaque question posée, par identifiant
+   * de la réserve : la difficulté que la consigne ne sait pas deviner. Les
+   * réponses se rapportent à leur question par le tirage de leur jour ; une
+   * question annulée ne dit rien. Relue au plus toutes les dix minutes.
+   */
+  async mesures(): Promise<Map<string, { justes: number; total: number }>> {
+    if (this.mesuresGardees && this.maintenant() - this.mesuresGardees.a < MESURES_GARDEES_MS) return this.mesuresGardees.parQuestion
+    const [tirages, reponses] = await Promise.all([
+      this.client.execute('SELECT jour, questions, annulees FROM jour_tirages'),
+      this.client.execute('SELECT jour, question, SUM(juste) AS justes, COUNT(*) AS total FROM jour_reponses GROUP BY jour, question'),
+    ])
+    const idDe = new Map<string, string>()
+    for (const t of tirages.rows) {
+      let questions: { reserveId?: string }[] = []
+      let annulees: number[] = []
+      try {
+        questions = JSON.parse(String(t.questions))
+        annulees = JSON.parse(String(t.annulees ?? '[]'))
+      } catch {
+        continue
+      }
+      questions.forEach((q, i) => q.reserveId && !annulees.includes(i) && idDe.set(`${t.jour}#${i}`, q.reserveId))
+    }
+    const parQuestion = new Map<string, { justes: number; total: number }>()
+    for (const r of reponses.rows) {
+      const id = idDe.get(`${r.jour}#${r.question}`)
+      if (!id) continue
+      const avant = parQuestion.get(id) ?? { justes: 0, total: 0 }
+      parQuestion.set(id, { justes: avant.justes + Number(r.justes), total: avant.total + Number(r.total) })
+    }
+    this.mesuresGardees = { a: this.maintenant(), parQuestion }
+    return parQuestion
+  }
+
+  /** La difficulté mesurée des dernières questions posées, assez jouées pour se mesurer. */
+  async difficultesRecentes(): Promise<Record<Niveau, number>> {
+    const [mesures, posees] = await Promise.all([
+      this.mesures(),
+      this.client.execute({
+        sql: 'SELECT id FROM jour_reserve WHERE posee_le IS NOT NULL ORDER BY posee_le DESC LIMIT ?',
+        args: [MESUREES_POUR_LA_CONSIGNE],
+      }),
+    ])
+    const compte: Record<Niveau, number> = { facile: 0, moyen: 0, difficile: 0, expert: 0 }
+    for (const r of posees.rows) {
+      const m = mesures.get(String(r.id))
+      const n = m && niveauMesure(m.justes, m.total)
+      if (n) compte[n]++
+    }
+    return compte
   }
 
   close() {
@@ -509,6 +635,9 @@ export class JourStore {
     }
     const joursDAvance = Math.floor(pretes / QUESTIONS_PAR_JOUR)
     const aEcrire = aEcrirePour(joursDAvance)
+    // Ce que disent les joueurs : la difficulté qu'une IA ne sait pas juger
+    // seule. Une base muette ne prive pas la routine de sa consigne.
+    const mesure = await this.difficultesRecentes().catch(() => undefined)
     return {
       joursDAvance,
       aEcrire,
@@ -516,6 +645,7 @@ export class JourStore {
         n: n ?? aEcrire,
         aPrivilegier: categoriesAPrivilegier(parCategorie),
         deja: textes.rows.map(r => String(r.texte ?? '')).filter(Boolean),
+        mesure,
       }),
     }
   }
@@ -1315,7 +1445,7 @@ export class JourStore {
           args: [profileId],
         },
         { sql: 'SELECT jour, rang, xp FROM jour_podiums WHERE profile_id = ?', args: [profileId] },
-        { sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND soiree_id NOT IN ('#paliers', '#jour')`, args: [profileId] },
+        { sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART}`, args: [profileId] },
       ],
       'read',
     )
@@ -1429,7 +1559,7 @@ export class JourStore {
       [
         { sql: 'SELECT jour FROM jour_parties WHERE profile_id = ? AND jour >= ?', args: [profileId, depuis] },
         {
-          sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND soiree_id NOT IN ('#paliers', '#jour') AND created_at >= ?`,
+          sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART} AND created_at >= ?`,
           args: [profileId, Date.UTC(Number(depuis.slice(0, 4)), Number(depuis.slice(5, 7)) - 1, Number(depuis.slice(8, 10)))],
         },
       ],
@@ -1809,6 +1939,29 @@ export class JourStore {
       avatar: String(r.avatar),
       masque: this.masques.has(String(r.id)),
     }))
+  }
+
+  /**
+   * Un profil supprimé (`/admin`, « Les profils ») : ses parties, ses
+   * réponses, ses podiums, ses signalements et son masque partent avec lui,
+   * sous son verrou — une réponse en route n'écrit pas derrière. Les
+   * classements gardés de ses jours se relisent : son prénom y restait.
+   * Ce que les autres ont gagné ces jours-là ne bouge pas — son podium ne
+   * remonte personne.
+   */
+  async oublierProfil(profileId: string): Promise<void> {
+    await this.avecVerrou(profileId, async () => {
+      const jours = await this.client.execute({ sql: 'SELECT DISTINCT jour FROM jour_parties WHERE profile_id = ?', args: [profileId] })
+      await this.client.batch(
+        ['jour_reponses', 'jour_parties', 'jour_podiums', 'jour_signalements', 'jour_masques'].map(table => ({
+          sql: `DELETE FROM ${table} WHERE profile_id = ?`,
+          args: [profileId],
+        })),
+        'write',
+      )
+      for (const r of jours.rows) this.reviser(String(r.jour))
+      this.masques.delete(profileId)
+    })
   }
 
   // ── Interne ─────────────────────────────────────────────────────────────

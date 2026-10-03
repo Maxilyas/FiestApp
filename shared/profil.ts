@@ -752,6 +752,31 @@ export interface SoireeJouee {
 }
 
 /** Le profil au complet, pour sa propre page — et pour elle seule. */
+/**
+ * Un profil tel que l'administrateur le cherche (`/admin`, « Les profils ») :
+ * de quoi le reconnaître et savoir ce que sa suppression emporte — rien de
+ * sa carrière en détail.
+ */
+export interface ProfilDAdministration {
+  id: string
+  login: string
+  nom: string
+  /** L'avatar enregistré, tel quel : on reconnaît quelqu'un, on ne regarde pas la salle. */
+  avatar: string
+  niveau: number
+  /** Ses soirées dans l'historique — les lignes à part (quiz du jour, campagne) n'en sont pas. */
+  soirees: number
+  vuLe: number | null
+  /**
+   * L'espace qu'il tient, s'il en tient un : `propre`, son salon, ouvert par
+   * lui sans mot de passe (« Créer un salon ») ; sinon un compte d'animateur
+   * au mot de passe à lui. Supprimer le profil les détache, et ils restent.
+   */
+  salon: { slug: string; quiz: number; propre: boolean } | null
+  /** Le profil de l'administrateur qui regarde : il ne se supprime pas d'ici. */
+  toi: boolean
+}
+
 export interface PublicProfileDetail extends PublicProfile {
   vitrine: BadgePorte[]
   soirees: SoireeJouee[]

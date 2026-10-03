@@ -35,6 +35,8 @@ interface ProfileApiDeps {
    * « Rejoindre une soirée » redemandait le nom de celle où l'on jouait déjà.
    */
   soireesOuJeJoue: (profileId: string) => string[]
+  /** Ouvre le salon d'un espace et rend son code — le même tant qu'il vaut. */
+  ouvrirSalon: (spaceId: string, opts?: { auto?: boolean }) => Promise<string | null>
   /** En ligne, le cookie ne voyage qu'en HTTPS. */
   online: boolean
   /** Un profil a changé ce que la salle voit de lui (finition, légendaire) : les soirées où il joue le rediffusent. */
@@ -64,6 +66,12 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
    * remplisse la base de profils fantômes.
    */
   const inscriptions = new Budget(10, 5, { skipLoopback: true })
+  /**
+   * Les espaces créés par adresse : un salon par profil, et quelques profils
+   * derrière une même box. Un script qui créerait des profils pour remplir
+   * la base d'espaces s'arrête ici, après l'inscription.
+   */
+  const espacesCrees = new Budget(5, 1 / 6, { skipLoopback: true })
   const noStore = (res: express.Response) => res.set('Cache-Control', 'no-store')
   /**
    * « Chez Bob » plutôt qu'un identifiant, dans l'historique des soirées — et
@@ -370,6 +378,60 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       const ouverte = await ouvrirConsole(req, res, me.id)
       if (!ouverte) return res.status(403).json({ error: 'Aucune soirée à animer avec ce profil' })
       res.json({ espace: ouverte.espace })
+    }),
+  )
+
+  /**
+   * L'espace du profil — créé la première fois, sans rien demander de plus
+   * — et sa console ouverte sur ce navigateur. Plus de compte d'animateur à
+   * obtenir : qui a un profil peut animer, et ses quiz vivent dans son
+   * espace. Il garde son identifiant pour toujours (invariant 16). Rend
+   * null après avoir répondu, sur un refus.
+   */
+  const espaceDuProfil = async (req: express.Request, res: express.Response) => {
+    const me = await current(req)
+    if (!me) {
+      res.status(401).json({ error: 'Connecte-toi à ton profil pour animer' })
+      return null
+    }
+    const deja = deps.auth.byProfile(me.id)
+    if (deja?.disabledAt) {
+      res.status(403).json({ error: 'Ton salon est en pause — demande à l’administrateur' })
+      return null
+    }
+    if (!deja && !espacesCrees.take(clientIp(req))) {
+      res.status(429).json({ error: 'Trop de salons ouverts depuis ce réseau — réessaie dans un moment' })
+      return null
+    }
+    const espace = deja ?? (await deps.auth.creerEspaceDuProfil(me))
+    const ouverte = await ouvrirConsole(req, res, me.id)
+    if (!ouverte) {
+      res.status(403).json({ error: 'Ton salon est en pause — demande à l’administrateur' })
+      return null
+    }
+    return { id: espace.id, espace: ouverte.espace, nouveau: !deja }
+  }
+
+  /** Préparer sa soirée — ses quiz, son programme — sans encore ouvrir le salon ni tirer son code. */
+  app.post(
+    '/api/joueur/espace',
+    wrap(async (req, res) => {
+      noStore(res)
+      const pret = await espaceDuProfil(req, res)
+      if (pret) res.json({ espace: pret.espace, nouveau: pret.nouveau })
+    }),
+  )
+
+  /** « Ouvrir le salon » : l'espace, sa console, et le code du salon — le même tant qu'il vaut. */
+  app.post(
+    '/api/joueur/salon',
+    wrap(async (req, res) => {
+      noStore(res)
+      const pret = await espaceDuProfil(req, res)
+      if (!pret) return
+      // Ouvert d'ici, le salon s'enregistre seul après son programme.
+      const code = await deps.ouvrirSalon(pret.id, { auto: true })
+      res.json({ espace: pret.espace, code, nouveau: pret.nouveau })
     }),
   )
 

@@ -6,7 +6,7 @@ import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
 import { divinsDeSoiree, laureatsDivins } from './divins'
 import { laureatsDeSaison } from './saisons'
 import { pourquoiInjoignable } from './distante'
-import { LIGNE_JOUR, LIGNE_PALIERS, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
+import { LIGNE_CAMPAGNE, LIGNE_JOUR, LIGNE_PALIERS, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
 import { hautFaitDeSoiree } from '../../../shared/hautsfaits'
 import type { PartyArchive } from '../../../shared/archive'
 
@@ -116,6 +116,10 @@ export async function recalculerHistorique(deps: {
   const credites = new Set<string>()
   const touches = new Set<string>()
   const soirees = (await archives.toutes()).filter(({ spaceId, id }) => !enCours.has(cleDeSoiree(spaceId, id)))
+  // Une archive nomme pour toujours ceux qui y ont joué, même un profil
+  // supprimé depuis (`/admin`, « Les profils ») : recrédité, il laisserait
+  // des lignes, des prix et des paliers sous un identifiant qui n'existe plus.
+  const existants = await profiles.idsExistants()
   await enParallele(soirees, EN_PARALLELE, async ({ spaceId, id }) => {
     const trouvee = await archives.get(spaceId, id).catch(e => {
       // Une base qui hoquette n'est pas une archive illisible. Prise pour
@@ -128,7 +132,9 @@ export async function recalculerHistorique(deps: {
       return null
     })
     if (!trouvee) return
-    const { gains, laureats } = creditDArchive(trouvee.archive)
+    const credit = creditDArchive(trouvee.archive)
+    const gains = credit.gains.filter(g => existants.has(g.profileId))
+    const laureats = credit.laureats.filter(l => existants.has(l.profileId))
     await profiles.crediterSoireeEntiere(id, spaceId, gains)
     for (const g of gains) {
       touches.add(g.profileId)
@@ -146,10 +152,10 @@ export async function recalculerHistorique(deps: {
       paliers.add(l.profileId)
       continue
     }
-    // Le quiz du jour a son propre barème, que celui des soirées ne touche
-    // pas : sa ligne prend la version du jour, sans rien relire.
-    if (l.soireeId === LIGNE_JOUR) {
-      await profiles.remettreAuBareme(l.profileId, LIGNE_JOUR)
+    // Le quiz du jour et la campagne ont leur propre barème, que celui des
+    // soirées ne touche pas : leur ligne prend la version du jour, sans rien relire.
+    if (l.soireeId === LIGNE_JOUR || l.soireeId === LIGNE_CAMPAGNE) {
+      await profiles.remettreAuBareme(l.profileId, l.soireeId)
       continue
     }
     // Réécrite par la relecture de sa soirée.

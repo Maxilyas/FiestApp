@@ -42,6 +42,7 @@ import { erreurMontrable } from '../src/core/http'
 import { AuthStore } from '../src/auth/store'
 import { ProfileStore } from '../src/auth/profiles'
 import { QuizStore } from '../src/core/quizStore'
+import { JourStore } from '../src/core/jour'
 import { PartyBackup, type PartyMirror } from '../src/core/backup'
 import { BaseMuette } from '../src/core/distante'
 import { initDb } from '../src/core/db'
@@ -472,6 +473,8 @@ test('un profil ne change pas en mémoire quand la base permanente refuse de l�
  * espaces, les octets des photos, les équipes du miroir.
  */
 const SCHEMA_D_AVANT = `
+  CREATE TABLE jour_reserve (id TEXT PRIMARY KEY, question TEXT NOT NULL, empreinte TEXT NOT NULL UNIQUE, categorie TEXT,
+    source TEXT NOT NULL, ajoutee_le INTEGER NOT NULL, posee_le TEXT, retiree_le INTEGER);
   CREATE TABLE accounts (id TEXT PRIMARY KEY, login TEXT NOT NULL UNIQUE, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE,
     role TEXT NOT NULL, password_hash TEXT, disabled_at INTEGER, created_at INTEGER NOT NULL, last_login_at INTEGER,
     settings TEXT NOT NULL DEFAULT '{}');
@@ -511,6 +514,21 @@ const MIGRATIONS: { nom: string; demarrer: (url: string) => Promise<void>; ajout
     ajoute: [
       ['accounts', 'profile_id'],
       ['auth_sessions', 'profile_id'],
+    ],
+  },
+  {
+    nom: 'le quiz du jour',
+    demarrer: async url => {
+      const jour = new JourStore(url, undefined, { profiles: {} as ProfileStore })
+      try {
+        await jour.init()
+      } finally {
+        jour.close()
+      }
+    },
+    ajoute: [
+      ['jour_reserve', 'metadonnees'],
+      ['jour_reserve', 'etiquetee_le'],
     ],
   },
   {

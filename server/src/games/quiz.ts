@@ -8,6 +8,8 @@ import { ENCHAINEMENT_MAX_S } from '../../../shared/console'
 import { preparerPartie, type ReglagesDuQuiz } from '../../../shared/hasard'
 import type {
   QuizAction,
+  DetailDeLaQuestion,
+  LigneDeLaQuestion,
   QuizAttendu,
   QuizCommand,
   QuizGuessRow,
@@ -273,6 +275,19 @@ const programmes = new Map<string, { titre: string; entrees: EntreeDeProgramme[]
 export function setProgramme(spaceId: string, programme: { titre: string; entrees: EntreeDeProgramme[] } | null) {
   if (programme) programmes.set(spaceId, { titre: programme.titre, entrees: programme.entrees })
   else programmes.delete(spaceId)
+}
+
+/**
+ * Le programme de ce soir est-il joué en entier ? Lu au verdict de chaque
+ * quiz : le salon ouvert depuis un téléphone s'enregistre alors tout seul
+ * (`SpaceRuntime.considererCloture`). Un quiz retiré de la bibliothèque ne
+ * compte plus — le programme ne l'attend pas.
+ */
+export function programmeJoue(spaceId: string, joues: Iterable<string>): boolean {
+  const programme = programmes.get(spaceId)
+  if (!programme) return false
+  const avancement = avancementDuProgramme(programme.entrees, new Set(quizLibrary(spaceId).map(p => p.id)), new Set(joues))
+  return avancement.entrees.length > 0 && avancement.prochain === null
 }
 
 /**
@@ -776,6 +791,76 @@ function placeAuQuiz(
     ...(derriere && { derriere }),
     ...(exAequo > 0 && { exAequo }),
     ...(avant !== undefined && avant !== lignes[i].rang && { avant }),
+  }
+}
+
+/**
+ * « Cette question », rangée une fois par diffusion : ceux qui ont répondu
+ * — ceux qui ont trouvé d'abord, du plus rapide au plus lent, puis les
+ * autres de même —, la position de chacun, et combien ont donné chaque
+ * réponse. Chaque téléphone y lit ses lignes en temps constant : rangée pour
+ * chacun, une révélation à cinq cents ferait cinq cents tris de cinq cents.
+ * Des identifiants seulement : le téléphone les décore avec l'instantané
+ * (invariant 17), et rien ne relit un nom.
+ *
+ * Exclure un invité qui a répondu change ce détail pour toute la salle, qui
+ * reçoit alors sa vue : c'est rare, et le compte de ceux qui ont trouvé ne
+ * doit pas mentir. Exclure qui n'a pas répondu ne change rien.
+ */
+function indexDeLaQuestion(sess: GameSessionRec<QuizState>, q: PlayableQuestion, vctx: ViewContext) {
+  return vctx.memo('quiz:la-question', () => {
+    const st = sess.state
+    const lignes: LigneDeLaQuestion[] = []
+    const parChoix = new Map<number, number>()
+    for (const [id, r] of Object.entries(st.responses)) {
+      // « Plusieurs » et « ordre » envoient leurs cases : pas une forme à montrer.
+      const choix = q.kind === 'choice' && !q.variante ? r.choice : null
+      lignes.push({ id, juste: reponseJuste(q, r), choix, ms: r.ms, points: st.lastAwards[id] ?? 0 })
+      if (choix !== null) parChoix.set(choix, (parChoix.get(choix) ?? 0) + 1)
+    }
+    // Deux réponses à la même milliseconde gardent l'ordre où elles sont
+    // arrivées (le tri est stable) : départagées par identifiant, tiré au
+    // hasard, deux salles jouées à l'identique ne se rangeaient pas pareil.
+    lignes.sort((a, b) => Number(b.juste) - Number(a.juste) || a.ms - b.ms)
+    let trouvees = 0
+    while (trouvees < lignes.length && lignes[trouvees].juste) trouvees++
+    return { lignes, position: new Map(lignes.map((l, i) => [l.id, i])), parChoix, trouvees }
+  })
+}
+
+/** Personne ne fait défiler une révélation : le haut, et soi avec ses voisins. */
+const LIGNES_DE_LA_QUESTION = 6
+
+/**
+ * « Cette question », pour un téléphone : à la révélation d'un QCM —
+ * variantes comprises, sauf le sondage, qui n'a rien de juste —, tant que
+ * ses points tiennent : une question annulée n'a plus de plus rapide.
+ */
+function laQuestion(
+  sess: GameSessionRec<QuizState>,
+  q: PlayableQuestion,
+  vctx: ViewContext,
+  playerId: string,
+): DetailDeLaQuestion | undefined {
+  if (q.kind !== 'choice' || q.variante === 'sondage' || sess.state.cancelled) return undefined
+  const { lignes, position, parChoix, trouvees } = indexDeLaQuestion(sess, q, vctx)
+  if (lignes.length === 0) return undefined
+  const i = position.get(playerId)
+  const n = LIGNES_DE_LA_QUESTION
+  const montrees =
+    i === undefined || lignes.length <= n || i < n - 1
+      ? lignes.slice(0, n)
+      : [...lignes.slice(0, n / 2), null, ...lignes.slice(i - 1, i + 2)]
+  const tete = (j: number) => (j < trouvees ? { id: lignes[j].id, ms: lignes[j].ms } : null)
+  const sienne = i === undefined ? undefined : lignes[i]
+  return {
+    lignes: montrees,
+    trouvees,
+    repondues: lignes.length,
+    premier: tete(0),
+    second: tete(1),
+    ...(sienne?.juste && { rangDesJustes: i! + 1 }),
+    ...(sienne && !sienne.juste && sienne.choix !== null && { memeChoix: (parChoix.get(sienne.choix) ?? 1) - 1 }),
   }
 }
 
@@ -1367,6 +1452,8 @@ export const quizModule: GameModule<QuizState> = {
           // Sa place entre ses voisins — pas pour qui vient d'arriver : il n'a
           // encore rien joué, et « à 180 pts de Karim » l'accueillerait mal.
           ...(!justArrived && { place: placeAuQuiz(sess, vctx, playerId, true) }),
+          // La question vue par toute la salle : qui a trouvé, en combien de temps.
+          laQuestion: laQuestion(sess, q, vctx, playerId),
         }),
       }
     }

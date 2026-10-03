@@ -175,8 +175,23 @@ export const LIGNE_PALIERS = '#paliers'
  */
 export const LIGNE_JOUR = '#jour'
 
-/** Les lignes qui ne sont pas des soirées. */
-const LIGNES_A_PART = [LIGNE_PALIERS, LIGNE_JOUR]
+/**
+ * La ligne d'expérience de la campagne solo : ses bonnes réponses, chaque
+ * journée plafonnée (`xpDeCampagne`), recalculées par `core/campagne.ts` à
+ * chaque bonne réponse. Comme celle du quiz du jour, elle compte dans le
+ * total et le niveau, mais l'historique des soirées l'ignore.
+ */
+export const LIGNE_CAMPAGNE = '#campagne'
+
+/**
+ * Les lignes qui ne sont pas des soirées : tout ce qui lit `profile_xp`
+ * comme des soirées les écarte — l'historique, la série du jour. Une ligne
+ * de plus s'ajoute ici, et nulle part ailleurs.
+ */
+export const LIGNES_A_PART: readonly string[] = [LIGNE_PALIERS, LIGNE_JOUR, LIGNE_CAMPAGNE]
+
+/** `NOT IN (…)` des lignes à part, à poser dans une requête qui lit les soirées. */
+export const HORS_LIGNES_A_PART = `soiree_id NOT IN (${LIGNES_A_PART.map(l => `'${l}'`).join(', ')})`
 
 /**
  * Le nom sous lequel un jour range les paliers du quiz du jour qu'il a fait
@@ -445,6 +460,13 @@ export class ProfileStore {
    * démarrage comme `statsDuJour`.
    */
   justesDuJour?: (profileId: string) => Promise<number>
+
+  /**
+   * Ses bonnes réponses en campagne (`CampagneStore.justesDe`) : un confetti
+   * chacune, comme au quiz du jour — un choix de produit, dit avec la
+   * campagne. Branchées au démarrage comme `justesDuJour`.
+   */
+  justesDeCampagne?: (profileId: string) => Promise<number>
 
   /**
    * Les achats en cours, un par profil : deux achats partis ensemble — deux
@@ -796,12 +818,13 @@ export class ProfileStore {
     jour: string,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
   ): Promise<BoutiqueDuProfil> {
-    const [lues, achats, duJour] = await Promise.all([
+    const [lues, achats, duJour, deCampagne] = await Promise.all([
       soirees ?? this.historiqueOf(p.id),
       this.achatsDe(p.id),
       this.justesDuJour?.(p.id) ?? 0,
+      this.justesDeCampagne?.(p.id) ?? 0,
     ])
-    const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour
+    const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne
     const depenses = [...achats.values()].reduce((n, prix) => n + prix, 0)
     return {
       confettis: { gagnes, depenses, solde: gagnes - depenses },
@@ -2104,6 +2127,71 @@ export class ProfileStore {
     return this.porteurs
   }
 
+  // ── L'administration ────────────────────────────────────────────────────
+
+  /**
+   * Les profils que l'administrateur cherche — un prénom, un identifiant —,
+   * ou, sans recherche, les derniers vus : trente au plus. Avec ce que la
+   * liste en dit : son niveau, ses soirées, sa dernière visite.
+   */
+  async pourLAdministration(cherche: string): Promise<{ total: number; profils: { profil: ProfileRec; niveau: number; soirees: number }[] }> {
+    const mots = cherche.trim().toLowerCase().replace(/[%_]/g, '')
+    const motif = `%${mots}%`
+    const [compte, trouves] = await this.client.batch(
+      [
+        'SELECT COUNT(*) AS n FROM profiles WHERE disabled_at IS NULL',
+        mots
+          ? { sql: `SELECT id FROM profiles WHERE disabled_at IS NULL AND (lower(name) LIKE ? OR login LIKE ?) ORDER BY name LIMIT 30`, args: [motif, motif] }
+          : `SELECT id FROM profiles WHERE disabled_at IS NULL ORDER BY COALESCE(last_seen_at, created_at) DESC LIMIT 30`,
+      ],
+      'read',
+    )
+    const ids = trouves.rows.map(r => String(r.id))
+    const soirees = new Map<string, number>()
+    if (ids.length > 0) {
+      const res = await this.client.execute({
+        sql: `SELECT profile_id, COUNT(*) AS n FROM profile_xp WHERE profile_id IN (${ids.map(() => '?').join(', ')}) AND ${HORS_LIGNES_A_PART} GROUP BY profile_id`,
+        args: ids,
+      })
+      for (const r of res.rows) soirees.set(String(r.profile_id), Number(r.n))
+    }
+    const profils = (await this.byIds(ids)).flatMap(p => (p ? [{ profil: p, niveau: this.niveauOf(p), soirees: soirees.get(p.id) ?? 0 }] : []))
+    return { total: Number(compte.rows[0]?.n ?? 0), profils }
+  }
+
+  /** Tous les profils qui existent encore : le recalcul ne recrédite pas un profil supprimé. */
+  async idsExistants(): Promise<Set<string>> {
+    const res = await this.client.execute('SELECT id FROM profiles')
+    return new Set(res.rows.map(r => String(r.id)))
+  }
+
+  /**
+   * Supprime un profil, et tout ce qui n'était qu'à lui : ses sessions, ses
+   * lignes d'expérience, son étagère, ses éclats, ses légendaires et ses
+   * niveaux gardés, ses achats. En un seul lot, la fiche en dernier ; puis la
+   * mémoire. Ce que ses soirées ont rapporté aux autres joueurs reste à eux :
+   * rien ici ne touche une ligne qui n'est pas la sienne. Le quiz du jour, la
+   * campagne et son salon se défont avant, chacun chez lui (`server.ts`).
+   */
+  async supprimer(profileId: string): Promise<void> {
+    await this.client.batch(
+      [
+        ...['profile_sessions', 'profile_xp', 'profile_badges', 'profile_eclats', 'profile_legendaires', 'profile_niveaux', 'profile_achats'].map(table => ({
+          sql: `DELETE FROM ${table} WHERE profile_id = ?`,
+          args: [profileId],
+        })),
+        { sql: 'DELETE FROM profiles WHERE id = ?', args: [profileId] },
+      ],
+      'write',
+    )
+    for (const s of [...this.sessions.values()]) if (s.profileId === profileId) this.sessions.delete(s.id)
+    for (const carte of [this.profiles, this.eclats, this.eteints, this.recompenses, this.acquis, this.gardes, this.savoirs, this.achatsEnCours]) {
+      carte.delete(profileId)
+    }
+    // La rareté des hauts faits se compte sur la population : elle a changé.
+    this.porteurs = null
+  }
+
   // ── Carrière et historique ──────────────────────────────────────────────
 
   /** Toutes les soirées d'un profil, de la plus récente à la plus ancienne. */
@@ -2120,8 +2208,8 @@ export class ProfileStore {
   > {
     const rows = await this.client.execute({
       sql: `SELECT soiree_id, space_id, xp, detail, created_at, joueur_id FROM profile_xp
-            WHERE profile_id = ? AND soiree_id NOT IN (?, ?) ORDER BY created_at DESC`,
-      args: [profileId, ...LIGNES_A_PART],
+            WHERE profile_id = ? AND ${HORS_LIGNES_A_PART} ORDER BY created_at DESC`,
+      args: [profileId],
     })
     return rows.rows.map(r => {
       const { gain, releve } = decodeDetail(String(r.detail))
@@ -2236,15 +2324,15 @@ export class ProfileStore {
       await this.recalculerTotal(profileId)
       return
     }
-    if (soireeId === LIGNE_JOUR) {
-      // Le quiz du jour ne dépend pas du barème des soirées : sa ligne garde
+    if (soireeId === LIGNE_JOUR || soireeId === LIGNE_CAMPAGNE) {
+      // Le quiz du jour et la campagne ne dépendent pas du barème des soirées : leur ligne garde
       // son expérience, et ne prend que la version du jour. En entier : le
       // nombre lié part en flottant, et `{"v":7.0,…}` n'était jamais « du
       // jour » pour `aRecalculer` — tout l'historique se relisait à chaque
       // démarrage.
       await this.client.execute({
         sql: `UPDATE profile_xp SET detail = json_set(detail, '$.v', CAST(? AS INTEGER)) WHERE profile_id = ? AND soiree_id = ?`,
-        args: [VERSION_BAREME, profileId, LIGNE_JOUR],
+        args: [VERSION_BAREME, profileId, soireeId],
       })
       return
     }
@@ -2277,6 +2365,27 @@ export class ProfileStore {
             args: [profileId, LIGNE_JOUR, xp, JSON.stringify({ v: VERSION_BAREME, jours }), Date.now()],
           }
         : { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, LIGNE_JOUR] }
+    await this.recalculerTotal(profileId, ecrire)
+    return this.byId(profileId)
+  }
+
+  /**
+   * Écrit la ligne de la campagne (`LIGNE_CAMPAGNE`) : son expérience entière,
+   * que `core/campagne.ts` recalcule de ses réponses, et le total avec, dans
+   * la même transaction. Effacée à zéro. Toujours sous le verrou du profil
+   * de la campagne : lue puis écrite, une somme périmée passerait sinon par
+   * dessus la bonne.
+   */
+  async ecrireXpDeCampagne(profileId: string, xp: number, jours: number): Promise<ProfileRec | null> {
+    const ecrire: InStatement =
+      xp > 0
+        ? {
+            sql: `INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at)
+                  VALUES (?, ?, '', ?, ?, ?)
+                  ON CONFLICT(profile_id, soiree_id) DO UPDATE SET xp = excluded.xp, detail = excluded.detail`,
+            args: [profileId, LIGNE_CAMPAGNE, xp, JSON.stringify({ v: VERSION_BAREME, jours }), Date.now()],
+          }
+        : { sql: 'DELETE FROM profile_xp WHERE profile_id = ? AND soiree_id = ?', args: [profileId, LIGNE_CAMPAGNE] }
     await this.recalculerTotal(profileId, ecrire)
     return this.byId(profileId)
   }

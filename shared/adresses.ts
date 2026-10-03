@@ -12,8 +12,12 @@ export type PublicPage = 'souvenir' | 'stats' | 'bilan' | 'bilan/fiches' | 'soir
  * joueurs. « profil » est aussi l'accueil — demander « quelle soirée ? »
  * avant même de savoir qui est là n'avait aucun sens pour celui qui revient
  * —, « jour » le quiz du jour, qui se joue seul, avec son profil.
+ * « salon » ouvre un salon depuis son profil ; « tele » est l'écran commun
+ * tel qu'on le tape sur une télé, pour y lire le code qui la branche.
+ * « boutique » : les thèmes d'un profil, une pièce du menu ; « campagne » : la
+ * série solo d'un profil.
  */
-export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin' | 'profil' | 'jour'
+export type AccountPage = 'host' | 'edit' | 'connexion' | 'activer' | 'compte' | 'admin' | 'profil' | 'jour' | 'salon' | 'tele' | 'boutique' | 'campagne'
 
 export type Route =
   | { kind: 'landing' }
@@ -22,7 +26,7 @@ export type Route =
   | { kind: 'public'; slug: string; page: PublicPage; archiveId: string | null }
   | { kind: 'unknown' }
 
-export const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil', 'jour']
+export const ACCOUNT_PAGES: AccountPage[] = ['host', 'edit', 'connexion', 'activer', 'compte', 'admin', 'profil', 'jour', 'salon', 'tele', 'boutique', 'campagne']
 const PUBLIC_PAGES: PublicPage[] = ['souvenir', 'stats', 'bilan', 'bilan/fiches', 'soirees']
 const ARCHIVE_ID = /^[\w-]{1,64}$/
 

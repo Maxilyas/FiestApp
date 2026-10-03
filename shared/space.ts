@@ -23,6 +23,10 @@ export const RESERVED_SLUGS = new Set([
   'joueur',
   'profil',
   'jour',
+  'salon',
+  'tele',
+  'boutique',
+  'campagne',
   'deconnexion',
   'stats',
   'souvenir',
@@ -56,8 +60,18 @@ export function normalizeSlug(raw: unknown): string {
     .slice(0, 24)
 }
 
+/**
+ * Le code d'un salon : six chiffres (`server/src/core/salons.ts`). Une
+ * adresse de six chiffres est donc un code, jamais le nom d'un espace : il
+ * masquerait le salon qui tirerait ce code.
+ */
+export const CODE_DU_SALON = /^\d{6}$/
+
+/** « 482 157 » : deux groupes de trois, comme on le dicte à une table. */
+export const ecrireCode = (code: string) => code.replace(/\D/g, '').replace(/^(\d{3})(\d)/, '$1 $2')
+
 export function isValidSlug(slug: string): boolean {
-  return SLUG.test(slug) && !RESERVED_SLUGS.has(slug)
+  return SLUG.test(slug) && !RESERVED_SLUGS.has(slug) && !CODE_DU_SALON.test(slug)
 }
 
 export function normalizeLogin(raw: unknown): string {

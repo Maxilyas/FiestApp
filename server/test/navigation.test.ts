@@ -63,9 +63,12 @@ test('les pages de l’animateur ont la même barre, dans le même ordre, et ell
     'Les comptes → /admin',
   ])
   assert.deepEqual(gestes(await barre('admin', true)).at(-1), 'Les comptes (ici)')
-  // « Mes quiz », « Mon compte » et « Les comptes » la portent, chacun à sa place ;
-  // leurs anciennes barres, qui changeaient d'ordre et de taille, sont parties.
-  assert.match(source('views/EditorApp.tsx'), /<NavAnimateur ici="quiz" slug=\{slug\} admin=\{isAdmin\} \/>/)
+  // « Mon compte » et « Les comptes » la portent, chacun à sa place ; leurs
+  // anciennes barres, qui changeaient d'ordre et de taille, sont parties.
+  // « Mes quiz », pièce du menu de tout profil, a la barre du menu à sa
+  // place (menu.test.ts) : deux barres l'une sur l'autre ne disaient plus où
+  // l'on était.
+  assert.doesNotMatch(source('views/EditorApp.tsx'), /<NavAnimateur/)
   assert.match(source('views/AccountApp.tsx'), /<NavAnimateur ici="compte" slug=\{me\.space\.slug\} admin=\{me\.account\.role === 'admin'\} \/>/)
   assert.match(source('views/AdminApp.tsx'), /<NavAnimateur ici="admin" slug=\{me\.space\.slug\} admin \/>/)
   for (const f of ['views/EditorApp.tsx', 'views/AccountApp.tsx', 'views/AdminApp.tsx']) {
@@ -87,16 +90,20 @@ test('l’écran commun mène à l’accueil, dans son onglet, et l’accueil ou
   assert.match(anime, /\{ouvreuse \? 'Revenir à la console' : 'Ouvrir l’écran commun'\}/)
 })
 
-test('l’accueil de qui anime : l’écran commun, ses quiz, son compte, l’historique', async () => {
+test('l’accueil de qui anime : l’écran commun, un salon, ses quiz, son compte, l’historique', async () => {
   const html = await rendu('components/AccueilDesRoles', 'JAnime', { espace: ESPACE, rouvrir: true })
   assert.match(html, /J’anime/)
   assert.match(html, /La soirée de Bob/)
   assert.deepEqual(gestes(html), [
     'Ouvrir l’écran commun [bouton]',
+    'Nouveau salon → /salon',
     'Mes quiz → /edit',
     'Mon compte → /compte',
     'Historique → /chez-bob/soirees',
   ])
+  // Un salon s'ouvre avec son profil : la console ouverte ici sans lui n'en propose pas.
+  const sansProfil = await rendu('components/AccueilDesRoles', 'JAnime', { espace: ESPACE, rouvrir: false })
+  assert.ok(!gestes(sansProfil).some(g => g.includes('/salon')))
   // Venu de son profil, la session d'animateur a pu expirer : elle se
   // rouvre avant de partir, sinon « Mes quiz » renverrait à une connexion.
   const anime = source('components/AccueilDesRoles.tsx')
@@ -112,31 +119,22 @@ test('l’accueil de qui anime : l’écran commun, ses quiz, son compte, l’hi
   assert.match(profil, /pied=\{!console_ && <PorteAnimateur \/>\}/)
 })
 
-test('« Je joue » : revenir, rejoindre une soirée, jouer chez soi — sans voler le gros bouton de l’écran commun', async () => {
-  const joue = (props: object) =>
-    rendu('components/AccueilDesRoles', 'JeJoue', { enCours: [], chezMoi: null, onRejoindre: () => {}, lendemain: null, ...props })
+test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz du jour, un salon, rejoindre — en gros boutons, à la même place', async () => {
+  const accueil = (props: object) =>
+    rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: () => {}, lendemain: null, ...props })
+  const toujours = ['La campagneTrois vies, sans chrono, de plus en plus dur → /campagne', 'Le quiz du jourDix questions, les mêmes pour tous → /jour', 'Créer un salonTes quiz, tes amis, un code à dicter → /salon', 'Rejoindre une soiréeLe code à six chiffres de ton hôte [bouton]']
 
-  // Qui anime et joue, sans soirée en cours : deux petits boutons, pas de principal.
-  const libre = await joue({ chezMoi: 'chez-bob' })
-  assert.match(libre, /Je joue/)
-  assert.doesNotMatch(libre, /btn-primary/)
-  assert.deepEqual(gestes(libre), ['Rejoindre une soirée [bouton]', 'Jouer chez moi → /chez-bob'])
+  // Rien en cours : les quatre gestes, aucun principal — l'ordre ne dépend ni
+  // de l'heure ni des rôles, contrairement à « Je joue » et « Ce soir ».
+  const libre = await accueil({})
+  assert.deepEqual(gestes(libre), toujours)
+  assert.doesNotMatch(libre, /gros-principal/)
 
-  // Inscrit chez Alice : y revenir d'abord.
-  const chezAlice = await joue({ chezMoi: 'chez-bob', enCours: [{ nom: 'Alice', slug: 'chez-alice' }] })
-  assert.deepEqual(gestes(chezAlice), ['Revenir chez Alice → /chez-alice', 'Rejoindre une soirée [bouton]', 'Jouer chez moi → /chez-bob'])
-  assert.match(chezAlice, /class="btn btn-primary btn-block" href="\/chez-alice"/)
-
-  // Inscrit chez lui : « Revenir chez Bob », pas deux fois le même chemin.
-  const chezLui = await joue({ chezMoi: 'chez-bob', enCours: [{ nom: 'Bob', slug: 'chez-bob' }] })
-  assert.deepEqual(gestes(chezLui), ['Revenir chez Bob → /chez-bob', 'Rejoindre une soirée [bouton]'])
-
-  // Qui ne fait que jouer : « Ce soir », comme avant — rejoindre en grand, et
-  // la porte discrète des animateurs.
-  const joueur = await joue({})
-  assert.match(joueur, /Ce soir/)
-  assert.deepEqual(gestes(joueur), ['Rejoindre une soirée [bouton]', 'J’anime une soirée → /connexion?next=/host'])
-  assert.match(joueur, /class="btn btn-primary btn-block"/)
+  // Inscrit chez Alice : y revenir passe devant tout, et seul en principal.
+  const chezAlice = await accueil({ enCours: [{ nom: 'Alice', slug: 'chez-alice' }] })
+  assert.deepEqual(gestes(chezAlice), ['Revenir chez AliceLa soirée continue sans toi → /chez-alice', ...toujours])
+  assert.match(chezAlice, /class="gros-bouton gros-principal" href="\/chez-alice"/)
+  assert.equal([...chezAlice.matchAll(/gros-principal/g)].length, 1)
 })
 
 test('les pages sans sortie en ont une : l’accueil', () => {

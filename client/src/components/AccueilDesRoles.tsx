@@ -1,6 +1,7 @@
 import { useState, type MouseEvent, type ReactNode } from 'react'
 import { api } from '../api'
-import { Icon, type IconName } from './Icon'
+import { Icon } from './Icon'
+import { GrosBouton } from './Pieces'
 import { consoleOuvreuse, revenirALaConsole } from '../onglets'
 import { spacePath } from '../routes'
 import { showToast } from '../state'
@@ -71,6 +72,14 @@ export function JAnime({ espace, rouvrir }: { espace: PublicSpace; rouvrir: bool
         {ouvreuse ? 'Revenir à la console' : 'Ouvrir l’écran commun'}
       </button>
       <div className="ce-soir-autres accueil-raccourcis">
+        {/* Un salon s'ouvre avec son profil (`/api/joueur/salon`) : la console
+            ouverte ici sans profil garde l'écran commun pour seule porte. */}
+        {rouvrir && (
+          <a className="btn btn-small" href="/salon">
+            <Icon name="plus" />
+            Nouveau salon
+          </a>
+        )}
         <a className="btn btn-small" href="/edit" onClick={parLaSession('/edit')}>
           <Icon name="edit" />
           Mes quiz
@@ -93,76 +102,36 @@ export function JAnime({ espace, rouvrir }: { espace: PublicSpace; rouvrir: bool
   )
 }
 
-interface Action {
-  cle: string
-  nom: string
-  icone: IconName
-  href?: string
-  onClick?: () => void
-}
-
 /**
- * Où l'on joue ce soir : revenir là où l'on est déjà inscrit, rejoindre une
- * soirée, jouer chez soi.
+ * L'accueil d'un profil : ce qu'on vient faire, en gros boutons — une soirée
+ * où l'on joue déjà passe devant tout (« Revenir chez Hugo »), puis le quiz
+ * du jour, créer un salon, rejoindre une soirée. Chacun ouvre sa page, qui en
+ * dit plus : un toucher de plus qu'une carte qui montrait tout, mais un
+ * écran qu'on lit d'un coup d'œil.
  *
- * Pour qui ne fait que jouer, c'est « Ce soir », et rejoindre en est l'action
- * principale. Pour qui anime aussi, c'est « Je joue », sous « J'anime » : une
- * action principale seulement s'il joue déjà quelque part — l'écran commun
- * garde le gros bouton de la page.
+ * Il remplace « Je joue » et « Ce soir », dont les boutons changeaient de
+ * place et de taille selon l'heure et les rôles. Tout le monde a son salon :
+ * il n'y a plus de porte d'animateur à chercher.
  */
-export function JeJoue({
+export function AccueilJouer({
   enCours,
-  chezMoi,
   onRejoindre,
   lendemain,
 }: {
   enCours: { nom: string; slug: string }[]
-  /** L'adresse de son espace, s'il anime : « Jouer chez moi ». */
-  chezMoi: string | null
   onRejoindre: () => void
   lendemain: ReactNode
 }) {
-  const deuxRoles = chezMoi !== null
-  const actions: Action[] = [
-    // La soirée où l'on joue déjà d'abord : « Rejoindre une soirée »
-    // redemandait son nom à qui y était inscrit, et faisait douter d'avoir
-    // quitté la partie (Sofia, le 23 et le 24).
-    ...enCours.map(e => ({ cle: `revenir-${e.slug}`, nom: `Revenir chez ${e.nom}`, icone: 'play' as const, href: spacePath(e.slug) })),
-    { cle: 'rejoindre', nom: 'Rejoindre une soirée', icone: 'users', onClick: onRejoindre },
-    ...(chezMoi && !enCours.some(e => e.slug === chezMoi)
-      ? [{ cle: 'chez-moi', nom: 'Jouer chez moi', icone: 'smartphone' as const, href: spacePath(chezMoi) }]
-      : []),
-  ]
-  const principale = enCours.length > 0 || !deuxRoles ? actions[0] : null
-  const autres = principale ? actions.slice(1) : actions
-  const bouton = (a: Action, classe: string) =>
-    a.href ? (
-      <a key={a.cle} className={classe} href={a.href}>
-        <Icon name={a.icone} />
-        {a.nom}
-      </a>
-    ) : (
-      <button key={a.cle} type="button" className={classe} onClick={a.onClick}>
-        <Icon name={a.icone} />
-        {a.nom}
-      </button>
-    )
   return (
-    <section className="card ce-soir" aria-labelledby="accueil-je-joue">
-      <h3 id="accueil-je-joue">
-        <Icon name={deuxRoles ? 'smartphone' : 'zap'} />
-        {deuxRoles ? 'Je joue' : 'Ce soir'}
-      </h3>
-      {principale && bouton(principale, 'btn btn-primary btn-block')}
-      {autres.length > 0 && <div className="ce-soir-autres">{autres.map(a => bouton(a, 'btn btn-small'))}</div>}
+    <section className="accueil-gestes" aria-label="Jouer">
+      {enCours.map(e => (
+        <GrosBouton key={e.slug} principal icone={<Icon name="play" />} titre={`Revenir chez ${e.nom}`} detail="La soirée continue sans toi" href={spacePath(e.slug)} />
+      ))}
+      <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail="Trois vies, sans chrono, de plus en plus dur" href="/campagne" />
+      <GrosBouton icone={<Icon name="sun" />} titre="Le quiz du jour" detail="Dix questions, les mêmes pour tous" href="/jour" />
+      <GrosBouton icone={<Icon name="plus" />} titre="Créer un salon" detail="Tes quiz, tes amis, un code à dicter" href="/salon" />
+      <GrosBouton icone={<Icon name="users" />} titre="Rejoindre une soirée" detail="Le code à six chiffres de ton hôte" onClick={onRejoindre} />
       {lendemain}
-      {!deuxRoles && (
-        <p className="join-foot">
-          <a className="link-inline" href="/connexion?next=/host">
-            J’anime une soirée
-          </a>
-        </p>
-      )}
     </section>
   )
 }

@@ -1,3 +1,4 @@
+import type { CorrectionDeCampagne, EtatDeCampagne, ReponseDeCampagne, SerieDeCampagne } from '../../shared/campagne'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
@@ -5,7 +6,7 @@ import type { ReglagesDuQuiz } from '../../shared/hasard'
 import type { EntreeDeProgramme, Programme } from '../../shared/programme'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
-import type { FinitionChoisie, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
+import type { FinitionChoisie, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, RevelationDuJour } from '../../shared/jour'
@@ -291,6 +292,10 @@ export const api = {
      * retaper quoi que ce soit.
      */
     console: () => req<{ espace: PublicSpace }>('/api/joueur/console', { method: 'POST' }),
+    /** L'espace du profil (créé la première fois) et sa console ouverte ici, sans ouvrir le salon. */
+    espace: () => req<{ espace: PublicSpace; nouveau: boolean }>('/api/joueur/espace', { method: 'POST' }),
+    /** « Ouvrir le salon » : l'espace du profil, sa console ouverte ici, et le code du salon. */
+    salon: () => req<{ espace: PublicSpace; code: string | null; nouveau: boolean }>('/api/joueur/salon', { method: 'POST' }),
     deconnexion: () => req<{ ok: true }>('/api/joueur/deconnexion', { method: 'POST' }),
     enregistrer: (patch: {
       name?: string
@@ -335,6 +340,14 @@ export const api = {
    * d'une question se lit à l'heure du serveur (invariant 6), et ce
    * téléphone-là n'a pas de liaison temps réel pour la mesurer.
    */
+  /** La campagne solo : une série qui monte en difficulté, trois vies (`shared/campagne.ts`). */
+  campagne: {
+    etat: () => req<EtatDeCampagne>('/api/campagne'),
+    commencer: (categories: string[]) => req<SerieDeCampagne>('/api/campagne/serie', { method: 'POST', body: JSON.stringify({ categories }) }),
+    repondre: (serie: string, index: number, choix: number) =>
+      req<ReponseDeCampagne>(`/api/campagne/serie/${encodeURIComponent(serie)}/reponse`, { method: 'POST', body: JSON.stringify({ index, choix }) }),
+    correction: (serie: string) => req<CorrectionDeCampagne[]>(`/api/campagne/serie/${encodeURIComponent(serie)}/correction`),
+  },
   jour: {
     etat: () => avecLHeure(() => req<PartieDuJour>('/api/jour')),
     commencer: () => avecLHeure(() => req<PartieDuJour>('/api/jour/commencer', { method: 'POST' })),
@@ -380,6 +393,12 @@ export const api = {
     /** `reprendre` : ce que ses soirées ont crédité aux joueurs part avec lui. */
     remove: (id: string, credits: 'garder' | 'reprendre') =>
       req<{ ok: true }>(`/api/admin/accounts/${id}?credits=${credits}`, { method: 'DELETE' }),
+    /** « Les profils » : ceux qu'on cherche, ou les derniers vus. */
+    profils: (cherche: string) =>
+      req<{ total: number; profils: ProfilDAdministration[] }>(`/api/admin/profils?q=${encodeURIComponent(cherche)}`),
+    /** Supprime un profil et ce qui n'était qu'à lui ; l'espace qu'il tenait reste, détaché. */
+    supprimerProfil: (id: string) =>
+      req<{ ok: true; salon: 'detache' | null }>(`/api/admin/profils/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     /** Le catalogue du serveur, toutes les copies : proposées, publiées, refusées, retirées. */
     catalogue: () => req<EntreeDuCatalogue[]>('/api/admin/catalogue'),
     /** Une copie proposée, questions comprises, pour la relire. */
@@ -492,6 +511,23 @@ let meOnce: Promise<Me | null> | null = null
 export function currentMe(): Promise<Me | null> {
   if (!meOnce) meOnce = api.auth.me().catch(() => null)
   return meOnce
+}
+
+/**
+ * Ouvre la console par le profil connecté ici — son espace créé la première
+ * fois (`/api/joueur/espace`). « Mes quiz » et « Compte » sont des pièces du
+ * menu de tout profil : sans compte d'animateur, ils renvoyaient à une
+ * connexion qu'aucun joueur n'avait. Vrai si la console est ouverte ;
+ * faux sans profil — la page demande alors la connexion, comme avant.
+ */
+export async function ouvrirParLeProfil(): Promise<boolean> {
+  try {
+    await api.joueur.espace()
+    return true
+  } catch (e) {
+    if (e instanceof UnauthorizedError) return false
+    throw e
+  }
 }
 
 /**

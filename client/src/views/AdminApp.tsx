@@ -4,6 +4,7 @@ import { activationUrl, api, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
 import { NavAnimateur } from '../components/NavAnimateur'
 import { AdminDuJour } from '../components/AdminDuJour'
+import { AdminProfils } from '../components/AdminProfils'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { showToast, useAppState } from '../state'
 import { formatDay } from '../../../shared/archive'
@@ -13,7 +14,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
 import { copierTexte } from '../copier'
 
 /**
- * Les comptes (`/admin`), pour l'administrateur seul : créer le compte d'un
+ * L'administration (`/admin`), pour l'administrateur seul : les profils —
+ * les chercher, en supprimer un (`AdminProfils`) —, puis les comptes : créer le compte d'un
  * ami, lui donner son lien d'activation, en refaire un s'il a perdu son mot
  * de passe, désactiver ou réactiver — et supprimer un compte désactivé, avec
  * tout ce qu'il a laissé. Les quiz et les soirées des autres ne se voient
@@ -106,7 +108,7 @@ export function AdminApp() {
       <header className="recap-header">
         <span className="label">Administration</span>
         <h1>Les comptes</h1>
-        <p className="muted">Un compte par animateur : son espace, ses quiz, ses soirées.</p>
+        <p className="muted">Les profils des joueurs, et un compte par animateur : son espace, ses quiz, ses soirées.</p>
         <hr className="hairline" />
       </header>
 
@@ -114,11 +116,17 @@ export function AdminApp() {
       {/* Plus bas dans la même page : un lien vers la gestion de la réserve,
           pas vers le jeu. */}
       <p className="nav-ancre">
+        <a className="link-inline" href="#les-profils">
+          Les profils
+        </a>
+        {' · '}
         <a className="link-inline" href="#quiz-du-jour">
           Le quiz du jour
         </a>
       </p>
       <main className="page-corps">
+        <AdminProfils />
+
         <CreateForm onCreated={(account, token) => load().then(() => showActivation(account, token))} />
 
         <section className="card">

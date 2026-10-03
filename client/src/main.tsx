@@ -37,6 +37,8 @@ const AdminApp = lazy(() => import('./views/AdminApp').then(m => ({ default: m.A
 const LandingApp = lazy(() => import('./views/LandingApp').then(m => ({ default: m.LandingApp })))
 const ProfilApp = lazy(() => import('./views/ProfilApp').then(m => ({ default: m.ProfilApp })))
 const JourApp = lazy(() => import('./views/JourApp').then(m => ({ default: m.JourApp })))
+const CampagneApp = lazy(() => import('./views/CampagneApp').then(m => ({ default: m.CampagneApp })))
+const SalonApp = lazy(() => import('./views/SalonApp').then(m => ({ default: m.SalonApp })))
 
 const ACCOUNT: Record<AccountPage, typeof HostApp> = {
   host: HostApp,
@@ -47,6 +49,12 @@ const ACCOUNT: Record<AccountPage, typeof HostApp> = {
   admin: AdminApp,
   profil: ProfilApp,
   jour: JourApp,
+  salon: SalonApp,
+  // La télé ouvre l'écran commun : sans session, il affiche le code qui la branche.
+  tele: HostApp,
+  // L'accueil, le profil et la boutique sont la même page, qui lit son adresse.
+  boutique: ProfilApp,
+  campagne: CampagneApp,
 }
 const PUBLIC: Record<PublicPage, typeof RecapApp> = {
   souvenir: RecapApp,
@@ -101,7 +109,7 @@ else if (route.kind === 'unknown') document.title = 'Adresse introuvable · Fies
 // portent le thème de son profil, celui qu'il portait la dernière fois dès
 // le démarrage (`themeJoueur.ts`) ; les autres restent en Velours.
 if (App === HostApp) applyTheme()
-else if (App === PlayerApp || App === ProfilApp || App === JourApp) poserThemeRetenu()
+else if (App === PlayerApp || App === ProfilApp || App === JourApp || App === CampagneApp) poserThemeRetenu()
 
 // Les écrans d'entrée ancrent leur bouton en bas de page : le clavier d'un
 // téléphone le cachait. L'écran commun n'a pas de clavier qui monte.

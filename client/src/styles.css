@@ -438,6 +438,13 @@ h3 > .icon {
 
 .input-line:focus { border-bottom-color: var(--focus); }
 .input-line::placeholder { font-style: italic; }
+/* Le code du salon : des chiffres qui se lisent de loin, à égale largeur, comme on les dicte. */
+.input-code {
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
 
 .field { display: flex; flex-direction: column; gap: 10px; }
 .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
@@ -1129,6 +1136,17 @@ h3 > .icon {
   padding: 0.625rem 0;
 }
 
+/* Le code du salon, ce qu'on lit de loin et qu'on dicte : en grand, au-dessus
+   de l'adresse. En rem : sur grand écran, `/host` compte en rem. */
+.invite-code {
+  margin: 0;
+  font-size: clamp(2.6rem, 6vw, 4.5rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+}
 .invite-url {
   font-family: var(--serif);
   font-weight: 600;
@@ -1288,6 +1306,11 @@ h3 > .icon {
 .host.telecommande .host-console { order: 1; }
 .host.telecommande .main-stage { order: 2; }
 .host.telecommande .host-grid > :not(.main-stage) { order: 3; }
+/* La régie se regarde avant de se toucher : le temps, qui manque, le partage
+   de la salle d'abord, les gestes juste dessous — le reste de la télécommande
+   garde ses gestes en tête. */
+.host.telecommande:has(.regie) .main-stage { order: 0; }
+.host.telecommande:has(.regie) .telecommande-apercu > .label { display: none; }
 
 .host.telecommande .host-console {
   display: grid;
@@ -1336,6 +1359,48 @@ h3 > .icon {
 .telecommande-question { font-size: 1.05rem; line-height: 1.35; }
 .telecommande-apercu .join-url { white-space: normal; overflow-wrap: anywhere; font-size: 0.95rem; }
 .telecommande-invite { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+/* ── La régie : la télécommande du chef qui anime sans jouer ──
+   Le temps en anneau, qui l'on attend, puis le partage de la salle ; tout
+   tient sans défiler en 360 × 640, les commandes sous le pouce. */
+.regie { display: flex; flex-direction: column; gap: 10px; width: 100%; text-align: left; }
+.regie-question { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius); border: 1px solid var(--edge); background: var(--surface); }
+.regie-question h2 { margin: 2px 0 0; text-wrap: balance; }
+.regie-anneau { position: relative; flex: none; width: 58px; height: 58px; display: grid; place-items: center; }
+.regie-anneau > svg:not(.icon) { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.regie-anneau-fond { fill: none; stroke: var(--track); stroke-width: 5; }
+.regie-anneau-plein { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; transition: stroke-dasharray 0.2s linear, stroke 0.3s; }
+.regie-anneau.presse .regie-anneau-plein { stroke: var(--alert); }
+.regie-anneau b { font-family: var(--serif); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.regie-revele { border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent-text); }
+.regie-reponses { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.regie-reponses li { position: relative; display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--edge); background: var(--surface); overflow: hidden; isolation: isolate; }
+/* La barre : la part de la salle qui a choisi cette réponse, en fond de la ligne. */
+.regie-reponses .regie-barre::before { content: ''; position: absolute; inset: 0; z-index: -1; transform-origin: left; transform: scaleX(var(--part)); background: color-mix(in srgb, var(--ink) 9%, transparent); transition: transform 0.4s ease-out; }
+.regie-reponses .regie-bonne { border-color: var(--accent); }
+.regie-reponses .regie-bonne::before { background: var(--accent-soft); }
+.regie-texte { flex: 1; min-width: 0; font-size: 0.95rem; overflow-wrap: anywhere; }
+.regie-coche { flex: none; color: var(--accent-text); }
+.regie-nombre { flex: none; min-width: 1.4em; text-align: right; font-family: var(--serif); font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.regie-cible { margin: 0; font-size: 1.05rem; }
+.regie-cible b { font-family: var(--serif); font-size: 1.4rem; color: var(--accent-text); }
+.regie-salle { padding: 10px 12px 12px; border-radius: var(--radius); border: 1px solid var(--edge); background: var(--surface); }
+.regie-salle-tete { display: flex; align-items: baseline; justify-content: space-between; }
+.regie-compteur { font-variant-numeric: tabular-nums; color: var(--muted); }
+.regie-compteur b { font-family: var(--serif); font-size: 1.4rem; color: var(--accent-text); }
+.regie-attendus { margin: 8px 0 0; font-size: 0.85rem; color: var(--muted); }
+.regie-visages { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 8px 2px; }
+.regie-visage { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.regie-avatar { font-size: 1.6rem; width: 42px; height: 42px; }
+.regie-prenom { font-size: var(--t-label); max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.regie-hors-ligne { opacity: 0.5; }
+.regie-en-plus { align-self: center; color: var(--muted); font-size: 0.9rem; }
+.regie-rapide { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; font-size: 0.9rem; }
+.regie-rapide .icon { color: var(--accent-text); }
+.regie-anecdote { margin: 6px 0 0; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) {
+  .regie-anneau-plein, .regie-reponses .regie-barre::before { transition: none; }
+}
 
 /* ── La remise des prix, à la salle ── */
 /* Le prix qu'on vient de remettre, en grand : c'est le moment où toute la
@@ -2138,33 +2203,95 @@ h3 > .icon {
 }
 
 /* ── Mes quiz ─────────────────────────────────────────────────────────────
-   Une ligne par quiz, qui s'ouvre d'un clic ; les gestes rares sous « ⋯ ». */
-.quiz-list { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
-.quiz-ligne { display: flex; align-items: center; gap: 8px; padding: 0; }
-.quiz-ligne.is-archive { opacity: 0.8; }
-.quiz-ligne-ouvrir {
+   Des cartes : la pastille du quiz dans la lueur de sa catégorie, son nom,
+   une ligne de faits, et ▶ pour le lancer. Le reste vit dans sa fiche. */
+.quiz-cartes { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.quiz-carte {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.quiz-carte.is-archive { opacity: 0.8; }
+.quiz-carte-ouvrir {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  padding: 12px 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
 }
-.quiz-ligne-ouvrir:hover .quiz-ligne-titre { color: var(--accent-text-hover); }
-.quiz-ligne-titre { font-family: var(--serif); font-weight: 600; font-size: 1.25rem; line-height: 1.2; overflow-wrap: anywhere; }
-.quiz-ligne-trouve { font-style: italic; }
-.quiz-ligne .menu-ancre { margin-right: 10px; }
+.quiz-carte-ouvrir:hover b { color: var(--accent-text-hover); }
+.quiz-carte-texte { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.quiz-carte-texte b { font-family: var(--serif); font-weight: 600; font-size: 1.15rem; line-height: 1.2; overflow-wrap: anywhere; }
+.quiz-carte-faits { color: var(--muted); font-size: 0.85rem; }
+.quiz-carte-trouve { font-style: italic; }
+.quiz-pastille {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--lueur) 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lueur) 45%, transparent);
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.quiz-carte-lancer {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.quiz-carte-lancer:hover { background: var(--accent-hover); }
+/* La fiche d'un quiz : ce qu'il contient, Lancer et Modifier en grand, les gestes rares en liste calme. */
+.quiz-fiche { display: flex; flex-direction: column; gap: 14px; }
+.quiz-heros { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.quiz-heros .quiz-pastille { width: 72px; height: 72px; font-size: 2.4rem; }
+.quiz-heros h1 { margin: 4px 0 0; font-size: 1.9rem; overflow-wrap: anywhere; }
+.quiz-heros p { margin: 0; }
+.quiz-categories { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.quiz-categories li { padding: 2px 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-size: 0.85rem; color: var(--muted); }
+.quiz-fiche-gestes { display: grid; gap: 8px; }
+.fiche-plus { display: flex; flex-direction: column; gap: 2px; padding: 10px; }
+.fiche-plus > .label { padding: 2px 8px 4px; }
+.fiche-geste {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.fiche-geste > .icon { flex: none; color: var(--accent-text); }
+.fiche-geste > span { display: flex; flex-direction: column; gap: 1px; }
+.fiche-geste:hover:not(:disabled) { background: var(--accent-soft); }
+.fiche-geste:disabled { opacity: 0.55; cursor: default; }
+.fiche-supprimer { color: var(--alert); }
 
-.bibliotheque-tete { align-items: center; }
-.bibliotheque-tete h1 { flex: 1; margin: 0; white-space: nowrap; }
+.bibliotheque-tete h1 { white-space: nowrap; }
 /* Les pages de l'animateur, en une ligne fine, la même partout (lot 12) :
    en tête de « Mes quiz », au-dessus de « Mon compte » et des comptes. */
 .nav-animateur { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.88rem; }
@@ -2175,13 +2302,17 @@ h3 > .icon {
 .nav-ancre { text-align: center; font-size: 0.88rem; margin: 0 0 12px; }
 /* Une page qui ne peut rien montrer dit pourquoi, et où aller. */
 .impasse { display: grid; gap: 14px; justify-items: center; text-align: center; }
-.bibliotheque-outils { display: grid; gap: 10px; min-width: 0; }
+.bibliotheque-outils { display: flex; gap: 8px; min-width: 0; }
+.bibliotheque-outils .champ-recherche { flex: 1; min-width: 0; }
+.bibliotheque-trier { flex: none; }
+.bibliotheque-trier.is-actif { color: var(--accent-text); border-color: var(--accent); }
+.filtre-actif { margin: -4px 0 0; }
+.filtre-actif .pill-btn { gap: 4px; padding-right: 4px; cursor: default; }
+.filtre-actif button { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: var(--radius-pill); background: transparent; color: inherit; cursor: pointer; }
 .champ-recherche { position: relative; display: flex; align-items: center; }
 .champ-recherche > .icon { position: absolute; left: 12px; color: var(--muted); pointer-events: none; }
 .champ-recherche .input { width: 100%; padding-left: 38px; }
 .filtres { display: flex; flex-wrap: wrap; gap: 6px; }
-.bibliotheque-compte { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.bibliotheque-compte label { gap: 6px; }
 /* Un choix discret, au poids du texte qui l'entoure : le natif s'ouvre au
    clavier et au doigt, rien de plus à inventer. */
 .select-discret {
@@ -2230,7 +2361,6 @@ h3 > .icon {
 .programme-points .pill-btn { min-height: 32px; padding: 0 10px; }
 .programme-pied { justify-content: space-between; gap: 8px 12px; }
 .programme-aide { flex: 1; min-width: 14rem; }
-.programme-bascule { flex: none; }
 
 /* Ce que l'historique sait d'une question, au pied de sa carte. */
 .souvenir-question { margin: 0; }
@@ -2378,6 +2508,11 @@ h3 > .icon {
 .rayon { display: grid; gap: 8px; }
 .rayon-titre { margin: 8px 0 0; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-text); font-family: var(--sans); }
 
+/* « Les profils », à l'administration : une ligne par personne, la corbeille à droite. */
+.profils-admin { list-style: none; margin: 0; padding: 0; display: grid; }
+.profil-admin { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--edge); }
+.profil-admin-avatar { flex: none; font-size: 1.6rem; width: 2.2rem; text-align: center; }
+.profil-admin-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
 /* Le catalogue, à relire par l'administrateur. */
 .catalogue-admin { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .catalogue-entree { border-top: 1px solid var(--edge); padding-top: 10px; }
@@ -2387,65 +2522,12 @@ h3 > .icon {
 .catalogue-photo { width: 64px; height: 40px; object-fit: cover; border-radius: 6px; vertical-align: middle; margin-right: 8px; }
 .catalogue-juste { color: var(--accent-text); font-weight: 600; }
 @media (max-width: 600px) {
-  .programme-bascule { padding: 0 11px; }
-  .programme-bascule-texte { display: none; }
   .programme-gestes { width: 100%; justify-content: flex-end; }
 }
 
-/* Les menus d'une ligne et de « Nouveau quiz » : sous leur bouton, à droite. */
-.menu-ancre { position: relative; }
-.menu-deroulant {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 20;
-  min-width: 220px;
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
-  background: var(--bg-raised);
-  border: 1px solid var(--edge-strong);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
-}
-.menu-deroulant.vers-la-droite { right: auto; left: 0; }
-.menu-deroulant.vers-le-haut { top: auto; bottom: calc(100% + 6px); }
-.menu-deroulant button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-height: 40px;
-  padding: 8px 12px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.menu-deroulant button:hover:not(:disabled) { background: var(--accent-soft); }
-.menu-deroulant button:disabled { color: var(--muted); cursor: default; }
-.menu-deroulant .menu-danger { color: var(--alert); }
-.menu-nouveau { min-width: 300px; }
-.bouton-plus { width: 40px; padding: 0; }
 @media (max-width: 600px) {
   .nav-animateur { gap: 2px 14px; }
   .bibliotheque-tete h1 { font-size: 1.8rem; }
-  .menu-nouveau { min-width: 260px; }
-  .quiz-ligne-ouvrir { padding: 10px 12px; }
-  /* Une ligne qui défile sous le doigt, jusqu'au bord de l'écran : la
-     pastille coupée au bord dit qu'il y en a d'autres. */
-  .filtres {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    margin: 0 -16px;
-    padding: 0 16px 2px;
-  }
-  .filtres::-webkit-scrollbar { display: none; }
-  .filtres .pill-btn { flex: none; }
 }
 
 .question-card { display: flex; flex-direction: column; gap: 12px; }
@@ -4277,6 +4359,7 @@ h3 > .icon {
 .themes-rarete .label { margin-top: 14px; }
 /* Le solde, dans l'en-tête du profil : un lien vers la boutique, qui n'en a pas l'air d'un bouton. */
 .profil-solde {
+  text-decoration: none;
   align-self: flex-start;
   margin-top: 2px;
   padding: 0;
@@ -5831,6 +5914,173 @@ h3 > .icon {
    `viewport-fit=cover`, c'est elle qui garde l'encoche. */
 .jour-sortie { align-self: flex-start; min-height: 44px; margin: 0 0 -12px -6px; padding: 0 6px; font-size: 0.9rem; }
 .jour-titre h2 { font-size: 2rem; margin: 4px 0 0; }
+/* Le jour joué : le résultat en une carte, le classement incrusté, le rendez-vous de demain. */
+/* « Cette question », à la révélation : la salle, en six lignes au plus. */
+.detail-question {
+  padding: 12px 12px 8px;
+}
+.dq-tete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--edge);
+}
+.dq-icone {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent-text);
+}
+.dq-icone .icon {
+  width: 18px;
+  height: 18px;
+}
+.dq-zap .dq-icone {
+  background: var(--accent);
+  color: var(--bg);
+}
+.dq-x .dq-icone {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  color: var(--muted);
+}
+.dq-titre {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.dq-titre span {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+.dq-compte {
+  flex: none;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dq-compte b {
+  font-size: 1.35rem;
+  color: var(--accent-text);
+}
+.dq-lignes {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Une barre fine sous chaque ligne : le temps de la réponse, au plus lent des lignes montrées. */
+.dq-ligne {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 5px 6px 8px;
+  border-radius: var(--radius-xs);
+}
+.dq-ligne::after,
+.dq-ligne::before {
+  content: '';
+  position: absolute;
+  left: 46px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 1px;
+}
+.dq-ligne::after {
+  right: 6px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.dq-ligne::before {
+  z-index: 1;
+  width: calc((100% - 52px) * var(--temps));
+  background: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+.dq-juste::before {
+  background: var(--accent);
+}
+.dq-moi {
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.dq-avatar {
+  width: 30px;
+  height: 30px;
+  font-size: 1.15rem;
+}
+.dq-nom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-weight: 600;
+}
+/* Les points de suspension ne prennent pas sur une boîte flexible : sur le prénom seul, l'éclair reste visible. */
+.dq-nom-texte {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dq-eclair {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--accent-text);
+}
+.dq-temps {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.84rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dq-temps .ans-shape.inline {
+  width: 12px;
+  height: 12px;
+}
+.dq-points {
+  min-width: 3.2em;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.dq-juste .dq-points {
+  color: var(--accent-text);
+}
+.dq-faux .dq-points {
+  color: var(--muted);
+}
+.dq-trou {
+  text-align: center;
+  color: var(--muted);
+  line-height: 1;
+  padding: 2px 0;
+}
+.dq-pied {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: var(--t-label);
+  color: var(--muted);
+}
+
+.jour-resultat { display: flex; align-items: center; gap: 12px; }
+.jour-resultat > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.jour-resultat b { font-family: var(--serif); font-size: 1.7rem; line-height: 1; }
+.jour-classement-incruste { display: flex; flex-direction: column; gap: 8px; }
+.jour-classement-tete { display: flex; flex-direction: column; gap: 2px; }
+.jour-classement-tete h2 { margin: 0; font-size: 1.15rem; }
+.jour-tout-classement { align-self: center; min-height: 44px; }
+.jour-demain { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; }
+.jour-demain .icon { width: 14px; height: 14px; }
 .jour-annonce { display: flex; flex-direction: column; gap: 12px; border-color: var(--edge-strong); }
 .jour-annonce p { margin: 0; }
 .correction { list-style: none; margin: 10px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 14px; }
@@ -6431,15 +6681,13 @@ h3 > .icon {
   .accueil-raccourcis .btn { flex-direction: column; gap: 3px; padding: 8px 4px; white-space: nowrap; }
   .accueil-raccourcis .btn .icon { width: 18px; height: 18px; }
 }
-.onglets-profil .onglet { min-height: 44px; }
 .onglet .icon { width: 16px; height: 16px; flex: none; }
-/* Sur un petit téléphone, ou un 360 au texte à 130 %, les trois libellés
-   tiennent sur une rangée sans leurs icônes : ils gardent la place. */
+/* Sur un petit téléphone, ou un 360 au texte à 130 %, les libellés d'une
+   rangée d'onglets tiennent sans leurs icônes : ils gardent la place. */
 @media (max-width: 340px) {
-  .onglets-profil .onglet { padding: 0 4px; }
-  .onglets-profil .onglet .icon { display: none; }
+  .onglets .onglet { padding: 0 4px; }
+  .onglets .onglet .icon { display: none; }
 }
-.profil-onglet { display: flex; flex-direction: column; gap: 18px; }
 /* L'onglet qui arrive tient une hauteur d'écran : ce qui le suit reste sous
    le pli, et ne saute pas quand il arrive. */
 .onglet-en-chemin { min-height: 100vh; padding-top: 12px; text-align: center; }
@@ -6639,3 +6887,341 @@ span.case-avatar { cursor: default; }
 .vitrine-rang { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 0.8rem; font-weight: 600; }
 .vitrine-actions { margin-top: 10px; }
 .carte-prix .flamme { width: 1em; height: 1em; }
+
+/* ── Les pages du téléphone : l'en-tête d'une page, une feuille, des choix ──
+   Les pièces de `components/Pieces.tsx`. Une feuille monte du bas, « Fermer »
+   toujours en vue ; ses lignes ont la taille d'un pouce. */
+.piece-tete { display: flex; flex-direction: column; gap: 4px; }
+.piece-tete .label { color: var(--muted); }
+.piece-tete h1 { font-size: 2rem; margin: 0; }
+.piece-tete h1 > .icon { color: var(--accent-text); }
+.piece-tete p { margin: 0; }
+.carte-voile {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(8, 5, 4, 0.72);
+}
+.carte-feuille {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 520px;
+  max-height: 92%;
+  border: 1px solid var(--edge-strong);
+  border-bottom: 0;
+  border-radius: 22px 22px 0 0;
+  background: var(--bg);
+  animation: carte-monte 0.22s ease-out;
+}
+@keyframes carte-monte {
+  from { transform: translateY(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .carte-feuille { animation: none; }
+}
+.carte-barre { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 12px 10px 18px; border-bottom: 1px solid var(--edge); }
+.feuille-titre { font-family: var(--serif); font-size: 1.35rem; font-weight: 600; }
+.carte-fermer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--edge-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.carte-corps { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 16px 18px; }
+.carte-corps > .label { margin-top: 4px; }
+.carte-pied { flex: none; padding: 10px 18px max(14px, env(safe-area-inset-bottom)); border-top: 1px solid var(--edge); }
+.choix-ligne { display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 12px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.choix-ligne:hover { border-color: var(--edge-strong); }
+.choix-ligne[aria-disabled='true'] { opacity: 0.55; cursor: default; }
+.gros-icone {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent-text);
+}
+.gros-icone .icon { width: 24px; height: 24px; }
+.gros-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.gros-texte b { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; line-height: 1.15; }
+.gros-detail { color: var(--muted); font-size: 0.88rem; line-height: 1.35; }
+/* Une recherche sobre : un trait, une loupe. Le champ garde l'anneau du focus. */
+.recherche-sobre { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--edge-strong); color: var(--muted); }
+.recherche-sobre:focus-within { border-bottom-color: var(--accent); color: var(--accent-text); }
+.recherche-sobre .icon { flex: none; width: 17px; height: 17px; }
+.recherche-sobre input { flex: 1; min-width: 0; min-height: 36px; border: 0; background: none; color: var(--ink); font: inherit; font-size: 1rem; }
+.recherche-sobre input::placeholder { color: var(--muted); }
+
+/* ── Créer un salon : trois questions, sans mode d'emploi ─────────────── */
+.salon-bloc { display: flex; flex-direction: column; gap: 8px; }
+.salon-vide { margin: 0; padding: 14px; border: 1px dashed var(--edge-strong); border-radius: var(--radius-sm); color: var(--muted); text-align: center; font-size: 0.92rem; }
+.salon-quiz { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.salon-quiz-ligne { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 16px; }
+.salon-quiz-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.salon-quiz-texte b { font-weight: 600; }
+.ajouter-premier { border-color: var(--accent); color: var(--accent-text); }
+.choix-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.choix-tuile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 96px;
+  padding: 12px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+}
+.choix-tuile .icon { width: 28px; height: 28px; color: var(--muted); }
+.choix-tuile.selected { border-color: var(--accent); background: var(--accent-soft); }
+.choix-tuile.selected .icon { color: var(--accent-text); }
+.brancher-tele { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--edge-strong); border-radius: var(--radius-xs); }
+.brancher-tele p { margin: 0; }
+.brancher-tele .row { flex-wrap: nowrap; }
+.brancher-tele .input { font-family: var(--serif); font-size: 1.4rem; letter-spacing: 0.12em; text-transform: uppercase; }
+.tele-branchee { display: flex; align-items: center; gap: 8px; color: var(--accent-text); font-weight: 500; margin: 0; }
+.salon-aide { margin: 6px 2px 0; }
+.reglages-salon { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--edge); border-bottom: 1px solid var(--edge); }
+.reglages-salon summary { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 2px; cursor: pointer; list-style: none; }
+.reglages-salon summary::-webkit-details-marker { display: none; }
+.reglages-salon summary > span { flex: 1; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.reglages-salon summary b { font-weight: 600; }
+.reglages-salon[open] { padding-bottom: 12px; }
+.reglages-salon[open] .repli-chevron { transform: rotate(180deg); }
+.reglages-salon .label { display: block; margin-top: 10px; margin-bottom: 6px; }
+.reglages-icone { flex: none; width: 18px; height: 18px; color: var(--accent-text); }
+.reglage-points { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; }
+
+/* ── La barre du chef, en bas de son téléphone de joueur ─────────────────
+   Les gestes de la partie sous le pouce ; la page lui laisse sa place
+   (`body.avec-chef`), même pendant une question, où la page tient en un
+   écran : la dernière réponse ne passe jamais dessous. */
+.barre-chef {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 64px;
+  padding: 8px 12px max(8px, env(safe-area-inset-bottom));
+  background: var(--bg-raised);
+  border-top: 1px solid var(--edge-strong);
+}
+body.avec-chef .player-shell { padding-bottom: 88px; }
+body.avec-chef .player-shell:has(.ans-grid) { padding-bottom: calc(46px + 64px); }
+.barre-chef-gestes { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.barre-chef-geste { flex: 1; min-height: 48px; }
+.barre-chef-rond { flex: none; width: 48px; min-height: 48px; padding: 0; }
+.barre-chef-etat { flex: 1; color: var(--muted); text-align: center; }
+.barre-chef-compte { margin-left: 8px; font-variant-numeric: tabular-nums; opacity: 0.8; }
+.barre-chef-code { flex: none; display: flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 4px 8px; border: 1px dashed var(--edge-strong); border-radius: var(--radius-xs); background: none; color: var(--ink); font: inherit; cursor: pointer; }
+.barre-chef-code b { font-size: 1.15rem; font-variant-numeric: tabular-nums; letter-spacing: 0.06em; white-space: nowrap; }
+.barre-chef-cible { flex: 1; display: flex; gap: 8px; }
+.barre-chef-cible .input { flex: 1; min-width: 0; }
+.barre-chef-message { position: fixed; left: 12px; right: 12px; bottom: 76px; z-index: 40; margin: 0 auto; max-width: 536px; }
+.code-du-salon { margin: 0; text-align: center; font-size: 2.6rem; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: 0.08em; color: var(--accent-text); }
+.qr-du-salon { align-self: center; padding: 12px; border-radius: var(--radius-sm); background: #ffffff; }
+.qr-du-salon svg { display: block; width: min(220px, 60vw); height: auto; }
+.geste-qui-defait { color: var(--alert); }
+/* Le toast monte au-dessus de la barre : il ne la cache pas, elle ne le cache pas. */
+body.avec-chef .toast { bottom: calc(84px + env(safe-area-inset-bottom)); }
+/* La soirée d'un salon va s'enregistrer : dit au-dessus du podium, sans le couvrir. */
+.cloture-qui-vient { display: flex; align-items: center; gap: 10px; margin: 0; }
+.cloture-qui-vient .icon { flex: none; color: var(--accent-text); }
+/* Les deux gestes du chef sous sa fin de soirée. */
+.fin-chef { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+.fin-chef .btn-ghost { align-self: center; }
+
+/* ── La barre du menu ────────────────────────────────────────────────────
+   Les cinq pièces, toujours au même endroit, sous le pouce. Chaque bouton a
+   son icône et son nom ; la pièce où l'on est se dit en gras et par un
+   filet, jamais par sa seule couleur. */
+.menu-barre {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 6px max(6px, env(safe-area-inset-bottom));
+  background: var(--bg-raised);
+  border-top: 1px solid var(--edge);
+}
+.menu-barre a {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 58px;
+  padding: 8px 2px 4px;
+  color: var(--muted);
+  font-size: var(--t-label);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.menu-barre a .icon { width: 22px; height: 22px; }
+.menu-barre a[aria-current='page'] { color: var(--accent-text); font-weight: 600; }
+.menu-barre a[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 32px;
+  margin-left: -16px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--accent);
+}
+/* La page ne passe jamais sous la barre. */
+body.avec-menu { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+body.avec-menu .player-shell { padding-bottom: 24px; }
+body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+
+/* ── L'accueil : qui l'on est en une ligne, puis des gros boutons ──────── */
+.ligne-identite {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+  color: inherit;
+  text-decoration: none;
+}
+.ligne-identite .player-avatar { flex: none; width: 52px; height: 52px; font-size: 2rem; }
+.ligne-identite-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ligne-identite-texte b { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
+.ligne-identite-texte .xp-bar { height: 4px; }
+/* Les confettis au bout de la ligne : discrets, ils ne crient pas. */
+.ligne-solde { flex: none; color: var(--accent-text); font-size: 0.875rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.accueil-gestes { display: flex; flex-direction: column; gap: 10px; }
+.gros-bouton {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 76px;
+  padding: 14px 14px 14px 16px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.gros-bouton:hover { border-color: var(--edge-strong); }
+.gros-bouton .gros-texte b { font-size: 1.35rem; }
+.gros-bouton .chevron { flex: none; color: var(--muted); transform: rotate(-90deg); }
+.gros-principal { border-color: var(--accent); background: var(--accent-soft); }
+.pastille-attente {
+  flex: none;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--t-label);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Le profil : cinq tuiles, deux par rangée ─────────────────────────── */
+.tuiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tuile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 140px;
+  padding: 16px 14px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tuile:hover { border-color: var(--edge-strong); }
+.tuile .gros-icone { margin-bottom: 6px; }
+.tuile b { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; line-height: 1.15; }
+.tuile .pastille-attente { position: absolute; top: 12px; right: 12px; }
+/* Cinq tuiles : la dernière prend la rangée, couchée. */
+.tuiles .tuile:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 2px;
+  min-height: 0;
+}
+.tuiles .tuile:last-child:nth-child(odd) .gros-icone { grid-row: span 2; margin-bottom: 0; }
+
+/* ── La campagne solo : un record, une échelle, trois règles ──────────── */
+.campagne-record { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.campagne-record b { font-family: var(--serif); font-size: 3.2rem; font-weight: 600; line-height: 1; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+/* L'échelle des difficultés : quatre marches qui montent. */
+.campagne-echelle { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; gap: 6px; }
+.campagne-echelle li {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 6px 2px;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent-text);
+  font-size: var(--t-label);
+  font-weight: 600;
+}
+.campagne-echelle li:nth-child(1) { min-height: 28px; }
+.campagne-echelle li:nth-child(2) { min-height: 40px; }
+.campagne-echelle li:nth-child(3) { min-height: 52px; }
+.campagne-echelle li:nth-child(4) { min-height: 64px; background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.campagne-regles { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.campagne-regles li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--edge); border-radius: var(--radius-pill); font-size: 0.875rem; }
+.campagne-regles .icon { width: 16px; height: 16px; color: var(--accent-text); }
+.campagne-xp-du-jour { margin: 0; text-align: center; }
+.campagne-categories { display: flex; flex-wrap: wrap; gap: 6px; }
+.vies { display: inline-flex; gap: 2px; color: var(--alert); }
+.vies .coeur { width: 20px; height: 20px; }
+.vies .coeur.perdu { color: var(--muted); }
+.campagne-fin .big { font-variant-numeric: tabular-nums; }
+.campagne-suite { justify-content: center; gap: 8px; }
+.campagne-correction { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.campagne-correction li { display: flex; flex-direction: column; gap: 4px; }
+.campagne-correction p { margin: 0; }
+.campagne-juste { border-left: 3px solid var(--accent); }
+.campagne-rate { border-left: 3px solid var(--alert); }

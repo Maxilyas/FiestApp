@@ -13,6 +13,10 @@ import { INTROUVABLE, ROBOTS_TXT, decrirePage, habillerPage } from './core/aperc
 import { clearQuizLibrary, setProgramme, setQuestionsPosees, setQuizLibrary } from './games/quiz'
 import { dernieresFois } from './core/memoire'
 import { ProgrammeStore } from './core/programmes'
+import { SalonStore } from './core/salons'
+import { CampagneStore } from './core/campagne'
+import { Budget } from './core/budget'
+import { clientIp } from './auth/http'
 import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
@@ -312,6 +316,14 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const programmes = new ProgrammeStore(opts.quizDbUrl, opts.quizDbToken)
   // Les partages : les codes, et le catalogue du serveur.
   const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
+  // Les codes des salons : six chiffres pour entrer chez quelqu'un.
+  const salons = new SalonStore(opts.quizDbUrl, opts.quizDbToken)
+  // La campagne solo : ses séries, puisées dans les questions déjà posées au quiz du jour.
+  const campagne = new CampagneStore(opts.quizDbUrl, opts.quizDbToken, {
+    maintenant: maintenantDuJour,
+    mesures: () => jour.mesures(),
+    ecrireXp: (profileId, xp, jours) => profiles.ecrireXpDeCampagne(profileId, xp, jours),
+  })
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
@@ -340,7 +352,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
   }
   const relireLeProgramme = derniereRelecture()
   const refreshProgramme = async (spaceId?: string) => {
-    if (spaceId) return relireLeProgramme(spaceId, () => programmes.actif(spaceId), programme => setProgramme(spaceId, programme))
+    if (spaceId) {
+      return relireLeProgramme(spaceId, () => programmes.actif(spaceId), programme => {
+        setProgramme(spaceId, programme)
+        // Un quiz ajouté pendant le dernier podium : la soirée continue.
+        registry.peek(spaceId)?.reconsidererCloture()
+      })
+    }
     for (const [id, programme] of await programmes.actifs()) setProgramme(id, programme)
   }
 
@@ -364,6 +382,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
       await refreshProgramme()
     })(),
     partages.init(),
+    salons.init(),
+    campagne.init(),
     (async () => {
       await archives.init(defaultSpace)
       // Le tirage d'un quiz choisit d'abord les questions jamais posées : il
@@ -381,6 +401,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.categoriesDuJour = id => jour.categoriesDe(id)
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
+  profiles.justesDeCampagne = id => campagne.justesDe(id)
   const relireLaMemoire = derniereRelecture()
   archives.surEcriture(spaceId => {
     relireLaMemoire(spaceId, () => archives.memoire(spaceId), memoire => setQuestionsPosees(spaceId, dernieresFois(memoire))).catch(e =>
@@ -429,6 +450,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     maxPlayersCeiling,
     cloturesEnCours: new Set(),
     jour,
+    salons,
   })
   // Un laurier qui change de tête — la nuit close, un profil masqué — se voit
   // dans la salle où il joue sans attendre la diffusion suivante.
@@ -476,6 +498,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     const soirees = await archives.removeSpace(accountId)
     await programmes.removeSpace(accountId)
     await partages.removeSpace(accountId)
+    await salons.removeSpace(accountId)
     const { quizzes, images } = await store.removeSpace(accountId)
     await auth.remove(accountId)
     // Une page publique lue pendant le ménage a pu réveiller la soirée.
@@ -484,6 +507,30 @@ export async function createQuizServer(opts: QuizServerOptions) {
       `[comptes] compte « ${login} » supprimé : ${quizzes} quiz, ${images} photos, ${soirees} soirées archivées` +
         (reprendre ? ` — ce que ${reprises} soirée${reprises > 1 ? 's' : ''} avai${reprises > 1 ? 'ent' : 't'} crédité, repris aux joueurs` : ''),
     )
+  }
+
+  /**
+   * Supprime un profil (`/admin`, « Les profils ») — les refus sont dans la
+   * route (`profilsAdmin.ts`). L'ordre compte, comme pour un compte : d'abord
+   * ce qui vit (ses sessions de joueur, les consoles qu'il a ouvertes), puis
+   * l'espace qu'il tenait — détaché, jamais supprimé : son salon, ses quiz et
+   * les souvenirs des soirées qu'on y a jouées restent, et l'administrateur
+   * le supprime à part s'il le veut —, le quiz du jour, la campagne, et sa
+   * fiche en tout dernier : une écriture qui échoue en route laisse un profil
+   * sur lequel réessayer, pas des lignes sans maître. Ce que ses soirées ont
+   * rapporté aux autres joueurs leur reste.
+   */
+  const supprimerProfil = async (profileId: string): Promise<{ salon: 'detache' | null }> => {
+    const login = (await profiles.byId(profileId))?.login ?? profileId
+    await profiles.revokeAll(profileId)
+    await auth.revokeProfileSessions(profileId)
+    const salon = auth.byProfile(profileId)
+    if (salon) await auth.linkProfile(salon.id, null)
+    await jour.oublierProfil(profileId)
+    await campagne.oublierProfil(profileId)
+    await profiles.supprimer(profileId)
+    console.log(`[profils] profil « ${login} » supprimé` + (salon ? `, détaché de « ${salon.login} »` : ''))
+    return { salon: salon ? 'detache' : null }
   }
 
   // Filet de sécurité : un client qui aurait silencieusement raté une diffusion
@@ -769,6 +816,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     auth,
     profiles,
     jour,
+    campagne,
     maintenant: maintenantDuJour,
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
     online: !!opts.online,
@@ -785,11 +833,19 @@ export async function createQuizServer(opts: QuizServerOptions) {
       ),
     removeAccount,
     soireeEnCours: spaceId => registry.get(spaceId).soireeId(),
+    ouvrirSalon: (spaceId, opts) => registry.get(spaceId).ouvrirSalon(opts),
     // La base locale est le registre de la soirée en cours : la clôture et
     // l'essai effacé la vident, un invité exclu en sort. Mais une soirée
     // qu'on n'a pas close reste là jusqu'à la suivante : sans son dernier
     // signe de vie (une arrivée, un quiz qui avance) de moins de douze
     // heures, « Revenir chez Nadia » renvoyait le lendemain vers une salle vide.
+    // Toute soirée pas encore close, active ou laissée en plan : sa clôture
+    // créditerait ce profil — d'où le refus de le supprimer avant.
+    soireesPasCloses: profileId =>
+      (db.prepare('SELECT DISTINCT space_id FROM players WHERE profile_id = ? AND space_id IS NOT NULL').all(profileId) as { space_id: string }[]).map(
+        r => r.space_id,
+      ),
+    supprimerProfil,
     soireesOuJeJoue: profileId =>
       (
         db
@@ -859,15 +915,34 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const meta = `<meta name="app-env" content="${opts.appEnv.replace(/[^\w.-]/g, '')}">`
       indexHtml = indexHtml.replace('</head>', `  ${meta}\n  </head>`)
     }
+    /**
+     * Les codes manqués, par adresse : vingt d'affilée, puis deux par minute.
+     * Une tablée qui se trompe d'un chiffre ne s'en aperçoit pas ; un script
+     * qui énumère le million de codes y mettrait un an. Un code juste ne
+     * coûte rien, mais ne se cherche plus une fois la réserve épuisée.
+     */
+    const codesManques = new Budget(20, 2)
     // Chaque adresse porte son statut et ses balises : un aperçu de lien
     // n'exécute pas le client. Voir `core/apercus.ts`.
     const servirPage = (chemin: string, req: Request, res: Response, next: NextFunction) => {
       res.set('Cache-Control', 'no-cache')
       if (!indexHtml) return res.status(404).type('text').send('Client non compilé (npm run build)')
-      const decision = decrirePage(chemin, slug => {
-        const compte = auth.bySlug(slug)
-        return compte && compte.slug === slug ? auth.publicSpace(compte) : undefined
-      })
+      const ip = clientIp(req)
+      const decision = decrirePage(
+        chemin,
+        slug => {
+          const compte = auth.bySlug(slug)
+          return compte && compte.slug === slug ? auth.publicSpace(compte) : undefined
+        },
+        code => {
+          if (!codesManques.peut(ip)) return null
+          const compte = salons.espaceDuCode(code)
+          const espace = compte ? auth.byId(compte) : undefined
+          if (espace && !espace.disabledAt) return auth.publicSpace(espace)
+          codesManques.take(ip)
+          return undefined
+        },
+      )
       const requete = req.url.slice(req.path.length)
       if ('redirection' in decision) return res.redirect(302, decision.redirection + requete)
       const envoyer = (page: typeof decision) => {
@@ -952,6 +1027,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
           store.close()
           programmes.close()
           partages.close()
+          salons.close()
+          campagne.close()
           archives.close()
           auth.close()
           jour.close()

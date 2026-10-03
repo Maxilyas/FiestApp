@@ -256,6 +256,25 @@ Le quiz du jour pose dix questions par jour : sa réserve se vide. Une **routine
    ```
 4. **Vérifier.** Lance-la une fois à la main, depuis la liste des routines, puis regarde `/admin` : le journal des apports dit « Écrite par l'IA », avec ce qu'elle a ajouté et écarté, et **Voir les prochains jours** montre ses questions. Relis-en quelques-unes : c'est la première fois qu'un humain les lit.
 
+5. **Décrire les questions (facultatif, par la même routine).** Chaque question de la réserve peut recevoir ses métadonnées — sous-thème, étiquettes, difficulté estimée, public, leurres, d'où la vérifier —, que la campagne et les prochaines évolutions liront. Même jeton, même porte : ajoute à la consigne de la routine, après le point 4, ce passage. Il ne coûte rien les jours où tout est déjà décrit.
+
+   ```
+   5. Décris ensuite les questions de la réserve qui ne le sont pas encore :
+      curl -sS --max-time 90 "$FIESTAPP_URL/api/jour/reserve/etiquetage" \
+        -H "Authorization: Bearer $RESERVE_TOKEN" > a-decrire.json
+      La réponse donne consigne et questions (cinquante au plus). Si
+      questions est vide, dis-le en une ligne. Sinon, décris-les en suivant
+      la consigne à la lettre, écris le tableau JSON qu'elle demande dans
+      etiquetage.json, puis
+      jq '{etiquetage: .}' etiquetage.json > envoi.json
+      curl -sS --max-time 90 -X POST "$FIESTAPP_URL/api/jour/reserve/etiquetage" \
+        -H "Authorization: Bearer $RESERVE_TOKEN" -H "X-Requested-With: quizz" \
+        -H "Content-Type: application/json" --data @envoi.json
+      Termine par une ligne : combien décrites, combien refusées, et pourquoi.
+   ```
+
+   Le serveur relit chaque description au catalogue des étiquettes : une clé inconnue la refuse entière, et la question attend la passe suivante. La consigne du quiz du jour, elle, apprend d'elle-même ce que disent les joueurs — la difficulté mesurée des dernières questions posées — dès qu'il y en a assez.
+
 La routine vise trois semaines d'avance, et cent questions au plus par passage. Si elle s'arrête — abonnement, jeton changé d'un seul côté, domaine plus permis —, `/admin` le montre : plus de dépôt, puis l'alerte sous sept jours d'avance. En attendant, **Copier la consigne pour une IA** : la même consigne, pour trente questions, à coller dans le chatbot de ton choix ; sa réponse se recolle dans **Coller une liste**.
 
 ---

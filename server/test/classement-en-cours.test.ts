@@ -21,7 +21,7 @@ import { GameEngine } from '../src/core/engine'
 import { quizModule, setQuizLibrary } from '../src/games/quiz'
 import type { GameContext, GameSessionRec, ViewContext } from '../src/core/types'
 import { classer, groupesDExAequo, rangDansLesTries, rangPartage } from '../../shared/classement'
-import type { PlaceAuQuiz, QuizPlayerView } from '../../shared/games/quiz'
+import type { DetailDeLaQuestion, PlaceAuQuiz, QuizPlayerView } from '../../shared/games/quiz'
 import { ecartAuPodium, ligneDeCourse, ligneDeSoiree, moitieHaute, type EntreeDeCourse } from '../../shared/course'
 import type { QuizDef } from '../../shared/library'
 
@@ -702,4 +702,185 @@ test('au podium, qui n’y monte pas voit son échelle ; à zéro, ni rang ni é
 
   const second = await fin({ soireeEntamee: true, place: { devant: { ...HUGO, rang: 4 } } })
   assert.match(second, /Soirée : 2ᵉ place/, 'la soirée, lue dans l’instantané')
+})
+
+// ── « Cette question » ─────────────────────────────────────────────────────
+//
+// « Est-ce que j'ai été le premier ? Combien ont eu les autres ? » : à la
+// révélation, chaque téléphone voit qui a trouvé, en combien de temps, et ce
+// que chacun y a gagné — six lignes au plus, le haut et soi. Rangé une fois
+// par diffusion, comme le classement ; des identifiants seulement, que le
+// téléphone décore ; et rien pendant la question (invariant 1).
+
+test('à la révélation, « Cette question » range ceux qui ont trouvé, du plus rapide au plus lent, puis les autres', () => {
+  const p = partie(['Alice', 'Bruno', 'Chloé', 'David', 'Emma'])
+  p.repondre('Bruno', 0, 6000)
+  p.repondre('Alice', 0, 3000)
+  p.repondre('Chloé', 1, 2000)
+  p.repondre('David', 1, 4000)
+  assert.ok(Object.values(p.vues()).every(v => v.laQuestion === undefined), 'rien pendant la question : la réponse des autres trahirait la bonne')
+  p.commande({ type: 'next' })
+  const v = p.vues()
+  const d = v.Alice.laQuestion!
+  assert.deepEqual(
+    d.lignes.map(l => l && [l.id, l.juste, l.choix, l.ms]),
+    [
+      [p.id('Alice'), true, 0, 3000],
+      [p.id('Bruno'), true, 0, 6000],
+      [p.id('Chloé'), false, 1, 2000],
+      [p.id('David'), false, 1, 4000],
+    ],
+  )
+  assert.deepEqual(
+    d.lignes.map(l => l!.points),
+    ['Alice', 'Bruno', 'Chloé', 'David'].map(n => p.sess.state.lastAwards[p.id(n)] ?? 0),
+    'les points de chacun, ceux du barème',
+  )
+  assert.equal(d.trouvees, 2)
+  assert.equal(d.repondues, 4, 'Emma n’a pas répondu : elle ne compte ni dans les lignes ni dans le compte')
+  assert.deepEqual(d.premier, { id: p.id('Alice'), ms: 3000 })
+  assert.deepEqual(d.second, { id: p.id('Bruno'), ms: 6000 })
+  assert.equal(d.rangDesJustes, 1)
+  assert.equal(v.Bruno.laQuestion!.rangDesJustes, 2)
+  assert.equal(v.Chloé.laQuestion!.memeChoix, 1, 'David a dit comme elle')
+  assert.equal(v.Chloé.laQuestion!.rangDesJustes, undefined)
+  assert.equal(v.Emma.laQuestion!.memeChoix, undefined, 'sans réponse, personne n’a dit comme elle')
+  assert.deepEqual(v.Emma.laQuestion!.lignes, d.lignes, 'les mêmes lignes pour qui n’y est pas')
+})
+
+test('« Cette question » se lit dans un rangement fait une fois pour toute la salle, six lignes au plus, soi compris', () => {
+  const N = 300
+  const noms = Array.from({ length: N }, (_, i) => `Invité ${i}`)
+  const p = partie(noms)
+  for (let i = 0; i < N; i++) if (i % 5) p.repondre(noms[i], i % 3 ? 0 : 1, 2000 + ((i * 37) % 15000))
+  p.commande({ type: 'next' })
+  p.compte.noms = 0
+  p.compte.decores = 0
+  const v = p.vues()
+  assert.equal(p.compte.decores, 0, 'aucun invité décoré : le téléphone le fait avec l’instantané')
+  assert.ok(p.compte.noms <= N + 10, `${p.compte.noms} noms relus — ceux du classement, pas un de plus`)
+  // L'ordre attendu, compté à la main.
+  const st = p.sess.state
+  const attendu = Object.entries(st.responses as Record<string, { ms: number; choice: number }>)
+    .map(([id, r]) => ({ id, juste: r.choice === 0, ms: r.ms }))
+    .sort((a, b) => Number(b.juste) - Number(a.juste) || a.ms - b.ms)
+  const trouvees = attendu.filter(l => l.juste).length
+  for (const [nom, vue] of Object.entries(v)) {
+    const d = vue.laQuestion!
+    assert.ok(d.lignes.length <= 7, `${nom} : six lignes et un saut au plus`)
+    assert.equal(d.trouvees, trouvees)
+    assert.equal(d.repondues, attendu.length)
+    const i = attendu.findIndex(l => l.id === p.id(nom))
+    if (i < 0) {
+      assert.deepEqual(d.lignes.map(l => l!.id), attendu.slice(0, 6).map(l => l.id), `${nom}, sans réponse : le haut`)
+      continue
+    }
+    const ids = d.lignes.map(l => l?.id ?? null)
+    assert.ok(ids.includes(p.id(nom)), `${nom} se trouve dans ses lignes`)
+    if (i >= 5) {
+      assert.deepEqual(ids, [...attendu.slice(0, 3).map(l => l.id), null, ...attendu.slice(i - 1, i + 2).map(l => l.id)], `${nom} : le haut, puis ses voisins`)
+    }
+    assert.equal(d.rangDesJustes, i < trouvees ? i + 1 : undefined)
+  }
+  const octets = Math.max(...Object.values(v).map(x => JSON.stringify(x.laQuestion).length))
+  assert.ok(octets <= 800, `${octets} octets au plus par téléphone : jamais la salle entière`)
+})
+
+test('ni pour une question annulée, ni pour un sondage, ni pour une estimation — ni sans une seule réponse', () => {
+  const annulee = partie(['Alice', 'Bruno'])
+  annulee.repondre('Alice', 0, 3000)
+  annulee.commande({ type: 'next' })
+  assert.ok(annulee.vues().Alice.laQuestion, 'révélée, elle a son détail')
+  const st = annulee.sess.state
+  annulee.commande({ type: 'cancel', phase: st.phase, qIndex: st.qIndex, round: st.round })
+  assert.equal(annulee.vues().Alice.laQuestion, undefined, 'annulée, plus de plus rapide')
+
+  const silence = partie(['Alice', 'Bruno'])
+  silence.commande({ type: 'next' })
+  assert.equal(silence.vues().Alice.laQuestion, undefined, 'personne n’a répondu : rien à montrer')
+
+  const estimation = { kind: 'number', text: 'Combien ?', target: 10, unit: '', duration: 20, image: null, observeSeconds: null }
+  const e = partie(['Alice', 'Bruno'], [estimation])
+  e.estimer('Alice', 9, 3000)
+  e.commande({ type: 'next' })
+  assert.equal(e.vues().Alice.laQuestion, undefined, 'une estimation n’est jamais « juste »')
+
+  const sondage = { ...QUESTIONS[0], text: 'Qui chante le mieux ?', variante: 'sondage', answers: [] }
+  const s = partie(['Alice', 'Bruno'], [sondage])
+  s.repondre('Alice', 0, 3000)
+  s.commande({ type: 'next' })
+  assert.equal(s.vues().Alice.laQuestion, undefined, 'un sondage n’a rien de juste')
+})
+
+test('sa phrase dit la plus belle chose vraie, sans jamais mettre personne au masculin', async () => {
+  const { phraseDeLaQuestion } = await import(new URL('../../client/src/games/quiz/PlayerView.tsx', import.meta.url).href)
+  const nomDe = (id: string) => NOMS[id] ?? id
+  const ligne = (id: string, juste: boolean, ms: number, choix: number | null = juste ? 1 : 0) => ({ id, juste, ms, choix, points: juste ? 100 : 0 })
+  const base: DetailDeLaQuestion = {
+    lignes: [ligne('moi', true, 2100), ligne('h', true, 2800), ligne('l', false, 1500)],
+    trouvees: 2,
+    repondues: 3,
+    premier: { id: 'moi', ms: 2100 },
+    second: { id: 'h', ms: 2800 },
+  }
+  const phrase = (d: Partial<DetailDeLaQuestion>, moi: string | undefined = 'moi') => phraseDeLaQuestion({ ...base, ...d }, moi, nomDe)
+  assert.deepEqual(phrase({ rangDesJustes: 1 }), { titre: 'La réponse juste la plus rapide', detail: '0,7 s devant Hugo', icone: 'zap' })
+  assert.equal(phrase({ rangDesJustes: 1, second: null, trouvees: 1 }).titre, 'Personne d’autre n’a trouvé')
+  const deuxieme = phrase({ lignes: [ligne('h', true, 2100), ligne('moi', true, 3300)], premier: { id: 'h', ms: 2100 }, rangDesJustes: 2 })
+  assert.deepEqual(deuxieme, { titre: '2ᵉ réponse juste sur 2', detail: '1,2 s après Hugo', icone: 'check' })
+  const rate = { premier: { id: 'h', ms: 2100 }, second: null, trouvees: 1 }
+  assert.deepEqual(phrase({ ...rate, memeChoix: 2 }), { titre: 'Une seule réponse juste : Hugo', detail: '2 autres ont dit comme toi', icone: 'x' })
+  assert.equal(phrase({ trouvees: 2, repondues: 5, memeChoix: 0 }).titre, '2 sur 5 ont trouvé')
+  assert.equal(phrase({ trouvees: 2, repondues: 5, memeChoix: 0 }).detail, 'Personne d’autre n’a dit comme toi')
+  assert.equal(phrase({ premier: null, second: null, trouvees: 0, memeChoix: 1 }).titre, 'Personne n’a trouvé')
+  assert.equal(phrase({}, undefined).titre, 'Réponse juste la plus rapide : moi', 'qui n’a pas joué lit le plus rapide')
+  for (const t of [phrase({ rangDesJustes: 1 }), deuxieme].map(x => x.titre)) assert.ok(!/\ble plus\b|\bseul\b/.test(t), t)
+})
+
+test('à la révélation, « Cette question » vient sous la sienne : les noms de l’instantané, sa ligne, un saut', async () => {
+  const joueurs = [
+    { id: 'moi', name: 'Sofia', avatar: '🐼', score: 450 },
+    { id: 'h', name: 'Hugo', avatar: '🦊', score: 490 },
+    { id: 'c', name: 'Camille', nomAffiche: 'Camille (2)', avatar: '🐸', score: 0 },
+  ]
+  const view: QuizPlayerView = {
+    phase: 'reveal',
+    qIndex: 3,
+    qCount: 10,
+    kind: 'choice',
+    text: 'La capitale de l’Australie ?',
+    answers: ['Sydney', 'Canberra'],
+    correct: 1,
+    yourChoice: 1,
+    yourPoints: 152,
+    yourQuizTotal: 450,
+    yourQuizRank: 5,
+    anecdote: 'Canberra a été choisie en 1908.',
+    place: { devant: HUGO },
+    laQuestion: {
+      lignes: [
+        { id: 'h', juste: true, choix: 1, ms: 1900, points: 180 },
+        { id: 'c', juste: true, choix: 1, ms: 2000, points: 170 },
+        { id: 'x', juste: true, choix: 1, ms: 2050, points: 168 },
+        null,
+        { id: 'y', juste: true, choix: 1, ms: 3000, points: 155 },
+        { id: 'moi', juste: true, choix: 1, ms: 3100, points: 152 },
+        { id: 'z', juste: false, choix: 0, ms: 3200, points: 0 },
+      ],
+      trouvees: 6,
+      repondues: 9,
+      premier: { id: 'h', ms: 1900 },
+      second: { id: 'c', ms: 2000 },
+      rangDesJustes: 5,
+    },
+  }
+  const html = await rendu('games/quiz/PlayerView', 'QuizPlayer', { view, send: () => {}, teams: [], myTeamId: null, players: joueurs, moi: joueurs[0], participants: 12 })
+  assert.ok(html.indexOf('anecdote') < html.indexOf('detail-question'), 'sous la question et son anecdote')
+  assert.match(html, /5ᵉ réponse juste sur 6/)
+  assert.match(html, /1,2 s après Hugo/)
+  assert.ok(html.includes('Camille (2)'), 'la marque d’homonymie de l’instantané (invariant 17)')
+  assert.ok(html.includes('un invité parti'), 'un identifiant que l’instantané ne connaît plus')
+  assert.equal([...html.matchAll(/class="dq-ligne dq-moi dq-juste"/g)].length, 1, 'sa ligne, surlignée')
+  assert.match(html, /class="dq-trou"/)
+  assert.match(html, /9 réponses · les plus rapides, et toi/)
 })

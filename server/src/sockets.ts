@@ -727,6 +727,10 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         if (cloture) socket.emit('soiree:cloture', cloture)
         socket.emit('party:snapshot', rt.buildSnapshot(true))
         rt.engine.resendHostViews(socket)
+        // Le salon s'ouvre avec son premier écran : la salle d'attente montre
+        // son code. Une base muette ne retient pas l'écran — il entre sans
+        // code, et l'adresse de l'espace reste une porte.
+        rt.ouvrirSalon().catch(e => console.error('[salons] le code du salon n’a pas pu s’ouvrir :', e))
       },
       { ok: false },
     )
@@ -766,6 +770,8 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       if (charge.depuis !== undefined && (typeof charge.depuis === 'string' ? charge.depuis : null) !== rt.engine.activeSessionId) return
       try {
         rt.engine.launch(rt.lancementDeQuiz())
+        // Un quiz de plus : la soirée qui allait s'enregistrer continue.
+        rt.reconsidererCloture()
         // Le quiz prend la scène : un podium ou une clôture restés sur la
         // télé passaient devant tout le quiz suivant.
         rt.poserScene(null)

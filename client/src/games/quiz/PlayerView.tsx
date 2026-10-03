@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import type { QuizAction, QuizPlayerView } from '../../../../shared/games/quiz'
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
+import type { DetailDeLaQuestion, QuizAction, QuizPlayerView } from '../../../../shared/games/quiz'
 import { lireNombre } from '../../../../shared/nombres'
 import { rangPartage } from '../../../../shared/classement'
 import { GetReady } from '../../components/GetReady'
@@ -9,7 +9,7 @@ import { Icon } from '../../components/Icon'
 import { Shape } from '../../components/Shape'
 import { Rank, Score } from '../../components/Rank'
 import type { PublicPlayer, PublicTeam } from '../../../../shared/types'
-import { espacesFines, formatNumber, place, pts } from '../../format'
+import { espacesFines, formatNumber, place, pts, rang, secondes } from '../../format'
 import { answersSizeClass, questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
 import { Niveau } from '../../components/Niveau'
@@ -396,6 +396,8 @@ interface Salle {
   myTeamId: string | null
   players: readonly PublicPlayer[]
   participants: number
+  /** Soi, pour se trouver dans « Cette question ». */
+  moi?: PublicPlayer
 }
 
 /**
@@ -408,7 +410,7 @@ interface Salle {
  * L'anecdote vient en dernier : la télé la montre en grand au même instant,
  * et devant les équipes, elle les poussait sous le pouce.
  */
-function BetweenQuestions({ view: v, salle: { teams, myTeamId, players, participants } }: { view: QuizPlayerView; salle: Salle }) {
+function BetweenQuestions({ view: v, salle: { teams, myTeamId, players, participants, moi } }: { view: QuizPlayerView; salle: Salle }) {
   return (
     <>
       {/* Qui vient d'arriver n'en a pas encore : il n'a rien joué. */}
@@ -431,7 +433,108 @@ function BetweenQuestions({ view: v, salle: { teams, myTeamId, players, particip
           </span>
         </p>
       )}
+      {/* La question vue par toute la salle : sous la sienne, jamais avant (invariant 1). */}
+      {v.laQuestion && <CetteQuestion detail={v.laQuestion} players={players} moi={v.justArrived ? undefined : moi?.id} />}
     </>
+  )
+}
+
+/**
+ * Sa phrase, la plus belle qui soit vraie — jamais au masculin de personne :
+ * « La réponse juste la plus rapide », pas « le plus rapide de tous ».
+ */
+export function phraseDeLaQuestion(
+  d: DetailDeLaQuestion,
+  moi: string | undefined,
+  nomDe: (id: string) => string,
+): { titre: string; detail: string; icone: 'zap' | 'check' | 'x' | 'users' } {
+  const { premier, second, trouvees, repondues } = d
+  const ecart = (a: number, b: number) => secondes(Math.max(0, b - a))
+  if (d.rangDesJustes === 1) {
+    if (!second) return { titre: 'Personne d’autre n’a trouvé', detail: '', icone: 'zap' }
+    return { titre: 'La réponse juste la plus rapide', detail: `${ecart(premier!.ms, second.ms)} devant ${nomDe(second.id)}`, icone: 'zap' }
+  }
+  if (d.rangDesJustes) {
+    return {
+      titre: `${rang(d.rangDesJustes)} réponse juste sur ${trouvees}`,
+      detail: premier ? `${ecart(premier.ms, d.lignes.find(l => l?.id === moi)?.ms ?? premier.ms)} après ${nomDe(premier.id)}` : '',
+      icone: 'check',
+    }
+  }
+  if (!premier) return { titre: 'Personne n’a trouvé', detail: moi && d.memeChoix !== undefined ? 'Une question pour personne' : '', icone: 'x' }
+  if (!moi || d.memeChoix === undefined) {
+    return { titre: `Réponse juste la plus rapide : ${nomDe(premier.id)}`, detail: secondes(premier.ms), icone: trouvees ? 'zap' : 'users' }
+  }
+  const titre = trouvees === 1 ? `Une seule réponse juste : ${nomDe(premier.id)}` : `${trouvees} sur ${repondues} ont trouvé`
+  const m = d.memeChoix
+  return { titre, detail: m > 1 ? `${m} autres ont dit comme toi` : m === 1 ? 'Une autre personne a dit comme toi' : 'Personne d’autre n’a dit comme toi', icone: 'x' }
+}
+
+/**
+ * « Cette question » : qui a trouvé, en combien de temps, ce que chacun y a
+ * gagné, et sa place à soi dans cette question-là. Les invités demandaient
+ * « est-ce que j'ai été le premier ? combien ont eu les autres ? ». Le
+ * serveur n'envoie que des identifiants : les prénoms et les avatars
+ * viennent de l'instantané, marque d'homonymie comprise.
+ */
+function CetteQuestion({ detail: d, players, moi }: { detail: DetailDeLaQuestion; players: readonly PublicPlayer[]; moi: string | undefined }) {
+  const parId = new Map(players.map(p => [p.id, p]))
+  const nomDe = (id: string) => {
+    const p = parId.get(id)
+    return p ? (p.nomAffiche ?? p.name) : 'un invité parti'
+  }
+  const { titre, detail, icone } = phraseDeLaQuestion(d, moi, nomDe)
+  const plusLent = Math.max(1, ...d.lignes.map(l => l?.ms ?? 0))
+  return (
+    <section className="card detail-question" aria-label="Cette question, pour toute la salle">
+      <header className={'dq-tete dq-' + icone}>
+        <span className="dq-icone">
+          <Icon name={icone} />
+        </span>
+        <span className="dq-titre">
+          <b>{espacesFines(titre)}</b>
+          {detail && <span>{espacesFines(detail)}</span>}
+        </span>
+        {/* Le compte, quand la phrase ne le dit pas déjà. */}
+        {!titre.includes(' sur ') && (
+          <span className="dq-compte" aria-label={`${d.trouvees} sur ${d.repondues} ont trouvé`}>
+            <b>{d.trouvees}</b>/{d.repondues}
+          </span>
+        )}
+      </header>
+      <ol className="dq-lignes">
+        {d.lignes.map((l, i) => {
+          if (!l)
+            return (
+              <li key={`trou-${i}`} className="dq-trou" aria-hidden="true">
+                ⋯
+              </li>
+            )
+          const p = parId.get(l.id)
+          return (
+            <li
+              key={l.id}
+              className={'dq-ligne' + (l.id === moi ? ' dq-moi' : '') + (l.juste ? ' dq-juste' : ' dq-faux')}
+              style={{ '--temps': l.ms / plusLent } as CSSProperties}
+            >
+              <Avatar className="dq-avatar" avatar={p?.avatar ?? '🎉'} finition={p?.finition} eclat={p?.eclat} legendaire={p?.legendaire} />
+              <span className="dq-nom">
+                <span className="dq-nom-texte">{nomDe(l.id)}</span>
+                {l.id === d.premier?.id && <Icon name="zap" className="dq-eclair" />}
+              </span>
+              <span className="dq-temps">
+                {l.choix !== null && <Shape index={l.choix} inline />}
+                {secondes(l.ms)}
+              </span>
+              <span className="dq-points">{l.points > 0 ? `+${formatNumber(l.points)}` : '0'}</span>
+            </li>
+          )
+        })}
+      </ol>
+      {d.repondues > d.lignes.filter(Boolean).length && (
+        <p className="dq-pied">{espacesFines(`${d.repondues} réponses · les plus rapides${moi && d.lignes.some(l => l?.id === moi) ? ', et toi' : ''}`)}</p>
+      )}
+    </section>
   )
 }
 
@@ -565,7 +668,7 @@ function PointsAnnules() {
 }
 
 export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, participants, envoi }: QuizPlayerProps) {
-  const salle: Salle = { teams, myTeamId, players, participants }
+  const salle: Salle = { teams, myTeamId, players, participants, moi }
   // Avant tout retour anticipé : un crochet s'appelle à chaque rendu.
   const closes = useEchue(v.phase === 'question' ? v.deadline : undefined, !!v.paused)
   // La reprise se sent dans la main : on ne regarde pas son téléphone pendant

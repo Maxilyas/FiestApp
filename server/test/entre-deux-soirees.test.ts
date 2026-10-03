@@ -262,3 +262,14 @@ test('la page câble le premier écran, la fin rendue et la soirée suivante', (
   // La clôture en direct, elle, s'affiche toujours : le téléphone était là.
   assert.match(source('socket.ts'), /socket\.on\('soiree:fin', fin => \{[\s\S]*?garderFin\(slug, fin\)\s*\}\s*setState\(\{ fin, gain: null \}\)/)
 })
+
+test('sous sa fin de soirée, le chef du salon a deux gestes de plus : encore un quiz avec eux, ou ce n’était qu’un essai', async () => {
+  const chef = gestes(await rendu({ fin: FIN, profil: null, onSuivante: () => {}, chef: true }))
+  assert.ok(chef.includes('Encore un quiz, avec eux → /salon'), chef.join(' | '))
+  assert.ok(chef.includes('C’était un essai [bouton]'))
+  const invite = gestes(await rendu({ fin: FIN, profil: null, onSuivante: () => {} }))
+  assert.ok(!invite.some(g => g.includes('/salon') || g.includes('essai')), 'un invité ne les voit pas')
+  // « C'était un essai » retire la soirée de l'historique, crédits compris (`retirerSoireeEntiere`).
+  assert.match(source('components/FinDeSoiree.tsx'), /await api\.archives\.remove\(fin\.soiree\.id\)/)
+  assert.match(source('views/PlayerApp.tsx'), /chef=\{chefIci\(slug\) !== null\}/)
+})

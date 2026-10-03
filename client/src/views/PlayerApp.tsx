@@ -22,6 +22,7 @@ import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
 import { TeamPicker } from '../components/TeamPicker'
 import { Icon } from '../components/Icon'
+import { useSecondesRestantes } from '../decompte'
 import { Entree, type Identite } from '../components/Entree'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { ProfilForm } from '../components/ProfilForm'
@@ -42,6 +43,7 @@ import { useEcranAllume } from '../veille'
 import { porterTheme } from '../themeJoueur'
 import { useGardeRetour } from '../retour'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
+import { chefIci } from '../chef'
 
 /**
  * La fin de soirée, sa fête et la carte d'un joueur, à la demande : elles ne
@@ -51,6 +53,12 @@ import { aLaDemande, useALaDemande } from '../aLaDemande'
  */
 const finDeSoiree = aLaDemande(() => import('../components/FinDeSoiree'))
 const carteJoueur = aLaDemande(() => import('../components/CarteJoueur'))
+/**
+ * La barre du chef — sa liaison d'animateur et le QR du salon avec elle —,
+ * à la demande : seul le téléphone qui a ouvert le salon la télécharge
+ * (`chef.ts`) ; un invité n'en charge pas un octet.
+ */
+const barreDuChef = aLaDemande(() => import('../components/BarreDuChef'))
 
 /** Ce qui vient une fois dans la salle, sans rien retarder de ce qu'on y voit. */
 const DELAI_PRECHARGEMENT_MS = 1500
@@ -67,7 +75,39 @@ const SANS_JOUEURS: never[] = []
 /** Les phases où l'écran du téléphone est plein : l'avis du téléphone perdu attend la suivante. */
 const PHASES_PLEINES = new Set<QuizPlayerView['phase']>(['getReady', 'observe', 'question'])
 
+/**
+ * Le dernier quiz du programme d'un salon est joué : la soirée s'enregistre
+ * seule, son podium regardé — et chacun reçoit alors sa fin de soirée.
+ */
+function ClotureQuiVient({ a }: { a: number }) {
+  const reste = useSecondesRestantes(a)
+  return (
+    <p className="card notice cloture-qui-vient" role="status">
+      <Icon name="sparkles" />
+      {reste > 0 ? `Fin de soirée dans ${reste} s : chacun recevra la sienne` : 'La soirée s’enregistre…'}
+    </p>
+  )
+}
+
+/**
+ * La page d'un invité — et celle du chef qui joue, sa barre en bas : il
+ * répond comme les autres, et garde la main sur la partie.
+ */
 export function PlayerApp() {
+  const [chef] = useState(() => chefIci(currentSlug() ?? ''))
+  const laBarre = useALaDemande(barreDuChef, !!chef)
+  // Une fois entré seulement : sur l'écran d'entrée, la barre couvrait
+  // « Jouer sous un autre prénom ce soir », et rien n'y est encore à lancer.
+  const entre = !!useAppState().me
+  return (
+    <>
+      <SalleDuJoueur />
+      {chef && entre && laBarre && laBarre !== 'perdu' && <laBarre.BarreDuChef reglages={chef} />}
+    </>
+  )
+}
+
+function SalleDuJoueur() {
   const s = useAppState()
   /** L'espace de la soirée : le nom dans l'adresse, celui que le QR a donné. */
   const slug = currentSlug() ?? ''
@@ -460,6 +500,7 @@ export function PlayerApp() {
               quitterFin(slug)
               setGardee(soireeGardee(slug))
             }}
+            chef={chefIci(slug) !== null}
           />
         ) : (
           <FinEnChemin perdue={fin === 'perdu'} />
@@ -543,6 +584,7 @@ export function PlayerApp() {
         {phase && !PHASES_PLEINES.has(phase.phase) && absent && (
           <AvisHorsLigne absent={absent} profilIci={!!profil} onCode={() => setReprise(true)} discret />
         )}
+        {snap.clotureAuto && <ClotureQuiVient a={snap.clotureAuto} />}
         <QuizPlayer
           view={sessionView.view as QuizPlayerView}
           teams={teams}

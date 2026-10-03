@@ -1,3 +1,6 @@
+import type { CampagneStore } from './core/campagne'
+import { mountCampagne } from './campagne'
+import { mountProfilsAdmin } from './profilsAdmin'
 import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
 import type { ProgrammeStore } from './core/programmes'
@@ -9,7 +12,7 @@ import type { AuthStore } from './auth/store'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
-import { horsBornesALEnvoi, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
+import { horsBornesALEnvoi, normalizeQuestions, playableQuestions, tropDeQuestions, type MemoireDuQuiz } from '../../shared/library'
 import { accountOf, csrfGuard, refuserLesTeles, requireAccount, requireAdmin } from './auth/http'
 import { mountAuthApi } from './auth/routes'
 import { mountAppairage } from './auth/appairage'
@@ -49,12 +52,20 @@ interface ApiDeps {
   soireeEnCours: (spaceId: string) => string | null
   /** Les espaces dont la soirée en cours compte ce profil parmi ses invités. */
   soireesOuJeJoue: (profileId: string) => string[]
+  /** Les espaces dont une soirée pas encore close le compte — active ou laissée en plan. */
+  soireesPasCloses: (profileId: string) => string[]
+  /** Supprime un profil et ce qui n'était qu'à lui — composé dans `createQuizServer`. */
+  supprimerProfil: (profileId: string) => Promise<{ salon: 'detache' | null }>
+  /** Ouvre le salon d'un espace et rend son code (`SpaceRuntime.ouvrirSalon`). */
+  ouvrirSalon: (spaceId: string, opts?: { auto?: boolean }) => Promise<string | null>
   /** Rediffuse la salle d'un espace dont les réglages ont changé. */
   espaceChange: (spaceId: string) => void
   /** Rediffuse la salle des soirées où joue un profil qui a changé de parure. */
   profilChange: (profileId: string) => void
   /** Le quiz du jour : sa réserve, ses parties, ses classements. */
   jour: JourStore
+  /** La campagne solo : ses séries, pour les profils. */
+  campagne: CampagneStore
   /** L'heure du quiz du jour — celle du serveur, que les tests font passer minuit. */
   maintenant: () => number
   /** Le jeton de la routine qui remplit la réserve du quiz du jour ; null, la porte n'existe pas. */
@@ -90,6 +101,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
     auth: deps.auth,
     archives: deps.archives,
     soireesOuJeJoue: deps.soireesOuJeJoue,
+    ouvrirSalon: deps.ouvrirSalon,
     online: deps.online,
     profilChange: deps.profilChange,
     jour: deps.jour,
@@ -97,6 +109,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   })
   // Le quiz du jour se joue avec son profil, lui aussi, sans compte d'animateur.
   mountJour(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant })
+  // La campagne aussi : seul, avec son profil.
+  mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
   // Sa réserve se remplit par une routine, avec son jeton — pas un animateur non plus.
   mountReserve(app, { jour: deps.jour, jeton: deps.jetonDeLaReserve })
   app.use('/api', requireAccount(deps.auth))
@@ -115,6 +129,14 @@ export function mountApi(app: Express, deps: ApiDeps) {
     profiles: deps.profiles,
     maintenant: deps.maintenant,
     reserveAutomatique: deps.jetonDeLaReserve !== null,
+  })
+  // « Les profils » : les chercher, en supprimer un — l'administrateur seul.
+  mountProfilsAdmin(app, {
+    profiles: deps.profiles,
+    auth: deps.auth,
+    store: deps.store,
+    soireesPasCloses: deps.soireesPasCloses,
+    supprimerProfil: deps.supprimerProfil,
   })
 
   /**
@@ -377,6 +399,9 @@ export function mountApi(app: Express, deps: ApiDeps) {
           id: m.id,
           title: m.title,
           questionCount: m.questions.length,
+          // Ce qui se joue tel quel : un modèle à compléter (✏️) se prépare
+          // dans « Mes quiz », il ne se lance pas d'un toucher depuis un salon.
+          pretes: playableQuestions({ id: m.id, title: m.title, updatedAt: 0, questions: normalizeQuestions(m.questions) }).length,
           ...(m.personnaliser && { personnaliser: m.personnaliser }),
           ...(m.description && { description: m.description }),
           rayon: m.rayon,

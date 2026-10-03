@@ -58,7 +58,7 @@ async function redemarrer(banc: Banc): Promise<string[]> {
   return lignes
 }
 
-test('après un barème monté, le démarrage suivant ne relit plus tout l’historique — la ligne du quiz du jour comprise', async () => {
+test('après un barème monté, le démarrage suivant ne relit plus tout l’historique — les lignes du quiz du jour et de la campagne comprises', async () => {
   const banc = await demarrer({ horlogeDuJour: () => Date.UTC(2026, 8, 26, 8, 0) })
   try {
     const cookie = await connexionAnimateur(banc.url)
@@ -88,6 +88,9 @@ test('après un barème monté, le démarrage suivant ne relit plus tout l’his
 
     // Le barème monte : toutes les lignes sont d'une version d'avant.
     const db = new Database(permanente(banc))
+    // Et une ligne de campagne : son barème est le sien, rien ne la relit.
+    const aliceId = (db.prepare(`SELECT id FROM profiles WHERE login = 'alice'`).get() as { id: string }).id
+    db.prepare(`INSERT INTO profile_xp (profile_id, soiree_id, space_id, xp, detail, created_at) VALUES (?, '#campagne', '', 12, '{"v":1,"jours":2}', 1)`).run(aliceId)
     db.prepare(`UPDATE profile_xp SET detail = json_set(detail, '$.v', ${VERSION_BAREME - 1})`).run()
     db.close()
 
@@ -95,8 +98,11 @@ test('après un barème monté, le démarrage suivant ne relit plus tout l’his
     assert.ok(premier.some(l => l.includes('expérience recalculée')), 'le premier démarrage relit l’historique')
     const lu = new Database(permanente(banc), { readonly: true })
     const jour = lu.prepare(`SELECT detail FROM profile_xp WHERE soiree_id = '#jour'`).get() as { detail: string }
+    const campagne = lu.prepare(`SELECT xp, detail FROM profile_xp WHERE soiree_id = '#campagne'`).get() as { xp: number; detail: string }
     lu.close()
     assert.ok(jour.detail.startsWith(`{"v":${VERSION_BAREME},`), `la ligne du quiz du jour lit ${jour.detail}`)
+    // Remise à la version du jour, sans relecture : relue comme une soirée, elle perdait ses jours.
+    assert.deepEqual([campagne.xp, JSON.parse(campagne.detail)], [12, { v: VERSION_BAREME, jours: 2 }])
 
     const second = await redemarrer(banc)
     assert.deepEqual(second.filter(l => l.includes('expérience recalculée')), [], 'le démarrage suivant n’a plus rien à relire')

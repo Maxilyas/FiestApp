@@ -1,6 +1,6 @@
 import type { InStatement } from '@libsql/client'
 import { ajouterColonne, clientDistant, type Client } from '../core/distante'
-import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto'
 import { hashPassword } from './password'
 import { tronquer } from '../../../shared/avatars'
 import {
@@ -57,6 +57,16 @@ export interface AccountRec {
   profileId: string | null
 }
 
+/**
+ * Le salon d'un profil : l'espace que « Créer un salon » lui a ouvert
+ * (`creerEspaceDuProfil`) — un identifiant `p-…`, jamais de mot de passe —,
+ * qu'on distingue, à l'administration, d'un compte d'animateur rattaché après
+ * coup avec son mot de passe. Supprimer le profil les détache tous deux.
+ */
+export function estSalonDuProfil(a: AccountRec): boolean {
+  return a.profileId !== null && !a.passwordHash && a.login.startsWith('p-')
+}
+
 export interface SessionRec {
   id: string
   accountId: string
@@ -100,6 +110,13 @@ function siDoublon(e: unknown): never {
   if (message.includes('UNIQUE constraint failed: accounts.slug')) throw new Error('Ce nom d’adresse est déjà pris')
   throw e
 }
+
+/**
+ * L'alphabet des identifiants et des adresses d'un espace de profil :
+ * minuscules et chiffres, sans les lettres qu'on confond (l, o, i). Ces
+ * adresses ne se tapent pas, mais elles se lisent dans un lien.
+ */
+const ADRESSE_NEUTRE = 'abcdefghjkmnpqrstuvwxyz23456789'
 
 export class AuthStore {
   private client: Client
@@ -369,6 +386,43 @@ export class AuthStore {
       .catch(siDoublon)
     this.accounts.set(rec.id, rec)
     return rec
+  }
+
+  /**
+   * L'espace d'un profil, créé à son premier « Créer un salon » : tout le
+   * monde peut animer, et il n'y a plus de compte d'animateur à demander. Le
+   * compte n'a pas de mot de passe — le profil est sa seule porte
+   * (`ouvrirConsole`) —, son identifiant ne se tape jamais, et son adresse
+   * ne porte aucun prénom : on entre chez lui par le code du salon, et
+   * l'adresse ne sert qu'à ses souvenirs. Deux créations croisées du même
+   * profil : la seconde trouve l'espace de la première au rattachement, et
+   * le sien, resté sans maître, s'efface.
+   */
+  async creerEspaceDuProfil(profil: { id: string; name: string }): Promise<AccountRec> {
+    const deja = this.byProfile(profil.id)
+    if (deja) return deja
+    const tire = (prefixe: string, n: number) =>
+      prefixe + Array.from({ length: n }, () => ADRESSE_NEUTRE[randomInt(ADRESSE_NEUTRE.length)]).join('')
+    let compte: AccountRec | null = null
+    for (let essai = 0; essai < 10 && !compte; essai++) {
+      const login = tire('p-', 10)
+      const slug = tire('s-', 6)
+      if (this.byLogin(login) || this.bySlug(slug)) continue
+      compte = await this.create({ login, name: profil.name, slug }).catch(e => {
+        // Une adresse prise entre la lecture et l'écriture : on retire.
+        if (e instanceof Error && /déjà pris/.test(e.message)) return null
+        throw e
+      })
+    }
+    if (!compte) throw new Error('Impossible d’ouvrir ton salon pour l’instant — réessaie dans un instant')
+    try {
+      return await this.linkProfile(compte.id, profil.id)
+    } catch (e) {
+      const autre = this.byProfile(profil.id)
+      await this.remove(compte.id).catch(() => {})
+      if (autre) return autre
+      throw e
+    }
   }
 
   async setPassword(id: string, password: string): Promise<void> {
