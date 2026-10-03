@@ -11,17 +11,15 @@ import { ProfilForm } from '../components/ProfilForm'
 import { tronquer } from '../../../shared/avatars'
 import { pageDeRetour } from '../../../shared/securite'
 import { cibleEclat } from '../../../shared/legendaires'
-import { brilleChez, coupDOeilMoyen, type PublicProfileDetail } from '../../../shared/profil'
+import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
-import { Categories, Courbes, FicheCarriere } from '../components/Carriere'
 import { annonceDuChoix, type ChoixDuProfil } from '../components/choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { espacesFines, formatNumber, place, reponsesParType } from '../format'
+import { espacesFines } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
-import { route, spacePath } from '../routes'
+import { route } from '../routes'
 import { derniereSoireeGardee } from '../state'
 import { Lendemain } from '../components/Lendemain'
-import { MesJours, pointsDesJours } from '../components/Jour'
 import { AccueilJouer, JAnime } from '../components/AccueilDesRoles'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
@@ -383,84 +381,8 @@ export function ProfilApp() {
             enChemin
           ))}
         {ecran === 'trophees' && (pret ? <pret.PanneauTrophees profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
-        {ecran === 'carriere' && (
-          <>
-            <div className="card">
-              <h3>
-                <Icon name="bar-chart" />
-                Ma fiche
-              </h3>
-              <FicheCarriere fiche={profil.fiche} partie="essentiel" />
-              {/* Les courbes à la vue : on aimait les voir monter. Les huit
-                  autres chiffres et les catégories, d'un toucher. */}
-              <h4 className="hf-groupe">Soirée après soirée</h4>
-              <Courbes soirees={profil.soirees} />
-              {profil.jour && profil.jour.jours.length > 0 && (
-                <>
-                  <h4 className="hf-groupe">Jour après jour, au quiz du jour</h4>
-                  <Courbes unite="jour" soirees={pointsDesJours(profil.jour.jours)} />
-                </>
-              )}
-              <Deplier id="fiche" titre="Tous mes chiffres">
-                <FicheCarriere fiche={profil.fiche} partie="reste" />
-              </Deplier>
-              {Object.keys(profil.categories).length > 0 && (
-                <>
-                  <h4 className="hf-groupe">Par catégorie</h4>
-                  <Categories categories={profil.categories} />
-                </>
-              )}
-            </div>
-            <MesJours jour={profil.jour} />
-          </>
-        )}
-        {ecran === 'soirees' && (
-          <div className="card">
-            {profil.soirees.length === 0 && <p className="muted">Pas encore de soirée : la première s’ajoutera ici.</p>}
-            {profil.soirees.map(s => {
-              const date = new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-              // Le titre que l'animateur lui a donné, la date sinon : une liste de
-              // dates ne disait pas laquelle était la fête de Marc.
-              const nomDeSoiree = s.titre ?? date
-              return (
-                <div key={s.soireeId} className="soiree-row">
-                  <div className="soiree-texte">
-                    <span className="soiree-quand">
-                      {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
-                      {s.slug ? (
-                        <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
-                          {nomDeSoiree}
-                        </a>
-                      ) : (
-                        nomDeSoiree
-                      )}
-                    </span>
-                    <span className="soiree-detail">
-                      {s.titre && `${date} · `}
-                      {s.chez && `chez ${s.chez} · `}
-                      {s.espaceFerme && 'un espace fermé · '}
-                      {/* Par type de question : « 64 réponses, 1 juste » ne disait pas
-                          que soixante-deux étaient des estimations. */}
-                      {reponsesParType({ ...s.releve, coupDOeil: coupDOeilMoyen(s.releve) }, { compte: false }) || 'aucune réponse'}
-                      {s.releve.rang > 0 && s.releve.rang <= 3 && ` · ${place(s.releve.rang)}`}
-                    </span>
-                    {/* Son bilan à soi, d'un toucher : il redemandait « Qui es-tu ? ». */}
-                    {s.slug && s.joueurId && (
-                      <a className="link-inline small" href={`${spacePath(s.slug, 'bilan', s.soireeId)}#p=${encodeURIComponent(s.joueurId)}`}>
-                        Mon bilan
-                      </a>
-                    )}
-                  </div>
-                  <span className="soiree-xp">+{formatNumber(s.xp)} XP</span>
-                </div>
-              )
-            })}
-            {/* Les paliers et le quiz du jour ont leur ligne à part : sans ce
-                mot, la somme des soirées ne faisait pas le total, et rien ne
-                disait pourquoi. */}
-            <p className="muted small">Les paliers de carrière et le quiz du jour s’ajoutent à part.</p>
-          </div>
-        )}
+        {ecran === 'carriere' && (pret ? <pret.PanneauCarriere profil={profil} /> : enChemin)}
+        {ecran === 'soirees' && (pret ? <pret.PanneauSoirees profil={profil} monEspace={espace?.slug} /> : enChemin)}
         {erreur && <p className="error">{erreur}</p>}
         {menu('profil')}
       </div>
@@ -726,16 +648,3 @@ function Repli({
   )
 }
 
-/** Un repli dans une carte — « Tous mes chiffres » : un lien plutôt qu'un titre. */
-function Deplier({ id, titre, children }: { id: string; titre: string; children: ReactNode }) {
-  const souvenir = useSouvenir(id)
-  return (
-    <details className="repli-interne" {...souvenir}>
-      <summary>
-        {titre}
-        <Icon name="chevron-down" className="repli-chevron" />
-      </summary>
-      {children}
-    </details>
-  )
-}

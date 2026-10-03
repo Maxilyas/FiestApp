@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Flamme, Icon } from './Icon'
+import { Icon } from './Icon'
 import { Legendaire } from './Legendaire'
-import { Chiffres } from './Chiffres'
-import { HautsFaits } from './Carriere'
-import { Medaille } from './Jour'
-import { Ecusson } from './Ecusson'
 import { formatNumber } from '../format'
 import { rendreLeFocus } from '../focus'
 import {
@@ -18,14 +14,30 @@ import {
   titreDePalier,
 } from '../../../shared/hautsfaits'
 import { legendaire } from '../../../shared/legendaires'
-import { lesPlusProches, recompensesDe, type Proche } from '../../../shared/proches'
-import type { CarriereDuJour } from '../../../shared/jour'
-import type { PrixDeCollection, PublicProfileDetail } from '../../../shared/profil'
-import { SEUILS_ECUSSON, prochainSeuil, type Ecusson as EcussonDeSavoir } from '../../../shared/ecussons'
+import { recompensesDe, type Proche } from '../../../shared/proches'
+import type { PublicProfileDetail } from '../../../shared/profil'
 
-// L'onglet « Trophées » du profil : ce que sa carte montre à la salle, son
-// quiz du jour, ses hauts faits — les plus proches d'abord, le catalogue
-// replié —, et sa collection de prix. Tout ce qu'il a gagné, et ce qui vient.
+// Les pièces des trophées du profil que d'autres écrans reprennent : sa
+// vitrine — ce que sa carte montre à la salle — et un objectif commencé. La
+// liste des collections elle-même vit dans `TropheesAtlas`.
+
+/**
+ * Ce que sa vitrine montre — celle qu'il a choisie, sinon ses trois plus
+ * beaux —, et de quoi la choisir : la ligne des trophées et le choix lisent
+ * la même chose.
+ */
+export function laVitrine(profil: PublicProfileDetail) {
+  const recompenses = recompensesDe(profil.hautsFaits)
+  const parCle = new Map(profil.vitrine.map(b => [b.key, b]))
+  const badgeDe = (cle: string) => {
+    const rangee = cleRangee(cle, recompenses)
+    return rangee ? parCle.get(rangee) : undefined
+  }
+  const gagnes = hautsFaitsGagnes(recompenses).filter(cle => badgeDe(cle))
+  const choisie = profil.vitrineChoisie ?? null
+  const montres = choisie ? choisie.flatMap(cle => badgeDe(cle) ?? []) : plusBeaux(profil.vitrine, VITRINE_MAX)
+  return { badgeDe, gagnes, montres }
+}
 
 /**
  * Sa vitrine : les hauts faits que sa carte montre à qui touche son nom.
@@ -54,15 +66,8 @@ export function MaVitrine({
     if (ouverte.current) rendreLeFocus(section.current, ['h3'])
     ouverte.current = true
   }, [enChoix])
-  const recompenses = recompensesDe(profil.hautsFaits)
-  const parCle = new Map(profil.vitrine.map(b => [b.key, b]))
-  const badgeDe = (cle: string) => {
-    const rangee = cleRangee(cle, recompenses)
-    return rangee ? parCle.get(rangee) : undefined
-  }
-  const gagnes = hautsFaitsGagnes(recompenses).filter(cle => badgeDe(cle))
+  const { badgeDe, gagnes, montres } = laVitrine(profil)
   const choisie = profil.vitrineChoisie ?? null
-  const montres = choisie ? choisie.flatMap(cle => badgeDe(cle) ?? []) : plusBeaux(profil.vitrine, VITRINE_MAX)
 
   if (choix) {
     const complet = choix.length >= VITRINE_MAX
@@ -180,126 +185,8 @@ export function MaVitrine({
   )
 }
 
-/**
- * Son quiz du jour : les médailles, les jours joués, la série et son record,
- * le meilleur score, les podiums. Rien tant qu'il n'y a pas joué, sinon
- * l'invitation.
- */
-export function MonQuizDuJour({ jour }: { jour?: CarriereDuJour }) {
-  if (!jour) return null
-  return (
-    <section className="card">
-      <h3>
-        <Flamme />
-        Le quiz du jour
-      </h3>
-      {jour.joues === 0 ? (
-        <p className="muted small">
-          Dix questions chaque jour, les mêmes pour tous les profils.{' '}
-          <a className="link-inline" href="/jour">
-            Jouer celui d’aujourd’hui
-          </a>
-        </p>
-      ) : (
-        <>
-          <div className="medailles-compte" role="list" aria-label="Mes médailles">
-            {(['or', 'argent', 'bronze'] as const).map(m => (
-              <span key={m} role="listitem">
-                <Medaille medaille={m} className="medaille-grande" />
-                <b className="num">{jour.medailles[m]}</b>
-              </span>
-            ))}
-          </div>
-          <Chiffres
-            cases={[
-              ['Jours joués', formatNumber(jour.joues)],
-              ['Série', `${jour.serie} jour${jour.serie > 1 ? 's' : ''}`, `record : ${jour.record}`],
-              ['Meilleur score', formatNumber(jour.meilleurScore)],
-              [
-                'Podiums',
-                formatNumber(jour.podiums),
-                jour.victoires > 0 ? `dont ${jour.victoires} victoire${jour.victoires > 1 ? 's' : ''}` : undefined,
-              ],
-            ]}
-          />
-        </>
-      )}
-    </section>
-  )
-}
-
-/**
- * Ses hauts faits : d'abord les plus proches — de quoi savoir quoi chasser
- * à la prochaine soirée —, puis tout le catalogue, replié : trente lignes
- * allongeaient la page avant même ce qu'il vise.
- */
-export function MesHautsFaits({ profil }: { profil: PublicProfileDetail }) {
-  const proches = lesPlusProches(profil.hautsFaits, profil.legendaires)
-  const gagnes = profil.hautsFaits.filter(h => h.fois > 0).length
-  return (
-    <section className="card">
-      <h3>
-        <Icon name="star" />
-        Hauts faits <span className="muted small titre-compte">{`${gagnes} / ${profil.hautsFaits.length}`}</span>
-      </h3>
-      {proches.length > 0 && (
-        <div className="proches">
-          <span className="label">Les plus proches</span>
-          {proches.map(p => (
-            <UnProche key={p.key} p={p} />
-          ))}
-        </div>
-      )}
-      <details className="repli-interne">
-        <summary>
-          {`Les ${profil.hautsFaits.length} hauts faits`}
-          <Icon name="chevron-down" className="repli-chevron" />
-        </summary>
-        <HautsFaits hautsFaits={profil.hautsFaits} />
-      </details>
-    </section>
-  )
-}
-
-/**
- * Ses écussons de savoir : les douze catégories, ce qu'il a — bronze,
- * argent, or — et ce qui manque au suivant. Ce qu'il n'a pas se montre en
- * pointillé : savoir ce qui vient donne envie de revenir.
- */
-export function MesEcussons({ ecussons }: { ecussons?: EcussonDeSavoir[] }) {
-  if (!ecussons) return null
-  const eus = ecussons.filter(e => e.palier > 0).length
-  const [bronze, argent, or] = SEUILS_ECUSSON
-  return (
-    <section className="card">
-      <h3>
-        <Icon name="shield" />
-        Écussons de savoir <span className="muted small titre-compte">{`${eus} / ${ecussons.length}`}</span>
-      </h3>
-      <p className="muted small">
-        Les bonnes réponses d’une catégorie, en soirée comme au quiz du jour : le bronze à {bronze}, l’argent à {argent}, l’or à{' '}
-        {or}. Ta carte montre les trois plus hauts.
-      </p>
-      <ul className="ecussons ecussons-grille">
-        {ecussons.map(e => {
-          const suivant = prochainSeuil(e.palier)
-          return (
-            <li key={e.categorie}>
-              <Ecusson
-                categorie={e.categorie}
-                palier={e.palier}
-                legende={suivant === null ? formatNumber(e.justes) : `${formatNumber(e.justes)} / ${formatNumber(suivant)}`}
-              />
-            </li>
-          )
-        })}
-      </ul>
-    </section>
-  )
-}
-
 /** Un objectif commencé : le légendaire en silhouette dorée, ou l'emoji du haut fait — ce qu'on compte, et la jauge. */
-function UnProche({ p }: { p: Proche }) {
+export function UnProche({ p }: { p: Proche }) {
   const l = legendaire(p.key)
   const palier = palierDe(p.key)
   const h = l ? hautFait(p.hautFait ?? l.condition.hautFait) : palier?.hautFait
@@ -328,36 +215,5 @@ function UnProche({ p }: { p: Proche }) {
         </span>
       </div>
     </div>
-  )
-}
-
-/**
- * Sa collection de prix de soirée : ceux qu'il a, et ceux qui manquent en
- * pointillé. Ils tombent à chaque soirée — six fois L'Éclair ne dit rien —,
- * c'est la collection qui compte.
- */
-export function MesPrix({ prix }: { prix?: PrixDeCollection[] }) {
-  if (!prix) return null
-  const eus = prix.filter(p => p.fois > 0).length
-  return (
-    <section className="card">
-      <h3>
-        <Icon name="award" />
-        Prix de soirée <span className="muted small titre-compte">{`${eus} / ${prix.length}`}</span>
-      </h3>
-      <p className="muted small">Une collection : ils se remettent à la fin de chaque soirée, et seule la première fois compte.</p>
-      <ul className="prix-collection">
-        {prix.map(p => (
-          <li key={p.key} className={p.fois > 0 ? 'eu' : 'manque'} title={p.rule}>
-            <span className="prix-emoji" aria-hidden="true">
-              {p.emoji}
-            </span>
-            <span className="prix-titre">{p.fois > 0 ? p.title : '?'}</span>
-            {p.fois > 1 && <span className="hf-fois">×{p.fois}</span>}
-            <span className="sr-only">{p.fois > 0 ? ` : ${p.rule}` : `À gagner : ${p.rule}`}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
   )
 }

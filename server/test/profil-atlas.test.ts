@@ -98,3 +98,101 @@ test('« Mon style » : quatre lignes, ce qui est choisi en clair, le thème ver
   assert.match(source('components/PanneauxDuProfil.tsx'), /<div className="identite-collante">/)
   assert.match(source('styles.css'), /\.identite-collante \{ position: sticky; top: 0;/)
 })
+
+// ── Les trophées, la carrière, les soirées ─────────────────────────────
+
+const releve = (qcm: number, justes: number, rang: number) => ({
+  questions: qcm,
+  reponses: qcm,
+  qcm,
+  justes,
+  tempsJustesMs: justes * 3000,
+  meilleurTempsMs: 1800,
+  reflexes: 0,
+  premiers: 0,
+  meilleureSerie: 2,
+  estimations: 0,
+  estimationsExactes: 0,
+  estimationsProches: 0,
+  ecartRelatif: 0,
+  estimationsComparees: 0,
+  coupDOeil: 0,
+  rang,
+})
+
+const vecu = {
+  ...profil,
+  vitrine: [],
+  vitrineChoisie: null,
+  fiche: {
+    soirees: 2,
+    reponses: 30,
+    precision: 0.8,
+    qcm: 20,
+    justes: 16,
+    coupDOeil: null,
+    estimationsComparees: 0,
+    reflexeMoyenMs: 2200,
+    meilleurTempsMs: 1800,
+    meilleureSerie: 6,
+    quizGagnes: 1,
+    podiumsQuiz: 2,
+    estimationsExactes: 0,
+    flair: null,
+    hotes: 2,
+  },
+  categories: { Histoire: { questions: 10, justes: 9 }, Sciences: { questions: 10, justes: 7 } },
+  soirees: [
+    { soireeId: 's2', chez: 'Antoine', slug: 'chez-antoine', titre: 'Soirée jeux', joueurId: 'j2', xp: 214, gain: {}, releve: releve(10, 8, 1), at: Date.UTC(2026, 8, 29, 19) },
+    { soireeId: 's1', chez: 'Hugo', slug: 'chez-hugo', titre: null, joueurId: null, xp: 120, gain: {}, releve: releve(10, 8, 4), at: Date.UTC(2025, 8, 20, 19) },
+  ],
+  prix: [{ key: 'prix:eclair', emoji: '⚡', title: 'L’Éclair', rule: 'Le plus rapide', fois: 1 }],
+}
+
+test('les trophées : la vitrine sur une ligne, six collections qu’on déplie, une à la fois', async () => {
+  const html = await rendu('components/TropheesAtlas', 'TropheesAtlas', { profil: vecu, ...rien })
+  assert.match(html, /<section class="vitrine-ligne" aria-label="Ma vitrine">/)
+  // Rien à montrer encore : la ligne le dit, sans bouton pour choisir dans le vide.
+  assert.match(html, /Elle se remplit à la fin de chaque soirée/)
+  assert.doesNotMatch(html, />Changer</)
+  const lignes = [...html.matchAll(/<span class="trophee-texte"><b>([^<]+)<\/b>/g)].map(([, nom]) => nom)
+  assert.deepEqual(lignes, ['Hauts faits', 'Coups du sort', 'Paliers', 'Écussons', 'Prix', 'Quiz du jour'])
+  // Toutes repliées à l'ouverture : la page tient en un écran.
+  assert.equal(html.match(/aria-expanded="false"/g)?.length, 6)
+  assert.doesNotMatch(html, /trophee-contenu/)
+  assert.match(html, /1\/1<span class="jauge-fine"/, 'les prix : un sur un')
+  assert.match(source('components/PanneauxDuProfil.tsx'), /return <TropheesAtlas profil=\{profil\} busy=\{busy\} enregistrer=\{enregistrer\} \/>/)
+})
+
+test('la carrière : trois jauges jamais fondues, les chiffres en cases, quatre vues', async () => {
+  const html = await rendu('components/CarriereAtlas', 'CarriereAtlas', { profil: vecu })
+  const jauges = [...html.matchAll(/<span class="hud-jauge-valeur">([^<]+)<\/span><figcaption><b>([^<]+)<\/b>/g)].map(([, v, nom]) => `${nom} ${v}`)
+  // Sans estimation comparée, le coup d'œil dit « — », jamais « 0 % ».
+  assert.deepEqual(jauges, ['Précision 80 %', 'Coup d’œil —', 'Flair —'])
+  assert.match(html, /16 sur 20 QCM/)
+  assert.equal(html.match(/class="atlas-orbe"/g)?.length, 4)
+  assert.match(html, /<div class="atlas-rail" role="tablist" aria-label="Ma carrière">/)
+  // Tous les chiffres d'avant restent, en cases : rien ne se perd au passage.
+  for (const mot of ['soirées', 'quiz gagnés', 'podiums', 'réflexe moyen', 'record de vitesse', 'meilleure série', 'réponses', 'estimations exactes', 'hôtes différents'])
+    assert.match(html, new RegExp(`</b>${mot}</span>`), mot)
+  assert.match(html, /Soirée après soirée/)
+})
+
+test('mes soirées : chez moi ou ailleurs, une carte chacune, le souvenir et son bilan d’un toucher', async () => {
+  const html = await rendu('components/MesSoirees', 'MesSoirees', { profil: vecu, monEspace: 'chez-antoine' })
+  const filtres = [...html.matchAll(/aria-pressed="(true|false)">([^<]+) <span class="rayon-compte">(\d+)<\/span>/g)].map(([, ici, nom, n]) => `${nom.trim()} ${n}${ici === 'true' ? ' (ici)' : ''}`)
+  assert.deepEqual(filtres, ['Toutes 2 (ici)', 'Chez moi 1', 'Ailleurs 1'])
+  assert.equal(html.match(/<li class="soiree-carte">/g)?.length, 2)
+  // La soirée de son salon se reconnaît à sa date cerclée.
+  assert.equal(html.match(/soiree-date soiree-chez-moi/g)?.length, 1)
+  assert.match(html, /<a class="soiree-nom" href="\/chez-antoine\/soirees\/s2\/souvenir">Soirée jeux<\/a>/)
+  assert.match(html, /href="\/chez-antoine\/soirees\/s2\/bilan#p=j2">Mon bilan<\/a>/)
+  // L'année ne s'écrit que pour une soirée d'une autre année.
+  assert.equal(html.match(/class="soiree-annee"/g)?.length, 1)
+  // Sans salon à lui, pas de filtres : « Chez moi » n'y voudrait rien dire.
+  const sansSalon = await rendu('components/MesSoirees', 'MesSoirees', { profil: vecu, monEspace: null })
+  assert.doesNotMatch(sansSalon, /rayons-texte/)
+  const app = source('views/ProfilApp.tsx')
+  assert.match(app, /<pret\.PanneauSoirees profil=\{profil\} monEspace=\{espace\?\.slug\} \/>/)
+  assert.match(app, /<pret\.PanneauCarriere profil=\{profil\} \/>/)
+})

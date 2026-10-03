@@ -10,7 +10,8 @@ import { AtlasDesAvatars } from './AtlasDesAvatars'
 import { Identite } from './Identite'
 import { Icon } from './Icon'
 import { Onglets, type Onglet } from './Onglets'
-import { MaVitrine, MesEcussons, MesHautsFaits, MesPrix, MonQuizDuJour } from './Trophees'
+import { TropheesAtlas } from './TropheesAtlas'
+import { CarriereAtlas } from './CarriereAtlas'
 import { MesThemes } from './Boutique'
 
 // Le contenu des écrans du profil — ses avatars, son style, ses trophées —
@@ -140,13 +141,11 @@ export function PanneauBoutique({ profil, busy, enregistrer, acheter }: Props & 
 }
 
 export function PanneauTrophees({ profil, busy, enregistrer }: Props) {
-  return (
-    <>
-      <MaVitrine profil={profil} busy={busy} enregistrer={enregistrer} />
-      <MonQuizDuJour jour={profil.jour} />
-      <MesHautsFaits profil={profil} />
-      <MesEcussons ecussons={profil.ecussons} />
-      <MesPrix prix={profil.prix} />
-    </>
-  )
+  return <TropheesAtlas profil={profil} busy={busy} enregistrer={enregistrer} />
 }
+
+export function PanneauCarriere({ profil }: { profil: PublicProfileDetail }) {
+  return <CarriereAtlas profil={profil} />
+}
+
+export { MesSoirees as PanneauSoirees } from './MesSoirees'
