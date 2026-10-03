@@ -250,6 +250,11 @@ test('« Rejoindre une soirée » demande six chiffres, au pavé numérique, et 
   assert.match(vide, /<button class="btn btn-primary btn-big btn-block" disabled="">Rejoindre la soirée<\/button>/, 'éteint avant le sixième chiffre')
   // Le nom d'une soirée d'avant ne se tape plus : toute soirée ouverte a son code (le choix du 3 octobre 2026).
   assert.doesNotMatch(vide, /J’ai le nom de la soirée|id="space-name"/)
+  // Le retour, en haut à gauche comme partout — plus de « Revenir » sous le bouton.
+  assert.doesNotMatch(vide, /Accueil|Revenir/, 'rien derrière, pas de retour')
+  const avecRetour = rendu({ onCancel: () => {} })
+  assert.match(avecRetour, /^<form class="join"><a class="lien-discret jour-sortie" href="\/">.*Accueil<\/a>/, '« ← Accueil » en tête du formulaire')
+  assert.doesNotMatch(avecRetour, /Revenir/)
 
   const perduCode = rendu({ perdu: '482157' })
   assert.match(perduCode, /Le code 482 157 ne mène à aucun salon — ou plus\./)
