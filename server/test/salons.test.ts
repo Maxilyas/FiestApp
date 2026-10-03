@@ -236,7 +236,7 @@ describe('« Créer un salon », depuis son profil', () => {
 
 // ── Au téléphone ───────────────────────────────────────────────────────────
 
-test('« Rejoindre une soirée » demande six chiffres, au pavé numérique ; le nom d’une soirée d’avant reste à un toucher', async () => {
+test('« Rejoindre une soirée » demande six chiffres, au pavé numérique, et rien d’autre : toute soirée a son code', async () => {
   const React = (await import('react')).default
   Object.assign(globalThis, { React, window: { location: { host: 'banc', pathname: '/', search: '', hash: '', origin: 'http://banc' } } })
   const { FormulaireSoiree } = await import(new URL('../../client/src/components/Rejoindre.tsx', import.meta.url).href)
@@ -248,7 +248,8 @@ test('« Rejoindre une soirée » demande six chiffres, au pavé numérique ; le
   assert.match(vide, /placeholder="482 157"/)
   assert.ok(!/autofocus/i.test(vide), 'pas d’autoFocus : le clavier pousserait le bouton hors de l’écran')
   assert.match(vide, /<button class="btn btn-primary btn-big btn-block" disabled="">Rejoindre la soirée<\/button>/, 'éteint avant le sixième chiffre')
-  assert.match(vide, /J’ai le nom de la soirée/)
+  // Le nom d'une soirée d'avant ne se tape plus : toute soirée ouverte a son code (le choix du 3 octobre 2026).
+  assert.doesNotMatch(vide, /J’ai le nom de la soirée|id="space-name"/)
 
   const perduCode = rendu({ perdu: '482157' })
   assert.match(perduCode, /Le code 482 157 ne mène à aucun salon — ou plus\./)
@@ -257,6 +258,6 @@ test('« Rejoindre une soirée » demande six chiffres, au pavé numérique ; le
 
   const perduNom = rendu({ perdu: 'nadia' })
   assert.match(perduNom, /« nadia » ne mène à aucune soirée\./)
-  assert.match(perduNom, /id="space-name"[^>]*value="nadia"/, 'un nom perdu rouvre le champ du nom')
-  assert.match(perduNom, /J’ai un code à six chiffres/)
+  assert.match(perduNom, /id="salon-code"[^>]*value=""/, 'une adresse perdue redemande le code, vide')
+  assert.doesNotMatch(perduNom, /id="space-name"/)
 })

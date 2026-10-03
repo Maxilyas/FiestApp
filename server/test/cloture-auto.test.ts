@@ -119,3 +119,50 @@ test('un quiz ajouté au programme pendant le dernier podium défait l’échéa
   const snap = await instantane<{ players: unknown[] }>(s.ecran)
   assert.equal(snap.players.length, 2, 'la soirée continue : un quiz l’attend encore')
 })
+
+test('« Terminer le quiz » sur le dernier du programme clôt la soirée sans attendre', async () => {
+  // L'échéance laisse regarder un podium ; terminer à la main, c'est dire
+  // qu'on a fini : le chef restait trente secondes dans la salle d'attente,
+  // son code en grand, au lieu de sa fin de soirée.
+  SpaceRuntime.delaiClotureAuto = 60_000
+  const s = await salon('chef3')
+  const choix = attendre<any>(s.ecran, 'session:view', p => p.view.phase === 'pickPack', 'le choix')
+  ;(s.ecran as any).emit('host:launch', { depuis: null })
+  const { sessionId, view } = await choix
+  const question = attendre<any>(s.a.socket, 'session:view', p => p.view.phase === 'question', 'la question')
+  ;(s.ecran as any).emit('host:command', { sessionId, command: { type: 'selectPack', packId: s.quiz, phase: 'pickPack', qIndex: 0, round: view.round } }, () => {})
+  const q = (await question).view
+  // Une question révélée : le quiz compte comme joué, même terminé avant son podium.
+  ;(s.a.socket as any).emit('player:action', { sessionId, action: { type: 'answer', choice: 0, qIndex: 0, round: q.round } }, () => {})
+  const revele = attendre<any>(s.ecran, 'session:view', p => p.view.phase === 'reveal', 'la révélation')
+  ;(s.ecran as any).emit('host:command', { sessionId, command: { type: 'next', phase: 'question', qIndex: 0, round: q.round } }, () => {})
+  await revele
+  const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée, tout de suite', 5000)
+  ;(s.ecran as any).emit('host:endSession', { sessionId })
+  assert.ok((await fin).soiree)
+})
+
+test('le podium regardé, l’échéance armée : « Terminer le quiz » n’attend pas son bout', async () => {
+  SpaceRuntime.delaiClotureAuto = 60_000
+  const s = await salon('chef4')
+  const sessionId = await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
+  await instantane<{ clotureAuto?: number }>(s.ecran, x => typeof x.clotureAuto === 'number', 'l’échéance annoncée')
+  const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée, tout de suite', 5000)
+  ;(s.ecran as any).emit('host:endSession', { sessionId })
+  assert.ok((await fin).soiree)
+})
+
+test('« Terminer le quiz » quand le programme en garde un autre : la soirée continue', async () => {
+  SpaceRuntime.delaiClotureAuto = 400
+  const s = await salon('chef5')
+  const encore = await creerQuiz(banc.url, s.console_, [qcm('Encore ?')], 'Encore un')
+  assert.ok(
+    (await ecrire(banc.url, `/api/programmes/${s.programme.id}`, { entrees: [{ quizId: s.quiz, multiplier: 1 }, { quizId: encore, multiplier: 1 }] }, s.console_, 'PUT')).ok,
+  )
+  const sessionId = await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
+  ;(s.ecran as any).emit('host:endSession', { sessionId })
+  await patienter(1200)
+  const snap = await instantane<{ players: unknown[]; clotureAuto?: number }>(s.ecran)
+  assert.equal(snap.players.length, 2, 'la salle attend le quiz suivant')
+  assert.equal(snap.clotureAuto, undefined)
+})

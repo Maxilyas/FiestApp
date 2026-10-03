@@ -13,7 +13,8 @@ interface Props {
   /** Le prénom et l'emoji déjà choisis sur l'écran d'inscription, s'il y en a. */
   prefill?: { name: string; avatar: string }
   /** Rendu une fois connecté ou inscrit — au parent de recharger ce qu'il faut. */
-  onDone: (profile: PublicProfile) => void
+  /** `cree` : un profil vient de naître ici — pas une connexion, pas un code de secours. */
+  onDone: (profile: PublicProfile, info?: { cree: boolean }) => void
   /** Sans lui, pas de bouton « Revenir » : sur l'accueil, il n'y a rien derrière. */
   onCancel?: () => void
   /**
@@ -101,7 +102,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
         )}
         <CodeSecours code={recovery.code} />
         <div className="join-grow" />
-        <button className="btn btn-primary btn-big btn-block" onClick={() => onDone(recovery.profile)}>
+        <button className="btn btn-primary btn-big btn-block" onClick={() => onDone(recovery.profile, { cree: !recovery.neuf })}>
           C'est noté
         </button>
       </div>
