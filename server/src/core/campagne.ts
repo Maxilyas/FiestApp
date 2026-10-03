@@ -37,9 +37,6 @@ interface Serie {
   finieLe: number | null
 }
 
-/** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge avec les jours, pas avec les clics. */
-const MESURE_GARDEE_MS = 10 * 60_000
-
 /** Sous ce nombre de questions jouables, la campagne attend : une série de trois questions n'en est pas une. */
 export const QUESTIONS_POUR_JOUER = 10
 
@@ -61,11 +58,17 @@ export class CampagneStore {
   private client: Client
   private maintenant: () => number
   private verrous = new Map<string, Promise<unknown>>()
-  private mesure: { a: number; parQuestion: Map<string, { justes: number; total: number }> } | null = null
+  /** La part de joueurs qui ont trouvé chaque question posée (`JourStore.mesures`). */
+  private mesurer: () => Promise<Map<string, { justes: number; total: number }>>
 
-  constructor(url: string, authToken?: string, opts: { maintenant?: () => number } = {}) {
+  constructor(
+    url: string,
+    authToken?: string,
+    opts: { maintenant?: () => number; mesures?: () => Promise<Map<string, { justes: number; total: number }>> } = {},
+  ) {
     this.client = clientDistant(url, authToken)
     this.maintenant = opts.maintenant ?? Date.now
+    this.mesurer = opts.mesures ?? (async () => new Map())
   }
 
   async init() {
@@ -106,37 +109,6 @@ export class CampagneStore {
       if (this.verrous.get(cle) === garde) this.verrous.delete(cle)
     })
     return suite
-  }
-
-  /** La part de joueurs qui ont trouvé chaque question du quiz du jour, par identifiant de la réserve. */
-  private async mesurer(): Promise<Map<string, { justes: number; total: number }>> {
-    if (this.mesure && this.maintenant() - this.mesure.a < MESURE_GARDEE_MS) return this.mesure.parQuestion
-    const [tirages, reponses] = await Promise.all([
-      this.client.execute('SELECT jour, questions, annulees FROM jour_tirages'),
-      this.client.execute('SELECT jour, question, SUM(juste) AS justes, COUNT(*) AS total FROM jour_reponses GROUP BY jour, question'),
-    ])
-    const idDe = new Map<string, string>()
-    for (const t of tirages.rows) {
-      let questions: { reserveId?: string }[] = []
-      let annulees: number[] = []
-      try {
-        questions = JSON.parse(String(t.questions))
-        annulees = JSON.parse(String(t.annulees ?? '[]'))
-      } catch {
-        continue
-      }
-      // Une question annulée ne dit rien de sa difficulté : elle était fausse, ou ambiguë.
-      questions.forEach((q, i) => q.reserveId && !annulees.includes(i) && idDe.set(`${t.jour}#${i}`, q.reserveId))
-    }
-    const parQuestion = new Map<string, { justes: number; total: number }>()
-    for (const r of reponses.rows) {
-      const id = idDe.get(`${r.jour}#${r.question}`)
-      if (!id) continue
-      const avant = parQuestion.get(id) ?? { justes: 0, total: 0 }
-      parQuestion.set(id, { justes: avant.justes + Number(r.justes), total: avant.total + Number(r.total) })
-    }
-    this.mesure = { a: this.maintenant(), parQuestion }
-    return parQuestion
   }
 
   /** Les questions que la campagne peut poser : déjà sorties au quiz du jour, avant aujourd'hui. */

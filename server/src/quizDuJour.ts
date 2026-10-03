@@ -5,6 +5,7 @@ import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { readPlayerToken, requireAdmin } from './auth/http'
 import { A_ECRIRE_A_LA_MAIN, A_ECRIRE_MAX } from './core/consigne'
+import { consigneDEtiquetage } from './core/etiquetage'
 import { parseImportedQuestions } from '../../shared/library'
 import { jourDe, jourValide, moisDe } from '../../shared/jour'
 import { tronquer } from '../../shared/avatars'
@@ -170,7 +171,39 @@ export function mountReserve(app: Express, deps: { jour: JourStore; jeton: strin
       res.json({ ajoutees, ecartees, ignores: lu.ignores })
     }),
   )
+
+  /**
+   * L'étiquetage de la réserve, par la même routine et le même jeton : la
+   * consigne d'étiquetage (`core/etiquetage.ts`), et les questions qui n'ont
+   * pas encore leurs métadonnées, cinquante au plus — ce qu'une IA décrit
+   * bien d'un coup. Le jeton n'en apprend pas plus qu'il n'écrivait déjà.
+   */
+  app.get(
+    '/api/jour/reserve/etiquetage',
+    porte,
+    wrap(async (_req, res) => {
+      const questions = await deps.jour.aEtiqueter(ETIQUETER_PAR_ENVOI)
+      res.json({ consigne: consigneDEtiquetage(questions.length || ETIQUETER_PAR_ENVOI), questions })
+    }),
+  )
+
+  app.post(
+    '/api/jour/reserve/etiquetage',
+    porte,
+    depot,
+    wrap(async (req, res) => {
+      const entrees: unknown = req.body?.etiquetage
+      if (!Array.isArray(entrees)) return res.status(400).json({ error: 'Envoie le tableau rendu dans « etiquetage »' })
+      if (entrees.length > ETIQUETER_PAR_ENVOI) return res.status(400).json({ error: `${ETIQUETER_PAR_ENVOI} questions au plus par envoi` })
+      const fait = await deps.jour.etiqueter(entrees)
+      console.log(`[jour] étiquetage de la routine : ${fait.etiquetees} décrites, ${fait.horsBase} hors de la base, ${fait.refusees.length} refusées`)
+      res.json(fait)
+    }),
+  )
 }
+
+/** Ce qu'une IA décrit bien d'un coup : la consigne d'étiquetage a été essayée sur cinquante questions. */
+const ETIQUETER_PAR_ENVOI = 50
 
 /**
  * La réserve, les signalements et les profils masqués, pour l'administrateur

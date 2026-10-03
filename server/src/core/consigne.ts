@@ -12,6 +12,7 @@
 import { CATEGORIES } from '../../../shared/categories'
 import { MAX_ANECDOTE, MAX_ANSWER_TEXT, MAX_TEXT } from '../../../shared/library'
 import { QUESTIONS_PAR_JOUR } from '../../../shared/jour'
+import type { Niveau } from '../../../shared/campagne'
 
 /**
  * Ce que la réserve vise : trois semaines d'avance. Une routine qui saute
@@ -73,6 +74,27 @@ export function repartitionDesDifficultes(n: number): { faciles: number; moyenne
  */
 const AUTRES_CATEGORIES_AU_MOINS = 4
 
+/** Sous ce nombre de questions mesurées, la consigne ne dit rien de ce que pensent les joueurs. */
+export const MESUREES_POUR_DIRE = 10
+
+/**
+ * Ce que disent les réponses des joueurs aux dernières questions posées :
+ * la difficulté qu'une IA qui écrit sans retour ne sait pas juger — elle
+ * trouve facile ce qu'elle sait (`repartitionDesDifficultes`). Rendue à la
+ * consigne, avec un avertissement quand les faciles débordent : la cible
+ * en veut un quart.
+ */
+export function ceQueDisentLesJoueurs(mesure: Readonly<Record<Niveau, number>>): string | null {
+  const total = mesure.facile + mesure.moyen + mesure.difficile + mesure.expert
+  if (total < MESUREES_POUR_DIRE) return null
+  const difficiles = mesure.difficile + mesure.expert
+  const trop = mesure.facile / total > 0.4
+  return (
+    `CE QUE DISENT LES JOUEURS — sur les ${total} dernières questions posées, mesurées sur leurs réponses : ${mesure.facile} faciles (plus de 70 % les trouvent), ${mesure.moyen} moyennes, ${difficiles} difficiles (moins de 40 %).` +
+    (trop ? ' C’est trop facile : ce qui te semble moyen, presque tous le trouvent. Écris plus difficile que tu ne le crois.' : '')
+  )
+}
+
 /**
  * L'exemple de la consigne. Une IA suit un exemple mieux qu'une règle : il
  * montre tout ce que la consigne demande — la catégorie, l'étoile, quatre
@@ -106,10 +128,13 @@ export function consigneDuJour({
   n,
   aPrivilegier,
   deja,
+  mesure,
 }: {
   n: number
   aPrivilegier: readonly string[]
   deja: readonly string[]
+  /** La difficulté mesurée des dernières questions posées (`JourStore.difficultesRecentes`). */
+  mesure?: Readonly<Record<Niveau, number>>
 }): string {
   const difficulte = repartitionDesDifficultes(n)
   const privilegiees = Math.ceil(n / 2)
@@ -128,6 +153,10 @@ export function consigneDuJour({
     '- Des sujets variés, de France et du monde : jamais deux questions sur le même sujet.',
     "- Pas d'emoji.",
     '',
+    ...(() => {
+      const dit = mesure && ceQueDisentLesJoueurs(mesure)
+      return dit ? [dit, ''] : []
+    })(),
     "LE FORMAT — du texte brut, rien d'autre",
     '- Une ligne vide entre deux questions.',
     `- La première ligne d'une question est son intitulé : ${MAX_TEXT} caractères au plus, et le plus court possible.`,
