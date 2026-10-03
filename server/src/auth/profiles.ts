@@ -1304,6 +1304,57 @@ export class ProfileStore {
   }
 
   /**
+   * Un profil pour un compte d'animateur d'avant, qui n'en avait pas (un
+   * seul profil, le choix du 3 octobre 2026) : le même identifiant, le même
+   * mot de passe — son haché, recopié tel quel —, le nom du compte. Son code
+   * de secours est tiré et jamais montré : la personne se connecte comme
+   * avant, avec ses identifiants ; le jour où elle change de mot de passe,
+   * c'est à son profil. Rend le profil, ou null si l'identifiant n'en ferait
+   * pas un (format, ou déjà pris).
+   */
+  async adopter(compte: { login: string; name: string; passwordHash: string }): Promise<ProfileRec | null> {
+    const login = normalizeLogin(compte.login)
+    if (!isValidLogin(login) || (await this.byLogin(login))) return null
+    const rec: ProfileRec = {
+      id: randomUUID(),
+      login,
+      name: cleanName(compte.name) || login,
+      avatar: DEFAULT_AVATAR,
+      finition: 'auto',
+      legendaire: null,
+      titre: null,
+      vitrine: null,
+      fond: null,
+      theme: null,
+      passwordHash: compte.passwordHash,
+      recoveryHash: await hashPassword(normalizeRecovery(newRecoveryCode())),
+      xp: 0,
+      createdAt: Date.now(),
+      lastSeenAt: null,
+      disabledAt: null,
+    }
+    await this.client.execute({
+      sql: `INSERT INTO profiles (id, login, name, avatar, finition, password_hash, recovery_hash, xp, created_at, last_seen_at, disabled_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NULL, NULL)`,
+      args: [rec.id, rec.login, rec.name, rec.avatar, rec.finition, rec.passwordHash, rec.recoveryHash, rec.createdAt],
+    })
+    this.profiles.set(rec.id, rec)
+    this.eclats.set(rec.id, new Set())
+    this.eteints.set(rec.id, new Set())
+    this.recompenses.set(rec.id, new Map())
+    return rec
+  }
+
+  /** Un drapeau de la base permanente : une migration faite une fois pour toutes. */
+  async drapeau(cle: string): Promise<boolean> {
+    return (await this.client.execute({ sql: 'SELECT 1 FROM meta WHERE key = ?', args: [cle] })).rows.length > 0
+  }
+
+  async poserDrapeau(cle: string): Promise<void> {
+    await this.client.execute({ sql: 'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING', args: [cle, String(Date.now())] })
+  }
+
+  /**
    * Le profil derrière un identifiant et un mot de passe, ou null. Un
    * identifiant inconnu coûte le même temps qu'un mot de passe faux : rien,
    * pas même la durée, ne dit si le profil existe.

@@ -373,6 +373,12 @@ export const api = {
   admin: {
     /** Tous les espaces, chacun avec son titulaire : les salons des profils, les comptes à mot de passe. */
     espaces: () => req<EspaceDAdministration[]>('/api/admin/espaces'),
+    /** Fusionner deux identités d'avant : l'espace prend ce profil pour titulaire, ses quiz d'ailleurs le rejoignent. */
+    rattacher: (id: string, login: string) =>
+      req<{ ok: true; recopies: number; ancien: string | null }>(`/api/admin/espaces/${encodeURIComponent(id)}/titulaire`, {
+        method: 'POST',
+        body: JSON.stringify({ login }),
+      }),
     activation: (id: string) =>
       req<{ activation: Activation }>(`/api/admin/accounts/${id}/activation`, { method: 'POST' }),
     disable: (id: string) => req<{ account: PublicAccount }>(`/api/admin/accounts/${id}/disable`, { method: 'POST' }),
@@ -510,6 +516,24 @@ export function currentMe(): Promise<Me | null> {
  * connexion qu'aucun joueur n'avait. Vrai si la console est ouverte ;
  * faux sans profil — la page demande alors la connexion, comme avant.
  */
+/**
+ * Se connecter là où s'ouvre une console — `/connexion`, l'écran commun :
+ * avec son profil d'abord (un seul profil, le choix du 3 octobre 2026), sa
+ * console avec — créée s'il n'avait pas encore d'espace —, sinon avec un
+ * compte d'animateur d'avant, que la migration n'a pas pu rattacher. Un refus
+ * des deux portes remonte en `UnauthorizedError`.
+ */
+export async function seConnecter(login: string, password: string): Promise<void> {
+  try {
+    const { espace } = await api.joueur.connexion(login, password)
+    if (!espace) await api.joueur.espace()
+    return
+  } catch (e) {
+    if (!(e instanceof UnauthorizedError)) throw e
+  }
+  await api.auth.login(login, password)
+}
+
 export async function ouvrirParLeProfil(): Promise<boolean> {
   try {
     await api.joueur.espace()

@@ -257,8 +257,15 @@ export function ProfilApp() {
           // La même phrase pour tout refus : dire « c'est un identifiant
           // d'animateur » apprendrait à n'importe qui quels comptes existent.
           // Une console ouverte met « Animer « … » » en bas, pas cette porte.
+          // Un compte d'animateur d'avant que la migration n'a pas pu rattacher
+          // (son identifiant était pris) garde sa porte, à côté.
           !console_ && (
-            <p className="muted small">Tu animes une soirée ? Ta porte est tout en bas : « J’anime une soirée ».</p>
+            <p className="muted small">
+              Un ancien compte d’animateur ?{' '}
+              <a className="link-inline" href="/connexion?next=/compte">
+                Connecte-toi ici
+              </a>
+            </p>
           )
         }
         pied={!console_ && <PorteAnimateur />}
@@ -541,15 +548,17 @@ if (VUE === 'profil' && window.location.hash === '#mes-themes') window.location.
 
 /**
  * La porte des animateurs, sur l'accueil d'un visiteur sans profil ni
- * console ouverte ici : un lien discret vers la connexion au compte.
- * Discret, parce que l'accueil est d'abord celui des invités — « Rejoindre
- * une soirée » ne doit jamais descendre sous le bord. Une console ouverte
- * ici met sa carte en tête (`JAnime`).
+ * console ouverte ici. Discrète, parce que l'accueil est d'abord celui des
+ * invités — « Rejoindre une soirée » ne doit jamais descendre sous le bord.
+ * Elle menait à la connexion d'un compte d'animateur, qu'on ne crée plus :
+ * un salon s'ouvre avec son profil (un seul profil, le choix du 3 octobre
+ * 2026), et `/salon` le dit, « Me connecter » et « Créer mon profil » sous
+ * la main. Une console ouverte ici met sa carte en tête (`JAnime`).
  */
 function PorteAnimateur() {
   return (
     <p className="join-foot">
-      <a className="link-inline" href="/connexion?next=/host">
+      <a className="link-inline" href="/salon">
         J’anime une soirée
       </a>
     </p>

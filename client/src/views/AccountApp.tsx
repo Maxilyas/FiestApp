@@ -121,12 +121,15 @@ export function AccountApp() {
   }
 
   /**
-   * L'espace d'un profil, créé par « Créer un salon » : son compte n'a pas
-   * de mot de passe — le profil est sa seule porte — et son identifiant ne
-   * se tape jamais. La page parle donc du profil : son identifiant, son mot
-   * de passe, son code de secours, et le salon qu'il ouvre.
+   * Un profil tient l'espace : la page parle de lui — son identifiant, son
+   * mot de passe, son code de secours, sa déconnexion, le salon qu'il ouvre.
+   * Un seul profil (le choix du 3 octobre 2026) : même un compte d'animateur
+   * d'avant, à mot de passe, n'est plus que le salon de son profil — son
+   * second mot de passe, « Détacher » et l'écran commun ne se montrent plus.
+   * Seul un compte sans profil garde sa page d'avant, et « Mon profil
+   * joueur », pour s'en rattacher un.
    */
-  const parLeProfil = me.account.status === 'pending' && !!me.profil
+  const parLeProfil = !!me.profil
 
   /** Une ligne de la liste : ce qu'elle règle, son état en clair ; elle ouvre sa feuille, ou mène à sa page. */
   const ligne = (icone: IconName, nom: string, valeur: string, quoi: FeuilleDuCompte | string) => {
@@ -205,7 +208,6 @@ export function AccountApp() {
         {ligne('edit', 'L’affiche', me.space.title, 'affiche')}
         {ligne('lock', 'Mot de passe', '••••••••', 'mdp')}
         {!parLeProfil && ligne('users', 'Mon profil joueur', me.profil?.name ?? 'À rattacher', 'profil')}
-        {me.profil && !parLeProfil && ligne('monitor', 'L’écran commun', '', '/host')}
         {/* Ses soirées, une ligne chacune, dans la page : pour tout espace, salon compris. */}
         <li key="historique">
           <button type="button" onClick={ouvrirHistorique}>
@@ -224,7 +226,7 @@ export function AccountApp() {
           <h2 className="compte-groupe">
             Administration <span className="etiquette">Toi seul</span>
           </h2>
-          <ul className="style-liste">{ligne('sparkles', 'Les comptes et les profils', '', '/admin')}</ul>
+          <ul className="style-liste">{ligne('sparkles', 'L’administration', '', '/admin')}</ul>
         </>
       )}
 

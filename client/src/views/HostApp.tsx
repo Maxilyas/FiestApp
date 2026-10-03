@@ -5,7 +5,7 @@ import { setState, showToast, useAppState } from '../state'
 import { memesPuces } from '../egalite'
 import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { ChampNombre } from '../components/ChampNombre'
-import { api, motifDe } from '../api'
+import { api, motifDe, seConnecter } from '../api'
 import { dataUrl, route, spacePath } from '../routes'
 import { ONGLETS } from '../onglets'
 import { formatDay } from '../../../shared/archive'
@@ -536,7 +536,8 @@ export function HostApp() {
     setBusy(true)
     setError('')
     try {
-      await api.auth.login(login, password)
+      // Son profil d'abord — un seul, pour jouer comme pour animer —, sinon un compte d'avant.
+      await seConnecter(login, password)
       // Le cookie est posé : la prochaine poignée de main le porte.
       socket.disconnect()
       socket.connect()

@@ -8,6 +8,7 @@ import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
 import type { ProfilDAdministration } from '../../shared/profil'
 import type { EspaceDAdministration } from '../../shared/space'
+import { titreLibre } from '../../shared/library'
 
 interface ProfilsAdminDeps {
   profiles: ProfileStore
@@ -17,6 +18,8 @@ interface ProfilsAdminDeps {
   soireesPasCloses: (profileId: string) => string[]
   /** Supprime le profil et ce qui n'était qu'à lui — composé dans `createQuizServer`, où tout est à portée. */
   supprimerProfil: (profileId: string) => Promise<{ salon: 'detache' | null }>
+  /** La bibliothèque d'un espace a changé : « Lancer » la relit. */
+  onLibraryChanged: (spaceId: string) => Promise<void>
 }
 
 /**
@@ -72,6 +75,44 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
         }),
       )
       res.json(espaces)
+    }),
+  )
+
+  // Rattacher un espace sans titulaire à un profil : fusionner deux
+  // identités d'avant — un compte d'animateur et un profil créé à part —,
+  // que le serveur ne pouvait pas deviner être la même personne (un seul
+  // profil, le choix du 3 octobre 2026). Si le profil tenait déjà un salon,
+  // ses quiz rejoignent l'espace rattaché, photos comprises, et le salon
+  // d'avant reste, détaché : les souvenirs de ses soirées s'ouvrent toujours.
+  app.post(
+    '/api/admin/espaces/:id/titulaire',
+    wrap(async (req, res) => {
+      const moi = accountOf(res)
+      const cible = deps.auth.byId(req.params.id)
+      if (!cible) return res.status(404).json({ error: 'Cet espace est introuvable' })
+      if (cible.profileId) return res.status(400).json({ error: 'Cet espace a déjà un titulaire' })
+      if (cible.disabledAt) return res.status(400).json({ error: 'Réactive d’abord cet espace' })
+      const profil = await deps.profiles.byLogin(req.body?.login)
+      if (!profil) return res.status(404).json({ error: 'Aucun profil à cet identifiant' })
+      const ancien = deps.auth.byProfile(profil.id)
+      if (ancien?.id === moi.id) return res.status(400).json({ error: 'C’est ton propre profil : il garde ton espace' })
+      let recopies = 0
+      if (ancien) {
+        const titres = (await deps.store.list(cible.id)).map(q => q.title)
+        for (const resume of await deps.store.list(ancien.id)) {
+          const quiz = await deps.store.get(ancien.id, resume.id)
+          if (!quiz) continue
+          const questions = await deps.store.copierPhotos(cible.id, quiz.questions)
+          const titre = titreLibre(quiz.title, titres)
+          titres.push(titre)
+          await deps.store.create(cible.id, titre, questions, undefined, quiz.reglages)
+          recopies++
+        }
+        await deps.auth.linkProfile(ancien.id, null)
+      }
+      await deps.auth.linkProfile(cible.id, profil.id)
+      if (recopies > 0) await deps.onLibraryChanged(cible.id)
+      res.json({ ok: true, recopies, ancien: ancien ? ancien.slug : null })
     }),
   )
 
