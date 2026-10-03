@@ -43,7 +43,7 @@ import { useEcranAllume } from '../veille'
 import { porterTheme } from '../themeJoueur'
 import { useGardeRetour } from '../retour'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { chefIci } from '../chef'
+import { chefIci, entreeDemandee, oublierEntree } from '../chef'
 
 /**
  * La fin de soirée, sa fête et la carte d'un joueur, à la demande : elles ne
@@ -127,6 +127,15 @@ function SalleDuJoueur() {
    * l'entrée.
    */
   const [jetonEnVol, setJetonEnVol] = useState(false)
+  /**
+   * Le chef qui vient d'ouvrir son salon y entre tout seul : « Entrer dans
+   * la soirée », juste après « Ouvrir le salon », était un écran de trop (la
+   * remarque du propriétaire du 3 octobre 2026). Qui joue en équipes, lui,
+   * commence par choisir la sienne (`equipeDAbord`).
+   */
+  const [entreeAuto, setEntreeAuto] = useState(() => entreeDemandee(slug))
+  const entreeLancee = useRef(false)
+  const [equipeDAbord, setEquipeDAbord] = useState(false)
   /** Salle d'attente : le panneau « changer d'équipe » est-il ouvert ? */
   const [switching, setSwitching] = useState(false)
   /** Salle d'attente : la parenthèse « créer un profil », entre deux quiz. */
@@ -306,7 +315,8 @@ function SalleDuJoueur() {
   // Seul le premier écran attend la reprise du jeton : un téléphone qui se
   // reconnecte en pleine question garde sa question, sans « Connexion… ».
   const attendreReprise = !dejaVu && jetonEnVol
-  const affiche = !!s.snapshot && presente && !attendreDessins && !attendreReprise
+  const attendreEntree = entreeAuto && !s.me
+  const affiche = !!s.snapshot && presente && !attendreDessins && !attendreReprise && !attendreEntree
   useEffect(() => {
     if (!affiche) return
     setDejaVu(true)
@@ -367,6 +377,25 @@ function SalleDuJoueur() {
     saveMe(slug, { playerId: ack.playerId, token: ack.token })
     return null
   }
+
+  useEffect(() => {
+    if (!entreeAuto || entreeLancee.current || !s.snapshot || !presente || jetonEnVol) return
+    entreeLancee.current = true
+    // La marque ne sert qu'une fois, quoi qu'il arrive : un refus montre l'entrée.
+    oublierEntree()
+    const chef = chefIci(slug)
+    if (s.me || !profil || !chef) return setEntreeAuto(false)
+    if (chef.joue && s.snapshot.teams.length > 0) {
+      setEquipeDAbord(true)
+      return setEntreeAuto(false)
+    }
+    void rejoindre({ teamId: null })
+      .then(refus => {
+        if (refus) showToast({ kind: 'error', message: refus })
+      })
+      .finally(() => setEntreeAuto(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entreeAuto, s.snapshot, presente, jetonEnVol, profil, s.me])
 
   /**
    * Reprend sa place avec le code de l'animateur. L'identité que ce téléphone
@@ -513,7 +542,7 @@ function SalleDuJoueur() {
   // Le premier instantané dit comment la soirée s'appelle, et la réponse de la
   // soirée dit si ce téléphone porte un profil : on ne montre pas un écran
   // d'entrée avant de savoir lequel des deux il faut.
-  if (!snap || !presente || attendreDessins || attendreReprise) return <AttenteConnexion />
+  if (!snap || !presente || attendreDessins || attendreReprise || attendreEntree) return <AttenteConnexion />
 
   // ── L'entrée ─────────────────────────────────────
   if (!s.me) {
@@ -529,6 +558,7 @@ function SalleDuJoueur() {
           rejoindre={rejoindre}
           oublierProfil={oublierProfil}
           reprendre={reprendre}
+          equipeDAbord={equipeDAbord}
           lendemain={gardee && <Lendemain gardee={gardee} />}
         />
         <BandeauCoupure connecte={s.connected} />
@@ -584,7 +614,8 @@ function SalleDuJoueur() {
         {phase && !PHASES_PLEINES.has(phase.phase) && absent && (
           <AvisHorsLigne absent={absent} profilIci={!!profil} onCode={() => setReprise(true)} discret />
         )}
-        {snap.clotureAuto && <ClotureQuiVient a={snap.clotureAuto} />}
+        {/* Le chef lit l'échéance dans sa barre, sous « Terminer la soirée » : pas deux fois. */}
+        {snap.clotureAuto && !chefIci(slug) && <ClotureQuiVient a={snap.clotureAuto} />}
         <QuizPlayer
           view={sessionView.view as QuizPlayerView}
           teams={teams}

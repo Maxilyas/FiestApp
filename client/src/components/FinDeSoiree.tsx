@@ -18,13 +18,14 @@ import { collectionGagnee } from '../../../shared/avatars'
 import { phraseDesConfettis } from '../../../shared/themes'
 import { api } from '../api'
 import { spacePath } from '../routes'
-import { formatNumber, place, pourcent, pts } from '../format'
+import { formatNumber, place, pourcent, pts, rang as rangEcrit } from '../format'
 import { showToast } from '../state'
 import { confirmDialog } from './Dialog'
 import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
 import { Flamme, Icon } from './Icon'
 import { lienBilan } from './Lendemain'
+import { Feuille } from './Pieces'
 
 /**
  * La fin de soirée, sur le téléphone — allégée : l’essentiel sans défiler,
@@ -61,13 +62,6 @@ export function FinDeSoiree({
   const gain = fin.profil
   const approches = gain?.approches ?? []
   const nouveautes = nouveautesDe(fin)
-  const resumeDeLaSuite = [
-    approches.length > 0 && `${approches.length} objectif${approches.length > 1 ? 's' : ''} en vue`,
-    gain?.jour && (gain.jour.aJoue ? 'le quiz de demain' : 'le quiz du jour t’attend'),
-    ombres.length > 0 && `${ombres.length} coup${ombres.length > 1 ? 's' : ''} du sort`,
-  ]
-    .filter(Boolean)
-    .join(' · ')
   // Les niveaux gagnés ce soir disent seuls ce qu'ils ouvrent : le serveur
   // n'a rien à annoncer de plus.
 
@@ -81,13 +75,22 @@ export function FinDeSoiree({
     }
   }
 
+  const rang = ligneDeRang(fin)
+  const plus = nouveautes.slice(MONTREES)
+  const xpDeLaSoiree = gain ? gain.xp - (gain.xpPaliers ?? 0) : 0
+  const resumeDuPlus = [
+    plus.length > 0 && `${plus.length} nouveauté${plus.length > 1 ? 's' : ''}`,
+    approches.length > 0 && `${approches.length} objectif${approches.length > 1 ? 's' : ''} en vue`,
+    gain?.jour && (gain.jour.aJoue ? 'le quiz de demain' : 'le quiz du jour t’attend'),
+    ombres.length > 0 && `${ombres.length} coup${ombres.length > 1 ? 's' : ''} du sort`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const liens = !!fin.joueurId || !!profil || !!gain?.confettis
+  const aPlus = liens || !!resumeDuPlus || (gain?.xpPaliers ?? 0) > 0
+
   return (
     <div className="player-shell fin-soiree">
-      <header className="fin-tete">
-        <span className="label">Fin de la soirée</span>
-        <h1>{fin.soiree.titre}</h1>
-      </header>
-
       {/* La soirée suivante ne se propose qu'une fois commencée — un invité
           inscrit, un quiz lancé —, et en haut, sans défiler. « Rejoindre la
           soirée suivante », toujours au pied de la fin, menait à une soirée
@@ -104,18 +107,50 @@ export function FinDeSoiree({
         </div>
       )}
 
-      <section className="card fin-moi">
-        <Avatar
-          className="player-avatar fin-avatar"
-          avatar={fin.avatar}
-          finition={fin.finition}
-          eclat={fin.eclat}
-          legendaire={porte ?? fin.legendaire}
-        />
-        <div>
-          <h2>{fin.nom}</h2>
-          <LigneRang fin={fin} />
+      {/* La soirée en un coup d'œil, dans le cadre du tableau de bord : qui,
+          sa place, ses points, ce qu'elle rapporte. Elle s'empilait en cinq
+          cartes et deux boutons dorés — trop gros, trop de blocs (la
+          remarque du propriétaire du 3 octobre 2026). */}
+      <section className="admin-hud fin-hud" aria-labelledby="fin-titre">
+        <header className="fin-tete">
+          <span className="salon-hud-label">
+            <span className="admin-pouls" aria-hidden="true" />
+            Fin de la soirée
+          </span>
+          <h1 id="fin-titre">{fin.soiree.titre}</h1>
+        </header>
+        <div className="fin-moi">
+          <Avatar
+            className="player-avatar fin-avatar"
+            avatar={fin.avatar}
+            finition={fin.finition}
+            eclat={fin.eclat}
+            legendaire={porte ?? fin.legendaire}
+          />
+          <div>
+            <h2>{fin.nom}</h2>
+            {rang.cas === 'rang' ? <p className="muted small">{nJoueurs(rang.joueurs)} ce soir</p> : <LigneRang fin={fin} />}
+          </div>
         </div>
+        {(rang.cas === 'rang' || xpDeLaSoiree > 0 || (gain?.confettis?.gagnes ?? 0) > 0) && (
+          <div className="admin-cadrans fin-cadrans">
+            {rang.cas === 'rang' && <Chiffre chiffre={rangEcrit(rang.rang)} nom={`sur ${rang.joueurs}`} />}
+            {rang.cas === 'rang' && <Chiffre chiffre={formatNumber(rang.points)} nom="points" />}
+            {/* L'expérience de la soirée — les paliers ont leur ligne, dans « Plus » :
+                « Mes soirées » ne compte que la soirée. */}
+            {/* Rien à compter, rien d'affiché : un « +0 » seul dans son cadran
+                ressemblait à une panne. */}
+            {xpDeLaSoiree > 0 && <Chiffre chiffre={`+${formatNumber(xpDeLaSoiree)}`} nom="XP" />}
+            {(gain?.confettis?.gagnes ?? 0) > 0 && <Chiffre chiffre={`+${formatNumber(gain!.confettis!.gagnes)}`} nom="confettis" />}
+          </div>
+        )}
+        {gain && <BarreDeNiveau avant={gain.niveauAvant} apres={gain.niveauApres} profil={profil} />}
+        {gain && gain.finitions.length > 0 && (
+          <p className="fin-finition">
+            Nouvelle finition : <b>{gain.finitions.map(f => NOM_FINITION[f]).join(', ')}</b>
+            <Avatar className="fin-apercu" avatar={fin.avatar} finition={gain.finitions[gain.finitions.length - 1]} />
+          </p>
+        )}
       </section>
 
       {/* Un Divin passe avant tout le reste : c'est la nouvelle de la soirée.
@@ -164,42 +199,6 @@ export function FinDeSoiree({
         </section>
       )}
 
-      {/* Ce que la soirée rapporte, en une ligne : l'expérience et les
-          confettis côte à côte, la barre du niveau dessous. Les paliers ont
-          leur ligne à part : « Mes soirées » ne compte que la soirée, et
-          annoncer +24 ici quand la liste en montrait 4 faisait croire à une
-          erreur. */}
-      {gain && (
-        <section className="card fin-gain">
-          <p className="fin-gains-chiffres">
-            <span>
-              <b>+{formatNumber(gain.xp - (gain.xpPaliers ?? 0))}</b> XP
-            </span>
-            {gain.confettis && (
-              <span>
-                <b>+{formatNumber(gain.confettis.gagnes)}</b> <span aria-hidden="true">🎊</span>
-                <span className="sr-only"> confettis</span>
-              </span>
-            )}
-          </p>
-          {(gain.xpPaliers ?? 0) > 0 && <p className="muted small">+{formatNumber(gain.xpPaliers ?? 0)} XP de paliers de carrière</p>}
-          <BarreDeNiveau avant={gain.niveauAvant} apres={gain.niveauApres} profil={profil} />
-          {gain.finitions.length > 0 && (
-            <p className="fin-finition">
-              Nouvelle finition : <b>{gain.finitions.map(f => NOM_FINITION[f]).join(', ')}</b>
-              <Avatar className="fin-apercu" avatar={fin.avatar} finition={gain.finitions[gain.finitions.length - 1]} />
-            </p>
-          )}
-          {/* Les confettis et ce qu'ils ouvrent, en une phrase : le chiffre
-              seul ne disait pas à quoi il sert. */}
-          {gain.confettis && (
-            <p className="muted small">
-              {phraseDesConfettis(gain.confettis)} <a href="/boutique">La boutique des thèmes</a>
-            </p>
-          )}
-        </section>
-      )}
-
       {/* Un emoji de collection à chaque niveau qui n'ouvre pas de finition :
           il se porte d'ici, comme un légendaire. Porter un emoji ôte le
           légendaire : c'est l'un ou l'autre. */}
@@ -236,62 +235,79 @@ export function FinDeSoiree({
           Une fin d'avant n'a pas le champ. */}
       <PortraitsOuverts cles={gain?.portraits ?? []} porte={porte} onPorte={p => setPorte(p.legendaire)} />
 
-      {/* Ce que la soirée a rangé dans ses trophées : les trois plus beaux,
-          le reste déplié sur place — jamais une page de plus à ouvrir. */}
-      <Nouveautes liste={nouveautes} collection={gain?.collection} />
+      {/* Ce que la soirée a rangé dans ses trophées : les trois plus beaux ;
+          le reste attend dans « Plus ». */}
+      <Nouveautes liste={nouveautes.slice(0, MONTREES)} collection={gain?.collection} />
 
-      {/* Relire sa soirée d'abord : « Mon bilan » s'ouvre sur lui, sans « Qui
-          es-tu ? ». La soirée suivante n'a plus de bouton ici : il menait à
-          une soirée qui n'existait pas encore, et celui qui revenait « voir
-          les résultats » y entrait — elle se propose en haut, une fois
-          commencée. Les liens s'ouvrent dans cet onglet : la fin est gardée
-          sur le téléphone, le retour du navigateur la retrouve. */}
-      <div className="fin-actions">
-        {fin.joueurId && (
+      {/* Deux gestes, côte à côte : relire sa soirée — « Mon bilan » s'ouvre
+          sur lui, sans « Qui es-tu ? » —, ou rentrer. Un seul « Accueil » sur
+          la page, chef compris. Les liens s'ouvrent dans cet onglet : la fin
+          est gardée sur le téléphone, le retour du navigateur la retrouve. */}
+      <div className="fin-actions fin-duo">
+        {fin.joueurId ? (
           <a className="btn btn-primary" href={lienBilan({ soiree: fin.soiree, joueurId: fin.joueurId })}>
             <Icon name="check-circle" />
             Mon bilan
           </a>
-        )}
-        <a
-          className={'btn' + (fin.joueurId ? '' : ' btn-primary')}
-          href={spacePath(fin.soiree.slug, 'souvenir', fin.soiree.id)}
-        >
-          <Icon name="book" />
-          Revoir la soirée
-        </a>
-        {profil ? (
-          <a className="btn btn-ghost" href="/profil">
-            Mon profil
-          </a>
         ) : (
-          // Vrai sur ce soir : la soirée close ne suit pas le profil créé
-          // après coup — le dire évite de le promettre. Le lien ouvre la
-          // création, prénom et avatar de la soirée déjà remplis : il ouvrait
-          // la connexion, vide.
-          <p className="muted small fin-invitation">
-            {PITCH_PROFIL} Il commence à la prochaine : celle-ci ne s’y ajoute pas.{' '}
-            <a className="link-inline" href={lienCreation(fin.nom, fin.avatar)}>
-              Créer mon profil
-            </a>
-          </p>
+          <a className="btn btn-primary" href={spacePath(fin.soiree.slug, 'souvenir', fin.soiree.id)}>
+            <Icon name="book" />
+            Revoir la soirée
+          </a>
         )}
+        <a className="btn" href="/">
+          <Icon name="home" />
+          Accueil
+        </a>
       </div>
+      {/* Vrai sur ce soir : la soirée close ne suit pas le profil créé après
+          coup — le dire évite de le promettre. Le lien ouvre la création,
+          prénom et avatar de la soirée déjà remplis. */}
+      {!profil && (
+        <p className="muted small fin-invitation">
+          {PITCH_PROFIL} Il commence à la prochaine : celle-ci ne s’y ajoute pas.{' '}
+          <a className="link-inline" href={lienCreation(fin.nom, fin.avatar)}>
+            Créer mon profil
+          </a>
+        </p>
+      )}
       {chef && <GestesDuChef fin={fin} />}
 
-      {/* Ce qui sert à la suite plutôt qu'à ce soir, replié sous les gestes :
-          ce qu'on approche, le quiz du jour, les coups du sort. Le résumé dit
-          ce qu'il y a dedans ; rien ne se perd, rien ne pousse les boutons
-          hors de l'écran. */}
-      {(approches.length > 0 || gain?.jour || ombres.length > 0) && (
-        <details className="card fin-suite">
+      {/* Tout le reste, replié : le souvenir, son profil, les nouveautés
+          d'après la troisième, ce qu'on approche, le quiz du jour, les coups
+          du sort, les confettis. Le résumé dit ce qu'il y a dedans ; rien ne
+          se perd, rien ne pousse les boutons hors de l'écran. */}
+      {aPlus && (
+        <details className="fin-plus">
           <summary>
             <span>
-              <b>Pour la suite</b>
-              <span className="muted small">{resumeDeLaSuite}</span>
+              <b>Plus</b>
+              {resumeDuPlus && <span className="muted small">{resumeDuPlus}</span>}
             </span>
             <Icon name="chevron-down" className="repli-chevron" />
           </summary>
+          {liens && (
+            <p className="fin-liens">
+              {fin.joueurId && (
+                <a className="link-inline" href={spacePath(fin.soiree.slug, 'souvenir', fin.soiree.id)}>
+                  Revoir la soirée
+                </a>
+              )}
+              {profil && (
+                <a className="link-inline" href="/profil">
+                  Mon profil
+                </a>
+              )}
+              {gain?.confettis && (
+                <a className="link-inline" href="/boutique">
+                  La boutique des thèmes
+                </a>
+              )}
+            </p>
+          )}
+          {gain?.confettis && <p className="muted small">{phraseDesConfettis(gain.confettis)}</p>}
+          {(gain?.xpPaliers ?? 0) > 0 && <p className="muted small">+{formatNumber(gain?.xpPaliers ?? 0)} XP de paliers de carrière</p>}
+          {plus.length > 0 && <ul className="nouveautes">{plus.map(ligneDeNouveaute)}</ul>}
           {approches.length > 0 && (
             <div className="fin-approches">
               <h3>
@@ -336,13 +352,26 @@ export function FinDeSoiree({
   )
 }
 
+/** Un chiffre du tableau de bord de la fin : ce qu'il compte, sans rien à toucher. */
+function Chiffre({ chiffre, nom }: { chiffre: string; nom: string }) {
+  return (
+    <span className="admin-cadran fin-chiffre">
+      <span className="admin-cadran-chiffre num">{chiffre}</span>
+      <span className="admin-cadran-nom">{nom}</span>
+    </span>
+  )
+}
+
 /**
- * Pour le chef du salon, sous sa fin : « Retour à l'accueil » d'abord, puis
- * « Encore un quiz, avec eux » — le même salon, le même code tant qu'il vaut, une nouvelle
- * soirée qui s'enregistre de même — et, discret, « C'était un essai » : la
- * soirée sort de l'historique avec tout ce qu'elle avait crédité.
+ * Pour le chef du salon, une ligne discrète sous les deux boutons : « Ton
+ * salon », qui ouvre sa feuille — « Encore un quiz, avec eux », le même
+ * salon, le même code tant qu'il vaut, une nouvelle soirée qui s'enregistre
+ * de même ; et « C'était un essai » : la soirée sort de l'historique avec
+ * tout ce qu'elle avait crédité. Ils tenaient un bloc entier, avec un second
+ * « Retour à l'accueil » (la remarque du propriétaire du 3 octobre 2026).
  */
 function GestesDuChef({ fin }: { fin: Fin }) {
+  const [ouverte, setOuverte] = useState(false)
   const [effacee, setEffacee] = useState(false)
   const [busy, setBusy] = useState(false)
   const effacer = async () => {
@@ -364,30 +393,37 @@ function GestesDuChef({ fin }: { fin: Fin }) {
     }
   }
   return (
-    <section className="card fin-chef" aria-labelledby="fin-chef">
-      <span className="label" id="fin-chef">
-        Ton salon
-      </span>
-      {/* La soirée est finie : on rentre à l'accueil — la page du salon gardait
-          le chef devant son code en grand, comme si la salle arrivait encore. */}
-      <a className="btn btn-primary btn-block" href="/">
+    <>
+      <button type="button" className="fin-chef-ligne" onClick={() => setOuverte(true)}>
         <Icon name="home" />
-        Retour à l’accueil
-      </a>
-      <a className="btn btn-block" href="/salon">
-        <Icon name="play" />
-        Encore un quiz, avec eux
-      </a>
-      {effacee ? (
-        <p className="muted small" role="status">
-          La soirée n’est plus dans l’historique.
-        </p>
-      ) : (
-        <button type="button" className="btn btn-ghost btn-small" aria-disabled={busy || undefined} onClick={() => void (busy ? null : effacer())}>
-          C’était un essai
-        </button>
+        <span>
+          <b>Ton salon</b>
+          <span className="muted small">encore un quiz, ou c’était un essai</span>
+        </span>
+        <Icon name="chevron-down" className="style-chevron" />
+      </button>
+      {ouverte && (
+        <Feuille titre="Ton salon" onFermer={() => setOuverte(false)}>
+          <div className="admin-gestes">
+            <a className="salon-geste admin-geste-oui" href="/salon">
+              <Icon name="play" />
+              Encore un quiz, avec eux
+            </a>
+            {!effacee && (
+              <button type="button" className="salon-geste admin-geste-danger" disabled={busy} onClick={() => void effacer()}>
+                <Icon name="trash" />
+                C’était un essai
+              </button>
+            )}
+          </div>
+          {effacee && (
+            <p className="muted small" role="status">
+              La soirée n’est plus dans l’historique.
+            </p>
+          )}
+        </Feuille>
       )}
-    </section>
+    </>
   )
 }
 
@@ -451,18 +487,12 @@ export function nouveautesDe(fin: Fin): Nouveaute[] {
   ]
 }
 
-/** Combien « Nouveau » en montre d'abord : trois tiennent au-dessus des boutons. */
+/** Combien « Nouveau » en montre : trois tiennent au-dessus des boutons, le reste attend dans « Plus ». */
 export const MONTREES = 3
 
-/**
- * « Nouveau » : les trois premières nouveautés, et le reste qui se déplie
- * sur place (« Et 4 autres ») — la liste entière, sans quitter la fin. Un
- * prix qui entre dans la collection le dit dessous : c'est la première fois
- * qui compte.
- */
-function Nouveautes({ liste, collection }: { liste: Nouveaute[]; collection?: NonNullable<Fin['profil']>['collection'] }) {
-  if (liste.length === 0) return null
-  const ligne = (x: Nouveaute) => (
+/** Une nouveauté en une ligne : son emoji, son titre, ce qu'elle est. */
+function ligneDeNouveaute(x: Nouveaute) {
+  return (
     <li key={x.cle}>
       <span className="nouveaute-emoji" aria-hidden="true">
         {x.emoji}
@@ -473,22 +503,21 @@ function Nouveautes({ liste, collection }: { liste: Nouveaute[]; collection?: No
       </span>
     </li>
   )
-  const reste = liste.slice(MONTREES)
+}
+
+/**
+ * « Nouveau » : les trois plus durables, en lignes fines sous le tableau de
+ * bord. Un prix qui entre dans la collection le dit dessous : c'est la
+ * première fois qui compte.
+ */
+function Nouveautes({ liste, collection }: { liste: Nouveaute[]; collection?: NonNullable<Fin['profil']>['collection'] }) {
+  if (liste.length === 0) return null
   return (
-    <section className="card fin-nouveautes" aria-labelledby="fin-nouveau">
-      <span className="label" id="fin-nouveau">
+    <section className="fin-nouveautes" aria-labelledby="fin-nouveau">
+      <span className="salon-hud-label" id="fin-nouveau">
         Nouveau
       </span>
-      <ul className="nouveautes">{liste.slice(0, MONTREES).map(ligne)}</ul>
-      {reste.length > 0 && (
-        <details className="nouveautes-reste">
-          <summary>
-            Et {reste.length} autre{reste.length > 1 ? 's' : ''}
-            <Icon name="chevron-down" className="repli-chevron" />
-          </summary>
-          <ul className="nouveautes">{reste.map(ligne)}</ul>
-        </details>
-      )}
+      <ul className="nouveautes">{liste.map(ligneDeNouveaute)}</ul>
       {(collection?.nouveaux.length ?? 0) > 0 && (
         <p className="collection-neuf">
           <span className="nouveau-pastille">Nouveau</span>
@@ -759,6 +788,13 @@ function LigneRang({ fin }: { fin: Fin }) {
       )
     case 'neutre':
       return <p className="muted">{nJoueurs(l.joueurs)} ce soir</p>
+    case 'anime':
+      return (
+        <p className="muted">
+          Tu animais la soirée
+          {l.joueurs > 0 && ` · ${nJoueurs(l.joueurs)}`}
+        </p>
+      )
   }
 }
 

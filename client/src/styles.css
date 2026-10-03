@@ -5342,7 +5342,6 @@ h3 > .icon {
 .fait-titre { font-size: 0.9rem; font-weight: 500; }
 
 /* Un record battu, un prix neuf dans la collection : une pastille dorée. */
-.fin-suite h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; }
 .nouveau-pastille {
   display: inline-block;
   padding: 2px 8px;
@@ -6850,9 +6849,6 @@ body.avec-chef .toast { bottom: calc(84px + env(safe-area-inset-bottom)); }
 /* La soirée d'un salon va s'enregistrer : dit au-dessus du podium, sans le couvrir. */
 .cloture-qui-vient { display: flex; align-items: center; gap: 10px; margin: 0; }
 .cloture-qui-vient .icon { flex: none; color: var(--accent-text); }
-/* Les deux gestes du chef sous sa fin de soirée. */
-.fin-chef { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
-.fin-chef .btn-ghost { align-self: center; }
 
 /* ── La barre du menu ────────────────────────────────────────────────────
    Les cinq pièces, toujours au même endroit, sous le pouce. Chaque bouton a
@@ -7487,6 +7483,44 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .compte-sortie + p { margin: -12px 0 0; }
 .feuille-section { display: flex; flex-direction: column; gap: 12px; }
 
+/* ── La fin de soirée, épurée (la remarque du 3 octobre 2026) ──────────────
+   Le tableau de bord de l'administration — quadrillage, coins de visée,
+   chiffres lumineux, une lueur qui balaie — dans l'or de la soirée ; puis
+   « Nouveau » en lignes fines, deux boutons côte à côte, et « Plus ». */
+.fin-soiree { --lueur: var(--accent-text); gap: 14px; }
+.fin-hud { gap: 14px; }
+.fin-hud .fin-tete { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 4px; text-align: left; }
+.fin-hud .fin-tete h1 { margin: 0; font-size: 1.5rem; }
+.fin-hud .fin-moi { position: relative; z-index: 1; gap: 12px; }
+.fin-hud .fin-moi h2 { margin: 0; font-size: 1.3rem; }
+.fin-hud .fin-avatar { font-size: 2.4rem; }
+.fin-hud .fin-niveau, .fin-hud .fin-finition { position: relative; z-index: 1; }
+/* Les quatre sur une ligne, au téléphone : ce sont des chiffres à lire, pas des tuiles à toucher. Le cadran de l'administration, déclaré plus bas, se resserre ici par une règle plus précise. */
+.fin-hud .fin-cadrans { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+.fin-cadrans .fin-chiffre { min-height: 0; padding: 9px 7px 8px; gap: 3px; cursor: default; }
+.fin-cadrans .fin-chiffre:hover { border-color: color-mix(in srgb, var(--lueur) 20%, transparent); }
+.fin-chiffre .admin-cadran-chiffre { font-size: 1.3rem; white-space: nowrap; }
+/* En minuscules : « CONFETTIS » en capitales espacées sortait de son cadran à 360 px. */
+.fin-chiffre .admin-cadran-nom { text-transform: none; letter-spacing: 0.02em; line-height: 1.2; }
+.fin-nouveautes { gap: 2px; }
+.fin-nouveautes .nouveautes li, .fin-plus .nouveautes li { gap: 12px; padding: 8px 0; }
+.fin-nouveautes .nouveaute-emoji, .fin-plus .nouveaute-emoji { width: 28px; font-size: 1.4rem; }
+.fin-duo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.fin-chef-ligne { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 12px; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.fin-chef-ligne > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fin-chef-ligne > .icon:first-child { color: var(--accent-text); }
+/* Des marges, pas un `gap` : un `<details>` ne se fait conteneur flex que dans les navigateurs les plus récents. */
+.fin-plus { padding-top: 2px; border-top: 1px solid var(--edge); }
+.fin-plus > :not(summary) { margin-top: 12px; }
+.fin-plus > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; list-style: none; cursor: pointer; }
+.fin-plus > summary::-webkit-details-marker { display: none; }
+.fin-plus > summary > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fin-plus[open] > summary .repli-chevron { transform: rotate(180deg); }
+.fin-plus h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.05rem; }
+.fin-liens { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; }
+.barre-chef-terminer { flex-direction: column; gap: 0; line-height: 1.15; }
+.barre-chef-echeance { font-size: var(--t-label); font-weight: 600; opacity: 0.85; }
+
 /* ── L'historique, dans « Mon compte » (`/compte#historique`) ────────────
    Les cartes de « Mes soirées », et sous chacune ses deux pages. */
 .historique-groupe { display: flex; flex-direction: column; gap: 10px; }
@@ -7687,12 +7721,8 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .code-coupe { margin-left: 12px; }
 
 /* ── La fin de soirée, allégée ───────────────────────────────────────────
-   L'essentiel d'abord — sa place, ce qu'on porte, ce que la soirée
-   rapporte en une ligne —, « Nouveau » en trois lignes, les gestes, puis
-   « Pour la suite » replié : rien ne se perd, rien ne pousse les boutons
-   hors de l'écran. */
-.fin-gains-chiffres { display: flex; justify-content: center; align-items: baseline; gap: 28px; margin: 0; color: var(--muted); font-size: 0.95rem; }
-.fin-gains-chiffres b { font-family: var(--serif); font-size: 2rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+   Les nouveautés et ce qui se replie sous « Plus » : la tête en cadrans
+   est plus bas, avec le reste de la fin épurée. */
 .fin-nouveautes { display: flex; flex-direction: column; gap: 8px; }
 .nouveautes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .nouveautes li { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--edge); }
@@ -7700,15 +7730,7 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .nouveaute-emoji { flex: none; width: 36px; text-align: center; font-size: 1.8rem; line-height: 1; }
 .nouveaute-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .nouveaute-texte b { font-weight: 600; }
-.nouveautes-reste > summary, .fin-suite > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; }
-.nouveautes-reste > summary::-webkit-details-marker, .fin-suite > summary::-webkit-details-marker { display: none; }
-.nouveautes-reste > summary { min-height: 40px; color: var(--accent-text); font-weight: 600; }
-.nouveautes-reste[open] .repli-chevron, .fin-suite[open] > summary .repli-chevron { transform: rotate(180deg); }
-.fin-suite { display: flex; flex-direction: column; gap: 16px; }
-.fin-suite > summary { min-height: 44px; }
-.fin-suite > summary > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.fin-suite[open] > summary { margin-bottom: 14px; }
-.fin-suite > div + div { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--edge); }
+.fin-plus > div + div { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--edge); }
 .fin-demain, .fin-ombres { display: flex; flex-direction: column; gap: 8px; }
 
 /* ── La télé, quand on anime depuis son téléphone ────────────────────────

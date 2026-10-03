@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Choix, Feuille, PieceTete, Sortie } from '../components/Pieces'
-import { chefIci, retenirChef } from '../chef'
+import { chefIci, demanderEntree, retenirChef } from '../chef'
 import { spacePath } from '../routes'
 import { ecrireDuree, type QuizSummary } from '../../../shared/library'
 import { PALIERS_ENCHAINEMENT } from '../../../shared/console'
@@ -181,6 +181,7 @@ export function SalonApp() {
       }
       const salon = await api.joueur.salon()
       retenirChef({ slug: salon.espace.slug, joue, rythme, equipes })
+      demanderEntree(salon.espace.slug)
       // Qu'il joue ou anime seulement, le chef suit la soirée sur l'écran de
       // tout le monde, sa barre en bas : la console d'avant, au téléphone,
       // ne lui servait qu'à lire ce que la salle voit déjà (la remarque du

@@ -1776,6 +1776,7 @@ export class SpaceRuntime {
         // la salle.
         joueurs: x?.releve.joueurs ?? credit.joueurs,
         aJoue: (x?.releve.reponses ?? 0) > 0,
+        ...(this.horsClassement.has(p.id) && { anime: true as const }),
         ...(credit.prix.has(p.id) && { prix: credit.prix.get(p.id) }),
         hautsFaits: (credit.faits.get(p.id) ?? []).map(annonceDe).filter((a): a is HautFaitAnnonce => !!a),
         ...(profils.has(p.id) && { profil: profils.get(p.id) }),
@@ -1932,6 +1933,9 @@ export class SpaceRuntime {
     // détache les téléphones : elle passe par le salon de chaque invité,
     // qu'ils vont quitter.
     annonce?.raconter()
+    // Sa fin dite, le chef qui animait ne l'est plus : à la soirée suivante,
+    // son téléphone le redit en se présentant (`player:join`).
+    this.horsClassement.clear()
     const io = this.deps.io
     const effaces = new Set<string>()
     for (const id of io.sockets.adapter.rooms.get(`space:${this.spaceId}`) ?? []) {

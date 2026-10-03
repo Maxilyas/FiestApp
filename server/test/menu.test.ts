@@ -48,7 +48,7 @@ test('l’accueil, le profil et la boutique sont la même page, qui lit son adre
   // Les adresses d'avant mènent encore quelque part.
   assert.match(profil, /const ANCIENNES: Record<string, EcranDuProfil> = \{ apparence: 'avatars' \}/)
   assert.match(profil, /window\.location\.hash === '#mes-themes'\) window\.location\.replace\('\/boutique'\)/)
-  assert.match(source('components/FinDeSoiree.tsx'), /<a href="\/boutique">La boutique des thèmes<\/a>/)
+  assert.match(source('components/FinDeSoiree.tsx'), /<a className="link-inline" href="\/boutique">\s*La boutique des thèmes\s*<\/a>/)
   // L'accueil anonyme reste un écran de connexion : ni barre, ni tuiles.
   const anonyme = profil.slice(profil.indexOf('if (!profil) {'), profil.indexOf('const part = profil.requis'))
   assert.doesNotMatch(anonyme, /MenuBarre|menu\(/)
