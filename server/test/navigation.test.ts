@@ -119,9 +119,9 @@ test('l’accueil de qui anime : l’écran commun, un salon, ses quiz, son comp
 test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz du jour, un salon, rejoindre — en gros boutons, à la même place', async () => {
   const accueil = (props: object) =>
     rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: () => {}, lendemain: null, ...props })
-  const toujours = ['Le quiz du jourDix questions, les mêmes pour tous → /jour', 'Créer un salonTes quiz, tes amis, un code à dicter → /salon', 'Rejoindre une soiréeLe code à six chiffres de ton hôte [bouton]']
+  const toujours = ['La campagneTrois vies, sans chrono, de plus en plus dur → /campagne', 'Le quiz du jourDix questions, les mêmes pour tous → /jour', 'Créer un salonTes quiz, tes amis, un code à dicter → /salon', 'Rejoindre une soiréeLe code à six chiffres de ton hôte [bouton]']
 
-  // Rien en cours : les trois gestes, aucun principal — l'ordre ne dépend ni
+  // Rien en cours : les quatre gestes, aucun principal — l'ordre ne dépend ni
   // de l'heure ni des rôles, contrairement à « Je joue » et « Ce soir ».
   const libre = await accueil({})
   assert.deepEqual(gestes(libre), toujours)

@@ -14,6 +14,7 @@ import { clearQuizLibrary, setProgramme, setQuestionsPosees, setQuizLibrary } fr
 import { dernieresFois } from './core/memoire'
 import { ProgrammeStore } from './core/programmes'
 import { SalonStore } from './core/salons'
+import { CampagneStore } from './core/campagne'
 import { Budget } from './core/budget'
 import { clientIp } from './auth/http'
 import { PartageStore } from './core/partages'
@@ -317,6 +318,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
   // Les codes des salons : six chiffres pour entrer chez quelqu'un.
   const salons = new SalonStore(opts.quizDbUrl, opts.quizDbToken)
+  // La campagne solo : ses séries, puisées dans les questions déjà posées au quiz du jour.
+  const campagne = new CampagneStore(opts.quizDbUrl, opts.quizDbToken, { maintenant: maintenantDuJour })
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
@@ -376,6 +379,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     })(),
     partages.init(),
     salons.init(),
+    campagne.init(),
     (async () => {
       await archives.init(defaultSpace)
       // Le tirage d'un quiz choisit d'abord les questions jamais posées : il
@@ -393,6 +397,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
   profiles.categoriesDuJour = id => jour.categoriesDe(id)
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
+  profiles.justesDeCampagne = id => campagne.justesDe(id)
   const relireLaMemoire = derniereRelecture()
   archives.surEcriture(spaceId => {
     relireLaMemoire(spaceId, () => archives.memoire(spaceId), memoire => setQuestionsPosees(spaceId, dernieresFois(memoire))).catch(e =>
@@ -783,6 +788,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     auth,
     profiles,
     jour,
+    campagne,
     maintenant: maintenantDuJour,
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
     online: !!opts.online,
@@ -987,6 +993,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           programmes.close()
           partages.close()
           salons.close()
+          campagne.close()
           archives.close()
           auth.close()
           jour.close()

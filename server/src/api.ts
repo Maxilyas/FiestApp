@@ -1,3 +1,5 @@
+import type { CampagneStore } from './core/campagne'
+import { mountCampagne } from './campagne'
 import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
 import type { ProgrammeStore } from './core/programmes'
@@ -57,6 +59,8 @@ interface ApiDeps {
   profilChange: (profileId: string) => void
   /** Le quiz du jour : sa réserve, ses parties, ses classements. */
   jour: JourStore
+  /** La campagne solo : ses séries, pour les profils. */
+  campagne: CampagneStore
   /** L'heure du quiz du jour — celle du serveur, que les tests font passer minuit. */
   maintenant: () => number
   /** Le jeton de la routine qui remplit la réserve du quiz du jour ; null, la porte n'existe pas. */
@@ -100,6 +104,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
   })
   // Le quiz du jour se joue avec son profil, lui aussi, sans compte d'animateur.
   mountJour(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant })
+  // La campagne aussi : seul, avec son profil.
+  mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
   // Sa réserve se remplit par une routine, avec son jeton — pas un animateur non plus.
   mountReserve(app, { jour: deps.jour, jeton: deps.jetonDeLaReserve })
   app.use('/api', requireAccount(deps.auth))

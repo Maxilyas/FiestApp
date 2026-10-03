@@ -106,7 +106,7 @@ describe('les adresses inconnues', () => {
   })
 
   test('les pages connues répondent 200', async () => {
-    for (const chemin of ['/', '/profil', '/host', '/tele', '/salon', '/boutique', '/connexion', '/banc', '/banc/souvenir', '/banc/bilan', '/banc/soirees']) {
+    for (const chemin of ['/', '/profil', '/host', '/tele', '/salon', '/boutique', '/campagne', '/connexion', '/banc', '/banc/souvenir', '/banc/bilan', '/banc/soirees']) {
       assert.equal((await lire(chemin)).status, 200, chemin)
     }
   })

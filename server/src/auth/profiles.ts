@@ -447,6 +447,13 @@ export class ProfileStore {
   justesDuJour?: (profileId: string) => Promise<number>
 
   /**
+   * Ses bonnes réponses en campagne (`CampagneStore.justesDe`) : un confetti
+   * chacune, comme au quiz du jour — un choix de produit, dit avec la
+   * campagne. Branchées au démarrage comme `justesDuJour`.
+   */
+  justesDeCampagne?: (profileId: string) => Promise<number>
+
+  /**
    * Les achats en cours, un par profil : deux achats partis ensemble — deux
    * onglets, un double toucher — liraient le même solde, et dépenseraient
    * deux fois les mêmes confettis.
@@ -796,12 +803,13 @@ export class ProfileStore {
     jour: string,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
   ): Promise<BoutiqueDuProfil> {
-    const [lues, achats, duJour] = await Promise.all([
+    const [lues, achats, duJour, deCampagne] = await Promise.all([
       soirees ?? this.historiqueOf(p.id),
       this.achatsDe(p.id),
       this.justesDuJour?.(p.id) ?? 0,
+      this.justesDeCampagne?.(p.id) ?? 0,
     ])
-    const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour
+    const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne
     const depenses = [...achats.values()].reduce((n, prix) => n + prix, 0)
     return {
       confettis: { gagnes, depenses, solde: gagnes - depenses },

@@ -127,6 +127,7 @@ export function AccueilJouer({
       {enCours.map(e => (
         <GrosBouton key={e.slug} principal icone={<Icon name="play" />} titre={`Revenir chez ${e.nom}`} detail="La soirée continue sans toi" href={spacePath(e.slug)} />
       ))}
+      <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail="Trois vies, sans chrono, de plus en plus dur" href="/campagne" />
       <GrosBouton icone={<Icon name="sun" />} titre="Le quiz du jour" detail="Dix questions, les mêmes pour tous" href="/jour" />
       <GrosBouton icone={<Icon name="plus" />} titre="Créer un salon" detail="Tes quiz, tes amis, un code à dicter" href="/salon" />
       <GrosBouton icone={<Icon name="users" />} titre="Rejoindre une soirée" detail="Le code à six chiffres de ton hôte" onClick={onRejoindre} />

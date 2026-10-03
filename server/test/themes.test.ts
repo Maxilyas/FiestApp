@@ -157,10 +157,10 @@ test('le thème suit la page, pas la personne : seules les pages d’un joueur l
   const lire = (fichier: string) => readFileSync(new URL(fichier, client), 'utf8')
   for (const vue of readdirSync(new URL('views/', client)).filter(f => f.endsWith('.tsx'))) {
     const porte = /themeJoueur/.test(lire(`views/${vue}`))
-    assert.equal(porte, ['PlayerApp.tsx', 'ProfilApp.tsx', 'JourApp.tsx'].includes(vue), `${vue} et le thème d’un profil`)
+    assert.equal(porte, ['PlayerApp.tsx', 'ProfilApp.tsx', 'JourApp.tsx', 'CampagneApp.tsx'].includes(vue), `${vue} et le thème d’un profil`)
   }
-  // Au démarrage, le thème retenu ne se pose que sur ces trois pages-là.
-  assert.match(lire('main.tsx'), /else if \(App === PlayerApp \|\| App === ProfilApp \|\| App === JourApp\) poserThemeRetenu\(\)/)
+  // Au démarrage, le thème retenu ne se pose que sur ces pages-là — la campagne, seule avec son profil, comme le quiz du jour.
+  assert.match(lire('main.tsx'), /else if \(App === PlayerApp \|\| App === ProfilApp \|\| App === JourApp \|\| App === CampagneApp\) poserThemeRetenu\(\)/)
 })
 
 // ── La boutique, au téléphone ─────────────────────────────────────────────

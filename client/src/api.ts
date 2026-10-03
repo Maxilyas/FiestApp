@@ -1,3 +1,4 @@
+import type { CorrectionDeCampagne, EtatDeCampagne, ReponseDeCampagne, SerieDeCampagne } from '../../shared/campagne'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
@@ -339,6 +340,14 @@ export const api = {
    * d'une question se lit à l'heure du serveur (invariant 6), et ce
    * téléphone-là n'a pas de liaison temps réel pour la mesurer.
    */
+  /** La campagne solo : une série qui monte en difficulté, trois vies (`shared/campagne.ts`). */
+  campagne: {
+    etat: () => req<EtatDeCampagne>('/api/campagne'),
+    commencer: (categories: string[]) => req<SerieDeCampagne>('/api/campagne/serie', { method: 'POST', body: JSON.stringify({ categories }) }),
+    repondre: (serie: string, index: number, choix: number) =>
+      req<ReponseDeCampagne>(`/api/campagne/serie/${encodeURIComponent(serie)}/reponse`, { method: 'POST', body: JSON.stringify({ index, choix }) }),
+    correction: (serie: string) => req<CorrectionDeCampagne[]>(`/api/campagne/serie/${encodeURIComponent(serie)}/correction`),
+  },
   jour: {
     etat: () => avecLHeure(() => req<PartieDuJour>('/api/jour')),
     commencer: () => avecLHeure(() => req<PartieDuJour>('/api/jour/commencer', { method: 'POST' })),
