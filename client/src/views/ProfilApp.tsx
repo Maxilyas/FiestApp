@@ -126,9 +126,20 @@ export function ProfilApp() {
    * commence en haut, comme une page qu'on ouvre.
    */
   const ouvrir = (e: EcranDuProfil | null) => {
-    if (e) history.pushState(history.state, '', `${window.location.pathname}${window.location.search}#${e}`)
+    if (e) history.pushState({ ...history.state, [DEPUIS]: lireEcran() }, '', `${window.location.pathname}${window.location.search}#${e}`)
     else if (window.location.hash) history.back()
     setEcranOuvert(e)
+    window.scrollTo(0, 0)
+  }
+  /**
+   * Revenir à « Mon style » d'un de ses réglages : d'un cran si c'est de là
+   * qu'on l'a ouvert, sans quoi on remplace l'adresse — jamais d'entrée en
+   * double, et l'adresse d'un réglage ouverte d'un lien ne sort pas du profil.
+   */
+  const revenirAuStyle = () => {
+    if (history.state?.[DEPUIS] === 'style') history.back()
+    else history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#style`)
+    setEcranOuvert('style')
     window.scrollTo(0, 0)
   }
   useEffect(() => {
@@ -343,25 +354,34 @@ export function ProfilApp() {
 
   // ── Le profil : un écran ouvert depuis sa tuile ──
   if (ecran) {
-    const nom = ECRANS.find(e => e.id === ecran)?.nom ?? ''
+    const reglage = REGLAGES.find(e => e.id === ecran)
+    const nom = reglage?.nom ?? ECRANS.find(e => e.id === ecran)?.nom ?? ''
     return (
       <div className="player-shell">
         <a
           className="lien-discret jour-sortie"
-          href="/profil"
+          href={reglage ? '/profil#style' : '/profil'}
           onClick={e => {
             if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
             e.preventDefault()
-            ouvrir(null)
+            if (reglage) revenirAuStyle()
+            else ouvrir(null)
           }}
         >
           <Icon name="arrow-left" />
-          Mon profil
+          {reglage ? 'Mon style' : 'Mon profil'}
         </a>
-        <PieceTete piece="Mon profil" titre={nom} />
+        <PieceTete piece={reglage ? 'Mon style' : 'Mon profil'} titre={nom} />
         {regionDAnnonce}
         {ecran === 'avatars' && (pret ? <pret.PanneauAvatars profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
-        {ecran === 'style' && (pret ? <pret.PanneauStyle profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'style' &&
+          (pret ? <pret.PanneauStyle profil={profil} busy={busy} enregistrer={enregistrer} onReglage={r => ouvrir(`style-${r}`)} /> : enChemin)}
+        {reglage &&
+          (pret ? (
+            <pret.PanneauReglage reglage={reglage.id.slice('style-'.length) as 'finition' | 'titre' | 'fond'} profil={profil} busy={busy} enregistrer={enregistrer} />
+          ) : (
+            enChemin
+          ))}
         {ecran === 'trophees' && (pret ? <pret.PanneauTrophees profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
         {ecran === 'carriere' && (
           <>
@@ -451,14 +471,14 @@ export function ProfilApp() {
   const nHautsFaits = profil.hautsFaits.filter(h => h.fois > 0).length
   const nPrix = (profil.prix ?? []).filter(x => x.fois > 0).length
   const precision = profil.fiche.precision !== null ? Math.round(profil.fiche.precision * 100) : null
-  const detailDeTuile: Record<EcranDuProfil, string> = {
+  const detailDeTuile: Record<TuileDuProfil, string> = {
     avatars: profil.legendaires.length > 0 ? `${profil.legendaires.length} légendaire${profil.legendaires.length > 1 ? 's' : ''}, des branches, des emojis` : 'Des branches, des emojis, des légendaires',
     style: 'Finition, titre, fond',
     trophees: `${nHautsFaits} haut${nHautsFaits > 1 ? 's' : ''} fait${nHautsFaits > 1 ? 's' : ''} · ${nPrix} prix`,
     carriere: precision !== null ? `Précision ${precision} % · tes courbes` : 'Tes chiffres, tes courbes',
     soirees: profil.soirees.length === 0 ? 'Aucune encore' : `${profil.soirees.length} soirée${profil.soirees.length > 1 ? 's' : ''}, jouées ou animées`,
   }
-  const iconeDeTuile: Record<EcranDuProfil, IconName> = {
+  const iconeDeTuile: Record<TuileDuProfil, IconName> = {
     avatars: 'sparkles',
     style: 'palette',
     trophees: 'trophy',
@@ -545,9 +565,12 @@ function OngletEnChemin({ perdu }: { perdu: boolean }) {
  * thèmes, hauts faits, prix, fiche, soirées — : cinq tuiles disent ce qu'il
  * y a, et chacune ouvre le sien. La boutique a sa page, dans le menu.
  */
-type EcranDuProfil = 'avatars' | 'style' | 'trophees' | 'carriere' | 'soirees'
+type TuileDuProfil = 'avatars' | 'style' | 'trophees' | 'carriere' | 'soirees'
+/** Un réglage du style a son écran, sous « Mon style ». */
+type ReglageDuStyle = 'style-finition' | 'style-titre' | 'style-fond'
+type EcranDuProfil = TuileDuProfil | ReglageDuStyle
 
-const ECRANS: { id: EcranDuProfil; nom: string }[] = [
+const ECRANS: { id: TuileDuProfil; nom: string }[] = [
   { id: 'avatars', nom: 'Mes avatars' },
   { id: 'style', nom: 'Mon style' },
   { id: 'trophees', nom: 'Mes trophées' },
@@ -555,9 +578,18 @@ const ECRANS: { id: EcranDuProfil; nom: string }[] = [
   { id: 'soirees', nom: 'Mes soirées' },
 ]
 
+const REGLAGES: { id: ReglageDuStyle; nom: string }[] = [
+  { id: 'style-finition', nom: 'Finition' },
+  { id: 'style-titre', nom: 'Titre' },
+  { id: 'style-fond', nom: 'Fond de carte' },
+]
+
 /** La page que sert la vue : l'accueil (`/`), le profil (`/profil`), la boutique (`/boutique`). */
 const VUE: 'accueil' | 'profil' | 'boutique' =
   route.kind === 'account' && route.page === 'boutique' ? 'boutique' : route.kind === 'account' && route.page === 'profil' ? 'profil' : 'accueil'
+
+/** L'écran d'où l'on a ouvert celui-ci, gardé dans l'historique : « ← Mon style » y revient d'un cran. */
+const DEPUIS = 'fiestappProfilDepuis'
 
 /** Les adresses d'avant — un onglet, la boutique dans l'apparence — mènent encore quelque part. */
 const ANCIENNES: Record<string, EcranDuProfil> = { apparence: 'avatars' }
@@ -566,7 +598,7 @@ const ANCIENNES: Record<string, EcranDuProfil> = { apparence: 'avatars' }
 function lireEcran(): EcranDuProfil | null {
   if (VUE !== 'profil') return null
   const h = window.location.hash.slice(1)
-  return ECRANS.find(e => e.id === h)?.id ?? ANCIENNES[h] ?? null
+  return ECRANS.find(e => e.id === h)?.id ?? REGLAGES.find(e => e.id === h)?.id ?? ANCIENNES[h] ?? null
 }
 
 // La boutique des thèmes vivait dans l'apparence (`/profil#mes-themes`) : la

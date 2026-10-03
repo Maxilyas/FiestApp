@@ -7249,3 +7249,260 @@ body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 .campagne-correction p { margin: 0; }
 .campagne-juste { border-left: 3px solid var(--accent); }
 .campagne-rate { border-left: 3px solid var(--alert); }
+
+/* ── Mes avatars : la famille à son écran ───────────────────────────────
+   Les emojis gardent leur grille, mais le titre de la carte, son mode
+   d'emploi et les onglets des familles feraient doublon avec les onglets
+   de « Mes avatars », juste au-dessus. */
+.une-famille > .card > h3,
+.une-famille > .card > h3 + p,
+.une-famille .onglets-familles,
+.une-famille .famille-note { display: none; }
+.onglets-avatars { margin-top: 2px; }
+.panneau-avatars { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── L'atlas ─────────────────────────────────────────────────────────────
+   Un rail d'orbes — l'anneau de chaque collection se remplit à chaque pièce
+   gagnée —, puis la collection choisie sur une trame fine, comme un écran de
+   navigation. Tout bouge par `transform` et `opacity`, et s'arrête si le
+   système demande moins de mouvement. */
+.atlas { display: flex; flex-direction: column; gap: 12px; }
+.atlas-rail {
+  display: flex;
+  gap: 4px;
+  margin-inline: -16px;
+  padding: 6px 16px 10px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.atlas-rail::-webkit-scrollbar { display: none; }
+.atlas-orbe {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 76px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  scroll-snap-align: center;
+  cursor: pointer;
+}
+.atlas-anneau {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  padding: 3px;
+  background: conic-gradient(var(--lueur) calc(var(--part) * 1turn), color-mix(in srgb, var(--lueur) 14%, transparent) 0);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.atlas-coeur { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: var(--bg); font-size: 46px; line-height: 0; overflow: hidden; }
+.atlas-coeur .lg, .atlas-coeur .dv { font-size: 50px; }
+.atlas-orbe-nom { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--t-label); font-weight: 600; letter-spacing: 0.02em; }
+.atlas-orbe-compte { font-size: var(--t-label); font-variant-numeric: tabular-nums; opacity: 0.8; }
+.atlas-orbe[aria-selected='true'] { color: var(--ink); }
+.atlas-orbe[aria-selected='true'] .atlas-anneau { transform: scale(1.1); box-shadow: 0 0 18px color-mix(in srgb, var(--lueur) 55%, transparent); }
+.atlas-orbe[aria-selected='true'] .atlas-orbe-compte { color: var(--lueur); opacity: 1; }
+.orbe-nouveau {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+.rail-separe {
+  flex: none;
+  display: flex;
+  align-items: center;
+  margin: 0 4px 22px;
+  padding-left: 8px;
+  border-left: 1px solid var(--edge-strong);
+}
+.rail-separe span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+/* Les douze branches en deux rangées, sans défiler de côté. */
+.rail-compact {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px 4px;
+  margin-inline: 0;
+  padding: 2px 0 0;
+  overflow: visible;
+}
+.rail-compact .atlas-orbe { width: auto; padding: 0; }
+.rail-compact .atlas-anneau { width: 46px; height: 46px; padding: 2.5px; }
+.rail-compact .atlas-coeur { font-size: 36px; }
+.rail-compact .atlas-orbe[aria-selected='true'] .atlas-anneau { transform: scale(1.12); }
+/* Les six collections des trophées, en deux rangées. */
+.rail-grille {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 4px;
+  margin-inline: 0;
+  padding: 6px 0 4px;
+  overflow: visible;
+}
+.rail-grille .atlas-orbe { width: auto; }
+
+.atlas-branche {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 14px 18px;
+  border: 1px solid color-mix(in srgb, var(--lueur) 40%, transparent);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--lueur) 20%, transparent), transparent 70%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--lueur) 7%, transparent) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--lueur) 7%, transparent) 0 1px, transparent 1px 22px),
+    var(--surface);
+  overflow: hidden;
+}
+.atlas-tete { display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; gap: 6px; text-align: center; }
+.atlas-tete h3 { margin: 0; font-size: 1.6rem; }
+.atlas-categorie { display: block; color: var(--lueur); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.atlas-compteur { display: block; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.atlas-fleche {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid color-mix(in srgb, var(--lueur) 35%, transparent);
+  border-radius: 50%;
+  background: none;
+  color: var(--lueur);
+  cursor: pointer;
+}
+.atlas-fleche .icon { transform: rotate(90deg); }
+.atlas-fleche-suivante .icon { transform: rotate(-90deg); }
+.atlas-objectif { margin: 0; text-align: center; font-size: 0.92rem; color: var(--muted); }
+.atlas-objectif b { color: var(--lueur); }
+
+/* Le chemin : un trait qui s'allume jusqu'au dernier portrait gagné. */
+.atlas-chemin { position: relative; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.atlas-chemin::before {
+  content: '';
+  position: absolute;
+  left: 35px;
+  top: 30px;
+  bottom: 30px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(to bottom, var(--lueur) calc(var(--fait) * 100%), color-mix(in srgb, var(--lueur) 18%, transparent) 0);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--lueur) 45%, transparent);
+}
+.atlas-etape { position: relative; }
+.atlas-noeud {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 6px 8px 6px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.atlas-noeud[aria-expanded='true'] { border-color: color-mix(in srgb, var(--lueur) 45%, transparent); background: color-mix(in srgb, var(--lueur) 8%, transparent); }
+.atlas-medaillon {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--bg);
+  font-size: 60px;
+  line-height: 0;
+}
+.atlas-gagne .atlas-medaillon { box-shadow: 0 0 0 2px var(--lueur), 0 0 16px color-mix(in srgb, var(--lueur) 50%, transparent); }
+.atlas-prochain .atlas-medaillon::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 2px dashed var(--lueur);
+  border-radius: 50%;
+  animation: atlas-palpite 2.4s ease-in-out infinite;
+}
+.atlas-ferme .atlas-medaillon { opacity: 0.55; box-shadow: 0 0 0 1px var(--edge); }
+.atlas-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.atlas-texte b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
+.atlas-seuil { font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.atlas-gagne .atlas-seuil { color: var(--lueur); }
+.atlas-ferme .atlas-texte b { color: var(--muted); }
+.atlas-fiche { margin: 6px 0 4px 78px; }
+.detail-portrait-grand { display: grid; place-items: center; font-size: 140px; line-height: 0; margin: 6px auto 14px; }
+@keyframes atlas-palpite {
+  0%, 100% { opacity: 0.35; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .atlas-prochain .atlas-medaillon::after { animation: none; opacity: 0.8; }
+  .atlas-anneau { transition: none; }
+}
+
+/* Les grilles de collection : des médaillons qui brillent quand on les a. */
+.hud-titre { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 6px 0 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--lueur); }
+.hud-titre span { font-weight: 500; letter-spacing: 0.02em; text-transform: none; color: var(--muted); font-size: 0.8rem; }
+.hud-grille { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 6px; grid-auto-flow: dense; }
+.hud-grille-divins { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.hud-case { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.hud-medaillon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--bg);
+  font-size: 54px;
+  line-height: 0;
+  transition: transform 0.2s ease;
+}
+.hud-grille-divins .hud-medaillon { width: 50px; height: 50px; font-size: 46px; }
+.hud-gagne .hud-medaillon { box-shadow: 0 0 0 2px var(--lueur), 0 0 14px color-mix(in srgb, var(--lueur) 45%, transparent); }
+.hud-ferme .hud-medaillon { box-shadow: 0 0 0 1px var(--edge); }
+.hud-porte .hud-medaillon { box-shadow: 0 0 0 3px var(--accent), 0 0 18px var(--accent); }
+.hud-ouverte .hud-medaillon { transform: scale(1.08); }
+.hud-marque { min-height: 1em; font-size: var(--t-label); font-weight: 600; color: var(--lueur); font-variant-numeric: tabular-nums; }
+.hud-fiche { grid-column: 1 / -1; }
+.hud-divins { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--lueur) 30%, transparent); }
+@media (prefers-reduced-motion: reduce) { .hud-medaillon { transition: none; } }
+
+/* Les jauges en anneau de la carrière. */
+.hud-jauge { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 0; text-align: center; }
+.hud-jauge svg { width: 88px; height: 88px; transform: rotate(-90deg); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--lueur) 45%, transparent)); }
+.hud-jauge circle { fill: none; stroke-width: 7; }
+.hud-jauge-fond { stroke: color-mix(in srgb, var(--lueur) 16%, transparent); }
+.hud-jauge-plein { stroke: var(--lueur); stroke-linecap: round; }
+.hud-jauge-valeur { position: absolute; top: 0; left: 0; right: 0; height: 88px; display: grid; place-items: center; font-family: var(--serif); font-size: 1.35rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.hud-jauge figcaption { display: flex; flex-direction: column; gap: 1px; font-size: 0.8rem; color: var(--muted); line-height: 1.25; }
+.hud-jauge figcaption b { color: var(--ink); font-size: 0.9rem; }
+
+/* ── Mon style : quatre lignes, la valeur en clair ──────────────────────
+   Sa carte reste en tête pendant qu'on règle : c'est elle qui change. */
+.identite-collante { position: sticky; top: 0; z-index: 4; padding-top: 4px; background: var(--bg); }
+.style-liste { list-style: none; margin: 0; padding: 0; border: 1px solid var(--edge); border-radius: var(--radius); background: var(--surface); overflow: hidden; }
+.style-liste li + li { border-top: 1px solid var(--edge); }
+.style-liste button,
+.style-liste a { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 12px 8px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer; }
+.style-icone { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, var(--zone, var(--accent-text)) 14%, transparent); color: var(--zone, var(--accent-text)); }
+.style-icone .icon { width: 17px; height: 17px; }
+.style-nom { flex: 1; font-weight: 600; }
+.style-valeur { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent-text); font-size: 0.9rem; }
+.style-chevron { flex: none; color: var(--muted); transform: rotate(-90deg); }

@@ -42,7 +42,9 @@ test('l’accueil, le profil et la boutique sont la même page, qui lit son adre
   const profil = source('views/ProfilApp.tsx')
   for (const ici of ['accueil', 'profil', 'boutique']) assert.match(profil, new RegExp(`menu\\('${ici}'\\)`), `la barre sur « ${ici} »`)
   // Les tuiles ouvrent leurs écrans, chacun à son adresse ; le retour du navigateur y ramène.
-  assert.match(profil, /history\.pushState\(history\.state, '', `\$\{window\.location\.pathname\}\$\{window\.location\.search\}#\$\{e\}`\)/)
+  // L'entrée retient l'écran d'où l'on vient : un réglage de « Mon style » y revient d'un cran.
+  assert.match(profil, /history\.pushState\(\{ \.\.\.history\.state, \[DEPUIS\]: lireEcran\(\) \}, '', `\$\{window\.location\.pathname\}\$\{window\.location\.search\}#\$\{e\}`\)/)
+  assert.match(profil, /if \(history\.state\?\.\[DEPUIS\] === 'style'\) history\.back\(\)/)
   // Les adresses d'avant mènent encore quelque part.
   assert.match(profil, /const ANCIENNES: Record<string, EcranDuProfil> = \{ apparence: 'avatars' \}/)
   assert.match(profil, /window\.location\.hash === '#mes-themes'\) window\.location\.replace\('\/boutique'\)/)
