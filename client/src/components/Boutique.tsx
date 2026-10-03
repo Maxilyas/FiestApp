@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Icon } from './Icon'
 import { confirmDialog } from './Dialog'
 import { rendreLeFocus } from '../focus'
@@ -16,11 +16,12 @@ import {
 import type { PublicProfileDetail } from '../../../shared/profil'
 import type { ChoixDuProfil } from './choix'
 
-// « Mes thèmes », dans l'onglet « Apparence » du profil, juste après le fond
-// de sa carte : ce qui habille son téléphone — la soirée, sa page, le quiz du
+// Les thèmes : ce qui habille son téléphone — la soirée, sa page, le quiz du
 // jour —, acheté en confettis (`shared/themes.ts`). Une bonne réponse, un
-// confetti : la boutique dit ce qu'on a, ce qu'on peut s'offrir, et ce qu'il
-// manque pour le reste.
+// confetti. La boutique ne montre que ce qui reste à prendre, une rareté à
+// la fois (`RayonDesThemes`) ; ce qu'on a se porte dans « Mon style › Thème »
+// (`MesThemes`). Les deux dans les mêmes cartes : l'écran d'une question
+// sous chaque thème, en grand.
 //
 // Le geste est celui de « Mes avatars » : toucher un thème ouvre sa fiche
 // sous sa rangée, et l'on porte — ou l'on achète — de là. Un thème se
@@ -37,9 +38,6 @@ const APERCUS: Record<string, string> = import.meta.env
   ? import.meta.glob<string>('../themes/apercus/*.webp', { eager: true, query: '?url', import: 'default' })
   : {}
 const apercuDe = (cle: string): string | undefined => APERCUS[`../themes/apercus/${cle}.webp`]
-
-/** Repliée, la boutique en montre autant : trois rangées d'un téléphone. */
-const MONTRES = 9
 
 export type EtatDuTheme = 'porte' | 'a-toi' | 'a-vendre' | 'trop-cher' | 'hors-saison'
 
@@ -64,28 +62,25 @@ function nomDeLaCase(t: Theme, etat: EtatDuTheme, solde: number): string {
   return `${t.nom}, ${prix}`
 }
 
-interface Props {
-  profil: PublicProfileDetail
-  busy: boolean
-  enregistrer: (patch: ChoixDuProfil) => void
-  /** Achète et porte : rend le motif d'un refus, ou null. */
-  acheter: (cle: string) => Promise<string | null>
+/** La couleur de chaque rareté : sa gemme, le bord de ses cartes, son prix. Jamais un texte long. */
+const GEMMES: Record<RareteDeTheme, string> = {
+  offert: '#d9b56a',
+  commune: '#a8b3bf',
+  peucommune: '#6fcf8a',
+  rare: '#5fa8ff',
+  epique: '#b77bff',
+  legendaire: '#f2b84b',
 }
+const gemme = (r: RareteDeTheme) => ({ '--gemme': GEMMES[r] }) as CSSProperties
 
-export function MesThemes({ profil, busy, enregistrer, acheter }: Props) {
-  const [ouverte, setOuverte] = useState(false)
-  /** La fiche ouverte, sous la case touchée. */
-  const [ouvert, setOuvert] = useState<string | null>(null)
-  const [erreur, setErreur] = useState('')
-  // Le thème qu'il porte se lit dans son profil, que chaque enregistrement
-  // rend à jour — jamais dans la boutique, lue une fois avec la page : après
-  // Ivoire, elle croyait encore Velours porté, et toucher Velours ne faisait
-  // plus rien jusqu'au rechargement.
-  const porte = profil.theme ?? 'velours'
+/**
+ * La fiche ouverte s'ouvre juste sous sa case, et reçoit le focus sur son
+ * nom : le lecteur d'écran la lit. La page ne défile que ce qu'il faut pour
+ * la montrer entière, son bouton compris. Porté, un thème n'a plus de
+ * bouton : le focus qui y était tombait sur la page, il revient au nom.
+ */
+function useFiche(ouvert: string | null, porte: string) {
   const detail = useRef<HTMLDivElement>(null)
-  // La fiche s'ouvre juste sous la case, et reçoit le focus sur son nom : le
-  // lecteur d'écran la lit. La page ne défile que ce qu'il faut pour la
-  // montrer entière, son bouton compris.
   useEffect(() => {
     const fiche = detail.current
     if (!ouvert || !fiche) return
@@ -97,41 +92,84 @@ export function MesThemes({ profil, busy, enregistrer, acheter }: Props) {
     const calme = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     fiche.scrollIntoView({ block: 'nearest', behavior: calme ? 'auto' : 'smooth' })
   }, [ouvert])
-  // Porté, un thème n'a plus de bouton : le focus qui y était tombait sur la
-  // page. Il revient au nom de la fiche.
   useEffect(() => {
     rendreLeFocus(detail.current, ['.galerie-detail-nom'])
   }, [porte])
-  const boutique = profil.boutique
-  if (!boutique) return null
-  const { solde } = boutique.confettis
-  const possedes = new Set(boutique.possedes)
-  const etatDe = (t: Theme) => etatDuTheme(t, porte, possedes, solde, boutique.jour)
+  return detail
+}
 
-  /**
-   * Repliée : ce qu'il porte et ce qu'il a, puis ce qu'une saison ne laisse
-   * en boutique que quelques jours, puis un thème de chaque rareté, du
-   * Commun au Légendaire — cinq Communes d'affilée ne donnaient envie de
-   * rien —, et le reste dans l'ordre du catalogue. Hors saison, un thème
-   * attend la boutique entière.
-   */
-  const siens = THEMES.filter(t => possedes.has(t.key)).sort((a, b) => Number(b.key === porte) - Number(a.key === porte))
-  const aPrendre = THEMES.filter(t => !possedes.has(t.key) && enBoutique(t, boutique.jour))
-  const deSaison = aPrendre.filter(t => t.saison)
-  const unParRarete = RARETES_DE_THEME.map(r => aPrendre.find(t => t.rarete === r && !t.saison)).filter((t): t is Theme => !!t)
-  const enVitrine = [...new Set([...siens, ...deSaison, ...unParRarete, ...aPrendre])].slice(0, MONTRES)
+/**
+ * Une carte de la vitrine : l'aperçu en grand, le nom, et dessous ce qu'il
+ * est pour lui. Elle ouvre sa fiche — un bouton qui déplie, pas un
+ * interrupteur : `aria-pressed` disait qu'un toucher le portait.
+ */
+function CarteDeTheme({ t, etat, solde, ouvert, onToucher }: { t: Theme; etat: EtatDuTheme; solde: number; ouvert: boolean; onToucher: () => void }) {
+  const apercu = apercuDe(t.key)
+  const pied =
+    etat === 'porte' ? 'Porté' : etat === 'a-toi' ? NOM_DE_RARETE[t.rarete] : etat === 'trop-cher' ? `encore ${formatNumber(prixDe(t) - solde)}` : enConfettis(prixDe(t))
+  return (
+    <button
+      type="button"
+      className={'theme-vitrine' + (etat === 'trop-cher' ? ' theme-cher' : '') + (etat === 'porte' ? ' theme-porte' : '') + (ouvert ? ' ouverte' : '')}
+      style={gemme(t.rarete)}
+      aria-expanded={ouvert}
+      aria-controls={ouvert ? 'detail-theme' : undefined}
+      aria-label={nomDeLaCase(t, etat, solde)}
+      onClick={onToucher}
+    >
+      <span className="theme-vitrine-image" aria-hidden="true">
+        {apercu && <img src={apercu} alt="" width={180} height={225} loading="lazy" decoding="async" />}
+      </span>
+      <span className="theme-vitrine-pied">
+        <b>{t.nom}</b>
+        <span className="theme-vitrine-prix">{pied}</span>
+      </span>
+      {/* Une saison ne dure que quelques jours : elle se dit. */}
+      {t.saison && etat !== 'porte' && etat !== 'a-toi' && <span className="theme-saison">{t.saison.periode}</span>}
+    </button>
+  )
+}
+
+/**
+ * La boutique : ce qu'on achète, à part de ce qu'on a — ce qu'on possède se
+ * porte dans « Mon style › Thème » (`MesThemes`). Une rareté à la fois,
+ * choisie sur une rangée de gemmes ; elle s'ouvre sur la plus belle qu'on
+ * peut déjà s'offrir. Hors de sa saison, un thème attend la sienne.
+ */
+export function RayonDesThemes({
+  profil,
+  busy,
+  acheter,
+}: {
+  profil: PublicProfileDetail
+  busy: boolean
+  /** Achète et porte : rend le motif d'un refus, ou null. */
+  acheter: (cle: string) => Promise<string | null>
+}) {
+  const [ouvert, setOuvert] = useState<string | null>(null)
+  const [erreur, setErreur] = useState('')
+  // Le thème porté se lit dans le profil, que chaque enregistrement rend à
+  // jour — jamais dans la boutique, lue une fois avec la page.
+  const porte = profil.theme ?? 'velours'
+  const detail = useFiche(ouvert, porte)
+  const boutique = profil.boutique
+  const solde = boutique?.confettis.solde ?? 0
+  const possedes = new Set(boutique?.possedes ?? [])
+  const aPrendre = boutique ? THEMES.filter(t => t.rarete !== 'offert' && !possedes.has(t.key) && enBoutique(t, boutique.jour)) : []
+  const raretes = RARETES_DE_THEME.filter(r => aPrendre.some(t => t.rarete === r))
+  const [choisie, setChoisie] = useState<RareteDeTheme | null>(null)
+  if (!boutique) return null
+  const rarete = choisie ?? [...raretes].reverse().find(r => prixDe(aPrendre.find(t => t.rarete === r)!) <= solde) ?? raretes[0]
+  const liste = aPrendre.filter(t => t.rarete === rarete)
 
   const toucher = (cle: string) => {
     setErreur('')
     setOuvert(o => (o === cle ? null : cle))
   }
-  // Déplier ou replier la boutique referme la fiche : sa case a changé de place.
-  const deplier = () => {
-    setOuverte(o => !o)
+  // Changer de rareté referme la fiche : sa carte n'est plus là.
+  const choisir = (r: RareteDeTheme) => {
+    setChoisie(r)
     setOuvert(null)
-  }
-  const porter = (cle: string | null) => {
-    if (!busy) enregistrer({ theme: cle })
   }
   const acheterLe = async (t: Theme) => {
     if (busy) return
@@ -148,103 +186,93 @@ export function MesThemes({ profil, busy, enregistrer, acheter }: Props) {
     if (refus) setErreur(refus)
   }
 
-  const carte = (t: Theme) => {
-    const etat = etatDe(t)
-    const apercu = apercuDe(t.key)
-    const aVendre = etat === 'a-vendre' || etat === 'trop-cher' || etat === 'hors-saison'
-    return (
-      <Fragment key={t.key}>
-        <button
-          type="button"
-          className={
-            'finition-btn theme-btn' +
-            (etat === 'porte' ? ' selected' : '') +
-            (etat === 'trop-cher' || etat === 'hors-saison' ? ' theme-ferme' : '') +
-            (ouvert === t.key ? ' ouverte' : '')
-          }
-          // Il ouvre sa fiche, dessous : un bouton qui déplie, pas un
-          // interrupteur — `aria-pressed` disait qu'un toucher le portait.
-          aria-expanded={ouvert === t.key}
-          aria-controls={ouvert === t.key ? 'detail-theme' : undefined}
-          aria-label={nomDeLaCase(t, etat, solde)}
-          onClick={() => toucher(t.key)}
-        >
-          <span className="theme-apercu" aria-hidden="true">
-            {apercu && <img src={apercu} alt="" width={180} height={320} loading="lazy" decoding="async" />}
-          </span>
-          <span className="finition-nom">{t.nom}</span>
-          {etat === 'porte' && <span className="muted small">porté</span>}
-          {etat === 'a-toi' && <span className="muted small">à toi</span>}
-          {/* Dépliée, la boutique range par rareté : chaque rangée la dit déjà. */}
-          {aVendre && !ouverte && (
-            <span className="theme-rarete">
-              <i className={`rarete-point r-${t.rarete}`} aria-hidden="true" />
-              {NOM_DE_RARETE[t.rarete]}
-            </span>
-          )}
-          {aVendre && <span className={'small theme-prix' + (etat === 'a-vendre' ? '' : ' muted')}>{enConfettis(prixDe(t))}</span>}
-          {etat === 'trop-cher' && <span className="muted small">encore {formatNumber(prixDe(t) - solde)}</span>}
-          {etat === 'hors-saison' && <span className="muted small">{retourEnBoutique(t)}</span>}
-          {/* Une saison ne dure que quelques jours : elle se dit. */}
-          {t.saison && etat === 'a-vendre' && <span className="muted small">{t.saison.periode}</span>}
-        </button>
-        {ouvert === t.key && (
-          <div id="detail-theme" className="fiche-case" ref={detail}>
-            <DetailTheme
-              theme={t}
-              etat={etat}
-              solde={solde}
-              busy={busy}
-              erreur={erreur}
-              onPorter={porter}
-              onAcheter={t => void acheterLe(t)}
-            />
-          </div>
-        )}
-      </Fragment>
-    )
-  }
-
   return (
-    <section className="card mes-themes" id="mes-themes">
-      <h3>
-        <Icon name="palette" />
-        Mes thèmes <span className="muted small titre-compte">{`${possedes.size} / ${THEMES.length}`}</span>
-      </h3>
-      <p className="solde-ligne">
-        <span className="solde">
-          <span className="solde-emoji" aria-hidden="true">
-            🎊
-          </span>{' '}
-          {formatNumber(solde)}
-        </span>
-        <span className="muted small">confettis · une bonne réponse, un confetti</span>
-      </p>
-      {solde < 0 && (
-        <p className="muted small">Une soirée retirée de l’historique a repris ses confettis. Tes thèmes, eux, te restent.</p>
-      )}
-      <p className="muted small">
-        {espacesFines('Il habille ton téléphone : la soirée, ton profil, le quiz du jour. Touche un thème, puis « Le porter ».')}
-      </p>
-      {ouverte ? (
-        RARETES_DE_THEME.map((r: RareteDeTheme) => (
-          <div key={r} className="themes-rarete">
-            <h4 className="label">
-              {r === 'offert' ? 'Offerts' : `${NOM_DE_RARETE[r]} · ${enConfettis(prixDe(THEMES.find(t => t.rarete === r)!))}`}
-            </h4>
-            <div className="finitions themes-choix" role="group" aria-label={r === 'offert' ? 'Offerts' : NOM_DE_RARETE[r]}>
-              {THEMES.filter(t => t.rarete === r).map(carte)}
-            </div>
-          </div>
-        ))
+    <>
+      {solde < 0 && <p className="muted small">Une soirée retirée de l’historique a repris ses confettis. Tes thèmes, eux, te restent.</p>}
+      {raretes.length === 0 ? (
+        <p className="card muted">Tu as tous les thèmes de la boutique. Ceux des saisons reviennent avec elles.</p>
       ) : (
-        <div className="finitions themes-choix" role="group" aria-label="Mes thèmes">
-          {enVitrine.map(carte)}
-        </div>
+        <>
+          <div className="gemmes" role="tablist" aria-label="Rareté">
+            {raretes.map(r => (
+              <button key={r} type="button" role="tab" aria-selected={rarete === r} className="gemme" style={gemme(r)} onClick={() => choisir(r)}>
+                <i aria-hidden="true" />
+                <span>{NOM_DE_RARETE[r]}</span>
+              </button>
+            ))}
+          </div>
+          <p className="gemme-legende" style={gemme(rarete)}>
+            <b>{NOM_DE_RARETE[rarete]}</b> · {enConfettis(prixDe(liste[0]))} le thème · {liste.length} en boutique
+          </p>
+          <div className="vitrine-themes" role="tabpanel" aria-label={NOM_DE_RARETE[rarete]}>
+            {liste.map(t => {
+              const etat = etatDuTheme(t, porte, possedes, solde, boutique.jour)
+              return (
+                <Fragment key={t.key}>
+                  <CarteDeTheme t={t} etat={etat} solde={solde} ouvert={ouvert === t.key} onToucher={() => toucher(t.key)} />
+                  {ouvert === t.key && (
+                    <div id="detail-theme" className="fiche-case theme-fiche" ref={detail}>
+                      <DetailTheme theme={t} etat={etat} solde={solde} busy={busy} erreur={erreur} onPorter={() => {}} onAcheter={t => void acheterLe(t)} />
+                    </div>
+                  )}
+                </Fragment>
+              )
+            })}
+          </div>
+        </>
       )}
-      <button type="button" className="btn btn-block" aria-expanded={ouverte} onClick={deplier}>
-        {ouverte ? 'Replier la boutique' : `Toute la boutique · ${THEMES.length} thèmes`}
-      </button>
+      <p className="muted small center">
+        {possedes.size} thème{possedes.size > 1 ? 's' : ''} déjà à toi : <a className="link-inline" href="/profil#style-theme">les porter</a>
+      </p>
+    </>
+  )
+}
+
+/**
+ * « Mes thèmes », dans « Mon style » : seulement ceux qu'il a, dans les
+ * cartes de la boutique, celui qu'il porte en tête. Toucher un thème ouvre
+ * sa fiche, d'où on le porte : un thème se portait d'un toucher, et le doigt
+ * qui voulait le regarder habillait déjà toute la page.
+ */
+export function MesThemes({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: ChoixDuProfil) => void }) {
+  const [ouvert, setOuvert] = useState<string | null>(null)
+  const porte = profil.theme ?? 'velours'
+  const detail = useFiche(ouvert, porte)
+  const boutique = profil.boutique
+  if (!boutique) return null
+  const { solde } = boutique.confettis
+  const possedes = new Set(boutique.possedes)
+  const siens = THEMES.filter(t => possedes.has(t.key)).sort((a, b) => Number(b.key === porte) - Number(a.key === porte))
+  const toucher = (cle: string) => setOuvert(o => (o === cle ? null : cle))
+  const porter = (cle: string | null) => {
+    if (!busy) enregistrer({ theme: cle })
+  }
+  return (
+    <section className="mes-themes">
+      <p className="gemme-legende">
+        <b>
+          {siens.length} thème{siens.length > 1 ? 's' : ''}
+        </b>{' '}
+        · {espacesFines('il habille ton téléphone : la soirée, ton profil, le quiz du jour. Touche un thème, puis « Le porter ».')}
+      </p>
+      <div className="vitrine-themes" role="group" aria-label="Mes thèmes">
+        {siens.map(t => {
+          const etat = etatDuTheme(t, porte, possedes, solde, boutique.jour)
+          return (
+            <Fragment key={t.key}>
+              <CarteDeTheme t={t} etat={etat} solde={solde} ouvert={ouvert === t.key} onToucher={() => toucher(t.key)} />
+              {ouvert === t.key && (
+                <div id="detail-theme" className="fiche-case theme-fiche" ref={detail}>
+                  <DetailTheme theme={t} etat={etat} solde={solde} busy={busy} onPorter={porter} onAcheter={() => {}} />
+                </div>
+              )}
+            </Fragment>
+          )
+        })}
+      </div>
+      <a className="link-inline lien-boutique" href="/boutique">
+        <Icon name="palette" /> D’autres thèmes à la boutique
+      </a>
     </section>
   )
 }

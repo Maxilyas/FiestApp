@@ -12,7 +12,7 @@ import { Icon } from './Icon'
 import { Onglets, type Onglet } from './Onglets'
 import { TropheesAtlas } from './TropheesAtlas'
 import { CarriereAtlas } from './CarriereAtlas'
-import { MesThemes } from './Boutique'
+import { MesThemes, RayonDesThemes } from './Boutique'
 
 // Le contenu des écrans du profil — ses avatars, son style, ses trophées —
 // et de la boutique, que la page charge à la demande (`ProfilApp`) : ils
@@ -76,43 +76,34 @@ export function PanneauAvatars({ profil, busy, enregistrer }: Props) {
 }
 
 /** Les réglages de « Mon style », chacun son écran (`ProfilApp`, `#style-finition`…). */
-export type Reglage = 'finition' | 'titre' | 'fond'
+export type Reglage = 'finition' | 'titre' | 'fond' | 'theme'
 
 /**
  * « Mon style » : sa carte en tête — c'est ce qu'on change —, puis quatre
- * lignes qui disent ce qui est choisi, chacune ouvrant son écran. Le thème
- * mène à la boutique, où il s'achète et se porte.
+ * lignes qui disent ce qui est choisi, chacune ouvrant son écran — le thème
+ * compris : ceux qu'on a se portent ici, la boutique ne vend que les autres.
  */
 export function PanneauStyle({ profil, onReglage }: Props & { onReglage: (r: Reglage) => void }) {
   const titre = profil.titre ? hautFait(profil.titre) : null
   const finition = profil.finitionChoisie === 'auto' ? `Auto · ${NOM_FINITION[profil.finition]}` : NOM_FINITION[profil.finition]
-  const lignes: { r: Reglage | 'theme'; icone: ReactNode; nom: string; valeur: string }[] = [
+  const lignes: { r: Reglage; icone: ReactNode; nom: string; valeur: string }[] = [
     { r: 'finition', icone: <Icon name="sparkles" />, nom: 'Finition', valeur: finition },
     { r: 'titre', icone: <Icon name="award" />, nom: 'Titre', valeur: titre ? titre.title : 'Aucun' },
     { r: 'fond', icone: <Icon name="image" />, nom: 'Fond de carte', valeur: fond(profil.fond)?.nom ?? 'Aucun' },
     { r: 'theme', icone: <Icon name="palette" />, nom: 'Thème', valeur: theme(profil.theme ?? 'velours')?.nom ?? 'Velours' },
   ]
-  const contenu = (l: (typeof lignes)[number]) => (
-    <>
-      <span className="style-icone">{l.icone}</span>
-      <span className="style-nom">{l.nom}</span>
-      <span className="style-valeur">{l.valeur}</span>
-      <Icon name="chevron-down" className="style-chevron" />
-    </>
-  )
   return (
     <>
       <Identite profil={profil} />
       <ul className="style-liste">
         {lignes.map(l => (
           <li key={l.r}>
-            {l.r === 'theme' ? (
-              <a href="/boutique">{contenu(l)}</a>
-            ) : (
-              <button type="button" onClick={() => onReglage(l.r as Reglage)}>
-                {contenu(l)}
-              </button>
-            )}
+            <button type="button" onClick={() => onReglage(l.r)}>
+              <span className="style-icone">{l.icone}</span>
+              <span className="style-nom">{l.nom}</span>
+              <span className="style-valeur">{l.valeur}</span>
+              <Icon name="chevron-down" className="style-chevron" />
+            </button>
           </li>
         ))}
       </ul>
@@ -131,13 +122,14 @@ export function PanneauReglage({ reglage, profil, busy, enregistrer }: Props & {
       {reglage === 'finition' && <MesFinitions profil={profil} busy={busy} enregistrer={enregistrer} />}
       {reglage === 'titre' && <MonTitre profil={profil} busy={busy} enregistrer={enregistrer} />}
       {reglage === 'fond' && <MonFond profil={profil} busy={busy} enregistrer={enregistrer} />}
+      {reglage === 'theme' && <MesThemes profil={profil} busy={busy} enregistrer={enregistrer} />}
     </>
   )
 }
 
-/** La boutique : les thèmes, achetés et portés d'un geste. */
-export function PanneauBoutique({ profil, busy, enregistrer, acheter }: Props & { acheter: (cle: string) => Promise<string | null> }) {
-  return <MesThemes profil={profil} busy={busy} enregistrer={enregistrer} acheter={acheter} />
+/** La boutique : ce qui reste à prendre, une rareté à la fois. */
+export function PanneauBoutique({ profil, busy, acheter }: Props & { acheter: (cle: string) => Promise<string | null> }) {
+  return <RayonDesThemes profil={profil} busy={busy} acheter={acheter} />
 }
 
 export function PanneauTrophees({ profil, busy, enregistrer }: Props) {

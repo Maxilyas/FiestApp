@@ -414,6 +414,8 @@ test('D21 · l’or du décor, les petites boîtes et le plus petit texte ont le
     '.hud-marque',
     '.atlas-orbe-nom',
     '.soiree-gain small',
+    '.gemme',
+    '.theme-saison',
     '.ecusson-nom',
     '.ecusson-legende',
     '.nouveau-pastille',

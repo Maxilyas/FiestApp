@@ -15,7 +15,7 @@ import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { annonceDuChoix, type ChoixDuProfil } from '../components/choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
-import { espacesFines } from '../format'
+import { espacesFines, formatNumber } from '../format'
 import { hautFait } from '../../../shared/hautsfaits'
 import { route } from '../routes'
 import { derniereSoireeGardee } from '../state'
@@ -340,8 +340,16 @@ export function ProfilApp() {
   if (VUE === 'boutique') {
     return (
       <div className="player-shell">
-        {/* Le solde, la boutique le dit en tête de ses thèmes. */}
-        <PieceTete piece="Les thèmes" titre="La boutique" />
+        {/* Le titre et le solde sur une ligne : la place va aux thèmes. */}
+        <header className="boutique-tete">
+          <h1>Boutique</h1>
+          {profil.boutique && (
+            <span className="solde-puce" title="Une bonne réponse, un confetti">
+              <span aria-hidden="true">🎊</span> {formatNumber(profil.boutique.confettis.solde)}
+              <span className="sr-only"> confettis</span>
+            </span>
+          )}
+        </header>
         {regionDAnnonce}
         {pret ? <pret.PanneauBoutique profil={profil} busy={busy} enregistrer={enregistrer} acheter={acheter} /> : enChemin}
         {erreur && <p className="error">{erreur}</p>}
@@ -376,7 +384,7 @@ export function ProfilApp() {
           (pret ? <pret.PanneauStyle profil={profil} busy={busy} enregistrer={enregistrer} onReglage={r => ouvrir(`style-${r}`)} /> : enChemin)}
         {reglage &&
           (pret ? (
-            <pret.PanneauReglage reglage={reglage.id.slice('style-'.length) as 'finition' | 'titre' | 'fond'} profil={profil} busy={busy} enregistrer={enregistrer} />
+            <pret.PanneauReglage reglage={reglage.id.slice('style-'.length) as 'finition' | 'titre' | 'fond' | 'theme'} profil={profil} busy={busy} enregistrer={enregistrer} />
           ) : (
             enChemin
           ))}
@@ -489,7 +497,7 @@ function OngletEnChemin({ perdu }: { perdu: boolean }) {
  */
 type TuileDuProfil = 'avatars' | 'style' | 'trophees' | 'carriere' | 'soirees'
 /** Un réglage du style a son écran, sous « Mon style ». */
-type ReglageDuStyle = 'style-finition' | 'style-titre' | 'style-fond'
+type ReglageDuStyle = 'style-finition' | 'style-titre' | 'style-fond' | 'style-theme'
 type EcranDuProfil = TuileDuProfil | ReglageDuStyle
 
 const ECRANS: { id: TuileDuProfil; nom: string }[] = [
@@ -504,6 +512,7 @@ const REGLAGES: { id: ReglageDuStyle; nom: string }[] = [
   { id: 'style-finition', nom: 'Finition' },
   { id: 'style-titre', nom: 'Titre' },
   { id: 'style-fond', nom: 'Fond de carte' },
+  { id: 'style-theme', nom: 'Thème' },
 ]
 
 /** La page que sert la vue : l'accueil (`/`), le profil (`/profil`), la boutique (`/boutique`). */

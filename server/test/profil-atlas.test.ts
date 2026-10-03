@@ -84,15 +84,16 @@ test('les légendaires et les Divins en grilles de médaillons, le compte en tê
   assert.match(html, /Ils ne disent pas comment/)
 })
 
-test('« Mon style » : quatre lignes, ce qui est choisi en clair, le thème vers la boutique', async () => {
+test('« Mon style » : quatre lignes, ce qui est choisi en clair, chacune son écran — le thème compris', async () => {
   const html = await rendu('components/PanneauxDuProfil', 'PanneauStyle', { profil, ...rien, onReglage: () => {} })
   assert.match(html, /<button type="button" class="identite"/, 'sa carte en tête : c’est elle qui change')
   const lignes = [...html.matchAll(/<span class="style-nom">([^<]+)<\/span><span class="style-valeur">([^<]+)<\/span>/g)].map(([, nom, valeur]) => `${nom} : ${valeur}`)
   assert.deepEqual(lignes, ['Finition : Auto · Mat', 'Titre : Aucun', 'Fond de carte : Aucun', 'Thème : Velours'])
-  assert.match(html, /<li><a href="\/boutique"><span class="style-icone">/)
+  // Le thème aussi : ceux qu'on a se portent ici, la boutique ne vend que les autres.
+  assert.equal(html.match(/<li><button type="button"><span class="style-icone">/g)?.length, 4)
   // Chaque réglage a son écran, à son adresse : le retour du navigateur ramène au style.
   const app = source('views/ProfilApp.tsx')
-  assert.match(app, /type ReglageDuStyle = 'style-finition' \| 'style-titre' \| 'style-fond'/)
+  assert.match(app, /type ReglageDuStyle = 'style-finition' \| 'style-titre' \| 'style-fond' \| 'style-theme'/)
   assert.match(app, /onReglage=\{r => ouvrir\(`style-\$\{r\}`\)\}/)
   // Le réglage garde la carte collée en tête, où l'on voit ce qu'on change.
   assert.match(source('components/PanneauxDuProfil.tsx'), /<div className="identite-collante">/)

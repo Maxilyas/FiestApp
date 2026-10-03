@@ -71,7 +71,7 @@ test('le Compte d’un profil parle du profil : son identifiant, son mot de pass
   const compte = source('views/AccountApp.tsx')
   // L'espace créé par « Créer un salon » n'a pas de mot de passe : le profil est sa seule porte.
   assert.match(compte, /const parLeProfil = me\.account\.status === 'pending' && !!me\.profil/)
-  assert.match(compte, /Identifiant <strong>\{parLeProfil \? me\.profil!\.login : me\.account\.login\}<\/strong>/)
+  assert.match(compte, /<span className="sr-only">Identifiant <\/span>\s*<strong>\{parLeProfil \? me\.profil!\.login : me\.account\.login\}<\/strong>/)
   assert.match(compte, /<ChangerMotDePasse login=\{me\.profil!\.login\} \/>/)
   assert.match(compte, /\(parLeProfil \? api\.joueur\.deconnexion\(\) : api\.auth\.logout\(\)\)/)
   // Le mot de passe du profil a quitté le profil pour le Compte.
@@ -125,4 +125,22 @@ test('soi-même en tête : la carte au profil, une ligne à l’accueil — l’
   assert.match(ligne, /<a class="identite-ligne" href="\/profil"/)
   assert.doesNotMatch(ligne, /Ma carte/, 'la ligne de l’accueil mène au profil, sans carte')
   assert.match(source('views/ProfilApp.tsx'), /<IdentiteLigne profil=\{profil\} \/>/)
+})
+
+test('le Compte en lignes : chacune dit son état et ouvre sa feuille, l’administration à part', () => {
+  const compte = source('views/AccountApp.tsx')
+  assert.match(compte, /<header className="compte-tete">\s*<h1>Compte<\/h1>/)
+  // L'affiche, le mot de passe, le profil rattaché : une feuille chacun, plus une page de formulaires empilés.
+  assert.match(compte, /\{ligne\('edit', 'L’affiche', me\.space\.title, 'affiche'\)\}/)
+  assert.match(compte, /\{ligne\('lock', 'Mot de passe', '••••••••', 'mdp'\)\}/)
+  assert.match(compte, /\{!parLeProfil && ligne\('users', 'Mon profil joueur', me\.profil\?\.name \?\? 'À rattacher', 'profil'\)\}/)
+  // Le titre de la feuille dit « du compte » : l'animateur qui joue a deux mots de passe.
+  assert.match(compte, /<Feuille titre=\{parLeProfil \? 'Mot de passe' : 'Le mot de passe du compte'\} onFermer=\{fermer\}>/)
+  // L'administration, pour l'administrateur seul.
+  assert.match(compte, /\{me\.account\.role === 'admin' && \(\s*<>\s*<h2 className="compte-groupe">/)
+  // Une seule barre : l'animateur qui a un profil a la barre du menu, et l'écran commun et l'historique en lignes.
+  assert.match(compte, /\{!me\.profil && <NavAnimateur /)
+  assert.match(compte, /\{me\.profil && !parLeProfil && ligne\('monitor', 'L’écran commun', '', '\/host'\)\}/)
+  // Les formulaires vivent dans leur feuille : plus de carte ni de titre à eux.
+  assert.doesNotMatch(compte, /<h2>(Ma soirée|Mon profil joueur|Changer le mot de passe du compte|Se déconnecter)<\/h2>/)
 })
