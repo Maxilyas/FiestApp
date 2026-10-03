@@ -10,7 +10,7 @@ import type {
 } from '../../shared/events'
 import type { PublicProfile } from '../../shared/profil'
 import { MOTIFS } from '../../shared/erreurs'
-import { forgetMe, garderFin, getState, oublierIdentite, setState, showToast } from './state'
+import { forgetMe, garderFin, getState, oublierIdentite, oublierJeton, setState, showToast } from './state'
 import { applySample, resetClock, serverNow } from './clock'
 import { currentSlug } from './routes'
 
@@ -86,6 +86,14 @@ socket.on('player:removed', info => {
 socket.on('party:reset', () => {
   const avait = !!getState().me
   const slug = currentSlug()
+  // Le chef de ce salon : sa soirée s'est effacée sans rien de joué — un
+  // quiz terminé avant sa première révélation, un essai effacé. Il n'a rien
+  // à rejoindre : l'accueil, pas « Entrer dans la soirée » (la remarque du
+  // propriétaire du 3 octobre 2026). Un invité, lui, repasse par l'entrée.
+  if (slug && chefIci(slug)) {
+    oublierJeton(slug)
+    return window.location.replace('/')
+  }
   if (slug) oublierIdentite(slug)
   else setState({ me: null, views: {} })
   if (avait) showToast({ kind: 'info', message: 'Nouvelle soirée ! Rejoins-la pour jouer' })

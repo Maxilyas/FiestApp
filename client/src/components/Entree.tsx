@@ -51,6 +51,8 @@ interface Props {
   oublierProfil: () => Promise<void>
   /** Reprend sa place avec le code de l'animateur. Rend le motif du refus, ou null. */
   reprendre: (code: string) => Promise<string | null>
+  /** Le chef qui vient d'ouvrir son salon en équipes : il ne choisit plus que la sienne. */
+  equipeDAbord?: boolean
   /**
    * « La dernière soirée : le souvenir · mon bilan », quand ce téléphone en
    * garde une : celui qui revient voir les résultats n'a pas à entrer dans
@@ -84,12 +86,12 @@ export const identifiantPour = (prenom: string) =>
  * Et un profil reconnu ne choisit plus rien : il a choisi son prénom et son
  * avatar une fois, en créant son profil. On les lit, on ne les redemande pas.
  */
-export function Entree({ space, players, teams, quizEnCours = false, profil, reconnecter, rejoindre, oublierProfil, reprendre, lendemain }: Props) {
+export function Entree({ space, players, teams, quizEnCours = false, profil, reconnecter, rejoindre, oublierProfil, reprendre, equipeDAbord = false, lendemain }: Props) {
   const choisirEquipe = teams.length > 0
   // Ce que ce téléphone a déjà choisi ici : sa présence dit que l'entrée a
   // déjà été vue dans cet espace, et qu'il est inutile de la remontrer.
   const [choix] = useState(() => loadChoix(space.slug))
-  const [etape, setEtape] = useState<Etape>(() => (profil ? 'retour' : choix ? 'moi' : 'entree'))
+  const [etape, setEtape] = useState<Etape>(() => (profil ? (equipeDAbord && choisirEquipe ? 'equipe' : 'retour') : choix ? 'moi' : 'entree'))
   const [name, setName] = useState(() => profil?.name ?? choix?.name ?? '')
   // Le dernier avatar choisi ici, s'il est de la grille : un profil qui a
   // joué sur ce téléphone y laissait son emoji de collection, qu'un invité

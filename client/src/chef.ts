@@ -39,3 +39,38 @@ export function chefIci(slug: string): ReglagesDuChef | null {
     return null
   }
 }
+
+const ENTREE = 'quizz.chef.entrer'
+
+/**
+ * « Ouvrir le salon » mène le chef à sa soirée : il y entre sans repasser par
+ * « Entrer dans la soirée » — il vient de dire qui il est et s'il joue (la
+ * remarque du propriétaire du 3 octobre 2026). La marque ne vaut qu'une fois :
+ * le chef qui revient le lendemain sur la page de son salon n'entre pas, sans
+ * l'avoir voulu, dans la soirée suivante — et elle ne quitte pas l'onglet.
+ */
+export function demanderEntree(slug: string) {
+  try {
+    sessionStorage.setItem(ENTREE, slug)
+  } catch {
+    // Stockage refusé : l'entrée s'affiche, un toucher de plus.
+  }
+}
+
+/** La marque posée par « Ouvrir le salon », pour cet espace. Elle se lit sans s'effacer : un rendu se rejoue. */
+export function entreeDemandee(slug: string): boolean {
+  try {
+    return sessionStorage.getItem(ENTREE) === slug
+  } catch {
+    return false
+  }
+}
+
+/** La marque a servi — le chef est entré, ou l'entrée s'est montrée. */
+export function oublierEntree() {
+  try {
+    sessionStorage.removeItem(ENTREE)
+  } catch {
+    // Stockage refusé : il n'y avait rien.
+  }
+}

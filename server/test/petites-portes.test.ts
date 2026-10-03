@@ -17,7 +17,7 @@ test('un jeton d’une soirée passée ne fait pas voir une salle d’attente vi
   assert.match(s, /setJetonEnVol\(true\)\s*try \{\s*await representer\(token\)\s*\} finally \{\s*setJetonEnVol\(false\)\s*\}/)
   // Le premier écran seulement : une reconnexion en pleine question garde sa question.
   assert.match(s, /const attendreReprise = !dejaVu && jetonEnVol/)
-  assert.match(s, /if \(!snap \|\| !presente \|\| attendreDessins \|\| attendreReprise\) return <AttenteConnexion \/>/)
+  assert.match(s, /if \(!snap \|\| !presente \|\| attendreDessins \|\| attendreReprise \|\| attendreEntree\) return <AttenteConnexion \/>/)
   assert.match(s, /const affiche = !!s\.snapshot && presente && !attendreDessins && !attendreReprise/)
 })
 

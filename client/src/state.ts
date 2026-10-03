@@ -384,11 +384,20 @@ if (import.meta.hot) import.meta.hot.accept(() => window.location.reload())
  * aussi ce choix.
  */
 export function oublierIdentite(slug: string) {
+  oublierJeton(slug)
+  setState({ me: null, views: {} })
+}
+
+/**
+ * Le jeton seul, sans toucher à l'écran : pour la page qui s'en va. Vider
+ * l'état d'abord démontait la garde du retour (`useGardeRetour`), dont le
+ * `history.back()` annulait le départ vers l'accueil.
+ */
+export function oublierJeton(slug: string) {
   try {
     localStorage.removeItem(meKey(slug))
   } catch {
     // Stockage refusé (navigation privée, quota) : oublier en mémoire suffit
     // pour montrer l'entrée tout de suite.
   }
-  setState({ me: null, views: {} })
 }
