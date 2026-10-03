@@ -5,12 +5,26 @@
 // de la réserve encore à sortir, qui gâcherait le quiz de demain —, rangées
 // par la part des joueurs qui les ont trouvées. Le serveur compte les vies
 // et ne donne la bonne réponse qu'après la sienne (invariant 1) ; une bonne
-// réponse y vaut un confetti, comme au quiz du jour, et rien d'expérience.
+// réponse y vaut un confetti, comme au quiz du jour, et l'expérience d'une
+// bonne réponse en soirée — plafonnée par jour, puisqu'elle se rejoue sans
+// fin —, dans une ligne que l'historique des soirées ignore.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { demarrer, ecrire, inscrireProfil, type Banc } from './banc'
-import { NIVEAUX, QUESTIONS_PAR_MARCHE, VIES, niveauMesure, ordreDeSerie, type Niveau } from '../../shared/campagne'
+import {
+  NIVEAUX,
+  QUESTIONS_PAR_MARCHE,
+  VIES,
+  XP_MAX_PAR_JOUR,
+  XP_PAR_JUSTE,
+  niveauMesure,
+  ordreDeSerie,
+  xpDeCampagne,
+  xpDuJourDeCampagne,
+  type Niveau,
+} from '../../shared/campagne'
+import { XP } from '../../shared/profil'
 
 // ── Les règles pures ───────────────────────────────────────────────────────
 
@@ -31,6 +45,17 @@ test('une série monte : cinq de chaque marche, de la plus facile à l’expert,
   assert.deepEqual(niveaux.slice(10), ['difficile', 'difficile', 'expert', 'moyen', 'facile', 'facile'], 'le reste, en reprenant du plus dur')
   assert.equal(new Set(serie.map(x => x.question)).size, serie.length, 'chaque question une fois')
   assert.deepEqual([...NIVEAUX], ['facile', 'moyen', 'difficile', 'expert'])
+})
+
+test('une bonne réponse rapporte celle d’une soirée, sans réflexe ; chaque journée plafonnée à part', () => {
+  assert.equal(XP_PAR_JUSTE, XP.juste)
+  assert.equal(XP_MAX_PAR_JOUR, 45)
+  assert.ok(XP_MAX_PAR_JOUR < 75, 'en dessous du quiz du jour, qui ne se joue qu’une fois')
+  assert.equal(xpDuJourDeCampagne(0), 0)
+  assert.equal(xpDuJourDeCampagne(4), 12)
+  assert.equal(xpDuJourDeCampagne(15), 45)
+  assert.equal(xpDuJourDeCampagne(40), 45, 'le plafond')
+  assert.equal(xpDeCampagne([40, 2, 15]), 45 + 6 + 45, 'un jour sans partie ne reporte rien')
 })
 
 // ── Sur un vrai serveur ────────────────────────────────────────────────────
@@ -115,11 +140,12 @@ test('la campagne joue les questions déjà posées au quiz du jour : trois vies
     const correction = (await lire(banc, lea, `/api/campagne/serie/${serie.id}/correction`)).corps
     assert.equal(correction.length, 4)
     assert.deepEqual(correction.map((c: any) => c.juste), [true, false, false, false])
-    // Une bonne réponse, un confetti ; rien d'expérience.
+    // Une bonne réponse, un confetti, et l'expérience d'une bonne réponse en soirée.
+    assert.deepEqual([r0.xp], [XP_PAR_JUSTE], 'la réponse dit ce qu’elle rapporte')
     const apres = await solde()
-    assert.equal(apres.niveau, avant.profile.niveau)
-    assert.equal(apres.acquis, avant.profile.acquis, 'la campagne ne rapporte pas d’expérience')
+    assert.equal(apres.xp, avant.profile.xp + XP_PAR_JUSTE, 'une bonne réponse, trois points d’expérience')
     assert.equal(apres.boutique.confettis.gagnes, avant.profile.boutique.confettis.gagnes + 1, 'une bonne réponse, un confetti')
+    assert.equal((await lire(banc, lea, '/api/campagne')).corps.xpAujourdhui, XP_PAR_JUSTE)
 
     // Une autre série : les questions jamais vues en campagne passent devant.
     const deux = (await poster(banc, lea, '/api/campagne/serie')).corps
@@ -130,6 +156,48 @@ test('la campagne joue les questions déjà posées au quiz du jour : trois vies
     const bob = await inscrireProfil(banc.url, 'bob', 'Bob')
     const intrus = await poster(banc, bob, `/api/campagne/serie/${deux.id}/reponse`, { index: 0, choix: 0 })
     assert.match(intrus.corps.error, /introuvable/)
+  } finally {
+    await banc.close()
+  }
+})
+
+test('l’expérience de campagne s’arrête au plafond du jour, repart le lendemain, et ne fait pas une soirée', async () => {
+  const horloge = { t: DEBUT }
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t })
+  try {
+    const lea = await inscrireProfil(banc.url, 'lea', 'Léa')
+    await poster(banc, lea, '/api/jour/commencer')
+    horloge.t += 24 * 3_600_000
+    const moi = async () => (await lire(banc, lea, '/api/joueur/moi')).corps.profile
+    const depart = await moi()
+    /** Une série entière, toutes ses réponses justes : ce que chacune a rapporté. */
+    const toutJuste = async () => {
+      const serie = (await poster(banc, lea, '/api/campagne/serie')).corps
+      const bonnes = bonnesDe(banc, serie.id)
+      const gains: number[] = []
+      for (let i = 0; i < serie.total; i++) {
+        gains.push((await poster(banc, lea, `/api/campagne/serie/${serie.id}/reponse`, { index: i, choix: bonnes[i] })).corps.xp)
+      }
+      return gains
+    }
+    // Vingt bonnes réponses le même jour : les quinze premières paient.
+    const gains = [...(await toutJuste()), ...(await toutJuste())]
+    assert.equal(gains.length, 20)
+    assert.deepEqual(gains.slice(0, 15), Array(15).fill(XP_PAR_JUSTE))
+    assert.deepEqual(gains.slice(15), Array(5).fill(0), 'au plein, plus rien')
+    const plein = await moi()
+    assert.equal(plein.xp, depart.xp + XP_MAX_PAR_JOUR)
+    assert.equal(plein.boutique.confettis.gagnes, depart.boutique.confettis.gagnes + 20, 'les confettis, eux, continuent')
+    assert.equal((await lire(banc, lea, '/api/campagne')).corps.xpAujourdhui, XP_MAX_PAR_JOUR)
+    // La campagne n'est pas une soirée : l'historique ne la compte pas.
+    assert.ok(Array.isArray(plein.soirees))
+    assert.deepEqual(plein.soirees, depart.soirees, 'pas de soirée de plus')
+    // Le lendemain, le compteur repart.
+    horloge.t += 24 * 3_600_000
+    assert.equal((await lire(banc, lea, '/api/campagne')).corps.xpAujourdhui, 0)
+    const demain = await toutJuste()
+    assert.equal(demain[0], XP_PAR_JUSTE)
+    assert.equal((await moi()).xp, depart.xp + XP_MAX_PAR_JOUR + 10 * XP_PAR_JUSTE)
   } finally {
     await banc.close()
   }

@@ -10,6 +10,8 @@ import {
   NIVEAUX,
   NOM_NIVEAU,
   VIES,
+  XP_MAX_PAR_JOUR,
+  XP_PAR_JUSTE,
   type CorrectionDeCampagne,
   type EtatDeCampagne,
   type QuestionDeCampagne,
@@ -21,8 +23,19 @@ type Ecran =
   | { e: 'anonyme' }
   | { e: 'erreur'; motif: string }
   | { e: 'accueil'; etat: EtatDeCampagne }
-  | { e: 'jeu'; serie: string; question: QuestionDeCampagne; vies: number; justes: number; total: number; reponse: ReponseDeCampagne | null; choix: number | null }
-  | { e: 'fin'; serie: string; justes: number; record: boolean; correction: CorrectionDeCampagne[] | null }
+  | {
+      e: 'jeu'
+      serie: string
+      question: QuestionDeCampagne
+      vies: number
+      justes: number
+      total: number
+      reponse: ReponseDeCampagne | null
+      choix: number | null
+      /** L'expérience gagnée depuis qu'on a ouvert la série sur cette page. */
+      xp: number
+    }
+  | { e: 'fin'; serie: string; justes: number; record: boolean; correction: CorrectionDeCampagne[] | null; xp: number }
 
 /**
  * La campagne solo (`/campagne`) : une série qui monte en difficulté, trois
@@ -31,8 +44,8 @@ type Ecran =
  * bonne réponse qu'après la sienne : la page ne fait que montrer.
  *
  * Après chaque réponse, la bonne et son anecdote, comme au quiz du jour.
- * Une bonne réponse vaut un confetti ; la campagne ne rapporte pas
- * d'expérience.
+ * Une bonne réponse vaut un confetti, et l'expérience d'une bonne réponse
+ * en soirée — plafonnée par jour : la campagne se rejoue sans fin.
  */
 export function CampagneApp() {
   const [ecran, setEcranBrut] = useState<Ecran>({ e: 'chargement' })
@@ -72,7 +85,7 @@ export function CampagneApp() {
     setErreur('')
     try {
       const s = await api.campagne.commencer(categories)
-      if (s.question) setEcran({ e: 'jeu', serie: s.id, question: s.question, vies: s.vies, justes: s.justes, total: s.total, reponse: null, choix: null })
+      if (s.question) setEcran({ e: 'jeu', serie: s.id, question: s.question, vies: s.vies, justes: s.justes, total: s.total, reponse: null, choix: null, xp: 0 })
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -87,7 +100,7 @@ export function CampagneApp() {
     try {
       const reponse = await api.campagne.repondre(ecran.serie, ecran.question.index, choix)
       // La révélation sur place : la question reste lisible au-dessus.
-      setEcranBrut({ ...ecran, reponse, choix, vies: reponse.vies, justes: reponse.justes })
+      setEcranBrut({ ...ecran, reponse, choix, vies: reponse.vies, justes: reponse.justes, xp: ecran.xp + (reponse.xp ?? 0) })
     } catch (e) {
       setErreur(motifDe(e))
     } finally {
@@ -98,7 +111,7 @@ export function CampagneApp() {
   const suivante = () => {
     if (ecran.e !== 'jeu' || !ecran.reponse) return
     const r = ecran.reponse
-    if (r.finie || !r.suivante) return setEcran({ e: 'fin', serie: ecran.serie, justes: r.justes, record: !!r.record, correction: null })
+    if (r.finie || !r.suivante) return setEcran({ e: 'fin', serie: ecran.serie, justes: r.justes, record: !!r.record, correction: null, xp: ecran.xp })
     setEcran({ ...ecran, question: r.suivante, reponse: null, choix: null })
   }
 
@@ -161,7 +174,17 @@ export function CampagneApp() {
             <Icon name="clock" /> Sans chrono
           </li>
           <li>🎊 Un confetti par bonne réponse</li>
+          <li>
+            <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, {XP_MAX_PAR_JOUR} par jour
+          </li>
         </ul>
+        {/* Où l'on en est du plafond : sans le dire, la quinzième bonne réponse semblait ne plus rien valoir. */}
+        {etat.xpAujourdhui > 0 && (
+          <p className="muted small campagne-xp-du-jour">
+            Aujourd’hui : {etat.xpAujourdhui} / {XP_MAX_PAR_JOUR} XP
+            {etat.xpAujourdhui >= XP_MAX_PAR_JOUR ? ' — le plein est fait, les confettis continuent' : ''}
+          </p>
+        )}
         {pret ? (
           <>
             {etat.categories.length > 1 && (
@@ -208,6 +231,7 @@ export function CampagneApp() {
                     total: etat.enCours!.total,
                     reponse: null,
                     choix: null,
+                    xp: 0,
                   })
                 }
               >
@@ -245,6 +269,7 @@ export function CampagneApp() {
           <span className="big">{ecran.justes}</span>
           <p>
             bonne{ecran.justes > 1 ? 's' : ''} réponse{ecran.justes > 1 ? 's' : ''} · 🎊 +{ecran.justes} confetti{ecran.justes > 1 ? 's' : ''}
+            {ecran.xp > 0 && ` · +${ecran.xp}\u00a0XP`}
           </p>
         </section>
         {erreur && <p className="error">{erreur}</p>}
@@ -309,7 +334,10 @@ export function CampagneApp() {
               {r.juste ? (
                 <>
                   <span className="big">🎊 +1</span>
-                  <p>Bien joué !</p>
+                  <p>
+                    Bien joué !{r.xp > 0 ? ` +${r.xp}\u00a0XP` : ''}
+                  </p>
+                  {r.xp === 0 && <p className="muted small">L’expérience du jour est au plein : les confettis continuent.</p>}
                 </>
               ) : (
                 <>

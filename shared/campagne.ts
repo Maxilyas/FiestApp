@@ -2,10 +2,15 @@
 // vies, sans chronomètre. Elle se joue seul, avec son profil, quand on veut
 // — l'entre-deux des soirées, comme le quiz du jour, mais sans rendez-vous.
 //
+// Une bonne réponse y rapporte l'expérience d'une bonne réponse en soirée,
+// plafonnée par jour (`XP_MAX_PAR_JOUR`), et un confetti.
+//
 // Ses questions sont celles que le quiz du jour a déjà posées : elles ont
 // été relues, et leurs réponses disent leur difficulté — la part des joueurs
 // qui les ont trouvées. Jamais une question de la réserve qui n'est pas
 // encore sortie : la campagne gâcherait le quiz du jour de demain.
+
+import { XP } from './profil'
 
 /** Les vies d'une série : la troisième erreur la termine. */
 export const VIES = 3
@@ -68,6 +73,33 @@ export function ordreDeSerie<T>(parNiveau: Record<Niveau, readonly T[]>, max = Q
   return serie.slice(0, max)
 }
 
+/**
+ * L'expérience d'une bonne réponse en campagne : celle d'une bonne réponse
+ * en soirée (`XP.juste`), sans la présence ni le réflexe — rien ne presse,
+ * il n'y a pas de chronomètre. Choisie le 3 octobre 2026.
+ */
+export const XP_PAR_JUSTE = XP.juste
+
+/**
+ * Au plus, l'expérience d'une journée de campagne (à l'heure de Paris) :
+ * quinze bonnes réponses. La campagne se rejoue sans fin, quand le quiz du
+ * jour ne se joue qu'une fois : sans plafond, elle avalait les soirées —
+ * c'est la raison des 75 du quiz du jour, et elle reste en dessous.
+ */
+export const XP_MAX_PAR_JOUR = 15 * XP_PAR_JUSTE
+
+/** L'expérience d'une journée de campagne, plafonnée. */
+export function xpDuJourDeCampagne(justes: number): number {
+  return Math.min(XP_MAX_PAR_JOUR, Math.max(0, Math.floor(justes)) * XP_PAR_JUSTE)
+}
+
+/** Toute l'expérience de campagne : chaque journée plafonnée à part — un jour sans partie ne reporte rien. */
+export function xpDeCampagne(justesParJour: Iterable<number>): number {
+  let xp = 0
+  for (const n of justesParJour) xp += xpDuJourDeCampagne(n)
+  return xp
+}
+
 /** Une question de la série, telle que le téléphone la reçoit : sans la bonne réponse. */
 export interface QuestionDeCampagne {
   index: number
@@ -87,6 +119,8 @@ export interface ReponseDeCampagne {
   finie: boolean
   /** Un record battu à la fin de la série. */
   record?: boolean
+  /** L'expérience que cette réponse rapporte : 0 quand le plafond du jour est atteint. */
+  xp: number
   suivante?: QuestionDeCampagne
 }
 
@@ -104,6 +138,8 @@ export interface SerieDeCampagne {
 export interface EtatDeCampagne {
   record: number
   series: number
+  /** L'expérience de campagne gagnée aujourd'hui (Paris), sur `XP_MAX_PAR_JOUR`. */
+  xpAujourdhui: number
   enCours: SerieDeCampagne | null
   /** Les catégories qui ont des questions à jouer, et combien. */
   categories: { categorie: string; questions: number }[]

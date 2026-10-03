@@ -18,7 +18,7 @@ import type { InStatement, ResultSet } from '@libsql/client'
 import { ajouterColonne, clientDistant, type Client } from './distante'
 import { lireEtiquetage } from '../../../shared/etiquettes'
 import { niveauMesure, type Niveau } from '../../../shared/campagne'
-import type { ProfileRec, ProfileStore } from '../auth/profiles'
+import { HORS_LIGNES_A_PART, type ProfileRec, type ProfileStore } from '../auth/profiles'
 import { GRACE_MS, POINTS_MAX_PAR_QUESTION, pointsDuChoix, tempsDeLecture } from '../games/quiz'
 import { lireModeles } from './seed'
 import { aEcrirePour, categoriesAPrivilegier, consigneDuJour } from './consigne'
@@ -1445,7 +1445,7 @@ export class JourStore {
           args: [profileId],
         },
         { sql: 'SELECT jour, rang, xp FROM jour_podiums WHERE profile_id = ?', args: [profileId] },
-        { sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND soiree_id NOT IN ('#paliers', '#jour')`, args: [profileId] },
+        { sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART}`, args: [profileId] },
       ],
       'read',
     )
@@ -1559,7 +1559,7 @@ export class JourStore {
       [
         { sql: 'SELECT jour FROM jour_parties WHERE profile_id = ? AND jour >= ?', args: [profileId, depuis] },
         {
-          sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND soiree_id NOT IN ('#paliers', '#jour') AND created_at >= ?`,
+          sql: `SELECT created_at FROM profile_xp WHERE profile_id = ? AND ${HORS_LIGNES_A_PART} AND created_at >= ?`,
           args: [profileId, Date.UTC(Number(depuis.slice(0, 4)), Number(depuis.slice(5, 7)) - 1, Number(depuis.slice(8, 10)))],
         },
       ],

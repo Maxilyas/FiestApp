@@ -8,6 +8,8 @@ import {
   VIES,
   niveauMesure,
   ordreDeSerie,
+  xpDeCampagne,
+  xpDuJourDeCampagne,
   type CorrectionDeCampagne,
   type EtatDeCampagne,
   type Niveau,
@@ -50,9 +52,10 @@ export const QUESTIONS_POUR_JOUER = 10
  * Ses questions sont celles du quiz du jour déjà posées (`jour_reserve`,
  * `posee_le` passé) : relues, et mesurées sur les réponses des joueurs
  * (`jour_reponses`, rapportées à leur question par le tirage du jour).
- * Une campagne ne rapporte pas d'expérience — c'est un choix de barème
- * qui reste à faire —, mais une bonne réponse y vaut un confetti, comme au
- * quiz du jour (`ProfileStore.justesDeCampagne`).
+ * Une bonne réponse y rapporte l'expérience d'une bonne réponse en soirée,
+ * chaque journée plafonnée (`xpDeCampagne`), dans sa ligne à part
+ * (`LIGNE_CAMPAGNE`) ; et un confetti, comme au quiz du jour
+ * (`ProfileStore.justesDeCampagne`).
  */
 export class CampagneStore {
   private client: Client
@@ -60,15 +63,41 @@ export class CampagneStore {
   private verrous = new Map<string, Promise<unknown>>()
   /** La part de joueurs qui ont trouvé chaque question posée (`JourStore.mesures`). */
   private mesurer: () => Promise<Map<string, { justes: number; total: number }>>
+  /** Écrit sa ligne d'expérience (`ProfileStore.ecrireXpDeCampagne`). */
+  private ecrireXp: (profileId: string, xp: number, jours: number) => Promise<unknown>
 
   constructor(
     url: string,
     authToken?: string,
-    opts: { maintenant?: () => number; mesures?: () => Promise<Map<string, { justes: number; total: number }>> } = {},
+    opts: {
+      maintenant?: () => number
+      mesures?: () => Promise<Map<string, { justes: number; total: number }>>
+      ecrireXp?: (profileId: string, xp: number, jours: number) => Promise<unknown>
+    } = {},
   ) {
     this.client = clientDistant(url, authToken)
     this.maintenant = opts.maintenant ?? Date.now
     this.mesurer = opts.mesures ?? (async () => new Map())
+    this.ecrireXp = opts.ecrireXp ?? (async () => {})
+  }
+
+  /**
+   * Ses bonnes réponses de campagne, jour par jour (Paris) : de quoi relire
+   * toute sa ligne d'expérience, chaque journée plafonnée à part. Relues en
+   * entier à chaque fois : un total tenu à côté se serait perdu au premier
+   * hoquet de la base, quand celui-ci se refait à la bonne réponse suivante.
+   */
+  private async justesParJour(profileId: string): Promise<Map<string, number>> {
+    const res = await this.client.execute({
+      sql: `SELECT r.repondue_le FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id WHERE s.profile_id = ? AND r.juste = 1`,
+      args: [profileId],
+    })
+    const parJour = new Map<string, number>()
+    for (const r of res.rows) {
+      const jour = jourDe(Number(r.repondue_le))
+      parJour.set(jour, (parJour.get(jour) ?? 0) + 1)
+    }
+    return parJour
   }
 
   async init() {
@@ -132,12 +161,14 @@ export class CampagneStore {
       }),
       this.jouables(),
     ])
+    const aujourdhui = (await this.justesParJour(profileId)).get(jourDe(this.maintenant())) ?? 0
     const parCategorie = new Map<string, number>()
     for (const j of jouables) if (j.categorie) parCategorie.set(j.categorie, (parCategorie.get(j.categorie) ?? 0) + 1)
     const enCours = await this.serieEnCours(profileId)
     return {
       record: Number(series.rows[0]?.record ?? 0),
       series: Number(series.rows[0]?.n ?? 0),
+      xpAujourdhui: xpDuJourDeCampagne(aujourdhui),
       enCours: enCours ? vueDeSerie(enCours) : null,
       categories: [...parCategorie.entries()].sort((a, b) => b[1] - a[1]).map(([categorie, questions]) => ({ categorie, questions })),
       questions: jouables.length,
@@ -260,8 +291,10 @@ export class CampagneStore {
         ],
         'write',
       )
+      const xp = juste ? await this.crediter(profileId, maintenant) : 0
       return {
         juste,
+        xp,
         bonne: q.bonne,
         anecdote: q.anecdote,
         vies,
@@ -271,6 +304,25 @@ export class CampagneStore {
         ...(!finie && { suivante: questionMontree(s.questions[position], position) }),
       }
     })
+  }
+
+  /**
+   * Une bonne réponse vient d'entrer : sa ligne d'expérience se relit en
+   * entier, sous le verrou du profil où l'on est déjà. Rend ce que cette
+   * réponse rapporte — rien, le plafond du jour atteint. Une base qui refuse
+   * d'écrire la ligne ne fait pas échouer la réponse, déjà rangée : la
+   * bonne réponse suivante réécrit la ligne entière.
+   */
+  private async crediter(profileId: string, maintenant: number): Promise<number> {
+    try {
+      const parJour = await this.justesParJour(profileId)
+      const ceJour = parJour.get(jourDe(maintenant)) ?? 0
+      await this.ecrireXp(profileId, xpDeCampagne(parJour.values()), parJour.size)
+      return xpDuJourDeCampagne(ceJour) - xpDuJourDeCampagne(ceJour - 1)
+    } catch (e) {
+      console.error('[campagne] expérience non écrite, la prochaine bonne réponse la réécrira :', e)
+      return 0
+    }
   }
 
   /** « Mes réponses », une série finie : chaque question posée, sa bonne réponse et la sienne. */

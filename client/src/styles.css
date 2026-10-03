@@ -7208,6 +7208,7 @@ body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 .campagne-regles { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .campagne-regles li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--edge); border-radius: var(--radius-pill); font-size: 0.875rem; }
 .campagne-regles .icon { width: 16px; height: 16px; color: var(--accent-text); }
+.campagne-xp-du-jour { margin: 0; text-align: center; }
 .campagne-categories { display: flex; flex-wrap: wrap; gap: 6px; }
 .vies { display: inline-flex; gap: 2px; color: var(--alert); }
 .vies .coeur { width: 20px; height: 20px; }

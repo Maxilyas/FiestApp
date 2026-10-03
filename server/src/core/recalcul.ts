@@ -6,7 +6,7 @@ import { hautsFaitsDeSoiree, xpDesHautsFaits } from './hautsfaits'
 import { divinsDeSoiree, laureatsDivins } from './divins'
 import { laureatsDeSaison } from './saisons'
 import { pourquoiInjoignable } from './distante'
-import { LIGNE_JOUR, LIGNE_PALIERS, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
+import { LIGNE_CAMPAGNE, LIGNE_JOUR, LIGNE_PALIERS, cleDeSoiree, decodeDetail, revaloriser, type PrixDeSoiree, type ProfileStore } from '../auth/profiles'
 import { hautFaitDeSoiree } from '../../../shared/hautsfaits'
 import type { PartyArchive } from '../../../shared/archive'
 
@@ -146,10 +146,10 @@ export async function recalculerHistorique(deps: {
       paliers.add(l.profileId)
       continue
     }
-    // Le quiz du jour a son propre barème, que celui des soirées ne touche
-    // pas : sa ligne prend la version du jour, sans rien relire.
-    if (l.soireeId === LIGNE_JOUR) {
-      await profiles.remettreAuBareme(l.profileId, LIGNE_JOUR)
+    // Le quiz du jour et la campagne ont leur propre barème, que celui des
+    // soirées ne touche pas : leur ligne prend la version du jour, sans rien relire.
+    if (l.soireeId === LIGNE_JOUR || l.soireeId === LIGNE_CAMPAGNE) {
+      await profiles.remettreAuBareme(l.profileId, l.soireeId)
       continue
     }
     // Réécrite par la relecture de sa soirée.

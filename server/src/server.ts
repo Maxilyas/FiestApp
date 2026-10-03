@@ -319,7 +319,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Les codes des salons : six chiffres pour entrer chez quelqu'un.
   const salons = new SalonStore(opts.quizDbUrl, opts.quizDbToken)
   // La campagne solo : ses séries, puisées dans les questions déjà posées au quiz du jour.
-  const campagne = new CampagneStore(opts.quizDbUrl, opts.quizDbToken, { maintenant: maintenantDuJour, mesures: () => jour.mesures() })
+  const campagne = new CampagneStore(opts.quizDbUrl, opts.quizDbToken, {
+    maintenant: maintenantDuJour,
+    mesures: () => jour.mesures(),
+    ecrireXp: (profileId, xp, jours) => profiles.ecrireXpDeCampagne(profileId, xp, jours),
+  })
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
