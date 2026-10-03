@@ -29,7 +29,9 @@ interface Props {
  * le bilan écrivent les ex æquo dans ce même ordre.
  */
 export function Leaderboard({ players, compact, highlightId, onOuvrir }: Props) {
-  const rows = classer(players, p => p.score, p => p.nomAffiche ?? p.name, p => p.id)
+  // Le chef qui anime seulement est dans la salle, pas dans la course.
+  const classes = players.some(p => p.horsClassement) ? players.filter(p => !p.horsClassement) : players
+  const rows = classer(classes, p => p.score, p => p.nomAffiche ?? p.name, p => p.id)
   const list = compact ? rows.slice(0, 8) : rows
   // Au-delà de la 8ᵉ ligne, l'invité ne se voyait plus : une vraie soirée
   // compte quinze à cinquante invités. On garde les huit premiers, puis sa

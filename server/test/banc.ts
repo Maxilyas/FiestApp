@@ -245,13 +245,19 @@ export async function invite(
   url: string,
   name: string,
   avatar = '🦊',
-  opts: { slug?: string; cookie?: string; token?: string } = {},
+  opts: { slug?: string; cookie?: string; token?: string; horsClassement?: boolean } = {},
 ): Promise<Invite> {
   const slug = opts.slug ?? ADMIN.slug
   const socket = connecter(url, opts.cookie)
   const watched = await emitAck<{ ok: boolean; error?: string }>(socket, 'party:watch', { slug })
   if (!watched.ok) throw new Error(`suivre la soirée ${slug} : ${watched.error}`)
-  const res = await emitAck<any>(socket, 'player:join', { slug, name, avatar, ...(opts.token && { token: opts.token }) })
+  const res = await emitAck<any>(socket, 'player:join', {
+    slug,
+    name,
+    avatar,
+    ...(opts.token && { token: opts.token }),
+    ...(opts.horsClassement !== undefined && { horsClassement: opts.horsClassement }),
+  })
   if (!res.ok) throw new Error(`${name} n’a pas pu rejoindre : ${res.error}`)
   return { socket, playerId: res.playerId, token: res.token }
 }

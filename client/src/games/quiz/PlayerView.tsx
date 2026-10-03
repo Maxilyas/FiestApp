@@ -608,7 +608,7 @@ function VarianteRevelee({
           <SansReponse envoi={envoi} />
         ) : v.yourCorrect ? (
           <>
-            <span className="big">+{pts(v.yourPoints ?? 0)}</span>
+            <Gain view={v} />
             <p>{enOrdre ? 'Le bon ordre, bien joué !' : 'Toutes trouvées, bien joué !'}</p>
           </>
         ) : (
@@ -689,6 +689,25 @@ function Welcome() {
       <p>Bienvenue ! Tu joues à partir de la prochaine question.</p>
     </>
   )
+}
+
+/**
+ * Ce qu'une bonne réponse rapporte, en grand. Le chef qui anime seulement
+ * répond pour le plaisir : rien ne lui revient, son téléphone le dit au lieu
+ * d'un « +0 » qui ressemblait à une erreur.
+ */
+function Gain({ view: v }: { view: QuizPlayerView }) {
+  if (v.horsClassement) {
+    return (
+      <>
+        <span className="result-icon">
+          <Icon name="check-circle" />
+        </span>
+        <p className="muted small">Hors classement : tu animes</p>
+      </>
+    )
+  }
+  return <span className="big">+{pts(v.yourPoints ?? 0)}</span>
 }
 
 /**
@@ -941,7 +960,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
               <PointsAnnules />
             ) : answered ? (
               <>
-                <span className="big">+{pts(v.yourPoints ?? 0)}</span>
+                <Gain view={v} />
                 <p>
                   Tu as dit <strong>{formatNumber(v.yourGuess!)}</strong> {v.unit}
                   {gap === null ? '' : gap === 0 ? ' — pile-poil !' : ` — à ${formatNumber(gap)} ${v.unit} près`}
@@ -982,7 +1001,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
             <SansReponse envoi={viseLaVue(envoi, v) ? envoi : null} />
           ) : good ? (
             <>
-              <span className="big">+{pts(v.yourPoints ?? 0)}</span>
+              <Gain view={v} />
               <p>Bien joué !</p>
             </>
           ) : (
@@ -1021,7 +1040,9 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
         <span className="fin-quiz-quoi">Quiz terminé</span>
         {/* Pas de rang à zéro point : « 1ʳᵉ place avec 0 pt », quand toute la
             salle avait séché, c'était premier de rien. */}
-        {total > 0 ? (
+        {v.horsClassement ? (
+          <span className="fin-quiz-place">Tu animais · hors classement</span>
+        ) : total > 0 ? (
           <span className="fin-quiz-place">
             <b>{place(v.yourQuizRank ?? 0)}</b>
             {participants > 0 && moitieHaute(v.yourQuizRank ?? 0, participants) ? ` sur ${participants}` : ''} · {pts(total)}
@@ -1030,10 +1051,10 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
           <span className="fin-quiz-place">Pas de points cette fois</span>
         )}
       </div>
-      {soiree && <p className="muted small center">{soiree}</p>}
+      {soiree && !v.horsClassement && <p className="muted small center">{soiree}</p>}
       {v.podium && v.podium.length > 0 && <Marches rows={v.podium} moi={v.yourPodiumIndex} />}
-      {/* Hors du podium, on veut savoir qui l'on a talonné jusqu'au bout. */}
-      <Echelle view={v} players={players} moi={moi} />
+      {/* Hors du podium, on veut savoir qui l'on a talonné jusqu'au bout — pas le chef qui animait. */}
+      {!v.horsClassement && <Echelle view={v} players={players} moi={moi} />}
     </div>
   )
 }

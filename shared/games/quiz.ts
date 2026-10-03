@@ -60,6 +60,8 @@ export interface ProgrammeDuSoir {
 export interface LancementDeQuiz {
   autoNextSeconds?: number | null
   joues?: string[]
+  /** Le chef qui anime seulement : il suit et répond, rien de lui ne compte. */
+  horsClassement?: string[]
 }
 
 export interface QuizPodiumRow extends Distinctions {
@@ -169,6 +171,8 @@ export interface QuizPlayerView {
    */
   round?: number
   qCount: number
+  /** Le chef qui anime seulement : il suit et répond, mais rien de lui ne compte — ni points, ni place. */
+  horsClassement?: true
   kind?: QuestionKind
   yourChoice: number | null
   /** Estimation : le nombre proposé, modifiable tant que tout le monde n'a pas répondu. */

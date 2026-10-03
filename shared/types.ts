@@ -15,6 +15,8 @@ export interface PublicPlayer {
    */
   connected?: boolean
   /** Score cumulé sur toute la soirée (tous les quiz confondus). */
+  /** Le chef qui anime sans jouer : dans la salle, hors des classements. */
+  horsClassement?: true
   score: number
   /** Son équipe, ou null tant qu'il n'en a pas choisi. */
   teamId: string | null

@@ -430,6 +430,11 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
         // Un invité neuf : la soirée suivante a commencé, et la clôture
         // d'hier quitte la télé pour le QR qui fait entrer.
         if (!known) rt.soireeCommence()
+        // Le chef du salon dit s'il anime seulement : lui seul — son profil
+        // tient l'espace —, et à chaque présentation, un redémarrage compris.
+        if (profile && account.profileId === profile.id && typeof charge.horsClassement === 'boolean') {
+          rt.marquerHorsClassement(res.id, charge.horsClassement)
+        }
         incarner(rt, res.id)
         repondre({
           ok: true,
