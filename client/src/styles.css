@@ -7101,6 +7101,13 @@ body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 .campagne-correction p { margin: 0; }
 .campagne-juste { border-left: 3px solid var(--accent); }
 .campagne-rate { border-left: 3px solid var(--alert); }
+/* Le record battu, au cœur du résultat ; l'anecdote redonnée sous chaque question corrigée. */
+.campagne-record-battu { margin: 0; font-weight: 600; color: var(--or-text); }
+.campagne-anecdote { color: var(--ink); line-height: 1.4; }
+.campagne .lien-signaler { margin-top: 2px; }
+/* La base, à l'administration : une ligne par catégorie, son compte au bout. */
+.campagne-admin-categories { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 4px 16px; }
+.campagne-admin-categories li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--edge); font-size: 0.9rem; }
 
 /* ── Mes avatars : la famille à son écran ───────────────────────────────
    Les emojis gardent leur grille, mais le titre de la carte, son mode

@@ -256,6 +256,16 @@ export class JourStore {
    * où il joue se rediffuse. Branché par le serveur, qui connaît les salles.
    */
   laurierChange?: (profileId: string) => void
+  /**
+   * Cette question est-elle dans la base de la campagne (`baseCampagne.ts`) ?
+   * Le quiz du jour ne pose pas ce que la campagne a déjà donné, ni l'inverse
+   * (`empreintes`) : l'un gâcherait l'autre. Branché après le démarrage —
+   * l'amorce des quiz livrés n'en a pas besoin, la base les écarte déjà, et
+   * un démarrage ne lit pas la base pour rien.
+   */
+  dansLaCampagne?: (empreinte: string) => boolean
+  /** Les intitulés de la réserve, pour la campagne qui les évite : relus au plus toutes les dix minutes, et après chaque apport. */
+  private empreintesGardees: { a: number; empreintes: ReadonlySet<string> } | null = null
 
   constructor(
     url: string,
@@ -539,6 +549,10 @@ export class JourStore {
         continue
       }
       vues.add(empreinte)
+      if (this.dansLaCampagne?.(empreinte)) {
+        ecartees.push({ texte, raison: 'déjà dans la campagne' })
+        continue
+      }
       const id = randomUUID()
       candidates.push({ id, question: { ...q, id }, empreinte })
     }
@@ -572,7 +586,23 @@ export class JourStore {
       ],
       'write',
     )
+    if (neuves.length > 0) this.empreintesGardees = null
     return { ajoutees: neuves.length, ecartees }
+  }
+
+  /**
+   * Les intitulés de toute la réserve — posés, à venir ou retirés : la
+   * campagne n'en pose aucun (`core/campagne.ts`). Une question à venir
+   * gâcherait le quiz du jour de demain, une question passée a été vue et
+   * corrigée par ceux qui jouent chaque matin.
+   */
+  async empreintes(): Promise<ReadonlySet<string>> {
+    const garde = this.empreintesGardees
+    if (garde && this.maintenant() - garde.a < MESURES_GARDEES_MS) return garde.empreintes
+    const res = await this.client.execute('SELECT empreinte FROM jour_reserve')
+    const empreintes = new Set(res.rows.map(r => String(r.empreinte)))
+    this.empreintesGardees = { a: this.maintenant(), empreintes }
+    return empreintes
   }
 
   /** Ce que l'administration montre de la réserve : les jours d'avance, et ce que les derniers apports ont fait. */

@@ -5,16 +5,21 @@ import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
 import { EMBLEME } from '../components/Ecusson'
 import { OR, lueur } from '../components/Atlas'
+import { promptDialog } from '../components/Dialog'
 import { espacesFines } from '../format'
+import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
 import {
   NIVEAUX,
   NOM_NIVEAU,
+  QUESTIONS_POUR_JOUER,
+  SIGNALEMENT_MAX,
   VIES,
   XP_PAR_JUSTE,
   type CorrectionDeCampagne,
   type EtatDeCampagne,
+  type Niveau,
   type QuestionDeCampagne,
   type ReponseDeCampagne,
 } from '../../../shared/campagne'
@@ -36,19 +41,32 @@ type Ecran =
       /** L'expérience gagnée depuis qu'on a ouvert la série sur cette page. */
       xp: number
     }
-  | { e: 'fin'; serie: string; justes: number; record: boolean; correction: CorrectionDeCampagne[] | null; xp: number }
+  | {
+      e: 'fin'
+      serie: string
+      justes: number
+      record: boolean
+      /** Le record d'avant la série : « L'ancien était de 12 », ou « Ton record : 12 ». */
+      recordAvant: number | null
+      /** La marche la plus haute atteinte : « jusqu'au niveau difficile ». */
+      niveauAtteint: Niveau | null
+      correction: CorrectionDeCampagne[] | null
+      xp: number
+    }
 
 /**
  * La campagne solo (`/campagne`) : une série qui monte en difficulté, trois
- * vies, sans chronomètre. Ses questions sont celles que le quiz du jour a
- * déjà posées (`core/campagne.ts`). Le serveur compte les vies et ne donne la
- * bonne réponse qu'après la sienne : la page ne fait que montrer.
+ * vies, sans chronomètre. Ses questions viennent de sa base à elle
+ * (`core/baseCampagne.ts`). Le serveur compte les vies et ne donne la bonne
+ * réponse qu'après la sienne : la page ne fait que montrer.
  *
- * Après chaque réponse, la bonne et son anecdote, comme au quiz du jour.
- * Une bonne réponse vaut un confetti, et l'expérience d'une bonne réponse
- * en soirée, sans plafond : chacun monte à son rythme.
+ * Après chaque réponse, la bonne et son anecdote, comme au quiz du jour, et
+ * de quoi signaler une erreur. Une bonne réponse vaut un confetti, et
+ * l'expérience d'une bonne réponse en soirée, sans plafond : chacun monte à
+ * son rythme.
  */
 export function CampagneApp() {
+  const { toast } = useAppState()
   const [ecran, setEcranBrut] = useState<Ecran>({ e: 'chargement' })
   const [categories, setCategories] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
@@ -112,9 +130,47 @@ export function CampagneApp() {
   const suivante = () => {
     if (ecran.e !== 'jeu' || !ecran.reponse) return
     const r = ecran.reponse
-    if (r.finie || !r.suivante) return setEcran({ e: 'fin', serie: ecran.serie, justes: r.justes, record: !!r.record, correction: null, xp: ecran.xp })
+    if (r.finie || !r.suivante) {
+      return setEcran({
+        e: 'fin',
+        serie: ecran.serie,
+        justes: r.justes,
+        record: !!r.record,
+        recordAvant: r.recordAvant ?? null,
+        niveauAtteint: r.niveauAtteint ?? null,
+        correction: null,
+        xp: ecran.xp,
+      })
+    }
     setEcran({ ...ecran, question: r.suivante, reponse: null, choix: null })
   }
+
+  /**
+   * « Signaler une erreur » : après sa réponse, comme au quiz du jour. Une
+   * phrase, que l'administrateur relit (`/admin#campagne`) ; il peut retirer
+   * la question pour tous.
+   */
+  const signaler = async (serie: string, index: number) => {
+    const texte = await promptDialog({
+      title: 'Signaler une erreur',
+      message: 'Dis en une phrase ce qui ne va pas : l’administrateur relit chaque signalement, et peut retirer la question de la campagne.',
+      input: { value: '', placeholder: 'La réponse B est juste aussi…', maxLength: SIGNALEMENT_MAX },
+      confirmLabel: 'Envoyer',
+    })
+    if (!texte) return
+    try {
+      await api.campagne.signaler(serie, index, texte)
+      showToast({ kind: 'info', message: 'Merci : c’est envoyé' })
+    } catch (e) {
+      showToast({ kind: 'error', message: motifDe(e) })
+    }
+  }
+
+  const toastVu = toast && (
+    <div className={`toast toast-${toast.kind}`} role={toast.kind === 'error' ? 'alert' : 'status'}>
+      {espacesFines(toast.message)}
+    </div>
+  )
 
   if (ecran.e === 'chargement') {
     return (
@@ -148,7 +204,7 @@ export function CampagneApp() {
 
   if (ecran.e === 'accueil') {
     const { etat } = ecran
-    const pret = etat.questions >= 10
+    const pret = etat.questions >= QUESTIONS_POUR_JOUER
     const basculer = (c: string) => setCategories(avant => (avant.includes(c) ? avant.filter(x => x !== c) : [...avant, c]))
     return (
       <div className="player-shell campagne">
@@ -258,10 +314,7 @@ export function CampagneApp() {
             </button>
           </>
         ) : (
-          <p className="muted">
-            La campagne puise dans les questions déjà posées au quiz du jour : il en pose dix chaque jour. Reviens demain — ou
-            joue celui d’aujourd’hui.
-          </p>
+          <p className="muted">La campagne n’a pas encore de questions à poser : reviens bientôt — ou joue le quiz du jour.</p>
         )}
       </div>
     )
@@ -276,15 +329,35 @@ export function CampagneApp() {
         setErreur(motifDe(e))
       }
     }
+    const s = ecran.justes > 1 ? 's' : ''
     return (
       <div className="player-shell campagne">
+        <header className="fin-tete">
+          <span className="label">La campagne</span>
+          <h1>Série terminée</h1>
+        </header>
         <section className="card result-banner result-ok campagne-fin">
-          <span className="label">{ecran.record ? 'Nouveau record' : 'Fin de la série'}</span>
           <span className="big">{ecran.justes}</span>
           <p>
-            bonne{ecran.justes > 1 ? 's' : ''} réponse{ecran.justes > 1 ? 's' : ''} · 🎊 +{ecran.justes} confetti{ecran.justes > 1 ? 's' : ''}
-            {ecran.xp > 0 && ` · +${ecran.xp}\u00a0XP`}
+            bonne{s} réponse{s}
+            {ecran.niveauAtteint && `, jusqu’au niveau ${NOM_NIVEAU[ecran.niveauAtteint].toLowerCase()}`}
           </p>
+          {/* Le record d'avant la série : battu, on le dit fièrement ; sinon, ce qu'il reste à battre. */}
+          {ecran.record ? (
+            <p className="campagne-record-battu">
+              <span aria-hidden="true">🏆</span> Record battu : {ecran.justes}
+              <span className="muted small">{ecran.recordAvant ? ` · l’ancien était de ${ecran.recordAvant}` : ' · ta première série'}</span>
+            </p>
+          ) : (
+            !!ecran.recordAvant && <p className="muted small">Ton record : {ecran.recordAvant}</p>
+          )}
+          {/* Rien à compter, rien à dire : « +0 confetti » sonnait comme un reproche. */}
+          {ecran.justes > 0 && (
+            <p className="muted">
+              🎊 +{ecran.justes} confetti{s}
+              {ecran.xp > 0 && ` · +${ecran.xp}\u00a0XP`}
+            </p>
+          )}
         </section>
         {erreur && <p className="error">{erreur}</p>}
         <a className="btn btn-primary btn-big btn-block" href="/">
@@ -312,6 +385,8 @@ export function CampagneApp() {
                   <Shape index={c.bonne} inline /> {espacesFines(c.reponses[c.bonne])}
                   {!c.juste && c.choix !== null && <> · tu avais dit {espacesFines(c.reponses[c.choix])}</>}
                 </p>
+                {/* L'anecdote, qu'on a lue en jouant : la correction la redonne, pour s'en souvenir. */}
+                {c.anecdote && <p className="small campagne-anecdote">{espacesFines(c.anecdote)}</p>}
               </li>
             ))}
           </ol>
@@ -351,7 +426,6 @@ export function CampagneApp() {
                   <p>
                     Bien joué !{r.xp > 0 ? ` +${r.xp}\u00a0XP` : ''}
                   </p>
-                  {r.xp === 0 && <p className="muted small">L’expérience du jour est au plein : les confettis continuent.</p>}
                 </>
               ) : (
                 <>
@@ -379,6 +453,9 @@ export function CampagneApp() {
             <button type="button" className="btn btn-primary btn-big btn-block" onClick={suivante}>
               {r.finie ? 'Voir ma série' : 'Question suivante'}
             </button>
+            <button type="button" className="lien-signaler link-inline small" onClick={() => void signaler(ecran.serie, q.index)}>
+              Signaler une erreur dans cette question
+            </button>
           </>
         )}
         {erreur && (
@@ -387,6 +464,7 @@ export function CampagneApp() {
           </p>
         )}
       </div>
+      {toastVu}
     </div>
   )
 }

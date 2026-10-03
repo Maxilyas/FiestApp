@@ -13,21 +13,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
-import {
-  attendre,
-  connexionAnimateur,
-  cookieDe,
-  creerQuiz,
-  demarrer,
-  ecranCommun,
-  ecrire,
-  emitAck,
-  inscrireProfil,
-  invite,
-  lancerQuiz,
-  qcm,
-  type Banc,
-} from './banc'
+import { attendre, baseDEssai, connexionAnimateur, cookieDe, creerQuiz, demarrer, ecranCommun, ecrire, emitAck, inscrireProfil, invite, lancerQuiz, qcm, type Banc } from './banc'
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -120,7 +106,7 @@ test('l’administrateur cherche les profils : son niveau, ses soirées, son sal
 
 test('supprimer un profil emporte tout ce qui n’était qu’à lui — son salon reste, détaché, et ses souvenirs s’ouvrent toujours', async () => {
   const horloge = { t: DEBUT }
-  const banc = await demarrer({ horlogeDuJour: () => horloge.t })
+  const banc = await demarrer({ horlogeDuJour: () => horloge.t, baseDeLaCampagne: baseDEssai(20) })
   try {
     const admin = await connexionAnimateur(banc.url)
     const lea = await inscrireProfil(banc.url, 'lea', 'Léa', '🦊')
@@ -130,7 +116,7 @@ test('supprimer un profil emporte tout ce qui n’était qu’à lui — son sal
     // Son salon, et sa console, ouverte par son profil.
     const salon = (await (await ecrire(banc.url, '/api/joueur/espace', {}, lea)).json()) as { espace: { slug: string } }
     const saConsole = cookieDe(await ecrire(banc.url, '/api/joueur/console', {}, lea))
-    // Le quiz du jour, puis une série de campagne le lendemain.
+    // Le quiz du jour, puis une série de campagne le lendemain, et une question signalée.
     const jour = (await (await ecrire(banc.url, '/api/jour/commencer', {}, lea)).json()) as { jour: string }
     await ecrire(banc.url, '/api/jour/repondre', { jour: jour.jour, index: 0, choix: 0 }, lea)
     await ecrire(banc.url, '/api/jour/commencer', {}, bob)
@@ -138,6 +124,7 @@ test('supprimer un profil emporte tout ce qui n’était qu’à lui — son sal
     horloge.t += 24 * 3_600_000
     const serie = (await (await ecrire(banc.url, '/api/campagne/serie', {}, lea)).json()) as { id: string }
     await ecrire(banc.url, `/api/campagne/serie/${serie.id}/reponse`, { index: 0, choix: 0 }, lea)
+    await ecrire(banc.url, `/api/campagne/serie/${serie.id}/signalement`, { index: 0, texte: 'Une autre réponse est juste' }, lea)
     // Une soirée close chez l'administrateur, avec Bob.
     await soiree(banc, admin, [{ nom: 'Léa', avatar: '', cookie: lea }, { nom: 'Bob', avatar: '', cookie: bob }], true)
     // Et une dans son salon, qu'elle joue elle aussi : tant qu'elle n'est pas

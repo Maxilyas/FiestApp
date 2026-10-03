@@ -256,7 +256,7 @@ Le quiz du jour pose dix questions par jour : sa réserve se vide. Une **routine
    ```
 4. **Vérifier.** Lance-la une fois à la main, depuis la liste des routines, puis regarde `/admin` : le journal des apports dit « Écrite par l'IA », avec ce qu'elle a ajouté et écarté, et **Voir les prochains jours** montre ses questions. Relis-en quelques-unes : c'est la première fois qu'un humain les lit.
 
-5. **Décrire les questions (facultatif, par la même routine).** Chaque question de la réserve peut recevoir ses métadonnées — sous-thème, étiquettes, difficulté estimée, public, leurres, d'où la vérifier —, que la campagne et les prochaines évolutions liront. Même jeton, même porte : ajoute à la consigne de la routine, après le point 4, ce passage. Il ne coûte rien les jours où tout est déjà décrit.
+5. **Décrire les questions (facultatif, par la même routine).** Chaque question de la réserve peut recevoir ses métadonnées — sous-thème, étiquettes, difficulté estimée, public, leurres, d'où la vérifier —, que les prochaines évolutions liront. (La campagne a sa propre base, déjà étiquetée : `server/content/campagne/`.) Même jeton, même porte : ajoute à la consigne de la routine, après le point 4, ce passage. Il ne coûte rien les jours où tout est déjà décrit.
 
    ```
    5. Décris ensuite les questions de la réserve qui ne le sont pas encore :

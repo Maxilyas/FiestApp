@@ -1,4 +1,4 @@
-import type { CorrectionDeCampagne, EtatDeCampagne, ReponseDeCampagne, SerieDeCampagne } from '../../shared/campagne'
+import type { AdminDeLaCampagne, CorrectionDeCampagne, EtatDeCampagne, ReponseDeCampagne, SerieDeCampagne } from '../../shared/campagne'
 import type { MemoireDuQuiz, QuizDef, QuizQuestionDef, QuizSummary } from '../../shared/library'
 import type { ArchiveSummary } from '../../shared/archive'
 import type { ModeleResume, PourQui } from '../../shared/modeles'
@@ -341,6 +341,9 @@ export const api = {
     repondre: (serie: string, index: number, choix: number) =>
       req<ReponseDeCampagne>(`/api/campagne/serie/${encodeURIComponent(serie)}/reponse`, { method: 'POST', body: JSON.stringify({ index, choix }) }),
     correction: (serie: string) => req<CorrectionDeCampagne[]>(`/api/campagne/serie/${encodeURIComponent(serie)}/correction`),
+    /** « Signaler une erreur » sur une question déjà jouée de la série. */
+    signaler: (serie: string, index: number, texte: string) =>
+      req<{ ok: true }>(`/api/campagne/serie/${encodeURIComponent(serie)}/signalement`, { method: 'POST', body: JSON.stringify({ index, texte }) }),
   },
   jour: {
     etat: () => avecLHeure(() => req<PartieDuJour>('/api/jour')),
@@ -421,6 +424,10 @@ export const api = {
     profilsDuJour: (q: string) => req<ProfilMasquable[]>(`/api/admin/jour/profils?q=${encodeURIComponent(q)}`),
     masquerDuJour: (profileId: string, masque: boolean) =>
       req<{ ok: true }>('/api/admin/jour/masquer', { method: 'POST', body: JSON.stringify({ profileId, masque }) }),
+    /** La campagne : sa base, et les questions que les joueurs signalent. */
+    campagne: () => req<AdminDeLaCampagne>('/api/admin/campagne'),
+    garderDeLaCampagne: (questionId: string) => req<{ ok: true }>('/api/admin/campagne/garder', { method: 'POST', body: JSON.stringify({ questionId }) }),
+    retirerDeLaCampagne: (questionId: string) => req<{ ok: true }>('/api/admin/campagne/retirer', { method: 'POST', body: JSON.stringify({ questionId }) }),
   },
 }
 
