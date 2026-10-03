@@ -233,10 +233,12 @@ test('la fin ne propose la soirée suivante qu’une fois commencée, et en haut
   // soirée qui n'existe pas encore.
   const close = await rendu({ fin: FIN, profil: null, onSuivante: () => {} })
   assert.doesNotMatch(close, /soirée suivante|La rejoindre/)
+  // Le souvenir attend sous « Plus », replié : deux boutons seulement en vue.
   assert.deepEqual(gestes(close), [
     `Mon bilan → ${bilan}`,
-    `Revoir la soirée → ${souvenir}`,
+    'Accueil → /',
     'Créer mon profil → /?creer=1&prenom=Jeanne&avatar=%F0%9F%A6%8A',
+    `Revoir la soirée → ${souvenir}`,
   ])
 
   // Un invité s'est inscrit à la suivante : elle se propose, avant tout le reste.
@@ -263,16 +265,17 @@ test('la page câble le premier écran, la fin rendue et la soirée suivante', (
   assert.match(source('socket.ts'), /socket\.on\('soiree:fin', fin => \{[\s\S]*?garderFin\(slug, fin\)\s*\}\s*setState\(\{ fin, gain: null \}\)/)
 })
 
-test('sous sa fin de soirée, le chef du salon rentre à l’accueil d’abord — puis encore un quiz avec eux, ou ce n’était qu’un essai', async () => {
+test('sous sa fin de soirée, le chef du salon a un seul « Accueil » — et « Ton salon », une ligne qui ouvre encore un quiz avec eux, ou ce n’était qu’un essai', async () => {
   const chef = gestes(await rendu({ fin: FIN, profil: null, onSuivante: () => {}, chef: true }))
-  // La soirée est finie : la sortie principale ramène à l'accueil, pas au salon (la remarque du 3 octobre 2026).
-  const accueil = chef.indexOf('Retour à l’accueil → /')
-  assert.ok(accueil >= 0 && accueil < chef.indexOf('Encore un quiz, avec eux → /salon'), chef.join(' | '))
-  assert.ok(chef.includes('Encore un quiz, avec eux → /salon'), chef.join(' | '))
-  assert.ok(chef.includes('C’était un essai [bouton]'))
+  // Deux « Retour à l'accueil » sur la même page, c'était un de trop (la remarque du 3 octobre 2026).
+  assert.equal(chef.filter(g => g.endsWith('→ /')).length, 1, chef.join(' | '))
+  assert.ok(chef.includes('Ton salonencore un quiz, ou c’était un essai [bouton]'), chef.join(' | '))
+  assert.ok(chef.indexOf('Accueil → /') < chef.findIndex(g => g.startsWith('Ton salon')), 'la sortie d’abord')
   const invite = gestes(await rendu({ fin: FIN, profil: null, onSuivante: () => {} }))
-  assert.ok(!invite.some(g => g.includes('/salon') || g.includes('essai')), 'un invité ne les voit pas')
-  // « C'était un essai » retire la soirée de l'historique, crédits compris (`retirerSoireeEntiere`).
-  assert.match(source('components/FinDeSoiree.tsx'), /await api\.archives\.remove\(fin\.soiree\.id\)/)
+  assert.ok(!invite.some(g => g.includes('Ton salon') || g.includes('/salon') || g.includes('essai')), 'un invité ne les voit pas')
+  // La feuille, fermée au rendu, porte les deux gestes ; « C'était un essai » retire la soirée de l'historique, crédits compris (`retirerSoireeEntiere`).
+  const fin = source('components/FinDeSoiree.tsx')
+  assert.match(fin, /<Feuille titre="Ton salon"[\s\S]*?href="\/salon">[\s\S]*?Encore un quiz, avec eux[\s\S]*?C’était un essai[\s\S]*?<\/Feuille>/)
+  assert.match(fin, /await api\.archives\.remove\(fin\.soiree\.id\)/)
   assert.match(source('views/PlayerApp.tsx'), /chef=\{chefIci\(slug\) !== null\}/)
 })

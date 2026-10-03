@@ -584,7 +584,8 @@ function SalleDuJoueur() {
         {phase && !PHASES_PLEINES.has(phase.phase) && absent && (
           <AvisHorsLigne absent={absent} profilIci={!!profil} onCode={() => setReprise(true)} discret />
         )}
-        {snap.clotureAuto && <ClotureQuiVient a={snap.clotureAuto} />}
+        {/* Le chef lit l'échéance dans sa barre, sous « Terminer la soirée » : pas deux fois. */}
+        {snap.clotureAuto && !chefIci(slug) && <ClotureQuiVient a={snap.clotureAuto} />}
         <QuizPlayer
           view={sessionView.view as QuizPlayerView}
           teams={teams}

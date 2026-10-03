@@ -15,15 +15,16 @@ import { lireNombre } from '../../../shared/nombres'
 /** Le dernier podium du programme : la soirée s'enregistre seule, ou d'un toucher. */
 function ClotureQuiVient({ a }: { a: number }) {
   const reste = useSecondesRestantes(a)
+  // Le bouton dit ce qu'il fait : « Maintenant », à côté d'un compte à
+  // rebours, ne disait pas quoi (la remarque du propriétaire du 3 octobre
+  // 2026). L'échéance reste, en petit, sous son nom.
   return (
-    <>
-      <span className="barre-chef-etat" role="status">
-        Fin de soirée dans {reste} s
+    <button type="button" className="btn btn-primary barre-chef-geste barre-chef-terminer" onClick={clore}>
+      Terminer la soirée
+      <span className="barre-chef-echeance" role="status">
+        {reste > 0 ? `seule dans ${reste} s` : 'elle s’enregistre…'}
       </span>
-      <button type="button" className="btn btn-primary" onClick={clore}>
-        Maintenant
-      </button>
-    </>
+    </button>
   )
 }
 
