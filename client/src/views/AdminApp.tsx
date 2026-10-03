@@ -1,38 +1,69 @@
-import { deNom } from '../format'
-import { useEffect, useState, type FormEvent } from 'react'
-import { activationUrl, api, UnauthorizedError, type Me } from '../api'
-import { Icon } from '../components/Icon'
+import { useEffect, useState, type ReactNode } from 'react'
+import { api, motifDe, UnauthorizedError, type Me } from '../api'
+import { Icon, type IconName } from '../components/Icon'
 import { NavAnimateur } from '../components/NavAnimateur'
 import { AdminDuJour } from '../components/AdminDuJour'
 import { AdminProfils } from '../components/AdminProfils'
-import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
-import { showToast, useAppState } from '../state'
+import { AdminSalons } from '../components/AdminSalons'
+import { MenuBarre, Sortie } from '../components/Pieces'
+import { useAppState } from '../state'
 import { formatDay } from '../../../shared/archive'
-import { normalizeSlug, type PublicAccount } from '../../../shared/space'
+import { formatNumber } from '../../../shared/typographie'
+import type { EspaceDAdministration } from '../../../shared/space'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../../shared/partage'
 import type { QuizQuestionDef } from '../../../shared/library'
-import { copierTexte } from '../copier'
 
 /**
- * L'administration (`/admin`), pour l'administrateur seul : les profils —
- * les chercher, en supprimer un (`AdminProfils`) —, puis les comptes : créer le compte d'un
- * ami, lui donner son lien d'activation, en refaire un s'il a perdu son mot
- * de passe, désactiver ou réactiver — et supprimer un compte désactivé, avec
- * tout ce qu'il a laissé. Les quiz et les soirées des autres ne se voient
- * pas d'ici — sauf les copies qu'ils proposent au catalogue, à relire avant
- * de les publier pour tous.
+ * L'administration (`/admin`), pour l'administrateur seul, à la manière de
+ * « Mon compte » : un tableau de bord qui dit l'état du serveur d'un coup
+ * d'œil, puis une ligne par sujet, chacune ouvrant son écran à son adresse
+ * (`/admin#salons`) — les profils, les salons, le catalogue, le quiz du jour.
+ *
+ * C'était une seule page de cartes et de tableaux, sortie de l'application :
+ * une barre d'animateur, un formulaire « Créer un compte » qui ne sert plus
+ * — chacun ouvre son salon depuis son profil — et la liste des comptes en
+ * tableau large, où « p-k3x9… en attente » ne disait à qui était quoi (la
+ * remarque du propriétaire du 3 octobre 2026). Les quiz et les soirées des
+ * autres ne se voient toujours pas d'ici, sauf les copies proposées au
+ * catalogue.
  */
+
+type Ecran = 'profils' | 'salons' | 'catalogue' | 'jour'
+const ECRANS: readonly Ecran[] = ['profils', 'salons', 'catalogue', 'jour']
+/** Les ancres de la page d'avant, qu'un favori garde encore. */
+const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
+
+function lireEcran(): Ecran | null {
+  const h = window.location.hash.slice(1)
+  return (ECRANS as readonly string[]).includes(h) ? (h as Ecran) : (ANCIENNES[h] ?? null)
+}
+
+/** Sous ce nombre de jours d'avance, la réserve du quiz du jour s'allume (`AdminDuJour`). */
+const ALERTE_JOURS = 7
+
+/** Ce que le tableau de bord résume : chaque chiffre arrive quand il peut, sans retenir les autres. */
+interface Resume {
+  profils?: number
+  espaces?: EspaceDAdministration[]
+  aRelire?: number
+  jour?: { jours: number; signalements: number }
+}
+
 export function AdminApp() {
   const { toast } = useAppState()
   const [me, setMe] = useState<Me | null>(null)
-  const [accounts, setAccounts] = useState<PublicAccount[] | null>(null)
   const [error, setError] = useState('')
+  const [resume, setResume] = useState<Resume>({})
+  const [ecran, setEcran] = useState<Ecran | null>(lireEcran)
 
-  const load = () =>
-    api.admin
-      .list()
-      .then(setAccounts)
-      .catch(e => setError((e as Error).message))
+  /** Les chiffres du tableau de bord, relus en revenant d'un écran : on y a peut-être supprimé, publié, rempli. */
+  const relireLeResume = () => {
+    const poser = (morceau: Resume) => setResume(r => ({ ...r, ...morceau }))
+    api.admin.profils('').then(l => poser({ profils: l.total }), () => {})
+    api.admin.espaces().then(espaces => poser({ espaces }), () => {})
+    api.admin.catalogue().then(c => poser({ aRelire: c.filter(e => e.statut === 'propose').length }), () => {})
+    api.admin.jour().then(j => poser({ jour: { jours: j.reserve.joursDAvance, signalements: j.signalements.length } }), () => {})
+  }
 
   useEffect(() => {
     api.auth
@@ -40,36 +71,30 @@ export function AdminApp() {
       .then(m => {
         setMe(m)
         if (m.account.role !== 'admin') setError('Cette page est réservée à l’administrateur.')
-        else load()
+        else relireLeResume()
       })
       .catch(e => {
         if (e instanceof UnauthorizedError) window.location.replace('/connexion?next=/admin')
         else setError((e as Error).message)
       })
+    // Le retour du navigateur referme l'écran ouvert, comme celui du profil.
+    const auRetour = () => setEcran(lireEcran())
+    window.addEventListener('popstate', auRetour)
+    return () => window.removeEventListener('popstate', auRetour)
   }, [])
 
-  /** Le lien d'activation, à copier et à envoyer par le canal qu'on veut. */
-  const showActivation = async (account: PublicAccount, token: string) => {
-    const link = activationUrl(token)
-    const value = await promptDialog({
-      title: `Le lien d'activation ${deNom(account.name)}`,
-      message:
-        'Envoie-lui ce lien : il choisira son mot de passe. Il vaut sept jours et ne sert qu’une fois — en refaire un annule celui-ci.',
-      input: { value: link },
-      confirmLabel: 'Copier le lien',
-    })
-    if (!value) return
-    // Hors https — le repli local —, le presse-papiers moderne n'existe pas :
-    // l'appel levait avant son `.catch`, et la boîte se fermait sans copie ni
-    // un mot. `copierTexte` passe par l'ancienne commande ; si le navigateur
-    // refuse encore, le lien revient à l'écran, à copier à la main.
-    if (await copierTexte(link)) return showToast({ kind: 'info', message: 'Lien copié' })
-    await promptDialog({
-      title: `Le lien d'activation ${deNom(account.name)}`,
-      message: 'Le navigateur n’a pas voulu le copier : sélectionne-le, puis copie-le à la main.',
-      input: { value: link },
-      confirmLabel: 'Fermer',
-    })
+  const ouvrir = (e: Ecran) => {
+    history.pushState({ ...history.state, depuisAdmin: true }, '', `/admin#${e}`)
+    setEcran(e)
+    window.scrollTo(0, 0)
+  }
+  /** D'un cran si l'écran a été ouvert d'ici ; venu d'un lien, on remplace l'adresse. */
+  const revenir = () => {
+    if (history.state?.depuisAdmin) history.back()
+    else history.replaceState(history.state, '', '/admin')
+    setEcran(null)
+    relireLeResume()
+    window.scrollTo(0, 0)
   }
 
   if (error) {
@@ -95,7 +120,7 @@ export function AdminApp() {
       </main>
     )
   }
-  if (!me || !accounts) {
+  if (!me) {
     return (
       <main className="center-page">
         <p className="serif-note">Chargement…</p>
@@ -103,182 +128,94 @@ export function AdminApp() {
     )
   }
 
+  const { espaces } = resume
+  // Tous les espaces : les salons des profils, et les comptes d'avant, à mot de passe — ceux que l'écran liste.
+  const salons = espaces?.length
+  const sansTitulaire = espaces?.filter(e => e.salon && !e.titulaire).length ?? 0
+  const titre: Record<Ecran, string> = { profils: 'Les profils', salons: 'Les salons', catalogue: 'Le catalogue', jour: 'Le quiz du jour' }
+
   return (
-    <div className="recap account">
-      <header className="recap-header">
-        <span className="label">Administration</span>
-        <h1>Les comptes</h1>
-        <p className="muted">Les profils des joueurs, et un compte par animateur : son espace, ses quiz, ses soirées.</p>
-        <hr className="hairline" />
-      </header>
+    <div className="player-shell compte admin">
+      {ecran ? (
+        <header className="admin-ecran-tete">
+          <Sortie vers="Administration" href="/admin" onClick={revenir} />
+          <h1>{titre[ecran]}</h1>
+        </header>
+      ) : (
+        <header className="compte-tete">
+          <h1>Administration</h1>
+          <span className="etiquette">Toi seul</span>
+        </header>
+      )}
 
-      <NavAnimateur ici="admin" slug={me.space.slug} admin />
-      {/* Plus bas dans la même page : un lien vers la gestion de la réserve,
-          pas vers le jeu. */}
-      <p className="nav-ancre">
-        <a className="link-inline" href="#les-profils">
-          Les profils
-        </a>
-        {' · '}
-        <a className="link-inline" href="#quiz-du-jour">
-          Le quiz du jour
-        </a>
-      </p>
+      {/* Un administrateur sans profil n'a pas d'accueil à lui : sa barre garde l'écran commun et l'historique. */}
+      {!me.profil && <NavAnimateur ici="admin" slug={me.space.slug} admin />}
       <main className="page-corps">
-        <AdminProfils />
+        {ecran === null && (
+          <>
+            <section className="admin-hud" aria-labelledby="admin-hud-titre">
+              <span className="salon-hud-label" id="admin-hud-titre">
+                <span className="admin-pouls" aria-hidden="true" />
+                Le serveur
+              </span>
+              <div className="admin-cadrans">
+                <Cadran chiffre={resume.profils} nom="profils" onClick={() => ouvrir('profils')} />
+                <Cadran chiffre={salons} nom="salons" detail={sansTitulaire > 0 ? `${sansTitulaire} sans titulaire` : undefined} onClick={() => ouvrir('salons')} />
+                <Cadran chiffre={resume.aRelire} nom="à relire" alerte={!!resume.aRelire} onClick={() => ouvrir('catalogue')} />
+                <Cadran
+                  chiffre={resume.jour?.jours}
+                  nom={`jour${resume.jour?.jours === 1 ? '' : 's'} d’avance`}
+                  detail={resume.jour?.signalements ? `${resume.jour.signalements} signalement${resume.jour.signalements > 1 ? 's' : ''}` : undefined}
+                  alerte={!!resume.jour && (resume.jour.jours < ALERTE_JOURS || resume.jour.signalements > 0)}
+                  onClick={() => ouvrir('jour')}
+                />
+              </div>
+            </section>
 
-        <CreateForm onCreated={(account, token) => load().then(() => showActivation(account, token))} />
-
-        <section className="card">
-          <h2>Tous les comptes</h2>
-          <div className="stats-scroll">
-            <table className="stats-table accounts-table">
-              <thead>
-                <tr>
-                  <th className="stats-name">Compte</th>
-                  <th>Adresse</th>
-                  <th>État</th>
-                  <th>Dernière connexion</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {accounts.map(a => (
-                  <tr key={a.id}>
-                    <td className="stats-name">
-                      <strong>{a.name}</strong> <span className="muted">{a.login}</span>
-                      {a.role === 'admin' && <span className="pill">admin</span>}
-                    </td>
-                    <td>
-                      <code>/{a.slug}</code>
-                    </td>
-                    <td>
-                      <span className={'pill status-' + a.status}>
-                        {a.status === 'pending' ? 'en attente' : a.status === 'active' ? 'actif' : 'désactivé'}
-                      </span>
-                    </td>
-                    <td className="muted" data-libelle="Dernière connexion : ">{a.lastLoginAt ? formatDay(a.lastLoginAt) : 'jamais'}</td>
-                    <td>
-                      <div className="row account-actions">
-                        {/* Un compte en pause ne reçoit pas de lien : le serveur
-                            le refuse, et le proposer laissait croire qu'il
-                            rouvrirait la porte. Le sien non plus : son mot de
-                            passe se change dans « Mon compte », en donnant
-                            l'actuel. */}
-                        {a.status !== 'disabled' && a.id !== me.account.id && (
-                          <button
-                            className="btn btn-small"
-                            title="Un nouveau lien d'activation — pour un mot de passe oublié"
-                            onClick={async () => {
-                              try {
-                                const { activation } = await api.admin.activation(a.id)
-                                await showActivation(a, activation.token)
-                              } catch (e) {
-                                showToast({ kind: 'error', message: (e as Error).message })
-                              }
-                            }}
-                          >
-                            <Icon name="sparkles" />
-                            Lien
-                          </button>
-                        )}
-                        <button
-                          className="btn btn-small btn-ghost"
-                          title="Renommer, ou changer l'adresse"
-                          onClick={async () => {
-                            const name = await promptDialog({
-                              title: 'Le prénom ou le nom affiché',
-                              input: { value: a.name, maxLength: 40 },
-                              confirmLabel: 'Suivant',
-                            })
-                            if (!name) return
-                            const slug = await promptDialog({
-                              title: 'Le nom dans l’adresse',
-                              message: 'Minuscules, chiffres et tirets. Changer l’adresse casse les liens déjà partagés.',
-                              input: { value: a.slug, maxLength: 24 },
-                              confirmLabel: 'Enregistrer',
-                            })
-                            if (!slug) return
-                            try {
-                              await api.admin.update(a.id, { name, slug: normalizeSlug(slug) })
-                              await load()
-                            } catch (e) {
-                              showToast({ kind: 'error', message: (e as Error).message })
-                            }
-                          }}
-                        >
-                          <Icon name="edit" />
-                        </button>
-                        {a.id !== me.account.id &&
-                          (a.status === 'disabled' ? (
-                            <>
-                              <button
-                                className="btn btn-small btn-ghost"
-                                onClick={() => api.admin.enable(a.id).then(load).catch(e => showToast({ kind: 'error', message: e.message }))}
-                              >
-                                Réactiver
-                              </button>
-                              <button
-                                className="btn btn-small btn-ghost"
-                                title="Supprimer le compte et tout ce qu'il a laissé"
-                                onClick={async () => {
-                                  // Ce que ses soirées ont rapporté aux joueurs : un ami qui
-                                  // s'en va le leur laisse, un compte qui fabriquait des
-                                  // soirées le rend — l'administrateur choisit, à chaque fois.
-                                  const choix = await choixDialog({
-                                    title: `Supprimer le compte ${deNom(a.name)} ?`,
-                                    message:
-                                      'Ses quiz, ses photos, ses soirées archivées et sa soirée en cours seront effacés, sans retour. Son identifiant et son adresse redeviennent libres.\n\nCe que ses soirées ont rapporté aux joueurs — expérience, prix, hauts faits, paliers — peut leur rester, ou leur être repris : pour un compte qui fabriquait des soirées.\n\nPour en garder une trace, exporte ses soirées avant (npm run export).',
-                                    confirmLabel: 'Supprimer, les joueurs gardent leurs gains',
-                                    danger: true,
-                                    alternative: { label: 'Supprimer, et reprendre leurs gains', danger: true },
-                                  })
-                                  if (!choix) return
-                                  try {
-                                    await api.admin.remove(a.id, choix.geste === 'alternative' ? 'reprendre' : 'garder')
-                                    await load()
-                                    showToast({ kind: 'info', message: `Le compte ${deNom(a.name)} est supprimé` })
-                                  } catch (e) {
-                                    showToast({ kind: 'error', message: (e as Error).message })
-                                  }
-                                }}
-                              >
-                                <Icon name="trash" />
-                                Supprimer
-                              </button>
-                            </>
-                          ) : (
-                            <button
-                              className="btn btn-small btn-ghost"
-                              onClick={async () => {
-                                const ok = await confirmDialog({
-                                  title: `Désactiver le compte ${deNom(a.name)} ?`,
-                                  message: 'Il ne pourra plus se connecter et ses écrans communs se fermeront. Ses quiz et ses soirées restent : tu peux le réactiver, ou le supprimer pour de bon.',
-                                  confirmLabel: 'Désactiver',
-                                  danger: true,
-                                })
-                                if (ok) api.admin.disable(a.id).then(load).catch(e => showToast({ kind: 'error', message: e.message }))
-                              }}
-                            >
-                              Désactiver
-                            </button>
-                          ))}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <Catalogue />
-
-        <AdminDuJour />
+            <ul className="style-liste">
+              <Ligne icone="users" nom="Les profils" valeur="Chercher, supprimer" onClick={() => ouvrir('profils')} />
+              <Ligne icone="home" nom="Les salons" valeur="Renommer, fermer" onClick={() => ouvrir('salons')} />
+              <Ligne icone="globe" nom="Le catalogue" valeur="Relire, publier" onClick={() => ouvrir('catalogue')} />
+              <Ligne icone="sun" nom="Le quiz du jour" valeur="La réserve" onClick={() => ouvrir('jour')} />
+            </ul>
+          </>
+        )}
+        {ecran === 'profils' && <AdminProfils />}
+        {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLeResume} />}
+        {ecran === 'catalogue' && <Catalogue />}
+        {ecran === 'jour' && <AdminDuJour />}
 
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>
+      <MenuBarre ici="compte" />
     </div>
+  )
+}
+
+/** Un chiffre du tableau de bord : ce qu'il compte, et l'écran qui le montre. Un tiret tant qu'il n'est pas arrivé. */
+function Cadran({ chiffre, nom, detail, alerte, onClick }: { chiffre?: number; nom: string; detail?: string; alerte?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" className={'admin-cadran' + (alerte ? ' admin-cadran-alerte' : '')} onClick={onClick}>
+      <span className="admin-cadran-chiffre num">{chiffre === undefined ? '–' : formatNumber(chiffre)}</span>
+      <span className="admin-cadran-nom">{nom}</span>
+      {detail && <span className="admin-cadran-detail">{detail}</span>}
+    </button>
+  )
+}
+
+/** Une ligne de la liste des sujets, comme celles de « Mon compte ». */
+function Ligne({ icone, nom, valeur, onClick }: { icone: IconName; nom: string; valeur: ReactNode; onClick: () => void }) {
+  return (
+    <li>
+      <button type="button" onClick={onClick}>
+        <span className="style-icone">
+          <Icon name={icone} />
+        </span>
+        <span className="style-nom">{nom}</span>
+        <span className="style-valeur">{valeur}</span>
+        <Icon name="chevron-down" className="style-chevron" />
+      </button>
+    </li>
   )
 }
 
@@ -297,7 +234,7 @@ function Catalogue() {
     api.admin
       .catalogue()
       .then(setEntrees)
-      .catch(e => setError((e as Error).message))
+      .catch(e => setError(motifDe(e)))
   useEffect(() => {
     charger()
   }, [])
@@ -308,7 +245,7 @@ function Catalogue() {
       await api.admin.statutAuCatalogue(e.id, statut)
       await charger()
     } catch (err) {
-      setError((err as Error).message)
+      setError(motifDe(err))
     }
   }
   const relire = async (e: EntreeDuCatalogue) => {
@@ -316,60 +253,65 @@ function Catalogue() {
     try {
       setRelue({ id: e.id, questions: (await api.admin.entreeDuCatalogue(e.id)).questions })
     } catch (err) {
-      setError((err as Error).message)
+      setError(motifDe(err))
     }
   }
 
-  if (!entrees) return null
+  if (error) return <p className="error">{error}</p>
+  if (!entrees) return <p className="serif-note">Chargement…</p>
   const groupes: [string, EntreeDuCatalogue[]][] = [
     ['À relire', entrees.filter(e => e.statut === 'propose')],
     ['Publiées', entrees.filter(e => e.statut === 'publie')],
   ]
   return (
-    <section className="card">
-      <h2>Le catalogue</h2>
-      <p className="muted">
-        Des copies que les animateurs proposent à tous. Publiée, une copie apparaît dans « Partir d’un modèle » de chaque espace, avec
-        le nom de son auteur. Relis-la : pas de prénoms d’invités, pas de photos de proches.
+    <>
+      <p className="muted small">
+        Des copies que les animateurs proposent à tous. Publiée, une copie apparaît dans « Partir d’un modèle » de chaque espace, avec le
+        nom de son auteur. Relis-la : pas de prénoms d’invités, pas de photos de proches.
       </p>
-      {error && <p className="error">{error}</p>}
-      {groupes.every(([, liste]) => liste.length === 0) && <p className="muted small">Rien à relire pour l’instant.</p>}
+      {groupes.every(([, liste]) => liste.length === 0) && <p className="serif-note">Rien à relire pour l’instant.</p>}
       {groupes.map(
         ([titre, liste]) =>
           liste.length > 0 && (
-            <div key={titre} className="catalogue-groupe">
-              <h3>{titre}</h3>
-              <ul className="catalogue-admin">
+            <section key={titre} className="admin-groupe" aria-label={titre}>
+              <h2 className="compte-groupe">
+                {titre} <span className="etiquette">{liste.length}</span>
+              </h2>
+              <ul className="admin-liste">
                 {liste.map(e => (
-                  <li key={e.id} className="catalogue-entree">
-                    <div className="catalogue-entree-tete">
-                      <div>
-                        <strong>{e.titre}</strong>{' '}
+                  <li key={e.id} className="admin-entree">
+                    <div className="admin-entree-tete">
+                      <span className="admin-entree-texte">
+                        <b>{e.titre}</b>
                         <span className="muted small">
                           de {e.auteur} · {e.questionCount} questions · {formatDay(e.updatedAt)}
                         </span>
-                        <p className="muted small">{e.description}</p>
-                      </div>
-                      <div className="row">
-                        <button className="btn btn-small btn-ghost" aria-expanded={relue?.id === e.id} onClick={() => relire(e)}>
-                          Relire
-                        </button>
-                        {e.statut === 'propose' && (
-                          <>
-                            <button className="btn btn-small" onClick={() => changer(e, 'publie')}>
-                              Publier
-                            </button>
-                            <button className="btn btn-small btn-ghost" onClick={() => changer(e, 'refuse')}>
-                              Refuser
-                            </button>
-                          </>
-                        )}
-                        {e.statut === 'publie' && (
-                          <button className="btn btn-small btn-ghost" onClick={() => changer(e, 'retire')}>
-                            Retirer
+                        {e.description && <span className="muted small">{e.description}</span>}
+                      </span>
+                    </div>
+                    <div className="admin-gestes">
+                      <button type="button" className="salon-geste" aria-expanded={relue?.id === e.id} onClick={() => relire(e)}>
+                        <Icon name="eye" />
+                        Relire
+                      </button>
+                      {e.statut === 'propose' && (
+                        <>
+                          <button type="button" className="salon-geste admin-geste-oui" onClick={() => changer(e, 'publie')}>
+                            <Icon name="check" />
+                            Publier
                           </button>
-                        )}
-                      </div>
+                          <button type="button" className="salon-geste" onClick={() => changer(e, 'refuse')}>
+                            <Icon name="x" />
+                            Refuser
+                          </button>
+                        </>
+                      )}
+                      {e.statut === 'publie' && (
+                        <button type="button" className="salon-geste" onClick={() => changer(e, 'retire')}>
+                          <Icon name="x" />
+                          Retirer
+                        </button>
+                      )}
                     </div>
                     {relue?.id === e.id && (
                       <ol className="catalogue-questions">
@@ -394,118 +336,9 @@ function Catalogue() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
           ),
       )}
-    </section>
-  )
-}
-
-function CreateForm({ onCreated }: { onCreated: (account: PublicAccount, token: string) => void }) {
-  const [name, setName] = useState('')
-  const [login, setLogin] = useState('')
-  const [slug, setSlug] = useState('')
-  const [slugTouched, setSlugTouched] = useState(false)
-  /**
-   * L'identifiant suit le prénom tant qu'on n'y a pas touché. Il ne se
-   * remplissait qu'à la première lettre (« if (!login) ») : « Nadia »
-   * donnait l'identifiant « n ».
-   */
-  const [loginTouched, setLoginTouched] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault()
-    setBusy(true)
-    setError('')
-    try {
-      const { account, activation } = await api.admin.create({ login, name, slug: normalizeSlug(slug) })
-      setName('')
-      setLogin('')
-      setSlug('')
-      setSlugTouched(false)
-      setLoginTouched(false)
-      onCreated(account, activation.token)
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <form className="card settings-form" onSubmit={submit}>
-      <h2>Créer un compte</h2>
-      <p className="muted small">
-        Tu recevras un lien d'activation à lui envoyer : c'est lui qui choisira son mot de passe.
-      </p>
-      <div className="settings-grid">
-        <div className="field">
-          <label className="label" htmlFor="new-name">
-            Prénom ou nom
-          </label>
-          <input
-            id="new-name"
-            className="input"
-            maxLength={40}
-            value={name}
-            onChange={e => {
-              setName(e.target.value)
-              if (!slugTouched) setSlug(normalizeSlug(e.target.value))
-              if (!loginTouched) setLogin(normalizeSlug(e.target.value).replace(/-/g, '.'))
-            }}
-          />
-        </div>
-        <div className="field">
-          <label className="label" htmlFor="new-login">
-            Identifiant de connexion
-          </label>
-          <input
-            id="new-login"
-            className="input"
-            maxLength={32}
-            autoCapitalize="none"
-            value={login}
-            onChange={e => {
-              setLoginTouched(true)
-              setLogin(e.target.value.toLowerCase())
-            }}
-          />
-          {login.trim().length === 1 && <p className="muted small">Trop court : deux caractères au moins.</p>}
-        </div>
-      </div>
-      <div className="field">
-        <label className="label" htmlFor="new-slug">
-          Nom dans l'adresse
-        </label>
-        <input
-          id="new-slug"
-          className="input"
-          maxLength={24}
-          autoCapitalize="none"
-          value={slug}
-          // Normalisé à la sortie du champ, pas à chaque touche : le tiret
-          // qu'on venait de taper au bout de « chez » disparaissait aussitôt
-          // (`normalizeSlug` retire le tiret final), et « chez-nadia » ne se
-          // tapait pas.
-          onChange={e => {
-            setSlugTouched(true)
-            setSlug(e.target.value)
-          }}
-          onBlur={() => setSlug(normalizeSlug(slug))}
-        />
-        <p className="muted small">
-          Ses invités ouvriront <code>{window.location.origin}/{normalizeSlug(slug) || '…'}</code>
-        </p>
-      </div>
-      {error && <p className="error">{error}</p>}
-      <div className="row">
-        <button className="btn btn-primary" disabled={busy || !name || !login || !normalizeSlug(slug)}>
-          <Icon name="plus" />
-          Créer et obtenir le lien
-        </button>
-      </div>
-    </form>
+    </>
   )
 }

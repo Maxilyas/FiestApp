@@ -5,7 +5,7 @@ import type { ModeleResume, PourQui } from '../../shared/modeles'
 import type { ReglagesDuQuiz } from '../../shared/hasard'
 import type { EntreeDeProgramme, Programme } from '../../shared/programme'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
-import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
+import type { EspaceDAdministration, PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
 import type { FinitionChoisie, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
@@ -371,12 +371,8 @@ export const api = {
   },
   /** Réservé à l'administrateur : les comptes des autres animateurs. */
   admin: {
-    list: () => req<PublicAccount[]>('/api/admin/accounts'),
-    create: (input: { login: string; name: string; slug: string }) =>
-      req<{ account: PublicAccount; activation: Activation }>('/api/admin/accounts', {
-        method: 'POST',
-        body: JSON.stringify(input),
-      }),
+    /** Tous les espaces, chacun avec son titulaire : les salons des profils, les comptes à mot de passe. */
+    espaces: () => req<EspaceDAdministration[]>('/api/admin/espaces'),
     activation: (id: string) =>
       req<{ activation: Activation }>(`/api/admin/accounts/${id}/activation`, { method: 'POST' }),
     disable: (id: string) => req<{ account: PublicAccount }>(`/api/admin/accounts/${id}/disable`, { method: 'POST' }),

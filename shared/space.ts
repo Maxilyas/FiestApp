@@ -192,3 +192,19 @@ export interface PublicAccount {
   createdAt: number
   lastLoginAt: number | null
 }
+
+/**
+ * Un espace, à l'administration : son compte, et ce qui le fait reconnaître
+ * d'un coup d'œil — depuis que chacun ouvre son salon, la plupart des
+ * espaces n'ont ni mot de passe ni nom à eux, et la liste des seuls comptes
+ * (« p-k3x9… », « en attente ») ne disait plus à qui ils étaient.
+ */
+export interface EspaceDAdministration extends PublicAccount {
+  /** Ouvert par « Créer un salon » : sans mot de passe, un profil pour seule porte. */
+  salon: boolean
+  /** Le profil qui le tient ; null, un espace détaché (son profil supprimé) ou qu'on n'a jamais rattaché. */
+  titulaire: { nom: string; avatar: string } | null
+  quiz: number
+  /** L'espace de l'administrateur qui regarde : il ne se désactive ni ne se supprime d'ici. */
+  toi: boolean
+}

@@ -57,7 +57,7 @@ test('« Qui manque ? » oublie les codes périmés, et son minuteur avec eux', 
 test('« Copier le lien » d’activation passe par `copierTexte`, et dit quand le navigateur refuse', () => {
   // Hors https, `navigator.clipboard` n'existe pas : l'appel levait avant son
   // `.catch`, et la boîte se fermait sans copie ni un mot [client-12].
-  const s = source('views/AdminApp.tsx')
+  const s = source('components/AdminSalons.tsx')
   assert.doesNotMatch(s, /navigator\.clipboard/)
   assert.match(s, /if \(await copierTexte\(link\)\) return showToast\(\{ kind: 'info', message: 'Lien copié' \}\)/)
   assert.match(s, /Le navigateur n’a pas voulu le copier/)
