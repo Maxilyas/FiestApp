@@ -81,7 +81,6 @@ export function AccountApp() {
     )
   }
 
-  const guestUrl = `${window.location.origin}/${me.space.slug}`
   /**
    * L'espace d'un profil, créé par « Créer un salon » : son compte n'a pas
    * de mot de passe — le profil est sa seule porte — et son identifiant ne
@@ -149,34 +148,17 @@ export function AccountApp() {
 
       <section className="salon-hud">
         <span className="salon-hud-label">Mon salon</span>
-        {parLeProfil ? (
-          // Plus d'adresse à copier : chaque salon reçoit son code à l'ouverture.
-          <>
-            <p className="salon-hud-texte">Rien à retenir : chaque salon reçoit un code de six chiffres en s’ouvrant, que tes invités tapent ou scannent.</p>
-            <a className="salon-geste" href="/salon">
-              <Icon name="plus" />
-              Créer un salon
-            </a>
-          </>
-        ) : (
-          <>
-            <p className="salon-hud-texte">L’adresse de tes invités : c’est elle que montre le QR de l’écran commun, et qu’on peut dicter ou écrire sur une affiche.</p>
-            <div className="link-box">
-              <code>{guestUrl}</code>
-              <button
-                className="btn btn-small"
-                onClick={() =>
-                  navigator.clipboard
-                    .writeText(guestUrl)
-                    .then(() => showToast({ kind: 'info', message: 'Adresse copiée' }))
-                    .catch(() => showToast({ kind: 'error', message: 'Copie impossible ici : sélectionne l’adresse' }))
-                }
-              >
-                <Icon name="clipboard" />
-                Copier
-              </button>
-            </div>
-          </>
+        {/* Plus d'adresse à copier, même pour un espace qui en a une : les
+            invités entrent par le code de six chiffres que chaque salon tire
+            en s'ouvrant, à la télé comme au téléphone du chef. L'adresse
+            marche encore, mais ne s'enseigne plus. */}
+        <p className="salon-hud-texte">Rien à retenir : chaque salon reçoit un code de six chiffres en s’ouvrant, que tes invités tapent ou scannent.</p>
+        {/* Un salon s'ouvre avec son profil ; sans lui, l'écran commun est dans la barre. */}
+        {me.profil && (
+          <a className="salon-geste" href="/salon">
+            <Icon name="plus" />
+            Créer un salon
+          </a>
         )}
       </section>
 

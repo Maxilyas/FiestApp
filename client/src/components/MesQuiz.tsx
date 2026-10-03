@@ -108,11 +108,8 @@ export function FicheDeQuiz({
   brouillon,
   occupe,
   exportEnCours,
-  auProgramme,
-  occupeProgramme,
   onFermer,
   onModifier,
-  onProgramme,
   onDupliquer,
   onPartager,
   onExporter,
@@ -124,12 +121,8 @@ export function FicheDeQuiz({
   brouillon: boolean
   occupe: boolean
   exportEnCours: boolean
-  /** Au programme de ce soir — null quand il ne peut pas y être : rien de prêt, ou archivé. */
-  auProgramme: boolean | null
-  occupeProgramme: boolean
   onFermer: () => void
   onModifier: () => void
-  onProgramme: () => void
   onDupliquer: () => void
   onPartager: () => void
   onExporter: () => void
@@ -191,16 +184,6 @@ export function FicheDeQuiz({
 
       <div className="card fiche-plus">
         <span className="label">Plus</span>
-        {/* Le programme de l'écran commun se prépare encore d'ici : la console le propose dans cet ordre. */}
-        {auProgramme !== null && (
-          <Geste
-            icone={auProgramme ? 'check' : 'list'}
-            titre={auProgramme ? 'Au programme de ce soir' : 'Mettre au programme'}
-            detail={auProgramme ? 'Toucher pour l’en retirer' : 'L’écran commun le proposera, dans l’ordre'}
-            disabled={occupeProgramme}
-            onClick={onProgramme}
-          />
-        )}
         <Geste icone="copy" titre="Dupliquer" detail="Une copie, pour une variante" onClick={onDupliquer} />
         <Geste icone="share" titre="Partager par un code" detail="Un ami de ce serveur en reçoit une copie" disabled={q.questionCount === 0} onClick={onPartager} />
         <Geste
