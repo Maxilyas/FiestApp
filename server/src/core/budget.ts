@@ -32,6 +32,18 @@ export class Budget {
     return ok
   }
 
+  /**
+   * Vrai s'il reste de quoi payer `cost`, sans rien prendre : un code de
+   * salon ne se cherche pas quand l'adresse a épuisé ses essais — sinon le
+   * bon code, trouvé au bout de la liste, passerait quand même.
+   */
+  peut(key: string, cost = 1): boolean {
+    if (this.opts.skipLoopback && LOOPBACK.has(key)) return true
+    const b = this.buckets.get(key)
+    if (!b) return this.burst >= cost
+    return Math.min(this.burst, b.tokens + ((Date.now() - b.at) / 60_000) * this.refillPerMinute) >= cost
+  }
+
   /** Remet une clé à neuf — après une connexion réussie, par exemple. */
   forget(key: string) {
     this.buckets.delete(key)

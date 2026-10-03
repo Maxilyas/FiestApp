@@ -438,6 +438,13 @@ h3 > .icon {
 
 .input-line:focus { border-bottom-color: var(--focus); }
 .input-line::placeholder { font-style: italic; }
+/* Le code du salon : des chiffres qui se lisent de loin, à égale largeur, comme on les dicte. */
+.input-code {
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
 
 .field { display: flex; flex-direction: column; gap: 10px; }
 .field-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }

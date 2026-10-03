@@ -97,6 +97,12 @@ export interface PartySnapshot {
   /** L'espace de la soirée : son nom dans l'adresse, ses titres. */
   space: PublicSpace
   /**
+   * Le code du salon, six chiffres, tant qu'il vaut (`core/salons.ts`) : ce
+   * qu'on dicte à la table, et ce que le QR porte. Il ne change qu'à
+   * l'ouverture et à la fin du sursis d'après la clôture (invariant 4).
+   */
+  code?: string
+  /**
    * La base permanente refuse les écritures de la soirée depuis un moment :
    * la soirée continue, mais un réveil sur disque effacé perdrait ce qui
    * attend. Envoyé à l'écran commun seulement, et absent quand tout va bien

@@ -35,6 +35,8 @@ interface ProfileApiDeps {
    * « Rejoindre une soirée » redemandait le nom de celle où l'on jouait déjà.
    */
   soireesOuJeJoue: (profileId: string) => string[]
+  /** Ouvre le salon d'un espace et rend son code — le même tant qu'il vaut. */
+  ouvrirSalon: (spaceId: string) => Promise<string | null>
   /** En ligne, le cookie ne voyage qu'en HTTPS. */
   online: boolean
   /** Un profil a changé ce que la salle voit de lui (finition, légendaire) : les soirées où il joue le rediffusent. */
@@ -64,6 +66,12 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
    * remplisse la base de profils fantômes.
    */
   const inscriptions = new Budget(10, 5, { skipLoopback: true })
+  /**
+   * Les espaces créés par adresse : un salon par profil, et quelques profils
+   * derrière une même box. Un script qui créerait des profils pour remplir
+   * la base d'espaces s'arrête ici, après l'inscription.
+   */
+  const espacesCrees = new Budget(5, 1 / 6, { skipLoopback: true })
   const noStore = (res: express.Response) => res.set('Cache-Control', 'no-store')
   /**
    * « Chez Bob » plutôt qu'un identifiant, dans l'historique des soirées — et
@@ -370,6 +378,32 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       const ouverte = await ouvrirConsole(req, res, me.id)
       if (!ouverte) return res.status(403).json({ error: 'Aucune soirée à animer avec ce profil' })
       res.json({ espace: ouverte.espace })
+    }),
+  )
+
+  /**
+   * « Créer un salon » : l'espace du profil — créé à la première fois, sans
+   * rien demander de plus —, sa console ouverte sur ce navigateur, et le
+   * code du salon. Plus de compte d'animateur à obtenir : qui a un profil
+   * peut animer. L'espace garde son identifiant pour toujours (invariant
+   * 16) ; seul le code change, d'une soirée à l'autre.
+   */
+  app.post(
+    '/api/joueur/salon',
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      if (!me) return res.status(401).json({ error: 'Connecte-toi à ton profil pour ouvrir un salon' })
+      const deja = deps.auth.byProfile(me.id)
+      if (deja?.disabledAt) return res.status(403).json({ error: 'Ton salon est en pause — demande à l’administrateur' })
+      if (!deja && !espacesCrees.take(clientIp(req))) {
+        return res.status(429).json({ error: 'Trop de salons ouverts depuis ce réseau — réessaie dans un moment' })
+      }
+      const espace = deja ?? (await deps.auth.creerEspaceDuProfil(me))
+      const ouverte = await ouvrirConsole(req, res, me.id)
+      if (!ouverte) return res.status(403).json({ error: 'Ton salon est en pause — demande à l’administrateur' })
+      const code = await deps.ouvrirSalon(espace.id)
+      res.json({ espace: ouverte.espace, code, nouveau: !deja })
     }),
   )
 

@@ -13,6 +13,9 @@ import { INTROUVABLE, ROBOTS_TXT, decrirePage, habillerPage } from './core/aperc
 import { clearQuizLibrary, setProgramme, setQuestionsPosees, setQuizLibrary } from './games/quiz'
 import { dernieresFois } from './core/memoire'
 import { ProgrammeStore } from './core/programmes'
+import { SalonStore } from './core/salons'
+import { Budget } from './core/budget'
+import { clientIp } from './auth/http'
 import { PartageStore } from './core/partages'
 import { ArchiveStore, recapOfArchive, reviewOfArchive } from './core/archive'
 import { recalculerHistorique } from './core/recalcul'
@@ -312,6 +315,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const programmes = new ProgrammeStore(opts.quizDbUrl, opts.quizDbToken)
   // Les partages : les codes, et le catalogue du serveur.
   const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
+  // Les codes des salons : six chiffres pour entrer chez quelqu'un.
+  const salons = new SalonStore(opts.quizDbUrl, opts.quizDbToken)
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
   // qui doit survivre à tout.
   const archives = new ArchiveStore(opts.quizDbUrl, opts.quizDbToken)
@@ -364,6 +369,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       await refreshProgramme()
     })(),
     partages.init(),
+    salons.init(),
     (async () => {
       await archives.init(defaultSpace)
       // Le tirage d'un quiz choisit d'abord les questions jamais posées : il
@@ -429,6 +435,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     maxPlayersCeiling,
     cloturesEnCours: new Set(),
     jour,
+    salons,
   })
   // Un laurier qui change de tête — la nuit close, un profil masqué — se voit
   // dans la salle où il joue sans attendre la diffusion suivante.
@@ -476,6 +483,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     const soirees = await archives.removeSpace(accountId)
     await programmes.removeSpace(accountId)
     await partages.removeSpace(accountId)
+    await salons.removeSpace(accountId)
     const { quizzes, images } = await store.removeSpace(accountId)
     await auth.remove(accountId)
     // Une page publique lue pendant le ménage a pu réveiller la soirée.
@@ -785,6 +793,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       ),
     removeAccount,
     soireeEnCours: spaceId => registry.get(spaceId).soireeId(),
+    ouvrirSalon: spaceId => registry.get(spaceId).ouvrirSalon(),
     // La base locale est le registre de la soirée en cours : la clôture et
     // l'essai effacé la vident, un invité exclu en sort. Mais une soirée
     // qu'on n'a pas close reste là jusqu'à la suivante : sans son dernier
@@ -859,15 +868,34 @@ export async function createQuizServer(opts: QuizServerOptions) {
       const meta = `<meta name="app-env" content="${opts.appEnv.replace(/[^\w.-]/g, '')}">`
       indexHtml = indexHtml.replace('</head>', `  ${meta}\n  </head>`)
     }
+    /**
+     * Les codes manqués, par adresse : vingt d'affilée, puis deux par minute.
+     * Une tablée qui se trompe d'un chiffre ne s'en aperçoit pas ; un script
+     * qui énumère le million de codes y mettrait un an. Un code juste ne
+     * coûte rien, mais ne se cherche plus une fois la réserve épuisée.
+     */
+    const codesManques = new Budget(20, 2)
     // Chaque adresse porte son statut et ses balises : un aperçu de lien
     // n'exécute pas le client. Voir `core/apercus.ts`.
     const servirPage = (chemin: string, req: Request, res: Response, next: NextFunction) => {
       res.set('Cache-Control', 'no-cache')
       if (!indexHtml) return res.status(404).type('text').send('Client non compilé (npm run build)')
-      const decision = decrirePage(chemin, slug => {
-        const compte = auth.bySlug(slug)
-        return compte && compte.slug === slug ? auth.publicSpace(compte) : undefined
-      })
+      const ip = clientIp(req)
+      const decision = decrirePage(
+        chemin,
+        slug => {
+          const compte = auth.bySlug(slug)
+          return compte && compte.slug === slug ? auth.publicSpace(compte) : undefined
+        },
+        code => {
+          if (!codesManques.peut(ip)) return null
+          const compte = salons.espaceDuCode(code)
+          const espace = compte ? auth.byId(compte) : undefined
+          if (espace && !espace.disabledAt) return auth.publicSpace(espace)
+          codesManques.take(ip)
+          return undefined
+        },
+      )
       const requete = req.url.slice(req.path.length)
       if ('redirection' in decision) return res.redirect(302, decision.redirection + requete)
       const envoyer = (page: typeof decision) => {
@@ -952,6 +980,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           store.close()
           programmes.close()
           partages.close()
+          salons.close()
           archives.close()
           auth.close()
           jour.close()

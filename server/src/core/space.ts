@@ -10,6 +10,7 @@ import { PlacesRendues } from './places'
 import type { PartyBackup, PartyMirror } from './backup'
 import type { ArchiveStore } from './archive'
 import type { JourStore } from './jour'
+import type { SalonStore } from './salons'
 import { buildArchive, soireeDesInvites, type Soiree } from './archive'
 import { buildRecap } from './recap'
 import { buildReview, type PlayedPack } from './review'
@@ -72,6 +73,8 @@ export interface SpaceDeps {
   cloturesEnCours: Set<string>
   /** Le quiz du jour, pour ce qu'en montrent la carte d'un joueur (sa ligne, ses écussons) et sa fin de soirée (sa série). Absent, elles s'en passent. */
   jour?: Pick<JourStore, 'resumeDe' | 'categoriesDe' | 'pontDuJour' | 'aujourdhui'>
+  /** Les codes des salons (`core/salons.ts`). Absents, un espace ne s'ouvre que par son adresse. */
+  salons?: Pick<SalonStore, 'codeDe' | 'ouvrir' | 'fermer'>
 }
 
 /**
@@ -1079,7 +1082,22 @@ export class SpaceRuntime {
       wifi: null,
       space,
     }
+    const code = this.deps.salons?.codeDe(this.spaceId)
+    if (code) snapshot.code = code
     return snapshot
+  }
+
+  /**
+   * Ouvre le salon et rend son code — le même tant qu'il vaut. Un écran
+   * d'animateur qui se présente l'ouvre aussi : la salle d'attente le montre
+   * en grand, et le QR le porte. Le code neuf part à toute la salle.
+   */
+  async ouvrirSalon(): Promise<string | null> {
+    if (!this.deps.salons) return null
+    const avant = this.deps.salons.codeDe(this.spaceId)
+    const code = await this.deps.salons.ouvrir(this.spaceId)
+    if (code !== avant) this.sendSnapshot()
+    return code
   }
 
   /**
@@ -1790,6 +1808,11 @@ export class SpaceRuntime {
       this.scene = null
       this.derniereCloture = null
     })
+    // Le code tient encore le temps du sursis (`SURSIS_APRES_CLOTURE_MS`) :
+    // le retardataire le retrouve, puis il ne mène plus nulle part. Une base
+    // qui hoquette ici ne retient pas la soirée vide : le code tombera à
+    // l'ouverture suivante, qui en tire un neuf passé le sursis.
+    await this.deps.salons?.fermer(this.spaceId).catch(e => console.error('[salons] la fermeture du code n’a pas pu s’écrire :', e))
     this.broadcastSnapshot()
     // Les téléphones de la soirée effacée n'incarnent plus personne. Laissés
     // tels quels, ils restaient sur un en-tête vide, « 0 pts », « Personne

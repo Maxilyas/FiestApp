@@ -49,6 +49,8 @@ interface ApiDeps {
   soireeEnCours: (spaceId: string) => string | null
   /** Les espaces dont la soirée en cours compte ce profil parmi ses invités. */
   soireesOuJeJoue: (profileId: string) => string[]
+  /** Ouvre le salon d'un espace et rend son code (`SpaceRuntime.ouvrirSalon`). */
+  ouvrirSalon: (spaceId: string) => Promise<string | null>
   /** Rediffuse la salle d'un espace dont les réglages ont changé. */
   espaceChange: (spaceId: string) => void
   /** Rediffuse la salle des soirées où joue un profil qui a changé de parure. */
@@ -90,6 +92,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
     auth: deps.auth,
     archives: deps.archives,
     soireesOuJeJoue: deps.soireesOuJeJoue,
+    ouvrirSalon: deps.ouvrirSalon,
     online: deps.online,
     profilChange: deps.profilChange,
     jour: deps.jour,
