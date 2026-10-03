@@ -121,6 +121,43 @@ export interface QuizGuessRow extends Distinctions {
   rank: number
 }
 
+/**
+ * Une ligne de « Cette question », à la révélation : un joueur qui a
+ * répondu, et ce qu'il en a fait. Un identifiant seulement — le téléphone
+ * le décore avec l'instantané, marque d'homonymie comprise (invariant 17).
+ */
+export interface LigneDeLaQuestion {
+  id: string
+  juste: boolean
+  /** La réponse choisie, pour en montrer la forme ; null pour « plusieurs » et « ordre », qui envoient leurs cases. */
+  choix: number | null
+  /** Le temps de sa réponse, depuis l'ouverture de la question (le dernier envoi compte). */
+  ms: number
+  /** Ses points sur cette question, multiplicateur compris. */
+  points: number
+}
+
+/**
+ * « Cette question », vue par toute la salle — à la révélation seulement :
+ * avant, la réponse d'un autre trahirait la bonne (invariant 1). Ceux qui
+ * ont trouvé, du plus rapide au plus lent, puis les autres réponses ; au
+ * plus six lignes, le haut et soi avec ses voisins.
+ */
+export interface DetailDeLaQuestion {
+  /** Les lignes montrées, dans l'ordre ; `null` marque un saut. */
+  lignes: (LigneDeLaQuestion | null)[]
+  /** Combien ont trouvé, et combien ont répondu — pas la taille de la salle, qui se lit dans l'instantané. */
+  trouvees: number
+  repondues: number
+  /** Le plus rapide à avoir trouvé, et le suivant : « 0,7 s devant Hugo ». */
+  premier: { id: string; ms: number } | null
+  second: { id: string; ms: number } | null
+  /** Sa place parmi ceux qui ont trouvé (1 : le plus rapide), s'il a trouvé. */
+  rangDesJustes?: number
+  /** Combien d'autres ont donné la même mauvaise réponse que lui. */
+  memeChoix?: number
+}
+
 export interface QuizPlayerView {
   phase: QuizPhase
   qIndex: number
@@ -193,6 +230,8 @@ export interface QuizPlayerView {
    * révélation, et rien ne s'y calcule pour une réponse.
    */
   place?: PlaceAuQuiz
+  /** « Cette question », à la révélation d'un QCM : qui a trouvé, en combien de temps, ses points. */
+  laQuestion?: DetailDeLaQuestion
   // finished
   podium?: QuizPodiumRow[]
   /**

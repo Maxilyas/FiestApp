@@ -5832,6 +5832,163 @@ h3 > .icon {
 .jour-sortie { align-self: flex-start; min-height: 44px; margin: 0 0 -12px -6px; padding: 0 6px; font-size: 0.9rem; }
 .jour-titre h2 { font-size: 2rem; margin: 4px 0 0; }
 /* Le jour joué : le résultat en une carte, le classement incrusté, le rendez-vous de demain. */
+/* « Cette question », à la révélation : la salle, en six lignes au plus. */
+.detail-question {
+  padding: 12px 12px 8px;
+}
+.dq-tete {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--edge);
+}
+.dq-icone {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent-text);
+}
+.dq-icone .icon {
+  width: 18px;
+  height: 18px;
+}
+.dq-zap .dq-icone {
+  background: var(--accent);
+  color: var(--bg);
+}
+.dq-x .dq-icone {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  color: var(--muted);
+}
+.dq-titre {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.dq-titre span {
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+.dq-compte {
+  flex: none;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dq-compte b {
+  font-size: 1.35rem;
+  color: var(--accent-text);
+}
+.dq-lignes {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Une barre fine sous chaque ligne : le temps de la réponse, au plus lent des lignes montrées. */
+.dq-ligne {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 5px 6px 8px;
+  border-radius: var(--radius-xs);
+}
+.dq-ligne::after,
+.dq-ligne::before {
+  content: '';
+  position: absolute;
+  left: 46px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 1px;
+}
+.dq-ligne::after {
+  right: 6px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+}
+.dq-ligne::before {
+  z-index: 1;
+  width: calc((100% - 52px) * var(--temps));
+  background: color-mix(in srgb, var(--muted) 70%, transparent);
+}
+.dq-juste::before {
+  background: var(--accent);
+}
+.dq-moi {
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.dq-avatar {
+  width: 30px;
+  height: 30px;
+  font-size: 1.15rem;
+}
+.dq-nom {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-weight: 600;
+}
+/* Les points de suspension ne prennent pas sur une boîte flexible : sur le prénom seul, l'éclair reste visible. */
+.dq-nom-texte {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dq-eclair {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--accent-text);
+}
+.dq-temps {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.84rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dq-temps .ans-shape.inline {
+  width: 12px;
+  height: 12px;
+}
+.dq-points {
+  min-width: 3.2em;
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.dq-juste .dq-points {
+  color: var(--accent-text);
+}
+.dq-faux .dq-points {
+  color: var(--muted);
+}
+.dq-trou {
+  text-align: center;
+  color: var(--muted);
+  line-height: 1;
+  padding: 2px 0;
+}
+.dq-pied {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: var(--t-label);
+  color: var(--muted);
+}
+
 .jour-resultat { display: flex; align-items: center; gap: 12px; }
 .jour-resultat > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .jour-resultat b { font-family: var(--serif); font-size: 1.7rem; line-height: 1; }
