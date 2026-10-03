@@ -116,7 +116,15 @@ export interface ClientToServerEvents {
    * quelqu'un en silence.
    */
   'player:join': (
-    payload: { slug: string; name?: string; avatar?: string; token?: string; teamId?: string | null },
+    payload: {
+      slug: string
+      name?: string
+      avatar?: string
+      token?: string
+      teamId?: string | null
+      /** Le chef du salon anime seulement : rien de lui ne compte. Écouté de lui seul — son profil tient l'espace. */
+      horsClassement?: boolean
+    },
     ack: (res: JoinAck) => void,
   ) => void
   /**

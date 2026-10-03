@@ -1,4 +1,5 @@
 import { io, type Socket } from 'socket.io-client'
+import { chefIci } from './chef'
 import type {
   AbsentDuMemeNom,
   ActionAck,
@@ -246,8 +247,12 @@ export function joinAsPlayer(
 ): Promise<JoinAck> {
   // Un serveur muet devient un refus ordinaire, avec son motif : l'entrée
   // l'affiche sous le bouton, et l'invité sait qu'il peut réessayer.
+  // Le chef du salon redit, à chaque présentation, s'il anime seulement :
+  // le serveur ne le retient qu'en mémoire, et ne l'écoute que de lui.
+  const chef = chefIci(slug)
+  const horsClassement = chef ? !chef.joue : undefined
   return demander<JoinAck>(ack =>
-    socket.emit('player:join', { slug, name, avatar, token, teamId }, ack),
+    socket.emit('player:join', { slug, name, avatar, token, teamId, horsClassement }, ack),
   ).catch((e: Error): JoinAck => ({ ok: false, error: e.message }))
 }
 

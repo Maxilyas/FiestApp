@@ -191,6 +191,13 @@ export class SpaceRuntime {
    * d'attente, son code en grand, au lieu de sa fin de soirée.
    */
   private finVoulue = false
+  /**
+   * Le chef qui anime sans jouer (« J'anime seulement ») : il entre comme un
+   * invité, sur l'interface de tout le monde, mais rien de lui ne compte
+   * (`LancementDeQuiz.horsClassement`). En mémoire : son téléphone le redit
+   * à chaque présentation, un redémarrage compris.
+   */
+  private horsClassement = new Set<string>()
 
   readonly party: Party
   readonly teams: Teams
@@ -1095,7 +1102,10 @@ export class SpaceRuntime {
 
   private snapshotComplet(): PartySnapshot {
     const space = this.publicSpace()
-    const players = this.party.publicPlayers(this.ledger.allTotals())
+    // Le chef qui anime seulement reste dans la salle — son prénom, son
+    // avatar —, marqué : les classements l'écartent.
+    const tous = this.party.publicPlayers(this.ledger.allTotals())
+    const players = this.horsClassement.size ? tous.map(p => (this.horsClassement.has(p.id) ? { ...p, horsClassement: true as const } : p)) : tous
     const bonuses = this.teams.allBonuses()
     const base = this.deps.baseUrl()
     const snapshot: PartySnapshot = {
@@ -1379,7 +1389,16 @@ export class SpaceRuntime {
         // Un état illisible n'apprend rien : le quiz part au clic.
       }
     }
-    return { autoNextSeconds, joues: [...joues] }
+    const hors = [...this.horsClassement].filter(id => this.party.get(id))
+    return { autoNextSeconds, joues: [...joues], ...(hors.length > 0 && { horsClassement: hors }) }
+  }
+
+  /** Le chef dit s'il anime seulement ; l'instantané le marque, pour que les classements l'écartent. */
+  marquerHorsClassement(playerId: string, hors: boolean) {
+    if (this.horsClassement.has(playerId) === hors) return
+    if (hors) this.horsClassement.add(playerId)
+    else this.horsClassement.delete(playerId)
+    this.broadcastSnapshot()
   }
 
   liveRecap(): Recap {

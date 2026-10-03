@@ -591,7 +591,8 @@ function SalleDuJoueur() {
           myTeamId={me?.teamId ?? null}
           players={snap.players}
           moi={me}
-          participants={session?.participantIds.length ?? 0}
+          // Le chef qui anime seulement n'est pas de la course : « 1ʳᵉ sur 2 » à qui jouait seul.
+          participants={session ? session.participantIds.length - snap.players.filter(p => p.horsClassement && session.participantIds.includes(p.id)).length : 0}
           // Le jeton est relu au moment de l'envoi : celui du rendu pourrait
           // dater d'avant une reconnexion.
           send={(action: QuizAction) => {
@@ -689,7 +690,8 @@ function SalleDuJoueur() {
             <Niveau niveau={me?.niveau} big />
           </h2>
           <p className="muted">
-            {scoreEtRang(me?.score ?? 0, me ? snap.players.map(p => p.score) : [])}
+            {/* Le chef qui anime seulement n'a ni points ni place : il le lit. */}
+            {me?.horsClassement ? 'Tu animes · hors classement' : scoreEtRang(me?.score ?? 0, me ? snap.players.filter(p => !p.horsClassement).map(p => p.score) : [])}
             {myTeam && ` · ${myTeam.emoji} ${myTeam.name}`}
           </p>
         </div>

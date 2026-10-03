@@ -181,7 +181,11 @@ export function SalonApp() {
       }
       const salon = await api.joueur.salon()
       retenirChef({ slug: salon.espace.slug, joue, rythme, equipes })
-      window.location.assign(joue ? spacePath(salon.espace.slug) : '/host')
+      // Qu'il joue ou anime seulement, le chef suit la soirée sur l'écran de
+      // tout le monde, sa barre en bas : la console d'avant, au téléphone,
+      // ne lui servait qu'à lire ce que la salle voit déjà (la remarque du
+      // 3 octobre 2026). « J'anime seulement » le tient hors classement.
+      window.location.assign(spacePath(salon.espace.slug))
     } catch (e) {
       setErreur(motifDe(e))
       setBusy(false)
@@ -303,7 +307,7 @@ export function SalonApp() {
         </div>
         {!joue && (
           <p className="muted small salon-aide">
-            Ton téléphone devient la console : la bonne réponse, qui a répondu, la salle en direct. Ni points ni place pour toi.
+            Tu suis la partie sur ton téléphone comme les autres, et tu peux répondre pour le plaisir : tes points ne comptent pas, tu n’es pas au classement.
           </p>
         )}
       </section>

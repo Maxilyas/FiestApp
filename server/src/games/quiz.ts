@@ -104,6 +104,27 @@ interface QuizState {
    * Absent d'une partie lancée avant qu'il existe.
    */
   dispenses?: string[]
+  /**
+   * Le chef qui anime sans jouer (« J'anime seulement ») : il suit la partie
+   * sur son téléphone comme les autres, et peut répondre pour le plaisir,
+   * mais rien de lui ne compte — ni points, ni journal, ni attente, ni
+   * classement (la remarque du propriétaire du 3 octobre 2026). Fixé au
+   * lancement (`LancementDeQuiz.horsClassement`).
+   */
+  horsClassement?: string[]
+  /** Ses réponses, à part : tout ce qui lit `responses` — gains, journal, répartition, le plus rapide — ne les voit pas. */
+  horsReponses?: Record<string, Response>
+}
+
+/** Rien de lui ne compte : il anime. */
+function horsJeu(st: QuizState, playerId: string): boolean {
+  return !!st.horsClassement?.includes(playerId)
+}
+
+/** Ceux dont la partie compte : les participants, sans le chef qui anime seulement. */
+function joueurs(sess: GameSessionRec<QuizState>): string[] {
+  const st = sess.state
+  return st.horsClassement?.length ? sess.participantIds.filter(id => !horsJeu(st, id)) : sess.participantIds
 }
 
 /** Au-delà, la console dit « et 12 autres » : les prénoms servent à trouver le fantôme, pas à faire l'appel d'une salle de cinq cents. */
@@ -374,6 +395,7 @@ function startQuestion(sess: GameSessionRec<QuizState>, index: number, ctx: Game
   st.round = (st.round ?? 0) + 1
   st.cancelled = false
   st.responses = {}
+  if (st.horsReponses) st.horsReponses = {}
   st.lastAwards = {}
   st.pausedMs = null
   st.cibleSaisie = false
@@ -544,7 +566,7 @@ function lireIndex(brut: unknown, n: number): number[] | null {
  */
 function awaited(sess: GameSessionRec<QuizState>): string[] {
   const st = sess.state
-  return sess.participantIds.filter(
+  return joueurs(sess).filter(
     id => (st.playFrom[id] ?? 0) <= st.qIndex && !(id in st.responses) && !st.dispenses?.includes(id),
   )
 }
@@ -558,7 +580,7 @@ function awaited(sess: GameSessionRec<QuizState>): string[] {
 function salleAFini(sess: GameSessionRec<QuizState>, sauf: string): boolean {
   const st = sess.state
   if (st.phase !== 'question') return false
-  const autres = sess.participantIds.filter(id => id !== sauf && (st.playFrom[id] ?? 0) <= st.qIndex)
+  const autres = joueurs(sess).filter(id => id !== sauf && (st.playFrom[id] ?? 0) <= st.qIndex)
   return autres.length > 0 && awaited(sess).every(id => id === sauf)
 }
 
@@ -586,7 +608,7 @@ function tropTardPourLire(sess: GameSessionRec<QuizState>, ctx: GameContext): bo
  */
 function attendus(sess: GameSessionRec<QuizState>, vctx: ViewContext): { liste: QuizAttendu[]; enPlus: number } {
   const st = sess.state
-  const lignes = sess.participantIds
+  const lignes = joueurs(sess)
     .filter(id => (st.playFrom[id] ?? 0) <= st.qIndex && !(id in st.responses))
     .map(id => {
       const horsLigne = !vctx.connected(id)
@@ -681,7 +703,7 @@ function classement(sess: GameSessionRec<QuizState>, vctx: ViewContext): Classe<
       // Seuls ceux qui ont pu jouer une question : arrivé au podium, un
       // invité à zéro se rangeait parmi les ex æquo par ordre alphabétique,
       // et dans une petite salle chassait du podium un joueur qui avait joué.
-      sess.participantIds
+      joueurs(sess)
         .filter(id => (st.playFrom[id] ?? 0) <= st.qIndex)
         .map(id => ({ playerId: id, points: st.totals[id] ?? 0, nom: vctx.playerName(id) })),
       l => l.points,
@@ -723,7 +745,7 @@ function rangDe(sess: GameSessionRec<QuizState>, vctx: ViewContext, playerId: st
   const { lignes, position } = indexDesPlaces(sess, vctx)
   const i = position.get(playerId)
   if (i !== undefined) return lignes[i].rang
-  if (!sess.participantIds.includes(playerId)) return undefined
+  if (!joueurs(sess).includes(playerId)) return undefined
   // Les retardataires sont tous à zéro : un seul compte par diffusion.
   const sien = sess.state.totals[playerId] ?? 0
   return vctx.memo(`quiz:rang-hors-place:${sien}`, () => 1 + lignes.reduce((devant, c) => devant + (c.item.points > sien ? 1 : 0), 0))
@@ -751,14 +773,14 @@ function rangDAvant(sess: GameSessionRec<QuizState>, vctx: ViewContext, playerId
   if (avant.lectures++ === 0) {
     let devant = 0
     let marque = false
-    for (const id of sess.participantIds) {
+    for (const id of joueurs(sess)) {
       const total = totalDAvant(st, id)
       if (total > 0) marque = true
       if (total > sien) devant++
     }
     return marque ? devant + 1 : undefined
   }
-  avant.tries ??= sess.participantIds.map(id => totalDAvant(st, id)).sort((a, b) => b - a)
+  avant.tries ??= joueurs(sess).map(id => totalDAvant(st, id)).sort((a, b) => b - a)
   return avant.tries[0] > 0 ? rangDansLesTries(sien, avant.tries) : undefined
 }
 
@@ -1009,7 +1031,7 @@ function logQuestion(sess: GameSessionRec<QuizState>, ctx: GameContext) {
   const variante = q.kind === 'choice' && !!q.variante
 
   ctx.logAnswers(
-    sess.participantIds
+    joueurs(sess)
       .filter(playerId => (st.playFrom[playerId] ?? 0) <= st.qIndex)
       .filter(playerId => playerId in st.responses || !st.dispenses?.includes(playerId) || ctx.connected(playerId))
       .map(playerId => {
@@ -1065,10 +1087,12 @@ export const quizModule: GameModule<QuizState> = {
     const joues = new Set(Array.isArray(lancement.joues) ? lancement.joues : [])
     const auto = lancement.autoNextSeconds
     const { packs, programme } = choixDeLaSoiree(spaceId, library, joues)
+    const hors = Array.isArray(lancement.horsClassement) ? lancement.horsClassement.filter((id): id is string => typeof id === 'string') : []
     return {
       phase: 'pickPack',
       packs,
       ...(programme && { programme }),
+      ...(hors.length > 0 && { horsClassement: hors }),
       ...(joues.size > 0 && { soireeEntamee: true }),
       pack: null,
       qIndex: 0,
@@ -1104,6 +1128,8 @@ export const quizModule: GameModule<QuizState> = {
     // marqués hors du journal, c'est un classement que le bilan n'explique plus.
     if ((st.playFrom[playerId] ?? 0) > st.qIndex) return 'not-participant'
     const q = st.pack.questions[st.qIndex]
+    // Le chef qui anime seulement répond pour le plaisir : à part, où rien ne le compte.
+    const reponses = horsJeu(st, playerId) ? (st.horsReponses ??= {}) : st.responses
 
     // Changer d'avis est permis jusqu'à la révélation, pour les deux types de
     // question. Un doigt qui glisse sur un téléphone tenu dans le noir ne doit
@@ -1121,11 +1147,11 @@ export const quizModule: GameModule<QuizState> = {
       if (!Number.isInteger(choice) || choice < 0 || choice >= n) return 'invalid'
       // Un candidat exclu depuis ne se désigne plus : sa place reste, sans nom.
       if (q.variante === 'sondage' && !sess.participantIds.includes(st.candidats![choice])) return 'invalid'
-      const before = st.responses[playerId]
+      const before = reponses[playerId]
       // Rien à réécrire, mais la réponse est bien celle-là : c'est un succès.
       // Le joueur qui retape la même case parce qu'il doute doit être confirmé.
       if (before?.choice === choice) return
-      st.responses[playerId] = {
+      reponses[playerId] = {
         choice,
         value: null,
         ms: ctx.now() - st.questionStartAt,
@@ -1140,9 +1166,9 @@ export const quizModule: GameModule<QuizState> = {
       // Cochées : un ensemble, rangé ; un ordre : une suite complète.
       const choix = lus && (action.type === 'answers' ? [...lus].sort((a, b) => a - b) : lus.length === q.answers.length ? lus : null)
       if (!choix) return 'invalid'
-      const before = st.responses[playerId]
+      const before = reponses[playerId]
       if (before?.choix && before.choix.length === choix.length && before.choix.every((c, i) => c === choix[i])) return
-      st.responses[playerId] = {
+      reponses[playerId] = {
         choice: null,
         choix,
         value: null,
@@ -1152,12 +1178,12 @@ export const quizModule: GameModule<QuizState> = {
     } else if (action?.type === 'guess' && q.kind === 'number') {
       const value = Number(action.value)
       if (!Number.isFinite(value)) return 'invalid'
-      const before = st.responses[playerId]
+      const before = reponses[playerId]
       // Comme pour un QCM : la même valeur renvoyée — double appui, ou renvoi
       // d'une réponse dont l'accusé s'est perdu — est confirmée sans rien
       // réécrire. Ce n'est pas une hésitation, et ça ne doit pas coûter de temps.
       if (before?.value === value) return
-      st.responses[playerId] = {
+      reponses[playerId] = {
         choice: null,
         value,
         ms: ctx.now() - st.questionStartAt,
@@ -1168,7 +1194,8 @@ export const quizModule: GameModule<QuizState> = {
     }
 
     // Tout le monde a répondu → on révèle, mais après un souffle : voir SETTLE_MS.
-    if (awaited(sess).length === 0) ctx.setTimer('settle', SETTLE_MS)
+    // Le chef qui anime seulement n'est attendu de personne : sa réponse ne presse rien.
+    if (!horsJeu(st, playerId) && awaited(sess).length === 0) ctx.setTimer('settle', SETTLE_MS)
   },
 
   onHostCommand(sess, command: QuizCommand, ctx) {
@@ -1381,8 +1408,11 @@ export const quizModule: GameModule<QuizState> = {
 
   playerView(sess, playerId, vctx): QuizPlayerView {
     const st = sess.state
-    const mine = st.responses[playerId]
+    const hors = horsJeu(st, playerId)
+    const mine = hors ? st.horsReponses?.[playerId] : st.responses[playerId]
     const base = {
+      // Il anime : son téléphone le dit, et ne lui promet ni points ni place.
+      ...(hors && { horsClassement: true as const }),
       phase: st.phase,
       qIndex: st.qIndex,
       round: st.round,
@@ -1497,7 +1527,7 @@ export const quizModule: GameModule<QuizState> = {
         enDirect: true,
         ...(q.note && { note: q.note }),
         answeredCount: Object.keys(st.responses).length,
-        participantCount: sess.participantIds.length,
+        participantCount: joueurs(sess).length,
       }
     }
     if (st.phase === 'intertitre' && st.pack) {
@@ -1519,7 +1549,7 @@ export const quizModule: GameModule<QuizState> = {
         image: q.image,
         deadline: st.deadline,
         duration: q.observeSeconds ?? 0,
-        participantCount: sess.participantIds.length,
+        participantCount: joueurs(sess).length,
         // Sans lui, la console affichait « au clic » pendant la photo alors
         // que l'enchaînement était réglé — et un clic sur « au clic », qui se
         // croyait déjà actif, n'envoyait rien.
@@ -1550,7 +1580,7 @@ export const quizModule: GameModule<QuizState> = {
         ...(st.autoNextAt !== null && { autoNextAt: st.autoNextAt }),
         ...(st.phase === 'reveal' && st.autoNextSuspendu && { autoNextSuspendu: true }),
         answeredCount: Object.keys(st.responses).length,
-        participantCount: sess.participantIds.length,
+        participantCount: joueurs(sess).length,
       }
       // Qui n'a pas répondu : à la console seulement. `playerView` n'en dit
       // rien — la salle n'a pas à savoir qui traîne (invariant 1).
