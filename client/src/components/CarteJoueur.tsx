@@ -7,7 +7,7 @@ import { ceQuIlAFallu, hautFait } from '../../../shared/hautsfaits'
 import { deNom, espacesFines, formatNumber, place, reponsesParType, secondes, pts } from '../format'
 import { Avatar, Dessin } from './Avatar'
 import { chargerDessinsAuPlus, complets, sortesDesAvatars, useDessins } from './medaillons'
-import { Chiffres, justesses } from './Chiffres'
+import { justesses, type Chiffre } from './Chiffres'
 import { Flamme, Icon } from './Icon'
 import { Niveau } from './Niveau'
 import { Laurier } from './Laurier'
@@ -26,6 +26,12 @@ import { fond as fondDeCarte } from '../../../shared/fonds'
  *
  * Un invité anonyme a la sienne : sa soirée, sans rien qui dise ce qui lui
  * manque. Un surnom donné par l'animateur ne cache pas le prénom du profil.
+ *
+ * Dans le cadre du tableau de bord, comme la fin de soirée : la barre du
+ * haut ne défile pas, et la croix qui ferme y reste en vue. « Fermer », au
+ * pied d'une carte bien remplie, ne se voyait qu'en défilant jusqu'au bout,
+ * et la carte prenait tout l'écran (la remarque du propriétaire du
+ * 3 octobre 2026).
  */
 export function CarteJoueur({
   slug,
@@ -91,6 +97,18 @@ export function CarteJoueur({
         tabIndex={-1}
         onClick={e => e.stopPropagation()}
       >
+        {/* Le balayage du tableau de bord, sous un fond de carte jamais : le
+            fond porte déjà son décor dans les mêmes couches. */}
+        {!fond && <span className="carte-balayage" aria-hidden="true" />}
+        <header className="carte-joueur-barre">
+          <span className="salon-hud-label">
+            <span className="admin-pouls" aria-hidden="true" />
+            Carte de joueur
+          </span>
+          <button type="button" className="carte-croix" aria-label="Fermer" title="Fermer" onClick={onFermer}>
+            <Icon name="x" />
+          </button>
+        </header>
         {/* Le contenu défile dans son cadre, et le fond de la carte reste en
             place derrière lui : posé sur un cadre qui défile, il s'arrêtait
             à la hauteur de l'écran. */}
@@ -198,31 +216,34 @@ export function CarteJoueur({
                   )}
                   {/* La justesse aux QCM et aux estimations, côte à côte : la
                       plus longue série, qui ne compte que les QCM, a cédé sa case. */}
-                  <Chiffres
-                    className="carte-chiffres"
+                  <Cadrans
                     cases={[
                       ['Soirées', formatNumber(p.fiche.soirees)],
                       ['Quiz gagnés', formatNumber(p.fiche.quizGagnes)],
                       ['Hauts faits', formatNumber(p.hautsFaits)],
                       ...justesses(p.fiche),
-                      ['Réflexe moyen', secondes(p.fiche.reflexeMoyenMs)],
+                      ['Réflexe', secondes(p.fiche.reflexeMoyenMs)],
                     ]}
                   />
                   {/* Ses prix : leur nombre, pas leur liste — ils tombent à
                       chaque soirée. Rien tant qu'il n'en a aucun. */}
-                  {p.prix && p.prix.eus > 0 && (
-                    <p className="carte-prix muted small">
-                      <Icon name="award" />
-                      Prix de soirée : {p.prix.eus} sur {p.prix.total}
-                    </p>
-                  )}
-                  {/* Son quiz du jour, en une ligne : rien s'il n'y a jamais joué. */}
-                  {p.jour && (
-                    <p className="carte-prix muted small">
-                      <Flamme />
-                      Quiz du jour : {p.jour.joues} jour{p.jour.joues > 1 ? 's' : ''} joué{p.jour.joues > 1 ? 's' : ''}
-                      {p.jour.victoires > 0 && ` · ${p.jour.victoires} victoire${p.jour.victoires > 1 ? 's' : ''}`}
-                    </p>
+                  {((p.prix && p.prix.eus > 0) || p.jour) && (
+                    <div className="carte-pastilles">
+                      {p.prix && p.prix.eus > 0 && (
+                        <span className="carte-prix">
+                          <Icon name="award" />
+                          Prix {p.prix.eus}/{p.prix.total}
+                        </span>
+                      )}
+                      {/* Son quiz du jour, en une pastille : rien s'il n'y a jamais joué. */}
+                      {p.jour && (
+                        <span className="carte-prix">
+                          <Flamme />
+                          Quiz du jour {p.jour.joues} j
+                          {p.jour.victoires > 0 && ` · ${p.jour.victoires} victoire${p.jour.victoires > 1 ? 's' : ''}`}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </>
               )}
@@ -234,14 +255,28 @@ export function CarteJoueur({
           {carte && motsDeLaCarte(carte, avecDessins, !!fond).length > 0 && (
             <Glossaire mots={motsDeLaCarte(carte, avecDessins, !!fond)} />
           )}
-          <div className="row dialog-actions">
-            <button type="button" className="btn btn-ghost" onClick={onFermer}>
-              Fermer
-            </button>
-          </div>
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * Ses chiffres en cadrans, trois par rangée : le chiffre lumineux, son nom,
+ * et sur combien il porte quand ça compte — « Précision 50 % », seul, se
+ * lisait pareil sur deux QCM et sur deux cents.
+ */
+function Cadrans({ cases }: { cases: Chiffre[] }) {
+  return (
+    <dl className="admin-cadrans carte-cadrans">
+      {cases.map(([titre, valeur, base]) => (
+        <div key={titre} className="admin-cadran carte-cadran">
+          <dt className="admin-cadran-nom">{titre}</dt>
+          <dd className="admin-cadran-chiffre num">{valeur}</dd>
+          {base && <dd className="carte-cadran-base">{base}</dd>}
+        </div>
+      ))}
+    </dl>
   )
 }
 
