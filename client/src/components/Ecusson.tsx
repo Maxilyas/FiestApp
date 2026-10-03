@@ -1,8 +1,8 @@
 import { Icon, type IconName } from './Icon'
 import { NOM_ECUSSON } from '../../../shared/ecussons'
 
-/** L'emblème de chaque catégorie, au trait des icônes de l'application. */
-const EMBLEME: Record<string, IconName> = {
+/** L'emblème de chaque catégorie, au trait des icônes de l'application : l'écusson, et les catégories de la campagne. */
+export const EMBLEME: Record<string, IconName> = {
   'Culture générale': 'bulb',
   Histoire: 'book',
   Géographie: 'globe',

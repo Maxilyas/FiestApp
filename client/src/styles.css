@@ -2262,12 +2262,13 @@ h3 > .icon {
 .quiz-carte-lancer:hover { background: var(--accent-hover); }
 /* La fiche d'un quiz : ce qu'il contient, Lancer et Modifier en grand, les gestes rares en liste calme. */
 .quiz-fiche { display: flex; flex-direction: column; gap: 14px; }
-.quiz-heros { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
-.quiz-heros .quiz-pastille { width: 72px; height: 72px; font-size: 2.4rem; }
-.quiz-heros h1 { margin: 4px 0 0; font-size: 1.9rem; overflow-wrap: anywhere; }
+/* Son en-tête, dans un cadre teinté de sa catégorie : l'emblème qui luit, son nom, ce qu'il contient. */
+.quiz-heros { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 20px 14px 16px; border: 1px solid color-mix(in srgb, var(--lueur) 40%, transparent); border-radius: var(--radius); background: radial-gradient(110% 70% at 50% 0%, color-mix(in srgb, var(--lueur) 20%, transparent), transparent 70%), var(--surface); text-align: center; }
+.quiz-heros .quiz-pastille { width: 84px; height: 84px; border-radius: 26px; background: color-mix(in srgb, var(--lueur) 18%, var(--bg)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--lueur) 45%, transparent), 0 0 24px color-mix(in srgb, var(--lueur) 30%, transparent); font-size: 2.75rem; }
+.quiz-heros h1 { margin: 4px 0 0; font-size: 1.9rem; overflow-wrap: anywhere; text-wrap: balance; }
 .quiz-heros p { margin: 0; }
 .quiz-categories { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; list-style: none; margin: 0; padding: 0; }
-.quiz-categories li { padding: 2px 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-size: 0.85rem; color: var(--muted); }
+.quiz-categories li { padding: 1px 8px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
 .quiz-fiche-gestes { display: grid; gap: 8px; }
 .fiche-plus { display: flex; flex-direction: column; gap: 2px; padding: 10px; }
 .fiche-plus > .label { padding: 2px 8px 4px; }
@@ -2285,7 +2286,8 @@ h3 > .icon {
   text-align: left;
   cursor: pointer;
 }
-.fiche-geste > .icon { flex: none; color: var(--accent-text); }
+.fiche-geste > .icon { flex: none; color: var(--zone, var(--accent-text)); }
+.fiche-geste + .fiche-geste { border-top: 1px solid var(--edge); border-radius: 0; }
 .fiche-geste > span { display: flex; flex-direction: column; gap: 1px; }
 .fiche-geste:hover:not(:disabled) { background: var(--accent-soft); }
 .fiche-geste:disabled { opacity: 0.55; cursor: default; }
@@ -7143,31 +7145,35 @@ body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 }
 .tuiles .tuile:last-child:nth-child(odd) .gros-icone { grid-row: span 2; margin-bottom: 0; }
 
-/* ── La campagne solo : un record, une échelle, trois règles ──────────── */
+/* ── La campagne solo : un héros, puis ce qu'on choisit ─────────────────
+   Le défi, le record, l'échelle et les règles sur la trame de l'atlas
+   (`.atlas-branche`), teinté d'or. */
+.campagne-heros { align-items: flex-start; gap: 12px; padding: 18px 16px; }
+.campagne-heros h1 { margin: 0; font-size: 2rem; }
+/* Le record en grand, dans la vue « Campagne » de la carrière. */
 .campagne-record { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
 .campagne-record b { font-family: var(--serif); font-size: 3.2rem; font-weight: 600; line-height: 1; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.campagne-record-hud { display: flex; align-items: center; gap: 14px; }
+.campagne-record-hud b { font-family: var(--serif); font-size: 3.6rem; font-weight: 600; line-height: 0.9; color: var(--accent-text); text-shadow: 0 0 22px color-mix(in srgb, var(--lueur) 55%, transparent); font-variant-numeric: tabular-nums; }
+.campagne-record-hud span { color: var(--muted); font-size: 0.85rem; line-height: 1.35; }
 /* L'échelle des difficultés : quatre marches qui montent. */
-.campagne-echelle { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: end; gap: 6px; }
-.campagne-echelle li {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 6px 2px;
-  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent-text);
-  font-size: var(--t-label);
-  font-weight: 600;
-}
-.campagne-echelle li:nth-child(1) { min-height: 28px; }
-.campagne-echelle li:nth-child(2) { min-height: 40px; }
-.campagne-echelle li:nth-child(3) { min-height: 52px; }
-.campagne-echelle li:nth-child(4) { min-height: 64px; background: color-mix(in srgb, var(--accent) 30%, transparent); }
-.campagne-regles { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.campagne-regles li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--edge); border-radius: var(--radius-pill); font-size: 0.875rem; }
-.campagne-regles .icon { width: 16px; height: 16px; color: var(--accent-text); }
+.campagne-echelle { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; width: 100%; }
+.campagne-echelle li { display: flex; flex-direction: column; justify-content: flex-end; gap: 5px; color: var(--muted); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.04em; }
+.campagne-echelle i { display: block; border-radius: 3px; background: linear-gradient(to top, color-mix(in srgb, var(--lueur) 70%, transparent), color-mix(in srgb, var(--lueur) 25%, transparent)); box-shadow: 0 0 8px color-mix(in srgb, var(--lueur) 35%, transparent); }
+.campagne-echelle li:nth-child(1) i { height: 6px; }
+.campagne-echelle li:nth-child(2) i { height: 10px; }
+.campagne-echelle li:nth-child(3) i { height: 14px; }
+.campagne-echelle li:nth-child(4) i { height: 18px; }
+.campagne-puces { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.campagne-puces li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid color-mix(in srgb, var(--lueur) 30%, transparent); border-radius: var(--radius-pill); font-size: 0.8rem; color: var(--ink); }
+.campagne-puces .icon { width: 14px; height: 14px; color: var(--lueur); }
+.campagne-puces .vies .coeur { width: 12px; height: 12px; }
+.categories-grille { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 4px 0 2px; }
+.categorie-case { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 64px; padding: 6px 4px; border: 1px solid var(--edge); border-radius: var(--radius-sm); background: var(--surface); color: var(--muted); font: inherit; font-size: var(--t-label); font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; }
+.categorie-case .icon { width: 20px; height: 20px; }
+.categorie-case.active { border-color: var(--accent); color: var(--ink); background: var(--accent-soft); box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 25%, transparent); }
+.categorie-case.active .icon { color: var(--accent-text); }
 .campagne-xp-du-jour { margin: 0; text-align: center; }
-.campagne-categories { display: flex; flex-wrap: wrap; gap: 6px; }
 .vies { display: inline-flex; gap: 2px; color: var(--alert); }
 .vies .coeur { width: 20px; height: 20px; }
 .vies .coeur.perdu { color: var(--muted); }
@@ -7238,7 +7244,7 @@ body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 .atlas-orbe-compte { font-size: var(--t-label); font-variant-numeric: tabular-nums; opacity: 0.8; }
 .atlas-orbe[aria-selected='true'] { color: var(--ink); }
 .atlas-orbe[aria-selected='true'] .atlas-anneau { transform: scale(1.1); box-shadow: 0 0 18px color-mix(in srgb, var(--lueur) 55%, transparent); }
-.atlas-orbe[aria-selected='true'] .atlas-orbe-compte { color: var(--lueur); opacity: 1; }
+.atlas-orbe[aria-selected='true'] .atlas-orbe-compte { color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); opacity: 1; }
 .orbe-nouveau {
   position: absolute;
   top: 2px;
@@ -7300,7 +7306,7 @@ body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 }
 .atlas-tete { display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; gap: 6px; text-align: center; }
 .atlas-tete h3 { margin: 0; font-size: 1.6rem; }
-.atlas-categorie { display: block; color: var(--lueur); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.atlas-categorie { display: block; color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
 .atlas-compteur { display: block; color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .atlas-fleche {
   display: inline-grid;
@@ -7310,13 +7316,13 @@ body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
   border: 1px solid color-mix(in srgb, var(--lueur) 35%, transparent);
   border-radius: 50%;
   background: none;
-  color: var(--lueur);
+  color: color-mix(in srgb, var(--lueur) 65%, var(--ink));
   cursor: pointer;
 }
 .atlas-fleche .icon { transform: rotate(90deg); }
 .atlas-fleche-suivante .icon { transform: rotate(-90deg); }
 .atlas-objectif { margin: 0; text-align: center; font-size: 0.92rem; color: var(--muted); }
-.atlas-objectif b { color: var(--lueur); }
+.atlas-objectif b { color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); }
 
 /* Le chemin : un trait qui s'allume jusqu'au dernier portrait gagné. */
 .atlas-chemin { position: relative; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -7372,7 +7378,7 @@ body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 .atlas-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .atlas-texte b { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
 .atlas-seuil { font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.atlas-gagne .atlas-seuil { color: var(--lueur); }
+.atlas-gagne .atlas-seuil { color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); }
 .atlas-ferme .atlas-texte b { color: var(--muted); }
 .atlas-fiche { margin: 6px 0 4px 78px; }
 .detail-portrait-grand { display: grid; place-items: center; font-size: 140px; line-height: 0; margin: 6px auto 14px; }
@@ -7386,7 +7392,7 @@ body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 }
 
 /* Les grilles de collection : des médaillons qui brillent quand on les a. */
-.hud-titre { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 6px 0 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--lueur); }
+.hud-titre { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 6px 0 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); }
 .hud-titre span { font-weight: 500; letter-spacing: 0.02em; text-transform: none; color: var(--muted); font-size: 0.8rem; }
 .hud-grille { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 6px; grid-auto-flow: dense; }
 .hud-grille-divins { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -7408,7 +7414,7 @@ body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 .hud-ferme .hud-medaillon { box-shadow: 0 0 0 1px var(--edge); }
 .hud-porte .hud-medaillon { box-shadow: 0 0 0 3px var(--accent), 0 0 18px var(--accent); }
 .hud-ouverte .hud-medaillon { transform: scale(1.08); }
-.hud-marque { min-height: 1em; font-size: var(--t-label); font-weight: 600; color: var(--lueur); font-variant-numeric: tabular-nums; }
+.hud-marque { min-height: 1em; font-size: var(--t-label); font-weight: 600; color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); font-variant-numeric: tabular-nums; }
 .hud-fiche { grid-column: 1 / -1; }
 .hud-divins { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--lueur) 30%, transparent); }
 @media (prefers-reduced-motion: reduce) { .hud-medaillon { transition: none; } }
@@ -7580,11 +7586,11 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
     repeating-linear-gradient(90deg, color-mix(in srgb, var(--lueur) 5%, transparent) 0 1px, transparent 1px 22px),
     var(--surface);
 }
-.salon-hud-label { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--lueur); }
+.salon-hud-label { font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); }
 .salon-hud-texte { margin: 0; font-size: 0.9rem; color: var(--muted); }
 .salon-hud .link-box { margin: 0; }
 .salon-geste { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 12px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); background: none; color: var(--ink); font: inherit; font-size: 0.9rem; font-weight: 600; text-decoration: none; cursor: pointer; }
-.salon-geste .icon { width: 14px; height: 14px; color: var(--lueur); }
+.salon-geste .icon { width: 14px; height: 14px; color: color-mix(in srgb, var(--lueur) 65%, var(--ink)); }
 .compte .style-valeur { color: var(--muted); }
 .compte-groupe { display: flex; align-items: center; gap: 8px; margin: 6px 0 -6px; font-family: var(--sans); font-size: var(--t-label); font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
 .etiquette { display: inline-flex; align-items: center; padding: 1px 8px; border: 1px solid var(--edge); border-radius: var(--radius-pill); font-size: var(--t-label); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
@@ -7592,3 +7598,42 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .compte-sortie .icon { width: 15px; height: 15px; }
 .compte-sortie + p { margin: -12px 0 0; }
 .feuille-section { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── Le quiz du jour : un panneau qui donne envie ────────────────────────
+   La carte d'aujourd'hui sur la trame de l'atlas, un soleil qui se lève au
+   coin, la date en grand, « Jouer » qui respire. */
+.jour-heros {
+  --lueur: #ffd36e;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding: 22px 18px 18px;
+  border-color: color-mix(in srgb, var(--lueur) 45%, transparent);
+  background:
+    radial-gradient(70% 60% at 100% 0%, color-mix(in srgb, var(--lueur) 28%, transparent), transparent 70%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--lueur) 6%, transparent) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--lueur) 6%, transparent) 0 1px, transparent 1px 22px),
+    var(--surface);
+}
+/* Le soleil : un disque et deux orbites, au coin. */
+.jour-heros::before {
+  content: '';
+  position: absolute;
+  top: -46px;
+  right: -46px;
+  z-index: -1;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--lueur) 55%, transparent) 0 22%, transparent 23%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--lueur) 30%, transparent), 0 0 0 26px color-mix(in srgb, var(--lueur) 5%, transparent), 0 0 0 27px color-mix(in srgb, var(--lueur) 22%, transparent);
+}
+.jour-heros .label { color: var(--accent-text); letter-spacing: 0.16em; }
+.jour-heros .jour-date { font-size: 2.3rem; line-height: 1.05; margin: 6px 0 2px; text-wrap: balance; }
+.jour-heros .jour-meta { color: var(--ink); font-size: 0.92rem; }
+.jour-heros .btn-primary { margin-top: 6px; animation: jour-respire 2.6s ease-in-out infinite; }
+@keyframes jour-respire {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent), 0 0 26px color-mix(in srgb, var(--accent) 40%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .jour-heros .btn-primary { animation: none; } }

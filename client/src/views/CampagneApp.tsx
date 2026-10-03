@@ -3,6 +3,8 @@ import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
+import { EMBLEME } from '../components/Ecusson'
+import { OR, lueur } from '../components/Atlas'
 import { espacesFines } from '../format'
 import { porterTheme } from '../themeJoueur'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
@@ -152,32 +154,44 @@ export function CampagneApp() {
     return (
       <div className="player-shell campagne">
         <Sortie />
-        <PieceTete piece="Seul" titre="La campagne" />
-        <section className="card campagne-record">
-          <span className="label">Ton record</span>
-          <b>{etat.record}</b>
-          <span className="muted small">
-            {etat.series === 0 ? 'Ta première série t’attend' : `bonne${etat.record > 1 ? 's' : ''} réponse${etat.record > 1 ? 's' : ''} en une série — ${etat.series} jouée${etat.series > 1 ? 's' : ''}`}
-          </span>
+        {/* Le héros de la page : le défi, le record, l'échelle et les règles d'un coup d'œil, sur la trame de l'atlas. */}
+        <section className="atlas-branche campagne-heros" style={lueur(OR)}>
+          <span className="atlas-categorie">La campagne solo</span>
+          <h1>Jusqu’où iras-tu&nbsp;?</h1>
+          <div className="campagne-record-hud">
+            <b>{etat.record}</b>
+            <span>
+              ton record
+              <br />
+              {etat.series === 0 ? 'ta première série t’attend' : `${etat.series} série${etat.series > 1 ? 's' : ''} jouée${etat.series > 1 ? 's' : ''}`}
+            </span>
+          </div>
+          {/* L'échelle : la série monte de marche en marche. */}
+          <ol className="campagne-echelle" aria-label="La difficulté monte">
+            {NIVEAUX.map(n => (
+              <li key={n}>
+                <i aria-hidden="true" />
+                {NOM_NIVEAU[n]}
+              </li>
+            ))}
+          </ol>
+          <ul className="campagne-puces">
+            <li>
+              {/* Les cœurs pour l'œil, les mots pour tous : « 3 vies sur 3, trois vies » se lisait deux fois. */}
+              <span aria-hidden="true">
+                <Vies restantes={VIES} />
+              </span>{' '}
+              trois vies
+            </li>
+            <li>
+              <Icon name="timer" /> sans chrono
+            </li>
+            <li>🎊 un confetti par bonne réponse</li>
+            <li>
+              <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, {XP_MAX_PAR_JOUR} par jour
+            </li>
+          </ul>
         </section>
-        {/* L'échelle : la série monte de marche en marche. */}
-        <ol className="campagne-echelle" aria-label="La difficulté monte">
-          {NIVEAUX.map(n => (
-            <li key={n}>{NOM_NIVEAU[n]}</li>
-          ))}
-        </ol>
-        <ul className="campagne-regles">
-          <li>
-            <Icon name="star" /> Trois vies
-          </li>
-          <li>
-            <Icon name="clock" /> Sans chrono
-          </li>
-          <li>🎊 Un confetti par bonne réponse</li>
-          <li>
-            <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, {XP_MAX_PAR_JOUR} par jour
-          </li>
-        </ul>
         {/* Où l'on en est du plafond : sans le dire, la quinzième bonne réponse semblait ne plus rien valoir. */}
         {etat.xpAujourdhui > 0 && (
           <p className="muted small campagne-xp-du-jour">
@@ -197,15 +211,21 @@ export function CampagneApp() {
                   </span>
                   <Icon name="chevron-down" className="repli-chevron" />
                 </summary>
-                <div className="campagne-categories" role="group" aria-label="Catégories">
+                {/* En grille, l'emblème de chacune : tout tient sans rien faire glisser de côté. */}
+                <div className="categories-grille" role="group" aria-label="Catégories">
+                  <button type="button" className={'categorie-case' + (categories.length === 0 ? ' active' : '')} aria-pressed={categories.length === 0} onClick={() => setCategories([])}>
+                    <Icon name="sparkles" />
+                    Toutes
+                  </button>
                   {etat.categories.map(c => (
                     <button
                       key={c.categorie}
                       type="button"
-                      className={'pill-btn' + (categories.includes(c.categorie) ? ' active' : '')}
+                      className={'categorie-case' + (categories.includes(c.categorie) ? ' active' : '')}
                       aria-pressed={categories.includes(c.categorie)}
                       onClick={() => basculer(c.categorie)}
                     >
+                      <Icon name={EMBLEME[c.categorie] ?? 'star'} />
                       {c.categorie}
                     </button>
                   ))}
@@ -240,7 +260,7 @@ export function CampagneApp() {
             )}
             <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled={busy || undefined} onClick={() => void commencer()}>
               <Icon name="play" />
-              {etat.enCours ? 'Une nouvelle série' : 'Commencer'}
+              {etat.enCours ? 'Une nouvelle série' : 'Commencer une série'}
             </button>
           </>
         ) : (
