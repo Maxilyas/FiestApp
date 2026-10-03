@@ -119,11 +119,12 @@ export function AdminDuJour() {
   const dernierDepot = reserve.apports.find(a => a.source === 'ia')
   return (
     <>
-      <section className="card" id="quiz-du-jour">
-        <h2>
-          <Flamme />
-          Le quiz du jour
-        </h2>
+      {/* La réserve en tête, dans le cadre du tableau de bord : c'est ce
+          qu'on vient vérifier, et ce qui s'allume quand elle baisse. */}
+      <section className={'admin-hud' + (reserve.joursDAvance < ALERTE_JOURS ? ' admin-hud-alerte' : '')} aria-labelledby="reserve-titre">
+        <span className="salon-hud-label" id="reserve-titre">
+          <Flamme /> La réserve
+        </span>
         <div className="reserve-tete">
           <span className="reserve-jours num">{reserve.joursDAvance}</span>
           <div>
@@ -195,17 +196,18 @@ export function AdminDuJour() {
             </div>
           </div>
         ) : (
-          <div className="row">
-            <button className="btn btn-primary" onClick={() => setListe('')}>
+          <div className="admin-gestes">
+            <button type="button" className="salon-geste admin-geste-oui" onClick={() => setListe('')}>
               <Icon name="clipboard" />
               Coller une liste
             </button>
-            <button className="btn" disabled={occupe} onClick={() => void copierLaConsigne()}>
+            <button type="button" className="salon-geste" disabled={occupe} onClick={() => void copierLaConsigne()}>
               <Icon name="copy" />
               Copier la consigne pour une IA
             </button>
             <button
-              className="btn"
+              type="button"
+              className="salon-geste"
               onClick={() =>
                 prochaines
                   ? setProchaines(null)
@@ -248,9 +250,11 @@ export function AdminDuJour() {
         )}
       </section>
 
-      <section className="card">
-        <h2>Signalements {etat.signalements.length > 0 && <span className="compte-rond">{etat.signalements.length}</span>}</h2>
-        {etat.signalements.length === 0 && <p className="muted">Aucun signalement à relire.</p>}
+      <section className="admin-groupe" aria-labelledby="signalements-titre">
+        <h2 className="compte-groupe" id="signalements-titre">
+          Signalements {etat.signalements.length > 0 && <span className="compte-rond">{etat.signalements.length}</span>}
+        </h2>
+        {etat.signalements.length === 0 && <p className="muted small">Aucun signalement à relire.</p>}
         {etat.signalements.map(s => (
           <div key={`${s.jour}#${s.index}`} className="signalement">
             <p>
@@ -288,9 +292,11 @@ export function AdminDuJour() {
         ))}
       </section>
 
-      <section className="card">
-        <h2>Le classement</h2>
-        <p className="muted">
+      <section className="admin-groupe" aria-labelledby="classement-titre">
+        <h2 className="compte-groupe" id="classement-titre">
+          Le classement
+        </h2>
+        <p className="muted small">
           Tous les profils du serveur qui jouent. Un prénom qui ne va pas se masque ici : le profil ne paraît plus au
           classement, ni sur le podium, et il n’en est pas averti.
         </p>

@@ -6,8 +6,8 @@
 // par la part des joueurs qui les ont trouvées. Le serveur compte les vies
 // et ne donne la bonne réponse qu'après la sienne (invariant 1) ; une bonne
 // réponse y vaut un confetti, comme au quiz du jour, et l'expérience d'une
-// bonne réponse en soirée — plafonnée par jour, puisqu'elle se rejoue sans
-// fin —, dans une ligne que l'historique des soirées ignore.
+// bonne réponse en soirée — sans plafond : chacun monte à son rythme —, dans
+// une ligne que l'historique des soirées ignore.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
@@ -16,7 +16,6 @@ import {
   NIVEAUX,
   QUESTIONS_PAR_MARCHE,
   VIES,
-  XP_MAX_PAR_JOUR,
   XP_PAR_JUSTE,
   niveauMesure,
   ordreDeSerie,
@@ -47,15 +46,13 @@ test('une série monte : cinq de chaque marche, de la plus facile à l’expert,
   assert.deepEqual([...NIVEAUX], ['facile', 'moyen', 'difficile', 'expert'])
 })
 
-test('une bonne réponse rapporte celle d’une soirée, sans réflexe ; chaque journée plafonnée à part', () => {
+test('une bonne réponse rapporte celle d’une soirée, sans réflexe ni plafond', () => {
   assert.equal(XP_PAR_JUSTE, XP.juste)
-  assert.equal(XP_MAX_PAR_JOUR, 45)
-  assert.ok(XP_MAX_PAR_JOUR < 75, 'en dessous du quiz du jour, qui ne se joue qu’une fois')
   assert.equal(xpDuJourDeCampagne(0), 0)
   assert.equal(xpDuJourDeCampagne(4), 12)
   assert.equal(xpDuJourDeCampagne(15), 45)
-  assert.equal(xpDuJourDeCampagne(40), 45, 'le plafond')
-  assert.equal(xpDeCampagne([40, 2, 15]), 45 + 6 + 45, 'un jour sans partie ne reporte rien')
+  assert.equal(xpDuJourDeCampagne(40), 120, 'plus de plafond : la quarantième paie comme la première')
+  assert.equal(xpDeCampagne([40, 2, 15]), 120 + 6 + 45)
 })
 
 // ── Sur un vrai serveur ────────────────────────────────────────────────────
@@ -161,7 +158,7 @@ test('la campagne joue les questions déjà posées au quiz du jour : trois vies
   }
 })
 
-test('l’expérience de campagne s’arrête au plafond du jour, repart le lendemain, et ne fait pas une soirée', async () => {
+test('l’expérience de campagne paie chaque bonne réponse, sans plafond, et ne fait pas une soirée', async () => {
   const horloge = { t: DEBUT }
   const banc = await demarrer({ horlogeDuJour: () => horloge.t })
   try {
@@ -180,15 +177,14 @@ test('l’expérience de campagne s’arrête au plafond du jour, repart le lend
       }
       return gains
     }
-    // Vingt bonnes réponses le même jour : les quinze premières paient.
+    // Vingt bonnes réponses le même jour : toutes paient — il y avait un plafond à quinze.
     const gains = [...(await toutJuste()), ...(await toutJuste())]
     assert.equal(gains.length, 20)
-    assert.deepEqual(gains.slice(0, 15), Array(15).fill(XP_PAR_JUSTE))
-    assert.deepEqual(gains.slice(15), Array(5).fill(0), 'au plein, plus rien')
+    assert.deepEqual(gains, Array(20).fill(XP_PAR_JUSTE), 'la vingtième paie comme la première')
     const plein = await moi()
-    assert.equal(plein.xp, depart.xp + XP_MAX_PAR_JOUR)
-    assert.equal(plein.boutique.confettis.gagnes, depart.boutique.confettis.gagnes + 20, 'les confettis, eux, continuent')
-    assert.equal((await lire(banc, lea, '/api/campagne')).corps.xpAujourdhui, XP_MAX_PAR_JOUR)
+    assert.equal(plein.xp, depart.xp + 20 * XP_PAR_JUSTE)
+    assert.equal(plein.boutique.confettis.gagnes, depart.boutique.confettis.gagnes + 20, 'un confetti chacune')
+    assert.equal((await lire(banc, lea, '/api/campagne')).corps.xpAujourdhui, 20 * XP_PAR_JUSTE)
     // La campagne n'est pas une soirée : l'historique ne la compte pas.
     assert.ok(Array.isArray(plein.soirees))
     assert.deepEqual(plein.soirees, depart.soirees, 'pas de soirée de plus')
@@ -197,7 +193,7 @@ test('l’expérience de campagne s’arrête au plafond du jour, repart le lend
     assert.equal((await lire(banc, lea, '/api/campagne')).corps.xpAujourdhui, 0)
     const demain = await toutJuste()
     assert.equal(demain[0], XP_PAR_JUSTE)
-    assert.equal((await moi()).xp, depart.xp + XP_MAX_PAR_JOUR + 10 * XP_PAR_JUSTE)
+    assert.equal((await moi()).xp, depart.xp + 30 * XP_PAR_JUSTE)
   } finally {
     await banc.close()
   }

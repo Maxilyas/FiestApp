@@ -53,7 +53,7 @@ export const QUESTIONS_POUR_JOUER = 10
  * `posee_le` passé) : relues, et mesurées sur les réponses des joueurs
  * (`jour_reponses`, rapportées à leur question par le tirage du jour).
  * Une bonne réponse y rapporte l'expérience d'une bonne réponse en soirée,
- * chaque journée plafonnée (`xpDeCampagne`), dans sa ligne à part
+ * sans plafond (`xpDeCampagne`), dans sa ligne à part
  * (`LIGNE_CAMPAGNE`) ; et un confetti, comme au quiz du jour
  * (`ProfileStore.justesDeCampagne`).
  */
@@ -309,7 +309,7 @@ export class CampagneStore {
   /**
    * Une bonne réponse vient d'entrer : sa ligne d'expérience se relit en
    * entier, sous le verrou du profil où l'on est déjà. Rend ce que cette
-   * réponse rapporte — rien, le plafond du jour atteint. Une base qui refuse
+   * réponse rapporte. Une base qui refuse
    * d'écrire la ligne ne fait pas échouer la réponse, déjà rangée : la
    * bonne réponse suivante réécrit la ligne entière.
    */

@@ -1,12 +1,13 @@
 import type { Express } from 'express'
 import type { ProfileStore } from './auth/profiles'
 import type { AccountRec, AuthStore } from './auth/store'
-import { estSalonDuProfil } from './auth/store'
+import { estSalonDuProfil, estUnSalon } from './auth/store'
 import type { QuizStore } from './core/quizStore'
 import { accountOf } from './auth/http'
 import { wrap } from './core/http'
 import { tronquer } from '../../shared/avatars'
 import type { ProfilDAdministration } from '../../shared/profil'
+import type { EspaceDAdministration } from '../../shared/space'
 
 interface ProfilsAdminDeps {
   profiles: ProfileStore
@@ -45,6 +46,32 @@ export function mountProfilsAdmin(app: Express, deps: ProfilsAdminDeps) {
       const { total, profils } = await deps.profiles.pourLAdministration(typeof req.query.q === 'string' ? tronquer(req.query.q, 40) : '')
       const moi = accountOf(res)
       res.json({ total, profils: await Promise.all(profils.map(p => ligne(moi, p))) })
+    }),
+  )
+
+  // « Les salons » : tous les espaces, chacun avec son titulaire — les
+  // profils se chargent d'un coup (`byIds`), pas un aller-retour par espace.
+  // `/api/admin/accounts` reste, pour les pages d'avant.
+  app.get(
+    '/api/admin/espaces',
+    wrap(async (_req, res) => {
+      const moi = accountOf(res)
+      const comptes = deps.auth.list()
+      const profils = await deps.profiles.byIds(comptes.flatMap(a => (a.profileId ? [a.profileId] : [])))
+      const parId = new Map(profils.flatMap(p => (p ? [[p.id, p] as const] : [])))
+      const espaces: EspaceDAdministration[] = await Promise.all(
+        comptes.map(async a => {
+          const titulaire = a.profileId ? parId.get(a.profileId) : undefined
+          return {
+            ...deps.auth.toPublic(a),
+            salon: estUnSalon(a),
+            titulaire: titulaire ? { nom: titulaire.name, avatar: titulaire.avatar } : null,
+            quiz: await deps.store.count(a.id),
+            toi: a.id === moi.id,
+          }
+        }),
+      )
+      res.json(espaces)
     }),
   )
 

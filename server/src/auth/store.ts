@@ -64,7 +64,12 @@ export interface AccountRec {
  * coup avec son mot de passe. Supprimer le profil les détache tous deux.
  */
 export function estSalonDuProfil(a: AccountRec): boolean {
-  return a.profileId !== null && !a.passwordHash && a.login.startsWith('p-')
+  return a.profileId !== null && estUnSalon(a)
+}
+
+/** Un salon, qu'il ait encore son profil ou qu'il en soit détaché : son identifiant `p-…`, et jamais de mot de passe. */
+export function estUnSalon(a: AccountRec): boolean {
+  return !a.passwordHash && a.login.startsWith('p-')
 }
 
 export interface SessionRec {

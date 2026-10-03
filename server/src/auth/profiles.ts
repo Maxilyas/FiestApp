@@ -176,8 +176,8 @@ export const LIGNE_PALIERS = '#paliers'
 export const LIGNE_JOUR = '#jour'
 
 /**
- * La ligne d'expérience de la campagne solo : ses bonnes réponses, chaque
- * journée plafonnée (`xpDeCampagne`), recalculées par `core/campagne.ts` à
+ * La ligne d'expérience de la campagne solo : ses bonnes réponses, sans
+ * plafond (`xpDeCampagne`), recalculées par `core/campagne.ts` à
  * chaque bonne réponse. Comme celle du quiz du jour, elle compte dans le
  * total et le niveau, mais l'historique des soirées l'ignore.
  */

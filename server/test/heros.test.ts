@@ -16,7 +16,7 @@ test('la campagne s’ouvre sur son défi : le record, l’échelle et les règl
   assert.match(heros, /<b>\{etat\.record\}<\/b>/)
   assert.match(heros, /<ol className="campagne-echelle" aria-label="La difficulté monte">/)
   // L'expérience et son plafond restent dits avant de jouer.
-  assert.match(heros, /\{XP_PAR_JUSTE\} XP par bonne réponse, \{XP_MAX_PAR_JOUR\} par jour/)
+  assert.match(heros, /\{XP_PAR_JUSTE\} XP par bonne réponse, sans limite/)
   // Les cœurs ne se lisent pas deux fois à l'oreille.
   assert.match(heros, /<span aria-hidden="true">\s*<Vies restantes=\{VIES\} \/>\s*<\/span>/)
   // Les catégories en grille, l'emblème de chacune — celui des écussons —, et « Toutes » d'un toucher.
