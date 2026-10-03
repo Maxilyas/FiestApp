@@ -499,6 +499,23 @@ export function currentMe(): Promise<Me | null> {
 }
 
 /**
+ * Ouvre la console par le profil connecté ici — son espace créé la première
+ * fois (`/api/joueur/espace`). « Mes quiz » et « Compte » sont des pièces du
+ * menu de tout profil : sans compte d'animateur, ils renvoyaient à une
+ * connexion qu'aucun joueur n'avait. Vrai si la console est ouverte ;
+ * faux sans profil — la page demande alors la connexion, comme avant.
+ */
+export async function ouvrirParLeProfil(): Promise<boolean> {
+  try {
+    await api.joueur.espace()
+    return true
+  } catch (e) {
+    if (e instanceof UnauthorizedError) return false
+    throw e
+  }
+}
+
+/**
  * Réduit et recompresse la photo dans le navigateur avant l'envoi : une photo
  * de téléphone fait 4 Mo, on n'en garde que ~100 Ko — la base reste légère et
  * l'affichage instantané sur l'écran commun.

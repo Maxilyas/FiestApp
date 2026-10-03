@@ -21,6 +21,7 @@ const TITRES: Record<AccountPage, string> = {
   jour: 'Le quiz du jour',
   salon: 'Nouveau salon',
   tele: 'La télé',
+  boutique: 'La boutique',
 }
 
 export function titreDePage(page: AccountPage): string {

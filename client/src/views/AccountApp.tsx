@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { chargerDessinsAuPlus, sortesDesAvatars } from '../components/medaillons'
-import { api, UnauthorizedError, type Me } from '../api'
+import { api, ouvrirParLeProfil, UnauthorizedError, type Me } from '../api'
 import { Icon } from '../components/Icon'
+import { MenuBarre } from '../components/Pieces'
+import { ChangerMotDePasse } from '../components/ChangerMotDePasse'
 import { NavAnimateur } from '../components/NavAnimateur'
 import { ChampNombre } from '../components/ChampNombre'
 import { showToast, useAppState } from '../state'
@@ -40,8 +42,14 @@ export function AccountApp() {
         setMe(m)
       })
       .catch(e => {
-        if (e instanceof UnauthorizedError) window.location.replace('/connexion?next=/compte')
-        else setError((e as Error).message)
+        if (!(e instanceof UnauthorizedError)) return setError((e as Error).message)
+        // Un profil a son compte sans compte d'animateur : la console
+        // s'ouvre par lui, et la page se relit — une fois : un cookie refusé
+        // la relirait sans fin. Sans profil, la connexion.
+        const dejaEssaye = new URLSearchParams(window.location.search).has('par-profil')
+        void (dejaEssaye ? Promise.resolve(false) : ouvrirParLeProfil().catch(() => false)).then(ouverte =>
+          window.location.replace(ouverte ? '/compte?par-profil=1' : '/connexion?next=/compte'),
+        )
       })
   }, [])
 
@@ -68,14 +76,21 @@ export function AccountApp() {
   }
 
   const guestUrl = `${window.location.origin}/${me.space.slug}`
+  /**
+   * L'espace d'un profil, créé par « Créer un salon » : son compte n'a pas
+   * de mot de passe — le profil est sa seule porte — et son identifiant ne
+   * se tape jamais. La page parle donc du profil : son identifiant, son mot
+   * de passe, son code de secours, et le salon qu'il ouvre.
+   */
+  const parLeProfil = me.account.status === 'pending' && !!me.profil
 
   return (
     <div className="recap account">
       <header className="recap-header">
-        <span className="label">Espace animateur</span>
-        <h1>{me.account.name}</h1>
+        <span className="label">{parLeProfil ? 'Compte' : 'Espace animateur'}</span>
+        <h1>{parLeProfil ? me.profil!.name : me.account.name}</h1>
         <p className="muted">
-          Identifiant <strong>{me.account.login}</strong>
+          Identifiant <strong>{parLeProfil ? me.profil!.login : me.account.login}</strong>
           {me.account.role === 'admin' && ' · administrateur'}
         </p>
         <hr className="hairline" />
@@ -99,6 +114,17 @@ export function AccountApp() {
         </section>
       )}
 
+      {parLeProfil ? (
+        // Plus d'adresse à copier : chaque salon reçoit son code à l'ouverture.
+        <section className="card">
+          <h2>Mon salon</h2>
+          <p className="muted small">Chaque salon reçoit son code à six chiffres en s’ouvrant : on le dicte à la table, le QR le porte.</p>
+          <a className="btn btn-primary" href="/salon">
+            <Icon name="plus" />
+            Créer un salon
+          </a>
+        </section>
+      ) : (
       <section className="card">
         <h2>L'adresse de mes invités</h2>
         <p className="muted small">
@@ -120,10 +146,20 @@ export function AccountApp() {
           </button>
         </div>
       </section>
+      )}
 
       <SettingsForm me={me} onSaved={space => setMe({ ...me, space })} />
-      <ProfilLie profil={me.profil ?? null} onChange={profil => setMe({ ...me, profil })} />
-      <PasswordForm />
+      {parLeProfil ? (
+        <section className="card">
+          <h2>Mot de passe</h2>
+          <ChangerMotDePasse login={me.profil!.login} />
+        </section>
+      ) : (
+        <>
+          <ProfilLie profil={me.profil ?? null} onChange={profil => setMe({ ...me, profil })} />
+          <PasswordForm />
+        </>
+      )}
 
       <section className="card">
         <h2>Se déconnecter</h2>
@@ -131,10 +167,10 @@ export function AccountApp() {
         <button
           className="btn"
           onClick={() =>
-            api.auth
-              .logout()
+            // Un profil se déconnecte de son profil : sa console se referme avec lui (invariant 16).
+            (parLeProfil ? api.joueur.deconnexion() : api.auth.logout())
               .catch(() => {})
-              .then(() => window.location.assign('/connexion'))
+              .then(() => window.location.assign(parLeProfil ? '/' : '/connexion'))
           }
         >
           <Icon name="x" />
@@ -144,6 +180,7 @@ export function AccountApp() {
 
       {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>
+      <MenuBarre ici="compte" />
     </div>
   )
 }

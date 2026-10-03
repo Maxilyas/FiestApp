@@ -171,7 +171,7 @@ export function FinDeSoiree({
               <p className="fin-confettis">🎊 +{nConfettis(gain.confettis.gagnes)}</p>
               <p className="muted small">
                 {phraseDesConfettis(gain.confettis)}{' '}
-                <a href="/profil#mes-themes">La boutique des thèmes</a>
+                <a href="/boutique">La boutique des thèmes</a>
               </p>
             </>
           )}

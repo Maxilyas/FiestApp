@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent, type ReactNode, type SyntheticEvent } from 'react'
+import { useEffect, useRef, useState, type ReactNode, type SyntheticEvent } from 'react'
 import { Glossaire } from '../components/Glossaire'
 import { api, currentMe, motifDe } from '../api'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
 import { Laurier } from '../components/Laurier'
 import { Icon, type IconName } from '../components/Icon'
-import { Onglets, type Onglet as OngletDef } from '../components/Onglets'
+import { MenuBarre, PieceTete, Tuile, type Piece } from '../components/Pieces'
 import { ProfilForm } from '../components/ProfilForm'
-import { CodeSecours } from '../components/Secours'
 import { tronquer } from '../../../shared/avatars'
 import { pageDeRetour } from '../../../shared/securite'
 import { cibleEclat } from '../../../shared/legendaires'
@@ -21,8 +20,8 @@ import { hautFait } from '../../../shared/hautsfaits'
 import { route, spacePath } from '../routes'
 import { derniereSoireeGardee } from '../state'
 import { Lendemain } from '../components/Lendemain'
-import { CarteDuJour, MesJours, pointsDesJours } from '../components/Jour'
-import { JAnime, JeJoue } from '../components/AccueilDesRoles'
+import { MesJours, pointsDesJours } from '../components/Jour'
+import { AccueilJouer, JAnime } from '../components/AccueilDesRoles'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
 import { nConfettis } from '../../../shared/themes'
@@ -64,14 +63,15 @@ function retenirProfil(connu: boolean) {
 if (profilConnuIci()) void panneaux.charger().catch(() => {})
 
 /**
- * L'accueil (`/`) et la page de profil (`/profil`) : c'est le même écran.
+ * L'accueil (`/`), le profil (`/profil`) et la boutique (`/boutique`) : une
+ * même page, qui lit son adresse (`VUE`), et la barre du menu dessous.
  *
  * Demander « quelle soirée ? » avant de savoir qui est là n'avait aucun sens
- * pour celui qui revient : il a un profil, et souvent un espace à animer. On
- * se connecte donc d'abord, et c'est d'ici qu'on part — animer sa soirée, ou
- * en rejoindre une. Le chemin anonyme n'est pas refermé pour autant :
- * « Rejoindre une soirée » a le format de « Me connecter » et se voit sans
- * défiler, exactement comme à l'entrée d'une soirée.
+ * pour celui qui revient : il a un profil, et souvent un salon à ouvrir. On
+ * se connecte donc d'abord, et c'est d'ici qu'on part — en gros boutons. Le
+ * chemin anonyme n'est pas refermé pour autant : « Rejoindre une soirée » a
+ * le format de « Me connecter » et se voit sans défiler, exactement comme à
+ * l'entrée d'une soirée.
  *
  * Rien de ce que cette page montre ne change quoi que ce soit au déroulé
  * d'une partie.
@@ -115,19 +115,26 @@ export function ProfilApp() {
   /** Où aller une fois connecté : le quiz du jour qu'un ami a envoyé (`?next=/jour`). */
   const [suite] = useState(lireSuite)
   const [gardee] = useState(derniereSoireeGardee)
-  const [onglet, setOnglet] = useState<Onglet>(lireOnglet)
-  /** Le contenu des onglets « Apparence » et « Trophées », dès que le profil est connu. */
+  /** L'écran ouvert depuis une tuile du profil (`/profil#trophees`), ou ses tuiles. */
+  const [ecran, setEcranOuvert] = useState<EcranDuProfil | null>(lireEcran)
+  /** Le contenu des écrans du profil et de la boutique, dès que le profil est connu. */
   const lesPanneaux = useALaDemande(panneaux, !!profil)
-  /** L'onglet choisi s'écrit dans l'adresse — on la partage, on y revient — et sur ce téléphone. */
-  const choisirOnglet = (o: Onglet) => {
-    setOnglet(o)
-    history.replaceState(history.state, '', `${window.location.pathname}${window.location.search}#${o}`)
-    try {
-      localStorage.setItem(CLE_ONGLET, o)
-    } catch {
-      // Stockage refusé : l'adresse le garde encore.
-    }
+  /**
+   * Ouvrir un écran pose son adresse dans l'historique : le retour du
+   * navigateur ramène aux tuiles, pas hors du profil. Et chaque écran
+   * commence en haut, comme une page qu'on ouvre.
+   */
+  const ouvrir = (e: EcranDuProfil | null) => {
+    if (e) history.pushState(history.state, '', `${window.location.pathname}${window.location.search}#${e}`)
+    else if (window.location.hash) history.back()
+    setEcranOuvert(e)
+    window.scrollTo(0, 0)
   }
+  useEffect(() => {
+    const auRetour = () => setEcranOuvert(lireEcran())
+    window.addEventListener('popstate', auRetour)
+    return () => window.removeEventListener('popstate', auRetour)
+  }, [])
 
   const relire = () =>
     api.joueur.moi().then(r => {
@@ -141,7 +148,7 @@ export function ProfilApp() {
   useEffect(() => {
     // L'onglet de l'accueil dit ce qu'est l'application ; celui de `/profil`,
     // ce qu'on y regarde.
-    document.title = route.kind === 'landing' ? 'FiestApp · le quiz de soirée' : 'Mon profil · FiestApp'
+    document.title = VUE === 'accueil' ? 'FiestApp · le quiz de soirée' : VUE === 'boutique' ? 'La boutique · FiestApp' : 'Mon profil · FiestApp'
     currentMe().then(m => setConsole(m?.space ?? null))
     relire()
       .catch(() => setProfil(null))
@@ -177,21 +184,6 @@ export function ProfilApp() {
       setBusy(false)
     }
   }
-
-  /** Le solde de l'en-tête mène à la boutique, dans l'onglet « Apparence ». */
-  const versLaBoutique = () => {
-    choisirOnglet('apparence')
-    // Le panneau se rend au clic ; la boutique s'y trouve à l'image suivante.
-    requestAnimationFrame(() => document.getElementById(BOUTIQUE)?.scrollIntoView({ block: 'start' }))
-  }
-  // Arrivé par l'adresse de la boutique (une fin de soirée) : la page s'ouvre
-  // dessus, une fois l'onglet chargé — elle n'existe pas au chargement, et le
-  // navigateur ne sait pas y descendre seul.
-  const [parLaBoutique] = useState(() => window.location.hash === `#${BOUTIQUE}`)
-  const panneauxPrets = !!profil && !!lesPanneaux && lesPanneaux !== 'perdu'
-  useEffect(() => {
-    if (parLaBoutique && panneauxPrets) requestAnimationFrame(() => document.getElementById(BOUTIQUE)?.scrollIntoView({ block: 'start' }))
-  }, [parLaBoutique, panneauxPrets])
 
   /**
    * Acheter un thème : le serveur compte, achète et le fait porter. Le solde
@@ -284,146 +276,141 @@ export function ProfilApp() {
 
   const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
   const animateur = espace ?? console_
+  const pret = lesPanneaux && lesPanneaux !== 'perdu' ? lesPanneaux : null
+  const enChemin = <OngletEnChemin perdu={lesPanneaux === 'perdu'} />
+  const barreXp = (
+    <div
+      className="xp-bar"
+      role="progressbar"
+      aria-label={`Niveau ${profil.niveau}`}
+      aria-valuemin={0}
+      aria-valuemax={profil.requis || 1}
+      aria-valuenow={profil.requis > 0 ? profil.acquis : 1}
+    >
+      <div className="xp-fill" style={{ width: `${part}%` }} />
+    </div>
+  )
+  const avatar = (classe: string) => (
+    <Avatar
+      className={classe}
+      avatar={profil.avatar}
+      finition={profil.finition}
+      eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
+      legendaire={profil.legendaire ?? undefined}
+    />
+  )
+  // Toujours là, vide d'abord : une région qui apparaît avec son texte
+  // n'est pas toujours lue.
+  const regionDAnnonce = (
+    <p className="sr-only" role="status">
+      {annonce}
+    </p>
+  )
+  const menu = (ici: Piece) => <MenuBarre ici={ici} />
 
-  return (
-    // `player-shell` : la même mise en page que le téléphone d'un invité —
-    // c'est le même écran, tenu dans la même main.
-    <div className="player-shell">
-      <header className="me-header profil-tete">
-        <Avatar
-          className="player-avatar big"
-          avatar={profil.avatar}
-          finition={profil.finition}
-          eclat={brilleChez(profil, cibleEclat(profil.legendaire, profil.avatar))}
-          legendaire={profil.legendaire ?? undefined}
-        />
-        {/* Le niveau et sa barre, sous le nom : une carte « Niveau » redisait
-            ce que l'en-tête disait déjà, la pastille et l'expérience. */}
-        <div className="profil-identite">
-          <h2>
-            {profil.name}
-            <Niveau niveau={profil.niveau} big />
-          </h2>
-          {/* Son titre, sous son prénom, comme sa carte le montre. */}
-          {profil.titre && hautFait(profil.titre) && (
-            <p className="titre-porte">{espacesFines(`« ${hautFait(profil.titre)!.title} »`)}</p>
-          )}
-          {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
-          {profil.laurier && (
-            <p className="carte-laurier">
-              <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
-            </p>
-          )}
-          <div
-            className="xp-bar"
-            role="progressbar"
-            aria-label={`Niveau ${profil.niveau}`}
-            aria-valuemin={0}
-            aria-valuemax={profil.requis || 1}
-            aria-valuenow={profil.requis > 0 ? profil.acquis : 1}
-          >
-            <div className="xp-fill" style={{ width: `${part}%` }} />
-          </div>
-          <p className="muted small">
-            {profil.requis > 0
-              ? `${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} XP vers le niveau ${profil.niveau + 1}`
-              : 'Au sommet'}
-          </p>
-          {/* Ses confettis, sous son expérience : un toucher mène à la boutique. */}
-          {profil.boutique && (
-            <button type="button" className="profil-solde" onClick={versLaBoutique}>
-              🎊 {nConfettis(profil.boutique.confettis.solde)}
-            </button>
-          )}
-        </div>
-      </header>
+  // ── L'accueil : qui l'on est en une ligne, puis ce qu'on vient faire ──
+  if (VUE === 'accueil') {
+    return (
+      // `player-shell` : la même mise en page que le téléphone d'un invité —
+      // c'est le même écran, tenu dans la même main.
+      <div className="player-shell accueil">
+        <a className="ligne-identite" href="/profil">
+          {avatar('player-avatar')}
+          <span className="ligne-identite-texte">
+            <b>
+              {profil.name}
+              <Niveau niveau={profil.niveau} />
+            </b>
+            {barreXp}
+          </span>
+          {/* Ses confettis au bout de la ligne : discrets, ils se dépensent à la boutique. */}
+          {profil.boutique && <span className="ligne-solde">🎊 {nConfettis(profil.boutique.confettis.solde)}</span>}
+        </a>
+        <AccueilJouer enCours={enCours} onRejoindre={() => setRejoindre(true)} lendemain={lendemain} />
+        {/* L'écran commun et ses pages, pour qui anime : le profil rattaché à
+            un espace, sinon la console ouverte ici. */}
+        {animateur && <JAnime espace={animateur} rouvrir={!!espace} />}
+        {erreur && <p className="error">{erreur}</p>}
+        {menu('accueil')}
+      </div>
+    )
+  }
 
-      {/* D'abord ce qu'on est venu faire : animer, puis jouer. Le reste
-          vient après — on le regarde, on n'en part pas. Le profil rattaché
-          à un espace l'anime ; sinon, la console ouverte ici. */}
-      {animateur && <JAnime espace={animateur} rouvrir={!!espace} />}
-      <JeJoue
-        enCours={enCours}
-        chezMoi={animateur?.slug ?? null}
-        onRejoindre={() => setRejoindre(true)}
-        lendemain={lendemain}
-      />
+  // ── La boutique : les thèmes, leurs confettis ──
+  if (VUE === 'boutique') {
+    return (
+      <div className="player-shell">
+        {/* Le solde, la boutique le dit en tête de ses thèmes. */}
+        <PieceTete piece="Les thèmes" titre="La boutique" />
+        {regionDAnnonce}
+        {pret ? <pret.PanneauBoutique profil={profil} busy={busy} enregistrer={enregistrer} acheter={acheter} /> : enChemin}
+        {erreur && <p className="error">{erreur}</p>}
+        {menu('boutique')}
+      </div>
+    )
+  }
 
-      {/* Le quiz du jour, sous la soirée : l'entre-deux, pas la raison de venir. */}
-      <CarteDuJour />
-
-      <Onglets
-        onglets={ONGLETS}
-        actif={onglet}
-        onChoisir={choisirOnglet}
-        label="Mon profil"
-        idOnglet={id => `onglet-${id}`}
-        idPanneau={id => `profil-${id}`}
-        className="onglets-profil"
-      />
-      {/* Toujours là, vide d'abord : une région qui apparaît avec son texte
-          n'est pas toujours lue. */}
-      <p className="sr-only" role="status">
-        {annonce}
-      </p>
-
-      {onglet === 'apparence' && (
-        <div className="profil-onglet" role="tabpanel" id="profil-apparence" aria-labelledby="onglet-apparence">
-          {lesPanneaux && lesPanneaux !== 'perdu' ? (
-            <lesPanneaux.PanneauApparence profil={profil} busy={busy} enregistrer={enregistrer} acheter={acheter} />
-          ) : (
-            <OngletEnChemin perdu={lesPanneaux === 'perdu'} />
-          )}
-        </div>
-      )}
-
-      {onglet === 'trophees' && (
-        <div className="profil-onglet" role="tabpanel" id="profil-trophees" aria-labelledby="onglet-trophees">
-          {lesPanneaux && lesPanneaux !== 'perdu' ? (
-            <lesPanneaux.PanneauTrophees profil={profil} busy={busy} enregistrer={enregistrer} />
-          ) : (
-            <OngletEnChemin perdu={lesPanneaux === 'perdu'} />
-          )}
-        </div>
-      )}
-
-      {onglet === 'carriere' && (
-        <div className="profil-onglet" role="tabpanel" id="profil-carriere" aria-labelledby="onglet-carriere">
+  // ── Le profil : un écran ouvert depuis sa tuile ──
+  if (ecran) {
+    const nom = ECRANS.find(e => e.id === ecran)?.nom ?? ''
+    return (
+      <div className="player-shell">
+        <a
+          className="lien-discret jour-sortie"
+          href="/profil"
+          onClick={e => {
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+            e.preventDefault()
+            ouvrir(null)
+          }}
+        >
+          <Icon name="arrow-left" />
+          Mon profil
+        </a>
+        <PieceTete piece="Mon profil" titre={nom} />
+        {regionDAnnonce}
+        {ecran === 'avatars' && (pret ? <pret.PanneauAvatars profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'style' && (pret ? <pret.PanneauStyle profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'trophees' && (pret ? <pret.PanneauTrophees profil={profil} busy={busy} enregistrer={enregistrer} /> : enChemin)}
+        {ecran === 'carriere' && (
+          <>
+            <div className="card">
+              <h3>
+                <Icon name="bar-chart" />
+                Ma fiche
+              </h3>
+              <FicheCarriere fiche={profil.fiche} partie="essentiel" />
+              {/* Les courbes à la vue : on aimait les voir monter. Les huit
+                  autres chiffres et les catégories, d'un toucher. */}
+              <h4 className="hf-groupe">Soirée après soirée</h4>
+              <Courbes soirees={profil.soirees} />
+              {profil.jour && profil.jour.jours.length > 0 && (
+                <>
+                  <h4 className="hf-groupe">Jour après jour, au quiz du jour</h4>
+                  <Courbes unite="jour" soirees={pointsDesJours(profil.jour.jours)} />
+                </>
+              )}
+              <Deplier id="fiche" titre="Tous mes chiffres">
+                <FicheCarriere fiche={profil.fiche} partie="reste" />
+              </Deplier>
+              {Object.keys(profil.categories).length > 0 && (
+                <>
+                  <h4 className="hf-groupe">Par catégorie</h4>
+                  <Categories categories={profil.categories} />
+                </>
+              )}
+            </div>
+            <MesJours jour={profil.jour} />
+          </>
+        )}
+        {ecran === 'soirees' && (
           <div className="card">
-            <h3>
-              <Icon name="bar-chart" />
-              Ma fiche
-            </h3>
-            <FicheCarriere fiche={profil.fiche} partie="essentiel" />
-            {/* Les courbes à la vue : on aimait les voir monter. Les huit
-                autres chiffres et les catégories, d'un toucher. */}
-            <h4 className="hf-groupe">Soirée après soirée</h4>
-            <Courbes soirees={profil.soirees} />
-            {profil.jour && profil.jour.jours.length > 0 && (
-              <>
-                <h4 className="hf-groupe">Jour après jour, au quiz du jour</h4>
-                <Courbes unite="jour" soirees={pointsDesJours(profil.jour.jours)} />
-              </>
-            )}
-            <Deplier id="fiche" titre="Tous mes chiffres">
-              <FicheCarriere fiche={profil.fiche} partie="reste" />
-            </Deplier>
-            {Object.keys(profil.categories).length > 0 && (
-              <>
-                <h4 className="hf-groupe">Par catégorie</h4>
-                <Categories categories={profil.categories} />
-              </>
-            )}
-          </div>
-
-          <MesJours jour={profil.jour} />
-
-          <Repli id="soirees" icone="list" titre="Mes soirées" compte={String(profil.soirees.length)} vide={profil.soirees.length === 0}>
+            {profil.soirees.length === 0 && <p className="muted">Pas encore de soirée : la première s’ajoutera ici.</p>}
             {profil.soirees.map(s => {
               const date = new Date(s.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
               // Le titre que l'animateur lui a donné, la date sinon : une liste de
               // dates ne disait pas laquelle était la fête de Marc.
-              const nom = s.titre ?? date
+              const nomDeSoiree = s.titre ?? date
               return (
                 <div key={s.soireeId} className="soiree-row">
                   <div className="soiree-texte">
@@ -431,10 +418,10 @@ export function ProfilApp() {
                       {/* Le souvenir de la soirée, dans l'espace où elle s'est jouée. */}
                       {s.slug ? (
                         <a className="link-inline" href={spacePath(s.slug, 'souvenir', s.soireeId)}>
-                          {nom}
+                          {nomDeSoiree}
                         </a>
                       ) : (
-                        nom
+                        nomDeSoiree
                       )}
                     </span>
                     <span className="soiree-detail">
@@ -461,13 +448,71 @@ export function ProfilApp() {
                 mot, la somme des soirées ne faisait pas le total, et rien ne
                 disait pourquoi. */}
             <p className="muted small">Les paliers de carrière et le quiz du jour s’ajoutent à part.</p>
-          </Repli>
+          </div>
+        )}
+        {erreur && <p className="error">{erreur}</p>}
+        {menu('profil')}
+      </div>
+    )
+  }
 
-          <Repli id="acces" icone="users" titre="Identifiant et mot de passe">
-            <MotDePasse login={profil.login} />
-          </Repli>
+  // ── Le profil : qui je suis, puis ses tuiles ──
+  const detailDeTuile: Record<EcranDuProfil, string> = {
+    avatars: profil.legendaire ? 'Un légendaire porté' : `${profil.avatar} porté`,
+    style: [profil.finition && profil.finition !== 'mat' ? 'Une finition' : null, profil.titre ? 'un titre' : null].filter(Boolean).join(', ') || 'Finition, titre, fond',
+    trophees: `${profil.vitrine.length} en vitrine`,
+    carriere: `Niveau ${profil.niveau}`,
+    soirees: profil.soirees.length === 0 ? 'Aucune encore' : `${profil.soirees.length} soirée${profil.soirees.length > 1 ? 's' : ''}`,
+  }
+  const iconeDeTuile: Record<EcranDuProfil, IconName> = {
+    avatars: 'sparkles',
+    style: 'star',
+    trophees: 'trophy',
+    carriere: 'bar-chart',
+    soirees: 'list',
+  }
+  return (
+    <div className="player-shell">
+      <header className="me-header profil-tete">
+        {avatar('player-avatar big')}
+        {/* Le niveau et sa barre, sous le nom : une carte « Niveau » redisait
+            ce que l'en-tête disait déjà, la pastille et l'expérience. */}
+        <div className="profil-identite">
+          <h2>
+            {profil.name}
+            <Niveau niveau={profil.niveau} big />
+          </h2>
+          {/* Son titre, sous son prénom, comme sa carte le montre. */}
+          {profil.titre && hautFait(profil.titre) && (
+            <p className="titre-porte">{espacesFines(`« ${hautFait(profil.titre)!.title} »`)}</p>
+          )}
+          {/* Il a gagné hier : sa page le lui dit, comme la salle le voit. */}
+          {profil.laurier && (
+            <p className="carte-laurier">
+              <Laurier laurier decoratif /> Vainqueur du quiz du jour d’hier
+            </p>
+          )}
+          {barreXp}
+          <p className="muted small">
+            {profil.requis > 0
+              ? `${formatNumber(profil.acquis)} / ${formatNumber(profil.requis)} XP vers le niveau ${profil.niveau + 1}`
+              : 'Au sommet'}
+          </p>
+          {/* Ses confettis, sous son expérience : un toucher mène à la boutique. */}
+          {profil.boutique && (
+            <a className="profil-solde" href="/boutique">
+              🎊 {nConfettis(profil.boutique.confettis.solde)}
+            </a>
+          )}
         </div>
-      )}
+      </header>
+      {regionDAnnonce}
+
+      <div className="tuiles">
+        {ECRANS.map(e => (
+          <Tuile key={e.id} icone={iconeDeTuile[e.id]} titre={e.nom} detail={detailDeTuile[e.id]} onClick={() => ouvrir(e.id)} />
+        ))}
+      </div>
 
       <Glossaire
         mots={['xp', 'niveau', 'finition', 'eclat', 'legendaire', 'divin', 'hautsFaits', 'paliers', 'ecusson', 'laurier', 'serie', 'fond', 'precision', 'coupDOeil', 'reflexe', 'flair']}
@@ -496,11 +541,11 @@ export function ProfilApp() {
           Me déconnecter
         </button>
       </div>
+      {menu('profil')}
     </div>
   )
 }
 
-type Onglet = 'apparence' | 'trophees' | 'carriere'
 
 /**
  * Un onglet qui arrive : sa place, d'une hauteur d'écran — le glossaire et
@@ -526,43 +571,38 @@ function OngletEnChemin({ perdu }: { perdu: boolean }) {
 }
 
 /**
- * Les trois onglets du profil. Tout tenait sur une page — avatar,
- * légendaires, Divins, finitions, hauts faits, fiche, prix, soirées —, en
- * sections repliées qu'on ne savait plus où chercher : ce qu'on porte, ce
- * qu'on a gagné, ce qu'on a joué.
+ * Les écrans du profil, chacun derrière sa tuile. Les trois onglets d'avant
+ * tenaient tout sur trois pages qu'on faisait défiler — avatars, finitions,
+ * thèmes, hauts faits, prix, fiche, soirées — : cinq tuiles disent ce qu'il
+ * y a, et chacune ouvre le sien. La boutique a sa page, dans le menu.
  */
-const ONGLETS: OngletDef<Onglet>[] = [
-  { id: 'apparence', nom: 'Apparence', icone: 'sparkles' },
-  { id: 'trophees', nom: 'Trophées', icone: 'trophy' },
-  { id: 'carriere', nom: 'Carrière', icone: 'bar-chart' },
+type EcranDuProfil = 'avatars' | 'style' | 'trophees' | 'carriere' | 'soirees'
+
+const ECRANS: { id: EcranDuProfil; nom: string }[] = [
+  { id: 'avatars', nom: 'Mes avatars' },
+  { id: 'style', nom: 'Mon style' },
+  { id: 'trophees', nom: 'Mes trophées' },
+  { id: 'carriere', nom: 'Ma carrière' },
+  { id: 'soirees', nom: 'Mes soirées' },
 ]
 
-/** L'onglet que ce téléphone avait laissé ouvert. */
-const CLE_ONGLET = 'quizz.profil.onglet'
+/** La page que sert la vue : l'accueil (`/`), le profil (`/profil`), la boutique (`/boutique`). */
+const VUE: 'accueil' | 'profil' | 'boutique' =
+  route.kind === 'account' && route.page === 'boutique' ? 'boutique' : route.kind === 'account' && route.page === 'profil' ? 'profil' : 'accueil'
 
-/** L'adresse de la boutique des thèmes, que la fin de soirée donne : `/profil#mes-themes`. */
-const BOUTIQUE = 'mes-themes'
+/** Les adresses d'avant — un onglet, la boutique dans l'apparence — mènent encore quelque part. */
+const ANCIENNES: Record<string, EcranDuProfil> = { apparence: 'avatars' }
 
-const estOnglet = (x: unknown): x is Onglet => ONGLETS.some(o => o.id === x)
-
-/**
- * L'onglet ouvert : celui de l'adresse (`/profil#trophees`), sinon celui
- * qu'on avait laissé, sinon « Apparence ».
- */
-function lireOnglet(): Onglet {
-  const dansLAdresse = window.location.hash.slice(1)
-  if (estOnglet(dansLAdresse)) return dansLAdresse
-  // La boutique des thèmes vit dans l'apparence (`/profil#mes-themes`).
-  if (dansLAdresse === BOUTIQUE) return 'apparence'
-  // Sous try/catch : des cookies bloqués donnaient une page noire.
-  try {
-    const garde = localStorage.getItem(CLE_ONGLET)
-    if (estOnglet(garde)) return garde
-  } catch {
-    // Stockage refusé : on part de l'apparence, comme la première fois.
-  }
-  return 'apparence'
+/** L'écran de l'adresse (`/profil#trophees`), ou les tuiles. */
+function lireEcran(): EcranDuProfil | null {
+  if (VUE !== 'profil') return null
+  const h = window.location.hash.slice(1)
+  return ECRANS.find(e => e.id === h)?.id ?? ANCIENNES[h] ?? null
 }
+
+// La boutique des thèmes vivait dans l'apparence (`/profil#mes-themes`) : la
+// fin de soirée d'une page d'avant y mène encore, et trouve sa page.
+if (VUE === 'profil' && window.location.hash === '#mes-themes') window.location.replace('/boutique')
 
 /**
  * La porte des animateurs, sur l'accueil d'un visiteur sans profil ni
@@ -596,113 +636,6 @@ function lireCreation(): { name: string; avatar: string } | null {
   const q = new URLSearchParams(window.location.search)
   if (!q.has('creer')) return null
   return { name: tronquer((q.get('prenom') ?? '').trim(), 24), avatar: q.get('avatar') ?? '' }
-}
-
-/**
- * Relire son identifiant, changer son mot de passe. La route existait, pas
- * l'écran. Il faut l'actuel — ou le code de secours, qui se consomme et en
- * rend un neuf, à noter aussitôt. Les consoles que ce profil avait ouvertes
- * ailleurs se referment (invariant 16) : c'est le serveur qui s'en charge.
- */
-function MotDePasse({ login }: { login: string }) {
-  const [parCode, setParCode] = useState(false)
-  const [preuve, setPreuve] = useState('')
-  const [suivant, setSuivant] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [erreur, setErreur] = useState('')
-  const [fait, setFait] = useState(false)
-  const [code, setCode] = useState('')
-
-  const envoyer = async (e: FormEvent) => {
-    e.preventDefault()
-    setBusy(true)
-    setErreur('')
-    try {
-      const res = await api.joueur.motDePasse(
-        parCode ? { code: preuve.trim(), next: suivant } : { current: preuve, next: suivant },
-      )
-      setFait(true)
-      setCode(res.recovery ?? '')
-      setPreuve('')
-      setSuivant('')
-    } catch (e) {
-      setErreur(motifDe(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <>
-      <p>
-        Ton identifiant : <strong>{login}</strong>
-      </p>
-      {fait ? (
-        <>
-          <p className="info" role="status">
-            Mot de passe changé. Tes autres appareils devront se reconnecter.
-          </p>
-          {code && (
-            <>
-              <p className="muted small">Ton code de secours a servi : voici le nouveau.</p>
-              <CodeSecours code={code} />
-            </>
-          )}
-        </>
-      ) : (
-        <form className="mdp-form" onSubmit={envoyer}>
-          <div className="field">
-            <label className="label" htmlFor="mdp-preuve">
-              {parCode ? 'Ton code de secours' : 'Ton mot de passe actuel'}
-            </label>
-            <input
-              id="mdp-preuve"
-              className="input input-line"
-              type={parCode ? 'text' : 'password'}
-              value={preuve}
-              onChange={e => setPreuve(e.target.value)}
-              autoComplete={parCode ? 'off' : 'current-password'}
-              autoCapitalize={parCode ? 'characters' : 'none'}
-              spellCheck={false}
-            />
-          </div>
-          <div className="field">
-            <label className="label" htmlFor="mdp-suivant">
-              Ton nouveau mot de passe
-            </label>
-            <input
-              id="mdp-suivant"
-              className="input input-line"
-              type="password"
-              value={suivant}
-              onChange={e => setSuivant(e.target.value)}
-              autoComplete="new-password"
-            />
-            <span className="muted small">Au moins 8 caractères.</span>
-          </div>
-          {erreur && (
-            <p className="error" role="alert">
-              {erreur}
-            </p>
-          )}
-          <button className="btn btn-primary btn-block" disabled={busy || !preuve.trim() || !suivant}>
-            Changer mon mot de passe
-          </button>
-          <button
-            type="button"
-            className="link-inline"
-            onClick={() => {
-              setParCode(c => !c)
-              setPreuve('')
-              setErreur('')
-            }}
-          >
-            {parCode ? 'Je connais mon mot de passe' : "Mot de passe oublié ? Mon code de secours"}
-          </button>
-        </form>
-      )}
-    </>
-  )
 }
 
 /** Les sections que ce téléphone avait laissées ouvertes. */

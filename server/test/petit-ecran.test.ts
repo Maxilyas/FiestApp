@@ -155,8 +155,9 @@ test('les onglets passent à la ligne plutôt que de sortir de l’écran', () =
   assert.doesNotMatch(onglets, /grid-auto-flow:\s*column/)
   // D'une même largeur tant qu'ils tiennent, jamais sous leur texte.
   assert.match(regle('.onglet'), /flex:\s*1 1 0/)
-  // Sous 340 px (un 360 au texte à 130 % en fait 277), sans leurs icônes.
-  assert.match(CSS, /@media \(max-width: 340px\) \{\s*\.onglets-profil \.onglet \{[^}]*\}\s*\.onglets-profil \.onglet \.icon \{ display: none; \}/)
+  // Sous 340 px (un 360 au texte à 130 % en fait 277), sans leurs icônes —
+  // toute rangée d'onglets, depuis que le profil a ses tuiles.
+  assert.match(CSS, /@media \(max-width: 340px\) \{\s*\.onglets \.onglet \{[^}]*\}\s*\.onglets \.onglet \.icon \{ display: none; \}/)
   // Au texte agrandi, la pastille de niveau du profil poussait la page : le prénom se coupe.
   assert.match(regle('.profil-identite h2'), /overflow-wrap:\s*anywhere/)
 })
@@ -187,8 +188,9 @@ test('les onglets se prennent aux flèches, un seul arrêt de Tab, le panneau af
   assert.match(boutons[1], /tabindex="0"/)
   assert.match(boutons[1], /aria-controls="profil-t"/)
 
-  // Le profil et le classement du jour passent par elle ; le classement a son panneau.
-  assert.match(source('views/ProfilApp.tsx'), /<Onglets\s/)
+  // Les familles de « Mes avatars » et le classement du jour passent par
+  // elle ; le classement a son panneau. Le profil, lui, a ses tuiles.
+  assert.match(source('components/Apparence.tsx'), /<Onglets\s/)
   const jour = source('views/JourApp.tsx')
   assert.match(jour, /<Onglets\s/)
   assert.match(jour, /role="tabpanel" id="classement-periode" aria-labelledby=\{`periode-\$\{periode\}`\}/)

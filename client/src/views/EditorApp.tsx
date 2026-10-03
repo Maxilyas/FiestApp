@@ -77,7 +77,7 @@ import {
   sansPhotosDisparues,
   type Brouillon,
 } from '../../../shared/brouillon'
-import { ApiError, ConflitError, UnauthorizedError, api, auReveil, compressImage, refusDuServeur } from '../api'
+import { ApiError, ConflitError, UnauthorizedError, api, auReveil, compressImage, ouvrirParLeProfil, refusDuServeur } from '../api'
 import { garderBrouillon, oublierBrouillon, photosDisparues, retrouverBrouillon } from '../brouillon'
 import { questionSizeClass } from '../games/quiz/questionSize'
 import { CONSIGNE_DES_VARIANTES, consigneEstimation } from '../games/quiz/consignes'
@@ -85,6 +85,7 @@ import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { ecrireCode, lireCode, type EntreeDuCatalogue } from '../../../shared/partage'
 import { formatDay } from '../../../shared/archive'
 import { Icon } from '../components/Icon'
+import { MenuBarre } from '../components/Pieces'
 import { NavAnimateur } from '../components/NavAnimateur'
 import { PanneauProgramme, useProgrammes } from '../components/Programme'
 import { ChampNombre } from '../components/ChampNombre'
@@ -158,6 +159,8 @@ function telecharger(nom: string, contenu: string) {
 
 export function EditorApp() {
   const [needLogin, setNeedLogin] = useState(false)
+  /** La console s'ouvre par le profil une fois au plus : sans profil, la connexion. */
+  const essaiParLeProfil = useRef(false)
   const [loginError, setLoginError] = useState('')
   const [busy, setBusy] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -385,8 +388,15 @@ export function EditorApp() {
       setBrouillons(new Set(quizzes.filter(q => retrouverBrouillon(q.id)).map(q => q.id)))
       setNeedLogin(false)
     } catch (e) {
-      if (e instanceof UnauthorizedError) setNeedLogin(true)
-      else setError((e as Error).message)
+      if (!(e instanceof UnauthorizedError)) return setError((e as Error).message)
+      // Un profil ouvre ses quiz sans compte d'animateur : la console
+      // s'ouvre par lui, une fois, et la liste se relit.
+      if (!essaiParLeProfil.current) {
+        essaiParLeProfil.current = true
+        const ouverte = await ouvrirParLeProfil().catch(() => false)
+        if (ouverte) return reload()
+      }
+      setNeedLogin(true)
     }
   }, [])
 
@@ -757,6 +767,7 @@ export function EditorApp() {
           </div>
         )}
       </main>
+      <MenuBarre ici="quiz" />
     </div>
   )
 }

@@ -116,32 +116,22 @@ test('l’accueil de qui anime : l’écran commun, un salon, ses quiz, son comp
   assert.match(profil, /pied=\{!console_ && <PorteAnimateur \/>\}/)
 })
 
-test('« Je joue » : revenir, rejoindre une soirée, jouer chez soi — sans voler le gros bouton de l’écran commun', async () => {
-  const joue = (props: object) =>
-    rendu('components/AccueilDesRoles', 'JeJoue', { enCours: [], chezMoi: null, onRejoindre: () => {}, lendemain: null, ...props })
+test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz du jour, un salon, rejoindre — en gros boutons, à la même place', async () => {
+  const accueil = (props: object) =>
+    rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: () => {}, lendemain: null, ...props })
+  const toujours = ['Le quiz du jourDix questions, les mêmes pour tous → /jour', 'Créer un salonTes quiz, tes amis, un code à dicter → /salon', 'Rejoindre une soiréeLe code à six chiffres de ton hôte [bouton]']
 
-  // Qui anime et joue, sans soirée en cours : deux petits boutons, pas de principal.
-  const libre = await joue({ chezMoi: 'chez-bob' })
-  assert.match(libre, /Je joue/)
-  assert.doesNotMatch(libre, /btn-primary/)
-  assert.deepEqual(gestes(libre), ['Rejoindre une soirée [bouton]', 'Jouer chez moi → /chez-bob'])
+  // Rien en cours : les trois gestes, aucun principal — l'ordre ne dépend ni
+  // de l'heure ni des rôles, contrairement à « Je joue » et « Ce soir ».
+  const libre = await accueil({})
+  assert.deepEqual(gestes(libre), toujours)
+  assert.doesNotMatch(libre, /gros-principal/)
 
-  // Inscrit chez Alice : y revenir d'abord.
-  const chezAlice = await joue({ chezMoi: 'chez-bob', enCours: [{ nom: 'Alice', slug: 'chez-alice' }] })
-  assert.deepEqual(gestes(chezAlice), ['Revenir chez Alice → /chez-alice', 'Rejoindre une soirée [bouton]', 'Jouer chez moi → /chez-bob'])
-  assert.match(chezAlice, /class="btn btn-primary btn-block" href="\/chez-alice"/)
-
-  // Inscrit chez lui : « Revenir chez Bob », pas deux fois le même chemin.
-  const chezLui = await joue({ chezMoi: 'chez-bob', enCours: [{ nom: 'Bob', slug: 'chez-bob' }] })
-  assert.deepEqual(gestes(chezLui), ['Revenir chez Bob → /chez-bob', 'Rejoindre une soirée [bouton]'])
-
-  // Qui ne fait que jouer : « Ce soir », comme avant — rejoindre en grand, et
-  // son propre salon, en petit : tout le monde peut animer, plus de compte
-  // d'animateur à demander.
-  const joueur = await joue({})
-  assert.match(joueur, /Ce soir/)
-  assert.deepEqual(gestes(joueur), ['Rejoindre une soirée [bouton]', 'Créer un salon → /salon'])
-  assert.match(joueur, /class="btn btn-primary btn-block"/)
+  // Inscrit chez Alice : y revenir passe devant tout, et seul en principal.
+  const chezAlice = await accueil({ enCours: [{ nom: 'Alice', slug: 'chez-alice' }] })
+  assert.deepEqual(gestes(chezAlice), ['Revenir chez AliceLa soirée continue sans toi → /chez-alice', ...toujours])
+  assert.match(chezAlice, /class="gros-bouton gros-principal" href="\/chez-alice"/)
+  assert.equal([...chezAlice.matchAll(/gros-principal/g)].length, 1)
 })
 
 test('les pages sans sortie en ont une : l’accueil', () => {

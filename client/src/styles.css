@@ -4295,6 +4295,7 @@ h3 > .icon {
 .themes-rarete .label { margin-top: 14px; }
 /* Le solde, dans l'en-tête du profil : un lien vers la boutique, qui n'en a pas l'air d'un bouton. */
 .profil-solde {
+  text-decoration: none;
   align-self: flex-start;
   margin-top: 2px;
   padding: 0;
@@ -6616,15 +6617,13 @@ h3 > .icon {
   .accueil-raccourcis .btn { flex-direction: column; gap: 3px; padding: 8px 4px; white-space: nowrap; }
   .accueil-raccourcis .btn .icon { width: 18px; height: 18px; }
 }
-.onglets-profil .onglet { min-height: 44px; }
 .onglet .icon { width: 16px; height: 16px; flex: none; }
-/* Sur un petit téléphone, ou un 360 au texte à 130 %, les trois libellés
-   tiennent sur une rangée sans leurs icônes : ils gardent la place. */
+/* Sur un petit téléphone, ou un 360 au texte à 130 %, les libellés d'une
+   rangée d'onglets tiennent sans leurs icônes : ils gardent la place. */
 @media (max-width: 340px) {
-  .onglets-profil .onglet { padding: 0 4px; }
-  .onglets-profil .onglet .icon { display: none; }
+  .onglets .onglet { padding: 0 4px; }
+  .onglets .onglet .icon { display: none; }
 }
-.profil-onglet { display: flex; flex-direction: column; gap: 18px; }
 /* L'onglet qui arrive tient une hauteur d'écran : ce qui le suit reste sous
    le pli, et ne saute pas quand il arrive. */
 .onglet-en-chemin { min-height: 100vh; padding-top: 12px; text-align: center; }
@@ -6994,3 +6993,135 @@ body.avec-chef .toast { bottom: calc(84px + env(safe-area-inset-bottom)); }
 /* Les deux gestes du chef sous sa fin de soirée. */
 .fin-chef { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 .fin-chef .btn-ghost { align-self: center; }
+
+/* ── La barre du menu ────────────────────────────────────────────────────
+   Les cinq pièces, toujours au même endroit, sous le pouce. Chaque bouton a
+   son icône et son nom ; la pièce où l'on est se dit en gras et par un
+   filet, jamais par sa seule couleur. */
+.menu-barre {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 6px max(6px, env(safe-area-inset-bottom));
+  background: var(--bg-raised);
+  border-top: 1px solid var(--edge);
+}
+.menu-barre a {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 58px;
+  padding: 8px 2px 4px;
+  color: var(--muted);
+  font-size: var(--t-label);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.menu-barre a .icon { width: 22px; height: 22px; }
+.menu-barre a[aria-current='page'] { color: var(--accent-text); font-weight: 600; }
+.menu-barre a[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 32px;
+  margin-left: -16px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--accent);
+}
+/* La page ne passe jamais sous la barre. */
+body.avec-menu { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+body.avec-menu .player-shell { padding-bottom: 24px; }
+body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+
+/* ── L'accueil : qui l'on est en une ligne, puis des gros boutons ──────── */
+.ligne-identite {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+  color: inherit;
+  text-decoration: none;
+}
+.ligne-identite .player-avatar { flex: none; width: 52px; height: 52px; font-size: 2rem; }
+.ligne-identite-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ligne-identite-texte b { display: flex; align-items: center; gap: 8px; font-family: var(--serif); font-size: 1.5rem; font-weight: 600; line-height: 1.1; }
+.ligne-identite-texte .xp-bar { height: 4px; }
+/* Les confettis au bout de la ligne : discrets, ils ne crient pas. */
+.ligne-solde { flex: none; color: var(--accent-text); font-size: 0.875rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.accueil-gestes { display: flex; flex-direction: column; gap: 10px; }
+.gros-bouton {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 76px;
+  padding: 14px 14px 14px 16px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.gros-bouton:hover { border-color: var(--edge-strong); }
+.gros-bouton .gros-texte b { font-size: 1.35rem; }
+.gros-bouton .chevron { flex: none; color: var(--muted); transform: rotate(-90deg); }
+.gros-principal { border-color: var(--accent); background: var(--accent-soft); }
+.pastille-attente {
+  flex: none;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: var(--t-label);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ── Le profil : cinq tuiles, deux par rangée ─────────────────────────── */
+.tuiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tuile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-height: 140px;
+  padding: 16px 14px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tuile:hover { border-color: var(--edge-strong); }
+.tuile .gros-icone { margin-bottom: 6px; }
+.tuile b { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; line-height: 1.15; }
+.tuile .pastille-attente { position: absolute; top: 12px; right: 12px; }
+/* Cinq tuiles : la dernière prend la rangée, couchée. */
+.tuiles .tuile:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 2px;
+  min-height: 0;
+}
+.tuiles .tuile:last-child:nth-child(odd) .gros-icone { grid-row: span 2; margin-bottom: 0; }

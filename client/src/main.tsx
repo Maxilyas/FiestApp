@@ -51,6 +51,8 @@ const ACCOUNT: Record<AccountPage, typeof HostApp> = {
   salon: SalonApp,
   // La télé ouvre l'écran commun : sans session, il affiche le code qui la branche.
   tele: HostApp,
+  // L'accueil, le profil et la boutique sont la même page, qui lit son adresse.
+  boutique: ProfilApp,
 }
 const PUBLIC: Record<PublicPage, typeof RecapApp> = {
   souvenir: RecapApp,
