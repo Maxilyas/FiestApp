@@ -352,6 +352,19 @@ export class CampagneStore {
     return Number(res.rows[0]?.n ?? 0)
   }
 
+  /** Un profil supprimé : ses séries et leurs réponses, sous son verrou. */
+  oublierProfil(profileId: string): Promise<void> {
+    return this.avecVerrou(profileId, async () => {
+      await this.client.batch(
+        [
+          { sql: 'DELETE FROM campagne_reponses WHERE serie_id IN (SELECT id FROM campagne_series WHERE profile_id = ?)', args: [profileId] },
+          { sql: 'DELETE FROM campagne_series WHERE profile_id = ?', args: [profileId] },
+        ],
+        'write',
+      )
+    })
+  }
+
   close() {
     this.client.close()
   }

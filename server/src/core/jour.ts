@@ -1941,6 +1941,29 @@ export class JourStore {
     }))
   }
 
+  /**
+   * Un profil supprimé (`/admin`, « Les profils ») : ses parties, ses
+   * réponses, ses podiums, ses signalements et son masque partent avec lui,
+   * sous son verrou — une réponse en route n'écrit pas derrière. Les
+   * classements gardés de ses jours se relisent : son prénom y restait.
+   * Ce que les autres ont gagné ces jours-là ne bouge pas — son podium ne
+   * remonte personne.
+   */
+  async oublierProfil(profileId: string): Promise<void> {
+    await this.avecVerrou(profileId, async () => {
+      const jours = await this.client.execute({ sql: 'SELECT DISTINCT jour FROM jour_parties WHERE profile_id = ?', args: [profileId] })
+      await this.client.batch(
+        ['jour_reponses', 'jour_parties', 'jour_podiums', 'jour_signalements', 'jour_masques'].map(table => ({
+          sql: `DELETE FROM ${table} WHERE profile_id = ?`,
+          args: [profileId],
+        })),
+        'write',
+      )
+      for (const r of jours.rows) this.reviser(String(r.jour))
+      this.masques.delete(profileId)
+    })
+  }
+
   // ── Interne ─────────────────────────────────────────────────────────────
 
   /** Une chose à la fois pour cette clé : un profil, le tirage, la nuit. */

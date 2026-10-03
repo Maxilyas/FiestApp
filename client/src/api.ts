@@ -6,7 +6,7 @@ import type { ReglagesDuQuiz } from '../../shared/hasard'
 import type { EntreeDeProgramme, Programme } from '../../shared/programme'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
 import type { PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
-import type { FinitionChoisie, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
+import type { FinitionChoisie, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, RevelationDuJour } from '../../shared/jour'
@@ -393,6 +393,12 @@ export const api = {
     /** `reprendre` : ce que ses soirées ont crédité aux joueurs part avec lui. */
     remove: (id: string, credits: 'garder' | 'reprendre') =>
       req<{ ok: true }>(`/api/admin/accounts/${id}?credits=${credits}`, { method: 'DELETE' }),
+    /** « Les profils » : ceux qu'on cherche, ou les derniers vus. */
+    profils: (cherche: string) =>
+      req<{ total: number; profils: ProfilDAdministration[] }>(`/api/admin/profils?q=${encodeURIComponent(cherche)}`),
+    /** Supprime un profil et ce qui n'était qu'à lui ; son salon à lui part avec. */
+    supprimerProfil: (id: string) =>
+      req<{ ok: true; salon: 'supprime' | 'detache' | null }>(`/api/admin/profils/${encodeURIComponent(id)}`, { method: 'DELETE' }),
     /** Le catalogue du serveur, toutes les copies : proposées, publiées, refusées, retirées. */
     catalogue: () => req<EntreeDuCatalogue[]>('/api/admin/catalogue'),
     /** Une copie proposée, questions comprises, pour la relire. */

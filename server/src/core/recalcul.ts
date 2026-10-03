@@ -116,6 +116,10 @@ export async function recalculerHistorique(deps: {
   const credites = new Set<string>()
   const touches = new Set<string>()
   const soirees = (await archives.toutes()).filter(({ spaceId, id }) => !enCours.has(cleDeSoiree(spaceId, id)))
+  // Une archive nomme pour toujours ceux qui y ont joué, même un profil
+  // supprimé depuis (`/admin`, « Les profils ») : recrédité, il laisserait
+  // des lignes, des prix et des paliers sous un identifiant qui n'existe plus.
+  const existants = await profiles.idsExistants()
   await enParallele(soirees, EN_PARALLELE, async ({ spaceId, id }) => {
     const trouvee = await archives.get(spaceId, id).catch(e => {
       // Une base qui hoquette n'est pas une archive illisible. Prise pour
@@ -128,7 +132,9 @@ export async function recalculerHistorique(deps: {
       return null
     })
     if (!trouvee) return
-    const { gains, laureats } = creditDArchive(trouvee.archive)
+    const credit = creditDArchive(trouvee.archive)
+    const gains = credit.gains.filter(g => existants.has(g.profileId))
+    const laureats = credit.laureats.filter(l => existants.has(l.profileId))
     await profiles.crediterSoireeEntiere(id, spaceId, gains)
     for (const g of gains) {
       touches.add(g.profileId)

@@ -2508,6 +2508,11 @@ h3 > .icon {
 .rayon { display: grid; gap: 8px; }
 .rayon-titre { margin: 8px 0 0; font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-text); font-family: var(--sans); }
 
+/* « Les profils », à l'administration : une ligne par personne, la corbeille à droite. */
+.profils-admin { list-style: none; margin: 0; padding: 0; display: grid; }
+.profil-admin { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--edge); }
+.profil-admin-avatar { flex: none; font-size: 1.6rem; width: 2.2rem; text-align: center; }
+.profil-admin-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
 /* Le catalogue, à relire par l'administrateur. */
 .catalogue-admin { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .catalogue-entree { border-top: 1px solid var(--edge); padding-top: 10px; }

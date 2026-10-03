@@ -1,5 +1,6 @@
 import type { CampagneStore } from './core/campagne'
 import { mountCampagne } from './campagne'
+import { mountProfilsAdmin } from './profilsAdmin'
 import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
 import type { ProgrammeStore } from './core/programmes'
@@ -51,6 +52,10 @@ interface ApiDeps {
   soireeEnCours: (spaceId: string) => string | null
   /** Les espaces dont la soirée en cours compte ce profil parmi ses invités. */
   soireesOuJeJoue: (profileId: string) => string[]
+  /** Les espaces dont une soirée pas encore close le compte — active ou laissée en plan. */
+  soireesPasCloses: (profileId: string) => string[]
+  /** Supprime un profil et ce qui n'était qu'à lui — composé dans `createQuizServer`. */
+  supprimerProfil: (profileId: string) => Promise<{ salon: 'supprime' | 'detache' | null }>
   /** Ouvre le salon d'un espace et rend son code (`SpaceRuntime.ouvrirSalon`). */
   ouvrirSalon: (spaceId: string, opts?: { auto?: boolean }) => Promise<string | null>
   /** Rediffuse la salle d'un espace dont les réglages ont changé. */
@@ -124,6 +129,14 @@ export function mountApi(app: Express, deps: ApiDeps) {
     profiles: deps.profiles,
     maintenant: deps.maintenant,
     reserveAutomatique: deps.jetonDeLaReserve !== null,
+  })
+  // « Les profils » : les chercher, en supprimer un — l'administrateur seul.
+  mountProfilsAdmin(app, {
+    profiles: deps.profiles,
+    auth: deps.auth,
+    store: deps.store,
+    soireesPasCloses: deps.soireesPasCloses,
+    supprimerProfil: deps.supprimerProfil,
   })
 
   /**

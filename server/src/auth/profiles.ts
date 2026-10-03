@@ -2127,6 +2127,71 @@ export class ProfileStore {
     return this.porteurs
   }
 
+  // ── L'administration ────────────────────────────────────────────────────
+
+  /**
+   * Les profils que l'administrateur cherche — un prénom, un identifiant —,
+   * ou, sans recherche, les derniers vus : trente au plus. Avec ce que la
+   * liste en dit : son niveau, ses soirées, sa dernière visite.
+   */
+  async pourLAdministration(cherche: string): Promise<{ total: number; profils: { profil: ProfileRec; niveau: number; soirees: number }[] }> {
+    const mots = cherche.trim().toLowerCase().replace(/[%_]/g, '')
+    const motif = `%${mots}%`
+    const [compte, trouves] = await this.client.batch(
+      [
+        'SELECT COUNT(*) AS n FROM profiles WHERE disabled_at IS NULL',
+        mots
+          ? { sql: `SELECT id FROM profiles WHERE disabled_at IS NULL AND (lower(name) LIKE ? OR login LIKE ?) ORDER BY name LIMIT 30`, args: [motif, motif] }
+          : `SELECT id FROM profiles WHERE disabled_at IS NULL ORDER BY COALESCE(last_seen_at, created_at) DESC LIMIT 30`,
+      ],
+      'read',
+    )
+    const ids = trouves.rows.map(r => String(r.id))
+    const soirees = new Map<string, number>()
+    if (ids.length > 0) {
+      const res = await this.client.execute({
+        sql: `SELECT profile_id, COUNT(*) AS n FROM profile_xp WHERE profile_id IN (${ids.map(() => '?').join(', ')}) AND ${HORS_LIGNES_A_PART} GROUP BY profile_id`,
+        args: ids,
+      })
+      for (const r of res.rows) soirees.set(String(r.profile_id), Number(r.n))
+    }
+    const profils = (await this.byIds(ids)).flatMap(p => (p ? [{ profil: p, niveau: this.niveauOf(p), soirees: soirees.get(p.id) ?? 0 }] : []))
+    return { total: Number(compte.rows[0]?.n ?? 0), profils }
+  }
+
+  /** Tous les profils qui existent encore : le recalcul ne recrédite pas un profil supprimé. */
+  async idsExistants(): Promise<Set<string>> {
+    const res = await this.client.execute('SELECT id FROM profiles')
+    return new Set(res.rows.map(r => String(r.id)))
+  }
+
+  /**
+   * Supprime un profil, et tout ce qui n'était qu'à lui : ses sessions, ses
+   * lignes d'expérience, son étagère, ses éclats, ses légendaires et ses
+   * niveaux gardés, ses achats. En un seul lot, la fiche en dernier ; puis la
+   * mémoire. Ce que ses soirées ont rapporté aux autres joueurs reste à eux :
+   * rien ici ne touche une ligne qui n'est pas la sienne. Le quiz du jour, la
+   * campagne et son salon se défont avant, chacun chez lui (`server.ts`).
+   */
+  async supprimer(profileId: string): Promise<void> {
+    await this.client.batch(
+      [
+        ...['profile_sessions', 'profile_xp', 'profile_badges', 'profile_eclats', 'profile_legendaires', 'profile_niveaux', 'profile_achats'].map(table => ({
+          sql: `DELETE FROM ${table} WHERE profile_id = ?`,
+          args: [profileId],
+        })),
+        { sql: 'DELETE FROM profiles WHERE id = ?', args: [profileId] },
+      ],
+      'write',
+    )
+    for (const s of [...this.sessions.values()]) if (s.profileId === profileId) this.sessions.delete(s.id)
+    for (const carte of [this.profiles, this.eclats, this.eteints, this.recompenses, this.acquis, this.gardes, this.savoirs, this.achatsEnCours]) {
+      carte.delete(profileId)
+    }
+    // La rareté des hauts faits se compte sur la population : elle a changé.
+    this.porteurs = null
+  }
+
   // ── Carrière et historique ──────────────────────────────────────────────
 
   /** Toutes les soirées d'un profil, de la plus récente à la plus ancienne. */

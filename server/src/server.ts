@@ -25,7 +25,7 @@ import { SpaceRegistry } from './core/space'
 import { PagesPubliques } from './core/pages'
 import { servirPrecompresse } from './core/precompresse'
 import { Charge, pouls } from './core/pouls'
-import { AuthStore, type AccountRec } from './auth/store'
+import { AuthStore, estSalonDuProfil, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
 import { JourStore } from './core/jour'
@@ -509,6 +509,30 @@ export async function createQuizServer(opts: QuizServerOptions) {
     )
   }
 
+  /**
+   * Supprime un profil (`/admin`, « Les profils ») — les refus sont dans la
+   * route (`profilsAdmin.ts`). L'ordre compte, comme pour un compte : d'abord
+   * ce qui vit (ses sessions de joueur, les consoles qu'il a ouvertes), puis
+   * son salon — supprimé s'il n'est qu'à lui, sinon détaché —, le quiz du
+   * jour, la campagne, et sa fiche en tout dernier : une écriture qui échoue
+   * en route laisse un profil sur lequel réessayer, pas des lignes sans
+   * maître. Ce que ses soirées ont rapporté aux autres joueurs leur reste.
+   */
+  const supprimerProfil = async (profileId: string): Promise<{ salon: 'supprime' | 'detache' | null }> => {
+    const login = (await profiles.byId(profileId))?.login ?? profileId
+    await profiles.revokeAll(profileId)
+    await auth.revokeProfileSessions(profileId)
+    const salon = auth.byProfile(profileId)
+    const propre = !!salon && estSalonDuProfil(salon)
+    if (salon && propre) await removeAccount(salon.id)
+    else if (salon) await auth.linkProfile(salon.id, null)
+    await jour.oublierProfil(profileId)
+    await campagne.oublierProfil(profileId)
+    await profiles.supprimer(profileId)
+    console.log(`[profils] profil « ${login} » supprimé` + (salon ? (propre ? ', son salon avec lui' : `, détaché de « ${salon.login} »`) : ''))
+    return { salon: salon ? (propre ? 'supprime' : 'detache') : null }
+  }
+
   // Filet de sécurité : un client qui aurait silencieusement raté une diffusion
   // se répare tout seul. Toutes les cinq minutes suffisent — une reconnexion
   // reçoit de toute façon un classement frais, et le dédoublonnage rendait
@@ -815,6 +839,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
     // qu'on n'a pas close reste là jusqu'à la suivante : sans son dernier
     // signe de vie (une arrivée, un quiz qui avance) de moins de douze
     // heures, « Revenir chez Nadia » renvoyait le lendemain vers une salle vide.
+    // Toute soirée pas encore close, active ou laissée en plan : sa clôture
+    // créditerait ce profil — d'où le refus de le supprimer avant.
+    soireesPasCloses: profileId =>
+      (db.prepare('SELECT DISTINCT space_id FROM players WHERE profile_id = ? AND space_id IS NOT NULL').all(profileId) as { space_id: string }[]).map(
+        r => r.space_id,
+      ),
+    supprimerProfil,
     soireesOuJeJoue: profileId =>
       (
         db
