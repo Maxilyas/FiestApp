@@ -47,6 +47,7 @@ test('pendant la question : l’anneau, la question, les réponses sans la bonne
   assert.equal((html.match(/<li class="">/g) ?? []).length, 4, 'quatre réponses, aucune marquée')
   assert.doesNotMatch(html, /regie-bonne|regie-coche|regie-nombre/)
   assert.match(html, /<b>3<\/b>\/5/)
+  assert.match(html, /<p class="regie-attendus">On attend<\/p>/)
   assert.match(html, /<li class="regie-visage regie-hors-ligne">.*?Hugo<\/span><\/li><li class="regie-visage">.*?Inès/)
   // Même si une vue portait la bonne réponse et les comptes avant la révélation, la régie n'en montre rien.
   const fuite = await regie({ ...QUESTION, correct: 1, counts: [1, 2, 0, 0] })
@@ -69,7 +70,7 @@ test('à la révélation : le partage en barres, la bonne marquée, le plus rapi
   assert.match(html, /<li class=" regie-barre" style="--part:0.3333333333333333">.*?Sydney/)
   assert.match(html, /Le plus rapide : <b>Léa<\/b>, 2,4 s/)
   assert.match(html, /Bâtie pour départager/)
-  assert.doesNotMatch(html, /regie-visage/, 'plus personne à attendre')
+  assert.doesNotMatch(html, /regie-visage|On attend/, 'plus personne à attendre')
   // « Plusieurs » marque toutes ses bonnes ; le sondage n'en marque aucune.
   const plusieurs = await regie({ ...QUESTION, phase: 'reveal', variante: 'plusieurs', bonnes: [0, 2], counts: [2, 1, 2, 0] })
   assert.equal((plusieurs.match(/regie-coche/g) ?? []).length, 2)

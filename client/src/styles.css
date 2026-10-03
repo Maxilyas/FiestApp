@@ -1306,6 +1306,11 @@ h3 > .icon {
 .host.telecommande .host-console { order: 1; }
 .host.telecommande .main-stage { order: 2; }
 .host.telecommande .host-grid > :not(.main-stage) { order: 3; }
+/* La régie se regarde avant de se toucher : le temps, qui manque, le partage
+   de la salle d'abord, les gestes juste dessous — le reste de la télécommande
+   garde ses gestes en tête. */
+.host.telecommande:has(.regie) .main-stage { order: 0; }
+.host.telecommande:has(.regie) .telecommande-apercu > .label { display: none; }
 
 .host.telecommande .host-console {
   display: grid;
@@ -1383,7 +1388,8 @@ h3 > .icon {
 .regie-salle-tete { display: flex; align-items: baseline; justify-content: space-between; }
 .regie-compteur { font-variant-numeric: tabular-nums; color: var(--muted); }
 .regie-compteur b { font-family: var(--serif); font-size: 1.4rem; color: var(--accent-text); }
-.regie-visages { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 8px 2px; }
+.regie-attendus { margin: 8px 0 0; font-size: 0.85rem; color: var(--muted); }
+.regie-visages { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 8px 2px; }
 .regie-visage { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .regie-avatar { font-size: 1.6rem; width: 42px; height: 42px; }
 .regie-prenom { font-size: var(--t-label); max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

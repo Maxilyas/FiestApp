@@ -110,6 +110,10 @@ export function Regie({ view: v }: { view: QuizHostView }) {
         {/* Qui l'on attend encore : c'est d'eux que l'animateur a besoin, le
             téléphone éteint ou le distrait — les hors-ligne d'abord. */}
         {enQuestion && (v.attendus?.length ?? 0) > 0 && (
+          // Dit en toutes lettres : sous « 2/3 », un visage seul se lisait comme celui qui a répondu.
+          <p className="regie-attendus">On attend</p>
+        )}
+        {enQuestion && (v.attendus?.length ?? 0) > 0 && (
           <ul className="regie-visages" aria-label="On attend">
             {v.attendus!.map(a => (
               <li key={a.playerId} className={'regie-visage' + (a.horsLigne ? ' regie-hors-ligne' : '')}>
