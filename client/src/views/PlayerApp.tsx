@@ -705,6 +705,10 @@ function SalleDuJoueur() {
 
       {avisAbsent}
 
+      {/* La place de l'invitation du salon — le code en grand, le QR —, que
+          la barre du chef y pose sur son seul téléphone (`BarreDuChef`). */}
+      {!session && <div id="place-invitation" className="place-invitation" />}
+
       {session && !iAmIn && (
         <div className="card notice">Un quiz est en cours — tu entres à la prochaine question.</div>
       )}

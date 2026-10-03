@@ -7637,3 +7637,37 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
   50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent), 0 0 26px color-mix(in srgb, var(--accent) 40%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) { .jour-heros .btn-primary { animation: none; } }
+
+/* ── La fin d'un quiz : sa place en une ligne, le podium en marches ──────
+   La deuxième à gauche, la première au milieu, la troisième à droite ; le
+   métal de chaque marche en jeton de texte, lisible sous chaque thème. */
+.fin-quiz { display: flex; flex-direction: column; gap: 18px; }
+.fin-quiz-ligne { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 14px 8px 8px; border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: var(--radius-pill); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.fin-quiz-drapeau { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent-text); }
+.fin-quiz-drapeau .icon { width: 15px; height: 15px; }
+.fin-quiz-quoi { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 0.85rem; }
+.fin-quiz-place { flex: none; font-size: 0.9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fin-quiz-place b { font-family: var(--serif); font-size: 1.25rem; font-weight: 600; color: var(--accent-text); }
+.marches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 8px; padding-top: 6px; }
+.marche { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.marche-avatar { font-size: 2.4rem; }
+.marche:nth-child(2) .marche-avatar { font-size: 3rem; }
+.marche-nom { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 0.92rem; }
+.marche-points { font-family: var(--serif); font-size: 1.15rem; color: var(--metal); font-variant-numeric: tabular-nums; }
+.marche-socle { display: grid; place-items: start center; width: 100%; height: var(--haut); padding-top: 8px; border-radius: 12px 12px 4px 4px; border-top: 3px solid var(--metal); background: linear-gradient(to bottom, color-mix(in srgb, var(--metal) 26%, transparent), color-mix(in srgb, var(--metal) 4%, transparent)); }
+.marche-socle b { font-family: var(--serif); font-size: 1.6rem; color: var(--metal); }
+.marche-moi .marche-nom { color: var(--accent-text); }
+.marche-moi .marche-socle { box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* ── L'invitation du salon, chez le chef : le code d'abord, en grand ─────
+   Six cases, coupées en deux groupes de trois comme on le dicte ; le QR
+   dessous. La place reste vide sur les autres téléphones : elle ne prend
+   alors aucun espace. */
+.place-invitation:empty { display: none; }
+.invitation-salon { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.invitation-salon p { margin: 0; }
+.invitation-salon .qr-box { padding: 10px; border-radius: var(--radius-xs); background: #fff; }
+.invitation-salon .qr-box svg { display: block; width: 168px; height: 168px; }
+.code-cases { display: inline-flex; gap: 6px; margin: 6px 0 2px; }
+.code-case { width: 40px; height: 52px; display: grid; place-items: center; border-radius: var(--radius-xs); border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); font-family: var(--serif); font-size: 2rem; font-weight: 600; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
+.code-coupe { margin-left: 12px; }

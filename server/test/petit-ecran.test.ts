@@ -94,9 +94,10 @@ test('chaque prénom d’un classement passe par NomLaure', () => {
   const fichiers = readdirSync(racine, { recursive: true, encoding: 'utf8' }).filter(f => f.endsWith('.tsx'))
   const vus: string[] = []
   for (const f of fichiers) {
-    // Les commentaires JSX ne sont pas du contenu.
+    // Les commentaires JSX ne sont pas du contenu. Les marches du podium
+    // d'un quiz (`marche-nom`) sont un classement aussi.
     const source = readFileSync(new URL(f, racine), 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-    for (const m of source.matchAll(/<span className="lb-name">\s*([^\s<][^<]*|<\w+)/g)) {
+    for (const m of source.matchAll(/<span className="(?:lb-name|marche-nom)">\s*([^\s<][^<]*|<\w+)/g)) {
       const contenu = m[1].trim()
       vus.push(f)
       if (exceptions.has(contenu)) continue
