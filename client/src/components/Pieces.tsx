@@ -24,9 +24,17 @@ export function PieceTete({ piece, titre, icone, children }: { piece: string; ti
  * en haut à gauche, comme partout — le seul. Un lien : il s'ouvre dans un
  * onglet, il se copie.
  */
-export function Sortie({ vers = 'Accueil', href = '/' }: { vers?: string; href?: string }) {
+export function Sortie({ vers = 'Accueil', href = '/', onClick }: { vers?: string; href?: string; /** Un retour dans la même page — la fiche d'un quiz : le lien reste pour l'onglet. */ onClick?: () => void }) {
   return (
-    <a className="lien-discret jour-sortie" href={href}>
+    <a
+      className="lien-discret jour-sortie"
+      href={href}
+      onClick={e => {
+        if (!onClick || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+        e.preventDefault()
+        onClick()
+      }}
+    >
       <Icon name="arrow-left" />
       {vers}
     </a>

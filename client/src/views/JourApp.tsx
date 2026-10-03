@@ -1,3 +1,4 @@
+import { Sortie } from '../components/Pieces'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { api, motifDe, refusDuServeur, UnauthorizedError, type CorrectionDuJour } from '../api'
 import { resetClock, serverNow } from '../clock'
@@ -682,7 +683,8 @@ export function Fin({
           1 200 px en 360 × 640 pour une partie qui monte d'un niveau et
           ouvre son emoji —, et « Retour à l'accueil » attendait tout en bas,
           deux écrans plus loin. En tête, la fête n'en descend pas. */}
-      <SortieDuJour />
+      {/* La sortie de la page, en tête et toujours la même : celle de la campagne et du salon. */}
+      <Sortie />
       <header className="fin-tete">
         <span className="label">Le quiz du jour</span>
         <h1>{capitale(jourEnToutesLettres(partie.jour))}</h1>
@@ -793,18 +795,6 @@ export function Fin({
   )
 }
 
-/**
- * La sortie de la page du jour, en tête et toujours la même : « ← Accueil »,
- * comme la campagne et le salon. À la taille d'un pouce (`.jour-sortie`).
- */
-function SortieDuJour() {
-  return (
-    <a className="lien-discret jour-sortie" href="/">
-      <Icon name="arrow-left" />
-      Accueil
-    </a>
-  )
-}
 
 /** Le temps qui reste avant minuit à Paris, « 7 h 05 » ou « 12 min », remis à jour chaque minute. */
 function useAvantMinuit(): string {
@@ -855,7 +845,8 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
   const plusBas = sienneEnDessous ?? classement?.moi
   return (
     <div className="player-shell jour-joue">
-      <SortieDuJour />
+      {/* La sortie de la page, en tête et toujours la même : celle de la campagne et du salon. */}
+      <Sortie />
       <section className="card jour-carte">
         <div className="jour-tete">
           <span className="label">Le quiz du jour · joué</span>

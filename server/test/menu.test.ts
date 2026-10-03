@@ -75,3 +75,10 @@ test('le Compte d’un profil parle du profil : son identifiant, son mot de pass
   // Le mot de passe du profil a quitté le profil pour le Compte.
   assert.doesNotMatch(source('views/ProfilApp.tsx'), /Identifiant et mot de passe/)
 })
+
+test('les pages publiques gardent leur fil — souvenir, bilan, historique — et le quiz du jour la sortie commune', () => {
+  // « Jouer », depuis le souvenir d'une soirée close, menait à l'entrée de la suivante : une impasse le lendemain.
+  assert.doesNotMatch(source('components/SpaceNav.tsx'), /<a href=\{spacePath\(slug\)\}>Jouer<\/a>/)
+  // « ← Accueil » en tête, le même partout : le quiz du jour, la campagne, le salon.
+  for (const f of ['views/JourApp.tsx', 'views/CampagneApp.tsx', 'views/SalonApp.tsx']) assert.match(source(f), /<Sortie \/>/, f)
+})

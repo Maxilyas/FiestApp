@@ -63,9 +63,12 @@ test('les pages de l’animateur ont la même barre, dans le même ordre, et ell
     'Les comptes → /admin',
   ])
   assert.deepEqual(gestes(await barre('admin', true)).at(-1), 'Les comptes (ici)')
-  // « Mes quiz », « Mon compte » et « Les comptes » la portent, chacun à sa place ;
-  // leurs anciennes barres, qui changeaient d'ordre et de taille, sont parties.
-  assert.match(source('views/EditorApp.tsx'), /<NavAnimateur ici="quiz" slug=\{slug\} admin=\{isAdmin\} \/>/)
+  // « Mon compte » et « Les comptes » la portent, chacun à sa place ; leurs
+  // anciennes barres, qui changeaient d'ordre et de taille, sont parties.
+  // « Mes quiz », pièce du menu de tout profil, a la barre du menu à sa
+  // place (menu.test.ts) : deux barres l'une sur l'autre ne disaient plus où
+  // l'on était.
+  assert.doesNotMatch(source('views/EditorApp.tsx'), /<NavAnimateur/)
   assert.match(source('views/AccountApp.tsx'), /<NavAnimateur ici="compte" slug=\{me\.space\.slug\} admin=\{me\.account\.role === 'admin'\} \/>/)
   assert.match(source('views/AdminApp.tsx'), /<NavAnimateur ici="admin" slug=\{me\.space\.slug\} admin \/>/)
   for (const f of ['views/EditorApp.tsx', 'views/AccountApp.tsx', 'views/AdminApp.tsx']) {

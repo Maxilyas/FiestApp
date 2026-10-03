@@ -22,6 +22,23 @@ type Etat = { e: 'chargement' } | { e: 'anonyme' } | { e: 'erreur'; motif: strin
 /** Le rythme d'un salon neuf : la suite après cinq secondes, le temps de lire la bonne réponse. */
 const RYTHME_PAR_DEFAUT = 5
 
+/**
+ * Les quiz d'un salon neuf. « Lancer », depuis « Mes quiz »
+ * (`/salon?quiz=…`), ouvre un salon sur ce quiz seul — le programme d'hier
+ * l'aurait noyé derrière d'autres ; sinon, le programme d'hier reprend sa
+ * place : on l'ajuste plutôt que de tout rechoisir. Un quiz demandé qui ne
+ * se joue pas (archivé, rien de prêt, d'un autre espace) n'y entre pas.
+ */
+export function quizDuSalon(liste: readonly QuizSummary[], programme: Programme | null, demande: string | null): QuizDuSoir[] {
+  const titres = new Map(liste.map(q => [q.id, q.title]))
+  const lance = demande ? liste.find(q => q.id === demande && !q.archivedAt && q.readyCount > 0) : undefined
+  if (lance) {
+    const avant = programme?.entrees.find(e => e.quizId === lance.id)
+    return [{ id: lance.id, titre: lance.title, multiplicateur: avant?.multiplier ?? 1 }]
+  }
+  return (programme?.entrees ?? []).filter(e => titres.has(e.quizId)).map(e => ({ id: e.quizId, titre: titres.get(e.quizId)!, multiplicateur: e.multiplier }))
+}
+
 const sansAccent = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 /**
@@ -67,13 +84,9 @@ export function SalonApp() {
       setModeles(livres)
       const actif = programmes.find(p => p.actif) ?? null
       setProgramme(actif)
-      const titres = new Map(liste.map(q => [q.id, q.title]))
-      // Le programme d'hier reprend sa place : on l'ajuste plutôt que de tout rechoisir.
-      setQuiz(
-        (actif?.entrees ?? [])
-          .filter(e => titres.has(e.quizId))
-          .map(e => ({ id: e.quizId, titre: titres.get(e.quizId)!, multiplicateur: e.multiplier })),
-      )
+      setQuiz(quizDuSalon(liste, actif, new URLSearchParams(window.location.search).get('quiz')))
+      // Rechargée, la page reprend le programme : le quiz lancé y est déjà, s'il a ouvert le salon.
+      if (window.location.search) history.replaceState(history.state, '', '/salon')
       // Le chef retrouve ses choix de la dernière fois.
       const avant = chefIci(espace.slug)
       if (avant) {

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type MutableRefObject } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type MutableRefObject } from 'react'
 import {
   DEFAULT_DURATION,
   DEFAULT_OBSERVE,
@@ -85,8 +85,8 @@ import { choixDialog, confirmDialog, promptDialog } from '../components/Dialog'
 import { ecrireCode, lireCode, type EntreeDuCatalogue } from '../../../shared/partage'
 import { formatDay } from '../../../shared/archive'
 import { Icon } from '../components/Icon'
-import { MenuBarre } from '../components/Pieces'
-import { NavAnimateur } from '../components/NavAnimateur'
+import { Choix, Feuille, MenuBarre } from '../components/Pieces'
+import { CarteDeQuiz, FicheDeQuiz, seLance } from '../components/MesQuiz'
 import { PanneauProgramme, useProgrammes } from '../components/Programme'
 import { ChampNombre } from '../components/ChampNombre'
 import { Shape } from '../components/Shape'
@@ -138,10 +138,16 @@ async function photoEnClair(adresse: string): Promise<string | null> {
 }
 
 const OUVERT_ICI = 'fiestappQuizOuvert'
+const FICHE_ICI = 'fiestappFicheOuverte'
 
 /** Le quiz que désigne l'adresse, s'il y en a un. */
 function quizDeLAdresse(): string | null {
   return new URLSearchParams(window.location.search).get('quiz') || null
+}
+
+/** La fiche que désigne l'adresse (`/edit?fiche=…`) : le retour du navigateur la referme. */
+function ficheDeLAdresse(): string | null {
+  return new URLSearchParams(window.location.search).get('fiche') || null
 }
 
 /** Fait télécharger ce texte sous ce nom, sans passer par le serveur. */
@@ -208,6 +214,7 @@ export function EditorApp() {
       }
       consenti.current = false
       setEditing(id)
+      setFiche(ficheDeLAdresse())
       setOuvrirListe(false)
       // Comme « Mes quiz » : la liste d'avant ne savait rien du quiz qu'on
       // vient de créer, et « Partir d'un modèle » en refaisait une copie.
@@ -216,6 +223,24 @@ export function EditorApp() {
     window.addEventListener('popstate', auRetour)
     return () => window.removeEventListener('popstate', auRetour)
   }, [])
+  /**
+   * La fiche ouverte : ses gestes, « Lancer » et « Modifier » en tête. Dans
+   * l'adresse, comme le quiz ouvert : « Mes quiz », depuis l'éditeur, y
+   * ramène d'un retour.
+   */
+  const [fiche, setFiche] = useState<string | null>(ficheDeLAdresse)
+  const ouvrirFiche = (id: string) => {
+    history.pushState({ [FICHE_ICI]: true }, '', `/edit?fiche=${encodeURIComponent(id)}`)
+    setFiche(id)
+    window.scrollTo(0, 0)
+  }
+  const fermerFiche = () => {
+    if (history.state?.[FICHE_ICI]) return history.back()
+    history.replaceState(null, '', '/edit')
+    setFiche(null)
+  }
+  /** La feuille ouverte sur la liste : les cinq façons de créer, ou le tri. */
+  const [feuille, setFeuille] = useState<'creer' | 'trier' | null>(null)
   /** Le quiz s'ouvre sur « Coller une liste » : il vient d'être créé pour ça. */
   const [ouvrirListe, setOuvrirListe] = useState(false)
   /** Les modèles, rouverts depuis l'en-tête une fois la bibliothèque commencée. */
@@ -240,7 +265,7 @@ export function EditorApp() {
       // ne sait ni où il est, ni ce que l'ami doit en faire.
       setNotice(
         `« ${quiz.title} » est dans tes téléchargements : ${nom}. Envoie ce fichier à un autre animateur — ` +
-          'il l’ouvre avec « Importer un quiz », en haut de sa page Mes quiz.',
+          'il l’ouvre dans « Mes quiz », avec « Créer un quiz → Importer un fichier ».',
       )
     } catch (e) {
       setError((e as Error).message)
@@ -263,7 +288,7 @@ export function EditorApp() {
       const choix = await choixDialog({
         title: `Partager « ${q.title} »`,
         message:
-          `Donne ce code à un animateur de ce serveur : dans « Mes quiz », « Nouveau quiz → Recevoir par un code ». ` +
+          `Donne ce code à un animateur de ce serveur : dans « Mes quiz », « Créer un quiz → Recevoir par un code ». ` +
           `Il reçoit une copie, photos comprises — tes retouches d’après ne le suivent pas. Le code vaut jusqu’au ${formatDay(expiresAt)}.`,
         input: { value: lisible },
         confirmLabel: 'Copier le code',
@@ -503,7 +528,7 @@ export function EditorApp() {
     }
   }
 
-  const supprimer = async (q: QuizSummary) => {
+  const supprimer = async (q: QuizSummary): Promise<boolean> => {
     const ok = await confirmDialog({
       title: `Supprimer « ${q.title} » ?`,
       // Deux quiz du même nom ne se distinguaient pas : ce qu'il contient et
@@ -517,15 +542,17 @@ export function EditorApp() {
       confirmLabel: 'Supprimer',
       danger: true,
     })
-    if (!ok) return
+    if (!ok) return false
     try {
       await api.remove(q.id)
       oublierBrouillon(q.id)
       // « « Spécial agence » est dans ta bibliothèque » survivait au quiz.
       setNotice('')
       reload()
+      return true
     } catch (e) {
       setError((e as Error).message)
+      return false
     }
   }
 
@@ -612,169 +639,248 @@ export function EditorApp() {
   const visibles = trier(base.filter(q => garderSelon(filtre, q)), tri)
   const filtreActif = filtres.find(f => f.id === filtre) ?? filtres[0]
 
+  const ficheOuverte = fiche ? list?.find(q => q.id === fiche) : undefined
+  const choisir = (geste: () => void) => () => {
+    setFeuille(null)
+    geste()
+  }
+  const montrer = filtres.filter(f => !f.id.startsWith('cat:'))
+  const parCategorie = filtres.filter(f => f.id.startsWith('cat:'))
+
   return (
-    <div className="editor">
-      <header className="editor-header bibliotheque-tete">
-        {/* Les pages de l'animateur, en une ligne fine : sept boutons de même
-            poids prenaient six lignes au téléphone, le premier quiz à 364 px. */}
-        <NavAnimateur ici="quiz" slug={slug} admin={isAdmin} />
-        <h1>
-          <Icon name="edit" />
-          Mes quiz
-        </h1>
-        {/* Un quiz exporté d'une autre bibliothèque — celle d'un ami, ou d'un autre serveur —, ou toute une bibliothèque. */}
-        <input
-          ref={fichier}
-          type="file"
-          accept=".json,application/json"
-          hidden
-          onChange={e => {
-            const choisi = e.target.files?.[0]
-            // Le même fichier, choisi deux fois de suite, doit repartir.
-            e.target.value = ''
-            importer(choisi)
-          }}
-        />
-        <MenuNouveau
-          occupe={echange !== null}
-          onVide={() => creer()}
-          onListe={() => creer(true)}
-          onModele={() => setVoirModeles(true)}
-          onCode={() => recevoir()}
-          onFichier={() => fichier.current?.click()}
-        />
-      </header>
+    <div className="editor mes-quiz">
+      {/* Un quiz exporté d'une autre bibliothèque — celle d'un ami, ou d'un autre serveur —, ou toute une bibliothèque. */}
+      <input
+        ref={fichier}
+        type="file"
+        accept=".json,application/json"
+        hidden
+        onChange={e => {
+          const choisi = e.target.files?.[0]
+          // Le même fichier, choisi deux fois de suite, doit repartir.
+          e.target.value = ''
+          importer(choisi)
+        }}
+      />
+      {!ficheOuverte && (
+        <header className="piece-tete bibliotheque-tete">
+          <span className="label">Animer</span>
+          <h1>Mes quiz</h1>
+          {list && list.length > 0 && (
+            <p className="muted">
+              {actifs.length} quiz, prêt{actifs.length > 1 ? 's' : ''} à lancer ou à retoucher.
+            </p>
+          )}
+        </header>
+      )}
       <main className="page-corps">
         {error && <p className="error">{error}</p>}
         {notice && <p className="card notice">{notice}</p>}
         {echange === 'import' && <p className="serif-note">Import…</p>}
         {list === null && <p className="serif-note">Chargement…</p>}
 
-        {list && (aucunPret || voirModeles) && (
-          <PremiersPas
-            debut={aucunPret}
+        {ficheOuverte ? (
+          <FicheDeQuiz
+            quiz={ficheOuverte}
+            brouillon={brouillons.has(ficheOuverte.id)}
             occupe={echange !== null}
-            onOuvrir={id => {
-              setVoirModeles(false)
-              setEditingId(id)
+            exportEnCours={echange === ficheOuverte.id}
+            auProgramme={seLance(ficheOuverte) ? (prog.actif?.entrees.some(e => e.quizId === ficheOuverte.id) ?? false) : null}
+            occupeProgramme={prog.occupe}
+            onFermer={fermerFiche}
+            onModifier={() => setEditingId(ficheOuverte.id)}
+            onProgramme={() => prog.basculer(ficheOuverte.id)}
+            onDupliquer={() => dupliquer(ficheOuverte)}
+            onPartager={() => partager(ficheOuverte)}
+            onExporter={() => exporter(ficheOuverte)}
+            onProposer={() => proposer(ficheOuverte)}
+            onArchiver={() => archiver(ficheOuverte, !ficheOuverte.archivedAt)}
+            onSupprimer={async () => {
+              if (await supprimer(ficheOuverte)) fermerFiche()
             }}
-            onImporter={() => fichier.current?.click()}
-            onCreer={() => creer()}
-            onListe={() => creer(true)}
-            onFermer={aucunPret ? undefined : () => setVoirModeles(false)}
-            onErreur={setError}
           />
-        )}
-
-        {list && list.length > 0 && <PanneauProgramme prog={prog} quizzes={list} />}
-
-        {list && list.length > 0 && (
-          <div className="bibliotheque-outils">
-            <label className="champ-recherche">
-              <Icon name="search" />
-              <input
-                className="input"
-                type="search"
-                value={recherche}
-                placeholder="Chercher un quiz, ou une question…"
-                aria-label="Chercher dans mes quiz : titres, questions et réponses"
-                onChange={e => setRecherche(e.target.value)}
-              />
-            </label>
-            {/* Des filtres qui se dérivent des questions, sans rien saisir :
-                les douze catégories fixes valent des étiquettes que personne
-                n'a eu à poser. Au téléphone, une seule ligne qui défile : sur
-                six lignes, ils repoussaient le premier quiz sous l'écran. */}
-            <div className="filtres" role="group" aria-label="Montrer">
-              {filtres.map(f => (
-                <button
-                  key={f.id}
-                  type="button"
-                  className={'pill-btn' + (filtre === f.id ? ' active' : '')}
-                  aria-pressed={filtre === f.id}
-                  onClick={() => setFiltre(f.id)}
-                >
-                  {f.label} · {f.nombre}
-                </button>
-              ))}
-            </div>
-            <div className="bibliotheque-compte muted small">
-              <span aria-live="polite">
-                {visibles.length} quiz{recherche.trim() || filtre !== 'tous' ? ` sur ${actifs.length + archives.length}` : ''}
-              </span>
-              <label className="row">
-                Rangés
-                <select
-                  className="select-discret"
-                  value={tri}
-                  onChange={e => changerTri(e.target.value as TriDeLaBibliotheque)}
-                >
-                  <option value="recents">du plus récent</option>
-                  <option value="joues">du dernier joué</option>
-                  <option value="alpha">de A à Z</option>
-                </select>
-              </label>
-            </div>
-          </div>
-        )}
-
-        {list && list.length > 0 && visibles.length === 0 && (
-          <p className="serif-note bibliotheque-vide">
-            {recherche.trim() && trouves === null ? 'Recherche…' : 'Aucun quiz ne correspond.'}{' '}
-            {(recherche.trim() || filtre !== 'tous') && trouves !== null && (
-              <button
-                type="button"
-                className="link-btn"
-                onClick={() => {
-                  setRecherche('')
-                  setFiltre('tous')
-                }}
-              >
-                Tout montrer
+        ) : (
+          <>
+            {list && (
+              <button type="button" className="btn btn-primary btn-big btn-block" onClick={() => setFeuille('creer')}>
+                <Icon name="plus" />
+                Créer un quiz
               </button>
             )}
-          </p>
-        )}
 
-        <ul className="quiz-list" aria-label={filtreActif ? `Mes quiz : ${filtreActif.label}` : 'Mes quiz'}>
-          {visibles.map(q => (
-            <LigneDeQuiz
-              key={q.id}
-              quiz={q}
-              brouillon={brouillons.has(q.id)}
-              occupe={echange !== null}
-              exportEnCours={echange === q.id}
-              onOuvrir={() => setEditingId(q.id)}
-              auProgramme={q.readyCount > 0 && !q.archivedAt ? (prog.actif?.entrees.some(e => e.quizId === q.id) ?? false) : null}
-              occupeProgramme={prog.occupe}
-              onProgramme={() => prog.basculer(q.id)}
-              onDupliquer={() => dupliquer(q)}
-              onExporter={() => exporter(q)}
-              onPartager={() => partager(q)}
-              onProposer={() => proposer(q)}
-              onArchiver={() => archiver(q, !q.archivedAt)}
-              onSupprimer={() => supprimer(q)}
-            />
-          ))}
-        </ul>
+            {list && (aucunPret || voirModeles) && (
+              <PremiersPas
+                debut={aucunPret}
+                occupe={echange !== null}
+                onOuvrir={id => {
+                  setVoirModeles(false)
+                  setEditingId(id)
+                }}
+                onImporter={() => fichier.current?.click()}
+                onCreer={() => creer()}
+                onListe={() => creer(true)}
+                onFermer={aucunPret ? undefined : () => setVoirModeles(false)}
+                onErreur={setError}
+              />
+            )}
 
-        {aEmporter.length > 1 && (
-          <div className="row bibliotheque-pied">
-            <button type="button" className="btn btn-ghost btn-small" disabled={exportTout !== null} onClick={exporterTout}>
-              <Icon name="download" />
-              {exportTout ? `Export… ${exportTout.faits}/${exportTout.total}` : `Exporter tous mes quiz (${aEmporter.length})`}
-            </button>
-          </div>
+            {list && list.length > 0 && <PanneauProgramme prog={prog} quizzes={list} />}
+
+            {list && list.length > 0 && (
+              <div className="bibliotheque-outils">
+                <label className="champ-recherche">
+                  <Icon name="search" />
+                  <input
+                    className="input"
+                    type="search"
+                    value={recherche}
+                    placeholder="Chercher un quiz"
+                    aria-label="Chercher dans mes quiz : titres, questions et réponses"
+                    onChange={e => setRecherche(e.target.value)}
+                  />
+                </label>
+                {/* Les filtres et le rangement dans une feuille : sur une ligne
+                    qui défilait, ils repoussaient encore le premier quiz. */}
+                <button
+                  type="button"
+                  className={'btn btn-ghost bibliotheque-trier' + (filtre !== 'tous' ? ' is-actif' : '')}
+                  aria-label="Trier et filtrer"
+                  onClick={() => setFeuille('trier')}
+                >
+                  <Icon name="list" />
+                  Trier
+                </button>
+              </div>
+            )}
+            {filtre !== 'tous' && filtreActif && (
+              <p className="filtre-actif">
+                <span className="pill-btn active">
+                  {filtreActif.label} · {visibles.length}
+                  <button type="button" aria-label={`Retirer le filtre « ${filtreActif.label} »`} onClick={() => setFiltre('tous')}>
+                    <Icon name="x" />
+                  </button>
+                </span>
+              </p>
+            )}
+
+            {list && list.length > 0 && visibles.length === 0 && (
+              <p className="serif-note bibliotheque-vide">
+                {recherche.trim() && trouves === null ? 'Recherche…' : 'Aucun quiz ne correspond.'}{' '}
+                {(recherche.trim() || filtre !== 'tous') && trouves !== null && (
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() => {
+                      setRecherche('')
+                      setFiltre('tous')
+                    }}
+                  >
+                    Tout montrer
+                  </button>
+                )}
+              </p>
+            )}
+
+            <ul className="quiz-cartes" aria-label={filtreActif ? `Mes quiz : ${filtreActif.label}` : 'Mes quiz'}>
+              {visibles.map(q => (
+                <CarteDeQuiz key={q.id} quiz={q} brouillon={brouillons.has(q.id)} onFiche={() => ouvrirFiche(q.id)} />
+              ))}
+            </ul>
+
+            {aEmporter.length > 1 && (
+              <div className="row bibliotheque-pied">
+                <button type="button" className="btn btn-ghost btn-small" disabled={exportTout !== null} onClick={exporterTout}>
+                  <Icon name="download" />
+                  {exportTout ? `Export… ${exportTout.faits}/${exportTout.total}` : `Exporter tous mes quiz (${aEmporter.length})`}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
+
+      {feuille === 'creer' && (
+        <Feuille titre="Créer un quiz" onFermer={() => setFeuille(null)}>
+          <span className="label">Écrire</span>
+          <Choix icone="edit" titre="Un quiz vide" detail="Les questions une à une" onClick={choisir(() => creer())} />
+          <Choix icone="clipboard" titre="Coller une liste" detail="Tes notes, ou la réponse d’une IA" onClick={choisir(() => creer(true))} />
+          <span className="label">Récupérer</span>
+          <Choix
+            icone="sparkles"
+            titre="Partir d’un modèle"
+            detail="Un quiz tout fait, à retoucher — ou à personnaliser pour quelqu’un"
+            onClick={choisir(() => {
+              setVoirModeles(true)
+              window.scrollTo(0, 0)
+            })}
+          />
+          <Choix icone="hash" titre="Recevoir par un code" detail="Le quiz qu’un animateur de ce serveur te partage" onClick={choisir(() => recevoir())} />
+          <Choix
+            icone="download"
+            titre="Importer un fichier"
+            detail="Le quiz d’un ami d’un autre serveur, ou toute une bibliothèque (.json)"
+            disabled={echange !== null}
+            onClick={choisir(() => fichier.current?.click())}
+          />
+        </Feuille>
+      )}
+
+      {feuille === 'trier' && (
+        <Feuille
+          titre="Trier et filtrer"
+          onFermer={() => setFeuille(null)}
+          pied={
+            <button type="button" className="btn btn-primary btn-block" onClick={() => setFeuille(null)}>
+              Voir {visibles.length} quiz
+            </button>
+          }
+        >
+          {/* Des filtres qui se dérivent des questions, sans rien saisir : les
+              douze catégories fixes valent des étiquettes que personne n'a eu
+              à poser. Un filtre qui ne garderait rien ne se propose pas. */}
+          <span className="label">Montrer</span>
+          <div className="filtres" role="group" aria-label="Montrer">
+            {montrer.map(f => (
+              <button key={f.id} type="button" className={'pill-btn' + (filtre === f.id ? ' active' : '')} aria-pressed={filtre === f.id} onClick={() => setFiltre(f.id)}>
+                {f.label} · {f.nombre}
+              </button>
+            ))}
+          </div>
+          {parCategorie.length > 0 && (
+            <>
+              <span className="label">Par catégorie</span>
+              <div className="filtres" role="group" aria-label="Par catégorie">
+                {parCategorie.map(f => (
+                  <button key={f.id} type="button" className={'pill-btn' + (filtre === f.id ? ' active' : '')} aria-pressed={filtre === f.id} onClick={() => setFiltre(f.id)}>
+                    {f.label} · {f.nombre}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <span className="label">Ranger</span>
+          <div className="filtres" role="group" aria-label="Ranger">
+            {RANGEMENTS.map(([t, nom]) => (
+              <button key={t} type="button" className={'pill-btn' + (tri === t ? ' active' : '')} aria-pressed={tri === t} onClick={() => changerTri(t)}>
+                {nom}
+              </button>
+            ))}
+          </div>
+        </Feuille>
+      )}
       <MenuBarre ici="quiz" />
     </div>
   )
 }
 
-// ── La bibliothèque : ranger, filtrer, les gestes d'une ligne ─────────────
+// ── La bibliothèque : ranger, filtrer ──────────────────────────────────────
 
 type TriDeLaBibliotheque = 'recents' | 'joues' | 'alpha'
+const RANGEMENTS: [TriDeLaBibliotheque, string][] = [
+  ['recents', 'Les plus récents'],
+  ['joues', 'Les derniers joués'],
+  ['alpha', 'De A à Z'],
+]
 const TRI_GARDE = 'fiestappTriDesQuiz'
 
 /** Le rangement choisi, retenu par ce navigateur — rien de grave s'il refuse. */
@@ -846,244 +952,6 @@ function filtresDeLaBibliotheque(actifs: QuizSummary[], archives: number): Filtr
     { id: 'archives', label: 'Archivés', nombre: archives },
   ]
   return filtres.filter(f => f.id === 'tous' || f.nombre > 0)
-}
-
-/**
- * « ＋ Nouveau quiz ▾ » : les quatre façons de commencer, chacune avec sa
- * ligne d'explication, sous un seul bouton. Elles occupaient quatre boutons
- * de l'en-tête, au même poids que « Mon compte ».
- */
-function MenuNouveau({
-  occupe,
-  onVide,
-  onListe,
-  onModele,
-  onCode,
-  onFichier,
-}: {
-  occupe: boolean
-  onVide: () => void
-  onListe: () => void
-  onModele: () => void
-  onCode: () => void
-  onFichier: () => void
-}) {
-  const { ouvert, setOuvert, ancre } = useFermeture()
-  const choisir = (geste: () => void) => () => {
-    setOuvert(false)
-    geste()
-  }
-  return (
-    <div className="menu-ancre" ref={ancre}>
-      <button type="button" className="btn btn-primary" aria-expanded={ouvert} onClick={() => setOuvert(v => !v)}>
-        <Icon name="plus" />
-        Nouveau quiz
-        <Icon name="chevron-down" />
-      </button>
-      {ouvert && (
-        <div className="menu-deroulant menu-nouveau">
-          <button type="button" onClick={choisir(onVide)}>
-            <b>Quiz vide</b>
-            <span className="muted small">Écrire les questions une à une</span>
-          </button>
-          <button type="button" onClick={choisir(onListe)}>
-            <b>Coller une liste</b>
-            <span className="muted small">Tes notes, ou la réponse d’une IA</span>
-          </button>
-          <button type="button" onClick={choisir(onModele)}>
-            <b>Partir d’un modèle</b>
-            <span className="muted small">Un quiz tout fait, à retoucher — ou à personnaliser pour quelqu’un</span>
-          </button>
-          <button type="button" onClick={choisir(onCode)}>
-            <b>Recevoir par un code</b>
-            <span className="muted small">Le quiz qu’un animateur de ce serveur te partage</span>
-          </button>
-          <button type="button" disabled={occupe} onClick={choisir(onFichier)}>
-            <b>Importer un fichier</b>
-            <span className="muted small">Le quiz d’un ami d’un autre serveur, ou toute une bibliothèque (.json)</span>
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/**
- * Un menu qui se referme tout seul : Échap — qui rend la main à son bouton —,
- * ou un toucher hors de son ancre. Un toucher dans le menu ne le ferme pas :
- * fermé au `pointerdown`, il disparaissait avant que le clic n'arrive.
- */
-function useFermeture() {
-  const [ouvert, setOuvert] = useState(false)
-  const ancre = useRef<HTMLDivElement>(null)
-  // Le menu s'ouvre sous son bouton, aligné à droite — sauf s'il sortirait
-  // de l'écran : au téléphone, « Nouveau quiz » passe à gauche sous le
-  // titre, et le menu d'une ligne du bas s'ouvrait sous le pli.
-  useLayoutEffect(() => {
-    const menu = ancre.current?.querySelector<HTMLElement>('.menu-deroulant')
-    if (!ouvert || !menu) return
-    const r = menu.getBoundingClientRect()
-    if (r.left < 8) menu.classList.add('vers-la-droite')
-    const bouton = ancre.current!.getBoundingClientRect()
-    if (r.bottom > window.innerHeight - 8 && bouton.top - r.height - 6 > 8) menu.classList.add('vers-le-haut')
-  }, [ouvert])
-  useEffect(() => {
-    if (!ouvert) return
-    const fermer = (e: Event) => {
-      if (e instanceof KeyboardEvent) {
-        if (e.key !== 'Escape') return
-        ancre.current?.querySelector<HTMLElement>('[aria-expanded]')?.focus()
-      } else if (ancre.current?.contains(e.target as Node)) return
-      setOuvert(false)
-    }
-    document.addEventListener('keydown', fermer)
-    document.addEventListener('pointerdown', fermer)
-    return () => {
-      document.removeEventListener('keydown', fermer)
-      document.removeEventListener('pointerdown', fermer)
-    }
-  }, [ouvert])
-  return { ouvert, setOuvert, ancre }
-}
-
-/**
- * Une ligne de « Mes quiz » : elle s'ouvre d'un clic, et ses gestes rares —
- * dupliquer, exporter, archiver, supprimer — attendent sous « ⋯ ». Quatre
- * boutons par ligne faisaient 160 boutons pour 40 quiz, et « Supprimer » à
- * un clic de « Modifier ».
- */
-function LigneDeQuiz({
-  quiz: q,
-  brouillon,
-  occupe,
-  exportEnCours,
-  onOuvrir,
-  auProgramme,
-  occupeProgramme,
-  onProgramme,
-  onDupliquer,
-  onExporter,
-  onPartager,
-  onProposer,
-  onArchiver,
-  onSupprimer,
-}: {
-  quiz: QuizSummary
-  brouillon: boolean
-  occupe: boolean
-  exportEnCours: boolean
-  onOuvrir: () => void
-  /** Au programme de ce soir — null quand il ne peut pas y être : rien de prêt, ou archivé. */
-  auProgramme: boolean | null
-  occupeProgramme: boolean
-  onProgramme: () => void
-  onDupliquer: () => void
-  onExporter: () => void
-  onPartager: () => void
-  onProposer: () => void
-  onArchiver: () => void
-  onSupprimer: () => void
-}) {
-  const { ouvert, setOuvert, ancre } = useFermeture()
-  const choisir = (geste: () => void) => () => {
-    setOuvert(false)
-    geste()
-  }
-  const manque = q.questionCount - q.readyCount - (q.deCote ?? 0)
-  const faits = [
-    q.questionCount === 0
-      ? 'Aucune question encore'
-      : `${q.readyCount} question${q.readyCount > 1 ? 's' : ''} prête${q.readyCount > 1 ? 's' : ''}`,
-    (q.photos ?? 0) > 0 && `${q.photos} photo${q.photos! > 1 ? 's' : ''}`,
-    (q.estimations ?? 0) > 0 && `${q.estimations} estimation${q.estimations! > 1 ? 's' : ''}`,
-    (q.dureeS ?? 0) > 0 && ecrireDuree(q.dureeS!),
-    // Pour ne pas reposer le même quiz aux mêmes amis sans s'en souvenir.
-    q.joue && (q.joue.fois > 1 ? `joué ${q.joue.fois} fois, la dernière ${jour(q.joue.dernier)}` : `joué ${jour(q.joue.dernier)}`),
-    `modifié ${quand(q.updatedAt)}`,
-  ].filter(Boolean)
-  return (
-    <li className={'card quiz-ligne' + (q.archivedAt ? ' is-archive' : '')}>
-      {/* Chaque bouton nomme son quiz : dix « Supprimer » à la suite ne disent
-          pas lequel à qui les parcourt au lecteur d'écran. Le libellé commence
-          par le mot affiché, qu'une commande vocale reconnaît. */}
-      <button type="button" className="quiz-ligne-ouvrir" aria-label={`Modifier « ${q.title} »`} onClick={onOuvrir}>
-        <span className="quiz-ligne-titre">{q.title}</span>
-        <span className="muted small">{faits.join(' · ')}</span>
-        {manque > 0 && (
-          <span className="warn small">
-            <Icon name="alert" /> {manque} à compléter
-          </span>
-        )}
-        {q.trouve && <span className="muted small quiz-ligne-trouve">{espacesFines(`Trouvé dans « ${q.trouve} »`)}</span>}
-        {brouillon && (
-          <span className="warn small">
-            <Icon name="edit" /> Des modifications non enregistrées t’attendent dans ce navigateur
-          </span>
-        )}
-      </button>
-      {/* Le seul geste de la ligne : la soirée se prépare d'ici. Au
-          téléphone, l'icône seule — le nom reste entier pour qui l'écoute. */}
-      {auProgramme !== null && (
-        <button
-          type="button"
-          className={'pill-btn programme-bascule' + (auProgramme ? ' active' : '')}
-          aria-pressed={auProgramme}
-          aria-label={`Au programme : « ${q.title} »`}
-          disabled={occupeProgramme}
-          onClick={onProgramme}
-        >
-          <Icon name={auProgramme ? 'check' : 'plus'} />
-          <span className="programme-bascule-texte">Au programme</span>
-        </button>
-      )}
-      <div className="menu-ancre" ref={ancre}>
-        <button
-          type="button"
-          className="btn btn-ghost btn-small bouton-plus"
-          aria-label={`Plus d’options pour « ${q.title} »`}
-          aria-expanded={ouvert}
-          onClick={() => setOuvert(v => !v)}
-        >
-          <Icon name="more" />
-        </button>
-        {ouvert && (
-          <div className="menu-deroulant">
-            <button type="button" aria-label={`Modifier « ${q.title} »`} onClick={choisir(onOuvrir)}>
-              Modifier
-            </button>
-            <button type="button" aria-label={`Dupliquer « ${q.title} »`} onClick={choisir(onDupliquer)}>
-              Dupliquer
-            </button>
-            <button type="button" disabled={q.questionCount === 0} onClick={choisir(onPartager)}>
-              Partager par un code
-            </button>
-            <button
-              type="button"
-              disabled={occupe}
-              title="Un fichier à envoyer à un animateur d’un autre serveur, qui l’ouvre avec « Importer un fichier » : les questions et leurs photos"
-              onClick={choisir(onExporter)}
-            >
-              {exportEnCours ? 'Export…' : 'Exporter en fichier'}
-            </button>
-            <button type="button" disabled={q.readyCount === 0} onClick={choisir(onProposer)}>
-              Proposer au catalogue
-            </button>
-            <button type="button" onClick={choisir(onArchiver)}>
-              {q.archivedAt ? 'Ressortir de l’archive' : 'Archiver'}
-            </button>
-            <button
-              type="button"
-              className="menu-danger"
-              aria-label={`Supprimer « ${q.title} »`}
-              onClick={choisir(onSupprimer)}
-            >
-              Supprimer
-            </button>
-          </div>
-        )}
-      </div>
-    </li>
-  )
 }
 
 // ── Édition d'un quiz ─────────────────────────────────────────────────────
@@ -3482,7 +3350,7 @@ function PremiersPas({
   onFermer,
   onErreur,
 }: {
-  /** Aucun quiz prêt : les quatre départs. Sinon, les modèles seuls, rouverts depuis « Nouveau quiz ». */
+  /** Aucun quiz prêt : les quatre départs. Sinon, les modèles seuls, rouverts depuis « Créer un quiz ». */
   debut: boolean
   occupe: boolean
   onOuvrir: (id: string) => void
@@ -3490,7 +3358,7 @@ function PremiersPas({
   onCreer: () => void
   /** « Coller une liste » : le départ le plus rapide, celui qui accueille la réponse d'une IA. */
   onListe: () => void
-  /** Refermer les modèles, rouverts depuis « Nouveau quiz ». */
+  /** Refermer les modèles, rouverts depuis « Créer un quiz ». */
   onFermer?: () => void
   onErreur: (message: string) => void
 }) {

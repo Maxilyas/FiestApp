@@ -1355,6 +1355,7 @@ h3 > .icon {
 .telecommande-apercu .join-url { white-space: normal; overflow-wrap: anywhere; font-size: 0.95rem; }
 .telecommande-invite { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 
+
 /* ── La remise des prix, à la salle ── */
 /* Le prix qu'on vient de remettre, en grand : c'est le moment où toute la
    salle regarde l'écran. En `rem`, comme toute la scène : les mêmes
@@ -2156,33 +2157,95 @@ h3 > .icon {
 }
 
 /* ── Mes quiz ─────────────────────────────────────────────────────────────
-   Une ligne par quiz, qui s'ouvre d'un clic ; les gestes rares sous « ⋯ ». */
-.quiz-list { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
-.quiz-ligne { display: flex; align-items: center; gap: 8px; padding: 0; }
-.quiz-ligne.is-archive { opacity: 0.8; }
-.quiz-ligne-ouvrir {
+   Des cartes : la pastille du quiz dans la lueur de sa catégorie, son nom,
+   une ligne de faits, et ▶ pour le lancer. Le reste vit dans sa fiche. */
+.quiz-cartes { display: flex; flex-direction: column; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.quiz-carte {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.quiz-carte.is-archive { opacity: 0.8; }
+.quiz-carte-ouvrir {
   flex: 1;
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
-  padding: 12px 16px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
   border: 0;
   background: transparent;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
 }
-.quiz-ligne-ouvrir:hover .quiz-ligne-titre { color: var(--accent-text-hover); }
-.quiz-ligne-titre { font-family: var(--serif); font-weight: 600; font-size: 1.25rem; line-height: 1.2; overflow-wrap: anywhere; }
-.quiz-ligne-trouve { font-style: italic; }
-.quiz-ligne .menu-ancre { margin-right: 10px; }
+.quiz-carte-ouvrir:hover b { color: var(--accent-text-hover); }
+.quiz-carte-texte { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.quiz-carte-texte b { font-family: var(--serif); font-weight: 600; font-size: 1.15rem; line-height: 1.2; overflow-wrap: anywhere; }
+.quiz-carte-faits { color: var(--muted); font-size: 0.85rem; }
+.quiz-carte-trouve { font-style: italic; }
+.quiz-pastille {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--lueur) 22%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lueur) 45%, transparent);
+  font-family: var(--serif);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+.quiz-carte-lancer {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.quiz-carte-lancer:hover { background: var(--accent-hover); }
+/* La fiche d'un quiz : ce qu'il contient, Lancer et Modifier en grand, les gestes rares en liste calme. */
+.quiz-fiche { display: flex; flex-direction: column; gap: 14px; }
+.quiz-heros { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.quiz-heros .quiz-pastille { width: 72px; height: 72px; font-size: 2.4rem; }
+.quiz-heros h1 { margin: 4px 0 0; font-size: 1.9rem; overflow-wrap: anywhere; }
+.quiz-heros p { margin: 0; }
+.quiz-categories { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.quiz-categories li { padding: 2px 10px; border: 1px solid var(--edge-strong); border-radius: var(--radius-pill); font-size: 0.85rem; color: var(--muted); }
+.quiz-fiche-gestes { display: grid; gap: 8px; }
+.fiche-plus { display: flex; flex-direction: column; gap: 2px; padding: 10px; }
+.fiche-plus > .label { padding: 2px 8px 4px; }
+.fiche-geste {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.fiche-geste > .icon { flex: none; color: var(--accent-text); }
+.fiche-geste > span { display: flex; flex-direction: column; gap: 1px; }
+.fiche-geste:hover:not(:disabled) { background: var(--accent-soft); }
+.fiche-geste:disabled { opacity: 0.55; cursor: default; }
+.fiche-supprimer { color: var(--alert); }
 
-.bibliotheque-tete { align-items: center; }
-.bibliotheque-tete h1 { flex: 1; margin: 0; white-space: nowrap; }
+.bibliotheque-tete h1 { white-space: nowrap; }
 /* Les pages de l'animateur, en une ligne fine, la même partout (lot 12) :
    en tête de « Mes quiz », au-dessus de « Mon compte » et des comptes. */
 .nav-animateur { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 0.88rem; }
@@ -2193,13 +2256,17 @@ h3 > .icon {
 .nav-ancre { text-align: center; font-size: 0.88rem; margin: 0 0 12px; }
 /* Une page qui ne peut rien montrer dit pourquoi, et où aller. */
 .impasse { display: grid; gap: 14px; justify-items: center; text-align: center; }
-.bibliotheque-outils { display: grid; gap: 10px; min-width: 0; }
+.bibliotheque-outils { display: flex; gap: 8px; min-width: 0; }
+.bibliotheque-outils .champ-recherche { flex: 1; min-width: 0; }
+.bibliotheque-trier { flex: none; }
+.bibliotheque-trier.is-actif { color: var(--accent-text); border-color: var(--accent); }
+.filtre-actif { margin: -4px 0 0; }
+.filtre-actif .pill-btn { gap: 4px; padding-right: 4px; cursor: default; }
+.filtre-actif button { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: var(--radius-pill); background: transparent; color: inherit; cursor: pointer; }
 .champ-recherche { position: relative; display: flex; align-items: center; }
 .champ-recherche > .icon { position: absolute; left: 12px; color: var(--muted); pointer-events: none; }
 .champ-recherche .input { width: 100%; padding-left: 38px; }
 .filtres { display: flex; flex-wrap: wrap; gap: 6px; }
-.bibliotheque-compte { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.bibliotheque-compte label { gap: 6px; }
 /* Un choix discret, au poids du texte qui l'entoure : le natif s'ouvre au
    clavier et au doigt, rien de plus à inventer. */
 .select-discret {
@@ -2248,7 +2315,6 @@ h3 > .icon {
 .programme-points .pill-btn { min-height: 32px; padding: 0 10px; }
 .programme-pied { justify-content: space-between; gap: 8px 12px; }
 .programme-aide { flex: 1; min-width: 14rem; }
-.programme-bascule { flex: none; }
 
 /* Ce que l'historique sait d'une question, au pied de sa carte. */
 .souvenir-question { margin: 0; }
@@ -2405,65 +2471,12 @@ h3 > .icon {
 .catalogue-photo { width: 64px; height: 40px; object-fit: cover; border-radius: 6px; vertical-align: middle; margin-right: 8px; }
 .catalogue-juste { color: var(--accent-text); font-weight: 600; }
 @media (max-width: 600px) {
-  .programme-bascule { padding: 0 11px; }
-  .programme-bascule-texte { display: none; }
   .programme-gestes { width: 100%; justify-content: flex-end; }
 }
 
-/* Les menus d'une ligne et de « Nouveau quiz » : sous leur bouton, à droite. */
-.menu-ancre { position: relative; }
-.menu-deroulant {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 6px);
-  z-index: 20;
-  min-width: 220px;
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
-  background: var(--bg-raised);
-  border: 1px solid var(--edge-strong);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
-}
-.menu-deroulant.vers-la-droite { right: auto; left: 0; }
-.menu-deroulant.vers-le-haut { top: auto; bottom: calc(100% + 6px); }
-.menu-deroulant button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-height: 40px;
-  padding: 8px 12px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.menu-deroulant button:hover:not(:disabled) { background: var(--accent-soft); }
-.menu-deroulant button:disabled { color: var(--muted); cursor: default; }
-.menu-deroulant .menu-danger { color: var(--alert); }
-.menu-nouveau { min-width: 300px; }
-.bouton-plus { width: 40px; padding: 0; }
 @media (max-width: 600px) {
   .nav-animateur { gap: 2px 14px; }
   .bibliotheque-tete h1 { font-size: 1.8rem; }
-  .menu-nouveau { min-width: 260px; }
-  .quiz-ligne-ouvrir { padding: 10px 12px; }
-  /* Une ligne qui défile sous le doigt, jusqu'au bord de l'écran : la
-     pastille coupée au bord dit qu'il y en a d'autres. */
-  .filtres {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    margin: 0 -16px;
-    padding: 0 16px 2px;
-  }
-  .filtres::-webkit-scrollbar { display: none; }
-  .filtres .pill-btn { flex: none; }
 }
 
 .question-card { display: flex; flex-direction: column; gap: 12px; }
