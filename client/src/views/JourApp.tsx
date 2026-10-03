@@ -26,6 +26,7 @@ import {
   XP_PODIUM_DU_JOUR,
   jourAvant,
   jourEnToutesLettres,
+  minutesAvantMinuit,
   moisDe,
   moisEnToutesLettres,
   seuilsDesMedailles,
@@ -108,6 +109,13 @@ export function JourApp() {
   const [ecran, setEcran] = useState<Ecran>(() => ecranDe(window.location.hash))
   const [erreur, setErreur] = useState('')
   const [occupe, setOccupe] = useState(false)
+  /**
+   * La partie était-elle déjà finie quand la page s'est ouverte ? Alors on
+   * revient la consulter : la page du jour joué, pas la fête de la fin.
+   * Retenu à la première partie reçue, jamais recalculé : celle qui finit
+   * sous les yeux garde sa fin.
+   */
+  const [finieALArrivee, setFinieALArrivee] = useState<boolean | null>(null)
 
   useEffect(() => {
     const suivre = () => setEcran(ecranDe(window.location.hash))
@@ -116,6 +124,7 @@ export function JourApp() {
   }, [])
 
   const recevoir = useCallback((p: PartieDuJour) => {
+    setFinieALArrivee(avant => avant ?? p.etat === 'finie')
     setPartie(p)
     setRevelation(p.revelation ?? null)
     setEnvoi(null)
@@ -423,7 +432,11 @@ export function JourApp() {
   if (partie.etat === 'finie') {
     return (
       <>
-        <Fin partie={partie} profil={profil} onClassement={() => ouvrir('classement')} onCorrection={() => ouvrir('correction')} />
+        {finieALArrivee ? (
+          <JourJoue partie={partie} onClassement={() => ouvrir('classement')} onCorrection={() => ouvrir('correction')} />
+        ) : (
+          <Fin partie={partie} profil={profil} onClassement={() => ouvrir('classement')} onCorrection={() => ouvrir('correction')} />
+        )}
         {toastVu}
       </>
     )
@@ -669,10 +682,7 @@ export function Fin({
           1 200 px en 360 × 640 pour une partie qui monte d'un niveau et
           ouvre son emoji —, et « Retour à l'accueil » attendait tout en bas,
           deux écrans plus loin. En tête, la fête n'en descend pas. */}
-      <a className="lien-discret jour-sortie" href="/">
-        <Icon name="home" />
-        Accueil
-      </a>
+      <SortieDuJour />
       <header className="fin-tete">
         <span className="label">Le quiz du jour</span>
         <h1>{capitale(jourEnToutesLettres(partie.jour))}</h1>
@@ -779,6 +789,132 @@ export function Fin({
           Retour à l’accueil
         </a>
       </div>
+    </div>
+  )
+}
+
+/**
+ * La sortie de la page du jour, en tête et toujours la même : « ← Accueil »,
+ * comme la campagne et le salon. À la taille d'un pouce (`.jour-sortie`).
+ */
+function SortieDuJour() {
+  return (
+    <a className="lien-discret jour-sortie" href="/">
+      <Icon name="arrow-left" />
+      Accueil
+    </a>
+  )
+}
+
+/** Le temps qui reste avant minuit à Paris, « 7 h 05 » ou « 12 min », remis à jour chaque minute. */
+function useAvantMinuit(): string {
+  const [maintenant, setMaintenant] = useState(() => serverNow())
+  useEffect(() => {
+    const id = setInterval(() => setMaintenant(serverNow()), 30_000)
+    return () => clearInterval(id)
+  }, [])
+  const m = minutesAvantMinuit(maintenant)
+  return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`
+}
+
+/** Au plus cinq lignes du classement, incrusté dans la page du jour joué : le haut, et soi s'il est plus bas. */
+const LIGNES_INCRUSTEES = 5
+
+/**
+ * Le jour joué : ce qu'on retrouve en revenant après sa partie. La fin et
+ * sa fête ne paraissent qu'une fois, juste après la dernière réponse ;
+ * revues à chaque visite, elles cachaient ce qu'on vient chercher le soir —
+ * sa place au classement, ses réponses — et « Reprendre » ne menait plus
+ * qu'à elles (le propriétaire du dépôt, le 3 octobre 2026). Le résultat en
+ * une carte, la correction d'un toucher, le classement du jour incrusté, et
+ * le rendez-vous de demain.
+ */
+export function JourJoue({ partie, onClassement, onCorrection }: { partie: PartieDuJour; onClassement: () => void; onCorrection: () => void }) {
+  const [classement, setClassement] = useState<ClassementDuJour | null>(null)
+  const [carte, setCarte] = useState<string | null>(null)
+  const laCarte = useALaDemande(carteJoueur, !!carte)
+  const avantMinuit = useAvantMinuit()
+  useEffect(() => {
+    let vivant = true
+    api.jour
+      .classement({ jour: partie.jour })
+      .then(c => vivant && setClassement(c))
+      .catch(() => {})
+    return () => {
+      vivant = false
+    }
+  }, [partie.jour])
+  useEffect(() => {
+    if (!carte || laCarte !== 'perdu') return
+    showToast({ kind: 'error', message: 'La carte ne s’ouvre pas : vérifie ta connexion.' })
+    setCarte(null)
+  }, [carte, laCarte])
+  const lignes = classement?.lignes ?? []
+  const montrees = lignes.slice(0, LIGNES_INCRUSTEES)
+  const sienneEnDessous = classement?.sienne ? lignes.slice(LIGNES_INCRUSTEES).find(l => l.profileId === classement.sienne) : undefined
+  const plusBas = sienneEnDessous ?? classement?.moi
+  return (
+    <div className="player-shell jour-joue">
+      <SortieDuJour />
+      <section className="card jour-carte">
+        <div className="jour-tete">
+          <span className="label">Le quiz du jour · joué</span>
+          <Serie jours={partie.serie} />
+        </div>
+        <h1 className="jour-date">{capitale(jourEnToutesLettres(partie.jour))}</h1>
+        <div className="jour-resultat">
+          {partie.medaille ? (
+            <Medaille medaille={partie.medaille} className="medaille-grande" />
+          ) : (
+            <span className="jour-pastille">
+              <Icon name="target" />
+            </span>
+          )}
+          <span>
+            <b className="num">{pts(partie.points)}</b>
+            <span className="muted small">
+              {partie.justes} sur {partie.comptees} · {partie.medaille ? NOM_MEDAILLE[partie.medaille] : 'pas de médaille'} · +
+              {formatNumber(partie.xp)} XP
+            </span>
+          </span>
+        </div>
+        <button type="button" className="btn btn-block" onClick={onCorrection}>
+          <Icon name="book" />
+          Revoir mes réponses
+        </button>
+      </section>
+
+      <section className="card jour-classement-incruste" aria-labelledby="classement-du-jour">
+        <div className="jour-classement-tete">
+          <h2 id="classement-du-jour">Le classement du jour</h2>
+          <span className="muted small">
+            {classement
+              ? `${classement.joueurs} joueur${classement.joueurs > 1 ? 's' : ''} · ${classement.fige ? 'figé' : 'se fige à minuit'}`
+              : 'Chargement…'}
+          </span>
+        </div>
+        <div className="leaderboard">
+          {montrees.map(l => (
+            <LigneDuClassement key={l.profileId} ligne={l} moi={l.profileId === classement?.sienne} onOuvrir={setCarte} />
+          ))}
+          {plusBas && (
+            <>
+              <p className="muted center small">…</p>
+              <LigneDuClassement ligne={plusBas} moi onOuvrir={setCarte} />
+            </>
+          )}
+        </div>
+        <button type="button" className="link-inline jour-tout-classement" onClick={onClassement}>
+          Hier, le mois : tout le classement
+        </button>
+      </section>
+
+      <p className="jour-demain muted small">
+        <Icon name="clock" /> Dix nouvelles questions dans <b>{avantMinuit}</b>
+      </p>
+      {carte && laCarte && laCarte !== 'perdu' && (
+        <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} onFermer={() => setCarte(null)} />
+      )}
     </div>
   )
 }

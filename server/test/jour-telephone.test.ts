@@ -390,6 +390,47 @@ test('la fin du jour montre sa sortie en tête : « Retour à l’accueil » att
   for (const geste of ['Voir le classement', 'Revoir mes réponses', 'Retour à l’accueil']) assert.ok(bas.includes(geste), geste)
 })
 
+test('revenue après la partie, la page du jour montre le jour joué, pas la fête de la fin', async () => {
+  // Le propriétaire du dépôt, le 3 octobre 2026 : revenir au quiz du jour
+  // après sa partie rouvrait chaque fois la fin et sa fête ; on venait voir
+  // sa place et ses réponses.
+  const partie = {
+    jour: '2026-10-03',
+    maintenant: 0,
+    total: 10,
+    categories: [],
+    etat: 'finie',
+    points: 1640,
+    justes: 8,
+    xp: 41,
+    medaille: 'argent',
+    rang: 2,
+    joueurs: 3,
+    pointsPossibles: 2000,
+    comptees: 10,
+    serie: 5,
+    vainqueursDHier: [],
+  }
+  const html = await rendu('JourJoue', { partie, onClassement: () => {}, onCorrection: () => {} })
+  const premier = /<(a|button)\b[^>]*>(.*?)<\/\1>/.exec(html)!
+  assert.match(premier[0], /^<a class="lien-discret jour-sortie" href="\/">/, 'la sortie d’abord')
+  assert.equal(premier[2].replace(/<[^>]+>/g, ''), 'Accueil')
+  for (const attendu of ['Le quiz du jour · joué', '8 sur 10', 'Médaille d’argent', 'Revoir mes réponses', 'Le classement du jour', 'tout le classement', 'Dix nouvelles questions dans'])
+    assert.ok(html.includes(attendu), attendu)
+  assert.doesNotMatch(html, /fin-tete|points d’expérience/, 'ni l’en-tête ni la fête de la fin')
+  // Le câblage : la partie déjà finie à l'arrivée ouvre le jour joué ; celle qui finit sous les yeux garde sa fin.
+  assert.match(SOURCE, /setFinieALArrivee\(avant => avant \?\? p\.etat === 'finie'\)/)
+  assert.match(SOURCE, /finieALArrivee \? \(\s*<JourJoue /)
+})
+
+test('le rendez-vous de demain se compte jusqu’à minuit à Paris, changement d’heure compris', async () => {
+  const { minutesAvantMinuit } = await import('../../shared/jour')
+  assert.equal(minutesAvantMinuit(Date.UTC(2026, 9, 3, 21, 55)), 5, '23 h 55 à Paris, à l’heure d’été')
+  assert.equal(minutesAvantMinuit(Date.UTC(2026, 11, 1, 22, 59)), 1, '23 h 59 à Paris, à l’heure d’hiver')
+  assert.equal(minutesAvantMinuit(Date.UTC(2026, 9, 3, 22, 0)), 24 * 60, 'minuit pile : un jour entier')
+  assert.equal(minutesAvantMinuit(Date.UTC(2026, 2, 29, 0, 30)), 21 * 60 + 30, '1 h 30 la nuit du passage à l’heure d’été : vingt et une heures et demie, pas vingt-deux')
+})
+
 // ── 11. « Le classement du mois » s'ouvre sur le mois ─────────────────────
 
 test('« Le classement du mois » s’ouvre sur le mois, et la période choisie reste dans l’adresse', async () => {

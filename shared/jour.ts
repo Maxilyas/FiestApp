@@ -104,6 +104,25 @@ export function jourDe(instant: number): string {
 
 const JOUR = /^(\d{4})-(\d{2})-(\d{2})$/
 
+/**
+ * Les minutes qui restent avant minuit à Paris : le rendez-vous des
+ * questions de demain. Lues à l'heure de Paris, pas à celle du téléphone —
+ * un joueur à Montréal attend le même minuit que tout le monde. Comptées
+ * jusqu'à l'instant où le jour de Paris change, et non sur l'heure
+ * affichée : la nuit du passage à l'heure d'été n'a que vingt-trois heures.
+ */
+export function minutesAvantMinuit(instant: number): number {
+  const aujourdhui = jourDe(instant)
+  let avant = instant
+  let apres = instant + 26 * 3_600_000
+  while (apres - avant > 1000) {
+    const milieu = Math.floor((avant + apres) / 2)
+    if (jourDe(milieu) === aujourdhui) avant = milieu
+    else apres = milieu
+  }
+  return Math.max(1, Math.round((apres - instant) / 60_000))
+}
+
 /** Un jour bien écrit, et qui existe au calendrier. */
 export function jourValide(jour: unknown): jour is string {
   if (typeof jour !== 'string') return false

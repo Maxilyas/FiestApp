@@ -5831,6 +5831,16 @@ h3 > .icon {
    `viewport-fit=cover`, c'est elle qui garde l'encoche. */
 .jour-sortie { align-self: flex-start; min-height: 44px; margin: 0 0 -12px -6px; padding: 0 6px; font-size: 0.9rem; }
 .jour-titre h2 { font-size: 2rem; margin: 4px 0 0; }
+/* Le jour joué : le résultat en une carte, le classement incrusté, le rendez-vous de demain. */
+.jour-resultat { display: flex; align-items: center; gap: 12px; }
+.jour-resultat > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.jour-resultat b { font-family: var(--serif); font-size: 1.7rem; line-height: 1; }
+.jour-classement-incruste { display: flex; flex-direction: column; gap: 8px; }
+.jour-classement-tete { display: flex; flex-direction: column; gap: 2px; }
+.jour-classement-tete h2 { margin: 0; font-size: 1.15rem; }
+.jour-tout-classement { align-self: center; min-height: 44px; }
+.jour-demain { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; }
+.jour-demain .icon { width: 14px; height: 14px; }
 .jour-annonce { display: flex; flex-direction: column; gap: 12px; border-color: var(--edge-strong); }
 .jour-annonce p { margin: 0; }
 .correction { list-style: none; margin: 10px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 14px; }
