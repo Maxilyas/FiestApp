@@ -115,7 +115,7 @@ test('l’invitation en tête de la salle d’attente du chef : le code en grand
   const barre = source('components/BarreDuChef.tsx')
   // La barre pose l'invitation dans la place que la salle d'attente garde ;
   // chargée chez le chef seulement, elle n'apparaît nulle part ailleurs.
-  assert.match(barre, /\{place && !enJeu && createPortal\(<InvitationDuSalon code=\{code\} lien=\{lienDuCode\} \/>, place\)\}/)
+  assert.match(barre, /\{place && !enJeu && !commencee && createPortal\(<InvitationDuSalon code=\{code\} lien=\{lienDuCode\} \/>, place\)\}/)
   assert.match(barre, /document\.getElementById\('place-invitation'\)/)
   // Le code se dit d'une traite à l'oreille, les six cases ne sont que pour l'œil.
   assert.match(barre, /<span className="code-cases" role="img" aria-label=\{`Le code du salon : \$\{ecrireCode\(code\)\}`\}>/)

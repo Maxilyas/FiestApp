@@ -337,8 +337,8 @@ export function FinDeSoiree({
 }
 
 /**
- * Pour le chef du salon, deux gestes de plus sous sa fin : « Encore un quiz,
- * avec eux » — le même salon, le même code tant qu'il vaut, une nouvelle
+ * Pour le chef du salon, sous sa fin : « Retour à l'accueil » d'abord, puis
+ * « Encore un quiz, avec eux » — le même salon, le même code tant qu'il vaut, une nouvelle
  * soirée qui s'enregistre de même — et, discret, « C'était un essai » : la
  * soirée sort de l'historique avec tout ce qu'elle avait crédité.
  */
@@ -368,7 +368,13 @@ function GestesDuChef({ fin }: { fin: Fin }) {
       <span className="label" id="fin-chef">
         Ton salon
       </span>
-      <a className="btn btn-primary btn-block" href="/salon">
+      {/* La soirée est finie : on rentre à l'accueil — la page du salon gardait
+          le chef devant son code en grand, comme si la salle arrivait encore. */}
+      <a className="btn btn-primary btn-block" href="/">
+        <Icon name="home" />
+        Retour à l’accueil
+      </a>
+      <a className="btn btn-block" href="/salon">
         <Icon name="play" />
         Encore un quiz, avec eux
       </a>
@@ -392,7 +398,7 @@ function GestesDuChef({ fin }: { fin: Fin }) {
  */
 function lienCreation(nom: string, avatar: string): string {
   const params = new URLSearchParams({ creer: '1', prenom: nom.replace(/ \(\d+\)$/, ''), avatar })
-  return `/profil?${params}`
+  return `/?${params}`
 }
 
 /** Une rangée de hauts faits : l'emoji en grand, le titre dessous. */

@@ -167,3 +167,16 @@ test('les pages sans sortie en ont une : l’accueil', () => {
   // Les pages publiques ramènent l'animateur de l'espace chez lui.
   assert.match(source('components/SpaceNav.tsx'), /\{host && \(\s*<div className="space-nav-hote">\s*<a className="space-nav-account" href="\/">/)
 })
+
+test('un profil qui naît arrive à l’accueil, pas sur la page du profil', () => {
+  // La page du profil, encore vide, ne disait pas quoi faire (la remarque du
+  // propriétaire du 3 octobre 2026) : l'accueil, si — un salon, le quiz du jour.
+  const form = source('components/ProfilForm.tsx')
+  assert.match(form, /onClick=\{\(\) => onDone\(recovery\.profile, \{ cree: !recovery\.neuf \}\)\}/)
+  const profil = source('views/ProfilApp.tsx')
+  assert.match(profil, /if \(info\?\.cree && VUE !== 'accueil'\) return window\.location\.replace\('\/'\)/)
+  // Un lien vers le quiz du jour (`?next=`) garde sa destination : il passe avant.
+  assert.ok(profil.indexOf('if (suite) return window.location.assign(suite)') < profil.indexOf("if (info?.cree && VUE !== 'accueil')"))
+  // « Créer mon profil », à la fin d'une soirée, ouvre la création sur l'accueil.
+  assert.match(source('components/FinDeSoiree.tsx'), /return `\/\?\$\{params\}`/)
+})

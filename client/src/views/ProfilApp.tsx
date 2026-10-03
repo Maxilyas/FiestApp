@@ -265,9 +265,12 @@ export function ProfilApp() {
         creer={!!creation}
         prefill={creation ?? undefined}
         onEnvoi={() => void panneaux.charger().catch(() => {})}
-        onDone={() => {
+        onDone={(_, info) => {
           // Venu d'un lien vers le quiz du jour : on y va, sans repasser par l'accueil.
           if (suite) return window.location.assign(suite)
+          // Un profil qui naît arrive à l'accueil — ce qu'on vient faire —,
+          // pas sur la page du profil, encore vide (la remarque du 3 octobre 2026).
+          if (info?.cree && VUE !== 'accueil') return window.location.replace('/')
           // Le profil est là : un rafraîchissement ne doit pas rouvrir la création.
           if (creation) history.replaceState(null, '', window.location.pathname)
           void relire()
@@ -555,7 +558,7 @@ function PorteAnimateur() {
 
 /**
  * La création préremplie qu'ouvre « Créer mon profil » à la fin d'une
- * soirée (`/profil?creer=1&prenom=…&avatar=…`) : elle ouvrait la connexion,
+ * soirée (`/?creer=1&prenom=…&avatar=…`, l'accueil) : elle ouvrait la connexion,
  * vide, et il fallait tout retaper.
  */
 function lireSuite(): string {

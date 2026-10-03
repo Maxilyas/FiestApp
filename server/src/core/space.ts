@@ -183,6 +183,14 @@ export class SpaceRuntime {
 
   /** La clôture qui viendra seule, et son échéance — qui part dans l'instantané. */
   private clotureAuto: { a: number; minuteur: ReturnType<typeof setTimeout> } | null = null
+  /**
+   * Le chef vient de terminer la partie à la main (`terminerLaPartie`) : si
+   * c'était la dernière du programme, la soirée s'enregistre sans attendre.
+   * L'échéance laissait le temps de regarder un podium ; terminer, c'est
+   * dire qu'on a fini — le chef restait trente secondes dans la salle
+   * d'attente, son code en grand, au lieu de sa fin de soirée.
+   */
+  private finVoulue = false
 
   readonly party: Party
   readonly teams: Teams
@@ -1114,8 +1122,15 @@ export class SpaceRuntime {
    * de fin (`SalonStore.clotureAuto`).
    */
   private considererCloture() {
+    const voulue = this.finVoulue
+    this.finVoulue = false
+    // Déjà armée — le podium regardé —, puis terminée à la main : tout de suite.
+    if (voulue && this.clotureAuto && this.closAuProgramme()) {
+      clearTimeout(this.clotureAuto.minuteur)
+      this.clotureAuto = null
+    }
     if (this.clotureAuto || this.finEnCours || !this.closAuProgramme()) return
-    const delai = SpaceRuntime.delaiClotureAuto
+    const delai = voulue ? 0 : SpaceRuntime.delaiClotureAuto
     const minuteur = setTimeout(() => {
       this.clotureAuto = null
       // Relu au dernier moment : un quiz relancé, un programme allongé l'ont peut-être défait.
@@ -1133,6 +1148,13 @@ export class SpaceRuntime {
     if (!this.deps.salons?.clotureAuto(this.spaceId)) return false
     if (this.engine.activeSessionId && this.engine.phase() !== 'finished') return false
     return programmeJoue(this.spaceId, this.lancementDeQuiz().joues ?? [])
+  }
+
+  /** « Terminer le quiz » : la partie se ferme, et la soirée avec elle si le programme est joué. */
+  terminerLaPartie(sessionId: string) {
+    if (this.engine.activeSessionId !== sessionId) return
+    this.finVoulue = true
+    this.engine.endSession(sessionId)
   }
 
   /** Le chef relance un quiz, ou le programme s'allonge : la soirée continue. */

@@ -236,7 +236,7 @@ test('la fin ne propose la soirée suivante qu’une fois commencée, et en haut
   assert.deepEqual(gestes(close), [
     `Mon bilan → ${bilan}`,
     `Revoir la soirée → ${souvenir}`,
-    'Créer mon profil → /profil?creer=1&prenom=Jeanne&avatar=%F0%9F%A6%8A',
+    'Créer mon profil → /?creer=1&prenom=Jeanne&avatar=%F0%9F%A6%8A',
   ])
 
   // Un invité s'est inscrit à la suivante : elle se propose, avant tout le reste.
@@ -263,8 +263,11 @@ test('la page câble le premier écran, la fin rendue et la soirée suivante', (
   assert.match(source('socket.ts'), /socket\.on\('soiree:fin', fin => \{[\s\S]*?garderFin\(slug, fin\)\s*\}\s*setState\(\{ fin, gain: null \}\)/)
 })
 
-test('sous sa fin de soirée, le chef du salon a deux gestes de plus : encore un quiz avec eux, ou ce n’était qu’un essai', async () => {
+test('sous sa fin de soirée, le chef du salon rentre à l’accueil d’abord — puis encore un quiz avec eux, ou ce n’était qu’un essai', async () => {
   const chef = gestes(await rendu({ fin: FIN, profil: null, onSuivante: () => {}, chef: true }))
+  // La soirée est finie : la sortie principale ramène à l'accueil, pas au salon (la remarque du 3 octobre 2026).
+  const accueil = chef.indexOf('Retour à l’accueil → /')
+  assert.ok(accueil >= 0 && accueil < chef.indexOf('Encore un quiz, avec eux → /salon'), chef.join(' | '))
   assert.ok(chef.includes('Encore un quiz, avec eux → /salon'), chef.join(' | '))
   assert.ok(chef.includes('C’était un essai [bouton]'))
   const invite = gestes(await rendu({ fin: FIN, profil: null, onSuivante: () => {} }))

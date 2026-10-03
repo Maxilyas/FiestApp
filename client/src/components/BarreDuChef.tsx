@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { Icon } from './Icon'
@@ -29,6 +29,9 @@ function ClotureQuiVient({ a }: { a: number }) {
 
 /** L'encre du QR : sombre sur blanc, quel que soit le thème — un QR clair sur sombre ne se scanne pas partout. */
 const QR_INK = '#1a1412'
+
+/** Le temps de regarder le podium avant que « Quiz suivant » réponde. */
+export const PODIUM_AVANT_LA_SUITE_MS = 2500
 
 /**
  * La barre du chef, en bas de son téléphone de joueur : le chef joue avec
@@ -91,6 +94,23 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
     if ((v.autoNextSeconds ?? null) !== reglages.rythme) commande({ type: 'autoNext', seconds: reglages.rythme })
   }, [v, c.sessionId, reglages.rythme])
 
+  /**
+   * Le podium vient d'arriver : « Quiz suivant » prend la place de « Le
+   * podium », sous le même doigt. Un double toucher, ou un toucher qui
+   * croisait le rythme automatique, lançait le quiz suivant — la salle ne
+   * voyait jamais son podium. Le bouton attend donc qu'on l'ait regardé.
+   * Posé avant l'affichage (`useLayoutEffect`) : un `useEffect` laissait
+   * passer le toucher qui tombait entre l'affichage de « Quiz suivant » et
+   * l'effet — le double toucher, justement.
+   */
+  const [podiumRegarde, setPodiumRegarde] = useState(true)
+  useLayoutEffect(() => {
+    if (v?.phase !== 'finished') return setPodiumRegarde(true)
+    setPodiumRegarde(false)
+    const t = setTimeout(() => setPodiumRegarde(true), PODIUM_AVANT_LA_SUITE_MS)
+    return () => clearTimeout(t)
+  }, [v?.phase, c.sessionId])
+
   // En équipes : celles par défaut, une fois, si la soirée n'en a pas.
   useEffect(() => {
     if (!reglages.equipes || equipesPosees.current || !c.presente || !c.snapshot) return
@@ -103,6 +123,8 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
 
   const code = c.snapshot.code
   const enJeu = !!v && v.phase !== 'finished' && v.phase !== 'pickPack'
+  /** Un quiz a déjà rapporté des points ce soir : la salle est là. */
+  const commencee = c.snapshot.players.some(p => p.score > 0)
   const lienDuCode = code ? `${window.location.origin}/${code}` : `${window.location.origin}/${reglages.slug}`
 
   const annuler = async () => {
@@ -141,7 +163,12 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
     principal = <ClotureQuiVient a={c.snapshot.clotureAuto} />
   } else if (!v || v.phase === 'finished') {
     principal = (
-      <button type="button" className="btn btn-primary barre-chef-geste" onClick={lancer}>
+      <button
+        type="button"
+        className="btn btn-primary barre-chef-geste"
+        aria-disabled={!podiumRegarde || undefined}
+        onClick={() => podiumRegarde && lancer()}
+      >
         <Icon name="play" />
         {v ? 'Quiz suivant' : 'Lancer le quiz'}
       </button>
@@ -220,7 +247,9 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
         </p>
       )}
 
-      {place && !enJeu && createPortal(<InvitationDuSalon code={code} lien={lienDuCode} />, place)}
+      {/* L'invitation en grand tant que la salle arrive ; une fois un quiz
+          joué, tout le monde est là : le code reste dans la barre, à un toucher. */}
+      {place && !enJeu && !commencee && createPortal(<InvitationDuSalon code={code} lien={lienDuCode} />, place)}
 
       {qr && (
         <Feuille titre="Inviter dans le salon" onFermer={() => setQr(false)}>

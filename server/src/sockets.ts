@@ -802,7 +802,7 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       const rt = requireHost()
       const sessionId = texte(charge.sessionId)
       if (!rt || !sessionId) return
-      rt.engine.endSession(sessionId)
+      rt.terminerLaPartie(sessionId)
     })
 
     ecouter('host:renamePlayer', charge => {
