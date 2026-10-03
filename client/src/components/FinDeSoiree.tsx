@@ -20,6 +20,7 @@ import { api } from '../api'
 import { spacePath } from '../routes'
 import { formatNumber, place, pourcent, pts } from '../format'
 import { showToast } from '../state'
+import { confirmDialog } from './Dialog'
 import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
 import { Flamme, Icon } from './Icon'
@@ -44,12 +45,15 @@ export function FinDeSoiree({
   profil,
   suivante = false,
   onSuivante,
+  chef = false,
 }: {
   fin: Fin
   profil: PublicProfile | null
   /** La soirée suivante a commencé dans l'espace (`suivanteCommencee`) : de quoi la rejoindre. */
   suivante?: boolean
   onSuivante: () => void
+  /** Ce téléphone a ouvert le salon (`chef.ts`) : « Encore un quiz, avec eux », et « C'était un essai ». */
+  chef?: boolean
 }) {
   const [porte, setPorte] = useState<string | null>(profil?.legendaire ?? null)
   const eclats = fin.hautsFaits.filter(h => h.ton === 'eclat')
@@ -349,7 +353,57 @@ export function FinDeSoiree({
           </p>
         )}
       </div>
+      {chef && <GestesDuChef fin={fin} />}
     </div>
+  )
+}
+
+/**
+ * Pour le chef du salon, deux gestes de plus sous sa fin : « Encore un quiz,
+ * avec eux » — le même salon, le même code tant qu'il vaut, une nouvelle
+ * soirée qui s'enregistre de même — et, discret, « C'était un essai » : la
+ * soirée sort de l'historique avec tout ce qu'elle avait crédité.
+ */
+function GestesDuChef({ fin }: { fin: Fin }) {
+  const [effacee, setEffacee] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const effacer = async () => {
+    const ok = await confirmDialog({
+      title: 'C’était un essai ?',
+      message: 'La soirée sort de l’historique, et ce qu’elle a rapporté à chacun lui est repris.',
+      confirmLabel: 'Ne pas la garder',
+      danger: true,
+    })
+    if (!ok) return
+    setBusy(true)
+    try {
+      await api.archives.remove(fin.soiree.id)
+      setEffacee(true)
+    } catch (e) {
+      showToast({ kind: 'error', message: (e as Error).message })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <section className="card fin-chef" aria-labelledby="fin-chef">
+      <span className="label" id="fin-chef">
+        Ton salon
+      </span>
+      <a className="btn btn-primary btn-block" href="/salon">
+        <Icon name="play" />
+        Encore un quiz, avec eux
+      </a>
+      {effacee ? (
+        <p className="muted small" role="status">
+          La soirée n’est plus dans l’historique.
+        </p>
+      ) : (
+        <button type="button" className="btn btn-ghost btn-small" aria-disabled={busy || undefined} onClick={() => void (busy ? null : effacer())}>
+          C’était un essai
+        </button>
+      )}
+    </section>
   )
 }
 

@@ -88,6 +88,12 @@ export function equipesParDefaut() {
   socket?.emit('host:seedTeams', {})
 }
 
+/** Enregistre la soirée maintenant : sa fin à chacun, puis la page blanche. */
+export function clore() {
+  poser({ message: null })
+  socket?.emit('host:closeParty', {})
+}
+
 /** Termine le quiz en cours : son podium, puis la salle d'attente. */
 export function terminer() {
   if (socket && etat.sessionId) socket.emit('host:endSession', { sessionId: etat.sessionId })

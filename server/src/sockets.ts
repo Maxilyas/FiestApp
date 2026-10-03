@@ -770,6 +770,8 @@ export function wireSockets(io: IoServer, deps: SocketDeps) {
       if (charge.depuis !== undefined && (typeof charge.depuis === 'string' ? charge.depuis : null) !== rt.engine.activeSessionId) return
       try {
         rt.engine.launch(rt.lancementDeQuiz())
+        // Un quiz de plus : la soirée qui allait s'enregistrer continue.
+        rt.reconsidererCloture()
         // Le quiz prend la scène : un podium ou une clôture restés sur la
         // télé passaient devant tout le quiz suivant.
         rt.poserScene(null)

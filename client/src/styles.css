@@ -1136,6 +1136,17 @@ h3 > .icon {
   padding: 0.625rem 0;
 }
 
+/* Le code du salon, ce qu'on lit de loin et qu'on dicte : en grand, au-dessus
+   de l'adresse. En rem : sur grand écran, `/host` compte en rem. */
+.invite-code {
+  margin: 0;
+  font-size: clamp(2.6rem, 6vw, 4.5rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+}
 .invite-url {
   font-family: var(--serif);
   font-weight: 600;
@@ -6977,3 +6988,9 @@ body.avec-chef .player-shell:has(.ans-grid) { padding-bottom: calc(46px + 64px);
 .geste-qui-defait { color: var(--alert); }
 /* Le toast monte au-dessus de la barre : il ne la cache pas, elle ne le cache pas. */
 body.avec-chef .toast { bottom: calc(84px + env(safe-area-inset-bottom)); }
+/* La soirée d'un salon va s'enregistrer : dit au-dessus du podium, sans le couvrir. */
+.cloture-qui-vient { display: flex; align-items: center; gap: 10px; margin: 0; }
+.cloture-qui-vient .icon { flex: none; color: var(--accent-text); }
+/* Les deux gestes du chef sous sa fin de soirée. */
+.fin-chef { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
+.fin-chef .btn-ghost { align-self: center; }

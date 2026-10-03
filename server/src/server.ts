@@ -345,7 +345,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
   }
   const relireLeProgramme = derniereRelecture()
   const refreshProgramme = async (spaceId?: string) => {
-    if (spaceId) return relireLeProgramme(spaceId, () => programmes.actif(spaceId), programme => setProgramme(spaceId, programme))
+    if (spaceId) {
+      return relireLeProgramme(spaceId, () => programmes.actif(spaceId), programme => {
+        setProgramme(spaceId, programme)
+        // Un quiz ajouté pendant le dernier podium : la soirée continue.
+        registry.peek(spaceId)?.reconsidererCloture()
+      })
+    }
     for (const [id, programme] of await programmes.actifs()) setProgramme(id, programme)
   }
 
@@ -793,7 +799,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
       ),
     removeAccount,
     soireeEnCours: spaceId => registry.get(spaceId).soireeId(),
-    ouvrirSalon: spaceId => registry.get(spaceId).ouvrirSalon(),
+    ouvrirSalon: (spaceId, opts) => registry.get(spaceId).ouvrirSalon(opts),
     // La base locale est le registre de la soirée en cours : la clôture et
     // l'essai effacé la vident, un invité exclu en sort. Mais une soirée
     // qu'on n'a pas close reste là jusqu'à la suivante : sans son dernier

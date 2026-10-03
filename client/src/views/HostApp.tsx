@@ -9,7 +9,7 @@ import { api, motifDe } from '../api'
 import { dataUrl, spacePath } from '../routes'
 import { ONGLETS } from '../onglets'
 import { formatDay } from '../../../shared/archive'
-import { titreDeCloture } from '../../../shared/space'
+import { ecrireCode, titreDeCloture } from '../../../shared/space'
 import { deNom, espacesFines } from '../format'
 import { initAudio, isMuted, ouvrirAuPremierGeste, sonPret, surLeSon, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
@@ -594,6 +594,10 @@ export function HostApp() {
   const slug = snap.space.slug
   const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
   const joinUrl = isLocalhost && snap.joinUrl ? snap.joinUrl : `${window.location.origin}/${slug}`
+  // L'entrée, c'est le code du salon quand il en a un (`core/salons.ts`) :
+  // six chiffres qu'on dicte, et le QR qui les porte. L'adresse de l'espace
+  // reste celle des souvenirs, du bilan et de l'historique.
+  const entreeUrl = snap.code ? `${joinUrl.slice(0, joinUrl.length - slug.length)}${snap.code}` : joinUrl
   const connectedCount = snap.players.filter(p => p.connected).length
   const offlineCount = snap.players.length - connectedCount
   const session = snap.session
@@ -859,11 +863,11 @@ export function HostApp() {
             </span>
             <div className="qr-stack">
               <div className="qr-box">
-                <QRCodeSVG value={joinUrl} size={46} bgColor="#ffffff" fgColor={QR_INK} title="QR code pour rejoindre la soirée" />
+                <QRCodeSVG value={entreeUrl} size={46} bgColor="#ffffff" fgColor={QR_INK} title="QR code pour rejoindre la soirée" />
               </div>
               <div className="qr-text">
-                <span className="label">Rejoindre</span>
-                <span className="join-url">{joinUrl}</span>
+                <span className="label">{snap.code ? `Code ${ecrireCode(snap.code)}` : 'Rejoindre'}</span>
+                <span className="join-url">{entreeUrl}</span>
               </div>
             </div>
           </div>
@@ -1393,7 +1397,7 @@ export function HostApp() {
                   // Le QR se scanne à la télé ; la télécommande garde
                   // l'adresse à dicter, et de quoi jouer depuis ce téléphone.
                   <div className="telecommande-invite">
-                    {apercu(<span className="join-url">{joinUrl}</span>)}
+                    {apercu(<span className="join-url">{entreeUrl}</span>)}
                     <a className="btn btn-accent jouer-ici" href={spacePath(slug)} target={ONGLETS.jouer}>
                       <Icon name="play" />
                       Jouer depuis cet appareil
@@ -1402,7 +1406,12 @@ export function HostApp() {
                 ) : (
                 <div className="invite">
                   <span className="label">Pour rejoindre le quiz</span>
-                  <p className="invite-url">{adresseCoupable(joinUrl)}</p>
+                  {snap.code && (
+                    <p className="invite-code" aria-label={`Le code du salon : ${ecrireCode(snap.code)}`}>
+                      {ecrireCode(snap.code)}
+                    </p>
+                  )}
+                  <p className="invite-url">{adresseCoupable(entreeUrl)}</p>
                   <div className="invite-qrs">
                     {snap.wifi && (
                       <div className="invite-qr">
@@ -1414,7 +1423,7 @@ export function HostApp() {
                     )}
                     <div className="invite-qr">
                       <div className="qr-box">
-                        <QRCodeSVG value={joinUrl} size={148} bgColor="#ffffff" fgColor={QR_INK} title="QR code pour rejoindre la soirée" />
+                        <QRCodeSVG value={entreeUrl} size={148} bgColor="#ffffff" fgColor={QR_INK} title="QR code pour rejoindre la soirée" />
                       </div>
                       <span className="label">{snap.wifi ? '2 · Le quiz' : 'Scanner pour jouer'}</span>
                     </div>

@@ -50,7 +50,7 @@ interface ApiDeps {
   /** Les espaces dont la soirée en cours compte ce profil parmi ses invités. */
   soireesOuJeJoue: (profileId: string) => string[]
   /** Ouvre le salon d'un espace et rend son code (`SpaceRuntime.ouvrirSalon`). */
-  ouvrirSalon: (spaceId: string) => Promise<string | null>
+  ouvrirSalon: (spaceId: string, opts?: { auto?: boolean }) => Promise<string | null>
   /** Rediffuse la salle d'un espace dont les réglages ont changé. */
   espaceChange: (spaceId: string) => void
   /** Rediffuse la salle des soirées où joue un profil qui a changé de parure. */

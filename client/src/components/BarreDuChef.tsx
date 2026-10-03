@@ -3,11 +3,27 @@ import { QRCodeSVG } from 'qrcode.react'
 import { Icon } from './Icon'
 import { Feuille } from './Pieces'
 import { confirmDialog } from './Dialog'
-import { brancherLeChef, commande, equipesParDefaut, lancer, terminer, useChef } from '../socketDuChef'
+import { brancherLeChef, clore, commande, equipesParDefaut, lancer, terminer, useChef } from '../socketDuChef'
+import { useSecondesRestantes } from '../decompte'
 import type { ReglagesDuChef } from '../chef'
 import { PALIERS_ENCHAINEMENT } from '../../../shared/console'
 import { ecrireCode } from '../../../shared/space'
 import { lireNombre } from '../../../shared/nombres'
+
+/** Le dernier podium du programme : la soirée s'enregistre seule, ou d'un toucher. */
+function ClotureQuiVient({ a }: { a: number }) {
+  const reste = useSecondesRestantes(a)
+  return (
+    <>
+      <span className="barre-chef-etat" role="status">
+        Fin de soirée dans {reste} s
+      </span>
+      <button type="button" className="btn btn-primary" onClick={clore}>
+        Maintenant
+      </button>
+    </>
+  )
+}
 
 /** L'encre du QR : sombre sur blanc, quel que soit le thème — un QR clair sur sombre ne se scanne pas partout. */
 const QR_INK = '#1a1412'
@@ -86,6 +102,15 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
     })
     if (ok) commande({ type: 'cancel' })
   }
+  const enregistrer = async () => {
+    setPlus(false)
+    const ok = await confirmDialog({
+      title: 'Terminer la soirée ?',
+      message: 'Elle s’enregistre telle qu’elle a été jouée, et chacun reçoit sa fin de soirée.',
+      confirmLabel: 'Terminer la soirée',
+    })
+    if (ok) clore()
+  }
   const finir = async () => {
     setPlus(false)
     const ok = await confirmDialog({
@@ -98,7 +123,10 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
   }
 
   let principal = null
-  if (!v || v.phase === 'finished') {
+  if (c.snapshot.clotureAuto) {
+    // Le programme est joué : la soirée s'enregistre seule, après le podium.
+    principal = <ClotureQuiVient a={c.snapshot.clotureAuto} />
+  } else if (!v || v.phase === 'finished') {
     principal = (
       <button type="button" className="btn btn-primary barre-chef-geste" onClick={lancer}>
         <Icon name="play" />
@@ -169,11 +197,9 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
           </button>
         )}
         <div className="barre-chef-gestes">{principal}</div>
-        {v && (
-          <button type="button" className="btn btn-ghost barre-chef-rond" aria-label="Plus de gestes" onClick={() => setPlus(true)}>
-            <Icon name="more" />
-          </button>
-        )}
+        <button type="button" className="btn btn-ghost barre-chef-rond" aria-label="Plus de gestes" onClick={() => setPlus(true)}>
+          <Icon name="more" />
+        </button>
       </nav>
       {c.message && (
         <p className="barre-chef-message error small" role="alert">
@@ -191,23 +217,27 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
         </Feuille>
       )}
 
-      {plus && v && (
+      {plus && (
         <Feuille titre="La partie" onFermer={() => setPlus(false)}>
-          <span className="label">Question suivante</span>
-          <div className="enchainement" role="group" aria-label="Question suivante">
-            {PALIERS_ENCHAINEMENT.map(p => (
-              <button
-                key={p ?? 'clic'}
-                type="button"
-                className={'pill-btn' + ((v.autoNextSeconds ?? null) === p ? ' active' : '')}
-                aria-pressed={(v.autoNextSeconds ?? null) === p}
-                onClick={() => commande({ type: 'autoNext', seconds: p })}
-              >
-                {p === null ? 'Au clic' : `${p} s`}
-              </button>
-            ))}
-          </div>
-          {v.phase === 'reveal' && (
+          {v && (
+            <>
+              <span className="label">Question suivante</span>
+              <div className="enchainement" role="group" aria-label="Question suivante">
+                {PALIERS_ENCHAINEMENT.map(p => (
+                  <button
+                    key={p ?? 'clic'}
+                    type="button"
+                    className={'pill-btn' + ((v.autoNextSeconds ?? null) === p ? ' active' : '')}
+                    aria-pressed={(v.autoNextSeconds ?? null) === p}
+                    onClick={() => commande({ type: 'autoNext', seconds: p })}
+                  >
+                    {p === null ? 'Au clic' : `${p} s`}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {v?.phase === 'reveal' && (
             <>
               <button
                 type="button"
@@ -231,6 +261,18 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
             <button type="button" className="btn btn-block btn-ghost geste-qui-defait" onClick={() => void finir()}>
               Terminer le quiz
             </button>
+          )}
+          {/* Le chef qui s'en va en cours de route : ce qui a été joué s'enregistre. */}
+          {!enJeu && (
+            <>
+              <a className="btn btn-block" href="/salon">
+                <Icon name="plus" />
+                Ajouter un quiz
+              </a>
+              <button type="button" className="btn btn-block btn-ghost" onClick={() => void enregistrer()}>
+                Terminer la soirée
+              </button>
+            </>
           )}
         </Feuille>
       )}

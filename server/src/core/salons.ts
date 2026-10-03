@@ -31,6 +31,12 @@ interface Salon {
   ouvertLe: number
   /** Null tant que le salon est ouvert. */
   fermeLe: number | null
+  /**
+   * Ouvert depuis un téléphone (« Créer un salon ») : la soirée s'enregistre
+   * toute seule après le dernier quiz du programme. L'écran commun d'avant
+   * garde son « Clore la soirée », et rien ne se clôt sans lui.
+   */
+  auto: boolean
 }
 
 export class SalonStore {
@@ -54,7 +60,8 @@ export class SalonStore {
            code      TEXT PRIMARY KEY,
            space_id  TEXT NOT NULL UNIQUE,
            ouvert_le INTEGER NOT NULL,
-           ferme_le  INTEGER
+           ferme_le  INTEGER,
+           auto      INTEGER NOT NULL DEFAULT 0
          )`,
       ],
       'write',
@@ -71,6 +78,7 @@ export class SalonStore {
         spaceId: String(r.space_id),
         ouvertLe: Number(r.ouvert_le),
         fermeLe: r.ferme_le === null || r.ferme_le === undefined ? null : Number(r.ferme_le),
+        auto: Number(r.auto) === 1,
       })
     }
   }
@@ -92,6 +100,12 @@ export class SalonStore {
     return this.valable(salon) ? salon.code : null
   }
 
+  /** Le salon ouvert depuis un téléphone s'enregistre seul après son programme. */
+  clotureAuto(spaceId: string): boolean {
+    const salon = this.parEspace.get(spaceId)
+    return this.valable(salon) && salon.auto
+  }
+
   /** L'espace qu'ouvre ce code — rien pour un code inconnu ou périmé : le voisin n'en sait pas plus (invariant 3). */
   espaceDuCode(code: string): string | undefined {
     if (!CODE_DU_SALON.test(code)) return undefined
@@ -105,12 +119,15 @@ export class SalonStore {
    * croisées du même espace rendent le même code : la seconde le lit en
    * mémoire, posé avant l'écriture.
    */
-  async ouvrir(spaceId: string): Promise<string> {
+  async ouvrir(spaceId: string, opts: { auto?: boolean } = {}): Promise<string> {
     const salon = this.parEspace.get(spaceId)
     if (this.valable(salon)) {
-      if (salon.fermeLe !== null) {
+      // Un écran qui se présente ne dit rien de la clôture : le salon garde la sienne.
+      const auto = opts.auto ?? salon.auto
+      if (salon.fermeLe !== null || auto !== salon.auto) {
         salon.fermeLe = null
-        await this.client.execute({ sql: 'UPDATE salons SET ferme_le = NULL WHERE code = ?', args: [salon.code] })
+        salon.auto = auto
+        await this.client.execute({ sql: 'UPDATE salons SET ferme_le = NULL, auto = ? WHERE code = ?', args: [auto ? 1 : 0, salon.code] })
       }
       return salon.code
     }
@@ -119,14 +136,17 @@ export class SalonStore {
       // Un code périmé d'un autre espace se reprend : sa ligne part avec la nôtre.
       const occupe = this.parCode.get(code)
       if (occupe && occupe.spaceId !== spaceId && this.valable(occupe)) continue
-      const neuf: Salon = { code, spaceId, ouvertLe: this.maintenant(), fermeLe: null }
+      const neuf: Salon = { code, spaceId, ouvertLe: this.maintenant(), fermeLe: null, auto: opts.auto ?? false }
       this.poser(neuf)
       if (occupe && occupe.spaceId !== spaceId) this.parEspace.delete(occupe.spaceId)
       try {
         await this.client.batch(
           [
             { sql: 'DELETE FROM salons WHERE space_id = ? OR code = ?', args: [spaceId, code] },
-            { sql: 'INSERT INTO salons (code, space_id, ouvert_le, ferme_le) VALUES (?, ?, ?, NULL)', args: [code, spaceId, neuf.ouvertLe] },
+            {
+              sql: 'INSERT INTO salons (code, space_id, ouvert_le, ferme_le, auto) VALUES (?, ?, ?, NULL, ?)',
+              args: [code, spaceId, neuf.ouvertLe, neuf.auto ? 1 : 0],
+            },
           ],
           'write',
         )

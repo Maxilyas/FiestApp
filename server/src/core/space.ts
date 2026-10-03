@@ -21,7 +21,7 @@ import { laureatsDeSaison } from './saisons'
 import { PRIX_INDIVIDUELS, computeStats } from './stats'
 import { profilDeCarte } from './carte'
 import { approchesDeLaSoiree, recordsBattus } from './objectifs'
-import { playedPackOf, quizLibrary, quizModule } from '../games/quiz'
+import { playedPackOf, programmeJoue, quizLibrary, quizModule } from '../games/quiz'
 import type { AuthStore } from '../auth/store'
 import { ProfileStore, cleDeSoiree, type PrixDeSoiree } from '../auth/profiles'
 import {
@@ -74,7 +74,7 @@ export interface SpaceDeps {
   /** Le quiz du jour, pour ce qu'en montrent la carte d'un joueur (sa ligne, ses écussons) et sa fin de soirée (sa série). Absent, elles s'en passent. */
   jour?: Pick<JourStore, 'resumeDe' | 'categoriesDe' | 'pontDuJour' | 'aujourdhui'>
   /** Les codes des salons (`core/salons.ts`). Absents, un espace ne s'ouvre que par son adresse. */
-  salons?: Pick<SalonStore, 'codeDe' | 'ouvrir' | 'fermer'>
+  salons?: Pick<SalonStore, 'codeDe' | 'ouvrir' | 'fermer' | 'clotureAuto'>
 }
 
 /**
@@ -174,6 +174,16 @@ let incarnations = 0
  * salons. Chaque animateur en a une ; elles ne se voient pas.
  */
 export class SpaceRuntime {
+  /**
+   * Le temps que le dernier podium d'un salon reste à l'écran avant que la
+   * soirée ne s'enregistre seule : on le regarde, on se félicite, puis
+   * chacun reçoit sa fin de soirée. Les tests le raccourcissent.
+   */
+  static delaiClotureAuto = 30_000
+
+  /** La clôture qui viendra seule, et son échéance — qui part dans l'instantané. */
+  private clotureAuto: { a: number; minuteur: ReturnType<typeof setTimeout> } | null = null
+
   readonly party: Party
   readonly teams: Teams
   readonly ledger: ScoreLedger
@@ -280,12 +290,16 @@ export class SpaceRuntime {
         // distante qui ne répond pas ne doit pas emporter la soirée, et le
         // prochain quiz — ou la clôture — réécrira exactement les mêmes lignes.
         onSessionEnded: () => {
-          this.apresQuiz().catch(e => console.error('[soirée]', e))
+          this.apresQuiz()
+            .catch(e => console.error('[soirée]', e))
+            .finally(() => this.considererCloture())
         },
         // Le podium à l'écran vaut une fin de quiz : le dernier podium de la
         // soirée reste souvent affiché sans que personne ne referme la partie.
         onVerdict: () => {
-          this.apresQuiz().catch(e => console.error('[soirée]', e))
+          this.apresQuiz()
+            .catch(e => console.error('[soirée]', e))
+            .finally(() => this.considererCloture())
         },
       },
       quizModule,
@@ -472,6 +486,9 @@ export class SpaceRuntime {
    * quiz en cours, et le rangement de ce quiz doit déjà la voir.
    */
   private finir<T>(genre: 'close' | 'discard', travail: () => Promise<T>): Promise<T> {
+    // Une fin à la main remplace celle qui viendrait seule.
+    if (this.clotureAuto) clearTimeout(this.clotureAuto.minuteur)
+    this.clotureAuto = null
     let suivre!: (p: Promise<T>) => void
     const promesse = new Promise<T>(r => (suivre = r))
     this.finEnCours = { genre, promesse }
@@ -1084,7 +1101,51 @@ export class SpaceRuntime {
     }
     const code = this.deps.salons?.codeDe(this.spaceId)
     if (code) snapshot.code = code
+    if (this.clotureAuto) snapshot.clotureAuto = this.clotureAuto.a
     return snapshot
+  }
+
+  /**
+   * Le dernier quiz du programme d'un salon a rendu son verdict : la soirée
+   * s'enregistrera seule, son podium regardé (`delaiClotureAuto`). Plus de
+   * « Clore la soirée » à trouver au téléphone : le programme dit où elle
+   * s'arrête. Rien ne s'arme si une partie se joue encore — le chef a lancé
+   * un quiz de plus —, ni pour l'écran commun d'avant, qui garde son geste
+   * de fin (`SalonStore.clotureAuto`).
+   */
+  private considererCloture() {
+    if (this.clotureAuto || this.finEnCours || !this.closAuProgramme()) return
+    const delai = SpaceRuntime.delaiClotureAuto
+    const minuteur = setTimeout(() => {
+      this.clotureAuto = null
+      // Relu au dernier moment : un quiz relancé, un programme allongé l'ont peut-être défait.
+      if (!this.closAuProgramme()) return this.sendSnapshot()
+      console.log('[soirée] le programme du salon est joué : la soirée s’enregistre')
+      this.closeParty().catch(e => console.error('[soirée] la clôture automatique a échoué :', e))
+    }, delai)
+    minuteur.unref?.()
+    this.clotureAuto = { a: Date.now() + delai, minuteur }
+    this.sendSnapshot()
+  }
+
+  /** Le salon s'arrête-t-il ici : programme joué, aucune partie en cours qu'un podium. */
+  private closAuProgramme(): boolean {
+    if (!this.deps.salons?.clotureAuto(this.spaceId)) return false
+    if (this.engine.activeSessionId && this.engine.phase() !== 'finished') return false
+    return programmeJoue(this.spaceId, this.lancementDeQuiz().joues ?? [])
+  }
+
+  /** Le chef relance un quiz, ou le programme s'allonge : la soirée continue. */
+  reconsidererCloture() {
+    if (!this.clotureAuto || this.closAuProgramme()) return
+    this.annulerClotureAuto()
+  }
+
+  annulerClotureAuto() {
+    if (!this.clotureAuto) return
+    clearTimeout(this.clotureAuto.minuteur)
+    this.clotureAuto = null
+    this.sendSnapshot()
   }
 
   /**
@@ -1092,10 +1153,10 @@ export class SpaceRuntime {
    * d'animateur qui se présente l'ouvre aussi : la salle d'attente le montre
    * en grand, et le QR le porte. Le code neuf part à toute la salle.
    */
-  async ouvrirSalon(): Promise<string | null> {
+  async ouvrirSalon(opts: { auto?: boolean } = {}): Promise<string | null> {
     if (!this.deps.salons) return null
     const avant = this.deps.salons.codeDe(this.spaceId)
-    const code = await this.deps.salons.ouvrir(this.spaceId)
+    const code = await this.deps.salons.ouvrir(this.spaceId, opts)
     if (code !== avant) this.sendSnapshot()
     return code
   }
@@ -1847,6 +1908,8 @@ export class SpaceRuntime {
   }
 
   stop() {
+    if (this.clotureAuto) clearTimeout(this.clotureAuto.minuteur)
+    this.clotureAuto = null
     if (this.pending) clearTimeout(this.pending)
     if (this.pendingEcrans) clearTimeout(this.pendingEcrans)
     this.pending = null

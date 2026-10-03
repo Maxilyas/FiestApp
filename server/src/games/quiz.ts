@@ -278,6 +278,19 @@ export function setProgramme(spaceId: string, programme: { titre: string; entree
 }
 
 /**
+ * Le programme de ce soir est-il joué en entier ? Lu au verdict de chaque
+ * quiz : le salon ouvert depuis un téléphone s'enregistre alors tout seul
+ * (`SpaceRuntime.considererCloture`). Un quiz retiré de la bibliothèque ne
+ * compte plus — le programme ne l'attend pas.
+ */
+export function programmeJoue(spaceId: string, joues: Iterable<string>): boolean {
+  const programme = programmes.get(spaceId)
+  if (!programme) return false
+  const avancement = avancementDuProgramme(programme.entrees, new Set(quizLibrary(spaceId).map(p => p.id)), new Set(joues))
+  return avancement.entrees.length > 0 && avancement.prochain === null
+}
+
+/**
  * La liste du choix : le programme d'abord, dans son ordre, chacun avec son
  * multiplicateur ; le reste comme la bibliothèque le range. Et ce que chaque
  * quiz contient — catégories, estimations, durée —, pour le reconnaître
