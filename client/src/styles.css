@@ -4306,7 +4306,6 @@ h3 > .icon {
   background: var(--bg-raised);
 }
 .detail-apercu img { display: block; width: 100%; height: auto; }
-.fin-confettis { margin: 12px 0 0; font-family: var(--serif); font-weight: 600; font-size: 1.5rem; line-height: 1.1; color: var(--accent-text); }
 
 /* ── L'historique des soirées ──────────────────────────────────────────── */
 
@@ -5306,7 +5305,6 @@ h3 > .icon {
 
 .fin-gain { display: flex; flex-direction: column; gap: 12px; text-align: center; }
 .fin-gain h3 { margin-top: 4px; }
-.fin-xp { margin: 0; font-family: var(--serif); font-size: 1.9rem; color: var(--accent-text); }
 .fin-niveaux { justify-content: center; gap: 10px; margin-bottom: 8px; }
 .fin-fleche { color: var(--muted); }
 .fin-niveau-neuf { animation: pop 0.5s ease-out 0.7s both; }
@@ -5430,9 +5428,7 @@ h3 > .icon {
 .fait-titre { font-size: 0.9rem; font-weight: 500; }
 
 /* Un record battu, un prix neuf dans la collection : une pastille dorée. */
-.nouveau-bloc { position: relative; display: flex; flex-direction: column; gap: 10px; border-color: var(--edge-strong); }
-.nouveau-bloc h3, .fin-approches h3 { display: flex; align-items: center; gap: 8px; margin: 0; }
-.nouveau-bloc p { margin: 0; }
+.fin-suite h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; }
 .nouveau-pastille {
   display: inline-block;
   padding: 2px 8px;
@@ -5444,7 +5440,6 @@ h3 > .icon {
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
-.nouveau-bloc > .nouveau-pastille { position: absolute; top: -9px; right: 14px; }
 .fin-approches { display: flex; flex-direction: column; gap: 12px; }
 .approche { display: flex; align-items: center; gap: 12px; }
 .approche-medaillon { font-size: 44px; line-height: 0; flex: none; }
@@ -6471,9 +6466,6 @@ h3 > .icon {
   text-align: center;
 }
 .lendemain .icon { flex: none; }
-.fin-prix { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.fin-prix li { display: flex; align-items: center; gap: 12px; }
-.fin-prix-emoji { font-size: 1.8rem; line-height: 1; }
 .recap-partage { justify-content: center; gap: 8px; flex-wrap: wrap; }
 .tous-les-liens summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600; }
 .tous-les-liens[open] summary { margin-bottom: 12px; }
@@ -7671,3 +7663,28 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .code-cases { display: inline-flex; gap: 6px; margin: 6px 0 2px; }
 .code-case { width: 40px; height: 52px; display: grid; place-items: center; border-radius: var(--radius-xs); border: 1.5px solid color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); font-family: var(--serif); font-size: 2rem; font-weight: 600; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; }
 .code-coupe { margin-left: 12px; }
+
+/* ── La fin de soirée, allégée ───────────────────────────────────────────
+   L'essentiel d'abord — sa place, ce qu'on porte, ce que la soirée
+   rapporte en une ligne —, « Nouveau » en trois lignes, les gestes, puis
+   « Pour la suite » replié : rien ne se perd, rien ne pousse les boutons
+   hors de l'écran. */
+.fin-gains-chiffres { display: flex; justify-content: center; align-items: baseline; gap: 28px; margin: 0; color: var(--muted); font-size: 0.95rem; }
+.fin-gains-chiffres b { font-family: var(--serif); font-size: 2rem; font-weight: 600; color: var(--accent-text); font-variant-numeric: tabular-nums; }
+.fin-nouveautes { display: flex; flex-direction: column; gap: 8px; }
+.nouveautes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.nouveautes li { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--edge); }
+.nouveautes li:last-child { border-bottom: 0; }
+.nouveaute-emoji { flex: none; width: 36px; text-align: center; font-size: 1.8rem; line-height: 1; }
+.nouveaute-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nouveaute-texte b { font-weight: 600; }
+.nouveautes-reste > summary, .fin-suite > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; }
+.nouveautes-reste > summary::-webkit-details-marker, .fin-suite > summary::-webkit-details-marker { display: none; }
+.nouveautes-reste > summary { min-height: 40px; color: var(--accent-text); font-weight: 600; }
+.nouveautes-reste[open] .repli-chevron, .fin-suite[open] > summary .repli-chevron { transform: rotate(180deg); }
+.fin-suite { display: flex; flex-direction: column; gap: 16px; }
+.fin-suite > summary { min-height: 44px; }
+.fin-suite > summary > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.fin-suite[open] > summary { margin-bottom: 14px; }
+.fin-suite > div + div { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--edge); }
+.fin-demain, .fin-ombres { display: flex; flex-direction: column; gap: 8px; }
