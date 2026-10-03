@@ -73,8 +73,8 @@ services:
     # tiennent pas l'application éveillée : l'offre gratuite l'endort après
     # 15 minutes sans trafic. Une tâche de cron-job.org appelle donc cette
     # route toutes les dix minutes, de 7 h à minuit (heure de Paris), après
-    # le réveil de 6 h 50 (`.github/workflows/reveil.yml` : un appel coupé à
-    # trente secondes ne réveille rien), et
+    # le réveil de 6 h 55 (la routine de la réserve du quiz du jour, patiente :
+    # un appel coupé à trente secondes ne réveille rien), et
     # jamais 24 h/24 : les 750 heures mensuelles se partagent avec la
     # préprod (MISE-EN-LIGNE.md, étape 5). La nuit, ou si la tâche s'arrête,
     # l'écran commun ouvert cinq minutes avant l'arrivée des invités la
