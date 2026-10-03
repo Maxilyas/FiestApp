@@ -163,8 +163,9 @@ test('les pages sans sortie en ont une : l’accueil', () => {
   const activer = source('views/ActivateApp.tsx')
   assert.match(activer, /\) : \(\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*<a className="btn btn-block" href="\/">/)
   assert.match(activer, /\{!token && \(\s*<a className="btn btn-block" href="\/">/)
-  // Les pages publiques ramènent l'animateur de l'espace chez lui.
-  assert.match(source('components/SpaceNav.tsx'), /\{host && \(\s*<div className="space-nav-hote">\s*<a className="space-nav-account" href="\/">/)
+  // Les pages publiques ramènent d'où l'on venait ; ouvertes d'un lien,
+  // l'animateur de l'espace à son historique, l'invité à l'accueil.
+  assert.match(source('components/SpaceNav.tsx'), /return hote \? \{ reculer: false, vers: 'Historique', href: '\/compte#historique' \} : \{ reculer: false, vers: 'Accueil', href: '\/' \}/)
 })
 
 test('un profil qui naît arrive à l’accueil, pas sur la page du profil', () => {

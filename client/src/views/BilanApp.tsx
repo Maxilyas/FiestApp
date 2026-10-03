@@ -6,8 +6,7 @@ import { Icon } from '../components/Icon'
 import { makeCtx, type BilanCtx } from '../components/BilanQuestion'
 import { PlayerReview } from '../components/BilanPlayer'
 import { RoomReview } from '../components/BilanRoom'
-import { ArchiveBanner } from '../components/ArchiveBanner'
-import { INTROUVABLE, SpaceError, SpaceNav, estIntrouvable, useIsHost } from '../components/SpaceNav'
+import { INTROUVABLE, RetourDeLaSoiree, SpaceError, estIntrouvable, pousserDansLaPage, useIsHost } from '../components/SpaceNav'
 import { BoutonCopier } from '../components/Partage'
 import { liensDesBilans, texteDesLiens } from '../../../shared/liens'
 import { pageContext, spacePath } from '../routes'
@@ -54,7 +53,6 @@ export function BilanApp() {
   const [mode, setMode] = useState<Mode>(readMode)
   /** Le dernier bilan ouvert : l'onglet « Mon bilan » y revient. */
   const [lastPlayerId, setLastPlayerId] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     // Entre deux soirées, celui de l'espace est le bilan de la dernière soirée close.
@@ -106,34 +104,18 @@ export function BilanApp() {
 
   useEffect(() => {
     if (mode.kind === 'me') setLastPlayerId(mode.playerId)
-    setCopied(false)
     // Le bilan d'un invité peut être long : on remonte en haut quand on en change.
     window.scrollTo({ top: 0 })
   }, [mode])
 
+  // Le retour du navigateur défait un pas (un invité, la salle) ; la flèche
+  // de la page, elle, les saute tous et revient d'où l'on venait.
   const navigate = (next: Mode) => {
-    history.pushState(null, '', window.location.pathname + hashOf(next))
+    pousserDansLaPage(window.location.pathname + hashOf(next))
     setMode(next)
   }
 
-  const copyLink = async () => {
-    // Entre deux soirées, la page de l'espace montre la dernière soirée
-    // close : le lien qu'on partage est celui de son archive, qui ne
-    // changera pas quand la suivante jouera.
-    const soiree = !archiveId ? review?.archive?.id : undefined
-    const lien = soiree
-      ? new URL(spacePath(slug, 'bilan', soiree) + window.location.hash, window.location.href).href
-      : window.location.href
-    try {
-      await navigator.clipboard.writeText(lien)
-      setCopied(true)
-    } catch {
-      // Sans presse-papier (page en http, navigateur ancien) : l'adresse est
-      // dans la barre du navigateur, elle se copie à la main.
-    }
-  }
-
-  if (error) return <SpaceError current="bilan" message={error} />
+  if (error) return <SpaceError message={error} />
 
   if (!ctx) {
     return (
@@ -149,7 +131,6 @@ export function BilanApp() {
     return (
       <div className="recap bilan">
         <BilanHead ctx={ctx} />
-        <SpaceNav current="bilan" />
         <main className="page-corps">
           <section className="card">
             <p className="muted">
@@ -168,7 +149,6 @@ export function BilanApp() {
   return (
     <div className="recap bilan">
       <BilanHead ctx={ctx} />
-      <SpaceNav current="bilan" />
 
       <nav className="row bilan-tabs" aria-label="Sections du bilan">
         <button
@@ -193,16 +173,13 @@ export function BilanApp() {
           <RoomReview ctx={ctx} />
         ) : selected && selected.stat.asked > 0 ? (
           <>
-            <div className="row bilan-toolbar">
-              <button className="btn btn-small btn-ghost" onClick={() => navigate({ kind: 'pick' })}>
-                <Icon name="users" />
-                Changer de prénom
-              </button>
-              <button className="btn btn-small btn-ghost" onClick={copyLink}>
-                <Icon name={copied ? 'check' : 'clipboard'} />
-                {copied ? 'Lien copié' : 'Copier le lien de ce bilan'}
-              </button>
-            </div>
+            {/* Le lien de son bilan, il l'a déjà : celui qui l'a ouvert — sa
+                fin de soirée, « Mes soirées ». Reste le seul geste utile ici,
+                si ce n'est pas le sien. */}
+            <button className="lien-discret bilan-changer" onClick={() => navigate({ kind: 'pick' })}>
+              <Icon name="users" />
+              Voir un autre bilan
+            </button>
             <PlayerReview ctx={ctx} player={selected} />
           </>
         ) : (
@@ -211,10 +188,13 @@ export function BilanApp() {
 
         <Glossaire mots={['bilan', 'souvenir', 'precision', 'coupDOeil']} />
         <p className="recap-foot muted">Merci d'avoir joué.</p>
-        <p className="muted small center">
-          Pour l'animateur :{' '}
-          <a href={spacePath(slug, 'bilan/fiches', archiveId)}>les pages à imprimer, une par invité</a>
-        </p>
+        {/* Les outils de l'animateur, à lui seul : un invité lisait « Pour
+            l'animateur » sous son propre bilan. */}
+        {animateur && (
+          <p className="muted small center">
+            <a href={spacePath(slug, 'bilan/fiches', archiveId)}>Les pages à imprimer, une par invité</a>
+          </p>
+        )}
         {animateur && (archiveId ?? ctx.review.archive?.id) && (
           <TousLesLiens slug={slug} soireeId={(archiveId ?? ctx.review.archive?.id)!} players={played} />
         )}
@@ -272,19 +252,18 @@ function BilanHead({ ctx }: { ctx: BilanCtx }) {
   const { review } = ctx
   const played = review.players.filter(p => p.stat.asked > 0).length
   const dateLine = review.archive ? formatDay(review.archive.heldAt) : review.space?.dateLine
+  // L'en-tête des autres écrans, comme le souvenir : la flèche, le titre, une ligne.
   return (
-    <header className="recap-header">
-      {review.archive && <ArchiveBanner archive={review.archive} />}
-      {dateLine && <span className="label">{dateLine}</span>}
-      <h1>Le bilan de la soirée</h1>
-      <p className="join-sub">{review.archive ? review.archive.title : review.space?.title}</p>
+    <header className="admin-ecran-tete page-soiree-tete">
+      <RetourDeLaSoiree />
+      <span className="label">Bilan{dateLine ? ` · ${dateLine}` : ''}</span>
+      <h1>{review.archive ? review.archive.title : review.space?.title}</h1>
       {review.questions.length > 0 && (
-        <p className="muted">
+        <p className="muted small">
           {played} joueur{played > 1 ? 's' : ''} · {review.questions.length} question
           {review.questions.length > 1 ? 's' : ''} · {review.quizzes.length} quiz
         </p>
       )}
-      <hr className="hairline" />
     </header>
   )
 }

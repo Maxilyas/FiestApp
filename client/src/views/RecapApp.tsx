@@ -10,9 +10,7 @@ import { LEGENDE_DES_COLONNES, StatsTable } from '../components/StatsTable'
 import { AwardsBoard } from '../components/AwardsBoard'
 import { Trophies } from '../components/Trophies'
 import { JoinHead } from '../components/Invitation'
-import { Icon } from '../components/Icon'
-import { ArchiveBanner } from '../components/ArchiveBanner'
-import { INTROUVABLE, SpaceError, SpaceNav, estIntrouvable } from '../components/SpaceNav'
+import { INTROUVABLE, RetourDeLaSoiree, SpaceError, estIntrouvable } from '../components/SpaceNav'
 import { pageContext, route, spacePath } from '../routes'
 import { lecteurDePage } from '../derniere'
 import { BoutonCopier, BoutonPartager } from '../components/Partage'
@@ -91,7 +89,7 @@ export function RecapApp() {
     table.scrollIntoView({ block: 'start' })
   }, [recap])
 
-  if (error) return <SpaceError current="souvenir" message={error} />
+  if (error) return <SpaceError message={error} />
 
   if (!recap) {
     return (
@@ -109,6 +107,7 @@ export function RecapApp() {
   if (recap.ranking.length === 0 && recap.stats.logged === 0) {
     return (
       <main className="join">
+        <RetourDeLaSoiree />
         <div className="join-grow" />
         <JoinHead
           eyebrow={space?.eyebrow ?? 'Le quiz de la soirée'}
@@ -116,7 +115,6 @@ export function RecapApp() {
           compact={(space?.headline.length ?? 0) > 12}
           sub="La soirée n'a pas encore commencé."
         />
-        <SpaceNav current="souvenir" />
         <div className="join-grow" />
       </main>
     )
@@ -137,27 +135,30 @@ export function RecapApp() {
   // s'est trompée partout n'est pas une salle vide. Le classement compte
   // encore pour les soirées d'avant le journal des réponses.
   const joueurs = Math.max(recap.ranking.length, recap.stats.players.filter(s => s.asked > 0).length)
+  const peutPartager = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
   return (
-    <div className="recap">
-      {archive && <ArchiveBanner archive={archive} />}
-      <header className="recap-header">
-        {dateLine && <span className="label">{dateLine}</span>}
+    <div className="recap souvenir">
+      {/* L'en-tête des autres écrans : la flèche, le titre, une ligne. Le
+          fil Souvenir · Bilan · Historique et le bandeau « Soirée archivée »
+          sont partis : on vient d'une liste qui offre les deux pages, et
+          l'on y revient (la remarque du propriétaire du 3 octobre 2026). */}
+      <header className="admin-ecran-tete page-soiree-tete">
+        <RetourDeLaSoiree />
+        <span className="label">Souvenir{dateLine ? ` · ${dateLine}` : ''}</span>
         <h1>{archive ? archive.title : space?.title}</h1>
-        <p className="join-sub">Le souvenir de la soirée</p>
-        <p className="muted">
-          {joueurs} joueur{joueurs > 1 ? 's' : ''} · {recap.quizCount} quiz ·{' '}
-          {formatNumber(recap.totalPoints)} points distribués
+        <p className="muted small">
+          {joueurs} joueur{joueurs > 1 ? 's' : ''} · {recap.quizCount} quiz · {formatNumber(recap.totalPoints)} points distribués
         </p>
-        {/* Le lien à envoyer : celui de l'archive, qui ne changera pas quand
-            la suivante jouera — `/<espace>/souvenir`, lui, changera. Pendant
-            la soirée, il n'y a encore que celui-là. */}
-        <div className="row recap-partage">
-          <BoutonCopier className="btn btn-small btn-ghost" texte={lienStable} />
-          <BoutonPartager className="btn btn-small btn-ghost" titre={archive ? archive.title : (space?.title ?? '')} url={lienStable} />
-        </div>
-        <hr className="hairline" />
+        {/* Le lien à envoyer au groupe : celui de l'archive, qui ne changera
+            pas quand la suivante jouera — `/<espace>/souvenir`, lui, changera.
+            Un seul geste : partager où le téléphone sait le faire, copier
+            ailleurs. */}
+        {peutPartager ? (
+          <BoutonPartager className="btn btn-small btn-ghost page-soiree-partage" titre={archive ? archive.title : (space?.title ?? '')} url={lienStable} />
+        ) : (
+          <BoutonCopier className="btn btn-small btn-ghost page-soiree-partage" texte={lienStable} />
+        )}
       </header>
-      <SpaceNav current="souvenir" />
       <main className="page-corps">
         <section className="card">
           <h2>Le podium</h2>
@@ -219,22 +220,6 @@ export function RecapApp() {
           <section className="card">
             <h2>Le reste du classement</h2>
             <Standings rows={classement.slice(3)} offset={3} />
-          </section>
-        )}
-
-        {recap.stats.logged > 0 && (
-          <section className="card bilan-invite">
-            <h2>Ta soirée, question par question</h2>
-            <p className="muted small">
-              Ce que tu as répondu à chaque question, ce que ton équipe a choisi, ce que la salle a
-              choisi — et les questions qui ont marqué la soirée.
-            </p>
-            {/* Le bilan de la soirée montrée, à son adresse d'archive quand elle
-                en a une : un lien qui ne changera pas quand la suivante jouera. */}
-            <a className="btn btn-accent" href={spacePath(slug, 'bilan', archiveId ?? archive?.id ?? null)}>
-              <Icon name="list" />
-              Relire mon bilan
-            </a>
           </section>
         )}
 

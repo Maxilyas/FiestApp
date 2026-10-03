@@ -4,7 +4,7 @@ import { formatDay } from '../../../shared/archive'
 import { enumerer } from '../../../shared/classement'
 import { Icon } from '../components/Icon'
 import { confirmDialog, promptDialog } from '../components/Dialog'
-import { INTROUVABLE, SpaceError, SpaceNav, estIntrouvable, useIsHost } from '../components/SpaceNav'
+import { INTROUVABLE, RetourDeLaSoiree, SpaceError, estIntrouvable, useIsHost } from '../components/SpaceNav'
 import { api, UnauthorizedError } from '../api'
 import { dataUrl, pageContext, spacePath, type PublicPage } from '../routes'
 import { formatNumber, pts } from '../format'
@@ -50,7 +50,7 @@ export function ArchivesApp() {
     }
   }
 
-  if (error) return <SpaceError current="soirees" message={error} />
+  if (error) return <SpaceError message={error} />
   if (!list) {
     return (
       <main className="center-page">
@@ -62,13 +62,11 @@ export function ArchivesApp() {
   const current = list.current
   return (
     <div className="recap soirees">
-      <header className="recap-header">
+      <header className="admin-ecran-tete page-soiree-tete">
+        <RetourDeLaSoiree />
         <span className="label">{list.space?.title}</span>
         <h1>Historique</h1>
-        <p className="join-sub">L'historique, une soirée après l'autre</p>
-        <hr className="hairline" />
       </header>
-      <SpaceNav current="soirees" />
       <main className="page-corps">
       {current && (
         <section className="card soiree soiree-current">

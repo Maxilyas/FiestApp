@@ -1,24 +1,21 @@
 import { useEffect, useState } from 'react'
 import { currentMe } from '../api'
-import { pageContext, spacePath } from '../routes'
-import { Icon } from './Icon'
+import { pageContext } from '../routes'
+import { Sortie } from './Pieces'
 
 /**
- * Le fil des pages publiques d'un espace, sous l'en-tête de chacune :
- * souvenir, bilan, soirées. Une page qui relit une archive garde son
- * archive sous le pied ; « Soirées » ramène toujours à la liste. L'animateur de
- * l'espace, connecté, y retrouve aussi le chemin de son compte.
+ * Le retour des pages publiques d'une soirée — le souvenir, le bilan,
+ * l'historique de l'espace : « ← », en haut à gauche, comme partout.
  *
- * Des étiquettes, pas des pilules : les pilules, plus bas sur le bilan, sont
- * les commandes de la page (« Mon bilan » / « La soirée »).
+ * Elles portaient un fil (Souvenir · Bilan · Historique) et, pour
+ * l'animateur, « Accueil » et « Mon compte » : on passait du souvenir au
+ * bilan sans savoir d'où l'on venait, et aucun ne ramenait à l'historique
+ * qui les avait ouvertes (la remarque du propriétaire du 3 octobre 2026).
+ * Chacune s'ouvre maintenant depuis une liste qui offre les deux — son
+ * historique, la fin de soirée, « Mes soirées », « La dernière soirée » —, et
+ * y revient.
  */
 export type SpaceTab = 'souvenir' | 'bilan' | 'soirees'
-
-const TABS: { tab: SpaceTab; label: string }[] = [
-  { tab: 'souvenir', label: 'Souvenir' },
-  { tab: 'bilan', label: 'Bilan' },
-  { tab: 'soirees', label: 'Historique' },
-]
 
 /** Vrai si le visiteur est l'animateur de cet espace, connecté. Un invité : faux, sans bruit. */
 export function useIsHost(slug: string): boolean {
@@ -35,42 +32,59 @@ export function useIsHost(slug: string): boolean {
   return host
 }
 
-export function SpaceNav({ current }: { current: SpaceTab }) {
-  const { slug, archiveId } = pageContext()
-  const host = useIsHost(slug)
+/** Les pas que la page a empilés elle-même (le bilan : un invité, la salle) : le retour les saute. */
+const PROFONDEUR = 'profondeurDeLaPage'
+
+/** Un pas de plus dans la page, que la flèche saute pour revenir d'où l'on venait. */
+export function pousserDansLaPage(adresse: string) {
+  const avant = Number((history.state as Record<string, unknown> | null)?.[PROFONDEUR] ?? 0)
+  history.pushState({ [PROFONDEUR]: avant + 1 }, '', adresse)
+}
+
+/** Ce que la page qui nous a ouverts s'appelle, vue d'ici — ce que dit la flèche. */
+function nomDeLaProvenance(chemin: string): string {
+  if (chemin === '/') return 'Accueil'
+  if (chemin === '/compte' || chemin.endsWith('/soirees')) return 'Historique'
+  if (chemin === '/profil') return 'Mes soirées'
+  if (chemin === '/host') return 'L’écran commun'
+  return 'Retour'
+}
+
+/**
+ * Où mène la flèche. Ouverte depuis l'application — la même origine, une
+ * entrée derrière —, elle y revient : l'historique du compte, la fin de
+ * soirée, « Mes soirées ». Ouverte d'un lien ou d'un QR, ou dans un onglet
+ * neuf, il n'y a rien derrière : l'animateur de l'espace va à son
+ * historique, l'invité à l'accueil.
+ */
+export function retourDesPages(
+  provenance: string,
+  origine: string,
+  entrees: number,
+  hote: boolean,
+): { reculer: true; vers: string } | { reculer: false; vers: string; href: string } {
+  try {
+    const d = provenance ? new URL(provenance) : null
+    if (d && d.origin === origine && entrees > 1) return { reculer: true, vers: nomDeLaProvenance(d.pathname) }
+  } catch {
+    // Une provenance illisible ne vient pas de chez nous.
+  }
+  return hote ? { reculer: false, vers: 'Historique', href: '/compte#historique' } : { reculer: false, vers: 'Accueil', href: '/' }
+}
+
+export function RetourDeLaSoiree() {
+  const { slug } = pageContext()
+  const hote = useIsHost(slug)
+  // Lue à l'arrivée : la provenance ne change pas, le nombre d'entrées si.
+  const [arrivee] = useState(() => ({ provenance: document.referrer, entrees: history.length }))
+  const r = retourDesPages(arrivee.provenance, window.location.origin, arrivee.entrees, hote)
+  if (!r.reculer) return <Sortie vers={r.vers} href={r.href} />
   return (
-    <nav className="space-nav" aria-label="Pages de la soirée">
-      <div className="space-nav-tabs">
-        {/* Plus de « Jouer » : depuis le souvenir d'une soirée close, il
-            menait à l'entrée de la suivante — une impasse le lendemain. On
-            entre dans un salon par son code, que l'hôte donne. */}
-        {TABS.map(({ tab, label }) => (
-          <a
-            key={tab}
-            className={tab === current ? 'active' : undefined}
-            aria-current={tab === current ? 'page' : undefined}
-            href={spacePath(slug, tab, tab === 'soirees' ? null : archiveId)}
-          >
-            {label}
-          </a>
-        ))}
-      </div>
-      {/* L'animateur de l'espace y retrouve aussi le chemin de chez lui :
-          venu de sa console ou de son accueil, l'historique ne ramenait
-          qu'à « Mon compte » (lot 12). */}
-      {host && (
-        <div className="space-nav-hote">
-          <a className="space-nav-account" href="/">
-            <Icon name="home" />
-            Accueil
-          </a>
-          <a className="space-nav-account" href="/compte">
-            <Icon name="users" />
-            Mon compte
-          </a>
-        </div>
-      )}
-    </nav>
+    <Sortie
+      vers={r.vers}
+      href="/"
+      onClick={() => history.go(-1 - Number((history.state as Record<string, unknown> | null)?.[PROFONDEUR] ?? 0))}
+    />
   )
 }
 
@@ -83,35 +97,18 @@ export function estIntrouvable(e: unknown): boolean {
 }
 
 /**
- * Une page publique qui n'a pas pu se charger : le message, et le fil pour
- * aller ailleurs. Introuvable, le fil de l'espace menait trois fois à la même
- * erreur : on propose plutôt la liste de ses soirées (depuis une soirée
- * archivée) et l'accueil.
+ * Une page publique qui n'a pas pu se charger : le message, et la flèche.
+ * Introuvable, le fil de l'espace menait trois fois à la même erreur ; la
+ * flèche, elle, ramène d'où l'on venait — l'accueil, ouvert d'un lien.
  */
-export function SpaceError({ current, message }: { current: SpaceTab; message: string }) {
-  if (message === INTROUVABLE) {
-    const { slug, archiveId } = pageContext()
-    return (
-      <div className="recap">
-        <p className="warn center">{message}</p>
-        <p className="row center-row">
-          {archiveId && (
-            <a className="btn" href={spacePath(slug, 'soirees')}>
-              Les soirées de cet espace
-            </a>
-          )}
-          <a className="btn btn-ghost" href="/">
-            L’accueil
-          </a>
-        </p>
-      </div>
-    )
-  }
+export function SpaceError({ message }: { current?: SpaceTab; message: string }) {
   return (
     <div className="recap">
-      <SpaceNav current={current} />
+      <header className="admin-ecran-tete">
+        <RetourDeLaSoiree />
+      </header>
       <main className="page-corps">
-      <p className="error center">{message}</p>
+        <p className={message === INTROUVABLE ? 'warn center' : 'error center'}>{message}</p>
       </main>
     </div>
   )
