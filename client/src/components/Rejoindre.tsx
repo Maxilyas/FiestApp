@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { JoinHead } from './Invitation'
+import { Sortie } from './Pieces'
 import { CODE_DU_SALON, ecrireCode } from '../../../shared/space'
 
 interface Props {
@@ -9,7 +10,7 @@ interface Props {
    * tout retaper. Le serveur a déjà essayé la casse et « chez-‹nom› ».
    */
   perdu?: string
-  /** Sans lui, pas de bouton « Revenir » : il n'y a rien derrière. */
+  /** Sans lui, pas de « ← Accueil » : il n'y a rien derrière. */
   onCancel?: () => void
 }
 
@@ -40,6 +41,10 @@ export function FormulaireSoiree({ perdu, onCancel }: Props) {
 
   return (
     <form className="join" onSubmit={go}>
+      {/* « ← Accueil » en haut à gauche, comme partout : c'était le seul
+          écran dont le retour, « Revenir », attendait sous le bouton (la
+          remarque du propriétaire du 3 octobre 2026). */}
+      {onCancel && <Sortie onClick={onCancel} />}
       <JoinHead
         eyebrow="Le quiz de la soirée"
         title="Rejoindre une soirée"
@@ -81,11 +86,6 @@ export function FormulaireSoiree({ perdu, onCancel }: Props) {
         <button className="btn btn-primary btn-big btn-block" disabled={!pret}>
           Rejoindre la soirée
         </button>
-        {onCancel && (
-          <button type="button" className="btn btn-ghost" onClick={onCancel}>
-            Revenir
-          </button>
-        )}
       </div>
     </form>
   )

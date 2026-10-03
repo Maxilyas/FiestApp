@@ -5609,21 +5609,81 @@ h3 > .icon {
 
 .lb-row.lb-ouvrable:hover { border-color: var(--edge); }
 
-/* Une carte bien remplie dépasse un 360 × 640 : elle défile plutôt que de
-   perdre son haut, qu'un dialogue centré ne laisse plus atteindre. */
-.carte-joueur { display: flex; flex-direction: column; max-width: 420px; max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); padding: 0; }
+/* La carte d'un joueur, dans le cadre du tableau de bord : quadrillage,
+   lueur d'angle, balayage — sauf sous un fond de carte, qui porte son
+   propre décor. Plus étroite qu'un dialogue, et jamais plus haute que les
+   trois quarts de l'écran : elle s'ouvre sur la salle, elle ne la cache
+   pas. La barre du haut ne défile pas : la croix y reste en vue. */
+.carte-joueur {
+  --lueur: var(--accent-text);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: min(360px, 100%);
+  max-height: min(76vh, 580px);
+  max-height: min(76dvh, 580px);
+  padding: 0;
+  border-color: color-mix(in srgb, var(--lueur) 35%, transparent);
+}
+.carte-joueur:not(.carte-fond) {
+  background:
+    radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--lueur) 14%, transparent), transparent 60%),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--lueur) 5%, transparent) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--lueur) 5%, transparent) 0 1px, transparent 1px 22px),
+    var(--bg-raised);
+}
+.carte-balayage {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 40%;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--lueur) 8%, transparent));
+  transform: translateY(-100%);
+  animation: admin-balayage 7s linear infinite;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .carte-balayage { animation: none; display: none; }
+}
+.carte-joueur-barre {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 8px 8px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--lueur) 22%, transparent);
+}
+.carte-joueur-barre .salon-hud-label { display: inline-flex; align-items: center; gap: 6px; }
+.carte-croix {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--lueur) 35%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  color: var(--ink);
+  cursor: pointer;
+}
+.carte-croix:hover { border-color: color-mix(in srgb, var(--lueur) 70%, transparent); }
+.carte-croix .icon { width: 18px; height: 18px; }
 /* Le cadre ne défile pas, son contenu si : le fond de la carte reste en
    place. La marge de la carte passe dans ce qui défile — laissée au cadre,
    elle rognait le halo de l'avatar au bord de la zone qui défile. */
-.carte-defile { display: flex; flex-direction: column; gap: 14px; min-height: 0; overflow-y: auto; padding: 18px; }
+.carte-defile { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 12px; min-height: 0; overflow-y: auto; padding: 14px 16px 16px; }
 .carte-joueur:focus { outline: none; }
-.carte-tete { display: flex; align-items: center; gap: 14px; }
-.carte-tete h3 { display: flex; align-items: center; gap: 8px; font-size: 1.6rem; }
+.carte-tete { display: flex; align-items: center; gap: 12px; }
+.carte-tete h3 { display: flex; align-items: center; gap: 8px; font-size: 1.35rem; }
 .carte-tete p { margin: 2px 0 0; }
-.carte-avatar { font-size: 3rem; }
-.carte-soir b { font-family: var(--serif); font-size: 1.2rem; color: var(--accent-text); }
-.carte-legendaires { display: flex; flex-wrap: wrap; gap: 8px; }
-.carte-legendaire { font-size: 40px; line-height: 0; }
+.carte-avatar { font-size: 2.4rem; }
+.carte-soir b { font-family: var(--serif); font-size: 1.1rem; color: var(--accent-text); }
+.carte-legendaires { display: flex; flex-wrap: wrap; gap: 6px; }
+.carte-legendaire { font-size: 32px; line-height: 0; }
 /* Dans ses galeries, un médaillon ne bouge que sous le doigt ou la souris :
    la carte a déjà son sujet, l'avatar qu'il porte. Tous animés, trois
    médaillons prenaient le tiers du fil principal d'un téléphone moyen, et
@@ -5633,10 +5693,36 @@ h3 > .icon {
 .carte-legendaire:not(:hover) .pt * {
   animation: none;
 }
-.carte-chiffres { margin: 0; }
-.carte-beaux { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.carte-beaux li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: var(--radius-xs); border: 1px solid var(--edge); background: var(--surface-faint); }
-.carte-prix { display: flex; align-items: center; gap: 6px; margin: 0; }
+/* Ses hauts faits en lignes fines, pas en cartes : trois boîtes empilées
+   faisaient la moitié de la hauteur. */
+.carte-beaux { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; }
+.carte-beaux li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-radius: var(--radius-xs); border-bottom: 1px solid color-mix(in srgb, var(--lueur) 14%, transparent); }
+.carte-beaux li:last-child { border-bottom: 0; }
+.carte-beaux .hf-emoji { font-size: 1.3rem; }
+.carte-beaux .hf-titre { font-size: 0.92rem; }
+.carte-beaux .muted.small { font-size: 0.78rem; line-height: 1.3; }
+.carte-joueur .ecussons { gap: 6px; }
+.carte-joueur .ecusson { width: 56px; font-size: 0.75rem; }
+/* Plus précise que `.admin-cadrans`, déclarée plus bas : trois par rangée. */
+.carte-joueur .carte-cadrans { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; }
+.carte-cadrans .carte-cadran { min-height: 0; padding: 8px 8px 7px; gap: 2px; cursor: default; }
+.carte-cadrans .carte-cadran:hover { border-color: color-mix(in srgb, var(--lueur) 20%, transparent); }
+.carte-cadran dt, .carte-cadran dd { margin: 0; }
+.carte-cadran .admin-cadran-nom { letter-spacing: 0.06em; text-transform: none; font-weight: 600; }
+.carte-cadran .admin-cadran-chiffre { font-size: 1.2rem; white-space: nowrap; }
+.carte-cadran-base { font-size: var(--t-label); line-height: 1.2; color: var(--muted); }
+.carte-pastilles { display: flex; flex-wrap: wrap; gap: 6px; }
+.carte-prix {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--lueur) 22%, transparent);
+  border-radius: var(--radius-pill);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
 .carte-prix .icon { color: var(--accent-text); }
 
 /* La catégorie de la question, au-dessus de son intitulé : une étiquette,

@@ -259,6 +259,19 @@ test('la carte d’un joueur rend le reste de la page inerte, et le focus à qui
   assert.match(modale, /avant\?\.focus\(/)
 })
 
+test('la carte se ferme d’une croix dans sa barre, toujours en vue, et ne prend plus tout l’écran', () => {
+  // « Fermer » attendait au pied d'une carte bien remplie : il fallait
+  // défiler jusqu'au bout pour le trouver (la remarque du 3 octobre 2026).
+  const carte = source('components/CarteJoueur.tsx')
+  const barre = carte.indexOf('<header className="carte-joueur-barre">')
+  const croix = carte.indexOf('className="carte-croix" aria-label="Fermer"')
+  const defile = carte.indexOf('<div className="carte-defile">')
+  assert.ok(barre > 0 && barre < croix && croix < defile, 'la croix, dans la barre, avant ce qui défile')
+  assert.doesNotMatch(carte, /dialog-actions|btn btn-ghost" onClick=\{onFermer\}/, 'plus de « Fermer » au pied')
+  assert.match(regle('.carte-joueur'), /max-height:\s*min\(76dvh, 580px\)/)
+  assert.match(regle('.carte-joueur-barre'), /flex:\s*none/, 'la barre ne défile pas')
+})
+
 // ── Les choix du profil : le focus reste, et l'on entend ce qui change ────
 
 test('choisir un avatar, une finition, un fond ou sa vitrine ne fait plus tomber le focus', async () => {
