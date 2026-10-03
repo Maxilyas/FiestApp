@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, UnauthorizedError } from '../api'
+import { seConnecter, UnauthorizedError } from '../api'
 import { LoginForm } from '../components/Invitation'
 import { pageDeRetour } from '../../../shared/securite'
 
@@ -21,7 +21,8 @@ export function LoginApp() {
     setBusy(true)
     setError('')
     try {
-      await api.auth.login(login, password)
+      // Son profil d'abord : un seul, pour jouer comme pour animer.
+      await seConnecter(login, password)
       window.location.assign(nextPage())
     } catch (e) {
       setError(e instanceof UnauthorizedError ? 'Identifiant ou mot de passe incorrect' : (e as Error).message)

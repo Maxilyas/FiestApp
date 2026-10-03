@@ -1,3 +1,4 @@
+import { adopterLesComptes } from './auth/profilUnique'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import compression from 'compression'
 import { createServer } from 'node:http'
@@ -402,6 +403,13 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
   profiles.justesDeCampagne = id => campagne.justesDe(id)
+  // Un seul profil : chaque compte d'animateur d'avant reçoit le sien, une
+  // fois (`auth/profilUnique.ts`). Une base neuve n'a rien d'avant.
+  const unique = await adopterLesComptes(auth, profiles, !hadAccounts)
+  if (unique.adoptes.length > 0) console.log(`[profils] ${unique.adoptes.length} compte(s) d'animateur rattaché(s) à un profil neuf`)
+  if (unique.laisses.length > 0) {
+    console.log(`[profils] ${unique.laisses.length} compte(s) laissé(s) sans profil — identifiant déjà pris : à rattacher dans « Les salons »`)
+  }
   const relireLaMemoire = derniereRelecture()
   archives.surEcriture(spaceId => {
     relireLaMemoire(spaceId, () => archives.memoire(spaceId), memoire => setQuestionsPosees(spaceId, dernieresFois(memoire))).catch(e =>

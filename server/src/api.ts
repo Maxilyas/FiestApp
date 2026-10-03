@@ -137,6 +137,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
     store: deps.store,
     soireesPasCloses: deps.soireesPasCloses,
     supprimerProfil: deps.supprimerProfil,
+    onLibraryChanged: deps.onLibraryChanged,
   })
 
   /**

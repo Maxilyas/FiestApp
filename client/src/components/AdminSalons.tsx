@@ -152,6 +152,26 @@ function FicheDEspace({ espace: e, onFermer, onChange }: { espace: EspaceDAdmini
     })
   }
 
+  /**
+   * Fusionner deux identités d'avant — ce compte, et un profil créé à part —
+   * que le serveur ne pouvait pas deviner être la même personne. Le profil
+   * devient son titulaire ; s'il tenait déjà un salon, ses quiz le rejoignent.
+   */
+  const rattacher = async () => {
+    const login = await promptDialog({
+      title: 'Rattacher à un profil',
+      message:
+        'L’identifiant du profil qui tiendra cet espace. S’il a déjà un salon, ses quiz rejoindront celui-ci, photos comprises ; l’ancien salon reste, détaché, pour ses souvenirs.',
+      input: { value: '', placeholder: 'identifiant', maxLength: 32 },
+      confirmLabel: 'Rattacher',
+    })
+    if (!login?.trim()) return
+    await faire(async () => {
+      const r = await api.admin.rattacher(e.id, login.trim())
+      showToast({ kind: 'info', message: r.recopies > 0 ? `Rattaché — ${r.recopies} quiz recopié${r.recopies > 1 ? 's' : ''}` : 'Rattaché' })
+    })
+  }
+
   const desactiver = async () => {
     const ok = await confirmDialog({
       title: `Désactiver ${nomDe(e)} ?`,
@@ -209,6 +229,12 @@ function FicheDEspace({ espace: e, onFermer, onChange }: { espace: EspaceDAdmini
           <Icon name="edit" />
           Renommer
         </button>
+        {!e.titulaire && !e.toi && e.status !== 'disabled' && (
+          <button type="button" className="salon-geste admin-geste-oui" disabled={occupe} onClick={() => void rattacher()}>
+            <Icon name="users" />
+            Rattacher à un profil
+          </button>
+        )}
         {!e.salon && !e.toi && e.status !== 'disabled' && (
           <button type="button" className="salon-geste" disabled={occupe} onClick={() => void lienDActivation()}>
             <Icon name="sparkles" />
