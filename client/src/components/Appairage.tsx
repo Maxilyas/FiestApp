@@ -5,12 +5,15 @@ import { api, motifDe } from '../api'
 const ATTENTE_MS = 2000
 
 /**
- * Le code que la télé affiche, pour qu'on la branche depuis son téléphone —
- * sans taper d'adresse ni de mot de passe à la télécommande de la télé.
- * Un code périmé est remplacé tout seul.
+ * Le code que la télé affiche, et ce qu'elle attend : demandé au serveur,
+ * remplacé tout seul quand il périme, et la télé qui s'allume dès qu'un
+ * téléphone l'a validé. L'écran de branchement (`/tele`) et la porte de
+ * l'écran commun (`/host`) le lisent pareil.
  */
-export function CodeDeLaTele({ onBranchee }: { onBranchee: () => void }) {
+export function useCodeDeLaTele(onBranchee: () => void) {
   const [code, setCode] = useState<string | null>(null)
+  /** Son échéance, à l'heure du serveur : la télé dit quand il changera. */
+  const [expireA, setExpireA] = useState<number | null>(null)
   const [erreur, setErreur] = useState('')
 
   useEffect(() => {
@@ -24,6 +27,7 @@ export function CodeDeLaTele({ onBranchee }: { onBranchee: () => void }) {
         if (fini) return
         jeton = ouvert.jeton
         setCode(ouvert.code)
+        setExpireA(ouvert.expireA)
         setErreur('')
         minuteur = setTimeout(attendre, ATTENTE_MS)
       } catch (e) {
@@ -58,7 +62,16 @@ export function CodeDeLaTele({ onBranchee }: { onBranchee: () => void }) {
       clearTimeout(minuteur)
     }
   }, [onBranchee])
+  return { code, erreur, expireA }
+}
 
+/**
+ * Le code que la télé affiche, pour qu'on la branche depuis son téléphone —
+ * sans taper d'adresse ni de mot de passe à la télécommande de la télé.
+ * Un code périmé est remplacé tout seul.
+ */
+export function CodeDeLaTele({ onBranchee }: { onBranchee: () => void }) {
+  const { code, erreur } = useCodeDeLaTele(onBranchee)
   return (
     <section className="appairage" aria-labelledby="appairage-titre">
       <h2 id="appairage-titre" className="label">

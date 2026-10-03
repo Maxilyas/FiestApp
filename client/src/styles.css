@@ -7688,3 +7688,67 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .fin-suite[open] > summary { margin-bottom: 14px; }
 .fin-suite > div + div { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--edge); }
 .fin-demain, .fin-ombres { display: flex; flex-direction: column; gap: 8px; }
+
+/* ── La télé, quand on anime depuis son téléphone ────────────────────────
+   La trame de l'atlas, une lueur d'or, de très gros caractères, et en bas
+   une seule ligne qui dit ce qui se passe ou quoi faire. Rien ne défile,
+   rien ne se touche : c'est une télé. Tout compte en `rem`, que la hauteur
+   de l'écran fait grandir (16 px en 768, 22,5 en 1080). */
+.tv {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 2.75rem 4rem 1.875rem;
+  color: var(--ink);
+  background:
+    linear-gradient(color-mix(in srgb, var(--accent) 5%, transparent) 1px, transparent 1px) 0 0 / 2.75rem 2.75rem,
+    linear-gradient(90deg, color-mix(in srgb, var(--accent) 5%, transparent) 1px, transparent 1px) 0 0 / 2.75rem 2.75rem,
+    radial-gradient(90% 70% at 50% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%),
+    radial-gradient(60% 60% at 100% 100%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+    var(--bg);
+}
+.tv-sur { margin: 0; font-family: var(--sans); font-size: 1.125rem; font-weight: 700; letter-spacing: 0.32em; text-transform: uppercase; color: var(--accent-text); }
+.tv-doux { margin: 0; color: var(--muted); font-size: 1.375rem; }
+.tv-pied { position: absolute; left: 4rem; right: 4rem; bottom: 1.75rem; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.75rem; margin: 0; color: var(--muted); font-size: 1.25rem; }
+.tv-marque { display: flex; align-items: baseline; gap: 0.875rem; color: var(--muted); font-size: 1.125rem; }
+.tv-logo { font-family: var(--serif); font-size: 1.875rem; font-weight: 600; color: var(--ink); }
+.tv-centre { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.125rem; padding-bottom: 2.5rem; }
+.tv-cases { display: flex; gap: 0.875rem; }
+.tv-case { width: 6.5rem; height: 8.25rem; display: grid; place-items: center; border-radius: 1.125rem; border: 2px solid color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--surface) 80%, transparent); font-family: var(--serif); font-size: 5.75rem; font-weight: 600; color: var(--ink); font-variant-numeric: lining-nums tabular-nums; box-shadow: inset 0 0 1.875rem color-mix(in srgb, var(--accent) 10%, transparent), 0 0 1.5rem color-mix(in srgb, var(--accent) 14%, transparent); }
+.tv-case-coupe { margin-left: 1.875rem; }
+.tv-etapes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 1rem 2.875rem; font-size: 1.375rem; color: var(--muted); }
+.tv-etapes li { display: flex; align-items: center; gap: 0.75rem; }
+.tv-etapes b { width: 2.375rem; height: 2.375rem; display: grid; place-items: center; border-radius: 50%; border: 1.5px solid var(--accent); color: var(--accent-text); font-size: 1.125rem; }
+.tv-etapes em { font-style: normal; color: var(--ink); font-weight: 600; }
+.tv-pouls { width: 0.75rem; height: 0.75rem; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); animation: tv-pouls 1.8s ease-out infinite; }
+@keyframes tv-pouls { to { box-shadow: 0 0 0 1rem transparent; } }
+.tv-connexion { margin-left: 1.5rem; font-size: 1rem; }
+.tv-qr { display: inline-block; padding: 0.75rem; border-radius: 1.125rem; background: #fff; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent), 0 0 2.5rem color-mix(in srgb, var(--accent) 25%, transparent); line-height: 0; }
+.tv-qr svg { width: 12.5rem; height: 12.5rem; }
+/* La salle d'attente : le code et le QR à gauche, la soirée et les visages à droite. */
+.tv-salle { flex-direction: row; align-items: center; gap: 4.375rem; padding-bottom: 5.625rem; }
+.tv-salle-qr { flex: none; display: flex; flex-direction: column; align-items: center; gap: 1rem; text-align: center; }
+.tv-cases-salon .tv-case { width: 4.625rem; height: 6.125rem; font-size: 4.125rem; border-radius: 1rem; }
+.tv-cases-salon .tv-case-coupe { margin-left: 1.625rem; }
+.tv-adresse { margin: 0.375rem 0 0; font-family: var(--serif); font-size: 2.5rem; font-weight: 600; }
+.tv-salle-droite { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.625rem; }
+.tv-titre { margin: 0; font-family: var(--serif); font-size: 4.75rem; line-height: 1; overflow-wrap: anywhere; }
+.tv-compte { margin: 1.625rem 0 0; font-size: 1.375rem; color: var(--muted); }
+.tv-compte b { font-family: var(--serif); font-size: 2.875rem; color: var(--accent-text); margin-right: 0.375rem; }
+.tv-visages { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 1.375rem 1.625rem; }
+.tv-visages li { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; max-width: 7rem; font-size: 1.25rem; font-weight: 600; text-align: center; overflow-wrap: anywhere; }
+.tv-avatar { font-size: 3.25rem; }
+/* La télé branchée pendant qu'une télécommande anime : rien à toucher, donc
+   pas de console — seuls ses réglages discrets (son, plein écran) restent,
+   pour la main qui passerait par là. */
+.ecran-de-salle .console-label, .ecran-de-salle .console-actions { display: none; }
+.ecran-de-salle .host-console { justify-content: flex-end; opacity: 0.35; }
+.ecran-de-salle .host-console:hover, .ecran-de-salle .host-console:focus-within { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .tv-pouls { animation: none; } }
+/* L'écran de branchement grandit comme l'écran commun : la même taille racine, suivant la hauteur. */
+@media (min-width: 1101px) {
+  html:has(.tv-branchement) { font-size: max(100%, min(100vh / 48, 100vw / 85)); }
+}
