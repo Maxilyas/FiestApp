@@ -10,17 +10,21 @@ import {
   telephone,
   type Telephone,
 } from '../installation'
+import { espacesFines } from '../format'
 import { Icon } from './Icon'
 import { Onglets } from './Onglets'
 
 /**
- * « FiestApp sur ton écran d'accueil », au pied de l'accueil d'un téléphone
- * (`client/src/installation.ts`) : une carte repliée — l'icône, une phrase —,
- * et « Comment faire ? » déplie les gestes de l'iPhone et ceux d'Android,
- * celui du téléphone d'abord, l'autre à un onglet — pour l'expliquer à
- * l'ami qui n'a pas le même. Sur Android, quand Chrome l'offre, un toucher
- * l'installe. Rien sur un ordinateur, rien dans l'application déjà
- * installée, et plus rien une fois masquée sur ce téléphone.
+ * « Installer l'application », au pied de l'accueil d'un téléphone
+ * (`client/src/installation.ts`) : repliée, une ligne — l'icône, son nom, une
+ * flèche — qu'un toucher déroule. Dépliée, ce qu'elle apporte, les gestes de
+ * l'iPhone et ceux d'Android, celui du téléphone d'abord, l'autre à un
+ * onglet — pour l'expliquer à l'ami qui n'a pas le même —, et sur Android,
+ * quand Chrome l'offre, un toucher qui l'installe. Petite, exprès : elle ne
+ * prend pas la place de ce qu'on vient faire (le propriétaire du dépôt, le 4
+ * octobre 2026). Rien sur un ordinateur, rien dans l'application déjà
+ * installée, et plus rien une fois « Ne plus afficher » touché sur ce
+ * téléphone.
  */
 export function Installer({ avecProfil = false }: { avecProfil?: boolean }) {
   const [ce] = useState(telephone)
@@ -79,38 +83,32 @@ export function CarteDInstallation({
   onMasquer: () => void
 }) {
   return (
-    <section className="card installer" aria-label="Installer l’application">
-      <div className="installer-tete">
-        {/* L'icône même qui rejoindra l'écran d'accueil : on la reconnaîtra. */}
-        <img className="installer-icone" src="/icone.svg" alt="" width={44} height={44} />
-        <p className="installer-titre">FiestApp sur ton écran d’accueil</p>
-        <button type="button" className="installer-fermer" aria-label="Masquer cette carte" onClick={onMasquer}>
-          <Icon name="x" />
-        </button>
-      </div>
-      {/* Sur toute la largeur : à côté de l'icône, la phrase tenait sur cinq lignes en 360 px. */}
-      <p className="installer-pourquoi muted small">
-        Sans passer par un store : elle s’ouvre d’un toucher, en plein écran, comme une vraie appli.
-        {avecProfil && ' Et elle peut te rappeler le quiz du jour, le soir.'}
-      </p>
-      {telephone === 'android' && offerte && (
-        <button type="button" className="btn btn-accent btn-block" onClick={onInstaller}>
-          <Icon name="download" />
-          Installer l’application
-        </button>
-      )}
+    <section className={'card installer' + (ouverte ? ' ouverte' : '')}>
+      {/* Repliée, une ligne qu'on touche pour dérouler — la carte entière. */}
       <button
         type="button"
-        className="link-inline installer-comment"
+        className="installer-tete"
         aria-expanded={ouverte}
-        aria-controls={ouverte ? 'installer-gestes' : undefined}
+        aria-controls={ouverte ? 'installer-detail' : undefined}
         onClick={onBasculer}
       >
-        Comment faire ?
+        {/* L'icône même qui rejoindra l'écran d'accueil : on la reconnaîtra. */}
+        <img className="installer-icone" src="/icone.svg" alt="" width={32} height={32} />
+        <span className="installer-titre">Installer l’application</span>
         <Icon name="chevron-down" />
       </button>
       {ouverte && (
-        <div id="installer-gestes" className="installer-gestes">
+        <div id="installer-detail" className="installer-detail">
+          <p className="muted small">
+            Sans passer par un store : elle s’ouvre d’un toucher, en plein écran, comme une vraie appli.
+            {avecProfil && ' Et elle peut te rappeler le quiz du jour, le soir.'}
+          </p>
+          {telephone === 'android' && offerte && (
+            <button type="button" className="btn btn-accent btn-block" onClick={onInstaller}>
+              <Icon name="download" />
+              Installer maintenant
+            </button>
+          )}
           <Onglets
             onglets={ONGLETS}
             actif={onglet}
@@ -118,10 +116,14 @@ export function CarteDInstallation({
             label="Ton téléphone"
             idOnglet={id => `installer-onglet-${id}`}
             idPanneau={id => `installer-panneau-${id}`}
+            className="onglets-petits"
           />
           <div role="tabpanel" id={`installer-panneau-${onglet}`} aria-labelledby={`installer-onglet-${onglet}`}>
             {onglet === 'iphone' ? <GestesIphone /> : <GestesAndroid />}
           </div>
+          <button type="button" className="installer-masquer" onClick={onMasquer}>
+            Ne plus afficher
+          </button>
         </div>
       )}
     </section>
@@ -149,15 +151,14 @@ function GestesIphone() {
           Ouvre cette page dans <b>Safari</b>.
         </Etape>
         <Etape n={2}>
-          Touche <b>Partager</b> <Icon name="share-ios" />, en bas de l’écran — en haut sur iPad.
+          Touche <b>Partager</b> <Icon name="share-ios" />, en bas — en haut sur iPad.
         </Etape>
         <Etape n={3}>
           Choisis <b>Sur l’écran d’accueil</b> <Icon name="plus-square" />, puis <b>Ajouter</b>.
         </Etape>
       </ol>
-      <p className="muted small">
-        Ouverte depuis Instagram, WhatsApp ou Messenger, la page ne s’installe pas : passe d’abord par « Ouvrir dans Safari ».
-      </p>
+      {/* Les guillemets tiennent à leurs mots : « restait seul en bout de ligne. */}
+      <p className="muted small">{espacesFines('Depuis Instagram, WhatsApp ou Messenger : « Ouvrir dans Safari » d’abord.')}</p>
     </>
   )
 }
@@ -177,7 +178,7 @@ function GestesAndroid() {
         </Etape>
       </ol>
       <p className="muted small">
-        Sur Samsung Internet : le menu ≡, en bas, puis <b>Ajouter la page à</b> › <b>Écran d’accueil</b>.
+        Samsung Internet : menu ≡, puis <b>Ajouter la page à</b> › <b>Écran d’accueil</b>.
       </p>
     </>
   )

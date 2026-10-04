@@ -122,36 +122,42 @@ const texte = (html: string) => html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' '
 const etapes = (html: string) =>
   [...html.matchAll(/<li><span class="installer-numero" aria-hidden="true">(\d)<\/span><span>([\s\S]*?)<\/span><\/li>/g)].map(m => `${m[1]} · ${texte(m[2]).trim()}`)
 
-test('repliée, la carte tient en une icône, une phrase et « Comment faire ? » ; une croix la masque', async () => {
+test('repliée, la carte tient sur une ligne qu’on touche pour la dérouler', async () => {
   const html = await rendu({})
-  assert.match(texte(html), /FiestApp sur ton écran d’accueil/)
-  assert.match(texte(html), /Sans passer par un store : elle s’ouvre d’un toucher, en plein écran, comme une vraie appli\./)
-  assert.doesNotMatch(texte(html), /quiz du jour/, 'sans profil, pas de quiz du jour à rappeler')
-  assert.match(html, /<img class="installer-icone" src="\/icone.svg" alt=""/, 'l’icône qu’on retrouvera sur l’écran d’accueil')
-  assert.match(html, /aria-label="Masquer cette carte"/)
-  assert.match(html, /<button type="button" class="link-inline installer-comment" aria-expanded="false">Comment faire \?/, 'repliée, et rien à contrôler tant qu’elle l’est')
-  assert.doesNotMatch(html, /installer-etapes|role="tablist"/)
-  assert.doesNotMatch(html, /Installer l’application<\/button>/, 'l’iPhone ne propose jamais d’installer d’un toucher')
-  assert.match(texte(await rendu({ avecProfil: true })), /Et elle peut te rappeler le quiz du jour, le soir\./)
+  assert.match(
+    html,
+    /^(<link[^>]*>)?<section class="card installer"><button type="button" class="installer-tete" aria-expanded="false"><img class="installer-icone" src="\/icone.svg" alt="" width="32" height="32"\/><span class="installer-titre">Installer l’application<\/span><svg class="icon"[\s\S]*?<\/svg><\/button><\/section>$/,
+    'l’icône qu’on retrouvera sur l’écran d’accueil, son nom, la flèche — et rien d’autre',
+  )
+  assert.doesNotMatch(html, /aria-controls/, 'rien à contrôler tant qu’elle est repliée')
+  // Même quand Chrome offre d'installer : repliée, elle reste une ligne.
+  assert.doesNotMatch(await rendu({ telephone: 'android', onglet: 'android', offerte: true }), /Installer maintenant/)
 })
 
-test('dépliée, les gestes de l’iPhone et ceux d’Android, chacun à son onglet — et sur Android, un toucher quand Chrome l’offre', async () => {
+test('déroulée : ce qu’elle apporte, les gestes de l’iPhone et ceux d’Android à leur onglet, « Ne plus afficher » — et sur Android, un toucher quand Chrome l’offre', async () => {
   const iphone = await rendu({ ouverte: true })
-  assert.match(iphone, /aria-expanded="true" aria-controls="installer-gestes"/)
-  assert.match(iphone, /<div class="onglets" role="tablist" aria-label="Ton téléphone">/)
+  assert.match(iphone, /<section class="card installer ouverte"><button type="button" class="installer-tete" aria-expanded="true" aria-controls="installer-detail">/)
+  assert.match(texte(iphone), /Sans passer par un store : elle s’ouvre d’un toucher, en plein écran, comme une vraie appli\./)
+  assert.doesNotMatch(texte(iphone), /quiz du jour/, 'sans profil, pas de quiz du jour à rappeler')
+  assert.match(texte(await rendu({ ouverte: true, avecProfil: true })), /Et elle peut te rappeler le quiz du jour, le soir\./)
+  assert.match(iphone, /<div class="onglets onglets-petits" role="tablist" aria-label="Ton téléphone">/)
   assert.match(iphone, /id="installer-onglet-iphone" type="button" role="tab" aria-selected="true"/)
   assert.match(iphone, /id="installer-onglet-android" type="button" role="tab" aria-selected="false"/)
   assert.match(iphone, /role="tabpanel" id="installer-panneau-iphone" aria-labelledby="installer-onglet-iphone"/)
   assert.deepEqual(etapes(iphone), [
     '1 · Ouvre cette page dans Safari.',
-    '2 · Touche Partager , en bas de l’écran — en haut sur iPad.',
+    '2 · Touche Partager , en bas — en haut sur iPad.',
     '3 · Choisis Sur l’écran d’accueil , puis Ajouter.',
   ])
   // Les icônes telles que le téléphone les montre, dans la phrase.
   assert.match(iphone, /Partager<\/b> <svg class="icon"[\s\S]*?<\/svg>, en bas/)
-  assert.match(texte(iphone), /Ouverte depuis Instagram, WhatsApp ou Messenger, la page ne s’installe pas : passe d’abord par « Ouvrir dans Safari »\./)
+  // Les guillemets tiennent à leurs mots (`espacesFines`).
+  assert.match(iphone, /Depuis Instagram, WhatsApp ou Messenger\u00a0: «\u202fOuvrir dans Safari\u202f» d’abord\./)
   // Les numéros en pastille, cachés à l'oreille : la liste numérotée les dit déjà.
   assert.match(iphone, /<ol class="installer-etapes"><li><span class="installer-numero" aria-hidden="true">1<\/span>/)
+  assert.match(iphone, /<button type="button" class="installer-masquer">Ne plus afficher<\/button>/)
+  assert.doesNotMatch(iphone, /Installer maintenant/, 'l’iPhone ne propose jamais d’installer d’un toucher')
+  assert.doesNotMatch(await rendu({ ouverte: true, offerte: true }), /Installer maintenant/, 'même si un navigateur le prétendait')
 
   const android = await rendu({ telephone: 'android', onglet: 'android', ouverte: true })
   assert.match(android, /id="installer-onglet-android" type="button" role="tab" aria-selected="true"/)
@@ -160,9 +166,13 @@ test('dépliée, les gestes de l’iPhone et ceux d’Android, chacun à son ong
     '2 · Touche le menu , en haut à droite.',
     '3 · Choisis Installer l’application — ou Ajouter à l’écran d’accueil.',
   ])
-  assert.match(texte(android), /Sur Samsung Internet : le menu ≡, en bas, puis Ajouter la page à › Écran d’accueil\./)
-  assert.doesNotMatch(android, /Installer l’application<\/button>/, 'sans l’invitation de Chrome, pas de bouton qui ne ferait rien')
-  assert.match(await rendu({ telephone: 'android', onglet: 'android', offerte: true }), /<button type="button" class="btn btn-accent btn-block">.*Installer l’application<\/button>/)
+  assert.match(texte(android), /Samsung Internet : menu ≡, puis Ajouter la page à › Écran d’accueil\./)
+  assert.doesNotMatch(android, /Installer maintenant/, 'sans l’invitation de Chrome, pas de bouton qui ne ferait rien')
+  assert.match(
+    await rendu({ telephone: 'android', onglet: 'android', ouverte: true, offerte: true }),
+    /<button type="button" class="btn btn-accent btn-block">.*Installer maintenant<\/button><div class="onglets onglets-petits"/,
+    'le toucher d’abord, les gestes dessous',
+  )
 })
 
 test('au pied de l’accueil, avec ou sans profil : les trois gros boutons d’abord, l’écoute de Chrome dès le démarrage', async () => {
