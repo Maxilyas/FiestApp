@@ -225,6 +225,17 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Un seul saut de proxy devant nous en ligne : c'est lui qui écrit la
   // dernière adresse de `x-forwarded-for`, celle qu'on lit.
   if (opts.online) app.set('trust proxy', 1)
+  // Le temps de chaque route d'API, sous son modèle : ce qu'un joueur attend,
+  // mesuré là où Turso est vraiment loin — `/healthz` le dit (`core/pouls.ts`).
+  app.use((req, res, next) => {
+    if (!req.path.startsWith('/api/')) return next()
+    const debut = performance.now()
+    res.on('finish', () => {
+      const modele: unknown = req.route?.path
+      if (typeof modele === 'string') pouls.noterRoute(`${req.method} ${modele}`, performance.now() - debut)
+    })
+    next()
+  })
   // Le chemin d'un invité, du scan à la salle d'attente, pèse encore 320 Ko
   // de JS à nu, 106 Ko compressé — cinquante téléphones en 4G au moment du
   // scan font vite la différence. Les fichiers du paquet arrivent déjà
@@ -679,6 +690,11 @@ export async function createQuizServer(opts: QuizServerOptions) {
       return { miroir: { ...backup.sante(), latenceP95Ms: miroir.p95, latenceMaxMs: miroir.max, envoisParMin: miroir.n } }
     })
     mesurer('jour', () => ({ jour: reserveDuJour() }))
+    mesurer('base', () => {
+      const base = pouls.base.lireAvecMediane()
+      return { base: { allersRetoursParMin: base.n, p50Ms: base.p50, p95Ms: base.p95, maxMs: base.max } }
+    })
+    mesurer('routes', () => ({ routes: pouls.lireRoutes() }))
     res.json(corps)
   })
 

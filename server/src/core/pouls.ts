@@ -65,13 +65,20 @@ export class Fenetre {
   }
 
   lire(): { n: number; max: number; p95: number } {
+    const { n, max, p95 } = this.lireAvecMediane()
+    return { n, max, p95 }
+  }
+
+  /** La même lecture, la médiane en plus : le temps qu'on ressent le plus souvent, quand le 95ᵉ centile dit le pire courant. */
+  lireAvecMediane(): { n: number; max: number; p50: number; p95: number } {
     this.tourner()
     const valeurs = [...this.precedent.valeurs, ...this.courant.valeurs].sort((a, b) => a - b)
-    const p95 = valeurs.length ? valeurs[Math.min(valeurs.length - 1, Math.floor(valeurs.length * 0.95))] : 0
+    const centile = (c: number) => (valeurs.length ? Math.round(valeurs[Math.min(valeurs.length - 1, Math.floor(valeurs.length * c))]) : 0)
     return {
       n: this.precedent.n + this.courant.n,
       max: Math.round(Math.max(this.precedent.max, this.courant.max)),
-      p95: Math.round(p95),
+      p50: centile(0.5),
+      p95: centile(0.95),
     }
   }
 }
@@ -87,6 +94,9 @@ function empreinteDAdresse(adresse: string): string {
 
 /** Au-delà, un espace ne retient plus de nouvelle adresse : le compte reste un ordre de grandeur. */
 const ADRESSES_PAR_ESPACE = 2_000
+
+/** Les routes d'API suivies, au plus : il y en a moins, et la mémoire reste bornée quoi qu'il arrive. */
+const ROUTES_SUIVIES = 120
 
 /**
  * Les compteurs que les modules nourrissent : un seul par processus, comme
@@ -105,6 +115,14 @@ export class Pouls {
   readonly tropTard: Fenetre
   /** Les inscriptions refusées par la réserve. */
   readonly refus: Fenetre
+  /**
+   * Chaque aller-retour vers la base permanente (`distante.ts`). Les mesures
+   * du 4 octobre 2026 supposaient 30 ms : seule la production dit ce que
+   * Turso coûte vraiment d'ici, et donc ce que vaut un aller-retour de moins.
+   */
+  readonly base: Fenetre
+  /** Le temps de chaque route d'API, sous son modèle (`GET /api/jour`) — jamais l'adresse, qui peut porter un identifiant. */
+  private routes = new Map<string, Fenetre>()
 
   constructor(private readonly now: () => number = Date.now) {
     this.pagesCalculees = new Fenetre(now)
@@ -113,7 +131,27 @@ export class Pouls {
     this.miroir = new Fenetre(now)
     this.tropTard = new Fenetre(now)
     this.refus = new Fenetre(now)
+    this.base = new Fenetre(now)
     this.adressesDebut = now()
+  }
+
+  noterRoute(modele: string, ms: number) {
+    let fenetre = this.routes.get(modele)
+    if (!fenetre) {
+      if (this.routes.size >= ROUTES_SUIVIES) return
+      this.routes.set(modele, (fenetre = new Fenetre(this.now)))
+    }
+    fenetre.noter(ms)
+  }
+
+  /** Les routes appelées sur la dernière minute, et leur temps : ce qu'un joueur attend, en production. */
+  lireRoutes(): Record<string, { parMin: number; p50Ms: number; p95Ms: number; maxMs: number }> {
+    const lues: Record<string, { parMin: number; p50Ms: number; p95Ms: number; maxMs: number }> = {}
+    for (const modele of [...this.routes.keys()].sort()) {
+      const l = this.routes.get(modele)!.lireAvecMediane()
+      if (l.n > 0) lues[modele] = { parMin: l.n, p50Ms: l.p50, p95Ms: l.p95, maxMs: l.max }
+    }
+    return lues
   }
 
   /** Le total des calculs de page depuis le démarrage : les tests le lisent. */

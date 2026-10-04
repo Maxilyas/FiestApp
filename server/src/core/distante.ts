@@ -1,4 +1,5 @@
 import { createClient, LibsqlError, type Client, type IntMode } from '@libsql/client'
+import { pouls } from './pouls'
 
 export type { Client }
 
@@ -106,10 +107,15 @@ export async function ajouterColonne(client: Client, table: string, colonne: str
   return true
 }
 
-function avecDelai(delaiMs: number) {
+export function avecDelai(delaiMs: number) {
   return async (requete: Request): Promise<Response> => {
+    const debut = performance.now()
     try {
-      return await fetch(requete, { signal: AbortSignal.timeout(delaiMs) })
+      const reponse = await fetch(requete, { signal: AbortSignal.timeout(delaiMs) })
+      // Chaque `execute`, chaque `batch` passe ici : `/healthz` dit ce
+      // qu'un aller-retour vers Turso coûte vraiment (`pouls.base`).
+      pouls.base.noter(performance.now() - debut)
+      return reponse
     } catch (e) {
       // L'erreur d'origine (« The operation was aborted due to timeout ») ne
       // dit ni quoi, ni combien de temps : on la remplace par une phrase.
