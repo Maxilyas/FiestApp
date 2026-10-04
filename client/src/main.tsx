@@ -2,7 +2,7 @@ import React, { Component, Suspense, lazy, type ReactNode } from 'react'
 import ReactDOM from 'react-dom/client'
 import { DialogHost } from './components/Dialog'
 import { applyTheme } from './theme'
-import { poserThemeRetenu } from './themeJoueur'
+import { confirmerTheme, poserThemeRetenu } from './themeJoueur'
 import { installerClavier } from './clavier'
 import { ecouterLInstallation } from './installation'
 import { Patience } from './annonce'
@@ -104,13 +104,25 @@ if (route.kind === 'account') document.title = titreDePage(route.page)
 // Une adresse qui ne mène nulle part le dit aussi dans son onglet.
 else if (route.kind === 'unknown') document.title = 'Adresse introuvable · FiestApp'
 
+/**
+ * Les pages qui lisent déjà le profil : elles en portent le thème elles-mêmes
+ * (`porterTheme`), sans le redemander. La soirée en tête — toute la salle y
+ * arrive d'un coup.
+ */
+const LISENT_LE_PROFIL = new Set<unknown>([PlayerApp, ProfilApp, JourApp, CampagneApp, SalonApp])
+
 // L'écran commun se projette parfois sur fond clair (mode « Ivoire ») : le
 // choix est posé avant le premier rendu, pour que le noir ne clignote pas au
-// chargement. Les pages d'un joueur — la soirée, l'accueil, le quiz du jour —
-// portent le thème de son profil, celui qu'il portait la dernière fois dès
-// le démarrage (`themeJoueur.ts`) ; les autres restent en Velours.
+// chargement. Toutes les autres pages — l'accueil, ses quiz, son compte, son
+// salon, la soirée, le quiz du jour, le souvenir et le bilan… — portent le
+// thème du profil connecté ici : celui qu'il portait la dernière fois, dès le
+// démarrage (`themeJoueur.ts`), puis celui que dit le serveur. Les fiches du
+// bilan s'impriment en Ivoire (`BilanApp`).
 if (App === HostApp) applyTheme()
-else if (App === PlayerApp || App === ProfilApp || App === JourApp || App === CampagneApp) poserThemeRetenu()
+else if (!(route.kind === 'public' && route.page === 'bilan/fiches')) {
+  poserThemeRetenu()
+  if (!LISENT_LE_PROFIL.has(App)) void confirmerTheme()
+}
 
 // Les écrans d'entrée ancrent leur bouton en bas de page : le clavier d'un
 // téléphone le cachait. L'écran commun n'a pas de clavier qui monte.
