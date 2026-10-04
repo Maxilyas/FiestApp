@@ -693,27 +693,6 @@ h3 > .icon {
 .join.entree .join-sub { font-size: 1rem; }
 .join.entree .field { gap: 6px; }
 
-/* Le « ou » qui sépare les deux façons d'entrer : aucune des deux n'est
-   reléguée en petit gris au bas de la page. */
-.entree-ou {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 0;
-  font-size: 11px;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.entree-ou::before,
-.entree-ou::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: rgba(var(--accent-rgb), 0.18);
-}
-
 .entree-note {
   margin: 0;
   font-size: 12px;
@@ -7831,3 +7810,11 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 @media (min-width: 1101px) {
   html:has(.tv-branchement) { font-size: max(100%, min(100vh / 48, 100vw / 85)); }
 }
+
+/* L'identifiant d'un profil qui naît, en une ligne sous le mot de passe :
+   il se déduit du prénom, on ne l'ouvre que pour le changer. */
+.identifiant-discret { margin: -4px 0 0; }
+.identifiant-discret b,
+.identifiant-retenu { font-variant-numeric: tabular-nums; color: var(--accent-text); }
+/* Le choix de l'entrée : trois gros boutons, une phrase, rien d'autre. */
+.entree-choix .join-actions { gap: 12px; }
