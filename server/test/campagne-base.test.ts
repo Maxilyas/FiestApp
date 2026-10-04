@@ -3,9 +3,11 @@
 // campagne. Une entrée défectueuse n'y entre pas en silence — le serveur
 // l'écarterait à sa lecture —, et la base ne recule jamais.
 //
-// Elle grandit lot par lot (`scripts/base-campagne.ts`) : le plancher
+// Elle a grandi lot par lot (`scripts/base-campagne.ts`) : le plancher
 // `AU_MOINS` monte avec elle, et chaque catégorie, chaque sous-thème et
-// chaque marche auront leur minimum quand toutes seront écrites.
+// chaque marche ont leur minimum — une catégorie qu'un fichier écrasé
+// viderait, ou une marche qu'un lot trop facile laisserait à sec, se verrait
+// ici avant de se jouer.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
@@ -14,10 +16,11 @@ import { DOSSIER_DE_LA_BASE, fichierDeCategorie, lireLaBase } from '../src/core/
 import { empreinteDe } from '../src/core/jour'
 import { SERVEUR } from '../src/racine'
 import { CATEGORIES } from '../../shared/categories'
+import { SOUS_THEMES } from '../../shared/etiquettes'
 import { NIVEAUX, QUESTIONS_PAR_SERIE, niveauDeQuestion, type Niveau } from '../../shared/campagne'
 
 /** Ce que la base a déjà : elle ne descend jamais sous ce nombre (un fichier écrasé, un rangement raté). */
-const AU_MOINS = 4700
+const AU_MOINS = 5000
 
 const { questions, refusees } = lireLaBase()
 
@@ -34,6 +37,41 @@ test('une série peut monter jusqu’à l’expert', () => {
   for (const q of questions) compte[niveauDeQuestion(q.meta.difficulte)]++
   // Après les quinze premières, une série joue l'expert jusqu'au bout : il en faut au moins une série entière.
   for (const n of NIVEAUX) assert.ok(compte[n] >= QUESTIONS_PAR_SERIE, `${n} : ${compte[n]}`)
+})
+
+test('chaque catégorie a de quoi tenir plusieurs séries', () => {
+  for (const c of CATEGORIES) {
+    const n = questions.filter(q => q.meta.categorie === c).length
+    assert.ok(n >= 150, `${c} : ${n} questions, 150 au moins`)
+  }
+})
+
+test('chaque sous-thème a ses questions : aucun n’est resté vide', () => {
+  for (const c of CATEGORIES) {
+    for (const st of SOUS_THEMES[c]) {
+      const n = questions.filter(q => q.meta.categorie === c && q.meta.sousTheme === st.cle).length
+      assert.ok(n >= 15, `${c} › ${st.cle} : ${n} questions, 15 au moins`)
+    }
+  }
+})
+
+test('chaque marche a de quoi composer des séries, en tout et dans chaque catégorie', () => {
+  // La marche d'une question se lit comme le serveur la lit à l'écriture, avant toute mesure des réponses.
+  const compte = (garde: (q: (typeof questions)[number]) => boolean, n: Niveau) =>
+    questions.filter(q => garde(q) && niveauDeQuestion(q.meta.difficulte) === n).length
+  for (const n of NIVEAUX) {
+    assert.ok(compte(() => true, n) >= 300, `${n} : ${compte(() => true, n)} questions en tout, 300 au moins`)
+    for (const c of CATEGORIES) {
+      const k = compte(q => q.meta.categorie === c, n)
+      assert.ok(k >= 10, `${c} › ${n} : ${k} questions, 10 au moins`)
+    }
+  }
+})
+
+test('les douze fichiers de catégorie sont là', () => {
+  const presents = new Set(readdirSync(DOSSIER_DE_LA_BASE).filter(f => f.endsWith('.json')))
+  assert.equal(CATEGORIES.length, 12)
+  for (const c of CATEGORIES) assert.ok(presents.has(fichierDeCategorie(c)), `${fichierDeCategorie(c)} manque`)
 })
 
 test('la base ne reprend aucune question des quiz livrés, dont le quiz du jour s’est amorcé', () => {
