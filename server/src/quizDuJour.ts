@@ -1,13 +1,14 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import express, { type Express, type NextFunction, type Request, type Response } from 'express'
 import type { JourStore } from './core/jour'
-import type { ProfileStore } from './auth/profiles'
+import type { RappelStore } from './core/rappels'
+import { idDeSession, type ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
 import { readPlayerToken, requireAdmin } from './auth/http'
 import { A_ECRIRE_A_LA_MAIN, A_ECRIRE_MAX } from './core/consigne'
 import { consigneDEtiquetage } from './core/etiquetage'
 import { parseImportedQuestions } from '../../shared/library'
-import { jourDe, jourValide, moisDe } from '../../shared/jour'
+import { HEURE_DU_RAPPEL, jourDe, jourValide, moisDe } from '../../shared/jour'
 import { tronquer } from '../../shared/avatars'
 
 interface JourDeps {
@@ -27,7 +28,7 @@ const MOIS = /^\d{4}-\d{2}$/
  * de compte d'animateur —, derrière celle des profils : un invité anonyme
  * n'a pas de quiz du jour, et le serveur le lui dit sans détour.
  */
-export function mountJour(app: Express, deps: JourDeps) {
+export function mountJour(app: Express, deps: JourDeps & { rappels: RappelStore }) {
   const petit = express.json({ limit: '4kb' })
 
   /** Le profil connecté, ou un 401 qui dit quoi faire. */
@@ -38,6 +39,40 @@ export function mountJour(app: Express, deps: JourDeps) {
     if (!profil) res.status(401).json({ error: 'Connecte-toi à ton profil pour jouer au quiz du jour' })
     return profil
   }
+
+  // Le rappel du soir (`core/rappels.ts`) : la clé du serveur, que le
+  // téléphone donne à son service de push en s'abonnant, puis l'abonnement
+  // lui-même — attaché à la session qui le demande : une déconnexion le défait.
+  app.get(
+    '/api/jour/rappel',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json({ cle: deps.rappels.clePublique(), heure: HEURE_DU_RAPPEL })
+    }),
+  )
+
+  app.post(
+    '/api/jour/rappel',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      // Le jeton est là : `profilDe` vient de le lire.
+      await deps.rappels.abonner(profil.id, idDeSession(readPlayerToken(req.header('cookie'))!), req.body?.abonnement)
+      res.json({ ok: true })
+    }),
+  )
+
+  app.delete(
+    '/api/jour/rappel',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      await deps.rappels.desabonner(profil.id, req.body?.endpoint)
+      res.json({ ok: true })
+    }),
+  )
 
   app.get(
     '/api/jour',

@@ -17,6 +17,7 @@ export type IconName =
   | 'arrow-up'
   | 'award'
   | 'bar-chart'
+  | 'bell'
   | 'book'
   | 'camera'
   | 'check'
@@ -164,6 +165,15 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
     ),
   },
   'bar-chart': { paths: <path d="M5 20v-9M12 20V4M19 20v-6" /> },
+  // Le rappel du soir du quiz du jour.
+  bell: {
+    paths: (
+      <>
+        <path d="M18 9a6 6 0 0 0-12 0c0 6.5-2.5 8-2.5 8h17S18 15.5 18 9Z" />
+        <path d="M10.3 20.5a2 2 0 0 0 3.4 0" />
+      </>
+    ),
+  },
   book: {
     paths: (
       <>

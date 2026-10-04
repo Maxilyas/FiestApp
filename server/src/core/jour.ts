@@ -1546,6 +1546,31 @@ export class JourStore {
   }
 
   /**
+   * Ce que le rappel du soir doit savoir d'un profil (`core/rappels.ts`) :
+   * combien de questions lui restent aujourd'hui — toutes s'il n'a pas
+   * commencé, aucune s'il a fini, aucune non plus s'il n'y a pas de quiz —,
+   * et sa série, que la soirée d'aujourd'hui a peut-être déjà tenue. Une
+   * question montrée dont l'heure est passée est perdue : la partie laissée
+   * sur sa dernière question est finie, même si personne n'est revenu le
+   * constater (`expirer`).
+   */
+  async pourLeRappel(profileId: string): Promise<{ total: number; reste: number; serie: number; serieTenue: boolean }> {
+    const jour = jourDe(this.maintenant())
+    const tirage = await this.tirage(jour, true)
+    if (!tirage) return { total: 0, reste: 0, serie: 0, serieTenue: false }
+    const [partie, { serie, tenue }] = await Promise.all([this.partieDe(profileId, jour), this.serieDe(profileId, jour)])
+    const total = tirage.questions.length
+    let reste = total
+    if (partie?.finieLe != null) reste = 0
+    else if (partie) {
+      reste -= partie.question
+      const montree = tirage.questions[partie.question]
+      if (partie.servieLe !== null && montree && this.maintenant() - partie.servieLe > montree.duree * 1000 + GRACE_MS) reste--
+    }
+    return { total, reste: Math.max(0, reste), serie, serieTenue: tenue }
+  }
+
+  /**
    * Le quiz du jour d'un profil, pour sa page (`CarriereDuJour`) : ses
    * médailles, sa série et son record, ses podiums, et ses trente derniers
    * jours. La nuit d'avant se clôt d'abord : son podium se compte.

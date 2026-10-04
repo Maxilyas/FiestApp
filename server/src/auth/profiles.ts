@@ -283,6 +283,9 @@ const SLIDE_EVERY_MS = 7 * 24 * 3600 * 1000
 const fingerprint = (token: string) => createHash('sha256').update(token).digest('hex')
 const newToken = () => randomBytes(32).toString('base64url')
 
+/** L'identifiant d'une session : l'empreinte de son jeton — ce qu'on en retient ailleurs, jamais le jeton. */
+export const idDeSession = (token: string): string => fingerprint(token)
+
 /**
  * L'alphabet du code de secours : ni I, ni L, ni O, ni U — on le recopie à la
  * main depuis une capture d'écran, et ces quatre-là se confondent avec 1, 0
@@ -1600,6 +1603,17 @@ export class ProfileStore {
         .catch(() => {})
     }
     return session.profileId
+  }
+
+  /**
+   * Le profil d'une session encore ouverte, sans la faire glisser ni rien
+   * écrire : le rappel du soir (`core/rappels.ts`) ne vaut que pour un
+   * téléphone resté connecté — une déconnexion, un mot de passe changé, un
+   * profil supprimé ou un an sans revenir le défont d'eux-mêmes.
+   */
+  profilDeLaSession(sessionId: string): string | null {
+    const session = this.sessions.get(sessionId)
+    return session && session.expiresAt > Date.now() ? session.profileId : null
   }
 
   /** Le profil derrière un jeton, chargé au besoin. */
