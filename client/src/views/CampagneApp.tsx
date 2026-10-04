@@ -221,7 +221,8 @@ export function CampagneApp() {
   )
 
   // Ouverte sur les sentiers, la page n'attend pas la série pour s'esquisser.
-  if (ecran.e === 'chargement') return mode === 'sentiers' ? <SentiersEnChemin onglets={onglets} /> : <CampagneEnChemin />
+  if (ecran.e === 'chargement' && mode === 'sentiers') return <SentiersEnChemin onglets={onglets} />
+  if (ecran.e === 'chargement') return <CampagneEnChemin />
   if (ecran.e !== 'anonyme' && ecran.e !== 'erreur' && mode === 'sentiers') {
     return (
       <>

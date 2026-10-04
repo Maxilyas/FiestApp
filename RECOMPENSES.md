@@ -879,7 +879,9 @@ Une monnaie, pour habiller son téléphone. Trente thèmes — Velours et
 Ivoire offerts, vingt-huit à acheter —, chacun ses couleurs, ses polices et
 son décor : le Cahier d'écolier et son Seyès, la Licorne irisée, la Neige
 qui tombe, le Grand théâtre et ses rideaux. Ils ne changent rien au jeu
-(invariant 8).
+(invariant 8). Un trente et unième ne se vend pas : Babel, la
+bibliothèque infinie, se gagne aux douze paliers de maître des sentiers du
+savoir (§ 5.15).
 
 - **Une bonne réponse, un confetti.** Les QCM justes — « plusieurs » et
   « ordre » en tout ou rien — et les estimations parmi les plus proches de
@@ -966,7 +968,11 @@ par branche, douze paliers, et les avatars du savoir sur le chemin
   toute la catégorie, **neuf pour valider**, et un titre au bout —
   « Maître de la forêt » (`titreDeMaitre`) —, qui se porte sous le prénom
   comme celui d'un haut fait. Les expertes servent enfin à quelque chose,
-  sans barrer la route d'un avatar.
+  sans barrer la route d'un avatar. **Au troisième maître**, un fond de
+  carte : le Cabinet de curiosités (`shared/fonds.ts`) ; **au douzième**,
+  un thème qu'aucune boutique ne vend : Babel, la bibliothèque infinie
+  (`gagne`, `shared/themes.ts`). Un palier de maître ne se perd jamais :
+  le fond et le thème non plus.
 - **Les vies** : douze par jour (une par sentier), pour tous les sentiers,
   rendues à minuit à Paris, qui ne s'additionnent pas d'un jour à l'autre.
   **Seul un palier raté en coûte une** ; quitter une épreuve en jeu compte
@@ -1016,10 +1022,9 @@ par catégorie et par jour pour la campagne (`/api/campagne/base`,
 MISE-EN-LIGNE.md, étape 8) : là où il en manque le plus — sous-thèmes et
 difficultés —, jouables aussitôt déposées.
 
-**Plus tard** : un fond de carte au troisième maître, un thème qu'aucune
-boutique ne vend au douzième ; des chemins à thème (les années 80, le
-tour de France), des sentiers de saison, la revanche — les questions ratées
-d'une semaine, rejouées.
+**Plus tard** : des chemins à thème (les années 80, le tour de France),
+des sentiers de saison, la revanche — les questions ratées d'une semaine,
+rejouées.
 
 ---
 
@@ -1069,7 +1074,8 @@ par catégorie, six portraits dessinés chacune, gagnés aux bonnes réponses ;
 
 **Lot 10 — fait** : les sentiers du savoir (§ 5.15) — les avatars du savoir
 se gagnent palier par palier, dans la campagne ; les vies du jour et leur
-rachat en confettis ; le palier de maître et son titre ; chacun garde ses
+rachat en confettis ; le palier de maître, son titre, le Cabinet de
+curiosités au troisième et le thème Babel au douzième ; chacun garde ses
 portraits d'avant, repris en paliers.
 
 **Plus tard**, dans l'ordre où je les prendrais :

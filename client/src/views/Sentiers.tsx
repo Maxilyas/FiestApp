@@ -13,6 +13,8 @@ import { toucher } from '../toucher'
 import { BRANCHES, branche as brancheDe, deLaBranche, nomDansLaPhrase, ouvertsDansLaBranche, prochainDansLaBranche, type Branche, type CleDeBranche } from '../../../shared/branches'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import { NOM_NIVEAU, SIGNALEMENT_MAX, type CorrectionDeCampagne, type Niveau, type QuestionDeCampagne } from '../../../shared/campagne'
+import { MAITRES_DU_CABINET } from '../../../shared/fonds'
+import { THEMES } from '../../../shared/themes'
 import {
   PALIERS,
   PALIER_DU_MAITRE,
@@ -727,6 +729,7 @@ function SentierVu({
             regle={regle}
             branche={b}
             sentier={s}
+            maitres={etat.sentiers.filter(x => x.paliers >= PALIER_DU_MAITRE).length}
             sansVie={sansVie}
             busy={busy}
             onJouer={() => {
@@ -749,6 +752,7 @@ function FicheDuPalier({
   regle: r,
   branche: b,
   sentier: s,
+  maitres,
   sansVie,
   busy,
   onJouer,
@@ -757,6 +761,8 @@ function FicheDuPalier({
   regle: RegleDuPalier
   branche: Branche
   sentier: SentierDuJoueur
+  /** Les sentiers dont il est déjà maître. */
+  maitres: number
   sansVie: boolean
   busy: boolean
   onJouer: () => void
@@ -791,6 +797,7 @@ function FicheDuPalier({
           </>
         )}
       </dl>
+      {r.maitre && <CeQueRapportentLesMaitres maitres={maitres} />}
       {p && (
         <div className="sentier-fiche-avatar">
           <Portrait cle={p.key} verrouille={!fait} taille={56} />
@@ -831,6 +838,40 @@ function FicheDuPalier({
         <p className="muted">{`Valide d’abord le palier ${(paliersAJouer(s) ?? r.n)}.`}</p>
       )}
     </div>
+  )
+}
+
+/** Le thème que les maîtres gagnent, et combien il en faut (`shared/themes.ts`, `gagne`). */
+const THEME_DES_MAITRES = THEMES.find(t => t.gagne)
+
+/**
+ * Ce que rapportent les maîtres : chacun son titre, le Cabinet de curiosités
+ * au troisième, et le thème qu'aucune boutique ne vend au douzième — ce
+ * qu'on a déjà en clair, ce qui vient en pointillé.
+ */
+function CeQueRapportentLesMaitres({ maitres }: { maitres: number }) {
+  const lignes: { n: number; titre: string; detail: string }[] = [
+    { n: 1, titre: 'Un titre', detail: 'Le nom de son sentier, sous ton prénom : « Maître de la forêt ».' },
+    { n: MAITRES_DU_CABINET, titre: 'Le Cabinet de curiosités', detail: 'Un fond pour ta carte de joueur.' },
+    ...(THEME_DES_MAITRES ? [{ n: THEME_DES_MAITRES.gagne!.maitres, titre: `Le thème ${THEME_DES_MAITRES.nom}`, detail: 'Aucune boutique ne le vend.' }] : []),
+  ]
+  return (
+    <section className="maitres-recompenses" aria-labelledby="maitres-titre">
+      <span className="label" id="maitres-titre">{`Ce que rapportent les maîtres · ${maitres} sur ${BRANCHES.length}`}</span>
+      <ol>
+        {lignes.map(l => (
+          <li key={l.n} className={maitres >= l.n ? 'maitres-acquis' : undefined}>
+            <span className="maitres-pastille" aria-hidden="true">
+              {l.n}
+            </span>
+            <span>
+              <b>{l.titre}</b>
+              <span className="muted small">{maitres >= l.n ? 'À toi.' : l.detail}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+    </section>
   )
 }
 
@@ -1011,6 +1052,8 @@ function FinDEpreuve({
   const etoiles = r.etoiles ?? etoilesDe(e.justes, e.seuil)
   const vies = r.vies ?? etat.vies
   const sansVie = vies.jour + vies.reserve === 0
+  // Ses maîtres, celui-ci compris : l'état relu après l'épreuve peut ne pas l'avoir encore.
+  const maitres = etat.sentiers.filter(s => s.paliers >= PALIER_DU_MAITRE || (r.maitre && s.branche === e.branche)).length
   const gains = (
     <div className="epreuve-gains">
       <span>
@@ -1160,7 +1203,12 @@ function FinDEpreuve({
           </span>
           <h1>{r.maitre}</h1>
           <p className="muted">Le titre se porte sous ton prénom : la salle le lit en touchant ton nom.</p>
+          {maitres === MAITRES_DU_CABINET && <p className="campagne-record-battu">Et le Cabinet de curiosités, pour ta carte : il est à toi.</p>}
+          {THEME_DES_MAITRES && maitres === THEME_DES_MAITRES.gagne!.maitres && (
+            <p className="campagne-record-battu">{`Et le thème ${THEME_DES_MAITRES.nom}, qu’aucune boutique ne vend : il est à toi.`}</p>
+          )}
         </section>
+        <CeQueRapportentLesMaitres maitres={maitres} />
         {gains}
         {fin.porte ? (
           <p className="muted small centre">Il est sous ton prénom.</p>

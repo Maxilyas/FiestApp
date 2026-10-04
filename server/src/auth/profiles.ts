@@ -787,15 +787,15 @@ export class ProfileStore {
     return legendairesOuvertsPar(tombes, this.recompensesOf(id), this.acquis.get(id))
   }
 
-  /** Les fonds de carte qu'il peut porter : son niveau, son quiz du jour, ses paliers (`shared/fonds.ts`). */
-  fondsOuvertsDe(p: ProfileRec, jour: { joues: number; victoires: number }): CleDeFond[] {
-    return fondsOuverts({ niveau: this.niveauOf(p), jour, recompenses: this.recompensesOf(p.id) })
+  /** Les fonds de carte qu'il peut porter : son niveau, son quiz du jour, ses paliers de carrière, ses maîtres des sentiers (`shared/fonds.ts`). */
+  fondsOuvertsDe(p: ProfileRec, jour: { joues: number; victoires: number }, maitres = 0): CleDeFond[] {
+    return fondsOuverts({ niveau: this.niveauOf(p), jour, recompenses: this.recompensesOf(p.id), maitres })
   }
 
   /** Le fond qu'on voit derrière sa carte : celui qu'il a choisi, s'il le mérite encore. */
-  fondPorte(p: ProfileRec, jour: { joues: number; victoires: number }): CleDeFond | null {
+  fondPorte(p: ProfileRec, jour: { joues: number; victoires: number }, maitres = 0): CleDeFond | null {
     const choisi = fond(p.fond)
-    return choisi && this.fondsOuvertsDe(p, jour).includes(choisi.key) ? choisi.key : null
+    return choisi && this.fondsOuvertsDe(p, jour, maitres).includes(choisi.key) ? choisi.key : null
   }
 
   /** Le thème qui habille son téléphone : celui qu'il porte, s'il existe encore ; null, Velours. */
@@ -833,17 +833,22 @@ export class ProfileStore {
     jour: string,
     soirees?: readonly { gain: GainSoiree; releve: ReleveSoiree }[],
   ): Promise<BoutiqueDuProfil> {
-    const [lues, achats, duJour, deCampagne] = await Promise.all([
+    const [lues, achats, duJour, deCampagne, maitres] = await Promise.all([
       soirees ?? this.historiqueOf(p.id),
       this.achatsDe(p.id),
       this.justesDuJour?.(p.id) ?? 0,
       this.justesDeCampagne?.(p.id) ?? 0,
+      // Ses maîtres ouvrent le thème qui se gagne ; muets, ils ne l'ôtent qu'à cette lecture.
+      this.paliersDe(p.id).then(
+        x => maitresDe(x).length,
+        () => 0,
+      ),
     ])
     const gagnes = lues.reduce((n, s) => n + confettisDeSoiree(s.gain, s.releve), 0) + duJour + deCampagne
     const depenses = [...achats.themes.values()].reduce((n, prix) => n + prix, 0) + achats.vies
     return {
       confettis: { gagnes, depenses, solde: gagnes - depenses },
-      possedes: THEMES.filter(t => t.rarete === 'offert' || achats.themes.has(t.key)).map(t => t.key),
+      possedes: THEMES.filter(t => t.rarete === 'offert' || achats.themes.has(t.key) || (t.gagne && maitres >= t.gagne.maitres)).map(t => t.key),
       porte: this.themePorte(p),
       jour,
     }
@@ -869,6 +874,7 @@ export class ProfileStore {
       if (!t) throw new Error('Ce thème n’existe pas')
       const boutique = await this.boutiqueDe(rec, jour)
       if (boutique.possedes.includes(t.key)) throw new Error('Ce thème est déjà à toi')
+      if (t.gagne) throw new Error(`Le thème ${t.nom} ne se vend pas : il se gagne avec ${t.gagne.regle}`)
       if (t.saison && !enBoutique(t, jour)) throw new Error(`Le thème ${t.nom} revient en boutique ${t.saison.periode}`)
       const prix = prixDe(t)
       const manque = prix - boutique.confettis.solde
@@ -1204,7 +1210,17 @@ export class ProfileStore {
         console.error(`[profil] joueur de « ${s.soireeId} » non relu :`, e)
       }
     }
-    const jour = await this.statsDuJourDe(p.id)
+    // Ses maîtres ouvrent le Cabinet de curiosités : lus avec son quiz du jour, sans attendre l'un l'autre.
+    const [jour, maitres] = await Promise.all([
+      this.statsDuJourDe(p.id),
+      this.paliersDe(p.id).then(
+        x => maitresDe(x).length,
+        e => {
+          console.error('[profil] sentiers illisibles pour ses fonds :', e)
+          return 0
+        },
+      ),
+    ])
     const carriere = carriereDe(soirees, {
       eclats: this.eclatsOf(p.id).length,
       niveau: this.niveauOf(p),
@@ -1231,8 +1247,8 @@ export class ProfileStore {
       fiche: ficheDe(carriere),
       categories: carriere.categories,
       hautsFaits: await this.hautsFaitsVus(p.id, carriere, vitrine),
-      fond: this.fondPorte(p, jour),
-      fonds: this.fondsOuvertsDe(p, jour),
+      fond: this.fondPorte(p, jour, maitres),
+      fonds: this.fondsOuvertsDe(p, jour, maitres),
     }
   }
 
@@ -1539,7 +1555,8 @@ export class ProfileStore {
       else {
         const choisi = fond(patch.fond)
         if (!choisi) throw new Error('Ce fond de carte n’existe pas')
-        if (!this.fondsOuvertsDe(rec, await this.statsDuJourDe(id)).includes(choisi.key)) {
+        const [jour, paliers] = await Promise.all([this.statsDuJourDe(id), this.paliersDe(id)])
+        if (!this.fondsOuvertsDe(rec, jour, maitresDe(paliers).length).includes(choisi.key)) {
           throw new Error(`Ce fond se gagne d’abord : ${choisi.regle}`)
         }
         champs.fond = choisi.key
@@ -1553,7 +1570,11 @@ export class ProfileStore {
       if (!vide && !choisi) throw new Error('Ce thème n’existe pas')
       if (!choisi || choisi.key === 'velours') champs.theme = null
       else {
-        if (choisi.rarete !== 'offert' && !(await this.achatsDe(id)).themes.has(choisi.key)) {
+        if (choisi.gagne) {
+          if (maitresDe(await this.paliersDe(id)).length < choisi.gagne.maitres) {
+            throw new Error(`Le thème ${choisi.nom} se gagne avec ${choisi.gagne.regle}`)
+          }
+        } else if (choisi.rarete !== 'offert' && !(await this.achatsDe(id)).themes.has(choisi.key)) {
           throw new Error(`Le thème ${choisi.nom} s’achète d’abord, en confettis`)
         }
         champs.theme = choisi.key

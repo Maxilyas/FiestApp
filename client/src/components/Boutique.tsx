@@ -226,6 +226,15 @@ export function RayonDesThemes({
       <p className="muted small center">
         {possedes.size} thème{possedes.size > 1 ? 's' : ''} déjà à toi : <a className="link-inline" href="/profil#style-theme">les porter</a>
       </p>
+      {/* Celui qui ne se vend pas se dit ici, sans se montrer : il se gagne. */}
+      {THEMES.filter(t => t.gagne && !possedes.has(t.key)).map(t => (
+        <p key={t.key} className="muted small center">
+          {`Le thème ${t.nom} ne se vend pas : il se gagne avec ${t.gagne!.regle}. `}
+          <a className="link-inline" href="/campagne#sentiers">
+            Les sentiers
+          </a>
+        </p>
+      ))}
     </>
   )
 }

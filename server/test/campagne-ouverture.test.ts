@@ -29,8 +29,11 @@ test('la campagne s’ouvre sur sa page, pas sur « Chargement… » : le défi 
   assert.match(html, /ton record/, 'la place du record, sans rien décaler quand il arrive')
   assert.match(html, /aria-disabled="true"[^>]*>.*Commencer une série/, 'le bouton attend la série à reprendre')
   assert.doesNotMatch(html, /Chargement…/)
-  // Et c'est elle que la page rend tant que le serveur n'a pas répondu.
-  assert.match(readFileSync(client('views/CampagneApp.tsx'), 'utf8'), /if \(ecran\.e === 'chargement'\) return <CampagneEnChemin \/>/)
+  // Et c'est elle que la page rend tant que le serveur n'a pas répondu —
+  // ouverte sur les sentiers (`#sentiers`), la place de leurs tuiles.
+  const page = readFileSync(client('views/CampagneApp.tsx'), 'utf8')
+  assert.match(page, /if \(ecran\.e === 'chargement'\) return <CampagneEnChemin \/>/)
+  assert.match(page, /if \(ecran\.e === 'chargement' && mode === 'sentiers'\) return <SentiersEnChemin onglets=\{onglets\} \/>/)
 })
 
 test('l’accueil d’un profil télécharge en fond le code de la campagne et du quiz du jour', () => {

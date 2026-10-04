@@ -6,7 +6,7 @@
 //
 // Un serveur jetable, un quiz, et Camille qui porte les thèmes tour à tour :
 // la vignette est l'application elle-même, polices et décor compris — jamais
-// une maquette qui aurait dérivé. Sans clé, les trente ; avec, ceux-là (un
+// une maquette qui aurait dérivé. Sans clé, tous ; avec, ceux-là (un
 // thème retouché). Le décor y est immobile, comme pour qui demande moins de
 // mouvement : une vignette ne doit pas dépendre de l'instant de la photo.
 import { createRequire } from 'node:module'
@@ -29,6 +29,7 @@ import {
 } from '../test/banc'
 import { SERVEUR } from '../src/racine'
 import { THEMES } from '../../shared/themes'
+import { BRANCHES } from '../../shared/branches'
 
 const sortie = path.resolve(SERVEUR, '../client/src/themes/apercus')
 mkdirSync(sortie, { recursive: true })
@@ -69,13 +70,17 @@ try {
     'Les aperçus',
   )
 
-  // Camille a tous les thèmes : achetés d'avance, pour rien, dans la base jetable.
+  // Camille a tous les thèmes : achetés d'avance, pour rien, dans la base
+  // jetable — et les douze sentiers gravis jusqu'au maître, pour celui qui
+  // se gagne (`gagne`).
   const profil = await inscrireProfil(url, 'camille', 'Camille', '🦊')
   {
     const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
     const id = (base.prepare('SELECT id FROM profiles WHERE login = ?').get('camille') as { id: string }).id
     const achat = base.prepare('INSERT INTO profile_achats (profile_id, theme, prix, created_at) VALUES (?, ?, 0, 1)')
-    for (const t of THEMES) if (t.rarete !== 'offert') achat.run(id, t.key)
+    for (const t of THEMES) if (t.rarete !== 'offert' && !t.gagne) achat.run(id, t.key)
+    const maitre = base.prepare('INSERT INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, 13, 1)')
+    for (const b of BRANCHES) maitre.run(id, b.key)
     base.close()
   }
 

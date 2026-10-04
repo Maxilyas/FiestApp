@@ -149,6 +149,26 @@ try {
   await page.goto(`${banc.url}/admin#campagne`)
   await page.waitForSelector('.sentiers-admin-ligne')
   await photo('14-admin', true)
+
+  // Trois maîtres : le Cabinet de curiosités derrière sa carte.
+  const base = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  for (const branche of ['monde', 'oceans', 'espace']) {
+    base.prepare('INSERT OR REPLACE INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, 13, 1)').run(id, branche)
+  }
+  base.close()
+  await ecrire(banc.url, '/api/joueur/moi', { fond: 'cabinet', titre: 'maitre:oceans' }, cookie, 'PUT')
+  await page.goto(`${banc.url}/profil`)
+  await page.waitForSelector('.identite')
+  await page.click('.identite')
+  await page.waitForSelector('.carte-fond')
+  await page.waitForTimeout(800)
+  await photo('15-carte-cabinet')
+  await page.goto(`${banc.url}/campagne#sentier-stade`)
+  await page.waitForSelector('.sentier-chemin')
+  await page.click('.palier-maitre')
+  await page.waitForSelector('.maitres-recompenses')
+  await page.locator('.maitres-recompenses').scrollIntoViewIfNeeded()
+  await photo('16-maitres')
 } finally {
   await navigateur.close()
   await banc.close()
