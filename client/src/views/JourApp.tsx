@@ -19,7 +19,7 @@ import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
 import { Medaille, Serie, ontGagneHier } from '../components/Jour'
-import { CollectionOuverte, Medaillon, PortraitsOuverts } from '../components/FinDeSoiree'
+import { CollectionOuverte, Medaillon, PortraitsOuverts } from '../components/Ouverts'
 import { NOM_FINITION, finitionsOuvertes, type PublicProfile } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {

@@ -719,7 +719,8 @@ sans `QUIZ_DB_URL`.
   retient alors 300 ms ce qui sort de l'attente — la grille du profil, la fin
   de soirée, la carte d'un joueur. L'écran d'entrée ne télécharge ni la
   carte, ni la fin de soirée, ni le quiz du jour (elles viennent une fois
-  entré), et l'accueil anonyme ni les dessins ni les onglets du profil :
+  entré), l'accueil anonyme ni les dessins ni les onglets du profil, et le quiz du jour
+  ni la fin de soirée (ses cartes de fin vivent dans `components/Ouverts.tsx`) :
   `medaillons.test.ts` y veille, et un import statique de plus sur ces
   chemins les y remettrait.
 - **Regarde le rendu.** Plusieurs bugs de cette base n'étaient visibles qu'à
