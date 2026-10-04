@@ -12,20 +12,10 @@
 // (`preparerLeRappel`).
 
 import { api, ApiError } from './api'
+import { estInstallee } from './installation'
 
 /** Actif : ce téléphone sonnera. Bloqué : les notifications sont refusées, seuls les réglages du téléphone les rouvrent. */
 export type EtatDuRappel = 'actif' | 'inactif' | 'bloque'
-
-/** L'application ouverte depuis l'écran d'accueil, et non dans un onglet. */
-export function estInstallee(): boolean {
-  try {
-    // Safari sur iPhone le dit à sa façon ; les autres, par le mode d'affichage du manifeste.
-    if ((navigator as { standalone?: boolean }).standalone === true) return true
-    return ['standalone', 'fullscreen', 'minimal-ui'].some(mode => window.matchMedia(`(display-mode: ${mode})`).matches)
-  } catch {
-    return false
-  }
-}
 
 /** Ce téléphone sait-il recevoir le rappel ? L'application installée, sur un navigateur qui sait pousser. */
 export function rappelPossible(): boolean {

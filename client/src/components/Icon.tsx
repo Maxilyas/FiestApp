@@ -41,11 +41,13 @@ export type IconName =
   | 'maximize'
   | 'message'
   | 'more'
+  | 'more-vertical'
   | 'music'
   | 'image'
   | 'archive'
   | 'search'
   | 'share'
+  | 'share-ios'
   | 'shuffle'
   | 'monitor'
   | 'smartphone'
@@ -53,6 +55,7 @@ export type IconName =
   | 'pause'
   | 'play'
   | 'plus'
+  | 'plus-square'
   | 'rotate'
   | 'skip'
   | 'sparkles'
@@ -98,6 +101,35 @@ const ICONS: Record<IconName, { paths: ReactNode; filled?: boolean }> = {
         <circle cx="5" cy="12" r="1.9" />
         <circle cx="12" cy="12" r="1.9" />
         <circle cx="19" cy="12" r="1.9" />
+      </>
+    ),
+  },
+  // Les gestes qui installent l'application (`Installer.tsx`), dessinés comme
+  // le téléphone les montre : le « Partager » de Safari, « Sur l'écran
+  // d'accueil », le menu de Chrome.
+  'share-ios': {
+    paths: (
+      <>
+        <path d="M12 3v11M8 6.5 12 3l4 3.5" />
+        <path d="M8.5 10H6.5a1.5 1.5 0 0 0-1.5 1.5v8A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5v-8a1.5 1.5 0 0 0-1.5-1.5h-2" />
+      </>
+    ),
+  },
+  'plus-square': {
+    paths: (
+      <>
+        <rect x="4" y="4" width="16" height="16" rx="3.5" />
+        <path d="M12 8.5v7M8.5 12h7" />
+      </>
+    ),
+  },
+  'more-vertical': {
+    filled: true,
+    paths: (
+      <>
+        <circle cx="12" cy="5" r="1.9" />
+        <circle cx="12" cy="12" r="1.9" />
+        <circle cx="12" cy="19" r="1.9" />
       </>
     ),
   },

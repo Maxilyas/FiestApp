@@ -6036,6 +6036,67 @@ h3 > .icon {
 .jour-tout-classement { align-self: center; min-height: 44px; }
 .jour-demain { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; }
 .jour-demain .icon { width: 14px; height: 14px; }
+/* « Installer l'application », au pied de l'accueil d'un téléphone : repliée,
+   une seule ligne — l'icône qu'on retrouvera, son nom, la flèche — qu'un
+   toucher déroule ; dépliée, des étapes resserrées, une pastille chacune et
+   les icônes telles que le téléphone les montre. */
+.installer { display: flex; flex-direction: column; gap: 10px; padding: 4px 14px; }
+.installer.ouverte { padding-bottom: 12px; }
+.installer-tete {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.installer-icone { flex: none; width: 32px; height: 32px; border-radius: var(--radius-xs); }
+.installer-titre { flex: 1; min-width: 0; font-weight: 600; font-size: 0.95rem; }
+.installer-tete > .icon { flex: none; color: var(--muted); transition: rotate 0.2s ease; }
+.installer-tete[aria-expanded='true'] > .icon { rotate: 180deg; }
+@media (prefers-reduced-motion: reduce) { .installer-tete > .icon { transition: none; } }
+.installer-detail, .installer-detail [role='tabpanel'] { display: flex; flex-direction: column; gap: 10px; }
+.installer-detail p { margin: 0; }
+.installer-etapes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; }
+.installer-etapes li { display: flex; align-items: flex-start; gap: 8px; }
+.installer-etapes .icon { color: var(--accent-text); }
+.installer-numero {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.05rem;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--t-label);
+  font-weight: 700;
+}
+/* « Ne plus afficher » : la sortie discrète, à la taille d'un pouce. */
+.installer-masquer {
+  align-self: flex-end;
+  min-height: 44px;
+  margin: -10px 0 -12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.installer-masquer:hover { color: var(--accent-text-hover); }
+
 /* Le haut de la page du jour : la sortie à gauche, la cloche du rappel du
    soir à droite, sur la ligne que la sortie tenait seule — la page ne
    descend pas d'un pixel. */
