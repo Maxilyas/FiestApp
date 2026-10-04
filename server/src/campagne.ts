@@ -2,7 +2,7 @@ import express, { type Express, type Request, type Response } from 'express'
 import type { CampagneStore } from './core/campagne'
 import type { ProfileStore } from './auth/profiles'
 import { wrap } from './core/http'
-import { readPlayerToken } from './auth/http'
+import { readPlayerToken, requireAdmin } from './auth/http'
 import { CATEGORIES } from '../../shared/categories'
 
 interface CampagneDeps {
@@ -57,11 +57,56 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
     }),
   )
 
+  // « Signaler une erreur » : une question déjà jouée de sa série, en une phrase.
+  app.post(
+    '/api/campagne/serie/:id/signalement',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      await deps.campagne.signaler(profil.id, String(req.params.id), Number(req.body?.index), req.body?.texte)
+      res.json({ ok: true })
+    }),
+  )
+
   app.get(
     '/api/campagne/serie/:id/correction',
     wrap(async (req, res) => {
       const profil = await profilDe(req, res)
       if (profil) res.json(await deps.campagne.correction(profil.id, String(req.params.id)))
+    }),
+  )
+}
+
+/**
+ * La base de la campagne et ses signalements, pour l'administrateur seul
+ * (`/admin#campagne`) : garder une question signalée, ou la retirer pour
+ * tous. Passe derrière la porte des animateurs, sous `/api/admin`.
+ */
+export function mountCampagneAdmin(app: Express, deps: { campagne: CampagneStore }) {
+  app.get(
+    '/api/admin/campagne',
+    requireAdmin,
+    wrap(async (_req, res) => {
+      res.json(await deps.campagne.administration())
+    }),
+  )
+
+  app.post(
+    '/api/admin/campagne/garder',
+    requireAdmin,
+    wrap(async (req, res) => {
+      await deps.campagne.garder(String(req.body?.questionId ?? ''))
+      res.json({ ok: true })
+    }),
+  )
+
+  app.post(
+    '/api/admin/campagne/retirer',
+    requireAdmin,
+    wrap(async (req, res) => {
+      await deps.campagne.retirer(String(req.body?.questionId ?? ''))
+      res.json({ ok: true })
     }),
   )
 }

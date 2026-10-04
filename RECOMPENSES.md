@@ -884,8 +884,9 @@ qui tombe, le Grand théâtre et ses rideaux. Ils ne changent rien au jeu
   monde. Pas l'expérience non plus : elle se relit au barème du jour.
 - **Seulement une soirée qui compte** (`soireeQuiCompte`) : seul devant son
   quiz, on connaît les réponses, et deux cents questions lancées pour soi
-  auraient rempli la tirelire. La campagne en solo, plus tard, aura sa
-  règle.
+  auraient rempli la tirelire. La campagne solo a la sienne : une bonne
+  réponse, un confetti (`ProfileStore.justesDeCampagne`) — ses questions
+  viennent de sa base, que le joueur n'a pas écrite.
 - **Dérivés, rétroactifs.** Rien ne s'écrit : le solde se relit à chaque
   lecture — les relevés des soirées, les parties du quiz du jour, moins les
   achats (`ProfileStore.boutiqueDe`). Tout ce qui a été joué avant la

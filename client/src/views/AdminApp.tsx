@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { api, motifDe, UnauthorizedError, type Me } from '../api'
 import { Icon, type IconName } from '../components/Icon'
 import { NavAnimateur } from '../components/NavAnimateur'
+import { AdminCampagne } from '../components/AdminCampagne'
 import { AdminDuJour } from '../components/AdminDuJour'
 import { AdminProfils } from '../components/AdminProfils'
 import { AdminSalons } from '../components/AdminSalons'
@@ -17,7 +18,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * L'administration (`/admin`), pour l'administrateur seul, à la manière de
  * « Mon compte » : un tableau de bord qui dit l'état du serveur d'un coup
  * d'œil, puis une ligne par sujet, chacune ouvrant son écran à son adresse
- * (`/admin#salons`) — les profils, les salons, le catalogue, le quiz du jour.
+ * (`/admin#salons`) — les profils, les salons, le catalogue, le quiz du jour,
+ * la campagne.
  *
  * C'était une seule page de cartes et de tableaux, sortie de l'application :
  * une barre d'animateur, un formulaire « Créer un compte » qui ne sert plus
@@ -28,8 +30,8 @@ import type { QuizQuestionDef } from '../../../shared/library'
  * catalogue.
  */
 
-type Ecran = 'profils' | 'salons' | 'catalogue' | 'jour'
-const ECRANS: readonly Ecran[] = ['profils', 'salons', 'catalogue', 'jour']
+type Ecran = 'profils' | 'salons' | 'catalogue' | 'jour' | 'campagne'
+const ECRANS: readonly Ecran[] = ['profils', 'salons', 'catalogue', 'jour', 'campagne']
 /** Les ancres de la page d'avant, qu'un favori garde encore. */
 const ANCIENNES: Record<string, Ecran> = { 'les-profils': 'profils', 'quiz-du-jour': 'jour' }
 
@@ -47,6 +49,7 @@ interface Resume {
   espaces?: EspaceDAdministration[]
   aRelire?: number
   jour?: { jours: number; signalements: number }
+  campagne?: { signalements: number }
 }
 
 export function AdminApp() {
@@ -63,6 +66,7 @@ export function AdminApp() {
     api.admin.espaces().then(espaces => poser({ espaces }), () => {})
     api.admin.catalogue().then(c => poser({ aRelire: c.filter(e => e.statut === 'propose').length }), () => {})
     api.admin.jour().then(j => poser({ jour: { jours: j.reserve.joursDAvance, signalements: j.signalements.length } }), () => {})
+    api.admin.campagne().then(c => poser({ campagne: { signalements: c.signalements.length } }), () => {})
   }
 
   useEffect(() => {
@@ -132,7 +136,8 @@ export function AdminApp() {
   // Tous les espaces : les salons des profils, et les comptes d'avant, à mot de passe — ceux que l'écran liste.
   const salons = espaces?.length
   const sansTitulaire = espaces?.filter(e => e.salon && !e.titulaire).length ?? 0
-  const titre: Record<Ecran, string> = { profils: 'Les profils', salons: 'Les salons', catalogue: 'Le catalogue', jour: 'Le quiz du jour' }
+  const titre: Record<Ecran, string> = { profils: 'Les profils', salons: 'Les salons', catalogue: 'Le catalogue', jour: 'Le quiz du jour', campagne: 'La campagne' }
+  const signalementsDeCampagne = resume.campagne?.signalements ?? 0
 
   return (
     <div className="player-shell compte admin">
@@ -177,6 +182,12 @@ export function AdminApp() {
               <Ligne icone="home" nom="Les salons" valeur="Renommer, fermer" onClick={() => ouvrir('salons')} />
               <Ligne icone="globe" nom="Le catalogue" valeur="Relire, publier" onClick={() => ouvrir('catalogue')} />
               <Ligne icone="sun" nom="Le quiz du jour" valeur="La réserve" onClick={() => ouvrir('jour')} />
+              <Ligne
+                icone="target"
+                nom="La campagne"
+                valeur={signalementsDeCampagne > 0 ? `${signalementsDeCampagne} signalement${signalementsDeCampagne > 1 ? 's' : ''}` : 'La base'}
+                onClick={() => ouvrir('campagne')}
+              />
             </ul>
           </>
         )}
@@ -184,6 +195,7 @@ export function AdminApp() {
         {ecran === 'salons' && <AdminSalons espaces={espaces} onChange={relireLeResume} />}
         {ecran === 'catalogue' && <Catalogue />}
         {ecran === 'jour' && <AdminDuJour />}
+        {ecran === 'campagne' && <AdminCampagne />}
 
         {toast && <div className={`toast toast-${toast.kind}`}>{toast.message}</div>}
       </main>

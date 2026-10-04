@@ -16,6 +16,7 @@ import { dernieresFois } from './core/memoire'
 import { ProgrammeStore } from './core/programmes'
 import { SalonStore } from './core/salons'
 import { CampagneStore } from './core/campagne'
+import type { BaseDeLaCampagne } from './core/baseCampagne'
 import { Budget } from './core/budget'
 import { clientIp } from './auth/http'
 import { PartageStore } from './core/partages'
@@ -85,6 +86,11 @@ export interface QuizServerOptions {
    * la réserve se remplit à la main.
    */
   jetonDeLaReserve?: string
+  /**
+   * La base de la campagne (`core/baseCampagne.ts`). Absente : celle du
+   * dépôt, lue à la première série. Les tests en donnent une petite.
+   */
+  baseDeLaCampagne?: BaseDeLaCampagne
   /**
    * Le commit qui tourne, sept caractères (`RENDER_GIT_COMMIT` sur
    * l'hébergeur) : la production se promeut à la main, et rien ne disait
@@ -319,10 +325,12 @@ export async function createQuizServer(opts: QuizServerOptions) {
   const partages = new PartageStore(opts.quizDbUrl, opts.quizDbToken)
   // Les codes des salons : six chiffres pour entrer chez quelqu'un.
   const salons = new SalonStore(opts.quizDbUrl, opts.quizDbToken)
-  // La campagne solo : ses séries, puisées dans les questions déjà posées au quiz du jour.
+  // La campagne solo : ses séries, tirées de sa base à elle (`core/baseCampagne.ts`),
+  // loin de la réserve du quiz du jour.
   const campagne = new CampagneStore(opts.quizDbUrl, opts.quizDbToken, {
     maintenant: maintenantDuJour,
-    mesures: () => jour.mesures(),
+    ...(opts.baseDeLaCampagne && { base: opts.baseDeLaCampagne }),
+    empreintesDuJour: () => jour.empreintes(),
     ecrireXp: (profileId, xp, jours) => profiles.ecrireXpDeCampagne(profileId, xp, jours),
   })
   // L'historique des soirées vit avec la bibliothèque : c'est l'autre chose
@@ -403,6 +411,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Ses bonnes réponses du quiz du jour lui valent des confettis, comme celles des soirées.
   profiles.justesDuJour = id => jour.justesDe(id)
   profiles.justesDeCampagne = id => campagne.justesDe(id)
+  // Le quiz du jour ne pose rien que la campagne ait déjà, ni l'inverse : branché
+  // après l'amorce de la réserve, qui n'a pas à lire la base.
+  jour.dansLaCampagne = empreinte => campagne.dansLaBase(empreinte)
   // Un seul profil : chaque compte d'animateur d'avant reçoit le sien, une
   // fois (`auth/profilUnique.ts`). Une base neuve n'a rien d'avant.
   const unique = await adopterLesComptes(auth, profiles, !hadAccounts)

@@ -1,5 +1,5 @@
 import type { CampagneStore } from './core/campagne'
-import { mountCampagne } from './campagne'
+import { mountCampagne, mountCampagneAdmin } from './campagne'
 import { mountProfilsAdmin } from './profilsAdmin'
 import express, { type Express } from 'express'
 import type { QuizStore } from './core/quizStore'
@@ -130,6 +130,8 @@ export function mountApi(app: Express, deps: ApiDeps) {
     maintenant: deps.maintenant,
     reserveAutomatique: deps.jetonDeLaReserve !== null,
   })
+  // La base de la campagne et ses signalements : l'administrateur seul.
+  mountCampagneAdmin(app, { campagne: deps.campagne })
   // « Les profils » : les chercher, en supprimer un — l'administrateur seul.
   mountProfilsAdmin(app, {
     profiles: deps.profiles,

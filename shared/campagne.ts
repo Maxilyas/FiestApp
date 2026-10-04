@@ -5,10 +5,11 @@
 // Une bonne réponse y rapporte l'expérience d'une bonne réponse en soirée,
 // sans plafond — chacun monte à son rythme —, et un confetti.
 //
-// Ses questions sont celles que le quiz du jour a déjà posées : elles ont
-// été relues, et leurs réponses disent leur difficulté — la part des joueurs
-// qui les ont trouvées. Jamais une question de la réserve qui n'est pas
-// encore sortie : la campagne gâcherait le quiz du jour de demain.
+// Ses questions viennent de sa base à elle (`server/src/core/baseCampagne.ts`),
+// écrite et étiquetée d'avance, jamais de la réserve du quiz du jour : elle
+// en reposait les questions, vues et corrigées chaque matin (le choix du
+// propriétaire du 3 octobre 2026). Un joueur n'y revoit une question
+// qu'une fois toutes les autres de sa marche passées.
 
 import { XP } from './profil'
 
@@ -20,6 +21,9 @@ export const QUESTIONS_PAR_SERIE = 60
 
 /** Combien de questions par marche avant que la difficulté monte. */
 export const QUESTIONS_PAR_MARCHE = 5
+
+/** Sous ce nombre de questions jouables, la campagne attend : une série de trois questions n'en est pas une. */
+export const QUESTIONS_POUR_JOUER = 10
 
 export type Niveau = 'facile' | 'moyen' | 'difficile' | 'expert'
 
@@ -33,25 +37,65 @@ export const NOM_NIVEAU: Record<Niveau, string> = {
 }
 
 /**
- * Sous ce nombre de réponses, une question n'a pas de difficulté mesurée :
- * trois joueurs ne disent rien de la France entière. Elle passe pour moyenne.
+ * Sous ce nombre de réponses, une question du quiz du jour n'a pas de
+ * difficulté mesurée : trois joueurs ne disent rien de la France entière.
  */
 export const REPONSES_POUR_MESURER = 5
 
 /**
- * La difficulté d'une question, lue sur la part de ceux qui l'ont trouvée.
- * Les seuils sont ceux de la consigne du quiz du jour : une facile, presque
- * tout le monde ; une moyenne, une personne sur deux ; une difficile, une
- * sur quatre au plus.
+ * Le niveau d'une part de joueurs qui trouvent. Les seuils sont ceux de la
+ * consigne du quiz du jour : une facile, presque tout le monde ; une
+ * moyenne, une personne sur deux ; une difficile, une sur quatre au plus.
  */
-export function niveauMesure(justes: number, total: number): Niveau | null {
-  if (total < REPONSES_POUR_MESURER) return null
-  const part = justes / total
+export function niveauDuTaux(part: number): Niveau {
   if (part >= 0.7) return 'facile'
   if (part >= 0.4) return 'moyen'
   if (part >= 0.2) return 'difficile'
   return 'expert'
 }
+
+/** La difficulté d'une question du quiz du jour, lue sur la part de ceux qui l'ont trouvée (la consigne de la réserve). */
+export function niveauMesure(justes: number, total: number): Niveau | null {
+  return total < REPONSES_POUR_MESURER ? null : niveauDuTaux(justes / total)
+}
+
+/**
+ * La part de joueurs qu'on attend d'une question avant toute réponse : sa
+ * difficulté estimée à l'écriture (de 1 à 5, `shared/etiquettes.ts`). Par
+ * les seuils de `niveauDuTaux`, 1 et 2 sont faciles, 3 moyenne, 4 difficile,
+ * 5 experte.
+ */
+export const TAUX_A_PRIORI: Readonly<Record<number, number>> = { 1: 0.9, 2: 0.8, 3: 0.55, 4: 0.3, 5: 0.1 }
+
+/**
+ * Ce que pèse l'a priori, en réponses fictives : « 3 sur 4 » ne dit rien,
+ * « 300 sur 400 », si. À vingt, il faut trois réponses contraires d'affilée
+ * pour qu'une question au bord de sa marche en change — une 2 que trois
+ * joueurs ratent, une 5 que trois joueurs trouvent —, et une centaine
+ * pour que l'estimation ne compte presque plus. À dix, une seule réponse
+ * suffisait : la question qu'un seul joueur fort trouvait quittait l'expert.
+ */
+export const REPONSES_FICTIVES = 20
+
+/**
+ * La part lissée de joueurs qui trouvent une question de campagne : ses
+ * vraies réponses mêlées à des réponses fictives tirées de son a priori,
+ * qui s'effacent à mesure que les vraies arrivent. Sans elle, une question
+ * jamais jouée passait pour moyenne, et une série où presque rien n'était
+ * mesuré ne montait pas (l'état des lieux du 3 octobre 2026).
+ */
+export function tauxLisse(difficulte: number, justes = 0, total = 0): number {
+  const a = TAUX_A_PRIORI[difficulte] ?? TAUX_A_PRIORI[3]
+  return (justes + REPONSES_FICTIVES * a) / (total + REPONSES_FICTIVES)
+}
+
+/** Le niveau d'une question de la base : son a priori, corrigé par les réponses de campagne. */
+export function niveauDeQuestion(difficulte: number, mesure?: { justes: number; total: number }): Niveau {
+  return niveauDuTaux(tauxLisse(difficulte, mesure?.justes, mesure?.total))
+}
+
+/** Un signalement tient en une phrase : celle de l'écran, comme au quiz du jour. */
+export const SIGNALEMENT_MAX = 280
 
 /**
  * L'ordre d'une série : cinq de chaque marche, de la plus facile à la plus
@@ -85,8 +129,8 @@ export const XP_PAR_JUSTE = XP.juste
  * réponse paie, sans plafond. Elle en avait un, quinze bonnes réponses par
  * jour, pour que la campagne, qui se rejoue sans fin, n'avale pas les
  * soirées ; le propriétaire l'a levé le 3 octobre 2026 : « que les gens
- * puissent augmenter à leur rythme ». Les journées d'avant se relisent sans
- * lui à la bonne réponse suivante, la ligne étant relue en entier.
+ * puissent augmenter à leur rythme ». La journée ne sert plus qu'à dire ce
+ * qu'aujourd'hui a rapporté.
  */
 export function xpDuJourDeCampagne(justes: number): number {
   return Math.max(0, Math.floor(justes)) * XP_PAR_JUSTE
@@ -118,6 +162,10 @@ export interface ReponseDeCampagne {
   finie: boolean
   /** Un record battu à la fin de la série. */
   record?: boolean
+  /** À la fin de la série : le record d'avant elle — « L'ancien était de 12 ». */
+  recordAvant?: number
+  /** À la fin de la série : la marche la plus haute qu'elle a atteinte. */
+  niveauAtteint?: Niveau
   /** L'expérience que cette réponse rapporte : celle d'une bonne réponse, 0 pour une fausse. */
   xp: number
   suivante?: QuestionDeCampagne
@@ -142,8 +190,33 @@ export interface EtatDeCampagne {
   enCours: SerieDeCampagne | null
   /** Les catégories qui ont des questions à jouer, et combien. */
   categories: { categorie: string; questions: number }[]
-  /** Toutes catégories, les questions jouables : sous dix, la campagne attend que le quiz du jour en ait posé. */
+  /** Toutes catégories, les questions que la campagne peut poser : sous dix, elle attend. */
   questions: number
+}
+
+/** Une question que des joueurs ont signalée, pour l'administrateur (`/admin#campagne`). */
+export interface SignalementDeCampagne {
+  questionId: string
+  texte: string
+  reponses: string[]
+  bonne: number
+  anecdote: string | null
+  categorie: string
+  sousTheme: string
+  /** Combien de joueurs la signalent, et ce que disent les trois derniers. */
+  joueurs: number
+  textes: string[]
+  dernier: number
+}
+
+/** La campagne, côté administrateur : sa base, et ce que les joueurs y signalent. */
+export interface AdminDeLaCampagne {
+  /** Toute la base, et ce que la campagne peut en poser : moins les questions retirées, et celles du quiz du jour. */
+  questions: number
+  jouables: number
+  retirees: number
+  parCategorie: { categorie: string; questions: number }[]
+  signalements: SignalementDeCampagne[]
 }
 
 /** Une question corrigée, à la fin d'une série : « Mes réponses ». */

@@ -12,6 +12,9 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createQuizServer, type QuizServerOptions } from '../src/server'
 import { calendrierDesSoirees } from '../src/core/saisons'
+import { BaseDeLaCampagne, lireQuestionDeLaBase } from '../src/core/baseCampagne'
+import { SOUS_THEMES } from '../../shared/etiquettes'
+import type { Categorie } from '../../shared/categories'
 import type { QuizQuestionDef } from '../../shared/library'
 
 export type { Socket }
@@ -21,6 +24,44 @@ export type { Socket }
 // épreuve qui compte ce qui tombe à la clôture échouerait dix-neuf jours par
 // an. Le banc ferme le calendrier des soirées ; `saisons.test.ts` le rouvre.
 calendrierDesSoirees.periodeDu = () => null
+
+/**
+ * Une petite base de campagne, inventée et valide (`lireQuestionDeLaBase`) :
+ * `n` questions, réparties tour à tour sur les difficultés estimées et les
+ * catégories qu'on donne. Les épreuves de la campagne la jouent sans lire
+ * les milliers de questions du dépôt — ni dépendre de ce qu'elles disent.
+ */
+export function baseDEssai(n: number, { difficultes = [1, 2, 3, 4, 5], categories = ['Histoire'] as Categorie[] } = {}): BaseDeLaCampagne {
+  const questions = Array.from({ length: n }, (_, i) => {
+    const categorie = categories[i % categories.length]
+    const autres = ['A', 'B', 'C', 'D', 'E', 'F'].map(l => `Autre ${l}${i}`)
+    const lu = lireQuestionDeLaBase({
+      id: `essai${String(i).padStart(3, '0')}`,
+      texte: `Question d'essai numéro ${i} : laquelle est la bonne ?`,
+      reponses: [`Bonne ${i}`, ...autres.slice(0, 3)],
+      bonne: 0,
+      anecdote: `L'anecdote de la question ${i}.`,
+      categorie,
+      sousTheme: SOUS_THEMES[categorie][0].cle,
+      etiquettes: [],
+      difficulte: difficultes[i % difficultes.length],
+      ageMin: 10,
+      date: null,
+      entites: [],
+      portee: 'monde',
+      valeur: null,
+      leurres: autres,
+      dureeDeVie: 'stable',
+      explication: '',
+      source: null,
+      confiance: 3,
+      aRelire: [],
+    })
+    if ('refus' in lu) throw new Error(`baseDEssai : ${lu.refus}`)
+    return lu.question
+  })
+  return new BaseDeLaCampagne(questions)
+}
 
 /** L'administrateur du banc : créé au premier démarrage, retrouvé aux suivants. */
 export const ADMIN = { login: 'antoine', password: 'banc-pass-1', slug: 'banc', name: 'Antoine' }
