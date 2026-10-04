@@ -669,7 +669,12 @@ sans `QUIZ_DB_URL`.
   d'un coup (`ProfileStore.byIds`), et les points des jours se gardent sous
   la révision de leur jour (`pointsGardes`, comme les classements) : une
   écriture de `jour_parties` qui contournerait `reviser` laisserait les
-  places en retard.
+  places en retard. Son hier aussi, par profil (`sonsHier`), sous la révision de
+  ce jour et la version des masquages (`versionDesMasques`) — un masquage
+  qui ne la monterait pas le laisserait en retard —, et les vainqueurs
+  d'hier se lisent dans les lauriers. « Question suivante » lit sa vue
+  d'abord (`contexteDeVue`), puis sert sa question au dernier aller-retour :
+  le chronomètre du joueur ne court pas pendant les lectures.
 - **La consigne du quiz du jour ne promet rien que la réserve refuse.**
   Elle décrit le format de « Coller une liste » réduit à ce que
   `raisonDEcarter` accepte, et son exemple se relit dans
