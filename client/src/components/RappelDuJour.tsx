@@ -5,13 +5,29 @@ import { showToast } from '../state'
 import { HEURE_DU_RAPPEL } from '../../../shared/jour'
 import { Icon } from './Icon'
 
-/** Ce que le rappel promet, en une phrase : l'heure, et seulement les jours où il sert. */
-export const PROMESSE_DU_RAPPEL = `Une notification vers ${HEURE_DU_RAPPEL} h, seulement les jours où tu n’as pas fini ta partie.`
+/** Ce que la cloche dit au toucher : ce qui change, ou ce qui l'empêche. */
+export const DIT_LA_CLOCHE = {
+  active: `Rappel du soir activé : vers ${HEURE_DU_RAPPEL} h, les jours où tu n’as pas fini ta partie`,
+  coupe: 'Rappel du soir coupé',
+  bloque: 'Les notifications sont bloquées : le rappel du soir se rouvre dans les réglages du téléphone',
+}
 
 /**
- * Le rappel du soir, sous le quiz du jour (`client/src/rappel.ts`) : le
- * demander, le couper. Dans l'application installée seulement ; ailleurs,
- * rien — pas même une ligne pour dire qu'il manque.
+ * Ce qu'un toucher fait, selon l'état : bloquée, la cloche ne peut que dire
+ * où se débloquer — seuls les réglages du téléphone rouvrent une permission
+ * refusée.
+ */
+export function gesteDeLaCloche(etat: EtatDuRappel): 'activer' | 'couper' | 'expliquer' {
+  return etat === 'actif' ? 'couper' : etat === 'bloque' ? 'expliquer' : 'activer'
+}
+
+/**
+ * La cloche du rappel du soir, en haut de la page du jour, à côté de la
+ * sortie (`client/src/rappel.ts`) : un toucher l'active, un autre la coupe.
+ * Petite, exprès : un bouton en pleine page disait « Me le rappeler » à qui
+ * venait jouer (le propriétaire du dépôt, le 4 octobre 2026). Dans
+ * l'application installée seulement ; ailleurs, rien — pas même une cloche
+ * grise pour dire qu'il manque.
  */
 export function RappelDuJour() {
   const [etat, setEtat] = useState<EtatDuRappel | null>(null)
@@ -28,65 +44,54 @@ export function RappelDuJour() {
   }, [])
 
   /**
-   * Un geste, et ce qu'il en dit. Rien n'est attendu avant lui : l'iPhone ne
-   * demande la permission qu'au toucher même (`activerLeRappel`).
+   * Rien n'est attendu avant le geste : l'iPhone ne demande la permission
+   * qu'au toucher même (`activerLeRappel`).
    */
-  const agir = async (geste: () => Promise<EtatDuRappel>) => {
-    const avant = etat
+  const toucher = async () => {
+    if (!etat) return
+    const geste = gesteDeLaCloche(etat)
+    if (geste === 'expliquer') return showToast({ kind: 'info', message: DIT_LA_CLOCHE.bloque })
     setOccupe(true)
     try {
-      const apres = await geste()
+      const apres = await (geste === 'couper' ? couperLeRappel() : activerLeRappel())
       setEtat(apres)
-      if (apres === 'actif') showToast({ kind: 'info', message: `C’est noté : vers ${HEURE_DU_RAPPEL} h, les jours où tu n’as pas fini ta partie` })
-      else if (avant === 'actif') showToast({ kind: 'info', message: 'Rappel coupé' })
+      // La demande de permission écartée d'un geste ne change rien : rien à dire.
+      if (apres === 'actif') showToast({ kind: 'info', message: DIT_LA_CLOCHE.active })
+      else if (apres === 'bloque') showToast({ kind: 'info', message: DIT_LA_CLOCHE.bloque })
+      else if (geste === 'couper') showToast({ kind: 'info', message: DIT_LA_CLOCHE.coupe })
     } catch (e) {
       showToast({ kind: 'error', message: motifDe(e) })
     } finally {
       setOccupe(false)
     }
   }
-  return <RappelVu etat={etat} occupe={occupe} onActiver={() => void agir(activerLeRappel)} onCouper={() => void agir(couperLeRappel)} />
+  return <ClocheVue etat={etat} occupe={occupe} onToucher={() => void toucher()} />
 }
 
-/** Ce que l'on voit, selon l'état : rendu seul dans les épreuves. */
-export function RappelVu({
-  etat,
-  occupe,
-  onActiver,
-  onCouper,
-}: {
-  etat: EtatDuRappel | null
-  occupe: boolean
-  onActiver: () => void
-  onCouper: () => void
-}) {
+/** La cloche telle qu'on la voit, selon l'état : rendue seule dans les épreuves. */
+export function ClocheVue({ etat, occupe, onToucher }: { etat: EtatDuRappel | null; occupe: boolean; onToucher: () => void }) {
   if (etat === null) return null
+  // Bloquée, elle ne bascule plus : un bouton qui dit où se débloquer, pas un interrupteur.
   if (etat === 'bloque') {
     return (
-      <p className="rappel-du-soir muted small">
-        <Icon name="bell" />
-        Les notifications sont bloquées : le rappel du soir se rouvre dans les réglages du téléphone.
-      </p>
-    )
-  }
-  if (etat === 'actif') {
-    return (
-      <p className="rappel-du-soir muted small">
-        <Icon name="bell" />
-        Rappel du soir activé : vers {HEURE_DU_RAPPEL} h, si tu n’as pas fini ta partie.{' '}
-        <button type="button" className="link-inline" disabled={occupe} onClick={onCouper}>
-          Le couper
-        </button>
-      </p>
+      <button type="button" className="cloche-du-rappel" aria-label="Rappel du soir : notifications bloquées" onClick={onToucher}>
+        <Icon name="bell-off" />
+      </button>
     )
   }
   return (
-    <div className="rappel-du-soir rappel-a-demander">
-      <button type="button" className="btn btn-accent btn-block" disabled={occupe} onClick={onActiver}>
-        <Icon name="bell" />
-        Me le rappeler chaque soir
-      </button>
-      <p className="muted small">{PROMESSE_DU_RAPPEL}</p>
-    </div>
+    <button
+      type="button"
+      className="cloche-du-rappel"
+      // Un interrupteur : l'état ne se dit que par `aria-pressed` — un nom ou
+      // une infobulle qui changeraient avec lui le rediraient (`design.test.ts`).
+      aria-pressed={etat === 'actif'}
+      aria-label="Rappel du soir"
+      title={`Une notification vers ${HEURE_DU_RAPPEL} h, les jours où ta partie n’est pas finie`}
+      disabled={occupe}
+      onClick={onToucher}
+    >
+      <Icon name="bell" />
+    </button>
   )
 }

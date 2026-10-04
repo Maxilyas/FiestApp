@@ -6036,13 +6036,32 @@ h3 > .icon {
 .jour-tout-classement { align-self: center; min-height: 44px; }
 .jour-demain { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 0; }
 .jour-demain .icon { width: 14px; height: 14px; }
-/* Le rappel du soir, au pied du quiz du jour : le bouton et sa promesse, ou
-   une phrase quand il est pris — la cloche dans le fil du texte, qui reste
-   centré sur deux lignes. */
-.rappel-du-soir { margin: 0; text-align: center; }
-p.rappel-du-soir > .icon { width: 14px; height: 14px; margin-right: 5px; vertical-align: -2px; }
-.rappel-a-demander { display: flex; flex-direction: column; gap: 6px; }
-.rappel-a-demander p { margin: 0; }
+/* Le haut de la page du jour : la sortie à gauche, la cloche du rappel du
+   soir à droite, sur la ligne que la sortie tenait seule — la page ne
+   descend pas d'un pixel. */
+.jour-barre { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 -12px; }
+.jour-barre .jour-sortie { margin-bottom: 0; }
+/* La cloche : un interrupteur discret, à la taille d'un pouce, l'icône au
+   bord de la carte. Pleine et dorée quand le rappel est pris. */
+.cloche-du-rappel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-right: -11px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.cloche-du-rappel .icon { width: 20px; height: 20px; }
+.cloche-du-rappel:hover { color: var(--accent-text-hover); }
+.cloche-du-rappel[aria-pressed='true'] { color: var(--accent-text); }
+.cloche-du-rappel[aria-pressed='true'] .icon path:first-child { fill: currentColor; }
+.cloche-du-rappel:disabled { opacity: 0.5; cursor: default; }
 .jour-annonce { display: flex; flex-direction: column; gap: 12px; border-color: var(--edge-strong); }
 .jour-annonce p { margin: 0; }
 .correction { list-style: none; margin: 10px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 14px; }

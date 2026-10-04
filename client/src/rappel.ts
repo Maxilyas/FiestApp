@@ -98,7 +98,7 @@ export async function preparerLeRappel(): Promise<EtatDuRappel> {
 }
 
 /**
- * « Me le rappeler » : la permission et l'abonnement chez le service de push
+ * La cloche touchée : la permission et l'abonnement chez le service de push
  * du navigateur — demandés sans rien attendre, au toucher même —, puis le
  * serveur.
  */
@@ -124,7 +124,7 @@ export async function activerLeRappel(): Promise<EtatDuRappel> {
   return 'actif'
 }
 
-/** « Le couper » : le serveur l'oublie, puis le service de push. Sans réseau, le service le dira mort au serveur au prochain rappel. */
+/** La cloche touchée une seconde fois : le serveur l'oublie, puis le service de push. Sans réseau, le service le dira mort au serveur au prochain rappel. */
 export async function couperLeRappel(): Promise<EtatDuRappel> {
   const { enregistrement } = pret ?? (await preparer())
   const abonnement = await enregistrement.pushManager.getSubscription()
