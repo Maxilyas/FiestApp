@@ -273,6 +273,25 @@ test('« Question suivante » lit sa vue avant de servir : le chronomètre part 
   assert.match(m.sqls.at(-1)!, /^UPDATE jour_parties SET servie_le/, 'la question se sert au dernier aller-retour')
 })
 
+test('« Commencer » sert sa première question en dernier, après les paliers et la vue', async () => {
+  // Elle se servait à la création de la partie, puis attendait les paliers
+  // d'une partie commencée et la vue : le chronomètre courait déjà.
+  let etat: any
+  const m = await mesurer(async () => {
+    etat = await poster('/api/jour/commencer', gens.cookie(gens.ids[45]))
+  })
+  assert.equal(etat.question.index, 0)
+  assert.match(m.sqls.at(-1)!, /^UPDATE jour_parties SET servie_le/, 'la question se sert au dernier aller-retour')
+  // Une partie qu'une panne a laissée sans sa première question : « Commencer » la sert.
+  const db = new Database(banc.quizDbUrl.replace(/^file:/, ''))
+  db.prepare(
+    `INSERT INTO jour_parties (profile_id, jour, commencee_le, question, servie_le, points, justes, finie_le, xp) VALUES (?, ?, ?, 0, NULL, 0, 0, NULL, 0)`,
+  ).run(gens.ids[46], AUJOURDHUI, SOIR)
+  db.close()
+  const reprise = await poster('/api/jour/commencer', gens.cookie(gens.ids[46]))
+  assert.equal(reprise.question?.index, 0, 'la première question part, au lieu d’une partie sans rien à jouer')
+})
+
 test('« Annuler pour tous » ne relit pas le tirage pour chaque joueur, et chacun est recompté', async () => {
   // Une fois par joueur, sous son verrou : 501 lectures du tirage pour cinq
   // cents joueurs, au-delà des vingt secondes de la page d'administration

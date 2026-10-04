@@ -674,7 +674,10 @@ sans `QUIZ_DB_URL`.
   qui ne la monterait pas le laisserait en retard —, et les vainqueurs
   d'hier se lisent dans les lauriers. « Question suivante » lit sa vue
   d'abord (`contexteDeVue`), puis sert sa question au dernier aller-retour :
-  le chronomètre du joueur ne court pas pendant les lectures.
+  le chronomètre du joueur ne court pas pendant les lectures. « Commencer »
+  aussi : la partie naît sans question servie, ses paliers tombent, puis la
+  première se sert — et une partie qu'une panne a laissée là la reçoit au
+  « Commencer » suivant.
 - **La consigne du quiz du jour ne promet rien que la réserve refuse.**
   Elle décrit le format de « Coller une liste » réduit à ce que
   `raisonDEcarter` accepte, et son exemple se relit dans
