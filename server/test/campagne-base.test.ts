@@ -17,7 +17,7 @@ import { CATEGORIES } from '../../shared/categories'
 import { NIVEAUX, QUESTIONS_PAR_SERIE, niveauDeQuestion, type Niveau } from '../../shared/campagne'
 
 /** Ce que la base a déjà : elle ne descend jamais sous ce nombre (un fichier écrasé, un rangement raté). */
-const AU_MOINS = 2300
+const AU_MOINS = 2700
 
 const { questions, refusees } = lireLaBase()
 
