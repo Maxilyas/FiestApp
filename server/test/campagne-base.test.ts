@@ -12,12 +12,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
-import { DOSSIER_DE_LA_BASE, fichierDeCategorie, lireLaBase } from '../src/core/baseCampagne'
+import { DOSSIER_DE_LA_BASE, QUESTIONS_PAR_TRANCHE, fichierDeCategorie, lireLaBase, lireLaBaseSansBloquer, lireQuestionDeLaBase } from '../src/core/baseCampagne'
 import { empreinteDe } from '../src/core/jour'
 import { SERVEUR } from '../src/racine'
 import { CATEGORIES } from '../../shared/categories'
 import { SOUS_THEMES } from '../../shared/etiquettes'
 import { NIVEAUX, QUESTIONS_PAR_SERIE, niveauDeQuestion, type Niveau } from '../../shared/campagne'
+import { sansAccent } from '../../shared/homonymes'
 
 /** Ce que la base a déjà : elle ne descend jamais sous ce nombre (un fichier écrasé, un rangement raté). */
 const AU_MOINS = 5000
@@ -95,4 +96,41 @@ test('un fichier par catégorie, une question par ligne : une relecture de PR se
     assert.equal(lignes.at(-1), ']', f)
     for (const l of lignes.slice(1, -1)) assert.match(l, /^\{"id":"[a-z0-9]{8}",.*\},?$/, `${f} : ${l.slice(0, 60)}`)
   }
+})
+
+test('le serveur lit la base sans se figer : il rend la main toutes les quelques centaines de questions', async () => {
+  // Lue d'un bloc, la base tenait le serveur 0,4 s : aucune soirée ne
+  // recevait rien pendant ce temps, ni question ni accusé de réponse.
+  let tours = 0
+  let lue = false
+  const tourner = () => {
+    if (lue) return
+    tours++
+    setImmediate(tourner)
+  }
+  setImmediate(tourner)
+  const base = await lireLaBaseSansBloquer()
+  lue = true
+  assert.equal(base.questions.length, questions.length, 'la même base que d’une traite')
+  assert.ok(tours >= Math.floor(questions.length / QUESTIONS_PAR_TRANCHE), `${tours} tours de boucle pendant la lecture de ${questions.length} questions`)
+})
+
+test('la bonne réponse écrite dans l’intitulé se refuse en mot entier, où qu’elle soit', () => {
+  // Le juge ne compile plus une expression par question : le verdict, lui, ne bouge pas.
+  const brutes: { texte: string; reponses: string[]; bonne: number }[] = JSON.parse(readFileSync(path.join(DOSSIER_DE_LA_BASE, fichierDeCategorie('Histoire')), 'utf8'))
+  const entree = brutes.find(e => e.reponses.length === 4 && /^[a-z]{5,}$/.test(sansAccent(e.reponses[e.bonne])))
+  assert.ok(entree, 'une entrée dont la bonne réponse est un seul mot')
+  const mot = entree.reponses[entree.bonne]
+  const verdict = (texte: string) => {
+    const lu = lireQuestionDeLaBase({ ...entree, texte })
+    return 'refus' in lu ? lu.refus : 'acceptée'
+  }
+  const ecrite = 'la bonne réponse est écrite dans l’intitulé'
+  assert.equal(verdict(`${mot}, est-ce la bonne réponse à cette question ?`), ecrite, 'en tête')
+  assert.equal(verdict(`Quelle est la bonne réponse, sinon ${mot} ?`), ecrite, 'entre deux espaces')
+  assert.equal(verdict(`Quelle est la bonne réponse ? (${mot.toUpperCase()})`), ecrite, 'sans casse, entre parenthèses')
+  assert.equal(verdict(`Entre ${mot}s et ${mot}, quelle est la bonne réponse ?`), ecrite, 'la seconde fois seulement en mot entier')
+  assert.equal(verdict(`Quelle est la bonne réponse, des ${mot}s mises à part ?`), 'acceptée', 'au milieu d’un mot plus long')
+  assert.equal(verdict(`Quelle est la bonne réponse, au sur${mot} près ?`), 'acceptée', 'collée à la fin d’un mot')
+  assert.equal(verdict('Quelle est donc la bonne réponse à cette question-ci ?'), 'acceptée')
 })

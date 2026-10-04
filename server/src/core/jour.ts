@@ -263,7 +263,7 @@ export class JourStore {
    * l'amorce des quiz livrés n'en a pas besoin, la base les écarte déjà, et
    * un démarrage ne lit pas la base pour rien.
    */
-  dansLaCampagne?: (empreinte: string) => boolean
+  dansLaCampagne?: (empreinte: string) => Promise<boolean>
   /** Les intitulés de la réserve, pour la campagne qui les évite : relus au plus toutes les dix minutes, et après chaque apport. */
   private empreintesGardees: { a: number; empreintes: ReadonlySet<string> } | null = null
 
@@ -549,7 +549,7 @@ export class JourStore {
         continue
       }
       vues.add(empreinte)
-      if (this.dansLaCampagne?.(empreinte)) {
+      if (await this.dansLaCampagne?.(empreinte)) {
         ecartees.push({ texte, raison: 'déjà dans la campagne' })
         continue
       }
