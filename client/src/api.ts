@@ -6,7 +6,7 @@ import type { ReglagesDuQuiz } from '../../shared/hasard'
 import type { EntreeDeProgramme, Programme } from '../../shared/programme'
 import type { EntreeDuCatalogue, StatutAuCatalogue } from '../../shared/partage'
 import type { EspaceDAdministration, PublicAccount, PublicSpace, SpaceSettings } from '../../shared/space'
-import type { FinitionChoisie, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
+import type { FinitionChoisie, ProfilDAccueil, ProfilDAdministration, ProfilDeLEspace, PublicProfile, PublicProfileDetail } from '../../shared/profil'
 import { MOTIFS, echecPassager, motifEchec, motifHttp, statutPassager } from '../../shared/erreurs'
 import { enAttendantLeReveil, type Attente } from '../../shared/reveil'
 import type { ClassementDuJour, PartieDuJour, RevelationDuJour } from '../../shared/jour'
@@ -281,6 +281,9 @@ export const api = {
      * pour ouvrir leur partie. Sans cookie, `null`.
      */
     moiLeger: () => req<{ profile: PublicProfile | null }>('/api/joueur/moi?leger'),
+    /** L'accueil : l'en-tête, sa carrière au quiz du jour et son solde — la soirée en cours et l'espace aussi, comme `moi`. */
+    moiAccueil: () =>
+      req<{ profile: ProfilDAccueil | null; espace: PublicSpace | null; enCours?: { nom: string; slug: string }[] }>('/api/joueur/moi?accueil'),
     connexion: (login: string, password: string) =>
       req<{ profile: PublicProfile; espace: PublicSpace | null }>('/api/joueur/connexion', {
         method: 'POST',

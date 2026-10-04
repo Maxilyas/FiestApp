@@ -871,15 +871,17 @@ export class JourStore {
     return this.avecVerrou(profil.id, async () => {
       const tirage = await this.tirage(jour, true)
       if (!tirage) throw new Error('Pas de quiz aujourd’hui : la réserve de questions est vide')
-      const maintenant = this.maintenant()
-      // Commencée et relue dans le même lot : sa première question part un aller-retour plus tôt.
-      const [res, lue] = await this.client.batch(
+      // Commencée, relue, et ses jours comptés pour ses paliers, dans le même
+      // lot. Sa première question ne se sert qu'après eux (plus bas) : servie
+      // ici, son chronomètre courait pendant les paliers et la vue.
+      const [res, lue, ...stats] = await this.client.batch(
         [
           {
-            sql: `INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, servie_le) VALUES (?, ?, ?, 0, ?)`,
-            args: [profil.id, jour, maintenant, maintenant],
+            sql: `INSERT OR IGNORE INTO jour_parties (profile_id, jour, commencee_le, question, servie_le) VALUES (?, ?, ?, 0, NULL)`,
+            args: [profil.id, jour, this.maintenant()],
           },
           { sql: 'SELECT * FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profil.id, jour] },
+          ...lecturesDesStats(profil.id),
         ],
         'write',
       )
@@ -893,12 +895,30 @@ export class JourStore {
         // Citrouille : le lendemain, la saison était finie, pour un an. La
         // fin de la partie les fête toujours : elle lit ce que ce jour a fait
         // tomber (`recompensesDuJour`).
-        await this.deps.profiles.accorderPaliersDuJour(profil.id, jour, await this.statsDuJour(profil.id))
+        await this.deps.profiles.accorderPaliersDuJour(profil.id, jour, statsDe(stats))
         await this.accorderSaison(profil.id, jour)
+      }
+      const commencee = lirePartie(profil.id, jour, lue.rows[0])
+      // Sa première question, jamais servie — la partie qui commence, ou
+      // celle qu'une panne a laissée là — part en dernier : le reste de la
+      // vue d'abord, puis servie et relue dans le même lot, comme « Question
+      // suivante ».
+      if (commencee && commencee.question === 0 && commencee.servieLe === null && commencee.finieLe === null) {
+        const contexte = await this.contexteDeVue(profil, jour, tirage)
+        const [, servie] = await this.client.batch(
+          [
+            {
+              sql: `UPDATE jour_parties SET servie_le = ? WHERE profile_id = ? AND jour = ? AND servie_le IS NULL AND finie_le IS NULL AND question = 0`,
+              args: [this.maintenant(), profil.id, jour],
+            },
+            { sql: 'SELECT * FROM jour_parties WHERE profile_id = ? AND jour = ?', args: [profil.id, jour] },
+          ],
+          'write',
+        )
+        return this.vueDe(profil, jour, tirage, lirePartie(profil.id, jour, servie.rows[0]), undefined, contexte)
       }
       // Déjà commencée — l'autre téléphone, un double toucher : la partie
       // reprend où elle en était, sans rien rejouer.
-      const commencee = lirePartie(profil.id, jour, lue.rows[0])
       const [partie, revelation] = (commencee && (await this.expirer(commencee, tirage))) ?? [commencee, undefined]
       return this.vueDe(profil, jour, tirage, partie, revelation)
     })
@@ -1448,25 +1468,7 @@ export class JourStore {
    * encore).
    */
   async statsDuJour(profileId: string): Promise<StatsDuJour> {
-    const [joues, victoires, sansFautes] = await this.client.batch(
-      [
-        { sql: 'SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
-        { sql: 'SELECT COUNT(*) AS n FROM jour_podiums WHERE profile_id = ? AND rang = 1', args: [profileId] },
-        {
-          sql: `SELECT COUNT(*) AS n FROM jour_parties p JOIN jour_tirages t ON t.jour = p.jour
-                WHERE p.profile_id = ? AND p.finie_le IS NOT NULL
-                  AND json_array_length(t.questions) > json_array_length(t.annulees)
-                  AND p.justes >= json_array_length(t.questions) - json_array_length(t.annulees)`,
-          args: [profileId],
-        },
-      ],
-      'read',
-    )
-    return {
-      joues: Number(joues.rows[0]?.n ?? 0),
-      victoires: Number(victoires.rows[0]?.n ?? 0),
-      sansFautes: Number(sansFautes.rows[0]?.n ?? 0),
-    }
+    return statsDe(await this.client.batch(lecturesDesStats(profileId), 'read'))
   }
 
   /**
@@ -2118,6 +2120,29 @@ function nommer(joueurs: readonly Joueur[], avatarDe: (p: ProfileRec) => string)
 }
 
 /** Une ligne de `jour_parties`, telle que la partie se lit — null s'il n'y en a pas. */
+/** Ce que ses paliers du quiz du jour comptent (`statsDuJour`) : seules, ou dans le lot qui commence sa partie. */
+function lecturesDesStats(profileId: string): InStatement[] {
+  return [
+    { sql: 'SELECT COUNT(*) AS n FROM jour_parties WHERE profile_id = ?', args: [profileId] },
+    { sql: 'SELECT COUNT(*) AS n FROM jour_podiums WHERE profile_id = ? AND rang = 1', args: [profileId] },
+    {
+      sql: `SELECT COUNT(*) AS n FROM jour_parties p JOIN jour_tirages t ON t.jour = p.jour
+            WHERE p.profile_id = ? AND p.finie_le IS NOT NULL
+              AND json_array_length(t.questions) > json_array_length(t.annulees)
+              AND p.justes >= json_array_length(t.questions) - json_array_length(t.annulees)`,
+      args: [profileId],
+    },
+  ]
+}
+
+function statsDe([joues, victoires, sansFautes]: readonly ResultSet[]): StatsDuJour {
+  return {
+    joues: Number(joues.rows[0]?.n ?? 0),
+    victoires: Number(victoires.rows[0]?.n ?? 0),
+    sansFautes: Number(sansFautes.rows[0]?.n ?? 0),
+  }
+}
+
 function lirePartie(profileId: string, jour: string, r: Record<string, unknown> | undefined): Partie | null {
   if (!r) return null
   return {
