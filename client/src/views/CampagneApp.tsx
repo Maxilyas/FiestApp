@@ -463,7 +463,7 @@ function Heros({ etat }: { etat: EtatDeCampagne | null }) {
       <span className="atlas-categorie">La campagne solo</span>
       <h1>Jusqu’où iras-tu&nbsp;?</h1>
       <div className="campagne-record-hud">
-        <b>{etat ? etat.record : '–'}</b>
+        {etat ? <b>{etat.record}</b> : <b>–</b>}
         <span>
           ton record
           <br />
