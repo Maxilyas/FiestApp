@@ -27,15 +27,21 @@ ProfileStore.tirageEclat = () => false
 // ── Le compteur ───────────────────────────────────────────────────────────
 
 /** Ce que la base permanente a servi pendant une mesure. */
-const compte = { actif: false, appels: 0, lignes: 0, unParUn: 0, tirages: 0, sqls: [] as string[] }
+const compte = { actif: false, appels: 0, lignes: 0, unParUn: 0, tirages: 0, sqls: [] as string[], finis: 0 }
 
 const proto = Sqlite3Client.prototype as unknown as Record<'execute' | 'batch', (...args: unknown[]) => Promise<unknown>>
 for (const methode of ['execute', 'batch'] as const) {
   const origine = proto[methode]
   proto[methode] = async function (this: unknown, ...args: unknown[]) {
+    // Pendant une mesure, un aller-retour dure au moins un tour de boucle,
+    // comme sur le réseau : ce qui part ensemble est en vol ensemble, et le
+    // rang d'un appel dit combien d'allers-retours il a attendus (`enSerie`).
+    const rang = compte.finis + 1
+    if (compte.actif) await new Promise<void>(r => setImmediate(r))
     const res = await origine.apply(this, args)
     if (compte.actif) {
       compte.appels++
+      compte.finis = Math.max(compte.finis, rang)
       const lots = (methode === 'batch' ? res : [res]) as { rows: unknown[] }[]
       for (const l of lots) compte.lignes += l.rows.length
       const premiere = (methode === 'batch' ? (args[0] as unknown[])[0] : args[0]) as string | { sql: string }
@@ -48,11 +54,13 @@ for (const methode of ['execute', 'batch'] as const) {
   }
 }
 
-async function mesurer(travail: () => Promise<unknown>): Promise<{ appels: number; lignes: number; unParUn: number; tirages: number; sqls: string[] }> {
-  Object.assign(compte, { actif: true, appels: 0, lignes: 0, unParUn: 0, tirages: 0, sqls: [] })
+async function mesurer(
+  travail: () => Promise<unknown>,
+): Promise<{ appels: number; enSerie: number; lignes: number; unParUn: number; tirages: number; sqls: string[] }> {
+  Object.assign(compte, { actif: true, appels: 0, lignes: 0, unParUn: 0, tirages: 0, sqls: [], finis: 0 })
   try {
     await travail()
-    return { appels: compte.appels, lignes: compte.lignes, unParUn: compte.unParUn, tirages: compte.tirages, sqls: compte.sqls }
+    return { appels: compte.appels, enSerie: compte.finis, lignes: compte.lignes, unParUn: compte.unParUn, tirages: compte.tirages, sqls: compte.sqls }
   } finally {
     compte.actif = false
   }
@@ -206,6 +214,32 @@ test('le quiz du jour et la campagne s’ouvrent sur le profil léger, sans alle
     const source = readFileSync(new URL(`../../client/src/views/${page}.tsx`, import.meta.url), 'utf8')
     assert.doesNotMatch(source, /\.moi\(\)/, `${page} ne lit plus le détail du profil`)
   }
+})
+
+test('l’accueil lit son en-tête, sa série et son solde : les chiffres du détail, sans ses allers-retours', async () => {
+  // L'accueil lisait tout le détail — historique, hauts faits, titres des
+  // soirées : quatre ou cinq allers-retours l'un après l'autre — pour une
+  // ligne, la pastille du quiz du jour et le solde de confettis.
+  const cookie = gens.cookie(gens.ids[31])
+  let detail: any
+  let accueil: any
+  const d = await mesurer(async () => {
+    detail = await lire('/api/joueur/moi', cookie)
+  })
+  const a = await mesurer(async () => {
+    accueil = await lire('/api/joueur/moi?accueil', cookie)
+  })
+  // Sa carrière au quiz du jour relit ses bonnes réponses d'après ses jours : deux en série au plus, le détail en faisait cinq.
+  const enSerie = `${a.enSerie} allers-retours en série pour l’accueil (${a.appels} en tout), ${d.enSerie} pour le détail (${d.appels})`
+  assert.ok(a.enSerie <= 2 && a.enSerie < d.enSerie, enSerie)
+  for (const cle of ['id', 'name', 'avatar', 'niveau', 'acquis', 'requis', 'finition', 'legendaire', 'theme', 'laurier']) {
+    assert.deepEqual(accueil.profile[cle], detail.profile[cle], cle)
+  }
+  assert.equal(accueil.profile.boutique.confettis.solde, detail.profile.boutique.confettis.solde, 'le même solde')
+  assert.deepEqual(accueil.profile.jour, detail.profile.jour, 'la même série, les mêmes jours')
+  assert.deepEqual([accueil.espace, accueil.enCours], [detail.espace, detail.enCours])
+  assert.equal(accueil.profile.hautsFaits, undefined, 'sans les hauts faits')
+  assert.match(readFileSync(new URL('../../client/src/views/ProfilApp.tsx', import.meta.url), 'utf8'), /VUE === 'accueil' \? api\.joueur\.moiAccueil\(\)/)
 })
 
 // ── Une partie, une annulation ────────────────────────────────────────────

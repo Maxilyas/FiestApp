@@ -19,7 +19,7 @@ import { isValidLogin, normalizeLogin } from '../../../shared/space'
 import type { JourStore } from '../core/jour'
 import { CATALOGUE_DES_PRIX } from '../core/stats'
 import { ecussonsDe } from '../../../shared/ecussons'
-import { distinctions } from '../../../shared/profil'
+import { distinctions, type ProfilDAccueil } from '../../../shared/profil'
 import type { CarteDeJoueur } from '../../../shared/carte'
 import { profilDeCarte } from '../core/carte'
 import { jourDe } from '../../../shared/jour'
@@ -109,6 +109,27 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       ecussons: ecussonsDe(detail.categories, categoriesDuJour),
       ...(boutique && { boutique }),
     }
+  }
+
+  /**
+   * L'accueil (`ProfilDAccueil`) : l'en-tête, sa carrière au quiz du jour et
+   * son solde, lus ensemble — un aller-retour, quand le détail en faisait
+   * quatre ou cinq l'un après l'autre. La nuit d'abord, comme le détail : le
+   * podium d'hier dans le niveau, le laurier sur le prénom.
+   */
+  const accueilDe = async (me: ProfileRec): Promise<ProfilDAccueil> => {
+    const aujourdhui = jourDe(deps.maintenant())
+    await deps.jour.clorePasses(aujourdhui)
+    const rec = (await profiles.byId(me.id)) ?? me
+    const [jour, boutique] = await Promise.all([
+      deps.jour.carriereDe(rec.id),
+      // Une base qui se tait ôte le solde, pas la page.
+      profiles.boutiqueDe(rec, aujourdhui).catch(e => {
+        console.error('[profil] boutique illisible :', e)
+        return undefined
+      }),
+    ])
+    return { ...profiles.toPublic(rec), jour, ...(boutique && { boutique }) }
   }
 
   /** Le profil connecté derrière le cookie, ou null. */
@@ -308,12 +329,12 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
         await deps.jour.clorePasses(jourDe(deps.maintenant()))
         return res.json({ profile: profiles.toPublic((await profiles.byId(me.id)) ?? me) })
       }
-      // Sa propre page a droit au détail : l'étagère à badges et l'historique.
-      // L'espace rattaché s'y ajoute : c'est lui qui fait apparaître « Animer
-      // ma soirée » sur l'accueil.
+      // Sa propre page a droit au détail : l'étagère à badges et l'historique ;
+      // l'accueil (`?accueil`), à son en-tête. L'espace rattaché s'y ajoute :
+      // c'est lui qui fait apparaître « Animer ma soirée » sur l'accueil.
       const espace = me ? deps.auth.byProfile(me.id) : undefined
       res.json({
-        profile: me ? await detailDe(me) : null,
+        profile: me ? await (req.query.accueil !== undefined ? accueilDe(me) : detailDe(me)) : null,
         espace: espace && !espace.disabledAt ? deps.auth.publicSpace(espace) : null,
         // La soirée où il joue déjà, en tête de « Ce soir » : un nom, une
         // adresse, rien de plus — et seulement les siennes.

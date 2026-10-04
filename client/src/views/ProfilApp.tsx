@@ -11,7 +11,7 @@ import { ProfilForm } from '../components/ProfilForm'
 import { tronquer } from '../../../shared/avatars'
 import { pageDeRetour } from '../../../shared/securite'
 import { cibleEclat } from '../../../shared/legendaires'
-import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
+import { brilleChez, type ProfilDAccueil, type PublicProfileDetail } from '../../../shared/profil'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { annonceDuChoix, type ChoixDuProfil } from '../components/choix'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
@@ -76,7 +76,8 @@ if (profilConnuIci()) void panneaux.charger().catch(() => {})
  * d'une partie.
  */
 export function ProfilApp() {
-  const [profil, setProfil] = useState<PublicProfileDetail | null>(null)
+  // L'accueil lit son en-tête (`ProfilDAccueil`) ; le profil et la boutique, le détail.
+  const [profil, setProfil] = useState<PublicProfileDetail | ProfilDAccueil | null>(null)
   /** La soirée que ce profil anime, s'il en anime une. */
   const [espace, setEspace] = useState<PublicSpace | null>(null)
   const [chargement, setChargement] = useState(true)
@@ -146,8 +147,11 @@ export function ProfilApp() {
     return () => window.removeEventListener('popstate', auRetour)
   }, [])
 
+  // L'accueil ne lit que son en-tête, sa série et son solde : le détail —
+  // historique, hauts faits, titres des soirées — coûtait quatre ou cinq
+  // allers-retours à la base, l'un après l'autre, pour une ligne.
   const relire = () =>
-    api.joueur.moi().then(r => {
+    (VUE === 'accueil' ? api.joueur.moiAccueil() : api.joueur.moi()).then(r => {
       retenirProfil(!!r.profile)
       if (r.profile) void panneaux.charger().catch(() => {})
       setProfil(r.profile)
@@ -345,6 +349,17 @@ export function ProfilApp() {
             Compte (`AccueilDesRoles`). */}
         {erreur && <p className="error">{erreur}</p>}
         {menu('accueil')}
+      </div>
+    )
+  }
+
+  // Hors de l'accueil, la page a lu le détail (`relire`). Un en-tête seul
+  // n'arrive jamais ici ; s'il le faisait, on attendrait plutôt que de lire
+  // des champs absents.
+  if (!('hautsFaits' in profil)) {
+    return (
+      <div className="center-page">
+        <p className="serif-note">Chargement…</p>
       </div>
     )
   }

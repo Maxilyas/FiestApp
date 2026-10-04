@@ -5,7 +5,7 @@ import { Laurier } from './Laurier'
 import { Icon } from './Icon'
 import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { espacesFines, formatNumber } from '../format'
-import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
+import { brilleChez, type ProfilDAccueil, type PublicProfileDetail } from '../../../shared/profil'
 import { cibleEclat } from '../../../shared/legendaires'
 import { hautFait } from '../../../shared/hautsfaits'
 
@@ -60,7 +60,7 @@ export function Identite({ profil, titreVisible = true }: { profil: PublicProfil
  * barre d'expérience et ses confettis — sans cadre, l'accueil est aux gros
  * boutons. Un toucher mène à son profil, où la carte s'ouvre.
  */
-export function IdentiteLigne({ profil }: { profil: PublicProfileDetail }) {
+export function IdentiteLigne({ profil }: { profil: ProfilDAccueil }) {
   return (
     <a className="identite-ligne" href="/profil" aria-label={`${profil.name} : mon profil`}>
       <Avatar
@@ -83,7 +83,7 @@ export function IdentiteLigne({ profil }: { profil: PublicProfileDetail }) {
 }
 
 /** La barre d'expérience, fine : où l'on en est, sans un bloc — et ses confettis au bout de la ligne, où l'œil passe déjà. */
-export function XpMince({ profil }: { profil: PublicProfileDetail }) {
+export function XpMince({ profil }: { profil: ProfilDAccueil }) {
   const part = profil.requis > 0 ? Math.min(100, (profil.acquis / profil.requis) * 100) : 100
   const solde = profil.boutique?.confettis.solde
   return (

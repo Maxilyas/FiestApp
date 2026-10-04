@@ -807,6 +807,14 @@ export interface PublicProfileDetail extends PublicProfile {
   boutique?: BoutiqueDuProfil
 }
 
+/**
+ * Ce que l'accueil montre de soi : l'en-tête, sa carrière au quiz du jour
+ * (la série, s'il a joué aujourd'hui) et son solde — sans l'historique, les
+ * hauts faits ni les titres des soirées, qui coûtaient huit allers-retours
+ * à la base pour une ligne. Le détail reste à la page du profil.
+ */
+export type ProfilDAccueil = PublicProfile & Pick<PublicProfileDetail, 'jour' | 'boutique'>
+
 /** Un prix de soirée dans la collection d'un profil : zéro fois, il manque encore. */
 export interface PrixDeCollection {
   key: string
