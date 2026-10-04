@@ -3,6 +3,7 @@ import { computeStats } from './stats'
 import type { PlayableQuestion } from '../../../shared/library'
 import { equipeDeLaLigne, moyenneAuProrata, prixRemis, questionsDesEquipes, rankTeams, teamScores } from '../../../shared/teams'
 import { nomAffiche } from '../../../shared/homonymes'
+import { apparenceDeLAvatar } from '../../../shared/profil'
 import { classer, ecartEstimation, ordreDeClassement, rangPartage, vainqueurs } from '../../../shared/classement'
 import type { PublicPlayer, TeamBonus } from '../../../shared/types'
 import { formatSeconds, sharedRank } from '../../../shared/review'
@@ -424,6 +425,8 @@ export function buildReview(input: ReviewInput): Review {
       // doit dire la même chose que le classement de la soirée.
       name: nomAffiche(p),
       avatar: p.avatar,
+      // Son légendaire, sa finition : l'emoji seul n'était pas l'avatar qu'il porte.
+      ...apparenceDeLAvatar(p),
       teamId: p.teamId,
       points: p.score,
       rank: sharedRank(sortedPlayers, p, o => o.score),

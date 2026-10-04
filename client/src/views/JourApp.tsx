@@ -874,6 +874,7 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
   const montrees = lignes.slice(0, LIGNES_INCRUSTEES)
   const sienneEnDessous = classement?.sienne ? lignes.slice(LIGNES_INCRUSTEES).find(l => l.profileId === classement.sienne) : undefined
   const plusBas = sienneEnDessous ?? classement?.moi
+  const place = placeDuJour(partie.rang, partie.joueurs, partie.points)
   return (
     <div className="player-shell jour-joue">
       {/* La sortie de la page, en tête et toujours la même : celle de la campagne et du salon. */}
@@ -894,9 +895,20 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
           )}
           <span>
             <b className="num">{pts(partie.points)}</b>
+            {/* « 7 sur 10 », seul sous les points, se lisait comme une place :
+                « je suis 7ᵉ sur 10 », quand quinze avaient joué (le
+                propriétaire du dépôt, le 4 octobre 2026). La place se dit
+                donc en toutes lettres — quand elle est bonne à dire
+                (`placeDuJour`) —, et les bonnes réponses aussi. */}
+            {place && (
+              <span className="small">
+                {place}
+                {classement?.fige ? '' : ' pour l’instant'}
+              </span>
+            )}
             <span className="muted small">
-              {partie.justes} sur {partie.comptees} · {partie.medaille ? NOM_MEDAILLE[partie.medaille] : 'pas de médaille'} · +
-              {formatNumber(partie.xp)} XP
+              {partie.justes} bonne{partie.justes > 1 ? 's' : ''} réponse{partie.justes > 1 ? 's' : ''} sur {partie.comptees} ·{' '}
+              {partie.medaille ? NOM_MEDAILLE[partie.medaille] : 'pas de médaille'} · +{formatNumber(partie.xp)} XP
             </span>
           </span>
         </div>
@@ -926,8 +938,11 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
             </>
           )}
         </div>
+        {/* Ce qu'il ouvre, dit simplement : « Hier, le mois : tout le
+            classement » ne se comprenait pas (le propriétaire du dépôt, le
+            4 octobre 2026). Hier et le mois sont des onglets, là-bas. */}
         <button type="button" className="link-inline jour-tout-classement" onClick={onClassement}>
-          Hier, le mois : tout le classement
+          Voir tout le classement
         </button>
       </section>
 
@@ -1074,6 +1089,11 @@ export function Classement({ partie, onRetour }: { partie: PartieDuJour; onRetou
   ]
   return (
     <div className="player-shell">
+      {/* « ← Retour » en tête, comme toute page qui n'est pas une pièce du
+          menu : il n'attendait qu'en bas, sous cinquante lignes. Il y reste,
+          pour qui a tout fait défiler (le propriétaire du dépôt, le
+          4 octobre 2026). */}
+      <Sortie vers="Retour" href="/jour" onClick={onRetour} />
       <header className="jour-titre">
         <span className="label">Le quiz du jour · {jourEnToutesLettres(partie.jour, true)}</span>
         <h2>Le classement</h2>
@@ -1147,7 +1167,7 @@ function LigneDuClassement({ ligne: l, moi, onOuvrir }: { ligne: LigneDuJour; mo
 }
 
 /** La correction d'un jour : chaque question, sa bonne réponse, la part de la salle, et ce qu'on avait dit. */
-function Correction({ jour, onRetour }: { jour: string; onRetour: () => void }) {
+export function Correction({ jour, onRetour }: { jour: string; onRetour: () => void }) {
   const [correction, setCorrection] = useState<CorrectionDuJour | null>(null)
   const [erreur, setErreur] = useState('')
   useEffect(() => {
@@ -1158,6 +1178,8 @@ function Correction({ jour, onRetour }: { jour: string; onRetour: () => void }) 
   }, [jour])
   return (
     <div className="player-shell">
+      {/* Dix questions et leurs anecdotes : la sortie en tête, comme au classement, et en bas. */}
+      <Sortie vers="Retour" href="/jour" onClick={onRetour} />
       <header className="jour-titre">
         <span className="label">Le quiz du jour · {jourEnToutesLettres(jour, true)}</span>
         <h2>La correction</h2>

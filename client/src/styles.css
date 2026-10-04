@@ -2018,6 +2018,11 @@ h3 > .icon {
 .carte-avatar .av-emoji > .pt,
 .podium-avatar .av-emoji > .dv,
 .carte-avatar .av-emoji > .dv { font-size: 1.3em; }
+/* L'en-tête d'un bilan aussi : l'avatar y est le sujet — légendaire,
+   portrait ou Divin, à la place d'un emoji auréolé. */
+.bilan-avatar .av-emoji > .lg,
+.bilan-avatar .av-emoji > .pt,
+.bilan-avatar .av-emoji > .dv { font-size: 1.3em; }
 .podium-name {
   /* Dans sa marche : un nom plus large qu'elle se coupe (`.podium-nom`). */
   max-width: 100%;
@@ -2679,7 +2684,6 @@ h3 > .icon {
   }
 }
 
-.reset-row { margin-top: 14px; justify-content: flex-end; }
 
 /* Chaque invité peut être renommé ou exclu depuis l'écran commun : un pseudo
    malheureux projeté sur le mur ne doit pas être une fatalité. */
@@ -3463,9 +3467,11 @@ h3 > .icon {
 
 .bilan-chip:hover { border-color: var(--edge-strong); background: var(--accent-soft); }
 
-/* L'en-tête d'un bilan : l'avatar, le prénom, et quatre chiffres en tuiles. */
+/* L'en-tête d'un bilan : l'avatar — son légendaire, s'il en porte un —, le
+   prénom, et quatre chiffres en tuiles. L'avatar y est le sujet : il bouge,
+   à la taille du podium. */
 .bilan-who { display: flex; align-items: center; gap: 14px; }
-.bilan-avatar { font-size: 2.6rem; line-height: 1; }
+.bilan-avatar { font-size: 2.6rem; line-height: 1; flex: none; }
 .bilan-who h2 { font-size: 1.9rem; }
 
 .bilan-tiles {
@@ -5199,6 +5205,7 @@ h3 > .icon {
    finition, et le bord de la carte d'un joueur la coupait net. */
 .podium-avatar .lu,
 .carte-avatar .lu,
+.bilan-avatar .lu,
 .retour-avatar .lu,
 .identite .player-avatar .lu,
 .fin-avatar .lu,
@@ -5208,7 +5215,8 @@ h3 > .icon {
 .retour-avatar.av-lumiere { margin-block: 0.55em; }
 .carte-avatar.av-lumiere { margin: 0.6em 0.3em 0.3em 0.5em; }
 .identite .player-avatar.av-lumiere,
-.fin-avatar.av-lumiere { margin: 0.4em 0.4em 0.4em 0.35em; }
+.fin-avatar.av-lumiere,
+.bilan-avatar.av-lumiere { margin: 0.4em 0.4em 0.4em 0.35em; }
 .fin-apercu.av-lumiere { margin: 0.55em; }
 .fin-collection-emoji .av-lumiere { margin-block: 0.55em; }
 .finition-btn .av-lumiere { margin: 0.6em 0; }

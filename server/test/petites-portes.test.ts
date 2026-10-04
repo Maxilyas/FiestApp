@@ -29,9 +29,18 @@ test('la carte ouverte en salle d’attente se ferme avec l’arrivée du quiz',
 test('« Me déconnecter » garde le profil ouvert, et le dit, tant que le serveur n’a pas fermé la session', () => {
   // La requête perdue montrait le formulaire de connexion sans un mot, et
   // le téléphone prêté rouvrait le profil de son propriétaire [client-9].
-  const s = source('views/ProfilApp.tsx')
-  assert.doesNotMatch(s, /deconnexion\(\)\.catch\(\(\) => \{\}\)/)
-  assert.match(s, /try \{\s*await api\.joueur\.deconnexion\(\)\s*\} catch \(e\) \{\s*return setErreur\(motifDe\(e\)\)\s*\}\s*retenirProfil\(false\)\s*setProfil\(null\)/)
+  // Le bouton vit dans « Compte » seulement depuis le 4 octobre 2026 (le
+  // propriétaire du dépôt : il était aussi sur la page du profil) : la
+  // garantie l'y suit — celui de « Compte » avalait l'échec et partait.
+  const s = source('views/AccountApp.tsx')
+  assert.doesNotMatch(s, /(deconnexion|logout)\(\)\)?\s*\.catch\(\(\) => \{\}\)/)
+  assert.match(
+    s,
+    /try \{\s*await \(parLeProfil \? api\.joueur\.deconnexion\(\) : api\.auth\.logout\(\)\)\s*\} catch \(e\) \{\s*if \(!\(e instanceof UnauthorizedError\)\) return setSortie\(\{ enCours: false, erreur: motifDe\(e\) \}\)\s*\}\s*window\.location\.assign\(parLeProfil \? '\/' : '\/connexion'\)/,
+  )
+  assert.match(s, /\{sortie\.erreur && \(\s*<p className="error center" role="alert">/, 'l’échec se lit sous le bouton')
+  // La page du profil n'a plus le sien : une sortie, à un seul endroit.
+  assert.doesNotMatch(source('views/ProfilApp.tsx'), /Me déconnecter<|api\.joueur\.deconnexion/)
 })
 
 test('« Qui manque ? » oublie les codes périmés, et son minuteur avec eux', async () => {

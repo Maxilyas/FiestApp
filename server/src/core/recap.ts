@@ -3,6 +3,7 @@ import type { AnswerRow } from './answers'
 import type { ScoreEntry } from './scores'
 import { prixRemis, questionsDesEquipes, teamScores } from '../../../shared/teams'
 import { nomAffiche } from '../../../shared/homonymes'
+import { apparenceDeLAvatar } from '../../../shared/profil'
 import { classer, ordreDAffichage, ordreDeClassement, vainqueurs } from '../../../shared/classement'
 import type { PublicPlayer, Recap, TeamBonus } from '../../../shared/types'
 
@@ -90,7 +91,7 @@ export function buildRecap(input: RecapInput): Recap {
     ranking: players
       .filter(p => p.score !== 0)
       .sort(ordreDeClassement<PublicPlayer>(p => p.score, nomAffiche, p => p.id))
-      .map(p => ({ name: nomAffiche(p), avatar: p.avatar, points: p.score })),
+      .map(p => ({ name: nomAffiche(p), avatar: p.avatar, ...apparenceDeLAvatar(p), points: p.score })),
     teams: teamScores(teams, players, bonuses, questionsDesEquipes(players, answers)),
     stats: computeStats(answers, players),
     // Un quiz joué a laissé des réponses, pas forcément des points : quand

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { clientDistant, type Client } from './distante'
 import type { AnswerRow } from './answers'
-import type { PlayerRec } from './party'
+import type { BadgeLookup, PlayerRec } from './party'
 import type { TeamRec } from './teams'
 import type { ScoreEntry } from './scores'
 import { buildRecap } from './recap'
@@ -10,6 +10,7 @@ import { questionsDesEquipes, teamScores, vainqueursDuQuiz, type QuestionDEquipe
 import { nomAffiche, nomsAffiches } from '../../../shared/homonymes'
 import { vainqueurs } from '../../../shared/classement'
 import { tronquer } from '../../../shared/avatars'
+import { apparenceDeLAvatar } from '../../../shared/profil'
 import type { PublicPlayer, Recap, TeamBonus } from '../../../shared/types'
 import type { Review } from '../../../shared/review'
 import type { ArchiveSummary, DerniereSoiree, PartyArchive } from '../../../shared/archive'
@@ -180,7 +181,14 @@ export function buildArchive(live: LiveParty): { id: string; heldAt: number; arc
 
 // ── Relire une archive ───────────────────────────────────────────────────
 
-function archivePlayers(a: PartyArchive): PublicPlayer[] {
+/**
+ * Les invités d'une archive, tels que les pages les montrent. `apparences`
+ * dit ce que leurs profils portent aujourd'hui — le légendaire, la finition,
+ * l'Éclat — : l'archive ne garde que l'emoji de l'inscription, et celui qui
+ * portait un légendaire ne se reconnaissait pas dans son bilan. Ni niveau ni
+ * laurier : une soirée relue n'en a jamais montré.
+ */
+function archivePlayers(a: PartyArchive, apparences?: BadgeLookup): PublicPlayer[] {
   const totals = new Map<string, number>()
   for (const s of a.scores) totals.set(s.playerId, (totals.get(s.playerId) ?? 0) + s.points)
   // Les marques d'homonymie se recalculent à la relecture, dans l'ordre
@@ -194,13 +202,14 @@ function archivePlayers(a: PartyArchive): PublicPlayer[] {
     connected: false,
     score: totals.get(p.id) ?? 0,
     teamId: p.teamId,
+    ...apparenceDeLAvatar(p.profileId ? apparences?.(p.profileId, p.avatar) : undefined),
     ...(marques.has(p.id) && { nomAffiche: marques.get(p.id) }),
   }))
 }
 
-export function recapOfArchive(a: PartyArchive): Recap {
+export function recapOfArchive(a: PartyArchive, apparences?: BadgeLookup): Recap {
   return buildRecap({
-    players: archivePlayers(a),
+    players: archivePlayers(a, apparences),
     teams: a.teams,
     bonuses: a.bonuses,
     scores: a.scores,
@@ -208,7 +217,7 @@ export function recapOfArchive(a: PartyArchive): Recap {
   })
 }
 
-export function reviewOfArchive(a: PartyArchive): Review {
+export function reviewOfArchive(a: PartyArchive, apparences?: BadgeLookup): Review {
   // Une copie exacte fait foi ; un quiz reconstitué depuis la bibliothèque
   // repasse par la vérification de cohérence, comme au moment de l'archivage.
   const packsBySession = new Map<string, PlayedPack>()
@@ -219,7 +228,7 @@ export function reviewOfArchive(a: PartyArchive): Review {
   }
   return buildReview({
     rows: a.answers,
-    players: archivePlayers(a),
+    players: archivePlayers(a, apparences),
     teams: a.teams,
     bonuses: a.bonuses,
     packsBySession,

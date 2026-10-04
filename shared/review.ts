@@ -8,6 +8,7 @@
 import type { ArchiveSummary, DerniereSoiree } from './archive'
 import type { QuestionKind, Variante } from './library'
 import type { PublicSpace } from './space'
+import type { ApparenceDeLAvatar } from './profil'
 import type { PlayerStat, PublicTeam, TeamBonus } from './types'
 
 /** Ce qu'une équipe a fait sur une question. */
@@ -123,7 +124,8 @@ export interface ReviewHighlight {
   text: string
 }
 
-export interface ReviewPlayer {
+/** Un invité dans le bilan : son avatar s'y montre tel qu'il le porte — légendaire, finition, Éclat. */
+export interface ReviewPlayer extends ApparenceDeLAvatar {
   id: string
   name: string
   avatar: string
