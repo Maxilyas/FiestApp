@@ -1722,6 +1722,22 @@ h3 > .icon {
 .ans-grid > *:nth-child(3) { animation-delay: 0.2s; }
 .ans-grid > *:nth-child(4) { animation-delay: 0.28s; }
 
+/* Au téléphone, une case ne bouge pas sous le doigt : elle glissait de
+   14 px en arrivant, et le toucher d'un invité rapide retombait dans
+   l'interstice qu'elle venait de quitter — rien ne partait. Un fondu, sur
+   place, et toutes ensemble. Son texte ne se surligne pas à l'appui long :
+   la réponse avait l'air choisie, et rien ne partait non plus. */
+.quiz-player .ans-btn {
+  animation: ans-fondu 0.18s ease-out backwards;
+  animation-delay: 0s;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+@keyframes ans-fondu {
+  from { opacity: 0; }
+}
+
 .ans-btn:not(:disabled):hover { border-color: var(--edge-strong); }
 .quiz-host .ans-btn:hover { border-color: var(--edge); }
 .ans-btn:not(:disabled):active { transform: scale(0.98); }

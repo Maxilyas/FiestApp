@@ -14,6 +14,7 @@ import { Avatar } from '../../components/Avatar'
 import { NomLaure } from '../../components/Laurier'
 import { serverNow } from '../../clock'
 import { Echelle, LigneDeCourse } from './Course'
+import { toucher } from '../../toucher'
 import { ligneDeSoiree, moitieHaute } from '../../../../shared/course'
 
 interface Props {
@@ -157,10 +158,10 @@ function ChoixMultiples({ view: v, send, closes, enAttente, perdue }: PropsDeVar
               key={i}
               disabled={bloque}
               aria-pressed={coche}
-              onClick={() => {
+              {...toucher(() => {
                 navigator.vibrate?.(20)
                 setCoches(c => (c.includes(i) ? c.filter(x => x !== i) : [...c, i].sort((x, y) => x - y)))
-              }}
+              })}
               className={'ans-btn' + (coche ? ' chosen' : closes ? ' dim' : '') + (v.paused ? ' en-pause' : '')}
             >
               <Shape index={i} />
@@ -173,10 +174,10 @@ function ChoixMultiples({ view: v, send, closes, enAttente, perdue }: PropsDeVar
       <button
         className="btn btn-primary btn-block valider-variante"
         disabled={bloque || coches.length === 0 || memes(coches, v.yourChoices)}
-        onClick={() => {
+        {...toucher(() => {
           navigator.vibrate?.(35)
           send({ type: 'answers', choices: coches, ...visee(v) })
-        }}
+        })}
       >
         {v.yourChoices ? 'Corriger ma réponse' : 'Valider'}
       </button>
@@ -211,10 +212,10 @@ function OrdreARetrouver({ view: v, send, closes, enAttente, perdue }: PropsDeVa
               disabled={bloque}
               aria-pressed={rang >= 0}
               aria-describedby={rang >= 0 ? `rang-${i}` : undefined}
-              onClick={() => {
+              {...toucher(() => {
                 navigator.vibrate?.(20)
                 setSuite(s => (s.includes(i) ? s.filter(x => x !== i) : [...s, i]))
-              }}
+              })}
               className={'ans-btn' + (rang >= 0 ? ' chosen' : closes ? ' dim' : '') + (v.paused ? ' en-pause' : '')}
             >
               {/* Hors du nom du bouton, qui ne change pas quand on le touche : le rang le décrit. */}
@@ -229,10 +230,10 @@ function OrdreARetrouver({ view: v, send, closes, enAttente, perdue }: PropsDeVa
       <button
         className="btn btn-primary btn-block valider-variante"
         disabled={bloque || suite.length !== n || memes(suite, v.yourChoices)}
-        onClick={() => {
+        {...toucher(() => {
           navigator.vibrate?.(35)
           send({ type: 'order', order: suite, ...visee(v) })
-        }}
+        })}
       >
         {v.yourChoices ? 'Corriger mon ordre' : 'Valider cet ordre'}
       </button>
@@ -263,10 +264,10 @@ function QuiDansLaSalle({ view: v, send, closes, enAttente, perdue }: PropsDeVar
               key={i}
               disabled={v.paused || closes}
               aria-pressed={v.yourChoice === i || enAttente?.choice === i}
-              onClick={() => {
+              {...toucher(() => {
                 navigator.vibrate?.(35)
                 send({ type: 'answer', choice: i, ...visee(v) })
-              }}
+              })}
               className={
                 'ans-btn sondage-btn' +
                 (enAttente?.choice === i ? ' pending' : v.yourChoice === i ? ' chosen' : closes ? ' dim' : '') +
@@ -873,10 +874,10 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
                   // fois l'échéance passée, et seulement alors.
                   disabled={v.paused || closes}
                   aria-pressed={v.yourChoice === i || enAttente?.choice === i}
-                  onClick={() => {
+                  {...toucher(() => {
                     navigator.vibrate?.(35)
                     send({ type: 'answer', choice: i, ...visee(v) })
-                  }}
+                  })}
                   className={
                     'ans-btn' +
                     (enAttente?.choice === i ? ' pending' : v.yourChoice === i ? ' chosen' : closes ? ' dim' : '') +
