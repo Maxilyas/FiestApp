@@ -415,12 +415,86 @@ test('revenue après la partie, la page du jour montre le jour joué, pas la fê
   const premier = /<(a|button)\b[^>]*>(.*?)<\/\1>/.exec(html)!
   assert.match(premier[0], /^<a class="lien-discret jour-sortie" href="\/">/, 'la sortie d’abord')
   assert.equal(premier[2].replace(/<[^>]+>/g, ''), 'Accueil')
-  for (const attendu of ['Le quiz du jour · joué', '8 sur 10', 'Médaille d’argent', 'Revoir mes réponses', 'Le classement du jour', 'tout le classement', 'Dix nouvelles questions dans'])
+  for (const attendu of [
+    'Le quiz du jour · joué',
+    '2ᵉ place sur 3 pour l’instant',
+    '8 bonnes réponses sur 10',
+    'Médaille d’argent',
+    'Revoir mes réponses',
+    'Le classement du jour',
+    'Voir tout le classement',
+    'Dix nouvelles questions dans',
+  ])
     assert.ok(html.includes(attendu), attendu)
   assert.doesNotMatch(html, /fin-tete|points d’expérience/, 'ni l’en-tête ni la fête de la fin')
   // Le câblage : la partie déjà finie à l'arrivée ouvre le jour joué ; celle qui finit sous les yeux garde sa fin.
   assert.match(SOURCE, /setFinieALArrivee\(avant => avant \?\? p\.etat === 'finie'\)/)
   assert.match(SOURCE, /finieALArrivee \? \(\s*<JourJoue /)
+})
+
+test('le jour joué dit sa place et ses bonnes réponses en toutes lettres : « 7 sur 10 » se lisait comme une place', async () => {
+  // Le propriétaire du dépôt, le 4 octobre 2026 : « il y a 15 personnes qui
+  // ont participé, mais ça me met 7/10 ». C'étaient ses bonnes réponses,
+  // seules sous les points, sans un mot pour les dire.
+  const partie = (rang: number) => ({
+    jour: '2026-10-04',
+    maintenant: 0,
+    total: 10,
+    categories: [],
+    etat: 'finie',
+    points: 1_260,
+    justes: 7,
+    xp: 32,
+    medaille: 'bronze',
+    rang,
+    joueurs: 15,
+    pointsPossibles: 2000,
+    comptees: 10,
+    serie: 1,
+    vainqueursDHier: [],
+  })
+  const resultat = (html: string) => html.slice(html.indexOf('jour-resultat'), html.indexOf('Revoir mes réponses'))
+  const septieme = resultat(await rendu('JourJoue', { partie: partie(7), onClassement: () => {}, onCorrection: () => {} }))
+  assert.match(septieme, /7ᵉ place sur 15 pour l’instant/, 'sa place, sur les quinze qui ont joué')
+  assert.match(septieme, /7 bonnes réponses sur 10/, 'ses bonnes réponses, dites comme telles')
+  assert.doesNotMatch(septieme, /\b7 sur 10\b/, 'plus de « 7 sur 10 » sans un mot')
+  // Dans la moitié basse, la place se tait (`placeDuJour`) — le classement
+  // dessous la montre —, et les bonnes réponses se disent toujours.
+  const douzieme = resultat(await rendu('JourJoue', { partie: partie(12), onClassement: () => {}, onCorrection: () => {} }))
+  assert.doesNotMatch(douzieme, /place/)
+  assert.match(douzieme, /7 bonnes réponses sur 10/)
+})
+
+test('le lien vers tout le classement dit ce qu’il ouvre', async () => {
+  // « Hier, le mois : tout le classement » ne se comprenait pas (le
+  // propriétaire du dépôt, le 4 octobre 2026) ; hier et le mois sont des
+  // onglets du classement qu'il ouvre.
+  const partie = { jour: '2026-10-04', etat: 'finie', points: 0, justes: 0, comptees: 10, xp: 0, medaille: null, rang: 0, joueurs: 3, serie: 0 }
+  const html = await rendu('JourJoue', { partie, onClassement: () => {}, onCorrection: () => {} })
+  assert.match(html, /<button type="button" class="link-inline jour-tout-classement">Voir tout le classement<\/button>/)
+  assert.doesNotMatch(html, /Hier, le mois/)
+})
+
+test('le classement et la correction s’ouvrent sur « ← Retour », en tête — et le gardent en bas, sous la liste', async () => {
+  // Le propriétaire du dépôt, le 4 octobre 2026 : une flèche pour revenir,
+  // en haut, comme les autres pages ; et en bas, pour qui a fait défiler
+  // tout le classement.
+  for (const [composant, props, hash] of [
+    ['Classement', { partie: { jour: '2026-10-04' }, onRetour: () => {} }, '#classement'],
+    ['Correction', { jour: '2026-10-04', onRetour: () => {} }, '#correction'],
+  ] as const) {
+    const html = await rendu(composant, props, hash)
+    const gestes = [...html.matchAll(/<(a|button)\b[^>]*>(.*?)<\/\1>/g)]
+    const texte = (g: RegExpMatchArray) => g[2].replace(/<[^>]+>/g, '')
+    assert.match(gestes[0][0], /^<a class="lien-discret jour-sortie" href="\/jour">/, `${composant} : la sortie de toutes les pages, d’abord`)
+    assert.match(gestes[0][2], /<svg[^>]*>/, `${composant} : avec sa flèche`)
+    assert.equal(texte(gestes[0]), 'Retour')
+    assert.ok(html.indexOf('jour-sortie') < html.indexOf('jour-titre'), `${composant} : avant le titre`)
+    assert.equal(texte(gestes.at(-1)!), 'Retour', `${composant} : et en bas, toujours`)
+  }
+  // Les deux suivent la même décision que le retour du bas (`revenir`) : un
+  // cran en arrière quand on vient d'ici, l'accueil sinon.
+  assert.equal(SOURCE.match(/<Sortie vers="Retour" href="\/jour" onClick=\{onRetour\} \/>/g)?.length, 2)
 })
 
 test('« Voir le classement », depuis la fin, mène au jour joué : le retour n’y rouvre plus « mon résultat »', () => {
