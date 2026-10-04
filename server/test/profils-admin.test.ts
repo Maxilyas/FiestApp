@@ -13,6 +13,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
+import { createECDH, randomBytes } from 'node:crypto'
 import { attendre, baseDEssai, connexionAnimateur, cookieDe, creerQuiz, demarrer, ecranCommun, ecrire, emitAck, inscrireProfil, invite, lancerQuiz, qcm, type Banc } from './banc'
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 
@@ -116,8 +117,15 @@ test('supprimer un profil emporte tout ce qui n’était qu’à lui — son sal
     // Son salon, et sa console, ouverte par son profil.
     const salon = (await (await ecrire(banc.url, '/api/joueur/espace', {}, lea)).json()) as { espace: { slug: string } }
     const saConsole = cookieDe(await ecrire(banc.url, '/api/joueur/console', {}, lea))
-    // Le quiz du jour, puis une série de campagne le lendemain, et une question signalée.
+    // Le quiz du jour et son rappel du soir, puis une série de campagne le lendemain, et une question signalée.
     const jour = (await (await ecrire(banc.url, '/api/jour/commencer', {}, lea)).json()) as { jour: string }
+    const telephone = createECDH('prime256v1')
+    telephone.generateKeys()
+    const abonnement = {
+      endpoint: 'https://fcm.googleapis.com/fcm/send/le-telephone-de-lea',
+      keys: { p256dh: telephone.getPublicKey().toString('base64url'), auth: randomBytes(16).toString('base64url') },
+    }
+    assert.equal((await ecrire(banc.url, '/api/jour/rappel', { abonnement }, lea)).status, 200)
     await ecrire(banc.url, '/api/jour/repondre', { jour: jour.jour, index: 0, choix: 0 }, lea)
     await ecrire(banc.url, '/api/jour/commencer', {}, bob)
     assert.ok((await lire(banc, bob, `/api/jour/classement?jour=${jour.jour}`)).corps.lignes.some((l: any) => l.nom === 'Léa'), 'Léa au classement, gardé en mémoire')

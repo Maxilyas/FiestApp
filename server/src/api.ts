@@ -19,6 +19,7 @@ import { mountAppairage } from './auth/appairage'
 import { mountProfileApi } from './auth/profileRoutes'
 import { mountJour, mountJourAdmin, mountReserve } from './quizDuJour'
 import type { JourStore } from './core/jour'
+import type { RappelStore } from './core/rappels'
 import { lireModeles } from './core/seed'
 import { lirePourQui, personnaliser } from '../../shared/modeles'
 
@@ -64,6 +65,8 @@ interface ApiDeps {
   profilChange: (profileId: string) => void
   /** Le quiz du jour : sa réserve, ses parties, ses classements. */
   jour: JourStore
+  /** Le rappel du soir du quiz du jour : les téléphones abonnés. */
+  rappels: RappelStore
   /** La campagne solo : ses séries, pour les profils. */
   campagne: CampagneStore
   /** L'heure du quiz du jour — celle du serveur, que les tests font passer minuit. */
@@ -108,7 +111,7 @@ export function mountApi(app: Express, deps: ApiDeps) {
     maintenant: deps.maintenant,
   })
   // Le quiz du jour se joue avec son profil, lui aussi, sans compte d'animateur.
-  mountJour(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant })
+  mountJour(app, { jour: deps.jour, profiles: deps.profiles, maintenant: deps.maintenant, rappels: deps.rappels })
   // La campagne aussi : seul, avec son profil.
   mountCampagne(app, { campagne: deps.campagne, profiles: deps.profiles })
   // Sa réserve se remplit par une routine, avec son jeton — pas un animateur non plus.

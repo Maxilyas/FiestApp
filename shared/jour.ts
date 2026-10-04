@@ -123,6 +123,31 @@ export function minutesAvantMinuit(instant: number): number {
   return Math.max(1, Math.round((apres - instant) / 60_000))
 }
 
+// ── Le rappel du soir ─────────────────────────────────────────────────────
+
+/**
+ * Le rappel du soir : une notification, une seule par téléphone et par jour,
+ * vers 18 h à Paris, aux profils qui l'ont demandée dans l'application
+ * installée et n'ont pas fini leur partie (`server/src/core/rappels.ts`).
+ * Assez tôt pour jouer avant minuit ; assez tard pour ne rappeler que ce
+ * qu'on a oublié.
+ */
+export const HEURE_DU_RAPPEL = 18
+
+/**
+ * Passé 22 h, il ne part plus : un serveur qui redémarre tard — un
+ * déploiement, une panne — ne fait pas sonner les téléphones à l'heure de
+ * dormir. Ce jour-là, pas de rappel.
+ */
+export const FIN_DU_RAPPEL = 22
+
+const FORMAT_DE_L_HEURE = new Intl.DateTimeFormat('en-GB', { timeZone: FUSEAU_DU_JOUR, hour: '2-digit', hourCycle: 'h23' })
+
+/** L'heure qu'il est à Paris, de 0 à 23 — changements d'heure compris. */
+export function heureDeParis(instant: number): number {
+  return Number(FORMAT_DE_L_HEURE.formatToParts(new Date(instant)).find(p => p.type === 'hour')?.value ?? 0)
+}
+
 /** Un jour bien écrit, et qui existe au calendrier. */
 export function jourValide(jour: unknown): jour is string {
   if (typeof jour !== 'string') return false

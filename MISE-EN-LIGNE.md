@@ -114,7 +114,7 @@ La commande se relance autant de fois que tu veux : un quiz déjà en ligne est 
 
 ### Étape 5 — Tenir le serveur éveillé de 7 h à minuit
 
-Sans trafic pendant 15 minutes, l'offre gratuite de Render endort le serveur, et le réveil prend environ une minute : le premier invité qui scanne attendrait devant une page blanche, et le premier joueur du quiz du jour aussi. Les sondes de Render sur `/healthz` ne le tiennent pas éveillé.
+Sans trafic pendant 15 minutes, l'offre gratuite de Render endort le serveur, et le réveil prend environ une minute : le premier invité qui scanne attendrait devant une page blanche, et le premier joueur du quiz du jour aussi. Les sondes de Render sur `/healthz` ne le tiennent pas éveillé. Et le rappel du soir du quiz du jour part du serveur lui-même, à 18 h : endormi, il ne l'enverrait qu'à son réveil, et plus du tout après 22 h. Il ne demande rien d'autre — ses clés se tirent au premier démarrage, dans Turso — ; `/healthz` dit sa dernière tournée (`rappels` : envoyés, échecs).
 
 La production ne dort donc pas le jour : sur [cron-job.org](https://cron-job.org), crée une tâche qui l'appelle toutes les dix minutes — pas une routine Claude Code comme celle de l'étape 8 : elle ne passerait pas assez souvent, et chaque passage ouvrirait une session sur ton abonnement.
 

@@ -20,6 +20,7 @@ import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
 import { Medaille, Serie, ontGagneHier } from '../components/Jour'
 import { CollectionOuverte, Medaillon, PortraitsOuverts } from '../components/Ouverts'
+import { RappelDuJour } from '../components/RappelDuJour'
 import { NOM_FINITION, finitionsOuvertes, type PublicProfile } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {
@@ -513,6 +514,8 @@ export function JourApp() {
       </section>
       {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier} onCorrection={() => ouvrir('correction')} />}
       {partie.saison && <Saison saison={partie.saison} />}
+      {/* Un jour sans quiz n'a rien à rappeler. */}
+      {partie.etat !== 'aucun' && <RappelDuJour />}
       {toastVu}
     </div>
   )
@@ -795,6 +798,7 @@ export function Fin({
         Le classement se fige à minuit. Le podium gagne {XP_PODIUM_DU_JOUR.join(', ').replace(/, (\d+)$/, ' et $1')} XP.
         Demain, dix nouvelles questions dès minuit.
       </p>
+      <RappelDuJour />
       <div className="fin-actions">
         <button className="btn btn-primary" onClick={onClassement}>
           <Icon name="list" />
@@ -920,6 +924,7 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
       <p className="jour-demain muted small">
         <Icon name="clock" /> Dix nouvelles questions dans <b>{avantMinuit}</b>
       </p>
+      <RappelDuJour />
       {carte && laCarte && laCarte !== 'perdu' && (
         <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} onFermer={() => setCarte(null)} />
       )}

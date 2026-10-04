@@ -31,6 +31,7 @@ import { AuthStore, type AccountRec } from './auth/store'
 import { ProfileStore, cleDeSoiree } from './auth/profiles'
 import { mountApi } from './api'
 import { JourStore } from './core/jour'
+import { RappelStore } from './core/rappels'
 import { erreurDeRequete, repondreErreur } from './core/http'
 import { espaceDeLEntree, pageDEntree } from './core/page'
 import { wireSockets } from './sockets'
@@ -94,6 +95,12 @@ export interface QuizServerOptions {
   baseDeLaCampagne?: BaseDeLaCampagne | (() => BaseDeLaCampagne)
   /** Quand la base de la campagne se lit en fond, après le démarrage (`PRECHAUFFAGE_CAMPAGNE_MS`). */
   prechauffageCampagneMs?: number
+  /**
+   * Le rappel du soir du quiz du jour (`core/rappels.ts`) : les tests
+   * regardent l'heure plus souvent, et ouvrent leur propre service de push,
+   * sur la machine — en ligne, seuls ceux des navigateurs sont acceptés.
+   */
+  rappels?: { intervalleMs?: number; servicesDePush?: (url: URL) => boolean }
   /**
    * Le commit qui tourne, sept caractères (`RENDER_GIT_COMMIT` sur
    * l'hébergeur) : la production se promeut à la main, et rien ne disait
@@ -338,6 +345,16 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // Le quiz du jour, pour les profils : sa réserve, ses parties, ses nuits.
   const maintenantDuJour = opts.horlogeDuJour ?? Date.now
   const jour = new JourStore(opts.quizDbUrl, opts.quizDbToken, { profiles, maintenant: maintenantDuJour })
+  // Son rappel du soir, aux téléphones qui l'ont demandé. Les services de push
+  // veulent de quoi joindre qui les sollicite : l'adresse publique du serveur.
+  const adressePublique = originOf(opts.publicUrl)
+  const rappels = new RappelStore(opts.quizDbUrl, opts.quizDbToken, {
+    profiles,
+    jour,
+    maintenant: maintenantDuJour,
+    sujet: adressePublique?.startsWith('https://') ? adressePublique : 'mailto:fiestapp@example.com',
+    ...opts.rappels,
+  })
   // Bibliothèque de quiz : le stockage permanent, séparé de la base jetable.
   const store = new QuizStore(opts.quizDbUrl, opts.quizDbToken)
   // Les programmes de soirée : celui de ce soir, par espace, est ce que la
@@ -403,6 +420,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     restaurer(),
     profiles.init(),
     jour.init(),
+    rappels.init(),
     (async () => {
       await store.init(defaultSpace)
       imported = await seedLibrary(store, defaultSpace)
@@ -568,6 +586,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     const salon = auth.byProfile(profileId)
     if (salon) await auth.linkProfile(salon.id, null)
     await jour.oublierProfil(profileId)
+    await rappels.oublierProfil(profileId)
     await campagne.oublierProfil(profileId)
     await profiles.supprimer(profileId)
     console.log(`[profils] profil « ${login} » supprimé` + (salon ? `, détaché de « ${salon.login} »` : ''))
@@ -701,6 +720,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
       return { miroir: { ...backup.sante(), latenceP95Ms: miroir.p95, latenceMaxMs: miroir.max, envoisParMin: miroir.n } }
     })
     mesurer('jour', () => ({ jour: reserveDuJour() }))
+    // La dernière tournée du rappel du soir : combien sont partis, combien
+    // ont échoué — un service de push qui refuse tout se voit ici.
+    mesurer('rappels', () => ({ rappels: rappels.bilan() }))
     mesurer('base', () => {
       const base = pouls.base.lireAvecMediane()
       return { base: { allersRetoursParMin: base.n, p50Ms: base.p50, p95Ms: base.p95, maxMs: base.max } }
@@ -862,6 +884,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     auth,
     profiles,
     jour,
+    rappels,
     campagne,
     maintenant: maintenantDuJour,
     jetonDeLaReserve: opts.jetonDeLaReserve ?? null,
@@ -1058,6 +1081,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
   // (`lireLaBaseSansBloquer`) : personne ne l'attend plus à sa première série.
   const prechauffage = setTimeout(() => campagne.prechauffer(), opts.prechauffageCampagneMs ?? PRECHAUFFAGE_CAMPAGNE_MS)
   prechauffage.unref()
+  // Le rappel du soir regarde l'heure, chaque minute.
+  rappels.demarrer()
 
   return {
     httpServer,
@@ -1067,6 +1092,8 @@ export async function createQuizServer(opts: QuizServerOptions) {
       new Promise<void>(resolve => {
         clearInterval(resync)
         clearTimeout(prechauffage)
+        // Plus un rappel ne part : la tournée en route s'arrête au téléphone suivant.
+        rappels.arreter()
         charge.arreter()
         registry.stopAll()
         io.close(async () => {
@@ -1083,6 +1110,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
           archives.close()
           auth.close()
           jour.close()
+          rappels.close()
           // Les profils en dernier : un crédit d'expérience parti avec la fin
           // du dernier quiz garde ainsi le plus long sursis pour aboutir. On ne
           // les refermait jamais.

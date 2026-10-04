@@ -367,6 +367,13 @@ export const api = {
     correction: (jour: string) => req<CorrectionDuJour>(`/api/jour/correction/${jour}`),
     signaler: (jour: string, index: number, texte: string) =>
       req<{ ok: true }>('/api/jour/signaler', { method: 'POST', body: JSON.stringify({ jour, index, texte }) }),
+    /** Le rappel du soir (`rappel.ts`) : la clé du serveur, puis l'abonnement de ce téléphone. */
+    rappel: {
+      cle: () => req<{ cle: string; heure: number }>('/api/jour/rappel'),
+      abonner: (abonnement: PushSubscriptionJSON) =>
+        req<{ ok: true }>('/api/jour/rappel', { method: 'POST', body: JSON.stringify({ abonnement }) }),
+      desabonner: (endpoint: string) => req<{ ok: true }>('/api/jour/rappel', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
+    },
   },
   space: {
     saveSettings: (settings: Partial<SpaceSettings>) =>
