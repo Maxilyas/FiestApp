@@ -96,7 +96,8 @@ test('la console ouverte ici sans profil : l’écran commun, ses quiz, son comp
   // Elle garde sa carte au-dessus de « Me connecter » : sans profil, ni menu ni salon.
   const profil = source('views/ProfilApp.tsx')
   assert.match(profil, /\{console_ && <JAnime espace=\{console_\} \/>\}/)
-  assert.match(profil, /pied=\{!console_ && <PorteAnimateur \/>\}/)
+  // Sans console ni profil, plus de porte « J'anime une soirée » sous la connexion : un salon s'ouvre avec son profil.
+  assert.doesNotMatch(profil, /PorteAnimateur/)
 })
 
 test('l’accueil d’un profil n’a pas de carte « J’anime » : chacune de ses portes est ailleurs', () => {

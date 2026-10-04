@@ -36,7 +36,7 @@ interface ProfileApiDeps {
    */
   soireesOuJeJoue: (profileId: string) => string[]
   /** Ouvre le salon d'un espace et rend son code — le même tant qu'il vaut. */
-  ouvrirSalon: (spaceId: string, opts?: { auto?: boolean }) => Promise<string | null>
+  ouvrirSalon: (spaceId: string, opts?: { auto?: boolean; commencer?: boolean }) => Promise<string | null>
   /** En ligne, le cookie ne voyage qu'en HTTPS. */
   online: boolean
   /** Un profil a changé ce que la salle voit de lui (finition, légendaire) : les soirées où il joue le rediffusent. */
@@ -430,7 +430,7 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
       const pret = await espaceDuProfil(req, res)
       if (!pret) return
       // Ouvert d'ici, le salon s'enregistre seul après son programme.
-      const code = await deps.ouvrirSalon(pret.id, { auto: true })
+      const code = await deps.ouvrirSalon(pret.id, { auto: true, commencer: true })
       res.json({ espace: pret.espace, code, nouveau: pret.nouveau })
     }),
   )

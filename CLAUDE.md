@@ -119,7 +119,7 @@ server/test/        un fichier par thème, un serveur jetable chacun
 | `shared/erreurs.ts` | les motifs que le client montre quand ça coince (réseau, serveur qui redémarre…), et ce qui passe tout seul (`statutPassager`, `echecPassager`) — à l'inverse, un refus du serveur, qu'on ne retouche pas (`refusDuServeur`, `client/src/api.ts`) |
 | `shared/reveil.ts` | une écriture qui attend le réveil de l'hébergeur au lieu d'échouer à vingt secondes (`auReveil`, dans `client/src/api.ts`) |
 | `shared/brouillon.ts` · `client/src/brouillon.ts` | le brouillon d'un quiz : ce que l'éditeur garde dans le navigateur tant que le serveur n'a pas enregistré, relu comme le serveur relit (`normalizeQuestions`, `shared/library.ts`) |
-| `client/src/components/Entree.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente |
+| `client/src/components/Entree.tsx` · `IdentifiantDiscret.tsx` | tout ce qu'on traverse entre le scan du QR et la salle d'attente — trois gros boutons d'abord, comme l'accueil sans profil (`ProfilForm`) ; et l'identifiant d'un profil qui naît, déduit du prénom, sur une ligne (« Pour te reconnecter : camille · modifier ») : pris par un autre, il prend celui que le serveur propose (`inscrireAvecRepli`), jamais s'il a été tapé à la main |
 | `client/src/components/Liaison.tsx` | ce que voit l'invité quand la liaison tombe |
 | `client/src/components/Absents.tsx` · `Reprendre.tsx` | le téléphone perdu : « Qui manque ? » à la console (ne plus l'attendre, rendre sa place), et le code tapé par l'invité |
 | `client/src/components/Coupe.tsx` | une liste de l'écran commun coupée à ce qui tient, « et 2 autres » dessous : personne ne fait défiler une télé |
@@ -778,8 +778,11 @@ sans `QUIZ_DB_URL`.
   `DURCISSEMENTS` ou à `COURBES_D_AVANT` (invariant 22).
 - Rendre la connexion obligatoire. L'entrée d'une soirée **est** un écran de
   connexion, et l'accueil (`/`) en est un aussi : c'est un choix assumé — mais
-  « Jouer sans compte » et « Rejoindre une soirée » y ont exactement le format
-  de « Me connecter » et se voient **sans défiler** en 360 × 640, clavier fermé.
+  tous deux s'ouvrent sur trois gros boutons du même format, « Jouer sans
+  compte » d'abord, puis « Me connecter » et « Créer un profil » (les champs
+  ne viennent qu'avec le choix), qui se voient **sans défiler** en 360 × 640
+  (`connexion-claire.test.ts`). Un profil naît d'un prénom et d'un mot de
+  passe : l'identifiant s'en déduit (`IdentifiantDiscret`).
   Aucun champ de l'entrée ni de `ProfilForm` n'a d'`autoFocus` : le clavier
   pousserait le bouton hors de l'écran. **Le chemin anonyme reste la valeur de
   l'application** ; les profils s'y greffent, ne le remplacent pas.

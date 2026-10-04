@@ -104,8 +104,12 @@ test('au téléphone : une seule porte, et le Compte parle du profil', () => {
   assert.match(source('views/LoginApp.tsx'), /await seConnecter\(login, password\)/)
   assert.match(source('views/HostApp.tsx'), /await seConnecter\(login, password\)/)
   assert.match(source('api.ts'), /const \{ espace \} = await api\.joueur\.connexion\(login, password\)\s*if \(!espace\) await api\.joueur\.espace\(\)/)
-  // « J'anime une soirée » mène au salon, qui s'ouvre avec son profil — plus à la connexion d'un compte.
-  assert.match(source('views/ProfilApp.tsx'), /<a className="link-inline" href="\/salon">\s*J’anime une soirée/)
+  // « J'anime une soirée », sous la connexion, doublait « Me connecter » et « Créer un profil » : un salon
+  // s'ouvre avec son profil, depuis l'accueil (la remarque du 4 octobre 2026). Le chemin sans compte dit
+  // le même mot qu'à l'entrée d'une soirée.
+  const accueil = source('views/ProfilApp.tsx')
+  assert.doesNotMatch(accueil, /J’anime une soirée|PorteAnimateur/)
+  assert.match(accueil, /onClick=\{\(\) => setRejoindre\(true\)\}>\s*Jouer sans compte/)
   // Un profil qui tient l'espace : son mot de passe, sa déconnexion ; ni « Détacher » ni écran commun.
   const compte = source('views/AccountApp.tsx')
   assert.match(compte, /const parLeProfil = !!me\.profil/)

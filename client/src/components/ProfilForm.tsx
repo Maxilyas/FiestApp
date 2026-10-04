@@ -8,6 +8,9 @@ import { Icon } from './Icon'
 import { MotDePasse } from './MotDePasse'
 import { CodeSecours, FormulaireSecours } from './Secours'
 import { identifiantPour, tirage } from './Entree'
+import { IdentifiantDiscret, inscrireAvecRepli } from './IdentifiantDiscret'
+import { Sortie } from './Pieces'
+import { LOGIN } from '../../../shared/space'
 
 interface Props {
   /** Le prénom et l'emoji déjà choisis sur l'écran d'inscription, s'il y en a. */
@@ -39,8 +42,6 @@ interface Props {
   marque?: ReactNode
   /** Sous le refus d'une connexion : une aide qui ne dépend pas de ce qu'on a tapé. */
   aideErreur?: ReactNode
-  /** Tout en bas, après l'explication : la porte discrète des animateurs. */
-  pied?: ReactNode
   /**
    * Un bandeau en tête du formulaire : « Le quiz commence » dans la salle
    * d'attente. Le formulaire passait devant le quiz, et l'invité qui
@@ -58,12 +59,21 @@ interface Props {
  * Se connecter à un profil, ou en créer un.
  *
  * Volontairement court : on le remplit debout, dans le noir, au milieu d'une
- * fête. Trois champs pour s'inscrire, deux pour revenir. Personne n'est
- * obligé d'en passer par là — l'invité anonyme joue exactement comme avant,
- * et c'est le chemin par défaut.
+ * fête. Deux champs pour s'inscrire — le prénom et le mot de passe,
+ * l'identifiant s'en déduit (`IdentifiantDiscret`) —, deux pour revenir.
+ * Personne n'est obligé d'en passer par là — l'invité anonyme joue
+ * exactement comme avant, et c'est le chemin par défaut.
+ *
+ * Sur l'accueil (`echappee`), il s'ouvre sur trois gros boutons — « Jouer
+ * sans compte », « Me connecter », « Créer un profil » — et les champs ne
+ * viennent qu'avec le choix : les champs en tête, puis « ou », puis le
+ * reste, ne se comprenaient pas d'un coup d'œil (la remarque du
+ * propriétaire du 4 octobre 2026).
  */
-export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, pied, bandeau, onEnvoi }: Props) {
-  const [mode, setMode] = useState<'connexion' | 'inscription' | 'secours'>(creer ? 'inscription' : 'connexion')
+export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, bandeau, onEnvoi }: Props) {
+  const [mode, setMode] = useState<'choix' | 'connexion' | 'inscription' | 'secours'>(creer ? 'inscription' : echappee ? 'choix' : 'connexion')
+  /** Le champ de l'identifiant, ouvert à la demande ou sur un refus du serveur. */
+  const [loginOuvert, setLoginOuvert] = useState(false)
   // Deviné du prénom à la création seulement : en connexion, ses échecs se
   // compteraient sur le profil d'un autre, qui fermerait un quart d'heure.
   const [login, setLogin] = useState(() => (creer && prefill?.name ? identifiantPour(prefill.name) : ''))
@@ -99,6 +109,13 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
         <h2 className="center">{recovery.neuf ? 'Note ton nouveau code' : 'Ton profil est prêt'}</h2>
         {recovery.neuf && (
           <p className="muted small center">Ton mot de passe a changé, et l'ancien code ne sert plus.</p>
+        )}
+        {/* L'identifiant s'est déduit du prénom, peut-être « camille2 » : il se
+            note ici, avec le code — c'est lui qu'on tapera pour revenir. */}
+        {!recovery.neuf && (
+          <p className="center">
+            Pour te reconnecter : <b className="identifiant-retenu">{login}</b>
+          </p>
         )}
         <CodeSecours code={recovery.code} />
         <div className="join-grow" />
@@ -139,12 +156,8 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
         const { profile } = await api.joueur.connexion(login, password)
         onDone(profile)
       } else {
-        const res = await api.joueur.inscription({
-          login,
-          password,
-          name: name.trim(),
-          avatar,
-        })
+        const res = await inscrireAvecRepli({ login, password, name: name.trim(), avatar }, !loginTouche)
+        setLogin(res.login)
         setRecovery({ code: res.recovery, profile: res.profile })
       }
     } catch (e) {
@@ -152,9 +165,44 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
       // — et non plus « Connexion requise », ni « Failed to fetch ».
       setError(motifDe(e))
       setRefus(mode === 'connexion' && e instanceof UnauthorizedError)
+      // Un refus à l'inscription peut viser l'identifiant : son champ s'ouvre.
+      if (mode === 'inscription') setLoginOuvert(true)
     } finally {
       setBusy(false)
     }
+  }
+
+  const changerDeMode = (suivant: 'choix' | 'connexion' | 'inscription') => {
+    setError('')
+    setInfo('')
+    // L'identifiant deviné du prénom ne suit pas en connexion :
+    // Camille y aurait essayé « camille », et ses échecs fermaient
+    // le vrai profil « camille » un quart d'heure.
+    if (!loginTouche) setLogin(suivant === 'inscription' ? identifiantPour(name) : '')
+    setMode(suivant)
+  }
+
+  // ── Le choix, sur l'accueil : trois gros boutons, une phrase ─────────
+  if (mode === 'choix') {
+    return (
+      <div className="join entree entree-choix">
+        {marque}
+        <div className="join-grow" />
+        <div className="join-actions">
+          {echappee}
+          <button type="button" className="btn btn-big btn-block" onClick={() => changerDeMode('connexion')}>
+            Me connecter
+          </button>
+          <button type="button" className="btn btn-big btn-block" onClick={() => changerDeMode('inscription')}>
+            Créer un profil
+          </button>
+        </div>
+        <p className="muted small center entree-note">
+          {PITCH_PROFIL} Il t’ouvre le quiz du jour et ton salon. Jouer n’en demande aucun.
+        </p>
+        <div className="join-grow" />
+      </div>
+    )
   }
 
   const creation = mode === 'inscription'
@@ -162,7 +210,8 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
     // Resserré comme l'entrée d'une soirée : en 360 × 640, « Revenir » —
     // la seule sortie de la salle d'attente — tombait sous le bord.
     <form className="join entree" onSubmit={submit}>
-      {marque}
+      {/* Sur l'accueil, le choix est derrière : « ← Retour », en haut à gauche, comme partout. */}
+      {echappee ? <Sortie vers="Retour" href="/" onClick={() => changerDeMode('choix')} /> : marque}
       {/* « Retrouver mon profil » titrait aussi la récupération par code de
           secours (`Secours.tsx`) : deux écrans, un seul nom. */}
       {bandeau}
@@ -249,27 +298,29 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
           )}
         </div>
       )}
-      <div className="field">
-        <label className="label" htmlFor="pf-login">
-          Ton identifiant
-        </label>
-        {/* Jamais d'`autoFocus` : le clavier ouvert d'office pousse hors
-            d'un écran de 360 × 640 le bouton qui permet de repartir —
-            « Rejoindre une soirée » sur l'accueil, « Revenir » dans la salle
-            d'attente. Le clavier vient quand on touche un champ. */}
-        <input
-          id="pf-login"
-          className="input input-line"
-          value={login}
-          onChange={e => {
-            setLogin(e.target.value)
-            setLoginTouche(true)
-          }}
-          autoComplete="username"
-          autoCapitalize="none"
-          maxLength={32}
-        />
-      </div>
+      {!creation && (
+        <div className="field">
+          <label className="label" htmlFor="pf-login">
+            Ton identifiant
+          </label>
+          {/* Jamais d'`autoFocus` : le clavier ouvert d'office pousse hors
+              d'un écran de 360 × 640 le bouton qui permet de repartir —
+              « Rejoindre une soirée » sur l'accueil, « Revenir » dans la salle
+              d'attente. Le clavier vient quand on touche un champ. */}
+          <input
+            id="pf-login"
+            className="input input-line"
+            value={login}
+            onChange={e => {
+              setLogin(e.target.value)
+              setLoginTouche(true)
+            }}
+            autoComplete="username"
+            autoCapitalize="none"
+            maxLength={32}
+          />
+        </div>
+      )}
       <div className="field">
         <label className="label" htmlFor="pf-pass">
           Ton mot de passe
@@ -282,6 +333,18 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
           autoComplete={creation ? 'new-password' : 'current-password'}
         />
       </div>
+      {creation && (
+        <IdentifiantDiscret
+          id="pf-login"
+          login={login}
+          ouvert={loginOuvert || loginTouche || (name.trim() !== '' && !LOGIN.test(login))}
+          onOuvrir={() => setLoginOuvert(true)}
+          onChange={v => {
+            setLogin(v)
+            setLoginTouche(true)
+          }}
+        />
+      )}
       {error && (
         <div role="alert">
           <p className="error">{error}</p>
@@ -304,23 +367,9 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
         {/* Sans échappée, l'autre mode est un bouton discret sous le
             principal. Avec, il passe après le « ou » : c'est là qu'on range
             tout ce qui n'est pas « je reviens ». */}
-        {!echappee && (
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() => {
-              setError('')
-              setInfo('')
-              // L'identifiant deviné du prénom ne suit pas en connexion :
-              // Camille y aurait essayé « camille », et ses échecs fermaient
-              // le vrai profil « camille » un quart d'heure.
-              if (!loginTouche) setLogin(creation ? '' : identifiantPour(name))
-              setMode(creation ? 'connexion' : 'inscription')
-            }}
-          >
-            {creation ? 'J’ai déjà un profil' : 'Je n’en ai pas encore'}
-          </button>
-        )}
+        <button type="button" className="btn btn-ghost" onClick={() => changerDeMode(creation ? 'connexion' : 'inscription')}>
+          {creation ? 'J’ai déjà un profil' : 'Je n’en ai pas encore'}
+        </button>
         {onCancel && (
           <button type="button" className="btn btn-ghost" onClick={onCancel}>
             Revenir
@@ -334,34 +383,6 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
           </button>
         </p>
       )}
-      {echappee && (
-        <>
-          <p className="entree-ou">ou</p>
-          <div className="join-actions">
-            {echappee}
-            <button
-              type="button"
-              className="btn btn-big btn-block"
-              onClick={() => {
-                setError('')
-                setInfo('')
-                if (!loginTouche) setLogin(creation ? '' : identifiantPour(name))
-                setMode(creation ? 'connexion' : 'inscription')
-              }}
-            >
-              {creation ? 'J’ai déjà un profil' : 'Créer un profil'}
-            </button>
-          </div>
-          {/* Sous les boutons, où rien n'est poussé : le quiz du jour est la
-              seule chose qu'un profil ouvre entre deux soirées, et l'accueil
-              le taisait. */}
-          <p className="muted small center join-foot">
-            {PITCH_PROFIL} Il t’ouvre aussi le quiz du jour, dix questions chaque jour. Il ne change rien aux
-            points d'un quiz — et rejoindre une soirée n'en demande aucun.
-          </p>
-        </>
-      )}
-      {pied}
     </form>
   )
 }

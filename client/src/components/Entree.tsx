@@ -17,6 +17,9 @@ import { Niveau } from './Niveau'
 import { TeamPicker } from './TeamPicker'
 import { Icon } from './Icon'
 import { MotDePasse } from './MotDePasse'
+import { Sortie } from './Pieces'
+import { IdentifiantDiscret, inscrireAvecRepli } from './IdentifiantDiscret'
+import { LOGIN } from '../../../shared/space'
 import { espacesFines } from '../format'
 
 /** Ce qu'on envoie au serveur pour être quelqu'un ce soir. */
@@ -61,7 +64,7 @@ interface Props {
   lendemain?: ReactNode
 }
 
-type Etape = 'entree' | 'moi' | 'retour' | 'securiser' | 'code' | 'secours' | 'equipe' | 'place'
+type Etape = 'entree' | 'connexion' | 'moi' | 'retour' | 'securiser' | 'code' | 'secours' | 'equipe' | 'place'
 
 /** Un avatar au hasard : sans ça, tous ceux qui ne touchent à rien arrivent identiques. */
 export const tirage = () => AVATARS[Math.floor(Math.random() * AVATARS.length)]
@@ -102,6 +105,9 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
   const [identite, setIdentite] = useState<Identite>({})
   const [teamId, setTeamId] = useState<string | null>(null)
   const [login, setLogin] = useState('')
+  /** L'identifiant d'un profil qui naît suit le prénom tant qu'on n'y touche pas (`IdentifiantDiscret`). */
+  const [loginTouche, setLoginTouche] = useState(false)
+  const [loginOuvert, setLoginOuvert] = useState(false)
   const [password, setPassword] = useState('')
   /** L'identifiant libre que le serveur propose quand celui voulu est pris. */
   const [suggestion, setSuggestion] = useState('')
@@ -183,8 +189,60 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
     void entrer(qui, null)
   }
 
-  // ── Écran A : l'entrée ───────────────────────────────────────────────
+  // ── Écran A : l'entrée — trois gros boutons, une phrase ──────────────
+  // Les champs de connexion en tête, puis « ou », puis le reste, ne se
+  // comprenaient pas d'un coup d'œil (la remarque du propriétaire du
+  // 4 octobre 2026). « Jouer sans compte » d'abord, au même format que les
+  // deux autres : personne n'a besoin d'un profil pour jouer.
   if (etape === 'entree') {
+    return (
+      <div className="join entree entree-choix">
+        {salut}
+        {lendemain}
+        <div className="join-grow" />
+        <div className="join-actions">
+          <button
+            type="button"
+            className="btn btn-accent btn-big btn-block"
+            onClick={() => {
+              setCreation(false)
+              setErreur('')
+              setEtape('moi')
+            }}
+          >
+            Jouer sans compte
+          </button>
+          <button
+            type="button"
+            className="btn btn-big btn-block"
+            onClick={() => {
+              setErreur('')
+              setEtape('connexion')
+            }}
+          >
+            Me connecter
+          </button>
+          <button
+            type="button"
+            className="btn btn-big btn-block"
+            onClick={() => {
+              setCreation(true)
+              setErreur('')
+              setEtape('moi')
+            }}
+          >
+            Créer un profil
+          </button>
+        </div>
+        <p className="entree-note">Un profil retient ton niveau et tes prix d'une soirée à l'autre. Il ne change rien aux points de ce soir.</p>
+        <div className="join-grow" />
+        {connectes > 0 && <p className="join-foot">{connectes} invité·e{connectes > 1 ? '·s' : ''} déjà là</p>}
+      </div>
+    )
+  }
+
+  // ── Écran A′ : se connecter ──────────────────────────────────────────
+  if (etape === 'connexion') {
     const connexion = async (e: FormEvent) => {
       e.preventDefault()
       setBusy(true)
@@ -208,15 +266,21 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
 
     return (
       <form className="join entree" onSubmit={connexion}>
-        {salut}
-        {lendemain}
+        <Sortie
+          vers="Retour"
+          href="/"
+          onClick={() => {
+            setErreur('')
+            setEtape('entree')
+          }}
+        />
+        <h2 className="center">Me connecter</h2>
         <div className="field">
           <label className="label" htmlFor="e-login">
             Ton identifiant
           </label>
           {/* Pas d'`autoFocus` : le clavier qui s'ouvre tout seul pousserait
-              hors de l'écran le bouton qui permet de passer, et c'est
-              exactement ce qu'on ne veut pas cacher. */}
+              hors de l'écran le bouton qui permet de passer. */}
           <input
             id="e-login"
             className="input input-line"
@@ -243,13 +307,11 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
         {erreur && (
           <div role="alert">
             <p className="error">{erreur}</p>
-            <p className="muted small">Tu peux aussi jouer sans compte, juste en dessous.</p>
+            <p className="muted small">Tu peux aussi jouer sans compte : « Retour », en haut.</p>
           </div>
         )}
-        <button
-          className="btn btn-primary btn-big btn-block"
-          disabled={busy || !login.trim() || !password}
-        >
+        <div className="join-grow" />
+        <button className="btn btn-primary btn-big btn-block" disabled={busy || !login.trim() || !password}>
           Me connecter
         </button>
         <p className="join-foot">
@@ -266,43 +328,6 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
             J'ai oublié mon mot de passe
           </button>
         </p>
-        <p className="entree-ou">ou</p>
-        <div className="join-actions">
-          {/* Même largeur, même hauteur que « Me connecter » : seul le style
-              diffère. Si quelqu'un doit chercher comment passer, c'est raté. */}
-          <button
-            type="button"
-            className="btn btn-accent btn-big btn-block"
-            onClick={() => {
-              setCreation(false)
-              setErreur('')
-              setEtape('moi')
-            }}
-          >
-            Jouer sans compte
-          </button>
-          <button
-            type="button"
-            className="btn btn-big btn-block"
-            onClick={() => {
-              setCreation(true)
-              setErreur('')
-              // Un mot de passe que la connexion vient de refuser — souvent
-              // celui du compte d'animateur, tapé à sa propre porte — ne
-              // devient pas en silence celui du profil qu'on crée.
-              if (erreur) setPassword('')
-              setEtape('moi')
-            }}
-          >
-            Créer un profil
-          </button>
-        </div>
-        <p className="entree-note">
-          Un profil retient ton niveau et tes prix d'une soirée à l'autre. Il ne change rien aux
-          points de ce soir.
-        </p>
-        <div className="join-grow" />
-        {connectes > 0 && <p className="join-foot">{connectes} invité·e{connectes > 1 ? '·s' : ''} déjà là</p>}
       </form>
     )
   }
@@ -319,14 +344,14 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
         prefill={login.trim()}
         onDone={async (p, neuf) => {
           const connu = await reconnecter()
-          if (!connu && !p) return setEtape('entree')
+          if (!connu && !p) return setEtape('connexion')
           // Le code vient d'être consommé : celui qu'on rend est le nouveau,
           // et il doit se noter tout de suite comme à l'inscription.
           setErreur('')
           setRecovery(neuf)
           setEtape('code')
         }}
-        onCancel={() => setEtape('entree')}
+        onCancel={() => setEtape('connexion')}
       />
     )
   }
@@ -418,12 +443,8 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
       setErreur('')
       setSuggestion('')
       try {
-        const res = await api.joueur.inscription({
-          login: login.trim(),
-          password,
-          name: name.trim(),
-          avatar,
-        })
+        const res = await inscrireAvecRepli({ login: login.trim(), password, name: name.trim(), avatar }, !loginTouche)
+        setLogin(res.login)
         // Le profil existe désormais : son code de secours se note quoi qu'il
         // arrive ensuite. Une reconnexion trop lente affichait « Connexion
         // perdue », le code ne se montrait jamais, et retenter créait un
@@ -436,6 +457,8 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
       } catch (e) {
         setBusy(false)
         setErreur(motifDe(e))
+        // Un refus peut viser l'identifiant : son champ s'ouvre, avec la proposition du serveur.
+        setLoginOuvert(true)
         if (e instanceof ApiError && e.suggestion) setSuggestion(e.suggestion)
       }
     }
@@ -447,24 +470,9 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           <Icon name="sparkles" /> Garder ma progression
         </h2>
         <p className="muted small center">
-          Ton identifiant te servira à revenir. Il n'y a pas d'adresse e-{/* un gluon : « e- / mail » coupé en bout de ligne */ '\u2060'}mail à donner.
+          Un mot de passe, et c'est tout : il n'y a pas d'adresse e-{/* un gluon : « e- / mail » coupé en bout de ligne */ '\u2060'}mail à donner.
         </p>
         <hr className="hairline" />
-        <div className="field">
-          <label className="label" htmlFor="c-login">
-            Ton identifiant
-          </label>
-          <input
-            id="c-login"
-            className="input input-line"
-            value={login}
-            onChange={e => setLogin(e.target.value)}
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            maxLength={32}
-          />
-        </div>
         <div className="field">
           <label className="label" htmlFor="c-pass">
             Ton mot de passe
@@ -478,6 +486,16 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
           />
           <span className="muted small">Au moins 8 caractères.</span>
         </div>
+        <IdentifiantDiscret
+          id="c-login"
+          login={login}
+          ouvert={loginOuvert || loginTouche || !LOGIN.test(login)}
+          onOuvrir={() => setLoginOuvert(true)}
+          onChange={v => {
+            setLogin(v)
+            setLoginTouche(true)
+          }}
+        />
         {erreur && <p className="error" role="alert">{erreur}</p>}
         {/* Un refus qui ne propose rien laisse debout, dans le noir, quelqu'un
             qui ne sait pas quoi tenter d'autre. */}
@@ -489,6 +507,7 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
               className="link-inline"
               onClick={() => {
                 setLogin(suggestion)
+                setLoginTouche(true)
                 setSuggestion('')
                 setErreur('')
               }}
@@ -524,6 +543,13 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
     return (
       <div className="join">
         <h2 className="center">Note ce code de secours</h2>
+        {/* L'identifiant s'est déduit du prénom, peut-être « camille2 » : il se
+            note ici, avec le code — c'est lui qu'on tapera pour revenir. */}
+        {creation && (
+          <p className="center">
+            Pour te reconnecter : <b className="identifiant-retenu">{login}</b>
+          </p>
+        )}
         <CodeSecours code={recovery} />
         {erreur && <p className="error" role="alert">{erreur}</p>}
         <div className="join-grow" />
@@ -591,7 +617,9 @@ export function Entree({ space, players, teams, quizEnCours = false, profil, rec
     // Créer un profil, c'est le même écran suivi d'un second : le prénom et
     // l'avatar ne se choisissent jamais deux fois.
     if (creation) {
-      if (!login) setLogin(identifiantPour(name))
+      // Repart du prénom, à moins qu'on ait choisi le sien : un identifiant
+      // tapé à la connexion ne devient pas celui du profil qu'on crée.
+      if (!loginTouche) setLogin(identifiantPour(name))
       return setEtape('securiser')
     }
     versLaSoiree({ name: name.trim(), avatar })
