@@ -71,7 +71,7 @@ async function salon(login: string) {
   const ecran = await ecranCommun(banc.url, console_)
   const a = await invite(banc.url, 'Alice', '🦊', { slug: espace.slug })
   const b = await invite(banc.url, 'Bruno', '🐼', { slug: espace.slug })
-  return { console_, quiz, programme, ecran, a, b, slug: espace.slug }
+  return { profil, console_, quiz, programme, ecran, a, b, slug: espace.slug }
 }
 
 test('le dernier quiz du programme joué, la soirée s’enregistre seule, son podium regardé', async () => {
@@ -84,6 +84,23 @@ test('le dernier quiz du programme joué, la soirée s’enregistre seule, son p
   assert.ok(soiree, 'chacun reçoit sa fin de soirée')
   const apres = await instantane<{ players: unknown[]; clotureAuto?: number }>(s.ecran, x => x.players.length === 0, 'la soirée vide')
   assert.equal(apres.clotureAuto, undefined)
+})
+
+test('« Ouvrir le salon » le lendemain efface la clôture de la veille sur la télé', async () => {
+  // L'écran commun gardait « La soirée est close » jusqu'au premier invité :
+  // le chef qui rouvrait son salon la voyait encore (la remarque du
+  // 4 octobre 2026). Ouvrir le salon, c'est commencer la soirée suivante.
+  const s = await salon('chef0')
+  const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée', 8000)
+  await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
+  await fin
+  await instantane<{ scene?: { ecran: string } }>(s.ecran, x => x.scene?.ecran === 'cloture', 'la clôture à l’écran')
+  // Un écran qui se présente ne la quitte pas : elle s'y montre encore.
+  const autre = await ecranCommun(banc.url, s.console_)
+  assert.equal((await instantane<{ scene?: { ecran: string } }>(autre)).scene?.ecran, 'cloture')
+  assert.ok((await ecrire(banc.url, '/api/joueur/salon', {}, s.profil)).ok)
+  const apres = await instantane<{ scene?: unknown; players: unknown[] }>(s.ecran, x => x.scene === undefined, 'la clôture effacée')
+  assert.equal(apres.players.length, 0, 'une salle neuve, sans personne encore')
 })
 
 test('l’écran commun d’avant ne clôt jamais rien seul', async () => {

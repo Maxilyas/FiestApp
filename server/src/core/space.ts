@@ -1185,11 +1185,17 @@ export class SpaceRuntime {
    * d'animateur qui se présente l'ouvre aussi : la salle d'attente le montre
    * en grand, et le QR le porte. Le code neuf part à toute la salle.
    */
-  async ouvrirSalon(opts: { auto?: boolean } = {}): Promise<string | null> {
+  async ouvrirSalon(opts: { auto?: boolean; commencer?: boolean } = {}): Promise<string | null> {
     if (!this.deps.salons) return null
+    // « Ouvrir le salon », depuis le téléphone du chef, commence une soirée :
+    // la clôture de la précédente, restée sur la télé, y affichait « La
+    // soirée est close » jusqu'au premier invité (la remarque du propriétaire
+    // du 4 octobre 2026). Un écran qui se présente, lui, ne la quitte pas.
+    const fermee = !!opts.commencer && this.scene?.ecran === 'cloture'
+    if (fermee) this.soireeCommence()
     const avant = this.deps.salons.codeDe(this.spaceId)
-    const code = await this.deps.salons.ouvrir(this.spaceId, opts)
-    if (code !== avant) this.sendSnapshot()
+    const code = await this.deps.salons.ouvrir(this.spaceId, { auto: opts.auto })
+    if (code !== avant || fermee) this.sendSnapshot()
     return code
   }
 

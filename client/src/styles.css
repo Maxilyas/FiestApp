@@ -6876,8 +6876,11 @@ body.avec-chef .player-shell:has(.ans-grid) { padding-bottom: calc(46px + 64px);
 .qr-du-salon { align-self: center; padding: 12px; border-radius: var(--radius-sm); background: #ffffff; }
 .qr-du-salon svg { display: block; width: min(220px, 60vw); height: auto; }
 .geste-qui-defait { color: var(--alert); }
-/* Le toast monte au-dessus de la barre : il ne la cache pas, elle ne le cache pas. */
-body.avec-chef .toast { bottom: calc(84px + env(safe-area-inset-bottom)); }
+/* Le toast monte au-dessus de la barre : il ne la cache pas, elle ne le cache
+   pas. Pas celui d'une page de joueur, posé en haut : ancré des deux côtés,
+   il s'étirait en colonne sur toute la hauteur (« Lien copié », la remarque
+   du propriétaire du 4 octobre 2026). */
+body.avec-chef .toast:not(.player-shell > .toast) { bottom: calc(84px + env(safe-area-inset-bottom)); }
 /* La soirée d'un salon va s'enregistrer : dit au-dessus du podium, sans le couvrir. */
 .cloture-qui-vient { display: flex; align-items: center; gap: 10px; margin: 0; }
 .cloture-qui-vient .icon { flex: none; color: var(--accent-text); }
@@ -6931,7 +6934,7 @@ body.avec-chef .toast { bottom: calc(84px + env(safe-area-inset-bottom)); }
 /* La page ne passe jamais sous la barre. */
 body.avec-menu { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
 body.avec-menu .player-shell { padding-bottom: 24px; }
-body.avec-menu .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe-area-inset-bottom)); }
 
 /* ── Les pièces de l'application ─────────────────────────────────────────
    Chaque pièce a sa couleur, prise dans la palette du thème porté : on sait

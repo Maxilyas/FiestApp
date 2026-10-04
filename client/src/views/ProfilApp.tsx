@@ -268,7 +268,6 @@ export function ProfilApp() {
             </p>
           )
         }
-        pied={!console_ && <PorteAnimateur />}
         creer={!!creation}
         prefill={creation ?? undefined}
         onEnvoi={() => void panneaux.charger().catch(() => {})}
@@ -284,8 +283,12 @@ export function ProfilApp() {
         }}
         echappee={
           <>
+            {/* Le même mot qu'à l'entrée d'une soirée : « Rejoindre une
+                soirée » ici, « Jouer sans compte » là-bas, pour le même
+                chemin (la remarque du propriétaire du 4 octobre 2026). Le
+                formulaire du code, derrière, dit qu'on rejoint une soirée. */}
             <button type="button" className="btn btn-accent btn-big btn-block" onClick={() => setRejoindre(true)}>
-              Rejoindre une soirée
+              Jouer sans compte
             </button>
             {lendemain}
           </>
@@ -545,25 +548,6 @@ function lireEcran(): EcranDuProfil | null {
 // La boutique des thèmes vivait dans l'apparence (`/profil#mes-themes`) : la
 // fin de soirée d'une page d'avant y mène encore, et trouve sa page.
 if (VUE === 'profil' && window.location.hash === '#mes-themes') window.location.replace('/boutique')
-
-/**
- * La porte des animateurs, sur l'accueil d'un visiteur sans profil ni
- * console ouverte ici. Discrète, parce que l'accueil est d'abord celui des
- * invités — « Rejoindre une soirée » ne doit jamais descendre sous le bord.
- * Elle menait à la connexion d'un compte d'animateur, qu'on ne crée plus :
- * un salon s'ouvre avec son profil (un seul profil, le choix du 3 octobre
- * 2026), et `/salon` le dit, « Me connecter » et « Créer mon profil » sous
- * la main. Une console ouverte ici met sa carte en tête (`JAnime`).
- */
-function PorteAnimateur() {
-  return (
-    <p className="join-foot">
-      <a className="link-inline" href="/salon">
-        J’anime une soirée
-      </a>
-    </p>
-  )
-}
 
 /**
  * La création préremplie qu'ouvre « Créer mon profil » à la fin d'une

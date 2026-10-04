@@ -57,7 +57,7 @@ interface ApiDeps {
   /** Supprime un profil et ce qui n'était qu'à lui — composé dans `createQuizServer`. */
   supprimerProfil: (profileId: string) => Promise<{ salon: 'detache' | null }>
   /** Ouvre le salon d'un espace et rend son code (`SpaceRuntime.ouvrirSalon`). */
-  ouvrirSalon: (spaceId: string, opts?: { auto?: boolean }) => Promise<string | null>
+  ouvrirSalon: (spaceId: string, opts?: { auto?: boolean; commencer?: boolean }) => Promise<string | null>
   /** Rediffuse la salle d'un espace dont les réglages ont changé. */
   espaceChange: (spaceId: string) => void
   /** Rediffuse la salle des soirées où joue un profil qui a changé de parure. */

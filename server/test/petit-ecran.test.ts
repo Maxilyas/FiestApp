@@ -272,6 +272,17 @@ test('la carte se ferme d’une croix dans sa barre, toujours en vue, et ne pren
   assert.match(regle('.carte-joueur-barre'), /flex:\s*none/, 'la barre ne défile pas')
 })
 
+test('un toast ne s’ancre jamais en haut et en bas à la fois', () => {
+  // Posé en haut sur une page de joueur, il recevait aussi le « bottom » de
+  // la barre du chef ou du menu : « Lien copié » s'étirait en colonne sur
+  // toute la hauteur (la remarque du 4 octobre 2026).
+  assert.match(regle('.player-shell > .toast'), /top:[^;]+;\s*bottom:\s*auto/)
+  for (const barre of ['avec-chef', 'avec-menu']) {
+    assert.ok(!new RegExp(`body\\.${barre} \\.toast \\{`).test(CSS), `${barre} : sans exception, la barre étirait le toast d’une page de joueur`)
+    assert.match(regle(`body.${barre} .toast:not(.player-shell > .toast)`), /bottom:/)
+  }
+})
+
 // ── Les choix du profil : le focus reste, et l'on entend ce qui change ────
 
 test('choisir un avatar, une finition, un fond ou sa vitrine ne fait plus tomber le focus', async () => {
