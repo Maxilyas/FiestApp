@@ -669,3 +669,17 @@ test('les points d’une équipe s’accordent : « 1 pt au total », « 1 pt de
   )
   assert.match(bilan, /\(1 pt de moyenne\)/)
 })
+
+test('au téléphone, une équipe vide et sans points ne prend pas de ligne ; au mur, si', async () => {
+  // Six équipes par défaut pour quatre invités : quatre lignes à zéro au
+  // téléphone, et une équipe vide sur la troisième marche du podium.
+  const equipe = (id: string, name: string, memberCount: number, average: number) =>
+    ({ id, name, emoji: '🎲', position: 0, memberCount, total: average * memberCount, average, bonus: 0 })
+  const teams = [equipe('a', 'Les Aigles', 2, 300), equipe('z', 'Les Zèbres', 2, 200), equipe('v', 'Les Vides', 0, 0)]
+  const telephone = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams, compact: true }))
+  assert.doesNotMatch(telephone, /Les Vides/)
+  assert.match(texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams })), /Les Vides .*aucun membre/)
+  // Personne n'a encore choisi : on les montre toutes, pour qu'on choisisse.
+  const avant = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams: teams.map(t => ({ ...t, memberCount: 0, average: 0, total: 0 })), compact: true }))
+  assert.match(avant, /Les Aigles .*Les Zèbres .*Les Vides|Les Aigles .*Les Vides .*Les Zèbres/)
+})

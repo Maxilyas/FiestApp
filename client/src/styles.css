@@ -2380,11 +2380,15 @@ h3 > .icon {
 .course-cible strong { color: var(--ink); font-weight: 500; }
 
 /* Au podium du quiz, l'échelle de ses voisins pour qui n'y monte pas. */
-.echelle { padding: 12px 14px; }
-.echelle .leaderboard { margin-top: 6px; gap: 4px; }
-.echelle .lb-row { padding: 5px 10px; }
-.echelle-toi { color: var(--muted); font-weight: 400; }
-.echelle-podium { margin-top: 8px; text-align: center; color: var(--muted); font-size: 0.95rem; }
+/* Au podium du quiz : le classement de tous, serré — trente lignes se
+   parcourent du pouce, sans qu'une seule prenne la hauteur de deux. */
+.classement-fin { padding: 12px 14px; }
+.classement-fin h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 1rem; }
+.classement-fin .leaderboard { gap: 4px; }
+.classement-fin .lb-row { padding: 5px 10px; }
+.classement-fin-podium { margin: 8px 0 0; text-align: center; color: var(--muted); font-size: 0.95rem; }
+.fin-quiz-podium { display: flex; flex-direction: column; gap: 6px; }
+.fin-quiz-podium > .label { text-align: center; }
 
 /* La note de l'animateur, à sa télécommande seulement. */
 .note-animateur {

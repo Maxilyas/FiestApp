@@ -250,7 +250,21 @@ export interface QuizPlayerView {
    * voie surligné comme au classement de la salle d'attente.
    */
   yourPodiumIndex?: number
+  /**
+   * Au podium : le classement du quiz, du premier au `CLASSEMENT_DE_FIN`ᵉ —
+   * des identifiants, des points et des rangs, que le téléphone décore avec
+   * l'instantané. « Je veux voir le classement de tous les joueurs en
+   * dessous, et les points qu'ils ont faits » (le propriétaire du dépôt, le
+   * 4 octobre 2026). Le même pour toute la salle, une fois par quiz : borné,
+   * il ne fait pas 500 lignes pour chacun des 500 téléphones.
+   */
+  classement?: VoisinAuClassement[]
+  /** Combien sont classés en tout : « et 12 autres » sous une liste coupée. */
+  classes?: number
 }
+
+/** Les lignes du classement qu'un téléphone reçoit au podium : une salle entière, sauf les très grandes. */
+export const CLASSEMENT_DE_FIN = 60
 
 /** Un invité que la question attend encore, tel que la console le montre. */
 export interface QuizAttendu {

@@ -29,7 +29,13 @@ export function TeamBoard({ teams, highlightId, compact }: Props) {
   if (teams.length === 0) {
     return <p className="muted">Aucune équipe pour l'instant…</p>
   }
-  const rows = finalRanking(teams)
+  // Au téléphone, une équipe vide et sans points ne prend pas une ligne :
+  // les six par défaut pour quatre invités, c'étaient quatre lignes à zéro.
+  // Au mur, « aucun membre » dit à l'animateur laquelle supprimer.
+  // Toutes vides — personne n'a encore choisi —, on les montre toutes.
+  const toutes = finalRanking(teams)
+  const habitees = toutes.filter(t => t.memberCount > 0 || t.finalPoints !== 0)
+  const rows = compact && habitees.length > 0 ? habitees : toutes
   // Avant le premier quiz, toutes les équipes sont à zéro donc toutes
   // premières : six « 1 » projetés au mur, ça ne veut rien dire. On n'affiche
   // le classement qu'une fois qu'il y a quelque chose à classer — un quiz
@@ -39,7 +45,7 @@ export function TeamBoard({ teams, highlightId, compact }: Props) {
   return (
     // Une liste : sans elle, le lecteur d'écran lisait toutes les équipes
     // d'une traite, sans dire où l'une finit et l'autre commence.
-    <div className={'leaderboard team-board' + (compact ? ' team-board-compact' : '')} role="list">
+    <div className="leaderboard team-board" role="list">
       {rows.map(t => (
         <div
           key={t.id}

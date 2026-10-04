@@ -6,6 +6,7 @@ import { nomAffiche } from '../../../shared/homonymes'
 import { classer, decimales, ecartEstimation, groupesDExAequo, rangDansLesTries, rangPartage, type Classe } from '../../../shared/classement'
 import { ENCHAINEMENT_MAX_S } from '../../../shared/console'
 import { preparerPartie, type ReglagesDuQuiz } from '../../../shared/hasard'
+import { CLASSEMENT_DE_FIN } from '../../../shared/games/quiz'
 import type {
   QuizAction,
   DetailDeLaQuestion,
@@ -1495,6 +1496,14 @@ export const quizModule: GameModule<QuizState> = {
         // Le même podium pour toute la salle : construit une fois par diffusion.
         podium: vctx.memo('quiz:podium', () => standings(sess, vctx, 3)),
         ...podiumDe(sess, vctx, playerId),
+        // Le classement de tous, sous le podium : le même pour toute la salle.
+        ...vctx.memo('quiz:classement-de-fin', () => {
+          const tous = classement(sess, vctx)
+          return {
+            classement: tous.slice(0, CLASSEMENT_DE_FIN).map(({ item, rang }) => ({ id: item.playerId, points: item.points, rang })),
+            classes: tous.length,
+          }
+        }),
         // Sa place, à chacun : ses voisins, pour qui n'y monte pas. Arrivé
         // après la dernière question, on n'a rien joué : pas de place.
         ...((st.playFrom[playerId] ?? 0) <= st.qIndex && { place: placeAuQuiz(sess, vctx, playerId, false) }),

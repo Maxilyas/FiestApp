@@ -1,13 +1,7 @@
-import type { QuizPlayerView, VoisinAuClassement } from '../../../../shared/games/quiz'
-import type { PublicPlayer, PublicTeam } from '../../../../shared/types'
-import { ecartAuPodium, ligneDeCourse } from '../../../../shared/course'
-import { Avatar } from '../../components/Avatar'
+import type { QuizPlayerView } from '../../../../shared/games/quiz'
+import type { PublicPlayer } from '../../../../shared/types'
+import { ligneDeCourse } from '../../../../shared/course'
 import { Icon } from '../../components/Icon'
-import { Niveau } from '../../components/Niveau'
-import { NomLaure } from '../../components/Laurier'
-import { PastilleEquipe } from '../../components/PastilleEquipe'
-import { Rank, Score } from '../../components/Rank'
-import { pts } from '../../format'
 
 /** Le nom qu'un invité porte dans la salle, marque d'homonymie comprise (invariant 17). */
 const nomDansLaSalle = (players: readonly PublicPlayer[] | undefined, id: string) => {
@@ -73,76 +67,5 @@ export function LigneDeCourse({
         )}
       </div>
     </section>
-  )
-}
-
-/**
- * Au podium du quiz, pour qui n'y monte pas : l'échelle de ses voisins —
- * celui qu'il talonnait, lui, celui qui le talonnait —, là où la place ne
- * manque plus. Rien à zéro point : pas de rang pour qui n'a pas marqué, et
- * personne n'y lit le zéro d'un autre.
- */
-export function Echelle({
-  view: v,
-  players,
-  moi,
-  teams = [],
-}: {
-  view: QuizPlayerView
-  players: readonly PublicPlayer[] | undefined
-  moi: PublicPlayer | undefined
-  teams?: readonly PublicTeam[]
-}) {
-  const place = v.place
-  const total = v.yourQuizTotal ?? 0
-  if (!place || v.yourQuizRank === undefined || !moi || v.yourPodiumIndex !== undefined || total <= 0) return null
-  const decore = (voisin: VoisinAuClassement | undefined) => {
-    const p = voisin && players?.find(x => x.id === voisin.id)
-    return p && voisin ? { ...voisin, p } : null
-  }
-  const devant = decore(place.devant)
-  const derriere = place.derriere && place.derriere.points > 0 ? decore(place.derriere) : null
-  const ecart = ecartAuPodium(v.yourQuizRank, total, place)
-  return (
-    <section className="card echelle">
-      <span className="label">Ta place dans ce quiz</span>
-      <div className="leaderboard">
-        {devant && <Ligne rang={devant.rang} p={devant.p} points={devant.points} teams={teams} moi={moi} />}
-        <Ligne rang={v.yourQuizRank} p={moi} points={total} soi teams={teams} moi={moi} />
-        {derriere && <Ligne rang={derriere.rang} p={derriere.p} points={derriere.points} teams={teams} moi={moi} />}
-      </div>
-      {ecart !== null && <p className="echelle-podium">À {pts(ecart)} du podium</p>}
-    </section>
-  )
-}
-
-function Ligne({
-  rang,
-  p,
-  points,
-  soi,
-  teams,
-  moi,
-}: {
-  rang: number
-  p: PublicPlayer
-  points: number
-  soi?: boolean
-  teams: readonly PublicTeam[]
-  moi: PublicPlayer
-}) {
-  const equipe = teams.find(t => t.id === p.teamId)
-  return (
-    <div className={'lb-row' + (soi ? ' me' : '')}>
-      <Rank n={rang} />
-      <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
-      <span className="lb-name">
-        <NomLaure nom={p.nomAffiche ?? p.name} laurier={p.laurier} />
-        <PastilleEquipe equipe={equipe} avecMoi={!soi && !!equipe && equipe.id === moi.teamId} />
-        {soi && <span className="echelle-toi"> · toi</span>}
-      </span>
-      <Niveau niveau={p.niveau} />
-      <Score n={points} />
-    </div>
   )
 }

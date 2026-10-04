@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
-import type { DetailDeLaQuestion, QuizAction, QuizPlayerView } from '../../../../shared/games/quiz'
+import type { DetailDeLaQuestion, QuizAction, QuizPlayerView, VoisinAuClassement } from '../../../../shared/games/quiz'
 import { lireNombre } from '../../../../shared/nombres'
 import { rangPartage } from '../../../../shared/classement'
 import { GetReady } from '../../components/GetReady'
 import { TimerBar } from '../../components/TimerBar'
 import { TeamBoard } from '../../components/TeamBoard'
+import { finalRanking } from '../../../../shared/teams'
+import { Rank, Score } from '../../components/Rank'
 import { Icon } from '../../components/Icon'
 import { Shape } from '../../components/Shape'
 import type { PublicPlayer, PublicTeam } from '../../../../shared/types'
@@ -13,10 +15,10 @@ import { answersSizeClass, questionSizeClass } from './questionSize'
 import { Avatar } from '../../components/Avatar'
 import { NomLaure } from '../../components/Laurier'
 import { serverNow } from '../../clock'
-import { Echelle, LigneDeCourse } from './Course'
+import { LigneDeCourse } from './Course'
 import { toucher } from '../../toucher'
 import { PastilleEquipe } from '../../components/PastilleEquipe'
-import { ligneDeSoiree, moitieHaute } from '../../../../shared/course'
+import { ecartAuPodium, ligneDeSoiree, moitieHaute } from '../../../../shared/course'
 
 interface Props {
   view: QuizPlayerView
@@ -1070,9 +1072,97 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
         )}
       </div>
       {soiree && !v.horsClassement && <p className="muted small center">{soiree}</p>}
-      {v.podium && v.podium.length > 0 && <Marches rows={v.podium} moi={v.yourPodiumIndex} />}
-      {/* Hors du podium, on veut savoir qui l'on a talonné jusqu'au bout — pas le chef qui animait. */}
-      {!v.horsClassement && <Echelle view={v} players={players} moi={moi} teams={salle.teams} />}
+      {/* Les équipes d'abord : ce sont elles qui décident de la soirée. */}
+      <PodiumDesEquipes teams={teams} monEquipe={myTeamId} />
+      {v.podium && v.podium.length > 0 && (
+        <section className="fin-quiz-podium" aria-label="Le podium des joueurs">
+          {teams.length > 0 && <span className="label">Les joueurs</span>}
+          <Marches rows={v.podium} moi={v.yourPodiumIndex} />
+        </section>
+      )}
+      <ClassementDeFin view={v} salle={salle} />
     </div>
+  )
+}
+
+/**
+ * Le podium des équipes, au podium du quiz : leurs points d'équipe — la
+ * moyenne par membre, prix compris —, sur les mêmes marches que les joueurs.
+ * Rien tant qu'aucune n'a marqué : trois équipes à zéro sur des marches, ce
+ * serait couronner l'ordre alphabétique.
+ */
+function PodiumDesEquipes({ teams, monEquipe }: { teams: PublicTeam[]; monEquipe: string | null }) {
+  // Une équipe sans personne et sans rien n'y monte pas : six équipes par
+  // défaut pour quatre invités mettaient une équipe vide sur la troisième marche.
+  const classees = finalRanking(teams).filter(t => t.memberCount > 0 || t.finalPoints !== 0)
+  if (!classees.some(t => t.average > 0 || t.bonus !== 0)) return null
+  const rows = classees.slice(0, 3).map(t => ({ name: t.name, avatar: t.emoji, points: t.finalPoints, rank: t.rank }))
+  const mienne = classees.slice(0, 3).findIndex(t => t.id === monEquipe)
+  return (
+    <section className="fin-quiz-podium" aria-label="Le podium des équipes">
+      <span className="label">Les équipes</span>
+      <Marches rows={rows} moi={mienne >= 0 ? mienne : undefined} />
+    </section>
+  )
+}
+
+/**
+ * Sous le podium, le classement de tous et les points de chacun à ce quiz —
+ * en équipes comme en solo (le propriétaire du dépôt, le 4 octobre 2026),
+ * l'emoji de son équipe à côté du prénom. Des identifiants que le serveur
+ * envoie une fois pour toute la salle (`classement`), décorés ici avec
+ * l'instantané. Pas de rang à zéro point : premier de rien, c'est rien.
+ */
+function ClassementDeFin({ view: v, salle: { players, teams, myTeamId, moi } }: { view: QuizPlayerView; salle: Salle }) {
+  const lignes = v.classement
+  if (!lignes || lignes.length === 0) return null
+  const parId = new Map(players.map(p => [p.id, p]))
+  const sienneDedans = !!moi && lignes.some(l => l.id === moi.id)
+  // Au-delà des lignes reçues, la sienne se lit dans sa vue : on se cherche d'abord.
+  const sienne =
+    moi && !sienneDedans && !v.horsClassement && v.yourQuizRank !== undefined ? { id: moi.id, points: v.yourQuizTotal ?? 0, rang: v.yourQuizRank } : null
+  const autres = (v.classes ?? lignes.length) - lignes.length - (sienne ? 1 : 0)
+  // Juste sous le podium, on veut savoir de combien on l'a manqué.
+  const total = v.yourQuizTotal ?? 0
+  const ecart =
+    !v.horsClassement && v.place && v.yourQuizRank !== undefined && v.yourPodiumIndex === undefined && total > 0
+      ? ecartAuPodium(v.yourQuizRank, total, v.place)
+      : null
+  const ligne = (l: VoisinAuClassement) => {
+    const p = parId.get(l.id)
+    const equipe = teams.find(t => t.id === p?.teamId)
+    const soi = l.id === moi?.id
+    return (
+      <div key={l.id} role="listitem" className={'lb-row' + (soi ? ' me' : '')}>
+        {l.points > 0 ? <Rank n={l.rang} /> : <span className="lb-rank" aria-hidden="true">·</span>}
+        <Avatar className="lb-avatar" avatar={p?.avatar ?? '🎉'} finition={p?.finition} eclat={p?.eclat} legendaire={p?.legendaire} />
+        <span className="lb-name">
+          <NomLaure nom={p ? (p.nomAffiche ?? p.name) : 'Un invité parti'} laurier={p?.laurier} />
+          <PastilleEquipe equipe={equipe} avecMoi={!soi && !!equipe && equipe.id === myTeamId} />
+        </span>
+        <Score n={l.points} texte={formatNumber(l.points)} />
+      </div>
+    )
+  }
+  return (
+    <section className="card classement-fin" aria-labelledby="classement-fin-titre">
+      <h3 id="classement-fin-titre">
+        <Icon name="list" />
+        Le classement
+      </h3>
+      <div className="leaderboard" role="list">
+        {lignes.map(ligne)}
+        {sienne && (
+          <>
+            <p className="muted center small" aria-hidden="true">
+              …
+            </p>
+            {ligne(sienne)}
+          </>
+        )}
+      </div>
+      {autres > 0 && <p className="muted small center">et {autres} autre{autres > 1 ? 's' : ''}</p>}
+      {ecart !== null && <p className="classement-fin-podium">Tu étais à {pts(ecart)} du podium</p>}
+    </section>
   )
 }

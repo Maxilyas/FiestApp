@@ -666,10 +666,15 @@ test('à la révélation : le résultat, sa place, les équipes, puis l’anecdo
   assert.match(html, /À 40 pts d’<strong>Hugo<\/strong>/)
 })
 
-test('au podium, qui n’y monte pas voit son échelle ; à zéro, ni rang ni échelle', async () => {
+test('au podium, le classement de tous et leurs points, sous les marches — les équipes d’abord', async () => {
+  // Le propriétaire du dépôt, le 4 octobre 2026 : « le podium des équipes,
+  // aussi des joueurs, avec le classement de tous — en équipe mais aussi en
+  // solo, le classement de tous les joueurs en dessous et les points qu'ils
+  // ont faits ». L'échelle de trois voisins a laissé sa place.
   const joueurs = [
-    { id: 'moi', name: 'Sofia', avatar: '🐼', score: 450, teamId: null },
-    { id: 'h', name: 'Hugo', avatar: '🦊', score: 490, teamId: null },
+    { id: 'moi', name: 'Sofia', avatar: '🐼', score: 450, teamId: 'r' },
+    { id: 'h', name: 'Hugo', avatar: '🦊', score: 490, teamId: 'c' },
+    { id: 'a', name: 'Alice', avatar: '🐯', score: 900, teamId: 'r' },
     { id: 'l', name: 'Léa', avatar: '🐸', score: 0, teamId: null },
   ]
   const podium = [
@@ -677,32 +682,92 @@ test('au podium, qui n’y monte pas voit son échelle ; à zéro, ni rang ni é
     { name: 'Bob', avatar: '🐻', points: 800, rank: 2 },
     { name: 'Chloé', avatar: '🐨', points: 500, rank: 3 },
   ]
-  const fin = (surcharge: Partial<QuizPlayerView>) =>
+  const classement = [
+    { id: 'a', points: 900, rang: 1 },
+    { id: 'b', points: 800, rang: 2 },
+    { id: 'c', points: 500, rang: 3 },
+    { id: 'h', points: 490, rang: 4 },
+    { id: 'moi', points: 450, rang: 5 },
+    { id: 'l', points: 0, rang: 6 },
+  ]
+  const equipes = [
+    { id: 'r', name: 'Randonneurs', emoji: '🥾', position: 0, memberCount: 2, total: 1350, average: 675, bonus: 0 },
+    { id: 'c', name: 'Carbonara', emoji: '🍝', position: 1, memberCount: 1, total: 490, average: 490, bonus: 0 },
+    { id: 'v', name: 'Les Vides', emoji: '🎈', position: 2, memberCount: 0, total: 0, average: 0, bonus: 0 },
+  ]
+  const fin = (surcharge: Partial<QuizPlayerView>, teams: unknown[] = []) =>
     rendu('games/quiz/PlayerView', 'QuizPlayer', {
-      view: { phase: 'finished', qIndex: 9, qCount: 10, yourChoice: null, podium, yourQuizTotal: 450, yourQuizRank: 5, ...surcharge },
+      view: { phase: 'finished', qIndex: 9, qCount: 10, yourChoice: null, podium, classement, classes: 6, yourQuizTotal: 450, yourQuizRank: 5, ...surcharge },
       send: () => {},
-      teams: [],
-      myTeamId: null,
+      teams,
+      myTeamId: teams.length ? 'r' : null,
       players: joueurs,
       moi: joueurs[0],
-      participants: 12,
+      participants: 6,
     })
   const html = await fin({ place: { devant: { ...HUGO, rang: 4 }, derriere: { id: 'l', points: 0, rang: 6 } } })
-  // Sa place en une ligne, au-dessus des marches : « sur 12 » dans la moitié haute seulement.
-  assert.match(html, /<span class="fin-quiz-place"><b>5ᵉ place<\/b> sur 12 · 450 pts<\/span>/)
-  assert.match(html, /class="card echelle"/)
-  assert.equal([...html.matchAll(/class="lb-row me"/g)].length, 1, 'sa ligne, surlignée')
-  assert.ok(html.includes('Hugo'), 'celui qu’on talonnait')
-  assert.ok(!html.includes('Léa'), 'personne n’y lit le zéro d’un autre')
+  // Sa place en une ligne, au-dessus des marches : « sur 6 » dans la moitié haute seulement.
+  assert.match(html, /<span class="fin-quiz-place"><b>5ᵉ place<\/b> · 450 pts<\/span>/)
+  const tableau = html.slice(html.indexOf('classement-fin'))
+  const lignes = [...tableau.matchAll(/role="listitem" class="lb-row[^"]*">([\s\S]*?)<\/div>/g)].map(m => m[0])
+  assert.equal(lignes.length, 6, 'tout le monde, sous les marches')
+  assert.ok(lignes[4].includes('class="lb-row me"') && lignes[4].includes('Sofia'), 'sa ligne, surlignée')
+  assert.match(lignes[0], /Alice[\s\S]*900/)
+  assert.match(lignes[1], /Un invité parti/, 'un identifiant que l’instantané ne connaît plus')
+  assert.match(lignes[5], /<span class="lb-rank" aria-hidden="true">·<\/span>[\s\S]*Léa/, 'à zéro point, pas de rang')
+  assert.doesNotMatch(tableau, /du podium/, 'le podium hors de portée : rien à en dire')
+  const juste = await fin({ yourQuizRank: 4, yourQuizTotal: 490, place: { devant: { id: 'c', points: 500, rang: 3 } } })
+  assert.match(juste, /Tu étais à 10 pts du podium/)
+  assert.ok(html.indexOf('marches') < html.indexOf('classement-fin'), 'le podium d’abord, le classement dessous')
+  assert.doesNotMatch(html, /Le podium des équipes/, 'en solo, pas de podium d’équipes')
   assert.ok(!html.includes('Soirée'), 'au premier quiz, la soirée et le quiz ne font qu’un')
+
+  // En équipes : leur podium d'abord, puis les joueurs, et l'emoji de chacun dans le classement.
+  const enEquipes = await fin({ place: { devant: { ...HUGO, rang: 4 } } }, equipes)
+  const reperes = ['Le podium des équipes', 'Le podium des joueurs', 'classement-fin'].map(r => enEquipes.indexOf(r))
+  assert.ok(reperes.every(i => i >= 0), enEquipes)
+  assert.deepEqual([...reperes].sort((x, y) => x - y), reperes)
+  assert.match(enEquipes, /Randonneurs[\s\S]*675[\s\S]*Carbonara/, 'les équipes à leurs points d’équipe')
+  assert.doesNotMatch(enEquipes, /Les Vides/, 'une équipe vide ne monte pas sur une marche')
+  const avecEquipes = enEquipes.slice(enEquipes.indexOf('classement-fin'))
+  assert.match(avecEquipes, /Alice<span class="pastille-equipe pastille-equipe-moi" title="Randonneurs">/, 'une coéquipière, cerclée')
+  assert.match(avecEquipes, /Hugo<span class="pastille-equipe" title="Carbonara">/)
+
+  // Une très grande salle : la liste s'arrête, et sa ligne vient dessous.
+  const grande = await fin({ classement: classement.slice(0, 3), classes: 140, yourQuizRank: 88, yourQuizTotal: 120 })
+  assert.match(grande, /…[\s\S]*Sofia/, 'sa ligne après les premiers')
+  assert.match(grande, /et 136 autres/)
 
   const zero = await fin({ yourQuizTotal: 0, yourQuizRank: 6, place: { devant: { ...HUGO, rang: 5 } } })
   assert.match(zero, /<span class="fin-quiz-quoi">Quiz terminé<\/span><span class="fin-quiz-place">Pas de points cette fois<\/span>/)
-  assert.ok(!zero.includes('class="card echelle"'))
-  assert.ok(!/6ᵉ place/.test(zero))
+  assert.doesNotMatch(zero, /du podium/)
 
   const second = await fin({ soireeEntamee: true, place: { devant: { ...HUGO, rang: 4 } } })
-  assert.match(second, /Soirée : 2ᵉ place/, 'la soirée, lue dans l’instantané')
+  assert.match(second, /Soirée : 3ᵉ place/, 'la soirée, lue dans l’instantané : Alice et Hugo devant')
+})
+
+test('au podium, chaque téléphone reçoit le même classement de tous ; qui arrive après la fin n’y est pas', () => {
+  const p = partie(['Alice', 'Bruno', 'Chloé', 'David'], QUESTIONS.slice(0, 1))
+  p.repondre('Alice', 0, 3000)
+  p.repondre('Bruno', 0, 6000)
+  p.repondre('Chloé', 1, 9000)
+  p.commande({ type: 'next' })
+  p.commande({ type: 'next' })
+  assert.equal(p.sess.state.phase, 'finished')
+  p.arriver('Zoé')
+  const v = p.vues()
+  const attendu = v.Alice.classement!
+  assert.deepEqual(attendu.map(l => [l.id, l.rang]), [
+    [p.id('Alice'), 1],
+    [p.id('Bruno'), 2],
+    // Chloé s'est trompée, David n'a rien répondu : ex æquo à zéro, rangés par nom.
+    [p.id('Chloé'), 3],
+    [p.id('David'), 3],
+  ])
+  assert.equal(v.Alice.classes, 4)
+  for (const nom of ['Bruno', 'Chloé', 'David', 'Zoé']) assert.deepEqual(v[nom].classement, attendu, `${nom} : le même classement, calculé une fois`)
+  assert.ok(!attendu.some(l => l.id === p.id('Zoé')), 'arrivée après la dernière question, elle n’a rien joué')
+  assert.equal(v.Alice.classement, v.Bruno.classement, 'le même objet pour toute la salle : trié une fois par diffusion')
 })
 
 // ── « Cette question » ─────────────────────────────────────────────────────
