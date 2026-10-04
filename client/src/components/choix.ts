@@ -18,7 +18,7 @@ export type ChoixDuProfil = {
   legendaire?: string | null
   titre?: string | null
   fond?: string | null
-  /** Le thème de son téléphone, parmi ceux qu'il a ; null : Velours. */
+  /** Le thème de ses pages, parmi ceux qu'il a ; null : Velours. */
   theme?: string | null
   vitrine?: string[] | null
   /** Porter la version rare d'un avatar qui a éclaté, ou sa version d'origine. */

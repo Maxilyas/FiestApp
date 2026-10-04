@@ -155,9 +155,9 @@
    polices sont les mêmes.
 
    Un choix de l'écran commun (client/src/theme.ts), et l'un des deux thèmes
-   offerts aux profils pour leur téléphone (client/src/themeJoueur.ts) ; les
-   autres ont leur feuille dans client/src/themes. L'invité sans profil reste
-   en Velours, le noir y ménage les yeux dans le noir. */
+   offerts aux profils pour toutes leurs pages (client/src/themeJoueur.ts) ;
+   les autres ont leur feuille dans client/src/themes. L'invité sans profil
+   reste en Velours, le noir y ménage les yeux dans le noir. */
 :root[data-theme='ivoire'] {
   --bg: #f9f5ec;
   --bg-halo: #fffdf8;
@@ -1976,7 +1976,10 @@ h3 > .icon {
    colonnes que de marches, et centrées : à deux équipes, plus de trou. */
 .final-podium {
   display: grid;
-  grid-template-columns: repeat(var(--marches, 3), 1fr);
+  /* Une marche ne s'élargit pas au mot le plus long : sous une police large
+     (la Game Boy, au souvenir d'un téléphone), « Camille » poussait la
+     troisième marche hors de sa carte, et la page défilait en largeur. */
+  grid-template-columns: repeat(var(--marches, 3), minmax(0, 1fr));
   align-items: end;
   gap: 0.875rem;
   min-height: 16.25rem;
@@ -2021,6 +2024,8 @@ h3 > .icon {
 .bilan-avatar .av-emoji > .pt,
 .bilan-avatar .av-emoji > .dv { font-size: 1.3em; }
 .podium-name {
+  /* Dans sa marche : un nom plus large qu'elle se coupe (`.podium-nom`). */
+  max-width: 100%;
   font-family: var(--serif);
   font-weight: 600;
   font-size: 1.3rem;
@@ -2819,7 +2824,10 @@ h3 > .icon {
   margin: 0;
   padding: 12px 14px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.25);
+  /* Le sol de la page, en creux dans la carte. Noirci en dur, l'encadré
+     virait au gris sous un thème clair, et le texte atténué n'y tenait plus
+     que 2,6:1. */
+  background: color-mix(in srgb, var(--bg) 65%, transparent);
   border: 1px solid var(--edge);
   font-family: Consolas, 'Cascadia Mono', ui-monospace, monospace;
   font-size: 0.82rem;
@@ -7679,7 +7687,10 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
    Le titre et l'identifiant sur une ligne, « Mon salon » sur une trame
    argentée, puis des lignes qui disent leur état — celles de « Mon
    style ». */
-.compte-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* Le titre ne se coupe pas : sous une police large (la Game Boy, le Carnet),
+   « Administration » poussait « Toi seul » hors de l'écran — l'étiquette
+   passe alors dessous. */
+.compte-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
 .compte-tete h1 { margin: 0; font-size: 2rem; }
 .compte-id { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 12px; border: 1px solid var(--edge); border-radius: var(--radius-pill); color: var(--muted); font-size: 0.85rem; overflow-wrap: anywhere; }
 .compte-id strong { font-weight: 500; }

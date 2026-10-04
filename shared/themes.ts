@@ -1,7 +1,8 @@
-// Les thèmes : ce qui habille le téléphone d'un profil — la soirée, sa page,
-// le quiz du jour —, jamais l'écran commun ni les pages de l'animateur. Le
-// thème suit la page, pas la personne : l'animateur qui en a gagné un anime
-// toujours en Velours ou en Ivoire, et l'invité sans profil joue en Velours.
+// Les thèmes : ce qui habille toutes les pages d'un profil, là où il est
+// connecté — la soirée, sa page, ses quiz, son compte, le quiz du jour, le
+// souvenir… —, jamais l'écran commun, que la salle regarde : l'animateur qui
+// en a gagné un y anime en Velours ou en Ivoire. Le thème suit la personne
+// (le choix du 4 octobre 2026), et l'invité sans profil joue en Velours.
 //
 // Deux sont offerts à tous ; les autres s'achètent en confettis, rangés à
 // l'échelle de rareté de l'étagère (`shared/badges.ts`), du Commun au

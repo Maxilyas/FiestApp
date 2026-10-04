@@ -903,10 +903,14 @@ qui tombe, le Grand théâtre et ses rideaux. Ils ne changent rien au jeu
   le Carnaval en février, la Plage l'été, les Cerisiers en avril, Halloween,
   la Neige et le Feu d'artifice aux dates des légendaires de saison — et
   se gardent toute l'année une fois achetés.
-- **Le thème suit la page, pas la personne.** Il habille le téléphone du
-  profil : la soirée, sa page, le quiz du jour. L'écran commun, l'éditeur et
-  les pages de l'animateur restent en Velours ou en Ivoire, même quand
-  l'animateur a acheté la Licorne ; l'invité sans profil joue en Velours.
+- **Le thème suit la personne, pas l'écran commun.** Il habille toutes les
+  pages du profil, là où il est connecté : la soirée, sa page, la boutique,
+  ses quiz, son compte, son salon, le quiz du jour, la campagne, le souvenir
+  et le bilan (le choix du 4 octobre 2026 : les pièces du menu changeaient
+  d'habit d'un toucher à l'autre). L'écran commun — et son aperçu dans
+  « Mes quiz » — reste en Velours ou en Ivoire, même quand l'animateur a
+  acheté la Licorne : la salle le regarde. Les fiches imprimées du bilan
+  restent en Ivoire, et l'invité sans profil joue en Velours.
   Chaque thème est une feuille à part (`client/src/themes/<clé>.css`), ses
   polices livrées avec l'application, chargée à la demande
   (`client/src/themeJoueur.ts`) : un anonyme n'en télécharge aucune.

@@ -3,10 +3,11 @@
 // papier — fond crème, encre sombre — pour un vidéoprojecteur qui délave les
 // noirs au point de rendre l'écran illisible.
 //
-// Le choix ne concerne que l'écran commun, et il est mémorisé sur le PC de
-// l'animateur. Le téléphone d'un joueur porte le thème de son profil — Ivoire
-// en est un, offert à tous (`themeJoueur.ts`) — et celui d'un invité sans
-// profil reste en Velours, le noir y ménage les yeux dans une salle sombre.
+// Le choix ne concerne que l'écran commun — et son aperçu, dans « Mes quiz »
+// (`commeLEcranCommun`) —, et il est mémorisé sur le PC de l'animateur.
+// Toutes les autres pages portent le thème du profil connecté — Ivoire en est
+// un, offert à tous (`themeJoueur.ts`) — et celles d'un invité sans profil
+// restent en Velours, le noir y ménage les yeux dans une salle sombre.
 
 export type Theme = 'velours' | 'ivoire'
 

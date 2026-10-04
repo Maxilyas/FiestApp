@@ -348,6 +348,21 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     }),
   )
 
+  // Le thème qu'il porte, et rien d'autre : les pages qui ne lisent pas son
+  // profil — ses quiz, son compte, le souvenir et le bilan d'une soirée — s'en
+  // habillent (`client/src/themeJoueur.ts`). Sans profil, null : un invité,
+  // pas une erreur. Ni la nuit du quiz du jour ni le profil entier : la salle
+  // qui scanne le QR du souvenir le demande d'un coup, et le profil connecté
+  // se lit en mémoire.
+  app.get(
+    '/api/joueur/theme',
+    wrap(async (req, res) => {
+      noStore(res)
+      const me = await current(req)
+      res.json({ theme: me ? profiles.themePorte(me) : null })
+    }),
+  )
+
   // Sa propre carte, depuis sa page : la seule vitrine de ses cosmétiques
   // (titre, vitrine, écussons, fond) ne s'ouvrait qu'en soirée, sur son nom —
   // il composait sa carte sans jamais la voir. La même que la salle verra,
