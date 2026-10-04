@@ -75,7 +75,7 @@ try {
       .map(p => {
         const c = p.key
         return `<div class="ligne">
-          <div class="nom">${p.nom}<small>${p.seuil} bonnes réponses</small></div>
+          <div class="nom">${p.nom}<small>palier ${p.palier} du sentier</small></div>
           ${case_({ cle: c }, 180, 'gagné')}
           ${case_({ cle: c, eclat: true }, 120, 'éclaté')}
           ${case_({ cle: c, verrouille: true }, 120, 'à gagner')}
@@ -109,7 +109,7 @@ try {
     const rangs = branches
       .map(
         b => `<div class="rang"><div class="nom">${b.nom}<small>${b.categorie}</small></div>
-          ${b.portraits.map(p => case_({ cle: p.key }, 116, `${p.nom} · ${p.seuil}`)).join('')}
+          ${b.portraits.map(p => case_({ cle: p.key }, 116, `${p.nom} · palier ${p.palier}`)).join('')}
           <div class="verrous">${b.portraits.map(p => case_({ cle: p.key, verrouille: true }, 34)).join('')}</div></div>`,
       )
       .join('')

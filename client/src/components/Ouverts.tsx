@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { Finition, PublicProfile } from '../../../shared/profil'
-import { brancheDe, nomDansLaPhrase, portrait as portraitDe, type Portrait } from '../../../shared/branches'
 import { collectionGagnee } from '../../../shared/avatars'
 import { api } from '../api'
 import { showToast } from '../state'
@@ -9,74 +8,10 @@ import { perdus, sortesDe, useDessins } from './medaillons'
 
 // Ce qu'une partie vient d'ouvrir, qu'on porte d'ici : à la fin d'une
 // soirée (`FinDeSoiree.tsx`) comme à la fin du quiz du jour (`JourApp.tsx`).
-// À part de la fin de soirée : le quiz du jour l'importait pour ces trois
+// À part de la fin de soirée : le quiz du jour l'importait pour ces
 // composants, et téléchargeait toute la fin de soirée à chaque ouverture de
-// sa page.
-
-/**
- * Les portraits des branches que la soirée — ou la partie du quiz du jour —
- * vient d'ouvrir, qu'on porte d'ici. Presque chaque soirée en ouvre un, et
- * la première en ouvre souvent plusieurs : ils tiennent dans une rangée, pas
- * dans une carte chacun comme un légendaire, qui reste l'événement.
- */
-export function PortraitsOuverts({
-  cles,
-  porte,
-  onPorte,
-}: {
-  cles: readonly string[]
-  /** L'avatar dessiné qu'il porte déjà. */
-  porte: string | null
-  onPorte?: (profil: PublicProfile) => void
-}) {
-  const [porteIci, setPorteIci] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const portraits = cles.map(c => portraitDe(c)).filter((p): p is Portrait => !!p)
-  if (portraits.length === 0) return null
-  const actuel = porteIci ?? porte
-  const porter = async (p: Portrait) => {
-    if (busy) return
-    setBusy(true)
-    try {
-      const { profile } = await api.joueur.enregistrer({ legendaire: p.key })
-      setPorteIci(profile.legendaire)
-      onPorte?.(profile)
-      showToast({ kind: 'info', message: `Tu portes ${nomDansLaPhrase(p.nom)}` })
-    } catch (e) {
-      showToast({ kind: 'error', message: (e as Error).message })
-    } finally {
-      setBusy(false)
-    }
-  }
-  return (
-    <section className="card fin-portraits">
-      <span className="label">{portraits.length > 1 ? 'Nouveaux avatars du savoir' : 'Nouvel avatar du savoir'}</span>
-      <div className="fin-portraits-liste">
-        {portraits.map(p => (
-          <div key={p.key} className="fin-portrait">
-            <Medaillon cle={p.key} className="fin-portrait-dessin" />
-            <b>{p.nom}</b>
-            <span className="muted small">{`${p.seuil} bonnes réponses en ${brancheDe(p).categorie}`}</span>
-            {actuel === p.key ? (
-              <span className="muted small">C’est lui que la salle verra.</span>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-small"
-                aria-label={`Porter ${nomDansLaPhrase(p.nom)}`}
-                aria-disabled={busy || undefined}
-                onClick={() => void porter(p)}
-              >
-                Le porter
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      <p className="muted small">Chaque bonne réponse fait avancer la branche de sa catégorie, en soirée comme au quiz du jour.</p>
-    </section>
-  )
-}
+// sa page. (Les portraits des branches s'y annonçaient aussi : ils se
+// gagnent maintenant sur les sentiers, qui ont leur révélation.)
 
 /**
  * Les emojis de collection qu'une montée de niveau vient d'ouvrir, qu'on

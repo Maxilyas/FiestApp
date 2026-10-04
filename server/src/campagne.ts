@@ -5,6 +5,8 @@ import { wrap } from './core/http'
 import { readPlayerToken, requireAdmin } from './auth/http'
 import { porteDeLaReserve } from './quizDuJour'
 import { CATEGORIES } from '../../shared/categories'
+import { jourDe } from '../../shared/jour'
+import type { EtatDesSentiers } from '../../shared/sentiers'
 
 interface CampagneDeps {
   campagne: CampagneStore
@@ -77,6 +79,71 @@ export function mountCampagne(app: Express, deps: CampagneDeps) {
       if (profil) res.json(await deps.campagne.correction(profil.id, String(req.params.id)))
     }),
   )
+
+  // ── Les sentiers du savoir (`shared/sentiers.ts`) ──────────────────────
+  // Une épreuve est une série d'un autre mode : son signalement et sa
+  // correction passent par les routes de la série, sous son identifiant.
+
+  /** La page des sentiers : ses vies, ses paliers, son épreuve laissée — et son solde, pour racheter des vies. */
+  const etatDesSentiers = async (profil: NonNullable<Awaited<ReturnType<typeof profilDe>>>): Promise<EtatDesSentiers> => {
+    const [etat, boutique] = await Promise.all([
+      deps.campagne.etatDesSentiers(profil.id),
+      // Une base qui se tait ôte le solde, pas les sentiers.
+      deps.profiles.boutiqueDe(profil, jourDe(Date.now())).catch(e => {
+        console.error('[sentiers] solde illisible :', e)
+        return null
+      }),
+    ])
+    return { ...etat, ...(boutique && { confettis: boutique.confettis.solde }) }
+  }
+
+  app.get(
+    '/api/campagne/sentiers',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await etatDesSentiers(profil))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/sentiers/epreuve',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.commencerEpreuve(profil.id, req.body?.branche, req.body?.palier))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/epreuve/:id/reponse',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (profil) res.json(await deps.campagne.repondreEpreuve(profil.id, String(req.params.id), Number(req.body?.index), req.body?.choix))
+    }),
+  )
+
+  app.post(
+    '/api/campagne/epreuve/:id/abandon',
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      await deps.campagne.abandonnerEpreuve(profil.id, String(req.params.id))
+      res.json(await etatDesSentiers(profil))
+    }),
+  )
+
+  // Des vies en confettis : le profil tient le solde, la campagne les compte.
+  app.post(
+    '/api/campagne/vies',
+    petit,
+    wrap(async (req, res) => {
+      const profil = await profilDe(req, res)
+      if (!profil) return
+      await deps.profiles.acheterVies(profil.id, req.body?.nombre, jourDe(Date.now()))
+      res.json(await etatDesSentiers(profil))
+    }),
+  )
 }
 
 /**
@@ -108,6 +175,15 @@ export function mountCampagneAdmin(app: Express, deps: { campagne: CampagneStore
     wrap(async (req, res) => {
       await deps.campagne.retirer(String(req.body?.questionId ?? ''))
       res.json({ ok: true })
+    }),
+  )
+
+  // Les sentiers palier par palier : de quoi régler un seuil sur des faits.
+  app.get(
+    '/api/admin/campagne/sentiers',
+    requireAdmin,
+    wrap(async (req, res) => {
+      res.json(await deps.campagne.adminDesSentiers(req.query.branche))
     }),
   )
 }

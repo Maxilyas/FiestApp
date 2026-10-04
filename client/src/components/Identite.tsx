@@ -7,7 +7,7 @@ import { aLaDemande, useALaDemande } from '../aLaDemande'
 import { espacesFines, formatNumber } from '../format'
 import { brilleChez, type ProfilDAccueil, type PublicProfileDetail } from '../../../shared/profil'
 import { cibleEclat } from '../../../shared/legendaires'
-import { hautFait } from '../../../shared/hautsfaits'
+import { nomDuTitre } from '../../../shared/sentiers'
 
 /** Sa carte, au toucher de sa ligne : rien ne la télécharge avant. */
 const carteJoueur = aLaDemande(() => import('./CarteJoueur'))
@@ -21,7 +21,7 @@ const carteJoueur = aLaDemande(() => import('./CarteJoueur'))
 export function Identite({ profil, titreVisible = true }: { profil: PublicProfileDetail; titreVisible?: boolean }) {
   const [ouverte, setOuverte] = useState(false)
   const laCarte = useALaDemande(carteJoueur, ouverte)
-  const titre = titreVisible && profil.titre ? hautFait(profil.titre) : null
+  const titre = titreVisible ? nomDuTitre(profil.titre) : null
   return (
     <>
       <button
@@ -43,7 +43,7 @@ export function Identite({ profil, titreVisible = true }: { profil: PublicProfil
             <Laurier laurier={profil.laurier} />
             <Niveau niveau={profil.niveau} />
           </span>
-          {titre && <span className="identite-titre">{espacesFines(`« ${titre.title} »`)}</span>}
+          {titre && <span className="identite-titre">{espacesFines(`« ${titre} »`)}</span>}
           <XpMince profil={profil} />
         </span>
         <span className="identite-carte">

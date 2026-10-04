@@ -131,19 +131,13 @@ test('« Mes avatars » : trois onglets sur une rangée, ouverts sur la famille 
   assert.deepEqual(onglets(await mesAvatars(HABITUE)), ['Branches', 'Emojis', 'Légendaires'])
   // Sous le Phénix — ou un Divin —, les légendaires ; sous un emoji de
   // collection, les emojis ; sous un emoji de l'inscription, les branches :
-  // c'est là que ses bonnes réponses le mènent.
+  // c'est là que ses sentiers le mènent.
   assert.equal(actif(await mesAvatars(HABITUE)), 'Légendaires')
   assert.equal(actif(await mesAvatars({ ...HABITUE, legendaire: 'dv:seraphin' })), 'Légendaires')
   assert.equal(actif(await mesAvatars({ ...HABITUE, legendaire: null, avatar: '🐝' })), 'Emojis')
   assert.equal(actif(await mesAvatars({ ...HABITUE, legendaire: null })), 'Branches')
-  // Chaque partie a son titre et son compte.
-  const savant = {
-    ...HABITUE,
-    ecussons: [
-      { categorie: 'Nature', justes: 25, palier: 1 },
-      { categorie: 'Histoire', justes: 3, palier: 0 },
-    ],
-  }
+  // Chaque partie a son titre et son compte : cinq paliers de la forêt, deux des mythologies.
+  const savant = { ...HABITUE, sentiers: { foret: 5, mythes: 2 } }
   const titres = async (famille: string) =>
     [...(await mesAvatars(savant, famille)).matchAll(/<h4 class="famille-titre">([^<]*)<span class="famille-compte">([^<]*)<\/span><\/h4>/g)].map(m => [
       m[1].trim(),
@@ -161,25 +155,18 @@ test('« Mes avatars » : trois onglets sur une rangée, ouverts sur la famille 
 })
 
 test('l’onglet des branches : une dépliée — celle du portrait porté —, les autres sur une ligne qui dit ce qui vient', async () => {
-  const savant = {
-    ...HABITUE,
-    legendaire: 'br:blaireau',
-    ecussons: [
-      { categorie: 'Nature', justes: 25, palier: 1 },
-      { categorie: 'Histoire', justes: 3, palier: 0 },
-    ],
-  }
+  const savant = { ...HABITUE, legendaire: 'br:blaireau', sentiers: { foret: 5, mythes: 2 } }
   const html = await mesAvatars(savant)
   // Douze branches : la forêt dépliée, onze lignes à toucher.
   assert.equal([...html.matchAll(/class="rayon"/g)].length, 1)
   assert.equal([...html.matchAll(/class="ligne-branche"/g)].length, 11)
   assert.match(html, /<b>La forêt<\/b><span class="detail-famille muted">Nature<\/span><span class="ligne-branche-compte">2 \/ 6<\/span>/)
-  assert.match(html, /<p class="muted small">Encore 15 bonnes réponses en Nature pour le lynx\.<\/p>/)
+  assert.match(html, /<p class="muted small">Encore 1 palier du sentier pour le lynx\.<\/p>/)
   // Une ligne tient sur deux : sa catégorie, et ce qui manque. Le lecteur
   // d'écran entend la phrase entière, le prochain portrait nommé.
-  assert.match(html, /aria-label="Les mythologies, 1 \/ 6\. Encore 17 bonnes réponses en Histoire pour la Gorgone\."/)
-  assert.match(html, /<span class="muted small">Histoire · encore 17<\/span>/)
-  assert.match(html, /<span class="muted small">Culture générale · encore 3<\/span>/)
+  assert.match(html, /aria-label="Les mythologies, 1 \/ 6\. Encore 2 paliers du sentier pour la Gorgone\."/)
+  assert.match(html, /<span class="muted small">Histoire · encore 2 paliers<\/span>/)
+  assert.match(html, /<span class="muted small">Culture générale · encore 2 paliers<\/span>/)
   // Ses six cases : deux gagnées, dont celle qu'il porte ; quatre à gagner, avec leur palier.
   const cases = [...html.matchAll(/<button[^>]*class="(emoji-btn case-avatar case-portrait[^"]*)"[^>]*aria-label="([^"]*)"/g)].map(m => [m[1], m[2]])
   assert.deepEqual(
@@ -187,29 +174,31 @@ test('l’onglet des branches : une dépliée — celle du portrait porté —, 
     [
       'L’écureuil, gagné',
       'Le blaireau, porté',
-      'Le lynx, à 40 bonnes réponses',
-      'Le loup, à 75 bonnes réponses',
-      'L’ours, à 130 bonnes réponses',
-      'Le cerf, à 200 bonnes réponses',
+      'Le lynx, au palier 6',
+      'Le loup, au palier 8',
+      'L’ours, au palier 10',
+      'Le cerf, au palier 12',
     ],
   )
   assert.ok(cases[1][0].includes('selected') && cases[2][0].includes('ferme'))
-  // Sans savoir encore, c'est la première branche qui se déplie.
+  // Sans un palier encore, c'est la première branche qui se déplie.
   assert.match(await mesAvatars({ ...HABITUE, legendaire: null }), /<div class="rayon"><div class="rayon-tete"><b>Le tour du monde<\/b>/)
 })
 
-test('la fiche d’un portrait dit ce qui l’ouvre, et combien il manque ; gagné, il se porte d’ici', async () => {
+test('la fiche d’un portrait dit le palier qui l’ouvre, et combien il en manque ; gagné, il se porte d’ici', async () => {
   const portes: (string | null)[] = []
-  const communs = { savoir: { Nature: 25 }, eclat: false, busy: false, onPorter: (k: string | null) => portes.push(k) }
+  const communs = { paliers: { foret: 5 }, eclat: false, busy: false, onPorter: (k: string | null) => portes.push(k) }
   const blaireau = await rendu('components/Apparence', 'DetailPortrait', { ...communs, cle: 'br:blaireau', porte: 'lg:phenix' })
   assert.match(blaireau, /<span class="detail-famille muted">La forêt · Nature<\/span><b class="galerie-detail-nom">Le blaireau<\/b>/)
-  assert.match(blaireau, /Gagné à 20 bonnes réponses en Nature, avec l’écusson de bronze\./)
+  assert.match(blaireau, /Gagné au palier 4 du sentier de la forêt\./)
   assert.match(blaireau, /Il remplacera Le Phénix, que tu gardes\.<\/p><button[^>]*>Le porter</)
   const lynx = await rendu('components/Apparence', 'DetailPortrait', { ...communs, cle: 'br:lynx', porte: null })
-  assert.match(lynx, /Se gagne à 40 bonnes réponses en Nature : <b>encore 15<\/b>, en soirée comme au quiz du jour\./)
+  assert.match(lynx, /Se gagne au palier 6 du sentier de la forêt : <b>encore 1 palier<\/b>, dans la campagne\./)
+  // À gagner : rien à porter, le chemin du sentier.
   assert.doesNotMatch(lynx, /<button/, 'à gagner : rien à porter')
-  const loup = await rendu('components/Apparence', 'DetailPortrait', { ...communs, savoir: { Nature: 80 }, cle: 'br:loup', porte: 'br:loup' })
-  assert.match(loup, /avec l’écusson d’argent/)
+  assert.match(lynx, /<a class="btn btn-small" href="\/campagne#sentier-foret">Aller au sentier<\/a>/)
+  const loup = await rendu('components/Apparence', 'DetailPortrait', { ...communs, paliers: { foret: 8 }, cle: 'br:loup', porte: 'br:loup' })
+  assert.match(loup, /Gagné au palier 8/)
   assert.match(loup, />Revenir à mon emoji</)
 
   const fiche = await arbre('components/Apparence', 'DetailPortrait', { ...communs, cle: 'br:blaireau', porte: null })

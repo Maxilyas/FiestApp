@@ -399,7 +399,21 @@ export function ProfilApp() {
           )}
         </header>
         {regionDAnnonce}
-        {pret ? <pret.PanneauBoutique profil={profil} busy={busy} enregistrer={enregistrer} acheter={acheter} /> : enChemin}
+        {pret ? (
+          <pret.PanneauBoutique
+            profil={profil}
+            busy={busy}
+            enregistrer={enregistrer}
+            acheter={acheter}
+            onSolde={solde =>
+              setProfil(p =>
+                p?.boutique ? { ...p, boutique: { ...p.boutique, confettis: { ...p.boutique.confettis, solde, depenses: p.boutique.confettis.gagnes - solde } } } : p,
+              )
+            }
+          />
+        ) : (
+          enChemin
+        )}
         {erreur && <p className="error">{erreur}</p>}
         {menu('boutique')}
       </div>

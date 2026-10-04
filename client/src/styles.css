@@ -5273,15 +5273,6 @@ h3 > .icon {
    pour 1) : sans cette marge, il mordait sur le titre et sur le bouton. */
 .fin-collection-emoji .av { margin-block: 0.25em; }
 
-/* Les portraits de ses branches, ouverts ce soir : une rangée, chacun son
-   nom et ce qui l'a ouvert. En 360 px, deux par ligne. */
-.fin-portraits { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
-.fin-portraits p { margin: 0; }
-.fin-portraits-liste { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px 14px; }
-.fin-portrait { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 132px; }
-.fin-portrait-dessin { font-size: 76px; line-height: 0; margin-bottom: 4px; }
-.fin-portrait .btn { margin-top: 4px; }
-
 .fin-legendaire {
   display: flex;
   flex-direction: column;
@@ -7305,6 +7296,192 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 .campagne-ajouts li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--edge); }
 .campagne-ajouts li p { margin: 0; }
 .campagne-ajout-retire { opacity: var(--dim); }
+
+/* ── Les sentiers du savoir (`Sentiers.tsx`) ─────────────────────────────
+   La maquette du 5 octobre 2026 : les sentiers en tuiles, un sentier en
+   chemin qui monte, l'épreuve et sa barre de seize cases. Les niveaux des
+   questions prennent les couleurs des formes (`--shape-*`), que chaque thème
+   règle et dont `design.test.ts` mesure le contraste ; la lueur de chaque
+   branche (`--lueur`, `Atlas.tsx`) ne teinte que des fonds et des traits. */
+.onglets-campagne { margin-top: -4px; }
+.vies-jour { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+.vies-jour .coeur { width: 18px; height: 18px; color: var(--alert); }
+.vies-jour small { font-size: var(--t-label); font-weight: 700; color: var(--muted); }
+.vies-jour.vies-vides .coeur { color: var(--muted); }
+.sentiers-vies { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; align-items: center; padding: 10px 12px; border-radius: var(--radius); background: var(--surface); border: 1px solid rgba(var(--alert-rgb), 0.35); }
+.sentiers-vies b { font-size: 1.05rem; }
+.sentiers-vies .sentiers-racheter { grid-column: 2; justify-self: start; }
+.sentiers-vies-vides { border-color: var(--edge); }
+.sentiers-gros-coeur { grid-row: span 3; display: grid; place-items: center; width: 42px; height: 42px; border-radius: var(--radius-xs); background: rgba(var(--alert-rgb), 0.14); }
+.sentiers-gros-coeur .coeur { width: 24px; height: 24px; color: var(--alert); }
+.sentiers-vies-vides .sentiers-gros-coeur, .sentiers-gros-coeur.grand:has(.coeur[fill='none']) { background: var(--surface-strong); }
+.sentiers-vies-vides .sentiers-gros-coeur .coeur { color: var(--muted); }
+.sentiers-gros-coeur.grand { width: 64px; height: 64px; border-radius: var(--radius); }
+.sentiers-gros-coeur.grand .coeur { width: 36px; height: 36px; }
+.sentiers-intro { margin: 0; }
+.sentiers-reprise { display: grid; grid-template-columns: auto 1fr; gap: 10px 12px; align-items: center; padding: 12px; border-radius: var(--radius); border: 1px solid color-mix(in srgb, var(--lueur) 45%, transparent); background: radial-gradient(100% 140% at 0% 0%, color-mix(in srgb, var(--lueur) 20%, transparent), transparent 65%), var(--surface); }
+.sentiers-reprise p { margin: 0; display: flex; flex-direction: column; gap: 1px; }
+.sentiers-reprise strong { font-family: var(--serif); font-size: 1.2rem; font-weight: 600; line-height: 1.15; }
+.sentiers-reprise .btn { grid-column: 1 / -1; }
+.sentiers-couronne { display: inline-grid; place-items: center; flex: none; width: 52px; height: 52px; border-radius: 50%; color: var(--shape-2); background: color-mix(in srgb, var(--shape-2) 16%, transparent); border: 1.5px solid color-mix(in srgb, var(--shape-2) 60%, transparent); }
+.sentiers-couronne .icon { width: 26px; height: 26px; }
+.sentiers-couronne.petite { width: 34px; height: 34px; }
+.sentiers-couronne.petite .icon { width: 18px; height: 18px; }
+.sentiers-couronne.grande { width: 120px; height: 120px; }
+.sentiers-couronne.grande .icon { width: 60px; height: 60px; }
+.sentiers-compte { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 8px; }
+.sentiers-compte .label { white-space: nowrap; }
+.sentiers-grille { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sentiers-tuile { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 132px; padding: 10px 4px 9px; border-radius: var(--radius-xs); border: 1px solid color-mix(in srgb, var(--lueur) 35%, var(--edge)); background: radial-gradient(90% 60% at 50% 0%, color-mix(in srgb, var(--lueur) 14%, transparent), transparent 75%), var(--surface); color: var(--ink); font: inherit; text-align: center; cursor: pointer; }
+.sentiers-tuile b { display: flex; align-items: center; min-height: 2.3em; font-size: 0.78rem; font-weight: 600; line-height: 1.15; }
+.sentiers-tuile-vide { justify-content: flex-end; }
+.sentiers-tuile-complete { border-color: var(--edge-strong); background: linear-gradient(180deg, var(--accent-soft), transparent 70%), var(--surface); }
+.sentiers-mini { display: flex; gap: 3px; }
+.sentiers-mini i { width: 8px; height: 8px; border-radius: 2px; box-shadow: inset 0 0 0 1px var(--edge-strong); }
+.sentiers-mini i.mini-ok { background: var(--accent); box-shadow: none; }
+.sentiers-etat { display: inline-flex; align-items: center; gap: 3px; color: var(--muted); font-size: var(--t-label); font-weight: 600; }
+.sentiers-etat .icon { width: 12px; height: 12px; color: var(--shape-2); }
+.sentiers-tuile-complete .sentiers-etat { color: var(--accent-text); font-weight: 700; }
+.sentier-portrait { display: inline-grid; place-items: center; flex: none; line-height: 0; }
+.sentier-portrait > svg, .sentier-portrait > .pt { width: 100%; height: 100%; overflow: visible; }
+/* Petit, un portrait tient dans son disque, comme dans une liste : ce qui en
+   sort, son aura et ses étoiles faisaient une tache plus large que lui. */
+.sentier-portrait:not(.sentier-portrait-grand) .pt-debord,
+.sentier-portrait:not(.sentier-portrait-grand) .pt-aura,
+.sentier-portrait:not(.sentier-portrait-grand) .pt-etoile { display: none; }
+.sentier-etoiles { display: inline-flex; gap: 1px; vertical-align: -2px; }
+.sentier-etoiles svg { width: 13px; height: 13px; fill: none; stroke: var(--muted); stroke-width: 1.6; stroke-linejoin: round; }
+.sentier-etoiles svg.pleine { fill: var(--accent); stroke: var(--accent); }
+.sentier-etoiles-grandes { gap: 4px; }
+.sentier-etoiles-grandes svg { width: 28px; height: 28px; }
+
+/* Un sentier : l'en-tête, puis le chemin qui monte du départ au maître. */
+/* Collé en tête : le retour et les vies restent à portée pendant qu'on monte le chemin. */
+.sentier-tete { position: sticky; top: 0; z-index: 3; display: flex; flex-direction: column; gap: 6px; margin: -24px -20px 0; padding: 24px 20px 14px; background: linear-gradient(180deg, var(--bg) 82%, transparent); }
+.sentier-tete h1 { margin: 0; font-size: 2rem; }
+.sentier-ligne { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sentier-prochain { display: flex; align-items: center; gap: 10px; margin: 0; padding: 6px 12px 6px 6px; border-radius: var(--radius-pill); background: var(--surface-strong); border: 1px solid var(--edge); font-size: 0.84rem; }
+.sentier-chemin { position: relative; margin: 0 -20px; overflow: hidden; background: radial-gradient(80% 30% at 50% 100%, color-mix(in srgb, var(--lueur) 16%, transparent), transparent 70%); }
+.sentier-trace { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.sentier-trace path { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+.trace-a-venir { stroke: var(--track); stroke-width: 3; stroke-dasharray: 2 7; }
+.trace-faite { stroke: var(--accent); stroke-width: 4; opacity: 0.85; }
+.sentier-jauge { position: absolute; left: 12px; width: 5px; border-radius: 3px; background: linear-gradient(0deg, var(--shape-3) 0%, var(--shape-3) 14%, var(--shape-1) 45%, var(--shape-0) 85%, var(--shape-2) 100%); }
+.sentier-jauge-nom { position: absolute; left: 22px; translate: 0 50%; writing-mode: vertical-rl; rotate: 180deg; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+.jauge-facile { color: var(--shape-3); }
+.jauge-moyen { color: var(--shape-1); }
+.jauge-difficile { color: var(--shape-0); }
+.jauge-expert { color: var(--shape-2); }
+.sentier-accolade { position: absolute; right: 12px; width: 8px; border: 1.5px solid var(--edge-strong); border-left: 0; border-radius: 0 6px 6px 0; }
+.sentier-accolade-nom { position: absolute; right: 24px; translate: 0 50%; writing-mode: vertical-rl; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text); white-space: nowrap; }
+.sentier-depart { position: absolute; bottom: 4px; left: 50%; translate: -50% 0; font-size: var(--t-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.sentier-paliers { list-style: none; margin: 0; padding: 0; }
+.sentier-paliers > li { position: absolute; width: 0; height: 0; }
+.sentier-palier { position: absolute; left: 0; top: 0; translate: -50% -50%; display: grid; place-items: center; padding: 0; border-radius: var(--radius-sm); border: 2px solid var(--track); background: var(--bg-raised); color: var(--muted); font: 700 1rem var(--sans); cursor: pointer; }
+.sentier-palier .icon { width: 22px; height: 22px; }
+.palier-fait { border-color: var(--shape-3); background: color-mix(in srgb, var(--shape-3) 75%, var(--bg)); color: var(--bg); }
+.palier-courant { border-color: var(--accent); color: var(--accent-text); box-shadow: 0 0 0 6px var(--accent-soft), 0 0 24px rgba(var(--accent-rgb), 0.35); animation: sentier-battre 1.8s ease-in-out infinite; }
+.palier-avenir { border-style: dashed; }
+.palier-portrait { border-radius: 18px; background: var(--bg); }
+.palier-portrait.palier-fait { border-color: var(--accent); background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent) 14%, var(--bg)), var(--bg) 70%); }
+.palier-portrait.palier-courant { border-style: solid; }
+.palier-sommet { border-color: var(--or-text); border-style: solid; }
+.palier-maitre { border-radius: 50%; border: 2px dashed color-mix(in srgb, var(--shape-2) 70%, transparent); background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--shape-2) 22%, var(--bg)), var(--bg) 70%); color: var(--shape-2); }
+.palier-maitre.palier-fait { border-style: solid; border-color: var(--shape-2); }
+.palier-maitre .icon { width: 30px; height: 30px; }
+@keyframes sentier-battre { 50% { box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0.06), 0 0 30px rgba(var(--accent-rgb), 0.45); } }
+/* Le nom d'une étape, sur un fond : le tracé du chemin passe dessous, pas au travers. */
+.sentier-nom { position: absolute; left: 0; translate: -50% 0; display: flex; flex-direction: column; align-items: center; padding: 1px 6px; border-radius: var(--radius-xs); background: color-mix(in srgb, var(--bg) 82%, transparent); white-space: nowrap; font-size: 0.75rem; line-height: 1.25; text-align: center; pointer-events: none; }
+.sentier-nom b { font-weight: 700; color: var(--ink); }
+.sentier-nom > span { color: var(--muted); }
+.sentier-nom-vise > span { color: var(--accent-text); font-weight: 600; }
+.sentier-nom-maitre b { color: var(--shape-2); }
+.sentier-jouer { position: absolute; top: 0; translate: 0 -50%; padding: 5px 10px; border-radius: var(--radius-pill); background: var(--accent); color: var(--on-accent); font: 800 0.75rem var(--sans); letter-spacing: 0.04em; text-transform: uppercase; pointer-events: none; }
+.sentier-fiche { display: flex; flex-direction: column; gap: 12px; }
+.sentier-fiche p { margin: 0; }
+.sentier-regle { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; font-size: 0.88rem; }
+.sentier-regle dt { color: var(--muted); }
+.sentier-regle dd { margin: 0; font-weight: 600; }
+.sentier-fiche-avatar { display: flex; align-items: center; gap: 12px; }
+
+/* L'épreuve : l'enjeu, la barre de seize cases, la question. */
+.quiz-player.epreuve { gap: 10px; }
+.epreuve-rejeu { padding: 2px 8px; border-radius: var(--radius-pill); background: var(--accent-soft); color: var(--accent-text); }
+.epreuve-enjeu { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--edge); }
+.epreuve-enjeu p { margin: 0; font-size: 0.84rem; }
+.epreuve-barre { display: flex; flex-direction: column; gap: 6px; }
+.epreuve-cases { position: relative; display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 3px; }
+.epreuve-cases i { aspect-ratio: 1; border-radius: 4px; border: 1.5px solid var(--track); }
+.epreuve-cases i.case-ok { border-color: var(--shape-3); background: var(--shape-3); }
+.epreuve-cases i.case-ko { border-color: var(--alert); background: rgba(var(--alert-rgb), 0.55); }
+.epreuve-cases i.case-neuve { animation: sentier-poser 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
+/* La ligne d'or : entre la case du seuil et la suivante. */
+.epreuve-seuil { position: absolute; top: -5px; bottom: -5px; left: calc(var(--seuil) * (100% + 3px) / 16 - 1.5px); width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.6); }
+@keyframes sentier-poser { from { scale: 0.3; opacity: 0; } }
+.epreuve-legende { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; font-size: 0.78rem; color: var(--muted); }
+.epreuve-legende b { color: var(--ink); }
+.epreuve-encore { margin: 0; text-align: center; font-size: 0.84rem; font-weight: 600; color: var(--accent-text); }
+.epreuve-quitter { align-self: center; }
+
+/* Sa fin : ratée, validée, ou la révélation d'un portrait. */
+.epreuve-fin-tete { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.epreuve-fin-tete p { margin: 0; }
+.epreuve-validee { color: var(--accent-text); }
+.epreuve-perte { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius); background: rgba(var(--alert-rgb), 0.1); border: 1px solid rgba(var(--alert-rgb), 0.35); }
+.epreuve-perte p { margin: 0; font-size: 0.88rem; }
+.epreuve-moins { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; font-size: 1.2rem; color: var(--alert); }
+.epreuve-moins .coeur { width: 20px; height: 20px; }
+.epreuve-gains { display: flex; gap: 8px; }
+.epreuve-gains span { flex: 1; padding: 10px; border-radius: var(--radius-xs); background: var(--surface); border: 1px solid var(--edge); text-align: center; font-size: 0.84rem; color: var(--muted); }
+.epreuve-gains b { display: block; font-size: 1.1rem; color: var(--ink); }
+.epreuve-revelation { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 8px 0 4px; text-align: center; background: radial-gradient(70% 45% at 50% 45%, color-mix(in srgb, var(--lueur) 30%, transparent), transparent 70%); }
+.epreuve-revelation h1 { margin: 0; font-size: 2.2rem; }
+.epreuve-revelation p { margin: 0; max-width: 30ch; }
+.epreuve-medaillon { position: relative; animation: sentier-monter 1s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.epreuve-eclats { position: absolute; inset: -24px; pointer-events: none; }
+.epreuve-eclats i { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: sentier-scintiller 2.4s ease-in-out infinite; }
+.epreuve-eclats i:nth-child(1) { left: 8%; top: 20%; }
+.epreuve-eclats i:nth-child(2) { left: 86%; top: 14%; animation-delay: 0.33s; }
+.epreuve-eclats i:nth-child(3) { left: 94%; top: 56%; animation-delay: 0.66s; }
+.epreuve-eclats i:nth-child(4) { left: 4%; top: 64%; animation-delay: 1s; }
+.epreuve-eclats i:nth-child(5) { left: 70%; top: 92%; animation-delay: 1.33s; }
+.epreuve-eclats i:nth-child(6) { left: 24%; top: 96%; animation-delay: 1.66s; }
+.epreuve-eclats i:nth-child(7) { left: 50%; top: 2%; animation-delay: 2s; }
+@keyframes sentier-monter { from { scale: 0.6; translate: 0 16px; opacity: 0; } }
+@keyframes sentier-scintiller { 0%, 100% { opacity: 0.15; scale: 0.6; } 50% { opacity: 1; scale: 1.2; } }
+.epreuve-maitre h1 { color: var(--shape-2); }
+.centre { text-align: center; }
+
+/* Plus de vies : le rachat, et ce qu'on fait en attendant. */
+.vies-tete { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.vies-tete h1 { margin: 0; font-size: 1.9rem; }
+.vies-tete p { margin: 0; }
+.vies-achat { display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: var(--radius); border: 1px solid var(--edge-strong); background: linear-gradient(180deg, var(--accent-soft), transparent 70%), var(--surface); }
+.vies-achat p { margin: 0; }
+.vies-ligne { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.vies-pas { display: inline-flex; align-items: center; gap: 4px; padding: 3px; border-radius: var(--radius-pill); background: var(--surface-strong); }
+.vies-pas output { min-width: 26px; text-align: center; font-weight: 800; font-variant-numeric: tabular-nums; }
+.vies-pas-btn { width: 36px; height: 36px; border-radius: 50%; border: 0; background: var(--bg-raised); color: var(--ink); font: 700 1.1rem var(--sans); cursor: pointer; }
+.vies-autres { display: flex; flex-direction: column; gap: 8px; }
+.rayon-vies { margin-top: 8px; }
+/* L'administration des sentiers : trois tuiles, puis un palier par ligne. */
+.sentiers-admin-tuiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.sentiers-admin-tuiles span { padding: 8px; border-radius: var(--radius-xs); background: var(--surface); border: 1px solid var(--edge); text-align: center; font-size: var(--t-label); color: var(--muted); }
+.sentiers-admin-tuiles b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; color: var(--ink); }
+.sentiers-admin-paliers { list-style: none; margin: 0; padding: 0; }
+.sentiers-admin-ligne { display: grid; grid-template-columns: 44px 1fr auto; gap: 2px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--edge); font-size: 0.82rem; }
+.sentiers-admin-ligne .num { text-align: right; font-variant-numeric: tabular-nums; }
+.sentiers-admin-barre { grid-column: 2 / 4; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+.sentiers-admin-barre i { display: block; height: 100%; background: var(--accent); }
+.sentiers-admin-infos { grid-column: 2 / 4; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 8px; }
+.sentiers-admin-alerte .sentiers-admin-barre i { background: var(--shape-0); }
+.sentiers-admin-puce { padding: 1px 7px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--shape-0) 16%, transparent); color: var(--ink); font-size: var(--t-label); font-weight: 700; }
+.sentiers-admin-maitre > b:first-child { color: var(--shape-2); }
+.sentiers-admin-maitre .sentiers-admin-barre i { background: var(--shape-2); }
+.vies-autres .gros-texte b { font-family: var(--sans); font-size: 0.95rem; }
+@media (prefers-reduced-motion: reduce) {
+  .palier-courant, .epreuve-cases i.case-neuve, .epreuve-medaillon, .epreuve-eclats i { animation: none; }
+}
 
 /* ── Mes avatars : la famille à son écran ───────────────────────────────
    Les emojis gardent leur grille, mais le titre de la carte, son mode

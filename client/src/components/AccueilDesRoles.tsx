@@ -87,7 +87,7 @@ export function AccueilJouer({
         <span className="label" id="jouer-seul">
           Seul
         </span>
-        <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail="Jusqu’où iras-tu ? Trois vies, sans chrono" href="/campagne" />
+        <GrosBouton icone={<Icon name="target" />} titre="La campagne" detail="Une série sans fin, ou les sentiers de tes avatars" href="/campagne" />
         <GrosBouton
           icone={<Icon name="sun" />}
           titre="Le quiz du jour"

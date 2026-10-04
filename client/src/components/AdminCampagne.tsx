@@ -5,6 +5,9 @@ import { showToast } from '../state'
 import { formatNumber } from '../../../shared/typographie'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
 import type { AdminDeLaCampagne, AjoutsDeLaRoutine as Ajouts, SignalementDeCampagne } from '../../../shared/campagne'
+import { BRANCHES } from '../../../shared/branches'
+import { PALIERS, type AdminDesSentiers } from '../../../shared/sentiers'
+import { texteDuMelangeCourt } from './melanges'
 
 /** Le nom d'un sous-thème, lu dans le catalogue de l'étiquetage. */
 const nomDuSousTheme = (categorie: string, cle: string) =>
@@ -49,6 +52,8 @@ export function AdminCampagne() {
   if (!etat) return <p className="serif-note">Chargement…</p>
   return (
     <>
+      <AdminSentiers />
+
       <section className="admin-groupe" aria-labelledby="campagne-base-titre">
         <h2 className="compte-groupe" id="campagne-base-titre">
           La base
@@ -190,5 +195,93 @@ function AjoutsDeLaRoutine({ ajouts, occupe, faire }: { ajouts: Ajouts; occupe: 
         ))}
       </ul>
     </>
+  )
+}
+
+/**
+ * Les sentiers du savoir, palier par palier (`shared/sentiers.ts`) : la part
+ * des joueurs qui valident du premier coup, les essais, les vies perdues
+ * avant de valider — sur les trois derniers mois, rejeux exclus. Un palier
+ * plus facile que celui d'avant se signale : c'est un mélange à revoir. Les
+ * seuils se règlent dans le code, sur ces chiffres-là.
+ */
+function AdminSentiers() {
+  const [branche, setBranche] = useState('')
+  const [stats, setStats] = useState<AdminDesSentiers | null>(null)
+  const [erreur, setErreur] = useState('')
+  useEffect(() => {
+    let vivant = true
+    setErreur('')
+    api.admin
+      .sentiers(branche || undefined)
+      .then(s => vivant && setStats(s))
+      .catch(e => vivant && setErreur(motifDe(e)))
+    return () => {
+      vivant = false
+    }
+  }, [branche])
+  const pc = (x: number | null) => (x === null ? '—' : `${Math.round(x * 100)} %`)
+  return (
+    <section className="admin-groupe" aria-labelledby="campagne-sentiers-titre">
+      <h2 className="compte-groupe" id="campagne-sentiers-titre">
+        Les sentiers
+      </h2>
+      {erreur && <p className="error">{erreur}</p>}
+      {stats && (
+        <>
+          <div className="sentiers-admin-tuiles">
+            <span>
+              <b>{formatNumber(stats.semaine.joueurs)}</b>
+              joueurs
+            </span>
+            <span>
+              <b>{formatNumber(stats.semaine.epreuves)}</b>
+              épreuves
+            </span>
+            <span>
+              <b>{formatNumber(stats.semaine.viesAchetees)}</b>
+              vies achetées
+            </span>
+          </div>
+          <p className="muted small">Ces sept derniers jours. Les paliers, eux, se lisent sur trois mois, sans les rejeux.</p>
+        </>
+      )}
+      <label className="row">
+        <span className="muted small">Sentier</span>
+        <select className="team-emoji-select" value={branche} onChange={e => setBranche(e.target.value)}>
+          <option value="">Tous les sentiers</option>
+          {BRANCHES.map(b => (
+            <option key={b.key} value={b.key}>
+              {`${b.nom} · ${b.categorie}`}
+            </option>
+          ))}
+        </select>
+      </label>
+      {stats && (
+        <ol className="sentiers-admin-paliers">
+          {stats.paliers.map((p, i) => {
+            const regle = PALIERS[p.palier - 1]
+            const avant = i > 0 ? stats.paliers[i - 1].premierEssai : null
+            // Plus facile que le palier d'avant, sur assez d'essais pour le croire : à revoir.
+            const remonte = !regle.maitre && p.premierEssai !== null && avant !== null && p.essais >= 10 && p.premierEssai > avant
+            return (
+              <li key={p.palier} className={'sentiers-admin-ligne' + (remonte ? ' sentiers-admin-alerte' : '') + (regle.maitre ? ' sentiers-admin-maitre' : '')}>
+                <b>{regle.maitre ? 'Maître' : `P${p.palier}`}</b>
+                <span className="muted">{`${texteDuMelangeCourt(regle.melange)} · ${regle.seuil}/16`}</span>
+                <b className="num">{pc(p.premierEssai)}</b>
+                <span className="sentiers-admin-barre" aria-hidden="true">
+                  <i style={{ width: `${Math.round((p.premierEssai ?? 0) * 100)}%` }} />
+                </span>
+                <span className="muted small sentiers-admin-infos">
+                  {`${formatNumber(p.joueurs)} joueur${p.joueurs > 1 ? 's' : ''} · ${formatNumber(p.essais)} essai${p.essais > 1 ? 's' : ''}`}
+                  {p.viesAvantDeValider !== null && ` · ${p.viesAvantDeValider.toFixed(1).replace('.', ',')} vie${p.viesAvantDeValider >= 2 ? 's' : ''} perdue${p.viesAvantDeValider >= 2 ? 's' : ''} avant de valider`}
+                  {remonte && <span className="sentiers-admin-puce">{`plus facile que P${p.palier - 1}`}</span>}
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </section>
   )
 }

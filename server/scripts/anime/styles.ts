@@ -135,7 +135,7 @@ function planche(journal: any[]) {
            <span class="sep"></span>${ref}<small>aujourd’hui</small>
          </div>`
       : `<div class="grand vide">${ref.replace('44px;height:44px', '120px;height:120px')}<p>Pas encore généré</p></div>`
-    return `<section class="carte"><p class="branche">${b.nom}</p><h2>${style ?? ''}</h2><p class="sujet">${p.nom} · ${p.seuil} bonnes réponses</p>${corps}</section>`
+    return `<section class="carte"><p class="branche">${b.nom}</p><h2>${style ?? ''}</h2><p class="sujet">${p.nom} · palier ${p.palier} du sentier</p>${corps}</section>`
   }).join('')
   const html = `<!doctype html><html lang="fr"><meta charset="utf-8"><title>Styles des branches</title><style>
     body { margin: 0; padding: 28px 30px 40px; background: #16110f; color: #f3ece2; font: 14px/1.4 system-ui, sans-serif; width: 1180px; box-sizing: border-box; }

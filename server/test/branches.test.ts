@@ -1,8 +1,9 @@
 // Les avatars du savoir : douze branches, une par catégorie de questions, six
-// portraits dessinés dans chacune. Chaque bonne réponse d'une catégorie — en
-// soirée comme au quiz du jour, celles qui font déjà les écussons — fait
-// avancer sa branche ; chaque palier ouvre un portrait, qu'on porte comme un
-// légendaire. Rien ne s'écrit : les portraits se lisent dans la carrière.
+// portraits dessinés dans chacune. Ils se gagnent sur les sentiers du savoir
+// de la campagne (`shared/sentiers.ts`) : un portrait tous les deux paliers
+// de son sentier, qu'on porte comme un légendaire. Les soirées et le quiz du
+// jour n'en ouvrent plus (le choix du 5 octobre 2026) : chacun a gardé les
+// siens, repris en paliers (`sentiers-reprise.test.ts`).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readdirSync, statSync } from 'node:fs'
@@ -29,20 +30,17 @@ import {
 } from './banc'
 import { ProfileStore, VERSION_BAREME } from '../src/auth/profiles'
 import { CATEGORIES } from '../../shared/categories'
-import { SEUILS_ECUSSON, ecussonsDe } from '../../shared/ecussons'
 import {
   BRANCHES,
+  PALIER_DU_PORTRAIT,
   PORTRAITS,
-  SEUILS_BRANCHE,
   branche,
-  ecussonDuSeuil,
+  deLaBranche,
   nomDansLaPhrase,
   ouvertsDansLaBranche,
   portrait,
   portraitsOuverts,
-  portraitsOuvertsPar,
   prochainDansLaBranche,
-  savoirDesEcussons,
 } from '../../shared/branches'
 import { cibleEclat } from '../../shared/legendaires'
 import { gainVide, releveVide, totalGain } from '../../shared/profil'
@@ -73,8 +71,8 @@ test('douze branches, une par catégorie, six portraits chacune, du premier au s
   for (const b of BRANCHES) {
     assert.equal(b.portraits.length, 6, b.nom)
     assert.deepEqual(
-      b.portraits.map(p => p.seuil),
-      [...SEUILS_BRANCHE],
+      b.portraits.map(p => [p.rang, p.palier]),
+      PALIER_DU_PORTRAIT.map((palier, rang) => [rang, palier]),
     )
     for (const p of b.portraits) {
       assert.match(p.key, /^br:[a-z]+(-[a-z]+)*$/, p.key)
@@ -82,29 +80,30 @@ test('douze branches, une par catégorie, six portraits chacune, du premier au s
     }
   }
   assert.equal(new Set(PORTRAITS.map(p => p.key)).size, 72, 'soixante-douze clés, toutes différentes')
-  // Un choix de produit, mesuré par `calibrage.ts` (RECOMPENSES.md, § 5.4) :
-  // le premier dès la première soirée, le deuxième, le quatrième et le
-  // sixième avec les écussons de bronze, d'argent et d'or.
-  assert.deepEqual([...SEUILS_BRANCHE], [3, 20, 40, 75, 130, 200])
-  assert.deepEqual([SEUILS_BRANCHE[1], SEUILS_BRANCHE[3], SEUILS_BRANCHE[5]], [...SEUILS_ECUSSON])
-  assert.deepEqual([20, 75, 200, 40].map(ecussonDuSeuil), ['bronze', 'argent', 'or', null])
+  // Un choix de produit (le 5 octobre 2026) : un portrait tous les deux
+  // paliers, le sixième au sommet du sentier.
+  assert.deepEqual([...PALIER_DU_PORTRAIT], [2, 4, 6, 8, 10, 12])
 })
 
-test('ses bonnes réponses ouvrent ses portraits : les écussons et les branches comptent au même endroit', () => {
-  // Vingt-cinq en Nature le soir, trois en Histoire au quiz du jour.
-  const savoir = savoirDesEcussons(ecussonsDe({ Nature: { justes: 25 } }, { Histoire: { justes: 3 } }))
-  assert.deepEqual(portraitsOuverts(savoir), ['br:minotaure', 'br:ecureuil', 'br:blaireau'])
+test('ses paliers ouvrent ses portraits : un tous les deux paliers de son sentier', () => {
+  // Cinq paliers de la forêt, deux des mythologies.
+  const paliers = { foret: 5, mythes: 2 }
+  assert.deepEqual(portraitsOuverts(paliers), ['br:minotaure', 'br:ecureuil', 'br:blaireau'])
   const foret = branche('foret')!
-  assert.equal(ouvertsDansLaBranche(foret, savoir), 2)
-  assert.deepEqual(prochainDansLaBranche(foret, savoir), { portrait: portrait('br:lynx'), manque: 15 })
-  assert.equal(prochainDansLaBranche(foret, { Nature: 200 }), null, 'la branche finie n’a plus rien à viser')
-  // Ce qu'une soirée ouvre : avec ses réponses, pas sans elles.
-  assert.deepEqual(portraitsOuvertsPar({ Nature: 18 }, { Nature: 41 }), ['br:blaireau', 'br:lynx'])
-  assert.deepEqual(portraitsOuvertsPar({ Nature: 41 }, { Nature: 41 }), [])
+  assert.equal(ouvertsDansLaBranche(foret, paliers), 2)
+  assert.deepEqual(prochainDansLaBranche(foret, paliers), { portrait: portrait('br:lynx'), encore: 1 })
+  assert.equal(prochainDansLaBranche(foret, { foret: 12 }), null, 'le sommet atteint, plus rien à viser')
+  assert.equal(prochainDansLaBranche(foret, { foret: 13 }), null, 'ni après le palier de maître')
+  assert.deepEqual(portraitsOuverts({}), [], 'aucun palier, aucun portrait')
   // Un nom dans une phrase : l'article en minuscule, un nom propre intact.
   assert.deepEqual(
     ['L’ours', 'La tortue de mer', 'Le Minotaure', 'Thor'].map(nomDansLaPhrase),
     ['l’ours', 'la tortue de mer', 'le Minotaure', 'Thor'],
+  )
+  // « Le sentier de… », « Maître de… » : l'article se contracte.
+  assert.deepEqual(
+    ['foret', 'stade', 'oceans', 'espace', 'monde'].map(k => deLaBranche(branche(k)!)),
+    ['de la forêt', 'du stade', 'des océans', 'de l’espace', 'du tour du monde'],
   )
 })
 
@@ -302,61 +301,65 @@ function soireeRangee(banc: Banc, profileId: string, soireeId: string, justes: R
   })
 }
 
+/** Des paliers validés sur un sentier, posés comme la reprise les écrit (`sentier_acquis`). */
+function paliersAcquis(banc: Banc, profileId: string, branche: string, paliers: number) {
+  base(banc, db =>
+    db
+      .prepare(
+        `INSERT INTO sentier_acquis (profile_id, branche, paliers, retenu_le) VALUES (?, ?, ?, ?)
+         ON CONFLICT(profile_id, branche) DO UPDATE SET paliers = excluded.paliers`,
+      )
+      .run(profileId, branche, paliers, Date.now()),
+  )
+}
+
 const porter = (banc: Banc, cookie: string, legendaire: string | null) =>
   ecrire(banc.url, '/api/joueur/moi', { legendaire }, cookie, 'PUT').then(async r => ({ status: r.status, corps: (await r.json()) as any }))
 
 const moi = async (banc: Banc, cookie: string) =>
   ((await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any).profile
 
-test('un portrait se porte s’il est ouvert, se refuse sinon, suit son porteur dans la salle — et part avec la soirée retirée', () =>
+test('un portrait se porte si son palier est validé, se refuse sinon, suit son porteur dans la salle — et reste à lui', () =>
   avecBanc(async banc => {
     const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
     const alice = profilDe(banc, 'alice')
-    // Vingt-cinq bonnes réponses en Nature, sur deux soirées ; deux en
-    // Histoire le soir, une au quiz du jour ; et cent en Sport, jouées seul.
-    soireeRangee(banc, alice, 'soiree-1', { Nature: 15, Histoire: 2 })
-    soireeRangee(banc, alice, 'soiree-2', { Nature: 10 })
-    soireeRangee(banc, alice, 'seule', { Sport: 100 }, true)
-    base(banc, db => {
-      db.prepare(`INSERT INTO jour_tirages (jour, questions, annulees, tire_le) VALUES ('2026-09-01', ?, '[]', 1)`).run(
-        JSON.stringify([{ categorie: 'Histoire' }, { categorie: 'Nature' }]),
-      )
-      db.prepare(
-        `INSERT INTO jour_reponses (profile_id, jour, question, choix, ms, juste, points, repondue_le) VALUES (?, '2026-09-01', 0, 0, 1000, 1, 100, 1)`,
-      ).run(alice)
-    })
-    await banc.redemarrer()
+    // Cinq paliers de la forêt, deux des mythologies. Et cent bonnes
+    // réponses en Sport, en soirée : elles n'ouvrent plus rien.
+    paliersAcquis(banc, alice, 'foret', 5)
+    paliersAcquis(banc, alice, 'mythes', 2)
+    soireeRangee(banc, alice, 'soiree-1', { Sport: 100, Histoire: 5 })
 
-    // Le blaireau (20 en Nature) : à elle. Le lynx (40) : pas encore.
+    // Le blaireau (palier 4) : à elle. Le lynx (palier 6) : pas encore.
     const blaireau = await porter(banc, cookie, 'br:blaireau')
     assert.equal(blaireau.status, 200, blaireau.corps.error)
     assert.equal(blaireau.corps.profile.legendaire, 'br:blaireau')
     const lynx = await porter(banc, cookie, 'br:lynx')
     assert.equal(lynx.status, 400)
-    assert.equal(lynx.corps.error, 'Ce portrait se gagne à 40 bonnes réponses en Nature')
-    // Une soirée jouée seule n'ouvre rien : cent réponses à son propre quiz.
+    assert.equal(lynx.corps.error, 'Ce portrait se gagne au palier 6 du sentier de la forêt')
+    // Cent bonnes réponses en Sport, en soirée : plus un portrait.
     assert.equal((await porter(banc, cookie, 'br:nageuse')).status, 400)
-    // Le Minotaure (3 en Histoire) : deux le soir, une au quiz du jour.
+    // Le Minotaure (palier 2 des mythologies).
     const minotaure = await porter(banc, cookie, 'br:minotaure')
     assert.equal(minotaure.status, 200, minotaure.corps.error)
 
-    // Dans la salle, c'est lui qu'on voit — et pour un emoji choisi, plus lui.
+    // Sa page dit ses paliers : la grille des avatars les lit.
+    const detail = (await (await fetch(`${banc.url}/api/joueur/moi`, { headers: { Cookie: cookie } })).json()) as any
+    assert.deepEqual(detail.profile.sentiers, { foret: 5, mythes: 2 })
+
+    // Dans la salle, c'est lui qu'on voit.
     const host = await ecranCommun(banc.url, await connexionAnimateur(banc.url))
     const invitee = await invite(banc.url, 'Alice', '', { cookie })
     const vue = await instantane(host, s => s.players.some((p: any) => p.id === invitee.playerId), 'Alice dans la salle')
     assert.equal(vue.players.find((p: any) => p.id === invitee.playerId).legendaire, 'br:minotaure')
-    const profil = await moi(banc, cookie)
-    assert.equal(profil.legendaire, 'br:minotaure')
+    assert.equal((await moi(banc, cookie)).legendaire, 'br:minotaure')
 
-    // La soirée de ses deux réponses en Histoire est retirée de l'historique :
-    // le Minotaure part avec elle, sans qu'on écrive rien d'autre.
+    // Une soirée retirée de l'historique ne reprend rien : un palier ne se perd pas.
     base(banc, db => db.prepare(`DELETE FROM profile_xp WHERE soiree_id = 'soiree-1'`).run())
     await banc.redemarrer()
-    assert.equal((await moi(banc, cookie)).legendaire, null)
-    assert.equal((await porter(banc, cookie, 'br:minotaure')).status, 400)
+    assert.equal((await moi(banc, cookie)).legendaire, 'br:minotaure')
   }))
 
-// ── 4. Ce que la soirée et le quiz du jour annoncent ─────────────────────
+// ── 4. Les soirées et le quiz du jour n'en ouvrent plus ──────────────────
 
 type Reponses = [Invite, number][][]
 
@@ -384,10 +387,10 @@ async function jouerQuiz(host: Socket, quizId: string, questions: Reponses): Pro
   ;(host as any).emit('host:endSession', { sessionId })
 }
 
-test('la fin de soirée annonce les portraits que ses bonnes réponses ont ouverts', () =>
+test('la fin de soirée n’annonce plus de portrait : ses bonnes réponses n’en ouvrent plus', () =>
   avecBanc(async banc => {
     const cookie = await connexionAnimateur(banc.url)
-    // Trois questions de sport, et une sans catégorie : elle ne compte pour aucune branche.
+    // Trois questions de sport : elles ouvraient la nageuse, jusqu'aux sentiers.
     const sport = (text: string) => ({ ...qcm(text), category: 'Sport' })
     const quiz = await creerQuiz(banc.url, cookie, [sport('Un ?'), sport('Deux ?'), sport('Trois ?'), qcm('Quatre ?')])
     const aliceCookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
@@ -402,16 +405,14 @@ test('la fin de soirée annonce les portraits que ses bonnes réponses ont ouver
       if (Date.now() > limite) assert.fail('la soirée aurait dû se ranger')
     }
     const finAlice = attendre<any>(alice.socket, 'soiree:fin', () => true, 'la fin d’Alice', 15_000)
-    const finBob = attendre<any>(bob.socket, 'soiree:fin', () => true, 'la fin de Bob', 15_000)
     ;(host as any).emit('host:closeParty', {})
     const fa = await finAlice
-    assert.deepEqual(fa.profil?.portraits, ['br:nageuse'], 'trois bonnes réponses en Sport : la nageuse')
-    assert.equal((await finBob).profil, undefined, 'un anonyme n’a rien à porter')
-    // Elle se porte d'ici : la fin l'a dit, le serveur l'accorde.
-    assert.equal((await porter(banc, aliceCookie, 'br:nageuse')).status, 200)
+    assert.ok(fa.profil, 'sa fin de soirée, avec ce qu’elle rapporte')
+    assert.equal(fa.profil.portraits, undefined, 'plus de portrait dans la fin de soirée')
+    assert.equal((await porter(banc, aliceCookie, 'br:nageuse')).status, 400, 'la nageuse se gagne sur le sentier du stade')
   }))
 
-test('la partie du jour qui ouvre un portrait le dit à sa fin', () =>
+test('la partie du jour n’ouvre plus de portrait', () =>
   avecBanc(async (banc, horloge) => {
     const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
     // Le tirage du jour, posé d'avance : quatre questions de nature, six sans catégorie.
@@ -439,6 +440,6 @@ test('la partie du jour qui ouvre un portrait le dit à sa fin', () =>
       etat = (await poster('/api/jour/suivante')).corps
     }
     assert.equal(etat.etat, 'finie')
-    assert.deepEqual(etat.portraits, ['br:ecureuil'], 'quatre en Nature : l’écureuil, à trois')
-    assert.equal((await porter(banc, cookie, 'br:ecureuil')).status, 200)
+    assert.equal(etat.portraits, undefined, 'quatre en Nature : l’écureuil se gagne maintenant sur son sentier')
+    assert.equal((await porter(banc, cookie, 'br:ecureuil')).status, 400)
   }))

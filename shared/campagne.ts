@@ -150,6 +150,8 @@ export interface QuestionDeCampagne {
   reponses: string[]
   categorie: string | null
   niveau: Niveau
+  /** Son sous-thème (`shared/etiquettes.ts`) : les sentiers le disent, la série d'avant ne le gardait pas. */
+  sousTheme?: string
 }
 
 /** Ce que dit une réponse : juste ou non, la bonne, l'anecdote — et la suite. */

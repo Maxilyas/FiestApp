@@ -9,27 +9,28 @@ import { DIVINS } from '../../../shared/divins'
 import { Case, LILAS, LUEUR, OR, Orbe, Panneau, Rail, lueur } from './Atlas'
 import { dessinDuPortrait, useDessins } from './medaillons'
 import type { ChoixDuProfil } from './choix'
-import { BRANCHES, nomDansLaPhrase, ouvertsDansLaBranche, portraitsOuverts, portrait, prochainDansLaBranche, savoirDesEcussons, type Branche, type CleDeBranche } from '../../../shared/branches'
+import { BRANCHES, nomDansLaPhrase, ouvertsDansLaBranche, portraitsOuverts, portrait, prochainDansLaBranche, type Branche, type CleDeBranche, type Paliers } from '../../../shared/branches'
 import { brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 
 // Les avatars du savoir, en atlas : un rail des douze branches, chacune un
 // orbe dont l'anneau se remplit à chaque portrait gagné, puis la branche
 // choisie en chemin lumineux — six étapes, du visage à la forme ultime, la
-// prochaine qui palpite et dit ce qui manque. On parcourt d'un doigt (le
+// prochaine qui palpite et dit combien de paliers de son sentier il manque
+// (`shared/sentiers.ts`). On parcourt d'un doigt (le
 // rail, ou les flèches), sans déplier ni replier une liste. Les fiches
 // (« Le porter ») sont celles de toujours (`Apparence`, `Carriere`).
 
 const SORTES = BRANCHES.map(b => `branche:${b.key}` as const)
 
 /** La branche qu'on ouvre d'abord : celle du portrait porté, sinon la plus avancée qui a encore à gagner. */
-function brancheDuDebut(savoir: Record<string, number>, porte: string | null | undefined): CleDeBranche {
+function brancheDuDebut(paliers: Paliers, porte: string | null | undefined): CleDeBranche {
   const p = portrait(porte)
   if (p) return p.branche
-  const enCours = BRANCHES.filter(b => prochainDansLaBranche(b, savoir))
-  return [...enCours].sort((a, b) => (savoir[b.categorie] ?? 0) - (savoir[a.categorie] ?? 0))[0]?.key ?? BRANCHES[0].key
+  const enCours = BRANCHES.filter(b => prochainDansLaBranche(b, paliers))
+  return [...enCours].sort((a, b) => (paliers[b.key] ?? 0) - (paliers[a.key] ?? 0))[0]?.key ?? BRANCHES[0].key
 }
 
-const bonnes = (n: number) => `${n} bonne${n > 1 ? 's' : ''} réponse${n > 1 ? 's' : ''}`
+const nPaliers = (n: number) => `${n} palier${n > 1 ? 's' : ''}`
 
 /**
  * Les légendaires dans leur écrin, ou le savoir en atlas — un onglet chacun
@@ -48,9 +49,9 @@ export function AtlasDesAvatars({
   /** Les légendaires seuls, ou le savoir seul : chaque onglet de « Mes avatars » a le sien. */
   onglet: 'legendaires' | 'savoir'
 }) {
-  const savoir = savoirDesEcussons(profil.ecussons ?? [])
+  const paliers = profil.sentiers ?? {}
   const porte = profil.legendaire ?? null
-  const [rayon, setRayon] = useState<'legendaires' | CleDeBranche>(() => (onglet === 'legendaires' ? 'legendaires' : brancheDuDebut(savoir, porte)))
+  const [rayon, setRayon] = useState<'legendaires' | CleDeBranche>(() => (onglet === 'legendaires' ? 'legendaires' : brancheDuDebut(paliers, porte)))
   const [ouvert, setOuvert] = useState<string | null>(null)
   const dessins = useDessins(...SORTES, 'legendaire', 'divin')
   const { Portrait } = dessins
@@ -73,7 +74,7 @@ export function AtlasDesAvatars({
       {onglet === 'savoir' && (
       <Rail choisi={rayon} label="Les douze branches" compact>
         {BRANCHES.map(x => {
-          const n = ouvertsDansLaBranche(x, savoir)
+          const n = ouvertsDansLaBranche(x, paliers)
           return (
             <Orbe
               key={x.key}
@@ -156,7 +157,7 @@ export function AtlasDesAvatars({
       {rayon !== 'legendaires' && (
         <Chemin
           branche={BRANCHES[index]}
-          savoir={savoir}
+          paliers={paliers}
           porte={porte}
           ouvert={ouvert}
           dessin={dessin}
@@ -166,11 +167,11 @@ export function AtlasDesAvatars({
           fiche={k => (
             <>
             <span className="detail-dessin detail-portrait-grand" aria-hidden="true">
-              {dessin(k, !portraitsOuverts(savoir).includes(k))}
+              {dessin(k, !portraitsOuverts(paliers).includes(k))}
             </span>
             <DetailPortrait
               cle={k}
-              savoir={savoir}
+              paliers={paliers}
               porte={porte}
               eclat={profil.eclats.includes(k)}
               brille={brilleChez(profil, k)}
@@ -189,7 +190,7 @@ export function AtlasDesAvatars({
 /** Une branche en chemin : six étapes reliées par un trait qui s'allume jusqu'au dernier portrait gagné. */
 function Chemin({
   branche: b,
-  savoir,
+  paliers,
   porte,
   ouvert,
   dessin,
@@ -199,7 +200,7 @@ function Chemin({
   onSuivante,
 }: {
   branche: Branche
-  savoir: Record<string, number>
+  paliers: Paliers
   porte: string | null
   ouvert: string | null
   dessin: (cle: string, verrouille: boolean) => ReactNode
@@ -208,9 +209,9 @@ function Chemin({
   onPrecedente: () => void
   onSuivante: () => void
 }) {
-  const justes = savoir[b.categorie] ?? 0
-  const n = ouvertsDansLaBranche(b, savoir)
-  const prochain = prochainDansLaBranche(b, savoir)
+  const valides = paliers[b.key] ?? 0
+  const n = ouvertsDansLaBranche(b, paliers)
+  const prochain = prochainDansLaBranche(b, paliers)
   return (
     <section className="atlas-branche" style={{ '--lueur': LUEUR[b.key], '--fait': n / b.portraits.length } as CSSProperties} aria-labelledby="atlas-nom">
       <header className="atlas-tete">
@@ -221,7 +222,7 @@ function Chemin({
           <span className="atlas-categorie">{b.categorie}</span>
           <h3 id="atlas-nom">{b.nom}</h3>
           <span className="atlas-compteur">
-            {justes} bonnes réponses · {n} sur {b.portraits.length}
+            {valides >= 12 ? 'sommet atteint' : `palier ${valides} sur 12`} · {n} sur {b.portraits.length}
           </span>
         </div>
         <button type="button" className="atlas-fleche atlas-fleche-suivante" aria-label="Branche suivante" onClick={onSuivante}>
@@ -231,15 +232,15 @@ function Chemin({
       <p className="atlas-objectif">
         {prochain ? (
           <>
-            Encore <b>{bonnes(prochain.manque)}</b> en {b.categorie} pour {nomDansLaPhrase(prochain.portrait.nom)}
+            Encore <b>{nPaliers(prochain.encore)}</b> du sentier pour {nomDansLaPhrase(prochain.portrait.nom)}
           </>
         ) : (
-          'Branche complète : tous ses portraits sont à toi.'
+          'Sentier complet : tous ses portraits sont à toi.'
         )}
       </p>
       <ol className="atlas-chemin">
         {b.portraits.map(p => {
-          const gagne = justes >= p.seuil
+          const gagne = valides >= p.palier
           const etat = gagne ? 'gagne' : prochain?.portrait.key === p.key ? 'prochain' : 'ferme'
           return (
             <Fragment key={p.key}>
@@ -249,7 +250,7 @@ function Chemin({
                   <span className="atlas-texte">
                     <b>{p.nom}</b>
                     <span className="atlas-seuil">
-                      {gagne ? `Gagné · ${bonnes(p.seuil)}` : etat === 'prochain' ? `À ${p.seuil} · encore ${p.seuil - justes}` : `À ${bonnes(p.seuil)}`}
+                      {gagne ? `Gagné · palier ${p.palier}` : etat === 'prochain' ? `Palier ${p.palier} · encore ${nPaliers(p.palier - valides)}` : `Palier ${p.palier}`}
                     </span>
                   </span>
                   {porte === p.key && <span className="pastille-attente">Porté</span>}

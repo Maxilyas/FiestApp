@@ -33,12 +33,14 @@
 // `shared/hautsfaits.ts`) : l'expérience qu'un haut fait rapporte le dit mal
 // — L'Oracle paie 50, et trois joueurs sur quatre l'ont en dix soirées.
 //
-// Et les avatars du savoir (`shared/branches.ts`) : les questions prennent
+// Et les écussons de savoir (`shared/ecussons.ts`) : les questions prennent
 // une catégorie — quiz à thème, quiz mélangés dont une partie seulement est
 // classée —, une part des joueurs joue au quiz du jour entre deux soirées, et
-// l'on compte les portraits que chaque jeu de seuils ouvre, soirée après
+// l'on compte les écussons que chaque jeu de seuils donne, soirée après
 // soirée. Les catégories se tirent sur un hasard à part : les mesures d'avant
-// se rejouent à l'identique.
+// se rejouent à l'identique. (Les avatars du savoir s'y mesuraient aussi :
+// ils se gagnent maintenant sur les sentiers, que mesure
+// `calibrage-sentiers.ts`.)
 //
 //   npx tsx scripts/calibrage.ts --themes 0.4 --classees 0.6 --jour 0.3 --jours 6
 import { hautsFaitsDeSoiree, xpDesHautsFaits } from '../src/core/hautsfaits'
@@ -51,8 +53,7 @@ import { XP_PAR_PALIER, carriereDe, niveauPour, type Carriere, type GainSoiree, 
 import { HAUTS_FAITS_DE_CARRIERE, HAUTS_FAITS_DE_SOIREE, XP_PALIER, clePalier, palierDe, paliersAtteints } from '../../shared/hautsfaits'
 import { LEGENDAIRES, conditionTenue, type Condition } from '../../shared/legendaires'
 import { CATEGORIES, type Categorie } from '../../shared/categories'
-import { SEUILS_BRANCHE } from '../../shared/branches'
-import { justesParCategorie } from '../../shared/ecussons'
+import { SEUILS_ECUSSON, justesParCategorie } from '../../shared/ecussons'
 import { CATEGORIES_DU_JOUR } from '../src/core/consigne'
 
 // ── Le format ─────────────────────────────────────────────────────────────
@@ -366,25 +367,17 @@ const CLES_MESUREES = [
   ...HAUTS_FAITS_DE_CARRIERE.flatMap(h => [1, 2, 3].map(p => clePalier(h.key, p))),
 ]
 
-/**
- * Les seuils qu'on essaie pour les avatars du savoir : ceux du catalogue,
- * puis d'autres. Le deuxième, le quatrième et le sixième de ceux qui gardent
- * 20, 75 et 200 tombent avec les écussons.
- */
-const ESSAIS_BRANCHES: number[][] = [
-  [...SEUILS_BRANCHE],
-  [5, 20, 40, 75, 130, 200],
-  [3, 10, 20, 40, 75, 200],
-  [3, 12, 30, 60, 110, 200],
-  [3, 15, 35, 75, 130, 200],
-].filter((e, i, tous) => tous.findIndex(x => x.join() === e.join()) === i)
+/** Les seuils qu'on essaie pour les écussons : ceux du catalogue (bronze, argent, or), puis d'autres. */
+const ESSAIS_ECUSSONS: number[][] = [[...SEUILS_ECUSSON], [15, 60, 150], [25, 100, 250]].filter(
+  (e, i, tous) => tous.findIndex(x => x.join() === e.join()) === i,
+)
 
-/** Un joueur et ses portraits, soirée après soirée, pour chaque jeu de seuils. */
+/** Un joueur et ses écussons, soirée après soirée, pour chaque jeu de seuils. */
 interface TrajetDuSavoir {
   duJour: boolean
-  /** Par jeu de seuils : les portraits ouverts après chaque soirée. */
+  /** Par jeu de seuils : les écussons (paliers additionnés sur les douze catégories) après chaque soirée. */
   ouverts: Map<string, number[]>
-  /** Par jeu de seuils : les sixièmes portraits — ceux de l'or — après chaque soirée. */
+  /** Par jeu de seuils : les écussons d'or après chaque soirée. */
   derniers: Map<string, number[]>
 }
 const trajets: TrajetDuSavoir[] = []
@@ -450,7 +443,7 @@ for (let b = 0; b < BANDES; b++) {
       // soirées qui comptent, et le quiz du jour.
       const savoir = justesParCategorie(suivi.carriere.categories, justesDuJour.get(j.id)!)
       const trajet = sesTrajets.get(j.id)!
-      for (const seuils of ESSAIS_BRANCHES) {
+      for (const seuils of ESSAIS_ECUSSONS) {
         const k = seuils.join(' ')
         const n = CATEGORIES.reduce((t, c) => t + seuils.filter(x => savoir[c] >= x).length, 0)
         const d = CATEGORIES.filter(c => savoir[c] >= seuils[seuils.length - 1]).length
@@ -591,18 +584,18 @@ for (const cle of CLES_MESUREES) {
 console.log(`\nPART_DES_JOUEURS (moyenne sur les ${SOIREES} soirées) :`)
 for (const [cle, p] of mesurees) console.log(`  '${cle}': ${p.toFixed(4)},`)
 
-// ── Les avatars du savoir ─────────────────────────────────────────────────
+// ── Les écussons de savoir ────────────────────────────────────────────────
 
 const REPERES_SAVOIR = [1, 3, 5, 10, 20, 40].filter(n => n <= SOIREES)
-/** Les soirées dont on regarde si elles ouvrent un portrait : les vingt premières. */
+/** Les soirées dont on regarde si elles donnent un écusson : les vingt premières. */
 const PREMIERES = Math.min(20, SOIREES)
 console.log(
-  `\nAvatars du savoir — ${Math.round(PART_THEMES * 100)} % de quiz à thème, ${Math.round(PART_CLASSEES * 100)} % des questions ` +
+  `\nÉcussons de savoir — ${Math.round(PART_THEMES * 100)} % de quiz à thème, ${Math.round(PART_CLASSEES * 100)} % des questions ` +
     `classées dans les autres ; ${Math.round(PART_DU_JOUR * 100)} % des joueurs font ${PARTIES_ENTRE_DEUX} parties du jour entre deux soirées`,
 )
 console.log(
-  `Portraits ouverts (sur ${CATEGORIES.length * 6}) : médiane · 9e décile, après n soirées ; « ouvrent » : part médiane des ` +
-    `${PREMIERES} premières soirées qui en ouvrent un ; « 1er soir » : qui en a un après la première ; « un or » : qui a un sixième portrait après ${SOIREES}`,
+  `Écussons (sur ${CATEGORIES.length * 3}) : médiane · 9e décile, après n soirées ; « donnent » : part médiane des ` +
+    `${PREMIERES} premières soirées qui en donnent un ; « 1er soir » : qui en a un après la première ; « un or » : qui a un écusson d'or après ${SOIREES}`,
 )
 for (const [nom, groupe] of [
   ['soirées seules', trajets.filter(t => !t.duJour)],
@@ -610,9 +603,9 @@ for (const [nom, groupe] of [
 ] as const) {
   console.log(`\n${nom} (${groupe.length} joueurs)`)
   console.log(
-    `${'seuils'.padEnd(26)}${REPERES_SAVOIR.map(n => `après ${n}`.padStart(11)).join('')}${'ouvrent'.padStart(10)}${'1er soir'.padStart(10)}${'un or'.padStart(8)}`,
+    `${'seuils'.padEnd(26)}${REPERES_SAVOIR.map(n => `après ${n}`.padStart(11)).join('')}${'donnent'.padStart(10)}${'1er soir'.padStart(10)}${'un or'.padStart(8)}`,
   )
-  for (const seuils of ESSAIS_BRANCHES) {
+  for (const seuils of ESSAIS_ECUSSONS) {
     const k = seuils.join(' ')
     const cellules = REPERES_SAVOIR.map(n => {
       const xs = groupe.map(t => t.ouverts.get(k)![n - 1])
@@ -626,9 +619,9 @@ for (const [nom, groupe] of [
     const unOr = groupe.filter(t => t.derniers.get(k)![SOIREES - 1] > 0).length / groupe.length
     const pc = (x: number) => `${Math.round(x * 100)} %`
     console.log(
-      `${`${seuils === ESSAIS_BRANCHES[0] ? '* ' : '  '}${k}`.padEnd(26)}${cellules.join('')}` +
+      `${`${seuils === ESSAIS_ECUSSONS[0] ? '* ' : '  '}${k}`.padEnd(26)}${cellules.join('')}` +
         `${pc(quantile(ouvrent, 0.5)).padStart(10)}${pc(premierSoir).padStart(10)}${pc(unOr).padStart(8)}`,
     )
   }
 }
-console.log('\n* les seuils du catalogue (SEUILS_BRANCHE)')
+console.log('\n* les seuils du catalogue (SEUILS_ECUSSON)')

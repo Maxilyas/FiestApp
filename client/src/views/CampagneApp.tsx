@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api, motifDe } from '../api'
 import { Icon } from '../components/Icon'
+import { Onglets } from '../components/Onglets'
+import { ADRESSE_DES_SENTIERS, Sentiers, SentiersEnChemin, sentierDeLAdresse } from './Sentiers'
 import { Shape } from '../components/Shape'
 import { PieceTete, Sortie } from '../components/Pieces'
 import { EMBLEME } from '../components/Ecusson'
@@ -55,6 +57,10 @@ type Ecran =
       xp: number
     }
 
+/** Les deux modes de la campagne : la série à trois vies, et les sentiers du savoir. */
+type Mode = 'serie' | 'sentiers'
+const modeDe = (hash: string): Mode => (hash === ADRESSE_DES_SENTIERS || sentierDeLAdresse(hash) ? 'sentiers' : 'serie')
+
 /**
  * La campagne solo (`/campagne`) : une série qui monte en difficulté, trois
  * vies, sans chronomètre. Ses questions viennent de sa base à elle
@@ -65,9 +71,14 @@ type Ecran =
  * de quoi signaler une erreur. Une bonne réponse vaut un confetti, et
  * l'expérience d'une bonne réponse en soirée, sans plafond : chacun monte à
  * son rythme.
+ *
+ * À côté, le second onglet : les sentiers du savoir (`Sentiers.tsx`), à
+ * leur adresse (`#sentiers`, `#sentier-foret`), où se gagnent les avatars
+ * du savoir.
  */
 export function CampagneApp() {
   const { toast } = useAppState()
+  const [mode, setMode] = useState<Mode>(() => modeDe(window.location.hash))
   const [ecran, setEcranBrut] = useState<Ecran>({ e: 'chargement' })
   const [categories, setCategories] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
@@ -82,6 +93,37 @@ export function CampagneApp() {
     const etat = await api.campagne.etat()
     setEcran({ e: 'accueil', etat })
   }
+
+  // Le retour du navigateur d'un sentier à la série, ou l'inverse.
+  useEffect(() => {
+    const suivre = () => setMode(modeDe(window.location.hash))
+    window.addEventListener('hashchange', suivre)
+    window.addEventListener('popstate', suivre)
+    return () => {
+      window.removeEventListener('hashchange', suivre)
+      window.removeEventListener('popstate', suivre)
+    }
+  }, [])
+  /** Changer d'onglet n'empile rien : le retour du téléphone quitte la campagne, comme avant. */
+  const choisirMode = (m: Mode) => {
+    history.replaceState(history.state, '', m === 'sentiers' ? ADRESSE_DES_SENTIERS : `${window.location.pathname}${window.location.search}`)
+    setMode(m)
+    window.scrollTo(0, 0)
+  }
+  const onglets = (
+    <Onglets
+      onglets={[
+        { id: 'serie', nom: 'La série', icone: 'list' },
+        { id: 'sentiers', nom: 'Les sentiers', icone: 'target' },
+      ]}
+      actif={mode}
+      onChoisir={choisirMode}
+      label="Le mode de la campagne"
+      idOnglet={m => `mode-${m}`}
+      idPanneau={() => 'mode-campagne'}
+      className="onglets-campagne"
+    />
+  )
 
   useEffect(() => {
     document.title = 'La campagne · FiestApp'
@@ -178,7 +220,16 @@ export function CampagneApp() {
     </div>
   )
 
-  if (ecran.e === 'chargement') return <CampagneEnChemin />
+  // Ouverte sur les sentiers, la page n'attend pas la série pour s'esquisser.
+  if (ecran.e === 'chargement') return mode === 'sentiers' ? <SentiersEnChemin onglets={onglets} /> : <CampagneEnChemin />
+  if (ecran.e !== 'anonyme' && ecran.e !== 'erreur' && mode === 'sentiers') {
+    return (
+      <>
+        <Sentiers onglets={onglets} onSerie={() => choisirMode('serie')} />
+        {toastVu}
+      </>
+    )
+  }
 
   if (ecran.e === 'anonyme' || ecran.e === 'erreur') {
     return (
@@ -209,6 +260,7 @@ export function CampagneApp() {
     return (
       <div className="player-shell campagne">
         <Sortie />
+        {onglets}
         <Heros etat={etat} />
         {/* Ce que la journée a déjà rapporté : sans plafond, il n'y a plus de « plein » à annoncer. */}
         {etat.xpAujourdhui > 0 && <p className="muted small campagne-xp-du-jour">Aujourd’hui : +{etat.xpAujourdhui} XP</p>}

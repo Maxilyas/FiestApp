@@ -2,18 +2,15 @@
 // six portraits dessinés dans chacune.
 //
 // Un emoji se choisit, un légendaire se décroche par un exploit ; ceux-ci se
-// gagnent en sachant. Chaque bonne réponse d'une catégorie — en soirée comme
-// au quiz du jour, celles qui font déjà les écussons (`justesParCategorie`)
-// — fait avancer sa branche, et chaque palier ouvre un portrait : le premier
-// tombe dès la première soirée où l'on joue la catégorie, le dernier avec
-// l'écusson d'or. La collection finit par dire ce qu'on sait : Léa porte le
-// cerf, on devine qu'elle aime la nature.
+// gagnent en sachant, sur les sentiers du savoir de la campagne
+// (`shared/sentiers.ts`) : douze paliers par branche, de plus en plus durs,
+// et un portrait tous les deux paliers. La collection finit par dire ce
+// qu'on sait : Léa porte le cerf, on devine qu'elle aime la nature.
 //
-// Rien ne s'écrit : les portraits ouverts se lisent dans la carrière, à
-// chaque lecture, comme les écussons. Une soirée retirée de l'historique
-// reprend donc ce que ses réponses avaient ouvert. Et relever un seuil
-// reprendrait un portrait à qui l'a déjà : la courbe ne se durcit pas sans
-// retenir d'abord ce que chacun avait, comme les légendaires (invariant 22).
+// Les soirées et le quiz du jour en ouvraient jusqu'au 5 octobre 2026, à
+// leurs bonnes réponses : les sentiers sont devenus le seul chemin (le choix
+// du 5 octobre 2026), et chacun a gardé ce qu'il avait — repris en paliers
+// une fois pour toutes (`core/repriseDesPortraits.ts`).
 //
 // Le dessin vit côté client (`client/src/components/portraits/`), une
 // branche par fichier ; ici, le catalogue et la règle, purs et partagés — le
@@ -21,23 +18,13 @@
 // ce qui vient.
 
 import type { Categorie } from './categories'
-import { SEUILS_ECUSSON, NOM_ECUSSON } from './ecussons'
 
 /**
- * Les bonnes réponses qu'il faut dans la catégorie pour chacun des six
- * portraits d'une branche, du premier au dernier. Le deuxième, le quatrième
- * et le sixième tombent avec les écussons de bronze, d'argent et d'or.
- *
- * Mesurés par `server/scripts/calibrage.ts` (RECOMPENSES.md, § 5.4) : à
- * cinq, un joueur sur cinq repartait de sa première soirée sans rien — ses
- * bonnes réponses se partagent entre douze catégories —, et plus d'un sur
- * trois d'une petite soirée de trois quiz de douze questions. À trois,
- * presque tout le monde a le sien dès le premier soir ; ensuite, au format de
- * la maison, à peu près un par soirée, et le sixième reste un sommet : un
- * joueur sur deux en a un au bout de quarante soirées, aucun sans le quiz du
- * jour aux petits formats.
+ * Le palier du sentier qui ouvre chaque portrait d'une branche, du premier au
+ * dernier : un tous les deux paliers, le sixième au sommet. Le premier palier
+ * d'une paire entraîne, le second — un peu plus dur — ouvre l'avatar.
  */
-export const SEUILS_BRANCHE = [3, 20, 40, 75, 130, 200] as const
+export const PALIER_DU_PORTRAIT = [2, 4, 6, 8, 10, 12] as const
 
 export interface Portrait {
   /** `br:cerf` : un avatar dessiné, porté à la place de l'emoji comme un légendaire. */
@@ -46,8 +33,10 @@ export interface Portrait {
   nom: string
   /** La branche qui le range. */
   branche: CleDeBranche
-  /** Les bonnes réponses qu'il faut dans la catégorie de sa branche. */
-  seuil: number
+  /** Son rang dans la branche, de 0 (le visage) à 5 (la forme ultime) : son dessin en dépend. */
+  rang: number
+  /** Le palier du sentier qui l'ouvre (`PALIER_DU_PORTRAIT`). */
+  palier: number
 }
 
 export interface Branche {
@@ -238,7 +227,7 @@ export const BRANCHES: Branche[] = CATALOGUE.map(([key, nom, categorie, portrait
   key,
   nom,
   categorie,
-  portraits: portraits.map(([p, n], i) => ({ key: `br:${p}`, nom: n, branche: key, seuil: SEUILS_BRANCHE[i] })),
+  portraits: portraits.map(([p, n], i) => ({ key: `br:${p}`, nom: n, branche: key, rang: i, palier: PALIER_DU_PORTRAIT[i] })),
 }))
 
 /** Les soixante-douze portraits, branche après branche. */
@@ -269,49 +258,38 @@ export function nomDansLaPhrase(nom: string): string {
 }
 
 /**
- * Ce que les bonnes réponses d'un profil ouvrent : ses bonnes réponses par
- * catégorie (`justesParCategorie`), soirées et quiz du jour ensemble.
+ * Les paliers validés de chaque sentier (`shared/sentiers.ts`) : de 0 à 12,
+ * et 13 quand son palier de maître l'est aussi. Ce qui ouvre les portraits.
  */
-export type Savoir = Readonly<Record<string, number>>
+export type Paliers = Readonly<Partial<Record<CleDeBranche, number>>>
+
+/** Les portraits qu'ouvrent ces paliers, branche après branche. */
+export function portraitsOuverts(paliers: Paliers): string[] {
+  return PORTRAITS.filter(p => (paliers[p.branche] ?? 0) >= p.palier).map(p => p.key)
+}
+
+/** Combien de portraits d'une branche ces paliers ouvrent. */
+export function ouvertsDansLaBranche(b: Branche, paliers: Paliers): number {
+  const valides = paliers[b.key] ?? 0
+  return b.portraits.filter(p => valides >= p.palier).length
+}
+
+/** Le prochain portrait d'une branche, et combien de paliers il reste à valider ; null quand elle est complète. */
+export function prochainDansLaBranche(b: Branche, paliers: Paliers): { portrait: Portrait; encore: number } | null {
+  const valides = paliers[b.key] ?? 0
+  const p = b.portraits.find(x => valides < x.palier)
+  return p ? { portrait: p, encore: p.palier - valides } : null
+}
 
 /**
- * Le savoir que disent ses écussons (`ecussonsDe`) : la page du profil les
- * reçoit déjà, bonnes réponses comprises — les mêmes, comptées au même
- * endroit (`justesParCategorie`).
+ * Le nom de la branche après « de » : « de la forêt », « du stade », « des
+ * océans », « de l’espace ». Pour « le sentier de… » et « Maître de… ».
  */
-export function savoirDesEcussons(ecussons: readonly { categorie: string; justes: number }[]): Savoir {
-  return Object.fromEntries(ecussons.map(e => [e.categorie, e.justes]))
-}
-
-/** Les portraits qu'ouvre ce savoir, branche après branche. */
-export function portraitsOuverts(savoir: Savoir): string[] {
-  return PORTRAITS.filter(p => (savoir[brancheDe(p).categorie] ?? 0) >= p.seuil).map(p => p.key)
-}
-
-/**
- * Ceux qu'une soirée, ou une partie du quiz du jour, vient d'ouvrir : ouverts
- * avec ses réponses, pas sans elles. La fin de soirée les fête.
- */
-export function portraitsOuvertsPar(avant: Savoir, apres: Savoir): string[] {
-  const deja = new Set(portraitsOuverts(avant))
-  return portraitsOuverts(apres).filter(k => !deja.has(k))
-}
-
-/** Combien de portraits d'une branche ce savoir ouvre. */
-export function ouvertsDansLaBranche(b: Branche, savoir: Savoir): number {
-  const justes = savoir[b.categorie] ?? 0
-  return b.portraits.filter(p => justes >= p.seuil).length
-}
-
-/** Le prochain portrait d'une branche, et les bonnes réponses qui lui manquent ; null quand elle est complète. */
-export function prochainDansLaBranche(b: Branche, savoir: Savoir): { portrait: Portrait; manque: number } | null {
-  const justes = savoir[b.categorie] ?? 0
-  const p = b.portraits.find(x => justes < x.seuil)
-  return p ? { portrait: p, manque: p.seuil - justes } : null
-}
-
-/** L'écusson qui tombe avec ce seuil — « bronze », « argent », « or » —, ou null. */
-export function ecussonDuSeuil(seuil: number): string | null {
-  const i = (SEUILS_ECUSSON as readonly number[]).indexOf(seuil)
-  return i < 0 ? null : NOM_ECUSSON[i + 1].toLowerCase()
+export function deLaBranche(b: Branche): string {
+  const nom = b.nom
+  if (nom.startsWith('Le ')) return `du ${nom.slice(3)}`
+  if (nom.startsWith('Les ')) return `des ${nom.slice(4)}`
+  if (nom.startsWith('La ')) return `de la ${nom.slice(3)}`
+  if (nom.startsWith('L’')) return `de l’${nom.slice(2)}`
+  return `de ${nom}`
 }

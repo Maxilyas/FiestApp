@@ -12,7 +12,7 @@ import { dessinDuPortrait, useDessins } from './medaillons'
 import { espacesFines } from '../format'
 import { rendreLeFocus } from '../focus'
 import { AVATARS, COLLECTION } from '../../../shared/avatars'
-import { hautFait, hautsFaitsGagnes } from '../../../shared/hautsfaits'
+import { hautsFaitsGagnes } from '../../../shared/hautsfaits'
 import { recompensesDe } from '../../../shared/proches'
 import { LEGENDAIRES, cibleEclat, legendaire } from '../../../shared/legendaires'
 import { DIVINS, divin } from '../../../shared/divins'
@@ -20,18 +20,18 @@ import {
   BRANCHES,
   PORTRAITS,
   brancheDe,
-  ecussonDuSeuil,
+  deLaBranche,
   nomDansLaPhrase,
   ouvertsDansLaBranche,
   portrait as portraitDe,
   portraitsOuverts,
   prochainDansLaBranche,
-  savoirDesEcussons,
   type Branche,
   type CleDeBranche,
-  type Savoir,
+  type Paliers,
 } from '../../../shared/branches'
 import { FONDS } from '../../../shared/fonds'
+import { cleDeMaitre, maitresDe, nomDuTitre } from '../../../shared/sentiers'
 import { FINITIONS, NIVEAU_FINITION, NOM_FINITION, brilleChez, type PublicProfileDetail } from '../../../shared/profil'
 import type { ChoixDuProfil } from './choix'
 
@@ -149,9 +149,9 @@ export function MesAvatars({
   const divins = profil.divins ?? []
   const descendu = (cle: string) => divins.some(d => d.key === cle)
   const porte = profil.legendaire
-  // Ses bonnes réponses par catégorie : ses écussons les disent déjà.
-  const savoir = savoirDesEcussons(profil.ecussons ?? [])
-  const portraits = portraitsOuverts(savoir)
+  // Ses paliers validés sur les sentiers du savoir : ils ouvrent ses portraits.
+  const paliers = profil.sentiers ?? {}
+  const portraits = portraitsOuverts(paliers)
   const ouverts = COLLECTION.filter(c => profil.niveau >= c.niveau).length
   const possedes = portraits.length + AVATARS.length + ouverts + profil.legendaires.length + divins.length
   const total = PORTRAITS.length + AVATARS.length + COLLECTION.length + LEGENDAIRES.length + DIVINS.length
@@ -205,7 +205,7 @@ export function MesAvatars({
         {portraitDe(cle) ? (
           <DetailPortrait
             cle={cle}
-            savoir={savoir}
+            paliers={paliers}
             porte={porte}
             eclat={profil.eclats.includes(cle)}
             brille={brille(cle)}
@@ -274,10 +274,13 @@ export function MesAvatars({
               Les portraits des branches <span className="famille-compte">{`${portraits.length} / ${PORTRAITS.length}`}</span>
             </h4>
             <p className="muted small famille-note">
-              Chaque bonne réponse fait avancer la branche de sa catégorie, en soirée comme au quiz du jour.
+              Ils se gagnent sur les sentiers du savoir de la campagne : un portrait tous les deux paliers.{' '}
+              <a className="link-inline" href="/campagne#sentiers">
+                Les sentiers
+              </a>
             </p>
             <MesBranches
-              savoir={savoir}
+              paliers={paliers}
               porte={porte}
               eclats={profil.eclats.filter(brille)}
               ouvert={ouvert}
@@ -451,23 +454,24 @@ const SORTES_DES_BRANCHES = BRANCHES.map(b => `branche:${b.key}` as const)
 
 /**
  * La branche dépliée d'abord : celle du portrait qu'il porte ; sinon celle
- * où il sait le plus sans l'avoir finie — c'est là que le prochain tombera ;
- * la première, pour qui n'a encore rien.
+ * où il est monté le plus haut sans l'avoir finie — c'est là que le prochain
+ * tombera ; la première, pour qui n'a encore rien.
  */
-function brancheDepliee(savoir: Savoir, porte: string | null): CleDeBranche {
+function brancheDepliee(paliers: Paliers, porte: string | null): CleDeBranche {
   const portee = portraitDe(porte)
   if (portee) return portee.branche
-  const enCours = BRANCHES.filter(b => prochainDansLaBranche(b, savoir))
-  const plusAvancee = [...enCours].sort((a, b) => (savoir[b.categorie] ?? 0) - (savoir[a.categorie] ?? 0))[0]
-  return plusAvancee && (savoir[plusAvancee.categorie] ?? 0) > 0 ? plusAvancee.key : BRANCHES[0].key
+  const enCours = BRANCHES.filter(b => prochainDansLaBranche(b, paliers))
+  const plusAvancee = [...enCours].sort((a, b) => (paliers[b.key] ?? 0) - (paliers[a.key] ?? 0))[0]
+  return plusAvancee && (paliers[plusAvancee.key] ?? 0) > 0 ? plusAvancee.key : BRANCHES[0].key
 }
 
-/** « Encore 3 bonnes réponses en Histoire pour Anubis. » — ou la branche finie. */
-function ceQuiVient(b: Branche, savoir: Savoir): string {
-  const prochain = prochainDansLaBranche(b, savoir)
-  if (!prochain) return `Branche complète : ${savoir[b.categorie] ?? 0} bonnes réponses en ${b.categorie}.`
-  const n = prochain.manque
-  return `Encore ${n} bonne${n > 1 ? 's' : ''} réponse${n > 1 ? 's' : ''} en ${b.categorie} pour ${nomDansLaPhrase(prochain.portrait.nom)}.`
+const nPaliers = (n: number) => `${n} palier${n > 1 ? 's' : ''}`
+
+/** « Encore 2 paliers du sentier pour Anubis. » — ou le sentier fini. */
+function ceQuiVient(b: Branche, paliers: Paliers): string {
+  const prochain = prochainDansLaBranche(b, paliers)
+  if (!prochain) return 'Sentier complet : les six portraits sont à toi.'
+  return `Encore ${nPaliers(prochain.encore)} du sentier pour ${nomDansLaPhrase(prochain.portrait.nom)}.`
 }
 
 /**
@@ -480,7 +484,7 @@ function ceQuiVient(b: Branche, savoir: Savoir): string {
  * tombait sous quatre lignes, hors de l'écran d'un téléphone.
  */
 function MesBranches({
-  savoir,
+  paliers,
   porte,
   eclats,
   ouvert,
@@ -488,7 +492,7 @@ function MesBranches({
   fiche,
   onDeplier,
 }: {
-  savoir: Savoir
+  paliers: Paliers
   porte: string | null
   eclats: string[]
   ouvert: string | null
@@ -497,7 +501,7 @@ function MesBranches({
   /** Une autre branche se déplie : la fiche d'un portrait de la précédente se referme. */
   onDeplier: () => void
 }) {
-  const [depliee, setDepliee] = useState<CleDeBranche>(() => brancheDepliee(savoir, porte))
+  const [depliee, setDepliee] = useState<CleDeBranche>(() => brancheDepliee(paliers, porte))
   // La ligne touchée a disparu, remplacée par sa branche dépliée en tête : le
   // focus qu'elle avait va au nom de la branche, et la page remonte juste ce
   // qu'il faut pour la montrer.
@@ -535,8 +539,8 @@ function MesBranches({
   return (
     <div className="branches">
       {ordre.map(b => {
-        const justes = savoir[b.categorie] ?? 0
-        const n = ouvertsDansLaBranche(b, savoir)
+        const valides = paliers[b.key] ?? 0
+        const n = ouvertsDansLaBranche(b, paliers)
         const compte = `${n} / ${b.portraits.length}`
         if (b.key !== depliee) {
           // Sur sa ligne, le dernier portrait gagné — ou le premier, en
@@ -544,30 +548,30 @@ function MesBranches({
           // trois. La phrase entière, portrait nommé, se lit dépliée — et
           // l'oreille l'entend d'ici.
           const vitrine = b.portraits[Math.max(0, n - 1)]
-          const manque = prochainDansLaBranche(b, savoir)?.manque
+          const encore = prochainDansLaBranche(b, paliers)?.encore
           return (
             <button
               key={b.key}
               type="button"
               className="ligne-branche"
               aria-expanded={false}
-              aria-label={`${b.nom}, ${compte}. ${ceQuiVient(b, savoir)}`}
+              aria-label={`${b.nom}, ${compte}. ${ceQuiVient(b, paliers)}`}
               onClick={() => deplier(b.key)}
             >
               <span className="ligne-branche-dessin">{dessin(vitrine.key, n === 0)}</span>
               <span className="ligne-branche-texte">
                 <b>{b.nom}</b>
-                <span className="muted small">{`${b.categorie} · ${manque ? `encore ${manque}` : 'complète'}`}</span>
+                <span className="muted small">{`${b.categorie} · ${encore ? `encore ${nPaliers(encore)}` : 'complète'}`}</span>
               </span>
               <span className="ligne-branche-compte">{compte}</span>
             </button>
           )
         }
         // La jauge va du dernier portrait gagné au prochain : elle bouge à
-        // chaque soirée, pas une fois l'an.
-        const prochain = prochainDansLaBranche(b, savoir)
-        const depuis = n > 0 ? b.portraits[n - 1].seuil : 0
-        const part = prochain ? (justes - depuis) / (prochain.portrait.seuil - depuis) : 1
+        // chaque palier validé.
+        const prochain = prochainDansLaBranche(b, paliers)
+        const depuis = n > 0 ? b.portraits[n - 1].palier : 0
+        const part = prochain ? (valides - depuis) / (prochain.portrait.palier - depuis) : 1
         return (
           <div key={b.key} className="rayon" ref={rayon}>
             <div className="rayon-tete">
@@ -578,10 +582,10 @@ function MesBranches({
             <span className="jauge" aria-hidden="true">
               <span className="jauge-plein" style={{ width: `${Math.round(part * 100)}%` }} />
             </span>
-            <p className="muted small">{ceQuiVient(b, savoir)}</p>
+            <p className="muted small">{ceQuiVient(b, paliers)}</p>
             <div className="emoji-grid grille-unique grille-branche" role="group" aria-label={b.nom}>
               {b.portraits.map(p => {
-                const gagne = justes >= p.seuil
+                const gagne = valides >= p.palier
                 return (
                   <Fragment key={p.key}>
                     <button
@@ -594,13 +598,13 @@ function MesBranches({
                       }
                       aria-expanded={ouvert === p.key}
                       aria-controls={ouvert === p.key ? 'detail-avatar' : undefined}
-                      aria-label={`${p.nom}${gagne ? (porte === p.key ? ', porté' : ', gagné') : `, à ${p.seuil} bonnes réponses`}`}
+                      aria-label={`${p.nom}${gagne ? (porte === p.key ? ', porté' : ', gagné') : `, au palier ${p.palier}`}`}
                       onClick={() => toucher(p.key)}
                     >
                       <span className="case-medaillon">{dessin(p.key, !gagne)}</span>
                       {!gagne && (
                         <span className="case-niveau" aria-hidden="true">
-                          {p.seuil}
+                          {`P${p.palier}`}
                         </span>
                       )}
                     </button>
@@ -616,17 +620,15 @@ function MesBranches({
   )
 }
 
-/** « de bronze », « d’argent », « d’or ». */
-const deMetal = (metal: string) => (metal === 'bronze' ? `de ${metal}` : `d’${metal}`)
-
 /**
- * Ce qu'on lit d'un portrait en le touchant : sa branche, son nom, ce qui
- * l'ouvre — et, s'il manque encore, combien de bonnes réponses. Gagné, il
- * se porte d'ici ; porté, on revient à son emoji.
+ * Ce qu'on lit d'un portrait en le touchant : sa branche, son nom, le palier
+ * de son sentier qui l'ouvre — et, s'il manque encore, combien de paliers,
+ * avec le chemin du sentier. Gagné, il se porte d'ici ; porté, on revient à
+ * son emoji.
  */
 export function DetailPortrait({
   cle,
-  savoir,
+  paliers,
   porte,
   eclat,
   brille = eclat,
@@ -635,7 +637,7 @@ export function DetailPortrait({
   onEclat,
 }: {
   cle: string
-  savoir: Savoir
+  paliers: Paliers
   /** L'avatar dessiné qu'il porte, s'il en porte un. */
   porte: string | null
   /** Il a éclaté pour lui. */
@@ -650,21 +652,24 @@ export function DetailPortrait({
   const p = portraitDe(cle)
   if (!p) return null
   const b = brancheDe(p)
-  const justes = savoir[b.categorie] ?? 0
-  const gagne = justes >= p.seuil
-  const metal = ecussonDuSeuil(p.seuil)
-  const avec = metal ? `, avec l’écusson ${deMetal(metal)}` : ''
+  const valides = paliers[b.key] ?? 0
+  const gagne = valides >= p.palier
   return (
     <div className="galerie-detail detail-case">
       <span className="detail-famille muted">{`${b.nom} · ${b.categorie}`}</span>
       <b className="galerie-detail-nom">{p.nom}</b>
       {gagne ? (
-        <p className="small">{`Gagné à ${p.seuil} bonnes réponses en ${b.categorie}${avec}.`}</p>
+        <p className="small">{`Gagné au palier ${p.palier} du sentier ${deLaBranche(b)}.`}</p>
       ) : (
-        <p className="small">
-          {`Se gagne à ${p.seuil} bonnes réponses en ${b.categorie}${avec} : `}
-          <b>{`encore ${p.seuil - justes}`}</b>, en soirée comme au quiz du jour.
-        </p>
+        <>
+          <p className="small">
+            {`Se gagne au palier ${p.palier} du sentier ${deLaBranche(b)} : `}
+            <b>{`encore ${nPaliers(p.palier - valides)}`}</b>, dans la campagne.
+          </p>
+          <a className="btn btn-small" href={`/campagne#sentier-${b.key}`}>
+            Aller au sentier
+          </a>
+        </>
       )}
       {/* Gagné seulement : un portrait verrouillé n'a rien qui éclate. */}
       {gagne && eclat && <ChoixDeLEclat brille={brille} busy={busy} onChoisir={onEclat} />}
@@ -812,13 +817,15 @@ export function MesFinitions({ profil, busy, enregistrer }: { profil: PublicProf
 
 /**
  * Son titre, sous son prénom : chaque haut fait gagné ouvre le sien — son
- * nom, « L'Oracle », « La Lanterne Rouge ». Il s'écrit sur sa carte : la
- * salle le lit en touchant son nom. Ceux qui restent à gagner se comptent,
- * sans se nommer : trente boutons fermés noyaient les siens.
+ * nom, « L'Oracle », « La Lanterne Rouge » —, et chaque palier de maître des
+ * sentiers du savoir le sien (« Maître de la forêt »). Il s'écrit sur sa
+ * carte : la salle le lit en touchant son nom. Ceux qui restent à gagner se
+ * comptent, sans se nommer : trente boutons fermés noyaient les siens.
  */
 export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileDetail; busy: boolean; enregistrer: (patch: Patch) => void }) {
-  const gagnes = hautsFaitsGagnes(recompensesDe(profil.hautsFaits))
-  const aGagner = profil.hautsFaits.length - gagnes.length
+  // Les maîtres d'abord : un sentier gravi jusqu'au bout se dit en premier.
+  const gagnes = [...maitresDe(profil.sentiers ?? {}).map(cleDeMaitre), ...hautsFaitsGagnes(recompensesDe(profil.hautsFaits))]
+  const aGagner = profil.hautsFaits.length - (gagnes.length - maitresDe(profil.sentiers ?? {}).length)
   const porte = profil.titre ?? null
   return (
     <section className="card">
@@ -827,7 +834,8 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
         Mon titre
       </h3>
       <p className="muted small">
-        Chaque haut fait gagné ouvre le sien. Il s’écrit sous ton prénom, sur ta carte : la salle le lit en touchant ton nom.
+        Chaque haut fait gagné ouvre le sien, chaque palier de maître des sentiers aussi. Il s’écrit sous ton prénom, sur ta carte : la salle
+        le lit en touchant ton nom.
       </p>
       <div className="titres" role="group" aria-label="Mon titre">
         <button
@@ -848,7 +856,7 @@ export function MonTitre({ profil, busy, enregistrer }: { profil: PublicProfileD
             aria-disabled={busy || undefined}
             onClick={() => enregistrer({ titre: cle })}
           >
-            {hautFait(cle)?.title}
+            {nomDuTitre(cle)}
           </button>
         ))}
         {aGagner > 0 && (

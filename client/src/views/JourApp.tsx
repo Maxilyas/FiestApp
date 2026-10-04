@@ -19,7 +19,7 @@ import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
 import { Medaille, Serie, ontGagneHier } from '../components/Jour'
-import { CollectionOuverte, Medaillon, PortraitsOuverts } from '../components/Ouverts'
+import { CollectionOuverte, Medaillon } from '../components/Ouverts'
 import { RappelDuJour } from '../components/RappelDuJour'
 import { NOM_FINITION, finitionsOuvertes, type PublicProfile } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
@@ -795,7 +795,6 @@ export function Fin({
       {(partie.legendaires ?? []).map(cle => (
         <LegendaireOuvert key={cle} cle={cle} dejaPorte={profil.legendaire === cle} />
       ))}
-      <PortraitsOuverts cles={partie.portraits ?? []} porte={profil.legendaire ?? null} />
       {partie.saison && <Saison saison={partie.saison} />}
       {/* L'enjeu que la page taisait : le laurier est la seule récompense du
           jour que les autres voient. Et le rendez-vous, pour tous. */}

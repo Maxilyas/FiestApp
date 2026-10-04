@@ -123,7 +123,7 @@ test('l’accueil d’un profil : une soirée en cours d’abord, puis le quiz d
   const accueil = (props: object) =>
     rendu('components/AccueilDesRoles', 'AccueilJouer', { enCours: [], onRejoindre: () => {}, lendemain: null, ...props })
   const toujours = [
-    'La campagneJusqu’où iras-tu ? Trois vies, sans chrono → /campagne',
+    'La campagneUne série sans fin, ou les sentiers de tes avatars → /campagne',
     'Le quiz du jourDix questions, les mêmes pour tous → /jour',
     'Créer un salonTu lances les quiz : tu joues, ou tu animes → /salon',
     'Rejoindre une soiréeAvec son code, ou le QR de l’hôte [bouton]',

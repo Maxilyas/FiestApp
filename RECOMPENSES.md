@@ -479,21 +479,27 @@ Minotaure à Athéna. La maquette validée le 27 septembre 2026 fixe leur
 style : un portrait de face, un disque teinté de sa branche, la lumière en
 haut à gauche, pas d'anneau d'or — il reste aux légendaires.
 
-- **Ils se gagnent en sachant.** Chaque bonne réponse d'une catégorie, en
-  soirée comme au quiz du jour — celles qui font déjà les écussons, comptées
-  au même endroit (`justesParCategorie`) —, fait avancer sa branche. Pas de
+- **Ils se gagnent sur les sentiers du savoir** (§ 5.15) : un sentier par
+  branche, douze paliers, **un portrait tous les deux paliers**
+  (`PALIER_DU_PORTRAIT` : 2, 4, 6, 8, 10, 12), le sixième au sommet. Pas de
   coffre, pas de hasard : la collection finit par dire ce qu'on sait.
-- **Six paliers** : 3, 20, 40, 75, 130 et 200 bonnes réponses dans la
-  catégorie (`SEUILS_BRANCHE`). Le deuxième, le quatrième et le sixième
-  tombent avec les écussons de bronze, d'argent et d'or. Une question sans
-  catégorie ne fait avancer aucune branche ; une soirée jouée seul non plus.
-- **Rien ne s'écrit.** Les portraits ouverts se lisent dans la carrière, à
-  chaque lecture : une soirée retirée de l'historique reprend ce que ses
-  réponses avaient ouvert. Le serveur vérifie en base qu'on porte un
-  portrait qu'on a, et relit l'instantané de la salle dans un savoir gardé
-  une minute (`ProfileStore.savoirDe`). Relever un seuil reprendrait un
-  portrait à qui l'a déjà : la courbe ne se durcit pas sans retenir d'abord
-  ce que chacun avait, comme les légendaires.
+- **Jusqu'au 5 octobre 2026**, ils s'ouvraient aux bonnes réponses d'une
+  catégorie, en soirée comme au quiz du jour, à 3, 20, 40, 75, 130 et 200.
+  Une soirée en ouvrait presque toujours un : ils ne disaient plus rien,
+  et l'on ne savait jamais vers quoi l'on jouait. Les sentiers sont devenus
+  le seul chemin (le choix du 5 octobre 2026), et **chacun a gardé ce qu'il
+  avait** : la reprise (`core/repriseDesPortraits.ts`) a relu une fois le
+  savoir de chaque profil, aux seuils d'avant, et lui a validé deux paliers
+  par portrait (`sentier_acquis`) — sans étoiles, qu'un rejeu va chercher.
+  Un portrait porté que son savoir ne lui donnait plus (une soirée retirée)
+  s'est ôté ce jour-là, une fois.
+- **Un palier validé ne se perd jamais.** Les paliers se lisent dans le
+  journal des épreuves et dans les acquis de la reprise, qui ne s'effacent
+  qu'avec le profil : une soirée retirée de l'historique ne reprend plus
+  rien. Le serveur vérifie qu'on porte un portrait qu'on a quand on le
+  prend, puis le croit (`ProfileStore.legendairePorte`). Monter le palier
+  d'un portrait le reprendrait à qui l'a déjà : il ne monte pas sans
+  retenir d'abord ce que chacun avait, comme les légendaires.
 - **Ils se portent comme un légendaire** : la finition devient leur cercle
   (sauf en Mat, qui n'a pas de halo non plus sous un emoji), et l'Éclat qui
   tombe sous un portrait le fait passer sous le **ciel rare de sa branche**
@@ -505,26 +511,27 @@ haut à gauche, pas d'anneau d'or — il reste aux légendaires.
   Légendaires (les Divins dessous) ; chaque partie a son titre et son compte.
   Cinq onglets à compteur faisaient trois rangées au téléphone, un tiers de
   l'écran avant le premier avatar. Une branche se déplie en tête (celle du
-  portrait porté, sinon celle où l'on sait le plus), les autres tiennent sur
-  une ligne : leur dernier portrait, ou la silhouette du premier, leur
-  catégorie et ce qui manque (« Histoire · encore 3 ») ; dépliée, la phrase
-  entière nomme le prochain (« Encore 3 bonnes réponses en Histoire pour le
-  Minotaure »). Ce qui reste à gagner se voit en silhouette dorée, avec son
-  palier. Le geste ne change pas : on touche, la fiche s'ouvre, « Le
-  porter ».
-- **La fin de soirée et celle du quiz du jour** annoncent les portraits
-  ouverts (`portraits`), avec « Le porter ». L'écran commun ne les annonce
-  pas : presque chaque soirée en ouvre, la clôture garde ses nouvelles pour
-  les légendaires et les Divins.
+  portrait porté, sinon celle où l'on est monté le plus haut), les autres
+  tiennent sur une ligne : leur dernier portrait, ou la silhouette du
+  premier, leur catégorie et ce qui manque (« Histoire · encore 2
+  paliers ») ; dépliée, la phrase entière nomme le prochain (« Encore 2
+  paliers du sentier pour la Gorgone »). Ce qui reste à gagner se voit en
+  silhouette dorée, avec son palier, et sa fiche mène au sentier. Le geste
+  ne change pas : on touche, la fiche s'ouvre, « Le porter ».
+- **Leur révélation** est à la fin de l'épreuve qui valide leur palier : le
+  portrait en grand, « Le porter », et le prochain. Ni la fin de soirée ni
+  celle du quiz du jour ne les annoncent plus.
 - **Chargés à la demande, branche par branche** (`medaillons.ts`) : un
   invité anonyme ne télécharge une branche que si quelqu'un, dans la salle,
   en porte un portrait.
 
-**Mesuré.** `server/scripts/calibrage.ts` donne aux questions une catégorie
-(30 % de quiz à thème, la moitié des questions classée dans les autres,
-comme les quiz livrés), fait jouer le quiz du jour à trois joueurs sur dix
-(six parties entre deux soirées), et compte les portraits ouverts — médiane
-des joueurs :
+**Mesuré, avant les sentiers.** `server/scripts/calibrage.ts` donnait aux
+questions une catégorie (30 % de quiz à thème, la moitié des questions
+classée dans les autres, comme les quiz livrés), faisait jouer le quiz du
+jour à trois joueurs sur dix (six parties entre deux soirées), et comptait
+les portraits ouverts — médiane des joueurs. Il mesure maintenant les
+écussons sur la même simulation ; les sentiers ont leur calibrage
+(§ 5.15) :
 
 | Soirées de… | après 1 | après 5 | après 10 | après 20 | après 40 | soirées qui en ouvrent un | un dès le 1er soir | un sixième après 40 |
 |---|---|---|---|---|---|---|---|---|
@@ -537,8 +544,9 @@ des joueurs :
 
 Le premier palier était à 5 sur la maquette : un joueur sur cinq repartait
 de sa première soirée sans rien, plus d'un sur trois d'une petite soirée. À
-3, presque chaque soirée en ouvre un — c'est ce qu'on voulait sentir —, et le
-sixième reste un sommet.
+3, presque chaque soirée en ouvrait un — c'est ce qu'on voulait sentir. À
+l'usage, c'est ce qui les a usés : un avatar qui tombe tout seul ne se
+mérite pas.
 
 ### 5.5 Finitions et Éclat
 
@@ -919,6 +927,100 @@ qui tombe, le Grand théâtre et ses rideaux. Ils ne changent rien au jeu
   porte jamais d'un toucher. La fin de soirée dit ceux de ce soir, le solde et le prochain
   thème visé ; la fin du quiz du jour, ceux de la partie.
 
+### 5.15 Les sentiers du savoir
+
+Le second mode de la campagne solo (`/campagne#sentiers`), à côté de la
+série à trois vies, qui reste telle quelle — des confettis et de
+l'expérience sans plafond. Ici, l'objectif est de **monter** : un sentier
+par branche, douze paliers, et les avatars du savoir sur le chemin
+(`shared/sentiers.ts`, `CampagneStore`, `client/src/views/Sentiers.tsx`).
+
+- **Un palier, une épreuve** : seize questions de la catégorie de sa
+  branche, et **douze bonnes réponses pour valider — partout**. La règle se
+  retient en une phrase ; ce sont les questions qui durcissent, par leur
+  mélange (le niveau de chaque question est celui de la campagne,
+  `niveauDeQuestion`) :
+
+  | Palier | Mélange | | Palier | Mélange |
+  |---|---|---|---|---|
+  | 1 | 16 faciles | | 7 | 16 moyennes |
+  | 2 ★ | 14 faciles · 2 moyennes | | 8 ★ | 13 moyennes · 3 difficiles |
+  | 3 | 12 F · 4 M | | 9 | 10 M · 6 D |
+  | 4 ★ | 10 F · 6 M | | 10 ★ | 7 M · 9 D |
+  | 5 | 7 F · 9 M | | 11 | 5 M · 11 D |
+  | 6 ★ | 4 F · 12 M | | 12 ★ | 3 M · 13 D |
+
+  ★ : le palier ouvre un portrait. Pas de vrai ou faux dès le cinquième
+  (une chance sur deux au hasard) ; dès le neuvième, **toute la
+  catégorie** : chaque sous-thème a sa question avant qu'un autre en ait
+  deux — on ne gravit pas le stade sur le seul football. Aucune experte sur
+  un palier à portrait : moins d'un joueur sur cinq les trouve, et un
+  palier qui en dépendrait se gagnerait à l'usure, pas au savoir. Une
+  catégorie à qui manque un niveau emprunte au voisin : l'épreuve se joue
+  toujours, et la routine du matin comble les trous.
+- **L'épreuve s'arrête à la faute de trop** (la cinquième, quand il en faut
+  douze) ; validée, elle va au bout, pour les **étoiles** : une au seuil,
+  deux à quatorze, trois sans faute. Les étoiles ne rapportent rien ; elles
+  donnent une raison de rejouer.
+- **Le palier de maître**, après le sommet, facultatif : seize expertes, de
+  toute la catégorie, **neuf pour valider**, et un titre au bout —
+  « Maître de la forêt » (`titreDeMaitre`) —, qui se porte sous le prénom
+  comme celui d'un haut fait. Les expertes servent enfin à quelque chose,
+  sans barrer la route d'un avatar.
+- **Les vies** : douze par jour (une par sentier), pour tous les sentiers,
+  rendues à minuit à Paris, qui ne s'additionnent pas d'un jour à l'autre.
+  **Seul un palier raté en coûte une** ; quitter une épreuve en jeu compte
+  comme un échec — sinon on fermerait l'application à la quatrième faute.
+  **Rejouer un palier validé ne coûte rien**, même sans vie : pour les
+  étoiles, et pour les confettis. Une épreuve à la fois. Au-delà des
+  douze, **des vies en confettis** : 25 la vie, dix au plus par achat
+  (`PRIX_D_UNE_VIE`, `VIES_PAR_ACHAT_MAX`), à la boutique (« Des vies pour
+  les sentiers ») ou sur l'écran « Plus de vies » ; elles vont dans une
+  **réserve qui ne périme pas**, et servent après celles du jour. Rien ne
+  se compte à côté : les vies se relisent dans le journal des épreuves
+  ratées et des achats (`viesDe`) — un hoquet de la base ne fausse rien.
+- **Ce qu'une épreuve rapporte** : chaque bonne réponse, un confetti et
+  l'expérience d'une bonne réponse en soirée, comme la série (les épreuves
+  sont des séries d'un autre mode, dans les mêmes tables : l'expérience,
+  les confettis, la mesure des difficultés et « jamais vues d'abord » les
+  comptent sans rien savoir des sentiers). Les écussons, eux, restent aux
+  soirées et au quiz du jour.
+
+**Mesuré** (`server/scripts/calibrage-sentiers.ts`) : chaque question est
+trouvée par 85, 55, 30 ou 10 % des joueurs selon sa marche — le milieu de
+chaque marche de `niveauDuTaux` —, et un joueur plus fort dans la catégorie
+a une chance de plus sur l'échelle logistique. La chance de valider du
+premier coup :
+
+| Palier | moyen | bon | très bon | spécialiste |
+|---|---|---|---|---|
+| 1 | 92 % | 100 % | 100 % | 100 % |
+| 4 ★ | 59 % | 97 % | 99 % | 100 % |
+| 7 | 9 % | 70 % | 91 % | 98 % |
+| 10 ★ | 0,5 % | 25 % | 59 % | 86 % |
+| 12 ★ | 0,1 % | 13 % | 42 % | 76 % |
+| maître | 0 % | 0,4 % | 5 % | 26 % |
+
+Jusqu'au sommet, un bon joueur de la catégorie laisse une vingtaine de
+vies (un jour et demi de vies), un très bon quatre ; un joueur moyen n'y
+arrive pas — c'était voulu : le dernier portrait se mérite. Ces chiffres se vérifient sur les vraies épreuves, à `/admin#campagne`
+(« Les sentiers ») : palier par palier, la part qui valide du premier coup,
+les essais, les vies perdues avant de valider — sur trois mois, sans les
+rejeux —, et un signal quand un palier se révèle plus facile que celui
+d'avant. Les seuils et les mélanges se règlent dans le code, sur ces
+chiffres-là ; un portrait déjà ouvert ne se reprend pas (§ 5.4 ter).
+
+**La base grandit chaque matin.** La routine Claude Code qui remplit la
+réserve du quiz du jour écrit aussi, avec le même jeton, cinq questions
+par catégorie et par jour pour la campagne (`/api/campagne/base`,
+MISE-EN-LIGNE.md, étape 8) : là où il en manque le plus — sous-thèmes et
+difficultés —, jouables aussitôt déposées.
+
+**Plus tard** : un fond de carte au troisième maître, un thème qu'aucune
+boutique ne vend au douzième ; des chemins à thème (les années 80, le
+tour de France), des sentiers de saison, la revanche — les questions ratées
+d'une semaine, rejouées.
+
 ---
 
 ## 6. Feuille de route
@@ -964,6 +1066,11 @@ par catégorie, six portraits dessinés chacune, gagnés aux bonnes réponses ;
 « Mes avatars » rangé en trois familles.
 
 **Lot 9 — fait** : les confettis et les trente thèmes (§ 5.14).
+
+**Lot 10 — fait** : les sentiers du savoir (§ 5.15) — les avatars du savoir
+se gagnent palier par palier, dans la campagne ; les vies du jour et leur
+rachat en confettis ; le palier de maître et son titre ; chacun garde ses
+portraits d'avant, repris en paliers.
 
 **Plus tard**, dans l'ordre où je les prendrais :
 

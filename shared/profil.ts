@@ -23,6 +23,7 @@ import type { DivinDescendu } from './divins'
 import type { CarriereDuJour } from './jour'
 import type { Ecusson } from './ecussons'
 import type { BoutiqueDuProfil } from './themes'
+import type { Paliers } from './branches'
 
 // ── Niveaux ───────────────────────────────────────────────────────────────
 
@@ -825,6 +826,12 @@ export interface PublicProfileDetail extends PublicProfile {
   fonds?: string[]
   /** Ses confettis et ses thèmes : la boutique de sa page. Absente d'un serveur d'avant. */
   boutique?: BoutiqueDuProfil
+  /**
+   * Les paliers validés de chacun de ses sentiers du savoir
+   * (`shared/sentiers.ts`) : ce qui ouvre ses portraits et ses titres de
+   * maître. Absents d'un serveur d'avant, ou si la base s'est tue.
+   */
+  sentiers?: Paliers
 }
 
 /**

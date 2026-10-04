@@ -27,9 +27,10 @@ async function rendu(fichier: string, composant: string, props: object): Promise
   return renderToStaticMarkup(React.createElement(module[composant], props))
 }
 
-// La branche la plus avancée ouvre l'atlas : trois portraits sur six.
+// La branche la plus avancée ouvre l'atlas : trois portraits sur six, au
+// palier de son sentier qui ouvre le troisième.
 const avancee = BRANCHES[2]
-const savoir = { [avancee.categorie]: avancee.portraits[2].seuil }
+const paliers = { [avancee.key]: avancee.portraits[2].palier }
 
 const profil = {
   id: 'p',
@@ -51,7 +52,7 @@ const profil = {
   eclats: [],
   eclatsEteints: [],
   hautsFaits: [],
-  ecussons: Object.entries(savoir).map(([categorie, justes]) => ({ categorie, justes })),
+  sentiers: paliers,
   boutique: { confettis: { solde: 12 } },
 }
 const rien = { busy: false, enregistrer: () => {} }
@@ -61,7 +62,7 @@ test('le savoir en atlas : douze orbes sur deux rangées, la branche la plus ava
   assert.match(html, /<div class="atlas-rail rail-compact" role="tablist" aria-label="Les douze branches">/)
   assert.equal(html.match(/class="atlas-orbe"/g)?.length, BRANCHES.length)
   // Chaque orbe dit où il en est, en chiffres : l'anneau seul ne se lit pas.
-  for (const b of BRANCHES) assert.match(html, new RegExp(`${ouvertsDansLaBranche(b, savoir)}/${b.portraits.length}`), b.nom)
+  for (const b of BRANCHES) assert.match(html, new RegExp(`${ouvertsDansLaBranche(b, paliers)}/${b.portraits.length}`), b.nom)
   // La branche ouverte d'abord est celle où l'on avance — trois portraits gagnés, le quatrième qui palpite.
   assert.match(html, /<section class="atlas-branche"/)
   assert.equal(html.match(/class="atlas-etape atlas-gagne"/g)?.length, 3)

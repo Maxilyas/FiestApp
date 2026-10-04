@@ -98,16 +98,25 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     const fois = new Map(detail.vitrine.map(b => [b.key, b.fois]))
     // Ses soirées viennent d'être relues : la boutique compte ses confettis
     // dessus. Une base qui se tait ôte la boutique, pas la page.
-    const boutique = await profiles.boutiqueDe(rec, jourDe(deps.maintenant()), detail.soirees).catch(e => {
-      console.error('[profil] boutique illisible :', e)
-      return undefined
-    })
+    // Ses sentiers ouvrent ses portraits et ses titres de maître : une base
+    // qui se tait les ôte, pas la page.
+    const [boutique, sentiers] = await Promise.all([
+      profiles.boutiqueDe(rec, jourDe(deps.maintenant()), detail.soirees).catch(e => {
+        console.error('[profil] boutique illisible :', e)
+        return undefined
+      }),
+      profiles.paliersDe(rec.id).catch(e => {
+        console.error('[profil] sentiers illisibles :', e)
+        return undefined
+      }),
+    ])
     return {
       ...detail,
       jour,
       prix: CATALOGUE_DES_PRIX.map(p => ({ ...p, fois: fois.get(p.key) ?? 0 })),
       ecussons: ecussonsDe(detail.categories, categoriesDuJour),
       ...(boutique && { boutique }),
+      ...(sentiers && { sentiers }),
     }
   }
 

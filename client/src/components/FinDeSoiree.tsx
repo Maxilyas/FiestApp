@@ -24,7 +24,7 @@ import { confirmDialog } from './Dialog'
 import { Avatar, Dessin } from './Avatar'
 import { perdus, sortesDe, useDessins } from './medaillons'
 import { Flamme, Icon } from './Icon'
-import { CollectionOuverte, Medaillon, PortraitsOuverts } from './Ouverts'
+import { CollectionOuverte, Medaillon } from './Ouverts'
 import { lienBilan } from './Lendemain'
 import { Feuille } from './Pieces'
 
@@ -231,10 +231,6 @@ export function FinDeSoiree({
           </section>
         )
       })}
-
-      {/* Les portraits de ses branches : presque chaque soirée en ouvre un.
-          Une fin d'avant n'a pas le champ. */}
-      <PortraitsOuverts cles={gain?.portraits ?? []} porte={porte} onPorte={p => setPorte(p.legendaire)} />
 
       {/* Ce que la soirée a rangé dans ses trophées : les trois plus beaux ;
           le reste attend dans « Plus ». */}
