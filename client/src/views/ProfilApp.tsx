@@ -486,28 +486,10 @@ export function ProfilApp() {
       />
 
       {erreur && <p className="error">{erreur}</p>}
-
-      <div className="reset-row">
-        <button
-          className="btn btn-ghost"
-          onClick={async () => {
-            setErreur('')
-            // Tant que le serveur n'a pas fermé la session, le profil reste
-            // ouvert et la page le dit : la requête perdue montrait le
-            // formulaire de connexion, sans un mot, et le téléphone prêté
-            // rouvrait le profil de son propriétaire au rechargement.
-            try {
-              await api.joueur.deconnexion()
-            } catch (e) {
-              return setErreur(motifDe(e))
-            }
-            retenirProfil(false)
-            setProfil(null)
-          }}
-        >
-          Me déconnecter
-        </button>
-      </div>
+      {/* Plus de « Me déconnecter » ici : il est dans « Compte », la pièce
+          du menu où se règle ce qui n'est pas du jeu — l'identifiant, le mot
+          de passe. Il était aux deux endroits (le propriétaire du dépôt, le
+          4 octobre 2026). */}
       {menu('profil')}
     </div>
   )
@@ -515,9 +497,9 @@ export function ProfilApp() {
 
 
 /**
- * Un onglet qui arrive : sa place, d'une hauteur d'écran — le glossaire et
- * « Me déconnecter », dessous, ne sautent pas quand il arrive. S'il ne
- * viendra plus (le réseau, un redéploiement), la page le dit.
+ * Un onglet qui arrive : sa place, d'une hauteur d'écran — ce qui est
+ * dessous ne saute pas quand il arrive. S'il ne viendra plus (le réseau, un
+ * redéploiement), la page le dit.
  */
 function OngletEnChemin({ perdu }: { perdu: boolean }) {
   if (perdu) {

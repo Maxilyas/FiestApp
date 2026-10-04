@@ -2679,7 +2679,6 @@ h3 > .icon {
   }
 }
 
-.reset-row { margin-top: 14px; justify-content: flex-end; }
 
 /* Chaque invité peut être renommé ou exclu depuis l'écran commun : un pseudo
    malheureux projeté sur le mur ne doit pas être une fatalité. */
