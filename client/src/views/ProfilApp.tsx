@@ -175,6 +175,21 @@ export function ProfilApp() {
     if (!chargement) void porterTheme(profil?.theme)
   }, [chargement, profil?.theme])
 
+  // L'accueil affiché, le code du quiz du jour et de la campagne vient en
+  // fond : toucher leur bouton ouvre la page sans le télécharger d'abord.
+  // Pour un profil seulement — l'invité anonyme n'y a pas accès.
+  const aUnProfil = !!profil
+  useEffect(() => {
+    if (VUE !== 'accueil' || !aUnProfil) return
+    const precharger = () => {
+      void import('./CampagneApp').catch(() => {})
+      void import('./JourApp').catch(() => {})
+    }
+    const attente = window as Window & { requestIdleCallback?: (f: () => void) => number }
+    if (attente.requestIdleCallback) attente.requestIdleCallback(precharger)
+    else setTimeout(precharger, 1500)
+  }, [aUnProfil])
+
   const enregistrer = async (patch: ChoixDuProfil) => {
     // Un second toucher pendant l'enregistrement est ignoré ici, plutôt que
     // de désactiver chaque case : désactivée, la case touchée perdait le

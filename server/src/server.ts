@@ -88,9 +88,12 @@ export interface QuizServerOptions {
   jetonDeLaReserve?: string
   /**
    * La base de la campagne (`core/baseCampagne.ts`). Absente : celle du
-   * dépôt, lue à la première série. Les tests en donnent une petite.
+   * dépôt, lue en fond peu après le démarrage. Les tests en donnent une
+   * petite — ou de quoi la fabriquer, pour savoir quand elle se lit.
    */
-  baseDeLaCampagne?: BaseDeLaCampagne
+  baseDeLaCampagne?: BaseDeLaCampagne | (() => BaseDeLaCampagne)
+  /** Quand la base de la campagne se lit en fond, après le démarrage (`PRECHAUFFAGE_CAMPAGNE_MS`). */
+  prechauffageCampagneMs?: number
   /**
    * Le commit qui tourne, sept caractères (`RENDER_GIT_COMMIT` sur
    * l'hébergeur) : la production se promeut à la main, et rien ne disait
@@ -101,6 +104,14 @@ export interface QuizServerOptions {
 
 /** L'avance de la réserve du quiz du jour ne se relit pas plus souvent : `/healthz` se sonde toutes les quelques secondes. */
 const RESERVE_RELUE_MS = 10 * 60_000
+
+/**
+ * La base de la campagne se lit en fond, ce délai après le démarrage : la
+ * requête qui a réveillé l'hébergeur est servie d'abord. Lue à la première
+ * série, elle faisait attendre 3,5 s le premier joueur de campagne après
+ * chaque déploiement ou réveil, au dixième de cœur.
+ */
+const PRECHAUFFAGE_CAMPAGNE_MS = 20_000
 
 /**
  * Le mot de passe d'amorçage quand `ADMIN_PASSWORD` n'est pas donné. Il est
@@ -1043,6 +1054,10 @@ export async function createQuizServer(opts: QuizServerOptions) {
       (opts.maxPlayers ? '' : ' (MAX_PLAYERS non défini : le plafond du code)') +
       (opts.version ? ` — version ${opts.version}` : ''),
   )
+  // La base de la campagne, en fond et par tranches qui rendent la main
+  // (`lireLaBaseSansBloquer`) : personne ne l'attend plus à sa première série.
+  const prechauffage = setTimeout(() => campagne.prechauffer(), opts.prechauffageCampagneMs ?? PRECHAUFFAGE_CAMPAGNE_MS)
+  prechauffage.unref()
 
   return {
     httpServer,
@@ -1051,6 +1066,7 @@ export async function createQuizServer(opts: QuizServerOptions) {
     close: () =>
       new Promise<void>(resolve => {
         clearInterval(resync)
+        clearTimeout(prechauffage)
         charge.arreter()
         registry.stopAll()
         io.close(async () => {
