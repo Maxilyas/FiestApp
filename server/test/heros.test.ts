@@ -30,10 +30,12 @@ test('le quiz du jour à jouer : la sortie en tête, aujourd’hui d’abord, hi
   const page = source('views/JourApp.tsx')
   const debut = page.indexOf('// À jouer — ou en cours')
   const ecran = page.slice(debut, page.indexOf('\n}\n', debut))
-  const sortie = ecran.indexOf('<Sortie />')
+  // La sortie vit dans la barre du haut, la cloche du rappel du soir à sa droite.
+  const sortie = ecran.indexOf('<BarreDuJour />')
   const aujourdhui = ecran.indexOf('<section className="card jour-carte jour-heros">')
   const hier = ecran.indexOf('{partie.sonHier && <Lendemain')
   assert.ok(sortie > 0 && aujourdhui > sortie && hier > aujourdhui, 'Sortie, puis aujourd’hui, puis hier')
+  assert.match(page, /function BarreDuJour\(\) \{\s*return \(\s*<div className="jour-barre">\s*<Sortie \/>/, 'la barre commence par la sortie')
   // Une seule sortie : celle du bas faisait doublon.
   assert.doesNotMatch(ecran, /Retour à l’accueil/)
   // « Jouer » respire, sauf si le système demande moins de mouvement.

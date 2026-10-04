@@ -546,7 +546,7 @@ test('le rappel ne se propose que dans l’application installée, sur un naviga
   assert.equal(await sous(iphone, async r => r.rappelPossible()), true, 'Safari installé sur l’écran d’accueil le dit à sa façon')
 })
 
-test('« Me le rappeler » demande la permission au toucher même, puis donne l’abonnement au serveur', async () => {
+test('la cloche demande la permission au toucher même, puis donne l’abonnement au serveur', async () => {
   const nav = navigateur()
   await sous(nav, async rappel => {
     assert.equal(await rappel.preparerLeRappel(), 'inactif')
@@ -578,31 +578,48 @@ test('actif, il se rattache à chaque visite à la session du moment ; coupé, l
   assert.deepEqual(nav.envois.at(-1), { methode: 'DELETE', corps: { endpoint: 'https://fcm.googleapis.com/fcm/send/deja' } })
 })
 
-/** Un composant du client rendu en HTML, sous l'adresse de la page du jour : `state.ts` la lit au chargement. */
-async function rendu(props: object): Promise<string> {
+/** Le module de la cloche, chargé sous l'adresse de la page du jour : `state.ts` la lit au chargement. */
+async function cloche(): Promise<any> {
   const avant = (globalThis as { window?: unknown }).window
   Object.assign(globalThis, { window: { location: { pathname: '/jour', search: '', hash: '' } } })
   try {
-    const { renderToStaticMarkup } = await import('react-dom/server')
-    const { RappelVu } = await import(new URL('../../client/src/components/RappelDuJour.tsx', import.meta.url).href)
-    return renderToStaticMarkup(React.createElement(RappelVu, { occupe: false, onActiver: () => {}, onCouper: () => {}, ...props }))
+    return await import(new URL('../../client/src/components/RappelDuJour.tsx', import.meta.url).href)
   } finally {
     Object.assign(globalThis, { window: avant })
   }
 }
 
-test('la page dit l’heure et la condition, propose de couper, ou dit où débloquer — et rien tant qu’elle ne sait pas', async () => {
-  assert.equal(await rendu({ etat: null }), '')
-  const inactif = await rendu({ etat: 'inactif' })
-  assert.match(inactif, /Me le rappeler chaque soir/)
-  assert.match(inactif, /Une notification vers 18 h, seulement les jours où tu n’as pas fini ta partie\./)
-  const actif = await rendu({ etat: 'actif' })
-  assert.match(actif, /Rappel du soir activé : vers 18 h, si tu n’as pas fini ta partie\./)
-  assert.match(actif, />Le couper</)
-  assert.match(await rendu({ etat: 'bloque' }), /bloquées : le rappel du soir se rouvre dans les réglages du téléphone/)
+/** La cloche rendue en HTML, dans cet état. */
+async function rendu(etat: string | null, occupe = false): Promise<string> {
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { ClocheVue } = await cloche()
+  return renderToStaticMarkup(React.createElement(ClocheVue, { etat, occupe, onToucher: () => {} }))
+}
 
-  // Sur les trois écrans du quiz du jour qu'on retrouve : à jouer, la fin, le jour joué.
+test('une petite cloche en haut de la page, à côté de la sortie : un interrupteur, et rien tant qu’elle ne sait pas', async () => {
+  assert.equal(await rendu(null), '', 'ni dans un onglet, ni avant de savoir')
+  // Un interrupteur : le même nom et la même infobulle, l'état par `aria-pressed` seul.
+  const inactif = await rendu('inactif')
+  const ouvert = '<button type="button" class="cloche-du-rappel" aria-pressed="%" aria-label="Rappel du soir" title="Une notification vers 18 h, les jours où ta partie n’est pas finie">'
+  assert.ok(inactif.startsWith(ouvert.replace('%', 'false')), inactif)
+  assert.ok((await rendu('actif')).startsWith(ouvert.replace('%', 'true')))
+  assert.match(await rendu('actif', true), /disabled=""/, 'pas deux gestes à la fois')
+  // Bloquée, elle ne bascule plus : un bouton qui le dit, sans état.
+  const bloque = await rendu('bloque')
+  assert.ok(bloque.startsWith('<button type="button" class="cloche-du-rappel" aria-label="Rappel du soir : notifications bloquées">'), bloque)
+  // Rien qu'une icône : ni bouton en pleine page, ni phrase.
+  assert.doesNotMatch(inactif + bloque, /<p[ >]|btn-block/)
+  assert.notEqual(bloque.match(/<path [^>]*>/g)?.join(''), inactif.match(/<path [^>]*>/g)?.join(''), 'barrée, quand les notifications sont bloquées')
+
+  // Un toucher l'active, un autre la coupe ; bloquée, elle dit où se débloquer.
+  const { gesteDeLaCloche, DIT_LA_CLOCHE } = await cloche()
+  assert.deepEqual(['inactif', 'actif', 'bloque'].map(gesteDeLaCloche), ['activer', 'couper', 'expliquer'])
+  assert.equal(DIT_LA_CLOCHE.active, 'Rappel du soir activé : vers 18 h, les jours où tu n’as pas fini ta partie')
+  assert.match(DIT_LA_CLOCHE.bloque, /se rouvre dans les réglages du téléphone/)
+
+  // Sur les trois écrans du quiz du jour qu'on retrouve — à jouer, la fin, le jour joué —, dans la barre de la sortie.
   const page = readFileSync(new URL('../../client/src/views/JourApp.tsx', import.meta.url), 'utf8')
-  assert.equal(page.match(/<RappelDuJour \/>/g)?.length, 3)
-  assert.match(page, /partie\.etat !== 'aucun' && <RappelDuJour \/>/, 'un jour sans quiz n’a rien à rappeler')
+  assert.equal(page.match(/<BarreDuJour \/>/g)?.length, 3)
+  assert.match(page, /<div className="jour-barre">\s*<Sortie \/>\s*<RappelDuJour \/>\s*<\/div>/)
+  assert.equal(page.match(/<Sortie \/>/g)?.length, 1, 'la sortie de la page ne vit plus que dans sa barre')
 })

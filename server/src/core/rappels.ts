@@ -170,7 +170,7 @@ export class RappelStore {
    * la page du jour le renvoie à chaque visite, et c'est la dernière session
    * qui compte. Le rappel déjà parti aujourd'hui le reste (`dernier_jour`).
    * Abonné après 18 h, le premier rappel est pour demain : on vient de
-   * toucher « Me le rappeler » sur la page même du quiz, et la tournée du
+   * toucher la cloche sur la page même du quiz, et la tournée du
    * soir — faite, ou à refaire après un redémarrage — n'a rien à lui
    * apprendre.
    */
@@ -197,7 +197,7 @@ export class RappelStore {
     )
   }
 
-  /** « Couper le rappel » : ce téléphone-là, s'il est bien à lui. */
+  /** La cloche coupée : ce téléphone-là, s'il est bien à lui. */
   async desabonner(profileId: string, endpoint: unknown): Promise<void> {
     if (typeof endpoint !== 'string') return
     await this.client.execute({ sql: 'DELETE FROM jour_rappels WHERE endpoint = ? AND profile_id = ?', args: [endpoint, profileId] })

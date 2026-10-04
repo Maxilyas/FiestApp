@@ -467,7 +467,7 @@ export function JourApp() {
   return (
     <div className="player-shell">
       {/* La sortie en tête, la même partout ; puis aujourd'hui d'abord — c'est pour lui qu'on vient —, hier dessous. */}
-      <Sortie />
+      <BarreDuJour />
       <section className="card jour-carte jour-heros">
         <div className="jour-tete">
           <span className="label">Le quiz du jour</span>
@@ -514,9 +514,20 @@ export function JourApp() {
       </section>
       {partie.sonHier && <Lendemain partie={partie} laurier={profil.laurier} onCorrection={() => ouvrir('correction')} />}
       {partie.saison && <Saison saison={partie.saison} />}
-      {/* Un jour sans quiz n'a rien à rappeler. */}
-      {partie.etat !== 'aucun' && <RappelDuJour />}
       {toastVu}
+    </div>
+  )
+}
+
+/**
+ * Le haut de la page du jour : la sortie, et la cloche du rappel du soir,
+ * qui ne paraît que dans l'application installée (`RappelDuJour`).
+ */
+function BarreDuJour() {
+  return (
+    <div className="jour-barre">
+      <Sortie />
+      <RappelDuJour />
     </div>
   )
 }
@@ -704,7 +715,7 @@ export function Fin({
           ouvre son emoji —, et « Retour à l'accueil » attendait tout en bas,
           deux écrans plus loin. En tête, la fête n'en descend pas. */}
       {/* La sortie de la page, en tête et toujours la même : celle de la campagne et du salon. */}
-      <Sortie />
+      <BarreDuJour />
       <header className="fin-tete">
         <span className="label">Le quiz du jour</span>
         <h1>{capitale(jourEnToutesLettres(partie.jour))}</h1>
@@ -798,7 +809,6 @@ export function Fin({
         Le classement se fige à minuit. Le podium gagne {XP_PODIUM_DU_JOUR.join(', ').replace(/, (\d+)$/, ' et $1')} XP.
         Demain, dix nouvelles questions dès minuit.
       </p>
-      <RappelDuJour />
       <div className="fin-actions">
         <button className="btn btn-primary" onClick={onClassement}>
           <Icon name="list" />
@@ -867,7 +877,7 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
   return (
     <div className="player-shell jour-joue">
       {/* La sortie de la page, en tête et toujours la même : celle de la campagne et du salon. */}
-      <Sortie />
+      <BarreDuJour />
       <section className="card jour-carte">
         <div className="jour-tete">
           <span className="label">Le quiz du jour · joué</span>
@@ -924,7 +934,6 @@ export function JourJoue({ partie, onClassement, onCorrection }: { partie: Parti
       <p className="jour-demain muted small">
         <Icon name="clock" /> Dix nouvelles questions dans <b>{avantMinuit}</b>
       </p>
-      <RappelDuJour />
       {carte && laCarte && laCarte !== 'perdu' && (
         <laCarte.CarteJoueur adresse={`/api/joueur/carte/${encodeURIComponent(carte)}`} onFermer={() => setCarte(null)} />
       )}
