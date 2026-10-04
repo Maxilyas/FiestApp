@@ -404,6 +404,11 @@ export class CampagneStore {
     })
   }
 
+  /** Lit la base en fond, sans rien attendre : la première série la trouve prête (`PRECHAUFFAGE_CAMPAGNE_MS`, `server.ts`). */
+  prechauffer(): void {
+    this.base().catch(e => console.error('[campagne] base non lue en fond — la première série la relira :', e))
+  }
+
   /** Cet intitulé est-il dans la base ? La réserve du quiz du jour le refuse alors (`JourStore.dansLaCampagne`). */
   async dansLaBase(empreinte: string): Promise<boolean> {
     return (await this.base()).empreintes.has(empreinte)

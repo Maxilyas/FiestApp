@@ -232,9 +232,11 @@ function* lectureDeLaBase(dossier: string): Generator<void, BaseLue> {
 
 /**
  * La base en mémoire, indexée : par identifiant, et par empreinte pour la
- * tenir à l'écart de la réserve du quiz du jour. Lue à la première demande,
- * pas au démarrage : un réveil de l'hébergeur ne la paie que si quelqu'un
- * joue la campagne.
+ * tenir à l'écart de la réserve du quiz du jour. Lue une fois, en fond peu
+ * après le démarrage (`PRECHAUFFAGE_CAMPAGNE_MS`, `server.ts`) — ou à la
+ * première demande, si elle arrive avant : lue seulement là, elle faisait
+ * attendre 3,5 s le premier joueur après chaque déploiement, au dixième de
+ * cœur, pour neuf mégaoctets de mémoire.
  */
 export class BaseDeLaCampagne {
   readonly questions: readonly QuestionDeLaBase[]

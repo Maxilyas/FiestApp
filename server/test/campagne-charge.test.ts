@@ -11,7 +11,7 @@ import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import Database from 'better-sqlite3'
 import { Sqlite3Client } from '@libsql/client/sqlite3'
-import { baseDEssai, demarrer, ecrire, inscrireProfil, type Banc } from './banc'
+import { baseDEssai, demarrer, ecrire, inscrireProfil, patienter, type Banc } from './banc'
 import { ProfileStore, LIGNE_CAMPAGNE } from '../src/auth/profiles'
 import { XP_PAR_JUSTE } from '../../shared/campagne'
 
@@ -125,5 +125,26 @@ test('comptée par heure, sa ligne d’expérience reste exacte, jours de Paris 
     assert.equal(JSON.parse(ligne.detail).jours, 3)
   } finally {
     db.close()
+  }
+})
+
+test('la base de la campagne se lit en fond après le démarrage : le premier joueur ne l’attend plus', async () => {
+  // Lue à sa première série, elle faisait attendre 3,5 s le premier joueur
+  // de campagne après chaque déploiement ou réveil, au dixième de cœur.
+  let lectures = 0
+  const prechauffe = await demarrer({
+    horlogeDuJour: () => MAINTENANT,
+    baseDeLaCampagne: () => (lectures++, baseDEssai(40)),
+    prechauffageCampagneMs: 20,
+  })
+  try {
+    await patienter(300)
+    assert.equal(lectures, 1, 'lue sans qu’un joueur la demande')
+    const presse = await inscrireProfil(prechauffe.url, 'presse', 'Pressé')
+    const reponse = await fetch(`${prechauffe.url}/api/campagne`, { headers: { Cookie: presse } })
+    assert.equal(reponse.status, 200)
+    assert.equal(lectures, 1, 'et pas relue à la première demande')
+  } finally {
+    await prechauffe.close()
   }
 })
