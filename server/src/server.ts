@@ -721,6 +721,9 @@ export async function createQuizServer(opts: QuizServerOptions) {
       return { miroir: { ...backup.sante(), latenceP95Ms: miroir.p95, latenceMaxMs: miroir.max, envoisParMin: miroir.n } }
     })
     mesurer('jour', () => ({ jour: reserveDuJour() }))
+    // Ce que la routine du matin a déposé dans la base de la campagne : une
+    // routine qui ne tourne plus se voit à sa date.
+    mesurer('campagne', () => ({ campagne: campagne.santeDeLaBase() }))
     // La dernière tournée du rappel du soir : combien sont partis, combien
     // ont échoué — un service de push qui refuse tout se voit ici.
     mesurer('rappels', () => ({ rappels: rappels.bilan() }))

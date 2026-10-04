@@ -216,7 +216,43 @@ export interface AdminDeLaCampagne {
   jouables: number
   retirees: number
   parCategorie: { categorie: string; questions: number }[]
+  /** Les jouables de chaque catégorie, par difficulté estimée à l'écriture (de 1 à 5) : ce que la routine rattrape. */
+  parDifficulte: { categorie: string; difficultes: number[] }[]
+  /** Ce que la routine du matin a ajouté (`/api/campagne/base`). */
+  ajouts: AjoutsDeLaRoutine
   signalements: SignalementDeCampagne[]
+}
+
+/** La commande du matin, pour la routine qui agrandit la base (`GET /api/campagne/base`). */
+export interface CommandeDeLaBase {
+  /** Toutes catégories : ce qu'il reste à écrire aujourd'hui. Zéro : la routine s'arrête en une ligne. */
+  aEcrire: number
+  /** Ce qu'un dépôt porte au plus. */
+  parEnvoi: number
+  categories: {
+    categorie: string
+    aEcrire: number
+    /** Chaque sous-thème à écrire, combien, et à quelle difficulté. */
+    quotas: { cle: string; n: number; difficulte?: number }[]
+    /** Ce qu'on donne à l'IA qui écrit — null quand la catégorie a son compte du jour. */
+    consigne: string | null
+  }[]
+}
+
+/** Ce que dit un dépôt de la routine (`POST /api/campagne/base`). */
+export interface DepotDeLaBase {
+  ajoutees: number
+  ecartees: { texte: string; motif: string }[]
+}
+
+/** Ce que la routine a ajouté à la base, pour l'administrateur. */
+export interface AjoutsDeLaRoutine {
+  aujourdhui: number
+  septJours: number
+  total: number
+  dernierLe: number | null
+  /** Les plus récents d'abord : un coup d'œil, et « Retirer » si l'un cloche. */
+  derniers: { id: string; texte: string; categorie: string; sousTheme: string; difficulte: number; ajouteeLe: number; retiree: boolean }[]
 }
 
 /** Une question corrigée, à la fin d'une série : « Mes réponses ». */

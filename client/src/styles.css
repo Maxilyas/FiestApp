@@ -7296,6 +7296,15 @@ body.avec-menu .toast:not(.player-shell > .toast) { bottom: calc(80px + env(safe
 /* La base, à l'administration : une ligne par catégorie, son compte au bout. */
 .campagne-admin-categories { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 4px 16px; }
 .campagne-admin-categories li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--edge); font-size: 0.9rem; }
+.campagne-admin-difficultes { margin-top: 10px; }
+.campagne-admin-difficultes summary { cursor: pointer; }
+.campagne-admin-difficultes table { width: 100%; margin-top: 6px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.campagne-admin-difficultes th, .campagne-admin-difficultes td { padding: 4px 6px; border-bottom: 1px solid var(--edge); text-align: left; font-weight: 500; }
+.campagne-admin-difficultes .num { text-align: right; }
+.campagne-ajouts { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.campagne-ajouts li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--edge); }
+.campagne-ajouts li p { margin: 0; }
+.campagne-ajout-retire { opacity: var(--dim); }
 
 /* ── Mes avatars : la famille à son écran ───────────────────────────────
    Les emojis gardent leur grille, mais le titre de la carte, son mode

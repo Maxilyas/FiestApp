@@ -4,7 +4,7 @@ import { quand } from '../format'
 import { showToast } from '../state'
 import { formatNumber } from '../../../shared/typographie'
 import { SOUS_THEMES } from '../../../shared/etiquettes'
-import type { AdminDeLaCampagne, SignalementDeCampagne } from '../../../shared/campagne'
+import type { AdminDeLaCampagne, AjoutsDeLaRoutine as Ajouts, SignalementDeCampagne } from '../../../shared/campagne'
 
 /** Le nom d'un sous-thème, lu dans le catalogue de l'étiquetage. */
 const nomDuSousTheme = (categorie: string, cle: string) =>
@@ -66,6 +66,41 @@ export function AdminCampagne() {
             </li>
           ))}
         </ul>
+        {/* Par difficulté estimée, de 1 à 5 : ce que la routine rattrape chaque matin. */}
+        <details className="campagne-admin-difficultes">
+          <summary className="muted small">Par difficulté, de 1 (presque tout le monde) à 5 (un passionné)</summary>
+          <table className="small">
+            <thead>
+              <tr>
+                <th scope="col">Catégorie</th>
+                {[1, 2, 3, 4, 5].map(d => (
+                  <th key={d} scope="col" className="num">
+                    {d}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {etat.parDifficulte.map(c => (
+                <tr key={c.categorie}>
+                  <th scope="row">{c.categorie}</th>
+                  {c.difficultes.map((n, i) => (
+                    <td key={i} className="num">
+                      {formatNumber(n)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      </section>
+
+      <section className="admin-groupe" aria-labelledby="campagne-routine-titre">
+        <h2 className="compte-groupe" id="campagne-routine-titre">
+          La routine du matin
+        </h2>
+        <AjoutsDeLaRoutine ajouts={etat.ajouts} occupe={occupe} faire={faire} />
       </section>
 
       <section className="admin-groupe" aria-labelledby="campagne-signalements-titre">
@@ -111,5 +146,49 @@ function Signalement({ s, occupe, faire }: { s: SignalementDeCampagne; occupe: b
         </button>
       </div>
     </div>
+  )
+}
+
+/**
+ * Ce que la routine du matin a déposé dans la base (`/api/campagne/base`) :
+ * de quoi voir qu'elle tourne, et relire ses dernières questions — c'est la
+ * première fois qu'un humain les lit. « Retirer » les sort de la campagne
+ * pour tous, comme une question signalée.
+ */
+function AjoutsDeLaRoutine({ ajouts, occupe, faire }: { ajouts: Ajouts; occupe: boolean; faire: (appel: () => Promise<unknown>, merci: string) => Promise<void> }) {
+  if (ajouts.total === 0) {
+    return (
+      <p className="muted small">
+        Rien de déposé pour l’instant. La routine de la réserve du quiz du jour agrandit aussi la base, chaque matin, une fois son étape « base de la
+        campagne » ajoutée (MISE-EN-LIGNE.md, étape 8).
+      </p>
+    )
+  }
+  return (
+    <>
+      <p className="muted small">
+        {formatNumber(ajouts.aujourdhui)} question{ajouts.aujourdhui > 1 ? 's' : ''} aujourd’hui · {formatNumber(ajouts.septJours)} ces sept derniers jours ·{' '}
+        {formatNumber(ajouts.total)} en tout{ajouts.dernierLe !== null && <> · dernier dépôt {quand(ajouts.dernierLe)}</>}
+      </p>
+      <ul className="campagne-ajouts">
+        {ajouts.derniers.map(a => (
+          <li key={a.id} className={a.retiree ? 'campagne-ajout-retire' : undefined}>
+            <p>
+              <b>« {a.texte} »</b>{' '}
+              <span className="muted">
+                · {a.categorie} › {nomDuSousTheme(a.categorie, a.sousTheme)} · difficulté {a.difficulte} · {quand(a.ajouteeLe)}
+              </span>
+            </p>
+            {a.retiree ? (
+              <p className="muted small">Retirée de la campagne.</p>
+            ) : (
+              <button className="btn btn-small btn-ghost" disabled={occupe} onClick={() => void faire(() => api.admin.retirerDeLaCampagne(a.id), 'Retirée de la campagne')}>
+                Retirer
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   )
 }

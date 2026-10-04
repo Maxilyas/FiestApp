@@ -1,10 +1,18 @@
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import type { InStatement, ResultSet } from '@libsql/client'
 import { clientDistant, type Client } from './distante'
-import { BaseDeLaCampagne, type QuestionDeLaBase } from './baseCampagne'
+import { BaseDeLaCampagne, entreeDeLaBase, lireQuestionDeLaBase, type QuestionDeLaBase } from './baseCampagne'
+import {
+  DEPOT_MAX,
+  PLAFOND_PAR_CATEGORIE_ET_PAR_JOUR,
+  QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR,
+  commandeDeLaCategorie,
+  consigneDEcriture,
+  empreintesDesLivres,
+} from './consigneCampagne'
 import { jourDe } from '../../../shared/jour'
 import { tronquer } from '../../../shared/avatars'
-import { CATEGORIES } from '../../../shared/categories'
+import { CATEGORIES, type Categorie } from '../../../shared/categories'
 import {
   NIVEAUX,
   QUESTIONS_PAR_SERIE,
@@ -16,6 +24,9 @@ import {
   xpDeCampagne,
   xpDuJourDeCampagne,
   type AdminDeLaCampagne,
+  type AjoutsDeLaRoutine,
+  type CommandeDeLaBase,
+  type DepotDeLaBase,
   type CorrectionDeCampagne,
   type EtatDeCampagne,
   type Niveau,
@@ -77,8 +88,19 @@ export class CampagneStore {
   private client: Client
   private maintenant: () => number
   private verrous = new Map<string, Promise<unknown>>()
-  /** La base, lue à la première demande sans figer le serveur (`BaseDeLaCampagne.depuisLeDossier`) ; les tests en donnent une petite. */
-  private base: () => Promise<BaseDeLaCampagne>
+  /** La base du dépôt, lue à la première demande sans figer le serveur (`BaseDeLaCampagne.depuisLeDossier`) ; les tests en donnent une petite. */
+  private fichiers: () => Promise<BaseDeLaCampagne>
+  /**
+   * Ce que la routine du matin a déposé (`campagne_ajouts`) : lu au
+   * démarrage, tenu à jour à chaque dépôt. La base qu'on joue, c'est le
+   * dépôt et ceux-là ensemble (`base`) — sans déploiement : une question
+   * déposée à 7 h se joue à 7 h.
+   */
+  private ajouts: { question: QuestionDeLaBase; ajouteeLe: number }[] = []
+  /** Le dépôt et les ajouts ensemble, refaits quand un ajout arrive. */
+  private fusion: { fichiers: BaseDeLaCampagne; ajouts: number; base: BaseDeLaCampagne } | null = null
+  /** Les intitulés des quiz livrés, lus au premier dépôt : la base ne les reprend pas. */
+  private livres: Set<string> | null = null
   /** Les intitulés de la réserve du quiz du jour (`JourStore.empreintes`) : la campagne n'en pose aucun. */
   private empreintesDuJour: () => Promise<ReadonlySet<string>>
   /** Écrit sa ligne d'expérience (`ProfileStore.ecrireXpDeCampagne`). */
@@ -108,7 +130,7 @@ export class CampagneStore {
     this.maintenant = opts.maintenant ?? Date.now
     const donnee = opts.base
     let lue: Promise<BaseDeLaCampagne> | null = null
-    this.base =
+    this.fichiers =
       donnee instanceof BaseDeLaCampagne
         ? async () => donnee
         : () =>
@@ -119,6 +141,24 @@ export class CampagneStore {
             }))
     this.empreintesDuJour = opts.empreintesDuJour ?? (async () => new Set())
     this.ecrireXp = opts.ecrireXp ?? (async () => {})
+  }
+
+  /**
+   * La base qu'on joue : celle du dépôt, et ce que la routine y a ajouté.
+   * Refaite seulement quand un ajout arrive — une série la lit à chaque
+   * fois. Un ajout que le dépôt aurait rangé depuis (même identifiant, même
+   * intitulé) n'y entre pas deux fois.
+   */
+  private async base(): Promise<BaseDeLaCampagne> {
+    const fichiers = await this.fichiers()
+    if (this.ajouts.length === 0) return fichiers
+    const f = this.fusion
+    if (f && f.fichiers === fichiers && f.ajouts === this.ajouts.length) return f.base
+    const ids = new Set(fichiers.parId.keys())
+    const enPlus = this.ajouts.map(a => a.question).filter(q => !ids.has(q.id) && !fichiers.empreintes.has(q.empreinte))
+    const base = new BaseDeLaCampagne([...fichiers.questions, ...enPlus])
+    this.fusion = { fichiers, ajouts: this.ajouts.length, base }
+    return base
   }
 
   /**
@@ -171,12 +211,35 @@ export class CampagneStore {
            question_id TEXT PRIMARY KEY,
            retiree_le  INTEGER NOT NULL
          )`,
+        // Ce que la routine du matin dépose : une entrée de la base par ligne,
+        // dans la forme des fichiers du dépôt (`entreeDeLaBase`).
+        `CREATE TABLE IF NOT EXISTS campagne_ajouts (
+           id          TEXT PRIMARY KEY,
+           categorie   TEXT NOT NULL,
+           entree      TEXT NOT NULL,
+           ajoutee_le  INTEGER NOT NULL
+         )`,
         // Dans le même aller-retour : un réveil de l'hébergeur n'en paie pas un de plus.
         'SELECT question_id FROM campagne_retraits',
+        'SELECT entree, ajoutee_le FROM campagne_ajouts ORDER BY ajoutee_le',
       ],
       'write',
     )
-    for (const r of resultats[resultats.length - 1].rows) this.retirees.add(String(r.question_id))
+    for (const r of resultats[resultats.length - 2].rows) this.retirees.add(String(r.question_id))
+    let illisibles = 0
+    for (const r of resultats[resultats.length - 1].rows) {
+      // Relue par le juge du jour : une règle durcie depuis le dépôt l'écarte, comme une ligne du dépôt.
+      const lu = (() => {
+        try {
+          return lireQuestionDeLaBase(JSON.parse(String(r.entree)))
+        } catch {
+          return { refus: 'JSON illisible' }
+        }
+      })()
+      if ('refus' in lu) illisibles++
+      else this.ajouts.push({ question: lu.question, ajouteeLe: Number(r.ajoutee_le) })
+    }
+    if (illisibles > 0) console.warn(`[campagne] ${illisibles} question(s) déposée(s) par la routine écartée(s) : le juge de la base ne les accepte plus`)
   }
 
   /** Un geste à la fois par profil : deux onglets qui répondent ensemble ne comptent pas deux fois. */
@@ -420,6 +483,132 @@ export class CampagneStore {
     return Number(res.rows[0]?.n ?? 0)
   }
 
+  // ── La routine du matin ─────────────────────────────────────────────────
+
+  /**
+   * Ce que la routine doit écrire aujourd'hui (Paris) : par catégorie,
+   * combien encore — la commande moins ce qu'elle a déjà déposé, si elle
+   * repasse —, les sous-thèmes et les difficultés qui manquent le plus
+   * (`commandeDeLaCategorie`), et la consigne qu'elle donne à l'IA, avec les
+   * intitulés déjà écrits dans ces sous-thèmes-là : la catégorie entière
+   * ferait des consignes de plus en plus longues à mesure que la base grandit.
+   */
+  async commandeDuJour(): Promise<CommandeDeLaBase> {
+    const base = await this.base()
+    const aujourdhui = jourDe(this.maintenant())
+    const categories = CATEGORIES.map(categorie => {
+      const deposees = this.ajouts.filter(a => a.question.meta.categorie === categorie && jourDe(a.ajouteeLe) === aujourdhui).length
+      const aEcrire = Math.max(0, QUESTIONS_PAR_CATEGORIE_ET_PAR_JOUR - deposees)
+      if (aEcrire === 0) return { categorie, aEcrire, quotas: [], consigne: null }
+      const existantes = base.questions.filter(q => q.meta.categorie === categorie && !this.retirees.has(q.id))
+      const quotas = commandeDeLaCategorie(
+        categorie,
+        existantes.map(q => ({ sousTheme: q.meta.sousTheme, difficulte: q.meta.difficulte })),
+        aEcrire,
+      )
+      const vises = new Set(quotas.map(q => q.cle))
+      const deja = existantes.filter(q => vises.has(q.meta.sousTheme)).map(q => q.texte)
+      return { categorie, aEcrire, quotas, consigne: consigneDEcriture(categorie, quotas, { sorte: 'routine' }, deja) }
+    })
+    return { aEcrire: categories.reduce((n, c) => n + c.aEcrire, 0), parEnvoi: DEPOT_MAX, categories }
+  }
+
+  /**
+   * Le dépôt de la routine : chaque entrée relue par le juge de la base
+   * (`lireQuestionDeLaBase`), comme une ligne du dépôt ; écartée, avec sa
+   * raison, si elle est d'une autre catégorie, déjà dans la base, dans la
+   * réserve du quiz du jour ou dans un quiz livré, ou si la catégorie a
+   * atteint son plafond du jour. Rangée sous un identifiant neuf, et jouable
+   * tout de suite. Un dépôt à la fois : deux routines lancées ensemble ne
+   * passeraient pas le plafond, ni ne rangeraient deux fois le même intitulé.
+   */
+  deposer(categorie: unknown, entrees: unknown): Promise<DepotDeLaBase> {
+    return this.avecVerrou('#depot', async () => {
+      const c = CATEGORIES.find(x => x === categorie)
+      if (!c) throw new Error(`Catégorie inconnue : ${String(categorie)}`)
+      if (!Array.isArray(entrees) || entrees.length === 0) throw new Error('Envoie les questions dans « entrees », un tableau au format de la consigne')
+      if (entrees.length > DEPOT_MAX) throw new Error(`${DEPOT_MAX} questions au plus par envoi : coupe le lot en plusieurs`)
+      const [base, duJour] = await Promise.all([this.base(), this.empreintesDuJour()])
+      this.livres ??= empreintesDesLivres()
+      const ids = new Set(base.parId.keys())
+      const vues = new Set<string>()
+      const aujourdhui = jourDe(this.maintenant())
+      let place = PLAFOND_PAR_CATEGORIE_ET_PAR_JOUR - this.ajouts.filter(a => a.question.meta.categorie === c && jourDe(a.ajouteeLe) === aujourdhui).length
+      const ecartees: DepotDeLaBase['ecartees'] = []
+      const acceptees: QuestionDeLaBase[] = []
+      for (const brut of entrees) {
+        const texte = tronquer(String((brut as { texte?: unknown } | null)?.texte ?? ''), 120)
+        const lu = lireQuestionDeLaBase(brut, { sansId: true })
+        if ('refus' in lu) {
+          ecartees.push({ texte, motif: lu.refus })
+          continue
+        }
+        const q = lu.question
+        const motif =
+          q.meta.categorie !== c
+            ? `d’une autre catégorie (${q.meta.categorie}) : dépose-la avec la sienne`
+            : base.empreintes.has(q.empreinte)
+              ? 'déjà dans la base'
+              : duJour.has(q.empreinte)
+                ? 'déjà dans la réserve du quiz du jour'
+                : this.livres.has(q.empreinte)
+                  ? 'déjà dans un quiz livré'
+                  : vues.has(q.empreinte)
+                    ? 'deux fois dans ce dépôt'
+                    : place <= 0
+                      ? `la catégorie a reçu ses ${PLAFOND_PAR_CATEGORIE_ET_PAR_JOUR} questions du jour`
+                      : null
+        if (motif) {
+          ecartees.push({ texte, motif })
+          continue
+        }
+        vues.add(q.empreinte)
+        place--
+        acceptees.push({ ...q, id: nouvelIdentifiant(ids) })
+      }
+      if (acceptees.length > 0) {
+        const maintenant = this.maintenant()
+        await this.client.batch(
+          acceptees.map(q => ({
+            sql: 'INSERT INTO campagne_ajouts (id, categorie, entree, ajoutee_le) VALUES (?, ?, ?, ?)',
+            args: [q.id, c, JSON.stringify(entreeDeLaBase(q)), maintenant],
+          })),
+          'write',
+        )
+        // Écrites : elles se jouent tout de suite. La base fusionnée se refait à la prochaine lecture.
+        for (const q of acceptees) this.ajouts.push({ question: q, ajouteeLe: maintenant })
+      }
+      return { ajoutees: acceptees.length, ecartees }
+    })
+  }
+
+  /** Ce que la routine a ajouté : de quoi voir qu'elle tourne, et relire ses dernières questions. */
+  private ajoutsDeLaRoutine(): AjoutsDeLaRoutine {
+    const maintenant = this.maintenant()
+    const aujourdhui = jourDe(maintenant)
+    const derniers = this.ajouts.slice(-20).reverse()
+    return {
+      aujourdhui: this.ajouts.filter(a => jourDe(a.ajouteeLe) === aujourdhui).length,
+      septJours: this.ajouts.filter(a => a.ajouteeLe > maintenant - 7 * 24 * HEURE_MS).length,
+      total: this.ajouts.length,
+      dernierLe: this.ajouts.at(-1)?.ajouteeLe ?? null,
+      derniers: derniers.map(({ question: q, ajouteeLe }) => ({
+        id: q.id,
+        texte: q.texte,
+        categorie: q.meta.categorie,
+        sousTheme: q.meta.sousTheme,
+        difficulte: q.meta.difficulte,
+        ajouteeLe,
+        retiree: this.retirees.has(q.id),
+      })),
+    }
+  }
+
+  /** Pour `/healthz` : agrégé, lu en mémoire, sans un intitulé — la route est publique. */
+  santeDeLaBase(): { ajoutees: number; dernierApport: number | null } {
+    return { ajoutees: this.ajouts.length, dernierApport: this.ajouts.at(-1)?.ajouteeLe ?? null }
+  }
+
   // ── Les signalements ────────────────────────────────────────────────────
 
   /**
@@ -503,6 +692,12 @@ export class CampagneStore {
       jouables: jouables.length,
       retirees: this.retirees.size,
       parCategorie: parCategorie(jouables),
+      parDifficulte: CATEGORIES.map(categorie => {
+        const difficultes = [0, 0, 0, 0, 0]
+        for (const q of jouables) if (q.meta.categorie === categorie) difficultes[q.meta.difficulte - 1]++
+        return { categorie, difficultes }
+      }),
+      ajouts: this.ajoutsDeLaRoutine(),
       signalements,
     }
   }
@@ -628,4 +823,15 @@ function melanger<T>(liste: readonly T[]): T[] {
     ;[copie[i], copie[j]] = [copie[j], copie[i]]
   }
   return copie
+}
+
+/** Un identifiant neuf de huit caractères, comme ceux que le rangement du dépôt tire (`base-campagne.ts ranger`). */
+function nouvelIdentifiant(pris: Set<string>): string {
+  for (;;) {
+    const id = Array.from(randomBytes(8), o => 'abcdefghijklmnopqrstuvwxyz0123456789'[o % 36]).join('')
+    if (!pris.has(id)) {
+      pris.add(id)
+      return id
+    }
+  }
 }
