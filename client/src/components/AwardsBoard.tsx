@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { Award, PublicTeam } from '../../../shared/types'
 import { enumerer } from '../../../shared/classement'
-import { effetDUnPrix } from '../../../shared/teams'
+import { POINTS_D_UN_PRIX, PRIX_MAX, effetDUnPrix } from '../../../shared/teams'
 import { ChampNombre } from './ChampNombre'
 import { remiseDuClic, type RemiseEnRoute } from '../remise'
 
@@ -20,8 +20,6 @@ interface Props {
   remisesVues?: string
 }
 
-/** Ce qu'un prix vaut par défaut. L'animateur reste libre de changer. */
-const DEFAULT_POINTS = 1
 
 /**
  * Les prix qui ne rapportent rien par défaut : ils se remettent pour
@@ -29,7 +27,7 @@ const DEFAULT_POINTS = 1
  * qui n'avait rien envoyé — une récompense pour l'absence.
  */
 const POUR_L_HONNEUR = new Set(['abstentionniste'])
-const parDefaut = (a: Award) => (POUR_L_HONNEUR.has(a.key) ? 0 : DEFAULT_POINTS)
+const parDefaut = (a: Award) => (POUR_L_HONNEUR.has(a.key) ? 0 : POINTS_D_UN_PRIX)
 
 /**
  * Les prix de fin de soirée.
@@ -115,13 +113,13 @@ export function AwardsBoard({ awards, teams, onAward, givenTitles, remisesVues =
                 <label className="award-points-champ">
                   <ChampNombre
                     className="input award-points"
-                    min={-10}
-                    max={10}
+                    min={-PRIX_MAX}
+                    max={PRIX_MAX}
                     aria-label={`Points d’équipe du prix « ${a.title} »`}
                     valeur={points[a.key] ?? parDefaut(a)}
                     onValeur={n => setPoints(p => ({ ...p, [a.key]: n }))}
                   />
-                  <span className="award-points-unite" aria-hidden="true">pts d’équipe</span>
+                  <span className="award-points-unite" aria-hidden="true">pts</span>
                 </label>
                 <button
                   className={'btn btn-small' + (given ? '' : ' btn-primary')}

@@ -202,7 +202,7 @@ const zebresEtAigles = {
     { id: 'zebres', name: 'Les Zèbres', emoji: '🦓', position: 0, createdAt: 1 },
     { id: 'aigles', name: 'Les Aigles', emoji: '🦅', position: 1, createdAt: 1 },
   ],
-  bonuses: [{ id: 'b1', teamId: 'aigles', points: 1, reason: 'Karaoké', createdAt: 5 }] as TeamBonus[],
+  bonuses: [{ id: 'b1', teamId: 'aigles', points: 100, reason: 'Karaoké', createdAt: 5 }] as TeamBonus[],
   players: [
     { id: 'zack', name: 'Zack', avatar: '🦓', teamId: 'zebres', createdAt: 1 },
     { id: 'anna', name: 'Anna', avatar: '🦅', teamId: 'aigles', createdAt: 2 },
@@ -217,10 +217,10 @@ test('l’écran de victoire couronne les ex æquo au lieu de choisir par l’al
   assert.deepEqual(
     equipes.vainqueursDuQuiz(equipes.teamScores(teams, joueurs, bonuses, equipes.questionsDesEquipes(joueurs, zebresEtAigles.answers()))).map(t => [t.name, t.finalPoints]),
     [
-      ['Les Aigles', 2],
-      ['Les Zèbres', 2],
+      ['Les Aigles', 300],
+      ['Les Zèbres', 300],
     ],
-    'deux équipes à 2 points : ex æquo, pas « Les Aigles » seuls',
+    'deux équipes à 300 points : ex æquo, pas « Les Aigles » seuls',
   )
   assert.deepEqual(equipes.vainqueursDuQuiz(equipes.teamScores(teams, [], [], new Map())), [], 'rien joué, rien remis : personne à couronner')
 })
@@ -567,8 +567,8 @@ test('l’historique couronne les équipes comme l’écran de victoire, prix co
   assert.deepEqual(
     resume.teamWinners.map(t => [t.name, t.points]),
     [
-      ['Les Aigles', 2],
-      ['Les Zèbres', 2],
+      ['Les Aigles', 300],
+      ['Les Zèbres', 300],
     ],
     'il prenait la première au quiz seul, sans les prix : « Les Zèbres »',
   )

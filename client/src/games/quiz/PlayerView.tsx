@@ -15,6 +15,7 @@ import { NomLaure } from '../../components/Laurier'
 import { serverNow } from '../../clock'
 import { Echelle, LigneDeCourse } from './Course'
 import { toucher } from '../../toucher'
+import { PastilleEquipe } from '../../components/PastilleEquipe'
 import { ligneDeSoiree, moitieHaute } from '../../../../shared/course'
 
 interface Props {
@@ -433,7 +434,9 @@ function BetweenQuestions({ view: v, salle: { teams, myTeamId, players, particip
         </p>
       )}
       {/* La question vue par toute la salle : sous la sienne, jamais avant (invariant 1). */}
-      {v.laQuestion && <CetteQuestion detail={v.laQuestion} players={players} moi={v.justArrived ? undefined : moi?.id} />}
+      {v.laQuestion && (
+        <CetteQuestion detail={v.laQuestion} players={players} moi={v.justArrived ? undefined : moi?.id} teams={teams} monEquipe={myTeamId} />
+      )}
     </>
   )
 }
@@ -518,8 +521,21 @@ export function phraseDeLaQuestion(
  * serveur n'envoie que des identifiants : les prénoms et les avatars
  * viennent de l'instantané, marque d'homonymie comprise.
  */
-function CetteQuestion({ detail: d, players, moi }: { detail: DetailDeLaQuestion; players: readonly PublicPlayer[]; moi: string | undefined }) {
+function CetteQuestion({
+  detail: d,
+  players,
+  moi,
+  teams = [],
+  monEquipe = null,
+}: {
+  detail: DetailDeLaQuestion
+  players: readonly PublicPlayer[]
+  moi: string | undefined
+  teams?: readonly PublicTeam[]
+  monEquipe?: string | null
+}) {
   const parId = new Map(players.map(p => [p.id, p]))
+  const equipeDe = (id: string) => teams.find(t => t.id === parId.get(id)?.teamId)
   const nomDe = (id: string) => {
     const p = parId.get(id)
     return p ? (p.nomAffiche ?? p.name) : 'un invité parti'
@@ -561,6 +577,7 @@ function CetteQuestion({ detail: d, players, moi }: { detail: DetailDeLaQuestion
               <Avatar className="dq-avatar" avatar={p?.avatar ?? '🎉'} finition={p?.finition} eclat={p?.eclat} legendaire={p?.legendaire} />
               <span className="dq-nom">
                 <span className="dq-nom-texte">{nomDe(l.id)}</span>
+                <PastilleEquipe equipe={equipeDe(l.id)} avecMoi={!!monEquipe && equipeDe(l.id)?.id === monEquipe} />
                 {l.id === d.premier?.id && <Icon name="zap" className="dq-eclair" />}
               </span>
               <span className="dq-temps">
@@ -1055,7 +1072,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
       {soiree && !v.horsClassement && <p className="muted small center">{soiree}</p>}
       {v.podium && v.podium.length > 0 && <Marches rows={v.podium} moi={v.yourPodiumIndex} />}
       {/* Hors du podium, on veut savoir qui l'on a talonné jusqu'au bout — pas le chef qui animait. */}
-      {!v.horsClassement && <Echelle view={v} players={players} moi={moi} />}
+      {!v.horsClassement && <Echelle view={v} players={players} moi={moi} teams={salle.teams} />}
     </div>
   )
 }

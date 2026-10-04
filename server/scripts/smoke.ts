@@ -1374,19 +1374,19 @@ try {
   const vide = regroupedSnap.teams.find((t: any) => t.id === T[0].id)
   assert(vide.memberCount === 0 && vide.average === 0, 'une équipe quittée retombe à zéro')
 
-  // Le barème part du nombre d'équipes : à six équipes, la première rapporte
-  // 6. Aucune n'a encore joué une question pour elle : les six sont à
-  // égalité, premières, et partagent rang et points.
+  // Les points d'équipe sont la moyenne par membre, prix compris : aucune
+  // équipe n'a encore joué une question pour elle, les six sont à égalité,
+  // premières, et partagent rang et points — zéro.
   const standings = rankTeams(regroupedSnap.teams)
   assert(standings.length === 6, `${standings.length} équipes classées, attendu 6`)
-  assert(standings[0].gamePoints === 6, `première équipe à ${standings[0].gamePoints} points de jeu, attendu 6`)
   assert(
-    standings.every(t => t.rank === 1 && t.gamePoints === 6),
+    standings.every(t => t.rank === 1 && t.finalPoints === 0),
     'les équipes à égalité doivent partager rang et points',
   )
   assert(vainqueursDuQuiz(regroupedSnap.teams).length === 0, 'six équipes à égalité ne sont pas six gagnantes')
 
-  // Le barème lui-même, sur six équipes toutes différentes : 6, 5, 4, 3, 2, 1.
+  // Plus de barème au rang (6, 5, 4…) : sur six équipes toutes différentes,
+  // les points d'équipe sont leurs moyennes, telles quelles.
   const bareme = rankTeams(
     [500, 400, 300, 200, 100, 50].map((average, i) => ({
       id: `t${i}`,
@@ -1398,10 +1398,10 @@ try {
       average,
       bonus: 0,
     })),
-  ).map(t => t.gamePoints)
+  ).map(t => t.finalPoints)
   assert(
-    bareme.join(',') === '6,5,4,3,2,1',
-    `barème des trois jeux faux : ${bareme.join(', ')}`,
+    bareme.join(',') === '500,400,300,200,100,50',
+    `points d’équipe faux : ${bareme.join(', ')}`,
   )
 
   // Supprimer une équipe n'exclut personne : ses membres redeviennent libres
@@ -1559,8 +1559,8 @@ try {
   const ranked = finalRanking(withBonus.teams)
   const winner = ranked.find((t: any) => t.id === T[0].id)!
   assert(
-    winner.finalPoints === winner.gamePoints + 3,
-    `total final à ${winner.finalPoints}, attendu ${winner.gamePoints + 3}`,
+    winner.finalPoints === winner.average + 3,
+    `total final à ${winner.finalPoints}, attendu ${winner.average + 3}`,
   )
 
   // Un prix mal donné se retire.

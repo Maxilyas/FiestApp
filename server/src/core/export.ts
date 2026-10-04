@@ -276,12 +276,12 @@ export function exportFiles(review: Review): { name: string; content: string }[]
   // son « Rang » démentait la gagnante dès le premier prix.
   const teams: unknown[][] = [
     [
-      'Équipe', 'Membres', 'Total', 'Moyenne', 'Rang', 'Points à la moyenne', 'Prix', 'Points d’équipe', 'Précision',
+      'Équipe', 'Membres', 'Total', 'Moyenne', 'Rang', 'Prix', 'Points d’équipe', 'Précision',
       'Coup d’œil', 'Temps moyen', 'Meilleur membre',
       ...review.quizzes.map(z => `Quiz ${z.number} — ${short(z.title, 40)}`),
     ],
     ...classer(review.teams, t => t.finalPoints, t => t.name, t => t.id).map(({ item: t, rang: rangFinal }) => [
-      `${t.emoji} ${t.name}`, t.memberCount, t.total, t.average, rangFinal, t.gamePoints, t.bonus, t.finalPoints,
+      `${t.emoji} ${t.name}`, t.memberCount, t.total, t.average, rangFinal, t.bonus, t.finalPoints,
       pct(t.accuracy), pct(t.coupDOeil), secs(t.avgMs), t.best ? `${who(t.best.playerId)} (${t.best.points} pts)` : '',
       ...t.perQuiz.map(pq => `${pq.average} (${rang(pq.rank)})`),
     ]),

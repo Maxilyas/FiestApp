@@ -3,6 +3,7 @@ import type { DB } from './db'
 import type { PartyMirror } from './backup'
 import type { TeamBonus } from '../../../shared/types'
 import { tronquer } from '../../../shared/avatars'
+import { PRIX_MAX } from '../../../shared/teams'
 
 export interface TeamRec {
   id: string
@@ -187,7 +188,7 @@ export class Teams {
     const rec: TeamBonus = {
       id: randomUUID(),
       teamId,
-      points: Math.max(-50, Math.min(50, value)),
+      points: Math.max(-PRIX_MAX, Math.min(PRIX_MAX, value)),
       reason: tronquer((reason ?? '').trim(), 60) || 'Prix spécial',
       createdAt: Date.now(),
     }

@@ -70,11 +70,11 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
                       Quiz {q.number}
                     </th>
                   ))}
-                  <th title="Moyenne par membre sur toute la soirée — c'est elle qui donne les points d'équipe">Moyenne</th>
+                  <th title="Moyenne par membre sur toute la soirée — les points d'équipe, avant les prix">Moyenne</th>
                   <th title="Part de bonnes réponses aux QCM, tous membres confondus">Précision</th>
                   <th title="Estimations : la part de la salle que celles de l’équipe battent ou égalent, en moyenne">Coup d’œil</th>
                   <th title="Temps de réponse moyen">Temps</th>
-                  <th title="Les points d'équipe : ceux de la moyenne, prix compris — ils désignent la gagnante">Points d’équipe</th>
+                  <th title="Les points d'équipe : la moyenne, prix compris — ils désignent la gagnante">Points d’équipe</th>
                 </tr>
               </thead>
               <tbody>
@@ -103,7 +103,7 @@ export function RoomReview({ ctx }: { ctx: BilanCtx }) {
             </table>
           </div>
           <p className="muted small">
-            La moyenne de chaque quiz, ★ pour la meilleure. {regleDesEquipes(review.teams.length)}
+            La moyenne de chaque quiz, ★ pour la meilleure. {regleDesEquipes()}
           </p>
         </section>
       )}

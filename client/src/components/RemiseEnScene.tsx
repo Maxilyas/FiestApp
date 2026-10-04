@@ -47,7 +47,7 @@ export function RemiseEnScene({ bonuses, teams }: { bonuses: TeamBonus[]; teams:
           <span className="remise-equipe">{equipe ? `${equipe.emoji} ${equipe.name}` : '—'}</span>
           <span className="remise-points">
             {dernier.points > 0 ? '+' : ''}
-            {dernier.points} point{Math.abs(dernier.points) > 1 ? 's' : ''} d’équipe
+            {dernier.points} point{Math.abs(dernier.points) > 1 ? 's' : ''}
           </span>
         </div>
       ) : (

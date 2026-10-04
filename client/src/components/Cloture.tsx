@@ -6,6 +6,7 @@ import { legendaire } from '../../../shared/legendaires'
 import { portrait } from '../../../shared/branches'
 import { divin } from '../../../shared/divins'
 import { enumerer } from '../../../shared/classement'
+import { formatNumber } from '../../../shared/typographie'
 import { Avatar } from './Avatar'
 import { Legendaire } from './Legendaire'
 import { Divin } from './Divin'
@@ -74,7 +75,7 @@ export function ClotureEcran({ cloture, souvenirUrl }: { cloture: ClotureDeSoire
                 {enumerer(c.equipes!.map(t => `${t.emoji} ${t.nom}`))}
                 <span className="muted">
                   {' '}
-                  · {c.equipes![0].points} {motPoints(c.equipes![0].points)} d’équipe
+                  · {formatNumber(c.equipes![0].points)} {motPoints(c.equipes![0].points)}
                   {c.equipes!.length > 1 && ' chacune'}
                 </span>
               </p>

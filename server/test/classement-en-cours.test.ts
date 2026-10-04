@@ -885,3 +885,61 @@ test('à la révélation, « Cette question » vient sous la sienne : les noms d
   assert.match(html, /class="dq-trou"/)
   assert.match(html, /9 réponses · les plus rapides, et toi/)
 })
+
+test('l’emoji de son équipe suit chaque prénom de « Cette question » : on y voit ses coéquipiers, cerclés', async () => {
+  // Le propriétaire du dépôt, le 4 octobre 2026 : « que l'on ajoute l'icône
+  // de l'équipe sur le classement des joueurs, comme ça on sait qui est dans
+  // notre équipe et où il est ».
+  const joueurs = [
+    { id: 'moi', name: 'Sofia', avatar: '🐼', score: 450, teamId: 'a' },
+    { id: 'h', name: 'Hugo', avatar: '🦊', score: 490, teamId: 'a' },
+    { id: 'c', name: 'Chloé', avatar: '🐸', score: 300, teamId: 'b' },
+    { id: 'd', name: 'Dan', avatar: '🐙', score: 100, teamId: null },
+  ]
+  const equipe = (id: string, name: string, emoji: string) => ({ id, name, emoji, position: 0, memberCount: 2, total: 0, average: 0, bonus: 0 })
+  const view: QuizPlayerView = {
+    phase: 'reveal',
+    qIndex: 0,
+    qCount: 5,
+    kind: 'choice',
+    text: 'La capitale de l’Australie ?',
+    answers: ['Sydney', 'Canberra'],
+    correct: 1,
+    yourChoice: 1,
+    yourPoints: 150,
+    laQuestion: {
+      lignes: [
+        { id: 'h', juste: true, choix: 1, ms: 1900, points: 180 },
+        { id: 'c', juste: true, choix: 1, ms: 2000, points: 170 },
+        { id: 'moi', juste: true, choix: 1, ms: 2100, points: 150 },
+        { id: 'd', juste: false, choix: 0, ms: 2500, points: 0 },
+      ],
+      trouvees: 3,
+      repondues: 4,
+      premier: { id: 'h', ms: 1900 },
+      second: { id: 'c', ms: 2000 },
+      rangDesJustes: 3,
+    },
+  }
+  const html = await rendu('games/quiz/PlayerView', 'QuizPlayer', {
+    view,
+    send: () => {},
+    teams: [equipe('a', 'Les Aigles', '🦅'), equipe('b', 'Les Zèbres', '🦓')],
+    myTeamId: 'a',
+    players: joueurs,
+    moi: joueurs[0],
+    participants: 4,
+  })
+  const lignes = [...html.matchAll(/<li class="dq-ligne[^"]*"[^>]*>([\s\S]*?)<\/li>/g)].map(m => m[1])
+  const pastille = (l: string) => /class="(pastille-equipe[^"]*)" title="([^"]+)"/.exec(l)?.slice(1)
+  assert.deepEqual(lignes.map(pastille), [
+    ['pastille-equipe pastille-equipe-moi', 'Les Aigles'],
+    ['pastille-equipe', 'Les Zèbres'],
+    ['pastille-equipe pastille-equipe-moi', 'Les Aigles'],
+    undefined,
+  ], 'Hugo et soi cerclés, Chloé sans cercle, Dan sans équipe sans rien')
+  assert.match(lignes[1], /<span class="sr-only">, équipe Les Zèbres<\/span>/, 'l’oreille l’entend aussi')
+  // Sans équipes ce soir, aucune pastille.
+  const seul = await rendu('games/quiz/PlayerView', 'QuizPlayer', { view, send: () => {}, teams: [], myTeamId: null, players: joueurs, moi: joueurs[0], participants: 4 })
+  assert.doesNotMatch(seul, /pastille-equipe/)
+})

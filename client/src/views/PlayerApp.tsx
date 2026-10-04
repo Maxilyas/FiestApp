@@ -31,7 +31,6 @@ import { api } from '../api'
 import type { PublicProfile } from '../../../shared/profil'
 import { QuizPlayer, type Envoi } from '../games/quiz/PlayerView'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
-import { regleDesEquipes } from '../../../shared/teams'
 import { espacesFines, formatNumber, scoreEtRang } from '../format'
 import { Avatar } from '../components/Avatar'
 import { Niveau } from '../components/Niveau'
@@ -786,10 +785,8 @@ function SalleDuJoueur() {
           {switching ? (
             <TeamPicker teams={teams} value={me?.teamId ?? null} onPick={changeTeam} players={snap.players} />
           ) : (
-            <>
-              <TeamBoard teams={teams} highlightId={me?.teamId ?? null} compact />
-              <p className="muted small">{regleDesEquipes(teams.length)}</p>
-            </>
+            // Rien sous les équipes : sobre (le propriétaire du dépôt, le 4 octobre 2026).
+            <TeamBoard teams={teams} highlightId={me?.teamId ?? null} compact />
           )}
         </div>
       )}
