@@ -275,6 +275,12 @@ export const api = {
         /** Les soirées en cours où ce profil est inscrit. Absent d'un serveur d'avant. */
         enCours?: { nom: string; slug: string }[]
       }>('/api/joueur/moi'),
+    /**
+     * Ce qu'une page de jeu montre de lui — prénom, niveau, thème —, sans le
+     * détail : le quiz du jour et la campagne n'attendent plus son historique
+     * pour ouvrir leur partie. Sans cookie, `null`.
+     */
+    moiLeger: () => req<{ profile: PublicProfile | null }>('/api/joueur/moi?leger'),
     connexion: (login: string, password: string) =>
       req<{ profile: PublicProfile; espace: PublicSpace | null }>('/api/joueur/connexion', {
         method: 'POST',

@@ -86,13 +86,18 @@ export function CampagneApp() {
   useEffect(() => {
     document.title = 'La campagne · FiestApp'
     let vivant = true
+    // L'état part avec le profil, pas après lui, et le profil se lit en
+    // léger : comme au quiz du jour, son détail ne servait qu'au thème.
+    const etat = api.campagne.etat()
+    etat.catch(() => {})
     ;(async () => {
-      const moi = await api.joueur.moi()
+      const moi = await api.joueur.moiLeger()
       if (!vivant) return
       // Le thème de son profil habille sa page, comme le quiz du jour.
       void porterTheme(moi.profile?.theme)
       if (!moi.profile) return setEcran({ e: 'anonyme' })
-      await relire()
+      const lu = await etat
+      if (vivant) setEcran({ e: 'accueil', etat: lu })
     })().catch(e => vivant && setEcran({ e: 'erreur', motif: motifDe(e) }))
     return () => {
       vivant = false

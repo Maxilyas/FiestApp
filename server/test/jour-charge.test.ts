@@ -12,7 +12,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
@@ -181,6 +181,30 @@ test('un profil masqué quitte les places tout de suite, sans relire la base', a
   // Lui se voit toujours.
   const lui = (await lire('/api/joueur/moi', gens.cookie(gens.ids[4]))).profile.jour.jours as { joueurs: number }[]
   assert.equal(lui[0].joueurs, avant[0].joueurs)
+})
+
+// ── L'ouverture de la page ────────────────────────────────────────────────
+
+test('le quiz du jour et la campagne s’ouvrent sur le profil léger, sans aller-retour', async () => {
+  // Les deux pages lisaient le détail du profil — historique, hauts faits,
+  // boutique : huit allers-retours —, et n'ouvraient leur partie qu'après,
+  // pour un thème et un niveau.
+  const cookie = gens.cookie(gens.ids[30])
+  const detail = await lire('/api/joueur/moi', cookie)
+  let leger: any
+  const m = await mesurer(async () => {
+    leger = await lire('/api/joueur/moi?leger', cookie)
+  })
+  assert.equal(m.appels, 0, `${m.appels} allers-retours pour le profil léger`)
+  for (const cle of ['id', 'name', 'avatar', 'niveau', 'acquis', 'requis', 'finition', 'legendaire', 'theme', 'laurier']) {
+    assert.deepEqual(leger.profile[cle], detail.profile[cle], cle)
+  }
+  assert.equal(leger.profile.soirees, undefined, 'sans l’historique de ses soirées')
+  assert.deepEqual(await fetch(`${banc.url}/api/joueur/moi?leger`).then(r => r.json()), { profile: null }, 'sans profil')
+  for (const page of ['JourApp', 'CampagneApp']) {
+    const source = readFileSync(new URL(`../../client/src/views/${page}.tsx`, import.meta.url), 'utf8')
+    assert.doesNotMatch(source, /\.moi\(\)/, `${page} ne lit plus le détail du profil`)
+  }
 })
 
 // ── Une partie, une annulation ────────────────────────────────────────────
