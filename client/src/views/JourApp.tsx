@@ -288,7 +288,7 @@ export function JourApp() {
             ? `revelation:${revelation.jour}:${revelation.index}`
             : partie.etat === 'en-cours' && partie.question
               ? `question:${partie.question.jour}:${partie.question.index}`
-              : `partie:${partie.jour}:${partie.etat}`
+              : `partie:${partie.jour}:${partie.etat}${finieALArrivee ? ':jouee' : ''}`
   const precedent = useRef<string | null>(null)
   useLayoutEffect(() => {
     const avant = precedent.current
@@ -436,7 +436,19 @@ export function JourApp() {
         {finieALArrivee ? (
           <JourJoue partie={partie} onClassement={() => ouvrir('classement')} onCorrection={() => ouvrir('correction')} />
         ) : (
-          <Fin partie={partie} profil={profil} onClassement={() => ouvrir('classement')} onCorrection={() => ouvrir('correction')} />
+          <Fin
+            partie={partie}
+            profil={profil}
+            // La fin ne se voit qu'une fois : quittée, elle laisse la place au
+            // jour joué, son classement incrusté — et le retour du classement
+            // ou de la correction y ramène, plus à « mon résultat » (le
+            // propriétaire du dépôt, le 4 octobre 2026).
+            onClassement={() => setFinieALArrivee(true)}
+            onCorrection={() => {
+              setFinieALArrivee(true)
+              ouvrir('correction')
+            }}
+          />
         )}
         {toastVu}
       </>

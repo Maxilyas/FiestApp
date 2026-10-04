@@ -423,6 +423,20 @@ test('revenue après la partie, la page du jour montre le jour joué, pas la fê
   assert.match(SOURCE, /finieALArrivee \? \(\s*<JourJoue /)
 })
 
+test('« Voir le classement », depuis la fin, mène au jour joué : le retour n’y rouvre plus « mon résultat »', () => {
+  // Le propriétaire du dépôt, le 4 octobre 2026 : « Voir le classement »
+  // devait mener au quiz du jour, où se trouve le classement ; le retour du
+  // classement, puis celui de la correction, rouvraient la fin de partie.
+  // La fin ne se voit qu'une fois : quittée, elle laisse la place au jour
+  // joué, sur la même entrée d'historique — rien de poussé derrière elle.
+  const fin = SOURCE.slice(SOURCE.indexOf('<Fin\n'), SOURCE.indexOf('/>', SOURCE.indexOf('<Fin\n')))
+  assert.match(fin, /onClassement=\{\(\) => setFinieALArrivee\(true\)\}/, 'le classement : le jour joué, sans entrée d’historique')
+  assert.doesNotMatch(fin, /ouvrir\('classement'\)/, 'plus le classement par-dessus la fin')
+  assert.match(fin, /onCorrection=\{\(\) => \{\s*setFinieALArrivee\(true\)\s*ouvrir\('correction'\)/, 'la correction : son retour ramène au jour joué')
+  // Le jour joué remplace la fin : un écran neuf, qui commence en haut.
+  assert.match(SOURCE, /`partie:\$\{partie\.jour\}:\$\{partie\.etat\}\$\{finieALArrivee \? ':jouee' : ''\}`/)
+})
+
 test('le rendez-vous de demain se compte jusqu’à minuit à Paris, changement d’heure compris', async () => {
   const { minutesAvantMinuit } = await import('../../shared/jour')
   assert.equal(minutesAvantMinuit(Date.UTC(2026, 9, 3, 21, 55)), 5, '23 h 55 à Paris, à l’heure d’été')
