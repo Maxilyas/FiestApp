@@ -146,6 +146,12 @@ export const POINTS_D_UN_PRIX = 100
 /** Au plus, en plus ou en moins : un prix peut renverser un quiz, pas une soirée entière. */
 export const PRIX_MAX = 500
 
+/** Les emojis qu'on propose à une équipe — d'avant Unicode 13, l'écran commun tourne sous Windows 10. */
+export const EMOJIS_D_EQUIPE = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️', '🦩', '🍹', '⭐', '🔥', '🌙', '🎺', '🌺', '🦜']
+
+/** Au-delà, le choix d'équipe ne tient plus sur un écran de téléphone. */
+export const MAX_EQUIPES = 10
+
 /** Trie les équipes à la moyenne seule : leur performance au quiz, prix à part. */
 export function rankTeams(teams: PublicTeam[]): TeamStanding[] {
   // La règle commune (shared/classement.ts) : rang partagé, et des ex æquo

@@ -5,7 +5,9 @@ import { Icon } from './Icon'
 import { Feuille } from './Pieces'
 import { showToast } from '../state'
 import { confirmDialog } from './Dialog'
-import { brancherLeChef, clore, commande, equipesParDefaut, lancer, terminer, useChef } from '../socketDuChef'
+import { brancherLeChef, clore, commande, creerEquipe, equipesParDefaut, lancer, modifierEquipe, retirerEquipe, terminer, useChef } from '../socketDuChef'
+import { FeuilleDEquipe } from './FeuilleDEquipe'
+import { MAX_EQUIPES } from '../../../shared/teams'
 import type { ReglagesDuChef } from '../chef'
 import { PALIERS_ENCHAINEMENT } from '../../../shared/console'
 import { ecrireCode } from '../../../shared/space'
@@ -50,6 +52,8 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
   const v = c.vue
   const [plus, setPlus] = useState(false)
   const [qr, setQr] = useState(false)
+  /** L'équipe ouverte dans sa feuille : son identifiant, `nouvelle` pour en créer une. */
+  const [equipe, setEquipe] = useState<string | null>(null)
   /**
    * La place que la salle d'attente garde en tête pour l'invitation : le
    * code en grand et le QR, sur le téléphone du chef seulement. La barre
@@ -281,6 +285,43 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
               </div>
             </>
           )}
+          {/* Les équipes : les renommer d'un toucher, en ajouter une — sans passer par l'écran commun. */}
+          {(reglages.equipes || c.snapshot.teams.length > 0) && (
+            <section className="equipes-du-chef" aria-label="Les équipes">
+              <span className="label">Les équipes</span>
+              {c.snapshot.teams.map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className="equipe-du-chef"
+                  aria-label={`Renommer ${t.name}`}
+                  onClick={() => {
+                    setPlus(false)
+                    setEquipe(t.id)
+                  }}
+                >
+                  <span className="equipe-du-chef-emoji" aria-hidden="true">
+                    {t.emoji}
+                  </span>
+                  <span className="equipe-du-chef-nom">{t.name}</span>
+                  <Icon name="edit" />
+                </button>
+              ))}
+              {c.snapshot.teams.length < MAX_EQUIPES && (
+                <button
+                  type="button"
+                  className="btn btn-block"
+                  onClick={() => {
+                    setPlus(false)
+                    setEquipe('nouvelle')
+                  }}
+                >
+                  <Icon name="plus" />
+                  Ajouter une équipe
+                </button>
+              )}
+            </section>
+          )}
           {v?.phase === 'reveal' && (
             <>
               <button
@@ -319,6 +360,19 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
             </>
           )}
         </Feuille>
+      )}
+
+      {/* Une équipe retirée entre-temps par un autre écran : sa feuille se ferme d'elle-même. */}
+      {(equipe === 'nouvelle' || (equipe && c.snapshot.teams.some(t => t.id === equipe))) && (
+        <FeuilleDEquipe
+          key={equipe}
+          equipe={c.snapshot.teams.find(t => t.id === equipe)}
+          equipes={c.snapshot.teams}
+          onCreer={creerEquipe}
+          onModifier={modifierEquipe}
+          onRetirer={retirerEquipe}
+          onFermer={() => setEquipe(null)}
+        />
       )}
     </>
   )

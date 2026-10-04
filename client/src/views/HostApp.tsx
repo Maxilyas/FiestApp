@@ -24,7 +24,7 @@ import { Rank, Score, motPoints } from '../components/Rank'
 import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
 import { Absents } from '../components/Absents'
-import { POINTS_D_UN_PRIX, PRIX_MAX, detailDesPoints, effetDUnPrix, finalRanking, regleDesEquipes, vainqueursDuQuiz } from '../../../shared/teams'
+import { EMOJIS_D_EQUIPE, POINTS_D_UN_PRIX, PRIX_MAX, detailDesPoints, effetDUnPrix, finalRanking, regleDesEquipes, vainqueursDuQuiz } from '../../../shared/teams'
 import { classer, enumerer } from '../../../shared/classement'
 import type { EcranDeScene, PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
 import { sound } from '../sound'
@@ -84,7 +84,7 @@ const ATTENTE_DU_TITRE_MS = 3000
 /** De quoi baptiser six équipes sans réfléchir, dans l'ambiance de la soirée. */
 // Tous antérieurs à Unicode 13 : les emojis récents (boule à facettes,
 // visage pointillé…) s'affichent en carré vide sur Windows 10.
-const TEAM_EMOJIS = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️', '🦩', '🍹', '⭐', '🔥', '🌙', '🎺', '🌺', '🦜']
+const TEAM_EMOJIS = EMOJIS_D_EQUIPE
 
 /**
  * Le prénom d'une pastille d'invité : il se coupe, sa marque d'homonymie

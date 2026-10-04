@@ -1,4 +1,6 @@
 import type { PublicPlayer, PublicTeam } from '../../../shared/types'
+import { Avatar } from './Avatar'
+import { Icon } from './Icon'
 
 interface Props {
   teams: PublicTeam[]
@@ -13,37 +15,47 @@ interface Props {
   players?: PublicPlayer[]
 }
 
-/** Au-delà, « +N » : le bouton garde sa taille sur un petit téléphone. */
-const PRENOMS_MAX = 3
+/** Au-delà, rien de plus : le bouton garde sa taille sur un petit téléphone. */
+const AVATARS_MAX = 5
 
-/** Le choix d'équipe, sur le téléphone : de gros boutons, un par équipe. */
+/**
+ * Le choix d'équipe, sur le téléphone : de gros boutons, un par équipe —
+ * l'emoji, le nom, et les avatars de ceux qui y sont déjà. Plus de texte
+ * dessous (« personne », « 2 joueurs », les prénoms) : sobre (le
+ * propriétaire du dépôt, le 4 octobre 2026). Les prénoms restent à
+ * l'oreille, et au survol : on cherche encore « l'équipe de Sofia ».
+ */
 export function TeamPicker({ teams, value, onPick, disabled, players }: Props) {
   return (
     <div className="team-grid">
       {teams.map(t => {
+        const membres = (players ?? []).filter(p => p.teamId === t.id)
         // Le prénom tel qu'il s'affiche : « Camille (2) » dit de quelle Camille on parle.
-        const membres = (players ?? []).filter(p => p.teamId === t.id).map(p => p.nomAffiche ?? p.name)
-        const reste = membres.length - PRENOMS_MAX
+        const noms = membres.map(p => p.nomAffiche ?? p.name).join(', ')
+        const choisie = t.id === value
         return (
           <button
             type="button"
             key={t.id}
             disabled={disabled}
-            aria-pressed={t.id === value}
-            className={'team-btn' + (t.id === value ? ' selected' : '')}
+            aria-pressed={choisie}
+            className={'team-btn' + (choisie ? ' selected' : '')}
             onClick={() => onPick(t.id)}
+            title={noms || undefined}
           >
-            <span className="team-btn-emoji">{t.emoji}</span>
-            <span className="team-btn-name">{t.name}</span>
-            <span className="team-btn-count">
-              {t.memberCount === 0 ? 'personne' : `${t.memberCount} joueur${t.memberCount > 1 ? 's' : ''}`}
+            <span className="team-btn-emoji" aria-hidden="true">
+              {t.emoji}
             </span>
+            <span className="team-btn-name">{t.name}</span>
             {membres.length > 0 && (
-              <span className="team-btn-membres">
-                {membres.slice(0, PRENOMS_MAX).join(', ')}
-                {reste > 0 && ` +${reste}`}
+              <span className="team-btn-avatars" aria-hidden="true">
+                {membres.slice(0, AVATARS_MAX).map(p => (
+                  <Avatar key={p.id} className="team-btn-av" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
+                ))}
               </span>
             )}
+            {noms && <span className="sr-only">, avec {noms}</span>}
+            {choisie && <Icon name="check" className="team-btn-check" />}
           </button>
         )
       })}
