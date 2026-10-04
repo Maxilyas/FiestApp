@@ -1094,7 +1094,7 @@ export function QuizPlayer({ view: v, send, teams, myTeamId, players, moi, parti
 function PodiumDesEquipes({ teams, monEquipe }: { teams: PublicTeam[]; monEquipe: string | null }) {
   // Une équipe sans personne et sans rien n'y monte pas : six équipes par
   // défaut pour quatre invités mettaient une équipe vide sur la troisième marche.
-  const classees = finalRanking(teams).filter(t => t.memberCount > 0 || t.finalPoints !== 0)
+  const classees = finalRanking(teams ?? []).filter(t => t.memberCount > 0 || t.finalPoints !== 0)
   if (!classees.some(t => t.average > 0 || t.bonus !== 0)) return null
   const rows = classees.slice(0, 3).map(t => ({ name: t.name, avatar: t.emoji, points: t.finalPoints, rank: t.rank }))
   const mienne = classees.slice(0, 3).findIndex(t => t.id === monEquipe)
@@ -1116,7 +1116,8 @@ function PodiumDesEquipes({ teams, monEquipe }: { teams: PublicTeam[]; monEquipe
 function ClassementDeFin({ view: v, salle: { players, teams, myTeamId, moi } }: { view: QuizPlayerView; salle: Salle }) {
   const lignes = v.classement
   if (!lignes || lignes.length === 0) return null
-  const parId = new Map(players.map(p => [p.id, p]))
+  // Sans instantané encore (un rendu d'avant la salle), les lignes restent nommées « un invité parti ».
+  const parId = new Map((players ?? []).map(p => [p.id, p]))
   const sienneDedans = !!moi && lignes.some(l => l.id === moi.id)
   // Au-delà des lignes reçues, la sienne se lit dans sa vue : on se cherche d'abord.
   const sienne =
@@ -1130,7 +1131,7 @@ function ClassementDeFin({ view: v, salle: { players, teams, myTeamId, moi } }: 
       : null
   const ligne = (l: VoisinAuClassement) => {
     const p = parId.get(l.id)
-    const equipe = teams.find(t => t.id === p?.teamId)
+    const equipe = (teams ?? []).find(t => t.id === p?.teamId)
     const soi = l.id === moi?.id
     return (
       <div key={l.id} role="listitem" className={'lb-row' + (soi ? ' me' : '')}>
