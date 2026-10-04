@@ -397,7 +397,7 @@ LES RÈGLES DE PARTAGE — elles disent à quelle catégorie appartient un savoi
 
 COMMENT TRAVAILLER
 1. Écris par fichiers de 30 à 40 questions, dans ${dossier}/${lot}-01.json, puis ${lot}-02.json, etc. Un fichier ne contient que le tableau JSON, rien d'autre.
-2. Après chaque fichier, lance : cd /home/user/FiestApp/server && npx tsx scripts/base-campagne.ts verifier ${dossier}/${lot}-NN.json — puis corrige ou remplace chaque question REFUSÉE et chaque AVERTISSEMENT, et relance jusqu'à zéro refus.
+2. Après chaque fichier, lance : cd ${SERVEUR} && npx tsx scripts/base-campagne.ts verifier ${dossier}/${lot}-NN.json — puis corrige ou remplace chaque question REFUSÉE et chaque AVERTISSEMENT, et relance jusqu'à zéro refus.
 3. Avant d'écrire un nouveau fichier, relis tes intitulés déjà écrits : jamais deux questions sur le même fait, même dans deux fichiers.
 4. Relis chaque question comme un correcteur exigeant avant de l'écrire : la bonne réponse est-elle certaine et la seule possible ? Chaque leurre est-il certainement faux ? L'anecdote est-elle exacte ? Au moindre doute, remplace la question. Mieux vaut une question simple et sûre qu'une question brillante et fausse.
 5. À la fin, vérifie tous tes fichiers d'un coup (verifier ${dossier}/${lot}-*.json : zéro refus, aucun doublon) et rends un bilan court : le nombre de questions par sous-thème et par difficulté. N'écris rien ailleurs que dans tes fichiers ${lot}-NN.json.
@@ -435,7 +435,8 @@ if (commande === 'verifier') {
   const c = CATEGORIES.find(x => sansAccent(x) === sansAccent(categorie ?? ''))
   if (!c || parts.length === 0) throw new Error('consigne <Catégorie> <sous-thème>:<n> … [--lot=nom] [--dossier=chemin]')
   const lot = parts.find(p => p.startsWith('--lot='))?.slice(6) ?? 'lot'
-  const dossier = parts.find(p => p.startsWith('--dossier='))?.slice(10) ?? '/home/user/FiestApp/.lots-campagne'
+  // Les lots attendent à côté du dépôt, dans un dossier que git ignore (`.git/info/exclude`) : rien n'y est committé.
+  const dossier = parts.find(p => p.startsWith('--dossier='))?.slice(10) ?? path.join(SERVEUR, '..', '.lots-campagne')
   // Ce que la catégorie a déjà : la base, et les lots du dossier pas encore rangés.
   const deja = [
     ...lireLaBase().questions.filter(q => q.meta.categorie === c).map(q => q.texte),
