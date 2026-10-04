@@ -178,13 +178,7 @@ export function CampagneApp() {
     </div>
   )
 
-  if (ecran.e === 'chargement') {
-    return (
-      <div className="center-page">
-        <p className="serif-note">Chargement…</p>
-      </div>
-    )
-  }
+  if (ecran.e === 'chargement') return <CampagneEnChemin />
 
   if (ecran.e === 'anonyme' || ecran.e === 'erreur') {
     return (
@@ -215,44 +209,7 @@ export function CampagneApp() {
     return (
       <div className="player-shell campagne">
         <Sortie />
-        {/* Le héros de la page : le défi, le record, l'échelle et les règles d'un coup d'œil, sur la trame de l'atlas. */}
-        <section className="atlas-branche campagne-heros" style={lueur(OR)}>
-          <span className="atlas-categorie">La campagne solo</span>
-          <h1>Jusqu’où iras-tu&nbsp;?</h1>
-          <div className="campagne-record-hud">
-            <b>{etat.record}</b>
-            <span>
-              ton record
-              <br />
-              {etat.series === 0 ? 'ta première série t’attend' : `${etat.series} série${etat.series > 1 ? 's' : ''} jouée${etat.series > 1 ? 's' : ''}`}
-            </span>
-          </div>
-          {/* L'échelle : la série monte de marche en marche. */}
-          <ol className="campagne-echelle" aria-label="La difficulté monte">
-            {NIVEAUX.map(n => (
-              <li key={n}>
-                <i aria-hidden="true" />
-                {NOM_NIVEAU[n]}
-              </li>
-            ))}
-          </ol>
-          <ul className="campagne-puces">
-            <li>
-              {/* Les cœurs pour l'œil, les mots pour tous : « 3 vies sur 3, trois vies » se lisait deux fois. */}
-              <span aria-hidden="true">
-                <Vies restantes={VIES} />
-              </span>{' '}
-              trois vies
-            </li>
-            <li>
-              <Icon name="timer" /> sans chrono
-            </li>
-            <li>🎊 un confetti par bonne réponse</li>
-            <li>
-              <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, sans limite
-            </li>
-          </ul>
-        </section>
+        <Heros etat={etat} />
         {/* Ce que la journée a déjà rapporté : sans plafond, il n'y a plus de « plein » à annoncer. */}
         {etat.xpAujourdhui > 0 && <p className="muted small campagne-xp-du-jour">Aujourd’hui : +{etat.xpAujourdhui} XP</p>}
         {pret ? (
@@ -476,6 +433,76 @@ export function CampagneApp() {
 }
 
 /** Les vies qui restent, en cœurs et en mots. */
+/**
+ * La page qui s'ouvre tout de suite : le défi et les règles d'abord, son
+ * record et sa série à reprendre dès que le serveur les a dits. Elle
+ * attendait derrière « Chargement… » — 3,5 s au premier joueur après un
+ * déploiement, le temps que le serveur lise sa base.
+ */
+export function CampagneEnChemin() {
+  return (
+    <div className="player-shell campagne" aria-busy="true">
+      <Sortie />
+      <Heros etat={null} />
+      <button type="button" className="btn btn-primary btn-big btn-block" aria-disabled="true">
+        <Icon name="play" />
+        Commencer une série
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Le héros de la page : le défi, le record, l'échelle et les règles d'un coup
+ * d'œil, sur la trame de l'atlas. Sans son état encore — la page s'ouvre
+ * avant lui —, le record attend sa place, sans rien décaler.
+ */
+function Heros({ etat }: { etat: EtatDeCampagne | null }) {
+  return (
+    <section className="atlas-branche campagne-heros" style={lueur(OR)}>
+      <span className="atlas-categorie">La campagne solo</span>
+      <h1>Jusqu’où iras-tu&nbsp;?</h1>
+      <div className="campagne-record-hud">
+        <b>{etat ? etat.record : '–'}</b>
+        <span>
+          ton record
+          <br />
+          {!etat
+            ? '…'
+            : etat.series === 0
+              ? 'ta première série t’attend'
+              : `${etat.series} série${etat.series > 1 ? 's' : ''} jouée${etat.series > 1 ? 's' : ''}`}
+        </span>
+      </div>
+      {/* L'échelle : la série monte de marche en marche. */}
+      <ol className="campagne-echelle" aria-label="La difficulté monte">
+        {NIVEAUX.map(n => (
+          <li key={n}>
+            <i aria-hidden="true" />
+            {NOM_NIVEAU[n]}
+          </li>
+        ))}
+      </ol>
+      <ul className="campagne-puces">
+        <li>
+          {/* Les cœurs pour l'œil, les mots pour tous : « 3 vies sur 3, trois vies » se lisait deux fois. */}
+          <span aria-hidden="true">
+            <Vies restantes={VIES} />
+          </span>{' '}
+          trois vies
+        </li>
+        <li>
+          <Icon name="timer" /> sans chrono
+        </li>
+        <li>🎊 un confetti par bonne réponse</li>
+        <li>
+          <Icon name="zap" /> {XP_PAR_JUSTE} XP par bonne réponse, sans limite
+        </li>
+      </ul>
+    </section>
+  )
+}
+
 function Vies({ restantes }: { restantes: number }) {
   return (
     <span className="vies" role="img" aria-label={`${restantes} vie${restantes > 1 ? 's' : ''} sur ${VIES}`}>
