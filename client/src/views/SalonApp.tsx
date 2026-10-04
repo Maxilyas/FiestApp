@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon'
 import { Choix, Feuille, PieceTete, Sortie } from '../components/Pieces'
 import { chefIci, demanderEntree, retenirChef } from '../chef'
 import { spacePath } from '../routes'
+import { porterTheme } from '../themeJoueur'
 import { ecrireDuree, type QuizSummary } from '../../../shared/library'
 import { PALIERS_ENCHAINEMENT } from '../../../shared/console'
 import type { ModeleResume } from '../../../shared/modeles'
@@ -75,7 +76,10 @@ export function SalonApp() {
     document.title = 'Nouveau salon · FiestApp'
     let vivant = true
     ;(async () => {
-      const moi = await api.joueur.moi()
+      // Le profil léger : la page ne demande que s'il y en a un, et son
+      // thème, qui l'habille comme ses autres pages.
+      const moi = await api.joueur.moiLeger()
+      if (vivant) void porterTheme(moi.profile?.theme)
       if (!moi.profile) return vivant && setEtat({ e: 'anonyme' })
       const { espace } = await api.joueur.espace()
       const [liste, programmes, livres] = await Promise.all([api.list(), api.programmes.list(), api.modeles().catch(() => [])])

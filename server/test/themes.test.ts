@@ -149,18 +149,34 @@ test('chaque thème a son aperçu dans la boutique, et aucun aperçu n’est orp
   }
 })
 
-test('le thème suit la page, pas la personne : seules les pages d’un joueur le portent', () => {
-  // L'animateur qui a acheté la Licorne anime en Velours ou en Ivoire :
-  // l'écran commun, l'éditeur, son compte et les pages publiques de la
-  // soirée n'en savent rien — la salle ne verrait sinon que ses goûts.
+test('le thème suit la personne : toutes ses pages le portent, jamais l’écran commun', () => {
+  // « Mes quiz », « Compte », « Créer un salon », le bilan d'une soirée
+  // restaient en Velours sous un profil qui portait la Licorne : les pièces
+  // du menu changeaient d'habit d'un toucher à l'autre (le choix du 4
+  // octobre 2026). L'écran commun, lui, se projette à la salle : l'animateur
+  // y anime en Velours ou en Ivoire, jamais sous ses goûts.
   const client = new URL('../../client/src/', import.meta.url)
   const lire = (fichier: string) => readFileSync(new URL(fichier, client), 'utf8')
-  for (const vue of readdirSync(new URL('views/', client)).filter(f => f.endsWith('.tsx'))) {
-    const porte = /themeJoueur/.test(lire(`views/${vue}`))
-    assert.equal(porte, ['PlayerApp.tsx', 'ProfilApp.tsx', 'JourApp.tsx', 'CampagneApp.tsx'].includes(vue), `${vue} et le thème d’un profil`)
-  }
-  // Au démarrage, le thème retenu ne se pose que sur ces pages-là — la campagne, seule avec son profil, comme le quiz du jour.
-  assert.match(lire('main.tsx'), /else if \(App === PlayerApp \|\| App === ProfilApp \|\| App === JourApp \|\| App === CampagneApp\) poserThemeRetenu\(\)/)
+  const racine = lire('main.tsx')
+  assert.match(racine, /if \(App === HostApp\) applyTheme\(\)\nelse if \(!\(route\.kind === 'public' && route\.page === 'bilan\/fiches'\)\) \{\n  poserThemeRetenu\(\)\n  if \(!LISENT_LE_PROFIL\.has\(App\)\) void confirmerTheme\(\)\n\}/)
+  // La télé ouvre la même page que l'écran commun.
+  assert.match(racine, /tele: HostApp,/)
+  // Les pages qui lisent le profil en portent le thème elles-mêmes, et
+  // seulement elles se passent de la confirmation : une page qui s'y dirait
+  // sans appeler `porterTheme` garderait un thème que plus personne ne relit.
+  const lisent = /LISENT_LE_PROFIL = new Set<unknown>\(\[([^\]]*)\]\)/.exec(racine)
+  assert.ok(lisent, 'la liste des pages qui lisent le profil')
+  const listees = lisent[1].split(',').map(n => n.trim()).sort()
+  const porteuses = readdirSync(new URL('views/', client))
+    .filter(f => f.endsWith('.tsx') && /\bporterTheme\(/.test(lire(`views/${f}`)))
+    .map(f => f.replace(/\.tsx$/, ''))
+    .sort()
+  assert.deepEqual(porteuses, listees)
+  assert.ok(listees.includes('PlayerApp'), 'la soirée : toute la salle y arrive d’un coup, sans une requête de plus')
+  // Et l'écran commun ne touche jamais au thème d'un profil — pas même son
+  // aperçu, dans « Mes quiz », qui prend son habit le temps de s'ouvrir.
+  assert.doesNotMatch(lire('views/HostApp.tsx'), /themeJoueur/)
+  assert.match(lire('views/EditorApp.tsx'), /useEffect\(\(\) => commeLEcranCommun\(currentTheme\(\)\), \[\]\)/)
 })
 
 // ── La boutique, au téléphone ─────────────────────────────────────────────
@@ -290,7 +306,7 @@ test('la fiche d’un thème : « Le porter », « L’acheter », ou ce qui man
   assert.match(await fiche('velours'), /<button[^>]*>Le porter<\/button>/)
   // Porté : rien à toucher.
   assert.equal(await bouton('ivoire'), undefined)
-  assert.match(await fiche('ivoire'), /C’est lui qui habille ton téléphone\./)
+  assert.match(await fiche('ivoire'), /C’est lui qui habille tes pages\./)
   // À vendre : son prix, ce qui lui restera, et le bouton qui l'achète.
   const ocean = await fiche('ocean')
   assert.match(ocean, /Il coûte 250 confettis : il t’en restera 170\./)
@@ -459,6 +475,115 @@ test('un thème de saison s’achète pendant sa saison, et se garde après', ()
     assert.equal((await porter(banc, cookie, null)).corps.profile.theme, null)
     assert.equal((await porter(banc, cookie, 'halloween')).corps.profile.theme, 'halloween')
     assert.ok((await lire(banc, cookie)).boutique.possedes.includes('halloween'))
+  }))
+
+/**
+ * `themeJoueur.ts` tel qu'une page le charge, devant le banc : sa racine, son
+ * stockage, et ses requêtes vers le serveur jetable avec le cookie du profil
+ * de ce navigateur. Hors de Vite, il ne connaît qu'Ivoire, que `styles.css`
+ * porte : c'est lui qu'on le voit poser.
+ */
+async function auNavigateur(
+  banc: Banc,
+  cookie: string | undefined,
+  scenario: (page: { module: any; theme: () => string | undefined; retenu: () => string | null; reseau: (ok: boolean) => void }) => Promise<void>,
+) {
+  const stock = new Map<string, string>()
+  const racine = { dataset: {} as Record<string, string> }
+  let coupe = false
+  const avant = {
+    document: Object.getOwnPropertyDescriptor(globalThis, 'document'),
+    localStorage: Object.getOwnPropertyDescriptor(globalThis, 'localStorage'),
+    fetch: globalThis.fetch,
+  }
+  const reel = avant.fetch
+  Object.defineProperty(globalThis, 'document', { configurable: true, writable: true, value: { documentElement: racine, querySelector: () => null } })
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    writable: true,
+    value: { getItem: (k: string) => stock.get(k) ?? null, setItem: (k: string, v: string) => void stock.set(k, v), removeItem: (k: string) => void stock.delete(k) },
+  })
+  // Les adresses de la page sont relatives ; celles du test, entières.
+  globalThis.fetch = ((adresse: string, init?: RequestInit) => {
+    if (!adresse.startsWith('/')) return reel(adresse, init)
+    if (coupe) return Promise.reject(new TypeError('Failed to fetch'))
+    return reel(`${banc.url}${adresse}`, { ...init, headers: cookie ? { Cookie: cookie } : {} })
+  }) as typeof fetch
+  try {
+    await scenario({
+      module: await import(duClient('themeJoueur.ts')),
+      theme: () => racine.dataset.theme,
+      retenu: () => stock.get('quizz.theme-joueur') ?? null,
+      reseau: ok => {
+        coupe = !ok
+      },
+    })
+  } finally {
+    globalThis.fetch = avant.fetch
+    for (const cle of ['document', 'localStorage'] as const) {
+      if (avant[cle]) Object.defineProperty(globalThis, cle, avant[cle]!)
+      else delete (globalThis as Record<string, unknown>)[cle]
+    }
+  }
+}
+
+test('les pages qui ne lisent pas le profil demandent son thème, et rien d’autre', () =>
+  avecBanc(async banc => {
+    const themeDe = async (cookie?: string) => {
+      const res = await fetch(`${banc.url}/api/joueur/theme`, cookie ? { headers: { Cookie: cookie } } : {})
+      assert.equal(res.status, 200)
+      assert.equal(res.headers.get('cache-control'), 'no-store')
+      return ((await res.json()) as any).theme
+    }
+    // Un invité n'est pas une erreur : Velours.
+    assert.equal(await themeDe(), null)
+    const cookie = await inscrireProfil(banc.url, 'alice', 'Alice', '🦊')
+    assert.equal(await themeDe(cookie), null)
+    await porter(banc, cookie, 'ivoire')
+    assert.equal(await themeDe(cookie), 'ivoire')
+
+    await auNavigateur(banc, cookie, async page => {
+      // Connectée par `/connexion`, elle n'avait vu aucune de ses pages sur
+      // ce navigateur : rien de retenu, et « Mes quiz » s'ouvrait en Velours.
+      assert.equal(page.theme(), undefined)
+      await page.module.confirmerTheme()
+      assert.equal(page.theme(), 'ivoire')
+      assert.equal(page.retenu(), 'ivoire', 'retenu pour le démarrage suivant')
+      // La page a lu le profil pendant que la confirmation était en route :
+      // le profil lu a le dernier mot.
+      const enRoute = page.module.confirmerTheme()
+      await page.module.porterTheme(null)
+      await enRoute
+      assert.equal(page.theme(), undefined)
+      assert.equal(page.retenu(), null)
+      // Hors ligne, l'habillage du démarrage reste.
+      await page.module.porterTheme('ivoire')
+      page.reseau(false)
+      await page.module.confirmerTheme()
+      assert.equal(page.theme(), 'ivoire')
+      assert.equal(page.retenu(), 'ivoire')
+      page.reseau(true)
+      // « Aperçu de l'écran commun », dans « Mes quiz » : l'habit de la salle
+      // — Velours ici — passe devant le thème du profil, qui revient à la
+      // fermeture, même confirmé pendant l'aperçu.
+      const fermer = page.module.commeLEcranCommun('velours')
+      assert.equal(page.theme(), undefined)
+      await page.module.confirmerTheme()
+      assert.equal(page.theme(), undefined, 'l’aperçu garde son habit')
+      fermer()
+      assert.equal(page.theme(), 'ivoire')
+    })
+
+    // Sa session close depuis, le navigateur retenait encore Ivoire : la
+    // confirmation le rend à Velours.
+    assert.equal((await ecrire(banc.url, '/api/joueur/deconnexion', {}, cookie)).status, 200)
+    assert.equal(await themeDe(cookie), null)
+    await auNavigateur(banc, cookie, async page => {
+      await page.module.porterTheme('ivoire')
+      await page.module.confirmerTheme()
+      assert.equal(page.theme(), undefined)
+      assert.equal(page.retenu(), null)
+    })
   }))
 
 // ── Une vraie soirée ──────────────────────────────────────────────────────

@@ -304,6 +304,21 @@ test('chaque thème d’un profil se lit comme Velours et Ivoire : texte, accent
   }
 })
 
+test('sous le thème d’un profil, ses quiz, son compte et le souvenir tiennent dans l’écran', () => {
+  // Ces pages restaient en Velours jusqu'au 4 octobre 2026. Photographiées
+  // sous les trente thèmes : une police large (la Game Boy, le Carnet,
+  // l'Olympe) poussait « Toi seul » hors de l'écran de l'administration, et
+  // la troisième marche du podium hors de la carte du souvenir — la page
+  // défilait en largeur ; l'encadré de « Coller une liste », noirci en dur,
+  // virait au gris sous un thème clair, où son texte ne tenait plus que
+  // 2,6:1.
+  assert.match(regle('.compte-tete'), /flex-wrap:\s*wrap/)
+  assert.match(regle('.final-podium'), /grid-template-columns:\s*repeat\(var\(--marches, 3\), minmax\(0, 1fr\)\)/)
+  assert.match(regle('.podium-name'), /max-width:\s*100%/)
+  assert.doesNotMatch(regle('.import-example'), /rgba\(0, 0, 0/)
+  assert.match(regle('.import-example'), /background:\s*color-mix\(in srgb, var\(--bg\)/)
+})
+
 // ── Au texte agrandi ──────────────────────────────────────────────────────
 
 test('T1 · au souvenir, le détail d’une équipe a sa propre case, pas la colonne du nom', async () => {

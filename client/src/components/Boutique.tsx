@@ -16,8 +16,9 @@ import {
 import type { PublicProfileDetail } from '../../../shared/profil'
 import type { ChoixDuProfil } from './choix'
 
-// Les thèmes : ce qui habille son téléphone — la soirée, sa page, le quiz du
-// jour —, acheté en confettis (`shared/themes.ts`). Une bonne réponse, un
+// Les thèmes : ce qui habille toutes ses pages — la soirée, son profil, ses
+// quiz, son compte —, sauf l'écran commun, acheté en confettis
+// (`shared/themes.ts`). Une bonne réponse, un
 // confetti. La boutique ne montre que ce qui reste à prendre, une rareté à
 // la fois (`RayonDesThemes`) ; ce qu'on a se porte dans « Mon style › Thème »
 // (`MesThemes`). Les deux dans les mêmes cartes : l'écran d'une question
@@ -253,7 +254,7 @@ export function MesThemes({ profil, busy, enregistrer }: { profil: PublicProfile
         <b>
           {siens.length} thème{siens.length > 1 ? 's' : ''}
         </b>{' '}
-        · {espacesFines('il habille ton téléphone : la soirée, ton profil, le quiz du jour. Touche un thème, puis « Le porter ».')}
+        · {espacesFines('il habille toutes tes pages, de la soirée à tes quiz. Touche un thème, puis « Le porter ».')}
       </p>
       <div className="vitrine-themes" role="group" aria-label="Mes thèmes">
         {siens.map(t => {
@@ -316,7 +317,7 @@ export function DetailTheme({
         </span>
       )}
       <p className="muted small">{t.humeur}</p>
-      {etat === 'porte' && <p className="muted small">C’est lui qui habille ton téléphone. L’écran commun garde le sien.</p>}
+      {etat === 'porte' && <p className="muted small">C’est lui qui habille tes pages. L’écran commun garde le sien.</p>}
       {etat === 'a-toi' && (
         <button
           type="button"

@@ -95,6 +95,8 @@ import { gesteAccepte } from '../../../shared/console'
 import { LoginForm } from '../components/Invitation'
 import { espacesFines, jour, quand } from '../format'
 import { copierTexte } from '../copier'
+import { currentTheme } from '../theme'
+import { commeLEcranCommun } from '../themeJoueur'
 
 /**
  * La carte qui vient d'arriver quelque part — déplacée, insérée, dupliquée,
@@ -1980,6 +1982,9 @@ function QuestionPreview({ question, onClose }: { question: QuizQuestionDef; onC
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
+  // L'habit de l'écran commun, pas le thème du profil qui habille « Mes quiz » :
+  // c'est lui que la salle verra.
+  useEffect(() => commeLEcranCommun(currentTheme()), [])
   // Les cases vides ne sont pas projetées : la partie les retire aussi.
   const answers = question.answers.map(a => a.trim()).filter(a => a.length > 0)
   return (
