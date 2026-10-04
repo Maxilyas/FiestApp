@@ -2007,16 +2007,18 @@ h3 > .icon {
    — le podium, la carte —, le médaillon rejoint la place d'un emoji auréolé :
    le Phénix du premier paraissait le plus petit des trois. */
 .podium-avatar .av-emoji > .lg,
-.carte-avatar .av-emoji > .lg,
-.bilan-avatar .av-emoji > .lg { font-size: 1.3em; }
+.carte-avatar .av-emoji > .lg { font-size: 1.3em; }
 /* Un portrait des branches aussi : rond comme un médaillon. Et un Divin,
    bijou peint jusqu'à ses bords : sans elle, le plus rare des avatars
    montait sur le podium plus petit que les légendaires à côté de lui. */
 .podium-avatar .av-emoji > .pt,
 .carte-avatar .av-emoji > .pt,
-.bilan-avatar .av-emoji > .pt,
 .podium-avatar .av-emoji > .dv,
-.carte-avatar .av-emoji > .dv,
+.carte-avatar .av-emoji > .dv { font-size: 1.3em; }
+/* L'en-tête d'un bilan aussi : l'avatar y est le sujet — légendaire,
+   portrait ou Divin, à la place d'un emoji auréolé. */
+.bilan-avatar .av-emoji > .lg,
+.bilan-avatar .av-emoji > .pt,
 .bilan-avatar .av-emoji > .dv { font-size: 1.3em; }
 .podium-name {
   font-family: var(--serif);
