@@ -6,24 +6,23 @@ import { Feuille } from './Pieces'
 import { showToast } from '../state'
 import { confirmDialog } from './Dialog'
 import { brancherLeChef, clore, commande, equipesParDefaut, lancer, terminer, useChef } from '../socketDuChef'
-import { useSecondesRestantes } from '../decompte'
 import type { ReglagesDuChef } from '../chef'
 import { PALIERS_ENCHAINEMENT } from '../../../shared/console'
 import { ecrireCode } from '../../../shared/space'
 import { lireNombre } from '../../../shared/nombres'
 
-/** Le dernier podium du programme : la soirée s'enregistre seule, ou d'un toucher. */
-function ClotureQuiVient({ a }: { a: number }) {
-  const reste = useSecondesRestantes(a)
-  // Le bouton dit ce qu'il fait : « Maintenant », à côté d'un compte à
-  // rebours, ne disait pas quoi (la remarque du propriétaire du 3 octobre
-  // 2026). L'échéance reste, en petit, sous son nom.
+/**
+ * Le dernier podium du programme : c'est le chef qui l'enlève, d'un toucher.
+ * La soirée s'enregistrait seule trente secondes après, et le podium
+ * disparaissait sous les yeux de la salle (le propriétaire du dépôt, le
+ * 4 octobre 2026). Le bouton dit ce qu'il fait : « Maintenant » ne disait
+ * pas quoi (le 3 octobre).
+ */
+function TerminerLaSoiree() {
   return (
     <button type="button" className="btn btn-primary barre-chef-geste barre-chef-terminer" onClick={clore}>
+      <Icon name="flag" />
       Terminer la soirée
-      <span className="barre-chef-echeance" role="status">
-        {reste > 0 ? `seule dans ${reste} s` : 'elle s’enregistre…'}
-      </span>
     </button>
   )
 }
@@ -159,9 +158,9 @@ export function BarreDuChef({ reglages }: { reglages: ReglagesDuChef }) {
   }
 
   let principal = null
-  if (c.snapshot.clotureAuto) {
-    // Le programme est joué : la soirée s'enregistre seule, après le podium.
-    principal = <ClotureQuiVient a={c.snapshot.clotureAuto} />
+  if (c.snapshot.finDuProgramme && (!v || v.phase === 'finished')) {
+    // Le programme est joué : le podium reste, jusqu'à ce geste.
+    principal = <TerminerLaSoiree />
   } else if (!v || v.phase === 'finished') {
     principal = (
       <button

@@ -22,7 +22,6 @@ import { Leaderboard } from '../components/Leaderboard'
 import { TeamBoard } from '../components/TeamBoard'
 import { TeamPicker } from '../components/TeamPicker'
 import { Icon } from '../components/Icon'
-import { useSecondesRestantes } from '../decompte'
 import { Entree, type Identite } from '../components/Entree'
 import { FormulaireSoiree } from '../components/Rejoindre'
 import { ProfilForm } from '../components/ProfilForm'
@@ -73,20 +72,6 @@ const RECONNEXION_TIMEOUT_MS = 5000
 const SANS_JOUEURS: never[] = []
 /** Les phases où l'écran du téléphone est plein : l'avis du téléphone perdu attend la suivante. */
 const PHASES_PLEINES = new Set<QuizPlayerView['phase']>(['getReady', 'observe', 'question'])
-
-/**
- * Le dernier quiz du programme d'un salon est joué : la soirée s'enregistre
- * seule, son podium regardé — et chacun reçoit alors sa fin de soirée.
- */
-function ClotureQuiVient({ a }: { a: number }) {
-  const reste = useSecondesRestantes(a)
-  return (
-    <p className="card notice cloture-qui-vient" role="status">
-      <Icon name="sparkles" />
-      {reste > 0 ? `Fin de soirée dans ${reste} s : chacun recevra la sienne` : 'La soirée s’enregistre…'}
-    </p>
-  )
-}
 
 /**
  * La page d'un invité — et celle du chef qui joue, sa barre en bas : il
@@ -613,8 +598,6 @@ function SalleDuJoueur() {
         {phase && !PHASES_PLEINES.has(phase.phase) && absent && (
           <AvisHorsLigne absent={absent} profilIci={!!profil} onCode={() => setReprise(true)} discret />
         )}
-        {/* Le chef lit l'échéance dans sa barre, sous « Terminer la soirée » : pas deux fois. */}
-        {snap.clotureAuto && !chefIci(slug) && <ClotureQuiVient a={snap.clotureAuto} />}
         <QuizPlayer
           view={sessionView.view as QuizPlayerView}
           teams={teams}

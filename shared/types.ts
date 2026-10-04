@@ -105,11 +105,11 @@ export interface PartySnapshot {
    */
   code?: string
   /**
-   * L'échéance (heure du serveur) à laquelle la soirée d'un salon
-   * s'enregistrera seule : le dernier quiz de son programme est joué. Elle
-   * ne change qu'à son armement et à son annulation (invariant 4).
+   * Le dernier quiz du programme d'un salon est joué : la barre du chef
+   * propose « Terminer la soirée ». Il ne change qu'au verdict de ce quiz, et
+   * quand un quiz relancé ou un programme allongé le défait (invariant 4).
    */
-  clotureAuto?: number
+  finDuProgramme?: true
   /**
    * La base permanente refuse les écritures de la soirée depuis un moment :
    * la soirée continue, mais un réveil sur disque effacé perdrait ce qui

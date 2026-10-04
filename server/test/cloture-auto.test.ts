@@ -1,13 +1,13 @@
-// La soirée d'un salon s'enregistre toute seule après le dernier quiz de son
-// programme.
+// La fin du programme d'un salon : son dernier quiz rendu, la barre du chef
+// propose « Terminer la soirée » (`finDuProgramme` dans l'instantané).
 //
-// Au téléphone, plus de « Clore la soirée » à trouver : le programme dit où
-// elle s'arrête. Son dernier podium reste à l'écran le temps qu'on le
-// regarde (`SpaceRuntime.delaiClotureAuto`), puis chacun reçoit sa fin de
-// soirée. L'écran commun d'avant garde son geste de fin et ne clôt jamais
-// rien seul ; un quiz relancé, ou ajouté au programme pendant le podium,
-// défait l'échéance.
-import { after, before, beforeEach, test } from 'node:test'
+// La soirée s'enregistrait seule trente secondes après le dernier podium, et
+// le podium disparaissait sous les yeux de la salle : c'est l'animateur qui
+// l'enlève (le propriétaire du dépôt, le 4 octobre 2026). « Terminer le
+// quiz » sur le dernier du programme clôt tout de suite. L'écran commun
+// d'avant garde son geste de fin ; un quiz relancé, ou ajouté au programme
+// pendant le podium, défait la fin du programme.
+import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   attendre,
@@ -25,7 +25,6 @@ import {
   type Banc,
   type Socket,
 } from './banc'
-import { SpaceRuntime } from '../src/core/space'
 import { ProfileStore } from '../src/auth/profiles'
 
 ProfileStore.tirageEclat = () => false
@@ -35,9 +34,6 @@ before(async () => {
   banc = await demarrer()
 })
 after(() => banc.close())
-beforeEach(() => {
-  SpaceRuntime.delaiClotureAuto = 400
-})
 
 /** Joue un quiz d'une question jusqu'à son podium, la bonne réponse donnée par le premier invité. */
 async function jouerJusquAuPodium(ecran: Socket, quizId: string, joueur: Socket) {
@@ -74,16 +70,24 @@ async function salon(login: string) {
   return { profil, console_, quiz, programme, ecran, a, b, slug: espace.slug }
 }
 
-test('le dernier quiz du programme joué, la soirée s’enregistre seule, son podium regardé', async () => {
+test('le dernier quiz du programme joué, le podium reste jusqu’à « Terminer la soirée »', async () => {
   const s = await salon('chef1')
-  const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée', 8000)
+  let finie = false
+  s.a.socket.on('soiree:fin', () => (finie = true))
   await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
-  const arme = await instantane<{ clotureAuto?: number }>(s.a.socket, x => typeof x.clotureAuto === 'number', 'l’échéance annoncée')
-  assert.ok(arme.clotureAuto! > Date.now() - 50, 'une échéance à venir, que le téléphone décompte')
-  const { soiree } = await fin
-  assert.ok(soiree, 'chacun reçoit sa fin de soirée')
-  const apres = await instantane<{ players: unknown[]; clotureAuto?: number }>(s.ecran, x => x.players.length === 0, 'la soirée vide')
-  assert.equal(apres.clotureAuto, undefined)
+  const annonce = await instantane<{ finDuProgramme?: true; clotureAuto?: unknown }>(s.a.socket, x => x.finDuProgramme === true, 'la fin du programme')
+  assert.equal(annonce.clotureAuto, undefined, 'plus d’échéance à décompter')
+  // Le podium se regarde aussi longtemps qu'on veut : rien ne le chasse.
+  await patienter(1500)
+  assert.equal(finie, false, 'la soirée ne s’est pas close seule')
+  const vue = await instantane<{ players: unknown[] }>(s.ecran)
+  assert.equal(vue.players.length, 2, 'la salle est toujours là, devant le podium')
+  // Le geste du chef : « Terminer la soirée » de sa barre.
+  const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée', 8000)
+  ;(s.ecran as any).emit('host:closeParty', {}, () => {})
+  assert.ok((await fin).soiree, 'chacun reçoit sa fin de soirée')
+  const apres = await instantane<{ players: unknown[]; finDuProgramme?: true }>(s.ecran, x => x.players.length === 0, 'la soirée vide')
+  assert.equal(apres.finDuProgramme, undefined)
 })
 
 test('« Ouvrir le salon » le lendemain efface la clôture de la veille sur la télé', async () => {
@@ -93,6 +97,7 @@ test('« Ouvrir le salon » le lendemain efface la clôture de la veille sur la 
   const s = await salon('chef0')
   const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée', 8000)
   await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
+  ;(s.ecran as any).emit('host:closeParty', {}, () => {})
   await fin
   await instantane<{ scene?: { ecran: string } }>(s.ecran, x => x.scene?.ecran === 'cloture', 'la clôture à l’écran')
   // Un écran qui se présente ne la quitte pas : elle s'y montre encore.
@@ -112,16 +117,15 @@ test('l’écran commun d’avant ne clôt jamais rien seul', async () => {
   await invite(banc.url, 'Bruno', '🐼')
   await jouerJusquAuPodium(ecran, quiz, a.socket)
   await patienter(800)
-  const snap = await instantane<{ players: unknown[]; clotureAuto?: number }>(ecran)
-  assert.equal(snap.clotureAuto, undefined, 'pas d’échéance')
+  const snap = await instantane<{ players: unknown[]; finDuProgramme?: true }>(ecran)
+  assert.equal(snap.finDuProgramme, undefined, 'pas de fin de programme : il n’en a pas')
   assert.equal(snap.players.length, 2, 'la soirée continue jusqu’à « Clore la soirée »')
 })
 
-test('un quiz ajouté au programme pendant le dernier podium défait l’échéance', async () => {
-  SpaceRuntime.delaiClotureAuto = 1500
+test('un quiz ajouté au programme pendant le dernier podium défait la fin du programme', async () => {
   const s = await salon('chef2')
   await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
-  await instantane<{ clotureAuto?: number }>(s.ecran, x => typeof x.clotureAuto === 'number', 'l’échéance annoncée')
+  await instantane<{ finDuProgramme?: true }>(s.ecran, x => x.finDuProgramme === true, 'la fin du programme')
   const encore = await creerQuiz(banc.url, s.console_, [qcm('Encore ?')], 'Encore un')
   const modif = await ecrire(
     banc.url,
@@ -131,17 +135,14 @@ test('un quiz ajouté au programme pendant le dernier podium défait l’échéa
     'PUT',
   )
   assert.ok(modif.ok)
-  await instantane<{ clotureAuto?: number }>(s.ecran, x => x.clotureAuto === undefined, 'l’échéance défaite')
-  await patienter(1800)
+  await instantane<{ finDuProgramme?: true }>(s.ecran, x => x.finDuProgramme === undefined, 'la fin du programme défaite')
   const snap = await instantane<{ players: unknown[] }>(s.ecran)
   assert.equal(snap.players.length, 2, 'la soirée continue : un quiz l’attend encore')
 })
 
 test('« Terminer le quiz » sur le dernier du programme clôt la soirée sans attendre', async () => {
-  // L'échéance laisse regarder un podium ; terminer à la main, c'est dire
-  // qu'on a fini : le chef restait trente secondes dans la salle d'attente,
-  // son code en grand, au lieu de sa fin de soirée.
-  SpaceRuntime.delaiClotureAuto = 60_000
+  // Terminer à la main, c'est dire qu'on a fini : le chef restait dans la
+  // salle d'attente, son code en grand, au lieu de sa fin de soirée.
   const s = await salon('chef3')
   const choix = attendre<any>(s.ecran, 'session:view', p => p.view.phase === 'pickPack', 'le choix')
   ;(s.ecran as any).emit('host:launch', { depuis: null })
@@ -159,18 +160,16 @@ test('« Terminer le quiz » sur le dernier du programme clôt la soirée sans a
   assert.ok((await fin).soiree)
 })
 
-test('le podium regardé, l’échéance armée : « Terminer le quiz » n’attend pas son bout', async () => {
-  SpaceRuntime.delaiClotureAuto = 60_000
+test('le podium regardé, la fin du programme annoncée : « Terminer le quiz » clôt la soirée', async () => {
   const s = await salon('chef4')
   const sessionId = await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
-  await instantane<{ clotureAuto?: number }>(s.ecran, x => typeof x.clotureAuto === 'number', 'l’échéance annoncée')
+  await instantane<{ finDuProgramme?: true }>(s.ecran, x => x.finDuProgramme === true, 'la fin du programme')
   const fin = attendre<any>(s.a.socket, 'soiree:fin', () => true, 'la fin de soirée, tout de suite', 5000)
   ;(s.ecran as any).emit('host:endSession', { sessionId })
   assert.ok((await fin).soiree)
 })
 
 test('« Terminer le quiz » quand le programme en garde un autre : la soirée continue', async () => {
-  SpaceRuntime.delaiClotureAuto = 400
   const s = await salon('chef5')
   const encore = await creerQuiz(banc.url, s.console_, [qcm('Encore ?')], 'Encore un')
   assert.ok(
@@ -179,7 +178,7 @@ test('« Terminer le quiz » quand le programme en garde un autre : la soirée c
   const sessionId = await jouerJusquAuPodium(s.ecran, s.quiz, s.a.socket)
   ;(s.ecran as any).emit('host:endSession', { sessionId })
   await patienter(1200)
-  const snap = await instantane<{ players: unknown[]; clotureAuto?: number }>(s.ecran)
+  const snap = await instantane<{ players: unknown[]; finDuProgramme?: true }>(s.ecran)
   assert.equal(snap.players.length, 2, 'la salle attend le quiz suivant')
-  assert.equal(snap.clotureAuto, undefined)
+  assert.equal(snap.finDuProgramme, undefined)
 })

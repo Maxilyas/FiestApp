@@ -6888,8 +6888,6 @@ body.avec-chef .player-shell:has(.ans-grid) { padding-bottom: calc(46px + 64px);
    du propriétaire du 4 octobre 2026). */
 body.avec-chef .toast:not(.player-shell > .toast) { bottom: calc(84px + env(safe-area-inset-bottom)); }
 /* La soirée d'un salon va s'enregistrer : dit au-dessus du podium, sans le couvrir. */
-.cloture-qui-vient { display: flex; align-items: center; gap: 10px; margin: 0; }
-.cloture-qui-vient .icon { flex: none; color: var(--accent-text); }
 
 /* ── La barre du menu ────────────────────────────────────────────────────
    Les cinq pièces, toujours au même endroit, sous le pouce. Chaque bouton a
@@ -7559,8 +7557,6 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .fin-plus[open] > summary .repli-chevron { transform: rotate(180deg); }
 .fin-plus h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.05rem; }
 .fin-liens { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; }
-.barre-chef-terminer { flex-direction: column; gap: 0; line-height: 1.15; }
-.barre-chef-echeance { font-size: var(--t-label); font-weight: 600; opacity: 0.85; }
 
 /* ── L'historique, dans « Mon compte » (`/compte#historique`) ────────────
    Les cartes de « Mes soirées », et sous chacune ses deux pages. */
