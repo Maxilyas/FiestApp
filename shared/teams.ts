@@ -1,18 +1,22 @@
 // Classement des équipes — même calcul côté serveur et côté écrans.
 import { classer, enumerer } from './classement'
-import { rang } from './typographie'
+import { formatNumber, rang } from './typographie'
 import type { PublicPlayer, PublicTeam } from './types'
 
 export interface TeamStanding extends PublicTeam {
   /** Rang partagé : deux équipes à égalité sont toutes les deux premières. */
   rank: number
   /**
-   * Les points d'équipe que rapporte la moyenne : autant que d'équipes pour
-   * la première, un de moins pour la suivante, etc. Avec six équipes : 6, 5,
-   * 4, 3, 2, 1. Les prix de l'animateur s'y ajoutent (`finalPoints`).
+   * Les points d'équipe : la moyenne par membre, plus les prix remis par
+   * l'animateur — ceux qui désignent la gagnante.
+   *
+   * La moyenne rapportait des points au rang — 6, 5, 4, 3, 2, 1 avec six
+   * équipes — et c'étaient eux qui comptaient : personne ne comprenait
+   * pourquoi 1 400 points de moyenne n'en valaient que 6, ni qu'un écart de
+   * dix points en vaille autant qu'un écart de mille. Le propriétaire du
+   * dépôt, le 4 octobre 2026 : « que l'on retienne uniquement les points de
+   * l'équipe divisés par le nombre de personnes, comme on le faisait avant ».
    */
-  gamePoints: number
-  /** gamePoints + les prix remis par l'animateur : les points d'équipe, ceux qui désignent la gagnante. */
   finalPoints: number
 }
 
@@ -134,29 +138,38 @@ export function teamScores(
 }
 
 /**
- * Trie les équipes à la moyenne et leur attribue les points d'équipe qu'elle rapporte.
- *
- * Le barème part du nombre d'équipes créées, pas du nombre d'équipes ayant
- * marqué : avec six équipes, la première rapporte toujours 6 points, même si
- * l'une d'elles est restée sans joueur. C'est sur cette échelle que les prix
- * de l'animateur s'ajoutent, et que se joue l'équipe gagnante.
+ * Ce que vaut un prix remis à l'écran, par défaut : une bonne réponse sans
+ * bonus. Il s'ajoute à la moyenne, qui se compte en points de quiz —
+ * l'ancien « +1 », sur l'échelle 6, 5, 4…, n'y pèserait plus rien.
  */
+export const POINTS_D_UN_PRIX = 100
+/** Au plus, en plus ou en moins : un prix peut renverser un quiz, pas une soirée entière. */
+export const PRIX_MAX = 500
+
+/** Les emojis qu'on propose à une équipe — d'avant Unicode 13, l'écran commun tourne sous Windows 10. */
+export const EMOJIS_D_EQUIPE = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️', '🦩', '🍹', '⭐', '🔥', '🌙', '🎺', '🌺', '🦜']
+
+/** Au-delà, le choix d'équipe ne tient plus sur un écran de téléphone. */
+export const MAX_EQUIPES = 10
+
+/** Trie les équipes à la moyenne seule : leur performance au quiz, prix à part. */
 export function rankTeams(teams: PublicTeam[]): TeamStanding[] {
   // La règle commune (shared/classement.ts) : rang partagé, et des ex æquo
   // écrits par nom — sans quoi ils échangeraient leur place à chaque
   // rafraîchissement et le classement clignoterait sur le mur.
-  return classer(teams, t => t.average, t => t.name, t => t.id).map(({ item: t, rang }) => {
-    const gamePoints = teams.length - rang + 1
-    return { ...t, rank: rang, gamePoints, finalPoints: gamePoints + t.bonus }
-  })
+  return classer(teams, t => t.average, t => t.name, t => t.id).map(({ item: t, rang }) => ({
+    ...t,
+    rank: rang,
+    finalPoints: t.average + t.bonus,
+  }))
 }
 
 /**
- * Le classement qui désigne le vainqueur du quiz : le barème plus les prix.
+ * Le classement qui désigne le vainqueur du quiz : la moyenne plus les prix.
  *
  * Il diffère volontairement de `rankTeams` — celui-là classe les équipes sur
- * leur seule performance au quiz, et c'est lui qui distribue le barème. Les
- * prix arrivent après, et peuvent renverser l'ordre : c'est tout leur intérêt.
+ * leur seule performance au quiz. Les prix arrivent après, et peuvent
+ * renverser l'ordre : c'est tout leur intérêt.
  */
 export function finalRanking(teams: PublicTeam[]): TeamStanding[] {
   return classer(rankTeams(teams), t => t.finalPoints, t => t.name, t => t.id).map(({ item, rang }) => ({
@@ -203,22 +216,21 @@ export function prixRemis<T extends { id: string; teamId: string; createdAt: num
 // (« le gros chiffre est le total du quiz », faux dès le deuxième quiz), avec
 // deux mots que personne n'a compris : « barème » et « chiffre cerclé ». Un
 // seul mot désormais, « points d'équipe », et une seule phrase, ici, que
-// reprennent le téléphone, l'écran commun, le souvenir et le bilan.
+// reprennent l'écran commun, le souvenir et le bilan.
 
-/** La règle des équipes, en une phrase, pour `n` équipes. */
-export function regleDesEquipes(n: number): string {
-  const echelle =
-    n >= 3 ? ` : ${n} à la meilleure, ${n - 1} à la suivante, et ainsi de suite` : n === 2 ? ' : 2 à la meilleure, 1 à l’autre' : ''
+/** La règle des équipes, en une phrase. */
+export function regleDesEquipes(): string {
   return (
-    'La moyenne par membre — chacun y compte pour les questions qu’il a jouées dans l’équipe — donne des points d’équipe' +
-    `${echelle}. Les prix en ajoutent, et le plus de points d’équipe l’emporte.`
+    'Les points d’équipe : ceux de ses membres divisés par leur nombre — chacun y compte pour les questions qu’il a jouées dans l’équipe. ' +
+    'Les prix en ajoutent, et le plus de points d’équipe l’emporte.'
   )
 }
 
-/** « 2 à la moyenne + 1 de prix » : d'où viennent les points d'équipe d'une équipe. */
-export function detailDesPoints(t: Pick<TeamStanding, 'gamePoints' | 'bonus'>): string {
-  if (t.bonus === 0) return `${t.gamePoints} à la moyenne`
-  return `${t.gamePoints} à la moyenne ${t.bonus > 0 ? '+' : '−'} ${Math.abs(t.bonus)} de prix`
+/** « 1 240 de moyenne + 100 de prix » : d'où viennent les points d'équipe d'une équipe. */
+export function detailDesPoints(t: Pick<TeamStanding, 'average' | 'bonus'>): string {
+  const moyenne = `${formatNumber(t.average)} de moyenne`
+  if (t.bonus === 0) return moyenne
+  return `${moyenne} ${t.bonus > 0 ? '+' : '−'} ${Math.abs(t.bonus)} de prix`
 }
 
 /**

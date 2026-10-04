@@ -1722,6 +1722,22 @@ h3 > .icon {
 .ans-grid > *:nth-child(3) { animation-delay: 0.2s; }
 .ans-grid > *:nth-child(4) { animation-delay: 0.28s; }
 
+/* Au téléphone, une case ne bouge pas sous le doigt : elle glissait de
+   14 px en arrivant, et le toucher d'un invité rapide retombait dans
+   l'interstice qu'elle venait de quitter — rien ne partait. Un fondu, sur
+   place, et toutes ensemble. Son texte ne se surligne pas à l'appui long :
+   la réponse avait l'air choisie, et rien ne partait non plus. */
+.quiz-player .ans-btn {
+  animation: ans-fondu 0.18s ease-out backwards;
+  animation-delay: 0s;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+@keyframes ans-fondu {
+  from { opacity: 0; }
+}
+
 .ans-btn:not(:disabled):hover { border-color: var(--edge-strong); }
 .quiz-host .ans-btn:hover { border-color: var(--edge); }
 .ans-btn:not(:disabled):active { transform: scale(0.98); }
@@ -2364,11 +2380,15 @@ h3 > .icon {
 .course-cible strong { color: var(--ink); font-weight: 500; }
 
 /* Au podium du quiz, l'échelle de ses voisins pour qui n'y monte pas. */
-.echelle { padding: 12px 14px; }
-.echelle .leaderboard { margin-top: 6px; gap: 4px; }
-.echelle .lb-row { padding: 5px 10px; }
-.echelle-toi { color: var(--muted); font-weight: 400; }
-.echelle-podium { margin-top: 8px; text-align: center; color: var(--muted); font-size: 0.95rem; }
+/* Au podium du quiz : le classement de tous, serré — trente lignes se
+   parcourent du pouce, sans qu'une seule prenne la hauteur de deux. */
+.classement-fin { padding: 12px 14px; }
+.classement-fin h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 1rem; }
+.classement-fin .leaderboard { gap: 4px; }
+.classement-fin .lb-row { padding: 5px 10px; }
+.classement-fin-podium { margin: 8px 0 0; text-align: center; color: var(--muted); font-size: 0.95rem; }
+.fin-quiz-podium { display: flex; flex-direction: column; gap: 6px; }
+.fin-quiz-podium > .label { text-align: center; }
 
 /* La note de l'animateur, à sa télécommande seulement. */
 .note-animateur {
@@ -2924,37 +2944,119 @@ h3 > .icon {
   gap: 10px;
 }
 
-@media (max-width: 380px) {
+/* Deux colonnes jusqu'en 360 : sans texte dessous, une carte tient en
+   160 px ; seul un écran plus étroit, ou le texte agrandi, les empile. */
+@media (max-width: 300px) {
   .team-grid { grid-template-columns: 1fr; }
 }
 
 .team-btn {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 3px;
-  min-height: 44px;
-  padding: 14px 10px;
+  justify-content: center;
+  gap: 6px;
+  min-height: 112px;
+  padding: 16px 10px 14px;
   border-radius: var(--radius-sm);
-  background: var(--surface);
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+    var(--surface);
   border: 1px solid var(--edge);
   color: inherit;
   font-family: var(--sans);
   cursor: pointer;
-  transition: transform 0.12s, border-color 0.15s, background 0.15s;
+  transition: transform 0.12s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
 .team-btn:active { transform: scale(0.97); }
 .team-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.team-btn.selected { border: 1.5px solid var(--accent); background: var(--accent-soft); }
+/* Choisie : l'accent en bordure, une lueur, et la coche au coin — sans texte. */
+.team-btn.selected {
+  border: 1.5px solid var(--accent);
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+    var(--accent-soft);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), 0 8px 24px -12px color-mix(in srgb, var(--accent) 60%, transparent);
+}
 
-.team-btn-emoji { font-size: 1.9rem; line-height: 1.2; }
-.team-btn-name { font-family: var(--serif); font-weight: 600; font-size: 1.25rem; text-align: center; }
-.team-btn-count { font-size: 0.74rem; color: var(--muted); }
-/* Qui y est déjà : c'est ce qu'on cherche en choisissant. Coupé au mot près,
-   jamais au milieu d'un prénom. */
-.team-btn-membres { font-size: 0.78rem; color: var(--muted); text-align: center; overflow-wrap: break-word; max-width: 100%; }
+.team-btn-emoji {
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  font-size: 1.75rem;
+  line-height: 1;
+}
+.team-btn.selected .team-btn-emoji { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.team-btn-name { font-family: var(--serif); font-weight: 600; font-size: 1.2rem; line-height: 1.15; text-align: center; overflow-wrap: anywhere; }
+/* Qui y est déjà : leurs avatars, serrés l'un contre l'autre — ce qu'on
+   cherche en choisissant, sans une ligne à lire. */
+.team-btn-avatars { display: flex; justify-content: center; padding-inline-start: 6px; }
+.team-btn-avatars > .team-btn-av {
+  width: 22px;
+  height: 22px;
+  margin-inline-start: -6px;
+  font-size: 0.8rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface);
+  background: var(--surface);
+}
+.team-btn-check { position: absolute; top: 8px; right: 8px; width: 16px; height: 16px; color: var(--accent-text); }
+
+/* ── Les équipes, à la barre du chef ─────────────── */
+/* Une ligne par équipe dans « ⋯ » : un toucher la renomme. */
+.equipes-du-chef { display: flex; flex-direction: column; gap: 6px; }
+.equipe-du-chef {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 6px 14px 6px 6px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.equipe-du-chef:active { transform: scale(0.98); }
+.equipe-du-chef-emoji { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%; background: color-mix(in srgb, var(--ink) 6%, transparent); font-size: 1.15rem; }
+.equipe-du-chef-nom { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--serif); font-weight: 600; font-size: 1.05rem; }
+.equipe-du-chef > .icon { flex: none; width: 16px; height: 16px; color: var(--muted); }
+
+/* La feuille d'une équipe : son aperçu en grand, son nom, ses emojis. */
+.feuille-equipe { display: flex; flex-direction: column; gap: 16px; }
+.equipe-apercu { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 0 4px; }
+.equipe-apercu-emoji {
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--accent) 26%, transparent), color-mix(in srgb, var(--accent) 6%, transparent));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent), 0 10px 30px -14px color-mix(in srgb, var(--accent) 70%, transparent);
+  font-size: 2.3rem;
+  line-height: 1;
+}
+.equipe-apercu-nom { font-family: var(--serif); font-weight: 600; font-size: 1.35rem; text-align: center; overflow-wrap: anywhere; }
+.equipe-emojis { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+.equipe-emoji {
+  display: grid;
+  place-items: center;
+  height: 44px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+.equipe-emoji.active { border: 1.5px solid var(--accent); background: var(--accent-soft); }
 
 /* ── Gestion des équipes (écran commun) ─────────── */
 .team-groups { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
@@ -5867,6 +5969,21 @@ h3 > .icon {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* L'emoji de l'équipe à côté d'un prénom : petit, sans fond — cerclé
+   d'accent pour un coéquipier, qu'on repère d'un coup d'œil. */
+.pastille-equipe {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin-inline-start: 2px;
+  border-radius: 50%;
+  font-size: 0.8125rem;
+  line-height: 1;
+}
+.pastille-equipe-moi { box-shadow: inset 0 0 0 1.5px var(--accent); background: var(--accent-soft); }
+
 .dq-eclair {
   width: 14px;
   height: 14px;
@@ -6090,11 +6207,7 @@ h3 > .icon {
   .scene-podium { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 2.25rem; align-items: center; }
   .scene-podium:not(:has(> .scene-listes)) { grid-template-columns: minmax(0, 1fr); }
   .host.staging .scene-podium { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 1fr); }
-  /* Le podium des équipes porte sa légende (« avant les prix ») : son
-     enveloppe ne doit pas lui faire perdre sa taille, sans quoi il tombait
-     à 260 px quand celui des joueurs en garde 480. */
-  .host.staging .scene-podium > .final-podium,
-  .host.staging .scene-podium > .podium-legende > .final-podium { min-height: clamp(13.75rem, 50vh, 30rem); margin: 0; }
+  .host.staging .scene-podium > .final-podium { min-height: clamp(13.75rem, 50vh, 30rem); margin: 0; }
   .host.staging .scene-listes { min-height: 0; max-height: 100%; overflow: hidden; }
   /* Deux tableaux l'un sous l'autre ne se partagent pas la hauteur au
      prorata de leur contenu : la coupe se mesure liste entière, et le
@@ -6861,8 +6974,6 @@ body.avec-chef .player-shell:has(.ans-grid) { padding-bottom: calc(46px + 64px);
    du propriétaire du 4 octobre 2026). */
 body.avec-chef .toast:not(.player-shell > .toast) { bottom: calc(84px + env(safe-area-inset-bottom)); }
 /* La soirée d'un salon va s'enregistrer : dit au-dessus du podium, sans le couvrir. */
-.cloture-qui-vient { display: flex; align-items: center; gap: 10px; margin: 0; }
-.cloture-qui-vient .icon { flex: none; color: var(--accent-text); }
 
 /* ── La barre du menu ────────────────────────────────────────────────────
    Les cinq pièces, toujours au même endroit, sous le pouce. Chaque bouton a
@@ -7539,8 +7650,6 @@ a.soiree-nom:hover { color: var(--accent-text-hover); text-decoration: underline
 .fin-plus[open] > summary .repli-chevron { transform: rotate(180deg); }
 .fin-plus h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.05rem; }
 .fin-liens { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0; }
-.barre-chef-terminer { flex-direction: column; gap: 0; line-height: 1.15; }
-.barre-chef-echeance { font-size: var(--t-label); font-weight: 600; opacity: 0.85; }
 
 /* ── L'historique, dans « Mon compte » (`/compte#historique`) ────────────
    Les cartes de « Mes soirées », et sous chacune ses deux pages. */

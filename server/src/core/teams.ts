@@ -3,6 +3,7 @@ import type { DB } from './db'
 import type { PartyMirror } from './backup'
 import type { TeamBonus } from '../../../shared/types'
 import { tronquer } from '../../../shared/avatars'
+import { MAX_EQUIPES, PRIX_MAX } from '../../../shared/teams'
 
 export interface TeamRec {
   id: string
@@ -26,8 +27,7 @@ export const DEFAULT_TEAMS = [
   { name: 'Les Piments', emoji: '🌶️' },
 ]
 
-/** Au-delà, le choix d'équipe ne tient plus sur un écran de téléphone. */
-const MAX_TEAMS = 10
+const MAX_TEAMS = MAX_EQUIPES
 
 // Coupés par caractère, jamais au milieu d'un emoji : `slice` compte en
 // unités UTF-16, et « Les Fêtards du soir🎉 » coupé au vingtième gardait une
@@ -187,7 +187,7 @@ export class Teams {
     const rec: TeamBonus = {
       id: randomUUID(),
       teamId,
-      points: Math.max(-50, Math.min(50, value)),
+      points: Math.max(-PRIX_MAX, Math.min(PRIX_MAX, value)),
       reason: tronquer((reason ?? '').trim(), 60) || 'Prix spécial',
       createdAt: Date.now(),
     }

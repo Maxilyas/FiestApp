@@ -175,19 +175,17 @@ let incarnations = 0
  */
 export class SpaceRuntime {
   /**
-   * Le temps que le dernier podium d'un salon reste à l'écran avant que la
-   * soirée ne s'enregistre seule : on le regarde, on se félicite, puis
-   * chacun reçoit sa fin de soirée. Les tests le raccourcissent.
+   * Le dernier quiz du programme d'un salon a rendu son verdict : sa barre
+   * propose « Terminer la soirée ». Plus d'échéance : la soirée s'enregistrait
+   * seule trente secondes après le podium, et le podium disparaissait sous
+   * les yeux de la salle — c'est l'animateur qui l'enlève (le propriétaire du
+   * dépôt, le 4 octobre 2026). Part dans l'instantané (`finDuProgramme`).
    */
-  static delaiClotureAuto = 30_000
-
-  /** La clôture qui viendra seule, et son échéance — qui part dans l'instantané. */
-  private clotureAuto: { a: number; minuteur: ReturnType<typeof setTimeout> } | null = null
+  private finDuProgramme = false
   /**
    * Le chef vient de terminer la partie à la main (`terminerLaPartie`) : si
-   * c'était la dernière du programme, la soirée s'enregistre sans attendre.
-   * L'échéance laissait le temps de regarder un podium ; terminer, c'est
-   * dire qu'on a fini — le chef restait trente secondes dans la salle
+   * c'était la dernière du programme, la soirée s'enregistre sans attendre —
+   * terminer, c'est dire qu'on a fini : le chef restait sinon dans la salle
    * d'attente, son code en grand, au lieu de sa fin de soirée.
    */
   private finVoulue = false
@@ -501,9 +499,7 @@ export class SpaceRuntime {
    * quiz en cours, et le rangement de ce quiz doit déjà la voir.
    */
   private finir<T>(genre: 'close' | 'discard', travail: () => Promise<T>): Promise<T> {
-    // Une fin à la main remplace celle qui viendrait seule.
-    if (this.clotureAuto) clearTimeout(this.clotureAuto.minuteur)
-    this.clotureAuto = null
+    this.finDuProgramme = false
     let suivre!: (p: Promise<T>) => void
     const promesse = new Promise<T>(r => (suivre = r))
     this.finEnCours = { genre, promesse }
@@ -1119,37 +1115,28 @@ export class SpaceRuntime {
     }
     const code = this.deps.salons?.codeDe(this.spaceId)
     if (code) snapshot.code = code
-    if (this.clotureAuto) snapshot.clotureAuto = this.clotureAuto.a
+    if (this.finDuProgramme) snapshot.finDuProgramme = true
     return snapshot
   }
 
   /**
-   * Le dernier quiz du programme d'un salon a rendu son verdict : la soirée
-   * s'enregistrera seule, son podium regardé (`delaiClotureAuto`). Plus de
-   * « Clore la soirée » à trouver au téléphone : le programme dit où elle
-   * s'arrête. Rien ne s'arme si une partie se joue encore — le chef a lancé
-   * un quiz de plus —, ni pour l'écran commun d'avant, qui garde son geste
-   * de fin (`SalonStore.clotureAuto`).
+   * Le dernier quiz du programme d'un salon a rendu son verdict : la barre
+   * du chef propose « Terminer la soirée », et le podium reste à l'écran
+   * jusqu'à ce qu'il la touche. Terminé à la main (« Terminer le quiz »), le
+   * dernier quiz clôt la soirée tout de suite. Rien pour l'écran commun
+   * d'avant, qui garde son geste de fin (`SalonStore.clotureAuto`).
    */
   private considererCloture() {
     const voulue = this.finVoulue
     this.finVoulue = false
-    // Déjà armée — le podium regardé —, puis terminée à la main : tout de suite.
-    if (voulue && this.clotureAuto && this.closAuProgramme()) {
-      clearTimeout(this.clotureAuto.minuteur)
-      this.clotureAuto = null
+    if (this.finEnCours || !this.closAuProgramme()) return
+    if (voulue) {
+      console.log('[soirée] le dernier quiz du programme est terminé : la soirée s’enregistre')
+      this.closeParty().catch(e => console.error('[soirée] la clôture a échoué :', e))
+      return
     }
-    if (this.clotureAuto || this.finEnCours || !this.closAuProgramme()) return
-    const delai = voulue ? 0 : SpaceRuntime.delaiClotureAuto
-    const minuteur = setTimeout(() => {
-      this.clotureAuto = null
-      // Relu au dernier moment : un quiz relancé, un programme allongé l'ont peut-être défait.
-      if (!this.closAuProgramme()) return this.sendSnapshot()
-      console.log('[soirée] le programme du salon est joué : la soirée s’enregistre')
-      this.closeParty().catch(e => console.error('[soirée] la clôture automatique a échoué :', e))
-    }, delai)
-    minuteur.unref?.()
-    this.clotureAuto = { a: Date.now() + delai, minuteur }
+    if (this.finDuProgramme) return
+    this.finDuProgramme = true
     this.sendSnapshot()
   }
 
@@ -1169,14 +1156,8 @@ export class SpaceRuntime {
 
   /** Le chef relance un quiz, ou le programme s'allonge : la soirée continue. */
   reconsidererCloture() {
-    if (!this.clotureAuto || this.closAuProgramme()) return
-    this.annulerClotureAuto()
-  }
-
-  annulerClotureAuto() {
-    if (!this.clotureAuto) return
-    clearTimeout(this.clotureAuto.minuteur)
-    this.clotureAuto = null
+    if (!this.finDuProgramme || this.closAuProgramme()) return
+    this.finDuProgramme = false
     this.sendSnapshot()
   }
 
@@ -1959,8 +1940,6 @@ export class SpaceRuntime {
   }
 
   stop() {
-    if (this.clotureAuto) clearTimeout(this.clotureAuto.minuteur)
-    this.clotureAuto = null
     if (this.pending) clearTimeout(this.pending)
     if (this.pendingEcrans) clearTimeout(this.pendingEcrans)
     this.pending = null

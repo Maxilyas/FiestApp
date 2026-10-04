@@ -159,7 +159,7 @@ export interface ReviewTeamQuiz {
 export interface ReviewTeam extends PublicTeam {
   /** Rang au quiz (par la moyenne), partagé à égalité. */
   rank: number
-  gamePoints: number
+  /** La moyenne plus les prix : les points d'équipe (`shared/teams.ts`). */
   finalPoints: number
   /** Taux de bonnes réponses aux QCM, tous membres confondus. */
   accuracy: number | null

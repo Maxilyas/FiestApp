@@ -85,10 +85,27 @@ export function lancer() {
 
 /** Les équipes par défaut, quand le chef a choisi de jouer en équipes. */
 export function equipesParDefaut() {
-  socket?.emit('host:seedTeams', {})
+  // Deux, que le chef complète d'un geste (« Ajouter une équipe ») : six
+  // d'office pour quatre invités, c'étaient quatre équipes vides à choisir.
+  socket?.emit('host:seedTeams', { count: 2 })
 }
 
 /** Enregistre la soirée maintenant : sa fin à chacun, puis la page blanche. */
+/** Une équipe de plus, depuis la barre du chef. */
+export function creerEquipe(name: string, emoji: string) {
+  socket?.emit('host:createTeam', { name, emoji })
+}
+
+/** Le nom ou l'emoji d'une équipe, changés. */
+export function modifierEquipe(teamId: string, name: string, emoji: string) {
+  socket?.emit('host:updateTeam', { teamId, name, emoji })
+}
+
+/** Une équipe retirée : ses membres repassent sans équipe et gardent leurs points. */
+export function retirerEquipe(teamId: string) {
+  socket?.emit('host:removeTeam', { teamId })
+}
+
 export function clore() {
   poser({ message: null })
   socket?.emit('host:closeParty', {})

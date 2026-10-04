@@ -10,7 +10,7 @@ import { dataUrl, route, spacePath } from '../routes'
 import { ONGLETS } from '../onglets'
 import { formatDay } from '../../../shared/archive'
 import { ecrireCode, titreDeCloture } from '../../../shared/space'
-import { deNom, espacesFines } from '../format'
+import { deNom, espacesFines, formatNumber } from '../format'
 import { initAudio, isMuted, ouvrirAuPremierGeste, sonPret, surLeSon, toggleMuted } from '../sound'
 import { currentTheme, toggleTheme } from '../theme'
 import { Leaderboard } from '../components/Leaderboard'
@@ -24,7 +24,7 @@ import { Rank, Score, motPoints } from '../components/Rank'
 import { LoginForm } from '../components/Invitation'
 import { ConsoleActions, ConsoleSlot } from '../components/HostConsole'
 import { Absents } from '../components/Absents'
-import { detailDesPoints, effetDUnPrix, rankTeams, regleDesEquipes, vainqueursDuQuiz } from '../../../shared/teams'
+import { EMOJIS_D_EQUIPE, POINTS_D_UN_PRIX, PRIX_MAX, detailDesPoints, effetDUnPrix, finalRanking, regleDesEquipes, vainqueursDuQuiz } from '../../../shared/teams'
 import { classer, enumerer } from '../../../shared/classement'
 import type { EcranDeScene, PublicPlayer, PublicTeam, Recap } from '../../../shared/types'
 import { sound } from '../sound'
@@ -84,7 +84,7 @@ const ATTENTE_DU_TITRE_MS = 3000
 /** De quoi baptiser six équipes sans réfléchir, dans l'ambiance de la soirée. */
 // Tous antérieurs à Unicode 13 : les emojis récents (boule à facettes,
 // visage pointillé…) s'affichent en carré vide sur Windows 10.
-const TEAM_EMOJIS = ['💃', '🕺', '🎤', '✨', '🥁', '🌶️', '🦩', '🍹', '⭐', '🔥', '🌙', '🎺', '🌺', '🦜']
+const TEAM_EMOJIS = EMOJIS_D_EQUIPE
 
 /**
  * Le prénom d'une pastille d'invité : il se coupe, sa marque d'homonymie
@@ -342,7 +342,7 @@ export function HostApp() {
   const [telecommande, setTelecommande] = useState(telecommandeParDefaut)
   /** Motif et points du prix libre, celui qui ne se calcule pas. */
   const [freeReason, setFreeReason] = useState('')
-  const [freePoints, setFreePoints] = useState(1)
+  const [freePoints, setFreePoints] = useState(POINTS_D_UN_PRIX)
   const [freeTeam, setFreeTeam] = useState('')
   /** Les prix de caractère, calculés côté serveur à partir du journal des points. */
   const [recap, setRecap] = useState<Recap | null>(null)
@@ -678,8 +678,8 @@ export function HostApp() {
       ...distinctions(p),
     }))
 
-  const teamStandings = rankTeams(teams)
-  const teamPodium = teamStandings.map(t => ({ name: t.name, avatar: t.emoji, points: t.average, rank: t.rank }))
+  // Les points d'équipe, prix compris : les mêmes que le tableau à côté.
+  const teamPodium = finalRanking(teams).map(t => ({ name: t.name, avatar: t.emoji, points: t.finalPoints, rank: t.rank }))
   // L'onglet du podium est dans la scène : la télé montre ce qu'on choisit
   // à la télécommande. Sans choix, les équipes d'abord, s'il y en a.
   const podiumTab = snap.scene?.onglet === 'joueurs' || teams.length === 0 ? 'solo' : 'teams'
@@ -1065,15 +1065,12 @@ export function HostApp() {
                     {/* Le podium se fait à la moyenne, avant les prix ; le
                         tableau, aux points d'équipe, prix compris. Sans le
                         dire, l'un démentait l'autre dès le premier prix. */}
-                    <div className="podium-legende">
-                      <FinalPodium rows={teamPodium} />
-                      <p className="muted small center">Le podium à la moyenne, avant les prix</p>
-                    </div>
+                    <FinalPodium rows={teamPodium} />
                     <div className="scene-listes">
                       <Coupe>
                         <TeamBoard teams={teams} />
                       </Coupe>
-                      <p className="muted small">{regleDesEquipes(teams.length)}</p>
+                      <p className="muted small">{regleDesEquipes()}</p>
                     </div>
                   </div>
                 ) : (
@@ -1146,7 +1143,7 @@ export function HostApp() {
                     animatrice qui avait épargné un prix à voix haute le
                     retrouvait le lendemain. */}
                 <p className="muted center">
-                  Chaque prix attribué ajoute ses points d'équipe à l'équipe du lauréat — 0 pour
+                  Chaque prix attribué ajoute ses points à ceux de l'équipe du lauréat — 0 pour
                   l'honneur — et peut changer la gagnante. Le palmarès reste au souvenir, remis ou
                   non, sans jamais rapporter d'expérience.
                 </p>
@@ -1196,13 +1193,13 @@ export function HostApp() {
                     <label className="award-points-champ">
                       <ChampNombre
                         className="input award-points"
-                        min={-10}
-                        max={10}
+                        min={-PRIX_MAX}
+                        max={PRIX_MAX}
                         aria-label="Points d’équipe du prix"
                         valeur={freePoints}
                         onValeur={setFreePoints}
                       />
-                      <span className="award-points-unite" aria-hidden="true">pts d’équipe</span>
+                      <span className="award-points-unite" aria-hidden="true">pts</span>
                     </label>
                     <button
                       className="btn btn-primary btn-small"
@@ -1315,12 +1312,12 @@ export function HostApp() {
                         <span className="victory-name">{enumerer(champions.map(t => t.name))}</span>
                         {champions.length > 1 ? (
                           <span className="victory-points">
-                            Ex æquo · {champions[0].finalPoints} {motPoints(champions[0].finalPoints)} d'équipe chacune
+                            Ex æquo · {formatNumber(champions[0].finalPoints)} {motPoints(champions[0].finalPoints)} chacune
                           </span>
                         ) : (
                           <>
                             <span className="victory-points">
-                              {champions[0].finalPoints} {motPoints(champions[0].finalPoints)} d'équipe
+                              {formatNumber(champions[0].finalPoints)} {motPoints(champions[0].finalPoints)}
                             </span>
                             <span className="muted">{detailDesPoints(champions[0])}</span>
                           </>
@@ -1576,7 +1573,7 @@ export function HostApp() {
                 <section className="card">
                   <h2>Les équipes</h2>
                   <TeamBoard teams={teams} />
-                  <p className="muted small">{regleDesEquipes(teams.length)}</p>
+                  <p className="muted small">{regleDesEquipes()}</p>
                 </section>
               )}
 

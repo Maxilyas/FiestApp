@@ -491,20 +491,20 @@ test('l’effet d’un prix se dit avant de cliquer', () => {
     average,
     bonus,
   })
-  // Chez Nadia : Arrabbiata 3, Guitaristes 2, Randonneurs 1.
+  // Chez Nadia : Arrabbiata 1 002, Guitaristes 944, Randonneurs 733 — un prix s'ajoute à la moyenne.
   const salle = [
     t('arra', 'Arrabbiata', '🍝', 1002),
     t('guit', 'Guitaristes', '🎸', 944),
     t('rando', 'Randonneurs', '🥾', 733),
   ]
-  assert.equal(equipes.effetDUnPrix(salle, 'guit', 1), '+1 pour 🎸 Guitaristes → à égalité en tête avec 🍝 Arrabbiata')
-  assert.equal(equipes.effetDUnPrix(salle, 'guit', 2), '+2 pour 🎸 Guitaristes → prend la tête')
-  assert.equal(equipes.effetDUnPrix(salle, 'arra', 1), '+1 pour 🍝 Arrabbiata → toujours en tête')
-  assert.equal(equipes.effetDUnPrix(salle, 'rando', 1), '+1 pour 🥾 Randonneurs → à égalité avec 🎸 Guitaristes, 2ᵉ')
-  assert.equal(equipes.effetDUnPrix(salle, 'arra', -2), '−2 pour 🍝 Arrabbiata → cède la tête à 🎸 Guitaristes')
+  assert.equal(equipes.effetDUnPrix(salle, 'guit', 58), '+58 pour 🎸 Guitaristes → à égalité en tête avec 🍝 Arrabbiata')
+  assert.equal(equipes.effetDUnPrix(salle, 'guit', 100), '+100 pour 🎸 Guitaristes → prend la tête')
+  assert.equal(equipes.effetDUnPrix(salle, 'arra', 100), '+100 pour 🍝 Arrabbiata → toujours en tête')
+  assert.equal(equipes.effetDUnPrix(salle, 'rando', 211), '+211 pour 🥾 Randonneurs → à égalité avec 🎸 Guitaristes, 2ᵉ')
+  assert.equal(equipes.effetDUnPrix(salle, 'arra', -100), '−100 pour 🍝 Arrabbiata → cède la tête à 🎸 Guitaristes')
   assert.equal(equipes.effetDUnPrix(salle, 'rando', 0), 'Pour l’honneur : aucun point d’équipe, aucun classement ne bouge')
-  // Arrondi comme le serveur : « 1,4 » annonçait « +1.4 → prend la tête », et le serveur remettait +1.
-  assert.equal(equipes.effetDUnPrix(salle, 'guit', 1.4), '+1 pour 🎸 Guitaristes → à égalité en tête avec 🍝 Arrabbiata')
+  // Arrondi comme le serveur : « 58,4 » annonçait « +58.4 → prend la tête », et le serveur remettait +58.
+  assert.equal(equipes.effetDUnPrix(salle, 'guit', 58.4), '+58 pour 🎸 Guitaristes → à égalité en tête avec 🍝 Arrabbiata')
   assert.equal(equipes.effetDUnPrix(salle, 'guit', 0.4), 'Pour l’honneur : aucun point d’équipe, aucun classement ne bouge')
 })
 
@@ -524,11 +524,16 @@ test('L’Abstentionniste ne pèse pas sur le Coup de Pouce : il revient à qui 
   assert.equal(awards.find(a => a.key === 'coupdepouce')?.teamId, 'b', 'Léa ferme la marche de ceux qui ont joué')
 })
 
-test('le verdict des équipes s’explique d’une seule phrase, en points d’équipe', () => {
-  assert.match(equipes.regleDesEquipes(3), /points d’équipe : 3 à la meilleure, 2 à la suivante/)
-  assert.match(equipes.regleDesEquipes(3), /Les prix en ajoutent/)
-  assert.doesNotMatch(equipes.regleDesEquipes(3), /barème|cerclé/)
-  assert.match(equipes.regleDesEquipes(2), /2 à la meilleure, 1 à l’autre/)
+test('le verdict des équipes s’explique d’une seule phrase, en points d’équipe, sans barème au rang', () => {
+  // Le propriétaire du dépôt, le 4 octobre 2026 : plus de 6, 5, 4, 3, 2, 1 —
+  // les points de l'équipe divisés par le nombre de personnes, prix en plus.
+  const phrase = equipes.regleDesEquipes()
+  assert.match(phrase, /Les points d’équipe : ceux de ses membres divisés par leur nombre/)
+  assert.match(phrase, /Les prix en ajoutent/)
+  assert.doesNotMatch(phrase, /barème|cerclé|à la meilleure|à la suivante/)
+  const t = (id: string, average: number, bonus = 0) => ({ id, name: id, emoji: '🎲', position: 0, memberCount: 2, total: average * 2, average, bonus })
+  const classees = equipes.finalRanking([t('a', 1240), t('b', 980, 100), t('c', 310)])
+  assert.deepEqual(classees.map(e => [e.id, e.rank, e.finalPoints]), [['a', 1, 1240], ['b', 2, 1080], ['c', 3, 310]])
 })
 
 // ── 4. Ce que les écrans en disent ───────────────────────────────────────
@@ -563,16 +568,17 @@ test('la grille des prix nomme ses points, dit l’effet de chacun, et L’Abste
     onAward: () => {},
   })
   assert.match(html, /aria-label="Points d’équipe du prix « L&#x27;Éclair »"/)
-  assert.match(texteDe(html), /\+1 pour 🎸 Guitaristes → à égalité en tête avec 🍝 Arrabbiata/)
+  // Un prix vaut une bonne réponse par défaut : il s'ajoute à la moyenne.
+  assert.match(texteDe(html), /\+100 pour 🎸 Guitaristes → prend la tête/)
   assert.match(texteDe(html), /Pour l’honneur : aucun point d’équipe/, 'L’Abstentionniste ne récompense pas l’absence')
-  assert.equal((html.match(/pts d’équipe/g) ?? []).length, 2, 'l’unité se lit à côté de chaque champ')
+  assert.equal((html.match(/class="award-points-unite" aria-hidden="true">pts</g) ?? []).length, 2, 'l’unité se lit à côté de chaque champ')
 })
 
 test('le téléphone classe les équipes comme la télé, prix compris', async () => {
   const equipe = (id: string, name: string, average: number, bonus: number) =>
     ({ id, name, emoji: '🎲', position: 0, memberCount: 2, total: average * 2, average, bonus })
-  // Les Aigles ont la meilleure moyenne ; deux prix donnent la victoire aux Zèbres.
-  const teams = [equipe('a', 'Les Aigles', 300, 0), equipe('z', 'Les Zèbres', 200, 2)]
+  // Les Aigles ont la meilleure moyenne ; un prix donne la victoire aux Zèbres.
+  const teams = [equipe('a', 'Les Aigles', 300, 0), equipe('z', 'Les Zèbres', 200, 150)]
   const telephone = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams, compact: true }))
   const tele = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams }))
   const ordre = (texte: string) => [...texte.matchAll(/Les (Aigles|Zèbres)/g)].map(m => m[1])
@@ -581,14 +587,14 @@ test('le téléphone classe les équipes comme la télé, prix compris', async (
 })
 
 test('le bilan et son export rangent les équipes aux points d’équipe, prix compris', async () => {
-  // Les Aigles ont la meilleure moyenne ; deux prix donnent la victoire aux Zèbres.
+  // Les Aigles ont la meilleure moyenne ; un prix donne la victoire aux Zèbres.
   const teams = [
     { id: 'a', name: 'Les Aigles', emoji: '🦅', position: 0, createdAt: 1 },
     { id: 'z', name: 'Les Zèbres', emoji: '🦓', position: 1, createdAt: 1 },
   ]
   const players = [joueur('ana', 'Ana', 'a', 200), joueur('zak', 'Zak', 'z', 100)]
   const rows = [ligne('ana', 0, 200), ligne('zak', 0, 100)]
-  const bonuses = [{ id: 'b1', teamId: 'z', points: 2, reason: 'Le karaoké', createdAt: 5 }]
+  const bonuses = [{ id: 'b1', teamId: 'z', points: 150, reason: 'Le karaoké', createdAt: 5 }]
   const review = buildReview({ rows, players, teams, bonuses, packsBySession: new Map(), library: [] })
   assert.deepEqual(equipes.vainqueursDuQuiz(review.teams).map(t => t.id), ['z'])
 
@@ -605,18 +611,20 @@ test('le bilan et son export rangent les équipes aux points d’équipe, prix c
   assert.deepEqual(
     lignes.map(l => [l[0], l[col('Rang')], l[col('Points d’équipe')]]),
     [
-      ['🦓 Les Zèbres', '1', '3'],
-      ['🦅 Les Aigles', '2', '2'],
+      ['🦓 Les Zèbres', '1', '250'],
+      ['🦅 Les Aigles', '2', '200'],
     ],
   )
 })
 
-test('les textes suivent la règle : « 1 point d’équipe », et pas de « prix compris » pour des prix d’honneur', async () => {
+test('les textes suivent la règle : « 1 point », et pas de « prix compris » pour des prix d’honneur', async () => {
   const equipe = (id: string, name: string, average: number, bonus: number) =>
     ({ id, name, emoji: '🎲', position: 0, memberCount: 2, total: average * 2, average, bonus })
-  // Une seule équipe : sa moyenne lui rapporte 1 point d'équipe.
-  const seule = texteDe(await rendu('components/TeamBoard', 'VerdictDesEquipes', { teams: [equipe('a', 'Les Aigles', 300, 0)], avecPrix: false }))
-  assert.match(seule, /remporte le quiz, 1 point d’équipe\./)
+  // Une seule équipe, à un point de moyenne : « 1 point », au singulier.
+  const seule = texteDe(await rendu('components/TeamBoard', 'VerdictDesEquipes', { teams: [equipe('a', 'Les Aigles', 1, 0)], avecPrix: false }))
+  assert.match(seule, /remporte le quiz, 1 point\./)
+  const grand = texteDe(await rendu('components/TeamBoard', 'VerdictDesEquipes', { teams: [equipe('a', 'Les Aigles', 12400, 0)], avecPrix: false }))
+  assert.match(grand, /remporte le quiz, 12 400 points\./)
 
   // Un prix d'honneur, à 0 point : le verdict ne se dit pas « prix compris ».
   const teams = [
@@ -660,4 +668,18 @@ test('les points d’une équipe s’accordent : « 1 pt au total », « 1 pt de
     }),
   )
   assert.match(bilan, /\(1 pt de moyenne\)/)
+})
+
+test('au téléphone, une équipe vide et sans points ne prend pas de ligne ; au mur, si', async () => {
+  // Six équipes par défaut pour quatre invités : quatre lignes à zéro au
+  // téléphone, et une équipe vide sur la troisième marche du podium.
+  const equipe = (id: string, name: string, memberCount: number, average: number) =>
+    ({ id, name, emoji: '🎲', position: 0, memberCount, total: average * memberCount, average, bonus: 0 })
+  const teams = [equipe('a', 'Les Aigles', 2, 300), equipe('z', 'Les Zèbres', 2, 200), equipe('v', 'Les Vides', 0, 0)]
+  const telephone = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams, compact: true }))
+  assert.doesNotMatch(telephone, /Les Vides/)
+  assert.match(texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams })), /Les Vides .*aucun membre/)
+  // Personne n'a encore choisi : on les montre toutes, pour qu'on choisisse.
+  const avant = texteDe(await rendu('components/TeamBoard', 'TeamBoard', { teams: teams.map(t => ({ ...t, memberCount: 0, average: 0, total: 0 })), compact: true }))
+  assert.match(avant, /Les Aigles .*Les Zèbres .*Les Vides|Les Aigles .*Les Vides .*Les Zèbres/)
 })

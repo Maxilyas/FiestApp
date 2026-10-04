@@ -177,7 +177,7 @@ export function RecapApp() {
                 les prix, et contredisait la soirée qu'on avait vécue. */}
             <VerdictDesEquipes teams={recap.teams} avecPrix={recap.bonuses.some(b => b.points !== 0)} />
             <TeamBoard teams={recap.teams} />
-            <p className="muted small">{regleDesEquipes(recap.teams.length)}</p>
+            <p className="muted small">{regleDesEquipes()}</p>
           </section>
         )}
 

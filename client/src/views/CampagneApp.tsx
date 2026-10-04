@@ -10,6 +10,7 @@ import { espacesFines } from '../format'
 import { showToast, useAppState } from '../state'
 import { porterTheme } from '../themeJoueur'
 import { answersSizeClass, questionSizeClass } from '../games/quiz/questionSize'
+import { toucher } from '../toucher'
 import {
   NIVEAUX,
   NOM_NIVEAU,
@@ -411,7 +412,7 @@ export function CampagneApp() {
         {!r ? (
           <div className={'ans-grid' + answersSizeClass(q.reponses)}>
             {q.reponses.map((a, i) => (
-              <button key={i} className="ans-btn" aria-disabled={busy || undefined} onClick={() => void repondre(i)}>
+              <button key={i} className="ans-btn" aria-disabled={busy || undefined} {...toucher(() => void repondre(i))}>
                 <Shape index={i} />
                 <span className="ans-text">{espacesFines(a)}</span>
               </button>

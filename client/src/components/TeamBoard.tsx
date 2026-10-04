@@ -3,7 +3,7 @@ import { enumerer } from '../../../shared/classement'
 import type { PublicTeam } from '../../../shared/types'
 import { Rank, Score, motPoints } from './Rank'
 import { Icon } from './Icon'
-import { pts } from '../format'
+import { formatNumber, pts } from '../format'
 
 interface Props {
   teams: PublicTeam[]
@@ -16,21 +16,26 @@ interface Props {
  * Le classement des équipes — le même partout : au téléphone, au mur, au
  * souvenir.
  *
- * Il se range aux **points d'équipe**, prix compris (`finalRanking`) : ceux
- * que rapporte la moyenne par membre, plus les prix de l'animateur. C'est le
- * gros chiffre, avec son nom écrit à côté. Le téléphone classait à la seule
- * moyenne quand la télé classait prix compris : après une remise de prix, ils
- * n'avaient pas le même premier. Et le « chiffre cerclé », sans étiquette,
- * n'a été compris de personne.
+ * Il se range aux **points d'équipe**, prix compris (`finalRanking`) : la
+ * moyenne par membre, plus les prix de l'animateur. C'est le gros chiffre.
+ * Le téléphone classait à la seule moyenne quand la télé classait prix
+ * compris : après une remise de prix, ils n'avaient pas le même premier.
  *
- * La moyenne se lit en petit, sous le nom : c'est elle qui distribue les
- * points d'équipe, et on la commente à voix haute.
+ * Au téléphone, rien sous le nom : l'emoji, le nom, les points — sobre (le
+ * propriétaire du dépôt, le 4 octobre 2026). Au mur, l'effectif et le total,
+ * qu'on commente à voix haute.
  */
 export function TeamBoard({ teams, highlightId, compact }: Props) {
   if (teams.length === 0) {
     return <p className="muted">Aucune équipe pour l'instant…</p>
   }
-  const rows = finalRanking(teams)
+  // Au téléphone, une équipe vide et sans points ne prend pas une ligne :
+  // les six par défaut pour quatre invités, c'étaient quatre lignes à zéro.
+  // Au mur, « aucun membre » dit à l'animateur laquelle supprimer.
+  // Toutes vides — personne n'a encore choisi —, on les montre toutes.
+  const toutes = finalRanking(teams)
+  const habitees = toutes.filter(t => t.memberCount > 0 || t.finalPoints !== 0)
+  const rows = compact && habitees.length > 0 ? habitees : toutes
   // Avant le premier quiz, toutes les équipes sont à zéro donc toutes
   // premières : six « 1 » projetés au mur, ça ne veut rien dire. On n'affiche
   // le classement qu'une fois qu'il y a quelque chose à classer — un quiz
@@ -53,37 +58,20 @@ export function TeamBoard({ teams, highlightId, compact }: Props) {
           {/* Le détail est le voisin du nom, pas son enfant : la grille le
               place dessous, ou sur toute la largeur quand la ligne est
               étroite. Enfant du nom, il n'avait que sa colonne — 14 px au
-              texte agrandi, une lettre par ligne. Avant le premier quiz,
-              « 0 de moyenne » sous chaque équipe ne disait rien : au
-              téléphone, le nom seul ; au mur, l'effectif. */}
-          {(played || !compact) && (
+              texte agrandi, une lettre par ligne. */}
+          {!compact && (
             <span className="team-sub">
-              {t.memberCount === 0 ? (
-                'aucun membre'
-              ) : (
-                <>
-                  {!compact && `${t.memberCount} membre${t.memberCount > 1 ? 's' : ''}`}
-                  {!compact && played && ' · '}
-                  {/* « 439 de moyenne » se lit ; à l'oreille, il faut l'unité. */}
-                  {played && (
-                    <>
-                      {t.average}
-                      <span className="sr-only"> {motPoints(t.average)}</span> de moyenne
-                    </>
-                  )}
-                  {!compact && played && ` · ${pts(t.total)} au total`}
-                </>
-              )}
-              {/* Le détail ne vaut que s'il y a des prix : sans eux, « 3 à la
-                  moyenne » répétait le gros chiffre. */}
+              {t.memberCount === 0 ? 'aucun membre' : `${t.memberCount} membre${t.memberCount > 1 ? 's' : ''}`}
+              {played && t.memberCount > 0 && ` · ${pts(t.total)} au total`}
+              {/* Le détail ne vaut que s'il y a des prix : sans eux, il répétait le gros chiffre. */}
               {played && t.bonus !== 0 && ` · ${detailDesPoints(t)}`}
             </span>
           )}
           {played && (
             <span className="team-points">
-              <Score n={t.finalPoints} precision="d’équipe" />
+              <Score n={t.finalPoints} texte={formatNumber(t.finalPoints)} precision="d’équipe" />
               <span className="team-points-unite" aria-hidden="true">
-                {motPoints(t.finalPoints) === 'point' ? 'pt' : 'pts'} d’équipe
+                {motPoints(t.finalPoints) === 'point' ? 'pt' : 'pts'}
               </span>
             </span>
           )}
@@ -104,12 +92,11 @@ export function VerdictDesEquipes({ teams, avecPrix }: { teams: PublicTeam[]; av
   const champions = vainqueursDuQuiz(teams)
   if (champions.length === 0) return null
   const points = champions[0].finalPoints
+  const ecrits = `${formatNumber(points)} ${motPoints(points)}`
   return (
     <p className="team-verdict">
       <Icon name="crown" /> {enumerer(champions.map(t => `${t.emoji} ${t.name}`))}{' '}
-      {champions.length > 1
-        ? `remportent le quiz ex æquo, ${points} ${motPoints(points)} d’équipe chacune`
-        : `remporte le quiz, ${points} ${motPoints(points)} d’équipe`}
+      {champions.length > 1 ? `remportent le quiz ex æquo, ${ecrits} chacune` : `remporte le quiz, ${ecrits}`}
       {avecPrix && ' prix compris'}.
     </p>
   )

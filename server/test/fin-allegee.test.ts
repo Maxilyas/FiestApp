@@ -125,11 +125,15 @@ test('une fin sans rien de nouveau ni à suivre ne garde ni « Nouveau » ni de 
   assert.doesNotMatch(await rendu({ ...sans, joueurId: undefined, aJoue: false }), /fin-plus/)
 })
 
-test('au chef : « Terminer la soirée », l’échéance dessous, et le bandeau de la salle ne la redit pas', async () => {
+test('au chef : « Terminer la soirée » sur le dernier podium, sans échéance — et rien ne se décompte dans la salle', async () => {
+  // Le podium s'enlevait tout seul, trente secondes après : c'est le chef
+  // qui l'enlève (le propriétaire du dépôt, le 4 octobre 2026).
   const { readFileSync } = await import('node:fs')
   const source = (f: string) => readFileSync(new URL(`../../client/src/${f}`, import.meta.url), 'utf8')
   const barre = source('components/BarreDuChef.tsx')
-  assert.match(barre, /barre-chef-terminer" onClick=\{clore\}>\s*Terminer la soirée\s*<span className="barre-chef-echeance"/)
+  assert.match(barre, /barre-chef-terminer" onClick=\{clore\}>\s*<Icon name="flag" \/>\s*Terminer la soirée\s*<\/button>/)
+  assert.match(barre, /c\.snapshot\.finDuProgramme && \(!v \|\| v\.phase === 'finished'\)/)
   assert.doesNotMatch(barre, />\s*Maintenant\s*</)
-  assert.match(source('views/PlayerApp.tsx'), /\{snap\.clotureAuto && !chefIci\(slug\) && <ClotureQuiVient/)
+  assert.doesNotMatch(barre, /barre-chef-echeance|seule dans/)
+  assert.doesNotMatch(source('views/PlayerApp.tsx'), /ClotureQuiVient|clotureAuto/)
 })
