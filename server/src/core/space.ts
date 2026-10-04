@@ -249,15 +249,7 @@ export class SpaceRuntime {
     this.mirror = deps.backup.forSpace(spaceId)
     // La décoration se lit en mémoire : elle sert à chaque diffusion à toute
     // la salle, et un profil est déjà chargé quand son joueur s'est inscrit.
-    this.party = new Party(deps.db, spaceId, this.mirror, (profileId, avatar) => {
-      const profile = deps.profiles.cached(profileId)
-      if (!profile) return undefined
-      // Un emoji de collection qu'il n'ouvre plus : l'avatar qu'il porte à sa
-      // place, que la fiche reprend (`Party.relireAvatars`).
-      const porte = deps.profiles.peutPorter(profile, avatar) ? avatar : deps.profiles.avatarPorte(profile)
-      // Ce qui brille, c'est ce qu'il porte ce soir : le légendaire éclaté, ou l'emoji joué.
-      return { ...deps.profiles.apparenceDe(profile, porte), ...(porte !== avatar && { avatar: porte }) }
-    })
+    this.party = new Party(deps.db, spaceId, this.mirror, (profileId, avatar) => deps.profiles.badgeDe(profileId, avatar))
     this.teams = new Teams(deps.db, spaceId, this.mirror)
     this.ledger = new ScoreLedger(deps.db, spaceId, this.mirror)
     this.answers = new AnswerLog(deps.db, spaceId, this.mirror)

@@ -1,7 +1,7 @@
 // Types partagés entre le client et le serveur.
 import type { ArchiveSummary, DerniereSoiree } from './archive'
 import type { PublicSpace } from './space'
-import type { Finition } from './profil'
+import type { ApparenceDeLAvatar, Finition } from './profil'
 
 /** Joueur tel que visible par tout le monde. */
 export interface PublicPlayer {
@@ -149,8 +149,12 @@ export interface Scene {
   onglet?: OngletDePodium
 }
 
-/** Page souvenir : ce qu'il reste de la soirée, le lendemain. */
-export interface RecapRow {
+/**
+ * Page souvenir : ce qu'il reste de la soirée, le lendemain. L'avatar s'y
+ * montre tel que la salle le voit — son légendaire, sa finition —, sans le
+ * niveau, que le souvenir n'a jamais dit.
+ */
+export interface RecapRow extends ApparenceDeLAvatar {
   name: string
   avatar: string
   points: number

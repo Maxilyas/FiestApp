@@ -5,6 +5,7 @@ import type { Review, ReviewPlayer } from '../../../shared/review'
 import { Icon } from '../components/Icon'
 import { makeCtx, type BilanCtx } from '../components/BilanQuestion'
 import { PlayerReview } from '../components/BilanPlayer'
+import { Avatar } from '../components/Avatar'
 import { RoomReview } from '../components/BilanRoom'
 import { INTROUVABLE, RetourDeLaSoiree, SpaceError, estIntrouvable, pousserDansLaPage, useIsHost } from '../components/SpaceNav'
 import { BoutonCopier } from '../components/Partage'
@@ -300,7 +301,7 @@ function Picker({
             <div className="bilan-picker">
               {g.members.map(p => (
                 <button key={p.id} className="bilan-chip" onClick={() => onPick(p.id)}>
-                  <span className="lb-avatar">{p.avatar}</span>
+                  <Avatar className="lb-avatar" avatar={p.avatar} finition={p.finition} eclat={p.eclat} legendaire={p.legendaire} />
                   {p.name}
                 </button>
               ))}

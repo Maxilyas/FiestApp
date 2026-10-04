@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { chargerDessinsAuPlus, sortesDesAvatars } from '../components/medaillons'
-import { api, ouvrirParLeProfil, UnauthorizedError, type Me } from '../api'
+import { api, motifDe, ouvrirParLeProfil, UnauthorizedError, type Me } from '../api'
 import { Icon, type IconName } from '../components/Icon'
 import { Feuille, MenuBarre, Sortie } from '../components/Pieces'
 import { HistoriqueDuCompte } from '../components/HistoriqueDuCompte'
@@ -36,6 +36,8 @@ export function AccountApp() {
    * navigateur aussi.
    */
   const [historique, setHistorique] = useState(() => window.location.hash === '#historique')
+  /** « Me déconnecter » : en route, puis ce qui l'a empêché. */
+  const [sortie, setSortie] = useState<{ enCours: boolean; erreur: string }>({ enCours: false, erreur: '' })
   useEffect(() => {
     const auRetour = () => setHistorique(window.location.hash === '#historique')
     window.addEventListener('popstate', auRetour)
@@ -233,17 +235,33 @@ export function AccountApp() {
       <button
         type="button"
         className="compte-sortie"
-        onClick={() =>
-          // Un profil se déconnecte de son profil : sa console se referme avec lui (invariant 16).
-          (parLeProfil ? api.joueur.deconnexion() : api.auth.logout())
-            .catch(() => {})
-            .then(() => window.location.assign(parLeProfil ? '/' : '/connexion'))
-        }
+        disabled={sortie.enCours}
+        onClick={async () => {
+          setSortie({ enCours: true, erreur: '' })
+          // Un profil se déconnecte de son profil : sa console se referme
+          // avec lui (invariant 16). Tant que le serveur n'a pas fermé la
+          // session, elle reste ouverte et la page le dit : une requête
+          // perdue partait vers l'accueil sans un mot, et le téléphone prêté
+          // gardait le profil de son propriétaire. C'est la seule sortie
+          // depuis que la page du profil n'a plus la sienne. Une session
+          // déjà fermée, elle, n'empêche pas de sortir.
+          try {
+            await (parLeProfil ? api.joueur.deconnexion() : api.auth.logout())
+          } catch (e) {
+            if (!(e instanceof UnauthorizedError)) return setSortie({ enCours: false, erreur: motifDe(e) })
+          }
+          window.location.assign(parLeProfil ? '/' : '/connexion')
+        }}
       >
         <Icon name="arrow-left" />
         Me déconnecter
       </button>
       <p className="muted small center">Sur cet appareil seulement. L’écran commun ouvert avec cette session se fermera.</p>
+      {sortie.erreur && (
+        <p className="error center" role="alert">
+          {sortie.erreur}
+        </p>
+      )}
 
       {feuille === 'affiche' && (
         <Feuille titre="L’affiche de ma soirée" onFermer={fermer}>

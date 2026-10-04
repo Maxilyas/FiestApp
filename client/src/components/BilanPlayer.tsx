@@ -4,6 +4,7 @@ import { formatNumber, place, rang, pts } from '../format'
 import { formatPercent, formatSeconds, questionLabel } from '../../../shared/review'
 import type { HighlightKind, ReviewHighlight, ReviewPlayer, ReviewQuestion } from '../../../shared/review'
 import { QuestionCard, type BilanCtx } from './BilanQuestion'
+import { Avatar } from './Avatar'
 
 const HIGHLIGHT_ICONS: Record<HighlightKind, IconName> = {
   onlyRight: 'star',
@@ -62,7 +63,16 @@ export function PlayerReview({ ctx, player }: { ctx: BilanCtx; player: ReviewPla
     <>
       <section className="card">
         <div className="bilan-who">
-          <span className="bilan-avatar">{player.avatar}</span>
+          {/* L'avatar qu'il porte, légendaire compris : l'emoji seul, celui de
+              l'inscription, n'était pas le sien (le propriétaire du dépôt, le
+              4 octobre 2026). */}
+          <Avatar
+            className="bilan-avatar"
+            avatar={player.avatar}
+            finition={player.finition}
+            eclat={player.eclat}
+            legendaire={player.legendaire}
+          />
           <div>
             <h2>{player.name}</h2>
             <p className="muted">
