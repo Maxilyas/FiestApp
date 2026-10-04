@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import type { InStatement, ResultSet } from '@libsql/client'
 import { clientDistant, type Client } from './distante'
 import { BaseDeLaCampagne, type QuestionDeLaBase } from './baseCampagne'
 import { jourDe } from '../../../shared/jour'
@@ -52,6 +53,9 @@ interface Serie {
 
 /** La difficulté mesurée se relit au plus toutes les dix minutes : elle bouge lentement, et chaque série la lit. */
 const MESURES_GARDEES_MS = 10 * 60_000
+/** Combien de séries en cours restent en mémoire (`enCours`) : celles qu'on joue, et de la marge pour celles qu'on a laissées. */
+const SERIES_GARDEES = 500
+const HEURE_MS = 3600_000
 
 /**
  * La campagne solo (`shared/campagne.ts`) : ses séries, dans la base
@@ -73,14 +77,21 @@ export class CampagneStore {
   private client: Client
   private maintenant: () => number
   private verrous = new Map<string, Promise<unknown>>()
-  /** La base, lue à la première demande (`BaseDeLaCampagne.depuisLeDossier`) ; les tests en donnent une petite. */
-  private base: () => BaseDeLaCampagne
+  /** La base, lue à la première demande sans figer le serveur (`BaseDeLaCampagne.depuisLeDossier`) ; les tests en donnent une petite. */
+  private base: () => Promise<BaseDeLaCampagne>
   /** Les intitulés de la réserve du quiz du jour (`JourStore.empreintes`) : la campagne n'en pose aucun. */
   private empreintesDuJour: () => Promise<ReadonlySet<string>>
   /** Écrit sa ligne d'expérience (`ProfileStore.ecrireXpDeCampagne`). */
   private ecrireXp: (profileId: string, xp: number, jours: number) => Promise<unknown>
   /** Les questions retirées après un signalement : la campagne ne les tire plus. Peu nombreuses, gardées en mémoire. */
   private retirees = new Set<string>()
+  /**
+   * La série en cours de chaque profil : relue en base à chaque réponse,
+   * elle coûtait un aller-retour sous les doigts du joueur. Tenue à jour
+   * sous son verrou, après chaque écriture réussie ; oubliée au moindre
+   * échec — écrite ou non, on ne le sait pas, et la base fait alors foi.
+   */
+  private enCours = new Map<string, Serie>()
   private mesuresGardees: { a: number; parQuestion: Map<string, { justes: number; total: number }> } | null = null
 
   constructor(
@@ -96,11 +107,16 @@ export class CampagneStore {
     this.client = clientDistant(url, authToken)
     this.maintenant = opts.maintenant ?? Date.now
     const donnee = opts.base
-    let lue: BaseDeLaCampagne | null = null
+    let lue: Promise<BaseDeLaCampagne> | null = null
     this.base =
       donnee instanceof BaseDeLaCampagne
-        ? () => donnee
-        : () => (lue ??= donnee ? donnee() : BaseDeLaCampagne.depuisLeDossier())
+        ? async () => donnee
+        : () =>
+            (lue ??= (donnee ? (async () => donnee())() : BaseDeLaCampagne.depuisLeDossier()).catch(e => {
+              // Ratée, elle se relit à la demande suivante : gardée, la promesse la figerait.
+              lue = null
+              throw e
+            }))
     this.empreintesDuJour = opts.empreintesDuJour ?? (async () => new Set())
     this.ecrireXp = opts.ecrireXp ?? (async () => {})
   }
@@ -112,16 +128,7 @@ export class CampagneStore {
    * hoquet de la base, quand celui-ci se refait à la bonne réponse suivante.
    */
   private async justesParJour(profileId: string): Promise<Map<string, number>> {
-    const res = await this.client.execute({
-      sql: `SELECT r.repondue_le FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id WHERE s.profile_id = ? AND r.juste = 1`,
-      args: [profileId],
-    })
-    const parJour = new Map<string, number>()
-    for (const r of res.rows) {
-      const jour = jourDe(Number(r.repondue_le))
-      parJour.set(jour, (parJour.get(jour) ?? 0) + 1)
-    }
-    return parJour
+    return justesParJourDe((await this.client.execute(lectureDesJustes(profileId))).rows)
   }
 
   async init() {
@@ -186,9 +193,9 @@ export class CampagneStore {
 
   /** Les questions que la campagne peut poser : la base, moins les retirées et celles de la réserve du quiz du jour. */
   private async jouables(categories?: readonly string[]): Promise<QuestionDeLaBase[]> {
-    const duJour = await this.empreintesDuJour()
+    const [duJour, base] = await Promise.all([this.empreintesDuJour(), this.base()])
     const filtre = categories && categories.length > 0 ? new Set(categories) : null
-    return this.base().questions.filter(q => !this.retirees.has(q.id) && !duJour.has(q.empreinte) && (!filtre || filtre.has(q.meta.categorie)))
+    return base.questions.filter(q => !this.retirees.has(q.id) && !duJour.has(q.empreinte) && (!filtre || filtre.has(q.meta.categorie)))
   }
 
   /**
@@ -258,6 +265,7 @@ export class CampagneStore {
       const questions = ordreDeSerie(parNiveau, QUESTIONS_PAR_SERIE).map(x => versQuestionDeSerie(x.question, x.niveau))
       const serie: Serie = { id: randomUUID(), profileId, questions, index: 0, vies: VIES, justes: 0, finieLe: null }
       const maintenant = this.maintenant()
+      this.enCours.delete(profileId)
       await this.client.batch(
         [
           // La série laissée en route s'arrête : une seule à la fois.
@@ -270,8 +278,16 @@ export class CampagneStore {
         ],
         'write',
       )
+      this.garderEnCours(serie)
       return vueDeSerie(serie)
     })
+  }
+
+  /** La série en cours d'un profil, gardée — la plus récente en dernier, pour oublier d'abord la plus ancienne. */
+  private garderEnCours(serie: Serie) {
+    this.enCours.delete(serie.profileId)
+    this.enCours.set(serie.profileId, serie)
+    if (this.enCours.size > SERIES_GARDEES) this.enCours.delete(this.enCours.keys().next().value!)
   }
 
   /** La série en cours de ce profil, s'il en a une. */
@@ -295,7 +311,8 @@ export class CampagneStore {
    */
   repondre(profileId: string, id: string, index: number, choix: unknown): Promise<ReponseDeCampagne> {
     return this.avecVerrou(profileId, async () => {
-      const s = await this.serie(profileId, id)
+      const gardee = this.enCours.get(profileId)
+      const s = gardee?.id === id ? gardee : await this.serie(profileId, id)
       // Le voisin n'en sait pas plus (invariant 3) : la série d'un autre est introuvable.
       if (!s) throw new Error('Cette série est introuvable')
       if (s.finieLe !== null) throw new Error('Cette série est finie : commence-en une autre')
@@ -308,31 +325,32 @@ export class CampagneStore {
       const position = s.index + 1
       const finie = vies <= 0 || position >= s.questions.length
       const maintenant = this.maintenant()
-      // Le record se lit avant d'écrire la fin : battu, la fin le dit, et l'ancien avec.
-      const avant = finie
-        ? Number(
-            (
-              await this.client.execute({
-                sql: 'SELECT COALESCE(MAX(justes), 0) AS record FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL',
-                args: [profileId],
-              })
-            ).rows[0]?.record ?? 0,
-          )
-        : 0
-      await this.client.batch(
-        [
-          {
-            sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)',
-            args: [s.id, s.index, q.id, c, juste ? 1 : 0, maintenant],
-          },
-          {
-            sql: 'UPDATE campagne_series SET position = ?, vies = ?, justes = ?, finie_le = ? WHERE id = ?',
-            args: [position, vies, justes, finie ? maintenant : null, s.id],
-          },
-        ],
-        'write',
-      )
-      const xp = juste ? await this.crediter(profileId) : 0
+      // Tout dans un lot : le record se lit avant d'écrire la fin — battu, la
+      // fin le dit, et l'ancien avec —, ses bonnes réponses après la sienne,
+      // de quoi relire sa ligne d'expérience. Chacun coûtait un aller-retour.
+      const lot: InStatement[] = [
+        {
+          sql: 'INSERT INTO campagne_reponses (serie_id, position, reserve_id, choix, juste, repondue_le) VALUES (?, ?, ?, ?, ?, ?)',
+          args: [s.id, s.index, q.id, c, juste ? 1 : 0, maintenant],
+        },
+        {
+          sql: 'UPDATE campagne_series SET position = ?, vies = ?, justes = ?, finie_le = ? WHERE id = ?',
+          args: [position, vies, justes, finie ? maintenant : null, s.id],
+        },
+      ]
+      if (finie) lot.unshift({ sql: 'SELECT COALESCE(MAX(justes), 0) AS record FROM campagne_series WHERE profile_id = ? AND finie_le IS NOT NULL', args: [profileId] })
+      if (juste) lot.push(lectureDesJustes(profileId))
+      let res: ResultSet[]
+      try {
+        res = await this.client.batch(lot, 'write')
+      } catch (e) {
+        this.enCours.delete(profileId)
+        throw e
+      }
+      if (finie) this.enCours.delete(profileId)
+      else this.garderEnCours({ ...s, index: position, vies, justes })
+      const avant = finie ? Number(res[0].rows[0]?.record ?? 0) : 0
+      const xp = juste ? await this.crediter(profileId, justesParJourDe(res[res.length - 1].rows)) : 0
       return {
         juste,
         xp,
@@ -355,9 +373,8 @@ export class CampagneStore {
    * échouer la réponse, déjà rangée : la bonne réponse suivante réécrit la
    * ligne entière.
    */
-  private async crediter(profileId: string): Promise<number> {
+  private async crediter(profileId: string, parJour: Map<string, number>): Promise<number> {
     try {
-      const parJour = await this.justesParJour(profileId)
       await this.ecrireXp(profileId, xpDeCampagne(parJour.values()), parJour.size)
       return xpDuJourDeCampagne(1)
     } catch (e) {
@@ -388,8 +405,8 @@ export class CampagneStore {
   }
 
   /** Cet intitulé est-il dans la base ? La réserve du quiz du jour le refuse alors (`JourStore.dansLaCampagne`). */
-  dansLaBase(empreinte: string): boolean {
-    return this.base().empreintes.has(empreinte)
+  async dansLaBase(empreinte: string): Promise<boolean> {
+    return (await this.base()).empreintes.has(empreinte)
   }
 
   /** Ses bonnes réponses en campagne, toutes séries comprises : ses confettis de campagne. */
@@ -412,7 +429,7 @@ export class CampagneStore {
     if (!s) throw new Error('Cette série est introuvable')
     if (!Number.isInteger(index) || index < 0 || index >= s.index) throw new Error('Réponds d’abord à cette question')
     const q = s.questions[index]
-    if (!this.base().parId.has(q.id)) throw new Error('Cette question n’est plus dans la campagne')
+    if (!(await this.base()).parId.has(q.id)) throw new Error('Cette question n’est plus dans la campagne')
     await this.client.execute({
       sql: `INSERT INTO campagne_signalements (question_id, profile_id, serie_id, texte, cree_le) VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(question_id, profile_id) DO UPDATE SET serie_id = excluded.serie_id, texte = excluded.texte, cree_le = excluded.cree_le, traite_le = NULL`,
@@ -426,7 +443,7 @@ export class CampagneStore {
       `SELECT question_id, COUNT(*) AS n, MAX(cree_le) AS dernier, json_group_array(texte) AS textes
        FROM campagne_signalements WHERE traite_le IS NULL GROUP BY question_id ORDER BY dernier DESC LIMIT 50`,
     )
-    const base = this.base()
+    const base = await this.base()
     return res.rows.flatMap(r => {
       const q = base.parId.get(String(r.question_id))
       if (!q) return []
@@ -461,7 +478,7 @@ export class CampagneStore {
    * Corrigée dans la base, elle reviendrait sous un nouvel identifiant.
    */
   async retirer(questionId: string): Promise<void> {
-    if (!this.base().parId.has(questionId)) throw new Error('Cette question n’est pas dans la base')
+    if (!(await this.base()).parId.has(questionId)) throw new Error('Cette question n’est pas dans la base')
     const maintenant = this.maintenant()
     await this.client.batch(
       [
@@ -475,9 +492,9 @@ export class CampagneStore {
 
   /** L'écran de l'administrateur : la base, ce qu'on en joue, et les signalements à relire. */
   async administration(): Promise<AdminDeLaCampagne> {
-    const [jouables, signalements] = await Promise.all([this.jouables(), this.signalements()])
+    const [jouables, signalements, base] = await Promise.all([this.jouables(), this.signalements(), this.base()])
     return {
-      questions: this.base().questions.length,
+      questions: base.questions.length,
       jouables: jouables.length,
       retirees: this.retirees.size,
       parCategorie: parCategorie(jouables),
@@ -488,6 +505,7 @@ export class CampagneStore {
   /** Un profil supprimé : ses séries, leurs réponses et ses signalements, sous son verrou. */
   oublierProfil(profileId: string): Promise<void> {
     return this.avecVerrou(profileId, async () => {
+      this.enCours.delete(profileId)
       await this.client.batch(
         [
           { sql: 'DELETE FROM campagne_reponses WHERE serie_id IN (SELECT id FROM campagne_series WHERE profile_id = ?)', args: [profileId] },
@@ -502,6 +520,31 @@ export class CampagneStore {
   close() {
     this.client.close()
   }
+}
+
+/**
+ * La lecture de ses bonnes réponses, comptées par heure : une ligne par
+ * bonne réponse — des milliers pour un fidèle — repartait de Turso à chaque
+ * bonne réponse. Seule (`justesParJour`), ou au bout du lot qui écrit une
+ * réponse.
+ */
+function lectureDesJustes(profileId: string): InStatement {
+  return {
+    sql: `SELECT CAST(r.repondue_le / ${HEURE_MS} AS INTEGER) AS heure, COUNT(*) AS n
+          FROM campagne_reponses r JOIN campagne_series s ON s.id = r.serie_id
+          WHERE s.profile_id = ? AND r.juste = 1 GROUP BY heure`,
+    args: [profileId],
+  }
+}
+
+/** Des heures aux jours de Paris : il change de jour à une heure pile, hiver comme été — une heure n'est jamais à cheval sur deux jours. */
+function justesParJourDe(lignes: readonly Record<string, unknown>[]): Map<string, number> {
+  const parJour = new Map<string, number>()
+  for (const r of lignes) {
+    const jour = jourDe(Number(r.heure) * HEURE_MS)
+    parJour.set(jour, (parJour.get(jour) ?? 0) + Number(r.n))
+  }
+  return parJour
 }
 
 function versSerie(r: Record<string, unknown>): Serie {

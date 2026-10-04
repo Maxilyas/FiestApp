@@ -56,7 +56,20 @@ const NON_REPONSE = /^(aucune?|toutes?|tous|les deux|ni l['’]un)\b/i
 /** « Lequel n'est pas… » : une négation fait trébucher sur la lecture, pas sur le savoir. */
 const NEGATION = /\b(n['’]\s?(est|était|sont|étaient|a|ont|avait|fait|font|appartient)|ne\s+(sont|fait|font|vit|vivent|compte|comptent|possède|possèdent))\s+pas\b/i
 
-const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const lettreOuChiffre = (c: string | undefined) => c !== undefined && ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
+
+/**
+ * Le mot écrit en toutes lettres dans le texte, entre deux bords de mot : le
+ * verdict de `(^|[^a-z0-9])mot($|[^a-z0-9])`, sans l'expression. En compiler
+ * une par question coûtait 170 ms à chaque lecture de la base — la moitié du
+ * temps où le serveur ne répondait plus à personne.
+ */
+function ecritDans(texte: string, mot: string): boolean {
+  for (let i = texte.indexOf(mot); i >= 0; i = texte.indexOf(mot, i + 1)) {
+    if (!lettreOuChiffre(texte[i - 1]) && !lettreOuChiffre(texte[i + mot.length])) return true
+  }
+  return false
+}
 
 /**
  * Relit une entrée de la base — ou d'un lot qu'une IA vient d'écrire, sans
@@ -72,8 +85,9 @@ export function lireQuestionDeLaBase(brut: unknown, { sansId = false } = {}): { 
   if (!sansId && !ID.test(id)) return { refus: `identifiant invalide : ${String(b.id)}` }
 
   const texte = typeof b.texte === 'string' ? b.texte.trim() : ''
-  if (Array.from(texte).length < 10) return { refus: 'intitulé vide ou trop court' }
-  if (Array.from(texte).length > MAX_TEXT) return { refus: `intitulé de plus de ${MAX_TEXT} caractères` }
+  const longueur = Array.from(texte).length
+  if (longueur < 10) return { refus: 'intitulé vide ou trop court' }
+  if (longueur > MAX_TEXT) return { refus: `intitulé de plus de ${MAX_TEXT} caractères` }
   if (/\s{2,}|\n/.test(texte)) return { refus: 'intitulé sur plusieurs lignes ou avec des espaces doubles' }
 
   const reponses = Array.isArray(b.reponses) ? b.reponses.map(r => (typeof r === 'string' ? r.trim() : '')) : []
@@ -106,7 +120,7 @@ export function lireQuestionDeLaBase(brut: unknown, { sansId = false } = {}): { 
   // La réponse dans l'intitulé se lit sans rien savoir. Les mots trop courts
   // (« Or », « Mer ») se croisent par hasard : on ne compare que les autres.
   const juste = sansAccent(reponses[bonne])
-  if (!vraiFaux && juste.length >= 4 && new RegExp(`(^|[^a-z0-9])${escapeRegExp(juste)}($|[^a-z0-9])`).test(sansAccent(texte))) {
+  if (!vraiFaux && juste.length >= 4 && ecritDans(sansAccent(texte), juste)) {
     return { refus: 'la bonne réponse est écrite dans l’intitulé' }
   }
 
@@ -142,13 +156,41 @@ export interface BaseLue {
   refusees: { fichier: string; position: number; motif: string }[]
 }
 
+/** Ce que le serveur relit d'une traite avant de rendre la main : une dizaine de millisecondes. */
+export const QUESTIONS_PAR_TRANCHE = 200
+
 /**
  * Lit toute la base, fichier par fichier. Une entrée défectueuse est
  * écartée et dite, jamais jouée ; un identifiant ou un intitulé en double
- * aussi — la première venue reste. Synchrone, et une fois par processus
- * (`BaseDeLaCampagne`) : quelques mégaoctets, lus à la première série.
+ * aussi — la première venue reste. D'une traite, pour les scripts ; le
+ * serveur passe par `lireLaBaseSansBloquer`.
  */
 export function lireLaBase(dossier = DOSSIER_DE_LA_BASE): BaseLue {
+  const lecture = lectureDeLaBase(dossier)
+  for (;;) {
+    const pas = lecture.next()
+    if (pas.done) return pas.value
+  }
+}
+
+/**
+ * La même lecture, qui rend la main entre deux tranches. Lue d'un bloc, la
+ * base tenait le serveur 0,4 s — bien plus sur le dixième de processeur de
+ * l'hébergeur —, et aucune soirée ne recevait rien pendant ce temps : ni
+ * question, ni accusé de réponse. Une fois par processus
+ * (`BaseDeLaCampagne`), à la première demande.
+ */
+export async function lireLaBaseSansBloquer(dossier = DOSSIER_DE_LA_BASE): Promise<BaseLue> {
+  const lecture = lectureDeLaBase(dossier)
+  for (;;) {
+    const pas = lecture.next()
+    if (pas.done) return pas.value
+    await new Promise<void>(rendre => setImmediate(rendre))
+  }
+}
+
+/** La lecture elle-même : chaque `yield` est un endroit où rendre la main. */
+function* lectureDeLaBase(dossier: string): Generator<void, BaseLue> {
   const questions: QuestionDeLaBase[] = []
   const refusees: BaseLue['refusees'] = []
   if (!existsSync(dossier)) return { questions, refusees }
@@ -167,17 +209,23 @@ export function lireLaBase(dossier = DOSSIER_DE_LA_BASE): BaseLue {
       refusees.push({ fichier, position: -1, motif: 'le fichier doit être un tableau' })
       continue
     }
-    entrees.forEach((brut, position) => {
-      const lu = lireQuestionDeLaBase(brut)
-      if ('refus' in lu) return refusees.push({ fichier, position, motif: lu.refus })
+    for (let position = 0; position < entrees.length; position++) {
+      if (position % QUESTIONS_PAR_TRANCHE === 0) yield
+      const lu = lireQuestionDeLaBase(entrees[position])
+      if ('refus' in lu) {
+        refusees.push({ fichier, position, motif: lu.refus })
+        continue
+      }
       const q = lu.question
-      if (attendus.get(fichier) !== q.meta.categorie) return refusees.push({ fichier, position, motif: `rangée hors de son fichier (${q.meta.categorie})` })
-      if (ids.has(q.id)) return refusees.push({ fichier, position, motif: `identifiant en double : ${q.id}` })
-      if (empreintes.has(q.empreinte)) return refusees.push({ fichier, position, motif: `intitulé en double : ${q.texte}` })
-      ids.add(q.id)
-      empreintes.add(q.empreinte)
-      questions.push(q)
-    })
+      if (attendus.get(fichier) !== q.meta.categorie) refusees.push({ fichier, position, motif: `rangée hors de son fichier (${q.meta.categorie})` })
+      else if (ids.has(q.id)) refusees.push({ fichier, position, motif: `identifiant en double : ${q.id}` })
+      else if (empreintes.has(q.empreinte)) refusees.push({ fichier, position, motif: `intitulé en double : ${q.texte}` })
+      else {
+        ids.add(q.id)
+        empreintes.add(q.empreinte)
+        questions.push(q)
+      }
+    }
   }
   return { questions, refusees }
 }
@@ -199,9 +247,9 @@ export class BaseDeLaCampagne {
     this.empreintes = new Set(questions.map(q => q.empreinte))
   }
 
-  /** La base du dépôt, lue une fois ; ce qu'elle écarte part au journal, une ligne par cause. */
-  static depuisLeDossier(dossier = DOSSIER_DE_LA_BASE): BaseDeLaCampagne {
-    const { questions, refusees } = lireLaBase(dossier)
+  /** La base du dépôt, lue une fois sans figer le serveur ; ce qu'elle écarte part au journal, une ligne par cause. */
+  static async depuisLeDossier(dossier = DOSSIER_DE_LA_BASE): Promise<BaseDeLaCampagne> {
+    const { questions, refusees } = await lireLaBaseSansBloquer(dossier)
     if (refusees.length > 0) {
       console.warn(`[campagne] ${refusees.length} question(s) de la base écartée(s) :`)
       for (const r of refusees.slice(0, 10)) console.warn(`  ${r.fichier} #${r.position} — ${r.motif}`)

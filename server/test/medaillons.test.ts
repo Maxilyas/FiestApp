@@ -106,6 +106,14 @@ test('le téléphone de l’invité ne télécharge pas avant l’entrée ce qui
   }
 })
 
+test('le quiz du jour ne télécharge pas la fin de soirée pour ses cartes de fin', () => {
+  // Il l'importait pour la collection, les portraits et le médaillon
+  // ouverts : toute la fin de soirée (17 Ko) à chaque ouverture de sa page.
+  const chemin = importsStatiques(path.join(client, 'views/JourApp.tsx'))
+  assert.ok(chemin.has(path.join(client, 'components/Ouverts.tsx')), 'ses cartes de fin sont sur le chemin')
+  assert.ok(!chemin.has(path.join(client, 'components/FinDeSoiree.tsx')), 'la fin de soirée ne part pas avec le quiz du jour')
+})
+
 test('ce qui vient à la demande vient une fois, et sans faire attendre React', async () => {
   const { aLaDemande } = await import(url('aLaDemande.ts'))
   let appels = 0

@@ -12,7 +12,7 @@
 import { after, before, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import Database from 'better-sqlite3'
@@ -27,7 +27,7 @@ ProfileStore.tirageEclat = () => false
 // ── Le compteur ───────────────────────────────────────────────────────────
 
 /** Ce que la base permanente a servi pendant une mesure. */
-const compte = { actif: false, appels: 0, lignes: 0, unParUn: 0, tirages: 0 }
+const compte = { actif: false, appels: 0, lignes: 0, unParUn: 0, tirages: 0, sqls: [] as string[] }
 
 const proto = Sqlite3Client.prototype as unknown as Record<'execute' | 'batch', (...args: unknown[]) => Promise<unknown>>
 for (const methode of ['execute', 'batch'] as const) {
@@ -42,16 +42,17 @@ for (const methode of ['execute', 'batch'] as const) {
       const sql = typeof premiere === 'string' ? premiere : premiere.sql
       if (sql.startsWith('SELECT * FROM profiles WHERE id = ?')) compte.unParUn++
       if (sql.startsWith('SELECT questions, annulees FROM jour_tirages')) compte.tirages++
+      compte.sqls.push(sql.trim())
     }
     return res
   }
 }
 
-async function mesurer(travail: () => Promise<unknown>): Promise<{ appels: number; lignes: number; unParUn: number; tirages: number }> {
-  Object.assign(compte, { actif: true, appels: 0, lignes: 0, unParUn: 0, tirages: 0 })
+async function mesurer(travail: () => Promise<unknown>): Promise<{ appels: number; lignes: number; unParUn: number; tirages: number; sqls: string[] }> {
+  Object.assign(compte, { actif: true, appels: 0, lignes: 0, unParUn: 0, tirages: 0, sqls: [] })
   try {
     await travail()
-    return { appels: compte.appels, lignes: compte.lignes, unParUn: compte.unParUn, tirages: compte.tirages }
+    return { appels: compte.appels, lignes: compte.lignes, unParUn: compte.unParUn, tirages: compte.tirages, sqls: compte.sqls }
   } finally {
     compte.actif = false
   }
@@ -183,6 +184,30 @@ test('un profil masqué quitte les places tout de suite, sans relire la base', a
   assert.equal(lui[0].joueurs, avant[0].joueurs)
 })
 
+// ── L'ouverture de la page ────────────────────────────────────────────────
+
+test('le quiz du jour et la campagne s’ouvrent sur le profil léger, sans aller-retour', async () => {
+  // Les deux pages lisaient le détail du profil — historique, hauts faits,
+  // boutique : huit allers-retours —, et n'ouvraient leur partie qu'après,
+  // pour un thème et un niveau.
+  const cookie = gens.cookie(gens.ids[30])
+  const detail = await lire('/api/joueur/moi', cookie)
+  let leger: any
+  const m = await mesurer(async () => {
+    leger = await lire('/api/joueur/moi?leger', cookie)
+  })
+  assert.equal(m.appels, 0, `${m.appels} allers-retours pour le profil léger`)
+  for (const cle of ['id', 'name', 'avatar', 'niveau', 'acquis', 'requis', 'finition', 'legendaire', 'theme', 'laurier']) {
+    assert.deepEqual(leger.profile[cle], detail.profile[cle], cle)
+  }
+  assert.equal(leger.profile.soirees, undefined, 'sans l’historique de ses soirées')
+  assert.deepEqual(await fetch(`${banc.url}/api/joueur/moi?leger`).then(r => r.json()), { profile: null }, 'sans profil')
+  for (const page of ['JourApp', 'CampagneApp']) {
+    const source = readFileSync(new URL(`../../client/src/views/${page}.tsx`, import.meta.url), 'utf8')
+    assert.doesNotMatch(source, /\.moi\(\)/, `${page} ne lit plus le détail du profil`)
+  }
+})
+
 // ── Une partie, une annulation ────────────────────────────────────────────
 
 test('une réponse ne relit pas le tirage, et lit sa révélation dans le lot qui l’écrit', async () => {
@@ -195,6 +220,23 @@ test('une réponse ne relit pas le tirage, et lit sa révélation dans le lot qu
   assert.ok(m.appels <= 3, `${m.appels} allers-retours pour une réponse`)
   const suivante = await mesurer(() => poster('/api/jour/suivante', cookie))
   assert.equal(suivante.tirages, 0)
+})
+
+test('« Question suivante » lit sa vue avant de servir : le chronomètre part au dernier aller-retour', async () => {
+  // Elle servait sa question, puis relisait la partie, sa série, les
+  // vainqueurs d'hier, son hier — trois de plus à lui seul — et le
+  // classement : sept allers-retours, cinq en série, que le compte à
+  // rebours du joueur payait.
+  const cookie = gens.cookie(gens.ids[40])
+  let etat = await poster('/api/jour/commencer', cookie)
+  await poster('/api/jour/repondre', cookie, { jour: AUJOURDHUI, index: etat.question.index, choix: 0 })
+  const m = await mesurer(async () => {
+    etat = await poster('/api/jour/suivante', cookie)
+  })
+  assert.equal(etat.question.index, 1)
+  assert.ok(etat.sonHier, 'son hier est toujours là')
+  assert.ok(m.appels <= 4, `${m.appels} allers-retours pour la question suivante`)
+  assert.match(m.sqls.at(-1)!, /^UPDATE jour_parties SET servie_le/, 'la question se sert au dernier aller-retour')
 })
 
 test('« Annuler pour tous » ne relit pas le tirage pour chaque joueur, et chacun est recompté', async () => {

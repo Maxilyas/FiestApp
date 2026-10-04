@@ -19,8 +19,8 @@ import { Rank, Score, motPoints } from '../components/Rank'
 import { Shape } from '../components/Shape'
 import { promptDialog } from '../components/Dialog'
 import { Medaille, Serie, ontGagneHier } from '../components/Jour'
-import { CollectionOuverte, Medaillon, PortraitsOuverts } from '../components/FinDeSoiree'
-import { NOM_FINITION, finitionsOuvertes, type PublicProfileDetail } from '../../../shared/profil'
+import { CollectionOuverte, Medaillon, PortraitsOuverts } from '../components/Ouverts'
+import { NOM_FINITION, finitionsOuvertes, type PublicProfile } from '../../../shared/profil'
 import type { QuizAction, QuizPlayerView } from '../../../shared/games/quiz'
 import {
   NOM_MEDAILLE,
@@ -103,7 +103,7 @@ const CE_QUE_L_ECRAN_DIT = ['.result-banner', 'h1', 'h2'] as const
  */
 export function JourApp() {
   const { toast } = useAppState()
-  const [profil, setProfil] = useState<PublicProfileDetail | null | undefined>(undefined)
+  const [profil, setProfil] = useState<PublicProfile | null | undefined>(undefined)
   const [partie, setPartie] = useState<PartieDuJour | null>(null)
   const [revelation, setRevelation] = useState<RevelationDuJour | null>(null)
   const [envoi, setEnvoi] = useState<Envoi | null>(null)
@@ -133,11 +133,17 @@ export function JourApp() {
 
   const charger = useCallback(() => {
     setErreur('')
+    // La partie part avec le profil, pas après lui : il ne sert qu'à
+    // habiller la page, et il se lit en léger — son détail (historique,
+    // hauts faits, boutique) coûtait huit allers-retours à la base, que la
+    // partie attendait. Sans profil, son refus ne dit rien de plus.
+    const etat = api.jour.etat()
+    etat.catch(() => {})
     api.joueur
-      .moi()
+      .moiLeger()
       .then(async ({ profile }) => {
         setProfil(profile)
-        if (profile) recevoir(await api.jour.etat())
+        if (profile) recevoir(await etat)
       })
       .catch(e => {
         if (e instanceof UnauthorizedError) setProfil(null)
@@ -303,7 +309,7 @@ export function JourApp() {
   // La fin rafraîchit le profil : sa barre d'expérience a bougé.
   const finie = partie?.etat === 'finie'
   useEffect(() => {
-    if (finie) api.joueur.moi().then(({ profile }) => profile && setProfil(profile)).catch(() => {})
+    if (finie) api.joueur.moiLeger().then(({ profile }) => profile && setProfil(profile)).catch(() => {})
   }, [finie])
 
   const signaler = async (r: RevelationDuJour) => {
@@ -677,7 +683,7 @@ export function Fin({
   onCorrection,
 }: {
   partie: PartieDuJour
-  profil: PublicProfileDetail
+  profil: PublicProfile
   onClassement: () => void
   onCorrection: () => void
 }) {

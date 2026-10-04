@@ -297,6 +297,17 @@ export function mountProfileApi(app: Express, deps: ProfileApiDeps) {
     wrap(async (req, res) => {
       noStore(res)
       const me = await current(req)
+      // `?leger` : ce qu'une page de jeu montre du joueur — prénom, niveau,
+      // thème —, sans le détail de sa propre page. Le quiz du jour et la
+      // campagne lisaient l'historique, les hauts faits et la boutique (huit
+      // allers-retours à la base) pour un thème et un niveau, et n'ouvraient
+      // leur partie qu'après. La nuit d'abord, comme le détail : le podium
+      // d'hier dans le niveau, le laurier sur le prénom.
+      if (req.query.leger !== undefined) {
+        if (!me) return res.json({ profile: null })
+        await deps.jour.clorePasses(jourDe(deps.maintenant()))
+        return res.json({ profile: profiles.toPublic((await profiles.byId(me.id)) ?? me) })
+      }
       // Sa propre page a droit au détail : l'étagère à badges et l'historique.
       // L'espace rattaché s'y ajoute : c'est lui qui fait apparaître « Animer
       // ma soirée » sur l'accueil.
