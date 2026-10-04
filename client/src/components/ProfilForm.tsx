@@ -43,6 +43,12 @@ interface Props {
   /** Sous le refus d'une connexion : une aide qui ne dépend pas de ce qu'on a tapé. */
   aideErreur?: ReactNode
   /**
+   * L'accueil seulement : ce qui vient sous le choix, au pied de la page —
+   * l'application à installer. Les trois boutons restent visibles sans
+   * défiler : il passe après eux.
+   */
+  pied?: ReactNode
+  /**
    * Un bandeau en tête du formulaire : « Le quiz commence » dans la salle
    * d'attente. Le formulaire passait devant le quiz, et l'invité qui
    * remplissait son profil ratait les premières questions sans le savoir.
@@ -70,7 +76,7 @@ interface Props {
  * reste, ne se comprenaient pas d'un coup d'œil (la remarque du
  * propriétaire du 4 octobre 2026).
  */
-export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, bandeau, onEnvoi }: Props) {
+export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque, aideErreur, bandeau, onEnvoi, pied }: Props) {
   const [mode, setMode] = useState<'choix' | 'connexion' | 'inscription' | 'secours'>(creer ? 'inscription' : echappee ? 'choix' : 'connexion')
   /** Le champ de l'identifiant, ouvert à la demande ou sur un refus du serveur. */
   const [loginOuvert, setLoginOuvert] = useState(false)
@@ -201,6 +207,7 @@ export function ProfilForm({ prefill, onDone, onCancel, echappee, creer, marque,
           {PITCH_PROFIL} Il t’ouvre le quiz du jour et ton salon. Jouer n’en demande aucun.
         </p>
         <div className="join-grow" />
+        {pied}
       </div>
     )
   }

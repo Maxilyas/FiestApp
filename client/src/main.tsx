@@ -4,6 +4,7 @@ import { DialogHost } from './components/Dialog'
 import { applyTheme } from './theme'
 import { poserThemeRetenu } from './themeJoueur'
 import { installerClavier } from './clavier'
+import { ecouterLInstallation } from './installation'
 import { Patience } from './annonce'
 import { route, type AccountPage, type PublicPage } from './routes'
 import { titreDePage } from './titres'
@@ -114,6 +115,12 @@ else if (App === PlayerApp || App === ProfilApp || App === JourApp || App === Ca
 // Les écrans d'entrée ancrent leur bouton en bas de page : le clavier d'un
 // téléphone le cachait. L'écran commun n'a pas de clavier qui monte.
 if (App !== HostApp) installerClavier()
+
+// L'invitation de Chrome à installer l'application arrive tôt, souvent avant
+// l'accueil, et ne revient pas : gardée dès le démarrage, elle attend la
+// carte de l'accueil (`installation.ts`) — et ne surgit plus d'elle-même en
+// bas d'un téléphone, en pleine question. L'écran commun n'a rien à installer.
+if (App !== HostApp) ecouterLInstallation()
 
 /**
  * Le bandeau d'environnement.

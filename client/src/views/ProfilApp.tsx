@@ -21,6 +21,7 @@ import { route } from '../routes'
 import { derniereSoireeGardee } from '../state'
 import { Lendemain } from '../components/Lendemain'
 import { AccueilJouer, JAnime } from '../components/AccueilDesRoles'
+import { Installer } from '../components/Installer'
 import type { PublicSpace } from '../../../shared/space'
 import { porterTheme } from '../themeJoueur'
 import { nConfettis } from '../../../shared/themes'
@@ -289,6 +290,8 @@ export function ProfilApp() {
         }
         creer={!!creation}
         prefill={creation ?? undefined}
+        // L'application à installer, sous les trois boutons : ils restent visibles sans défiler.
+        pied={<Installer />}
         onEnvoi={() => void panneaux.charger().catch(() => {})}
         onDone={(_, info) => {
           // Venu d'un lien vers le quiz du jour : on y va, sans repasser par l'accueil.
@@ -358,6 +361,8 @@ export function ProfilApp() {
         {/* Soi-même en une ligne : un toucher mène au profil. */}
         <IdentiteLigne profil={profil} />
         <AccueilJouer enCours={enCours} onRejoindre={() => setRejoindre(true)} lendemain={lendemain} jour={profil.jour} />
+        {/* Sous ce qu'on vient faire : l'application à installer — et, installée, le rappel du soir. */}
+        <Installer avecProfil />
         {/* Pas de carte « J'anime » ici : qui anime avec son profil a déjà
             chaque porte — « Créer un salon » au-dessus, « Mes quiz » et
             « Compte » dans le menu, l'écran commun et l'historique dans son
