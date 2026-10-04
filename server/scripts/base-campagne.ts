@@ -6,6 +6,8 @@
 //   npx tsx scripts/base-campagne.ts ranger <lot.json> …                        range des lots vérifiés dans la base
 //   npx tsx scripts/base-campagne.ts stats                                      la base, par catégorie, sous-thème et difficulté
 //   npx tsx scripts/base-campagne.ts voisines [<lot.json> …]                    les questions qui posent sans doute le même fait
+//   npx tsx scripts/base-campagne.ts fiche <lot.json> …                         la fiche de relecture : l'essentiel de chaque question, une ligne ou trois
+//   npx tsx scripts/base-campagne.ts appliquer <decisions.json>                 ce que la relecture a décidé : retirer, corriger une phrase ou une difficulté
 //
 // Un lot est un tableau JSON d'entrées sans identifiant, écrit par une IA
 // selon la consigne. Le rangement tire l'identifiant de chacune, écarte ce
@@ -224,6 +226,70 @@ function voisines(fichiers: string[]) {
   console.log(`${paires} paire(s) à relire sur ${vus.length} questions.`)
 }
 
+/**
+ * La fiche de relecture d'un lot : ce qu'un correcteur doit juger — l'intitulé,
+ * la bonne réponse, les autres, l'anecdote, l'explication, la difficulté —
+ * sans les métadonnées qui ne se vérifient pas d'un coup d'œil. Trois à
+ * quatre fois moins à lire que le lot lui-même : la relecture de toute la
+ * base tient alors dans le budget d'une session.
+ */
+function fiche(fichiers: string[]) {
+  for (const f of fichiers) {
+    lireLot(f).forEach((brut, i) => {
+      const e = brut as Record<string, any>
+      const juste = e.reponses?.[e.bonne]
+      const autres = (e.reponses ?? []).filter((_: unknown, j: number) => j !== e.bonne).join(' | ')
+      console.log(`[${path.basename(f)}#${i}] (${e.sousTheme}, d${e.difficulte}, ${e.ageMin} ans) ${e.texte}`)
+      console.log(`  ✓ ${juste}   ✗ ${autres}`)
+      if (e.anecdote) console.log(`  Anecdote : ${e.anecdote}`)
+      if (e.explication) console.log(`  Explication : ${e.explication}`)
+    })
+  }
+}
+
+/**
+ * Applique les décisions d'une relecture à ses lots : `[{ "ref": "A1-01.json#4",
+ * "action": "retirer" | "corriger", "champs": { "anecdote"?, "explication"?,
+ * "difficulte"?, "texte"? }, "motif" }]`. Une correction ne touche jamais aux
+ * réponses : une réponse douteuse retire la question, dans le doute. Une
+ * correction que la vérification refuse retire la question aussi. Les
+ * références se lisent dans le dossier du fichier de décisions.
+ */
+function appliquer(fichier: string) {
+  const dossier = path.dirname(fichier)
+  const decisions = JSON.parse(readFileSync(fichier, 'utf8')) as { ref: string; action: string; champs?: Record<string, unknown>; motif?: string }[]
+  const lots = new Map<string, unknown[]>()
+  const aRetirer = new Map<string, Set<number>>()
+  let corrigees = 0
+  for (const d of decisions) {
+    const [nom, n] = d.ref.split('#')
+    const index = Number(n)
+    if (!lots.has(nom)) lots.set(nom, lireLot(path.join(dossier, nom)))
+    const entrees = lots.get(nom)!
+    if (!Number.isInteger(index) || !entrees[index]) throw new Error(`référence inconnue : ${d.ref}`)
+    const retirer = () => (aRetirer.get(nom) ?? aRetirer.set(nom, new Set()).get(nom)!).add(index)
+    if (d.action === 'retirer') retirer()
+    else if (d.action === 'corriger') {
+      const permis = ['anecdote', 'explication', 'difficulte', 'texte']
+      const champs = Object.fromEntries(Object.entries(d.champs ?? {}).filter(([k]) => permis.includes(k)))
+      const corrigee = { ...(entrees[index] as object), ...champs }
+      if ('refus' in lireQuestionDeLaBase(corrigee, { sansId: true })) retirer()
+      else {
+        entrees[index] = corrigee
+        corrigees++
+      }
+    } else throw new Error(`action inconnue : ${d.action} (${d.ref})`)
+  }
+  let retirees = 0
+  for (const [nom, entrees] of lots) {
+    const sortir = aRetirer.get(nom) ?? new Set()
+    retirees += sortir.size
+    const gardees = entrees.filter((_, i) => !sortir.has(i))
+    writeFileSync(path.join(dossier, nom), `[\n${gardees.map(e => JSON.stringify(e)).join(',\n')}\n]\n`)
+  }
+  console.log(`${corrigees} question(s) corrigée(s), ${retirees} retirée(s).`)
+}
+
 function stats() {
   const { questions, refusees } = lireLaBase()
   console.log(`${questions.length} questions${refusees.length ? `, ${refusees.length} entrée(s) défectueuse(s)` : ''}\n`)
@@ -245,7 +311,14 @@ function stats() {
  * juge les relit (`lireEtiquetage`, par `lireQuestionDeLaBase`) : un champ
  * qu'elle décrirait autrement serait refusé à la vérification, pas rangé.
  */
-export function consigneDEcriture(categorie: (typeof CATEGORIES)[number], quotas: { cle: string; n: number }[], lot: string, dossier: string): string {
+export function consigneDEcriture(
+  categorie: (typeof CATEGORIES)[number],
+  quotas: { cle: string; n: number }[],
+  lot: string,
+  dossier: string,
+  /** Les intitulés déjà écrits dans la catégorie : une IA ne sait pas ce que ses voisines ont écrit. */
+  deja: readonly string[] = [],
+): string {
   const total = quotas.reduce((s, q) => s + q.n, 0)
   const sousThemes = SOUS_THEMES[categorie]
   const part = quotas.map(q => `- ${q.cle} (${sousThemes.find(s => s.cle === q.cle)?.nom}) : ${q.n} questions`).join('\n')
@@ -329,7 +402,11 @@ COMMENT TRAVAILLER
 4. Relis chaque question comme un correcteur exigeant avant de l'écrire : la bonne réponse est-elle certaine et la seule possible ? Chaque leurre est-il certainement faux ? L'anecdote est-elle exacte ? Au moindre doute, remplace la question. Mieux vaut une question simple et sûre qu'une question brillante et fausse.
 5. À la fin, vérifie tous tes fichiers d'un coup (verifier ${dossier}/${lot}-*.json : zéro refus, aucun doublon) et rends un bilan court : le nombre de questions par sous-thème et par difficulté. N'écris rien ailleurs que dans tes fichiers ${lot}-NN.json.
 
-EXEMPLE — deux entrées (Géographie et Sport) ; n'en reprends pas les questions
+${
+    deja.length > 0
+      ? `DÉJÀ ÉCRITES DANS CETTE CATÉGORIE — n'en reprends aucune, même reformulée ou retournée\n${deja.map(t => `- ${t}`).join('\n')}\n\n`
+      : ''
+  }EXEMPLE — deux entrées (Géographie et Sport) ; n'en reprends pas les questions
 [
   {"texte": "Quelle est la capitale de l'Australie ?", "reponses": ["Sydney", "Melbourne", "Canberra", "Perth"], "bonne": 2, "anecdote": "Canberra a été bâtie exprès pour devenir la capitale : Sydney et Melbourne se disputaient le titre.", "categorie": "Géographie", "sousTheme": "capitales", "etiquettes": ["piege"], "difficulte": 4, "ageMin": 10, "date": null, "entites": [{"nom": "Canberra", "type": "lieu", "description": "ville d'Australie"}, {"nom": "Australie", "type": "lieu", "description": "pays d'Océanie"}], "portee": "monde", "valeur": null, "leurres": ["Sydney", "Melbourne", "Brisbane", "Perth", "Adélaïde", "Darwin"], "dureeDeVie": "stable", "explication": "Sydney est la plus grande ville du pays, d'où le piège ; la capitale fédérale est Canberra.", "source": {"titre": "Canberra", "site": "wikipedia-fr"}, "confiance": 3, "aRelire": []},
   {"texte": "Combien de joueurs une équipe de rugby à XV aligne-t-elle sur le terrain ?", "reponses": ["11", "13", "15", "18"], "bonne": 2, "anecdote": "Le sport tient son nom de la ville anglaise de Rugby, dont le collège passe pour l'avoir vu naître au XIXe siècle.", "categorie": "Sport", "sousTheme": "rugby", "etiquettes": [], "difficulte": 1, "ageMin": 10, "date": null, "entites": [{"nom": "Rugby à XV", "type": "notion", "description": "sport collectif au ballon ovale"}], "portee": "monde", "valeur": {"nombre": 15, "unite": "joueurs"}, "leurres": ["13", "14", "16", "11", "12", "18"], "dureeDeVie": "stable", "explication": "Le nom le dit : le rugby à XV se joue à quinze ; à treize, c'est le rugby à XIII, une autre discipline.", "source": {"titre": "Rugby à XV", "site": "wikipedia-fr"}, "confiance": 3, "aRelire": []}
@@ -348,12 +425,26 @@ if (commande === 'verifier') {
   stats()
 } else if (commande === 'voisines') {
   voisines(args)
+} else if (commande === 'fiche') {
+  fiche(args)
+} else if (commande === 'appliquer') {
+  if (args.length !== 1) throw new Error('appliquer <decisions.json>')
+  appliquer(args[0])
 } else if (commande === 'consigne') {
   const [categorie, ...parts] = args
   const c = CATEGORIES.find(x => sansAccent(x) === sansAccent(categorie ?? ''))
   if (!c || parts.length === 0) throw new Error('consigne <Catégorie> <sous-thème>:<n> … [--lot=nom] [--dossier=chemin]')
   const lot = parts.find(p => p.startsWith('--lot='))?.slice(6) ?? 'lot'
   const dossier = parts.find(p => p.startsWith('--dossier='))?.slice(10) ?? '/home/user/FiestApp/.lots-campagne'
+  // Ce que la catégorie a déjà : la base, et les lots du dossier pas encore rangés.
+  const deja = [
+    ...lireLaBase().questions.filter(q => q.meta.categorie === c).map(q => q.texte),
+    ...readdirSync(dossier)
+      .filter(f => /^[A-Za-z0-9]+-\d+\.json$/.test(f))
+      .flatMap(f => lireLot(path.join(dossier, f)) as { texte?: string; categorie?: string }[])
+      .filter(e => e.categorie === c && typeof e.texte === 'string')
+      .map(e => e.texte!),
+  ]
   const quotas = parts
     .filter(p => !p.startsWith('--'))
     .map(p => {
@@ -361,7 +452,7 @@ if (commande === 'verifier') {
       if (!SOUS_THEMES[c].some(s => s.cle === cle)) throw new Error(`sous-thème inconnu dans ${c} : ${cle}`)
       return { cle, n: Number(n) }
     })
-  process.stdout.write(consigneDEcriture(c, quotas, lot, dossier))
+  process.stdout.write(consigneDEcriture(c, quotas, lot, dossier, deja))
 } else {
-  console.log('base-campagne.ts consigne | verifier | ranger | stats | voisines')
+  console.log('base-campagne.ts consigne | verifier | ranger | stats | voisines | fiche | appliquer')
 }
